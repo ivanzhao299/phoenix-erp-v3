@@ -513,6 +513,18 @@ export class ChanjetCallbackController {
     }
   }
 
+  /** P0-P6 统一生产准备度，只读 ERP 好业财中间层。 */
+  @Get('integration/production-readiness')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationProductionReadiness() {
+    try {
+      const readiness = await this.integration.productionReadinessOverview();
+      return { success: true, readiness };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
   /**
    * GET /api/chanjet/integration/account-book-mapping-gate
    * 账套 ↔ ERP 公司一对一映射门禁。只读 ERP 中间层和公司主数据。
@@ -608,6 +620,28 @@ export class ChanjetCallbackController {
       return { success: true, writeChanjet: false, ...result };
     } catch (e) {
       return { success: false, writeChanjet: false, error: (e as Error).message };
+    }
+  }
+
+  /** 最多三次重试的全量只读同步；仍失败则 HOLD 并保留告警。 */
+  @Post('integration/mirror/sync-resilient')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async syncIntegrationMirrorResilient(
+    @Body() body: { scope?: string[]; bookId?: string; period?: string; maxAttempts?: number },
+    @Req() req: any,
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    this.log.warn(`manual resilient chanjet readonly sync user=${requestedBy} scope=${(body.scope || []).join(',') || 'default'}`);
+    try {
+      const result = await this.integration.syncReadOnlyMirrorResilient(
+        body.scope || [],
+        body.bookId,
+        body.period,
+        body.maxAttempts || 3,
+      );
+      return { success: result.decision === 'GO', writeChanjet: false, writeErpBusinessTables: false, ...result };
+    } catch (e) {
+      return { success: false, writeChanjet: false, writeErpBusinessTables: false, error: (e as Error).message };
     }
   }
 
@@ -977,6 +1011,31 @@ export class ChanjetCallbackController {
       };
     } catch (e) {
       return { success: false, writeChanjet: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * 系统确认可证明的一对一往来映射。
+   * 仅限账套公司、编码、名称和 ACTIVE 状态全部精确一致；只写 ERP 中间层。
+   */
+  @Post('integration/master-mappings/system-confirm-exact')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async systemConfirmExactCounterpartyMappings(@Req() req: any) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    this.log.warn(`system confirm exact chanjet mappings requested user=${requestedBy}`);
+    try {
+      const result = await this.integration.confirmDeterministicCounterpartyMappings(
+        `system:exact-match:${requestedBy}`,
+      );
+      return {
+        success: result.errors.length === 0,
+        writeChanjet: false,
+        writeErpBusinessTables: false,
+        rule: 'book-company + code + normalized-name + ACTIVE must all match',
+        ...result,
+      };
+    } catch (e) {
+      return { success: false, writeChanjet: false, writeErpBusinessTables: false, error: (e as Error).message };
     }
   }
 

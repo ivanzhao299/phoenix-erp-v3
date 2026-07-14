@@ -89,6 +89,33 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       erpCode: 'CUS_001',
       requiresApproval: true,
       canAutoApprove: false,
+      matchKind: 'EXACT_CODE',
+      systemApprovalEligible: false,
+    });
+  });
+
+  it('allows system confirmation only when code, name, company and active status all match', () => {
+    const candidate = service.buildCounterpartyMappingCandidate(
+      {
+        id: '13',
+        bookId: 'BOOK-1',
+        externalId: 'CJ-3',
+        externalCode: 'CUS-001',
+        externalName: '测试客户有限公司',
+        rawData: { customerCode: 'CUS-001', customerName: '测试客户有限公司' },
+      },
+      'CUSTOMER',
+      'CUSTOMER',
+      'COMP-1',
+      [{ mappingType: 'CUSTOMER', code: 'CUS_001', name: '测试客户公司', companyCode: 'COMP-1', status: 'ACTIVE' }],
+    );
+
+    expect(candidate).toMatchObject({
+      matchStatus: 'MATCHED',
+      matchKind: 'EXACT_CODE_AND_NAME',
+      systemApprovalEligible: true,
+      requiresApproval: false,
+      canAutoApprove: true,
     });
   });
 
@@ -204,5 +231,31 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     await expect(subject.updateMappingReview('2', 'APPROVED', 'reviewer'))
       .rejects.toThrow('一对一映射冲突');
     expect(subject.mappingRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('retries failed readonly mirror targets and reports the recovered attempt', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.syncReadOnlyMirror = jest
+      .fn()
+      .mockResolvedValueOnce({
+        requestedScope: ['GL_BALANCE'],
+        books: ['BOOK-1'],
+        results: [{ key: 'GL_BALANCE', bookId: 'BOOK-1', status: 'FAIL', error: 'temporary timeout' }],
+        fieldGapSummary: { scanned: 1, upserted: 1, statusCounts: {} },
+      })
+      .mockResolvedValueOnce({
+        requestedScope: ['GL_BALANCE'],
+        books: ['BOOK-1'],
+        results: [{ key: 'GL_BALANCE', bookId: 'BOOK-1', status: 'SUCCESS', rows: 8 }],
+        fieldGapSummary: { scanned: 1, upserted: 1, statusCounts: {} },
+      });
+    subject.analyzeFieldGaps = jest.fn().mockResolvedValue({ scanned: 1, upserted: 1, statusCounts: {} });
+
+    const result = await subject.syncReadOnlyMirrorResilient(['GL_BALANCE'], 'BOOK-1', '202607', 3);
+
+    expect(result.decision).toBe('GO');
+    expect(result.attempts).toBe(2);
+    expect(result.unresolvedFailures).toEqual([]);
+    expect(result.results[0]).toMatchObject({ status: 'SUCCESS', attempt: 2, rows: 8 });
   });
 });

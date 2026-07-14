@@ -467,8 +467,41 @@ export interface ChanjetCounterpartyMappingCandidate {
   erpName: string;
   evidence: string[];
   alternatives: Array<{ erpCode: string; erpName: string; companyCode: string; score: number; reason: string }>;
-  requiresApproval: true;
-  canAutoApprove: false;
+  matchKind: 'EXACT_CODE_AND_NAME' | 'EXACT_CODE' | 'EXACT_NAME' | 'NONE' | 'CONFLICT';
+  systemApprovalEligible: boolean;
+  systemApprovalReason: string;
+  requiresApproval: boolean;
+  canAutoApprove: boolean;
+}
+
+export interface ChanjetProductionReadiness {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D';
+  summary: {
+    mirrorFreshRate: number;
+    accountBookMappingRate: number;
+    masterDataApprovedRate: number;
+    semanticCoverageRate: number;
+    authorityReadyRate: number;
+    recentJobSuccessRate: number;
+    exactSystemApprovalCandidates: number;
+    manualMappingCandidates: number;
+    nextGate: string;
+  };
+  phases: Array<{
+    key: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | 'P5' | 'P6';
+    title: string;
+    status: 'READY' | 'READY_WITH_CONDITIONS' | 'HOLD';
+    score: number;
+    evidence: string[];
+    nextAction: string;
+  }>;
+  blockers: string[];
+  conditions: string[];
+  tokenHealth: ReturnType<ChanjetAuthService['diagnostics']>;
+  guardrails: Record<string, boolean | string>;
 }
 
 export interface ChanjetCounterpartyCandidateOverview {
@@ -3563,6 +3596,155 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async productionReadinessOverview(): Promise<ChanjetProductionReadiness> {
+    const [
+      baseline,
+      accountBookGate,
+      masterAlignment,
+      coverage,
+      readModel,
+      cardAuthority,
+      reconciliation,
+      counterparties,
+      jobs,
+    ] = await Promise.all([
+      this.mirrorBaselineReadiness(24),
+      this.accountBookMappingGate(),
+      this.masterDataAlignmentOverview(),
+      this.financeReadonlyCoverage(),
+      this.financeReadModelOverview(),
+      this.financeCardAuthorityOverview(),
+      this.financeReconciliationOverview(),
+      this.counterpartyMappingCandidates(),
+      this.listSyncJobs(100),
+    ]);
+    const tokenHealth = this.auth.diagnostics();
+    const percent = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+    const ratio = (numerator: number, denominator: number) => denominator > 0 ? numerator / denominator : 0;
+    const mirrorFreshRate = percent(ratio(baseline.summary.freshTargets, baseline.summary.expectedTargets) * 100);
+    const accountBookMappingRate = percent(ratio(
+      accountBookGate.summary.validMappings,
+      Math.max(accountBookGate.summary.enabledBooks, accountBookGate.summary.enabledMappings),
+    ) * 100);
+    const masterDataApprovedRate = percent(masterAlignment.summary.approvedCoverageRate * 100);
+    const semanticCoverageRate = percent(coverage.summary.fieldCoverageRate * 100);
+    const authorityReadyRate = percent(ratio(cardAuthority.summary.authorityReady, cardAuthority.summary.totalCards) * 100);
+    const relevantJobs = jobs.filter((job) => job.jobType === 'SNAPSHOT').slice(0, 50);
+    const recentJobSuccessRate = percent(ratio(
+      relevantJobs.filter((job) => job.status === 'SUCCESS').length,
+      relevantJobs.length,
+    ) * 100);
+    const exactSystemApprovalCandidates = counterparties.candidates.filter((candidate) => candidate.systemApprovalEligible).length;
+    const manualMappingCandidates = counterparties.candidates.filter((candidate) => candidate.requiresApproval).length;
+    const readModelReadyRate = percent(ratio(
+      readModel.summary.authorityReady + readModel.summary.readonlyReady,
+      readModel.summary.totalMetrics,
+    ) * 100);
+    const reconciliationSafeRate = percent(ratio(
+      reconciliation.summary.ok + reconciliation.summary.warn,
+      reconciliation.summary.totalItems,
+    ) * 100);
+    const tokenEntries = Object.values(tokenHealth.tokens || {});
+    const tokenReady = Boolean(tokenHealth.configured && tokenEntries.length > 0 && tokenEntries.every((token) => token.valid));
+    const reliabilityScore = percent((recentJobSuccessRate * 0.7) + (tokenReady ? 30 : 0));
+
+    const phases: ChanjetProductionReadiness['phases'] = [
+      {
+        key: 'P0', title: '全量只读镜像', score: mirrorFreshRate,
+        status: baseline.decision === 'HOLD' ? 'HOLD' : mirrorFreshRate === 100 ? 'READY' : 'READY_WITH_CONDITIONS',
+        evidence: [`24h 新鲜目标 ${baseline.summary.freshTargets}/${baseline.summary.expectedTargets}`, `缺失 ${baseline.summary.missingTargets}，过期 ${baseline.summary.staleTargets}`],
+        nextAction: baseline.summary.nextGate,
+      },
+      {
+        key: 'P1', title: '账套与主数据映射', score: percent((accountBookMappingRate + masterDataApprovedRate) / 2),
+        status: accountBookGate.decision === 'HOLD' || masterAlignment.summary.holdDomains > 0 ? 'HOLD' : masterDataApprovedRate >= 90 ? 'READY' : 'READY_WITH_CONDITIONS',
+        evidence: [`账套映射 ${accountBookMappingRate}%`, `主数据批准覆盖 ${masterDataApprovedRate}%`, `可系统确认精确候选 ${exactSystemApprovalCandidates}`],
+        nextAction: exactSystemApprovalCandidates ? 'CHANJET_SYSTEM_CONFIRM_EXACT_MAPPINGS' : masterAlignment.summary.nextGate,
+      },
+      {
+        key: 'P2', title: '标准只读模型', score: percent((semanticCoverageRate + readModelReadyRate) / 2),
+        status: readModel.decision === 'HOLD' ? 'HOLD' : readModelReadyRate === 100 ? 'READY' : 'READY_WITH_CONDITIONS',
+        evidence: [`字段语义覆盖 ${semanticCoverageRate}%`, `read model 可用 ${readModelReadyRate}%`],
+        nextAction: readModel.summary.nextGate,
+      },
+      {
+        key: 'P3', title: '财务卡片权威口径', score: authorityReadyRate,
+        status: cardAuthority.decision === 'HOLD' ? 'HOLD' : authorityReadyRate === 100 ? 'READY' : 'READY_WITH_CONDITIONS',
+        evidence: [`权威卡片 ${cardAuthority.summary.authorityReady}/${cardAuthority.summary.totalCards}`, '未达权威条件时保持 ERP 主值并显式展示差异'],
+        nextAction: cardAuthority.summary.nextGate,
+      },
+      {
+        key: 'P4', title: '差异对账中心', score: reconciliationSafeRate,
+        status: reconciliation.decision === 'HOLD' ? 'HOLD' : reconciliationSafeRate >= 95 ? 'READY' : 'READY_WITH_CONDITIONS',
+        evidence: [`安全对账 ${reconciliation.summary.ok + reconciliation.summary.warn}/${reconciliation.summary.totalItems}`, `不一致 ${reconciliation.summary.mismatch}，待映射 ${reconciliation.summary.needMapping}`],
+        nextAction: reconciliation.summary.nextGate,
+      },
+      {
+        key: 'P5', title: '生产同步韧性', score: reliabilityScore,
+        status: tokenReady && recentJobSuccessRate >= 95 ? 'READY' : tokenHealth.configured ? 'READY_WITH_CONDITIONS' : 'HOLD',
+        evidence: [`最近镜像作业成功率 ${recentJobSuccessRate}%`, `Token 健康 ${tokenReady ? 'READY' : 'NOT_READY'}`, '失败最多重试 3 次且仍失败转 HOLD/告警'],
+        nextAction: tokenReady ? 'KEEP_SCHEDULED_READONLY_SYNC' : 'REPAIR_CHANJET_TOKEN_HEALTH',
+      },
+      {
+        key: 'P6', title: '管理员融合边界', score: 100,
+        status: 'READY',
+        evidence: ['中间层控制台受 MENU_SETTINGS_CHANJET 门禁保护', '普通业务用户只消费经过权威门禁的业务视图'],
+        nextAction: 'KEEP_MIDDLE_LAYER_ADMIN_ONLY',
+      },
+    ];
+    const blockers: string[] = [];
+    const conditions: string[] = [];
+    if (!tokenHealth.configured) blockers.push('好业财认证配置不完整');
+    if (!tokenReady) blockers.push('没有可证明有效的运行态 token');
+    if (baseline.summary.missingTargets > 0) blockers.push(`缺失 ${baseline.summary.missingTargets} 个只读镜像目标`);
+    if (accountBookGate.decision === 'HOLD') blockers.push(...accountBookGate.blockingIssues);
+    if (manualMappingCandidates > 0) conditions.push(`${manualMappingCandidates} 个往来单位候选仍需人工复核`);
+    if (semanticCoverageRate < 90) conditions.push(`业务字段语义覆盖仅 ${semanticCoverageRate}%`);
+    if (authorityReadyRate < 100) conditions.push(`财务卡片权威覆盖 ${authorityReadyRate}%，未就绪卡片继续使用 ERP 主值`);
+    if (recentJobSuccessRate < 100) conditions.push(`最近只读同步成功率 ${recentJobSuccessRate}%`);
+    const score = percent(phases.reduce((sum, phase) => sum + phase.score, 0) / phases.length);
+    const decision: ChanjetProductionReadiness['decision'] = blockers.length
+      ? 'HOLD'
+      : score >= 95 && phases.every((phase) => phase.status === 'READY')
+        ? 'GO'
+        : 'GO_WITH_CONDITIONS';
+    return {
+      generatedAt: new Date().toISOString(),
+      decision,
+      score,
+      grade: score >= 90 ? 'A' : score >= 80 ? 'B' : score >= 70 ? 'C' : 'D',
+      summary: {
+        mirrorFreshRate,
+        accountBookMappingRate,
+        masterDataApprovedRate,
+        semanticCoverageRate,
+        authorityReadyRate,
+        recentJobSuccessRate,
+        exactSystemApprovalCandidates,
+        manualMappingCandidates,
+        nextGate: blockers.length
+          ? 'CHANJET_PRODUCTION_READINESS_REPAIR'
+          : exactSystemApprovalCandidates
+            ? 'CHANJET_SYSTEM_CONFIRM_EXACT_MAPPINGS'
+            : 'CHANJET_CONTINUOUS_READONLY_RECONCILIATION',
+      },
+      phases,
+      blockers,
+      conditions,
+      tokenHealth,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        ordinaryUserVisible: false,
+        exactMappingSystemConfirmation: 'code+name+company+active only',
+        rule: '好业财只读镜像是财务权威候选；只有通过字段语义、映射、时效和卡片权威 Gate 后才可作为主值，所有差异必须显式保留。',
+      },
+    };
+  }
+
   private fieldBelongsToFinanceBucket(mapping: ChanjetErpFieldMappingEntity, bucket: FinanceAdapterBucketDefinition) {
     const endpoint = `${mapping.chanjetEndpoint || ''}`.toLowerCase();
     const fieldPath = `${mapping.chanjetFieldPath || ''}`.toLowerCase();
@@ -4101,6 +4283,43 @@ export class ChanjetIntegrationService {
     if (selected) evidence.push(selected.reason);
     if (top.length > 1) evidence.push(`发现 ${top.length} 个同分 ERP 主数据，必须人工消歧`);
     if (mappingType && top.length === 0) evidence.push('ERP 真实主档中无编码或名称精确匹配项');
+    const selectedCodeMatches = Boolean(
+      selected
+      && normalizedCode
+      && this.normalizeCounterpartyCode(selected.master.code) === normalizedCode,
+    );
+    const selectedNameMatches = Boolean(
+      selected
+      && normalizedName
+      && this.normalizeCounterpartyName(selected.master.name) === normalizedName,
+    );
+    const matchKind: ChanjetCounterpartyMappingCandidate['matchKind'] = top.length > 1
+      ? 'CONFLICT'
+      : selectedCodeMatches && selectedNameMatches
+        ? 'EXACT_CODE_AND_NAME'
+        : selectedCodeMatches
+          ? 'EXACT_CODE'
+          : selectedNameMatches
+            ? 'EXACT_NAME'
+            : 'NONE';
+    const systemApprovalEligible = Boolean(
+      matchStatus === 'MATCHED'
+      && matchKind === 'EXACT_CODE_AND_NAME'
+      && companyCode
+      && selected?.master.companyCode === companyCode
+      && String(selected?.master.status || '').toUpperCase() === 'ACTIVE',
+    );
+    const systemApprovalReason = systemApprovalEligible
+      ? '账套公司、ERP 编码、规范化名称和 ACTIVE 状态同时精确一致，可由系统确认中间层映射。'
+      : matchKind === 'CONFLICT'
+        ? '存在多个同分候选，必须人工消歧。'
+        : !companyCode
+          ? '账套未映射到 ERP 公司，禁止系统确认。'
+          : matchKind !== 'EXACT_CODE_AND_NAME'
+            ? '编码与名称未同时精确一致，必须人工复核。'
+            : String(selected?.master.status || '').toUpperCase() !== 'ACTIVE'
+              ? 'ERP 主数据不是 ACTIVE，禁止系统确认。'
+              : '未满足系统确认条件。';
     return {
       candidateKey: `${snapshot.bookId}:${mappingType || 'UNKNOWN'}:${chanjetId}`,
       snapshotId: snapshot.id,
@@ -4123,8 +4342,11 @@ export class ChanjetIntegrationService {
         score: item.score,
         reason: item.reason,
       })),
-      requiresApproval: true,
-      canAutoApprove: false,
+      matchKind,
+      systemApprovalEligible,
+      systemApprovalReason,
+      requiresApproval: !systemApprovalEligible,
+      canAutoApprove: systemApprovalEligible,
     };
   }
 
@@ -4580,6 +4802,86 @@ export class ChanjetIntegrationService {
     return { requestedScope: requested, books, results, fieldGapSummary };
   }
 
+  async syncReadOnlyMirrorResilient(
+    scope: string[] = [],
+    bookId?: string,
+    period?: string,
+    maxAttempts = 3,
+  ): Promise<{
+    decision: 'GO' | 'HOLD';
+    requestedScope: string[];
+    books: string[];
+    attempts: number;
+    results: Array<{
+      key: string;
+      bookId: string;
+      status: 'SUCCESS' | 'FAIL';
+      fields?: number;
+      rows?: number;
+      rawSnapshotId?: string;
+      entityRows?: number;
+      error?: string;
+      attempt: number;
+    }>;
+    unresolvedFailures: Array<{ key: string; bookId: string; error: string }>;
+    fieldGapSummary: { scanned: number; upserted: number; statusCounts: Record<string, number> };
+  }> {
+    const safeMaxAttempts = Math.min(Math.max(Number(maxAttempts) || 3, 1), 3);
+    const initial = await this.syncReadOnlyMirror(scope, bookId, period);
+    const resultByTarget = new Map<string, (typeof initial.results)[number] & { attempt: number }>();
+    initial.results.forEach((result) => resultByTarget.set(
+      `${result.key}:${result.bookId}`,
+      { ...result, attempt: 1 },
+    ));
+    let attempts = 1;
+
+    while (attempts < safeMaxAttempts) {
+      const failures = [...resultByTarget.values()].filter((result) => result.status === 'FAIL');
+      if (!failures.length) break;
+      attempts += 1;
+      for (const failed of failures) {
+        try {
+          const retried = await this.syncReadOnlyMirror(
+            [failed.key],
+            failed.bookId || undefined,
+            period,
+          );
+          const retryResult = retried.results.find((result) => (
+            result.key === failed.key && result.bookId === failed.bookId
+          )) || retried.results[0];
+          if (retryResult) {
+            resultByTarget.set(`${failed.key}:${failed.bookId}`, { ...retryResult, attempt: attempts });
+          }
+        } catch (error) {
+          resultByTarget.set(`${failed.key}:${failed.bookId}`, {
+            ...failed,
+            status: 'FAIL',
+            error: (error as Error).message,
+            attempt: attempts,
+          });
+        }
+      }
+    }
+
+    const results = [...resultByTarget.values()];
+    const unresolvedFailures = results
+      .filter((result) => result.status === 'FAIL')
+      .map((result) => ({
+        key: result.key,
+        bookId: result.bookId,
+        error: result.error || 'unknown_error',
+      }));
+    return {
+      decision: unresolvedFailures.length ? 'HOLD' : 'GO',
+      requestedScope: initial.requestedScope,
+      books: initial.books,
+      attempts,
+      results,
+      unresolvedFailures,
+      fieldGapSummary: await this.analyzeFieldGaps(),
+    };
+  }
+
   async analyzeFieldGaps(): Promise<{ scanned: number; upserted: number; statusCounts: Record<string, number> }> {
     const fields = await this.fieldCatalogRepo.find({ take: 5000 });
     let upserted = 0;
@@ -4823,6 +5125,11 @@ export class ChanjetIntegrationService {
         return {
           ...candidate,
           matchStatus: 'CONFLICT' as const,
+          matchKind: 'CONFLICT' as const,
+          systemApprovalEligible: false,
+          systemApprovalReason: `ERP 编码已被映射 ${approvedByErp.id} 占用，必须人工处理。`,
+          requiresApproval: true,
+          canAutoApprove: false,
           evidence: [
             ...candidate.evidence,
             `ERP 编码 ${candidate.erpCode} 已批准映射到另一好业财 ID ${approvedByErp.chanjetId}`,
@@ -4869,10 +5176,10 @@ export class ChanjetIntegrationService {
         exactCodeMatchScore: 100,
         exactNormalizedNameMatchScore: 95,
         fuzzyAutoMatch: false,
-        autoApprove: false,
+        autoApprove: 'only_exact_code_name_company_active',
         chanjetWrite: false,
         erpBusinessTableWrite: false,
-        rule: '候选只按真实 sal_customers / prc2_suppliers 生成；写入中间层后仍为 PENDING，必须逐条批准。',
+        rule: '候选只按真实 sal_customers / prc2_suppliers 生成；仅账套公司、编码、名称与 ACTIVE 状态同时精确一致时允许系统确认，其余必须人工批准。',
       },
     };
   }
@@ -4947,6 +5254,55 @@ export class ChanjetIntegrationService {
       }
     }
     return { preview, created, updated, skippedApproved, skippedUnmatched };
+  }
+
+  async confirmDeterministicCounterpartyMappings(reviewedBy = 'system:chanjet-exact-match'): Promise<{
+    generated: Awaited<ReturnType<ChanjetIntegrationService['generateCounterpartyMappingCandidates']>>;
+    eligible: number;
+    approved: number;
+    skipped: number;
+    errors: Array<{ candidateKey: string; error: string }>;
+  }> {
+    const generated = await this.generateCounterpartyMappingCandidates(reviewedBy);
+    const eligibleCandidates = generated.preview.candidates.filter((candidate) => (
+      candidate.mappingType && candidate.systemApprovalEligible
+    ));
+    const pendingMappings = await this.mappingRepo.find({
+      where: {
+        mappingType: In(['CUSTOMER', 'SUPPLIER']),
+        reviewStatus: 'PENDING',
+      },
+      take: 10000,
+    });
+    let approved = 0;
+    let skipped = 0;
+    const errors: Array<{ candidateKey: string; error: string }> = [];
+
+    for (const candidate of eligibleCandidates) {
+      const mapping = pendingMappings.find((item) => (
+        item.mappingType === candidate.mappingType
+        && item.bookId === candidate.bookId
+        && item.chanjetId === candidate.chanjetId
+        && item.erpCode === candidate.erpCode
+      ));
+      if (!mapping) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        await this.updateMappingReview(mapping.id, 'APPROVED', reviewedBy);
+        approved += 1;
+      } catch (error) {
+        errors.push({ candidateKey: candidate.candidateKey, error: (error as Error).message });
+      }
+    }
+    return {
+      generated,
+      eligible: eligibleCandidates.length,
+      approved,
+      skipped,
+      errors,
+    };
   }
 
   async updateMappingReview(

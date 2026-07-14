@@ -1,5 +1,29 @@
 # Next Actions
 
+## 2026-07-14 — Chanjet Continuous Readonly Alignment
+
+Current stage: `CHANJET_CONTINUOUS_READONLY_ALIGNMENT_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added P0-P6 production-readiness aggregation and an administrator dashboard.
+2. Added resilient full readonly sync with at most three attempts; unresolved failures remain HOLD and generate alerts.
+3. Added a four-hour scheduler with a PostgreSQL advisory lock and cron heartbeat monitoring.
+4. Added deterministic system confirmation only for book/company + code + normalized name + ACTIVE exact matches.
+5. Preserved manual review for code-only, name-only, fuzzy, ambiguous, inactive, cross-company, and conflict candidates.
+6. Kept the middle-layer console under `MENU_SETTINGS_CHANJET`; ordinary business users remain unaware of integration plumbing.
+7. Kept Chanjet write, delete, modify, voucher push, and silent ERP business-table overwrite disabled.
+
+Next actions:
+
+1. Deploy and run authenticated production readiness smoke.
+2. Execute one resilient readonly synchronization and verify cron heartbeat / alert behavior.
+3. System-confirm only deterministic exact mappings; review all remaining candidates individually.
+4. Continue semantic extraction and card authority promotion until each finance metric reaches its explicit Gate.
+5. Keep all Chanjet writeback on HOLD until a separately approved write Gate.
+
 ## 2026-07-13 — Chanjet P0 Production Readonly Gate Verified
 
 Current stage: `CHANJET_P0_PRODUCTION_READONLY_GATE_VERIFIED`

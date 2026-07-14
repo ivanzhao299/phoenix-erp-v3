@@ -1,5 +1,18 @@
 # Decision Log
 
+## 2026-07-14 — Chanjet Continuous Readonly Alignment
+
+Decision: `GO_WITH_CONDITIONS`.
+
+- Full readonly synchronization runs every four hours and retries failed scope/book targets at most three times.
+- A PostgreSQL advisory lock prevents duplicate execution across API instances.
+- Remaining failures are not hidden: the run becomes HOLD and Cron Monitor creates an alert.
+- Counterparty mappings may be system-confirmed only when the enabled account-book company, normalized ERP/Chanjet code, normalized ERP/Chanjet name, and ACTIVE ERP status all match exactly.
+- Code-only, name-only, fuzzy, inactive, ambiguous, cross-company, or conflicting candidates remain manual.
+- The P0-P6 readiness score is informational; any hard blocker forces HOLD regardless of score.
+- The integration control plane remains administrator-only through `MENU_SETTINGS_CHANJET`.
+- Chanjet write, delete, modify, voucher push, and silent ERP business-table overwrite remain forbidden.
+
 ## 2026-07-08 - Bug Intake Pipeline Closeout and Chanjet Handoff
 
 Decision: GO WITH CONDITIONS.

@@ -18,7 +18,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'governance' | 'adapter' | 'coverage' | 'readonlyAdapters' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'statementReports' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'readiness' | 'governance' | 'adapter' | 'coverage' | 'readonlyAdapters' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'statementReports' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -82,7 +82,29 @@ interface MirrorBaselineReadiness {
 interface CounterpartyCandidateOverview {
   decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
   summary: { sourceRows: number; candidates: number; matched: number; pending: number; conflicts: number; unknownRole: number; approvedMappings: number; nextGate: string };
-  candidates: Array<{ candidateKey: string; bookId: string; companyCode: string; mappingType: 'CUSTOMER' | 'SUPPLIER' | null; roleCandidate: string; chanjetId: string; chanjetCode: string; chanjetName: string; matchStatus: 'MATCHED' | 'PENDING' | 'CONFLICT'; confidence: number; erpCode: string; erpName: string; evidence: string[]; requiresApproval: true }>;
+  candidates: Array<{ candidateKey: string; bookId: string; companyCode: string; mappingType: 'CUSTOMER' | 'SUPPLIER' | null; roleCandidate: string; chanjetId: string; chanjetCode: string; chanjetName: string; matchStatus: 'MATCHED' | 'PENDING' | 'CONFLICT'; confidence: number; erpCode: string; erpName: string; evidence: string[]; matchKind: string; systemApprovalEligible: boolean; systemApprovalReason: string; requiresApproval: boolean }>;
+}
+
+interface ProductionReadiness {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D';
+  summary: {
+    mirrorFreshRate: number;
+    accountBookMappingRate: number;
+    masterDataApprovedRate: number;
+    semanticCoverageRate: number;
+    authorityReadyRate: number;
+    recentJobSuccessRate: number;
+    exactSystemApprovalCandidates: number;
+    manualMappingCandidates: number;
+    nextGate: string;
+  };
+  phases: Array<{ key: string; title: string; status: 'READY' | 'READY_WITH_CONDITIONS' | 'HOLD'; score: number; evidence: string[]; nextAction: string }>;
+  blockers: string[];
+  conditions: string[];
+  tokenHealth: { configured: boolean; tokens: Record<string, { expiresAt: string; valid: boolean }> };
 }
 
 interface FieldCatalog {
@@ -603,7 +625,7 @@ function Badge({ children, tone = 'muted' }: { children: React.ReactNode; tone?:
 function statusTone(status: string): 'green' | 'red' | 'amber' | 'blue' | 'muted' {
   if (['SUCCESS', 'APPROVED', 'OK', 'REVIEWED', 'PUSH_READY', 'LOCKED', 'READY', 'FOUND', 'AUTHORITY_READY', 'READONLY_READY', 'FRESH', 'VALID', 'GO'].includes(status)) return 'green';
   if (['FAIL', 'REJECTED', 'HOLD', 'CRITICAL', 'CONFLICT'].includes(status)) return 'red';
-  if (['WARN', 'MISMATCH', 'PENDING', 'PARTIAL', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW', 'WAITING_SAMPLE', 'NEED_EXTRACTION', 'MISSING', 'STALE', 'BLOCKED_MAPPING', 'GO_WITH_CONDITIONS'].includes(status)) return 'amber';
+  if (['WARN', 'MISMATCH', 'PENDING', 'PARTIAL', 'DRAFT', 'NEED_MAPPING', 'NEED_MANUAL_REVIEW', 'WAITING_SAMPLE', 'NEED_EXTRACTION', 'MISSING', 'STALE', 'BLOCKED_MAPPING', 'GO_WITH_CONDITIONS', 'READY_WITH_CONDITIONS'].includes(status)) return 'amber';
   return 'muted';
 }
 
@@ -631,7 +653,7 @@ function pct(value: number | null | undefined) {
 export default function ChanjetIntegrationPage() {
   const { t } = useLanguage();
   const { canView, canEdit } = usePermission('MENU_SETTINGS_CHANJET');
-  const [tab, setTab] = useState<TabKey>('governance');
+  const [tab, setTab] = useState<TabKey>('readiness');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -653,6 +675,7 @@ export default function ChanjetIntegrationPage() {
   const [baselineReadiness, setBaselineReadiness] = useState<MirrorBaselineReadiness | null>(null);
   const [accountBookGate, setAccountBookGate] = useState<AccountBookMappingGate | null>(null);
   const [counterpartyCandidates, setCounterpartyCandidates] = useState<CounterpartyCandidateOverview | null>(null);
+  const [productionReadiness, setProductionReadiness] = useState<ProductionReadiness | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
@@ -666,7 +689,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, baselineResp, accountBookGateResp, counterpartyCandidateResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, productionReadinessResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -688,6 +711,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; baseline: MirrorBaselineReadiness; error?: string }>('/chanjet/integration/baseline-readiness?freshnessHours=24'),
         request<{ success: boolean; gate: AccountBookMappingGate; error?: string }>('/chanjet/integration/account-book-mapping-gate'),
         request<{ success: boolean; candidateOverview: CounterpartyCandidateOverview; error?: string }>('/chanjet/integration/counterparty-mapping-candidates'),
+        request<{ success: boolean; readiness: ProductionReadiness; error?: string }>('/chanjet/integration/production-readiness'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -711,6 +735,7 @@ export default function ChanjetIntegrationPage() {
       setBaselineReadiness(baselineResp.baseline || null);
       setAccountBookGate(accountBookGateResp.gate || null);
       setCounterpartyCandidates(counterpartyCandidateResp.candidateOverview || null);
+      setProductionReadiness(productionReadinessResp.readiness || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -736,7 +761,8 @@ export default function ChanjetIntegrationPage() {
     setMessage('');
     setError('');
     try {
-      await action();
+      const result = await action() as { success?: boolean; error?: string } | undefined;
+      if (result?.success === false) throw new Error(result.error || `${label}未通过`);
       setMessage(`${label} 已完成`);
       await load();
     } catch (e) {
@@ -802,7 +828,8 @@ export default function ChanjetIntegrationPage() {
           <>
             <Button variant="outline" onClick={load} disabled={loading}><RefreshCw size={16} />刷新</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('账套刷新', () => request('/chanjet/integration/account-books/refresh', { method: 'POST' }))}>刷新账套</Button>
-            <Button disabled={!canEdit || loading} onClick={() => runAction('全量只读同步', () => request('/chanjet/integration/mirror/sync', { method: 'POST', body: JSON.stringify({ scope: financeCoverage?.fullReadonlyScope?.map((item) => item.key) || [] }) }))}>全量只读同步</Button>
+            <Button disabled={!canEdit || loading} onClick={() => runAction('韧性只读同步', () => request('/chanjet/integration/mirror/sync-resilient', { method: 'POST', body: JSON.stringify({ scope: financeCoverage?.fullReadonlyScope?.map((item) => item.key) || [], maxAttempts: 3 }) }))}>韧性只读同步</Button>
+            <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('系统确认精确映射', () => request('/chanjet/integration/master-mappings/system-confirm-exact', { method: 'POST' }))}>确认精确映射</Button>
             <Button disabled={!canEdit || loading} onClick={() => runAction('字段探针', () => request('/chanjet/integration/probe', { method: 'POST', body: JSON.stringify({ scope: ['ACCOUNT_BOOKS', 'DEPARTMENT', 'CUSTOMER_SUPPLIER', 'SUBJECT', 'PROJECT', 'FIN_ACCOUNT'] }) }))}>运行探针</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('字段差异分析', () => request('/chanjet/integration/field-mappings/analyze', { method: 'POST' }))}>字段分析</Button>
           </>
@@ -856,6 +883,7 @@ export default function ChanjetIntegrationPage() {
 
       <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border)', marginBottom: 14, flexWrap: 'wrap' }}>
         {[
+          ['readiness', 'P0-P6 准备度'],
           ['governance', '治理 Gate'],
           ['adapter', 'P0 财务适配'],
           ['coverage', '覆盖率看板'],
@@ -889,6 +917,80 @@ export default function ChanjetIntegrationPage() {
           </button>
         ))}
       </div>
+
+      {tab === 'readiness' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
+            <div>
+              <strong style={{ fontSize: 18 }}>好业财融合生产准备度</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 5 }}>
+                汇总全量镜像、主数据映射、标准 read model、财务卡片、差异对账、同步韧性和管理员边界。评分不替代 Gate，存在阻断时始终 HOLD。
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontSize: 34, fontWeight: 900, color: productionReadiness?.decision === 'HOLD' ? 'var(--status-danger)' : 'var(--brand)' }}>
+                {productionReadiness?.score ?? 0}<span style={{ fontSize: 14, marginLeft: 4 }}>/100 · {productionReadiness?.grade || '—'}</span>
+              </div>
+              <Badge tone={statusTone(productionReadiness?.decision || 'HOLD')}>{productionReadiness?.decision || '—'}</Badge>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginBottom: 16 }}>
+            {(productionReadiness?.phases || []).map((phase) => (
+              <div key={phase.key} style={{ ...cardStyle, padding: 13, borderTop: `3px solid ${phase.status === 'READY' ? '#16a34a' : phase.status === 'HOLD' ? '#dc2626' : '#d97706'}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                  <strong>{phase.key} · {phase.title}</strong>
+                  <Badge tone={statusTone(phase.status)}>{phase.score}</Badge>
+                </div>
+                <div style={{ marginTop: 10, display: 'grid', gap: 4, color: 'var(--text-secondary)', fontSize: 12 }}>
+                  {phase.evidence.map((item) => <div key={item}>• {item}</div>)}
+                </div>
+                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--brand)' }}>{phase.nextAction}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 10, marginBottom: 16 }}>
+            {[
+              ['镜像新鲜度', productionReadiness?.summary.mirrorFreshRate],
+              ['账套映射', productionReadiness?.summary.accountBookMappingRate],
+              ['主数据批准覆盖', productionReadiness?.summary.masterDataApprovedRate],
+              ['字段语义覆盖', productionReadiness?.summary.semanticCoverageRate],
+              ['财务卡片权威覆盖', productionReadiness?.summary.authorityReadyRate],
+              ['最近作业成功率', productionReadiness?.summary.recentJobSuccessRate],
+            ].map(([label, value]) => (
+              <div key={String(label)} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{label}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, marginTop: 5 }}>{Number(value || 0)}%</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(360px,1fr))', gap: 12 }}>
+            <div style={{ ...cardStyle, padding: 12, background: productionReadiness?.blockers.length ? '#fef2f2' : '#f0fdf4' }}>
+              <div style={{ fontWeight: 700, color: productionReadiness?.blockers.length ? '#991b1b' : '#166534' }}>阻断项</div>
+              <div style={{ marginTop: 8, fontSize: 13, display: 'grid', gap: 5 }}>
+                {productionReadiness?.blockers.length ? productionReadiness.blockers.map((item) => <div key={item}>• {item}</div>) : <div>无硬阻断。</div>}
+              </div>
+            </div>
+            <div style={{ ...cardStyle, padding: 12, background: '#fffbeb' }}>
+              <div style={{ fontWeight: 700, color: '#92400e' }}>条件项</div>
+              <div style={{ marginTop: 8, fontSize: 13, display: 'grid', gap: 5 }}>
+                {productionReadiness?.conditions.length ? productionReadiness.conditions.map((item) => <div key={item}>• {item}</div>) : <div>无开放条件。</div>}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <Badge tone={productionReadiness?.tokenHealth.configured ? 'green' : 'red'}>认证配置: {productionReadiness?.tokenHealth.configured ? 'READY' : 'HOLD'}</Badge>
+            <Badge tone="green">好业财写入: 永久关闭</Badge>
+            <Badge tone="green">普通用户可见: 否</Badge>
+            <Badge tone={productionReadiness?.summary.exactSystemApprovalCandidates ? 'blue' : 'muted'}>可系统确认精确映射: {productionReadiness?.summary.exactSystemApprovalCandidates ?? 0}</Badge>
+            <Badge tone={productionReadiness?.summary.manualMappingCandidates ? 'amber' : 'green'}>待人工映射: {productionReadiness?.summary.manualMappingCandidates ?? 0}</Badge>
+          </div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 10 }}>下一 Gate: {productionReadiness?.summary.nextGate || '—'} · 生成时间 {fmtDate(productionReadiness?.generatedAt)}</div>
+        </section>
+      )}
 
       {tab === 'governance' && (
         <section style={cardStyle}>
@@ -936,7 +1038,7 @@ export default function ChanjetIntegrationPage() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <Badge tone="green">好业财写入: 否</Badge>
               <Badge tone="green">业务表覆盖: 否</Badge>
-              <Badge tone="green">候选自动批准: 否</Badge>
+              <Badge tone="blue">系统确认: 仅编码+名称+公司+ACTIVE 精确一致</Badge>
               <Badge tone="green">模糊自动匹配: 否</Badge>
             </div>
             <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 8 }}>下一 Gate: {baselineReadiness?.summary?.nextGate || '—'}</div>
