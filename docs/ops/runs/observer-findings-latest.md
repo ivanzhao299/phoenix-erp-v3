@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-14T14:45:07.917Z |
-| Run files inspected | 2033 |
+| Generated at | 2026-07-14T15:52:37.269Z |
+| Run files inspected | 2034 |
 | Task count | 307 |
 | Findings count | 32 |
 | Highest severity | CRITICAL |
