@@ -4329,16 +4329,20 @@ export class ChanjetIntegrationService {
       'EXACT_CODE',
       'EXACT_NAME',
     ].includes(matchKind);
+    const companyScopeEligible = Boolean(
+      companyCode
+      && selected
+      && (!selected.master.companyCode || selected.master.companyCode === companyCode),
+    );
     const systemApprovalEligible = Boolean(
       matchStatus === 'MATCHED'
       && deterministicExactMatch
       && top.length === 1
-      && companyCode
-      && selected?.master.companyCode === companyCode
+      && companyScopeEligible
       && String(selected?.master.status || '').toUpperCase() === 'ACTIVE',
     );
     const systemApprovalReason = systemApprovalEligible
-      ? `账套公司、角色、唯一${selected?.reason || '精确匹配'}和 ACTIVE 状态一致，可由系统确认中间层映射。`
+      ? `账套公司范围、角色、唯一${selected?.reason || '精确匹配'}和 ACTIVE 状态一致${selected?.master.companyCode ? '' : '；ERP 主档为集团共享主档'}，可由系统确认中间层映射。`
       : sourceIdentityEligible
         ? '账套、角色、好业财 ID/编码/名称完整且 ERP 无候选，系统确认隔离的只读源身份。'
       : matchKind === 'CONFLICT'
@@ -4347,6 +4351,8 @@ export class ChanjetIntegrationService {
           ? '账套未映射到 ERP 公司，禁止系统确认。'
           : !deterministicExactMatch
             ? '编码和名称均未形成唯一精确匹配，禁止系统确认。'
+            : !companyScopeEligible
+              ? 'ERP 主数据归属其他公司，禁止跨公司自动确认。'
             : String(selected?.master.status || '').toUpperCase() !== 'ACTIVE'
               ? 'ERP 主数据不是 ACTIVE，禁止系统确认。'
               : '未满足系统确认条件。';

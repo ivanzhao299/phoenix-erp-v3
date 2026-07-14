@@ -144,6 +144,55 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     });
   });
 
+  it('allows system confirmation for a unique active group-shared supplier', () => {
+    const candidate = service.buildCounterpartyMappingCandidate(
+      {
+        id: '16',
+        bookId: 'BOOK-1',
+        externalId: 'CJ-SHARED-1',
+        externalCode: '010001',
+        externalName: '集团共享饲料供应商',
+        rawData: { partyRoleTypeId: '100101' },
+      },
+      'SUPPLIER',
+      'SUPPLIER',
+      'COMP-1',
+      [{ mappingType: 'SUPPLIER', code: 'SUP-SHARED-1', name: '集团共享饲料供应商', companyCode: '', status: 'ACTIVE' }],
+    );
+
+    expect(candidate).toMatchObject({
+      matchStatus: 'MATCHED',
+      matchKind: 'EXACT_NAME',
+      systemApprovalEligible: true,
+      requiresApproval: false,
+      canAutoApprove: true,
+    });
+    expect(candidate.systemApprovalReason).toContain('集团共享主档');
+  });
+
+  it('blocks an exact match owned by another company', () => {
+    const candidate = service.buildCounterpartyMappingCandidate(
+      {
+        id: '17',
+        bookId: 'BOOK-1',
+        externalId: 'CJ-OTHER-COMPANY',
+        externalCode: 'SUP-OTHER-1',
+        externalName: '其他公司供应商',
+        rawData: { partyRoleTypeId: '100101' },
+      },
+      'SUPPLIER',
+      'SUPPLIER',
+      'COMP-1',
+      [{ mappingType: 'SUPPLIER', code: 'SUP-OTHER-1', name: '其他公司供应商', companyCode: 'COMP-2', status: 'ACTIVE' }],
+    );
+
+    expect(candidate).toMatchObject({
+      matchStatus: 'SOURCE_ONLY',
+      systemApprovalEligible: false,
+      sourceIdentityEligible: true,
+    });
+  });
+
   it('resolves a complete Chanjet-only counterparty as an isolated readonly source identity', () => {
     const candidate = service.buildCounterpartyMappingCandidate(
       {
