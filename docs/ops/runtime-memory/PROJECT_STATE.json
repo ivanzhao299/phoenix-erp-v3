@@ -1,15 +1,15 @@
 {
   "last_updated": "2026-07-14",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_FULL_READONLY_FUNCTIONAL_CLOSEOUT_IMPLEMENTED",
+  "current_stage": "CHANJET_FULL_READONLY_FUNCTIONAL_CLOSEOUT_DEPLOYED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_FULL_READONLY_ALIGNMENT_PRODUCTION_VERIFY",
+  "next_gate": "CHANJET_NON_DETERMINISTIC_MAPPING_REVIEW",
   "page_entry": "/finance2/chanjet-integration",
   "menu_entry": "财务结算中心 / 好业财中间层（管理员）",
   "attachment_preview": "protected_account_qr_uat_passed",
   "raw_url_exposure": "forbidden",
-  "deploy_status": "deployed_full_main_20260713_run29226428523_green",
-  "push_status": "pushed_main_ad406e49",
+  "deploy_status": "deployed_full_main_20260714_run29336488539_green",
+  "push_status": "pushed_main_6f7398cf",
   "database_write_status": "ts_tail_migrations_1782045_1782052_applied_via_deploy_chain",
   "migration_status": "applied_8_ts_tail_migrations_atomic_menus_plus_rbac_matrix_repair_phaseC_passed",
   "last_full_deploy": {
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_FULL_READONLY_FUNCTIONAL_CLOSEOUT_IMPLEMENTED",
+    "current_stage": "CHANJET_FULL_READONLY_FUNCTIONAL_CLOSEOUT_DEPLOYED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "none; authenticated production baseline is fresh for all 46 expected targets",
-    "next_action": "deploy_and_verify_full_readonly_alignment_cycle_then_review_non_exact_counterparty_candidates",
+    "next_action": "review_non_exact_counterparty_candidates_while_scheduled_alignment_runs_every_4_hours",
     "production_readiness_api": "/api/chanjet/integration/production-readiness",
     "resilient_readonly_sync_api": "/api/chanjet/integration/mirror/sync-resilient",
     "full_readonly_alignment_api": "/api/chanjet/integration/alignment/run",
@@ -902,7 +902,6 @@
     "next_single_gate_recommendation": "APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS"
   },
   "next_actions": [
-    "CHANJET_FULL_READONLY_ALIGNMENT_PRODUCTION_VERIFY",
     "CHANJET_NON_DETERMINISTIC_MAPPING_REVIEW",
     "KEEP_CHANJET_WRITEBACK_BLOCKED"
   ],
