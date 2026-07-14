@@ -1,22 +1,22 @@
 {
   "summary": {
-    "generated_at": "2026-07-13T05:45:34.760Z",
+    "generated_at": "2026-07-14T12:30:59.404Z",
     "dry_run": true,
-    "run_files_inspected": 2021,
-    "task_count": 304,
+    "run_files_inspected": 2033,
+    "task_count": 307,
     "task_status_counts": {
       "archived": 213,
       "completed": 3,
       "COMPLETED_MERGED": 42,
-      "VALIDATION_COMPLETED": 35,
-      "HOLD": 6,
-      "SKIPPED_NOT_APPLICABLE": 5
+      "VALIDATION_COMPLETED": 36,
+      "HOLD": 7,
+      "SKIPPED_NOT_APPLICABLE": 6
     },
     "registered_agents": 8,
-    "findings_count": 33,
+    "findings_count": 32,
     "highest_severity": "CRITICAL",
     "routing_findings": 8,
-    "baseline_findings": 4,
+    "baseline_findings": 3,
     "report_schema_findings": 4,
     "codex_cli_executed": false,
     "database_written": false,
@@ -283,7 +283,7 @@
       "severity": "MEDIUM",
       "category": "repeat-hold",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "Queue HOLD count is 6.",
+      "evidence": "Queue HOLD count is 7.",
       "suggested_fix": "Cluster HOLD reasons and create one platform evolution task per repeated blocker.",
       "auto_fix_eligible": false,
       "requires_human_gate": true,
@@ -348,17 +348,6 @@
       "id": "OBS-0030",
       "severity": "MEDIUM",
       "category": "baseline",
-      "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/AGENT_TASK_BOARD.md;  M docs/ops/CHANJET_P0_PRODUCTION_READONLY_GATE_EVIDENCE_REPORT_20260713.md;  M docs/ops/runs/chanjet-p0-production-readonly-gate-latest.json;  M docs/ops/runs/chanjet-p0-production-readonly-gate-latest.md;  M docs/ops/runs/chanjet-readonly-mirror-sync-latest.json;  M docs/ops/runs/chanjet-readonly-mirror-sync-latest.md;  M docs/ops/runtime-memory/DECISION_LOG.md;  M docs/ops/runtime-memory/NEXT_ACTIONS.md;  M docs/ops/runtime-memory/PROJECT_STATE.json",
-      "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Baseline cleanup for Codex-Orchestrator."
-    },
-    {
-      "id": "OBS-0031",
-      "severity": "MEDIUM",
-      "category": "baseline",
       "affected_agent": "A5-Data-Readiness",
       "evidence": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
@@ -367,7 +356,7 @@
       "recommended_next_task": "Baseline cleanup for A5-Data-Readiness."
     },
     {
-      "id": "OBS-0032",
+      "id": "OBS-0031",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A6-Staging-Deploy-Runbook",
@@ -378,7 +367,7 @@
       "recommended_next_task": "Rebase A6-Staging-Deploy-Runbook with baseline autopilot."
     },
     {
-      "id": "OBS-0033",
+      "id": "OBS-0032",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A7-Final-QA-Gate",
@@ -534,7 +523,7 @@
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 3
+      "occurrence": 2
     }
   ],
   "suggested_improvements": [
@@ -548,7 +537,7 @@
     },
     {
       "improvement_id": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
-      "occurrence": 3
+      "occurrence": 2
     }
   ],
   "repeated_pattern_candidates": [
@@ -562,7 +551,7 @@
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 3
+      "occurrence": 2
     }
   ],
   "observer_boundaries": {

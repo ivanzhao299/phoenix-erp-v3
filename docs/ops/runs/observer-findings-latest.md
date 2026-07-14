@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-13T05:45:34.760Z |
-| Run files inspected | 2021 |
-| Task count | 304 |
-| Findings count | 33 |
+| Generated at | 2026-07-14T12:30:59.404Z |
+| Run files inspected | 2033 |
+| Task count | 307 |
+| Findings count | 32 |
 | Highest severity | CRITICAL |
 | Routing findings | 8 |
-| Baseline findings | 4 |
+| Baseline findings | 3 |
 | Report schema findings | 4 |
 | Codex CLI executed | No |
 | Database written | No |
@@ -226,7 +226,7 @@
 ### OBS-0024 - MEDIUM - repeat-hold
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: Queue HOLD count is 6.
+- Evidence: Queue HOLD count is 7.
 - Suggested Fix: Cluster HOLD reasons and create one platform evolution task per repeated blocker.
 - Auto Fix Eligible: false
 - Requires Human Gate: true
@@ -279,15 +279,6 @@
 
 ### OBS-0030 - MEDIUM - baseline
 
-- Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/AGENT_TASK_BOARD.md;  M docs/ops/CHANJET_P0_PRODUCTION_READONLY_GATE_EVIDENCE_REPORT_20260713.md;  M docs/ops/runs/chanjet-p0-production-readonly-gate-latest.json;  M docs/ops/runs/chanjet-p0-production-readonly-gate-latest.md;  M docs/ops/runs/chanjet-readonly-mirror-sync-latest.json;  M docs/ops/runs/chanjet-readonly-mirror-sync-latest.md;  M docs/ops/runtime-memory/DECISION_LOG.md;  M docs/ops/runtime-memory/NEXT_ACTIONS.md;  M docs/ops/runtime-memory/PROJECT_STATE.json
-- Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
-- Recommended Next Task: Baseline cleanup for Codex-Orchestrator.
-
-### OBS-0031 - MEDIUM - baseline
-
 - Affected Agent: A5-Data-Readiness
 - Evidence: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
@@ -295,7 +286,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Baseline cleanup for A5-Data-Readiness.
 
-### OBS-0032 - MEDIUM - baseline
+### OBS-0031 - MEDIUM - baseline
 
 - Affected Agent: A6-Staging-Deploy-Runbook
 - Evidence: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
@@ -304,7 +295,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A6-Staging-Deploy-Runbook with baseline autopilot.
 
-### OBS-0033 - MEDIUM - baseline
+### OBS-0032 - MEDIUM - baseline
 
 - Affected Agent: A7-Final-QA-Gate
 - Evidence: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.
