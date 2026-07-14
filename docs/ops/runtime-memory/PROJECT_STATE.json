@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-14",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_FULL_READONLY_FUNCTIONAL_CLOSEOUT_DEPLOYED",
+  "current_stage": "CHANJET_COUNTERPARTY_AUTONOMOUS_RESOLUTION_DEPLOYED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_NON_DETERMINISTIC_MAPPING_REVIEW",
+  "next_gate": "CHANJET_FINANCE_READ_MODEL_PROMOTION_REVIEW",
   "page_entry": "/finance2/chanjet-integration",
   "menu_entry": "财务结算中心 / 好业财中间层（管理员）",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_FULL_READONLY_FUNCTIONAL_CLOSEOUT_DEPLOYED",
+    "current_stage": "CHANJET_COUNTERPARTY_AUTONOMOUS_RESOLUTION_DEPLOYED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": "none; authenticated production baseline is fresh for all 46 expected targets",
-    "next_action": "review_non_exact_counterparty_candidates_while_scheduled_alignment_runs_every_4_hours",
+    "next_action": "promote_verified_finance_read_models_while_chanjet_writeback_remains_blocked",
     "production_readiness_api": "/api/chanjet/integration/production-readiness",
     "resilient_readonly_sync_api": "/api/chanjet/integration/mirror/sync-resilient",
     "full_readonly_alignment_api": "/api/chanjet/integration/alignment/run",
@@ -73,7 +73,7 @@
     "exact_mapping_confirmation_api": "/api/chanjet/integration/master-mappings/system-confirm-exact",
     "scheduled_readonly_sync": "every_4_hours_with_pg_advisory_lock_and_max_3_attempts",
     "exact_mapping_confirmation_rule": "book_company_plus_code_plus_normalized_name_plus_active_only",
-    "middle_layer_visibility": "MENU_SETTINGS_CHANJET_ADMIN_ONLY",
+    "middle_layer_visibility": "admin_only_MENU_SETTINGS_CHANJET",
     "p0_production_gate_patch": "nested_tenant_account_books_role_enum_and_real_erp_targets_fixed",
     "p0_production_gate_audit_script": "scripts/ops/chanjet-p0-production-readonly-gate-audit.mjs",
     "p0_production_gate_audit_json": "docs/ops/runs/chanjet-p0-production-readonly-gate-latest.json",
@@ -88,10 +88,10 @@
     "p0_production_gate_missing_targets": 0,
     "p0_production_gate_cached_books": 3,
     "p0_production_gate_valid_book_mappings": 3,
-    "counterparty_source_rows": 315,
-    "counterparty_candidate_count": 404,
+    "counterparty_source_rows": 322,
+    "counterparty_candidate_count": 411,
     "counterparty_matched_candidates": 51,
-    "counterparty_pending_candidates": 353,
+    "counterparty_pending_candidates": 0,
     "counterparty_conflict_candidates": 0,
     "counterparty_unknown_role_candidates": 0,
     "account_book_response_shape": "tenant.id_and_tenant.name",
@@ -101,11 +101,11 @@
     "account_book_mapping_gate_api": "/api/chanjet/integration/account-book-mapping-gate",
     "counterparty_candidate_api": "/api/chanjet/integration/counterparty-mapping-candidates",
     "counterparty_candidate_generation_api": "/api/chanjet/integration/counterparty-mapping-candidates/generate",
-    "counterparty_auto_approval": false,
+    "counterparty_auto_approval": true,
     "counterparty_fuzzy_auto_match": false,
     "book_scoped_sync_requires_mapping_gate": true,
     "p0_baseline_mapping_report": "docs/ops/CHANJET_P0_BASELINE_COUNTERPARTY_BOOK_MAPPING_IMPLEMENTATION_REPORT_20260713.md",
-    "last_report": "docs/ops/CHANJET_P1_FINANCE_CARD_ALIGNMENT_IMPLEMENTATION_REPORT_20260704.md",
+    "last_report": "docs/ops/CHANJET_COUNTERPARTY_AUTONOMOUS_RESOLUTION_REPORT_20260714.md",
     "finance_alignment_audit": "GO_WITH_CONDITIONS",
     "finance_alignment_audit_script": "scripts/ops/chanjet-finance-alignment-audit.mjs",
     "finance_alignment_audit_json": "docs/ops/runs/chanjet-finance-alignment-audit-latest.json",
@@ -145,7 +145,6 @@
     "field_gap_review_high_open_fields": 80,
     "field_gap_review_next_gate": "CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTATION",
     "admin_boundary_plan": "docs/ops/CHANJET_ERP_FUSION_ADMIN_BOUNDARY_PLAN_20260706.md",
-    "middle_layer_visibility": "admin_only_MENU_SETTINGS_CHANJET",
     "ordinary_user_chanjet_mode": "business_fusion_only_no_middle_layer_console",
     "ordinary_user_hidden_pages": [
       "/finance2/chanjet-sync",
@@ -399,7 +398,32 @@
     "readonly_adapter_partial_domains": [
       "CHANJET_COUNTERPARTY"
     ],
-    "readonly_adapter_remaining_condition": "approved_customer_supplier_mapping_required_before_ordinary_business_page_authority"
+    "readonly_adapter_remaining_condition": "approved_customer_supplier_mapping_required_before_ordinary_business_page_authority",
+    "counterparty_source_only_candidates": 360,
+    "counterparty_approved_mappings": 411,
+    "counterparty_stale_role_mappings_rejected": 72,
+    "counterparty_auto_approval_rule": "unique_exact_code_or_normalized_name_in_book_company_scope_or_active_group_shared_master_else_isolated_readonly_source_identity",
+    "counterparty_resolution_decision": "GO",
+    "counterparty_resolution_report": "docs/ops/CHANJET_COUNTERPARTY_AUTONOMOUS_RESOLUTION_REPORT_20260714.md",
+    "counterparty_resolution_commits": [
+      "80b5fd3e",
+      "98c126bb",
+      "04d27e9b",
+      "120f00b5",
+      "740236d4"
+    ],
+    "counterparty_resolution_deploy_runs": [
+      "29343453328",
+      "29345335108",
+      "29347261401",
+      "29348139947",
+      "29349469535"
+    ],
+    "last_full_readonly_alignment_at": "2026-07-14T16:15:04.383Z",
+    "last_full_readonly_alignment_decision": "GO_WITH_CONDITIONS",
+    "last_full_readonly_alignment_mirror_decision": "GO",
+    "last_full_readonly_alignment_target_results": 46,
+    "last_full_readonly_alignment_failures": 0
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",
@@ -902,7 +926,7 @@
     "next_single_gate_recommendation": "APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS"
   },
   "next_actions": [
-    "CHANJET_NON_DETERMINISTIC_MAPPING_REVIEW",
+    "CHANJET_FINANCE_READ_MODEL_PROMOTION_REVIEW",
     "KEEP_CHANJET_WRITEBACK_BLOCKED"
   ],
   "agent_inbox_mode": "enabled",

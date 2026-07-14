@@ -986,3 +986,23 @@ Next actions:
 1. `CHANJET_FULL_READONLY_ALIGNMENT_PRODUCTION_VERIFY`
 2. `CHANJET_NON_DETERMINISTIC_MAPPING_REVIEW` (353 pending candidates; no fuzzy auto-approval)
 3. `KEEP_CHANJET_WRITEBACK_BLOCKED`
+
+## 2026-07-14 — Chanjet Counterparty Autonomous Resolution
+
+Current stage: `CHANJET_COUNTERPARTY_AUTONOMOUS_RESOLUTION_DEPLOYED`
+
+Decision: counterparty mapping `GO`; wider readonly lifecycle `GO_WITH_CONDITIONS`.
+
+Completed:
+
+- 411 / 411 live customer/supplier candidates now have approved deterministic outcomes.
+- 51 candidates map to unique ACTIVE ERP masters.
+- 360 candidates remain isolated `SOURCE_ONLY` readonly identities.
+- Live pending, conflict, unknown-role, and human-review counts are all zero.
+- 72 historical CUSTOMER records with current SUPPLIER role evidence were rejected with an audit trail, not deleted.
+
+Next actions:
+
+1. `CHANJET_FINANCE_READ_MODEL_PROMOTION_REVIEW`
+2. Promote only authority-ready readonly finance metrics with visible ERP differences.
+3. `KEEP_CHANJET_WRITEBACK_BLOCKED`

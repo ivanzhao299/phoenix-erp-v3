@@ -1766,3 +1766,15 @@ Decision: `GO_WITH_CONDITIONS`.
 - A mirror `HOLD` stops the lifecycle before mapping and reconciliation.
 - 353 non-deterministic counterparty candidates remain a controlled data-quality queue and must not be fuzzy-approved.
 - Chanjet mutation, deletion, voucher push, and ERP business-table overwrite remain disabled.
+
+## 2026-07-14 — Resolve the complete Chanjet counterparty queue without fuzzy matching
+
+Decision: counterparty resolution `GO`.
+
+- The earlier 353-row queue grew to 360 readonly-only identities while production data continued to arrive; the system resolved the live set instead of preserving a stale count.
+- 51 unique exact matches were confirmed against ACTIVE ERP masters in the valid company scope, including uniquely matched group-shared suppliers with no owner company.
+- 360 Chanjet-only identities were confirmed as isolated `SOURCE_ONLY` middle-layer rows.
+- No fake customer or supplier master was created and no Chanjet record was changed.
+- 72 historical CUSTOMER mappings contradicted by `partyRoleTypeId=100101` were retained and marked `REJECTED` with role-reclassification audit evidence.
+- Final live coverage is 411 / 411 approved, with zero pending, conflict, unknown-role, or human-review candidates.
+- Next Gate: `CHANJET_FINANCE_READ_MODEL_PROMOTION_REVIEW`; writeback remains blocked.
