@@ -232,6 +232,21 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(supplier).toBe('CJRO:BOOK-1:S:C9001');
   });
 
+  it('identifies a pending mapping whose historical role no longer matches the source role', () => {
+    const candidates = [
+      { bookId: 'BOOK-1', chanjetId: 'PARTY-1', mappingType: 'SUPPLIER' },
+    ];
+
+    expect(service.isStaleCounterpartyRoleMapping(
+      { bookId: 'BOOK-1', chanjetId: 'PARTY-1', mappingType: 'CUSTOMER' },
+      candidates,
+    )).toBe(true);
+    expect(service.isStaleCounterpartyRoleMapping(
+      { bookId: 'BOOK-1', chanjetId: 'PARTY-1', mappingType: 'SUPPLIER' },
+      candidates,
+    )).toBe(false);
+  });
+
   it('holds duplicate normalized-name matches for manual disambiguation', () => {
     const candidate = service.buildCounterpartyMappingCandidate(
       {

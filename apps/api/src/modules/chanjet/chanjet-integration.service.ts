@@ -4234,6 +4234,19 @@ export class ChanjetIntegrationService {
     return [];
   }
 
+  private isStaleCounterpartyRoleMapping(
+    mapping: Pick<ChanjetMasterMappingEntity, 'bookId' | 'chanjetId' | 'mappingType'>,
+    candidates: ChanjetCounterpartyMappingCandidate[],
+  ): boolean {
+    const current = candidates.filter((candidate) => (
+      candidate.bookId === mapping.bookId
+      && candidate.chanjetId === mapping.chanjetId
+      && !!candidate.mappingType
+    ));
+    return current.length > 0
+      && !current.some((candidate) => candidate.mappingType === mapping.mappingType);
+  }
+
   private buildCounterpartyMappingCandidate(
     snapshot: ChanjetEntitySnapshotEntity,
     mappingType: CounterpartyMappingType | null,
@@ -5385,6 +5398,7 @@ export class ChanjetIntegrationService {
     created: number;
     updated: number;
     sourceOnlyResolved: number;
+    staleRoleMappingsRejected: number;
     skippedApproved: number;
     skippedUnmatched: number;
   }> {
@@ -5396,8 +5410,36 @@ export class ChanjetIntegrationService {
     let created = 0;
     let updated = 0;
     let sourceOnlyResolved = 0;
+    let staleRoleMappingsRejected = 0;
     let skippedApproved = 0;
     let skippedUnmatched = 0;
+
+    for (const mapping of existingMappings) {
+      if (
+        mapping.reviewStatus !== 'PENDING'
+        || !this.isStaleCounterpartyRoleMapping(mapping, preview.candidates)
+      ) continue;
+      const currentTypes = preview.candidates
+        .filter((candidate) => candidate.bookId === mapping.bookId && candidate.chanjetId === mapping.chanjetId)
+        .map((candidate) => candidate.mappingType)
+        .filter((value): value is CounterpartyMappingType => !!value);
+      mapping.reviewStatus = 'REJECTED';
+      mapping.reviewedBy = `system:role-reclassification:${reviewedBy || 'system'}`.slice(0, 128);
+      mapping.reviewedAt = new Date();
+      mapping.rawData = {
+        ...(mapping.rawData || {}),
+        resolutionKind: 'STALE_ROLE_CLASSIFICATION',
+        staleMappingType: mapping.mappingType,
+        currentMappingTypes: [...new Set(currentTypes)],
+        rejectedAt: new Date().toISOString(),
+        rejectedBy: reviewedBy || 'system',
+        writeErpBusinessTables: false,
+        writeChanjet: false,
+        reason: '好业财 partyRoleTypeId 已确定当前角色，旧映射类型不再适用；保留记录用于审计。',
+      };
+      await this.mappingRepo.save(mapping);
+      staleRoleMappingsRejected += 1;
+    }
 
     for (const candidate of preview.candidates) {
       const sourceOnly = candidate.matchStatus === 'SOURCE_ONLY';
@@ -5472,7 +5514,15 @@ export class ChanjetIntegrationService {
         if (sourceOnly) sourceOnlyResolved += 1;
       }
     }
-    return { preview, created, updated, sourceOnlyResolved, skippedApproved, skippedUnmatched };
+    return {
+      preview,
+      created,
+      updated,
+      sourceOnlyResolved,
+      staleRoleMappingsRejected,
+      skippedApproved,
+      skippedUnmatched,
+    };
   }
 
   async confirmDeterministicCounterpartyMappings(reviewedBy = 'system:chanjet-exact-match'): Promise<{
