@@ -1,10 +1,10 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-13T05:11:13.492Z
+Generated: 2026-07-14T12:02:53.393Z
 
-Total findings: 3205
-Auto-translatable by runtime bridge: 3176
-Still requiring componentization or dictionary modeling: 29
+Total findings: 3240
+Auto-translatable by runtime bridge: 3240
+Still requiring componentization or dictionary modeling: 0
 Affected files: 176
 
 This report is intentionally stricter than `scripts/check-i18n-keys.js`: key parity can pass while pages still render hardcoded Chinese.
@@ -13,7 +13,7 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 
 | File | Count | Samples |
 |---|---:|---|
-| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 402 | 662:[{"summary":"示例摘要","debitSubject":"","creditSubject":"","amount":0}]<br>692:总览加载失败<br>724:账套缓存<br>725:字段目录<br>725:脱敏字段样本<br>726:映射候选<br>727:凭证草稿<br>728:镜像实体 |
+| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 422 | 685:[{"summary":"示例摘要","debitSubject":"","creditSubject":"","amount":0}]<br>716:总览加载失败<br>749:账套缓存<br>750:字段目录<br>750:脱敏字段样本<br>751:映射候选<br>752:凭证草稿<br>753:镜像实体 |
 | `apps/web/src/components/master-data/detail-configs.tsx` | 199 | 88:客户中心<br>92:订单<br>93:应收<br>97:订单数<br>98:单 (近期)<br>101:近期销售额<br>105:应收余额<br>112:逾期单据 |
 | `apps/web/src/components/layout/Sidebar.tsx` | 158 | 72:运营工作台<br>74:每日工作台<br>81:经营仪表盘<br>84:生产管理<br>86:养殖总览<br>87:鸡舍管理<br>88:鸡群档案<br>89:日生产日报 |
 | `apps/web/src/lib/workflow-templates.ts` | 124 | 35:费用报销审批<br>36:财务<br>40:费用报销单<br>43:申请金额<br>44:费用类型<br>44:差旅费<br>44:招待费<br>44:办公费 |
@@ -50,11 +50,12 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/master-data/customers/_fields.ts` | 24 | 5:客户名称<br>5:基本信息<br>6:客户类型<br>6:基本信息<br>7:所属公司<br>7:基本信息<br>8:联系人<br>8:联系方式 |
 | `apps/web/src/app/(admin)/shareholders/capital/import/page.tsx` | 24 | 93:项目<br>93:项目名称<br>94:股东<br>94:股东姓名<br>95:金额<br>95:出资金额<br>96:日期<br>96:出资日期 |
 | `apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx` | 24 | 131:待分配<br>139:暂无待处理节点<br>140:无待处理人<br>141:流程当前无需人工处理<br>143:从发起到当前的运行时长<br>149:等待审批处理<br>150:等待系统流转<br>151:流程已完成 |
-| `apps/web/src/app/(admin)/sales2/pricing/page.tsx` | 23 | 22:草稿<br>26:审批中<br>30:已批准<br>34:生效中<br>38:已失效<br>42:已取消<br>49:0号蛋<br>50:1号蛋 |
+| `apps/web/src/app/(admin)/sales2/pricing/page.tsx` | 23 | 23:草稿<br>27:审批中<br>31:已批准<br>35:生效中<br>39:已失效<br>43:已取消<br>50:0号蛋<br>51:1号蛋 |
 | `apps/web/src/app/(admin)/workflow/forms/page.tsx` | 23 | 21:财务<br>21:采购<br>21:合同<br>21:人事<br>21:仓储<br>21:品控<br>21:门店<br>21:养殖 |
 | `apps/web/src/app/(admin)/uat/page.tsx` | 22 | 62:未命名维度<br>76:未命名验收项<br>108:采购管理<br>109:财务管理<br>110:销售管理<br>111:配送管理<br>112:库存管理<br>113:审批流程 |
 | `apps/web/src/app/(admin)/workflow/page.tsx` | 22 | 13:采购申请<br>13:采购<br>14:费用报销<br>14:财务<br>15:库存调整<br>15:仓储<br>16:门店折扣<br>16:门店 |
 | `apps/web/src/app/(admin)/breeding/med-stock/page.tsx` | 20 | 55:2号舍<br>55:3号舍<br>55:4号舍<br>55:5号舍<br>55:6号舍<br>55:全场<br>261:药品名称<br>261:规格 |
+| `apps/web/src/app/(admin)/bug-reports/page.tsx` | 20 | 197:已批准待执行<br>198:Agent 执行中<br>199:HOLD 待处理<br>200:待批准入队<br>201:待生成计划<br>280:刷新结果<br>291:已通过<br>291:未通过 |
 | `apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx` | 20 | 103:股权投资<br>104:借款<br>105:垫资<br>106:担保金<br>107:代付<br>117:草稿<br>118:待确认<br>119:已确认 |
 | `apps/web/src/app/(admin)/store-payment/page.tsx` | 20 | 24:万象直营店<br>162:附件预览待安全授权开通。<br>163:当前文件不可预览或下载。<br>164:权限不足，无法访问附件。<br>166:安全策略禁止裸链接访问。<br>168:当前仅显示受控附件状态。<br>214:文件元数据未配置<br>225:安全策略禁止裸链接访问 |
 | `apps/web/src/components/uat/FeedbackWidget.tsx` | 20 | 23:🐞 功能异常<br>24:💡 改进建议<br>25:❓ 操作疑问<br>26:📊 数据问题<br>29:低 · 不影响使用<br>30:中 · 有点别扭<br>31:高 · 影响干活<br>32:紧急 · 干不下去了 |
@@ -62,4 +63,3 @@ This report is intentionally stricter than `scripts/check-i18n-keys.js`: key par
 | `apps/web/src/app/(admin)/finance2/ap/page.tsx` | 19 | 143:未到期<br>147:逾期 ≤30天<br>151:逾期 31-60天<br>155:逾期 61-90天<br>159:逾期 >90天<br>168:手工<br>172:采购订单<br>176:费用 |
 | `apps/web/src/app/(admin)/sales2/returns/page.tsx` | 18 | 94:草稿<br>98:已提交<br>102:待审批<br>106:质检中<br>110:回库中<br>114:已完成<br>118:已拒绝<br>122:已取消 |
 | `apps/web/src/app/(admin)/procurement2/suppliers/page.tsx` | 17 | 52:集团共享<br>58:公司专用<br>64:项目专用<br>72:老挝 LA<br>75:中国 CN<br>78:泰国 TH<br>81:越南 VN<br>84:美国 US |
-| `apps/web/src/app/(admin)/sales2/delivery/page.tsx` | 17 | 49:待装车<br>55:装车中<br>61:已装车<br>67:已发车<br>73:已到达<br>79:部分签收<br>85:已完成<br>91:已取消 |
