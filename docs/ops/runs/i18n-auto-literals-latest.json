@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-07-14T12:23:20.804Z",
-  "apply": false,
+  "generated_at": "2026-07-14T13:20:04.663Z",
+  "apply": true,
   "refresh_existing": false,
   "source_report": "docs/ops/runs/i18n-hardcoded-literals-latest.json",
-  "unique_hardcoded_literals": 2064,
-  "created_keys": 0,
+  "unique_hardcoded_literals": 2072,
+  "created_keys": 9,
   "updated_keys": 0,
   "locale_counts_before": {
     "zh": 13637,
@@ -12,12 +12,67 @@
     "lo": 13637
   },
   "locale_counts_after": {
-    "zh": 13637,
-    "en": 13637,
-    "lo": 13637
+    "zh": 13646,
+    "en": 13646,
+    "lo": 13646
   },
   "unresolved_english_chinese_count": 0,
   "unresolved_lao_chinese_count": 0,
-  "placeholder_translation_count": 0,
-  "sample_created": []
+  "placeholder_translation_count": 7,
+  "sample_created": [
+    {
+      "key": "auto.literal.c7d4ff6e98e1",
+      "text": "生产准备度",
+      "en": "Localized UI text c7d4ff6e98e1",
+      "lo": "Localized UI text c7d4ff6e98e1"
+    },
+    {
+      "key": "auto.literal.984dd8604670",
+      "text": "运行完整只读闭环",
+      "en": "Localized UI text 984dd8604670",
+      "lo": "Localized UI text 984dd8604670"
+    },
+    {
+      "key": "auto.literal.77ddafa5f85f",
+      "text": "本次完整只读闭环",
+      "en": "Localized UI text 77ddafa5f85f",
+      "lo": "Localized UI text 77ddafa5f85f"
+    },
+    {
+      "key": "auto.literal.385dabb5d097",
+      "text": "镜像目标：",
+      "en": "Localized UI text 385dabb5d097",
+      "lo": "Localized UI text 385dabb5d097"
+    },
+    {
+      "key": "auto.literal.6780885a8d06",
+      "text": "· 重试轮次：",
+      "en": "Localized UI text 6780885a8d06",
+      "lo": "Localized UI text 6780885a8d06"
+    },
+    {
+      "key": "auto.literal.ab86e855c6ca",
+      "text": "精确映射：",
+      "en": "Localized UI text ab86e855c6ca",
+      "lo": "Localized UI text ab86e855c6ca"
+    },
+    {
+      "key": "auto.literal.c2968c2344b4",
+      "text": "新增差异：",
+      "en": "AddDifference:",
+      "lo": "Addຄວາມຕ່າງ:"
+    },
+    {
+      "key": "auto.literal.97e86cad86e2",
+      "text": "· 保持：",
+      "en": "Localized UI text 97e86cad86e2",
+      "lo": "Localized UI text 97e86cad86e2"
+    },
+    {
+      "key": "auto.literal.9a8344e3d177",
+      "text": "自动结案：",
+      "en": "AutoClose the case:",
+      "lo": "ອັດຕະໂນມັດປິດກໍລະນີ:"
+    }
+  ]
 }
