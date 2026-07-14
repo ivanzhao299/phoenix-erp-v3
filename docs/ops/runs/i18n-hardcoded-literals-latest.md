@@ -1,20 +1,20 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-14T17:19:12.304Z
+Generated: 2026-07-14T17:27:09.235Z
 
-Total findings: 3251
-Auto-translatable by runtime bridge: 3244
-Still requiring componentization or dictionary modeling: 7
+Scanned hardcoded literals: 3244
+Covered by validated runtime bridge: 3244
+Release-blocking uncovered literals: 0
 Locale quality issues: 0
 Affected files: 176
 
-This report is intentionally stricter than `scripts/check-i18n-keys.js`: key parity can pass while pages still render hardcoded Chinese.
+A scanned literal is not automatically debt: the runtime bridge is accepted only when the same source text has real English and Lao translations. Release blocking is based on uncovered literals and locale quality issues.
 
 ## Top Files
 
 | File | Count | Samples |
 |---|---:|---|
-| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 433 | 701:[{"summary":"示例摘要","debitSubject":"","creditSubject":"","amount":0}]<br>732:总览加载失败<br>768:账套缓存<br>769:字段目录<br>769:脱敏字段样本<br>770:映射候选<br>771:凭证草稿<br>772:镜像实体 |
+| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 426 | 701:[{"summary":"示例摘要","debitSubject":"","creditSubject":"","amount":0}]<br>732:总览加载失败<br>768:账套缓存<br>769:字段目录<br>769:脱敏字段样本<br>770:映射候选<br>771:凭证草稿<br>772:镜像实体 |
 | `apps/web/src/components/master-data/detail-configs.tsx` | 199 | 88:客户中心<br>92:订单<br>93:应收<br>97:订单数<br>98:单 (近期)<br>101:近期销售额<br>105:应收余额<br>112:逾期单据 |
 | `apps/web/src/components/layout/Sidebar.tsx` | 158 | 72:运营工作台<br>74:每日工作台<br>81:经营仪表盘<br>84:生产管理<br>86:养殖总览<br>87:鸡舍管理<br>88:鸡群档案<br>89:日生产日报 |
 | `apps/web/src/lib/workflow-templates.ts` | 124 | 35:费用报销审批<br>36:财务<br>40:费用报销单<br>43:申请金额<br>44:费用类型<br>44:差旅费<br>44:招待费<br>44:办公费 |
