@@ -67,7 +67,7 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(one.externalId).not.toBe(two.externalId);
   });
 
-  it('matches a counterparty by exact ERP code without auto-approving it', () => {
+  it('allows system confirmation for a unique exact ERP code in the mapped company', () => {
     const candidate = service.buildCounterpartyMappingCandidate(
       {
         id: '11',
@@ -87,14 +87,14 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       matchStatus: 'MATCHED',
       confidence: 100,
       erpCode: 'CUS_001',
-      requiresApproval: true,
-      canAutoApprove: false,
+      requiresApproval: false,
+      canAutoApprove: true,
       matchKind: 'EXACT_CODE',
-      systemApprovalEligible: false,
+      systemApprovalEligible: true,
     });
   });
 
-  it('allows system confirmation only when code, name, company and active status all match', () => {
+  it('allows system confirmation when code and name both match in the mapped company', () => {
     const candidate = service.buildCounterpartyMappingCandidate(
       {
         id: '13',
@@ -113,6 +113,31 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(candidate).toMatchObject({
       matchStatus: 'MATCHED',
       matchKind: 'EXACT_CODE_AND_NAME',
+      systemApprovalEligible: true,
+      requiresApproval: false,
+      canAutoApprove: true,
+    });
+  });
+
+  it('allows system confirmation for a unique normalized-name match in the mapped company', () => {
+    const candidate = service.buildCounterpartyMappingCandidate(
+      {
+        id: '15',
+        bookId: 'BOOK-1',
+        externalId: 'CJ-4',
+        externalCode: 'CHANJET-ONLY-CODE',
+        externalName: '金凤凰食品有限公司',
+        rawData: { customerCode: 'CHANJET-ONLY-CODE', customerName: '金凤凰食品有限公司' },
+      },
+      'CUSTOMER',
+      'CUSTOMER',
+      'COMP-1',
+      [{ mappingType: 'CUSTOMER', code: 'ERP-CUS-1', name: '金凤凰食品公司', companyCode: 'COMP-1', status: 'ACTIVE' }],
+    );
+
+    expect(candidate).toMatchObject({
+      matchStatus: 'MATCHED',
+      matchKind: 'EXACT_NAME',
       systemApprovalEligible: true,
       requiresApproval: false,
       canAutoApprove: true,

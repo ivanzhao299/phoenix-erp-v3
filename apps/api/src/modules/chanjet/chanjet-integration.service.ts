@@ -4324,23 +4324,29 @@ export class ChanjetIntegrationService {
           : selectedNameMatches
             ? 'EXACT_NAME'
             : 'NONE';
+    const deterministicExactMatch = [
+      'EXACT_CODE_AND_NAME',
+      'EXACT_CODE',
+      'EXACT_NAME',
+    ].includes(matchKind);
     const systemApprovalEligible = Boolean(
       matchStatus === 'MATCHED'
-      && matchKind === 'EXACT_CODE_AND_NAME'
+      && deterministicExactMatch
+      && top.length === 1
       && companyCode
       && selected?.master.companyCode === companyCode
       && String(selected?.master.status || '').toUpperCase() === 'ACTIVE',
     );
     const systemApprovalReason = systemApprovalEligible
-      ? '账套公司、ERP 编码、规范化名称和 ACTIVE 状态同时精确一致，可由系统确认中间层映射。'
+      ? `账套公司、角色、唯一${selected?.reason || '精确匹配'}和 ACTIVE 状态一致，可由系统确认中间层映射。`
       : sourceIdentityEligible
         ? '账套、角色、好业财 ID/编码/名称完整且 ERP 无候选，系统确认隔离的只读源身份。'
       : matchKind === 'CONFLICT'
         ? '存在多个同分候选，必须人工消歧。'
         : !companyCode
           ? '账套未映射到 ERP 公司，禁止系统确认。'
-          : matchKind !== 'EXACT_CODE_AND_NAME'
-            ? '编码与名称未同时精确一致，必须人工复核。'
+          : !deterministicExactMatch
+            ? '编码和名称均未形成唯一精确匹配，禁止系统确认。'
             : String(selected?.master.status || '').toUpperCase() !== 'ACTIVE'
               ? 'ERP 主数据不是 ACTIVE，禁止系统确认。'
               : '未满足系统确认条件。';
