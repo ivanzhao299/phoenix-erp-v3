@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -26,16 +26,22 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260709-0004-A3-worker-assembled-prompt
 Assembled prompt chars: 21677
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-13T06-20-54-496Z-A3-Backend-Critical-Path.md
-PASS WITH CONDITIONS for `BUG-20260709-0004`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T06-54-28-805Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS.
 
-Backend fix is present on `codex/bug-intake-a3`: [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.ts:863) now returns `total` from `countUnifiedTodoTasks(user)` instead of paginated `rows.length`, keeping the待办 total aligned with the unified visible task set. Regression coverage is in [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:123), including the captured ApprovalEngine row and legacy endpoint count behavior.
+Implemented the backend fix for BUGTASK-20260709-0004. The todo APIs now ensure `total` cannot be lower than the visible returned rows, preventing “共 0 条” while a pending approval row is displayed.
 
-Validation run:
-- `cd apps/api && pnpm test -- workflow.service.spec.ts` PASS, 1 suite / 6 tests
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS, 0 errors
+Changed:
+- [workflow.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.ts:863)
+- [workflow.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/workflow.service.spec.ts:156)
+- [BUGTASK-20260709-0004-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUGTASK-20260709-0004-a3-backend-report.md:1)
 
-Report is written at [BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260709-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md:1). No database writes, migrations, deploys, pushes, frontend edits, or task board changes were performed. Production resolution still needs CI/CD, production smoke on `/workflow/todos`, and business acceptance.
+Validation:
+- `cd apps/api && pnpm test -- workflow.service.spec.ts --runInBand` passed: 9 tests
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed
+- `git diff --check` passed
+
+No deploy, push, DB write, migration, schema/entity change, or frontend change was performed. Production resolution still needs CI/CD, production smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -52,7 +58,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f5a21-a304-7a42-b137-51098404cdf1
+session id: 019f648b-96bf-7442-a232-0cfb59b95ee0
 --------
 user
 # Base Agent Prompt
@@ -496,7 +502,7 @@ Assigned agent: A3-Backend-Critical-Path
           {
             "tag": "div",
             "path": ".sidebar-module__C8A
-...<truncated 78871 chars>
+...<truncated 184795 chars>
 
 ```
 
@@ -508,20 +514,29 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1175,
-  "beforeHead": "28a98af173fad729183bb2581ab67e71660b8998",
-  "afterHead": "28a98af173fad729183bb2581ab67e71660b8998",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "responseChars": 1016,
+  "beforeHead": "7ad8918f1aad61731109ca452c420bd7875ce29d",
+  "afterHead": "6b5e83d7d9673834a3f2db9406f48c6cb0b47667",
+  "commitHash": "6b5e83d7d9673834a3f2db9406f48c6cb0b47667",
+  "changedFiles": [
+    "apps/api/src/modules/workflow/workflow.service.spec.ts",
+    "apps/api/src/modules/workflow/workflow.service.ts",
+    "docs/ops/bug-intake/BUGTASK-20260709-0004-a3-backend-report.md"
+  ],
+  "businessChangedFiles": [
+    "apps/api/src/modules/workflow/workflow.service.spec.ts",
+    "apps/api/src/modules/workflow/workflow.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUGTASK-20260709-0004-a3-backend-report.md"
+  ],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-13T06:20:54.582Z",
-  "passed": false,
+  "checkedAt": "2026-07-15T06:54:29.034Z",
+  "passed": true,
   "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -529,9 +544,22 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": false,
-  "ok": false,
-  "reason": "worktree has no uncommitted Agent changes",
-  "files": []
+  "attempted": true,
+  "ok": true,
+  "files": [
+    "apps/api/src/modules/workflow/workflow.service.spec.ts",
+    "apps/api/src/modules/workflow/workflow.service.ts",
+    "docs/ops/bug-intake/BUGTASK-20260709-0004-a3-backend-report.md"
+  ],
+  "businessFiles": [
+    "apps/api/src/modules/workflow/workflow.service.spec.ts",
+    "apps/api/src/modules/workflow/workflow.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUGTASK-20260709-0004-a3-backend-report.md"
+  ],
+  "commitHash": "6b5e83d7d9673834a3f2db9406f48c6cb0b47667",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a3 6b5e83d7] fix(api): repair BUG-20260709-0004\n 3 files changed, 126 insertions(+), 3 deletions(-)\n create mode 100644 docs/ops/bug-intake/BUGTASK-20260709-0004-a3-backend-report.md"
 }
 ```

@@ -799,11 +799,11 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-13T06:14:55.562Z",
+    "approvedAt": "2026-07-15T06:50:16.447Z",
     "approvedBy": "admin",
     "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 8,
+    "redispatchCount": 9,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
