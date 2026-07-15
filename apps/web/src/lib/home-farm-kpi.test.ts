@@ -2,6 +2,41 @@ import { describe, expect, it } from 'vitest';
 import { buildHomeFarmKpi } from './home-farm-kpi';
 
 describe('buildHomeFarmKpi', () => {
+  it('uses brd_flocks current_qty as the authoritative current stock source', () => {
+    const kpi = buildHomeFarmKpi(
+      {
+        rows: [
+          { current_qty: 5000, eggs: 120 },
+          { current_qty: 6000, eggs: 80 },
+        ],
+        totals: { current_qty: 11000, eggs: 200 },
+      },
+      null,
+      { rows: [] },
+      {
+        data: [
+          { flock_no: 'F-001', current_qty: 900 },
+          { flock_no: 'F-002', current_qty: '1300' },
+        ],
+      },
+    );
+
+    expect(kpi.totalStock).toBe(2200);
+    expect(kpi.layRate).toBe(9.1);
+  });
+
+  it('keeps a scoped empty brd_flocks response at zero instead of falling back to stale hen-report stock', () => {
+    const kpi = buildHomeFarmKpi(
+      { totals: { current_qty: 11000, eggs: 200 } },
+      null,
+      { rows: [] },
+      { data: [] },
+    );
+
+    expect(kpi.totalStock).toBe(0);
+    expect(kpi.layRate).toBe(0);
+  });
+
   it('uses daily logs for feed and water when today has breeding log entries', () => {
     const kpi = buildHomeFarmKpi(
       {

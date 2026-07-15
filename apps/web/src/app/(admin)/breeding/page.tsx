@@ -152,7 +152,7 @@ export default function BreedingPage() {
     const ydStr = localDateString(addLocalDays(now, -1));
     const [farmsRaw, flocksRaw, logsRaw, todayLogsRaw, medsRaw, immuneRaw] = await Promise.all([
       apiFetch("/api/crud/brd_farms"),
-      apiFetch("/api/crud/brd_flocks"),
+      apiFetch("/api/crud/brd_flocks?limit=1000"),
       apiFetch("/api/crud/brd_daily_logs?limit=1000"),
       apiFetch(`/api/crud/brd_daily_logs?log_date=${today}&limit=1000`),
       apiFetch("/api/crud/brd_medications"),

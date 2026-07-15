@@ -64,18 +64,32 @@ function sumIotHouses(iot: unknown, field: 'feedToday' | 'waterToday'): number |
   return Array.isArray(houses) ? sumKnownRows(houses, [field]) : null;
 }
 
-export function buildHomeFarmKpi(hen: unknown, iot: unknown, dailyLogs: unknown): HomeFarmKpiState {
+function hasRowsPayload(payload: unknown): boolean {
+  if (Array.isArray(payload)) return true;
+  return isRecord(payload) && ('data' in payload || 'rows' in payload);
+}
+
+export function buildHomeFarmKpi(
+  hen: unknown,
+  iot: unknown,
+  dailyLogs: unknown,
+  flocks?: unknown,
+): HomeFarmKpiState {
   const rows = asRows(hen);
+  const flockRows = asRows(flocks);
   const totals = getField(hen, 'totals') || getField(getField(hen, 'data'), 'totals') || null;
   const dailyRows = asRows(dailyLogs);
 
+  const totalStockFromFlocks = hasRowsPayload(flocks)
+    ? (sumKnownRows(flockRows, ['current_qty']) ?? 0)
+    : null;
   const totalStockFromRows = rows.reduce((sum: number, row: unknown) => (
     sum + (asNumber(getField(row, 'current_qty')) || asNumber(getField(row, 'total_qty')))
   ), 0);
   const eggsFromRows = rows.reduce((sum: number, row: unknown) => (
     sum + (asNumber(getField(row, 'eggs')) || asNumber(getField(row, 'eggs_produced')))
   ), 0);
-  const totalStock = totalStockFromRows || firstKnownNumber(totals, ['current_qty', 'total_qty', 'stock']) || 0;
+  const totalStock = totalStockFromFlocks ?? (totalStockFromRows || firstKnownNumber(totals, ['current_qty', 'total_qty', 'stock']) || 0);
   const eggsToday = eggsFromRows || firstKnownNumber(totals, ['eggs', 'eggs_produced']) || 0;
   const layRate = totalStock > 0 ? +(eggsToday / totalStock * 100).toFixed(1) : 0;
 

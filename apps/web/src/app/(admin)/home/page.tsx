@@ -152,13 +152,14 @@ export default function HomePage() {
     if (farmKpiRequestPlan.shouldLoadFarmKpi) {
       const today = localDateString();
       Promise.all([
-        request<any>(`/v3/farm/daily-hen-report?date=${today}`, { silent: true }).catch(() => null),
+        request<unknown>(`/v3/farm/daily-hen-report?date=${today}`, { silent: true }).catch(() => null),
         farmKpiRequestPlan.shouldLoadIotSummary
-          ? request<any>(`/v3/iot/devices/all-summary`, { silent: true }).catch(() => null)
+          ? request<unknown>(`/v3/iot/devices/all-summary`, { silent: true }).catch(() => null)
           : Promise.resolve(null),
-        request<any>(`/crud/brd_daily_logs?log_date=${today}&limit=500`, { silent: true }).catch(() => null),
-      ]).then(([hen, iot, dailyLogs]) => {
-        setFarmKpi(buildHomeFarmKpi(hen, iot, dailyLogs));
+        request<unknown>(`/crud/brd_daily_logs?log_date=${today}&limit=500`, { silent: true }).catch(() => null),
+        request<unknown>(`/crud/brd_flocks?limit=1000`, { silent: true }).catch(() => null),
+      ]).then(([hen, iot, dailyLogs, flocks]) => {
+        setFarmKpi(buildHomeFarmKpi(hen, iot, dailyLogs, flocks));
       });
     }
   }, [hasQualityPerm, hasCentersPerm, farmKpiRequestPlan, hasPermission]);
