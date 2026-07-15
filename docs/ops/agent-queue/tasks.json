@@ -23170,7 +23170,8 @@
     "changed_files": [],
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260715-0003-A4",
@@ -23222,7 +23223,8 @@
     "last_redispatch_at": null,
     "reason": "incomplete implementation worktree preserved in quarantine; no code merged",
     "quarantined_at": "2026-07-15T07:44:22.135Z",
-    "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4"
+    "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260715-0003-A1",
@@ -23282,6 +23284,7 @@
       "terminalStatus": "HOLD",
       "reason": "blocked by failed dependency: BUGTASK-20260715-0003-A4",
       "checkedAt": "2026-07-15T07:44:22.757Z"
-    }
+    },
+    "remote_repair_status": "HOLD"
   }
 ]
