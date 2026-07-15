@@ -114,11 +114,12 @@ export class DashboardBffController {
       [{ today_eggs: 0 }],
     );
     const todayEggs = Number(eggsRow?.today_eggs) || 0;
+    // Keep current flock population aligned with /api/v3/farm overview/trend.
     const [flockRow] = await safe(
       this.em.query(
         farmKpiCode
-          ? `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE status='LAYING' AND farm_code = $1`
-          : `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE status='LAYING'`,
+          ? `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE status IN ('LAYING','ACTIVE','laying','active') AND farm_code = $1`
+          : `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE status IN ('LAYING','ACTIVE','laying','active')`,
         farmKpiCode ? [farmKpiCode] : [],
       ),
       [{ total: 0 }],
