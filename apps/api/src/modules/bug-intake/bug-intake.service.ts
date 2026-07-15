@@ -928,19 +928,22 @@ export class BugIntakeService {
       recordedAt: new Date().toISOString(),
     };
     const activeRedispatchCount = Number(payload.redispatchCount || 0);
+    const isRunnerLifecycle = agentResult.agent === 'BugIntakeLocalRunner';
     const existing = (Array.isArray(payload.agentResults) ? payload.agentResults as Record<string, unknown>[] : [])
       .filter((item) => Number(item.redispatchCount || 0) === activeRedispatchCount);
+    const deduplicatedExisting = isRunnerLifecycle
+      ? existing.filter((item) => String(item.agent || '') !== 'BugIntakeLocalRunner')
+      : existing.filter((item) => item.taskId !== agentResult.taskId || !agentResult.taskId);
     const agentResults = [
-      ...existing.filter((item) => item.taskId !== agentResult.taskId || !agentResult.taskId),
+      ...deduplicatedExisting,
       agentResult,
-    ];
+    ].slice(-64);
 
     report.repairTaskPayload = {
       ...payload,
       agentResults,
       latestAgentResult: agentResult,
     };
-    const isRunnerLifecycle = agentResult.agent === 'BugIntakeLocalRunner';
     if (isRunnerLifecycle) {
       const lifecycle = this.runnerLifecycleEvidence(report, agentResult);
       report.repairTaskStatus = lifecycle.passed ? 'FIX_READY_FOR_UAT' : 'HOLD';
@@ -1275,7 +1278,7 @@ export class BugIntakeService {
     const implementationResult = [...runtime.agentResults].reverse().find((item) => {
       if (String(item.agent || '') === 'BugIntakeLocalRunner') return false;
       const gate = this.payloadObject(this.payloadObject(item.validationResults).evidenceGate);
-      return gate.role === 'implementation';
+      return ['implementation', 'implementation_verified_existing'].includes(String(gate.role || ''));
     });
     const validationResult = [...runtime.agentResults].reverse().find((item) => {
       const gate = this.payloadObject(this.payloadObject(item.validationResults).evidenceGate);

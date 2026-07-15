@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  buildResultBackfillPlan,
   requeueExpiredCapacityWaits,
   selectAutomaticRedispatchCandidates,
   selectReleaseReadyBacklog,
@@ -237,6 +238,34 @@ test('verified existing implementation writes back as PASS, not NOT_APPLICABLE',
     ? 'PASS_WITH_CONDITIONS'
     : 'NOT_APPLICABLE';
   assert.equal(conclusion, 'PASS_WITH_CONDITIONS');
+});
+
+test('result backfill explicitly closes advisory agents omitted by the refined route', () => {
+  const report = {
+    repairTaskPayload: {
+      agentPlan: {
+        selected_agents: [
+          'A2-Security-Regression-Gate',
+          'A3-Backend-Critical-Path',
+          'A4-Frontend-UAT-Smoke',
+          'A5-Data-Readiness',
+          'A1-CI-Runtime-Gate',
+        ],
+      },
+    },
+  };
+  const tasks = [
+    { agent: 'A3-Backend-Critical-Path', status: 'COMPLETED_MERGED' },
+    { agent: 'A1-CI-Runtime-Gate', status: 'VALIDATION_COMPLETED' },
+  ];
+  const plan = buildResultBackfillPlan(report, tasks);
+  assert.deepEqual(plan.selectedAgents, ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate']);
+  assert.deepEqual(plan.notApplicableAgents, [
+    'A2-Security-Regression-Gate',
+    'A4-Frontend-UAT-Smoke',
+    'A5-Data-Readiness',
+  ]);
+  assert.deepEqual(plan.missingAgents, []);
 });
 
 test('verified backlog remains eligible for release in a later runner cycle', () => {

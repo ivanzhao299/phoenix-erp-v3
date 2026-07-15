@@ -1238,6 +1238,19 @@ function selectedAgentsForReport(report, localTasks) {
   return [...new Set(localTasks.map((task) => String(task.agent || '')).filter(Boolean))];
 }
 
+export function buildResultBackfillPlan(report, currentRouteTasks) {
+  const selectedAgents = selectedAgentsForReport(report, currentRouteTasks);
+  const selectedTasks = selectedAgents
+    .map((agent) => currentRouteTasks.find((task) => task.agent === agent))
+    .filter(Boolean);
+  const missingAgents = selectedAgents.filter((agent) => !selectedTasks.some((task) => task.agent === agent));
+  const remoteSelected = Array.isArray(report?.repairTaskPayload?.agentPlan?.selected_agents)
+    ? report.repairTaskPayload.agentPlan.selected_agents.map(String).filter(Boolean)
+    : [];
+  const notApplicableAgents = remoteSelected.filter((agent) => !selectedAgents.includes(agent));
+  return { selectedAgents, selectedTasks, missingAgents, notApplicableAgents };
+}
+
 const AUTO_RECOVERY_NOTE = 'AUTO_QUEUE_RECOVERY';
 const TECHNICAL_HOLD_PATTERNS = [
   /incomplete implementation worktree preserved in quarantine/i,
@@ -1377,6 +1390,27 @@ function buildTaskWritebackPayload(task, summary) {
   };
 }
 
+function buildNotApplicableWritebackPayload(report, agent, summary, generation) {
+  return {
+    taskId: `${report.repairTaskNo || report.bugNo}-${agent}-NA-${generation}`,
+    agent,
+    conclusion: 'NOT_APPLICABLE',
+    resultFile: `${summary?.outputDir || RUN_DIR}/latest-summary.md`,
+    commitHash: '',
+    changedFiles: [],
+    validationResults: {
+      aggregateBackfill: true,
+      evidenceGate: {
+        passed: true,
+        role: 'not_applicable',
+        reason: 'Agent was advisory in the original plan but was excluded by the refined executable route.',
+      },
+    },
+    summary: `${agent} was not part of the refined executable route for this repair generation.`,
+    nextAction: 'No action is required from this advisory Agent for the current repair generation.',
+  };
+}
+
 async function backfillCompletedBugReports(args, childEnv, summary) {
   if (args.dryRun) return { skipped: true, reason: 'dry-run' };
   const reports = readLatestInboxReports(args);
@@ -1411,11 +1445,7 @@ async function backfillCompletedBugReports(args, childEnv, summary) {
       ? Math.max(...activeTasks.map((task) => Number(task.redispatch_count || 0)))
       : 0;
     const currentRouteTasks = activeTasks.filter((task) => Number(task.redispatch_count || 0) === maxRedispatch);
-    const selectedAgents = selectedAgentsForReport(report, currentRouteTasks);
-    const selectedTasks = selectedAgents
-      .map((agent) => currentRouteTasks.find((task) => task.agent === agent))
-      .filter(Boolean);
-    const missingAgents = selectedAgents.filter((agent) => !selectedTasks.some((task) => task.agent === agent));
+    const { selectedAgents, selectedTasks, missingAgents, notApplicableAgents } = buildResultBackfillPlan(report, currentRouteTasks);
     const unfinishedTasks = selectedTasks.filter((task) => !FINISHED_STATUSES.has(task.status));
 
     if (missingAgents.length > 0 || unfinishedTasks.length > 0) {
@@ -1430,6 +1460,10 @@ async function backfillCompletedBugReports(args, childEnv, summary) {
     }
 
     const posted = [];
+    for (const agent of notApplicableAgents) {
+      const payload = buildNotApplicableWritebackPayload(report, agent, summary, maxRedispatch);
+      posted.push({ task_id: payload.taskId, agent, ...(await postAgentResult(args, childEnv, report.bugNo, payload)) });
+    }
     for (const task of selectedTasks) {
       const payload = buildTaskWritebackPayload(task, summary);
       if (!payload.conclusion) continue;

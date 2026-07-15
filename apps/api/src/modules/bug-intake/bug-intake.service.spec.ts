@@ -197,6 +197,39 @@ describe('BugIntakeService evidence lifecycle', () => {
     ]));
   });
 
+  it('deduplicates runner lifecycle receipts and accepts verified existing implementation evidence', async () => {
+    const { row, service } = build();
+    row.repairTaskStatus = 'AGENT_EXECUTION_FINISHED';
+    row.repairTaskPayload = {
+      agentPlan: { selected_agents: ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate'] },
+      agentResults: [
+        {
+          taskId: 'A3', agent: 'A3-Backend-Critical-Path', conclusion: 'PASS_WITH_CONDITIONS',
+          validationResults: { evidenceGate: { passed: true, role: 'implementation_verified_existing' } },
+        },
+        {
+          taskId: 'A1', agent: 'A1-CI-Runtime-Gate', conclusion: 'PASS_WITH_CONDITIONS',
+          validationResults: { evidenceGate: { passed: true, role: 'validation' } },
+        },
+        {
+          taskId: 'OLD-RUNNER', agent: 'BugIntakeLocalRunner', conclusion: 'HOLD',
+          validationResults: { releaseEvidence: 'HOLD' },
+        },
+      ],
+    };
+
+    await service.recordAgentResult(row.bugNo, {
+      taskId: 'NEW-RUNNER', agent: 'BugIntakeLocalRunner', conclusion: 'PASS_WITH_CONDITIONS',
+      validationResults: { releaseEvidence: 'PASS', push: 'PASS', ci: 'PASS', productionSmoke: 'PASS' },
+    }, user, meta);
+
+    const payload = row.repairTaskPayload as Record<string, any>;
+    expect(payload.agentResults.filter((item: any) => item.agent === 'BugIntakeLocalRunner')).toHaveLength(1);
+    expect(row.repairTaskStatus).toBe('FIX_READY_FOR_UAT');
+    const detail = await service.detail(row.bugNo) as any;
+    expect(detail.repairResult.validations).toContainEqual({ key: 'implementation', label: '代码修复', status: 'PASS' });
+  });
+
   it('does not present a HOLD repair task as successfully completed', async () => {
     const { row, service } = build();
     row.repairTaskStatus = 'HOLD';
