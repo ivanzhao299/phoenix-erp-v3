@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-13T07:40:31.444Z",
-  "updatedAt": "2026-07-15T07:16:10.792Z",
+  "updatedAt": "2026-07-15T07:20:10.620Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "库区管理，所属仓库、库区类型、状态，要求显示为对应的中文",
@@ -1701,41 +1701,94 @@
     "moduleCode": "____",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260713-0005-A3",
         "agent": "A3-Backend-Critical-Path",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A3-worker-log.md",
+        "taskId": "BUGTASK-20260713-0005-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0005-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0005-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0005-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0005-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0005-A3-worker-assembled-prompt.md\nAssembled prompt chars: 23822\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-16-09-351Z-A3-Backend-Critical-Path.md\nBackend repair for `BUG-20260713-0005` is already implemented on this branch and I re-validated it.\n\nChanged scope:\n- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts:2175): enriches `/api/crud/wms_zones` rows with Chinese display fields for warehouse, zone type, and status while preserving raw codes.\n- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:126): focused regression coverage for the WMS zone label enrichment.\n- [BUG-20260713-0005_A3_BACKEND_REPORT.md](/Users/mac/phoen",
         "commitHash": "",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-15T07:16:10.789Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A3-worker-log.md",
         "changedFiles": [],
+        "redispatchCount": 2,
+        "validationResults": {
+          "queueStatus": "SKIPPED_NOT_APPLICABLE",
+          "evidenceGate": {
+            "role": "implementation_verified_existing",
+            "agent": "A3-Backend-Critical-Path",
+            "passed": true,
+            "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "f05d25270b89f315432f688950e839737223e84a",
+            "checkedAt": "2026-07-15T07:16:09.460Z",
+            "beforeHead": "f05d25270b89f315432f688950e839737223e84a",
+            "commitHash": "",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 1375,
+            "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260713-0005-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A4-worker-log.md",
+        "commitHash": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
+        "changedFiles": [
+          "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
+          "apps/web/src/lib/warehouse-zone-display.test.ts",
+          "apps/web/src/lib/warehouse-zone-display.ts",
+          "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+        ],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
-            "agent": "A3-Backend-Critical-Path",
+            "agent": "A4-Frontend-UAT-Smoke",
             "exitCode": 0,
             "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 1375,
-            "beforeHead": "f05d25270b89f315432f688950e839737223e84a",
-            "afterHead": "f05d25270b89f315432f688950e839737223e84a",
-            "commitHash": "",
-            "changedFiles": [],
-            "businessChangedFiles": [],
-            "reportFiles": [],
+            "responseChars": 1400,
+            "beforeHead": "5b19033b9c6191025fac44b127375a8c7db7d9da",
+            "afterHead": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
+            "commitHash": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
+            "changedFiles": [
+              "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
+              "apps/web/src/lib/warehouse-zone-display.test.ts",
+              "apps/web/src/lib/warehouse-zone-display.ts",
+              "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+            ],
+            "businessChangedFiles": [
+              "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
+              "apps/web/src/lib/warehouse-zone-display.test.ts",
+              "apps/web/src/lib/warehouse-zone-display.ts"
+            ],
+            "reportFiles": [
+              "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+            ],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-15T07:16:09.460Z",
+            "checkedAt": "2026-07-15T07:20:09.332Z",
             "passed": true,
-            "role": "implementation_verified_existing",
-            "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-            "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+            "role": "implementation",
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
+            "reason": "Business change, task report, commit, and conclusion are present"
           },
-          "queueStatus": "SKIPPED_NOT_APPLICABLE",
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0005-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0005-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0005-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0005-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0005-A3-worker-assembled-prompt.md\nAssembled prompt chars: 23822\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-16-09-351Z-A3-Backend-Critical-Path.md\nBackend repair for `BUG-20260713-0005` is already implemented on this branch and I re-validated it.\n\nChanged scope:\n- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts:2175): enriches `/api/crud/wms_zones` rows with Chinese display fields for warehouse, zone type, and status while preserving raw codes.\n- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:126): focused regression coverage for the WMS zone label enrichment.\n- [BUG-20260713-0005_A3_BACKEND_REPORT.md](/Users/mac/phoen",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23889\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-20-09-168Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend fix for `BUG-20260713-0005` on `/warehouse/zones`.\n\nChanged:\n- [page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/zones/page.tsx): table now renders warehouse Chinese label, `WMS_ZONE_TYPE` Chinese label, and `启用/停用` status text with safe fallbacks.\n- [warehouse-zone-display.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-zone-display.ts): focused display helpers.\n- [warehouse-zone-display.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-zone-display.test.ts): regression coverage.\n- [BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT",
         "nextAction": "",
         "redispatchCount": 2,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-15T07:16:10.789Z"
+        "recordedAt": "2026-07-15T07:20:10.617Z"
       }
     ],
     "suggestedOwner": "",
@@ -1748,41 +1801,57 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260713-0005-A3",
-      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260713-0005-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A3-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
+      "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A4-worker-log.md",
+      "commitHash": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
+      "changedFiles": [
+        "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
+        "apps/web/src/lib/warehouse-zone-display.test.ts",
+        "apps/web/src/lib/warehouse-zone-display.ts",
+        "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+      ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A3-Backend-Critical-Path",
+          "agent": "A4-Frontend-UAT-Smoke",
           "exitCode": 0,
           "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 1375,
-          "beforeHead": "f05d25270b89f315432f688950e839737223e84a",
-          "afterHead": "f05d25270b89f315432f688950e839737223e84a",
-          "commitHash": "",
-          "changedFiles": [],
-          "businessChangedFiles": [],
-          "reportFiles": [],
+          "responseChars": 1400,
+          "beforeHead": "5b19033b9c6191025fac44b127375a8c7db7d9da",
+          "afterHead": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
+          "commitHash": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
+          "changedFiles": [
+            "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
+            "apps/web/src/lib/warehouse-zone-display.test.ts",
+            "apps/web/src/lib/warehouse-zone-display.ts",
+            "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+          ],
+          "businessChangedFiles": [
+            "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
+            "apps/web/src/lib/warehouse-zone-display.test.ts",
+            "apps/web/src/lib/warehouse-zone-display.ts"
+          ],
+          "reportFiles": [
+            "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+          ],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-15T07:16:09.460Z",
+          "checkedAt": "2026-07-15T07:20:09.332Z",
           "passed": true,
-          "role": "implementation_verified_existing",
-          "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-          "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+          "role": "implementation",
+          "terminalStatus": "IMPLEMENTATION_COMPLETED",
+          "reason": "Business change, task report, commit, and conclusion are present"
         },
-        "queueStatus": "SKIPPED_NOT_APPLICABLE",
+        "queueStatus": "IMPLEMENTATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0005-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0005-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0005-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0005-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0005-A3-worker-assembled-prompt.md\nAssembled prompt chars: 23822\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-16-09-351Z-A3-Backend-Critical-Path.md\nBackend repair for `BUG-20260713-0005` is already implemented on this branch and I re-validated it.\n\nChanged scope:\n- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts:2175): enriches `/api/crud/wms_zones` rows with Chinese display fields for warehouse, zone type, and status while preserving raw codes.\n- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:126): focused regression coverage for the WMS zone label enrichment.\n- [BUG-20260713-0005_A3_BACKEND_REPORT.md](/Users/mac/phoen",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23889\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-20-09-168Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend fix for `BUG-20260713-0005` on `/warehouse/zones`.\n\nChanged:\n- [page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/zones/page.tsx): table now renders warehouse Chinese label, `WMS_ZONE_TYPE` Chinese label, and `启用/停用` status text with safe fallbacks.\n- [warehouse-zone-display.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-zone-display.ts): focused display helpers.\n- [warehouse-zone-display.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-zone-display.test.ts): regression coverage.\n- [BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT",
       "nextAction": "",
       "redispatchCount": 2,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-15T07:16:10.789Z"
+      "recordedAt": "2026-07-15T07:20:10.617Z"
     },
     "redispatchHistory": [
       {
@@ -2092,13 +2161,18 @@
     "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": null,
-    "changedFiles": [],
+    "commitHash": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
+    "changedFiles": [
+      "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
+      "apps/web/src/lib/warehouse-zone-display.test.ts",
+      "apps/web/src/lib/warehouse-zone-display.ts",
+      "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
+    ],
     "validations": [
       {
         "key": "implementation",
         "label": "代码修复",
-        "status": "PENDING"
+        "status": "PASS"
       },
       {
         "key": "ci",
@@ -2121,7 +2195,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-15T07:16:10.789Z",
+    "completedAt": "2026-07-15T07:20:10.617Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"
