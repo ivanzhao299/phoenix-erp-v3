@@ -990,6 +990,7 @@ function currentHead(cwd) {
 export function selectReleaseReadyBacklog(reports, tasks) {
   return (reports || []).flatMap((report) => {
     if (!report?.bugNo || ['RESOLVED', 'CLOSED', 'REJECTED'].includes(String(report.status || ''))) return [];
+    if (['FIX_READY_FOR_UAT', 'BUSINESS_VERIFIED', 'AGENT_COMPLETED'].includes(String(report.repairTaskStatus || ''))) return [];
     const localTasks = (tasks || []).filter((task) =>
       task.source === 'bug-intake' && task.source_bug_no === report.bugNo,
     );
@@ -1037,8 +1038,13 @@ function releaseEvidenceForWorkerRuns(args, workerRuns) {
   });
 }
 
-function canPush(args, workerRuns, releaseEvidence) {
-  if (args.dryRun || !args.pushAfterSuccess) return false;
+export function shouldAttemptReleasePush({
+  dryRun = false,
+  pushAfterSuccess = false,
+  releaseEvidence = [],
+  unpushedCommitCount = 0,
+} = {}) {
+  if (dryRun || !pushAfterSuccess || unpushedCommitCount < 1) return false;
   // A previous cycle can finish implementation while a later cycle performs
   // the final evidence backfill. Requiring a worker in the same cycle left
   // verified commits permanently stranded ahead of origin/main.
@@ -1046,11 +1052,25 @@ function canPush(args, workerRuns, releaseEvidence) {
 }
 
 function runPushIfReady(args, workerRuns, releaseEvidence) {
-  if (!canPush(args, workerRuns, releaseEvidence)) {
+  if (args.dryRun || !args.pushAfterSuccess) {
     return {
       skipped: true,
-      reason: args.pushAfterSuccess ? 'release evidence is incomplete; refusing push' : 'push-after-success disabled',
+      reason: args.dryRun ? 'dry-run' : 'push-after-success disabled',
     };
+  }
+  if (releaseEvidence.length === 0 || releaseEvidence.some((item) => !item.evidence.passed)) {
+    return { skipped: true, reason: 'release evidence is incomplete; refusing push' };
+  }
+  const unpushed = safeGit(['rev-list', 'origin/main..HEAD'], args.mainRoot);
+  if (!unpushed.ok) return { skipped: true, reason: `cannot inspect unpushed commits: ${unpushed.output}` };
+  const unpushedCommitCount = unpushed.output.split('\n').map((sha) => sha.trim()).filter(Boolean).length;
+  if (!shouldAttemptReleasePush({
+    dryRun: args.dryRun,
+    pushAfterSuccess: args.pushAfterSuccess,
+    releaseEvidence,
+    unpushedCommitCount,
+  })) {
+    return { skipped: true, reason: 'no unpushed release commit' };
   }
   const branch = safeGit(['branch', '--show-current'], args.mainRoot);
   const status = safeGit(['status', '--short'], args.mainRoot);

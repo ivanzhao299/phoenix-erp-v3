@@ -81,6 +81,14 @@
 
 **Regression:** `com.phoenix.erp.bug-intake-runner` is loaded and running; the live process is `bug-intake-local-runner.mjs --watch`, token mode is present, and no new stderr entry was produced after restart. Historical 429 lines predate this repair.
 
+### 10. Idle resident cycles could create an audit commit and deployment loop
+
+**Root cause:** release-ready backlog selection included reports already at `FIX_READY_FOR_UAT`. An idle cycle therefore performed an empty `git push`, reused the completed CI result for the same HEAD, reran production route smoke, and rewrote the smoke artifact with a new timestamp and elapsed times. The next cycle committed that runtime-only diff, which triggered another CI/CD deployment despite there being no new repair.
+
+**Fix:** `FIX_READY_FOR_UAT`, `BUSINESS_VERIFIED`, and `AGENT_COMPLETED` reports are excluded from release backlog. The release push gate now also requires at least one real commit in `origin/main..HEAD`; complete evidence alone cannot trigger push, CI wait, production smoke, or lifecycle writeback on an idle cycle.
+
+**Regression:** resident-runner regression passes 20 tests, including UAT-ready backlog exclusion and the requirement for a real unpushed release commit.
+
 ## Local Retest Results
 
 | Validation | Result |
@@ -89,7 +97,7 @@
 | Web TypeScript | PASS, 0 errors |
 | API focused regression | PASS, 4 suites / 26 tests |
 | Web focused regression | PASS, 5 files / 20 tests |
-| Resident runner regression | PASS, 18 tests |
+| Resident runner regression | PASS, 20 tests |
 | Queue redispatch regression | PASS, 3 tests |
 | Bug Intake service lifecycle regression | PASS, 13 tests |
 | Refined-route result backfill regression | PASS, resident runner 18 tests |

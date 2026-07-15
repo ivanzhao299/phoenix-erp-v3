@@ -6,6 +6,7 @@ import {
   requeueExpiredCapacityWaits,
   selectAutomaticRedispatchCandidates,
   selectReleaseReadyBacklog,
+  shouldAttemptReleasePush,
 } from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 import { evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
@@ -283,4 +284,35 @@ test('verified backlog remains eligible for release in a later runner cycle', ()
     },
   ];
   assert.deepEqual(selectReleaseReadyBacklog(reports, tasks).map((item) => item.bugNo), ['BUG-BACKLOG']);
+});
+
+test('UAT-ready reports are not released again by an idle resident cycle', () => {
+  const reports = [{ bugNo: 'BUG-UAT-READY', status: 'IN_PROGRESS', repairTaskStatus: 'FIX_READY_FOR_UAT' }];
+  const tasks = [
+    {
+      source: 'bug-intake', source_bug_no: 'BUG-UAT-READY', route_active: true,
+      redispatch_count: 1, agent: 'A4-Frontend-UAT-Smoke', status: 'COMPLETED_MERGED',
+      evidence_gate: { passed: true, role: 'implementation' },
+    },
+    {
+      source: 'bug-intake', source_bug_no: 'BUG-UAT-READY', route_active: true,
+      redispatch_count: 1, agent: 'A1-CI-Runtime-Gate', status: 'VALIDATION_COMPLETED',
+      evidence_gate: { passed: true, role: 'validation' },
+    },
+  ];
+  assert.deepEqual(selectReleaseReadyBacklog(reports, tasks), []);
+});
+
+test('release push requires a real unpushed commit even when evidence passes', () => {
+  const releaseEvidence = [{ bugNo: 'BUG-IDLE', evidence: { passed: true } }];
+  assert.equal(shouldAttemptReleasePush({
+    pushAfterSuccess: true,
+    releaseEvidence,
+    unpushedCommitCount: 0,
+  }), false);
+  assert.equal(shouldAttemptReleasePush({
+    pushAfterSuccess: true,
+    releaseEvidence,
+    unpushedCommitCount: 1,
+  }), true);
 });
