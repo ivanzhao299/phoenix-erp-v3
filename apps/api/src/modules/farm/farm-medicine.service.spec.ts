@@ -2,10 +2,26 @@ import { BadRequestException } from '@nestjs/common';
 import { FarmMedicineService } from './farm-medicine.service';
 
 describe('FarmMedicineService', () => {
+  const defaultLedgerColumns = [
+    'id',
+    'batch_no',
+    'change_type',
+    'qty_change',
+    'log_date',
+    'warehouse_code',
+    'company_code',
+    'store_code',
+    'operator',
+    'ref_no',
+    'house_code',
+    'note',
+    'created_at',
+  ].map(column_name => ({ column_name }));
+
   function buildSvc() {
     const manager = { query: jest.fn() };
     const ds = {
-      query: jest.fn(),
+      query: jest.fn().mockResolvedValue(defaultLedgerColumns),
       transaction: jest.fn(async (cb: (manager: { query: jest.Mock }) => Promise<void>) => cb(manager)),
     };
     const scopeHelper = {
@@ -69,9 +85,13 @@ describe('FarmMedicineService', () => {
       'FARM_MEDICINE',
       'MED_INBOUND',
     ]);
-    expect(manager.query.mock.calls[1][0]).toContain('MED_INBOUND');
+    expect(manager.query.mock.calls[1][0]).toContain('INSERT INTO inv_ledger');
+    expect(manager.query.mock.calls[1][0]).toContain('log_date');
+    expect(manager.query.mock.calls[1][0]).toContain('warehouse_code');
+    expect(manager.query.mock.calls[1][0]).toContain('company_code');
     expect(manager.query.mock.calls[1][1]).toEqual([
       'MED-STOCK-MED001',
+      'MED_INBOUND',
       12,
       '2026-07-07',
       'LPH_MS_MEDICINE',
@@ -79,8 +99,66 @@ describe('FarmMedicineService', () => {
       'SITE-MENGSAI-LAYER',
       'admin',
       'MED_INBOUND',
+      null,
       '采购入库',
     ]);
+  });
+
+  it('inbound skips absent optional inv_ledger columns so stock upsert is not rolled back by schema drift', async () => {
+    const { ds, manager, svc } = buildSvc();
+    ds.query.mockResolvedValueOnce([
+      { column_name: 'batch_no' },
+      { column_name: 'change_type' },
+      { column_name: 'qty_change' },
+      { column_name: 'operator' },
+      { column_name: 'store_code' },
+      { column_name: 'ref_no' },
+      { column_name: 'note' },
+      { column_name: 'created_at' },
+    ]);
+    manager.query
+      .mockResolvedValueOnce([{ batch_no: 'MED-STOCK-MED001' }])
+      .mockResolvedValueOnce([]);
+
+    await svc.inbound('2026-07-07', [{ medication_code: 'MED001', qty: 5 }], 'admin');
+
+    expect(manager.query).toHaveBeenCalledTimes(2);
+    expect(manager.query.mock.calls[1][0]).toBe(
+      'INSERT INTO inv_ledger (batch_no, change_type, qty_change, store_code, operator, ref_no, note) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    );
+    expect(manager.query.mock.calls[1][0]).not.toContain('log_date');
+    expect(manager.query.mock.calls[1][0]).not.toContain('warehouse_code');
+    expect(manager.query.mock.calls[1][0]).not.toContain('company_code');
+    expect(manager.query.mock.calls[1][1]).toEqual([
+      'MED-STOCK-MED001',
+      'MED_INBOUND',
+      5,
+      'SITE-MENGSAI-LAYER',
+      'admin',
+      'MED_INBOUND',
+      '采购入库',
+    ]);
+  });
+
+  it('getLedger falls back to created_at date when inv_ledger.log_date is absent', async () => {
+    const { ds, svc } = buildSvc();
+    ds.query
+      .mockResolvedValueOnce([
+        { column_name: 'id' },
+        { column_name: 'batch_no' },
+        { column_name: 'change_type' },
+        { column_name: 'qty_change' },
+        { column_name: 'operator' },
+        { column_name: 'note' },
+        { column_name: 'created_at' },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await expect(svc.getLedger('2026-07-07', '2026-07-11')).resolves.toEqual([]);
+
+    expect(ds.query.mock.calls[1][0]).toContain('l.created_at::date::text AS log_date');
+    expect(ds.query.mock.calls[1][0]).toContain('l.created_at::date BETWEEN $2::date AND $3::date');
+    expect(ds.query.mock.calls[1][1]).toEqual([['LPH_MS_MEDICINE', 'MEDICINE'], '2026-07-07', '2026-07-11']);
   });
 
   it('inbound accepts common payload aliases and defaults blank date to today', async () => {
@@ -94,7 +172,7 @@ describe('FarmMedicineService', () => {
 
     expect(manager.query.mock.calls[0][1][1]).toBe('MED001');
     expect(manager.query.mock.calls[0][1][2]).toBe(3.5);
-    expect(manager.query.mock.calls[1][1][2]).toBe('2026-07-11');
+    expect(manager.query.mock.calls[1][1][3]).toBe('2026-07-11');
     jest.useRealTimers();
   });
 
@@ -139,10 +217,11 @@ describe('FarmMedicineService', () => {
     expect(manager.query).toHaveBeenCalledTimes(2);
     expect(manager.query.mock.calls[0][0]).toContain('UPDATE inv_batches');
     expect(manager.query.mock.calls[0][1]).toEqual([2, 'MED-STOCK-MED001']);
-    expect(manager.query.mock.calls[1][0]).toContain('MED_OUTBOUND');
-    expect(manager.query.mock.calls[1][0]).not.toMatch(/\bhouse_code\b/);
+    expect(manager.query.mock.calls[1][1][1]).toBe('MED_OUTBOUND');
+    expect(manager.query.mock.calls[1][0]).toMatch(/\bhouse_code\b/);
     expect(manager.query.mock.calls[1][1]).toEqual([
       'MED-STOCK-MED001',
+      'MED_OUTBOUND',
       -2,
       '2026-07-07',
       'LPH_MS_MEDICINE',
@@ -150,6 +229,7 @@ describe('FarmMedicineService', () => {
       'SITE-MENGSAI-LAYER',
       'admin',
       'MED_OUTBOUND',
+      'A001',
       '用药出库 house=A001',
     ]);
   });

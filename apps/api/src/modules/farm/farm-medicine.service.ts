@@ -49,6 +49,24 @@ type RawMedItem = {
   note?: string;
 };
 
+type Queryable = {
+  query: (sql: string, params?: unknown[]) => Promise<any[]>;
+};
+
+type LedgerWrite = {
+  batchNo: string;
+  changeType: 'MED_INBOUND' | 'MED_OUTBOUND';
+  qtyChange: number;
+  logDate: string;
+  warehouseCode: string;
+  companyCode: string;
+  storeCode: string;
+  operator: string;
+  refNo: string;
+  note: string;
+  houseCode?: string;
+};
+
 function normalizeItems(items: unknown): Array<{ medication_code: string; qty: number; house_code?: string; note?: string }> {
   if (!Array.isArray(items)) {
     throw new BadRequestException('items 必须为数组');
@@ -98,10 +116,51 @@ export interface MedLedgerEntry {
 
 @Injectable()
 export class FarmMedicineService {
+  private invLedgerColumnsPromise: Promise<Set<string>> | null = null;
+
   constructor(
     @InjectDataSource() private ds: DataSource,
     private readonly scopeHelper: DataScopeHelper,
   ) {}
+
+  private getInvLedgerColumns(): Promise<Set<string>> {
+    if (!this.invLedgerColumnsPromise) {
+      this.invLedgerColumnsPromise = this.ds
+        .query<Array<{ column_name: string }>>(
+          `SELECT column_name
+             FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'inv_ledger'`,
+        )
+        .then(rows => new Set(rows.map(row => row.column_name)));
+    }
+    return this.invLedgerColumnsPromise;
+  }
+
+  private async insertLedger(queryable: Queryable, columns: Set<string>, entry: LedgerWrite): Promise<void> {
+    const insertColumns = ['batch_no', 'change_type', 'qty_change'];
+    const values: unknown[] = [entry.batchNo, entry.changeType, entry.qtyChange];
+    const addIfPresent = (column: string, value: unknown) => {
+      if (!columns.has(column)) return;
+      insertColumns.push(column);
+      values.push(value);
+    };
+
+    addIfPresent('log_date', entry.logDate);
+    addIfPresent('warehouse_code', entry.warehouseCode);
+    addIfPresent('company_code', entry.companyCode);
+    addIfPresent('store_code', entry.storeCode);
+    addIfPresent('operator', entry.operator);
+    addIfPresent('ref_no', entry.refNo);
+    addIfPresent('house_code', entry.houseCode ?? null);
+    addIfPresent('note', entry.note);
+
+    const placeholders = insertColumns.map((_, index) => `$${index + 1}`).join(', ');
+    await queryable.query(
+      `INSERT INTO inv_ledger (${insertColumns.join(', ')}) VALUES (${placeholders})`,
+      values,
+    );
+  }
 
   /** 药品目录 */
   async getCatalog(): Promise<MedStockRow[]> {
@@ -132,8 +191,14 @@ export class FarmMedicineService {
 
   /** 按日期范围查流水 */
   async getLedger(startDate: string, endDate: string): Promise<MedLedgerEntry[]> {
+    const ledgerColumns = await this.getInvLedgerColumns();
+    const dateExpr = ledgerColumns.has('log_date') ? 'l.log_date::text' : 'l.created_at::date::text';
+    const dateFilter = ledgerColumns.has('log_date')
+      ? 'l.log_date BETWEEN $2 AND $3'
+      : 'l.created_at::date BETWEEN $2::date AND $3::date';
+
     return this.ds.query<MedLedgerEntry[]>(
-      `SELECT l.id, l.log_date::text, l.change_type,
+      `SELECT l.id, ${dateExpr} AS log_date, l.change_type,
               b.product_code AS medication_code, m.medication_name,
               l.qty_change, NULL::text AS house_code, l.note, l.operator,
               l.created_at::text
@@ -141,7 +206,7 @@ export class FarmMedicineService {
        JOIN inv_batches b ON b.batch_no = l.batch_no
        LEFT JOIN brd_medications m ON m.medication_code = b.product_code
        WHERE b.warehouse_code = ANY($1)
-         AND l.log_date BETWEEN $2 AND $3
+         AND ${dateFilter}
        ORDER BY l.created_at DESC`,
       [WAREHOUSE_CODES, normalizeDate(startDate), normalizeDate(endDate)],
     );
@@ -156,6 +221,7 @@ export class FarmMedicineService {
     this.scopeHelper.assertWritableWarehouse(WAREHOUSE, '药品库存');
     const safeDate = normalizeDate(logDate);
     const safeItems = normalizeItems(items);
+    const ledgerColumns = await this.getInvLedgerColumns();
 
     await this.ds.transaction(async manager => {
       for (const item of safeItems) {
@@ -185,13 +251,18 @@ export class FarmMedicineService {
         if (rows.length === 0) {
           throw new BadRequestException(`药品 ${item.medication_code} 不存在或已停用`);
         }
-        await manager.query(
-          `INSERT INTO inv_ledger
-             (batch_no, change_type, qty_change, log_date, warehouse_code, company_code,
-              store_code, operator, ref_no, note)
-           VALUES ($1, 'MED_INBOUND', $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [bn, qty, safeDate, WAREHOUSE, COMPANY_CODE, STORE_CODE, operator, 'MED_INBOUND', item.note ?? '采购入库'],
-        );
+        await this.insertLedger(manager, ledgerColumns, {
+          batchNo: bn,
+          changeType: 'MED_INBOUND',
+          qtyChange: qty,
+          logDate: safeDate,
+          warehouseCode: WAREHOUSE,
+          companyCode: COMPANY_CODE,
+          storeCode: STORE_CODE,
+          operator,
+          refNo: 'MED_INBOUND',
+          note: item.note ?? '采购入库',
+        });
       }
     });
   }
@@ -205,6 +276,7 @@ export class FarmMedicineService {
     this.scopeHelper.assertWritableWarehouse(WAREHOUSE, '药品库存');
     const safeDate = normalizeDate(logDate);
     const safeItems = normalizeItems(items);
+    const ledgerColumns = await this.getInvLedgerColumns();
 
     await this.ds.transaction(async manager => {
       for (const item of safeItems) {
@@ -222,23 +294,19 @@ export class FarmMedicineService {
         if (rows.length === 0) {
           throw new BadRequestException(`药品 ${item.medication_code} 库存不存在，请先入库`);
         }
-        await manager.query(
-          `INSERT INTO inv_ledger
-             (batch_no, change_type, qty_change, log_date, warehouse_code, company_code,
-              store_code, operator, ref_no, note)
-           VALUES ($1, 'MED_OUTBOUND', $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [
-            bn,
-            -qty,
-            safeDate,
-            WAREHOUSE,
-            COMPANY_CODE,
-            STORE_CODE,
-            operator,
-            'MED_OUTBOUND',
-            item.note ?? (item.house_code ? `用药出库 house=${item.house_code}` : '用药出库'),
-          ],
-        );
+        await this.insertLedger(manager, ledgerColumns, {
+          batchNo: bn,
+          changeType: 'MED_OUTBOUND',
+          qtyChange: -qty,
+          logDate: safeDate,
+          warehouseCode: WAREHOUSE,
+          companyCode: COMPANY_CODE,
+          storeCode: STORE_CODE,
+          operator,
+          refNo: 'MED_OUTBOUND',
+          houseCode: item.house_code,
+          note: item.note ?? (item.house_code ? `用药出库 house=${item.house_code}` : '用药出库'),
+        });
       }
     });
   }
