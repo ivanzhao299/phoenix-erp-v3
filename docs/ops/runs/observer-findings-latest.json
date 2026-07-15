@@ -1,15 +1,15 @@
 {
   "summary": {
-    "generated_at": "2026-07-15T07:53:52.342Z",
+    "generated_at": "2026-07-15T08:59:46.606Z",
     "dry_run": true,
-    "run_files_inspected": 2093,
-    "task_count": 326,
+    "run_files_inspected": 2105,
+    "task_count": 330,
     "task_status_counts": {
       "archived": 213,
       "completed": 3,
-      "COMPLETED_MERGED": 48,
-      "VALIDATION_COMPLETED": 42,
-      "HOLD": 10,
+      "COMPLETED_MERGED": 50,
+      "VALIDATION_COMPLETED": 43,
+      "HOLD": 11,
       "SKIPPED_NOT_APPLICABLE": 10
     },
     "registered_agents": 8,
@@ -283,7 +283,7 @@
       "severity": "MEDIUM",
       "category": "repeat-hold",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "Queue HOLD count is 10.",
+      "evidence": "Queue HOLD count is 11.",
       "suggested_fix": "Cluster HOLD reasons and create one platform evolution task per repeated blocker.",
       "auto_fix_eligible": false,
       "requires_human_gate": true,

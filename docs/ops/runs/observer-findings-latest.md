@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-15T07:53:52.342Z |
-| Run files inspected | 2093 |
-| Task count | 326 |
+| Generated at | 2026-07-15T08:59:46.606Z |
+| Run files inspected | 2105 |
+| Task count | 330 |
 | Findings count | 32 |
 | Highest severity | CRITICAL |
 | Routing findings | 8 |
@@ -226,7 +226,7 @@
 ### OBS-0024 - MEDIUM - repeat-hold
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: Queue HOLD count is 10.
+- Evidence: Queue HOLD count is 11.
 - Suggested Fix: Cluster HOLD reasons and create one platform evolution task per repeated blocker.
 - Auto Fix Eligible: false
 - Requires Human Gate: true
