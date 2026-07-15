@@ -51,3 +51,22 @@ test('new redispatch generation resets terminal evidence and uses clean executio
   assert.equal(result.task.reason, null);
   assert.equal(result.task.evidence_gate, null);
 });
+
+test('new redispatch generation preserves verified successful evidence', () => {
+  const previous = {
+    ...sharedTask,
+    status: 'COMPLETED_MERGED',
+    redispatch_count: 2,
+    evidence_gate: { passed: true, role: 'implementation', commitHash: 'abc1234' },
+    implementation_commit: 'abc1234',
+  };
+  const next = { ...sharedTask, redispatch_count: 3, dependencies: ['BUGTASK-1-A5'] };
+
+  const result = mergeExistingQueueTask(previous, next, { redispatchRequested: true });
+
+  assert.equal(result.action, 'carried_forward_terminal');
+  assert.equal(result.task.status, 'COMPLETED_MERGED');
+  assert.equal(result.task.redispatch_count, 3);
+  assert.equal(result.task.evidence_gate.commitHash, 'abc1234');
+  assert.deepEqual(result.task.dependencies, ['BUGTASK-1-A5']);
+});

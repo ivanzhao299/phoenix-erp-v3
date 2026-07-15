@@ -10,8 +10,10 @@ const DISPATCH_MAP_FILE = 'docs/ops/AGENT_DISPATCH_MAP.json';
 const RUNS_DIR = 'docs/ops/runs';
 const TERMINAL_TASK_STATUSES = new Set([
   'completed',
+  'completed_merged',
   'validation_completed',
   'implementation_completed',
+  'skipped_not_applicable',
   'hold',
   'failed',
   'archived',
@@ -353,6 +355,33 @@ export function mergeExistingQueueTask(previous, task, { redispatchRequested = f
   const previousRedispatchCount = Number(previous.redispatch_count || 0);
   const nextRedispatchCount = Number(task.redispatch_count || 0);
   const newerRedispatch = redispatchRequested && nextRedispatchCount > previousRedispatchCount;
+
+  if (newerRedispatch && previous.evidence_gate?.passed === true && [
+    'completed',
+    'completed_merged',
+    'validation_completed',
+    'implementation_completed',
+    'skipped_not_applicable',
+  ].includes(String(previous.status || '').toLowerCase())) {
+    return {
+      action: 'carried_forward_terminal',
+      task: {
+        ...previous,
+        title: task.title,
+        dependencies: task.dependencies,
+        route_active: true,
+        route_selected_agents: task.route_selected_agents,
+        allowed_paths: task.allowed_paths,
+        forbidden_paths: task.forbidden_paths,
+        prompt_file: task.prompt_file,
+        contract_file: task.contract_file,
+        redispatch_count: nextRedispatchCount,
+        last_redispatch_at: task.last_redispatch_at,
+        carried_forward_at: new Date().toISOString(),
+        carried_forward_reason: 'verified terminal evidence preserved across a technical redispatch generation',
+      },
+    };
+  }
 
   if (!newerRedispatch) {
     if (TERMINAL_TASK_STATUSES.has(String(previous.status || '').toLowerCase())) {
