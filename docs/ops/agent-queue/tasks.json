@@ -13082,7 +13082,7 @@
     "source_repair_task_no": "BUGTASK-20260709-0004",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -13103,7 +13103,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-15T06:54:29.034Z",
+    "completed_at": "2026-07-15T06:54:30.917Z",
     "result_file": "docs/ops/runs/BUGTASK-20260709-0004-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -13152,8 +13152,8 @@
       "reason": "Business change, task report, commit, and conclusion are present"
     },
     "implementation_commit": "6b5e83d7d9673834a3f2db9406f48c6cb0b47667",
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "99ca9b32d050720b37d3de84f28984332a16610f",
+    "integrated_at": "2026-07-15T06:54:30.917Z",
     "changed_files": [
       "apps/api/src/modules/workflow/workflow.service.spec.ts",
       "apps/api/src/modules/workflow/workflow.service.ts",
