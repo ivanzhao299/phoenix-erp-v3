@@ -1823,8 +1823,11 @@ export class BugIntakeService {
   }
 
   private runnerLifecycleEvidence(report: BugReportEntity, agentResult: Record<string, unknown>) {
-    // A release receipt can advance only a report whose implementation evidence was already aggregated.
-    if (report.repairTaskStatus !== 'AGENT_EXECUTION_FINISHED') {
+    // A repeated successful release receipt must be idempotent. The resident
+    // runner can legitimately re-verify an already released report during a
+    // later backlog reconciliation cycle; downgrading FIX_READY_FOR_UAT to
+    // HOLD here would turn successful evidence into a false failure.
+    if (!['AGENT_EXECUTION_FINISHED', 'FIX_READY_FOR_UAT'].includes(String(report.repairTaskStatus || ''))) {
       return { passed: false, reason: `implementation evidence gate is not ready: ${report.repairTaskStatus || 'EMPTY'}` };
     }
     const validation = this.payloadObject(agentResult.validationResults);

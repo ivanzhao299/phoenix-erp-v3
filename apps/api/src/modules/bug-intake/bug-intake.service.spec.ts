@@ -230,6 +230,40 @@ describe('BugIntakeService evidence lifecycle', () => {
     expect(detail.repairResult.validations).toContainEqual({ key: 'implementation', label: '代码修复', status: 'PASS' });
   });
 
+  it('keeps FIX_READY_FOR_UAT when a later successful runner receipt repeats release verification', async () => {
+    const { row, service } = build();
+    row.repairTaskStatus = 'FIX_READY_FOR_UAT';
+    row.resolutionNote = '实现证据、CI/CD 与生产路由 smoke 已通过，等待管理员业务验收。';
+    row.repairTaskPayload = {
+      agentPlan: { selected_agents: ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate'] },
+      agentResults: [
+        {
+          taskId: 'A3', agent: 'A3-Backend-Critical-Path', conclusion: 'PASS_WITH_CONDITIONS',
+          commitHash: 'abc123', changedFiles: ['apps/api/src/x.ts'],
+          validationResults: { evidenceGate: { passed: true, role: 'implementation' } },
+        },
+        {
+          taskId: 'A1', agent: 'A1-CI-Runtime-Gate', conclusion: 'PASS_WITH_CONDITIONS',
+          validationResults: { evidenceGate: { passed: true, role: 'validation' } },
+        },
+        {
+          taskId: 'RUNNER-1', agent: 'BugIntakeLocalRunner', conclusion: 'PASS_WITH_CONDITIONS',
+          validationResults: { releaseEvidence: 'PASS', push: 'PASS', ci: 'PASS', productionSmoke: 'PASS' },
+        },
+      ],
+    };
+
+    await service.recordAgentResult(row.bugNo, {
+      taskId: 'RUNNER-2', agent: 'BugIntakeLocalRunner', conclusion: 'PASS_WITH_CONDITIONS',
+      validationResults: { releaseEvidence: 'PASS', push: 'PASS', ci: 'PASS', productionSmoke: 'PASS' },
+    }, user, meta);
+
+    const payload = row.repairTaskPayload as Record<string, any>;
+    expect(row.repairTaskStatus).toBe('FIX_READY_FOR_UAT');
+    expect(row.resolutionNote).toContain('等待管理员执行业务验收');
+    expect(payload.agentResults.filter((item: any) => item.agent === 'BugIntakeLocalRunner')).toHaveLength(1);
+  });
+
   it('does not present a HOLD repair task as successfully completed', async () => {
     const { row, service } = build();
     row.repairTaskStatus = 'HOLD';

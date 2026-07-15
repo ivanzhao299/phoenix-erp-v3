@@ -63,6 +63,14 @@
 
 **Regression:** resident-runner regression now passes 18 tests, including omitted-advisory-Agent backfill; Bug Intake service regression passes 12 tests, including receipt deduplication and verified-existing implementation evidence.
 
+### 8. Repeated successful release receipts could downgrade UAT-ready reports
+
+**Root cause:** the release receipt transition accepted only `AGENT_EXECUTION_FINISHED`. A later reconciliation cycle legitimately re-posted successful CI/CD and production-smoke evidence for a report already in `FIX_READY_FOR_UAT`; the strict pre-state check treated that success as invalid and downgraded the report to HOLD.
+
+**Fix:** successful runner lifecycle verification is now idempotent for both `AGENT_EXECUTION_FINISHED` and `FIX_READY_FOR_UAT`. Earlier states such as `AGENT_APPROVED` and `AGENT_RUNNING` remain blocked, so release evidence still cannot bypass implementation and A1 gates.
+
+**Regression:** Bug Intake lifecycle regression passes 13 tests, including a repeated successful release receipt that must retain `FIX_READY_FOR_UAT` and one runner receipt only.
+
 ## Local Retest Results
 
 | Validation | Result |
@@ -73,7 +81,7 @@
 | Web focused regression | PASS, 5 files / 20 tests |
 | Resident runner regression | PASS, 17 tests |
 | Queue redispatch regression | PASS, 3 tests |
-| Bug Intake service lifecycle regression | PASS, 12 tests |
+| Bug Intake service lifecycle regression | PASS, 13 tests |
 | Refined-route result backfill regression | PASS, resident runner 18 tests |
 | W5 closeout gate | PASS |
 | Freeze/security/static gates | PASS |
