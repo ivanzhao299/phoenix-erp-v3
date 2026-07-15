@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-15T08:14:10.996Z",
-  "updatedAt": "2026-07-15T08:19:00.870Z",
+  "updatedAt": "2026-07-15T08:23:02.392Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "目前养殖场档案只能从养殖场总览的养殖场一览的设置按钮中进入，并且只有编辑和删除的功能，没有新建的功能，现要求在加一个新建养殖场的功能，并且在主数据中心模块新增一个子菜单“养殖场档案”，点击可以直接跳转到这个界面",
@@ -1956,41 +1956,103 @@
         }
       },
       {
-        "taskId": "BUGTASK-20260715-0004-A3",
         "agent": "A3-Backend-Critical-Path",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md",
+        "taskId": "BUGTASK-20260715-0004-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26663\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-18-59-445Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS for A3 backend.\n\nImplemented backend RBAC repair for `/master/farms`:\n\n- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.ts): `brd_farms` now accepts `MENU_MD_ORG` as an alternate permission for view/create/edit, while delete remains restricted to `MENU_FARM_MASTER:D`.\n- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts): added regression coverage for create allowed via `MENU_MD_ORG:C` and delete still denied via `MENU_MD_ORG:D`.\n- Report written",
         "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-15T08:19:00.868Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md",
         "changedFiles": [
           "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
           "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
           "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
         ],
+        "redispatchCount": 0,
         "validationResults": {
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "evidenceGate": {
-            "version": 1,
+            "role": "implementation",
             "agent": "A3-Backend-Critical-Path",
+            "passed": true,
+            "reason": "Business change, task report, commit, and conclusion are present",
+            "version": 1,
             "exitCode": 0,
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 1282,
-            "beforeHead": "23baac30079e98e1bc79dc548d72bec021090b45",
             "afterHead": "245b2e8ff472367713ccaad7297005742382a7a9",
+            "checkedAt": "2026-07-15T08:18:59.613Z",
+            "beforeHead": "23baac30079e98e1bc79dc548d72bec021090b45",
             "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [
+              "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+            ],
             "changedFiles": [
               "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
               "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
               "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
             ],
+            "responseChars": 1282,
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
             "businessChangedFiles": [
               "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
               "apps/api/src/modules/generic-crud/generic-crud.controller.ts"
             ],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260715-0004-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A4-worker-log.md",
+        "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
+        "changedFiles": [
+          "apps/web/src/app/(admin)/master/farms/page.tsx",
+          "apps/web/src/components/layout/Sidebar.tsx",
+          "apps/web/src/lib/master-farms-menu.test.ts",
+          "apps/web/src/locales/en.json",
+          "apps/web/src/locales/lo.json",
+          "apps/web/src/locales/zh.json",
+          "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
+        ],
+        "validationResults": {
+          "evidenceGate": {
+            "version": 1,
+            "agent": "A4-Frontend-UAT-Smoke",
+            "exitCode": 0,
+            "conclusion": "PASS",
+            "responseChars": 1492,
+            "beforeHead": "271027f647a1408511cbf09b203ff28d4219e890",
+            "afterHead": "8a4d78463f65fab3d1dd01969681cf067762254b",
+            "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
+            "changedFiles": [
+              "apps/web/src/app/(admin)/master/farms/page.tsx",
+              "apps/web/src/components/layout/Sidebar.tsx",
+              "apps/web/src/lib/master-farms-menu.test.ts",
+              "apps/web/src/locales/en.json",
+              "apps/web/src/locales/lo.json",
+              "apps/web/src/locales/zh.json",
+              "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
+            ],
+            "businessChangedFiles": [
+              "apps/web/src/app/(admin)/master/farms/page.tsx",
+              "apps/web/src/components/layout/Sidebar.tsx",
+              "apps/web/src/lib/master-farms-menu.test.ts",
+              "apps/web/src/locales/en.json",
+              "apps/web/src/locales/lo.json",
+              "apps/web/src/locales/zh.json"
+            ],
             "reportFiles": [
-              "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+              "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
             ],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-15T08:18:59.613Z",
+            "checkedAt": "2026-07-15T08:23:01.151Z",
             "passed": true,
             "role": "implementation",
             "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -1999,11 +2061,11 @@
           "queueStatus": "IMPLEMENTATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26663\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-18-59-445Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS for A3 backend.\n\nImplemented backend RBAC repair for `/master/farms`:\n\n- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.ts): `brd_farms` now accepts `MENU_MD_ORG` as an alternate permission for view/create/edit, while delete remains restricted to `MENU_FARM_MASTER:D`.\n- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts): added regression coverage for create allowed via `MENU_MD_ORG:C` and delete still denied via `MENU_MD_ORG:D`.\n- Report written",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 26730\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-23-00-949Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend fix for `BUG-20260715-0004`.\n\nChanged:\n- Added `新增养殖场` action on [/master/farms page](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/master/farms/page.tsx:162).\n- Gated create/edit/delete by `MENU_FARM_MASTER:C/E/D`.\n- Added 主数据中心 submenu `养殖场档案 -> /master/farms` in [Sidebar.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/components/layout/Sidebar.tsx:233).\n- Added regression test [master-farms-menu.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/master-farms-menu.test.ts:1).\n- Wrote report: [BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md](/Users/mac/phoenix-erp-wor",
         "nextAction": "",
         "redispatchCount": 0,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-15T08:19:00.868Z"
+        "recordedAt": "2026-07-15T08:23:02.390Z"
       }
     ],
     "suggestedOwner": "",
@@ -2014,41 +2076,53 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260715-0004-A3",
-      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260715-0004-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md",
-      "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+      "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A4-worker-log.md",
+      "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
       "changedFiles": [
-        "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-        "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-        "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+        "apps/web/src/app/(admin)/master/farms/page.tsx",
+        "apps/web/src/components/layout/Sidebar.tsx",
+        "apps/web/src/lib/master-farms-menu.test.ts",
+        "apps/web/src/locales/en.json",
+        "apps/web/src/locales/lo.json",
+        "apps/web/src/locales/zh.json",
+        "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
       ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A3-Backend-Critical-Path",
+          "agent": "A4-Frontend-UAT-Smoke",
           "exitCode": 0,
-          "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 1282,
-          "beforeHead": "23baac30079e98e1bc79dc548d72bec021090b45",
-          "afterHead": "245b2e8ff472367713ccaad7297005742382a7a9",
-          "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+          "conclusion": "PASS",
+          "responseChars": 1492,
+          "beforeHead": "271027f647a1408511cbf09b203ff28d4219e890",
+          "afterHead": "8a4d78463f65fab3d1dd01969681cf067762254b",
+          "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
           "changedFiles": [
-            "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-            "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-            "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+            "apps/web/src/app/(admin)/master/farms/page.tsx",
+            "apps/web/src/components/layout/Sidebar.tsx",
+            "apps/web/src/lib/master-farms-menu.test.ts",
+            "apps/web/src/locales/en.json",
+            "apps/web/src/locales/lo.json",
+            "apps/web/src/locales/zh.json",
+            "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
           ],
           "businessChangedFiles": [
-            "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-            "apps/api/src/modules/generic-crud/generic-crud.controller.ts"
+            "apps/web/src/app/(admin)/master/farms/page.tsx",
+            "apps/web/src/components/layout/Sidebar.tsx",
+            "apps/web/src/lib/master-farms-menu.test.ts",
+            "apps/web/src/locales/en.json",
+            "apps/web/src/locales/lo.json",
+            "apps/web/src/locales/zh.json"
           ],
           "reportFiles": [
-            "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+            "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
           ],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-15T08:18:59.613Z",
+          "checkedAt": "2026-07-15T08:23:01.151Z",
           "passed": true,
           "role": "implementation",
           "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -2057,11 +2131,11 @@
         "queueStatus": "IMPLEMENTATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26663\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-18-59-445Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS for A3 backend.\n\nImplemented backend RBAC repair for `/master/farms`:\n\n- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.ts): `brd_farms` now accepts `MENU_MD_ORG` as an alternate permission for view/create/edit, while delete remains restricted to `MENU_FARM_MASTER:D`.\n- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts): added regression coverage for create allowed via `MENU_MD_ORG:C` and delete still denied via `MENU_MD_ORG:D`.\n- Report written",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 26730\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-23-00-949Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend fix for `BUG-20260715-0004`.\n\nChanged:\n- Added `新增养殖场` action on [/master/farms page](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/master/farms/page.tsx:162).\n- Gated create/edit/delete by `MENU_FARM_MASTER:C/E/D`.\n- Added 主数据中心 submenu `养殖场档案 -> /master/farms` in [Sidebar.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/components/layout/Sidebar.tsx:233).\n- Added regression test [master-farms-menu.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/master-farms-menu.test.ts:1).\n- Wrote report: [BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md](/Users/mac/phoenix-erp-wor",
       "nextAction": "",
       "redispatchCount": 0,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-15T08:19:00.868Z"
+      "recordedAt": "2026-07-15T08:23:02.390Z"
     },
     "acceptanceCriteria": "目前养殖场档案只能从养殖场总览的养殖场一览的设置按钮中进入，并且只有编辑和删除的功能，没有新建的功能，现要求在加一个新建养殖场的功能，并且在主数据中心模块新增一个子菜单“养殖场档案”，点击可以直接跳转到这个界面",
     "agentPlanGeneratedAt": "2026-07-15T08:14:22.493Z",
@@ -2105,11 +2179,18 @@
     "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+    "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
     "changedFiles": [
       "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
       "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-      "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+      "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md",
+      "apps/web/src/app/(admin)/master/farms/page.tsx",
+      "apps/web/src/components/layout/Sidebar.tsx",
+      "apps/web/src/lib/master-farms-menu.test.ts",
+      "apps/web/src/locales/en.json",
+      "apps/web/src/locales/lo.json",
+      "apps/web/src/locales/zh.json",
+      "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
     ],
     "validations": [
       {
@@ -2138,7 +2219,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-15T08:19:00.868Z",
+    "completedAt": "2026-07-15T08:23:02.390Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"
