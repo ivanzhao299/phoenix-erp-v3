@@ -21776,7 +21776,7 @@
     "source_repair_task_no": "BUGTASK-20260713-0004",
     "source": "bug-intake",
     "agent": "A2-Security-Regression-Gate",
-    "status": "pending",
+    "status": "VALIDATION_COMPLETED",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -21799,8 +21799,8 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-15T01:04:44.329Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260713-0004-A2-worker-log.md",
     "next_agents": [
       "A1-CI-Runtime-Gate",
       "A3-Backend-Critical-Path",
@@ -21815,7 +21815,32 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T00:56:32.919Z"
+    "last_redispatch_at": "2026-07-15T00:56:32.919Z",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A2-Security-Regression-Gate",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 727,
+      "beforeHead": "8b1a893e522ffb06c5e62cc1478c3e58276273e3",
+      "afterHead": "8b1a893e522ffb06c5e62cc1478c3e58276273e3",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-15T01:04:44.329Z",
+      "passed": true,
+      "role": "validation",
+      "terminalStatus": "VALIDATION_COMPLETED",
+      "reason": "Validation evidence recorded; this is not implementation evidence"
+    },
+    "implementation_commit": "",
+    "changed_files": [],
+    "retry_after": null,
+    "baseline_autopilot_exit_code": 0,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
     "task_id": "BUGTASK-20260713-0004-A3",

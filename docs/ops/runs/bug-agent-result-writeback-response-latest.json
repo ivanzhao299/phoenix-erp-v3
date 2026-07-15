@@ -9,12 +9,12 @@
   "assigneeUsername": "",
   "assigneeName": "",
   "repairTaskNo": "BUGTASK-20260713-0004",
-  "repairTaskStatus": "HOLD",
+  "repairTaskStatus": "AGENT_RUNNING",
   "route": "/warehouse/query",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-13T07:24:46.039Z",
-  "updatedAt": "2026-07-15T01:04:43.790Z",
+  "updatedAt": "2026-07-15T01:04:45.626Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "库存管理-库存查询的仓库显示代码，要求显示对应的中文名字",
@@ -1630,41 +1630,78 @@
     "moduleCode": "____",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260713-0004-A3",
         "agent": "A3-Backend-Critical-Path",
+        "taskId": "BUGTASK-20260713-0004-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 23177\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T01-04-42-257Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nBUG-20260713-0004 is already implemented on this branch in commit `48417a0e fix(api): repair BUG-20260713-0004`. The backend now enriches `/api/inventory/batches` by joining `wms_warehouses` and returning `warehouse_name` / `warehouse_name_zh` while preserving `warehouse_code` and DataScope filtering on `b.warehouse_code`.\n\nChanged files:\n- [wms.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.ts:478)\n- [wms.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.spec.ts:21)\n- [BUG report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+        "commitHash": "",
         "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-15T01:04:43.786Z",
+        "recordedBy": "bug_intake_runner",
         "resultFile": "docs/ops/runs/BUGTASK-20260713-0004-A3-worker-log.md",
+        "changedFiles": [],
+        "redispatchCount": 1,
+        "validationResults": {
+          "queueStatus": "SKIPPED_NOT_APPLICABLE",
+          "evidenceGate": {
+            "role": "implementation_verified_existing",
+            "agent": "A3-Backend-Critical-Path",
+            "passed": true,
+            "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "7ad8918f1aad61731109ca452c420bd7875ce29d",
+            "checkedAt": "2026-07-15T01:04:42.345Z",
+            "beforeHead": "7ad8918f1aad61731109ca452c420bd7875ce29d",
+            "commitHash": "",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 1089,
+            "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260713-0004-A2",
+        "agent": "A2-Security-Regression-Gate",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "resultFile": "docs/ops/runs/BUGTASK-20260713-0004-A2-worker-log.md",
         "commitHash": "",
         "changedFiles": [],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
-            "agent": "A3-Backend-Critical-Path",
+            "agent": "A2-Security-Regression-Gate",
             "exitCode": 0,
             "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 1089,
-            "beforeHead": "7ad8918f1aad61731109ca452c420bd7875ce29d",
-            "afterHead": "7ad8918f1aad61731109ca452c420bd7875ce29d",
+            "responseChars": 727,
+            "beforeHead": "8b1a893e522ffb06c5e62cc1478c3e58276273e3",
+            "afterHead": "8b1a893e522ffb06c5e62cc1478c3e58276273e3",
             "commitHash": "",
             "changedFiles": [],
             "businessChangedFiles": [],
             "reportFiles": [],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-15T01:04:42.345Z",
+            "checkedAt": "2026-07-15T01:04:44.329Z",
             "passed": true,
-            "role": "implementation_verified_existing",
-            "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-            "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+            "role": "validation",
+            "terminalStatus": "VALIDATION_COMPLETED",
+            "reason": "Validation evidence recorded; this is not implementation evidence"
           },
-          "queueStatus": "SKIPPED_NOT_APPLICABLE",
+          "queueStatus": "VALIDATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 23177\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T01-04-42-257Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nBUG-20260713-0004 is already implemented on this branch in commit `48417a0e fix(api): repair BUG-20260713-0004`. The backend now enriches `/api/inventory/batches` by joining `wms_warehouses` and returning `warehouse_name` / `warehouse_name_zh` while preserving `warehouse_code` and DataScope filtering on `b.warehouse_code`.\n\nChanged files:\n- [wms.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.ts:478)\n- [wms.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.spec.ts:21)\n- [BUG report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0004-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260713-0004-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260713-0004-A2\nTitle: Repair BUG-20260713-0004: 库存管理-库存查询的仓库显示代码，要求显示对应的中文名字 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A2-Security-Regression-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS_WITH_CONDITIONS\",\n  \"responseChars\": 727,\n  \"beforeHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"afterHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"infrastructureFailure\": null,\n  \"checkedAt\": \"2026-07-15T01:04:44.329Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```",
         "nextAction": "",
         "redispatchCount": 1,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-15T01:04:43.786Z"
+        "recordedAt": "2026-07-15T01:04:45.621Z"
       }
     ],
     "suggestedOwner": "",
@@ -1677,41 +1714,41 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260713-0004-A3",
-      "agent": "A3-Backend-Critical-Path",
-      "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260713-0004-A3-worker-log.md",
+      "taskId": "BUGTASK-20260713-0004-A2",
+      "agent": "A2-Security-Regression-Gate",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "resultFile": "docs/ops/runs/BUGTASK-20260713-0004-A2-worker-log.md",
       "commitHash": "",
       "changedFiles": [],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A3-Backend-Critical-Path",
+          "agent": "A2-Security-Regression-Gate",
           "exitCode": 0,
           "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 1089,
-          "beforeHead": "7ad8918f1aad61731109ca452c420bd7875ce29d",
-          "afterHead": "7ad8918f1aad61731109ca452c420bd7875ce29d",
+          "responseChars": 727,
+          "beforeHead": "8b1a893e522ffb06c5e62cc1478c3e58276273e3",
+          "afterHead": "8b1a893e522ffb06c5e62cc1478c3e58276273e3",
           "commitHash": "",
           "changedFiles": [],
           "businessChangedFiles": [],
           "reportFiles": [],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-15T01:04:42.345Z",
+          "checkedAt": "2026-07-15T01:04:44.329Z",
           "passed": true,
-          "role": "implementation_verified_existing",
-          "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-          "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+          "role": "validation",
+          "terminalStatus": "VALIDATION_COMPLETED",
+          "reason": "Validation evidence recorded; this is not implementation evidence"
         },
-        "queueStatus": "SKIPPED_NOT_APPLICABLE",
+        "queueStatus": "VALIDATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 23177\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T01-04-42-257Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nBUG-20260713-0004 is already implemented on this branch in commit `48417a0e fix(api): repair BUG-20260713-0004`. The backend now enriches `/api/inventory/batches` by joining `wms_warehouses` and returning `warehouse_name` / `warehouse_name_zh` while preserving `warehouse_code` and DataScope filtering on `b.warehouse_code`.\n\nChanged files:\n- [wms.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.ts:478)\n- [wms.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.spec.ts:21)\n- [BUG report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0004-A2 |\n| Agent | A2-Security-Regression-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260713-0004-A2\n```\n\n## Stdout\n\n```text\nLOCAL_A2_SECURITY_REVIEW\nTask: BUGTASK-20260713-0004-A2\nTitle: Repair BUG-20260713-0004: 库存管理-库存查询的仓库显示代码，要求显示对应的中文名字 (A2-Security-Regression-Gate)\nConclusion: PASS WITH CONDITIONS\nFindings:\n- High-risk operation keyword detected; keep repair behind explicit gate.\nRequired follow-up:\n- Code-changing A3/A4 tasks must preserve RBAC/DataScope/menu gates.\n- No deploy, DB write, migration, seed, or push outside runner release gate.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-task-to-agent-queue.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A2-Security-Regression-Gate\",\n  \"exitCode\": 0,\n  \"conclusion\": \"PASS_WITH_CONDITIONS\",\n  \"responseChars\": 727,\n  \"beforeHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"afterHead\": \"8b1a893e522ffb06c5e62cc1478c3e58276273e3\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"infrastructureFailure\": null,\n  \"checkedAt\": \"2026-07-15T01:04:44.329Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```",
       "nextAction": "",
       "redispatchCount": 1,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-15T01:04:43.786Z"
+      "recordedAt": "2026-07-15T01:04:45.621Z"
     },
     "redispatchHistory": [
       {
@@ -4300,11 +4337,11 @@
     ]
   },
   "repairResult": {
-    "visibility": "HOLD",
-    "headline": "修复暂未完成，当前处于 HOLD",
-    "conclusion": "HOLD",
-    "adminSummary": "自动修复生命周期证据不完整，保持 HOLD：implementation evidence gate is not ready: AGENT_RUNNING",
-    "sourceStatus": "HOLD",
+    "visibility": "RUNNING",
+    "headline": "修复任务正在执行",
+    "conclusion": "IN_PROGRESS",
+    "adminSummary": "已收到 2 条 Agent 回写，任务仍在执行。",
+    "sourceStatus": "AGENT_RUNNING",
     "readyForUat": false,
     "businessVerified": false,
     "commitHash": null,
@@ -4336,8 +4373,8 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-15T01:04:43.786Z",
-    "nextAction": "需要重新分派或人工 Gate"
+    "completedAt": "2026-07-15T01:04:45.621Z",
+    "nextAction": "本地 runner 执行中，超时后自动 HOLD"
   },
   "updatedBy": "bug_intake_runner"
 }
