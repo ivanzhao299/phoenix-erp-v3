@@ -22275,7 +22275,7 @@
     "source_repair_task_no": "BUGTASK-20260715-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -22298,8 +22298,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-15T07:37:28.955Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260715-0001-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -22315,7 +22315,31 @@
     ],
     "redispatch_count": 0,
     "last_redispatch_at": null,
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "HOLD",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A4-Frontend-UAT-Smoke",
+      "exitCode": 0,
+      "conclusion": "PASS",
+      "responseChars": 1498,
+      "beforeHead": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
+      "afterHead": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-15T07:37:28.954Z",
+      "passed": false,
+      "role": "implementation",
+      "terminalStatus": "HOLD",
+      "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+    },
+    "implementation_commit": "",
+    "changed_files": [],
+    "retry_after": null,
+    "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
   },
   {
     "task_id": "BUGTASK-20260715-0001-A1",
