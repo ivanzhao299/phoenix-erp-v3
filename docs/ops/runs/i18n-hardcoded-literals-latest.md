@@ -1,6 +1,6 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-14T17:32:17.825Z
+Generated: 2026-07-15T06:18:50.289Z
 
 Scanned hardcoded literals: 3244
 Covered by validated runtime bridge: 3244
@@ -56,7 +56,7 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 | `apps/web/src/app/(admin)/uat/page.tsx` | 22 | 62:未命名维度<br>76:未命名验收项<br>108:采购管理<br>109:财务管理<br>110:销售管理<br>111:配送管理<br>112:库存管理<br>113:审批流程 |
 | `apps/web/src/app/(admin)/workflow/page.tsx` | 22 | 13:采购申请<br>13:采购<br>14:费用报销<br>14:财务<br>15:库存调整<br>15:仓储<br>16:门店折扣<br>16:门店 |
 | `apps/web/src/app/(admin)/breeding/med-stock/page.tsx` | 20 | 55:2号舍<br>55:3号舍<br>55:4号舍<br>55:5号舍<br>55:6号舍<br>55:全场<br>261:药品名称<br>261:规格 |
-| `apps/web/src/app/(admin)/bug-reports/page.tsx` | 20 | 197:已批准待执行<br>198:Agent 执行中<br>199:HOLD 待处理<br>200:待批准入队<br>201:待生成计划<br>280:刷新结果<br>291:已通过<br>291:未通过 |
+| `apps/web/src/app/(admin)/bug-reports/page.tsx` | 20 | 210:已批准待执行<br>211:Agent 执行中<br>212:HOLD 待处理<br>213:待批准入队<br>214:待生成计划<br>293:刷新结果<br>304:已通过<br>304:未通过 |
 | `apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx` | 20 | 103:股权投资<br>104:借款<br>105:垫资<br>106:担保金<br>107:代付<br>117:草稿<br>118:待确认<br>119:已确认 |
 | `apps/web/src/app/(admin)/store-payment/page.tsx` | 20 | 24:万象直营店<br>162:附件预览待安全授权开通。<br>163:当前文件不可预览或下载。<br>164:权限不足，无法访问附件。<br>166:安全策略禁止裸链接访问。<br>168:当前仅显示受控附件状态。<br>214:文件元数据未配置<br>225:安全策略禁止裸链接访问 |
 | `apps/web/src/components/uat/FeedbackWidget.tsx` | 20 | 23:🐞 功能异常<br>24:💡 改进建议<br>25:❓ 操作疑问<br>26:📊 数据问题<br>29:低 · 不影响使用<br>30:中 · 有点别扭<br>31:高 · 影响干活<br>32:紧急 · 干不下去了 |

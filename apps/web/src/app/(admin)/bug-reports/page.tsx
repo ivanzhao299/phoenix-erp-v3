@@ -188,8 +188,8 @@ async function apiJson<T>(response: Response): Promise<T> {
   return body as T;
 }
 
-function actionErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error || "操作失败，请稍后重试");
+function actionErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : String(error || fallback);
 }
 
 function badgeColor(value: string) {
@@ -559,7 +559,7 @@ export default function BugReportsPage() {
       setActionNotice(t("system.bugIntake.triageSaved", "受理信息已保存"));
       await fetchList(page);
     } catch (error) {
-      setActionError(actionErrorMessage(error));
+      setActionError(actionErrorMessage(error, t("system.bugIntake.actionFailed", "操作失败，请稍后重试")));
     } finally {
       setSaving(false);
     }
@@ -589,7 +589,7 @@ export default function BugReportsPage() {
         : t("system.bugIntake.repairStarted", "修复任务已批准入队，本地 Runner 将自动领取"));
       await Promise.all([fetchList(page), fetchPipelineStatus()]);
     } catch (error) {
-      setActionError(actionErrorMessage(error));
+      setActionError(actionErrorMessage(error, t("system.bugIntake.actionFailed", "操作失败，请稍后重试")));
     } finally {
       setSaving(false);
     }
@@ -617,7 +617,7 @@ export default function BugReportsPage() {
       await fetchList(page);
       await fetchPipelineStatus();
     } catch (error) {
-      setActionError(actionErrorMessage(error));
+      setActionError(actionErrorMessage(error, t("system.bugIntake.actionFailed", "操作失败，请稍后重试")));
     } finally {
       setSaving(false);
     }
@@ -641,7 +641,7 @@ export default function BugReportsPage() {
         : t("system.bugIntake.closedNotice", "问题已关闭归档"));
       await Promise.all([fetchList(page), fetchPipelineStatus()]);
     } catch (error) {
-      setActionError(actionErrorMessage(error));
+      setActionError(actionErrorMessage(error, t("system.bugIntake.actionFailed", "操作失败，请稍后重试")));
     } finally {
       setSaving(false);
     }

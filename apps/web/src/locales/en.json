@@ -13250,6 +13250,7 @@
   "system.bugIntake.stillBrokenRedispatch": "Issue remains; redispatch",
   "system.bugIntake.closeArchive": "Close and archive",
   "system.bugIntake.triageSaved": "Triage information saved",
+  "system.bugIntake.actionFailed": "The action failed. Please try again later.",
   "system.bugIntake.businessVerifiedNotice": "Business verification confirmed; the issue is marked resolved",
   "system.bugIntake.closedNotice": "Issue closed and archived",
   "system.bugIntake.repairTaskTitle": "Repair task package",

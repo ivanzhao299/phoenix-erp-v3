@@ -13250,6 +13250,7 @@
   "system.bugIntake.stillBrokenRedispatch": "仍有问题，重新派发",
   "system.bugIntake.closeArchive": "关闭并归档",
   "system.bugIntake.triageSaved": "受理信息已保存",
+  "system.bugIntake.actionFailed": "操作失败，请稍后重试",
   "system.bugIntake.businessVerifiedNotice": "业务复验已确认，问题已标记解决",
   "system.bugIntake.closedNotice": "问题已关闭归档",
   "system.bugIntake.repairTaskTitle": "修复任务包",

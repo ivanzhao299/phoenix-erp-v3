@@ -13250,6 +13250,7 @@
   "system.bugIntake.stillBrokenRedispatch": "ຍັງມີບັນຫາ; ສົ່ງຄືນ",
   "system.bugIntake.closeArchive": "ປິດ ແລະ ເກັບເຂົ້າຄັງ",
   "system.bugIntake.triageSaved": "ບັນທຶກການຮັບເລື່ອງແລ້ວ",
+  "system.bugIntake.actionFailed": "ການດຳເນີນການລົ້ມເຫຼວ ກະລຸນາລອງໃໝ່ພາຍຫຼັງ",
   "system.bugIntake.businessVerifiedNotice": "ຢືນຢັນການກວດຮັບແລ້ວ; ໝາຍບັນຫາວ່າແກ້ໄຂແລ້ວ",
   "system.bugIntake.closedNotice": "ປິດ ແລະ ເກັບບັນຫາແລ້ວ",
   "system.bugIntake.repairTaskTitle": "ແພັກເກດວຽກສ້ອມແປງ",

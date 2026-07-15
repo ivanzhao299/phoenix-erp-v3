@@ -40,7 +40,7 @@ describe("bug intake administrator repair result visibility", () => {
 
   it("surfaces backend action failures instead of silently ignoring non-2xx responses", () => {
     expect(pageSource).toContain("async function apiJson");
-    expect(pageSource).toContain("setActionError(actionErrorMessage(error))");
+    expect(pageSource).toContain("setActionError(actionErrorMessage(error, t(\"system.bugIntake.actionFailed\"");
     expect(pageSource).toContain('role="alert"');
   });
 });
