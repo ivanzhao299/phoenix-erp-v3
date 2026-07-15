@@ -13668,5 +13668,15 @@
   "auto.literal.ab86e855c6ca": "Exact mappings:",
   "auto.literal.c2968c2344b4": "New differences:",
   "auto.literal.97e86cad86e2": " · Unchanged:",
-  "auto.literal.9a8344e3d177": "Automatically resolved:"
+  "auto.literal.9a8344e3d177": "Automatically resolved:",
+  "ui.无权限编辑": "No permission to edit",
+  "ui.无权限新增": "No permission to create",
+  "ui.无权限删除": "No permission to delete",
+  "prc2.generated_after_save": "Generated after saving",
+  "prc2.po_id_help": "System-generated unique identifier for this purchase order",
+  "ui.常温区": "Ambient zone",
+  "ui.冷藏区": "Chilled zone",
+  "ui.冷冻区": "Frozen zone",
+  "ui.暂存区": "Staging zone",
+  "ui.退货区": "Returns zone"
 }
