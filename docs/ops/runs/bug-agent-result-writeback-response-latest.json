@@ -9,12 +9,12 @@
   "assigneeUsername": "",
   "assigneeName": "",
   "repairTaskNo": "BUGTASK-20260715-0004",
-  "repairTaskStatus": "AGENT_RUNNING",
+  "repairTaskStatus": "HOLD",
   "route": "/master/farms",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-15T08:14:10.996Z",
-  "updatedAt": "2026-07-15T08:16:50.520Z",
+  "updatedAt": "2026-07-15T08:19:00.870Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "目前养殖场档案只能从养殖场总览的养殖场一览的设置按钮中进入，并且只有编辑和删除的功能，没有新建的功能，现要求在加一个新建养殖场的功能，并且在主数据中心模块新增一个子菜单“养殖场档案”，点击可以直接跳转到这个界面",
@@ -1919,41 +1919,91 @@
     "moduleCode": "",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260715-0004-A5",
         "agent": "A5-Data-Readiness",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A5-worker-log.md",
+        "taskId": "BUGTASK-20260715-0004-A5",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260715-0004-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260715-0004-A5\nTitle: Repair BUG-20260715-0004: 养殖场档案添加新建功能，并在主数据中心加一个子菜单 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A5-Data-Readiness\",\n  \"exitCode\": 0,\n  \"conclusion\": \"GO_WITH_CONDITIONS\",\n  \"responseChars\": 750,\n  \"beforeHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"afterHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"infrastructureFailure\": null,\n  \"checkedAt\": \"2026-07-15T08:16:49.161Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```",
         "commitHash": "",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "",
+        "recordedAt": "2026-07-15T08:16:50.517Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A5-worker-log.md",
         "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "queueStatus": "VALIDATION_COMPLETED",
+          "evidenceGate": {
+            "role": "validation",
+            "agent": "A5-Data-Readiness",
+            "passed": true,
+            "reason": "Validation evidence recorded; this is not implementation evidence",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
+            "checkedAt": "2026-07-15T08:16:49.161Z",
+            "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
+            "commitHash": "",
+            "conclusion": "GO_WITH_CONDITIONS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 750,
+            "terminalStatus": "VALIDATION_COMPLETED",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260715-0004-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md",
+        "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+        "changedFiles": [
+          "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+          "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+          "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+        ],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
-            "agent": "A5-Data-Readiness",
+            "agent": "A3-Backend-Critical-Path",
             "exitCode": 0,
-            "conclusion": "GO_WITH_CONDITIONS",
-            "responseChars": 750,
-            "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-            "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-            "commitHash": "",
-            "changedFiles": [],
-            "businessChangedFiles": [],
-            "reportFiles": [],
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "responseChars": 1282,
+            "beforeHead": "23baac30079e98e1bc79dc548d72bec021090b45",
+            "afterHead": "245b2e8ff472367713ccaad7297005742382a7a9",
+            "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+            "changedFiles": [
+              "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+              "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+              "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+            ],
+            "businessChangedFiles": [
+              "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+              "apps/api/src/modules/generic-crud/generic-crud.controller.ts"
+            ],
+            "reportFiles": [
+              "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+            ],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-15T08:16:49.161Z",
+            "checkedAt": "2026-07-15T08:18:59.613Z",
             "passed": true,
-            "role": "validation",
-            "terminalStatus": "VALIDATION_COMPLETED",
-            "reason": "Validation evidence recorded; this is not implementation evidence"
+            "role": "implementation",
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
+            "reason": "Business change, task report, commit, and conclusion are present"
           },
-          "queueStatus": "VALIDATION_COMPLETED",
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260715-0004-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260715-0004-A5\nTitle: Repair BUG-20260715-0004: 养殖场档案添加新建功能，并在主数据中心加一个子菜单 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A5-Data-Readiness\",\n  \"exitCode\": 0,\n  \"conclusion\": \"GO_WITH_CONDITIONS\",\n  \"responseChars\": 750,\n  \"beforeHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"afterHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"infrastructureFailure\": null,\n  \"checkedAt\": \"2026-07-15T08:16:49.161Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26663\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-18-59-445Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS for A3 backend.\n\nImplemented backend RBAC repair for `/master/farms`:\n\n- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.ts): `brd_farms` now accepts `MENU_MD_ORG` as an alternate permission for view/create/edit, while delete remains restricted to `MENU_FARM_MASTER:D`.\n- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts): added regression coverage for create allowed via `MENU_MD_ORG:C` and delete still denied via `MENU_MD_ORG:D`.\n- Report written",
         "nextAction": "",
         "redispatchCount": 0,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-15T08:16:50.517Z"
+        "recordedAt": "2026-07-15T08:19:00.868Z"
       }
     ],
     "suggestedOwner": "",
@@ -1964,41 +2014,54 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260715-0004-A5",
-      "agent": "A5-Data-Readiness",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A5-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
+      "taskId": "BUGTASK-20260715-0004-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "conclusion": "HOLD",
+      "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md",
+      "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+      "changedFiles": [
+        "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+        "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+        "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+      ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A5-Data-Readiness",
+          "agent": "A3-Backend-Critical-Path",
           "exitCode": 0,
-          "conclusion": "GO_WITH_CONDITIONS",
-          "responseChars": 750,
-          "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-          "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-          "commitHash": "",
-          "changedFiles": [],
-          "businessChangedFiles": [],
-          "reportFiles": [],
+          "conclusion": "PASS_WITH_CONDITIONS",
+          "responseChars": 1282,
+          "beforeHead": "23baac30079e98e1bc79dc548d72bec021090b45",
+          "afterHead": "245b2e8ff472367713ccaad7297005742382a7a9",
+          "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+          "changedFiles": [
+            "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+            "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+            "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+          ],
+          "businessChangedFiles": [
+            "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+            "apps/api/src/modules/generic-crud/generic-crud.controller.ts"
+          ],
+          "reportFiles": [
+            "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+          ],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-15T08:16:49.161Z",
+          "checkedAt": "2026-07-15T08:18:59.613Z",
           "passed": true,
-          "role": "validation",
-          "terminalStatus": "VALIDATION_COMPLETED",
-          "reason": "Validation evidence recorded; this is not implementation evidence"
+          "role": "implementation",
+          "terminalStatus": "IMPLEMENTATION_COMPLETED",
+          "reason": "Business change, task report, commit, and conclusion are present"
         },
-        "queueStatus": "VALIDATION_COMPLETED",
+        "queueStatus": "IMPLEMENTATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260715-0004-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260715-0004-A5\nTitle: Repair BUG-20260715-0004: 养殖场档案添加新建功能，并在主数据中心加一个子菜单 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A5-Data-Readiness\",\n  \"exitCode\": 0,\n  \"conclusion\": \"GO_WITH_CONDITIONS\",\n  \"responseChars\": 750,\n  \"beforeHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"afterHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"infrastructureFailure\": null,\n  \"checkedAt\": \"2026-07-15T08:16:49.161Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26663\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-18-59-445Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS for A3 backend.\n\nImplemented backend RBAC repair for `/master/farms`:\n\n- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.ts): `brd_farms` now accepts `MENU_MD_ORG` as an alternate permission for view/create/edit, while delete remains restricted to `MENU_FARM_MASTER:D`.\n- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts): added regression coverage for create allowed via `MENU_MD_ORG:C` and delete still denied via `MENU_MD_ORG:D`.\n- Report written",
       "nextAction": "",
       "redispatchCount": 0,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-15T08:16:50.517Z"
+      "recordedAt": "2026-07-15T08:19:00.868Z"
     },
     "acceptanceCriteria": "目前养殖场档案只能从养殖场总览的养殖场一览的设置按钮中进入，并且只有编辑和删除的功能，没有新建的功能，现要求在加一个新建养殖场的功能，并且在主数据中心模块新增一个子菜单“养殖场档案”，点击可以直接跳转到这个界面",
     "agentPlanGeneratedAt": "2026-07-15T08:14:22.493Z",
@@ -2035,20 +2098,24 @@
     "failureClassificationUpdatedAt": "2026-07-15T08:14:22.493Z"
   },
   "repairResult": {
-    "visibility": "RUNNING",
-    "headline": "修复任务正在执行",
-    "conclusion": "IN_PROGRESS",
-    "adminSummary": "已收到 1 条 Agent 回写，任务仍在执行。",
-    "sourceStatus": "AGENT_RUNNING",
+    "visibility": "HOLD",
+    "headline": "修复暂未完成，当前处于 HOLD",
+    "conclusion": "HOLD",
+    "adminSummary": "证据或执行条件不足，需要重新分派或人工复核。",
+    "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": null,
-    "changedFiles": [],
+    "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+    "changedFiles": [
+      "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+      "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+      "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+    ],
     "validations": [
       {
         "key": "implementation",
         "label": "代码修复",
-        "status": "PENDING"
+        "status": "PASS"
       },
       {
         "key": "ci",
@@ -2071,8 +2138,8 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-15T08:16:50.517Z",
-    "nextAction": "本地 runner 执行中，超时后自动 HOLD"
+    "completedAt": "2026-07-15T08:19:00.868Z",
+    "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"
 }
