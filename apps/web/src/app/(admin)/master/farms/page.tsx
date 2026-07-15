@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
 import { actionPill, primaryActionButton } from "@/components/design-system/cockpit-styles";
 import { Plus } from "lucide-react";
+import { FARM_MASTER_PERMISSION, getFarmMasterUiState } from "@/lib/master-farms-ui";
 
 // g200m: status 列 ACTIVE/INACTIVE → 中文 + actionPill 色
 const STATUS_CFG: Record<string, { label: string; tone: 'success' | 'default' }> = {
@@ -32,7 +33,8 @@ export default function Page() {
   const toast = useToast();
   const { t } = useLanguage();
   // 页面级 perm 守卫：养殖场主档按养殖主数据原子码控制，不再依赖旧 MENU_MASTER 父级权限。
-  const { canView, canCreate, canEdit, canDelete } = usePermission("MENU_FARM_MASTER");
+  const { canView, canCreate, canEdit, canDelete } = usePermission(FARM_MASTER_PERMISSION);
+  const uiState = getFarmMasterUiState({ canCreate, canEdit, canDelete });
 
   const COLUMNS = [
     { key: "farm_code", title: t("ui.农场编码", "农场编码"), width: 130 },
@@ -159,7 +161,7 @@ export default function Page() {
         breadcrumb={[t("ui.主数据", "主数据"), t("ui.养殖场档案", "养殖场档案")]}
         title={t("ui.农场主档", "农场主档")}
         subtitle={t("ui.管理养殖场基础信息", "管理养殖场基础信息")}
-        actions={canCreate ? (
+        actions={uiState.showCreateButton ? (
           <button type="button" style={primaryActionButton} onClick={openNew}>
             <Plus size={14} />
             {t("ui.新增养殖场", "新增养殖场")}
@@ -170,10 +172,10 @@ export default function Page() {
         table={TABLE}
         columns={COLUMNS}
         rowKey={PK}           // ← 关键：用 farm_code 作为行唯一标识
-        onNew={canCreate ? openNew : undefined}
+        onNew={uiState.enableCreate ? openNew : undefined}
         onEdit={canEdit ? openEdit : undefined}
         onDelete={canDelete ? askDelete : undefined}
-        showActions={canEdit || canDelete}
+        showActions={uiState.showRowActions}
         refreshKey={refreshKey}
       />
       <RightDrawer open={open} title={editRow ? t("ui.编辑农场主档", "编辑农场主档") : t("ui.新增农场主档", "新增农场主档")} onClose={close}>

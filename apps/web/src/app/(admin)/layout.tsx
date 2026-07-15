@@ -85,7 +85,7 @@ const TITLE_KEY_MAP: Record<string, string> = {
   "/analytics/production":         "menu.an-prod",
   "/analytics/inventory":          "menu.an-inv",
   "/analytics/feed":               "menu.an-feed",
-  "/master/farms":                 "menu.md-farms",
+  "/master/farms":                 "menu.mdc-farms",
   "/master/products":              "menu.md-products",
   "/master/stores":                "menu.md-stores",
   "/settings":                     "menu.settings",
