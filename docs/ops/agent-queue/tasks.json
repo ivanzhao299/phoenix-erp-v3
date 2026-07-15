@@ -13232,7 +13232,7 @@
     "source_repair_task_no": "BUGTASK-20260709-0004",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -13255,7 +13255,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-15T06:59:56.147Z",
+    "completed_at": "2026-07-15T06:59:58.026Z",
     "result_file": "docs/ops/runs/BUGTASK-20260709-0004-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -13303,8 +13303,8 @@
       "reason": "Business change, task report, commit, and conclusion are present"
     },
     "implementation_commit": "5b19033b9c6191025fac44b127375a8c7db7d9da",
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "3699e6edf7ab5eeb1c4e343db1a86f60996d8421",
+    "integrated_at": "2026-07-15T06:59:58.026Z",
     "changed_files": [
       "apps/web/src/lib/workflow-todos.test.ts",
       "docs/ops/BUG-20260709-0004_A4_FRONTEND_UAT_SMOKE_REPORT.md"
