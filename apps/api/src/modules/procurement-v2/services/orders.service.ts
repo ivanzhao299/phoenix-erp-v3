@@ -205,7 +205,7 @@ export class OrdersService {
     if (query.expectedDateTo)   qb.andWhere('p.expectedDate <= :edt', { edt: query.expectedDateTo });
     if (query.keyword) {
       qb.andWhere(
-        '(p.poNo ILIKE :kw OR p.subject ILIKE :kw OR p.supplierName ILIKE :kw OR p.supplierCode ILIKE :kw)',
+        '(CAST(p.id AS TEXT) ILIKE :kw OR p.poNo ILIKE :kw OR p.subject ILIKE :kw OR p.supplierName ILIKE :kw OR p.supplierCode ILIKE :kw)',
         { kw: `%${query.keyword}%` },
       );
     }
