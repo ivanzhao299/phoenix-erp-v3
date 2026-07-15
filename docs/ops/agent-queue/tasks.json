@@ -13220,7 +13220,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_RUNNING",
     "integration_method": "cherry-pick-verified-agent-commit",
     "retry_after": null
   },
@@ -13369,7 +13369,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0004"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_RUNNING",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit",
     "retry_after": null
@@ -13508,7 +13508,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0004"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "AGENT_RUNNING",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "retry_after": null
   },
@@ -22642,7 +22642,8 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "reason": "implementation cherry-pick failed and was aborted: error: could not apply f05d2527... fix(api): repair BUG-20260713-0003\nhint: After resolving the conflicts, mark them with\nhint: \"git add/rm <pathspec>\", then run\nhint: \"git cherry-pick --continue\".\nhint: You can instead skip this commit with \"git cherry-pick --skip\".\nhint: To abort and get back to the state before \"git cherry-pick\",\nhint: run \"git cherry-pick --abort\".\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n"
+    "reason": "implementation cherry-pick failed and was aborted: error: could not apply f05d2527... fix(api): repair BUG-20260713-0003\nhint: After resolving the conflicts, mark them with\nhint: \"git add/rm <pathspec>\", then run\nhint: \"git cherry-pick --continue\".\nhint: You can instead skip this commit with \"git cherry-pick --skip\".\nhint: To abort and get back to the state before \"git cherry-pick\",\nhint: run \"git cherry-pick --abort\".\nhint: Disable this message with \"git config set advice.mergeConflict false\"\n",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260713-0003-A4",
@@ -22691,7 +22692,8 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T06:49:28.630Z"
+    "last_redispatch_at": "2026-07-15T06:49:28.630Z",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260713-0003-A1",
@@ -22741,7 +22743,8 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T06:49:28.630Z"
+    "last_redispatch_at": "2026-07-15T06:49:28.630Z",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260715-0003-A3",
