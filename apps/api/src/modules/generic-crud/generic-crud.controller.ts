@@ -312,9 +312,11 @@ export class GenericCrudController {
     }
 
     const qty = Number(row.actual_qty ?? row.qty ?? row.expected_qty) || 0;
-    const productCode = row.product_code || row.sku_code || row.item;
+    const productCode = row.product_code || (!row.sku_code ? row.item : undefined);
+    const skuCode = row.sku_code;
     const item: Record<string, any> = {
       product_code: productCode,
+      sku_code: skuCode,
       qty,
       actual_qty: row.actual_qty ?? qty,
       expected_qty: row.expected_qty,

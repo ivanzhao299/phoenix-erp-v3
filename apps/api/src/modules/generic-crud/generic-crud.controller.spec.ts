@@ -290,6 +290,7 @@ describe('GenericCrudController WMS RBAC', () => {
         task_no: 'IN-20260708-001',
         items: [{
           product_code: 'PRD-EGG-1',
+          sku_code: undefined,
           qty: 12,
           actual_qty: 12,
           expected_qty: undefined,
@@ -352,6 +353,7 @@ describe('GenericCrudController WMS RBAC', () => {
         task_no: 'WI-535598',
         items: [{
           product_code: '监控摄像头测试',
+          sku_code: undefined,
           qty: 50,
           actual_qty: 50,
           expected_qty: undefined,
@@ -359,6 +361,47 @@ describe('GenericCrudController WMS RBAC', () => {
           warehouse_code: 'LPH_MS_RAW',
           location_code: 'RAW-IN-01',
           batch_no: 'WI-535598-B1',
+        }],
+      },
+      expect.objectContaining({ username: 'wangweihua' }),
+    );
+  });
+
+  it('keeps SKU separate from product code when completing a generic WMS inbound row', async () => {
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 9,
+      task_no: 'WI-SKU-001',
+      status: 'PENDING',
+      item: 'SKU display label',
+      sku_code: 'SKU-EGG-A-30',
+      qty: 6,
+      warehouse_code: 'LPH_MS_EGG_SALES',
+      location_code: 'LOC-01',
+      store_code: 'ALL',
+    });
+
+    await expect(
+      controller.updateWithColumn(
+        'wms_inbound',
+        'id',
+        '9',
+        { status: 'COMPLETED' },
+        req(['MENU_WMS_INOUT:E']),
+      ),
+    ).resolves.toEqual({ code: 200, msg: '入库确认成功' });
+
+    expect(wmsService.confirmInbound).toHaveBeenCalledWith(
+      {
+        task_no: 'WI-SKU-001',
+        items: [{
+          product_code: undefined,
+          sku_code: 'SKU-EGG-A-30',
+          qty: 6,
+          actual_qty: 6,
+          expected_qty: undefined,
+          broken_qty: undefined,
+          warehouse_code: 'LPH_MS_EGG_SALES',
+          location_code: 'LOC-01',
         }],
       },
       expect.objectContaining({ username: 'wangweihua' }),
