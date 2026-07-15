@@ -55,6 +55,14 @@
 
 **Fix:** the runner now includes verified release-ready backlog and unpushed integrated commits in later release cycles. It refuses release when any selected Agent lacks evidence, waits for GitHub Actions, performs authenticated production route smoke, and only then writes `PASS_WITH_CONDITIONS` for administrator business acceptance.
 
+### 7. Refined Agent routing could leave completed reports in HOLD
+
+**Root cause:** the administrator repair plan recorded a broad advisory Agent set, while the local runner correctly refined execution to only the Agents required by the changed paths. The old writeback posted results only for the locally executed Agents. The backend still waited for every Agent in the broad plan, so `agentPlanCompleted` never became true and the lifecycle remained `AGENT_RUNNING`/`HOLD`. Repeated cycles also appended timestamped runner receipts, which could make the administrator result panel surface stale release evidence instead of the latest lifecycle state.
+
+**Fix:** the runner now writes deterministic `NOT_APPLICABLE` results for advisory Agents omitted by refined routing before it writes actual worker results. The backend deduplicates runner receipts, keeps a bounded result history, and treats `implementation_verified_existing` as valid implementation evidence. The broad plan, refined execution, evidence gate, and administrator result now converge on one terminal state without manufacturing work for unnecessary Agents.
+
+**Regression:** resident-runner regression now passes 18 tests, including omitted-advisory-Agent backfill; Bug Intake service regression passes 12 tests, including receipt deduplication and verified-existing implementation evidence.
+
 ## Local Retest Results
 
 | Validation | Result |
@@ -65,19 +73,22 @@
 | Web focused regression | PASS, 5 files / 20 tests |
 | Resident runner regression | PASS, 17 tests |
 | Queue redispatch regression | PASS, 3 tests |
+| Bug Intake service lifecycle regression | PASS, 12 tests |
+| Refined-route result backfill regression | PASS, resident runner 18 tests |
 | W5 closeout gate | PASS |
 | Freeze/security/static gates | PASS |
 | Active local queue | PASS, no non-terminal task |
 
 ## Release And Production Retest
 
-This section is completed by the release cycle after push:
+First release cycle evidence:
 
-- Push result: pending at report creation.
-- GitHub Actions result: pending at report creation.
-- Production route smoke: pending at report creation.
-- Production error-log review: pending at report creation.
-- Production bug-report lifecycle writeback: pending at report creation.
+- Push result: `64c6bb0a` pushed to `origin/main`.
+- GitHub Actions: security, Web unit, build, and CI/CD deploy all passed.
+- Production route smoke: 17/17 routes returned HTTP 200.
+- Lifecycle follow-up: exposed the refined-route result backfill defect described in root cause 7; `f0c901bf` contains the repair and is pending the final release cycle recorded below.
+
+Final release evidence is updated after `f0c901bf` is pushed and the production backlog is reconciled.
 
 ## Safety
 
