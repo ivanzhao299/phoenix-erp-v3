@@ -19842,7 +19842,7 @@
     "source_repair_task_no": "BUGTASK-20260711-0002",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -19863,7 +19863,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-15T07:12:12.734Z",
+    "completed_at": "2026-07-15T07:12:14.628Z",
     "result_file": "docs/ops/runs/BUGTASK-20260711-0002-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -19912,8 +19912,8 @@
       "reason": "Business change, task report, commit, and conclusion are present"
     },
     "implementation_commit": "13c628c26bdb5b383b79fedf31c502f56015e05e",
-    "integrated_commit": "",
-    "integrated_at": null,
+    "integrated_commit": "5cdd1cee8952d606a2f6b317182b7eef69d797ec",
+    "integrated_at": "2026-07-15T07:12:14.628Z",
     "changed_files": [
       "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
       "apps/api/src/modules/farm/farm-medicine.service.ts",
