@@ -23,28 +23,26 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260715-0004-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A4-worker-assembled-prompt.md
-Assembled prompt chars: 26730
+Assembled prompt chars: 26971
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-23-00-949Z-A4-Frontend-UAT-Smoke.md
-Implemented the frontend fix for `BUG-20260715-0004`.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-21-27-956Z-A4-Frontend-UAT-Smoke.md
+Implemented the frontend repair scope for `BUG-20260715-0004`.
 
 Changed:
-- Added `新增养殖场` action on [/master/farms page](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/master/farms/page.tsx:162).
-- Gated create/edit/delete by `MENU_FARM_MASTER:C/E/D`.
-- Added 主数据中心 submenu `养殖场档案 -> /master/farms` in [Sidebar.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/components/layout/Sidebar.tsx:233).
-- Added regression test [master-farms-menu.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/master-farms-menu.test.ts:1).
-- Wrote report: [BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md:1).
+- [layout.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/layout.tsx): `/master/farms` now uses `menu.mdc-farms`.
+- [page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/master/farms/page.tsx): farm archive create/action visibility now uses a tested `MENU_FARM_MASTER` UI state helper.
+- [master-farms-ui.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/master-farms-ui.ts): added path/permission constants and UI permission state helper.
+- [master-farms-menu.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/master-farms-menu.test.ts): added regression coverage for menu entry, route access, create visibility, and title key.
+- [report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/bug-20260715-0004-frontend-farm-master-report.md): result is `PASS WITH CONDITIONS`, release gate `HOLD`.
 
 Validation:
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit` — PASS
-- `cd apps/web && ./node_modules/.bin/vitest run src/lib/master-farms-menu.test.ts` — PASS, 2/2
-- `cd apps/web && ./node_modules/.bin/eslint 'src/app/(admin)/master/farms/page.tsx' src/lib/master-farms-menu.test.ts` — PASS
-- `git diff --check` — PASS
+- `pnpm --filter web test -- src/lib/master-farms-menu.test.ts` PASS, 4 tests.
+- `pnpm --filter web typecheck` PASS.
+- Local desktop/mobile runtime smoke was blocked by sandbox: `next dev` failed with `listen EPERM` on both `0.0.0.0:3000` and `127.0.0.1:3000`.
+- `next build` was also blocked by the sandbox because Turbopack rejects the `apps/web/node_modules` symlink pointing outside the filesystem root.
 
-Result: `PASS WITH CONDITIONS`.
-
-Condition: local desktop/mobile browser smoke could not be completed because the sandbox blocks listening on `127.0.0.1:3000` and `0.0.0.0:3000` with `EPERM`. No deploy, push, migration, database write, or API file change was performed. This should still go through CI/CD, runnable-environment smoke, production smoke, and business acceptance before calling the production bug resolved.
+No API, migration, database, deploy, push, or production command was run. I am not marking the bug resolved before CI/CD, real desktop/mobile smoke, production smoke, and business acceptance.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -52,6 +50,12 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
+2026-07-15T12:17:56.415600Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
+2026-07-15T12:17:56.416788Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
+2026-07-15T12:17:56.574714Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-07-15T12:17:56.574729Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-07-15T12:17:56.633184Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-07-15T12:17:56.633197Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 OpenAI Codex v0.142.5
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4
@@ -61,7 +65,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f64db-a35a-7162-b6b9-0f41f6b423fc
+session id: 019f65b6-5731-7ee0-bd2e-24d7478e056f
 --------
 user
 # Base Agent Prompt
@@ -480,51 +484,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
             "path": ".sidebar-module__C8A-ya__subItem.",
             "rect": {
               "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 699
-            },
-            "label": "包装日报",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 731
-            },
-            "label": "异常处理",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 763
-            },
-            "label": "补打日志",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 795
-            },
-            "label": "质检总览",
-            "disabled": false
-          },
-          
-...<truncated 944743 chars>
+              "w": 2
+...<truncated 386576 chars>
 
 ```
 
@@ -535,34 +496,30 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
-  "conclusion": "PASS",
-  "responseChars": 1492,
-  "beforeHead": "271027f647a1408511cbf09b203ff28d4219e890",
-  "afterHead": "8a4d78463f65fab3d1dd01969681cf067762254b",
-  "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1587,
+  "beforeHead": "6c1db5dbd1b08d11bc15701194847819709537fb",
+  "afterHead": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
+  "commitHash": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
   "changedFiles": [
+    "apps/web/src/app/(admin)/layout.tsx",
     "apps/web/src/app/(admin)/master/farms/page.tsx",
-    "apps/web/src/components/layout/Sidebar.tsx",
     "apps/web/src/lib/master-farms-menu.test.ts",
-    "apps/web/src/locales/en.json",
-    "apps/web/src/locales/lo.json",
-    "apps/web/src/locales/zh.json",
-    "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
+    "apps/web/src/lib/master-farms-ui.ts",
+    "docs/ops/bug-20260715-0004-frontend-farm-master-report.md"
   ],
   "businessChangedFiles": [
+    "apps/web/src/app/(admin)/layout.tsx",
     "apps/web/src/app/(admin)/master/farms/page.tsx",
-    "apps/web/src/components/layout/Sidebar.tsx",
     "apps/web/src/lib/master-farms-menu.test.ts",
-    "apps/web/src/locales/en.json",
-    "apps/web/src/locales/lo.json",
-    "apps/web/src/locales/zh.json"
+    "apps/web/src/lib/master-farms-ui.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
+    "docs/ops/bug-20260715-0004-frontend-farm-master-report.md"
   ],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-15T08:23:01.151Z",
+  "checkedAt": "2026-07-15T12:21:28.119Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -577,27 +534,23 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "attempted": true,
   "ok": true,
   "files": [
+    "apps/web/src/app/(admin)/layout.tsx",
     "apps/web/src/app/(admin)/master/farms/page.tsx",
-    "apps/web/src/components/layout/Sidebar.tsx",
-    "apps/web/src/locales/en.json",
-    "apps/web/src/locales/lo.json",
-    "apps/web/src/locales/zh.json",
     "apps/web/src/lib/master-farms-menu.test.ts",
-    "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
+    "apps/web/src/lib/master-farms-ui.ts",
+    "docs/ops/bug-20260715-0004-frontend-farm-master-report.md"
   ],
   "businessFiles": [
+    "apps/web/src/app/(admin)/layout.tsx",
     "apps/web/src/app/(admin)/master/farms/page.tsx",
-    "apps/web/src/components/layout/Sidebar.tsx",
-    "apps/web/src/locales/en.json",
-    "apps/web/src/locales/lo.json",
-    "apps/web/src/locales/zh.json",
-    "apps/web/src/lib/master-farms-menu.test.ts"
+    "apps/web/src/lib/master-farms-menu.test.ts",
+    "apps/web/src/lib/master-farms-ui.ts"
   ],
   "reportFiles": [
-    "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
+    "docs/ops/bug-20260715-0004-frontend-farm-master-report.md"
   ],
-  "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
+  "commitHash": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 8a4d7846] fix(web): repair BUG-20260715-0004\n 7 files changed, 137 insertions(+), 16 deletions(-)\n create mode 100644 apps/web/src/lib/master-farms-menu.test.ts\n create mode 100644 docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
+  "output": "[codex/bug-intake-a4 3b24f309] fix(web): repair BUG-20260715-0004\n 5 files changed, 148 insertions(+), 12 deletions(-)\n create mode 100644 apps/web/src/lib/master-farms-ui.ts\n create mode 100644 docs/ops/bug-20260715-0004-frontend-farm-master-report.md"
 }
 ```
