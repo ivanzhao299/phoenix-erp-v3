@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -26,18 +26,20 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260711-0002-A3-worker-assembled-prompt
 Assembled prompt chars: 26010
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-13T03-39-19-097Z-A3-Backend-Critical-Path.md
-BUG-20260711-0002 backend repair is present on this branch in commit `fc947c16 fix(api): repair BUG-20260711-0002`. I re-validated it locally.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-12-12-465Z-A3-Backend-Critical-Path.md
+已完成 A3 后端修复，状态：`PASS WITH CONDITIONS`。
 
-Root cause: `/api/farm/medicine/inbound` was still using legacy medicine warehouse handling and brittle payload/date assumptions. The fix updates [farm-medicine.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.ts), [farm-medicine.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.controller.ts), and focused tests in [farm-medicine.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.spec.ts). Report is at [BUG-20260711-0002-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260711-0002-a3-backend-report.md).
+改动：
+- [farm-medicine.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.ts:126)：`inv_ledger` 写入前探测实际列，只写存在的审计列，避免可选列缺失导致入库事务回滚和 HTTP 500。
+- [farm-medicine.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/farm/farm-medicine.service.spec.ts:107)：新增缺失可选 ledger 列、`log_date` 缺失回退的回归测试。
+- [BUG-20260711-0002-a3-backend-redispatch-20260715.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260711-0002-a3-backend-redispatch-20260715.md:1)：任务报告已写入。
 
-Validation rerun:
-- `pnpm jest src/modules/farm/farm-medicine.service.spec.ts --runInBand`: PASS, 8 tests
-- `./node_modules/.bin/tsc --noEmit`: PASS
-- `git diff --check`: PASS
-- static old-pattern check: PASS, no matches
+验证：
+- `pnpm --dir apps/api test -- farm-medicine.service.spec.ts --runInBand`：PASS，10/10
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit`：PASS，0 errors
+- `git diff --check`：PASS
 
-No DB writes, migrations, deploys, pushes, or web changes were performed. Result remains `PASS WITH CONDITIONS`: ready for CI/runtime smoke/business acceptance, but not claimed resolved in production yet.
+未执行 DB 写入、迁移、部署、push、merge，也未改 `apps/web/**`。不声明生产已解决，仍需 CI/CD、生产 smoke、业务验收确认入库增加库存、出库减少库存。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -54,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f598d-b016-77d3-b0f6-f5d01c7cb58c
+session id: 019f649b-54c4-7401-a63d-2e593717e4c6
 --------
 user
 # Base Agent Prompt
@@ -526,7 +528,7 @@ Assigned agent: A3-Backend-Critical-Path
             },
             "label": "包装日报",
           
-...<truncated 220478 chars>
+...<truncated 1455397 chars>
 
 ```
 
@@ -537,21 +539,30 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "PASS",
-  "responseChars": 1297,
-  "beforeHead": "28a98af173fad729183bb2581ab67e71660b8998",
-  "afterHead": "28a98af173fad729183bb2581ab67e71660b8998",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 876,
+  "beforeHead": "6b5e83d7d9673834a3f2db9406f48c6cb0b47667",
+  "afterHead": "13c628c26bdb5b383b79fedf31c502f56015e05e",
+  "commitHash": "13c628c26bdb5b383b79fedf31c502f56015e05e",
+  "changedFiles": [
+    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+    "apps/api/src/modules/farm/farm-medicine.service.ts",
+    "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-redispatch-20260715.md"
+  ],
+  "businessChangedFiles": [
+    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+    "apps/api/src/modules/farm/farm-medicine.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-redispatch-20260715.md"
+  ],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-13T03:39:19.190Z",
-  "passed": false,
+  "checkedAt": "2026-07-15T07:12:12.733Z",
+  "passed": true,
   "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -559,9 +570,22 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": false,
-  "ok": false,
-  "reason": "worktree has no uncommitted Agent changes",
-  "files": []
+  "attempted": true,
+  "ok": true,
+  "files": [
+    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+    "apps/api/src/modules/farm/farm-medicine.service.ts",
+    "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-redispatch-20260715.md"
+  ],
+  "businessFiles": [
+    "apps/api/src/modules/farm/farm-medicine.service.spec.ts",
+    "apps/api/src/modules/farm/farm-medicine.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUG-20260711-0002-a3-backend-redispatch-20260715.md"
+  ],
+  "commitHash": "13c628c26bdb5b383b79fedf31c502f56015e05e",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a3 13c628c2] fix(api): repair BUG-20260711-0002\n 3 files changed, 239 insertions(+), 31 deletions(-)\n create mode 100644 docs/ops/bug-intake/BUG-20260711-0002-a3-backend-redispatch-20260715.md"
 }
 ```
