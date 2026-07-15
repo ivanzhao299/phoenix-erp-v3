@@ -8,7 +8,8 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
-import { actionPill } from "@/components/design-system/cockpit-styles";
+import { actionPill, primaryActionButton } from "@/components/design-system/cockpit-styles";
+import { Plus } from "lucide-react";
 
 // g200m: status 列 ACTIVE/INACTIVE → 中文 + actionPill 色
 const STATUS_CFG: Record<string, { label: string; tone: 'success' | 'default' }> = {
@@ -31,15 +32,7 @@ export default function Page() {
   const toast = useToast();
   const { t } = useLanguage();
   // 页面级 perm 守卫：养殖场主档按养殖主数据原子码控制，不再依赖旧 MENU_MASTER 父级权限。
-  const { canView } = usePermission("MENU_FARM_MASTER");
-  if (!canView) {
-    return (
-      <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
-        <h3>{t("ui.无权限访问", "无权限访问")}</h3>
-        <p>{t("ui.养殖场主数据权限说明", "「养殖场主数据」需要 MENU_FARM_MASTER:V 权限。请联系系统管理员。")}</p>
-      </div>
-    );
-  }
+  const { canView, canCreate, canEdit, canDelete } = usePermission("MENU_FARM_MASTER");
 
   const COLUMNS = [
     { key: "farm_code", title: t("ui.农场编码", "农场编码"), width: 130 },
@@ -81,6 +74,14 @@ export default function Page() {
   const close    = useCallback(() => setOpen(false), []);
 
   const save = useCallback(async (values: Record<string, unknown>) => {
+    if (editRow && !canEdit) {
+      toast.error(t("ui.无权限编辑", "无权限编辑"));
+      return;
+    }
+    if (!editRow && !canCreate) {
+      toast.error(t("ui.无权限新增", "无权限新增"));
+      return;
+    }
     setSaving(true);
     const token = getToken();
     const hdr = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
@@ -108,7 +109,7 @@ export default function Page() {
     } finally {
       setSaving(false);
     }
-  }, [editRow, refresh, toast, t]);
+  }, [canCreate, canEdit, editRow, refresh, toast, t]);
 
   const askDelete = useCallback((r: Record<string, unknown>) => {
     setDeleteTarget(r);
@@ -116,6 +117,10 @@ export default function Page() {
   }, []);
 
   const confirmDelete = useCallback(async () => {
+    if (!canDelete) {
+      toast.error(t("ui.无权限删除", "无权限删除"));
+      return;
+    }
     const pkVal = deleteTarget?.[PK]; // farm_code 的实际值
     if (!pkVal) {
       toast.error(t("ui.无法获取农场编码删除失败", "无法获取农场编码，删除失败"));
@@ -137,7 +142,16 @@ export default function Page() {
     } finally {
       setDeleting(false);
     }
-  }, [deleteTarget, refresh, toast, t]);
+  }, [canDelete, deleteTarget, refresh, toast, t]);
+
+  if (!canView) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
+        <h3>{t("ui.无权限访问", "无权限访问")}</h3>
+        <p>{t("ui.养殖场主数据权限说明", "「养殖场主数据」需要 MENU_FARM_MASTER:V 权限。请联系系统管理员。")}</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -145,15 +159,21 @@ export default function Page() {
         breadcrumb={[t("ui.主数据", "主数据"), t("ui.养殖场档案", "养殖场档案")]}
         title={t("ui.农场主档", "农场主档")}
         subtitle={t("ui.管理养殖场基础信息", "管理养殖场基础信息")}
+        actions={canCreate ? (
+          <button type="button" style={primaryActionButton} onClick={openNew}>
+            <Plus size={14} />
+            {t("ui.新增养殖场", "新增养殖场")}
+          </button>
+        ) : undefined}
       />
       <DataTable
         table={TABLE}
         columns={COLUMNS}
         rowKey={PK}           // ← 关键：用 farm_code 作为行唯一标识
-        onNew={openNew}
-        onEdit={openEdit}
-        onDelete={askDelete}
-        showActions
+        onNew={canCreate ? openNew : undefined}
+        onEdit={canEdit ? openEdit : undefined}
+        onDelete={canDelete ? askDelete : undefined}
+        showActions={canEdit || canDelete}
         refreshKey={refreshKey}
       />
       <RightDrawer open={open} title={editRow ? t("ui.编辑农场主档", "编辑农场主档") : t("ui.新增农场主档", "新增农场主档")} onClose={close}>
@@ -169,6 +189,7 @@ export default function Page() {
         open={confirmOpen}
         title={t("ui.确认删除", "确认删除")}
         message={`${t("ui.确认删除农场", "确认删除农场")}「${deleteTarget?.farm_name ?? deleteTarget?.[PK] ?? ""}」？\n${t("ui.此操作不可恢复", "此操作不可恢复。")}`}
+        loading={deleting}
         onConfirm={confirmDelete}
         onCancel={() => setConfirmOpen(false)}
       />

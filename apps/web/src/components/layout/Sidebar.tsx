@@ -230,6 +230,7 @@ export const MENU: MenuItem[] = [
     { id: "mdc-bu",         path: "/master-data/business-units",   Icon: Network,         label: "事业群",       perm: "MENU_MD_BUSINESS_UNIT" },
     { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_MD_COMPANY" },
     { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MD_PROJECT" },
+    { id: "mdc-farms",      path: "/master/farms",                 Icon: Building2,       label: "养殖场档案",   perm: "MENU_FARM_MASTER" },
     { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER" },
     { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MD_SUPPLIER" },
     { id: "mdc-materials",  path: "/master-data/materials",        Icon: Package,         label: "物料档案",     perm: "MENU_MD_MATERIAL" },
