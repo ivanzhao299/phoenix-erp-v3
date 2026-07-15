@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-13T06:37:27.184Z",
-  "updatedAt": "2026-07-15T12:35:21.944Z",
+  "updatedAt": "2026-07-15T12:43:36.041Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "采购管理-付款管理,点击确认付款报错“AP 台账 ID=11不存在”",
@@ -2088,45 +2088,45 @@
     "moduleCode": "____",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260713-0003-A3",
-        "agent": "A3-Backend-Critical-Path",
+        "taskId": "BUGTASK-20260713-0003-A1",
+        "agent": "A1-CI-Runtime-Gate",
         "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260713-0003-A3-worker-log.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260713-0003-A1-worker-log.md",
         "commitHash": "",
         "changedFiles": [],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
-            "agent": "A3-Backend-Critical-Path",
+            "agent": "A1-CI-Runtime-Gate",
             "exitCode": 0,
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 1656,
-            "beforeHead": "5de9d369a061c0eb3401658070c1095407b531b2",
-            "afterHead": "5de9d369a061c0eb3401658070c1095407b531b2",
+            "conclusion": "PASS",
+            "responseChars": 1592,
+            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
             "commitHash": "",
             "changedFiles": [],
             "businessChangedFiles": [],
             "reportFiles": [],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-15T12:35:20.236Z",
-            "passed": false,
-            "role": "implementation",
-            "terminalStatus": "HOLD",
-            "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+            "checkedAt": "2026-07-15T12:43:34.599Z",
+            "passed": true,
+            "role": "validation",
+            "terminalStatus": "VALIDATION_COMPLETED",
+            "reason": "Validation evidence recorded; this is not implementation evidence"
           },
-          "queueStatus": "HOLD",
+          "queueStatus": "VALIDATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 28836\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-35-20-146Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nBackend repair is present for `BUG-20260713-0003`: payment confirmation now resolves AP allocations by stable AP/PO refs when `apId` is stale, refreshes the allocation snapshot, then writes off the resolved AP row. See [payments.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/payments.service.ts:146), [pay path](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/payments.service.ts:490), and [save allocation path](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/payments.service.ts:760).\n\nFocused regressio",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0003-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260713-0003-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode",
         "nextAction": "",
-        "redispatchCount": 2,
+        "redispatchCount": 3,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-15T12:35:21.942Z"
+        "recordedAt": "2026-07-15T12:43:36.038Z"
       }
     ],
     "suggestedOwner": "",
-    "redispatchCount": 2,
+    "redispatchCount": 3,
     "timeoutRecovery": {},
     "repairGuardrails": {
       "autoRepairExecuted": false,
@@ -2135,41 +2135,41 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260713-0003-A3",
-      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260713-0003-A1",
+      "agent": "A1-CI-Runtime-Gate",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260713-0003-A3-worker-log.md",
+      "resultFile": "docs/ops/runs/BUGTASK-20260713-0003-A1-worker-log.md",
       "commitHash": "",
       "changedFiles": [],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A3-Backend-Critical-Path",
+          "agent": "A1-CI-Runtime-Gate",
           "exitCode": 0,
-          "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 1656,
-          "beforeHead": "5de9d369a061c0eb3401658070c1095407b531b2",
-          "afterHead": "5de9d369a061c0eb3401658070c1095407b531b2",
+          "conclusion": "PASS",
+          "responseChars": 1592,
+          "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+          "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
           "commitHash": "",
           "changedFiles": [],
           "businessChangedFiles": [],
           "reportFiles": [],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-15T12:35:20.236Z",
-          "passed": false,
-          "role": "implementation",
-          "terminalStatus": "HOLD",
-          "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+          "checkedAt": "2026-07-15T12:43:34.599Z",
+          "passed": true,
+          "role": "validation",
+          "terminalStatus": "VALIDATION_COMPLETED",
+          "reason": "Validation evidence recorded; this is not implementation evidence"
         },
-        "queueStatus": "HOLD",
+        "queueStatus": "VALIDATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 28836\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-35-20-146Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nBackend repair is present for `BUG-20260713-0003`: payment confirmation now resolves AP allocations by stable AP/PO refs when `apId` is stale, refreshes the allocation snapshot, then writes off the resolved AP row. See [payments.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/payments.service.ts:146), [pay path](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/payments.service.ts:490), and [save allocation path](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/payments.service.ts:760).\n\nFocused regressio",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0003-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260713-0003-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode",
       "nextAction": "",
-      "redispatchCount": 2,
+      "redispatchCount": 3,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-15T12:35:21.942Z"
+      "recordedAt": "2026-07-15T12:43:36.038Z"
     },
     "redispatchHistory": [
       {
@@ -2203,12 +2203,27 @@
           "A1-CI-Runtime-Gate"
         ],
         "previousRepairTaskStatus": "HOLD"
+      },
+      {
+        "mode": "REQUEUE",
+        "note": "AUTO_QUEUE_RECOVERY: dependency symlink false-dirty/quarantine generation 2",
+        "redispatchNo": 3,
+        "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
+        "previousStatus": "IN_PROGRESS",
+        "redispatchedAt": "2026-07-15T12:43:05.088Z",
+        "redispatchedBy": "bug_intake_runner",
+        "selectedAgents": [
+          "A3-Backend-Critical-Path",
+          "A4-Frontend-UAT-Smoke",
+          "A1-CI-Runtime-Gate"
+        ],
+        "previousRepairTaskStatus": "HOLD"
       }
     ],
     "acceptanceCriteria": "采购管理-付款管理,点击确认付款报错“AP 台账 ID=11不存在”",
-    "agentPlanGeneratedAt": "2026-07-15T12:33:22.056Z",
+    "agentPlanGeneratedAt": "2026-07-15T12:43:05.087Z",
     "agentPlanGeneratedBy": "redispatch-explicit:bug_intake_runner",
-    "activeRedispatchCount": 2,
+    "activeRedispatchCount": 3,
     "failureClassification": {
       "category": "API_5XX",
       "evidence": [
@@ -2228,11 +2243,11 @@
     },
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-15T12:33:22.056Z",
+      "approvedAt": "2026-07-15T12:43:05.088Z",
       "approvedBy": "bug_intake_runner",
       "redispatch": true,
       "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-      "redispatchCount": 2,
+      "redispatchCount": 3,
       "forbiddenActions": [
         "production deploy without separate approval",
         "database write without separate gate",
@@ -2493,6 +2508,43 @@
           "aggregateBackfill": true,
           "baselineAutopilotExitCode": null
         }
+      },
+      {
+        "agent": "A3-Backend-Critical-Path",
+        "taskId": "BUGTASK-20260713-0003-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 28836\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-35-20-146Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS.\n\nBackend repair is present for `BUG-20260713-0003`: payment confirmation now resolves AP allocations by stable AP/PO refs when `apId` is stale, refreshes the allocation snapshot, then writes off the resolved AP row. See [payments.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/payments.service.ts:146), [pay path](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/payments.service.ts:490), and [save allocation path](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/payments.service.ts:760).\n\nFocused regressio",
+        "commitHash": "",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-15T12:35:21.942Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260713-0003-A3-worker-log.md",
+        "changedFiles": [],
+        "redispatchCount": 2,
+        "validationResults": {
+          "queueStatus": "HOLD",
+          "evidenceGate": {
+            "role": "implementation",
+            "agent": "A3-Backend-Critical-Path",
+            "passed": false,
+            "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "5de9d369a061c0eb3401658070c1095407b531b2",
+            "checkedAt": "2026-07-15T12:35:20.236Z",
+            "beforeHead": "5de9d369a061c0eb3401658070c1095407b531b2",
+            "commitHash": "",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 1656,
+            "terminalStatus": "HOLD",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
       }
     ]
   },
@@ -2510,7 +2562,7 @@
       {
         "key": "implementation",
         "label": "代码修复",
-        "status": "HOLD"
+        "status": "PENDING"
       },
       {
         "key": "ci",
@@ -2533,7 +2585,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-15T12:35:21.942Z",
+    "completedAt": "2026-07-15T12:43:36.038Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"
