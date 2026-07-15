@@ -46,6 +46,7 @@ describe('BugIntakeService evidence lifecycle', () => {
     const repo = {
       findOne: jest.fn(async () => row),
       find: jest.fn(async () => [row]),
+      exist: jest.fn(async () => false),
       save: jest.fn(async (value: BugReportEntity) => value),
     };
     const ds = { query: jest.fn(async () => []) };
@@ -54,6 +55,52 @@ describe('BugIntakeService evidence lifecycle', () => {
 
   const user = { userId: 1, username: 'admin', name: 'Admin' };
   const meta = { ip: '127.0.0.1', userAgent: 'jest' };
+
+  it('starts triage, routing, and queue approval in one administrator action', async () => {
+    const { row, service } = build();
+    row.status = 'OPEN';
+    row.title = '价格册页面保存时报 HTTP 500';
+    row.description = '管理员无法保存价格册，需要修复接口并回归页面。';
+    row.route = '/sales/pricing';
+    row.repairTaskNo = '';
+    row.repairTaskStatus = '';
+    row.repairTaskPayload = {};
+
+    await service.startRepairWorkflow(row.bugNo, {
+      priority: 'P1',
+      moduleCode: 'SALES_PRICING',
+      acceptanceCriteria: '价格册可保存，权限校验正确，API 与 Web 验证通过。',
+      approvalScope: '允许当前修复计划进入本地队列，发布仍受证据门禁约束。',
+    }, user, meta);
+
+    const payload = row.repairTaskPayload as {
+      agentPlan: { selected_agents: string[] };
+      agentExecutionApproval: { approved: boolean; approvedBy: string };
+      agentResults: unknown[];
+    };
+    expect(row.status).toBe('IN_PROGRESS');
+    expect(row.repairTaskStatus).toBe('AGENT_APPROVED');
+    expect(row.repairTaskNo).toMatch(/^BUGTASK-/);
+    expect(payload.agentPlan.selected_agents).toEqual(expect.arrayContaining([
+      'A3-Backend-Critical-Path',
+      'A4-Frontend-UAT-Smoke',
+      'A1-CI-Runtime-Gate',
+    ]));
+    expect(payload.agentExecutionApproval).toMatchObject({ approved: true, approvedBy: 'admin' });
+    expect(payload.agentResults).toEqual([]);
+  });
+
+  it('does not approve a HOLD route or an empty Agent plan', async () => {
+    const { row, service } = build();
+    row.repairTaskStatus = 'ROUTED';
+    row.repairTaskPayload = {
+      agentPlan: { route_decision: 'HOLD', selected_agents: [] },
+    };
+
+    await expect(service.approveAgentExecution(row.bugNo, {}, user, meta))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(row.repairTaskStatus).toBe('ROUTED');
+  });
 
   it('moves an all-terminal plan to HOLD when implementation evidence is missing', async () => {
     const { row, service } = build();

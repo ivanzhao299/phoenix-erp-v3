@@ -27,4 +27,20 @@ describe("bug intake administrator repair result visibility", () => {
     expect(pageSource).toContain("隐藏技术过程与证据");
     expect(pageSource).toContain("showTechnicalDetails &&");
   });
+
+  it("keeps the administrator workflow action visible outside technical details", () => {
+    const actionIndex = pageSource.indexOf("受理并启动自动修复");
+    const technicalIndex = pageSource.indexOf("showTechnicalDetails &&", actionIndex);
+    expect(actionIndex).toBeGreaterThan(0);
+    expect(technicalIndex).toBeGreaterThan(actionIndex);
+    expect(pageSource).toContain("/start-repair");
+    expect(pageSource).toContain("仍有问题，重新派发");
+    expect(pageSource).toContain("确认问题已解决");
+  });
+
+  it("surfaces backend action failures instead of silently ignoring non-2xx responses", () => {
+    expect(pageSource).toContain("async function apiJson");
+    expect(pageSource).toContain("setActionError(actionErrorMessage(error))");
+    expect(pageSource).toContain('role="alert"');
+  });
 });

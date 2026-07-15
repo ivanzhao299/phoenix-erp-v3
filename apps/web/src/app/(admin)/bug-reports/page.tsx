@@ -5,7 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
-import { AlertTriangle, Bug, CheckCircle2, ChevronDown, ChevronUp, Clock3, Loader2, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, Bug, CheckCircle2, ChevronDown, ChevronUp, Clock3, Loader2, Play, RefreshCw, RotateCcw, X } from "lucide-react";
 
 type BugReportListItem = {
   bugNo: string;
@@ -177,6 +177,19 @@ const PAGE_SIZE = 20;
 function token() {
   if (typeof window === "undefined") return "";
   return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
+}
+
+async function apiJson<T>(response: Response): Promise<T> {
+  const body = await response.json().catch(() => null) as { message?: string | string[]; error?: string } | T | null;
+  if (!response.ok) {
+    const message = body && typeof body === "object" && "message" in body ? body.message : null;
+    throw new Error(Array.isArray(message) ? message.join("；") : String(message || response.statusText || `HTTP ${response.status}`));
+  }
+  return body as T;
+}
+
+function actionErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error || "操作失败，请稍后重试");
 }
 
 function badgeColor(value: string) {
@@ -404,6 +417,8 @@ export default function BugReportsPage() {
   const [detailRefreshedAt, setDetailRefreshedAt] = useState<Date | null>(null);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [actionNotice, setActionNotice] = useState("");
   const [note, setNote] = useState("");
   const [triage, setTriage] = useState({
     status: "OPEN",
@@ -505,6 +520,8 @@ export default function BugReportsPage() {
     setDetail(null);
     setDetailRefreshedAt(null);
     setShowTechnicalDetails(false);
+    setActionError("");
+    setActionNotice("");
     setNote("");
     setAcceptanceCriteria("");
     setApprovalScope("仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。");
@@ -522,77 +539,57 @@ export default function BugReportsPage() {
 
   const saveTriage = async (bugNo: string) => {
     setSaving(true);
+    setActionError("");
+    setActionNotice("");
     try {
       const res = await fetch(`/api/bug-intake/reports/${bugNo}/triage`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
         body: JSON.stringify({ ...triage, resolutionNote: note }),
       });
-      if (res.ok) {
-        const data = await res.json() as BugReportDetail;
-        setDetail(data);
-        setTriage({
-          status: data.status || "OPEN",
-          priority: data.priority || "P2",
-          moduleCode: data.moduleCode || "",
-          assigneeUsername: data.assigneeUsername || "",
-          assigneeName: data.assigneeName || "",
-        });
-        await fetchList(page);
-      }
+      const data = await apiJson<BugReportDetail>(res);
+      setDetail(data);
+      setTriage({
+        status: data.status || "OPEN",
+        priority: data.priority || "P2",
+        moduleCode: data.moduleCode || "",
+        assigneeUsername: data.assigneeUsername || "",
+        assigneeName: data.assigneeName || "",
+      });
+      setActionNotice(t("system.bugIntake.triageSaved", "受理信息已保存"));
+      await fetchList(page);
+    } catch (error) {
+      setActionError(actionErrorMessage(error));
     } finally {
       setSaving(false);
     }
   };
 
-  const createRepairTask = async (bugNo: string) => {
+  const startRepairWorkflow = async (bugNo: string) => {
     setSaving(true);
+    setActionError("");
+    setActionNotice("");
     try {
-      const res = await fetch(`/api/bug-intake/reports/${bugNo}/repair-task`, {
+      const res = await fetch(`/api/bug-intake/reports/${bugNo}/start-repair`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ acceptanceCriteria, suggestedOwner: triage.assigneeUsername }),
+        body: JSON.stringify({
+          ...triage,
+          status: undefined,
+          resolutionNote: note,
+          acceptanceCriteria: acceptanceCriteria || note || detail?.description,
+          approvalScope,
+        }),
       });
-      if (res.ok) {
-        const data = await res.json() as BugReportDetail;
-        setDetail(data);
-        await fetchList(page);
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const generateAgentPlan = async (bugNo: string) => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/bug-intake/reports/${bugNo}/agent-plan`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
-      });
-      if (res.ok) {
-        const data = await res.json() as BugReportDetail;
-        setDetail(data);
-        await fetchList(page);
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const approveAgentExecution = async (bugNo: string) => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/bug-intake/reports/${bugNo}/agent-approval`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ approvalScope }),
-      });
-      if (res.ok) {
-        const data = await res.json() as BugReportDetail;
-        setDetail(data);
-        await fetchList(page);
-      }
+      const data = await apiJson<BugReportDetail>(res);
+      setDetail(data);
+      setTriage(prev => ({ ...prev, status: data.status || "IN_PROGRESS" }));
+      setActionNotice(data.repairTaskStatus === "HOLD"
+        ? t("system.bugIntake.routeHeld", "自动分析未形成安全计划，已转为 HOLD")
+        : t("system.bugIntake.repairStarted", "修复任务已批准入队，本地 Runner 将自动领取"));
+      await Promise.all([fetchList(page), fetchPipelineStatus()]);
+    } catch (error) {
+      setActionError(actionErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -600,6 +597,8 @@ export default function BugReportsPage() {
 
   const redispatchRepairTask = async (bugNo: string, mode: "REQUEUE" | "REPLAN_AND_REQUEUE") => {
     setSaving(true);
+    setActionError("");
+    setActionNotice("");
     try {
       const res = await fetch(`/api/bug-intake/reports/${bugNo}/redispatch`, {
         method: "POST",
@@ -612,12 +611,37 @@ export default function BugReportsPage() {
             : t("system.bugIntake.redispatchNote", "管理员要求按原 Agent 计划重新派发。"),
         }),
       });
-      if (res.ok) {
-        const data = await res.json() as BugReportDetail;
-        setDetail(prev => prev?.bugNo === data.bugNo ? data : prev);
-        await fetchList(page);
-        await fetchPipelineStatus();
-      }
+      const data = await apiJson<BugReportDetail>(res);
+      setDetail(prev => prev?.bugNo === data.bugNo ? data : prev);
+      setActionNotice(t("system.bugIntake.redispatched", "问题已重新分析并投入修复队列"));
+      await fetchList(page);
+      await fetchPipelineStatus();
+    } catch (error) {
+      setActionError(actionErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateWorkflowStatus = async (bugNo: string, nextStatus: "RESOLVED" | "CLOSED") => {
+    setSaving(true);
+    setActionError("");
+    setActionNotice("");
+    try {
+      const res = await fetch(`/api/bug-intake/reports/${bugNo}/status`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus, resolutionNote: note || detail?.resolutionNote }),
+      });
+      const data = await apiJson<BugReportDetail>(res);
+      setDetail(data);
+      setTriage(prev => ({ ...prev, status: data.status }));
+      setActionNotice(nextStatus === "RESOLVED"
+        ? t("system.bugIntake.businessVerifiedNotice", "业务复验已确认，问题已标记解决")
+        : t("system.bugIntake.closedNotice", "问题已关闭归档"));
+      await Promise.all([fetchList(page), fetchPipelineStatus()]);
+    } catch (error) {
+      setActionError(actionErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -645,6 +669,13 @@ export default function BugReportsPage() {
     { key: "AUTO_RECOVERABLE", label: t("system.bugIntake.queueLaneAutoRecoverable", "可自恢复"), count: pipelineStatus?.runtimeSummary?.autoRecoverableCount ?? queueItems.filter(item => item.autoRecoveryEligible).length },
     { key: "HOLD", label: "HOLD", count: pipelineStatus?.counts.hold ?? queueItems.filter(item => item.repairTaskStatus === "HOLD").length },
   ];
+  const activeRepairStatus = detail?.repairTaskStatus || "";
+  const workflowClosed = Boolean(detail && ["CLOSED", "REJECTED"].includes(detail.status));
+  const canStartRepair = Boolean(detail && !workflowClosed && (!detail.repairTaskNo || ["READY", "ROUTED"].includes(activeRepairStatus)));
+  const canRedispatch = Boolean(detail && !workflowClosed && ["HOLD", "AGENT_COMPLETED"].includes(activeRepairStatus));
+  const repairRunning = ["AGENT_APPROVED", "AGENT_RUNNING", "AGENT_EXECUTION_FINISHED"].includes(activeRepairStatus);
+  const canVerify = Boolean(detail && activeRepairStatus === "FIX_READY_FOR_UAT");
+  const canClose = Boolean(detail && detail.status === "RESOLVED" && activeRepairStatus === "BUSINESS_VERIFIED");
 
   return (
     <div>
@@ -1001,6 +1032,103 @@ export default function BugReportsPage() {
                   />
                 )}
 
+                <section style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "var(--bg-muted)", padding: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <h4 style={{ margin: 0 }}>{t("system.bugIntake.nextActionTitle", "下一步操作")}</h4>
+                      <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.6 }}>
+                        {detail.repairResult?.nextAction || t("system.bugIntake.startRepairHint", "确认受理信息后启动自动修复；系统会完成分析、分工、执行、测试和结果回写。")}
+                      </p>
+                    </div>
+                    <strong style={{ color: timelineStatusColor(activeRepairStatus || detail.status) }}>
+                      {repairStatusLabel(activeRepairStatus, t)}
+                    </strong>
+                  </div>
+
+                  {actionError && (
+                    <div role="alert" style={{ marginTop: 12, padding: 10, border: "1px solid var(--status-danger)", borderRadius: "var(--radius-md)", background: "var(--status-danger-bg-faint)", color: "var(--status-danger)", fontSize: 13 }}>
+                      {actionError}
+                    </div>
+                  )}
+                  {actionNotice && (
+                    <div role="status" style={{ marginTop: 12, padding: 10, border: "1px solid var(--status-success)", borderRadius: "var(--radius-md)", background: "var(--status-success-bg-faint)", color: "var(--status-success)", fontSize: 13 }}>
+                      {actionNotice}
+                    </div>
+                  )}
+
+                  {(canStartRepair || canRedispatch) && (
+                    <label style={{ display: "grid", gap: 6, marginTop: 12 }}>
+                      <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.acceptanceCriteriaLabel", "验收标准")}</span>
+                      <textarea
+                        value={acceptanceCriteria}
+                        onChange={e => setAcceptanceCriteria(e.target.value)}
+                        placeholder={t("system.bugIntake.acceptancePlaceholder", "写清复现路径、期望结果和必须通过的检查；留空时使用提报内容")}
+                        style={{ width: "100%", minHeight: 72, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)" }}
+                      />
+                    </label>
+                  )}
+
+                  {(canStartRepair || canRedispatch) && (
+                    <details style={{ marginTop: 10 }}>
+                      <summary style={{ cursor: "pointer", color: "var(--text-secondary)", fontSize: 12, fontWeight: 700 }}>
+                        {t("system.bugIntake.advancedGuardrails", "高级执行边界")}
+                      </summary>
+                      <textarea
+                        value={approvalScope}
+                        onChange={e => setApprovalScope(e.target.value)}
+                        placeholder={t("system.bugIntake.agentApprovalPlaceholder", "例如：仅允许按当前计划写入队列，发布仍需通过证据门禁")}
+                        style={{ width: "100%", minHeight: 64, marginTop: 8, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)" }}
+                      />
+                    </details>
+                  )}
+
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
+                    {canStartRepair && (
+                      <button type="button" onClick={() => startRepairWorkflow(detail.bugNo)} disabled={saving}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "white", cursor: saving ? "not-allowed" : "pointer", fontWeight: 800 }}>
+                        {saving ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                        {t("system.bugIntake.startRepair", "受理并启动自动修复")}
+                      </button>
+                    )}
+                    {canRedispatch && (
+                      <button type="button" onClick={() => redispatchRepairTask(detail.bugNo, "REPLAN_AND_REQUEUE")} disabled={saving}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", border: "1px solid var(--status-warning)", borderRadius: "var(--radius-md)", background: "var(--status-warning)", color: "white", cursor: saving ? "not-allowed" : "pointer", fontWeight: 800 }}>
+                        {saving ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
+                        {t("system.bugIntake.redispatchNow", "重新分析并派发")}
+                      </button>
+                    )}
+                    {repairRunning && (
+                      <>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "var(--color-primary)", fontWeight: 800 }}>
+                          <Loader2 size={16} className="animate-spin" /> {t("system.bugIntake.runningHint", "自动修复正在执行，结果会自动回写")}
+                        </span>
+                        <button type="button" onClick={() => void refreshDetail(detail.bugNo, false)} disabled={detailRefreshing}
+                          style={{ padding: "8px 13px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", cursor: detailRefreshing ? "not-allowed" : "pointer" }}>
+                          {t("common.refresh", "刷新")}
+                        </button>
+                      </>
+                    )}
+                    {canVerify && (
+                      <>
+                        <button type="button" onClick={() => updateWorkflowStatus(detail.bugNo, "RESOLVED")} disabled={saving}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", border: "1px solid var(--status-success)", borderRadius: "var(--radius-md)", background: "var(--status-success)", color: "white", cursor: saving ? "not-allowed" : "pointer", fontWeight: 800 }}>
+                          <CheckCircle2 size={16} /> {t("system.bugIntake.verifyResolved", "确认问题已解决")}
+                        </button>
+                        <button type="button" onClick={() => redispatchRepairTask(detail.bugNo, "REPLAN_AND_REQUEUE")} disabled={saving}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", border: "1px solid var(--status-danger)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--status-danger)", cursor: saving ? "not-allowed" : "pointer", fontWeight: 800 }}>
+                          <RotateCcw size={16} /> {t("system.bugIntake.stillBrokenRedispatch", "仍有问题，重新派发")}
+                        </button>
+                      </>
+                    )}
+                    {canClose && (
+                      <button type="button" onClick={() => updateWorkflowStatus(detail.bugNo, "CLOSED")} disabled={saving}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "white", cursor: saving ? "not-allowed" : "pointer", fontWeight: 800 }}>
+                        <CheckCircle2 size={16} /> {t("system.bugIntake.closeArchive", "关闭并归档")}
+                      </button>
+                    )}
+                  </div>
+                </section>
+
                 <button
                   type="button"
                   onClick={() => setShowTechnicalDetails(value => !value)}
@@ -1062,7 +1190,7 @@ export default function BugReportsPage() {
                   <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
                     <button type="button" onClick={() => saveTriage(detail.bugNo)} disabled={saving}
                       style={{ padding: "8px 14px", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "white", cursor: saving ? "not-allowed" : "pointer" }}>
-                      {t("system.bugIntake.saveTriage", "保存受理信息")}
+                      {t("system.bugIntake.saveTriageDraft", "保存受理草稿")}
                     </button>
                     {saving && <Loader2 size={16} className="animate-spin" />}
                   </div>
@@ -1083,53 +1211,6 @@ export default function BugReportsPage() {
                       <div>{t("system.bugIntake.agentCompletedVerifyText", "只有实现证据、CI/CD 和生产 smoke 全部通过后才能进入业务验收；业务验收通过后才能标记已解决，再关闭问题。证据不足或问题仍存在时请重新派发。")}</div>
                     </div>
                   )}
-                  <textarea value={acceptanceCriteria} onChange={e => setAcceptanceCriteria(e.target.value)}
-                    placeholder={t("system.bugIntake.acceptancePlaceholder", "验收标准：例如复现路径、期望结果、必须通过的检查")}
-                    style={{ width: "100%", minHeight: 72, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)" }} />
-                  <button type="button" onClick={() => createRepairTask(detail.bugNo)} disabled={saving}
-                    style={{ marginTop: 10, padding: "8px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", cursor: saving ? "not-allowed" : "pointer" }}>
-                    {detail.repairTaskNo ? t("system.bugIntake.refreshRepairTask", "更新修复任务包") : t("system.bugIntake.createRepairTask", "生成修复任务包")}
-                  </button>
-                  <button type="button" onClick={() => generateAgentPlan(detail.bugNo)} disabled={saving || !detail.repairTaskNo}
-                    style={{ marginTop: 10, marginLeft: 10, padding: "8px 14px", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "white", cursor: saving || !detail.repairTaskNo ? "not-allowed" : "pointer" }}>
-                    {t("system.bugIntake.generateAgentPlan", "生成 Agent 修复计划")}
-                  </button>
-                  <label style={{ display: "grid", gap: 6, marginTop: 12 }}>
-                    <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{t("system.bugIntake.agentApprovalScope", "Agent 执行批准范围")}</span>
-                    <textarea
-                      value={approvalScope}
-                      onChange={e => setApprovalScope(e.target.value)}
-                      placeholder={t("system.bugIntake.agentApprovalPlaceholder", "例如：仅允许按当前计划写入队列，先 dry-run，不自动部署")}
-                      style={{ width: "100%", minHeight: 64, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)" }}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => approveAgentExecution(detail.bugNo)}
-                    disabled={saving || !detail.repairTaskPayload?.agentPlan}
-                    style={{ marginTop: 10, padding: "8px 14px", border: "1px solid var(--status-success)", borderRadius: "var(--radius-md)", background: "var(--status-success)", color: "white", cursor: saving || !detail.repairTaskPayload?.agentPlan ? "not-allowed" : "pointer" }}
-                  >
-                    {t("system.bugIntake.approveAgentQueue", "批准投入 Agent 队列")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => redispatchRepairTask(detail.bugNo, "REQUEUE")}
-                    disabled={saving || !detail.repairTaskNo}
-                    style={{ marginTop: 10, marginLeft: 10, padding: "8px 14px", border: "1px solid var(--status-success)", borderRadius: "var(--radius-md)", background: "var(--status-success)", color: "white", cursor: saving || !detail.repairTaskNo ? "not-allowed" : "pointer" }}
-                  >
-                    {t("system.bugIntake.redispatchOriginal", "重新派发原任务")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => redispatchRepairTask(detail.bugNo, "REPLAN_AND_REQUEUE")}
-                    disabled={saving || !detail.repairTaskNo}
-                    style={{ marginTop: 10, marginLeft: 10, padding: "8px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", cursor: saving || !detail.repairTaskNo ? "not-allowed" : "pointer" }}
-                  >
-                    {t("system.bugIntake.replanAndRedispatch", "重算计划并重新派发")}
-                  </button>
-                  <p style={{ margin: "8px 0 0", color: "var(--text-secondary)", fontSize: 12 }}>
-                    {t("system.bugIntake.agentApprovalNote", "审批只记录授权；实际队列写入由本地 Agent Factory 脚本执行，仍受 dry-run / apply 和安全门禁控制。")}
-                  </p>
                   {Array.isArray(detail.repairTaskPayload?.redispatchHistory) && (
                     <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 12, background: "var(--bg-muted)" }}>
                       <strong>{t("system.bugIntake.redispatchHistory", "重新派发历史")}</strong>

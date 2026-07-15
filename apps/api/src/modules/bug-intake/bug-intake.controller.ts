@@ -116,6 +116,24 @@ export class BugIntakeController {
     return this.service.createRepairTask(bugNo, body, req.user ?? {}, this.reqMeta(req));
   }
 
+  @Post('reports/:bugNo/start-repair')
+  @RequireMenu('MENU_BUG_REPORT', 'E')
+  async startRepairWorkflow(
+    @Param('bugNo') bugNo: string,
+    @Body() body: {
+      priority?: string;
+      moduleCode?: string;
+      assigneeUsername?: string;
+      assigneeName?: string;
+      resolutionNote?: string;
+      acceptanceCriteria?: string;
+      approvalScope?: string;
+    },
+    @Req() req: AuthedRequest,
+  ) {
+    return this.service.startRepairWorkflow(bugNo, body, req.user ?? {}, this.reqMeta(req));
+  }
+
   @Post('reports/:bugNo/agent-plan')
   @RequireMenu('MENU_BUG_REPORT', 'E')
   async generateAgentPlan(

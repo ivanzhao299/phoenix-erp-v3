@@ -65,6 +65,11 @@ interface BugAgentApprovalPayload {
   approvalScope?: string;
 }
 
+interface BugStartRepairPayload extends BugTriagePayload {
+  acceptanceCriteria?: string;
+  approvalScope?: string;
+}
+
 interface BugRedispatchPayload {
   mode?: 'REQUEUE' | 'REPLAN_AND_REQUEUE';
   approvalScope?: string;
@@ -554,6 +559,104 @@ export class BugIntakeService {
     return this.toDto(saved);
   }
 
+  async startRepairWorkflow(
+    bugNo: string,
+    body: BugStartRepairPayload,
+    user: BugReportUser,
+    reqMeta: { ip?: string; userAgent?: string },
+  ) {
+    const report = await this.repo.findOne({ where: { bugNo } });
+    if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
+    if (['CLOSED', 'REJECTED', 'RESOLVED'].includes(report.status)) {
+      throw new BadRequestException('已结束的问题不能启动自动修复；如问题仍存在，请先重新打开');
+    }
+
+    const nextPriority = body.priority || report.priority || 'P2';
+    if (!(VALID_PRIORITIES as readonly string[]).includes(nextPriority)) {
+      throw new BadRequestException(`无效优先级: ${nextPriority}`);
+    }
+
+    const before = this.toWorkflowSnapshot(report);
+    const operator = this.safeText(user.username ?? user.name ?? 'bug-intake-admin', 128);
+    const taskNo = report.repairTaskNo || await this.nextRepairTaskNo();
+
+    report.priority = nextPriority;
+    report.moduleCode = this.safeCode(body.moduleCode ?? report.moduleCode ?? '').slice(0, 64);
+    report.assigneeUsername = this.safeCode(body.assigneeUsername ?? report.assigneeUsername ?? '').slice(0, 128);
+    report.assigneeName = this.safeText(body.assigneeName ?? report.assigneeName ?? '', 128);
+    report.resolutionNote = this.safeText(body.resolutionNote ?? report.resolutionNote ?? '', 10_000);
+
+    const basePayload = report.repairTaskNo && Object.keys(this.payloadObject(report.repairTaskPayload)).length > 0
+      ? this.payloadObject(report.repairTaskPayload)
+      : this.buildRepairTaskPayload(report, taskNo, user, {
+        acceptanceCriteria: body.acceptanceCriteria || report.resolutionNote || report.description,
+        suggestedOwner: report.assigneeUsername,
+      });
+    const classification = this.classifyReport(report);
+    const agentPlan = this.buildAgentPlan(this.buildAgentRouteText(report), report, classification);
+    const selectedAgents = Array.isArray(agentPlan.selected_agents)
+      ? agentPlan.selected_agents.map(String).filter(Boolean)
+      : [];
+
+    report.repairTaskNo = taskNo;
+    report.status = 'IN_PROGRESS';
+    report.updatedBy = operator;
+    report.closedAt = null;
+    report.repairTaskPayload = {
+      ...basePayload,
+      acceptanceCriteria: this.safeText(
+        body.acceptanceCriteria
+        || String(basePayload.acceptanceCriteria || '')
+        || report.resolutionNote
+        || report.description,
+        4000,
+      ),
+      suggestedOwner: this.safeText(report.assigneeUsername || String(basePayload.suggestedOwner || ''), 128),
+      failureClassification: classification,
+      failureClassificationUpdatedAt: new Date().toISOString(),
+      agentPlan,
+      agentPlanGeneratedAt: new Date().toISOString(),
+      agentPlanGeneratedBy: operator,
+      agentResults: [],
+      latestAgentResult: null,
+    };
+
+    if (agentPlan.route_decision === 'HOLD' || selectedAgents.length === 0) {
+      report.repairTaskStatus = 'HOLD';
+      report.resolutionNote = this.safeText(
+        report.resolutionNote || '自动路由无法形成安全执行计划，已转为 HOLD，等待管理员复核。',
+        10_000,
+      );
+    } else {
+      report.repairTaskStatus = 'AGENT_APPROVED';
+      report.repairTaskPayload = {
+        ...this.payloadObject(report.repairTaskPayload),
+        agentExecutionApproval: {
+          approved: true,
+          approvedBy: operator,
+          approvedAt: new Date().toISOString(),
+          approvalScope: this.safeText(
+            body.approvalScope ?? 'allow generated Agent plan to enter the local repair queue; release remains evidence-gated',
+            1000,
+          ),
+          forbiddenActions: [
+            'database write without separate gate',
+            'migration execution without separate gate',
+            'force push',
+          ],
+        },
+      };
+    }
+
+    const saved = await this.repo.save(report);
+    await this.writeAudit('START_REPAIR_WORKFLOW', saved.bugNo, user, before, {
+      ...this.toWorkflowSnapshot(saved),
+      selectedAgents,
+      routeDecision: agentPlan.route_decision,
+    }, reqMeta);
+    return this.toDto(saved);
+  }
+
   async generateAgentPlan(bugNo: string, user: BugReportUser, reqMeta: { ip?: string; userAgent?: string }) {
     const report = await this.repo.findOne({ where: { bugNo } });
     if (!report) throw new NotFoundException(`问题 ${bugNo} 不存在`);
@@ -589,6 +692,13 @@ export class BugIntakeService {
       ? report.repairTaskPayload as Record<string, unknown>
       : {};
     if (!payload.agentPlan) throw new BadRequestException('请先生成 Agent 修复计划');
+    const agentPlan = this.payloadObject(payload.agentPlan);
+    const selectedAgents = Array.isArray(agentPlan.selected_agents)
+      ? agentPlan.selected_agents.map(String).filter(Boolean)
+      : [];
+    if (agentPlan.route_decision === 'HOLD' || selectedAgents.length === 0) {
+      throw new BadRequestException('当前 Agent 计划为 HOLD 或没有可执行 Agent，不能批准入队');
+    }
 
     const before = this.toWorkflowSnapshot(report);
     const approval = {
@@ -609,7 +719,7 @@ export class BugIntakeService {
       agentExecutionApproval: approval,
     };
     report.repairTaskStatus = 'AGENT_APPROVED';
-    report.status = report.status === 'OPEN' ? 'TRIAGED' : report.status;
+    report.status = 'IN_PROGRESS';
     report.updatedBy = this.safeText(user.username ?? user.name ?? '', 128);
 
     const saved = await this.repo.save(report);
