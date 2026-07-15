@@ -1,24 +1,24 @@
 {
-  "id": "38",
-  "bugNo": "BUG-20260713-0005",
-  "title": "库区管理，所属仓库、库区类型、状态，要求显示为对应的中文",
+  "id": "39",
+  "bugNo": "BUG-20260713-0006",
+  "title": "库位管理，报错“[400] 「wms_locations」存在重复值，请检查后重试”",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
   "moduleCode": "____",
   "assigneeUsername": "",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260713-0005",
+  "repairTaskNo": "BUGTASK-20260713-0006",
   "repairTaskStatus": "HOLD",
-  "route": "/warehouse/zones",
+  "route": "/warehouse/locations",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
-  "createdAt": "2026-07-13T07:40:31.444Z",
-  "updatedAt": "2026-07-15T07:20:16.912Z",
+  "createdAt": "2026-07-13T07:55:43.920Z",
+  "updatedAt": "2026-07-15T07:29:31.809Z",
   "closedAt": null,
   "attachmentCount": 1,
-  "description": "库区管理，所属仓库、库区类型、状态，要求显示为对应的中文",
-  "url": "https://erp.eggslao.com/warehouse/zones",
+  "description": "库位管理，之前有库位编码是CS-KW-002，已经删除了，现在新建库位再使用这个编码，就报错“[400] 「wms_locations」存在重复值，请检查后重试”",
+  "url": "https://erp.eggslao.com/warehouse/locations",
   "reporterUserId": "96",
   "roles": [
     "ROLE_ADMIN",
@@ -26,17 +26,173 @@
   ],
   "companyCode": "",
   "projectCode": "",
-  "consoleErrors": [],
-  "failedRequests": [],
+  "consoleErrors": [
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:49:28.106Z"
+    },
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:49:38.287Z"
+    },
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:49:46.248Z"
+    },
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:50:43.854Z"
+    },
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:50:56.925Z"
+    },
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:51:45.064Z"
+    },
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:53:03.631Z"
+    },
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:53:10.906Z"
+    },
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:53:15.484Z"
+    },
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:53:21.161Z"
+    },
+    {
+      "type": "unhandledrejection",
+      "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+      "message": "「wms_locations」存在重复值，请检查后重试",
+      "timestamp": "2026-07-13T07:54:52.788Z"
+    }
+  ],
+  "failedRequests": [
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:49:28.105Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:49:38.283Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:49:46.247Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:50:43.853Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:50:56.923Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:51:45.059Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:53:03.626Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:53:10.904Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:53:15.481Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:53:21.160Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "url": "/api/crud/wms_locations",
+      "method": "POST",
+      "status": 400,
+      "requestId": "",
+      "timestamp": "2026-07-13T07:54:52.786Z",
+      "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+    }
+  ],
   "attachments": [
     {
-      "sha256": "2d68e2a96be0ec0e4d95503f1196d7d761b9f3d694f6ce7018262b6dbc462a35",
-      "fileName": "01-1783928431443-84825d72.png",
+      "sha256": "2d77cefd711ea5542da93881f7e3e47824c58e3741b5945417ff5ef82b68de46",
+      "fileName": "01-1783929343917-77f05024.png",
       "mimeType": "image/png",
-      "sizeBytes": 335477,
-      "originalName": "pasted-screenshot-1783928423170-1.png",
-      "relativePath": "storage/bug-reports/2026/07/13/BUG-20260713-0005/01-1783928431443-84825d72.png",
-      "previewEndpoint": "/api/bug-intake/reports/BUG-20260713-0005/attachments/01-1783928431443-84825d72.png"
+      "sizeBytes": 486238,
+      "originalName": "pasted-screenshot-1783929328882-1.png",
+      "relativePath": "storage/bug-reports/2026/07/13/BUG-20260713-0006/01-1783929343917-77f05024.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260713-0006/attachments/01-1783929343917-77f05024.png"
     }
   ],
   "clientContext": {
@@ -47,9 +203,9 @@
       "height": 1081
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-13T07:40:31.444Z",
+    "capturedAt": "2026-07-13T07:55:43.920Z",
     "pageSnapshot": {
-      "route": "/warehouse/zones",
+      "route": "/warehouse/locations",
       "title": "金凤凰 ERP — Phoenix ERP V3",
       "scroll": {
         "x": 0,
@@ -92,7 +248,7 @@
         "验收试运行",
         "系统运维",
         "个人中心 / 修改密码",
-        "系统健康",
+        "价格管理",
         "99+",
         "反馈问题",
         "反馈页面问题",
@@ -106,31 +262,36 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-        "pasted-screenshot-1783928423170-1.png",
+        "pasted-screenshot-1783929328882-1.png",
         "退出",
-        "·管理仓库内的库区划分",
+        "仓储管理",
+        "/库位管理",
+        "/",
+        "·仓库货位档案维护 · 合计 0 个库位",
         "·",
-        "共 0 条记录",
-        "库区编码",
-        "库区名称",
-        "所属仓库",
-        "库区类型",
-        "温区",
+        "100%",
+        "CS-KQ-003 区",
+        "1/1 已用",
+        "容量 100",
+        "库位编码",
+        "库位名称",
+        "仓库",
+        "库区",
+        "站点",
+        "容量枚",
+        "使用率",
         "状态",
+        "站点编码",
         "操作",
-        "CS-KQ-003",
-        "测试库区3",
+        "CS-KW-002",
+        "A区",
         "LPH_MS_EGG_FARM",
-        "NORMAL",
-        "ACTIVE",
-        "CS-KQ-002",
-        "测试库区2",
-        "10",
-        "INACTIVE",
-        "CS-KQ-001",
-        "测试库区1",
-        "STAGING",
-        "8"
+        "CS-KQ-003",
+        "ALL",
+        "100",
+        "65%",
+        "在用",
+        "编辑 删除"
       ],
       "interactiveElements": [
         {
@@ -351,7 +512,7 @@
         },
         {
           "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "path": ".sidebar-module__C8A-ya__subItem.",
           "rect": {
             "h": 32,
             "w": 215,
@@ -363,7 +524,7 @@
         },
         {
           "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
           "rect": {
             "h": 32,
             "w": 215,
@@ -643,7 +804,7 @@
           "rect": {
             "h": 18,
             "w": 18,
-            "x": 966,
+            "x": 968,
             "y": 816
           },
           "label": "移除附件",
@@ -701,131 +862,107 @@
           "tag": "button",
           "path": "",
           "rect": {
-            "h": 33,
+            "h": 35,
+            "w": 82,
+            "x": 1778,
+            "y": 89
+          },
+          "label": "刷新",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 35,
             "w": 108,
             "x": 1868,
-            "y": 76
+            "y": 89
           },
-          "label": "新增库区",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": ".rightDrawer-module__jI_Bsa__closeBtn",
-          "rect": {
-            "h": 32,
-            "w": 32,
-            "x": 2468,
-            "y": 16
-          },
-          "label": "关闭抽屉",
+          "label": "新增库位",
           "disabled": false
         },
         {
           "tag": "input",
-          "path": ".crudForm-module__v3To_q__input.",
+          "path": "",
           "rect": {
             "h": 38,
-            "w": 232,
-            "x": 2021,
-            "y": 109
+            "w": 1462,
+            "x": 244,
+            "y": 471
           },
-          "label": "如Z001",
+          "label": "搜索库位编码名称",
           "disabled": false
         },
         {
           "tag": "select",
-          "path": ".phx-select",
+          "path": "",
           "rect": {
             "h": 38,
-            "w": 232,
-            "x": 2021,
-            "y": 192
+            "w": 130,
+            "x": 1716,
+            "y": 471
           },
-          "label": "加载中… 孟赛农场鸡蛋暂存仓（LPH_MS_EGG_FARM） 孟赛鸡蛋销售成品仓（LPH_MS_EGG_SALES） 孟赛饲料仓（LPH_MS_FEED） 孟赛包装成品仓（LPH_MS_FINISHED） 孟赛药品/疫苗仓（LPH_MS_MEDICINE） 孟赛采购到货仓（LPH_MS_PURCHASE） 孟赛原料/",
+          "label": "全部库区 CS-KQ-003 区",
           "disabled": false
         },
         {
           "tag": "select",
-          "path": ".phx-select",
+          "path": "",
           "rect": {
             "h": 38,
-            "w": 232,
-            "x": 2268,
-            "y": 190
+            "w": 120,
+            "x": 1856,
+            "y": 471
           },
-          "label": "加载中… 常温区 冷藏区 冷冻区 暂存区 退货区",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": ".crudForm-module__v3To_q__input.",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 2021,
-            "y": 273
-          },
-          "label": "如04摄氏度",
-          "disabled": false
-        },
-        {
-          "tag": "select",
-          "path": ".crudForm-module__v3To_q__input.",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 2021,
-            "y": 355
-          },
-          "label": "请选择 启用 停用",
+          "label": "全部状态 空闲 在用 锁定 已满",
           "disabled": false
         },
         {
           "tag": "button",
-          "path": ".crudForm-module__v3To_q__btnCancel",
+          "path": "",
           "rect": {
-            "h": 44,
-            "w": 157,
-            "x": 2021,
-            "y": 446
+            "h": 26,
+            "w": 61,
+            "x": 1720,
+            "y": 586
           },
-          "label": "取消",
+          "label": "编辑",
           "disabled": false
         },
         {
           "tag": "button",
-          "path": ".crudForm-module__v3To_q__btnSubmit",
+          "path": "",
           "rect": {
-            "h": 44,
-            "w": 310,
-            "x": 2190,
-            "y": 446
+            "h": 26,
+            "w": 61,
+            "x": 1787,
+            "y": 586
           },
-          "label": "保存",
+          "label": "删除",
           "disabled": false
         }
       ]
     },
     "devicePixelRatio": 1.600000023841858
   },
-  "resolutionNote": "库区管理，所属仓库、库区类型、状态，要求显示为对应的中文",
+  "resolutionNote": "库位管理，之前有库位编码是CS-KW-001，已经删除了，现在新建库位再使用这个编码，就报错“[400] 「wms_locations」存在重复值，请检查后重试”",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/warehouse/zones",
-    "bugNo": "BUG-20260713-0005",
-    "route": "/warehouse/zones",
-    "title": "库区管理，所属仓库、库区类型、状态，要求显示为对应的中文",
-    "taskNo": "BUGTASK-20260713-0005",
+    "url": "https://erp.eggslao.com/warehouse/locations",
+    "bugNo": "BUG-20260713-0006",
+    "route": "/warehouse/locations",
+    "title": "库位管理，报错“[400] 「wms_locations」存在重复值，请检查后重试”",
+    "taskNo": "BUGTASK-20260713-0006",
     "context": {
       "attachments": [
         {
-          "sha256": "2d68e2a96be0ec0e4d95503f1196d7d761b9f3d694f6ce7018262b6dbc462a35",
-          "fileName": "01-1783928431443-84825d72.png",
+          "sha256": "2d77cefd711ea5542da93881f7e3e47824c58e3741b5945417ff5ef82b68de46",
+          "fileName": "01-1783929343917-77f05024.png",
           "mimeType": "image/png",
-          "sizeBytes": 335477,
-          "originalName": "pasted-screenshot-1783928423170-1.png",
-          "relativePath": "storage/bug-reports/2026/07/13/BUG-20260713-0005/01-1783928431443-84825d72.png",
-          "previewEndpoint": "/api/bug-intake/reports/BUG-20260713-0005/attachments/01-1783928431443-84825d72.png"
+          "sizeBytes": 486238,
+          "originalName": "pasted-screenshot-1783929328882-1.png",
+          "relativePath": "storage/bug-reports/2026/07/13/BUG-20260713-0006/01-1783929343917-77f05024.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260713-0006/attachments/01-1783929343917-77f05024.png"
         }
       ],
       "clientContext": {
@@ -836,9 +973,9 @@
           "height": 1081
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-13T07:40:31.444Z",
+        "capturedAt": "2026-07-13T07:55:43.920Z",
         "pageSnapshot": {
-          "route": "/warehouse/zones",
+          "route": "/warehouse/locations",
           "title": "金凤凰 ERP — Phoenix ERP V3",
           "scroll": {
             "x": 0,
@@ -881,7 +1018,7 @@
             "验收试运行",
             "系统运维",
             "个人中心 / 修改密码",
-            "系统健康",
+            "价格管理",
             "99+",
             "反馈问题",
             "反馈页面问题",
@@ -895,31 +1032,36 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-            "pasted-screenshot-1783928423170-1.png",
+            "pasted-screenshot-1783929328882-1.png",
             "退出",
-            "·管理仓库内的库区划分",
+            "仓储管理",
+            "/库位管理",
+            "/",
+            "·仓库货位档案维护 · 合计 0 个库位",
             "·",
-            "共 0 条记录",
-            "库区编码",
-            "库区名称",
-            "所属仓库",
-            "库区类型",
-            "温区",
+            "100%",
+            "CS-KQ-003 区",
+            "1/1 已用",
+            "容量 100",
+            "库位编码",
+            "库位名称",
+            "仓库",
+            "库区",
+            "站点",
+            "容量枚",
+            "使用率",
             "状态",
+            "站点编码",
             "操作",
-            "CS-KQ-003",
-            "测试库区3",
+            "CS-KW-002",
+            "A区",
             "LPH_MS_EGG_FARM",
-            "NORMAL",
-            "ACTIVE",
-            "CS-KQ-002",
-            "测试库区2",
-            "10",
-            "INACTIVE",
-            "CS-KQ-001",
-            "测试库区1",
-            "STAGING",
-            "8"
+            "CS-KQ-003",
+            "ALL",
+            "100",
+            "65%",
+            "在用",
+            "编辑 删除"
           ],
           "interactiveElements": [
             {
@@ -1140,7 +1282,7 @@
             },
             {
               "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "path": ".sidebar-module__C8A-ya__subItem.",
               "rect": {
                 "h": 32,
                 "w": 215,
@@ -1152,7 +1294,7 @@
             },
             {
               "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
               "rect": {
                 "h": 32,
                 "w": 215,
@@ -1432,7 +1574,7 @@
               "rect": {
                 "h": 18,
                 "w": 18,
-                "x": 966,
+                "x": 968,
                 "y": 816
               },
               "label": "移除附件",
@@ -1490,116 +1632,248 @@
               "tag": "button",
               "path": "",
               "rect": {
-                "h": 33,
+                "h": 35,
+                "w": 82,
+                "x": 1778,
+                "y": 89
+              },
+              "label": "刷新",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 35,
                 "w": 108,
                 "x": 1868,
-                "y": 76
+                "y": 89
               },
-              "label": "新增库区",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": ".rightDrawer-module__jI_Bsa__closeBtn",
-              "rect": {
-                "h": 32,
-                "w": 32,
-                "x": 2468,
-                "y": 16
-              },
-              "label": "关闭抽屉",
+              "label": "新增库位",
               "disabled": false
             },
             {
               "tag": "input",
-              "path": ".crudForm-module__v3To_q__input.",
+              "path": "",
               "rect": {
                 "h": 38,
-                "w": 232,
-                "x": 2021,
-                "y": 109
+                "w": 1462,
+                "x": 244,
+                "y": 471
               },
-              "label": "如Z001",
+              "label": "搜索库位编码名称",
               "disabled": false
             },
             {
               "tag": "select",
-              "path": ".phx-select",
+              "path": "",
               "rect": {
                 "h": 38,
-                "w": 232,
-                "x": 2021,
-                "y": 192
+                "w": 130,
+                "x": 1716,
+                "y": 471
               },
-              "label": "加载中… 孟赛农场鸡蛋暂存仓（LPH_MS_EGG_FARM） 孟赛鸡蛋销售成品仓（LPH_MS_EGG_SALES） 孟赛饲料仓（LPH_MS_FEED） 孟赛包装成品仓（LPH_MS_FINISHED） 孟赛药品/疫苗仓（LPH_MS_MEDICINE） 孟赛采购到货仓（LPH_MS_PURCHASE） 孟赛原料/",
+              "label": "全部库区 CS-KQ-003 区",
               "disabled": false
             },
             {
               "tag": "select",
-              "path": ".phx-select",
+              "path": "",
               "rect": {
                 "h": 38,
-                "w": 232,
-                "x": 2268,
-                "y": 190
+                "w": 120,
+                "x": 1856,
+                "y": 471
               },
-              "label": "加载中… 常温区 冷藏区 冷冻区 暂存区 退货区",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": ".crudForm-module__v3To_q__input.",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 2021,
-                "y": 273
-              },
-              "label": "如04摄氏度",
-              "disabled": false
-            },
-            {
-              "tag": "select",
-              "path": ".crudForm-module__v3To_q__input.",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 2021,
-                "y": 355
-              },
-              "label": "请选择 启用 停用",
+              "label": "全部状态 空闲 在用 锁定 已满",
               "disabled": false
             },
             {
               "tag": "button",
-              "path": ".crudForm-module__v3To_q__btnCancel",
+              "path": "",
               "rect": {
-                "h": 44,
-                "w": 157,
-                "x": 2021,
-                "y": 446
+                "h": 26,
+                "w": 61,
+                "x": 1720,
+                "y": 586
               },
-              "label": "取消",
+              "label": "编辑",
               "disabled": false
             },
             {
               "tag": "button",
-              "path": ".crudForm-module__v3To_q__btnSubmit",
+              "path": "",
               "rect": {
-                "h": 44,
-                "w": 310,
-                "x": 2190,
-                "y": 446
+                "h": 26,
+                "w": 61,
+                "x": 1787,
+                "y": 586
               },
-              "label": "保存",
+              "label": "删除",
               "disabled": false
             }
           ]
         },
         "devicePixelRatio": 1.600000023841858
       },
-      "consoleErrors": [],
-      "failedRequests": []
+      "consoleErrors": [
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:49:28.106Z"
+        },
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:49:38.287Z"
+        },
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:49:46.248Z"
+        },
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:50:43.854Z"
+        },
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:50:56.925Z"
+        },
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:51:45.064Z"
+        },
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:53:03.631Z"
+        },
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:53:10.906Z"
+        },
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:53:15.484Z"
+        },
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:53:21.161Z"
+        },
+        {
+          "type": "unhandledrejection",
+          "stack": "Error: 「wms_locations」存在重复值，请检查后重试\n    at c (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:12620)\n    at h (https://erp.eggslao.com/_next/static/chunks/13t32c24g~-ny.js:1:13861)\n    at async er (https://erp.eggslao.com/_next/static/chunks/0vmczhbad0jwh.js:1:44929)",
+          "message": "「wms_locations」存在重复值，请检查后重试",
+          "timestamp": "2026-07-13T07:54:52.788Z"
+        }
+      ],
+      "failedRequests": [
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:49:28.105Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        },
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:49:38.283Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        },
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:49:46.247Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        },
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:50:43.853Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        },
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:50:56.923Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        },
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:51:45.059Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        },
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:53:03.626Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        },
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:53:10.904Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        },
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:53:15.481Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        },
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:53:21.160Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        },
+        {
+          "url": "/api/crud/wms_locations",
+          "method": "POST",
+          "status": 400,
+          "requestId": "",
+          "timestamp": "2026-07-13T07:54:52.786Z",
+          "responseExcerpt": "{\"code\":400,\"message\":\"「wms_locations」存在重复值，请检查后重试\",\"error\":\"Bad Request\",\"statusCode\":400}"
+        }
+      ]
     },
     "priority": "P2",
     "reporter": {
@@ -1614,14 +1888,13 @@
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260713-0005",
+      "source_bug_no": "BUG-20260713-0006",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
           "agent": "A2-Security-Regression-Gate",
           "reasons": [
-            "security/RBAC/DataScope signal matched",
-            "failure classification RBAC_403"
+            "security/RBAC/DataScope signal matched"
           ],
           "execution_mode": "dry-run-first",
           "approval_required": true
@@ -1630,7 +1903,7 @@
           "agent": "A3-Backend-Critical-Path",
           "reasons": [
             "backend/API/error route matched",
-            "failure classification RBAC_403"
+            "failure classification API_5XX"
           ],
           "execution_mode": "dry-run-first",
           "approval_required": true
@@ -1654,24 +1927,8 @@
         {
           "agent": "A1-CI-Runtime-Gate",
           "reasons": [
-            "failure classification RBAC_403",
+            "failure classification API_5XX",
             "required validation after repair"
-          ],
-          "execution_mode": "dry-run-first",
-          "approval_required": true
-        },
-        {
-          "agent": "A6-Staging-Deploy-Runbook",
-          "reasons": [
-            "deploy/runbook signal matched"
-          ],
-          "execution_mode": "dry-run-first",
-          "approval_required": true
-        },
-        {
-          "agent": "A7-Final-QA-Gate",
-          "reasons": [
-            "release gate signal matched"
           ],
           "execution_mode": "dry-run-first",
           "approval_required": true
@@ -1682,154 +1939,62 @@
         "A3-Backend-Critical-Path",
         "A4-Frontend-UAT-Smoke",
         "A5-Data-Readiness",
-        "A1-CI-Runtime-Gate",
-        "A6-Staging-Deploy-Runbook",
-        "A7-Final-QA-Gate"
+        "A1-CI-Runtime-Gate"
       ],
-      "failure_category": "RBAC_403",
+      "failure_category": "API_5XX",
       "hard_constraints": [
         "no automatic production deploy",
         "no automatic DB write",
         "no automatic migration",
         "human approval required before code repair execution"
       ],
-      "route_confidence": 0.9,
-      "source_repair_task_no": "BUGTASK-20260713-0005"
+      "route_confidence": 0.88,
+      "source_repair_task_no": "BUGTASK-20260713-0006"
     },
-    "createdAt": "2026-07-13T07:40:57.872Z",
+    "createdAt": "2026-07-13T07:56:37.752Z",
     "createdBy": "admin",
     "moduleCode": "____",
     "agentResults": [
       {
+        "taskId": "BUGTASK-20260713-0006-A3",
         "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260713-0005-A3",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0005-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0005-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0005-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0005-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0005-A3-worker-assembled-prompt.md\nAssembled prompt chars: 23822\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-16-09-351Z-A3-Backend-Critical-Path.md\nBackend repair for `BUG-20260713-0005` is already implemented on this branch and I re-validated it.\n\nChanged scope:\n- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts:2175): enriches `/api/crud/wms_zones` rows with Chinese display fields for warehouse, zone type, and status while preserving raw codes.\n- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:126): focused regression coverage for the WMS zone label enrichment.\n- [BUG-20260713-0005_A3_BACKEND_REPORT.md](/Users/mac/phoen",
-        "commitHash": "",
         "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-15T07:16:10.789Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A3-worker-log.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260713-0006-A3-worker-log.md",
+        "commitHash": "",
         "changedFiles": [],
-        "redispatchCount": 2,
         "validationResults": {
-          "queueStatus": "SKIPPED_NOT_APPLICABLE",
           "evidenceGate": {
-            "role": "implementation_verified_existing",
+            "version": 1,
             "agent": "A3-Backend-Critical-Path",
-            "passed": true,
-            "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn",
-            "version": 1,
             "exitCode": 0,
-            "afterHead": "f05d25270b89f315432f688950e839737223e84a",
-            "checkedAt": "2026-07-15T07:16:09.460Z",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "responseChars": 1082,
             "beforeHead": "f05d25270b89f315432f688950e839737223e84a",
-            "commitHash": "",
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "reportFiles": [],
-            "changedFiles": [],
-            "responseChars": 1375,
-            "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-            "businessChangedFiles": [],
-            "infrastructureFailure": null,
-            "parentCommitRecovered": false
-          },
-          "integratedCommit": ""
-        }
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260713-0005-A4",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23889\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-20-09-168Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend fix for `BUG-20260713-0005` on `/warehouse/zones`.\n\nChanged:\n- [page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/warehouse/zones/page.tsx): table now renders warehouse Chinese label, `WMS_ZONE_TYPE` Chinese label, and `启用/停用` status text with safe fallbacks.\n- [warehouse-zone-display.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-zone-display.ts): focused display helpers.\n- [warehouse-zone-display.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/warehouse-zone-display.test.ts): regression coverage.\n- [BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT",
-        "commitHash": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-15T07:20:10.617Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A4-worker-log.md",
-        "changedFiles": [
-          "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
-          "apps/web/src/lib/warehouse-zone-display.test.ts",
-          "apps/web/src/lib/warehouse-zone-display.ts",
-          "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-        ],
-        "redispatchCount": 2,
-        "validationResults": {
-          "queueStatus": "IMPLEMENTATION_COMPLETED",
-          "evidenceGate": {
-            "role": "implementation",
-            "agent": "A4-Frontend-UAT-Smoke",
-            "passed": true,
-            "reason": "Business change, task report, commit, and conclusion are present",
-            "version": 1,
-            "exitCode": 0,
-            "afterHead": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
-            "checkedAt": "2026-07-15T07:20:09.332Z",
-            "beforeHead": "5b19033b9c6191025fac44b127375a8c7db7d9da",
-            "commitHash": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "reportFiles": [
-              "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-            ],
-            "changedFiles": [
-              "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
-              "apps/web/src/lib/warehouse-zone-display.test.ts",
-              "apps/web/src/lib/warehouse-zone-display.ts",
-              "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-            ],
-            "responseChars": 1400,
-            "terminalStatus": "IMPLEMENTATION_COMPLETED",
-            "businessChangedFiles": [
-              "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
-              "apps/web/src/lib/warehouse-zone-display.test.ts",
-              "apps/web/src/lib/warehouse-zone-display.ts"
-            ],
-            "infrastructureFailure": null,
-            "parentCommitRecovered": false
-          },
-          "integratedCommit": ""
-        }
-      },
-      {
-        "taskId": "BUGTASK-20260713-0005-A1",
-        "agent": "A1-CI-Runtime-Gate",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A1-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [],
-        "validationResults": {
-          "evidenceGate": {
-            "version": 1,
-            "agent": "A1-CI-Runtime-Gate",
-            "exitCode": 0,
-            "conclusion": "PASS",
-            "responseChars": 1592,
-            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "afterHead": "f05d25270b89f315432f688950e839737223e84a",
             "commitHash": "",
             "changedFiles": [],
             "businessChangedFiles": [],
             "reportFiles": [],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-15T07:20:15.529Z",
+            "checkedAt": "2026-07-15T07:29:30.447Z",
             "passed": true,
-            "role": "validation",
-            "terminalStatus": "VALIDATION_COMPLETED",
-            "reason": "Validation evidence recorded; this is not implementation evidence"
+            "role": "implementation_verified_existing",
+            "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+            "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
           },
-          "queueStatus": "VALIDATION_COMPLETED",
+          "queueStatus": "SKIPPED_NOT_APPLICABLE",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0005-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260713-0005-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0006-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0006-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0006-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0006-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0006-A3-worker-assembled-prompt.md\nAssembled prompt chars: 31530\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-29-30-351Z-A3-Backend-Critical-Path.md\nBackend repair for `BUG-20260713-0006` is already present on this branch in commit `927bfeb7 fix(api): repair BUG-20260713-0006`, and I revalidated it.\n\nChanged files in that commit:\n- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts:2502)\n- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:189)\n- [BUG report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260713-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md:1)\n\nValidation run now:\n- `cd apps/api && pnpm test -- generic",
         "nextAction": "",
-        "redispatchCount": 2,
+        "redispatchCount": 1,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-15T07:20:16.909Z"
+        "recordedAt": "2026-07-15T07:29:31.807Z"
       }
     ],
     "suggestedOwner": "",
-    "redispatchCount": 2,
+    "redispatchCount": 1,
     "timeoutRecovery": {},
     "repairGuardrails": {
       "autoRepairExecuted": false,
@@ -1838,111 +2003,89 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260713-0005-A1",
-      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260713-0006-A3",
+      "agent": "A3-Backend-Critical-Path",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A1-worker-log.md",
+      "resultFile": "docs/ops/runs/BUGTASK-20260713-0006-A3-worker-log.md",
       "commitHash": "",
       "changedFiles": [],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A1-CI-Runtime-Gate",
+          "agent": "A3-Backend-Critical-Path",
           "exitCode": 0,
-          "conclusion": "PASS",
-          "responseChars": 1592,
-          "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-          "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+          "conclusion": "PASS_WITH_CONDITIONS",
+          "responseChars": 1082,
+          "beforeHead": "f05d25270b89f315432f688950e839737223e84a",
+          "afterHead": "f05d25270b89f315432f688950e839737223e84a",
           "commitHash": "",
           "changedFiles": [],
           "businessChangedFiles": [],
           "reportFiles": [],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-15T07:20:15.529Z",
+          "checkedAt": "2026-07-15T07:29:30.447Z",
           "passed": true,
-          "role": "validation",
-          "terminalStatus": "VALIDATION_COMPLETED",
-          "reason": "Validation evidence recorded; this is not implementation evidence"
+          "role": "implementation_verified_existing",
+          "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+          "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
         },
-        "queueStatus": "VALIDATION_COMPLETED",
+        "queueStatus": "SKIPPED_NOT_APPLICABLE",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0005-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260713-0005-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0006-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260713-0006-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260713-0006-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260713-0006-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260713-0006-A3-worker-assembled-prompt.md\nAssembled prompt chars: 31530\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-29-30-351Z-A3-Backend-Critical-Path.md\nBackend repair for `BUG-20260713-0006` is already present on this branch in commit `927bfeb7 fix(api): repair BUG-20260713-0006`, and I revalidated it.\n\nChanged files in that commit:\n- [generic-crud.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.ts:2502)\n- [generic-crud.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.service.spec.ts:189)\n- [BUG report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260713-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md:1)\n\nValidation run now:\n- `cd apps/api && pnpm test -- generic",
       "nextAction": "",
-      "redispatchCount": 2,
+      "redispatchCount": 1,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-15T07:20:16.909Z"
+      "recordedAt": "2026-07-15T07:29:31.807Z"
     },
     "redispatchHistory": [
       {
-        "mode": "REQUEUE",
-        "note": "管理员要求按原 Agent 计划重新派发。",
+        "mode": "REPLAN_AND_REQUEUE",
+        "note": "管理员要求重算 Agent 计划后重新派发。",
         "redispatchNo": 1,
         "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
         "previousStatus": "IN_PROGRESS",
-        "redispatchedAt": "2026-07-13T09:34:19.668Z",
+        "redispatchedAt": "2026-07-15T06:48:24.783Z",
         "redispatchedBy": "admin",
         "selectedAgents": [
           "A2-Security-Regression-Gate",
           "A3-Backend-Critical-Path",
           "A4-Frontend-UAT-Smoke",
           "A5-Data-Readiness",
-          "A1-CI-Runtime-Gate",
-          "A6-Staging-Deploy-Runbook",
-          "A7-Final-QA-Gate"
-        ],
-        "previousRepairTaskStatus": "HOLD"
-      },
-      {
-        "mode": "REPLAN_AND_REQUEUE",
-        "note": "管理员要求重算 Agent 计划后重新派发。",
-        "redispatchNo": 2,
-        "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-        "previousStatus": "IN_PROGRESS",
-        "redispatchedAt": "2026-07-15T06:49:22.843Z",
-        "redispatchedBy": "admin",
-        "selectedAgents": [
-          "A2-Security-Regression-Gate",
-          "A3-Backend-Critical-Path",
-          "A4-Frontend-UAT-Smoke",
-          "A5-Data-Readiness",
-          "A1-CI-Runtime-Gate",
-          "A6-Staging-Deploy-Runbook",
-          "A7-Final-QA-Gate"
+          "A1-CI-Runtime-Gate"
         ],
         "previousRepairTaskStatus": "HOLD"
       }
     ],
-    "acceptanceCriteria": "库区管理，所属仓库、库区类型、状态，要求显示为对应的中文",
-    "agentPlanGeneratedAt": "2026-07-15T06:49:22.843Z",
+    "acceptanceCriteria": "库位管理，之前有库位编码是CS-KW-001，已经删除了，现在新建库位再使用这个编码，就报错“[400] 「wms_locations」存在重复值，请检查后重试”",
+    "agentPlanGeneratedAt": "2026-07-15T06:48:24.783Z",
     "agentPlanGeneratedBy": "redispatch:admin",
-    "activeRedispatchCount": 2,
+    "activeRedispatchCount": 1,
     "failureClassification": {
-      "category": "RBAC_403",
+      "category": "API_5XX",
       "evidence": [
-        "权限/RBAC/DataScope 信号"
+        "API 5xx/异常信号"
       ],
       "priority": "P1",
       "severity": "HIGH",
-      "confidence": 0.9,
-      "suggestedFix": "对齐菜单码、角色权限和 DataScope，避免前端透传无权限入口。",
+      "confidence": 0.88,
+      "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
       "autoFixEligible": true,
       "recommendedAgents": [
-        "A2-Security-Regression-Gate",
         "A3-Backend-Critical-Path",
         "A1-CI-Runtime-Gate"
       ],
       "requiresHumanGate": true,
-      "ownerRecommendation": "A2-Security-Regression-Gate"
+      "ownerRecommendation": "A3-Backend-Critical-Path"
     },
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-15T06:49:22.843Z",
+      "approvedAt": "2026-07-15T06:48:24.783Z",
       "approvedBy": "admin",
       "redispatch": true,
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-      "redispatchCount": 2,
+      "redispatchCount": 1,
       "forbiddenActions": [
         "production deploy without separate approval",
         "database write without separate gate",
@@ -1951,26 +2094,26 @@
         "force push"
       ]
     },
-    "failureClassificationUpdatedAt": "2026-07-15T06:49:22.843Z",
+    "failureClassificationUpdatedAt": "2026-07-15T06:48:24.783Z",
     "previousAgentResultsBeforeRedispatch": [
       {
         "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260713-0005-A3",
-        "summary": "Local bug-intake task BUGTASK-20260713-0005-A3 reached HOLD.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-        "commitHash": "f68350d11f74b09e10fbcdd6ac35b174cf0f91dd",
-        "conclusion": "HOLD",
-        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
-        "recordedAt": "2026-07-13T09:34:04.249Z",
+        "taskId": "BUGTASK-20260713-0006-A3",
+        "summary": "Local bug-intake task BUGTASK-20260713-0006-A3 reached COMPLETED_MERGED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+        "commitHash": "927bfeb72449227dd8d7ee24653c7e5500a52b5b",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Execution evidence recorded; release and production smoke must pass before business validation.",
+        "recordedAt": "2026-07-14T11:57:25.969Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A3-worker-log.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260713-0006-A3-worker-log.md",
         "changedFiles": [
           "apps/api/src/modules/generic-crud/generic-crud.service.spec.ts",
           "apps/api/src/modules/generic-crud/generic-crud.service.ts",
-          "docs/ops/BUG-20260713-0005_A3_BACKEND_REPORT.md"
+          "docs/ops/BUG-20260713-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
         ],
         "redispatchCount": 0,
         "validationResults": {
-          "completedAt": "2026-07-13T07:47:23.572Z",
+          "completedAt": "2026-07-13T08:01:49.735Z",
           "evidenceGate": {
             "role": "implementation",
             "agent": "A3-Backend-Critical-Path",
@@ -1978,20 +2121,20 @@
             "reason": "Business change, task report, commit, and conclusion are present",
             "version": 1,
             "exitCode": 0,
-            "afterHead": "f68350d11f74b09e10fbcdd6ac35b174cf0f91dd",
-            "checkedAt": "2026-07-13T07:47:21.576Z",
-            "beforeHead": "48417a0e2c74aec257fe26fc85a6daab5d0d0b69",
-            "commitHash": "f68350d11f74b09e10fbcdd6ac35b174cf0f91dd",
-            "conclusion": "PASS_WITH_CONDITIONS",
+            "afterHead": "927bfeb72449227dd8d7ee24653c7e5500a52b5b",
+            "checkedAt": "2026-07-13T08:01:47.659Z",
+            "beforeHead": "f68350d11f74b09e10fbcdd6ac35b174cf0f91dd",
+            "commitHash": "927bfeb72449227dd8d7ee24653c7e5500a52b5b",
+            "conclusion": "PASS",
             "reportFiles": [
-              "docs/ops/BUG-20260713-0005_A3_BACKEND_REPORT.md"
+              "docs/ops/BUG-20260713-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
             ],
             "changedFiles": [
               "apps/api/src/modules/generic-crud/generic-crud.service.spec.ts",
               "apps/api/src/modules/generic-crud/generic-crud.service.ts",
-              "docs/ops/BUG-20260713-0005_A3_BACKEND_REPORT.md"
+              "docs/ops/BUG-20260713-0006_A3_BACKEND_CRITICAL_PATH_REPORT.md"
             ],
-            "responseChars": 1159,
+            "responseChars": 1165,
             "terminalStatus": "IMPLEMENTATION_COMPLETED",
             "businessChangedFiles": [
               "apps/api/src/modules/generic-crud/generic-crud.service.spec.ts",
@@ -2000,172 +2143,44 @@
             "infrastructureFailure": null,
             "parentCommitRecovered": false
           },
-          "localTaskStatus": "HOLD",
+          "localTaskStatus": "COMPLETED_MERGED",
           "aggregateBackfill": true,
           "baselineAutopilotExitCode": 0
-        }
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260713-0005-A4",
-        "summary": "Local bug-intake task BUGTASK-20260713-0005-A4 reached HOLD.",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
-        "recordedAt": "2026-07-13T09:34:04.693Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-        "changedFiles": [],
-        "redispatchCount": 0,
-        "validationResults": {
-          "completedAt": "2026-07-13T07:47:28.173Z",
-          "evidenceGate": null,
-          "localTaskStatus": "HOLD",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": null
         }
       },
       {
         "agent": "A1-CI-Runtime-Gate",
-        "taskId": "BUGTASK-20260713-0005-A1",
-        "summary": "Local bug-intake task BUGTASK-20260713-0005-A1 reached HOLD.",
+        "taskId": "BUGTASK-20260713-0006-A1",
+        "summary": "Local bug-intake task BUGTASK-20260713-0006-A1 reached HOLD.",
         "commitHash": "",
         "conclusion": "HOLD",
         "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
-        "recordedAt": "2026-07-13T09:34:05.248Z",
+        "recordedAt": "2026-07-14T11:57:26.482Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260713-0006-A1-worker-log.md",
         "changedFiles": [],
         "redispatchCount": 0,
         "validationResults": {
-          "completedAt": "2026-07-13T07:47:23.722Z",
+          "completedAt": "2026-07-13T08:01:53.753Z",
           "evidenceGate": {
-            "role": "dependency",
+            "role": "execution",
             "agent": "A1-CI-Runtime-Gate",
             "passed": false,
-            "reason": "blocked by failed dependency: BUGTASK-20260713-0005-A3",
+            "reason": "Agent process exited with 1",
             "version": 1,
-            "checkedAt": "2026-07-13T07:47:23.722Z",
-            "terminalStatus": "HOLD"
-          },
-          "localTaskStatus": "HOLD",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": null
-        }
-      },
-      {
-        "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260713-0005-A3",
-        "summary": "Local bug-intake task BUGTASK-20260713-0005-A3 reached HOLD.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-        "commitHash": "e2904bb56d7dab8c1a58de92ede48bed008d8cc9",
-        "conclusion": "HOLD",
-        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
-        "recordedAt": "2026-07-14T11:57:26.994Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A3-worker-log.md",
-        "changedFiles": [
-          "apps/api/src/modules/generic-crud/generic-crud.service.spec.ts",
-          "apps/api/src/modules/generic-crud/generic-crud.service.ts",
-          "docs/ops/BUG-20260713-0005_A3_BACKEND_REPORT.md"
-        ],
-        "redispatchCount": 1,
-        "validationResults": {
-          "completedAt": "2026-07-13T09:46:31.244Z",
-          "evidenceGate": {
-            "role": "implementation",
-            "agent": "A3-Backend-Critical-Path",
-            "passed": true,
-            "reason": "Business change, task report, commit, and conclusion are present",
-            "version": 1,
-            "exitCode": 0,
-            "afterHead": "e2904bb56d7dab8c1a58de92ede48bed008d8cc9",
-            "checkedAt": "2026-07-13T09:46:29.056Z",
-            "beforeHead": "534abb17f679b5bb004b4a2aa60b2150b0702708",
-            "commitHash": "e2904bb56d7dab8c1a58de92ede48bed008d8cc9",
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "reportFiles": [
-              "docs/ops/BUG-20260713-0005_A3_BACKEND_REPORT.md"
-            ],
-            "changedFiles": [
-              "apps/api/src/modules/generic-crud/generic-crud.service.spec.ts",
-              "apps/api/src/modules/generic-crud/generic-crud.service.ts",
-              "docs/ops/BUG-20260713-0005_A3_BACKEND_REPORT.md"
-            ],
-            "responseChars": 1084,
-            "terminalStatus": "IMPLEMENTATION_COMPLETED",
-            "businessChangedFiles": [
-              "apps/api/src/modules/generic-crud/generic-crud.service.spec.ts",
-              "apps/api/src/modules/generic-crud/generic-crud.service.ts"
-            ],
-            "infrastructureFailure": null,
-            "parentCommitRecovered": false
-          },
-          "localTaskStatus": "HOLD",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": 0
-        }
-      },
-      {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260713-0005-A4",
-        "summary": "Local bug-intake task BUGTASK-20260713-0005-A4 reached HOLD.",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
-        "recordedAt": "2026-07-14T11:57:27.426Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260713-0005-A4-worker-log.md",
-        "changedFiles": [],
-        "redispatchCount": 1,
-        "validationResults": {
-          "completedAt": "2026-07-13T09:49:55.040Z",
-          "evidenceGate": {
-            "role": "implementation",
-            "agent": "A4-Frontend-UAT-Smoke",
-            "passed": false,
-            "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report",
-            "version": 1,
-            "exitCode": 0,
-            "afterHead": "b4e6ed41d0a7b00667efc385bacb71801d7532d6",
-            "checkedAt": "2026-07-13T09:49:55.040Z",
-            "beforeHead": "b4e6ed41d0a7b00667efc385bacb71801d7532d6",
+            "exitCode": 1,
+            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "checkedAt": "2026-07-13T08:01:53.753Z",
+            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
             "commitHash": "",
             "conclusion": "PASS",
             "reportFiles": [],
             "changedFiles": [],
-            "responseChars": 1238,
+            "responseChars": 1696,
             "terminalStatus": "HOLD",
             "businessChangedFiles": [],
             "infrastructureFailure": null,
             "parentCommitRecovered": false
-          },
-          "localTaskStatus": "HOLD",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": null
-        }
-      },
-      {
-        "agent": "A1-CI-Runtime-Gate",
-        "taskId": "BUGTASK-20260713-0005-A1",
-        "summary": "Local bug-intake task BUGTASK-20260713-0005-A1 reached HOLD.",
-        "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
-        "recordedAt": "2026-07-14T11:57:27.882Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-        "changedFiles": [],
-        "redispatchCount": 1,
-        "validationResults": {
-          "completedAt": "2026-07-13T09:46:31.362Z",
-          "evidenceGate": {
-            "role": "dependency",
-            "agent": "A1-CI-Runtime-Gate",
-            "passed": false,
-            "reason": "blocked by failed dependency: BUGTASK-20260713-0005-A3",
-            "version": 1,
-            "checkedAt": "2026-07-13T09:46:31.362Z",
-            "terminalStatus": "HOLD"
           },
           "localTaskStatus": "HOLD",
           "aggregateBackfill": true,
@@ -2178,22 +2193,17 @@
     "visibility": "HOLD",
     "headline": "修复暂未完成，当前处于 HOLD",
     "conclusion": "HOLD",
-    "adminSummary": "库区管理，所属仓库、库区类型、状态，要求显示为对应的中文",
+    "adminSummary": "库位管理，之前有库位编码是CS-KW-001，已经删除了，现在新建库位再使用这个编码，就报错“[400] 「wms_locations」存在重复值，请检查后重试”",
     "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
-    "changedFiles": [
-      "apps/web/src/app/(admin)/warehouse/zones/page.tsx",
-      "apps/web/src/lib/warehouse-zone-display.test.ts",
-      "apps/web/src/lib/warehouse-zone-display.ts",
-      "docs/ops/BUG-20260713-0005_A4_FRONTEND_UAT_SMOKE_REPORT.md"
-    ],
+    "commitHash": null,
+    "changedFiles": [],
     "validations": [
       {
         "key": "implementation",
         "label": "代码修复",
-        "status": "PASS"
+        "status": "PENDING"
       },
       {
         "key": "ci",
@@ -2216,7 +2226,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-15T07:20:16.909Z",
+    "completedAt": "2026-07-15T07:29:31.807Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"
