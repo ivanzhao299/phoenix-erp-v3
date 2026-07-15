@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-15T07:03:09.116Z",
-  "updatedAt": "2026-07-15T12:08:57.194Z",
+  "updatedAt": "2026-07-15T12:12:42.786Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "目前在采购管理页面点击“创建运单”可以直接跳转物流管理界面并自动填充采购订单ID和采购订单号，但是如果直接从物流管理新建运单还是要输入采购订单ID，但是采购订单界面不显示采购订单ID，所以要求在采购订单界面，在采购订单号前边加一列“采购订单ID”，在采购订单就可以查询到采购订单ID了",
@@ -2034,41 +2034,94 @@
     "moduleCode": "",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260715-0003-A3",
         "agent": "A3-Backend-Critical-Path",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260715-0003-A3-worker-log.md",
+        "taskId": "BUGTASK-20260715-0003-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 28973\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-08-55-707Z-A3-Backend-Critical-Path.md\nImplemented the A3 backend portion for `BUG-20260715-0003`.\n\nChanged [orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/orders.service.ts:208) so `GET /api/v2/procurement/orders?keyword=...` now searches `采购订单ID` via `CAST(p.id AS TEXT) ILIKE :kw`, while preserving the existing DataScope filter.\n\nAdded focused regression coverage in [orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/orders.service.spec.ts:40). Report written to [BUG-20260715-0003-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/op",
         "commitHash": "5de9d369a061c0eb3401658070c1095407b531b2",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-15T12:08:57.191Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0003-A3-worker-log.md",
         "changedFiles": [
           "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts",
           "apps/api/src/modules/procurement-v2/services/orders.service.ts",
           "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
         ],
+        "redispatchCount": 1,
         "validationResults": {
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "evidenceGate": {
-            "version": 1,
+            "role": "implementation",
             "agent": "A3-Backend-Critical-Path",
+            "passed": true,
+            "reason": "Business change, task report, commit, and conclusion are present",
+            "version": 1,
             "exitCode": 0,
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 1177,
-            "beforeHead": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
             "afterHead": "5de9d369a061c0eb3401658070c1095407b531b2",
+            "checkedAt": "2026-07-15T12:08:55.865Z",
+            "beforeHead": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
             "commitHash": "5de9d369a061c0eb3401658070c1095407b531b2",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [
+              "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
+            ],
             "changedFiles": [
               "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts",
               "apps/api/src/modules/procurement-v2/services/orders.service.ts",
               "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
             ],
+            "responseChars": 1177,
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
             "businessChangedFiles": [
               "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts",
               "apps/api/src/modules/procurement-v2/services/orders.service.ts"
             ],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260715-0003-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0003-A4-worker-log.md",
+        "commitHash": "6c1db5dbd1b08d11bc15701194847819709537fb",
+        "changedFiles": [
+          "apps/web/src/__tests__/procurement-orders-id-field.test.ts",
+          "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
+          "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+          "docs/ops/bug-intake/BUGTASK-20260715-0003-A4-frontend-report.md"
+        ],
+        "validationResults": {
+          "evidenceGate": {
+            "version": 1,
+            "agent": "A4-Frontend-UAT-Smoke",
+            "exitCode": 0,
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "responseChars": 1218,
+            "beforeHead": "a029612af5063f9da364052531db0436857db81d",
+            "afterHead": "6c1db5dbd1b08d11bc15701194847819709537fb",
+            "commitHash": "6c1db5dbd1b08d11bc15701194847819709537fb",
+            "changedFiles": [
+              "apps/web/src/__tests__/procurement-orders-id-field.test.ts",
+              "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
+              "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+              "docs/ops/bug-intake/BUGTASK-20260715-0003-A4-frontend-report.md"
+            ],
+            "businessChangedFiles": [
+              "apps/web/src/__tests__/procurement-orders-id-field.test.ts",
+              "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
+              "apps/web/src/app/(admin)/procurement2/orders/page.tsx"
+            ],
             "reportFiles": [
-              "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
+              "docs/ops/bug-intake/BUGTASK-20260715-0003-A4-frontend-report.md"
             ],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-15T12:08:55.865Z",
+            "checkedAt": "2026-07-15T12:12:41.533Z",
             "passed": true,
             "role": "implementation",
             "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -2077,11 +2130,11 @@
           "queueStatus": "IMPLEMENTATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 28973\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-08-55-707Z-A3-Backend-Critical-Path.md\nImplemented the A3 backend portion for `BUG-20260715-0003`.\n\nChanged [orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/orders.service.ts:208) so `GET /api/v2/procurement/orders?keyword=...` now searches `采购订单ID` via `CAST(p.id AS TEXT) ILIKE :kw`, while preserving the existing DataScope filter.\n\nAdded focused regression coverage in [orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/orders.service.spec.ts:40). Report written to [BUG-20260715-0003-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/op",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 29040\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-12-41-370Z-A4-Frontend-UAT-Smoke.md\nImplemented BUGTASK-20260715-0003 frontend repair.\n\nChanged:\n- [orders/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/page.tsx:577): added `采购订单ID` before `采购订单号` in the list, detail drawer, and loading/empty `colSpan`.\n- [OrderForm.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:385): added read-only `采购订单ID / 采购订单号` fields; new mode shows `保存后自动生成`, edit mode shows API `id/poNo`.\n- Added regression coverage: `apps/web/src/__tests__/procurement-orders-id-field.test.ts`.\n- Report written: [BUGTASK-20260715-0003-A4-frontend-report.md](/Users/m",
         "nextAction": "",
         "redispatchCount": 1,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-15T12:08:57.191Z"
+        "recordedAt": "2026-07-15T12:12:42.784Z"
       }
     ],
     "suggestedOwner": "",
@@ -2094,41 +2147,44 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260715-0003-A3",
-      "agent": "A3-Backend-Critical-Path",
+      "taskId": "BUGTASK-20260715-0003-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260715-0003-A3-worker-log.md",
-      "commitHash": "5de9d369a061c0eb3401658070c1095407b531b2",
+      "resultFile": "docs/ops/runs/BUGTASK-20260715-0003-A4-worker-log.md",
+      "commitHash": "6c1db5dbd1b08d11bc15701194847819709537fb",
       "changedFiles": [
-        "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts",
-        "apps/api/src/modules/procurement-v2/services/orders.service.ts",
-        "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
+        "apps/web/src/__tests__/procurement-orders-id-field.test.ts",
+        "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
+        "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+        "docs/ops/bug-intake/BUGTASK-20260715-0003-A4-frontend-report.md"
       ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A3-Backend-Critical-Path",
+          "agent": "A4-Frontend-UAT-Smoke",
           "exitCode": 0,
           "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 1177,
-          "beforeHead": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
-          "afterHead": "5de9d369a061c0eb3401658070c1095407b531b2",
-          "commitHash": "5de9d369a061c0eb3401658070c1095407b531b2",
+          "responseChars": 1218,
+          "beforeHead": "a029612af5063f9da364052531db0436857db81d",
+          "afterHead": "6c1db5dbd1b08d11bc15701194847819709537fb",
+          "commitHash": "6c1db5dbd1b08d11bc15701194847819709537fb",
           "changedFiles": [
-            "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts",
-            "apps/api/src/modules/procurement-v2/services/orders.service.ts",
-            "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
+            "apps/web/src/__tests__/procurement-orders-id-field.test.ts",
+            "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
+            "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+            "docs/ops/bug-intake/BUGTASK-20260715-0003-A4-frontend-report.md"
           ],
           "businessChangedFiles": [
-            "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts",
-            "apps/api/src/modules/procurement-v2/services/orders.service.ts"
+            "apps/web/src/__tests__/procurement-orders-id-field.test.ts",
+            "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
+            "apps/web/src/app/(admin)/procurement2/orders/page.tsx"
           ],
           "reportFiles": [
-            "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
+            "docs/ops/bug-intake/BUGTASK-20260715-0003-A4-frontend-report.md"
           ],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-15T12:08:55.865Z",
+          "checkedAt": "2026-07-15T12:12:41.533Z",
           "passed": true,
           "role": "implementation",
           "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -2137,11 +2193,11 @@
         "queueStatus": "IMPLEMENTATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0003-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0003-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0003-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0003-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0003-A3-worker-assembled-prompt.md\nAssembled prompt chars: 28973\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-08-55-707Z-A3-Backend-Critical-Path.md\nImplemented the A3 backend portion for `BUG-20260715-0003`.\n\nChanged [orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/orders.service.ts:208) so `GET /api/v2/procurement/orders?keyword=...` now searches `采购订单ID` via `CAST(p.id AS TEXT) ILIKE :kw`, while preserving the existing DataScope filter.\n\nAdded focused regression coverage in [orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/orders.service.spec.ts:40). Report written to [BUG-20260715-0003-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/op",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 29040\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-12-41-370Z-A4-Frontend-UAT-Smoke.md\nImplemented BUGTASK-20260715-0003 frontend repair.\n\nChanged:\n- [orders/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/page.tsx:577): added `采购订单ID` before `采购订单号` in the list, detail drawer, and loading/empty `colSpan`.\n- [OrderForm.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:385): added read-only `采购订单ID / 采购订单号` fields; new mode shows `保存后自动生成`, edit mode shows API `id/poNo`.\n- Added regression coverage: `apps/web/src/__tests__/procurement-orders-id-field.test.ts`.\n- Report written: [BUGTASK-20260715-0003-A4-frontend-report.md](/Users/m",
       "nextAction": "",
       "redispatchCount": 1,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-15T12:08:57.191Z"
+      "recordedAt": "2026-07-15T12:12:42.784Z"
     },
     "redispatchHistory": [
       {
@@ -2295,11 +2351,15 @@
     "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": "5de9d369a061c0eb3401658070c1095407b531b2",
+    "commitHash": "6c1db5dbd1b08d11bc15701194847819709537fb",
     "changedFiles": [
       "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts",
       "apps/api/src/modules/procurement-v2/services/orders.service.ts",
-      "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
+      "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md",
+      "apps/web/src/__tests__/procurement-orders-id-field.test.ts",
+      "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
+      "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
+      "docs/ops/bug-intake/BUGTASK-20260715-0003-A4-frontend-report.md"
     ],
     "validations": [
       {
@@ -2328,7 +2388,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-15T12:08:57.191Z",
+    "completedAt": "2026-07-15T12:12:42.784Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"
