@@ -152,6 +152,41 @@ describe('WorkflowService listMyTasks', () => {
     });
   });
 
+  it('does not report zero total when BUG-20260709-0004 row is visible but count drifts', async () => {
+    const { svc } = buildService([
+      {
+        total_count: 0,
+        task_source: 'APPROVAL_ENGINE',
+        task_id: '1783585535582',
+        instance_id: '101',
+        instance_no: 'AE-101',
+        biz_type: 'PR',
+        biz_id: '1001',
+        biz_no: 'PR2-20260707-00002',
+        subject: '采购测试2',
+        amount: '80',
+        currency_code: 'CNY',
+        company_code: 'PHOENIX_LAOS',
+        company_name: '老挝凤凰农业发展有限公司',
+        project_code: 'PRJ_MENGSAI_LAYER',
+        required_role: null,
+        step_no: 1,
+        total_steps: 1,
+        current_step_no: 1,
+        status: 'PENDING',
+        created_at: '2026-07-07T08:45:00.000Z',
+      },
+    ]);
+
+    const result = await svc.listMyTasks(
+      { userId: 1, roles: ['ROLE_ADMIN', 'ROLE_MASTER_DATA_APPROVER'] },
+      { page: 1, pageSize: 20, taskSource: 'APPROVAL_ENGINE' },
+    );
+
+    expect(result.items).toHaveLength(1);
+    expect(result.total).toBe(1);
+  });
+
   it('preserves approval todo DataScope parameters', async () => {
     const { em, svc } = buildService([], {
       isGlobal: false,
@@ -215,5 +250,31 @@ describe('WorkflowService listMyTasks', () => {
     expect(result.data).toHaveLength(1);
     expect(result.total).toBe(2);
     expect(result.total).toBeGreaterThanOrEqual(result.data.length);
+  });
+
+  it('does not report zero total on the legacy todo endpoint when rows are visible', async () => {
+    const { em, svc } = buildService([]);
+    em.query
+      .mockResolvedValueOnce([
+        {
+          task_source: 'APPROVAL_ENGINE',
+          id: '1783585535582',
+          instance_id: '101',
+          instance_no: 'AE-101',
+          biz_type: 'PR',
+          biz_no: 'PR2-20260707-00002',
+          title: '采购测试2',
+          status: 'TODO',
+        },
+      ])
+      .mockResolvedValueOnce([{ count: 0 }]);
+
+    const result = await svc.listTodo(
+      { userId: 1, roles: ['ROLE_ADMIN', 'ROLE_MASTER_DATA_APPROVER'] },
+      { limit: 20, offset: 0 },
+    );
+
+    expect(result.data).toHaveLength(1);
+    expect(result.total).toBe(1);
   });
 });

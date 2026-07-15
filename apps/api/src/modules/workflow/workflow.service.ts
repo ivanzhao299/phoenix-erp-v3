@@ -866,7 +866,8 @@ export class WorkflowService implements OnModuleInit {
       this.listUnifiedTodoTasks(user, limit, offset),
       this.countUnifiedTodoTasks(user),
     ]);
-    return { code: 200, data: rows, total };
+    const visibleLowerBound = rows.length > 0 ? offset + rows.length : total;
+    return { code: 200, data: rows, total: Math.max(total, visibleLowerBound) };
   }
 
   async listMyTasks(user: WorkflowUser, query: MyTasksQuery) {
@@ -995,8 +996,11 @@ export class WorkflowService implements OnModuleInit {
       params,
     );
 
-    const total = Number(rows[0]?.total_count || 0);
-    const items: any[] = rows.filter((t: any) => t.task_source != null).map((t: any) => ({
+    const visibleRows = rows.filter((t: any) => t.task_source != null);
+    const countedTotal = Number(rows[0]?.total_count || 0);
+    const visibleLowerBound = visibleRows.length > 0 ? (page - 1) * pageSize + visibleRows.length : countedTotal;
+    const total = Math.max(countedTotal, visibleLowerBound);
+    const items: any[] = visibleRows.map((t: any) => ({
       taskSource:      t.task_source,
       taskId:          String(t.task_id),
       instanceId:      String(t.instance_id),
