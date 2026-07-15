@@ -9,12 +9,12 @@
   "assigneeUsername": "",
   "assigneeName": "",
   "repairTaskNo": "BUGTASK-20260715-0004",
-  "repairTaskStatus": "HOLD",
+  "repairTaskStatus": "AGENT_RUNNING",
   "route": "/master/farms",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-15T08:14:10.996Z",
-  "updatedAt": "2026-07-15T08:24:01.024Z",
+  "updatedAt": "2026-07-15T12:00:28.191Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "目前养殖场档案只能从养殖场总览的养殖场一览的设置按钮中进入，并且只有编辑和删除的功能，没有新建的功能，现要求在加一个新建养殖场的功能，并且在主数据中心模块新增一个子菜单“养殖场档案”，点击可以直接跳转到这个界面",
@@ -1854,51 +1854,39 @@
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
-          "agent": "A2-Security-Regression-Gate",
-          "reasons": [
-            "security/RBAC/DataScope signal matched",
-            "failure classification RBAC_403"
-          ],
-          "execution_mode": "dry-run-first",
-          "approval_required": true
-        },
-        {
           "agent": "A3-Backend-Critical-Path",
           "reasons": [
-            "backend/API/error route matched",
-            "failure classification RBAC_403"
+            "administrator-approved redispatch scope"
           ],
-          "execution_mode": "dry-run-first",
+          "execution_mode": "approved-execution",
           "approval_required": true
         },
         {
           "agent": "A4-Frontend-UAT-Smoke",
           "reasons": [
-            "frontend/UI route or wording matched"
+            "administrator-approved redispatch scope"
           ],
-          "execution_mode": "dry-run-first",
+          "execution_mode": "approved-execution",
           "approval_required": true
         },
         {
           "agent": "A5-Data-Readiness",
           "reasons": [
-            "data readiness/master data signal matched"
+            "administrator-approved redispatch scope"
           ],
-          "execution_mode": "dry-run-first",
+          "execution_mode": "approved-execution",
           "approval_required": true
         },
         {
           "agent": "A1-CI-Runtime-Gate",
           "reasons": [
-            "failure classification RBAC_403",
-            "required validation after repair"
+            "administrator-approved redispatch scope"
           ],
-          "execution_mode": "dry-run-first",
+          "execution_mode": "approved-execution",
           "approval_required": true
         }
       ],
       "selected_agents": [
-        "A2-Security-Regression-Gate",
         "A3-Backend-Critical-Path",
         "A4-Frontend-UAT-Smoke",
         "A5-Data-Readiness",
@@ -1919,50 +1907,154 @@
     "moduleCode": "",
     "agentResults": [
       {
-        "agent": "A5-Data-Readiness",
         "taskId": "BUGTASK-20260715-0004-A5",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260715-0004-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260715-0004-A5\nTitle: Repair BUG-20260715-0004: 养殖场档案添加新建功能，并在主数据中心加一个子菜单 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A5-Data-Readiness\",\n  \"exitCode\": 0,\n  \"conclusion\": \"GO_WITH_CONDITIONS\",\n  \"responseChars\": 750,\n  \"beforeHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"afterHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"infrastructureFailure\": null,\n  \"checkedAt\": \"2026-07-15T08:16:49.161Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```",
-        "commitHash": "",
+        "agent": "A5-Data-Readiness",
         "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "",
-        "recordedAt": "2026-07-15T08:16:50.517Z",
-        "recordedBy": "bug_intake_runner",
         "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A5-worker-log.md",
+        "commitHash": "",
         "changedFiles": [],
-        "redispatchCount": 0,
         "validationResults": {
-          "queueStatus": "VALIDATION_COMPLETED",
           "evidenceGate": {
-            "role": "validation",
-            "agent": "A5-Data-Readiness",
-            "passed": true,
-            "reason": "Validation evidence recorded; this is not implementation evidence",
             "version": 1,
+            "agent": "A5-Data-Readiness",
             "exitCode": 0,
-            "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-            "checkedAt": "2026-07-15T08:16:49.161Z",
-            "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-            "commitHash": "",
             "conclusion": "GO_WITH_CONDITIONS",
-            "reportFiles": [],
-            "changedFiles": [],
             "responseChars": 750,
-            "terminalStatus": "VALIDATION_COMPLETED",
+            "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
+            "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
+            "commitHash": "",
+            "changedFiles": [],
             "businessChangedFiles": [],
+            "reportFiles": [],
+            "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "parentCommitRecovered": false
+            "checkedAt": "2026-07-15T12:00:26.932Z",
+            "passed": true,
+            "role": "validation",
+            "terminalStatus": "VALIDATION_COMPLETED",
+            "reason": "Validation evidence recorded; this is not implementation evidence"
           },
+          "queueStatus": "VALIDATION_COMPLETED",
           "integratedCommit": ""
-        }
+        },
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260715-0004-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260715-0004-A5\nTitle: Repair BUG-20260715-0004: 养殖场档案添加新建功能，并在主数据中心加一个子菜单 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A5-Data-Readiness\",\n  \"exitCode\": 0,\n  \"conclusion\": \"GO_WITH_CONDITIONS\",\n  \"responseChars\": 750,\n  \"beforeHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"afterHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"infrastructureFailure\": null,\n  \"checkedAt\": \"2026-07-15T12:00:26.932Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```",
+        "nextAction": "",
+        "redispatchCount": 1,
+        "recordedBy": "bug_intake_runner",
+        "recordedAt": "2026-07-15T12:00:28.189Z"
+      }
+    ],
+    "suggestedOwner": "",
+    "redispatchCount": 1,
+    "timeoutRecovery": {},
+    "repairGuardrails": {
+      "autoRepairExecuted": false,
+      "noProductionDeploy": true,
+      "noDbWriteWithoutGate": true,
+      "requiresHumanApproval": true
+    },
+    "latestAgentResult": {
+      "taskId": "BUGTASK-20260715-0004-A5",
+      "agent": "A5-Data-Readiness",
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A5-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
+      "validationResults": {
+        "evidenceGate": {
+          "version": 1,
+          "agent": "A5-Data-Readiness",
+          "exitCode": 0,
+          "conclusion": "GO_WITH_CONDITIONS",
+          "responseChars": 750,
+          "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
+          "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
+          "commitHash": "",
+          "changedFiles": [],
+          "businessChangedFiles": [],
+          "reportFiles": [],
+          "parentCommitRecovered": false,
+          "infrastructureFailure": null,
+          "checkedAt": "2026-07-15T12:00:26.932Z",
+          "passed": true,
+          "role": "validation",
+          "terminalStatus": "VALIDATION_COMPLETED",
+          "reason": "Validation evidence recorded; this is not implementation evidence"
+        },
+        "queueStatus": "VALIDATION_COMPLETED",
+        "integratedCommit": ""
       },
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260715-0004-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260715-0004-A5\nTitle: Repair BUG-20260715-0004: 养殖场档案添加新建功能，并在主数据中心加一个子菜单 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A5-Data-Readiness\",\n  \"exitCode\": 0,\n  \"conclusion\": \"GO_WITH_CONDITIONS\",\n  \"responseChars\": 750,\n  \"beforeHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"afterHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"infrastructureFailure\": null,\n  \"checkedAt\": \"2026-07-15T12:00:26.932Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```",
+      "nextAction": "",
+      "redispatchCount": 1,
+      "recordedBy": "bug_intake_runner",
+      "recordedAt": "2026-07-15T12:00:28.189Z"
+    },
+    "redispatchHistory": [
+      {
+        "mode": "REQUEUE",
+        "note": "AUTO_QUEUE_RECOVERY: dependency symlink false-dirty/quarantine generation 0",
+        "redispatchNo": 1,
+        "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
+        "previousStatus": "IN_PROGRESS",
+        "redispatchedAt": "2026-07-15T11:59:59.175Z",
+        "redispatchedBy": "bug_intake_runner",
+        "selectedAgents": [
+          "A3-Backend-Critical-Path",
+          "A4-Frontend-UAT-Smoke",
+          "A5-Data-Readiness",
+          "A1-CI-Runtime-Gate"
+        ],
+        "previousRepairTaskStatus": "HOLD"
+      }
+    ],
+    "acceptanceCriteria": "目前养殖场档案只能从养殖场总览的养殖场一览的设置按钮中进入，并且只有编辑和删除的功能，没有新建的功能，现要求在加一个新建养殖场的功能，并且在主数据中心模块新增一个子菜单“养殖场档案”，点击可以直接跳转到这个界面",
+    "agentPlanGeneratedAt": "2026-07-15T11:59:59.175Z",
+    "agentPlanGeneratedBy": "redispatch-explicit:bug_intake_runner",
+    "activeRedispatchCount": 1,
+    "failureClassification": {
+      "category": "RBAC_403",
+      "evidence": [
+        "权限/RBAC/DataScope 信号"
+      ],
+      "priority": "P1",
+      "severity": "HIGH",
+      "confidence": 0.9,
+      "suggestedFix": "对齐菜单码、角色权限和 DataScope，避免前端透传无权限入口。",
+      "autoFixEligible": true,
+      "recommendedAgents": [
+        "A2-Security-Regression-Gate",
+        "A3-Backend-Critical-Path",
+        "A1-CI-Runtime-Gate"
+      ],
+      "requiresHumanGate": true,
+      "ownerRecommendation": "A2-Security-Regression-Gate"
+    },
+    "agentExecutionApproval": {
+      "approved": true,
+      "approvedAt": "2026-07-15T11:59:59.175Z",
+      "approvedBy": "bug_intake_runner",
+      "redispatch": true,
+      "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
+      "redispatchCount": 1,
+      "forbiddenActions": [
+        "production deploy without separate approval",
+        "database write without separate gate",
+        "migration execution without separate gate",
+        "push without release approval",
+        "force push"
+      ]
+    },
+    "failureClassificationUpdatedAt": "2026-07-15T08:14:22.493Z",
+    "previousAgentResultsBeforeRedispatch": [
       {
         "agent": "A3-Backend-Critical-Path",
         "taskId": "BUGTASK-20260715-0004-A3",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26663\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-18-59-445Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS for A3 backend.\n\nImplemented backend RBAC repair for `/master/farms`:\n\n- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.ts): `brd_farms` now accepts `MENU_MD_ORG` as an alternate permission for view/create/edit, while delete remains restricted to `MENU_FARM_MASTER:D`.\n- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts): added regression coverage for create allowed via `MENU_MD_ORG:C` and delete still denied via `MENU_MD_ORG:D`.\n- Report written",
+        "summary": "Local bug-intake task BUGTASK-20260715-0004-A3 reached COMPLETED_MERGED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
         "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-15T08:19:00.868Z",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Execution evidence recorded; release and production smoke must pass before business validation.",
+        "recordedAt": "2026-07-15T11:53:59.124Z",
         "recordedBy": "bug_intake_runner",
         "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md",
         "changedFiles": [
@@ -1972,7 +2064,7 @@
         ],
         "redispatchCount": 0,
         "validationResults": {
-          "queueStatus": "IMPLEMENTATION_COMPLETED",
+          "completedAt": "2026-07-15T08:19:01.236Z",
           "evidenceGate": {
             "role": "implementation",
             "agent": "A3-Backend-Critical-Path",
@@ -2002,17 +2094,19 @@
             "infrastructureFailure": null,
             "parentCommitRecovered": false
           },
-          "integratedCommit": ""
+          "localTaskStatus": "COMPLETED_MERGED",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": 0
         }
       },
       {
         "agent": "A4-Frontend-UAT-Smoke",
         "taskId": "BUGTASK-20260715-0004-A4",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 26730\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-23-00-949Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend fix for `BUG-20260715-0004`.\n\nChanged:\n- Added `新增养殖场` action on [/master/farms page](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/master/farms/page.tsx:162).\n- Gated create/edit/delete by `MENU_FARM_MASTER:C/E/D`.\n- Added 主数据中心 submenu `养殖场档案 -> /master/farms` in [Sidebar.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/components/layout/Sidebar.tsx:233).\n- Added regression test [master-farms-menu.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/master-farms-menu.test.ts:1).\n- Wrote report: [BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md](/Users/mac/phoenix-erp-wor",
+        "summary": "Local bug-intake task BUGTASK-20260715-0004-A4 reached COMPLETED_MERGED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
         "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-15T08:23:02.390Z",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Execution evidence recorded; release and production smoke must pass before business validation.",
+        "recordedAt": "2026-07-15T11:53:59.637Z",
         "recordedBy": "bug_intake_runner",
         "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A4-worker-log.md",
         "changedFiles": [
@@ -2026,7 +2120,7 @@
         ],
         "redispatchCount": 0,
         "validationResults": {
-          "queueStatus": "IMPLEMENTATION_COMPLETED",
+          "completedAt": "2026-07-15T08:23:02.770Z",
           "evidenceGate": {
             "role": "implementation",
             "agent": "A4-Frontend-UAT-Smoke",
@@ -2064,151 +2158,106 @@
             "infrastructureFailure": null,
             "parentCommitRecovered": false
           },
-          "integratedCommit": ""
+          "localTaskStatus": "COMPLETED_MERGED",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": 0
         }
       },
       {
-        "taskId": "BUGTASK-20260715-0004-A1",
-        "agent": "A1-CI-Runtime-Gate",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A1-worker-log.md",
+        "agent": "A5-Data-Readiness",
+        "taskId": "BUGTASK-20260715-0004-A5",
+        "summary": "Local bug-intake task BUGTASK-20260715-0004-A5 reached VALIDATION_COMPLETED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
         "commitHash": "",
-        "changedFiles": [],
-        "validationResults": {
-          "evidenceGate": {
-            "version": 1,
-            "agent": "A1-CI-Runtime-Gate",
-            "exitCode": 1,
-            "conclusion": "PASS",
-            "responseChars": 1596,
-            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-            "commitHash": "",
-            "changedFiles": [],
-            "businessChangedFiles": [],
-            "reportFiles": [],
-            "parentCommitRecovered": false,
-            "infrastructureFailure": null,
-            "checkedAt": "2026-07-15T08:23:59.761Z",
-            "passed": false,
-            "role": "execution",
-            "terminalStatus": "HOLD",
-            "reason": "Agent process exited with 1"
-          },
-          "queueStatus": "HOLD",
-          "integratedCommit": ""
-        },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260715-0004-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 1\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nFAIL: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\n\nstderr:\nResult: FAIL. 1 W5 closeout static gate(s) failed.\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode\": 1,\n  \"con",
-        "nextAction": "",
-        "redispatchCount": 0,
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Execution evidence recorded; release and production smoke must pass before business validation.",
+        "recordedAt": "2026-07-15T11:54:00.145Z",
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-15T08:24:01.021Z"
-      }
-    ],
-    "suggestedOwner": "",
-    "repairGuardrails": {
-      "autoRepairExecuted": false,
-      "noProductionDeploy": true,
-      "noDbWriteWithoutGate": true,
-      "requiresHumanApproval": true
-    },
-    "latestAgentResult": {
-      "taskId": "BUGTASK-20260715-0004-A1",
-      "agent": "A1-CI-Runtime-Gate",
-      "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A1-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
-      "validationResults": {
-        "evidenceGate": {
-          "version": 1,
-          "agent": "A1-CI-Runtime-Gate",
-          "exitCode": 1,
-          "conclusion": "PASS",
-          "responseChars": 1596,
-          "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-          "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-          "commitHash": "",
-          "changedFiles": [],
-          "businessChangedFiles": [],
-          "reportFiles": [],
-          "parentCommitRecovered": false,
-          "infrastructureFailure": null,
-          "checkedAt": "2026-07-15T08:23:59.761Z",
-          "passed": false,
-          "role": "execution",
-          "terminalStatus": "HOLD",
-          "reason": "Agent process exited with 1"
-        },
-        "queueStatus": "HOLD",
-        "integratedCommit": ""
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A5-worker-log.md",
+        "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "completedAt": "2026-07-15T08:16:49.161Z",
+          "evidenceGate": {
+            "role": "validation",
+            "agent": "A5-Data-Readiness",
+            "passed": true,
+            "reason": "Validation evidence recorded; this is not implementation evidence",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
+            "checkedAt": "2026-07-15T08:16:49.161Z",
+            "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
+            "commitHash": "",
+            "conclusion": "GO_WITH_CONDITIONS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 750,
+            "terminalStatus": "VALIDATION_COMPLETED",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "localTaskStatus": "VALIDATION_COMPLETED",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": 0
+        }
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260715-0004-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 1\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nFAIL: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\n\nstderr:\nResult: FAIL. 1 W5 closeout static gate(s) failed.\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A1-CI-Runtime-Gate\",\n  \"exitCode\": 1,\n  \"con",
-      "nextAction": "",
-      "redispatchCount": 0,
-      "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-15T08:24:01.021Z"
-    },
-    "acceptanceCriteria": "目前养殖场档案只能从养殖场总览的养殖场一览的设置按钮中进入，并且只有编辑和删除的功能，没有新建的功能，现要求在加一个新建养殖场的功能，并且在主数据中心模块新增一个子菜单“养殖场档案”，点击可以直接跳转到这个界面",
-    "agentPlanGeneratedAt": "2026-07-15T08:14:22.493Z",
-    "agentPlanGeneratedBy": "admin",
-    "failureClassification": {
-      "category": "RBAC_403",
-      "evidence": [
-        "权限/RBAC/DataScope 信号"
-      ],
-      "priority": "P1",
-      "severity": "HIGH",
-      "confidence": 0.9,
-      "suggestedFix": "对齐菜单码、角色权限和 DataScope，避免前端透传无权限入口。",
-      "autoFixEligible": true,
-      "recommendedAgents": [
-        "A2-Security-Regression-Gate",
-        "A3-Backend-Critical-Path",
-        "A1-CI-Runtime-Gate"
-      ],
-      "requiresHumanGate": true,
-      "ownerRecommendation": "A2-Security-Regression-Gate"
-    },
-    "agentExecutionApproval": {
-      "approved": true,
-      "approvedAt": "2026-07-15T08:14:22.493Z",
-      "approvedBy": "admin",
-      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-      "forbiddenActions": [
-        "database write without separate gate",
-        "migration execution without separate gate",
-        "force push"
-      ]
-    },
-    "failureClassificationUpdatedAt": "2026-07-15T08:14:22.493Z"
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "taskId": "BUGTASK-20260715-0004-A1",
+        "summary": "Local bug-intake task BUGTASK-20260715-0004-A1 reached HOLD.",
+        "commitHash": "",
+        "conclusion": "HOLD",
+        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
+        "recordedAt": "2026-07-15T11:54:00.657Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A1-worker-log.md",
+        "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "completedAt": "2026-07-15T08:23:59.762Z",
+          "evidenceGate": {
+            "role": "execution",
+            "agent": "A1-CI-Runtime-Gate",
+            "passed": false,
+            "reason": "Agent process exited with 1",
+            "version": 1,
+            "exitCode": 1,
+            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "checkedAt": "2026-07-15T08:23:59.761Z",
+            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "commitHash": "",
+            "conclusion": "PASS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 1596,
+            "terminalStatus": "HOLD",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "localTaskStatus": "HOLD",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": null
+        }
+      }
+    ]
   },
   "repairResult": {
-    "visibility": "HOLD",
-    "headline": "修复暂未完成，当前处于 HOLD",
-    "conclusion": "HOLD",
-    "adminSummary": "证据或执行条件不足，需要重新分派或人工复核。",
-    "sourceStatus": "HOLD",
+    "visibility": "RUNNING",
+    "headline": "修复任务正在执行",
+    "conclusion": "IN_PROGRESS",
+    "adminSummary": "已收到 1 条 Agent 回写，任务仍在执行。",
+    "sourceStatus": "AGENT_RUNNING",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
-    "changedFiles": [
-      "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-      "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-      "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md",
-      "apps/web/src/app/(admin)/master/farms/page.tsx",
-      "apps/web/src/components/layout/Sidebar.tsx",
-      "apps/web/src/lib/master-farms-menu.test.ts",
-      "apps/web/src/locales/en.json",
-      "apps/web/src/locales/lo.json",
-      "apps/web/src/locales/zh.json",
-      "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
-    ],
+    "commitHash": null,
+    "changedFiles": [],
     "validations": [
       {
         "key": "implementation",
         "label": "代码修复",
-        "status": "PASS"
+        "status": "PENDING"
       },
       {
         "key": "ci",
@@ -2231,8 +2280,8 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-15T08:24:01.021Z",
-    "nextAction": "需要重新分派或人工 Gate"
+    "completedAt": "2026-07-15T12:00:28.189Z",
+    "nextAction": "本地 runner 执行中，超时后自动 HOLD"
   },
   "updatedBy": "bug_intake_runner"
 }
