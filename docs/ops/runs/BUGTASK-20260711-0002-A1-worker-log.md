@@ -54,6 +54,7 @@ PASS: freeze boundary static gate passes
 PASS: security regression static gate passes
 PASS: unsafe attachment reference gate passes
 PASS: menu permission atomicity gate passes
+PASS: user role assignment atomicity gate passes
 PASS: sensitive menu guard gate passes
 PASS: frontend menu gate alignment passes
 PASS: PG parameter cast consistency gate passes
@@ -103,7 +104,7 @@ stderr:
   "agent": "A1-CI-Runtime-Gate",
   "exitCode": 0,
   "conclusion": "PASS",
-  "responseChars": 1543,
+  "responseChars": 1592,
   "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
   "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
   "commitHash": "",
@@ -111,7 +112,8 @@ stderr:
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
-  "checkedAt": "2026-07-12T16:36:56.923Z",
+  "infrastructureFailure": null,
+  "checkedAt": "2026-07-15T07:12:22.863Z",
   "passed": true,
   "role": "validation",
   "terminalStatus": "VALIDATION_COMPLETED",
