@@ -93,11 +93,11 @@ export class CustomerCreditService {
       [customerCode, companyCode],
     );
 
-    // 兼容：customer_code 字段也可能匹配
+    // 历史业务单据可能仍保存 legacy_customer_code，主档以 customer_no 为标准。
     let cust = custRows[0] ?? null;
     if (!cust) {
       const byCode = await this.ds.query(
-        `SELECT * FROM sal_customers WHERE customer_code = $1 AND company_code = $2 LIMIT 1`,
+        `SELECT * FROM sal_customers WHERE legacy_customer_code = $1 AND company_code = $2 LIMIT 1`,
         [customerCode, companyCode],
       );
       cust = byCode[0] ?? null;
@@ -265,13 +265,13 @@ export class CustomerCreditService {
   async refreshCustomerCredit(customerId: string, mgr?: EntityManager): Promise<void> {
     const executor = mgr ?? this.ds;
     const rows = await executor.query(
-      `SELECT customer_no, customer_code, company_code, credit_limit, payment_terms,
+      `SELECT customer_no, legacy_customer_code, company_code, credit_limit, payment_terms,
               risk_level, status FROM sal_customers WHERE id = $1`,
       [customerId],
     );
     if (!rows?.length) return;
     const cust = rows[0];
-    const arKey = cust.customer_no ?? cust.customer_code;
+    const arKey = cust.customer_no ?? cust.legacy_customer_code;
 
     // 重算 AR
     const agRows = await executor.query(
@@ -519,7 +519,7 @@ export class CustomerCreditService {
 
   async getArAging(customerId: string) {
     const cust = await this.getCustomerRow(customerId);
-    const arKey = cust.customer_no ?? cust.customer_code;
+    const arKey = cust.customer_no ?? cust.legacy_customer_code;
 
     const rows = await this.ds.query(
       `SELECT

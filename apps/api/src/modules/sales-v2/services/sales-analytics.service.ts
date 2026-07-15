@@ -826,7 +826,7 @@ export class SalesAnalyticsService {
     const { clause: fc, params: fp } = this.buildScope('c2', [], companyCode);
     const frozenCustomers = await this.ds.query(
       `SELECT
-         c2.customer_code,
+         c2.customer_no AS customer_code,
          c2.customer_name,
          c2.credit_status,
          c2.credit_used,

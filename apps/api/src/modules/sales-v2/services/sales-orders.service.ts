@@ -238,7 +238,10 @@ export class SalesOrdersService {
     let channelCode = dto.channelCode ?? null;
     if (dto.customerCode) {
       const cRows = await this.ds.query(
-        `SELECT * FROM sal_customers WHERE customer_code = $1 AND company_code = $2 LIMIT 1`,
+        `SELECT * FROM sal_customers
+         WHERE (customer_no = $1 OR legacy_customer_code = $1)
+           AND company_code = $2
+         LIMIT 1`,
         [dto.customerCode, dto.companyCode],
       );
       if (cRows.length) {
@@ -367,7 +370,7 @@ export class SalesOrdersService {
       [
         orderNo,
         customer ? String(customer.id) : null,
-        dto.customerCode ?? null,
+        customer?.customer_no ?? dto.customerCode ?? null,
         customer?.customer_name ?? null,
         dto.companyCode, dto.companyName ?? null,
         channelCode,
@@ -753,7 +756,10 @@ export class SalesOrdersService {
     let paymentTermsDays = 30;
     if (rec.customer_code) {
       const cRows = await this.ds.query(
-        `SELECT payment_terms FROM sal_customers WHERE customer_code=$1 AND company_code=$2 LIMIT 1`,
+        `SELECT payment_terms FROM sal_customers
+         WHERE (customer_no = $1 OR legacy_customer_code = $1)
+           AND company_code = $2
+         LIMIT 1`,
         [rec.customer_code, rec.company_code],
       );
       if (cRows.length && cRows[0].payment_terms) {

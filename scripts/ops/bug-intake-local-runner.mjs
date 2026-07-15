@@ -987,6 +987,19 @@ function currentHead(cwd) {
   return sha.ok ? sha.output : '';
 }
 
+export function selectReleaseReadyBacklog(reports, tasks) {
+  return (reports || []).flatMap((report) => {
+    if (!report?.bugNo || ['RESOLVED', 'CLOSED', 'REJECTED'].includes(String(report.status || ''))) return [];
+    const localTasks = (tasks || []).filter((task) =>
+      task.source === 'bug-intake' && task.source_bug_no === report.bugNo,
+    );
+    if (localTasks.length === 0) return [];
+    const selectedAgents = selectedAgentsForReport(report, localTasks);
+    const evidence = evaluateBugReleaseEvidence(localTasks, selectedAgents);
+    return evidence.passed ? [{ bugNo: report.bugNo, evidence }] : [];
+  });
+}
+
 function releaseEvidenceForWorkerRuns(args, workerRuns) {
   const reports = readLatestInboxReports(args);
   const reportByBug = new Map(reports.map((report) => [report.bugNo, report]));
@@ -1003,9 +1016,14 @@ function releaseEvidenceForWorkerRuns(args, workerRuns) {
     .filter((task) => task.source === 'bug-intake' && task.source_bug_no)
     .filter((task) => commitIsUnpushed(task.integrated_commit))
     .map((task) => task.source_bug_no);
+  // A fix can complete in one resident cycle and only become releasable after
+  // a later validation/backfill cycle. Keep those verified reports in the
+  // release set so they cannot remain stranded in AGENT_RUNNING/HOLD forever.
+  const releaseReadyBacklog = selectReleaseReadyBacklog(reports, tasks);
   const bugNos = [...new Set([
     ...workerRuns.map((item) => item.task.source_bug_no).filter(Boolean),
     ...unpushedBugNos,
+    ...releaseReadyBacklog.map((item) => item.bugNo),
   ])];
   return bugNos.map((bugNo) => {
     const report = reportByBug.get(bugNo) || {};
@@ -1021,7 +1039,9 @@ function releaseEvidenceForWorkerRuns(args, workerRuns) {
 
 function canPush(args, workerRuns, releaseEvidence) {
   if (args.dryRun || !args.pushAfterSuccess) return false;
-  if (!workerRuns.length) return false;
+  // A previous cycle can finish implementation while a later cycle performs
+  // the final evidence backfill. Requiring a worker in the same cycle left
+  // verified commits permanently stranded ahead of origin/main.
   return releaseEvidence.length > 0 && releaseEvidence.every((item) => item.evidence.passed);
 }
 
@@ -1222,6 +1242,9 @@ const AUTO_RECOVERY_NOTE = 'AUTO_QUEUE_RECOVERY';
 const TECHNICAL_HOLD_PATTERNS = [
   /incomplete implementation worktree preserved in quarantine/i,
   /blocked by failed dependency/i,
+  /cherry-pick .* conflict aborted/i,
+  /Agent process exited with [1-9]/i,
+  /Missing implementation evidence/i,
   /runner-created dependency/i,
   /runner root must be clean[\s\S]*(OBSERVER_FINDINGS_REPORT|docs\/ops\/evolution)/i,
   /Codex CLI usage capacity is exhausted/i,
@@ -1266,8 +1289,10 @@ export function selectAutomaticRedispatchCandidates(reports, tasks, options = {}
     if (localTasks.length === 0) return [];
     const generation = Number(payload.redispatchCount || 0);
     const currentTasks = localTasks.filter((task) => Number(task.redispatch_count || 0) === generation);
-    if (currentTasks.length === 0 || currentTasks.some((task) => !['HOLD', 'hold', 'failed'].includes(task.status))) return [];
-    if (currentTasks.some((task) => !TECHNICAL_HOLD_PATTERNS.some((pattern) => pattern.test(String(task.reason || ''))))) return [];
+    if (currentTasks.length === 0 || currentTasks.some((task) => !FINISHED_STATUSES.has(task.status))) return [];
+    const failedTasks = currentTasks.filter((task) => ['HOLD', 'hold', 'failed'].includes(task.status));
+    if (failedTasks.length === 0) return [];
+    if (failedTasks.some((task) => !TECHNICAL_HOLD_PATTERNS.some((pattern) => pattern.test(String(task.reason || ''))))) return [];
 
     const selectedAgents = selectedAgentsForReport(report, currentTasks);
     if (selectedAgents.length === 0 || selectedAgents.some((agent) => ['A6-Staging-Deploy-Runbook', 'A7-Final-QA-Gate'].includes(agent))) return [];
@@ -1279,7 +1304,7 @@ export function selectAutomaticRedispatchCandidates(reports, tasks, options = {}
       generation,
       selectedAgents,
       recoveryCount,
-      reasons: [...new Set(currentTasks.map((task) => String(task.reason || '')).filter(Boolean))],
+      reasons: [...new Set(failedTasks.map((task) => String(task.reason || '')).filter(Boolean))],
     }];
   }).slice(0, maxPerCycle);
 }

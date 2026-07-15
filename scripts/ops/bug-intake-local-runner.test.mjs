@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { requeueExpiredCapacityWaits, selectAutomaticRedispatchCandidates } from './bug-intake-local-runner.mjs';
+import {
+  requeueExpiredCapacityWaits,
+  selectAutomaticRedispatchCandidates,
+  selectReleaseReadyBacklog,
+} from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 import { evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 
@@ -60,6 +64,33 @@ test('technical quarantine generation is eligible for one safe redispatch', () =
   }]);
 });
 
+test('a mixed terminal generation retries technical failures without discarding successful evidence', () => {
+  const reports = [{
+    bugNo: 'BUG-TEST-MIXED', status: 'IN_PROGRESS', repairTaskStatus: 'HOLD',
+    repairTaskPayload: {
+      redispatchCount: 2,
+      agentExecutionApproval: { approved: true },
+      agentPlan: { selected_agents: ['A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke', 'A1-CI-Runtime-Gate'] },
+      redispatchHistory: [],
+    },
+  }];
+  const tasks = [
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-MIXED', route_active: true, agent: 'A3-Backend-Critical-Path', status: 'COMPLETED_MERGED', redispatch_count: 2, evidence_gate: { passed: true } },
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-MIXED', route_active: true, agent: 'A4-Frontend-UAT-Smoke', status: 'HOLD', redispatch_count: 2, reason: 'incomplete implementation worktree preserved in quarantine; no code merged' },
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-MIXED', route_active: true, agent: 'A1-CI-Runtime-Gate', status: 'HOLD', redispatch_count: 2, reason: 'blocked by failed dependency: A4' },
+  ];
+  assert.deepEqual(selectAutomaticRedispatchCandidates(reports, tasks), [{
+    bugNo: 'BUG-TEST-MIXED',
+    generation: 2,
+    selectedAgents: ['A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke', 'A1-CI-Runtime-Gate'],
+    recoveryCount: 0,
+    reasons: [
+      'incomplete implementation worktree preserved in quarantine; no code merged',
+      'blocked by failed dependency: A4',
+    ],
+  }]);
+});
+
 test('expired Codex capacity waits requeue without becoming business HOLD', () => {
   const tasks = [{ status: 'WAITING_CAPACITY', route_active: true, retry_after: '2026-07-12T01:00:00.000Z' }];
   assert.equal(requeueExpiredCapacityWaits(tasks, new Date('2026-07-12T02:00:00.000Z')), true);
@@ -80,6 +111,22 @@ test('resident evolution artifacts are treated as recoverable runner-owned dirty
   const tasks = [
     { source: 'bug-intake', source_bug_no: 'BUG-TEST-EVOLUTION', route_active: true, agent: 'A4-Frontend-UAT-Smoke', status: 'HOLD', redispatch_count: 1, reason },
     { source: 'bug-intake', source_bug_no: 'BUG-TEST-EVOLUTION', route_active: true, agent: 'A1-CI-Runtime-Gate', status: 'HOLD', redispatch_count: 1, reason: 'blocked by failed dependency: A4' },
+  ];
+  assert.equal(selectAutomaticRedispatchCandidates(reports, tasks).length, 1);
+});
+
+test('stale missing-implementation evidence is retryable after idempotent evidence support', () => {
+  const reports = [{
+    bugNo: 'BUG-TEST-EVIDENCE', status: 'IN_PROGRESS', repairTaskStatus: 'HOLD',
+    repairTaskPayload: {
+      redispatchCount: 0,
+      agentExecutionApproval: { approved: true },
+      agentPlan: { selected_agents: ['A4-Frontend-UAT-Smoke', 'A1-CI-Runtime-Gate'] },
+    },
+  }];
+  const tasks = [
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-EVIDENCE', route_active: true, agent: 'A4-Frontend-UAT-Smoke', status: 'HOLD', redispatch_count: 0, reason: 'Missing implementation evidence: approved business-file change, new implementation commit, task-specific report' },
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-EVIDENCE', route_active: true, agent: 'A1-CI-Runtime-Gate', status: 'HOLD', redispatch_count: 0, reason: 'blocked by failed dependency: A4' },
   ];
   assert.equal(selectAutomaticRedispatchCandidates(reports, tasks).length, 1);
 });
@@ -190,4 +237,21 @@ test('verified existing implementation writes back as PASS, not NOT_APPLICABLE',
     ? 'PASS_WITH_CONDITIONS'
     : 'NOT_APPLICABLE';
   assert.equal(conclusion, 'PASS_WITH_CONDITIONS');
+});
+
+test('verified backlog remains eligible for release in a later runner cycle', () => {
+  const reports = [{ bugNo: 'BUG-BACKLOG', status: 'IN_PROGRESS', repairTaskStatus: 'AGENT_RUNNING' }];
+  const tasks = [
+    {
+      source: 'bug-intake', source_bug_no: 'BUG-BACKLOG', route_active: true,
+      redispatch_count: 1, agent: 'A3-Backend-Critical-Path', status: 'SKIPPED_NOT_APPLICABLE',
+      evidence_gate: { passed: true, role: 'implementation_verified_existing' },
+    },
+    {
+      source: 'bug-intake', source_bug_no: 'BUG-BACKLOG', route_active: true,
+      redispatch_count: 1, agent: 'A1-CI-Runtime-Gate', status: 'VALIDATION_COMPLETED',
+      evidence_gate: { passed: true, role: 'validation' },
+    },
+  ];
+  assert.deepEqual(selectReleaseReadyBacklog(reports, tasks).map((item) => item.bugNo), ['BUG-BACKLOG']);
 });

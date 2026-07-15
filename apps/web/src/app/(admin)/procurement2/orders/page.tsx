@@ -558,10 +558,11 @@ export default function PurchaseOrdersPage() {
             列宽由 colgroup 按比例分配，中文按列宽自动换行（不再逐字竖排）。去掉冗余「币种」列。 */}
         <table className={s.table} style={{ width: "100%", tableLayout: "fixed" }}>
           <colgroup>
-            <col style={{ width: "9%" }} />{/* 订单号 */}
-            <col style={{ width: "15%" }} />{/* 主题 */}
-            <col style={{ width: "13%" }} />{/* 公司 */}
-            <col style={{ width: "11%" }} />{/* 供应商 */}
+            <col style={{ width: "5%" }} />{/* 内部 ID */}
+            <col style={{ width: "8%" }} />{/* 订单号 */}
+            <col style={{ width: "14%" }} />{/* 主题 */}
+            <col style={{ width: "12%" }} />{/* 公司 */}
+            <col style={{ width: "10%" }} />{/* 供应商 */}
             <col style={{ width: "8%" }} />{/* 类型 */}
             <col style={{ width: "6%" }} />{/* 跨境 */}
             <col style={{ width: "12%" }} />{/* 合同金额 */}
@@ -573,6 +574,7 @@ export default function PurchaseOrdersPage() {
           </colgroup>
           <thead>
             <tr>
+              <th>{t('prc2.po_id', '采购订单 ID')}</th>
               <th>{t('prc2.po_no', '采购订单号')}</th>
               <th>{t('prc2.subject', '主题')}</th>
               <th>{t('prc2.company', '公司')}</th>
@@ -588,13 +590,14 @@ export default function PurchaseOrdersPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={12} className={u.emptyCenter}>{t('prc2.loading', '加载中…')}</td></tr> : data.items.length === 0 ? <tr><td colSpan={12} className={u.emptyCenter}>{t('prc2.empty_no_data', '暂无数据')}</td></tr> : data.items.map(row => {
+            {loading ? <tr><td colSpan={13} className={u.emptyCenter}>{t('prc2.loading', '加载中…')}</td></tr> : data.items.length === 0 ? <tr><td colSpan={13} className={u.emptyCenter}>{t('prc2.empty_no_data', '暂无数据')}</td></tr> : data.items.map(row => {
             const st = STATUS_MAP[row.status] ?? {
               label: row.status,
               cls: "badgeNeutral"
             };
             const typeLabel = PURCHASE_TYPE_OPTS.find(o => o.value === row.purchaseType)?.label ?? row.purchaseType ?? "—";
             return <tr key={row.id}>
+                  <td style={{ fontFamily: "monospace", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>{row.id}</td>
                   <td style={{ fontFamily: "monospace", fontSize: 11, wordBreak: "break-all" }}>{row.poNo}</td>
                   <td style={{ wordBreak: "break-word" }}>{row.subject}</td>
                   {/* G154：公司显示中文名（无名称才回退编码）；G164：按列宽自动换行 */}

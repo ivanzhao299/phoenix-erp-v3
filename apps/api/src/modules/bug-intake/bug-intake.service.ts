@@ -1805,7 +1805,9 @@ export class BugIntakeService {
     const implementation = selectedResults.filter((item) => {
       const validation = this.payloadObject(item?.validationResults);
       const gate = this.payloadObject(validation.evidenceGate);
-      return gate.passed === true && gate.role === 'implementation' &&
+      if (gate.passed !== true) return false;
+      if (gate.role === 'implementation_verified_existing') return true;
+      return gate.role === 'implementation' &&
         Array.isArray(item?.changedFiles) && item.changedFiles.length > 0 && Boolean(item?.commitHash);
     });
     if (implementation.length === 0) return { passed: false, reason: 'no Agent supplied verified business implementation evidence' };

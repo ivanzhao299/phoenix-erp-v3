@@ -210,7 +210,9 @@ export class ReceiptsService {
 
     // 取客户账期
     const [cust] = await this.ds.query(
-      `SELECT payment_terms_days FROM sal_customers WHERE customer_code=$1 LIMIT 1`,
+      `SELECT payment_terms AS payment_terms_days FROM sal_customers
+       WHERE customer_no = $1 OR legacy_customer_code = $1
+       LIMIT 1`,
       [so.customer_code],
     );
     const paymentTermsDays = Number(cust?.payment_terms_days ?? 30);

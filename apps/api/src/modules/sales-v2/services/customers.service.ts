@@ -215,13 +215,13 @@ export class CustomersService {
     return result[0];
   }
 
-  /**
-   * 按 customer_code + company_code 查信用快照（供 SalesOrdersService 内部调用）
-   * 不走 assertOwnership，由调用方保证已做 DataScope 校验
-   */
+  /** 按标准编号或历史编号查信用快照，由调用方保证 DataScope 已校验。 */
   async getCreditSnapshotByCode(customerCode: string, companyCode: string) {
     const rows = await this.ds.query(
-      `SELECT * FROM sal_customers WHERE customer_code = $1 AND company_code = $2 LIMIT 1`,
+      `SELECT * FROM sal_customers
+       WHERE (customer_no = $1 OR legacy_customer_code = $1)
+         AND company_code = $2
+       LIMIT 1`,
       [customerCode, companyCode],
     );
     if (!rows.length) return null;
@@ -240,7 +240,7 @@ export class CustomersService {
 
     return {
       customerId:       rec.id,
-      customerCode:     rec.customer_code,
+      customerCode:     rec.customer_no,
       customerName:     rec.customer_name,
       companyCode:      rec.company_code,
       creditLimit:      Number(rec.credit_limit ?? 0),

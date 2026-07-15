@@ -138,6 +138,23 @@ describe('BugIntakeService evidence lifecycle', () => {
     expect(row.status).toBe('IN_PROGRESS');
   });
 
+  it('accepts an idempotent Agent rerun that verifies an implementation already in the current baseline', async () => {
+    const { row, service } = build();
+    await service.recordAgentResult(row.bugNo, {
+      taskId: 'A3-RERUN', agent: 'A3-Backend-Critical-Path', conclusion: 'PASS_WITH_CONDITIONS',
+      validationResults: {
+        evidenceGate: { passed: true, role: 'implementation_verified_existing' },
+      },
+    }, user, meta);
+    await service.recordAgentResult(row.bugNo, {
+      taskId: 'A1-RERUN', agent: 'A1-CI-Runtime-Gate', conclusion: 'PASS_WITH_CONDITIONS',
+      validationResults: { evidenceGate: { passed: true, role: 'validation' } },
+    }, user, meta);
+
+    expect(row.repairTaskStatus).toBe('AGENT_EXECUTION_FINISHED');
+    expect(row.resolutionNote).toContain('Agent 执行证据已齐全');
+  });
+
   it('returns a compact administrator repair result after release validation succeeds', async () => {
     const { row, service } = build();
     row.repairTaskStatus = 'FIX_READY_FOR_UAT';

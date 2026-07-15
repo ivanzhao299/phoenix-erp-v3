@@ -83,4 +83,37 @@ describe('SalesOrdersService draft creation', () => {
     expect(itemInserts[0]).toContain('sku_code');
     expect(itemInserts[1]).not.toContain('sku_code');
   });
+
+  it('resolves a legacy customer code through the canonical sal_customers columns', async () => {
+    const query = jest.fn(async (sql: string, params?: unknown[]) => {
+      if (sql.includes('FROM sal_customers')) {
+        expect(sql).toContain('customer_no = $1 OR legacy_customer_code = $1');
+        expect(sql).not.toMatch(/\bcustomer_code\s*=\s*\$1/);
+        expect(params).toEqual(['CUS-LEGACY', 'COMP-LAO-AGRI']);
+        return [{
+          id: '7',
+          customer_no: 'CUS-00007',
+          legacy_customer_code: 'CUS-LEGACY',
+          customer_name: '试点客户',
+          company_code: 'COMP-LAO-AGRI',
+          channel_code: 'CH-MS-DIRECT',
+        }];
+      }
+      if (sql.includes('COUNT(*) AS cnt FROM sal_sales_orders')) return [{ cnt: '0' }];
+      if (sql.includes('INSERT INTO sal_sales_orders')) {
+        expect(params?.[2]).toBe('CUS-00007');
+        return [{ id: '102', order_no: 'SO-20260715-00001', status: 'DRAFT' }];
+      }
+      if (sql.includes('INSERT INTO sal_order_items')) return [];
+      if (sql.includes('SELECT * FROM sal_order_items')) return [];
+      return [];
+    });
+    const { service } = makeService(query);
+
+    await expect(service.createDraft({
+      companyCode: 'COMP-LAO-AGRI',
+      customerCode: 'CUS-LEGACY',
+      items: [{ productCode: 'PRD-EGG-1', qty: 1, actualUnitPrice: 12 }],
+    })).resolves.toMatchObject({ id: '102' });
+  });
 });
