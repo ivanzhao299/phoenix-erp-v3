@@ -22094,7 +22094,7 @@
     "source_repair_task_no": "BUGTASK-20260715-0002",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "IMPLEMENTATION_COMPLETED",
+    "status": "COMPLETED_MERGED",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -22115,7 +22115,7 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": "2026-07-15T07:41:57.265Z",
+    "completed_at": "2026-07-15T07:41:59.395Z",
     "result_file": "docs/ops/runs/BUGTASK-20260715-0002-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -22173,7 +22173,10 @@
     ],
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "integrated_commit": "711c056b2721857f753a046443fe067bdbc55599",
+    "integrated_at": "2026-07-15T07:41:59.395Z",
+    "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
     "task_id": "BUGTASK-20260715-0002-A1",
