@@ -23,23 +23,24 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260715-0001-A3-worker-assembled-prompt.md
-Assembled prompt chars: 26094
+Assembled prompt chars: 26335
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-31-48-688Z-A3-Backend-Critical-Path.md
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-02-11-970Z-A3-Backend-Critical-Path.md
 Implemented the backend fix for `BUG-20260715-0001`.
 
-Changed [bff.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/bff/bff.controller.ts:113) so the运营工作台 KPI uses the same active flock status scope as养殖场总览: `LAYING/ACTIVE/laying/active`, instead of only `LAYING`.
+Changed `/api/dashboard/kpi` so `data.stats.stock` now uses the same flock population source as breeding overview: `brd_flocks.current_qty` for active/laying flocks, unit `羽`. Egg inventory remains available in `meta.stockAvailableTotal` so that evidence is not lost.
 
-Added focused regression tests in [bff.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/bff/bff.controller.spec.ts:1) covering both group and restricted farm KPI queries.
+Files changed:
+- [bff.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/bff/bff.controller.ts)
+- [bff.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/bff/bff.controller.spec.ts)
+- [BUG-20260715-0001-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md)
 
-Report written: [bug-20260715-0001-a3-backend-critical-path.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-20260715-0001-a3-backend-critical-path.md:1)
+Validation passed:
+- `cd apps/api && pnpm test -- bff.controller.spec.ts`: 3 tests passed
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit`: 0 errors
 
-Validation:
-- `cd apps/api && pnpm test -- bff.controller.spec.ts --runInBand` PASS, 2 tests
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS, 0 errors
-
-Decision: `PASS WITH CONDITIONS`. No deploy, push, DB write, migration, schema/entity change, or frontend edit was performed. Production resolution still needs CI/CD, production smoke, and business acceptance.
+Result: `PASS WITH CONDITIONS`. No deploy, push, DB write, migration, schema/entity change, or frontend edit was performed. Final resolution still needs CI/CD, production smoke, and business acceptance on `/breeding`.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -47,6 +48,10 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
+2026-07-15T12:00:30.630881Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
+2026-07-15T12:00:30.634986Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
+2026-07-15T12:00:31.318351Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-07-15T12:00:31.318380Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 OpenAI Codex v0.142.5
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
@@ -56,7 +61,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f64ae-61d8-76b2-b9b0-01dbdf19a4d8
+session id: 019f65a6-63ca-7502-b696-751e939ded35
 --------
 user
 # Base Agent Prompt
@@ -490,38 +495,8 @@ Assigned agent: A3-Backend-Critical-Path
             "path": ".sidebar-module__C8A-ya__subItem.",
             "rect": {
               "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 731
-            },
-            "label": "异常处理",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 763
-            },
-            "label": "补打日志",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 795
-            },
-            "label": "质检总览",
-            "disabled": false
-          
-...<truncated 1649688 chars>
+     
+...<truncated 265362 chars>
 
 ```
 
@@ -532,26 +507,26 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "PASS",
-  "responseChars": 1051,
-  "beforeHead": "f05d25270b89f315432f688950e839737223e84a",
-  "afterHead": "6f962b7d44cee12c03e8122792a2544ef88a7b1b",
-  "commitHash": "6f962b7d44cee12c03e8122792a2544ef88a7b1b",
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1095,
+  "beforeHead": "245b2e8ff472367713ccaad7297005742382a7a9",
+  "afterHead": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+  "commitHash": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
   "changedFiles": [
     "apps/api/src/modules/bff/bff.controller.spec.ts",
     "apps/api/src/modules/bff/bff.controller.ts",
-    "docs/ops/bug-20260715-0001-a3-backend-critical-path.md"
+    "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
   ],
   "businessChangedFiles": [
     "apps/api/src/modules/bff/bff.controller.spec.ts",
     "apps/api/src/modules/bff/bff.controller.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-20260715-0001-a3-backend-critical-path.md"
+    "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
   ],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-15T07:31:48.850Z",
+  "checkedAt": "2026-07-15T12:02:12.132Z",
   "passed": true,
   "role": "implementation",
   "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -566,19 +541,19 @@ Assigned agent: A3-Backend-Critical-Path
   "attempted": true,
   "ok": true,
   "files": [
-    "apps/api/src/modules/bff/bff.controller.ts",
     "apps/api/src/modules/bff/bff.controller.spec.ts",
-    "docs/ops/bug-20260715-0001-a3-backend-critical-path.md"
+    "apps/api/src/modules/bff/bff.controller.ts",
+    "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
   ],
   "businessFiles": [
-    "apps/api/src/modules/bff/bff.controller.ts",
-    "apps/api/src/modules/bff/bff.controller.spec.ts"
+    "apps/api/src/modules/bff/bff.controller.spec.ts",
+    "apps/api/src/modules/bff/bff.controller.ts"
   ],
   "reportFiles": [
-    "docs/ops/bug-20260715-0001-a3-backend-critical-path.md"
+    "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
   ],
-  "commitHash": "6f962b7d44cee12c03e8122792a2544ef88a7b1b",
+  "commitHash": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
   "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 6f962b7d] fix(api): repair BUG-20260715-0001\n 3 files changed, 101 insertions(+), 2 deletions(-)\n create mode 100644 apps/api/src/modules/bff/bff.controller.spec.ts\n create mode 100644 docs/ops/bug-20260715-0001-a3-backend-critical-path.md"
+  "output": "[codex/bug-intake-a3 8581e0e8] fix(api): repair BUG-20260715-0001\n 3 files changed, 78 insertions(+), 3 deletions(-)\n create mode 100644 docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
 }
 ```

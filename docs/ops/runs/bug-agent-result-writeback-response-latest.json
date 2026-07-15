@@ -1,24 +1,24 @@
 {
-  "id": "43",
-  "bugNo": "BUG-20260715-0004",
-  "title": "养殖场档案添加新建功能，并在主数据中心加一个子菜单",
+  "id": "40",
+  "bugNo": "BUG-20260715-0001",
+  "title": "运营工作台的当前总存栏与养殖场总览的存栏总数不一致",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
-  "moduleCode": "",
+  "moduleCode": "__________",
   "assigneeUsername": "",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260715-0004",
-  "repairTaskStatus": "AGENT_RUNNING",
-  "route": "/master/farms",
+  "repairTaskNo": "BUGTASK-20260715-0001",
+  "repairTaskStatus": "HOLD",
+  "route": "/breeding",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
-  "createdAt": "2026-07-15T08:14:10.996Z",
-  "updatedAt": "2026-07-15T12:00:28.191Z",
+  "createdAt": "2026-07-15T00:42:48.045Z",
+  "updatedAt": "2026-07-15T12:02:13.554Z",
   "closedAt": null,
   "attachmentCount": 1,
-  "description": "目前养殖场档案只能从养殖场总览的养殖场一览的设置按钮中进入，并且只有编辑和删除的功能，没有新建的功能，现要求在加一个新建养殖场的功能，并且在主数据中心模块新增一个子菜单“养殖场档案”，点击可以直接跳转到这个界面",
-  "url": "https://erp.eggslao.com/master/farms",
+  "description": "运营工作台的当前总存栏与养殖场总览的存栏总数不一致，哪一个数据是准确的，把错误的一边改为正确，让两个地方的数据一致",
+  "url": "https://erp.eggslao.com/breeding",
   "reporterUserId": "96",
   "roles": [
     "ROLE_ADMIN",
@@ -30,13 +30,13 @@
   "failedRequests": [],
   "attachments": [
     {
-      "sha256": "953968dbd50abd1fc48ec84a81ec926aa422782a7ecac9197fb19ed0186cb850",
-      "fileName": "01-1784103250994-ec453759.png",
+      "sha256": "32da8498386f5606a517cdbca93eb2e0bc94cea122d47074e2edeb28726832a4",
+      "fileName": "01-1784076168039-853d55a8.png",
       "mimeType": "image/png",
-      "sizeBytes": 559130,
-      "originalName": "pasted-screenshot-1784103206707-1.png",
-      "relativePath": "storage/bug-reports/2026/07/15/BUG-20260715-0004/01-1784103250994-ec453759.png",
-      "previewEndpoint": "/api/bug-intake/reports/BUG-20260715-0004/attachments/01-1784103250994-ec453759.png"
+      "sizeBytes": 1201226,
+      "originalName": "pasted-screenshot-1784076147824-1.png",
+      "relativePath": "storage/bug-reports/2026/07/15/BUG-20260715-0001/01-1784076168039-853d55a8.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260715-0001/attachments/01-1784076168039-853d55a8.png"
     }
   ],
   "clientContext": {
@@ -47,9 +47,9 @@
       "height": 1081
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-15T08:14:10.995Z",
+    "capturedAt": "2026-07-15T00:42:48.045Z",
     "pageSnapshot": {
-      "route": "/master/farms",
+      "route": "/breeding",
       "title": "金凤凰 ERP — Phoenix ERP V3",
       "scroll": {
         "x": 0,
@@ -100,7 +100,7 @@
         "验收试运行",
         "系统运维",
         "个人中心 / 修改密码",
-        "养殖总览",
+        "问题反馈",
         "99+",
         "反馈问题",
         "反馈页面问题",
@@ -114,33 +114,37 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-        "pasted-screenshot-1784103206707-1.png",
+        "pasted-screenshot-1784076147824-1.png",
         "退出",
-        "主数据",
-        "/养殖场档案",
+        "总部门户",
+        "/养殖生产中心",
         "/",
-        "养殖场档案",
-        "农场主档",
-        "·管理养殖场基础信息",
+        "养殖生产中心",
+        "·实时监控所有养殖场运营状态",
         "·",
-        "共 0 条记录",
-        "农场编码",
-        "农场名称",
-        "所在地区",
-        "规划栋数",
-        "设计容量羽",
-        "状态",
-        "操作",
-        "FARM-DP",
+        "羽",
+        "枚",
+        "个",
+        "批",
+        "项",
+        "养殖场一览",
         "东鹏蛋鸡场",
-        "老挝·东鹏",
-        "5",
-        "250000",
-        "运营中",
-        "LPH_MENGSAI",
+        "正常",
         "孟赛蛋鸡场",
-        "老挝 · 北部 · 孟赛",
-        "12"
+        "需关注",
+        "今日预警 & 任务",
+        "系统正常",
+        "实时",
+        "当前无待处理预警事项，各场运营正常",
+        "本周汇总",
+        "累计产蛋",
+        "90 枚",
+        "死淘累计",
+        "0 羽",
+        "料蛋比（均）",
+        "911.11",
+        "完成免疫",
+        "暂无计划"
       ],
       "interactiveElements": [
         {
@@ -181,7 +185,7 @@
         },
         {
           "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
           "rect": {
             "h": 38,
             "w": 215,
@@ -205,7 +209,7 @@
         },
         {
           "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
           "rect": {
             "h": 32,
             "w": 215,
@@ -805,145 +809,145 @@
         },
         {
           "tag": "button",
-          "path": ".rightDrawer-module__jI_Bsa__closeBtn",
+          "path": "",
           "rect": {
-            "h": 32,
-            "w": 32,
-            "x": 2468,
-            "y": 16
+            "h": 35,
+            "w": 115,
+            "x": 244,
+            "y": 145
           },
-          "label": "关闭抽屉",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": ".crudForm-module__v3To_q__input.",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 2021,
-            "y": 109
-          },
-          "label": "如FARM-001",
-          "disabled": false
-        },
-        {
-          "tag": "select",
-          "path": ".phx-select",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 2021,
-            "y": 190
-          },
-          "label": "加载中… 老挝凤凰农业发展有限公司 老挝凤凰食品集团有限公司 老挝东鹏县星驰农业发展有限公司",
-          "disabled": false
-        },
-        {
-          "tag": "select",
-          "path": ".phx-select",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 2268,
-            "y": 190
-          },
-          "label": "加载中… 金凤凰总控（admin） 阿坚（ajian） 阿略（alue） 阿美（amei） Bouavanh（bouavanh） 问题反馈本地修复机器人（bug_intake_runner） 阿玉（cashier） 陈玲（chenling） 陈逸飞（chenyifei） 范镇豪（fanzhenhao） 伏强（fuqia",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": ".crudForm-module__v3To_q__input.",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 2021,
-            "y": 271
-          },
-          "label": "省市县示例",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": ".crudForm-module__v3To_q__input.",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 2268,
-            "y": 271
-          },
-          "label": "0",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": ".crudForm-module__v3To_q__input.",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 2021,
-            "y": 352
-          },
-          "label": "0",
-          "disabled": false
-        },
-        {
-          "tag": "select",
-          "path": ".crudForm-module__v3To_q__input.",
-          "rect": {
-            "h": 38,
-            "w": 232,
-            "x": 2268,
-            "y": 352
-          },
-          "label": "请选择 运营中 停用",
+          "label": "养殖场总览",
           "disabled": false
         },
         {
           "tag": "button",
-          "path": ".crudForm-module__v3To_q__btnCancel",
+          "path": "",
           "rect": {
-            "h": 44,
-            "w": 157,
-            "x": 2021,
-            "y": 443
+            "h": 35,
+            "w": 103,
+            "x": 365,
+            "y": 145
           },
-          "label": "取消",
+          "label": "鸡舍管理",
           "disabled": false
         },
         {
           "tag": "button",
-          "path": ".crudForm-module__v3To_q__btnSubmit",
+          "path": "",
           "rect": {
-            "h": 44,
-            "w": 310,
-            "x": 2190,
-            "y": 443
+            "h": 35,
+            "w": 103,
+            "x": 474,
+            "y": 145
           },
-          "label": "保存",
+          "label": "鸡群档案",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 35,
+            "w": 116,
+            "x": 583,
+            "y": 145
+          },
+          "label": "日生产日报",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 35,
+            "w": 103,
+            "x": 706,
+            "y": 145
+          },
+          "label": "免疫计划",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 35,
+            "w": 103,
+            "x": 815,
+            "y": 145
+          },
+          "label": "用药记录",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 35,
+            "w": 103,
+            "x": 924,
+            "y": 145
+          },
+          "label": "饲料台账",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 35,
+            "w": 103,
+            "x": 1033,
+            "y": 145
+          },
+          "label": "存栏日报",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 35,
+            "w": 103,
+            "x": 1143,
+            "y": 145
+          },
+          "label": "药品库存",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 35,
+            "w": 103,
+            "x": 1252,
+            "y": 145
+          },
+          "label": "蛋品台账",
           "disabled": false
         }
       ]
     },
     "devicePixelRatio": 1.600000023841858
   },
-  "resolutionNote": "",
+  "resolutionNote": "营工作台的当前总存栏与养殖场总览的存栏总数不一致，哪一个数据是准确的，把错误的一边改为正确，让两个地方的数据一致",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/master/farms",
-    "bugNo": "BUG-20260715-0004",
-    "route": "/master/farms",
-    "title": "养殖场档案添加新建功能，并在主数据中心加一个子菜单",
-    "taskNo": "BUGTASK-20260715-0004",
+    "url": "https://erp.eggslao.com/breeding",
+    "bugNo": "BUG-20260715-0001",
+    "route": "/breeding",
+    "title": "运营工作台的当前总存栏与养殖场总览的存栏总数不一致",
+    "taskNo": "BUGTASK-20260715-0001",
     "context": {
       "attachments": [
         {
-          "sha256": "953968dbd50abd1fc48ec84a81ec926aa422782a7ecac9197fb19ed0186cb850",
-          "fileName": "01-1784103250994-ec453759.png",
+          "sha256": "32da8498386f5606a517cdbca93eb2e0bc94cea122d47074e2edeb28726832a4",
+          "fileName": "01-1784076168039-853d55a8.png",
           "mimeType": "image/png",
-          "sizeBytes": 559130,
-          "originalName": "pasted-screenshot-1784103206707-1.png",
-          "relativePath": "storage/bug-reports/2026/07/15/BUG-20260715-0004/01-1784103250994-ec453759.png",
-          "previewEndpoint": "/api/bug-intake/reports/BUG-20260715-0004/attachments/01-1784103250994-ec453759.png"
+          "sizeBytes": 1201226,
+          "originalName": "pasted-screenshot-1784076147824-1.png",
+          "relativePath": "storage/bug-reports/2026/07/15/BUG-20260715-0001/01-1784076168039-853d55a8.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260715-0001/attachments/01-1784076168039-853d55a8.png"
         }
       ],
       "clientContext": {
@@ -954,9 +958,9 @@
           "height": 1081
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-15T08:14:10.995Z",
+        "capturedAt": "2026-07-15T00:42:48.045Z",
         "pageSnapshot": {
-          "route": "/master/farms",
+          "route": "/breeding",
           "title": "金凤凰 ERP — Phoenix ERP V3",
           "scroll": {
             "x": 0,
@@ -1007,7 +1011,7 @@
             "验收试运行",
             "系统运维",
             "个人中心 / 修改密码",
-            "养殖总览",
+            "问题反馈",
             "99+",
             "反馈问题",
             "反馈页面问题",
@@ -1021,33 +1025,37 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-            "pasted-screenshot-1784103206707-1.png",
+            "pasted-screenshot-1784076147824-1.png",
             "退出",
-            "主数据",
-            "/养殖场档案",
+            "总部门户",
+            "/养殖生产中心",
             "/",
-            "养殖场档案",
-            "农场主档",
-            "·管理养殖场基础信息",
+            "养殖生产中心",
+            "·实时监控所有养殖场运营状态",
             "·",
-            "共 0 条记录",
-            "农场编码",
-            "农场名称",
-            "所在地区",
-            "规划栋数",
-            "设计容量羽",
-            "状态",
-            "操作",
-            "FARM-DP",
+            "羽",
+            "枚",
+            "个",
+            "批",
+            "项",
+            "养殖场一览",
             "东鹏蛋鸡场",
-            "老挝·东鹏",
-            "5",
-            "250000",
-            "运营中",
-            "LPH_MENGSAI",
+            "正常",
             "孟赛蛋鸡场",
-            "老挝 · 北部 · 孟赛",
-            "12"
+            "需关注",
+            "今日预警 & 任务",
+            "系统正常",
+            "实时",
+            "当前无待处理预警事项，各场运营正常",
+            "本周汇总",
+            "累计产蛋",
+            "90 枚",
+            "死淘累计",
+            "0 羽",
+            "料蛋比（均）",
+            "911.11",
+            "完成免疫",
+            "暂无计划"
           ],
           "interactiveElements": [
             {
@@ -1088,7 +1096,7 @@
             },
             {
               "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
               "rect": {
                 "h": 38,
                 "w": 215,
@@ -1112,7 +1120,7 @@
             },
             {
               "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
               "rect": {
                 "h": 32,
                 "w": 215,
@@ -1712,122 +1720,122 @@
             },
             {
               "tag": "button",
-              "path": ".rightDrawer-module__jI_Bsa__closeBtn",
+              "path": "",
               "rect": {
-                "h": 32,
-                "w": 32,
-                "x": 2468,
-                "y": 16
+                "h": 35,
+                "w": 115,
+                "x": 244,
+                "y": 145
               },
-              "label": "关闭抽屉",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": ".crudForm-module__v3To_q__input.",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 2021,
-                "y": 109
-              },
-              "label": "如FARM-001",
-              "disabled": false
-            },
-            {
-              "tag": "select",
-              "path": ".phx-select",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 2021,
-                "y": 190
-              },
-              "label": "加载中… 老挝凤凰农业发展有限公司 老挝凤凰食品集团有限公司 老挝东鹏县星驰农业发展有限公司",
-              "disabled": false
-            },
-            {
-              "tag": "select",
-              "path": ".phx-select",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 2268,
-                "y": 190
-              },
-              "label": "加载中… 金凤凰总控（admin） 阿坚（ajian） 阿略（alue） 阿美（amei） Bouavanh（bouavanh） 问题反馈本地修复机器人（bug_intake_runner） 阿玉（cashier） 陈玲（chenling） 陈逸飞（chenyifei） 范镇豪（fanzhenhao） 伏强（fuqia",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": ".crudForm-module__v3To_q__input.",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 2021,
-                "y": 271
-              },
-              "label": "省市县示例",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": ".crudForm-module__v3To_q__input.",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 2268,
-                "y": 271
-              },
-              "label": "0",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": ".crudForm-module__v3To_q__input.",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 2021,
-                "y": 352
-              },
-              "label": "0",
-              "disabled": false
-            },
-            {
-              "tag": "select",
-              "path": ".crudForm-module__v3To_q__input.",
-              "rect": {
-                "h": 38,
-                "w": 232,
-                "x": 2268,
-                "y": 352
-              },
-              "label": "请选择 运营中 停用",
+              "label": "养殖场总览",
               "disabled": false
             },
             {
               "tag": "button",
-              "path": ".crudForm-module__v3To_q__btnCancel",
+              "path": "",
               "rect": {
-                "h": 44,
-                "w": 157,
-                "x": 2021,
-                "y": 443
+                "h": 35,
+                "w": 103,
+                "x": 365,
+                "y": 145
               },
-              "label": "取消",
+              "label": "鸡舍管理",
               "disabled": false
             },
             {
               "tag": "button",
-              "path": ".crudForm-module__v3To_q__btnSubmit",
+              "path": "",
               "rect": {
-                "h": 44,
-                "w": 310,
-                "x": 2190,
-                "y": 443
+                "h": 35,
+                "w": 103,
+                "x": 474,
+                "y": 145
               },
-              "label": "保存",
+              "label": "鸡群档案",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 35,
+                "w": 116,
+                "x": 583,
+                "y": 145
+              },
+              "label": "日生产日报",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 35,
+                "w": 103,
+                "x": 706,
+                "y": 145
+              },
+              "label": "免疫计划",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 35,
+                "w": 103,
+                "x": 815,
+                "y": 145
+              },
+              "label": "用药记录",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 35,
+                "w": 103,
+                "x": 924,
+                "y": 145
+              },
+              "label": "饲料台账",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 35,
+                "w": 103,
+                "x": 1033,
+                "y": 145
+              },
+              "label": "存栏日报",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 35,
+                "w": 103,
+                "x": 1143,
+                "y": 145
+              },
+              "label": "药品库存",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 35,
+                "w": 103,
+                "x": 1252,
+                "y": 145
+              },
+              "label": "蛋品台账",
               "disabled": false
             }
           ]
@@ -1850,7 +1858,7 @@
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260715-0004",
+      "source_bug_no": "BUG-20260715-0001",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
@@ -1870,14 +1878,6 @@
           "approval_required": true
         },
         {
-          "agent": "A5-Data-Readiness",
-          "reasons": [
-            "administrator-approved redispatch scope"
-          ],
-          "execution_mode": "approved-execution",
-          "approval_required": true
-        },
-        {
           "agent": "A1-CI-Runtime-Gate",
           "reasons": [
             "administrator-approved redispatch scope"
@@ -1889,7 +1889,6 @@
       "selected_agents": [
         "A3-Backend-Critical-Path",
         "A4-Frontend-UAT-Smoke",
-        "A5-Data-Readiness",
         "A1-CI-Runtime-Gate"
       ],
       "failure_category": "RBAC_403",
@@ -1902,46 +1901,59 @@
       "route_confidence": 0.9,
       "source_repair_task_no": ""
     },
-    "createdAt": "2026-07-15T08:14:22.492Z",
+    "createdAt": "2026-07-15T06:46:59.000Z",
     "createdBy": "admin",
-    "moduleCode": "",
+    "moduleCode": "__________",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260715-0004-A5",
-        "agent": "A5-Data-Readiness",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A5-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [],
+        "taskId": "BUGTASK-20260715-0001-A3",
+        "agent": "A3-Backend-Critical-Path",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0001-A3-worker-log.md",
+        "commitHash": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+        "changedFiles": [
+          "apps/api/src/modules/bff/bff.controller.spec.ts",
+          "apps/api/src/modules/bff/bff.controller.ts",
+          "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
+        ],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
-            "agent": "A5-Data-Readiness",
+            "agent": "A3-Backend-Critical-Path",
             "exitCode": 0,
-            "conclusion": "GO_WITH_CONDITIONS",
-            "responseChars": 750,
-            "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-            "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-            "commitHash": "",
-            "changedFiles": [],
-            "businessChangedFiles": [],
-            "reportFiles": [],
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "responseChars": 1095,
+            "beforeHead": "245b2e8ff472367713ccaad7297005742382a7a9",
+            "afterHead": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+            "commitHash": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+            "changedFiles": [
+              "apps/api/src/modules/bff/bff.controller.spec.ts",
+              "apps/api/src/modules/bff/bff.controller.ts",
+              "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
+            ],
+            "businessChangedFiles": [
+              "apps/api/src/modules/bff/bff.controller.spec.ts",
+              "apps/api/src/modules/bff/bff.controller.ts"
+            ],
+            "reportFiles": [
+              "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
+            ],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-15T12:00:26.932Z",
+            "checkedAt": "2026-07-15T12:02:12.132Z",
             "passed": true,
-            "role": "validation",
-            "terminalStatus": "VALIDATION_COMPLETED",
-            "reason": "Validation evidence recorded; this is not implementation evidence"
+            "role": "implementation",
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
+            "reason": "Business change, task report, commit, and conclusion are present"
           },
-          "queueStatus": "VALIDATION_COMPLETED",
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260715-0004-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260715-0004-A5\nTitle: Repair BUG-20260715-0004: 养殖场档案添加新建功能，并在主数据中心加一个子菜单 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A5-Data-Readiness\",\n  \"exitCode\": 0,\n  \"conclusion\": \"GO_WITH_CONDITIONS\",\n  \"responseChars\": 750,\n  \"beforeHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"afterHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"infrastructureFailure\": null,\n  \"checkedAt\": \"2026-07-15T12:00:26.932Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0001-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0001-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0001-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26335\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-02-11-970Z-A3-Backend-Critical-Path.md\nImplemented the backend fix for `BUG-20260715-0001`.\n\nChanged `/api/dashboard/kpi` so `data.stats.stock` now uses the same flock population source as breeding overview: `brd_flocks.current_qty` for active/laying flocks, unit `羽`. Egg inventory remains available in `meta.stockAvailableTotal` so that evidence is not lost.\n\nFiles changed:\n- [bff.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/bff/bff.controller.ts)\n- [bff.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/bff/bff.controller.spec.ts)\n- [BUG-20260715-0001-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-",
         "nextAction": "",
         "redispatchCount": 1,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-15T12:00:28.189Z"
+        "recordedAt": "2026-07-15T12:02:13.552Z"
       }
     ],
     "suggestedOwner": "",
@@ -1954,41 +1966,54 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260715-0004-A5",
-      "agent": "A5-Data-Readiness",
-      "conclusion": "PASS_WITH_CONDITIONS",
-      "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A5-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
+      "taskId": "BUGTASK-20260715-0001-A3",
+      "agent": "A3-Backend-Critical-Path",
+      "conclusion": "HOLD",
+      "resultFile": "docs/ops/runs/BUGTASK-20260715-0001-A3-worker-log.md",
+      "commitHash": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+      "changedFiles": [
+        "apps/api/src/modules/bff/bff.controller.spec.ts",
+        "apps/api/src/modules/bff/bff.controller.ts",
+        "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
+      ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A5-Data-Readiness",
+          "agent": "A3-Backend-Critical-Path",
           "exitCode": 0,
-          "conclusion": "GO_WITH_CONDITIONS",
-          "responseChars": 750,
-          "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-          "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-          "commitHash": "",
-          "changedFiles": [],
-          "businessChangedFiles": [],
-          "reportFiles": [],
+          "conclusion": "PASS_WITH_CONDITIONS",
+          "responseChars": 1095,
+          "beforeHead": "245b2e8ff472367713ccaad7297005742382a7a9",
+          "afterHead": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+          "commitHash": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+          "changedFiles": [
+            "apps/api/src/modules/bff/bff.controller.spec.ts",
+            "apps/api/src/modules/bff/bff.controller.ts",
+            "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
+          ],
+          "businessChangedFiles": [
+            "apps/api/src/modules/bff/bff.controller.spec.ts",
+            "apps/api/src/modules/bff/bff.controller.ts"
+          ],
+          "reportFiles": [
+            "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
+          ],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-15T12:00:26.932Z",
+          "checkedAt": "2026-07-15T12:02:12.132Z",
           "passed": true,
-          "role": "validation",
-          "terminalStatus": "VALIDATION_COMPLETED",
-          "reason": "Validation evidence recorded; this is not implementation evidence"
+          "role": "implementation",
+          "terminalStatus": "IMPLEMENTATION_COMPLETED",
+          "reason": "Business change, task report, commit, and conclusion are present"
         },
-        "queueStatus": "VALIDATION_COMPLETED",
+        "queueStatus": "IMPLEMENTATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A5 |\n| Agent | A5-Data-Readiness |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260715-0004-A5\n```\n\n## Stdout\n\n```text\nLOCAL_A5_DATA_READINESS\nTask: BUGTASK-20260715-0004-A5\nTitle: Repair BUG-20260715-0004: 养殖场档案添加新建功能，并在主数据中心加一个子菜单 (A5-Data-Readiness)\nConclusion: GO WITH CONDITIONS\nFindings:\n- Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.\nRequired follow-up:\n- A3/A4 repair must prove data source and display semantics during validation.\n- No DB write or migration is performed by A5 local readiness.\n\nValidation:\n$ /usr/local/bin/node --check scripts/ops/bug-intake-local-runner.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/bug-intake-sync-from-api.mjs\nexit: 0\nstdout:\n\nstderr:\n\n```\n\n## Stderr\n\n```text\n\n```\n\n## Evidence Gate\n\n```json\n{\n  \"version\": 1,\n  \"agent\": \"A5-Data-Readiness\",\n  \"exitCode\": 0,\n  \"conclusion\": \"GO_WITH_CONDITIONS\",\n  \"responseChars\": 750,\n  \"beforeHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"afterHead\": \"a644e4de38063adf840e6e4719fefb33b5d2a48b\",\n  \"commitHash\": \"\",\n  \"changedFiles\": [],\n  \"businessChangedFiles\": [],\n  \"reportFiles\": [],\n  \"parentCommitRecovered\": false,\n  \"infrastructureFailure\": null,\n  \"checkedAt\": \"2026-07-15T12:00:26.932Z\",\n  \"passed\": true,\n  \"role\": \"validation\",\n  \"terminalStatus\": \"VALIDATION_COMPLETED\",\n  \"reason\": \"Validation evidence recorded; this is not implementation evidence\"\n}\n```\n\n## Parent Commit Recovery\n\n```json\n{\n  \"attempted\": false,\n  \"ok\": false,\n  \"reason\": \"not an eligible implementation execution\"\n}\n```",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0001-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0001-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0001-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26335\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-02-11-970Z-A3-Backend-Critical-Path.md\nImplemented the backend fix for `BUG-20260715-0001`.\n\nChanged `/api/dashboard/kpi` so `data.stats.stock` now uses the same flock population source as breeding overview: `brd_flocks.current_qty` for active/laying flocks, unit `羽`. Egg inventory remains available in `meta.stockAvailableTotal` so that evidence is not lost.\n\nFiles changed:\n- [bff.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/bff/bff.controller.ts)\n- [bff.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/bff/bff.controller.spec.ts)\n- [BUG-20260715-0001-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-",
       "nextAction": "",
       "redispatchCount": 1,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-15T12:00:28.189Z"
+      "recordedAt": "2026-07-15T12:02:13.552Z"
     },
     "redispatchHistory": [
       {
@@ -1997,19 +2022,18 @@
         "redispatchNo": 1,
         "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
         "previousStatus": "IN_PROGRESS",
-        "redispatchedAt": "2026-07-15T11:59:59.175Z",
+        "redispatchedAt": "2026-07-15T12:00:00.038Z",
         "redispatchedBy": "bug_intake_runner",
         "selectedAgents": [
           "A3-Backend-Critical-Path",
           "A4-Frontend-UAT-Smoke",
-          "A5-Data-Readiness",
           "A1-CI-Runtime-Gate"
         ],
         "previousRepairTaskStatus": "HOLD"
       }
     ],
-    "acceptanceCriteria": "目前养殖场档案只能从养殖场总览的养殖场一览的设置按钮中进入，并且只有编辑和删除的功能，没有新建的功能，现要求在加一个新建养殖场的功能，并且在主数据中心模块新增一个子菜单“养殖场档案”，点击可以直接跳转到这个界面",
-    "agentPlanGeneratedAt": "2026-07-15T11:59:59.175Z",
+    "acceptanceCriteria": "营工作台的当前总存栏与养殖场总览的存栏总数不一致，哪一个数据是准确的，把错误的一边改为正确，让两个地方的数据一致",
+    "agentPlanGeneratedAt": "2026-07-15T12:00:00.038Z",
     "agentPlanGeneratedBy": "redispatch-explicit:bug_intake_runner",
     "activeRedispatchCount": 1,
     "failureClassification": {
@@ -2032,7 +2056,7 @@
     },
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-15T11:59:59.175Z",
+      "approvedAt": "2026-07-15T12:00:00.038Z",
       "approvedBy": "bug_intake_runner",
       "redispatch": true,
       "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
@@ -2045,26 +2069,26 @@
         "force push"
       ]
     },
-    "failureClassificationUpdatedAt": "2026-07-15T08:14:22.493Z",
+    "failureClassificationUpdatedAt": "2026-07-15T06:46:59.001Z",
     "previousAgentResultsBeforeRedispatch": [
       {
         "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260715-0004-A3",
-        "summary": "Local bug-intake task BUGTASK-20260715-0004-A3 reached COMPLETED_MERGED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-        "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
+        "taskId": "BUGTASK-20260715-0001-A3",
+        "summary": "Local bug-intake task BUGTASK-20260715-0001-A3 reached COMPLETED_MERGED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+        "commitHash": "6f962b7d44cee12c03e8122792a2544ef88a7b1b",
         "conclusion": "PASS_WITH_CONDITIONS",
         "nextAction": "Execution evidence recorded; release and production smoke must pass before business validation.",
-        "recordedAt": "2026-07-15T11:53:59.124Z",
+        "recordedAt": "2026-07-15T11:54:03.846Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0001-A3-worker-log.md",
         "changedFiles": [
-          "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-          "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-          "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+          "apps/api/src/modules/bff/bff.controller.spec.ts",
+          "apps/api/src/modules/bff/bff.controller.ts",
+          "docs/ops/bug-20260715-0001-a3-backend-critical-path.md"
         ],
         "redispatchCount": 0,
         "validationResults": {
-          "completedAt": "2026-07-15T08:19:01.236Z",
+          "completedAt": "2026-07-15T07:31:50.656Z",
           "evidenceGate": {
             "role": "implementation",
             "agent": "A3-Backend-Critical-Path",
@@ -2072,24 +2096,24 @@
             "reason": "Business change, task report, commit, and conclusion are present",
             "version": 1,
             "exitCode": 0,
-            "afterHead": "245b2e8ff472367713ccaad7297005742382a7a9",
-            "checkedAt": "2026-07-15T08:18:59.613Z",
-            "beforeHead": "23baac30079e98e1bc79dc548d72bec021090b45",
-            "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
-            "conclusion": "PASS_WITH_CONDITIONS",
+            "afterHead": "6f962b7d44cee12c03e8122792a2544ef88a7b1b",
+            "checkedAt": "2026-07-15T07:31:48.850Z",
+            "beforeHead": "f05d25270b89f315432f688950e839737223e84a",
+            "commitHash": "6f962b7d44cee12c03e8122792a2544ef88a7b1b",
+            "conclusion": "PASS",
             "reportFiles": [
-              "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+              "docs/ops/bug-20260715-0001-a3-backend-critical-path.md"
             ],
             "changedFiles": [
-              "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-              "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-              "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+              "apps/api/src/modules/bff/bff.controller.spec.ts",
+              "apps/api/src/modules/bff/bff.controller.ts",
+              "docs/ops/bug-20260715-0001-a3-backend-critical-path.md"
             ],
-            "responseChars": 1282,
+            "responseChars": 1051,
             "terminalStatus": "IMPLEMENTATION_COMPLETED",
             "businessChangedFiles": [
-              "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-              "apps/api/src/modules/generic-crud/generic-crud.controller.ts"
+              "apps/api/src/modules/bff/bff.controller.spec.ts",
+              "apps/api/src/modules/bff/bff.controller.ts"
             ],
             "infrastructureFailure": null,
             "parentCommitRecovered": false
@@ -2101,136 +2125,33 @@
       },
       {
         "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260715-0004-A4",
-        "summary": "Local bug-intake task BUGTASK-20260715-0004-A4 reached COMPLETED_MERGED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-        "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "Execution evidence recorded; release and production smoke must pass before business validation.",
-        "recordedAt": "2026-07-15T11:53:59.637Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A4-worker-log.md",
-        "changedFiles": [
-          "apps/web/src/app/(admin)/master/farms/page.tsx",
-          "apps/web/src/components/layout/Sidebar.tsx",
-          "apps/web/src/lib/master-farms-menu.test.ts",
-          "apps/web/src/locales/en.json",
-          "apps/web/src/locales/lo.json",
-          "apps/web/src/locales/zh.json",
-          "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
-        ],
-        "redispatchCount": 0,
-        "validationResults": {
-          "completedAt": "2026-07-15T08:23:02.770Z",
-          "evidenceGate": {
-            "role": "implementation",
-            "agent": "A4-Frontend-UAT-Smoke",
-            "passed": true,
-            "reason": "Business change, task report, commit, and conclusion are present",
-            "version": 1,
-            "exitCode": 0,
-            "afterHead": "8a4d78463f65fab3d1dd01969681cf067762254b",
-            "checkedAt": "2026-07-15T08:23:01.151Z",
-            "beforeHead": "271027f647a1408511cbf09b203ff28d4219e890",
-            "commitHash": "8a4d78463f65fab3d1dd01969681cf067762254b",
-            "conclusion": "PASS",
-            "reportFiles": [
-              "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
-            ],
-            "changedFiles": [
-              "apps/web/src/app/(admin)/master/farms/page.tsx",
-              "apps/web/src/components/layout/Sidebar.tsx",
-              "apps/web/src/lib/master-farms-menu.test.ts",
-              "apps/web/src/locales/en.json",
-              "apps/web/src/locales/lo.json",
-              "apps/web/src/locales/zh.json",
-              "docs/ops/BUG-20260715-0004_A4_FRONTEND_UIUX_UAT_REPORT.md"
-            ],
-            "responseChars": 1492,
-            "terminalStatus": "IMPLEMENTATION_COMPLETED",
-            "businessChangedFiles": [
-              "apps/web/src/app/(admin)/master/farms/page.tsx",
-              "apps/web/src/components/layout/Sidebar.tsx",
-              "apps/web/src/lib/master-farms-menu.test.ts",
-              "apps/web/src/locales/en.json",
-              "apps/web/src/locales/lo.json",
-              "apps/web/src/locales/zh.json"
-            ],
-            "infrastructureFailure": null,
-            "parentCommitRecovered": false
-          },
-          "localTaskStatus": "COMPLETED_MERGED",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": 0
-        }
-      },
-      {
-        "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260715-0004-A5",
-        "summary": "Local bug-intake task BUGTASK-20260715-0004-A5 reached VALIDATION_COMPLETED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-        "commitHash": "",
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "nextAction": "Execution evidence recorded; release and production smoke must pass before business validation.",
-        "recordedAt": "2026-07-15T11:54:00.145Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A5-worker-log.md",
-        "changedFiles": [],
-        "redispatchCount": 0,
-        "validationResults": {
-          "completedAt": "2026-07-15T08:16:49.161Z",
-          "evidenceGate": {
-            "role": "validation",
-            "agent": "A5-Data-Readiness",
-            "passed": true,
-            "reason": "Validation evidence recorded; this is not implementation evidence",
-            "version": 1,
-            "exitCode": 0,
-            "afterHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-            "checkedAt": "2026-07-15T08:16:49.161Z",
-            "beforeHead": "a644e4de38063adf840e6e4719fefb33b5d2a48b",
-            "commitHash": "",
-            "conclusion": "GO_WITH_CONDITIONS",
-            "reportFiles": [],
-            "changedFiles": [],
-            "responseChars": 750,
-            "terminalStatus": "VALIDATION_COMPLETED",
-            "businessChangedFiles": [],
-            "infrastructureFailure": null,
-            "parentCommitRecovered": false
-          },
-          "localTaskStatus": "VALIDATION_COMPLETED",
-          "aggregateBackfill": true,
-          "baselineAutopilotExitCode": 0
-        }
-      },
-      {
-        "agent": "A1-CI-Runtime-Gate",
-        "taskId": "BUGTASK-20260715-0004-A1",
-        "summary": "Local bug-intake task BUGTASK-20260715-0004-A1 reached HOLD.",
+        "taskId": "BUGTASK-20260715-0001-A4",
+        "summary": "Local bug-intake task BUGTASK-20260715-0001-A4 reached HOLD.",
         "commitHash": "",
         "conclusion": "HOLD",
         "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
-        "recordedAt": "2026-07-15T11:54:00.657Z",
+        "recordedAt": "2026-07-15T11:54:04.346Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A1-worker-log.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260715-0001-A4-worker-log.md",
         "changedFiles": [],
         "redispatchCount": 0,
         "validationResults": {
-          "completedAt": "2026-07-15T08:23:59.762Z",
+          "completedAt": "2026-07-15T07:37:28.955Z",
           "evidenceGate": {
-            "role": "execution",
-            "agent": "A1-CI-Runtime-Gate",
+            "role": "implementation",
+            "agent": "A4-Frontend-UAT-Smoke",
             "passed": false,
-            "reason": "Agent process exited with 1",
+            "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report",
             "version": 1,
-            "exitCode": 1,
-            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-            "checkedAt": "2026-07-15T08:23:59.761Z",
-            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "exitCode": 0,
+            "afterHead": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
+            "checkedAt": "2026-07-15T07:37:28.954Z",
+            "beforeHead": "fd68556ee9985fd96a96b9c69d29c64ba46146b4",
             "commitHash": "",
             "conclusion": "PASS",
             "reportFiles": [],
             "changedFiles": [],
-            "responseChars": 1596,
+            "responseChars": 1498,
             "terminalStatus": "HOLD",
             "businessChangedFiles": [],
             "infrastructureFailure": null,
@@ -2240,24 +2161,56 @@
           "aggregateBackfill": true,
           "baselineAutopilotExitCode": null
         }
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "taskId": "BUGTASK-20260715-0001-A1",
+        "summary": "Local bug-intake task BUGTASK-20260715-0001-A1 reached HOLD.",
+        "commitHash": "",
+        "conclusion": "HOLD",
+        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
+        "recordedAt": "2026-07-15T11:54:04.854Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "completedAt": "2026-07-15T07:37:30.665Z",
+          "evidenceGate": {
+            "role": "dependency",
+            "agent": "A1-CI-Runtime-Gate",
+            "passed": false,
+            "reason": "blocked by failed dependency: BUGTASK-20260715-0001-A4",
+            "version": 1,
+            "checkedAt": "2026-07-15T07:37:30.665Z",
+            "terminalStatus": "HOLD"
+          },
+          "localTaskStatus": "HOLD",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": null
+        }
       }
     ]
   },
   "repairResult": {
-    "visibility": "RUNNING",
-    "headline": "修复任务正在执行",
-    "conclusion": "IN_PROGRESS",
-    "adminSummary": "已收到 1 条 Agent 回写，任务仍在执行。",
-    "sourceStatus": "AGENT_RUNNING",
+    "visibility": "HOLD",
+    "headline": "修复暂未完成，当前处于 HOLD",
+    "conclusion": "HOLD",
+    "adminSummary": "营工作台的当前总存栏与养殖场总览的存栏总数不一致，哪一个数据是准确的，把错误的一边改为正确，让两个地方的数据一致",
+    "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": null,
-    "changedFiles": [],
+    "commitHash": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+    "changedFiles": [
+      "apps/api/src/modules/bff/bff.controller.spec.ts",
+      "apps/api/src/modules/bff/bff.controller.ts",
+      "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
+    ],
     "validations": [
       {
         "key": "implementation",
         "label": "代码修复",
-        "status": "PENDING"
+        "status": "PASS"
       },
       {
         "key": "ci",
@@ -2280,8 +2233,8 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-15T12:00:28.189Z",
-    "nextAction": "本地 runner 执行中，超时后自动 HOLD"
+    "completedAt": "2026-07-15T12:02:13.552Z",
+    "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"
 }
