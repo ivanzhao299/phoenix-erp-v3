@@ -263,8 +263,8 @@ export class DashboardBffController {
         stats: {
           eggs:      { value: todayEggs.toLocaleString(), unit: '枚', trend: null },
           stock:     {
-            value: Number(stockRow?.total || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 }),
-            unit: '枚',
+            value: layingTotal.toLocaleString('zh-CN'),
+            unit: '羽',
             trend: null,
           },
           salesPos:  { value: Number(todaySales?.total    || 0).toFixed(0), unit: 'LAK' },
@@ -286,7 +286,8 @@ export class DashboardBffController {
           posTxnCount: Number(todaySales?.txns) || 0,
           stockAvailableTotal: Number(stockRow?.total || 0),
           stockAvailableBatchCount: Number(stockRow?.batch_count) || 0,
-          stockMetricSource: 'inv_batches.status=AVAILABLE SUM(qty_available)',
+          stockMetricSource: 'brd_flocks.status IN ACTIVE/LAYING SUM(current_qty)',
+          eggInventoryMetricSource: 'inv_batches.status=AVAILABLE SUM(qty_available)',
           farmSalesAmount: Number(todayFarmSales?.total || 0),
         },
       },

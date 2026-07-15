@@ -4,6 +4,9 @@ describe('DashboardBffController', () => {
   function buildController() {
     const em = {
       query: jest.fn(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('FROM inv_batches') && sql.includes('SUM(qty_available)')) {
+          return [{ total: 999, batch_count: 3, params }];
+        }
         if (sql.includes('FROM brd_flocks')) {
           return [{ total: 1200, params }];
         }
@@ -30,6 +33,19 @@ describe('DashboardBffController', () => {
       expect(String(flockCall?.[0])).toContain("status IN ('LAYING','ACTIVE','laying','active')");
       expect(flockCall?.[1]).toEqual([]);
       expect(res.data.meta.layingTotal).toBe(1200);
+    });
+
+    it('reports dashboard stock from flock population instead of egg inventory balance', async () => {
+      const { controller } = buildController();
+
+      const res = await controller.getKpi({
+        user: { username: 'admin', storeCode: 'ALL', permissions: ['*'] },
+      });
+
+      expect(res.data.stats.stock).toEqual({ value: '1,200', unit: '羽', trend: null });
+      expect(res.data.meta.stockAvailableTotal).toBe(999);
+      expect(res.data.meta.stockMetricSource).toBe('brd_flocks.status IN ACTIVE/LAYING SUM(current_qty)');
+      expect(res.data.meta.eggInventoryMetricSource).toBe('inv_batches.status=AVAILABLE SUM(qty_available)');
     });
 
     it('keeps farm scope while counting ACTIVE and LAYING flocks for restricted KPI population', async () => {
