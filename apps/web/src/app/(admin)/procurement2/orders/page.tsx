@@ -673,6 +673,10 @@ export default function PurchaseOrdersPage() {
       }}>
             <div className={s.formSection}>{t('prc2.order_info', '订单信息')}</div>
             {[{
+          label: t('prc2.po_id', '采购订单 ID'),
+          value: detailData.id,
+          mono: true
+        }, {
           label: t('prc2.po_no', '采购订单号'),
           value: detailData.poNo,
           mono: true

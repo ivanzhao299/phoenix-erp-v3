@@ -126,6 +126,8 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
   const [saving, setSaving] = useState(false);
 
   // 表单字段
+  const [fOrderId, setFOrderId] = useState("");
+  const [fPoNo, setFPoNo] = useState("");
   const [fSubject, setFSubject] = useState("");
   const [fCompanyCode, setFCompanyCode] = useState("");
   const [fCompanyName, setFCompanyName] = useState("");
@@ -173,6 +175,8 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       const res = await fetch(`${API_ORDERS}/${orderId}`, { headers: hdr });
       if (!res.ok) throw new Error(await res.text());
       const row: PurchaseOrder = await res.json();
+      setFOrderId(row.id ?? orderId);
+      setFPoNo(row.poNo ?? "");
       setFSubject(row.subject ?? "");
       setFCompanyCode(row.companyCode ?? "");
       setFCompanyName(row.companyName ?? "");
@@ -373,9 +377,21 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
 
   if (loading) return <div className={u.emptyCenter}>{t('prc2.loading', '加载中…')}</div>;
 
+  const generatedAfterSave = t('prc2.generated_after_save', '保存后自动生成');
+
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", paddingBottom: 88 }}>
       <div className={s.formSection}>{t('prc2.basic_info', '基础信息')}</div>
+      <div className={s.fieldRow} style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+        <div className={s.field}>
+          <label className={s.lbl}>{t('prc2.po_id', '采购订单 ID')}</label>
+          <input className={s.inp} value={fOrderId || generatedAfterSave} readOnly aria-readonly="true" style={{ background: "var(--bg-muted)", cursor: "not-allowed", fontFamily: fOrderId ? "monospace" : undefined }} />
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>{t('prc2.po_no', '采购订单号')}</label>
+          <input className={s.inp} value={fPoNo || generatedAfterSave} readOnly aria-readonly="true" style={{ background: "var(--bg-muted)", cursor: "not-allowed", fontFamily: fPoNo ? "monospace" : undefined }} />
+        </div>
+      </div>
       <div className={s.fieldRow}>
         <div className={s.field} style={{
           gridColumn: "1 / -1"

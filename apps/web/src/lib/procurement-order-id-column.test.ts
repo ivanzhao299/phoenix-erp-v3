@@ -12,5 +12,15 @@ describe("procurement order list ID visibility", () => {
     expect(numberHeader).toBeGreaterThan(idHeader);
     expect(source).toContain("{row.id}</td>");
     expect(source).toContain("colSpan={13}");
+    expect(source.indexOf("value: detailData.id")).toBeLessThan(source.indexOf("value: detailData.poNo"));
+  });
+
+  it("shows generated identifiers as read-only fields in the create/edit form", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/app/(admin)/procurement2/orders/OrderForm.tsx"), "utf8");
+    expect(source).toContain("setFOrderId(row.id ?? orderId)");
+    expect(source).toContain('setFPoNo(row.poNo ?? "")');
+    expect(source).toContain("value={fOrderId || generatedAfterSave}");
+    expect(source).toContain("value={fPoNo || generatedAfterSave}");
+    expect(source).toContain('readOnly aria-readonly="true"');
   });
 });
