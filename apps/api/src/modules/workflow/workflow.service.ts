@@ -955,14 +955,48 @@ export class WorkflowService implements OnModuleInit {
       `);
     }
 
+    const where: string[] = [];
+    if (query.bizType) {
+      params.push(String(query.bizType));
+      where.push(`todo.biz_type = $${params.length}`);
+    }
+    const keyword = query.keyword != null ? String(query.keyword).trim().toLowerCase() : '';
+    if (keyword) {
+      params.push(`%${keyword}%`);
+      where.push(`(
+        LOWER(COALESCE(todo.biz_no, '')) LIKE $${params.length}
+        OR LOWER(COALESCE(todo.subject, '')) LIKE $${params.length}
+        OR LOWER(COALESCE(todo.instance_no, '')) LIKE $${params.length}
+      )`);
+    }
+    const whereSql = where.length > 0 ? `WHERE ${where.join('\n          AND ')}` : '';
+    params.push(pageSize);
+    const limitParam = `$${params.length}`;
+    params.push((page - 1) * pageSize);
+    const offsetParam = `$${params.length}`;
+
     const rows = await this.em.query(
-      `SELECT *
-         FROM (${selects.join('\nUNION ALL\n')}) todo
-        ORDER BY todo.created_at DESC, todo.task_id DESC`,
+      `WITH filtered AS (
+          SELECT *
+            FROM (${selects.join('\nUNION ALL\n')}) todo
+           ${whereSql}
+        ),
+        counted AS (
+          SELECT COUNT(*)::int AS total_count FROM filtered
+        )
+        SELECT paged.*, counted.total_count
+          FROM counted
+          LEFT JOIN LATERAL (
+            SELECT *
+              FROM filtered
+             ORDER BY created_at DESC, task_id DESC
+             LIMIT ${limitParam} OFFSET ${offsetParam}
+          ) paged ON true`,
       params,
     );
 
-    let all: any[] = rows.map((t: any) => ({
+    const total = Number(rows[0]?.total_count || 0);
+    const items: any[] = rows.filter((t: any) => t.task_source != null).map((t: any) => ({
       taskSource:      t.task_source,
       taskId:          String(t.task_id),
       instanceId:      String(t.instance_id),
@@ -989,20 +1023,6 @@ export class WorkflowService implements OnModuleInit {
       escalationLevel: t.escalation_level ?? 0,
     }));
 
-    if (query.bizType) {
-      all = all.filter(t => t.bizType === query.bizType);
-    }
-    if (query.keyword) {
-      const kw = String(query.keyword).toLowerCase();
-      all = all.filter(t =>
-        t.bizNo?.toLowerCase().includes(kw) ||
-        t.subject?.toLowerCase().includes(kw) ||
-        t.instanceNo?.toLowerCase().includes(kw),
-      );
-    }
-
-    const total = all.length;
-    const items = all.slice((page - 1) * pageSize, page * pageSize);
     return { items, total, page, pageSize };
   }
 

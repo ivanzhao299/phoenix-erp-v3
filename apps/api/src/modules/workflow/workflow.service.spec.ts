@@ -18,6 +18,7 @@ describe('WorkflowService listMyTasks', () => {
   it('keeps total aligned with the filtered unified todo rows', async () => {
     const { svc } = buildService([
       {
+        total_count: 2,
         task_source: 'APPROVAL_ENGINE',
         task_id: '11',
         instance_id: '101',
@@ -35,17 +36,6 @@ describe('WorkflowService listMyTasks', () => {
         current_step_no: 1,
         status: 'PENDING',
         created_at: '2026-07-07T08:45:00.000Z',
-      },
-      {
-        task_source: 'WORKFLOW_ENGINE',
-        task_id: '12',
-        instance_id: '102',
-        instance_no: 'WF-102',
-        biz_type: 'PO',
-        biz_id: '1002',
-        subject: '采购订单',
-        status: 'TODO',
-        created_at: '2026-07-07T08:40:00.000Z',
       },
     ]);
 
@@ -65,8 +55,7 @@ describe('WorkflowService listMyTasks', () => {
 
   it('applies biz type filtering before computing total', async () => {
     const { svc } = buildService([
-      { task_source: 'APPROVAL_ENGINE', task_id: '11', instance_id: '101', biz_type: 'PR', biz_id: '1001', status: 'PENDING' },
-      { task_source: 'WORKFLOW_ENGINE', task_id: '12', instance_id: '102', biz_type: 'PO', biz_id: '1002', status: 'TODO' },
+      { total_count: 1, task_source: 'APPROVAL_ENGINE', task_id: '11', instance_id: '101', biz_type: 'PR', biz_id: '1001', status: 'PENDING' },
     ]);
 
     const result = await svc.listMyTasks(
@@ -82,6 +71,7 @@ describe('WorkflowService listMyTasks', () => {
   it('counts the captured BUG-20260707-0010 approval todo as one visible task', async () => {
     const { svc } = buildService([
       {
+        total_count: 1,
         task_source: 'APPROVAL_ENGINE',
         task_id: '11',
         instance_id: '101',
@@ -123,6 +113,7 @@ describe('WorkflowService listMyTasks', () => {
   it('keeps BUG-20260709-0004 approval todo total non-zero when the row is visible', async () => {
     const { svc } = buildService([
       {
+        total_count: 1,
         task_source: 'APPROVAL_ENGINE',
         task_id: '1783585535582',
         instance_id: '101',
@@ -177,8 +168,26 @@ describe('WorkflowService listMyTasks', () => {
       1,
       ['ROLE_MASTER_DATA_APPROVER'],
       ['COMPANY_LAOS'],
+      20,
+      0,
     ]);
     expect(em.query.mock.calls[0][0]).toContain('i.company_code = ANY($3::varchar[])');
+  });
+
+  it('returns the filtered count even when the requested page has no rows', async () => {
+    const { svc } = buildService([
+      { total_count: 3, task_source: null },
+    ]);
+
+    const result = await svc.listMyTasks(
+      { userId: 1, roles: ['ROLE_MASTER_DATA_APPROVER'] },
+      { page: 2, pageSize: 20, taskSource: 'APPROVAL_ENGINE', bizType: 'PR', keyword: '采购测试2' },
+    );
+
+    expect(result.total).toBe(3);
+    expect(result.items).toHaveLength(0);
+    expect(result.page).toBe(2);
+    expect(result.pageSize).toBe(20);
   });
 
   it('returns the unified todo count instead of the current page length on the legacy todo endpoint', async () => {
