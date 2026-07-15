@@ -236,6 +236,35 @@ describe('GenericCrudController WMS RBAC', () => {
     expect(svc.create).not.toHaveBeenCalled();
   });
 
+  it('allows /master/farms create through organization master-data create permission', async () => {
+    await expect(
+      controller.create(
+        'brd_farms',
+        { farm_code: 'FARM-A3-001', farm_name: 'A3 测试养殖场', status: 'ACTIVE' },
+        req(['MENU_MD_ORG:C']),
+      ),
+    ).resolves.toEqual({ code: 200, msg: 'ok' });
+
+    expect(dataScopeService.resolve).toHaveBeenCalledWith(
+      '1',
+      ['ROLE_MENGSAI_DONGPENG_TREASURER'],
+      'MENU_MD_ORG',
+    );
+    expect(svc.create).toHaveBeenCalledWith('brd_farms', {
+      farm_code: 'FARM-A3-001',
+      farm_name: 'A3 测试养殖场',
+      status: 'ACTIVE',
+    });
+  });
+
+  it('keeps /master/farms delete restricted to farm master permission', async () => {
+    await expect(
+      controller.remove('brd_farms', 'FARM-A3-001', req(['MENU_MD_ORG:D'])),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(svc.findOneByColumn).not.toHaveBeenCalled();
+  });
+
   it('updates WMS locations through the short CRUD route by location_code', async () => {
     svc.findOneByColumn.mockResolvedValueOnce({
       location_code: 'LOC-A-01',

@@ -129,6 +129,11 @@ export class GenericCrudController {
     // MENU_INV_BATCH / MENU_INV_LEDGER / MENU_WMS_INOUT，而不一定持 MENU_WMS_VIEW。
     if (method === 'GET' && table === 'inv_batches') return ['MENU_INV_BATCH', 'MENU_WMS_INOUT'];
     if (method === 'GET' && table === 'inv_ledger') return ['MENU_INV_LEDGER', 'MENU_INV_BATCH', 'MENU_WMS_INOUT'];
+    // BUG-20260715-0004: /master/farms is surfaced from the master-data center,
+    // while legacy brd_farms is still protected by the breeding master menu.
+    // Accept organization master-data permissions for view/create/edit only;
+    // delete remains restricted to MENU_FARM_MASTER:D.
+    if (table === 'brd_farms' && method !== 'DELETE') return ['MENU_MD_ORG'];
     if (table === 'brd_vaccinations' || table === 'brd_medications') return ['MENU_FARM_VET'];
     return [];
   }
