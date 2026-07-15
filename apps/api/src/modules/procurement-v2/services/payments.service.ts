@@ -26,6 +26,13 @@ import { CashAccountsService } from '../../finance-v2/services/cash-accounts.ser
 import { CashTransactionsService } from '../../finance-v2/services/cash-transactions.service';
 import { ShareholderContributionsService } from '../../finance-v2/services/shareholder-contributions.service';
 
+type AllocationApRef = {
+  apId?: string | null;
+  apNo?: string | null;
+  poId?: string | null;
+  poNo?: string | null;
+};
+
 // ── 并发安全编号生成 ─────────────────────────────────────────────────────────
 async function genNo(mgr: EntityManager, prefix: string, repo: { createQueryBuilder: Function }, alias: string, field: string): Promise<string> {
   await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [prefix]);
@@ -116,6 +123,46 @@ export class PaymentsService {
       totalOriginal: allocs.reduce((s, a) => s + Number(a.allocatedAmountOriginal), 0),
       totalBase:     allocs.reduce((s, a) => s + Number(a.allocatedAmountBase ?? 0), 0),
     };
+  }
+
+  private async resolveApForAllocation(
+    mgr: EntityManager,
+    ref: AllocationApRef,
+    lock = false,
+  ): Promise<Prc2ApLedgerEntity | null> {
+    const lookups: Array<Partial<Pick<Prc2ApLedgerEntity, 'id' | 'apNo' | 'poId' | 'poNo'>>> = [];
+    if (ref.apId) lookups.push({ id: ref.apId });
+    if (ref.apNo) lookups.push({ apNo: ref.apNo });
+    if (ref.poId) lookups.push({ poId: ref.poId });
+    if (ref.poNo) lookups.push({ poNo: ref.poNo });
+
+    const candidates: Prc2ApLedgerEntity[] = [];
+    for (const where of lookups) {
+      const ap = await mgr.findOne(
+        Prc2ApLedgerEntity,
+        lock ? { where, lock: { mode: 'pessimistic_write' } } : { where },
+      );
+      if (ap) candidates.push(ap);
+    }
+
+    const unique = new Map(candidates.map((ap) => [String(ap.id), ap]));
+    const reference = [ref.apId, ref.apNo, ref.poId, ref.poNo].filter(Boolean).join(' / ');
+    if (unique.size > 1) {
+      throw new BadRequestException(`付款分摊 AP 关联不一致（${reference}），请重新选择未核销 AP 台账`);
+    }
+    if (unique.size === 0) {
+      if (lookups.length > 0) {
+        throw new BadRequestException(`付款分摊关联的 AP 台账不存在（${reference}），请重新选择后再付款`);
+      }
+      return null;
+    }
+
+    const ap = [...unique.values()][0];
+    this.scopeHelper.assertWritableOwnership(
+      { companyCode: ap.companyCode, projectCode: ap.projectCode },
+      'AP 台账',
+    );
+    return ap;
   }
 
   // ── 列表 ──────────────────────────────────────────────────────────────────
@@ -415,10 +462,17 @@ export class PaymentsService {
 
       // ── 核销每条 AP ────────────────────────────────────────────────────────
       for (const alloc of allocs) {
-        if (!alloc.apId) continue;
+        const ap = await this.resolveApForAllocation(mgr, alloc, true);
+        if (!ap) continue;
 
-        const ap = await mgr.findOne(Prc2ApLedgerEntity, { where: { id: alloc.apId } });
-        if (!ap) throw new NotFoundException(`AP 台账 ID=${alloc.apId} 不存在`);
+        if (alloc.apId !== ap.id || alloc.apNo !== ap.apNo || alloc.poId !== ap.poId || alloc.poNo !== ap.poNo) {
+          await mgr.update(Prc2PaymentAllocationEntity, { id: alloc.id }, {
+            apId: ap.id,
+            apNo: ap.apNo,
+            poId: ap.poId,
+            poNo: ap.poNo,
+          });
+        }
 
         const newPaid    = Number(ap.paidAmountOriginal)  + Number(alloc.allocatedAmountOriginal);
         const newBalance = Number(ap.amountOriginal)      - newPaid;
@@ -431,7 +485,7 @@ export class PaymentsService {
 
         const newStatus = newBalance <= 0.005 ? 'PAID' : 'PARTIALLY_PAID';
 
-        await mgr.update(Prc2ApLedgerEntity, { id: alloc.apId }, {
+        await mgr.update(Prc2ApLedgerEntity, { id: ap.id }, {
           paidAmountOriginal:  newPaid,
           balanceAmountOriginal: Math.max(0, newBalance),
           status: newStatus,
@@ -672,29 +726,31 @@ export class PaymentsService {
     allocs: CreatePaymentDto['allocations'],
     exchangeRate: number,
   ) {
+    const rows: Prc2PaymentAllocationEntity[] = [];
     for (const a of allocs) {
       this.scopeHelper.assertWritableOwnership(
         { companyCode: a.companyCode, projectCode: a.projectCode },
         '采购付款分摊',
       );
-    }
 
-    const rows = allocs.map(a => mgr.create(Prc2PaymentAllocationEntity, {
-      paymentId,
-      poId:                    a.poId,
-      poNo:                    a.poNo,
-      apId:                    a.apId,
-      apNo:                    a.apNo,
-      companyId:               a.companyId,
-      companyCode:             a.companyCode,
-      companyName:             a.companyName,
-      projectId:               a.projectId,
-      projectCode:             a.projectCode,
-      projectName:             a.projectName,
-      allocatedAmountOriginal: a.allocatedAmountOriginal,
-      allocatedAmountBase:     a.allocatedAmountBase ?? (Number(a.allocatedAmountOriginal) * Number(exchangeRate)),
-      remark:                  a.remark,
-    }));
+      const ap = await this.resolveApForAllocation(mgr, a);
+      rows.push(mgr.create(Prc2PaymentAllocationEntity, {
+        paymentId,
+        poId:                    ap?.poId          ?? a.poId,
+        poNo:                    ap?.poNo          ?? a.poNo,
+        apId:                    ap?.id            ?? a.apId,
+        apNo:                    ap?.apNo          ?? a.apNo,
+        companyId:               a.companyId       ?? ap?.companyId,
+        companyCode:             a.companyCode     ?? ap?.companyCode,
+        companyName:             a.companyName     ?? ap?.companyName,
+        projectId:               a.projectId       ?? ap?.projectId,
+        projectCode:             a.projectCode     ?? ap?.projectCode,
+        projectName:             a.projectName     ?? ap?.projectName,
+        allocatedAmountOriginal: a.allocatedAmountOriginal,
+        allocatedAmountBase:     a.allocatedAmountBase ?? (Number(a.allocatedAmountOriginal) * Number(exchangeRate)),
+        remark:                  a.remark,
+      }));
+    }
     await mgr.save(Prc2PaymentAllocationEntity, rows);
   }
 }
