@@ -33,6 +33,15 @@ describe("workflow todo helpers", () => {
     })).toBe(1);
   });
 
+  it("covers BUG-20260709-0004 when stale total metadata is serialized", () => {
+    expect(getWorkflowTodoDisplayTotal({
+      items: [{ taskSource: "APPROVAL_ENGINE", taskId: "PR2-20260707-00002" }],
+      total: "0",
+      page: "1",
+      pageSize: "20",
+    })).toBe(1);
+  });
+
   it("accounts for later pages when total is stale", () => {
     expect(getWorkflowTodoDisplayTotal({
       items: [{ id: 41 }, { id: 42 }],
