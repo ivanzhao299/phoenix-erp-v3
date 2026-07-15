@@ -1017,12 +1017,16 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-15T06:46:59.001Z",
-    "approvedBy": "admin",
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "approvedAt": "2026-07-15T12:00:00.038Z",
+    "approvedBy": "bug_intake_runner",
+    "redispatch": true,
+    "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
+    "redispatchCount": 1,
     "forbiddenActions": [
+      "production deploy without separate approval",
       "database write without separate gate",
       "migration execution without separate gate",
+      "push without release approval",
       "force push"
     ]
   }

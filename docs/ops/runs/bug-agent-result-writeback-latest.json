@@ -3,41 +3,47 @@
   "bugNo": "BUG-20260715-0001",
   "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260715-0001/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260715-0001-A3",
-    "agent": "A3-Backend-Critical-Path",
+    "taskId": "BUGTASK-20260715-0001-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260715-0001-A3-worker-log.md",
-    "commitHash": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+    "resultFile": "docs/ops/runs/BUGTASK-20260715-0001-A4-worker-log.md",
+    "commitHash": "a029612af5063f9da364052531db0436857db81d",
     "changedFiles": [
-      "apps/api/src/modules/bff/bff.controller.spec.ts",
-      "apps/api/src/modules/bff/bff.controller.ts",
-      "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
+      "apps/web/src/app/(admin)/breeding/page.tsx",
+      "apps/web/src/app/(admin)/home/page.tsx",
+      "apps/web/src/lib/home-farm-kpi.test.ts",
+      "apps/web/src/lib/home-farm-kpi.ts",
+      "docs/ops/BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md"
     ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A3-Backend-Critical-Path",
+        "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1095,
-        "beforeHead": "245b2e8ff472367713ccaad7297005742382a7a9",
-        "afterHead": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
-        "commitHash": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+        "conclusion": "PASS",
+        "responseChars": 1539,
+        "beforeHead": "8a4d78463f65fab3d1dd01969681cf067762254b",
+        "afterHead": "a029612af5063f9da364052531db0436857db81d",
+        "commitHash": "a029612af5063f9da364052531db0436857db81d",
         "changedFiles": [
-          "apps/api/src/modules/bff/bff.controller.spec.ts",
-          "apps/api/src/modules/bff/bff.controller.ts",
-          "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
+          "apps/web/src/app/(admin)/breeding/page.tsx",
+          "apps/web/src/app/(admin)/home/page.tsx",
+          "apps/web/src/lib/home-farm-kpi.test.ts",
+          "apps/web/src/lib/home-farm-kpi.ts",
+          "docs/ops/BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md"
         ],
         "businessChangedFiles": [
-          "apps/api/src/modules/bff/bff.controller.spec.ts",
-          "apps/api/src/modules/bff/bff.controller.ts"
+          "apps/web/src/app/(admin)/breeding/page.tsx",
+          "apps/web/src/app/(admin)/home/page.tsx",
+          "apps/web/src/lib/home-farm-kpi.test.ts",
+          "apps/web/src/lib/home-farm-kpi.ts"
         ],
         "reportFiles": [
-          "docs/ops/bug-intake/BUG-20260715-0001-a3-backend-report.md"
+          "docs/ops/BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md"
         ],
         "parentCommitRecovered": false,
         "infrastructureFailure": null,
-        "checkedAt": "2026-07-15T12:02:12.132Z",
+        "checkedAt": "2026-07-15T12:06:13.928Z",
         "passed": true,
         "role": "implementation",
         "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -46,7 +52,7 @@
       "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0001-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0001-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0001-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26335\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-02-11-970Z-A3-Backend-Critical-Path.md\nImplemented the backend fix for `BUG-20260715-0001`.\n\nChanged `/api/dashboard/kpi` so `data.stats.stock` now uses the same flock population source as breeding overview: `brd_flocks.current_qty` for active/laying flocks, unit `羽`. Egg inventory remains available in `meta.stockAvailableTotal` so that evidence is not lost.\n\nFiles changed:\n- [bff.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/bff/bff.controller.ts)\n- [bff.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/bff/bff.controller.spec.ts)\n- [BUG-20260715-0001-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 26402\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-06-13-763Z-A4-Frontend-UAT-Smoke.md\nImplemented the frontend repair for `BUG-20260715-0001`.\n\nThe root cause was a source mismatch: `/breeding` used `brd_flocks.current_qty` for 存栏总数, while `/home` inferred 当前总存栏 from `/v3/farm/daily-hen-report`. I changed `/home` to fetch `/crud/brd_flocks?limit=1000` under the existing `MENU_FARM_DATA:V` gate and made `brd_flocks.current_qty` authoritative for current stock. I also aligned `/breeding` to request flocks with `limit=1000`.\n\nChanged:\n- [home/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/home/page.tsx:155)\n- [breeding/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/pa",
     "nextAction": ""
   }
 }
