@@ -1,17 +1,17 @@
 {
   "summary": {
-    "generated_at": "2026-07-15T12:33:48.580Z",
+    "generated_at": "2026-07-15T12:43:30.201Z",
     "dry_run": true,
-    "run_files_inspected": 2114,
+    "run_files_inspected": 2115,
     "task_count": 330,
     "task_status_counts": {
       "archived": 213,
       "completed": 3,
-      "COMPLETED_MERGED": 50,
-      "VALIDATION_COMPLETED": 43,
+      "COMPLETED_MERGED": 56,
+      "VALIDATION_COMPLETED": 44,
       "HOLD": 2,
       "SKIPPED_NOT_APPLICABLE": 9,
-      "pending": 10
+      "pending": 3
     },
     "registered_agents": 8,
     "findings_count": 32,
@@ -339,7 +339,7 @@
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260707-0010-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260710-0001-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260713-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260713-0003-A4-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A4-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260715-0004-A5-contract.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260713-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260713-0003-A4-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0003-A3-worker-assembled-prompt.md;  M docs/ops/runs/BUGTASK-20260715-0003-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0003-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0004-A4-worker-log.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -516,11 +516,11 @@
   "suggested_evolution_patterns": [
     {
       "pattern_id": "PATTERN-PHX-001",
-      "occurrence": 26
+      "occurrence": 25
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 3
+      "occurrence": 4
     },
     {
       "pattern_id": "PATTERN-PHX-002",
@@ -530,11 +530,11 @@
   "suggested_improvements": [
     {
       "improvement_id": "IMPROVE-ROUTER-A5-READINESS",
-      "occurrence": 26
+      "occurrence": 25
     },
     {
       "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
-      "occurrence": 3
+      "occurrence": 4
     },
     {
       "improvement_id": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
@@ -544,11 +544,11 @@
   "repeated_pattern_candidates": [
     {
       "pattern_id": "PATTERN-PHX-001",
-      "occurrence": 26
+      "occurrence": 25
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 3
+      "occurrence": 4
     },
     {
       "pattern_id": "PATTERN-PHX-002",

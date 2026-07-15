@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-15T12:33:48.580Z |
-| Run files inspected | 2114 |
+| Generated at | 2026-07-15T12:43:30.201Z |
+| Run files inspected | 2115 |
 | Task count | 330 |
 | Findings count | 32 |
 | Highest severity | CRITICAL |
@@ -271,7 +271,7 @@
 ### OBS-0029 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260707-0010-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260710-0001-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260713-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260713-0003-A4-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A4-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260715-0004-A5-contract.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260713-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260713-0003-A4-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0003-A3-worker-assembled-prompt.md;  M docs/ops/runs/BUGTASK-20260715-0003-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0003-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0004-A4-worker-log.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
