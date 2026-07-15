@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | SKIPPED_NOT_APPLICABLE |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -23,25 +23,22 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260715-0003-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260715-0003-A3-worker-assembled-prompt.md
-Assembled prompt chars: 28732
+Assembled prompt chars: 28973
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T07-44-15-689Z-A3-Backend-Critical-Path.md
-A3 backend result: **NOT APPLICABLE / HOLD**.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-08-55-707Z-A3-Backend-Critical-Path.md
+Implemented the A3 backend portion for `BUG-20260715-0003`.
 
-Backend evidence shows purchase order `id` already exists and is already returned by procurement order APIs:
-- Entity: [prc2-purchase-order.entity.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/entities/prc2-purchase-order.entity.ts:17)
-- Service list/detail/create preserve `id`: [orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/orders.service.ts:188)
+Changed [orders.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/orders.service.ts:208) so `GET /api/v2/procurement/orders?keyword=...` now searches `采购订单ID` via `CAST(p.id AS TEXT) ILIKE :kw`, while preserving the existing DataScope filter.
 
-No `apps/api` production files were changed. The missing acceptance item is UI presentation: adding a visible “采购订单ID” column before “采购订单号”, which is outside this A3 backend-only scope.
-
-Report written: [BUG-20260715-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260715-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md)
+Added focused regression coverage in [orders.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/procurement-v2/services/orders.service.spec.ts:40). Report written to [BUG-20260715-0003-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md:1).
 
 Validation:
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed with 0 errors.
-- No backend regression test added because no backend behavior changed; static verification is documented in the report.
+- `cd apps/api && pnpm test -- --runTestsByPath src/modules/procurement-v2/services/orders.service.spec.ts` passed.
+- `cd apps/api && ./node_modules/.bin/tsc --noEmit` passed.
+- `git diff --check` passed.
 
-I did not deploy, push, run migrations, write DB, or edit `apps/web`.
+Result: `PASS WITH CONDITIONS`. Backend query support is fixed; the actual UI column before “采购订单号” remains frontend-owned and was not changed under this A3 backend-only contract. No migrations, DB writes, deploys, pushes, or `apps/web/**` changes.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -49,6 +46,10 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
+2026-07-15T12:06:24.438527Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
+2026-07-15T12:06:24.440005Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
+2026-07-15T12:06:24.462724Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-07-15T12:06:24.462735Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 OpenAI Codex v0.142.5
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
@@ -58,7 +59,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f64ba-96d0-7373-8ce8-51534aa3d1a9
+session id: 019f65ab-c7a6-7d32-9d9a-84449db05655
 --------
 user
 # Base Agent Prompt
@@ -480,36 +481,8 @@ Assigned agent: A3-Backend-Critical-Path
             "disabled": false
           },
           {
-            "tag": "div",
-            "path": ".sidebar-module__C8A-ya__groupHeader.",
-            "rect": {
-              "h": 38,
-              "w": 215,
-              "x": 0,
-              "y": 742
-            },
-            "label": "财务结算中心",
-            "disabled": false
-          },
-          {
-            "tag": "div",
-            "path": ".sidebar-module__C8A-ya__groupHeader.",
-            "rect": {
-              "h": 38,
-              "w": 215,
-              "x": 0,
-              "y": 780
-            },
-            "label": "股东权益中心",
-            "disabled": false
-          },
-          {
-            "tag": "div",
-            "path": ".sidebar-module__C8A-ya__groupHeader.",
-            "rect": {
-              "h": 38,
           
-...<truncated 431828 chars>
+...<truncated 1368491 chars>
 
 ```
 
@@ -520,21 +493,30 @@ Assigned agent: A3-Backend-Critical-Path
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
-  "conclusion": "HOLD",
-  "responseChars": 1151,
-  "beforeHead": "f35ffec7614cf691c8b5dd743929b36ddef90dea",
-  "afterHead": "f35ffec7614cf691c8b5dd743929b36ddef90dea",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 1177,
+  "beforeHead": "8581e0e85e90b52b0ac6c0f9621221193438d5da",
+  "afterHead": "5de9d369a061c0eb3401658070c1095407b531b2",
+  "commitHash": "5de9d369a061c0eb3401658070c1095407b531b2",
+  "changedFiles": [
+    "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts",
+    "apps/api/src/modules/procurement-v2/services/orders.service.ts",
+    "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
+  ],
+  "businessChangedFiles": [
+    "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts",
+    "apps/api/src/modules/procurement-v2/services/orders.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
+  ],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-15T07:44:15.780Z",
+  "checkedAt": "2026-07-15T12:08:55.865Z",
   "passed": true,
-  "role": "implementation_verified_existing",
-  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+  "role": "implementation",
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -543,10 +525,21 @@ Assigned agent: A3-Backend-Critical-Path
 ```json
 {
   "attempted": true,
-  "ok": false,
+  "ok": true,
   "files": [
-    "docs/ops/BUG-20260715-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+    "apps/api/src/modules/procurement-v2/services/orders.service.ts",
+    "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts",
+    "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
   ],
-  "error": "no apps/api/ implementation file"
+  "businessFiles": [
+    "apps/api/src/modules/procurement-v2/services/orders.service.ts",
+    "apps/api/src/modules/procurement-v2/services/orders.service.spec.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
+  ],
+  "commitHash": "5de9d369a061c0eb3401658070c1095407b531b2",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a3 5de9d369] fix(api): repair BUG-20260715-0003\n 3 files changed, 106 insertions(+), 1 deletion(-)\n create mode 100644 apps/api/src/modules/procurement-v2/services/orders.service.spec.ts\n create mode 100644 docs/ops/bug-intake/BUG-20260715-0003-a3-backend-report.md"
 }
 ```
