@@ -574,7 +574,7 @@ export default function PurchaseOrdersPage() {
           </colgroup>
           <thead>
             <tr>
-              <th>{t('prc2.po_id', '采购订单 ID')}</th>
+              <th title={t('prc2.po_id_help', '系统内部唯一标识')}>{t('prc2.po_id', '采购订单 ID')}</th>
               <th>{t('prc2.po_no', '采购订单号')}</th>
               <th>{t('prc2.subject', '主题')}</th>
               <th>{t('prc2.company', '公司')}</th>
@@ -597,7 +597,7 @@ export default function PurchaseOrdersPage() {
             };
             const typeLabel = PURCHASE_TYPE_OPTS.find(o => o.value === row.purchaseType)?.label ?? row.purchaseType ?? "—";
             return <tr key={row.id}>
-                  <td style={{ fontFamily: "monospace", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>{row.id}</td>
+                  <td aria-label={`${t('prc2.po_id', '采购订单 ID')} ${row.id}`} style={{ fontFamily: "monospace", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>{row.id}</td>
                   <td style={{ fontFamily: "monospace", fontSize: 11, wordBreak: "break-all" }}>{row.poNo}</td>
                   <td style={{ wordBreak: "break-word" }}>{row.subject}</td>
                   {/* G154：公司显示中文名（无名称才回退编码）；G164：按列宽自动换行 */}

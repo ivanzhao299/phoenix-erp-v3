@@ -11,6 +11,8 @@ describe("procurement order list ID visibility", () => {
     expect(idHeader).toBeGreaterThan(0);
     expect(numberHeader).toBeGreaterThan(idHeader);
     expect(source).toContain("{row.id}</td>");
+    expect(source).toContain("prc2.po_id_help");
+    expect(source).toContain("aria-label={`${t('prc2.po_id'");
     expect(source).toContain("colSpan={13}");
     expect(source.indexOf("value: detailData.id")).toBeLessThan(source.indexOf("value: detailData.poNo"));
   });
