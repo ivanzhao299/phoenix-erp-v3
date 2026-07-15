@@ -20874,7 +20874,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "AGENT_RUNNING",
+    "remote_repair_status": "HOLD",
     "integration_method": "cherry-pick-verified-agent-commit",
     "retry_after": null
   },
@@ -20966,7 +20966,7 @@
         "source_repair_task_no": "BUGTASK-20260707-0010"
       }
     ],
-    "remote_repair_status": "AGENT_RUNNING",
+    "remote_repair_status": "HOLD",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
@@ -21065,7 +21065,7 @@
         "source_repair_task_no": "BUGTASK-20260707-0010"
       }
     ],
-    "remote_repair_status": "AGENT_RUNNING",
+    "remote_repair_status": "HOLD",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -21840,7 +21840,8 @@
     "changed_files": [],
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "remote_repair_status": "AGENT_RUNNING"
   },
   {
     "task_id": "BUGTASK-20260713-0004-A3",
@@ -21911,7 +21912,8 @@
     "changed_files": [],
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "remote_repair_status": "AGENT_RUNNING"
   },
   {
     "task_id": "BUGTASK-20260713-0004-A1",
@@ -21961,6 +21963,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T00:56:32.919Z"
+    "last_redispatch_at": "2026-07-15T00:56:32.919Z",
+    "remote_repair_status": "AGENT_RUNNING"
   }
 ]
