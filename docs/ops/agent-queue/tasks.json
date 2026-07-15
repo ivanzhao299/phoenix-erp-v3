@@ -23700,7 +23700,7 @@
     "integrated_commit": "6044fbdaa04282c4732689a2395e3909222bc3e6",
     "integrated_at": "2026-07-15T12:42:21.258Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "AGENT_RUNNING",
+    "remote_repair_status": "HOLD",
     "reason": "verified integrated implementation evidence",
     "redispatched_at": "2026-07-15T12:33:21.193Z",
     "redispatch_history": [
@@ -23818,7 +23818,7 @@
     "integrated_commit": "fc18390e79e7e9c76024266ce8597b9f36e8877f",
     "integrated_at": "2026-07-15T12:42:21.409Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "AGENT_RUNNING",
+    "remote_repair_status": "HOLD",
     "reason": "verified integrated implementation evidence",
     "redispatched_at": "2026-07-15T12:33:21.193Z",
     "redispatch_history": [
@@ -23909,7 +23909,7 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "AGENT_RUNNING",
+    "remote_repair_status": "HOLD",
     "reason": null,
     "integrated_commit": "",
     "integrated_at": null,
@@ -23982,7 +23982,7 @@
     ],
     "redispatch_count": 2,
     "last_redispatch_at": "2026-07-15T12:33:21.193Z",
-    "remote_repair_status": "AGENT_RUNNING",
+    "remote_repair_status": "HOLD",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
