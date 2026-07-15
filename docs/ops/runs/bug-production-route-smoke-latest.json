@@ -1,6 +1,6 @@
 {
   "decision": "PRODUCTION_ROUTE_SMOKE_PASS",
-  "generated_at": "2026-07-15T13:26:15.100Z",
+  "generated_at": "2026-07-15T13:40:16.013Z",
   "base_url": "https://erp.eggslao.com",
   "routes": [
     "/master/farms",
@@ -28,7 +28,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 2068,
+      "elapsedMs": 1927,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -37,7 +37,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 525,
+      "elapsedMs": 508,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -46,7 +46,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 514,
+      "elapsedMs": 509,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -55,7 +55,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 617,
+      "elapsedMs": 409,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -64,7 +64,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 512,
+      "elapsedMs": 516,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -73,7 +73,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 443,
+      "elapsedMs": 409,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -82,7 +82,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 584,
+      "elapsedMs": 517,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -91,7 +91,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 508,
+      "elapsedMs": 505,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -100,7 +100,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 513,
+      "elapsedMs": 514,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -109,7 +109,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 514,
+      "elapsedMs": 437,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -118,7 +118,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 498,
+      "elapsedMs": 590,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -127,7 +127,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 418,
+      "elapsedMs": 508,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -136,7 +136,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 512,
+      "elapsedMs": 514,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -145,7 +145,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 515,
+      "elapsedMs": 512,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -154,7 +154,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 511,
+      "elapsedMs": 491,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -163,7 +163,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 515,
+      "elapsedMs": 414,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -172,7 +172,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 509,
+      "elapsedMs": 425,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     }
   ],
