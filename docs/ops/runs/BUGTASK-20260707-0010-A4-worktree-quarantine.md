@@ -6,15 +6,17 @@
 | Trigger task | BUGTASK-20260707-0010-A4 |
 | Agent | A4-Frontend-UAT-Smoke |
 | Original worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-a4` |
-| Quarantine worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260707-0010-A4-20260711070610` |
-| Quarantine branch | `codex/quarantine/bugtask-20260707-0010-a4-20260711070610` |
+| Quarantine worktree | `/Users/mac/phoenix-erp-worktrees/bug-intake-quarantine/BUGTASK-20260707-0010-A4-20260715010344` |
+| Quarantine branch | `codex/quarantine/bugtask-20260707-0010-a4-20260715010344` |
 | Clean execution slot recreated | Yes |
 
 ## Preserved status
 
 ```text
-?? apps/api/node_modules
-?? node_modules
+M apps/web/src/app/(admin)/warehouse/zones/page.tsx
+?? apps/web/src/lib/warehouse-zone-labels.test.ts
+?? apps/web/src/lib/warehouse-zone-labels.ts
+?? docs/ops/runs/BUG-20260713-0005-A4-Frontend-UAT-Smoke.md
 ```
 
 ## Decision
