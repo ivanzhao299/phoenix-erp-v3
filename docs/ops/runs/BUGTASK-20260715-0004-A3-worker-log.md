@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | HOLD |
 
 ## Command
 
@@ -23,25 +23,29 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md
-Assembled prompt chars: 26663
+Assembled prompt chars: 26904
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T08-18-59-445Z-A3-Backend-Critical-Path.md
-PASS WITH CONDITIONS for A3 backend.
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-17-52-907Z-A3-Backend-Critical-Path.md
+Status: `PASS WITH CONDITIONS` for the A3 backend portion.
 
-Implemented backend RBAC repair for `/master/farms`:
+Backend repair is present on this branch:
 
-- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.ts): `brd_farms` now accepts `MENU_MD_ORG` as an alternate permission for view/create/edit, while delete remains restricted to `MENU_FARM_MASTER:D`.
-- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts): added regression coverage for create allowed via `MENU_MD_ORG:C` and delete still denied via `MENU_MD_ORG:D`.
-- Report written: [BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md)
+- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.ts:132): allows `brd_farms` `GET/POST/PUT` via `MENU_MD_ORG`, while keeping `DELETE` restricted to `MENU_FARM_MASTER:D`.
+- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:239): regression tests cover create via `MENU_MD_ORG:C` and delete denial via `MENU_MD_ORG:D`.
+- [BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md:1): task report is written.
 
-Validation:
+Validation run:
 
-- `cd apps/api && pnpm test -- generic-crud.controller.spec.ts --runInBand` PASS, 14 tests.
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` PASS.
-- `git diff --check` PASS.
+```bash
+cd apps/api && pnpm test -- generic-crud.controller.spec.ts --runInBand
+# PASS: 1 suite, 14 tests
 
-Condition: the visible “新建养殖场” button and “主数据中心 > 养殖场档案” submenu are frontend/menu-surface work outside the A3 backend scope, so I did not edit `apps/web` or menu seed/migrations. No DB writes, migrations, deploys, pushes, merges, or task-board updates were performed.
+cd apps/api && ./node_modules/.bin/tsc --noEmit
+# PASS
+```
+
+No web files, migrations, schema/entity/table/column files, database writes, deploys, pushes, or task-board changes were performed. Full business bug remains conditional on the frontend/menu work, production smoke, CI/CD, and business acceptance. Worktree only shows untracked `node_modules` directories.
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -49,6 +53,10 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
+2026-07-15T12:17:01.282121Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
+2026-07-15T12:17:01.283351Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
+2026-07-15T12:17:01.541716Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-07-15T12:17:01.541730Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 OpenAI Codex v0.142.5
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
@@ -58,7 +66,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: none
-session id: 019f64d9-a510-7443-9c7d-b199c4167255
+session id: 019f65b5-802c-7b02-9117-d3998032cf6e
 --------
 user
 # Base Agent Prompt
@@ -492,37 +500,8 @@ Assigned agent: A3-Backend-Critical-Path
               "x": 0,
               "y": 731
             },
-            "label": "异常处理",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 763
-            },
-            "label": "补打日志",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 795
-            },
-            "label": "质检总览",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A
-...<truncated 935826 chars>
+ 
+...<truncated 449303 chars>
 
 ```
 
@@ -534,29 +513,20 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1282,
-  "beforeHead": "23baac30079e98e1bc79dc548d72bec021090b45",
-  "afterHead": "245b2e8ff472367713ccaad7297005742382a7a9",
-  "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
-  "changedFiles": [
-    "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-    "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-    "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
-  "businessChangedFiles": [
-    "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-    "apps/api/src/modules/generic-crud/generic-crud.controller.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
+  "responseChars": 1287,
+  "beforeHead": "5de9d369a061c0eb3401658070c1095407b531b2",
+  "afterHead": "5de9d369a061c0eb3401658070c1095407b531b2",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-15T08:18:59.613Z",
-  "passed": true,
+  "checkedAt": "2026-07-15T12:17:52.990Z",
+  "passed": false,
   "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "terminalStatus": "HOLD",
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
 ```
 
@@ -564,22 +534,9 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-    "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
-    "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
-  "businessFiles": [
-    "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
-    "apps/api/src/modules/generic-crud/generic-crud.controller.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
-  ],
-  "commitHash": "245b2e8ff472367713ccaad7297005742382a7a9",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a3 245b2e8f] fix(api): repair BUG-20260715-0004\n 3 files changed, 88 insertions(+)\n create mode 100644 docs/ops/BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+  "attempted": false,
+  "ok": false,
+  "reason": "worktree has no uncommitted Agent changes",
+  "files": []
 }
 ```

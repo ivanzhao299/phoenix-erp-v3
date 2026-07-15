@@ -1,55 +1,39 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260715-0003",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260715-0003/agent-result",
+  "bugNo": "BUG-20260715-0004",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260715-0004/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260715-0003-A4",
-    "agent": "A4-Frontend-UAT-Smoke",
+    "taskId": "BUGTASK-20260715-0004-A3",
+    "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260715-0003-A4-worker-log.md",
-    "commitHash": "6c1db5dbd1b08d11bc15701194847819709537fb",
-    "changedFiles": [
-      "apps/web/src/__tests__/procurement-orders-id-field.test.ts",
-      "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
-      "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-      "docs/ops/bug-intake/BUGTASK-20260715-0003-A4-frontend-report.md"
-    ],
+    "resultFile": "docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md",
+    "commitHash": "",
+    "changedFiles": [],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A4-Frontend-UAT-Smoke",
+        "agent": "A3-Backend-Critical-Path",
         "exitCode": 0,
         "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 1218,
-        "beforeHead": "a029612af5063f9da364052531db0436857db81d",
-        "afterHead": "6c1db5dbd1b08d11bc15701194847819709537fb",
-        "commitHash": "6c1db5dbd1b08d11bc15701194847819709537fb",
-        "changedFiles": [
-          "apps/web/src/__tests__/procurement-orders-id-field.test.ts",
-          "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
-          "apps/web/src/app/(admin)/procurement2/orders/page.tsx",
-          "docs/ops/bug-intake/BUGTASK-20260715-0003-A4-frontend-report.md"
-        ],
-        "businessChangedFiles": [
-          "apps/web/src/__tests__/procurement-orders-id-field.test.ts",
-          "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
-          "apps/web/src/app/(admin)/procurement2/orders/page.tsx"
-        ],
-        "reportFiles": [
-          "docs/ops/bug-intake/BUGTASK-20260715-0003-A4-frontend-report.md"
-        ],
+        "responseChars": 1287,
+        "beforeHead": "5de9d369a061c0eb3401658070c1095407b531b2",
+        "afterHead": "5de9d369a061c0eb3401658070c1095407b531b2",
+        "commitHash": "",
+        "changedFiles": [],
+        "businessChangedFiles": [],
+        "reportFiles": [],
         "parentCommitRecovered": false,
         "infrastructureFailure": null,
-        "checkedAt": "2026-07-15T12:12:41.533Z",
-        "passed": true,
+        "checkedAt": "2026-07-15T12:17:52.990Z",
+        "passed": false,
         "role": "implementation",
-        "terminalStatus": "IMPLEMENTATION_COMPLETED",
-        "reason": "Business change, task report, commit, and conclusion are present"
+        "terminalStatus": "HOLD",
+        "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
       },
-      "queueStatus": "IMPLEMENTATION_COMPLETED",
+      "queueStatus": "HOLD",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 29040\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-12-41-370Z-A4-Frontend-UAT-Smoke.md\nImplemented BUGTASK-20260715-0003 frontend repair.\n\nChanged:\n- [orders/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/page.tsx:577): added `采购订单ID` before `采购订单号` in the list, detail drawer, and loading/empty `colSpan`.\n- [OrderForm.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx:385): added read-only `采购订单ID / 采购订单号` fields; new mode shows `保存后自动生成`, edit mode shows API `id/poNo`.\n- Added regression coverage: `apps/web/src/__tests__/procurement-orders-id-field.test.ts`.\n- Report written: [BUGTASK-20260715-0003-A4-frontend-report.md](/Users/m",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260715-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260715-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 26904\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-17-52-907Z-A3-Backend-Critical-Path.md\nStatus: `PASS WITH CONDITIONS` for the A3 backend portion.\n\nBackend repair is present on this branch:\n\n- [generic-crud.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.ts:132): allows `brd_farms` `GET/POST/PUT` via `MENU_MD_ORG`, while keeping `DELETE` restricted to `MENU_FARM_MASTER:D`.\n- [generic-crud.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts:239): regression tests cover create via `MENU_MD_ORG:C` and delete denial via `MENU_MD_ORG:D`.\n- [BUG-20260715-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/ph",
     "nextAction": ""
   }
 }
