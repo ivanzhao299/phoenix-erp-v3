@@ -1,24 +1,24 @@
 {
   "summary": {
     "decision": "BUG_TASK_QUEUE_PLAN_READY",
-    "source_repair_task_no": "BUGTASK-20260707-0010",
+    "source_repair_task_no": "BUGTASK-20260709-0004",
     "selected_agents": [
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
     "generated_tasks": [
-      "BUGTASK-20260707-0010-A3",
-      "BUGTASK-20260707-0010-A4",
-      "BUGTASK-20260707-0010-A1"
+      "BUGTASK-20260709-0004-A3",
+      "BUGTASK-20260709-0004-A4",
+      "BUGTASK-20260709-0004-A1"
     ],
     "agent_execution_approval": {
       "approved": true,
-      "approvedAt": "2026-07-15T00:58:16.446Z",
+      "approvedAt": "2026-07-15T06:50:16.447Z",
       "approvedBy": "admin",
       "redispatch": true,
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-      "redispatchCount": 7,
+      "redispatchCount": 9,
       "forbiddenActions": [
         "production deploy without separate approval",
         "database write without separate gate",
@@ -30,14 +30,13 @@
     "apply": true
   },
   "routePlan": {
-    "source_bug_no": "BUG-20260707-0010",
+    "source_bug_no": "BUG-20260709-0004",
     "route_decision": "PLAN_READY",
     "split_strategy": [
       {
         "agent": "A2-Security-Regression-Gate",
         "reasons": [
-          "security/RBAC/DataScope signal matched",
-          "failure classification RBAC_403"
+          "security/RBAC/DataScope signal matched"
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
@@ -46,7 +45,7 @@
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
           "backend/API/error route matched",
-          "failure classification RBAC_403"
+          "failure classification API_5XX"
         ],
         "execution_mode": "dry-run-first",
         "approval_required": true
@@ -70,7 +69,7 @@
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
-          "failure classification RBAC_403",
+          "failure classification API_5XX",
           "required validation after repair"
         ],
         "execution_mode": "dry-run-first",
@@ -82,15 +81,15 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "failure_category": "RBAC_403",
+    "failure_category": "API_5XX",
     "hard_constraints": [
       "no automatic production deploy",
       "no automatic DB write",
       "no automatic migration",
       "human approval required before code repair execution"
     ],
-    "route_confidence": 0.9,
-    "source_repair_task_no": "BUGTASK-20260707-0010",
+    "route_confidence": 0.88,
+    "source_repair_task_no": "BUGTASK-20260709-0004",
     "selected_agents_after_bug_intake_policy": [
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
@@ -110,11 +109,11 @@
   },
   "tasks": [
     {
-      "task_id": "BUGTASK-20260707-0010-A3",
-      "request_id": "BUGTASK-20260707-0010",
-      "title": "Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A3-Backend-Critical-Path)",
-      "source_bug_no": "BUG-20260707-0010",
-      "source_repair_task_no": "BUGTASK-20260707-0010",
+      "task_id": "BUGTASK-20260709-0004-A3",
+      "request_id": "BUGTASK-20260709-0004",
+      "title": "Repair BUG-20260709-0004: 审批中心-我的待办，审批待办中有一条未审批的记录，但是上方显示共0条 (A3-Backend-Critical-Path)",
+      "source_bug_no": "BUG-20260709-0004",
+      "source_repair_task_no": "BUGTASK-20260709-0004",
       "source": "bug-intake",
       "agent": "A3-Backend-Critical-Path",
       "status": "pending",
@@ -131,7 +130,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0010-A3-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
       "branch": "codex/bug-intake-a3",
@@ -152,15 +151,15 @@
         "A4-Frontend-UAT-Smoke",
         "A1-CI-Runtime-Gate"
       ],
-      "redispatch_count": 7,
-      "last_redispatch_at": "2026-07-15T00:58:16.446Z"
+      "redispatch_count": 9,
+      "last_redispatch_at": "2026-07-15T06:50:16.447Z"
     },
     {
-      "task_id": "BUGTASK-20260707-0010-A4",
-      "request_id": "BUGTASK-20260707-0010",
-      "title": "Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A4-Frontend-UAT-Smoke)",
-      "source_bug_no": "BUG-20260707-0010",
-      "source_repair_task_no": "BUGTASK-20260707-0010",
+      "task_id": "BUGTASK-20260709-0004-A4",
+      "request_id": "BUGTASK-20260709-0004",
+      "title": "Repair BUG-20260709-0004: 审批中心-我的待办，审批待办中有一条未审批的记录，但是上方显示共0条 (A4-Frontend-UAT-Smoke)",
+      "source_bug_no": "BUG-20260709-0004",
+      "source_repair_task_no": "BUGTASK-20260709-0004",
       "source": "bug-intake",
       "agent": "A4-Frontend-UAT-Smoke",
       "status": "pending",
@@ -179,7 +178,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0010-A4-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
       "branch": "codex/bug-intake-a4",
@@ -201,15 +200,15 @@
         "A4-Frontend-UAT-Smoke",
         "A1-CI-Runtime-Gate"
       ],
-      "redispatch_count": 7,
-      "last_redispatch_at": "2026-07-15T00:58:16.446Z"
+      "redispatch_count": 9,
+      "last_redispatch_at": "2026-07-15T06:50:16.447Z"
     },
     {
-      "task_id": "BUGTASK-20260707-0010-A1",
-      "request_id": "BUGTASK-20260707-0010",
-      "title": "Repair BUG-20260707-0010: 我的待办中有审批任务，但是上方显示0条 (A1-CI-Runtime-Gate)",
-      "source_bug_no": "BUG-20260707-0010",
-      "source_repair_task_no": "BUGTASK-20260707-0010",
+      "task_id": "BUGTASK-20260709-0004-A1",
+      "request_id": "BUGTASK-20260709-0004",
+      "title": "Repair BUG-20260709-0004: 审批中心-我的待办，审批待办中有一条未审批的记录，但是上方显示共0条 (A1-CI-Runtime-Gate)",
+      "source_bug_no": "BUG-20260709-0004",
+      "source_repair_task_no": "BUGTASK-20260709-0004",
       "source": "bug-intake",
       "agent": "A1-CI-Runtime-Gate",
       "status": "pending",
@@ -227,13 +226,13 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260707-0010-A1-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260709-0004-A1-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
       "branch": "w5-a1-ci-runtime-gate",
       "dependencies": [
-        "BUGTASK-20260707-0010-A3",
-        "BUGTASK-20260707-0010-A4"
+        "BUGTASK-20260709-0004-A3",
+        "BUGTASK-20260709-0004-A4"
       ],
       "claimed_by": null,
       "claimed_at": null,
@@ -251,8 +250,8 @@
         "A4-Frontend-UAT-Smoke",
         "A1-CI-Runtime-Gate"
       ],
-      "redispatch_count": 7,
-      "last_redispatch_at": "2026-07-15T00:58:16.446Z"
+      "redispatch_count": 9,
+      "last_redispatch_at": "2026-07-15T06:50:16.447Z"
     }
   ]
 }
