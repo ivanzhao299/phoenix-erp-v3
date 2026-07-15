@@ -3001,7 +3001,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-02-A3",
@@ -3057,7 +3057,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-03-A4",
@@ -3116,7 +3116,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-04-A5",
@@ -3171,7 +3171,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-05-A1",
@@ -3227,7 +3227,7 @@
     ],
     "route_active": false,
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0003-01-A2",
@@ -12592,7 +12592,7 @@
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-03-A5",
@@ -12641,7 +12641,7 @@
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-04-A1",
@@ -12695,7 +12695,7 @@
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
     "route_superseded_reason": "Agent removed by evidence-based bug-intake route refinement",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260705-0003-01-A4",
@@ -13905,7 +13905,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0002"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
     "integration_method": "cherry-pick-verified-agent-commit",
     "retry_after": null
@@ -14034,7 +14034,7 @@
       }
     ],
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "retry_after": null
   },
   {
@@ -14143,7 +14143,7 @@
         "source_repair_task_no": "BUGTASK-20260709-0002"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "retry_after": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
@@ -16299,7 +16299,7 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
   {
@@ -16410,7 +16410,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0001"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit"
   },
@@ -16505,7 +16505,7 @@
         "source_repair_task_no": "BUGTASK-20260708-0001"
       }
     ],
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   },
   {
@@ -16588,7 +16588,7 @@
       "docs/ops/bug-20260707-0009-a3-backend-critical-path.md"
     ],
     "reason": "verified integrated implementation evidence",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integrated_commit": "49dd3552f5416df2ac4ecd74654753c136397e3e",
     "integrated_at": "2026-07-12T18:10:20.812Z",
     "baseline_autopilot_exit_code": 0,
@@ -16668,7 +16668,7 @@
     ],
     "redispatch_count": 6,
     "last_redispatch_at": "2026-07-12T14:27:17.374Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": null,
     "evidence_gate": {
       "version": 1,
@@ -18763,7 +18763,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A2-Security-Regression-Gate",
@@ -18876,7 +18876,7 @@
     "integrated_commit": "9fe79574d60ecd5d0a19d2ff737022503016137a",
     "integrated_at": "2026-07-10T06:17:18.351Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD"
+    "remote_repair_status": "FIX_READY_FOR_UAT"
   },
   {
     "task_id": "BUGTASK-20260707-0001-A4",
@@ -18927,7 +18927,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -19022,7 +19022,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-10T04:38:04.235Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
@@ -21336,7 +21336,7 @@
     "integrated_commit": "6803e1477741e82bc5e789e97e9d355a9a763fe8",
     "integrated_at": "2026-07-12T18:23:58.432Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": "verified integrated implementation evidence",
     "redispatched_at": "2026-07-12T18:22:07.130Z",
     "redispatch_history": [
@@ -21397,7 +21397,7 @@
     ],
     "redispatch_count": 3,
     "last_redispatch_at": "2026-07-12T18:22:07.130Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
@@ -22419,7 +22419,7 @@
     "integrated_commit": "29c0712cb76f76747688bdf43878c461fea5cb2b",
     "integrated_at": "2026-07-15T12:02:13.972Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": null,
     "redispatched_at": "2026-07-15T12:00:00.038Z",
     "redispatch_history": [
@@ -22480,7 +22480,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-15T12:00:00.038Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -22589,7 +22589,7 @@
     ],
     "redispatch_count": 1,
     "last_redispatch_at": "2026-07-15T12:00:00.038Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": null,
     "evidence_gate": {
       "version": 1,
@@ -23100,7 +23100,7 @@
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
     "reason": "verified integrated implementation evidence",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integrated_commit": "8215e3e4814de30a61f2ba177392b3b4858a1907",
     "integrated_at": "2026-07-15T12:41:59.674Z",
     "redispatched_at": "2026-07-15T12:33:22.056Z",
@@ -23164,7 +23164,7 @@
     ],
     "redispatch_count": 3,
     "last_redispatch_at": "2026-07-15T12:43:05.088Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -23272,7 +23272,7 @@
     ],
     "redispatch_count": 3,
     "last_redispatch_at": "2026-07-15T12:43:05.088Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": null,
     "evidence_gate": {
       "version": 1,
@@ -23402,7 +23402,7 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": "verified integrated implementation evidence",
     "integrated_commit": "01f252de07d0a20d25b95462bbb287a35ff61e66",
     "integrated_at": "2026-07-15T12:42:20.947Z",
@@ -23479,7 +23479,7 @@
     "reason": "verified integrated implementation evidence",
     "quarantined_at": "2026-07-15T07:44:22.135Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -23608,7 +23608,7 @@
       "terminalStatus": "VALIDATION_COMPLETED",
       "reason": "Validation evidence recorded; this is not implementation evidence"
     },
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
@@ -23723,7 +23723,7 @@
     "integrated_commit": "6044fbdaa04282c4732689a2395e3909222bc3e6",
     "integrated_at": "2026-07-15T12:42:21.258Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": "verified integrated implementation evidence",
     "redispatched_at": "2026-07-15T12:33:21.193Z",
     "redispatch_history": [
@@ -23841,7 +23841,7 @@
     "integrated_commit": "fc18390e79e7e9c76024266ce8597b9f36e8877f",
     "integrated_at": "2026-07-15T12:42:21.409Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": "verified integrated implementation evidence",
     "redispatched_at": "2026-07-15T12:33:21.193Z",
     "redispatch_history": [
@@ -23932,7 +23932,7 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": null,
     "integrated_commit": "",
     "integrated_at": null,
@@ -24005,7 +24005,7 @@
     ],
     "redispatch_count": 2,
     "last_redispatch_at": "2026-07-15T12:33:21.193Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
