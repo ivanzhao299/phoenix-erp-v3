@@ -1,11 +1,13 @@
 # Bug Intake Full Closure Report - 2026-07-15
 
-## Conclusion Before Release
+## Final Conclusion
 
-- Local repair queue: technically closed and release-ready.
-- Active bug-intake task evidence: 118 terminal tasks; 0 pending, claimed, running, HOLD, or failed tasks.
-- Production administration UI: 21 reports still show HOLD until push, CI/CD, and authenticated production smoke evidence are written back.
-- No report is treated as resolved merely because an Agent returned text. A report can advance only after implementation evidence, independent A1 validation, release, and production smoke pass.
+- Technical repair and release lifecycle: **GO**.
+- Production Bug Intake pipeline: health score **100**, 21 active reports all at `FIX_READY_FOR_UAT`; 0 active HOLD, failed, stale-running, or stale-approved reports.
+- Local Bug Intake queue: 275 tasks, all terminal (`archived` 158, `COMPLETED_MERGED` 56, `VALIDATION_COMPLETED` 49, `SKIPPED_NOT_APPLICABLE` 9, `completed` 3); 0 pending, claimed, running, HOLD, or failed tasks.
+- Production reports: 43 total (`CLOSED` 2, `RESOLVED` 19, `IN_PROGRESS` 21, `REJECTED` 1). The 21 `IN_PROGRESS` reports are technically deployed and smoke-verified, but deliberately await administrator business acceptance instead of being falsely auto-resolved.
+- The single `HOLD` repair status belongs to a rejected report and is excluded from the active queue. It is retained as audit history, not unresolved execution backlog.
+- No report is treated as resolved merely because an Agent returned text. A report advances to `FIX_READY_FOR_UAT` only after implementation evidence, independent A1 validation, push, CI/CD, and authenticated production smoke pass; `RESOLVED` still requires administrator business verification.
 
 ## Root Causes And Fixes
 
@@ -71,6 +73,14 @@
 
 **Regression:** Bug Intake lifecycle regression passes 13 tests, including a repeated successful release receipt that must retain `FIX_READY_FOR_UAT` and one runner receipt only.
 
+### 9. Resident runner was configured but not reliably resident
+
+**Root cause:** the LaunchAgent wrapper still depended on an interactive username/password login path and an environment-dependent Node.js lookup. Historical login retries reached API rate limits, while launchd's minimal environment could not reliably resolve the intended runtime. The worker therefore appeared installed but could stop consuming approved reports.
+
+**Fix:** the private runner wrapper now uses a fixed Node.js executable, loads the dedicated least-privilege runner token from its protected local token file, and starts the existing watch-mode runner directly. The LaunchAgent remains isolated from user shell state and keeps the existing no-migration/no-direct-DB-write safety boundaries.
+
+**Regression:** `com.phoenix.erp.bug-intake-runner` is loaded and running; the live process is `bug-intake-local-runner.mjs --watch`, token mode is present, and no new stderr entry was produced after restart. Historical 429 lines predate this repair.
+
 ## Local Retest Results
 
 | Validation | Result |
@@ -79,29 +89,38 @@
 | Web TypeScript | PASS, 0 errors |
 | API focused regression | PASS, 4 suites / 26 tests |
 | Web focused regression | PASS, 5 files / 20 tests |
-| Resident runner regression | PASS, 17 tests |
+| Resident runner regression | PASS, 18 tests |
 | Queue redispatch regression | PASS, 3 tests |
 | Bug Intake service lifecycle regression | PASS, 13 tests |
 | Refined-route result backfill regression | PASS, resident runner 18 tests |
-| W5 closeout gate | PASS |
-| Freeze/security/static gates | PASS |
+| W5 closeout gate | PASS with reviewed `ALLOW_FREEZE_TOUCH=true` and `ALLOW_SECURITY_TOUCH=true` flags |
+| Freeze/security/static gates | PASS in reviewed authorization mode; the default historical-diff scan correctly reports the already-reviewed application/security changes |
 | Active local queue | PASS, no non-terminal task |
 
 ## Release And Production Retest
 
-First release cycle evidence:
+Final code release evidence:
 
-- Push result: `64c6bb0a` pushed to `origin/main`.
-- GitHub Actions: security, Web unit, build, and CI/CD deploy all passed.
-- Production route smoke: 17/17 routes returned HTTP 200.
-- Lifecycle follow-up: exposed the refined-route result backfill defect described in root cause 7; `f0c901bf` contains the repair and is pending the final release cycle recorded below.
+- Release commit: `308fe9101d3bf89e1c45928d3df0af5183992d3f` on `origin/main`.
+- GitHub Actions: security, Web unit, build, and full CI/CD deploy all completed successfully.
+- Production route smoke: 17/17 affected routes returned HTTP 200, including farm master, purchase orders, procurement payments, workflow todos, warehouse, finance, dashboard, pilot run, and Bug Intake administration.
+- Production Bug Intake pipeline: `GO`; queue health 100; 21/21 active reports have release evidence and are `FIX_READY_FOR_UAT`; 0 active technical HOLD.
+- Local queue: 275/275 Bug Intake tasks terminal; 0 non-terminal tasks.
+- Production error log after final deployment: 2 entries, both expected 403 `MENU_PERMISSION_DENIED` responses from read-only system-error-log probes made with the deliberately restricted runner account; 0 HTTP 500, PG, or unhandled server errors.
+- Resident lifecycle: LaunchAgent loaded and running in token mode; no manual repository command is required for the next approved report.
 
-Final release evidence is updated after `f0c901bf` is pushed and the production backlog is reconciled.
+Final release workflow runs:
+
+- Security: `29419622458` - PASS.
+- Build: `29419622541` - PASS.
+- Web unit tests: `29419622348` - PASS.
+- CI/CD build and deploy: `29419622396` - PASS.
 
 ## Safety
 
 - No force push.
 - No migration.
 - No direct database write in this closure cycle.
+- Production database verification was read-only.
 - No destructive cleanup.
 - Business acceptance remains an administrator action after technical production evidence passes.
