@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-15T00:50:02.001Z |
-| Run files inspected | 2034 |
-| Task count | 307 |
+| Generated at | 2026-07-15T01:51:25.893Z |
+| Run files inspected | 2043 |
+| Task count | 310 |
 | Findings count | 32 |
 | Highest severity | CRITICAL |
 | Routing findings | 8 |
@@ -226,7 +226,7 @@
 ### OBS-0024 - MEDIUM - repeat-hold
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: Queue HOLD count is 7.
+- Evidence: Queue HOLD count is 9.
 - Suggested Fix: Cluster HOLD reasons and create one platform evolution task per repeated blocker.
 - Auto Fix Eligible: false
 - Requires Human Gate: true
@@ -235,7 +235,7 @@
 ### OBS-0025 - CRITICAL - runner-generation-drift
 
 - Affected Agent: BugIntakeLocalRunner
-- Evidence: 3 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
+- Evidence: 5 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
 - Suggested Fix: Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
