@@ -14,7 +14,7 @@ export interface FinanceApPaymentPrefillInput {
 
 export interface FinanceApPaymentPrefill {
   source: 'finance-ap';
-  apId: string;
+  sourceApId: string;
   apNo: string;
   companyCode: string;
   companyName: string;
@@ -37,7 +37,7 @@ function appendIfPresent(params: URLSearchParams, key: string, value: string | n
 export function buildFinanceApPaymentPrefillHref(input: FinanceApPaymentPrefillInput): string {
   const params = new URLSearchParams();
   params.set('source', 'finance-ap');
-  appendIfPresent(params, 'apId', input.apId);
+  appendIfPresent(params, 'financeApId', input.apId);
   appendIfPresent(params, 'apNo', input.apNo);
   appendIfPresent(params, 'companyCode', input.companyCode);
   appendIfPresent(params, 'companyName', input.companyName);
@@ -55,16 +55,16 @@ export function buildFinanceApPaymentPrefillHref(input: FinanceApPaymentPrefillI
 export function parseFinanceApPaymentPrefill(params: URLSearchParams): FinanceApPaymentPrefill | null {
   if (params.get('source') !== 'finance-ap') return null;
 
-  const apId = (params.get('apId') ?? '').trim();
+  const sourceApId = (params.get('financeApId') ?? params.get('apId') ?? '').trim();
   const apNo = (params.get('apNo') ?? '').trim();
-  if (!apId || !apNo) return null;
+  if (!sourceApId || !apNo) return null;
 
   const balance = (params.get('balanceAmountOriginal') ?? '').trim();
   const amount = Number(balance);
 
   return {
     source: 'finance-ap',
-    apId,
+    sourceApId,
     apNo,
     companyCode: (params.get('companyCode') ?? '').trim(),
     companyName: (params.get('companyName') ?? '').trim(),

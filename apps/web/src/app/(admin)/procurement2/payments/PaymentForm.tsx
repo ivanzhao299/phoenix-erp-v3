@@ -182,7 +182,6 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
     setFormPayeeName(prefill.supplierName || prefill.supplierCode);
     setFormCurrency(prefill.currencyCode);
     setFormAllocs([{
-      apId: prefill.apId,
       apNo: prefill.apNo,
       poNo: prefill.sourceNo,
       companyCode: prefill.companyCode,
