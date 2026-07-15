@@ -1,22 +1,23 @@
 {
   "summary": {
-    "generated_at": "2026-07-15T11:19:13.762Z",
+    "generated_at": "2026-07-15T12:00:26.509Z",
     "dry_run": true,
     "run_files_inspected": 2105,
     "task_count": 330,
     "task_status_counts": {
       "archived": 213,
       "completed": 3,
-      "COMPLETED_MERGED": 50,
-      "VALIDATION_COMPLETED": 43,
-      "HOLD": 11,
-      "SKIPPED_NOT_APPLICABLE": 10
+      "COMPLETED_MERGED": 47,
+      "VALIDATION_COMPLETED": 42,
+      "HOLD": 6,
+      "SKIPPED_NOT_APPLICABLE": 9,
+      "pending": 10
     },
     "registered_agents": 8,
-    "findings_count": 32,
+    "findings_count": 33,
     "highest_severity": "CRITICAL",
     "routing_findings": 8,
-    "baseline_findings": 3,
+    "baseline_findings": 4,
     "report_schema_findings": 4,
     "codex_cli_executed": false,
     "database_written": false,
@@ -283,7 +284,7 @@
       "severity": "MEDIUM",
       "category": "repeat-hold",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "Queue HOLD count is 11.",
+      "evidence": "Queue HOLD count is 6.",
       "suggested_fix": "Cluster HOLD reasons and create one platform evolution task per repeated blocker.",
       "auto_fix_eligible": false,
       "requires_human_gate": true,
@@ -294,7 +295,7 @@
       "severity": "CRITICAL",
       "category": "runner-generation-drift",
       "affected_agent": "BugIntakeLocalRunner",
-      "evidence": "7 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.",
+      "evidence": "4 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.",
       "suggested_fix": "Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -348,6 +349,17 @@
       "id": "OBS-0030",
       "severity": "MEDIUM",
       "category": "baseline",
+      "affected_agent": "Codex-Orchestrator",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260715-0001-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A4-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0003-A4-contract.md;  M docs/ops/runs/BUGTASK-20260715-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260715-0004-A5-contract.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md",
+      "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Baseline cleanup for Codex-Orchestrator."
+    },
+    {
+      "id": "OBS-0031",
+      "severity": "MEDIUM",
+      "category": "baseline",
       "affected_agent": "A5-Data-Readiness",
       "evidence": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
@@ -356,7 +368,7 @@
       "recommended_next_task": "Baseline cleanup for A5-Data-Readiness."
     },
     {
-      "id": "OBS-0031",
+      "id": "OBS-0032",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A6-Staging-Deploy-Runbook",
@@ -367,7 +379,7 @@
       "recommended_next_task": "Rebase A6-Staging-Deploy-Runbook with baseline autopilot."
     },
     {
-      "id": "OBS-0032",
+      "id": "OBS-0033",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A7-Final-QA-Gate",
@@ -515,7 +527,7 @@
   "suggested_evolution_patterns": [
     {
       "pattern_id": "PATTERN-PHX-001",
-      "occurrence": 25
+      "occurrence": 26
     },
     {
       "pattern_id": "PATTERN-004",
@@ -529,7 +541,7 @@
   "suggested_improvements": [
     {
       "improvement_id": "IMPROVE-ROUTER-A5-READINESS",
-      "occurrence": 25
+      "occurrence": 26
     },
     {
       "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
@@ -543,7 +555,7 @@
   "repeated_pattern_candidates": [
     {
       "pattern_id": "PATTERN-PHX-001",
-      "occurrence": 25
+      "occurrence": 26
     },
     {
       "pattern_id": "PATTERN-004",
