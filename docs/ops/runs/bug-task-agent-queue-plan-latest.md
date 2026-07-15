@@ -7,5 +7,5 @@
 
 ## Generated Tasks
 
-- BUGTASK-20260713-0006-A3 -> A3-Backend-Critical-Path
-- BUGTASK-20260713-0006-A1 -> A1-CI-Runtime-Gate
+- BUGTASK-20260715-0002-A3 -> A3-Backend-Critical-Path
+- BUGTASK-20260715-0002-A1 -> A1-CI-Runtime-Gate
