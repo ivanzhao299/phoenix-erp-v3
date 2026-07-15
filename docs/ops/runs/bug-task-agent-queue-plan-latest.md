@@ -8,6 +8,6 @@
 
 ## Generated Tasks
 
-- BUGTASK-20260713-0002-A3 -> A3-Backend-Critical-Path
-- BUGTASK-20260713-0002-A4 -> A4-Frontend-UAT-Smoke
-- BUGTASK-20260713-0002-A1 -> A1-CI-Runtime-Gate
+- BUGTASK-20260707-0010-A3 -> A3-Backend-Critical-Path
+- BUGTASK-20260707-0010-A4 -> A4-Frontend-UAT-Smoke
+- BUGTASK-20260707-0010-A1 -> A1-CI-Runtime-Gate
