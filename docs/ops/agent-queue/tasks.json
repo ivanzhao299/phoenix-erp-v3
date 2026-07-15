@@ -23375,7 +23375,8 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integrated_commit": "6044fbdaa04282c4732689a2395e3909222bc3e6",
     "integrated_at": "2026-07-15T08:19:01.236Z",
-    "integration_method": "cherry-pick-verified-agent-commit"
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260715-0004-A4",
@@ -23480,7 +23481,8 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integrated_commit": "ed4829f943d6fb1b2cc0c39d50d9f14eaa4a14f8",
     "integrated_at": "2026-07-15T08:23:02.770Z",
-    "integration_method": "cherry-pick-verified-agent-commit"
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260715-0004-A5",
@@ -23552,7 +23554,8 @@
     "changed_files": [],
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260715-0004-A1",
@@ -23604,6 +23607,7 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 0,
-    "last_redispatch_at": null
+    "last_redispatch_at": null,
+    "remote_repair_status": "HOLD"
   }
 ]
