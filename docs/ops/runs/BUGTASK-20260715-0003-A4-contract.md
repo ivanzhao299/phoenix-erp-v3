@@ -1037,11 +1037,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-15T11:59:59.605Z",
+    "approvedAt": "2026-07-15T12:33:21.614Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
     "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-    "redispatchCount": 1,
+    "redispatchCount": 2,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
