@@ -715,7 +715,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
     },
     "localEvidence": {
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192659/BUG-20260717-0002/attachments/01-1784277798848-93b3e7c3.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192908/BUG-20260717-0002/attachments/01-1784277798848-93b3e7c3.png"
       ]
     }
   },
@@ -753,4 +753,4 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192659/BUG-20260717-0002/attachments/01-1784277798848-93b3e7c3.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192908/BUG-20260717-0002/attachments/01-1784277798848-93b3e7c3.png

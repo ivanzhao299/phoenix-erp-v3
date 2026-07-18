@@ -774,7 +774,7 @@ Assigned agent: A3-Backend-Critical-Path
     },
     "localEvidence": {
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192659/BUG-20260718-0002/attachments/01-1784339247835-3deb2fbd.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192908/BUG-20260718-0002/attachments/01-1784339247835-3deb2fbd.png"
       ]
     }
   },
@@ -811,4 +811,4 @@ Assigned agent: A3-Backend-Critical-Path
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192659/BUG-20260718-0002/attachments/01-1784339247835-3deb2fbd.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192908/BUG-20260718-0002/attachments/01-1784339247835-3deb2fbd.png
