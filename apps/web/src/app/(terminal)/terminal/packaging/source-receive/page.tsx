@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { crudApi } from '@/lib/api-client';
 import { packagingApi } from '@/lib/packaging-api';
+import { getOpenShiftId } from '@/lib/source-receive-submit';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
@@ -182,7 +183,9 @@ export default function EggCollectionPage() {
   const totalAvailable = Math.max(0, totalReceived - totalGradedToday);
   const alreadyRecorded = selectedHouse ? records.some(r => r.houseCode === selectedHouse.house_code) : false;
   const defectExceedsTotal = total > 0 && dirty + cracked > total;
-  const canSubmit = !!selectedHouse && total > 0 && !defectExceedsTotal;
+  const hasPendingEntry = !!selectedHouse && total > 0 && !defectExceedsTotal;
+  const openShiftId = getOpenShiftId(ctx.currentShift);
+  const canSubmit = hasPendingEntry && openShiftId !== null;
   const fieldValues: Record<NumField, string> = {
     total: totalQty,
     dirty: dirtyQty,
@@ -201,7 +204,11 @@ export default function EggCollectionPage() {
     if (numPadField === 'cracked') setCrackedQty(val);
   };
   const handleSubmit = async () => {
-    if (!canSubmit || !selectedHouse) return;
+    if (!selectedHouse || !hasPendingEntry) return;
+    if (openShiftId === null) {
+      setSubmitError(t('ui.请先开班再提交集蛋记录', '请先开班再提交集蛋记录'));
+      return;
+    }
     setSubmitting(true);
     setSubmitError('');
     try {
@@ -214,7 +221,7 @@ export default function EggCollectionPage() {
         dirtyQty: dirty,
         crackedQty: cracked,
         receivedQty: available,
-        shiftId: ctx.currentShift?.id ?? null
+        shiftId: openShiftId
       });
       void fetchRecords();
       setSelectedHouse(null);
@@ -932,11 +939,16 @@ export default function EggCollectionPage() {
           {submitting ? t('ui.提交中', '提交中...') : `✓ ${t('ui.确认录入', '确认录入')} ${selectedHouse?.house_name ?? ''}`}
         </button>
         <div className={u.flex1}>
-          {submitError && <div style={{
+          {submitError && <div role="alert" style={{
           fontSize: 13,
           color: T.RED,
           fontWeight: 600
         }}>⚠️ {submitError}</div>}
+          {hasPendingEntry && openShiftId === null && !submitError && <div role="status" style={{
+          fontSize: 13,
+          color: T.RED,
+          fontWeight: 600
+        }}>⚠️ {t('ui.请先开班再提交集蛋记录', '请先开班再提交集蛋记录')}</div>}
           {canSubmit && records.length > 0 && <div style={{
           fontSize: 12,
           color: T.ACC,
@@ -945,18 +957,18 @@ export default function EggCollectionPage() {
               ⚠ {t('ui.请先确认录入当前鸡舍', '请先确认录入当前鸡舍数据')}
             </div>}
         </div>
-        {records.length > 0 && <button type="button" disabled={canSubmit} onClick={() => !canSubmit && router.push('/terminal/packaging/grading')} style={{
+        {records.length > 0 && <button type="button" disabled={hasPendingEntry} onClick={() => !hasPendingEntry && router.push('/terminal/packaging/grading')} style={{
         padding: '9px 40px',
         borderRadius: 10,
         border: 'none',
-        outline: canSubmit ? `1px solid ${T.ACC}` : 'none',
+        outline: hasPendingEntry ? `1px solid ${T.ACC}` : 'none',
         outlineOffset: '-1px',
-        background: canSubmit ? 'transparent' : T.GRN,
-        color: canSubmit ? T.ACC : 'var(--bg-page)',
+        background: hasPendingEntry ? 'transparent' : T.GRN,
+        color: hasPendingEntry ? T.ACC : 'var(--bg-page)',
         fontSize: 16,
         fontWeight: 700,
-        cursor: canSubmit ? 'not-allowed' : 'pointer',
-        opacity: canSubmit ? 0.6 : 1,
+        cursor: hasPendingEntry ? 'not-allowed' : 'pointer',
+        opacity: hasPendingEntry ? 0.6 : 1,
         flexShrink: 0,
         transition: 'background 0.15s, color 0.15s, opacity 0.15s'
       }}>
