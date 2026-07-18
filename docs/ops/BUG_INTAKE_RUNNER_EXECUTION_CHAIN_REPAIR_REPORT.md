@@ -30,6 +30,7 @@ The Runner/Codex CLI execution chain is repaired and controlled queue consumptio
 - Requeue only dependency-role HOLD tasks when every dependency later reaches a success state. Business/manual HOLD remains untouched.
 - After a verified implementation is integrated, move the clean dedicated Agent worktree to the integrated baseline so the next task cannot develop against stale fields.
 - Fetch report details with bounded concurrency (default five); preserve per-request timeout, ordered results, and per-report error isolation.
+- Download evidence attachments only for executable candidates and reuse a stable local cache. HOLD/not-ready reports no longer create timestamped attachment copies every cycle.
 - Batch audit commits once per configurable window (default 30 minutes) and suppress semantically duplicate commits.
 - Permit dirty runner-owned queue/run artifacts during integration while continuing to reject business-code dirtiness.
 - Make resident auto-release opt-in through `PHOENIX_ERP_RUNNER_AUTO_RELEASE=true`.
@@ -43,7 +44,7 @@ The Runner/Codex CLI execution chain is repaired and controlled queue consumptio
 - Runner dry-run sync: PASS; 20 reports inspected.
 - Dry-run scheduling: three distinct fresh A4 tasks from three distinct bug reports; no HOLD task selected.
 - Generation-drift automatic recovery: disabled by default.
-- Production inbox sync probe: PASS; bounded-concurrency cycle completed in `9.4s` instead of the previous minute-scale serial cycle.
+- Production inbox sync probe: PASS; bounded-concurrency cycle with candidate attachment caching completed in `10.4s` instead of the previous minute-scale serial cycle.
 - Codex CLI execution during runner dry-run: no.
 - Push/deploy during repair validation: no.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -223,8 +223,20 @@ async function downloadAttachments(args, report, bugDir) {
     const safeName = String(fileName).replace(/[^\w.,@()+ -]/g, '_');
     const relativeFile = path.join(bugDir, 'attachments', safeName);
     try {
-      const body = await apiDownload(args, endpoint);
       const target = resolveFile(relativeFile);
+      if (existsSync(target)) {
+        local.push({
+          fileName,
+          originalName: attachment.originalName || attachment.original_name || '',
+          mimeType: attachment.mimeType || attachment.mime_type || '',
+          sourceEndpoint: endpoint,
+          localPath: relativeFile,
+          sizeBytes: statSync(target).size,
+          cached: true,
+        });
+        continue;
+      }
+      const body = await apiDownload(args, endpoint);
       mkdirSync(path.dirname(target), { recursive: true });
       writeFileSync(target, body);
       local.push({
@@ -273,7 +285,10 @@ async function writeInboxReports(args, reports, batchDir) {
   const enrichedReports = [];
   for (const report of reports) {
     const bugDir = path.join(batchDir, safeBugFileName(report.bugNo));
-    const localAttachments = await downloadAttachments(args, report, bugDir);
+    const attachmentCacheDir = path.join(args.outputDir, 'attachments', safeBugFileName(report.bugNo));
+    const localAttachments = isQueueCandidate(report)
+      ? await downloadAttachments(args, report, attachmentCacheDir)
+      : [];
     const enriched = withLocalEvidence(report, localAttachments);
     const file = path.join(bugDir, 'report.json');
     writeJson(file, enriched);
