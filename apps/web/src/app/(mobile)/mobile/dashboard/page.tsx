@@ -5,7 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft, Sun, Moon, Truck } from 'lucide-react';
 import useSWR from 'swr';
-import { mobileApi, QcInspection, FarmLog, FlockRecord, PackagingTrendItem, DeviceAlert, EggStockRow } from '@/lib/mobile-api';
+import { mobileApi, QcInspection, DailyHenReport, FlockRecord, PackagingTrendItem, DeviceAlert, EggStockRow } from '@/lib/mobile-api';
 import { authHeader } from '@/lib/mobile-auth-token';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -307,10 +307,10 @@ export default function MobileDashboardPage() {
     error: _qcErr
   } = useSWR(showQuality ? `qc/${date}/${refreshKey}` : null, () => mobileApi.getQcInspections(date), swrOpts);
   const {
-    data: farmRaw,
+    data: farmReport,
     isLoading: farmLoading,
     error: _farmErr
-  } = useSWR(showFarmFull ? `farm/${date}/${refreshKey}` : null, () => mobileApi.getFarmLogs(date), swrOpts);
+  } = useSWR(showFarmFull ? `farm-report/${date}/${refreshKey}` : null, () => mobileApi.getDailyHenReport(date), swrOpts);
   const {
     data: trendRaw
   } = useSWR(showPkg ? `trend/${refreshKey}` : null, () => mobileApi.getPackagingTrend(today, 7), swrOpts);
@@ -346,8 +346,7 @@ export default function MobileDashboardPage() {
   const pkg = pkgData ?? null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const qc = useMemo((): QcInspection[] => Array.isArray(qcRaw) ? qcRaw as QcInspection[] : (qcRaw as any)?.data ?? [], [qcRaw]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const farm = useMemo((): FarmLog[] => Array.isArray(farmRaw) ? farmRaw as FarmLog[] : (farmRaw as any)?.data ?? [], [farmRaw]);
+  const farm = useMemo(() => (farmReport as DailyHenReport | undefined)?.rows ?? [], [farmReport]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const trend = useMemo((): PackagingTrendItem[] => Array.isArray(trendRaw) ? trendRaw as PackagingTrendItem[] : (trendRaw as any)?.data ?? [], [trendRaw]);
   const alerts = useMemo((): DeviceAlert[] => Array.isArray(alertsRaw) ? alertsRaw as DeviceAlert[] : [], [alertsRaw]);
@@ -369,10 +368,10 @@ export default function MobileDashboardPage() {
   };
 
   // ── 生产计算 ──
-  const todayEggs = kpi?.meta?.todayEggs ?? 0;
-  const layingTotal = kpi?.meta?.layingTotal ?? 0;
-  const layRate = kpi?.meta?.todayLayRate;
-  const farmMortality = farm.reduce((s, r) => s + Number(r.mortality_qty || 0), 0);
+  const todayEggs = showFarmFull ? Number(farmReport?.totals?.eggs ?? 0) : kpi?.meta?.todayEggs ?? 0;
+  const layingTotal = showFarmFull ? Number(farmReport?.totals?.current_qty ?? 0) : kpi?.meta?.layingTotal ?? 0;
+  const layRate = showFarmFull ? farmReport?.totals?.lay_rate : kpi?.meta?.todayLayRate;
+  const farmMortality = Number(farmReport?.totals?.total_loss ?? 0);
 
   // 按栋舍聚合日志
   const houseMap = new Map<string, {
@@ -391,11 +390,11 @@ export default function MobileDashboardPage() {
       broken: 0,
       feed: 0
     };
-    cur.eggs += Number(r.eggs_produced || 0);
-    cur.mortality += Number(r.mortality_qty || 0);
-    cur.dirty += Number(r.dirty_eggs || 0);
-    cur.broken += Number(r.broken_eggs || 0);
-    cur.feed += Number(r.feed_consumed || 0);
+    cur.eggs += Number(r.eggs || 0);
+    cur.mortality += Number(r.total_loss || 0);
+    cur.dirty += Number(r.dirty || 0);
+    cur.broken += Number(r.broken || 0);
+    cur.feed += Number(r.feed || 0);
     houseMap.set(key, cur);
   });
   const houseRows = Array.from(houseMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
@@ -626,7 +625,7 @@ export default function MobileDashboardPage() {
               <StatCard label={tt('mob.home.today_eggs', '今日产蛋')} value={fmt(todayEggs)} unit={tt('mob.home.unit_egg', '枚')} color="var(--status-warning)" />
               <StatCard label={tt('mob.home.lay_rate', '产蛋率')} value={layRate != null ? `${layRate}%` : '—'} color="var(--status-success)" />
               <StatCard label={tt('mob.home.stock_count', '存栏数')} value={fmt(layingTotal)} unit={tt('mob.home.unit_bird', '只')} />
-              <StatCard label={tt('mob.home.today_mortality', '今日死淘')} value={showFarmFull ? farm.length > 0 ? fmt(farmMortality) : '—' : '—'} unit={tt('mob.home.unit_bird', '只')} color={farmMortality > 0 ? 'var(--status-danger)' : undefined} />
+              <StatCard label={tt('mob.home.today_mortality', '今日死淘')} value={showFarmFull ? farmReport ? fmt(farmMortality) : '—' : '—'} unit={tt('mob.home.unit_bird', '只')} color={farmMortality > 0 ? 'var(--status-danger)' : undefined} />
             </div>
 
             {farmErr && <div style={{

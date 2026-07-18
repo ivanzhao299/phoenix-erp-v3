@@ -53,6 +53,36 @@ export function scopeWhere(scope: OrgScope, params: any[], alias = ''): string {
 }
 
 /**
+ * 日报历史行有一部分早期数据未写 farm/site/company，真实归属仍可由 brd_houses 追溯。
+ * 查询日报时以日志自身归属优先、鸡舍归属兜底，避免“已录入但日报显示 0”。
+ */
+export function dailyLogScopeWhere(
+  scope: OrgScope,
+  params: any[],
+  logAlias = 'dl.',
+  houseAlias = 'h.',
+): string {
+  if (scope.isGlobal) return '';
+  const ors: string[] = [];
+  const farms = (scope.farmCodes?.length ? scope.farmCodes : (scope.farmCode ? [scope.farmCode] : [])).filter(Boolean);
+  const sites = (scope.siteCodes?.length ? scope.siteCodes : (scope.siteCode ? [scope.siteCode] : [])).filter(Boolean);
+  const companies = (scope.companyCodes ?? []).filter(Boolean);
+  if (farms.length) {
+    params.push(farms);
+    ors.push(`COALESCE(${logAlias}farm_code, ${houseAlias}farm_code) = ANY($${params.length})`);
+  }
+  if (sites.length) {
+    params.push(sites);
+    ors.push(`COALESCE(${logAlias}site_code, ${houseAlias}site_code) = ANY($${params.length})`);
+  }
+  if (companies.length) {
+    params.push(companies);
+    ors.push(`COALESCE(${logAlias}company_code, ${houseAlias}company_code) = ANY($${params.length})`);
+  }
+  return ors.length ? `(${ors.join(' OR ')})` : '';
+}
+
+/**
  * 从 req 派生 OrgScope — farm/farm-feed/farm-egg 等 controller 共用。
  *
  * G125 修复（根治「集团/超管/CEO 手机端只看一个场」）：
@@ -70,9 +100,8 @@ export function deriveOrgScope(req: any): OrgScope {
   const isFarm = !!storeCode && (storeCode.startsWith('LPH_') || storeCode.startsWith('LPH-'));
   const isSite = !!storeCode && storeCode.startsWith('SITE-');
   const legacyGlobal =
-    !storeCode ||
     storeCode === 'ALL' ||
-    storeCode.startsWith('ORG-GROUP') ||
+    storeCode?.startsWith('ORG-GROUP') ||
     (req.user?.permissions || []).includes('*') ||
     req.user?.username === 'admin';
 
@@ -81,7 +110,10 @@ export function deriveOrgScope(req: any): OrgScope {
     | undefined;
 
   // 全局：真实 DataScope 判全局 或 遗留判全局 → 不加任何过滤
-  if (legacyGlobal || ds?.isGlobal) {
+  // DataScopeGuard 已给出结论时必须以它为权威。旧逻辑把“没有遗留 storeCode”
+  // 直接视为全局，导致真实场长被误判为管理员，也让日报写入缺少农场归属。
+  const isGlobal = ds ? ds.isGlobal === true : (!storeCode || legacyGlobal);
+  if (isGlobal) {
     return { isGlobal: true, farmCode: null, siteCode: null, farmCodes: [], siteCodes: [], companyCodes: [] };
   }
 
@@ -219,10 +251,12 @@ export class FarmService {
       const realFarm = houseRow[0].farm_code;
       const realSite = houseRow[0].site_code;
       const realCompany = houseRow[0].company_code;
-      if (scope.farmCode && realFarm && realFarm !== scope.farmCode) {
+      const allowedFarms = (scope.farmCodes?.length ? scope.farmCodes : (scope.farmCode ? [scope.farmCode] : [])).filter(Boolean);
+      const allowedSites = (scope.siteCodes?.length ? scope.siteCodes : (scope.siteCode ? [scope.siteCode] : [])).filter(Boolean);
+      if (allowedFarms.length && realFarm && !allowedFarms.includes(realFarm)) {
         throw new BadRequestException(`无权写入其他农场的数据（鸡舍 ${body.house_code} 属于 ${realFarm}）`);
       }
-      if (scope.siteCode && realSite && realSite !== scope.siteCode) {
+      if (allowedSites.length && realSite && !allowedSites.includes(realSite)) {
         throw new BadRequestException(`无权写入其他场区的数据（鸡舍 ${body.house_code} 属于 ${realSite}）`);
       }
       // 公司维度强校验：鸡舍归属公司必须在用户数据域内（farm/site 同农场但跨公司时兜底拦截，堵住静默越权）
@@ -230,9 +264,12 @@ export class FarmService {
       if (allowedCompanies.length && realCompany && !allowedCompanies.includes(realCompany)) {
         throw new BadRequestException(`无权写入其他公司的数据（鸡舍 ${body.house_code} 属于 ${realCompany}）`);
       }
+      if (!realFarm && !realSite && !realCompany) {
+        throw new BadRequestException(`鸡舍 ${body.house_code} 尚未配置农场、场区或公司归属`);
+      }
       // 强绑定：farm/site/company 一律以鸡舍权威值落库，不信前端传值（防跨公司错绑/漏绑）
-      if (!body.farm_code && realFarm) body.farm_code = realFarm;
-      if (!body.site_code && realSite) body.site_code = realSite;
+      if (realFarm) body.farm_code = realFarm;
+      if (realSite) body.site_code = realSite;
       if (realCompany) body.company_code = realCompany;
     }
 
@@ -427,11 +464,14 @@ export class FarmService {
     const params: any[] = [date];
     const where: string[] = [`dl.log_date = $1`, `dl.eggs_by_grade IS NOT NULL`];
     if (houseCode) { params.push(houseCode); where.push(`dl.house_code = $${params.length}`); }
-    const ebScope = scopeWhere(scope, params, 'dl.');   // G98：农场/站点/公司多维并集
+    const ebScope = dailyLogScopeWhere(scope, params); // 历史日报 scope 为空时按鸡舍归属兜底
     if (ebScope) where.push(ebScope);
 
     const rows: Array<{ eggs_by_grade: any }> = await this.entityManager.query(
-      `SELECT dl.eggs_by_grade FROM brd_daily_logs dl WHERE ${where.join(' AND ')}`,
+      `SELECT dl.eggs_by_grade
+       FROM brd_daily_logs dl
+       LEFT JOIN brd_houses h ON h.house_code = dl.house_code
+       WHERE ${where.join(' AND ')}`,
       params,
     );
 
@@ -473,7 +513,7 @@ export class FarmService {
     // ── 日报查询 ──────────────────────────────────────────────
     const logParams: any[] = [date];
     let logWhere = `WHERE dl.log_date = $1`;
-    const logScope = scopeWhere(scope, logParams, 'dl.');   // G98：农场/站点/公司多维并集
+    const logScope = dailyLogScopeWhere(scope, logParams); // 日志归属为空时按鸡舍权威归属兜底
     if (logScope) logWhere += ` AND ${logScope}`;
     const logs = await this.entityManager.query(
       `SELECT
@@ -482,6 +522,8 @@ export class FarmService {
          SUM(dl.eggs_produced)::int           AS eggs,
          SUM(dl.mortality_qty)::int           AS mortality,
          SUM(COALESCE(dl.elimination_qty,0))::int AS elimination,
+         SUM(COALESCE(dl.dirty_eggs,0))::int     AS dirty,
+         SUM(COALESCE(dl.broken_eggs,0))::int    AS broken,
          SUM(COALESCE(dl.feed_consumed,0))::numeric(12,2) AS feed,
          SUM(COALESCE(dl.water_consumed,0))::numeric(12,2) AS water,
          COUNT(*)::int AS log_count,
@@ -491,6 +533,7 @@ export class FarmService {
          string_agg(DISTINCT dl.mortality_reason, '；')
            FILTER (WHERE dl.mortality_reason IS NOT NULL AND dl.mortality_reason <> '') AS mortality_reason
        FROM brd_daily_logs dl
+       LEFT JOIN brd_houses h ON h.house_code = dl.house_code
        ${logWhere}
        GROUP BY COALESCE(dl.house_code, dl.flock_no), dl.flock_no`,
       logParams,
@@ -528,6 +571,8 @@ export class FarmService {
         mortality,
         elimination,
         total_loss: mortality + elimination,
+        dirty: Number(log?.dirty ?? 0),
+        broken: Number(log?.broken ?? 0),
         culling_reason: log?.culling_reason ?? null,
         feed,
         water,
@@ -562,10 +607,8 @@ export class FarmService {
 
     const trendParams: any[] = [safeDays];
     let trendWhere = `WHERE dl.log_date >= (CURRENT_DATE - ($1 * 2 - 1) * INTERVAL '1 day')`;
-    if (!scope.isGlobal) {
-      if (scope.farmCode) { trendParams.push(scope.farmCode); trendWhere += ` AND dl.farm_code = $${trendParams.length}`; }
-      if (scope.siteCode) { trendParams.push(scope.siteCode); trendWhere += ` AND dl.site_code = $${trendParams.length}`; }
-    }
+    const trendScope = dailyLogScopeWhere(scope, trendParams);
+    if (trendScope) trendWhere += ` AND ${trendScope}`;
     const rows = await this.entityManager.query(
       `SELECT
          dl.log_date::text                           AS date,
@@ -574,6 +617,7 @@ export class FarmService {
          SUM(COALESCE(dl.elimination_qty,0))::int    AS elimination,
          SUM(COALESCE(dl.feed_consumed,0))::numeric  AS feed
        FROM brd_daily_logs dl
+       LEFT JOIN brd_houses h ON h.house_code = dl.house_code
        ${trendWhere}
        GROUP BY dl.log_date
        ORDER BY dl.log_date ASC`,

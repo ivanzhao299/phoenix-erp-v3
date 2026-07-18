@@ -111,6 +111,7 @@ export interface FarmLog {
   shift?:          string;
   eggs_produced:   number | string;
   mortality_qty:   number | string;
+  elimination_qty?: number | string;
   dirty_eggs?:     number | string;
   broken_eggs?:    number | string;
   feed_consumed?:  number | string;
@@ -257,6 +258,8 @@ export interface HenReportRow {
   mortality:      number;
   elimination:    number;
   total_loss:     number;
+  dirty?:         number;
+  broken?:        number;
   culling_reason: string | null;
   mortality_reason: string | null;  // G27-D: 与 PC G19-A 同步
   feed:           number;

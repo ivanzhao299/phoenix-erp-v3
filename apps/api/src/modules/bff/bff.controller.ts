@@ -1507,8 +1507,22 @@ export class PackagingTerminalBffController {
   @RequireMenu('MENU_PKG_OP', 'E')
   async receiveBatch(@Body() body: any, @Req() req: any) {
     const today = this.today;
-    const houseSlug = (body.houseCode || body.house_code || 'X')
-      .toString().replace(/\s+/g, '').toUpperCase().slice(0, 8);
+    const houseCode = String(body.houseCode || body.house_code || '').trim();
+    const totalQty = Number(body.totalQty ?? body.total_qty ?? 0);
+    const dirtyQty = Number(body.dirtyQty ?? body.dirty_qty ?? 0);
+    const crackedQty = Number(body.crackedQty ?? body.cracked_qty ?? 0);
+    const receivedQty = Number(body.receivedQty ?? body.received_qty ?? 0);
+    if (!houseCode) throw new BadRequestException('请选择鸡舍后再提交');
+    if (![totalQty, dirtyQty, crackedQty, receivedQty].every(Number.isFinite)) {
+      throw new BadRequestException('集蛋数量格式不正确');
+    }
+    if (totalQty <= 0 || dirtyQty < 0 || crackedQty < 0 || dirtyQty + crackedQty > totalQty) {
+      throw new BadRequestException('总采集数必须大于 0，且脏蛋与裂纹蛋之和不能超过总数');
+    }
+    if (receivedQty !== totalQty - dirtyQty - crackedQty) {
+      throw new BadRequestException('可分级数量与总采集数、脏蛋数、裂纹蛋数不一致');
+    }
+    const houseSlug = houseCode.replace(/\s+/g, '').toUpperCase().slice(0, 8);
     const autoCode = `SRC-${today.replace(/-/g, '')}-${houseSlug}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
     const batchCode = body.batchCode || body.code || autoCode;
     const operatorId = req.user?.id || req.user?.user_id;
@@ -1535,11 +1549,15 @@ export class PackagingTerminalBffController {
     if (pendingRow) {
       await this.em.query(
         `UPDATE pkg_source_batches
-         SET batch_status='RECEIVED', received_qty=$1, received_weight=$2,
-             container_count=$3, variance_reason=$4, received_by=$5, shift_id=$6, updated_at=NOW()
-         WHERE id=$7`,
+         SET batch_status='RECEIVED', total_qty=$1, dirty_qty=$2, cracked_qty=$3,
+             expected_qty=$1, received_qty=$4, received_weight=$5,
+             container_count=$6, variance_reason=$7, received_by=$8, shift_id=$9, updated_at=NOW()
+         WHERE id=$10`,
         [
-          body.receivedQty || body.received_qty || 0,
+          totalQty,
+          dirtyQty,
+          crackedQty,
+          receivedQty,
           body.receivedWeight || body.received_weight || 0,
           body.containerCount || body.container_count || 0,
           body.varianceReason || body.variance_reason || '',
@@ -1549,33 +1567,33 @@ export class PackagingTerminalBffController {
         ],
       );
     } else {
-    await this.em.query(
-      `INSERT INTO pkg_source_batches
-       (batch_code, source_inbound_no, production_date, house_code, flock_code,
-        lay_date, total_qty, dirty_qty, cracked_qty,
-        expected_qty, received_qty, expected_weight, received_weight,
-        container_count, variance_reason, received_by, shift_id, batch_status, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'RECEIVED',NOW(),NOW())`,
-      [
-        batchCode,
-        body.sourceInboundNo || batchCode,
-        today,
-        body.houseCode || body.house_code || '',
-        body.flockCode || body.flock_code || '',
-        body.layDate || body.lay_date || today,
-        body.totalQty  || body.total_qty  || 0,
-        body.dirtyQty  || body.dirty_qty  || 0,
-        body.crackedQty || body.cracked_qty || 0,
-        body.totalQty  || body.expected_qty || 0,
-        body.receivedQty || body.received_qty || 0,
-        body.expectedWeight || body.expected_weight || 0,
-        body.receivedWeight || body.received_weight || 0,
-        body.containerCount || body.container_count || 0,
-        body.varianceReason || body.variance_reason || '',
-        operatorId,
-        body.shiftId || null,
-      ],
-    ).catch((e: any) => { throw new Error(e.message); });
+      await this.em.query(
+        `INSERT INTO pkg_source_batches
+         (batch_code, source_inbound_no, production_date, house_code, flock_code,
+          lay_date, total_qty, dirty_qty, cracked_qty,
+          expected_qty, received_qty, expected_weight, received_weight,
+          container_count, variance_reason, received_by, shift_id, batch_status, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'RECEIVED',NOW(),NOW())`,
+        [
+          batchCode,
+          body.sourceInboundNo || batchCode,
+          today,
+          houseCode,
+          body.flockCode || body.flock_code || '',
+          body.layDate || body.lay_date || today,
+          totalQty,
+          dirtyQty,
+          crackedQty,
+          totalQty,
+          receivedQty,
+          body.expectedWeight || body.expected_weight || 0,
+          body.receivedWeight || body.received_weight || 0,
+          body.containerCount || body.container_count || 0,
+          body.varianceReason || body.variance_reason || '',
+          operatorId,
+          body.shiftId || null,
+        ],
+      );
     } // end else (INSERT branch)
 
     const [batch] = await this.em.query(
