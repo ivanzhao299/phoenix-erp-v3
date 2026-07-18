@@ -24431,7 +24431,7 @@
     "source_repair_task_no": "BUGTASK-20260718-0002",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -24452,8 +24452,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-18T11:30:16.934Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260718-0002-A3-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -24466,7 +24466,31 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 0,
-    "last_redispatch_at": null
+    "last_redispatch_at": null,
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A3-Backend-Critical-Path",
+      "exitCode": 1,
+      "conclusion": "",
+      "responseChars": 0,
+      "beforeHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
+      "afterHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-18T11:30:16.933Z",
+      "passed": false,
+      "role": "execution",
+      "terminalStatus": "HOLD",
+      "reason": "Agent process exited with 1"
+    },
+    "implementation_commit": "",
+    "changed_files": [],
+    "retry_after": null,
+    "reason": "Agent process exited with 1"
   },
   {
     "task_id": "BUGTASK-20260718-0002-A1",
@@ -24739,7 +24763,7 @@
     "source_repair_task_no": "BUGTASK-20260717-0002",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -24764,7 +24788,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-18T11:30:07.930Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -24779,7 +24803,17 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 0,
-    "last_redispatch_at": null
+    "last_redispatch_at": null,
+    "reason": "blocked by failed dependency: BUGTASK-20260717-0002-A3",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260717-0002-A3",
+      "checkedAt": "2026-07-18T11:30:07.930Z"
+    }
   },
   {
     "task_id": "BUGTASK-20260717-0001-A3",
