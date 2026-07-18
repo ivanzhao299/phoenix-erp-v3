@@ -38,7 +38,7 @@ The Runner/Codex CLI execution chain is repaired and controlled queue consumptio
 ## Verification
 
 - Changed script syntax checks: PASS.
-- Runner unit tests: `27/27` PASS.
+- Runner unit tests: `30/30` PASS.
 - Evidence gate self-test: PASS.
 - Bundled Codex CLI real read-only probe: PASS (`CODEX_RUNNER_PREFLIGHT_OK`).
 - Runner dry-run sync: PASS; 20 reports inspected.
@@ -80,6 +80,9 @@ After the controlled task, the resident service consumed additional approved bac
 | `BUGTASK-20260718-0001-A1` | `VALIDATION_COMPLETED` | automatically requeued after dependency recovery |
 | `BUGTASK-20260718-0003-A4` | `SKIPPED_NOT_APPLICABLE` | evidence gate |
 | `BUGTASK-20260718-0004-A4` | `SKIPPED_NOT_APPLICABLE` | evidence gate |
+| `BUGTASK-20260718-0005-A4` | `COMPLETED_MERGED` | `6400d55a` |
+| `BUGTASK-20260718-0005-A3` | `COMPLETED_MERGED` | `1c8c55bd`; one-time recovery from the confirmed legacy CLI cache failure |
+| `BUGTASK-20260718-0005-A1` | `VALIDATION_COMPLETED` | automatically requeued after A3/A4 dependency recovery |
 
 The reviewed conflict was caused by the A4 worktree being based on the old `FarmLog` response while the current branch already used `DailyHenReport.total_loss`. The merge retained the current API contract and accepted only the compatible PC daily-report dead-and-cull aggregation. The A4 worktree was then aligned to the integrated baseline.
 
@@ -94,7 +97,9 @@ The reviewed conflict was caused by the A4 worktree being based on the old `Farm
 | Pending | 13 |
 | HOLD | 13 |
 
-After resident recovery, the queue contained 2 pending and 14 HOLD tasks, with 60 `COMPLETED_MERGED`, 52 `VALIDATION_COMPLETED`, and 12 `SKIPPED_NOT_APPLICABLE` tasks. Existing HOLD tasks remain preserved for explicit diagnosis and do not compete with pending work.
+After resident recovery, the queue contains no pending or running task, 12 HOLD tasks, 62 `COMPLETED_MERGED`, 54 `VALIDATION_COMPLETED`, and 12 `SKIPPED_NOT_APPLICABLE` tasks. Existing HOLD tasks remain preserved for explicit diagnosis and do not compete with new pending work.
+
+The final legacy task recovery was deliberately narrow: the stored A3 worker log proved that global Codex `0.142.5` had exited on the incompatible model-cache schema before any prompt execution. That single task was requeued once after the bundled CLI preflight passed. Generic HOLD tasks were not re-enabled, A3 completed through the bundled CLI, and its dependent A1 validation recovered automatically.
 
 Only one audit-artifact commit was created during the initial recovery window. Subsequent cycles inside the 30-minute cooldown produced no audit-only commit, confirming that the prior commit storm is stopped.
 
