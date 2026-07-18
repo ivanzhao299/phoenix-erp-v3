@@ -470,7 +470,7 @@ export default function DailyPage() {
   };
   const total = {
     eggs: rows.reduce((sum, r) => sum + (Number(r.eggs) || 0), 0),
-    deaths: rows.reduce((sum, r) => sum + (Number(r.deaths) || 0), 0),
+    deadCull: rows.reduce((sum, r) => sum + (Number(r.deaths) || 0) + (Number(r.elimination) || 0), 0),
     feedKg: rows.reduce((sum, r) => sum + (Number(r.feedKg) || 0), 0)
   };
   const visibleReports = reports.filter(r => !selectedHouse || r.house === selectedHouse).slice(0, 30);
@@ -605,7 +605,7 @@ export default function DailyPage() {
             accent: 'var(--status-success)',
           }, {
             label: t('ui.合计死淘', '合计死淘'),
-            val: total.deaths || '—',
+            val: total.deadCull || '—',
             unit: t('ui.羽', '羽'),
             accent: 'var(--text-primary)',
           }, {

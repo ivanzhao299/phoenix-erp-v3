@@ -48,7 +48,7 @@ export function dailyLogRowDate(row: DailyLogRow): string {
   return dailyLogDateKey(row.log_date ?? row.business_date ?? row.date);
 }
 
-export function dailyLogMortalityTotal(row: DailyLogRow): number {
+export function dailyLogMortalityTotal(row: { mortality_qty?: unknown; elimination_qty?: unknown }): number {
   return asNumber(row.mortality_qty) + asNumber(row.elimination_qty);
 }
 

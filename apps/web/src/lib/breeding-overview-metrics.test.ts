@@ -31,6 +31,7 @@ describe('breeding overview daily metrics', () => {
 
     expect(metrics.mortality).toBe(10);
     expect(dailyLogMortalityTotal({ mortality_qty: 0, elimination_qty: '' })).toBe(0);
+    expect(dailyLogMortalityTotal({ mortality_qty: 5, elimination_qty: 3 })).toBe(8);
   });
 
   it('unwraps CRUD array response shapes used by the breeding page', () => {
