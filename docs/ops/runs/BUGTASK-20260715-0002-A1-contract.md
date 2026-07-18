@@ -832,12 +832,16 @@ Assigned agent: A1-CI-Runtime-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-15T06:47:16.192Z",
+    "approvedAt": "2026-07-16T01:36:08.147Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
+      "production deploy without separate approval",
       "database write without separate gate",
       "migration execution without separate gate",
+      "push without release approval",
       "force push"
     ]
   }

@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-15T12:43:30.201Z |
-| Run files inspected | 2115 |
+| Generated at | 2026-07-15T15:02:42.452Z |
+| Run files inspected | 2117 |
 | Task count | 330 |
-| Findings count | 32 |
-| Highest severity | CRITICAL |
+| Findings count | 30 |
+| Highest severity | HIGH |
 | Routing findings | 8 |
-| Baseline findings | 4 |
+| Baseline findings | 3 |
 | Report schema findings | 4 |
 | Codex CLI executed | No |
 | Database written | No |
@@ -223,16 +223,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Add a parallel-group regression fixture to agent-orchestrator.
 
-### OBS-0024 - CRITICAL - runner-generation-drift
-
-- Affected Agent: BugIntakeLocalRunner
-- Evidence: 2 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
-- Suggested Fix: Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
-- Recommended Next Task: Apply IMPROVE-BUG-INTAKE-QUEUE-RECOVERY.
-
-### OBS-0025 - HIGH - report-schema
+### OBS-0024 - HIGH - report-schema
 
 - Affected Agent: A2-Security-Regression-Gate
 - Evidence: docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
@@ -241,7 +232,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Run normalize-agent-result for REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2.
 
-### OBS-0026 - HIGH - report-schema
+### OBS-0025 - HIGH - report-schema
 
 - Affected Agent: A2-Security-Regression-Gate
 - Evidence: docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
@@ -250,7 +241,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Run normalize-agent-result for REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2.
 
-### OBS-0027 - HIGH - report-schema
+### OBS-0026 - HIGH - report-schema
 
 - Affected Agent: A2-Security-Regression-Gate
 - Evidence: docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
@@ -259,7 +250,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Run normalize-agent-result for REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2.
 
-### OBS-0028 - MEDIUM - report-schema
+### OBS-0027 - MEDIUM - report-schema
 
 - Affected Agent: A2-Security-Regression-Gate
 - Evidence: docs/ops/runs/a2-app-module-wiring-follow-up-result.json: missing commit_hash, migration_added, verification_results, recommend_next_agent
@@ -268,16 +259,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP.
 
-### OBS-0029 - MEDIUM - baseline
-
-- Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260713-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A3-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260713-0003-A4-contract.md;  M docs/ops/runs/BUGTASK-20260713-0003-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0003-A3-worker-assembled-prompt.md;  M docs/ops/runs/BUGTASK-20260715-0003-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0003-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0004-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0004-A4-worker-log.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json
-- Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
-- Recommended Next Task: Baseline cleanup for Codex-Orchestrator.
-
-### OBS-0030 - MEDIUM - baseline
+### OBS-0028 - MEDIUM - baseline
 
 - Affected Agent: A5-Data-Readiness
 - Evidence: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
@@ -286,7 +268,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Baseline cleanup for A5-Data-Readiness.
 
-### OBS-0031 - MEDIUM - baseline
+### OBS-0029 - MEDIUM - baseline
 
 - Affected Agent: A6-Staging-Deploy-Runbook
 - Evidence: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
@@ -295,7 +277,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A6-Staging-Deploy-Runbook with baseline autopilot.
 
-### OBS-0032 - MEDIUM - baseline
+### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: A7-Final-QA-Gate
 - Evidence: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.

@@ -13149,8 +13149,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 9,
-    "last_redispatch_at": "2026-07-15T06:50:16.447Z",
+    "redispatch_count": 10,
+    "last_redispatch_at": "2026-07-16T01:11:24.855Z",
     "reason": null,
     "quarantined_at": "2026-07-11T01:13:21.870Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
@@ -13254,7 +13254,9 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "retry_after": null
+    "retry_after": null,
+    "carried_forward_at": "2026-07-18T11:27:31.284Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260709-0004-A4",
@@ -13302,8 +13304,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 9,
-    "last_redispatch_at": "2026-07-15T06:50:16.447Z",
+    "redispatch_count": 10,
+    "last_redispatch_at": "2026-07-16T01:11:24.855Z",
     "reason": null,
     "quarantined_at": "2026-07-11T01:13:26.883Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
@@ -13404,7 +13406,9 @@
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "retry_after": null
+    "retry_after": null,
+    "carried_forward_at": "2026-07-18T11:27:31.284Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260709-0004-A1",
@@ -13453,8 +13457,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 9,
-    "last_redispatch_at": "2026-07-15T06:50:16.447Z",
+    "redispatch_count": 10,
+    "last_redispatch_at": "2026-07-16T01:11:24.855Z",
     "reason": null,
     "evidence_gate": {
       "version": 1,
@@ -13542,7 +13546,9 @@
     ],
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "retry_after": null
+    "retry_after": null,
+    "carried_forward_at": "2026-07-18T11:27:31.284Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260709-0003-A4",
@@ -20926,8 +20932,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 7,
-    "last_redispatch_at": "2026-07-15T00:58:16.446Z",
+    "redispatch_count": 8,
+    "last_redispatch_at": "2026-07-16T06:31:43.765Z",
     "reason": null,
     "quarantined_at": "2026-07-11T07:06:09.940Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
@@ -21003,7 +21009,9 @@
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "retry_after": null
+    "retry_after": null,
+    "carried_forward_at": "2026-07-18T11:27:31.324Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260707-0010-A4",
@@ -21051,8 +21059,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 7,
-    "last_redispatch_at": "2026-07-15T00:58:16.446Z",
+    "redispatch_count": 8,
+    "last_redispatch_at": "2026-07-16T06:31:43.765Z",
     "reason": "verified integrated implementation evidence",
     "quarantined_at": "2026-07-15T01:03:49.231Z",
     "quarantine_source_worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
@@ -21131,7 +21139,9 @@
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "retry_after": null
+    "retry_after": null,
+    "carried_forward_at": "2026-07-18T11:27:31.325Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260707-0010-A1",
@@ -21180,8 +21190,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 7,
-    "last_redispatch_at": "2026-07-15T00:58:16.446Z",
+    "redispatch_count": 8,
+    "last_redispatch_at": "2026-07-16T06:31:43.765Z",
     "reason": "blocked by failed dependency: BUGTASK-20260707-0010-A4",
     "evidence_gate": {
       "version": 1,
@@ -21241,7 +21251,9 @@
     ],
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "retry_after": null
+    "retry_after": null,
+    "carried_forward_at": "2026-07-18T11:27:31.325Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260705-0001-A4",
@@ -21989,8 +22001,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T00:56:32.919Z",
+    "redispatch_count": 2,
+    "last_redispatch_at": "2026-07-16T01:04:09.782Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A2-Security-Regression-Gate",
@@ -22016,7 +22028,9 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "FIX_READY_FOR_UAT"
+    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "carried_forward_at": "2026-07-18T11:27:31.203Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260713-0004-A3",
@@ -22061,8 +22075,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T00:56:32.919Z",
+    "redispatch_count": 2,
+    "last_redispatch_at": "2026-07-16T01:04:09.782Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -22088,7 +22102,9 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "FIX_READY_FOR_UAT"
+    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "carried_forward_at": "2026-07-18T11:27:31.204Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260713-0004-A1",
@@ -22137,8 +22153,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T00:56:32.919Z",
+    "redispatch_count": 2,
+    "last_redispatch_at": "2026-07-16T01:04:09.782Z",
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
@@ -22164,7 +22180,9 @@
     "changed_files": [],
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "carried_forward_at": "2026-07-18T11:27:31.204Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260715-0002-A3",
@@ -22208,8 +22226,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 0,
-    "last_redispatch_at": null,
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-16T01:36:08.147Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -22257,7 +22275,9 @@
     "integrated_commit": "711c056b2721857f753a046443fe067bdbc55599",
     "integrated_at": "2026-07-15T07:41:59.395Z",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "remote_repair_status": "FIX_READY_FOR_UAT"
+    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "carried_forward_at": "2026-07-18T11:27:31.080Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260715-0002-A1",
@@ -22304,8 +22324,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 0,
-    "last_redispatch_at": null,
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-16T01:36:08.147Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
@@ -22331,7 +22351,9 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "FIX_READY_FOR_UAT"
+    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "carried_forward_at": "2026-07-18T11:27:31.081Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260715-0001-A3",
@@ -22376,8 +22398,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T12:00:00.038Z",
+    "redispatch_count": 2,
+    "last_redispatch_at": "2026-07-16T01:02:17.930Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -22430,7 +22452,9 @@
         "source_bug_no": "BUG-20260715-0001",
         "source_repair_task_no": "BUGTASK-20260715-0001"
       }
-    ]
+    ],
+    "carried_forward_at": "2026-07-18T11:27:31.122Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260715-0001-A4",
@@ -22478,8 +22502,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T12:00:00.038Z",
+    "redispatch_count": 2,
+    "last_redispatch_at": "2026-07-16T01:02:17.930Z",
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
@@ -22538,7 +22562,9 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "integration_method": "cherry-pick-verified-agent-commit"
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "carried_forward_at": "2026-07-18T11:27:31.122Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260715-0001-A1",
@@ -22587,8 +22613,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T12:00:00.038Z",
+    "redispatch_count": 2,
+    "last_redispatch_at": "2026-07-16T01:02:17.930Z",
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": null,
     "evidence_gate": {
@@ -22627,7 +22653,9 @@
       }
     ],
     "retry_after": null,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "carried_forward_at": "2026-07-18T11:27:31.122Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260713-0006-A3",
@@ -22671,8 +22699,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T06:48:24.783Z",
+    "redispatch_count": 2,
+    "last_redispatch_at": "2026-07-16T01:02:55.365Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -22698,7 +22726,9 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "FIX_READY_FOR_UAT"
+    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "carried_forward_at": "2026-07-18T11:27:31.162Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260713-0006-A1",
@@ -22745,8 +22775,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 1,
-    "last_redispatch_at": "2026-07-15T06:48:24.783Z",
+    "redispatch_count": 2,
+    "last_redispatch_at": "2026-07-16T01:02:55.365Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A1-CI-Runtime-Gate",
@@ -22772,7 +22802,9 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "remote_repair_status": "FIX_READY_FOR_UAT"
+    "remote_repair_status": "FIX_READY_FOR_UAT",
+    "carried_forward_at": "2026-07-18T11:27:31.162Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260713-0005-A3",
@@ -23059,8 +23091,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 3,
-    "last_redispatch_at": "2026-07-15T12:43:05.088Z",
+    "redispatch_count": 4,
+    "last_redispatch_at": "2026-07-16T01:04:37.678Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -23113,7 +23145,7 @@
         "source_repair_task_no": "BUGTASK-20260713-0003"
       }
     ],
-    "carried_forward_at": "2026-07-15T12:43:29.539Z",
+    "carried_forward_at": "2026-07-18T11:27:31.244Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
@@ -23162,8 +23194,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 3,
-    "last_redispatch_at": "2026-07-15T12:43:05.088Z",
+    "redispatch_count": 4,
+    "last_redispatch_at": "2026-07-16T01:04:37.678Z",
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
@@ -23220,7 +23252,7 @@
         "source_repair_task_no": "BUGTASK-20260713-0003"
       }
     ],
-    "carried_forward_at": "2026-07-15T12:43:29.539Z",
+    "carried_forward_at": "2026-07-18T11:27:31.244Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
@@ -23270,8 +23302,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 3,
-    "last_redispatch_at": "2026-07-15T12:43:05.088Z",
+    "redispatch_count": 4,
+    "last_redispatch_at": "2026-07-16T01:04:37.678Z",
     "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": null,
     "evidence_gate": {
@@ -23317,7 +23349,9 @@
       }
     ],
     "retry_after": null,
-    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "carried_forward_at": "2026-07-18T11:27:31.244Z",
+    "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation"
   },
   {
     "task_id": "BUGTASK-20260715-0003-A3",
@@ -24051,5 +24085,1251 @@
       }
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+  },
+  {
+    "task_id": "BUGTASK-20260718-0005-A3",
+    "request_id": "BUGTASK-20260718-0005",
+    "title": "Repair BUG-20260718-0005: 作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员” (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260718-0005",
+    "source_repair_task_no": "BUGTASK-20260718-0005",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0005-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260718-0005-A4",
+    "request_id": "BUGTASK-20260718-0005",
+    "title": "Repair BUG-20260718-0005: 作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员” (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260718-0005",
+    "source_repair_task_no": "BUGTASK-20260718-0005",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260718-0005-A1",
+    "request_id": "BUGTASK-20260718-0005",
+    "title": "Repair BUG-20260718-0005: 作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员” (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260718-0005",
+    "source_repair_task_no": "BUGTASK-20260718-0005",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0005-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260718-0005-A3",
+      "BUGTASK-20260718-0005-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260718-0004-A4",
+    "request_id": "BUGTASK-20260718-0004",
+    "title": "Repair BUG-20260718-0004: mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡舍管理」创建并指定农场;手机端仅供场长建本场鸡舍。” (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260718-0004",
+    "source_repair_task_no": "BUGTASK-20260718-0004",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260718-0004-A1",
+    "request_id": "BUGTASK-20260718-0004",
+    "title": "Repair BUG-20260718-0004: mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡舍管理」创建并指定农场;手机端仅供场长建本场鸡舍。” (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260718-0004",
+    "source_repair_task_no": "BUGTASK-20260718-0004",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260718-0004-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260718-0003-A4",
+    "request_id": "BUGTASK-20260718-0003",
+    "title": "Repair BUG-20260718-0003: mobile端存栏日报产蛋数显示错误 (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260718-0003",
+    "source_repair_task_no": "BUGTASK-20260718-0003",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0003-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260718-0003-A1",
+    "request_id": "BUGTASK-20260718-0003",
+    "title": "Repair BUG-20260718-0003: mobile端存栏日报产蛋数显示错误 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260718-0003",
+    "source_repair_task_no": "BUGTASK-20260718-0003",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0003-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260718-0003-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260718-0002-A3",
+    "request_id": "BUGTASK-20260718-0002",
+    "title": "Repair BUG-20260718-0002: 财务结算中心-费用管理-新建申请后提交审批报错“HTTP 400” (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260718-0002",
+    "source_repair_task_no": "BUGTASK-20260718-0002",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0002-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260718-0002-A1",
+    "request_id": "BUGTASK-20260718-0002",
+    "title": "Repair BUG-20260718-0002: 财务结算中心-费用管理-新建申请后提交审批报错“HTTP 400” (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260718-0002",
+    "source_repair_task_no": "BUGTASK-20260718-0002",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0002-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260718-0002-A3"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260718-0001-A4",
+    "request_id": "BUGTASK-20260718-0001",
+    "title": "Repair BUG-20260718-0001: mobile端每日看板死淘数显示有误 (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260718-0001",
+    "source_repair_task_no": "BUGTASK-20260718-0001",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0001-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260718-0001-A1",
+    "request_id": "BUGTASK-20260718-0001",
+    "title": "Repair BUG-20260718-0001: mobile端每日看板死淘数显示有误 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260718-0001",
+    "source_repair_task_no": "BUGTASK-20260718-0001",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260718-0001-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260718-0001-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260717-0002-A3",
+    "request_id": "BUGTASK-20260717-0002",
+    "title": "Repair BUG-20260717-0002: 每日工作台-饲料消耗登记，当前页面加载失败 (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260717-0002",
+    "source_repair_task_no": "BUGTASK-20260717-0002",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260717-0002-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260717-0002-A4",
+    "request_id": "BUGTASK-20260717-0002",
+    "title": "Repair BUG-20260717-0002: 每日工作台-饲料消耗登记，当前页面加载失败 (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260717-0002",
+    "source_repair_task_no": "BUGTASK-20260717-0002",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260717-0002-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260717-0002-A1",
+    "request_id": "BUGTASK-20260717-0002",
+    "title": "Repair BUG-20260717-0002: 每日工作台-饲料消耗登记，当前页面加载失败 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260717-0002",
+    "source_repair_task_no": "BUGTASK-20260717-0002",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260717-0002-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260717-0002-A3",
+      "BUGTASK-20260717-0002-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260717-0001-A3",
+    "request_id": "BUGTASK-20260717-0001",
+    "title": "Repair BUG-20260717-0001: 采购管理-采购订单上方显示的数量不对 (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260717-0001",
+    "source_repair_task_no": "BUGTASK-20260717-0001",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260717-0001-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260717-0001-A4",
+    "request_id": "BUGTASK-20260717-0001",
+    "title": "Repair BUG-20260717-0001: 采购管理-采购订单上方显示的数量不对 (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260717-0001",
+    "source_repair_task_no": "BUGTASK-20260717-0001",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260717-0001-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260717-0001-A1",
+    "request_id": "BUGTASK-20260717-0001",
+    "title": "Repair BUG-20260717-0001: 采购管理-采购订单上方显示的数量不对 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260717-0001",
+    "source_repair_task_no": "BUGTASK-20260717-0001",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260717-0001-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260717-0001-A3",
+      "BUGTASK-20260717-0001-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260716-0004-A3",
+    "request_id": "BUGTASK-20260716-0004",
+    "title": "Repair BUG-20260716-0004: 生产管理，“日产蛋入库”点击从日报预填报错“2026-07-16 暂无日报或未按 9 档录入” (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260716-0004",
+    "source_repair_task_no": "BUGTASK-20260716-0004",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260716-0004-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260716-0004-A4",
+    "request_id": "BUGTASK-20260716-0004",
+    "title": "Repair BUG-20260716-0004: 生产管理，“日产蛋入库”点击从日报预填报错“2026-07-16 暂无日报或未按 9 档录入” (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260716-0004",
+    "source_repair_task_no": "BUGTASK-20260716-0004",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260716-0004-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260716-0004-A1",
+    "request_id": "BUGTASK-20260716-0004",
+    "title": "Repair BUG-20260716-0004: 生产管理，“日产蛋入库”点击从日报预填报错“2026-07-16 暂无日报或未按 9 档录入” (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260716-0004",
+    "source_repair_task_no": "BUGTASK-20260716-0004",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260716-0004-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260716-0004-A3",
+      "BUGTASK-20260716-0004-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260716-0003-A4",
+    "request_id": "BUGTASK-20260716-0003",
+    "title": "Repair BUG-20260716-0003: 销售管理-销售订单-新建订单保存草稿之后，销售订单页面暂无订单数据，查不到订单信息 (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260716-0003",
+    "source_repair_task_no": "BUGTASK-20260716-0003",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260716-0003-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260716-0003-A1",
+    "request_id": "BUGTASK-20260716-0003",
+    "title": "Repair BUG-20260716-0003: 销售管理-销售订单-新建订单保存草稿之后，销售订单页面暂无订单数据，查不到订单信息 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260716-0003",
+    "source_repair_task_no": "BUGTASK-20260716-0003",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260716-0003-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260716-0003-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260716-0002-A3",
+    "request_id": "BUGTASK-20260716-0002",
+    "title": "Repair BUG-20260716-0002: 生产管理-养殖场总览-药品库存，今日入库点击保存后报错“HTTP 500”，要求点击保存不报错 (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260716-0002",
+    "source_repair_task_no": "BUGTASK-20260716-0002",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260716-0002-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260716-0002-A1",
+    "request_id": "BUGTASK-20260716-0002",
+    "title": "Repair BUG-20260716-0002: 生产管理-养殖场总览-药品库存，今日入库点击保存后报错“HTTP 500”，要求点击保存不报错 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260716-0002",
+    "source_repair_task_no": "BUGTASK-20260716-0002",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260716-0002-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260716-0002-A3"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260716-0001-A4",
+    "request_id": "BUGTASK-20260716-0001",
+    "title": "Repair BUG-20260716-0001: 生产管理-鸡群档案，编辑信息后页面不自动刷新 (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260716-0001",
+    "source_repair_task_no": "BUGTASK-20260716-0001",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260716-0001-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
+  },
+  {
+    "task_id": "BUGTASK-20260716-0001-A1",
+    "request_id": "BUGTASK-20260716-0001",
+    "title": "Repair BUG-20260716-0001: 生产管理-鸡群档案，编辑信息后页面不自动刷新 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260716-0001",
+    "source_repair_task_no": "BUGTASK-20260716-0001",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260716-0001-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260716-0001-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null
   }
 ]
