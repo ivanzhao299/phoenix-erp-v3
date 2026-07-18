@@ -1209,7 +1209,7 @@ Assigned agent: A3-Backend-Critical-Path
     },
     "localEvidence": {
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192659/BUG-20260716-0002/attachments/01-1784164130742-ce14643e.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192908/BUG-20260716-0002/attachments/01-1784164130742-ce14643e.png"
       ]
     }
   },
@@ -1232,12 +1232,16 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-16T01:09:12.277Z",
-    "approvedBy": "admin",
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "approvedAt": "2026-07-18T11:28:52.692Z",
+    "approvedBy": "bug_intake_runner",
+    "redispatch": true,
+    "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
+    "redispatchCount": 1,
     "forbiddenActions": [
+      "production deploy without separate approval",
       "database write without separate gate",
       "migration execution without separate gate",
+      "push without release approval",
       "force push"
     ]
   }
@@ -1246,7 +1250,7 @@ Assigned agent: A3-Backend-Critical-Path
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192659/BUG-20260716-0002/attachments/01-1784164130742-ce14643e.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192908/BUG-20260716-0002/attachments/01-1784164130742-ce14643e.png
 
 ---
 
