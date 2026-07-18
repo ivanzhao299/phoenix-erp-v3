@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   buildResultBackfillPlan,
@@ -11,6 +14,8 @@ import {
 } from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 import { classifyInfrastructureFailure, evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
+
+const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 test('runner-created dependency links do not make a worktree dirty', () => {
   assert.equal(filterRunnerRuntimeStatus([
@@ -147,6 +152,14 @@ test('source repair task report name satisfies implementation evidence', () => {
   });
   assert.equal(evidence.passed, true);
   assert.equal(evidence.terminalStatus, 'IMPLEMENTATION_COMPLETED');
+});
+
+test('integrated commit recovery accepts implementation completed tasks', () => {
+  const workerSource = fs.readFileSync(path.join(TEST_DIR, 'agent-worker.mjs'), 'utf8');
+  assert.match(
+    workerSource,
+    /recoverIntegratedCommit[\s\S]*\['pending',[\s\S]*'IMPLEMENTATION_COMPLETED'[\s\S]*\.includes\(task\.status\)/,
+  );
 });
 
 test('resident evolution artifacts are treated as recoverable runner-owned dirty state', () => {
