@@ -15,7 +15,7 @@ import {
 } from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 import { classifyInfrastructureFailure, evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
-import { mapWithConcurrency } from './bug-intake-sync-from-api.mjs';
+import { isTerminalLocalTask, mapWithConcurrency } from './bug-intake-sync-from-api.mjs';
 
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +39,14 @@ test('inbox detail fetch keeps bounded concurrency and result order', async () =
   });
   assert.deepEqual(result, [10, 20, 30, 40, 50]);
   assert.equal(maxActive, 2);
+});
+
+test('inbox sync never downgrades terminal local task evidence', () => {
+  assert.equal(isTerminalLocalTask({ status: 'COMPLETED_MERGED' }), true);
+  assert.equal(isTerminalLocalTask({ status: 'VALIDATION_COMPLETED' }), true);
+  assert.equal(isTerminalLocalTask({ status: 'SKIPPED_NOT_APPLICABLE' }), true);
+  assert.equal(isTerminalLocalTask({ status: 'running' }), false);
+  assert.equal(isTerminalLocalTask({ status: 'HOLD' }), false);
 });
 
 test('business and ops changes remain visible after runtime filtering', () => {

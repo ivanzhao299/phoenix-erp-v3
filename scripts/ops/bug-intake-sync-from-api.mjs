@@ -10,9 +10,19 @@ const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const DEFAULT_STATUSES = ['OPEN', 'TRIAGED', 'IN_PROGRESS'];
 const APPROVED_REPAIR_STATUS = 'AGENT_APPROVED';
 const ACTIVE_REPORT_STATUSES = new Set(['OPEN', 'TRIAGED', 'IN_PROGRESS']);
+const TERMINAL_LOCAL_TASK_STATUSES = new Set([
+  'completed',
+  'COMPLETED_MERGED',
+  'VALIDATION_COMPLETED',
+  'SKIPPED_NOT_APPLICABLE',
+]);
 const NODE_BIN = process.execPath;
 const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 const FETCH_ERRORS = [];
+
+export function isTerminalLocalTask(task) {
+  return TERMINAL_LOCAL_TASK_STATUSES.has(String(task?.status || ''));
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -348,6 +358,10 @@ function deactivateNotReadyQueueTasks(reports, apply) {
     const report = notReadyByBug.get(task.source_bug_no);
     if (!report || task.source !== 'bug-intake') continue;
     const remoteStatus = report.repairTaskStatus || 'NOT_READY';
+    // A remote report can remain HOLD while its verified implementation has
+    // already been integrated locally. Never downgrade immutable local
+    // completion evidence during subsequent inbox sync cycles.
+    if (isTerminalLocalTask(task)) continue;
     const latestRedispatch = latestRedispatchByBug.get(task.source_bug_no) ?? 0;
     const isLatestRoute = Number(task.redispatch_count || 0) === latestRedispatch;
     const approvalActive = report?.repairTaskPayload?.agentExecutionApproval?.approved === true;
