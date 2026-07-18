@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-18T06:45:09.906Z",
-  "updatedAt": "2026-07-18T12:43:13.077Z",
+  "updatedAt": "2026-07-18T12:49:42.255Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员”",
@@ -1589,36 +1589,146 @@
     "moduleCode": "___-____",
     "agentResults": [
       {
-        "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260718-0005-A3",
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0005-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0005-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0005-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0005-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0005-A3-worker-assembled-prompt.md\nAssembled prompt chars: 22585\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T11-31-57-903Z-A3-Backend-Critical-Path.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\n2026-07-18T11:31:49.358221Z ERROR codex_models_manager::cache: failed to load models cache: missing field `supports_reasoning_summaries` at line 88 column 5\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nmodel: gpt-5.6-sol\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: low\nreasoning summaries: none\nsession id: 019f74ff-3e1c-7bf2-9702-f5d1e1039374\n--------\nuser\n# Base Agent Prompt\n\n# Bug Intake A3 Backend Repair Prompt\n\n## Identity\n\nYou are `A3-Backend-Critical-Path` running on the",
+        "agent": "A2-Security-Regression-Gate",
+        "taskId": "BUGTASK-20260718-0005-A2-Security-Regression-Gate-NA-0",
+        "summary": "A2-Security-Regression-Gate was not part of the refined executable route for this repair generation.",
         "commitHash": "",
-        "conclusion": "HOLD",
-        "nextAction": "",
-        "recordedAt": "2026-07-18T11:31:59.485Z",
+        "conclusion": "NOT_APPLICABLE",
+        "nextAction": "No action is required from this advisory Agent for the current repair generation.",
+        "recordedAt": "2026-07-18T12:44:49.003Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A3-worker-log.md",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
         "changedFiles": [],
         "redispatchCount": 0,
         "validationResults": {
-          "queueStatus": "HOLD",
           "evidenceGate": {
-            "role": "execution",
-            "agent": "A3-Backend-Critical-Path",
-            "passed": false,
-            "reason": "Agent process exited with 1",
+            "role": "not_applicable",
+            "passed": true,
+            "reason": "Agent was advisory in the original plan but was excluded by the refined executable route."
+          },
+          "aggregateBackfill": true
+        }
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "taskId": "BUGTASK-20260718-0005-A5-Data-Readiness-NA-0",
+        "summary": "A5-Data-Readiness was not part of the refined executable route for this repair generation.",
+        "commitHash": "",
+        "conclusion": "NOT_APPLICABLE",
+        "nextAction": "No action is required from this advisory Agent for the current repair generation.",
+        "recordedAt": "2026-07-18T12:44:49.718Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "evidenceGate": {
+            "role": "not_applicable",
+            "passed": true,
+            "reason": "Agent was advisory in the original plan but was excluded by the refined executable route."
+          },
+          "aggregateBackfill": true
+        }
+      },
+      {
+        "agent": "A4-Frontend-UAT-Smoke",
+        "taskId": "BUGTASK-20260718-0005-A4",
+        "summary": "Local bug-intake task BUGTASK-20260718-0005-A4 reached COMPLETED_MERGED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+        "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Execution evidence recorded; release and production smoke must pass before business validation.",
+        "recordedAt": "2026-07-18T12:44:51.443Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A4-worker-log.md",
+        "changedFiles": [
+          "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+          "apps/web/src/lib/source-receive-submit.test.ts",
+          "apps/web/src/lib/source-receive-submit.ts",
+          "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+        ],
+        "redispatchCount": 0,
+        "validationResults": {
+          "completedAt": "2026-07-18T12:43:13.867Z",
+          "evidenceGate": {
+            "role": "implementation",
+            "agent": "A4-Frontend-UAT-Smoke",
+            "passed": true,
+            "reason": "Business change, task report, commit, and conclusion are present",
             "version": 1,
-            "exitCode": 1,
-            "afterHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
-            "checkedAt": "2026-07-18T11:31:57.924Z",
+            "exitCode": 0,
+            "afterHead": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+            "checkedAt": "2026-07-18T12:43:10.739Z",
+            "beforeHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
+            "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [
+              "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+            ],
+            "changedFiles": [
+              "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+              "apps/web/src/lib/source-receive-submit.test.ts",
+              "apps/web/src/lib/source-receive-submit.ts",
+              "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+            ],
+            "responseChars": 752,
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
+            "businessChangedFiles": [
+              "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+              "apps/web/src/lib/source-receive-submit.test.ts",
+              "apps/web/src/lib/source-receive-submit.ts"
+            ],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "localTaskStatus": "COMPLETED_MERGED",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": 0
+        }
+      },
+      {
+        "agent": "A3-Backend-Critical-Path",
+        "taskId": "BUGTASK-20260718-0005-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0005-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0005-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0005-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0005-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0005-A3-worker-assembled-prompt.md\nAssembled prompt chars: 22585\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-47-55-706Z-A3-Backend-Critical-Path.md\n已完成后端最小修复，结论：**PASS WITH CONDITIONS — HOLD**。\n\n- 修正“确认录入”的 RBAC 契约：允许 `MENU_PKG_MGR:C` 或 `MENU_PACKAGING:C`，仍拒绝仅查看用户。\n- 保留现有 DataScope、审计及库存事务逻辑。\n- 新增聚焦权限回归测试。\n- API TypeScript 检查通过。\n- 未执行数据库写入、迁移、部署、推送或生产操作。\n\n验证结果：\n\n- Jest：1 suite / 1 test passed\n- `tsc --noEmit`：0 errors\n- `git diff --check`：通过\n\n文件：\n\n- [packaging.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/terminal/packaging.controller.ts:91)\n- [packaging.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/terminal/packaging.contro",
+        "commitHash": "12aada8c2d4c2c2dbfc5b038ee0c772a48d89b47",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-18T12:47:57.648Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A3-worker-log.md",
+        "changedFiles": [
+          "apps/api/src/modules/terminal/packaging.controller.spec.ts",
+          "apps/api/src/modules/terminal/packaging.controller.ts",
+          "docs/ops/BUGTASK-20260718-0005-backend-repair.md"
+        ],
+        "redispatchCount": 0,
+        "validationResults": {
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
+          "evidenceGate": {
+            "role": "implementation",
+            "agent": "A3-Backend-Critical-Path",
+            "passed": true,
+            "reason": "Business change, task report, commit, and conclusion are present",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "12aada8c2d4c2c2dbfc5b038ee0c772a48d89b47",
+            "checkedAt": "2026-07-18T12:47:55.889Z",
             "beforeHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
-            "commitHash": "",
-            "conclusion": "",
-            "reportFiles": [],
-            "changedFiles": [],
-            "responseChars": 0,
-            "terminalStatus": "HOLD",
-            "businessChangedFiles": [],
+            "commitHash": "12aada8c2d4c2c2dbfc5b038ee0c772a48d89b47",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [
+              "docs/ops/BUGTASK-20260718-0005-backend-repair.md"
+            ],
+            "changedFiles": [
+              "apps/api/src/modules/terminal/packaging.controller.spec.ts",
+              "apps/api/src/modules/terminal/packaging.controller.ts",
+              "docs/ops/BUGTASK-20260718-0005-backend-repair.md"
+            ],
+            "responseChars": 796,
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
+            "businessChangedFiles": [
+              "apps/api/src/modules/terminal/packaging.controller.spec.ts",
+              "apps/api/src/modules/terminal/packaging.controller.ts"
+            ],
             "infrastructureFailure": null,
             "parentCommitRecovered": false
           },
@@ -1626,57 +1736,41 @@
         }
       },
       {
-        "taskId": "BUGTASK-20260718-0005-A4",
-        "agent": "A4-Frontend-UAT-Smoke",
+        "taskId": "BUGTASK-20260718-0005-A1",
+        "agent": "A1-CI-Runtime-Gate",
         "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A4-worker-log.md",
-        "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
-        "changedFiles": [
-          "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-          "apps/web/src/lib/source-receive-submit.test.ts",
-          "apps/web/src/lib/source-receive-submit.ts",
-          "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
-        ],
+        "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A1-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
-            "agent": "A4-Frontend-UAT-Smoke",
+            "agent": "A1-CI-Runtime-Gate",
             "exitCode": 0,
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 752,
-            "beforeHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
-            "afterHead": "fc3beefddb01eb22866a0cbf9acf231148676a74",
-            "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
-            "changedFiles": [
-              "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-              "apps/web/src/lib/source-receive-submit.test.ts",
-              "apps/web/src/lib/source-receive-submit.ts",
-              "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
-            ],
-            "businessChangedFiles": [
-              "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-              "apps/web/src/lib/source-receive-submit.test.ts",
-              "apps/web/src/lib/source-receive-submit.ts"
-            ],
-            "reportFiles": [
-              "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
-            ],
+            "conclusion": "PASS",
+            "responseChars": 1839,
+            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "commitHash": "",
+            "changedFiles": [],
+            "businessChangedFiles": [],
+            "reportFiles": [],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-18T12:43:10.739Z",
+            "checkedAt": "2026-07-18T12:49:40.387Z",
             "passed": true,
-            "role": "implementation",
-            "terminalStatus": "IMPLEMENTATION_COMPLETED",
-            "reason": "Business change, task report, commit, and conclusion are present"
+            "role": "validation",
+            "terminalStatus": "VALIDATION_COMPLETED",
+            "reason": "Validation evidence recorded; this is not implementation evidence"
           },
-          "queueStatus": "IMPLEMENTATION_COMPLETED",
+          "queueStatus": "VALIDATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 22652\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-43-10-557Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS / 发布状态：HOLD。\n\n已修复集蛋页未开班仍允许提交、发送 `shiftId: null` 的前端缺口：\n\n- 未开班时禁用“确认录入”并显示明确提示。\n- 合法提交必须携带活动班次 ID。\n- 保留 RBAC、DataScope、错误、空态及 loading 行为。\n- 已填写数据仍会阻止误跳到分级页。\n\n验证通过：\n\n- Web TypeScript：0 errors\n- Vitest：2/2 tests passed\n- 受影响路由生产编译：PASS\n- `git diff --check`：PASS\n\n改动见 [source-receive/page.tsx](</Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx>)、[回归测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/source-receive-submit.test.ts) 和 [任务报告](/Users/mac/phoenix-erp-worktrees",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0005-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260718-0005-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n M docs/ops/runs/BUGTASK-20260718-0005-A3-worker-log.md\n M docs/ops/runs/bug-agent-result-writeback-latest.json\n M docs/ops/runs/bug-agent-result-writeback-response-latest.json\n?? docs/ops/runs/2026-07-18T12-47-55-706Z-A3-Backend-Critical-Path.md\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.m",
         "nextAction": "",
         "redispatchCount": 0,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-18T12:43:13.075Z"
+        "recordedAt": "2026-07-18T12:49:42.253Z"
       }
     ],
     "suggestedOwner": "",
@@ -1687,57 +1781,41 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260718-0005-A4",
-      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260718-0005-A1",
+      "agent": "A1-CI-Runtime-Gate",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A4-worker-log.md",
-      "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
-      "changedFiles": [
-        "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-        "apps/web/src/lib/source-receive-submit.test.ts",
-        "apps/web/src/lib/source-receive-submit.ts",
-        "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
-      ],
+      "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A1-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A4-Frontend-UAT-Smoke",
+          "agent": "A1-CI-Runtime-Gate",
           "exitCode": 0,
-          "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 752,
-          "beforeHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
-          "afterHead": "fc3beefddb01eb22866a0cbf9acf231148676a74",
-          "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
-          "changedFiles": [
-            "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-            "apps/web/src/lib/source-receive-submit.test.ts",
-            "apps/web/src/lib/source-receive-submit.ts",
-            "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
-          ],
-          "businessChangedFiles": [
-            "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-            "apps/web/src/lib/source-receive-submit.test.ts",
-            "apps/web/src/lib/source-receive-submit.ts"
-          ],
-          "reportFiles": [
-            "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
-          ],
+          "conclusion": "PASS",
+          "responseChars": 1839,
+          "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+          "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+          "commitHash": "",
+          "changedFiles": [],
+          "businessChangedFiles": [],
+          "reportFiles": [],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-18T12:43:10.739Z",
+          "checkedAt": "2026-07-18T12:49:40.387Z",
           "passed": true,
-          "role": "implementation",
-          "terminalStatus": "IMPLEMENTATION_COMPLETED",
-          "reason": "Business change, task report, commit, and conclusion are present"
+          "role": "validation",
+          "terminalStatus": "VALIDATION_COMPLETED",
+          "reason": "Validation evidence recorded; this is not implementation evidence"
         },
-        "queueStatus": "IMPLEMENTATION_COMPLETED",
+        "queueStatus": "VALIDATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 22652\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-43-10-557Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS / 发布状态：HOLD。\n\n已修复集蛋页未开班仍允许提交、发送 `shiftId: null` 的前端缺口：\n\n- 未开班时禁用“确认录入”并显示明确提示。\n- 合法提交必须携带活动班次 ID。\n- 保留 RBAC、DataScope、错误、空态及 loading 行为。\n- 已填写数据仍会阻止误跳到分级页。\n\n验证通过：\n\n- Web TypeScript：0 errors\n- Vitest：2/2 tests passed\n- 受影响路由生产编译：PASS\n- `git diff --check`：PASS\n\n改动见 [source-receive/page.tsx](</Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx>)、[回归测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/source-receive-submit.test.ts) 和 [任务报告](/Users/mac/phoenix-erp-worktrees",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0005-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260718-0005-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/tasks.json\n M docs/ops/runs/BUGTASK-20260718-0005-A3-worker-log.md\n M docs/ops/runs/bug-agent-result-writeback-latest.json\n M docs/ops/runs/bug-agent-result-writeback-response-latest.json\n?? docs/ops/runs/2026-07-18T12-47-55-706Z-A3-Backend-Critical-Path.md\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy reference growth gate passes\nPASS: sys_alert source coverage gate passes\nPASS: product page quality contracts pass\nResult: PASS. W5 closeout static gates passed.\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/run-agent-task.mjs\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node --check scripts/ops/agent-worker.m",
       "nextAction": "",
       "redispatchCount": 0,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-18T12:43:13.075Z"
+      "recordedAt": "2026-07-18T12:49:42.253Z"
     },
     "acceptanceCriteria": "地址：https://erp.eggslao.com/terminal/packaging/source-receive，作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员”",
     "agentPlanGeneratedAt": "2026-07-18T06:45:52.415Z",
@@ -1781,12 +1859,15 @@
     "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+    "commitHash": "12aada8c2d4c2c2dbfc5b038ee0c772a48d89b47",
     "changedFiles": [
       "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
       "apps/web/src/lib/source-receive-submit.test.ts",
       "apps/web/src/lib/source-receive-submit.ts",
-      "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+      "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md",
+      "apps/api/src/modules/terminal/packaging.controller.spec.ts",
+      "apps/api/src/modules/terminal/packaging.controller.ts",
+      "docs/ops/BUGTASK-20260718-0005-backend-repair.md"
     ],
     "validations": [
       {
@@ -1815,7 +1896,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-18T12:43:13.075Z",
+    "completedAt": "2026-07-18T12:49:42.253Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"

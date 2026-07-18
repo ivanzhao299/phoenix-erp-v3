@@ -5,8 +5,8 @@
 | Task ID | BUGTASK-20260718-0005-A3 |
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
-| Exit code | 1 |
-| Evidence gate | HOLD |
+| Exit code | 0 |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -26,7 +26,29 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260718-0005-A3-worker-assembled-prompt
 Assembled prompt chars: 22585
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T11-31-57-903Z-A3-Backend-Critical-Path.md
+Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-47-55-706Z-A3-Backend-Critical-Path.md
+已完成后端最小修复，结论：**PASS WITH CONDITIONS — HOLD**。
+
+- 修正“确认录入”的 RBAC 契约：允许 `MENU_PKG_MGR:C` 或 `MENU_PACKAGING:C`，仍拒绝仅查看用户。
+- 保留现有 DataScope、审计及库存事务逻辑。
+- 新增聚焦权限回归测试。
+- API TypeScript 检查通过。
+- 未执行数据库写入、迁移、部署、推送或生产操作。
+
+验证结果：
+
+- Jest：1 suite / 1 test passed
+- `tsc --noEmit`：0 errors
+- `git diff --check`：通过
+
+文件：
+
+- [packaging.controller.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/terminal/packaging.controller.ts:91)
+- [packaging.controller.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/terminal/packaging.controller.spec.ts:1)
+- [任务报告](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUGTASK-20260718-0005-backend-repair.md:1)
+
+由于截图来自 `/finance2/ar-ledger`、没有失败请求或服务端日志，且报告用户为当前守卫可直通的 `ROLE_ADMIN`，仍需 CI、原页面生产兼容数据 smoke 和业务验收后才能宣称问题已解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -34,8 +56,7 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-2026-07-18T11:31:49.358221Z ERROR codex_models_manager::cache: failed to load models cache: missing field `supports_reasoning_summaries` at line 88 column 5
-OpenAI Codex v0.142.5
+OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
 model: gpt-5.6-sol
@@ -44,7 +65,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f74ff-3e1c-7bf2-9702-f5d1e1039374
+session id: 019f7543-26ee-7991-aded-573587c6dc7d
 --------
 user
 # Base Agent Prompt
@@ -491,8 +512,15 @@ Assigned agent: A3-Backend-Critical-Path
               "h": 32,
               "w": 215,
               "x": 0,
-          
-...<truncated 11584 chars>
+              "y": 684
+            },
+            "label": "资金账户",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+
+...<truncated 106630 chars>
 
 ```
 
@@ -502,22 +530,31 @@ Assigned agent: A3-Backend-Critical-Path
 {
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
-  "exitCode": 1,
-  "conclusion": "",
-  "responseChars": 0,
+  "exitCode": 0,
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 796,
   "beforeHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
-  "afterHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "afterHead": "12aada8c2d4c2c2dbfc5b038ee0c772a48d89b47",
+  "commitHash": "12aada8c2d4c2c2dbfc5b038ee0c772a48d89b47",
+  "changedFiles": [
+    "apps/api/src/modules/terminal/packaging.controller.spec.ts",
+    "apps/api/src/modules/terminal/packaging.controller.ts",
+    "docs/ops/BUGTASK-20260718-0005-backend-repair.md"
+  ],
+  "businessChangedFiles": [
+    "apps/api/src/modules/terminal/packaging.controller.spec.ts",
+    "apps/api/src/modules/terminal/packaging.controller.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/BUGTASK-20260718-0005-backend-repair.md"
+  ],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-18T11:31:57.924Z",
-  "passed": false,
-  "role": "execution",
-  "terminalStatus": "HOLD",
-  "reason": "Agent process exited with 1"
+  "checkedAt": "2026-07-18T12:47:55.889Z",
+  "passed": true,
+  "role": "implementation",
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -525,8 +562,22 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": false,
-  "ok": false,
-  "reason": "not an eligible implementation execution"
+  "attempted": true,
+  "ok": true,
+  "files": [
+    "apps/api/src/modules/terminal/packaging.controller.ts",
+    "apps/api/src/modules/terminal/packaging.controller.spec.ts",
+    "docs/ops/BUGTASK-20260718-0005-backend-repair.md"
+  ],
+  "businessFiles": [
+    "apps/api/src/modules/terminal/packaging.controller.ts",
+    "apps/api/src/modules/terminal/packaging.controller.spec.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/BUGTASK-20260718-0005-backend-repair.md"
+  ],
+  "commitHash": "12aada8c2d4c2c2dbfc5b038ee0c772a48d89b47",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a3 12aada8c] fix(api): repair BUG-20260718-0005\n 3 files changed, 84 insertions(+), 1 deletion(-)\n create mode 100644 apps/api/src/modules/terminal/packaging.controller.spec.ts\n create mode 100644 docs/ops/BUGTASK-20260718-0005-backend-repair.md"
 }
 ```
