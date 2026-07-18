@@ -112,6 +112,7 @@ export default function FlockPage() {
   const [farms, setFarms] = useState<FarmRow[]>([]);
   const [houses, setHouses] = useState<HouseRow[]>([]);
   const [breedOptions, setBreedOptions] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const {
     fetchRecords,
     createRecord,
@@ -254,22 +255,37 @@ export default function FlockPage() {
       peak_lay_rate: form.peakLayRate ? Number(form.peakLayRate) : null,
       feed_conversion_ratio: form.feedConvRatio ? Number(form.feedConvRatio) : null
     };
-    let ok: boolean;
-    if (editId) {
-      ok = await updateRecord(editId, payload, 'flock_no', t('ui.更新成功', '更新成功'));
-    } else {
-      const flockNo = 'FK-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(-3).toUpperCase();
-      ok = await createRecord({
-        ...payload,
-        flock_no: flockNo,
-        batch_no: flockNo,
-        initial_qty: Number(form.qty) || 0
-      }, t('ui.新建成功', '新建成功'));
-    }
-    if (ok) {
-      setShowDrawer(false);
-      setEditId(null);
-      load();
+    setSubmitting(true);
+    try {
+      let ok: boolean;
+      const successMessage = editId ? t('ui.更新成功', '更新成功') : t('ui.新建成功', '新建成功');
+      if (editId) {
+        ok = await updateRecord(editId, payload, 'flock_no');
+      } else {
+        const flockNo = 'FK-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(-3).toUpperCase();
+        ok = await createRecord({
+          ...payload,
+          flock_no: flockNo,
+          batch_no: flockNo,
+          initial_qty: Number(form.qty) || 0
+        });
+      }
+      if (ok) {
+        // Refresh before returning control to the list so edited quantities and
+        // other fields are already current when the success dialog is dismissed.
+        await load();
+        setShowDrawer(false);
+        setEditId(null);
+        await showAlert({
+          icon: '✅',
+          type: 'success',
+          title: t('common.success', '操作成功'),
+          message: successMessage,
+          confirmLabel: t('common.ok', '好的')
+        });
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
   const data = statusFilter === 'all' ? flocks : flocks.filter(f => f.status === statusFilter);
@@ -504,7 +520,7 @@ export default function FlockPage() {
           marginTop: 8
         }}>
             <button type="button" style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }} onClick={() => { setShowDrawer(false); setEditId(null); }}>{t('common.cancel', '取消')}</button>
-            <button type="button" style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }} onClick={handleSubmit}>{editId ? t('ui.保存修改', '保存修改') : t('ui.确认建档', '确认建档')}</button>
+            <button type="button" disabled={submitting} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: submitting ? 0.65 : 1 }} onClick={handleSubmit}>{submitting ? t('common.saving', '保存中...') : editId ? t('ui.保存修改', '保存修改') : t('ui.确认建档', '确认建档')}</button>
           </div>
         </div>
       </RightDrawer>
