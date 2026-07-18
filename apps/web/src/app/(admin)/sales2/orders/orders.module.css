@@ -1,0 +1,20 @@
+.tableScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ordersTable {
+  min-width: 920px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

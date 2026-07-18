@@ -11,6 +11,8 @@ import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
+import { normalizeSalesOrdersPage } from '@/lib/sales-orders-response';
+import styles from './orders.module.css';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -252,19 +254,23 @@ export default function SalesV2OrdersPage() {
 
   // ── 数据加载 ────────────────────────────────────────────────────────────────
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (query?: { page?: number; status?: string; keyword?: string }) => {
     setLoading(true);
     setError('');
     try {
+      const requestedPage = query?.page ?? page;
+      const requestedStatus = query?.status ?? filterStatus;
+      const requestedKeyword = query?.keyword ?? keyword;
       const params = new URLSearchParams({
-        page: String(page),
+        page: String(requestedPage),
         limit: '20'
       });
-      if (filterStatus) params.set('status', filterStatus);
-      if (keyword) params.set('keyword', keyword);
+      if (requestedStatus) params.set('status', requestedStatus);
+      if (requestedKeyword) params.set('keyword', requestedKeyword);
       const res = await api<any>('GET', `/api/v2/sales/orders?${params}`);
-      setOrders(res.data ?? []);
-      setTotal(Number(res.total ?? 0));
+      const normalized = normalizeSalesOrdersPage<Order>(res);
+      setOrders(normalized.rows);
+      setTotal(normalized.total);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -401,7 +407,12 @@ export default function SalesV2OrdersPage() {
         qty: '',
         actualUnitPrice: ''
       }]);
-      loadOrders();
+      // A draft must be discoverable immediately even when the user created it
+      // from a later page or while a status/keyword filter was active.
+      setPage(1);
+      setFilterStatus('');
+      setKeyword('');
+      await loadOrders({ page: 1, status: '', keyword: '' });
     } catch (e: any) {
       setActionError(e.message);
     } finally {
@@ -487,7 +498,7 @@ export default function SalesV2OrdersPage() {
           <option value="">{t('ui.全部状态','全部状态')}</option>
           {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
-        <button className={`${s.btnSecondary} ${u.flexRow}`} onClick={loadOrders}>
+        <button className={`${s.btnSecondary} ${u.flexRow}`} onClick={() => void loadOrders()}>
           <RefreshCw size={14} /> {t('ui.刷新','刷新')}
         </button>
         {canCreate && <button className={`${s.btnPrimary} ${u.flexRow}`} onClick={() => setShowCreate(true)}>
@@ -524,7 +535,7 @@ export default function SalesV2OrdersPage() {
         padding: '32px 0'
       }}>
             <EmptyState title={t('ui.暂无订单数据','暂无订单数据')} description={t('ui.当前筛选条件下没有销售订单','当前筛选条件下没有销售订单')} compact />
-          </div> : <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
+          </div> : <div className={styles.tableScroll}><table className={`${s.table} ${styles.ordersTable}`} style={{ tableLayout: "fixed", width: "100%" }}>
           <thead>
             <tr>
               {[t('ui.订单号','订单号'), t('ui.客户','客户'), t('ui.金额','金额'), t('ui.状态','状态'), t('ui.价格','价格'), t('ui.信用','信用'), t('ui.应收','应收'), t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
@@ -607,7 +618,7 @@ export default function SalesV2OrdersPage() {
                 </tr>;
           })}
           </tbody>
-        </table>}
+        </table></div>}
       </div>
 
       {/* 分页 */}
@@ -649,11 +660,7 @@ export default function SalesV2OrdersPage() {
         }}>{actionError}</div>}
 
             {/* 基本信息 */}
-            <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 12
-        }}>
+            <div className={styles.formGrid}>
               <div>
                 <label style={{
               fontSize: 12,
