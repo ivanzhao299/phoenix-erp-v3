@@ -88,7 +88,7 @@ export class PackagingController {
 
   // ── 完成集蛋录入 ─────────────────────────────────────────────────────────────
   @Post('shifts/:id/complete')
-  @RequireMenu('MENU_PKG_MGR', 'C')
+  @RequireMenu('MENU_PKG_MGR', 'C', ['MENU_PACKAGING'])
   completeShift(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.packagingService.completeShift(Number(id), body, req.user?.userId || 0);
   }
