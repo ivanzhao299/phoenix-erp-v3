@@ -1167,7 +1167,7 @@ mobile端每日看板死淘数显示有误
     },
     "localEvidence": {
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192908/BUG-20260718-0001/attachments/01-1784335270783-27f581f7.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-193120/BUG-20260718-0001/attachments/01-1784335270783-27f581f7.png"
       ]
     }
   },
@@ -1205,4 +1205,4 @@ mobile端每日看板死淘数显示有误
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192908/BUG-20260718-0001/attachments/01-1784335270783-27f581f7.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-193120/BUG-20260718-0001/attachments/01-1784335270783-27f581f7.png

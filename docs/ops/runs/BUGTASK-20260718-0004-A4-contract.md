@@ -1162,7 +1162,7 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
     },
     "localEvidence": {
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192908/BUG-20260718-0004/attachments/01-1784344473306-143ce004.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-193120/BUG-20260718-0004/attachments/01-1784344473306-143ce004.png"
       ]
     }
   },
@@ -1199,4 +1199,4 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192908/BUG-20260718-0004/attachments/01-1784344473306-143ce004.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-193120/BUG-20260718-0004/attachments/01-1784344473306-143ce004.png
