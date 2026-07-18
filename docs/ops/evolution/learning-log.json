@@ -1301,5 +1301,57 @@
       "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
       "IMPROVE-QUEUE-CONFLICT-REDUCTION"
     ]
+  },
+  {
+    "at": "2026-07-18T21:55:05.548Z",
+    "event": "phoenix_evolution_planner_apply",
+    "summary": "Generated 6 Phoenix improvement candidate(s).",
+    "improvement_ids": [
+      "IMPROVE-ROUTER-A5-READINESS",
+      "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
+      "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
+      "IMPROVE-BUG-INTAKE-QUEUE-RECOVERY",
+      "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
+      "IMPROVE-QUEUE-CONFLICT-REDUCTION"
+    ]
+  },
+  {
+    "at": "2026-07-18T22:02:43.478Z",
+    "event": "phoenix_evolution_planner_apply",
+    "summary": "Generated 6 Phoenix improvement candidate(s).",
+    "improvement_ids": [
+      "IMPROVE-ROUTER-A5-READINESS",
+      "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
+      "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
+      "IMPROVE-BUG-INTAKE-QUEUE-RECOVERY",
+      "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
+      "IMPROVE-QUEUE-CONFLICT-REDUCTION"
+    ]
+  },
+  {
+    "at": "2026-07-18T22:10:56.064Z",
+    "event": "phoenix_evolution_planner_apply",
+    "summary": "Generated 6 Phoenix improvement candidate(s).",
+    "improvement_ids": [
+      "IMPROVE-ROUTER-A5-READINESS",
+      "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
+      "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
+      "IMPROVE-BUG-INTAKE-QUEUE-RECOVERY",
+      "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
+      "IMPROVE-QUEUE-CONFLICT-REDUCTION"
+    ]
+  },
+  {
+    "at": "2026-07-18T22:18:26.838Z",
+    "event": "phoenix_evolution_planner_apply",
+    "summary": "Generated 6 Phoenix improvement candidate(s).",
+    "improvement_ids": [
+      "IMPROVE-ROUTER-A5-READINESS",
+      "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
+      "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
+      "IMPROVE-BUG-INTAKE-QUEUE-RECOVERY",
+      "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
+      "IMPROVE-QUEUE-CONFLICT-REDUCTION"
+    ]
   }
 ]
