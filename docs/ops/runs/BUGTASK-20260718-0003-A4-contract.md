@@ -1208,7 +1208,7 @@ mobile端存栏日报产蛋数显示错误
     },
     "localEvidence": {
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-193120/BUG-20260718-0003/attachments/01-1784341846630-fa21a2a5.png"
+        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox-controlled-recovery/20260718-200046/BUG-20260718-0003/attachments/01-1784341846630-fa21a2a5.png"
       ]
     }
   },
@@ -1245,4 +1245,4 @@ mobile端存栏日报产蛋数显示错误
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-193120/BUG-20260718-0003/attachments/01-1784341846630-fa21a2a5.png
+- /Users/mac/.phoenix-erp/runs/bug-intake-inbox-controlled-recovery/20260718-200046/BUG-20260718-0003/attachments/01-1784341846630-fa21a2a5.png

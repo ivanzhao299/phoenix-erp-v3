@@ -1,24 +1,24 @@
 {
-  "id": "44",
-  "bugNo": "BUG-20260716-0001",
-  "title": "生产管理-鸡群档案，编辑信息后页面不自动刷新",
+  "id": "46",
+  "bugNo": "BUG-20260716-0003",
+  "title": "销售管理-销售订单-新建订单保存草稿之后，销售订单页面暂无订单数据，查不到订单信息",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
-  "moduleCode": "",
+  "moduleCode": "____-____",
   "assigneeUsername": "",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260716-0001",
+  "repairTaskNo": "BUGTASK-20260716-0003",
   "repairTaskStatus": "HOLD",
-  "route": "/breeding/flock",
+  "route": "/bug-reports",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
-  "createdAt": "2026-07-16T00:58:19.440Z",
-  "updatedAt": "2026-07-18T11:32:06.772Z",
+  "createdAt": "2026-07-16T01:15:17.614Z",
+  "updatedAt": "2026-07-18T12:05:12.367Z",
   "closedAt": null,
   "attachmentCount": 1,
-  "description": "点击编辑修改存栏量后编辑窗口关闭回到鸡群档案页面，存栏量还是修改前的量，必须重新进入页面或者刷新页面数量才会变化。现在要求修改完信息回到页面后数量直接更新，不要手动刷新页面，不止是这一个功能，其他的修改功能也要做到修改后自动更新内容，无需手动刷新。",
-  "url": "https://erp.eggslao.com/breeding/flock",
+  "description": "销售管理-销售订单-新建订单保存草稿之后，销售订单页面暂无订单数据，查不到订单信息",
+  "url": "https://erp.eggslao.com/bug-reports",
   "reporterUserId": "96",
   "roles": [
     "ROLE_ADMIN",
@@ -30,13 +30,13 @@
   "failedRequests": [],
   "attachments": [
     {
-      "sha256": "338fbfe20ea7c18879f2933a77da575cada9a7857252fe8d00d1aaec34af9adf",
-      "fileName": "01-1784163499439-dff7ab8f.png",
+      "sha256": "ee2079d44ef940a94549d3314697583898f839591ee6d216d33bab16de3b3d3f",
+      "fileName": "01-1784164517613-25311848.png",
       "mimeType": "image/png",
-      "sizeBytes": 566576,
-      "originalName": "pasted-screenshot-1784163440362-1.png",
-      "relativePath": "storage/bug-reports/2026/07/16/BUG-20260716-0001/01-1784163499439-dff7ab8f.png",
-      "previewEndpoint": "/api/bug-intake/reports/BUG-20260716-0001/attachments/01-1784163499439-dff7ab8f.png"
+      "sizeBytes": 362762,
+      "originalName": "pasted-screenshot-1784164504940-1.png",
+      "relativePath": "storage/bug-reports/2026/07/16/BUG-20260716-0003/01-1784164517613-25311848.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260716-0003/attachments/01-1784164517613-25311848.png"
     }
   ],
   "clientContext": {
@@ -47,10 +47,10 @@
       "height": 1081
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-16T00:58:19.440Z",
+    "capturedAt": "2026-07-16T01:15:17.614Z",
     "pageSnapshot": {
-      "route": "/breeding/flock",
-      "title": "金凤凰数字运营管理平台",
+      "route": "/bug-reports",
+      "title": "金凤凰 ERP — Phoenix ERP V3",
       "scroll": {
         "x": 0,
         "y": 0
@@ -64,41 +64,24 @@
         "每日工作台",
         "经营仪表盘",
         "生产管理",
-        "🖥️ 进入包装作业台",
-        "养殖总览",
-        "鸡舍管理",
-        "鸡群档案",
-        "日生产日报",
-        "免疫计划",
-        "用药记录",
-        "设备监控",
-        "环境预警",
-        "设备运维",
-        "日产蛋入库",
-        "包装作业",
-        "包装批次",
-        "包装日报",
-        "异常处理",
-        "补打日志",
-        "质检总览",
-        "场端质检",
-        "成品质检",
-        "不合格品处置",
-        "正向追溯",
-        "反向追溯",
-        "质量标准",
         "库存管理",
         "全链追溯",
-        "采购管理",
+        "采购供应中心",
         "销售管理",
         "财务结算中心",
         "股东权益中心",
         "审批中心",
-        "经营分析",
+        "经营分析中心",
         "主数据中心",
-        "系统设置",
+        "系统设置中心",
         "验收试运行",
         "系统运维",
+        "系统健康",
+        "告警中心",
+        "错误日志",
+        "问题反馈",
+        "配置治理",
+        "备份策略",
         "个人中心 / 修改密码",
         "99+",
         "反馈问题",
@@ -113,73 +96,90 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-        "pasted-screenshot-1784163440362-1.png",
+        "pasted-screenshot-1784164504940-1.png",
         "退出",
-        "养殖管理",
-        "/鸡群档案",
-        "/",
-        "·当前共 0 个鸡群批次",
+        "·Bug Intake 台账 · 用户页面提报 + 自动上下文采集 · 共 0 条",
         "·",
-        "共 10 条",
-        "批次号",
-        "养殖场",
-        "鸡舍",
-        "品种",
-        "进雏日期",
-        "鸡龄",
-        "存栏量",
-        "产蛋率",
-        "料蛋比",
-        "目标周数",
-        "预计淘汰日",
-        "状态",
+        "AI 修复流水线运行面板",
+        "失败自动分类、超时自恢复、HOLD 分派候选、告警通知统一看这里。",
+        "队列可见项：15",
+        "执行中：0 · 待 Runner 领取：7",
+        "已有修复产物：8",
+        "可自动恢复：7 · 健康分：96",
+        "只读验证：0 · 代码修复：15",
+        "发布 Gate：0 · 路由复核：0",
+        "最近 Runner 结论：PASS_WITH_CONDITIONS",
+        "最近提交：eb3ed5f1eb9b40129db5009e77d16045edb75050",
+        "当前筛选 15/15",
+        "显示卡点、重试、Agent 产物和 runner 最近回写",
+        "编号",
+        "阶段",
+        "处理分道",
+        "分类：",
+        "重试",
+        "Agent",
+        "Runner",
+        "产物",
+        "阻塞原因",
+        "下一动作",
         "操作",
-        "LPH_MS_F02",
-        "LPH_MENGSAI",
-        "HOUSE_MS_02",
-        "—",
-        "2025/10/6",
-        "40周",
-        "45,595羽",
-        "80周",
-        "产蛋期",
-        "FK-DEBUG-001",
-        "F-DEBUG",
-        "H-DEBUG-A01",
-        "0周",
-        "4,800羽",
-        "育雏/育成期",
-        "FK-MR8VGZS4M0Q",
-        "孟赛蛋鸡场",
-        "HOUSE_CS_02",
-        "科宝500",
-        "2026/7/5",
-        "1周",
-        "198羽",
-        "2027/7/5",
-        "FK-MR8TWK22H4Y",
-        "HOUSE_CS_01",
-        "AA+",
-        "2026/7/6",
-        "800羽",
-        "2027/7/6",
-        "FK-MR8U0RUI9PU",
-        "京红一号",
-        "100羽",
-        "2028/7/5",
-        "高峰期",
-        "FK-MRMS8EKGNTU",
-        "测试养殖场",
-        "CS0716",
-        "海兰褐",
-        "2026/7/16",
-        "500羽",
-        "LPH_MS_F03",
-        "HOUSE_MS_03",
-        "2025/7/6",
-        "53周",
-        "37,336羽",
-        "LPH_MS_F04"
+        "BUG-20260705-0001 验收试运行里面试运行项目页面奇丑无比",
+        "FIX_READY_FOR_UAT 673 分钟前更新",
+        "代码修复 需 Gate 后重派",
+        "PG_SQL 92%",
+        "0 失败尝试 0 重派 3",
+        "BugIntakeLocalRunner A4-Frontend-UAT-Smoke / A1-CI-Runtime-Gate",
+        "PASS_WITH_CONDITIONS eb3ed5f1eb9b40129db5009e77d16045edb75050",
+        "已回写 3 个文件",
+        "常规处理 未发现阻塞",
+        "无阻塞，等待下一轮处理 Technical release evidence passed; administrator performs business acceptance before resolving.",
+        "重新派发原任务 重算计划并重新派发",
+        "BUG-20260705-0003 驾驶舱卡片问题",
+        "FRONTEND_RENDER 82%",
+        "0 失败尝试 0 重派 2",
+        "BugIntakeLocalRunner A3-Backend-Critical-Path / A4-Frontend-UAT-Smoke / A1-CI-Runtime-Gate",
+        "BUG-20260707-0001 财务结算中心/资金账户，没有账户建档权限的账号也可以新建账户",
+        "BugIntakeLocalRunner A2-Security-Regression-Gate / A3-Backend-Critical-Path / A4-Frontend-UAT-Smoke / A1-CI-Runtime-Gate",
+        "已回写 5 个文件",
+        "BUG-20260707-0009 养殖场总览-药品库存，今日入库提交后，库存总览还是0",
+        "RBAC_403 90%",
+        "0 失败尝试 0 重派 6",
+        "BugIntakeLocalRunner A3-Backend-Critical-Path / A1-CI-Runtime-Gate",
+        "BUG-20260707-0010 我的待办中有审批任务，但是上方显示0条",
+        "0 失败尝试 0 重派 7",
+        "BugIntakeLocalRunner A2-Security-Regression-Gate / A3-Backend-Critical-Path / A4-Frontend-UAT-Smoke / A5-Data-Readiness / A1-CI-Runtime-Gate",
+        "已回写 4 个文件",
+        "BUG-20260708-0001 新建入库单的界面字段跟库存查询的字段不一致",
+        "0 失败尝试 0 重派 5",
+        "BUG-20260710-0001 运营工作台页面按钮跳转错误",
+        "API_5XX 88%",
+        "0 失败尝试 0 重派 11",
+        "BUG-20260715-0002 入库-库存查询、出库链路闭环问题",
+        "0 失败尝试 0 重派 0",
+        "BUG-20260709-0004 审批中心-我的待办，审批待办中有一条未审批的记录，但是上方显示共0条",
+        "AGENT_APPROVED 3 分钟前更新",
+        "0 失败尝试 0 重派 10",
+        "A2-Security-Regression-Gate A2-Security-Regression-Gate / A3-Backend-Critical-Path / A4-Frontend-UAT-Smoke / A5-Data-Readiness / A1-CI-Runtime-Gate",
+        "— —",
+        "已回写 0 个文件",
+        "无阻塞，等待下一轮处理 等待本地 runner 领取任务",
+        "BUG-20260716-0002 生产管理-养殖场总览-药品库存，今日入库点击保存后报错“HTTP 500”，要求点击保存不报错",
+        "AGENT_APPROVED 6 分钟前更新",
+        "待回写 0 个文件",
+        "可自动恢复 已批准，等待本地常驻 runner 领取",
+        "保持本地 runner 常驻；必要时运行自动分类/恢复 等待本地 runner 领取任务",
+        "BUG-20260713-0003 采购管理-付款管理,点击确认付款报错“AP 台账 ID=11不存在”",
+        "AGENT_APPROVED 10 分钟前更新",
+        "0 失败尝试 0 重派 4",
+        "BUG-20260713-0004 库存管理-库存查询的仓库显示代码，要求显示对应的中文名字",
+        "AGENT_APPROVED 11 分钟前更新",
+        "BUG-20260713-0006 库位管理，报错“[400] 「wms_locations」存在重复值，请检查后重试”",
+        "AGENT_APPROVED 12 分钟前更新",
+        "BUG-20260715-0001 运营工作台的当前总存栏与养殖场总览的存栏总数不一致",
+        "AGENT_APPROVED 13 分钟前更新",
+        "BUG-20260716-0001 生产管理-鸡群档案，编辑信息后页面不自动刷新",
+        "AGENT_APPROVED 16 分钟前更新",
+        "标题"
       ],
       "interactiveElements": [
         {
@@ -187,7 +187,7 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
             "y": 118
           },
@@ -199,7 +199,7 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
             "y": 156
           },
@@ -211,7 +211,7 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
             "y": 194
           },
@@ -220,10 +220,10 @@
         },
         {
           "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
             "y": 232
           },
@@ -231,289 +231,13 @@
           "disabled": false
         },
         {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 37,
-            "w": 199,
-            "x": 8,
-            "y": 276
-          },
-          "label": "🖥️ 进入包装作业台",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 315
-          },
-          "label": "养殖总览",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 347
-          },
-          "label": "鸡舍管理",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 379
-          },
-          "label": "鸡群档案",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 411
-          },
-          "label": "日生产日报",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 443
-          },
-          "label": "免疫计划",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 475
-          },
-          "label": "用药记录",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 507
-          },
-          "label": "设备监控",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 539
-          },
-          "label": "环境预警",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 571
-          },
-          "label": "设备运维",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 603
-          },
-          "label": "日产蛋入库",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 635
-          },
-          "label": "包装作业",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 667
-          },
-          "label": "包装批次",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 699
-          },
-          "label": "包装日报",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 731
-          },
-          "label": "异常处理",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 763
-          },
-          "label": "补打日志",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 795
-          },
-          "label": "质检总览",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 827
-          },
-          "label": "场端质检",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 859
-          },
-          "label": "成品质检",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 891
-          },
-          "label": "不合格品处置",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 923
-          },
-          "label": "正向追溯",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 955
-          },
-          "label": "反向追溯",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 987
-          },
-          "label": "质量标准",
-          "disabled": false
-        },
-        {
           "tag": "div",
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1019
+            "y": 270
           },
           "label": "库存管理",
           "disabled": false
@@ -523,9 +247,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1057
+            "y": 308
           },
           "label": "全链追溯",
           "disabled": false
@@ -535,11 +259,11 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1095
+            "y": 346
           },
-          "label": "采购管理",
+          "label": "采购供应中心",
           "disabled": false
         },
         {
@@ -547,9 +271,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1133
+            "y": 384
           },
           "label": "销售管理",
           "disabled": false
@@ -559,9 +283,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1171
+            "y": 422
           },
           "label": "财务结算中心",
           "disabled": false
@@ -571,9 +295,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1209
+            "y": 460
           },
           "label": "股东权益中心",
           "disabled": false
@@ -583,9 +307,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1247
+            "y": 498
           },
           "label": "审批中心",
           "disabled": false
@@ -595,11 +319,11 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1285
+            "y": 536
           },
-          "label": "经营分析",
+          "label": "经营分析中心",
           "disabled": false
         },
         {
@@ -607,9 +331,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1323
+            "y": 574
           },
           "label": "主数据中心",
           "disabled": false
@@ -619,11 +343,11 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1361
+            "y": 612
           },
-          "label": "系统设置",
+          "label": "系统设置中心",
           "disabled": false
         },
         {
@@ -631,23 +355,95 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1399
+            "y": 650
           },
           "label": "验收试运行",
           "disabled": false
         },
         {
           "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
           "rect": {
             "h": 38,
-            "w": 215,
+            "w": 220,
             "x": 0,
-            "y": 1437
+            "y": 688
           },
           "label": "系统运维",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 220,
+            "x": 0,
+            "y": 726
+          },
+          "label": "系统健康",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 220,
+            "x": 0,
+            "y": 758
+          },
+          "label": "告警中心",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 220,
+            "x": 0,
+            "y": 790
+          },
+          "label": "错误日志",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "rect": {
+            "h": 32,
+            "w": 220,
+            "x": 0,
+            "y": 822
+          },
+          "label": "问题反馈",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 220,
+            "x": 0,
+            "y": 854
+          },
+          "label": "配置治理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 220,
+            "x": 0,
+            "y": 886
+          },
+          "label": "备份策略",
           "disabled": false
         },
         {
@@ -843,110 +639,530 @@
           "disabled": false
         },
         {
-          "tag": "button",
+          "tag": "select",
           "path": "",
           "rect": {
-            "h": 33,
-            "w": 134,
-            "x": 1842,
-            "y": 90
+            "h": 36,
+            "w": 158,
+            "x": 1482,
+            "y": -2354
           },
-          "label": "新建鸡群档案",
+          "label": "全部状态 OPEN TRIAGED IN_PROGRESS RESOLVED CLOSED REJECTED",
           "disabled": false
         },
         {
           "tag": "input",
-          "path": ".phx-input",
+          "path": "",
+          "rect": {
+            "h": 39,
+            "w": 240,
+            "x": 1648,
+            "y": -2356
+          },
+          "label": "搜索编号 / 标题 / 页面 / 用户",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 36,
+            "w": 75,
+            "x": 1896,
+            "y": -2354
+          },
+          "label": "刷新",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
           "rect": {
             "h": 38,
-            "w": 300,
-            "x": 261,
-            "y": 160
+            "w": 103,
+            "x": 1658,
+            "y": -2272
           },
-          "label": "搜索批次号农场",
+          "label": "刷新面板",
           "disabled": false
         },
         {
           "tag": "button",
           "path": "",
           "rect": {
-            "h": 30,
-            "w": 53,
-            "x": 573,
-            "y": 164
+            "h": 38,
+            "w": 185,
+            "x": 1769,
+            "y": -2272
           },
-          "label": "全部",
+          "label": "自动分类 / 恢复 / 分派",
           "disabled": false
         },
         {
           "tag": "button",
           "path": "",
           "rect": {
-            "h": 30,
-            "w": 65,
-            "x": 632,
-            "y": 164
+            "h": 29,
+            "w": 68,
+            "x": 542,
+            "y": -1724
           },
-          "label": "产蛋期",
+          "label": "全部 · 15",
           "disabled": false
         },
         {
           "tag": "button",
           "path": "",
           "rect": {
-            "h": 30,
-            "w": 65,
-            "x": 703,
-            "y": 164
+            "h": 29,
+            "w": 87,
+            "x": 618,
+            "y": -1724
           },
-          "label": "育成期",
+          "label": "只读验证 · 0",
           "disabled": false
         },
         {
           "tag": "button",
           "path": "",
           "rect": {
-            "h": 30,
-            "w": 65,
-            "x": 774,
-            "y": 164
+            "h": 29,
+            "w": 92,
+            "x": 713,
+            "y": -1724
           },
-          "label": "高峰期",
+          "label": "代码修复 · 15",
           "disabled": false
         },
         {
           "tag": "button",
           "path": "",
           "rect": {
-            "h": 30,
-            "w": 65,
-            "x": 846,
-            "y": 164
+            "h": 29,
+            "w": 93,
+            "x": 813,
+            "y": -1724
           },
-          "label": "已淘汰",
+          "label": "发布 Gate · 0",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 87,
+            "x": 914,
+            "y": -1724
+          },
+          "label": "路由复核 · 0",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 86,
+            "x": 1009,
+            "y": -1724
+          },
+          "label": "可自恢复 · 7",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 73,
+            "x": 1103,
+            "y": -1724
+          },
+          "label": "HOLD · 0",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -1607
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -1572
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -1467
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -1431
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -1326
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -1291
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -1185
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -1150
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -1045
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -1010
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -904
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -869
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -764
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -728
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -623
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -588
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -497
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -462
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -380
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -345
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -258
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -222
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -135
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": -100
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": -13
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": 23
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": 110
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": 145
+          },
+          "label": "重算计划并重新派发",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 29,
+            "w": 103,
+            "x": 1823,
+            "y": 233
+          },
+          "label": "重新派发原任务",
+          "disabled": true
+        },
+        {
+          "tag": "button",
+          "path": "",
+          "rect": {
+            "h": 47,
+            "w": 113,
+            "x": 1823,
+            "y": 268
+          },
+          "label": "重算计划并重新派发",
           "disabled": false
         }
       ]
     },
     "devicePixelRatio": 1.600000023841858
   },
-  "resolutionNote": "点击编辑修改存栏量后编辑窗口关闭回到鸡群档案页面，存栏量还是修改前的量，必须重新进入页面或者刷新页面数量才会变化。",
+  "resolutionNote": "销售管理-销售订单-新建订单保存草稿之后，销售订单页面暂无订单数据，查不到订单信息",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/breeding/flock",
-    "bugNo": "BUG-20260716-0001",
-    "route": "/breeding/flock",
-    "title": "生产管理-鸡群档案，编辑信息后页面不自动刷新",
-    "taskNo": "BUGTASK-20260716-0001",
+    "url": "https://erp.eggslao.com/bug-reports",
+    "bugNo": "BUG-20260716-0003",
+    "route": "/bug-reports",
+    "title": "销售管理-销售订单-新建订单保存草稿之后，销售订单页面暂无订单数据，查不到订单信息",
+    "taskNo": "BUGTASK-20260716-0003",
     "context": {
       "attachments": [
         {
-          "sha256": "338fbfe20ea7c18879f2933a77da575cada9a7857252fe8d00d1aaec34af9adf",
-          "fileName": "01-1784163499439-dff7ab8f.png",
+          "sha256": "ee2079d44ef940a94549d3314697583898f839591ee6d216d33bab16de3b3d3f",
+          "fileName": "01-1784164517613-25311848.png",
           "mimeType": "image/png",
-          "sizeBytes": 566576,
-          "originalName": "pasted-screenshot-1784163440362-1.png",
-          "relativePath": "storage/bug-reports/2026/07/16/BUG-20260716-0001/01-1784163499439-dff7ab8f.png",
-          "previewEndpoint": "/api/bug-intake/reports/BUG-20260716-0001/attachments/01-1784163499439-dff7ab8f.png"
+          "sizeBytes": 362762,
+          "originalName": "pasted-screenshot-1784164504940-1.png",
+          "relativePath": "storage/bug-reports/2026/07/16/BUG-20260716-0003/01-1784164517613-25311848.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260716-0003/attachments/01-1784164517613-25311848.png"
         }
       ],
       "clientContext": {
@@ -957,10 +1173,10 @@
           "height": 1081
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-16T00:58:19.440Z",
+        "capturedAt": "2026-07-16T01:15:17.614Z",
         "pageSnapshot": {
-          "route": "/breeding/flock",
-          "title": "金凤凰数字运营管理平台",
+          "route": "/bug-reports",
+          "title": "金凤凰 ERP — Phoenix ERP V3",
           "scroll": {
             "x": 0,
             "y": 0
@@ -974,41 +1190,24 @@
             "每日工作台",
             "经营仪表盘",
             "生产管理",
-            "🖥️ 进入包装作业台",
-            "养殖总览",
-            "鸡舍管理",
-            "鸡群档案",
-            "日生产日报",
-            "免疫计划",
-            "用药记录",
-            "设备监控",
-            "环境预警",
-            "设备运维",
-            "日产蛋入库",
-            "包装作业",
-            "包装批次",
-            "包装日报",
-            "异常处理",
-            "补打日志",
-            "质检总览",
-            "场端质检",
-            "成品质检",
-            "不合格品处置",
-            "正向追溯",
-            "反向追溯",
-            "质量标准",
             "库存管理",
             "全链追溯",
-            "采购管理",
+            "采购供应中心",
             "销售管理",
             "财务结算中心",
             "股东权益中心",
             "审批中心",
-            "经营分析",
+            "经营分析中心",
             "主数据中心",
-            "系统设置",
+            "系统设置中心",
             "验收试运行",
             "系统运维",
+            "系统健康",
+            "告警中心",
+            "错误日志",
+            "问题反馈",
+            "配置治理",
+            "备份策略",
             "个人中心 / 修改密码",
             "99+",
             "反馈问题",
@@ -1023,73 +1222,90 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-            "pasted-screenshot-1784163440362-1.png",
+            "pasted-screenshot-1784164504940-1.png",
             "退出",
-            "养殖管理",
-            "/鸡群档案",
-            "/",
-            "·当前共 0 个鸡群批次",
+            "·Bug Intake 台账 · 用户页面提报 + 自动上下文采集 · 共 0 条",
             "·",
-            "共 10 条",
-            "批次号",
-            "养殖场",
-            "鸡舍",
-            "品种",
-            "进雏日期",
-            "鸡龄",
-            "存栏量",
-            "产蛋率",
-            "料蛋比",
-            "目标周数",
-            "预计淘汰日",
-            "状态",
+            "AI 修复流水线运行面板",
+            "失败自动分类、超时自恢复、HOLD 分派候选、告警通知统一看这里。",
+            "队列可见项：15",
+            "执行中：0 · 待 Runner 领取：7",
+            "已有修复产物：8",
+            "可自动恢复：7 · 健康分：96",
+            "只读验证：0 · 代码修复：15",
+            "发布 Gate：0 · 路由复核：0",
+            "最近 Runner 结论：PASS_WITH_CONDITIONS",
+            "最近提交：eb3ed5f1eb9b40129db5009e77d16045edb75050",
+            "当前筛选 15/15",
+            "显示卡点、重试、Agent 产物和 runner 最近回写",
+            "编号",
+            "阶段",
+            "处理分道",
+            "分类：",
+            "重试",
+            "Agent",
+            "Runner",
+            "产物",
+            "阻塞原因",
+            "下一动作",
             "操作",
-            "LPH_MS_F02",
-            "LPH_MENGSAI",
-            "HOUSE_MS_02",
-            "—",
-            "2025/10/6",
-            "40周",
-            "45,595羽",
-            "80周",
-            "产蛋期",
-            "FK-DEBUG-001",
-            "F-DEBUG",
-            "H-DEBUG-A01",
-            "0周",
-            "4,800羽",
-            "育雏/育成期",
-            "FK-MR8VGZS4M0Q",
-            "孟赛蛋鸡场",
-            "HOUSE_CS_02",
-            "科宝500",
-            "2026/7/5",
-            "1周",
-            "198羽",
-            "2027/7/5",
-            "FK-MR8TWK22H4Y",
-            "HOUSE_CS_01",
-            "AA+",
-            "2026/7/6",
-            "800羽",
-            "2027/7/6",
-            "FK-MR8U0RUI9PU",
-            "京红一号",
-            "100羽",
-            "2028/7/5",
-            "高峰期",
-            "FK-MRMS8EKGNTU",
-            "测试养殖场",
-            "CS0716",
-            "海兰褐",
-            "2026/7/16",
-            "500羽",
-            "LPH_MS_F03",
-            "HOUSE_MS_03",
-            "2025/7/6",
-            "53周",
-            "37,336羽",
-            "LPH_MS_F04"
+            "BUG-20260705-0001 验收试运行里面试运行项目页面奇丑无比",
+            "FIX_READY_FOR_UAT 673 分钟前更新",
+            "代码修复 需 Gate 后重派",
+            "PG_SQL 92%",
+            "0 失败尝试 0 重派 3",
+            "BugIntakeLocalRunner A4-Frontend-UAT-Smoke / A1-CI-Runtime-Gate",
+            "PASS_WITH_CONDITIONS eb3ed5f1eb9b40129db5009e77d16045edb75050",
+            "已回写 3 个文件",
+            "常规处理 未发现阻塞",
+            "无阻塞，等待下一轮处理 Technical release evidence passed; administrator performs business acceptance before resolving.",
+            "重新派发原任务 重算计划并重新派发",
+            "BUG-20260705-0003 驾驶舱卡片问题",
+            "FRONTEND_RENDER 82%",
+            "0 失败尝试 0 重派 2",
+            "BugIntakeLocalRunner A3-Backend-Critical-Path / A4-Frontend-UAT-Smoke / A1-CI-Runtime-Gate",
+            "BUG-20260707-0001 财务结算中心/资金账户，没有账户建档权限的账号也可以新建账户",
+            "BugIntakeLocalRunner A2-Security-Regression-Gate / A3-Backend-Critical-Path / A4-Frontend-UAT-Smoke / A1-CI-Runtime-Gate",
+            "已回写 5 个文件",
+            "BUG-20260707-0009 养殖场总览-药品库存，今日入库提交后，库存总览还是0",
+            "RBAC_403 90%",
+            "0 失败尝试 0 重派 6",
+            "BugIntakeLocalRunner A3-Backend-Critical-Path / A1-CI-Runtime-Gate",
+            "BUG-20260707-0010 我的待办中有审批任务，但是上方显示0条",
+            "0 失败尝试 0 重派 7",
+            "BugIntakeLocalRunner A2-Security-Regression-Gate / A3-Backend-Critical-Path / A4-Frontend-UAT-Smoke / A5-Data-Readiness / A1-CI-Runtime-Gate",
+            "已回写 4 个文件",
+            "BUG-20260708-0001 新建入库单的界面字段跟库存查询的字段不一致",
+            "0 失败尝试 0 重派 5",
+            "BUG-20260710-0001 运营工作台页面按钮跳转错误",
+            "API_5XX 88%",
+            "0 失败尝试 0 重派 11",
+            "BUG-20260715-0002 入库-库存查询、出库链路闭环问题",
+            "0 失败尝试 0 重派 0",
+            "BUG-20260709-0004 审批中心-我的待办，审批待办中有一条未审批的记录，但是上方显示共0条",
+            "AGENT_APPROVED 3 分钟前更新",
+            "0 失败尝试 0 重派 10",
+            "A2-Security-Regression-Gate A2-Security-Regression-Gate / A3-Backend-Critical-Path / A4-Frontend-UAT-Smoke / A5-Data-Readiness / A1-CI-Runtime-Gate",
+            "— —",
+            "已回写 0 个文件",
+            "无阻塞，等待下一轮处理 等待本地 runner 领取任务",
+            "BUG-20260716-0002 生产管理-养殖场总览-药品库存，今日入库点击保存后报错“HTTP 500”，要求点击保存不报错",
+            "AGENT_APPROVED 6 分钟前更新",
+            "待回写 0 个文件",
+            "可自动恢复 已批准，等待本地常驻 runner 领取",
+            "保持本地 runner 常驻；必要时运行自动分类/恢复 等待本地 runner 领取任务",
+            "BUG-20260713-0003 采购管理-付款管理,点击确认付款报错“AP 台账 ID=11不存在”",
+            "AGENT_APPROVED 10 分钟前更新",
+            "0 失败尝试 0 重派 4",
+            "BUG-20260713-0004 库存管理-库存查询的仓库显示代码，要求显示对应的中文名字",
+            "AGENT_APPROVED 11 分钟前更新",
+            "BUG-20260713-0006 库位管理，报错“[400] 「wms_locations」存在重复值，请检查后重试”",
+            "AGENT_APPROVED 12 分钟前更新",
+            "BUG-20260715-0001 运营工作台的当前总存栏与养殖场总览的存栏总数不一致",
+            "AGENT_APPROVED 13 分钟前更新",
+            "BUG-20260716-0001 生产管理-鸡群档案，编辑信息后页面不自动刷新",
+            "AGENT_APPROVED 16 分钟前更新",
+            "标题"
           ],
           "interactiveElements": [
             {
@@ -1097,7 +1313,7 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
                 "y": 118
               },
@@ -1109,7 +1325,7 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
                 "y": 156
               },
@@ -1121,7 +1337,7 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
                 "y": 194
               },
@@ -1130,10 +1346,10 @@
             },
             {
               "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
                 "y": 232
               },
@@ -1141,289 +1357,13 @@
               "disabled": false
             },
             {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 37,
-                "w": 199,
-                "x": 8,
-                "y": 276
-              },
-              "label": "🖥️ 进入包装作业台",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 315
-              },
-              "label": "养殖总览",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 347
-              },
-              "label": "鸡舍管理",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 379
-              },
-              "label": "鸡群档案",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 411
-              },
-              "label": "日生产日报",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 443
-              },
-              "label": "免疫计划",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 475
-              },
-              "label": "用药记录",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 507
-              },
-              "label": "设备监控",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 539
-              },
-              "label": "环境预警",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 571
-              },
-              "label": "设备运维",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 603
-              },
-              "label": "日产蛋入库",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 635
-              },
-              "label": "包装作业",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 667
-              },
-              "label": "包装批次",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 699
-              },
-              "label": "包装日报",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 731
-              },
-              "label": "异常处理",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 763
-              },
-              "label": "补打日志",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 795
-              },
-              "label": "质检总览",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 827
-              },
-              "label": "场端质检",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 859
-              },
-              "label": "成品质检",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 891
-              },
-              "label": "不合格品处置",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 923
-              },
-              "label": "正向追溯",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 955
-              },
-              "label": "反向追溯",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 987
-              },
-              "label": "质量标准",
-              "disabled": false
-            },
-            {
               "tag": "div",
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1019
+                "y": 270
               },
               "label": "库存管理",
               "disabled": false
@@ -1433,9 +1373,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1057
+                "y": 308
               },
               "label": "全链追溯",
               "disabled": false
@@ -1445,11 +1385,11 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1095
+                "y": 346
               },
-              "label": "采购管理",
+              "label": "采购供应中心",
               "disabled": false
             },
             {
@@ -1457,9 +1397,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1133
+                "y": 384
               },
               "label": "销售管理",
               "disabled": false
@@ -1469,9 +1409,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1171
+                "y": 422
               },
               "label": "财务结算中心",
               "disabled": false
@@ -1481,9 +1421,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1209
+                "y": 460
               },
               "label": "股东权益中心",
               "disabled": false
@@ -1493,9 +1433,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1247
+                "y": 498
               },
               "label": "审批中心",
               "disabled": false
@@ -1505,11 +1445,11 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1285
+                "y": 536
               },
-              "label": "经营分析",
+              "label": "经营分析中心",
               "disabled": false
             },
             {
@@ -1517,9 +1457,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1323
+                "y": 574
               },
               "label": "主数据中心",
               "disabled": false
@@ -1529,11 +1469,11 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1361
+                "y": 612
               },
-              "label": "系统设置",
+              "label": "系统设置中心",
               "disabled": false
             },
             {
@@ -1541,23 +1481,95 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1399
+                "y": 650
               },
               "label": "验收试运行",
               "disabled": false
             },
             {
               "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
               "rect": {
                 "h": 38,
-                "w": 215,
+                "w": 220,
                 "x": 0,
-                "y": 1437
+                "y": 688
               },
               "label": "系统运维",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 220,
+                "x": 0,
+                "y": 726
+              },
+              "label": "系统健康",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 220,
+                "x": 0,
+                "y": 758
+              },
+              "label": "告警中心",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 220,
+                "x": 0,
+                "y": 790
+              },
+              "label": "错误日志",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "rect": {
+                "h": 32,
+                "w": 220,
+                "x": 0,
+                "y": 822
+              },
+              "label": "问题反馈",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 220,
+                "x": 0,
+                "y": 854
+              },
+              "label": "配置治理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 220,
+                "x": 0,
+                "y": 886
+              },
+              "label": "备份策略",
               "disabled": false
             },
             {
@@ -1753,87 +1765,507 @@
               "disabled": false
             },
             {
-              "tag": "button",
+              "tag": "select",
               "path": "",
               "rect": {
-                "h": 33,
-                "w": 134,
-                "x": 1842,
-                "y": 90
+                "h": 36,
+                "w": 158,
+                "x": 1482,
+                "y": -2354
               },
-              "label": "新建鸡群档案",
+              "label": "全部状态 OPEN TRIAGED IN_PROGRESS RESOLVED CLOSED REJECTED",
               "disabled": false
             },
             {
               "tag": "input",
-              "path": ".phx-input",
+              "path": "",
+              "rect": {
+                "h": 39,
+                "w": 240,
+                "x": 1648,
+                "y": -2356
+              },
+              "label": "搜索编号 / 标题 / 页面 / 用户",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 36,
+                "w": 75,
+                "x": 1896,
+                "y": -2354
+              },
+              "label": "刷新",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
               "rect": {
                 "h": 38,
-                "w": 300,
-                "x": 261,
-                "y": 160
+                "w": 103,
+                "x": 1658,
+                "y": -2272
               },
-              "label": "搜索批次号农场",
+              "label": "刷新面板",
               "disabled": false
             },
             {
               "tag": "button",
               "path": "",
               "rect": {
-                "h": 30,
-                "w": 53,
-                "x": 573,
-                "y": 164
+                "h": 38,
+                "w": 185,
+                "x": 1769,
+                "y": -2272
               },
-              "label": "全部",
+              "label": "自动分类 / 恢复 / 分派",
               "disabled": false
             },
             {
               "tag": "button",
               "path": "",
               "rect": {
-                "h": 30,
-                "w": 65,
-                "x": 632,
-                "y": 164
+                "h": 29,
+                "w": 68,
+                "x": 542,
+                "y": -1724
               },
-              "label": "产蛋期",
+              "label": "全部 · 15",
               "disabled": false
             },
             {
               "tag": "button",
               "path": "",
               "rect": {
-                "h": 30,
-                "w": 65,
-                "x": 703,
-                "y": 164
+                "h": 29,
+                "w": 87,
+                "x": 618,
+                "y": -1724
               },
-              "label": "育成期",
+              "label": "只读验证 · 0",
               "disabled": false
             },
             {
               "tag": "button",
               "path": "",
               "rect": {
-                "h": 30,
-                "w": 65,
-                "x": 774,
-                "y": 164
+                "h": 29,
+                "w": 92,
+                "x": 713,
+                "y": -1724
               },
-              "label": "高峰期",
+              "label": "代码修复 · 15",
               "disabled": false
             },
             {
               "tag": "button",
               "path": "",
               "rect": {
-                "h": 30,
-                "w": 65,
-                "x": 846,
-                "y": 164
+                "h": 29,
+                "w": 93,
+                "x": 813,
+                "y": -1724
               },
-              "label": "已淘汰",
+              "label": "发布 Gate · 0",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 87,
+                "x": 914,
+                "y": -1724
+              },
+              "label": "路由复核 · 0",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 86,
+                "x": 1009,
+                "y": -1724
+              },
+              "label": "可自恢复 · 7",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 73,
+                "x": 1103,
+                "y": -1724
+              },
+              "label": "HOLD · 0",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -1607
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -1572
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -1467
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -1431
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -1326
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -1291
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -1185
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -1150
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -1045
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -1010
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -904
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -869
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -764
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -728
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -623
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -588
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -497
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -462
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -380
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -345
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -258
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -222
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -135
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": -100
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": -13
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": 23
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": 110
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": 145
+              },
+              "label": "重算计划并重新派发",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 29,
+                "w": 103,
+                "x": 1823,
+                "y": 233
+              },
+              "label": "重新派发原任务",
+              "disabled": true
+            },
+            {
+              "tag": "button",
+              "path": "",
+              "rect": {
+                "h": 47,
+                "w": 113,
+                "x": 1823,
+                "y": 268
+              },
+              "label": "重算计划并重新派发",
               "disabled": false
             }
           ]
@@ -1856,7 +2288,7 @@
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260716-0001",
+      "source_bug_no": "BUG-20260716-0003",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
@@ -1871,7 +2303,7 @@
           "agent": "A3-Backend-Critical-Path",
           "reasons": [
             "backend/API/error route matched",
-            "failure classification API_5XX"
+            "failure classification PG_SQL"
           ],
           "execution_mode": "dry-run-first",
           "approval_required": true
@@ -1895,7 +2327,7 @@
         {
           "agent": "A1-CI-Runtime-Gate",
           "reasons": [
-            "failure classification API_5XX",
+            "failure classification PG_SQL",
             "required validation after repair"
           ],
           "execution_mode": "dry-run-first",
@@ -1909,56 +2341,78 @@
         "A5-Data-Readiness",
         "A1-CI-Runtime-Gate"
       ],
-      "failure_category": "API_5XX",
+      "failure_category": "PG_SQL",
       "hard_constraints": [
         "no automatic production deploy",
         "no automatic DB write",
         "no automatic migration",
         "human approval required before code repair execution"
       ],
-      "route_confidence": 0.88,
+      "route_confidence": 0.92,
       "source_repair_task_no": ""
     },
-    "createdAt": "2026-07-16T00:58:57.401Z",
+    "createdAt": "2026-07-16T01:15:35.901Z",
     "createdBy": "admin",
-    "moduleCode": "",
+    "moduleCode": "____-____",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260716-0001-A4",
+        "taskId": "BUGTASK-20260716-0003-A4",
         "agent": "A4-Frontend-UAT-Smoke",
         "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260716-0001-A4-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [],
+        "resultFile": "docs/ops/runs/BUGTASK-20260716-0003-A4-worker-log.md",
+        "commitHash": "6606d45144c39a97ca7621378e80f8bb62027023",
+        "changedFiles": [
+          "apps/web/src/__tests__/sales-orders-response.test.ts",
+          "apps/web/src/__tests__/sales-orders-responsive.test.ts",
+          "apps/web/src/app/(admin)/sales2/orders/orders.module.css",
+          "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+          "apps/web/src/lib/sales-orders-response.ts",
+          "docs/ops/BUGTASK-20260716-0003-a4-frontend-report.md"
+        ],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
             "agent": "A4-Frontend-UAT-Smoke",
-            "exitCode": 1,
-            "conclusion": "",
-            "responseChars": 0,
+            "exitCode": 0,
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "responseChars": 511,
             "beforeHead": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
-            "afterHead": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
-            "commitHash": "",
-            "changedFiles": [],
-            "businessChangedFiles": [],
-            "reportFiles": [],
+            "afterHead": "6606d45144c39a97ca7621378e80f8bb62027023",
+            "commitHash": "6606d45144c39a97ca7621378e80f8bb62027023",
+            "changedFiles": [
+              "apps/web/src/__tests__/sales-orders-response.test.ts",
+              "apps/web/src/__tests__/sales-orders-responsive.test.ts",
+              "apps/web/src/app/(admin)/sales2/orders/orders.module.css",
+              "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+              "apps/web/src/lib/sales-orders-response.ts",
+              "docs/ops/BUGTASK-20260716-0003-a4-frontend-report.md"
+            ],
+            "businessChangedFiles": [
+              "apps/web/src/__tests__/sales-orders-response.test.ts",
+              "apps/web/src/__tests__/sales-orders-responsive.test.ts",
+              "apps/web/src/app/(admin)/sales2/orders/orders.module.css",
+              "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+              "apps/web/src/lib/sales-orders-response.ts"
+            ],
+            "reportFiles": [
+              "docs/ops/BUGTASK-20260716-0003-a4-frontend-report.md"
+            ],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-18T11:32:05.221Z",
-            "passed": false,
-            "role": "execution",
-            "terminalStatus": "HOLD",
-            "reason": "Agent process exited with 1"
+            "checkedAt": "2026-07-18T12:05:10.603Z",
+            "passed": true,
+            "role": "implementation",
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
+            "reason": "Business change, task report, commit, and conclusion are present"
           },
-          "queueStatus": "HOLD",
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260716-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260716-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260716-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260716-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260716-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 26249\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T11-32-05-200Z-A4-Frontend-UAT-Smoke.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nmodel: gpt-5.6-sol\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: low\nreasoning summaries: none\nsession id: 019f74ff-5c42-7b41-abfb-02fe277582e4\n--------\nuser\n# Base Agent Prompt\n\n# Bug Intake A4 Frontend Repair Prompt\n\n## Identity\n\nYou are `A4-Frontend-UIUX-UAT` running on the dedicated Bug Intake repair branch.\n\nWorktree: `/Users/mac/phoenix-erp-worktrees/bug-intake-a4`\n\nBranch: `codex/bug-intake-a4`\n\n## Mission\n\nImplement the frontend portion",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260716-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260716-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260716-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260716-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260716-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 32824\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-05-10-398Z-A4-Frontend-UAT-Smoke.md\n已完成前端修复，结论：**PASS WITH CONDITIONS / HOLD**。\n\n主要修复：\n\n- 创建草稿后清除旧筛选并回到第一页刷新。\n- 兼容多种订单列表响应结构，避免合法数据被解析为空。\n- 移动端表格支持横向滚动，创建表单切换为单列。\n- RBAC、DataScope 请求链及错误/空/加载状态保持不变。\n\n验证：\n\n- Web TypeScript：0 errors\n- 聚焦测试：5/5 PASS\n- `git diff --check`：PASS\n- 本地浏览器 smoke：因沙箱端口绑定 `EPERM` 未完成，已列为条件\n\n报告：[BUGTASK-20260716-0003-a4-frontend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260716-0003-a4-frontend-report.md)\n\n未 merge、push、deploy、执行迁移或写数据库。需 CI/CD、后端 PG/SQL Gate、生产桌面/移动 smoke 和业务验收后才能宣称问题解决。\nBaseline autopilot skipped by caller; caller must run lifecycle",
         "nextAction": "",
         "redispatchCount": 0,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-18T11:32:06.770Z"
+        "recordedAt": "2026-07-18T12:05:12.365Z"
       }
     ],
     "suggestedOwner": "",
@@ -1969,54 +2423,76 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260716-0001-A4",
+      "taskId": "BUGTASK-20260716-0003-A4",
       "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260716-0001-A4-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
+      "resultFile": "docs/ops/runs/BUGTASK-20260716-0003-A4-worker-log.md",
+      "commitHash": "6606d45144c39a97ca7621378e80f8bb62027023",
+      "changedFiles": [
+        "apps/web/src/__tests__/sales-orders-response.test.ts",
+        "apps/web/src/__tests__/sales-orders-responsive.test.ts",
+        "apps/web/src/app/(admin)/sales2/orders/orders.module.css",
+        "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+        "apps/web/src/lib/sales-orders-response.ts",
+        "docs/ops/BUGTASK-20260716-0003-a4-frontend-report.md"
+      ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
           "agent": "A4-Frontend-UAT-Smoke",
-          "exitCode": 1,
-          "conclusion": "",
-          "responseChars": 0,
+          "exitCode": 0,
+          "conclusion": "PASS_WITH_CONDITIONS",
+          "responseChars": 511,
           "beforeHead": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
-          "afterHead": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
-          "commitHash": "",
-          "changedFiles": [],
-          "businessChangedFiles": [],
-          "reportFiles": [],
+          "afterHead": "6606d45144c39a97ca7621378e80f8bb62027023",
+          "commitHash": "6606d45144c39a97ca7621378e80f8bb62027023",
+          "changedFiles": [
+            "apps/web/src/__tests__/sales-orders-response.test.ts",
+            "apps/web/src/__tests__/sales-orders-responsive.test.ts",
+            "apps/web/src/app/(admin)/sales2/orders/orders.module.css",
+            "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+            "apps/web/src/lib/sales-orders-response.ts",
+            "docs/ops/BUGTASK-20260716-0003-a4-frontend-report.md"
+          ],
+          "businessChangedFiles": [
+            "apps/web/src/__tests__/sales-orders-response.test.ts",
+            "apps/web/src/__tests__/sales-orders-responsive.test.ts",
+            "apps/web/src/app/(admin)/sales2/orders/orders.module.css",
+            "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+            "apps/web/src/lib/sales-orders-response.ts"
+          ],
+          "reportFiles": [
+            "docs/ops/BUGTASK-20260716-0003-a4-frontend-report.md"
+          ],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-18T11:32:05.221Z",
-          "passed": false,
-          "role": "execution",
-          "terminalStatus": "HOLD",
-          "reason": "Agent process exited with 1"
+          "checkedAt": "2026-07-18T12:05:10.603Z",
+          "passed": true,
+          "role": "implementation",
+          "terminalStatus": "IMPLEMENTATION_COMPLETED",
+          "reason": "Business change, task report, commit, and conclusion are present"
         },
-        "queueStatus": "HOLD",
+        "queueStatus": "IMPLEMENTATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260716-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260716-0001-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260716-0001-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260716-0001-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260716-0001-A4-worker-assembled-prompt.md\nAssembled prompt chars: 26249\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T11-32-05-200Z-A4-Frontend-UAT-Smoke.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nmodel: gpt-5.6-sol\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: low\nreasoning summaries: none\nsession id: 019f74ff-5c42-7b41-abfb-02fe277582e4\n--------\nuser\n# Base Agent Prompt\n\n# Bug Intake A4 Frontend Repair Prompt\n\n## Identity\n\nYou are `A4-Frontend-UIUX-UAT` running on the dedicated Bug Intake repair branch.\n\nWorktree: `/Users/mac/phoenix-erp-worktrees/bug-intake-a4`\n\nBranch: `codex/bug-intake-a4`\n\n## Mission\n\nImplement the frontend portion",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260716-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260716-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260716-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260716-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260716-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 32824\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-05-10-398Z-A4-Frontend-UAT-Smoke.md\n已完成前端修复，结论：**PASS WITH CONDITIONS / HOLD**。\n\n主要修复：\n\n- 创建草稿后清除旧筛选并回到第一页刷新。\n- 兼容多种订单列表响应结构，避免合法数据被解析为空。\n- 移动端表格支持横向滚动，创建表单切换为单列。\n- RBAC、DataScope 请求链及错误/空/加载状态保持不变。\n\n验证：\n\n- Web TypeScript：0 errors\n- 聚焦测试：5/5 PASS\n- `git diff --check`：PASS\n- 本地浏览器 smoke：因沙箱端口绑定 `EPERM` 未完成，已列为条件\n\n报告：[BUGTASK-20260716-0003-a4-frontend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260716-0003-a4-frontend-report.md)\n\n未 merge、push、deploy、执行迁移或写数据库。需 CI/CD、后端 PG/SQL Gate、生产桌面/移动 smoke 和业务验收后才能宣称问题解决。\nBaseline autopilot skipped by caller; caller must run lifecycle",
       "nextAction": "",
       "redispatchCount": 0,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-18T11:32:06.770Z"
+      "recordedAt": "2026-07-18T12:05:12.365Z"
     },
-    "acceptanceCriteria": "现在要求修改完信息回到页面后数量直接更新，不要手动刷新页面，不止是这一个功能，其他的修改功能也要做到修改后自动更新内容，无需手动刷新。",
-    "agentPlanGeneratedAt": "2026-07-16T00:58:57.401Z",
+    "acceptanceCriteria": "销售管理-销售订单-新建订单保存草稿之后，销售订单页面暂无订单数据，查不到订单信息",
+    "agentPlanGeneratedAt": "2026-07-16T01:15:35.902Z",
     "agentPlanGeneratedBy": "admin",
     "failureClassification": {
-      "category": "API_5XX",
+      "category": "PG_SQL",
       "evidence": [
-        "API 5xx/异常信号"
+        "数据库/PG/SQL 信号"
       ],
       "priority": "P1",
       "severity": "HIGH",
-      "confidence": 0.88,
-      "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+      "confidence": 0.92,
+      "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
       "autoFixEligible": true,
       "recommendedAgents": [
         "A3-Backend-Critical-Path",
@@ -2027,7 +2503,7 @@
     },
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-16T00:58:57.401Z",
+      "approvedAt": "2026-07-16T01:15:35.902Z",
       "approvedBy": "admin",
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "forbiddenActions": [
@@ -2036,23 +2512,30 @@
         "force push"
       ]
     },
-    "failureClassificationUpdatedAt": "2026-07-16T00:58:57.401Z"
+    "failureClassificationUpdatedAt": "2026-07-16T01:15:35.902Z"
   },
   "repairResult": {
     "visibility": "HOLD",
     "headline": "修复暂未完成，当前处于 HOLD",
     "conclusion": "HOLD",
-    "adminSummary": "点击编辑修改存栏量后编辑窗口关闭回到鸡群档案页面，存栏量还是修改前的量，必须重新进入页面或者刷新页面数量才会变化。",
+    "adminSummary": "销售管理-销售订单-新建订单保存草稿之后，销售订单页面暂无订单数据，查不到订单信息",
     "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": null,
-    "changedFiles": [],
+    "commitHash": "6606d45144c39a97ca7621378e80f8bb62027023",
+    "changedFiles": [
+      "apps/web/src/__tests__/sales-orders-response.test.ts",
+      "apps/web/src/__tests__/sales-orders-responsive.test.ts",
+      "apps/web/src/app/(admin)/sales2/orders/orders.module.css",
+      "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+      "apps/web/src/lib/sales-orders-response.ts",
+      "docs/ops/BUGTASK-20260716-0003-a4-frontend-report.md"
+    ],
     "validations": [
       {
         "key": "implementation",
         "label": "代码修复",
-        "status": "PENDING"
+        "status": "PASS"
       },
       {
         "key": "ci",
@@ -2075,7 +2558,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-18T11:32:06.770Z",
+    "completedAt": "2026-07-18T12:05:12.365Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"
