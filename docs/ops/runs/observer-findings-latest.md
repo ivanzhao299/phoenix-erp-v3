@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-18T14:37:59.710Z |
-| Run files inspected | 2208 |
+| Generated at | 2026-07-18T15:09:03.899Z |
+| Run files inspected | 2215 |
 | Task count | 356 |
-| Findings count | 30 |
+| Findings count | 31 |
 | Highest severity | HIGH |
 | Routing findings | 8 |
-| Baseline findings | 3 |
+| Baseline findings | 4 |
 | Report schema findings | 4 |
 | Codex CLI executed | No |
 | Database written | No |
@@ -261,6 +261,15 @@
 
 ### OBS-0028 - MEDIUM - baseline
 
+- Affected Agent: Codex-Orchestrator
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M .github/workflows/deploy.yml;  M docs/ops/AGENT_TASK_BOARD.md;  M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/runs/bug-production-route-smoke-latest.json;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md;  M docs/ops/runtime-memory/DECISION_LOG.md;  M scripts/ops/agent-observer.mjs;  M scripts/ops/agent-task-queue.mjs;  M scripts/ops/agent-worker.mjs;  M scripts/ops/bug-intake-local-runner.mjs;  M scripts/ops/bug-production-route-smoke.mjs;  M scripts/ops/bug-task-to-agent-queue.mjs;  M scripts/ops/install-bug-intake-local-runner-launchagent.mjs; ?? docs/ops/BUG_RUNNER_PLATFORM_V2_IMPLEMENTATION_REPORT.md; ?? docs/ops/BUG_RUNNER_PLATFORM_V2_POLICY.json; ?? docs/ops/runs/bug-runner-dashboard-latest.json; ?? docs/ops/runs/bug-runner-dashboard-latest.md; ?? docs/ops/runs/bug-runner-v2-dry-run/; ?? scripts/ops/bug-runner-dashboard.mjs; ?? scripts/ops/bug-runner-platform.mjs; ?? scripts/ops/bug-runner-platform.test.mjs; ?? scripts/ops/bug-runner-wakeup.mjs
+- Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
+- Auto Fix Eligible: true
+- Requires Human Gate: false
+- Recommended Next Task: Baseline cleanup for Codex-Orchestrator.
+
+### OBS-0029 - MEDIUM - baseline
+
 - Affected Agent: A5-Data-Readiness
 - Evidence: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
@@ -268,7 +277,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Baseline cleanup for A5-Data-Readiness.
 
-### OBS-0029 - MEDIUM - baseline
+### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: A6-Staging-Deploy-Runbook
 - Evidence: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
@@ -277,7 +286,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A6-Staging-Deploy-Runbook with baseline autopilot.
 
-### OBS-0030 - MEDIUM - baseline
+### OBS-0031 - MEDIUM - baseline
 
 - Affected Agent: A7-Final-QA-Gate
 - Evidence: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.

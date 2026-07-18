@@ -4,8 +4,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { routeRequest } from './agent-route-request.mjs';
+import { atomicWriteJson, persistTaskSnapshot, readQueueTasks } from './bug-runner-platform.mjs';
 
 const QUEUE_FILE = 'docs/ops/agent-queue/tasks.json';
+const EVENTS_FILE = 'docs/ops/agent-queue/events.jsonl';
 const DISPATCH_MAP_FILE = 'docs/ops/AGENT_DISPATCH_MAP.json';
 const RUNS_DIR = 'docs/ops/runs';
 const TERMINAL_TASK_STATUSES = new Set([
@@ -75,7 +77,7 @@ function readJson(file) {
 function writeJson(file, value) {
   const target = resolveFile(file);
   mkdirSync(path.dirname(target), { recursive: true });
-  writeFileSync(target, `${JSON.stringify(value, null, 2)}\n`);
+  atomicWriteJson(target, value);
 }
 
 function nowStamp() {
@@ -483,7 +485,8 @@ function main() {
   }
 
   if (args.apply) {
-    const queue = existsSync(resolveFile(QUEUE_FILE)) ? readJson(QUEUE_FILE) : [];
+    const queue = readQueueTasks(resolveFile(QUEUE_FILE));
+    const baseQueue = structuredClone(queue);
     const existingIndex = new Map(queue.map((task, index) => [task.task_id, index]));
     const incoming = [];
     const requeued = [];
@@ -522,7 +525,13 @@ function main() {
       }
       requeued.push(queue[index]);
     }
-    writeJson(QUEUE_FILE, queue);
+    persistTaskSnapshot({
+      tasksFile: resolveFile(QUEUE_FILE),
+      eventsFile: resolveFile(EVENTS_FILE),
+      baseTasks: baseQueue,
+      incomingTasks: queue,
+      explicitRedispatch: redispatchRequested,
+    });
     summary.added_tasks = incoming.map((task) => task.task_id);
     summary.requeued_tasks = requeued.map((task) => task.task_id);
     summary.skipped_existing_tasks = skippedExisting.map((task) => task.task_id);

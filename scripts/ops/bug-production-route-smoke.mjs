@@ -54,11 +54,20 @@ async function probe(baseUrl, route, token) {
     });
     const text = await res.text().catch(() => '');
     const location = res.headers.get('location') || '';
+    const contentType = res.headers.get('content-type') || '';
+    const failureMarkers = ['当前页面加载失败', 'Application error', 'Internal Server Error', 'NEXT_NOT_FOUND', 'MENU_PERMISSION_DENIED'];
+    const matchedFailureMarkers = failureMarkers.filter((marker) => text.includes(marker));
+    const semanticOk = text.trim().length >= 200 && matchedFailureMarkers.length === 0;
     return {
       route,
       url,
       status: res.status,
-      ok: res.status >= 200 && res.status < 300,
+      ok: res.status >= 200 && res.status < 300 && semanticOk,
+      httpOk: res.status >= 200 && res.status < 300,
+      semanticOk,
+      contentType,
+      bodyBytes: Buffer.byteLength(text),
+      matchedFailureMarkers,
       location,
       elapsedMs: Date.now() - startedAt,
       excerpt: text.slice(0, 300),

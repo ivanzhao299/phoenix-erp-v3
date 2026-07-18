@@ -63,9 +63,11 @@ cd ${shellQuote(REPO)}
 RUNNER_ARGS=( \\
   --api-base "https://erp.eggslao.com" \\
   --watch \\
-  --interval "\${PHOENIX_ERP_RUNNER_INTERVAL:-300}" \\
+  --interval "\${PHOENIX_ERP_RUNNER_INTERVAL:-30}" \\
   --max-cycles "\${PHOENIX_ERP_RUNNER_MAX_CYCLES:-999999}" \\
-  --max-tasks "\${PHOENIX_ERP_RUNNER_MAX_TASKS:-3}" \\
+  --max-tasks "\${PHOENIX_ERP_RUNNER_MAX_TASKS:-6}" \\
+  --parallel-workers "\${PHOENIX_ERP_RUNNER_PARALLEL_WORKERS:-3}" \\
+  --wake-file "\${PHOENIX_ERP_RUNNER_WAKE_FILE:-/tmp/phoenix-erp-bug-runner-wakeup.json}" \\
   --output-dir "\${PHOENIX_ERP_RUNNER_OUTPUT_DIR:-${path.join(RUN_DIR, 'bug-intake-local-runner')}}" \\
   --sync-output-dir "\${PHOENIX_ERP_RUNNER_SYNC_OUTPUT_DIR:-${path.join(RUN_DIR, 'bug-intake-inbox')}}" \\
   --apply-queue \\
@@ -118,8 +120,9 @@ function envExample() {
 # Use a dedicated service/admin account with MENU_BUG_REPORT permission.
 PHOENIX_ERP_RUNNER_USER=
 PHOENIX_ERP_RUNNER_PASS=
-PHOENIX_ERP_RUNNER_INTERVAL=300
-PHOENIX_ERP_RUNNER_MAX_TASKS=3
+PHOENIX_ERP_RUNNER_INTERVAL=30
+PHOENIX_ERP_RUNNER_MAX_TASKS=6
+PHOENIX_ERP_RUNNER_PARALLEL_WORKERS=3
 PHOENIX_ERP_RUNNER_MAX_CYCLES=999999
 PHOENIX_ERP_RUNNER_AUDIT_COMMIT_MINUTES=30
 # Backlog consumption and production release are separate gates.

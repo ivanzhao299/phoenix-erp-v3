@@ -2,11 +2,21 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { evaluateBugReleaseEvidence } from './bug-intake-evidence-gate.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
+import {
+  REQUIRED_CI_WORKFLOWS,
+  appendOutboxRecord,
+  atomicWriteJson,
+  computeRunnerMetrics,
+  evaluateCiBarrier,
+  pendingOutboxRecords,
+  planConcurrentTaskBatch,
+  runnerHealthDecision,
+} from './bug-runner-platform.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const MAIN_ROOT = process.cwd();
@@ -39,7 +49,7 @@ function usage(code = 1) {
   node scripts/ops/bug-intake-local-runner.mjs \\
     --api-base https://erp.eggslao.com \\
     [--token-env PHOENIX_ERP_TOKEN | --login-user-env PHOENIX_ERP_RUNNER_USER --login-password-env PHOENIX_ERP_RUNNER_PASS] \\
-    [--once | --watch] [--interval 300] [--max-cycles 1] [--max-tasks 3] \\
+    [--once | --watch] [--interval 300] [--max-cycles 1] [--max-tasks 6] [--parallel-workers 3] \\
     [--apply-queue] [--execute-approved --approval-token APPROVE_AGENT_EXECUTION] \\
     [--push-after-success] [--wait-ci-after-push] [--retry-safe-ui-once] \\
     [--auto-unblock-dirty-worktrees | --no-auto-unblock-dirty-worktrees] \\
@@ -60,6 +70,7 @@ function parseArgs(argv) {
     busyInterval: 5,
     maxCycles: 1,
     maxTasks: 3,
+    parallelWorkers: 3,
     outputDir: RUN_DIR,
     syncOutputDir: DEFAULT_SYNC_OUTPUT,
     mainRoot: MAIN_ROOT,
@@ -77,6 +88,7 @@ function parseArgs(argv) {
     maxAutoRedispatchPerCycle: 3,
     commitAuditArtifacts: false,
     auditCommitMinutes: 30,
+    wakeFile: '/tmp/phoenix-erp-bug-runner-wakeup.json',
   };
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
   let explicitDryRun = false;
@@ -110,6 +122,7 @@ function parseArgs(argv) {
   args.busyInterval = Number.parseInt(args.busyInterval, 10) || 5;
   args.maxCycles = Number.parseInt(args.maxCycles, 10) || 1;
   args.maxTasks = Number.parseInt(args.maxTasks, 10) || 3;
+  args.parallelWorkers = Math.max(1, Number.parseInt(args.parallelWorkers, 10) || 3);
   args.maxCandidateTasks = Number.parseInt(args.maxCandidateTasks, 10) || Math.max(args.maxTasks * 8, 25);
   args.childTimeoutMs = Number.parseInt(args.childTimeoutMs, 10) || 900000;
   args.fetchTimeoutMs = Number.parseInt(args.fetchTimeoutMs, 10) || 45000;
@@ -133,9 +146,7 @@ function readJson(file, fallback) {
 }
 
 function writeJson(file, value) {
-  const target = resolveFile(file);
-  mkdirSync(path.dirname(target), { recursive: true });
-  writeFileSync(target, `${JSON.stringify(value, null, 2)}\n`);
+  atomicWriteJson(resolveFile(file), value);
 }
 
 function writeMd(file, text) {
@@ -167,6 +178,38 @@ function run(command, options = {}) {
     stdout: redact(result.stdout || '').slice(-12000),
     stderr: redact(result.stderr || '').slice(-12000),
   };
+}
+
+function runAsync(command, options = {}) {
+  const startedAt = new Date().toISOString();
+  return new Promise((resolve) => {
+    const child = spawn(command[0], command.slice(1), {
+      cwd: options.cwd || process.cwd(),
+      env: { ...process.env, PATH: process.env.PATH || DEFAULT_PATH, ...(options.env || {}) },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const secretValues = [process.env[options.tokenEnv], options.env?.[options.tokenEnv], options.env?.[options.childTokenEnv]]
+      .filter(Boolean)
+      .map(String);
+    const redact = (value) => secretValues.reduce((next, secret) => next.split(secret).join('<redacted>'), String(value));
+    let stdout = '';
+    let stderr = '';
+    let timedOut = false;
+    child.stdout.on('data', (chunk) => { stdout = `${stdout}${chunk}`.slice(-12000); });
+    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-12000); });
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+    }, Number(options.timeoutMs || options.childTimeoutMs || 180000));
+    child.on('error', (error) => {
+      clearTimeout(timeout);
+      resolve({ command: command.map(redact), startedAt, finishedAt: new Date().toISOString(), status: 1, signal: null, timedOut, stdout: redact(stdout), stderr: redact(`${stderr}\n${error.message}`) });
+    });
+    child.on('close', (code, signal) => {
+      clearTimeout(timeout);
+      resolve({ command: command.map(redact), startedAt, finishedAt: new Date().toISOString(), status: code ?? 1, signal: signal || null, timedOut, stdout: redact(stdout), stderr: redact(stderr) });
+    });
+  });
 }
 
 function classifyRunnerFailure(input = {}) {
@@ -1194,14 +1237,16 @@ async function waitForGithubActionsIfRequested(args, push) {
       return { skipped: false, ok: false, step: 'gh run list', error: list.stderr || list.stdout };
     }
     lastRuns = JSON.parse(list.stdout || '[]').filter((run) => run.headSha === headSha);
-    if (lastRuns.length > 0 && lastRuns.every((run) => run.status === 'completed')) {
-      const failed = lastRuns.filter((run) => run.conclusion !== 'success');
+    const barrier = evaluateCiBarrier(lastRuns, REQUIRED_CI_WORKFLOWS);
+    if (barrier.complete) {
       return {
         skipped: false,
-        ok: failed.length === 0,
+        ok: barrier.ready,
         headSha,
         runs: lastRuns,
-        conclusion: failed.length === 0 ? 'PASS' : 'HOLD',
+        requiredWorkflows: REQUIRED_CI_WORKFLOWS,
+        barrier,
+        conclusion: barrier.decision,
       };
     }
     await sleep(pollMs);
@@ -1211,26 +1256,72 @@ async function waitForGithubActionsIfRequested(args, push) {
     ok: false,
     headSha,
     runs: lastRuns,
+    requiredWorkflows: REQUIRED_CI_WORKFLOWS,
+    barrier: evaluateCiBarrier(lastRuns, REQUIRED_CI_WORKFLOWS),
     conclusion: 'HOLD',
     error: `CI wait timed out after ${timeoutMs}ms`,
   };
+}
+
+function resultOutboxFile(args) {
+  return path.join(args.outputDir, 'result-outbox.jsonl');
+}
+
+async function deliverOutboxRecord(args, childEnv, record) {
+  const token = childEnv[args.childTokenEnv] || process.env[args.tokenEnv] || args.token || '';
+  if (!token) return { ok: false, reason: 'missing token' };
+  try {
+    const res = await fetch(record.endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': record.id,
+      },
+      body: JSON.stringify({ ...record.payload, idempotencyKey: record.id }),
+      signal: AbortSignal.timeout(args.fetchTimeoutMs),
+    });
+    const body = await res.text();
+    return { ok: res.ok, status: res.status, body: body.slice(0, 1000) };
+  } catch (error) {
+    return { ok: false, reason: error.message };
+  }
+}
+
+async function flushResultOutbox(args, childEnv) {
+  const file = resultOutboxFile(args);
+  const pending = pendingOutboxRecords(file);
+  const results = [];
+  for (const record of pending) {
+    const delivery = await deliverOutboxRecord(args, childEnv, record);
+    appendOutboxRecord(file, {
+      ...record,
+      status: delivery.ok ? 'ACK' : 'RETRY',
+      delivery,
+      attempts: Number(record.attempts || 0) + 1,
+    });
+    results.push({ id: record.id, bugNo: record.bugNo, ...delivery });
+  }
+  return { pending: pending.length, delivered: results.filter((item) => item.ok).length, results };
 }
 
 async function postAgentResult(args, childEnv, bugNo, payload) {
   const token = childEnv[args.childTokenEnv] || process.env[args.tokenEnv] || args.token || '';
   if (!args.apiBase || !token || !bugNo) return { skipped: true, reason: 'missing api-base/token/bug-no' };
   const endpoint = `${args.apiBase.replace(/\/$/, '')}/api/bug-intake/reports/${encodeURIComponent(bugNo)}/agent-result`;
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
+  const file = resultOutboxFile(args);
+  const id = appendOutboxRecord(file, { bugNo, endpoint, payload, status: 'PENDING', attempts: 0 });
+  const delivery = await deliverOutboxRecord(args, childEnv, { id, bugNo, endpoint, payload });
+  appendOutboxRecord(file, {
+    id,
+    bugNo,
+    endpoint,
+    payload,
+    status: delivery.ok ? 'ACK' : 'RETRY',
+    delivery,
+    attempts: 1,
   });
-  const text = await res.text();
-  if (!res.ok) return { skipped: false, ok: false, status: res.status, body: text.slice(0, 1000) };
-  return { skipped: false, ok: true, status: res.status, body: text.slice(0, 1000) };
+  return { skipped: false, outboxId: id, ...delivery };
 }
 
 async function writebackRunnerLifecycle(args, childEnv, summary) {
@@ -1621,6 +1712,105 @@ async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitForWake(args, seconds) {
+  const deadline = Date.now() + Math.max(0, Number(seconds || 0)) * 1000;
+  while (Date.now() < deadline) {
+    if (args.wakeFile && existsSync(args.wakeFile)) {
+      let event = null;
+      try { event = readJson(args.wakeFile, null); } catch { event = { reason: 'unreadable wake event' }; }
+      try { rmSync(args.wakeFile); } catch { /* another cycle consumed it */ }
+      return { wokeEarly: true, event };
+    }
+    await sleep(Math.min(1000, deadline - Date.now()));
+  }
+  return { wokeEarly: false };
+}
+
+function prepareTaskDispatch(task, args, blockedTasks) {
+  const dependencySetup = ensureTaskWorktreeDependencies(task, args);
+  if (!dependencySetup.ok) {
+    blockedTasks.push({ task_id: task.task_id, agent: task.agent, status: 'BLOCKED', reason: `cannot prepare worktree dependencies: ${dependencySetup.error}` });
+    return null;
+  }
+  if (!taskUsesMainRootLocalWorker(task)) {
+    const unblock = unblockDirtyWorktree(task, args);
+    if (['BLOCKED', 'HOLD'].includes(unblock.status) || (['WOULD_UNBLOCK', 'WOULD_QUARANTINE'].includes(unblock.status) && args.dryRun)) {
+      if (!args.dryRun && unblock.status === 'BLOCKED' && /non-ops files|implementation worktree/i.test(unblock.reason || '')) {
+        const dirtyFiles = gitStatusFiles(unblock.before);
+        const heldTask = patchTask(task.task_id, {
+          status: 'HOLD',
+          completed_at: new Date().toISOString(),
+          reason: `${unblock.reason}; incomplete files preserved for evidence-backed recovery`,
+          incomplete_worktree_files: dirtyFiles,
+          incomplete_worktree_detected_at: new Date().toISOString(),
+        });
+        unblock.status = 'HOLD';
+        unblock.task = heldTask;
+      }
+      blockedTasks.push(unblock);
+      return null;
+    }
+  }
+  return { task, dependencySetup };
+}
+
+async function finalizeWorkerDispatch(prepared, worker, args, childEnv, blockedTasks) {
+  const { task, dependencySetup } = prepared;
+  let finalTask = findTask(task.task_id);
+  const retryRuns = [];
+  if (shouldRetryWorker(task, worker, finalTask, args)) {
+    retryRuns.push({ reason: 'same-cycle retry suppressed; classified cooldown required', firstWorkerStatus: worker.status, firstFinalStatus: finalTask?.status || 'unknown' });
+  }
+  let leftovers = activeAgentProcesses();
+  if (!args.dryRun && !isFinishedTask(finalTask) && leftovers.length > 0) {
+    const childWait = await waitForAgentChildrenToExit(args, task);
+    finalTask = findTask(task.task_id);
+    leftovers = activeAgentProcesses();
+    if (!isFinishedTask(finalTask) && childWait.timed_out) {
+      blockedTasks.push({ task_id: task.task_id, agent: task.agent, status: 'BLOCKED', reason: 'agent child process remained active after wait', processes: leftovers });
+      return { task, worker, finalTask, writeback: null, retryRuns, activeChildProcesses: leftovers, childWait, dependencySetup };
+    }
+    worker.childWait = childWait;
+  }
+  if (!args.dryRun && !isFinishedTask(finalTask)) {
+    const recovery = recoverDetachedWorkerResult(task, args, worker, worker.childWait || null);
+    worker.detachedRecovery = recovery;
+    finalTask = recovery.task || finalTask;
+    if (!isFinishedTask(finalTask)) {
+      finalTask = patchTask(task.task_id, {
+        status: 'HOLD',
+        completed_at: new Date().toISOString(),
+        reason: `worker returned without terminal evidence; recovery=${recovery.reason || 'failed'}; worker exit=${worker.status}; observed=${finalTask?.status || 'missing'}`,
+      }) || finalTask;
+    }
+  }
+  let writeback = null;
+  const wbCommand = writebackCommand(task, finalTask, args);
+  if (wbCommand && (!args.dryRun || finalTask?.result_file)) {
+    writeback = run(wbCommand, { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
+  }
+  let implementationIntegration = { skipped: true, reason: 'worker runtime artifacts not committed', task: finalTask };
+  const postWorkerCommit = { skipped: true, reason: 'audit artifacts are committed once at cycle end' };
+  let postIntegrationCommit = { skipped: true, reason: 'no implementation integration' };
+  implementationIntegration = integrateImplementationTask(task, finalTask, args);
+  finalTask = implementationIntegration.task || finalTask;
+  if (!implementationIntegration.skipped) postIntegrationCommit = { skipped: true, reason: 'audit artifacts are committed once at cycle end' };
+  if (!args.dryRun && finalTask && !SUCCESS_STATUSES.has(finalTask.status)) {
+    blockedTasks.push({ task_id: task.task_id, agent: task.agent, status: 'BLOCKED', reason: `worker reached non-success terminal status ${finalTask.status}` });
+    appendOutboxRecord(path.join(args.outputDir, 'dead-letter.jsonl'), {
+      id: createHash('sha256').update(`${task.task_id}|${finalTask.status}|${finalTask.redispatch_count || 0}`).digest('hex'),
+      status: 'OPEN',
+      task_id: task.task_id,
+      bugNo: task.source_bug_no || null,
+      agent: task.agent,
+      terminal_status: finalTask.status,
+      reason: finalTask.reason || 'worker ended without release-ready evidence',
+      requires_human_gate: true,
+    });
+  }
+  return { task, worker, finalTask, writeback, retryRuns, implementationIntegration, postIntegrationCommit, postWorkerCommit, dependencySetup };
+}
+
 function crashSummary(args, cycle, error) {
   const summary = {
     decision: 'BUG_INTAKE_LOCAL_RUNNER_HOLD',
@@ -1700,6 +1890,9 @@ async function runCycle(args, cycle) {
 
   const token = await loginToken(args);
   const childEnv = token ? { [args.childTokenEnv]: token } : {};
+  const outboxRecovery = args.dryRun
+    ? { skipped: true, reason: 'dry-run' }
+    : await flushResultOutbox(args, childEnv);
   let sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
   const generationRecovery = sync.status === 0
     ? await recoverTechnicalGenerationDrift(args, childEnv)
@@ -1725,151 +1918,42 @@ async function runCycle(args, cycle) {
   }
 
   const attemptedTaskIds = new Set();
-  const attemptedBugNos = new Set();
   while (preExistingProcesses.length === 0 && workerRuns.length < args.maxTasks) {
-    // Re-read the queue after every worker. An implementation can unlock A2/A1
-    // during this cycle; using the original candidate snapshot would skip those
-    // gates and start another bug instead, leaving the first repair half-closed.
-    const task = listRunnableBugTasks(args)
-      .find((candidate) => (
-        !attemptedTaskIds.has(candidate.task_id)
-        && !attemptedBugNos.has(candidate.source_bug_no || candidate.task_id)
-      ));
-    if (!task) break;
-    attemptedTaskIds.add(task.task_id);
-    attemptedBugNos.add(task.source_bug_no || task.task_id);
-    const dependencySetup = ensureTaskWorktreeDependencies(task, args);
-    if (!dependencySetup.ok) {
-      blockedTasks.push({
-        task_id: task.task_id,
-        agent: task.agent,
-        status: 'BLOCKED',
-        reason: `cannot prepare worktree dependencies: ${dependencySetup.error}`,
-      });
-      if (args.skipBlocked) continue;
-      break;
-    }
-    if (!taskUsesMainRootLocalWorker(task)) {
-      const unblock = unblockDirtyWorktree(task, args);
-      if (['BLOCKED', 'HOLD'].includes(unblock.status) || (['WOULD_UNBLOCK', 'WOULD_QUARANTINE'].includes(unblock.status) && args.dryRun)) {
-        if (!args.dryRun && unblock.status === 'BLOCKED' && /non-ops files|implementation worktree/i.test(unblock.reason || '')) {
-          const dirtyFiles = gitStatusFiles(unblock.before);
-          const heldTask = patchTask(task.task_id, {
-            status: 'HOLD',
-            completed_at: new Date().toISOString(),
-            reason: `${unblock.reason}; incomplete files preserved for evidence-backed recovery`,
-            incomplete_worktree_files: dirtyFiles,
-            incomplete_worktree_detected_at: new Date().toISOString(),
-          });
-          unblock.status = 'HOLD';
-          unblock.task = heldTask;
-        }
-        blockedTasks.push(unblock);
-        if (args.skipBlocked) continue;
-        break;
-      }
-    }
-    runnableTasks.push(task);
-    let worker = run(workerCommand(task, args), { timeoutMs: args.childTimeoutMs });
-    let finalTask = findTask(task.task_id);
-    const retryRuns = [];
-    if (shouldRetryWorker(task, worker, finalTask, args)) {
-      retryRuns.push({ reason: 'same-cycle retry suppressed; classified cooldown required', firstWorkerStatus: worker.status, firstFinalStatus: finalTask?.status || 'unknown' });
-    }
-    let leftovers = activeAgentProcesses();
-    if (!args.dryRun && !isFinishedTask(finalTask) && leftovers.length > 0) {
-      const childWait = await waitForAgentChildrenToExit(args, task);
-      finalTask = findTask(task.task_id);
-      leftovers = activeAgentProcesses();
-      if (!isFinishedTask(finalTask) && childWait.timed_out) {
-        workerRuns.push({
-          task,
-          worker,
-          finalTask,
-          writeback: null,
-          retryRuns,
-          activeChildProcesses: leftovers,
-          childWait,
-          postWorkerCommit: { skipped: true, reason: 'agent child process still active after wait' },
-        });
-        blockedTasks.push({
-          task_id: task.task_id,
-          agent: task.agent,
-          status: 'BLOCKED',
-          reason: 'worker returned while agent child process is still active after wait; leaving task state unchanged and stopping this cycle',
-          processes: leftovers,
-        });
-        break;
-      }
-      if (!isFinishedTask(finalTask)) {
-        const recovery = recoverDetachedWorkerResult(task, args, worker, childWait);
-        worker.detachedRecovery = recovery;
-        finalTask = recovery.task || finalTask;
-        if (!isFinishedTask(finalTask)) {
-          finalTask = patchTask(task.task_id, {
-            status: 'HOLD',
-            completed_at: new Date().toISOString(),
-            reason: `worker parent returned before child completion; child exited after ${Math.round(childWait.waited_ms / 1000)}s but task was not written back; recovery=${recovery.reason || (recovery.recovered ? 'completed' : 'failed')}; worker exit=${worker.status}; observed=${finalTask?.status || 'missing'}`,
-          }) || finalTask;
-        }
-      }
-      worker.childWait = childWait;
-    }
-    if (!args.dryRun && !isFinishedTask(finalTask)) {
-      const recovery = recoverDetachedWorkerResult(task, args, worker, null);
-      worker.detachedRecovery = recovery;
-      finalTask = recovery.task || finalTask;
-      if (!isFinishedTask(finalTask)) {
-        finalTask = patchTask(task.task_id, {
-          status: 'HOLD',
-          completed_at: new Date().toISOString(),
-          reason: `worker returned but task did not reach terminal status; recovery=${recovery.reason || (recovery.recovered ? 'completed' : 'failed')}; worker exit=${worker.status}; observed=${finalTask?.status || 'missing'}`,
-        }) || finalTask;
-      }
-    }
-    let writeback = null;
-    const wbCommand = writebackCommand(task, finalTask, args);
-    if (wbCommand && (!args.dryRun || finalTask?.result_file)) {
-      writeback = run(wbCommand, { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
-    }
-    const postWorkerCommit = { skipped: true, reason: 'audit artifacts are committed once at cycle end' };
-    let implementationIntegration = { skipped: true, reason: 'worker runtime artifacts not committed', task: finalTask };
-    let postIntegrationCommit = { skipped: true, reason: 'no implementation integration' };
-    if (postWorkerCommit.skipped || postWorkerCommit.ok !== false) {
-      implementationIntegration = integrateImplementationTask(task, finalTask, args);
-      finalTask = implementationIntegration.task || finalTask;
-      if (!implementationIntegration.skipped) postIntegrationCommit = { skipped: true, reason: 'audit artifacts are committed once at cycle end' };
-    }
-    workerRuns.push({ task, worker, finalTask, writeback, retryRuns, implementationIntegration, postIntegrationCommit, dependencySetup });
-    leftovers = activeAgentProcesses();
-    if (!args.dryRun && finalTask && !SUCCESS_STATUSES.has(finalTask.status)) {
-      blockedTasks.push({
-        task_id: task.task_id,
-        agent: task.agent,
-        status: 'BLOCKED',
-        reason: `worker reached non-success terminal status ${finalTask.status}`,
-      });
+    // Re-read after every batch so completed implementation work can unlock
+    // its A2/A1 gates during the same resident cycle.
+    const batch = planConcurrentTaskBatch(listRunnableBugTasks(args), {
+      maxParallel: Math.min(args.parallelWorkers, args.maxTasks - workerRuns.length),
+      attemptedTaskIds,
+    });
+    if (batch.length === 0) break;
+    for (const task of batch) attemptedTaskIds.add(task.task_id);
+    const prepared = batch
+      .map((task) => prepareTaskDispatch(task, args, blockedTasks))
+      .filter(Boolean);
+    if (prepared.length === 0) {
       if (!args.skipBlocked) break;
       continue;
     }
-    if (leftovers.length > 0) {
-      blockedTasks.push({
-        task_id: task.task_id,
-        agent: task.agent,
-        status: 'BLOCKED',
-        reason: 'worker returned while agent child process is still active; stop dispatching more tasks in this cycle',
-        processes: leftovers,
-      });
-      workerRuns[workerRuns.length - 1].activeChildProcesses = leftovers;
-      break;
+    runnableTasks.push(...prepared.map((item) => item.task));
+    const workers = await Promise.all(prepared.map(async (item) => ({
+      prepared: item,
+      worker: await runAsync(workerCommand(item.task, args), { timeoutMs: args.childTimeoutMs }),
+    })));
+    for (const item of workers) {
+      workerRuns.push(await finalizeWorkerDispatch(item.prepared, item.worker, args, childEnv, blockedTasks));
     }
-    if (!postWorkerCommit.skipped && postWorkerCommit.ok === false) {
-      workerRuns[workerRuns.length - 1].postWorkerCommit = postWorkerCommit;
-      break;
-    }
-    workerRuns[workerRuns.length - 1].postWorkerCommit = postWorkerCommit;
+    if (!args.skipBlocked && blockedTasks.length > 0) break;
   }
 
+  const platformMetrics = computeRunnerMetrics(readJson(TASKS_FILE, []));
+  const platformHealth = runnerHealthDecision(platformMetrics);
+  writeJson('docs/ops/runs/bug-runner-dashboard-latest.json', {
+    generated_at: new Date().toISOString(),
+    decision: platformHealth,
+    metrics: platformMetrics,
+    current_cycle: { cycle, worker_count: workerRuns.length, blocked_count: blockedTasks.length },
+  });
+  writeMd('docs/ops/runs/bug-runner-dashboard-latest.md', `# Bug Runner Platform Dashboard\n\n- Decision: **${platformHealth}**\n- Queue total / active: ${platformMetrics.total} / ${platformMetrics.active}\n- False completion: ${platformMetrics.false_complete_count}\n- Raw terminal evidence coverage: ${(platformMetrics.raw_terminal_evidence_coverage * 100).toFixed(1)}%\n- Governed evidence coverage: ${(platformMetrics.terminal_evidence_coverage * 100).toFixed(1)}%\n- Legacy evidence exemptions: ${platformMetrics.legacy_evidence_exemption_count}\n- Current cycle workers / blocked: ${workerRuns.length} / ${blockedTasks.length}\n`);
   const cycleAuditCommit = commitOpsRuntimeArtifacts(args);
   const releaseEvidence = releaseEvidenceForWorkerRuns(args, workerRuns);
   const push = runPushIfReady(args, workerRuns, releaseEvidence);
@@ -1890,6 +1974,7 @@ async function runCycle(args, cycle) {
     sync,
     generationRecovery,
     evolutionCycle,
+    outboxRecovery,
     leaseRecovery,
     preWorkerCommit,
     cycleAuditCommit,
@@ -1927,6 +2012,8 @@ async function runCycle(args, cycle) {
     tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
     outputDir: args.outputDir,
   };
+  summary.platformMetrics = platformMetrics;
+  summary.platformHealth = platformHealth;
   summary.failureClassification = summarizeFailureClassifications(summary);
   writeJson(`${args.outputDir}/latest-summary.json`, summary);
   writeMd(`${args.outputDir}/latest-summary.md`, summaryMarkdown(summary));
@@ -1988,7 +2075,7 @@ async function main() {
       }
       if (args.watch && cycle < cycles) {
         const busy = (summary?.workerRuns?.length || 0) > 0 || (summary?.runnableTasks?.length || 0) > 0;
-        await sleep((busy ? args.busyInterval : args.interval) * 1000);
+        await waitForWake(args, busy ? args.busyInterval : args.interval);
       }
     }
   } finally {

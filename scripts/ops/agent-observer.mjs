@@ -394,6 +394,52 @@ function observeMaturity(findings, dispatchMap, runFiles) {
   }
 }
 
+function observeRunnerPlatform(findings) {
+  const dashboard = readJson('docs/ops/runs/bug-runner-dashboard-latest.json', null);
+  if (!dashboard) {
+    addFinding(findings, {
+      severity: 'MEDIUM',
+      category: 'runner-platform',
+      evidence: 'Bug Runner platform dashboard is missing.',
+      suggested_fix: 'Run bug-runner-dashboard.mjs and keep the resident runner enabled.',
+      auto_fix_eligible: true,
+      recommended_next_task: 'REBUILD-BUG-RUNNER-DASHBOARD',
+    });
+    return;
+  }
+  if (Number(dashboard.metrics?.false_complete_count || 0) > 0) {
+    addFinding(findings, {
+      severity: 'CRITICAL',
+      category: 'runner-platform',
+      evidence: `${dashboard.metrics.false_complete_count} terminal task(s) lack passing implementation evidence.`,
+      suggested_fix: 'Reopen the affected tasks and require the implementation evidence gate before completion.',
+      requires_human_gate: true,
+      recommended_next_task: 'REMEDIATE-FALSE-COMPLETION',
+    });
+  }
+  if ((dashboard.metrics?.status_counts?.WAITING_RUNNER || 0) > 0) {
+    addFinding(findings, {
+      severity: 'HIGH',
+      category: 'runner-platform',
+      evidence: `${dashboard.metrics.status_counts.WAITING_RUNNER} task(s) are waiting for the resident runner.`,
+      suggested_fix: 'Wake or repair the resident runner and replay pending outbox/dead-letter records.',
+      auto_fix_eligible: true,
+      recommended_next_task: 'RECOVER-RESIDENT-RUNNER',
+    });
+  }
+  if (Number(dashboard.metrics?.terminal_evidence_coverage ?? 1) < 0.95) {
+    addFinding(findings, {
+      severity: 'MEDIUM',
+      category: 'runner-platform',
+      evidence: `Terminal evidence coverage is ${(Number(dashboard.metrics.terminal_evidence_coverage || 0) * 100).toFixed(1)}%.`,
+      suggested_fix: 'Backfill legacy terminal evidence or archive it with an explicit legacy-evidence exemption; new tasks remain strictly gated.',
+      auto_fix_eligible: false,
+      requires_human_gate: true,
+      recommended_next_task: 'BACKFILL-LEGACY-TERMINAL-EVIDENCE',
+    });
+  }
+}
+
 function summarize(findings, tasks, runFiles, dispatchMap) {
   const severityOrder = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
   const highest = severityOrder.find((severity) => findings.some((finding) => finding.severity === severity)) || 'NONE';
@@ -565,6 +611,7 @@ function main() {
   observeReports(findings, runFiles);
   observeBaseline(findings, dispatchMap);
   observeMaturity(findings, dispatchMap, runFiles);
+  observeRunnerPlatform(findings);
 
   const summary = summarize(findings, tasks, runFiles, dispatchMap);
   const evolution = evolutionTasks(findings);

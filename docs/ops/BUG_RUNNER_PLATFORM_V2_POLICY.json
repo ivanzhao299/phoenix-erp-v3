@@ -1,0 +1,48 @@
+{
+  "version": "2.0",
+  "priority_order": ["P0", "P1", "P2", "P3", "P4"],
+  "p0_correctness": {
+    "terminal_state_monotonic": true,
+    "idempotency_key_required": true,
+    "queue_global_lock": true,
+    "atomic_snapshot_write": true,
+    "append_only_task_events": true,
+    "durable_result_outbox": true,
+    "false_completion_allowed": false
+  },
+  "p1_throughput": {
+    "max_parallel_workers": 3,
+    "max_tasks_per_cycle": 6,
+    "same_write_domain_parallel": false,
+    "distinct_worktrees_required": true,
+    "migration_parallel": false,
+    "same_bug_gate_progression_in_cycle": true
+  },
+  "p2_resilience": {
+    "poll_fallback_seconds": 30,
+    "event_wakeup_file": "/tmp/phoenix-erp-bug-runner-wakeup.json",
+    "stale_lease_recovery": true,
+    "dead_letter_enabled": true,
+    "outbox_replay_on_start": true
+  },
+  "p3_release": {
+    "required_ci_workflows": [
+      "AI Delivery CI Security",
+      "CI Web Unit Tests",
+      "AI Delivery CI Build",
+      "CI/CD — Build & Deploy"
+    ],
+    "ops_only_deploy": false,
+    "production_smoke_requires_semantic_content": true,
+    "automatic_destructive_rollback": false
+  },
+  "p4_observability": {
+    "dashboard_json": "docs/ops/runs/bug-runner-dashboard-latest.json",
+    "dashboard_markdown": "docs/ops/runs/bug-runner-dashboard-latest.md",
+    "observer_integration": true,
+    "queue_wait_p95_target_seconds": 900,
+    "lead_time_p95_target_seconds": 14400,
+    "false_completion_target": 0,
+    "terminal_evidence_coverage_target": 1
+  }
+}

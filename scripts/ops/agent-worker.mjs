@@ -5,9 +5,11 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 import { filterRunnerRuntimeFiles, filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
+import { persistTaskSnapshot, readQueueTasks } from './bug-runner-platform.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
+const EVENTS_FILE = 'docs/ops/agent-queue/events.jsonl';
 const RUN_DIR = 'docs/ops/runs';
 const NODE_BIN = process.execPath;
 const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
@@ -155,13 +157,22 @@ function commitSandboxChanges(task, stdout = '') {
   };
 }
 
+let lastTaskSnapshot = [];
+
 function readTasks() {
-  if (!existsSync(TASKS_FILE)) return [];
-  return JSON.parse(readFileSync(TASKS_FILE, 'utf8'));
+  lastTaskSnapshot = readQueueTasks(TASKS_FILE);
+  return structuredClone(lastTaskSnapshot);
 }
 
-function writeTasks(tasks) {
-  writeFileSync(TASKS_FILE, `${JSON.stringify(tasks, null, 2)}\n`);
+function writeTasks(tasks, options = {}) {
+  const result = persistTaskSnapshot({
+    tasksFile: TASKS_FILE,
+    eventsFile: EVENTS_FILE,
+    baseTasks: lastTaskSnapshot,
+    incomingTasks: tasks,
+    explicitRedispatch: options.explicitRedispatch === true,
+  });
+  lastTaskSnapshot = structuredClone(result.tasks);
 }
 
 function checkWorktree(task) {

@@ -77,6 +77,18 @@ jobs:
         with:
           fetch-depth: 2  # 至少 2 个 commit 才能 diff
 
+      - name: Detect ops-only audit change
+        id: scope
+        if: github.event_name != 'workflow_dispatch'
+        shell: bash
+        run: |
+          files="$(git diff --name-only HEAD^ HEAD)"
+          if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -Ev '^(docs/ops/|scripts/ops/)' >/dev/null; then
+            echo "ops_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ops_only=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Compute changed paths
         id: changes
         # workflow_dispatch 无 before/base_ref → paths-filter 退到字面量 'HEAD~1'
@@ -118,6 +130,7 @@ jobs:
           WEB_DEPS:    ${{ steps.changes.outputs.web_deps }}
           API_OR_DB:   ${{ steps.changes.outputs.api_or_db }}
           INFRA:       ${{ steps.changes.outputs.infra }}
+          OPS_ONLY:    ${{ steps.scope.outputs.ops_only }}
         run: |
           # PR → 只跑测试,不部署
           if [ "$IS_PR" = "true" ]; then
@@ -136,7 +149,9 @@ jobs:
             echo "::notice::手动模式: $MODE"
           else
             # 自动判定 — 优先级 fast-css < web < api < full
-            if [ "$INFRA" = "true" ] || [ "$WEB_DEPS" = "true" ]; then
+            if [ "$OPS_ONLY" = "true" ]; then
+              MODE="ops-only"
+            elif [ "$INFRA" = "true" ] || [ "$WEB_DEPS" = "true" ]; then
               MODE="full"
             elif [ "$API_OR_DB" = "true" ] && [ "$WEB_ONLY" = "true" ]; then
               MODE="full"  # api + web 同改 → 安全起见走 full
@@ -154,6 +169,12 @@ jobs:
 
           # 输出衍生开关
           case "$MODE" in
+            ops-only)
+              echo "build_web=false" >> $GITHUB_OUTPUT
+              echo "build_api=false" >> $GITHUB_OUTPUT
+              echo "run_test=false"  >> $GITHUB_OUTPUT
+              echo "run_mig=false"   >> $GITHUB_OUTPUT
+              ;;
             fast-css)
               echo "build_web=false" >> $GITHUB_OUTPUT
               echo "build_api=false" >> $GITHUB_OUTPUT

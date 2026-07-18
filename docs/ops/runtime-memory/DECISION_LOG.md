@@ -1778,3 +1778,11 @@ Decision: counterparty resolution `GO`.
 - 72 historical CUSTOMER mappings contradicted by `partyRoleTypeId=100101` were retained and marked `REJECTED` with role-reclassification audit evidence.
 - Final live coverage is 411 / 411 approved, with zero pending, conflict, unknown-role, or human-review candidates.
 - Next Gate: `CHANJET_FINANCE_READ_MODEL_PROMOTION_REVIEW`; writeback remains blocked.
+# 2026-07-18 - Bug Runner Platform V2 P0-P4
+
+- Queue state is monotonic, idempotent, globally locked, atomically persisted, and event-audited.
+- Agent result writeback uses a durable Outbox and replays after restart.
+- Controlled concurrency is fixed at three independent worktrees; same write domains and migrations remain serialized/HOLD.
+- Release requires the exact four-workflow CI barrier plus semantic production smoke.
+- Ops-only audit commits do not build or deploy application images.
+- Resident polling fallback is 30 seconds with local event wakeup; dashboard and Observer expose SLO, false completion, evidence coverage, and waiting Runner work.

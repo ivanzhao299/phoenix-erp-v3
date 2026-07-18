@@ -1,6 +1,6 @@
 {
   "decision": "PRODUCTION_ROUTE_SMOKE_PASS",
-  "generated_at": "2026-07-18T14:06:12.956Z",
+  "generated_at": "2026-07-18T14:42:51.203Z",
   "base_url": "https://erp.eggslao.com",
   "routes": [
     "/finance2/ar-ledger",
@@ -25,7 +25,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 2080,
+      "elapsedMs": 2681,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -34,7 +34,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 837,
+      "elapsedMs": 739,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -43,7 +43,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 622,
+      "elapsedMs": 616,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -52,7 +52,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 635,
+      "elapsedMs": 747,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -61,7 +61,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 623,
+      "elapsedMs": 747,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -70,7 +70,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 610,
+      "elapsedMs": 859,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -79,7 +79,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 862,
+      "elapsedMs": 657,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -88,7 +88,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 622,
+      "elapsedMs": 593,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -97,7 +97,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 1323,
+      "elapsedMs": 762,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -106,7 +106,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 1208,
+      "elapsedMs": 598,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -115,7 +115,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 635,
+      "elapsedMs": 571,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -124,7 +124,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 1128,
+      "elapsedMs": 628,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -133,7 +133,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 622,
+      "elapsedMs": 585,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
@@ -142,7 +142,7 @@
       "status": 200,
       "ok": true,
       "location": "",
-      "elapsedMs": 620,
+      "elapsedMs": 751,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     }
   ],

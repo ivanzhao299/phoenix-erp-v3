@@ -2,10 +2,10 @@
 
 ## Summary
 
-- Findings count: 30
+- Findings count: 31
 - Highest severity: HIGH
 - Routing findings: 8
-- Baseline findings: 3
+- Baseline findings: 4
 - Report schema findings: 4
 - Codex CLI executed: No
 - Database written: No
@@ -40,6 +40,7 @@
 - OBS-0025 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
 - OBS-0026 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
 - OBS-0027 [MEDIUM] report-schema / A2-Security-Regression-Gate: docs/ops/runs/a2-app-module-wiring-follow-up-result.json: missing commit_hash, migration_added, verification_results, recommend_next_agent
-- OBS-0028 [MEDIUM] baseline / A5-Data-Readiness: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
-- OBS-0029 [MEDIUM] baseline / A6-Staging-Deploy-Runbook: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
-- OBS-0030 [MEDIUM] baseline / A7-Final-QA-Gate: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.
+- OBS-0028 [MEDIUM] baseline / Codex-Orchestrator: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M .github/workflows/deploy.yml;  M docs/ops/AGENT_TASK_BOARD.md;  M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/runs/bug-production-route-smoke-latest.json;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md;  M docs/ops/runtime-memory/DECISION_LOG.md;  M scripts/ops/agent-observer.mjs;  M scripts/ops/agent-task-queue.mjs;  M scripts/ops/agent-worker.mjs;  M scripts/ops/bug-intake-local-runner.mjs;  M scripts/ops/bug-production-route-smoke.mjs;  M scripts/ops/bug-task-to-agent-queue.mjs;  M scripts/ops/install-bug-intake-local-runner-launchagent.mjs; ?? docs/ops/BUG_RUNNER_PLATFORM_V2_IMPLEMENTATION_REPORT.md; ?? docs/ops/BUG_RUNNER_PLATFORM_V2_POLICY.json; ?? docs/ops/runs/bug-runner-dashboard-latest.json; ?? docs/ops/runs/bug-runner-dashboard-latest.md; ?? docs/ops/runs/bug-runner-v2-dry-run/; ?? scripts/ops/bug-runner-dashboard.mjs; ?? scripts/ops/bug-runner-platform.mjs; ?? scripts/ops/bug-runner-platform.test.mjs; ?? scripts/ops/bug-runner-wakeup.mjs
+- OBS-0029 [MEDIUM] baseline / A5-Data-Readiness: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
+- OBS-0030 [MEDIUM] baseline / A6-Staging-Deploy-Runbook: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
+- OBS-0031 [MEDIUM] baseline / A7-Final-QA-Gate: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.

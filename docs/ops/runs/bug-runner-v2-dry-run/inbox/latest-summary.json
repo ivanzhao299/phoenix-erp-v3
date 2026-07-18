@@ -1,0 +1,20 @@
+{
+  "decision": "BUG_INTAKE_SYNC_DRY_RUN",
+  "generated_at": "2026-07-18T15:06:22.347Z",
+  "api_base": "fixture",
+  "output_dir": "docs/ops/runs/bug-runner-v2-dry-run/inbox/20260718-230622",
+  "reports_fetched": 0,
+  "apply_queue": false,
+  "queue_candidates": [],
+  "not_ready": [],
+  "queue_results": [],
+  "deactivated_not_ready_tasks": [],
+  "fetch_errors": [],
+  "safety": {
+    "codex_cli_executed": false,
+    "business_code_modified": false,
+    "database_written": false,
+    "deployed": false,
+    "pushed": false
+  }
+}

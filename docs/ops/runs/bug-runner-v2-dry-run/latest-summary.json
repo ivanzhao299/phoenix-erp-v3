@@ -1,0 +1,117 @@
+{
+  "decision": "BUG_INTAKE_LOCAL_RUNNER_DRY_RUN",
+  "generatedAt": "2026-07-18T15:06:22.408Z",
+  "cycle": 1,
+  "dryRun": true,
+  "queueApply": "dry-run-no-queue-write",
+  "executeApproved": false,
+  "pushAfterSuccess": false,
+  "retrySafeUiOnce": false,
+  "autoUnblockDirtyWorktrees": true,
+  "skipBlocked": true,
+  "sync": {
+    "command": [
+      "/usr/local/bin/node",
+      "scripts/ops/bug-intake-sync-from-api.mjs",
+      "--output-dir",
+      "docs/ops/runs/bug-runner-v2-dry-run/inbox",
+      "--fetch-timeout-ms",
+      "45000",
+      "--fixture-json",
+      "docs/ops/runs/bug-intake-inbox-test/20260707-185324/BUG-20260707-0010/report.json",
+      "--dry-run"
+    ],
+    "startedAt": "2026-07-18T15:06:22.320Z",
+    "finishedAt": "2026-07-18T15:06:22.350Z",
+    "status": 0,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "{\n  \"decision\": \"BUG_INTAKE_SYNC_DRY_RUN\",\n  \"generated_at\": \"2026-07-18T15:06:22.347Z\",\n  \"api_base\": \"fixture\",\n  \"output_dir\": \"docs/ops/runs/bug-runner-v2-dry-run/inbox/20260718-230622\",\n  \"reports_fetched\": 0,\n  \"apply_queue\": false,\n  \"queue_candidates\": [],\n  \"not_ready\": [],\n  \"queue_results\": [],\n  \"deactivated_not_ready_tasks\": [],\n  \"fetch_errors\": [],\n  \"safety\": {\n    \"codex_cli_executed\": false,\n    \"business_code_modified\": false,\n    \"database_written\": false,\n    \"deployed\": false,\n    \"pushed\": false\n  }\n}\n",
+    "stderr": ""
+  },
+  "generationRecovery": {
+    "skipped": true,
+    "reason": "automatic generation recovery disabled",
+    "candidates": []
+  },
+  "evolutionCycle": {
+    "skipped": true,
+    "reason": "not scheduled this cycle"
+  },
+  "outboxRecovery": {
+    "skipped": true,
+    "reason": "dry-run"
+  },
+  "leaseRecovery": {
+    "recovered": [],
+    "released_terminal_leases": [],
+    "active_processes": [],
+    "wrote_queue": false,
+    "stale_after_minutes": 1
+  },
+  "preWorkerCommit": {
+    "skipped": true,
+    "reason": "audit artifacts are committed once at cycle end"
+  },
+  "cycleAuditCommit": {
+    "skipped": true,
+    "reason": "dry-run"
+  },
+  "candidateTasks": [],
+  "blockedTasks": [],
+  "runnableTasks": [],
+  "workerRuns": [],
+  "push": {
+    "skipped": true,
+    "reason": "dry-run"
+  },
+  "auditPush": {
+    "skipped": true,
+    "reason": "dry-run"
+  },
+  "ci": {
+    "skipped": true,
+    "reason": "wait-ci-after-push disabled"
+  },
+  "productionSmoke": {
+    "skipped": true,
+    "reason": "production-smoke-after-ci disabled"
+  },
+  "releaseEvidence": [],
+  "headSha": "ac11e1b2f61ec1329bd4c0d2fc9ca7eabac746cd",
+  "tokenSource": "fixture",
+  "outputDir": "docs/ops/runs/bug-runner-v2-dry-run",
+  "platformMetrics": {
+    "generated_at": "2026-07-18T15:06:22.391Z",
+    "total": 356,
+    "active": 0,
+    "status_counts": {
+      "archived": 213,
+      "completed": 3,
+      "COMPLETED_MERGED": 64,
+      "VALIDATION_COMPLETED": 60,
+      "SKIPPED_NOT_APPLICABLE": 16
+    },
+    "queue_wait_p50_ms": null,
+    "queue_wait_p95_ms": null,
+    "lead_time_p50_ms": null,
+    "lead_time_p95_ms": null,
+    "false_complete_count": 0,
+    "terminal_evidence_coverage": 0.4157303370786517
+  },
+  "platformHealth": "DEGRADED",
+  "failureClassification": {
+    "total": 0,
+    "byCategory": {},
+    "highestSeverity": "INFO",
+    "items": []
+  },
+  "resultBackfill": {
+    "skipped": true,
+    "reason": "dry-run"
+  },
+  "lifecycleWriteback": {
+    "skipped": true,
+    "reason": "dry-run"
+  }
+}

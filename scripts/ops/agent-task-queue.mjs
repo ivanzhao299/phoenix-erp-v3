@@ -2,6 +2,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, openSync, closeSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
+import { persistTaskSnapshot, readQueueTasks } from './bug-runner-platform.mjs';
 
 const QUEUE_DIR = 'docs/ops/agent-queue';
 const TASKS_FILE = `${QUEUE_DIR}/tasks.json`;
@@ -49,14 +50,24 @@ function ensureQueue() {
   if (!existsSync(EVENTS_FILE)) writeFileSync(EVENTS_FILE, '');
 }
 
+let lastTaskSnapshot = [];
+
 function readTasks() {
   ensureQueue();
-  return JSON.parse(readFileSync(TASKS_FILE, 'utf8'));
+  lastTaskSnapshot = readQueueTasks(TASKS_FILE);
+  return structuredClone(lastTaskSnapshot);
 }
 
-function writeTasks(tasks) {
+function writeTasks(tasks, options = {}) {
   ensureQueue();
-  writeFileSync(TASKS_FILE, `${JSON.stringify(tasks, null, 2)}\n`);
+  const result = persistTaskSnapshot({
+    tasksFile: TASKS_FILE,
+    eventsFile: EVENTS_FILE,
+    baseTasks: lastTaskSnapshot,
+    incomingTasks: tasks,
+    explicitRedispatch: options.explicitRedispatch === true,
+  });
+  lastTaskSnapshot = structuredClone(result.tasks);
 }
 
 function event(type, payload) {
@@ -220,7 +231,7 @@ function updateTask(status) {
     task.reason = args.reason || task.reason || null;
     unlockTask(task.task_id);
   }
-  writeTasks(tasks);
+  writeTasks(tasks, { explicitRedispatch: status === 'pending' });
   event(`task_${status}`, { task_id: task.task_id, reason: args.reason || null, result_file: args.resultFile || null });
   console.log(`${task.task_id} -> ${status}`);
 }
