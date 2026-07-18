@@ -189,7 +189,12 @@ export class FarmService {
     if (body.eggs_by_grade && typeof body.eggs_by_grade === 'object') {
       const ebg = body.eggs_by_grade as Record<string, unknown>;
       const num = (k: string) => Math.max(0, Number(ebg[k]) || 0);
-      const saleableSum = num('XL') + num('L') + num('M') + num('S') + num('XS');
+      // G67 已将可售编码从 XL/L/M/S/XS 切换为 GRADE_1..5；以 ACTIVE
+      // 等级主数据判断可售档，避免旧硬编码将日报总产蛋数算成 0。
+      const saleableRows: Array<{ grade_code: string }> = await this.entityManager.query(
+        `SELECT grade_code FROM product_grades WHERE status = 'ACTIVE' AND is_saleable = true`,
+      );
+      const saleableSum = saleableRows.reduce((sum, { grade_code }) => sum + num(grade_code), 0);
       // 仅在前端未显式传 eggs_produced/dirty/broken 时回填，避免覆盖业务方手动校正
       if (body.eggs_produced == null) body.eggs_produced = saleableSum;
       if (body.dirty_eggs == null)    body.dirty_eggs    = num('DIRTY');
@@ -461,6 +466,15 @@ export class FarmService {
   ): Promise<{ code: number; date: string; houseCode: string | null; eggsByGrade: Record<string, number>; total: number; logs: number }> {
     if (!date) throw new BadRequestException('date 参数必填');
 
+    // 返回结构以 ACTIVE 等级主数据为准，并为未录数量的档位补 0。
+    // 日报表单会省略空档；若直接透传稀疏 JSON，入库端会误判为“未按 9 档录入”。
+    const activeGrades: Array<{ grade_code: string }> = await this.entityManager.query(
+      `SELECT grade_code
+       FROM product_grades
+       WHERE status = 'ACTIVE'
+       ORDER BY sort_order, grade_code`,
+    );
+
     const params: any[] = [date];
     const where: string[] = [`dl.log_date = $1`, `dl.eggs_by_grade IS NOT NULL`];
     if (houseCode) { params.push(houseCode); where.push(`dl.house_code = $${params.length}`); }
@@ -475,7 +489,9 @@ export class FarmService {
       params,
     );
 
-    const aggregated: Record<string, number> = {};
+    const aggregated: Record<string, number> = Object.fromEntries(
+      activeGrades.map(({ grade_code }) => [grade_code, 0]),
+    );
     for (const r of rows) {
       const ebg = typeof r.eggs_by_grade === 'string' ? JSON.parse(r.eggs_by_grade) : r.eggs_by_grade;
       if (!ebg || typeof ebg !== 'object') continue;

@@ -89,6 +89,31 @@ describe('FarmService', () => {
       expect(manager.query.mock.calls[0][1]).not.toContain(' H001 ');
     });
 
+    it('derives eggs_produced from the canonical GRADE_1..5 saleable grades', async () => {
+      const { entityManager, manager, svc } = buildSvc();
+      manager.query.mockResolvedValue([]);
+      entityManager.query.mockResolvedValueOnce([
+        { grade_code: 'GRADE_1' }, { grade_code: 'GRADE_2' }, { grade_code: 'GRADE_3' },
+        { grade_code: 'GRADE_4' }, { grade_code: 'GRADE_5' },
+      ]);
+
+      await svc.submitBreedingDailyLog({
+        log_date: '2026-07-16',
+        shift: 'MORNING',
+        house_code: 'H001',
+        eggs_by_grade: {
+          GRADE_1: 10, GRADE_2: 20, GRADE_3: 30, GRADE_4: 40, GRADE_5: 50,
+          DIRTY: 3, CRACKED: 2, BROKEN: 1, DAMAGED: 4,
+        },
+        mortality_qty: 0,
+        opening_qty: 1000,
+      });
+
+      const sql = manager.query.mock.calls[0][0] as string;
+      const values = manager.query.mock.calls[0][1] as unknown[];
+      expect(values[sql.match(/\(([^)]+)\) VALUES/)![1].split(',').indexOf('"eggs_produced"')]).toBe(150);
+    });
+
     it('binds ownership from the house and accepts any farm in the guarded scope', async () => {
       const { entityManager, manager, svc } = buildSvc();
       entityManager.query.mockResolvedValueOnce([{
@@ -127,6 +152,7 @@ describe('FarmService', () => {
     entityManager.query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ total: 0 }]);
     const scope = {
       isGlobal: false,
@@ -139,9 +165,29 @@ describe('FarmService', () => {
     await svc.getEggsBreakdown('2026-07-18', null, scope);
     await svc.getFarmTrend(7, scope);
 
-    expect(entityManager.query.mock.calls[0][0]).toContain('LEFT JOIN brd_houses h');
-    expect(entityManager.query.mock.calls[0][0]).toContain('COALESCE(dl.farm_code, h.farm_code)');
     expect(entityManager.query.mock.calls[1][0]).toContain('LEFT JOIN brd_houses h');
     expect(entityManager.query.mock.calls[1][0]).toContain('COALESCE(dl.farm_code, h.farm_code)');
+    expect(entityManager.query.mock.calls[2][0]).toContain('LEFT JOIN brd_houses h');
+    expect(entityManager.query.mock.calls[2][0]).toContain('COALESCE(dl.farm_code, h.farm_code)');
+  });
+
+  it('fills omitted zero quantities from ACTIVE product grades for inbound prefill', async () => {
+    const { entityManager, svc } = buildSvc();
+    entityManager.query
+      .mockResolvedValueOnce([
+        { grade_code: 'GRADE_1' }, { grade_code: 'GRADE_2' }, { grade_code: 'GRADE_3' },
+        { grade_code: 'GRADE_4' }, { grade_code: 'GRADE_5' }, { grade_code: 'DIRTY' },
+        { grade_code: 'CRACKED' }, { grade_code: 'BROKEN' }, { grade_code: 'DAMAGED' },
+      ])
+      .mockResolvedValueOnce([{ eggs_by_grade: { GRADE_1: 120, BROKEN: 2 } }]);
+
+    await expect(svc.getEggsBreakdown('2026-07-16', null)).resolves.toMatchObject({
+      logs: 1,
+      total: 122,
+      eggsByGrade: {
+        GRADE_1: 120, GRADE_2: 0, GRADE_3: 0, GRADE_4: 0, GRADE_5: 0,
+        DIRTY: 0, CRACKED: 0, BROKEN: 2, DAMAGED: 0,
+      },
+    });
   });
 });
