@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-18T15:09:03.285Z",
+  "generated_at": "2026-07-18T15:14:41.602Z",
   "decision": "GO",
   "metrics": {
-    "generated_at": "2026-07-18T15:09:03.284Z",
+    "generated_at": "2026-07-18T15:14:41.601Z",
     "total": 356,
     "active": 0,
     "status_counts": {
@@ -21,20 +21,9 @@
     "raw_terminal_evidence_coverage": 0.965034965034965,
     "terminal_evidence_coverage": 1
   },
-  "last_cycle": {
-    "decision": "BUG_INTAKE_LOCAL_RUNNER_RECOVERY_EXECUTED",
-    "generated_at": "2026-07-10T06:21:22.963Z",
-    "head_sha": "ef8a2e795273f6dc50684bb577a41d7b48e3f3a0",
+  "current_cycle": {
+    "cycle": 1,
     "worker_count": 0,
-    "blocked_count": 0,
-    "ci": "recover-leases-only",
-    "production_smoke": "unknown",
-    "outbox_pending": 0
-  },
-  "slo": {
-    "queue_wait_p95_target_ms": 900000,
-    "lead_time_p95_target_ms": 14400000,
-    "false_complete_target": 0,
-    "terminal_evidence_coverage_target": 1
+    "blocked_count": 0
   }
 }
