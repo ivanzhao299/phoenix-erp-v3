@@ -1,6 +1,6 @@
 {
   "summary": {
-    "generated_at": "2026-07-18T15:09:03.899Z",
+    "generated_at": "2026-07-18T15:42:26.859Z",
     "dry_run": true,
     "run_files_inspected": 2215,
     "task_count": 356,
@@ -326,7 +326,7 @@
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M .github/workflows/deploy.yml;  M docs/ops/AGENT_TASK_BOARD.md;  M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/runs/bug-production-route-smoke-latest.json;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md;  M docs/ops/runtime-memory/DECISION_LOG.md;  M scripts/ops/agent-observer.mjs;  M scripts/ops/agent-task-queue.mjs;  M scripts/ops/agent-worker.mjs;  M scripts/ops/bug-intake-local-runner.mjs;  M scripts/ops/bug-production-route-smoke.mjs;  M scripts/ops/bug-task-to-agent-queue.mjs;  M scripts/ops/install-bug-intake-local-runner-launchagent.mjs; ?? docs/ops/BUG_RUNNER_PLATFORM_V2_IMPLEMENTATION_REPORT.md; ?? docs/ops/BUG_RUNNER_PLATFORM_V2_POLICY.json; ?? docs/ops/runs/bug-runner-dashboard-latest.json; ?? docs/ops/runs/bug-runner-dashboard-latest.md; ?? docs/ops/runs/bug-runner-v2-dry-run/; ?? scripts/ops/bug-runner-dashboard.mjs; ?? scripts/ops/bug-runner-platform.mjs; ?? scripts/ops/bug-runner-platform.test.mjs; ?? scripts/ops/bug-runner-wakeup.mjs",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -507,11 +507,11 @@
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 4
+      "occurrence": 3
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 2
+      "occurrence": 3
     }
   ],
   "suggested_improvements": [
@@ -521,11 +521,11 @@
     },
     {
       "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
-      "occurrence": 4
+      "occurrence": 3
     },
     {
       "improvement_id": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
-      "occurrence": 2
+      "occurrence": 3
     }
   ],
   "repeated_pattern_candidates": [
@@ -535,11 +535,11 @@
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 4
+      "occurrence": 3
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 2
+      "occurrence": 3
     }
   ],
   "observer_boundaries": {

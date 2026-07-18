@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-18T15:09:03.899Z |
+| Generated at | 2026-07-18T15:42:26.859Z |
 | Run files inspected | 2215 |
 | Task count | 356 |
 | Findings count | 31 |
@@ -262,7 +262,7 @@
 ### OBS-0028 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M .github/workflows/deploy.yml;  M docs/ops/AGENT_TASK_BOARD.md;  M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/runs/bug-production-route-smoke-latest.json;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md;  M docs/ops/runtime-memory/DECISION_LOG.md;  M scripts/ops/agent-observer.mjs;  M scripts/ops/agent-task-queue.mjs;  M scripts/ops/agent-worker.mjs;  M scripts/ops/bug-intake-local-runner.mjs;  M scripts/ops/bug-production-route-smoke.mjs;  M scripts/ops/bug-task-to-agent-queue.mjs;  M scripts/ops/install-bug-intake-local-runner-launchagent.mjs; ?? docs/ops/BUG_RUNNER_PLATFORM_V2_IMPLEMENTATION_REPORT.md; ?? docs/ops/BUG_RUNNER_PLATFORM_V2_POLICY.json; ?? docs/ops/runs/bug-runner-dashboard-latest.json; ?? docs/ops/runs/bug-runner-dashboard-latest.md; ?? docs/ops/runs/bug-runner-v2-dry-run/; ?? scripts/ops/bug-runner-dashboard.mjs; ?? scripts/ops/bug-runner-platform.mjs; ?? scripts/ops/bug-runner-platform.test.mjs; ?? scripts/ops/bug-runner-wakeup.mjs
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
