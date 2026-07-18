@@ -10,14 +10,14 @@
  * · 顶部"今日待办"banner 显示未完成项
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 import {
-  ClipboardList, Egg, Wheat, AlertTriangle, Wallet, FileSearch, Send,
-  ShoppingCart, Receipt, Warehouse, Inbox, CheckCircle2, Clock,
+  ClipboardList, Wheat, AlertTriangle, Wallet, FileSearch, Send,
+  ShoppingCart, Receipt, Warehouse, Inbox, Clock,
   Pill, PackagePlus, PackageMinus, Feather, Syringe,
 } from 'lucide-react';
 import {
@@ -47,7 +47,7 @@ const ALL_CARDS: QuickCard[] = [
   { key: 'mortality',   title: '死淘快速登记',     desc: '紧急死亡 / 淘汰登记 · 含原因',
     icon: AlertTriangle, href: '/breeding/daily?action=mortality',                    accent: '#EF4444', perm: 'MENU_FARM_DAILY',         permOp: 'E' },
   { key: 'feed_log',    title: '饲料消耗登记',     desc: '玉米 / 豆粕 / 预混料 · 按鸡舍分配',
-    icon: Wheat,         href: '/breeding/feed?action=create&date=today',             accent: '#10B981', perm: 'MENU_FARM_FEED',          permOp: 'C' },
+    icon: Wheat,         href: '/breeding/feed?action=create&date=today',             accent: '#10B981', perm: 'MENU_BREEDING',           permOp: 'V' },
   { key: 'vet_record',  title: '兽药使用记录',     desc: '日常用药 / 治疗记录',
     icon: Pill,          href: '/breeding/medicine?action=create&date=today',         accent: '#22C55E', perm: 'MENU_FARM_VET',           permOp: 'C' },
   { key: 'vaccine',     title: '免疫疫苗记录',     desc: '免疫计划 / 接种记录',
@@ -86,14 +86,13 @@ const ALL_CARDS: QuickCard[] = [
 ];
 
 export default function DailyWorkPage() {
-  const { user, hasPermission } = useAuth();
+  const { hasPermission } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
   // M3:今日统计端点 /api/daily-work/today-stats 不存在(从无后端),原 fetch 恒 404 被吞,
   //   卡片计数本就一直为空。移除死调用,stats 恒空,卡片优雅无计数(待将来真端点再接)。
   const [stats] = useState<Record<string, number>>({});
 
-  const userName = (user as any)?.realNameZh || (user as any)?.name || t('dwork.user', '用户');
   const today = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
 
   // G12 核心：按持权动态生成卡片，附上 today_count

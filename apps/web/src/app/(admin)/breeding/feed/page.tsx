@@ -8,6 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, RefreshCw, Save } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { primaryActionButton, secondaryActionButton, inputField } from '@/components/design-system/cockpit-styles';
+import { FeedLedgerRow, normalizeFeedLedgerRows } from '@/lib/feed-ledger';
 function tok() {
   if (typeof window === 'undefined') return '';
   return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
@@ -36,22 +37,6 @@ async function apiPost<T>(path: string, data: unknown): Promise<T> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
-interface FeedRow {
-  id: number | null;
-  ledger_date: string;
-  material_name: string;
-  unit: string;
-  sort_order: number;
-  prev_stock: number;
-  inbound_qty: number;
-  outbound_detail: Record<string, number>;
-  outbound_total: number;
-  current_stock: number;
-  daily_usage: number;
-  days_left: number | null;
-  alert: 'CRITICAL' | 'WARN' | null;
-  note: string;
-}
 const today = () => new Date().toISOString().slice(0, 10);
 const addDays = (d: string, n: number) => {
   const dt = new Date(d);
@@ -64,9 +49,6 @@ const ALERT_COLOR: Record<string, string> = {
 };
 export default function FeedLedgerPage() {
   const {
-    can
-  } = usePermission();
-  const {
     t
   } = useLanguage();
   // G24-A：PBAC 收口
@@ -75,7 +57,7 @@ export default function FeedLedgerPage() {
   //   对齐到 MENU_BREEDING 与端点守卫一致。
   const { canEdit } = usePermission('MENU_BREEDING');
   const [date, setDate] = useState(today());
-  const [rows, setRows] = useState<FeedRow[]>([]);
+  const [rows, setRows] = useState<FeedLedgerRow[]>([]);
   const [houses, setHouses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -87,19 +69,20 @@ export default function FeedLedgerPage() {
     setError('');
     setSaved(false);
     try {
-      const [ledger, hs] = await Promise.all([apiFetch<FeedRow[]>(`/api/farm/feed/ledger?date=${d}`), apiFetch<string[]>('/api/farm/feed/houses')]);
-      setRows(Array.isArray(ledger) ? ledger : (ledger as any)?.data ?? []);
-      setHouses(Array.isArray(hs) ? hs : (hs as any)?.data ?? []);
-    } catch (e: any) {
-      setError(e.message);
+      const [ledger, housesPayload] = await Promise.all([apiFetch<unknown>(`/api/farm/feed/ledger?date=${d}`), apiFetch<unknown>('/api/farm/feed/houses')]);
+      setRows(normalizeFeedLedgerRows(ledger));
+      setHouses(Array.isArray(housesPayload) ? housesPayload.filter((house): house is string => typeof house === 'string') : []);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '请求失败');
     } finally {
       setLoading(false);
     }
   }, []);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- route/date changes intentionally start remote loading
     loadData(date);
   }, [date, loadData]);
-  const updateRow = (idx: number, patch: Partial<FeedRow>) => {
+  const updateRow = (idx: number, patch: Partial<FeedLedgerRow>) => {
     setRows(prev => {
       const next = [...prev];
       const r = {
@@ -126,8 +109,8 @@ export default function FeedLedgerPage() {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '请求失败');
     } finally {
       setSaving(false);
     }
