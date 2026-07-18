@@ -1,24 +1,24 @@
 {
-  "id": "53",
-  "bugNo": "BUG-20260718-0004",
-  "title": "mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡舍管理」创建并指定农场;手机端仅供场长建本场鸡舍。”",
+  "id": "54",
+  "bugNo": "BUG-20260718-0005",
+  "title": "作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员”",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
-  "moduleCode": "mobile_____",
+  "moduleCode": "___-____",
   "assigneeUsername": "",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260718-0004",
+  "repairTaskNo": "BUGTASK-20260718-0005",
   "repairTaskStatus": "HOLD",
-  "route": "/settings/users",
+  "route": "/finance2/ar-ledger",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
-  "createdAt": "2026-07-18T03:14:33.307Z",
-  "updatedAt": "2026-07-18T12:34:41.040Z",
+  "createdAt": "2026-07-18T06:45:09.906Z",
+  "updatedAt": "2026-07-18T12:43:13.077Z",
   "closedAt": null,
   "attachmentCount": 1,
-  "description": "地址：https://erp.eggslao.com/mobile/henhouse，在mobile端鸡舍管理新建鸡舍，提示“集团/管理员请在PC端「鸡舍管理」创建并指定农场;手机端仅供场长建本场鸡舍。”，但是linhong这个账号就是养殖场长",
-  "url": "https://erp.eggslao.com/settings/users",
+  "description": "作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员”",
+  "url": "https://erp.eggslao.com/finance2/ar-ledger",
   "reporterUserId": "96",
   "roles": [
     "ROLE_ADMIN",
@@ -27,57 +27,16 @@
   "companyCode": "",
   "projectCode": "",
   "consoleErrors": [],
-  "failedRequests": [
-    {
-      "url": "/api/v2/finance/expenses/1/submit",
-      "method": "POST",
-      "status": 400,
-      "requestId": "",
-      "timestamp": "2026-07-18T01:42:40.737Z",
-      "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
-    },
-    {
-      "url": "/api/v2/finance/expenses/1/submit",
-      "method": "POST",
-      "status": 400,
-      "requestId": "",
-      "timestamp": "2026-07-18T01:43:06.796Z",
-      "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
-    },
-    {
-      "url": "/api/v2/finance/expenses/1/submit",
-      "method": "POST",
-      "status": 400,
-      "requestId": "",
-      "timestamp": "2026-07-18T01:43:47.729Z",
-      "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
-    },
-    {
-      "url": "/api/v2/finance/expenses/1/submit",
-      "method": "POST",
-      "status": 400,
-      "requestId": "",
-      "timestamp": "2026-07-18T01:44:58.325Z",
-      "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
-    },
-    {
-      "url": "/api/v2/finance/expenses/1/submit",
-      "method": "POST",
-      "status": 400,
-      "requestId": "",
-      "timestamp": "2026-07-18T01:46:23.754Z",
-      "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
-    }
-  ],
+  "failedRequests": [],
   "attachments": [
     {
-      "sha256": "33153f421a495e2488490b3b1d7c0d1011e2bf10614514e880c894893490264e",
-      "fileName": "01-1784344473306-143ce004.png",
+      "sha256": "6f11abb3e995614abe2dee9c995da3fbb867a91cf39fc27d0ed8b79ee5038a99",
+      "fileName": "01-1784357109905-96e12075.png",
       "mimeType": "image/png",
-      "sizeBytes": 665405,
-      "originalName": "pasted-screenshot-1784344443760-1.png",
-      "relativePath": "storage/bug-reports/2026/07/18/BUG-20260718-0004/01-1784344473306-143ce004.png",
-      "previewEndpoint": "/api/bug-intake/reports/BUG-20260718-0004/attachments/01-1784344473306-143ce004.png"
+      "sizeBytes": 309893,
+      "originalName": "pasted-screenshot-1784357102504-1.png",
+      "relativePath": "storage/bug-reports/2026/07/18/BUG-20260718-0005/01-1784357109905-96e12075.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260718-0005/attachments/01-1784357109905-96e12075.png"
     }
   ],
   "clientContext": {
@@ -88,9 +47,9 @@
       "height": 1081
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-18T03:14:33.307Z",
+    "capturedAt": "2026-07-18T06:45:09.906Z",
     "pageSnapshot": {
-      "route": "/settings/users",
+      "route": "/finance2/ar-ledger",
       "title": "金凤凰 ERP — Phoenix ERP V3",
       "scroll": {
         "x": 0,
@@ -110,28 +69,27 @@
         "采购管理",
         "销售管理",
         "财务结算中心",
+        "财务总览",
+        "应收账款",
+        "应收总账",
+        "应收三方对账",
+        "好业财同步",
+        "好业财中间层",
+        "应付账款",
+        "资金账户",
+        "资金调拨",
+        "股东资金",
+        "费用管理",
+        "报销管理",
+        "财务报表",
         "股东权益中心",
         "审批中心",
         "经营分析",
         "主数据中心",
         "系统设置",
-        "用户管理",
-        "角色与权限",
-        "权限集",
-        "数据范围",
-        "系统参数",
-        "安全策略",
-        "审计日志",
-        "品牌配置",
-        "PDA终端",
-        "POS配置",
-        "分账库存配置",
-        "通知设置",
-        "在线用户",
         "验收试运行",
         "系统运维",
         "个人中心 / 修改密码",
-        "日生产日报",
         "99+",
         "反馈问题",
         "反馈页面问题",
@@ -145,36 +103,83 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-        "pasted-screenshot-1784344443760-1.png",
+        "pasted-screenshot-1784357102504-1.png",
         "退出",
-        "/用户权限",
+        "财务管理",
+        "/应收总账",
         "/",
-        "用户权限",
-        "用户与权限",
-        "·用户账号角色分配组织绑定数据范围一站式",
+        "·集团应收往来余额台账 · 期初 / 本期应收 / 本期已收 / 期末",
         "·",
-        "正常 33",
-        "冻结 10",
-        "归档 0",
-        "· 筛选结果 1 条",
-        "分组视图",
-        "列表视图",
-        "(43)",
-        "(41)",
-        "(0)",
-        "🐔",
-        "养殖生产",
-        "1 人",
-        "linhong 正式 ID: 7",
-        "linhong",
-        "正式",
-        "林宏",
-        "养殖场长 驻场兽医",
-        "养殖场长",
-        "驻场兽医",
-        "正常",
-        "冻结 归档",
-        "合计 1 人 · 1 个分组"
+        "原币混合",
+        "本币·可比",
+        "场",
+        "往来单位编码",
+        "结算往来单位 / 客户",
+        "期间",
+        "币种",
+        "期初余额",
+        "本期应收",
+        "本期已收",
+        "期末余额",
+        "期末本币(CNY)",
+        "凤凰农业",
+        "000019",
+        "副丽 客户 那摩",
+        "2026-07-01",
+        "RMB",
+        "RMB 32,312.70",
+        "RMB 0.00",
+        "¥32,312.70",
+        "000021",
+        "中铁路",
+        "RMB 2,400.65",
+        "¥2,400.65",
+        "000026",
+        "阿布（孟赛店）",
+        "RMB 16,862.21",
+        "¥16,862.21",
+        "000027",
+        "拉邦吴总",
+        "RMB 49,104.23",
+        "¥49,104.23",
+        "000028",
+        "拉邦张杰",
+        "RMB 41,921.82",
+        "¥41,921.82",
+        "000029",
+        "猛昏客户",
+        "RMB 747.57",
+        "¥747.57",
+        "000030",
+        "万象吴总",
+        "RMB 65,253.91",
+        "¥65,253.91",
+        "000031",
+        "物流公司",
+        "RMB 2,901.63",
+        "¥2,901.63",
+        "000032",
+        "风沙里（老风沙里）",
+        "RMB -43,517.92",
+        "¥-43,517.92",
+        "000033",
+        "风沙里（文代）",
+        "RMB -192,169.37",
+        "¥-192,169.37",
+        "000034",
+        "风沙里（王总）",
+        "RMB -184,346.90",
+        "¥-184,346.90",
+        "000035",
+        "蒙混阿峰",
+        "RMB -91,384.37",
+        "¥-91,384.37",
+        "000036",
+        "蒙混（胖胖）",
+        "RMB -101,635.17",
+        "¥-101,635.17",
+        "000041",
+        "风沙里（猛夸）"
       ],
       "interactiveElements": [
         {
@@ -184,7 +189,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 14
+            "y": 118
           },
           "label": "运营工作台",
           "disabled": false
@@ -196,7 +201,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 52
+            "y": 156
           },
           "label": "每日工作台",
           "disabled": false
@@ -208,7 +213,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 90
+            "y": 194
           },
           "label": "经营仪表盘",
           "disabled": false
@@ -220,7 +225,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 128
+            "y": 232
           },
           "label": "生产管理",
           "disabled": false
@@ -232,7 +237,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 166
+            "y": 270
           },
           "label": "库存管理",
           "disabled": false
@@ -244,7 +249,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 204
+            "y": 308
           },
           "label": "全链追溯",
           "disabled": false
@@ -256,7 +261,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 242
+            "y": 346
           },
           "label": "采购管理",
           "disabled": false
@@ -268,21 +273,177 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 280
+            "y": 384
           },
           "label": "销售管理",
           "disabled": false
         },
         {
           "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
           "rect": {
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 318
+            "y": 422
           },
           "label": "财务结算中心",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 460
+          },
+          "label": "财务总览",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 492
+          },
+          "label": "应收账款",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 524
+          },
+          "label": "应收总账",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 556
+          },
+          "label": "应收三方对账",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 588
+          },
+          "label": "好业财同步",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 620
+          },
+          "label": "好业财中间层",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 652
+          },
+          "label": "应付账款",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 684
+          },
+          "label": "资金账户",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 716
+          },
+          "label": "资金调拨",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 748
+          },
+          "label": "股东资金",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 780
+          },
+          "label": "费用管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 812
+          },
+          "label": "报销管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 844
+          },
+          "label": "财务报表",
           "disabled": false
         },
         {
@@ -292,7 +453,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 356
+            "y": 876
           },
           "label": "股东权益中心",
           "disabled": false
@@ -304,7 +465,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 394
+            "y": 914
           },
           "label": "审批中心",
           "disabled": false
@@ -316,7 +477,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 432
+            "y": 952
           },
           "label": "经营分析",
           "disabled": false
@@ -328,177 +489,9 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 470
+            "y": 990
           },
           "label": "主数据中心",
-          "disabled": false
-        },
-        {
-          "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
-          "rect": {
-            "h": 38,
-            "w": 215,
-            "x": 0,
-            "y": 508
-          },
-          "label": "系统设置",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 546
-          },
-          "label": "用户管理",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 578
-          },
-          "label": "角色与权限",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 610
-          },
-          "label": "权限集",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 642
-          },
-          "label": "数据范围",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 674
-          },
-          "label": "系统参数",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 706
-          },
-          "label": "安全策略",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 738
-          },
-          "label": "审计日志",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 770
-          },
-          "label": "品牌配置",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 802
-          },
-          "label": "PDA终端",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 834
-          },
-          "label": "POS配置",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 866
-          },
-          "label": "分账库存配置",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 898
-          },
-          "label": "通知设置",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": ".sidebar-module__C8A-ya__subItem.",
-          "rect": {
-            "h": 32,
-            "w": 215,
-            "x": 0,
-            "y": 930
-          },
-          "label": "在线用户",
           "disabled": false
         },
         {
@@ -508,7 +501,19 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 962
+            "y": 1028
+          },
+          "label": "系统设置",
+          "disabled": false
+        },
+        {
+          "tag": "div",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "rect": {
+            "h": 38,
+            "w": 215,
+            "x": 0,
+            "y": 1066
           },
           "label": "验收试运行",
           "disabled": false
@@ -520,7 +525,7 @@
             "h": 38,
             "w": 215,
             "x": 0,
-            "y": 1000
+            "y": 1104
           },
           "label": "系统运维",
           "disabled": false
@@ -663,7 +668,7 @@
           "rect": {
             "h": 18,
             "w": 18,
-            "x": 970,
+            "x": 966,
             "y": 816
           },
           "label": "移除附件",
@@ -718,446 +723,62 @@
           "disabled": false
         },
         {
-          "tag": "button",
-          "path": ".admin-ui-module__B-1PDG__btnPrimaryGrad",
+          "tag": "select",
+          "path": "",
           "rect": {
-            "h": 37,
-            "w": 113,
-            "x": 1863,
-            "y": 86
+            "h": 35,
+            "w": 160,
+            "x": 276,
+            "y": 169
           },
-          "label": "新建用户",
+          "label": "全部场 凤凰农业 星驰农业 东鹏鸡场 凤凰鸡场",
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "path": "",
+          "rect": {
+            "h": 35,
+            "w": 160,
+            "x": 446,
+            "y": 169
+          },
+          "label": "全部期间 2026-07-01 2026-06-07 2026-06-06 2026-06-04",
           "disabled": false
         },
         {
           "tag": "button",
-          "path": "",
+          "path": ".bg-bg-muted.border",
           "rect": {
             "h": 35,
-            "w": 82,
-            "x": 1873,
-            "y": 164
+            "w": 74,
+            "x": 616,
+            "y": 169
           },
           "label": "刷新",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 86,
-            "x": 248,
-            "y": 235
-          },
-          "label": "分组视图",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 86,
-            "x": 336,
-            "y": 235
-          },
-          "label": "列表视图",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": ".admin-ui-module__B-1PDG__tabPill.admin-ui-module__B-1PDG__tabPillActive",
-          "rect": {
-            "h": 29,
-            "w": 81,
-            "x": 435,
-            "y": 234
-          },
-          "label": "全部(43)",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": ".admin-ui-module__B-1PDG__tabPill.",
-          "rect": {
-            "h": 29,
-            "w": 122,
-            "x": 522,
-            "y": 234
-          },
-          "label": "✅ 正式员工(41)",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": ".admin-ui-module__B-1PDG__tabPill.",
-          "rect": {
-            "h": 29,
-            "w": 117,
-            "x": 650,
-            "y": 234
-          },
-          "label": "🧪 测试账号(0)",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": "",
-          "rect": {
-            "h": 19,
-            "w": 218,
-            "x": 808,
-            "y": 239
-          },
-          "label": "搜索姓名、账号、角色…",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 14,
-            "w": 11,
-            "x": 1033,
-            "y": 242
-          },
-          "label": "✕",
-          "disabled": false
-        },
-        {
-          "tag": "select",
-          "path": ".admin-ui-module__B-1PDG__inp",
-          "rect": {
-            "h": 35,
-            "w": 113,
-            "x": 1067,
-            "y": 231
-          },
-          "label": "在管账号 全部（含归档） ✅ 正常 🔒 已冻结 🗄 已归档",
-          "disabled": false
-        },
-        {
-          "tag": "select",
-          "path": ".admin-ui-module__B-1PDG__inp",
-          "rect": {
-            "h": 35,
-            "w": 164,
-            "x": 1189,
-            "y": 231
-          },
-          "label": "全部角色 集团超级管理员 孟赛/东鹏蛋鸡场 出纳 农业事业群总经理 食品事业群总经理 集团总裁 场区经理 财务审核经理 财务总监 总部财务审计 试运行负责人 区域督导 大客总监 养殖场长 财务会计 应收专员 成本会计 人力资源经理 物流调度 主数据审批人 车间主任 品控总监 销售经理 直营店店长 资金经理 驻场兽医 仓",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 31,
-            "w": 69,
-            "x": 1364,
-            "y": 233
-          },
-          "label": "清除筛选",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": ".admin-ui-module__B-1PDG__btnSm.admin-ui-module__B-1PDG__btn",
-          "rect": {
-            "h": 26,
-            "w": 61,
-            "x": 1826,
-            "y": 341
-          },
-          "label": "冻结",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": ".admin-ui-module__B-1PDG__btnSm.admin-ui-module__B-1PDG__btn",
-          "rect": {
-            "h": 27,
-            "w": 62,
-            "x": 1895,
-            "y": 341
-          },
-          "label": "归档",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 69,
-            "x": 1828,
-            "y": 410
-          },
-          "label": "全部展开",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 27,
-            "w": 69,
-            "x": 1903,
-            "y": 410
-          },
-          "label": "全部折叠",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": ".rightDrawer-module__jI_Bsa__closeBtn",
-          "rect": {
-            "h": 32,
-            "w": 32,
-            "x": 2468,
-            "y": 16
-          },
-          "label": "关闭抽屉",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": ".admin-ui-module__B-1PDG__inp",
-          "rect": {
-            "h": 37,
-            "w": 467,
-            "x": 2021,
-            "y": 159
-          },
-          "label": "字母+数字，如 store_mgr2",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": ".admin-ui-module__B-1PDG__inp",
-          "rect": {
-            "h": 37,
-            "w": 467,
-            "x": 2021,
-            "y": 230
-          },
-          "label": "如 张三",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": "",
-          "rect": {
-            "h": 13,
-            "w": 13,
-            "x": 2034,
-            "y": 343
-          },
-          "label": "REAL",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": "",
-          "rect": {
-            "h": 13,
-            "w": 13,
-            "x": 2272,
-            "y": 343
-          },
-          "label": "TEST",
-          "disabled": false
-        },
-        {
-          "tag": "input",
-          "path": "",
-          "rect": {
-            "h": 18,
-            "w": 428,
-            "x": 2049,
-            "y": 465
-          },
-          "label": "搜索角色...",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 138,
-            "x": 2031,
-            "y": 527
-          },
-          "label": "集团超级管理员L99",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 180,
-            "x": 2173,
-            "y": 527
-          },
-          "label": "问题反馈本地修复机器人L0",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 167,
-            "x": 2031,
-            "y": 602
-          },
-          "label": "孟赛/东鹏蛋鸡场 出纳L10",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 120,
-            "x": 2203,
-            "y": 602
-          },
-          "label": "财务审核经理L3",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 96,
-            "x": 2326,
-            "y": 602
-          },
-          "label": "财务总监L3",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 120,
-            "x": 2031,
-            "y": 634
-          },
-          "label": "总部财务审计L3",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 95,
-            "x": 2155,
-            "y": 634
-          },
-          "label": "财务会计L2",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 95,
-            "x": 2254,
-            "y": 634
-          },
-          "label": "应收专员L2",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 95,
-            "x": 2354,
-            "y": 634
-          },
-          "label": "成本会计L2",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 95,
-            "x": 2031,
-            "y": 667
-          },
-          "label": "资金经理L2",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 69,
-            "x": 2131,
-            "y": 667
-          },
-          "label": "出纳L1",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 117,
-            "x": 2204,
-            "y": 667
-          },
-          "label": "成本核算经理L1",
-          "disabled": false
-        },
-        {
-          "tag": "button",
-          "path": "",
-          "rect": {
-            "h": 28,
-            "w": 117,
-            "x": 2325,
-            "y": 667
-          },
-          "label": "财务分析经理L1",
           "disabled": false
         }
       ]
     },
     "devicePixelRatio": 1.600000023841858
   },
-  "resolutionNote": "地址：https://erp.eggslao.com/mobile/henhouse，在mobile端鸡舍管理新建鸡舍，提示“集团/管理员请在PC端「鸡舍管理」创建并指定农场;手机端仅供场长建本场鸡舍。”，但是linhong这个账号就是养殖场长",
+  "resolutionNote": "地址：https://erp.eggslao.com/terminal/packaging/source-receive，作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员”",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/settings/users",
-    "bugNo": "BUG-20260718-0004",
-    "route": "/settings/users",
-    "title": "mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡舍管理」创建并指定农场;手机端仅供场长建本场鸡舍。”",
-    "taskNo": "BUGTASK-20260718-0004",
+    "url": "https://erp.eggslao.com/finance2/ar-ledger",
+    "bugNo": "BUG-20260718-0005",
+    "route": "/finance2/ar-ledger",
+    "title": "作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员”",
+    "taskNo": "BUGTASK-20260718-0005",
     "context": {
       "attachments": [
         {
-          "sha256": "33153f421a495e2488490b3b1d7c0d1011e2bf10614514e880c894893490264e",
-          "fileName": "01-1784344473306-143ce004.png",
+          "sha256": "6f11abb3e995614abe2dee9c995da3fbb867a91cf39fc27d0ed8b79ee5038a99",
+          "fileName": "01-1784357109905-96e12075.png",
           "mimeType": "image/png",
-          "sizeBytes": 665405,
-          "originalName": "pasted-screenshot-1784344443760-1.png",
-          "relativePath": "storage/bug-reports/2026/07/18/BUG-20260718-0004/01-1784344473306-143ce004.png",
-          "previewEndpoint": "/api/bug-intake/reports/BUG-20260718-0004/attachments/01-1784344473306-143ce004.png"
+          "sizeBytes": 309893,
+          "originalName": "pasted-screenshot-1784357102504-1.png",
+          "relativePath": "storage/bug-reports/2026/07/18/BUG-20260718-0005/01-1784357109905-96e12075.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260718-0005/attachments/01-1784357109905-96e12075.png"
         }
       ],
       "clientContext": {
@@ -1168,9 +789,9 @@
           "height": 1081
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-18T03:14:33.307Z",
+        "capturedAt": "2026-07-18T06:45:09.906Z",
         "pageSnapshot": {
-          "route": "/settings/users",
+          "route": "/finance2/ar-ledger",
           "title": "金凤凰 ERP — Phoenix ERP V3",
           "scroll": {
             "x": 0,
@@ -1190,28 +811,27 @@
             "采购管理",
             "销售管理",
             "财务结算中心",
+            "财务总览",
+            "应收账款",
+            "应收总账",
+            "应收三方对账",
+            "好业财同步",
+            "好业财中间层",
+            "应付账款",
+            "资金账户",
+            "资金调拨",
+            "股东资金",
+            "费用管理",
+            "报销管理",
+            "财务报表",
             "股东权益中心",
             "审批中心",
             "经营分析",
             "主数据中心",
             "系统设置",
-            "用户管理",
-            "角色与权限",
-            "权限集",
-            "数据范围",
-            "系统参数",
-            "安全策略",
-            "审计日志",
-            "品牌配置",
-            "PDA终端",
-            "POS配置",
-            "分账库存配置",
-            "通知设置",
-            "在线用户",
             "验收试运行",
             "系统运维",
             "个人中心 / 修改密码",
-            "日生产日报",
             "99+",
             "反馈问题",
             "反馈页面问题",
@@ -1225,36 +845,83 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-            "pasted-screenshot-1784344443760-1.png",
+            "pasted-screenshot-1784357102504-1.png",
             "退出",
-            "/用户权限",
+            "财务管理",
+            "/应收总账",
             "/",
-            "用户权限",
-            "用户与权限",
-            "·用户账号角色分配组织绑定数据范围一站式",
+            "·集团应收往来余额台账 · 期初 / 本期应收 / 本期已收 / 期末",
             "·",
-            "正常 33",
-            "冻结 10",
-            "归档 0",
-            "· 筛选结果 1 条",
-            "分组视图",
-            "列表视图",
-            "(43)",
-            "(41)",
-            "(0)",
-            "🐔",
-            "养殖生产",
-            "1 人",
-            "linhong 正式 ID: 7",
-            "linhong",
-            "正式",
-            "林宏",
-            "养殖场长 驻场兽医",
-            "养殖场长",
-            "驻场兽医",
-            "正常",
-            "冻结 归档",
-            "合计 1 人 · 1 个分组"
+            "原币混合",
+            "本币·可比",
+            "场",
+            "往来单位编码",
+            "结算往来单位 / 客户",
+            "期间",
+            "币种",
+            "期初余额",
+            "本期应收",
+            "本期已收",
+            "期末余额",
+            "期末本币(CNY)",
+            "凤凰农业",
+            "000019",
+            "副丽 客户 那摩",
+            "2026-07-01",
+            "RMB",
+            "RMB 32,312.70",
+            "RMB 0.00",
+            "¥32,312.70",
+            "000021",
+            "中铁路",
+            "RMB 2,400.65",
+            "¥2,400.65",
+            "000026",
+            "阿布（孟赛店）",
+            "RMB 16,862.21",
+            "¥16,862.21",
+            "000027",
+            "拉邦吴总",
+            "RMB 49,104.23",
+            "¥49,104.23",
+            "000028",
+            "拉邦张杰",
+            "RMB 41,921.82",
+            "¥41,921.82",
+            "000029",
+            "猛昏客户",
+            "RMB 747.57",
+            "¥747.57",
+            "000030",
+            "万象吴总",
+            "RMB 65,253.91",
+            "¥65,253.91",
+            "000031",
+            "物流公司",
+            "RMB 2,901.63",
+            "¥2,901.63",
+            "000032",
+            "风沙里（老风沙里）",
+            "RMB -43,517.92",
+            "¥-43,517.92",
+            "000033",
+            "风沙里（文代）",
+            "RMB -192,169.37",
+            "¥-192,169.37",
+            "000034",
+            "风沙里（王总）",
+            "RMB -184,346.90",
+            "¥-184,346.90",
+            "000035",
+            "蒙混阿峰",
+            "RMB -91,384.37",
+            "¥-91,384.37",
+            "000036",
+            "蒙混（胖胖）",
+            "RMB -101,635.17",
+            "¥-101,635.17",
+            "000041",
+            "风沙里（猛夸）"
           ],
           "interactiveElements": [
             {
@@ -1264,7 +931,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 14
+                "y": 118
               },
               "label": "运营工作台",
               "disabled": false
@@ -1276,7 +943,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 52
+                "y": 156
               },
               "label": "每日工作台",
               "disabled": false
@@ -1288,7 +955,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 90
+                "y": 194
               },
               "label": "经营仪表盘",
               "disabled": false
@@ -1300,7 +967,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 128
+                "y": 232
               },
               "label": "生产管理",
               "disabled": false
@@ -1312,7 +979,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 166
+                "y": 270
               },
               "label": "库存管理",
               "disabled": false
@@ -1324,7 +991,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 204
+                "y": 308
               },
               "label": "全链追溯",
               "disabled": false
@@ -1336,7 +1003,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 242
+                "y": 346
               },
               "label": "采购管理",
               "disabled": false
@@ -1348,21 +1015,177 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 280
+                "y": 384
               },
               "label": "销售管理",
               "disabled": false
             },
             {
               "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
               "rect": {
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 318
+                "y": 422
               },
               "label": "财务结算中心",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 460
+              },
+              "label": "财务总览",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 492
+              },
+              "label": "应收账款",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 524
+              },
+              "label": "应收总账",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 556
+              },
+              "label": "应收三方对账",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 588
+              },
+              "label": "好业财同步",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 620
+              },
+              "label": "好业财中间层",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 652
+              },
+              "label": "应付账款",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 684
+              },
+              "label": "资金账户",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 716
+              },
+              "label": "资金调拨",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 748
+              },
+              "label": "股东资金",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 780
+              },
+              "label": "费用管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 812
+              },
+              "label": "报销管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 844
+              },
+              "label": "财务报表",
               "disabled": false
             },
             {
@@ -1372,7 +1195,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 356
+                "y": 876
               },
               "label": "股东权益中心",
               "disabled": false
@@ -1384,7 +1207,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 394
+                "y": 914
               },
               "label": "审批中心",
               "disabled": false
@@ -1396,7 +1219,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 432
+                "y": 952
               },
               "label": "经营分析",
               "disabled": false
@@ -1408,177 +1231,9 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 470
+                "y": 990
               },
               "label": "主数据中心",
-              "disabled": false
-            },
-            {
-              "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
-              "rect": {
-                "h": 38,
-                "w": 215,
-                "x": 0,
-                "y": 508
-              },
-              "label": "系统设置",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 546
-              },
-              "label": "用户管理",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 578
-              },
-              "label": "角色与权限",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 610
-              },
-              "label": "权限集",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 642
-              },
-              "label": "数据范围",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 674
-              },
-              "label": "系统参数",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 706
-              },
-              "label": "安全策略",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 738
-              },
-              "label": "审计日志",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 770
-              },
-              "label": "品牌配置",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 802
-              },
-              "label": "PDA终端",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 834
-              },
-              "label": "POS配置",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 866
-              },
-              "label": "分账库存配置",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 898
-              },
-              "label": "通知设置",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": ".sidebar-module__C8A-ya__subItem.",
-              "rect": {
-                "h": 32,
-                "w": 215,
-                "x": 0,
-                "y": 930
-              },
-              "label": "在线用户",
               "disabled": false
             },
             {
@@ -1588,7 +1243,19 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 962
+                "y": 1028
+              },
+              "label": "系统设置",
+              "disabled": false
+            },
+            {
+              "tag": "div",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "rect": {
+                "h": 38,
+                "w": 215,
+                "x": 0,
+                "y": 1066
               },
               "label": "验收试运行",
               "disabled": false
@@ -1600,7 +1267,7 @@
                 "h": 38,
                 "w": 215,
                 "x": 0,
-                "y": 1000
+                "y": 1104
               },
               "label": "系统运维",
               "disabled": false
@@ -1743,7 +1410,7 @@
               "rect": {
                 "h": 18,
                 "w": 18,
-                "x": 970,
+                "x": 966,
                 "y": 816
               },
               "label": "移除附件",
@@ -1798,423 +1465,39 @@
               "disabled": false
             },
             {
-              "tag": "button",
-              "path": ".admin-ui-module__B-1PDG__btnPrimaryGrad",
+              "tag": "select",
+              "path": "",
               "rect": {
-                "h": 37,
-                "w": 113,
-                "x": 1863,
-                "y": 86
+                "h": 35,
+                "w": 160,
+                "x": 276,
+                "y": 169
               },
-              "label": "新建用户",
+              "label": "全部场 凤凰农业 星驰农业 东鹏鸡场 凤凰鸡场",
+              "disabled": false
+            },
+            {
+              "tag": "select",
+              "path": "",
+              "rect": {
+                "h": 35,
+                "w": 160,
+                "x": 446,
+                "y": 169
+              },
+              "label": "全部期间 2026-07-01 2026-06-07 2026-06-06 2026-06-04",
               "disabled": false
             },
             {
               "tag": "button",
-              "path": "",
+              "path": ".bg-bg-muted.border",
               "rect": {
                 "h": 35,
-                "w": 82,
-                "x": 1873,
-                "y": 164
+                "w": 74,
+                "x": 616,
+                "y": 169
               },
               "label": "刷新",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 86,
-                "x": 248,
-                "y": 235
-              },
-              "label": "分组视图",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 86,
-                "x": 336,
-                "y": 235
-              },
-              "label": "列表视图",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": ".admin-ui-module__B-1PDG__tabPill.admin-ui-module__B-1PDG__tabPillActive",
-              "rect": {
-                "h": 29,
-                "w": 81,
-                "x": 435,
-                "y": 234
-              },
-              "label": "全部(43)",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": ".admin-ui-module__B-1PDG__tabPill.",
-              "rect": {
-                "h": 29,
-                "w": 122,
-                "x": 522,
-                "y": 234
-              },
-              "label": "✅ 正式员工(41)",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": ".admin-ui-module__B-1PDG__tabPill.",
-              "rect": {
-                "h": 29,
-                "w": 117,
-                "x": 650,
-                "y": 234
-              },
-              "label": "🧪 测试账号(0)",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": "",
-              "rect": {
-                "h": 19,
-                "w": 218,
-                "x": 808,
-                "y": 239
-              },
-              "label": "搜索姓名、账号、角色…",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 14,
-                "w": 11,
-                "x": 1033,
-                "y": 242
-              },
-              "label": "✕",
-              "disabled": false
-            },
-            {
-              "tag": "select",
-              "path": ".admin-ui-module__B-1PDG__inp",
-              "rect": {
-                "h": 35,
-                "w": 113,
-                "x": 1067,
-                "y": 231
-              },
-              "label": "在管账号 全部（含归档） ✅ 正常 🔒 已冻结 🗄 已归档",
-              "disabled": false
-            },
-            {
-              "tag": "select",
-              "path": ".admin-ui-module__B-1PDG__inp",
-              "rect": {
-                "h": 35,
-                "w": 164,
-                "x": 1189,
-                "y": 231
-              },
-              "label": "全部角色 集团超级管理员 孟赛/东鹏蛋鸡场 出纳 农业事业群总经理 食品事业群总经理 集团总裁 场区经理 财务审核经理 财务总监 总部财务审计 试运行负责人 区域督导 大客总监 养殖场长 财务会计 应收专员 成本会计 人力资源经理 物流调度 主数据审批人 车间主任 品控总监 销售经理 直营店店长 资金经理 驻场兽医 仓",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 31,
-                "w": 69,
-                "x": 1364,
-                "y": 233
-              },
-              "label": "清除筛选",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": ".admin-ui-module__B-1PDG__btnSm.admin-ui-module__B-1PDG__btn",
-              "rect": {
-                "h": 26,
-                "w": 61,
-                "x": 1826,
-                "y": 341
-              },
-              "label": "冻结",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": ".admin-ui-module__B-1PDG__btnSm.admin-ui-module__B-1PDG__btn",
-              "rect": {
-                "h": 27,
-                "w": 62,
-                "x": 1895,
-                "y": 341
-              },
-              "label": "归档",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 69,
-                "x": 1828,
-                "y": 410
-              },
-              "label": "全部展开",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 27,
-                "w": 69,
-                "x": 1903,
-                "y": 410
-              },
-              "label": "全部折叠",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": ".rightDrawer-module__jI_Bsa__closeBtn",
-              "rect": {
-                "h": 32,
-                "w": 32,
-                "x": 2468,
-                "y": 16
-              },
-              "label": "关闭抽屉",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": ".admin-ui-module__B-1PDG__inp",
-              "rect": {
-                "h": 37,
-                "w": 467,
-                "x": 2021,
-                "y": 159
-              },
-              "label": "字母+数字，如 store_mgr2",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": ".admin-ui-module__B-1PDG__inp",
-              "rect": {
-                "h": 37,
-                "w": 467,
-                "x": 2021,
-                "y": 230
-              },
-              "label": "如 张三",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": "",
-              "rect": {
-                "h": 13,
-                "w": 13,
-                "x": 2034,
-                "y": 343
-              },
-              "label": "REAL",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": "",
-              "rect": {
-                "h": 13,
-                "w": 13,
-                "x": 2272,
-                "y": 343
-              },
-              "label": "TEST",
-              "disabled": false
-            },
-            {
-              "tag": "input",
-              "path": "",
-              "rect": {
-                "h": 18,
-                "w": 428,
-                "x": 2049,
-                "y": 465
-              },
-              "label": "搜索角色...",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 138,
-                "x": 2031,
-                "y": 527
-              },
-              "label": "集团超级管理员L99",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 180,
-                "x": 2173,
-                "y": 527
-              },
-              "label": "问题反馈本地修复机器人L0",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 167,
-                "x": 2031,
-                "y": 602
-              },
-              "label": "孟赛/东鹏蛋鸡场 出纳L10",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 120,
-                "x": 2203,
-                "y": 602
-              },
-              "label": "财务审核经理L3",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 96,
-                "x": 2326,
-                "y": 602
-              },
-              "label": "财务总监L3",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 120,
-                "x": 2031,
-                "y": 634
-              },
-              "label": "总部财务审计L3",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 95,
-                "x": 2155,
-                "y": 634
-              },
-              "label": "财务会计L2",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 95,
-                "x": 2254,
-                "y": 634
-              },
-              "label": "应收专员L2",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 95,
-                "x": 2354,
-                "y": 634
-              },
-              "label": "成本会计L2",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 95,
-                "x": 2031,
-                "y": 667
-              },
-              "label": "资金经理L2",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 69,
-                "x": 2131,
-                "y": 667
-              },
-              "label": "出纳L1",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 117,
-                "x": 2204,
-                "y": 667
-              },
-              "label": "成本核算经理L1",
-              "disabled": false
-            },
-            {
-              "tag": "button",
-              "path": "",
-              "rect": {
-                "h": 28,
-                "w": 117,
-                "x": 2325,
-                "y": 667
-              },
-              "label": "财务分析经理L1",
               "disabled": false
             }
           ]
@@ -2222,48 +1505,7 @@
         "devicePixelRatio": 1.600000023841858
       },
       "consoleErrors": [],
-      "failedRequests": [
-        {
-          "url": "/api/v2/finance/expenses/1/submit",
-          "method": "POST",
-          "status": 400,
-          "requestId": "",
-          "timestamp": "2026-07-18T01:42:40.737Z",
-          "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
-        },
-        {
-          "url": "/api/v2/finance/expenses/1/submit",
-          "method": "POST",
-          "status": 400,
-          "requestId": "",
-          "timestamp": "2026-07-18T01:43:06.796Z",
-          "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
-        },
-        {
-          "url": "/api/v2/finance/expenses/1/submit",
-          "method": "POST",
-          "status": 400,
-          "requestId": "",
-          "timestamp": "2026-07-18T01:43:47.729Z",
-          "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
-        },
-        {
-          "url": "/api/v2/finance/expenses/1/submit",
-          "method": "POST",
-          "status": 400,
-          "requestId": "",
-          "timestamp": "2026-07-18T01:44:58.325Z",
-          "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
-        },
-        {
-          "url": "/api/v2/finance/expenses/1/submit",
-          "method": "POST",
-          "status": 400,
-          "requestId": "",
-          "timestamp": "2026-07-18T01:46:23.754Z",
-          "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
-        }
-      ]
+      "failedRequests": []
     },
     "priority": "P2",
     "reporter": {
@@ -2278,13 +1520,14 @@
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260718-0004",
+      "source_bug_no": "BUG-20260718-0005",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
           "agent": "A2-Security-Regression-Gate",
           "reasons": [
-            "security/RBAC/DataScope signal matched"
+            "security/RBAC/DataScope signal matched",
+            "failure classification RBAC_403"
           ],
           "execution_mode": "dry-run-first",
           "approval_required": true
@@ -2293,7 +1536,7 @@
           "agent": "A3-Backend-Critical-Path",
           "reasons": [
             "backend/API/error route matched",
-            "failure classification API_5XX"
+            "failure classification RBAC_403"
           ],
           "execution_mode": "dry-run-first",
           "approval_required": true
@@ -2317,7 +1560,7 @@
         {
           "agent": "A1-CI-Runtime-Gate",
           "reasons": [
-            "failure classification API_5XX",
+            "failure classification RBAC_403",
             "required validation after repair"
           ],
           "execution_mode": "dry-run-first",
@@ -2331,56 +1574,109 @@
         "A5-Data-Readiness",
         "A1-CI-Runtime-Gate"
       ],
-      "failure_category": "API_5XX",
+      "failure_category": "RBAC_403",
       "hard_constraints": [
         "no automatic production deploy",
         "no automatic DB write",
         "no automatic migration",
         "human approval required before code repair execution"
       ],
-      "route_confidence": 0.88,
+      "route_confidence": 0.9,
       "source_repair_task_no": ""
     },
-    "createdAt": "2026-07-18T03:15:05.135Z",
+    "createdAt": "2026-07-18T06:45:52.414Z",
     "createdBy": "admin",
-    "moduleCode": "mobile_____",
+    "moduleCode": "___-____",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260718-0004-A4",
+        "agent": "A3-Backend-Critical-Path",
+        "taskId": "BUGTASK-20260718-0005-A3",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0005-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 1 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0005-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0005-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0005-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0005-A3-worker-assembled-prompt.md\nAssembled prompt chars: 22585\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T11-31-57-903Z-A3-Backend-Critical-Path.md\nBaseline autopilot skipped by caller; caller must run lifecycle hook.\n\n```\n\n## Stderr\n\n```text\n2026-07-18T11:31:49.358221Z ERROR codex_models_manager::cache: failed to load models cache: missing field `supports_reasoning_summaries` at line 88 column 5\nOpenAI Codex v0.142.5\n--------\nworkdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nmodel: gpt-5.6-sol\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: low\nreasoning summaries: none\nsession id: 019f74ff-3e1c-7bf2-9702-f5d1e1039374\n--------\nuser\n# Base Agent Prompt\n\n# Bug Intake A3 Backend Repair Prompt\n\n## Identity\n\nYou are `A3-Backend-Critical-Path` running on the",
+        "commitHash": "",
+        "conclusion": "HOLD",
+        "nextAction": "",
+        "recordedAt": "2026-07-18T11:31:59.485Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A3-worker-log.md",
+        "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "queueStatus": "HOLD",
+          "evidenceGate": {
+            "role": "execution",
+            "agent": "A3-Backend-Critical-Path",
+            "passed": false,
+            "reason": "Agent process exited with 1",
+            "version": 1,
+            "exitCode": 1,
+            "afterHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
+            "checkedAt": "2026-07-18T11:31:57.924Z",
+            "beforeHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
+            "commitHash": "",
+            "conclusion": "",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 0,
+            "terminalStatus": "HOLD",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260718-0005-A4",
         "agent": "A4-Frontend-UAT-Smoke",
         "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260718-0004-A4-worker-log.md",
-        "commitHash": "",
-        "changedFiles": [],
+        "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A4-worker-log.md",
+        "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+        "changedFiles": [
+          "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+          "apps/web/src/lib/source-receive-submit.test.ts",
+          "apps/web/src/lib/source-receive-submit.ts",
+          "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+        ],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
             "agent": "A4-Frontend-UAT-Smoke",
             "exitCode": 0,
-            "conclusion": "HOLD",
-            "responseChars": 552,
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "responseChars": 752,
             "beforeHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
-            "afterHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
-            "commitHash": "",
-            "changedFiles": [],
-            "businessChangedFiles": [],
-            "reportFiles": [],
+            "afterHead": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+            "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+            "changedFiles": [
+              "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+              "apps/web/src/lib/source-receive-submit.test.ts",
+              "apps/web/src/lib/source-receive-submit.ts",
+              "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+            ],
+            "businessChangedFiles": [
+              "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+              "apps/web/src/lib/source-receive-submit.test.ts",
+              "apps/web/src/lib/source-receive-submit.ts"
+            ],
+            "reportFiles": [
+              "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+            ],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-18T12:34:39.226Z",
+            "checkedAt": "2026-07-18T12:43:10.739Z",
             "passed": true,
-            "role": "implementation_verified_existing",
-            "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-            "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+            "role": "implementation",
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
+            "reason": "Business change, task report, commit, and conclusion are present"
           },
-          "queueStatus": "SKIPPED_NOT_APPLICABLE",
+          "queueStatus": "IMPLEMENTATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 32409\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-34-39-120Z-A4-Frontend-UAT-Smoke.md\nNOT APPLICABLE — HOLD\n\nBUG-20260718-0004 没有前端归属的修复：\n\n- `linhong` 已通过前端 `ROLE_FARM_MGR` 写权限并进入新建表单，前端角色判断正常。\n- 截图中的报错来自创建接口返回的 `res.msg`；该文案不存在于前端源码。\n- 前端按既定安全约束不提交农场字段，农场必须由服务端依据 DataScope 自动绑定。\n- 因此故障点是服务端未能为 `linhong` 派生唯一农场。前端选择农场或放宽权限会绕过 DataScope，不能实施。\n- 无 owned frontend diff；依照“无前端修复则不编辑文件”的合同要求，未创建报告文件。\n- 权限、加载、空状态、错误展示和移动响应式布局均保持原状。\n- `mobile-roles.test.ts`：28/28 PASS。\n- Web `tsc --noEmit`：PASS。\n- 未部署、推送、写数据库或执行迁移。\n\n建议转交 A3 Backend，检查 `linhong` 的组织/农场 DataScope 绑定及 `/api/farm/feed/houses` 的农场派生逻辑。修复后仍需 CI/CD、生产移动端 smoke 和业务验收，当前不能宣称问题已解决。\nBaseline autopilot skipp",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 22652\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-43-10-557Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS / 发布状态：HOLD。\n\n已修复集蛋页未开班仍允许提交、发送 `shiftId: null` 的前端缺口：\n\n- 未开班时禁用“确认录入”并显示明确提示。\n- 合法提交必须携带活动班次 ID。\n- 保留 RBAC、DataScope、错误、空态及 loading 行为。\n- 已填写数据仍会阻止误跳到分级页。\n\n验证通过：\n\n- Web TypeScript：0 errors\n- Vitest：2/2 tests passed\n- 受影响路由生产编译：PASS\n- `git diff --check`：PASS\n\n改动见 [source-receive/page.tsx](</Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx>)、[回归测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/source-receive-submit.test.ts) 和 [任务报告](/Users/mac/phoenix-erp-worktrees",
         "nextAction": "",
         "redispatchCount": 0,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-18T12:34:41.038Z"
+        "recordedAt": "2026-07-18T12:43:13.075Z"
       }
     ],
     "suggestedOwner": "",
@@ -2391,65 +1687,82 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260718-0004-A4",
+      "taskId": "BUGTASK-20260718-0005-A4",
       "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260718-0004-A4-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
+      "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A4-worker-log.md",
+      "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+      "changedFiles": [
+        "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+        "apps/web/src/lib/source-receive-submit.test.ts",
+        "apps/web/src/lib/source-receive-submit.ts",
+        "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+      ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
           "agent": "A4-Frontend-UAT-Smoke",
           "exitCode": 0,
-          "conclusion": "HOLD",
-          "responseChars": 552,
+          "conclusion": "PASS_WITH_CONDITIONS",
+          "responseChars": 752,
           "beforeHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
-          "afterHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
-          "commitHash": "",
-          "changedFiles": [],
-          "businessChangedFiles": [],
-          "reportFiles": [],
+          "afterHead": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+          "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+          "changedFiles": [
+            "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+            "apps/web/src/lib/source-receive-submit.test.ts",
+            "apps/web/src/lib/source-receive-submit.ts",
+            "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+          ],
+          "businessChangedFiles": [
+            "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+            "apps/web/src/lib/source-receive-submit.test.ts",
+            "apps/web/src/lib/source-receive-submit.ts"
+          ],
+          "reportFiles": [
+            "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+          ],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-18T12:34:39.226Z",
+          "checkedAt": "2026-07-18T12:43:10.739Z",
           "passed": true,
-          "role": "implementation_verified_existing",
-          "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-          "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+          "role": "implementation",
+          "terminalStatus": "IMPLEMENTATION_COMPLETED",
+          "reason": "Business change, task report, commit, and conclusion are present"
         },
-        "queueStatus": "SKIPPED_NOT_APPLICABLE",
+        "queueStatus": "IMPLEMENTATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 32409\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-34-39-120Z-A4-Frontend-UAT-Smoke.md\nNOT APPLICABLE — HOLD\n\nBUG-20260718-0004 没有前端归属的修复：\n\n- `linhong` 已通过前端 `ROLE_FARM_MGR` 写权限并进入新建表单，前端角色判断正常。\n- 截图中的报错来自创建接口返回的 `res.msg`；该文案不存在于前端源码。\n- 前端按既定安全约束不提交农场字段，农场必须由服务端依据 DataScope 自动绑定。\n- 因此故障点是服务端未能为 `linhong` 派生唯一农场。前端选择农场或放宽权限会绕过 DataScope，不能实施。\n- 无 owned frontend diff；依照“无前端修复则不编辑文件”的合同要求，未创建报告文件。\n- 权限、加载、空状态、错误展示和移动响应式布局均保持原状。\n- `mobile-roles.test.ts`：28/28 PASS。\n- Web `tsc --noEmit`：PASS。\n- 未部署、推送、写数据库或执行迁移。\n\n建议转交 A3 Backend，检查 `linhong` 的组织/农场 DataScope 绑定及 `/api/farm/feed/houses` 的农场派生逻辑。修复后仍需 CI/CD、生产移动端 smoke 和业务验收，当前不能宣称问题已解决。\nBaseline autopilot skipp",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 22652\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-43-10-557Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS / 发布状态：HOLD。\n\n已修复集蛋页未开班仍允许提交、发送 `shiftId: null` 的前端缺口：\n\n- 未开班时禁用“确认录入”并显示明确提示。\n- 合法提交必须携带活动班次 ID。\n- 保留 RBAC、DataScope、错误、空态及 loading 行为。\n- 已填写数据仍会阻止误跳到分级页。\n\n验证通过：\n\n- Web TypeScript：0 errors\n- Vitest：2/2 tests passed\n- 受影响路由生产编译：PASS\n- `git diff --check`：PASS\n\n改动见 [source-receive/page.tsx](</Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx>)、[回归测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/source-receive-submit.test.ts) 和 [任务报告](/Users/mac/phoenix-erp-worktrees",
       "nextAction": "",
       "redispatchCount": 0,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-18T12:34:41.038Z"
+      "recordedAt": "2026-07-18T12:43:13.075Z"
     },
-    "acceptanceCriteria": "地址：https://erp.eggslao.com/mobile/henhouse，在mobile端鸡舍管理新建鸡舍，提示“集团/管理员请在PC端「鸡舍管理」创建并指定农场;手机端仅供场长建本场鸡舍。”，但是linhong这个账号就是养殖场长",
-    "agentPlanGeneratedAt": "2026-07-18T03:15:05.136Z",
+    "acceptanceCriteria": "地址：https://erp.eggslao.com/terminal/packaging/source-receive，作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员”",
+    "agentPlanGeneratedAt": "2026-07-18T06:45:52.415Z",
     "agentPlanGeneratedBy": "admin",
     "failureClassification": {
-      "category": "API_5XX",
+      "category": "RBAC_403",
       "evidence": [
-        "API 5xx/异常信号"
+        "权限/RBAC/DataScope 信号"
       ],
       "priority": "P1",
       "severity": "HIGH",
-      "confidence": 0.88,
-      "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+      "confidence": 0.9,
+      "suggestedFix": "对齐菜单码、角色权限和 DataScope，避免前端透传无权限入口。",
       "autoFixEligible": true,
       "recommendedAgents": [
+        "A2-Security-Regression-Gate",
         "A3-Backend-Critical-Path",
         "A1-CI-Runtime-Gate"
       ],
       "requiresHumanGate": true,
-      "ownerRecommendation": "A3-Backend-Critical-Path"
+      "ownerRecommendation": "A2-Security-Regression-Gate"
     },
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-18T03:15:05.136Z",
+      "approvedAt": "2026-07-18T06:45:52.415Z",
       "approvedBy": "admin",
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "forbiddenActions": [
@@ -2458,18 +1771,23 @@
         "force push"
       ]
     },
-    "failureClassificationUpdatedAt": "2026-07-18T03:15:05.136Z"
+    "failureClassificationUpdatedAt": "2026-07-18T06:45:52.415Z"
   },
   "repairResult": {
     "visibility": "HOLD",
     "headline": "修复暂未完成，当前处于 HOLD",
     "conclusion": "HOLD",
-    "adminSummary": "地址：https://erp.eggslao.com/mobile/henhouse，在mobile端鸡舍管理新建鸡舍，提示“集团/管理员请在PC端「鸡舍管理」创建并指定农场;手机端仅供场长建本场鸡舍。”，但是linhong这个账号就是养殖场长",
+    "adminSummary": "地址：https://erp.eggslao.com/terminal/packaging/source-receive，作业台-集蛋作业录入鸡蛋数量后，点击“确认录入”报错“服务器内部错误，请联系管理员”",
     "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": null,
-    "changedFiles": [],
+    "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+    "changedFiles": [
+      "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+      "apps/web/src/lib/source-receive-submit.test.ts",
+      "apps/web/src/lib/source-receive-submit.ts",
+      "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+    ],
     "validations": [
       {
         "key": "implementation",
@@ -2497,7 +1815,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-18T12:34:41.038Z",
+    "completedAt": "2026-07-18T12:43:13.075Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"

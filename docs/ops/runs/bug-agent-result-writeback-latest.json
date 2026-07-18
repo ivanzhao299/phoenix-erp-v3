@@ -1,39 +1,55 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260718-0004",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260718-0004/agent-result",
+  "bugNo": "BUG-20260718-0005",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260718-0005/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260718-0004-A4",
+    "taskId": "BUGTASK-20260718-0005-A4",
     "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260718-0004-A4-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260718-0005-A4-worker-log.md",
+    "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+    "changedFiles": [
+      "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+      "apps/web/src/lib/source-receive-submit.test.ts",
+      "apps/web/src/lib/source-receive-submit.ts",
+      "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
         "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
-        "conclusion": "HOLD",
-        "responseChars": 552,
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "responseChars": 752,
         "beforeHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
-        "afterHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
+        "afterHead": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+        "commitHash": "fc3beefddb01eb22866a0cbf9acf231148676a74",
+        "changedFiles": [
+          "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+          "apps/web/src/lib/source-receive-submit.test.ts",
+          "apps/web/src/lib/source-receive-submit.ts",
+          "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+        ],
+        "businessChangedFiles": [
+          "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+          "apps/web/src/lib/source-receive-submit.test.ts",
+          "apps/web/src/lib/source-receive-submit.ts"
+        ],
+        "reportFiles": [
+          "docs/ops/BUGTASK-20260718-0005-a4-frontend-report.md"
+        ],
         "parentCommitRecovered": false,
         "infrastructureFailure": null,
-        "checkedAt": "2026-07-18T12:34:39.226Z",
+        "checkedAt": "2026-07-18T12:43:10.739Z",
         "passed": true,
-        "role": "implementation_verified_existing",
-        "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-        "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+        "role": "implementation",
+        "terminalStatus": "IMPLEMENTATION_COMPLETED",
+        "reason": "Business change, task report, commit, and conclusion are present"
       },
-      "queueStatus": "SKIPPED_NOT_APPLICABLE",
+      "queueStatus": "IMPLEMENTATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0004-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md\nAssembled prompt chars: 32409\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-34-39-120Z-A4-Frontend-UAT-Smoke.md\nNOT APPLICABLE — HOLD\n\nBUG-20260718-0004 没有前端归属的修复：\n\n- `linhong` 已通过前端 `ROLE_FARM_MGR` 写权限并进入新建表单，前端角色判断正常。\n- 截图中的报错来自创建接口返回的 `res.msg`；该文案不存在于前端源码。\n- 前端按既定安全约束不提交农场字段，农场必须由服务端依据 DataScope 自动绑定。\n- 因此故障点是服务端未能为 `linhong` 派生唯一农场。前端选择农场或放宽权限会绕过 DataScope，不能实施。\n- 无 owned frontend diff；依照“无前端修复则不编辑文件”的合同要求，未创建报告文件。\n- 权限、加载、空状态、错误展示和移动响应式布局均保持原状。\n- `mobile-roles.test.ts`：28/28 PASS。\n- Web `tsc --noEmit`：PASS。\n- 未部署、推送、写数据库或执行迁移。\n\n建议转交 A3 Backend，检查 `linhong` 的组织/农场 DataScope 绑定及 `/api/farm/feed/houses` 的农场派生逻辑。修复后仍需 CI/CD、生产移动端 smoke 和业务验收，当前不能宣称问题已解决。\nBaseline autopilot skipp",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260718-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | IMPLEMENTATION_COMPLETED |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0005-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260718-0005-A4-worker-assembled-prompt.md\nAssembled prompt chars: 22652\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-43-10-557Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS / 发布状态：HOLD。\n\n已修复集蛋页未开班仍允许提交、发送 `shiftId: null` 的前端缺口：\n\n- 未开班时禁用“确认录入”并显示明确提示。\n- 合法提交必须携带活动班次 ID。\n- 保留 RBAC、DataScope、错误、空态及 loading 行为。\n- 已填写数据仍会阻止误跳到分级页。\n\n验证通过：\n\n- Web TypeScript：0 errors\n- Vitest：2/2 tests passed\n- 受影响路由生产编译：PASS\n- `git diff --check`：PASS\n\n改动见 [source-receive/page.tsx](</Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx>)、[回归测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/source-receive-submit.test.ts) 和 [任务报告](/Users/mac/phoenix-erp-worktrees",
     "nextAction": ""
   }
 }
