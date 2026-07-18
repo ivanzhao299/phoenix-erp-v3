@@ -115,9 +115,14 @@ function commitSandboxChanges(task, stdout = '') {
   const businessFiles = businessPrefix ? status.files.filter((file) => file.startsWith(businessPrefix)) : [];
   const bugNo = String(task.source_bug_no || '').toLowerCase();
   const taskId = String(task.task_id || '').toLowerCase();
+  const sourceRepairTaskNo = String(task.source_repair_task_no || task.request_id || '').toLowerCase();
   const reportFiles = status.files.filter((file) => {
     const lower = file.toLowerCase();
-    return lower.startsWith('docs/ops/') && !lower.startsWith('docs/ops/runs/') && ((bugNo && lower.includes(bugNo)) || (taskId && lower.includes(taskId)));
+    return lower.startsWith('docs/ops/')
+      && !lower.startsWith('docs/ops/runs/')
+      && ((bugNo && lower.includes(bugNo))
+        || (taskId && lower.includes(taskId))
+        || (sourceRepairTaskNo && lower.includes(sourceRepairTaskNo)));
   });
   if (outsideAllowed.length || hardForbidden.length || businessFiles.length === 0 || reportFiles.length === 0) {
     return {

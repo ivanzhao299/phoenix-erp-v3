@@ -22,6 +22,7 @@ The Runner/Codex CLI execution chain is repaired and controlled queue consumptio
 - Exclude `HOLD`, `WAITING_CAPACITY`, and `WAITING_RUNNER` from normal runnable selection.
 - Schedule fresh pending tasks before retries, FIFO within each class, and attempt at most one task per bug report per cycle.
 - Suppress same-cycle retries. A later cycle may retry only when the stored retry policy allows it.
+- Accept task reports named with the source repair task number (for example `BUGTASK-...-frontend-repair.md`) when performing the controlled parent commit. Agent-specific suffixes are no longer required in every valid report filename.
 - Batch audit commits once per configurable window (default 30 minutes) and suppress semantically duplicate commits.
 - Permit dirty runner-owned queue/run artifacts during integration while continuing to reject business-code dirtiness.
 - Make resident auto-release opt-in through `PHOENIX_ERP_RUNNER_AUTO_RELEASE=true`.
