@@ -5,7 +5,7 @@
 | Task ID | BUGTASK-20260716-0002-A3 |
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
-| Exit code | 1 |
+| Exit code | 0 |
 | Evidence gate | HOLD |
 
 ## Command
@@ -26,7 +26,18 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260716-0002-A3-worker-assembled-prompt
 Assembled prompt chars: 33044
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T11-31-46-918Z-A3-Backend-Critical-Path.md
+Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T13-42-06-988Z-A3-Backend-Critical-Path.md
+`PASS WITH CONDITIONS`（技术 GO，发布与业务关闭仍 HOLD）。
+
+- 根因：`inv_ledger` 可选列在部署环境中漂移，固定列 INSERT 触发 PostgreSQL 500。
+- 当前分支已包含对应兼容修复，无需重复修改后端代码。
+- 聚焦测试：10/10 通过。
+- API `tsc --noEmit`：0 错误。
+- 未写数据库、未运行迁移、未部署、未 push。
+- 报告：[BUG-20260716-0002-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260716-0002-a3-backend-report.md)
+
+仍需 CI/CD、生产冒烟及业务验收后，才能认定该 Bug 已解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -34,8 +45,7 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-2026-07-18T11:31:39.288855Z ERROR codex_models_manager::cache: failed to load models cache: missing field `supports_reasoning_summaries` at line 88 column 5
-OpenAI Codex v0.142.5
+OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
 model: gpt-5.6-sol
@@ -44,7 +54,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f74ff-13be-7212-9021-86abf22e57fc
+session id: 019f7575-1375-74e1-a87c-b50ca41d5bb0
 --------
 user
 # Base Agent Prompt
@@ -426,8 +436,14 @@ Assigned agent: A3-Backend-Critical-Path
           },
           {
             "tag": "div",
-            "path": ".sidebar-module__C8A
-...<truncated 22043 chars>
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 220,
+              "x": 0,
+              "y": 536
+            },
+...<truncated 99898 chars>
 
 ```
 
@@ -437,22 +453,22 @@ Assigned agent: A3-Backend-Critical-Path
 {
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
-  "exitCode": 1,
-  "conclusion": "",
-  "responseChars": 0,
-  "beforeHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
-  "afterHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
+  "exitCode": 0,
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 381,
+  "beforeHead": "71a1d23bec07f4a19e07ef1d73f111077b3aff73",
+  "afterHead": "71a1d23bec07f4a19e07ef1d73f111077b3aff73",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-18T11:31:46.941Z",
+  "checkedAt": "2026-07-18T13:42:07.086Z",
   "passed": false,
-  "role": "execution",
+  "role": "implementation",
   "terminalStatus": "HOLD",
-  "reason": "Agent process exited with 1"
+  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
 }
 ```
 
@@ -460,8 +476,11 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": false,
+  "attempted": true,
   "ok": false,
-  "reason": "not an eligible implementation execution"
+  "files": [
+    "docs/ops/BUG-20260716-0002-a3-backend-report.md"
+  ],
+  "error": "no apps/api/ implementation file"
 }
 ```

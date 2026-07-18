@@ -5,8 +5,8 @@
 | Task ID | BUGTASK-20260716-0001-A4 |
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
-| Exit code | 1 |
-| Evidence gate | HOLD |
+| Exit code | 0 |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -26,7 +26,34 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260716-0001-A4-worker-assembled-prompt
 Assembled prompt chars: 26249
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T11-32-05-200Z-A4-Frontend-UAT-Smoke.md
+Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T13-27-58-426Z-A4-Frontend-UAT-Smoke.md
+结论：**PASS WITH CONDITIONS；发布状态 HOLD。**
+
+已修复鸡群档案保存后的刷新时序：
+
+- 保存成功后先等待列表重新取数，再关闭抽屉并显示成功提示。
+- CRUD 列表请求增加 `cache: 'no-store'`，避免读取旧缓存。
+- 保存期间禁用按钮，防止重复提交。
+- RBAC、DataScope、错误态、空态及附件 ACL 均未改变。
+
+验证结果：
+
+- 聚焦测试：3/3 通过
+- Web TypeScript：0 errors
+- `git diff --check`：通过
+- 桌面附件及移动响应式规则已检查
+- ESLint 命中 5 个既有错误、7 个既有警告；本次新增行无诊断
+- 浏览器端到端验证受沙箱 `listen EPERM 0.0.0.0:3000` 限制，尚未完成
+
+改动：
+
+- [鸡群档案页面](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/flock/page.tsx)
+- [useCrud hook](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/hooks/useCrud.ts)
+- [聚焦回归测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts)
+- [任务报告](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260716-0001-frontend-repair.md)
+
+未提交、未推送、未部署、未操作数据库。CI、测试环境桌面/移动端 smoke、生产 smoke 和业务验收完成前，不声明该 Bug 已解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -34,7 +61,7 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-OpenAI Codex v0.142.5
+OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4
 model: gpt-5.6-sol
@@ -43,7 +70,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f74ff-5c42-7b41-abfb-02fe277582e4
+session id: 019f7566-0bca-79b0-bae2-755cbb4876b9
 --------
 user
 # Base Agent Prompt
@@ -508,9 +535,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
             "label": "包装日报",
             "disabled": false
           },
-          {
-       
-...<truncated 15091 chars>
+          
+...<truncated 250602 chars>
 
 ```
 
@@ -520,22 +546,33 @@ Assigned agent: A4-Frontend-UAT-Smoke
 {
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
-  "exitCode": 1,
-  "conclusion": "",
-  "responseChars": 0,
-  "beforeHead": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
-  "afterHead": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "exitCode": 0,
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 868,
+  "beforeHead": "6400d55a444b3ad3ceed97af1d4ddf1ee270bbb8",
+  "afterHead": "443364921ef49b77afb9cc7a09f69da2f9d01dbd",
+  "commitHash": "443364921ef49b77afb9cc7a09f69da2f9d01dbd",
+  "changedFiles": [
+    "apps/web/src/app/(admin)/breeding/flock/page.tsx",
+    "apps/web/src/hooks/useCrud.ts",
+    "apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts",
+    "docs/ops/BUGTASK-20260716-0001-frontend-repair.md"
+  ],
+  "businessChangedFiles": [
+    "apps/web/src/app/(admin)/breeding/flock/page.tsx",
+    "apps/web/src/hooks/useCrud.ts",
+    "apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/BUGTASK-20260716-0001-frontend-repair.md"
+  ],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-18T11:32:05.221Z",
-  "passed": false,
-  "role": "execution",
-  "terminalStatus": "HOLD",
-  "reason": "Agent process exited with 1"
+  "checkedAt": "2026-07-18T13:27:58.614Z",
+  "passed": true,
+  "role": "implementation",
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -543,8 +580,24 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ```json
 {
-  "attempted": false,
-  "ok": false,
-  "reason": "not an eligible implementation execution"
+  "attempted": true,
+  "ok": true,
+  "files": [
+    "apps/web/src/app/(admin)/breeding/flock/page.tsx",
+    "apps/web/src/hooks/useCrud.ts",
+    "apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts",
+    "docs/ops/BUGTASK-20260716-0001-frontend-repair.md"
+  ],
+  "businessFiles": [
+    "apps/web/src/app/(admin)/breeding/flock/page.tsx",
+    "apps/web/src/hooks/useCrud.ts",
+    "apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/BUGTASK-20260716-0001-frontend-repair.md"
+  ],
+  "commitHash": "443364921ef49b77afb9cc7a09f69da2f9d01dbd",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a4 44336492] fix(web): repair BUG-20260716-0001\n 4 files changed, 143 insertions(+), 19 deletions(-)\n create mode 100644 apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts\n create mode 100644 docs/ops/BUGTASK-20260716-0001-frontend-repair.md"
 }
 ```

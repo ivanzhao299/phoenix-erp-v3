@@ -5,8 +5,8 @@
 | Task ID | BUGTASK-20260716-0004-A3 |
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
-| Exit code | 1 |
-| Evidence gate | HOLD |
+| Exit code | 0 |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -26,7 +26,29 @@ Assembled prompt: docs/ops/runs/BUGTASK-20260716-0004-A3-worker-assembled-prompt
 Assembled prompt chars: 26464
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T11-27-54-844Z-A3-Backend-Critical-Path.md
+Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T13-31-43-238Z-A3-Backend-Critical-Path.md
+状态：**PASS WITH CONDITIONS**，可进入 CI/CD 与生产只读烟测，尚不能宣称生产问题已解决。
+
+根因不是 RBAC，而是后端仍使用旧等级 `XL/L/M/S/XS`，且预填接口没有为缺省的零数量档位补齐九档。
+
+已完成：
+
+- 按 ACTIVE `product_grades` 动态计算可售蛋总数。
+- 预填响应按 ACTIVE 等级补齐缺省档位为 `0`。
+- 添加两个针对性回归用例。
+- 保持 RBAC、DataScope 和鸡舍归属过滤不变。
+- 未修改 Web、迁移或数据库，未部署、推送。
+
+验证：
+
+- 聚焦测试：13/13 PASS
+- API `tsc --noEmit`：0 errors
+- `git diff --check`：PASS
+
+报告：[BUGTASK-20260716-0004-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUGTASK-20260716-0004-a3-backend-report.md)
+
+未跟踪的 `node_modules` 目录为诊断前已有内容，未修改或纳入变更。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -34,7 +56,7 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-OpenAI Codex v0.142.5
+OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
 model: gpt-5.6-sol
@@ -43,7 +65,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f74fb-879e-7cb3-a0fd-c1431e1736f0
+session id: 019f7569-9b5e-7520-a2ad-669e1b8e4306
 --------
 user
 # Base Agent Prompt
@@ -498,8 +520,8 @@ Assigned agent: A3-Backend-Critical-Path
               "x": 0,
               "y": 795
             },
-            "label
-...<truncated 15306 chars>
+         
+...<truncated 201819 chars>
 
 ```
 
@@ -509,22 +531,31 @@ Assigned agent: A3-Backend-Critical-Path
 {
   "version": 1,
   "agent": "A3-Backend-Critical-Path",
-  "exitCode": 1,
-  "conclusion": "",
-  "responseChars": 0,
-  "beforeHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
-  "afterHead": "bfa2455e64417ebd9b833f9392cd1953ffb8c9ac",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "exitCode": 0,
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 535,
+  "beforeHead": "1c8c55bdf9a547252058f00709fe07d8be0f2e35",
+  "afterHead": "b826e3df57cd0697a9ebab8b47322b66ef69e246",
+  "commitHash": "b826e3df57cd0697a9ebab8b47322b66ef69e246",
+  "changedFiles": [
+    "apps/api/src/modules/farm/farm.service.spec.ts",
+    "apps/api/src/modules/farm/farm.service.ts",
+    "docs/ops/BUGTASK-20260716-0004-a3-backend-report.md"
+  ],
+  "businessChangedFiles": [
+    "apps/api/src/modules/farm/farm.service.spec.ts",
+    "apps/api/src/modules/farm/farm.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/BUGTASK-20260716-0004-a3-backend-report.md"
+  ],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-18T11:27:54.859Z",
-  "passed": false,
-  "role": "execution",
-  "terminalStatus": "HOLD",
-  "reason": "Agent process exited with 1"
+  "checkedAt": "2026-07-18T13:31:43.420Z",
+  "passed": true,
+  "role": "implementation",
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -532,8 +563,22 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": false,
-  "ok": false,
-  "reason": "not an eligible implementation execution"
+  "attempted": true,
+  "ok": true,
+  "files": [
+    "apps/api/src/modules/farm/farm.service.spec.ts",
+    "apps/api/src/modules/farm/farm.service.ts",
+    "docs/ops/BUGTASK-20260716-0004-a3-backend-report.md"
+  ],
+  "businessFiles": [
+    "apps/api/src/modules/farm/farm.service.spec.ts",
+    "apps/api/src/modules/farm/farm.service.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/BUGTASK-20260716-0004-a3-backend-report.md"
+  ],
+  "commitHash": "b826e3df57cd0697a9ebab8b47322b66ef69e246",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a3 b826e3df] fix(api): repair BUG-20260716-0004\n 3 files changed, 122 insertions(+), 4 deletions(-)\n create mode 100644 docs/ops/BUGTASK-20260716-0004-a3-backend-report.md"
 }
 ```
