@@ -13,6 +13,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { ModalV2 } from "@/components/design-system"; // G155 全局模态
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePermission } from "@/hooks/usePermission";
+import { normalizeProcurementOrdersPage } from "@/lib/procurement-orders-response";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface OrderItem {
@@ -315,7 +316,7 @@ export default function PurchaseOrdersPage() {
         headers: hdr
       });
       if (!res.ok) throw new Error(await res.text());
-      setData(await res.json());
+      setData(normalizeProcurementOrdersPage<PurchaseOrder>(await res.json(), p, 20));
     } catch {
       toast.error(t('prc2.load_failed', '加载失败'));
     } finally {
