@@ -24213,7 +24213,7 @@
     "source_repair_task_no": "BUGTASK-20260718-0005",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -24238,7 +24238,7 @@
     ],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
+    "completed_at": "2026-07-18T11:31:59.870Z",
     "result_file": null,
     "next_agents": [
       "A2-Security-Regression-Gate",
@@ -24253,7 +24253,17 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 0,
-    "last_redispatch_at": null
+    "last_redispatch_at": null,
+    "reason": "blocked by failed dependency: BUGTASK-20260718-0005-A3",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260718-0005-A3",
+      "checkedAt": "2026-07-18T11:31:59.870Z"
+    }
   },
   {
     "task_id": "BUGTASK-20260718-0004-A4",
@@ -25493,7 +25503,7 @@
     "source_repair_task_no": "BUGTASK-20260716-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "pending",
+    "status": "HOLD",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -25516,8 +25526,8 @@
     "dependencies": [],
     "claimed_by": null,
     "claimed_at": null,
-    "completed_at": null,
-    "result_file": null,
+    "completed_at": "2026-07-18T11:32:05.222Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260716-0001-A4-worker-log.md",
     "next_agents": [
       "A2-Security-Regression-Gate",
       "A1-CI-Runtime-Gate",
@@ -25531,7 +25541,31 @@
       "A1-CI-Runtime-Gate"
     ],
     "redispatch_count": 0,
-    "last_redispatch_at": null
+    "last_redispatch_at": null,
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A4-Frontend-UAT-Smoke",
+      "exitCode": 1,
+      "conclusion": "",
+      "responseChars": 0,
+      "beforeHead": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
+      "afterHead": "3b24f30991325e9b24fa3c7d4faccddb98b80d1e",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-18T11:32:05.221Z",
+      "passed": false,
+      "role": "execution",
+      "terminalStatus": "HOLD",
+      "reason": "Agent process exited with 1"
+    },
+    "implementation_commit": "",
+    "changed_files": [],
+    "retry_after": null,
+    "reason": "Agent process exited with 1"
   },
   {
     "task_id": "BUGTASK-20260716-0001-A1",
