@@ -1207,9 +1207,7 @@ mobile端存栏日报产蛋数显示错误
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox-controlled-recovery/20260718-200046/BUG-20260718-0003/attachments/01-1784341846630-fa21a2a5.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": {
@@ -1245,4 +1243,4 @@ mobile端存栏日报产蛋数显示错误
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox-controlled-recovery/20260718-200046/BUG-20260718-0003/attachments/01-1784341846630-fa21a2a5.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.

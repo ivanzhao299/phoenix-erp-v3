@@ -1166,9 +1166,7 @@ mobile端每日看板死淘数显示有误
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox-controlled-recovery/20260718-200046/BUG-20260718-0001/attachments/01-1784335270783-27f581f7.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": {
@@ -1205,4 +1203,4 @@ mobile端每日看板死淘数显示有误
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox-controlled-recovery/20260718-200046/BUG-20260718-0001/attachments/01-1784335270783-27f581f7.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.

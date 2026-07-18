@@ -12,6 +12,9 @@ The Runner/Codex CLI execution chain is repaired and controlled queue consumptio
 2. Generic process exits were treated as recoverable technical HOLDs. The same failed generation could be redispatched repeatedly and starve fresh tasks.
 3. The runner committed `docs/ops/runs` before workers, after every worker, and after integration. Polling cycles therefore produced repeated audit-only commits even when no meaningful state changed.
 4. Consumption and release flags were coupled in the LaunchAgent wrapper. Restoring the service could unintentionally push a branch that was not release-ready.
+5. A valid source-task report could be rejected when its filename used the source repair task number rather than the Agent suffix. A recovered `IMPLEMENTATION_COMPLETED` task was also missing from the integrated-commit recovery allowlist.
+6. Dependency-only HOLD tasks were not requeued after their failed parent recovered, and dedicated Agent worktrees could remain on a divergent historical baseline after a cherry-pick. Both conditions left valid work stranded or generated stale-field conflicts.
+7. Inbox details were fetched serially. Production API latency therefore stretched a normal sync cycle beyond one minute even though the API and token were healthy.
 
 ## Repairs
 
@@ -23,6 +26,10 @@ The Runner/Codex CLI execution chain is repaired and controlled queue consumptio
 - Schedule fresh pending tasks before retries, FIFO within each class, and attempt at most one task per bug report per cycle.
 - Suppress same-cycle retries. A later cycle may retry only when the stored retry policy allows it.
 - Accept task reports named with the source repair task number (for example `BUGTASK-...-frontend-repair.md`) when performing the controlled parent commit. Agent-specific suffixes are no longer required in every valid report filename.
+- Allow verified `IMPLEMENTATION_COMPLETED` tasks to use integrated-commit recovery after a parent Runner interruption.
+- Requeue only dependency-role HOLD tasks when every dependency later reaches a success state. Business/manual HOLD remains untouched.
+- After a verified implementation is integrated, move the clean dedicated Agent worktree to the integrated baseline so the next task cannot develop against stale fields.
+- Fetch report details with bounded concurrency (default five); preserve per-request timeout, ordered results, and per-report error isolation.
 - Batch audit commits once per configurable window (default 30 minutes) and suppress semantically duplicate commits.
 - Permit dirty runner-owned queue/run artifacts during integration while continuing to reject business-code dirtiness.
 - Make resident auto-release opt-in through `PHOENIX_ERP_RUNNER_AUTO_RELEASE=true`.
@@ -30,12 +37,13 @@ The Runner/Codex CLI execution chain is repaired and controlled queue consumptio
 ## Verification
 
 - Changed script syntax checks: PASS.
-- Runner unit tests: `23/23` PASS.
+- Runner unit tests: `27/27` PASS.
 - Evidence gate self-test: PASS.
 - Bundled Codex CLI real read-only probe: PASS (`CODEX_RUNNER_PREFLIGHT_OK`).
 - Runner dry-run sync: PASS; 20 reports inspected.
 - Dry-run scheduling: three distinct fresh A4 tasks from three distinct bug reports; no HOLD task selected.
 - Generation-drift automatic recovery: disabled by default.
+- Production inbox sync probe: PASS; bounded-concurrency cycle completed in `9.4s` instead of the previous minute-scale serial cycle.
 - Codex CLI execution during runner dry-run: no.
 - Push/deploy during repair validation: no.
 
@@ -57,6 +65,23 @@ A one-task real recovery cycle was executed after the infrastructure commit:
 
 The Agent produced a real frontend repair for the sales-order draft/list refresh issue, focused tests, Web typecheck evidence, and a task report. This confirms the execution chain now performs work rather than returning an empty process failure or false completion.
 
+## Resident Backlog Recovery
+
+After the controlled task, the resident service consumed additional approved backlog without selecting existing HOLD tasks:
+
+| Task | Result | Integrated commit / evidence |
+|---|---|---|
+| `BUGTASK-20260716-0003-A1` | `VALIDATION_COMPLETED` | A1 validation evidence |
+| `BUGTASK-20260716-0004-A4` | `SKIPPED_NOT_APPLICABLE` | fail-closed scope diagnosis |
+| `BUGTASK-20260717-0001-A4` | `COMPLETED_MERGED` | `fb6fb775` |
+| `BUGTASK-20260717-0002-A4` | `COMPLETED_MERGED` | `3c6cb67d` |
+| `BUGTASK-20260718-0001-A4` | `COMPLETED_MERGED` | `05a0a5ef` after reviewed conflict resolution |
+| `BUGTASK-20260718-0001-A1` | `VALIDATION_COMPLETED` | automatically requeued after dependency recovery |
+| `BUGTASK-20260718-0003-A4` | `SKIPPED_NOT_APPLICABLE` | evidence gate |
+| `BUGTASK-20260718-0004-A4` | `SKIPPED_NOT_APPLICABLE` | evidence gate |
+
+The reviewed conflict was caused by the A4 worktree being based on the old `FarmLog` response while the current branch already used `DailyHenReport.total_loss`. The merge retained the current API contract and accepted only the compatible PC daily-report dead-and-cull aggregation. The A4 worktree was then aligned to the integrated baseline.
+
 ## Queue Snapshot Before Recovery
 
 | Status | Count |
@@ -68,7 +93,9 @@ The Agent produced a real frontend repair for the sales-order draft/list refresh
 | Pending | 13 |
 | HOLD | 13 |
 
-After the controlled cycle, the queue contained 11 pending and 14 HOLD tasks. The pending backlog is eligible for controlled FIFO consumption. Existing HOLD tasks remain preserved for explicit diagnosis and do not compete with pending work.
+After resident recovery, the queue contained 2 pending and 14 HOLD tasks, with 60 `COMPLETED_MERGED`, 52 `VALIDATION_COMPLETED`, and 12 `SKIPPED_NOT_APPLICABLE` tasks. Existing HOLD tasks remain preserved for explicit diagnosis and do not compete with pending work.
+
+Only one audit-artifact commit was created during the initial recovery window. Subsequent cycles inside the 30-minute cooldown produced no audit-only commit, confirming that the prior commit storm is stopped.
 
 ## Safety Boundary
 

@@ -1,0 +1,466 @@
+# Agent Worker Log
+
+| Field | Value |
+| --- | --- |
+| Task ID | BUGTASK-20260718-0003-A4 |
+| Agent | A4-Frontend-UAT-Smoke |
+| Dry run | No |
+| Exit code | 0 |
+| Evidence gate | SKIPPED_NOT_APPLICABLE |
+
+## Command
+
+```bash
+/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260718-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260718-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty
+```
+
+## Stdout
+
+```text
+Agent: A4-Frontend-UAT-Smoke
+Worktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4
+Branch: codex/bug-intake-a4
+Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
+Task contract: docs/ops/runs/BUGTASK-20260718-0003-A4-contract.md
+Assembled prompt: docs/ops/runs/BUGTASK-20260718-0003-A4-worker-assembled-prompt.md
+Assembled prompt chars: 34194
+Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
+Codex timeout ms: 600000
+Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-25-54-276Z-A4-Frontend-UAT-Smoke.md
+NOT APPLICABLE — HOLD
+
+BUG-20260718-0003 没有前端所有权范围内的修复点。
+
+- `/mobile/egglog` 正确提交 `eggs_produced`。
+- `/mobile/henreport` 直接显示接口返回的 `row.eggs` 和 `totals.eggs`，不存在将非零产蛋数转换为 `0` 的前端逻辑。
+- `eggs` 来源于后端 `/api/v3/farm/daily-hen-report` 的 SQL 聚合，故根因属于 API/SQL 数据关联或 DataScope 查询链路。
+- 页面现有权限、加载、错误、空数据及响应式布局逻辑未改动。
+- Web 类型检查：`./node_modules/.bin/tsc --noEmit`，通过，0 errors。
+- 工作区未产生 `apps/web/**` 或 `docs/ops/**` 差异。
+- 附件未同步，且没有已认证的本地数据环境，无法完成真实桌面/移动端数据复现及截图核验。
+
+按合同要求，未添加掩盖后端错误的前端兜底，也未修改任何文件。建议转交 `A3-Backend-Critical-Path` 检查日报 SQL 中 `house_code`、`flock_no`、日期和 DataScope 的关联条件。CI/CD、生产 smoke 和业务验收完成前，不应宣称问题已解决。
+Baseline autopilot skipped by caller; caller must run lifecycle hook.
+
+```
+
+## Stderr
+
+```text
+OpenAI Codex v0.145.0-alpha.18
+--------
+workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 019f752f-be10-7bd0-b6ae-bd7efc9c73c7
+--------
+user
+# Base Agent Prompt
+
+# Bug Intake A4 Frontend Repair Prompt
+
+## Identity
+
+You are `A4-Frontend-UIUX-UAT` running on the dedicated Bug Intake repair branch.
+
+Worktree: `/Users/mac/phoenix-erp-worktrees/bug-intake-a4`
+
+Branch: `codex/bug-intake-a4`
+
+## Mission
+
+Implement the frontend portion of exactly one approved bug report. Read the attached task contract first, inspect the existing page and design system, reproduce the issue, make a production-quality responsive fix, add focused regression coverage where available, and write a task-specific report under `docs/ops/**`.
+
+## Allowed Scope
+
+- `apps/web/**`
+- task-specific `docs/ops/**`
+
+## Forbidden Scope
+
+- `apps/api/**`
+- migrations, schema, entity, table, or column changes
+- database writes, deploys, pushes, force operations, or production commands
+- unrelated global restyling
+
+## Required Evidence
+
+1. owned frontend file diff;
+2. desktop and mobile behavior checked for the affected page;
+3. Web typecheck and focused route/component verification;
+4. permission visibility and error/empty/loading states preserved;
+5. task-specific report naming the source bug, root cause, changed files, verification results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
+6. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
+
+If the issue has no frontend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+
+---
+
+# Agent Task Contract
+
+# Bug Repair Agent Contract
+
+Source bug: BUG-20260718-0003
+Source repair task: BUGTASK-20260718-0003
+Assigned agent: A4-Frontend-UAT-Smoke
+
+## Issue
+
+mobile端存栏日报产蛋数显示错误
+
+## Route
+
+/bug-reports
+
+## Guardrails
+
+- Start with dry-run / diagnosis.
+- Do not deploy automatically.
+- Do not write database or run migration without explicit gate.
+- Preserve RBAC, DataScope, audit, and attachment ACL.
+- Produce a result report with changed files, validation commands, and GO/HOLD/FAIL.
+
+## Context
+
+```json
+{
+  "bugNo": "BUG-20260718-0003",
+  "taskNo": "BUGTASK-20260718-0003",
+  "title": "mobile端存栏日报产蛋数显示错误",
+  "description": "",
+  "route": "/bug-reports",
+  "url": "https://erp.eggslao.com/bug-reports",
+  "priority": "P2",
+  "severity": "MEDIUM",
+  "moduleCode": "____-______",
+  "acceptanceCriteria": "地址：https://erp.eggslao.com/mobile/egglog，存栏日报-母鸡存栏日报，产蛋录入了产蛋数量，但是在存栏日报中产蛋显示0",
+  "reporter": {
+    "name": "金凤凰总控",
+    "roles": [
+      "ROLE_ADMIN",
+      "ROLE_MASTER_DATA_APPROVER"
+    ],
+    "username": "admin",
+    "companyCode": "",
+    "projectCode": ""
+  },
+  "context": {
+    "attachments": [
+      {
+        "sha256": "35516d52d46385e32f9e28fa9d26aa6fce21ca1920bafd2d963b598162c6b290",
+        "fileName": "01-1784341846630-fa21a2a5.png",
+        "mimeType": "image/png",
+        "sizeBytes": 1638156,
+        "originalName": "pasted-screenshot-1784341777860-1.png",
+        "relativePath": "storage/bug-reports/2026/07/18/BUG-20260718-0003/01-1784341846630-fa21a2a5.png",
+        "previewEndpoint": "/api/bug-intake/reports/BUG-20260718-0003/attachments/01-1784341846630-fa21a2a5.png"
+      }
+    ],
+    "consoleErrors": [],
+    "failedRequests": [
+      {
+        "url": "/api/v2/finance/expenses/1/submit",
+        "method": "POST",
+        "status": 400,
+        "requestId": "",
+        "timestamp": "2026-07-18T01:42:40.737Z",
+        "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
+      },
+      {
+        "url": "/api/v2/finance/expenses/1/submit",
+        "method": "POST",
+        "status": 400,
+        "requestId": "",
+        "timestamp": "2026-07-18T01:43:06.796Z",
+        "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
+      },
+      {
+        "url": "/api/v2/finance/expenses/1/submit",
+        "method": "POST",
+        "status": 400,
+        "requestId": "",
+        "timestamp": "2026-07-18T01:43:47.729Z",
+        "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
+      },
+      {
+        "url": "/api/v2/finance/expenses/1/submit",
+        "method": "POST",
+        "status": 400,
+        "requestId": "",
+        "timestamp": "2026-07-18T01:44:58.325Z",
+        "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
+      },
+      {
+        "url": "/api/v2/finance/expenses/1/submit",
+        "method": "POST",
+        "status": 400,
+        "requestId": "",
+        "timestamp": "2026-07-18T01:46:23.754Z",
+        "responseExcerpt": "{\"code\":\"APPROVER_NOT_FOUND\",\"approverType\":\"ORG_MANAGER\",\"companyCode\":\"COMP-LAO-AGRI\",\"stepNo\":1}"
+      }
+    ],
+    "clientContext": {
+      "language": "zh-CN",
+      "timezone": "Asia/Shanghai",
+      "viewport": {
+        "width": 2000,
+        "height": 1081
+      },
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "capturedAt": "2026-07-18T02:30:46.633Z",
+      "pageSnapshot": {
+        "route": "/bug-reports",
+        "title": "金凤凰 ERP — Phoenix ERP V3",
+        "scroll": {
+          "x": 0,
+          "y": 0
+        },
+        "viewport": {
+          "width": 2000,
+          "height": 1081
+        },
+        "visibleText": [
+          "运营工作台",
+          "每日工作台",
+          "经营仪表盘",
+          "生产管理",
+          "库存管理",
+          "全链追溯",
+          "采购管理",
+          "销售管理",
+          "财务结算中心",
+          "股东权益中心",
+          "审批中心",
+          "经营分析",
+          "主数据中心",
+          "系统设置",
+          "验收试运行",
+          "系统运维",
+          "系统健康",
+          "告警中心",
+          "错误日志",
+          "问题反馈",
+          "配置治理",
+          "备份策略",
+          "个人中心 / 修改密码",
+          "日生产日报",
+          "99+",
+          "反馈问题",
+          "反馈页面问题",
+          "页面",
+          "用户",
+          "角色",
+          "问题标题 *",
+          "严重程度 低：样式/文案问题 中：影响局部流程 高：阻断业务操作 紧急：系统不可用/数据风险",
+          "严重程度",
+          "问题说明",
+          "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
+          "截图 / PDF（最多 5 个，单个 ≤15MB）",
+          "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
+          "pasted-screenshot-1784341777860-1.png",
+          "退出",
+          "·Bug Intake 台账 · 用户页面提报 + 自动上下文采集 · 共 0 条",
+          "·",
+          "AI 修复流水线运行面板",
+          "失败自动分类、超时自恢复、HOLD 分派候选、告警通知统一看这里。",
+          "队列可见项：17",
+          "执行中：0 · 待 Runner 领取：15",
+          "已有修复产物：2",
+          "可自动恢复：15 · 健康分：46",
+          "只读验证：0 · 代码修复：17",
+          "发布 Gate：0 · 路由复核：0",
+          "最近 Runner 结论：PASS_WITH_CONDITIONS",
+          "最近提交：eb3ed5f1eb9b40129db5009e77d16045edb75050",
+          "当前筛选 17/17",
+          "显示卡点、重试、Agent 产物和 runner 最近回写",
+          "编号",
+          "阶段",
+          "处理分道",
+          "分类：",
+          "重试",
+          "Agent",
+          "Runner",
+          "产物",
+          "阻塞原因",
+          "下一动作",
+          "操作",
+          "BUG-20260705-0001 验收试运行里面试运行项目页面奇丑无比",
+          "FIX_READY_FOR_UAT 3586 分钟前更新",
+          "代码修复 需 Gate 后重派",
+          "PG_SQL 92%",
+          "0 失败尝试 0 重派 3",
+          "BugIntakeLocalRunner A4-Frontend-UAT-Smoke / A1-CI-Runtime-Gate",
+          "PASS_WITH_CONDITIONS eb3ed5f1eb9b40129db5009e77d16045edb75050",
+          "已回写 3 个文件",
+          "常规处理 未发现阻塞",
+          "无阻塞，等待下一轮处理 Technical release evidence passed; administrator performs business acceptance before resolving.",
+          "重新派发原任务 重算计划并重新派发",
+          "BUG-20260705-0003 驾驶舱卡片问题",
+          "FRONTEND_RENDER 82%",
+          "0 失败尝试 0 重派 2",
+          "BugIntakeLocalRunner A3-Backend-Critical-Path / A4-Frontend-UAT-Smoke / A1-CI-Runtime-Gate",
+          "BUG-20260718-0002 财务结算中心-费用管理-新建申请后提交审批报错“HTTP 400”",
+          "AGENT_APPROVED 0 分钟前更新",
+          "API_5XX 88%",
+          "0 失败尝试 0 重派 0",
+          "A2-Security-Regression-Gate A2-Security-Regression-Gate / A3-Backend-Critical-Path / A4-Frontend-UAT-Smoke / A5-Data-Readiness / A1-CI-Runtime-Gate",
+          "— —",
+          "待回写 0 个文件",
+          "可自动恢复 已批准，等待本地常驻 runner 领取",
+          "保持本地 runner 常驻；必要时运行自动分类/恢复 等待本地 runner 领取任务",
+          "BUG-20260718-0001 mobile端每日看板死淘数显示有误",
+          "AGENT_APPROVED 66 分钟前更新",
+          "RBAC_403 90%",
+          "BUG-20260717-0002 每日工作台-饲料消耗登记，当前页面加载失败",
+          "AGENT_APPROVED 1024 分钟前更新",
+          "BUG-20260717-0001 采购管理-采购订单上方显示的数量不对",
+          "AGENT_APPROVED 1087 分钟前更新",
+          "BUG-20260707-0010 我的待办中有审批任务，但是上方显示0条",
+          "AGENT_APPROVED 2596 分钟前更新",
+          "0 失败尝试 0 重派 8",
+          "BUG-20260716-0004 生产管理，“日产蛋入库”点击从日报预填报错“2026-07-16 暂无日报或未按 9 档录入”",
+          "AGENT_APPROVED 2755 分钟前更新",
+          "BUG-20260715-0002 入库-库存查询、出库链路闭环问题",
+          "AGENT_APPROVED 2892 分钟前更新",
+          "0 失败尝试 0 重派 1",
+          "BUG-20260716-0003 销售管理-销售订单-新建订单保存草稿之后，销售订单页面暂无订单数据，查不到订单信息",
+          "AGENT_APPROVED 2912 分钟前更新",
+          "BUG-20260709-0004 审批中心-我的待办，审批待办中有一条未审批的记录，但是上方显示共0条",
+          "AGENT_APPROVED 2916 分钟前更新",
+          "0 失败尝试 0 重派 10",
+          "BUG-20260716-0002 生产管理-养殖场总览-药品库存，今日入库点击保存后报错“HTTP 500”，要求点击保存不报错",
+          "AGENT_APPROVED 2919 分钟前更新",
+          "BUG-20260713-0003 采购管理-付款管理,点击确认付款报错“AP 台账 ID=11不存在”",
+          "AGENT_APPROVED 2923 分钟前更新",
+          "0 失败尝试 0 重派 4",
+          "BUG-20260713-0004 库存管理-库存查询的仓库显示代码，要求显示对应的中文名字",
+          "AGENT_APPROVED 2924 分钟前更新",
+          "BUG-20260713-0006 库位管理，报错“[400] 「wms_locations」存在重复值，请检查后重试”",
+          "AGENT_APPROVED 2925 分钟前更新",
+          "BUG-20260715-0001 运营工作台的当前总存栏与养殖场总览的存栏总数不一致",
+          "AGENT_APPROVED 2926 分钟前更新",
+          "BUG-20260716-0001 生产管理-鸡群档案，编辑信息后页面不自动刷新"
+        ],
+        "interactiveElements": [
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 220,
+              "x": 0,
+              "y": 118
+            },
+            "label": "运营工作台",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 220,
+              "x": 0,
+              "y": 156
+            },
+            "label": "每日工作台",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 220,
+              "x": 0,
+              "y": 194
+            },
+            "label": "经营仪表盘",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 220,
+              "x": 0,
+              "y": 232
+            },
+            "label": "生产管理",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 220,
+              "x": 0,
+              "y": 270
+            },
+            "label": "库存管理",
+            "disabled": false
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 220,
+              "x": 0,
+              "y": 308
+            },
+            "label": "全链追溯",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w
+...<truncated 79281 chars>
+
+```
+
+## Evidence Gate
+
+```json
+{
+  "version": 1,
+  "agent": "A4-Frontend-UAT-Smoke",
+  "exitCode": 0,
+  "conclusion": "HOLD",
+  "responseChars": 604,
+  "beforeHead": "c9c21713fc30f77320c9a3f3b914bb4dc74b5e0b",
+  "afterHead": "c9c21713fc30f77320c9a3f3b914bb4dc74b5e0b",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
+  "parentCommitRecovered": false,
+  "infrastructureFailure": null,
+  "checkedAt": "2026-07-18T12:25:54.372Z",
+  "passed": true,
+  "role": "implementation_verified_existing",
+  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+}
+```
+
+## Parent Commit Recovery
+
+```json
+{
+  "attempted": false,
+  "ok": false,
+  "reason": "worktree has no uncommitted Agent changes",
+  "files": []
+}
+```
