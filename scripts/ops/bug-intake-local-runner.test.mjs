@@ -4,12 +4,13 @@ import test from 'node:test';
 import {
   buildResultBackfillPlan,
   requeueExpiredCapacityWaits,
+  selectRunnableBugTasks,
   selectAutomaticRedispatchCandidates,
   selectReleaseReadyBacklog,
   shouldAttemptReleasePush,
 } from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
-import { evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
+import { classifyInfrastructureFailure, evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 
 test('runner-created dependency links do not make a worktree dirty', () => {
   assert.equal(filterRunnerRuntimeStatus([
@@ -97,6 +98,32 @@ test('expired Codex capacity waits requeue without becoming business HOLD', () =
   const tasks = [{ status: 'WAITING_CAPACITY', route_active: true, retry_after: '2026-07-12T01:00:00.000Z' }];
   assert.equal(requeueExpiredCapacityWaits(tasks, new Date('2026-07-12T02:00:00.000Z')), true);
   assert.equal(tasks[0].status, 'pending');
+});
+
+test('capacity retry budget stops after three retries', () => {
+  const tasks = [{ status: 'WAITING_CAPACITY', route_active: true, retry_count: 3, retry_after: '2026-07-12T01:00:00.000Z' }];
+  assert.equal(requeueExpiredCapacityWaits(tasks, new Date('2026-07-12T02:00:00.000Z')), true);
+  assert.equal(tasks[0].status, 'WAITING_RUNNER');
+  assert.equal(tasks[0].retry_count, 4);
+});
+
+test('fresh pending work is selected before retried work and HOLD never runs', () => {
+  const tasks = [
+    { task_id: 'BUGTASK-OLD-A3', source: 'bug-intake', source_bug_no: 'BUG-OLD', agent: 'A3-Backend-Critical-Path', route_active: true, status: 'pending', retry_count: 1, created_at: '2026-07-01T00:00:00.000Z' },
+    { task_id: 'BUGTASK-HOLD-A3', source: 'bug-intake', source_bug_no: 'BUG-HOLD', agent: 'A3-Backend-Critical-Path', route_active: true, status: 'HOLD', created_at: '2026-07-01T00:00:00.000Z' },
+    { task_id: 'BUGTASK-NEW-A4', source: 'bug-intake', source_bug_no: 'BUG-NEW', agent: 'A4-Frontend-UAT-Smoke', route_active: true, status: 'pending', created_at: '2026-07-18T00:00:00.000Z' },
+  ];
+  assert.deepEqual(selectRunnableBugTasks(tasks, { maxCandidateTasks: 10 }).map((task) => task.task_id), [
+    'BUGTASK-NEW-A4',
+    'BUGTASK-OLD-A3',
+  ]);
+});
+
+test('model cache schema mismatch is a non-retryable runner failure', () => {
+  const failure = classifyInfrastructureFailure('failed to load models cache: missing field `supports_reasoning_summaries`');
+  assert.equal(failure.code, 'CODEX_CLIENT_CACHE_INCOMPATIBLE');
+  assert.equal(failure.terminalStatus, 'WAITING_RUNNER');
+  assert.equal(failure.retryable, false);
 });
 
 test('resident evolution artifacts are treated as recoverable runner-owned dirty state', () => {

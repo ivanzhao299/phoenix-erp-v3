@@ -78,13 +78,42 @@ function capacityRetryAfter(text, now = new Date()) {
   return retry.toISOString();
 }
 
-function classifyInfrastructureFailure(stderr) {
+export function classifyInfrastructureFailure(stderr, now = new Date()) {
   const text = String(stderr || '');
   if (/hit your usage limit|usage limit.*try again/i.test(text)) {
     return {
       code: 'CODEX_USAGE_LIMIT',
-      retryAfter: capacityRetryAfter(text),
+      retryAfter: capacityRetryAfter(text, now),
+      terminalStatus: 'WAITING_CAPACITY',
+      retryable: true,
       reason: 'Codex CLI usage capacity is exhausted; task is waiting for automatic retry',
+    };
+  }
+  if (/failed to load models cache|missing field [`'"]?supports_reasoning_summaries/i.test(text)) {
+    return {
+      code: 'CODEX_CLIENT_CACHE_INCOMPATIBLE',
+      retryAfter: null,
+      terminalStatus: 'WAITING_RUNNER',
+      retryable: false,
+      reason: 'Codex CLI is incompatible with the current model cache; runner binary must be upgraded before retry',
+    };
+  }
+  if (/not logged in|authentication required|invalid api key|unauthorized|401\b/i.test(text)) {
+    return {
+      code: 'CODEX_AUTH_REQUIRED',
+      retryAfter: null,
+      terminalStatus: 'WAITING_RUNNER',
+      retryable: false,
+      reason: 'Codex CLI authentication is unavailable; runner credentials require repair before retry',
+    };
+  }
+  if (/timed out|timeout|etimedout|connection reset|network is unreachable|failed to connect|dns/i.test(text)) {
+    return {
+      code: 'CODEX_TRANSIENT_NETWORK',
+      retryAfter: new Date(now.getTime() + 15 * 60 * 1000).toISOString(),
+      terminalStatus: 'WAITING_CAPACITY',
+      retryable: true,
+      reason: 'Codex CLI encountered a transient timeout/network failure; task is cooling down before retry',
     };
   }
   return null;
@@ -125,7 +154,7 @@ export function evaluateWorkerEvidence(input = {}) {
         ...base,
         passed: false,
         role: 'infrastructure',
-        terminalStatus: 'WAITING_CAPACITY',
+        terminalStatus: infrastructureFailure.terminalStatus,
         reason: infrastructureFailure.reason,
         retryAfter: infrastructureFailure.retryAfter,
       };

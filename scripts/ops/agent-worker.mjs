@@ -578,6 +578,7 @@ function runOne(args) {
   console.log(`Worker log: ${path.relative(process.cwd(), log)}`);
   if (task.status === 'HOLD') return 2;
   if (task.status === 'WAITING_CAPACITY') return 75;
+  if (task.status === 'WAITING_RUNNER') return 76;
   if (task.baseline_autopilot_exit_code && task.baseline_autopilot_exit_code !== 0) return task.baseline_autopilot_exit_code;
   return result.status ?? 1;
 }

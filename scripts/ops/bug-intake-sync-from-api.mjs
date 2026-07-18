@@ -161,7 +161,7 @@ async function fetchReports(args) {
   // cannot remain as permanent local HOLD debt.
   if (existsSync(resolveFile(TASKS_FILE))) {
     const fetched = new Set(details.map((report) => report?.bugNo).filter(Boolean));
-    const unresolvedStatuses = new Set(['pending', 'claimed', 'running', 'HOLD', 'hold', 'failed', 'WAITING_CAPACITY']);
+    const unresolvedStatuses = new Set(['pending', 'claimed', 'running', 'HOLD', 'hold', 'failed', 'WAITING_CAPACITY', 'WAITING_RUNNER']);
     const localBugNos = [...new Set(readJson(TASKS_FILE)
       .filter((task) => task.source === 'bug-intake')
       .filter((task) => unresolvedStatuses.has(task.status))
@@ -332,7 +332,7 @@ function deactivateNotReadyQueueTasks(reports, apply) {
       continue;
     }
     if (task.route_active === false) {
-      if (['pending', 'claimed', 'running', 'HOLD', 'hold', 'failed', 'WAITING_CAPACITY'].includes(task.status)) {
+      if (['pending', 'claimed', 'running', 'HOLD', 'hold', 'failed', 'WAITING_CAPACITY', 'WAITING_RUNNER'].includes(task.status)) {
         task.status = 'archived';
         task.completed_at = task.completed_at || new Date().toISOString();
         changed = true;
@@ -347,7 +347,7 @@ function deactivateNotReadyQueueTasks(reports, apply) {
     // every unfinished local route is historical evidence rather than active
     // debt. Keep its quarantine/result metadata, but remove HOLD/failed/running
     // labels from the live queue so dashboards cannot report a false blocker.
-    if (['pending', 'claimed', 'running', 'HOLD', 'hold', 'failed', 'WAITING_CAPACITY'].includes(task.status)) {
+    if (['pending', 'claimed', 'running', 'HOLD', 'hold', 'failed', 'WAITING_CAPACITY', 'WAITING_RUNNER'].includes(task.status)) {
       task.status = 'archived';
       task.completed_at = task.completed_at || new Date().toISOString();
     }

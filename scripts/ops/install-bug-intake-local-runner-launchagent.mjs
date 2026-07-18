@@ -53,14 +53,14 @@ if [ -f ${shellQuote(ENV_FILE)} ]; then
   set +a
 fi
 export PATH="\${PHOENIX_ERP_RUNNER_PATH:-/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin}"
-export PHOENIX_ERP_CODEX_BIN="\${PHOENIX_ERP_CODEX_BIN:-/Users/mac/.npm-global/bin/codex}"
+export PHOENIX_ERP_CODEX_BIN="\${PHOENIX_ERP_CODEX_BIN:-/Applications/ChatGPT.app/Contents/Resources/codex}"
 NODE_BIN="\${PHOENIX_ERP_NODE_BIN:-$(command -v node || true)}"
 if [ -z "$NODE_BIN" ]; then
   echo "node binary not found; set PHOENIX_ERP_NODE_BIN in ${shellQuote(ENV_FILE)}" >&2
   exit 127
 fi
 cd ${shellQuote(REPO)}
-exec "$NODE_BIN" scripts/ops/bug-intake-local-runner.mjs \\
+RUNNER_ARGS=( \\
   --api-base "https://erp.eggslao.com" \\
   --watch \\
   --interval "\${PHOENIX_ERP_RUNNER_INTERVAL:-300}" \\
@@ -71,9 +71,13 @@ exec "$NODE_BIN" scripts/ops/bug-intake-local-runner.mjs \\
   --apply-queue \\
   --execute-approved \\
   --approval-token "APPROVE_AGENT_EXECUTION" \\
-  --push-after-success \\
-  --wait-ci-after-push \\
-  --production-smoke-after-ci
+  --commit-audit-artifacts \\
+  --audit-commit-minutes "\${PHOENIX_ERP_RUNNER_AUDIT_COMMIT_MINUTES:-30}" \\
+)
+if [ "\${PHOENIX_ERP_RUNNER_AUTO_RELEASE:-false}" = "true" ]; then
+  RUNNER_ARGS+=(--push-after-success --wait-ci-after-push --production-smoke-after-ci)
+fi
+exec "$NODE_BIN" scripts/ops/bug-intake-local-runner.mjs "\${RUNNER_ARGS[@]}"
 `;
 }
 
@@ -117,8 +121,11 @@ PHOENIX_ERP_RUNNER_PASS=
 PHOENIX_ERP_RUNNER_INTERVAL=300
 PHOENIX_ERP_RUNNER_MAX_TASKS=3
 PHOENIX_ERP_RUNNER_MAX_CYCLES=999999
+PHOENIX_ERP_RUNNER_AUDIT_COMMIT_MINUTES=30
+# Backlog consumption and production release are separate gates.
+PHOENIX_ERP_RUNNER_AUTO_RELEASE=false
 PHOENIX_ERP_RUNNER_PATH=/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
-PHOENIX_ERP_CODEX_BIN=/Users/mac/.npm-global/bin/codex
+PHOENIX_ERP_CODEX_BIN=/Applications/ChatGPT.app/Contents/Resources/codex
 `;
 }
 

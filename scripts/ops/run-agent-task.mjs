@@ -172,6 +172,7 @@ function findCodex() {
   const candidates = [
     process.env.PHOENIX_ERP_CODEX_BIN,
     process.env.CODEX_BIN,
+    '/Applications/ChatGPT.app/Contents/Resources/codex',
     '/Users/mac/.npm-global/bin/codex',
     '/opt/homebrew/bin/codex',
     '/usr/local/bin/codex',
@@ -383,6 +384,12 @@ const codexCli = findCodex();
 if (!codexCli) {
   fail('codex CLI not found. Set PHOENIX_ERP_CODEX_BIN or CODEX_BIN, or include codex in PATH.');
 }
+
+const versionProbe = spawnSync(codexCli, ['--version'], { encoding: 'utf8', timeout: 10000 });
+if ((versionProbe.status ?? 1) !== 0) {
+  fail(`codex CLI preflight failed: ${summarize(versionProbe.stderr || versionProbe.stdout, 1000)}`);
+}
+console.log(`Codex CLI: ${codexCli} (${String(versionProbe.stdout || '').trim()})`);
 
 const result = spawnSync(codexCli, command.slice(1), {
   input: prompt,

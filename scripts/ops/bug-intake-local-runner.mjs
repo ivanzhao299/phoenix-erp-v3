@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -14,7 +15,7 @@ const RUN_DIR = 'docs/ops/runs/bug-intake-local-runner';
 const DEFAULT_SYNC_OUTPUT = 'docs/ops/runs/bug-intake-inbox';
 const RUNNABLE_STATUSES = new Set(['pending', 'claimed']);
 const LEASE_STATUSES = new Set(['running', 'claimed']);
-const FINISHED_STATUSES = new Set(['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE', 'WAITING_CAPACITY', 'completed', 'failed', 'HOLD', 'hold']);
+const FINISHED_STATUSES = new Set(['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE', 'WAITING_CAPACITY', 'WAITING_RUNNER', 'completed', 'failed', 'HOLD', 'hold']);
 const SUCCESS_STATUSES = new Set(['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE']);
 const DEPENDENCY_SUCCESS_STATUSES = new Set([...SUCCESS_STATUSES, 'completed']);
 const DEPENDENCY_FAILURE_STATUSES = new Set(['HOLD', 'hold', 'failed']);
@@ -31,6 +32,7 @@ const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bi
 const LOCK_DIR = '/tmp/phoenix-erp-bug-intake-local-runner.lock';
 const LOCK_PID_FILE = `${LOCK_DIR}/pid`;
 const TOKEN_CACHE_FILE = '/Users/mac/.phoenix-erp/bug-intake-runner-token.json';
+const AUDIT_COMMIT_STATE_FILE = '/Users/mac/.phoenix-erp/bug-intake-runner-audit-commit.json';
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -70,16 +72,18 @@ function parseArgs(argv) {
     childTimeoutMs: 900000,
     fetchTimeoutMs: 45000,
     staleLeaseMinutes: 1,
-    autoRecoverGenerationDrift: true,
+    autoRecoverGenerationDrift: false,
     maxAutoRecoveries: 2,
     maxAutoRedispatchPerCycle: 3,
+    commitAuditArtifacts: false,
+    auditCommitMinutes: 30,
   };
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
   let explicitDryRun = false;
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
     if (arg === '--help' || arg === '-h') usage(0);
-    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--production-smoke-after-ci', '--retry-safe-ui-once', '--auto-unblock-dirty-worktrees', '--skip-blocked', '--recover-leases-only'].includes(arg)) {
+    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--production-smoke-after-ci', '--retry-safe-ui-once', '--auto-unblock-dirty-worktrees', '--skip-blocked', '--recover-leases-only', '--commit-audit-artifacts', '--auto-recover-generation-drift'].includes(arg)) {
       const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
       args[key] = true;
       if (arg === '--dry-run') explicitDryRun = true;
@@ -112,6 +116,7 @@ function parseArgs(argv) {
   args.staleLeaseMinutes = Number.parseInt(args.staleLeaseMinutes, 10) || 1;
   args.maxAutoRecoveries = Number.parseInt(args.maxAutoRecoveries, 10) || 2;
   args.maxAutoRedispatchPerCycle = Number.parseInt(args.maxAutoRedispatchPerCycle, 10) || 3;
+  args.auditCommitMinutes = Number.parseInt(args.auditCommitMinutes, 10) || 30;
   if (args.executeApproved && args.approvalToken === APPROVAL_TOKEN && !explicitDryRun) args.dryRun = false;
   if (!args.once && !args.watch) args.once = true;
   return args;
@@ -181,6 +186,9 @@ function classifyRunnerFailure(input = {}) {
   };
   if (match(/timeout|etimedout|timed out|超时/, 'timeout')) {
     return { category: 'RUNNER_TIMEOUT', severity: 'WARNING', auto_recovery: 'recover stale lease then retry next cycle', evidence };
+  }
+  if (match(/failed to load models cache|supports_reasoning_summaries|client.*incompatible/, 'codex-client')) {
+    return { category: 'CODEX_CLIENT_INCOMPATIBLE', severity: 'CRITICAL', auto_recovery: 'upgrade the runner Codex binary; do not retry the task', evidence };
   }
   if (match(/login failed|http 401|http 403|token|unauthorized|forbidden|认证|权限/, 'auth')) {
     return { category: 'RUNNER_AUTH', severity: 'CRITICAL', auto_recovery: 'refresh token cache; require credential check if repeated', evidence };
@@ -296,8 +304,23 @@ function safeGit(args, cwd) {
   }
 }
 
+function isRunnerRuntimeFile(file) {
+  return file === 'docs/ops/agent-queue/tasks.json'
+    || file.startsWith('docs/ops/runs/')
+    || file === 'docs/ops/OBSERVER_FINDINGS_REPORT.md'
+    || file === 'docs/ops/OBSERVER_EVOLUTION_TASKS.md'
+    || file.startsWith('docs/ops/evolution/');
+}
+
 function commitOpsRuntimeArtifacts(args) {
   if (args.dryRun) return { skipped: true, reason: 'dry-run' };
+  if (!args.commitAuditArtifacts) return { skipped: true, reason: 'automatic audit commits disabled' };
+  const previous = readJson(AUDIT_COMMIT_STATE_FILE, {});
+  const minIntervalMs = Math.max(1, Number(args.auditCommitMinutes || 30)) * 60 * 1000;
+  const lastCommittedAt = Date.parse(previous.committedAt || '');
+  if (Number.isFinite(lastCommittedAt) && Date.now() - lastCommittedAt < minIntervalMs) {
+    return { skipped: true, reason: `audit commit cooldown (${args.auditCommitMinutes} minutes)` };
+  }
   const status = safeGit(['status', '--short', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
   if (!status.ok) return { skipped: false, ok: false, step: 'git status', error: status.output };
   if (!status.output.trim()) return { skipped: true, reason: 'no ops runtime artifacts changed' };
@@ -306,9 +329,17 @@ function commitOpsRuntimeArtifacts(args) {
   const staged = safeGit(['diff', '--cached', '--name-only', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
   if (!staged.ok) return { skipped: false, ok: false, step: 'git diff --cached', error: staged.output };
   if (!staged.output.trim()) return { skipped: true, reason: 'no staged ops runtime artifacts' };
+  const stagedDiff = safeGit(['diff', '--cached', '--binary', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
+  if (!stagedDiff.ok) return { skipped: false, ok: false, step: 'git diff --cached', error: stagedDiff.output };
+  const semanticHash = createHash('sha256').update(stagedDiff.output).digest('hex');
+  if (semanticHash === previous.semanticHash) {
+    safeGit(['restore', '--staged', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
+    return { skipped: true, reason: 'audit state unchanged' };
+  }
   const commit = safeGit(['commit', '-m', 'docs(ops): record bug intake runner artifacts'], args.mainRoot);
+  if (commit.ok) writeJson(AUDIT_COMMIT_STATE_FILE, { committedAt: new Date().toISOString(), semanticHash });
   return commit.ok
-    ? { skipped: false, ok: true, files: staged.output.split('\n').filter(Boolean), output: commit.output }
+    ? { skipped: false, ok: true, files: staged.output.split('\n').filter(Boolean), output: commit.output, semanticHash }
     : { skipped: false, ok: false, step: 'git commit', error: commit.output };
 }
 
@@ -406,19 +437,11 @@ function syncCommand(args) {
   return command;
 }
 
-function listRunnableBugTasks(args) {
-  const queued = readJson(TASKS_FILE, []);
-  const capacityChanged = requeueExpiredCapacityWaits(queued);
-  if (capacityChanged && !args.dryRun) writeJson(TASKS_FILE, queued);
-  const tasks = reconcileDependencyStates(args);
+export function selectRunnableBugTasks(tasks, args = {}) {
   const byId = new Map(tasks.map((task) => [task.task_id, task]));
-  const partiallyImplementedBugs = new Set(tasks
-    .filter((task) => task.source === 'bug-intake' && task.route_active !== false)
-    .filter((task) => ['A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke'].includes(task.agent))
-    .filter((task) => DEPENDENCY_SUCCESS_STATUSES.has(task.status))
-    .map((task) => task.source_bug_no)
-    .filter(Boolean));
   const allowAgents = args.agents ? new Set(String(args.agents).split(',').map((s) => s.trim()).filter(Boolean)) : null;
+  const retryRank = (task) => Number(task.retry_count || task.recovery_count || task.redispatch_count || 0) === 0 ? 0 : 1;
+  const createdAt = (task) => Date.parse(task.created_at || task.approved_at || '') || 0;
   return tasks
     .filter((task) => task.source === 'bug-intake')
     .filter((task) => task.route_active !== false)
@@ -426,29 +449,20 @@ function listRunnableBugTasks(args) {
     .filter((task) => (task.dependencies || []).every((taskId) => DEPENDENCY_SUCCESS_STATUSES.has(byId.get(taskId)?.status)))
     .filter((task) => !allowAgents || allowAgents.has(task.agent))
     .sort((a, b) => {
-      const priority = {
-        // Close an already implemented repair before opening another one.
-        'A2-Security-Regression-Gate': 1,
-        'A1-CI-Runtime-Gate': 2,
-        'A5-Data-Readiness': 4,
-        'A3-Backend-Critical-Path': 5,
-        'A4-Frontend-UAT-Smoke': 6,
-        'A6-Staging-Deploy-Runbook': 7,
-        'A7-Final-QA-Gate': 8,
-      };
-      const rank = (task) => (
-        ['A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke'].includes(task.agent)
-          && partiallyImplementedBugs.has(task.source_bug_no)
-          ? 3
-          : (priority[task.agent] || 99)
-      );
-      const phaseDelta = rank(a) - rank(b);
-      if (phaseDelta !== 0) return phaseDelta;
-      const aBug = String(a.source_bug_no || a.task_id || '');
-      const bBug = String(b.source_bug_no || b.task_id || '');
-      return aBug.localeCompare(bBug);
+      const retryDelta = retryRank(a) - retryRank(b);
+      if (retryDelta !== 0) return retryDelta;
+      const ageDelta = createdAt(a) - createdAt(b);
+      if (ageDelta !== 0) return ageDelta;
+      return String(a.task_id || '').localeCompare(String(b.task_id || ''));
     })
-    .slice(0, args.maxCandidateTasks);
+    .slice(0, Number(args.maxCandidateTasks || tasks.length));
+}
+
+function listRunnableBugTasks(args) {
+  const queued = readJson(TASKS_FILE, []);
+  const capacityChanged = requeueExpiredCapacityWaits(queued);
+  if (capacityChanged && !args.dryRun) writeJson(TASKS_FILE, queued);
+  return selectRunnableBugTasks(reconcileDependencyStates(args), args);
 }
 
 function reconcileDependencyStates(args) {
@@ -515,10 +529,13 @@ function integrateImplementationTask(task, finalTask, args) {
     return { skipped: false, ok: false, reason: 'missing implementation commit hash', task: next || finalTask };
   }
   const status = safeGit(['status', '--short'], args.mainRoot);
-  if (!status.ok || status.output.trim()) {
+  const blockingDirtyFiles = status.ok
+    ? gitStatusFiles(status.output).filter((file) => !isRunnerRuntimeFile(file))
+    : [];
+  if (!status.ok || blockingDirtyFiles.length > 0) {
     const next = patchTask(task.task_id, {
       status: 'HOLD',
-      reason: `runner root must be clean before implementation integration: ${status.output || 'git status failed'}`,
+      reason: `runner root contains non-runtime changes before implementation integration: ${blockingDirtyFiles.join(', ') || status.output || 'git status failed'}`,
       completed_at: new Date().toISOString(),
     });
     return { skipped: false, ok: false, reason: 'runner root dirty', task: next || finalTask };
@@ -1276,7 +1293,6 @@ const TECHNICAL_HOLD_PATTERNS = [
   /incomplete implementation worktree preserved in quarantine/i,
   /blocked by failed dependency/i,
   /cherry-pick .* conflict aborted/i,
-  /Agent process exited with [1-9]/i,
   /Missing implementation evidence/i,
   /runner-created dependency/i,
   /runner root must be clean[\s\S]*(OBSERVER_FINDINGS_REPORT|docs\/ops\/evolution)/i,
@@ -1289,6 +1305,17 @@ export function requeueExpiredCapacityWaits(tasks, now = new Date()) {
     if (task.route_active === false || task.status !== 'WAITING_CAPACITY') continue;
     const retryAt = Date.parse(task.retry_after || task.evidence_gate?.retryAfter || '');
     if (!Number.isFinite(retryAt) || retryAt > now.getTime()) continue;
+    const retryCount = Number(task.retry_count || 0) + 1;
+    task.retry_count = retryCount;
+    if (retryCount > 3) {
+      task.status = 'WAITING_RUNNER';
+      task.reason = 'automatic retry budget exhausted after 3 attempts; operator diagnosis required';
+      task.retry_after = null;
+      task.claimed_by = null;
+      task.claimed_at = null;
+      changed = true;
+      continue;
+    }
     task.status = 'pending';
     task.reason = 'Codex CLI capacity retry window reached; automatically requeued';
     task.claimed_by = null;
@@ -1645,7 +1672,7 @@ async function runCycle(args, cycle) {
     sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
   }
   const evolutionCycle = runEvolutionCycle(args, cycle, generationRecovery);
-  const preWorkerCommit = sync.status === 0 ? commitOpsRuntimeArtifacts(args) : { skipped: true, reason: 'sync failed' };
+  const preWorkerCommit = { skipped: true, reason: 'audit artifacts are committed once at cycle end' };
   const candidateTasks = sync.status === 0 ? listRunnableBugTasks(args) : [];
   const runnableTasks = [];
   const blockedTasks = [];
@@ -1662,14 +1689,19 @@ async function runCycle(args, cycle) {
   }
 
   const attemptedTaskIds = new Set();
+  const attemptedBugNos = new Set();
   while (preExistingProcesses.length === 0 && workerRuns.length < args.maxTasks) {
     // Re-read the queue after every worker. An implementation can unlock A2/A1
     // during this cycle; using the original candidate snapshot would skip those
     // gates and start another bug instead, leaving the first repair half-closed.
     const task = listRunnableBugTasks(args)
-      .find((candidate) => !attemptedTaskIds.has(candidate.task_id));
+      .find((candidate) => (
+        !attemptedTaskIds.has(candidate.task_id)
+        && !attemptedBugNos.has(candidate.source_bug_no || candidate.task_id)
+      ));
     if (!task) break;
     attemptedTaskIds.add(task.task_id);
+    attemptedBugNos.add(task.source_bug_no || task.task_id);
     const dependencySetup = ensureTaskWorktreeDependencies(task, args);
     if (!dependencySetup.ok) {
       blockedTasks.push({
@@ -1706,9 +1738,7 @@ async function runCycle(args, cycle) {
     let finalTask = findTask(task.task_id);
     const retryRuns = [];
     if (shouldRetryWorker(task, worker, finalTask, args)) {
-      retryRuns.push({ reason: 'safe-ui-once retry', firstWorkerStatus: worker.status, firstFinalStatus: finalTask?.status || 'unknown' });
-      worker = run(workerCommand(task, args), { timeoutMs: args.childTimeoutMs });
-      finalTask = findTask(task.task_id);
+      retryRuns.push({ reason: 'same-cycle retry suppressed; classified cooldown required', firstWorkerStatus: worker.status, firstFinalStatus: finalTask?.status || 'unknown' });
     }
     let leftovers = activeAgentProcesses();
     if (!args.dryRun && !isFinishedTask(finalTask) && leftovers.length > 0) {
@@ -1766,13 +1796,13 @@ async function runCycle(args, cycle) {
     if (wbCommand && (!args.dryRun || finalTask?.result_file)) {
       writeback = run(wbCommand, { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
     }
-    const postWorkerCommit = commitOpsRuntimeArtifacts(args);
+    const postWorkerCommit = { skipped: true, reason: 'audit artifacts are committed once at cycle end' };
     let implementationIntegration = { skipped: true, reason: 'worker runtime artifacts not committed', task: finalTask };
     let postIntegrationCommit = { skipped: true, reason: 'no implementation integration' };
     if (postWorkerCommit.skipped || postWorkerCommit.ok !== false) {
       implementationIntegration = integrateImplementationTask(task, finalTask, args);
       finalTask = implementationIntegration.task || finalTask;
-      if (!implementationIntegration.skipped) postIntegrationCommit = commitOpsRuntimeArtifacts(args);
+      if (!implementationIntegration.skipped) postIntegrationCommit = { skipped: true, reason: 'audit artifacts are committed once at cycle end' };
     }
     workerRuns.push({ task, worker, finalTask, writeback, retryRuns, implementationIntegration, postIntegrationCommit, dependencySetup });
     leftovers = activeAgentProcesses();
@@ -1804,6 +1834,7 @@ async function runCycle(args, cycle) {
     workerRuns[workerRuns.length - 1].postWorkerCommit = postWorkerCommit;
   }
 
+  const cycleAuditCommit = commitOpsRuntimeArtifacts(args);
   const releaseEvidence = releaseEvidenceForWorkerRuns(args, workerRuns);
   const push = runPushIfReady(args, workerRuns, releaseEvidence);
   const ci = await waitForGithubActionsIfRequested(args, push);
@@ -1825,6 +1856,7 @@ async function runCycle(args, cycle) {
     evolutionCycle,
     leaseRecovery,
     preWorkerCommit,
+    cycleAuditCommit,
     candidateTasks: candidateTasks.map((task) => ({ task_id: task.task_id, agent: task.agent, source_bug_no: task.source_bug_no })),
     blockedTasks,
     runnableTasks: runnableTasks.map((task) => ({ task_id: task.task_id, agent: task.agent, source_bug_no: task.source_bug_no })),
