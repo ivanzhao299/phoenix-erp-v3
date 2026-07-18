@@ -16,6 +16,7 @@ import {
   planConcurrentTaskBatch,
   runnerHealthDecision,
   taskIdempotencyKey,
+  writeJsonIfMateriallyChanged,
 } from './bug-runner-platform.mjs';
 
 test('terminal task states cannot regress without explicit redispatch', () => {
@@ -136,4 +137,15 @@ test('pre-gate terminal work is governed by an explicit legacy evidence exemptio
   assert.equal(metrics.legacy_evidence_exemption_count, 1);
   assert.equal(metrics.terminal_evidence_coverage, 1);
   assert.equal(runnerHealthDecision(metrics), 'GO');
+});
+
+test('material dashboard writes ignore repeated observations', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phoenix-dashboard-'));
+  const output = path.join(root, 'latest.json');
+  const payload = { decision: 'GO', metrics: { total: 1, active: 0 } };
+  assert.equal(writeJsonIfMateriallyChanged(output, payload), true);
+  const first = fs.readFileSync(output, 'utf8');
+  assert.equal(writeJsonIfMateriallyChanged(output, payload), false);
+  assert.equal(fs.readFileSync(output, 'utf8'), first);
+  assert.equal(writeJsonIfMateriallyChanged(output, { ...payload, decision: 'HOLD' }), true);
 });

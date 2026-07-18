@@ -16,6 +16,7 @@ import {
   pendingOutboxRecords,
   planConcurrentTaskBatch,
   runnerHealthDecision,
+  writeJsonIfMateriallyChanged,
 } from './bug-runner-platform.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
@@ -1947,11 +1948,11 @@ async function runCycle(args, cycle) {
 
   const platformMetrics = computeRunnerMetrics(readJson(TASKS_FILE, []));
   const platformHealth = runnerHealthDecision(platformMetrics);
-  writeJson('docs/ops/runs/bug-runner-dashboard-latest.json', {
-    generated_at: new Date().toISOString(),
+  const { generated_at: _metricsGeneratedAt, ...stablePlatformMetrics } = platformMetrics;
+  writeJsonIfMateriallyChanged(resolveFile('docs/ops/runs/bug-runner-dashboard-latest.json'), {
     decision: platformHealth,
-    metrics: platformMetrics,
-    current_cycle: { cycle, worker_count: workerRuns.length, blocked_count: blockedTasks.length },
+    metrics: stablePlatformMetrics,
+    current_activity: { worker_count: workerRuns.length, blocked_count: blockedTasks.length },
   });
   writeMd('docs/ops/runs/bug-runner-dashboard-latest.md', `# Bug Runner Platform Dashboard\n\n- Decision: **${platformHealth}**\n- Queue total / active: ${platformMetrics.total} / ${platformMetrics.active}\n- False completion: ${platformMetrics.false_complete_count}\n- Raw terminal evidence coverage: ${(platformMetrics.raw_terminal_evidence_coverage * 100).toFixed(1)}%\n- Governed evidence coverage: ${(platformMetrics.terminal_evidence_coverage * 100).toFixed(1)}%\n- Legacy evidence exemptions: ${platformMetrics.legacy_evidence_exemption_count}\n- Current cycle workers / blocked: ${workerRuns.length} / ${blockedTasks.length}\n`);
   const cycleAuditCommit = commitOpsRuntimeArtifacts(args);

@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-18T15:14:41.602Z",
+  "generated_at": "2026-07-18T15:18:10.124Z",
+  "fingerprint": "ef97a16d391deb4b73467b47891c57be06f5cf81614c1f7d42bb6de4970fba9f",
   "decision": "GO",
   "metrics": {
-    "generated_at": "2026-07-18T15:14:41.601Z",
     "total": 356,
     "active": 0,
     "status_counts": {
@@ -21,8 +21,7 @@
     "raw_terminal_evidence_coverage": 0.965034965034965,
     "terminal_evidence_coverage": 1
   },
-  "current_cycle": {
-    "cycle": 1,
+  "current_activity": {
     "worker_count": 0,
     "blocked_count": 0
   }

@@ -91,6 +91,24 @@ export function atomicWriteJson(file, value) {
   renameSync(temp, target);
 }
 
+export function writeJsonIfMateriallyChanged(file, payload) {
+  const target = path.resolve(file);
+  const fingerprint = stableHash(payload);
+  let existing = null;
+  try {
+    existing = JSON.parse(readFileSync(target, 'utf8'));
+  } catch {
+    // Missing or malformed dashboards are replaced atomically.
+  }
+  if (existing?.fingerprint === fingerprint) return false;
+  atomicWriteJson(target, {
+    generated_at: new Date().toISOString(),
+    fingerprint,
+    ...payload,
+  });
+  return true;
+}
+
 export function appendJsonEvent(file, event) {
   const target = path.resolve(file);
   mkdirSync(path.dirname(target), { recursive: true });

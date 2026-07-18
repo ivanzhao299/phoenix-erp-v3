@@ -56,6 +56,7 @@ Freeze the known Runner failure modes and upgrade in strict P0-P4 order: correct
 - Archived tasks are excluded from release evidence coverage. Five terminal tasks completed before the strict-evidence cutover are reported as explicit legacy exemptions rather than fabricated evidence; every post-cutover task remains strictly gated.
 - Resident Observer consumes the dashboard and raises HIGH/CRITICAL findings for waiting Runner work or false completion.
 - Added a machine-readable policy that freezes concurrency, CI, release, and SLO rules.
+- Dashboard JSON is now material-change-only: idle cycles do not rewrite timestamps or create recurring audit commits.
 
 ## Operating Model
 
@@ -72,11 +73,12 @@ Freeze the known Runner failure modes and upgrade in strict P0-P4 order: correct
 
 ## Verification Results
 
-- Runner platform and existing local Runner tests: `40/40 PASS`.
+- Runner platform and existing local Runner tests: `41/41 PASS`.
 - API TypeScript check: `PASS`.
 - Web TypeScript check: `PASS`.
 - P0-P4 Runner dry-run: `PASS`; no Codex CLI execution, push, or deployment occurred.
 - Dashboard decision: `GO`; 356 tracked tasks, 0 active, 0 false completions.
 - Governed terminal evidence coverage: `100%`; raw coverage is `96.50%` because five pre-cutover terminal tasks are explicitly recorded as legacy exemptions.
 - Deployment workflow YAML parse: `PASS`.
+- Material dashboard write regression: `PASS`; repeated identical observation keeps the same hash and file modification time.
 - W5 closeout gate: `PASS`. The repository-wide baseline reports historical frozen/security paths unless the documented review flags are present; the actual P0-P4 change set contains only `.github/workflows/deploy.yml`, `scripts/ops/**`, and `docs/ops/**`.

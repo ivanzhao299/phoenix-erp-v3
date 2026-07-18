@@ -2,7 +2,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { atomicWriteJson, computeRunnerMetrics, runnerHealthDecision } from './bug-runner-platform.mjs';
+import { computeRunnerMetrics, runnerHealthDecision, writeJsonIfMateriallyChanged } from './bug-runner-platform.mjs';
 
 const argv = process.argv.slice(2).map((arg) => arg.replace(/^–+/, '--'));
 const readArg = (name, fallback) => {
@@ -19,32 +19,19 @@ const tasksPayload = readJson(tasksFile, []);
 const tasks = Array.isArray(tasksPayload) ? tasksPayload : tasksPayload.tasks || [];
 const latest = readJson(runnerSummaryFile, null);
 const metrics = computeRunnerMetrics(tasks);
+const { generated_at: _metricsGeneratedAt, ...stableMetrics } = metrics;
 const report = {
-  generated_at: new Date().toISOString(),
   decision: runnerHealthDecision(metrics),
-  metrics,
-  last_cycle: latest ? {
-    decision: latest.decision,
-    generated_at: latest.generatedAt,
-    head_sha: latest.headSha,
+  metrics: stableMetrics,
+  current_activity: latest ? {
     worker_count: latest.workerRuns?.length || 0,
     blocked_count: latest.blockedTasks?.length || 0,
-    ci: latest.ci?.conclusion || latest.ci?.reason || 'unknown',
-    production_smoke: latest.productionSmoke?.status === 0 ? 'PASS' : latest.productionSmoke?.reason || 'unknown',
-    outbox_pending: latest.outboxRecovery?.pending || 0,
-  } : null,
-  slo: {
-    queue_wait_p95_target_ms: 15 * 60 * 1000,
-    lead_time_p95_target_ms: 4 * 60 * 60 * 1000,
-    false_complete_target: 0,
-    terminal_evidence_coverage_target: 1,
-  },
+  } : { worker_count: 0, blocked_count: 0 },
 };
-atomicWriteJson(outputJson, report);
-const formatMs = (value) => value == null ? '-' : `${Math.round(value / 1000)}s`;
-const md = `# Bug Runner Platform Dashboard\n\n- Decision: **${report.decision}**\n- Generated: ${report.generated_at}\n- Queue total / active: ${metrics.total} / ${metrics.active}\n- Queue wait P50 / P95: ${formatMs(metrics.queue_wait_p50_ms)} / ${formatMs(metrics.queue_wait_p95_ms)}\n- Lead time P50 / P95: ${formatMs(metrics.lead_time_p50_ms)} / ${formatMs(metrics.lead_time_p95_ms)}\n- False completion: ${metrics.false_complete_count}\n- Raw terminal evidence coverage: ${(metrics.raw_terminal_evidence_coverage * 100).toFixed(1)}%\n- Governed evidence coverage: ${(metrics.terminal_evidence_coverage * 100).toFixed(1)}%\n- Legacy evidence exemptions: ${metrics.legacy_evidence_exemption_count}\n- Last cycle CI: ${report.last_cycle?.ci || '-'}\n- Last cycle smoke: ${report.last_cycle?.production_smoke || '-'}\n\n## Status Counts\n\n${Object.entries(metrics.status_counts).map(([status, count]) => `- ${status}: ${count}`).join('\n')}\n`;
+const dashboardChanged = writeJsonIfMateriallyChanged(outputJson, report);
+const md = `# Bug Runner Platform Dashboard\n\n- Decision: **${report.decision}**\n- Queue total / active: ${metrics.total} / ${metrics.active}\n- False completion: ${metrics.false_complete_count}\n- Raw terminal evidence coverage: ${(metrics.raw_terminal_evidence_coverage * 100).toFixed(1)}%\n- Governed evidence coverage: ${(metrics.terminal_evidence_coverage * 100).toFixed(1)}%\n- Legacy evidence exemptions: ${metrics.legacy_evidence_exemption_count}\n- Current cycle workers / blocked: ${report.current_activity.worker_count} / ${report.current_activity.blocked_count}\n`;
 await import('node:fs').then(({ mkdirSync, writeFileSync }) => {
   mkdirSync(path.dirname(outputMd), { recursive: true });
   writeFileSync(outputMd, md);
 });
-console.log(JSON.stringify({ decision: report.decision, output_json: outputJson, output_md: outputMd, metrics }, null, 2));
+console.log(JSON.stringify({ decision: report.decision, changed: dashboardChanged, output_json: outputJson, output_md: outputMd, metrics }, null, 2));
