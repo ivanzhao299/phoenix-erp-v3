@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 const DEFAULT_OUTPUT_DIR = 'docs/ops/runs/bug-intake-inbox';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
@@ -36,7 +37,7 @@ Behavior:
 }
 
 function parseArgs(argv) {
-  const args = { dryRun: true, limit: 100, outputDir: DEFAULT_OUTPUT_DIR, fetchTimeoutMs: 45000 };
+  const args = { dryRun: true, limit: 100, outputDir: DEFAULT_OUTPUT_DIR, fetchTimeoutMs: 45000, fetchConcurrency: 5 };
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
@@ -56,7 +57,22 @@ function parseArgs(argv) {
   }
   args.limit = Math.max(1, Math.min(500, Number(args.limit) || 100));
   args.fetchTimeoutMs = Math.max(5000, Number(args.fetchTimeoutMs) || 45000);
+  args.fetchConcurrency = Math.max(1, Math.min(10, Number(args.fetchConcurrency) || 5));
   return args;
+}
+
+export async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(Math.max(1, concurrency), items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 function resolveFile(file) {
@@ -144,14 +160,18 @@ async function fetchReports(args) {
       const list = await apiGet(args, `/api/bug-intake/reports?page=${page}&limit=50&status=${encodeURIComponent(status)}`);
       const items = Array.isArray(list.items) ? list.items : [];
       if (items.length === 0) break;
-      for (const item of items) {
-        if (!item.bugNo || details.length >= args.limit) continue;
+      const pageItems = items
+        .filter((item) => item.bugNo)
+        .slice(0, Math.max(0, args.limit - details.length));
+      const pageDetails = await mapWithConcurrency(pageItems, args.fetchConcurrency, async (item) => {
         try {
-          details.push(await apiGet(args, `/api/bug-intake/reports/${encodeURIComponent(item.bugNo)}`));
+          return await apiGet(args, `/api/bug-intake/reports/${encodeURIComponent(item.bugNo)}`);
         } catch (error) {
           FETCH_ERRORS.push({ bugNo: item.bugNo, endpoint: `/api/bug-intake/reports/${item.bugNo}`, error: error.message });
+          return null;
         }
-      }
+      });
+      details.push(...pageDetails.filter(Boolean));
       if (items.length < 50) break;
       page += 1;
     }
@@ -167,13 +187,15 @@ async function fetchReports(args) {
       .filter((task) => unresolvedStatuses.has(task.status))
       .map((task) => task.source_bug_no)
       .filter((bugNo) => bugNo && !fetched.has(bugNo)))];
-    for (const bugNo of localBugNos) {
+    const localDetails = await mapWithConcurrency(localBugNos, args.fetchConcurrency, async (bugNo) => {
       try {
-        details.push(await apiGet(args, `/api/bug-intake/reports/${encodeURIComponent(bugNo)}`));
+        return await apiGet(args, `/api/bug-intake/reports/${encodeURIComponent(bugNo)}`);
       } catch (error) {
         FETCH_ERRORS.push({ bugNo, endpoint: `/api/bug-intake/reports/${bugNo}`, error: error.message });
+        return null;
       }
-    }
+    });
+    details.push(...localDetails.filter(Boolean));
   }
   return details;
 }
@@ -463,7 +485,9 @@ async function main() {
   console.log(JSON.stringify(summary, null, 2));
 }
 
-main().catch((error) => {
-  console.error(`ERROR: ${error.message}`);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main().catch((error) => {
+    console.error(`ERROR: ${error.message}`);
+    process.exit(1);
+  });
+}

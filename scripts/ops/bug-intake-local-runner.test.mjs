@@ -15,6 +15,7 @@ import {
 } from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 import { classifyInfrastructureFailure, evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
+import { mapWithConcurrency } from './bug-intake-sync-from-api.mjs';
 
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +25,20 @@ test('runner-created dependency links do not make a worktree dirty', () => {
     '?? apps/api/node_modules',
     '?? apps/web/node_modules/',
   ].join('\n')), '');
+});
+
+test('inbox detail fetch keeps bounded concurrency and result order', async () => {
+  let active = 0;
+  let maxActive = 0;
+  const result = await mapWithConcurrency([1, 2, 3, 4, 5], 2, async (value) => {
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await new Promise((resolve) => setTimeout(resolve, value % 2 ? 2 : 1));
+    active -= 1;
+    return value * 10;
+  });
+  assert.deepEqual(result, [10, 20, 30, 40, 50]);
+  assert.equal(maxActive, 2);
 });
 
 test('business and ops changes remain visible after runtime filtering', () => {
