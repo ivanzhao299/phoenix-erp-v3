@@ -126,6 +126,29 @@ test('model cache schema mismatch is a non-retryable runner failure', () => {
   assert.equal(failure.retryable, false);
 });
 
+test('source repair task report name satisfies implementation evidence', () => {
+  const task = {
+    task_id: 'BUGTASK-20260717-0001-A4',
+    request_id: 'BUGTASK-20260717-0001',
+    source_repair_task_no: 'BUGTASK-20260717-0001',
+    source_bug_no: 'BUG-20260717-0001',
+    agent: 'A4-Frontend-UAT-Smoke',
+  };
+  const evidence = evaluateWorkerEvidence({
+    task,
+    exitCode: 0,
+    stdout: 'PASS WITH CONDITIONS',
+    beforeHead: 'a',
+    afterHead: 'b',
+    changedFiles: [
+      'apps/web/src/app/(admin)/procurement2/orders/page.tsx',
+      'docs/ops/BUGTASK-20260717-0001-frontend-repair.md',
+    ],
+  });
+  assert.equal(evidence.passed, true);
+  assert.equal(evidence.terminalStatus, 'IMPLEMENTATION_COMPLETED');
+});
+
 test('resident evolution artifacts are treated as recoverable runner-owned dirty state', () => {
   const reports = [{
     bugNo: 'BUG-TEST-EVOLUTION', status: 'IN_PROGRESS', repairTaskStatus: 'HOLD',

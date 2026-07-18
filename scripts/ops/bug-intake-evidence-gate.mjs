@@ -60,10 +60,13 @@ function isNotApplicable(response) {
 function reportFilesForTask(task, changedFiles) {
   const bugNo = String(task?.source_bug_no || '').toLowerCase();
   const taskId = String(task?.task_id || '').toLowerCase();
+  const sourceRepairTaskNo = String(task?.source_repair_task_no || task?.request_id || '').toLowerCase();
   return unique(changedFiles).filter((file) => {
     const lower = file.toLowerCase();
     if (!lower.startsWith('docs/ops/') || lower.startsWith('docs/ops/runs/')) return false;
-    return (bugNo && lower.includes(bugNo)) || (taskId && lower.includes(taskId));
+    return (bugNo && lower.includes(bugNo))
+      || (taskId && lower.includes(taskId))
+      || (sourceRepairTaskNo && lower.includes(sourceRepairTaskNo));
   });
 }
 
