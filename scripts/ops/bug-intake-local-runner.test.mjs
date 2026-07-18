@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   buildResultBackfillPlan,
   requeueExpiredCapacityWaits,
+  requeueSatisfiedDependencyHolds,
   selectRunnableBugTasks,
   selectAutomaticRedispatchCandidates,
   selectReleaseReadyBacklog,
@@ -103,6 +104,32 @@ test('expired Codex capacity waits requeue without becoming business HOLD', () =
   const tasks = [{ status: 'WAITING_CAPACITY', route_active: true, retry_after: '2026-07-12T01:00:00.000Z' }];
   assert.equal(requeueExpiredCapacityWaits(tasks, new Date('2026-07-12T02:00:00.000Z')), true);
   assert.equal(tasks[0].status, 'pending');
+});
+
+test('only dependency HOLD requeues after every dependency recovers', () => {
+  const tasks = [
+    { task_id: 'A4', status: 'COMPLETED_MERGED' },
+    {
+      task_id: 'A1',
+      status: 'HOLD',
+      dependencies: ['A4'],
+      reason: 'blocked by failed dependency: A4',
+      evidence_gate: { role: 'dependency' },
+      completed_at: 'old',
+    },
+    {
+      task_id: 'BUSINESS',
+      status: 'HOLD',
+      dependencies: ['A4'],
+      reason: 'manual review required',
+      evidence_gate: { role: 'implementation' },
+    },
+  ];
+  assert.equal(requeueSatisfiedDependencyHolds(tasks, new Date('2026-07-18T00:00:00Z')), true);
+  assert.equal(tasks[1].status, 'pending');
+  assert.equal(tasks[1].completed_at, null);
+  assert.equal(tasks[1].dependency_recovered_at, '2026-07-18T00:00:00.000Z');
+  assert.equal(tasks[2].status, 'HOLD');
 });
 
 test('capacity retry budget stops after three retries', () => {

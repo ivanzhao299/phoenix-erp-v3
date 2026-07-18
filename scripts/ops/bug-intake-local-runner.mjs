@@ -468,7 +468,7 @@ function listRunnableBugTasks(args) {
 function reconcileDependencyStates(args) {
   const tasks = readJson(TASKS_FILE, []);
   const byId = new Map(tasks.map((task) => [task.task_id, task]));
-  let changed = false;
+  let changed = requeueSatisfiedDependencyHolds(tasks);
   for (const task of tasks) {
     if (task.source !== 'bug-intake' || task.route_active === false || !RUNNABLE_STATUSES.has(task.status)) continue;
     const dependencies = Array.isArray(task.dependencies) ? task.dependencies : [];
@@ -496,6 +496,28 @@ function reconcileDependencyStates(args) {
   }
   if (changed && !args.dryRun) writeJson(TASKS_FILE, tasks);
   return tasks;
+}
+
+export function requeueSatisfiedDependencyHolds(tasks, now = new Date()) {
+  const byId = new Map((tasks || []).map((task) => [task.task_id, task]));
+  let changed = false;
+  for (const task of tasks || []) {
+    const dependencies = Array.isArray(task.dependencies) ? task.dependencies : [];
+    const isDependencyHold = ['HOLD', 'hold'].includes(task.status)
+      && task.evidence_gate?.role === 'dependency'
+      && /^(blocked by failed dependency|dependency task missing):/i.test(String(task.reason || ''));
+    if (!isDependencyHold || dependencies.length === 0) continue;
+    if (!dependencies.every((taskId) => DEPENDENCY_SUCCESS_STATUSES.has(byId.get(taskId)?.status))) continue;
+    task.status = 'pending';
+    task.reason = 'dependency recovered; automatically requeued';
+    task.claimed_by = null;
+    task.claimed_at = null;
+    task.completed_at = null;
+    task.evidence_gate = null;
+    task.dependency_recovered_at = now.toISOString();
+    changed = true;
+  }
+  return changed;
 }
 
 function findTask(taskId) {
@@ -553,11 +575,24 @@ function integrateImplementationTask(task, finalTask, args) {
     return { skipped: false, ok: false, reason: 'cherry-pick failed', output: cherryPick.output, task: next || finalTask };
   }
   const integratedHead = currentHead(args.mainRoot);
+  let worktreeBaselineSync = { skipped: true, reason: 'implementation worktree is not clean at integrated source commit' };
+  const worktreeHead = currentHead(task.worktree);
+  const worktreeStatus = safeGit(['status', '--short'], task.worktree);
+  if (worktreeHead === commitHash && worktreeStatus.ok && filterRunnerRuntimeStatus(worktreeStatus.output) === '') {
+    const sync = safeGit(['rebase', '--onto', integratedHead, commitHash, task.branch], task.worktree);
+    if (!sync.ok) {
+      safeGit(['rebase', '--abort'], task.worktree);
+      worktreeBaselineSync = { skipped: false, ok: false, reason: sync.output };
+    } else {
+      worktreeBaselineSync = { skipped: false, ok: true, baseline: integratedHead };
+    }
+  }
   const next = patchTask(task.task_id, {
     status: 'COMPLETED_MERGED',
     integrated_commit: integratedHead,
     integrated_at: new Date().toISOString(),
     integration_method: alreadyMerged.ok ? 'already-ancestor' : 'cherry-pick-verified-agent-commit',
+    worktree_baseline_sync: worktreeBaselineSync,
     completed_at: new Date().toISOString(),
   });
   return {
@@ -567,6 +602,7 @@ function integrateImplementationTask(task, finalTask, args) {
     integratedCommit: integratedHead,
     method: alreadyMerged.ok ? 'already-ancestor' : 'cherry-pick',
     output: cherryPick.output,
+    worktreeBaselineSync,
     task: next || finalTask,
   };
 }
