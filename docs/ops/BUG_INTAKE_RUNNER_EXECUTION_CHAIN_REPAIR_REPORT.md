@@ -4,7 +4,7 @@
 
 `GO WITH CONDITIONS`
 
-The Runner/Codex CLI execution chain is repaired and the queue can resume controlled consumption. Resident consumption is separated from automatic release: the service may claim and verify approved work, while push and deployment remain disabled by default.
+The Runner/Codex CLI execution chain is repaired and controlled queue consumption has resumed. Resident consumption is separated from automatic release: the service may claim and verify approved work, while push and deployment remain disabled by default.
 
 ## Root Causes
 
@@ -38,6 +38,24 @@ The Runner/Codex CLI execution chain is repaired and the queue can resume contro
 - Codex CLI execution during runner dry-run: no.
 - Push/deploy during repair validation: no.
 
+## Controlled Real Recovery
+
+A one-task real recovery cycle was executed after the infrastructure commit:
+
+| Field | Result |
+|---|---|
+| Task | `BUGTASK-20260716-0003-A4` |
+| Source bug | `BUG-20260716-0003` |
+| Codex CLI | `0.145.0-alpha.18` bundled desktop binary |
+| Worker exit | `0` |
+| Evidence gate | `IMPLEMENTATION_COMPLETED` |
+| Final queue status | `COMPLETED_MERGED` |
+| Integrated commit | `8089e10a` |
+| Same-cycle retry | `0` |
+| Push/deploy | skipped |
+
+The Agent produced a real frontend repair for the sales-order draft/list refresh issue, focused tests, Web typecheck evidence, and a task report. This confirms the execution chain now performs work rather than returning an empty process failure or false completion.
+
 ## Queue Snapshot Before Recovery
 
 | Status | Count |
@@ -49,7 +67,7 @@ The Runner/Codex CLI execution chain is repaired and the queue can resume contro
 | Pending | 13 |
 | HOLD | 13 |
 
-The pending backlog is eligible for controlled FIFO consumption. Existing HOLD tasks remain preserved for explicit diagnosis and do not compete with pending work.
+After the controlled cycle, the queue contained 11 pending and 14 HOLD tasks. The pending backlog is eligible for controlled FIFO consumption. Existing HOLD tasks remain preserved for explicit diagnosis and do not compete with pending work.
 
 ## Safety Boundary
 
@@ -57,5 +75,5 @@ The pending backlog is eligible for controlled FIFO consumption. Existing HOLD t
 - No database write performed by this repair.
 - No production deployment performed.
 - No push performed.
-- No business module code modified.
+- The runner infrastructure repair itself modified no business module. The controlled recovery cycle intentionally integrated the approved A4 frontend repair listed above.
 - Resident auto-release remains disabled unless explicitly enabled in the external service environment.
