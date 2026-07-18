@@ -62,7 +62,13 @@ new packaging schema migration have not been executed in this change set.
 
 - API focused regression: PASS, 3 suites / 26 tests.
 - API TypeScript check: PASS.
+- API production build: PASS.
 - Web TypeScript check: PASS.
+- Web production build on this worktree: ENVIRONMENT HOLD. Next.js 16
+  Turbopack rejected `apps/web/node_modules` because this worktree symlink points
+  to `/Users/mac/phoenix-erp/apps/web/node_modules`, outside the worktree root.
+  This is not a TypeScript or application-code failure; CI must run the final
+  build in its normal non-symlink dependency layout before deployment.
 - TypeORM migration `down()` gate: PASS.
 - TypeORM migration no-data-DML gate: PASS.
 - W5 closeout: PASS with declared freeze/security touch because this approved
