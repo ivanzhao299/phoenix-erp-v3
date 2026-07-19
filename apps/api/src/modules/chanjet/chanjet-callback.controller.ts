@@ -525,6 +525,18 @@ export class ChanjetCallbackController {
     }
   }
 
+  /** 当前唯一权威状态。历史 run artifact 不得覆盖本端点的实时结论。 */
+  @Get('integration/current-state')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationCurrentState() {
+    try {
+      const currentState = await this.integration.currentStateOverview();
+      return { success: true, currentState };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
   /**
    * GET /api/chanjet/integration/account-book-mapping-gate
    * 账套 ↔ ERP 公司一对一映射门禁。只读 ERP 中间层和公司主数据。
@@ -1140,6 +1152,28 @@ export class ChanjetCallbackController {
     } catch (e) {
       return { success: false, error: (e as Error).message };
     }
+  }
+
+  /**
+   * POST /api/chanjet/integration/voucher-drafts/validate
+   * 只校验 ERP 中间层凭证候选，不保存、不推送好业财。
+   */
+  @Post('integration/voucher-drafts/validate')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  validateIntegrationVoucherDraft(
+    @Body() body: {
+      sourceBizType: string;
+      sourceBizId: string;
+      companyCode?: string;
+      bookId?: string;
+      period?: string;
+      title?: string;
+      voucherLines: Array<Record<string, unknown>>;
+      rawData?: Record<string, unknown>;
+    },
+  ) {
+    const validation = this.integration.validateVoucherDraftInput(body);
+    return { success: validation.valid, validation, pushEnabled: false };
   }
 
   /**

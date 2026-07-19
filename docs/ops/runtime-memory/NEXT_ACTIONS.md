@@ -18,6 +18,19 @@ Completed:
 
 Next actions:
 
+## 2026-07-19 - Chanjet P0-P5 runtime contract
+
+1. `CHANJET_CURRENT_STATE_AUTHENTICATED_AUDIT`
+   - After an approved deployment, capture live `/api/chanjet/integration/current-state` evidence.
+2. `CHANJET_FINANCE_READ_MODEL_PROMOTION_REVIEW`
+   - Promote only `AUTHORITY_READY` values; keep ERP details as visible auxiliary evidence.
+3. `CHANJET_OPEN_RECONCILIATION_AND_FIELD_GAP_BURN_DOWN`
+   - Resolve deterministic field and master-data gaps without fuzzy approval or silent overwrite.
+4. `CHANJET_VOUCHER_WRITEBACK_SEPARATE_GATE`
+   - Keep external writes disabled; a future Gate must separately approve credentials, idempotency, rollback and pilot scope.
+
+Hard boundary: old `docs/ops/runs/*latest*` files are historical snapshots and cannot override the runtime current-state endpoint.
+
 1. Deploy and run authenticated production readiness smoke.
 2. Execute one resilient readonly synchronization and verify cron heartbeat / alert behavior.
 3. System-confirm only deterministic exact mappings; review all remaining candidates individually.

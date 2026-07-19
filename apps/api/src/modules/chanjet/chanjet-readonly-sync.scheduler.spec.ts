@@ -30,6 +30,8 @@ describe('ChanjetReadonlySyncScheduler', () => {
         reconciliation: { created: 1, autoResolved: 3 },
         stoppedAt: null,
       }),
+      currentStateOverview: jest.fn().mockResolvedValue({ decision: 'GO', blockers: [] }),
+      recordCurrentStateAlert: jest.fn().mockResolvedValue(undefined),
     };
     const cronMonitor = {
       ok: jest.fn().mockResolvedValue(undefined),
@@ -53,6 +55,7 @@ describe('ChanjetReadonlySyncScheduler', () => {
     );
     expect(cronMonitor.ok).toHaveBeenCalledTimes(1);
     expect(cronMonitor.fail).not.toHaveBeenCalled();
+    expect(integration.recordCurrentStateAlert).toHaveBeenCalledWith(expect.objectContaining({ decision: 'GO' }));
   });
 
   it('records HOLD as a monitored failure and still releases the lock', async () => {
@@ -75,6 +78,8 @@ describe('ChanjetReadonlySyncScheduler', () => {
         },
         stoppedAt: 'READONLY_MIRROR',
       }),
+      currentStateOverview: jest.fn(),
+      recordCurrentStateAlert: jest.fn(),
     };
     const cronMonitor = {
       ok: jest.fn(),

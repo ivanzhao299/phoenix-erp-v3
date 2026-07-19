@@ -1786,3 +1786,13 @@ Decision: counterparty resolution `GO`.
 - Release requires the exact four-workflow CI barrier plus semantic production smoke.
 - Ops-only audit commits do not build or deploy application images.
 - Resident polling fallback is 30 seconds with local event wakeup; dashboard and Observer expose SLO, false completion, evidence coverage, and waiting Runner work.
+
+## 2026-07-19 - Chanjet P0-P5 has one runtime authority
+
+- Decision: `GO_WITH_CONDITIONS` for the readonly alignment and writeback-preparation boundary.
+- `GET /api/chanjet/integration/current-state` is the only authoritative current P0-P5 decision.
+- Historical run artifacts remain immutable audit snapshots and cannot override newer runtime evidence.
+- P0-P5 execution order is fixed: mirror, finance read model, mapping, ordinary UI fusion, reliability, voucher writeback preparation.
+- `PUSH_READY` is an ERP internal candidate state. `push_allowed` remains false and no Chanjet write endpoint is enabled.
+- Voucher candidates must pass double-entry validation and source-business idempotency before review.
+- No Chanjet write/delete/modify, migration, push or deployment was performed in this package.

@@ -463,4 +463,109 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     });
     expect(subject.reconciliationRepo.save).toHaveBeenCalledTimes(1);
   });
+
+  it('publishes one ordered P0-P5 runtime state with all external writes disabled', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.productionReadinessOverview = jest.fn().mockResolvedValue({
+      phases: [
+        { key: 'P0', status: 'READY', score: 100, evidence: ['46/46 fresh'], nextAction: 'KEEP_MIRROR_FRESH' },
+        { key: 'P2', status: 'READY_WITH_CONDITIONS', score: 90, evidence: [], nextAction: 'FIX_FIELDS' },
+        { key: 'P4', status: 'READY', score: 100, evidence: [], nextAction: 'KEEP_RECONCILING' },
+        { key: 'P5', status: 'READY', score: 100, evidence: ['token ready'], nextAction: 'KEEP_SCHEDULED_READONLY_SYNC' },
+      ],
+      blockers: [],
+      conditions: ['one visible condition'],
+      summary: { mirrorFreshRate: 100, recentJobSuccessRate: 100 },
+    });
+    subject.financeReadModelOverview = jest.fn().mockResolvedValue({
+      decision: 'GO_WITH_CONDITIONS',
+      summary: { p0Blocked: 0 },
+    });
+    subject.financeCardAuthorityOverview = jest.fn().mockResolvedValue({
+      decision: 'GO_WITH_CONDITIONS',
+      summary: { totalCards: 8, authorityReady: 2, readonlyReady: 6, nextGate: 'KEEP_GUARDED_AUTHORITY' },
+    });
+    subject.masterDataAlignmentOverview = jest.fn().mockResolvedValue({
+      decision: 'GO_WITH_CONDITIONS',
+      summary: { totalDomains: 7, readyDomains: 6, needReviewDomains: 1, holdDomains: 0, nextGate: 'FIX_ONE_DOMAIN' },
+    });
+    subject.financeReconciliationOverview = jest.fn().mockResolvedValue({
+      summary: { mismatch: 0, needMapping: 1, needManualReview: 0, hold: 0 },
+    });
+    subject.overview = jest.fn().mockResolvedValue({
+      voucherDrafts: 3,
+      pushReadyDrafts: 1,
+      fieldMappings: 1714,
+      unmappedFields: 20,
+    });
+    subject.voucherDraftRepo = { count: jest.fn().mockResolvedValue(0) };
+
+    const result = await subject.currentStateOverview();
+
+    expect(result.decision).toBe('GO_WITH_CONDITIONS');
+    expect(result.productionReadiness.summary.mirrorFreshRate).toBe(100);
+    expect(result.implementationOrder.map((item: { phase: string }) => item.phase)).toEqual(['P0', 'P1', 'P2', 'P3', 'P4', 'P5']);
+    expect(result.summary).toMatchObject({ fieldMappings: 1714, unmappedFields: 20, externalWriteEnabled: false });
+    expect(result.guardrails).toMatchObject({ chanjetWrite: false, voucherPush: false, erpBusinessOverwrite: false });
+  });
+
+  it('validates balanced voucher candidates without enabling Chanjet push', () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const result = subject.validateVoucherDraftInput({
+      sourceBizType: 'PROCUREMENT_PAYMENT',
+      sourceBizId: 'PAY-001',
+      voucherLines: [
+        { subjectCode: '100201', summary: '采购付款', debitAmount: 120.5, creditAmount: 0 },
+        { subjectCode: '220201', summary: '采购付款', debitAmount: 0, creditAmount: 120.5 },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      valid: true,
+      debitTotal: '120.50',
+      creditTotal: '120.50',
+      pushEnabled: false,
+      errors: [],
+    });
+  });
+
+  it('fails closed for unbalanced voucher candidates', () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const result = subject.validateVoucherDraftInput({
+      sourceBizType: 'PROCUREMENT_PAYMENT',
+      sourceBizId: 'PAY-002',
+      voucherLines: [
+        { subjectCode: '100201', summary: '不平分录', debitAmount: 100, creditAmount: 0 },
+        { subjectCode: '220201', summary: '不平分录', debitAmount: 0, creditAmount: 90 },
+      ],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.pushEnabled).toBe(false);
+    expect(result.errors.join(' ')).toContain('借贷不平');
+  });
+
+  it('keeps PUSH_READY as an internal candidate state with push disabled', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const draft: any = {
+      id: '1',
+      sourceBizType: 'PROCUREMENT_PAYMENT',
+      sourceBizId: 'PAY-003',
+      status: 'REVIEWED',
+      pushAllowed: false,
+      voucherLines: [
+        { subjectCode: '100201', summary: '付款', debitAmount: 100, creditAmount: 0 },
+        { subjectCode: '220201', summary: '付款', debitAmount: 0, creditAmount: 100 },
+      ],
+    };
+    subject.voucherDraftRepo = {
+      findOneBy: jest.fn().mockResolvedValue(draft),
+      save: jest.fn((value) => Promise.resolve(value)),
+    };
+
+    const result = await subject.updateVoucherDraftStatus('1', 'PUSH_READY', 'reviewer');
+
+    expect(result.status).toBe('PUSH_READY');
+    expect(result.pushAllowed).toBe(false);
+  });
 });

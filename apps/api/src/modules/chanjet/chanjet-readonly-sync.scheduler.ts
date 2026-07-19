@@ -62,9 +62,14 @@ export class ChanjetReadonlySyncScheduler {
           );
         }
       }
+      const currentState = await this.integration.currentStateOverview();
+      await this.integration.recordCurrentStateAlert(currentState);
+      if (currentState.decision === 'HOLD') {
+        throw new Error(`readonly alignment current-state HOLD: ${currentState.blockers.join('; ') || 'unknown blocker'}`);
+      }
       await this.cronMon.ok(
         JOB_NAME,
-        `decision=${result.decision}; targets=${result.mirror.results.length}; attempts=${result.mirror.attempts}; exactApproved=${result.exactMappings?.approved || 0}; reconciliationCreated=${result.reconciliation?.created || 0}; reconciliationResolved=${result.reconciliation?.autoResolved || 0}`,
+        `decision=${result.decision}; currentState=${currentState.decision}; targets=${result.mirror.results.length}; attempts=${result.mirror.attempts}; exactApproved=${result.exactMappings?.approved || 0}; reconciliationCreated=${result.reconciliation?.created || 0}; reconciliationResolved=${result.reconciliation?.autoResolved || 0}`,
       );
       this.log.log(`${JOB_NAME} completed decision=${result.decision} targets=${result.mirror.results.length} attempts=${result.mirror.attempts} exactApproved=${result.exactMappings?.approved || 0}`);
     } catch (error) {

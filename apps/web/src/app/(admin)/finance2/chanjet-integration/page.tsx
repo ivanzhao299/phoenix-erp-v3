@@ -107,6 +107,49 @@ interface ProductionReadiness {
   tokenHealth: { configured: boolean; tokens: Record<string, { expiresAt: string; valid: boolean }> };
 }
 
+interface CurrentStateOverview {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  authoritativeEvidence: 'RUNTIME_CURRENT_STATE';
+  productionReadiness: ProductionReadiness;
+  implementationOrder: Array<{
+    phase: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+    title: string;
+    status: 'READY' | 'READY_WITH_CONDITIONS' | 'HOLD';
+    score: number;
+    evidence: string[];
+    nextAction: string;
+  }>;
+  summary: {
+    mirrorFreshRate: number;
+    financeAuthorityReady: number;
+    financeReadonlyReady: number;
+    financeCards: number;
+    mappingReadyDomains: number;
+    mappingDomains: number;
+    reconciliationOpen: number;
+    recentJobSuccessRate: number;
+    voucherDrafts: number;
+    voucherPushReadyCandidates: number;
+    fieldMappings: number;
+    unmappedFields: number;
+    externalWriteEnabled: false;
+    nextGate: string;
+  };
+  blockers: string[];
+  conditions: string[];
+  staleEvidencePolicy: string;
+}
+
+interface VoucherDraftValidation {
+  valid: boolean;
+  debitTotal: string;
+  creditTotal: string;
+  errors: string[];
+  warnings: string[];
+  pushEnabled: false;
+}
+
 interface ReadonlyAlignmentCycleResult {
   success: boolean;
   decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
@@ -691,6 +734,7 @@ export default function ChanjetIntegrationPage() {
   const [accountBookGate, setAccountBookGate] = useState<AccountBookMappingGate | null>(null);
   const [counterpartyCandidates, setCounterpartyCandidates] = useState<CounterpartyCandidateOverview | null>(null);
   const [productionReadiness, setProductionReadiness] = useState<ProductionReadiness | null>(null);
+  const [currentState, setCurrentState] = useState<CurrentStateOverview | null>(null);
   const [lastAlignmentCycle, setLastAlignmentCycle] = useState<ReadonlyAlignmentCycleResult | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
@@ -698,14 +742,15 @@ export default function ChanjetIntegrationPage() {
   const [draftSourceType, setDraftSourceType] = useState('MANUAL');
   const [draftSourceId, setDraftSourceId] = useState('');
   const [draftTitle, setDraftTitle] = useState('');
-  const [draftLines, setDraftLines] = useState('[{"summary":"示例摘要","debitSubject":"","creditSubject":"","amount":0}]');
+  const [draftLines, setDraftLines] = useState('[{"summary":"示例借方","subjectCode":"100201","debitAmount":100,"creditAmount":0},{"summary":"示例贷方","subjectCode":"220201","debitAmount":0,"creditAmount":100}]');
+  const [draftValidation, setDraftValidation] = useState<VoucherDraftValidation | null>(null);
 
   const load = useCallback(async () => {
     if (!canView) return;
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, productionReadinessResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -727,7 +772,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; baseline: MirrorBaselineReadiness; error?: string }>('/chanjet/integration/baseline-readiness?freshnessHours=24'),
         request<{ success: boolean; gate: AccountBookMappingGate; error?: string }>('/chanjet/integration/account-book-mapping-gate'),
         request<{ success: boolean; candidateOverview: CounterpartyCandidateOverview; error?: string }>('/chanjet/integration/counterparty-mapping-candidates'),
-        request<{ success: boolean; readiness: ProductionReadiness; error?: string }>('/chanjet/integration/production-readiness'),
+        request<{ success: boolean; currentState: CurrentStateOverview; error?: string }>('/chanjet/integration/current-state'),
       ]);
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
@@ -751,7 +796,8 @@ export default function ChanjetIntegrationPage() {
       setBaselineReadiness(baselineResp.baseline || null);
       setAccountBookGate(accountBookGateResp.gate || null);
       setCounterpartyCandidates(counterpartyCandidateResp.candidateOverview || null);
-      setProductionReadiness(productionReadinessResp.readiness || null);
+      setCurrentState(currentStateResp.currentState || null);
+      setProductionReadiness(currentStateResp.currentState?.productionReadiness || null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -768,7 +814,7 @@ export default function ChanjetIntegrationPage() {
     { label: '账套缓存', value: overview?.accountBooks ?? 0, sub: `${overview?.enabledBooks ?? 0} 个启用`, icon: BookOpen },
     { label: '字段目录', value: overview?.fields ?? 0, sub: '脱敏字段样本', icon: Database },
     { label: '映射候选', value: overview?.mappings ?? 0, sub: `${overview?.pendingMappings ?? 0} 待审 / ${overview?.approvedMappings ?? 0} 已批`, icon: GitCompareArrows },
-    { label: '凭证草稿', value: overview?.voucherDrafts ?? 0, sub: `${overview?.pushReadyDrafts ?? 0} 可申请推送`, icon: FileText },
+    { label: '凭证草稿', value: overview?.voucherDrafts ?? 0, sub: `${overview?.pushReadyDrafts ?? 0} 写回候选（外部写入关闭）`, icon: FileText },
     { label: '镜像实体', value: overview?.entitySnapshots ?? 0, sub: `${overview?.readSnapshots ?? 0} 个原始快照`, icon: Database },
     { label: '字段差异', value: overview?.fieldMappings ?? 0, sub: `${overview?.unmappedFields ?? 0} 个待归类字段`, icon: GitCompareArrows },
     { label: '开放差异', value: overview?.openReconciliationIssues ?? 0, sub: `${overview?.failedJobs ?? 0} 个失败作业`, icon: AlertTriangle },
@@ -831,21 +877,44 @@ export default function ChanjetIntegrationPage() {
     }));
   }
 
+  function parseDraftLines() {
+    const parsed = JSON.parse(draftLines);
+    if (!Array.isArray(parsed)) throw new Error('凭证分录必须为数组');
+    return parsed as Array<Record<string, unknown>>;
+  }
+
+  async function validateDraft(lines?: Array<Record<string, unknown>>) {
+    const voucherLines = lines || parseDraftLines();
+    const result = await request<{ success: boolean; validation: VoucherDraftValidation; error?: string }>('/chanjet/integration/voucher-drafts/validate', {
+      method: 'POST',
+      body: JSON.stringify({
+        sourceBizType: draftSourceType,
+        sourceBizId: draftSourceId,
+        title: draftTitle || '人工凭证草稿',
+        voucherLines,
+      }),
+    });
+    setDraftValidation(result.validation);
+    if (!result.validation?.valid) {
+      throw new Error(result.validation?.errors?.join('；') || result.error || '凭证草稿校验失败');
+    }
+    return voucherLines;
+  }
+
   async function createDraft() {
     let lines: Array<Record<string, unknown>>;
     try {
-      const parsed = JSON.parse(draftLines);
-      if (!Array.isArray(parsed)) throw new Error('凭证分录必须为数组');
-      lines = parsed;
+      if (!draftSourceId.trim()) throw new Error('来源单号/ID 必填，用于幂等防重');
+      lines = await validateDraft();
     } catch (e) {
-      setError(`凭证分录 JSON 不合法: ${(e as Error).message}`);
+      setError((e as Error).message);
       return;
     }
     await runAction('凭证草稿创建', () => request('/chanjet/integration/voucher-drafts', {
       method: 'POST',
       body: JSON.stringify({
         sourceBizType: draftSourceType,
-        sourceBizId: draftSourceId || `MANUAL-${Date.now()}`,
+        sourceBizId: draftSourceId,
         title: draftTitle || '人工凭证草稿',
         voucherLines: lines,
       }),
@@ -978,6 +1047,31 @@ export default function ChanjetIntegrationPage() {
               </div>
               <Badge tone={statusTone(productionReadiness?.decision || 'HOLD')}>{productionReadiness?.decision || '—'}</Badge>
             </div>
+          </div>
+
+          <div style={{ ...cardStyle, padding: 13, marginBottom: 14, borderColor: currentState?.decision === 'HOLD' ? '#fecaca' : '#bfdbfe', background: currentState?.decision === 'HOLD' ? '#fef2f2' : '#eff6ff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div>
+                <strong>唯一实时当前态</strong>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                  {currentState?.authoritativeEvidence || 'RUNTIME_CURRENT_STATE'} · {fmtDate(currentState?.generatedAt)}
+                </div>
+              </div>
+              <Badge tone={statusTone(currentState?.decision || 'HOLD')}>{currentState?.decision || 'HOLD'}</Badge>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8, marginTop: 12 }}>
+              {(currentState?.implementationOrder || []).map((phase) => (
+                <div key={phase.phase} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, background: 'var(--bg-card)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <strong>{phase.phase} · {phase.title}</strong>
+                    <Badge tone={statusTone(phase.status)}>{phase.score}</Badge>
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 7 }}>{phase.evidence[0] || '暂无证据'}</div>
+                  <div style={{ color: 'var(--brand)', fontSize: 11, marginTop: 7, overflowWrap: 'anywhere' }}>{phase.nextAction}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 10 }}>{currentState?.staleEvidencePolicy}</div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginBottom: 16 }}>
@@ -2166,7 +2260,19 @@ export default function ChanjetIntegrationPage() {
               <input value={draftSourceId} onChange={e => setDraftSourceId(e.target.value)} placeholder="来源单号/ID" style={{ padding: 9, border: '1px solid var(--border)', borderRadius: 6 }} />
               <input value={draftTitle} onChange={e => setDraftTitle(e.target.value)} placeholder="凭证摘要" style={{ padding: 9, border: '1px solid var(--border)', borderRadius: 6 }} />
               <textarea value={draftLines} onChange={e => setDraftLines(e.target.value)} rows={4} style={{ padding: 9, border: '1px solid var(--border)', borderRadius: 6, fontFamily: 'var(--font-mono, monospace)' }} />
-              <Button disabled={!canEdit || loading} onClick={createDraft}><FileText size={16} />保存草稿</Button>
+              {draftValidation && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 9, color: draftValidation.valid ? 'var(--status-success)' : 'var(--status-danger)', fontSize: 12 }}>
+                  借方 {draftValidation.debitTotal} / 贷方 {draftValidation.creditTotal} · {draftValidation.valid ? '校验通过' : draftValidation.errors.join('；')}
+                  {draftValidation.warnings.length > 0 && <div style={{ color: 'var(--text-secondary)', marginTop: 4 }}>{draftValidation.warnings.join('；')}</div>}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('凭证草稿校验', async () => {
+                  await validateDraft();
+                  return { success: true };
+                })}>校验借贷平衡</Button>
+                <Button disabled={!canEdit || loading} onClick={createDraft}><FileText size={16} />保存草稿</Button>
+              </div>
             </div>
           </div>
           <table style={tableStyle}>
@@ -2181,7 +2287,7 @@ export default function ChanjetIntegrationPage() {
                   <td style={cellStyle}>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'REVIEWED')}>复核</Button>
-                      <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'PUSH_READY')}>可申请推送</Button>
+                      <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'PUSH_READY')}>标记写回候选</Button>
                       <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'REJECTED')}>拒绝</Button>
                     </div>
                   </td>

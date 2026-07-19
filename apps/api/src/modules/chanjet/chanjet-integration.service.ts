@@ -49,6 +49,15 @@ interface VoucherDraftInput {
   rawData?: Record<string, unknown>;
 }
 
+export interface VoucherDraftValidation {
+  valid: boolean;
+  debitTotal: string;
+  creditTotal: string;
+  errors: string[];
+  warnings: string[];
+  pushEnabled: false;
+}
+
 interface FinanceAdapterBucketDefinition {
   key: string;
   title: string;
@@ -502,6 +511,41 @@ export interface ChanjetProductionReadiness {
   blockers: string[];
   conditions: string[];
   tokenHealth: ReturnType<ChanjetAuthService['diagnostics']>;
+  guardrails: Record<string, boolean | string>;
+}
+
+export interface ChanjetCurrentStateOverview {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  authoritativeEvidence: 'RUNTIME_CURRENT_STATE';
+  productionReadiness: ChanjetProductionReadiness;
+  implementationOrder: Array<{
+    phase: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+    title: string;
+    status: 'READY' | 'READY_WITH_CONDITIONS' | 'HOLD';
+    score: number;
+    evidence: string[];
+    nextAction: string;
+  }>;
+  summary: {
+    mirrorFreshRate: number;
+    financeAuthorityReady: number;
+    financeReadonlyReady: number;
+    financeCards: number;
+    mappingReadyDomains: number;
+    mappingDomains: number;
+    reconciliationOpen: number;
+    recentJobSuccessRate: number;
+    voucherDrafts: number;
+    voucherPushReadyCandidates: number;
+    fieldMappings: number;
+    unmappedFields: number;
+    externalWriteEnabled: false;
+    nextGate: string;
+  };
+  blockers: string[];
+  conditions: string[];
+  staleEvidencePolicy: string;
   guardrails: Record<string, boolean | string>;
 }
 
@@ -3747,6 +3791,213 @@ export class ChanjetIntegrationService {
     };
   }
 
+  /**
+   * 唯一实时状态入口。历史 docs/ops/runs 只保留审计价值，不得覆盖本端点的当前结论。
+   */
+  async currentStateOverview(): Promise<ChanjetCurrentStateOverview> {
+    const [
+      readiness,
+      readModel,
+      cardAuthority,
+      masterAlignment,
+      reconciliation,
+      overview,
+      unsafePushAllowed,
+    ] = await Promise.all([
+      this.productionReadinessOverview(),
+      this.financeReadModelOverview(),
+      this.financeCardAuthorityOverview(),
+      this.masterDataAlignmentOverview(),
+      this.financeReconciliationOverview(),
+      this.overview(),
+      this.voucherDraftRepo.count({ where: { pushAllowed: true } }),
+    ]);
+    const phase = (key: ChanjetProductionReadiness['phases'][number]['key']) =>
+      readiness.phases.find((item) => item.key === key);
+    const reconciliationOpen = reconciliation.summary.mismatch
+      + reconciliation.summary.needMapping
+      + reconciliation.summary.needManualReview
+      + reconciliation.summary.hold;
+    const p0 = phase('P0');
+    const p2 = phase('P2');
+    const p4 = phase('P4');
+    const p5 = phase('P5');
+    const financeUiScore = cardAuthority.summary.totalCards
+      ? Math.round(((cardAuthority.summary.authorityReady + cardAuthority.summary.readonlyReady) / cardAuthority.summary.totalCards) * 100)
+      : 0;
+    const mappingScore = masterAlignment.summary.totalDomains
+      ? Math.round((masterAlignment.summary.readyDomains / masterAlignment.summary.totalDomains) * 100)
+      : 0;
+    const implementationOrder: ChanjetCurrentStateOverview['implementationOrder'] = [
+      {
+        phase: 'P0',
+        title: '全量只读镜像基线',
+        status: p0?.status || 'HOLD',
+        score: p0?.score || 0,
+        evidence: p0?.evidence || ['缺少实时镜像证据'],
+        nextAction: p0?.nextAction || 'CHANJET_MIRROR_BASELINE_REPAIR',
+      },
+      {
+        phase: 'P1',
+        title: '财务 Read Model 与卡片权威',
+        status: readModel.decision === 'HOLD'
+          ? 'HOLD'
+          : cardAuthority.summary.authorityReady + cardAuthority.summary.readonlyReady === cardAuthority.summary.totalCards
+            ? 'READY'
+            : 'READY_WITH_CONDITIONS',
+        score: financeUiScore,
+        evidence: [
+          `权威主卡片 ${cardAuthority.summary.authorityReady}/${cardAuthority.summary.totalCards}`,
+          `只读可用 ${cardAuthority.summary.readonlyReady}/${cardAuthority.summary.totalCards}`,
+          `P0 read model 阻断 ${readModel.summary.p0Blocked}`,
+        ],
+        nextAction: cardAuthority.summary.nextGate,
+      },
+      {
+        phase: 'P2',
+        title: '公司/往来/科目/项目/资金账户映射',
+        status: masterAlignment.decision === 'HOLD'
+          ? 'HOLD'
+          : masterAlignment.summary.readyDomains === masterAlignment.summary.totalDomains
+            ? 'READY'
+            : 'READY_WITH_CONDITIONS',
+        score: mappingScore,
+        evidence: [
+          `映射域 READY ${masterAlignment.summary.readyDomains}/${masterAlignment.summary.totalDomains}`,
+          `待复核域 ${masterAlignment.summary.needReviewDomains}`,
+          `冲突域 ${masterAlignment.summary.holdDomains}`,
+        ],
+        nextAction: masterAlignment.summary.nextGate,
+      },
+      {
+        phase: 'P3',
+        title: '普通业务页面无感融合',
+        status: cardAuthority.decision === 'HOLD' ? 'HOLD' : financeUiScore === 100 ? 'READY' : 'READY_WITH_CONDITIONS',
+        score: financeUiScore,
+        evidence: [
+          '管理员中间层继续受 MENU_SETTINGS_CHANJET 门禁保护',
+          '普通用户只消费财务业务接口中的 authority/fallback/diff 合同',
+          `已具备来源合同的卡片 ${cardAuthority.summary.authorityReady + cardAuthority.summary.readonlyReady}/${cardAuthority.summary.totalCards}`,
+        ],
+        nextAction: 'KEEP_ADMIN_MIDDLE_LAYER_HIDDEN_AND_PROMOTE_SAFE_READ_MODELS',
+      },
+      {
+        phase: 'P4',
+        title: '增量同步、SLO、漂移与失败告警',
+        status: p5?.status || 'HOLD',
+        score: p5?.score || 0,
+        evidence: p5?.evidence || ['缺少同步韧性证据'],
+        nextAction: p5?.nextAction || 'REPAIR_CHANJET_SYNC_RELIABILITY',
+      },
+      {
+        phase: 'P5',
+        title: '凭证写回准备（外部写入关闭）',
+        status: unsafePushAllowed > 0 ? 'HOLD' : 'READY_WITH_CONDITIONS',
+        score: unsafePushAllowed > 0 ? 0 : 90,
+        evidence: [
+          `凭证草稿 ${overview.voucherDrafts}`,
+          `PUSH_READY 候选 ${overview.pushReadyDrafts}`,
+          `错误开启 push_allowed ${unsafePushAllowed}`,
+          '复式记账校验、状态机和幂等候选已在 ERP 中间层执行；好业财写接口仍不存在',
+        ],
+        nextAction: unsafePushAllowed > 0
+          ? 'REPAIR_LEGACY_PUSH_ALLOWED_FLAGS_WITH_SEPARATE_DB_GATE'
+          : 'KEEP_CHANJET_WRITE_HOLD_UNTIL_SEPARATE_APPROVAL',
+      },
+    ];
+    const blockers = [
+      ...readiness.blockers,
+      ...(unsafePushAllowed > 0 ? [`发现 ${unsafePushAllowed} 条历史凭证草稿 push_allowed=true，需单独 DB Gate 清理`] : []),
+      ...(masterAlignment.summary.holdDomains > 0 ? [`存在 ${masterAlignment.summary.holdDomains} 个主数据映射冲突域`] : []),
+    ];
+    const conditions = [
+      ...readiness.conditions,
+      ...(reconciliationOpen > 0 ? [`差异中心仍有 ${reconciliationOpen} 个非 OK/WARN 项`] : []),
+      ...(readModel.summary.p0Blocked > 0 ? [`P0 财务 read model 仍有 ${readModel.summary.p0Blocked} 个阻断项`] : []),
+    ];
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: blockers.length
+        ? 'HOLD'
+        : implementationOrder.every((item) => item.status === 'READY')
+          ? 'GO'
+          : 'GO_WITH_CONDITIONS',
+      authoritativeEvidence: 'RUNTIME_CURRENT_STATE',
+      productionReadiness: readiness,
+      implementationOrder,
+      summary: {
+        mirrorFreshRate: readiness.summary.mirrorFreshRate,
+        financeAuthorityReady: cardAuthority.summary.authorityReady,
+        financeReadonlyReady: cardAuthority.summary.readonlyReady,
+        financeCards: cardAuthority.summary.totalCards,
+        mappingReadyDomains: masterAlignment.summary.readyDomains,
+        mappingDomains: masterAlignment.summary.totalDomains,
+        reconciliationOpen,
+        recentJobSuccessRate: readiness.summary.recentJobSuccessRate,
+        voucherDrafts: overview.voucherDrafts,
+        voucherPushReadyCandidates: overview.pushReadyDrafts,
+        fieldMappings: overview.fieldMappings,
+        unmappedFields: overview.unmappedFields,
+        externalWriteEnabled: false,
+        nextGate: implementationOrder.find((item) => item.status !== 'READY')?.nextAction
+          || p4?.nextAction
+          || p2?.nextAction
+          || 'KEEP_CONTINUOUS_READONLY_ALIGNMENT',
+      },
+      blockers,
+      conditions,
+      staleEvidencePolicy: 'docs/ops/runs 中带 latest 的历史文件只作为当时审计快照；当前判断必须读取本端点 generatedAt 对应的实时数据库证据。',
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        ordinaryUserMiddleLayerVisible: false,
+        migration: false,
+        rule: '严格按 P0→P5 顺序推进；前序 HOLD 时后序只能生成只读证据，不得自动升权或写回。',
+      },
+    };
+  }
+
+  async recordCurrentStateAlert(state: ChanjetCurrentStateOverview): Promise<void> {
+    if (state.decision === 'GO') return;
+    const severity = state.decision === 'HOLD' ? 'CRITICAL' : 'WARNING';
+    const title = state.decision === 'HOLD'
+      ? '好业财只读融合当前态 HOLD'
+      : '好业财只读融合存在条件项';
+    try {
+      await this.ds.query(
+        `INSERT INTO sys_alerts (alert_type, severity, title, detail, related_path)
+         SELECT $1,$2,$3,$4::jsonb,$5
+          WHERE NOT EXISTS (
+            SELECT 1
+              FROM sys_alerts
+             WHERE resolved = FALSE
+               AND alert_type = $1
+               AND title = $3
+               AND COALESCE(related_path, '') = COALESCE($5, '')
+          )`,
+        [
+          'CHANJET_READONLY_ALIGNMENT_DEGRADED',
+          severity,
+          title,
+          JSON.stringify({
+            generatedAt: state.generatedAt,
+            decision: state.decision,
+            blockers: state.blockers,
+            conditions: state.conditions,
+            summary: state.summary,
+            externalWriteEnabled: false,
+          }),
+          '/finance2/chanjet-integration',
+        ],
+      );
+    } catch (error) {
+      this.log.warn(`Chanjet current-state alert skipped: ${(error as Error).message}`);
+    }
+  }
+
   private fieldBelongsToFinanceBucket(mapping: ChanjetErpFieldMappingEntity, bucket: FinanceAdapterBucketDefinition) {
     const endpoint = `${mapping.chanjetEndpoint || ''}`.toLowerCase();
     const fieldPath = `${mapping.chanjetFieldPath || ''}`.toLowerCase();
@@ -5055,6 +5306,17 @@ export class ChanjetIntegrationService {
     if (!Array.isArray(input.voucherLines) || input.voucherLines.length === 0) {
       throw new Error('voucherLines 必须为非空数组');
     }
+    const validation = this.validateVoucherDraftInput(input);
+    if (!validation.valid) {
+      throw new Error(`VOUCHER_DRAFT_VALIDATION_FAILED: ${validation.errors.join('；')}`);
+    }
+    const existing = await this.voucherDraftRepo.findOne({
+      where: { sourceBizType: input.sourceBizType, sourceBizId: input.sourceBizId },
+      order: { createdAt: 'DESC' },
+    });
+    if (existing && existing.status !== 'REJECTED') {
+      throw new Error(`DUPLICATE_ACTIVE_VOUCHER_DRAFT: ${input.sourceBizType}/${input.sourceBizId} 已有 ${existing.status} 草稿`);
+    }
     const draft = this.voucherDraftRepo.create({
       sourceBizType: input.sourceBizType,
       sourceBizId: input.sourceBizId,
@@ -5069,9 +5331,63 @@ export class ChanjetIntegrationService {
       createdBy: createdBy || '',
       reviewedBy: null,
       reviewedAt: null,
-      rawData: input.rawData ?? null,
+      rawData: {
+        ...(input.rawData || {}),
+        validation: {
+          debitTotal: validation.debitTotal,
+          creditTotal: validation.creditTotal,
+          warnings: validation.warnings,
+          validatedAt: new Date().toISOString(),
+        },
+        externalWriteEnabled: false,
+      },
     });
     return this.voucherDraftRepo.save(draft);
+  }
+
+  validateVoucherDraftInput(input: VoucherDraftInput): VoucherDraftValidation {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    if (!input.sourceBizType?.trim()) errors.push('sourceBizType 必填');
+    if (!input.sourceBizId?.trim()) errors.push('sourceBizId 必填');
+    if (!Array.isArray(input.voucherLines) || input.voucherLines.length === 0) {
+      errors.push('voucherLines 必须为非空数组');
+      return { valid: false, debitTotal: '0.00', creditTotal: '0.00', errors, warnings, pushEnabled: false };
+    }
+    let debitCents = 0;
+    let creditCents = 0;
+    input.voucherLines.forEach((line, index) => {
+      const lineNo = index + 1;
+      const summary = String(line.summary || line.memo || line.comments || '').trim();
+      const debitSubject = String(line.debitSubject || line.debitSubjectCode || '').trim();
+      const creditSubject = String(line.creditSubject || line.creditSubjectCode || '').trim();
+      const subjectCode = String(line.subjectCode || line.accountCode || '').trim();
+      const legacyAmount = this.voucherAmountToCents(line.amount);
+      let debit = this.voucherAmountToCents(line.debitAmount ?? line.postedDr ?? line.basePostedDr);
+      let credit = this.voucherAmountToCents(line.creditAmount ?? line.postedCr ?? line.basePostedCr);
+      if (legacyAmount > 0 && debitSubject && creditSubject && debit === 0 && credit === 0) {
+        debit = legacyAmount;
+        credit = legacyAmount;
+      }
+      if (!summary) warnings.push(`第 ${lineNo} 行摘要为空`);
+      if (!subjectCode && !debitSubject && !creditSubject) errors.push(`第 ${lineNo} 行缺少会计科目`);
+      if (debit < 0 || credit < 0) errors.push(`第 ${lineNo} 行借贷金额不得为负数，冲销必须使用独立红字/反向策略`);
+      if (debit === 0 && credit === 0) errors.push(`第 ${lineNo} 行借方和贷方金额不能同时为 0`);
+      if (subjectCode && debit > 0 && credit > 0) errors.push(`第 ${lineNo} 行单科目分录不能同时有借方和贷方金额`);
+      debitCents += debit;
+      creditCents += credit;
+    });
+    if (debitCents !== creditCents) {
+      errors.push(`借贷不平：借方 ${this.centsToAmount(debitCents)}，贷方 ${this.centsToAmount(creditCents)}`);
+    }
+    return {
+      valid: errors.length === 0,
+      debitTotal: this.centsToAmount(debitCents),
+      creditTotal: this.centsToAmount(creditCents),
+      errors,
+      warnings,
+      pushEnabled: false,
+    };
   }
 
   async updateVoucherDraftStatus(
@@ -5081,11 +5397,42 @@ export class ChanjetIntegrationService {
   ): Promise<ChanjetVoucherDraftEntity> {
     const draft = await this.voucherDraftRepo.findOneBy({ id });
     if (!draft) throw new Error(`voucher draft ${id} 不存在`);
+    const allowedTransitions: Record<ChanjetVoucherDraftEntity['status'], ChanjetVoucherDraftEntity['status'][]> = {
+      DRAFT: ['REVIEWED', 'REJECTED'],
+      REVIEWED: ['DRAFT', 'PUSH_READY', 'REJECTED'],
+      PUSH_READY: ['REVIEWED', 'REJECTED'],
+      REJECTED: ['DRAFT'],
+    };
+    if (draft.status !== status && !allowedTransitions[draft.status].includes(status)) {
+      throw new Error(`INVALID_VOUCHER_DRAFT_TRANSITION: ${draft.status} -> ${status}`);
+    }
+    if (['REVIEWED', 'PUSH_READY'].includes(status)) {
+      const validation = this.validateVoucherDraftInput({
+        sourceBizType: draft.sourceBizType,
+        sourceBizId: draft.sourceBizId,
+        voucherLines: draft.voucherLines,
+      });
+      if (!validation.valid) {
+        throw new Error(`VOUCHER_DRAFT_VALIDATION_FAILED: ${validation.errors.join('；')}`);
+      }
+    }
     draft.status = status;
-    draft.pushAllowed = status === 'PUSH_READY';
+    // PUSH_READY 只是 ERP 内部候选态；外部写入必须由未来独立 Gate 和独立写入服务开放。
+    draft.pushAllowed = false;
     draft.reviewedBy = reviewedBy || null;
     draft.reviewedAt = new Date();
     return this.voucherDraftRepo.save(draft);
+  }
+
+  private voucherAmountToCents(value: unknown): number {
+    if (value === null || value === undefined || value === '') return 0;
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return 0;
+    return Math.round(amount * 100);
+  }
+
+  private centsToAmount(value: number): string {
+    return (value / 100).toFixed(2);
   }
 
   async listReconciliationResults(
@@ -6081,13 +6428,23 @@ export class ChanjetIntegrationService {
 
   private async recordChanjetApiAlert(ep: ProbeEndpoint, path: string, bookId: string, errorMessage: string): Promise<void> {
     try {
+      const title = `好业财只读同步失败：${ep.label}${bookId ? ` (${bookId})` : ''}`;
       await this.ds.query(
         `INSERT INTO sys_alerts (alert_type, severity, title, detail, related_path)
-         VALUES ($1,$2,$3,$4::jsonb,$5)`,
+         SELECT $1,$2,$3,$4::jsonb,$5
+          WHERE NOT EXISTS (
+            SELECT 1
+              FROM sys_alerts
+             WHERE resolved = FALSE
+               AND alert_type = $1
+               AND title = $3
+               AND COALESCE(related_path, '') = COALESCE($5, '')
+               AND created_at > NOW() - INTERVAL '30 minutes'
+          )`,
         [
           'CHANJET_API_SYNC_FAILURE',
           'WARNING',
-          `好业财只读同步失败：${ep.label}`,
+          title,
           JSON.stringify({
             endpointKey: ep.key,
             apiDomain: ep.apiDomain,
