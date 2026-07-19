@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-19T22:22:07.228Z",
+  "generated_at": "2026-07-19T22:52:18.364Z",
   "inputs": {
     "failure_patterns": "docs/ops/evolution/failure-patterns.json",
     "learning_log": "docs/ops/evolution/learning-log.json",
@@ -19,11 +19,11 @@
     "PATTERN-PHX-003": 1
   },
   "existing_backlog_count": 6,
-  "learning_log_count": 288,
+  "learning_log_count": 292,
   "previous_state": {
     "version": "PHOENIX-V3E",
-    "last_planner_run_at": "2026-07-19T22:14:35.234Z",
-    "last_apply_at": "2026-07-19T22:14:35.234Z",
+    "last_planner_run_at": "2026-07-19T22:44:47.075Z",
+    "last_apply_at": "2026-07-19T22:44:47.075Z",
     "open_improvement_count": 6,
     "repeated_pattern_count": 8,
     "highest_priority_improvement": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
