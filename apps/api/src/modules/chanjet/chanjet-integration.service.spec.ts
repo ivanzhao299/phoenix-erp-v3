@@ -619,6 +619,55 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(result.guardrails).toMatchObject({ chanjetWrite: false, voucherPush: false, erpBusinessOverwrite: false });
   });
 
+  it('locks receipt direction from the direction-specific Chanjet entity contract', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.entitySnapshotRepo = {
+      find: jest.fn().mockResolvedValue([{
+        rawData: {
+          bizDate: '2026-07-20',
+          approvedDate: '2026-07-20',
+          voucherStatusEnum: 'EFFECTIVE',
+          totalAmount: '125.00',
+        },
+        updatedAt: new Date('2026-07-20T00:00:00.000Z'),
+      }]),
+    };
+
+    const result = await subject.buildReceiptPaymentDateStatusLock(
+      'TODAY_RECEIPT',
+      '今日收款',
+      'AR_RECEIPT',
+    );
+
+    expect(result.status).toBe('LOCKED');
+    expect(result.missingDimensions).toEqual([]);
+    expect(result.safeQueryFilter.direction).toBe('derived_from_PAYMENT_AR_AR_RECEIPT_contract');
+    expect(result.fieldCandidates.find((item: any) => item.semanticField === 'direction')).toMatchObject({
+      status: 'FOUND',
+      candidatePaths: [{
+        path: '$.__derived.entityTypeDirection',
+        sampleValue: 'RECEIPT',
+        observedCount: 1,
+      }],
+    });
+    expect(result.readyForFinanceReview).toBe(true);
+    expect(result.readyForCardAuthority).toBe(false);
+  });
+
+  it('advances the read model gate after both receipt and payment locks are complete', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.financeReconciliationOverview = jest.fn().mockResolvedValue({ items: [] });
+    subject.financeSemanticExtractorsOverview = jest.fn().mockResolvedValue({ extractors: [] });
+    subject.financeReceiptPaymentDateStatusLockOverview = jest.fn().mockResolvedValue({
+      locks: [{ status: 'LOCKED' }, { status: 'LOCKED' }],
+    });
+
+    const result = await subject.financeReadModelOverview();
+
+    expect(result.summary.nextGate).toBe('CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING');
+    expect(result.guardrails).toMatchObject({ chanjetWrite: false, voucherPush: false });
+  });
+
   it('validates balanced voucher candidates without enabling Chanjet push', () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     const result = subject.validateVoucherDraftInput({

@@ -2214,9 +2214,10 @@ export class ChanjetIntegrationService {
     metrics: FinanceReadModelMetric[];
     guardrails: Record<string, boolean | string>;
   }> {
-    const [reconciliation, semanticExtractors] = await Promise.all([
+    const [reconciliation, semanticExtractors, receiptPaymentLocks] = await Promise.all([
       this.financeReconciliationOverview(),
       this.financeSemanticExtractorsOverview(),
+      this.financeReceiptPaymentDateStatusLockOverview(),
     ]);
     const extractorByKey = new Map(semanticExtractors.extractors.map((item) => [item.key, item]));
     const metrics = reconciliation.items.map((item) => this.buildFinanceReadModelMetric(item, extractorByKey.get(item.key)));
@@ -2230,6 +2231,7 @@ export class ChanjetIntegrationService {
       ['SUBJECT_BALANCE', 'BALANCE_SHEET', 'INCOME_STATEMENT'].includes(item.key)
       && item.status === 'WAITING_SAMPLE'
     ));
+    const receiptPaymentLockReady = receiptPaymentLocks.locks.every((item) => item.status === 'LOCKED');
     return {
       generatedAt: new Date().toISOString(),
       decision: hold > 0 ? 'HOLD' : p0Blocked > 0 ? 'GO_WITH_CONDITIONS' : 'GO',
@@ -2244,7 +2246,9 @@ export class ChanjetIntegrationService {
         p0Blocked,
         nextGate: reportEndpointRepairRequired
           ? 'CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR'
-          : 'CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK',
+          : receiptPaymentLockReady
+            ? 'CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING'
+            : 'CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK',
       },
       metrics,
       guardrails: {
@@ -4887,6 +4891,23 @@ export class ChanjetIntegrationService {
     const flattened = rows.flatMap((row) => this.flattenSemanticValues(row.rawData || {}, '$'));
     const latestPulledAt = rows.reduce<string | null>((latest, row) => this.maxIso(latest, row.updatedAt ? String(row.updatedAt) : null), null);
     const fieldCandidates = requiredDimensions.map((field) => {
+      // PAYMENT_AR and PAYMENT_AP are direction-specific Chanjet APIs. Their
+      // entity type is therefore stronger evidence than a non-existent raw
+      // `direction` field. Keep the derived path explicit so it remains
+      // inspectable and cannot be mistaken for vendor payload data.
+      if (field === 'direction') {
+        return {
+          semanticField: field,
+          candidatePaths: rows.length ? [{
+            path: '$.__derived.entityTypeDirection',
+            sampleType: 'string' as const,
+            sampleValue: key === 'TODAY_RECEIPT' ? 'RECEIPT' : 'PAYMENT',
+            observedCount: rows.length,
+          }] : [],
+          required: true,
+          status: rows.length ? 'FOUND' as const : 'MISSING' as const,
+        };
+      }
       const candidates = this.matchSemanticFieldCandidates(field, flattened).slice(0, 8);
       return {
         semanticField: field,
@@ -4930,8 +4951,8 @@ export class ChanjetIntegrationService {
       dateRule: '今日口径必须由业务日与入账日候选字段共同确认，禁止用拉取时间或 created_at 代替。',
       statusRule: '必须显式过滤未审核、草稿、已作废、已取消记录；未锁定前不得进入主卡片。',
       directionRule: key === 'TODAY_RECEIPT'
-        ? '仅允许收款方向；退款/冲销/反向单必须排除或单列差异。'
-        : '仅允许付款方向；退款/冲销/反向单必须排除或单列差异。',
+        ? '方向由 PAYMENT_AR / AR_RECEIPT 实体契约派生为 RECEIPT；退款/冲销/反向单仍必须按状态排除或单列差异。'
+        : '方向由 PAYMENT_AP / AP_PAYMENT 实体契约派生为 PAYMENT；退款/冲销/反向单仍必须按状态排除或单列差异。',
       amountRule: '金额字段必须来自好业财单据实收/实付金额候选，不能使用列表累计或 amount=0 占位。',
       safeQueryFilter: {
         businessDate: lockedDimensions.includes('business_date') ? 'candidate_required' : 'blocked_missing_candidate',
@@ -4939,7 +4960,9 @@ export class ChanjetIntegrationService {
         approvedStatus: lockedDimensions.includes('approved_status') ? 'approved_or_audited_only' : 'blocked_missing_candidate',
         voidStatus: lockedDimensions.includes('void_status') ? 'exclude_void_cancel_reversal' : 'blocked_missing_candidate',
         direction: lockedDimensions.includes('direction')
-          ? (key === 'TODAY_RECEIPT' ? 'receipt_direction_only' : 'payment_direction_only')
+          ? (key === 'TODAY_RECEIPT'
+            ? 'derived_from_PAYMENT_AR_AR_RECEIPT_contract'
+            : 'derived_from_PAYMENT_AP_AP_PAYMENT_contract')
           : 'blocked_missing_candidate',
         amount: lockedDimensions.includes('amount') ? 'actual_receipt_payment_amount_only' : 'blocked_missing_candidate',
       },
