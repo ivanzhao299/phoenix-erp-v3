@@ -811,6 +811,13 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       mappingDomains: 59,
       externalWriteEnabled: false,
     });
+    expect(subject.productionReadinessOverview.mock.invocationCallOrder[0]).toBeLessThan(
+      subject.financeReadModelOverview.mock.invocationCallOrder[0],
+    );
+    expect(subject.productionReadinessOverview.mock.invocationCallOrder[0]).toBeLessThan(
+      subject.financeCardAuthorityOverview.mock.invocationCallOrder[0],
+    );
+    expect(subject.masterDataAlignmentOverview).not.toHaveBeenCalled();
     expect(result.guardrails).toMatchObject({ chanjetWrite: false, voucherPush: false, erpBusinessOverwrite: false });
   });
 

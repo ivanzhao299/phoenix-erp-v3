@@ -4541,22 +4541,20 @@ export class ChanjetIntegrationService {
    * 唯一实时状态入口。历史 docs/ops/runs 只保留审计价值，不得覆盖本端点的当前结论。
    */
   async currentStateOverview(): Promise<ChanjetCurrentStateOverview> {
-    const [
-      readiness,
-      readModel,
-      cardAuthority,
-      masterAlignment,
-      masterMappingReview,
-      reconciliation,
-      overview,
-      unsafePushAllowed,
-    ] = await Promise.all([
-      this.productionReadinessOverview(),
+    // productionReadinessOverview already fans out across the heavy read models.
+    // Running every aggregate beside it exhausted the production DB pool and made
+    // this endpoint intermittently return a connection timeout. Keep the live
+    // state current while bounding high-level query concurrency.
+    const readiness = await this.productionReadinessOverview();
+    const [readModel, cardAuthority] = await Promise.all([
       this.financeReadModelOverview(),
       this.financeCardAuthorityOverview(),
-      this.masterDataAlignmentOverview(),
+    ]);
+    const [masterMappingReview, reconciliation] = await Promise.all([
       this.masterDataMappingReview(),
       this.financeReconciliationOverview(),
+    ]);
+    const [overview, unsafePushAllowed] = await Promise.all([
       this.overview(),
       this.voucherDraftRepo.count({ where: { pushAllowed: true } }),
     ]);
