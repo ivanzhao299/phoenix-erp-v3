@@ -1390,7 +1390,13 @@ export class ChanjetIntegrationService {
           const scope = job.requestScope || {};
           return String(scope.key || '') === endpoint.key && job.bookId === targetBookId;
         });
-        const evidenceDates = [snapshot?.pulledAt]
+        // An unchanged payload is intentionally deduplicated and therefore does not
+        // create a new snapshot row. A successful SNAPSHOT job still proves that the
+        // source was polled successfully, so include its audit timestamp in freshness.
+        const evidenceDates = [
+          snapshot?.pulledAt,
+          latestJob?.status === 'SUCCESS' ? latestJob.updatedAt : undefined,
+        ]
           .filter((value): value is Date => value instanceof Date);
         const latestEvidenceAt = evidenceDates.length
           ? new Date(Math.max(...evidenceDates.map((value) => value.getTime())))
@@ -1446,11 +1452,12 @@ export class ChanjetIntegrationService {
         missingTargets,
         failedRecentJobs,
         endpointCoverageRate: scopes.length ? Number((((scopes.length - missingTargets) / scopes.length) * 100).toFixed(2)) : 0,
-        nextGate: missingReportTargets > 0
-          ? 'CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR'
-          : decision === 'HOLD'
-            ? 'CHANJET_MIRROR_BASELINE_REPAIR'
-          : 'CHANJET_COUNTERPARTY_MAPPING_CANDIDATE_REVIEW',
+        nextGate: this.mirrorBaselineNextGate({
+          missingReportTargets,
+          missingTargets,
+          staleTargets,
+          failedRecentJobs,
+        }),
       },
       accountBookGate,
       scopes,
@@ -1463,6 +1470,19 @@ export class ChanjetIntegrationService {
         rule: '基线只读取 ERP 中间层快照、作业审计和账套映射，不调用好业财写接口。',
       },
     };
+  }
+
+  private mirrorBaselineNextGate(input: {
+    missingReportTargets: number;
+    missingTargets: number;
+    staleTargets: number;
+    failedRecentJobs: number;
+  }): string {
+    if (input.missingReportTargets > 0) return 'CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR';
+    if (input.missingTargets > 0) return 'CHANJET_MIRROR_BASELINE_REPAIR';
+    if (input.failedRecentJobs > 0) return 'CHANJET_READONLY_SYNC_FAILURE_REPAIR';
+    if (input.staleTargets > 0) return 'CHANJET_STALE_READONLY_SCOPE_REFRESH';
+    return 'KEEP_SCHEDULED_READONLY_SYNC';
   }
 
   async listFieldCatalog(limit = 500): Promise<ChanjetApiFieldCatalogEntity[]> {

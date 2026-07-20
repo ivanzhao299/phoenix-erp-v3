@@ -40,6 +40,27 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(cashFlow.query).toEqual({ isQuarter: 'false', period: '202607' });
   });
 
+  it('routes mirror baseline debt to the actual unresolved condition', () => {
+    expect(service.mirrorBaselineNextGate({
+      missingReportTargets: 1,
+      missingTargets: 1,
+      staleTargets: 0,
+      failedRecentJobs: 0,
+    })).toBe('CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR');
+    expect(service.mirrorBaselineNextGate({
+      missingReportTargets: 0,
+      missingTargets: 0,
+      staleTargets: 2,
+      failedRecentJobs: 0,
+    })).toBe('CHANJET_STALE_READONLY_SCOPE_REFRESH');
+    expect(service.mirrorBaselineNextGate({
+      missingReportTargets: 0,
+      missingTargets: 0,
+      staleTargets: 0,
+      failedRecentJobs: 0,
+    })).toBe('KEEP_SCHEDULED_READONLY_SYNC');
+  });
+
   it('never extracts a Chanjet business failure envelope as an entity row', () => {
     expect(service.extractRows({
       success: false,
