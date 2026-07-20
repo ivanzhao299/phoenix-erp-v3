@@ -29,7 +29,7 @@ const CHANJET_PROXY_READONLY_RULES: ReadonlyArray<{
   { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/purchaseapply\/list\/[^/?#]+$/ },
   { method: 'POST', path: /^\/accounting\/openapi\/cc\/purchasestockin\/list$/ },
   { method: 'POST', path: /^\/accounting\/openapi\/cc\/salesstockout\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/internal\/cc\/salesorder\/list$/ },
+  { method: 'POST', path: /^\/accounting\/openapi\/cc\/salesorder\/list\/[^/?#]+$/ },
   { method: 'POST', path: /^\/accounting\/gl\/balance\/rpt\/[^/?#]+$/ },
 ];
 
@@ -1129,19 +1129,35 @@ export class ChanjetCallbackController {
     const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
     this.log.warn(`system confirm exact chanjet mappings requested user=${requestedBy}`);
     try {
-      const result = await this.integration.confirmDeterministicCounterpartyMappings(
-        `system:exact-match:${requestedBy}`,
-      );
+      const actor = `system:exact-match:${requestedBy}`;
+      const [counterparties, masterData] = await Promise.all([
+        this.integration.confirmDeterministicCounterpartyMappings(actor),
+        this.integration.confirmDeterministicMasterDataMappings(actor),
+      ]);
       return {
-        success: result.errors.length === 0,
+        success: counterparties.errors.length === 0 && masterData.errors.length === 0,
         writeChanjet: false,
         writeErpBusinessTables: false,
         rule: 'exact ERP master match or complete Chanjet readonly source identity',
-        ...result,
+        counterparties,
+        masterData,
       };
     } catch (e) {
       return { success: false, writeChanjet: false, writeErpBusinessTables: false, error: (e as Error).message };
     }
+  }
+
+  /**
+   * Gate A only: write/read/idempotency/compensating-rollback proof against one
+   * ERP middle-layer mapping. Never calls a Chanjet write API or ERP business table.
+   */
+  @Post('integration/minimal-write-precheck/mapping-canary')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async minimalMappingWriteCanary(@Req() req: any) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    this.log.warn(`chanjet minimal middle-layer write canary requested user=${requestedBy}`);
+    const result = await this.integration.runMinimalMappingWriteCanary(`user:${requestedBy}`);
+    return { success: result.decision === 'GO', ...result };
   }
 
   /**

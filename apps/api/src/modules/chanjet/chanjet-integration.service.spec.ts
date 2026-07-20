@@ -208,9 +208,10 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       systemApprovalEligible: true,
     });
     expect(wrongCurrency).toMatchObject({
-      status: 'NEED_MAPPING',
+      status: 'SOURCE_REFERENCE',
       erpCode: '',
-      systemApprovalEligible: false,
+      systemApprovalEligible: true,
+      usableForErpWrite: false,
     });
   });
 
@@ -244,8 +245,28 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     ]);
 
     expect(candidate).toMatchObject({
+      status: 'SOURCE_REFERENCE',
+      systemApprovalEligible: true,
+      usableForErpWrite: false,
+    });
+  });
+
+  it('keeps incomplete Chanjet identities unresolved instead of guessing a mapping', () => {
+    const candidate = service.buildMasterDataReviewCandidate({
+      snapshotId: 'project-incomplete',
+      domain: 'PROJECT',
+      bookId: 'BOOK-1',
+      companyCode: '',
+      chanjetId: 'CJ-PROJECT-2',
+      chanjetCode: '0002',
+      chanjetName: '未绑定公司项目',
+      currency: '',
+    }, []);
+
+    expect(candidate).toMatchObject({
       status: 'NEED_MAPPING',
       systemApprovalEligible: false,
+      usableForErpWrite: false,
     });
   });
 
@@ -649,6 +670,40 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(subject.mappingRepo.save).not.toHaveBeenCalled();
   });
 
+  it('runs the ERP middle-layer mapping canary and restores the original row', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    let stored: any = {
+      id: '91', mappingType: 'PROJECT', bookId: 'BOOK-1', erpCode: '', chanjetId: 'CJ-P-1',
+      matchStatus: 'SOURCE_ONLY', reviewStatus: 'APPROVED', reviewedBy: 'system:source',
+      reviewedAt: new Date('2026-07-20T00:00:00Z'), rawData: { resolutionKind: 'CHANJET_READONLY_SOURCE_IDENTITY' },
+    };
+    subject.mappingRepo = {
+      findOne: jest.fn().mockImplementation(() => Promise.resolve({ ...stored })),
+      findOneBy: jest.fn().mockImplementation(() => Promise.resolve({ ...stored })),
+      save: jest.fn().mockImplementation((value) => {
+        stored = { ...stored, ...value };
+        return Promise.resolve({ ...stored });
+      }),
+      count: jest.fn().mockResolvedValue(1),
+    };
+    subject.createJob = jest.fn().mockResolvedValue({ id: 'JOB-1' });
+    subject.finishJob = jest.fn().mockResolvedValue(undefined);
+    subject.log = { error: jest.fn() };
+
+    const result = await subject.runMinimalMappingWriteCanary('tester');
+
+    expect(result).toMatchObject({
+      decision: 'GO', mappingId: '91', readbackPassed: true,
+      idempotencyPassed: true, compensatingRollbackPassed: true,
+      writeChanjet: false, writeErpBusinessTables: false,
+    });
+    expect(stored.rawData).toEqual({ resolutionKind: 'CHANJET_READONLY_SOURCE_IDENTITY' });
+    expect(stored.reviewedBy).toBe('system:source');
+    expect(subject.finishJob).toHaveBeenCalledWith(expect.anything(), 'SUCCESS', expect.objectContaining({
+      compensatingRollbackPassed: true,
+    }));
+  });
+
   it('retries failed readonly mirror targets and reports the recovered attempt', async () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     subject.syncReadOnlyMirror = jest
@@ -683,6 +738,9 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     subject.confirmDeterministicCounterpartyMappings = jest.fn().mockResolvedValue({
       generated: {}, eligible: 2, approved: 2, skipped: 0, errors: [],
     });
+    subject.confirmDeterministicMasterDataMappings = jest.fn().mockResolvedValue({
+      reviewed: 4, exactApproved: 1, sourceOnlyApproved: 3, unchanged: 0, conflicts: 0, unresolved: 0, errors: [],
+    });
     subject.runMappingReconciliation = jest.fn().mockResolvedValue({
       scanned: 4, created: 1, unchanged: 2, autoResolved: 1, statusCounts: {}, results: [],
     });
@@ -698,6 +756,7 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       stoppedAt: null,
     });
     expect(subject.confirmDeterministicCounterpartyMappings).toHaveBeenCalledWith('tester');
+    expect(subject.confirmDeterministicMasterDataMappings).toHaveBeenCalledWith('tester');
     expect(subject.runMappingReconciliation).toHaveBeenCalledTimes(1);
     expect(subject.productionReadinessOverview).toHaveBeenCalledTimes(1);
   });
@@ -708,6 +767,7 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       decision: 'HOLD', results: [], attempts: 3, unresolvedFailures: [{ key: 'GL_BALANCE', bookId: 'B1', error: 'timeout' }],
     });
     subject.confirmDeterministicCounterpartyMappings = jest.fn();
+    subject.confirmDeterministicMasterDataMappings = jest.fn();
     subject.runMappingReconciliation = jest.fn();
     subject.productionReadinessOverview = jest.fn();
 
@@ -715,6 +775,7 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
 
     expect(result).toMatchObject({ decision: 'HOLD', stoppedAt: 'READONLY_MIRROR' });
     expect(subject.confirmDeterministicCounterpartyMappings).not.toHaveBeenCalled();
+    expect(subject.confirmDeterministicMasterDataMappings).not.toHaveBeenCalled();
     expect(subject.runMappingReconciliation).not.toHaveBeenCalled();
   });
 

@@ -682,6 +682,12 @@ export interface FinanceReconciliationItem {
   };
   reason: string;
   recommendedAction: string;
+  diagnosis: {
+    classification: string;
+    directlyComparable: boolean;
+    dimensions: string[];
+    treatment: string;
+  };
   semanticLock: FinanceSemanticLock;
 }
 
@@ -1141,9 +1147,11 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     label: '销售订单列表',
     apiDomain: 'sales',
     method: 'POST',
-    path: '/accounting/internal/cc/salesorder/list',
+    path: '/accounting/openapi/cc/salesorder/list/{bookid}',
     body: {},
+    requiresBook: true,
     entityType: 'SALES_ORDER',
+    mirrorDefault: true,
   },
   {
     key: 'PURCHASE_APPLY',
@@ -1154,6 +1162,7 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     body: {},
     requiresBook: true,
     entityType: 'PURCHASE_APPLY',
+    mirrorDefault: true,
   },
   {
     key: 'STOCK_IN',
@@ -1163,6 +1172,7 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     path: '/accounting/openapi/cc/purchasestockin/list',
     body: {},
     entityType: 'STOCK_IN',
+    mirrorDefault: true,
   },
   {
     key: 'SALES_STOCK_OUT',
@@ -1173,6 +1183,7 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     body: {},
     requiresBook: true,
     entityType: 'SALES_STOCK_OUT',
+    mirrorDefault: true,
   },
   {
     key: 'VOUCHER_SEARCH',
@@ -1975,6 +1986,265 @@ export class ChanjetIntegrationService {
         middleLayerWrite: false,
       },
     };
+  }
+
+  /**
+   * Confirms deterministic non-counterparty mappings in the ERP integration layer.
+   * Exact ERP matches become APPROVED/MATCHED. Complete Chanjet identities that do
+   * not have an ERP peer become APPROVED/SOURCE_ONLY and remain unusable for writes.
+   */
+  async confirmDeterministicMasterDataMappings(reviewedBy = 'system:chanjet-master-data'): Promise<{
+    reviewed: number;
+    exactApproved: number;
+    sourceOnlyApproved: number;
+    unchanged: number;
+    conflicts: number;
+    unresolved: number;
+    errors: Array<{ domain: string; chanjetId: string; error: string }>;
+  }> {
+    const review = await this.masterDataMappingReview();
+    const candidates = review.candidates.filter((candidate) => (
+      ['DEPARTMENT', 'PROJECT', 'CASH_ACCOUNT', 'CURRENCY'].includes(candidate.domain)
+      && ['EXACT_MATCH', 'SOURCE_REFERENCE'].includes(candidate.status)
+    ));
+    let exactApproved = 0;
+    let sourceOnlyApproved = 0;
+    let unchanged = 0;
+    let conflicts = review.summary.conflicts;
+    const errors: Array<{ domain: string; chanjetId: string; error: string }> = [];
+
+    for (const candidate of candidates) {
+      try {
+        const mappingType = candidate.domain as ChanjetMappingType;
+        const rows = await this.mappingRepo.find({
+          where: { mappingType, bookId: candidate.bookId },
+          order: { updatedAt: 'DESC' },
+          take: 10000,
+        });
+        const byExternal = rows.find((row) => row.chanjetId === candidate.chanjetId);
+        const byExactPair = candidate.erpCode
+          ? rows.find((row) => row.chanjetId === candidate.chanjetId && row.erpCode === candidate.erpCode)
+          : undefined;
+        if (byExternal && byExactPair && byExternal.id !== byExactPair.id) {
+          conflicts += 1;
+          errors.push({
+            domain: candidate.domain,
+            chanjetId: candidate.chanjetId,
+            error: `duplicate mapping rows ${byExternal.id}/${byExactPair.id}`,
+          });
+          continue;
+        }
+        const mapping = byExactPair || byExternal || this.mappingRepo.create({
+          mappingType,
+          bookId: candidate.bookId,
+          erpCode: '',
+          erpName: '',
+          chanjetId: candidate.chanjetId,
+          chanjetCode: candidate.chanjetCode,
+          chanjetName: candidate.chanjetName,
+          matchStatus: 'PENDING',
+          confidence: '0.00',
+          reviewStatus: 'PENDING',
+          reviewedBy: null,
+          reviewedAt: null,
+          rawData: null,
+        });
+        const sourceOnly = candidate.status === 'SOURCE_REFERENCE';
+        const targetStatus = sourceOnly ? 'SOURCE_ONLY' : 'MATCHED';
+        if (
+          mapping.matchStatus === targetStatus
+          && mapping.reviewStatus === 'APPROVED'
+          && (sourceOnly || mapping.erpCode === candidate.erpCode)
+        ) {
+          unchanged += 1;
+          continue;
+        }
+        if (mapping.reviewStatus === 'APPROVED' && mapping.matchStatus !== 'SOURCE_ONLY') {
+          conflicts += 1;
+          errors.push({
+            domain: candidate.domain,
+            chanjetId: candidate.chanjetId,
+            error: `approved mapping ${mapping.id} differs from deterministic candidate`,
+          });
+          continue;
+        }
+
+        mapping.erpCode = sourceOnly ? '' : candidate.erpCode;
+        mapping.erpName = sourceOnly ? '' : candidate.erpName;
+        mapping.chanjetCode = candidate.chanjetCode;
+        mapping.chanjetName = candidate.chanjetName;
+        mapping.matchStatus = targetStatus;
+        mapping.confidence = sourceOnly ? '1.00' : '1.00';
+        mapping.reviewStatus = sourceOnly ? 'APPROVED' : 'PENDING';
+        mapping.reviewedBy = sourceOnly ? `system:source-identity:${reviewedBy}` : null;
+        mapping.reviewedAt = sourceOnly ? new Date() : null;
+        mapping.rawData = {
+          ...(mapping.rawData || {}),
+          resolutionKind: sourceOnly ? 'CHANJET_READONLY_SOURCE_IDENTITY' : 'EXACT_ERP_MASTER_MATCH',
+          sourceSnapshotId: candidate.snapshotId,
+          companyCode: candidate.companyCode,
+          currency: candidate.currency,
+          usableForErpWrite: !sourceOnly,
+          evidence: candidate.evidence,
+          confirmedAt: new Date().toISOString(),
+        };
+        const saved = await this.mappingRepo.save(mapping);
+        if (sourceOnly) {
+          sourceOnlyApproved += 1;
+        } else {
+          await this.updateMappingReview(saved.id, 'APPROVED', reviewedBy);
+          exactApproved += 1;
+        }
+      } catch (error) {
+        errors.push({
+          domain: candidate.domain,
+          chanjetId: candidate.chanjetId,
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    return {
+      reviewed: candidates.length,
+      exactApproved,
+      sourceOnlyApproved,
+      unchanged,
+      conflicts,
+      unresolved: review.summary.needMapping,
+      errors,
+    };
+  }
+
+  /**
+   * Gate A canary: mutate one approved ERP integration mapping, verify readback
+   * and idempotency, then restore the exact previous state. The audit job remains.
+   */
+  async runMinimalMappingWriteCanary(requestedBy: string): Promise<{
+    decision: 'GO' | 'HOLD';
+    mappingId: string | null;
+    mappingType: string | null;
+    readbackPassed: boolean;
+    idempotencyPassed: boolean;
+    compensatingRollbackPassed: boolean;
+    writeChanjet: false;
+    writeErpBusinessTables: false;
+    auditJobId: string;
+    error?: string;
+  }> {
+    const actor = String(requestedBy || 'system:chanjet-minimal-write-canary').slice(0, 128);
+    const job = await this.createJob('RECONCILE', '', '', {
+      gate: 'CHANJET_MINIMAL_WRITE_PRECHECK',
+      canary: 'MASTER_MAPPING',
+      requestedBy: actor,
+      writeChanjet: false,
+      writeErpBusinessTables: false,
+      rollbackRequired: true,
+    });
+    let mapping: ChanjetMasterMappingEntity | null = null;
+    let before: Pick<ChanjetMasterMappingEntity, 'reviewedBy' | 'reviewedAt' | 'rawData'> | null = null;
+    let readbackPassed = false;
+    let idempotencyPassed = false;
+    let compensatingRollbackPassed = false;
+    try {
+      mapping = await this.mappingRepo.findOne({
+        where: {
+          mappingType: In(['DEPARTMENT', 'PROJECT', 'CASH_ACCOUNT']),
+          matchStatus: 'SOURCE_ONLY',
+          reviewStatus: 'APPROVED',
+        },
+        order: { updatedAt: 'DESC' },
+      });
+      if (!mapping) throw new Error('no approved SOURCE_ONLY mapping available for canary');
+      before = {
+        reviewedBy: mapping.reviewedBy,
+        reviewedAt: mapping.reviewedAt ? new Date(mapping.reviewedAt) : null,
+        rawData: mapping.rawData ? JSON.parse(JSON.stringify(mapping.rawData)) : null,
+      };
+      const marker = `CHANJET-MAPPING-CANARY-${job.id}`;
+      const canaryData = {
+        ...(mapping.rawData || {}),
+        minimalWriteCanary: { marker, requestedBy: actor, writtenAt: new Date().toISOString() },
+      };
+      mapping.rawData = canaryData;
+      mapping.reviewedBy = actor;
+      mapping.reviewedAt = new Date();
+      await this.mappingRepo.save(mapping);
+      const readback = await this.mappingRepo.findOneBy({ id: mapping.id });
+      readbackPassed = String(readback?.rawData?.minimalWriteCanary && (readback.rawData.minimalWriteCanary as Record<string, unknown>).marker) === marker;
+      if (!readbackPassed) throw new Error('canary readback mismatch');
+
+      await this.mappingRepo.save({ ...readback!, rawData: canaryData });
+      const identityCount = await this.mappingRepo.count({
+        where: {
+          mappingType: mapping.mappingType,
+          erpCode: mapping.erpCode,
+          chanjetId: mapping.chanjetId,
+        },
+      });
+      idempotencyPassed = identityCount === 1;
+      if (!idempotencyPassed) throw new Error(`canary idempotency mismatch count=${identityCount}`);
+
+      mapping.reviewedBy = before.reviewedBy;
+      mapping.reviewedAt = before.reviewedAt;
+      mapping.rawData = before.rawData;
+      await this.mappingRepo.save(mapping);
+      const restored = await this.mappingRepo.findOneBy({ id: mapping.id });
+      compensatingRollbackPassed = JSON.stringify(restored?.rawData ?? null) === JSON.stringify(before.rawData)
+        && restored?.reviewedBy === before.reviewedBy;
+      if (!compensatingRollbackPassed) throw new Error('canary compensating rollback mismatch');
+      await this.finishJob(job, 'SUCCESS', {
+        mappingId: mapping.id,
+        mappingType: mapping.mappingType,
+        readbackPassed,
+        idempotencyPassed,
+        compensatingRollbackPassed,
+        writeChanjet: false,
+      });
+      return {
+        decision: 'GO',
+        mappingId: mapping.id,
+        mappingType: mapping.mappingType,
+        readbackPassed,
+        idempotencyPassed,
+        compensatingRollbackPassed,
+        writeChanjet: false,
+        writeErpBusinessTables: false,
+        auditJobId: job.id,
+      };
+    } catch (error) {
+      if (mapping && before) {
+        try {
+          mapping.reviewedBy = before.reviewedBy;
+          mapping.reviewedAt = before.reviewedAt;
+          mapping.rawData = before.rawData;
+          await this.mappingRepo.save(mapping);
+          const restored = await this.mappingRepo.findOneBy({ id: mapping.id });
+          compensatingRollbackPassed = JSON.stringify(restored?.rawData ?? null) === JSON.stringify(before.rawData)
+            && restored?.reviewedBy === before.reviewedBy;
+        } catch (rollbackError) {
+          this.log.error(`Chanjet mapping canary rollback failed: ${(rollbackError as Error).message}`);
+        }
+      }
+      await this.finishJob(job, 'FAIL', {
+        mappingId: mapping?.id || null,
+        readbackPassed,
+        idempotencyPassed,
+        compensatingRollbackPassed,
+        writeChanjet: false,
+      }, (error as Error).message);
+      return {
+        decision: 'HOLD',
+        mappingId: mapping?.id || null,
+        mappingType: mapping?.mappingType || null,
+        readbackPassed,
+        idempotencyPassed,
+        compensatingRollbackPassed,
+        writeChanjet: false,
+        writeErpBusinessTables: false,
+        auditJobId: job.id,
+        error: (error as Error).message,
+      };
+    }
   }
 
   async financeReconciliationOverview(): Promise<{
@@ -4974,7 +5244,41 @@ export class ChanjetIntegrationService {
       recommendedAction: status === 'WARN' && input.erp === null
         ? '保持好业财行级只读展示和字段漂移检测；ERP 无同粒度事实时不构造伪差异。'
         : this.financeReconciliationNextAction(status),
+      diagnosis: this.financeDifferenceDiagnosis(input.key),
       semanticLock,
+    };
+  }
+
+  private financeDifferenceDiagnosis(key: string): FinanceReconciliationItem['diagnosis'] {
+    if (key === 'AR_OPEN' || key === 'AP_OPEN') {
+      return {
+        classification: 'DIFFERENT_GRAIN_AND_LIFECYCLE',
+        directlyComparable: false,
+        dimensions: ['账套/公司', '币种', '会计期间', '往来单位', '科目方向', '单据状态'],
+        treatment: '好业财往来单位级期末余额作为财务汇总权威源；ERP 发票/应付单据只作业务明细解释，禁止用总差额反写任一侧。',
+      };
+    }
+    if (key === 'CASH_BALANCE') {
+      return {
+        classification: 'BALANCE_SOURCE_OR_CURRENCY_SCOPE_MISMATCH',
+        directlyComparable: false,
+        dimensions: ['账套/公司', '币种', '原币/本币', '科目 1001/1002', '余额日期', '账户映射'],
+        treatment: '按账套、币种和资金账户映射拆分后才允许比较；禁止跨币种直接求和。',
+      };
+    }
+    if (key === 'TODAY_RECEIPT' || key === 'TODAY_PAYMENT') {
+      return {
+        classification: 'ERP_OPERATIONAL_POSTING_GAP',
+        directlyComparable: true,
+        dimensions: ['账套/公司', '币种', '业务日', '审核状态', '作废状态', '单据号'],
+        treatment: '使用同一业务日与 EFFECTIVE 状态逐单核对；差异保留为业务流水未落 ERP 或状态口径不一致，不静默归零。',
+      };
+    }
+    return {
+      classification: 'CHANJET_READONLY_REPORT_WITHOUT_ERP_PEER',
+      directlyComparable: false,
+      dimensions: ['账套', '会计期间', '报表行/科目', '币种'],
+      treatment: '在 ERP 中完整重现好业财只读行，不构造不存在的 ERP 法定报表事实。',
     };
   }
 
@@ -6151,6 +6455,7 @@ export class ChanjetIntegrationService {
     writeErpBusinessTables: false;
     mirror: Awaited<ReturnType<ChanjetIntegrationService['syncReadOnlyMirrorResilient']>>;
     exactMappings: Awaited<ReturnType<ChanjetIntegrationService['confirmDeterministicCounterpartyMappings']>> | null;
+    masterDataMappings: Awaited<ReturnType<ChanjetIntegrationService['confirmDeterministicMasterDataMappings']>> | null;
     reconciliation: Awaited<ReturnType<ChanjetIntegrationService['runMappingReconciliation']>> | null;
     readiness: ChanjetProductionReadiness | null;
     stoppedAt: string | null;
@@ -6168,13 +6473,17 @@ export class ChanjetIntegrationService {
         writeErpBusinessTables: false,
         mirror,
         exactMappings: null,
+        masterDataMappings: null,
         reconciliation: null,
         readiness: null,
         stoppedAt: 'READONLY_MIRROR',
       };
     }
 
-    const exactMappings = await this.confirmDeterministicCounterpartyMappings(actor);
+    const [exactMappings, masterDataMappings] = await Promise.all([
+      this.confirmDeterministicCounterpartyMappings(actor),
+      this.confirmDeterministicMasterDataMappings(actor),
+    ]);
     const reconciliation = await this.runMappingReconciliation();
     const readiness = await this.productionReadinessOverview();
     return {
@@ -6186,6 +6495,7 @@ export class ChanjetIntegrationService {
       writeErpBusinessTables: false,
       mirror,
       exactMappings,
+      masterDataMappings,
       reconciliation,
       readiness,
       stoppedAt: null,
@@ -7576,11 +7886,15 @@ export class ChanjetIntegrationService {
       const nameMatches = !!normalizedName && this.normalizeMasterDataName(master.name) === normalizedName;
       return codeMatches || nameMatches;
     });
+    const sourceIdentityEligible = matches.length === 0
+      && this.masterDataSourceIdentityEligible(source);
     const status = matches.length === 1
       ? 'EXACT_MATCH'
       : matches.length > 1
         ? 'CONFLICT'
-        : 'NEED_MAPPING';
+        : sourceIdentityEligible
+          ? 'SOURCE_REFERENCE'
+          : 'NEED_MAPPING';
     const selected = matches.length === 1 ? matches[0] : null;
     return {
       ...source,
@@ -7593,7 +7907,9 @@ export class ChanjetIntegrationService {
           : source.domain === 'CURRENCY'
             ? ['币种编码与 SYS_CURRENCY 唯一精确匹配']
             : ['账套公司内编码或规范化名称唯一精确匹配']
-        : status === 'CONFLICT'
+        : status === 'SOURCE_REFERENCE'
+          ? ['好业财源 ID、编码/名称、账套公司证据完整；ERP 暂无同一主档，仅确认只读源身份，不写 ERP 业务主数据']
+          : status === 'CONFLICT'
           ? [`发现 ${matches.length} 个精确候选，禁止自动消歧`]
           : ['没有可证明的唯一精确匹配，禁止模糊匹配或跨公司猜测'],
       alternatives: matches.map((match) => ({
@@ -7601,9 +7917,26 @@ export class ChanjetIntegrationService {
         erpName: match.name,
         companyCode: match.companyCode,
       })),
-      systemApprovalEligible: status === 'EXACT_MATCH',
-      requiresApproval: true,
+      systemApprovalEligible: status === 'EXACT_MATCH' || status === 'SOURCE_REFERENCE',
+      requiresApproval: status !== 'SOURCE_REFERENCE',
+      usableForErpWrite: status === 'EXACT_MATCH',
     };
+  }
+
+  private masterDataSourceIdentityEligible(source: {
+    domain: string;
+    bookId: string;
+    companyCode: string;
+    chanjetId: string;
+    chanjetCode: string;
+    chanjetName: string;
+    currency: string;
+  }): boolean {
+    if (!['DEPARTMENT', 'PROJECT', 'CASH_ACCOUNT'].includes(source.domain)) return false;
+    if (!source.bookId || !source.companyCode || !source.chanjetId) return false;
+    if (!source.chanjetCode && !source.chanjetName) return false;
+    if (source.domain === 'CASH_ACCOUNT' && !source.currency) return false;
+    return true;
   }
 
   private normalizeMasterDataCode(value: string): string {
