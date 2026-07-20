@@ -15,8 +15,22 @@ describe('Chanjet business response guard', () => {
     });
   });
 
+  it('rejects provider error envelopes that omit the message', () => {
+    expect(getChanjetBusinessFailure({
+      code: 50000,
+      status: 404,
+      message: null,
+      requestId: 'REQ-NO-MESSAGE',
+    })).toEqual({
+      code: '50000',
+      message: '好业财返回业务失败',
+      requestId: 'REQ-NO-MESSAGE',
+    });
+  });
+
   it('accepts successful response envelopes and ordinary entity rows', () => {
     expect(getChanjetBusinessFailure({ success: 'true', code: '200', data: [] })).toBeNull();
     expect(getChanjetBusinessFailure({ code: '1001', name: '现金账户', balance: 10 })).toBeNull();
+    expect(getChanjetBusinessFailure({ code: '50000', status: 'ACTIVE', name: '合法业务对象' })).toBeNull();
   });
 });

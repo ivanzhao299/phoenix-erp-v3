@@ -36,10 +36,16 @@ export function getChanjetBusinessFailure(payload: unknown): ChanjetBusinessFail
   const message = String(row.msg ?? row.message ?? error.msg ?? error.message ?? '').trim();
   const requestId = String(row.requestId ?? row.request_id ?? error.requestId ?? '').trim();
   const failedCode = Boolean(code && !['0', '200', 'SUCCESS', 'OK'].includes(code.toUpperCase()));
+  const status = Number(row.status ?? error.status);
+  const failedStatus = Number.isFinite(status) && status >= 400;
   const nullDataFailure = row.data === null && failedCode && Boolean(message);
   const nestedError = Object.keys(error).length > 0 && failedCode;
   const identifiedFailure = failedCode && Boolean(message) && Boolean(requestId);
-  if (!explicitFailure && !nullDataFailure && !nestedError && !identifiedFailure) return null;
+  // Some Chanjet endpoints omit message while still returning a provider error
+  // envelope. The requestId + 4xx/5xx status combination distinguishes it from
+  // ordinary master-data rows that may legitimately contain a numeric code.
+  const statusEnvelopeFailure = failedCode && failedStatus && Boolean(requestId);
+  if (!explicitFailure && !nullDataFailure && !nestedError && !identifiedFailure && !statusEnvelopeFailure) return null;
   return {
     code: code || 'BUSINESS_FAILURE',
     message: message || '好业财返回业务失败',
