@@ -2521,19 +2521,30 @@ export class ChanjetIntegrationService {
         const raw = row.rawData || {};
         const rowDate = typeof raw.bizDate === 'string' ? raw.bizDate.trim() : '';
         const status = typeof raw.voucherStatusEnum === 'string' ? raw.voucherStatusEnum.trim().toUpperCase() : '';
-        const rawAmount = raw.totalAmount;
-        const parsedAmount = typeof rawAmount === 'number' || typeof rawAmount === 'string'
-          ? Number(rawAmount)
-          : Number.NaN;
         if (typeof raw.approvedDate === 'string' && raw.approvedDate.trim()) approvedDateEvidenceRows += 1;
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(rowDate) || !status || !Number.isFinite(parsedAmount) || parsedAmount < 0) {
+        // A missing business date is always unsafe because the row cannot be assigned
+        // to or excluded from the requested day. Other fields are only material once
+        // the row belongs to that day; historical rows must not block today's card.
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(rowDate)) {
           invalidContractRows += 1;
           continue;
         }
         if (rowDate !== targetDate) continue;
         businessDateRows += 1;
+        if (!status) {
+          invalidContractRows += 1;
+          continue;
+        }
         if (status !== 'EFFECTIVE') {
           excludedByStatus[status] = (excludedByStatus[status] || 0) + 1;
+          continue;
+        }
+        const rawAmount = raw.totalAmount;
+        const parsedAmount = typeof rawAmount === 'number' || typeof rawAmount === 'string'
+          ? Number(rawAmount)
+          : Number.NaN;
+        if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+          invalidContractRows += 1;
           continue;
         }
         effectiveRows += 1;
@@ -2571,7 +2582,7 @@ export class ChanjetIntegrationService {
         reason: rows.length === 0
           ? `${definition.entityType} 没有可用只读镜像样本。`
           : invalidContractRows > 0
-            ? `${invalidContractRows} 条镜像缺少 bizDate / voucherStatusEnum / totalAmount 或金额非法，已 fail-closed。`
+            ? `${invalidContractRows} 条镜像缺少 bizDate，或目标业务日缺少 voucherStatusEnum / EFFECTIVE totalAmount，已 fail-closed。`
             : !fresh
               ? '收付款镜像超过 24 小时未刷新，禁止作为今日卡片权威值。'
               : `按 bizDate=${targetDate} 且 voucherStatusEnum=EFFECTIVE 汇总；其余状态全部排除。`,

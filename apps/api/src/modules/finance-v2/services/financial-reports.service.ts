@@ -224,25 +224,31 @@ export class FinancialReportsService {
                     THEN (raw_data->>'totalAmount')::numeric
                     ELSE NULL
                   END AS document_amount,
-                  CASE
-                    WHEN COALESCE(raw_data->>'bizDate', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-                     AND COALESCE(raw_data->>'voucherStatusEnum', '') <> ''
-                     AND COALESCE(raw_data->>'totalAmount', '') ~ '^[0-9]+([.][0-9]+)?$'
-                    THEN TRUE ELSE FALSE
-                  END AS contract_valid
+                  (COALESCE(raw_data->>'bizDate', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$') AS date_valid
              FROM latest
          )
          SELECT COUNT(*) AS source_rows,
-                COUNT(*) FILTER (WHERE contract_valid) AS contract_rows,
                 COUNT(*) FILTER (
-                  WHERE contract_valid
+                  WHERE NOT date_valid
+                     OR (
+                       business_date = $${businessDateParam}
+                       AND (
+                         voucher_status = ''
+                         OR (voucher_status = 'EFFECTIVE' AND document_amount IS NULL)
+                       )
+                     )
+                ) AS invalid_contract_rows,
+                COUNT(*) FILTER (
+                  WHERE date_valid
                     AND business_date = $${businessDateParam}
                     AND voucher_status = 'EFFECTIVE'
+                    AND document_amount IS NOT NULL
                 ) AS effective_rows,
                 COALESCE(SUM(document_amount) FILTER (
-                  WHERE contract_valid
+                  WHERE date_valid
                     AND business_date = $${businessDateParam}
                     AND voucher_status = 'EFFECTIVE'
+                    AND document_amount IS NOT NULL
                 ), 0) AS value,
                 MAX(updated_at) AS latest_pulled_at
            FROM classified`,
@@ -250,8 +256,7 @@ export class FinancialReportsService {
       );
       const row = rows[0] || {};
       const sourceRows = Number(row.source_rows || 0);
-      const contractRows = Number(row.contract_rows || 0);
-      const invalidContractRows = Math.max(0, sourceRows - contractRows);
+      const invalidContractRows = Number(row.invalid_contract_rows || 0);
       return {
         available: sourceRows > 0 && invalidContractRows === 0,
         value: Number(row.value || 0),

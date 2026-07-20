@@ -727,8 +727,8 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       find: jest.fn().mockImplementation(({ where }: any) => where.entityType === 'AR_RECEIPT'
         ? [
             row('AR_RECEIPT', 'R-1', { bizDate: '2026-07-20', voucherStatusEnum: 'EFFECTIVE', totalAmount: '125.50', approvedDate: '2026-07-20' }),
-            row('AR_RECEIPT', 'R-2', { bizDate: '2026-07-20', voucherStatusEnum: 'SUBMITTED', totalAmount: '999.00' }),
-            row('AR_RECEIPT', 'R-3', { bizDate: '2026-07-19', voucherStatusEnum: 'EFFECTIVE', totalAmount: '50.00', approvedDate: '2026-07-20' }),
+            row('AR_RECEIPT', 'R-2', { bizDate: '2026-07-20', voucherStatusEnum: 'SUBMITTED' }),
+            row('AR_RECEIPT', 'R-3', { bizDate: '2026-07-19', voucherStatusEnum: 'EFFECTIVE', approvedDate: '2026-07-20' }),
           ]
         : [
             row('AP_PAYMENT', 'P-1', { bizDate: '2026-07-20', voucherStatusEnum: 'EFFECTIVE', totalAmount: '80.00', approvedDate: '2026-07-20' }),
@@ -758,6 +758,33 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       readyForCardAuthority: true,
     });
     expect(result.guardrails).toMatchObject({ chanjetWrite: false, dbWrite: false, effectiveStatus: 'EFFECTIVE' });
+  });
+
+  it('fails closed when an EFFECTIVE row on the requested day has no valid amount', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const now = new Date();
+    subject.entitySnapshotRepo = {
+      find: jest.fn().mockImplementation(({ where }: any) => [{
+        id: `${where.entityType}-1`,
+        bookId: 'BOOK-1',
+        entityType: where.entityType,
+        externalId: `${where.entityType}-1`,
+        externalCode: `${where.entityType}-1`,
+        rawData: where.entityType === 'AR_RECEIPT'
+          ? { bizDate: '2026-07-20', voucherStatusEnum: 'EFFECTIVE' }
+          : { bizDate: '2026-07-20', voucherStatusEnum: 'EFFECTIVE', totalAmount: '80.00' },
+        updatedAt: now,
+      }]),
+    };
+
+    const result = await subject.financeReceiptPaymentDailyReconciliationOverview('2026-07-20');
+
+    expect(result.decision).toBe('HOLD');
+    expect(result.metrics.find((metric: any) => metric.key === 'TODAY_RECEIPT')).toMatchObject({
+      status: 'HOLD',
+      invalidContractRows: 1,
+      readyForCardAuthority: false,
+    });
   });
 
   it('switches reconciled daily receipt/payment cards without using cumulative totals', async () => {

@@ -6,7 +6,7 @@ describe('FinancialReportsService Chanjet daily authority', () => {
     subject.ds = {
       query: jest.fn().mockResolvedValue([{
         source_rows: '5',
-        contract_rows: '5',
+        invalid_contract_rows: '0',
         effective_rows: '2',
         value: '205.50',
       }]),
@@ -36,6 +36,7 @@ describe('FinancialReportsService Chanjet daily authority', () => {
     expect(sql).toContain("raw_data->>'bizDate'");
     expect(sql).toContain("raw_data->>'voucherStatusEnum'");
     expect(sql).toContain("raw_data->>'totalAmount'");
+    expect(sql).toContain("voucher_status = 'EFFECTIVE' AND document_amount IS NULL");
   });
 
   it('fails closed when any latest row violates the daily field contract', async () => {
@@ -43,7 +44,7 @@ describe('FinancialReportsService Chanjet daily authority', () => {
     subject.ds = {
       query: jest.fn().mockResolvedValue([{
         source_rows: '5',
-        contract_rows: '4',
+        invalid_contract_rows: '1',
         effective_rows: '2',
         value: '205.50',
       }]),
