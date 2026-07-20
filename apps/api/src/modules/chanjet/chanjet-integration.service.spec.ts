@@ -147,6 +147,25 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     });
   });
 
+  it('keeps Chanjet subjects as readonly source references when ERP has no chart-of-accounts master', () => {
+    const candidate = service.buildMasterDataReviewCandidate({
+      snapshotId: 'subject-1',
+      domain: 'SUBJECT',
+      bookId: 'BOOK-1',
+      companyCode: 'COMP-1',
+      chanjetId: '1001',
+      chanjetCode: '1001',
+      chanjetName: '库存现金',
+      currency: '',
+    }, []);
+
+    expect(candidate).toMatchObject({
+      status: 'SOURCE_REFERENCE',
+      systemApprovalEligible: false,
+      requiresApproval: false,
+    });
+  });
+
   it('matches cash accounts only by mapped company, normalized exact name and currency', () => {
     const exact = service.buildMasterDataReviewCandidate({
       snapshotId: 'cash-1',

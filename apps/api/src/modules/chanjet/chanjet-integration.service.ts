@@ -1927,6 +1927,7 @@ export class ChanjetIntegrationService {
       return {
         domain,
         sourceRows: rows.length,
+        sourceReferences: rows.filter((row) => row.status === 'SOURCE_REFERENCE').length,
         exactMatches: rows.filter((row) => row.status === 'EXACT_MATCH').length,
         needMapping: rows.filter((row) => row.status === 'NEED_MAPPING').length,
         conflicts: rows.filter((row) => row.status === 'CONFLICT').length,
@@ -1934,6 +1935,7 @@ export class ChanjetIntegrationService {
       };
     });
     const conflicts = candidates.filter((candidate) => candidate.status === 'CONFLICT').length;
+    const sourceReferences = candidates.filter((candidate) => candidate.status === 'SOURCE_REFERENCE').length;
     const exactMatches = candidates.filter((candidate) => candidate.status === 'EXACT_MATCH').length;
     const needMapping = candidates.filter((candidate) => candidate.status === 'NEED_MAPPING').length;
     return {
@@ -1942,6 +1944,7 @@ export class ChanjetIntegrationService {
       summary: {
         validSourceRows: sourceRows.length,
         invalidSourceRowsExcluded: snapshots.length - validSnapshots.length,
+        sourceReferences,
         exactMatches,
         needMapping,
         conflicts,
@@ -1954,6 +1957,7 @@ export class ChanjetIntegrationService {
       candidates,
       guardrails: {
         exactOnly: true,
+        subjectReferencePolicy: '好业财科目作为只读账套科目基准，不伪造 ERP 科目主数据，也不进入映射批准队列。',
         normalizedExactNameAllowed: true,
         companyScopeRequired: true,
         currencyMatchRequiredForCashAccount: true,
@@ -7425,6 +7429,18 @@ export class ChanjetIntegrationService {
       status: string;
     }>,
   ) {
+    if (source.domain === 'SUBJECT') {
+      return {
+        ...source,
+        status: 'SOURCE_REFERENCE',
+        erpCode: '',
+        erpName: '',
+        evidence: ['ERP 当前没有同粒度总账科目主表；保留为好业财账套级只读科目基准，不写 ERP 业务事实表'],
+        alternatives: [],
+        systemApprovalEligible: false,
+        requiresApproval: false,
+      };
+    }
     const activeMasters = masters.filter((master) => (
       master.domain === source.domain
       && master.status === 'ACTIVE'
