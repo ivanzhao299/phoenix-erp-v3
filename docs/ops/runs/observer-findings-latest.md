@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-20T01:17:44.279Z |
-| Run files inspected | 2238 |
+| Generated at | 2026-07-20T03:28:37.038Z |
+| Run files inspected | 2242 |
 | Task count | 363 |
-| Findings count | 33 |
+| Findings count | 32 |
 | Highest severity | CRITICAL |
 | Routing findings | 8 |
-| Baseline findings | 4 |
+| Baseline findings | 3 |
 | Report schema findings | 4 |
 | Codex CLI executed | No |
 | Database written | No |
@@ -279,15 +279,6 @@
 
 ### OBS-0030 - MEDIUM - baseline
 
-- Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260707-0010-A1-contract.md;  M docs/ops/runs/BUGTASK-20260707-0010-A3-contract.md;  M docs/ops/runs/BUGTASK-20260707-0010-A4-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260718-0002-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0002-A3-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260718-0005-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0005-A3-contract.md;  M docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md; ?? docs/ops/runs/2026-07-20T01-03-20-135Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/2026-07-20T01-04-06-136Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-20T01-07-33-778Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A3-contract.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A3-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A3-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A3-worker-log.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A4-contract.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A4-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A4-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A4-worker-log.md; ?? docs/ops/runs/BUGTASK-20260720-0003-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md; ?? docs/ops/runs/BUGTASK-20260720-0003-A4-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260720-0003-A4-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260720-0003-A4-worker-log.md
-- Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
-- Recommended Next Task: Baseline cleanup for Codex-Orchestrator.
-
-### OBS-0031 - MEDIUM - baseline
-
 - Affected Agent: A5-Data-Readiness
 - Evidence: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
@@ -295,7 +286,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Baseline cleanup for A5-Data-Readiness.
 
-### OBS-0032 - MEDIUM - baseline
+### OBS-0031 - MEDIUM - baseline
 
 - Affected Agent: A6-Staging-Deploy-Runbook
 - Evidence: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
@@ -304,7 +295,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A6-Staging-Deploy-Runbook with baseline autopilot.
 
-### OBS-0033 - MEDIUM - baseline
+### OBS-0032 - MEDIUM - baseline
 
 - Affected Agent: A7-Final-QA-Gate
 - Evidence: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.

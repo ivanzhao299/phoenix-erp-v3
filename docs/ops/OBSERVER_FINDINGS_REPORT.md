@@ -2,10 +2,10 @@
 
 ## Summary
 
-- Findings count: 33
+- Findings count: 32
 - Highest severity: CRITICAL
 - Routing findings: 8
-- Baseline findings: 4
+- Baseline findings: 3
 - Report schema findings: 4
 - Codex CLI executed: No
 - Database written: No
@@ -42,7 +42,6 @@
 - OBS-0027 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
 - OBS-0028 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
 - OBS-0029 [MEDIUM] report-schema / A2-Security-Regression-Gate: docs/ops/runs/a2-app-module-wiring-follow-up-result.json: missing commit_hash, migration_added, verification_results, recommend_next_agent
-- OBS-0030 [MEDIUM] baseline / Codex-Orchestrator: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260707-0010-A1-contract.md;  M docs/ops/runs/BUGTASK-20260707-0010-A3-contract.md;  M docs/ops/runs/BUGTASK-20260707-0010-A4-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260718-0002-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0002-A3-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260718-0005-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0005-A3-contract.md;  M docs/ops/runs/BUGTASK-20260718-0005-A4-contract.md;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md; ?? docs/ops/runs/2026-07-20T01-03-20-135Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/2026-07-20T01-04-06-136Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-20T01-07-33-778Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A3-contract.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A3-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A3-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A3-worker-log.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A4-contract.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A4-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A4-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260720-0002-A4-worker-log.md; ?? docs/ops/runs/BUGTASK-20260720-0003-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md; ?? docs/ops/runs/BUGTASK-20260720-0003-A4-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260720-0003-A4-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260720-0003-A4-worker-log.md
-- OBS-0031 [MEDIUM] baseline / A5-Data-Readiness: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
-- OBS-0032 [MEDIUM] baseline / A6-Staging-Deploy-Runbook: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
-- OBS-0033 [MEDIUM] baseline / A7-Final-QA-Gate: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.
+- OBS-0030 [MEDIUM] baseline / A5-Data-Readiness: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
+- OBS-0031 [MEDIUM] baseline / A6-Staging-Deploy-Runbook: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
+- OBS-0032 [MEDIUM] baseline / A7-Final-QA-Gate: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.
