@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-07-20T03:07:04.674Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "nextGate": "CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION",
+  "summary": {
+    "checks": 8,
+    "passed": 8,
+    "failed": 0,
+    "authorityReady": 2,
+    "readonlyReady": 3,
+    "authorityReadyRate": 0.25
+  },
+  "checks": [
+    {
+      "id": "eight_card_contract",
+      "passed": true,
+      "evidence": "cards=8"
+    },
+    {
+      "id": "ar_ap_authority_enabled",
+      "passed": true,
+      "evidence": "arOpen, apOpen"
+    },
+    {
+      "id": "ar_ap_business_source_chanjet",
+      "passed": true,
+      "evidence": "arOpen:CHANJET_AR_STATISTICS_MIRROR, apOpen:CHANJET_AP_STATISTICS_MIRROR"
+    },
+    {
+      "id": "unapproved_cards_fail_closed",
+      "passed": true,
+      "evidence": "cashBalance, todayInflow, todayOutflow, subjectBalance, balanceSheet, incomeStatement"
+    },
+    {
+      "id": "today_cards_use_erp_fallback",
+      "passed": true,
+      "evidence": "todayInflow:ERP_FALLBACK, todayOutflow:ERP_FALLBACK"
+    },
+    {
+      "id": "authority_wiring_verified",
+      "passed": true,
+      "evidence": "authorityWiringVerified=true"
+    },
+    {
+      "id": "next_gate_advanced",
+      "passed": true,
+      "evidence": "nextGate=CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION"
+    },
+    {
+      "id": "external_write_disabled",
+      "passed": true,
+      "evidence": "CHANJET_AUTHORITY_READY_ONLY_FOR_FINANCIAL_CARDS"
+    }
+  ],
+  "cards": [
+    {
+      "cardKey": "arOpen",
+      "readModelKey": "AR_OPEN",
+      "authorityEnabled": true,
+      "source": "CHANJET_AR_STATISTICS_MIRROR",
+      "status": "MISMATCH"
+    },
+    {
+      "cardKey": "apOpen",
+      "readModelKey": "AP_OPEN",
+      "authorityEnabled": true,
+      "source": "CHANJET_AP_STATISTICS_MIRROR",
+      "status": "MISMATCH"
+    },
+    {
+      "cardKey": "cashBalance",
+      "readModelKey": "CASH_BALANCE",
+      "authorityEnabled": false,
+      "source": "ERP_FALLBACK",
+      "status": "BLOCKED_MAPPING"
+    },
+    {
+      "cardKey": "todayInflow",
+      "readModelKey": "TODAY_RECEIPT",
+      "authorityEnabled": false,
+      "source": "ERP_FALLBACK",
+      "status": "NEED_MANUAL_REVIEW"
+    },
+    {
+      "cardKey": "todayOutflow",
+      "readModelKey": "TODAY_PAYMENT",
+      "authorityEnabled": false,
+      "source": "ERP_FALLBACK",
+      "status": "NEED_MANUAL_REVIEW"
+    },
+    {
+      "cardKey": "subjectBalance",
+      "readModelKey": "SUBJECT_BALANCE",
+      "authorityEnabled": false,
+      "source": "ERP_FALLBACK",
+      "status": "READONLY_READY"
+    },
+    {
+      "cardKey": "balanceSheet",
+      "readModelKey": "BALANCE_SHEET",
+      "authorityEnabled": false,
+      "source": "ERP_FALLBACK",
+      "status": "READONLY_READY"
+    },
+    {
+      "cardKey": "incomeStatement",
+      "readModelKey": "INCOME_STATEMENT",
+      "authorityEnabled": false,
+      "source": "ERP_FALLBACK",
+      "status": "READONLY_READY"
+    }
+  ],
+  "guardrails": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "migration": false,
+    "databaseWrite": false
+  }
+}

@@ -80,3 +80,16 @@ Scope:
 ## Conclusion
 
 GO WITH CONDITIONS. The historical evidence-chain defect is repaired in code and covered by regression tests. Final production score, coverage and Gate decision must be taken from the post-deployment authenticated audit, not from the pre-fix 58/D snapshot.
+
+## Post-deployment Gate Progression
+
+The repair has now completed its production lifecycle:
+
+1. Report endpoint parameter repair: 12/12 report targets successful.
+2. Mirror freshness: 46/46 fresh targets, 100%.
+3. Receipt/payment direction: 2/2 locks complete, with no partial lock.
+4. Finance card authority: authenticated production audit 8/8 PASS.
+5. AR/AP primary values use Chanjet readonly authority; six other cards remain fail-closed.
+6. Full CI/CD run `29713655532` deployed commit `c756aa2d4c7ca88091928cc47b97d1dd88d199e9`; production API/Web are healthy.
+
+The current authoritative next Gate is `CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION`. The earlier report-parameter Gate is closed and must not be restored from historical run artifacts.

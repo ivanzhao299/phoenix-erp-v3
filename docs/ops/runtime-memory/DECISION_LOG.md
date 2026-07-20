@@ -1804,3 +1804,14 @@ Decision: counterparty resolution `GO`.
 - Finance authority: AR/AP aggregate evidence may be promoted independently of ERP invoice-detail fields; all report metrics require valid runtime samples.
 - Next Gate: `CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR`.
 - Guardrail: no Chanjet write, delete, modify or voucher push is allowed.
+
+# 2026-07-20 - Advance Chanjet authority Gate after production verification
+
+- Decision: `GO_WITH_CONDITIONS`.
+- Report parameter targets pass 12/12 and mirror freshness is 46/46.
+- Receipt/payment direction locks pass 2/2.
+- Authenticated finance card audit passes 8/8: AR/AP use Chanjet readonly authority; six other cards remain fail-closed.
+- The former `CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING` self-loop is closed.
+- Next Gate: `CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION`.
+- Cumulative provider receipt/payment totals must not become today's values before date/status reconciliation.
+- No Chanjet write/delete/modify, voucher push or ERP business overwrite is allowed.

@@ -1,5 +1,29 @@
 # Next Actions
 
+## 2026-07-20 - Chanjet finance card authority verified
+
+Current stage: `CHANJET_FINANCE_CARD_AUTHORITY_WIRING_VERIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Closed report endpoint parameter debt with 12/12 successful report targets.
+2. Verified 46/46 readonly mirror targets fresh.
+3. Locked receipt/payment direction 2/2 without amount-sign guessing.
+4. Verified AR/AP primary cards use Chanjet readonly authority.
+5. Verified the other six finance cards fail closed and retain ERP fallback.
+6. Passed authenticated production authority audit 8/8 and full deploy run `29713655532`.
+
+Next actions:
+
+1. Execute `CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION`.
+2. Lock provider business date, valid document status, reversal handling and daily aggregation.
+3. Keep today receipt/payment cards on ERP fallback until that Gate passes.
+4. Continue cash-account mapping and statement semantic Gates independently.
+
+Hard boundary: cumulative provider totals are not today's values; Chanjet writes and voucher push remain disabled.
+
 ## 2026-07-20 - Chanjet authenticated evidence repair
 
 Current stage: `CHANJET_AUTHENTICATED_CURRENT_STATE_DEBT_REPAIRED`
