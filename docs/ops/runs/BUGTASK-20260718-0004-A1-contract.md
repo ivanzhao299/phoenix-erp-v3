@@ -1161,20 +1161,18 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-203132/BUG-20260718-0004/attachments/01-1784344473306-143ce004.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": {
-    "category": "API_5XX",
+    "category": "PG_SQL",
     "evidence": [
-      "API 5xx/异常信号"
+      "数据库/PG/SQL 信号"
     ],
     "priority": "P1",
     "severity": "HIGH",
-    "confidence": 0.88,
-    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+    "confidence": 0.92,
+    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
     "autoFixEligible": true,
     "recommendedAgents": [
       "A3-Backend-Critical-Path",
@@ -1185,12 +1183,16 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-18T03:15:05.136Z",
+    "approvedAt": "2026-07-20T01:09:04.118Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 1,
     "forbiddenActions": [
+      "production deploy without separate approval",
       "database write without separate gate",
       "migration execution without separate gate",
+      "push without release approval",
       "force push"
     ]
   }
@@ -1199,4 +1201,4 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-203132/BUG-20260718-0004/attachments/01-1784344473306-143ce004.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.

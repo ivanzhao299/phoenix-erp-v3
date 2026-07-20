@@ -757,11 +757,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-16T01:11:24.855Z",
+    "approvedAt": "2026-07-20T01:12:46.800Z",
     "approvedBy": "admin",
     "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 10,
+    "redispatchCount": 11,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
