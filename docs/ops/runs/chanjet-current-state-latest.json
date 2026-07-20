@@ -1,0 +1,237 @@
+{
+  "generatedAt": "2026-07-20T01:47:19.439Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "authoritativeEvidence": "RUNTIME_CURRENT_STATE",
+  "productionReadiness": {
+    "generatedAt": "2026-07-20T01:47:19.439Z",
+    "decision": "GO_WITH_CONDITIONS",
+    "score": 58,
+    "grade": "D",
+    "summary": {
+      "mirrorFreshRate": 100,
+      "accountBookMappingRate": 100,
+      "masterDataApprovedRate": 14,
+      "semanticCoverageRate": 100,
+      "authorityReadyRate": 0,
+      "recentJobSuccessRate": 100,
+      "exactSystemApprovalCandidates": 51,
+      "manualMappingCandidates": 0,
+      "nextGate": "CHANJET_SYSTEM_CONFIRM_EXACT_MAPPINGS"
+    },
+    "phases": [
+      {
+        "key": "P0",
+        "title": "全量只读镜像",
+        "score": 100,
+        "status": "READY",
+        "evidence": [
+          "24h 新鲜目标 46/46",
+          "缺失 0，过期 0"
+        ],
+        "nextAction": "CHANJET_COUNTERPARTY_MAPPING_CANDIDATE_REVIEW"
+      },
+      {
+        "key": "P1",
+        "title": "账套与主数据映射",
+        "score": 57,
+        "status": "READY_WITH_CONDITIONS",
+        "evidence": [
+          "账套映射 100%",
+          "主数据批准覆盖 14%",
+          "可系统确认精确候选 51"
+        ],
+        "nextAction": "CHANJET_SYSTEM_CONFIRM_EXACT_MAPPINGS"
+      },
+      {
+        "key": "P2",
+        "title": "标准只读模型",
+        "score": 50,
+        "status": "READY_WITH_CONDITIONS",
+        "evidence": [
+          "字段语义覆盖 100%",
+          "read model 可用 0%"
+        ],
+        "nextAction": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK"
+      },
+      {
+        "key": "P3",
+        "title": "财务卡片权威口径",
+        "score": 0,
+        "status": "READY_WITH_CONDITIONS",
+        "evidence": [
+          "权威卡片 0/8",
+          "未达权威条件时保持 ERP 主值并显式展示差异"
+        ],
+        "nextAction": "CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA"
+      },
+      {
+        "key": "P4",
+        "title": "差异对账中心",
+        "score": 0,
+        "status": "READY_WITH_CONDITIONS",
+        "evidence": [
+          "安全对账 0/10",
+          "不一致 3，待映射 4"
+        ],
+        "nextAction": "CHANJET_P3_FIELD_SEMANTIC_LOCK"
+      },
+      {
+        "key": "P5",
+        "title": "生产同步韧性",
+        "score": 100,
+        "status": "READY",
+        "evidence": [
+          "最近镜像作业成功率 100%",
+          "Token 健康 READY",
+          "失败最多重试 3 次且仍失败转 HOLD/告警"
+        ],
+        "nextAction": "KEEP_SCHEDULED_READONLY_SYNC"
+      },
+      {
+        "key": "P6",
+        "title": "管理员融合边界",
+        "score": 100,
+        "status": "READY",
+        "evidence": [
+          "中间层控制台受 MENU_SETTINGS_CHANJET 门禁保护",
+          "普通业务用户只消费经过权威门禁的业务视图"
+        ],
+        "nextAction": "KEEP_MIDDLE_LAYER_ADMIN_ONLY"
+      }
+    ],
+    "blockers": [],
+    "conditions": [
+      "财务卡片权威覆盖 0%，未就绪卡片继续使用 ERP 主值"
+    ],
+    "tokenHealth": {
+      "configured": true,
+      "appKeyConfigured": true,
+      "orgId": "1242385451899027",
+      "hasAppTicket": true,
+      "hasCert": true,
+      "tokens": {
+        "1242385451899027": {
+          "expiresAt": "2026-07-23T04:00:00.872Z",
+          "valid": true
+        }
+      }
+    },
+    "guardrails": {
+      "chanjetWrite": false,
+      "chanjetDelete": false,
+      "chanjetModify": false,
+      "voucherPush": false,
+      "erpBusinessOverwrite": false,
+      "ordinaryUserVisible": false,
+      "exactMappingSystemConfirmation": "code+name+company+active only",
+      "rule": "好业财只读镜像是财务权威候选；只有通过字段语义、映射、时效和卡片权威 Gate 后才可作为主值，所有差异必须显式保留。"
+    }
+  },
+  "implementationOrder": [
+    {
+      "phase": "P0",
+      "title": "全量只读镜像基线",
+      "status": "READY",
+      "score": 100,
+      "evidence": [
+        "24h 新鲜目标 46/46",
+        "缺失 0，过期 0"
+      ],
+      "nextAction": "CHANJET_COUNTERPARTY_MAPPING_CANDIDATE_REVIEW"
+    },
+    {
+      "phase": "P1",
+      "title": "财务 Read Model 与卡片权威",
+      "status": "READY_WITH_CONDITIONS",
+      "score": 0,
+      "evidence": [
+        "权威主卡片 0/8",
+        "只读可用 0/8",
+        "P0 read model 阻断 8"
+      ],
+      "nextAction": "CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA"
+    },
+    {
+      "phase": "P2",
+      "title": "公司/往来/科目/项目/资金账户映射",
+      "status": "READY_WITH_CONDITIONS",
+      "score": 14,
+      "evidence": [
+        "映射域 READY 1/7",
+        "待复核域 6",
+        "冲突域 0"
+      ],
+      "nextAction": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW"
+    },
+    {
+      "phase": "P3",
+      "title": "普通业务页面无感融合",
+      "status": "READY_WITH_CONDITIONS",
+      "score": 0,
+      "evidence": [
+        "管理员中间层继续受 MENU_SETTINGS_CHANJET 门禁保护",
+        "普通用户只消费财务业务接口中的 authority/fallback/diff 合同",
+        "已具备来源合同的卡片 0/8"
+      ],
+      "nextAction": "KEEP_ADMIN_MIDDLE_LAYER_HIDDEN_AND_PROMOTE_SAFE_READ_MODELS"
+    },
+    {
+      "phase": "P4",
+      "title": "增量同步、SLO、漂移与失败告警",
+      "status": "READY",
+      "score": 100,
+      "evidence": [
+        "最近镜像作业成功率 100%",
+        "Token 健康 READY",
+        "失败最多重试 3 次且仍失败转 HOLD/告警"
+      ],
+      "nextAction": "KEEP_SCHEDULED_READONLY_SYNC"
+    },
+    {
+      "phase": "P5",
+      "title": "凭证写回准备（外部写入关闭）",
+      "status": "READY_WITH_CONDITIONS",
+      "score": 90,
+      "evidence": [
+        "凭证草稿 0",
+        "PUSH_READY 候选 0",
+        "错误开启 push_allowed 0",
+        "复式记账校验、状态机和幂等候选已在 ERP 中间层执行；好业财写接口仍不存在"
+      ],
+      "nextAction": "KEEP_CHANJET_WRITE_HOLD_UNTIL_SEPARATE_APPROVAL"
+    }
+  ],
+  "summary": {
+    "mirrorFreshRate": 100,
+    "financeAuthorityReady": 0,
+    "financeReadonlyReady": 0,
+    "financeCards": 8,
+    "mappingReadyDomains": 1,
+    "mappingDomains": 7,
+    "reconciliationOpen": 10,
+    "recentJobSuccessRate": 100,
+    "voucherDrafts": 0,
+    "voucherPushReadyCandidates": 0,
+    "fieldMappings": 1731,
+    "unmappedFields": 0,
+    "externalWriteEnabled": false,
+    "nextGate": "CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA"
+  },
+  "blockers": [],
+  "conditions": [
+    "财务卡片权威覆盖 0%，未就绪卡片继续使用 ERP 主值",
+    "差异中心仍有 10 个非 OK/WARN 项",
+    "P0 财务 read model 仍有 8 个阻断项"
+  ],
+  "staleEvidencePolicy": "docs/ops/runs 中带 latest 的历史文件只作为当时审计快照；当前判断必须读取本端点 generatedAt 对应的实时数据库证据。",
+  "guardrails": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "ordinaryUserMiddleLayerVisible": false,
+    "migration": false,
+    "rule": "严格按 P0→P5 顺序推进；前序 HOLD 时后序只能生成只读证据，不得自动升权或写回。"
+  }
+}

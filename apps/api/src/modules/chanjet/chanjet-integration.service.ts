@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
-import { ChanjetAuthService } from './chanjet-auth.service';
+import { ChanjetAuthService, getChanjetBusinessFailure } from './chanjet-auth.service';
 import { ChanjetAccountBookEntity } from './chanjet-account-book.entity';
 import { ChanjetApiFieldCatalogEntity } from './chanjet-api-field-catalog.entity';
 import { ChanjetBookCompanyMapEntity } from './chanjet-book-company-map.entity';
@@ -1361,6 +1361,8 @@ export class ChanjetIntegrationService {
       this.jobRepo.find({ where: { jobType: 'SNAPSHOT' }, order: { createdAt: 'DESC' }, take: 500 }),
       this.accountBookMappingGate(),
     ]);
+    const validSnapshots = snapshots.filter((snapshot) => !getChanjetBusinessFailure(snapshot.rawPayload));
+    const validEntities = entities.filter((entity) => !getChanjetBusinessFailure(entity.rawData));
     const now = Date.now();
     const endpoints = PROBE_ENDPOINTS.filter((endpoint) => endpoint.mirrorDefault);
     const scopes: ChanjetMirrorBaselineReadiness['scopes'] = [];
@@ -1369,18 +1371,12 @@ export class ChanjetIntegrationService {
       const targets = endpoint.requiresBook ? books.map((book) => book.bookId) : [''];
       if (endpoint.requiresBook && targets.length === 0) targets.push('');
       for (const targetBookId of targets) {
-        const snapshot = snapshots.find((item) => item.endpointKey === endpoint.key && item.bookId === targetBookId);
+        const snapshot = validSnapshots.find((item) => item.endpointKey === endpoint.key && item.bookId === targetBookId);
         const latestJob = jobs.find((job) => {
           const scope = job.requestScope || {};
           return String(scope.key || '') === endpoint.key && job.bookId === targetBookId;
         });
-        const latestSuccessfulJob = jobs.find((job) => {
-          const scope = job.requestScope || {};
-          return job.status === 'SUCCESS'
-            && String(scope.key || '') === endpoint.key
-            && job.bookId === targetBookId;
-        });
-        const evidenceDates = [snapshot?.pulledAt, latestSuccessfulJob?.updatedAt]
+        const evidenceDates = [snapshot?.pulledAt]
           .filter((value): value is Date => value instanceof Date);
         const latestEvidenceAt = evidenceDates.length
           ? new Date(Math.max(...evidenceDates.map((value) => value.getTime())))
@@ -1388,8 +1384,10 @@ export class ChanjetIntegrationService {
         const ageHours = latestEvidenceAt
           ? Math.max(0, (now - latestEvidenceAt.getTime()) / 3_600_000)
           : null;
-        const status: ChanjetBaselineStatus = !snapshot && !latestSuccessfulJob
+        const status: ChanjetBaselineStatus = !snapshot
           ? 'MISSING'
+          : latestJob?.status === 'FAIL'
+            ? 'STALE'
           : ageHours !== null && ageHours <= safeFreshnessHours
             ? 'FRESH'
             : 'STALE';
@@ -1400,7 +1398,7 @@ export class ChanjetIntegrationService {
           entityType: endpoint.entityType || endpoint.key,
           status,
           rowCount: snapshot?.rowCount || 0,
-          entityCount: entities.filter((item) => (
+          entityCount: validEntities.filter((item) => (
             item.endpointKey === endpoint.key && item.bookId === targetBookId
           )).length,
           latestPulledAt: latestEvidenceAt?.toISOString() || null,
@@ -1415,6 +1413,8 @@ export class ChanjetIntegrationService {
     const staleTargets = scopes.filter((scope) => scope.status === 'STALE').length;
     const missingTargets = scopes.filter((scope) => scope.status === 'MISSING').length;
     const failedRecentJobs = scopes.filter((scope) => scope.latestJobStatus === 'FAIL').length;
+    const reportEndpointKeys = new Set(['GL_BALANCE', 'BALANCE_SHEET', 'INCOME_STATEMENT', 'CASH_FLOW']);
+    const missingReportTargets = scopes.filter((scope) => scope.status === 'MISSING' && reportEndpointKeys.has(scope.endpointKey)).length;
     const decision = accountBookGate.decision === 'HOLD' || missingTargets > 0
       ? 'HOLD'
       : staleTargets > 0 || failedRecentJobs > 0
@@ -1432,8 +1432,10 @@ export class ChanjetIntegrationService {
         missingTargets,
         failedRecentJobs,
         endpointCoverageRate: scopes.length ? Number((((scopes.length - missingTargets) / scopes.length) * 100).toFixed(2)) : 0,
-        nextGate: decision === 'HOLD'
-          ? 'CHANJET_MIRROR_BASELINE_REPAIR'
+        nextGate: missingReportTargets > 0
+          ? 'CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR'
+          : decision === 'HOLD'
+            ? 'CHANJET_MIRROR_BASELINE_REPAIR'
           : 'CHANJET_COUNTERPARTY_MAPPING_CANDIDATE_REVIEW',
       },
       accountBookGate,
@@ -2083,11 +2085,12 @@ export class ChanjetIntegrationService {
     lock: CashBalanceFieldLock;
     guardrails: Record<string, boolean | string>;
   }> {
-    const rows = await this.entitySnapshotRepo.find({
+    const storedRows = await this.entitySnapshotRepo.find({
       where: { entityType: In(['CASH_ACCOUNT', 'GL_BALANCE']) },
       order: { updatedAt: 'DESC' },
       take: 80,
     });
+    const rows = storedRows.filter((row) => !getChanjetBusinessFailure(row.rawData));
     const aggregate = await this.chanjetEntityAggregate(['CASH_ACCOUNT', 'GL_BALANCE']);
     const flattened = rows.flatMap((row) => this.flattenSemanticValues(row.rawData || {}, '$'));
     const latestPulledAt = rows.reduce<string | null>(
@@ -2189,6 +2192,10 @@ export class ChanjetIntegrationService {
     }, {} as Record<FinanceReadModelStatus, number>);
     const p0Blocked = metrics.filter((item) => item.priority === 'P0' && !['AUTHORITY_READY', 'READONLY_READY'].includes(item.status)).length;
     const hold = statusCounts.HOLD || 0;
+    const reportEndpointRepairRequired = metrics.some((item) => (
+      ['SUBJECT_BALANCE', 'BALANCE_SHEET', 'INCOME_STATEMENT'].includes(item.key)
+      && item.status === 'WAITING_SAMPLE'
+    ));
     return {
       generatedAt: new Date().toISOString(),
       decision: hold > 0 ? 'HOLD' : p0Blocked > 0 ? 'GO_WITH_CONDITIONS' : 'GO',
@@ -2201,7 +2208,9 @@ export class ChanjetIntegrationService {
         needManualReview: statusCounts.NEED_MANUAL_REVIEW || 0,
         hold,
         p0Blocked,
-        nextGate: 'CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK',
+        nextGate: reportEndpointRepairRequired
+          ? 'CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR'
+          : 'CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK',
       },
       metrics,
       guardrails: {
@@ -2265,11 +2274,12 @@ export class ChanjetIntegrationService {
 
     const reports = await Promise.all(definitions.map(async (definition) => {
       const metric = metricByKey.get(definition.reportKey);
-      const rows = await this.entitySnapshotRepo.find({
+      const storedRows = await this.entitySnapshotRepo.find({
         where: { entityType: definition.entityType },
         order: { updatedAt: 'DESC' },
         take: 100,
       });
+      const rows = storedRows.filter((row) => !getChanjetBusinessFailure(row.rawData));
       const latestPulledAt = rows.reduce<string | null>(
         (latest, row) => this.maxIso(latest, row.updatedAt ? String(row.updatedAt) : null),
         metric?.latestPulledAt || null,
@@ -2471,7 +2481,7 @@ export class ChanjetIntegrationService {
         readonlyReady: cards.filter((card) => card.status === 'READONLY_READY').length,
         blocked: cards.filter((card) => !card.authorityEnabled && card.status !== 'READONLY_READY').length,
         hold,
-        nextGate: 'CHANJET_P3_FINANCE_CARD_DIFF_VISUAL_QA',
+        nextGate: readModel.summary.nextGate,
       },
       cards,
       guardrails: {
@@ -2923,7 +2933,7 @@ export class ChanjetIntegrationService {
       },
     };
     const confirmations = review.reviewItems.map((item) => {
-      const rule = confirmationRules[item.readModelKey] || {
+      const configuredRule = confirmationRules[item.readModelKey] || {
         confirmationStatus: 'SYSTEM_BLOCKED_FROM_AUTHORITY' as const,
         approvedPrimarySource: 'ERP' as const,
         erpSemanticDefinition: '未定义 ERP 语义。',
@@ -2936,8 +2946,29 @@ export class ChanjetIntegrationService {
         readonlyAllowed: false,
         nextAction: '补充系统语义定义。',
       };
+      const authorityEvidenceReady = item.currentStatus === 'AUTHORITY_READY';
+      const readonlyEvidenceReady = ['AUTHORITY_READY', 'READONLY_READY'].includes(item.currentStatus);
+      const evidenceReady = configuredRule.confirmationStatus === 'SYSTEM_CONFIRMED_AUTHORITY'
+        ? authorityEvidenceReady
+        : configuredRule.confirmationStatus === 'SYSTEM_CONFIRMED_READONLY'
+          ? readonlyEvidenceReady
+          : true;
+      const rule = evidenceReady
+        ? configuredRule
+        : {
+            ...configuredRule,
+            confirmationStatus: 'SYSTEM_BLOCKED_FROM_AUTHORITY' as const,
+            approvedPrimarySource: 'ERP' as const,
+            authorityAllowed: false,
+            readonlyAllowed: false,
+            displayRule: '运行态有效样本或必需字段未就绪，保持 ERP 主值并禁止只读报表升权。',
+            nextAction: item.currentStatus === 'WAITING_SAMPLE'
+              ? '修复好业财报表接口参数并重新执行只读镜像。'
+              : item.recommendedAction,
+          };
       const blockers = [
         ...item.blockers,
+        ...(!evidenceReady ? [`runtime_evidence_not_ready:${item.currentStatus}`] : []),
         ...(rule.authorityAllowed ? [] : ['primary_authority_not_allowed_by_system_confirmation']),
       ];
       return {
@@ -3496,29 +3527,10 @@ export class ChanjetIntegrationService {
 
   async financeReadonlyCoverage() {
     const expectedEndpoints = PROBE_ENDPOINTS.filter((ep) => ep.mirrorDefault);
-    const [rawRows, entityRows, fieldRows, recentJobs, books] = await Promise.all([
-      this.readSnapshotRepo
-        .createQueryBuilder('s')
-        .select('s.endpointKey', 'endpointKey')
-        .addSelect('COUNT(*)', 'snapshotCount')
-        .addSelect('COALESCE(SUM(s.rowCount),0)', 'rowCount')
-        .addSelect('MAX(s.pulledAt)', 'latestPulledAt')
-        .groupBy('s.endpointKey')
-        .getRawMany(),
-      this.entitySnapshotRepo
-        .createQueryBuilder('s')
-        .select('s.entityType', 'entityType')
-        .addSelect('COUNT(*)', 'entityCount')
-        .addSelect('COALESCE(SUM(s.amount),0)', 'amountSum')
-        .addSelect('MAX(s.updatedAt)', 'latestUpdatedAt')
-        .groupBy('s.entityType')
-        .getRawMany(),
-      this.fieldMappingRepo
-        .createQueryBuilder('m')
-        .select('m.matchStatus', 'matchStatus')
-        .addSelect('COUNT(*)', 'count')
-        .groupBy('m.matchStatus')
-        .getRawMany(),
+    const [storedRawRows, storedEntityRows, fieldMappings, recentJobs, books] = await Promise.all([
+      this.readSnapshotRepo.find({ order: { pulledAt: 'DESC' }, take: 5000 }),
+      this.entitySnapshotRepo.find({ order: { updatedAt: 'DESC' }, take: 10000 }),
+      this.fieldMappingRepo.find({ take: 10000 }),
       this.jobRepo.find({
         where: { jobType: 'SNAPSHOT' },
         order: { createdAt: 'DESC' },
@@ -3526,6 +3538,33 @@ export class ChanjetIntegrationService {
       }),
       this.listAccountBooks(),
     ]);
+    const validRawRows = storedRawRows.filter((row) => !getChanjetBusinessFailure(row.rawPayload));
+    const validEntityRows = storedEntityRows.filter((row) => !getChanjetBusinessFailure(row.rawData));
+    const rawRows = expectedEndpoints.map((endpoint) => {
+      const rows = validRawRows.filter((row) => row.endpointKey === endpoint.key);
+      return {
+        endpointKey: endpoint.key,
+        snapshotCount: rows.length,
+        rowCount: rows.reduce((sum, row) => sum + Number(row.rowCount || 0), 0),
+        latestPulledAt: rows.reduce<string | null>(
+          (latest, row) => this.maxIso(latest, row.pulledAt ? row.pulledAt.toISOString() : null),
+          null,
+        ),
+      };
+    });
+    const entityTypes = [...new Set(expectedEndpoints.map((endpoint) => endpoint.entityType).filter(Boolean))] as string[];
+    const entityRows = entityTypes.map((entityType) => {
+      const rows = validEntityRows.filter((row) => row.entityType === entityType);
+      return {
+        entityType,
+        entityCount: rows.length,
+        amountSum: rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+        latestUpdatedAt: rows.reduce<string | null>(
+          (latest, row) => this.maxIso(latest, row.updatedAt ? row.updatedAt.toISOString() : null),
+          null,
+        ),
+      };
+    });
 
     const rawByEndpoint = new Map(rawRows.map((row: any) => [String(row.endpointKey), row]));
     const entityByType = new Map(entityRows.map((row: any) => [String(row.entityType), row]));
@@ -3557,8 +3596,17 @@ export class ChanjetIntegrationService {
       };
     });
 
-    const fieldStatusCounts = fieldRows.reduce<Record<string, number>>((acc, row: any) => {
-      acc[String(row.matchStatus || 'UNKNOWN')] = Number(row.count || 0);
+    const coveredEndpointKeys = new Set(endpointCoverage.filter((item) => item.covered).map((item) => item.key));
+    const validBusinessFieldMappings = fieldMappings.filter((mapping) => {
+      if (mapping.erpDomain === 'api_metadata') return false;
+      const endpoint = expectedEndpoints.find((item) => {
+        const prefix = item.path.split('{bookid}')[0];
+        return mapping.chanjetEndpoint === item.path || mapping.chanjetEndpoint.startsWith(prefix);
+      });
+      return Boolean(endpoint && coveredEndpointKeys.has(endpoint.key));
+    });
+    const fieldStatusCounts = validBusinessFieldMappings.reduce<Record<string, number>>((acc, row) => {
+      acc[String(row.matchStatus || 'UNKNOWN')] = (acc[String(row.matchStatus || 'UNKNOWN')] || 0) + 1;
       return acc;
     }, {});
     const totalFieldMappings = Object.values(fieldStatusCounts).reduce((sum, count) => sum + count, 0);
@@ -3680,7 +3728,9 @@ export class ChanjetIntegrationService {
       relevantJobs.filter((job) => job.status === 'SUCCESS').length,
       relevantJobs.length,
     ) * 100);
-    const exactSystemApprovalCandidates = counterparties.candidates.filter((candidate) => candidate.systemApprovalEligible).length;
+    const exactSystemApprovalCandidates = counterparties.candidates.filter((candidate) => (
+      candidate.systemApprovalEligible && candidate.requiresApproval
+    )).length;
     const manualMappingCandidates = counterparties.candidates.filter((candidate) => candidate.requiresApproval).length;
     const readModelReadyRate = percent(ratio(
       readModel.summary.authorityReady + readModel.summary.readonlyReady,
@@ -4118,20 +4168,22 @@ export class ChanjetIntegrationService {
     error?: string;
   }> {
     try {
-      const rows = await this.entitySnapshotRepo
-        .createQueryBuilder('s')
-        .select('COALESCE(SUM(CAST(s.amount AS numeric)),0)', 'value')
-        .addSelect('COUNT(*)', 'rows')
-        .addSelect('MAX(s.updatedAt)', 'latestPulledAt')
-        .where('s.entityType IN (:...entityTypes)', { entityTypes })
-        .getRawMany();
-      const row = rows[0] || {};
-      const count = Number(row.rows || 0);
+      const storedRows = await this.entitySnapshotRepo.find({
+        where: { entityType: In(entityTypes) },
+        order: { updatedAt: 'DESC' },
+        take: 10000,
+      });
+      const rows = storedRows.filter((row) => !getChanjetBusinessFailure(row.rawData));
+      const count = rows.length;
+      const latestPulledAt = rows.reduce<string | null>(
+        (latest, row) => this.maxIso(latest, row.updatedAt ? row.updatedAt.toISOString() : null),
+        null,
+      );
       return {
         available: count > 0,
-        value: Number(row.value || 0),
+        value: rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
         rows: count,
-        latestPulledAt: row.latestPulledAt ? String(row.latestPulledAt) : null,
+        latestPulledAt,
       };
     } catch (error) {
       this.log.warn(`Chanjet entity aggregate unavailable for ${entityTypes.join(',')}: ${(error as Error).message}`);
@@ -4242,13 +4294,26 @@ export class ChanjetIntegrationService {
       || item.status === 'NEED_MAPPING'
       || cashAmountSumZeroPlaceholder;
     const hold = item.status === 'HOLD' || extractor?.status === 'HOLD';
-    const authorityReady = Boolean(
-      extractor?.authorityEligible
+    // AR/AP 是好业财往来单位级汇总口径，不要求 ERP 发票级 aging/invoice 字段。
+    // 有有效镜像金额且基础查询未 HOLD 时，可以作为汇总卡片权威值；ERP 单据只保留为差异明细。
+    const aggregateAuthorityReady = Boolean(
+      ['AR_OPEN', 'AP_OPEN'].includes(item.key)
       && item.semanticLock.authorityEligible
       && hasMirrorValue
+      && item.evidence.chanjetRows > 0
       && !needManualReview
-      && !blockedMapping
       && !hold,
+    );
+    const authorityReady = Boolean(
+      aggregateAuthorityReady
+      || (
+        extractor?.authorityEligible
+        && item.semanticLock.authorityEligible
+        && hasMirrorValue
+        && !needManualReview
+        && !blockedMapping
+        && !hold
+      ),
     );
     const readonlyReady = Boolean(
       extractor?.status === 'READY'
@@ -4778,11 +4843,12 @@ export class ChanjetIntegrationService {
     label: string,
     entityType: 'AR_RECEIPT' | 'AP_PAYMENT',
   ): Promise<ReceiptPaymentDateStatusLock> {
-    const rows = await this.entitySnapshotRepo.find({
+    const storedRows = await this.entitySnapshotRepo.find({
       where: { entityType },
       order: { updatedAt: 'DESC' },
       take: 80,
     });
+    const rows = storedRows.filter((row) => !getChanjetBusinessFailure(row.rawData));
     const requiredDimensions = ['business_date', 'posted_date', 'approved_status', 'void_status', 'direction', 'amount'];
     const flattened = rows.flatMap((row) => this.flattenSemanticValues(row.rawData || {}, '$'));
     const latestPulledAt = rows.reduce<string | null>((latest, row) => this.maxIso(latest, row.updatedAt ? String(row.updatedAt) : null), null);
@@ -4861,11 +4927,12 @@ export class ChanjetIntegrationService {
   }
 
   private async buildFinanceSemanticExtractor(lock: FinanceSemanticLock): Promise<FinanceSemanticExtractor> {
-    const rows = await this.entitySnapshotRepo.find({
+    const storedRows = await this.entitySnapshotRepo.find({
       where: { entityType: In(lock.chanjetEntityTypes.length ? lock.chanjetEntityTypes : ['__none__']) },
       order: { updatedAt: 'DESC' },
       take: 50,
     });
+    const rows = storedRows.filter((row) => !getChanjetBusinessFailure(row.rawData));
     const flattened = rows.flatMap((row) => this.flattenSemanticValues(row.rawData || {}, '$'));
     const latestPulledAt = rows.reduce<string | null>((latest, row) => this.maxIso(latest, row.updatedAt ? String(row.updatedAt) : null), null);
     const fields = lock.pendingFields.length ? lock.pendingFields : lock.lockedFields;
@@ -4942,14 +5009,19 @@ export class ChanjetIntegrationService {
     flattened: Array<{ path: string; sampleType: SampleType; sampleValue: string | null; observedCount: number }>,
   ): Array<{ path: string; sampleType: SampleType; sampleValue: string | null; observedCount: number }> {
     const keywords = this.semanticFieldKeywords(semanticField);
+    const numericSemantic = /(amount|money|balance|opening|closing|ending|debit|credit|tax|current_period|year_to_date|line_no)/i.test(semanticField);
+    const metadataPath = /(?:^|\.)(?:requestid|request_id|msg|message|success|error|code)$/i;
     const scored = flattened
       .filter((item) => !['object', 'array', 'null'].includes(item.sampleType))
+      .filter((item) => !metadataPath.test(item.path))
+      .filter((item) => !numericSemantic
+        || item.sampleType === 'number'
+        || /^-?\d+(?:\.\d+)?$/.test(String(item.sampleValue || '').trim()))
       .map((item) => {
         const path = item.path.toLowerCase();
-        const sample = `${item.sampleValue || ''}`.toLowerCase();
         const score = keywords.reduce((sum, keyword) => {
           const k = keyword.toLowerCase();
-          return sum + (path.includes(k) ? 3 : 0) + (sample.includes(k) ? 1 : 0);
+          return sum + (path.includes(k) ? 3 : 0);
         }, 0);
         return { ...item, score };
       })
@@ -5625,7 +5697,8 @@ export class ChanjetIntegrationService {
         status: String(row.status || ''),
       })),
     ];
-    const generatedCandidates = snapshots.flatMap((snapshot) => {
+    const validSnapshots = snapshots.filter((snapshot) => !getChanjetBusinessFailure(snapshot.rawData));
+    const generatedCandidates = validSnapshots.flatMap((snapshot) => {
       const role = this.detectCounterpartyRole(snapshot.rawData || {});
       const mappingTypes = this.counterpartyMappingTypes(role);
       if (!mappingTypes.length) {
@@ -5656,7 +5729,7 @@ export class ChanjetIntegrationService {
           erpCode: approvedByExternal.erpCode,
           erpName: approvedByExternal.erpName,
           sourceIdentityEligible: approvedIsSourceIdentity,
-          systemApprovalEligible: !approvedIsSourceIdentity && candidate.systemApprovalEligible,
+          systemApprovalEligible: false,
           requiresApproval: false,
           canAutoApprove: true,
           evidence: [
@@ -5715,7 +5788,7 @@ export class ChanjetIntegrationService {
       generatedAt: new Date().toISOString(),
       decision,
       summary: {
-        sourceRows: snapshots.length,
+        sourceRows: validSnapshots.length,
         candidates: candidates.length,
         matched,
         sourceOnly,
@@ -6097,6 +6170,10 @@ export class ChanjetIntegrationService {
     period: string,
     payload: unknown,
   ): Promise<ChanjetReadSnapshotEntity> {
+    const failure = getChanjetBusinessFailure(payload);
+    if (failure) {
+      throw new Error(`拒绝持久化好业财失败响应 code=${failure.code} requestId=${failure.requestId || '-'} msg=${failure.message}`);
+    }
     const normalizedPayload = this.isRecord(payload) ? payload : { value: payload };
     const rows = this.extractRows(payload);
     const payloadHash = crypto
@@ -6124,6 +6201,10 @@ export class ChanjetIntegrationService {
   }
 
   private async recordEntitySnapshots(ep: ProbeEndpoint, bookId: string, period: string, payload: unknown): Promise<number> {
+    const failure = getChanjetBusinessFailure(payload);
+    if (failure) {
+      throw new Error(`拒绝生成好业财实体快照 code=${failure.code} requestId=${failure.requestId || '-'} msg=${failure.message}`);
+    }
     const entityType = ep.entityType || ep.key;
     const rows = this.extractRows(payload).slice(0, 5000);
     if (this.isAggregateStatisticsEndpoint(ep.key, entityType)) {
@@ -6525,6 +6606,7 @@ export class ChanjetIntegrationService {
   private extractRows(resp: unknown): Record<string, unknown>[] {
     if (Array.isArray(resp)) return resp.filter(this.isRecord);
     if (!this.isRecord(resp)) return [];
+    if (getChanjetBusinessFailure(resp)) return [];
     const candidates = [
       resp.value,
       resp.result,

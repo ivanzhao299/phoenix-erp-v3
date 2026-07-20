@@ -1,5 +1,30 @@
 # Next Actions
 
+## 2026-07-20 - Chanjet authenticated evidence repair
+
+Current stage: `CHANJET_AUTHENTICATED_CURRENT_STATE_DEBT_REPAIRED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Confirmed production deployment baseline `771026e8` and API health.
+2. Ran an authenticated production current-state audit.
+3. Identified that HTTP-200 business failure envelopes were being counted as valid mirror rows.
+4. Added fail-closed business response handling and invalid-snapshot filtering.
+5. Removed response metadata from financial semantic matching.
+6. Fixed false pending exact-mapping counts and runtime-evidence promotion rules.
+7. Added focused regression tests; 32/32 tests and API typecheck pass.
+
+Next actions:
+
+1. Deploy the evidence repair and rerun the authenticated production audit.
+2. Execute `CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR` for GL balance, balance sheet, income statement and cash-flow reads.
+3. Promote only valid runtime evidence to finance card authority.
+4. Keep Chanjet write, delete, modify and voucher push disabled.
+
+Hard boundary: never treat a success transport status as business success without validating the Chanjet response envelope.
+
 ## 2026-07-14 — Chanjet Continuous Readonly Alignment
 
 Current stage: `CHANJET_CONTINUOUS_READONLY_ALIGNMENT_IMPLEMENTED`

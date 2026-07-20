@@ -3,6 +3,58 @@ import { ChanjetIntegrationService } from './chanjet-integration.service';
 describe('ChanjetIntegrationService field-gap helpers', () => {
   const service = Object.create(ChanjetIntegrationService.prototype) as any;
 
+  it('never extracts a Chanjet business failure envelope as an entity row', () => {
+    expect(service.extractRows({
+      success: false,
+      code: 'saas.app.e0001',
+      msg: '系统错误',
+      data: null,
+      requestId: 'REQ-FAILED',
+    })).toEqual([]);
+  });
+
+  it('does not infer financial amount fields from response metadata', () => {
+    const candidates = service.matchSemanticFieldCandidates('ending_amount', [
+      { path: '$.requestId', sampleType: 'string', sampleValue: '20260720-999', observedCount: 1 },
+      { path: '$.msg', sampleType: 'string', sampleValue: 'total amount error', observedCount: 1 },
+      { path: '$.data.endingAmount', sampleType: 'number', sampleValue: '88.5', observedCount: 1 },
+    ]);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].path).toBe('$.data.endingAmount');
+  });
+
+  it('promotes valid aggregate AR evidence without requiring invoice-level fields', () => {
+    const metric = service.buildFinanceReadModelMetric({
+      key: 'AR_OPEN',
+      label: '应收待收',
+      priority: 'P0',
+      chanjetValue: 100,
+      erpValue: 80,
+      diff: 20,
+      status: 'MISMATCH',
+      evidence: { chanjetRows: 3, latestPulledAt: '2026-07-20T00:00:00.000Z', erpRows: 2 },
+      chanjetEntityTypes: ['AR_STATISTICS'],
+      semanticLock: {
+        authorityEligible: true,
+        pendingFields: ['aging_bucket', 'invoice_level_fields'],
+      },
+      reason: 'aggregate evidence',
+      recommendedAction: 'keep diff visible',
+    }, {
+      status: 'PARTIAL',
+      authorityEligible: false,
+      sampleRows: 3,
+      latestPulledAt: '2026-07-20T00:00:00.000Z',
+      fieldCandidates: [],
+      missingRequiredFields: ['aging_bucket', 'invoice_level_fields'],
+    });
+
+    expect(metric.status).toBe('AUTHORITY_READY');
+    expect(metric.displayValue).toBe(100);
+    expect(metric.erpAuxiliaryValue).toBe(80);
+  });
+
   it('treats root Chanjet response envelope fields as API metadata', () => {
     const suggestion = service.suggestErpFieldMapping({
       apiDomain: 'report',

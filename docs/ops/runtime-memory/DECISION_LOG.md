@@ -1796,3 +1796,11 @@ Decision: counterparty resolution `GO`.
 - `PUSH_READY` is an ERP internal candidate state. `push_allowed` remains false and no Chanjet write endpoint is enabled.
 - Voucher candidates must pass double-entry validation and source-business idempotency before review.
 - No Chanjet write/delete/modify, migration, push or deployment was performed in this package.
+# 2026-07-20 - Reject Chanjet HTTP-200 business failures as evidence
+
+- Decision: all Chanjet business-failure envelopes are failures even when the HTTP status is 200.
+- Reason: report endpoints returned invalid-parameter/system-error envelopes that were persisted as rows and created false 46/46 readiness.
+- Consequence: invalid historical snapshots are filtered from freshness, coverage, aggregation and semantic matching; new failed responses are not persisted as financial rows.
+- Finance authority: AR/AP aggregate evidence may be promoted independently of ERP invoice-detail fields; all report metrics require valid runtime samples.
+- Next Gate: `CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR`.
+- Guardrail: no Chanjet write, delete, modify or voucher push is allowed.

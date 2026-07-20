@@ -14,6 +14,38 @@ interface TokenEntry {
 
 const SINGLETON_KEY = 'singleton';
 
+export interface ChanjetBusinessFailure {
+  code: string;
+  message: string;
+  requestId: string;
+}
+
+/**
+ * 好业财部分接口会在 HTTP 200 中返回业务失败信封。调用方必须把这类响应当失败，
+ * 否则 error envelope 会被错误写成财务实体快照并污染覆盖率和聚合口径。
+ */
+export function getChanjetBusinessFailure(payload: unknown): ChanjetBusinessFailure | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const row = payload as Record<string, unknown>;
+  const error = row.error && typeof row.error === 'object' && !Array.isArray(row.error)
+    ? row.error as Record<string, unknown>
+    : {};
+  const success = row.success;
+  const explicitFailure = success === false || String(success || '').toLowerCase() === 'false';
+  const code = String(row.code ?? error.code ?? '').trim();
+  const message = String(row.msg ?? row.message ?? error.msg ?? error.message ?? '').trim();
+  const requestId = String(row.requestId ?? row.request_id ?? error.requestId ?? '').trim();
+  const failedCode = Boolean(code && !['0', '200', 'SUCCESS', 'OK'].includes(code.toUpperCase()));
+  const nullDataFailure = row.data === null && failedCode && Boolean(message);
+  const nestedError = Object.keys(error).length > 0 && failedCode;
+  if (!explicitFailure && !nullDataFailure && !nestedError) return null;
+  return {
+    code: code || 'BUSINESS_FAILURE',
+    message: message || '好业财返回业务失败',
+    requestId,
+  };
+}
+
 @Injectable()
 export class ChanjetAuthService implements OnModuleInit {
   private readonly log = new Logger('ChanjetAuth');
@@ -353,6 +385,19 @@ export class ChanjetAuthService implements OnModuleInit {
       this.log.warn(`callApi 50107 token 失效,清缓存重试 path=${path}`);
       this.tokenCache.delete(opts.orgId || this.orgId);
       return this.callApi<T>(path, opts, true);
+    }
+
+    const businessFailure = getChanjetBusinessFailure(json);
+    if (!res.ok || businessFailure) {
+      const failure = businessFailure || {
+        code: `HTTP_${res.status}`,
+        message: res.statusText || '好业财 HTTP 请求失败',
+        requestId: String(json.requestId || json.request_id || ''),
+      };
+      throw new Error(
+        `好业财 API 失败 path=${path} http=${res.status} code=${failure.code}`
+        + ` requestId=${failure.requestId || '-'} msg=${failure.message}`,
+      );
     }
 
     return json as T;
