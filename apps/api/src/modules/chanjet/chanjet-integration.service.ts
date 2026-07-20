@@ -602,6 +602,35 @@ export interface ReceiptPaymentDateStatusLock {
   nextAction: string;
 }
 
+export type ReceiptPaymentDailyReconciliationStatus = 'AUTHORITY_READY' | 'WAITING_SAMPLE' | 'HOLD';
+
+export interface ReceiptPaymentDailyReconciliationMetric {
+  key: 'TODAY_RECEIPT' | 'TODAY_PAYMENT';
+  label: string;
+  entityType: 'AR_RECEIPT' | 'AP_PAYMENT';
+  direction: 'RECEIPT' | 'PAYMENT';
+  businessDate: string;
+  status: ReceiptPaymentDailyReconciliationStatus;
+  sourceRows: number;
+  businessDateRows: number;
+  effectiveRows: number;
+  excludedRows: number;
+  excludedByStatus: Record<string, number>;
+  invalidContractRows: number;
+  approvedDateEvidenceRows: number;
+  amount: number | null;
+  latestPulledAt: string | null;
+  sourceFields: {
+    businessDate: 'rawData.bizDate';
+    status: 'rawData.voucherStatusEnum';
+    amount: 'rawData.totalAmount';
+    direction: 'entity_type_contract';
+  };
+  readyForCardAuthority: boolean;
+  reason: string;
+  nextAction: string;
+}
+
 export interface FinanceReconciliationItem {
   key: string;
   label: string;
@@ -2439,6 +2468,157 @@ export class ChanjetIntegrationService {
     };
   }
 
+  async financeReceiptPaymentDailyReconciliationOverview(businessDate?: string): Promise<{
+    generatedAt: string;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    businessDate: string;
+    summary: {
+      totalMetrics: number;
+      authorityReady: number;
+      waitingSample: number;
+      hold: number;
+      effectiveRows: number;
+      excludedRows: number;
+      nextGate: string;
+    };
+    metrics: ReceiptPaymentDailyReconciliationMetric[];
+    guardrails: Record<string, boolean | string>;
+  }> {
+    const targetDate = this.normalizeReceiptPaymentBusinessDate(businessDate);
+    const definitions: Array<{
+      key: ReceiptPaymentDailyReconciliationMetric['key'];
+      label: string;
+      entityType: ReceiptPaymentDailyReconciliationMetric['entityType'];
+      direction: ReceiptPaymentDailyReconciliationMetric['direction'];
+    }> = [
+      { key: 'TODAY_RECEIPT', label: '今日收款', entityType: 'AR_RECEIPT', direction: 'RECEIPT' },
+      { key: 'TODAY_PAYMENT', label: '今日付款', entityType: 'AP_PAYMENT', direction: 'PAYMENT' },
+    ];
+    const metrics = await Promise.all(definitions.map(async (definition) => {
+      const storedRows = await this.entitySnapshotRepo.find({
+        where: { entityType: definition.entityType },
+        order: { updatedAt: 'DESC' },
+        take: 10000,
+      });
+      const deduped = new Map<string, ChanjetEntitySnapshotEntity>();
+      for (const row of storedRows) {
+        if (getChanjetBusinessFailure(row.rawData)) continue;
+        const rowKey = `${row.bookId || ''}:${row.entityType}:${row.externalId || row.externalCode || row.id}`;
+        if (!deduped.has(rowKey)) deduped.set(rowKey, row);
+      }
+      const rows = [...deduped.values()];
+      const latestPulledAt = rows.reduce<string | null>(
+        (latest, row) => this.maxIso(latest, row.updatedAt ? String(row.updatedAt) : null),
+        null,
+      );
+      const excludedByStatus: Record<string, number> = {};
+      let invalidContractRows = 0;
+      let businessDateRows = 0;
+      let effectiveRows = 0;
+      let approvedDateEvidenceRows = 0;
+      let amount = 0;
+      for (const row of rows) {
+        const raw = row.rawData || {};
+        const rowDate = typeof raw.bizDate === 'string' ? raw.bizDate.trim() : '';
+        const status = typeof raw.voucherStatusEnum === 'string' ? raw.voucherStatusEnum.trim().toUpperCase() : '';
+        const rawAmount = raw.totalAmount;
+        const parsedAmount = typeof rawAmount === 'number' || typeof rawAmount === 'string'
+          ? Number(rawAmount)
+          : Number.NaN;
+        if (typeof raw.approvedDate === 'string' && raw.approvedDate.trim()) approvedDateEvidenceRows += 1;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(rowDate) || !status || !Number.isFinite(parsedAmount) || parsedAmount < 0) {
+          invalidContractRows += 1;
+          continue;
+        }
+        if (rowDate !== targetDate) continue;
+        businessDateRows += 1;
+        if (status !== 'EFFECTIVE') {
+          excludedByStatus[status] = (excludedByStatus[status] || 0) + 1;
+          continue;
+        }
+        effectiveRows += 1;
+        amount += parsedAmount;
+      }
+      const latestTimestamp = latestPulledAt ? Date.parse(latestPulledAt) : Number.NaN;
+      const fresh = Number.isFinite(latestTimestamp) && (Date.now() - latestTimestamp) <= 24 * 60 * 60 * 1000;
+      const status: ReceiptPaymentDailyReconciliationStatus = rows.length === 0
+        ? 'WAITING_SAMPLE'
+        : invalidContractRows > 0 || !fresh
+          ? 'HOLD'
+          : 'AUTHORITY_READY';
+      const readyForCardAuthority = status === 'AUTHORITY_READY';
+      const excludedRows = businessDateRows - effectiveRows;
+      return {
+        ...definition,
+        businessDate: targetDate,
+        status,
+        sourceRows: rows.length,
+        businessDateRows,
+        effectiveRows,
+        excludedRows,
+        excludedByStatus,
+        invalidContractRows,
+        approvedDateEvidenceRows,
+        amount: readyForCardAuthority ? Number(amount.toFixed(2)) : null,
+        latestPulledAt,
+        sourceFields: {
+          businessDate: 'rawData.bizDate' as const,
+          status: 'rawData.voucherStatusEnum' as const,
+          amount: 'rawData.totalAmount' as const,
+          direction: 'entity_type_contract' as const,
+        },
+        readyForCardAuthority,
+        reason: rows.length === 0
+          ? `${definition.entityType} 没有可用只读镜像样本。`
+          : invalidContractRows > 0
+            ? `${invalidContractRows} 条镜像缺少 bizDate / voucherStatusEnum / totalAmount 或金额非法，已 fail-closed。`
+            : !fresh
+              ? '收付款镜像超过 24 小时未刷新，禁止作为今日卡片权威值。'
+              : `按 bizDate=${targetDate} 且 voucherStatusEnum=EFFECTIVE 汇总；其余状态全部排除。`,
+        nextAction: readyForCardAuthority
+          ? '保持每日只读对账并显示 ERP 辅助差异；禁止将 SUBMITTED、未知状态或累计金额混入今日卡片。'
+          : rows.length === 0
+            ? '执行好业财全量只读同步后重跑本 Gate。'
+            : '修复镜像字段契约或刷新过期镜像后重跑本 Gate。',
+      } satisfies ReceiptPaymentDailyReconciliationMetric;
+    }));
+    const hold = metrics.filter((metric) => metric.status === 'HOLD').length;
+    const waitingSample = metrics.filter((metric) => metric.status === 'WAITING_SAMPLE').length;
+    const authorityReady = metrics.filter((metric) => metric.readyForCardAuthority).length;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: hold > 0 ? 'HOLD' : authorityReady === metrics.length ? 'GO' : 'GO_WITH_CONDITIONS',
+      businessDate: targetDate,
+      summary: {
+        totalMetrics: metrics.length,
+        authorityReady,
+        waitingSample,
+        hold,
+        effectiveRows: metrics.reduce((sum, metric) => sum + metric.effectiveRows, 0),
+        excludedRows: metrics.reduce((sum, metric) => sum + metric.excludedRows, 0),
+        nextGate: authorityReady === metrics.length
+          ? 'CHANJET_P3_CASH_BALANCE_FIELD_LOCK'
+          : 'CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION_REPAIR',
+      },
+      metrics,
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        voucherPush: false,
+        erpBusinessOverwrite: false,
+        migration: false,
+        dbWrite: false,
+        businessDateField: 'rawData.bizDate',
+        effectiveStatus: 'EFFECTIVE',
+        excludedStatuses: 'SUBMITTED_and_all_non_EFFECTIVE',
+        amountField: 'rawData.totalAmount',
+        directionRule: 'AR_RECEIPT=RECEIPT; AP_PAYMENT=PAYMENT',
+        rule: '本 Gate 只读 ERP 好业财镜像；今日卡片只汇总目标业务日的 EFFECTIVE 单据。未知、待审核、作废、红冲和字段异常一律 fail-closed。',
+      },
+    };
+  }
+
   async financeCardAuthorityOverview(): Promise<{
     generatedAt: string;
     decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
@@ -2462,6 +2642,7 @@ export class ChanjetIntegrationService {
       diff: number | null;
       sourceEntityTypes: string[];
       latestPulledAt: string | null;
+      businessDate?: string | null;
       receiptPaymentLockStatus?: string | null;
       readyForCardAuthority?: boolean | null;
       reason: string;
@@ -2469,12 +2650,14 @@ export class ChanjetIntegrationService {
     }>;
     guardrails: Record<string, boolean | string>;
   }> {
-    const [readModel, receiptPaymentLocks] = await Promise.all([
+    const [readModel, receiptPaymentLocks, dailyReconciliation] = await Promise.all([
       this.financeReadModelOverview(),
       this.financeReceiptPaymentDateStatusLockOverview(),
+      this.financeReceiptPaymentDailyReconciliationOverview(),
     ]);
     const metricByKey = new Map(readModel.metrics.map((metric) => [metric.key, metric]));
     const lockByKey = new Map(receiptPaymentLocks.locks.map((lock) => [lock.key, lock]));
+    const dailyByKey = new Map(dailyReconciliation.metrics.map((metric) => [metric.key, metric]));
     const definitions = [
       { cardKey: 'arOpen', label: '应收待收款', readModelKey: 'AR_OPEN' },
       { cardKey: 'apOpen', label: '应付待付款', readModelKey: 'AP_OPEN' },
@@ -2488,26 +2671,42 @@ export class ChanjetIntegrationService {
     const cards = definitions.map((definition) => {
       const metric = metricByKey.get(definition.readModelKey);
       const lock = definition.lockKey ? lockByKey.get(definition.lockKey as 'TODAY_RECEIPT' | 'TODAY_PAYMENT') : null;
-      const authorityEnabled = Boolean(metric?.status === 'AUTHORITY_READY' && (!lock || lock.readyForCardAuthority));
+      const daily = definition.lockKey
+        ? dailyByKey.get(definition.lockKey as 'TODAY_RECEIPT' | 'TODAY_PAYMENT')
+        : null;
+      const authorityEnabled = daily
+        ? daily.readyForCardAuthority
+        : Boolean(metric?.status === 'AUTHORITY_READY');
+      const displayValue = daily
+        ? (authorityEnabled ? daily.amount : null)
+        : (authorityEnabled ? metric?.displayValue ?? null : null);
+      const erpAuxiliaryValue = metric?.erpAuxiliaryValue ?? null;
       return {
         cardKey: definition.cardKey,
         label: definition.label,
         readModelKey: definition.readModelKey,
-        status: metric?.status || 'WAITING_SAMPLE',
+        status: daily?.status || metric?.status || 'WAITING_SAMPLE',
         authorityEnabled,
-        displayValue: authorityEnabled ? metric?.displayValue ?? null : null,
-        erpAuxiliaryValue: metric?.erpAuxiliaryValue ?? null,
-        diff: authorityEnabled ? metric?.diff ?? null : null,
-        sourceEntityTypes: metric?.sourceEntityTypes || [],
-        latestPulledAt: metric?.latestPulledAt || null,
+        displayValue,
+        erpAuxiliaryValue,
+        diff: authorityEnabled && displayValue !== null && erpAuxiliaryValue !== null
+          ? displayValue - erpAuxiliaryValue
+          : null,
+        sourceEntityTypes: daily ? [daily.entityType] : metric?.sourceEntityTypes || [],
+        latestPulledAt: daily?.latestPulledAt || metric?.latestPulledAt || null,
+        businessDate: daily?.businessDate || null,
         receiptPaymentLockStatus: lock?.status || null,
-        readyForCardAuthority: lock?.readyForCardAuthority ?? null,
+        readyForCardAuthority: daily?.readyForCardAuthority ?? lock?.readyForCardAuthority ?? null,
         reason: authorityEnabled
-          ? '已达到 AUTHORITY_READY，可接入主卡片，并保留 ERP 辅助差异。'
-          : lock?.reason || metric?.reason || '尚未达到 AUTHORITY_READY，主卡片必须保留 ERP 值。',
+          ? daily
+            ? `已按 ${daily.businessDate} 业务日与 EFFECTIVE 状态完成只读对账，可接入主卡片并保留 ERP 辅助差异。`
+            : '已达到 AUTHORITY_READY，可接入主卡片，并保留 ERP 辅助差异。'
+          : daily?.reason || lock?.reason || metric?.reason || '尚未达到 AUTHORITY_READY，主卡片必须保留 ERP 值。',
         nextAction: authorityEnabled
-          ? '在财务卡片标明好业财权威口径，并展示 ERP 辅助差异。'
-          : lock?.nextAction || metric?.nextAction || '补齐好业财只读样本、语义锁或财务确认。',
+          ? daily
+            ? '每日重跑业务日对账，SUBMITTED 和所有非 EFFECTIVE 状态保持排除。'
+            : '在财务卡片标明好业财权威口径，并展示 ERP 辅助差异。'
+          : daily?.nextAction || lock?.nextAction || metric?.nextAction || '补齐好业财只读样本、语义锁或系统确认。',
       };
     });
     const hold = cards.filter((card) => card.status === 'HOLD').length;
@@ -2551,8 +2750,10 @@ export class ChanjetIntegrationService {
         voucherPush: false,
         erpBusinessOverwrite: false,
         migration: false,
-        todayAmountAggregation: 'blocked_until_daily_filter_and_status_reconciliation',
-        rule: '财务卡片只接受 AUTHORITY_READY 的好业财 read model。未锁定的好业财数据只能作为只读对账证据，不能替换 ERP 主值。',
+        todayAmountAggregation: dailyReconciliation.summary.authorityReady === 2
+          ? 'rawData.bizDate_target_day_plus_EFFECTIVE_plus_rawData.totalAmount'
+          : 'blocked_until_daily_filter_and_status_reconciliation',
+        rule: '财务卡片只接受 AUTHORITY_READY 的好业财 read model；今日收付款额外要求业务日对账 Gate READY。未锁定数据只能作为只读证据，不能替换 ERP 主值。',
       },
     };
   }
@@ -2928,30 +3129,30 @@ export class ChanjetIntegrationService {
         nextAction: '补好业财现金/银行余额字段抽取，必须证明余额字段、币种和余额时点后才能升权。',
       },
       TODAY_RECEIPT: {
-        confirmationStatus: 'SYSTEM_BLOCKED_FROM_AUTHORITY',
-        approvedPrimarySource: 'ERP',
+        confirmationStatus: 'SYSTEM_CONFIRMED_AUTHORITY',
+        approvedPrimarySource: 'CHANJET',
         erpSemanticDefinition: 'ERP 今日收款是按业务当日、有效收款状态和本地业务流水计算的运营日指标。',
-        chanjetSemanticDefinition: '当前好业财收款单镜像可只读重现，但业务日/入账日/审核日、作废/红冲过滤和方向口径未全部证明。',
-        fieldMappingDecision: '好业财 `AR_RECEIPT` 先作为收款单只读明细与对账证据，不替代 ERP 今日收款。',
-        calculationRule: '今日主值继续使用 ERP 当日现金流；好业财只读单据按状态/日期字段锁定后再做差异对账。',
-        displayRule: '显示 ERP 主值；好业财收款单作为对账明细，不显示为主卡片。',
+        chanjetSemanticDefinition: '好业财 AR_RECEIPT 以 bizDate 为业务日，仅 EFFECTIVE 单据参与今日收款，totalAmount 为实收金额。',
+        fieldMappingDecision: '好业财 `AR_RECEIPT.rawData.bizDate/voucherStatusEnum/totalAmount` 对应 ERP 今日收款卡片；方向由 AR_RECEIPT 实体契约确定。',
+        calculationRule: '按目标 bizDate 精确过滤，只汇总 voucherStatusEnum=EFFECTIVE 的 totalAmount；SUBMITTED、未知、作废、红冲及字段异常全部排除。',
+        displayRule: '主值显示好业财业务日有效收款，同时展示 ERP 当日现金流水辅助差异。',
         manualFinanceConfirmationRequired: false,
-        authorityAllowed: false,
+        authorityAllowed: true,
         readonlyAllowed: true,
-        nextAction: '继续锁定收款单业务日期、审核状态、作废状态、方向和正负号。',
+        nextAction: '保持每日只读对账，监控字段漂移、镜像新鲜度及 ERP 辅助差异。',
       },
       TODAY_PAYMENT: {
-        confirmationStatus: 'SYSTEM_BLOCKED_FROM_AUTHORITY',
-        approvedPrimarySource: 'ERP',
+        confirmationStatus: 'SYSTEM_CONFIRMED_AUTHORITY',
+        approvedPrimarySource: 'CHANJET',
         erpSemanticDefinition: 'ERP 今日付款是按业务当日、有效付款状态和本地业务流水计算的运营日指标。',
-        chanjetSemanticDefinition: '当前好业财付款单镜像可只读重现，但业务日/入账日/审核日、作废/红冲过滤和方向口径未全部证明。',
-        fieldMappingDecision: '好业财 `AP_PAYMENT` 先作为付款单只读明细与对账证据，不替代 ERP 今日付款。',
-        calculationRule: '今日主值继续使用 ERP 当日现金流；好业财只读单据按状态/日期字段锁定后再做差异对账。',
-        displayRule: '显示 ERP 主值；好业财付款单作为对账明细，不显示为主卡片。',
+        chanjetSemanticDefinition: '好业财 AP_PAYMENT 以 bizDate 为业务日，仅 EFFECTIVE 单据参与今日付款，totalAmount 为实付金额。',
+        fieldMappingDecision: '好业财 `AP_PAYMENT.rawData.bizDate/voucherStatusEnum/totalAmount` 对应 ERP 今日付款卡片；方向由 AP_PAYMENT 实体契约确定。',
+        calculationRule: '按目标 bizDate 精确过滤，只汇总 voucherStatusEnum=EFFECTIVE 的 totalAmount；SUBMITTED、未知、作废、红冲及字段异常全部排除。',
+        displayRule: '主值显示好业财业务日有效付款，同时展示 ERP 当日现金流水辅助差异。',
         manualFinanceConfirmationRequired: false,
-        authorityAllowed: false,
+        authorityAllowed: true,
         readonlyAllowed: true,
-        nextAction: '继续锁定付款单业务日期、审核状态、作废状态、方向和正负号。',
+        nextAction: '保持每日只读对账，监控字段漂移、镜像新鲜度及 ERP 辅助差异。',
       },
       SUBJECT_BALANCE: {
         confirmationStatus: 'SYSTEM_CONFIRMED_READONLY',
@@ -3007,7 +3208,7 @@ export class ChanjetIntegrationService {
         readonlyAllowed: false,
         nextAction: '补充系统语义定义。',
       };
-      const authorityEvidenceReady = item.currentStatus === 'AUTHORITY_READY';
+      const authorityEvidenceReady = item.currentAuthorityEnabled || item.currentStatus === 'AUTHORITY_READY';
       const readonlyEvidenceReady = ['AUTHORITY_READY', 'READONLY_READY'].includes(item.currentStatus);
       const evidenceReady = configuredRule.confirmationStatus === 'SYSTEM_CONFIRMED_AUTHORITY'
         ? authorityEvidenceReady
@@ -5004,6 +5205,28 @@ export class ChanjetIntegrationService {
           ? '执行收付款日期/状态/方向只读对账脚本，确认今日口径后再申请财务卡片权威接线 Gate。'
           : `补齐字段候选: ${missingDimensions.join(' / ')}`,
     };
+  }
+
+  private normalizeReceiptPaymentBusinessDate(value?: string): string {
+    if (value !== undefined) {
+      const normalized = value.trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+        throw new Error('businessDate must use YYYY-MM-DD');
+      }
+      const parsed = new Date(`${normalized}T00:00:00.000Z`);
+      if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== normalized) {
+        throw new Error('businessDate is not a valid calendar date');
+      }
+      return normalized;
+    }
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
   }
 
   private async buildFinanceSemanticExtractor(lock: FinanceSemanticLock): Promise<FinanceSemanticExtractor> {

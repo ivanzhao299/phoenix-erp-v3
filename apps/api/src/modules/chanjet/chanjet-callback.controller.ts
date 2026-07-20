@@ -873,6 +873,22 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/receipt-payment-daily-reconciliation
+   * 按好业财业务日只汇总 EFFECTIVE 收/付款单。只读本地镜像，所有非 EFFECTIVE 状态 fail-closed。
+   */
+  @Get('integration/receipt-payment-daily-reconciliation')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationReceiptPaymentDailyReconciliation(@Query('businessDate') businessDate?: string) {
+    try {
+      const dailyReconciliation = await this.integration
+        .financeReceiptPaymentDailyReconciliationOverview(businessDate);
+      return { success: true, dailyReconciliation };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * GET /api/chanjet/integration/cash-balance-field-lock
    * 现金/银行余额字段锁。防止好业财 amountSum=0 在余额字段未锁定时被误当作真实现金余额。
    */

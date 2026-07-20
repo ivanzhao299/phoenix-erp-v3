@@ -186,6 +186,86 @@ export class FinancialReportsService {
     }
   }
 
+  private async getChanjetDailyDocumentAggregate(
+    all: boolean,
+    codes: string[],
+    entityType: 'AR_RECEIPT' | 'AP_PAYMENT',
+    businessDate: string,
+  ) {
+    if (this.emptyScope(all, codes)) {
+      return { available: false, value: 0, rows: 0, latestPeriod: businessDate, sourceRows: 0, invalidContractRows: 0 };
+    }
+    const entityTypeParam = all ? 1 : 2;
+    const businessDateParam = all ? 2 : 3;
+    const scopeFilter = all ? '' : `AND COALESCE(b.company_code, '') = ANY($1)`;
+    const params = all ? [entityType, businessDate] : [codes, entityType, businessDate];
+    try {
+      const rows = await this.ds.query(
+        `WITH latest AS (
+           SELECT DISTINCT ON (
+                    s.book_id,
+                    s.entity_type,
+                    COALESCE(NULLIF(s.external_id, ''), NULLIF(s.external_code, ''), s.id::text)
+                  )
+                  s.*
+             FROM chanjet_entity_snapshots s
+             LEFT JOIN chanjet_account_books b ON b.book_id = s.book_id
+            WHERE s.entity_type = $${entityTypeParam} ${scopeFilter}
+            ORDER BY s.book_id,
+                     s.entity_type,
+                     COALESCE(NULLIF(s.external_id, ''), NULLIF(s.external_code, ''), s.id::text),
+                     s.updated_at DESC
+         ), classified AS (
+           SELECT *,
+                  (raw_data->>'bizDate') AS business_date,
+                  UPPER(COALESCE(raw_data->>'voucherStatusEnum', '')) AS voucher_status,
+                  CASE
+                    WHEN COALESCE(raw_data->>'totalAmount', '') ~ '^[0-9]+([.][0-9]+)?$'
+                    THEN (raw_data->>'totalAmount')::numeric
+                    ELSE NULL
+                  END AS document_amount,
+                  CASE
+                    WHEN COALESCE(raw_data->>'bizDate', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                     AND COALESCE(raw_data->>'voucherStatusEnum', '') <> ''
+                     AND COALESCE(raw_data->>'totalAmount', '') ~ '^[0-9]+([.][0-9]+)?$'
+                    THEN TRUE ELSE FALSE
+                  END AS contract_valid
+             FROM latest
+         )
+         SELECT COUNT(*) AS source_rows,
+                COUNT(*) FILTER (WHERE contract_valid) AS contract_rows,
+                COUNT(*) FILTER (
+                  WHERE contract_valid
+                    AND business_date = $${businessDateParam}
+                    AND voucher_status = 'EFFECTIVE'
+                ) AS effective_rows,
+                COALESCE(SUM(document_amount) FILTER (
+                  WHERE contract_valid
+                    AND business_date = $${businessDateParam}
+                    AND voucher_status = 'EFFECTIVE'
+                ), 0) AS value,
+                MAX(updated_at) AS latest_pulled_at
+           FROM classified`,
+        params,
+      );
+      const row = rows[0] || {};
+      const sourceRows = Number(row.source_rows || 0);
+      const contractRows = Number(row.contract_rows || 0);
+      const invalidContractRows = Math.max(0, sourceRows - contractRows);
+      return {
+        available: sourceRows > 0 && invalidContractRows === 0,
+        value: Number(row.value || 0),
+        rows: Number(row.effective_rows || 0),
+        latestPeriod: businessDate,
+        sourceRows,
+        invalidContractRows,
+      };
+    } catch (error) {
+      this.logger.warn(`Chanjet ${entityType} daily alignment unavailable: ${(error as Error).message}`);
+      return { available: false, value: 0, rows: 0, latestPeriod: businessDate, sourceRows: 0, invalidContractRows: 0 };
+    }
+  }
+
   private metricFromChanjet(
     source: string,
     chanjet: { available: boolean; value: number; rows: number; latestPeriod: string | null },
@@ -254,14 +334,17 @@ export class FinancialReportsService {
 
   private async getChanjetReadModelContext() {
     try {
-      const [readModel, receiptPaymentLocks, systemConfirmation] = await Promise.all([
+      const [readModel, receiptPaymentLocks, dailyReconciliation, systemConfirmation] = await Promise.all([
         this.chanjetIntegration.financeReadModelOverview(),
         this.chanjetIntegration.financeReceiptPaymentDateStatusLockOverview(),
+        this.chanjetIntegration.financeReceiptPaymentDailyReconciliationOverview(),
         this.chanjetIntegration.financeCardSystemConfirmationOverview(),
       ]);
       return {
         readModelByKey: new Map((readModel.metrics || []).map((metric: any) => [metric.key, metric])),
         receiptPaymentLockByKey: new Map((receiptPaymentLocks.locks || []).map((lock: any) => [lock.key, lock])),
+        dailyReconciliationByKey: new Map((dailyReconciliation.metrics || []).map((metric: any) => [metric.key, metric])),
+        dailyBusinessDate: dailyReconciliation.businessDate as string,
         systemConfirmationByKey: new Map((systemConfirmation.confirmations || []).map((item: any) => [item.readModelKey, item])),
       };
     } catch (error) {
@@ -269,9 +352,22 @@ export class FinancialReportsService {
       return {
         readModelByKey: new Map<string, any>(),
         receiptPaymentLockByKey: new Map<string, any>(),
+        dailyReconciliationByKey: new Map<string, any>(),
+        dailyBusinessDate: this.shanghaiBusinessDate(),
         systemConfirmationByKey: new Map<string, any>(),
       };
     }
+  }
+
+  private shanghaiBusinessDate(): string {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
   }
 
   private async getChanjetFinanceAuthority(user: any, erp: {
@@ -282,20 +378,43 @@ export class FinancialReportsService {
     todayOutflow: number;
   }) {
     const { all, codes } = this.scope(user);
+    const businessDate = this.shanghaiBusinessDate();
     const [ar, ap, cash, glBalance, arReceipt, apPayment, balanceSheet, incomeStatement, readContext] = await Promise.all([
       this.getChanjetArOpen(all, codes),
       this.getChanjetApOpen(all, codes),
       this.getChanjetEntityAggregate(all, codes, 'CASH_ACCOUNT'),
       this.getChanjetEntityAggregate(all, codes, 'GL_BALANCE'),
-      this.getChanjetEntityAggregate(all, codes, 'AR_RECEIPT'),
-      this.getChanjetEntityAggregate(all, codes, 'AP_PAYMENT'),
+      this.getChanjetDailyDocumentAggregate(all, codes, 'AR_RECEIPT', businessDate),
+      this.getChanjetDailyDocumentAggregate(all, codes, 'AP_PAYMENT', businessDate),
       this.getChanjetEntityAggregate(all, codes, 'BALANCE_SHEET'),
       this.getChanjetEntityAggregate(all, codes, 'INCOME_STATEMENT'),
       this.getChanjetReadModelContext(),
     ]);
     const readMetric = (key: string) => readContext.readModelByKey.get(key);
     const paymentLock = (key: string) => readContext.receiptPaymentLockByKey.get(key);
+    const dailyMetric = (key: string) => readContext.dailyReconciliationByKey.get(key);
     const systemConfirmation = (key: string) => readContext.systemConfirmationByKey.get(key);
+    const dailyReadMetric = (key: string) => {
+      const daily = dailyMetric(key);
+      return daily?.readyForCardAuthority
+        ? {
+            ...(readMetric(key) || {}),
+            status: 'AUTHORITY_READY',
+            authorityEligible: true,
+            reason: daily.reason,
+          }
+        : readMetric(key);
+    };
+    const dailyPaymentLock = (key: string) => {
+      const daily = dailyMetric(key);
+      return daily
+        ? {
+            ...(paymentLock(key) || {}),
+            readyForCardAuthority: daily.readyForCardAuthority,
+            reason: daily.reason,
+          }
+        : paymentLock(key);
+    };
     const metrics = {
       arOpen: this.metricFromChanjet('CHANJET_AR_STATISTICS_MIRROR', ar, erp.arOpen, '好业财应收汇总达到 AUTHORITY_READY 后才作为主卡片；ERP 应收发票/总账作为辅助差异。', {
         readModelMetric: readMetric('AR_OPEN'),
@@ -310,29 +429,29 @@ export class FinancialReportsService {
         systemConfirmation: systemConfirmation('CASH_BALANCE'),
       }),
       todayInflow: this.metricFromChanjet(
-        'CHANJET_AR_RECEIPT_MIRROR',
+        'CHANJET_AR_RECEIPT_DAILY_EFFECTIVE_MIRROR',
         arReceipt,
         erp.todayInflow,
-        '好业财收款单镜像已进入对账，但业务日/入账日字段未完成语义锁定前，今日收款仍以 ERP 当日现金流水为显示权威。',
+        `好业财今日收款严格按 bizDate=${businessDate}、voucherStatusEnum=EFFECTIVE 和 totalAmount 汇总；ERP 当日现金流水保留为辅助差异。`,
         {
-          readModelMetric: readMetric('TODAY_RECEIPT'),
-          receiptPaymentLock: paymentLock('TODAY_RECEIPT'),
+          readModelMetric: dailyReadMetric('TODAY_RECEIPT'),
+          receiptPaymentLock: dailyPaymentLock('TODAY_RECEIPT'),
           systemConfirmation: systemConfirmation('TODAY_RECEIPT'),
           requireReceiptPaymentLock: true,
-          authorityReason: paymentLock('TODAY_RECEIPT')?.reason || '好业财收款单镜像为全量/期间数据，尚未证明可按 ERP 今日口径过滤；避免把累计收款误显示为今日收款。',
+          authorityReason: dailyMetric('TODAY_RECEIPT')?.reason || '今日收款业务日对账未就绪，继续使用 ERP 当日现金流水。',
         },
       ),
       todayOutflow: this.metricFromChanjet(
-        'CHANJET_AP_PAYMENT_MIRROR',
+        'CHANJET_AP_PAYMENT_DAILY_EFFECTIVE_MIRROR',
         apPayment,
         erp.todayOutflow,
-        '好业财付款单镜像已进入对账，但业务日/入账日字段未完成语义锁定前，今日付款仍以 ERP 当日现金流水为显示权威。',
+        `好业财今日付款严格按 bizDate=${businessDate}、voucherStatusEnum=EFFECTIVE 和 totalAmount 汇总；ERP 当日现金流水保留为辅助差异。`,
         {
-          readModelMetric: readMetric('TODAY_PAYMENT'),
-          receiptPaymentLock: paymentLock('TODAY_PAYMENT'),
+          readModelMetric: dailyReadMetric('TODAY_PAYMENT'),
+          receiptPaymentLock: dailyPaymentLock('TODAY_PAYMENT'),
           systemConfirmation: systemConfirmation('TODAY_PAYMENT'),
           requireReceiptPaymentLock: true,
-          authorityReason: paymentLock('TODAY_PAYMENT')?.reason || '好业财付款单镜像为全量/期间数据，尚未证明可按 ERP 今日口径过滤；避免把累计付款误显示为今日付款。',
+          authorityReason: dailyMetric('TODAY_PAYMENT')?.reason || '今日付款业务日对账未就绪，继续使用 ERP 当日现金流水。',
         },
       ),
       subjectBalance: this.metricFromChanjet('CHANJET_GL_BALANCE_MIRROR', glBalance, 0, '科目余额表用于财务卡片与科目余额对账，不反写业务明细。', {

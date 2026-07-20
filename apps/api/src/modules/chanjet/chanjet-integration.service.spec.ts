@@ -685,6 +685,14 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
         { key: 'TODAY_PAYMENT', status: 'LOCKED', readyForCardAuthority: false, reason: 'daily reconciliation required' },
       ],
     });
+    subject.financeReceiptPaymentDailyReconciliationOverview = jest.fn().mockResolvedValue({
+      businessDate: '2026-07-20',
+      summary: { authorityReady: 0 },
+      metrics: [
+        { key: 'TODAY_RECEIPT', status: 'WAITING_SAMPLE', readyForCardAuthority: false, reason: 'daily evidence required' },
+        { key: 'TODAY_PAYMENT', status: 'WAITING_SAMPLE', readyForCardAuthority: false, reason: 'daily evidence required' },
+      ],
+    });
 
     const result = await subject.financeCardAuthorityOverview();
 
@@ -701,6 +709,95 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       todayAmountAggregation: 'blocked_until_daily_filter_and_status_reconciliation',
       chanjetWrite: false,
     });
+  });
+
+  it('reconciles receipt and payment by bizDate and EFFECTIVE status only', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const now = new Date();
+    const row = (entityType: string, externalId: string, rawData: Record<string, unknown>) => ({
+      id: externalId,
+      bookId: 'BOOK-1',
+      entityType,
+      externalId,
+      externalCode: externalId,
+      rawData,
+      updatedAt: now,
+    });
+    subject.entitySnapshotRepo = {
+      find: jest.fn().mockImplementation(({ where }: any) => where.entityType === 'AR_RECEIPT'
+        ? [
+            row('AR_RECEIPT', 'R-1', { bizDate: '2026-07-20', voucherStatusEnum: 'EFFECTIVE', totalAmount: '125.50', approvedDate: '2026-07-20' }),
+            row('AR_RECEIPT', 'R-2', { bizDate: '2026-07-20', voucherStatusEnum: 'SUBMITTED', totalAmount: '999.00' }),
+            row('AR_RECEIPT', 'R-3', { bizDate: '2026-07-19', voucherStatusEnum: 'EFFECTIVE', totalAmount: '50.00', approvedDate: '2026-07-20' }),
+          ]
+        : [
+            row('AP_PAYMENT', 'P-1', { bizDate: '2026-07-20', voucherStatusEnum: 'EFFECTIVE', totalAmount: '80.00', approvedDate: '2026-07-20' }),
+            row('AP_PAYMENT', 'P-2', { bizDate: '2026-07-20', voucherStatusEnum: 'CANCELLED', totalAmount: '10.00' }),
+          ]),
+    };
+
+    const result = await subject.financeReceiptPaymentDailyReconciliationOverview('2026-07-20');
+
+    expect(result.decision).toBe('GO');
+    expect(result.summary).toMatchObject({ authorityReady: 2, effectiveRows: 2, excludedRows: 2 });
+    expect(result.metrics.find((metric: any) => metric.key === 'TODAY_RECEIPT')).toMatchObject({
+      amount: 125.5,
+      effectiveRows: 1,
+      excludedByStatus: { SUBMITTED: 1 },
+      readyForCardAuthority: true,
+      sourceFields: {
+        businessDate: 'rawData.bizDate',
+        status: 'rawData.voucherStatusEnum',
+        amount: 'rawData.totalAmount',
+        direction: 'entity_type_contract',
+      },
+    });
+    expect(result.metrics.find((metric: any) => metric.key === 'TODAY_PAYMENT')).toMatchObject({
+      amount: 80,
+      excludedByStatus: { CANCELLED: 1 },
+      readyForCardAuthority: true,
+    });
+    expect(result.guardrails).toMatchObject({ chanjetWrite: false, dbWrite: false, effectiveStatus: 'EFFECTIVE' });
+  });
+
+  it('switches reconciled daily receipt/payment cards without using cumulative totals', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.financeReadModelOverview = jest.fn().mockResolvedValue({
+      metrics: [
+        { key: 'AR_OPEN', status: 'AUTHORITY_READY', displayValue: 100, erpAuxiliaryValue: 90, sourceEntityTypes: ['AR_STATISTICS'] },
+        { key: 'AP_OPEN', status: 'AUTHORITY_READY', displayValue: 80, erpAuxiliaryValue: 70, sourceEntityTypes: ['AP_STATISTICS'] },
+        { key: 'TODAY_RECEIPT', status: 'NEED_MANUAL_REVIEW', displayValue: 9999, erpAuxiliaryValue: 10, sourceEntityTypes: ['AR_RECEIPT'] },
+        { key: 'TODAY_PAYMENT', status: 'NEED_MANUAL_REVIEW', displayValue: 8888, erpAuxiliaryValue: 20, sourceEntityTypes: ['AP_PAYMENT'] },
+      ],
+    });
+    subject.financeReceiptPaymentDateStatusLockOverview = jest.fn().mockResolvedValue({
+      locks: [
+        { key: 'TODAY_RECEIPT', status: 'LOCKED', readyForCardAuthority: false },
+        { key: 'TODAY_PAYMENT', status: 'LOCKED', readyForCardAuthority: false },
+      ],
+    });
+    subject.financeReceiptPaymentDailyReconciliationOverview = jest.fn().mockResolvedValue({
+      businessDate: '2026-07-20',
+      summary: { authorityReady: 2 },
+      metrics: [
+        { key: 'TODAY_RECEIPT', entityType: 'AR_RECEIPT', businessDate: '2026-07-20', status: 'AUTHORITY_READY', amount: 125.5, readyForCardAuthority: true },
+        { key: 'TODAY_PAYMENT', entityType: 'AP_PAYMENT', businessDate: '2026-07-20', status: 'AUTHORITY_READY', amount: 80, readyForCardAuthority: true },
+      ],
+    });
+
+    const result = await subject.financeCardAuthorityOverview();
+
+    expect(result.summary).toMatchObject({ authorityReady: 4, nextGate: 'CHANJET_P3_CASH_BALANCE_FIELD_LOCK' });
+    expect(result.cards.find((card: any) => card.cardKey === 'todayInflow')).toMatchObject({
+      authorityEnabled: true,
+      displayValue: 125.5,
+      businessDate: '2026-07-20',
+    });
+    expect(result.cards.find((card: any) => card.cardKey === 'todayOutflow')).toMatchObject({
+      authorityEnabled: true,
+      displayValue: 80,
+    });
+    expect(result.guardrails.todayAmountAggregation).toContain('rawData.bizDate');
   });
 
   it('validates balanced voucher candidates without enabling Chanjet push', () => {
