@@ -426,12 +426,12 @@ export default function SalesV2OrdersPage() {
     setActionLoading(true);
     setActionError('');
     try {
-      let updated: Order;
-      if (action === 'submit') updated = await api('POST', `/api/v2/sales/orders/${id}/submit`, body ?? {});else if (action === 'cancel') updated = await api('POST', `/api/v2/sales/orders/${id}/cancel`, body ?? {});else if (action === 'receive') updated = await api('POST', `/api/v2/sales/orders/${id}/mark-received`);else updated = await api('POST', `/api/v2/sales/orders/${id}/transition`, body);
-      setOrders(prev => prev.map(o => o.id === id ? {
-        ...o,
-        ...updated
-      } : o));
+      if (action === 'submit') await api('POST', `/api/v2/sales/orders/${id}/submit`, body ?? {});else if (action === 'cancel') await api('POST', `/api/v2/sales/orders/${id}/cancel`, body ?? {});else if (action === 'receive') await api('POST', `/api/v2/sales/orders/${id}/mark-received`);else await api('POST', `/api/v2/sales/orders/${id}/transition`, body);
+
+      // Mutation responses are not guaranteed to contain the complete order.
+      // Re-query the current page so its status and available actions always
+      // reflect the server-authoritative workflow state without a manual refresh.
+      await loadOrders();
       if (detailOrder?.id === id) {
         const d = await api<Order>('GET', `/api/v2/sales/orders/${id}`);
         setDetailOrder(d);
@@ -519,6 +519,18 @@ export default function SalesV2OrdersPage() {
           {error}
         </div>}
 
+      {actionError && !detailOrder && !showCreate && <div role="alert" style={{
+      marginBottom: 12,
+      padding: '10px 14px',
+      borderRadius: 8,
+      background: 'var(--status-danger-bg)',
+      border: '1px solid var(--status-danger-border)',
+      color: 'var(--status-danger)',
+      fontSize: 13
+    }}>
+          {actionError}
+        </div>}
+
       {/* 订单列表 */}
       <div style={{
       background: 'var(--bg-card)',
@@ -596,11 +608,11 @@ export default function SalesV2OrdersPage() {
                       {o.status === 'DRAFT' && canCreate && <button className={s.btnPrimary} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} onClick={() => doAction(o.id, 'submit')}>{t('ui.提交','提交')}</button>}
+                  }} disabled={actionLoading} onClick={() => doAction(o.id, 'submit')}>{t('ui.提交','提交')}</button>}
                       {nextTarget && canTransit && <button className={s.btnSecondary} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} onClick={() => doAction(o.id, 'transition', {
+                  }} disabled={actionLoading} onClick={() => doAction(o.id, 'transition', {
                     targetStatus: nextTarget
                   })}>
                           {TRANSITION_LABELS[o.status]}
@@ -608,11 +620,11 @@ export default function SalesV2OrdersPage() {
                       {o.status === 'DELIVERED' && canTransit && <button className={s.btnPrimary} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} onClick={() => doAction(o.id, 'receive')}>{t('ui.确认签收','确认签收')}</button>}
+                  }} disabled={actionLoading} onClick={() => doAction(o.id, 'receive')}>{t('ui.确认签收','确认签收')}</button>}
                       {['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(o.status) && canCreate && <button className={s.btnDanger} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} onClick={() => doAction(o.id, 'cancel')}>{t('ui.取消','取消')}</button>}
+                  }} disabled={actionLoading} onClick={() => doAction(o.id, 'cancel')}>{t('ui.取消','取消')}</button>}
                     </div>
                   </td>
                 </tr>;
