@@ -742,7 +742,10 @@ export default function ChanjetIntegrationPage() {
   const [draftSourceType, setDraftSourceType] = useState('MANUAL');
   const [draftSourceId, setDraftSourceId] = useState('');
   const [draftTitle, setDraftTitle] = useState('');
-  const [draftLines, setDraftLines] = useState('[{"summary":"示例借方","subjectCode":"100201","debitAmount":100,"creditAmount":0},{"summary":"示例贷方","subjectCode":"220201","debitAmount":0,"creditAmount":100}]');
+  const [draftLines, setDraftLines] = useState(() => JSON.stringify([
+    { summary: t('finance.chanjet.example_debit_summary'), subjectCode: '100201', debitAmount: 100, creditAmount: 0 },
+    { summary: t('finance.chanjet.example_credit_summary'), subjectCode: '220201', debitAmount: 0, creditAmount: 100 },
+  ]));
   const [draftValidation, setDraftValidation] = useState<VoucherDraftValidation | null>(null);
 
   const load = useCallback(async () => {
@@ -896,7 +899,7 @@ export default function ChanjetIntegrationPage() {
     });
     setDraftValidation(result.validation);
     if (!result.validation?.valid) {
-      throw new Error(result.validation?.errors?.join('；') || result.error || '凭证草稿校验失败');
+      throw new Error(result.validation?.errors?.join('；') || result.error || t('finance.chanjet.voucher_validation_failed'));
     }
     return voucherLines;
   }
@@ -1052,7 +1055,7 @@ export default function ChanjetIntegrationPage() {
           <div style={{ ...cardStyle, padding: 13, marginBottom: 14, borderColor: currentState?.decision === 'HOLD' ? '#fecaca' : '#bfdbfe', background: currentState?.decision === 'HOLD' ? '#fef2f2' : '#eff6ff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <div>
-                <strong>唯一实时当前态</strong>
+                <strong>{t('finance.chanjet.runtime_current_state')}</strong>
                 <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
                   {currentState?.authoritativeEvidence || 'RUNTIME_CURRENT_STATE'} · {fmtDate(currentState?.generatedAt)}
                 </div>
@@ -1066,7 +1069,7 @@ export default function ChanjetIntegrationPage() {
                     <strong>{phase.phase} · {phase.title}</strong>
                     <Badge tone={statusTone(phase.status)}>{phase.score}</Badge>
                   </div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 7 }}>{phase.evidence[0] || '暂无证据'}</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 7 }}>{phase.evidence[0] || t('finance.chanjet.no_evidence')}</div>
                   <div style={{ color: 'var(--brand)', fontSize: 11, marginTop: 7, overflowWrap: 'anywhere' }}>{phase.nextAction}</div>
                 </div>
               ))}
@@ -2262,15 +2265,15 @@ export default function ChanjetIntegrationPage() {
               <textarea value={draftLines} onChange={e => setDraftLines(e.target.value)} rows={4} style={{ padding: 9, border: '1px solid var(--border)', borderRadius: 6, fontFamily: 'var(--font-mono, monospace)' }} />
               {draftValidation && (
                 <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 9, color: draftValidation.valid ? 'var(--status-success)' : 'var(--status-danger)', fontSize: 12 }}>
-                  借方 {draftValidation.debitTotal} / 贷方 {draftValidation.creditTotal} · {draftValidation.valid ? '校验通过' : draftValidation.errors.join('；')}
+                  {t('finance.chanjet.debit')} {draftValidation.debitTotal} / {t('finance.chanjet.credit')} {draftValidation.creditTotal} · {draftValidation.valid ? t('finance.chanjet.validation_passed') : draftValidation.errors.join('；')}
                   {draftValidation.warnings.length > 0 && <div style={{ color: 'var(--text-secondary)', marginTop: 4 }}>{draftValidation.warnings.join('；')}</div>}
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8 }}>
-                <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('凭证草稿校验', async () => {
+                <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction(t('finance.chanjet.voucher_validation'), async () => {
                   await validateDraft();
                   return { success: true };
-                })}>校验借贷平衡</Button>
+                })}>{t('finance.chanjet.validate_debit_credit_balance')}</Button>
                 <Button disabled={!canEdit || loading} onClick={createDraft}><FileText size={16} />保存草稿</Button>
               </div>
             </div>
@@ -2287,7 +2290,7 @@ export default function ChanjetIntegrationPage() {
                   <td style={cellStyle}>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'REVIEWED')}>复核</Button>
-                      <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'PUSH_READY')}>标记写回候选</Button>
+                      <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'PUSH_READY')}>{t('finance.chanjet.mark_writeback_candidate')}</Button>
                       <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'REJECTED')}>拒绝</Button>
                     </div>
                   </td>

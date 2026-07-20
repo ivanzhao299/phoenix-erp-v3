@@ -13679,5 +13679,16 @@
   "ui.冷藏区": "Chilled zone",
   "ui.冷冻区": "Frozen zone",
   "ui.暂存区": "Staging zone",
-  "ui.退货区": "Returns zone"
+  "ui.退货区": "Returns zone",
+  "finance.chanjet.example_debit_summary": "Example debit entry",
+  "finance.chanjet.example_credit_summary": "Example credit entry",
+  "finance.chanjet.voucher_validation_failed": "Voucher draft validation failed",
+  "finance.chanjet.runtime_current_state": "Authoritative current state",
+  "finance.chanjet.no_evidence": "No evidence available",
+  "finance.chanjet.debit": "Debit",
+  "finance.chanjet.credit": "Credit",
+  "finance.chanjet.validation_passed": "Validation passed",
+  "finance.chanjet.voucher_validation": "Voucher draft validation",
+  "finance.chanjet.validate_debit_credit_balance": "Validate debit-credit balance",
+  "finance.chanjet.mark_writeback_candidate": "Mark as writeback candidate"
 }

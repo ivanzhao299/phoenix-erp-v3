@@ -13679,5 +13679,16 @@
   "ui.冷藏区": "ເຂດແຊ່ເຢັນ",
   "ui.冷冻区": "ເຂດແຊ່ແຂງ",
   "ui.暂存区": "ເຂດພັກສິນຄ້າ",
-  "ui.退货区": "ເຂດສິນຄ້າສົ່ງຄືນ"
+  "ui.退货区": "ເຂດສິນຄ້າສົ່ງຄືນ",
+  "finance.chanjet.example_debit_summary": "ລາຍການເດບິດຕົວຢ່າງ",
+  "finance.chanjet.example_credit_summary": "ລາຍການເຄຣດິດຕົວຢ່າງ",
+  "finance.chanjet.voucher_validation_failed": "ການກວດສອບຮ່າງໃບບັນຊີລົ້ມເຫຼວ",
+  "finance.chanjet.runtime_current_state": "ສະຖານະປັດຈຸບັນທີ່ເປັນທາງການ",
+  "finance.chanjet.no_evidence": "ຍັງບໍ່ມີຫຼັກຖານ",
+  "finance.chanjet.debit": "ເດບິດ",
+  "finance.chanjet.credit": "ເຄຣດິດ",
+  "finance.chanjet.validation_passed": "ກວດສອບຜ່ານ",
+  "finance.chanjet.voucher_validation": "ກວດສອບຮ່າງໃບບັນຊີ",
+  "finance.chanjet.validate_debit_credit_balance": "ກວດສອບດຸນເດບິດ-ເຄຣດິດ",
+  "finance.chanjet.mark_writeback_candidate": "ໝາຍເປັນລາຍການລໍຖ້າຂຽນກັບ"
 }

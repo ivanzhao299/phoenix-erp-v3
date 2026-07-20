@@ -13679,5 +13679,16 @@
   "ui.冷藏区": "冷藏区",
   "ui.冷冻区": "冷冻区",
   "ui.暂存区": "暂存区",
-  "ui.退货区": "退货区"
+  "ui.退货区": "退货区",
+  "finance.chanjet.example_debit_summary": "示例借方",
+  "finance.chanjet.example_credit_summary": "示例贷方",
+  "finance.chanjet.voucher_validation_failed": "凭证草稿校验失败",
+  "finance.chanjet.runtime_current_state": "唯一实时当前态",
+  "finance.chanjet.no_evidence": "暂无证据",
+  "finance.chanjet.debit": "借方",
+  "finance.chanjet.credit": "贷方",
+  "finance.chanjet.validation_passed": "校验通过",
+  "finance.chanjet.voucher_validation": "凭证草稿校验",
+  "finance.chanjet.validate_debit_credit_balance": "校验借贷平衡",
+  "finance.chanjet.mark_writeback_candidate": "标记写回候选"
 }
