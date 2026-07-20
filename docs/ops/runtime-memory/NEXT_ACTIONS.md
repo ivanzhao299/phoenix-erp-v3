@@ -1,5 +1,33 @@
 # Next Actions
 
+## 2026-07-20 - Chanjet end-to-end long queue planned
+
+Current stage: `CHANJET_END_TO_END_EXECUTION_PLANNED`
+
+Decision: `PLAN_READY`
+
+Program: `CHANJET-E2E-20260720`
+
+Queue summary:
+
+1. Ten waves and 51 dependency-linked tasks cover baseline evidence, five finance semantic locks, full authorized readonly coverage, master-data identity, ordinary ERP finance fusion, reliability, internal writeback preparation, external canary, controlled pilot and production stabilization.
+2. Waves 0-6 do not write to Chanjet.
+3. Wave 7 remains `HOLD_FOR_EXPLICIT_APPROVAL` and requires a separate approval naming environment, account book, document, amount, reviewer and rollback.
+4. The plan queue is not live-dispatched by this planning task (`dispatch_enabled=false`).
+
+Next actions:
+
+1. Promote Wave 0 baseline tasks and Wave 1 finance semantic tasks into the live Agent queue.
+2. Run A5/A2/A1 baseline evidence in parallel, maximum concurrency three.
+3. Serialize the shared A3 authority-model consolidation after AR/AP/cash/receipt/payment analysis.
+4. Keep external write, voucher push and silent ERP business-table overwrite disabled.
+
+Artifacts:
+
+- `docs/ops/CHANJET_END_TO_END_DEEP_DELIVERY_PLAN.md`
+- `docs/ops/CHANJET_END_TO_END_EXECUTION_QUEUE.json`
+- `docs/ops/CHANJET_END_TO_END_ACCEPTANCE_MATRIX.md`
+
 ## 2026-07-20 - Chanjet readonly gaps closed and minimal write precheck passed
 
 Current stage: `CHANJET_MINIMAL_WRITE_PRECHECK_PASSED`

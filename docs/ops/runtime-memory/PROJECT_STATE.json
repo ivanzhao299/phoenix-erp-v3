@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-20",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_MINIMAL_WRITE_PRECHECK_PASSED",
-  "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_FIELD_SEMANTIC_LOCK",
+  "current_stage": "CHANJET_END_TO_END_EXECUTION_PLANNED",
+  "active_decision": "PLAN_READY",
+  "next_gate": "CHANJET_LONG_QUEUE_WAVE_0_1_EXECUTION",
   "page_entry": "/finance2/chanjet-integration",
   "menu_entry": "财务结算中心 / 好业财中间层（管理员）",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -25,8 +25,8 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_MINIMAL_WRITE_PRECHECK_PASSED",
-    "active_decision": "GO_WITH_CONDITIONS",
+    "current_stage": "CHANJET_END_TO_END_EXECUTION_PLANNED",
+    "active_decision": "PLAN_READY",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
     "modify_chanjet_allowed": false,
@@ -64,7 +64,15 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": null,
-    "next_action": "execute CHANJET_P3_FIELD_SEMANTIC_LOCK; keep external Chanjet write and ERP business overwrite disabled",
+    "next_action": "execute CHANJET long queue Waves 0-1; keep external Chanjet write and ERP business overwrite disabled",
+    "end_to_end_program_id": "CHANJET-E2E-20260720",
+    "end_to_end_plan": "docs/ops/CHANJET_END_TO_END_DEEP_DELIVERY_PLAN.md",
+    "end_to_end_queue": "docs/ops/CHANJET_END_TO_END_EXECUTION_QUEUE.json",
+    "end_to_end_acceptance_matrix": "docs/ops/CHANJET_END_TO_END_ACCEPTANCE_MATRIX.md",
+    "end_to_end_task_count": 51,
+    "end_to_end_wave_count": 10,
+    "end_to_end_dispatch_enabled": false,
+    "external_write_gate": "WAVE_7_HOLD_FOR_EXPLICIT_APPROVAL",
     "authenticated_current_state_pre_fix_score": 58,
     "authenticated_current_state_pre_fix_grade": "D",
     "http_200_business_failure_fail_closed": true,
@@ -989,9 +997,9 @@
     "next_single_gate_recommendation": "APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS"
   },
   "next_actions": [
-    "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE",
-    "CHANJET_PROJECT_CASH_ACCOUNT_NON_EXACT_MAPPING_REVIEW",
-    "CHANJET_ORDINARY_USER_FINANCE_FUSION_REVIEW",
+    "CHANJET_LONG_QUEUE_WAVE_0_BASELINE_REFRESH",
+    "CHANJET_LONG_QUEUE_WAVE_1_FINANCE_SEMANTIC_LOCK",
+    "PROMOTE_APPROVED_WAVE_0_1_TASKS_TO_LIVE_QUEUE",
     "KEEP_CHANJET_WRITEBACK_BLOCKED"
   ],
   "agent_inbox_mode": "enabled",
@@ -1021,8 +1029,8 @@
     "safe_redispatch_gate": "implemented"
   },
   "next_action": [
-    "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE",
-    "CHANJET_PROJECT_CASH_ACCOUNT_NON_EXACT_MAPPING_REVIEW",
+    "CHANJET_LONG_QUEUE_WAVE_0_1_EXECUTION",
+    "A5_A2_A1_PARALLEL_BASELINE_THEN_A3_SERIAL_CONSOLIDATION",
     "KEEP_CHANJET_WRITEBACK_BLOCKED"
   ]
 }

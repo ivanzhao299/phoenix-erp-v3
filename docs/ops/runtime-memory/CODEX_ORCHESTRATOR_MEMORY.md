@@ -5,13 +5,21 @@ Last updated: 2026-07-20
 ## Active Context
 
 - Active module: Chanjet Integration
-- Current stage: CHANJET_MINIMAL_WRITE_PRECHECK_PASSED
-- Active decision: GO_WITH_CONDITIONS
-- Next gate: CHANJET_P3_FIELD_SEMANTIC_LOCK
+- Current stage: CHANJET_END_TO_END_EXECUTION_PLANNED
+- Active decision: PLAN_READY
+- Next gate: CHANJET_LONG_QUEUE_WAVE_0_1_EXECUTION
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
 
 ## Latest Chanjet Decision
+
+- End-to-end program `CHANJET-E2E-20260720` is planned as 10 waves and 51 dependency-linked tasks.
+- Plan: `docs/ops/CHANJET_END_TO_END_DEEP_DELIVERY_PLAN.md`.
+- Machine queue: `docs/ops/CHANJET_END_TO_END_EXECUTION_QUEUE.json`.
+- Acceptance matrix: `docs/ops/CHANJET_END_TO_END_ACCEPTANCE_MATRIX.md`.
+- The planning queue has `dispatch_enabled=false`; it is not inserted into the resident live queue by this planning task.
+- Waves 0-1 are the immediate execution slice: refresh evidence and close AR/AP/cash/receipt/payment semantic contracts.
+- Waves 0-6 remain readonly toward Chanjet. Wave 7 external minimal write is `HOLD_FOR_EXPLICIT_APPROVAL` and cannot inherit earlier approval.
 
 - Production revision `5f3dc613` is healthy after CI/CD run `29745034623`.
 - Protected readonly mirror refresh completed 46/46 targets with zero unresolved failures.

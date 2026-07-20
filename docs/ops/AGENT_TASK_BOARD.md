@@ -40,6 +40,7 @@
 
 | Task ID | Agent | Branch | Status | PR | Risk level | Frozen item touched | Verification result | Blockers | Next step |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| CHANJET-E2E-20260720-LONG-QUEUE-PLAN | Codex-Orchestrator | codex/i18n-debt-clearance | done | N/A | L3 planning / L5 gated external write | No | Outputs `docs/ops/CHANJET_END_TO_END_DEEP_DELIVERY_PLAN.md`, `docs/ops/CHANJET_END_TO_END_EXECUTION_QUEUE.json`, and `docs/ops/CHANJET_END_TO_END_ACCEPTANCE_MATRIX.md`; 10 waves / 51 tasks; planning queue dispatch disabled | Wave 7 external write, Wave 8 pilot and Wave 9 production each require independent approval | Promote Waves 0-1 into the live queue; run A5/A2/A1 baseline in parallel, then serialize A3 finance semantic consolidation |
 | W5-P0-ADF-00 | Codex-Orchestrator | w5-ai-delivery-factory-setup | IN_PROGRESS | TBD | Low | No | Docs-only setup in progress | None | Complete docs and PR template |
 | W5-A1-CI-RUNTIME-GATE | A1-CI-Runtime-Gate | w5-a1-ci-runtime-gate | FAIL | TBD | P0 | No | A1 result: FAIL; use as later go-live repair sample only | Runtime/security blockers remain out of scope for Phase 2 | Do not fix in current task; wait for explicit repair dispatch |
 | ADF-P2-NL-DISPATCH-FLOW | Codex-Orchestrator | w5-codex-orchestrator | done | TBD | L1 | No | Natural language dispatch docs completed | None | Use a sample request to dry-run routing |

@@ -1874,3 +1874,13 @@ Decision: counterparty resolution `GO`.
 - Canary jobs 2815 and 2816 passed write/readback, account-book idempotency, and compensating rollback; canary residue is zero.
 - Five finance differences remain explicitly classified for `CHANJET_P3_FIELD_SEMANTIC_LOCK`; no fake equality or silent overwrite is allowed.
 - No Chanjet external write/delete/modify, voucher push, or ERP business-table write was executed.
+
+# 2026-07-20 - Freeze Chanjet end-to-end execution program
+
+- Decision: `PLAN_READY` for program `CHANJET-E2E-20260720`.
+- The program contains 10 waves and 51 dependency-linked tasks, with maximum planned concurrency three.
+- Waves 0-6 cover readonly evidence, semantic locks, full authorized endpoint coverage, mapping, ERP finance fusion, reliability and internal writeback preparation.
+- Wave 7 external minimal write remains `HOLD_FOR_EXPLICIT_APPROVAL`; Wave 8 pilot and Wave 9 production inherit no earlier approval.
+- The machine queue is planning-only with `dispatch_enabled=false` and is not added to the resident Agent queue by this task.
+- Completion is governed by `docs/ops/CHANJET_END_TO_END_ACCEPTANCE_MATRIX.md`, not by commit existence or HTTP transport success alone.
+- No Chanjet write, ERP business-data write, migration, deploy or push was performed while creating this plan.
