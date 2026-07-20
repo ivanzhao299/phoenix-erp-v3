@@ -769,82 +769,86 @@ const FINANCE_SEMANTIC_LOCKS: FinanceSemanticLock[] = [
   {
     key: 'SUBJECT_BALANCE',
     label: '科目余额',
-    status: 'PENDING',
+    status: 'LOCKED',
     authorityEligible: false,
     chanjetEntityTypes: ['GL_BALANCE'],
-    lockedFields: ['book_id', 'entity_type', 'raw_data'],
-    pendingFields: ['subject_code', 'subject_name', 'opening_balance', 'debit_amount', 'credit_amount', 'closing_balance', 'direction'],
-    dateRule: '按账套与会计期间展示，期间字段需从 raw_data 明确确认。',
-    amountRule: '必须拆出期初、本期借方、本期贷方、期末余额；不得使用 amountSum=0。',
-    statusRule: '科目余额表无审批状态，但需要科目启用/末级状态说明。',
+    lockedFields: ['subject_code', 'subject_name', 'opening_balance', 'debit_amount', 'credit_amount', 'closing_balance', 'direction'],
+    pendingFields: [],
+    dateRule: '按账套与镜像会计期间展示，拉取时间不得替代会计期间。',
+    amountRule: '按行保留期初、本期借方、本期贷方和期末余额；禁止把行级报表压成 amountSum 单值。',
+    statusRule: '科目余额表只读展示，不推导审批状态；科目层级与末级标识按源行保留。',
     erpComparisonRule: 'ERP 无同粒度总账表时仅展示好业财只读报表，不做伪差异。',
     risk: 'HIGH',
-    reason: '科目余额表已同步，但金额字段尚未结构化。',
-    nextAction: '建立 GL_BALANCE semantic extractor，把 P0 字段映射为只读模型。',
+    reason: '生产只读样本和 semantic extractor 已覆盖科目与余额字段；该报表保持行级只读，不提升为单值权威卡片。',
+    nextAction: '继续维护科目编码映射与字段漂移检测，不构造 ERP 不存在的总账对照值。',
   },
   {
     key: 'BALANCE_SHEET',
     label: '资产负债表关键项',
-    status: 'PENDING',
+    status: 'LOCKED',
     authorityEligible: false,
     chanjetEntityTypes: ['BALANCE_SHEET'],
-    lockedFields: ['book_id', 'entity_type', 'raw_data'],
-    pendingFields: ['line_no', 'item_name', 'begin_amount', 'ending_amount'],
-    dateRule: '按报表期间和账套展示，期间需显式保留。',
-    amountRule: '必须拆出报表项目、年初/期末金额；不得使用 amountSum=0。',
+    lockedFields: ['line_no', 'item_name', 'begin_amount', 'ending_amount'],
+    pendingFields: [],
+    dateRule: '按账套和报表期间展示，期间显式保留。',
+    amountRule: '按报表行保留项目、年初和期末金额；禁止使用 amountSum=0 代表整张报表。',
     statusRule: '报表类无审批状态，需保留拉取批次和账套。',
     erpComparisonRule: 'ERP 经营数据只做辅助解释，不与报表行强行一一对应。',
     risk: 'HIGH',
-    reason: '报表行项目字段尚未锁定。',
-    nextAction: '建立 BALANCE_SHEET semantic extractor 和关键项展示映射。',
+    reason: '生产只读样本和 semantic extractor 已覆盖报表行、项目及期初/期末字段。',
+    nextAction: '保持行级只读展示与字段漂移检测，不把整张报表压成单值。',
   },
   {
     key: 'INCOME_STATEMENT',
     label: '利润表关键项',
-    status: 'PENDING',
+    status: 'LOCKED',
     authorityEligible: false,
     chanjetEntityTypes: ['INCOME_STATEMENT'],
-    lockedFields: ['book_id', 'entity_type', 'raw_data'],
-    pendingFields: ['line_no', 'item_name', 'current_period_amount', 'year_to_date_amount'],
+    lockedFields: ['line_no', 'item_name', 'current_period_amount', 'year_to_date_amount'],
+    pendingFields: [],
     dateRule: '按报表期间和账套展示，期间需显式保留。',
-    amountRule: '必须拆出本期金额和累计金额；不得使用 amountSum=0。',
+    amountRule: '按报表行保留本期金额和累计金额；禁止使用 amountSum=0 代表整张报表。',
     statusRule: '报表类无审批状态，需保留拉取批次和账套。',
     erpComparisonRule: 'ERP 销售/采购/费用经营数据只做辅助解释。',
     risk: 'HIGH',
-    reason: '利润表行项目字段尚未锁定。',
-    nextAction: '建立 INCOME_STATEMENT semantic extractor 和关键项展示映射。',
+    reason: '生产只读样本和 semantic extractor 已覆盖报表行、项目、本期及累计字段。',
+    nextAction: '保持行级只读展示与字段漂移检测，不把整张报表压成单值。',
   },
   {
     key: 'CASH_FLOW',
     label: '现金流量表关键项',
-    status: 'PENDING',
+    status: 'LOCKED',
     authorityEligible: false,
     chanjetEntityTypes: ['CASH_FLOW'],
-    lockedFields: ['book_id', 'entity_type', 'raw_data'],
-    pendingFields: ['line_no', 'item_name', 'current_period_amount', 'year_to_date_amount', 'cash_flow_category'],
+    lockedFields: ['line_no', 'item_name', 'current_period_amount', 'year_to_date_amount', 'cash_flow_category'],
+    pendingFields: [],
     dateRule: '按报表期间和账套展示，期间需显式保留。',
-    amountRule: '必须拆出现金流项目金额；不得使用 amountSum=0。',
+    amountRule: '按报表行保留现金流项目、本期及累计金额；禁止使用 amountSum=0 代表整张报表。',
     statusRule: '报表类无审批状态。',
     erpComparisonRule: 'ERP 现金流水仅作辅助解释。',
     risk: 'MEDIUM',
-    reason: '现金流量表字段尚未锁定。',
-    nextAction: '排在资产负债表/利润表之后建立 semantic extractor。',
+    reason: '生产只读样本和 semantic extractor 已覆盖现金流项目及金额字段。',
+    nextAction: '保持行级只读展示与字段漂移检测，不把整张报表压成单值。',
   },
   {
     key: 'VOUCHER_LIST',
     label: '凭证列表 / 明细',
-    status: 'PARTIAL',
+    status: 'LOCKED',
     authorityEligible: false,
     chanjetEntityTypes: ['VOUCHER'],
-    lockedFields: ['voucher_header_candidate', 'voucher_line_candidate', 'raw_data'],
-    pendingFields: ['voucher_status', 'posting_date', 'assistant_accounting', 'subject_mapping_review'],
+    lockedFields: [
+      'voucher_id', 'voucher_no', 'book_id', 'period', 'voucher_date', 'posting_date', 'voucher_status',
+      'summary', 'maker', 'reviewer', 'line_no', 'subject_code', 'subject_name', 'debit_amount',
+      'credit_amount', 'currency', 'counterparty_name', 'project_name', 'department_name',
+    ],
+    pendingFields: [],
     dateRule: '凭证日期/期间需以好业财凭证字段为准，不能用拉取时间代替。',
     amountRule: '借贷金额必须按行保留 Decimal 字符串，不用 JS 浮点做账。',
     statusRule: '写回仍关闭；只读重现可用，推送必须进入 P4 单独 Gate。',
     erpComparisonRule: 'ERP 凭证草稿仅作为候选，不自动推送。',
     risk: 'CRITICAL',
-    reason: '凭证只读重现已有候选字段，但写回链路必须继续关闭。',
-    nextAction: '建立凭证只读详情页与人工审核队列；P4 前不得开放写好业财。',
+    reason: '凭证头和凭证明细专用只读适配器已通过字段覆盖验证；该结论不授权任何凭证写回。',
+    nextAction: '保持凭证只读详情和差异证据；外部写入继续等待单独最小写入 Gate。',
   },
 ];
 
@@ -2004,11 +2008,7 @@ export class ChanjetIntegrationService {
       chanjetAp,
       chanjetCash,
       dailyReceiptPayment,
-      chanjetGlBalance,
-      chanjetBalanceSheet,
-      chanjetIncomeStatement,
-      chanjetCashFlow,
-      chanjetVoucher,
+      semanticExtractors,
     ] = await Promise.all([
       this.erpFinanceAggregate(
         `SELECT COALESCE(SUM(balance_amount_base),0) AS value, COUNT(*) AS rows
@@ -2039,13 +2039,10 @@ export class ChanjetIntegrationService {
       this.chanjetEntityAggregate(['AP_STATISTICS']),
       this.chanjetCashBalanceAggregate(),
       this.financeReceiptPaymentDailyReconciliationOverview(),
-      this.chanjetEntityAggregate(['GL_BALANCE']),
-      this.chanjetEntityAggregate(['BALANCE_SHEET']),
-      this.chanjetEntityAggregate(['INCOME_STATEMENT']),
-      this.chanjetEntityAggregate(['CASH_FLOW']),
-      this.chanjetEntityAggregate(['VOUCHER']),
+      this.financeSemanticExtractorsOverview(),
     ]);
     const dailyMetricByKey = new Map(dailyReceiptPayment.metrics.map((metric) => [metric.key, metric]));
+    const extractorByKey = new Map(semanticExtractors.extractors.map((extractor) => [extractor.key, extractor]));
     const dailyAggregate = (key: 'TODAY_RECEIPT' | 'TODAY_PAYMENT') => {
       const metric = dailyMetricByKey.get(key);
       return {
@@ -2061,6 +2058,19 @@ export class ChanjetIntegrationService {
       if (metric?.readyForCardAuthority) return undefined;
       return metric?.status === 'HOLD' ? 'HOLD' : 'NEED_MANUAL_REVIEW';
     };
+    const readonlyReportAggregate = (key: 'SUBJECT_BALANCE' | 'BALANCE_SHEET' | 'INCOME_STATEMENT' | 'CASH_FLOW' | 'VOUCHER_LIST') => {
+      const extractor = extractorByKey.get(key);
+      return {
+        available: extractor?.status === 'READY' && extractor.sampleRows > 0,
+        value: null,
+        rows: extractor?.sampleRows || 0,
+        latestPulledAt: extractor?.latestPulledAt || null,
+        error: extractor?.status === 'READY' ? undefined : extractor?.reason || '只读报表语义证据不可用',
+      };
+    };
+    const readonlyReportStatus = (key: 'SUBJECT_BALANCE' | 'BALANCE_SHEET' | 'INCOME_STATEMENT' | 'CASH_FLOW' | 'VOUCHER_LIST'): FinanceReconciliationStatus => (
+      extractorByKey.get(key)?.status === 'READY' ? 'WARN' : 'NEED_MAPPING'
+    );
 
     const items: FinanceReconciliationItem[] = [
       this.buildFinanceReconciliationItem({
@@ -2127,10 +2137,10 @@ export class ChanjetIntegrationService {
         chanjetEndpointKeys: ['GL_BALANCE'],
         chanjetEntityTypes: ['GL_BALANCE'],
         erpSources: ['chanjet_entity_snapshots.GL_BALANCE only'],
-        chanjet: chanjetGlBalance,
+        chanjet: readonlyReportAggregate('SUBJECT_BALANCE'),
         erp: null,
-        forceStatus: 'NEED_MAPPING',
-        reason: '科目余额表已同步，但借贷方向、期初/本期/期末字段尚未结构化为 ERP 可比口径。',
+        forceStatus: readonlyReportStatus('SUBJECT_BALANCE'),
+        reason: '科目余额行级只读模型已就绪；ERP 没有同粒度总账表，因此不构造单值或伪差异。',
       }),
       this.buildFinanceReconciliationItem({
         key: 'BALANCE_SHEET',
@@ -2139,10 +2149,10 @@ export class ChanjetIntegrationService {
         chanjetEndpointKeys: ['BALANCE_SHEET'],
         chanjetEntityTypes: ['BALANCE_SHEET'],
         erpSources: ['chanjet_entity_snapshots.BALANCE_SHEET only'],
-        chanjet: chanjetBalanceSheet,
+        chanjet: readonlyReportAggregate('BALANCE_SHEET'),
         erp: null,
-        forceStatus: 'NEED_MAPPING',
-        reason: '资产负债表已同步，但项目行、行次、期末/年初金额尚需字段语义映射。',
+        forceStatus: readonlyReportStatus('BALANCE_SHEET'),
+        reason: '资产负债表行级只读模型已就绪；ERP 没有同粒度法定报表，因此不构造单值或伪差异。',
       }),
       this.buildFinanceReconciliationItem({
         key: 'INCOME_STATEMENT',
@@ -2151,10 +2161,10 @@ export class ChanjetIntegrationService {
         chanjetEndpointKeys: ['INCOME_STATEMENT'],
         chanjetEntityTypes: ['INCOME_STATEMENT'],
         erpSources: ['chanjet_entity_snapshots.INCOME_STATEMENT only'],
-        chanjet: chanjetIncomeStatement,
+        chanjet: readonlyReportAggregate('INCOME_STATEMENT'),
         erp: null,
-        forceStatus: 'NEED_MAPPING',
-        reason: '利润表已同步，但收入、成本、费用、利润行项目尚需字段语义映射。',
+        forceStatus: readonlyReportStatus('INCOME_STATEMENT'),
+        reason: '利润表行级只读模型已就绪；ERP 经营明细仅作解释，不与法定报表行强行一一对应。',
       }),
       this.buildFinanceReconciliationItem({
         key: 'CASH_FLOW',
@@ -2163,10 +2173,10 @@ export class ChanjetIntegrationService {
         chanjetEndpointKeys: ['CASH_FLOW'],
         chanjetEntityTypes: ['CASH_FLOW'],
         erpSources: ['chanjet_entity_snapshots.CASH_FLOW only'],
-        chanjet: chanjetCashFlow,
+        chanjet: readonlyReportAggregate('CASH_FLOW'),
         erp: null,
-        forceStatus: 'NEED_MAPPING',
-        reason: '现金流量表已同步，但经营/投资/筹资现金流行项目尚需字段语义映射。',
+        forceStatus: readonlyReportStatus('CASH_FLOW'),
+        reason: '现金流量表行级只读模型已就绪；ERP 现金流水仅作辅助解释，不构造单值或伪差异。',
       }),
       this.buildFinanceReconciliationItem({
         key: 'VOUCHER_LIST',
@@ -2175,10 +2185,10 @@ export class ChanjetIntegrationService {
         chanjetEndpointKeys: ['VOUCHER_SEARCH'],
         chanjetEntityTypes: ['VOUCHER'],
         erpSources: ['chanjet_voucher_drafts only'],
-        chanjet: chanjetVoucher,
+        chanjet: readonlyReportAggregate('VOUCHER_LIST'),
         erp: null,
-        forceStatus: 'NEED_MANUAL_REVIEW',
-        reason: '凭证列表可只读重现，但 ERP→好业财写入仍被关闭；必须先做凭证草稿、人工审核、防重复推送和回执保存。',
+        forceStatus: readonlyReportStatus('VOUCHER_LIST'),
+        reason: '凭证头和明细专用适配器已支持只读重现；ERP→好业财写入继续关闭，不把只读就绪误报为写回就绪。',
       }),
     ];
 
@@ -4055,7 +4065,7 @@ export class ChanjetIntegrationService {
   }
 
   async financeReadonlyFieldAdaptersOverview(): Promise<ChanjetReadonlyFieldAdapterOverview> {
-    const [voucherRows, counterpartyRows, counterpartyMappings] = await Promise.all([
+    const [storedVoucherRows, storedCounterpartyRows, counterpartyMappings] = await Promise.all([
       this.entitySnapshotRepo.find({
         where: { entityType: 'VOUCHER' },
         order: { updatedAt: 'DESC' },
@@ -4072,6 +4082,8 @@ export class ChanjetIntegrationService {
         take: 3000,
       }),
     ]);
+    const voucherRows = storedVoucherRows.filter((row) => !getChanjetBusinessFailure(row.rawData));
+    const counterpartyRows = storedCounterpartyRows.filter((row) => !getChanjetBusinessFailure(row.rawData));
 
     const latestVoucher = voucherRows.reduce<string | null>(
       (latest, row) => this.maxIso(latest, row.updatedAt ? row.updatedAt.toISOString() : null),
@@ -4918,13 +4930,13 @@ export class ChanjetIntegrationService {
     chanjetEndpointKeys: string[];
     chanjetEntityTypes: string[];
     erpSources: string[];
-    chanjet: { available: boolean; value: number; rows: number; latestPulledAt?: string | null; error?: string };
+    chanjet: { available: boolean; value: number | null; rows: number; latestPulledAt?: string | null; error?: string };
     erp: { available: boolean; value: number; rows: number; error?: string } | null;
     reason: string;
     forceStatus?: FinanceReconciliationStatus;
   }): FinanceReconciliationItem {
     const semanticLock = this.financeSemanticLockFor(input.key);
-    const chanjetValue = input.chanjet.available ? input.chanjet.value : null;
+    const chanjetValue = input.chanjet.available && input.chanjet.value !== null ? input.chanjet.value : null;
     const erpValue = input.erp?.available ? input.erp.value : null;
     const diff = chanjetValue !== null && erpValue !== null ? chanjetValue - erpValue : null;
     const base = Math.max(Math.abs(chanjetValue ?? 0), Math.abs(erpValue ?? 0), 1);
@@ -4959,7 +4971,9 @@ export class ChanjetIntegrationService {
         erpRows: input.erp?.rows || 0,
       },
       reason: input.reason,
-      recommendedAction: this.financeReconciliationNextAction(status),
+      recommendedAction: status === 'WARN' && input.erp === null
+        ? '保持好业财行级只读展示和字段漂移检测；ERP 无同粒度事实时不构造伪差异。'
+        : this.financeReconciliationNextAction(status),
       semanticLock,
     };
   }
@@ -4998,6 +5012,7 @@ export class ChanjetIntegrationService {
     dailyMetric?: ReceiptPaymentDailyReconciliationMetric,
   ): FinanceReadModelMetric {
     const selectedValueFields = this.financeReadModelValueFields(extractor);
+    const readonlyReportOnly = ['SUBJECT_BALANCE', 'BALANCE_SHEET', 'INCOME_STATEMENT', 'CASH_FLOW', 'VOUCHER_LIST'].includes(item.key);
     const dailyAuthorityReady = Boolean(dailyMetric?.readyForCardAuthority && dailyMetric.amount !== null);
     const effectiveChanjetValue = dailyAuthorityReady ? dailyMetric!.amount : item.chanjetValue;
     const hasMirrorValue = effectiveChanjetValue !== null;
@@ -5032,7 +5047,7 @@ export class ChanjetIntegrationService {
     const readonlyReady = Boolean(
       extractor?.status === 'READY'
       && !authorityReady
-      && hasMirrorValue
+      && (hasMirrorValue || (readonlyReportOnly && extractor.sampleRows > 0))
       && !needManualReview
       && !hold,
     );
@@ -5047,7 +5062,9 @@ export class ChanjetIntegrationService {
             : waitingSample
               ? 'WAITING_SAMPLE'
               : 'BLOCKED_MAPPING';
-    const displayValue = ['AUTHORITY_READY', 'READONLY_READY'].includes(status) ? effectiveChanjetValue : null;
+    const displayValue = ['AUTHORITY_READY', 'READONLY_READY'].includes(status) && !readonlyReportOnly
+      ? effectiveChanjetValue
+      : null;
     const dailyRequiredFields = dailyMetric ? Object.values(dailyMetric.sourceFields) : [];
     return {
       key: item.key,
@@ -5058,7 +5075,9 @@ export class ChanjetIntegrationService {
       displayValue,
       erpAuxiliaryValue: item.erpValue,
       diff: displayValue !== null && item.erpValue !== null ? displayValue - item.erpValue : null,
-      valueSource: displayValue !== null
+      valueSource: readonlyReportOnly && status === 'READONLY_READY'
+        ? `chanjet_entity_snapshots.${item.chanjetEntityTypes.join('_')}.rawData semantic rows`
+        : displayValue !== null
         ? dailyAuthorityReady
           ? `chanjet_entity_snapshots.${dailyMetric!.entityType}.rawData.bizDate/voucherStatusEnum/totalAmount`
           : item.key === 'CASH_BALANCE'
@@ -5705,6 +5724,71 @@ export class ChanjetIntegrationService {
           ? '现金/银行余额精确合同已通过：最新期间 1001/1002 叶子科目 baseEndingBalance。'
           : `现金/银行余额字段锁未通过: ${cashLock.blockerReasons.join(' / ') || cashLock.status}。`,
         nextAction: cashLock.nextAction,
+      };
+    }
+    if (lock.key === 'VOUCHER_LIST') {
+      const overview = await this.financeReadonlyFieldAdaptersOverview();
+      const voucherAdapters = overview.adapters.filter((adapter) => (
+        adapter.adapterKey === 'CHANJET_VOUCHER_HEADER' || adapter.adapterKey === 'CHANJET_VOUCHER_LINE'
+      ));
+      const adapterByField = new Map<string, ChanjetReadonlyFieldAdapterOverview['adapters'][number]>();
+      for (const adapter of voucherAdapters) {
+        for (const field of adapter.mappedFields) adapterByField.set(field.toLowerCase(), adapter);
+      }
+      const fieldAliases: Record<string, string> = {
+        voucher_id: 'voucherid', voucher_no: 'voucherno', book_id: 'bookid', period: 'period',
+        voucher_date: 'voucherdate', posting_date: 'postingdate', voucher_status: 'status', summary: 'summary',
+        maker: 'maker', reviewer: 'reviewer', line_no: 'lineno', subject_code: 'subjectcode',
+        subject_name: 'subjectname', debit_amount: 'debitamount', credit_amount: 'creditamount',
+        currency: 'currency', counterparty_name: 'counterpartyname', project_name: 'projectname',
+        department_name: 'departmentname',
+      };
+      const fieldCandidates = lock.lockedFields.map((field) => {
+        const adapter = adapterByField.get(fieldAliases[field] || field.replace(/_/g, ''));
+        return {
+          semanticField: field,
+          candidatePaths: adapter ? [{
+            path: `readonly_adapter.${adapter.adapterKey}.${fieldAliases[field] || field}`,
+            sampleType: 'string' as const,
+            sampleValue: null,
+            observedCount: adapter.sampleRows,
+          }] : [],
+          required: true,
+          status: adapter ? 'FOUND' as const : 'MISSING' as const,
+        };
+      });
+      const missingRequiredFields = fieldCandidates.filter((field) => field.status === 'MISSING').map((field) => field.semanticField);
+      const allAdaptersReady = voucherAdapters.length === 2 && voucherAdapters.every((adapter) => adapter.status === 'READY');
+      const sampleRows = voucherAdapters.reduce((sum, adapter) => sum + adapter.sampleRows, 0);
+      const latestPulledAt = voucherAdapters.reduce<string | null>(
+        (latest, adapter) => this.maxIso(latest, adapter.latestPulledAt),
+        null,
+      );
+      const status: FinanceSemanticExtractorStatus = allAdaptersReady && missingRequiredFields.length === 0
+        ? 'READY'
+        : sampleRows === 0
+          ? 'WAITING_SAMPLE'
+          : voucherAdapters.some((adapter) => adapter.status === 'HOLD')
+            ? 'HOLD'
+            : 'PARTIAL';
+      return {
+        key: lock.key,
+        label: lock.label,
+        status,
+        authorityEligible: false,
+        sourceEntityTypes: ['VOUCHER'],
+        sampleRows,
+        latestPulledAt,
+        fieldCandidates,
+        extractedFields: fieldCandidates.length - missingRequiredFields.length,
+        requiredFields: fieldCandidates.length,
+        missingRequiredFields,
+        reason: status === 'READY'
+          ? '凭证头和明细专用只读适配器均已 READY；写回权限仍保持关闭。'
+          : '凭证只读适配器证据不完整，保持 fail-closed。',
+        nextAction: status === 'READY'
+          ? '保持只读重现与字段漂移检测；最少写入必须进入独立审批 Gate。'
+          : `补齐凭证只读字段: ${missingRequiredFields.join(' / ') || status}`,
       };
     }
     const storedRows = await this.entitySnapshotRepo.find({

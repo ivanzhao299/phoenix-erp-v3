@@ -858,6 +858,7 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
         },
       ],
     });
+    subject.financeSemanticExtractorsOverview = jest.fn().mockResolvedValue({ extractors: [] });
 
     const result = await subject.financeReconciliationOverview();
     const receipt = result.items.find((item: { key: string }) => item.key === 'TODAY_RECEIPT');
@@ -875,7 +876,96 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       reason: 'verified payment contract',
       semanticLock: { status: 'LOCKED', authorityEligible: true, pendingFields: [] },
     });
-    expect(result.summary.needManualReview).toBe(1);
+    expect(result.summary.needManualReview).toBe(0);
+    expect(result.summary.needMapping).toBe(5);
+  });
+
+  it('keeps readonly statements row-based instead of publishing fake scalar zeroes', () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const item = {
+      key: 'BALANCE_SHEET',
+      label: '资产负债表关键项',
+      priority: 'P0',
+      status: 'WARN',
+      chanjetEndpointKeys: ['BALANCE_SHEET'],
+      chanjetEntityTypes: ['BALANCE_SHEET'],
+      erpSources: ['chanjet_entity_snapshots.BALANCE_SHEET only'],
+      chanjetValue: null,
+      erpValue: null,
+      diff: null,
+      diffRate: null,
+      evidence: { chanjetRows: 50, latestPulledAt: '2026-07-20T00:00:00.000Z', erpRows: 0 },
+      reason: 'row model ready',
+      recommendedAction: 'readonly only',
+      semanticLock: subject.financeSemanticLockFor('BALANCE_SHEET'),
+    };
+    const extractor = {
+      key: 'BALANCE_SHEET',
+      label: '资产负债表关键项',
+      status: 'READY',
+      authorityEligible: false,
+      sourceEntityTypes: ['BALANCE_SHEET'],
+      sampleRows: 50,
+      latestPulledAt: '2026-07-20T00:00:00.000Z',
+      fieldCandidates: [
+        { semanticField: 'line_no', candidatePaths: [{ path: '$.lineNo', sampleType: 'number', sampleValue: '1', observedCount: 1 }], required: true, status: 'FOUND' },
+        { semanticField: 'ending_amount', candidatePaths: [{ path: '$.asset.baseEndingBalance', sampleType: 'number', sampleValue: '100', observedCount: 1 }], required: true, status: 'FOUND' },
+      ],
+      extractedFields: 2,
+      requiredFields: 2,
+      missingRequiredFields: [],
+      reason: 'ready',
+      nextAction: 'readonly',
+    };
+
+    const metric = subject.buildFinanceReadModelMetric(item, extractor);
+
+    expect(item.semanticLock).toMatchObject({ status: 'LOCKED', authorityEligible: false, pendingFields: [] });
+    expect(metric).toMatchObject({
+      status: 'READONLY_READY',
+      authorityEligible: false,
+      displayValue: null,
+      valueSource: 'chanjet_entity_snapshots.BALANCE_SHEET.rawData semantic rows',
+      missingRequiredFields: [],
+    });
+  });
+
+  it('marks vouchers readonly-ready only when header and line adapters are both complete', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const mappedFields = [
+      'voucherId', 'voucherNo', 'bookId', 'period', 'voucherDate', 'postingDate', 'status', 'summary',
+      'maker', 'reviewer', 'lineNo', 'subjectCode', 'subjectName', 'debitAmount', 'creditAmount',
+      'currency', 'counterpartyName', 'projectName', 'departmentName',
+    ];
+    subject.financeReadonlyFieldAdaptersOverview = jest.fn().mockResolvedValue({
+      adapters: [
+        {
+          adapterKey: 'CHANJET_VOUCHER_HEADER',
+          status: 'READY',
+          mappedFields: mappedFields.slice(0, 10),
+          sampleRows: 60,
+          latestPulledAt: '2026-07-20T00:00:00.000Z',
+        },
+        {
+          adapterKey: 'CHANJET_VOUCHER_LINE',
+          status: 'READY',
+          mappedFields: mappedFields.slice(10),
+          sampleRows: 160,
+          latestPulledAt: '2026-07-20T00:00:01.000Z',
+        },
+      ],
+    });
+
+    const result = await subject.buildFinanceSemanticExtractor(subject.financeSemanticLockFor('VOUCHER_LIST'));
+
+    expect(result).toMatchObject({
+      key: 'VOUCHER_LIST',
+      status: 'READY',
+      authorityEligible: false,
+      sampleRows: 220,
+      missingRequiredFields: [],
+    });
+    expect(result.fieldCandidates).toHaveLength(19);
   });
 
   it('locks receipt direction from the direction-specific Chanjet entity contract', async () => {
