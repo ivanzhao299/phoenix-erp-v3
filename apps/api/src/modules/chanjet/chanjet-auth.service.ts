@@ -20,6 +20,16 @@ export interface ChanjetBusinessFailure {
   requestId: string;
 }
 
+const CHANJET_SUCCESS_CODES = new Set([
+  '0',
+  '200',
+  'SUCCESS',
+  'OK',
+  // 好业财 cc 业务接口的标准成功码。部分列表接口即使 data 为空，
+  // 也会返回 code=openApi.e0000 + msg=success。
+  'OPENAPI.E0000',
+]);
+
 /**
  * 好业财部分接口会在 HTTP 200 中返回业务失败信封。调用方必须把这类响应当失败，
  * 否则 error envelope 会被错误写成财务实体快照并污染覆盖率和聚合口径。
@@ -35,7 +45,7 @@ export function getChanjetBusinessFailure(payload: unknown): ChanjetBusinessFail
   const code = String(row.code ?? error.code ?? '').trim();
   const message = String(row.msg ?? row.message ?? error.msg ?? error.message ?? '').trim();
   const requestId = String(row.requestId ?? row.request_id ?? error.requestId ?? '').trim();
-  const failedCode = Boolean(code && !['0', '200', 'SUCCESS', 'OK'].includes(code.toUpperCase()));
+  const failedCode = Boolean(code && !CHANJET_SUCCESS_CODES.has(code.toUpperCase()));
   const status = Number(row.status ?? error.status);
   const failedStatus = Number.isFinite(status) && status >= 400;
   const nullDataFailure = row.data === null && failedCode && Boolean(message);

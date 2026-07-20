@@ -40,6 +40,21 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(cashFlow.query).toEqual({ isQuarter: 'false', period: '202607' });
   });
 
+  it('uses the official readonly department and subject contracts', () => {
+    const department = service.buildProbeRequest({
+      key: 'DEPARTMENT',
+      query: {},
+      body: { pageSize: 1000, pageNo: 1 },
+    }, '202607');
+    const subject = service.buildProbeRequest({
+      key: 'SUBJECT',
+      query: {},
+    }, '202607');
+
+    expect(department.body).toEqual({ pageSize: 1000, pageNo: 1 });
+    expect(subject).toMatchObject({ query: {}, body: {} });
+  });
+
   it('routes mirror baseline debt to the actual unresolved condition', () => {
     expect(service.mirrorBaselineNextGate({
       missingReportTargets: 1,
@@ -113,6 +128,22 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       externalId: 'PROJECT-1',
       externalCode: 'P001',
       externalName: '孟赛项目',
+    });
+  });
+
+  it('normalizes the official subject list field names', () => {
+    expect(service.normalizeExternalEntity({
+      glAccountId: '1001',
+      glAccountCode: '1001',
+      glAccountName: '库存现金',
+      baseEndingBalance: '125.50',
+      statusEnum: 'A',
+    }, 'SUBJECT', 0, 'SUBJECT')).toMatchObject({
+      externalId: '1001',
+      externalCode: '1001',
+      externalName: '库存现金',
+      amount: '125.50',
+      status: 'A',
     });
   });
 
@@ -727,6 +758,17 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       decision: 'GO_WITH_CONDITIONS',
       summary: { totalDomains: 7, readyDomains: 6, needReviewDomains: 1, holdDomains: 0, nextGate: 'FIX_ONE_DOMAIN' },
     });
+    subject.masterDataMappingReview = jest.fn().mockResolvedValue({
+      decision: 'GO_WITH_CONDITIONS',
+      summary: {
+        validSourceRows: 59,
+        invalidSourceRowsExcluded: 0,
+        exactMatches: 41,
+        needMapping: 18,
+        conflicts: 0,
+        nextGate: 'CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE',
+      },
+    });
     subject.financeReconciliationOverview = jest.fn().mockResolvedValue({
       summary: { mismatch: 0, needMapping: 1, needManualReview: 0, hold: 0 },
     });
@@ -743,7 +785,13 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(result.decision).toBe('GO_WITH_CONDITIONS');
     expect(result.productionReadiness.summary.mirrorFreshRate).toBe(100);
     expect(result.implementationOrder.map((item: { phase: string }) => item.phase)).toEqual(['P0', 'P1', 'P2', 'P3', 'P4', 'P5']);
-    expect(result.summary).toMatchObject({ fieldMappings: 1714, unmappedFields: 20, externalWriteEnabled: false });
+    expect(result.summary).toMatchObject({
+      fieldMappings: 1714,
+      unmappedFields: 20,
+      mappingReadyDomains: 41,
+      mappingDomains: 59,
+      externalWriteEnabled: false,
+    });
     expect(result.guardrails).toMatchObject({ chanjetWrite: false, voucherPush: false, erpBusinessOverwrite: false });
   });
 

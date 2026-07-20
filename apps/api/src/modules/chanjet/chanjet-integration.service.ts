@@ -1020,8 +1020,9 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     key: 'DEPARTMENT',
     label: '部门列表',
     apiDomain: 'master-data',
-    method: 'GET',
+    method: 'POST',
     path: '/accounting/openapi/cc/department/list/{bookid}',
+    body: { pageSize: 1000, pageNo: 1 },
     requiresBook: true,
     mappingType: 'DEPARTMENT',
     entityType: 'DEPARTMENT',
@@ -1044,7 +1045,7 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     label: '科目列表',
     apiDomain: 'accounting',
     method: 'GET',
-    path: '/accounting/openapi/cc/subject/list/{bookid}',
+    path: '/accounting/gl/glaccount/getInitBalanceLists/{bookid}',
     requiresBook: true,
     mappingType: 'SUBJECT',
     entityType: 'SUBJECT',
@@ -4353,6 +4354,7 @@ export class ChanjetIntegrationService {
       baseline,
       accountBookGate,
       masterAlignment,
+      masterMappingReview,
       coverage,
       readModel,
       cardAuthority,
@@ -4363,6 +4365,7 @@ export class ChanjetIntegrationService {
       this.mirrorBaselineReadiness(24),
       this.accountBookMappingGate(),
       this.masterDataAlignmentOverview(),
+      this.masterDataMappingReview(),
       this.financeReadonlyCoverage(),
       this.financeReadModelOverview(),
       this.financeCardAuthorityOverview(),
@@ -4378,7 +4381,13 @@ export class ChanjetIntegrationService {
       accountBookGate.summary.validMappings,
       Math.max(accountBookGate.summary.enabledBooks, accountBookGate.summary.enabledMappings),
     ) * 100);
-    const masterDataApprovedRate = percent(masterAlignment.summary.approvedCoverageRate * 100);
+    const reviewedMappingRows = masterMappingReview.summary.exactMatches
+      + masterMappingReview.summary.needMapping
+      + masterMappingReview.summary.conflicts;
+    const masterDataApprovedRate = percent(ratio(
+      masterMappingReview.summary.exactMatches,
+      reviewedMappingRows,
+    ) * 100);
     const semanticCoverageRate = percent(coverage.summary.fieldCoverageRate * 100);
     const authorityReadyRate = percent(ratio(cardAuthority.summary.authorityReady, cardAuthority.summary.totalCards) * 100);
     const relevantJobs = jobs.filter((job) => job.jobType === 'SNAPSHOT').slice(0, 50);
@@ -4386,10 +4395,17 @@ export class ChanjetIntegrationService {
       relevantJobs.filter((job) => job.status === 'SUCCESS').length,
       relevantJobs.length,
     ) * 100);
-    const exactSystemApprovalCandidates = counterparties.candidates.filter((candidate) => (
+    const exactCounterpartyCandidates = counterparties.candidates.filter((candidate) => (
       candidate.systemApprovalEligible && candidate.requiresApproval
     )).length;
-    const manualMappingCandidates = counterparties.candidates.filter((candidate) => candidate.requiresApproval).length;
+    const exactSystemApprovalCandidates = masterMappingReview.summary.exactMatches
+      + exactCounterpartyCandidates;
+    const manualCounterpartyCandidates = counterparties.candidates.filter((candidate) => (
+      candidate.requiresApproval && !candidate.systemApprovalEligible
+    )).length;
+    const manualMappingCandidates = masterMappingReview.summary.needMapping
+      + masterMappingReview.summary.conflicts
+      + manualCounterpartyCandidates;
     const readModelReadyRate = percent(ratio(
       readModel.summary.authorityReady + readModel.summary.readonlyReady,
       readModel.summary.totalMetrics,
@@ -4411,9 +4427,18 @@ export class ChanjetIntegrationService {
       },
       {
         key: 'P1', title: '账套与主数据映射', score: percent((accountBookMappingRate + masterDataApprovedRate) / 2),
-        status: accountBookGate.decision === 'HOLD' || masterAlignment.summary.holdDomains > 0 ? 'HOLD' : masterDataApprovedRate >= 90 ? 'READY' : 'READY_WITH_CONDITIONS',
-        evidence: [`账套映射 ${accountBookMappingRate}%`, `主数据批准覆盖 ${masterDataApprovedRate}%`, `可系统确认精确候选 ${exactSystemApprovalCandidates}`],
-        nextAction: exactSystemApprovalCandidates ? 'CHANJET_SYSTEM_CONFIRM_EXACT_MAPPINGS' : masterAlignment.summary.nextGate,
+        status: accountBookGate.decision === 'HOLD' || masterMappingReview.summary.conflicts > 0 ? 'HOLD' : masterDataApprovedRate >= 90 && manualMappingCandidates === 0 ? 'READY' : 'READY_WITH_CONDITIONS',
+        evidence: [
+          `账套映射 ${accountBookMappingRate}%`,
+          `有效主数据精确匹配 ${masterMappingReview.summary.exactMatches}/${reviewedMappingRows}`,
+          `待映射 ${masterMappingReview.summary.needMapping}，冲突 ${masterMappingReview.summary.conflicts}`,
+          `可进入精确映射批准 Gate ${exactSystemApprovalCandidates}`,
+        ],
+        nextAction: masterMappingReview.summary.conflicts > 0
+          ? 'CHANJET_P2_MASTER_DATA_MAPPING_CONFLICT_REPAIR'
+          : exactSystemApprovalCandidates
+            ? 'CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE'
+            : masterAlignment.summary.nextGate,
       },
       {
         key: 'P2', title: '标准只读模型', score: percent((semanticCoverageRate + readModelReadyRate) / 2),
@@ -4452,7 +4477,7 @@ export class ChanjetIntegrationService {
     if (!tokenReady) blockers.push('没有可证明有效的运行态 token');
     if (baseline.summary.missingTargets > 0) blockers.push(`缺失 ${baseline.summary.missingTargets} 个只读镜像目标`);
     if (accountBookGate.decision === 'HOLD') blockers.push(...accountBookGate.blockingIssues);
-    if (manualMappingCandidates > 0) conditions.push(`${manualMappingCandidates} 个往来单位候选仍需人工复核`);
+    if (manualMappingCandidates > 0) conditions.push(`${manualMappingCandidates} 个主数据候选仍需映射或复核`);
     if (semanticCoverageRate < 90) conditions.push(`业务字段语义覆盖仅 ${semanticCoverageRate}%`);
     if (authorityReadyRate < 100) conditions.push(`财务卡片权威覆盖 ${authorityReadyRate}%，未就绪卡片继续使用 ERP 主值`);
     if (recentJobSuccessRate < 100) conditions.push(`最近只读同步成功率 ${recentJobSuccessRate}%`);
@@ -4479,7 +4504,7 @@ export class ChanjetIntegrationService {
         nextGate: blockers.length
           ? 'CHANJET_PRODUCTION_READINESS_REPAIR'
           : exactSystemApprovalCandidates
-            ? 'CHANJET_SYSTEM_CONFIRM_EXACT_MAPPINGS'
+            ? 'CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE'
             : 'CHANJET_CONTINUOUS_READONLY_RECONCILIATION',
       },
       phases,
@@ -4508,6 +4533,7 @@ export class ChanjetIntegrationService {
       readModel,
       cardAuthority,
       masterAlignment,
+      masterMappingReview,
       reconciliation,
       overview,
       unsafePushAllowed,
@@ -4516,6 +4542,7 @@ export class ChanjetIntegrationService {
       this.financeReadModelOverview(),
       this.financeCardAuthorityOverview(),
       this.masterDataAlignmentOverview(),
+      this.masterDataMappingReview(),
       this.financeReconciliationOverview(),
       this.overview(),
       this.voucherDraftRepo.count({ where: { pushAllowed: true } }),
@@ -4533,8 +4560,11 @@ export class ChanjetIntegrationService {
     const financeUiScore = cardAuthority.summary.totalCards
       ? Math.round(((cardAuthority.summary.authorityReady + cardAuthority.summary.readonlyReady) / cardAuthority.summary.totalCards) * 100)
       : 0;
-    const mappingScore = masterAlignment.summary.totalDomains
-      ? Math.round((masterAlignment.summary.readyDomains / masterAlignment.summary.totalDomains) * 100)
+    const reviewedMappingRows = masterMappingReview.summary.exactMatches
+      + masterMappingReview.summary.needMapping
+      + masterMappingReview.summary.conflicts;
+    const mappingScore = reviewedMappingRows
+      ? Math.round((masterMappingReview.summary.exactMatches / reviewedMappingRows) * 100)
       : 0;
     const implementationOrder: ChanjetCurrentStateOverview['implementationOrder'] = [
       {
@@ -4564,18 +4594,19 @@ export class ChanjetIntegrationService {
       {
         phase: 'P2',
         title: '公司/往来/科目/项目/资金账户映射',
-        status: masterAlignment.decision === 'HOLD'
+        status: masterMappingReview.decision === 'HOLD'
           ? 'HOLD'
-          : masterAlignment.summary.readyDomains === masterAlignment.summary.totalDomains
+          : masterMappingReview.summary.needMapping === 0
             ? 'READY'
             : 'READY_WITH_CONDITIONS',
         score: mappingScore,
         evidence: [
-          `映射域 READY ${masterAlignment.summary.readyDomains}/${masterAlignment.summary.totalDomains}`,
-          `待复核域 ${masterAlignment.summary.needReviewDomains}`,
-          `冲突域 ${masterAlignment.summary.holdDomains}`,
+          `有效源行 ${masterMappingReview.summary.validSourceRows}`,
+          `精确匹配 ${masterMappingReview.summary.exactMatches}`,
+          `待映射 ${masterMappingReview.summary.needMapping}`,
+          `冲突 ${masterMappingReview.summary.conflicts}`,
         ],
-        nextAction: masterAlignment.summary.nextGate,
+        nextAction: masterMappingReview.summary.nextGate,
       },
       {
         phase: 'P3',
@@ -4616,7 +4647,7 @@ export class ChanjetIntegrationService {
     const blockers = [
       ...readiness.blockers,
       ...(unsafePushAllowed > 0 ? [`发现 ${unsafePushAllowed} 条历史凭证草稿 push_allowed=true，需单独 DB Gate 清理`] : []),
-      ...(masterAlignment.summary.holdDomains > 0 ? [`存在 ${masterAlignment.summary.holdDomains} 个主数据映射冲突域`] : []),
+      ...(masterMappingReview.summary.conflicts > 0 ? [`存在 ${masterMappingReview.summary.conflicts} 个主数据映射冲突`] : []),
     ];
     const conditions = [
       ...readiness.conditions,
@@ -4638,8 +4669,8 @@ export class ChanjetIntegrationService {
         financeAuthorityReady: cardAuthority.summary.authorityReady,
         financeReadonlyReady: cardAuthority.summary.readonlyReady,
         financeCards: cardAuthority.summary.totalCards,
-        mappingReadyDomains: masterAlignment.summary.readyDomains,
-        mappingDomains: masterAlignment.summary.totalDomains,
+        mappingReadyDomains: masterMappingReview.summary.exactMatches,
+        mappingDomains: reviewedMappingRows,
         reconciliationOpen,
         recentJobSuccessRate: readiness.summary.recentJobSuccessRate,
         voucherDrafts: overview.voucherDrafts,
@@ -6986,17 +7017,17 @@ export class ChanjetIntegrationService {
     const sourceRow = entityType === 'ACCOUNT_BOOK' && this.isRecord(row.tenant) ? row.tenant : row;
     const idCandidate = this.firstText(sourceRow, [
       'id', 'ID', 'bookId', 'bookid', 'tenantId', 'subjectId', 'projectId',
-      'accountId', 'assistantCustomer', 'voucherId', 'code',
+      'accountId', 'glAccountId', 'assistantCustomer', 'voucherId', 'code',
     ]);
     const id = this.isUsableExternalId(idCandidate, entityType, endpointKey) ? idCandidate : '';
     const code = this.firstText(sourceRow, [
       'code', 'Code', 'bookCode', 'deptCode', 'subjectCode', 'projectCode',
-      'accountCode', 'customerCode', 'supplierCode', 'voucherCode', 'billCode',
+      'accountCode', 'glAccountCode', 'customerCode', 'supplierCode', 'voucherCode', 'billCode',
       'billNo', 'number',
     ]);
     const name = this.firstText(sourceRow, [
       'name', 'Name', 'bookName', 'deptName', 'subjectName', 'projectName',
-      'accountName', 'customerName', 'supplierName', 'fullName', 'title', 'summary',
+      'accountName', 'glAccountName', 'customerName', 'supplierName', 'fullName', 'title', 'summary',
     ]);
     const status = this.firstText(sourceRow, ['status', 'state', 'statusEnum', 'voucherState', 'approveStatus', 'auditStatus', 'enableStatus']);
     const period = this.firstText(sourceRow, ['period', 'openingPeriod', 'accountPeriod', 'yearMonth', 'bizPeriod']);
@@ -7006,6 +7037,7 @@ export class ChanjetIntegrationService {
       'totalAmount',
       'taxAmount',
       'endbalance',
+      'baseEndingBalance',
       'balance',
       'currentPeriodJfBalance',
       'currentPeriodDfBalance',

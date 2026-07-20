@@ -30,6 +30,12 @@ describe('Chanjet business response guard', () => {
 
   it('accepts successful response envelopes and ordinary entity rows', () => {
     expect(getChanjetBusinessFailure({ success: 'true', code: '200', data: [] })).toBeNull();
+    expect(getChanjetBusinessFailure({
+      code: 'openApi.e0000',
+      msg: 'success',
+      data: [],
+      requestId: 'REQ-EMPTY-SUCCESS',
+    })).toBeNull();
     expect(getChanjetBusinessFailure({ code: '1001', name: '现金账户', balance: 10 })).toBeNull();
     expect(getChanjetBusinessFailure({ code: '50000', status: 'ACTIVE', name: '合法业务对象' })).toBeNull();
   });

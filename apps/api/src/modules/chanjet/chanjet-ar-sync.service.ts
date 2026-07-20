@@ -73,7 +73,7 @@ export class ChanjetArSyncService implements OnModuleInit {
   /**
    * 部门对账:对比好业财与 ERP 同一公司下的部门列表。
    *
-   * 好业财:GET /accounting/openapi/cc/department/list/{bookid}
+   * 好业财:POST /accounting/openapi/cc/department/list/{bookid}
    * ERP:   sys_organizations WHERE org_type='DEPARTMENT' AND company_code=X
    *
    * 返回三类:both(两边都有,可能名不同) / chanjetOnly / erpOnly
@@ -93,9 +93,12 @@ export class ChanjetArSyncService implements OnModuleInit {
     // 1. 拉好业财部门(只读)
     type ChanjetDept = { id?: number; code?: string; name?: string; deptName?: string; deptCode?: string; [k: string]: unknown };
     const chanjetResp = await this.chanjet.callApi(`/accounting/openapi/cc/department/list/${map.bookid}`, {
-      method: 'GET',
+      method: 'POST',
+      body: { pageSize: 1000, pageNo: 1 },
     }) as unknown;
     const chanjetRaw = Array.isArray(chanjetResp) ? (chanjetResp as ChanjetDept[])
+      : Array.isArray((chanjetResp as { data?: { rows?: ChanjetDept[] } })?.data?.rows)
+        ? (chanjetResp as { data: { rows: ChanjetDept[] } }).data.rows
       : Array.isArray((chanjetResp as { result?: ChanjetDept[] })?.result) ? (chanjetResp as { result: ChanjetDept[] }).result
       : [];
     const chanjetDepts = chanjetRaw.map(d => ({
