@@ -2177,6 +2177,7 @@ export class ChanjetIntegrationService {
       const identityCount = await this.mappingRepo.count({
         where: {
           mappingType: mapping.mappingType,
+          bookId: mapping.bookId,
           erpCode: mapping.erpCode,
           chanjetId: mapping.chanjetId,
         },

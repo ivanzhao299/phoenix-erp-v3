@@ -699,6 +699,11 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     });
     expect(stored.rawData).toEqual({ resolutionKind: 'CHANJET_READONLY_SOURCE_IDENTITY' });
     expect(stored.reviewedBy).toBe('system:source');
+    expect(subject.mappingRepo.count).toHaveBeenCalledWith({
+      where: {
+        mappingType: 'PROJECT', bookId: 'BOOK-1', erpCode: '', chanjetId: 'CJ-P-1',
+      },
+    });
     expect(subject.finishJob).toHaveBeenCalledWith(expect.anything(), 'SUCCESS', expect.objectContaining({
       compensatingRollbackPassed: true,
     }));
