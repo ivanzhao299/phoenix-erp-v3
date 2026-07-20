@@ -3,6 +3,43 @@ import { ChanjetIntegrationService } from './chanjet-integration.service';
 describe('ChanjetIntegrationService field-gap helpers', () => {
   const service = Object.create(ChanjetIntegrationService.prototype) as any;
 
+  it('builds the documented readonly report period contracts', () => {
+    const gl = service.buildProbeRequest({
+      key: 'GL_BALANCE',
+      query: {},
+      body: { type: '0', showAssistant: false },
+      periodBody: 'RANGE',
+    }, '202607');
+    const balanceSheet = service.buildProbeRequest({
+      key: 'BALANCE_SHEET',
+      query: { isReorg: 'false' },
+      periodQuery: true,
+    }, '202607');
+    const incomeStatement = service.buildProbeRequest({
+      key: 'INCOME_STATEMENT',
+      query: { isQuarter: 'false', enableNewEdition: 'true' },
+      periodQuery: true,
+    }, '202607');
+    const cashFlow = service.buildProbeRequest({
+      key: 'CASH_FLOW',
+      query: { isQuarter: 'false' },
+      periodQuery: true,
+    }, '202607');
+
+    expect(gl).toMatchObject({
+      period: '202607',
+      query: {},
+      body: { period: '202607-202607', type: '0', showAssistant: false },
+    });
+    expect(balanceSheet.query).toEqual({ isReorg: 'false', period: '202607' });
+    expect(incomeStatement.query).toEqual({
+      isQuarter: 'false',
+      enableNewEdition: 'true',
+      period: '202607',
+    });
+    expect(cashFlow.query).toEqual({ isQuarter: 'false', period: '202607' });
+  });
+
   it('never extracts a Chanjet business failure envelope as an entity row', () => {
     expect(service.extractRows({
       success: false,

@@ -29,8 +29,11 @@ interface ProbeEndpoint {
   mappingType?: ChanjetMappingType;
   entityType?: string;
   periodQuery?: boolean;
+  periodBody?: 'SINGLE' | 'RANGE';
   mirrorDefault?: boolean;
 }
+
+const DEFAULT_ACCOUNTING_PERIOD = new Date().toISOString().slice(0, 7).replace('-', '');
 
 interface NormalizedBook {
   bookId: string;
@@ -1016,7 +1019,7 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     apiDomain: 'ap',
     method: 'GET',
     path: '/accounting/gl/statistics/pay/{bookid}',
-    query: { period: new Date().toISOString().slice(0, 7).replace('-', '') },
+    query: { period: DEFAULT_ACCOUNTING_PERIOD },
     requiresBook: true,
     entityType: 'AP_STATISTICS',
     periodQuery: true,
@@ -1028,7 +1031,7 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     apiDomain: 'ar',
     method: 'GET',
     path: '/accounting/gl/statistics/receive/{bookid}',
-    query: { period: new Date().toISOString().slice(0, 7).replace('-', '') },
+    query: { period: DEFAULT_ACCOUNTING_PERIOD },
     requiresBook: true,
     entityType: 'AR_STATISTICS',
     periodQuery: true,
@@ -1122,9 +1125,17 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     apiDomain: 'gl',
     method: 'POST',
     path: '/accounting/gl/balance/rpt/{bookid}',
-    body: {},
+    body: {
+      type: '0',
+      showAssistant: false,
+      showHidden: false,
+      showYearAcc: true,
+      onlyShowLeaf: false,
+      showEmptyRow: false,
+    },
     requiresBook: true,
     entityType: 'GL_BALANCE',
+    periodBody: 'RANGE',
     mirrorDefault: true,
   },
   {
@@ -1133,9 +1144,10 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     apiDomain: 'report',
     method: 'GET',
     path: '/accounting/fin/getOldBalanceSheet/{bookid}',
-    query: {},
+    query: { period: DEFAULT_ACCOUNTING_PERIOD, isReorg: 'false' },
     requiresBook: true,
     entityType: 'BALANCE_SHEET',
+    periodQuery: true,
     mirrorDefault: true,
   },
   {
@@ -1144,9 +1156,10 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     apiDomain: 'report',
     method: 'GET',
     path: '/accounting/fin/getOldIncomeStatement/{bookid}',
-    query: {},
+    query: { period: DEFAULT_ACCOUNTING_PERIOD, isQuarter: 'false', enableNewEdition: 'true' },
     requiresBook: true,
     entityType: 'INCOME_STATEMENT',
+    periodQuery: true,
     mirrorDefault: true,
   },
   {
@@ -1155,9 +1168,10 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     apiDomain: 'report',
     method: 'GET',
     path: '/accounting/asr/CashFlow/{bookid}',
-    query: {},
+    query: { period: DEFAULT_ACCOUNTING_PERIOD, isQuarter: 'false' },
     requiresBook: true,
     entityType: 'CASH_FLOW',
+    periodQuery: true,
     mirrorDefault: true,
   },
 ];
@@ -5129,11 +5143,8 @@ export class ChanjetIntegrationService {
       const targets = ep.requiresBook ? books : [''];
       for (const targetBookId of targets) {
         const path = ep.requiresBook ? ep.path.replace('{bookid}', encodeURIComponent(targetBookId)) : ep.path;
-        const effectivePeriod = period || ep.query?.period || '';
-        const query = {
-          ...(ep.query || {}),
-          ...(ep.periodQuery && effectivePeriod ? { period: effectivePeriod } : {}),
-        };
+        const request = this.buildProbeRequest(ep, period);
+        const effectivePeriod = request.period;
         const job = await this.createJob('SNAPSHOT', targetBookId, effectivePeriod, {
           key: ep.key,
           label: ep.label,
@@ -5144,8 +5155,8 @@ export class ChanjetIntegrationService {
         try {
           const resp = await this.auth.callApi(path, {
             method: ep.method,
-            query,
-            body: ep.body,
+            query: request.query,
+            body: request.body,
           });
           if (ep.key === 'ACCOUNT_BOOKS') {
             await this.persistAccountBooks(resp);
@@ -6130,10 +6141,11 @@ export class ChanjetIntegrationService {
           path,
         });
         try {
+          const request = this.buildProbeRequest(ep);
           const resp = await this.auth.callApi(path, {
             method: ep.method,
-            query: ep.query,
-            body: ep.body,
+            query: request.query,
+            body: request.body,
           });
           const fields = await this.recordApiSample(ep.apiDomain, path, ep.method, resp);
           if (ep.mappingType && ep.key !== 'CUSTOMER_SUPPLIER') {
@@ -6160,6 +6172,29 @@ export class ChanjetIntegrationService {
     if (books.length) return books.map((b) => b.bookId);
     const maps = await this.bookCompanyMapRepo.find({ where: { syncEnabled: true } });
     return maps.map((m) => m.bookid);
+  }
+
+  private buildProbeRequest(ep: ProbeEndpoint, requestedPeriod?: string): {
+    period: string;
+    query: Record<string, string>;
+    body?: Record<string, unknown>;
+  } {
+    const periodRequired = !!ep.periodQuery || !!ep.periodBody;
+    const period = String(
+      requestedPeriod || ep.query?.period || (periodRequired ? DEFAULT_ACCOUNTING_PERIOD : ''),
+    ).trim();
+    const query = {
+      ...(ep.query || {}),
+      ...(ep.periodQuery && period ? { period } : {}),
+    };
+    const body = ep.body
+      ? {
+        ...ep.body,
+        ...(ep.periodBody === 'SINGLE' && period ? { period } : {}),
+        ...(ep.periodBody === 'RANGE' && period ? { period: `${period}-${period}` } : {}),
+      }
+      : undefined;
+    return { period, query, body };
   }
 
   private async recordReadSnapshot(
