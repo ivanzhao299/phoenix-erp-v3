@@ -80,6 +80,42 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     })).toEqual([{ id: 'PROJECT-1', code: '001', name: '测试项目' }]);
   });
 
+  it('rejects historical master-data failure residue without raw evidence', () => {
+    expect(service.isValidMasterDataReviewSnapshot({
+      rawData: null,
+      externalId: '50000',
+      externalCode: '50000',
+      externalName: '50000',
+    })).toBe(false);
+    expect(service.isValidMasterDataReviewSnapshot({
+      rawData: { code: '210', accountName: '琅勃拉邦银行BCEL' },
+      externalId: '210',
+      externalCode: '210',
+      externalName: '210',
+    })).toBe(true);
+  });
+
+  it('normalizes project and cash-account fields without numeric-name fallback', () => {
+    expect(service.normalizeExternalEntity({
+      code: '210',
+      accountName: '琅勃拉邦银行BCEL',
+      currencyCode: 'LAK',
+    }, 'CASH_ACCOUNT', 0, 'FIN_ACCOUNT')).toMatchObject({
+      externalCode: '210',
+      externalName: '琅勃拉邦银行BCEL',
+      currency: 'LAK',
+    });
+    expect(service.normalizeExternalEntity({
+      projectId: 'PROJECT-1',
+      projectCode: 'P001',
+      projectName: '孟赛项目',
+    }, 'PROJECT', 0, 'PROJECT')).toMatchObject({
+      externalId: 'PROJECT-1',
+      externalCode: 'P001',
+      externalName: '孟赛项目',
+    });
+  });
+
   it('matches cash accounts only by mapped company, normalized exact name and currency', () => {
     const exact = service.buildMasterDataReviewCandidate({
       snapshotId: 'cash-1',

@@ -1877,22 +1877,30 @@ export class ChanjetIntegrationService {
       currency: String(row.currency || ''),
       status: String(row.status || ''),
     }));
-    const validSnapshots = snapshots.filter((snapshot) => !getChanjetBusinessFailure(snapshot.rawData));
+    const validSnapshots = snapshots.filter((snapshot) => this.isValidMasterDataReviewSnapshot(snapshot));
     const sourceRows = validSnapshots.map((snapshot) => {
       const raw = snapshot.rawData || {};
       const domain = snapshot.entityType;
+      const rawCode = domain === 'CASH_ACCOUNT'
+        ? this.firstChanjetText(raw, ['accountCode', 'code'])
+        : domain === 'PROJECT'
+          ? this.firstChanjetText(raw, ['projectCode', 'code'])
+          : this.firstChanjetText(raw, ['code', 'deptCode', 'subjectCode']);
+      const rawName = domain === 'CASH_ACCOUNT'
+        ? this.firstChanjetText(raw, ['accountName', 'name'])
+        : domain === 'PROJECT'
+          ? this.firstChanjetText(raw, ['projectName', 'name'])
+          : this.firstChanjetText(raw, ['name', 'deptName', 'subjectName']);
       return {
         snapshotId: snapshot.id,
         domain,
         bookId: snapshot.bookId,
         companyCode: companyByBook.get(snapshot.bookId) || '',
         chanjetId: snapshot.externalId || this.firstChanjetText(raw, ['id', 'ID', 'code']),
-        chanjetCode: snapshot.externalCode || this.firstChanjetText(raw, [
-          'code', 'deptCode', 'subjectCode', 'projectCode', 'accountCode',
-        ]),
-        chanjetName: snapshot.externalName || this.firstChanjetText(raw, [
-          'name', 'deptName', 'subjectName', 'projectName', 'accountName',
-        ]),
+        // Old snapshots can contain a numeric fallback name. The preserved raw
+        // payload is the authoritative source for domain-specific fields.
+        chanjetCode: rawCode || snapshot.externalCode,
+        chanjetName: rawName || snapshot.externalName,
         currency: snapshot.currency || this.firstChanjetText(raw, ['currencyCode', 'currency']),
       };
     });
@@ -6976,10 +6984,20 @@ export class ChanjetIntegrationService {
     currency: string;
   } {
     const sourceRow = entityType === 'ACCOUNT_BOOK' && this.isRecord(row.tenant) ? row.tenant : row;
-    const idCandidate = this.firstText(sourceRow, ['id', 'ID', 'bookId', 'bookid', 'tenantId', 'subjectId', 'assistantCustomer', 'voucherId', 'code']);
+    const idCandidate = this.firstText(sourceRow, [
+      'id', 'ID', 'bookId', 'bookid', 'tenantId', 'subjectId', 'projectId',
+      'accountId', 'assistantCustomer', 'voucherId', 'code',
+    ]);
     const id = this.isUsableExternalId(idCandidate, entityType, endpointKey) ? idCandidate : '';
-    const code = this.firstText(sourceRow, ['code', 'Code', 'bookCode', 'deptCode', 'subjectCode', 'customerCode', 'supplierCode', 'voucherCode', 'billCode', 'billNo', 'number']);
-    const name = this.firstText(sourceRow, ['name', 'Name', 'bookName', 'deptName', 'subjectName', 'customerName', 'supplierName', 'fullName', 'title', 'summary']);
+    const code = this.firstText(sourceRow, [
+      'code', 'Code', 'bookCode', 'deptCode', 'subjectCode', 'projectCode',
+      'accountCode', 'customerCode', 'supplierCode', 'voucherCode', 'billCode',
+      'billNo', 'number',
+    ]);
+    const name = this.firstText(sourceRow, [
+      'name', 'Name', 'bookName', 'deptName', 'subjectName', 'projectName',
+      'accountName', 'customerName', 'supplierName', 'fullName', 'title', 'summary',
+    ]);
     const status = this.firstText(sourceRow, ['status', 'state', 'statusEnum', 'voucherState', 'approveStatus', 'auditStatus', 'enableStatus']);
     const period = this.firstText(sourceRow, ['period', 'openingPeriod', 'accountPeriod', 'yearMonth', 'bizPeriod']);
     const currency = this.firstText(sourceRow, ['currency', 'currencyCode', 'currencyName', 'baseCurrencyId', 'origCurrency']) || 'RMB';
@@ -7435,6 +7453,12 @@ export class ChanjetIntegrationService {
       .normalize('NFKC')
       .replace(/[\s\u3000（）()\-—_]+/g, '')
       .toLowerCase();
+  }
+
+  private isValidMasterDataReviewSnapshot(snapshot: ChanjetEntitySnapshotEntity): boolean {
+    if (!this.isRecord(snapshot.rawData)) return false;
+    if (getChanjetBusinessFailure(snapshot.rawData)) return false;
+    return Object.keys(snapshot.rawData).length > 0;
   }
 
   private async createMappingCandidates(mappingType: ChanjetMappingType, bookId: string, resp: unknown): Promise<void> {
