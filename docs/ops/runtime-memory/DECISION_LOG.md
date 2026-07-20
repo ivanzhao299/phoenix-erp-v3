@@ -1864,3 +1864,13 @@ Decision: counterparty resolution `GO`.
 - All four CI workflows and deploy run `29725495780` passed for `96cb7f97`; production repository and API image revisions match.
 - Next Gate: `CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE`.
 - No Chanjet write/delete/modify, voucher push, ERP business-table write, middle-layer write, or migration was performed by this review.
+
+# 2026-07-20 - Close readonly gaps and pass ERP middle-layer write precheck
+
+- Decision: `GO_WITH_CONDITIONS`.
+- Production evidence proved Chanjet master IDs are local to an account book: cash account ID `12` denotes unrelated LAK and THB accounts in different books.
+- ERP mapping identity now includes `book_id`; CI migration, entity-drift, typecheck, regression, and production deploy gates passed.
+- Deterministic master confirmation is 90/90 with zero conflict/error and a second run returned 90 unchanged.
+- Canary jobs 2815 and 2816 passed write/readback, account-book idempotency, and compensating rollback; canary residue is zero.
+- Five finance differences remain explicitly classified for `CHANJET_P3_FIELD_SEMANTIC_LOCK`; no fake equality or silent overwrite is allowed.
+- No Chanjet external write/delete/modify, voucher push, or ERP business-table write was executed.

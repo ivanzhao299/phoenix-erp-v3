@@ -1,29 +1,29 @@
 # Next Actions
 
-## 2026-07-20 - Chanjet finance readonly scope audited
+## 2026-07-20 - Chanjet readonly gaps closed and minimal write precheck passed
 
-Current stage: `CHANJET_FINANCE_READONLY_SCOPE_AUDITED`
+Current stage: `CHANJET_MINIMAL_WRITE_PRECHECK_PASSED`
 
 Decision: `GO_WITH_CONDITIONS`
 
 Completed:
 
-1. Deployed revision `29be6c32` through CI/CD run `29739998083` and verified the production API healthy.
-2. Completed one protected readonly mirror refresh: 46/46 targets succeeded in one attempt with zero unresolved failures.
-3. Passed the authenticated production completion audit 15/15.
-4. Finance read model is 10/10 ready: five authority metrics and five row-level readonly models, with zero blocked/manual/HOLD metrics.
-5. Reconciliation now contains five real ERP-versus-Chanjet mismatches and five row-model WARN items; fake scalar, mapping, and manual-review states are removed.
-6. Verified target-date receipts and payments by book, currency, business date and effective status.
+1. Fixed the obsolete sales-order endpoint and verified four expanded readonly scopes in production.
+2. Corrected the Chanjet master identity model from a global external ID to an account-book-scoped external ID.
+3. Confirmed 90/90 deterministic master-data rows with zero pending/conflict/error; a repeated run returned 90 unchanged.
+4. Passed two consecutive ERP middle-layer canaries with readback, idempotency and compensating rollback; residue is zero.
+5. Deployed revisions `adec6338` and `5f3dc613`; CI/CD runs `29744366181` and `29745034623` passed.
+6. Preserved five real finance differences with explicit diagnosis instead of silently overwriting either system.
 
 Next actions:
 
-1. `RESOLVE_DETERMINISTIC_MASTER_MAPPINGS`: prepare one exact mapping as an ERP middle-layer canary; do not batch all candidates.
-2. `RECONCILE_OPEN_FINANCE_ITEMS`: investigate the five differences by book, company, currency, date, status and document identity without silent overwrite.
-3. `PREPARE_ONE_RECORD_MINIMAL_WRITE_CANARY`: require idempotent second run, audited read-back and compensating rollback.
-4. `KEEP_CHANJET_EXTERNAL_WRITE_DISABLED`: external provider write is a later, separately approved Gate.
-5. Add `SALES_ORDER / PURCHASE_APPLY / STOCK_IN / SALES_STOCK_OUT` only through separate readonly business-module Gates; the 46-target finance scope must not be described as every Chanjet module.
+1. Execute `CHANJET_P3_FIELD_SEMANTIC_LOCK` for AR, AP, cash, daily receipt, and daily payment differences.
+2. Split evidence by book, company, currency, original/base currency, accounting/business date, status, and document identity.
+3. Keep ERP operational detail explanatory while Chanjet statutory/accounting aggregates remain the finance authority.
+4. Keep `CHANJET_EXTERNAL_MINIMAL_WRITE` as a separate approval Gate; it is not enabled by the ERP canary.
+5. Continue showing unresolved differences explicitly; never convert non-comparable totals into fake equality.
 
-Hard boundary: ERP middle-layer canary and external Chanjet canary are different Gates. No external write, delete, modify or voucher push is approved.
+Hard boundary: ERP middle-layer precheck has passed, but no external Chanjet write, delete, modify, or voucher push is approved.
 
 ## 2026-07-20 - Chanjet P2 master-data mapping review verified
 

@@ -5,24 +5,26 @@ Last updated: 2026-07-20
 ## Active Context
 
 - Active module: Chanjet Integration
-- Current stage: CHANJET_FINANCE_READONLY_SCOPE_AUDITED
+- Current stage: CHANJET_MINIMAL_WRITE_PRECHECK_PASSED
 - Active decision: GO_WITH_CONDITIONS
-- Next gate: CHANJET_MINIMAL_WRITE_PRECHECK
+- Next gate: CHANJET_P3_FIELD_SEMANTIC_LOCK
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
 
 ## Latest Chanjet Decision
 
-- Production revision `29be6c32` is healthy after CI/CD run `29739998083`.
+- Production revision `5f3dc613` is healthy after CI/CD run `29745034623`.
 - Protected readonly mirror refresh completed 46/46 targets with zero unresolved failures.
 - Authenticated production audit passed 15/15.
 - Finance read model is 10/10 ready: five authority metrics and five row-level readonly models.
 - Reconciliation has five real mismatches and five row-level WARN items; mapping/manual/HOLD are zero.
-- Master-data evidence has 41 deterministic exact candidates, 49 non-exact candidates, 919 source references and zero conflicts.
+- Master-data confirmation is 90/90 deterministic and idempotent: 41 exact plus 49 approved readonly source identities, with 919 subject references and zero conflicts/errors.
+- Chanjet master IDs are account-book scoped; the production unique key includes `book_id`.
+- ERP middle-layer canary jobs 2815/2816 passed readback, idempotency, and compensating rollback with zero residue.
 - No external Chanjet write/delete/modify or voucher push was executed.
-- Next Gate is one ERP middle-layer mapping canary; external Chanjet write remains a separate unapproved Gate.
+- Next Gate is `CHANJET_P3_FIELD_SEMANTIC_LOCK` for five real finance differences; external Chanjet write remains a separate unapproved Gate.
 - The 46-target scope is finance-readonly plus purchase-order list, not all Chanjet product modules.
-- Report: `docs/ops/CHANJET_READONLY_COMPLETION_AND_MINIMAL_WRITE_PRECHECK_REPORT_20260720.md`.
+- Report: `docs/ops/CHANJET_READONLY_GAP_CLOSURE_AND_MINIMAL_WRITE_GATE_REPORT_20260720.md`.
 
 ## Operating Rules
 
