@@ -146,6 +146,26 @@ export class FinancialReportsService {
     return this.getChanjetStatsOpenFromEntity(all, codes, 'AP_STATISTICS');
   }
 
+  private async getChanjetCashBalance(all: boolean, codes: string[]) {
+    if (this.emptyScope(all, codes)) {
+      return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
+    }
+    try {
+      const { lock } = await this.chanjetIntegration.financeCashBalanceFieldLockOverview(
+        all ? undefined : codes,
+      );
+      return {
+        available: lock.readyForCardAuthority && lock.totalBaseBalance !== null,
+        value: lock.totalBaseBalance ?? 0,
+        rows: lock.eligibleBalanceRows,
+        latestPeriod: lock.currentPeriods.at(-1) || null,
+      };
+    } catch (error) {
+      this.logger.warn(`Chanjet cash balance field lock unavailable: ${(error as Error).message}`);
+      return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
+    }
+  }
+
   private async getChanjetEntityAggregate(all: boolean, codes: string[], entityType: string) {
     if (this.emptyScope(all, codes)) return { available: false, value: 0, rows: 0, latestPeriod: null as string | null };
     const scopeFilter = all ? '' : 'AND COALESCE(b.company_code, \'\') = ANY($1)';
@@ -387,7 +407,7 @@ export class FinancialReportsService {
     const [ar, ap, cash, glBalance, arReceipt, apPayment, balanceSheet, incomeStatement, readContext] = await Promise.all([
       this.getChanjetArOpen(all, codes),
       this.getChanjetApOpen(all, codes),
-      this.getChanjetEntityAggregate(all, codes, 'CASH_ACCOUNT'),
+      this.getChanjetCashBalance(all, codes),
       this.getChanjetEntityAggregate(all, codes, 'GL_BALANCE'),
       this.getChanjetDailyDocumentAggregate(all, codes, 'AR_RECEIPT', businessDate),
       this.getChanjetDailyDocumentAggregate(all, codes, 'AP_PAYMENT', businessDate),
@@ -429,7 +449,7 @@ export class FinancialReportsService {
         readModelMetric: readMetric('AP_OPEN'),
         systemConfirmation: systemConfirmation('AP_OPEN'),
       }),
-      cashBalance: this.metricFromChanjet('CHANJET_CASH_ACCOUNT_MIRROR', cash, erp.cashBalance, '好业财资金账户余额字段达到 AUTHORITY_READY 后才作为主卡片；ERP 现金账户余额作为辅助差异。', {
+      cashBalance: this.metricFromChanjet('CHANJET_GL_CASH_BALANCE_MIRROR', cash, erp.cashBalance, '好业财 GL_BALANCE 最新期间 1001/1002 叶子科目本位币期末余额作为主卡片；ERP 现金账户余额作为辅助差异。', {
         readModelMetric: readMetric('CASH_BALANCE'),
         systemConfirmation: systemConfirmation('CASH_BALANCE'),
       }),

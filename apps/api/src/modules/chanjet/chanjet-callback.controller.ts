@@ -890,7 +890,7 @@ export class ChanjetCallbackController {
 
   /**
    * GET /api/chanjet/integration/cash-balance-field-lock
-   * 现金/银行余额字段锁。防止好业财 amountSum=0 在余额字段未锁定时被误当作真实现金余额。
+   * 现金/银行余额字段锁。只读聚合最新期间 GL_BALANCE 1001/1002 叶子科目本位币期末余额。
    */
   @Get('integration/cash-balance-field-lock')
   @RequireMenu(CHANJET_PROXY_MENU, 'V')

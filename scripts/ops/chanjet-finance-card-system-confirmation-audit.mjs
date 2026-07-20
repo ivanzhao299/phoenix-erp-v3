@@ -38,19 +38,19 @@ const SYSTEM_RULES = {
     decision: '好业财应付统计作为应付待付主卡片权威；ERP 采购/付款明细作为辅助差异。',
   },
   CASH_BALANCE: {
-    status: 'SYSTEM_BLOCKED_FROM_AUTHORITY',
-    source: 'ERP',
-    decision: '好业财资金账户镜像尚未证明余额字段、币种和余额时点，ERP 资金余额继续作为主值。',
+    status: 'SYSTEM_CONFIRMED_AUTHORITY',
+    source: 'CHANJET',
+    decision: '好业财 GL_BALANCE 最新期间 1001/1002 叶子科目本位币期末余额作为主值，ERP 资金余额作辅助差异。',
   },
   TODAY_RECEIPT: {
-    status: 'SYSTEM_BLOCKED_FROM_AUTHORITY',
-    source: 'ERP',
-    decision: '好业财收款单日期/状态/方向口径未完全证明，ERP 当日现金流继续作为今日收款主值。',
+    status: 'SYSTEM_CONFIRMED_AUTHORITY',
+    source: 'CHANJET',
+    decision: '好业财 AR_RECEIPT 按 bizDate 且 voucherStatusEnum=EFFECTIVE 汇总 totalAmount 作为今日收款主值。',
   },
   TODAY_PAYMENT: {
-    status: 'SYSTEM_BLOCKED_FROM_AUTHORITY',
-    source: 'ERP',
-    decision: '好业财付款单日期/状态/方向口径未完全证明，ERP 当日现金流继续作为今日付款主值。',
+    status: 'SYSTEM_CONFIRMED_AUTHORITY',
+    source: 'CHANJET',
+    decision: '好业财 AP_PAYMENT 按 bizDate 且 voucherStatusEnum=EFFECTIVE 汇总 totalAmount 作为今日付款主值。',
   },
   SUBJECT_BALANCE: {
     status: 'SYSTEM_CONFIRMED_READONLY',
@@ -140,10 +140,10 @@ function main() {
       'All confirmation decisions are system-side ERP semantic decisions.',
     ),
     check(
-      'Only AR/AP are promoted to Chanjet authority',
-      confirmations.filter((item) => item.authorityAllowed).map((item) => item.readModelKey).sort().join(',') === 'AP_OPEN,AR_OPEN',
+      'Locked operational cards are promoted to Chanjet authority',
+      confirmations.filter((item) => item.authorityAllowed).map((item) => item.readModelKey).sort().join(',') === 'AP_OPEN,AR_OPEN,CASH_BALANCE,TODAY_PAYMENT,TODAY_RECEIPT',
       'P0',
-      'Cash, today receipt/payment, subject balance, and statements are not silently promoted.',
+      'AR/AP, cash balance, and daily receipt/payment use explicit fail-closed contracts; statements remain readonly.',
     ),
     check(
       'Write boundaries remain closed',

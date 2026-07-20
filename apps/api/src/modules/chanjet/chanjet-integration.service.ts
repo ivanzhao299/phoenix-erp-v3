@@ -270,16 +270,48 @@ export interface FinanceCardSystemConfirmationItem {
 export interface CashBalanceFieldLock {
   key: 'CASH_BALANCE';
   label: string;
-  decision: 'GO_WITH_CONDITIONS' | 'HOLD';
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  status: 'AUTHORITY_READY' | 'WAITING_SAMPLE' | 'HOLD';
   sampleRows: number;
+  accountDirectoryRows: number;
+  glBalanceRows: number;
+  eligibleBalanceRows: number;
+  invalidContractRows: number;
+  duplicateContractRows: number;
   latestPulledAt: string | null;
   amountSum: number;
   amountSumSafeAsBalance: false;
+  totalBaseBalance: number | null;
+  baseCurrency: 'CNY';
+  currentPeriods: string[];
+  coveredBooks: number;
+  requiredBooks: number;
+  unmatchedAccountDirectoryRows: number;
+  currencyBalances: Array<{ currency: string; amount: number; rows: number }>;
+  bookBalances: Array<{
+    bookId: string;
+    companyCode: string;
+    period: string;
+    amount: number;
+    rows: number;
+  }>;
   rawBalanceCandidateCount: number;
   requiredFields: string[];
   missingFields: string[];
   fieldCandidates: FinanceSemanticFieldCandidate[];
+  sourceFields: {
+    book: '$entity.bookId';
+    period: '$entity.period';
+    subjectCode: 'rawData.glAccountCode';
+    subjectName: 'rawData.glAccountName';
+    baseBalance: 'rawData.baseEndingBalance';
+    originalBalance: 'rawData.endingBalance';
+    currency: 'rawData.currency';
+    leaf: 'rawData.leaf';
+  };
+  readyForCardAuthority: boolean;
   blockerReasons: string[];
+  conditions: string[];
   displayRule: string;
   nextAction: string;
 }
@@ -689,18 +721,18 @@ const FINANCE_SEMANTIC_LOCKS: FinanceSemanticLock[] = [
   {
     key: 'CASH_BALANCE',
     label: '现金 / 银行余额',
-    status: 'PENDING',
-    authorityEligible: false,
-    chanjetEntityTypes: ['CASH_ACCOUNT', 'GL_BALANCE'],
-    lockedFields: ['book_id', 'entity_type', 'external_id', 'external_code', 'external_name', 'raw_data'],
-    pendingFields: ['current_balance', 'available_balance', 'currency_balance', 'account_status'],
-    dateRule: '资金账户余额必须明确余额时点；当前只证明资金账号列表存在。',
-    amountRule: '不得把 entity amountSum=0 视作真实账户余额。',
-    statusRule: '账户启停与币种状态需从 raw_data 明确抽取。',
-    erpComparisonRule: 'ERP fin_cash_accounts.current_balance 继续作为辅助值；好业财余额字段锁定前不覆盖卡片。',
+    status: 'LOCKED',
+    authorityEligible: true,
+    chanjetEntityTypes: ['GL_BALANCE'],
+    lockedFields: ['glAccountCode', 'glAccountName', 'baseEndingBalance', 'endingBalance', 'currency', 'leaf'],
+    pendingFields: [],
+    dateRule: '每个账套只使用最新 YYYYMM 会计期间；镜像超过 24 小时或期间缺失时 fail-closed。',
+    amountRule: '仅汇总 1001/1002 子级叶子科目的 rawData.baseEndingBalance，作为 CNY 本位币期末余额；rawData.endingBalance 仅用于原币分组。',
+    statusRule: 'GL_BALANCE 的叶子科目余额属于总账事实，不依赖 FIN_ACCOUNT 启停状态；FIN_ACCOUNT 只作账户目录和映射证据。',
+    erpComparisonRule: '好业财总账现金/银行本位币期末余额作为主卡片候选；ERP fin_cash_accounts.current_balance 保留为辅助差异。',
     risk: 'CRITICAL',
-    reason: '资金账号镜像已覆盖，但余额字段未锁定；0 可能是未抽取，不是真实余额。',
-    nextAction: '从 raw snapshot 抽样确认余额字段路径，再建立 CASH_ACCOUNT_BALANCE read model。',
+    reason: '生产只读样本证明 FIN_ACCOUNT 不含余额；真实余额来自 GL_BALANCE 的 1001/1002 叶子科目期末字段。',
+    nextAction: '保持每日只读同步和字段漂移检查，继续提高 FIN_ACCOUNT 与总账叶子科目的目录映射覆盖率。',
   },
   {
     key: 'TODAY_RECEIPT',
@@ -1869,7 +1901,7 @@ export class ChanjetIntegrationService {
       ),
       this.chanjetEntityAggregate(['AR_STATISTICS']),
       this.chanjetEntityAggregate(['AP_STATISTICS']),
-      this.chanjetEntityAggregate(['CASH_ACCOUNT']),
+      this.chanjetCashBalanceAggregate(),
       this.chanjetEntityAggregate(['AR_RECEIPT']),
       this.chanjetEntityAggregate(['AP_PAYMENT']),
       this.chanjetEntityAggregate(['GL_BALANCE']),
@@ -1907,11 +1939,11 @@ export class ChanjetIntegrationService {
         label: '现金 / 银行余额',
         priority: 'P0',
         chanjetEndpointKeys: ['FIN_ACCOUNT', 'GL_BALANCE'],
-        chanjetEntityTypes: ['CASH_ACCOUNT'],
+        chanjetEntityTypes: ['GL_BALANCE'],
         erpSources: ['fin_cash_accounts.current_balance'],
         chanjet: chanjetCash,
         erp: erpCash,
-        reason: '资金账户余额以好业财为财务权威候选，ERP 现金账户余额作为经营辅助明细。',
+        reason: '好业财 GL_BALANCE 最新期间 1001/1002 叶子科目的 baseEndingBalance 为现金/银行本位币期末余额；ERP 现金账户余额仅作辅助差异。',
       }),
       this.buildFinanceReconciliationItem({
         key: 'TODAY_RECEIPT',
@@ -2142,33 +2174,168 @@ export class ChanjetIntegrationService {
     };
   }
 
-  async financeCashBalanceFieldLockOverview(): Promise<{
+  async financeCashBalanceFieldLockOverview(companyCodes?: string[]): Promise<{
     generatedAt: string;
-    decision: 'GO_WITH_CONDITIONS' | 'HOLD';
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
     lock: CashBalanceFieldLock;
     guardrails: Record<string, boolean | string>;
   }> {
-    const storedRows = await this.entitySnapshotRepo.find({
-      where: { entityType: In(['CASH_ACCOUNT', 'GL_BALANCE']) },
-      order: { updatedAt: 'DESC' },
-      take: 80,
+    const [storedCashAccounts, storedGlBalances, enabledBooks] = await Promise.all([
+      this.entitySnapshotRepo.find({
+        where: { entityType: 'CASH_ACCOUNT' },
+        order: { updatedAt: 'DESC' },
+        take: 10000,
+      }),
+      this.entitySnapshotRepo.find({
+        where: { entityType: 'GL_BALANCE' },
+        order: { updatedAt: 'DESC' },
+        take: 10000,
+      }),
+      this.accountBookRepo.find({ where: { enabled: true }, order: { bookName: 'ASC' } }),
+    ]);
+    const normalizedCompanies = companyCodes === undefined
+      ? null
+      : new Set(companyCodes.map((code) => String(code || '').trim()).filter(Boolean));
+    const selectedBooks = enabledBooks.filter((book) => (
+      normalizedCompanies === null || normalizedCompanies.has(String(book.companyCode || '').trim())
+    ));
+    const selectedBookIds = new Set(selectedBooks.map((book) => String(book.bookId)));
+    const inSelectedBook = (bookId: string) => selectedBookIds.has(String(bookId));
+    const cashAccounts = storedCashAccounts.filter((row) => (
+      inSelectedBook(row.bookId) && !getChanjetBusinessFailure(row.rawData)
+    ));
+    const glBalances = storedGlBalances.filter((row) => (
+      inSelectedBook(row.bookId) && !getChanjetBusinessFailure(row.rawData)
+    ));
+    const latestPeriodByBook = new Map<string, string>();
+    for (const row of glBalances) {
+      const period = String(row.period || '').trim();
+      if (!/^\d{6}$/.test(period)) continue;
+      const current = latestPeriodByBook.get(String(row.bookId));
+      if (!current || period > current) latestPeriodByBook.set(String(row.bookId), period);
+    }
+    const currentRows = glBalances.filter((row) => (
+      row.period === latestPeriodByBook.get(String(row.bookId))
+    ));
+    const isCashLeaf = (raw: Record<string, unknown>) => {
+      const code = String(raw.glAccountCode || '').trim();
+      return /^100[12]\d+$/.test(code)
+        && raw.leaf === true
+        && raw.isSumLine !== true
+        && raw.isTotalLine !== true;
+    };
+    const cashLeafRows = currentRows.filter((row) => isCashLeaf(row.rawData || {}));
+    const isNumeric = (value: unknown) => (
+      value !== null && value !== '' && Number.isFinite(Number(value))
+    );
+    const invalidRows = cashLeafRows.filter((row) => {
+      const raw = row.rawData || {};
+      return !String(row.bookId || '').trim()
+        || !/^\d{6}$/.test(String(row.period || '').trim())
+        || !String(raw.glAccountCode || '').trim()
+        || !String(raw.glAccountName || '').trim()
+        || !isNumeric(raw.baseEndingBalance)
+        || !isNumeric(raw.endingBalance)
+        || typeof raw.currency !== 'string'
+        || raw.leaf !== true;
     });
-    const rows = storedRows.filter((row) => !getChanjetBusinessFailure(row.rawData));
-    const aggregate = await this.chanjetEntityAggregate(['CASH_ACCOUNT', 'GL_BALANCE']);
-    const flattened = rows.flatMap((row) => this.flattenSemanticValues(row.rawData || {}, '$'));
-    const latestPulledAt = rows.reduce<string | null>(
-      (latest, row) => this.maxIso(latest, row.updatedAt ? String(row.updatedAt) : null),
+    const eligibleRows = cashLeafRows.filter((row) => !invalidRows.includes(row));
+    const contractKeys = new Map<string, number>();
+    for (const row of eligibleRows) {
+      const key = `${row.bookId}:${row.period}:${String(row.rawData.glAccountCode || '').trim()}`;
+      contractKeys.set(key, (contractKeys.get(key) || 0) + 1);
+    }
+    const duplicateContractRows = [...contractKeys.values()]
+      .filter((count) => count > 1)
+      .reduce((sum, count) => sum + count, 0);
+    const latestPulledAt = eligibleRows.reduce<string | null>(
+      (latest, row) => this.maxIso(latest, row.updatedAt ? new Date(row.updatedAt).toISOString() : null),
       null,
     );
+    const stale = !latestPulledAt || Date.now() - new Date(latestPulledAt).getTime() > 24 * 60 * 60 * 1000;
+    const coveredBookIds = new Set(eligibleRows.map((row) => String(row.bookId)));
+    const missingBookIds = [...selectedBookIds].filter((bookId) => !coveredBookIds.has(bookId));
+    const totalBaseBalance = eligibleRows.reduce(
+      (sum, row) => sum + Number(row.rawData.baseEndingBalance),
+      0,
+    );
+    const currencyGroups = new Map<string, { amount: number; rows: number }>();
+    for (const row of eligibleRows) {
+      const raw = row.rawData || {};
+      const currency = String(raw.currency || '').trim().toUpperCase() || 'CNY';
+      const amount = currency === 'CNY'
+        ? Number(raw.baseEndingBalance)
+        : Number(raw.endingBalance);
+      const current = currencyGroups.get(currency) || { amount: 0, rows: 0 };
+      current.amount += amount;
+      current.rows += 1;
+      currencyGroups.set(currency, current);
+    }
+    const companyByBook = new Map(selectedBooks.map((book) => [String(book.bookId), String(book.companyCode || '')]));
+    const bookGroups = new Map<string, { companyCode: string; period: string; amount: number; rows: number }>();
+    for (const row of eligibleRows) {
+      const bookId = String(row.bookId);
+      const current = bookGroups.get(bookId) || {
+        companyCode: companyByBook.get(bookId) || '',
+        period: String(row.period),
+        amount: 0,
+        rows: 0,
+      };
+      current.amount += Number(row.rawData.baseEndingBalance);
+      current.rows += 1;
+      bookGroups.set(bookId, current);
+    }
+    const normalizeName = (value: unknown) => String(value || '')
+      .normalize('NFKC')
+      .replace(/[\s　]+/g, '')
+      .toLowerCase();
+    const ledgerDirectoryKeys = new Set(eligibleRows.map((row) => {
+      const raw = row.rawData || {};
+      const currency = String(raw.currency || '').trim().toUpperCase() || 'CNY';
+      return `${row.bookId}:${normalizeName(raw.glAccountName)}:${currency}`;
+    }));
+    const unmatchedAccountDirectoryRows = cashAccounts.filter((row) => {
+      const raw = row.rawData || {};
+      const currency = String(raw.currencyCode || '').trim().toUpperCase() || 'CNY';
+      return !ledgerDirectoryKeys.has(`${row.bookId}:${normalizeName(raw.accountName)}:${currency}`);
+    }).length;
     const requiredFields = [
-      'current_balance',
-      'available_balance',
+      'book_id',
+      'period',
+      'gl_account_code',
+      'gl_account_name',
+      'base_ending_balance',
+      'original_ending_balance',
       'currency',
-      'account_status',
-      'balance_date',
+      'leaf',
     ];
+    const sourcePathByField: Record<string, string> = {
+      book_id: '$entity.bookId',
+      period: '$entity.period',
+      gl_account_code: '$.glAccountCode',
+      gl_account_name: '$.glAccountName',
+      base_ending_balance: '$.baseEndingBalance',
+      original_ending_balance: '$.endingBalance',
+      currency: '$.currency',
+      leaf: '$.leaf',
+    };
     const fieldCandidates = requiredFields.map((field) => {
-      const candidates = this.matchSemanticFieldCandidates(field, flattened).slice(0, 8);
+      const observedCount = field === 'book_id' || field === 'period'
+        ? currentRows.length
+        : currentRows.filter((row) => {
+            const key = sourcePathByField[field].replace(/^\$\./, '');
+            return Object.prototype.hasOwnProperty.call(row.rawData || {}, key);
+          }).length;
+      const candidates = observedCount > 0 ? [{
+        path: sourcePathByField[field],
+        sampleType: ['base_ending_balance', 'original_ending_balance'].includes(field)
+          ? 'number' as const
+          : field === 'leaf'
+            ? 'boolean' as const
+            : 'string' as const,
+        sampleValue: null,
+        observedCount,
+      }] : [];
       return {
         semanticField: field,
         candidatePaths: candidates,
@@ -2180,33 +2347,92 @@ export class ChanjetIntegrationService {
       .filter((field) => field.status === 'MISSING')
       .map((field) => field.semanticField);
     const rawBalanceCandidateCount = fieldCandidates
-      .filter((field) => ['current_balance', 'available_balance'].includes(field.semanticField))
+      .filter((field) => ['base_ending_balance', 'original_ending_balance'].includes(field.semanticField))
       .reduce((sum, field) => sum + field.candidatePaths.length, 0);
     const blockerReasons = [
-      ...(rows.length === 0 ? ['missing_cash_account_or_gl_balance_samples'] : []),
+      ...(selectedBooks.length === 0 ? ['missing_enabled_account_book_scope'] : []),
+      ...(glBalances.length === 0 ? ['missing_gl_balance_samples'] : []),
+      ...(eligibleRows.length === 0 ? ['missing_cash_bank_leaf_balance_rows'] : []),
       ...(missingFields.length ? [`missing_required_fields:${missingFields.join('/')}`] : []),
-      ...(aggregate.rows > 0 && Math.abs(aggregate.value) < 0.01
-        ? ['amountSum_zero_is_not_authoritative_cash_balance']
-        : []),
-      'system_confirmation_blocks_cash_balance_primary_authority',
+      ...(invalidRows.length ? [`invalid_cash_balance_contract_rows:${invalidRows.length}`] : []),
+      ...(duplicateContractRows ? [`duplicate_cash_balance_contract_rows:${duplicateContractRows}`] : []),
+      ...(missingBookIds.length ? [`missing_cash_balance_books:${missingBookIds.join('/')}`] : []),
+      ...(stale ? ['cash_balance_mirror_stale_over_24h'] : []),
     ];
+    const readyForCardAuthority = blockerReasons.length === 0;
+    const conditions = [
+      ...(unmatchedAccountDirectoryRows > 0
+        ? [`cash_account_directory_mapping_incomplete:${unmatchedAccountDirectoryRows}`]
+        : []),
+      'FIN_ACCOUNT_is_directory_only_not_balance_source',
+      'group_total_uses_CNY_baseEndingBalance',
+      'foreign_currency_breakdown_uses_endingBalance',
+    ];
+    const status: CashBalanceFieldLock['status'] = glBalances.length === 0
+      ? 'WAITING_SAMPLE'
+      : readyForCardAuthority
+        ? 'AUTHORITY_READY'
+        : 'HOLD';
+    const decision: CashBalanceFieldLock['decision'] = status === 'HOLD' || status === 'WAITING_SAMPLE'
+      ? 'HOLD'
+      : conditions.some((item) => item.startsWith('cash_account_directory_mapping_incomplete'))
+        ? 'GO_WITH_CONDITIONS'
+        : 'GO';
     const lock: CashBalanceFieldLock = {
       key: 'CASH_BALANCE',
       label: '现金 / 银行余额',
-      decision: rows.length === 0 ? 'HOLD' : 'GO_WITH_CONDITIONS',
-      sampleRows: rows.length,
+      decision,
+      status,
+      sampleRows: cashAccounts.length + glBalances.length,
+      accountDirectoryRows: cashAccounts.length,
+      glBalanceRows: glBalances.length,
+      eligibleBalanceRows: eligibleRows.length,
+      invalidContractRows: invalidRows.length,
+      duplicateContractRows,
       latestPulledAt,
-      amountSum: aggregate.value,
+      amountSum: 0,
       amountSumSafeAsBalance: false,
+      totalBaseBalance: readyForCardAuthority ? Number(totalBaseBalance.toFixed(2)) : null,
+      baseCurrency: 'CNY',
+      currentPeriods: [...new Set(eligibleRows.map((row) => String(row.period)))].sort(),
+      coveredBooks: coveredBookIds.size,
+      requiredBooks: selectedBooks.length,
+      unmatchedAccountDirectoryRows,
+      currencyBalances: [...currencyGroups.entries()].map(([currency, value]) => ({
+        currency,
+        amount: Number(value.amount.toFixed(2)),
+        rows: value.rows,
+      })).sort((left, right) => left.currency.localeCompare(right.currency)),
+      bookBalances: [...bookGroups.entries()].map(([bookId, value]) => ({
+        bookId,
+        companyCode: value.companyCode,
+        period: value.period,
+        amount: Number(value.amount.toFixed(2)),
+        rows: value.rows,
+      })).sort((left, right) => left.bookId.localeCompare(right.bookId)),
       rawBalanceCandidateCount,
       requiredFields,
       missingFields,
       fieldCandidates,
+      sourceFields: {
+        book: '$entity.bookId',
+        period: '$entity.period',
+        subjectCode: 'rawData.glAccountCode',
+        subjectName: 'rawData.glAccountName',
+        baseBalance: 'rawData.baseEndingBalance',
+        originalBalance: 'rawData.endingBalance',
+        currency: 'rawData.currency',
+        leaf: 'rawData.leaf',
+      },
+      readyForCardAuthority,
       blockerReasons,
-      displayRule: '现金/银行余额主卡片继续使用 ERP 资金账户余额；好业财 amountSum=0 或未锁定 raw 余额字段时只能显示为阻断证据，不得当作真实余额。',
-      nextAction: missingFields.length
-        ? `继续锁定好业财资金账户字段: ${missingFields.join(' / ')}。`
-        : '字段候选已出现，但仍需按账套、币种、余额时点和账户状态做只读对账，不得自动升权为主卡片。',
+      conditions,
+      displayRule: readyForCardAuthority
+        ? '现金/银行余额主卡片使用好业财 GL_BALANCE 最新期间 1001/1002 叶子科目的 CNY 本位币期末余额，并显示 ERP 辅助差异。'
+        : '字段合同、新鲜度、账套覆盖或唯一性未通过时继续使用 ERP 主值；不得把 CASH_ACCOUNT.amountSum=0 当真实余额。',
+      nextAction: readyForCardAuthority
+        ? '保持每日只读同步和字段漂移告警；继续完善 FIN_ACCOUNT 账户目录映射，但不得影响已锁定的总账余额口径。'
+        : `修复字段锁阻断项后重跑 Gate: ${blockerReasons.join(' / ')}`,
     };
     return {
       generatedAt: new Date().toISOString(),
@@ -2221,9 +2447,39 @@ export class ChanjetIntegrationService {
         migration: false,
         dbWrite: false,
         amountSumZeroAsBusinessZero: false,
-        rule: '本接口只读 ERP 好业财中间层，专门防止资金账户 amountSum=0 被误当作现金/银行真实余额。',
+        balanceSource: 'GL_BALANCE_latest_period_cash_bank_leaf_baseEndingBalance',
+        accountDirectorySource: 'FIN_ACCOUNT_directory_only',
+        rule: '本接口只读 ERP 好业财中间层。集团主值只使用总账 1001/1002 叶子科目本位币期末余额；资金账户目录和 amountSum 均不得冒充余额。',
       },
     };
+  }
+
+  private async chanjetCashBalanceAggregate(companyCodes?: string[]): Promise<{
+    available: boolean;
+    value: number;
+    rows: number;
+    latestPulledAt: string | null;
+    error?: string;
+  }> {
+    try {
+      const { lock } = await this.financeCashBalanceFieldLockOverview(companyCodes);
+      return {
+        available: lock.readyForCardAuthority && lock.totalBaseBalance !== null,
+        value: lock.totalBaseBalance ?? 0,
+        rows: lock.eligibleBalanceRows,
+        latestPulledAt: lock.latestPulledAt,
+        ...(lock.readyForCardAuthority ? {} : { error: lock.blockerReasons.join(';') || lock.status }),
+      };
+    } catch (error) {
+      this.log.warn(`Chanjet cash balance aggregate unavailable: ${(error as Error).message}`);
+      return {
+        available: false,
+        value: 0,
+        rows: 0,
+        latestPulledAt: null,
+        error: (error as Error).message,
+      };
+    }
   }
 
   async financeReadModelOverview(): Promise<{
@@ -2820,8 +3076,8 @@ export class ChanjetIntegrationService {
         cardKey: 'cashBalance',
         label: '现金账户余额',
         readModelKey: 'CASH_BALANCE',
-        financeConfirmation: true,
-        promotionRule: '必须锁定余额字段、币种与余额时点后，由财务确认才能晋级主卡片。',
+        financeConfirmation: false,
+        promotionRule: '已锁定 GL_BALANCE 最新期间 1001/1002 叶子科目本位币期末余额；字段、账套、新鲜度或唯一性异常时自动 fail-closed。',
       },
       {
         cardKey: 'todayInflow',
@@ -2972,9 +3228,9 @@ export class ChanjetIntegrationService {
         '确认 ERP 付款/采购明细仅作为辅助差异，不静默覆盖。',
       ],
       CASH_BALANCE: [
-        '确认现金/银行账户余额字段路径及币种字段路径。',
-        '确认余额时点：实时余额、期末余额还是最近拉取批次余额。',
-        '确认多账套/多币种汇总是否需要折本位币。',
+        '系统已确认余额路径为 rawData.baseEndingBalance，原币路径为 rawData.endingBalance / currency。',
+        '系统已确认余额时点为每个账套最新 YYYYMM 会计期间的期末余额。',
+        '集团主值使用 CNY 本位币汇总，原币余额只做分组展示。',
       ],
       TODAY_RECEIPT: [
         '确认今日口径使用业务日期、入账日期还是审核日期。',
@@ -3127,17 +3383,17 @@ export class ChanjetIntegrationService {
         nextAction: '保持应付待付卡片好业财权威口径，继续做供应商/往来单位映射质量提升。',
       },
       CASH_BALANCE: {
-        confirmationStatus: 'SYSTEM_BLOCKED_FROM_AUTHORITY',
-        approvedPrimarySource: 'ERP',
-        erpSemanticDefinition: 'ERP 现金/银行余额来自本地资金账户余额和业务现金流水，是当前可用的主卡片保守口径。',
-        chanjetSemanticDefinition: '当前好业财资金账户镜像证明账户存在，但尚未证明实时/期末余额字段、币种余额和余额时点。',
-        fieldMappingDecision: '好业财资金账户可作为资金账户只读清单和对账证据，不得把 `amountSum=0` 当真实余额。',
-        calculationRule: '主值继续使用 ERP 资金账户余额；好业财余额字段锁定后再进入单独 Gate。',
-        displayRule: '显示 ERP 主值，并展示好业财只读证据状态为“余额字段未锁定”。',
+        confirmationStatus: 'SYSTEM_CONFIRMED_AUTHORITY',
+        approvedPrimarySource: 'CHANJET',
+        erpSemanticDefinition: 'ERP 现金/银行账户余额是运营辅助值，只用于差异解释，不覆盖好业财总账口径。',
+        chanjetSemanticDefinition: '好业财 GL_BALANCE 最新会计期间的 1001/1002 子级叶子科目是现金/银行总账余额权威源。',
+        fieldMappingDecision: '`GL_BALANCE.rawData.baseEndingBalance` 对应 ERP 现金/银行主卡片的 CNY 本位币期末余额；`endingBalance` 仅用于原币分组。',
+        calculationRule: '每个启用账套只取最新 YYYYMM 期间，精确筛选 1001/1002 叶子科目，汇总有符号 baseEndingBalance；缺字段、缺账套、重复或过期均 fail-closed。',
+        displayRule: '主值显示好业财总账本位币余额，同时显示账期、拉取时间、ERP 辅助差异和原币分组。',
         manualFinanceConfirmationRequired: false,
-        authorityAllowed: false,
+        authorityAllowed: true,
         readonlyAllowed: true,
-        nextAction: '补好业财现金/银行余额字段抽取，必须证明余额字段、币种和余额时点后才能升权。',
+        nextAction: '保持每日只读同步、账期/字段漂移告警和 FIN_ACCOUNT 目录映射质量提升。',
       },
       TODAY_RECEIPT: {
         confirmationStatus: 'SYSTEM_CONFIRMED_AUTHORITY',
@@ -3891,7 +4147,7 @@ export class ChanjetIntegrationService {
     const cardDefinitions = [
       { cardKey: 'arOpen', label: '应收待收', endpoints: ['RECEIVABLE_STATISTICS'], entityTypes: ['AR_STATISTICS'] },
       { cardKey: 'apOpen', label: '应付待付', endpoints: ['PAYABLE_STATISTICS'], entityTypes: ['AP_STATISTICS'] },
-      { cardKey: 'cashBalance', label: '现金 / 银行余额', endpoints: ['FIN_ACCOUNT', 'GL_BALANCE'], entityTypes: ['CASH_ACCOUNT', 'GL_BALANCE'] },
+      { cardKey: 'cashBalance', label: '现金 / 银行余额', endpoints: ['GL_BALANCE'], entityTypes: ['GL_BALANCE'] },
       { cardKey: 'todayReceipt', label: '今日收款', endpoints: ['PAYMENT_AR'], entityTypes: ['AR_RECEIPT'] },
       { cardKey: 'todayPayment', label: '今日付款', endpoints: ['PAYMENT_AP'], entityTypes: ['AP_PAYMENT'] },
       { cardKey: 'subjectBalance', label: '科目余额', endpoints: ['GL_BALANCE'], entityTypes: ['GL_BALANCE'] },
@@ -4559,13 +4815,9 @@ export class ChanjetIntegrationService {
     const hasMirrorValue = item.chanjetValue !== null;
     const waitingSample = !extractor || extractor.status === 'WAITING_SAMPLE';
     const needManualReview = item.status === 'NEED_MANUAL_REVIEW';
-    const cashAmountSumZeroPlaceholder = item.key === 'CASH_BALANCE'
-      && item.chanjetValue === 0
-      && item.evidence.chanjetRows > 0;
     const blockedMapping = !extractor
       || ['PARTIAL', 'NEED_EXTRACTION'].includes(extractor.status)
-      || item.status === 'NEED_MAPPING'
-      || cashAmountSumZeroPlaceholder;
+      || item.status === 'NEED_MAPPING';
     const hold = item.status === 'HOLD' || extractor?.status === 'HOLD';
     // AR/AP 是好业财往来单位级汇总口径，不要求 ERP 发票级 aging/invoice 字段。
     // 有有效镜像金额且基础查询未 HOLD 时，可以作为汇总卡片权威值；ERP 单据只保留为差异明细。
@@ -4593,7 +4845,6 @@ export class ChanjetIntegrationService {
       && !authorityReady
       && hasMirrorValue
       && !needManualReview
-      && !cashAmountSumZeroPlaceholder
       && !hold,
     );
     const status: FinanceReadModelStatus = hold
@@ -4618,10 +4869,10 @@ export class ChanjetIntegrationService {
       erpAuxiliaryValue: item.erpValue,
       diff: displayValue !== null && item.erpValue !== null ? displayValue - item.erpValue : null,
       valueSource: displayValue !== null
-        ? 'chanjet_entity_snapshots.amount / semantic extractor confirmed'
-        : cashAmountSumZeroPlaceholder
-          ? 'blocked_cash_balance_amountSum_zero_not_business_balance'
-          : 'blocked_until_semantic_extractor_ready',
+        ? item.key === 'CASH_BALANCE'
+          ? 'chanjet_entity_snapshots.GL_BALANCE.latest_period.1001_1002_leaf.baseEndingBalance'
+          : 'chanjet_entity_snapshots.amount / semantic extractor confirmed'
+        : 'blocked_until_semantic_extractor_ready',
       sourceEntityTypes: item.chanjetEntityTypes,
       sampleRows: extractor?.sampleRows || item.evidence.chanjetRows,
       latestPulledAt: extractor?.latestPulledAt || item.evidence.latestPulledAt,
@@ -5085,9 +5336,6 @@ export class ChanjetIntegrationService {
     if (status === 'NEED_MANUAL_REVIEW') return '日期、审核状态、作废状态或方向口径仍需财务确认。';
     if (status === 'WAITING_SAMPLE') return '该指标缺少好业财 raw_data 样本，需要先重跑只读同步。';
     if (status === 'HOLD') return '存在基础查询或安全边界异常，必须停止进入人工处理。';
-    if (item.key === 'CASH_BALANCE' && item.chanjetValue === 0 && item.evidence.chanjetRows > 0) {
-      return '好业财资金账户镜像 amountSum=0 只表示余额字段尚未抽取/汇总，不得显示为真实现金余额。';
-    }
     return extractor?.missingRequiredFields.length
       ? `必需字段未锁定: ${extractor.missingRequiredFields.slice(0, 6).join(' / ')}。`
       : item.reason;
@@ -5103,9 +5351,6 @@ export class ChanjetIntegrationService {
     if (status === 'NEED_MANUAL_REVIEW') return '锁定业务日/入账日/审核状态/作废过滤，再进入下一轮 read model。';
     if (status === 'WAITING_SAMPLE') return '执行好业财全量只读同步，补齐该实体 raw_data 样本。';
     if (status === 'HOLD') return '停止接入卡片，先修复 HOLD 原因。';
-    if (item.key === 'CASH_BALANCE' && item.chanjetValue === 0 && item.evidence.chanjetRows > 0) {
-      return '继续锁定好业财资金账户 current/available balance、币种、余额时点和账户状态字段；锁定前主卡片保留 ERP 资金账户口径。';
-    }
     return extractor?.missingRequiredFields.length
       ? `补齐字段候选: ${extractor.missingRequiredFields.slice(0, 5).join(' / ')}`
       : item.recommendedAction;
@@ -5241,6 +5486,33 @@ export class ChanjetIntegrationService {
   }
 
   private async buildFinanceSemanticExtractor(lock: FinanceSemanticLock): Promise<FinanceSemanticExtractor> {
+    if (lock.key === 'CASH_BALANCE') {
+      const { lock: cashLock } = await this.financeCashBalanceFieldLockOverview();
+      const status: FinanceSemanticExtractorStatus = cashLock.readyForCardAuthority
+        ? 'READY'
+        : cashLock.status === 'WAITING_SAMPLE'
+          ? 'WAITING_SAMPLE'
+          : cashLock.fieldCandidates.some((field) => field.status === 'FOUND')
+            ? 'PARTIAL'
+            : 'HOLD';
+      return {
+        key: lock.key,
+        label: lock.label,
+        status,
+        authorityEligible: lock.authorityEligible && cashLock.readyForCardAuthority,
+        sourceEntityTypes: ['GL_BALANCE'],
+        sampleRows: cashLock.eligibleBalanceRows,
+        latestPulledAt: cashLock.latestPulledAt,
+        fieldCandidates: cashLock.fieldCandidates,
+        extractedFields: cashLock.fieldCandidates.filter((field) => field.status === 'FOUND').length,
+        requiredFields: cashLock.fieldCandidates.length,
+        missingRequiredFields: cashLock.missingFields,
+        reason: cashLock.readyForCardAuthority
+          ? '现金/银行余额精确合同已通过：最新期间 1001/1002 叶子科目 baseEndingBalance。'
+          : `现金/银行余额字段锁未通过: ${cashLock.blockerReasons.join(' / ') || cashLock.status}。`,
+        nextAction: cashLock.nextAction,
+      };
+    }
     const storedRows = await this.entitySnapshotRepo.find({
       where: { entityType: In(lock.chanjetEntityTypes.length ? lock.chanjetEntityTypes : ['__none__']) },
       order: { updatedAt: 'DESC' },

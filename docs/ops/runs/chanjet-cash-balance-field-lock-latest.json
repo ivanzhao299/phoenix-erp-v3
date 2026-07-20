@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-05T00:20:02.284Z",
+  "generatedAt": "2026-07-20T06:49:34.230Z",
   "decision": "GO_WITH_CONDITIONS",
   "scope": "CHANJET_CASH_BALANCE_FIELD_LOCK",
   "passed": 5,
@@ -19,14 +19,14 @@
       "evidence": "apps/api/src/modules/chanjet/chanjet-callback.controller.ts"
     },
     {
-      "id": "amount-sum-zero-guard",
-      "description": "amountSum=0 is explicitly forbidden as business cash balance.",
+      "id": "exact-gl-balance-contract",
+      "description": "Cash balance uses the latest GL_BALANCE 1001/1002 leaf contract.",
       "passed": true,
       "evidence": "apps/api/src/modules/chanjet/chanjet-integration.service.ts"
     },
     {
-      "id": "read-model-block-source",
-      "description": "Finance read model blocks CASH_BALANCE amountSum=0 as non-business balance.",
+      "id": "read-model-authority-source",
+      "description": "Finance read model uses the exact GL cash/bank balance source.",
       "passed": true,
       "evidence": "apps/api/src/modules/chanjet/chanjet-integration.service.ts"
     },

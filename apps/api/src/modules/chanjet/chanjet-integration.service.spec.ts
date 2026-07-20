@@ -827,6 +827,161 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(result.guardrails.todayAmountAggregation).toContain('rawData.bizDate');
   });
 
+  it('locks cash balance to latest-period 1001/1002 leaf base balances', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const now = new Date();
+    const gl = (
+      id: string,
+      bookId: string,
+      period: string,
+      glAccountCode: string,
+      baseEndingBalance: number,
+      currency = '',
+      endingBalance = 0,
+      leaf = true,
+    ) => ({
+      id,
+      bookId,
+      entityType: 'GL_BALANCE',
+      externalId: id,
+      period,
+      rawData: {
+        glAccountCode,
+        glAccountName: `科目-${glAccountCode}`,
+        baseEndingBalance,
+        endingBalance,
+        currency,
+        leaf,
+      },
+      updatedAt: now,
+    });
+    subject.accountBookRepo = {
+      find: jest.fn().mockResolvedValue([
+        { bookId: 'BOOK-1', companyCode: 'COMP-1', bookName: '账套 1', enabled: true },
+        { bookId: 'BOOK-2', companyCode: 'COMP-2', bookName: '账套 2', enabled: true },
+      ]),
+    };
+    subject.entitySnapshotRepo = {
+      find: jest.fn().mockImplementation(({ where }: any) => where.entityType === 'CASH_ACCOUNT'
+        ? [{
+            id: 'ACCOUNT-1',
+            bookId: 'BOOK-1',
+            entityType: 'CASH_ACCOUNT',
+            rawData: { accountName: '库存现金', currencyCode: 'CNY' },
+            updatedAt: now,
+          }]
+        : [
+            gl('OLD-1', 'BOOK-1', '202606', '100101', 999),
+            gl('PARENT-1', 'BOOK-1', '202607', '1001', 999, '', 0, false),
+            gl('GL-1', 'BOOK-1', '202607', '100101', 100),
+            gl('GL-2', 'BOOK-1', '202607', '100201', -20),
+            gl('GL-3', 'BOOK-1', '202607', '100202', 50, 'LAK', 150000),
+            gl('GL-4', 'BOOK-2', '202607', '100101', 30),
+            gl('OTHER-1', 'BOOK-2', '202607', '220201', 500),
+          ]),
+    };
+
+    const result = await subject.financeCashBalanceFieldLockOverview();
+
+    expect(result.lock).toMatchObject({
+      status: 'AUTHORITY_READY',
+      readyForCardAuthority: true,
+      totalBaseBalance: 160,
+      eligibleBalanceRows: 4,
+      invalidContractRows: 0,
+      duplicateContractRows: 0,
+      coveredBooks: 2,
+      requiredBooks: 2,
+      sourceFields: {
+        baseBalance: 'rawData.baseEndingBalance',
+        originalBalance: 'rawData.endingBalance',
+      },
+    });
+    expect(result.lock.currencyBalances).toEqual(expect.arrayContaining([
+      { currency: 'CNY', amount: 110, rows: 3 },
+      { currency: 'LAK', amount: 150000, rows: 1 },
+    ]));
+  });
+
+  it('accepts a legitimate exact zero cash balance', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const now = new Date();
+    subject.accountBookRepo = {
+      find: jest.fn().mockResolvedValue([
+        { bookId: 'BOOK-1', companyCode: 'COMP-1', bookName: '账套 1', enabled: true },
+      ]),
+    };
+    subject.entitySnapshotRepo = {
+      find: jest.fn().mockImplementation(({ where }: any) => where.entityType === 'CASH_ACCOUNT' ? [] : [{
+        id: 'GL-ZERO',
+        bookId: 'BOOK-1',
+        entityType: 'GL_BALANCE',
+        externalId: 'GL-ZERO',
+        period: '202607',
+        rawData: {
+          glAccountCode: '100101',
+          glAccountName: '库存现金',
+          baseEndingBalance: 0,
+          endingBalance: 0,
+          currency: '',
+          leaf: true,
+        },
+        updatedAt: now,
+      }]),
+    };
+
+    const result = await subject.financeCashBalanceFieldLockOverview();
+
+    expect(result.lock).toMatchObject({
+      status: 'AUTHORITY_READY',
+      readyForCardAuthority: true,
+      totalBaseBalance: 0,
+      blockerReasons: [],
+    });
+  });
+
+  it('fails cash balance closed for duplicate rows or missing enabled books', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const now = new Date();
+    const duplicate = (id: string) => ({
+      id,
+      bookId: 'BOOK-1',
+      entityType: 'GL_BALANCE',
+      externalId: id,
+      period: '202607',
+      rawData: {
+        glAccountCode: '100101',
+        glAccountName: '库存现金',
+        baseEndingBalance: 10,
+        endingBalance: 0,
+        currency: '',
+        leaf: true,
+      },
+      updatedAt: now,
+    });
+    subject.accountBookRepo = {
+      find: jest.fn().mockResolvedValue([
+        { bookId: 'BOOK-1', companyCode: 'COMP-1', bookName: '账套 1', enabled: true },
+        { bookId: 'BOOK-2', companyCode: 'COMP-2', bookName: '账套 2', enabled: true },
+      ]),
+    };
+    subject.entitySnapshotRepo = {
+      find: jest.fn().mockImplementation(({ where }: any) => where.entityType === 'CASH_ACCOUNT'
+        ? []
+        : [duplicate('GL-1'), duplicate('GL-2')]),
+    };
+
+    const result = await subject.financeCashBalanceFieldLockOverview();
+
+    expect(result.decision).toBe('HOLD');
+    expect(result.lock.readyForCardAuthority).toBe(false);
+    expect(result.lock.totalBaseBalance).toBeNull();
+    expect(result.lock.blockerReasons).toEqual(expect.arrayContaining([
+      'duplicate_cash_balance_contract_rows:2',
+      'missing_cash_balance_books:BOOK-2',
+    ]));
+  });
+
   it('validates balanced voucher candidates without enabling Chanjet push', () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     const result = subject.validateVoucherDraftInput({

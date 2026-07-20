@@ -49,17 +49,19 @@ async function main() {
       controllerPath,
     ),
     check(
-      'amount-sum-zero-guard',
-      'amountSum=0 is explicitly forbidden as business cash balance.',
+      'exact-gl-balance-contract',
+      'Cash balance uses the latest GL_BALANCE 1001/1002 leaf contract.',
       service.includes('amountSumZeroAsBusinessZero: false')
-        && service.includes('amountSum_zero_is_not_authoritative_cash_balance'),
+        && service.includes('GL_BALANCE_latest_period_cash_bank_leaf_baseEndingBalance')
+        && service.includes('/^100[12]\\d+$/')
+        && service.includes('rawData.baseEndingBalance'),
       servicePath,
     ),
     check(
-      'read-model-block-source',
-      'Finance read model blocks CASH_BALANCE amountSum=0 as non-business balance.',
-      service.includes('cashAmountSumZeroPlaceholder')
-        && service.includes('blocked_cash_balance_amountSum_zero_not_business_balance'),
+      'read-model-authority-source',
+      'Finance read model uses the exact GL cash/bank balance source.',
+      service.includes('chanjet_entity_snapshots.GL_BALANCE.latest_period.1001_1002_leaf.baseEndingBalance')
+        && !service.includes('cashAmountSumZeroPlaceholder'),
       servicePath,
     ),
     check(
