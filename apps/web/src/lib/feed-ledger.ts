@@ -15,6 +15,30 @@ export interface FeedLedgerRow {
   note: string;
 }
 
+export interface FeedLedgerSavePayload {
+  date: string;
+  items: FeedLedgerRow[];
+}
+
+export function createFeedLedgerSavePayload(
+  date: string,
+  rows: FeedLedgerRow[],
+): FeedLedgerSavePayload {
+  return { date, items: rows };
+}
+
+export function unwrapFeedLedgerSaveResponse(value: unknown): FeedLedgerRow[] {
+  const response = value && typeof value === 'object'
+    ? value as Record<string, unknown>
+    : {};
+
+  if (typeof response.code === 'number' && response.code !== 200) {
+    throw new Error(typeof response.msg === 'string' ? response.msg : '保存失败');
+  }
+
+  return normalizeFeedLedgerRows(response.data ?? value);
+}
+
 const finiteNumber = (value: unknown): number => {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;

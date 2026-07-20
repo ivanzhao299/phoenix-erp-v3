@@ -8,7 +8,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, RefreshCw, Save } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { primaryActionButton, secondaryActionButton, inputField } from '@/components/design-system/cockpit-styles';
-import { FeedLedgerRow, normalizeFeedLedgerRows } from '@/lib/feed-ledger';
+import {
+  createFeedLedgerSavePayload,
+  FeedLedgerRow,
+  normalizeFeedLedgerRows,
+  unwrapFeedLedgerSaveResponse,
+} from '@/lib/feed-ledger';
 function tok() {
   if (typeof window === 'undefined') return '';
   return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
@@ -103,10 +108,11 @@ export default function FeedLedgerPage() {
     setSaving(true);
     setError('');
     try {
-      await apiPost('/api/farm/feed/ledger', {
-        date,
-        rows
-      });
+      const response = await apiPost<unknown>(
+        '/api/farm/feed/ledger',
+        createFeedLedgerSavePayload(date, rows),
+      );
+      setRows(unwrapFeedLedgerSaveResponse(response));
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: unknown) {
@@ -158,7 +164,12 @@ export default function FeedLedgerPage() {
         </button>
         <div className={u.flex1} />
         {canEdit && (
-          <button onClick={handleSave} disabled={saving || loading} style={saved ? secondaryActionButton : primaryActionButton}>
+          <button
+            onClick={handleSave}
+            disabled={saving || loading}
+            aria-busy={saving}
+            style={saved ? secondaryActionButton : primaryActionButton}
+          >
             <Save size={14} />
             {saving ? t('ui.保存中', '保存中…') : saved ? t('ui.已保存', '已保存') : t('common.save', '保存')}
           </button>
@@ -197,7 +208,7 @@ export default function FeedLedgerPage() {
           </div>
         </div>}
 
-      {error && <div style={{
+      {error && <div role="alert" style={{
       marginBottom: 14,
       padding: '10px 14px',
       borderRadius: 8,
@@ -206,7 +217,7 @@ export default function FeedLedgerPage() {
       color: 'var(--status-danger)',
       fontSize: 13
     }}>
-          {error}
+          {t('ui.feed保存失败', '保存失败：')}{error}
         </div>}
 
       {/* 主表格 */}
