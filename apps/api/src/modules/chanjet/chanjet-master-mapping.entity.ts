@@ -21,7 +21,9 @@ export type ChanjetMappingType =
  * SOURCE_ONLY 只服务于中间层读取，绝不代表 ERP 业务主档存在。
  */
 @Entity('chanjet_master_mapping')
-@Unique('uq_chanjet_master_mapping', ['mappingType', 'erpCode', 'chanjetId'])
+// Chanjet master IDs are local to an account book. The same ID can represent
+// different cash accounts in different books, so bookId is part of identity.
+@Unique('uq_chanjet_master_mapping', ['mappingType', 'bookId', 'erpCode', 'chanjetId'])
 @Index('idx_chanjet_master_mapping_type_status', ['mappingType', 'matchStatus', 'reviewStatus'])
 @Index('idx_chanjet_master_mapping_book', ['bookId'])
 export class ChanjetMasterMappingEntity {

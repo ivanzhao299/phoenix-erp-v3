@@ -704,6 +704,48 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     }));
   });
 
+  it('keeps the same Chanjet master ID isolated by account book', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const stored: any[] = [];
+    subject.masterDataMappingReview = jest.fn().mockResolvedValue({
+      summary: { conflicts: 0, needMapping: 0 },
+      candidates: [
+        {
+          snapshotId: 'S1', domain: 'CASH_ACCOUNT', bookId: 'BOOK-LAK', companyCode: 'COMP-LAK',
+          chanjetId: '12', chanjetCode: '12', chanjetName: '琅勃拉邦直营店备用金', currency: 'LAK',
+          status: 'SOURCE_REFERENCE', erpCode: '', erpName: '', evidence: ['source identity'],
+        },
+        {
+          snapshotId: 'S2', domain: 'CASH_ACCOUNT', bookId: 'BOOK-THB', companyCode: 'COMP-THB',
+          chanjetId: '12', chanjetCode: '12', chanjetName: '泰铢（现金）', currency: 'THB',
+          status: 'SOURCE_REFERENCE', erpCode: '', erpName: '', evidence: ['source identity'],
+        },
+      ],
+    });
+    subject.mappingRepo = {
+      find: jest.fn().mockImplementation(({ where }: any) => Promise.resolve(
+        stored.filter((row) => row.mappingType === where.mappingType && row.bookId === where.bookId),
+      )),
+      create: jest.fn((value) => ({ id: `M${stored.length + 1}`, ...value })),
+      save: jest.fn().mockImplementation((value) => {
+        stored.push({ ...value });
+        return Promise.resolve(value);
+      }),
+    };
+    subject.updateMappingReview = jest.fn();
+
+    const result = await subject.confirmDeterministicMasterDataMappings('tester');
+
+    expect(result).toMatchObject({
+      reviewed: 2, sourceOnlyApproved: 2, conflicts: 0, unresolved: 0, errors: [],
+    });
+    expect(stored).toHaveLength(2);
+    expect(stored.map((row) => [row.bookId, row.chanjetId, row.chanjetName, row.rawData.currency])).toEqual([
+      ['BOOK-LAK', '12', '琅勃拉邦直营店备用金', 'LAK'],
+      ['BOOK-THB', '12', '泰铢（现金）', 'THB'],
+    ]);
+  });
+
   it('retries failed readonly mirror targets and reports the recovered attempt', async () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     subject.syncReadOnlyMirror = jest
