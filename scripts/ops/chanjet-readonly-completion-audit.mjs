@@ -61,6 +61,12 @@ function summarize(results) {
   const reconciliationOpen = Number(
     reconciliation?.summary?.open
       ?? reconciliation?.summary?.openItems
+      ?? (reconciliation?.summary
+        ? Number(reconciliation.summary.mismatch || 0)
+          + Number(reconciliation.summary.needMapping || 0)
+          + Number(reconciliation.summary.needManualReview || 0)
+          + Number(reconciliation.summary.hold || 0)
+        : undefined)
       ?? current?.summary?.reconciliationOpen
       ?? 0,
   );

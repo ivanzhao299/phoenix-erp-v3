@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, Not, Repository } from 'typeorm';
 import { ChanjetAuthService, getChanjetBusinessFailure } from './chanjet-auth.service';
 import { ChanjetAccountBookEntity } from './chanjet-account-book.entity';
 import { ChanjetApiFieldCatalogEntity } from './chanjet-api-field-catalog.entity';
@@ -1293,6 +1293,7 @@ export class ChanjetIntegrationService {
       mappings,
       pendingMappings,
       approvedMappings,
+      readonlySubjectReferences,
       jobs,
       failedJobs,
       voucherDrafts,
@@ -1307,8 +1308,9 @@ export class ChanjetIntegrationService {
       this.accountBookRepo.count({ where: { enabled: true } }),
       this.fieldCatalogRepo.count(),
       this.mappingRepo.count(),
-      this.mappingRepo.count({ where: { reviewStatus: 'PENDING' } }),
+      this.mappingRepo.count({ where: { reviewStatus: 'PENDING', mappingType: Not('SUBJECT') } }),
       this.mappingRepo.count({ where: { reviewStatus: 'APPROVED' } }),
+      this.mappingRepo.count({ where: { mappingType: 'SUBJECT', matchStatus: 'SOURCE_ONLY' } }),
       this.jobRepo.count(),
       this.jobRepo.count({ where: { status: 'FAIL' } }),
       this.voucherDraftRepo.count(),
@@ -1327,6 +1329,7 @@ export class ChanjetIntegrationService {
       mappings,
       pendingMappings,
       approvedMappings,
+      readonlySubjectReferences,
       jobs,
       failedJobs,
       voucherDrafts,
@@ -7514,12 +7517,13 @@ export class ChanjetIntegrationService {
     for (const row of rows) {
       if (getChanjetBusinessFailure(row)) continue;
       const id = String(
-        row.id ?? row.ID ?? row.customerId ?? row.supplierId ?? row.subjectId ?? row.projectId ?? row.code ?? '',
+        row.id ?? row.ID ?? row.customerId ?? row.supplierId ?? row.subjectId ?? row.glAccountId ?? row.projectId ?? row.code ?? '',
       );
       const code = String(
         row.code
         ?? row.deptCode
         ?? row.subjectCode
+        ?? row.glAccountCode
         ?? row.customerCode
         ?? row.supplierCode
         ?? row.projectCode
@@ -7530,6 +7534,7 @@ export class ChanjetIntegrationService {
         row.name
         ?? row.deptName
         ?? row.subjectName
+        ?? row.glAccountName
         ?? row.customerName
         ?? row.supplierName
         ?? row.projectName
@@ -7538,6 +7543,7 @@ export class ChanjetIntegrationService {
         ?? '',
       );
       if (!id && !code && !name) continue;
+      const readonlySubjectReference = mappingType === 'SUBJECT';
       await this.upsertMasterMapping({
         mappingType,
         bookId,
@@ -7546,9 +7552,11 @@ export class ChanjetIntegrationService {
         chanjetId: id,
         chanjetCode: code,
         chanjetName: name || code || id,
-        matchStatus: 'PENDING',
-        confidence: '0.00',
-        reviewStatus: 'PENDING',
+        matchStatus: readonlySubjectReference ? 'SOURCE_ONLY' : 'PENDING',
+        confidence: readonlySubjectReference ? '1.00' : '0.00',
+        reviewStatus: readonlySubjectReference ? 'APPROVED' : 'PENDING',
+        reviewedBy: readonlySubjectReference ? 'system:chanjet-readonly-subject-reference' : null,
+        reviewedAt: readonlySubjectReference ? new Date() : null,
         rawData: row,
       });
     }
