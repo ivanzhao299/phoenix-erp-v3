@@ -1,0 +1,25 @@
+.tableViewport {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  -webkit-overflow-scrolling: touch;
+}
+
+.feedTable {
+  min-width: 1080px;
+}
+
+.feedTable th.alignRight {
+  text-align: right;
+}
+
+.feedTable th.alignCenter {
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .feedTable {
+    min-width: 980px;
+  }
+}

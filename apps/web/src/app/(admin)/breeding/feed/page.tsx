@@ -7,6 +7,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, RefreshCw, Save } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import styles from './feed.module.css';
 import { primaryActionButton, secondaryActionButton, inputField } from '@/components/design-system/cockpit-styles';
 import {
   createFeedLedgerSavePayload,
@@ -221,27 +222,22 @@ export default function FeedLedgerPage() {
         </div>}
 
       {/* 主表格 */}
-      <div style={{
-      background: 'var(--bg-card)',
-      borderRadius: 'var(--radius-lg)',
-      border: '1px solid var(--border)',
-      overflow: 'auto'
-    }}>
-        <table className={s.table}>
+      <div className={styles.tableViewport}>
+        <table className={`${s.table} ${styles.feedTable}`}>
           <thead>
             <tr>
               <th className={u.nowrap}>{t('ui.物料名称', '物料名称')}</th>
-              <th className={u.tac}>{t('ui.单位', '单位')}</th>
-              <th className={u.tar}>{t('ui.昨日库存', '昨日库存')}</th>
-              <th className={u.tar}>{t('ui.今日入库', '今日入库')}</th>
-              <th className={u.tar}>{t('ui.日用量', '日用量')}</th>
+              <th className={styles.alignCenter}>{t('ui.单位', '单位')}</th>
+              <th className={styles.alignRight}>{t('ui.昨日库存', '昨日库存')}</th>
+              <th className={styles.alignRight}>{t('ui.今日入库', '今日入库')}</th>
+              <th className={styles.alignRight}>{t('ui.日用量', '日用量')}</th>
               {houses.map(h => <th key={h} style={{
               textAlign: 'right',
               whiteSpace: 'nowrap'
             }}>{h}</th>)}
-              <th className={u.tar}>{t('ui.出库合计', '出库合计')}</th>
-              <th className={u.tar}>{t('ui.当前库存', '当前库存')}</th>
-              <th className={u.tac}>{t('ui.可用天', '可用天')}</th>
+              <th className={styles.alignRight}>{t('ui.出库合计', '出库合计')}</th>
+              <th className={styles.alignRight}>{t('ui.当前库存', '当前库存')}</th>
+              <th className={styles.alignCenter}>{t('ui.可用天', '可用天')}</th>
               <th>{t('ui.备注', '备注')}</th>
             </tr>
           </thead>

@@ -74,12 +74,17 @@ describe('BUG-20260720-0002 feed ledger save contract', () => {
       path.resolve(process.cwd(), 'src/app/(admin)/breeding/feed/page.tsx'),
       'utf8',
     );
+    const pageCssSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/app/(admin)/breeding/feed/feed.module.css'),
+      'utf8',
+    );
 
     expect(pageSource).toContain("usePermission('MENU_BREEDING')");
     expect(pageSource).toContain('{canEdit && (');
     expect(pageSource).toContain('role="alert"');
     expect(pageSource).toContain('disabled={saving || loading}');
-    expect(pageSource).toContain("overflow: 'auto'");
+    expect(pageSource).toContain('className={styles.tableViewport}');
+    expect(pageCssSource).toContain('overflow-x: auto');
     expect(pageSource).toContain("flexWrap: 'wrap'");
   });
 });
