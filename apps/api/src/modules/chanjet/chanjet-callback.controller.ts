@@ -783,6 +783,25 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/integration/master-data-mapping-review
+   * 只读输出跨系统主数据精确匹配候选；不批准、不写 ERP 业务表、不写好业财。
+   */
+  @Get('integration/master-data-mapping-review')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async masterDataMappingReview() {
+    try {
+      return await this.integration.masterDataMappingReview();
+    } catch (e) {
+      return {
+        decision: 'HOLD',
+        writeChanjet: false,
+        writeErpBusinessTables: false,
+        error: (e as Error).message,
+      };
+    }
+  }
+
+  /**
    * GET /api/chanjet/integration/finance-reconciliation
    * 好业财 ↔ ERP 财务聚合口径差异总览。只读 ERP 中间层与 ERP 业务表，不写好业财，不覆盖业务事实。
    */

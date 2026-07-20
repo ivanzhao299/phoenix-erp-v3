@@ -71,6 +71,98 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     })).toEqual([]);
   });
 
+  it('filters business failure envelopes nested inside response arrays', () => {
+    expect(service.extractRows({
+      data: [
+        { code: '50000', message: 'service unavailable', requestId: 'REQ-FAILED' },
+        { id: 'PROJECT-1', code: '001', name: '测试项目' },
+      ],
+    })).toEqual([{ id: 'PROJECT-1', code: '001', name: '测试项目' }]);
+  });
+
+  it('matches cash accounts only by mapped company, normalized exact name and currency', () => {
+    const exact = service.buildMasterDataReviewCandidate({
+      snapshotId: 'cash-1',
+      domain: 'CASH_ACCOUNT',
+      bookId: 'BOOK-1',
+      companyCode: 'COMP-1',
+      chanjetId: 'CJ-101',
+      chanjetCode: '101',
+      chanjetName: '　总部现金人民币',
+      currency: 'CNY',
+    }, [{
+      domain: 'CASH_ACCOUNT',
+      code: 'ERP-CASH-101',
+      name: '总部现金人民币',
+      companyCode: 'COMP-1',
+      currency: 'CNY',
+      status: 'ACTIVE',
+    }]);
+    const wrongCurrency = service.buildMasterDataReviewCandidate({
+      snapshotId: 'cash-2',
+      domain: 'CASH_ACCOUNT',
+      bookId: 'BOOK-1',
+      companyCode: 'COMP-1',
+      chanjetId: 'CJ-102',
+      chanjetCode: '102',
+      chanjetName: '总部现金人民币',
+      currency: 'LAK',
+    }, [{
+      domain: 'CASH_ACCOUNT',
+      code: 'ERP-CASH-101',
+      name: '总部现金人民币',
+      companyCode: 'COMP-1',
+      currency: 'CNY',
+      status: 'ACTIVE',
+    }]);
+
+    expect(exact).toMatchObject({
+      status: 'EXACT_MATCH',
+      erpCode: 'ERP-CASH-101',
+      systemApprovalEligible: true,
+    });
+    expect(wrongCurrency).toMatchObject({
+      status: 'NEED_MAPPING',
+      erpCode: '',
+      systemApprovalEligible: false,
+    });
+  });
+
+  it('does not fuzzy-match project names or cross company boundaries', () => {
+    const candidate = service.buildMasterDataReviewCandidate({
+      snapshotId: 'project-1',
+      domain: 'PROJECT',
+      bookId: 'BOOK-1',
+      companyCode: 'COMP-1',
+      chanjetId: 'CJ-PROJECT-1',
+      chanjetCode: '0001',
+      chanjetName: '孟赛直营店',
+      currency: '',
+    }, [
+      {
+        domain: 'PROJECT',
+        code: 'PRJ_MENGSAI_LAYER',
+        name: '孟赛蛋鸡场经营项目',
+        companyCode: 'COMP-1',
+        currency: '',
+        status: 'ACTIVE',
+      },
+      {
+        domain: 'PROJECT',
+        code: '0001',
+        name: '孟赛直营店',
+        companyCode: 'COMP-2',
+        currency: '',
+        status: 'ACTIVE',
+      },
+    ]);
+
+    expect(candidate).toMatchObject({
+      status: 'NEED_MAPPING',
+      systemApprovalEligible: false,
+    });
+  });
+
   it('does not infer financial amount fields from response metadata', () => {
     const candidates = service.matchSemanticFieldCandidates('ending_amount', [
       { path: '$.requestId', sampleType: 'string', sampleValue: '20260720-999', observedCount: 1 },

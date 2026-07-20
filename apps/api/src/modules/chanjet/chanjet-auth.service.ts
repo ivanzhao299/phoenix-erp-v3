@@ -38,7 +38,8 @@ export function getChanjetBusinessFailure(payload: unknown): ChanjetBusinessFail
   const failedCode = Boolean(code && !['0', '200', 'SUCCESS', 'OK'].includes(code.toUpperCase()));
   const nullDataFailure = row.data === null && failedCode && Boolean(message);
   const nestedError = Object.keys(error).length > 0 && failedCode;
-  if (!explicitFailure && !nullDataFailure && !nestedError) return null;
+  const identifiedFailure = failedCode && Boolean(message) && Boolean(requestId);
+  if (!explicitFailure && !nullDataFailure && !nestedError && !identifiedFailure) return null;
   return {
     code: code || 'BUSINESS_FAILURE',
     message: message || '好业财返回业务失败',

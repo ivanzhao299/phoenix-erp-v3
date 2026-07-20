@@ -52,7 +52,7 @@ const DOMAINS = [
     title: '项目',
     priority: 'P0',
     endpoints: ['PROJECT', 'PURCHASE_ORDER'],
-    erpTargets: ['prc2_projects.project_code', 'sys_user_projects'],
+    erpTargets: ['biz_projects.project_code', 'sys_user_projects'],
     fieldDomains: ['project'],
     rule: '项目映射影响采购付款和费用归属，未审核前只能用于对账提示。',
   },

@@ -979,7 +979,7 @@ const MASTER_DATA_ALIGNMENT_DOMAINS: MasterDataAlignmentDomainDefinition[] = [
     mappingTypes: ['PROJECT'],
     endpointKeys: ['PROJECT'],
     entityTypes: ['PROJECT'],
-    erpTargets: ['prc2_projects.project_code', 'sys_user_projects'],
+    erpTargets: ['biz_projects.project_code', 'sys_user_projects'],
     priority: 'P0',
     authorityRule: '项目映射影响采购/付款/费用归属，需与 ERP 项目主数据对齐后才能用于写回前校验。',
   },
@@ -1595,17 +1595,7 @@ export class ChanjetIntegrationService {
         .groupBy('s.entityType')
         .addGroupBy('s.endpointKey')
         .getRawMany(),
-      this.mappingRepo
-        .createQueryBuilder('m')
-        .select('m.mappingType', 'mappingType')
-        .addSelect('m.matchStatus', 'matchStatus')
-        .addSelect('m.reviewStatus', 'reviewStatus')
-        .addSelect('COUNT(*)', 'mappingCount')
-        .addSelect('AVG(CAST(m.confidence AS numeric))', 'avgConfidence')
-        .groupBy('m.mappingType')
-        .addGroupBy('m.matchStatus')
-        .addGroupBy('m.reviewStatus')
-        .getRawMany(),
+      this.mappingRepo.find({ take: 10000 }),
       this.fieldMappingRepo
         .createQueryBuilder('f')
         .select('f.erpDomain', 'erpDomain')
@@ -1647,10 +1637,11 @@ export class ChanjetIntegrationService {
       confidenceSum: number;
       confidenceRows: number;
     }>();
-    for (const row of mappingRows as any[]) {
+    for (const row of (mappingRows as ChanjetMasterMappingEntity[])
+      .filter((mapping) => !getChanjetBusinessFailure(mapping.rawData))) {
       const type = String(row.mappingType || '');
       if (!type) continue;
-      const count = Number(row.mappingCount || 0);
+      const count = 1;
       const item = mappingByType.get(type) || {
         total: 0,
         approved: 0,
@@ -1669,8 +1660,8 @@ export class ChanjetIntegrationService {
       if (row.matchStatus === 'MATCHED') item.matched += count;
       if (row.matchStatus === 'MANUAL') item.manual += count;
       if (row.matchStatus === 'CONFLICT') item.conflicts += count;
-      if (row.avgConfidence !== null && row.avgConfidence !== undefined) {
-        item.confidenceSum += Number(row.avgConfidence || 0) * count;
+      if (row.confidence !== null && row.confidence !== undefined) {
+        item.confidenceSum += Number(row.confidence || 0) * count;
         item.confidenceRows += count;
       }
       mappingByType.set(type, item);
@@ -1750,9 +1741,13 @@ export class ChanjetIntegrationService {
         acc.highOpen += item.highOpen;
         return acc;
       }, { total: 0, matched: 0, transformRequired: 0, missingInErp: 0, highOpen: 0 });
-      const approvedRate = mappingStats.total ? mappingStats.approved / mappingStats.total : 0;
+      const actionableMappings = Math.max(mappingStats.total - mappingStats.rejected, 0);
+      const approvedRate = actionableMappings ? mappingStats.approved / actionableMappings : 0;
       const mirrorReady = entityCount > 0 || endpointEntityCount > 0;
-      const reviewReady = mappingStats.total > 0 && approvedRate >= 0.9 && mappingStats.conflicts === 0;
+      const reviewReady = actionableMappings > 0
+        && mappingStats.approved === actionableMappings
+        && mappingStats.pending === 0
+        && mappingStats.conflicts === 0;
       const status = !mirrorReady
         ? 'WAITING_MIRROR_SYNC'
         : mappingStats.total === 0
@@ -1779,6 +1774,7 @@ export class ChanjetIntegrationService {
         },
         mapping: {
           ...mappingStats,
+          actionable: actionableMappings,
           averageConfidence: mappingStats.confidenceRows
             ? Math.round((mappingStats.confidenceSum / mappingStats.confidenceRows) * 100) / 100
             : 0,
@@ -1832,6 +1828,131 @@ export class ChanjetIntegrationService {
         erpBusinessOverwrite: false,
         migration: false,
         note: '本接口只读 ERP 好业财中间层，不调用好业财写接口，不自动批准映射。',
+      },
+    };
+  }
+
+  /**
+   * P2 主数据映射复核只读视图。只给出可证明的一对一精确匹配，
+   * 名称近似、跨公司、缺少有效源数据等情况全部 fail closed。
+   */
+  async masterDataMappingReview() {
+    const [snapshots, bookMaps, erpRows] = await Promise.all([
+      this.entitySnapshotRepo.find({
+        where: { entityType: In(['DEPARTMENT', 'PROJECT', 'CASH_ACCOUNT', 'SUBJECT']) },
+        order: { updatedAt: 'DESC' },
+        take: 10000,
+      }),
+      this.bookCompanyMapRepo.find({ where: { syncEnabled: true } }),
+      this.ds.query(
+        `SELECT 'PROJECT' AS domain, project_code AS code, project_name AS name,
+                company_code, '' AS currency, status
+           FROM biz_projects
+         UNION ALL
+         SELECT 'CASH_ACCOUNT' AS domain, account_code AS code, account_name AS name,
+                company_code, currency_code AS currency, status
+           FROM fin_cash_accounts
+         UNION ALL
+         SELECT 'DEPARTMENT' AS domain, org_code AS code, org_name AS name,
+                COALESCE(company_code, '') AS company_code, '' AS currency, status
+           FROM sys_organizations
+          WHERE org_type = 'DEPARTMENT'
+         UNION ALL
+         SELECT 'CURRENCY' AS domain, dict_code AS code,
+                COALESCE(dict_label_zh, name, dict_value, dict_code) AS name,
+                '' AS company_code, dict_code AS currency, status
+           FROM sys_dict
+          WHERE dict_type = 'SYS_CURRENCY'`,
+      ).catch((error) => {
+        this.log.warn(`Chanjet master-data mapping review unavailable: ${(error as Error).message}`);
+        return [];
+      }),
+    ]);
+    const companyByBook = new Map(bookMaps.map((mapping) => [mapping.bookid, mapping.companyCode]));
+    const masters = (erpRows as Array<Record<string, unknown>>).map((row) => ({
+      domain: String(row.domain || ''),
+      code: String(row.code || ''),
+      name: String(row.name || ''),
+      companyCode: String(row.company_code || ''),
+      currency: String(row.currency || ''),
+      status: String(row.status || ''),
+    }));
+    const validSnapshots = snapshots.filter((snapshot) => !getChanjetBusinessFailure(snapshot.rawData));
+    const sourceRows = validSnapshots.map((snapshot) => {
+      const raw = snapshot.rawData || {};
+      const domain = snapshot.entityType;
+      return {
+        snapshotId: snapshot.id,
+        domain,
+        bookId: snapshot.bookId,
+        companyCode: companyByBook.get(snapshot.bookId) || '',
+        chanjetId: snapshot.externalId || this.firstChanjetText(raw, ['id', 'ID', 'code']),
+        chanjetCode: snapshot.externalCode || this.firstChanjetText(raw, [
+          'code', 'deptCode', 'subjectCode', 'projectCode', 'accountCode',
+        ]),
+        chanjetName: snapshot.externalName || this.firstChanjetText(raw, [
+          'name', 'deptName', 'subjectName', 'projectName', 'accountName',
+        ]),
+        currency: snapshot.currency || this.firstChanjetText(raw, ['currencyCode', 'currency']),
+      };
+    });
+    const candidates = sourceRows.map((source) => this.buildMasterDataReviewCandidate(source, masters));
+    const currencySources = [...new Set(sourceRows
+      .filter((row) => row.domain === 'CASH_ACCOUNT')
+      .map((row) => row.currency)
+      .filter(Boolean))]
+      .map((currency) => ({
+        snapshotId: `currency:${currency}`,
+        domain: 'CURRENCY',
+        bookId: '',
+        companyCode: '',
+        chanjetId: currency,
+        chanjetCode: currency,
+        chanjetName: currency,
+        currency,
+      }));
+    candidates.push(...currencySources.map((source) => this.buildMasterDataReviewCandidate(source, masters)));
+
+    const byDomain = ['DEPARTMENT', 'PROJECT', 'CASH_ACCOUNT', 'SUBJECT', 'CURRENCY'].map((domain) => {
+      const rows = candidates.filter((candidate) => candidate.domain === domain);
+      return {
+        domain,
+        sourceRows: rows.length,
+        exactMatches: rows.filter((row) => row.status === 'EXACT_MATCH').length,
+        needMapping: rows.filter((row) => row.status === 'NEED_MAPPING').length,
+        conflicts: rows.filter((row) => row.status === 'CONFLICT').length,
+        waitingValidSource: rows.length === 0,
+      };
+    });
+    const conflicts = candidates.filter((candidate) => candidate.status === 'CONFLICT').length;
+    const exactMatches = candidates.filter((candidate) => candidate.status === 'EXACT_MATCH').length;
+    const needMapping = candidates.filter((candidate) => candidate.status === 'NEED_MAPPING').length;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: conflicts ? 'HOLD' : 'GO_WITH_CONDITIONS',
+      summary: {
+        validSourceRows: sourceRows.length,
+        invalidSourceRowsExcluded: snapshots.length - validSnapshots.length,
+        exactMatches,
+        needMapping,
+        conflicts,
+        domains: byDomain.length,
+        nextGate: conflicts
+          ? 'CHANJET_P2_MASTER_DATA_MAPPING_CONFLICT_REPAIR'
+          : 'CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE',
+      },
+      domains: byDomain,
+      candidates,
+      guardrails: {
+        exactOnly: true,
+        normalizedExactNameAllowed: true,
+        companyScopeRequired: true,
+        currencyMatchRequiredForCashAccount: true,
+        fuzzyAutoMatch: false,
+        crossCompanyMatch: false,
+        chanjetWrite: false,
+        erpBusinessTableWrite: false,
+        middleLayerWrite: false,
       },
     };
   }
@@ -6922,7 +7043,7 @@ export class ChanjetIntegrationService {
       { test: /dept|department/, erpDomain: 'organization', erpTable: 'sys_organizations', erpField: normalizedName, erpType: 'varchar', transformRule: '通过 chanjet_master_mapping(DEPARTMENT) 人工审核后映射。', riskLevel: 'MEDIUM' },
       { test: /customer|supplier|custvendor|party|assistant/, erpDomain: 'counterparty', erpTable: counterpartyTarget.table, erpField: normalizedName, erpType: 'varchar', transformRule: counterpartyTarget.rule, riskLevel: 'HIGH' },
       { test: /subject|account|glaccount/, erpDomain: 'accounting', erpTable: 'chanjet_master_mapping', erpField: normalizedName, erpType: 'varchar', transformRule: '会计科目以好业财为主，ERP 仅引用映射。', riskLevel: 'HIGH' },
-      { test: /project/, erpDomain: 'project', erpTable: 'mst_projects', erpField: normalizedName, erpType: 'varchar', transformRule: '项目编码需与 ERP 项目主数据对账。', riskLevel: 'MEDIUM' },
+      { test: /project/, erpDomain: 'project', erpTable: 'biz_projects', erpField: normalizedName, erpType: 'varchar', transformRule: '项目编码需与 ERP 项目主数据对账。', riskLevel: 'MEDIUM' },
       { test: /currency/, erpDomain: 'currency', erpTable: 'sys_dict', erpField: 'SYS_CURRENCY', erpType: 'varchar', transformRule: '统一映射到 SYS_CURRENCY。', riskLevel: 'LOW' },
       { test: /amount|balance|money|debit|credit|jf|df|tax/, erpDomain: 'finance', erpTable: 'finance-v2/chanjet snapshots', erpField: normalizedName, erpType: 'numeric(18,2)', transformRule: '保留原值，后续按本币/原币/汇率规则转换。', riskLevel: 'HIGH' },
       { test: /date|time|period/, erpDomain: 'period', erpTable: 'finance-v2', erpField: normalizedName, erpType: 'date/varchar(YYYYMM)', transformRule: '业务日期与会计期间分开保存。', riskLevel: 'MEDIUM' },
@@ -7225,17 +7346,125 @@ export class ChanjetIntegrationService {
       (resp.value as Record<string, unknown> | undefined)?.list,
     ];
     for (const candidate of candidates) {
-      if (Array.isArray(candidate)) return candidate.filter(this.isRecord);
+      if (Array.isArray(candidate)) {
+        return candidate
+          .filter(this.isRecord)
+          .filter((row) => !getChanjetBusinessFailure(row));
+      }
     }
     return [resp];
+  }
+
+  private buildMasterDataReviewCandidate(
+    source: {
+      snapshotId: string;
+      domain: string;
+      bookId: string;
+      companyCode: string;
+      chanjetId: string;
+      chanjetCode: string;
+      chanjetName: string;
+      currency: string;
+    },
+    masters: Array<{
+      domain: string;
+      code: string;
+      name: string;
+      companyCode: string;
+      currency: string;
+      status: string;
+    }>,
+  ) {
+    const activeMasters = masters.filter((master) => (
+      master.domain === source.domain
+      && master.status === 'ACTIVE'
+      && (source.domain === 'CURRENCY' || (!!source.companyCode && master.companyCode === source.companyCode))
+    ));
+    const normalizedCode = this.normalizeMasterDataCode(source.chanjetCode);
+    const normalizedName = this.normalizeMasterDataName(source.chanjetName);
+    const matches = activeMasters.filter((master) => {
+      if (source.domain === 'CASH_ACCOUNT') {
+        return !!normalizedName
+          && this.normalizeMasterDataName(master.name) === normalizedName
+          && !!source.currency
+          && master.currency === source.currency;
+      }
+      if (source.domain === 'CURRENCY') {
+        return !!normalizedCode && this.normalizeMasterDataCode(master.code) === normalizedCode;
+      }
+      const codeMatches = !!normalizedCode && this.normalizeMasterDataCode(master.code) === normalizedCode;
+      const nameMatches = !!normalizedName && this.normalizeMasterDataName(master.name) === normalizedName;
+      return codeMatches || nameMatches;
+    });
+    const status = matches.length === 1
+      ? 'EXACT_MATCH'
+      : matches.length > 1
+        ? 'CONFLICT'
+        : 'NEED_MAPPING';
+    const selected = matches.length === 1 ? matches[0] : null;
+    return {
+      ...source,
+      status,
+      erpCode: selected?.code || '',
+      erpName: selected?.name || '',
+      evidence: status === 'EXACT_MATCH'
+        ? source.domain === 'CASH_ACCOUNT'
+          ? ['账套公司、规范化账户名称、币种唯一精确匹配']
+          : source.domain === 'CURRENCY'
+            ? ['币种编码与 SYS_CURRENCY 唯一精确匹配']
+            : ['账套公司内编码或规范化名称唯一精确匹配']
+        : status === 'CONFLICT'
+          ? [`发现 ${matches.length} 个精确候选，禁止自动消歧`]
+          : ['没有可证明的唯一精确匹配，禁止模糊匹配或跨公司猜测'],
+      alternatives: matches.map((match) => ({
+        erpCode: match.code,
+        erpName: match.name,
+        companyCode: match.companyCode,
+      })),
+      systemApprovalEligible: status === 'EXACT_MATCH',
+      requiresApproval: true,
+    };
+  }
+
+  private normalizeMasterDataCode(value: string): string {
+    return String(value || '').normalize('NFKC').trim().replace(/[\s_-]+/g, '').toUpperCase();
+  }
+
+  private normalizeMasterDataName(value: string): string {
+    return String(value || '')
+      .normalize('NFKC')
+      .replace(/[\s\u3000（）()\-—_]+/g, '')
+      .toLowerCase();
   }
 
   private async createMappingCandidates(mappingType: ChanjetMappingType, bookId: string, resp: unknown): Promise<void> {
     const rows = this.extractRows(resp).slice(0, 1000);
     for (const row of rows) {
-      const id = String(row.id ?? row.ID ?? row.customerId ?? row.supplierId ?? row.subjectId ?? row.code ?? '');
-      const code = String(row.code ?? row.deptCode ?? row.subjectCode ?? row.customerCode ?? row.supplierCode ?? '');
-      const name = String(row.name ?? row.deptName ?? row.subjectName ?? row.customerName ?? row.supplierName ?? row.fullName ?? '');
+      if (getChanjetBusinessFailure(row)) continue;
+      const id = String(
+        row.id ?? row.ID ?? row.customerId ?? row.supplierId ?? row.subjectId ?? row.projectId ?? row.code ?? '',
+      );
+      const code = String(
+        row.code
+        ?? row.deptCode
+        ?? row.subjectCode
+        ?? row.customerCode
+        ?? row.supplierCode
+        ?? row.projectCode
+        ?? row.accountCode
+        ?? '',
+      );
+      const name = String(
+        row.name
+        ?? row.deptName
+        ?? row.subjectName
+        ?? row.customerName
+        ?? row.supplierName
+        ?? row.projectName
+        ?? row.accountName
+        ?? row.fullName
+        ?? '',
+      );
       if (!id && !code && !name) continue;
       await this.upsertMasterMapping({
         mappingType,
