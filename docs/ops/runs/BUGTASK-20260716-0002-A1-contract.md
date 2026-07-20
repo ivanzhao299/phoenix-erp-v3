@@ -1166,9 +1166,7 @@ Assigned agent: A1-CI-Runtime-Gate
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-193120/BUG-20260716-0002/attachments/01-1784164130742-ce14643e.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": {
@@ -1190,11 +1188,11 @@ Assigned agent: A1-CI-Runtime-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-18T11:31:05.260Z",
-    "approvedBy": "bug_intake_runner",
+    "approvedAt": "2026-07-20T00:36:04.432Z",
+    "approvedBy": "admin",
     "redispatch": true,
-    "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-    "redispatchCount": 2,
+    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 3,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1208,4 +1206,4 @@ Assigned agent: A1-CI-Runtime-Gate
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-193120/BUG-20260716-0002/attachments/01-1784164130742-ce14643e.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
