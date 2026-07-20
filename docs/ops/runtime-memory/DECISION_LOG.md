@@ -1838,3 +1838,15 @@ Decision: counterparty resolution `GO`.
 - CI/CD deploy run `29722818642` passed for commit `cee62b47`; the deployed API image revision matches the commit.
 - Next Gate: `CHANJET_P2_MASTER_DATA_MAPPING_REVIEW`.
 - No Chanjet write/delete/modify, voucher push, ERP database write or migration was performed by this Gate.
+
+# 2026-07-20 - Close Chanjet P2 Master Data Mapping Review
+
+- Decision: `GO_WITH_CONDITIONS`; authenticated production audit passes 8/8.
+- Six historical provider error envelopes with `code=50000`, `status=404`, a request ID, and no message are excluded at the read boundary.
+- Historical rows were not deleted or modified.
+- Project and cash-account domain fields are normalized from their real provider field names.
+- Exact matches: 41 (37 cash accounts and 4 currencies); non-exact review items: 18; conflicts: 0.
+- Department and subject domains remain waiting for valid source evidence instead of exposing fake candidates.
+- All four CI workflows and deploy run `29725495780` passed for `96cb7f97`; production repository and API image revisions match.
+- Next Gate: `CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE`.
+- No Chanjet write/delete/modify, voucher push, ERP business-table write, middle-layer write, or migration was performed by this review.

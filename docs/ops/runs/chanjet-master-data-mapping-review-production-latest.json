@@ -1,0 +1,108 @@
+{
+  "generatedAt": "2026-07-20T07:51:17.847Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "nextGate": "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE",
+  "summary": {
+    "checks": 8,
+    "passed": 8,
+    "failed": 0,
+    "exactMatches": 41,
+    "needMapping": 18,
+    "conflicts": 0
+  },
+  "checks": [
+    {
+      "id": "review_payload_available",
+      "passed": true,
+      "evidence": "candidates=59"
+    },
+    {
+      "id": "invalid_failure_rows_excluded",
+      "passed": true,
+      "evidence": "fake=0, excluded=6"
+    },
+    {
+      "id": "counterparty_rejected_debt_excluded",
+      "passed": true,
+      "evidence": "status=READY, rejected=72"
+    },
+    {
+      "id": "project_target_is_canonical",
+      "passed": true,
+      "evidence": "[\"biz_projects.project_code\",\"sys_user_projects\"]"
+    },
+    {
+      "id": "cash_exact_candidates_present",
+      "passed": true,
+      "evidence": "exact=37, total=49"
+    },
+    {
+      "id": "cash_conflict_free",
+      "passed": true,
+      "evidence": "conflicts=0"
+    },
+    {
+      "id": "no_fuzzy_matching",
+      "passed": true,
+      "evidence": "{\"exactOnly\":true,\"normalizedExactNameAllowed\":true,\"companyScopeRequired\":true,\"currencyMatchRequiredForCashAccount\":true,\"fuzzyAutoMatch\":false,\"crossCompanyMatch\":false,\"chanjetWrite\":false,\"erpBusinessTableWrite\":false,\"middleLayerWrite\":false}"
+    },
+    {
+      "id": "external_and_business_writes_disabled",
+      "passed": true,
+      "evidence": "{\"exactOnly\":true,\"normalizedExactNameAllowed\":true,\"companyScopeRequired\":true,\"currencyMatchRequiredForCashAccount\":true,\"fuzzyAutoMatch\":false,\"crossCompanyMatch\":false,\"chanjetWrite\":false,\"erpBusinessTableWrite\":false,\"middleLayerWrite\":false}"
+    }
+  ],
+  "domains": [
+    {
+      "domain": "DEPARTMENT",
+      "sourceRows": 0,
+      "exactMatches": 0,
+      "needMapping": 0,
+      "conflicts": 0,
+      "waitingValidSource": true
+    },
+    {
+      "domain": "PROJECT",
+      "sourceRows": 6,
+      "exactMatches": 0,
+      "needMapping": 6,
+      "conflicts": 0,
+      "waitingValidSource": false
+    },
+    {
+      "domain": "CASH_ACCOUNT",
+      "sourceRows": 49,
+      "exactMatches": 37,
+      "needMapping": 12,
+      "conflicts": 0,
+      "waitingValidSource": false
+    },
+    {
+      "domain": "SUBJECT",
+      "sourceRows": 0,
+      "exactMatches": 0,
+      "needMapping": 0,
+      "conflicts": 0,
+      "waitingValidSource": true
+    },
+    {
+      "domain": "CURRENCY",
+      "sourceRows": 4,
+      "exactMatches": 4,
+      "needMapping": 0,
+      "conflicts": 0,
+      "waitingValidSource": false
+    }
+  ],
+  "guardrails": {
+    "exactOnly": true,
+    "normalizedExactNameAllowed": true,
+    "companyScopeRequired": true,
+    "currencyMatchRequiredForCashAccount": true,
+    "fuzzyAutoMatch": false,
+    "crossCompanyMatch": false,
+    "chanjetWrite": false,
+    "erpBusinessTableWrite": false,
+    "middleLayerWrite": false
+  }
+}

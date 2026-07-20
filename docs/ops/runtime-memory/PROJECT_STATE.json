@@ -1,14 +1,14 @@
 {
   "last_updated": "2026-07-20",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_CASH_BALANCE_FIELD_LOCK_VERIFIED",
+  "current_stage": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW_VERIFIED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
+  "next_gate": "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE",
   "page_entry": "/finance2/chanjet-integration",
   "menu_entry": "财务结算中心 / 好业财中间层（管理员）",
   "attachment_preview": "protected_account_qr_uat_passed",
   "raw_url_exposure": "forbidden",
-  "deploy_status": "55dfc828_verified_production_healthy_run_29721154181",
+  "deploy_status": "96cb7f97_verified_production_healthy_run_29725495780",
   "push_status": "pushed_main",
   "database_write_status": "ts_tail_migrations_1782045_1782052_applied_via_deploy_chain",
   "migration_status": "applied_8_ts_tail_migrations_atomic_menus_plus_rbac_matrix_repair_phaseC_passed",
@@ -25,7 +25,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_RECEIPT_PAYMENT_DAILY_RECONCILIATION_VERIFIED",
+    "current_stage": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW_VERIFIED",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -60,7 +60,7 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": null,
-    "next_action": "execute CHANJET_P3_CASH_BALANCE_FIELD_LOCK; keep Chanjet writeback disabled",
+    "next_action": "prepare CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE; keep Chanjet and ERP business writes disabled",
     "authenticated_current_state_pre_fix_score": 58,
     "authenticated_current_state_pre_fix_grade": "D",
     "http_200_business_failure_fail_closed": true,
@@ -390,6 +390,19 @@
     "cash_balance_primary_authority": "blocked_until_raw_balance_fields_currency_status_and_balance_date_locked",
     "cash_balance_card_primary_source": "ERP_cash_account_until_chanjet_cash_balance_authority_ready",
     "cash_balance_field_lock_next_gate": "CHANJET_P3_RECEIPT_PAYMENT_DATE_STATUS_LOCK_CONTINUE",
+    "master_data_mapping_review_api": "/api/chanjet/integration/master-data-mapping-review",
+    "master_data_mapping_review_script": "scripts/ops/chanjet-master-data-mapping-review-production-audit.mjs",
+    "master_data_mapping_review_json": "docs/ops/runs/chanjet-master-data-mapping-review-production-latest.json",
+    "master_data_mapping_review_md": "docs/ops/runs/chanjet-master-data-mapping-review-production-latest.md",
+    "master_data_mapping_review_report": "docs/ops/CHANJET_P2_MASTER_DATA_MAPPING_REVIEW_REPORT_20260720.md",
+    "master_data_mapping_review_decision": "GO_WITH_CONDITIONS",
+    "master_data_mapping_review_checks": "8_of_8_PASS",
+    "master_data_mapping_review_exact_matches": 41,
+    "master_data_mapping_review_need_mapping": 18,
+    "master_data_mapping_review_conflicts": 0,
+    "master_data_mapping_review_invalid_rows_excluded": 6,
+    "master_data_mapping_review_cash_exact": 37,
+    "master_data_mapping_review_next_gate": "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE",
     "receipt_payment_lock_continue_script": "scripts/ops/chanjet-receipt-payment-lock-audit.mjs",
     "receipt_payment_lock_continue_json": "docs/ops/runs/chanjet-receipt-payment-lock-latest.json",
     "receipt_payment_lock_continue_md": "docs/ops/runs/chanjet-receipt-payment-lock-latest.md",
@@ -964,8 +977,8 @@
     "next_single_gate_recommendation": "APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS"
   },
   "next_actions": [
-    "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
-    "CHANJET_SUBJECT_PROJECT_CASH_ACCOUNT_MAPPING_RECONCILIATION",
+    "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE",
+    "CHANJET_PROJECT_CASH_ACCOUNT_NON_EXACT_MAPPING_REVIEW",
     "CHANJET_ORDINARY_USER_FINANCE_FUSION_REVIEW",
     "KEEP_CHANJET_WRITEBACK_BLOCKED"
   ],
@@ -996,8 +1009,8 @@
     "safe_redispatch_gate": "implemented"
   },
   "next_action": [
-    "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
-    "CHANJET_SUBJECT_PROJECT_CASH_ACCOUNT_MAPPING_RECONCILIATION",
+    "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE",
+    "CHANJET_PROJECT_CASH_ACCOUNT_NON_EXACT_MAPPING_REVIEW",
     "KEEP_CHANJET_WRITEBACK_BLOCKED"
   ]
 }

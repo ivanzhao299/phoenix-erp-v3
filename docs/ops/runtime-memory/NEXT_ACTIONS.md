@@ -1,5 +1,28 @@
 # Next Actions
 
+## 2026-07-20 - Chanjet P2 master-data mapping review verified
+
+Current stage: `CHANJET_P2_MASTER_DATA_MAPPING_REVIEW_VERIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Corrected project and cash-account domain field extraction.
+2. Excluded six historical provider failure envelopes without deleting production data.
+3. Restored 37 deterministic cash-account exact matches and four currency exact matches.
+4. Confirmed 18 non-exact candidates remain visible and conflict-free.
+5. Passed 49 focused tests, API typecheck, W5 20/20, all CI workflows, production deploy, health, and authenticated audit 8/8.
+
+Next actions:
+
+1. Prepare `CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE` for 41 deterministic candidates.
+2. Keep 12 cash-account and 6 project non-exact candidates in review; do not guess.
+3. Obtain valid provider source evidence before department or subject mapping.
+4. Keep Chanjet writes, voucher push, ERP business overwrite, and unapproved middle-layer confirmation disabled.
+
+Hard boundary: an abnormal provider code plus 4xx/5xx status and request ID is a failure even when `message` is absent.
+
 ## 2026-07-20 - Chanjet receipt/payment daily authority verified
 
 Current stage: `CHANJET_RECEIPT_PAYMENT_DAILY_RECONCILIATION_VERIFIED`
