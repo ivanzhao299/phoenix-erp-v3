@@ -737,34 +737,34 @@ const FINANCE_SEMANTIC_LOCKS: FinanceSemanticLock[] = [
   {
     key: 'TODAY_RECEIPT',
     label: '今日收款',
-    status: 'PENDING',
-    authorityEligible: false,
+    status: 'LOCKED',
+    authorityEligible: true,
     chanjetEntityTypes: ['AR_RECEIPT'],
-    lockedFields: ['book_id', 'entity_type', 'external_id', 'amount', 'raw_data'],
-    pendingFields: ['business_date', 'posted_date', 'approved_status', 'void_status', 'direction'],
-    dateRule: '必须确认业务日、入账日、制单日、审核日哪一个用于“今日”。',
-    amountRule: '当前 amountSum 是列表累计，不等于今日实收。',
-    statusRule: '必须过滤已作废/未审核/草稿等状态后才能影响卡片。',
-    erpComparisonRule: 'ERP 今日收款继续使用本地现金流水辅助值。',
+    lockedFields: ['rawData.bizDate', 'rawData.voucherStatusEnum', 'rawData.totalAmount', 'entity_type_contract'],
+    pendingFields: [],
+    dateRule: '仅使用 rawData.bizDate 等于目标业务日的收款单。',
+    amountRule: '仅汇总目标业务日 EFFECTIVE 行的 rawData.totalAmount；列表累计金额禁止使用。',
+    statusRule: '仅 voucherStatusEnum=EFFECTIVE 可计入；SUBMITTED 和所有非 EFFECTIVE 状态均排除。',
+    erpComparisonRule: '好业财每日有效收款作为主值，ERP 当日现金流水保留为辅助差异。',
     risk: 'CRITICAL',
-    reason: '日期和审核状态口径未锁定。',
-    nextAction: '抽样收款单 raw_data，锁定日期字段和有效状态枚举。',
+    reason: '生产只读样本已验证业务日、有效状态、金额和方向契约。',
+    nextAction: '保持每日只读同步与对账，字段缺失或镜像过期时 fail-closed。',
   },
   {
     key: 'TODAY_PAYMENT',
     label: '今日付款',
-    status: 'PENDING',
-    authorityEligible: false,
+    status: 'LOCKED',
+    authorityEligible: true,
     chanjetEntityTypes: ['AP_PAYMENT'],
-    lockedFields: ['book_id', 'entity_type', 'external_id', 'amount', 'raw_data'],
-    pendingFields: ['business_date', 'posted_date', 'approved_status', 'void_status', 'direction'],
-    dateRule: '必须确认业务日、入账日、制单日、审核日哪一个用于“今日”。',
-    amountRule: '当前 amountSum 是列表累计，不等于今日实付。',
-    statusRule: '必须过滤已作废/未审核/草稿等状态后才能影响卡片。',
-    erpComparisonRule: 'ERP 今日付款继续使用本地现金流水辅助值。',
+    lockedFields: ['rawData.bizDate', 'rawData.voucherStatusEnum', 'rawData.totalAmount', 'entity_type_contract'],
+    pendingFields: [],
+    dateRule: '仅使用 rawData.bizDate 等于目标业务日的付款单。',
+    amountRule: '仅汇总目标业务日 EFFECTIVE 行的 rawData.totalAmount；列表累计金额禁止使用。',
+    statusRule: '仅 voucherStatusEnum=EFFECTIVE 可计入；SUBMITTED 和所有非 EFFECTIVE 状态均排除。',
+    erpComparisonRule: '好业财每日有效付款作为主值，ERP 当日现金流水保留为辅助差异。',
     risk: 'CRITICAL',
-    reason: '日期和审核状态口径未锁定。',
-    nextAction: '抽样付款单 raw_data，锁定日期字段和有效状态枚举。',
+    reason: '生产只读样本已验证业务日、有效状态、金额和方向契约。',
+    nextAction: '保持每日只读同步与对账，字段缺失或镜像过期时 fail-closed。',
   },
   {
     key: 'SUBJECT_BALANCE',
@@ -2003,8 +2003,7 @@ export class ChanjetIntegrationService {
       chanjetAr,
       chanjetAp,
       chanjetCash,
-      chanjetArReceipt,
-      chanjetApPayment,
+      dailyReceiptPayment,
       chanjetGlBalance,
       chanjetBalanceSheet,
       chanjetIncomeStatement,
@@ -2039,14 +2038,29 @@ export class ChanjetIntegrationService {
       this.chanjetEntityAggregate(['AR_STATISTICS']),
       this.chanjetEntityAggregate(['AP_STATISTICS']),
       this.chanjetCashBalanceAggregate(),
-      this.chanjetEntityAggregate(['AR_RECEIPT']),
-      this.chanjetEntityAggregate(['AP_PAYMENT']),
+      this.financeReceiptPaymentDailyReconciliationOverview(),
       this.chanjetEntityAggregate(['GL_BALANCE']),
       this.chanjetEntityAggregate(['BALANCE_SHEET']),
       this.chanjetEntityAggregate(['INCOME_STATEMENT']),
       this.chanjetEntityAggregate(['CASH_FLOW']),
       this.chanjetEntityAggregate(['VOUCHER']),
     ]);
+    const dailyMetricByKey = new Map(dailyReceiptPayment.metrics.map((metric) => [metric.key, metric]));
+    const dailyAggregate = (key: 'TODAY_RECEIPT' | 'TODAY_PAYMENT') => {
+      const metric = dailyMetricByKey.get(key);
+      return {
+        available: metric?.readyForCardAuthority === true,
+        value: metric?.amount ?? 0,
+        rows: metric?.effectiveRows ?? 0,
+        latestPulledAt: metric?.latestPulledAt ?? null,
+        error: metric?.readyForCardAuthority ? undefined : metric?.reason || '每日收付款契约证据不可用',
+      };
+    };
+    const dailyForceStatus = (key: 'TODAY_RECEIPT' | 'TODAY_PAYMENT'): FinanceReconciliationStatus | undefined => {
+      const metric = dailyMetricByKey.get(key);
+      if (metric?.readyForCardAuthority) return undefined;
+      return metric?.status === 'HOLD' ? 'HOLD' : 'NEED_MANUAL_REVIEW';
+    };
 
     const items: FinanceReconciliationItem[] = [
       this.buildFinanceReconciliationItem({
@@ -2089,10 +2103,10 @@ export class ChanjetIntegrationService {
         chanjetEndpointKeys: ['PAYMENT_AR'],
         chanjetEntityTypes: ['AR_RECEIPT'],
         erpSources: ['fin_cash_transactions.direction=IN, created_at=current_date'],
-        chanjet: chanjetArReceipt,
+        chanjet: dailyAggregate('TODAY_RECEIPT'),
         erp: erpTodayIn,
-        forceStatus: 'NEED_MANUAL_REVIEW',
-        reason: '好业财收款单镜像目前是列表/期间口径，不等同 ERP 今日现金流水；业务日、入账日、审核状态未锁定前不得直接覆盖今日收款卡片。',
+        forceStatus: dailyForceStatus('TODAY_RECEIPT'),
+        reason: dailyMetricByKey.get('TODAY_RECEIPT')?.reason || '每日收款契约证据不可用，保持 fail-closed。',
       }),
       this.buildFinanceReconciliationItem({
         key: 'TODAY_PAYMENT',
@@ -2101,10 +2115,10 @@ export class ChanjetIntegrationService {
         chanjetEndpointKeys: ['PAYMENT_AP'],
         chanjetEntityTypes: ['AP_PAYMENT'],
         erpSources: ['fin_cash_transactions.direction=OUT, created_at=current_date'],
-        chanjet: chanjetApPayment,
+        chanjet: dailyAggregate('TODAY_PAYMENT'),
         erp: erpTodayOut,
-        forceStatus: 'NEED_MANUAL_REVIEW',
-        reason: '好业财付款单镜像目前是列表/期间口径，不等同 ERP 今日现金流水；业务日、入账日、审核状态未锁定前不得直接覆盖今日付款卡片。',
+        forceStatus: dailyForceStatus('TODAY_PAYMENT'),
+        reason: dailyMetricByKey.get('TODAY_PAYMENT')?.reason || '每日付款契约证据不可用，保持 fail-closed。',
       }),
       this.buildFinanceReconciliationItem({
         key: 'SUBJECT_BALANCE',

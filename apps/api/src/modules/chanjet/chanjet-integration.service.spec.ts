@@ -821,6 +821,63 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(result.guardrails).toMatchObject({ chanjetWrite: false, voucherPush: false, erpBusinessOverwrite: false });
   });
 
+  it('uses the verified daily receipt/payment contract in finance reconciliation', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.erpFinanceAggregate = jest.fn().mockResolvedValue({ available: true, value: 0, rows: 0 });
+    subject.chanjetEntityAggregate = jest.fn().mockResolvedValue({
+      available: true,
+      value: 0,
+      rows: 1,
+      latestPulledAt: '2026-07-20T00:00:00.000Z',
+    });
+    subject.chanjetCashBalanceAggregate = jest.fn().mockResolvedValue({
+      available: true,
+      value: 0,
+      rows: 1,
+      latestPulledAt: '2026-07-20T00:00:00.000Z',
+    });
+    subject.financeReceiptPaymentDailyReconciliationOverview = jest.fn().mockResolvedValue({
+      metrics: [
+        {
+          key: 'TODAY_RECEIPT',
+          status: 'AUTHORITY_READY',
+          readyForCardAuthority: true,
+          amount: 125,
+          effectiveRows: 1,
+          latestPulledAt: '2026-07-20T00:00:00.000Z',
+          reason: 'verified receipt contract',
+        },
+        {
+          key: 'TODAY_PAYMENT',
+          status: 'AUTHORITY_READY',
+          readyForCardAuthority: true,
+          amount: 250,
+          effectiveRows: 2,
+          latestPulledAt: '2026-07-20T00:00:00.000Z',
+          reason: 'verified payment contract',
+        },
+      ],
+    });
+
+    const result = await subject.financeReconciliationOverview();
+    const receipt = result.items.find((item: { key: string }) => item.key === 'TODAY_RECEIPT');
+    const payment = result.items.find((item: { key: string }) => item.key === 'TODAY_PAYMENT');
+
+    expect(receipt).toMatchObject({
+      chanjetValue: 125,
+      status: 'MISMATCH',
+      reason: 'verified receipt contract',
+      semanticLock: { status: 'LOCKED', authorityEligible: true, pendingFields: [] },
+    });
+    expect(payment).toMatchObject({
+      chanjetValue: 250,
+      status: 'MISMATCH',
+      reason: 'verified payment contract',
+      semanticLock: { status: 'LOCKED', authorityEligible: true, pendingFields: [] },
+    });
+    expect(result.summary.needManualReview).toBe(1);
+  });
+
   it('locks receipt direction from the direction-specific Chanjet entity contract', async () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     subject.entitySnapshotRepo = {
