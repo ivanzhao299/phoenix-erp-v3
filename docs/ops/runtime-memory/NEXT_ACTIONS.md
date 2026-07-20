@@ -1,5 +1,30 @@
 # Next Actions
 
+## 2026-07-20 - Chanjet finance readonly scope audited
+
+Current stage: `CHANJET_FINANCE_READONLY_SCOPE_AUDITED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Deployed revision `29be6c32` through CI/CD run `29739998083` and verified the production API healthy.
+2. Completed one protected readonly mirror refresh: 46/46 targets succeeded in one attempt with zero unresolved failures.
+3. Passed the authenticated production completion audit 15/15.
+4. Finance read model is 10/10 ready: five authority metrics and five row-level readonly models, with zero blocked/manual/HOLD metrics.
+5. Reconciliation now contains five real ERP-versus-Chanjet mismatches and five row-model WARN items; fake scalar, mapping, and manual-review states are removed.
+6. Verified target-date receipts and payments by book, currency, business date and effective status.
+
+Next actions:
+
+1. `RESOLVE_DETERMINISTIC_MASTER_MAPPINGS`: prepare one exact mapping as an ERP middle-layer canary; do not batch all candidates.
+2. `RECONCILE_OPEN_FINANCE_ITEMS`: investigate the five differences by book, company, currency, date, status and document identity without silent overwrite.
+3. `PREPARE_ONE_RECORD_MINIMAL_WRITE_CANARY`: require idempotent second run, audited read-back and compensating rollback.
+4. `KEEP_CHANJET_EXTERNAL_WRITE_DISABLED`: external provider write is a later, separately approved Gate.
+5. Add `SALES_ORDER / PURCHASE_APPLY / STOCK_IN / SALES_STOCK_OUT` only through separate readonly business-module Gates; the 46-target finance scope must not be described as every Chanjet module.
+
+Hard boundary: ERP middle-layer canary and external Chanjet canary are different Gates. No external write, delete, modify or voucher push is approved.
+
 ## 2026-07-20 - Chanjet P2 master-data mapping review verified
 
 Current stage: `CHANJET_P2_MASTER_DATA_MAPPING_REVIEW_VERIFIED`

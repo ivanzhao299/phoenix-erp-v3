@@ -1,5 +1,19 @@
 # Decision Log
 
+## 2026-07-20 - Close Chanjet finance readonly implementation audit
+
+Decision: `GO_WITH_CONDITIONS`.
+
+- The agreed finance readonly scope passes 15/15 authenticated production checks and 46/46 mirror targets.
+- Finance read model is 10/10 ready: 5 authority metrics and 5 row-level readonly models; blocked, manual review and HOLD are zero.
+- Subject balance, statutory statements and vouchers stay row-based. They must not publish a fake scalar zero or claim ERP has an equivalent statutory ledger fact.
+- Reconciliation retains five real mismatches and five row-level WARN items; it has zero fake mapping/manual/HOLD items.
+- The remaining 49 master-data candidates are non-deterministic data-quality work and must not be guessed.
+- The next allowed request is a one-record ERP middle-layer mapping canary with read-back, idempotency, audit and compensating rollback.
+- External Chanjet write is a separate later Gate and remains disabled.
+- The 46-target scope is the agreed finance-readonly scope plus purchase-order list, not every Chanjet product module.
+- Evidence: `docs/ops/CHANJET_READONLY_COMPLETION_AND_MINIMAL_WRITE_PRECHECK_REPORT_20260720.md`.
+
 ## 2026-07-14 — Chanjet Continuous Readonly Alignment
 
 Decision: `GO_WITH_CONDITIONS`.

@@ -1,15 +1,28 @@
 # Codex-Orchestrator Runtime Memory
 
-Last updated: 2026-06-24
+Last updated: 2026-07-20
 
 ## Active Context
 
-- Active module: Store Payment
-- Current stage: PRODUCTION_SERVER_REMEDIATION_R3_MENU_ROLE_DATASCOPE_REPAIRED
-- Active decision: WAITING_USER_APPROVAL_FOR_NEXT_REMEDIATION_GATE
-- Next gate: APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS
-- Page entry: `/store-payment`
-- Menu entry: 销售管理 / 统一收款
+- Active module: Chanjet Integration
+- Current stage: CHANJET_FINANCE_READONLY_SCOPE_AUDITED
+- Active decision: GO_WITH_CONDITIONS
+- Next gate: CHANJET_MINIMAL_WRITE_PRECHECK
+- Page entry: `/finance2/chanjet-integration`
+- Menu entry: 财务结算中心 / 好业财中间层（管理员）
+
+## Latest Chanjet Decision
+
+- Production revision `29be6c32` is healthy after CI/CD run `29739998083`.
+- Protected readonly mirror refresh completed 46/46 targets with zero unresolved failures.
+- Authenticated production audit passed 15/15.
+- Finance read model is 10/10 ready: five authority metrics and five row-level readonly models.
+- Reconciliation has five real mismatches and five row-level WARN items; mapping/manual/HOLD are zero.
+- Master-data evidence has 41 deterministic exact candidates, 49 non-exact candidates, 919 source references and zero conflicts.
+- No external Chanjet write/delete/modify or voucher push was executed.
+- Next Gate is one ERP middle-layer mapping canary; external Chanjet write remains a separate unapproved Gate.
+- The 46-target scope is finance-readonly plus purchase-order list, not all Chanjet product modules.
+- Report: `docs/ops/CHANJET_READONLY_COMPLETION_AND_MINIMAL_WRITE_PRECHECK_REPORT_20260720.md`.
 
 ## Operating Rules
 

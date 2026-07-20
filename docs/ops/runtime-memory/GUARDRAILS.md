@@ -1,6 +1,6 @@
 # Runtime Memory Guardrails
 
-Last updated: 2026-07-07
+Last updated: 2026-07-20
 
 1. Do not rely on long-lived chat context for Store Payment project state.
 2. Codex-Orchestrator must read `docs/ops/runtime-memory/*` before continuing Store Payment.
@@ -89,3 +89,9 @@ Last updated: 2026-07-07
 81. Chanjet authenticated adapter audit must use short-lived runtime JWT minted inside the production API container or an approved readonly service-account login; long-lived tokens must not be committed.
 82. The `chanjet-readonly-adapter-production` CI smoke target may run readonly adapter audit only; it must not call mirror sync, Chanjet write APIs, voucher push APIs, migration, deploy, or DB write commands.
 83. Ordinary finance pages may consume adapter evidence only after authenticated production adapter audit returns sample evidence and non-HOLD decision.
+84. Chanjet HTTP transport success is not business success; provider failure envelopes must be rejected and excluded from financial evidence.
+85. Row-level reports and voucher lists must not be reduced to a fake scalar zero. A null scalar plus structured rows is the correct readonly contract when ERP has no equivalent fact.
+86. The default 46-target mirror is the agreed finance-readonly scope plus purchase-order list; it must not be described as complete coverage of every Chanjet product module.
+87. Receipt/payment authority must partition by account book, currency, business date and effective status. Unknown or mixed currency evidence must fail closed.
+88. A one-record ERP middle-layer mapping canary does not authorize any external Chanjet write. It requires idempotent read-back, audit evidence and compensating rollback.
+89. External Chanjet write/delete/modify and voucher push remain disabled until a separate explicit Gate names the endpoint, book, payload, idempotency key, rollback method and operator.
