@@ -2636,13 +2636,19 @@ export class ChanjetIntegrationService {
     metrics: FinanceReadModelMetric[];
     guardrails: Record<string, boolean | string>;
   }> {
-    const [reconciliation, semanticExtractors, receiptPaymentLocks] = await Promise.all([
+    const [reconciliation, semanticExtractors, receiptPaymentLocks, receiptPaymentDaily] = await Promise.all([
       this.financeReconciliationOverview(),
       this.financeSemanticExtractorsOverview(),
       this.financeReceiptPaymentDateStatusLockOverview(),
+      this.financeReceiptPaymentDailyReconciliationOverview(),
     ]);
     const extractorByKey = new Map(semanticExtractors.extractors.map((item) => [item.key, item]));
-    const metrics = reconciliation.items.map((item) => this.buildFinanceReadModelMetric(item, extractorByKey.get(item.key)));
+    const dailyByKey = new Map(receiptPaymentDaily.metrics.map((item) => [item.key, item]));
+    const metrics = reconciliation.items.map((item) => this.buildFinanceReadModelMetric(
+      item,
+      extractorByKey.get(item.key),
+      dailyByKey.get(item.key as ReceiptPaymentDailyReconciliationMetric['key']),
+    ));
     const statusCounts = metrics.reduce<Record<FinanceReadModelStatus, number>>((acc, item) => {
       acc[item.status] = (acc[item.status] || 0) + 1;
       return acc;
@@ -4970,18 +4976,21 @@ export class ChanjetIntegrationService {
     if (status === 'WARN') return '差异较小，显示差异并进入月末复核。';
     if (status === 'MISMATCH') return '进入差异对账中心，按公司、往来单位、科目、期间拆解差异。';
     if (status === 'NEED_MAPPING') return '补齐字段语义映射和 ERP 对照字段，禁止静默显示为 0。';
-    if (status === 'NEED_MANUAL_REVIEW') return '需要财务确认业务日/入账日/审核状态等口径后才能成为卡片权威值。';
+    if (status === 'NEED_MANUAL_REVIEW') return '业务日、入账日、审核状态等口径尚未通过系统侧契约验证。';
     return '存在基础表或查询异常，先修复运行时证据再继续。';
   }
 
   private buildFinanceReadModelMetric(
     item: FinanceReconciliationItem,
     extractor?: FinanceSemanticExtractor,
+    dailyMetric?: ReceiptPaymentDailyReconciliationMetric,
   ): FinanceReadModelMetric {
     const selectedValueFields = this.financeReadModelValueFields(extractor);
-    const hasMirrorValue = item.chanjetValue !== null;
+    const dailyAuthorityReady = Boolean(dailyMetric?.readyForCardAuthority && dailyMetric.amount !== null);
+    const effectiveChanjetValue = dailyAuthorityReady ? dailyMetric!.amount : item.chanjetValue;
+    const hasMirrorValue = effectiveChanjetValue !== null;
     const waitingSample = !extractor || extractor.status === 'WAITING_SAMPLE';
-    const needManualReview = item.status === 'NEED_MANUAL_REVIEW';
+    const needManualReview = item.status === 'NEED_MANUAL_REVIEW' && !dailyAuthorityReady;
     const blockedMapping = !extractor
       || ['PARTIAL', 'NEED_EXTRACTION'].includes(extractor.status)
       || item.status === 'NEED_MAPPING';
@@ -4997,7 +5006,8 @@ export class ChanjetIntegrationService {
       && !hold,
     );
     const authorityReady = Boolean(
-      aggregateAuthorityReady
+      dailyAuthorityReady
+      || aggregateAuthorityReady
       || (
         extractor?.authorityEligible
         && item.semanticLock.authorityEligible
@@ -5025,7 +5035,8 @@ export class ChanjetIntegrationService {
             : waitingSample
               ? 'WAITING_SAMPLE'
               : 'BLOCKED_MAPPING';
-    const displayValue = ['AUTHORITY_READY', 'READONLY_READY'].includes(status) ? item.chanjetValue : null;
+    const displayValue = ['AUTHORITY_READY', 'READONLY_READY'].includes(status) ? effectiveChanjetValue : null;
+    const dailyRequiredFields = dailyMetric ? Object.values(dailyMetric.sourceFields) : [];
     return {
       key: item.key,
       label: item.label,
@@ -5036,18 +5047,22 @@ export class ChanjetIntegrationService {
       erpAuxiliaryValue: item.erpValue,
       diff: displayValue !== null && item.erpValue !== null ? displayValue - item.erpValue : null,
       valueSource: displayValue !== null
-        ? item.key === 'CASH_BALANCE'
-          ? 'chanjet_entity_snapshots.GL_BALANCE.latest_period.1001_1002_leaf.baseEndingBalance'
-          : 'chanjet_entity_snapshots.amount / semantic extractor confirmed'
+        ? dailyAuthorityReady
+          ? `chanjet_entity_snapshots.${dailyMetric!.entityType}.rawData.bizDate/voucherStatusEnum/totalAmount`
+          : item.key === 'CASH_BALANCE'
+            ? 'chanjet_entity_snapshots.GL_BALANCE.latest_period.1001_1002_leaf.baseEndingBalance'
+            : 'chanjet_entity_snapshots.amount / semantic extractor confirmed'
         : 'blocked_until_semantic_extractor_ready',
       sourceEntityTypes: item.chanjetEntityTypes,
-      sampleRows: extractor?.sampleRows || item.evidence.chanjetRows,
-      latestPulledAt: extractor?.latestPulledAt || item.evidence.latestPulledAt,
-      requiredFields: extractor?.fieldCandidates.filter((field) => field.required).map((field) => field.semanticField) || item.semanticLock.pendingFields,
-      missingRequiredFields: extractor?.missingRequiredFields || item.semanticLock.pendingFields,
+      sampleRows: dailyMetric?.sourceRows || extractor?.sampleRows || item.evidence.chanjetRows,
+      latestPulledAt: dailyMetric?.latestPulledAt || extractor?.latestPulledAt || item.evidence.latestPulledAt,
+      requiredFields: dailyAuthorityReady
+        ? dailyRequiredFields
+        : extractor?.fieldCandidates.filter((field) => field.required).map((field) => field.semanticField) || item.semanticLock.pendingFields,
+      missingRequiredFields: dailyAuthorityReady ? [] : extractor?.missingRequiredFields || item.semanticLock.pendingFields,
       selectedValueFields,
-      reason: this.financeReadModelReason(status, item, extractor),
-      nextAction: this.financeReadModelNextAction(status, item, extractor),
+      reason: dailyAuthorityReady ? dailyMetric!.reason : this.financeReadModelReason(status, item, extractor),
+      nextAction: dailyAuthorityReady ? dailyMetric!.nextAction : this.financeReadModelNextAction(status, item, extractor),
     };
   }
 
@@ -5500,7 +5515,7 @@ export class ChanjetIntegrationService {
   ): string {
     if (status === 'AUTHORITY_READY') return '好业财镜像、语义锁和提取器均满足权威候选条件，可作为财务卡片主值，并保留 ERP 辅助差异。';
     if (status === 'READONLY_READY') return '字段样本已就绪，但该指标尚非权威口径；只能只读展示，不得覆盖 ERP 业务事实。';
-    if (status === 'NEED_MANUAL_REVIEW') return '日期、审核状态、作废状态或方向口径仍需财务确认。';
+    if (status === 'NEED_MANUAL_REVIEW') return '日期、审核状态、作废状态或方向口径尚未通过系统侧契约验证。';
     if (status === 'WAITING_SAMPLE') return '该指标缺少好业财 raw_data 样本，需要先重跑只读同步。';
     if (status === 'HOLD') return '存在基础查询或安全边界异常，必须停止进入人工处理。';
     return extractor?.missingRequiredFields.length
@@ -5515,7 +5530,7 @@ export class ChanjetIntegrationService {
   ): string {
     if (status === 'AUTHORITY_READY') return '接入财务首页主卡片，标明好业财口径，同时显示 ERP 辅助差异。';
     if (status === 'READONLY_READY') return '只读展示明细，不作为主卡片权威值。';
-    if (status === 'NEED_MANUAL_REVIEW') return '锁定业务日/入账日/审核状态/作废过滤，再进入下一轮 read model。';
+    if (status === 'NEED_MANUAL_REVIEW') return '完成业务日、状态、方向与金额的系统侧只读对账，再进入下一轮 read model。';
     if (status === 'WAITING_SAMPLE') return '执行好业财全量只读同步，补齐该实体 raw_data 样本。';
     if (status === 'HOLD') return '停止接入卡片，先修复 HOLD 原因。';
     return extractor?.missingRequiredFields.length

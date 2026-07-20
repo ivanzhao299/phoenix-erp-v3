@@ -856,11 +856,55 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     subject.financeReceiptPaymentDateStatusLockOverview = jest.fn().mockResolvedValue({
       locks: [{ status: 'LOCKED' }, { status: 'LOCKED' }],
     });
+    subject.financeReceiptPaymentDailyReconciliationOverview = jest.fn().mockResolvedValue({ metrics: [] });
 
     const result = await subject.financeReadModelOverview();
 
     expect(result.summary.nextGate).toBe('CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING');
     expect(result.guardrails).toMatchObject({ chanjetWrite: false, voucherPush: false });
+  });
+
+  it('promotes system-reconciled daily receipts into the read model', () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const metric = subject.buildFinanceReadModelMetric(
+      {
+        key: 'TODAY_RECEIPT',
+        label: '今日收款',
+        priority: 'P0',
+        chanjetEntityTypes: ['AR_RECEIPT'],
+        chanjetValue: 9999,
+        erpValue: 100,
+        status: 'NEED_MANUAL_REVIEW',
+        evidence: { chanjetRows: 3, latestPulledAt: '2026-07-20T00:00:00.000Z', erpRows: 1 },
+        semanticLock: { authorityEligible: false, pendingFields: ['direction'] },
+      },
+      { status: 'PARTIAL', authorityEligible: false, sampleRows: 3, missingRequiredFields: ['direction'], fieldCandidates: [] },
+      {
+        key: 'TODAY_RECEIPT',
+        entityType: 'AR_RECEIPT',
+        status: 'AUTHORITY_READY',
+        amount: 125.5,
+        sourceRows: 3,
+        latestPulledAt: '2026-07-20T00:01:00.000Z',
+        readyForCardAuthority: true,
+        sourceFields: {
+          businessDate: 'rawData.bizDate',
+          status: 'rawData.voucherStatusEnum',
+          amount: 'rawData.totalAmount',
+          direction: 'entity_type_contract',
+        },
+        reason: 'system daily reconciliation passed',
+        nextAction: 'keep readonly reconciliation',
+      },
+    );
+
+    expect(metric).toMatchObject({
+      status: 'AUTHORITY_READY',
+      displayValue: 125.5,
+      missingRequiredFields: [],
+      reason: 'system daily reconciliation passed',
+    });
+    expect(metric.valueSource).toContain('rawData.bizDate/voucherStatusEnum/totalAmount');
   });
 
   it('closes authority wiring and advances locked receipt/payment cards to daily reconciliation', async () => {
