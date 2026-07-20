@@ -1,5 +1,31 @@
 # Next Actions
 
+## 2026-07-20 - Chanjet receipt/payment daily authority verified
+
+Current stage: `CHANJET_RECEIPT_PAYMENT_DAILY_RECONCILIATION_VERIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Closed the deployment blocker caused by nine Chanjet i18n security-gate literals.
+2. Deployed the daily receipt/payment authority contract.
+3. Corrected historical amount debt so only target-date rows govern daily authority.
+4. Passed all four CI/CD workflows and production health checks on `55dfc828`.
+5. Passed authenticated production reconciliation 9/9.
+6. Locked today's receipt to 0 after excluding five `SUBMITTED` rows.
+7. Locked today's payment to 9,140 from two `EFFECTIVE` rows.
+
+Next actions:
+
+1. Execute `CHANJET_P3_CASH_BALANCE_FIELD_LOCK`.
+2. Lock cash/bank account identifier, account-book scope, accounting date and balance field semantics.
+3. Reconcile Chanjet cash balances against ERP auxiliary account evidence without silent overwrite.
+4. Run an authenticated production audit before promoting any cash balance card.
+5. Keep Chanjet writes, voucher push and ERP business overwrite disabled.
+
+Hard boundary: historical mirror debt may be reported separately but must not corrupt a valid target-date total.
+
 ## 2026-07-20 - Chanjet finance card authority verified
 
 Current stage: `CHANJET_FINANCE_CARD_AUTHORITY_WIRING_VERIFIED`

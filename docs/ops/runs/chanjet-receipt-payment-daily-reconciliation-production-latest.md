@@ -1,0 +1,37 @@
+# Chanjet Receipt Payment Daily Reconciliation Production Audit
+
+Generated: 2026-07-20T06:26:17.098Z
+
+Business date: 2026-07-20
+
+Decision: GO_WITH_CONDITIONS
+
+Next Gate: CHANJET_P3_CASH_BALANCE_FIELD_LOCK
+
+|Check|Result|Evidence|
+|---|---|---|
+|daily_contract_two_metrics|PASS|metrics=2|
+|daily_authority_ready|PASS|authorityReady=2|
+|exact_source_fields|PASS|bizDate + voucherStatusEnum + totalAmount + entity contract|
+|effective_only_guardrail|PASS|{"effectiveStatus":"EFFECTIVE","excludedStatuses":"SUBMITTED_and_all_non_EFFECTIVE"}|
+|today_cards_authority_enabled|PASS|todayInflow:true, todayOutflow:true|
+|today_cards_use_daily_amount|PASS|todayInflow:0/0, todayOutflow:9140/9140|
+|business_pages_use_daily_source|PASS|todayInflow:CHANJET_AR_RECEIPT_DAILY_EFFECTIVE_MIRROR, todayOutflow:CHANJET_AP_PAYMENT_DAILY_EFFECTIVE_MIRROR|
+|next_gate_advanced|PASS|nextGate=CHANJET_P3_CASH_BALANCE_FIELD_LOCK|
+|external_write_disabled|PASS|{"chanjetWrite":false,"dbWrite":false}|
+
+## Daily Metrics
+
+|Metric|Entity|Business date|Effective rows|Excluded rows|Amount|Authority|
+|---|---|---|---:|---:|---:|---|
+|TODAY_RECEIPT|AR_RECEIPT|2026-07-20|0|5|0|READY|
+|TODAY_PAYMENT|AP_PAYMENT|2026-07-20|2|0|9140|READY|
+
+## Guardrails
+
+- Chanjet write/delete/modify: disabled.
+- Voucher push: disabled.
+- ERP business overwrite: disabled.
+- Daily totals use only rawData.bizDate + EFFECTIVE + rawData.totalAmount.
+- SUBMITTED and every non-EFFECTIVE status remain excluded.
+

@@ -1815,3 +1815,15 @@ Decision: counterparty resolution `GO`.
 - Next Gate: `CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION`.
 - Cumulative provider receipt/payment totals must not become today's values before date/status reconciliation.
 - No Chanjet write/delete/modify, voucher push or ERP business overwrite is allowed.
+
+# 2026-07-20 - Close receipt/payment daily reconciliation Gate
+
+- Decision: `GO_WITH_CONDITIONS`; authenticated production audit passes 9/9.
+- Daily authority uses only `rawData.bizDate`, `rawData.voucherStatusEnum=EFFECTIVE`, `rawData.totalAmount`, and entity-type direction.
+- Five target-date AR rows are `SUBMITTED` and therefore excluded; authoritative today receipt is 0.
+- Two target-date AP rows are `EFFECTIVE`; authoritative today payment is 9,140.
+- Historical rows with missing amounts are reported as historical debt but no longer block a valid target-date total.
+- Missing/invalid business dates, missing target-date status, or invalid target-date EFFECTIVE amounts still fail closed.
+- All CI/CD workflows and production deploy run `29721154181` passed for commit `55dfc828`.
+- Next Gate: `CHANJET_P3_CASH_BALANCE_FIELD_LOCK`.
+- No Chanjet write/delete/modify, voucher push, ERP database write or migration was performed by this Gate.

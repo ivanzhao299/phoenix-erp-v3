@@ -1,0 +1,126 @@
+{
+  "generatedAt": "2026-07-20T06:26:17.098Z",
+  "businessDate": "2026-07-20",
+  "decision": "GO_WITH_CONDITIONS",
+  "nextGate": "CHANJET_P3_CASH_BALANCE_FIELD_LOCK",
+  "summary": {
+    "checks": 9,
+    "passed": 9,
+    "failed": 0,
+    "authorityReady": 2,
+    "effectiveRows": 2,
+    "excludedRows": 5
+  },
+  "checks": [
+    {
+      "id": "daily_contract_two_metrics",
+      "passed": true,
+      "evidence": "metrics=2"
+    },
+    {
+      "id": "daily_authority_ready",
+      "passed": true,
+      "evidence": "authorityReady=2"
+    },
+    {
+      "id": "exact_source_fields",
+      "passed": true,
+      "evidence": "bizDate + voucherStatusEnum + totalAmount + entity contract"
+    },
+    {
+      "id": "effective_only_guardrail",
+      "passed": true,
+      "evidence": "{\"effectiveStatus\":\"EFFECTIVE\",\"excludedStatuses\":\"SUBMITTED_and_all_non_EFFECTIVE\"}"
+    },
+    {
+      "id": "today_cards_authority_enabled",
+      "passed": true,
+      "evidence": "todayInflow:true, todayOutflow:true"
+    },
+    {
+      "id": "today_cards_use_daily_amount",
+      "passed": true,
+      "evidence": "todayInflow:0/0, todayOutflow:9140/9140"
+    },
+    {
+      "id": "business_pages_use_daily_source",
+      "passed": true,
+      "evidence": "todayInflow:CHANJET_AR_RECEIPT_DAILY_EFFECTIVE_MIRROR, todayOutflow:CHANJET_AP_PAYMENT_DAILY_EFFECTIVE_MIRROR"
+    },
+    {
+      "id": "next_gate_advanced",
+      "passed": true,
+      "evidence": "nextGate=CHANJET_P3_CASH_BALANCE_FIELD_LOCK"
+    },
+    {
+      "id": "external_write_disabled",
+      "passed": true,
+      "evidence": "{\"chanjetWrite\":false,\"dbWrite\":false}"
+    }
+  ],
+  "metrics": [
+    {
+      "key": "TODAY_RECEIPT",
+      "label": "今日收款",
+      "entityType": "AR_RECEIPT",
+      "direction": "RECEIPT",
+      "businessDate": "2026-07-20",
+      "status": "AUTHORITY_READY",
+      "sourceRows": 887,
+      "businessDateRows": 5,
+      "effectiveRows": 0,
+      "excludedRows": 5,
+      "excludedByStatus": {
+        "SUBMITTED": 5
+      },
+      "invalidContractRows": 0,
+      "approvedDateEvidenceRows": 488,
+      "amount": 0,
+      "latestPulledAt": "Mon Jul 20 2026 04:15:23 GMT+0000 (Coordinated Universal Time)",
+      "sourceFields": {
+        "businessDate": "rawData.bizDate",
+        "status": "rawData.voucherStatusEnum",
+        "amount": "rawData.totalAmount",
+        "direction": "entity_type_contract"
+      },
+      "readyForCardAuthority": true,
+      "reason": "按 bizDate=2026-07-20 且 voucherStatusEnum=EFFECTIVE 汇总；其余状态全部排除。",
+      "nextAction": "保持每日只读对账并显示 ERP 辅助差异；禁止将 SUBMITTED、未知状态或累计金额混入今日卡片。"
+    },
+    {
+      "key": "TODAY_PAYMENT",
+      "label": "今日付款",
+      "entityType": "AP_PAYMENT",
+      "direction": "PAYMENT",
+      "businessDate": "2026-07-20",
+      "status": "AUTHORITY_READY",
+      "sourceRows": 316,
+      "businessDateRows": 2,
+      "effectiveRows": 2,
+      "excludedRows": 0,
+      "excludedByStatus": {},
+      "invalidContractRows": 0,
+      "approvedDateEvidenceRows": 186,
+      "amount": 9140,
+      "latestPulledAt": "Mon Jul 20 2026 04:15:14 GMT+0000 (Coordinated Universal Time)",
+      "sourceFields": {
+        "businessDate": "rawData.bizDate",
+        "status": "rawData.voucherStatusEnum",
+        "amount": "rawData.totalAmount",
+        "direction": "entity_type_contract"
+      },
+      "readyForCardAuthority": true,
+      "reason": "按 bizDate=2026-07-20 且 voucherStatusEnum=EFFECTIVE 汇总；其余状态全部排除。",
+      "nextAction": "保持每日只读对账并显示 ERP 辅助差异；禁止将 SUBMITTED、未知状态或累计金额混入今日卡片。"
+    }
+  ],
+  "guardrails": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "migration": false,
+    "databaseWrite": false
+  }
+}
