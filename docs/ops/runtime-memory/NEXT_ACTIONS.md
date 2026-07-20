@@ -1056,6 +1056,27 @@ Next actions:
 2. Keep finance-card primary source switches gated by explicit authority rules.
 3. Continue data mapping cleanup for subject, project, cash account, counterparty, and report-line fields.
 
+## 2026-07-20 — Chanjet Cash Balance Field Lock Verified
+
+Current stage: `CHANJET_CASH_BALANCE_FIELD_LOCK_VERIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+- Cash/bank balance authority now uses each enabled book's latest valid `GL_BALANCE` period and only `1001*` / `1002*` leaf rows.
+- `FIN_ACCOUNT` remains directory-only and can no longer masquerade as a balance source.
+- Authenticated production audit passed 12/12 with 3/3 books, 29 eligible rows, zero invalid rows and zero duplicate rows.
+- The production finance report and authority card both resolve to the same readonly CNY total.
+- CI/CD deploy run `29722818642` passed for `cee62b47`.
+
+Next actions:
+
+1. `CHANJET_P2_MASTER_DATA_MAPPING_REVIEW`
+2. Reconcile deterministic subject, project and cash-account mappings against the three valid account books.
+3. Review ordinary-user finance fusion only after the mapping Gate passes.
+4. Keep Chanjet writeback and voucher push blocked.
+
 ## 2026-07-14 — Chanjet Full Readonly Functional Closeout
 
 Current stage: `CHANJET_FULL_READONLY_FUNCTIONAL_CLOSEOUT_IMPLEMENTED`

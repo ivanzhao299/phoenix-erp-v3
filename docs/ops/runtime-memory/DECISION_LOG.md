@@ -1827,3 +1827,14 @@ Decision: counterparty resolution `GO`.
 - All CI/CD workflows and production deploy run `29721154181` passed for commit `55dfc828`.
 - Next Gate: `CHANJET_P3_CASH_BALANCE_FIELD_LOCK`.
 - No Chanjet write/delete/modify, voucher push, ERP database write or migration was performed by this Gate.
+
+# 2026-07-20 - Lock Cash Balance To Latest GL Evidence
+
+- Decision: `GO_WITH_CONDITIONS`; authenticated production audit passes 12/12.
+- Cash/bank authority uses each enabled account book's latest valid `YYYYMM` period and only `1001*` / `1002*` leaf subjects.
+- CNY authority uses `rawData.baseEndingBalance`; original-currency evidence uses `rawData.endingBalance` plus `rawData.currency`.
+- Production evidence covers 3/3 books, 29 eligible rows, zero invalid rows and zero duplicate rows; the authoritative total is 3,017,798.61 CNY.
+- `FIN_ACCOUNT` is directory-only evidence and must not be treated as a balance source.
+- CI/CD deploy run `29722818642` passed for commit `cee62b47`; the deployed API image revision matches the commit.
+- Next Gate: `CHANJET_P2_MASTER_DATA_MAPPING_REVIEW`.
+- No Chanjet write/delete/modify, voucher push, ERP database write or migration was performed by this Gate.

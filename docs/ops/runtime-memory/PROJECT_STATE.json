@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-07-20",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_RECEIPT_PAYMENT_DAILY_RECONCILIATION_VERIFIED",
+  "current_stage": "CHANJET_CASH_BALANCE_FIELD_LOCK_VERIFIED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "CHANJET_P3_CASH_BALANCE_FIELD_LOCK",
+  "next_gate": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
   "page_entry": "/finance2/chanjet-integration",
   "menu_entry": "财务结算中心 / 好业财中间层（管理员）",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -964,9 +964,9 @@
     "next_single_gate_recommendation": "APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS"
   },
   "next_actions": [
-    "CHANJET_P3_CASH_BALANCE_FIELD_LOCK",
-    "CHANJET_CASH_ACCOUNT_BOOK_SCOPE_RECONCILIATION",
-    "CHANJET_CASH_BALANCE_AUTHENTICATED_PRODUCTION_AUDIT",
+    "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
+    "CHANJET_SUBJECT_PROJECT_CASH_ACCOUNT_MAPPING_RECONCILIATION",
+    "CHANJET_ORDINARY_USER_FINANCE_FUSION_REVIEW",
     "KEEP_CHANJET_WRITEBACK_BLOCKED"
   ],
   "agent_inbox_mode": "enabled",
@@ -996,7 +996,8 @@
     "safe_redispatch_gate": "implemented"
   },
   "next_action": [
-    "CI_CD_DIRECT_BUG_CORRELATION_CALLBACK",
-    "AUTHENTICATED_PLAYWRIGHT_POST_DEPLOY_SMOKE"
+    "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
+    "CHANJET_SUBJECT_PROJECT_CASH_ACCOUNT_MAPPING_RECONCILIATION",
+    "KEEP_CHANJET_WRITEBACK_BLOCKED"
   ]
 }

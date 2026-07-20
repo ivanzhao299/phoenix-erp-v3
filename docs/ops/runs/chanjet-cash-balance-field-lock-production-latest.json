@@ -1,0 +1,290 @@
+{
+  "generatedAt": "2026-07-20T07:01:16.159Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "nextGate": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
+  "summary": {
+    "checks": 12,
+    "passed": 12,
+    "failed": 0,
+    "totalBaseBalance": 3017798.61,
+    "eligibleBalanceRows": 29,
+    "bookCoverage": "3/3"
+  },
+  "checks": [
+    {
+      "id": "authority_ready",
+      "passed": true,
+      "evidence": "status=AUTHORITY_READY"
+    },
+    {
+      "id": "exact_source_fields",
+      "passed": true,
+      "evidence": "{\"book\":\"$entity.bookId\",\"period\":\"$entity.period\",\"subjectCode\":\"rawData.glAccountCode\",\"subjectName\":\"rawData.glAccountName\",\"baseBalance\":\"rawData.baseEndingBalance\",\"originalBalance\":\"rawData.endingBalance\",\"currency\":\"rawData.currency\",\"leaf\":\"rawData.leaf\"}"
+    },
+    {
+      "id": "eligible_rows_present",
+      "passed": true,
+      "evidence": "eligible=29"
+    },
+    {
+      "id": "contract_rows_clean",
+      "passed": true,
+      "evidence": "invalid=0, duplicate=0"
+    },
+    {
+      "id": "all_enabled_books_covered",
+      "passed": true,
+      "evidence": "3/3"
+    },
+    {
+      "id": "base_balance_is_numeric",
+      "passed": true,
+      "evidence": "total=3017798.61"
+    },
+    {
+      "id": "mirror_fresh",
+      "passed": true,
+      "evidence": "latest=2026-07-20T04:15:36.583Z"
+    },
+    {
+      "id": "authority_card_enabled",
+      "passed": true,
+      "evidence": "enabled=true"
+    },
+    {
+      "id": "authority_card_matches_lock",
+      "passed": true,
+      "evidence": "3017798.61/3017798.61"
+    },
+    {
+      "id": "business_page_uses_gl_source",
+      "passed": true,
+      "evidence": "source=CHANJET_GL_CASH_BALANCE_MIRROR"
+    },
+    {
+      "id": "business_page_matches_lock",
+      "passed": true,
+      "evidence": "3017798.61/3017798.61"
+    },
+    {
+      "id": "external_write_disabled",
+      "passed": true,
+      "evidence": "{\"chanjetWrite\":false,\"chanjetDelete\":false,\"chanjetModify\":false,\"voucherPush\":false,\"erpBusinessOverwrite\":false,\"migration\":false,\"dbWrite\":false,\"amountSumZeroAsBusinessZero\":false,\"balanceSource\":\"GL_BALANCE_latest_period_cash_bank_leaf_baseEndingBalance\",\"accountDirectorySource\":\"FIN_ACCOUNT_directory_only\",\"rule\":\"本接口只读 ERP 好业财中间层。集团主值只使用总账 1001/1002 叶子科目本位币期末余额；资金账户目录和 amountSum 均不得冒充余额。\"}"
+    }
+  ],
+  "lock": {
+    "key": "CASH_BALANCE",
+    "label": "现金 / 银行余额",
+    "decision": "GO_WITH_CONDITIONS",
+    "status": "AUTHORITY_READY",
+    "sampleRows": 280,
+    "accountDirectoryRows": 49,
+    "glBalanceRows": 231,
+    "eligibleBalanceRows": 29,
+    "invalidContractRows": 0,
+    "duplicateContractRows": 0,
+    "latestPulledAt": "2026-07-20T04:15:36.583Z",
+    "amountSum": 0,
+    "amountSumSafeAsBalance": false,
+    "totalBaseBalance": 3017798.61,
+    "baseCurrency": "CNY",
+    "currentPeriods": [
+      "202607"
+    ],
+    "coveredBooks": 3,
+    "requiredBooks": 3,
+    "unmatchedAccountDirectoryRows": 28,
+    "currencyBalances": [
+      {
+        "currency": "CNY",
+        "amount": 1319192.97,
+        "rows": 7
+      },
+      {
+        "currency": "LAK",
+        "amount": 5167701822.03,
+        "rows": 18
+      },
+      {
+        "currency": "THB",
+        "amount": 4626,
+        "rows": 2
+      },
+      {
+        "currency": "USD",
+        "amount": 140.9,
+        "rows": 2
+      }
+    ],
+    "bookBalances": [
+      {
+        "bookId": "3533914511118750",
+        "companyCode": "COMP-LAO-AGRI",
+        "period": "202607",
+        "amount": 3010971.33,
+        "rows": 20
+      },
+      {
+        "bookId": "3537748712226818",
+        "companyCode": "COMP-LAO-XINGCHI",
+        "period": "202607",
+        "amount": 6827.28,
+        "rows": 7
+      },
+      {
+        "bookId": "3539743721526654",
+        "companyCode": "COMP-LAO-FOOD",
+        "period": "202607",
+        "amount": 0,
+        "rows": 2
+      }
+    ],
+    "rawBalanceCandidateCount": 2,
+    "requiredFields": [
+      "book_id",
+      "period",
+      "gl_account_code",
+      "gl_account_name",
+      "base_ending_balance",
+      "original_ending_balance",
+      "currency",
+      "leaf"
+    ],
+    "missingFields": [],
+    "fieldCandidates": [
+      {
+        "semanticField": "book_id",
+        "candidatePaths": [
+          {
+            "path": "$entity.bookId",
+            "sampleType": "string",
+            "sampleValue": null,
+            "observedCount": 231
+          }
+        ],
+        "required": true,
+        "status": "FOUND"
+      },
+      {
+        "semanticField": "period",
+        "candidatePaths": [
+          {
+            "path": "$entity.period",
+            "sampleType": "string",
+            "sampleValue": null,
+            "observedCount": 231
+          }
+        ],
+        "required": true,
+        "status": "FOUND"
+      },
+      {
+        "semanticField": "gl_account_code",
+        "candidatePaths": [
+          {
+            "path": "$.glAccountCode",
+            "sampleType": "string",
+            "sampleValue": null,
+            "observedCount": 231
+          }
+        ],
+        "required": true,
+        "status": "FOUND"
+      },
+      {
+        "semanticField": "gl_account_name",
+        "candidatePaths": [
+          {
+            "path": "$.glAccountName",
+            "sampleType": "string",
+            "sampleValue": null,
+            "observedCount": 231
+          }
+        ],
+        "required": true,
+        "status": "FOUND"
+      },
+      {
+        "semanticField": "base_ending_balance",
+        "candidatePaths": [
+          {
+            "path": "$.baseEndingBalance",
+            "sampleType": "number",
+            "sampleValue": null,
+            "observedCount": 231
+          }
+        ],
+        "required": true,
+        "status": "FOUND"
+      },
+      {
+        "semanticField": "original_ending_balance",
+        "candidatePaths": [
+          {
+            "path": "$.endingBalance",
+            "sampleType": "number",
+            "sampleValue": null,
+            "observedCount": 231
+          }
+        ],
+        "required": true,
+        "status": "FOUND"
+      },
+      {
+        "semanticField": "currency",
+        "candidatePaths": [
+          {
+            "path": "$.currency",
+            "sampleType": "string",
+            "sampleValue": null,
+            "observedCount": 231
+          }
+        ],
+        "required": true,
+        "status": "FOUND"
+      },
+      {
+        "semanticField": "leaf",
+        "candidatePaths": [
+          {
+            "path": "$.leaf",
+            "sampleType": "boolean",
+            "sampleValue": null,
+            "observedCount": 231
+          }
+        ],
+        "required": true,
+        "status": "FOUND"
+      }
+    ],
+    "sourceFields": {
+      "book": "$entity.bookId",
+      "period": "$entity.period",
+      "subjectCode": "rawData.glAccountCode",
+      "subjectName": "rawData.glAccountName",
+      "baseBalance": "rawData.baseEndingBalance",
+      "originalBalance": "rawData.endingBalance",
+      "currency": "rawData.currency",
+      "leaf": "rawData.leaf"
+    },
+    "readyForCardAuthority": true,
+    "blockerReasons": [],
+    "conditions": [
+      "cash_account_directory_mapping_incomplete:28",
+      "FIN_ACCOUNT_is_directory_only_not_balance_source",
+      "group_total_uses_CNY_baseEndingBalance",
+      "foreign_currency_breakdown_uses_endingBalance"
+    ],
+    "displayRule": "现金/银行余额主卡片使用好业财 GL_BALANCE 最新期间 1001/1002 叶子科目的 CNY 本位币期末余额，并显示 ERP 辅助差异。",
+    "nextAction": "保持每日只读同步和字段漂移告警；继续完善 FIN_ACCOUNT 账户目录映射，但不得影响已锁定的总账余额口径。"
+  },
+  "guardrails": {
+    "chanjetWrite": false,
+    "chanjetDelete": false,
+    "chanjetModify": false,
+    "voucherPush": false,
+    "erpBusinessOverwrite": false,
+    "migration": false,
+    "databaseWrite": false
+  }
+}
