@@ -23,7 +23,9 @@ export class FarmFeedController {
   @Post('ledger')
   @RequireMenu('MENU_BREEDING', 'E')
   async saveLedger(@Body() body: any, @Req() req: any) {
-    const { date, items } = body;
+    const { date } = body;
+    // PC feed ledger posts `rows`; retain `items` for mobile/legacy callers.
+    const items = Array.isArray(body.items) ? body.items : body.rows;
     if (!date || !Array.isArray(items)) return { code: 400, msg: '缺少 date 或 items' };
     const operator = req.user?.username || req.user?.sub || 'unknown';
     return this.feedService.saveLedger(date, items, operator);
