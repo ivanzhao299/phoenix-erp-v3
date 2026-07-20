@@ -668,6 +668,41 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(result.guardrails).toMatchObject({ chanjetWrite: false, voucherPush: false });
   });
 
+  it('closes authority wiring and advances locked receipt/payment cards to daily reconciliation', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.financeReadModelOverview = jest.fn().mockResolvedValue({
+      summary: { nextGate: 'CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING' },
+      metrics: [
+        { key: 'AR_OPEN', status: 'AUTHORITY_READY', displayValue: 100, sourceEntityTypes: ['AR_STATISTICS'] },
+        { key: 'AP_OPEN', status: 'AUTHORITY_READY', displayValue: 80, sourceEntityTypes: ['AP_STATISTICS'] },
+        { key: 'TODAY_RECEIPT', status: 'NEED_MANUAL_REVIEW', sourceEntityTypes: ['AR_RECEIPT'] },
+        { key: 'TODAY_PAYMENT', status: 'NEED_MANUAL_REVIEW', sourceEntityTypes: ['AP_PAYMENT'] },
+      ],
+    });
+    subject.financeReceiptPaymentDateStatusLockOverview = jest.fn().mockResolvedValue({
+      locks: [
+        { key: 'TODAY_RECEIPT', status: 'LOCKED', readyForCardAuthority: false, reason: 'daily reconciliation required' },
+        { key: 'TODAY_PAYMENT', status: 'LOCKED', readyForCardAuthority: false, reason: 'daily reconciliation required' },
+      ],
+    });
+
+    const result = await subject.financeCardAuthorityOverview();
+
+    expect(result.summary).toMatchObject({
+      authorityReady: 2,
+      authorityWiringVerified: true,
+      nextGate: 'CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION',
+    });
+    expect(result.cards.find((card: any) => card.cardKey === 'todayInflow')).toMatchObject({
+      authorityEnabled: false,
+      receiptPaymentLockStatus: 'LOCKED',
+    });
+    expect(result.guardrails).toMatchObject({
+      todayAmountAggregation: 'blocked_until_daily_filter_and_status_reconciliation',
+      chanjetWrite: false,
+    });
+  });
+
   it('validates balanced voucher candidates without enabling Chanjet push', () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     const result = subject.validateVoucherDraftInput({

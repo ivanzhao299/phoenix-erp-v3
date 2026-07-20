@@ -2448,6 +2448,7 @@ export class ChanjetIntegrationService {
       readonlyReady: number;
       blocked: number;
       hold: number;
+      authorityWiringVerified: boolean;
       nextGate: string;
     };
     cards: Array<{
@@ -2510,6 +2511,26 @@ export class ChanjetIntegrationService {
       };
     });
     const hold = cards.filter((card) => card.status === 'HOLD').length;
+    const authorityWiringVerified = ['arOpen', 'apOpen'].every((cardKey) => (
+      cards.some((card) => card.cardKey === cardKey && card.authorityEnabled)
+    ));
+    const receiptPaymentDailyReconciliationRequired = cards.some((card) => (
+      ['todayInflow', 'todayOutflow'].includes(card.cardKey)
+      && card.receiptPaymentLockStatus === 'LOCKED'
+      && !card.authorityEnabled
+    ));
+    const cashBalanceFieldLockRequired = cards.some((card) => (
+      card.cardKey === 'cashBalance' && !card.authorityEnabled
+    ));
+    const nextGate = hold > 0
+      ? 'CHANJET_P3_FINANCE_CARD_AUTHORITY_HOLD_REPAIR'
+      : !authorityWiringVerified
+        ? 'CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING'
+        : receiptPaymentDailyReconciliationRequired
+          ? 'CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION'
+          : cashBalanceFieldLockRequired
+            ? 'CHANJET_P3_CASH_BALANCE_FIELD_LOCK'
+            : 'CHANJET_P2_MASTER_DATA_MAPPING_REVIEW';
     return {
       generatedAt: new Date().toISOString(),
       decision: hold > 0 ? 'HOLD' : cards.some((card) => !card.authorityEnabled) ? 'GO_WITH_CONDITIONS' : 'GO',
@@ -2519,7 +2540,8 @@ export class ChanjetIntegrationService {
         readonlyReady: cards.filter((card) => card.status === 'READONLY_READY').length,
         blocked: cards.filter((card) => !card.authorityEnabled && card.status !== 'READONLY_READY').length,
         hold,
-        nextGate: readModel.summary.nextGate,
+        authorityWiringVerified,
+        nextGate,
       },
       cards,
       guardrails: {
@@ -2529,6 +2551,7 @@ export class ChanjetIntegrationService {
         voucherPush: false,
         erpBusinessOverwrite: false,
         migration: false,
+        todayAmountAggregation: 'blocked_until_daily_filter_and_status_reconciliation',
         rule: '财务卡片只接受 AUTHORITY_READY 的好业财 read model。未锁定的好业财数据只能作为只读对账证据，不能替换 ERP 主值。',
       },
     };
