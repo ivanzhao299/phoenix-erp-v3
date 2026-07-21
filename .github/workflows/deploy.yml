@@ -42,10 +42,11 @@ permissions:
   contents: read
   pull-requests: read
 
-# 成本控制:同 ref 新流水线启动时取消旧流水线
+# 同一 ref 串行执行部署。不能取消在途流水线：后续 web-only 修复若取消前一条
+# api/full 部署，会造成仓库与 Web 已更新、API 仍停留旧 revision 的三端漂移。
 concurrency:
   group: cicd-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'

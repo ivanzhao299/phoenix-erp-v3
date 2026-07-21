@@ -2,95 +2,113 @@ import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler'
 
 describe('ChanjetReadonlySyncScheduler', () => {
   const previousEnabled = process.env.CHANJET_READONLY_SYNC_ENABLED;
+  const readiness = {
+    generatedAt: '2026-07-21T00:00:00.000Z',
+    decision: 'GO' as const,
+    score: 100,
+    grade: 'A' as const,
+    summary: {},
+    phases: [],
+    blockers: [],
+    conditions: [],
+    tokenHealth: {},
+    guardrails: {},
+  };
 
   afterEach(() => {
     process.env.CHANJET_READONLY_SYNC_ENABLED = previousEnabled;
     jest.restoreAllMocks();
   });
 
-  it('uses one dedicated database connection for advisory lock and unlock', async () => {
-    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+  function createQueryRunner(lockAcquired = true) {
     const query = jest.fn()
-      .mockResolvedValueOnce([{ acquired: true }])
+      .mockResolvedValueOnce([{ acquired: lockAcquired }])
       .mockResolvedValueOnce([{ pg_advisory_unlock: true }]);
-    const queryRunner = {
-      connect: jest.fn().mockResolvedValue(undefined),
+    return {
       query,
-      release: jest.fn().mockResolvedValue(undefined),
+      runner: {
+        connect: jest.fn().mockResolvedValue(undefined),
+        query,
+        release: jest.fn().mockResolvedValue(undefined),
+      },
     };
-    const integration = {
+  }
+
+  function createIntegration(decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD' = 'GO') {
+    return {
       runReadonlyAlignmentCycle: jest.fn().mockResolvedValue({
-        decision: 'GO',
+        decision,
         mirror: {
-          results: [{ key: 'ACCOUNT_BOOKS', bookId: '', status: 'SUCCESS' }],
-          attempts: 1,
-          unresolvedFailures: [],
+          results: decision === 'HOLD' ? [] : [{ key: 'ACCOUNT_BOOKS', bookId: '', status: 'SUCCESS' }],
+          attempts: decision === 'HOLD' ? 3 : 1,
+          unresolvedFailures: decision === 'HOLD'
+            ? [{ key: 'VOUCHERS', bookId: 'BOOK-1', error: 'timeout' }]
+            : [],
         },
-        exactMappings: { approved: 2 },
-        reconciliation: { created: 1, autoResolved: 3 },
-        stoppedAt: null,
+        exactMappings: decision === 'HOLD' ? null : { approved: 2 },
+        reconciliation: decision === 'HOLD' ? null : { created: 1, autoResolved: 3 },
+        readiness: decision === 'HOLD' ? null : { ...readiness, decision },
+        stoppedAt: decision === 'HOLD' ? 'READONLY_MIRROR' : null,
       }),
-      currentStateOverview: jest.fn().mockResolvedValue({ decision: 'GO', blockers: [] }),
       recordCurrentStateAlert: jest.fn().mockResolvedValue(undefined),
     };
+  }
+
+  function createDataSource(queryRunner: ReturnType<typeof createQueryRunner>['runner'], query = jest.fn().mockResolvedValue([])) {
+    return {
+      query,
+      createQueryRunner: jest.fn(() => queryRunner),
+    };
+  }
+
+  async function waitForTerminal(scheduler: ChanjetReadonlySyncScheduler) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const state = await scheduler.getRunState();
+      if (['COMPLETED', 'HOLD', 'FAILED'].includes(state.state)) return state;
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    throw new Error('scheduler did not reach a terminal state');
+  }
+
+  it('persists one durable run and uses one dedicated connection for advisory lock lifecycle', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    const { query, runner } = createQueryRunner();
+    const integration = createIntegration();
     const cronMonitor = {
       ok: jest.fn().mockResolvedValue(undefined),
       fail: jest.fn().mockResolvedValue(undefined),
     };
-    const dataSource = { createQueryRunner: jest.fn(() => queryRunner) };
-    const scheduler = new ChanjetReadonlySyncScheduler(
-      integration as never,
-      cronMonitor as never,
-      dataSource as never,
-    );
+    const dataSource = createDataSource(runner);
+    const scheduler = new ChanjetReadonlySyncScheduler(integration as never, cronMonitor as never, dataSource as never);
 
     await scheduler.runScheduledSync();
 
-    expect(queryRunner.connect).toHaveBeenCalledTimes(1);
+    expect(runner.connect).toHaveBeenCalledTimes(1);
     expect(query).toHaveBeenNthCalledWith(1, expect.stringContaining('pg_try_advisory_lock'), ['chanjet-full-readonly-sync']);
     expect(query).toHaveBeenNthCalledWith(2, expect.stringContaining('pg_advisory_unlock'), ['chanjet-full-readonly-sync']);
-    expect(queryRunner.release).toHaveBeenCalledTimes(1);
+    expect(runner.release).toHaveBeenCalledTimes(1);
     expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith(
       'system:chanjet-readonly-sync', [], undefined, expect.stringMatching(/^\d{6}$/), 3,
     );
     expect(cronMonitor.ok).toHaveBeenCalledTimes(1);
     expect(cronMonitor.fail).not.toHaveBeenCalled();
     expect(integration.recordCurrentStateAlert).toHaveBeenCalledWith(expect.objectContaining({ decision: 'GO' }));
+    expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO chanjet_sync_jobs'), expect.any(Array));
+    expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining("status = 'RUNNING'"), expect.any(Array));
+    expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('result_summary = $4::jsonb'), expect.any(Array));
+    await expect(scheduler.getRunState()).resolves.toMatchObject({ state: 'COMPLETED', decision: 'GO' });
   });
 
-  it('records HOLD as a monitored failure and still releases the lock', async () => {
+  it('records HOLD as a durable monitored failure and still releases the lock', async () => {
     process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
-    const query = jest.fn()
-      .mockResolvedValueOnce([{ acquired: true }])
-      .mockResolvedValueOnce([{ pg_advisory_unlock: true }]);
-    const queryRunner = {
-      connect: jest.fn().mockResolvedValue(undefined),
-      query,
-      release: jest.fn().mockResolvedValue(undefined),
-    };
-    const integration = {
-      runReadonlyAlignmentCycle: jest.fn().mockResolvedValue({
-        decision: 'HOLD',
-        mirror: {
-          results: [],
-          attempts: 3,
-          unresolvedFailures: [{ key: 'VOUCHERS', bookId: 'BOOK-1', error: 'timeout' }],
-        },
-        stoppedAt: 'READONLY_MIRROR',
-      }),
-      currentStateOverview: jest.fn(),
-      recordCurrentStateAlert: jest.fn(),
-    };
+    const { runner } = createQueryRunner();
+    const integration = createIntegration('HOLD');
     const cronMonitor = {
       ok: jest.fn(),
       fail: jest.fn().mockResolvedValue(undefined),
     };
-    const dataSource = { createQueryRunner: jest.fn(() => queryRunner) };
-    const scheduler = new ChanjetReadonlySyncScheduler(
-      integration as never,
-      cronMonitor as never,
-      dataSource as never,
-    );
+    const dataSource = createDataSource(runner);
+    const scheduler = new ChanjetReadonlySyncScheduler(integration as never, cronMonitor as never, dataSource as never);
 
     await scheduler.runScheduledSync();
 
@@ -98,29 +116,17 @@ describe('ChanjetReadonlySyncScheduler', () => {
       'chanjet-full-readonly-sync',
       expect.stringContaining('VOUCHERS/BOOK-1=timeout'),
     );
-    expect(queryRunner.release).toHaveBeenCalledTimes(1);
+    expect(runner.release).toHaveBeenCalledTimes(1);
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('result_summary = $4::jsonb'),
+      expect.arrayContaining([expect.any(String), 'FAIL']),
+    );
+    await expect(scheduler.getRunState()).resolves.toMatchObject({ state: 'HOLD', decision: 'HOLD' });
   });
 
-  it('accepts a manual run immediately and exposes completion status for polling', async () => {
-    const query = jest.fn()
-      .mockResolvedValueOnce([{ acquired: true }])
-      .mockResolvedValueOnce([{ pg_advisory_unlock: true }]);
-    const queryRunner = {
-      connect: jest.fn().mockResolvedValue(undefined),
-      query,
-      release: jest.fn().mockResolvedValue(undefined),
-    };
-    const integration = {
-      runReadonlyAlignmentCycle: jest.fn().mockResolvedValue({
-        decision: 'GO',
-        mirror: { results: [], attempts: 1, unresolvedFailures: [] },
-        exactMappings: { approved: 0 },
-        reconciliation: { created: 0, autoResolved: 0 },
-        stoppedAt: null,
-      }),
-      currentStateOverview: jest.fn().mockResolvedValue({ decision: 'GO', blockers: [] }),
-      recordCurrentStateAlert: jest.fn().mockResolvedValue(undefined),
-    };
+  it('accepts a manual run immediately and exposes durable completion status for polling', async () => {
+    const { runner } = createQueryRunner();
+    const integration = createIntegration();
     const cronMonitor = {
       ok: jest.fn().mockResolvedValue(undefined),
       fail: jest.fn().mockResolvedValue(undefined),
@@ -128,17 +134,59 @@ describe('ChanjetReadonlySyncScheduler', () => {
     const scheduler = new ChanjetReadonlySyncScheduler(
       integration as never,
       cronMonitor as never,
-      { createQueryRunner: jest.fn(() => queryRunner) } as never,
+      createDataSource(runner) as never,
     );
 
-    const accepted = scheduler.enqueueManualSync('user:admin', { period: '202607' });
+    const accepted = await scheduler.enqueueManualSync('user:admin', { period: '202607' });
 
     expect(accepted).toMatchObject({ accepted: true, run: { state: 'QUEUED', requestedBy: 'user:admin' } });
-    await new Promise((resolve) => setImmediate(resolve));
-    await new Promise((resolve) => setImmediate(resolve));
-    expect(scheduler.getRunState()).toMatchObject({ state: 'COMPLETED', decision: 'GO' });
+    await expect(waitForTerminal(scheduler)).resolves.toMatchObject({ state: 'COMPLETED', decision: 'GO' });
+    expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith('user:admin', [], undefined, '202607', 3);
+  });
+
+  it('recovers and completes a persisted RUNNING orchestration after API restart', async () => {
+    const { runner } = createQueryRunner();
+    const integration = createIntegration();
+    const cronMonitor = {
+      ok: jest.fn().mockResolvedValue(undefined),
+      fail: jest.fn().mockResolvedValue(undefined),
+    };
+    const persisted = {
+      status: 'RUNNING',
+      request_scope: {
+        orchestrationRunId: 'CHANJET-RO-RECOVER',
+        requestedBy: 'user:admin',
+        scope: ['ACCOUNT_BOOKS'],
+        period: '202607',
+        maxAttempts: 3,
+        queuedAt: '2026-07-21T00:00:00.000Z',
+      },
+      result_summary: null,
+      error_message: null,
+      created_at: '2026-07-21T00:00:00.000Z',
+      updated_at: '2026-07-21T00:01:00.000Z',
+    };
+    let recoveryStarted = false;
+    const dataQuery = jest.fn().mockImplementation((sql: string) => {
+      if (sql.includes('SELECT status') && !recoveryStarted) return Promise.resolve([persisted]);
+      if (sql.includes('recoveredAt')) recoveryStarted = true;
+      return Promise.resolve([]);
+    });
+    const scheduler = new ChanjetReadonlySyncScheduler(
+      integration as never,
+      cronMonitor as never,
+      createDataSource(runner, dataQuery) as never,
+    );
+
+    scheduler.onApplicationBootstrap();
+
+    await expect(waitForTerminal(scheduler)).resolves.toMatchObject({
+      runId: 'CHANJET-RO-RECOVER',
+      state: 'COMPLETED',
+      decision: 'GO',
+    });
     expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith(
-      'user:admin', [], undefined, '202607', 3,
+      'user:admin', ['ACCOUNT_BOOKS'], undefined, '202607', 3,
     );
   });
 });

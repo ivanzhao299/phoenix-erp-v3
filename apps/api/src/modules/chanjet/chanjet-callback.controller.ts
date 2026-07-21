@@ -722,27 +722,28 @@ export class ChanjetCallbackController {
   @Post('integration/alignment/enqueue')
   @HttpCode(HttpStatus.ACCEPTED)
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
-  enqueueIntegrationAlignmentCycle(
+  async enqueueIntegrationAlignmentCycle(
     @Body() body: { scope?: string[]; bookId?: string; period?: string; maxAttempts?: number },
     @Req() req: { user?: { username?: string; userId?: string } },
   ) {
     const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    const enqueueResult = await this.readonlySyncScheduler.enqueueManualSync(`user:${requestedBy}`, body);
     return {
       success: true,
       writeChanjet: false,
       writeErpBusinessTables: false,
-      ...this.readonlySyncScheduler.enqueueManualSync(`user:${requestedBy}`, body),
+      ...enqueueResult,
     };
   }
 
   @Get('integration/alignment/status')
   @RequireMenu(CHANJET_PROXY_MENU, 'V')
-  integrationAlignmentStatus() {
+  async integrationAlignmentStatus() {
     return {
       success: true,
       writeChanjet: false,
       writeErpBusinessTables: false,
-      run: this.readonlySyncScheduler.getRunState(),
+      run: await this.readonlySyncScheduler.getRunState(),
     };
   }
 

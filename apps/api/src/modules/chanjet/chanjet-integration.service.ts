@@ -585,6 +585,14 @@ export interface ChanjetCurrentStateOverview {
   guardrails: Record<string, boolean | string>;
 }
 
+type ChanjetAlignmentAlertState = Pick<
+  ChanjetCurrentStateOverview,
+  'generatedAt' | 'decision' | 'blockers' | 'conditions' | 'summary'
+> | Pick<
+  ChanjetProductionReadiness,
+  'generatedAt' | 'decision' | 'blockers' | 'conditions' | 'summary'
+>;
+
 export interface ChanjetCounterpartyCandidateOverview {
   generatedAt: string;
   decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
@@ -5024,7 +5032,7 @@ export class ChanjetIntegrationService {
     };
   }
 
-  async recordCurrentStateAlert(state: ChanjetCurrentStateOverview): Promise<void> {
+  async recordCurrentStateAlert(state: ChanjetAlignmentAlertState): Promise<void> {
     if (state.decision === 'GO') return;
     const severity = state.decision === 'HOLD' ? 'CRITICAL' : 'WARNING';
     const title = state.decision === 'HOLD'
@@ -5033,14 +5041,14 @@ export class ChanjetIntegrationService {
     try {
       await this.ds.query(
         `INSERT INTO sys_alerts (alert_type, severity, title, detail, related_path)
-         SELECT $1,$2,$3,$4::jsonb,$5
+         SELECT $1::varchar,$2::varchar,$3::varchar,$4::jsonb,$5::varchar
           WHERE NOT EXISTS (
             SELECT 1
               FROM sys_alerts
              WHERE resolved = FALSE
-               AND alert_type = $1
-               AND title = $3
-               AND COALESCE(related_path, '') = COALESCE($5, '')
+               AND alert_type = $1::varchar
+               AND title = $3::varchar
+               AND COALESCE(related_path, '') = COALESCE($5::varchar, '')
           )`,
         [
           'CHANJET_READONLY_ALIGNMENT_DEGRADED',

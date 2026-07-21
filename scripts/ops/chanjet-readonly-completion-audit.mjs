@@ -35,6 +35,8 @@ const checks = [
   ['readonlyFieldAdapters', 'chanjet/integration/readonly-field-adapters'],
   ['syncJobs', 'chanjet/integration/sync-jobs?limit=100'],
   ['voucherDrafts', 'chanjet/integration/voucher-drafts?limit=100'],
+  ['writebackPreparation', 'chanjet/integration/writeback-preparation'],
+  ['writebackOutbox', 'chanjet/integration/writeback-outbox?limit=100'],
 ];
 
 function pick(payload, keys, fallback = null) {
@@ -53,8 +55,13 @@ function summarize(results) {
   const reconciliation = pick(byName.financeReconciliation, ['reconciliation'], byName.financeReconciliation) || {};
   const jobs = pick(byName.syncJobs, ['jobs'], []) || [];
   const drafts = pick(byName.voucherDrafts, ['drafts', 'items'], []) || [];
+  const preparation = pick(byName.writebackPreparation, ['preparation'], byName.writebackPreparation) || {};
+  const outbox = pick(byName.writebackOutbox, ['outbox', 'items'], []) || [];
   const failedJobs = Array.isArray(jobs) ? jobs.filter((job) => job.status === 'FAIL' || job.status === 'FAILED') : [];
   const unsafeDrafts = Array.isArray(drafts) ? drafts.filter((draft) => draft.pushAllowed === true || draft.push_allowed === true) : [];
+  const unsafeOutbox = Array.isArray(outbox)
+    ? outbox.filter((item) => item.externalWriteEnabled === true || item.external_write_enabled === true)
+    : [];
   const httpFailures = results.filter((result) => !result.ok);
   const missingTargets = Number(baseline?.summary?.missingTargets ?? current?.summary?.missingMirrorTargets ?? 0);
   const mappingConflicts = Number(mapping?.summary?.conflicts ?? 0);
@@ -75,6 +82,10 @@ function summarize(results) {
   if (missingTargets > 0) blockers.push(`${missingTargets} 个只读镜像目标缺失`);
   if (mappingConflicts > 0) blockers.push(`${mappingConflicts} 个主数据映射冲突`);
   if (unsafeDrafts.length > 0) blockers.push(`${unsafeDrafts.length} 条凭证草稿错误允许外部推送`);
+  if (unsafeOutbox.length > 0) blockers.push(`${unsafeOutbox.length} 条 Outbox 错误启用外部写入`);
+  if (preparation.externalWriteEnabled === true || preparation.externalNetworkTransportImplemented === true) {
+    blockers.push('Wave 6 准备态错误启用外部写入或外部网络传输');
+  }
   return {
     decision: blockers.length ? 'HOLD' : 'GO_WITH_CONDITIONS',
     endpointChecks: results.length,
@@ -99,10 +110,20 @@ function summarize(results) {
     recentFailedJobs: failedJobs.length,
     voucherDrafts: Array.isArray(drafts) ? drafts.length : 0,
     unsafeVoucherDrafts: unsafeDrafts.length,
+    writebackOutbox: Array.isArray(outbox) ? outbox.length : 0,
+    unsafeWritebackOutbox: unsafeOutbox.length,
+    writebackPreparation: {
+      decision: preparation.decision ?? null,
+      externalWriteEnabled: preparation.externalWriteEnabled ?? false,
+      externalNetworkTransportImplemented: preparation.externalNetworkTransportImplemented ?? false,
+    },
     blockers,
     conditions: current?.conditions ?? [],
     nextGate: current?.summary?.nextGate ?? null,
-    externalWriteEnabled: unsafeDrafts.length > 0,
+    externalWriteEnabled: unsafeDrafts.length > 0
+      || unsafeOutbox.length > 0
+      || preparation.externalWriteEnabled === true
+      || preparation.externalNetworkTransportImplemented === true,
   };
 }
 
@@ -129,6 +150,8 @@ function markdown(report) {
     `- Reconciliation open: ${report.summary.reconciliationOpen}`,
     `- Recent failed sync jobs: ${report.summary.recentFailedJobs}/${report.summary.recentSyncJobs}`,
     `- Voucher drafts: ${report.summary.voucherDrafts}; unsafe push-enabled ${report.summary.unsafeVoucherDrafts}`,
+    `- Writeback Outbox: ${report.summary.writebackOutbox}; unsafe external-write-enabled ${report.summary.unsafeWritebackOutbox}`,
+    `- Writeback preparation: ${report.summary.writebackPreparation.decision || '-'}; external write ${report.summary.writebackPreparation.externalWriteEnabled}; network transport ${report.summary.writebackPreparation.externalNetworkTransportImplemented}`,
     `- Next gate: ${report.summary.nextGate || '-'}`,
     '',
     '## Guardrails',

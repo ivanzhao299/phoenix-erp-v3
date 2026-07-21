@@ -44,6 +44,8 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: ${NODE_ENV:-production}
+      # 512m 容器内为只读全量财务对齐保留受控堆空间，同时给 native/RSS 留余量。
+      NODE_OPTIONS: ${API_NODE_OPTIONS:---max-old-space-size=320}
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: ${DB_USER:-phoenix_v3}
