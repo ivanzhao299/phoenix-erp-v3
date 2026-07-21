@@ -9,20 +9,11 @@ import { packagingApi } from '@/lib/packaging-api';
 import { usePackagingDicts, buildGradeMap, FALLBACK_DICTS, getDictLabel } from '@/hooks/usePackagingDicts';
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
+import { normalizeGradingSourceBatch, type GradingSourceBatch } from '@/lib/grading-source';
 const GRADING_WIP_DATE = new Date().toISOString().slice(0, 10);
 const GRADING_WIP_KEY = `phoenix_grading_wip3_${GRADING_WIP_DATE}`;
 const SALEABLE_PALETTE = ['var(--status-special)', 'var(--color-accent)', 'var(--status-success)', 'var(--status-warning)', 'var(--status-warning)', 'var(--status-special)', 'var(--status-success)'];
 const TOAST_MS = 2500;
-type SourceBatch = {
-  id: number;
-  house_code: string;
-  house_name: string;
-  received_qty: number;
-  dirty_qty: number;
-  cracked_qty: number;
-  available: number;
-};
-
 // One row per chicken house, aggregating all its batches
 type HouseGroup = {
   house_code: string;
@@ -56,27 +47,14 @@ export default function GradingPage() {
   );
 
   // ── Source batches ─────────────────────────────────────────────────────────
-  const [batches, setBatches] = useState<SourceBatch[]>([]);
+  const [batches, setBatches] = useState<GradingSourceBatch[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const sourcePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fetchSource = useRef(async () => {
     try {
       const data = await packagingApi.getTodaySourceBatches();
       const list = Array.isArray(data) ? data : [];
-      const parsed: SourceBatch[] = list.map((b, idx) => {
-        const received = Number(b.received_qty ?? b.receivedQty ?? 0);
-        const dirty = Number(b.dirty_qty ?? b.dirty_count ?? b.dirtyQty ?? 0);
-        const cracked = Number(b.cracked_qty ?? b.cracked_count ?? b.crackedQty ?? 0);
-        return {
-          id: Number(b.id ?? b.batch_id ?? idx + 1),
-          house_code: String(b.house_code ?? b.houseCode ?? ''),
-          house_name: String(b.house_name ?? b.houseName ?? b.house_code ?? `#${idx + 1}`),
-          received_qty: received,
-          dirty_qty: dirty,
-          cracked_qty: cracked,
-          available: Math.max(0, received - dirty - cracked)
-        };
-      });
+      const parsed = list.map(normalizeGradingSourceBatch);
       setBatches(parsed);
     } catch {/* 保留上次 */} finally {
       setSummaryLoading(false);
