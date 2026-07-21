@@ -1,39 +1,55 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260720-0003",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260720-0003/agent-result",
+  "bugNo": "BUG-20260721-0001",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260721-0001/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260720-0003-A1",
-    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "BUGTASK-20260721-0001-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260720-0003-A1-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260721-0001-A4-detached-worker-recovery.md",
+    "commitHash": "b1fc9d7e67ab1258299fb07f416c40d3fda30c81",
+    "changedFiles": [
+      "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx",
+      "apps/web/src/lib/grading-source.test.ts",
+      "apps/web/src/lib/grading-source.ts",
+      "docs/ops/BUGTASK-20260721-0001-frontend-uat.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A1-CI-Runtime-Gate",
+        "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
-        "conclusion": "PASS",
-        "responseChars": 2158,
-        "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-        "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "responseChars": 881,
+        "beforeHead": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
+        "afterHead": "b1fc9d7e67ab1258299fb07f416c40d3fda30c81",
+        "commitHash": "b1fc9d7e67ab1258299fb07f416c40d3fda30c81",
+        "changedFiles": [
+          "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx",
+          "apps/web/src/lib/grading-source.test.ts",
+          "apps/web/src/lib/grading-source.ts",
+          "docs/ops/BUGTASK-20260721-0001-frontend-uat.md"
+        ],
+        "businessChangedFiles": [
+          "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx",
+          "apps/web/src/lib/grading-source.test.ts",
+          "apps/web/src/lib/grading-source.ts"
+        ],
+        "reportFiles": [
+          "docs/ops/BUGTASK-20260721-0001-frontend-uat.md"
+        ],
         "parentCommitRecovered": false,
         "infrastructureFailure": null,
-        "checkedAt": "2026-07-21T00:54:51.512Z",
+        "checkedAt": "2026-07-21T08:10:37.357Z",
         "passed": true,
-        "role": "validation",
-        "terminalStatus": "VALIDATION_COMPLETED",
-        "reason": "Validation evidence recorded; this is not implementation evidence"
+        "role": "implementation",
+        "terminalStatus": "IMPLEMENTATION_COMPLETED",
+        "reason": "Business change, task report, commit, and conclusion are present"
       },
-      "queueStatus": "VALIDATION_COMPLETED",
+      "queueStatus": "HOLD",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260720-0003-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260720-0003-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/events.jsonl\n M docs/ops/agent-queue/tasks.json\n M docs/ops/runs/BUGTASK-20260720-0003-A1-contract.md\n M docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md\n M docs/ops/runs/BUGTASK-20260720-0003-A4-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260720-0003-A4-worker-log.md\n M docs/ops/runs/bug-agent-result-writeback-latest.json\n M docs/ops/runs/bug-agent-result-writeback-response-latest.json\n M docs/ops/runs/bug-task-agent-queue-plan-latest.json\n M docs/ops/runs/bug-task-agent-queue-plan-latest.md\n?? docs/ops/runs/2026-07-21T00-54-45-321Z-A4-Frontend-UAT-Smoke.md\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy refe",
+    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260721-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | HOLD |\n| Worker exit | 0 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.\n",
     "nextAction": ""
   }
 }

@@ -26983,5 +26983,252 @@
     "state_updated_at": "2026-07-21T00:54:51.517Z",
     "retry_after": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+  },
+  {
+    "task_id": "BUGTASK-20260721-0001-A3",
+    "request_id": "BUGTASK-20260721-0001",
+    "title": "Repair BUG-20260721-0001: 作业台-分级，采集数量和剩余数量有问题 (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260721-0001",
+    "source_repair_task_no": "BUGTASK-20260721-0001",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "HOLD",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260721-0001-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-21T08:10:37.431Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260721-0001-A3-detached-worker-recovery.md",
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "a62ade564cc426523cc23d903f7927c4c29aad7407ef19d305db8682f46da72b",
+    "state_version": 4,
+    "state_updated_at": "2026-07-21T08:10:37.363Z",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A3-Backend-Critical-Path",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 660,
+      "beforeHead": "8902cef801631e4c3cf4a5fbeaf601848fad22e8",
+      "afterHead": "c915599f2b97279d9f9df9ed3bed75ae0fa2893c",
+      "commitHash": "c915599f2b97279d9f9df9ed3bed75ae0fa2893c",
+      "changedFiles": [
+        "apps/api/src/modules/bff/bff.controller.spec.ts",
+        "apps/api/src/modules/bff/bff.controller.ts",
+        "docs/ops/BUG-20260721-0001-a3-backend-repair.md"
+      ],
+      "businessChangedFiles": [
+        "apps/api/src/modules/bff/bff.controller.spec.ts",
+        "apps/api/src/modules/bff/bff.controller.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/BUG-20260721-0001-a3-backend-repair.md"
+      ],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-21T08:10:29.956Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
+    },
+    "implementation_commit": "c915599f2b97279d9f9df9ed3bed75ae0fa2893c",
+    "changed_files": [
+      "apps/api/src/modules/bff/bff.controller.spec.ts",
+      "apps/api/src/modules/bff/bff.controller.ts",
+      "docs/ops/BUG-20260721-0001-a3-backend-repair.md"
+    ],
+    "retry_after": null,
+    "baseline_autopilot_exit_code": null,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=0",
+    "remote_repair_status": "HOLD"
+  },
+  {
+    "task_id": "BUGTASK-20260721-0001-A4",
+    "request_id": "BUGTASK-20260721-0001",
+    "title": "Repair BUG-20260721-0001: 作业台-分级，采集数量和剩余数量有问题 (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260721-0001",
+    "source_repair_task_no": "BUGTASK-20260721-0001",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "HOLD",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260721-0001-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-21T08:10:40.047Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260721-0001-A4-detached-worker-recovery.md",
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "7215d2d2179aa48983ba67270a823006fa1d020d2ddced915430170260368b75",
+    "state_version": 3,
+    "state_updated_at": "2026-07-21T08:10:37.363Z",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A4-Frontend-UAT-Smoke",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 881,
+      "beforeHead": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
+      "afterHead": "b1fc9d7e67ab1258299fb07f416c40d3fda30c81",
+      "commitHash": "b1fc9d7e67ab1258299fb07f416c40d3fda30c81",
+      "changedFiles": [
+        "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx",
+        "apps/web/src/lib/grading-source.test.ts",
+        "apps/web/src/lib/grading-source.ts",
+        "docs/ops/BUGTASK-20260721-0001-frontend-uat.md"
+      ],
+      "businessChangedFiles": [
+        "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx",
+        "apps/web/src/lib/grading-source.test.ts",
+        "apps/web/src/lib/grading-source.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/BUGTASK-20260721-0001-frontend-uat.md"
+      ],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-21T08:10:37.357Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
+    },
+    "implementation_commit": "b1fc9d7e67ab1258299fb07f416c40d3fda30c81",
+    "changed_files": [
+      "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx",
+      "apps/web/src/lib/grading-source.test.ts",
+      "apps/web/src/lib/grading-source.ts",
+      "docs/ops/BUGTASK-20260721-0001-frontend-uat.md"
+    ],
+    "retry_after": null,
+    "baseline_autopilot_exit_code": null,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=0",
+    "remote_repair_status": "HOLD"
+  },
+  {
+    "task_id": "BUGTASK-20260721-0001-A1",
+    "request_id": "BUGTASK-20260721-0001",
+    "title": "Repair BUG-20260721-0001: 作业台-分级，采集数量和剩余数量有问题 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260721-0001",
+    "source_repair_task_no": "BUGTASK-20260721-0001",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "HOLD",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260721-0001-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260721-0001-A3",
+      "BUGTASK-20260721-0001-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-21T08:10:42.085Z",
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "f67d500ec235ad79984022561a5e2c605cebd09ca01f5696b58ceda6447290e8",
+    "state_version": 1,
+    "reason": "blocked by failed dependency: BUGTASK-20260721-0001-A3, BUGTASK-20260721-0001-A4",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260721-0001-A3, BUGTASK-20260721-0001-A4",
+      "checkedAt": "2026-07-21T08:10:42.085Z"
+    },
+    "remote_repair_status": "HOLD"
   }
 ]
