@@ -13690,5 +13690,20 @@
   "finance.chanjet.validation_passed": "Validation passed",
   "finance.chanjet.voucher_validation": "Voucher draft validation",
   "finance.chanjet.validate_debit_credit_balance": "Validate debit-credit balance",
-  "finance.chanjet.mark_writeback_candidate": "Mark as writeback candidate"
+  "finance.chanjet.mark_writeback_candidate": "Mark as writeback candidate",
+  "finance.chanjet.alignment_enqueue_failed": "Could not enqueue the read-only alignment",
+  "finance.chanjet.prepare_outbox_action": "Prepare ERP writeback Outbox",
+  "finance.chanjet.run_outbox_simulator": "Run writeback simulator",
+  "finance.chanjet.validate_and_queue": "Validate and queue",
+  "finance.chanjet.generate_outbox": "Generate Outbox",
+  "finance.chanjet.outbox_heading": "Writeback Outbox (ERP simulation only; external transport disabled)",
+  "finance.chanjet.draft": "Draft",
+  "finance.chanjet.status": "Status",
+  "finance.chanjet.attempts": "Attempts",
+  "finance.chanjet.external_write": "External write",
+  "finance.chanjet.simulation_actions": "Simulation actions",
+  "finance.chanjet.permanently_disabled": "Permanently disabled",
+  "finance.chanjet.simulate_success": "Simulate success",
+  "finance.chanjet.simulate_retry": "Simulate retry",
+  "finance.chanjet.simulate_failure": "Simulate failure"
 }

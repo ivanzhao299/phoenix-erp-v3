@@ -13690,5 +13690,20 @@
   "finance.chanjet.validation_passed": "ກວດສອບຜ່ານ",
   "finance.chanjet.voucher_validation": "ກວດສອບຮ່າງໃບບັນຊີ",
   "finance.chanjet.validate_debit_credit_balance": "ກວດສອບດຸນເດບິດ-ເຄຣດິດ",
-  "finance.chanjet.mark_writeback_candidate": "ໝາຍເປັນລາຍການລໍຖ້າຂຽນກັບ"
+  "finance.chanjet.mark_writeback_candidate": "ໝາຍເປັນລາຍການລໍຖ້າຂຽນກັບ",
+  "finance.chanjet.alignment_enqueue_failed": "ບໍ່ສາມາດເຂົ້າຄິວການກວດທຽບແບບອ່ານຢ່າງດຽວ",
+  "finance.chanjet.prepare_outbox_action": "ກະກຽມ Outbox ຂຽນກັບ ERP",
+  "finance.chanjet.run_outbox_simulator": "ດຳເນີນໂຕຈຳລອງການຂຽນກັບ",
+  "finance.chanjet.validate_and_queue": "ກວດສອບ ແລະເຂົ້າຄິວ",
+  "finance.chanjet.generate_outbox": "ສ້າງ Outbox",
+  "finance.chanjet.outbox_heading": "Outbox ຂຽນກັບ (ຈຳລອງໃນ ERP ເທົ່ານັ້ນ; ປິດການສົ່ງອອກ)",
+  "finance.chanjet.draft": "ຮ່າງ",
+  "finance.chanjet.status": "ສະຖານະ",
+  "finance.chanjet.attempts": "ຈຳນວນຄັ້ງ",
+  "finance.chanjet.external_write": "ຂຽນໄປພາຍນອກ",
+  "finance.chanjet.simulation_actions": "ການຈຳລອງ",
+  "finance.chanjet.permanently_disabled": "ປິດຖາວອນ",
+  "finance.chanjet.simulate_success": "ຈຳລອງສຳເລັດ",
+  "finance.chanjet.simulate_retry": "ຈຳລອງລອງໃໝ່",
+  "finance.chanjet.simulate_failure": "ຈຳລອງລົ້ມເຫຼວ"
 }

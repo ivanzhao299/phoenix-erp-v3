@@ -891,7 +891,7 @@ export default function ChanjetIntegrationPage() {
           maxAttempts: 3,
         }),
       });
-      if (!queued.success) throw new Error('只读对齐任务受理失败');
+      if (!queued.success) throw new Error(t('finance.chanjet.alignment_enqueue_failed'));
       setMessage(queued.accepted ? `只读对齐任务已受理：${queued.run.runId}` : '已有只读对齐任务运行中，正在跟踪现有任务');
 
       let run = queued.run;
@@ -922,14 +922,14 @@ export default function ChanjetIntegrationPage() {
   }
 
   async function prepareDraftOutbox(id: string) {
-    await runAction('生成 ERP 写回 outbox', () => request(`/chanjet/integration/voucher-drafts/${id}/prepare-outbox`, {
+    await runAction(t('finance.chanjet.prepare_outbox_action'), () => request(`/chanjet/integration/voucher-drafts/${id}/prepare-outbox`, {
       method: 'POST',
       body: JSON.stringify({}),
     }));
   }
 
   async function simulateOutbox(id: string, outcome: 'ACKNOWLEDGED' | 'RETRYABLE' | 'FAILED') {
-    await runAction('运行写回模拟器', () => request(`/chanjet/integration/writeback-outbox/${id}/simulate`, {
+    await runAction(t('finance.chanjet.run_outbox_simulator'), () => request(`/chanjet/integration/writeback-outbox/${id}/simulate`, {
       method: 'POST',
       body: JSON.stringify({ outcome }),
     }));
@@ -2344,11 +2344,11 @@ export default function ChanjetIntegrationPage() {
                   <td style={cellStyle}>{d.voucherLines?.length ?? 0} 行</td>
                   <td style={cellStyle}>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {d.status === 'DRAFT' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'VALIDATED')}>校验入列</Button>}
+                      {d.status === 'DRAFT' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'VALIDATED')}>{t('finance.chanjet.validate_and_queue')}</Button>}
                       {d.status === 'VALIDATED' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'REVIEWED')}>复核</Button>}
                       {d.status === 'REVIEWED' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'APPROVED')}>批准</Button>}
                       {d.status === 'APPROVED' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'PUSH_READY')}>{t('finance.chanjet.mark_writeback_candidate')}</Button>}
-                      {d.status === 'PUSH_READY' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => prepareDraftOutbox(d.id)}>生成 Outbox</Button>}
+                      {d.status === 'PUSH_READY' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => prepareDraftOutbox(d.id)}>{t('finance.chanjet.generate_outbox')}</Button>}
                       {!['REJECTED', 'CANCELLED'].includes(d.status) && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'REJECTED')}>拒绝</Button>}
                     </div>
                   </td>
@@ -2357,9 +2357,9 @@ export default function ChanjetIntegrationPage() {
               {drafts.length === 0 && <tr><td style={cellStyle} colSpan={5}>暂无凭证草稿。</td></tr>}
             </tbody>
           </table>
-          <div style={{ marginTop: 20, fontWeight: 700 }}>写回 Outbox（仅 ERP 模拟，外部传输关闭）</div>
+          <div style={{ marginTop: 20, fontWeight: 700 }}>{t('finance.chanjet.outbox_heading')}</div>
           <table style={{ ...tableStyle, marginTop: 10 }}>
-            <thead><tr>{['Outbox', '草稿', '状态', '尝试', '外部写入', '模拟操作'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Outbox', t('finance.chanjet.draft'), t('finance.chanjet.status'), t('finance.chanjet.attempts'), t('finance.chanjet.external_write'), t('finance.chanjet.simulation_actions')].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
             <tbody>
               {writebackOutbox.map((item) => (
                 <tr key={item.id}>
@@ -2367,13 +2367,13 @@ export default function ChanjetIntegrationPage() {
                   <td style={cellStyle}>#{item.draftId}</td>
                   <td style={cellStyle}><Badge tone={statusTone(item.state)}>{item.state}</Badge>{item.errorMessage && <div style={{ color: 'var(--danger)', fontSize: 12 }}>{item.errorMessage}</div>}</td>
                   <td style={cellStyle}>{item.attemptCount}/{item.maxAttempts}</td>
-                  <td style={cellStyle}><Badge tone="muted">永久关闭</Badge></td>
+                  <td style={cellStyle}><Badge tone="muted">{t('finance.chanjet.permanently_disabled')}</Badge></td>
                   <td style={cellStyle}>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {['READY', 'RETRYABLE'].includes(item.state) && <>
-                        <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => simulateOutbox(item.id, 'ACKNOWLEDGED')}>模拟成功</Button>
-                        <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => simulateOutbox(item.id, 'RETRYABLE')}>模拟重试</Button>
-                        <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => simulateOutbox(item.id, 'FAILED')}>模拟失败</Button>
+                        <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => simulateOutbox(item.id, 'ACKNOWLEDGED')}>{t('finance.chanjet.simulate_success')}</Button>
+                        <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => simulateOutbox(item.id, 'RETRYABLE')}>{t('finance.chanjet.simulate_retry')}</Button>
+                        <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => simulateOutbox(item.id, 'FAILED')}>{t('finance.chanjet.simulate_failure')}</Button>
                       </>}
                     </div>
                   </td>

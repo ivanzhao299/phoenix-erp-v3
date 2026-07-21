@@ -13690,5 +13690,20 @@
   "finance.chanjet.validation_passed": "校验通过",
   "finance.chanjet.voucher_validation": "凭证草稿校验",
   "finance.chanjet.validate_debit_credit_balance": "校验借贷平衡",
-  "finance.chanjet.mark_writeback_candidate": "标记写回候选"
+  "finance.chanjet.mark_writeback_candidate": "标记写回候选",
+  "finance.chanjet.alignment_enqueue_failed": "只读对齐任务受理失败",
+  "finance.chanjet.prepare_outbox_action": "生成 ERP 写回 Outbox",
+  "finance.chanjet.run_outbox_simulator": "运行写回模拟器",
+  "finance.chanjet.validate_and_queue": "校验入列",
+  "finance.chanjet.generate_outbox": "生成 Outbox",
+  "finance.chanjet.outbox_heading": "写回 Outbox（仅 ERP 模拟，外部传输关闭）",
+  "finance.chanjet.draft": "草稿",
+  "finance.chanjet.status": "状态",
+  "finance.chanjet.attempts": "尝试",
+  "finance.chanjet.external_write": "外部写入",
+  "finance.chanjet.simulation_actions": "模拟操作",
+  "finance.chanjet.permanently_disabled": "永久关闭",
+  "finance.chanjet.simulate_success": "模拟成功",
+  "finance.chanjet.simulate_retry": "模拟重试",
+  "finance.chanjet.simulate_failure": "模拟失败"
 }
