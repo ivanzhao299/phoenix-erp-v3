@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-07-20T03:07:04.674Z",
-  "decision": "GO_WITH_CONDITIONS",
-  "nextGate": "CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION",
+  "generatedAt": "2026-07-21T01:08:26.925Z",
+  "decision": "HOLD",
+  "nextGate": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
   "summary": {
     "checks": 8,
-    "passed": 8,
-    "failed": 0,
-    "authorityReady": 2,
+    "passed": 5,
+    "failed": 3,
+    "authorityReady": 5,
     "readonlyReady": 3,
-    "authorityReadyRate": 0.25
+    "authorityReadyRate": 0.625
   },
   "checks": [
     {
@@ -28,13 +28,13 @@
     },
     {
       "id": "unapproved_cards_fail_closed",
-      "passed": true,
+      "passed": false,
       "evidence": "cashBalance, todayInflow, todayOutflow, subjectBalance, balanceSheet, incomeStatement"
     },
     {
       "id": "today_cards_use_erp_fallback",
-      "passed": true,
-      "evidence": "todayInflow:ERP_FALLBACK, todayOutflow:ERP_FALLBACK"
+      "passed": false,
+      "evidence": "todayInflow:CHANJET_AR_RECEIPT_DAILY_EFFECTIVE_MIRROR, todayOutflow:CHANJET_AP_PAYMENT_DAILY_EFFECTIVE_MIRROR"
     },
     {
       "id": "authority_wiring_verified",
@@ -43,8 +43,8 @@
     },
     {
       "id": "next_gate_advanced",
-      "passed": true,
-      "evidence": "nextGate=CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION"
+      "passed": false,
+      "evidence": "nextGate=CHANJET_P2_MASTER_DATA_MAPPING_REVIEW"
     },
     {
       "id": "external_write_disabled",
@@ -70,23 +70,23 @@
     {
       "cardKey": "cashBalance",
       "readModelKey": "CASH_BALANCE",
-      "authorityEnabled": false,
-      "source": "ERP_FALLBACK",
-      "status": "BLOCKED_MAPPING"
+      "authorityEnabled": true,
+      "source": "CHANJET_GL_CASH_BALANCE_MIRROR",
+      "status": "MISMATCH"
     },
     {
       "cardKey": "todayInflow",
       "readModelKey": "TODAY_RECEIPT",
-      "authorityEnabled": false,
-      "source": "ERP_FALLBACK",
-      "status": "NEED_MANUAL_REVIEW"
+      "authorityEnabled": true,
+      "source": "CHANJET_AR_RECEIPT_DAILY_EFFECTIVE_MIRROR",
+      "status": "OK"
     },
     {
       "cardKey": "todayOutflow",
       "readModelKey": "TODAY_PAYMENT",
-      "authorityEnabled": false,
-      "source": "ERP_FALLBACK",
-      "status": "NEED_MANUAL_REVIEW"
+      "authorityEnabled": true,
+      "source": "CHANJET_AP_PAYMENT_DAILY_EFFECTIVE_MIRROR",
+      "status": "OK"
     },
     {
       "cardKey": "subjectBalance",

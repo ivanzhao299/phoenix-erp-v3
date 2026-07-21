@@ -52,33 +52,18 @@ const payload = {
 };
 process.stdout.write(jwt.sign(payload, secret, { expiresIn }));
 `;
+const encodedTokenScript = Buffer.from(tokenScript, 'utf8').toString('base64');
 
-const remoteScript = [
-  'set -euo pipefail',
-  '',
-  'USER_ROW="$(docker compose exec -T db sh -c \'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select user_id::text || \'"\'"\'|\'"\'"\' || coalesce(perms_version,1)::text from sys_user where username=\'"\'"\'admin\'"\'"\' and status=1 limit 1"\' | tr -d \'\\r\\n\')"',
-  'if [ -z "$USER_ROW" ]; then',
-  '  echo "ACTIVE_ADMIN_NOT_FOUND" >&2',
-  '  exit 3',
-  'fi',
-  '',
-  'ADMIN_ID="${USER_ROW%%|*}"',
-  'PERMS_VERSION="${USER_ROW##*|}"',
-  '',
-  'docker compose exec -T \\',
-  '  -e PHOENIX_CI_ADMIN_ID="$ADMIN_ID" \\',
-  '  -e PHOENIX_CI_PERMS_VERSION="$PERMS_VERSION" \\',
-  '  -e PHOENIX_CI_TOKEN_EXPIRES_IN="${PHOENIX_CI_TOKEN_EXPIRES_IN:-20m}" \\',
-  `  api node -e ${JSON.stringify(tokenScript)} < /dev/null`,
-].join('\n');
-
-const encodedRemoteScript = Buffer.from(remoteScript, 'utf8').toString('base64');
 const remoteDeployPath = deployPath.startsWith('~/')
   ? `"$HOME"/${JSON.stringify(deployPath.slice(2))}`
   : JSON.stringify(deployPath);
 const remoteCommand = [
   `cd ${remoteDeployPath}`,
-  `printf '%s' ${JSON.stringify(encodedRemoteScript)} | base64 --decode | PHOENIX_CI_TOKEN_EXPIRES_IN=${JSON.stringify(expiresIn)} bash`,
+  'USER_ROW="$(docker compose exec -T db sh -c \'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select user_id::text || \'"\'"\'|\'"\'"\' || coalesce(perms_version,1)::text from sys_user where username=\'"\'"\'admin\'"\'"\' and status=1 limit 1"\' | tr -d \'\\r\\n\')"',
+  '[ -n "$USER_ROW" ] || { echo "ACTIVE_ADMIN_NOT_FOUND" >&2; exit 3; }',
+  'ADMIN_ID="${USER_ROW%%|*}"',
+  'PERMS_VERSION="${USER_ROW##*|}"',
+  `printf '%s' ${JSON.stringify(encodedTokenScript)} | base64 --decode | docker compose exec -T -e PHOENIX_CI_ADMIN_ID="$ADMIN_ID" -e PHOENIX_CI_PERMS_VERSION="$PERMS_VERSION" -e PHOENIX_CI_TOKEN_EXPIRES_IN=${JSON.stringify(expiresIn)} api node`,
 ].join(' && ');
 
 try {

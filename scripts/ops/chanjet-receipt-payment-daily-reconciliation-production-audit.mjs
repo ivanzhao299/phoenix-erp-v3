@@ -129,7 +129,7 @@ async function main() {
     check('today_cards_authority_enabled', expected.every(({ cardKey }) => authorityByKey.get(cardKey)?.authorityEnabled === true), expected.map(({ cardKey }) => `${cardKey}:${authorityByKey.get(cardKey)?.authorityEnabled}`).join(', ')),
     check('today_cards_use_daily_amount', expected.every(({ key, cardKey }) => Number(authorityByKey.get(cardKey)?.displayValue) === Number(dailyByKey.get(key)?.amount)), expected.map(({ key, cardKey }) => `${cardKey}:${authorityByKey.get(cardKey)?.displayValue}/${dailyByKey.get(key)?.amount}`).join(', ')),
     check('business_pages_use_daily_source', expected.every(({ cardKey, source }) => businessMetrics[cardKey]?.source === source), expected.map(({ cardKey }) => `${cardKey}:${businessMetrics[cardKey]?.source || 'missing'}`).join(', ')),
-    check('next_gate_advanced', authority.summary?.nextGate === 'CHANJET_P3_CASH_BALANCE_FIELD_LOCK', `nextGate=${authority.summary?.nextGate || 'missing'}`),
+    check('next_gate_advanced', authority.summary?.nextGate === 'CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW', `nextGate=${authority.summary?.nextGate || 'missing'}`),
     check('external_write_disabled', daily.guardrails?.chanjetWrite === false && daily.guardrails?.dbWrite === false, JSON.stringify({ chanjetWrite: daily.guardrails?.chanjetWrite, dbWrite: daily.guardrails?.dbWrite })),
   ];
   const failed = checks.filter((item) => !item.passed);

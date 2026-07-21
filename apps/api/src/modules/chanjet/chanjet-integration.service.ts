@@ -3434,7 +3434,7 @@ export class ChanjetIntegrationService {
           ? 'CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION'
           : cashBalanceFieldLockRequired
             ? 'CHANJET_P3_CASH_BALANCE_FIELD_LOCK'
-            : 'CHANJET_P2_MASTER_DATA_MAPPING_REVIEW';
+            : 'CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW';
     return {
       generatedAt: new Date().toISOString(),
       decision: hold > 0 ? 'HOLD' : cards.some((card) => !card.authorityEnabled) ? 'GO_WITH_CONDITIONS' : 'GO',
@@ -8026,7 +8026,13 @@ export class ChanjetIntegrationService {
       // TypeORM's QueryDeepPartialEntity is too narrow for jsonb Record values.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any,
-      { conflictPaths: ['mappingType', 'erpCode', 'chanjetId'], skipUpdateIfNoValuesChanged: false },
+      {
+        // Chanjet master IDs are scoped to an account book. Keep this list in
+        // sync with uq_chanjet_master_mapping or PostgreSQL cannot resolve the
+        // ON CONFLICT target during a readonly mirror refresh.
+        conflictPaths: ['mappingType', 'bookId', 'erpCode', 'chanjetId'],
+        skipUpdateIfNoValuesChanged: false,
+      },
     );
   }
 

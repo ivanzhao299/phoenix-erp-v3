@@ -1404,6 +1404,31 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     ]));
   });
 
+  it('uses the account-book-scoped master mapping unique key for readonly upserts', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.mappingRepo = { upsert: jest.fn().mockResolvedValue(undefined) };
+
+    await subject.upsertMasterMapping({
+      mappingType: 'PROJECT',
+      bookId: 'BOOK-1',
+      erpCode: '',
+      chanjetId: 'PROJECT-1',
+      chanjetCode: 'PROJECT-1',
+      chanjetName: 'Project 1',
+    });
+
+    expect(subject.mappingRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mappingType: 'PROJECT',
+        bookId: 'BOOK-1',
+        chanjetId: 'PROJECT-1',
+      }),
+      expect.objectContaining({
+        conflictPaths: ['mappingType', 'bookId', 'erpCode', 'chanjetId'],
+      }),
+    );
+  });
+
   it('accepts a legitimate exact zero cash balance', async () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     const now = new Date();

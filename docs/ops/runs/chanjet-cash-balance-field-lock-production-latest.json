@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-07-20T07:01:16.159Z",
+  "generatedAt": "2026-07-21T01:08:37.124Z",
   "decision": "GO_WITH_CONDITIONS",
   "nextGate": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
   "summary": {
     "checks": 12,
     "passed": 12,
     "failed": 0,
-    "totalBaseBalance": 3017798.61,
+    "totalBaseBalance": 3017799.97,
     "eligibleBalanceRows": 29,
     "bookCoverage": "3/3"
   },
@@ -39,12 +39,12 @@
     {
       "id": "base_balance_is_numeric",
       "passed": true,
-      "evidence": "total=3017798.61"
+      "evidence": "total=3017799.97"
     },
     {
       "id": "mirror_fresh",
       "passed": true,
-      "evidence": "latest=2026-07-20T04:15:36.583Z"
+      "evidence": "latest=2026-07-21T00:15:39.386Z"
     },
     {
       "id": "authority_card_enabled",
@@ -54,7 +54,7 @@
     {
       "id": "authority_card_matches_lock",
       "passed": true,
-      "evidence": "3017798.61/3017798.61"
+      "evidence": "3017799.97/3017799.97"
     },
     {
       "id": "business_page_uses_gl_source",
@@ -64,7 +64,7 @@
     {
       "id": "business_page_matches_lock",
       "passed": true,
-      "evidence": "3017798.61/3017798.61"
+      "evidence": "3017799.97/3017799.97"
     },
     {
       "id": "external_write_disabled",
@@ -77,16 +77,16 @@
     "label": "现金 / 银行余额",
     "decision": "GO_WITH_CONDITIONS",
     "status": "AUTHORITY_READY",
-    "sampleRows": 280,
+    "sampleRows": 286,
     "accountDirectoryRows": 49,
-    "glBalanceRows": 231,
+    "glBalanceRows": 237,
     "eligibleBalanceRows": 29,
     "invalidContractRows": 0,
     "duplicateContractRows": 0,
-    "latestPulledAt": "2026-07-20T04:15:36.583Z",
+    "latestPulledAt": "2026-07-21T00:15:39.386Z",
     "amountSum": 0,
     "amountSumSafeAsBalance": false,
-    "totalBaseBalance": 3017798.61,
+    "totalBaseBalance": 3017799.97,
     "baseCurrency": "CNY",
     "currentPeriods": [
       "202607"
@@ -102,7 +102,7 @@
       },
       {
         "currency": "LAK",
-        "amount": 5167701822.03,
+        "amount": 5167706322.03,
         "rows": 18
       },
       {
@@ -135,7 +135,7 @@
         "bookId": "3539743721526654",
         "companyCode": "COMP-LAO-FOOD",
         "period": "202607",
-        "amount": 0,
+        "amount": 1.36,
         "rows": 2
       }
     ],
@@ -159,7 +159,7 @@
             "path": "$entity.bookId",
             "sampleType": "string",
             "sampleValue": null,
-            "observedCount": 231
+            "observedCount": 237
           }
         ],
         "required": true,
@@ -172,7 +172,7 @@
             "path": "$entity.period",
             "sampleType": "string",
             "sampleValue": null,
-            "observedCount": 231
+            "observedCount": 237
           }
         ],
         "required": true,
@@ -185,7 +185,7 @@
             "path": "$.glAccountCode",
             "sampleType": "string",
             "sampleValue": null,
-            "observedCount": 231
+            "observedCount": 237
           }
         ],
         "required": true,
@@ -198,7 +198,7 @@
             "path": "$.glAccountName",
             "sampleType": "string",
             "sampleValue": null,
-            "observedCount": 231
+            "observedCount": 237
           }
         ],
         "required": true,
@@ -211,7 +211,7 @@
             "path": "$.baseEndingBalance",
             "sampleType": "number",
             "sampleValue": null,
-            "observedCount": 231
+            "observedCount": 237
           }
         ],
         "required": true,
@@ -224,7 +224,7 @@
             "path": "$.endingBalance",
             "sampleType": "number",
             "sampleValue": null,
-            "observedCount": 231
+            "observedCount": 237
           }
         ],
         "required": true,
@@ -237,7 +237,7 @@
             "path": "$.currency",
             "sampleType": "string",
             "sampleValue": null,
-            "observedCount": 231
+            "observedCount": 237
           }
         ],
         "required": true,
@@ -250,7 +250,7 @@
             "path": "$.leaf",
             "sampleType": "boolean",
             "sampleValue": null,
-            "observedCount": 231
+            "observedCount": 237
           }
         ],
         "required": true,

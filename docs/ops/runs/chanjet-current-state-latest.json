@@ -1,87 +1,88 @@
 {
-  "generatedAt": "2026-07-20T03:07:12.527Z",
+  "generatedAt": "2026-07-21T01:07:41.281Z",
   "decision": "GO_WITH_CONDITIONS",
   "authoritativeEvidence": "RUNTIME_CURRENT_STATE",
   "productionReadiness": {
-    "generatedAt": "2026-07-20T03:07:12.527Z",
+    "generatedAt": "2026-07-21T01:07:39.349Z",
     "decision": "GO_WITH_CONDITIONS",
-    "score": 66,
-    "grade": "D",
+    "score": 83,
+    "grade": "B",
     "summary": {
-      "mirrorFreshRate": 100,
+      "mirrorFreshRate": 79,
       "accountBookMappingRate": 100,
-      "masterDataApprovedRate": 14,
+      "masterDataApprovedRate": 100,
       "semanticCoverageRate": 100,
-      "authorityReadyRate": 25,
-      "recentJobSuccessRate": 100,
-      "exactSystemApprovalCandidates": 0,
+      "authorityReadyRate": 63,
+      "recentJobSuccessRate": 52,
+      "exactSystemApprovalCandidates": 41,
       "manualMappingCandidates": 0,
-      "nextGate": "CHANJET_CONTINUOUS_READONLY_RECONCILIATION"
+      "nextGate": "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE"
     },
     "phases": [
       {
         "key": "P0",
         "title": "全量只读镜像",
-        "score": 100,
-        "status": "READY",
+        "score": 79,
+        "status": "READY_WITH_CONDITIONS",
         "evidence": [
-          "24h 新鲜目标 46/46",
-          "缺失 0，过期 0"
+          "24h 新鲜目标 44/56",
+          "缺失 0，过期 12"
         ],
-        "nextAction": "KEEP_SCHEDULED_READONLY_SYNC"
+        "nextAction": "CHANJET_READONLY_SYNC_FAILURE_REPAIR"
       },
       {
         "key": "P1",
         "title": "账套与主数据映射",
-        "score": 57,
-        "status": "READY_WITH_CONDITIONS",
+        "score": 100,
+        "status": "READY",
         "evidence": [
           "账套映射 100%",
-          "主数据批准覆盖 14%",
-          "可系统确认精确候选 0"
+          "有效主数据精确匹配 41/41",
+          "待映射 0，冲突 0",
+          "可进入精确映射批准 Gate 41"
         ],
-        "nextAction": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW"
+        "nextAction": "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE"
       },
       {
         "key": "P2",
         "title": "标准只读模型",
-        "score": 80,
-        "status": "READY_WITH_CONDITIONS",
+        "score": 100,
+        "status": "READY",
         "evidence": [
           "字段语义覆盖 100%",
-          "read model 可用 60%"
+          "read model 可用 100%"
         ],
         "nextAction": "CHANJET_P3_FINANCE_CARD_AUTHORITY_WIRING"
       },
       {
         "key": "P3",
         "title": "财务卡片权威口径",
-        "score": 25,
+        "score": 63,
         "status": "READY_WITH_CONDITIONS",
         "evidence": [
-          "权威卡片 2/8",
+          "权威卡片 5/8",
           "未达权威条件时保持 ERP 主值并显式展示差异"
         ],
-        "nextAction": "CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION"
+        "nextAction": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW"
       },
       {
         "key": "P4",
         "title": "差异对账中心",
-        "score": 0,
+        "score": 70,
         "status": "READY_WITH_CONDITIONS",
         "evidence": [
-          "安全对账 0/10",
-          "不一致 3，待映射 4"
+          "安全对账 7/10",
+          "不一致 3，待映射 0"
         ],
         "nextAction": "CHANJET_P3_FIELD_SEMANTIC_LOCK"
       },
       {
         "key": "P5",
         "title": "生产同步韧性",
-        "score": 100,
-        "status": "READY",
+        "score": 66,
+        "status": "READY_WITH_CONDITIONS",
         "evidence": [
-          "最近镜像作业成功率 100%",
+          "最近镜像作业成功率 52%",
           "Token 健康 READY",
           "失败最多重试 3 次且仍失败转 HOLD/告警"
         ],
@@ -101,7 +102,8 @@
     ],
     "blockers": [],
     "conditions": [
-      "财务卡片权威覆盖 25%，未就绪卡片继续使用 ERP 主值"
+      "财务卡片权威覆盖 63%，未就绪卡片继续使用 ERP 主值",
+      "最近只读同步成功率 52%"
     ],
     "tokenHealth": {
       "configured": true,
@@ -131,57 +133,58 @@
     {
       "phase": "P0",
       "title": "全量只读镜像基线",
-      "status": "READY",
-      "score": 100,
+      "status": "READY_WITH_CONDITIONS",
+      "score": 79,
       "evidence": [
-        "24h 新鲜目标 46/46",
-        "缺失 0，过期 0"
+        "24h 新鲜目标 44/56",
+        "缺失 0，过期 12"
       ],
-      "nextAction": "KEEP_SCHEDULED_READONLY_SYNC"
+      "nextAction": "CHANJET_READONLY_SYNC_FAILURE_REPAIR"
     },
     {
       "phase": "P1",
       "title": "财务 Read Model 与卡片权威",
-      "status": "READY_WITH_CONDITIONS",
-      "score": 63,
+      "status": "READY",
+      "score": 100,
       "evidence": [
-        "权威主卡片 2/8",
+        "权威主卡片 5/8",
         "只读可用 3/8",
-        "P0 read model 阻断 3"
-      ],
-      "nextAction": "CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION"
-    },
-    {
-      "phase": "P2",
-      "title": "公司/往来/科目/项目/资金账户映射",
-      "status": "READY_WITH_CONDITIONS",
-      "score": 14,
-      "evidence": [
-        "映射域 READY 1/7",
-        "待复核域 6",
-        "冲突域 0"
+        "P0 read model 阻断 0"
       ],
       "nextAction": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW"
     },
     {
+      "phase": "P2",
+      "title": "公司/往来/科目/项目/资金账户映射",
+      "status": "READY",
+      "score": 100,
+      "evidence": [
+        "有效源行 1005",
+        "精确匹配 41",
+        "待映射 0",
+        "冲突 0"
+      ],
+      "nextAction": "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE"
+    },
+    {
       "phase": "P3",
       "title": "普通业务页面无感融合",
-      "status": "READY_WITH_CONDITIONS",
-      "score": 63,
+      "status": "READY",
+      "score": 100,
       "evidence": [
         "管理员中间层继续受 MENU_SETTINGS_CHANJET 门禁保护",
         "普通用户只消费财务业务接口中的 authority/fallback/diff 合同",
-        "已具备来源合同的卡片 5/8"
+        "已具备来源合同的卡片 8/8"
       ],
       "nextAction": "KEEP_ADMIN_MIDDLE_LAYER_HIDDEN_AND_PROMOTE_SAFE_READ_MODELS"
     },
     {
       "phase": "P4",
       "title": "增量同步、SLO、漂移与失败告警",
-      "status": "READY",
-      "score": 100,
+      "status": "READY_WITH_CONDITIONS",
+      "score": 66,
       "evidence": [
-        "最近镜像作业成功率 100%",
+        "最近镜像作业成功率 52%",
         "Token 健康 READY",
         "失败最多重试 3 次且仍失败转 HOLD/告警"
       ],
@@ -202,26 +205,26 @@
     }
   ],
   "summary": {
-    "mirrorFreshRate": 100,
-    "financeAuthorityReady": 2,
+    "mirrorFreshRate": 79,
+    "financeAuthorityReady": 5,
     "financeReadonlyReady": 3,
     "financeCards": 8,
-    "mappingReadyDomains": 1,
-    "mappingDomains": 7,
-    "reconciliationOpen": 10,
-    "recentJobSuccessRate": 100,
+    "mappingReadyDomains": 41,
+    "mappingDomains": 41,
+    "reconciliationOpen": 3,
+    "recentJobSuccessRate": 52,
     "voucherDrafts": 0,
     "voucherPushReadyCandidates": 0,
-    "fieldMappings": 2495,
+    "fieldMappings": 3341,
     "unmappedFields": 0,
     "externalWriteEnabled": false,
-    "nextGate": "CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION"
+    "nextGate": "CHANJET_READONLY_SYNC_FAILURE_REPAIR"
   },
   "blockers": [],
   "conditions": [
-    "财务卡片权威覆盖 25%，未就绪卡片继续使用 ERP 主值",
-    "差异中心仍有 10 个非 OK/WARN 项",
-    "P0 财务 read model 仍有 3 个阻断项"
+    "财务卡片权威覆盖 63%，未就绪卡片继续使用 ERP 主值",
+    "最近只读同步成功率 52%",
+    "差异中心仍有 3 个非 OK/WARN 项"
   ],
   "staleEvidencePolicy": "docs/ops/runs 中带 latest 的历史文件只作为当时审计快照；当前判断必须读取本端点 generatedAt 对应的实时数据库证据。",
   "guardrails": {

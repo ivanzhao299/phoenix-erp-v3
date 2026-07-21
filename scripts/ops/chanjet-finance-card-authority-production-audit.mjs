@@ -95,16 +95,32 @@ async function main() {
   const alignment = overview.chanjetAlignment || {};
   const authorityCards = new Map((authority.cards || []).map((item) => [item.cardKey, item]));
   const businessMetrics = alignment.metrics || {};
-  const authorityKeys = ['arOpen', 'apOpen'];
-  const blockedKeys = ['cashBalance', 'todayInflow', 'todayOutflow', 'subjectBalance', 'balanceSheet', 'incomeStatement'];
+  const authorityKeys = ['arOpen', 'apOpen', 'cashBalance', 'todayInflow', 'todayOutflow'];
+  const readonlyKeys = ['subjectBalance', 'balanceSheet', 'incomeStatement'];
+  const expectedSources = {
+    arOpen: 'CHANJET_AR_STATISTICS_MIRROR',
+    apOpen: 'CHANJET_AP_STATISTICS_MIRROR',
+    cashBalance: 'CHANJET_GL_CASH_BALANCE_MIRROR',
+    todayInflow: 'CHANJET_AR_RECEIPT_DAILY_EFFECTIVE_MIRROR',
+    todayOutflow: 'CHANJET_AP_PAYMENT_DAILY_EFFECTIVE_MIRROR',
+  };
   const checks = [
     check('eight_card_contract', authority.cards?.length === 8, `cards=${authority.cards?.length || 0}`),
-    check('ar_ap_authority_enabled', authorityKeys.every((key) => authorityCards.get(key)?.authorityEnabled === true), authorityKeys.join(', ')),
-    check('ar_ap_business_source_chanjet', authorityKeys.every((key) => businessMetrics[key]?.authorityEligible === true && businessMetrics[key]?.source !== 'ERP_FALLBACK'), authorityKeys.map((key) => `${key}:${businessMetrics[key]?.source || 'missing'}`).join(', ')),
-    check('unapproved_cards_fail_closed', blockedKeys.every((key) => authorityCards.get(key)?.authorityEnabled === false), blockedKeys.join(', ')),
-    check('today_cards_use_erp_fallback', ['todayInflow', 'todayOutflow'].every((key) => businessMetrics[key]?.source === 'ERP_FALLBACK' && businessMetrics[key]?.readyForCardAuthority === false), ['todayInflow', 'todayOutflow'].map((key) => `${key}:${businessMetrics[key]?.source || 'missing'}`).join(', ')),
+    check('five_authority_cards_enabled', authorityKeys.every((key) => authorityCards.get(key)?.authorityEnabled === true), authorityKeys.join(', ')),
+    check('authority_business_sources_locked', authorityKeys.every((key) => (
+      businessMetrics[key]?.authorityEligible === true
+      && businessMetrics[key]?.source === expectedSources[key]
+    )), authorityKeys.map((key) => `${key}:${businessMetrics[key]?.source || 'missing'}`).join(', ')),
+    check('readonly_report_cards_fail_closed', readonlyKeys.every((key) => (
+      authorityCards.get(key)?.authorityEnabled === false
+      && authorityCards.get(key)?.status === 'READONLY_READY'
+    )), readonlyKeys.map((key) => `${key}:${authorityCards.get(key)?.status || 'missing'}`).join(', ')),
+    check('daily_cards_use_effective_business_date_contract', ['todayInflow', 'todayOutflow'].every((key) => (
+      businessMetrics[key]?.readyForCardAuthority === true
+      && businessMetrics[key]?.source === expectedSources[key]
+    )), ['todayInflow', 'todayOutflow'].map((key) => `${key}:${businessMetrics[key]?.source || 'missing'}`).join(', ')),
     check('authority_wiring_verified', authority.summary?.authorityWiringVerified === true, `authorityWiringVerified=${authority.summary?.authorityWiringVerified}`),
-    check('next_gate_advanced', authority.summary?.nextGate === 'CHANJET_P3_RECEIPT_PAYMENT_DAILY_RECONCILIATION', `nextGate=${authority.summary?.nextGate || 'missing'}`),
+    check('next_gate_advanced', authority.summary?.nextGate === 'CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW', `nextGate=${authority.summary?.nextGate || 'missing'}`),
     check('external_write_disabled', alignment.guardrail?.includes('never overwritten') || alignment.authority === 'CHANJET_AUTHORITY_READY_ONLY_FOR_FINANCIAL_CARDS', alignment.authority || 'missing'),
   ];
   const failed = checks.filter((item) => !item.passed);

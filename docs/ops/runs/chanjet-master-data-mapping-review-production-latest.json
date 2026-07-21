@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-20T07:51:17.847Z",
+  "generatedAt": "2026-07-21T01:08:39.272Z",
   "decision": "GO_WITH_CONDITIONS",
   "nextGate": "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE",
   "summary": {
@@ -7,14 +7,14 @@
     "passed": 8,
     "failed": 0,
     "exactMatches": 41,
-    "needMapping": 18,
+    "needMapping": 0,
     "conflicts": 0
   },
   "checks": [
     {
       "id": "review_payload_available",
       "passed": true,
-      "evidence": "candidates=59"
+      "evidence": "candidates=1009"
     },
     {
       "id": "invalid_failure_rows_excluded",
@@ -44,50 +44,55 @@
     {
       "id": "no_fuzzy_matching",
       "passed": true,
-      "evidence": "{\"exactOnly\":true,\"normalizedExactNameAllowed\":true,\"companyScopeRequired\":true,\"currencyMatchRequiredForCashAccount\":true,\"fuzzyAutoMatch\":false,\"crossCompanyMatch\":false,\"chanjetWrite\":false,\"erpBusinessTableWrite\":false,\"middleLayerWrite\":false}"
+      "evidence": "{\"exactOnly\":true,\"subjectReferencePolicy\":\"好业财科目作为只读账套科目基准，不伪造 ERP 科目主数据，也不进入映射批准队列。\",\"normalizedExactNameAllowed\":true,\"companyScopeRequired\":true,\"currencyMatchRequiredForCashAccount\":true,\"fuzzyAutoMatch\":false,\"crossCompanyMatch\":false,\"chanjetWrite\":false,\"erpBusinessTableWrite\":false,\"middleLayerWrite\":false}"
     },
     {
       "id": "external_and_business_writes_disabled",
       "passed": true,
-      "evidence": "{\"exactOnly\":true,\"normalizedExactNameAllowed\":true,\"companyScopeRequired\":true,\"currencyMatchRequiredForCashAccount\":true,\"fuzzyAutoMatch\":false,\"crossCompanyMatch\":false,\"chanjetWrite\":false,\"erpBusinessTableWrite\":false,\"middleLayerWrite\":false}"
+      "evidence": "{\"exactOnly\":true,\"subjectReferencePolicy\":\"好业财科目作为只读账套科目基准，不伪造 ERP 科目主数据，也不进入映射批准队列。\",\"normalizedExactNameAllowed\":true,\"companyScopeRequired\":true,\"currencyMatchRequiredForCashAccount\":true,\"fuzzyAutoMatch\":false,\"crossCompanyMatch\":false,\"chanjetWrite\":false,\"erpBusinessTableWrite\":false,\"middleLayerWrite\":false}"
     }
   ],
   "domains": [
     {
       "domain": "DEPARTMENT",
-      "sourceRows": 0,
+      "sourceRows": 31,
+      "sourceReferences": 31,
       "exactMatches": 0,
       "needMapping": 0,
       "conflicts": 0,
-      "waitingValidSource": true
+      "waitingValidSource": false
     },
     {
       "domain": "PROJECT",
       "sourceRows": 6,
+      "sourceReferences": 6,
       "exactMatches": 0,
-      "needMapping": 6,
+      "needMapping": 0,
       "conflicts": 0,
       "waitingValidSource": false
     },
     {
       "domain": "CASH_ACCOUNT",
       "sourceRows": 49,
+      "sourceReferences": 12,
       "exactMatches": 37,
-      "needMapping": 12,
+      "needMapping": 0,
       "conflicts": 0,
       "waitingValidSource": false
     },
     {
       "domain": "SUBJECT",
-      "sourceRows": 0,
+      "sourceRows": 919,
+      "sourceReferences": 919,
       "exactMatches": 0,
       "needMapping": 0,
       "conflicts": 0,
-      "waitingValidSource": true
+      "waitingValidSource": false
     },
     {
       "domain": "CURRENCY",
       "sourceRows": 4,
+      "sourceReferences": 0,
       "exactMatches": 4,
       "needMapping": 0,
       "conflicts": 0,
@@ -96,6 +101,7 @@
   ],
   "guardrails": {
     "exactOnly": true,
+    "subjectReferencePolicy": "好业财科目作为只读账套科目基准，不伪造 ERP 科目主数据，也不进入映射批准队列。",
     "normalizedExactNameAllowed": true,
     "companyScopeRequired": true,
     "currencyMatchRequiredForCashAccount": true,
