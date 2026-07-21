@@ -1519,8 +1519,8 @@ export class PackagingTerminalBffController {
     if (totalQty <= 0 || dirtyQty < 0 || crackedQty < 0 || dirtyQty + crackedQty > totalQty) {
       throw new BadRequestException('总采集数必须大于 0，且脏蛋与裂纹蛋之和不能超过总数');
     }
-    if (receivedQty !== totalQty - dirtyQty - crackedQty) {
-      throw new BadRequestException('可分级数量与总采集数、脏蛋数、裂纹蛋数不一致');
+    if (receivedQty !== totalQty) {
+      throw new BadRequestException('采集数量与总采集数不一致');
     }
     const houseSlug = houseCode.replace(/\s+/g, '').toUpperCase().slice(0, 8);
     const autoCode = `SRC-${today.replace(/-/g, '')}-${houseSlug}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
@@ -1622,7 +1622,7 @@ export class PackagingTerminalBffController {
     const newTotal   = Math.max(0, Number(body.totalQty   ?? 0));
     const newDirty   = Math.max(0, Number(body.dirtyQty   ?? 0));
     const newCracked = Math.max(0, Number(body.crackedQty ?? 0));
-    const newReceived = Math.max(0, newTotal - newDirty - newCracked);
+    const newReceived = newTotal;
     const reason = String(body.reason || '');
 
     // 取当日该鸡舍所有 RECEIVED 记录，按时间升序
@@ -1893,8 +1893,9 @@ export class PackagingTerminalBffController {
     const totalOutput = Object.values(outputs).reduce((a: number, b: number) => a + b, 0);
 
     // 服务端校验：总产出不得超过当日净可分级量（已收 − 已分级）
-    const [recvRow] = await this.em.query<{ total_received: number }[]>(
-      `SELECT COALESCE(SUM(received_qty), 0)::int AS total_received
+    const [recvRow] = await this.em.query<{ total_received: number; total_gradable: number }[]>(
+      `SELECT COALESCE(SUM(received_qty), 0)::int AS total_received,
+              COALESCE(SUM(total_qty - dirty_qty - cracked_qty), 0)::int AS total_gradable
        FROM pkg_source_batches WHERE production_date = $1`,
       [productionDate],
     );
@@ -1904,15 +1905,16 @@ export class PackagingTerminalBffController {
       [productionDate],
     );
     const totalReceived = Number(recvRow?.total_received) || 0;
+    const totalGradable = Number(recvRow?.total_gradable) || 0;
     const totalGraded   = Number(gradedRow?.total_graded)  || 0;
-    const netAvailable  = totalReceived - totalGraded;
+    const netAvailable  = totalGradable - totalGraded;
 
     if (totalReceived === 0) {
       throw new BadRequestException('今日尚未录入集蛋数据，无法提交分级');
     }
     if (totalOutput > netAvailable) {
       throw new BadRequestException(
-        `产出 ${totalOutput} 超过今日可分级余量 ${netAvailable}（已收 ${totalReceived} − 已分级 ${totalGraded}）`,
+        `产出 ${totalOutput} 超过今日可分级余量 ${netAvailable}（可分级 ${totalGradable} − 已分级 ${totalGraded}）`,
       );
     }
 

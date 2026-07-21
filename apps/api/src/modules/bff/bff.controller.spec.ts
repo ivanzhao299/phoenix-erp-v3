@@ -74,8 +74,8 @@ describe('PackagingTerminalBffController', () => {
       totalQty: 100,
       dirtyQty: 10,
       crackedQty: 5,
-      receivedQty: 90,
-    }, { user: { id: 1 } })).rejects.toThrow('可分级数量');
+      receivedQty: 85,
+    }, { user: { id: 1 } })).rejects.toThrow('采集数量');
 
     expect(em.query).not.toHaveBeenCalled();
   });
@@ -95,12 +95,33 @@ describe('PackagingTerminalBffController', () => {
       totalQty: 100,
       dirtyQty: 10,
       crackedQty: 5,
-      receivedQty: 85,
+      receivedQty: 100,
     }, { user: { id: 1 } })).resolves.toMatchObject({ code: 200 });
 
     const insertCall = em.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO pkg_source_batches'));
     expect(insertCall).toBeDefined();
     expect(String(insertCall?.[0])).toContain('total_qty, dirty_qty, cracked_qty');
-    expect(insertCall?.[1]).toEqual(expect.arrayContaining(['HOUSE-01', 100, 10, 5, 85]));
+    expect(insertCall?.[1]).toEqual(expect.arrayContaining(['HOUSE-01', 100, 10, 5, 100]));
+  });
+
+  it('keeps total collection separate from the gradable balance', async () => {
+    const em = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('AS total_gradable')) {
+          return [{ total_received: 800, total_gradable: 780 }];
+        }
+        if (sql.includes('AS total_graded')) return [{ total_graded: 0 }];
+        return [];
+      }),
+    };
+    const controller = new PackagingTerminalBffController(em as never, {} as never);
+
+    await expect(controller.submitGrading({
+      productionDate: '2026-07-21',
+      outputs: { GRADE_1: 781 },
+    })).rejects.toThrow('可分级余量 780');
+
+    const sourceCall = em.query.mock.calls.find(([sql]) => String(sql).includes('AS total_gradable'));
+    expect(String(sourceCall?.[0])).toContain('SUM(total_qty - dirty_qty - cracked_qty)');
   });
 });
