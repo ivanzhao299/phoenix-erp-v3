@@ -1,8 +1,8 @@
 {
   "last_updated": "2026-07-21",
   "active_module": "Chanjet Integration",
-  "current_stage": "CHANJET_WAVE_6_WRITEBACK_PREPARATION_READY",
-  "active_decision": "GO_WITH_CONDITIONS",
+  "current_stage": "CHANJET_WAVE_7_APPROVAL_PRECHECK_READY",
+  "active_decision": "WAITING_EXPLICIT_APPROVAL",
   "next_gate": "CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL",
   "page_entry": "/finance2/chanjet-integration",
   "menu_entry": "财务结算中心 / 好业财中间层（管理员）",
@@ -25,8 +25,8 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_WAVE_6_WRITEBACK_PREPARATION_READY",
-    "active_decision": "GO_WITH_CONDITIONS",
+    "current_stage": "CHANJET_WAVE_7_APPROVAL_PRECHECK_READY",
+    "active_decision": "WAITING_EXPLICIT_APPROVAL",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
     "modify_chanjet_allowed": false,
@@ -143,6 +143,11 @@
     "writeback_transport_status": "not_implemented_external_write_disabled",
     "wave_6_report": "docs/ops/CHANJET_END_TO_END_EXECUTION_REPORT_20260721.md",
     "wave_7_approval_package": "docs/ops/CHANJET_EXTERNAL_MINIMAL_WRITE_APPROVAL_PACKAGE.md",
+    "wave_7_approval_precheck_api": "/api/chanjet/integration/external-write-approval/precheck",
+    "wave_7_approval_precheck_report": "docs/ops/CHANJET_WAVE7_EXTERNAL_MINIMAL_WRITE_APPROVAL_PRECHECK_REPORT_20260721.md",
+    "wave_7_approval_precheck_status": "fail_closed_ready_external_write_disabled",
+    "wave_7_approval_persisted": false,
+    "wave_7_external_network_called": false,
     "production_revision": "df404cec890e316d5f8bed96a2811960a9511c66",
     "production_deploy_run": "29795997695",
     "production_alignment_run": "CHANJET-RO-1784601556414",
@@ -1050,7 +1055,8 @@
   },
   "next_action": [
     "KEEP_SCHEDULED_READONLY_ALIGNMENT_ACTIVE",
-    "CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL",
+    "PROVIDE_ONE_EXACT_CHANJET_WAVE_7_CANARY_APPROVAL_OR_KEEP_HOLD",
+    "RUN_A2_A1_A7_PRE_EXECUTION_REVIEW_AFTER_COMPLETE_APPROVAL",
     "KEEP_CHANJET_WRITEBACK_BLOCKED"
   ]
 }

@@ -13706,5 +13706,8 @@
   "finance.chanjet.permanently_disabled": "ປິດຖາວອນ",
   "finance.chanjet.simulate_success": "ຈຳລອງສຳເລັດ",
   "finance.chanjet.simulate_retry": "ຈຳລອງລອງໃໝ່",
-  "finance.chanjet.simulate_failure": "ຈຳລອງລົ້ມເຫຼວ"
+  "finance.chanjet.simulate_failure": "ຈຳລອງລົ້ມເຫຼວ",
+  "finance.chanjet.wave7_gate_title": "ດ່ານອະນຸມັດ Wave 7 ສຳລັບການຂຽນພາຍນອກໜຶ່ງລາຍການ",
+  "finance.chanjet.wave7_gate_description": "ລະບົບກວດສອບຊຸດອະນຸມັດທີ່ຊັດເຈນກັບຫຼັກຖານໃບບັນຊີ ແລະ Outbox ເທົ່ານັ້ນ; ບໍ່ບັນທຶກການອະນຸມັດ ຫຼື ເອີ້ນ API ຂຽນຂອງ Chanjet.",
+  "finance.chanjet.wave7_external_transport_disabled": "ການສົ່ງອອກພາຍນອກຍັງປິດຢູ່"
 }

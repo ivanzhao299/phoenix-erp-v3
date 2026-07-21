@@ -5,8 +5,8 @@ Last updated: 2026-07-21
 ## Active Context
 
 - Active module: Chanjet Integration
-- Current stage: CHANJET_WAVE_6_WRITEBACK_PREPARATION_READY
-- Active decision: GO_WITH_CONDITIONS
+- Current stage: CHANJET_WAVE_7_APPROVAL_PRECHECK_READY
+- Active decision: WAITING_EXPLICIT_APPROVAL
 - Next gate: CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
@@ -19,6 +19,7 @@ Last updated: 2026-07-21
 - Acceptance matrix: `docs/ops/CHANJET_END_TO_END_ACCEPTANCE_MATRIX.md`.
 - The planning queue remains an acceptance ledger rather than a second live dispatcher.
 - Waves 0-6 remain readonly toward Chanjet. Wave 7 external minimal write is `HOLD_FOR_EXPLICIT_APPROVAL` and cannot inherit earlier approval.
+- Wave 7 now has a fail-closed machine precheck endpoint. It validates one approval package against immutable voucher and Outbox evidence, persists nothing, calls no external API and advances only to A2/A1/A7 review.
 
 - Production revision `df404cec` is healthy after full CI/CD run `29795997695`; repository, API image and Web image are aligned.
 - Protected readonly mirror refresh completed 56/56 targets with zero unresolved failures.

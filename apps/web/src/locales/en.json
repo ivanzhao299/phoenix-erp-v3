@@ -13706,5 +13706,8 @@
   "finance.chanjet.permanently_disabled": "Permanently disabled",
   "finance.chanjet.simulate_success": "Simulate success",
   "finance.chanjet.simulate_retry": "Simulate retry",
-  "finance.chanjet.simulate_failure": "Simulate failure"
+  "finance.chanjet.simulate_failure": "Simulate failure",
+  "finance.chanjet.wave7_gate_title": "Wave 7 single external-write approval gate",
+  "finance.chanjet.wave7_gate_description": "The system only checks an explicit approval package against voucher and Outbox evidence. It does not persist approval or call a Chanjet write API.",
+  "finance.chanjet.wave7_external_transport_disabled": "External transport remains disabled"
 }

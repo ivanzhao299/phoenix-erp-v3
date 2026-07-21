@@ -270,6 +270,23 @@ interface WritebackOutbox {
   createdAt: string;
 }
 
+interface WritebackPreparation {
+  decision: 'GO_WITH_CONDITIONS' | 'HOLD';
+  externalWriteEnabled: false;
+  externalNetworkTransportImplemented: false;
+  unsafeDrafts: number;
+  unsafeOutbox: number;
+  blockers: string[];
+  conditions: string[];
+  nextGate: string;
+  wave7ApprovalPrecheck: {
+    endpoint: string;
+    persistsApproval: false;
+    executesExternalWrite: false;
+    requiredSections: string[];
+  };
+}
+
 interface ReconciliationResult {
   id: string;
   reconciliationType: string;
@@ -762,6 +779,7 @@ export default function ChanjetIntegrationPage() {
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
   const [writebackOutbox, setWritebackOutbox] = useState<WritebackOutbox[]>([]);
+  const [writebackPreparation, setWritebackPreparation] = useState<WritebackPreparation | null>(null);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
   const [draftSourceType, setDraftSourceType] = useState('MANUAL');
   const [draftSourceId, setDraftSourceId] = useState('');
@@ -777,7 +795,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, outboxResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, outboxResp, writebackPreparationResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -785,6 +803,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; jobs: SyncJob[]; error?: string }>('/chanjet/integration/sync-jobs?limit=80'),
         request<{ success: boolean; drafts: VoucherDraft[]; error?: string }>('/chanjet/integration/voucher-drafts?limit=80'),
         request<{ success: boolean; outbox: WritebackOutbox[]; error?: string }>('/chanjet/integration/writeback-outbox?limit=80'),
+        request<{ success: boolean; preparation: WritebackPreparation; error?: string }>('/chanjet/integration/writeback-preparation'),
         request<{ success: boolean; results: ReconciliationResult[]; error?: string }>('/chanjet/integration/reconciliation-results?limit=120'),
         request<{ success: boolean; snapshots: ReadSnapshot[]; error?: string }>('/chanjet/integration/mirror/read-snapshots?limit=80'),
         request<{ success: boolean; entities: EntitySnapshot[]; error?: string }>('/chanjet/integration/mirror/entity-snapshots?limit=160'),
@@ -810,6 +829,7 @@ export default function ChanjetIntegrationPage() {
       setJobs(jobResp.jobs || []);
       setDrafts(draftResp.drafts || []);
       setWritebackOutbox(outboxResp.outbox || []);
+      setWritebackPreparation(writebackPreparationResp.preparation || null);
       setReconciliation(reconResp.results || []);
       setReadSnapshots(readResp.snapshots || []);
       setEntitySnapshots(entityResp.entities || []);
@@ -2308,6 +2328,36 @@ export default function ChanjetIntegrationPage() {
 
       {tab === 'drafts' && (
         <section style={cardStyle}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) auto',
+            gap: 16,
+            alignItems: 'center',
+            padding: '12px 14px',
+            marginBottom: 16,
+            borderLeft: `4px solid ${writebackPreparation?.decision === 'HOLD' ? 'var(--status-danger)' : 'var(--status-warning)'}`,
+            background: 'var(--bg-muted)',
+          }}>
+            <div>
+              <strong>{t('finance.chanjet.wave7_gate_title')}</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                {t('finance.chanjet.wave7_gate_description')}
+              </div>
+              {writebackPreparation?.blockers?.length ? (
+                <div style={{ color: 'var(--status-danger)', fontSize: 12, marginTop: 6 }}>
+                  {writebackPreparation.blockers.join('；')}
+                </div>
+              ) : null}
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <Badge tone={writebackPreparation?.decision === 'HOLD' ? 'red' : 'amber'}>
+                {writebackPreparation?.nextGate || 'CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL'}
+              </Badge>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>
+                {t('finance.chanjet.wave7_external_transport_disabled')}
+              </div>
+            </div>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div>
               <strong>创建凭证草稿</strong>

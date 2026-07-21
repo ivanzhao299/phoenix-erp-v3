@@ -1,5 +1,28 @@
 # Next Actions
 
+## 2026-07-21 - Chanjet Wave 7 approval precheck ready
+
+Current stage: `CHANJET_WAVE_7_APPROVAL_PRECHECK_READY`
+
+Decision: `WAITING_EXPLICIT_APPROVAL`
+
+Completed:
+
+1. Added a fail-closed machine precheck for one exact external canary approval.
+2. Bound approval evidence to one `PUSH_READY` voucher draft and one `READY` Outbox item.
+3. Added expiry, payload hash, idempotency, dual-control, amount, readback, compensation and stop-rule checks.
+4. Exposed the Gate state in the administrator integration page.
+5. Kept approval persistence, external network transport and Chanjet writes disabled.
+
+Next actions:
+
+1. Keep Wave 7 on HOLD unless the user approves one exact canary package.
+2. After a complete package passes precheck, run A2/A1/A7 pre-execution review.
+3. Do not implement or execute provider transport from an incomplete or inherited approval.
+4. Keep scheduled readonly alignment active.
+
+Evidence: `docs/ops/CHANJET_WAVE7_EXTERNAL_MINIMAL_WRITE_APPROVAL_PRECHECK_REPORT_20260721.md`.
+
 ## 2026-07-21 - Chanjet Wave 6 production closeout verified
 
 Current stage: `CHANJET_WAVE_6_WRITEBACK_PREPARATION_READY`

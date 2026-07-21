@@ -1744,4 +1744,146 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(result.compensationRef).toBe('STUB-REVERSAL-12-2');
     expect(result.providerReceipt).toMatchObject({ simulator: true, externalNetworkCalled: false });
   });
+
+  it('holds an incomplete Wave 7 external approval package without any provider call', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.writebackOutboxRepo = { findOneBy: jest.fn() };
+    subject.voucherDraftRepo = { findOneBy: jest.fn() };
+
+    const result = await subject.precheckExternalMinimalWriteApproval({
+      decision: 'APPROVE',
+      environmentType: 'STAGING',
+    });
+
+    expect(result.decision).toBe('HOLD');
+    expect(result.missingFields).toContain('targetOutboxId');
+    expect(result.externalWriteEnabled).toBe(false);
+    expect(result.externalNetworkCalled).toBe(false);
+    expect(subject.writebackOutboxRepo.findOneBy).not.toHaveBeenCalled();
+  });
+
+  it('holds an expired Wave 7 approval package even when the approval is explicit', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.writebackOutboxRepo = { findOneBy: jest.fn().mockResolvedValue(null) };
+    subject.voucherDraftRepo = { findOneBy: jest.fn() };
+    const expired = new Date(Date.now() - 60_000).toISOString();
+
+    const result = await subject.precheckExternalMinimalWriteApproval({
+      approvalId: 'CHANJET-W7-EXPIRED',
+      decision: 'APPROVE',
+      targetOutboxId: '404',
+      environmentName: 'staging',
+      environmentType: 'STAGING',
+      bookId: 'BOOK-1',
+      bookName: '测试账套',
+      companyCode: 'COMP-1',
+      sourceBusinessType: 'PROCUREMENT_PAYMENT',
+      sourceBusinessId: 'PAY-1',
+      documentType: 'VOUCHER',
+      payloadHash: 'a'.repeat(64),
+      debitTotal: '100.00',
+      creditTotal: '100.00',
+      currency: 'CNY',
+      period: '202607',
+      maker: 'maker',
+      reviewer: 'reviewer',
+      operator: 'operator',
+      idempotencyKey: 'idem-1',
+      readback: { method: 'GET', endpoint: '/accounting/readback', expectedIdentity: 'PAY-1', expectedStatus: 'posted', expectedAmount: '100.00' },
+      compensation: { method: 'REVERSAL_VOUCHER', owner: 'reviewer' },
+      executionWindow: { startsAt: expired, endsAt: expired, expiresAt: expired },
+      stopRules: ['timeout', 'mismatch', 'duplicate', 'missing receipt'],
+      providerContractConfirmed: true,
+      approvedBy: 'owner',
+      approvedAt: expired,
+    });
+
+    expect(result.decision).toBe('HOLD');
+    expect(result.conflicts.join(' ')).toContain('expired');
+    expect(result.externalNetworkCalled).toBe(false);
+  });
+
+  it('marks one exact Wave 7 approval package ready for A2/A1/A7 review only', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const now = Date.now();
+    const draft = {
+      id: '31',
+      sourceBizType: 'PROCUREMENT_PAYMENT',
+      sourceBizId: 'PAY-031',
+      companyCode: 'COMP-1',
+      bookId: 'BOOK-1',
+      period: '202607',
+      title: '单笔受控验证',
+      voucherLines: [
+        { subjectCode: '100201', debitAmount: 100, creditAmount: 0 },
+        { subjectCode: '220201', debitAmount: 0, creditAmount: 100 },
+      ],
+      status: 'PUSH_READY',
+      pushAllowed: false,
+      createdBy: 'maker',
+      approvedBy: 'reviewer',
+      approvedAt: new Date(now - 60_000),
+    };
+    const outbox = {
+      id: '41',
+      draftId: '31',
+      state: 'READY',
+      payloadHash: 'b'.repeat(64),
+      idempotencyKey: 'idem-41',
+      externalWriteEnabled: false,
+    };
+    subject.writebackOutboxRepo = { findOneBy: jest.fn().mockResolvedValue(outbox) };
+    subject.voucherDraftRepo = { findOneBy: jest.fn().mockResolvedValue(draft) };
+
+    const result = await subject.precheckExternalMinimalWriteApproval({
+      approvalId: 'CHANJET-W7-CANARY-001',
+      decision: 'APPROVE',
+      targetOutboxId: '41',
+      environmentName: 'chanjet-staging',
+      environmentType: 'STAGING',
+      bookId: 'BOOK-1',
+      bookName: '受控验证账套',
+      companyCode: 'COMP-1',
+      sourceBusinessType: 'PROCUREMENT_PAYMENT',
+      sourceBusinessId: 'PAY-031',
+      documentType: 'VOUCHER',
+      payloadHash: outbox.payloadHash,
+      debitTotal: '100.00',
+      creditTotal: '100.00',
+      currency: 'CNY',
+      period: '202607',
+      maker: 'maker',
+      reviewer: 'reviewer',
+      operator: 'operator',
+      idempotencyKey: outbox.idempotencyKey,
+      readback: { method: 'GET', endpoint: '/accounting/voucher/readback', expectedIdentity: 'PAY-031', expectedStatus: 'posted', expectedAmount: '100.00' },
+      compensation: { method: 'REVERSAL_VOUCHER', owner: 'reviewer' },
+      executionWindow: {
+        startsAt: new Date(now + 10 * 60_000).toISOString(),
+        endsAt: new Date(now + 40 * 60_000).toISOString(),
+        expiresAt: new Date(now + 50 * 60_000).toISOString(),
+      },
+      stopRules: ['timeout means HOLD', 'amount mismatch means HOLD', 'duplicate means HOLD', 'missing receipt means HOLD'],
+      providerContractConfirmed: true,
+      approvedBy: 'business-owner',
+      approvedAt: new Date(now - 60_000).toISOString(),
+    });
+
+    expect(result).toMatchObject({
+      decision: 'READY_FOR_A2_A1_A7_REVIEW',
+      missingFields: [],
+      conflicts: [],
+      externalWriteEnabled: false,
+      externalNetworkCalled: false,
+      nextGate: 'CHANJET_WAVE_7_A2_A1_A7_PRE_EXECUTION_REVIEW',
+    });
+    expect(result.evidence).toMatchObject({
+      outboxId: '41',
+      draftId: '31',
+      payloadHashMatched: true,
+      idempotencyKeyMatched: true,
+      debitTotal: '100.00',
+      creditTotal: '100.00',
+    });
+  });
 });

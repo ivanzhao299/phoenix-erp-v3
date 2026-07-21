@@ -1493,7 +1493,7 @@
       ],
       "parallel_group": "W7-HOLD",
       "risk": "CRITICAL",
-      "status": "HOLD_FOR_EXPLICIT_APPROVAL",
+      "status": "PRECHECK_READY_HOLD_FOR_EXPLICIT_APPROVAL",
       "objective": "Obtain explicit approval for the exact canary package; no action occurs in this task.",
       "allowed_paths": [
         "docs/ops/**"

@@ -5,7 +5,7 @@ import { Public, MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetArSyncService } from './chanjet-ar-sync.service';
-import { ChanjetIntegrationService } from './chanjet-integration.service';
+import { ChanjetExternalCanaryApprovalInput, ChanjetIntegrationService } from './chanjet-integration.service';
 import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler';
 import * as crypto from 'crypto';
 
@@ -1325,6 +1325,33 @@ export class ChanjetCallbackController {
       return { success: true, preparation };
     } catch (e) {
       return { success: false, error: (e as Error).message, externalWriteEnabled: false };
+    }
+  }
+
+  /**
+   * Validate one exact Wave 7 approval package against the immutable ERP draft
+   * and Outbox evidence. This endpoint never persists approval or calls Chanjet.
+   */
+  @Post('integration/external-write-approval/precheck')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async precheckExternalWriteApproval(@Body() body: Partial<ChanjetExternalCanaryApprovalInput>) {
+    try {
+      const precheck = await this.integration.precheckExternalMinimalWriteApproval(body || {});
+      return {
+        success: precheck.decision === 'READY_FOR_A2_A1_A7_REVIEW',
+        precheck,
+        approvalPersisted: false,
+        externalWriteEnabled: false,
+        externalNetworkCalled: false,
+      };
+    } catch (e) {
+      return {
+        success: false,
+        error: (e as Error).message,
+        approvalPersisted: false,
+        externalWriteEnabled: false,
+        externalNetworkCalled: false,
+      };
     }
   }
 

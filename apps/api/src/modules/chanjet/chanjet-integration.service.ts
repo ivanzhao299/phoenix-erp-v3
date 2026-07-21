@@ -53,6 +53,60 @@ interface VoucherDraftInput {
   rawData?: Record<string, unknown>;
 }
 
+export interface ChanjetExternalCanaryApprovalInput {
+  approvalId: string;
+  decision: 'APPROVE' | 'HOLD' | 'REJECT';
+  targetOutboxId: string;
+  environmentName: string;
+  environmentType: 'SANDBOX' | 'STAGING' | 'PRODUCTION';
+  productionImpactAcknowledged?: boolean;
+  bookId: string;
+  bookName: string;
+  companyCode: string;
+  sourceBusinessType: string;
+  sourceBusinessId: string;
+  documentType: string;
+  payloadHash: string;
+  debitTotal: string;
+  creditTotal: string;
+  currency: string;
+  period: string;
+  maker: string;
+  reviewer: string;
+  operator: string;
+  idempotencyKey: string;
+  readback: {
+    method: 'GET';
+    endpoint: string;
+    expectedIdentity: string;
+    expectedStatus: string;
+    expectedAmount: string;
+  };
+  compensation: {
+    method: string;
+    owner: string;
+  };
+  executionWindow: {
+    startsAt: string;
+    endsAt: string;
+    expiresAt: string;
+  };
+  stopRules: string[];
+  providerContractConfirmed: boolean;
+  approvedBy: string;
+  approvedAt: string;
+}
+
+export interface ChanjetExternalCanaryApprovalPrecheck {
+  decision: 'HOLD' | 'READY_FOR_A2_A1_A7_REVIEW';
+  missingFields: string[];
+  conflicts: string[];
+  evidence: Record<string, unknown>;
+  externalWriteEnabled: false;
+  externalNetworkCalled: false;
+  nextGate: string;
+}
+
 export interface VoucherDraftValidation {
   valid: boolean;
   debitTotal: string;
@@ -6803,12 +6857,182 @@ export class ChanjetIntegrationService {
         providerReceiptAudit: true,
         realProviderWrite: false,
       },
+      wave7ApprovalPrecheck: {
+        endpoint: '/api/chanjet/integration/external-write-approval/precheck',
+        persistsApproval: false,
+        executesExternalWrite: false,
+        requiredSections: [
+          'environment_and_book',
+          'document_and_payload_hash',
+          'amount_currency_period',
+          'maker_reviewer_operator',
+          'idempotency_and_readback',
+          'compensation_and_stop_rules',
+          'execution_window_and_expiry',
+        ],
+      },
       blockers,
       conditions: [
         'Wave 7 必须取得逐项、限时、可回退的外部最小写入批准。',
         '批准前仅允许 ERP 内部草稿、审核、Outbox 与 provider stub 演练。',
       ],
       nextGate: 'CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL',
+    };
+  }
+
+  async precheckExternalMinimalWriteApproval(
+    input: Partial<ChanjetExternalCanaryApprovalInput>,
+  ): Promise<ChanjetExternalCanaryApprovalPrecheck> {
+    const missingFields: string[] = [];
+    const conflicts: string[] = [];
+    const required = (field: string, value: unknown) => {
+      if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) {
+        missingFields.push(field);
+      }
+    };
+
+    required('approvalId', input.approvalId);
+    required('decision', input.decision);
+    required('targetOutboxId', input.targetOutboxId);
+    required('environmentName', input.environmentName);
+    required('environmentType', input.environmentType);
+    required('bookId', input.bookId);
+    required('bookName', input.bookName);
+    required('companyCode', input.companyCode);
+    required('sourceBusinessType', input.sourceBusinessType);
+    required('sourceBusinessId', input.sourceBusinessId);
+    required('documentType', input.documentType);
+    required('payloadHash', input.payloadHash);
+    required('debitTotal', input.debitTotal);
+    required('creditTotal', input.creditTotal);
+    required('currency', input.currency);
+    required('period', input.period);
+    required('maker', input.maker);
+    required('reviewer', input.reviewer);
+    required('operator', input.operator);
+    required('idempotencyKey', input.idempotencyKey);
+    required('readback.method', input.readback?.method);
+    required('readback.endpoint', input.readback?.endpoint);
+    required('readback.expectedIdentity', input.readback?.expectedIdentity);
+    required('readback.expectedStatus', input.readback?.expectedStatus);
+    required('readback.expectedAmount', input.readback?.expectedAmount);
+    required('compensation.method', input.compensation?.method);
+    required('compensation.owner', input.compensation?.owner);
+    required('executionWindow.startsAt', input.executionWindow?.startsAt);
+    required('executionWindow.endsAt', input.executionWindow?.endsAt);
+    required('executionWindow.expiresAt', input.executionWindow?.expiresAt);
+    required('approvedBy', input.approvedBy);
+    required('approvedAt', input.approvedAt);
+
+    if (input.decision && input.decision !== 'APPROVE') conflicts.push(`approval decision is ${input.decision}`);
+    if (input.environmentType === 'PRODUCTION' && input.productionImpactAcknowledged !== true) {
+      conflicts.push('production environment requires productionImpactAcknowledged=true');
+    }
+    if (input.maker && input.reviewer && input.maker.trim() === input.reviewer.trim()) {
+      conflicts.push('maker and reviewer must be different');
+    }
+    if (input.providerContractConfirmed !== true) {
+      conflicts.push('provider readback and compensation contract is not confirmed');
+    }
+    if (!Array.isArray(input.stopRules) || input.stopRules.length < 4) {
+      missingFields.push('stopRules(timeout/mismatch/duplicate/missing-receipt)');
+    } else {
+      const normalizedRules = input.stopRules.join(' ').toLowerCase();
+      for (const rule of ['timeout', 'mismatch', 'duplicate', 'receipt']) {
+        if (!normalizedRules.includes(rule)) conflicts.push(`stop rule missing ${rule}`);
+      }
+    }
+    if (input.readback?.method && input.readback.method !== 'GET') conflicts.push('readback must use GET');
+    if (input.readback?.endpoint) {
+      const endpoint = input.readback.endpoint.trim();
+      if (!endpoint.startsWith('/') || /^https?:\/\//i.test(endpoint)) {
+        conflicts.push('readback endpoint must be a reviewed relative API path');
+      }
+    }
+
+    const startsAt = this.parseApprovalDate(input.executionWindow?.startsAt, 'executionWindow.startsAt', conflicts);
+    const endsAt = this.parseApprovalDate(input.executionWindow?.endsAt, 'executionWindow.endsAt', conflicts);
+    const expiresAt = this.parseApprovalDate(input.executionWindow?.expiresAt, 'executionWindow.expiresAt', conflicts);
+    const approvedAt = this.parseApprovalDate(input.approvedAt, 'approvedAt', conflicts);
+    const now = Date.now();
+    if (startsAt && endsAt) {
+      if (endsAt.getTime() <= startsAt.getTime()) conflicts.push('execution window end must be after start');
+      if (endsAt.getTime() - startsAt.getTime() > 2 * 60 * 60 * 1000) conflicts.push('execution window exceeds 2 hours');
+      if (endsAt.getTime() <= now) conflicts.push('execution window has expired');
+    }
+    if (expiresAt) {
+      if (expiresAt.getTime() <= now) conflicts.push('approval has expired');
+      if (endsAt && expiresAt.getTime() < endsAt.getTime()) conflicts.push('approval expires before execution window ends');
+    }
+    if (approvedAt && approvedAt.getTime() > now + 5 * 60 * 1000) conflicts.push('approvedAt is in the future');
+
+    let outbox: ChanjetWritebackOutboxEntity | null = null;
+    let draft: ChanjetVoucherDraftEntity | null = null;
+    if (input.targetOutboxId) {
+      outbox = await this.writebackOutboxRepo.findOneBy({ id: input.targetOutboxId });
+      if (!outbox) {
+        conflicts.push(`outbox ${input.targetOutboxId} does not exist`);
+      } else {
+        if (outbox.state !== 'READY') conflicts.push(`outbox state must be READY, got ${outbox.state}`);
+        if (outbox.externalWriteEnabled) conflicts.push('outbox externalWriteEnabled must remain false before execution Gate');
+        if (input.payloadHash && outbox.payloadHash !== input.payloadHash) conflicts.push('payloadHash does not match outbox');
+        if (input.idempotencyKey && outbox.idempotencyKey !== input.idempotencyKey) conflicts.push('idempotencyKey does not match outbox');
+        draft = await this.voucherDraftRepo.findOneBy({ id: outbox.draftId });
+        if (!draft) conflicts.push(`voucher draft ${outbox.draftId} does not exist`);
+      }
+    }
+
+    let validation: VoucherDraftValidation | null = null;
+    if (draft) {
+      if (draft.status !== 'PUSH_READY') conflicts.push(`voucher draft state must be PUSH_READY, got ${draft.status}`);
+      if (!draft.approvedAt || !draft.approvedBy) conflicts.push('voucher draft approval evidence is missing');
+      if (draft.pushAllowed) conflicts.push('voucher draft pushAllowed must remain false before execution Gate');
+      if (input.bookId && input.bookId !== draft.bookId) conflicts.push('bookId does not match voucher draft');
+      if (input.companyCode && input.companyCode !== draft.companyCode) conflicts.push('companyCode does not match voucher draft');
+      if (input.sourceBusinessType && input.sourceBusinessType !== draft.sourceBizType) conflicts.push('sourceBusinessType does not match voucher draft');
+      if (input.sourceBusinessId && input.sourceBusinessId !== draft.sourceBizId) conflicts.push('sourceBusinessId does not match voucher draft');
+      if (input.period && input.period !== draft.period) conflicts.push('period does not match voucher draft');
+      if (input.maker && input.maker !== draft.createdBy) conflicts.push('maker does not match voucher draft creator');
+      if (input.reviewer && input.reviewer !== draft.approvedBy) conflicts.push('reviewer does not match voucher draft approver');
+      validation = this.validateVoucherDraftInput({
+        sourceBizType: draft.sourceBizType,
+        sourceBizId: draft.sourceBizId,
+        voucherLines: draft.voucherLines,
+      });
+      if (!validation.valid) conflicts.push(`voucher validation failed: ${validation.errors.join('; ')}`);
+      if (input.debitTotal && this.normalizeApprovalAmount(input.debitTotal) !== validation.debitTotal) conflicts.push('debitTotal does not match voucher draft');
+      if (input.creditTotal && this.normalizeApprovalAmount(input.creditTotal) !== validation.creditTotal) conflicts.push('creditTotal does not match voucher draft');
+      if (input.readback?.expectedAmount && this.normalizeApprovalAmount(input.readback.expectedAmount) !== validation.debitTotal) {
+        conflicts.push('readback expectedAmount does not match voucher draft');
+      }
+    }
+
+    const decision = missingFields.length === 0 && conflicts.length === 0
+      ? 'READY_FOR_A2_A1_A7_REVIEW'
+      : 'HOLD';
+    return {
+      decision,
+      missingFields: [...new Set(missingFields)],
+      conflicts: [...new Set(conflicts)],
+      evidence: {
+        approvalId: input.approvalId || null,
+        outboxId: outbox?.id || null,
+        draftId: draft?.id || null,
+        outboxState: outbox?.state || null,
+        draftState: draft?.status || null,
+        payloadHashMatched: Boolean(outbox && input.payloadHash && outbox.payloadHash === input.payloadHash),
+        idempotencyKeyMatched: Boolean(outbox && input.idempotencyKey && outbox.idempotencyKey === input.idempotencyKey),
+        debitTotal: validation?.debitTotal || null,
+        creditTotal: validation?.creditTotal || null,
+        executionWindowHours: startsAt && endsAt
+          ? Number(((endsAt.getTime() - startsAt.getTime()) / 3_600_000).toFixed(2))
+          : null,
+      },
+      externalWriteEnabled: false,
+      externalNetworkCalled: false,
+      nextGate: decision === 'HOLD'
+        ? 'CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL'
+        : 'CHANJET_WAVE_7_A2_A1_A7_PRE_EXECUTION_REVIEW',
     };
   }
 
@@ -6915,6 +7139,21 @@ export class ChanjetIntegrationService {
       title: input.title || '',
       voucherLines: input.voucherLines,
     })));
+  }
+
+  private parseApprovalDate(value: string | undefined, field: string, conflicts: string[]): Date | null {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      conflicts.push(`${field} is not a valid ISO timestamp`);
+      return null;
+    }
+    return parsed;
+  }
+
+  private normalizeApprovalAmount(value: string): string {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric.toFixed(2) : value.trim();
   }
 
   private stableJsonValue(value: unknown): unknown {

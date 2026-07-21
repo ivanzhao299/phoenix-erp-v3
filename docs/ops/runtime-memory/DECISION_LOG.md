@@ -1906,3 +1906,11 @@ Decision: counterparty resolution `GO`.
 - Deployment concurrency is serialized so a later Web-only run cannot cancel an in-flight full deployment.
 - Four reconciliation differences remain visible because accounting and operational records use different grain/lifecycle/scope; no fake equality or silent overwrite is allowed.
 - External Chanjet write transport is absent, external write remains disabled, and Wave 7 still requires one separate exact canary approval.
+
+# 2026-07-21 - Make Wave 7 approval precheck machine-verifiable
+
+- Decision: `WAITING_EXPLICIT_APPROVAL`.
+- Added a fail-closed approval precheck bound to one immutable voucher draft and one Outbox item.
+- Incomplete, expired, conflicting, mismatched or inherited approval returns `HOLD`.
+- A complete package advances only to `READY_FOR_A2_A1_A7_REVIEW`.
+- Approval is not persisted, external transport is not implemented, and no Chanjet write/delete/modify call was made.

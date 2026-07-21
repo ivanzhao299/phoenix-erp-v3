@@ -157,6 +157,11 @@ The approval must name:
 
 No complete approval means no canary.
 
+The machine precheck is available at
+`POST /api/chanjet/integration/external-write-approval/precheck`. It is fail-closed,
+does not persist approval, and cannot enable or execute external transport. A complete
+package advances only to `READY_FOR_A2_A1_A7_REVIEW`.
+
 ### Waves 8-9 - Pilot and production
 
 | Gate | Required evidence |

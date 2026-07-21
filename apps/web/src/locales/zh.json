@@ -13706,5 +13706,8 @@
   "finance.chanjet.permanently_disabled": "永久关闭",
   "finance.chanjet.simulate_success": "模拟成功",
   "finance.chanjet.simulate_retry": "模拟重试",
-  "finance.chanjet.simulate_failure": "模拟失败"
+  "finance.chanjet.simulate_failure": "模拟失败",
+  "finance.chanjet.wave7_gate_title": "Wave 7 单笔外部写入审批 Gate",
+  "finance.chanjet.wave7_gate_description": "系统只校验明确审批包与凭证、Outbox 证据是否一致；不会保存审批，也不会调用好业财写接口。",
+  "finance.chanjet.wave7_external_transport_disabled": "外部传输保持关闭"
 }
