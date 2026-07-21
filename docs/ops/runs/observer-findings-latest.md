@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-21T00:20:11.447Z |
-| Run files inspected | 2250 |
+| Generated at | 2026-07-21T00:56:20.927Z |
+| Run files inspected | 2252 |
 | Task count | 363 |
-| Findings count | 32 |
+| Findings count | 33 |
 | Highest severity | CRITICAL |
 | Routing findings | 8 |
-| Baseline findings | 3 |
+| Baseline findings | 4 |
 | Report schema findings | 4 |
 | Codex CLI executed | No |
 | Database written | No |
@@ -226,7 +226,7 @@
 ### OBS-0024 - MEDIUM - repeat-hold
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: Queue HOLD count is 7.
+- Evidence: Queue HOLD count is 5.
 - Suggested Fix: Cluster HOLD reasons and create one platform evolution task per repeated blocker.
 - Auto Fix Eligible: false
 - Requires Human Gate: true
@@ -235,7 +235,7 @@
 ### OBS-0025 - CRITICAL - runner-generation-drift
 
 - Affected Agent: BugIntakeLocalRunner
-- Evidence: 3 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
+- Evidence: 2 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
 - Suggested Fix: Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -279,6 +279,15 @@
 
 ### OBS-0030 - MEDIUM - baseline
 
+- Affected Agent: Codex-Orchestrator
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl
+- Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
+- Auto Fix Eligible: true
+- Requires Human Gate: false
+- Recommended Next Task: Baseline cleanup for Codex-Orchestrator.
+
+### OBS-0031 - MEDIUM - baseline
+
 - Affected Agent: A5-Data-Readiness
 - Evidence: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
@@ -286,7 +295,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Baseline cleanup for A5-Data-Readiness.
 
-### OBS-0031 - MEDIUM - baseline
+### OBS-0032 - MEDIUM - baseline
 
 - Affected Agent: A6-Staging-Deploy-Runbook
 - Evidence: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
@@ -295,7 +304,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A6-Staging-Deploy-Runbook with baseline autopilot.
 
-### OBS-0032 - MEDIUM - baseline
+### OBS-0033 - MEDIUM - baseline
 
 - Affected Agent: A7-Final-QA-Gate
 - Evidence: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.

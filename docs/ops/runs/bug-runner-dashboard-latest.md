@@ -6,4 +6,4 @@
 - Raw terminal evidence coverage: 96.6%
 - Governed evidence coverage: 100.0%
 - Legacy evidence exemptions: 5
-- Current cycle workers / blocked: 2 / 0
+- Current cycle workers / blocked: 0 / 0
