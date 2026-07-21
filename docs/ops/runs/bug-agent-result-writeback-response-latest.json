@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-20T01:01:37.450Z",
-  "updatedAt": "2026-07-20T01:07:35.493Z",
+  "updatedAt": "2026-07-21T00:54:53.079Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "每日工作台-饲料消耗登记，下方的数据与上边的菜单标题没有对齐，要求调整布局，菜单标题与下面的内容对齐",
@@ -2288,70 +2288,90 @@
         "human approval required before code repair execution"
       ],
       "route_confidence": 0.9,
-      "source_repair_task_no": ""
+      "source_repair_task_no": "BUGTASK-20260720-0003"
     },
     "createdAt": "2026-07-20T01:01:59.693Z",
     "createdBy": "admin",
     "moduleCode": "_____-______",
     "agentResults": [
       {
-        "taskId": "BUGTASK-20260720-0003-A4",
         "agent": "A4-Frontend-UAT-Smoke",
+        "taskId": "BUGTASK-20260720-0003-A4",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260720-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | SKIPPED_NOT_APPLICABLE |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260720-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260720-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 30585\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-21T00-54-45-321Z-A4-Frontend-UAT-Smoke.md\nPASS WITH CONDITIONS / 发布状态：HOLD\n\nBUG-20260720-0003 的前端修复已存在于当前分支提交 `a0edd68e`：\n\n- 修正表头 CSS 优先级，使数值列右对齐、单位及可用天居中。\n- 移动端保留横向滚动，避免列压缩错位。\n- RBAC、加载、空数据及错误状态未改变。\n- 专属测试：2 files / 9 tests，通过。\n- Web TypeScript：0 errors。\n- `git diff --check`：通过。\n- 变更范围检查：仅 `apps/web/**` 和 `docs/ops/**`。\n- 未修改本次发现的无关未跟踪 `node_modules`。\n\n报告：[BUGTASK-20260720-0003-a4-frontend-uat-smoke.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md)\n\n条件：当前没有可用浏览器实例，未完成真实桌面/移动视觉 smoke；亦未执行 CI/CD、部署、生产 smoke 或业务验收，因此不能宣称生产问题已解决。未 merge、push、deploy、写数据库或执行 m",
+        "commitHash": "",
         "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260720-0003-A4-detached-worker-recovery.md",
-        "commitHash": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
-        "changedFiles": [
-          "apps/web/src/__tests__/breeding-feed-layout.test.ts",
-          "apps/web/src/app/(admin)/breeding/feed/feed.module.css",
-          "apps/web/src/app/(admin)/breeding/feed/page.tsx",
-          "apps/web/src/lib/feed-ledger.test.ts",
-          "docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md"
-        ],
+        "nextAction": "",
+        "recordedAt": "2026-07-21T00:54:47.034Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260720-0003-A4-worker-log.md",
+        "changedFiles": [],
+        "redispatchCount": 1,
+        "validationResults": {
+          "queueStatus": "SKIPPED_NOT_APPLICABLE",
+          "evidenceGate": {
+            "role": "implementation_verified_existing",
+            "agent": "A4-Frontend-UAT-Smoke",
+            "passed": true,
+            "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
+            "checkedAt": "2026-07-21T00:54:45.410Z",
+            "beforeHead": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
+            "commitHash": "",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 586,
+            "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260720-0003-A1",
+        "agent": "A1-CI-Runtime-Gate",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260720-0003-A1-worker-log.md",
+        "commitHash": "",
+        "changedFiles": [],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
-            "agent": "A4-Frontend-UAT-Smoke",
+            "agent": "A1-CI-Runtime-Gate",
             "exitCode": 0,
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 530,
-            "beforeHead": "940dccd589f8e476df65541c97c9e5329fddd1f3",
-            "afterHead": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
-            "commitHash": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
-            "changedFiles": [
-              "apps/web/src/__tests__/breeding-feed-layout.test.ts",
-              "apps/web/src/app/(admin)/breeding/feed/feed.module.css",
-              "apps/web/src/app/(admin)/breeding/feed/page.tsx",
-              "apps/web/src/lib/feed-ledger.test.ts",
-              "docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md"
-            ],
-            "businessChangedFiles": [
-              "apps/web/src/__tests__/breeding-feed-layout.test.ts",
-              "apps/web/src/app/(admin)/breeding/feed/feed.module.css",
-              "apps/web/src/app/(admin)/breeding/feed/page.tsx",
-              "apps/web/src/lib/feed-ledger.test.ts"
-            ],
-            "reportFiles": [
-              "docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md"
-            ],
+            "conclusion": "PASS",
+            "responseChars": 2158,
+            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "commitHash": "",
+            "changedFiles": [],
+            "businessChangedFiles": [],
+            "reportFiles": [],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-20T01:07:33.946Z",
+            "checkedAt": "2026-07-21T00:54:51.512Z",
             "passed": true,
-            "role": "implementation",
-            "terminalStatus": "IMPLEMENTATION_COMPLETED",
-            "reason": "Business change, task report, commit, and conclusion are present"
+            "role": "validation",
+            "terminalStatus": "VALIDATION_COMPLETED",
+            "reason": "Validation evidence recorded; this is not implementation evidence"
           },
-          "queueStatus": "HOLD",
+          "queueStatus": "VALIDATION_COMPLETED",
           "integratedCommit": ""
         },
-        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260720-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | HOLD |\n| Worker exit | 0 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260720-0003-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260720-0003-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/events.jsonl\n M docs/ops/agent-queue/tasks.json\n M docs/ops/runs/BUGTASK-20260720-0003-A1-contract.md\n M docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md\n M docs/ops/runs/BUGTASK-20260720-0003-A4-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260720-0003-A4-worker-log.md\n M docs/ops/runs/bug-agent-result-writeback-latest.json\n M docs/ops/runs/bug-agent-result-writeback-response-latest.json\n M docs/ops/runs/bug-task-agent-queue-plan-latest.json\n M docs/ops/runs/bug-task-agent-queue-plan-latest.md\n?? docs/ops/runs/2026-07-21T00-54-45-321Z-A4-Frontend-UAT-Smoke.md\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy refe",
         "nextAction": "",
-        "redispatchCount": 0,
+        "redispatchCount": 1,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-20T01:07:35.486Z"
+        "recordedAt": "2026-07-21T00:54:53.076Z"
       }
     ],
     "suggestedOwner": "",
+    "redispatchCount": 1,
+    "timeoutRecovery": {},
     "repairGuardrails": {
       "autoRepairExecuted": false,
       "noProductionDeploy": true,
@@ -2359,64 +2379,65 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260720-0003-A4",
-      "agent": "A4-Frontend-UAT-Smoke",
+      "taskId": "BUGTASK-20260720-0003-A1",
+      "agent": "A1-CI-Runtime-Gate",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260720-0003-A4-detached-worker-recovery.md",
-      "commitHash": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
-      "changedFiles": [
-        "apps/web/src/__tests__/breeding-feed-layout.test.ts",
-        "apps/web/src/app/(admin)/breeding/feed/feed.module.css",
-        "apps/web/src/app/(admin)/breeding/feed/page.tsx",
-        "apps/web/src/lib/feed-ledger.test.ts",
-        "docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md"
-      ],
+      "resultFile": "docs/ops/runs/BUGTASK-20260720-0003-A1-worker-log.md",
+      "commitHash": "",
+      "changedFiles": [],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A4-Frontend-UAT-Smoke",
+          "agent": "A1-CI-Runtime-Gate",
           "exitCode": 0,
-          "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 530,
-          "beforeHead": "940dccd589f8e476df65541c97c9e5329fddd1f3",
-          "afterHead": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
-          "commitHash": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
-          "changedFiles": [
-            "apps/web/src/__tests__/breeding-feed-layout.test.ts",
-            "apps/web/src/app/(admin)/breeding/feed/feed.module.css",
-            "apps/web/src/app/(admin)/breeding/feed/page.tsx",
-            "apps/web/src/lib/feed-ledger.test.ts",
-            "docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md"
-          ],
-          "businessChangedFiles": [
-            "apps/web/src/__tests__/breeding-feed-layout.test.ts",
-            "apps/web/src/app/(admin)/breeding/feed/feed.module.css",
-            "apps/web/src/app/(admin)/breeding/feed/page.tsx",
-            "apps/web/src/lib/feed-ledger.test.ts"
-          ],
-          "reportFiles": [
-            "docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md"
-          ],
+          "conclusion": "PASS",
+          "responseChars": 2158,
+          "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+          "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+          "commitHash": "",
+          "changedFiles": [],
+          "businessChangedFiles": [],
+          "reportFiles": [],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-20T01:07:33.946Z",
+          "checkedAt": "2026-07-21T00:54:51.512Z",
           "passed": true,
-          "role": "implementation",
-          "terminalStatus": "IMPLEMENTATION_COMPLETED",
-          "reason": "Business change, task report, commit, and conclusion are present"
+          "role": "validation",
+          "terminalStatus": "VALIDATION_COMPLETED",
+          "reason": "Validation evidence recorded; this is not implementation evidence"
         },
-        "queueStatus": "HOLD",
+        "queueStatus": "VALIDATION_COMPLETED",
         "integratedCommit": ""
       },
-      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260720-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | HOLD |\n| Worker exit | 0 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260720-0003-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260720-0003-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/events.jsonl\n M docs/ops/agent-queue/tasks.json\n M docs/ops/runs/BUGTASK-20260720-0003-A1-contract.md\n M docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md\n M docs/ops/runs/BUGTASK-20260720-0003-A4-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260720-0003-A4-worker-log.md\n M docs/ops/runs/bug-agent-result-writeback-latest.json\n M docs/ops/runs/bug-agent-result-writeback-response-latest.json\n M docs/ops/runs/bug-task-agent-queue-plan-latest.json\n M docs/ops/runs/bug-task-agent-queue-plan-latest.md\n?? docs/ops/runs/2026-07-21T00-54-45-321Z-A4-Frontend-UAT-Smoke.md\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission atomicity gate passes\nPASS: user role assignment atomicity gate passes\nPASS: sensitive menu guard gate passes\nPASS: frontend menu gate alignment passes\nPASS: PG parameter cast consistency gate passes\nPASS: procurement DataScope write gate passes\nPASS: WMS DataScope write gate passes\nPASS: master-data legacy refe",
       "nextAction": "",
-      "redispatchCount": 0,
+      "redispatchCount": 1,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-20T01:07:35.486Z"
+      "recordedAt": "2026-07-21T00:54:53.076Z"
     },
+    "redispatchHistory": [
+      {
+        "mode": "REPLAN_AND_REQUEUE",
+        "note": "管理员要求重算 Agent 计划后重新派发。",
+        "redispatchNo": 1,
+        "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+        "previousStatus": "IN_PROGRESS",
+        "redispatchedAt": "2026-07-21T00:52:47.124Z",
+        "redispatchedBy": "admin",
+        "selectedAgents": [
+          "A2-Security-Regression-Gate",
+          "A3-Backend-Critical-Path",
+          "A4-Frontend-UAT-Smoke",
+          "A5-Data-Readiness",
+          "A1-CI-Runtime-Gate"
+        ],
+        "previousRepairTaskStatus": "HOLD"
+      }
+    ],
     "acceptanceCriteria": "每日工作台-饲料消耗登记，下方的数据与上边的菜单标题没有对齐，要求调整布局，菜单标题与下面的内容对齐",
-    "agentPlanGeneratedAt": "2026-07-20T01:01:59.694Z",
-    "agentPlanGeneratedBy": "admin",
+    "agentPlanGeneratedAt": "2026-07-21T00:52:47.124Z",
+    "agentPlanGeneratedBy": "redispatch:admin",
+    "activeRedispatchCount": 1,
     "failureClassification": {
       "category": "RBAC_403",
       "evidence": [
@@ -2437,16 +2458,171 @@
     },
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-20T01:01:59.694Z",
+      "approvedAt": "2026-07-21T00:52:47.124Z",
       "approvedBy": "admin",
+      "redispatch": true,
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "redispatchCount": 1,
       "forbiddenActions": [
+        "production deploy without separate approval",
         "database write without separate gate",
         "migration execution without separate gate",
+        "push without release approval",
         "force push"
       ]
     },
-    "failureClassificationUpdatedAt": "2026-07-20T01:01:59.694Z"
+    "failureClassificationUpdatedAt": "2026-07-21T00:52:47.124Z",
+    "previousAgentResultsBeforeRedispatch": [
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "taskId": "BUGTASK-20260720-0003-A2-Security-Regression-Gate-NA-0",
+        "summary": "A2-Security-Regression-Gate was not part of the refined executable route for this repair generation.",
+        "commitHash": "",
+        "conclusion": "NOT_APPLICABLE",
+        "nextAction": "No action is required from this advisory Agent for the current repair generation.",
+        "recordedAt": "2026-07-21T00:51:51.142Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "evidenceGate": {
+            "role": "not_applicable",
+            "passed": true,
+            "reason": "Agent was advisory in the original plan but was excluded by the refined executable route."
+          },
+          "aggregateBackfill": true
+        }
+      },
+      {
+        "agent": "A3-Backend-Critical-Path",
+        "taskId": "BUGTASK-20260720-0003-A3-Backend-Critical-Path-NA-0",
+        "summary": "A3-Backend-Critical-Path was not part of the refined executable route for this repair generation.",
+        "commitHash": "",
+        "conclusion": "NOT_APPLICABLE",
+        "nextAction": "No action is required from this advisory Agent for the current repair generation.",
+        "recordedAt": "2026-07-21T00:51:51.752Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "evidenceGate": {
+            "role": "not_applicable",
+            "passed": true,
+            "reason": "Agent was advisory in the original plan but was excluded by the refined executable route."
+          },
+          "aggregateBackfill": true
+        }
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "taskId": "BUGTASK-20260720-0003-A5-Data-Readiness-NA-0",
+        "summary": "A5-Data-Readiness was not part of the refined executable route for this repair generation.",
+        "commitHash": "",
+        "conclusion": "NOT_APPLICABLE",
+        "nextAction": "No action is required from this advisory Agent for the current repair generation.",
+        "recordedAt": "2026-07-21T00:51:52.301Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "evidenceGate": {
+            "role": "not_applicable",
+            "passed": true,
+            "reason": "Agent was advisory in the original plan but was excluded by the refined executable route."
+          },
+          "aggregateBackfill": true
+        }
+      },
+      {
+        "agent": "A4-Frontend-UAT-Smoke",
+        "taskId": "BUGTASK-20260720-0003-A4",
+        "summary": "Local bug-intake task BUGTASK-20260720-0003-A4 reached HOLD.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+        "commitHash": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
+        "conclusion": "HOLD",
+        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
+        "recordedAt": "2026-07-21T00:51:52.862Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260720-0003-A4-detached-worker-recovery.md",
+        "changedFiles": [
+          "apps/web/src/__tests__/breeding-feed-layout.test.ts",
+          "apps/web/src/app/(admin)/breeding/feed/feed.module.css",
+          "apps/web/src/app/(admin)/breeding/feed/page.tsx",
+          "apps/web/src/lib/feed-ledger.test.ts",
+          "docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md"
+        ],
+        "redispatchCount": 0,
+        "validationResults": {
+          "completedAt": "2026-07-20T01:07:34.012Z",
+          "evidenceGate": {
+            "role": "implementation",
+            "agent": "A4-Frontend-UAT-Smoke",
+            "passed": true,
+            "reason": "Business change, task report, commit, and conclusion are present",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
+            "checkedAt": "2026-07-20T01:07:33.946Z",
+            "beforeHead": "940dccd589f8e476df65541c97c9e5329fddd1f3",
+            "commitHash": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [
+              "docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md"
+            ],
+            "changedFiles": [
+              "apps/web/src/__tests__/breeding-feed-layout.test.ts",
+              "apps/web/src/app/(admin)/breeding/feed/feed.module.css",
+              "apps/web/src/app/(admin)/breeding/feed/page.tsx",
+              "apps/web/src/lib/feed-ledger.test.ts",
+              "docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md"
+            ],
+            "responseChars": 530,
+            "terminalStatus": "IMPLEMENTATION_COMPLETED",
+            "businessChangedFiles": [
+              "apps/web/src/__tests__/breeding-feed-layout.test.ts",
+              "apps/web/src/app/(admin)/breeding/feed/feed.module.css",
+              "apps/web/src/app/(admin)/breeding/feed/page.tsx",
+              "apps/web/src/lib/feed-ledger.test.ts"
+            ],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "localTaskStatus": "HOLD",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": null
+        }
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "taskId": "BUGTASK-20260720-0003-A1",
+        "summary": "Local bug-intake task BUGTASK-20260720-0003-A1 reached HOLD.",
+        "commitHash": "",
+        "conclusion": "HOLD",
+        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
+        "recordedAt": "2026-07-21T00:51:53.492Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "completedAt": "2026-07-20T01:07:35.763Z",
+          "evidenceGate": {
+            "role": "dependency",
+            "agent": "A1-CI-Runtime-Gate",
+            "passed": false,
+            "reason": "blocked by failed dependency: BUGTASK-20260720-0003-A4",
+            "version": 1,
+            "checkedAt": "2026-07-20T01:07:35.763Z",
+            "terminalStatus": "HOLD"
+          },
+          "localTaskStatus": "HOLD",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": null
+        }
+      }
+    ]
   },
   "repairResult": {
     "visibility": "HOLD",
@@ -2456,14 +2632,8 @@
     "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": "a0edd68ef4c2ac9ac1666128f84fc3b186b962a3",
-    "changedFiles": [
-      "apps/web/src/__tests__/breeding-feed-layout.test.ts",
-      "apps/web/src/app/(admin)/breeding/feed/feed.module.css",
-      "apps/web/src/app/(admin)/breeding/feed/page.tsx",
-      "apps/web/src/lib/feed-ledger.test.ts",
-      "docs/ops/BUGTASK-20260720-0003-a4-frontend-uat-smoke.md"
-    ],
+    "commitHash": null,
+    "changedFiles": [],
     "validations": [
       {
         "key": "implementation",
@@ -2491,7 +2661,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-20T01:07:35.486Z",
+    "completedAt": "2026-07-21T00:54:53.076Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"
