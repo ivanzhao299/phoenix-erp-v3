@@ -1,6 +1,6 @@
 # Chanjet P0-P5 Runtime Current State
 
-Generated: 2026-07-21T01:29:50.014Z
+Generated: 2026-07-21T02:43:19.844Z
 
 Decision: GO_WITH_CONDITIONS
 
@@ -22,7 +22,7 @@ Evidence: RUNTIME_CURRENT_STATE
 ## Conditions
 
 - 财务卡片权威覆盖 63%，未就绪卡片继续使用 ERP 主值
-- 差异中心仍有 3 个非 OK/WARN 项
+- 差异中心仍有 4 个非 OK/WARN 项
 
 ## Guardrails
 

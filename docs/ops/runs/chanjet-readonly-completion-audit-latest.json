@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-21T01:30:32.906Z",
+  "generatedAt": "2026-07-21T02:41:55.687Z",
   "apiBase": "https://erp.eggslao.com/api",
   "guardrails": {
     "requestMethods": [
@@ -10,8 +10,8 @@
   },
   "summary": {
     "decision": "GO_WITH_CONDITIONS",
-    "endpointChecks": 15,
-    "endpointPasses": 15,
+    "endpointChecks": 17,
+    "endpointPasses": 17,
     "httpFailures": [],
     "readonlyMirror": {
       "expectedTargets": 56,
@@ -35,15 +35,22 @@
       "authorityWiringVerified": true,
       "nextGate": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW"
     },
-    "reconciliationOpen": 3,
+    "reconciliationOpen": 4,
     "recentSyncJobs": 100,
-    "recentFailedJobs": 24,
+    "recentFailedJobs": 0,
     "voucherDrafts": 0,
     "unsafeVoucherDrafts": 0,
+    "writebackOutbox": 0,
+    "unsafeWritebackOutbox": 0,
+    "writebackPreparation": {
+      "decision": "GO_WITH_CONDITIONS",
+      "externalWriteEnabled": false,
+      "externalNetworkTransportImplemented": false
+    },
     "blockers": [],
     "conditions": [
       "财务卡片权威覆盖 63%，未就绪卡片继续使用 ERP 主值",
-      "差异中心仍有 3 个非 OK/WARN 项"
+      "差异中心仍有 4 个非 OK/WARN 项"
     ],
     "nextGate": "KEEP_CHANJET_WRITE_HOLD_UNTIL_SEPARATE_APPROVAL",
     "externalWriteEnabled": false
@@ -58,14 +65,14 @@
       "payload": {
         "success": true,
         "currentState": {
-          "generatedAt": "2026-07-21T01:30:02.568Z",
+          "generatedAt": "2026-07-21T02:41:26.072Z",
           "decision": "GO_WITH_CONDITIONS",
           "authoritativeEvidence": "RUNTIME_CURRENT_STATE",
           "productionReadiness": {
-            "generatedAt": "2026-07-21T01:30:00.608Z",
+            "generatedAt": "2026-07-21T02:41:24.208Z",
             "decision": "GO_WITH_CONDITIONS",
-            "score": 90,
-            "grade": "A",
+            "score": 89,
+            "grade": "B",
             "summary": {
               "mirrorFreshRate": 100,
               "accountBookMappingRate": 100,
@@ -127,11 +134,11 @@
               {
                 "key": "P4",
                 "title": "差异对账中心",
-                "score": 70,
+                "score": 60,
                 "status": "READY_WITH_CONDITIONS",
                 "evidence": [
-                  "安全对账 7/10",
-                  "不一致 3，待映射 0"
+                  "安全对账 6/10",
+                  "不一致 4，待映射 0"
                 ],
                 "nextAction": "CHANJET_P3_FIELD_SEMANTIC_LOCK"
               },
@@ -269,7 +276,7 @@
             "financeCards": 8,
             "mappingReadyDomains": 41,
             "mappingDomains": 41,
-            "reconciliationOpen": 3,
+            "reconciliationOpen": 4,
             "recentJobSuccessRate": 100,
             "voucherDrafts": 0,
             "voucherPushReadyCandidates": 0,
@@ -281,7 +288,7 @@
           "blockers": [],
           "conditions": [
             "财务卡片权威覆盖 63%，未就绪卡片继续使用 ERP 主值",
-            "差异中心仍有 3 个非 OK/WARN 项"
+            "差异中心仍有 4 个非 OK/WARN 项"
           ],
           "staleEvidencePolicy": "docs/ops/runs 中带 latest 的历史文件只作为当时审计快照；当前判断必须读取本端点 generatedAt 对应的实时数据库证据。",
           "guardrails": {
@@ -307,10 +314,10 @@
       "payload": {
         "success": true,
         "readiness": {
-          "generatedAt": "2026-07-21T01:30:11.297Z",
+          "generatedAt": "2026-07-21T02:41:33.861Z",
           "decision": "GO_WITH_CONDITIONS",
-          "score": 90,
-          "grade": "A",
+          "score": 89,
+          "grade": "B",
           "summary": {
             "mirrorFreshRate": 100,
             "accountBookMappingRate": 100,
@@ -372,11 +379,11 @@
             {
               "key": "P4",
               "title": "差异对账中心",
-              "score": 70,
+              "score": 60,
               "status": "READY_WITH_CONDITIONS",
               "evidence": [
-                "安全对账 7/10",
-                "不一致 3，待映射 0"
+                "安全对账 6/10",
+                "不一致 4，待映射 0"
               ],
               "nextAction": "CHANJET_P3_FIELD_SEMANTIC_LOCK"
             },
@@ -446,18 +453,18 @@
         "overview": {
           "accountBooks": 3,
           "enabledBooks": 3,
-          "fields": 4024,
+          "fields": 4026,
           "mappings": 1545,
           "pendingMappings": 38,
           "approvedMappings": 1434,
           "readonlySubjectReferences": 919,
-          "jobs": 3113,
+          "jobs": 3228,
           "failedJobs": 195,
           "voucherDrafts": 0,
           "pushReadyDrafts": 0,
           "openReconciliationIssues": 1079,
-          "readSnapshots": 1893,
-          "entitySnapshots": 4956,
+          "readSnapshots": 1951,
+          "entitySnapshots": 4974,
           "fieldMappings": 3341,
           "unmappedFields": 0,
           "pushEnabled": false,
@@ -475,7 +482,7 @@
       "payload": {
         "success": true,
         "baseline": {
-          "generatedAt": "2026-07-21T01:30:16.518Z",
+          "generatedAt": "2026-07-21T02:41:38.819Z",
           "decision": "GO",
           "freshnessHours": 24,
           "summary": {
@@ -489,7 +496,7 @@
             "nextGate": "KEEP_SCHEDULED_READONLY_SYNC"
           },
           "accountBookGate": {
-            "generatedAt": "2026-07-21T01:30:14.019Z",
+            "generatedAt": "2026-07-21T02:41:36.418Z",
             "decision": "GO",
             "canRunBookScopedSync": true,
             "summary": {
@@ -558,7 +565,7 @@
               "status": "FRESH",
               "rowCount": 3,
               "entityCount": 9,
-              "latestPulledAt": "2026-07-21T01:27:57.799Z",
+              "latestPulledAt": "2026-07-21T02:39:16.887Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -571,7 +578,7 @@
               "status": "FRESH",
               "rowCount": 14,
               "entityCount": 14,
-              "latestPulledAt": "2026-07-21T01:27:58.187Z",
+              "latestPulledAt": "2026-07-21T02:39:17.133Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -584,7 +591,7 @@
               "status": "FRESH",
               "rowCount": 15,
               "entityCount": 15,
-              "latestPulledAt": "2026-07-21T01:27:58.874Z",
+              "latestPulledAt": "2026-07-21T02:39:17.613Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -597,7 +604,7 @@
               "status": "FRESH",
               "rowCount": 2,
               "entityCount": 2,
-              "latestPulledAt": "2026-07-21T01:27:58.594Z",
+              "latestPulledAt": "2026-07-21T02:39:17.363Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -610,7 +617,7 @@
               "status": "FRESH",
               "rowCount": 84,
               "entityCount": 86,
-              "latestPulledAt": "2026-07-21T01:27:59.609Z",
+              "latestPulledAt": "2026-07-21T02:39:18.228Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -623,7 +630,7 @@
               "status": "FRESH",
               "rowCount": 245,
               "entityCount": 246,
-              "latestPulledAt": "2026-07-21T01:28:01.072Z",
+              "latestPulledAt": "2026-07-21T02:39:19.806Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -636,7 +643,7 @@
               "status": "FRESH",
               "rowCount": 1,
               "entityCount": 1,
-              "latestPulledAt": "2026-07-21T01:27:59.895Z",
+              "latestPulledAt": "2026-07-21T02:39:18.595Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -649,7 +656,7 @@
               "status": "FRESH",
               "rowCount": 291,
               "entityCount": 291,
-              "latestPulledAt": "2026-07-21T01:28:03.088Z",
+              "latestPulledAt": "2026-07-21T02:39:21.489Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -662,7 +669,7 @@
               "status": "FRESH",
               "rowCount": 339,
               "entityCount": 339,
-              "latestPulledAt": "2026-07-21T01:28:06.575Z",
+              "latestPulledAt": "2026-07-21T02:39:24.982Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -675,7 +682,7 @@
               "status": "FRESH",
               "rowCount": 289,
               "entityCount": 289,
-              "latestPulledAt": "2026-07-21T01:28:04.659Z",
+              "latestPulledAt": "2026-07-21T02:39:23.245Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -688,7 +695,7 @@
               "status": "FRESH",
               "rowCount": 2,
               "entityCount": 2,
-              "latestPulledAt": "2026-07-21T01:28:06.852Z",
+              "latestPulledAt": "2026-07-21T02:39:25.203Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -701,7 +708,7 @@
               "status": "FRESH",
               "rowCount": 4,
               "entityCount": 4,
-              "latestPulledAt": "2026-07-21T01:28:07.333Z",
+              "latestPulledAt": "2026-07-21T02:39:25.600Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -714,7 +721,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:07.059Z",
+              "latestPulledAt": "2026-07-21T02:39:25.371Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -727,7 +734,7 @@
               "status": "FRESH",
               "rowCount": 13,
               "entityCount": 13,
-              "latestPulledAt": "2026-07-21T01:28:07.675Z",
+              "latestPulledAt": "2026-07-21T02:39:25.802Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -740,7 +747,7 @@
               "status": "FRESH",
               "rowCount": 32,
               "entityCount": 32,
-              "latestPulledAt": "2026-07-21T01:28:08.268Z",
+              "latestPulledAt": "2026-07-21T02:39:26.213Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -753,7 +760,7 @@
               "status": "FRESH",
               "rowCount": 4,
               "entityCount": 4,
-              "latestPulledAt": "2026-07-21T01:28:07.997Z",
+              "latestPulledAt": "2026-07-21T02:39:25.980Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -766,7 +773,7 @@
               "status": "FRESH",
               "rowCount": 16,
               "entityCount": 16,
-              "latestPulledAt": "2026-07-21T01:28:08.816Z",
+              "latestPulledAt": "2026-07-21T02:39:27.113Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -779,7 +786,7 @@
               "status": "FRESH",
               "rowCount": 33,
               "entityCount": 33,
-              "latestPulledAt": "2026-07-21T01:28:09.725Z",
+              "latestPulledAt": "2026-07-21T02:39:27.717Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -792,7 +799,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:09.095Z",
+              "latestPulledAt": "2026-07-21T02:39:27.304Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -805,7 +812,7 @@
               "status": "FRESH",
               "rowCount": 23,
               "entityCount": 23,
-              "latestPulledAt": "2026-07-21T01:28:10.132Z",
+              "latestPulledAt": "2026-07-21T02:39:28.081Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -818,8 +825,8 @@
               "status": "FRESH",
               "rowCount": 51,
               "entityCount": 51,
-              "latestPulledAt": "2026-07-21T01:28:10.846Z",
-              "ageHours": 0.03,
+              "latestPulledAt": "2026-07-21T02:39:28.716Z",
+              "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -831,7 +838,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:10.373Z",
+              "latestPulledAt": "2026-07-21T02:39:28.274Z",
               "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -844,8 +851,8 @@
               "status": "FRESH",
               "rowCount": 50,
               "entityCount": 150,
-              "latestPulledAt": "2026-07-21T01:28:12.785Z",
-              "ageHours": 0.03,
+              "latestPulledAt": "2026-07-21T02:39:30.407Z",
+              "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -856,9 +863,9 @@
               "entityType": "AP_PAYMENT",
               "status": "FRESH",
               "rowCount": 50,
-              "entityCount": 173,
-              "latestPulledAt": "2026-07-21T01:28:14.606Z",
-              "ageHours": 0.03,
+              "entityCount": 179,
+              "latestPulledAt": "2026-07-21T02:39:31.887Z",
+              "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -870,8 +877,8 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:13.009Z",
-              "ageHours": 0.03,
+              "latestPulledAt": "2026-07-21T02:39:30.568Z",
+              "ageHours": 0.04,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -883,7 +890,7 @@
               "status": "FRESH",
               "rowCount": 50,
               "entityCount": 341,
-              "latestPulledAt": "2026-07-21T01:28:19.412Z",
+              "latestPulledAt": "2026-07-21T02:39:36.286Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -895,8 +902,8 @@
               "entityType": "AR_RECEIPT",
               "status": "FRESH",
               "rowCount": 50,
-              "entityCount": 630,
-              "latestPulledAt": "2026-07-21T01:28:24.001Z",
+              "entityCount": 635,
+              "latestPulledAt": "2026-07-21T02:39:40.621Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -909,7 +916,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:19.614Z",
+              "latestPulledAt": "2026-07-21T02:39:36.442Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -922,7 +929,7 @@
               "status": "FRESH",
               "rowCount": 1,
               "entityCount": 1,
-              "latestPulledAt": "2026-07-21T01:28:24.280Z",
+              "latestPulledAt": "2026-07-21T02:39:40.863Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -935,7 +942,7 @@
               "status": "FRESH",
               "rowCount": 42,
               "entityCount": 42,
-              "latestPulledAt": "2026-07-21T01:28:25.145Z",
+              "latestPulledAt": "2026-07-21T02:39:41.636Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -948,7 +955,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:24.483Z",
+              "latestPulledAt": "2026-07-21T02:39:41.024Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -961,7 +968,7 @@
               "status": "FRESH",
               "rowCount": 3,
               "entityCount": 3,
-              "latestPulledAt": "2026-07-21T01:28:25.548Z",
+              "latestPulledAt": "2026-07-21T02:39:41.989Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -974,7 +981,7 @@
               "status": "FRESH",
               "rowCount": 2,
               "entityCount": 2,
-              "latestPulledAt": "2026-07-21T01:28:26.203Z",
+              "latestPulledAt": "2026-07-21T02:39:42.461Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -987,7 +994,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:25.870Z",
+              "latestPulledAt": "2026-07-21T02:39:42.154Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1000,7 +1007,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:26.394Z",
+              "latestPulledAt": "2026-07-21T02:39:42.626Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1013,7 +1020,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:26.779Z",
+              "latestPulledAt": "2026-07-21T02:39:42.948Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1026,7 +1033,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:26.589Z",
+              "latestPulledAt": "2026-07-21T02:39:42.782Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1039,7 +1046,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:27.014Z",
+              "latestPulledAt": "2026-07-21T02:39:43.151Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1052,7 +1059,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:27.212Z",
+              "latestPulledAt": "2026-07-21T02:39:43.318Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1065,7 +1072,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:27.636Z",
+              "latestPulledAt": "2026-07-21T02:39:43.673Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1078,7 +1085,7 @@
               "status": "FRESH",
               "rowCount": 0,
               "entityCount": 0,
-              "latestPulledAt": "2026-07-21T01:28:27.409Z",
+              "latestPulledAt": "2026-07-21T02:39:43.485Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1091,7 +1098,7 @@
               "status": "FRESH",
               "rowCount": 502,
               "entityCount": 504,
-              "latestPulledAt": "2026-07-21T01:28:31.415Z",
+              "latestPulledAt": "2026-07-21T02:39:47.503Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1102,9 +1109,9 @@
               "bookId": "3533914511118750",
               "entityType": "VOUCHER",
               "status": "FRESH",
-              "rowCount": 785,
-              "entityCount": 800,
-              "latestPulledAt": "2026-07-21T01:28:37.909Z",
+              "rowCount": 786,
+              "entityCount": 801,
+              "latestPulledAt": "2026-07-21T02:39:54.165Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1117,7 +1124,7 @@
               "status": "FRESH",
               "rowCount": 228,
               "entityCount": 228,
-              "latestPulledAt": "2026-07-21T01:28:33.508Z",
+              "latestPulledAt": "2026-07-21T02:39:49.663Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1130,7 +1137,7 @@
               "status": "FRESH",
               "rowCount": 70,
               "entityCount": 70,
-              "latestPulledAt": "2026-07-21T01:28:38.699Z",
+              "latestPulledAt": "2026-07-21T02:39:54.683Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1142,8 +1149,8 @@
               "entityType": "GL_BALANCE",
               "status": "FRESH",
               "rowCount": 104,
-              "entityCount": 104,
-              "latestPulledAt": "2026-07-21T01:28:40.056Z",
+              "entityCount": 106,
+              "latestPulledAt": "2026-07-21T02:39:56.018Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1156,7 +1163,7 @@
               "status": "FRESH",
               "rowCount": 59,
               "entityCount": 63,
-              "latestPulledAt": "2026-07-21T01:28:39.363Z",
+              "latestPulledAt": "2026-07-21T02:39:55.274Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1169,7 +1176,7 @@
               "status": "FRESH",
               "rowCount": 33,
               "entityCount": 33,
-              "latestPulledAt": "2026-07-21T01:28:40.627Z",
+              "latestPulledAt": "2026-07-21T02:39:56.503Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1181,8 +1188,8 @@
               "entityType": "BALANCE_SHEET",
               "status": "FRESH",
               "rowCount": 33,
-              "entityCount": 33,
-              "latestPulledAt": "2026-07-21T01:28:41.524Z",
+              "entityCount": 37,
+              "latestPulledAt": "2026-07-21T02:39:57.261Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1195,7 +1202,7 @@
               "status": "FRESH",
               "rowCount": 33,
               "entityCount": 42,
-              "latestPulledAt": "2026-07-21T01:28:41.067Z",
+              "latestPulledAt": "2026-07-21T02:39:56.907Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1208,7 +1215,7 @@
               "status": "FRESH",
               "rowCount": 43,
               "entityCount": 43,
-              "latestPulledAt": "2026-07-21T01:28:41.867Z",
+              "latestPulledAt": "2026-07-21T02:39:57.748Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1221,7 +1228,7 @@
               "status": "FRESH",
               "rowCount": 43,
               "entityCount": 43,
-              "latestPulledAt": "2026-07-21T01:28:42.824Z",
+              "latestPulledAt": "2026-07-21T02:39:58.393Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1234,7 +1241,7 @@
               "status": "FRESH",
               "rowCount": 43,
               "entityCount": 49,
-              "latestPulledAt": "2026-07-21T01:28:42.344Z",
+              "latestPulledAt": "2026-07-21T02:39:58.074Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1247,7 +1254,7 @@
               "status": "FRESH",
               "rowCount": 38,
               "entityCount": 38,
-              "latestPulledAt": "2026-07-21T01:28:43.219Z",
+              "latestPulledAt": "2026-07-21T02:39:58.712Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1260,7 +1267,7 @@
               "status": "FRESH",
               "rowCount": 38,
               "entityCount": 38,
-              "latestPulledAt": "2026-07-21T01:28:44.192Z",
+              "latestPulledAt": "2026-07-21T02:39:59.483Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1273,7 +1280,7 @@
               "status": "FRESH",
               "rowCount": 38,
               "entityCount": 38,
-              "latestPulledAt": "2026-07-21T01:28:43.777Z",
+              "latestPulledAt": "2026-07-21T02:39:59.095Z",
               "ageHours": 0.03,
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
@@ -1300,7 +1307,7 @@
       "payload": {
         "success": true,
         "gate": {
-          "generatedAt": "2026-07-21T01:30:18.401Z",
+          "generatedAt": "2026-07-21T02:41:40.991Z",
           "decision": "GO",
           "canRunBookScopedSync": true,
           "summary": {
@@ -1372,7 +1379,7 @@
       "payload": {
         "success": true,
         "alignment": {
-          "generatedAt": "2026-07-21T01:30:19.039Z",
+          "generatedAt": "2026-07-21T02:41:41.968Z",
           "decision": "GO_WITH_CONDITIONS",
           "accountBooks": [
             {
@@ -1431,7 +1438,7 @@
                 "ready": true,
                 "entityCount": 9,
                 "endpointEntityCount": 9,
-                "latestSeenAt": "Tue Jul 21 2026 01:27:57 GMT+0000 (Coordinated Universal Time)"
+                "latestSeenAt": "Tue Jul 21 2026 02:39:16 GMT+0000 (Coordinated Universal Time)"
               },
               "mapping": {
                 "total": 3,
@@ -1479,7 +1486,7 @@
                 "ready": true,
                 "entityCount": 34,
                 "endpointEntityCount": 34,
-                "latestSeenAt": "Tue Jul 21 2026 01:27:58 GMT+0000 (Coordinated Universal Time)"
+                "latestSeenAt": "Tue Jul 21 2026 02:39:17 GMT+0000 (Coordinated Universal Time)"
               },
               "mapping": {
                 "total": 31,
@@ -1528,7 +1535,7 @@
                 "ready": true,
                 "entityCount": 333,
                 "endpointEntityCount": 333,
-                "latestSeenAt": "Tue Jul 21 2026 01:28:01 GMT+0000 (Coordinated Universal Time)"
+                "latestSeenAt": "Tue Jul 21 2026 02:39:19 GMT+0000 (Coordinated Universal Time)"
               },
               "mapping": {
                 "total": 494,
@@ -1576,9 +1583,9 @@
               "authorityRule": "会计科目以好业财为财务口径权威，ERP 只保存映射和只读引用。",
               "mirror": {
                 "ready": true,
-                "entityCount": 1162,
-                "endpointEntityCount": 1162,
-                "latestSeenAt": "Tue Jul 21 2026 01:28:40 GMT+0000 (Coordinated Universal Time)"
+                "entityCount": 1164,
+                "endpointEntityCount": 1164,
+                "latestSeenAt": "Tue Jul 21 2026 02:39:56 GMT+0000 (Coordinated Universal Time)"
               },
               "mapping": {
                 "total": 919,
@@ -1626,7 +1633,7 @@
                 "ready": true,
                 "entityCount": 6,
                 "endpointEntityCount": 6,
-                "latestSeenAt": "Tue Jul 21 2026 01:28:07 GMT+0000 (Coordinated Universal Time)"
+                "latestSeenAt": "Tue Jul 21 2026 02:39:25 GMT+0000 (Coordinated Universal Time)"
               },
               "mapping": {
                 "total": 6,
@@ -1673,7 +1680,7 @@
                 "ready": true,
                 "entityCount": 49,
                 "endpointEntityCount": 49,
-                "latestSeenAt": "Tue Jul 21 2026 01:28:08 GMT+0000 (Coordinated Universal Time)"
+                "latestSeenAt": "Tue Jul 21 2026 02:39:26 GMT+0000 (Coordinated Universal Time)"
               },
               "mapping": {
                 "total": 86,
@@ -1722,9 +1729,9 @@
               "authorityRule": "币种必须归一到 SYS_CURRENCY；金额展示不得混淆本币/原币。",
               "mirror": {
                 "ready": true,
-                "entityCount": 1343,
-                "endpointEntityCount": 1343,
-                "latestSeenAt": "Tue Jul 21 2026 01:28:23 GMT+0000 (Coordinated Universal Time)"
+                "entityCount": 1354,
+                "endpointEntityCount": 1354,
+                "latestSeenAt": "Tue Jul 21 2026 02:39:40 GMT+0000 (Coordinated Universal Time)"
               },
               "mapping": {
                 "total": 4,
@@ -1771,7 +1778,7 @@
       "ok": true,
       "error": "",
       "payload": {
-        "generatedAt": "2026-07-21T01:30:19.673Z",
+        "generatedAt": "2026-07-21T02:41:42.576Z",
         "decision": "GO_WITH_CONDITIONS",
         "summary": {
           "validSourceRows": 1005,
@@ -21363,7 +21370,7 @@
       "payload": {
         "success": true,
         "coverage": {
-          "generatedAt": "2026-07-21T01:30:23.471Z",
+          "generatedAt": "2026-07-21T02:41:45.998Z",
           "writeChanjet": false,
           "writeBusinessTables": false,
           "pushVoucher": false,
@@ -21550,11 +21557,11 @@
               "entityType": "CUSTOMER_SUPPLIER",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 79,
-              "rowCount": 13115,
+              "snapshotCount": 83,
+              "rowCount": 13773,
               "entityCount": 333,
               "amountSum": 0,
-              "latestPulledAt": "2026-07-21T01:28:00.636Z",
+              "latestPulledAt": "2026-07-21T02:39:19.447Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21565,11 +21572,11 @@
               "entityType": "SUBJECT",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 57,
-              "rowCount": 17461,
+              "snapshotCount": 63,
+              "rowCount": 19299,
               "entityCount": 919,
               "amountSum": 315789883.72999996,
-              "latestPulledAt": "2026-07-21T01:28:05.697Z",
+              "latestPulledAt": "2026-07-21T02:39:24.105Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21580,11 +21587,11 @@
               "entityType": "PROJECT",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 195,
-              "rowCount": 402,
+              "snapshotCount": 201,
+              "rowCount": 414,
               "entityCount": 6,
               "amountSum": 0,
-              "latestPulledAt": "2026-07-21T01:28:07.322Z",
+              "latestPulledAt": "2026-07-21T02:39:25.588Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21640,11 +21647,11 @@
               "entityType": "AP_PAYMENT",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 183,
-              "rowCount": 6100,
-              "entityCount": 323,
-              "amountSum": 21180359299.850002,
-              "latestPulledAt": "2026-07-21T01:28:14.543Z",
+              "snapshotCount": 189,
+              "rowCount": 6300,
+              "entityCount": 329,
+              "amountSum": 21831192368.850002,
+              "latestPulledAt": "2026-07-21T02:39:31.825Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21655,11 +21662,11 @@
               "entityType": "AR_RECEIPT",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 183,
-              "rowCount": 6100,
-              "entityCount": 971,
-              "amountSum": 13196099853.5,
-              "latestPulledAt": "2026-07-21T01:28:23.924Z",
+              "snapshotCount": 189,
+              "rowCount": 6300,
+              "entityCount": 976,
+              "amountSum": 13523469853.5,
+              "latestPulledAt": "2026-07-21T02:39:40.544Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21670,11 +21677,11 @@
               "entityType": "PURCHASE_ORDER",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 183,
-              "rowCount": 2613,
+              "snapshotCount": 189,
+              "rowCount": 2699,
               "entityCount": 43,
               "amountSum": 0,
-              "latestPulledAt": "2026-07-21T01:28:25.075Z",
+              "latestPulledAt": "2026-07-21T02:39:41.568Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21685,11 +21692,11 @@
               "entityType": "SALES_ORDER",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 15,
-              "rowCount": 25,
+              "snapshotCount": 21,
+              "rowCount": 35,
               "entityCount": 5,
               "amountSum": 0,
-              "latestPulledAt": "2026-07-21T01:28:26.197Z",
+              "latestPulledAt": "2026-07-21T02:39:42.456Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21700,11 +21707,11 @@
               "entityType": "PURCHASE_APPLY",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 18,
+              "snapshotCount": 24,
               "rowCount": 0,
               "entityCount": 0,
               "amountSum": 0,
-              "latestPulledAt": "2026-07-21T01:28:26.776Z",
+              "latestPulledAt": "2026-07-21T02:39:42.945Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21715,11 +21722,11 @@
               "entityType": "STOCK_IN",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 6,
+              "snapshotCount": 8,
               "rowCount": 0,
               "entityCount": 0,
               "amountSum": 0,
-              "latestPulledAt": "2026-07-21T01:28:27.010Z",
+              "latestPulledAt": "2026-07-21T02:39:43.149Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21730,11 +21737,11 @@
               "entityType": "SALES_STOCK_OUT",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 18,
+              "snapshotCount": 24,
               "rowCount": 0,
               "entityCount": 0,
               "amountSum": 0,
-              "latestPulledAt": "2026-07-21T01:28:27.633Z",
+              "latestPulledAt": "2026-07-21T02:39:43.670Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21745,11 +21752,11 @@
               "entityType": "VOUCHER",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 25,
-              "rowCount": 13735,
-              "entityCount": 1532,
+              "snapshotCount": 26,
+              "rowCount": 14521,
+              "entityCount": 1533,
               "amountSum": 0,
-              "latestPulledAt": "2026-07-21T01:28:36.602Z",
+              "latestPulledAt": "2026-07-21T02:16:45.295Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21760,11 +21767,11 @@
               "entityType": "GL_BALANCE",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 4,
-              "rowCount": 290,
-              "entityCount": 237,
+              "snapshotCount": 5,
+              "rowCount": 394,
+              "entityCount": 239,
               "amountSum": 191866624.31999993,
-              "latestPulledAt": "2026-07-20T08:15:36.196Z",
+              "latestPulledAt": "2026-07-21T02:16:53.650Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21775,11 +21782,11 @@
               "entityType": "BALANCE_SHEET",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 4,
-              "rowCount": 132,
-              "entityCount": 108,
+              "snapshotCount": 5,
+              "rowCount": 165,
+              "entityCount": 112,
               "amountSum": 0,
-              "latestPulledAt": "2026-07-20T08:15:37.956Z",
+              "latestPulledAt": "2026-07-21T02:16:55.753Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             },
@@ -21805,11 +21812,11 @@
               "entityType": "CASH_FLOW",
               "requiredForP0": true,
               "covered": true,
-              "snapshotCount": 4,
-              "rowCount": 152,
+              "snapshotCount": 5,
+              "rowCount": 190,
               "entityCount": 114,
               "amountSum": 0,
-              "latestPulledAt": "2026-07-20T08:15:40.992Z",
+              "latestPulledAt": "2026-07-21T02:16:58.562Z",
               "latestJobStatus": "SUCCESS",
               "latestJobError": null
             }
@@ -21974,7 +21981,7 @@
       "payload": {
         "success": true,
         "readModel": {
-          "generatedAt": "2026-07-21T01:30:24.622Z",
+          "generatedAt": "2026-07-21T02:41:47.058Z",
           "decision": "GO",
           "summary": {
             "totalMetrics": 10,
@@ -22002,7 +22009,7 @@
                 "AR_STATISTICS"
               ],
               "sampleRows": 50,
-              "latestPulledAt": "Tue Jul 21 2026 01:28:10 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:28 GMT+0000 (Coordinated Universal Time)",
               "requiredFields": [
                 "counterparty_role",
                 "subject_direction",
@@ -22031,7 +22038,7 @@
                 "AP_STATISTICS"
               ],
               "sampleRows": 49,
-              "latestPulledAt": "Tue Jul 21 2026 01:28:09 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:27 GMT+0000 (Coordinated Universal Time)",
               "requiredFields": [
                 "counterparty_role",
                 "subject_direction",
@@ -22050,15 +22057,15 @@
               "priority": "P0",
               "status": "AUTHORITY_READY",
               "authorityEligible": true,
-              "displayValue": 3017799.97,
+              "displayValue": 2926890.88,
               "erpAuxiliaryValue": 2054822187.04,
-              "diff": -2051804387.07,
+              "diff": -2051895296.1599998,
               "valueSource": "chanjet_entity_snapshots.GL_BALANCE.latest_period.1001_1002_leaf.baseEndingBalance",
               "sourceEntityTypes": [
                 "GL_BALANCE"
               ],
               "sampleRows": 29,
-              "latestPulledAt": "2026-07-21T01:28:39.957Z",
+              "latestPulledAt": "2026-07-21T02:39:55.917Z",
               "requiredFields": [
                 "book_id",
                 "period",
@@ -22098,8 +22105,8 @@
               "sourceEntityTypes": [
                 "AR_RECEIPT"
               ],
-              "sampleRows": 971,
-              "latestPulledAt": "Tue Jul 21 2026 01:28:23 GMT+0000 (Coordinated Universal Time)",
+              "sampleRows": 976,
+              "latestPulledAt": "Tue Jul 21 2026 02:39:40 GMT+0000 (Coordinated Universal Time)",
               "requiredFields": [
                 "rawData.bizDate",
                 "rawData.voucherStatusEnum",
@@ -22111,7 +22118,7 @@
                 {
                   "semanticField": "rawData.totalAmount",
                   "candidatePath": "$.arapApplicationDetailList[].currentAppliedAmount",
-                  "sampleValue": "77000"
+                  "sampleValue": "370000"
                 }
               ],
               "reason": "按 bizDate=2026-07-21 且 voucherStatusEnum=EFFECTIVE 汇总；其余状态全部排除。",
@@ -22123,15 +22130,15 @@
               "priority": "P0",
               "status": "AUTHORITY_READY",
               "authorityEligible": true,
-              "displayValue": 0,
+              "displayValue": 300000000,
               "erpAuxiliaryValue": 0,
-              "diff": 0,
+              "diff": 300000000,
               "valueSource": "chanjet_entity_snapshots.AP_PAYMENT.rawData.bizDate/voucherStatusEnum/totalAmount",
               "sourceEntityTypes": [
                 "AP_PAYMENT"
               ],
-              "sampleRows": 323,
-              "latestPulledAt": "Tue Jul 21 2026 01:28:14 GMT+0000 (Coordinated Universal Time)",
+              "sampleRows": 329,
+              "latestPulledAt": "Tue Jul 21 2026 02:39:31 GMT+0000 (Coordinated Universal Time)",
               "requiredFields": [
                 "rawData.bizDate",
                 "rawData.voucherStatusEnum",
@@ -22163,7 +22170,7 @@
                 "GL_BALANCE"
               ],
               "sampleRows": 50,
-              "latestPulledAt": "Tue Jul 21 2026 01:28:40 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:56 GMT+0000 (Coordinated Universal Time)",
               "requiredFields": [
                 "subject_code",
                 "subject_name",
@@ -22183,12 +22190,12 @@
                 {
                   "semanticField": "debit_amount",
                   "candidatePath": "$.currentPeriodDrBalance",
-                  "sampleValue": "1583671.9"
+                  "sampleValue": "1674580.99"
                 },
                 {
                   "semanticField": "credit_amount",
                   "candidatePath": "$.currentPeriodCrBalance",
-                  "sampleValue": "1583671.9"
+                  "sampleValue": "1674580.99"
                 },
                 {
                   "semanticField": "closing_balance",
@@ -22213,7 +22220,7 @@
                 "BALANCE_SHEET"
               ],
               "sampleRows": 50,
-              "latestPulledAt": "Tue Jul 21 2026 01:28:41 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:57 GMT+0000 (Coordinated Universal Time)",
               "requiredFields": [
                 "line_no",
                 "item_name",
@@ -22250,7 +22257,7 @@
                 "INCOME_STATEMENT"
               ],
               "sampleRows": 50,
-              "latestPulledAt": "Tue Jul 21 2026 01:28:42 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:58 GMT+0000 (Coordinated Universal Time)",
               "requiredFields": [
                 "line_no",
                 "item_name",
@@ -22287,7 +22294,7 @@
                 "CASH_FLOW"
               ],
               "sampleRows": 50,
-              "latestPulledAt": "Tue Jul 21 2026 01:28:44 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:59 GMT+0000 (Coordinated Universal Time)",
               "requiredFields": [
                 "line_no",
                 "item_name",
@@ -22300,12 +22307,12 @@
                 {
                   "semanticField": "current_period_amount",
                   "candidatePath": "$.thisYearAmount",
-                  "sampleValue": "3010971.33"
+                  "sampleValue": "2920062.24"
                 },
                 {
                   "semanticField": "year_to_date_amount",
                   "candidatePath": "$.thisYearAmount",
-                  "sampleValue": "3010971.33"
+                  "sampleValue": "2920062.24"
                 }
               ],
               "reason": "字段样本已就绪，但该指标尚非权威口径；只能只读展示，不得覆盖 ERP 业务事实。",
@@ -22325,7 +22332,7 @@
                 "VOUCHER"
               ],
               "sampleRows": 220,
-              "latestPulledAt": "2026-07-21T01:28:37.907Z",
+              "latestPulledAt": "2026-07-21T02:39:54.162Z",
               "requiredFields": [
                 "voucher_id",
                 "voucher_no",
@@ -22386,7 +22393,7 @@
       "payload": {
         "success": true,
         "financeCardAuthority": {
-          "generatedAt": "2026-07-21T01:30:26.139Z",
+          "generatedAt": "2026-07-21T02:41:48.444Z",
           "decision": "GO_WITH_CONDITIONS",
           "summary": {
             "totalCards": 8,
@@ -22410,7 +22417,7 @@
               "sourceEntityTypes": [
                 "AR_STATISTICS"
               ],
-              "latestPulledAt": "Tue Jul 21 2026 01:28:10 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:28 GMT+0000 (Coordinated Universal Time)",
               "businessDate": null,
               "receiptPaymentLockStatus": null,
               "readyForCardAuthority": null,
@@ -22429,7 +22436,7 @@
               "sourceEntityTypes": [
                 "AP_STATISTICS"
               ],
-              "latestPulledAt": "Tue Jul 21 2026 01:28:09 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:27 GMT+0000 (Coordinated Universal Time)",
               "businessDate": null,
               "receiptPaymentLockStatus": null,
               "readyForCardAuthority": null,
@@ -22442,13 +22449,13 @@
               "readModelKey": "CASH_BALANCE",
               "status": "AUTHORITY_READY",
               "authorityEnabled": true,
-              "displayValue": 3017799.97,
+              "displayValue": 2926890.88,
               "erpAuxiliaryValue": 2054822187.04,
-              "diff": -2051804387.07,
+              "diff": -2051895296.1599998,
               "sourceEntityTypes": [
                 "GL_BALANCE"
               ],
-              "latestPulledAt": "2026-07-21T01:28:39.957Z",
+              "latestPulledAt": "2026-07-21T02:39:55.917Z",
               "businessDate": null,
               "receiptPaymentLockStatus": null,
               "readyForCardAuthority": null,
@@ -22467,7 +22474,7 @@
               "sourceEntityTypes": [
                 "AR_RECEIPT"
               ],
-              "latestPulledAt": "Tue Jul 21 2026 01:28:23 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:40 GMT+0000 (Coordinated Universal Time)",
               "businessDate": "2026-07-21",
               "receiptPaymentLockStatus": "LOCKED",
               "readyForCardAuthority": true,
@@ -22480,13 +22487,13 @@
               "readModelKey": "TODAY_PAYMENT",
               "status": "AUTHORITY_READY",
               "authorityEnabled": true,
-              "displayValue": 0,
+              "displayValue": 300000000,
               "erpAuxiliaryValue": 0,
-              "diff": 0,
+              "diff": 300000000,
               "sourceEntityTypes": [
                 "AP_PAYMENT"
               ],
-              "latestPulledAt": "Tue Jul 21 2026 01:28:14 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:31 GMT+0000 (Coordinated Universal Time)",
               "businessDate": "2026-07-21",
               "receiptPaymentLockStatus": "LOCKED",
               "readyForCardAuthority": true,
@@ -22505,7 +22512,7 @@
               "sourceEntityTypes": [
                 "GL_BALANCE"
               ],
-              "latestPulledAt": "Tue Jul 21 2026 01:28:40 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:56 GMT+0000 (Coordinated Universal Time)",
               "businessDate": null,
               "receiptPaymentLockStatus": null,
               "readyForCardAuthority": null,
@@ -22524,7 +22531,7 @@
               "sourceEntityTypes": [
                 "BALANCE_SHEET"
               ],
-              "latestPulledAt": "Tue Jul 21 2026 01:28:41 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:57 GMT+0000 (Coordinated Universal Time)",
               "businessDate": null,
               "receiptPaymentLockStatus": null,
               "readyForCardAuthority": null,
@@ -22543,7 +22550,7 @@
               "sourceEntityTypes": [
                 "INCOME_STATEMENT"
               ],
-              "latestPulledAt": "Tue Jul 21 2026 01:28:42 GMT+0000 (Coordinated Universal Time)",
+              "latestPulledAt": "Tue Jul 21 2026 02:39:58 GMT+0000 (Coordinated Universal Time)",
               "businessDate": null,
               "receiptPaymentLockStatus": null,
               "readyForCardAuthority": null,
@@ -22574,17 +22581,17 @@
       "payload": {
         "success": true,
         "reconciliation": {
-          "generatedAt": "2026-07-21T01:30:26.908Z",
+          "generatedAt": "2026-07-21T02:41:49.498Z",
           "decision": "GO_WITH_CONDITIONS",
           "summary": {
             "totalItems": 10,
-            "ok": 2,
+            "ok": 1,
             "warn": 5,
-            "mismatch": 3,
+            "mismatch": 4,
             "needMapping": 0,
             "needManualReview": 0,
             "hold": 0,
-            "p0Open": 3,
+            "p0Open": 4,
             "semanticLocked": 8,
             "semanticPartial": 2,
             "semanticPending": 0,
@@ -22612,7 +22619,7 @@
               "status": "MISMATCH",
               "evidence": {
                 "chanjetRows": 74,
-                "latestPulledAt": "2026-07-21T01:28:10.844Z",
+                "latestPulledAt": "2026-07-21T02:39:28.714Z",
                 "erpRows": 8
               },
               "reason": "好业财应收统计是客户/往来单位级汇总，ERP 应收发票是业务单据明细；差异必须展示，不得写入 fin_ar_invoices。",
@@ -22682,7 +22689,7 @@
               "status": "MISMATCH",
               "evidence": {
                 "chanjetRows": 49,
-                "latestPulledAt": "2026-07-21T01:28:09.723Z",
+                "latestPulledAt": "2026-07-21T02:39:27.715Z",
                 "erpRows": 8
               },
               "reason": "好业财应付统计是供应商/往来单位级汇总，ERP 应付发票是业务单据明细；差异进入对账中心。",
@@ -22745,14 +22752,14 @@
               "erpSources": [
                 "fin_cash_accounts.current_balance"
               ],
-              "chanjetValue": 3017799.97,
+              "chanjetValue": 2926890.88,
               "erpValue": 2054822187.04,
-              "diff": -2051804387.07,
-              "diffRate": 0.9985313571222689,
+              "diff": -2051895296.1599998,
+              "diffRate": 0.9985755989503811,
               "status": "MISMATCH",
               "evidence": {
                 "chanjetRows": 29,
-                "latestPulledAt": "2026-07-21T01:28:39.957Z",
+                "latestPulledAt": "2026-07-21T02:39:55.917Z",
                 "erpRows": 42
               },
               "reason": "好业财 GL_BALANCE 最新期间 1001/1002 叶子科目的 baseEndingBalance 为现金/银行本位币期末余额；ERP 现金账户余额仅作辅助差异。",
@@ -22816,7 +22823,7 @@
               "status": "OK",
               "evidence": {
                 "chanjetRows": 0,
-                "latestPulledAt": "Tue Jul 21 2026 01:28:23 GMT+0000 (Coordinated Universal Time)",
+                "latestPulledAt": "Tue Jul 21 2026 02:39:40 GMT+0000 (Coordinated Universal Time)",
                 "erpRows": 0
               },
               "reason": "按 bizDate=2026-07-21 且 voucherStatusEnum=EFFECTIVE 汇总；其余状态全部排除。",
@@ -22871,18 +22878,18 @@
               "erpSources": [
                 "fin_cash_transactions.direction=OUT, created_at=current_date"
               ],
-              "chanjetValue": 0,
+              "chanjetValue": 300000000,
               "erpValue": 0,
-              "diff": 0,
-              "diffRate": 0,
-              "status": "OK",
+              "diff": 300000000,
+              "diffRate": 1,
+              "status": "MISMATCH",
               "evidence": {
-                "chanjetRows": 0,
-                "latestPulledAt": "Tue Jul 21 2026 01:28:14 GMT+0000 (Coordinated Universal Time)",
+                "chanjetRows": 1,
+                "latestPulledAt": "Tue Jul 21 2026 02:39:31 GMT+0000 (Coordinated Universal Time)",
                 "erpRows": 0
               },
               "reason": "按 bizDate=2026-07-21 且 voucherStatusEnum=EFFECTIVE 汇总；其余状态全部排除。",
-              "recommendedAction": "保持现有好业财权威口径，并纳入每日对账。",
+              "recommendedAction": "进入差异对账中心，按公司、往来单位、科目、期间拆解差异。",
               "diagnosis": {
                 "classification": "ERP_OPERATIONAL_POSTING_GAP",
                 "directlyComparable": true,
@@ -22940,7 +22947,7 @@
               "status": "WARN",
               "evidence": {
                 "chanjetRows": 50,
-                "latestPulledAt": "Tue Jul 21 2026 01:28:40 GMT+0000 (Coordinated Universal Time)",
+                "latestPulledAt": "Tue Jul 21 2026 02:39:56 GMT+0000 (Coordinated Universal Time)",
                 "erpRows": 0
               },
               "reason": "科目余额行级只读模型已就绪；ERP 没有同粒度总账表，因此不构造单值或伪差异。",
@@ -23003,7 +23010,7 @@
               "status": "WARN",
               "evidence": {
                 "chanjetRows": 50,
-                "latestPulledAt": "Tue Jul 21 2026 01:28:41 GMT+0000 (Coordinated Universal Time)",
+                "latestPulledAt": "Tue Jul 21 2026 02:39:57 GMT+0000 (Coordinated Universal Time)",
                 "erpRows": 0
               },
               "reason": "资产负债表行级只读模型已就绪；ERP 没有同粒度法定报表，因此不构造单值或伪差异。",
@@ -23063,7 +23070,7 @@
               "status": "WARN",
               "evidence": {
                 "chanjetRows": 50,
-                "latestPulledAt": "Tue Jul 21 2026 01:28:42 GMT+0000 (Coordinated Universal Time)",
+                "latestPulledAt": "Tue Jul 21 2026 02:39:58 GMT+0000 (Coordinated Universal Time)",
                 "erpRows": 0
               },
               "reason": "利润表行级只读模型已就绪；ERP 经营明细仅作解释，不与法定报表行强行一一对应。",
@@ -23123,7 +23130,7 @@
               "status": "WARN",
               "evidence": {
                 "chanjetRows": 50,
-                "latestPulledAt": "Tue Jul 21 2026 01:28:44 GMT+0000 (Coordinated Universal Time)",
+                "latestPulledAt": "Tue Jul 21 2026 02:39:59 GMT+0000 (Coordinated Universal Time)",
                 "erpRows": 0
               },
               "reason": "现金流量表行级只读模型已就绪；ERP 现金流水仅作辅助解释，不构造单值或伪差异。",
@@ -23184,7 +23191,7 @@
               "status": "WARN",
               "evidence": {
                 "chanjetRows": 220,
-                "latestPulledAt": "2026-07-21T01:28:37.907Z",
+                "latestPulledAt": "2026-07-21T02:39:54.162Z",
                 "erpRows": 0
               },
               "reason": "凭证头和明细专用适配器已支持只读重现；ERP→好业财写入继续关闭，不把只读就绪误报为写回就绪。",
@@ -23262,15 +23269,18 @@
       "payload": {
         "success": true,
         "fieldGapReviewGate": {
-          "generatedAt": "2026-07-21T01:30:29.372Z",
-          "decision": "GO_WITH_CONDITIONS",
+          "generatedAt": "2026-07-21T02:41:51.039Z",
+          "decision": "GO",
           "summary": {
             "totalFields": 3341,
-            "openFields": 3125,
-            "highOrCriticalOpenFields": 2884,
+            "reviewFields": 3125,
+            "highOrCriticalReviewFields": 2884,
+            "adapterCoveredReviewFields": 1958,
+            "openFields": 0,
+            "highOrCriticalOpenFields": 0,
             "buckets": 9,
             "p0Buckets": 8,
-            "p0OpenBuckets": 5,
+            "p0OpenBuckets": 0,
             "readyReadonlyBuckets": 8,
             "nextGate": "CHANJET_READONLY_FIELD_ADAPTER_IMPLEMENTATION"
           },
@@ -23288,20 +23298,20 @@
               ],
               "erpTarget": "chanjet_voucher_drafts.header_snapshot",
               "adapterScope": "凭证号、期间、制单人、审核状态、摘要等只读重现。",
-              "status": "GO_WITH_CONDITIONS",
+              "status": "READY",
               "canImplementReadonly": true,
               "canPromoteToFinanceCard": false,
-              "openFieldCount": 227,
-              "highOrCriticalOpenFieldCount": 227,
+              "reviewFieldCount": 227,
+              "adapterCoveredFieldCount": 227,
+              "openFieldCount": 0,
+              "highOrCriticalOpenFieldCount": 0,
               "riskCounts": {
                 "HIGH": 227
               },
               "matchStatusCounts": {
                 "PENDING": 227
               },
-              "blockingReasons": [
-                "high_or_critical_open_fields:227"
-              ],
+              "blockingReasons": [],
               "implementationContract": {
                 "allowedPaths": [
                   "apps/api/src/modules/chanjet/**",
@@ -23507,8 +23517,10 @@
               "status": "GO_WITH_CONDITIONS",
               "canImplementReadonly": true,
               "canPromoteToFinanceCard": false,
-              "openFieldCount": 233,
-              "highOrCriticalOpenFieldCount": 233,
+              "reviewFieldCount": 233,
+              "adapterCoveredFieldCount": 233,
+              "openFieldCount": 0,
+              "highOrCriticalOpenFieldCount": 0,
               "riskCounts": {
                 "HIGH": 233
               },
@@ -23516,7 +23528,6 @@
                 "PENDING": 233
               },
               "blockingReasons": [
-                "high_or_critical_open_fields:233",
                 "voucher_writeback_remains_disabled"
               ],
               "implementationContract": {
@@ -23724,8 +23735,10 @@
               "status": "GO_WITH_CONDITIONS",
               "canImplementReadonly": false,
               "canPromoteToFinanceCard": false,
-              "openFieldCount": 334,
-              "highOrCriticalOpenFieldCount": 316,
+              "reviewFieldCount": 334,
+              "adapterCoveredFieldCount": 334,
+              "openFieldCount": 0,
+              "highOrCriticalOpenFieldCount": 0,
               "riskCounts": {
                 "MEDIUM": 12,
                 "LOW": 6,
@@ -23735,7 +23748,6 @@
                 "PENDING": 334
               },
               "blockingReasons": [
-                "high_or_critical_open_fields:316",
                 "master_mapping_review_not_90_percent_approved"
               ],
               "implementationContract": {
@@ -23942,20 +23954,20 @@
               ],
               "erpTarget": "chanjet_entity_snapshots + fin_ar_ledger review input",
               "adapterScope": "好业财客户/供应商级汇总，只能进入汇总/对账，不得写入 fin_ar_invoices。",
-              "status": "GO_WITH_CONDITIONS",
+              "status": "READY",
               "canImplementReadonly": true,
               "canPromoteToFinanceCard": true,
-              "openFieldCount": 588,
-              "highOrCriticalOpenFieldCount": 588,
+              "reviewFieldCount": 588,
+              "adapterCoveredFieldCount": 588,
+              "openFieldCount": 0,
+              "highOrCriticalOpenFieldCount": 0,
               "riskCounts": {
                 "HIGH": 588
               },
               "matchStatusCounts": {
                 "PENDING": 588
               },
-              "blockingReasons": [
-                "high_or_critical_open_fields:588"
-              ],
+              "blockingReasons": [],
               "implementationContract": {
                 "allowedPaths": [
                   "apps/api/src/modules/chanjet/**",
@@ -24160,11 +24172,13 @@
               ],
               "erpTarget": "finance-v2 payment readonly adapter",
               "adapterScope": "收付款单只读重现和 ERP 单据匹配候选。",
-              "status": "GO_WITH_CONDITIONS",
+              "status": "READY",
               "canImplementReadonly": true,
               "canPromoteToFinanceCard": true,
-              "openFieldCount": 309,
-              "highOrCriticalOpenFieldCount": 273,
+              "reviewFieldCount": 309,
+              "adapterCoveredFieldCount": 309,
+              "openFieldCount": 0,
+              "highOrCriticalOpenFieldCount": 0,
               "riskCounts": {
                 "MEDIUM": 36,
                 "HIGH": 273
@@ -24172,9 +24186,7 @@
               "matchStatusCounts": {
                 "PENDING": 309
               },
-              "blockingReasons": [
-                "high_or_critical_open_fields:273"
-              ],
+              "blockingReasons": [],
               "implementationContract": {
                 "allowedPaths": [
                   "apps/api/src/modules/chanjet/**",
@@ -24380,6 +24392,8 @@
               "status": "READY",
               "canImplementReadonly": true,
               "canPromoteToFinanceCard": false,
+              "reviewFieldCount": 0,
+              "adapterCoveredFieldCount": 0,
               "openFieldCount": 0,
               "highOrCriticalOpenFieldCount": 0,
               "riskCounts": {},
@@ -24431,6 +24445,8 @@
               "status": "READY",
               "canImplementReadonly": true,
               "canPromoteToFinanceCard": true,
+              "reviewFieldCount": 0,
+              "adapterCoveredFieldCount": 0,
               "openFieldCount": 0,
               "highOrCriticalOpenFieldCount": 0,
               "riskCounts": {},
@@ -24486,6 +24502,8 @@
               "status": "READY",
               "canImplementReadonly": true,
               "canPromoteToFinanceCard": false,
+              "reviewFieldCount": 0,
+              "adapterCoveredFieldCount": 0,
               "openFieldCount": 0,
               "highOrCriticalOpenFieldCount": 0,
               "riskCounts": {},
@@ -24534,11 +24552,13 @@
               ],
               "erpTarget": "procurement-v2 readonly reconciliation input",
               "adapterScope": "采购订单只读重现和 ERP 采购单据差异分析。",
-              "status": "GO_WITH_CONDITIONS",
+              "status": "READY",
               "canImplementReadonly": true,
               "canPromoteToFinanceCard": false,
-              "openFieldCount": 267,
-              "highOrCriticalOpenFieldCount": 255,
+              "reviewFieldCount": 267,
+              "adapterCoveredFieldCount": 267,
+              "openFieldCount": 0,
+              "highOrCriticalOpenFieldCount": 0,
               "riskCounts": {
                 "MEDIUM": 12,
                 "HIGH": 255
@@ -24546,9 +24566,7 @@
               "matchStatusCounts": {
                 "PENDING": 267
               },
-              "blockingReasons": [
-                "high_or_critical_open_fields:255"
-              ],
+              "blockingReasons": [],
               "implementationContract": {
                 "allowedPaths": [
                   "apps/api/src/modules/chanjet/**",
@@ -24740,22 +24758,8 @@
           ],
           "recommendedExecutionOrder": [
             {
-              "gateId": "FIELD-GAP-CHANJET_AP_AR_AGGREGATE",
-              "title": "应收/应付汇总",
-              "recommendedAgent": "A3-Backend-Critical-Path + A2-Security-Regression-Gate",
-              "action": "implement_readonly_adapter_and_review_ui",
-              "approvalRequired": true
-            },
-            {
-              "gateId": "FIELD-GAP-CHANJET_COUNTERPARTY",
-              "title": "往来单位",
-              "recommendedAgent": "A5-Data-Readiness + A2-Security-Regression-Gate",
-              "action": "complete_mapping_review_before_code",
-              "approvalRequired": true
-            },
-            {
-              "gateId": "FIELD-GAP-CHANJET_PAYMENT_DOCUMENT",
-              "title": "收付款单",
+              "gateId": "FIELD-GAP-CHANJET_VOUCHER_HEADER",
+              "title": "凭证头",
               "recommendedAgent": "A3-Backend-Critical-Path + A2-Security-Regression-Gate",
               "action": "implement_readonly_adapter_and_review_ui",
               "approvalRequired": true
@@ -24768,8 +24772,22 @@
               "approvalRequired": true
             },
             {
-              "gateId": "FIELD-GAP-CHANJET_VOUCHER_HEADER",
-              "title": "凭证头",
+              "gateId": "FIELD-GAP-CHANJET_COUNTERPARTY",
+              "title": "往来单位",
+              "recommendedAgent": "A5-Data-Readiness + A2-Security-Regression-Gate",
+              "action": "complete_mapping_review_before_code",
+              "approvalRequired": true
+            },
+            {
+              "gateId": "FIELD-GAP-CHANJET_AP_AR_AGGREGATE",
+              "title": "应收/应付汇总",
+              "recommendedAgent": "A3-Backend-Critical-Path + A2-Security-Regression-Gate",
+              "action": "implement_readonly_adapter_and_review_ui",
+              "approvalRequired": true
+            },
+            {
+              "gateId": "FIELD-GAP-CHANJET_PAYMENT_DOCUMENT",
+              "title": "收付款单",
               "recommendedAgent": "A3-Backend-Critical-Path + A2-Security-Regression-Gate",
               "action": "implement_readonly_adapter_and_review_ui",
               "approvalRequired": true
@@ -24826,7 +24844,7 @@
       "payload": {
         "success": true,
         "readonlyFieldAdapters": {
-          "generatedAt": "2026-07-21T01:30:31.213Z",
+          "generatedAt": "2026-07-21T02:41:51.608Z",
           "decision": "GO",
           "summary": {
             "totalAdapters": 3,
@@ -24846,7 +24864,7 @@
               "title": "凭证头只读适配器",
               "status": "READY",
               "sampleRows": 60,
-              "latestPulledAt": "2026-07-21T01:28:37.907Z",
+              "latestPulledAt": "2026-07-21T02:39:54.162Z",
               "mappedFields": [
                 "voucherId",
                 "voucherNo",
@@ -24867,6 +24885,33 @@
                 "VOUCHER_SEARCH"
               ],
               "rows": [
+                {
+                  "rowId": "164129",
+                  "voucherId": "3630149967554330",
+                  "voucherNo": "011",
+                  "bookId": "3533914511118750",
+                  "period": "202607",
+                  "voucherDate": "2026-07-21",
+                  "postingDate": "—",
+                  "status": "EDITABLE",
+                  "summary": "3630149967554330",
+                  "maker": "—",
+                  "reviewer": "—",
+                  "rawEvidenceExcerpt": {
+                    "id": "3630149967554330...[masked]",
+                    "boName": "AcctgTrans",
+                    "period": "202607",
+                    "details": "[array:2]",
+                    "comments": "",
+                    "refBoName": "AcctgpltTransTaskLog",
+                    "voucherNo": "011",
+                    "accessoryNo": "2",
+                    "auditPerson": "",
+                    "hasAdjusted": "false",
+                    "hasEditAuth": "true",
+                    "ownerUserId": "{object:id}"
+                  }
+                },
                 {
                   "rowId": "59813",
                   "voucherId": "3625495159248193",
@@ -25142,7 +25187,7 @@
                   "voucherId": "3628138309362499",
                   "voucherNo": "377",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-28",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25169,7 +25214,7 @@
                   "voucherId": "3628115092441066",
                   "voucherNo": "376",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-06",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25196,7 +25241,7 @@
                   "voucherId": "3628115092441067",
                   "voucherNo": "375",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-12",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25223,7 +25268,7 @@
                   "voucherId": "3628098449445283",
                   "voucherNo": "374",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-03",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25250,7 +25295,7 @@
                   "voucherId": "3627047795694993",
                   "voucherNo": "373",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-16",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25277,7 +25322,7 @@
                   "voucherId": "3627046584584950",
                   "voucherNo": "372",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-29",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25304,7 +25349,7 @@
                   "voucherId": "3627044574467866",
                   "voucherNo": "371",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-12",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25331,7 +25376,7 @@
                   "voucherId": "3627044574467867",
                   "voucherNo": "370",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-30",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25358,7 +25403,7 @@
                   "voucherId": "3627040007917571",
                   "voucherNo": "369",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-13",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25385,7 +25430,7 @@
                   "voucherId": "3626713861989669",
                   "voucherNo": "368",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-25",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25412,7 +25457,7 @@
                   "voucherId": "3626708490126650",
                   "voucherNo": "367",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-30",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25439,7 +25484,7 @@
                   "voucherId": "3626708490126561",
                   "voucherNo": "366",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-30",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25466,7 +25511,7 @@
                   "voucherId": "3626708490126435",
                   "voucherNo": "365",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-30",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25493,7 +25538,7 @@
                   "voucherId": "3626708490126646",
                   "voucherNo": "364",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-30",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25520,7 +25565,7 @@
                   "voucherId": "3626708490126638",
                   "voucherNo": "363",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-30",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25547,7 +25592,7 @@
                   "voucherId": "3626708490126472",
                   "voucherNo": "362",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-30",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25574,7 +25619,7 @@
                   "voucherId": "3626708490126361",
                   "voucherNo": "361",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-30",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25601,7 +25646,7 @@
                   "voucherId": "3626708490126507",
                   "voucherNo": "360",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-29",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25628,7 +25673,7 @@
                   "voucherId": "3626708490126611",
                   "voucherNo": "359",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-29",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25655,7 +25700,7 @@
                   "voucherId": "3626708490126664",
                   "voucherNo": "358",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-29",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25682,7 +25727,7 @@
                   "voucherId": "3626708490126362",
                   "voucherNo": "357",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-29",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25709,7 +25754,7 @@
                   "voucherId": "3626708490126443",
                   "voucherNo": "356",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-29",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25736,7 +25781,7 @@
                   "voucherId": "3626708490126368",
                   "voucherNo": "355",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-28",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25763,7 +25808,7 @@
                   "voucherId": "3626708490126461",
                   "voucherNo": "353",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-27",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25790,7 +25835,7 @@
                   "voucherId": "3626708490126658",
                   "voucherNo": "352",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-27",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25817,7 +25862,7 @@
                   "voucherId": "3626708490126412",
                   "voucherNo": "351",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-27",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25844,7 +25889,7 @@
                   "voucherId": "3626708490126415",
                   "voucherNo": "350",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-26",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25871,7 +25916,7 @@
                   "voucherId": "3626708490126517",
                   "voucherNo": "349",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-26",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25898,7 +25943,7 @@
                   "voucherId": "3626708490126465",
                   "voucherNo": "348",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-26",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25925,7 +25970,7 @@
                   "voucherId": "3626708490126554",
                   "voucherNo": "347",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-25",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25952,7 +25997,7 @@
                   "voucherId": "3626708490126591",
                   "voucherNo": "346",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-25",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -25979,7 +26024,7 @@
                   "voucherId": "3626708490126538",
                   "voucherNo": "345",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-25",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26006,7 +26051,7 @@
                   "voucherId": "3626708490126468",
                   "voucherNo": "344",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-25",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26033,7 +26078,7 @@
                   "voucherId": "3626708490126622",
                   "voucherNo": "343",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-24",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26060,7 +26105,7 @@
                   "voucherId": "3626708490126432",
                   "voucherNo": "342",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-24",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26087,7 +26132,7 @@
                   "voucherId": "3626708490126530",
                   "voucherNo": "341",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-23",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26114,7 +26159,7 @@
                   "voucherId": "3626708490126454",
                   "voucherNo": "340",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-23",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26141,7 +26186,7 @@
                   "voucherId": "3626708490126617",
                   "voucherNo": "339",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-23",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26168,7 +26213,7 @@
                   "voucherId": "3626708490126359",
                   "voucherNo": "338",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-23",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26195,7 +26240,7 @@
                   "voucherId": "3626708490126366",
                   "voucherNo": "337",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-22",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26222,7 +26267,7 @@
                   "voucherId": "3626708490126358",
                   "voucherNo": "336",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-22",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26249,7 +26294,7 @@
                   "voucherId": "3626708490126360",
                   "voucherNo": "335",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-22",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26276,7 +26321,7 @@
                   "voucherId": "3626708490126511",
                   "voucherNo": "334",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-22",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26303,7 +26348,7 @@
                   "voucherId": "3626708490126493",
                   "voucherNo": "333",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-22",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26330,7 +26375,7 @@
                   "voucherId": "3626708490126424",
                   "voucherNo": "332",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-20",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26357,7 +26402,7 @@
                   "voucherId": "3626708490126608",
                   "voucherNo": "331",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-20",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26384,7 +26429,7 @@
                   "voucherId": "3626708490126487",
                   "voucherNo": "330",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-20",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26411,7 +26456,7 @@
                   "voucherId": "3626708490126614",
                   "voucherNo": "329",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-20",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26438,7 +26483,7 @@
                   "voucherId": "3626708490126504",
                   "voucherNo": "328",
                   "bookId": "3533914511118750",
-                  "period": "202606",
+                  "period": "202607",
                   "voucherDate": "2026-06-20",
                   "postingDate": "—",
                   "status": "EDITABLE",
@@ -26459,33 +26504,6 @@
                     "hasEditAuth": "true",
                     "ownerUserId": "{object:id}"
                   }
-                },
-                {
-                  "rowId": "72436",
-                  "voucherId": "3626708490126423",
-                  "voucherNo": "327",
-                  "bookId": "3533914511118750",
-                  "period": "202606",
-                  "voucherDate": "2026-06-20",
-                  "postingDate": "—",
-                  "status": "EDITABLE",
-                  "summary": "3626708490126423",
-                  "maker": "—",
-                  "reviewer": "—",
-                  "rawEvidenceExcerpt": {
-                    "id": "3626708490126423...[masked]",
-                    "boName": "AcctgTrans",
-                    "period": "202606",
-                    "details": "[array:2]",
-                    "comments": "",
-                    "refBoName": "AcctgpltTransTaskLog",
-                    "voucherNo": "327",
-                    "accessoryNo": "2",
-                    "auditPerson": "",
-                    "hasAdjusted": "false",
-                    "hasEditAuth": "true",
-                    "ownerUserId": "{object:id}"
-                  }
                 }
               ],
               "nextAction": "凭证头字段已可只读展示；仍禁止生成或推送好业财凭证。"
@@ -26495,7 +26513,7 @@
               "title": "凭证明细只读适配器",
               "status": "READY",
               "sampleRows": 160,
-              "latestPulledAt": "2026-07-21T01:28:37.907Z",
+              "latestPulledAt": "2026-07-21T02:39:54.162Z",
               "mappedFields": [
                 "lineNo",
                 "subjectCode",
@@ -26516,6 +26534,64 @@
                 "VOUCHER_SEARCH"
               ],
               "rows": [
+                {
+                  "rowId": "164129:1",
+                  "voucherId": "3630149967554330",
+                  "voucherNo": "011",
+                  "lineNo": "1",
+                  "subjectCode": "1601",
+                  "subjectName": "固定资产",
+                  "summary": "固定资产",
+                  "debitAmount": "0",
+                  "creditAmount": "0",
+                  "currency": "CNY",
+                  "counterpartyName": "—",
+                  "projectName": "—",
+                  "departmentName": "—",
+                  "rawEvidenceExcerpt": {
+                    "id": "3630149967554334...[masked]",
+                    "comments": "固定资产",
+                    "longText": "1601 固定资产",
+                    "postedCr": "0",
+                    "postedDr": "0",
+                    "baseUomTO": "{object:uomName}",
+                    "glAccount": "{object:id,code,name,longName,treeLevel,hasQtyAccunting,hasForeignCurrency,hasSubsidiaryAccounting}",
+                    "currencyId": "100001",
+                    "currencyTO": "{object:code}",
+                    "postedCrQty": "0",
+                    "postedDrQty": "0",
+                    "sequenceNum": "0"
+                  }
+                },
+                {
+                  "rowId": "164129:2",
+                  "voucherId": "3630149967554330",
+                  "voucherNo": "011",
+                  "lineNo": "2",
+                  "subjectCode": "100206",
+                  "subjectName": "宋总个人LDB（老挝卡）5611",
+                  "summary": "支付费用",
+                  "debitAmount": "0",
+                  "creditAmount": "300000000",
+                  "currency": "LAK",
+                  "counterpartyName": "—",
+                  "projectName": "—",
+                  "departmentName": "—",
+                  "rawEvidenceExcerpt": {
+                    "id": "3630149967554335...[masked]",
+                    "comments": "支付费用",
+                    "longText": "100206 银行存款_　宋总个人LDB（老挝卡）5611",
+                    "postedCr": "300000000",
+                    "postedDr": "0",
+                    "baseUomTO": "{object:uomName}",
+                    "glAccount": "{object:id,code,name,longName,treeLevel,currencyTO,hasQtyAccunting,hasForeignCurrency}",
+                    "currencyId": "10009",
+                    "currencyTO": "{object:code}",
+                    "postedCrQty": "0",
+                    "postedDrQty": "0",
+                    "sequenceNum": "1"
+                  }
+                },
                 {
                   "rowId": "59813:1",
                   "voucherId": "3625495159248193",
@@ -31097,64 +31173,6 @@
                     "postedDrQty": "0",
                     "sequenceNum": "3"
                   }
-                },
-                {
-                  "rowId": "72441:1",
-                  "voucherId": "3626708490126424",
-                  "voucherNo": "332",
-                  "lineNo": "1",
-                  "subjectCode": "660201",
-                  "subjectName": "管理人员职工薪酬",
-                  "summary": "工资",
-                  "debitAmount": "6790000",
-                  "creditAmount": "0",
-                  "currency": "LAK",
-                  "counterpartyName": "—",
-                  "projectName": "—",
-                  "departmentName": "—",
-                  "rawEvidenceExcerpt": {
-                    "id": "3626708490126427...[masked]",
-                    "comments": "工资",
-                    "longText": "660201.0 管理费用_管理人员职工薪酬.总部",
-                    "postedCr": "0",
-                    "postedDr": "6790000",
-                    "baseUomTO": "{object:uomName}",
-                    "glAccount": "{object:id,code,name,longName,treeLevel,currencyTO,hasQtyAccunting,hasForeignCurrency}",
-                    "currencyId": "10009",
-                    "currencyTO": "{object:code}",
-                    "postedCrQty": "0",
-                    "postedDrQty": "0",
-                    "sequenceNum": "0"
-                  }
-                },
-                {
-                  "rowId": "72441:2",
-                  "voucherId": "3626708490126424",
-                  "voucherNo": "332",
-                  "lineNo": "2",
-                  "subjectCode": "100102",
-                  "subjectName": "总部现金老挝币",
-                  "summary": "支付费用",
-                  "debitAmount": "0",
-                  "creditAmount": "6790000",
-                  "currency": "LAK",
-                  "counterpartyName": "—",
-                  "projectName": "—",
-                  "departmentName": "—",
-                  "rawEvidenceExcerpt": {
-                    "id": "3626708490126430...[masked]",
-                    "comments": "支付费用",
-                    "longText": "100102 库存现金_总部现金老挝币",
-                    "postedCr": "6790000",
-                    "postedDr": "0",
-                    "baseUomTO": "{object:uomName}",
-                    "glAccount": "{object:id,code,name,longName,treeLevel,currencyTO,hasQtyAccunting,hasForeignCurrency}",
-                    "currencyId": "10009",
-                    "currencyTO": "{object:code}",
-                    "postedCrQty": "0",
-                    "postedDrQty": "0",
-                    "sequenceNum": "1"
-                  }
                 }
               ],
               "nextAction": "凭证明细可进入只读对账视图；借贷金额必须继续以字符串/decimal 保留精度。"
@@ -31164,7 +31182,7 @@
               "title": "往来单位只读适配器",
               "status": "READY",
               "sampleRows": 120,
-              "latestPulledAt": "2026-07-21T01:28:01.069Z",
+              "latestPulledAt": "2026-07-21T02:39:19.803Z",
               "mappedFields": [
                 "externalId",
                 "externalCode",
@@ -33606,9 +33624,9 @@
                     "taxNo": "",
                     "address1": "",
                     "apAmount": "0",
-                    "arAmount": "-333912680.28",
+                    "arAmount": "-345832680.28",
                     "partyName": "金丽（孟欣）",
-                    "arApAmount": "195120000",
+                    "arApAmount": "183200000",
                     "statusEnum": "{object:label,value}",
                     "description": "",
                     "invoiceName": ""
@@ -34454,7 +34472,7 @@
         "count": 100,
         "jobs": [
           {
-            "id": "3113",
+            "id": "3228",
             "jobType": "RECONCILE",
             "bookId": "",
             "companyCode": "",
@@ -34465,20 +34483,18 @@
               "scope": "MASTER_MAPPING"
             },
             "resultSummary": {
-              "created": 7,
+              "created": 0,
               "scanned": 1545,
-              "unchanged": 1072,
+              "unchanged": 1079,
               "autoResolved": 0,
-              "statusCounts": {
-                "WARN": 7
-              }
+              "statusCounts": {}
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:52.745Z",
-            "updatedAt": "2026-07-21T01:28:52.962Z"
+            "createdAt": "2026-07-21T02:40:10.422Z",
+            "updatedAt": "2026-07-21T02:40:10.642Z"
           },
           {
-            "id": "3112",
+            "id": "3227",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -34496,14 +34512,14 @@
               "rows": 38,
               "fields": 24,
               "entityRows": 38,
-              "rawSnapshotId": "2172"
+              "rawSnapshotId": "3030"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:43.778Z",
-            "updatedAt": "2026-07-21T01:28:44.192Z"
+            "createdAt": "2026-07-21T02:39:59.096Z",
+            "updatedAt": "2026-07-21T02:39:59.483Z"
           },
           {
-            "id": "3111",
+            "id": "3226",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -34524,11 +34540,11 @@
               "rawSnapshotId": "2256"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:43.221Z",
-            "updatedAt": "2026-07-21T01:28:43.777Z"
+            "createdAt": "2026-07-21T02:39:58.713Z",
+            "updatedAt": "2026-07-21T02:39:59.095Z"
           },
           {
-            "id": "3110",
+            "id": "3225",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -34549,11 +34565,11 @@
               "rawSnapshotId": "2173"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:42.825Z",
-            "updatedAt": "2026-07-21T01:28:43.219Z"
+            "createdAt": "2026-07-21T02:39:58.395Z",
+            "updatedAt": "2026-07-21T02:39:58.712Z"
           },
           {
-            "id": "3109",
+            "id": "3224",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -34574,11 +34590,11 @@
               "rawSnapshotId": "2169"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:42.345Z",
-            "updatedAt": "2026-07-21T01:28:42.824Z"
+            "createdAt": "2026-07-21T02:39:58.075Z",
+            "updatedAt": "2026-07-21T02:39:58.393Z"
           },
           {
-            "id": "3108",
+            "id": "3223",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -34599,11 +34615,11 @@
               "rawSnapshotId": "2253"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:41.868Z",
-            "updatedAt": "2026-07-21T01:28:42.344Z"
+            "createdAt": "2026-07-21T02:39:57.750Z",
+            "updatedAt": "2026-07-21T02:39:58.074Z"
           },
           {
-            "id": "3107",
+            "id": "3222",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -34624,11 +34640,11 @@
               "rawSnapshotId": "2170"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:41.525Z",
-            "updatedAt": "2026-07-21T01:28:41.867Z"
+            "createdAt": "2026-07-21T02:39:57.262Z",
+            "updatedAt": "2026-07-21T02:39:57.748Z"
           },
           {
-            "id": "3106",
+            "id": "3221",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -34646,14 +34662,14 @@
               "rows": 33,
               "fields": 58,
               "entityRows": 33,
-              "rawSnapshotId": "2166"
+              "rawSnapshotId": "3024"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:41.069Z",
-            "updatedAt": "2026-07-21T01:28:41.524Z"
+            "createdAt": "2026-07-21T02:39:56.908Z",
+            "updatedAt": "2026-07-21T02:39:57.261Z"
           },
           {
-            "id": "3105",
+            "id": "3220",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -34674,11 +34690,11 @@
               "rawSnapshotId": "2250"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:40.629Z",
-            "updatedAt": "2026-07-21T01:28:41.067Z"
+            "createdAt": "2026-07-21T02:39:56.504Z",
+            "updatedAt": "2026-07-21T02:39:56.907Z"
           },
           {
-            "id": "3104",
+            "id": "3219",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -34699,11 +34715,11 @@
               "rawSnapshotId": "2167"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:40.058Z",
-            "updatedAt": "2026-07-21T01:28:40.627Z"
+            "createdAt": "2026-07-21T02:39:56.020Z",
+            "updatedAt": "2026-07-21T02:39:56.503Z"
           },
           {
-            "id": "3103",
+            "id": "3218",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -34721,14 +34737,14 @@
               "rows": 104,
               "fields": 159,
               "entityRows": 104,
-              "rawSnapshotId": "2163"
+              "rawSnapshotId": "3021"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:39.365Z",
-            "updatedAt": "2026-07-21T01:28:40.056Z"
+            "createdAt": "2026-07-21T02:39:55.277Z",
+            "updatedAt": "2026-07-21T02:39:56.018Z"
           },
           {
-            "id": "3102",
+            "id": "3217",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -34749,11 +34765,11 @@
               "rawSnapshotId": "2247"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:38.701Z",
-            "updatedAt": "2026-07-21T01:28:39.363Z"
+            "createdAt": "2026-07-21T02:39:54.686Z",
+            "updatedAt": "2026-07-21T02:39:55.274Z"
           },
           {
-            "id": "3101",
+            "id": "3216",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -34774,15 +34790,15 @@
               "rawSnapshotId": "2164"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:37.911Z",
-            "updatedAt": "2026-07-21T01:28:38.699Z"
+            "createdAt": "2026-07-21T02:39:54.166Z",
+            "updatedAt": "2026-07-21T02:39:54.683Z"
           },
           {
-            "id": "3100",
+            "id": "3215",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "VOUCHER_SEARCH",
@@ -34793,21 +34809,21 @@
             },
             "resultSummary": {
               "key": "VOUCHER_SEARCH",
-              "rows": 785,
+              "rows": 786,
               "fields": 210,
-              "entityRows": 785,
-              "rawSnapshotId": "2964"
+              "entityRows": 786,
+              "rawSnapshotId": "3018"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:33.509Z",
-            "updatedAt": "2026-07-21T01:28:37.909Z"
+            "createdAt": "2026-07-21T02:39:49.665Z",
+            "updatedAt": "2026-07-21T02:39:54.165Z"
           },
           {
-            "id": "3099",
+            "id": "3214",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "VOUCHER_SEARCH",
@@ -34824,15 +34840,15 @@
               "rawSnapshotId": "2244"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:31.417Z",
-            "updatedAt": "2026-07-21T01:28:33.508Z"
+            "createdAt": "2026-07-21T02:39:47.506Z",
+            "updatedAt": "2026-07-21T02:39:49.663Z"
           },
           {
-            "id": "3098",
+            "id": "3213",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "VOUCHER_SEARCH",
@@ -34849,15 +34865,15 @@
               "rawSnapshotId": "1643"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:27.637Z",
-            "updatedAt": "2026-07-21T01:28:31.415Z"
+            "createdAt": "2026-07-21T02:39:43.674Z",
+            "updatedAt": "2026-07-21T02:39:47.503Z"
           },
           {
-            "id": "3097",
+            "id": "3212",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "SALES_STOCK_OUT",
@@ -34871,18 +34887,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2961"
+              "rawSnapshotId": "3073"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:27.411Z",
-            "updatedAt": "2026-07-21T01:28:27.636Z"
+            "createdAt": "2026-07-21T02:39:43.487Z",
+            "updatedAt": "2026-07-21T02:39:43.673Z"
           },
           {
-            "id": "3096",
+            "id": "3211",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "SALES_STOCK_OUT",
@@ -34896,18 +34912,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2960"
+              "rawSnapshotId": "3072"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:27.214Z",
-            "updatedAt": "2026-07-21T01:28:27.409Z"
+            "createdAt": "2026-07-21T02:39:43.319Z",
+            "updatedAt": "2026-07-21T02:39:43.485Z"
           },
           {
-            "id": "3095",
+            "id": "3210",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "SALES_STOCK_OUT",
@@ -34921,18 +34937,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2959"
+              "rawSnapshotId": "3071"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:27.016Z",
-            "updatedAt": "2026-07-21T01:28:27.212Z"
+            "createdAt": "2026-07-21T02:39:43.153Z",
+            "updatedAt": "2026-07-21T02:39:43.318Z"
           },
           {
-            "id": "3094",
+            "id": "3209",
             "jobType": "SNAPSHOT",
             "bookId": "",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "STOCK_IN",
@@ -34946,18 +34962,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2958"
+              "rawSnapshotId": "3070"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:26.780Z",
-            "updatedAt": "2026-07-21T01:28:27.014Z"
+            "createdAt": "2026-07-21T02:39:42.949Z",
+            "updatedAt": "2026-07-21T02:39:43.151Z"
           },
           {
-            "id": "3093",
+            "id": "3208",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PURCHASE_APPLY",
@@ -34971,18 +34987,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2957"
+              "rawSnapshotId": "3069"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:26.590Z",
-            "updatedAt": "2026-07-21T01:28:26.779Z"
+            "createdAt": "2026-07-21T02:39:42.784Z",
+            "updatedAt": "2026-07-21T02:39:42.948Z"
           },
           {
-            "id": "3092",
+            "id": "3207",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PURCHASE_APPLY",
@@ -34996,18 +35012,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2956"
+              "rawSnapshotId": "3068"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:26.395Z",
-            "updatedAt": "2026-07-21T01:28:26.589Z"
+            "createdAt": "2026-07-21T02:39:42.628Z",
+            "updatedAt": "2026-07-21T02:39:42.782Z"
           },
           {
-            "id": "3091",
+            "id": "3206",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PURCHASE_APPLY",
@@ -35021,18 +35037,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2955"
+              "rawSnapshotId": "3067"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:26.204Z",
-            "updatedAt": "2026-07-21T01:28:26.394Z"
+            "createdAt": "2026-07-21T02:39:42.463Z",
+            "updatedAt": "2026-07-21T02:39:42.626Z"
           },
           {
-            "id": "3090",
+            "id": "3205",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "SALES_ORDER",
@@ -35046,18 +35062,18 @@
               "rows": 2,
               "fields": 99,
               "entityRows": 2,
-              "rawSnapshotId": "2954"
+              "rawSnapshotId": "3066"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:25.872Z",
-            "updatedAt": "2026-07-21T01:28:26.203Z"
+            "createdAt": "2026-07-21T02:39:42.158Z",
+            "updatedAt": "2026-07-21T02:39:42.461Z"
           },
           {
-            "id": "3089",
+            "id": "3204",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "SALES_ORDER",
@@ -35071,18 +35087,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2953"
+              "rawSnapshotId": "3065"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:25.549Z",
-            "updatedAt": "2026-07-21T01:28:25.870Z"
+            "createdAt": "2026-07-21T02:39:41.990Z",
+            "updatedAt": "2026-07-21T02:39:42.154Z"
           },
           {
-            "id": "3088",
+            "id": "3203",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "SALES_ORDER",
@@ -35096,18 +35112,18 @@
               "rows": 3,
               "fields": 144,
               "entityRows": 3,
-              "rawSnapshotId": "2952"
+              "rawSnapshotId": "3064"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:25.147Z",
-            "updatedAt": "2026-07-21T01:28:25.548Z"
+            "createdAt": "2026-07-21T02:39:41.637Z",
+            "updatedAt": "2026-07-21T02:39:41.989Z"
           },
           {
-            "id": "3087",
+            "id": "3202",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PURCHASE_ORDER",
@@ -35121,18 +35137,18 @@
               "rows": 42,
               "fields": 97,
               "entityRows": 42,
-              "rawSnapshotId": "2951"
+              "rawSnapshotId": "3063"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:24.484Z",
-            "updatedAt": "2026-07-21T01:28:25.145Z"
+            "createdAt": "2026-07-21T02:39:41.025Z",
+            "updatedAt": "2026-07-21T02:39:41.636Z"
           },
           {
-            "id": "3086",
+            "id": "3201",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PURCHASE_ORDER",
@@ -35146,18 +35162,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2950"
+              "rawSnapshotId": "3062"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:24.282Z",
-            "updatedAt": "2026-07-21T01:28:24.483Z"
+            "createdAt": "2026-07-21T02:39:40.864Z",
+            "updatedAt": "2026-07-21T02:39:41.024Z"
           },
           {
-            "id": "3085",
+            "id": "3200",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PURCHASE_ORDER",
@@ -35171,18 +35187,18 @@
               "rows": 1,
               "fields": 39,
               "entityRows": 1,
-              "rawSnapshotId": "2949"
+              "rawSnapshotId": "3061"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:24.003Z",
-            "updatedAt": "2026-07-21T01:28:24.280Z"
+            "createdAt": "2026-07-21T02:39:40.623Z",
+            "updatedAt": "2026-07-21T02:39:40.863Z"
           },
           {
-            "id": "3084",
+            "id": "3199",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PAYMENT_AR",
@@ -35194,20 +35210,20 @@
             "resultSummary": {
               "key": "PAYMENT_AR",
               "rows": 50,
-              "fields": 83,
+              "fields": 77,
               "entityRows": 50,
-              "rawSnapshotId": "2948"
+              "rawSnapshotId": "3060"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:19.615Z",
-            "updatedAt": "2026-07-21T01:28:24.001Z"
+            "createdAt": "2026-07-21T02:39:36.443Z",
+            "updatedAt": "2026-07-21T02:39:40.621Z"
           },
           {
-            "id": "3083",
+            "id": "3198",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PAYMENT_AR",
@@ -35221,18 +35237,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2947"
+              "rawSnapshotId": "3059"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:19.413Z",
-            "updatedAt": "2026-07-21T01:28:19.614Z"
+            "createdAt": "2026-07-21T02:39:36.287Z",
+            "updatedAt": "2026-07-21T02:39:36.442Z"
           },
           {
-            "id": "3082",
+            "id": "3197",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PAYMENT_AR",
@@ -35246,18 +35262,18 @@
               "rows": 50,
               "fields": 84,
               "entityRows": 50,
-              "rawSnapshotId": "2946"
+              "rawSnapshotId": "3058"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:14.608Z",
-            "updatedAt": "2026-07-21T01:28:19.412Z"
+            "createdAt": "2026-07-21T02:39:31.888Z",
+            "updatedAt": "2026-07-21T02:39:36.286Z"
           },
           {
-            "id": "3081",
+            "id": "3196",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PAYMENT_AP",
@@ -35269,20 +35285,20 @@
             "resultSummary": {
               "key": "PAYMENT_AP",
               "rows": 50,
-              "fields": 75,
+              "fields": 74,
               "entityRows": 50,
-              "rawSnapshotId": "2945"
+              "rawSnapshotId": "3057"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:13.010Z",
-            "updatedAt": "2026-07-21T01:28:14.606Z"
+            "createdAt": "2026-07-21T02:39:30.569Z",
+            "updatedAt": "2026-07-21T02:39:31.887Z"
           },
           {
-            "id": "3080",
+            "id": "3195",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PAYMENT_AP",
@@ -35296,18 +35312,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2944"
+              "rawSnapshotId": "3056"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:12.786Z",
-            "updatedAt": "2026-07-21T01:28:13.009Z"
+            "createdAt": "2026-07-21T02:39:30.408Z",
+            "updatedAt": "2026-07-21T02:39:30.568Z"
           },
           {
-            "id": "3079",
+            "id": "3194",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PAYMENT_AP",
@@ -35321,14 +35337,14 @@
               "rows": 50,
               "fields": 74,
               "entityRows": 50,
-              "rawSnapshotId": "2943"
+              "rawSnapshotId": "3055"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:10.847Z",
-            "updatedAt": "2026-07-21T01:28:12.785Z"
+            "createdAt": "2026-07-21T02:39:28.717Z",
+            "updatedAt": "2026-07-21T02:39:30.407Z"
           },
           {
-            "id": "3078",
+            "id": "3193",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -35349,11 +35365,11 @@
               "rawSnapshotId": "2708"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:10.374Z",
-            "updatedAt": "2026-07-21T01:28:10.846Z"
+            "createdAt": "2026-07-21T02:39:28.276Z",
+            "updatedAt": "2026-07-21T02:39:28.716Z"
           },
           {
-            "id": "3077",
+            "id": "3192",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -35374,11 +35390,11 @@
               "rawSnapshotId": "22"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:10.134Z",
-            "updatedAt": "2026-07-21T01:28:10.373Z"
+            "createdAt": "2026-07-21T02:39:28.083Z",
+            "updatedAt": "2026-07-21T02:39:28.274Z"
           },
           {
-            "id": "3076",
+            "id": "3191",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -35399,11 +35415,11 @@
               "rawSnapshotId": "2709"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:09.727Z",
-            "updatedAt": "2026-07-21T01:28:10.132Z"
+            "createdAt": "2026-07-21T02:39:27.718Z",
+            "updatedAt": "2026-07-21T02:39:28.081Z"
           },
           {
-            "id": "3075",
+            "id": "3190",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -35424,11 +35440,11 @@
               "rawSnapshotId": "2705"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:09.097Z",
-            "updatedAt": "2026-07-21T01:28:09.725Z"
+            "createdAt": "2026-07-21T02:39:27.306Z",
+            "updatedAt": "2026-07-21T02:39:27.717Z"
           },
           {
-            "id": "3074",
+            "id": "3189",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -35449,11 +35465,11 @@
               "rawSnapshotId": "19"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:08.818Z",
-            "updatedAt": "2026-07-21T01:28:09.095Z"
+            "createdAt": "2026-07-21T02:39:27.114Z",
+            "updatedAt": "2026-07-21T02:39:27.304Z"
           },
           {
-            "id": "3073",
+            "id": "3188",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -35474,15 +35490,15 @@
               "rawSnapshotId": "2706"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:08.270Z",
-            "updatedAt": "2026-07-21T01:28:08.816Z"
+            "createdAt": "2026-07-21T02:39:26.215Z",
+            "updatedAt": "2026-07-21T02:39:27.113Z"
           },
           {
-            "id": "3072",
+            "id": "3187",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "FIN_ACCOUNT",
@@ -35499,15 +35515,15 @@
               "rawSnapshotId": "1349"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:07.998Z",
-            "updatedAt": "2026-07-21T01:28:08.268Z"
+            "createdAt": "2026-07-21T02:39:25.982Z",
+            "updatedAt": "2026-07-21T02:39:26.213Z"
           },
           {
-            "id": "3071",
+            "id": "3186",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "FIN_ACCOUNT",
@@ -35524,15 +35540,15 @@
               "rawSnapshotId": "16"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:07.677Z",
-            "updatedAt": "2026-07-21T01:28:07.997Z"
+            "createdAt": "2026-07-21T02:39:25.804Z",
+            "updatedAt": "2026-07-21T02:39:25.980Z"
           },
           {
-            "id": "3070",
+            "id": "3185",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "FIN_ACCOUNT",
@@ -35549,15 +35565,15 @@
               "rawSnapshotId": "1441"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:07.335Z",
-            "updatedAt": "2026-07-21T01:28:07.675Z"
+            "createdAt": "2026-07-21T02:39:25.602Z",
+            "updatedAt": "2026-07-21T02:39:25.802Z"
           },
           {
-            "id": "3069",
+            "id": "3184",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PROJECT",
@@ -35571,18 +35587,18 @@
               "rows": 4,
               "fields": 77,
               "entityRows": 4,
-              "rawSnapshotId": "2933"
+              "rawSnapshotId": "3045"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:07.060Z",
-            "updatedAt": "2026-07-21T01:28:07.333Z"
+            "createdAt": "2026-07-21T02:39:25.372Z",
+            "updatedAt": "2026-07-21T02:39:25.600Z"
           },
           {
-            "id": "3068",
+            "id": "3183",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PROJECT",
@@ -35596,18 +35612,18 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2932"
+              "rawSnapshotId": "3044"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:06.853Z",
-            "updatedAt": "2026-07-21T01:28:07.059Z"
+            "createdAt": "2026-07-21T02:39:25.204Z",
+            "updatedAt": "2026-07-21T02:39:25.371Z"
           },
           {
-            "id": "3067",
+            "id": "3182",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "PROJECT",
@@ -35621,18 +35637,18 @@
               "rows": 2,
               "fields": 57,
               "entityRows": 2,
-              "rawSnapshotId": "2931"
+              "rawSnapshotId": "3043"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:06.576Z",
-            "updatedAt": "2026-07-21T01:28:06.852Z"
+            "createdAt": "2026-07-21T02:39:24.984Z",
+            "updatedAt": "2026-07-21T02:39:25.203Z"
           },
           {
-            "id": "3066",
+            "id": "3181",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "SUBJECT",
@@ -35646,18 +35662,18 @@
               "rows": 339,
               "fields": 187,
               "entityRows": 339,
-              "rawSnapshotId": "2930"
+              "rawSnapshotId": "3042"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:04.660Z",
-            "updatedAt": "2026-07-21T01:28:06.575Z"
+            "createdAt": "2026-07-21T02:39:23.247Z",
+            "updatedAt": "2026-07-21T02:39:24.982Z"
           },
           {
-            "id": "3065",
+            "id": "3180",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "SUBJECT",
@@ -35671,18 +35687,18 @@
               "rows": 289,
               "fields": 176,
               "entityRows": 289,
-              "rawSnapshotId": "2929"
+              "rawSnapshotId": "3041"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:03.089Z",
-            "updatedAt": "2026-07-21T01:28:04.659Z"
+            "createdAt": "2026-07-21T02:39:21.491Z",
+            "updatedAt": "2026-07-21T02:39:23.245Z"
           },
           {
-            "id": "3064",
+            "id": "3179",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "SUBJECT",
@@ -35696,18 +35712,18 @@
               "rows": 291,
               "fields": 177,
               "entityRows": 291,
-              "rawSnapshotId": "2928"
+              "rawSnapshotId": "3040"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:28:01.074Z",
-            "updatedAt": "2026-07-21T01:28:03.088Z"
+            "createdAt": "2026-07-21T02:39:19.808Z",
+            "updatedAt": "2026-07-21T02:39:21.489Z"
           },
           {
-            "id": "3063",
+            "id": "3178",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "CUSTOMER_SUPPLIER",
@@ -35721,18 +35737,18 @@
               "rows": 245,
               "fields": 154,
               "entityRows": 245,
-              "rawSnapshotId": "2927"
+              "rawSnapshotId": "3039"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:27:59.896Z",
-            "updatedAt": "2026-07-21T01:28:01.072Z"
+            "createdAt": "2026-07-21T02:39:18.597Z",
+            "updatedAt": "2026-07-21T02:39:19.806Z"
           },
           {
-            "id": "3062",
+            "id": "3177",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "CUSTOMER_SUPPLIER",
@@ -35749,15 +35765,15 @@
               "rawSnapshotId": "7"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:27:59.611Z",
-            "updatedAt": "2026-07-21T01:27:59.895Z"
+            "createdAt": "2026-07-21T02:39:18.229Z",
+            "updatedAt": "2026-07-21T02:39:18.595Z"
           },
           {
-            "id": "3061",
+            "id": "3176",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "CUSTOMER_SUPPLIER",
@@ -35771,18 +35787,18 @@
               "rows": 84,
               "fields": 119,
               "entityRows": 84,
-              "rawSnapshotId": "2694"
+              "rawSnapshotId": "3037"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:27:58.876Z",
-            "updatedAt": "2026-07-21T01:27:59.609Z"
+            "createdAt": "2026-07-21T02:39:17.614Z",
+            "updatedAt": "2026-07-21T02:39:18.228Z"
           },
           {
-            "id": "3060",
+            "id": "3175",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "DEPARTMENT",
@@ -35799,15 +35815,15 @@
               "rawSnapshotId": "2260"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:27:58.596Z",
-            "updatedAt": "2026-07-21T01:27:58.874Z"
+            "createdAt": "2026-07-21T02:39:17.367Z",
+            "updatedAt": "2026-07-21T02:39:17.613Z"
           },
           {
-            "id": "3059",
+            "id": "3174",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "DEPARTMENT",
@@ -35824,15 +35840,15 @@
               "rawSnapshotId": "2262"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:27:58.188Z",
-            "updatedAt": "2026-07-21T01:27:58.594Z"
+            "createdAt": "2026-07-21T02:39:17.135Z",
+            "updatedAt": "2026-07-21T02:39:17.363Z"
           },
           {
-            "id": "3058",
+            "id": "3173",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "DEPARTMENT",
@@ -35849,15 +35865,15 @@
               "rawSnapshotId": "2261"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:27:57.801Z",
-            "updatedAt": "2026-07-21T01:27:58.187Z"
+            "createdAt": "2026-07-21T02:39:16.889Z",
+            "updatedAt": "2026-07-21T02:39:17.133Z"
           },
           {
-            "id": "3057",
+            "id": "3172",
             "jobType": "SNAPSHOT",
             "bookId": "",
             "companyCode": "",
-            "period": "",
+            "period": "202607",
             "status": "SUCCESS",
             "requestScope": {
               "key": "ACCOUNT_BOOKS",
@@ -35874,515 +35890,69 @@
               "rawSnapshotId": "1"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T01:27:57.221Z",
-            "updatedAt": "2026-07-21T01:27:57.799Z"
+            "createdAt": "2026-07-21T02:39:16.441Z",
+            "updatedAt": "2026-07-21T02:39:16.887Z"
           },
           {
-            "id": "3056",
-            "jobType": "SNAPSHOT",
-            "bookId": "3539743721526654",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "FIN_ACCOUNT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/finaccount/list/3539743721526654",
-              "label": "资金账号",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "FIN_ACCOUNT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:17:27.861Z",
-            "updatedAt": "2026-07-21T00:17:28.032Z"
-          },
-          {
-            "id": "3055",
-            "jobType": "SNAPSHOT",
-            "bookId": "3537748712226818",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "FIN_ACCOUNT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/finaccount/list/3537748712226818",
-              "label": "资金账号",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "FIN_ACCOUNT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:17:23.897Z",
-            "updatedAt": "2026-07-21T00:17:24.225Z"
-          },
-          {
-            "id": "3054",
-            "jobType": "SNAPSHOT",
-            "bookId": "3533914511118750",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "FIN_ACCOUNT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/finaccount/list/3533914511118750",
-              "label": "资金账号",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "FIN_ACCOUNT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:17:19.805Z",
-            "updatedAt": "2026-07-21T00:17:20.114Z"
-          },
-          {
-            "id": "3053",
-            "jobType": "SNAPSHOT",
-            "bookId": "3537748712226818",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "PROJECT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/project/list/3537748712226818",
-              "label": "项目列表",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "PROJECT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:17:15.851Z",
-            "updatedAt": "2026-07-21T00:17:16.057Z"
-          },
-          {
-            "id": "3052",
-            "jobType": "SNAPSHOT",
-            "bookId": "3533914511118750",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "PROJECT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/project/list/3533914511118750",
-              "label": "项目列表",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "PROJECT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:17:11.655Z",
-            "updatedAt": "2026-07-21T00:17:12.083Z"
-          },
-          {
-            "id": "3051",
-            "jobType": "SNAPSHOT",
-            "bookId": "3539743721526654",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "SUBJECT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/gl/glaccount/getInitBalanceLists/3539743721526654",
-              "label": "科目列表",
-              "method": "GET"
-            },
-            "resultSummary": {
-              "key": "SUBJECT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:17:06.551Z",
-            "updatedAt": "2026-07-21T00:17:07.937Z"
-          },
-          {
-            "id": "3050",
-            "jobType": "SNAPSHOT",
-            "bookId": "3537748712226818",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "SUBJECT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/gl/glaccount/getInitBalanceLists/3537748712226818",
-              "label": "科目列表",
-              "method": "GET"
-            },
-            "resultSummary": {
-              "key": "SUBJECT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:17:01.154Z",
-            "updatedAt": "2026-07-21T00:17:02.792Z"
-          },
-          {
-            "id": "3049",
-            "jobType": "SNAPSHOT",
-            "bookId": "3533914511118750",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "SUBJECT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/gl/glaccount/getInitBalanceLists/3533914511118750",
-              "label": "科目列表",
-              "method": "GET"
-            },
-            "resultSummary": {
-              "key": "SUBJECT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:55.747Z",
-            "updatedAt": "2026-07-21T00:16:57.467Z"
-          },
-          {
-            "id": "3048",
-            "jobType": "SNAPSHOT",
-            "bookId": "3539743721526654",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "DEPARTMENT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/department/list/3539743721526654",
-              "label": "部门列表",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "DEPARTMENT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:51.858Z",
-            "updatedAt": "2026-07-21T00:16:52.061Z"
-          },
-          {
-            "id": "3047",
-            "jobType": "SNAPSHOT",
-            "bookId": "3537748712226818",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "DEPARTMENT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/department/list/3537748712226818",
-              "label": "部门列表",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "DEPARTMENT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:47.875Z",
-            "updatedAt": "2026-07-21T00:16:48.138Z"
-          },
-          {
-            "id": "3046",
-            "jobType": "SNAPSHOT",
-            "bookId": "3533914511118750",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "DEPARTMENT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/department/list/3533914511118750",
-              "label": "部门列表",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "DEPARTMENT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:43.661Z",
-            "updatedAt": "2026-07-21T00:16:43.906Z"
-          },
-          {
-            "id": "3045",
-            "jobType": "SNAPSHOT",
+            "id": "3171",
+            "jobType": "BOOK_REFRESH",
             "bookId": "",
             "companyCode": "",
             "period": "202607",
-            "status": "FAIL",
+            "status": "SUCCESS",
             "requestScope": {
-              "key": "ACCOUNT_BOOKS",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/book/findByEnterpriseId",
-              "label": "账套列表",
-              "method": "GET"
+              "scope": [],
+              "bookId": "",
+              "period": "202607",
+              "queuedAt": "2026-07-21T02:39:16.414Z",
+              "startedAt": "2026-07-21T02:39:16.418Z",
+              "completedAt": "2026-07-21T02:40:17.782Z",
+              "maxAttempts": 3,
+              "requestedBy": "user:admin",
+              "lifecycleState": "COMPLETED",
+              "orchestrationRunId": "CHANJET-RO-1784601556414",
+              "externalWriteEnabled": false
             },
             "resultSummary": {
-              "key": "ACCOUNT_BOOKS"
+              "state": "COMPLETED",
+              "message": "targets=56; attempts=1",
+              "attempts": 1,
+              "decision": "GO_WITH_CONDITIONS",
+              "completedAt": "2026-07-21T02:40:17.782Z",
+              "targetCount": 56,
+              "exactApproved": 0,
+              "externalWriteEnabled": false,
+              "reconciliationCreated": 0,
+              "reconciliationResolved": 0
             },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:39.652Z",
-            "updatedAt": "2026-07-21T00:16:39.989Z"
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:39:16.414Z",
+            "updatedAt": "2026-07-21T02:40:17.782Z"
           },
           {
-            "id": "3044",
-            "jobType": "SNAPSHOT",
-            "bookId": "3539743721526654",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "FIN_ACCOUNT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/finaccount/list/3539743721526654",
-              "label": "资金账号",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "FIN_ACCOUNT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:35.604Z",
-            "updatedAt": "2026-07-21T00:16:35.914Z"
-          },
-          {
-            "id": "3043",
-            "jobType": "SNAPSHOT",
-            "bookId": "3537748712226818",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "FIN_ACCOUNT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/finaccount/list/3537748712226818",
-              "label": "资金账号",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "FIN_ACCOUNT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:31.666Z",
-            "updatedAt": "2026-07-21T00:16:31.895Z"
-          },
-          {
-            "id": "3042",
-            "jobType": "SNAPSHOT",
-            "bookId": "3533914511118750",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "FIN_ACCOUNT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/finaccount/list/3533914511118750",
-              "label": "资金账号",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "FIN_ACCOUNT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:27.459Z",
-            "updatedAt": "2026-07-21T00:16:27.822Z"
-          },
-          {
-            "id": "3041",
-            "jobType": "SNAPSHOT",
-            "bookId": "3537748712226818",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "PROJECT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/project/list/3537748712226818",
-              "label": "项目列表",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "PROJECT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:23.553Z",
-            "updatedAt": "2026-07-21T00:16:23.805Z"
-          },
-          {
-            "id": "3040",
-            "jobType": "SNAPSHOT",
-            "bookId": "3533914511118750",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "PROJECT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/project/list/3533914511118750",
-              "label": "项目列表",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "PROJECT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:19.378Z",
-            "updatedAt": "2026-07-21T00:16:19.874Z"
-          },
-          {
-            "id": "3039",
-            "jobType": "SNAPSHOT",
-            "bookId": "3539743721526654",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "SUBJECT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/gl/glaccount/getInitBalanceLists/3539743721526654",
-              "label": "科目列表",
-              "method": "GET"
-            },
-            "resultSummary": {
-              "key": "SUBJECT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:14.151Z",
-            "updatedAt": "2026-07-21T00:16:15.654Z"
-          },
-          {
-            "id": "3038",
-            "jobType": "SNAPSHOT",
-            "bookId": "3537748712226818",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "SUBJECT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/gl/glaccount/getInitBalanceLists/3537748712226818",
-              "label": "科目列表",
-              "method": "GET"
-            },
-            "resultSummary": {
-              "key": "SUBJECT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:09.050Z",
-            "updatedAt": "2026-07-21T00:16:10.531Z"
-          },
-          {
-            "id": "3037",
-            "jobType": "SNAPSHOT",
-            "bookId": "3533914511118750",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "SUBJECT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/gl/glaccount/getInitBalanceLists/3533914511118750",
-              "label": "科目列表",
-              "method": "GET"
-            },
-            "resultSummary": {
-              "key": "SUBJECT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:16:03.603Z",
-            "updatedAt": "2026-07-21T00:16:05.370Z"
-          },
-          {
-            "id": "3036",
-            "jobType": "SNAPSHOT",
-            "bookId": "3539743721526654",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "DEPARTMENT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/department/list/3539743721526654",
-              "label": "部门列表",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "DEPARTMENT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:15:59.591Z",
-            "updatedAt": "2026-07-21T00:15:59.921Z"
-          },
-          {
-            "id": "3035",
-            "jobType": "SNAPSHOT",
-            "bookId": "3537748712226818",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "DEPARTMENT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/department/list/3537748712226818",
-              "label": "部门列表",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "DEPARTMENT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:15:55.582Z",
-            "updatedAt": "2026-07-21T00:15:55.830Z"
-          },
-          {
-            "id": "3034",
-            "jobType": "SNAPSHOT",
-            "bookId": "3533914511118750",
-            "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
-            "requestScope": {
-              "key": "DEPARTMENT",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/department/list/3533914511118750",
-              "label": "部门列表",
-              "method": "POST"
-            },
-            "resultSummary": {
-              "key": "DEPARTMENT"
-            },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:15:51.450Z",
-            "updatedAt": "2026-07-21T00:15:51.795Z"
-          },
-          {
-            "id": "3033",
-            "jobType": "SNAPSHOT",
+            "id": "3170",
+            "jobType": "RECONCILE",
             "bookId": "",
             "companyCode": "",
-            "period": "202607",
-            "status": "FAIL",
+            "period": "",
+            "status": "SUCCESS",
             "requestScope": {
-              "key": "ACCOUNT_BOOKS",
-              "mode": "read-chanjet-write-erp-middle-layer",
-              "path": "/accounting/openapi/cc/book/findByEnterpriseId",
-              "label": "账套列表",
-              "method": "GET"
+              "mode": "middle-layer-only",
+              "scope": "MASTER_MAPPING"
             },
             "resultSummary": {
-              "key": "ACCOUNT_BOOKS"
+              "created": 0,
+              "scanned": 1545,
+              "unchanged": 1079,
+              "autoResolved": 0,
+              "statusCounts": {}
             },
-            "errorMessage": "there is no unique or exclusion constraint matching the ON CONFLICT specification",
-            "createdAt": "2026-07-21T00:15:47.354Z",
-            "updatedAt": "2026-07-21T00:15:47.647Z"
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:17:07.813Z",
+            "updatedAt": "2026-07-21T02:17:08.019Z"
           },
           {
-            "id": "3032",
+            "id": "3169",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -36403,11 +35973,11 @@
               "rawSnapshotId": "2256"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:42.807Z",
-            "updatedAt": "2026-07-21T00:15:43.145Z"
+            "createdAt": "2026-07-21T02:16:59.000Z",
+            "updatedAt": "2026-07-21T02:16:59.434Z"
           },
           {
-            "id": "3031",
+            "id": "3168",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -36428,11 +35998,11 @@
               "rawSnapshotId": "2173"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:42.470Z",
-            "updatedAt": "2026-07-21T00:15:42.806Z"
+            "createdAt": "2026-07-21T02:16:58.606Z",
+            "updatedAt": "2026-07-21T02:16:58.999Z"
           },
           {
-            "id": "3030",
+            "id": "3167",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -36450,14 +36020,14 @@
               "rows": 38,
               "fields": 24,
               "entityRows": 38,
-              "rawSnapshotId": "2172"
+              "rawSnapshotId": "3030"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:42.119Z",
-            "updatedAt": "2026-07-21T00:15:42.469Z"
+            "createdAt": "2026-07-21T02:16:58.176Z",
+            "updatedAt": "2026-07-21T02:16:58.605Z"
           },
           {
-            "id": "3029",
+            "id": "3166",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -36478,11 +36048,11 @@
               "rawSnapshotId": "2253"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:41.824Z",
-            "updatedAt": "2026-07-21T00:15:42.118Z"
+            "createdAt": "2026-07-21T02:16:57.697Z",
+            "updatedAt": "2026-07-21T02:16:58.174Z"
           },
           {
-            "id": "3028",
+            "id": "3165",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -36503,11 +36073,11 @@
               "rawSnapshotId": "2170"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:41.376Z",
-            "updatedAt": "2026-07-21T00:15:41.823Z"
+            "createdAt": "2026-07-21T02:16:57.216Z",
+            "updatedAt": "2026-07-21T02:16:57.696Z"
           },
           {
-            "id": "3027",
+            "id": "3164",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -36528,11 +36098,11 @@
               "rawSnapshotId": "2169"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:40.937Z",
-            "updatedAt": "2026-07-21T00:15:41.375Z"
+            "createdAt": "2026-07-21T02:16:56.681Z",
+            "updatedAt": "2026-07-21T02:16:57.215Z"
           },
           {
-            "id": "3026",
+            "id": "3163",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -36553,11 +36123,11 @@
               "rawSnapshotId": "2250"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:40.538Z",
-            "updatedAt": "2026-07-21T00:15:40.936Z"
+            "createdAt": "2026-07-21T02:16:56.225Z",
+            "updatedAt": "2026-07-21T02:16:56.680Z"
           },
           {
-            "id": "3025",
+            "id": "3162",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -36578,11 +36148,11 @@
               "rawSnapshotId": "2167"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:40.066Z",
-            "updatedAt": "2026-07-21T00:15:40.536Z"
+            "createdAt": "2026-07-21T02:16:55.794Z",
+            "updatedAt": "2026-07-21T02:16:56.223Z"
           },
           {
-            "id": "3024",
+            "id": "3161",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -36600,14 +36170,14 @@
               "rows": 33,
               "fields": 58,
               "entityRows": 33,
-              "rawSnapshotId": "2166"
+              "rawSnapshotId": "3024"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:39.450Z",
-            "updatedAt": "2026-07-21T00:15:40.065Z"
+            "createdAt": "2026-07-21T02:16:55.168Z",
+            "updatedAt": "2026-07-21T02:16:55.792Z"
           },
           {
-            "id": "3023",
+            "id": "3160",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -36628,11 +36198,11 @@
               "rawSnapshotId": "2247"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:38.849Z",
-            "updatedAt": "2026-07-21T00:15:39.448Z"
+            "createdAt": "2026-07-21T02:16:54.562Z",
+            "updatedAt": "2026-07-21T02:16:55.166Z"
           },
           {
-            "id": "3022",
+            "id": "3159",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -36653,11 +36223,11 @@
               "rawSnapshotId": "2164"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:38.331Z",
-            "updatedAt": "2026-07-21T00:15:38.847Z"
+            "createdAt": "2026-07-21T02:16:53.835Z",
+            "updatedAt": "2026-07-21T02:16:54.561Z"
           },
           {
-            "id": "3021",
+            "id": "3158",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -36675,14 +36245,14 @@
               "rows": 104,
               "fields": 159,
               "entityRows": 104,
-              "rawSnapshotId": "2163"
+              "rawSnapshotId": "3021"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:37.414Z",
-            "updatedAt": "2026-07-21T00:15:38.330Z"
+            "createdAt": "2026-07-21T02:16:52.805Z",
+            "updatedAt": "2026-07-21T02:16:53.834Z"
           },
           {
-            "id": "3020",
+            "id": "3157",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -36703,11 +36273,11 @@
               "rawSnapshotId": "2244"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:35.431Z",
-            "updatedAt": "2026-07-21T00:15:37.413Z"
+            "createdAt": "2026-07-21T02:16:51.055Z",
+            "updatedAt": "2026-07-21T02:16:52.804Z"
           },
           {
-            "id": "3019",
+            "id": "3156",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -36728,11 +36298,11 @@
               "rawSnapshotId": "1643"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:31.690Z",
-            "updatedAt": "2026-07-21T00:15:35.429Z"
+            "createdAt": "2026-07-21T02:16:46.574Z",
+            "updatedAt": "2026-07-21T02:16:51.052Z"
           },
           {
-            "id": "3018",
+            "id": "3155",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -36747,17 +36317,17 @@
             },
             "resultSummary": {
               "key": "VOUCHER_SEARCH",
-              "rows": 785,
+              "rows": 786,
               "fields": 210,
-              "entityRows": 785,
-              "rawSnapshotId": "2010"
+              "entityRows": 786,
+              "rawSnapshotId": "3018"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:27.364Z",
-            "updatedAt": "2026-07-21T00:15:31.688Z"
+            "createdAt": "2026-07-21T02:16:41.930Z",
+            "updatedAt": "2026-07-21T02:16:46.572Z"
           },
           {
-            "id": "3017",
+            "id": "3154",
             "jobType": "SNAPSHOT",
             "bookId": "3539743721526654",
             "companyCode": "",
@@ -36775,14 +36345,14 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2883"
+              "rawSnapshotId": "3017"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:27.204Z",
-            "updatedAt": "2026-07-21T00:15:27.362Z"
+            "createdAt": "2026-07-21T02:16:41.737Z",
+            "updatedAt": "2026-07-21T02:16:41.928Z"
           },
           {
-            "id": "3016",
+            "id": "3153",
             "jobType": "SNAPSHOT",
             "bookId": "3537748712226818",
             "companyCode": "",
@@ -36800,14 +36370,14 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2882"
+              "rawSnapshotId": "3016"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:27.012Z",
-            "updatedAt": "2026-07-21T00:15:27.203Z"
+            "createdAt": "2026-07-21T02:16:41.448Z",
+            "updatedAt": "2026-07-21T02:16:41.735Z"
           },
           {
-            "id": "3015",
+            "id": "3152",
             "jobType": "SNAPSHOT",
             "bookId": "3533914511118750",
             "companyCode": "",
@@ -36825,14 +36395,14 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2881"
+              "rawSnapshotId": "3015"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:26.812Z",
-            "updatedAt": "2026-07-21T00:15:27.011Z"
+            "createdAt": "2026-07-21T02:16:41.254Z",
+            "updatedAt": "2026-07-21T02:16:41.446Z"
           },
           {
-            "id": "3014",
+            "id": "3151",
             "jobType": "SNAPSHOT",
             "bookId": "",
             "companyCode": "",
@@ -36850,11 +36420,561 @@
               "rows": 0,
               "fields": 11,
               "entityRows": 0,
-              "rawSnapshotId": "2880"
+              "rawSnapshotId": "3014"
             },
             "errorMessage": null,
-            "createdAt": "2026-07-21T00:15:26.610Z",
-            "updatedAt": "2026-07-21T00:15:26.811Z"
+            "createdAt": "2026-07-21T02:16:41.009Z",
+            "updatedAt": "2026-07-21T02:16:41.252Z"
+          },
+          {
+            "id": "3150",
+            "jobType": "SNAPSHOT",
+            "bookId": "3539743721526654",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PURCHASE_APPLY",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/inv/purchaseapply/list/3539743721526654",
+              "label": "采购申请单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PURCHASE_APPLY",
+              "rows": 0,
+              "fields": 11,
+              "entityRows": 0,
+              "rawSnapshotId": "3013"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:40.692Z",
+            "updatedAt": "2026-07-21T02:16:41.007Z"
+          },
+          {
+            "id": "3149",
+            "jobType": "SNAPSHOT",
+            "bookId": "3537748712226818",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PURCHASE_APPLY",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/inv/purchaseapply/list/3537748712226818",
+              "label": "采购申请单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PURCHASE_APPLY",
+              "rows": 0,
+              "fields": 11,
+              "entityRows": 0,
+              "rawSnapshotId": "3012"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:40.496Z",
+            "updatedAt": "2026-07-21T02:16:40.690Z"
+          },
+          {
+            "id": "3148",
+            "jobType": "SNAPSHOT",
+            "bookId": "3533914511118750",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PURCHASE_APPLY",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/inv/purchaseapply/list/3533914511118750",
+              "label": "采购申请单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PURCHASE_APPLY",
+              "rows": 0,
+              "fields": 11,
+              "entityRows": 0,
+              "rawSnapshotId": "3011"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:40.290Z",
+            "updatedAt": "2026-07-21T02:16:40.495Z"
+          },
+          {
+            "id": "3147",
+            "jobType": "SNAPSHOT",
+            "bookId": "3539743721526654",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "SALES_ORDER",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/salesorder/list/3539743721526654",
+              "label": "销售订单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "SALES_ORDER",
+              "rows": 0,
+              "fields": 11,
+              "entityRows": 0,
+              "rawSnapshotId": "3010"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:40.092Z",
+            "updatedAt": "2026-07-21T02:16:40.289Z"
+          },
+          {
+            "id": "3146",
+            "jobType": "SNAPSHOT",
+            "bookId": "3537748712226818",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "SALES_ORDER",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/salesorder/list/3537748712226818",
+              "label": "销售订单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "SALES_ORDER",
+              "rows": 3,
+              "fields": 144,
+              "entityRows": 3,
+              "rawSnapshotId": "3009"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:39.701Z",
+            "updatedAt": "2026-07-21T02:16:40.090Z"
+          },
+          {
+            "id": "3145",
+            "jobType": "SNAPSHOT",
+            "bookId": "3533914511118750",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "SALES_ORDER",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/salesorder/list/3533914511118750",
+              "label": "销售订单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "SALES_ORDER",
+              "rows": 2,
+              "fields": 99,
+              "entityRows": 2,
+              "rawSnapshotId": "3008"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:39.242Z",
+            "updatedAt": "2026-07-21T02:16:39.699Z"
+          },
+          {
+            "id": "3144",
+            "jobType": "SNAPSHOT",
+            "bookId": "3539743721526654",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PURCHASE_ORDER",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/purchaseorder/list/3539743721526654",
+              "label": "采购订单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PURCHASE_ORDER",
+              "rows": 0,
+              "fields": 11,
+              "entityRows": 0,
+              "rawSnapshotId": "3007"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:39.048Z",
+            "updatedAt": "2026-07-21T02:16:39.241Z"
+          },
+          {
+            "id": "3143",
+            "jobType": "SNAPSHOT",
+            "bookId": "3537748712226818",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PURCHASE_ORDER",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/purchaseorder/list/3537748712226818",
+              "label": "采购订单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PURCHASE_ORDER",
+              "rows": 1,
+              "fields": 39,
+              "entityRows": 1,
+              "rawSnapshotId": "3006"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:38.647Z",
+            "updatedAt": "2026-07-21T02:16:39.046Z"
+          },
+          {
+            "id": "3142",
+            "jobType": "SNAPSHOT",
+            "bookId": "3533914511118750",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PURCHASE_ORDER",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/purchaseorder/list/3533914511118750",
+              "label": "采购订单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PURCHASE_ORDER",
+              "rows": 42,
+              "fields": 97,
+              "entityRows": 42,
+              "rawSnapshotId": "3005"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:38.011Z",
+            "updatedAt": "2026-07-21T02:16:38.645Z"
+          },
+          {
+            "id": "3141",
+            "jobType": "SNAPSHOT",
+            "bookId": "3539743721526654",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PAYMENT_AR",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/payment/ar/list/3539743721526654",
+              "label": "收款单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PAYMENT_AR",
+              "rows": 0,
+              "fields": 11,
+              "entityRows": 0,
+              "rawSnapshotId": "3004"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:37.819Z",
+            "updatedAt": "2026-07-21T02:16:38.010Z"
+          },
+          {
+            "id": "3140",
+            "jobType": "SNAPSHOT",
+            "bookId": "3537748712226818",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PAYMENT_AR",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/payment/ar/list/3537748712226818",
+              "label": "收款单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PAYMENT_AR",
+              "rows": 50,
+              "fields": 84,
+              "entityRows": 50,
+              "rawSnapshotId": "3003"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:32.560Z",
+            "updatedAt": "2026-07-21T02:16:37.818Z"
+          },
+          {
+            "id": "3139",
+            "jobType": "SNAPSHOT",
+            "bookId": "3533914511118750",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PAYMENT_AR",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/payment/ar/list/3533914511118750",
+              "label": "收款单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PAYMENT_AR",
+              "rows": 50,
+              "fields": 83,
+              "entityRows": 50,
+              "rawSnapshotId": "3002"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:27.453Z",
+            "updatedAt": "2026-07-21T02:16:32.558Z"
+          },
+          {
+            "id": "3138",
+            "jobType": "SNAPSHOT",
+            "bookId": "3539743721526654",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PAYMENT_AP",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/payment/ap/list/3539743721526654",
+              "label": "付款单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PAYMENT_AP",
+              "rows": 0,
+              "fields": 11,
+              "entityRows": 0,
+              "rawSnapshotId": "3001"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:27.261Z",
+            "updatedAt": "2026-07-21T02:16:27.451Z"
+          },
+          {
+            "id": "3137",
+            "jobType": "SNAPSHOT",
+            "bookId": "3537748712226818",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PAYMENT_AP",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/payment/ap/list/3537748712226818",
+              "label": "付款单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PAYMENT_AP",
+              "rows": 50,
+              "fields": 74,
+              "entityRows": 50,
+              "rawSnapshotId": "3000"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:25.323Z",
+            "updatedAt": "2026-07-21T02:16:27.259Z"
+          },
+          {
+            "id": "3136",
+            "jobType": "SNAPSHOT",
+            "bookId": "3533914511118750",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PAYMENT_AP",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/payment/ap/list/3533914511118750",
+              "label": "付款单列表",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "PAYMENT_AP",
+              "rows": 50,
+              "fields": 75,
+              "entityRows": 50,
+              "rawSnapshotId": "2999"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:23.579Z",
+            "updatedAt": "2026-07-21T02:16:25.321Z"
+          },
+          {
+            "id": "3135",
+            "jobType": "SNAPSHOT",
+            "bookId": "3539743721526654",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "RECEIVABLE_STATISTICS",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/gl/statistics/receive/3539743721526654",
+              "label": "应收统计",
+              "method": "GET"
+            },
+            "resultSummary": {
+              "key": "RECEIVABLE_STATISTICS",
+              "rows": 0,
+              "fields": 1,
+              "entityRows": 0,
+              "rawSnapshotId": "22"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:23.260Z",
+            "updatedAt": "2026-07-21T02:16:23.578Z"
+          },
+          {
+            "id": "3134",
+            "jobType": "SNAPSHOT",
+            "bookId": "3537748712226818",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "RECEIVABLE_STATISTICS",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/gl/statistics/receive/3537748712226818",
+              "label": "应收统计",
+              "method": "GET"
+            },
+            "resultSummary": {
+              "key": "RECEIVABLE_STATISTICS",
+              "rows": 23,
+              "fields": 55,
+              "entityRows": 23,
+              "rawSnapshotId": "2709"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:22.869Z",
+            "updatedAt": "2026-07-21T02:16:23.259Z"
+          },
+          {
+            "id": "3133",
+            "jobType": "SNAPSHOT",
+            "bookId": "3533914511118750",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "RECEIVABLE_STATISTICS",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/gl/statistics/receive/3533914511118750",
+              "label": "应收统计",
+              "method": "GET"
+            },
+            "resultSummary": {
+              "key": "RECEIVABLE_STATISTICS",
+              "rows": 51,
+              "fields": 55,
+              "entityRows": 51,
+              "rawSnapshotId": "2708"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:22.349Z",
+            "updatedAt": "2026-07-21T02:16:22.867Z"
+          },
+          {
+            "id": "3132",
+            "jobType": "SNAPSHOT",
+            "bookId": "3539743721526654",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PAYABLE_STATISTICS",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/gl/statistics/pay/3539743721526654",
+              "label": "应付统计",
+              "method": "GET"
+            },
+            "resultSummary": {
+              "key": "PAYABLE_STATISTICS",
+              "rows": 0,
+              "fields": 1,
+              "entityRows": 0,
+              "rawSnapshotId": "19"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:22.114Z",
+            "updatedAt": "2026-07-21T02:16:22.348Z"
+          },
+          {
+            "id": "3131",
+            "jobType": "SNAPSHOT",
+            "bookId": "3537748712226818",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PAYABLE_STATISTICS",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/gl/statistics/pay/3537748712226818",
+              "label": "应付统计",
+              "method": "GET"
+            },
+            "resultSummary": {
+              "key": "PAYABLE_STATISTICS",
+              "rows": 16,
+              "fields": 55,
+              "entityRows": 16,
+              "rawSnapshotId": "2706"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:21.739Z",
+            "updatedAt": "2026-07-21T02:16:22.112Z"
+          },
+          {
+            "id": "3130",
+            "jobType": "SNAPSHOT",
+            "bookId": "3533914511118750",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "PAYABLE_STATISTICS",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/gl/statistics/pay/3533914511118750",
+              "label": "应付统计",
+              "method": "GET"
+            },
+            "resultSummary": {
+              "key": "PAYABLE_STATISTICS",
+              "rows": 33,
+              "fields": 55,
+              "entityRows": 33,
+              "rawSnapshotId": "2705"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:20.377Z",
+            "updatedAt": "2026-07-21T02:16:21.737Z"
+          },
+          {
+            "id": "3129",
+            "jobType": "SNAPSHOT",
+            "bookId": "3539743721526654",
+            "companyCode": "",
+            "period": "202607",
+            "status": "SUCCESS",
+            "requestScope": {
+              "key": "FIN_ACCOUNT",
+              "mode": "read-chanjet-write-erp-middle-layer",
+              "path": "/accounting/openapi/cc/finaccount/list/3539743721526654",
+              "label": "资金账号",
+              "method": "POST"
+            },
+            "resultSummary": {
+              "key": "FIN_ACCOUNT",
+              "rows": 4,
+              "fields": 18,
+              "entityRows": 4,
+              "rawSnapshotId": "16"
+            },
+            "errorMessage": null,
+            "createdAt": "2026-07-21T02:16:20.165Z",
+            "updatedAt": "2026-07-21T02:16:20.375Z"
           }
         ]
       },
@@ -36871,6 +36991,73 @@
         "count": 0,
         "drafts": [],
         "pushEnabled": false
+      },
+      "attempts": 1
+    },
+    {
+      "name": "writebackPreparation",
+      "path": "chanjet/integration/writeback-preparation",
+      "status": 200,
+      "ok": true,
+      "error": "",
+      "payload": {
+        "success": true,
+        "preparation": {
+          "decision": "GO_WITH_CONDITIONS",
+          "externalWriteEnabled": false,
+          "externalNetworkTransportImplemented": false,
+          "draftStateCounts": {
+            "DRAFT": 0,
+            "VALIDATED": 0,
+            "REVIEWED": 0,
+            "APPROVED": 0,
+            "PUSH_READY": 0,
+            "REJECTED": 0,
+            "CANCELLED": 0
+          },
+          "outboxStateCounts": {
+            "READY": 0,
+            "SENDING": 0,
+            "ACKNOWLEDGED": 0,
+            "FAILED": 0,
+            "RETRYABLE": 0,
+            "DEAD_LETTER": 0,
+            "CANCELLED": 0,
+            "REVERSED": 0
+          },
+          "unsafeDrafts": 0,
+          "unsafeOutbox": 0,
+          "capabilities": {
+            "doubleEntryValidation": true,
+            "makerReviewerSeparation": true,
+            "payloadHashLock": true,
+            "idempotentOutbox": true,
+            "boundedRetrySimulation": true,
+            "deadLetterSimulation": true,
+            "providerReceiptAudit": true,
+            "realProviderWrite": false
+          },
+          "blockers": [],
+          "conditions": [
+            "Wave 7 必须取得逐项、限时、可回退的外部最小写入批准。",
+            "批准前仅允许 ERP 内部草稿、审核、Outbox 与 provider stub 演练。"
+          ],
+          "nextGate": "CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL"
+        }
+      },
+      "attempts": 1
+    },
+    {
+      "name": "writebackOutbox",
+      "path": "chanjet/integration/writeback-outbox?limit=100",
+      "status": 200,
+      "ok": true,
+      "error": "",
+      "payload": {
+        "success": true,
+        "count": 0,
+        "outbox": [],
+        "externalWriteEnabled": false
       },
       "attempts": 1
     }

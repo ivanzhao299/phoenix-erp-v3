@@ -1,38 +1,39 @@
 # Codex-Orchestrator Runtime Memory
 
-Last updated: 2026-07-20
+Last updated: 2026-07-21
 
 ## Active Context
 
 - Active module: Chanjet Integration
-- Current stage: CHANJET_END_TO_END_EXECUTION_PLANNED
-- Active decision: PLAN_READY
-- Next gate: CHANJET_LONG_QUEUE_WAVE_0_1_EXECUTION
+- Current stage: CHANJET_WAVE_6_WRITEBACK_PREPARATION_READY
+- Active decision: GO_WITH_CONDITIONS
+- Next gate: CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
 
 ## Latest Chanjet Decision
 
-- End-to-end program `CHANJET-E2E-20260720` is planned as 10 waves and 51 dependency-linked tasks.
+- End-to-end program `CHANJET-E2E-20260720` contains 10 waves and 51 dependency-linked tasks; Waves 0-6 are implemented and production-verified.
 - Plan: `docs/ops/CHANJET_END_TO_END_DEEP_DELIVERY_PLAN.md`.
 - Machine queue: `docs/ops/CHANJET_END_TO_END_EXECUTION_QUEUE.json`.
 - Acceptance matrix: `docs/ops/CHANJET_END_TO_END_ACCEPTANCE_MATRIX.md`.
-- The planning queue has `dispatch_enabled=false`; it is not inserted into the resident live queue by this planning task.
-- Waves 0-1 are the immediate execution slice: refresh evidence and close AR/AP/cash/receipt/payment semantic contracts.
+- The planning queue remains an acceptance ledger rather than a second live dispatcher.
 - Waves 0-6 remain readonly toward Chanjet. Wave 7 external minimal write is `HOLD_FOR_EXPLICIT_APPROVAL` and cannot inherit earlier approval.
 
-- Production revision `5f3dc613` is healthy after CI/CD run `29745034623`.
-- Protected readonly mirror refresh completed 46/46 targets with zero unresolved failures.
-- Authenticated production audit passed 15/15.
-- Finance read model is 10/10 ready: five authority metrics and five row-level readonly models.
-- Reconciliation has five real mismatches and five row-level WARN items; mapping/manual/HOLD are zero.
-- Master-data confirmation is 90/90 deterministic and idempotent: 41 exact plus 49 approved readonly source identities, with 919 subject references and zero conflicts/errors.
+- Production revision `df404cec` is healthy after full CI/CD run `29795997695`; repository, API image and Web image are aligned.
+- Protected readonly mirror refresh completed 56/56 targets with zero unresolved failures.
+- Authenticated production audit passed 17/17.
+- Finance surface exposes five authority cards and three row-level readonly report cards with source and difference contracts.
+- Reconciliation retains four real differences; mapping/manual/HOLD blockers are zero.
+- Master-data evidence contains 1,005 valid source rows, 41 exact matches, zero pending mappings and zero conflicts.
+- Runtime field capture contains 3,341 mappings with zero blocking unmapped fields.
 - Chanjet master IDs are account-book scoped; the production unique key includes `book_id`.
 - ERP middle-layer canary jobs 2815/2816 passed readback, idempotency, and compensating rollback with zero residue.
 - No external Chanjet write/delete/modify or voucher push was executed.
-- Next Gate is `CHANJET_P3_FIELD_SEMANTIC_LOCK` for five real finance differences; external Chanjet write remains a separate unapproved Gate.
-- The 46-target scope is finance-readonly plus purchase-order list, not all Chanjet product modules.
-- Report: `docs/ops/CHANJET_READONLY_GAP_CLOSURE_AND_MINIMAL_WRITE_GATE_REPORT_20260720.md`.
+- Production alignment `CHANJET-RO-1784601556414` completed in one attempt. API restart count stayed 0, `OOMKilled=false`, and memory stayed near 93.72 MiB.
+- Alignment lifecycle is durable and restart-recoverable; deployment workflows are serialized.
+- Next Gate is `CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL`; external Chanjet write remains a separate unapproved Gate.
+- Reports: `docs/ops/CHANJET_END_TO_END_EXECUTION_REPORT_20260721.md` and `docs/ops/CHANJET_WAVE6_PRODUCTION_CLOSEOUT_20260721.md`.
 
 ## Operating Rules
 

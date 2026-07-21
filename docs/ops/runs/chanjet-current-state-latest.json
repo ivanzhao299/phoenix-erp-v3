@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-07-21T01:29:50.014Z",
+  "generatedAt": "2026-07-21T02:43:19.844Z",
   "decision": "GO_WITH_CONDITIONS",
   "authoritativeEvidence": "RUNTIME_CURRENT_STATE",
   "productionReadiness": {
-    "generatedAt": "2026-07-21T01:29:48.386Z",
+    "generatedAt": "2026-07-21T02:43:18.043Z",
     "decision": "GO_WITH_CONDITIONS",
-    "score": 90,
-    "grade": "A",
+    "score": 89,
+    "grade": "B",
     "summary": {
       "mirrorFreshRate": 100,
       "accountBookMappingRate": 100,
@@ -68,11 +68,11 @@
       {
         "key": "P4",
         "title": "差异对账中心",
-        "score": 70,
+        "score": 60,
         "status": "READY_WITH_CONDITIONS",
         "evidence": [
-          "安全对账 7/10",
-          "不一致 3，待映射 0"
+          "安全对账 6/10",
+          "不一致 4，待映射 0"
         ],
         "nextAction": "CHANJET_P3_FIELD_SEMANTIC_LOCK"
       },
@@ -210,7 +210,7 @@
     "financeCards": 8,
     "mappingReadyDomains": 41,
     "mappingDomains": 41,
-    "reconciliationOpen": 3,
+    "reconciliationOpen": 4,
     "recentJobSuccessRate": 100,
     "voucherDrafts": 0,
     "voucherPushReadyCandidates": 0,
@@ -222,7 +222,7 @@
   "blockers": [],
   "conditions": [
     "财务卡片权威覆盖 63%，未就绪卡片继续使用 ERP 主值",
-    "差异中心仍有 3 个非 OK/WARN 项"
+    "差异中心仍有 4 个非 OK/WARN 项"
   ],
   "staleEvidencePolicy": "docs/ops/runs 中带 latest 的历史文件只作为当时审计快照；当前判断必须读取本端点 generatedAt 对应的实时数据库证据。",
   "guardrails": {

@@ -1894,3 +1894,15 @@ Decision: counterparty resolution `GO`.
 - ERP-only writeback preparation includes dual control, payload hash, idempotent Outbox, bounded retry/dead-letter, receipts and reversal simulation.
 - `push_allowed=false`, `external_write_enabled=false`, and no external Chanjet transport is implemented.
 - Next Gate: `CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL`; incomplete or inherited approval remains HOLD.
+
+# 2026-07-21 - Verify Chanjet Wave 6 in production and harden alignment lifecycle
+
+- Decision: `GO_WITH_CONDITIONS`; Waves 0-6 are implemented and production-verified.
+- Revision `df404cec` passed full CI/CD run `29795997695`; repository, API image and Web image are aligned.
+- Real alignment run `CHANJET-RO-1784601556414` completed in one attempt for all 56 targets.
+- Production audits pass 17/17 contracts and 56/56 mirror targets; 3,341 field mappings contain zero blocking unmapped fields.
+- Alignment lifecycle is now durable in `chanjet_sync_jobs`, restart-recoverable and shared by scheduled/manual triggers.
+- The duplicate current-state aggregation that exhausted V8 heap was removed; API restart count remained 0 and `OOMKilled=false` after the production run.
+- Deployment concurrency is serialized so a later Web-only run cannot cancel an in-flight full deployment.
+- Four reconciliation differences remain visible because accounting and operational records use different grain/lifecycle/scope; no fake equality or silent overwrite is allowed.
+- External Chanjet write transport is absent, external write remains disabled, and Wave 7 still requires one separate exact canary approval.

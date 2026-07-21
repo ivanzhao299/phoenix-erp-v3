@@ -1,5 +1,32 @@
 # Next Actions
 
+## 2026-07-21 - Chanjet Wave 6 production closeout verified
+
+Current stage: `CHANJET_WAVE_6_WRITEBACK_PREPARATION_READY`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Deployed `df404cec` through full CI/CD run `29795997695`; repository, API image and Web image revisions match.
+2. Completed real alignment run `CHANJET-RO-1784601556414` in one attempt for 56 targets.
+3. Verified 17/17 contracts, 56/56 fresh targets, 3,341 field mappings with zero blocking gaps, and 41 exact mappings with zero conflicts.
+4. Verified durable restart recovery, no OOM, no API restart and no recent readonly sync failure.
+5. Kept four real accounting-versus-operational differences visible and kept external Chanjet writes disabled.
+
+Next actions:
+
+1. Keep the four reconciliation differences visible; do not manufacture equality or overwrite ERP business tables.
+2. Continue scheduled readonly alignment and runtime drift monitoring without user intervention.
+3. Enter `CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL` only if one exact, reversible external canary is separately approved.
+4. Until that approval, keep voucher push, external transport, Chanjet write/delete/modify and production accounting mutation disabled.
+
+Evidence:
+
+- `docs/ops/CHANJET_WAVE6_PRODUCTION_CLOSEOUT_20260721.md`
+- `docs/ops/runs/chanjet-readonly-completion-audit-latest.json`
+- `docs/ops/runs/chanjet-current-state-latest.json`
+
 ## 2026-07-21 - Chanjet Wave 6 complete; external write remains HOLD
 
 Current stage: `CHANJET_WAVE_6_WRITEBACK_PREPARATION_READY`
