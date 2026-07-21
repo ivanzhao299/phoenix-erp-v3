@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-21T00:56:21.032Z",
+  "generated_at": "2026-07-21T03:22:21.393Z",
   "inputs": {
     "failure_patterns": "docs/ops/evolution/failure-patterns.json",
     "learning_log": "docs/ops/evolution/learning-log.json",
@@ -13,16 +13,16 @@
   "signal_counts": {
     "PATTERN-003": 5,
     "PATTERN-004": 29,
-    "PATTERN-PHX-001": 111,
+    "PATTERN-PHX-001": 114,
     "PATTERN-PHX-002": 25,
     "PATTERN-005": 2
   },
   "existing_backlog_count": 6,
-  "learning_log_count": 339,
+  "learning_log_count": 340,
   "previous_state": {
     "version": "PHOENIX-V3E",
-    "last_planner_run_at": "2026-07-21T00:20:11.556Z",
-    "last_apply_at": "2026-07-21T00:20:11.556Z",
+    "last_planner_run_at": "2026-07-21T00:56:21.032Z",
+    "last_apply_at": "2026-07-21T00:56:21.032Z",
     "open_improvement_count": 6,
     "repeated_pattern_count": 8,
     "highest_priority_improvement": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
@@ -73,7 +73,7 @@
       ],
       "auto_fix_allowed": true,
       "requires_approval": true,
-      "occurrence": 116,
+      "occurrence": 119,
       "severity": "HIGH"
     },
     {

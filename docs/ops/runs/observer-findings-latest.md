@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-21T00:56:20.927Z |
+| Generated at | 2026-07-21T03:22:21.282Z |
 | Run files inspected | 2252 |
 | Task count | 363 |
-| Findings count | 33 |
+| Findings count | 32 |
 | Highest severity | CRITICAL |
 | Routing findings | 8 |
-| Baseline findings | 4 |
+| Baseline findings | 3 |
 | Report schema findings | 4 |
 | Codex CLI executed | No |
 | Database written | No |
@@ -279,15 +279,6 @@
 
 ### OBS-0030 - MEDIUM - baseline
 
-- Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl
-- Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
-- Recommended Next Task: Baseline cleanup for Codex-Orchestrator.
-
-### OBS-0031 - MEDIUM - baseline
-
 - Affected Agent: A5-Data-Readiness
 - Evidence: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
@@ -295,7 +286,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Baseline cleanup for A5-Data-Readiness.
 
-### OBS-0032 - MEDIUM - baseline
+### OBS-0031 - MEDIUM - baseline
 
 - Affected Agent: A6-Staging-Deploy-Runbook
 - Evidence: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
@@ -304,7 +295,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A6-Staging-Deploy-Runbook with baseline autopilot.
 
-### OBS-0033 - MEDIUM - baseline
+### OBS-0032 - MEDIUM - baseline
 
 - Affected Agent: A7-Final-QA-Gate
 - Evidence: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.
