@@ -3,6 +3,47 @@ import { ChanjetIntegrationService } from './chanjet-integration.service';
 describe('ChanjetIntegrationService field-gap helpers', () => {
   const service = Object.create(ChanjetIntegrationService.prototype) as any;
 
+  it('preserves reviewed field decisions when the catalog is analyzed again', async () => {
+    const subject = Object.create(ChanjetIntegrationService.prototype) as any;
+    subject.fieldCatalogRepo = {
+      find: jest.fn().mockResolvedValue([{
+        apiPath: '/accounting/test',
+        fieldPath: 'data.rows[].amount',
+        sampleType: 'number',
+        sampleValueMasked: '***',
+      }]),
+    };
+    subject.fieldMappingRepo = {
+      find: jest.fn().mockResolvedValue([{
+        chanjetEndpoint: '/accounting/test',
+        chanjetFieldPath: 'data.rows[].amount',
+        erpDomain: 'finance',
+        erpField: 'amount',
+        decisionStatus: 'APPROVED',
+      }]),
+      upsert: jest.fn().mockResolvedValue(undefined),
+    };
+    subject.suggestErpFieldMapping = jest.fn().mockReturnValue({
+      erpDomain: 'finance',
+      erpTable: 'chanjet_entity_snapshot',
+      erpField: 'amount',
+      erpType: 'numeric',
+      transformRule: 'decimal',
+      matchStatus: 'TRANSFORM_REQUIRED',
+      riskLevel: 'HIGH',
+      analysisNote: 'reviewed mapping',
+    });
+    subject.deprecateFakeCounterpartyTargets = jest.fn().mockResolvedValue(undefined);
+    subject.deprecateApiEnvelopeBusinessTargets = jest.fn().mockResolvedValue(undefined);
+
+    await subject.analyzeFieldGaps();
+
+    expect(subject.fieldMappingRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ decisionStatus: 'APPROVED' }),
+      expect.any(Object),
+    );
+  });
+
   it('builds the documented readonly report period contracts', () => {
     const gl = service.buildProbeRequest({
       key: 'GL_BALANCE',
@@ -1550,8 +1591,12 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       id: '1',
       sourceBizType: 'PROCUREMENT_PAYMENT',
       sourceBizId: 'PAY-003',
-      status: 'REVIEWED',
+      status: 'APPROVED',
       pushAllowed: false,
+      createdBy: 'maker',
+      approvedBy: 'approver',
+      approvedAt: new Date(),
+      rawData: {},
       voucherLines: [
         { subjectCode: '100201', summary: '付款', debitAmount: 100, creditAmount: 0 },
         { subjectCode: '220201', summary: '付款', debitAmount: 0, creditAmount: 100 },
@@ -1566,5 +1611,137 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
 
     expect(result.status).toBe('PUSH_READY');
     expect(result.pushAllowed).toBe(false);
+  });
+
+  it('enforces maker and reviewer separation', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.voucherDraftRepo = {
+      findOneBy: jest.fn().mockResolvedValue({
+        id: '2',
+        sourceBizType: 'PROCUREMENT_PAYMENT',
+        sourceBizId: 'PAY-004',
+        status: 'VALIDATED',
+        createdBy: 'maker',
+        validatedAt: new Date(),
+        rawData: {},
+        voucherLines: [
+          { subjectCode: '100201', debitAmount: 100, creditAmount: 0 },
+          { subjectCode: '220201', debitAmount: 0, creditAmount: 100 },
+        ],
+      }),
+      save: jest.fn(),
+    };
+
+    await expect(subject.updateVoucherDraftStatus('2', 'REVIEWED', 'maker'))
+      .rejects.toThrow('VOUCHER_DUAL_CONTROL_REQUIRED');
+  });
+
+  it('prepares one idempotent ERP-only outbox record without external transport', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const draft = {
+      id: '3',
+      sourceBizType: 'PROCUREMENT_PAYMENT',
+      sourceBizId: 'PAY-005',
+      companyCode: 'COMP-1',
+      bookId: 'BOOK-1',
+      period: '202607',
+      title: '采购付款',
+      voucherLines: [
+        { subjectCode: '100201', debitAmount: 100, creditAmount: 0 },
+        { subjectCode: '220201', debitAmount: 0, creditAmount: 100 },
+      ],
+      status: 'PUSH_READY',
+      approvedBy: 'approver',
+      approvedAt: new Date(),
+      idempotencyKey: 'idem-1',
+      payloadHash: '',
+    };
+    draft.payloadHash = subject.hashVoucherPayload(draft);
+    subject.voucherDraftRepo = { findOneBy: jest.fn().mockResolvedValue(draft) };
+    subject.writebackOutboxRepo = {
+      findOneBy: jest.fn().mockResolvedValue(null),
+      create: jest.fn((value) => value),
+      save: jest.fn((value) => Promise.resolve({ id: '9', ...value })),
+    };
+
+    const result = await subject.prepareVoucherWritebackOutbox('3', 'operator');
+
+    expect(result).toMatchObject({
+      idempotencyKey: 'idem-1',
+      state: 'READY',
+      externalWriteEnabled: false,
+    });
+  });
+
+  it('reports writeback preparation ready while external transport remains disabled', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.voucherDraftRepo = {
+      count: jest.fn().mockResolvedValue(0),
+    };
+    subject.writebackOutboxRepo = {
+      count: jest.fn().mockResolvedValue(0),
+    };
+
+    const result = await subject.writebackPreparationOverview();
+
+    expect(result).toMatchObject({
+      decision: 'GO_WITH_CONDITIONS',
+      externalWriteEnabled: false,
+      externalNetworkTransportImplemented: false,
+      unsafeDrafts: 0,
+      unsafeOutbox: 0,
+      nextGate: 'CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL',
+    });
+  });
+
+  it('moves retryable provider simulation to dead letter after the bounded retry budget', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const outbox = {
+      id: '11',
+      state: 'RETRYABLE',
+      attemptCount: 2,
+      maxAttempts: 3,
+      payloadHash: 'payload',
+      externalWriteEnabled: false,
+      stateHistory: [],
+    };
+    subject.writebackOutboxRepo = {
+      findOneBy: jest.fn().mockResolvedValue(outbox),
+      save: jest.fn((value) => Promise.resolve(value)),
+    };
+
+    const result = await subject.simulateWritebackOutbox('11', 'RETRYABLE', 'operator');
+
+    expect(result).toMatchObject({
+      state: 'DEAD_LETTER',
+      attemptCount: 3,
+      externalWriteEnabled: false,
+      nextAttemptAt: null,
+    });
+    expect(result.providerReceipt).toMatchObject({ simulator: true, externalNetworkCalled: false });
+  });
+
+  it('simulates a reversible provider receipt without calling the provider', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const outbox = {
+      id: '12',
+      state: 'ACKNOWLEDGED',
+      attemptCount: 1,
+      maxAttempts: 3,
+      payloadHash: 'payload',
+      externalWriteEnabled: false,
+      providerReceipt: { outcome: 'ACKNOWLEDGED', attempt: 1 },
+      stateHistory: [],
+    };
+    subject.writebackOutboxRepo = {
+      findOneBy: jest.fn().mockResolvedValue(outbox),
+      save: jest.fn((value) => Promise.resolve(value)),
+    };
+
+    const result = await subject.simulateWritebackOutbox('12', 'REVERSED', 'operator');
+
+    expect(result).toMatchObject({ state: 'REVERSED', externalWriteEnabled: false });
+    expect(result.compensationRef).toBe('STUB-REVERSAL-12-2');
+    expect(result.providerReceipt).toMatchObject({ simulator: true, externalNetworkCalled: false });
   });
 });

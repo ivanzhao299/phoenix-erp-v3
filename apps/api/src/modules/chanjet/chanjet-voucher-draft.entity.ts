@@ -37,7 +37,13 @@ export class ChanjetVoucherDraftEntity {
   voucherLines: Array<Record<string, unknown>>;
 
   @Column({ name: 'status', type: 'varchar', length: 32, default: 'DRAFT' })
-  status: 'DRAFT' | 'REVIEWED' | 'PUSH_READY' | 'REJECTED';
+  status: 'DRAFT' | 'VALIDATED' | 'REVIEWED' | 'APPROVED' | 'PUSH_READY' | 'REJECTED' | 'CANCELLED';
+
+  @Column({ name: 'idempotency_key', type: 'varchar', length: 128, default: '' })
+  idempotencyKey: string;
+
+  @Column({ name: 'payload_hash', type: 'varchar', length: 64, default: '' })
+  payloadHash: string;
 
   @Column({ name: 'push_allowed', type: 'boolean', default: false })
   pushAllowed: boolean;
@@ -53,6 +59,18 @@ export class ChanjetVoucherDraftEntity {
 
   @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
   reviewedAt: Date | null;
+
+  @Column({ name: 'validated_by', type: 'varchar', length: 128, nullable: true })
+  validatedBy: string | null;
+
+  @Column({ name: 'validated_at', type: 'timestamptz', nullable: true })
+  validatedAt: Date | null;
+
+  @Column({ name: 'approved_by', type: 'varchar', length: 128, nullable: true })
+  approvedBy: string | null;
+
+  @Column({ name: 'approved_at', type: 'timestamptz', nullable: true })
+  approvedAt: Date | null;
 
   @Column({ name: 'raw_data', type: 'jsonb', nullable: true })
   rawData: Record<string, unknown> | null;

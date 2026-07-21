@@ -165,6 +165,17 @@ interface ReadonlyAlignmentCycleResult {
   error?: string;
 }
 
+interface ReadonlyAlignmentRunState {
+  runId: string | null;
+  state: 'IDLE' | 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'HOLD' | 'FAILED' | 'SKIPPED';
+  requestedBy: string | null;
+  queuedAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  decision: string | null;
+  message: string | null;
+}
+
 interface FieldCatalog {
   id: string;
   apiDomain: string;
@@ -239,12 +250,24 @@ interface VoucherDraft {
   bookId: string;
   period: string;
   title: string;
-  status: 'DRAFT' | 'REVIEWED' | 'PUSH_READY' | 'REJECTED';
+  status: 'DRAFT' | 'VALIDATED' | 'REVIEWED' | 'APPROVED' | 'PUSH_READY' | 'REJECTED' | 'CANCELLED';
   pushAllowed: boolean;
   pushStatus: string;
   createdBy: string;
   createdAt: string;
   voucherLines: Array<Record<string, unknown>>;
+}
+
+interface WritebackOutbox {
+  id: string;
+  draftId: string;
+  idempotencyKey: string;
+  state: 'READY' | 'SENDING' | 'ACKNOWLEDGED' | 'FAILED' | 'RETRYABLE' | 'DEAD_LETTER' | 'CANCELLED' | 'REVERSED';
+  attemptCount: number;
+  maxAttempts: number;
+  externalWriteEnabled: false;
+  errorMessage: string | null;
+  createdAt: string;
 }
 
 interface ReconciliationResult {
@@ -738,6 +761,7 @@ export default function ChanjetIntegrationPage() {
   const [lastAlignmentCycle, setLastAlignmentCycle] = useState<ReadonlyAlignmentCycleResult | null>(null);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [drafts, setDrafts] = useState<VoucherDraft[]>([]);
+  const [writebackOutbox, setWritebackOutbox] = useState<WritebackOutbox[]>([]);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult[]>([]);
   const [draftSourceType, setDraftSourceType] = useState('MANUAL');
   const [draftSourceId, setDraftSourceId] = useState('');
@@ -753,13 +777,14 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, outboxResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
         request<{ success: boolean; fields: FieldCatalog[]; error?: string }>('/chanjet/integration/field-catalog?limit=200'),
         request<{ success: boolean; jobs: SyncJob[]; error?: string }>('/chanjet/integration/sync-jobs?limit=80'),
         request<{ success: boolean; drafts: VoucherDraft[]; error?: string }>('/chanjet/integration/voucher-drafts?limit=80'),
+        request<{ success: boolean; outbox: WritebackOutbox[]; error?: string }>('/chanjet/integration/writeback-outbox?limit=80'),
         request<{ success: boolean; results: ReconciliationResult[]; error?: string }>('/chanjet/integration/reconciliation-results?limit=120'),
         request<{ success: boolean; snapshots: ReadSnapshot[]; error?: string }>('/chanjet/integration/mirror/read-snapshots?limit=80'),
         request<{ success: boolean; entities: EntitySnapshot[]; error?: string }>('/chanjet/integration/mirror/entity-snapshots?limit=160'),
@@ -784,6 +809,7 @@ export default function ChanjetIntegrationPage() {
       setFields(fieldResp.fields || []);
       setJobs(jobResp.jobs || []);
       setDrafts(draftResp.drafts || []);
+      setWritebackOutbox(outboxResp.outbox || []);
       setReconciliation(reconResp.results || []);
       setReadSnapshots(readResp.snapshots || []);
       setEntitySnapshots(entityResp.entities || []);
@@ -853,18 +879,33 @@ export default function ChanjetIntegrationPage() {
     setMessage('');
     setError('');
     try {
-      const result = await request<ReadonlyAlignmentCycleResult>('/chanjet/integration/alignment/run', {
+      const queued = await request<{
+        success: boolean;
+        accepted: boolean;
+        reason?: string;
+        run: ReadonlyAlignmentRunState;
+      }>('/chanjet/integration/alignment/enqueue', {
         method: 'POST',
         body: JSON.stringify({
           scope: financeCoverage?.fullReadonlyScope?.map((item) => item.key) || [],
           maxAttempts: 3,
         }),
       });
-      setLastAlignmentCycle(result);
-      if (!result.success || result.decision === 'HOLD') {
-        throw new Error(result.error || `完整只读闭环在 ${result.stoppedAt || '生产准备度'} 阶段 HOLD`);
+      if (!queued.success) throw new Error('只读对齐任务受理失败');
+      setMessage(queued.accepted ? `只读对齐任务已受理：${queued.run.runId}` : '已有只读对齐任务运行中，正在跟踪现有任务');
+
+      let run = queued.run;
+      for (let attempt = 0; attempt < 180 && ['QUEUED', 'RUNNING'].includes(run.state); attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        const status = await request<{ success: boolean; run: ReadonlyAlignmentRunState }>('/chanjet/integration/alignment/status');
+        run = status.run;
+        setMessage(`只读对齐 ${run.state === 'QUEUED' ? '排队中' : '运行中'}：${run.runId || '—'}`);
       }
-      setMessage(`完整只读闭环 ${result.decision}：同步 ${result.mirror.results.length} 个目标，精确映射 ${result.exactMappings?.approved || 0} 条，只读源身份 ${result.exactMappings?.sourceOnlyResolved || 0} 条`);
+      if (run.state !== 'COMPLETED') {
+        throw new Error(run.message || `完整只读闭环 ${run.state}`);
+      }
+      setLastAlignmentCycle(null);
+      setMessage(`完整只读闭环 ${run.decision || '完成'}：${run.message || run.runId}`);
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -877,6 +918,20 @@ export default function ChanjetIntegrationPage() {
     await runAction('凭证草稿审核', () => request(`/chanjet/integration/voucher-drafts/${id}/status`, {
       method: 'POST',
       body: JSON.stringify({ status }),
+    }));
+  }
+
+  async function prepareDraftOutbox(id: string) {
+    await runAction('生成 ERP 写回 outbox', () => request(`/chanjet/integration/voucher-drafts/${id}/prepare-outbox`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }));
+  }
+
+  async function simulateOutbox(id: string, outcome: 'ACKNOWLEDGED' | 'RETRYABLE' | 'FAILED') {
+    await runAction('运行写回模拟器', () => request(`/chanjet/integration/writeback-outbox/${id}/simulate`, {
+      method: 'POST',
+      body: JSON.stringify({ outcome }),
     }));
   }
 
@@ -2289,14 +2344,42 @@ export default function ChanjetIntegrationPage() {
                   <td style={cellStyle}>{d.voucherLines?.length ?? 0} 行</td>
                   <td style={cellStyle}>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'REVIEWED')}>复核</Button>
-                      <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'PUSH_READY')}>{t('finance.chanjet.mark_writeback_candidate')}</Button>
-                      <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'REJECTED')}>拒绝</Button>
+                      {d.status === 'DRAFT' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'VALIDATED')}>校验入列</Button>}
+                      {d.status === 'VALIDATED' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'REVIEWED')}>复核</Button>}
+                      {d.status === 'REVIEWED' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'APPROVED')}>批准</Button>}
+                      {d.status === 'APPROVED' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'PUSH_READY')}>{t('finance.chanjet.mark_writeback_candidate')}</Button>}
+                      {d.status === 'PUSH_READY' && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => prepareDraftOutbox(d.id)}>生成 Outbox</Button>}
+                      {!['REJECTED', 'CANCELLED'].includes(d.status) && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => updateDraftStatus(d.id, 'REJECTED')}>拒绝</Button>}
                     </div>
                   </td>
                 </tr>
               ))}
               {drafts.length === 0 && <tr><td style={cellStyle} colSpan={5}>暂无凭证草稿。</td></tr>}
+            </tbody>
+          </table>
+          <div style={{ marginTop: 20, fontWeight: 700 }}>写回 Outbox（仅 ERP 模拟，外部传输关闭）</div>
+          <table style={{ ...tableStyle, marginTop: 10 }}>
+            <thead><tr>{['Outbox', '草稿', '状态', '尝试', '外部写入', '模拟操作'].map(h => <th key={h} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {writebackOutbox.map((item) => (
+                <tr key={item.id}>
+                  <td style={cellStyle}>#{item.id}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{item.idempotencyKey.slice(0, 16)}…</div></td>
+                  <td style={cellStyle}>#{item.draftId}</td>
+                  <td style={cellStyle}><Badge tone={statusTone(item.state)}>{item.state}</Badge>{item.errorMessage && <div style={{ color: 'var(--danger)', fontSize: 12 }}>{item.errorMessage}</div>}</td>
+                  <td style={cellStyle}>{item.attemptCount}/{item.maxAttempts}</td>
+                  <td style={cellStyle}><Badge tone="muted">永久关闭</Badge></td>
+                  <td style={cellStyle}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {['READY', 'RETRYABLE'].includes(item.state) && <>
+                        <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => simulateOutbox(item.id, 'ACKNOWLEDGED')}>模拟成功</Button>
+                        <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => simulateOutbox(item.id, 'RETRYABLE')}>模拟重试</Button>
+                        <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => simulateOutbox(item.id, 'FAILED')}>模拟失败</Button>
+                      </>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {writebackOutbox.length === 0 && <tr><td style={cellStyle} colSpan={6}>暂无 Outbox。必须完成校验、复核、批准、候选四道内部 Gate 后才能生成。</td></tr>}
             </tbody>
           </table>
         </section>

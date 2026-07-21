@@ -8,14 +8,14 @@ This matrix is the release truth. A task report, commit or successful HTTP respo
 
 | Dimension | Current evidence | Completion target | Blocking rule |
 | --- | --- | --- | --- |
-| Authorized readonly endpoint coverage | 46/46 current targets | 100% of the newly discovered, versioned catalog for every enabled book | Any unexplained missing/stale P0 endpoint is HOLD |
-| Required field capture | Latest adapter evidence above 90% | 100% capture; at least 95% semantic coverage | Missing required identity/date/status/amount field is HOLD |
-| Finance semantic lock | Five real differences retained | AR/AP/cash/receipt/payment have explicit dimensions and zero unexplained P0 difference | Cross-book/currency/date comparison is HOLD |
-| Master-data mapping | 90/90 deterministic; conflicts 0 | Required P0 mappings conflict 0, ambiguity 0, deterministic automation at least 90% | Fuzzy auto-confirmation is HOLD |
-| Ordinary ERP finance fusion | Partial authority/fallback contract | All P0 cards and reports expose source, freshness, difference and drill-down | Unlabeled/fabricated value is HOLD |
+| Authorized readonly endpoint coverage | 56/56 fresh mirror targets; 15/15 completion contracts | 100% of the discovered, versioned catalog for every enabled book | Any unexplained missing/stale P0 endpoint is HOLD |
+| Required field capture | 3,341 field mappings; runtime blocking unmapped fields 0 | 100% capture; at least 95% semantic coverage | Missing required identity/date/status/amount field is HOLD |
+| Finance semantic lock | Three non-comparable lifecycle/grain differences retained and explained | AR/AP/cash/receipt/payment have explicit dimensions and zero unexplained P0 difference | Cross-book/currency/date comparison is HOLD |
+| Master-data mapping | 41/41 current mapping domains confirmed; conflicts 0 | Required P0 mappings conflict 0, ambiguity 0, deterministic automation at least 90% | Fuzzy auto-confirmation is HOLD |
+| Ordinary ERP finance fusion | Five authority cards plus three readonly report cards are source-labelled | All P0 cards and reports expose source, freshness, difference and drill-down | Unlabeled/fabricated value is HOLD |
 | Security and DataScope | PASS WITH CONDITIONS | Book/company/account/role access matrix passes; write credential separate | Cross-company/book leakage is FAIL |
 | Reliability | Four-hour scheduler and retry exist | 24-hour soak, induced failure recovery, alert-to-human, idempotent replay | Silent stale data or unbounded retry is HOLD |
-| Internal writeback preparation | Drafts and compensated ERP canary exist | State machine, validation, outbox, receipts, dual control and provider stub all pass | External network write in Waves 0-6 is FAIL |
+| Internal writeback preparation | State machine, payload hash, idempotent Outbox, bounded retry/dead-letter, receipt/reversal simulator and dual control implemented | State machine, validation, outbox, receipts, dual control and provider stub all pass | External network write in Waves 0-6 is FAIL |
 | External canary | Not approved | One explicit, reversible, read-back and duplicate-safe canary | No explicit approval means HOLD |
 | Production rollout | Not approved | Controlled pilot and 30-day stabilization pass | Production GO cannot be inherited |
 
@@ -130,6 +130,15 @@ Required validation:
 - maker and approver are different;
 - provider request/response hashes and receipt are auditable;
 - no real Chanjet network write occurs.
+
+Current Wave 6 evidence (2026-07-21):
+
+- internal lifecycle is `DRAFT -> VALIDATED -> REVIEWED -> APPROVED -> PUSH_READY`;
+- maker and reviewer/approver separation is enforced;
+- payload hash and source-business idempotency key are locked before Outbox creation;
+- Outbox retry is bounded, dead-letter is explicit, and provider receipt/reversal simulation is append-audited;
+- `push_allowed=false`, `external_write_enabled=false`, and the provider transport is not implemented;
+- the admin UI exposes preparation and simulation only, with no real send command.
 
 ### Wave 7 - External canary
 

@@ -1,19 +1,19 @@
 {
-  "generatedAt": "2026-07-21T01:07:41.281Z",
+  "generatedAt": "2026-07-21T01:29:50.014Z",
   "decision": "GO_WITH_CONDITIONS",
   "authoritativeEvidence": "RUNTIME_CURRENT_STATE",
   "productionReadiness": {
-    "generatedAt": "2026-07-21T01:07:39.349Z",
+    "generatedAt": "2026-07-21T01:29:48.386Z",
     "decision": "GO_WITH_CONDITIONS",
-    "score": 83,
-    "grade": "B",
+    "score": 90,
+    "grade": "A",
     "summary": {
-      "mirrorFreshRate": 79,
+      "mirrorFreshRate": 100,
       "accountBookMappingRate": 100,
       "masterDataApprovedRate": 100,
       "semanticCoverageRate": 100,
       "authorityReadyRate": 63,
-      "recentJobSuccessRate": 52,
+      "recentJobSuccessRate": 100,
       "exactSystemApprovalCandidates": 41,
       "manualMappingCandidates": 0,
       "nextGate": "CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE"
@@ -22,13 +22,13 @@
       {
         "key": "P0",
         "title": "全量只读镜像",
-        "score": 79,
-        "status": "READY_WITH_CONDITIONS",
+        "score": 100,
+        "status": "READY",
         "evidence": [
-          "24h 新鲜目标 44/56",
-          "缺失 0，过期 12"
+          "24h 新鲜目标 56/56",
+          "缺失 0，过期 0"
         ],
-        "nextAction": "CHANJET_READONLY_SYNC_FAILURE_REPAIR"
+        "nextAction": "KEEP_SCHEDULED_READONLY_SYNC"
       },
       {
         "key": "P1",
@@ -63,7 +63,7 @@
           "权威卡片 5/8",
           "未达权威条件时保持 ERP 主值并显式展示差异"
         ],
-        "nextAction": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW"
+        "nextAction": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW"
       },
       {
         "key": "P4",
@@ -79,10 +79,10 @@
       {
         "key": "P5",
         "title": "生产同步韧性",
-        "score": 66,
-        "status": "READY_WITH_CONDITIONS",
+        "score": 100,
+        "status": "READY",
         "evidence": [
-          "最近镜像作业成功率 52%",
+          "最近镜像作业成功率 100%",
           "Token 健康 READY",
           "失败最多重试 3 次且仍失败转 HOLD/告警"
         ],
@@ -102,8 +102,7 @@
     ],
     "blockers": [],
     "conditions": [
-      "财务卡片权威覆盖 63%，未就绪卡片继续使用 ERP 主值",
-      "最近只读同步成功率 52%"
+      "财务卡片权威覆盖 63%，未就绪卡片继续使用 ERP 主值"
     ],
     "tokenHealth": {
       "configured": true,
@@ -133,13 +132,13 @@
     {
       "phase": "P0",
       "title": "全量只读镜像基线",
-      "status": "READY_WITH_CONDITIONS",
-      "score": 79,
+      "status": "READY",
+      "score": 100,
       "evidence": [
-        "24h 新鲜目标 44/56",
-        "缺失 0，过期 12"
+        "24h 新鲜目标 56/56",
+        "缺失 0，过期 0"
       ],
-      "nextAction": "CHANJET_READONLY_SYNC_FAILURE_REPAIR"
+      "nextAction": "KEEP_SCHEDULED_READONLY_SYNC"
     },
     {
       "phase": "P1",
@@ -151,7 +150,7 @@
         "只读可用 3/8",
         "P0 read model 阻断 0"
       ],
-      "nextAction": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW"
+      "nextAction": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW"
     },
     {
       "phase": "P2",
@@ -181,10 +180,10 @@
     {
       "phase": "P4",
       "title": "增量同步、SLO、漂移与失败告警",
-      "status": "READY_WITH_CONDITIONS",
-      "score": 66,
+      "status": "READY",
+      "score": 100,
       "evidence": [
-        "最近镜像作业成功率 52%",
+        "最近镜像作业成功率 100%",
         "Token 健康 READY",
         "失败最多重试 3 次且仍失败转 HOLD/告警"
       ],
@@ -205,25 +204,24 @@
     }
   ],
   "summary": {
-    "mirrorFreshRate": 79,
+    "mirrorFreshRate": 100,
     "financeAuthorityReady": 5,
     "financeReadonlyReady": 3,
     "financeCards": 8,
     "mappingReadyDomains": 41,
     "mappingDomains": 41,
     "reconciliationOpen": 3,
-    "recentJobSuccessRate": 52,
+    "recentJobSuccessRate": 100,
     "voucherDrafts": 0,
     "voucherPushReadyCandidates": 0,
     "fieldMappings": 3341,
     "unmappedFields": 0,
     "externalWriteEnabled": false,
-    "nextGate": "CHANJET_READONLY_SYNC_FAILURE_REPAIR"
+    "nextGate": "KEEP_CHANJET_WRITE_HOLD_UNTIL_SEPARATE_APPROVAL"
   },
   "blockers": [],
   "conditions": [
     "财务卡片权威覆盖 63%，未就绪卡片继续使用 ERP 主值",
-    "最近只读同步成功率 52%",
     "差异中心仍有 3 个非 OK/WARN 项"
   ],
   "staleEvidencePolicy": "docs/ops/runs 中带 latest 的历史文件只作为当时审计快照；当前判断必须读取本端点 generatedAt 对应的实时数据库证据。",

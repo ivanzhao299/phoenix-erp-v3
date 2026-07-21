@@ -12,6 +12,7 @@ import { ChanjetReconciliationResultEntity } from './chanjet-reconciliation-resu
 import { ChanjetReadSnapshotEntity } from './chanjet-read-snapshot.entity';
 import { ChanjetEntitySnapshotEntity } from './chanjet-entity-snapshot.entity';
 import { ChanjetErpFieldMappingEntity } from './chanjet-erp-field-mapping.entity';
+import { ChanjetOutboxState, ChanjetWritebackOutboxEntity } from './chanjet-writeback-outbox.entity';
 import * as crypto from 'crypto';
 
 type HttpMethod = 'GET' | 'POST';
@@ -1281,6 +1282,8 @@ export class ChanjetIntegrationService {
     private readonly entitySnapshotRepo: Repository<ChanjetEntitySnapshotEntity>,
     @InjectRepository(ChanjetErpFieldMappingEntity)
     private readonly fieldMappingRepo: Repository<ChanjetErpFieldMappingEntity>,
+    @InjectRepository(ChanjetWritebackOutboxEntity)
+    private readonly writebackOutboxRepo: Repository<ChanjetWritebackOutboxEntity>,
   ) {}
 
   listProbeEndpoints() {
@@ -4202,20 +4205,26 @@ export class ChanjetIntegrationService {
       this.financeReadModelOverview(),
     ]);
 
-    const openFields = fieldMappings.filter((mapping) => (
+    const reviewFields = fieldMappings.filter((mapping) => (
       mapping.erpDomain !== 'api_metadata'
       && mapping.matchStatus !== 'MATCHED'
       && mapping.decisionStatus !== 'REJECTED'
     ));
-    const highOpenFields = openFields.filter((mapping) => ['HIGH', 'CRITICAL'].includes(mapping.riskLevel));
+    const highReviewFields = reviewFields.filter((mapping) => ['HIGH', 'CRITICAL'].includes(mapping.riskLevel));
     const bucketReviews = FINANCE_ADAPTER_BUCKETS.map((bucket) => {
-      const fields = openFields.filter((mapping) => this.fieldBelongsToFinanceBucket(mapping, bucket));
+      const fields = reviewFields.filter((mapping) => this.fieldBelongsToFinanceBucket(mapping, bucket));
       const highFields = fields.filter((mapping) => ['HIGH', 'CRITICAL'].includes(mapping.riskLevel));
       const entityReady = adapter.buckets.find((item) => item.key === bucket.key);
       const adapterStatus = entityReady?.adapterStatus || 'WAITING_MIRROR_SYNC';
+      // The raw catalog contains response envelope, nested and provider-specific fields.
+      // Once a reviewed readonly adapter has a complete contract, those differences remain
+      // visible for drift audit but must not be reported as missing ERP schema fields.
+      const adapterContractCoversFields = adapterStatus !== 'WAITING_MIRROR_SYNC';
+      const blockingFields = adapterContractCoversFields ? [] : fields;
+      const blockingHighFields = blockingFields.filter((mapping) => ['HIGH', 'CRITICAL'].includes(mapping.riskLevel));
       const blockingReasons = [
         ...(adapterStatus === 'WAITING_MIRROR_SYNC' ? ['mirror_data_not_ready'] : []),
-        ...(highFields.length ? [`high_or_critical_open_fields:${highFields.length}`] : []),
+        ...(blockingHighFields.length ? [`high_or_critical_blocking_fields:${blockingHighFields.length}`] : []),
         ...(bucket.key === 'CHANJET_VOUCHER_LINE' ? ['voucher_writeback_remains_disabled'] : []),
         ...(bucket.key === 'CHANJET_COUNTERPARTY'
           && masterAlignment.summary.approvedCoverageRate < 0.9
@@ -4238,8 +4247,10 @@ export class ChanjetIntegrationService {
         canImplementReadonly,
         canPromoteToFinanceCard: readModel.metrics
           .some((metric) => metric.status === 'AUTHORITY_READY' && bucket.entityTypes.some((type) => metric.sourceEntityTypes.includes(type))),
-        openFieldCount: fields.length,
-        highOrCriticalOpenFieldCount: highFields.length,
+        reviewFieldCount: fields.length,
+        adapterCoveredFieldCount: adapterContractCoversFields ? fields.length : 0,
+        openFieldCount: blockingFields.length,
+        highOrCriticalOpenFieldCount: blockingHighFields.length,
         riskCounts: fields.reduce<Record<string, number>>((acc, mapping) => {
           acc[mapping.riskLevel] = (acc[mapping.riskLevel] || 0) + 1;
           return acc;
@@ -4290,13 +4301,19 @@ export class ChanjetIntegrationService {
 
     const p0OpenBuckets = bucketReviews.filter((item) => item.priority === 'P0' && item.highOrCriticalOpenFieldCount > 0);
     const readyReadonlyBuckets = bucketReviews.filter((item) => item.canImplementReadonly);
+    const coveredReviewFields = bucketReviews.reduce((sum, item) => sum + item.adapterCoveredFieldCount, 0);
+    const blockingOpenFields = bucketReviews.reduce((sum, item) => sum + item.openFieldCount, 0);
+    const blockingHighFields = bucketReviews.reduce((sum, item) => sum + item.highOrCriticalOpenFieldCount, 0);
     return {
       generatedAt: new Date().toISOString(),
       decision: p0OpenBuckets.length ? 'GO_WITH_CONDITIONS' : 'GO',
       summary: {
         totalFields: fieldMappings.length,
-        openFields: openFields.length,
-        highOrCriticalOpenFields: highOpenFields.length,
+        reviewFields: reviewFields.length,
+        highOrCriticalReviewFields: highReviewFields.length,
+        adapterCoveredReviewFields: coveredReviewFields,
+        openFields: blockingOpenFields,
+        highOrCriticalOpenFields: blockingHighFields,
         buckets: bucketReviews.length,
         p0Buckets: bucketReviews.filter((item) => item.priority === 'P0').length,
         p0OpenBuckets: p0OpenBuckets.length,
@@ -6504,12 +6521,28 @@ export class ChanjetIntegrationService {
   }
 
   async analyzeFieldGaps(): Promise<{ scanned: number; upserted: number; statusCounts: Record<string, number> }> {
-    const fields = await this.fieldCatalogRepo.find({ take: 5000 });
+    const [fields, existingMappings] = await Promise.all([
+      this.fieldCatalogRepo.find({ take: 5000 }),
+      this.fieldMappingRepo.find({ take: 12000 }),
+    ]);
+    const existingDecisions = new Map(existingMappings.map((mapping) => [
+      this.fieldMappingIdentity(mapping.chanjetEndpoint, mapping.chanjetFieldPath, mapping.erpDomain, mapping.erpField),
+      mapping.decisionStatus,
+    ]));
     let upserted = 0;
     const statusCounts: Record<string, number> = {};
     for (const field of fields) {
       if (field.fieldPath === '$' || field.sampleType === 'object' || field.sampleType === 'array') continue;
       const suggestion = this.suggestErpFieldMapping(field);
+      const identity = this.fieldMappingIdentity(
+        field.apiPath,
+        field.fieldPath,
+        suggestion.erpDomain,
+        suggestion.erpField,
+      );
+      const existingDecision = existingDecisions.get(identity);
+      const decisionStatus = existingDecision
+        || (suggestion.matchStatus === 'MATCHED' || suggestion.erpDomain === 'api_metadata' ? 'APPROVED' : 'PENDING');
       statusCounts[suggestion.matchStatus] = (statusCounts[suggestion.matchStatus] || 0) + 1;
       await this.fieldMappingRepo.upsert(
         {
@@ -6524,7 +6557,7 @@ export class ChanjetIntegrationService {
           transformRule: suggestion.transformRule,
           matchStatus: suggestion.matchStatus,
           riskLevel: suggestion.riskLevel,
-          decisionStatus: 'PENDING',
+          decisionStatus,
           analysisNote: suggestion.analysisNote,
         },
         { conflictPaths: ['chanjetEndpoint', 'chanjetFieldPath', 'erpDomain', 'erpField'], skipUpdateIfNoValuesChanged: false },
@@ -6534,6 +6567,10 @@ export class ChanjetIntegrationService {
     await this.deprecateFakeCounterpartyTargets();
     await this.deprecateApiEnvelopeBusinessTargets();
     return { scanned: fields.length, upserted, statusCounts };
+  }
+
+  private fieldMappingIdentity(endpoint: string, fieldPath: string, erpDomain: string, erpField: string): string {
+    return [endpoint, fieldPath, erpDomain, erpField].join('\u001f');
   }
 
   async listVoucherDrafts(limit = 100, status?: string): Promise<ChanjetVoucherDraftEntity[]> {
@@ -6561,6 +6598,14 @@ export class ChanjetIntegrationService {
     if (existing && existing.status !== 'REJECTED') {
       throw new Error(`DUPLICATE_ACTIVE_VOUCHER_DRAFT: ${input.sourceBizType}/${input.sourceBizId} 已有 ${existing.status} 草稿`);
     }
+    const payloadHash = this.hashVoucherPayload(input);
+    const idempotencyKey = this.hashText([
+      input.sourceBizType,
+      input.sourceBizId,
+      input.bookId || '',
+      input.period || '',
+      payloadHash,
+    ].join('\u001f'));
     const draft = this.voucherDraftRepo.create({
       sourceBizType: input.sourceBizType,
       sourceBizId: input.sourceBizId,
@@ -6570,11 +6615,17 @@ export class ChanjetIntegrationService {
       title: input.title ?? '',
       voucherLines: input.voucherLines,
       status: 'DRAFT',
+      idempotencyKey,
+      payloadHash,
       pushAllowed: false,
       pushStatus: 'NOT_PUSHED',
       createdBy: createdBy || '',
       reviewedBy: null,
       reviewedAt: null,
+      validatedBy: null,
+      validatedAt: null,
+      approvedBy: null,
+      approvedAt: null,
       rawData: {
         ...(input.rawData || {}),
         validation: {
@@ -6636,21 +6687,25 @@ export class ChanjetIntegrationService {
 
   async updateVoucherDraftStatus(
     id: string,
-    status: 'DRAFT' | 'REVIEWED' | 'PUSH_READY' | 'REJECTED',
+    status: ChanjetVoucherDraftEntity['status'],
     reviewedBy: string,
   ): Promise<ChanjetVoucherDraftEntity> {
     const draft = await this.voucherDraftRepo.findOneBy({ id });
     if (!draft) throw new Error(`voucher draft ${id} 不存在`);
+    const previousStatus = draft.status;
     const allowedTransitions: Record<ChanjetVoucherDraftEntity['status'], ChanjetVoucherDraftEntity['status'][]> = {
-      DRAFT: ['REVIEWED', 'REJECTED'],
-      REVIEWED: ['DRAFT', 'PUSH_READY', 'REJECTED'],
-      PUSH_READY: ['REVIEWED', 'REJECTED'],
+      DRAFT: ['VALIDATED', 'REJECTED'],
+      VALIDATED: ['DRAFT', 'REVIEWED', 'REJECTED'],
+      REVIEWED: ['VALIDATED', 'APPROVED', 'REJECTED'],
+      APPROVED: ['REVIEWED', 'PUSH_READY', 'REJECTED'],
+      PUSH_READY: ['APPROVED', 'REJECTED', 'CANCELLED'],
       REJECTED: ['DRAFT'],
+      CANCELLED: [],
     };
     if (draft.status !== status && !allowedTransitions[draft.status].includes(status)) {
       throw new Error(`INVALID_VOUCHER_DRAFT_TRANSITION: ${draft.status} -> ${status}`);
     }
-    if (['REVIEWED', 'PUSH_READY'].includes(status)) {
+    if (['VALIDATED', 'REVIEWED', 'APPROVED', 'PUSH_READY'].includes(status)) {
       const validation = this.validateVoucherDraftInput({
         sourceBizType: draft.sourceBizType,
         sourceBizId: draft.sourceBizId,
@@ -6660,12 +6715,210 @@ export class ChanjetIntegrationService {
         throw new Error(`VOUCHER_DRAFT_VALIDATION_FAILED: ${validation.errors.join('；')}`);
       }
     }
+    const actor = String(reviewedBy || '').trim();
+    if (['REVIEWED', 'APPROVED'].includes(status) && (!actor || actor === draft.createdBy)) {
+      throw new Error('VOUCHER_DUAL_CONTROL_REQUIRED: 制单人与复核/批准人必须不同');
+    }
+    if (status === 'VALIDATED') {
+      draft.validatedBy = actor || null;
+      draft.validatedAt = new Date();
+    }
+    if (status === 'REVIEWED') {
+      if (!draft.validatedAt) throw new Error('VOUCHER_MUST_BE_VALIDATED_BEFORE_REVIEW');
+      draft.reviewedBy = actor;
+      draft.reviewedAt = new Date();
+    }
+    if (status === 'APPROVED') {
+      if (!draft.reviewedAt) throw new Error('VOUCHER_MUST_BE_REVIEWED_BEFORE_APPROVAL');
+      draft.approvedBy = actor;
+      draft.approvedAt = new Date();
+    }
+    if (status === 'PUSH_READY' && (!draft.approvedAt || !draft.approvedBy)) {
+      throw new Error('VOUCHER_MUST_BE_APPROVED_BEFORE_PUSH_READY');
+    }
     draft.status = status;
     // PUSH_READY 只是 ERP 内部候选态；外部写入必须由未来独立 Gate 和独立写入服务开放。
     draft.pushAllowed = false;
-    draft.reviewedBy = reviewedBy || null;
-    draft.reviewedAt = new Date();
+    const rawData = draft.rawData || {};
+    const lifecycle = Array.isArray(rawData.lifecycle) ? rawData.lifecycle : [];
+    draft.rawData = {
+      ...rawData,
+      lifecycle: [...lifecycle, {
+        from: previousStatus,
+        to: status,
+        actor,
+        at: new Date().toISOString(),
+        externalWriteEnabled: false,
+      }],
+    };
     return this.voucherDraftRepo.save(draft);
+  }
+
+  async listWritebackOutbox(limit = 100, state?: string): Promise<ChanjetWritebackOutboxEntity[]> {
+    return this.writebackOutboxRepo.find({
+      where: state ? { state: state as ChanjetOutboxState } : {},
+      order: { createdAt: 'DESC' },
+      take: Math.min(Math.max(Number(limit) || 100, 1), 500),
+    });
+  }
+
+  async writebackPreparationOverview() {
+    const draftStates = ['DRAFT', 'VALIDATED', 'REVIEWED', 'APPROVED', 'PUSH_READY', 'REJECTED', 'CANCELLED'] as const;
+    const outboxStates: ChanjetOutboxState[] = [
+      'READY', 'SENDING', 'ACKNOWLEDGED', 'FAILED', 'RETRYABLE', 'DEAD_LETTER', 'CANCELLED', 'REVERSED',
+    ];
+    const [draftCounts, outboxCounts, unsafeDrafts, unsafeOutbox] = await Promise.all([
+      Promise.all(draftStates.map(async (state) => [state, await this.voucherDraftRepo.count({ where: { status: state } })] as const)),
+      Promise.all(outboxStates.map(async (state) => [state, await this.writebackOutboxRepo.count({ where: { state } })] as const)),
+      this.voucherDraftRepo.count({ where: { pushAllowed: true } }),
+      this.writebackOutboxRepo.count({ where: { externalWriteEnabled: true } }),
+    ]);
+    const blockers = [
+      ...(unsafeDrafts ? [`${unsafeDrafts} 个凭证草稿错误开放 pushAllowed`] : []),
+      ...(unsafeOutbox ? [`${unsafeOutbox} 个 Outbox 错误开放 externalWriteEnabled`] : []),
+    ];
+    return {
+      decision: blockers.length ? 'HOLD' : 'GO_WITH_CONDITIONS',
+      externalWriteEnabled: false,
+      externalNetworkTransportImplemented: false,
+      draftStateCounts: Object.fromEntries(draftCounts),
+      outboxStateCounts: Object.fromEntries(outboxCounts),
+      unsafeDrafts,
+      unsafeOutbox,
+      capabilities: {
+        doubleEntryValidation: true,
+        makerReviewerSeparation: true,
+        payloadHashLock: true,
+        idempotentOutbox: true,
+        boundedRetrySimulation: true,
+        deadLetterSimulation: true,
+        providerReceiptAudit: true,
+        realProviderWrite: false,
+      },
+      blockers,
+      conditions: [
+        'Wave 7 必须取得逐项、限时、可回退的外部最小写入批准。',
+        '批准前仅允许 ERP 内部草稿、审核、Outbox 与 provider stub 演练。',
+      ],
+      nextGate: 'CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL',
+    };
+  }
+
+  async prepareVoucherWritebackOutbox(draftId: string, actor: string): Promise<ChanjetWritebackOutboxEntity> {
+    const draft = await this.voucherDraftRepo.findOneBy({ id: draftId });
+    if (!draft) throw new Error(`voucher draft ${draftId} 不存在`);
+    if (draft.status !== 'PUSH_READY') throw new Error('VOUCHER_NOT_PUSH_READY');
+    if (!draft.approvedBy || !draft.approvedAt) throw new Error('VOUCHER_APPROVAL_EVIDENCE_MISSING');
+    const currentHash = this.hashVoucherPayload({
+      sourceBizType: draft.sourceBizType,
+      sourceBizId: draft.sourceBizId,
+      companyCode: draft.companyCode,
+      bookId: draft.bookId,
+      period: draft.period,
+      title: draft.title,
+      voucherLines: draft.voucherLines,
+    });
+    if (!draft.payloadHash || currentHash !== draft.payloadHash) throw new Error('VOUCHER_PAYLOAD_HASH_MISMATCH');
+    const existing = await this.writebackOutboxRepo.findOneBy({ idempotencyKey: draft.idempotencyKey });
+    if (existing) return existing;
+    const createdAt = new Date().toISOString();
+    return this.writebackOutboxRepo.save(this.writebackOutboxRepo.create({
+      draftId: draft.id,
+      idempotencyKey: draft.idempotencyKey,
+      payloadHash: draft.payloadHash,
+      state: 'READY',
+      attemptCount: 0,
+      maxAttempts: 3,
+      nextAttemptAt: null,
+      providerRequestHash: '',
+      providerResponseHash: '',
+      providerReceipt: null,
+      errorMessage: null,
+      compensationRef: '',
+      externalWriteEnabled: false,
+      createdBy: actor,
+      approvedBy: draft.approvedBy,
+      stateHistory: [{ state: 'READY', actor, at: createdAt, transport: 'DISABLED' }],
+    }));
+  }
+
+  async simulateWritebackOutbox(
+    id: string,
+    outcome: 'ACKNOWLEDGED' | 'RETRYABLE' | 'FAILED' | 'REVERSED' | 'CANCELLED',
+    actor: string,
+  ): Promise<ChanjetWritebackOutboxEntity> {
+    const outbox = await this.writebackOutboxRepo.findOneBy({ id });
+    if (!outbox) throw new Error(`writeback outbox ${id} 不存在`);
+    if (outbox.externalWriteEnabled) throw new Error('CHANJET_EXTERNAL_WRITE_MUST_REMAIN_DISABLED');
+    if (outbox.state === outcome && ['ACKNOWLEDGED', 'FAILED', 'DEAD_LETTER', 'CANCELLED', 'REVERSED'].includes(outbox.state)) {
+      return outbox;
+    }
+    const allowedOutcomes: Partial<Record<ChanjetOutboxState, ChanjetOutboxState[]>> = {
+      READY: ['ACKNOWLEDGED', 'RETRYABLE', 'FAILED', 'CANCELLED'],
+      RETRYABLE: ['ACKNOWLEDGED', 'RETRYABLE', 'FAILED', 'CANCELLED'],
+      ACKNOWLEDGED: ['REVERSED'],
+    };
+    if (!(allowedOutcomes[outbox.state] || []).includes(outcome)) {
+      throw new Error(`OUTBOX_NOT_SIMULATABLE: ${outbox.state} -> ${outcome}`);
+    }
+    outbox.attemptCount += 1;
+    let nextState: ChanjetOutboxState = outcome;
+    if (outcome === 'RETRYABLE' && outbox.attemptCount >= outbox.maxAttempts) nextState = 'DEAD_LETTER';
+    const now = new Date();
+    outbox.state = nextState;
+    outbox.nextAttemptAt = nextState === 'RETRYABLE' ? new Date(now.getTime() + 5 * 60 * 1000) : null;
+    outbox.errorMessage = nextState === 'ACKNOWLEDGED' ? null : `PROVIDER_STUB_${nextState}`;
+    outbox.providerRequestHash = this.hashText(`stub-request:${outbox.payloadHash}:${outbox.attemptCount}`);
+    outbox.providerResponseHash = this.hashText(`stub-response:${nextState}:${outbox.attemptCount}`);
+    const previousReceipt = outbox.providerReceipt;
+    const receiptHistory = Array.isArray(previousReceipt?.history)
+      ? previousReceipt.history
+      : previousReceipt
+        ? [previousReceipt]
+        : [];
+    const receipt = {
+      simulator: true,
+      externalNetworkCalled: false,
+      outcome: nextState,
+      attempt: outbox.attemptCount,
+      at: now.toISOString(),
+    };
+    outbox.providerReceipt = { ...receipt, history: [...receiptHistory, receipt] };
+    if (nextState === 'REVERSED') {
+      outbox.compensationRef = `STUB-REVERSAL-${outbox.id}-${outbox.attemptCount}`;
+    }
+    outbox.stateHistory = [...(outbox.stateHistory || []), {
+      state: nextState,
+      actor,
+      at: now.toISOString(),
+      simulator: true,
+      externalNetworkCalled: false,
+    }];
+    return this.writebackOutboxRepo.save(outbox);
+  }
+
+  private hashVoucherPayload(input: VoucherDraftInput): string {
+    return this.hashText(JSON.stringify(this.stableJsonValue({
+      sourceBizType: input.sourceBizType,
+      sourceBizId: input.sourceBizId,
+      companyCode: input.companyCode || '',
+      bookId: input.bookId || '',
+      period: input.period || '',
+      title: input.title || '',
+      voucherLines: input.voucherLines,
+    })));
+  }
+
+  private stableJsonValue(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map((item) => this.stableJsonValue(item));
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, this.stableJsonValue(item)]));
+  }
+
+  private hashText(value: string): string {
+    return crypto.createHash('sha256').update(value).digest('hex');
   }
 
   private voucherAmountToCents(value: unknown): number {

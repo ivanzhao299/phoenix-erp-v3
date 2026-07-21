@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Query, Headers, Logger, HttpCode, UseGuards, ForbiddenException, Req, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Headers, Logger, HttpCode, HttpStatus, UseGuards, ForbiddenException, Req, Param } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Public, MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
@@ -6,6 +6,7 @@ import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetArSyncService } from './chanjet-ar-sync.service';
 import { ChanjetIntegrationService } from './chanjet-integration.service';
+import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler';
 import * as crypto from 'crypto';
 
 type ChanjetProxyMethod = 'GET' | 'POST';
@@ -52,6 +53,7 @@ export class ChanjetCallbackController {
     private readonly auth: ChanjetAuthService,
     private readonly arSync: ChanjetArSyncService,
     private readonly integration: ChanjetIntegrationService,
+    private readonly readonlySyncScheduler: ChanjetReadonlySyncScheduler,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
@@ -715,6 +717,36 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * 长耗时只读对齐异步入口。立即返回 202，避免反向代理超时造成“前端失败、后台成功”。
+   */
+  @Post('integration/alignment/enqueue')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  enqueueIntegrationAlignmentCycle(
+    @Body() body: { scope?: string[]; bookId?: string; period?: string; maxAttempts?: number },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    return {
+      success: true,
+      writeChanjet: false,
+      writeErpBusinessTables: false,
+      ...this.readonlySyncScheduler.enqueueManualSync(`user:${requestedBy}`, body),
+    };
+  }
+
+  @Get('integration/alignment/status')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  integrationAlignmentStatus() {
+    return {
+      success: true,
+      writeChanjet: false,
+      writeErpBusinessTables: false,
+      run: this.readonlySyncScheduler.getRunState(),
+    };
+  }
+
+  /**
    * GET /api/chanjet/integration/mirror/read-snapshots
    * 查询好业财原始只读快照。只读 ERP 中间层。
    */
@@ -1258,11 +1290,11 @@ export class ChanjetCallbackController {
   async updateIntegrationVoucherDraftStatus(
     @Param('id') id: string,
     @Req() req: any,
-    @Body() body: { status: 'DRAFT' | 'REVIEWED' | 'PUSH_READY' | 'REJECTED' },
+    @Body() body: { status: 'DRAFT' | 'VALIDATED' | 'REVIEWED' | 'APPROVED' | 'PUSH_READY' | 'REJECTED' | 'CANCELLED' },
   ) {
     if (!id) return { success: false, error: 'id 必填' };
-    if (!['DRAFT', 'REVIEWED', 'PUSH_READY', 'REJECTED'].includes(body.status)) {
-      return { success: false, error: 'status 必须为 DRAFT / REVIEWED / PUSH_READY / REJECTED' };
+    if (!['DRAFT', 'VALIDATED', 'REVIEWED', 'APPROVED', 'PUSH_READY', 'REJECTED', 'CANCELLED'].includes(body.status)) {
+      return { success: false, error: '无效的凭证草稿状态' };
     }
     try {
       const reviewedBy = req?.user?.username || req?.user?.userId || '';
@@ -1270,6 +1302,59 @@ export class ChanjetCallbackController {
       return { success: true, draft, pushEnabled: false };
     } catch (e) {
       return { success: false, error: (e as Error).message };
+    }
+  }
+
+  @Get('integration/writeback-outbox')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationWritebackOutbox(@Query('limit') limit: string, @Query('state') state: string) {
+    try {
+      const outbox = await this.integration.listWritebackOutbox(Number(limit) || 100, state || undefined);
+      return { success: true, count: outbox.length, outbox, externalWriteEnabled: false };
+    } catch (e) {
+      return { success: false, error: (e as Error).message, externalWriteEnabled: false };
+    }
+  }
+
+  @Get('integration/writeback-preparation')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationWritebackPreparation() {
+    try {
+      const preparation = await this.integration.writebackPreparationOverview();
+      return { success: true, preparation };
+    } catch (e) {
+      return { success: false, error: (e as Error).message, externalWriteEnabled: false };
+    }
+  }
+
+  @Post('integration/voucher-drafts/:id/prepare-outbox')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async prepareIntegrationWritebackOutbox(@Param('id') id: string, @Req() req: any) {
+    try {
+      const actor = String(req?.user?.username || req?.user?.userId || '');
+      const outbox = await this.integration.prepareVoucherWritebackOutbox(id, actor);
+      return { success: true, outbox, externalWriteEnabled: false };
+    } catch (e) {
+      return { success: false, error: (e as Error).message, externalWriteEnabled: false };
+    }
+  }
+
+  @Post('integration/writeback-outbox/:id/simulate')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async simulateIntegrationWritebackOutbox(
+    @Param('id') id: string,
+    @Body() body: { outcome: 'ACKNOWLEDGED' | 'RETRYABLE' | 'FAILED' | 'REVERSED' | 'CANCELLED' },
+    @Req() req: any,
+  ) {
+    if (!['ACKNOWLEDGED', 'RETRYABLE', 'FAILED', 'REVERSED', 'CANCELLED'].includes(body.outcome)) {
+      return { success: false, error: '无效的模拟结果', externalWriteEnabled: false };
+    }
+    try {
+      const actor = String(req?.user?.username || req?.user?.userId || '');
+      const outbox = await this.integration.simulateWritebackOutbox(id, body.outcome, actor);
+      return { success: true, outbox, externalWriteEnabled: false, externalNetworkCalled: false };
+    } catch (e) {
+      return { success: false, error: (e as Error).message, externalWriteEnabled: false, externalNetworkCalled: false };
     }
   }
 

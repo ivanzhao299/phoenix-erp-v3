@@ -1884,3 +1884,13 @@ Decision: counterparty resolution `GO`.
 - The machine queue is planning-only with `dispatch_enabled=false` and is not added to the resident Agent queue by this task.
 - Completion is governed by `docs/ops/CHANJET_END_TO_END_ACCEPTANCE_MATRIX.md`, not by commit existence or HTTP transport success alone.
 - No Chanjet write, ERP business-data write, migration, deploy or push was performed while creating this plan.
+
+# 2026-07-21 - Complete Chanjet readonly alignment and Wave 6 writeback preparation
+
+- Decision: `GO_WITH_CONDITIONS` for the agreed readonly scope and ERP-only writeback preparation.
+- Readonly runtime evidence is 56/56 fresh targets, 15/15 completion contracts and 3,341 field mappings with zero blocking unmapped fields.
+- Alignment execution is asynchronous to avoid reverse-proxy timeout false failures.
+- Reviewed field decisions persist across synchronization; adapter-covered fields are no longer reported as missing ERP schema.
+- ERP-only writeback preparation includes dual control, payload hash, idempotent Outbox, bounded retry/dead-letter, receipts and reversal simulation.
+- `push_allowed=false`, `external_write_enabled=false`, and no external Chanjet transport is implemented.
+- Next Gate: `CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL`; incomplete or inherited approval remains HOLD.

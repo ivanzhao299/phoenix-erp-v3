@@ -100,4 +100,45 @@ describe('ChanjetReadonlySyncScheduler', () => {
     );
     expect(queryRunner.release).toHaveBeenCalledTimes(1);
   });
+
+  it('accepts a manual run immediately and exposes completion status for polling', async () => {
+    const query = jest.fn()
+      .mockResolvedValueOnce([{ acquired: true }])
+      .mockResolvedValueOnce([{ pg_advisory_unlock: true }]);
+    const queryRunner = {
+      connect: jest.fn().mockResolvedValue(undefined),
+      query,
+      release: jest.fn().mockResolvedValue(undefined),
+    };
+    const integration = {
+      runReadonlyAlignmentCycle: jest.fn().mockResolvedValue({
+        decision: 'GO',
+        mirror: { results: [], attempts: 1, unresolvedFailures: [] },
+        exactMappings: { approved: 0 },
+        reconciliation: { created: 0, autoResolved: 0 },
+        stoppedAt: null,
+      }),
+      currentStateOverview: jest.fn().mockResolvedValue({ decision: 'GO', blockers: [] }),
+      recordCurrentStateAlert: jest.fn().mockResolvedValue(undefined),
+    };
+    const cronMonitor = {
+      ok: jest.fn().mockResolvedValue(undefined),
+      fail: jest.fn().mockResolvedValue(undefined),
+    };
+    const scheduler = new ChanjetReadonlySyncScheduler(
+      integration as never,
+      cronMonitor as never,
+      { createQueryRunner: jest.fn(() => queryRunner) } as never,
+    );
+
+    const accepted = scheduler.enqueueManualSync('user:admin', { period: '202607' });
+
+    expect(accepted).toMatchObject({ accepted: true, run: { state: 'QUEUED', requestedBy: 'user:admin' } });
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(scheduler.getRunState()).toMatchObject({ state: 'COMPLETED', decision: 'GO' });
+    expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith(
+      'user:admin', [], undefined, '202607', 3,
+    );
+  });
 });

@@ -1,10 +1,10 @@
 # Chanjet Cash Balance Field Lock Production Audit
 
-Generated: 2026-07-21T01:08:37.124Z
+Generated: 2026-07-21T01:31:06.453Z
 
 Decision: GO_WITH_CONDITIONS
 
-Next Gate: CHANJET_P2_MASTER_DATA_MAPPING_REVIEW
+Next Gate: CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW
 
 |Check|Result|Evidence|
 |---|---|---|
@@ -14,7 +14,7 @@ Next Gate: CHANJET_P2_MASTER_DATA_MAPPING_REVIEW
 |contract_rows_clean|PASS|invalid=0, duplicate=0|
 |all_enabled_books_covered|PASS|3/3|
 |base_balance_is_numeric|PASS|total=3017799.97|
-|mirror_fresh|PASS|latest=2026-07-21T00:15:39.386Z|
+|mirror_fresh|PASS|latest=2026-07-21T01:28:39.957Z|
 |authority_card_enabled|PASS|enabled=true|
 |authority_card_matches_lock|PASS|3017799.97/3017799.97|
 |business_page_uses_gl_source|PASS|source=CHANJET_GL_CASH_BALANCE_MIRROR|

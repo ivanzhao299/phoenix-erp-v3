@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-21T01:08:26.925Z",
-  "decision": "HOLD",
-  "nextGate": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
+  "generatedAt": "2026-07-21T01:30:56.534Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "nextGate": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW",
   "summary": {
     "checks": 8,
-    "passed": 5,
-    "failed": 3,
+    "passed": 8,
+    "failed": 0,
     "authorityReady": 5,
     "readonlyReady": 3,
     "authorityReadyRate": 0.625
@@ -17,23 +17,23 @@
       "evidence": "cards=8"
     },
     {
-      "id": "ar_ap_authority_enabled",
+      "id": "five_authority_cards_enabled",
       "passed": true,
-      "evidence": "arOpen, apOpen"
+      "evidence": "arOpen, apOpen, cashBalance, todayInflow, todayOutflow"
     },
     {
-      "id": "ar_ap_business_source_chanjet",
+      "id": "authority_business_sources_locked",
       "passed": true,
-      "evidence": "arOpen:CHANJET_AR_STATISTICS_MIRROR, apOpen:CHANJET_AP_STATISTICS_MIRROR"
+      "evidence": "arOpen:CHANJET_AR_STATISTICS_MIRROR, apOpen:CHANJET_AP_STATISTICS_MIRROR, cashBalance:CHANJET_GL_CASH_BALANCE_MIRROR, todayInflow:CHANJET_AR_RECEIPT_DAILY_EFFECTIVE_MIRROR, todayOutflow:CHANJET_AP_PAYMENT_DAILY_EFFECTIVE_MIRROR"
     },
     {
-      "id": "unapproved_cards_fail_closed",
-      "passed": false,
-      "evidence": "cashBalance, todayInflow, todayOutflow, subjectBalance, balanceSheet, incomeStatement"
+      "id": "readonly_report_cards_fail_closed",
+      "passed": true,
+      "evidence": "subjectBalance:READONLY_READY, balanceSheet:READONLY_READY, incomeStatement:READONLY_READY"
     },
     {
-      "id": "today_cards_use_erp_fallback",
-      "passed": false,
+      "id": "daily_cards_use_effective_business_date_contract",
+      "passed": true,
       "evidence": "todayInflow:CHANJET_AR_RECEIPT_DAILY_EFFECTIVE_MIRROR, todayOutflow:CHANJET_AP_PAYMENT_DAILY_EFFECTIVE_MIRROR"
     },
     {
@@ -43,8 +43,8 @@
     },
     {
       "id": "next_gate_advanced",
-      "passed": false,
-      "evidence": "nextGate=CHANJET_P2_MASTER_DATA_MAPPING_REVIEW"
+      "passed": true,
+      "evidence": "nextGate=CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW"
     },
     {
       "id": "external_write_disabled",

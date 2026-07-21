@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-21T01:08:37.124Z",
+  "generatedAt": "2026-07-21T01:31:06.453Z",
   "decision": "GO_WITH_CONDITIONS",
-  "nextGate": "CHANJET_P2_MASTER_DATA_MAPPING_REVIEW",
+  "nextGate": "CHANJET_P3_FINANCE_CARD_SEMANTIC_LOCK_EXPANSION_REVIEW",
   "summary": {
     "checks": 12,
     "passed": 12,
@@ -44,7 +44,7 @@
     {
       "id": "mirror_fresh",
       "passed": true,
-      "evidence": "latest=2026-07-21T00:15:39.386Z"
+      "evidence": "latest=2026-07-21T01:28:39.957Z"
     },
     {
       "id": "authority_card_enabled",
@@ -83,7 +83,7 @@
     "eligibleBalanceRows": 29,
     "invalidContractRows": 0,
     "duplicateContractRows": 0,
-    "latestPulledAt": "2026-07-21T00:15:39.386Z",
+    "latestPulledAt": "2026-07-21T01:28:39.957Z",
     "amountSum": 0,
     "amountSumSafeAsBalance": false,
     "totalBaseBalance": 3017799.97,

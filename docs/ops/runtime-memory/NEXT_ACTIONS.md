@@ -1,5 +1,28 @@
 # Next Actions
 
+## 2026-07-21 - Chanjet Wave 6 complete; external write remains HOLD
+
+Current stage: `CHANJET_WAVE_6_WRITEBACK_PREPARATION_READY`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Closed the agreed readonly scope at 56/56 fresh targets and 15/15 endpoint contracts.
+2. Preserved 3,341 field mappings with zero runtime blocking unmapped fields.
+3. Completed book-scoped mapping, finance card authority/read-only fusion and explicit difference retention.
+4. Replaced the long synchronous alignment UI call with enqueue/status polling.
+5. Implemented ERP-only voucher lifecycle, dual control, payload hashing, idempotent Outbox, bounded retries, dead-letter and provider receipt/reversal simulation.
+6. Kept all external write flags false and omitted the real provider write transport.
+
+Next actions:
+
+1. Review `docs/ops/CHANJET_EXTERNAL_MINIMAL_WRITE_APPROVAL_PACKAGE.md`.
+2. Keep Wave 7 on HOLD unless one exact, reversible canary is explicitly approved.
+3. If approved, run A2/A1/A7 prechecks before creating any external transport call.
+4. Do not infer batch, pilot or production approval from a single canary approval.
+
+
 ## 2026-07-20 - Chanjet end-to-end long queue planned
 
 Current stage: `CHANJET_END_TO_END_EXECUTION_PLANNED`

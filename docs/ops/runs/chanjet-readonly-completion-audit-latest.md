@@ -1,6 +1,6 @@
 # Chanjet Readonly Completion Audit
 
-Generated: 2026-07-21T01:08:21.801Z
+Generated: 2026-07-21T01:30:32.906Z
 
 Decision: GO_WITH_CONDITIONS
 
@@ -25,12 +25,12 @@ Decision: GO_WITH_CONDITIONS
 ## Runtime Summary
 
 - Endpoint checks: 15/15
-- Mirror targets: 44/56; missing 0
+- Mirror targets: 56/56; missing 0
 - Master data: exact 41; readonly source references 968; need mapping 0; conflicts 0; invalid excluded 6
 - Reconciliation open: 3
-- Recent failed sync jobs: 56/100
+- Recent failed sync jobs: 24/100
 - Voucher drafts: 0; unsafe push-enabled 0
-- Next gate: CHANJET_READONLY_SYNC_FAILURE_REPAIR
+- Next gate: KEEP_CHANJET_WRITE_HOLD_UNTIL_SEPARATE_APPROVAL
 
 ## Guardrails
 
