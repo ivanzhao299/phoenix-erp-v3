@@ -28,4 +28,15 @@ describe("sales pricing lifecycle action repair", () => {
     expect(pageSource).toContain("confirmLabel: t('ui.确认删除','确认删除')");
     expect(pageSource).toContain("danger: true");
   });
+
+  it("uses the shared API client so the current session token wins over stale local storage", () => {
+    expect(pageSource).toContain('import apiRequest from "@/lib/api-client"');
+    expect(pageSource).toContain("return apiRequest<any>(normalizedPath, options)");
+    expect(pageSource).not.toContain('localStorage.getItem("phoenix_token") || sessionStorage.getItem("phoenix_token")');
+  });
+
+  it("allows an authorized administrator to delete an empty cancelled duplicate", () => {
+    expect(pageSource).toContain('row.status === "CANCELLED" && pricePerm.canDelete');
+    expect(pageSource).toContain("t('ui.删除空册','删除空册')");
+  });
 });

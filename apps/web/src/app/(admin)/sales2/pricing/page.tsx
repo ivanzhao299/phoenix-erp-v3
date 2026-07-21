@@ -11,6 +11,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { inputField } from "@/components/design-system/cockpit-styles"; // G94 全局输入框唯一真相源
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
+import apiRequest from "@/lib/api-client";
 const API = "/api/v2/sales/pricing";
 const MASTER_API = "/api/product-master";
 
@@ -111,22 +112,14 @@ interface MasterData {
 }
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
-async function apiFetch(path: string, options?: RequestInit) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("phoenix_token") || sessionStorage.getItem("phoenix_token") || "" : "";
-  const res = await fetch(path, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? {
-        Authorization: `Bearer ${token}`
-      } : {})
-    },
-    ...options
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.message ?? `HTTP ${res.status}`);
-  }
-  return res.json();
+type PricingRequestOptions = Omit<RequestInit, "signal"> & {
+  signal?: AbortSignal;
+  silent?: boolean;
+};
+
+async function apiFetch(path: string, options?: PricingRequestOptions): Promise<any> {
+  const normalizedPath = path.startsWith("/api/") ? path.slice(4) : path;
+  return apiRequest<any>(normalizedPath, options);
 }
 
 /** 将 grade_code 转成可读名称（先查主数据，再 fallback 旧值集） */
@@ -549,6 +542,15 @@ function PriceBooksTab() {
                     padding: "2px 8px",
                     fontSize: 11
                   }}>{t('ui.恢复','恢复')}</button>}
+                      {row.status === "CANCELLED" && pricePerm.canDelete && <button type="button" onClick={() => deleteBook(row)} style={{
+                    padding: "2px 8px",
+                    fontSize: 11,
+                    background: "none",
+                    border: "1px solid var(--status-danger)",
+                    color: "var(--status-danger)",
+                    borderRadius: "var(--radius)",
+                    cursor: "pointer"
+                  }}>{t('ui.删除空册','删除空册')}</button>}
                       {(row.status === "ACTIVE" || row.status === "APPROVED") && pricePerm.canEdit && <button type="button" className={s.btnSecondary} onClick={() => doAction(row.id, "expire", t('ui.失效','失效'))} style={{
                     padding: "2px 8px",
                     fontSize: 11

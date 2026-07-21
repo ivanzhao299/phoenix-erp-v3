@@ -1805,6 +1805,9 @@ export class BugIntakeService {
     const selectedAgents = Array.isArray(plan.selected_agents) ? plan.selected_agents.map(String) : [];
     const selectedResults = selectedAgents.map((agent) => [...agentResults].reverse().find((item) => String(item.agent ?? '') === agent));
     if (selectedResults.some((item) => !item)) return { passed: false, reason: 'selected Agent result is missing' };
+    const acceptedConclusions = new Set(['GO', 'PASS', 'PASS_WITH_CONDITIONS', 'GO_WITH_CONDITIONS', 'NOT_APPLICABLE']);
+    const failedAgents = selectedResults.filter((item) => !acceptedConclusions.has(String(item?.conclusion ?? '')));
+    if (failedAgents.length > 0) return { passed: false, reason: 'selected Agent reported HOLD or FAIL' };
     const implementation = selectedResults.filter((item) => {
       const validation = this.payloadObject(item?.validationResults);
       const gate = this.payloadObject(validation.evidenceGate);
@@ -1827,8 +1830,12 @@ export class BugIntakeService {
     // runner can legitimately re-verify an already released report during a
     // later backlog reconciliation cycle; downgrading FIX_READY_FOR_UAT to
     // HOLD here would turn successful evidence into a false failure.
-    if (!['AGENT_EXECUTION_FINISHED', 'FIX_READY_FOR_UAT'].includes(String(report.repairTaskStatus || ''))) {
-      return { passed: false, reason: `implementation evidence gate is not ready: ${report.repairTaskStatus || 'EMPTY'}` };
+    const payload = this.payloadObject(report.repairTaskPayload);
+    const agentResults = (Array.isArray(payload.agentResults) ? payload.agentResults : [])
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && String((item as Record<string, unknown>).agent ?? '') !== 'BugIntakeLocalRunner');
+    const implementation = this.agentPlanEvidence(payload.agentPlan, agentResults);
+    if (!implementation.passed) {
+      return { passed: false, reason: `implementation evidence gate is not ready: ${implementation.reason}` };
     }
     const validation = this.payloadObject(agentResult.validationResults);
     const required = ['releaseEvidence', 'push', 'ci', 'productionSmoke'];

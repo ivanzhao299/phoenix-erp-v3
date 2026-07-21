@@ -68,7 +68,7 @@ describe('PriceBooksService lifecycle recovery', () => {
     };
     const { service, query, mgrQuery, transaction } = makeService([
       [draftBook],
-      [{ order_count: '0', order_item_count: '0' }],
+      [{ item_count: '2', order_count: '0', order_item_count: '0' }],
     ]);
 
     await expect(service.deleteBook('363')).resolves.toEqual({
@@ -96,8 +96,29 @@ describe('PriceBooksService lifecycle recovery', () => {
     );
   });
 
-  it('blocks deleting non-draft price books', async () => {
-    const { service, transaction } = makeService([[activeBook]]);
+  it('deletes an empty cancelled price book when it has no business references', async () => {
+    const cancelledEmpty = { ...activeBook, id: '363', status: 'CANCELLED' };
+    const { service, transaction } = makeService([
+      [cancelledEmpty],
+      [{ item_count: '0', order_count: '0', order_item_count: '0' }],
+    ]);
+
+    await expect(service.deleteBook('363')).resolves.toMatchObject({ deleted: true, id: '363' });
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a cancelled price book that still has price details', async () => {
+    const { service, transaction } = makeService([
+      [activeBook],
+      [{ item_count: '3', order_count: '0', order_item_count: '0' }],
+    ]);
+
+    await expect(service.deleteBook('362')).rejects.toThrow(BadRequestException);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('blocks deleting an active price book', async () => {
+    const { service, transaction } = makeService([[{ ...activeBook, status: 'ACTIVE' }]]);
 
     await expect(service.deleteBook('362')).rejects.toThrow(BadRequestException);
     expect(transaction).not.toHaveBeenCalled();
@@ -119,7 +140,7 @@ describe('SalesPriceBooksController lifecycle RBAC metadata', () => {
     });
   });
 
-  it('requires delete permission to delete draft price books', () => {
+  it('requires delete permission to delete eligible price books', () => {
     const requirement = Reflect.getMetadata(
       REQUIRE_MENU_KEY,
       SalesPriceBooksController.prototype.deleteBook,

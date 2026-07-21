@@ -138,6 +138,33 @@ describe('BugIntakeService evidence lifecycle', () => {
     expect(row.status).toBe('IN_PROGRESS');
   });
 
+  it('accepts release evidence when persisted status lags behind complete Agent evidence', async () => {
+    const { row, service } = build();
+    row.repairTaskStatus = 'AGENT_RUNNING';
+    row.repairTaskPayload = {
+      agentPlan: { selected_agents: ['A4-Frontend-UAT-Smoke', 'A1-CI-Runtime-Gate'] },
+      agentResults: [
+        {
+          taskId: 'A4', agent: 'A4-Frontend-UAT-Smoke', conclusion: 'PASS_WITH_CONDITIONS',
+          commitHash: 'abc123', changedFiles: ['apps/web/src/x.ts'],
+          validationResults: { evidenceGate: { passed: true, role: 'implementation' } },
+        },
+        {
+          taskId: 'A1', agent: 'A1-CI-Runtime-Gate', conclusion: 'PASS_WITH_CONDITIONS',
+          validationResults: { evidenceGate: { passed: true, role: 'validation' } },
+        },
+      ],
+    };
+
+    await service.recordAgentResult(row.bugNo, {
+      taskId: 'RUNNER-LATE-STATUS', agent: 'BugIntakeLocalRunner', conclusion: 'PASS_WITH_CONDITIONS',
+      validationResults: { releaseEvidence: 'PASS', push: 'PASS', ci: 'PASS', productionSmoke: 'PASS' },
+    }, user, meta);
+
+    expect(row.repairTaskStatus).toBe('FIX_READY_FOR_UAT');
+    expect(row.resolutionNote).toContain('等待管理员执行业务验收');
+  });
+
   it('accepts an idempotent Agent rerun that verifies an implementation already in the current baseline', async () => {
     const { row, service } = build();
     await service.recordAgentResult(row.bugNo, {
@@ -291,7 +318,7 @@ describe('BugIntakeService evidence lifecycle', () => {
     }, user, meta);
 
     expect(row.repairTaskStatus).toBe('HOLD');
-    expect(row.resolutionNote).toContain('implementation evidence gate is not ready');
+    expect(row.resolutionNote).toContain('selected Agent result is missing');
   });
 
   it('isolates redispatch evidence so prior agent results cannot cause false completion', async () => {

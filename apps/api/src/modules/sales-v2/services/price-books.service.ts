@@ -269,19 +269,24 @@ export class PriceBooksService {
 
   async deleteBook(id: string) {
     const rec = await this.assertOwnership(id);
-    if (rec.status !== 'DRAFT') {
-      throw new BadRequestException(`只有 DRAFT 状态的价格册可删除，当前状态：${rec.status}`);
+    if (!['DRAFT', 'CANCELLED'].includes(rec.status)) {
+      throw new BadRequestException(`只有 DRAFT 或无明细的 CANCELLED 价格册可删除，当前状态：${rec.status}`);
     }
 
     const [usage] = await this.ds.query(`
       SELECT
+        (SELECT COUNT(*) FROM sal_price_items WHERE price_book_id = $1) AS item_count,
         (SELECT COUNT(*) FROM sal_sales_orders WHERE price_book_id = $1) AS order_count,
         (SELECT COUNT(*) FROM sal_order_items WHERE price_book_id = $1) AS order_item_count
     `, [id]);
+    const itemCount = Number(usage?.item_count ?? 0);
     const orderCount = Number(usage?.order_count ?? 0);
     const orderItemCount = Number(usage?.order_item_count ?? 0);
     if (orderCount > 0 || orderItemCount > 0) {
       throw new BadRequestException('价格册已被销售单据引用，不可删除');
+    }
+    if (rec.status === 'CANCELLED' && itemCount > 0) {
+      throw new BadRequestException('已取消价格册仍有价格明细，只能保留归档，不可删除');
     }
 
     await this.ds.transaction(async (mgr) => {
