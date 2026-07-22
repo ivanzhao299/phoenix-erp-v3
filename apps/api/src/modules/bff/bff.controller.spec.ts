@@ -139,4 +139,42 @@ describe('PackagingTerminalBffController', () => {
     const sourceCall = em.query.mock.calls.find(([sql]) => String(sql).includes('AS total_gradable'));
     expect(String(sourceCall?.[0])).toContain('SUM(total_qty - dirty_qty - cracked_qty)');
   });
+
+  it('summarizes every handover stage for the requested shift', async () => {
+    const em = {
+      query: jest.fn(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('FROM pkg_work_shifts')) return [{ id: 42, production_date: '2026-07-22' }];
+        if (sql.includes('FROM pkg_source_batches')) return [{ qty: 1200, weight: 72.5 }];
+        if (sql.includes('FROM pkg_exceptions')) return [{ open_count: 1, closed_count: 2 }];
+        if (sql.includes('FROM pkg_grading_records')) {
+          return [
+            { outputs_json: { A_LARGE: 400, A_MEDIUM: 300 } },
+            { outputs_json: JSON.stringify({ A_LARGE: 50, BROKEN: 10 }) },
+          ];
+        }
+        if (sql.includes('FROM pkg_packing_records WHERE shift_id')) return [{ boxes: 30, eggs: 900 }];
+        if (sql.includes('FROM pkg_label_print_logs')) return [{ count: 30 }];
+        if (sql.includes('FROM pkg_handover_records')) return [{ boxes: 28, pallets: 2 }];
+        return [{ params }];
+      }),
+    };
+    const controller = new PackagingTerminalBffController(em as never, {} as never);
+
+    const response = await controller.getShiftSummary('2026-07-22', '42');
+
+    expect(response.data).toMatchObject({
+      receivedQty: 1200,
+      gradingOutputs: { A_LARGE: 450, A_MEDIUM: 300, BROKEN: 10 },
+      gradedQty: 760,
+      shiftPackedBoxes: 30,
+      shiftPackedEggs: 900,
+      shiftLabelCount: 30,
+      shiftWarehousedBoxes: 28,
+      shiftWarehousedPallets: 2,
+    });
+    const scopedCalls = em.query.mock.calls.filter(([sql]) =>
+      /pkg_(source_batches|grading_records|handover_records)/.test(String(sql)),
+    );
+    expect(scopedCalls.every(([, params]) => params?.[1] === 42)).toBe(true);
+  });
 });

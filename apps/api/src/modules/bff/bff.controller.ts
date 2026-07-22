@@ -1820,20 +1820,33 @@ export class PackagingTerminalBffController {
   @Get('reports/shift-summary')
   async getShiftSummary(@Query('date') date: string, @Query('shiftId') shiftId: string) {
     const targetDate = date || this.today;
+    const parsedShiftId = shiftId ? Number(shiftId) : null;
+    const requestedShiftId = parsedShiftId !== null && Number.isInteger(parsedShiftId) && parsedShiftId > 0
+      ? parsedShiftId
+      : null;
 
     const [shiftRow] = await this.safe(
-      this.em.query(
-        `SELECT * FROM pkg_work_shifts WHERE production_date = $1 ORDER BY opened_at DESC LIMIT 1`,
-        [targetDate],
-      ),
+      requestedShiftId
+        ? this.em.query(
+            `SELECT * FROM pkg_work_shifts WHERE id = $1 AND production_date = $2 LIMIT 1`,
+            [requestedShiftId, targetDate],
+          )
+        : this.em.query(
+            `SELECT * FROM pkg_work_shifts WHERE production_date = $1 ORDER BY opened_at DESC LIMIT 1`,
+            [targetDate],
+          ),
       [],
     );
+
+    const shiftIdNum = requestedShiftId ?? (shiftRow?.id ? Number(shiftRow.id) : null);
+    const shiftFilter = shiftIdNum ? ' AND shift_id = $2' : '';
+    const summaryParams = shiftIdNum ? [targetDate, shiftIdNum] : [targetDate];
 
     const [recvRow] = await this.safe(
       this.em.query(
         `SELECT COALESCE(SUM(received_qty),0)::int AS qty, COALESCE(SUM(received_weight),0)::float AS weight
-         FROM pkg_source_batches WHERE production_date=$1`,
-        [targetDate],
+         FROM pkg_source_batches WHERE production_date=$1${shiftFilter}`,
+        summaryParams,
       ),
       [{ qty: 0, weight: 0 }],
     );
@@ -1849,8 +1862,26 @@ export class PackagingTerminalBffController {
       [{ open_count: 0, closed_count: 0 }],
     );
 
+    const gradingRows = await this.safe(
+      this.em.query(
+        `SELECT outputs_json FROM pkg_grading_records WHERE production_date = $1${shiftFilter}`,
+        summaryParams,
+      ),
+      [],
+    );
+    const gradingOutputs: Record<string, number> = {};
+    for (const row of gradingRows) {
+      try {
+        const outputs = typeof row.outputs_json === 'string'
+          ? JSON.parse(row.outputs_json)
+          : (row.outputs_json ?? {});
+        for (const [grade, qty] of Object.entries(outputs)) {
+          gradingOutputs[grade] = (gradingOutputs[grade] || 0) + (Number(qty) || 0);
+        }
+      } catch { /* malformed historical payload contributes zero */ }
+    }
+
     // 本班包装产出（按 shift_id 精确查询）
-    const shiftIdNum = shiftId ? Number(shiftId) : (shiftRow?.id ? Number(shiftRow.id) : null);
     const [packRow] = shiftIdNum
       ? await this.safe(
           this.em.query(
@@ -1862,16 +1893,45 @@ export class PackagingTerminalBffController {
         )
       : [[{ boxes: 0, eggs: 0 }]];
 
+    const [labelRow] = await this.safe(
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM pkg_label_print_logs l
+         WHERE DATE(l.printed_at) = $1
+           AND ($2::int IS NULL OR EXISTS (
+             SELECT 1 FROM pkg_packing_records p
+             WHERE p.code = l.packaging_batch_id AND p.shift_id = $2
+           ))`,
+        [targetDate, shiftIdNum],
+      ),
+      [{ count: 0 }],
+    );
+
+    const [handoverRow] = await this.safe(
+      this.em.query(
+        `SELECT COALESCE(SUM(box_count),0)::int AS boxes,
+                COUNT(DISTINCT NULLIF(pallet_code, ''))::int AS pallets
+         FROM pkg_handover_records WHERE production_date = $1${shiftFilter}`,
+        summaryParams,
+      ),
+      [{ boxes: 0, pallets: 0 }],
+    );
+
     return {
       code: 200,
       data: {
         shift: shiftRow || null,
-        receivedQty: Number(recvRow[0]?.qty) || 0,
-        receivedWeight: Number(recvRow[0]?.weight) || 0,
-        openExceptionCount: Number(exceptRow[0]?.open_count) || 0,
-        closedExceptionCount: Number(exceptRow[0]?.closed_count) || 0,
-        shiftPackedBoxes: Number(packRow[0]?.boxes) || 0,
-        shiftPackedEggs:  Number(packRow[0]?.eggs)  || 0,
+        receivedQty: Number(recvRow?.qty) || 0,
+        receivedWeight: Number(recvRow?.weight) || 0,
+        openExceptionCount: Number(exceptRow?.open_count) || 0,
+        closedExceptionCount: Number(exceptRow?.closed_count) || 0,
+        gradingOutputs,
+        gradedQty: Object.values(gradingOutputs).reduce((sum, qty) => sum + qty, 0),
+        shiftPackedBoxes: Number(packRow?.boxes) || 0,
+        shiftPackedEggs:  Number(packRow?.eggs)  || 0,
+        shiftLabelCount: Number(labelRow?.count) || 0,
+        shiftWarehousedBoxes: Number(handoverRow?.boxes) || 0,
+        shiftWarehousedPallets: Number(handoverRow?.pallets) || 0,
       },
     };
   }
