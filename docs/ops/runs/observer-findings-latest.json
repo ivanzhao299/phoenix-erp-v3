@@ -1,16 +1,16 @@
 {
   "summary": {
-    "generated_at": "2026-07-22T01:32:03.138Z",
+    "generated_at": "2026-07-22T02:00:14.033Z",
     "dry_run": true,
-    "run_files_inspected": 2269,
-    "task_count": 368,
+    "run_files_inspected": 2276,
+    "task_count": 371,
     "task_status_counts": {
       "archived": 213,
       "completed": 3,
       "COMPLETED_MERGED": 64,
       "VALIDATION_COMPLETED": 61,
       "SKIPPED_NOT_APPLICABLE": 17,
-      "HOLD": 10
+      "HOLD": 13
     },
     "registered_agents": 8,
     "findings_count": 33,
@@ -283,7 +283,7 @@
       "severity": "MEDIUM",
       "category": "repeat-hold",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "Queue HOLD count is 10.",
+      "evidence": "Queue HOLD count is 13.",
       "suggested_fix": "Cluster HOLD reasons and create one platform evolution task per repeated blocker.",
       "auto_fix_eligible": false,
       "requires_human_gate": true,
@@ -294,7 +294,7 @@
       "severity": "CRITICAL",
       "category": "runner-generation-drift",
       "affected_agent": "BugIntakeLocalRunner",
-      "evidence": "4 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.",
+      "evidence": "6 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.",
       "suggested_fix": "Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
