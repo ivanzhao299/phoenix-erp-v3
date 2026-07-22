@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-22T13:48:09.973Z |
+| Generated at | 2026-07-22T14:25:26.901Z |
 | Run files inspected | 2290 |
 | Task count | 377 |
 | Findings count | 33 |
@@ -277,13 +277,13 @@
 - Requires Human Gate: false
 - Recommended Next Task: Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP.
 
-### OBS-0030 - HIGH - baseline
+### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M apps/api/src/modules/chanjet/chanjet-master-mapping.entity.ts;  M apps/api/src/modules/chanjet/chanjet-reconciliation-result.entity.ts;  M apps/api/src/modules/chanjet/chanjet.module.ts;  M apps/api/src/modules/shareholder/controllers/shareholder.controller.ts;  M apps/api/src/modules/shareholder/shareholder.module.ts;  M apps/web/public/sw.js;  M apps/web/src/components/layout/Sidebar.tsx;  M apps/web/src/lib/shareholder-api.ts;  M docs/ops/AGENT_TASK_BOARD.md;  M docs/ops/agent-queue/events.jsonl;  M docs/ops/runtime-memory/DECISION_LOG.md;  M docs/ops/runtime-memory/GUARDRAILS.md;  M docs/ops/runtime-memory/NEXT_ACTIONS.md;  M docs/ops/runtime-memory/PROJECT_STATE.json; ?? apps/api/src/database/migrations/1784660000000-AddChanjetShareholderEquityReconciliation.ts; ?? apps/api/src/modules/chanjet/chanjet-shareholder-close-period.entity.ts; ?? apps/api/src/modules/chanjet/chanjet-shareholder-voucher-link.entity.ts; ?? apps/api/src/modules/shareholder/services/shareholder-accounting-reconciliation.service.ts; ?? apps/api/src/modules/shareholder/services/shareholder-accounting-reconciliation.spec.ts; ?? apps/api/src/modules/shareholder/services/shareholder-accounting-reconciliation.ts; ?? apps/web/src/app/(admin)/shareholders/reconciliation/; ?? docs/ops/CHANJET_SHAREHOLDER_EQUITY_LONG_TASK_IMPLEMENTATION_REPORT.md; ?? docs/ops/CHANJET_SHAREHOLDER_EQUITY_RECONCILIATION_SPEC.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
-- Auto Fix Eligible: false
-- Requires Human Gate: true
+- Auto Fix Eligible: true
+- Requires Human Gate: false
 - Recommended Next Task: Baseline cleanup for Codex-Orchestrator.
 
 ### OBS-0031 - MEDIUM - baseline
