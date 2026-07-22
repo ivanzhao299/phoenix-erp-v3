@@ -1,6 +1,6 @@
 {
   "summary": {
-    "generated_at": "2026-07-22T00:39:59.092Z",
+    "generated_at": "2026-07-22T01:07:15.391Z",
     "dry_run": true,
     "run_files_inspected": 2269,
     "task_count": 368,
@@ -349,7 +349,7 @@
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/BUGTASK-20260720-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md; ?? docs/ops/runs/2026-07-22T00-31-28-812Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/BUGTASK-20260722-0001-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260722-0001-A4-contract.md; ?? docs/ops/runs/BUGTASK-20260722-0001-A4-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260722-0001-A4-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260722-0001-A4-worker-log.md",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/BUGTASK-20260716-0002-A1-contract.md;  M docs/ops/runs/BUGTASK-20260716-0002-A3-contract.md;  M docs/ops/runs/BUGTASK-20260716-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260716-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260716-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260717-0001-A1-contract.md;  M docs/ops/runs/BUGTASK-20260717-0001-A3-contract.md;  M docs/ops/runs/BUGTASK-20260717-0001-A4-contract.md;  M docs/ops/runs/BUGTASK-20260718-0002-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0002-A3-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -530,11 +530,11 @@
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 3
+      "occurrence": 4
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 3
+      "occurrence": 2
     }
   ],
   "suggested_improvements": [
@@ -544,11 +544,11 @@
     },
     {
       "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
-      "occurrence": 3
+      "occurrence": 4
     },
     {
       "improvement_id": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
-      "occurrence": 3
+      "occurrence": 2
     }
   ],
   "repeated_pattern_candidates": [
@@ -558,11 +558,11 @@
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 3
+      "occurrence": 4
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 3
+      "occurrence": 2
     }
   ],
   "observer_boundaries": {
