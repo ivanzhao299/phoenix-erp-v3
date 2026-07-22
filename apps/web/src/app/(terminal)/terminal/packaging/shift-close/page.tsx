@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { packagingApi } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
+import styles from './shift-close.module.css';
 export default function ShiftClosePage() {
   const router = useRouter();
   const {
@@ -24,6 +25,8 @@ export default function ShiftClosePage() {
   const [done, setDone] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [summary, setSummary] = useState({
     receivedQty: 0,
     receivedWeight: 0,
@@ -46,8 +49,18 @@ export default function ShiftClosePage() {
   });
   useEffect(() => {
     const shiftId = shift?.id ? String(shift.id) : undefined;
-    packagingApi.getShiftSummary(undefined, shiftId).then(data => {
-      const gradingOutputs = ctx.gradingOutputs || {};
+    const productionDate = shift?.productionDate;
+    setLoading(true);
+    setLoadError('');
+    Promise.all([
+      packagingApi.getShiftSummary(productionDate, shiftId),
+      packagingApi.getActiveGrading(productionDate),
+    ]).then(([data, grading]) => {
+      // 服务端记录是交班权威来源；本地 context 只用于离线兼容，避免刷新/换终端后归零。
+      const gradingOutputs = grading?.outputs && Object.keys(grading.outputs).length > 0
+        ? grading.outputs
+        : (ctx.gradingOutputs || {});
+      const gradedQty = Object.values(gradingOutputs).reduce((sum, qty) => sum + Number(qty || 0), 0);
       // 本班实际包装量：优先使用后端按 shift_id 精确统计的数据
       const totalPacked = data.shiftPackedBoxes ?? (ctx.packingBatches || []).reduce((a, b) => a + b.boxes, 0);
       const totalEggs = data.shiftPackedEggs ?? (ctx.packingBatches || []).reduce((a, b) => a + b.eggs, 0);
@@ -57,7 +70,7 @@ export default function ShiftClosePage() {
       setSummary({
         receivedQty: received,
         receivedWeight: data.receivedWeight || 0,
-        gradedQty: received,
+        gradedQty,
         largeA: gradingOutputs['A_LARGE'] || 0,
         mediumA: gradingOutputs['A_MEDIUM'] || 0,
         smallA: gradingOutputs['A_SMALL'] || 0,
@@ -74,9 +87,10 @@ export default function ShiftClosePage() {
         variance,
         variancePct
       });
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+    }).catch((error: unknown) => {
+      setLoadError(error instanceof Error ? error.message : t('ui.交班数据加载失败', '交班数据加载失败'));
+    }).finally(() => setLoading(false));
+  }, [ctx.gradingOutputs, ctx.packingBatches, reloadKey, shift?.id, shift?.productionDate, t]);
   const hasVariance = summary.variancePct > 1;
   const hasOpenException = summary.openExceptions > 0;
   const canClose = !hasOpenException;
@@ -152,6 +166,17 @@ export default function ShiftClosePage() {
       color: T.MUT
     }}>{t('ui.加载交班数据', '加载交班数据...')}</div>
     </div>;
+  if (loadError) return <div role="alert" style={{
+    height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
+    justifyContent: 'center', background: T.BG, gap: 16, padding: 24, textAlign: 'center'
+  }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: T.RED }}>⚠️ {t('ui.交班数据加载失败', '交班数据加载失败')}</div>
+      <div style={{ color: T.MUT }}>{loadError}</div>
+      <button type="button" onClick={() => setReloadKey(key => key + 1)} style={{
+        padding: '12px 28px', borderRadius: 10, border: `1px solid ${T.BOR}`,
+        background: T.CARD, color: T.TXT, cursor: 'pointer'
+      }}>{t('common.retry', '重试')}</button>
+    </div>;
   if (done) return <div style={{
     height: '100%',
     display: 'flex',
@@ -205,16 +230,11 @@ export default function ShiftClosePage() {
 
       <div style={{
       flex: 1,
-      overflow: 'hidden',
+      overflowY: 'auto',
       minHeight: 0,
       padding: 24
     }}>
-        <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
-        gap: 16,
-        marginBottom: 16
-      }}>
+        <div className={styles.summaryGrid}>
           {/* 接收 */}
           <div style={{
           background: T.CARD,
@@ -308,11 +328,7 @@ export default function ShiftClosePage() {
         </div>
 
         {/* 差异 & 异常 */}
-        <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 16
-      }}>
+        <div className={styles.detailGrid}>
           <div style={{
           background: T.CARD,
           borderRadius: 12,
