@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-22T09:10:06.271Z |
-| Run files inspected | 2276 |
-| Task count | 371 |
+| Generated at | 2026-07-22T09:44:08.049Z |
+| Run files inspected | 2290 |
+| Task count | 377 |
 | Findings count | 33 |
 | Highest severity | CRITICAL |
 | Routing findings | 8 |
@@ -226,7 +226,7 @@
 ### OBS-0024 - MEDIUM - repeat-hold
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: Queue HOLD count is 13.
+- Evidence: Queue HOLD count is 16.
 - Suggested Fix: Cluster HOLD reasons and create one platform evolution task per repeated blocker.
 - Auto Fix Eligible: false
 - Requires Human Gate: true
@@ -235,7 +235,7 @@
 ### OBS-0025 - CRITICAL - runner-generation-drift
 
 - Affected Agent: BugIntakeLocalRunner
-- Evidence: 6 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
+- Evidence: 7 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
 - Suggested Fix: Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -280,7 +280,7 @@
 ### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false

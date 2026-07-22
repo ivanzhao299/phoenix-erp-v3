@@ -27844,7 +27844,8 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=0"
+    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=0",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260722-0004-A4",
@@ -27938,7 +27939,8 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=0"
+    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=0",
+    "remote_repair_status": "HOLD"
   },
   {
     "task_id": "BUGTASK-20260722-0004-A1",
@@ -28000,6 +28002,7 @@
       "terminalStatus": "HOLD",
       "reason": "blocked by failed dependency: BUGTASK-20260722-0004-A3, BUGTASK-20260722-0004-A4",
       "checkedAt": "2026-07-22T09:37:29.553Z"
-    }
+    },
+    "remote_repair_status": "HOLD"
   }
 ]
