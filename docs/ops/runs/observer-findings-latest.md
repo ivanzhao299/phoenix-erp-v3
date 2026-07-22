@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-21T23:36:13.660Z |
+| Generated at | 2026-07-22T00:06:17.707Z |
 | Run files inspected | 2263 |
 | Task count | 366 |
 | Findings count | 33 |
@@ -280,7 +280,7 @@
 ### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
