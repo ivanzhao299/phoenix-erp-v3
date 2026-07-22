@@ -1,43 +1,43 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260722-0001",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260722-0001/agent-result",
+  "bugNo": "BUG-20260722-0002",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260722-0002/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260722-0001-A4",
-    "agent": "A4-Frontend-UAT-Smoke",
+    "taskId": "BUGTASK-20260722-0002-A3",
+    "agent": "A3-Backend-Critical-Path",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260722-0001-A4-detached-worker-recovery.md",
-    "commitHash": "ec476f61358bc6c010670436bf5bdb39a098b254",
+    "resultFile": "docs/ops/runs/BUGTASK-20260722-0002-A3-detached-worker-recovery.md",
+    "commitHash": "fbd840875bc92541ee53cdf04859bf1ef437670a",
     "changedFiles": [
-      "apps/web/src/__tests__/sales-pricing-book-id.test.ts",
-      "apps/web/src/app/(admin)/sales2/pricing/page.tsx",
-      "docs/ops/BUGTASK-20260722-0001-frontend-report.md"
+      "apps/api/src/modules/bff/bff.controller.spec.ts",
+      "apps/api/src/modules/bff/bff.controller.ts",
+      "docs/ops/BUG-20260722-0002-a3-backend-repair.md"
     ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A4-Frontend-UAT-Smoke",
+        "agent": "A3-Backend-Critical-Path",
         "exitCode": 0,
         "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 710,
-        "beforeHead": "b1fc9d7e67ab1258299fb07f416c40d3fda30c81",
-        "afterHead": "ec476f61358bc6c010670436bf5bdb39a098b254",
-        "commitHash": "ec476f61358bc6c010670436bf5bdb39a098b254",
+        "responseChars": 692,
+        "beforeHead": "c915599f2b97279d9f9df9ed3bed75ae0fa2893c",
+        "afterHead": "fbd840875bc92541ee53cdf04859bf1ef437670a",
+        "commitHash": "fbd840875bc92541ee53cdf04859bf1ef437670a",
         "changedFiles": [
-          "apps/web/src/__tests__/sales-pricing-book-id.test.ts",
-          "apps/web/src/app/(admin)/sales2/pricing/page.tsx",
-          "docs/ops/BUGTASK-20260722-0001-frontend-report.md"
+          "apps/api/src/modules/bff/bff.controller.spec.ts",
+          "apps/api/src/modules/bff/bff.controller.ts",
+          "docs/ops/BUG-20260722-0002-a3-backend-repair.md"
         ],
         "businessChangedFiles": [
-          "apps/web/src/__tests__/sales-pricing-book-id.test.ts",
-          "apps/web/src/app/(admin)/sales2/pricing/page.tsx"
+          "apps/api/src/modules/bff/bff.controller.spec.ts",
+          "apps/api/src/modules/bff/bff.controller.ts"
         ],
         "reportFiles": [
-          "docs/ops/BUGTASK-20260722-0001-frontend-report.md"
+          "docs/ops/BUG-20260722-0002-a3-backend-repair.md"
         ],
         "parentCommitRecovered": false,
         "infrastructureFailure": null,
-        "checkedAt": "2026-07-22T00:31:28.994Z",
+        "checkedAt": "2026-07-22T01:40:22.216Z",
         "passed": true,
         "role": "implementation",
         "terminalStatus": "IMPLEMENTATION_COMPLETED",
@@ -46,7 +46,7 @@
       "queueStatus": "HOLD",
       "integratedCommit": ""
     },
-    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260722-0001-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | HOLD |\n| Worker exit | 0 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.\n",
+    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260722-0002-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | HOLD |\n| Worker exit | 0 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.\n",
     "nextAction": ""
   }
 }

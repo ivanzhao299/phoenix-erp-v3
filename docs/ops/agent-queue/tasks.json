@@ -27386,5 +27386,219 @@
       "checkedAt": "2026-07-22T00:31:30.895Z"
     },
     "remote_repair_status": "HOLD"
+  },
+  {
+    "task_id": "BUGTASK-20260722-0002-A2",
+    "request_id": "BUGTASK-20260722-0002",
+    "title": "Repair BUG-20260722-0002: 作业台-集蛋作业点击“确认交班”报错“HTTP 403” (A2-Security-Regression-Gate)",
+    "source_bug_no": "BUG-20260722-0002",
+    "source_repair_task_no": "BUGTASK-20260722-0002",
+    "source": "bug-intake",
+    "agent": "A2-Security-Regression-Gate",
+    "status": "HOLD",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "scripts/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260722-0002-A2-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+    "branch": "w5-a2-security-regression-gate",
+    "dependencies": [
+      "BUGTASK-20260722-0002-A3"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-22T01:40:24.080Z",
+    "result_file": null,
+    "next_agents": [
+      "A1-CI-Runtime-Gate",
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A2-Security-Regression-Gate",
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "641f7820933be0772d0dad2274f2e04f413f9472e230081a5636d70fa893505f",
+    "state_version": 1,
+    "reason": "blocked by failed dependency: BUGTASK-20260722-0002-A3",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A2-Security-Regression-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260722-0002-A3",
+      "checkedAt": "2026-07-22T01:40:24.080Z"
+    },
+    "remote_repair_status": "HOLD"
+  },
+  {
+    "task_id": "BUGTASK-20260722-0002-A3",
+    "request_id": "BUGTASK-20260722-0002",
+    "title": "Repair BUG-20260722-0002: 作业台-集蛋作业点击“确认交班”报错“HTTP 403” (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260722-0002",
+    "source_repair_task_no": "BUGTASK-20260722-0002",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "HOLD",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260722-0002-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-22T01:40:22.285Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260722-0002-A3-detached-worker-recovery.md",
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A2-Security-Regression-Gate",
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "9998d741f410c2b9fae0aee5822663c84f3d5bf68751f6d4c322e91f06ae2ddc",
+    "state_version": 3,
+    "state_updated_at": "2026-07-22T01:40:22.221Z",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A3-Backend-Critical-Path",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 692,
+      "beforeHead": "c915599f2b97279d9f9df9ed3bed75ae0fa2893c",
+      "afterHead": "fbd840875bc92541ee53cdf04859bf1ef437670a",
+      "commitHash": "fbd840875bc92541ee53cdf04859bf1ef437670a",
+      "changedFiles": [
+        "apps/api/src/modules/bff/bff.controller.spec.ts",
+        "apps/api/src/modules/bff/bff.controller.ts",
+        "docs/ops/BUG-20260722-0002-a3-backend-repair.md"
+      ],
+      "businessChangedFiles": [
+        "apps/api/src/modules/bff/bff.controller.spec.ts",
+        "apps/api/src/modules/bff/bff.controller.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/BUG-20260722-0002-a3-backend-repair.md"
+      ],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-22T01:40:22.216Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
+    },
+    "implementation_commit": "fbd840875bc92541ee53cdf04859bf1ef437670a",
+    "changed_files": [
+      "apps/api/src/modules/bff/bff.controller.spec.ts",
+      "apps/api/src/modules/bff/bff.controller.ts",
+      "docs/ops/BUG-20260722-0002-a3-backend-repair.md"
+    ],
+    "retry_after": null,
+    "baseline_autopilot_exit_code": null,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=0",
+    "remote_repair_status": "HOLD"
+  },
+  {
+    "task_id": "BUGTASK-20260722-0002-A1",
+    "request_id": "BUGTASK-20260722-0002",
+    "title": "Repair BUG-20260722-0002: 作业台-集蛋作业点击“确认交班”报错“HTTP 403” (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260722-0002",
+    "source_repair_task_no": "BUGTASK-20260722-0002",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "HOLD",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260722-0002-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260722-0002-A3",
+      "BUGTASK-20260722-0002-A2"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-22T01:40:24.080Z",
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A2-Security-Regression-Gate",
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "3db45f146e7f37af0060ed1cc798102b43a10f96a388f71510f3cd31ac92335f",
+    "state_version": 1,
+    "reason": "blocked by failed dependency: BUGTASK-20260722-0002-A3, BUGTASK-20260722-0002-A2",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260722-0002-A3, BUGTASK-20260722-0002-A2",
+      "checkedAt": "2026-07-22T01:40:24.080Z"
+    },
+    "remote_repair_status": "HOLD"
   }
 ]

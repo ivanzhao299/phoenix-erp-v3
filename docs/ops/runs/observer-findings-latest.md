@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-22T01:07:15.391Z |
+| Generated at | 2026-07-22T01:32:03.138Z |
 | Run files inspected | 2269 |
 | Task count | 368 |
 | Findings count | 33 |
@@ -280,7 +280,7 @@
 ### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/BUGTASK-20260716-0002-A1-contract.md;  M docs/ops/runs/BUGTASK-20260716-0002-A3-contract.md;  M docs/ops/runs/BUGTASK-20260716-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260716-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260716-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260717-0001-A1-contract.md;  M docs/ops/runs/BUGTASK-20260717-0001-A3-contract.md;  M docs/ops/runs/BUGTASK-20260717-0001-A4-contract.md;  M docs/ops/runs/BUGTASK-20260718-0002-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0002-A3-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
