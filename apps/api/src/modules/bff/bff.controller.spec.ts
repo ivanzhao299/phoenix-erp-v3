@@ -1,3 +1,4 @@
+import { REQUIRE_MENU_KEY, MenuRequirement } from '../../common/guards/menu.guard';
 import { DashboardBffController, PackagingTerminalBffController } from './bff.controller';
 
 describe('DashboardBffController', () => {
@@ -65,6 +66,20 @@ describe('DashboardBffController', () => {
 });
 
 describe('PackagingTerminalBffController', () => {
+  it('allows collection editors to close a collection shift', () => {
+    const requirement = Reflect.getMetadata(
+      REQUIRE_MENU_KEY,
+      PackagingTerminalBffController.prototype.closeShift,
+    ) as MenuRequirement;
+
+    expect(requirement).toEqual({
+      menu: 'MENU_PKG_OP',
+      perm: 'E',
+      altMenus: ['MENU_PROD_COLLECTION'],
+      denialMessage: undefined,
+    });
+  });
+
   it('rejects inconsistent collection quantities before touching the database', async () => {
     const em = { query: jest.fn() };
     const controller = new PackagingTerminalBffController(em as never, {} as never);

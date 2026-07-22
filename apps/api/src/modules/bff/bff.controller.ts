@@ -1428,7 +1428,7 @@ export class PackagingTerminalBffController {
   }
 
   @Post('shifts/:id/close')
-  @RequireMenu('MENU_PKG_OP', 'E')
+  @RequireMenu('MENU_PKG_OP', 'E', ['MENU_PROD_COLLECTION'])
   async closeShift(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     const [existing] = await this.safe(
       this.em.query(`SELECT id, status FROM pkg_work_shifts WHERE id=$1`, [id]),
