@@ -86,7 +86,7 @@ export interface ChanjetShareholderInboundPlan {
   companies: Array<{
     companyCode: string; bookId: string; period: string; parent4001Amount: number | null;
     childAmount: number; childParentDifference: number | null;
-    parentReconciliation: 'MATCHED' | 'LEAF_ONLY'; mappedAmount: number;
+    parentReconciliation: 'MATCHED' | 'LEAF_ONLY' | 'LEAF_ONLY_PLACEHOLDER'; mappedAmount: number;
     sourceOnlyAmount: number; blockers: string[]; conditions: string[];
   }>;
   rows: ChanjetShareholderInboundPlanRow[];

@@ -55,7 +55,7 @@ export type ChanjetShareholderInboundPlan = {
     parent4001Amount: number | null;
     childAmount: number;
     childParentDifference: number | null;
-    parentReconciliation: 'MATCHED' | 'LEAF_ONLY';
+    parentReconciliation: 'MATCHED' | 'LEAF_ONLY' | 'LEAF_ONLY_PLACEHOLDER';
     mappedAmount: number;
     sourceOnlyAmount: number;
     blockers: string[];
@@ -93,6 +93,15 @@ export function reconcile4001Parent(parentAmounts: number[], childAmount: number
     };
   }
   const parent4001Amount = roundMoney(parentAmounts[0]);
+  if (parent4001Amount === 0 && Math.abs(childAmount) > 0.01) {
+    return {
+      parent4001Amount,
+      childParentDifference: null,
+      parentReconciliation: 'LEAF_ONLY_PLACEHOLDER' as const,
+      blocker: '',
+      condition: '好业财4001父科目为零值结构占位；以4001叶子科目明细合计作为本批次会计事实',
+    };
+  }
   const childParentDifference = roundMoney(childAmount - parent4001Amount);
   return {
     parent4001Amount,
