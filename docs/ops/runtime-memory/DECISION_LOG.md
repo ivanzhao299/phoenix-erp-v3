@@ -1914,3 +1914,12 @@ Decision: counterparty resolution `GO`.
 - Incomplete, expired, conflicting, mismatched or inherited approval returns `HOLD`.
 - A complete package advances only to `READY_FOR_A2_A1_A7_REVIEW`.
 - Approval is not persisted, external transport is not implemented, and no Chanjet write/delete/modify call was made.
+
+# 2026-07-22 - Lock shareholder equity accounting authority and reconciliation
+
+- ERP shareholder/project equity remains the legal and operational authority; Chanjet 4001 remains posted-accounting authority.
+- Shareholder loans, advances, personal payments and goods payments are isolated from paid-in capital.
+- Differences are reconciled at company/book, shareholder/subject and contribution/voucher-line levels and are never silently overwritten.
+- Mapping confirmation, voucher-line linkage, ERP voucher draft and period close use explicit confirmation tokens and DataScope.
+- Technical implementation is `GO_WITH_CONDITIONS`; current business close remains `HOLD` until mappings, differences and voucher links are complete.
+- The migration was created but not executed, no ERP/Chanjet data was written, and Chanjet external write remains disabled.

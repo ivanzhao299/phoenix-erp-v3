@@ -41,6 +41,35 @@ export interface FinanceBridge {
   finShareholderContributions: { count: number; rows: any[] };
   gaps: string[];
 }
+export interface ShareholderAccountingCompany {
+  companyCode: string; companyName: string; bookId: string; bookName: string; period: string;
+  erpPaidIn: number; chanjetPaidIn: number; difference: number;
+  reconciliationStatus: 'OK' | 'MISMATCH'; eligibleContributionTotal: number;
+  internalDifference: number; debtOrAdvanceTotal: number; manualReviewTotal: number;
+  shareholderCount: number; approvedMappingCount: number; mappingCoverage: number;
+  eligibleContributionCount: number; undatedEligibleContributionCount: number; matchedContributionCount: number;
+}
+export interface ShareholderAccountingOverview {
+  decision: 'GO_WITH_CONDITIONS' | 'HOLD';
+  authority: Record<string, string>;
+  safeguards: { chanjetReadOnly: boolean; externalWriteEnabled: boolean; automaticPostingEnabled: boolean; debtIncludedInPaidInCapital: boolean };
+  totals: { erpPaidIn: number; chanjetPaidIn: number; difference: number; debtOrAdvance: number };
+  companies: ShareholderAccountingCompany[];
+  shareholders: Array<{
+    projectCode: string; projectName: string; companyCode: string;
+    shareholderCode: string; shareholderName: string; erpPaidIn: number;
+    subscribedCapital: number; mappingStatus: 'APPROVED' | 'CANDIDATE' | 'NEED_REVIEW' | 'UNMAPPED';
+    approvedMappings: Array<{ subjectId: string; subjectCode: string; subjectName: string; currency: string }>;
+    candidates: Array<{ subjectId: string; subjectCode: string; subjectName: string; amount: number; currency: string }>;
+  }>;
+  contributionClassification: Array<{
+    id: string; contributionNo: string; companyCode: string; projectCode: string;
+    shareholderCode: string; shareholderName: string; amount: number; currency: string;
+    contributionDate?: string | null; sourceType: string;
+    accountingClass: 'EQUITY' | 'DEBT_OR_ADVANCE' | 'MANUAL_REVIEW'; status: string; matched: boolean;
+  }>;
+  generatedAt: string;
+}
 export interface ShrScope {
   id: string; userId: string; shareholderCode?: string; scopeType: string;
   scopeCode?: string; projectCode?: string; canApprove: boolean; status: string;
@@ -120,4 +149,12 @@ export const shareholderApi = {
     request<ShrContribution>(`/shareholders/capital/${id}/attachments`, { method: 'PATCH', body: JSON.stringify({ attachmentUrls }) }),
   financeBridge: (projectCode?: string) =>
     request<FinanceBridge>(`/shareholders/finance-bridge${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ''}`),
+  accountingOverview: (period?: string) =>
+    request<ShareholderAccountingOverview>(`/shareholders/accounting/overview${period ? `?period=${encodeURIComponent(period)}` : ''}`),
+  accountingCloseReadiness: (period?: string) =>
+    request<Record<string, unknown>>(`/shareholders/accounting/month-close-readiness${period ? `?period=${encodeURIComponent(period)}` : ''}`),
+  voucherCandidates: (contributionId: string) =>
+    request<Record<string, unknown>>(`/shareholders/accounting/contributions/${encodeURIComponent(contributionId)}/voucher-candidates`),
+  voucherDraftPreview: (contributionId: string) =>
+    request<Record<string, unknown>>(`/shareholders/accounting/contributions/${encodeURIComponent(contributionId)}/voucher-draft-preview`),
 };

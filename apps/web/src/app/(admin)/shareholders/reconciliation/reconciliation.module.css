@@ -1,0 +1,33 @@
+.actions { display: flex; gap: 8px; align-items: center; }
+.period { min-height: 38px; border: 1px solid var(--border-default); background: var(--bg-card); color: var(--text-primary); border-radius: 6px; padding: 0 10px; }
+.refresh { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border-default); border-radius: 6px; padding: 0 14px; background: var(--color-primary); color: white; cursor: pointer; }
+.refresh:disabled { opacity: .55; cursor: wait; }
+.authorityBand { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; margin: 0 0 18px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--status-info) 28%, var(--border-default)); background: color-mix(in srgb, var(--status-info) 6%, var(--bg-card)); border-radius: 6px; color: var(--text-primary); }
+.authorityBand p, .sectionHeading p, .debtBand p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
+.readonly { color: var(--status-success); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.section { margin-top: 18px; border-top: 1px solid var(--border-default); padding-top: 16px; }
+.sectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.sectionHeading h2 { margin: 0; font-size: 17px; color: var(--text-primary); letter-spacing: 0; }
+.tableWrap { overflow-x: auto; border: 1px solid var(--border-default); border-radius: 6px; background: var(--bg-card); }
+.table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 13px; }
+.table th { padding: 11px 13px; text-align: left; color: var(--text-secondary); background: var(--bg-muted); border-bottom: 1px solid var(--border-default); font-weight: 600; }
+.table td { padding: 12px 13px; border-bottom: 1px solid var(--border-subtle); color: var(--text-primary); vertical-align: top; }
+.table tr:last-child td { border-bottom: 0; }
+.table td strong, .table td small { display: block; }
+.table td small { color: var(--text-tertiary); margin-top: 4px; }
+.warn { color: var(--status-warning) !important; font-weight: 700; }
+.ok { color: var(--status-success) !important; font-weight: 700; }
+.debtBand { margin-top: 18px; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 20px; padding: 15px 16px; border-left: 3px solid var(--status-warning); background: var(--bg-muted); }
+.debtBand a { color: var(--color-primary); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.debtMetric { font-size: 18px; font-weight: 700; text-align: right; }
+.debtMetric small { display: block; margin-top: 3px; color: var(--text-tertiary); font-size: 12px; font-weight: 400; }
+.error { margin-bottom: 14px; padding: 11px 13px; background: color-mix(in srgb, var(--status-danger) 8%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--status-danger) 30%, var(--border-default)); color: var(--status-danger); border-radius: 6px; }
+.loading { min-height: 180px; display: grid; place-items: center; color: var(--text-secondary); }
+@media (max-width: 720px) {
+  .actions { width: 100%; }
+  .period { min-width: 0; flex: 1; }
+  .authorityBand { grid-template-columns: auto 1fr; }
+  .readonly { grid-column: 2; }
+  .debtBand { grid-template-columns: 1fr; gap: 10px; }
+  .debtMetric { text-align: left; }
+}

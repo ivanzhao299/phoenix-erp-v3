@@ -19,6 +19,8 @@ import { ChanjetErpFieldMappingEntity } from './chanjet-erp-field-mapping.entity
 import { FinArLedgerEntity } from '../finance-v2/entities/fin-ar-ledger.entity';
 import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler';
 import { ChanjetWritebackOutboxEntity } from './chanjet-writeback-outbox.entity';
+import { ChanjetShareholderVoucherLinkEntity } from './chanjet-shareholder-voucher-link.entity';
+import { ChanjetShareholderClosePeriodEntity } from './chanjet-shareholder-close-period.entity';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { ChanjetWritebackOutboxEntity } from './chanjet-writeback-outbox.entity'
       ChanjetEntitySnapshotEntity,
       ChanjetErpFieldMappingEntity,
       ChanjetWritebackOutboxEntity,
+      ChanjetShareholderVoucherLinkEntity,
+      ChanjetShareholderClosePeriodEntity,
       FinArLedgerEntity,
     ]),
   ],

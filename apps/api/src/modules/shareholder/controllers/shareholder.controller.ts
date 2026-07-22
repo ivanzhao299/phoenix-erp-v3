@@ -6,6 +6,7 @@ import { ClsService } from 'nestjs-cls';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { ShareholderService } from '../services/shareholder.service';
+import { ShareholderAccountingReconciliationService } from '../services/shareholder-accounting-reconciliation.service';
 import {
   CreateProjectDto, UpdateProjectDto, CreateShareholderDto, UpdateShareholderDto,
   CreateEquityDto, UpdateEquityDto, CreateContributionDto, CreateScopeDto,
@@ -23,6 +24,7 @@ const CAPITAL = 'MENU_SHAREHOLDER_CAPITAL';
 export class ShareholderController {
   constructor(
     private readonly svc: ShareholderService,
+    private readonly accounting: ShareholderAccountingReconciliationService,
     private readonly cls: ClsService,
   ) {}
 
@@ -58,6 +60,41 @@ export class ShareholderController {
   @Get('finance-bridge')           @RequireMenu(VIEW, 'V') financeBridge(@Query('projectCode') p?: string) { return this.svc.financeBridge(p, this.user); }
   @Get('capital-summary')          @RequireMenu(VIEW, 'V') capitalSummary(@Query('projectCode') p?: string) { return this.svc.capitalSummary(p, this.user); }
   @Get('beneficial')               @RequireMenu(VIEW, 'V') listBeneficial(@Query('projectCode') p?: string) { return this.svc.listBeneficial(p, this.user); }
+
+  // ── 股东权益 ↔ 好业财会计勾稽（好业财始终只读）──
+  @Get('accounting/overview')
+  @RequireMenu(CAPITAL, 'V')
+  accountingOverview(@Query('period') period?: string) { return this.accounting.overview(period); }
+
+  @Get('accounting/contributions/:id/voucher-candidates')
+  @RequireMenu(CAPITAL, 'V')
+  voucherCandidates(@Param('id') id: string) { return this.accounting.voucherCandidates(id); }
+
+  @Get('accounting/contributions/:id/voucher-draft-preview')
+  @RequireMenu(CAPITAL, 'V')
+  voucherDraftPreview(@Param('id') id: string) { return this.accounting.voucherDraftPreview(id); }
+
+  @Get('accounting/month-close-readiness')
+  @RequireMenu(CAPITAL, 'V')
+  monthCloseReadiness(@Query('period') period?: string) { return this.accounting.monthCloseReadiness(period); }
+
+  @Post('accounting/mappings/confirm')
+  @RequireMenu(CAPITAL, 'A')
+  confirmAccountingMapping(@Body() body: Record<string, unknown>) { return this.accounting.confirmShareholderMapping(body, this.user); }
+
+  @Post('accounting/voucher-links/confirm')
+  @RequireMenu(CAPITAL, 'A')
+  confirmVoucherLink(@Body() body: Record<string, unknown>) { return this.accounting.confirmVoucherLink(body, this.user); }
+
+  @Post('accounting/contributions/:id/voucher-drafts')
+  @RequireMenu(CAPITAL, 'A')
+  createAccountingVoucherDraft(@Param('id') id: string, @Body() body: { confirmationToken?: string }) {
+    return this.accounting.createErpVoucherDraft(id, body?.confirmationToken, this.user);
+  }
+
+  @Post('accounting/month-close')
+  @RequireMenu(CAPITAL, 'A')
+  closeAccountingPeriod(@Body() body: Record<string, unknown>) { return this.accounting.closePeriod(body, this.user); }
 
   // ── 资本流引擎（Phase 3）──
   @Get('capital/stats')            @RequireMenu(CAPITAL, 'V') capitalStats() { return this.svc.capitalStats(this.user); }

@@ -95,3 +95,8 @@ Last updated: 2026-07-20
 87. Receipt/payment authority must partition by account book, currency, business date and effective status. Unknown or mixed currency evidence must fail closed.
 88. A one-record ERP middle-layer mapping canary does not authorize any external Chanjet write. It requires idempotent read-back, audit evidence and compensating rollback.
 89. External Chanjet write/delete/modify and voucher push remain disabled until a separate explicit Gate names the endpoint, book, payload, idempotency key, rollback method and operator.
+90. ERP `shr_shareholders` and `shr_project_equity` are authoritative for legal shareholder identity and equity; Chanjet 4001 is authoritative only for posted accounting evidence.
+91. Shareholder loans, advances, goods payments, personal payments and settlements must never be counted as paid-in capital or linked to Chanjet 4001.
+92. Shareholder-to-4001 and contribution-to-voucher-line candidates must not become approved mappings without an explicit confirmation token and DataScope check.
+93. Chanjet shareholder accounting differences must remain visible; neither ERP equity nor Chanjet balances may be silently overwritten to manufacture equality.
+94. Closing a shareholder accounting period requires 100% approved mapping, zero material company/internal difference and complete eligible contribution voucher-line linkage.

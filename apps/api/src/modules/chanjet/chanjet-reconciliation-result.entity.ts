@@ -16,7 +16,14 @@ export class ChanjetReconciliationResultEntity {
   id: string;
 
   @Column({ name: 'reconciliation_type', type: 'varchar', length: 64 })
-  reconciliationType: 'MASTER_MAPPING' | 'AR_LEDGER' | 'AP_LEDGER' | 'VOUCHER_DRAFT' | 'FIELD_CATALOG';
+  reconciliationType:
+    | 'MASTER_MAPPING'
+    | 'AR_LEDGER'
+    | 'AP_LEDGER'
+    | 'VOUCHER_DRAFT'
+    | 'FIELD_CATALOG'
+    | 'SHAREHOLDER_EQUITY'
+    | 'SHAREHOLDER_CONTRIBUTION';
 
   @Column({ name: 'company_code', type: 'varchar', length: 64, default: '' })
   companyCode: string;

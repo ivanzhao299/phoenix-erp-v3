@@ -149,6 +149,12 @@
 | Frozen items touched | No |
 | A1 handling | A1 FAIL is recorded as a future sample and not fixed in this phase. |
 
+## 2026-07-22 Delivery Update
+
+| Task ID | Agent | Branch | Status | Risk | Output | Blocker | Next Action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| CHANJET-SHAREHOLDER-EQUITY-ACCOUNTING-RECONCILIATION | Codex-Orchestrator | codex/i18n-debt-clearance | done-with-conditions | L3 finance/accounting | Shareholder authority model, three-level readonly reconciliation, voucher candidates, ERP-only draft preparation, month-close readiness, admin reconciliation page, migration and reports | Migration not executed; current mappings/differences/voucher links keep business close HOLD | Approve ERP migration Gate, then run production readonly evidence and explicit mapping review; keep Chanjet external write disabled |
+
 ## Update Rules
 
 1. Every dispatched task must have an Agent and risk level.

@@ -12,7 +12,8 @@ export type ChanjetMappingType =
   | 'PROJECT'
   | 'WAREHOUSE'
   | 'PRODUCT'
-  | 'CURRENCY';
+  | 'CURRENCY'
+  | 'SHAREHOLDER';
 
 /**
  * chanjet_master_mapping — ERP 主数据与好业财主数据的统一映射层。

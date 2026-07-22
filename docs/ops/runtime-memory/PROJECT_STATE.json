@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-07-21",
+  "last_updated": "2026-07-22",
   "active_module": "Chanjet Integration",
   "current_stage": "CHANJET_WAVE_7_APPROVAL_PRECHECK_READY",
   "active_decision": "WAITING_EXPLICIT_APPROVAL",
@@ -519,7 +519,16 @@
     "last_full_readonly_alignment_decision": "GO_WITH_CONDITIONS",
     "last_full_readonly_alignment_mirror_decision": "GO",
     "last_full_readonly_alignment_target_results": 46,
-    "last_full_readonly_alignment_failures": 0
+    "last_full_readonly_alignment_failures": 0,
+    "shareholder_equity_reconciliation": "implemented_not_migrated",
+    "shareholder_reconciliation_page": "/shareholders/reconciliation",
+    "shareholder_authority_model": "erp_legal_equity_and_contribution_events_chanjet_posted_accounting",
+    "shareholder_accounting_subject": "4001_paid_in_capital_and_children",
+    "shareholder_debt_isolation": "loans_advances_goods_and_personal_payments_excluded_from_4001",
+    "shareholder_reconciliation_business_decision": "HOLD_UNTIL_MAPPING_DIFFERENCE_AND_VOUCHER_LINKS_COMPLETE",
+    "shareholder_external_write_enabled": false,
+    "shareholder_migration_executed": false,
+    "shareholder_reconciliation_report": "docs/ops/CHANJET_SHAREHOLDER_EQUITY_LONG_TASK_IMPLEMENTATION_REPORT.md"
   },
   "store_payment": {
     "canonical_store_code": "STORE-VTE-001",
@@ -1022,6 +1031,8 @@
     "next_single_gate_recommendation": "APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS"
   },
   "next_actions": [
+    "CHANJET_SHAREHOLDER_RECONCILIATION_MIGRATION_GATE",
+    "CHANJET_SHAREHOLDER_READONLY_MAPPING_EVIDENCE",
     "CHANJET_LONG_QUEUE_WAVE_0_BASELINE_REFRESH",
     "CHANJET_LONG_QUEUE_WAVE_1_FINANCE_SEMANTIC_LOCK",
     "PROMOTE_APPROVED_WAVE_0_1_TASKS_TO_LIVE_QUEUE",
@@ -1054,6 +1065,8 @@
     "safe_redispatch_gate": "implemented"
   },
   "next_action": [
+    "APPROVE_ERP_ONLY_SHAREHOLDER_RECONCILIATION_MIGRATION_OR_KEEP_HOLD",
+    "RUN_SHAREHOLDER_4001_READONLY_MAPPING_AFTER_MIGRATION",
     "KEEP_SCHEDULED_READONLY_ALIGNMENT_ACTIVE",
     "PROVIDE_ONE_EXACT_CHANJET_WAVE_7_CANARY_APPROVAL_OR_KEEP_HOLD",
     "RUN_A2_A1_A7_PRE_EXECUTION_REVIEW_AFTER_COMPLETE_APPROVAL",

@@ -191,6 +191,7 @@ export const MENU: MenuItem[] = [
   { id: "shareholder", Icon: Users, label: "股东权益中心", perm: "MENU_SHAREHOLDER_VIEW", children: [
     { id: "shr-dashboard", path: "/shareholders/dashboard",     Icon: PieChart,       label: "股东驾驶舱", perm: "MENU_SHAREHOLDER_DASHBOARD"   },
     { id: "shr-capital",   path: "/shareholders/capital",       Icon: Wallet,         label: "资本流管理", perm: "MENU_SHAREHOLDER_CAPITAL"     },
+    { id: "shr-accounting", path: "/shareholders/reconciliation", Icon: Scale, label: "股权财务对账", perm: "MENU_SHAREHOLDER_CAPITAL" },
     { id: "shr-projects",  path: "/shareholders/projects",      Icon: LayoutDashboard,label: "股东项目",   perm: "MENU_SHAREHOLDER_VIEW"        },
     { id: "shr-equity",    path: "/shareholders/equity",        Icon: PieChart,       label: "股权结构",   perm: "MENU_SHAREHOLDER_VIEW"        },
     { id: "shr-contrib",   path: "/shareholders/contributions", Icon: Wallet,         label: "出资台账",   perm: "MENU_SHAREHOLDER_CONTRIBUTION"},

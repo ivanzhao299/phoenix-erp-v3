@@ -1245,6 +1245,16 @@ Next actions:
 2. `CHANJET_NON_DETERMINISTIC_MAPPING_REVIEW` (353 pending candidates; no fuzzy auto-approval)
 3. `KEEP_CHANJET_WRITEBACK_BLOCKED`
 
+## 2026-07-22 - Shareholder equity accounting reconciliation
+
+Current implementation: `GO_WITH_CONDITIONS`; current business close decision: `HOLD`.
+
+1. Approve and execute the ERP-only shareholder reconciliation migration as a separate Gate.
+2. Run production read-only overview for every company/book and generate shareholder/4001 candidates.
+3. Confirm only unique evidence-backed shareholder mappings and voucher-line links.
+4. Resolve period, currency, direct-store investment and XINGCHI attribution differences without silently changing either source.
+5. Keep Chanjet external write and voucher push disabled; Wave 7 remains a separate approval.
+
 ## 2026-07-14 — Chanjet Counterparty Autonomous Resolution
 
 Current stage: `CHANJET_COUNTERPARTY_AUTONOMOUS_RESOLUTION_DEPLOYED`
