@@ -1268,6 +1268,26 @@ Next actions:
 2. `CHANJET_NON_DETERMINISTIC_MAPPING_REVIEW` (353 pending candidates; no fuzzy auto-approval)
 3. `KEEP_CHANJET_WRITEBACK_BLOCKED`
 
+## 2026-07-23 — Chanjet Shareholder Subject Name Write Experiment
+
+Current stage: `CHANJET_SHAREHOLDER_NAME_WRITE_EXPERIMENT_HOLD`
+
+Decision: `HOLD`
+
+Completed:
+
+- Verified five exact title-alias to ERP shareholder-name candidates.
+- Executed only the first exact canary through the official subject-update endpoint.
+- Provider returned `result:true`, but two independent official read endpoints continued to return `赵总` instead of `赵永伟`.
+- Stopped before the other four targets and verified all five source names, balances and structural fingerprints remain unchanged.
+- ERP business facts, legal equity, contributions and vouchers remain unchanged.
+
+Next actions:
+
+1. `CHANJET_PROVIDER_SUBJECT_UPDATE_PERMISSION_CONTRACT_REVIEW`
+2. Confirm app/operator/book subject-edit permission and obtain provider request processing evidence.
+3. Keep the remaining four writes blocked until one canary has a durable dual-readback result.
+
 ## 2026-07-22 - Shareholder equity accounting reconciliation
 
 Current implementation: `GO_WITH_CONDITIONS`; current business close decision: `HOLD`.

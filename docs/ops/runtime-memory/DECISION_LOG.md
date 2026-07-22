@@ -1942,3 +1942,12 @@ Decision: counterparty resolution `GO`.
 - Legal equity and contribution fingerprints are unchanged before and after the transaction.
 - Chanjet writeback Outbox remains `0||0`; no Chanjet write/delete/modify call was made.
 - Production revision `6ec48c15` passed full deploy run `29938085379` and the security workflow.
+
+# 2026-07-23 - Hold Chanjet shareholder subject-name write after false-positive acknowledgement
+
+- User approval covered only five exact `4001` child-subject title aliases and no other Chanjet data.
+- Only `COMP-LAO-AGRI / 400101 / 赵总 -> 赵永伟` was used as the canary.
+- The official update endpoint returned `result:true`, but both `getInitBalanceLists` and `getInitBalanceList` continued to return `赵总` after bounded polling.
+- The executor stopped before the other four targets, issued a compensating original-name request and verified all five names, balances and structural fingerprints remain unchanged.
+- Persistent Chanjet changes are zero; ERP business data, legal equity, contributions and vouchers are unchanged.
+- Decision: `HOLD_PROVIDER_ACK_NO_PERSISTENCE`; next Gate is provider app/operator/book subject-edit permission and request-log confirmation.

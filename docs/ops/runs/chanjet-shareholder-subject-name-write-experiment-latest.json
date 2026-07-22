@@ -1,0 +1,50 @@
+{
+  "gate": "CHANJET_SHAREHOLDER_SUBJECT_NAME_APPROVAL_20260723",
+  "executedAt": "2026-07-23T07:40:30+08:00",
+  "decision": "HOLD_PROVIDER_ACK_NO_PERSISTENCE",
+  "approvalScope": "Only rename the exact Chanjet 4001 child subjects named Zhao/Song/Zhu title aliases to their verified ERP shareholder names",
+  "providerWriteEndpointCalled": true,
+  "providerAcknowledgement": {
+    "result": true
+  },
+  "persistentChanjetChanges": 0,
+  "attemptedTarget": {
+    "bookId": "3533914511118750",
+    "companyCode": "COMP-LAO-AGRI",
+    "subjectCode": "400101",
+    "before": "赵总",
+    "requestedAfter": "赵永伟",
+    "verifiedAfter": "赵总"
+  },
+  "unattemptedTargets": [
+    "3533914511118750:400102",
+    "3533914511118750:400103",
+    "3537748712226818:400101",
+    "3537748712226818:400102"
+  ],
+  "readback": {
+    "primaryEndpoint": "/accounting/gl/glaccount/getInitBalanceLists/{bookid}",
+    "secondaryEndpoint": "/accounting/gl/glaccount/getInitBalanceList/{bookid}",
+    "primaryName": "赵总",
+    "secondaryName": "赵总",
+    "expectedName": "赵永伟",
+    "matched": false
+  },
+  "compensation": {
+    "requested": true,
+    "verifiedOriginalName": true,
+    "rollbackErrors": []
+  },
+  "finalSourceState": [
+    { "bookId": "3533914511118750", "code": "400101", "name": "赵总", "baseEndingBalance": "7126037.31" },
+    { "bookId": "3533914511118750", "code": "400102", "name": "宋总", "baseEndingBalance": "6657622.89" },
+    { "bookId": "3533914511118750", "code": "400103", "name": "朱总", "baseEndingBalance": "30477396.68" },
+    { "bookId": "3537748712226818", "code": "400101", "name": "朱总", "baseEndingBalance": "23609134.01" },
+    { "bookId": "3537748712226818", "code": "400102", "name": "宋总", "baseEndingBalance": "9994058.49" }
+  ],
+  "balanceOrStructureChanged": false,
+  "erpBusinessDataChanged": false,
+  "voucherPushed": false,
+  "deployExecuted": false,
+  "nextGate": "CHANJET_PROVIDER_SUBJECT_UPDATE_PERMISSION_CONTRACT_REVIEW"
+}
