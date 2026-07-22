@@ -4,6 +4,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
 import { ChanjetIntegrationService } from './chanjet-integration.service';
+import { ChanjetErpInboundSyncService } from './chanjet-erp-inbound-sync.service';
 
 const JOB_NAME = 'chanjet-full-readonly-sync';
 
@@ -45,6 +46,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
     private readonly integration: ChanjetIntegrationService,
     private readonly cronMon: CronMonitorService,
     @InjectDataSource() private readonly ds: DataSource,
+    private readonly inboundSync: ChanjetErpInboundSyncService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -222,9 +224,31 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
           throw new Error(`readonly alignment readiness HOLD: ${readiness.blockers.join('; ') || 'unknown blocker'}`);
         }
       }
+      let erpInbound: Record<string, unknown> = { enabled: false, applied: false };
+      if (String(process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED || 'true').toLowerCase() !== 'false') {
+        try {
+          const inboundResult = await this.inboundSync.syncScheduledShareholderBalances(period, requestedBy);
+          erpInbound = {
+            enabled: true,
+            applied: inboundResult.applied,
+            decision: inboundResult.decision,
+            planHash: inboundResult.plan.planHash,
+            sourceCount: inboundResult.plan.counts.source,
+            mappedCount: inboundResult.plan.counts.mapped,
+            sourceOnlyCount: inboundResult.plan.counts.sourceOnly,
+            blockers: inboundResult.plan.blockers,
+          };
+          if (!inboundResult.applied) {
+            this.log.warn(`${JOB_NAME} ERP inbound accounting mirror HOLD: ${inboundResult.reason}`);
+          }
+        } catch (error) {
+          erpInbound = { enabled: true, applied: false, decision: 'HOLD', error: (error as Error).message };
+          this.log.error(`${JOB_NAME} ERP inbound accounting mirror failed: ${(error as Error).message}`);
+        }
+      }
       await this.cronMon.ok(
         JOB_NAME,
-        `decision=${decision}; readiness=${readiness?.decision || 'NOT_AVAILABLE'}; targets=${targetCount}; attempts=${attempts}; exactApproved=${exactApproved}; reconciliationCreated=${reconciliationCreated}; reconciliationResolved=${reconciliationResolved}`,
+        `decision=${decision}; readiness=${readiness?.decision || 'NOT_AVAILABLE'}; targets=${targetCount}; attempts=${attempts}; exactApproved=${exactApproved}; reconciliationCreated=${reconciliationCreated}; reconciliationResolved=${reconciliationResolved}; erpInbound=${String(erpInbound.decision || 'DISABLED')}`,
       );
       const completedAt = new Date().toISOString();
       const message = `targets=${targetCount}; attempts=${attempts}`;
@@ -241,6 +265,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
         exactApproved,
         reconciliationCreated,
         reconciliationResolved,
+        erpInbound,
       });
       this.log.log(`${JOB_NAME} completed decision=${decision} targets=${targetCount} attempts=${attempts} exactApproved=${exactApproved}`);
     } catch (error) {

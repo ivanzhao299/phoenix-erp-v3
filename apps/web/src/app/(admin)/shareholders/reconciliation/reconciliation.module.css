@@ -23,6 +23,14 @@
 .debtMetric small { display: block; margin-top: 3px; color: var(--text-tertiary); font-size: 12px; font-weight: 400; }
 .error { margin-bottom: 14px; padding: 11px 13px; background: color-mix(in srgb, var(--status-danger) 8%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--status-danger) 30%, var(--border-default)); color: var(--status-danger); border-radius: 6px; }
 .loading { min-height: 180px; display: grid; place-items: center; color: var(--text-secondary); }
+.syncPanel { margin: 18px 0; padding: 16px; border: 1px solid var(--border-default); border-left: 3px solid var(--status-info); background: var(--bg-card); border-radius: 6px; }
+.syncActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.syncButton { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 6px; padding: 0 14px; background: var(--color-primary); color: white; font-weight: 600; cursor: pointer; }
+.syncButton:disabled { opacity: .48; cursor: not-allowed; }
+.syncMeta { display: grid; grid-template-columns: repeat(6, minmax(110px, 1fr)); gap: 8px; margin: 12px 0; }
+.syncMeta span { padding: 9px 10px; background: var(--bg-muted); color: var(--text-secondary); font-size: 12px; }
+.syncMeta strong { display: block; margin-top: 3px; color: var(--text-primary); font-size: 15px; }
+.blockers { margin: 0 0 12px; padding: 10px 12px; color: var(--status-danger); background: color-mix(in srgb, var(--status-danger) 7%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--status-danger) 25%, var(--border-default)); }
 @media (max-width: 720px) {
   .actions { width: 100%; }
   .period { min-width: 0; flex: 1; }
@@ -30,4 +38,6 @@
   .readonly { grid-column: 2; }
   .debtBand { grid-template-columns: 1fr; gap: 10px; }
   .debtMetric { text-align: left; }
+  .syncActions { justify-content: flex-start; }
+  .syncMeta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

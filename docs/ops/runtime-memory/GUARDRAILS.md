@@ -100,3 +100,7 @@ Last updated: 2026-07-20
 92. Shareholder-to-4001 and contribution-to-voucher-line candidates must not become approved mappings without an explicit confirmation token and DataScope check.
 93. Chanjet shareholder accounting differences must remain visible; neither ERP equity nor Chanjet balances may be silently overwritten to manufacture equality.
 94. Closing a shareholder accounting period requires 100% approved mapping, zero material company/internal difference and complete eligible contribution voucher-line linkage.
+95. Verified Chanjet posted-accounting facts may write only to ERP Chanjet accounting mirror and mapping audit tables; this does not authorize any external Chanjet write.
+96. Chanjet accounting sync must never overwrite `shr_project_equity`, `shr_capital_contributions`, legal shareholder identity, or capital workflow state.
+97. A shareholder accounting inbound batch requires fresh source evidence, one 4001 parent per book, child-parent equality, a stable plan hash and zero mapping conflicts.
+98. Non-person 4001 child accounts must remain `SOURCE_ONLY`; ambiguous person names must HOLD rather than guess.

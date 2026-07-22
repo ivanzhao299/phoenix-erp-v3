@@ -1923,3 +1923,12 @@ Decision: counterparty resolution `GO`.
 - Mapping confirmation, voucher-line linkage, ERP voucher draft and period close use explicit confirmation tokens and DataScope.
 - Technical implementation is `GO_WITH_CONDITIONS`; current business close remains `HOLD` until mappings, differences and voucher links are complete.
 - The migration was created but not executed, no ERP/Chanjet data was written, and Chanjet external write remains disabled.
+
+# 2026-07-22 - Authorize verified Chanjet accounting facts to update the ERP mirror
+
+- Chanjet remains the authority for posted `4001` accounting facts and remains externally read-only.
+- Verified source facts may write only to `chanjet_shareholder_accounting_balances` and sync/mapping audit tables in ERP.
+- ERP legal shareholder identity, legal equity, contribution records and capital workflow are not overwritten.
+- Name matching is company-scoped and deterministic: normalized exact name, unique title alias, or title plus uniquely equal registered amount.
+- Ambiguous mappings HOLD the entire batch; non-person accounts remain `SOURCE_ONLY` without a fabricated shareholder.
+- Current evidence expects 13 source rows, 12 mapped people, one `直营店投资` source-only row and zero conflicts.

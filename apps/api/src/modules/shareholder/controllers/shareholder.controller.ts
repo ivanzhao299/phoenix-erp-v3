@@ -7,6 +7,7 @@ import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { ShareholderService } from '../services/shareholder.service';
 import { ShareholderAccountingReconciliationService } from '../services/shareholder-accounting-reconciliation.service';
+import { ChanjetErpInboundSyncService } from '../../chanjet/chanjet-erp-inbound-sync.service';
 import {
   CreateProjectDto, UpdateProjectDto, CreateShareholderDto, UpdateShareholderDto,
   CreateEquityDto, UpdateEquityDto, CreateContributionDto, CreateScopeDto,
@@ -25,6 +26,7 @@ export class ShareholderController {
   constructor(
     private readonly svc: ShareholderService,
     private readonly accounting: ShareholderAccountingReconciliationService,
+    private readonly inboundSync: ChanjetErpInboundSyncService,
     private readonly cls: ClsService,
   ) {}
 
@@ -65,6 +67,25 @@ export class ShareholderController {
   @Get('accounting/overview')
   @RequireMenu(CAPITAL, 'V')
   accountingOverview(@Query('period') period?: string) { return this.accounting.overview(period); }
+
+  @Get('accounting/inbound-sync/plan')
+  @RequireMenu(CAPITAL, 'V')
+  inboundSyncPlan(@Query('period') period?: string) { return this.inboundSync.buildShareholderPlan(period); }
+
+  @Get('accounting/inbound-sync/latest')
+  @RequireMenu(CAPITAL, 'V')
+  latestInboundSync() { return this.inboundSync.latestShareholderSync(); }
+
+  @Post('accounting/inbound-sync/apply')
+  @RequireMenu(CAPITAL, 'A')
+  applyInboundSync(@Body() body: { period?: string; planHash?: string; confirmationToken?: string }) {
+    return this.inboundSync.applyShareholderPlan(
+      body?.period,
+      body?.planHash,
+      this.user.userId || 'unknown',
+      body?.confirmationToken,
+    );
+  }
 
   @Get('accounting/contributions/:id/voucher-candidates')
   @RequireMenu(CAPITAL, 'V')

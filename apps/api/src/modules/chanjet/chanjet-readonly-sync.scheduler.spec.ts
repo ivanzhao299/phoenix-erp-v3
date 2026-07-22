@@ -61,6 +61,20 @@ describe('ChanjetReadonlySyncScheduler', () => {
     };
   }
 
+  function createInboundSync() {
+    return {
+      syncScheduledShareholderBalances: jest.fn().mockResolvedValue({
+        decision: 'READY',
+        applied: true,
+        plan: {
+          planHash: 'plan-hash',
+          counts: { source: 3, mapped: 3, sourceOnly: 0 },
+          blockers: [],
+        },
+      }),
+    };
+  }
+
   async function waitForTerminal(scheduler: ChanjetReadonlySyncScheduler) {
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const state = await scheduler.getRunState();
@@ -79,7 +93,8 @@ describe('ChanjetReadonlySyncScheduler', () => {
       fail: jest.fn().mockResolvedValue(undefined),
     };
     const dataSource = createDataSource(runner);
-    const scheduler = new ChanjetReadonlySyncScheduler(integration as never, cronMonitor as never, dataSource as never);
+    const inboundSync = createInboundSync();
+    const scheduler = new ChanjetReadonlySyncScheduler(integration as never, cronMonitor as never, dataSource as never, inboundSync as never);
 
     await scheduler.runScheduledSync();
 
@@ -93,6 +108,7 @@ describe('ChanjetReadonlySyncScheduler', () => {
     expect(cronMonitor.ok).toHaveBeenCalledTimes(1);
     expect(cronMonitor.fail).not.toHaveBeenCalled();
     expect(integration.recordCurrentStateAlert).toHaveBeenCalledWith(expect.objectContaining({ decision: 'GO' }));
+    expect(inboundSync.syncScheduledShareholderBalances).toHaveBeenCalledWith(expect.stringMatching(/^\d{6}$/), 'system:chanjet-readonly-sync');
     expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO chanjet_sync_jobs'), expect.any(Array));
     expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining("status = 'RUNNING'"), expect.any(Array));
     expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('result_summary = $4::jsonb'), expect.any(Array));
@@ -108,7 +124,7 @@ describe('ChanjetReadonlySyncScheduler', () => {
       fail: jest.fn().mockResolvedValue(undefined),
     };
     const dataSource = createDataSource(runner);
-    const scheduler = new ChanjetReadonlySyncScheduler(integration as never, cronMonitor as never, dataSource as never);
+    const scheduler = new ChanjetReadonlySyncScheduler(integration as never, cronMonitor as never, dataSource as never, createInboundSync() as never);
 
     await scheduler.runScheduledSync();
 
@@ -135,6 +151,7 @@ describe('ChanjetReadonlySyncScheduler', () => {
       integration as never,
       cronMonitor as never,
       createDataSource(runner) as never,
+      createInboundSync() as never,
     );
 
     const accepted = await scheduler.enqueueManualSync('user:admin', { period: '202607' });
@@ -176,6 +193,7 @@ describe('ChanjetReadonlySyncScheduler', () => {
       integration as never,
       cronMonitor as never,
       createDataSource(runner, dataQuery) as never,
+      createInboundSync() as never,
     );
 
     scheduler.onApplicationBootstrap();

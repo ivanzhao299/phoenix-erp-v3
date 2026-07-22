@@ -1,5 +1,28 @@
 # Next Actions
 
+## 2026-07-22 - Chanjet to ERP accounting inbound ready
+
+Current stage: `CHANJET_TO_ERP_ACCOUNTING_INBOUND_READY`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added fail-closed, idempotent one-way synchronization from Chanjet `4001` facts to an ERP accounting mirror.
+2. Reconciled the current 13 source names: 12 deterministic person mappings and one non-person `SOURCE_ONLY` account.
+3. Kept ERP legal equity and capital-flow tables separate and protected from accounting overwrite.
+4. Wired the sync to the scheduled four-hour readonly alignment and added administrator precheck/apply/history UI.
+5. Kept all Chanjet external writes disabled.
+
+Next actions:
+
+1. Apply the ERP-only migration through the controlled deployment chain.
+2. Verify the first production batch is 13 source / 12 mapped / 1 source-only / 0 conflicts.
+3. Continue reconciling accounting differences without changing legal equity to manufacture equality.
+4. Keep Chanjet write/delete/modify and voucher push disabled.
+
+Evidence: `docs/ops/CHANJET_TO_ERP_SHAREHOLDER_ACCOUNTING_INBOUND_SYNC_REPORT_20260722.md`.
+
 ## 2026-07-21 - Chanjet Wave 7 approval precheck ready
 
 Current stage: `CHANJET_WAVE_7_APPROVAL_PRECHECK_READY`

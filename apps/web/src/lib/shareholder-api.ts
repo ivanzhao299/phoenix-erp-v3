@@ -52,7 +52,7 @@ export interface ShareholderAccountingCompany {
 export interface ShareholderAccountingOverview {
   decision: 'GO_WITH_CONDITIONS' | 'HOLD';
   authority: Record<string, string>;
-  safeguards: { chanjetReadOnly: boolean; externalWriteEnabled: boolean; automaticPostingEnabled: boolean; debtIncludedInPaidInCapital: boolean };
+  safeguards: { chanjetReadOnly: boolean; externalWriteEnabled: boolean; automaticPostingEnabled: boolean; debtIncludedInPaidInCapital: boolean; erpAccountingMirrorEnabled?: boolean };
   totals: { erpPaidIn: number; chanjetPaidIn: number; difference: number; debtOrAdvance: number };
   companies: ShareholderAccountingCompany[];
   shareholders: Array<{
@@ -69,6 +69,38 @@ export interface ShareholderAccountingOverview {
     accountingClass: 'EQUITY' | 'DEBT_OR_ADVANCE' | 'MANUAL_REVIEW'; status: string; matched: boolean;
   }>;
   generatedAt: string;
+}
+export interface ChanjetShareholderInboundPlanRow {
+  companyCode: string; bookId: string; period: string; subjectId: string;
+  subjectCode: string; subjectName: string; currency: string; amountBase: number;
+  shareholderCode: string; shareholderName: string;
+  mappingStatus: 'APPROVED' | 'EXACT' | 'ALIAS' | 'SOURCE_ONLY' | 'CONFLICT';
+  confidence: number; reason: string; sourceUpdatedAt: string;
+}
+export interface ChanjetShareholderInboundPlan {
+  syncType: 'SHAREHOLDER_ACCOUNTING_BALANCE';
+  decision: 'READY' | 'READY_WITH_CONDITIONS' | 'HOLD';
+  period: string; planHash: string; sourceFreshnessHours: number;
+  counts: { source: number; mapped: number; sourceOnly: number; conflicts: number };
+  totals: { source: number; mapped: number; sourceOnly: number };
+  companies: Array<{
+    companyCode: string; bookId: string; period: string; parent4001Amount: number;
+    childAmount: number; childParentDifference: number; mappedAmount: number;
+    sourceOnlyAmount: number; blockers: string[];
+  }>;
+  rows: ChanjetShareholderInboundPlanRow[];
+  blockers: string[];
+  guardrails: { chanjetWrite: false; legalEquityOverwrite: false; erpAccountingMirrorWrite: true; conflictPolicy: 'HOLD' };
+  generatedAt: string;
+}
+export interface ChanjetShareholderInboundLatest {
+  run: null | {
+    id: string; period: string; status: string; sourceCount: number; mappedCount: number;
+    holdCount: number; insertedCount: number; updatedCount: number; planHash: string;
+    requestedBy: string; completedAt?: string | null; createdAt: string;
+  };
+  count: number; mappedCount: number; sourceOnlyCount: number; total: number;
+  chanjetWrite: false; legalEquityOverwrite: false;
 }
 export interface ShrScope {
   id: string; userId: string; shareholderCode?: string; scopeType: string;
@@ -151,6 +183,15 @@ export const shareholderApi = {
     request<FinanceBridge>(`/shareholders/finance-bridge${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ''}`),
   accountingOverview: (period?: string) =>
     request<ShareholderAccountingOverview>(`/shareholders/accounting/overview${period ? `?period=${encodeURIComponent(period)}` : ''}`),
+  accountingInboundPlan: (period?: string) =>
+    request<ChanjetShareholderInboundPlan>(`/shareholders/accounting/inbound-sync/plan${period ? `?period=${encodeURIComponent(period)}` : ''}`),
+  accountingInboundLatest: () =>
+    request<ChanjetShareholderInboundLatest>('/shareholders/accounting/inbound-sync/latest'),
+  applyAccountingInboundPlan: (period: string, planHash: string) =>
+    request<Record<string, unknown>>('/shareholders/accounting/inbound-sync/apply', {
+      method: 'POST',
+      body: JSON.stringify({ period, planHash, confirmationToken: 'SYNC_CHANJET_ACCOUNTING_FACTS_TO_ERP' }),
+    }),
   accountingCloseReadiness: (period?: string) =>
     request<Record<string, unknown>>(`/shareholders/accounting/month-close-readiness${period ? `?period=${encodeURIComponent(period)}` : ''}`),
   voucherCandidates: (contributionId: string) =>

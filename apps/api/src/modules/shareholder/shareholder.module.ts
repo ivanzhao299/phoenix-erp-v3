@@ -18,6 +18,7 @@ import { ChanjetMasterMappingEntity } from '../chanjet/chanjet-master-mapping.en
 import { ChanjetReconciliationResultEntity } from '../chanjet/chanjet-reconciliation-result.entity';
 import { ChanjetShareholderVoucherLinkEntity } from '../chanjet/chanjet-shareholder-voucher-link.entity';
 import { ChanjetShareholderClosePeriodEntity } from '../chanjet/chanjet-shareholder-close-period.entity';
+import { ChanjetShareholderAccountingBalanceEntity } from '../chanjet/chanjet-shareholder-accounting-balance.entity';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ChanjetShareholderClosePeriodEntity } from '../chanjet/chanjet-sharehol
       ChanjetReconciliationResultEntity,
       ChanjetShareholderVoucherLinkEntity,
       ChanjetShareholderClosePeriodEntity,
+      ChanjetShareholderAccountingBalanceEntity,
     ]),
   ],
   controllers: [ShareholderController],

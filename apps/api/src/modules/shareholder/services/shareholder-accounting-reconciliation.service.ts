@@ -10,6 +10,7 @@ import { ChanjetMasterMappingEntity } from '../../chanjet/chanjet-master-mapping
 import { ChanjetReconciliationResultEntity } from '../../chanjet/chanjet-reconciliation-result.entity';
 import { ChanjetShareholderClosePeriodEntity } from '../../chanjet/chanjet-shareholder-close-period.entity';
 import { ChanjetShareholderVoucherLinkEntity } from '../../chanjet/chanjet-shareholder-voucher-link.entity';
+import { ChanjetShareholderAccountingBalanceEntity } from '../../chanjet/chanjet-shareholder-accounting-balance.entity';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 import {
   classifyCapitalSource, endingBaseAmount, isPaidInCapitalSubject, namesLikelyMatch,
@@ -98,6 +99,8 @@ export class ShareholderAccountingReconciliationService {
     private readonly closeRepo: Repository<ChanjetShareholderClosePeriodEntity>,
     @InjectRepository(ChanjetReconciliationResultEntity)
     private readonly reconciliationRepo: Repository<ChanjetReconciliationResultEntity>,
+    @InjectRepository(ChanjetShareholderAccountingBalanceEntity)
+    private readonly accountingBalanceRepo: Repository<ChanjetShareholderAccountingBalanceEntity>,
     private readonly chanjet: ChanjetIntegrationService,
     private readonly cls: ClsService,
   ) {}
@@ -179,13 +182,14 @@ export class ShareholderAccountingReconciliationService {
   }
 
   async overview(period?: string) {
-    const [equityRows, contributionRows, bookMapsAll, snapshotsAll, shareholderMappings, links] = await Promise.all([
+    const [equityRows, contributionRows, bookMapsAll, snapshotsAll, shareholderMappings, links, accountingBalancesAll] = await Promise.all([
       this.loadEquityRows(),
       this.loadContributionRows(),
       this.bookMapRepo.find({ where: { syncEnabled: true }, order: { companyCode: 'ASC' } }),
       this.snapshotRepo.find({ where: { entityType: 'GL_BALANCE' }, take: 10000 }),
       this.mappingRepo.find({ where: { mappingType: 'SHAREHOLDER' }, take: 5000 }),
       this.linkRepo.find({ where: { matchStatus: 'MATCHED' }, take: 10000 }),
+      this.accountingBalanceRepo.find({ where: { active: true }, take: 20000 }),
     ]);
     const bookMaps = this.companyFilter(bookMapsAll.map((row) => ({ ...row, companyCode: row.companyCode })));
     const allowedBookIds = new Set(bookMaps.map((row) => row.bookid));
@@ -196,6 +200,15 @@ export class ShareholderAccountingReconciliationService {
       ) === period)
       : scopedSnapshots;
     const equityGlRows = this.latestEquityGlRows(periodSnapshots);
+    const scopedAccountingBalances = accountingBalancesAll.filter((row) => allowedBookIds.has(row.bookId));
+    const latestAccountingPeriodByBook = new Map<string, string>();
+    for (const row of scopedAccountingBalances) {
+      if (!latestAccountingPeriodByBook.has(row.bookId) || row.period > (latestAccountingPeriodByBook.get(row.bookId) || '')) {
+        latestAccountingPeriodByBook.set(row.bookId, row.period);
+      }
+    }
+    const accountingBalances = scopedAccountingBalances.filter((row) =>
+      period ? row.period === period : row.period === latestAccountingPeriodByBook.get(row.bookId));
 
     const companyRows = bookMaps.map((book) => {
       const erpEquity = equityRows.filter((row) => row.company_code === book.companyCode);
@@ -205,6 +218,7 @@ export class ShareholderAccountingReconciliationService {
         return row.contribution_date.slice(0, 7).replace('-', '') <= period;
       });
       const glRows = equityGlRows.filter((row) => row.bookId === book.bookid);
+      const mirrorRows = accountingBalances.filter((row) => row.bookId === book.bookid);
       const mapped = shareholderMappings.filter((row) => row.bookId === book.bookid && row.reviewStatus === 'APPROVED');
       const equityHolderKeys = new Set(erpEquity.map((row) => row.shareholder_code));
       const mappedHolderKeys = new Set(mapped.map((row) => row.erpCode));
@@ -213,7 +227,9 @@ export class ShareholderAccountingReconciliationService {
       const review = erpContributions.filter((row) => classifyCapitalSource(row.source_type) === 'MANUAL_REVIEW');
       const erpPaidIn = roundMoney(erpEquity.reduce((sum, row) => sum + toAmount(row.paid_in_capital), 0));
       const eligibleContributionTotal = roundMoney(eligible.reduce((sum, row) => sum + toAmount(row.amount), 0));
-      const chanjetPaidIn = this.chanjetBookTotal(glRows);
+      const chanjetPaidIn = mirrorRows.length
+        ? roundMoney(mirrorRows.reduce((sum, row) => sum + Number(row.endingAmountBase || 0), 0))
+        : this.chanjetBookTotal(glRows);
       const difference = roundMoney(chanjetPaidIn - erpPaidIn);
       const internalDifference = roundMoney(erpPaidIn - eligibleContributionTotal);
       const companyLinks = links.filter((row) => row.bookId === book.bookid);
@@ -223,7 +239,7 @@ export class ShareholderAccountingReconciliationService {
         companyName: book.companyName,
         bookId: book.bookid,
         bookName: book.bookName,
-        period: glRows.map((row) => row.period).sort().slice(-1)[0] || '',
+        period: mirrorRows.map((row) => row.period).sort().slice(-1)[0] || glRows.map((row) => row.period).sort().slice(-1)[0] || '',
         erpPaidIn,
         chanjetPaidIn,
         difference,
@@ -240,13 +256,24 @@ export class ShareholderAccountingReconciliationService {
         eligibleContributionCount: eligible.length,
         undatedEligibleContributionCount: eligible.filter((row) => !row.contribution_date).length,
         matchedContributionCount: eligible.filter((row) => linkedContributionKeys.has(row.contribution_no)).length,
-        equitySubjectRows: glRows.map((row) => ({
-          externalId: row.externalId,
-          code: shareholderSubjectCode({ ...row.rawData, code: row.externalCode }),
-          name: shareholderSubjectName({ ...row.rawData, name: row.externalName }),
-          amount: endingBaseAmount(row.rawData, row.amount),
-          currency: row.currency || String(pickPath(row.rawData, 'currencyCode', 'currency.name') || ''),
-        })),
+        accountingSource: mirrorRows.length ? 'ERP_CHANJET_ACCOUNTING_MIRROR' : 'CHANJET_READONLY_SNAPSHOT_FALLBACK',
+        equitySubjectRows: mirrorRows.length
+          ? mirrorRows.map((row) => ({
+            externalId: row.subjectId,
+            code: row.subjectCode,
+            name: row.subjectName,
+            amount: Number(row.endingAmountBase || 0),
+            currency: row.currency,
+            shareholderCode: row.shareholderCode,
+            mappingStatus: row.mappingStatus,
+          }))
+          : glRows.map((row) => ({
+            externalId: row.externalId,
+            code: shareholderSubjectCode({ ...row.rawData, code: row.externalCode }),
+            name: shareholderSubjectName({ ...row.rawData, name: row.externalName }),
+            amount: endingBaseAmount(row.rawData, row.amount),
+            currency: row.currency || String(pickPath(row.rawData, 'currencyCode', 'currency.name') || ''),
+          })),
       };
     });
 
@@ -293,7 +320,7 @@ export class ShareholderAccountingReconciliationService {
         legalEquity: 'ERP shr_project_equity',
         operationalContribution: 'ERP shr_capital_contributions (equity-class only)',
         loansAndAdvances: 'ERP fin_shareholder_contributions / debt-class only',
-        postedAccounting: 'Chanjet GL_BALANCE 4001 and voucher lines',
+        postedAccounting: 'ERP chanjet_shareholder_accounting_balances (sourced from Chanjet GL_BALANCE 4001)',
         overwritePolicy: 'NEVER_SILENT_OVERWRITE',
       },
       safeguards: {
@@ -301,6 +328,7 @@ export class ShareholderAccountingReconciliationService {
         externalWriteEnabled: false,
         automaticPostingEnabled: false,
         debtIncludedInPaidInCapital: false,
+        erpAccountingMirrorEnabled: true,
       },
       totals,
       companies: companyRows,

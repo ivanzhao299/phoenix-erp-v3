@@ -154,6 +154,7 @@
 | Task ID | Agent | Branch | Status | Risk | Output | Blocker | Next Action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | CHANJET-SHAREHOLDER-EQUITY-ACCOUNTING-RECONCILIATION | Codex-Orchestrator | codex/i18n-debt-clearance | done-with-conditions | L3 finance/accounting | Shareholder authority model, three-level readonly reconciliation, voucher candidates, ERP-only draft preparation, month-close readiness, admin reconciliation page, migration and reports | Migration not executed; current mappings/differences/voucher links keep business close HOLD | Approve ERP migration Gate, then run production readonly evidence and explicit mapping review; keep Chanjet external write disabled |
+| CHANJET-TO-ERP-SHAREHOLDER-ACCOUNTING-INBOUND | Codex-Orchestrator | codex/i18n-debt-clearance | done-with-conditions | L3 finance/accounting | Fail-closed one-way Chanjet 4001 to ERP accounting mirror, deterministic name reconciliation, batch audit, scheduled sync, admin precheck/apply/history UI, report `docs/ops/CHANJET_TO_ERP_SHAREHOLDER_ACCOUNTING_INBOUND_SYNC_REPORT_20260722.md` | Production migration and first ERP mirror batch still require deployment verification; external Chanjet write remains forbidden | Deploy, verify 13 source / 12 mapped / 1 source-only / 0 conflicts, then keep scheduled sync active |
 
 ## Update Rules
 

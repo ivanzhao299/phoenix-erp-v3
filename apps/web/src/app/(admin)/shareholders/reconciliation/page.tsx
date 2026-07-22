@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { GitCompareArrows, Landmark, RefreshCw, Scale, ShieldCheck, WalletCards } from 'lucide-react';
+import { DatabaseZap, GitCompareArrows, Landmark, RefreshCw, Scale, ShieldCheck, WalletCards } from 'lucide-react';
 import { KpiCard, PageHeaderV2, StatusBadge } from '@/components/design-system';
 import { KPI_GRID } from '@/lib/design-tokens';
-import { ShareholderAccountingOverview, shareholderApi } from '@/lib/shareholder-api';
+import {
+  ChanjetShareholderInboundLatest, ChanjetShareholderInboundPlan,
+  ShareholderAccountingOverview, shareholderApi,
+} from '@/lib/shareholder-api';
 import { useLanguage } from '@/contexts/LanguageContext';
 import u from '@/styles/uix-utils.module.css';
 import styles from './reconciliation.module.css';
@@ -18,12 +21,23 @@ export default function ShareholderReconciliationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [period, setPeriod] = useState('');
+  const [inboundPlan, setInboundPlan] = useState<ChanjetShareholderInboundPlan | null>(null);
+  const [inboundLatest, setInboundLatest] = useState<ChanjetShareholderInboundLatest | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      setData(await shareholderApi.accountingOverview(period.replace('-', '')));
+      const normalizedPeriod = period.replace('-', '');
+      const [overview, plan, latest] = await Promise.all([
+        shareholderApi.accountingOverview(normalizedPeriod),
+        shareholderApi.accountingInboundPlan(normalizedPeriod),
+        shareholderApi.accountingInboundLatest(),
+      ]);
+      setData(overview);
+      setInboundPlan(plan);
+      setInboundLatest(latest);
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : t('ui.加载股权财务对账失败', '加载股权财务对账失败'));
     } finally {
@@ -33,10 +47,17 @@ export default function ShareholderReconciliationPage() {
 
   useEffect(() => {
     let active = true;
-    shareholderApi.accountingOverview(period.replace('-', ''))
-      .then((response) => {
+    const normalizedPeriod = period.replace('-', '');
+    Promise.all([
+      shareholderApi.accountingOverview(normalizedPeriod),
+      shareholderApi.accountingInboundPlan(normalizedPeriod),
+      shareholderApi.accountingInboundLatest(),
+    ])
+      .then(([response, plan, latest]) => {
         if (!active) return;
         setData(response);
+        setInboundPlan(plan);
+        setInboundLatest(latest);
         setError('');
       })
       .catch((error: unknown) => {
@@ -55,6 +76,25 @@ export default function ShareholderReconciliationPage() {
   }, [data]);
   const pendingMappings = data?.shareholders.filter((row) => row.mappingStatus !== 'APPROVED') || [];
   const debtRows = data?.contributionClassification.filter((row) => row.accountingClass === 'DEBT_OR_ADVANCE') || [];
+
+  const applyInboundPlan = async () => {
+    if (!inboundPlan || inboundPlan.decision === 'HOLD') return;
+    const approved = window.confirm(t(
+      'ui.确认将当前好业财4001会计事实同步到ERP会计镜像？不会写好业财，也不会覆盖法定股权或出资台账。',
+      '确认将当前好业财4001会计事实同步到ERP会计镜像？不会写好业财，也不会覆盖法定股权或出资台账。',
+    ));
+    if (!approved) return;
+    setSyncing(true);
+    setError('');
+    try {
+      await shareholderApi.applyAccountingInboundPlan(inboundPlan.period, inboundPlan.planHash);
+      await load();
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : t('ui.同步ERP会计镜像失败', '同步ERP会计镜像失败'));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return <div className={u.p24}>
     <PageHeaderV2
@@ -87,6 +127,44 @@ export default function ShareholderReconciliationPage() {
         <KpiCard title={t('ui.会计差异', '会计差异')} value={money(data.totals.difference)} subValue={t('ui.保留差异，不覆盖', '保留差异，不覆盖')} icon={GitCompareArrows} accentColor={Math.abs(data.totals.difference) <= 0.01 ? 'teal' : 'amber'} />
         <KpiCard title={t('ui.科目映射覆盖率', '科目映射覆盖率')} value={`${coverage.toFixed(1)}%`} subValue={`${pendingMappings.length} ${t('ui.项待确认', '项待确认')}`} icon={Scale} accentColor={coverage === 100 ? 'green' : 'violet'} />
       </div>
+
+      {inboundPlan && <section className={styles.syncPanel}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <h2>{t('ui.好业财会计事实入站核对', '好业财会计事实入站核对')}</h2>
+            <p>{t('ui.逐项核对4001子科目名称后写入ERP会计镜像；未知账户完整保留但不绑定股东，冲突时禁止同步。', '逐项核对4001子科目名称后写入ERP会计镜像；未知账户完整保留但不绑定股东，冲突时禁止同步。')}</p>
+          </div>
+          <div className={styles.syncActions}>
+            <StatusBadge
+              status={inboundPlan.decision === 'HOLD' ? 'WARNING' : 'ACTIVE'}
+              label={inboundPlan.decision === 'READY' ? t('ui.核对通过', '核对通过') : inboundPlan.decision === 'READY_WITH_CONDITIONS' ? t('ui.有条件可同步', '有条件可同步') : t('ui.禁止同步', '禁止同步')}
+            />
+            <button type="button" className={styles.syncButton} onClick={() => void applyInboundPlan()} disabled={syncing || inboundPlan.decision === 'HOLD'}>
+              <DatabaseZap size={16} /> {syncing ? t('ui.同步中…', '同步中…') : t('ui.同步到ERP会计镜像', '同步到ERP会计镜像')}
+            </button>
+          </div>
+        </div>
+        <div className={styles.syncMeta}>
+          <span>{t('ui.源明细', '源明细')} <strong>{inboundPlan.counts.source}</strong></span>
+          <span>{t('ui.已匹配', '已匹配')} <strong>{inboundPlan.counts.mapped}</strong></span>
+          <span>{t('ui.仅保留源', '仅保留源')} <strong>{inboundPlan.counts.sourceOnly}</strong></span>
+          <span>{t('ui.冲突', '冲突')} <strong>{inboundPlan.counts.conflicts}</strong></span>
+          <span>{t('ui.源新鲜度', '源新鲜度')} <strong>{inboundPlan.sourceFreshnessHours.toFixed(2)}h</strong></span>
+          <span>{t('ui.最近批次', '最近批次')} <strong>{inboundLatest?.run?.status || t('ui.尚未同步', '尚未同步')}</strong></span>
+        </div>
+        {inboundPlan.blockers.length > 0 && <div className={styles.blockers}>{inboundPlan.blockers.join('；')}</div>}
+        <div className={styles.tableWrap}><table className={styles.table}>
+          <thead><tr><th>{t('ui.公司 / 账套', '公司 / 账套')}</th><th>{t('ui.好业财科目', '好业财科目')}</th><th>{t('ui.金额（本位币）', '金额（本位币）')}</th><th>{t('ui.ERP对应', 'ERP对应')}</th><th>{t('ui.核对结果', '核对结果')}</th><th>{t('ui.核对依据', '核对依据')}</th></tr></thead>
+          <tbody>{inboundPlan.rows.map((row) => <tr key={`${row.bookId}:${row.period}:${row.subjectId}`}>
+            <td><strong>{row.companyCode}</strong><small>{row.bookId} · {row.period}</small></td>
+            <td><strong>{row.subjectName}</strong><small>{row.subjectCode} · {row.currency || '—'}</small></td>
+            <td>{money(row.amountBase)}</td>
+            <td>{row.shareholderName ? <><strong>{row.shareholderName}</strong><small>{row.shareholderCode}</small></> : t('ui.不绑定股东，仅保留会计源项', '不绑定股东，仅保留会计源项')}</td>
+            <td><StatusBadge status={row.mappingStatus === 'CONFLICT' ? 'ERROR' : row.mappingStatus === 'SOURCE_ONLY' ? 'WARNING' : 'ACTIVE'} label={`${row.mappingStatus} · ${row.confidence}%`} /></td>
+            <td>{row.reason}</td>
+          </tr>)}</tbody>
+        </table></div>
+      </section>}
 
       <section className={styles.section}>
         <div className={styles.sectionHeading}>

@@ -21,6 +21,9 @@ import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler'
 import { ChanjetWritebackOutboxEntity } from './chanjet-writeback-outbox.entity';
 import { ChanjetShareholderVoucherLinkEntity } from './chanjet-shareholder-voucher-link.entity';
 import { ChanjetShareholderClosePeriodEntity } from './chanjet-shareholder-close-period.entity';
+import { ChanjetShareholderAccountingBalanceEntity } from './chanjet-shareholder-accounting-balance.entity';
+import { ChanjetErpInboundSyncRunEntity } from './chanjet-erp-inbound-sync-run.entity';
+import { ChanjetErpInboundSyncService } from './chanjet-erp-inbound-sync.service';
 
 @Module({
   imports: [
@@ -40,11 +43,25 @@ import { ChanjetShareholderClosePeriodEntity } from './chanjet-shareholder-close
       ChanjetWritebackOutboxEntity,
       ChanjetShareholderVoucherLinkEntity,
       ChanjetShareholderClosePeriodEntity,
+      ChanjetShareholderAccountingBalanceEntity,
+      ChanjetErpInboundSyncRunEntity,
       FinArLedgerEntity,
     ]),
   ],
   controllers: [ChanjetCallbackController],
-  providers: [ChanjetAuthService, ChanjetArSyncService, ChanjetIntegrationService, ChanjetReadonlySyncScheduler],
-  exports: [ChanjetAuthService, ChanjetArSyncService, ChanjetIntegrationService, ChanjetReadonlySyncScheduler],
+  providers: [
+    ChanjetAuthService,
+    ChanjetArSyncService,
+    ChanjetIntegrationService,
+    ChanjetErpInboundSyncService,
+    ChanjetReadonlySyncScheduler,
+  ],
+  exports: [
+    ChanjetAuthService,
+    ChanjetArSyncService,
+    ChanjetIntegrationService,
+    ChanjetErpInboundSyncService,
+    ChanjetReadonlySyncScheduler,
+  ],
 })
 export class ChanjetModule {}
