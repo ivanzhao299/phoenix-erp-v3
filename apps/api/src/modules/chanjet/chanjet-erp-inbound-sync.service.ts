@@ -52,15 +52,18 @@ export type ChanjetShareholderInboundPlan = {
     companyCode: string;
     bookId: string;
     period: string;
-    parent4001Amount: number;
+    parent4001Amount: number | null;
     childAmount: number;
-    childParentDifference: number;
+    childParentDifference: number | null;
+    parentReconciliation: 'MATCHED' | 'LEAF_ONLY';
     mappedAmount: number;
     sourceOnlyAmount: number;
     blockers: string[];
+    conditions: string[];
   }>;
   rows: ChanjetShareholderInboundPlanRow[];
   blockers: string[];
+  conditions: string[];
   guardrails: {
     chanjetWrite: false;
     legalEquityOverwrite: false;
@@ -69,6 +72,38 @@ export type ChanjetShareholderInboundPlan = {
   };
   generatedAt: string;
 };
+
+export function reconcile4001Parent(parentAmounts: number[], childAmount: number) {
+  if (parentAmounts.length === 0) {
+    return {
+      parent4001Amount: null,
+      childParentDifference: null,
+      parentReconciliation: 'LEAF_ONLY' as const,
+      blocker: '',
+      condition: '好业财源快照仅返回4001叶子科目；父科目汇总不可用，以叶子明细合计作为本批次会计事实',
+    };
+  }
+  if (parentAmounts.length > 1) {
+    return {
+      parent4001Amount: null,
+      childParentDifference: null,
+      parentReconciliation: 'LEAF_ONLY' as const,
+      blocker: `4001父科目行数量异常: ${parentAmounts.length}`,
+      condition: '',
+    };
+  }
+  const parent4001Amount = roundMoney(parentAmounts[0]);
+  const childParentDifference = roundMoney(childAmount - parent4001Amount);
+  return {
+    parent4001Amount,
+    childParentDifference,
+    parentReconciliation: 'MATCHED' as const,
+    blocker: Math.abs(childParentDifference) > 0.01
+      ? `4001父子科目合计差异 ${childParentDifference}`
+      : '',
+    condition: '',
+  };
+}
 
 @Injectable()
 export class ChanjetErpInboundSyncService {
@@ -142,6 +177,7 @@ export class ChanjetErpInboundSyncService {
     const planPeriod = normalizedPeriod || [...latestPeriodByBook.values()].sort().slice(-1)[0] || '';
     const rows: ChanjetShareholderInboundPlanRow[] = [];
     const blockers: string[] = [];
+    const conditions: string[] = [];
     const companies: ChanjetShareholderInboundPlan['companies'] = [];
     let newestSourceMs = 0;
 
@@ -158,8 +194,8 @@ export class ChanjetErpInboundSyncService {
       }).replace(/\D/g, '') !== '4001');
       const companyCandidates = erpRows.filter((row) => row.company_code === book.companyCode);
       const companyBlockers: string[] = [];
+      const companyConditions: string[] = [];
       if (!targetPeriod) companyBlockers.push('该账套没有可用会计期间');
-      if (parentRows.length !== 1) companyBlockers.push(`4001父科目行数量异常: ${parentRows.length}`);
       if (childRows.length === 0) companyBlockers.push('没有4001子科目明细，禁止按名称推断股东');
 
       for (const snapshot of childRows) {
@@ -208,29 +244,34 @@ export class ChanjetErpInboundSyncService {
       }
 
       const companyRows = rows.filter((row) => row.bookId === book.bookid && row.period === targetPeriod);
-      const parent4001Amount = roundMoney(parentRows.reduce((sum, row) =>
-        sum + endingBaseAmount(row.rawData, row.amount), 0));
       const childAmount = roundMoney(companyRows.reduce((sum, row) => sum + row.amountBase, 0));
+      const parentCheck = reconcile4001Parent(
+        parentRows.map((row) => endingBaseAmount(row.rawData, row.amount)),
+        childAmount,
+      );
+      if (parentCheck.blocker) companyBlockers.push(parentCheck.blocker);
+      if (parentCheck.condition) companyConditions.push(parentCheck.condition);
       const mappedAmount = roundMoney(companyRows
         .filter((row) => !['SOURCE_ONLY', 'CONFLICT'].includes(row.mappingStatus))
         .reduce((sum, row) => sum + row.amountBase, 0));
       const sourceOnlyAmount = roundMoney(companyRows
         .filter((row) => row.mappingStatus === 'SOURCE_ONLY')
         .reduce((sum, row) => sum + row.amountBase, 0));
-      const childParentDifference = roundMoney(childAmount - parent4001Amount);
-      if (Math.abs(childParentDifference) > 0.01) companyBlockers.push(`4001父子科目合计差异 ${childParentDifference}`);
       if (companyRows.some((row) => row.mappingStatus === 'CONFLICT')) companyBlockers.push('存在冲突映射');
       blockers.push(...companyBlockers.map((blocker) => `${book.companyCode}: ${blocker}`));
+      conditions.push(...companyConditions.map((condition) => `${book.companyCode}: ${condition}`));
       companies.push({
         companyCode: book.companyCode,
         bookId: book.bookid,
         period: targetPeriod,
-        parent4001Amount,
+        parent4001Amount: parentCheck.parent4001Amount,
         childAmount,
-        childParentDifference,
+        childParentDifference: parentCheck.childParentDifference,
+        parentReconciliation: parentCheck.parentReconciliation,
         mappedAmount,
         sourceOnlyAmount,
         blockers: companyBlockers,
+        conditions: companyConditions,
       });
     }
 
@@ -253,7 +294,7 @@ export class ChanjetErpInboundSyncService {
       item.includes('父子科目合计差异') || item.includes('超过8小时') || item.includes('冲突映射'));
     return {
       syncType: 'SHAREHOLDER_ACCOUNTING_BALANCE',
-      decision: hardHold ? 'HOLD' : sourceOnly > 0 ? 'READY_WITH_CONDITIONS' : 'READY',
+      decision: hardHold ? 'HOLD' : sourceOnly > 0 || conditions.length > 0 ? 'READY_WITH_CONDITIONS' : 'READY',
       period: planPeriod,
       planHash: this.hash(hashInput),
       sourceFreshnessHours,
@@ -262,6 +303,7 @@ export class ChanjetErpInboundSyncService {
       companies,
       rows,
       blockers,
+      conditions,
       guardrails: {
         chanjetWrite: false,
         legalEquityOverwrite: false,
@@ -308,7 +350,12 @@ export class ChanjetErpInboundSyncService {
         updatedCount: 0,
         sourceTotal: String(plan.totals.source),
         mappedTotal: String(plan.totals.mapped),
-        details: { decision: plan.decision, blockers: plan.blockers, companies: plan.companies },
+        details: {
+          decision: plan.decision,
+          blockers: plan.blockers,
+          conditions: plan.conditions,
+          companies: plan.companies,
+        },
         requestedBy,
         completedAt: null,
       });

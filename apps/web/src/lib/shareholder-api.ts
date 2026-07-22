@@ -84,12 +84,14 @@ export interface ChanjetShareholderInboundPlan {
   counts: { source: number; mapped: number; sourceOnly: number; conflicts: number };
   totals: { source: number; mapped: number; sourceOnly: number };
   companies: Array<{
-    companyCode: string; bookId: string; period: string; parent4001Amount: number;
-    childAmount: number; childParentDifference: number; mappedAmount: number;
-    sourceOnlyAmount: number; blockers: string[];
+    companyCode: string; bookId: string; period: string; parent4001Amount: number | null;
+    childAmount: number; childParentDifference: number | null;
+    parentReconciliation: 'MATCHED' | 'LEAF_ONLY'; mappedAmount: number;
+    sourceOnlyAmount: number; blockers: string[]; conditions: string[];
   }>;
   rows: ChanjetShareholderInboundPlanRow[];
   blockers: string[];
+  conditions: string[];
   guardrails: { chanjetWrite: false; legalEquityOverwrite: false; erpAccountingMirrorWrite: true; conflictPolicy: 'HOLD' };
   generatedAt: string;
 }

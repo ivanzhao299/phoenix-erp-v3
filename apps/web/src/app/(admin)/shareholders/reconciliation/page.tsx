@@ -153,6 +153,9 @@ export default function ShareholderReconciliationPage() {
           <span>{t('ui.最近批次', '最近批次')} <strong>{inboundLatest?.run?.status || t('ui.尚未同步', '尚未同步')}</strong></span>
         </div>
         {inboundPlan.blockers.length > 0 && <div className={styles.blockers}>{inboundPlan.blockers.join('；')}</div>}
+        {inboundPlan.conditions.length > 0 && (
+          <div className={styles.conditions}>{inboundPlan.conditions.join('；')}</div>
+        )}
         <div className={styles.tableWrap}><table className={styles.table}>
           <thead><tr><th>{t('ui.公司 / 账套', '公司 / 账套')}</th><th>{t('ui.好业财科目', '好业财科目')}</th><th>{t('ui.金额（本位币）', '金额（本位币）')}</th><th>{t('ui.ERP对应', 'ERP对应')}</th><th>{t('ui.核对结果', '核对结果')}</th><th>{t('ui.核对依据', '核对依据')}</th></tr></thead>
           <tbody>{inboundPlan.rows.map((row) => <tr key={`${row.bookId}:${row.period}:${row.subjectId}`}>
