@@ -459,23 +459,27 @@ function PriceBooksTab() {
       background: "var(--bg-card)",
       border: "1px solid var(--border)",
       borderRadius: "var(--radius-lg)",
-      overflow: "hidden"
+      overflowX: "auto"
     }}>
         <table className={s.table}>
           <thead>
             <tr>
-              {[t('ui.编号','编号'), t('ui.名称','名称'), t('ui.渠道','渠道'), t('ui.客户','客户'), t('ui.优先级','优先级'), t('ui.生效日','生效日'), t('ui.失效日','失效日'), t('ui.状态','状态'), t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+              {[t('ui.价格册 ID','价格册 ID'), t('ui.编号','编号'), t('ui.名称','名称'), t('ui.渠道','渠道'), t('ui.客户','客户'), t('ui.优先级','优先级'), t('ui.生效日','生效日'), t('ui.失效日','失效日'), t('ui.状态','状态'), t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={9} className={u.emptyCenter}>{t('ui.加载中…','加载中…')}</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={9} className={s.emptyState}>{t('ui.暂无价格册','暂无价格册')}</td></tr>}
+            {loading && <tr><td colSpan={10} className={u.emptyCenter}>{t('ui.加载中…','加载中…')}</td></tr>}
+            {!loading && rows.length === 0 && <tr><td colSpan={10} className={s.emptyState}>{t('ui.暂无价格册','暂无价格册')}</td></tr>}
             {rows.map((row, i) => {
             const st = BOOK_STATUSES[row.status] ?? {
               label: row.status,
               cls: s.badgeNeutral
             };
             return <tr key={row.id} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ""}>
+                  <td className={u.nowrap} style={{
+                fontFamily: "monospace",
+                fontSize: 11
+              }}>{row.id}</td>
                   <td style={{
                 fontFamily: "monospace",
                 fontSize: 11
