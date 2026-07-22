@@ -1141,30 +1141,29 @@ Assigned agent: A4-Frontend-UAT-Smoke
     }
   },
   "failureClassification": {
-    "category": "RBAC_403",
+    "category": "PG_SQL",
     "evidence": [
-      "权限/RBAC/DataScope 信号"
+      "数据库/PG/SQL 信号"
     ],
     "priority": "P1",
     "severity": "HIGH",
-    "confidence": 0.9,
-    "suggestedFix": "对齐菜单码、角色权限和 DataScope，避免前端透传无权限入口。",
+    "confidence": 0.92,
+    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
     "autoFixEligible": true,
     "recommendedAgents": [
-      "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
     "requiresHumanGate": true,
-    "ownerRecommendation": "A2-Security-Regression-Gate"
+    "ownerRecommendation": "A3-Backend-Critical-Path"
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-21T00:52:47.124Z",
+    "approvedAt": "2026-07-22T00:29:07.507Z",
     "approvedBy": "admin",
     "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 1,
+    "redispatchCount": 2,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

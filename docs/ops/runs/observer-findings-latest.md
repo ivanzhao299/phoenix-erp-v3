@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-22T00:06:17.707Z |
-| Run files inspected | 2263 |
-| Task count | 366 |
+| Generated at | 2026-07-22T00:39:59.092Z |
+| Run files inspected | 2269 |
+| Task count | 368 |
 | Findings count | 33 |
 | Highest severity | CRITICAL |
 | Routing findings | 8 |
@@ -226,7 +226,7 @@
 ### OBS-0024 - MEDIUM - repeat-hold
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: Queue HOLD count is 8.
+- Evidence: Queue HOLD count is 10.
 - Suggested Fix: Cluster HOLD reasons and create one platform evolution task per repeated blocker.
 - Auto Fix Eligible: false
 - Requires Human Gate: true
@@ -235,7 +235,7 @@
 ### OBS-0025 - CRITICAL - runner-generation-drift
 
 - Affected Agent: BugIntakeLocalRunner
-- Evidence: 3 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
+- Evidence: 4 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
 - Suggested Fix: Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -280,7 +280,7 @@
 ### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/BUGTASK-20260720-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md; ?? docs/ops/runs/2026-07-22T00-31-28-812Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/BUGTASK-20260722-0001-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260722-0001-A4-contract.md; ?? docs/ops/runs/BUGTASK-20260722-0001-A4-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260722-0001-A4-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260722-0001-A4-worker-log.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false

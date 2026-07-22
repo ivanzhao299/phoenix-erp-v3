@@ -1,7 +1,7 @@
 # Bug Runner Platform Dashboard
 
 - Decision: **DEGRADED**
-- Queue total / active: 366 / 8
+- Queue total / active: 368 / 10
 - False completion: 0
 - Raw terminal evidence coverage: 96.6%
 - Governed evidence coverage: 100.0%
