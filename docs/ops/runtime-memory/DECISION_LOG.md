@@ -1932,3 +1932,13 @@ Decision: counterparty resolution `GO`.
 - Name matching is company-scoped and deterministic: normalized exact name, unique title alias, or title plus uniquely equal registered amount.
 - Ambiguous mappings HOLD the entire batch; non-person accounts remain `SOURCE_ONLY` without a fabricated shareholder.
 - Current evidence expects 13 source rows, 12 mapped people, one `直营店投资` source-only row and zero conflicts.
+
+# 2026-07-22 - Complete first production Chanjet accounting mirror synchronization
+
+- Decision: `GO_WITH_CONDITIONS`; production sync run `722f85f4-47dd-448d-998d-656b2de4059b` completed.
+- Three account books supplied zero-valued `4001` structural parent rows and non-zero leaf balances; the parent rows contain no balance/level/leaf metadata and are treated as `LEAF_ONLY_PLACEHOLDER` evidence.
+- The verified batch contains 13 source rows, 12 deterministic shareholder bindings, one `直营店投资` source-only row and zero conflicts.
+- ERP accounting mirror total is `98,443,307.79`; mapped total is `96,667,593.60`; source-only total is `1,775,714.19`.
+- Legal equity and contribution fingerprints are unchanged before and after the transaction.
+- Chanjet writeback Outbox remains `0||0`; no Chanjet write/delete/modify call was made.
+- Production revision `6ec48c15` passed full deploy run `29938085379` and the security workflow.

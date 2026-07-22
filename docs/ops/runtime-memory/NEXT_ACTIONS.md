@@ -1,24 +1,24 @@
 # Next Actions
 
-## 2026-07-22 - Chanjet to ERP accounting inbound ready
+## 2026-07-22 - Chanjet to ERP accounting inbound production verified
 
-Current stage: `CHANJET_TO_ERP_ACCOUNTING_INBOUND_READY`
+Current stage: `CHANJET_TO_ERP_ACCOUNTING_INBOUND_PRODUCTION_VERIFIED`
 
 Decision: `GO_WITH_CONDITIONS`
 
 Completed:
 
-1. Added fail-closed, idempotent one-way synchronization from Chanjet `4001` facts to an ERP accounting mirror.
-2. Reconciled the current 13 source names: 12 deterministic person mappings and one non-person `SOURCE_ONLY` account.
-3. Kept ERP legal equity and capital-flow tables separate and protected from accounting overwrite.
-4. Wired the sync to the scheduled four-hour readonly alignment and added administrator precheck/apply/history UI.
-5. Kept all Chanjet external writes disabled.
+1. Deployed the fail-closed, idempotent one-way synchronization from Chanjet `4001` facts to the ERP accounting mirror.
+2. Executed production batch `722f85f4-47dd-448d-998d-656b2de4059b`: 13 source rows, 12 deterministic person mappings, one non-person `SOURCE_ONLY`, zero conflicts.
+3. Verified three zero-valued `4001` parent rows are structural placeholders and retained the leaf-only condition explicitly.
+4. Verified ERP legal equity and contribution ledgers are byte-stable by deterministic fingerprints.
+5. Verified Chanjet writeback Outbox remains empty and all external writes remain disabled.
 
 Next actions:
 
-1. Apply the ERP-only migration through the controlled deployment chain.
-2. Verify the first production batch is 13 source / 12 mapped / 1 source-only / 0 conflicts.
-3. Continue reconciling accounting differences without changing legal equity to manufacture equality.
+1. Let the four-hour readonly scheduler refresh the verified accounting mirror under the same fail-closed gates.
+2. Reconcile the ERP legal/operational totals against the Chanjet accounting mirror without silent overwrite.
+3. Keep `直营店投资` source-only until its legal ownership is separately established.
 4. Keep Chanjet write/delete/modify and voucher push disabled.
 
 Evidence: `docs/ops/CHANJET_TO_ERP_SHAREHOLDER_ACCOUNTING_INBOUND_SYNC_REPORT_20260722.md`.
