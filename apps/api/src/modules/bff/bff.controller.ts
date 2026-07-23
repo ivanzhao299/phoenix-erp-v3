@@ -1511,17 +1511,21 @@ export class PackagingTerminalBffController {
     const totalQty = Number(body.totalQty ?? body.total_qty ?? 0);
     const dirtyQty = Number(body.dirtyQty ?? body.dirty_qty ?? 0);
     const crackedQty = Number(body.crackedQty ?? body.cracked_qty ?? 0);
-    const receivedQty = Number(body.receivedQty ?? body.received_qty ?? 0);
+    const submittedReceivedQty = Number(body.receivedQty ?? body.received_qty ?? 0);
     if (!houseCode) throw new BadRequestException('请选择鸡舍后再提交');
-    if (![totalQty, dirtyQty, crackedQty, receivedQty].every(Number.isFinite)) {
+    if (![totalQty, dirtyQty, crackedQty, submittedReceivedQty].every(Number.isFinite)) {
       throw new BadRequestException('集蛋数量格式不正确');
     }
     if (totalQty <= 0 || dirtyQty < 0 || crackedQty < 0 || dirtyQty + crackedQty > totalQty) {
       throw new BadRequestException('总采集数必须大于 0，且脏蛋与裂纹蛋之和不能超过总数');
     }
-    if (receivedQty !== totalQty) {
+    const gradableQty = totalQty - dirtyQty - crackedQty;
+    // 兼容旧作业台：receivedQty 曾表示扣除脏蛋/裂纹蛋后的可分级数。
+    // 当前台账语义统一为总采集数，合法旧值在持久化前规范化，避免重复扣减损耗。
+    if (submittedReceivedQty !== totalQty && submittedReceivedQty !== gradableQty) {
       throw new BadRequestException('采集数量与总采集数不一致');
     }
+    const receivedQty = totalQty;
     const houseSlug = houseCode.replace(/\s+/g, '').toUpperCase().slice(0, 8);
     const autoCode = `SRC-${today.replace(/-/g, '')}-${houseSlug}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
     const batchCode = body.batchCode || body.code || autoCode;

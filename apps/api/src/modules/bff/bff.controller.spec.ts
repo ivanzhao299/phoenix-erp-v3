@@ -103,10 +103,33 @@ describe('PackagingTerminalBffController', () => {
       totalQty: 100,
       dirtyQty: 10,
       crackedQty: 5,
-      receivedQty: 85,
+      receivedQty: 90,
     }, { user: { id: 1 } })).rejects.toThrow('采集数量');
 
     expect(em.query).not.toHaveBeenCalled();
+  });
+
+  it('accepts the legacy gradable quantity and stores the canonical total received quantity', async () => {
+    const em = {
+      query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('SELECT * FROM pkg_source_batches')) return [{ id: 1, batch_code: 'SRC-LEGACY' }];
+        return [];
+      }),
+    };
+    const controller = new PackagingTerminalBffController(em as never, {} as never);
+
+    await expect(controller.receiveBatch({
+      batchCode: 'SRC-LEGACY',
+      houseCode: 'HOUSE-01',
+      totalQty: 100,
+      dirtyQty: 10,
+      crackedQty: 5,
+      receivedQty: 85,
+    }, { user: { id: 1 } })).resolves.toMatchObject({ code: 200 });
+
+    const insertCall = em.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO pkg_source_batches'));
+    expect(insertCall).toBeDefined();
+    expect(insertCall?.[1]).toEqual(expect.arrayContaining(['HOUSE-01', 100, 10, 5, 100]));
   });
 
   it('persists all source quantity columns for a new received batch', async () => {
