@@ -100,27 +100,46 @@ function parentCodeOf(row) {
   return index > 0 ? path[index - 1] : '';
 }
 
+function providerAccountClassId(row) {
+  const direct = Number(row.glAccountClassId);
+  if (Number.isInteger(direct) && direct >= 1 && direct <= 5) return direct;
+
+  const classCode = String(row.glAccountClassCode ?? row.subjectType ?? '')
+    .trim()
+    .toLowerCase();
+  const classMap = new Map([
+    ['zichan', 1],
+    ['asset', 1],
+    ['fuzhai', 2],
+    ['liability', 2],
+    ['quanyi', 3],
+    ['equity', 3],
+    ['chengben', 4],
+    ['cost', 4],
+    ['sunyi', 5],
+    ['profit_loss', 5],
+    ['profit-loss', 5],
+  ]);
+  const mapped = classMap.get(classCode);
+  if (mapped) return mapped;
+  throw new Error(`Unsupported provider account class: id=${direct || '-'} code=${classCode || '-'}`);
+}
+
 function updatePayload(target, name, sourceRow) {
   const parentCode = parentCodeOf(sourceRow);
   if (!parentCode) {
     throw new Error(`Parent code is missing for ${target.bookId}/${target.code}`);
   }
   return {
-    // The provider's ordinary-account example uses an empty top-level id and
-    // resolves the existing account through glAccount.code.
+    // Keep this contract identical to the provider's documented ordinary
+    // account update example. Read models expose internal class ids (for
+    // example 9 for equity), while this write API accepts only classes 1..5.
     id: '',
     glAccount: {
       code: target.code,
       name,
-      hasSubsidiaryAccounting: asBoolean(
-        sourceRow.hasSubsidiaryAccounting ?? sourceRow.isAssistantAccount,
-      ),
-      hasForeignCurrency: asBoolean(sourceRow.hasForeignCurrency),
-      hasQtyAccunting: asBoolean(
-        sourceRow.hasQtyAccunting ?? sourceRow.hasQtyAccounting ?? sourceRow.hasQtyRecord,
-      ),
-      drCrDirection: Number(sourceRow.drCrDirection),
-      glAccountClassId: Number(sourceRow.glAccountClassId),
+      drCrDirection: String(Number(sourceRow.drCrDirection)),
+      glAccountClassId: providerAccountClassId(sourceRow),
       isCashItem: asBoolean(sourceRow.isCashItem),
       isCodeType: true,
       parentCode,
@@ -344,6 +363,9 @@ async function main() {
         structuralEvidence: evidence,
         updateContract: {
           parentCode: parentCodeOf(row),
+          sourceClassId: Number(row.glAccountClassId ?? 0),
+          sourceClassCode: String(row.glAccountClassCode ?? row.subjectType ?? ''),
+          providerClassId: providerAccountClassId(row),
           fields: Object.keys(updatePayload(target, target.to, row).glAccount),
         },
       });
