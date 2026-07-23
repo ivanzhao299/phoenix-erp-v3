@@ -1,6 +1,6 @@
 {
   "decision": "PRODUCTION_ROUTE_SMOKE_PASS",
-  "generated_at": "2026-07-23T04:43:35.056Z",
+  "generated_at": "2026-07-23T05:13:41.741Z",
   "base_url": "https://erp.eggslao.com",
   "routes": [
     "/warehouse/query"
@@ -17,7 +17,7 @@
       "bodyBytes": 16385,
       "matchedFailureMarkers": [],
       "location": "",
-      "elapsedMs": 1669,
+      "elapsedMs": 1643,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     }
   ],
