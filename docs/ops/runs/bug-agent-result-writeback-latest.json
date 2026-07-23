@@ -1,39 +1,55 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260723-0001",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260723-0001/agent-result",
+  "bugNo": "BUG-20260722-0003",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260722-0003/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260723-0001-A1",
-    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "BUGTASK-20260722-0003-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260723-0001-A1-worker-log.md",
-    "commitHash": "",
-    "changedFiles": [],
+    "resultFile": "docs/ops/runs/BUGTASK-20260722-0003-A4-worker-log.md",
+    "commitHash": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
+    "changedFiles": [
+      "apps/web/src/__tests__/bug-20260722-0003-warehouse-handover.test.ts",
+      "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+      "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/warehouse-handover.module.css",
+      "docs/ops/BUGTASK-20260722-0003-frontend-repair.md"
+    ],
     "validationResults": {
       "evidenceGate": {
         "version": 1,
-        "agent": "A1-CI-Runtime-Gate",
+        "agent": "A4-Frontend-UAT-Smoke",
         "exitCode": 0,
-        "conclusion": "PASS",
-        "responseChars": 2680,
-        "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-        "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
+        "conclusion": "HOLD",
+        "responseChars": 705,
+        "beforeHead": "777ea1323200c33683afb45a6b6e094692b0fc02",
+        "afterHead": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
+        "commitHash": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
+        "changedFiles": [
+          "apps/web/src/__tests__/bug-20260722-0003-warehouse-handover.test.ts",
+          "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+          "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/warehouse-handover.module.css",
+          "docs/ops/BUGTASK-20260722-0003-frontend-repair.md"
+        ],
+        "businessChangedFiles": [
+          "apps/web/src/__tests__/bug-20260722-0003-warehouse-handover.test.ts",
+          "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+          "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/warehouse-handover.module.css"
+        ],
+        "reportFiles": [
+          "docs/ops/BUGTASK-20260722-0003-frontend-repair.md"
+        ],
         "parentCommitRecovered": false,
         "infrastructureFailure": null,
-        "checkedAt": "2026-07-23T03:46:47.127Z",
-        "passed": true,
-        "role": "validation",
-        "terminalStatus": "VALIDATION_COMPLETED",
-        "reason": "Validation evidence recorded; this is not implementation evidence"
+        "checkedAt": "2026-07-23T04:55:12.468Z",
+        "passed": false,
+        "role": "implementation",
+        "terminalStatus": "HOLD",
+        "reason": "Agent conclusion is HOLD"
       },
-      "queueStatus": "VALIDATION_COMPLETED",
+      "queueStatus": "HOLD",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260723-0001-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260723-0001-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/events.jsonl\n M docs/ops/agent-queue/tasks.json\n M docs/ops/runs/bug-agent-result-writeback-latest.json\n M docs/ops/runs/bug-agent-result-writeback-response-latest.json\n M docs/ops/runs/bug-runner-dashboard-latest.json\n M docs/ops/runs/bug-runner-dashboard-latest.md\n?? docs/ops/runs/2026-07-23T03-33-58-114Z-A4-Frontend-UAT-Smoke.md\n?? docs/ops/runs/BUGTASK-20260720-0001-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260720-0002-A1-detached-worker-recovery.md\n?? docs/ops/runs/BUGTASK-20260720-0002-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260721-0001-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0001-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0002-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0002-A2-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0004-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A1-contract.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-contract.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-detached-worker-recovery.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-worker-assembled-prompt.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-worker-log.md\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: R",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260722-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260722-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260722-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260722-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260722-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23405\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T04-55-12-281Z-A4-Frontend-UAT-Smoke.md\nHOLD\n\nFrontend repair is implemented:\n\n- API failures no longer display “入库成功” or redirect.\n- Form data remains available for retry with an accessible error message.\n- Added mobile responsive handling and focused regression coverage.\n- Web typecheck: PASS.\n- ESLint: PASS.\n- Focused tests: 8/8 PASS.\n- No API, database, migration, deploy, push, or RBAC changes.\n\nReal desktop/mobile browser verification could not run because the sandbox rejected the local server with `listen EPERM`. CI/CD, production smoke, and business acceptance also remain required.\n\nReport: [BUGTASK-20260722-0003-fronten",
     "nextAction": ""
   }
 }

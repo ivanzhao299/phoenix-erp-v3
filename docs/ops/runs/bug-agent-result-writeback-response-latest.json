@@ -1,24 +1,24 @@
 {
-  "id": "63",
-  "bugNo": "BUG-20260723-0001",
-  "title": "运营工作台右上角的待办、超时、高危告警目前只是展示，不能点击，要求可点击跳转到对应页面",
+  "id": "61",
+  "bugNo": "BUG-20260722-0003",
+  "title": "作业台-入库，入库显示成功但实际并未入库",
   "severity": "MEDIUM",
   "status": "IN_PROGRESS",
   "priority": "P2",
-  "moduleCode": "_____",
+  "moduleCode": "___-__",
   "assigneeUsername": "",
   "assigneeName": "",
-  "repairTaskNo": "BUGTASK-20260723-0001",
+  "repairTaskNo": "BUGTASK-20260722-0003",
   "repairTaskStatus": "HOLD",
-  "route": "/home",
+  "route": "/warehouse/query",
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
-  "createdAt": "2026-07-23T01:16:31.298Z",
-  "updatedAt": "2026-07-23T03:46:49.414Z",
+  "createdAt": "2026-07-22T09:25:13.635Z",
+  "updatedAt": "2026-07-23T04:55:15.262Z",
   "closedAt": null,
   "attachmentCount": 1,
-  "description": "运营工作台右上角的待办、超时、高危告警目前只是展示，不能点击，要求可点击跳转到对应页面",
-  "url": "https://erp.eggslao.com/home",
+  "description": "作业台-入库，手动确认入库，确认入库并且显示成功入库，再次进入入库页面显示待入箱数2，已入箱数0，并且库存查询都查不到",
+  "url": "https://erp.eggslao.com/warehouse/query",
   "reporterUserId": "96",
   "roles": [
     "ROLE_ADMIN",
@@ -30,13 +30,13 @@
   "failedRequests": [],
   "attachments": [
     {
-      "sha256": "eed99418a1ed2fecd28d53bbecb47977f8d01cc0ecc6f89eb9aa5eb2e2162b1f",
-      "fileName": "01-1784769391292-9ada96f5.png",
+      "sha256": "580a67c131527bc67a27ff8c1d3c07257b79001ec3286efc6ad0d20e43344bc5",
+      "fileName": "01-1784712313633-bf5ab28e.png",
       "mimeType": "image/png",
-      "sizeBytes": 1143086,
-      "originalName": "pasted-screenshot-1784769384318-1.png",
-      "relativePath": "storage/bug-reports/2026/07/23/BUG-20260723-0001/01-1784769391292-9ada96f5.png",
-      "previewEndpoint": "/api/bug-intake/reports/BUG-20260723-0001/attachments/01-1784769391292-9ada96f5.png"
+      "sizeBytes": 722096,
+      "originalName": "pasted-screenshot-1784712284467-1.png",
+      "relativePath": "storage/bug-reports/2026/07/22/BUG-20260722-0003/01-1784712313633-bf5ab28e.png",
+      "previewEndpoint": "/api/bug-intake/reports/BUG-20260722-0003/attachments/01-1784712313633-bf5ab28e.png"
     }
   ],
   "clientContext": {
@@ -47,9 +47,9 @@
       "height": 1081
     },
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    "capturedAt": "2026-07-23T01:16:31.297Z",
+    "capturedAt": "2026-07-22T09:25:13.635Z",
     "pageSnapshot": {
-      "route": "/home",
+      "route": "/warehouse/query",
       "title": "金凤凰 ERP — Phoenix ERP V3",
       "scroll": {
         "x": 0,
@@ -65,6 +65,21 @@
         "经营仪表盘",
         "生产管理",
         "库存管理",
+        "仓库看板",
+        "成品批次",
+        "库存来源模式",
+        "入库管理",
+        "出库管理",
+        "调拨管理",
+        "盘点管理",
+        "库存台账",
+        "库存查询",
+        "临期预警",
+        "日结对账",
+        "报损管理",
+        "仓库主档",
+        "库区管理",
+        "库位管理",
         "全链追溯",
         "采购供应中心",
         "销售管理",
@@ -90,51 +105,89 @@
         "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
         "截图 / PDF（最多 5 个，单个 ≤15MB）",
         "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-        "pasted-screenshot-1784769384318-1.png",
+        "pasted-screenshot-1784712284467-1.png",
         "退出",
+        "·按权限范围查询库存批次余量和状态",
         "·",
-        "2026年7月23日星期四",
-        "早上好，金凤凰总控",
-        "今天没有紧急事项，可以专注做事。",
-        "待办",
-        "超时",
-        "高危告警",
-        "羽",
-        "枚",
-        "%",
-        "kg",
-        "L",
-        "条",
-        "事务流 · 我的待办",
-        "共 0 单",
-        "经营概览",
-        "· 业务全景（4）",
-        "销售",
-        "订单 · 收款",
-        "现金",
-        "账户 · 流水",
-        "应收",
-        "发票 · 账龄",
-        "应付",
-        "账期 · 付款",
-        "数据质量驾驶舱",
-        "综合评分",
-        "需整改 · 7 维加权",
-        "主数据健康 97/100",
-        "主数据健康度",
-        "/ 100",
-        "在管 802 条",
-        "风险 3 条",
-        "业务中心",
-        "· 一键直达（8）"
+        "可见批次",
+        "按当前账号仓库范围",
+        "可见库存量",
+        "来自专用库存接口",
+        "批次号",
+        "产品编码",
+        "仓库",
+        "库位",
+        "库存数量",
+        "状态",
+        "保质期至",
+        "归属门店",
+        "EGG-20260718-00003",
+        "PRD-EGG-GRADE_3",
+        "—",
+        "3",
+        "AVAILABLE",
+        "2026-08-17",
+        "EGG-20260718-00002",
+        "PRD-EGG-GRADE_2",
+        "2",
+        "EGG-20260718-00001",
+        "PRD-EGG-GRADE_1",
+        "1",
+        "EGG-20260717-00002",
+        "PRD-EGG-2",
+        "2026-08-16",
+        "EGG-20260717-00001",
+        "EGG-20260716-00002",
+        "2026-08-15",
+        "EGG-20260716-00001",
+        "IBN-20260716-RV0SUA",
+        "TEST-0716",
+        "LPH_MS_EGG_FARM",
+        "INBOUND-DOCK",
+        "10",
+        "-",
+        "ALL",
+        "EGG-20260715-00001",
+        "2026-08-14",
+        "IBN-20260715-PYVE48",
+        "TEST-715",
+        "99",
+        "IBN-20260713-KVN57H",
+        "TEST000001",
+        "EGG-20260708-00001",
+        "PRD-EGG-1",
+        "2026-08-07",
+        "EGG-20260707-00008",
+        "PRD-EGG-GRADE_5",
+        "2026-08-06",
+        "EGG-20260707-00007",
+        "PRD-EGG-GRADE_4",
+        "EGG-20260707-00006",
+        "EGG-20260707-00005",
+        "EGG-20260707-00004",
+        "EGG-20260707-00003",
+        "EGG-20260707-00002",
+        "EGG-20260707-00001",
+        "MED-STOCK-LPH-MED-029",
+        "LPH-MED-029",
+        "LPH_MS_MEDICINE",
+        "2.1",
+        "SITE-MENGSAI-LAYER",
+        "MED-STOCK-LPH-MED-030",
+        "LPH-MED-030",
+        "63",
+        "MED-STOCK-LPH-MED-031",
+        "LPH-MED-031",
+        "2.6",
+        "MED-STOCK-LPH-MED-032"
       ],
       "interactiveElements": [
         {
           "tag": "a",
-          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+          "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
             "y": 118
           },
@@ -146,7 +199,7 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
             "y": 156
           },
@@ -158,7 +211,7 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
             "y": 194
           },
@@ -170,7 +223,7 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
             "y": 232
           },
@@ -179,10 +232,10 @@
         },
         {
           "tag": "div",
-          "path": ".sidebar-module__C8A-ya__groupHeader.",
+          "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
             "y": 270
           },
@@ -191,12 +244,192 @@
         },
         {
           "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 308
+          },
+          "label": "仓库看板",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 340
+          },
+          "label": "成品批次",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 372
+          },
+          "label": "库存来源模式",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 404
+          },
+          "label": "入库管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 436
+          },
+          "label": "出库管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 468
+          },
+          "label": "调拨管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 500
+          },
+          "label": "盘点管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 532
+          },
+          "label": "库存台账",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 564
+          },
+          "label": "库存查询",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 596
+          },
+          "label": "临期预警",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 628
+          },
+          "label": "日结对账",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 660
+          },
+          "label": "报损管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 692
+          },
+          "label": "仓库主档",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 724
+          },
+          "label": "库区管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "path": ".sidebar-module__C8A-ya__subItem.",
+          "rect": {
+            "h": 32,
+            "w": 215,
+            "x": 0,
+            "y": 756
+          },
+          "label": "库位管理",
+          "disabled": false
+        },
+        {
+          "tag": "a",
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 308
+            "y": 788
           },
           "label": "全链追溯",
           "disabled": false
@@ -206,9 +439,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 346
+            "y": 826
           },
           "label": "采购供应中心",
           "disabled": false
@@ -218,9 +451,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 384
+            "y": 864
           },
           "label": "销售管理",
           "disabled": false
@@ -230,9 +463,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 422
+            "y": 902
           },
           "label": "财务结算中心",
           "disabled": false
@@ -242,9 +475,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 460
+            "y": 940
           },
           "label": "股东权益中心",
           "disabled": false
@@ -254,9 +487,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 498
+            "y": 978
           },
           "label": "审批中心",
           "disabled": false
@@ -266,9 +499,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 536
+            "y": 1016
           },
           "label": "经营分析中心",
           "disabled": false
@@ -278,9 +511,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 574
+            "y": 1054
           },
           "label": "主数据中心",
           "disabled": false
@@ -290,9 +523,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 612
+            "y": 1092
           },
           "label": "系统设置中心",
           "disabled": false
@@ -302,9 +535,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 650
+            "y": 1130
           },
           "label": "验收试运行",
           "disabled": false
@@ -314,9 +547,9 @@
           "path": ".sidebar-module__C8A-ya__groupHeader.",
           "rect": {
             "h": 38,
-            "w": 220,
+            "w": 215,
             "x": 0,
-            "y": 688
+            "y": 1168
           },
           "label": "系统运维",
           "disabled": false
@@ -339,7 +572,7 @@
           "rect": {
             "h": 29,
             "w": 95,
-            "x": 1341,
+            "x": 1344,
             "y": 13
           },
           "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
@@ -350,11 +583,11 @@
           "path": "",
           "rect": {
             "h": 34,
-            "w": 95,
-            "x": 1497,
+            "w": 92,
+            "x": 1500,
             "y": 11
           },
-          "label": "在线 0",
+          "label": "在线 1",
           "disabled": false
         },
         {
@@ -514,242 +747,50 @@
           "disabled": false
         },
         {
-          "tag": "a",
+          "tag": "input",
           "path": "",
           "rect": {
-            "h": 35,
-            "w": 148,
-            "x": 293,
-            "y": 204
+            "h": 21,
+            "w": 1586,
+            "x": 287,
+            "y": 277
           },
-          "label": "进入采购中心",
+          "label": "搜索批次号、产品编码、仓库、库位或门店",
           "disabled": false
         },
         {
-          "tag": "a",
+          "tag": "button",
           "path": "",
           "rect": {
-            "h": 35,
-            "w": 116,
-            "x": 449,
-            "y": 204
+            "h": 38,
+            "w": 74,
+            "x": 1884,
+            "y": 268
           },
-          "label": "主数据中心",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 18,
-            "w": 38,
-            "x": 1244,
-            "y": 385
-          },
-          "label": "全部",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 73,
-            "w": 242,
-            "x": 283,
-            "y": 629
-          },
-          "label": "销售 订单 · 收款",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 73,
-            "w": 242,
-            "x": 535,
-            "y": 629
-          },
-          "label": "现金 账户 · 流水",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 73,
-            "w": 242,
-            "x": 787,
-            "y": 629
-          },
-          "label": "应收 发票 · 账龄",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 73,
-            "w": 242,
-            "x": 1040,
-            "y": 629
-          },
-          "label": "应付 账期 · 付款",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 161,
-            "w": 643,
-            "x": 1309,
-            "y": 365
-          },
-          "label": "数据质量驾驶舱 80 / 100 综合评分 需整改 · 7 维加权 主数据健康 97/100",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 157,
-            "w": 643,
-            "x": 1309,
-            "y": 538
-          },
-          "label": "需立即关注 2 项高危告警 · 共 5 条",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 146,
-            "w": 643,
-            "x": 1309,
-            "y": 707
-          },
-          "label": "主数据健康度 93 / 100 在管 802 条 风险 3 条",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 57,
-            "w": 200,
-            "x": 283,
-            "y": 917
-          },
-          "label": "客户中心",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 57,
-            "w": 200,
-            "x": 490,
-            "y": 917
-          },
-          "label": "供应商中心",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 57,
-            "w": 200,
-            "x": 698,
-            "y": 917
-          },
-          "label": "采购中心",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 57,
-            "w": 200,
-            "x": 906,
-            "y": 917
-          },
-          "label": "销售中心",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 57,
-            "w": 200,
-            "x": 1114,
-            "y": 917
-          },
-          "label": "财务中心",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 57,
-            "w": 200,
-            "x": 1322,
-            "y": 917
-          },
-          "label": "库存中心",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 57,
-            "w": 200,
-            "x": 1530,
-            "y": 917
-          },
-          "label": "审批工作台",
-          "disabled": false
-        },
-        {
-          "tag": "a",
-          "path": "",
-          "rect": {
-            "h": 57,
-            "w": 200,
-            "x": 1738,
-            "y": 917
-          },
-          "label": "数据质量",
+          "label": "刷新",
           "disabled": false
         }
       ]
     },
     "devicePixelRatio": 1.600000023841858
   },
-  "resolutionNote": "运营工作台右上角的待办、超时、高危告警目前只是展示，不能点击，要求可点击跳转到对应页面",
+  "resolutionNote": "自动修复生命周期证据不完整，保持 HOLD：implementation evidence gate is not ready: selected Agent reported HOLD or FAIL",
   "repairTaskPayload": {
-    "url": "https://erp.eggslao.com/home",
-    "bugNo": "BUG-20260723-0001",
-    "route": "/home",
-    "title": "运营工作台右上角的待办、超时、高危告警目前只是展示，不能点击，要求可点击跳转到对应页面",
-    "taskNo": "BUGTASK-20260723-0001",
+    "url": "https://erp.eggslao.com/warehouse/query",
+    "bugNo": "BUG-20260722-0003",
+    "route": "/warehouse/query",
+    "title": "作业台-入库，入库显示成功但实际并未入库",
+    "taskNo": "BUGTASK-20260722-0003",
     "context": {
       "attachments": [
         {
-          "sha256": "eed99418a1ed2fecd28d53bbecb47977f8d01cc0ecc6f89eb9aa5eb2e2162b1f",
-          "fileName": "01-1784769391292-9ada96f5.png",
+          "sha256": "580a67c131527bc67a27ff8c1d3c07257b79001ec3286efc6ad0d20e43344bc5",
+          "fileName": "01-1784712313633-bf5ab28e.png",
           "mimeType": "image/png",
-          "sizeBytes": 1143086,
-          "originalName": "pasted-screenshot-1784769384318-1.png",
-          "relativePath": "storage/bug-reports/2026/07/23/BUG-20260723-0001/01-1784769391292-9ada96f5.png",
-          "previewEndpoint": "/api/bug-intake/reports/BUG-20260723-0001/attachments/01-1784769391292-9ada96f5.png"
+          "sizeBytes": 722096,
+          "originalName": "pasted-screenshot-1784712284467-1.png",
+          "relativePath": "storage/bug-reports/2026/07/22/BUG-20260722-0003/01-1784712313633-bf5ab28e.png",
+          "previewEndpoint": "/api/bug-intake/reports/BUG-20260722-0003/attachments/01-1784712313633-bf5ab28e.png"
         }
       ],
       "clientContext": {
@@ -760,9 +801,9 @@
           "height": 1081
         },
         "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "capturedAt": "2026-07-23T01:16:31.297Z",
+        "capturedAt": "2026-07-22T09:25:13.635Z",
         "pageSnapshot": {
-          "route": "/home",
+          "route": "/warehouse/query",
           "title": "金凤凰 ERP — Phoenix ERP V3",
           "scroll": {
             "x": 0,
@@ -778,6 +819,21 @@
             "经营仪表盘",
             "生产管理",
             "库存管理",
+            "仓库看板",
+            "成品批次",
+            "库存来源模式",
+            "入库管理",
+            "出库管理",
+            "调拨管理",
+            "盘点管理",
+            "库存台账",
+            "库存查询",
+            "临期预警",
+            "日结对账",
+            "报损管理",
+            "仓库主档",
+            "库区管理",
+            "库位管理",
             "全链追溯",
             "采购供应中心",
             "销售管理",
@@ -803,51 +859,89 @@
             "截图 / PDF（最多 5 个，单个 ≤15MB） 全屏截图 框选区域截图 直接粘贴截图 复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
             "截图 / PDF（最多 5 个，单个 ≤15MB）",
             "复制图片后点这里按 Ctrl/Cmd+V，或在说明框里直接粘贴。",
-            "pasted-screenshot-1784769384318-1.png",
+            "pasted-screenshot-1784712284467-1.png",
             "退出",
+            "·按权限范围查询库存批次余量和状态",
             "·",
-            "2026年7月23日星期四",
-            "早上好，金凤凰总控",
-            "今天没有紧急事项，可以专注做事。",
-            "待办",
-            "超时",
-            "高危告警",
-            "羽",
-            "枚",
-            "%",
-            "kg",
-            "L",
-            "条",
-            "事务流 · 我的待办",
-            "共 0 单",
-            "经营概览",
-            "· 业务全景（4）",
-            "销售",
-            "订单 · 收款",
-            "现金",
-            "账户 · 流水",
-            "应收",
-            "发票 · 账龄",
-            "应付",
-            "账期 · 付款",
-            "数据质量驾驶舱",
-            "综合评分",
-            "需整改 · 7 维加权",
-            "主数据健康 97/100",
-            "主数据健康度",
-            "/ 100",
-            "在管 802 条",
-            "风险 3 条",
-            "业务中心",
-            "· 一键直达（8）"
+            "可见批次",
+            "按当前账号仓库范围",
+            "可见库存量",
+            "来自专用库存接口",
+            "批次号",
+            "产品编码",
+            "仓库",
+            "库位",
+            "库存数量",
+            "状态",
+            "保质期至",
+            "归属门店",
+            "EGG-20260718-00003",
+            "PRD-EGG-GRADE_3",
+            "—",
+            "3",
+            "AVAILABLE",
+            "2026-08-17",
+            "EGG-20260718-00002",
+            "PRD-EGG-GRADE_2",
+            "2",
+            "EGG-20260718-00001",
+            "PRD-EGG-GRADE_1",
+            "1",
+            "EGG-20260717-00002",
+            "PRD-EGG-2",
+            "2026-08-16",
+            "EGG-20260717-00001",
+            "EGG-20260716-00002",
+            "2026-08-15",
+            "EGG-20260716-00001",
+            "IBN-20260716-RV0SUA",
+            "TEST-0716",
+            "LPH_MS_EGG_FARM",
+            "INBOUND-DOCK",
+            "10",
+            "-",
+            "ALL",
+            "EGG-20260715-00001",
+            "2026-08-14",
+            "IBN-20260715-PYVE48",
+            "TEST-715",
+            "99",
+            "IBN-20260713-KVN57H",
+            "TEST000001",
+            "EGG-20260708-00001",
+            "PRD-EGG-1",
+            "2026-08-07",
+            "EGG-20260707-00008",
+            "PRD-EGG-GRADE_5",
+            "2026-08-06",
+            "EGG-20260707-00007",
+            "PRD-EGG-GRADE_4",
+            "EGG-20260707-00006",
+            "EGG-20260707-00005",
+            "EGG-20260707-00004",
+            "EGG-20260707-00003",
+            "EGG-20260707-00002",
+            "EGG-20260707-00001",
+            "MED-STOCK-LPH-MED-029",
+            "LPH-MED-029",
+            "LPH_MS_MEDICINE",
+            "2.1",
+            "SITE-MENGSAI-LAYER",
+            "MED-STOCK-LPH-MED-030",
+            "LPH-MED-030",
+            "63",
+            "MED-STOCK-LPH-MED-031",
+            "LPH-MED-031",
+            "2.6",
+            "MED-STOCK-LPH-MED-032"
           ],
           "interactiveElements": [
             {
               "tag": "a",
-              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
+              "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
                 "y": 118
               },
@@ -859,7 +953,7 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
                 "y": 156
               },
@@ -871,7 +965,7 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
                 "y": 194
               },
@@ -883,7 +977,7 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
                 "y": 232
               },
@@ -892,10 +986,10 @@
             },
             {
               "tag": "div",
-              "path": ".sidebar-module__C8A-ya__groupHeader.",
+              "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
                 "y": 270
               },
@@ -904,12 +998,192 @@
             },
             {
               "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 308
+              },
+              "label": "仓库看板",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 340
+              },
+              "label": "成品批次",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 372
+              },
+              "label": "库存来源模式",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 404
+              },
+              "label": "入库管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 436
+              },
+              "label": "出库管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 468
+              },
+              "label": "调拨管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 500
+              },
+              "label": "盘点管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 532
+              },
+              "label": "库存台账",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 564
+              },
+              "label": "库存查询",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 596
+              },
+              "label": "临期预警",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 628
+              },
+              "label": "日结对账",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 660
+              },
+              "label": "报损管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 692
+              },
+              "label": "仓库主档",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 724
+              },
+              "label": "库区管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
+              "path": ".sidebar-module__C8A-ya__subItem.",
+              "rect": {
+                "h": 32,
+                "w": 215,
+                "x": 0,
+                "y": 756
+              },
+              "label": "库位管理",
+              "disabled": false
+            },
+            {
+              "tag": "a",
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 308
+                "y": 788
               },
               "label": "全链追溯",
               "disabled": false
@@ -919,9 +1193,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 346
+                "y": 826
               },
               "label": "采购供应中心",
               "disabled": false
@@ -931,9 +1205,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 384
+                "y": 864
               },
               "label": "销售管理",
               "disabled": false
@@ -943,9 +1217,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 422
+                "y": 902
               },
               "label": "财务结算中心",
               "disabled": false
@@ -955,9 +1229,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 460
+                "y": 940
               },
               "label": "股东权益中心",
               "disabled": false
@@ -967,9 +1241,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 498
+                "y": 978
               },
               "label": "审批中心",
               "disabled": false
@@ -979,9 +1253,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 536
+                "y": 1016
               },
               "label": "经营分析中心",
               "disabled": false
@@ -991,9 +1265,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 574
+                "y": 1054
               },
               "label": "主数据中心",
               "disabled": false
@@ -1003,9 +1277,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 612
+                "y": 1092
               },
               "label": "系统设置中心",
               "disabled": false
@@ -1015,9 +1289,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 650
+                "y": 1130
               },
               "label": "验收试运行",
               "disabled": false
@@ -1027,9 +1301,9 @@
               "path": ".sidebar-module__C8A-ya__groupHeader.",
               "rect": {
                 "h": 38,
-                "w": 220,
+                "w": 215,
                 "x": 0,
-                "y": 688
+                "y": 1168
               },
               "label": "系统运维",
               "disabled": false
@@ -1052,7 +1326,7 @@
               "rect": {
                 "h": 29,
                 "w": 95,
-                "x": 1341,
+                "x": 1344,
                 "y": 13
               },
               "label": "🇨🇳 中文 🇱🇦 ລາວ 🇬🇧 English",
@@ -1063,11 +1337,11 @@
               "path": "",
               "rect": {
                 "h": 34,
-                "w": 95,
-                "x": 1497,
+                "w": 92,
+                "x": 1500,
                 "y": 11
               },
-              "label": "在线 0",
+              "label": "在线 1",
               "disabled": false
             },
             {
@@ -1227,219 +1501,27 @@
               "disabled": false
             },
             {
-              "tag": "a",
+              "tag": "input",
               "path": "",
               "rect": {
-                "h": 35,
-                "w": 148,
-                "x": 293,
-                "y": 204
+                "h": 21,
+                "w": 1586,
+                "x": 287,
+                "y": 277
               },
-              "label": "进入采购中心",
+              "label": "搜索批次号、产品编码、仓库、库位或门店",
               "disabled": false
             },
             {
-              "tag": "a",
+              "tag": "button",
               "path": "",
               "rect": {
-                "h": 35,
-                "w": 116,
-                "x": 449,
-                "y": 204
+                "h": 38,
+                "w": 74,
+                "x": 1884,
+                "y": 268
               },
-              "label": "主数据中心",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 18,
-                "w": 38,
-                "x": 1244,
-                "y": 385
-              },
-              "label": "全部",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 73,
-                "w": 242,
-                "x": 283,
-                "y": 629
-              },
-              "label": "销售 订单 · 收款",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 73,
-                "w": 242,
-                "x": 535,
-                "y": 629
-              },
-              "label": "现金 账户 · 流水",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 73,
-                "w": 242,
-                "x": 787,
-                "y": 629
-              },
-              "label": "应收 发票 · 账龄",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 73,
-                "w": 242,
-                "x": 1040,
-                "y": 629
-              },
-              "label": "应付 账期 · 付款",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 161,
-                "w": 643,
-                "x": 1309,
-                "y": 365
-              },
-              "label": "数据质量驾驶舱 80 / 100 综合评分 需整改 · 7 维加权 主数据健康 97/100",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 157,
-                "w": 643,
-                "x": 1309,
-                "y": 538
-              },
-              "label": "需立即关注 2 项高危告警 · 共 5 条",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 146,
-                "w": 643,
-                "x": 1309,
-                "y": 707
-              },
-              "label": "主数据健康度 93 / 100 在管 802 条 风险 3 条",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 57,
-                "w": 200,
-                "x": 283,
-                "y": 917
-              },
-              "label": "客户中心",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 57,
-                "w": 200,
-                "x": 490,
-                "y": 917
-              },
-              "label": "供应商中心",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 57,
-                "w": 200,
-                "x": 698,
-                "y": 917
-              },
-              "label": "采购中心",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 57,
-                "w": 200,
-                "x": 906,
-                "y": 917
-              },
-              "label": "销售中心",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 57,
-                "w": 200,
-                "x": 1114,
-                "y": 917
-              },
-              "label": "财务中心",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 57,
-                "w": 200,
-                "x": 1322,
-                "y": 917
-              },
-              "label": "库存中心",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 57,
-                "w": 200,
-                "x": 1530,
-                "y": 917
-              },
-              "label": "审批工作台",
-              "disabled": false
-            },
-            {
-              "tag": "a",
-              "path": "",
-              "rect": {
-                "h": 57,
-                "w": 200,
-                "x": 1738,
-                "y": 917
-              },
-              "label": "数据质量",
+              "label": "刷新",
               "disabled": false
             }
           ]
@@ -1462,14 +1544,13 @@
     },
     "severity": "MEDIUM",
     "agentPlan": {
-      "source_bug_no": "BUG-20260723-0001",
+      "source_bug_no": "BUG-20260722-0003",
       "route_decision": "PLAN_READY",
       "split_strategy": [
         {
           "agent": "A2-Security-Regression-Gate",
           "reasons": [
-            "security/RBAC/DataScope signal matched",
-            "failure classification RBAC_403"
+            "security/RBAC/DataScope signal matched"
           ],
           "execution_mode": "dry-run-first",
           "approval_required": true
@@ -1478,7 +1559,7 @@
           "agent": "A3-Backend-Critical-Path",
           "reasons": [
             "backend/API/error route matched",
-            "failure classification RBAC_403"
+            "failure classification API_5XX"
           ],
           "execution_mode": "dry-run-first",
           "approval_required": true
@@ -1502,7 +1583,7 @@
         {
           "agent": "A1-CI-Runtime-Gate",
           "reasons": [
-            "failure classification RBAC_403",
+            "failure classification API_5XX",
             "required validation after repair"
           ],
           "execution_mode": "dry-run-first",
@@ -1516,49 +1597,28 @@
         "A5-Data-Readiness",
         "A1-CI-Runtime-Gate"
       ],
-      "failure_category": "RBAC_403",
+      "failure_category": "API_5XX",
       "hard_constraints": [
         "no automatic production deploy",
         "no automatic DB write",
         "no automatic migration",
         "human approval required before code repair execution"
       ],
-      "route_confidence": 0.9,
+      "route_confidence": 0.88,
       "source_repair_task_no": ""
     },
-    "createdAt": "2026-07-23T01:16:57.184Z",
+    "createdAt": "2026-07-22T09:26:28.713Z",
     "createdBy": "admin",
-    "moduleCode": "_____",
+    "moduleCode": "___-__",
     "agentResults": [
       {
         "agent": "A2-Security-Regression-Gate",
-        "taskId": "BUGTASK-20260723-0001-A2-Security-Regression-Gate-NA-0",
+        "taskId": "BUGTASK-20260722-0003-A2-Security-Regression-Gate-NA-0",
         "summary": "A2-Security-Regression-Gate was not part of the refined executable route for this repair generation.",
         "commitHash": "",
         "conclusion": "NOT_APPLICABLE",
         "nextAction": "No action is required from this advisory Agent for the current repair generation.",
-        "recordedAt": "2026-07-23T03:37:52.090Z",
-        "recordedBy": "bug_intake_runner",
-        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
-        "changedFiles": [],
-        "redispatchCount": 0,
-        "validationResults": {
-          "evidenceGate": {
-            "role": "not_applicable",
-            "passed": true,
-            "reason": "Agent was advisory in the original plan but was excluded by the refined executable route."
-          },
-          "aggregateBackfill": true
-        }
-      },
-      {
-        "agent": "A3-Backend-Critical-Path",
-        "taskId": "BUGTASK-20260723-0001-A3-Backend-Critical-Path-NA-0",
-        "summary": "A3-Backend-Critical-Path was not part of the refined executable route for this repair generation.",
-        "commitHash": "",
-        "conclusion": "NOT_APPLICABLE",
-        "nextAction": "No action is required from this advisory Agent for the current repair generation.",
-        "recordedAt": "2026-07-23T03:37:52.634Z",
+        "recordedAt": "2026-07-23T04:23:15.483Z",
         "recordedBy": "bug_intake_runner",
         "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
         "changedFiles": [],
@@ -1574,12 +1634,12 @@
       },
       {
         "agent": "A5-Data-Readiness",
-        "taskId": "BUGTASK-20260723-0001-A5-Data-Readiness-NA-0",
+        "taskId": "BUGTASK-20260722-0003-A5-Data-Readiness-NA-0",
         "summary": "A5-Data-Readiness was not part of the refined executable route for this repair generation.",
         "commitHash": "",
         "conclusion": "NOT_APPLICABLE",
         "nextAction": "No action is required from this advisory Agent for the current repair generation.",
-        "recordedAt": "2026-07-23T03:37:53.184Z",
+        "recordedAt": "2026-07-23T04:23:16.037Z",
         "recordedBy": "bug_intake_runner",
         "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
         "changedFiles": [],
@@ -1594,99 +1654,198 @@
         }
       },
       {
-        "agent": "A4-Frontend-UAT-Smoke",
-        "taskId": "BUGTASK-20260723-0001-A4",
-        "summary": "Local bug-intake task BUGTASK-20260723-0001-A4 reached HOLD.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
-        "commitHash": "15f2e77a9af62c94acd79af9bad5f4a05782239c",
-        "conclusion": "HOLD",
-        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
-        "recordedAt": "2026-07-23T03:37:53.768Z",
+        "agent": "A3-Backend-Critical-Path",
+        "taskId": "BUGTASK-20260722-0003-A3",
+        "summary": "Local bug-intake task BUGTASK-20260722-0003-A3 reached COMPLETED_MERGED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+        "commitHash": "e31112a06fdd801c4675e5859cce386730b0ff4e",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Execution evidence recorded; release and production smoke must pass before business validation.",
+        "recordedAt": "2026-07-23T04:34:32.381Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260723-0001-A4-detached-worker-recovery.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260722-0003-A3-worker-log.md",
         "changedFiles": [
-          "apps/web/src/app/(admin)/home/home.module.css",
-          "apps/web/src/app/(admin)/home/page.tsx",
-          "apps/web/src/lib/home-navigation.test.ts",
-          "apps/web/src/lib/home-navigation.ts",
-          "docs/ops/BUGTASK-20260723-0001-a4-frontend-report.md"
+          "apps/api/src/modules/wms/wms.service.spec.ts",
+          "apps/api/src/modules/wms/wms.service.ts",
+          "docs/ops/BUGTASK-20260722-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md"
         ],
         "redispatchCount": 0,
         "validationResults": {
-          "completedAt": "2026-07-23T03:37:50.326Z",
+          "completedAt": "2026-07-23T04:26:08.802Z",
           "evidenceGate": {
             "role": "implementation",
-            "agent": "A4-Frontend-UAT-Smoke",
+            "agent": "A3-Backend-Critical-Path",
             "passed": true,
             "reason": "Business change, task report, commit, and conclusion are present",
             "version": 1,
             "exitCode": 0,
-            "afterHead": "15f2e77a9af62c94acd79af9bad5f4a05782239c",
-            "checkedAt": "2026-07-23T03:33:58.297Z",
-            "beforeHead": "dd493c7d5a5fde13e2775a8bf0b32c3915bebcb4",
-            "commitHash": "15f2e77a9af62c94acd79af9bad5f4a05782239c",
+            "afterHead": "e31112a06fdd801c4675e5859cce386730b0ff4e",
+            "checkedAt": "2026-07-23T04:23:11.427Z",
+            "beforeHead": "5424779dfa6b0a92630ac420a10220ae570b1997",
+            "commitHash": "e31112a06fdd801c4675e5859cce386730b0ff4e",
             "conclusion": "PASS_WITH_CONDITIONS",
             "reportFiles": [
-              "docs/ops/BUGTASK-20260723-0001-a4-frontend-report.md"
+              "docs/ops/BUGTASK-20260722-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md"
             ],
             "changedFiles": [
-              "apps/web/src/app/(admin)/home/home.module.css",
-              "apps/web/src/app/(admin)/home/page.tsx",
-              "apps/web/src/lib/home-navigation.test.ts",
-              "apps/web/src/lib/home-navigation.ts",
-              "docs/ops/BUGTASK-20260723-0001-a4-frontend-report.md"
+              "apps/api/src/modules/wms/wms.service.spec.ts",
+              "apps/api/src/modules/wms/wms.service.ts",
+              "docs/ops/BUGTASK-20260722-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md"
             ],
-            "responseChars": 513,
+            "responseChars": 749,
             "terminalStatus": "IMPLEMENTATION_COMPLETED",
             "businessChangedFiles": [
-              "apps/web/src/app/(admin)/home/home.module.css",
-              "apps/web/src/app/(admin)/home/page.tsx",
-              "apps/web/src/lib/home-navigation.test.ts",
-              "apps/web/src/lib/home-navigation.ts"
+              "apps/api/src/modules/wms/wms.service.spec.ts",
+              "apps/api/src/modules/wms/wms.service.ts"
             ],
             "infrastructureFailure": null,
             "parentCommitRecovered": false
           },
-          "localTaskStatus": "HOLD",
+          "localTaskStatus": "COMPLETED_MERGED",
           "aggregateBackfill": true,
-          "baselineAutopilotExitCode": null
+          "baselineAutopilotExitCode": 0
         }
       },
       {
-        "taskId": "BUGTASK-20260723-0001-A1",
         "agent": "A1-CI-Runtime-Gate",
-        "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260723-0001-A1-worker-log.md",
+        "taskId": "BUGTASK-20260722-0003-A1",
+        "summary": "Local bug-intake task BUGTASK-20260722-0003-A1 reached VALIDATION_COMPLETED.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
         "commitHash": "",
+        "conclusion": "PASS_WITH_CONDITIONS",
+        "nextAction": "Execution evidence recorded; release and production smoke must pass before business validation.",
+        "recordedAt": "2026-07-23T04:34:33.138Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260722-0003-A1-worker-log.md",
         "changedFiles": [],
+        "redispatchCount": 0,
+        "validationResults": {
+          "completedAt": "2026-07-23T04:26:13.538Z",
+          "evidenceGate": {
+            "role": "validation",
+            "agent": "A1-CI-Runtime-Gate",
+            "passed": true,
+            "reason": "Validation evidence recorded; this is not implementation evidence",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "checkedAt": "2026-07-23T04:26:13.538Z",
+            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+            "commitHash": "",
+            "conclusion": "PASS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 2623,
+            "terminalStatus": "VALIDATION_COMPLETED",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "localTaskStatus": "VALIDATION_COMPLETED",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": 0
+        }
+      },
+      {
+        "agent": "BugIntakeLocalRunner",
+        "taskId": "LOCAL-RUNNER-BUG-20260722-0003-f5f17dce71cc",
+        "summary": "# Bug Intake Local Runner Summary\n\n| Field | Value |\n| --- | --- |\n| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |\n| Dry run | No |\n| Cycle | 1 |\n| Synced | PASS |\n| Queue apply | applied-approved-only |\n| Runnable tasks | 0 |\n| Worker runs | 0 |\n| Blocked/skipped tasks | 0 |\n| Stale leases recovered | 0 |\n| Auto-unblock dirty worktrees | Enabled |\n| Skip blocked tasks | Enabled |\n| Safe retry | Disabled |\n| Push after success | Enabled |\n| Push result | Exit 0 |\n| CI wait | HOLD |\n| Production route smoke | Skipped: CI/CD did not pass |\n| Release evidence | BUG-20260722-0003:RELEASE_EVIDENCE_READY |\n| Lifecycle writeback | Attempted |\n| Result backfill | 1 report(s) checked |\n| Evidence status reconciled | 0 |\n| Reconciled commits integrated | 0 |\n| Failure classifications | 1 (WARNING) |\n\n## Runnable Tasks\n\n- None\n\n## Worker Runs\n\n- None\n\n## Blocked / Skipped Tasks\n\n- None\n\n## Stale Lease Recovery\n\n- None\n\n## Failure Classification\n\n- VALIDATION_FAILURE [WARNING]: validation; recovery=route to A1 and keep bug in HOLD\n\n## Result Backfill\n\n- BUG-20260722-0003: posted 5 Agent result(s)\n\n## Safety\n\n- Codex CLI real execution: No\n- Production push: Yes\n- Production deploy: triggered only by remote CI/CD after push\n- DB write / migration: not performed by this runner",
+        "commitHash": "f5f17dce71cc4ce525ed64ab57c28c66eb1176b0",
+        "conclusion": "HOLD",
+        "nextAction": "Keep the report in HOLD until implementation, CI/CD, and production route evidence all pass.",
+        "recordedAt": "2026-07-23T04:45:25.518Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "changedFiles": [
+          "apps/api/src/modules/wms/wms.service.spec.ts",
+          "apps/api/src/modules/wms/wms.service.ts"
+        ],
+        "redispatchCount": 0,
+        "validationResults": {
+          "ci": "HOLD: HOLD",
+          "push": "PASS",
+          "sync": "PASS",
+          "productionSmoke": "HOLD: CI/CD did not pass",
+          "releaseEvidence": "PASS",
+          "releaseEvidenceDetail": {
+            "passed": true,
+            "reasons": [],
+            "version": 1,
+            "decision": "RELEASE_EVIDENCE_READY",
+            "failedTasks": [],
+            "changedFiles": [
+              "apps/api/src/modules/wms/wms.service.spec.ts",
+              "apps/api/src/modules/wms/wms.service.ts"
+            ],
+            "commitHashes": [
+              "e31112a06fdd801c4675e5859cce386730b0ff4e"
+            ],
+            "missingAgents": [],
+            "selectedAgents": [
+              "A3-Backend-Critical-Path",
+              "A4-Frontend-UAT-Smoke",
+              "A1-CI-Runtime-Gate"
+            ],
+            "unfinishedTasks": [],
+            "validationTasks": [
+              "BUGTASK-20260722-0003-A1"
+            ],
+            "implementationTasks": [
+              "BUGTASK-20260722-0003-A3"
+            ]
+          }
+        }
+      },
+      {
+        "taskId": "BUGTASK-20260722-0003-A4",
+        "agent": "A4-Frontend-UAT-Smoke",
+        "conclusion": "HOLD",
+        "resultFile": "docs/ops/runs/BUGTASK-20260722-0003-A4-worker-log.md",
+        "commitHash": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
+        "changedFiles": [
+          "apps/web/src/__tests__/bug-20260722-0003-warehouse-handover.test.ts",
+          "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+          "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/warehouse-handover.module.css",
+          "docs/ops/BUGTASK-20260722-0003-frontend-repair.md"
+        ],
         "validationResults": {
           "evidenceGate": {
             "version": 1,
-            "agent": "A1-CI-Runtime-Gate",
+            "agent": "A4-Frontend-UAT-Smoke",
             "exitCode": 0,
-            "conclusion": "PASS",
-            "responseChars": 2680,
-            "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-            "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-            "commitHash": "",
-            "changedFiles": [],
-            "businessChangedFiles": [],
-            "reportFiles": [],
+            "conclusion": "HOLD",
+            "responseChars": 705,
+            "beforeHead": "777ea1323200c33683afb45a6b6e094692b0fc02",
+            "afterHead": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
+            "commitHash": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
+            "changedFiles": [
+              "apps/web/src/__tests__/bug-20260722-0003-warehouse-handover.test.ts",
+              "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+              "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/warehouse-handover.module.css",
+              "docs/ops/BUGTASK-20260722-0003-frontend-repair.md"
+            ],
+            "businessChangedFiles": [
+              "apps/web/src/__tests__/bug-20260722-0003-warehouse-handover.test.ts",
+              "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+              "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/warehouse-handover.module.css"
+            ],
+            "reportFiles": [
+              "docs/ops/BUGTASK-20260722-0003-frontend-repair.md"
+            ],
             "parentCommitRecovered": false,
             "infrastructureFailure": null,
-            "checkedAt": "2026-07-23T03:46:47.127Z",
-            "passed": true,
-            "role": "validation",
-            "terminalStatus": "VALIDATION_COMPLETED",
-            "reason": "Validation evidence recorded; this is not implementation evidence"
+            "checkedAt": "2026-07-23T04:55:12.468Z",
+            "passed": false,
+            "role": "implementation",
+            "terminalStatus": "HOLD",
+            "reason": "Agent conclusion is HOLD"
           },
-          "queueStatus": "VALIDATION_COMPLETED",
+          "queueStatus": "HOLD",
           "integratedCommit": ""
         },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260723-0001-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260723-0001-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/events.jsonl\n M docs/ops/agent-queue/tasks.json\n M docs/ops/runs/bug-agent-result-writeback-latest.json\n M docs/ops/runs/bug-agent-result-writeback-response-latest.json\n M docs/ops/runs/bug-runner-dashboard-latest.json\n M docs/ops/runs/bug-runner-dashboard-latest.md\n?? docs/ops/runs/2026-07-23T03-33-58-114Z-A4-Frontend-UAT-Smoke.md\n?? docs/ops/runs/BUGTASK-20260720-0001-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260720-0002-A1-detached-worker-recovery.md\n?? docs/ops/runs/BUGTASK-20260720-0002-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260721-0001-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0001-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0002-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0002-A2-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0004-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A1-contract.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-contract.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-detached-worker-recovery.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-worker-assembled-prompt.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-worker-log.md\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: R",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260722-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260722-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260722-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260722-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260722-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23405\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T04-55-12-281Z-A4-Frontend-UAT-Smoke.md\nHOLD\n\nFrontend repair is implemented:\n\n- API failures no longer display “入库成功” or redirect.\n- Form data remains available for retry with an accessible error message.\n- Added mobile responsive handling and focused regression coverage.\n- Web typecheck: PASS.\n- ESLint: PASS.\n- Focused tests: 8/8 PASS.\n- No API, database, migration, deploy, push, or RBAC changes.\n\nReal desktop/mobile browser verification could not run because the sandbox rejected the local server with `listen EPERM`. CI/CD, production smoke, and business acceptance also remain required.\n\nReport: [BUGTASK-20260722-0003-fronten",
         "nextAction": "",
         "redispatchCount": 0,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-23T03:46:49.412Z"
+        "recordedAt": "2026-07-23T04:55:15.259Z"
       }
     ],
     "suggestedOwner": "",
@@ -1697,66 +1856,81 @@
       "requiresHumanApproval": true
     },
     "latestAgentResult": {
-      "taskId": "BUGTASK-20260723-0001-A1",
-      "agent": "A1-CI-Runtime-Gate",
+      "taskId": "BUGTASK-20260722-0003-A4",
+      "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260723-0001-A1-worker-log.md",
-      "commitHash": "",
-      "changedFiles": [],
+      "resultFile": "docs/ops/runs/BUGTASK-20260722-0003-A4-worker-log.md",
+      "commitHash": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
+      "changedFiles": [
+        "apps/web/src/__tests__/bug-20260722-0003-warehouse-handover.test.ts",
+        "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+        "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/warehouse-handover.module.css",
+        "docs/ops/BUGTASK-20260722-0003-frontend-repair.md"
+      ],
       "validationResults": {
         "evidenceGate": {
           "version": 1,
-          "agent": "A1-CI-Runtime-Gate",
+          "agent": "A4-Frontend-UAT-Smoke",
           "exitCode": 0,
-          "conclusion": "PASS",
-          "responseChars": 2680,
-          "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-          "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-          "commitHash": "",
-          "changedFiles": [],
-          "businessChangedFiles": [],
-          "reportFiles": [],
+          "conclusion": "HOLD",
+          "responseChars": 705,
+          "beforeHead": "777ea1323200c33683afb45a6b6e094692b0fc02",
+          "afterHead": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
+          "commitHash": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
+          "changedFiles": [
+            "apps/web/src/__tests__/bug-20260722-0003-warehouse-handover.test.ts",
+            "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+            "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/warehouse-handover.module.css",
+            "docs/ops/BUGTASK-20260722-0003-frontend-repair.md"
+          ],
+          "businessChangedFiles": [
+            "apps/web/src/__tests__/bug-20260722-0003-warehouse-handover.test.ts",
+            "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+            "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/warehouse-handover.module.css"
+          ],
+          "reportFiles": [
+            "docs/ops/BUGTASK-20260722-0003-frontend-repair.md"
+          ],
           "parentCommitRecovered": false,
           "infrastructureFailure": null,
-          "checkedAt": "2026-07-23T03:46:47.127Z",
-          "passed": true,
-          "role": "validation",
-          "terminalStatus": "VALIDATION_COMPLETED",
-          "reason": "Validation evidence recorded; this is not implementation evidence"
+          "checkedAt": "2026-07-23T04:55:12.468Z",
+          "passed": false,
+          "role": "implementation",
+          "terminalStatus": "HOLD",
+          "reason": "Agent conclusion is HOLD"
         },
-        "queueStatus": "VALIDATION_COMPLETED",
+        "queueStatus": "HOLD",
         "integratedCommit": ""
       },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260723-0001-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260723-0001-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/events.jsonl\n M docs/ops/agent-queue/tasks.json\n M docs/ops/runs/bug-agent-result-writeback-latest.json\n M docs/ops/runs/bug-agent-result-writeback-response-latest.json\n M docs/ops/runs/bug-runner-dashboard-latest.json\n M docs/ops/runs/bug-runner-dashboard-latest.md\n?? docs/ops/runs/2026-07-23T03-33-58-114Z-A4-Frontend-UAT-Smoke.md\n?? docs/ops/runs/BUGTASK-20260720-0001-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260720-0002-A1-detached-worker-recovery.md\n?? docs/ops/runs/BUGTASK-20260720-0002-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260721-0001-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0001-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0002-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0002-A2-worker-log.md\n?? docs/ops/runs/BUGTASK-20260722-0004-A1-worker-log.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A1-contract.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-contract.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-detached-worker-recovery.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-worker-assembled-prompt.md\n?? docs/ops/runs/BUGTASK-20260723-0001-A4-worker-log.md\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: R",
+      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260722-0003-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260722-0003-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260722-0003-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260722-0003-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260722-0003-A4-worker-assembled-prompt.md\nAssembled prompt chars: 23405\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T04-55-12-281Z-A4-Frontend-UAT-Smoke.md\nHOLD\n\nFrontend repair is implemented:\n\n- API failures no longer display “入库成功” or redirect.\n- Form data remains available for retry with an accessible error message.\n- Added mobile responsive handling and focused regression coverage.\n- Web typecheck: PASS.\n- ESLint: PASS.\n- Focused tests: 8/8 PASS.\n- No API, database, migration, deploy, push, or RBAC changes.\n\nReal desktop/mobile browser verification could not run because the sandbox rejected the local server with `listen EPERM`. CI/CD, production smoke, and business acceptance also remain required.\n\nReport: [BUGTASK-20260722-0003-fronten",
       "nextAction": "",
       "redispatchCount": 0,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-23T03:46:49.412Z"
+      "recordedAt": "2026-07-23T04:55:15.259Z"
     },
-    "acceptanceCriteria": "运营工作台右上角的待办、超时、高危告警目前只是展示，不能点击，要求可点击跳转到对应页面",
-    "agentPlanGeneratedAt": "2026-07-23T01:16:57.185Z",
+    "acceptanceCriteria": "要求入库成功后真正进入仓库，并且可以查询到，再次进入入库显示已入库数2",
+    "agentPlanGeneratedAt": "2026-07-22T09:26:28.713Z",
     "agentPlanGeneratedBy": "admin",
     "failureClassification": {
-      "category": "RBAC_403",
+      "category": "API_5XX",
       "evidence": [
-        "权限/RBAC/DataScope 信号"
+        "API 5xx/异常信号"
       ],
       "priority": "P1",
       "severity": "HIGH",
-      "confidence": 0.9,
-      "suggestedFix": "对齐菜单码、角色权限和 DataScope，避免前端透传无权限入口。",
+      "confidence": 0.88,
+      "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
       "autoFixEligible": true,
       "recommendedAgents": [
-        "A2-Security-Regression-Gate",
         "A3-Backend-Critical-Path",
         "A1-CI-Runtime-Gate"
       ],
       "requiresHumanGate": true,
-      "ownerRecommendation": "A2-Security-Regression-Gate"
+      "ownerRecommendation": "A3-Backend-Critical-Path"
     },
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-23T01:16:57.185Z",
+      "approvedAt": "2026-07-22T09:26:28.713Z",
       "approvedBy": "admin",
       "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
       "forbiddenActions": [
@@ -1765,29 +1939,31 @@
         "force push"
       ]
     },
-    "failureClassificationUpdatedAt": "2026-07-23T01:16:57.185Z"
+    "failureClassificationUpdatedAt": "2026-07-22T09:26:28.713Z"
   },
   "repairResult": {
     "visibility": "HOLD",
     "headline": "修复暂未完成，当前处于 HOLD",
     "conclusion": "HOLD",
-    "adminSummary": "运营工作台右上角的待办、超时、高危告警目前只是展示，不能点击，要求可点击跳转到对应页面",
+    "adminSummary": "自动修复生命周期证据不完整，保持 HOLD：implementation evidence gate is not ready: selected Agent reported HOLD or FAIL",
     "sourceStatus": "HOLD",
     "readyForUat": false,
     "businessVerified": false,
-    "commitHash": "15f2e77a9af62c94acd79af9bad5f4a05782239c",
+    "commitHash": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
     "changedFiles": [
-      "apps/web/src/app/(admin)/home/home.module.css",
-      "apps/web/src/app/(admin)/home/page.tsx",
-      "apps/web/src/lib/home-navigation.test.ts",
-      "apps/web/src/lib/home-navigation.ts",
-      "docs/ops/BUGTASK-20260723-0001-a4-frontend-report.md"
+      "apps/api/src/modules/wms/wms.service.spec.ts",
+      "apps/api/src/modules/wms/wms.service.ts",
+      "docs/ops/BUGTASK-20260722-0003_A3_BACKEND_CRITICAL_PATH_REPORT.md",
+      "apps/web/src/__tests__/bug-20260722-0003-warehouse-handover.test.ts",
+      "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+      "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/warehouse-handover.module.css",
+      "docs/ops/BUGTASK-20260722-0003-frontend-repair.md"
     ],
     "validations": [
       {
         "key": "implementation",
         "label": "代码修复",
-        "status": "PASS"
+        "status": "HOLD"
       },
       {
         "key": "ci",
@@ -1797,12 +1973,12 @@
       {
         "key": "push",
         "label": "代码推送",
-        "status": "PENDING"
+        "status": "PASS"
       },
       {
         "key": "release",
         "label": "发布验证",
-        "status": "PENDING"
+        "status": "PASS"
       },
       {
         "key": "productionSmoke",
@@ -1810,7 +1986,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-23T03:46:49.412Z",
+    "completedAt": "2026-07-23T04:45:25.518Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"
