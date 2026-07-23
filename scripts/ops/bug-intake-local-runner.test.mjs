@@ -214,6 +214,11 @@ test('invalid terminal evidence recovery fails closed after one automatic attemp
   assert.equal(tasks[0].evidence_gate.role, 'evidence_integrity');
 });
 
+test('invalid terminal evidence recovery uses explicit redispatch persistence', () => {
+  const runnerSource = fs.readFileSync(path.join(TEST_DIR, 'bug-intake-local-runner.mjs'), 'utf8');
+  assert.match(runnerSource, /explicitRedispatch: requeued\.length > 0/);
+});
+
 test('runner reconciles passed evidence before considering generation redispatch', () => {
   const runnerSource = fs.readFileSync(path.join(TEST_DIR, 'bug-intake-local-runner.mjs'), 'utf8');
   const reconciliation = runnerSource.indexOf('const evidenceReconciliation = sync.status === 0');

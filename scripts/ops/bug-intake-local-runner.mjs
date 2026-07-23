@@ -683,6 +683,7 @@ function reconcileVerifiedWorkerEvidence(args) {
       eventsFile: 'docs/ops/agent-queue/events.jsonl',
       baseTasks: current,
       incomingTasks: tasks,
+      explicitRedispatch: requeued.length > 0,
       verifiedEvidenceRecovery: true,
     });
   }

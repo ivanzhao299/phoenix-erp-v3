@@ -24,6 +24,7 @@ test('terminal task states cannot regress without explicit redispatch', () => {
   assert.equal(canTransitionTaskStatus('COMPLETED_MERGED', 'HOLD'), false);
   assert.equal(canTransitionTaskStatus('VALIDATION_COMPLETED', 'pending'), false);
   assert.equal(canTransitionTaskStatus('COMPLETED_MERGED', 'pending', { explicitRedispatch: true }), true);
+  assert.equal(canTransitionTaskStatus('SKIPPED_NOT_APPLICABLE', 'pending', { explicitRedispatch: true }), true);
   assert.equal(canTransitionTaskStatus('running', 'COMPLETED_MERGED'), true);
   assert.equal(canTransitionTaskStatus('IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED'), true);
   assert.equal(canTransitionTaskStatus('HOLD', 'IMPLEMENTATION_COMPLETED'), false);
