@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-23T09:22:53.376Z |
-| Run files inspected | 2373 |
+| Generated at | 2026-07-23T11:47:52.527Z |
+| Run files inspected | 2375 |
 | Task count | 393 |
-| Findings count | 35 |
+| Findings count | 34 |
 | Highest severity | CRITICAL |
 | Routing findings | 8 |
-| Baseline findings | 6 |
+| Baseline findings | 5 |
 | Report schema findings | 4 |
 | Codex CLI executed | No |
 | Database written | No |
@@ -226,7 +226,7 @@
 ### OBS-0024 - MEDIUM - repeat-hold
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: Queue HOLD count is 4.
+- Evidence: Queue HOLD count is 7.
 - Suggested Fix: Cluster HOLD reasons and create one platform evolution task per repeated blocker.
 - Auto Fix Eligible: false
 - Requires Human Gate: true
@@ -235,7 +235,7 @@
 ### OBS-0025 - CRITICAL - runner-generation-drift
 
 - Affected Agent: BugIntakeLocalRunner
-- Evidence: 2 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
+- Evidence: 3 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
 - Suggested Fix: Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -279,15 +279,6 @@
 
 ### OBS-0030 - MEDIUM - baseline
 
-- Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260723-0007-A1-contract.md;  M docs/ops/runs/BUGTASK-20260723-0007-A3-contract.md;  M docs/ops/runs/BUGTASK-20260723-0007-A4-contract.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json
-- Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
-- Recommended Next Task: Baseline cleanup for Codex-Orchestrator.
-
-### OBS-0031 - MEDIUM - baseline
-
 - Affected Agent: A3-Backend-Critical-Path
 - Evidence: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path dirty status: ?? docs/ops/BUGTASK-20260706-0001_A3_BACKEND_REDISPATCH_REPORT.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
@@ -295,7 +286,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Baseline cleanup for A3-Backend-Critical-Path.
 
-### OBS-0032 - MEDIUM - baseline
+### OBS-0031 - MEDIUM - baseline
 
 - Affected Agent: A4-Frontend-UAT-Smoke
 - Evidence: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke dirty status: M docs/ops/BUG-20260706-0001-A4-FRONTEND-UAT-REPORT.md
@@ -304,7 +295,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Baseline cleanup for A4-Frontend-UAT-Smoke.
 
-### OBS-0033 - MEDIUM - baseline
+### OBS-0032 - MEDIUM - baseline
 
 - Affected Agent: A5-Data-Readiness
 - Evidence: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
@@ -313,7 +304,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Baseline cleanup for A5-Data-Readiness.
 
-### OBS-0034 - MEDIUM - baseline
+### OBS-0033 - MEDIUM - baseline
 
 - Affected Agent: A6-Staging-Deploy-Runbook
 - Evidence: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
@@ -322,7 +313,7 @@
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A6-Staging-Deploy-Runbook with baseline autopilot.
 
-### OBS-0035 - MEDIUM - baseline
+### OBS-0034 - MEDIUM - baseline
 
 - Affected Agent: A7-Final-QA-Gate
 - Evidence: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.

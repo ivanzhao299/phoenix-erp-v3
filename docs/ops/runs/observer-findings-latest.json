@@ -1,8 +1,8 @@
 {
   "summary": {
-    "generated_at": "2026-07-23T09:22:53.376Z",
+    "generated_at": "2026-07-23T11:47:52.527Z",
     "dry_run": true,
-    "run_files_inspected": 2373,
+    "run_files_inspected": 2375,
     "task_count": 393,
     "task_status_counts": {
       "archived": 214,
@@ -10,14 +10,13 @@
       "SKIPPED_NOT_APPLICABLE": 21,
       "VALIDATION_COMPLETED": 74,
       "COMPLETED_MERGED": 74,
-      "HOLD": 4,
-      "pending": 3
+      "HOLD": 7
     },
     "registered_agents": 8,
-    "findings_count": 35,
+    "findings_count": 34,
     "highest_severity": "CRITICAL",
     "routing_findings": 8,
-    "baseline_findings": 6,
+    "baseline_findings": 5,
     "report_schema_findings": 4,
     "codex_cli_executed": false,
     "database_written": false,
@@ -284,7 +283,7 @@
       "severity": "MEDIUM",
       "category": "repeat-hold",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "Queue HOLD count is 4.",
+      "evidence": "Queue HOLD count is 7.",
       "suggested_fix": "Cluster HOLD reasons and create one platform evolution task per repeated blocker.",
       "auto_fix_eligible": false,
       "requires_human_gate": true,
@@ -295,7 +294,7 @@
       "severity": "CRITICAL",
       "category": "runner-generation-drift",
       "affected_agent": "BugIntakeLocalRunner",
-      "evidence": "2 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.",
+      "evidence": "3 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.",
       "suggested_fix": "Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -349,17 +348,6 @@
       "id": "OBS-0030",
       "severity": "MEDIUM",
       "category": "baseline",
-      "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260723-0007-A1-contract.md;  M docs/ops/runs/BUGTASK-20260723-0007-A3-contract.md;  M docs/ops/runs/BUGTASK-20260723-0007-A4-contract.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json",
-      "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Baseline cleanup for Codex-Orchestrator."
-    },
-    {
-      "id": "OBS-0031",
-      "severity": "MEDIUM",
-      "category": "baseline",
       "affected_agent": "A3-Backend-Critical-Path",
       "evidence": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path dirty status: ?? docs/ops/BUGTASK-20260706-0001_A3_BACKEND_REDISPATCH_REPORT.md",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
@@ -368,7 +356,7 @@
       "recommended_next_task": "Baseline cleanup for A3-Backend-Critical-Path."
     },
     {
-      "id": "OBS-0032",
+      "id": "OBS-0031",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A4-Frontend-UAT-Smoke",
@@ -379,7 +367,7 @@
       "recommended_next_task": "Baseline cleanup for A4-Frontend-UAT-Smoke."
     },
     {
-      "id": "OBS-0033",
+      "id": "OBS-0032",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A5-Data-Readiness",
@@ -390,7 +378,7 @@
       "recommended_next_task": "Baseline cleanup for A5-Data-Readiness."
     },
     {
-      "id": "OBS-0034",
+      "id": "OBS-0033",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A6-Staging-Deploy-Runbook",
@@ -401,7 +389,7 @@
       "recommended_next_task": "Rebase A6-Staging-Deploy-Runbook with baseline autopilot."
     },
     {
-      "id": "OBS-0035",
+      "id": "OBS-0034",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A7-Final-QA-Gate",
@@ -553,7 +541,7 @@
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 5
+      "occurrence": 4
     },
     {
       "pattern_id": "PATTERN-PHX-002",
@@ -567,7 +555,7 @@
     },
     {
       "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
-      "occurrence": 5
+      "occurrence": 4
     },
     {
       "improvement_id": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
@@ -581,7 +569,7 @@
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 5
+      "occurrence": 4
     },
     {
       "pattern_id": "PATTERN-PHX-002",

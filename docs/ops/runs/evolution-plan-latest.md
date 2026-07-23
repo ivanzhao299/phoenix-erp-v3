@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-23T09:22:53.477Z |
+| Generated at | 2026-07-23T11:47:52.639Z |
 | Repeated patterns | 8 |
 | Existing backlog | 6 |
 | Candidates | 6 |
