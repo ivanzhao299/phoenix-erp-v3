@@ -67,6 +67,11 @@ The administrator-facing Bug Intake workflow appeared stuck even though several 
 - A task archived specifically because the remote report was `NOT_READY` is reactivated after administrator approval, without requiring an artificial generation increment.
 - Route-refinement and other intentional archives remain immutable.
 - Explicit HOLD/FAIL conclusions are evaluated before idempotent "already fixed/not applicable" wording.
+- A terminal success status without a passed evidence gate is now an invalid
+  state. The runner automatically requeues it once for clean verification and
+  then fails closed to HOLD instead of silently publishing success.
+- A4 must emit exactly one canonical conclusion. Mixed conclusions such as
+  `NOT APPLICABLE / HOLD` are forbidden and cannot satisfy release evidence.
 
 ### 4.3 Queue And Release Safety
 
@@ -142,6 +147,8 @@ The administrator-facing Bug Intake workflow appeared stuck even though several 
 - A technical Agent result does not equal business acceptance.
 - Reports awaiting business verification remain visible to administrators.
 - A failed real release may write HOLD; an idle or no-push cycle may not.
+- `SKIPPED_NOT_APPLICABLE` without a passed evidence gate may not unlock a
+  dependency or reach lifecycle writeback.
 
 ## 8. Business Closure Boundary
 

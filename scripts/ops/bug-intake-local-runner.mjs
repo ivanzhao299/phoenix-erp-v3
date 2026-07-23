@@ -637,10 +637,46 @@ export function restoreVerifiedTerminalEvidence(tasks, now = new Date()) {
   return restored;
 }
 
+export function requeueInvalidTerminalEvidence(tasks, now = new Date()) {
+  const requeued = [];
+  for (const task of tasks || []) {
+    if (!SUCCESS_STATUSES.has(task.status) || task.evidence_gate?.passed === true) continue;
+    const recoveryCount = Number(task.invalid_terminal_recovery_count || 0);
+    if (recoveryCount >= 1) {
+      task.status = 'HOLD';
+      task.reason = 'terminal success state has no passed evidence after automatic recovery; manual evidence review required';
+      task.completed_at = now.toISOString();
+      task.evidence_gate = {
+        version: 1,
+        agent: task.agent,
+        passed: false,
+        role: 'evidence_integrity',
+        terminalStatus: 'HOLD',
+        reason: task.reason,
+        checkedAt: now.toISOString(),
+      };
+      continue;
+    }
+    const previousStatus = task.status;
+    task.status = 'pending';
+    task.reason = `invalid terminal state ${previousStatus} had no passed evidence; automatically requeued for one clean verification`;
+    task.claimed_by = null;
+    task.claimed_at = null;
+    task.completed_at = null;
+    task.result_file = null;
+    task.evidence_gate = null;
+    task.invalid_terminal_recovery_count = recoveryCount + 1;
+    task.invalid_terminal_recovered_at = now.toISOString();
+    requeued.push({ task_id: task.task_id, previous_status: previousStatus, status: 'pending' });
+  }
+  return requeued;
+}
+
 function reconcileVerifiedWorkerEvidence(args) {
   const tasks = readQueueTasks(TASKS_FILE);
   const restored = restoreVerifiedTerminalEvidence(tasks);
-  if (restored.length > 0 && !args.dryRun) {
+  const requeued = requeueInvalidTerminalEvidence(tasks);
+  if ((restored.length > 0 || requeued.length > 0) && !args.dryRun) {
     const current = readQueueTasks(TASKS_FILE);
     persistTaskSnapshot({
       tasksFile: TASKS_FILE,
@@ -650,7 +686,11 @@ function reconcileVerifiedWorkerEvidence(args) {
       verifiedEvidenceRecovery: true,
     });
   }
-  return { restored, wrote_queue: restored.length > 0 && !args.dryRun };
+  return {
+    restored,
+    requeued,
+    wrote_queue: (restored.length > 0 || requeued.length > 0) && !args.dryRun,
+  };
 }
 
 function integrateReconciledImplementations(args, reconciliation) {

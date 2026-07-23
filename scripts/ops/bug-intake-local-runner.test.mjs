@@ -12,6 +12,7 @@ import {
   resultDeliveryId,
   runnerLifecycleWritebackDecision,
   restoreVerifiedTerminalEvidence,
+  requeueInvalidTerminalEvidence,
   selectRunnableBugTasks,
   selectAutomaticRedispatchCandidates,
   selectReleaseReadyBacklog,
@@ -177,6 +178,40 @@ test('passed validation evidence restores a late A1 HOLD without implementation 
     status: 'VALIDATION_COMPLETED',
   }]);
   assert.equal(tasks[0].status, 'VALIDATION_COMPLETED');
+});
+
+test('terminal success without passed evidence is automatically requeued once', () => {
+  const tasks = [{
+    task_id: 'BUGTASK-INVALID-A4',
+    agent: 'A4-Frontend-UAT-Smoke',
+    status: 'SKIPPED_NOT_APPLICABLE',
+    evidence_gate: null,
+    result_file: 'docs/ops/runs/stale.md',
+    completed_at: '2026-07-22T00:00:00.000Z',
+  }];
+  assert.deepEqual(requeueInvalidTerminalEvidence(tasks, new Date('2026-07-23T00:00:00Z')), [{
+    task_id: 'BUGTASK-INVALID-A4',
+    previous_status: 'SKIPPED_NOT_APPLICABLE',
+    status: 'pending',
+  }]);
+  assert.equal(tasks[0].status, 'pending');
+  assert.equal(tasks[0].evidence_gate, null);
+  assert.equal(tasks[0].result_file, null);
+  assert.equal(tasks[0].invalid_terminal_recovery_count, 1);
+});
+
+test('invalid terminal evidence recovery fails closed after one automatic attempt', () => {
+  const tasks = [{
+    task_id: 'BUGTASK-INVALID-REPEAT-A4',
+    agent: 'A4-Frontend-UAT-Smoke',
+    status: 'SKIPPED_NOT_APPLICABLE',
+    evidence_gate: null,
+    invalid_terminal_recovery_count: 1,
+  }];
+  assert.deepEqual(requeueInvalidTerminalEvidence(tasks, new Date('2026-07-23T00:00:00Z')), []);
+  assert.equal(tasks[0].status, 'HOLD');
+  assert.equal(tasks[0].evidence_gate.passed, false);
+  assert.equal(tasks[0].evidence_gate.role, 'evidence_integrity');
 });
 
 test('runner reconciles passed evidence before considering generation redispatch', () => {
