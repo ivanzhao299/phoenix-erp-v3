@@ -10,6 +10,7 @@ import {
   requeueExpiredCapacityWaits,
   requeueSatisfiedDependencyHolds,
   resultDeliveryId,
+  runnerLifecycleWritebackDecision,
   restoreVerifiedTerminalEvidence,
   selectRunnableBugTasks,
   selectAutomaticRedispatchCandidates,
@@ -75,6 +76,27 @@ test('successful legacy result backfill bootstraps durable delivery receipts', (
   assert.equal(receipts['delivered-1'].bootstrapped, true);
   assert.equal(receipts['failed-1'], undefined);
   fs.rmSync(outputDir, { recursive: true, force: true });
+});
+
+test('idle or release-disabled cycles never downgrade Agent execution to HOLD', () => {
+  assert.deepEqual(
+    runnerLifecycleWritebackDecision({ dryRun: false, pushAfterSuccess: false }, { push: { skipped: true } }),
+    { run: false, reason: 'automatic release is disabled; preserve Agent execution state' },
+  );
+  assert.deepEqual(
+    runnerLifecycleWritebackDecision(
+      { dryRun: false, pushAfterSuccess: true },
+      { push: { skipped: true, reason: 'no unpushed commits' } },
+    ),
+    { run: false, reason: 'no release attempt occurred: no unpushed commits' },
+  );
+  assert.deepEqual(
+    runnerLifecycleWritebackDecision(
+      { dryRun: false, pushAfterSuccess: true },
+      { push: { skipped: false, status: 0 } },
+    ),
+    { run: true, reason: 'release attempt completed' },
+  );
 });
 
 test('inbox detail fetch keeps bounded concurrency and result order', async () => {

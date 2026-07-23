@@ -1507,8 +1507,20 @@ async function postAgentResult(args, childEnv, bugNo, payload) {
   return { skipped: false, outboxId: id, ...delivery };
 }
 
+export function runnerLifecycleWritebackDecision(args, summary) {
+  if (args.dryRun) return { run: false, reason: 'dry-run' };
+  if (!args.pushAfterSuccess) {
+    return { run: false, reason: 'automatic release is disabled; preserve Agent execution state' };
+  }
+  if (summary.push?.skipped) {
+    return { run: false, reason: `no release attempt occurred: ${summary.push.reason || 'push skipped'}` };
+  }
+  return { run: true, reason: 'release attempt completed' };
+}
+
 async function writebackRunnerLifecycle(args, childEnv, summary) {
-  if (args.dryRun) return { skipped: true, reason: 'dry-run' };
+  const decision = runnerLifecycleWritebackDecision(args, summary);
+  if (!decision.run) return { skipped: true, reason: decision.reason };
   const pushOk = !summary.push?.skipped && summary.push?.status === 0;
   const ciOk = !summary.ci?.skipped && summary.ci?.ok === true;
   const smokeOk = !summary.productionSmoke?.skipped && summary.productionSmoke?.status === 0;
@@ -1529,7 +1541,7 @@ async function writebackRunnerLifecycle(args, childEnv, summary) {
     }
     const conclusion = releaseOk && pushOk && ciOk && smokeOk ? 'PASS_WITH_CONDITIONS' : 'HOLD';
     const payload = {
-      taskId: `LOCAL-RUNNER-${candidate.bugNo}-${summary.generatedAt.replace(/[-:.TZ]/g, '').slice(0, 14)}`,
+      taskId: `LOCAL-RUNNER-${candidate.bugNo}-${String(summary.headSha || 'release').slice(0, 12)}`,
       agent: 'BugIntakeLocalRunner',
       conclusion,
       resultFile: `${args.outputDir}/latest-summary.md`,
