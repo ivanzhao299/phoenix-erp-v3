@@ -878,6 +878,24 @@ function recoverDetachedWorkerResult(task, args, worker, childWait = null) {
   if (!task?.worktree || !task?.branch || !task?.agent) return { recovered: false, reason: 'task missing worktree/branch/agent' };
   if (!existsSync(task.worktree)) return { recovered: false, reason: `worktree does not exist: ${task.worktree}` };
 
+  const latestTask = findTask(task.task_id);
+  const lateEvidence = latestTask ? restoreVerifiedTerminalEvidence([latestTask]) : [];
+  if (lateEvidence.length > 0) {
+    const restoredTask = patchTask(task.task_id, {
+      status: lateEvidence[0].status,
+      reason: 'late terminal worker evidence accepted before detached-worker HOLD',
+      evidence_reconciled_at: latestTask.evidence_reconciled_at,
+      completed_at: latestTask.completed_at,
+    }, { verifiedEvidenceRecovery: true });
+    return {
+      recovered: true,
+      reason: 'late terminal worker evidence accepted',
+      result: { status: 0, stdout: '', stderr: '', skipped: true },
+      reportFile: restoredTask?.result_file || null,
+      task: restoredTask || latestTask,
+    };
+  }
+
   const before = gitStatusShort(task.worktree);
   const reportFile = detachedRecoveryReportFile(task);
   const conclusion = 'HOLD';

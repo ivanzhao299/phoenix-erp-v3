@@ -94,6 +94,25 @@ test('passed worker evidence restores a transient detached HOLD without rerunnin
   assert.equal(tasks[0].evidence_reconciled_at, '2026-07-23T00:00:00.000Z');
 });
 
+test('passed validation evidence restores a late A1 HOLD without implementation commit', () => {
+  const tasks = [{
+    task_id: 'BUGTASK-LATE-A1',
+    agent: 'A1-CI-Runtime-Gate',
+    status: 'HOLD',
+    implementation_commit: '',
+    evidence_gate: {
+      passed: true,
+      role: 'validation',
+      terminalStatus: 'VALIDATION_COMPLETED',
+    },
+  }];
+  assert.deepEqual(restoreVerifiedTerminalEvidence(tasks, new Date('2026-07-23T00:00:00Z')), [{
+    task_id: 'BUGTASK-LATE-A1',
+    status: 'VALIDATION_COMPLETED',
+  }]);
+  assert.equal(tasks[0].status, 'VALIDATION_COMPLETED');
+});
+
 test('runner reconciles passed evidence before considering generation redispatch', () => {
   const runnerSource = fs.readFileSync(path.join(TEST_DIR, 'bug-intake-local-runner.mjs'), 'utf8');
   const reconciliation = runnerSource.indexOf('const evidenceReconciliation = sync.status === 0');
