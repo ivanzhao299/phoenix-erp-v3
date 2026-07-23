@@ -437,6 +437,18 @@ test('already-fixed implementation ownership is accepted without redundant code 
   assert.equal(evidence.role, 'implementation_verified_existing');
 });
 
+test('implementation HOLD cannot be downgraded to not-applicable by already-fixed wording', () => {
+  const evidence = evaluateWorkerEvidence({
+    task: { task_id: 'BUGTASK-X-A4', source_bug_no: 'BUG-X', agent: 'A4-Frontend-UAT-Smoke' },
+    exitCode: 0,
+    stdout: 'Run log: x\nHOLD / NOT APPLICABLE. The frontend fix is already present on this branch.',
+    beforeHead: 'a', afterHead: 'a', changedFiles: [],
+  });
+  assert.equal(evidence.passed, false);
+  assert.equal(evidence.terminalStatus, 'HOLD');
+  assert.equal(evidence.role, 'implementation');
+});
+
 test('existing-fix wording variants remain idempotent', () => {
   for (const response of [
     'PASS WITH CONDITIONS. The branch already contains the backend fix in abc123. Tests PASS.',

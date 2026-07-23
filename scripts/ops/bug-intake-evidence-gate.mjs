@@ -176,6 +176,9 @@ export function evaluateWorkerEvidence(input = {}) {
     if (!response) {
       return { ...base, passed: false, role: 'implementation', terminalStatus: 'HOLD', reason: 'Codex exited 0 but produced no Agent result' };
     }
+    if (['HOLD', 'FAIL'].includes(conclusion)) {
+      return { ...base, passed: false, role: 'implementation', terminalStatus: 'HOLD', reason: `Agent conclusion is ${conclusion}` };
+    }
     if (businessChangedFiles.length === 0 && isNotApplicable(response)) {
       return {
         ...base,
@@ -184,9 +187,6 @@ export function evaluateWorkerEvidence(input = {}) {
         terminalStatus: 'SKIPPED_NOT_APPLICABLE',
         reason: 'Agent verified an already-integrated implementation in its ownership boundary without redundant code churn',
       };
-    }
-    if (['HOLD', 'FAIL'].includes(conclusion)) {
-      return { ...base, passed: false, role: 'implementation', terminalStatus: 'HOLD', reason: `Agent conclusion is ${conclusion}` };
     }
     if (businessChangedFiles.length > 0 && commitHash && reportFiles.length > 0 && conclusion) {
       return { ...base, passed: true, role: 'implementation', terminalStatus: 'IMPLEMENTATION_COMPLETED', reason: 'Business change, task report, commit, and conclusion are present' };

@@ -13,6 +13,20 @@ export interface PrintLogRow {
   printed_at: string;
 }
 
+export interface WarehouseHandoverResult {
+  code: string;
+  inventory?: unknown;
+  inventoryOk: boolean;
+  message?: string;
+}
+
+export function assertWarehouseHandoverCommitted(result: WarehouseHandoverResult): WarehouseHandoverResult {
+  if (result?.inventoryOk !== true) {
+    throw new Error(result?.message || '包装交接已记录，但库存尚未生成，请联系管理员处理。');
+  }
+  return result;
+}
+
 /** 读 token：优先 sessionStorage，fallback localStorage（与 api-client.ts 保持一致） */
 function tok(): string {
   if (typeof window === 'undefined') return '';
@@ -166,7 +180,7 @@ export const packagingApi = {
 
   // ── 入库交接 ──────────────────────────────────────────────────────────────────
   confirmHandover: (body: Record<string, unknown>) =>
-    request<{ code: string }>('POST', '/api/packaging/terminal/warehouse/confirm', body),
+    request<WarehouseHandoverResult>('POST', '/api/packaging/terminal/warehouse/confirm', body),
 
   // ── 数据字典 ──────────────────────────────────────────────────────────────────
   /**

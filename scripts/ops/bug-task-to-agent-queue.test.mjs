@@ -70,3 +70,55 @@ test('new redispatch generation preserves verified successful evidence', () => {
   assert.equal(result.task.evidence_gate.commitHash, 'abc1234');
   assert.deepEqual(result.task.dependencies, ['BUGTASK-1-A5']);
 });
+
+test('approved task is reactivated after remote NOT_READY archival without generation drift', () => {
+  const previous = {
+    ...sharedTask,
+    status: 'archived',
+    route_active: false,
+    completed_at: '2026-07-22T09:26:45.514Z',
+    route_superseded_reason: 'remote bug is not executable: NOT_READY',
+  };
+
+  const result = mergeExistingQueueTask(previous, {
+    ...sharedTask,
+    route_active: true,
+  });
+
+  assert.equal(result.action, 'requeued');
+  assert.equal(result.task.status, 'pending');
+  assert.equal(result.task.route_active, true);
+  assert.equal(result.task.completed_at, null);
+  assert.equal(result.task.route_superseded_reason, null);
+  assert.match(result.task.reactivation_reason, /became executable/);
+});
+
+test('route-refinement archive remains immutable without explicit redispatch', () => {
+  const previous = {
+    ...sharedTask,
+    status: 'archived',
+    route_active: false,
+    route_superseded_reason: 'Agent removed by evidence-based bug-intake route refinement',
+  };
+
+  const result = mergeExistingQueueTask(previous, sharedTask);
+
+  assert.equal(result.action, 'skipped_terminal');
+  assert.deepEqual(result.task, previous);
+});
+
+test('interrupted approved reactivation is idempotently completed on the next sync', () => {
+  const previous = {
+    ...sharedTask,
+    status: 'archived',
+    route_active: true,
+    route_superseded_reason: null,
+    reactivation_reason: 'remote repair task became executable after NOT_READY archival',
+  };
+
+  const result = mergeExistingQueueTask(previous, sharedTask);
+
+  assert.equal(result.action, 'requeued');
+  assert.equal(result.task.status, 'pending');
+  assert.equal(result.task.route_active, true);
+});

@@ -357,6 +357,13 @@ export function mergeExistingQueueTask(previous, task, { redispatchRequested = f
   const previousRedispatchCount = Number(previous.redispatch_count || 0);
   const nextRedispatchCount = Number(task.redispatch_count || 0);
   const newerRedispatch = redispatchRequested && nextRedispatchCount > previousRedispatchCount;
+  const remoteNotReadyArchive = previous.route_active === false
+    && String(previous.route_superseded_reason || '').startsWith('remote bug is not executable:');
+  const interruptedApprovedReactivation = String(previous.reactivation_reason || '')
+    === 'remote repair task became executable after NOT_READY archival';
+  const approvedAfterRemoteNotReady = String(previous.status || '').toLowerCase() === 'archived'
+    && (remoteNotReadyArchive || interruptedApprovedReactivation)
+    && task.route_active !== false;
 
   if (newerRedispatch && previous.evidence_gate?.passed === true && [
     'completed',
@@ -385,7 +392,7 @@ export function mergeExistingQueueTask(previous, task, { redispatchRequested = f
     };
   }
 
-  if (!newerRedispatch) {
+  if (!newerRedispatch && !approvedAfterRemoteNotReady) {
     if (TERMINAL_TASK_STATUSES.has(String(previous.status || '').toLowerCase())) {
       // Terminal evidence is immutable within one dispatch generation. In
       // particular, keep quarantined worktree/branch pointers instead of
@@ -422,6 +429,7 @@ export function mergeExistingQueueTask(previous, task, { redispatchRequested = f
       completed_at: null,
       result_file: null,
       reason: null,
+      route_superseded_reason: null,
       evidence_gate: null,
       implementation_commit: '',
       integrated_commit: '',
@@ -438,8 +446,14 @@ export function mergeExistingQueueTask(previous, task, { redispatchRequested = f
           previous_result_file: previous.result_file || null,
           source_bug_no: task.source_bug_no,
           source_repair_task_no: task.source_repair_task_no,
+          reason: approvedAfterRemoteNotReady
+            ? 'remote repair task became executable after NOT_READY archival'
+            : 'explicit redispatch generation',
         },
       ].slice(-20),
+      reactivation_reason: approvedAfterRemoteNotReady
+        ? 'remote repair task became executable after NOT_READY archival'
+        : null,
     },
   };
 }
@@ -490,6 +504,7 @@ function main() {
     const existingIndex = new Map(queue.map((task, index) => [task.task_id, index]));
     const incoming = [];
     const requeued = [];
+    const approvedReactivations = [];
     const skippedExisting = [];
     const approval = getApproval(payload);
     const redispatchRequested = approval?.redispatch === true;
@@ -524,16 +539,18 @@ function main() {
         continue;
       }
       requeued.push(queue[index]);
+      if (merged.task.reactivation_reason) approvedReactivations.push(queue[index]);
     }
     persistTaskSnapshot({
       tasksFile: resolveFile(QUEUE_FILE),
       eventsFile: resolveFile(EVENTS_FILE),
       baseTasks: baseQueue,
       incomingTasks: queue,
-      explicitRedispatch: redispatchRequested,
+      explicitRedispatch: redispatchRequested || approvedReactivations.length > 0,
     });
     summary.added_tasks = incoming.map((task) => task.task_id);
     summary.requeued_tasks = requeued.map((task) => task.task_id);
+    summary.approved_reactivations = approvedReactivations.map((task) => task.task_id);
     summary.skipped_existing_tasks = skippedExisting.map((task) => task.task_id);
     summary.superseded_tasks = superseded;
   }

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { usePackagingDicts, getDictLabel, buildGradeMap } from '@/hooks/usePackagingDicts';
-import { packagingApi } from '@/lib/packaging-api';
+import { assertWarehouseHandoverCommitted, packagingApi } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
 export default function WarehouseHandoverPage() {
   const router = useRouter();
@@ -66,8 +66,9 @@ export default function WarehouseHandoverPage() {
   const canSubmit = allScanned && receiver && location;
   const handleSubmit = async () => {
     setSubmitting(true);
+    setError('');
     try {
-      await packagingApi.confirmHandover({
+      const result = await packagingApi.confirmHandover({
         shiftId: ctx.currentShift?.id,
         packingCode: ctx.packingCode,
         boxes: scanned,
@@ -76,12 +77,17 @@ export default function WarehouseHandoverPage() {
         receiver,
         productionDate: new Date().toISOString().slice(0, 10)
       });
-    } catch (e) {
+      assertWarehouseHandoverCommitted(result);
+      setDone(true);
+      setTimeout(() => router.push('/terminal/packaging/shift-close'), 2000);
+    } catch (e: unknown) {
       console.error('入库确认失败', e);
+      setError(e instanceof Error
+        ? e.message
+        : t('ui.入库确认失败', '入库确认失败'));
+    } finally {
+      setSubmitting(false);
     }
-    setDone(true);
-    setTimeout(() => router.push('/terminal/packaging/shift-close'), 2000);
-    setSubmitting(false);
   };
   if (pendingBoxes.length === 0) return <div style={{
     height: '100%',
