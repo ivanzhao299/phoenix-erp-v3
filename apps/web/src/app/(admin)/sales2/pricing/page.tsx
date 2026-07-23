@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ModalV2 } from "@/components/design-system";
 import s from "@/components/ui/admin-ui.module.css";
 import { inputField } from "@/components/design-system/cockpit-styles"; // G94 全局输入框唯一真相源
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -109,6 +110,19 @@ interface MasterData {
   specs: SpecItem[];
   skus: SkuItem[];
   loading: boolean;
+}
+
+interface ApprovalCandidate {
+  userId: string;
+  displayName: string;
+  roleNameZh?: string;
+}
+
+interface PriceBookApprovalTarget {
+  id: string;
+  price_book_name?: string;
+  price_book_no?: string;
+  company_code?: string;
 }
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
@@ -236,6 +250,13 @@ function PriceBooksTab() {
   const [confirmDanger, setConfirmDanger] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmFn, setConfirmFn] = useState<() => Promise<void>>(() => async () => {});
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitTarget, setSubmitTarget] = useState<PriceBookApprovalTarget | null>(null);
+  const [submitComment, setSubmitComment] = useState("");
+  const [submitCandidates, setSubmitCandidates] = useState<ApprovalCandidate[]>([]);
+  const [submitApproverId, setSubmitApproverId] = useState("");
+  const [submitCandidateLoading, setSubmitCandidateLoading] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
@@ -301,6 +322,49 @@ function PriceBooksTab() {
         setErrorMsg(e.message);
       }
     });
+  };
+  const openSubmit = async (row: PriceBookApprovalTarget) => {
+    setSubmitTarget(row);
+    setSubmitComment("");
+    setSubmitApproverId("");
+    setSubmitCandidates([]);
+    setSubmitOpen(true);
+    setSubmitCandidateLoading(true);
+    try {
+      const params = new URLSearchParams({
+        menuCode: "MENU_SALES2_PRICE",
+        requiredPerm: "E"
+      });
+      if (row.company_code) params.set("companyCode", row.company_code);
+      const candidates: unknown = await apiFetch(`/api/approval/eligible-approvers?${params}`);
+      const list = Array.isArray(candidates) ? candidates as ApprovalCandidate[] : [];
+      setSubmitCandidates(list);
+      if (list[0]?.userId) setSubmitApproverId(list[0].userId);
+    } catch {
+      setSubmitCandidates([]);
+    } finally {
+      setSubmitCandidateLoading(false);
+    }
+  };
+  const handleSubmit = async (approverUserId?: string) => {
+    if (!submitTarget) return;
+    setSubmitLoading(true);
+    setErrorMsg("");
+    try {
+      await apiFetch(`${API}/books/${submitTarget.id}/submit`, {
+        method: "POST",
+        body: JSON.stringify({
+          comment: submitComment.trim() || undefined,
+          approverUserId: approverUserId || undefined
+        })
+      });
+      setSubmitOpen(false);
+      await load();
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : t('ui.提交失败','提交失败'));
+    } finally {
+      setSubmitLoading(false);
+    }
   };
   const deleteBook = async (row: any) => {
     const name = row.price_book_name ?? row.price_book_no ?? row.id;
@@ -524,7 +588,7 @@ function PriceBooksTab() {
                       padding: "2px 8px",
                       fontSize: 11
                     }}>{t('ui.编辑','编辑')}</button>}
-                          {pricePerm.canApprove && <button type="button" className={s.btnSecondary} onClick={() => doAction(row.id, "submit", t('ui.提交审批','提交审批'))} style={{
+                          {pricePerm.canApprove && <button type="button" className={s.btnSecondary} onClick={() => openSubmit(row)} style={{
                       padding: "2px 8px",
                       fontSize: 11
                     }}>{t('ui.提交审批','提交审批')}</button>}
@@ -603,6 +667,44 @@ function PriceBooksTab() {
         remark: editing.remark
       } : {}} onSubmit={handleSave} onCancel={() => setDrawerOpen(false)} loading={saving} />
       </RightDrawer>
+
+      <ModalV2 open={submitOpen} onClose={() => setSubmitOpen(false)} title={t('ui.提交审批 · 选择下一审批人','提交审批 · 选择下一审批人')}>
+        <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 12 }}>
+          <div>{t('ui.价格册：','价格册：')}<strong style={{ color: "var(--text-primary)" }}>{submitTarget?.price_book_name ?? submitTarget?.price_book_no}</strong></div>
+          <div>{t('ui.候选人已按价格管理权限和公司数据域过滤。','候选人已按价格管理权限和公司数据域过滤。')}</div>
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>{t('ui.下一审批人','下一审批人')}</label>
+          {submitCandidateLoading ? <div className={u.emptyCenter}>{t('ui.正在加载可审批人员…','正在加载可审批人员…')}</div>
+            : submitCandidates.length === 0 ? <div style={{ padding: 18, textAlign: "center", color: "var(--status-warning)", fontSize: 13, lineHeight: 1.7 }}>
+                {t('ui.未找到可指定审批人，可按审批规则提交；若规则未配置，系统将阻止提交。','未找到可指定审批人，可按审批规则提交；若规则未配置，系统将阻止提交。')}
+              </div>
+            : <div style={{ display: "grid", gap: 8, maxHeight: 280, overflowY: "auto" }}>
+                {submitCandidates.map(candidate => <button key={candidate.userId} type="button" onClick={() => setSubmitApproverId(candidate.userId)} style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px",
+                  borderRadius: "var(--radius-md)",
+                  border: `1px solid ${submitApproverId === candidate.userId ? "var(--color-primary)" : "var(--border)"}`,
+                  background: submitApproverId === candidate.userId ? "color-mix(in srgb, var(--color-primary) 10%, transparent)" : "var(--bg-card)",
+                  color: "var(--text-primary)", cursor: "pointer", textAlign: "left"
+                }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 8, background: submitApproverId === candidate.userId ? "var(--color-primary)" : "var(--border)", flexShrink: 0 }} />
+                  <span style={{ fontWeight: 700 }}>{candidate.displayName}</span>
+                  {candidate.roleNameZh && <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-secondary)" }}>{candidate.roleNameZh}</span>}
+                </button>)}
+              </div>}
+        </div>
+        <div className={s.field} style={{ marginTop: 12 }}>
+          <label className={s.lbl}>{t('ui.提交说明','提交说明')}</label>
+          <textarea className={s.textarea} rows={3} value={submitComment} onChange={e => setSubmitComment(e.target.value)} placeholder={t('ui.可填写定价背景或审批说明','可填写定价背景或审批说明')} />
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14, flexWrap: "wrap" }}>
+          <button type="button" className={s.btnSecondary} disabled={submitLoading} onClick={() => setSubmitOpen(false)}>{t('common.cancel','取消')}</button>
+          <button type="button" className={s.btnSecondary} disabled={submitLoading} onClick={() => handleSubmit(undefined)}>{t('ui.按审批规则提交','按审批规则提交')}</button>
+          <button type="button" className={s.btnPrimary} disabled={submitLoading || !submitApproverId} onClick={() => handleSubmit(submitApproverId)}>
+            {submitLoading ? t('ui.提交中…','提交中…') : t('ui.提交给所选审批人','提交给所选审批人')}
+          </button>
+        </div>
+      </ModalV2>
 
       <ConfirmDialog open={confirmOpen} title={t('ui.确认操作','确认操作')} message={confirmMsg} onConfirm={async () => {
       setConfirmLoading(true);
