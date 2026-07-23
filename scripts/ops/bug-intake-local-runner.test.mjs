@@ -214,6 +214,20 @@ test('invalid terminal evidence recovery fails closed after one automatic attemp
   assert.equal(tasks[0].evidence_gate.role, 'evidence_integrity');
 });
 
+test('interrupted invalid-evidence redispatch is persisted without consuming another retry', () => {
+  const tasks = [{
+    task_id: 'BUGTASK-INTERRUPTED-A4',
+    agent: 'A4-Frontend-UAT-Smoke',
+    status: 'SKIPPED_NOT_APPLICABLE',
+    evidence_gate: null,
+    invalid_terminal_recovery_count: 1,
+    reason: 'invalid terminal state SKIPPED_NOT_APPLICABLE had no passed evidence; automatically requeued for one clean verification',
+  }];
+  assert.equal(requeueInvalidTerminalEvidence(tasks).length, 1);
+  assert.equal(tasks[0].status, 'pending');
+  assert.equal(tasks[0].invalid_terminal_recovery_count, 1);
+});
+
 test('invalid terminal evidence recovery uses explicit redispatch persistence', () => {
   const runnerSource = fs.readFileSync(path.join(TEST_DIR, 'bug-intake-local-runner.mjs'), 'utf8');
   assert.match(runnerSource, /explicitRedispatch: requeued\.length > 0/);

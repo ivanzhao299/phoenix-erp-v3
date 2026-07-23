@@ -642,7 +642,9 @@ export function requeueInvalidTerminalEvidence(tasks, now = new Date()) {
   for (const task of tasks || []) {
     if (!SUCCESS_STATUSES.has(task.status) || task.evidence_gate?.passed === true) continue;
     const recoveryCount = Number(task.invalid_terminal_recovery_count || 0);
-    if (recoveryCount >= 1) {
+    const interruptedPersistenceRecovery = recoveryCount === 1
+      && /^invalid terminal state .* had no passed evidence; automatically requeued/i.test(String(task.reason || ''));
+    if (recoveryCount >= 1 && !interruptedPersistenceRecovery) {
       task.status = 'HOLD';
       task.reason = 'terminal success state has no passed evidence after automatic recovery; manual evidence review required';
       task.completed_at = now.toISOString();
@@ -665,7 +667,7 @@ export function requeueInvalidTerminalEvidence(tasks, now = new Date()) {
     task.completed_at = null;
     task.result_file = null;
     task.evidence_gate = null;
-    task.invalid_terminal_recovery_count = recoveryCount + 1;
+    task.invalid_terminal_recovery_count = interruptedPersistenceRecovery ? recoveryCount : recoveryCount + 1;
     task.invalid_terminal_recovered_at = now.toISOString();
     requeued.push({ task_id: task.task_id, previous_status: previousStatus, status: 'pending' });
   }
