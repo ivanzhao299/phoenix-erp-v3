@@ -159,6 +159,14 @@ function requireEnv(name) {
   return value;
 }
 
+class ChanjetApiError extends Error {
+  constructor(message, providerCode = '') {
+    super(message);
+    this.name = 'ChanjetApiError';
+    this.providerCode = providerCode;
+  }
+}
+
 async function providerCall(path, { method = 'GET', query, body, token, includeMeta = false }) {
   let url = `https://openapi.chanjet.com${path}`;
   if (query && Object.keys(query).length) url += `?${new URLSearchParams(query)}`;
@@ -175,7 +183,10 @@ async function providerCall(path, { method = 'GET', query, body, token, includeM
   const payload = await response.json().catch(() => ({}));
   const failure = businessFailure(payload);
   if (!response.ok || failure) {
-    throw new Error(`Chanjet API failed path=${path} http=${response.status} code=${failure?.code || '-'} message=${failure?.message || response.statusText}`);
+    throw new ChanjetApiError(
+      `Chanjet API failed path=${path} http=${response.status} code=${failure?.code || '-'} message=${failure?.message || response.statusText}`,
+      failure?.code || '',
+    );
   }
   if (includeMeta) {
     return {
@@ -294,6 +305,18 @@ async function loadToken(client, fresh = false) {
     if (String(payload?.value?.orgId ?? orgId) !== orgId) {
       throw new Error('Fresh Chanjet token belongs to an unexpected organization');
     }
+    const expiresIn = Math.max(60, Number(payload?.value?.expiresIn ?? 7200));
+    const expiresAt = Date.now() + expiresIn * 1000;
+    await client.query(
+      `UPDATE sys_chanjet_state
+          SET tokens = COALESCE(tokens, '{}'::jsonb)
+            || jsonb_build_object(
+              $1::text,
+              jsonb_build_object('openToken', $2::text, 'expiresAt', $3::bigint)
+            )
+        WHERE key = 'singleton'`,
+      [orgId, token, expiresAt],
+    );
     return token;
   }
   const entry = result.rows[0]?.tokens?.[orgId];
@@ -301,6 +324,47 @@ async function loadToken(client, fresh = false) {
     throw new Error('No valid cached Chanjet openToken; refresh through the running API before this Gate');
   }
   return entry.openToken;
+}
+
+async function prepareTargets(targets, token) {
+  const prepared = [];
+  const targetOutputs = [];
+  for (const target of targets) {
+    const [row, listRow] = await Promise.all([
+      readSubject(target, token),
+      readSubjectList(target, token),
+    ]);
+    const name = rowName(row);
+    const listName = rowName(listRow);
+    if (listName !== name) {
+      throw new Error(`Read models disagree for ${target.bookId}/${target.code}: balance=${name}, subject-list=${listName}`);
+    }
+    if (name !== target.from && name !== target.to) {
+      throw new Error(`Source-name mismatch for ${target.bookId}/${target.code}: expected ${target.from} or ${target.to}, got ${name}`);
+    }
+    if (asBoolean(row.isDefault) || !asBoolean(row.isLeaf) || String(row.status ?? row.statusEnum ?? 'A') !== 'A') {
+      throw new Error(`Subject is not an editable active leaf: ${target.bookId}/${target.code}`);
+    }
+    const evidence = structuralEvidence(row);
+    prepared.push({ target, row, evidence, name });
+    targetOutputs.push({
+      ...target,
+      subjectId: evidence.id,
+      currentName: name,
+      subjectListName: listName,
+      action: name === target.to ? 'UNCHANGED' : 'WOULD_UPDATE',
+      structuralHash: stableHash(evidence),
+      structuralEvidence: evidence,
+      updateContract: {
+        parentCode: parentCodeOf(row),
+        sourceClassId: Number(row.glAccountClassId ?? 0),
+        sourceClassCode: String(row.glAccountClassCode ?? row.subjectType ?? ''),
+        providerClassId: providerAccountClassId(row, target),
+        fields: Object.keys(updatePayload(target, target.to, row).glAccount),
+      },
+    });
+  }
+  return { prepared, targetOutputs };
 }
 
 async function main() {
@@ -332,50 +396,32 @@ async function main() {
     unchanged: 0,
     rolledBack: 0,
     providerReceipts: [],
+    wouldChange: 0,
   };
   const completed = [];
 
   try {
     // A real write must never inherit an openToken minted before the latest
-    // enterprise authorization. Dry-run remains side-effect free and may use
-    // the cached token for read-only discovery.
-    const token = await loadToken(client, execute);
-    const prepared = [];
-    for (const target of TARGETS.slice(0, maxTargets)) {
-      const [row, listRow] = await Promise.all([
-        readSubject(target, token),
-        readSubjectList(target, token),
-      ]);
-      const name = rowName(row);
-      const listName = rowName(listRow);
-      if (listName !== name) {
-        throw new Error(`Read models disagree for ${target.bookId}/${target.code}: balance=${name}, subject-list=${listName}`);
-      }
-      if (name !== target.from && name !== target.to) {
-        throw new Error(`Source-name mismatch for ${target.bookId}/${target.code}: expected ${target.from} or ${target.to}, got ${name}`);
-      }
-      if (asBoolean(row.isDefault) || !asBoolean(row.isLeaf) || String(row.status ?? row.statusEnum ?? 'A') !== 'A') {
-        throw new Error(`Subject is not an editable active leaf: ${target.bookId}/${target.code}`);
-      }
-      const evidence = structuralEvidence(row);
-      prepared.push({ target, row, evidence, name });
-      output.targets.push({
-        ...target,
-        subjectId: evidence.id,
-        currentName: name,
-        subjectListName: listName,
-        action: name === target.to ? 'UNCHANGED' : execute ? 'UPDATE' : 'WOULD_UPDATE',
-        structuralHash: stableHash(evidence),
-        structuralEvidence: evidence,
-        updateContract: {
-          parentCode: parentCodeOf(row),
-          sourceClassId: Number(row.glAccountClassId ?? 0),
-          sourceClassCode: String(row.glAccountClassCode ?? row.subjectType ?? ''),
-          providerClassId: providerAccountClassId(row, target),
-          fields: Object.keys(updatePayload(target, target.to, row).glAccount),
-        },
-      });
+    // enterprise authorization. A read-only run starts from the cached token,
+    // but a provider-side 50107 refreshes and persists auth state before one
+    // bounded retry. It still performs no provider business-data write.
+    let token = await loadToken(client, execute);
+    let preparation;
+    try {
+      preparation = await prepareTargets(TARGETS.slice(0, maxTargets), token);
+    } catch (error) {
+      if (!(error instanceof ChanjetApiError) || error.providerCode !== '50107') throw error;
+      token = await loadToken(client, true);
+      output.tokenRefresh = 'AUTO_REFRESHED_AFTER_50107';
+      preparation = await prepareTargets(TARGETS.slice(0, maxTargets), token);
     }
+    const prepared = preparation.prepared;
+    output.targets = preparation.targetOutputs.map((target) => ({
+      ...target,
+      action: target.currentName === target.to ? 'UNCHANGED' : execute ? 'UPDATE' : 'WOULD_UPDATE',
+    }));
+    output.unchanged = output.targets.filter((target) => target.action === 'UNCHANGED').length;
+    output.wouldChange = output.targets.filter((target) => target.action === 'WOULD_UPDATE').length;
 
     output.planHash = stableHash(output.targets);
     if (!execute) {
@@ -386,7 +432,6 @@ async function main() {
 
     for (const item of prepared) {
       if (item.name === item.target.to) {
-        output.unchanged += 1;
         continue;
       }
       const response = await writeName(item.target, item.target.to, item.row, token);
@@ -419,27 +464,29 @@ async function main() {
     console.log(JSON.stringify(output, null, 2));
   } catch (error) {
     const rollbackErrors = [];
-    try {
-      const token = await loadToken(client, true);
-      for (const item of completed.reverse()) {
-        try {
-          await writeName(item.target, item.name, item.row, token);
-          const restored = await waitForName(item.target, item.name, token);
-          if (
-            rowName(restored.balanceRow) !== item.name
-            || rowName(restored.listRow) !== item.name
-            || stableHash(structuralEvidence(restored.balanceRow)) !== stableHash(item.evidence)
-          ) {
-            throw new Error('rollback readback mismatch');
+    if (completed.length) {
+      try {
+        const token = await loadToken(client, true);
+        for (const item of completed.reverse()) {
+          try {
+            await writeName(item.target, item.name, item.row, token);
+            const restored = await waitForName(item.target, item.name, token);
+            if (
+              rowName(restored.balanceRow) !== item.name
+              || rowName(restored.listRow) !== item.name
+              || stableHash(structuralEvidence(restored.balanceRow)) !== stableHash(item.evidence)
+            ) {
+              throw new Error('rollback readback mismatch');
+            }
+            await audit(client, 'CHANJET_SUBJECT_NAME_ROLLBACK', item.target, item.target.to, item.name, 'SUCCESS');
+            output.rolledBack += 1;
+          } catch (rollbackError) {
+            rollbackErrors.push(`${item.target.bookId}/${item.target.code}: ${rollbackError.message}`);
           }
-          await audit(client, 'CHANJET_SUBJECT_NAME_ROLLBACK', item.target, item.target.to, item.name, 'SUCCESS');
-          output.rolledBack += 1;
-        } catch (rollbackError) {
-          rollbackErrors.push(`${item.target.bookId}/${item.target.code}: ${rollbackError.message}`);
         }
+      } catch (tokenError) {
+        rollbackErrors.push(`rollback token unavailable: ${tokenError.message}`);
       }
-    } catch (tokenError) {
-      rollbackErrors.push(`rollback token unavailable: ${tokenError.message}`);
     }
     output.decision = rollbackErrors.length ? 'FAIL_REQUIRES_MANUAL_REVIEW' : 'HOLD_ROLLED_BACK';
     output.error = error.message;
