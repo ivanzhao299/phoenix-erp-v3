@@ -16,9 +16,9 @@ describe('PriceBooksService lifecycle recovery', () => {
     status: 'CANCELLED',
   };
 
-  function makeService(rows: any[]) {
+  function makeService(rows: any[], approvalEngine: any = {}) {
     const query = jest.fn(async () => rows.shift());
-    const mgrQuery = jest.fn(async () => undefined);
+    const mgrQuery = jest.fn(async (): Promise<any> => undefined);
     const transaction = jest.fn(async (cb: (mgr: { query: typeof mgrQuery }) => Promise<void>) => {
       await cb({ query: mgrQuery });
     });
@@ -30,7 +30,7 @@ describe('PriceBooksService lifecycle recovery', () => {
         return undefined;
       }),
     } as unknown as ClsService;
-    const service = new PriceBooksService(ds, cls, {} as any);
+    const service = new PriceBooksService(ds, cls, approvalEngine);
     return { service, query, mgrQuery, transaction };
   }
 
@@ -122,6 +122,42 @@ describe('PriceBooksService lifecycle recovery', () => {
 
     await expect(service.deleteBook('362')).rejects.toThrow(BadRequestException);
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('starts a dynamic price-book approval with the selected next approver', async () => {
+    const draftBook = {
+      id: '365',
+      price_book_no: 'PB-20260723-00001',
+      price_book_name: '销售标准价格',
+      company_code: 'COMP-LAO-AGRI',
+      company_name: '老挝农业',
+      status: 'DRAFT',
+    };
+    const pendingBook = { ...draftBook, status: 'PENDING_APPROVAL', wf_instance_id: 'wf-1' };
+    const startApproval = jest.fn(async () => ({ id: 'wf-1' }));
+    const { service, mgrQuery } = makeService(
+      [[draftBook], [{ c: '1' }]],
+      { startApproval },
+    );
+    mgrQuery.mockResolvedValueOnce([pendingBook]);
+
+    await expect(
+      service.submitBook('365', { approverUserId: 'approver-7' }),
+    ).resolves.toEqual(pendingBook);
+
+    expect(startApproval).toHaveBeenCalledWith(
+      expect.objectContaining({
+        moduleCode: 'MENU_SALES2_PRICE',
+        bizType: 'PRICE_BOOK_APPROVAL',
+        bizId: '365',
+        pickedApproverId: 'approver-7',
+      }),
+      expect.any(Object),
+    );
+    expect(mgrQuery).toHaveBeenCalledWith(
+      expect.stringContaining(`SET status = 'PENDING_APPROVAL', wf_instance_id = $1`),
+      ['wf-1', '365'],
+    );
   });
 });
 

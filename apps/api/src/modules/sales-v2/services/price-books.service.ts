@@ -179,6 +179,7 @@ export class PriceBooksService {
     let finalRec: any = null;
     await this.ds.transaction(async (mgr) => {
       const wf = await this.approvalEngine.startApproval({
+        moduleCode:   'MENU_SALES2_PRICE',
         bizType:     'PRICE_BOOK_APPROVAL',
         bizId:       id,
         bizNo:       rec.price_book_no,
@@ -186,6 +187,7 @@ export class PriceBooksService {
         companyCode: rec.company_code,
         companyName: rec.company_name ?? undefined,
         subject:     `价格册审批：${rec.price_book_name}`,
+        pickedApproverId: dto.approverUserId,
       }, mgr);
 
       if (!wf) {

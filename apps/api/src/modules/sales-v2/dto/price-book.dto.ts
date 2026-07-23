@@ -86,4 +86,7 @@ export class QueryPriceBookDto {
 export class SubmitPriceBookDto {
   @IsString() @IsOptional()
   remark?: string;
+
+  @IsString() @IsOptional()
+  approverUserId?: string;
 }
