@@ -28,6 +28,12 @@ test('runner-created dependency links do not make a worktree dirty', () => {
   ].join('\n')), '');
 });
 
+test('runner queue state and append-only events are runtime artifacts', () => {
+  const source = fs.readFileSync(new URL('./bug-intake-local-runner.mjs', import.meta.url), 'utf8');
+  assert.equal(source.includes("file.startsWith('docs/ops/agent-queue/')"), true);
+  assert.equal(source.includes("'docs/ops/agent-queue'"), true);
+});
+
 test('inbox detail fetch keeps bounded concurrency and result order', async () => {
   let active = 0;
   let maxActive = 0;

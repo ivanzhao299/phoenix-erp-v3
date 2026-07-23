@@ -35,7 +35,7 @@ const DEPENDENCY_SUCCESS_STATUSES = new Set([...SUCCESS_STATUSES, 'completed']);
 const DEPENDENCY_FAILURE_STATUSES = new Set(['HOLD', 'hold', 'failed']);
 const REMOTE_RUNNING_REPAIR_STATUSES = new Set(['AGENT_RUNNING', 'AGENT_APPROVED']);
 const OPS_RUNTIME_PATHS = [
-  'docs/ops/agent-queue/tasks.json',
+  'docs/ops/agent-queue',
   'docs/ops/runs',
   'docs/ops/OBSERVER_FINDINGS_REPORT.md',
   'docs/ops/OBSERVER_EVOLUTION_TASKS.md',
@@ -376,7 +376,7 @@ function safeGit(args, cwd) {
 }
 
 function isRunnerRuntimeFile(file) {
-  return file === 'docs/ops/agent-queue/tasks.json'
+  return file.startsWith('docs/ops/agent-queue/')
     || file.startsWith('docs/ops/runs/')
     || file === 'docs/ops/OBSERVER_FINDINGS_REPORT.md'
     || file === 'docs/ops/OBSERVER_EVOLUTION_TASKS.md'
