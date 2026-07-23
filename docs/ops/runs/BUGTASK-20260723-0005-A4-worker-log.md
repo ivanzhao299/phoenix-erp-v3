@@ -6,7 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | SKIPPED_NOT_APPLICABLE |
 
 ## Command
 
@@ -23,25 +23,27 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260723-0005-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260723-0005-A4-worker-assembled-prompt.md
-Assembled prompt chars: 24632
+Assembled prompt chars: 24873
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T08-51-57-103Z-A4-Frontend-UAT-Smoke.md
-PASS WITH CONDITIONS
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T08-58-18-943Z-A4-Frontend-UAT-Smoke.md
+结论：**PASS WITH CONDITIONS**
 
-当前基线的两个“进入作业台”入口均已指向 `/terminal/packaging/dashboard`。本次补充了新窗口安全属性及 3 项回归测试。
+BUG-20260723-0005 的前端修复已存在于提交 `5c9921a2`：
 
-- Web typecheck：通过
-- 聚焦测试：3/3 通过
-- 新增测试 lint：通过
-- 本地浏览器验证：因沙箱 `listen EPERM` 未能执行
-- 既有源码存在 2 个与本修复无关的 ESLint 错误，已记录
-- 未修改 API、数据库或迁移；未提交、推送、部署
+- `/packaging` 与生产管理侧栏入口均指向 `/terminal/packaging/dashboard`
+- 保留 `MENU_PKG_OP` / `MENU_PKG_MGR` 权限门控
+- 加载、空态、错误态、DataScope 与附件 ACL 未改变
+- 定向 Vitest：3/3 通过
+- Web TypeScript：通过
+- `git diff --check`：通过
+- 本地浏览器验证受沙箱 `listen EPERM` 限制
+- 定向 ESLint 检出两处既存错误，与本次导航修复无关
 
-完整报告：[BUGTASK-20260723-0005-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260723-0005-a4-frontend-uat-report.md)
+报告：[BUGTASK-20260723-0005-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260723-0005-a4-frontend-uat-report.md)
 
-仍须通过 CI、桌面/移动端语义点击测试、生产权限冒烟和业务验收后才能关闭该缺陷。
+仍需 CI、可监听端口环境下的桌面/移动语义点击测试、生产 RBAC smoke 和业务验收；当前不声明生产问题已解决。未推送、部署或执行数据库操作。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -58,7 +60,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f8e2a-aa7c-7ff0-bf4a-f2435348c896
+session id: 019f8e31-8975-70b2-be49-26d7beaec7a1
 --------
 user
 # Base Agent Prompt
@@ -496,7 +498,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           {
             "tag": "a",
   
-...<truncated 133834 chars>
+...<truncated 72071 chars>
 
 ```
 
@@ -508,29 +510,20 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 445,
-  "beforeHead": "a5a7ef041ecb0fa6820a845f28a8b82505764ae6",
-  "afterHead": "5c9921a20fae8d0c8a61990487cf96011b3f3d41",
-  "commitHash": "5c9921a20fae8d0c8a61990487cf96011b3f3d41",
-  "changedFiles": [
-    "apps/web/src/__tests__/bug-20260723-0005-packaging-workbench-navigation.test.ts",
-    "apps/web/src/app/(admin)/packaging/page.tsx",
-    "docs/ops/BUGTASK-20260723-0005-a4-frontend-uat-report.md"
-  ],
-  "businessChangedFiles": [
-    "apps/web/src/__tests__/bug-20260723-0005-packaging-workbench-navigation.test.ts",
-    "apps/web/src/app/(admin)/packaging/page.tsx"
-  ],
-  "reportFiles": [
-    "docs/ops/BUGTASK-20260723-0005-a4-frontend-uat-report.md"
-  ],
+  "responseChars": 567,
+  "beforeHead": "fb401b9101106d5d65face2740d714ea220fa42c",
+  "afterHead": "fb401b9101106d5d65face2740d714ea220fa42c",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-23T08:51:57.288Z",
+  "checkedAt": "2026-07-23T08:58:19.032Z",
   "passed": true,
-  "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "role": "implementation_verified_existing",
+  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
 }
 ```
 
@@ -538,22 +531,9 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/web/src/app/(admin)/packaging/page.tsx",
-    "apps/web/src/__tests__/bug-20260723-0005-packaging-workbench-navigation.test.ts",
-    "docs/ops/BUGTASK-20260723-0005-a4-frontend-uat-report.md"
-  ],
-  "businessFiles": [
-    "apps/web/src/app/(admin)/packaging/page.tsx",
-    "apps/web/src/__tests__/bug-20260723-0005-packaging-workbench-navigation.test.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUGTASK-20260723-0005-a4-frontend-uat-report.md"
-  ],
-  "commitHash": "5c9921a20fae8d0c8a61990487cf96011b3f3d41",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 5c9921a2] fix(web): repair BUG-20260723-0005\n 3 files changed, 144 insertions(+), 2 deletions(-)\n create mode 100644 apps/web/src/__tests__/bug-20260723-0005-packaging-workbench-navigation.test.ts\n create mode 100644 docs/ops/BUGTASK-20260723-0005-a4-frontend-uat-report.md"
+  "attempted": false,
+  "ok": false,
+  "reason": "worktree has no uncommitted Agent changes",
+  "files": []
 }
 ```
