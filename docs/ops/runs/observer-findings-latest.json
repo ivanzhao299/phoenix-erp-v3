@@ -1,22 +1,21 @@
 {
   "summary": {
-    "generated_at": "2026-07-23T04:23:31.575Z",
+    "generated_at": "2026-07-23T06:00:50.595Z",
     "dry_run": true,
-    "run_files_inspected": 2312,
+    "run_files_inspected": 2317,
     "task_count": 379,
     "task_status_counts": {
-      "archived": 213,
+      "archived": 214,
       "completed": 3,
-      "COMPLETED_MERGED": 74,
-      "VALIDATION_COMPLETED": 69,
       "SKIPPED_NOT_APPLICABLE": 18,
-      "HOLD": 2
+      "VALIDATION_COMPLETED": 70,
+      "COMPLETED_MERGED": 74
     },
     "registered_agents": 8,
-    "findings_count": 32,
-    "highest_severity": "CRITICAL",
+    "findings_count": 33,
+    "highest_severity": "HIGH",
     "routing_findings": 8,
-    "baseline_findings": 4,
+    "baseline_findings": 6,
     "report_schema_findings": 4,
     "codex_cli_executed": false,
     "database_written": false,
@@ -280,17 +279,6 @@
     },
     {
       "id": "OBS-0024",
-      "severity": "CRITICAL",
-      "category": "runner-generation-drift",
-      "affected_agent": "BugIntakeLocalRunner",
-      "evidence": "1 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.",
-      "suggested_fix": "Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Apply IMPROVE-BUG-INTAKE-QUEUE-RECOVERY."
-    },
-    {
-      "id": "OBS-0025",
       "severity": "HIGH",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -301,7 +289,7 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2."
     },
     {
-      "id": "OBS-0026",
+      "id": "OBS-0025",
       "severity": "HIGH",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -312,7 +300,7 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2."
     },
     {
-      "id": "OBS-0027",
+      "id": "OBS-0026",
       "severity": "HIGH",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -323,7 +311,7 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2."
     },
     {
-      "id": "OBS-0028",
+      "id": "OBS-0027",
       "severity": "MEDIUM",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -334,18 +322,40 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP."
     },
     {
-      "id": "OBS-0029",
+      "id": "OBS-0028",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M scripts/ops/bug-task-to-agent-queue.mjs;  M scripts/ops/bug-task-to-agent-queue.test.mjs; ?? docs/ops/runs/2026-07-23T04-22-11-994Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-23T04-23-11-249Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/BUGTASK-20260722-0003-A3-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260722-0003-A3-worker-log.md; ?? docs/ops/runs/BUGTASK-20260722-0003-A4-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260722-0003-A4-worker-log.md",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_EVOLUTION_TASKS.md;  M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/BUGTASK-20260709-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A2-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A4-contract.md;  M docs/ops/runs/bug-production-route-smoke-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "recommended_next_task": "Baseline cleanup for Codex-Orchestrator."
     },
     {
+      "id": "OBS-0029",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "A3-Backend-Critical-Path",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path dirty status: ?? docs/ops/BUGTASK-20260706-0001_A3_BACKEND_REDISPATCH_REPORT.md",
+      "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Baseline cleanup for A3-Backend-Critical-Path."
+    },
+    {
       "id": "OBS-0030",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "A4-Frontend-UAT-Smoke",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke dirty status: M docs/ops/BUG-20260706-0001-A4-FRONTEND-UAT-REPORT.md",
+      "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Baseline cleanup for A4-Frontend-UAT-Smoke."
+    },
+    {
+      "id": "OBS-0031",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A5-Data-Readiness",
@@ -356,7 +366,7 @@
       "recommended_next_task": "Baseline cleanup for A5-Data-Readiness."
     },
     {
-      "id": "OBS-0031",
+      "id": "OBS-0032",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A6-Staging-Deploy-Runbook",
@@ -367,7 +377,7 @@
       "recommended_next_task": "Rebase A6-Staging-Deploy-Runbook with baseline autopilot."
     },
     {
-      "id": "OBS-0032",
+      "id": "OBS-0033",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A7-Final-QA-Gate",
@@ -470,10 +480,10 @@
     {
       "task_id": "OBSERVER-EVOLUTION-009",
       "source_finding": "OBS-0024",
-      "severity": "CRITICAL",
-      "affected_agent": "BugIntakeLocalRunner",
-      "goal": "Apply IMPROVE-BUG-INTAKE-QUEUE-RECOVERY.",
-      "suggested_fix": "Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.",
+      "severity": "HIGH",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "status": "proposed"
@@ -483,7 +493,7 @@
       "source_finding": "OBS-0025",
       "severity": "HIGH",
       "affected_agent": "A2-Security-Regression-Gate",
-      "goal": "Run normalize-agent-result for REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2.",
+      "goal": "Run normalize-agent-result for REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2.",
       "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -494,7 +504,7 @@
       "source_finding": "OBS-0026",
       "severity": "HIGH",
       "affected_agent": "A2-Security-Regression-Gate",
-      "goal": "Run normalize-agent-result for REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2.",
+      "goal": "Run normalize-agent-result for REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2.",
       "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -503,9 +513,9 @@
     {
       "task_id": "OBSERVER-EVOLUTION-012",
       "source_finding": "OBS-0027",
-      "severity": "HIGH",
+      "severity": "MEDIUM",
       "affected_agent": "A2-Security-Regression-Gate",
-      "goal": "Run normalize-agent-result for REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2.",
+      "goal": "Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP.",
       "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -519,11 +529,11 @@
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 4
+      "occurrence": 5
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 2
+      "occurrence": 3
     }
   ],
   "suggested_improvements": [
@@ -533,11 +543,11 @@
     },
     {
       "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
-      "occurrence": 4
+      "occurrence": 5
     },
     {
       "improvement_id": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
-      "occurrence": 2
+      "occurrence": 3
     }
   ],
   "repeated_pattern_candidates": [
@@ -547,11 +557,11 @@
     },
     {
       "pattern_id": "PATTERN-004",
-      "occurrence": 4
+      "occurrence": 5
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 2
+      "occurrence": 3
     }
   ],
   "observer_boundaries": {

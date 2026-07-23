@@ -1,11 +1,26 @@
 {
   "decision": "PRODUCTION_ROUTE_SMOKE_PASS",
-  "generated_at": "2026-07-23T05:13:41.741Z",
+  "generated_at": "2026-07-23T05:39:58.177Z",
   "base_url": "https://erp.eggslao.com",
   "routes": [
+    "/terminal/packaging/warehouse-handover",
     "/warehouse/query"
   ],
   "results": [
+    {
+      "route": "/terminal/packaging/warehouse-handover",
+      "url": "https://erp.eggslao.com/terminal/packaging/warehouse-handover",
+      "status": 200,
+      "ok": true,
+      "httpOk": true,
+      "semanticOk": true,
+      "contentType": "text/html; charset=utf-8",
+      "bodyBytes": 12647,
+      "matchedFailureMarkers": [],
+      "location": "",
+      "elapsedMs": 1639,
+      "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
+    },
     {
       "route": "/warehouse/query",
       "url": "https://erp.eggslao.com/warehouse/query",
@@ -17,7 +32,7 @@
       "bodyBytes": 16385,
       "matchedFailureMarkers": [],
       "location": "",
-      "elapsedMs": 1643,
+      "elapsedMs": 532,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     }
   ],

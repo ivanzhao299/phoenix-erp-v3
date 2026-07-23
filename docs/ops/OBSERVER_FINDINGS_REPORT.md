@@ -2,10 +2,10 @@
 
 ## Summary
 
-- Findings count: 32
-- Highest severity: CRITICAL
+- Findings count: 33
+- Highest severity: HIGH
 - Routing findings: 8
-- Baseline findings: 4
+- Baseline findings: 6
 - Report schema findings: 4
 - Codex CLI executed: No
 - Database written: No
@@ -36,12 +36,13 @@
 - OBS-0021 [HIGH] routing / A3-Backend-Critical-Path, A2-Security-Regression-Gate: docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate, A5-Data-Readiness, A4-Frontend-UAT-Smoke, A6-Staging-Deploy-Runbook, A7-Final-QA-Gate but selected A4-Frontend-UAT-Smoke, A1-CI-Runtime-Gate, A5-Data-Readiness, A6-Staging-Deploy-Runbook, A7-Final-QA-Gate
 - OBS-0022 [LOW] parallel-dispatch / A1/A2/A5: docs/ops/runs/store-payment-closed-loop-fix-before/REQ-NL-20260622-234717-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md: readonly validation Agents are selected but not clearly grouped together.
 - OBS-0023 [LOW] parallel-dispatch / A1/A2/A5: docs/ops/runs/store-payment-closed-loop-fix-route-plan.md: readonly validation Agents are selected but not clearly grouped together.
-- OBS-0024 [CRITICAL] runner-generation-drift / BugIntakeLocalRunner: 1 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
-- OBS-0025 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
-- OBS-0026 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
-- OBS-0027 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
-- OBS-0028 [MEDIUM] report-schema / A2-Security-Regression-Gate: docs/ops/runs/a2-app-module-wiring-follow-up-result.json: missing commit_hash, migration_added, verification_results, recommend_next_agent
-- OBS-0029 [MEDIUM] baseline / Codex-Orchestrator: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M scripts/ops/bug-task-to-agent-queue.mjs;  M scripts/ops/bug-task-to-agent-queue.test.mjs; ?? docs/ops/runs/2026-07-23T04-22-11-994Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-23T04-23-11-249Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/BUGTASK-20260722-0003-A3-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260722-0003-A3-worker-log.md; ?? docs/ops/runs/BUGTASK-20260722-0003-A4-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260722-0003-A4-worker-log.md
-- OBS-0030 [MEDIUM] baseline / A5-Data-Readiness: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
-- OBS-0031 [MEDIUM] baseline / A6-Staging-Deploy-Runbook: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
-- OBS-0032 [MEDIUM] baseline / A7-Final-QA-Gate: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.
+- OBS-0024 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
+- OBS-0025 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
+- OBS-0026 [HIGH] report-schema / A2-Security-Regression-Gate: docs/ops/runs/REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2-diagnosis.json: missing commit_hash, verification_results, migration_executed, database_written, deployed, recommend_next_agent/next_agents
+- OBS-0027 [MEDIUM] report-schema / A2-Security-Regression-Gate: docs/ops/runs/a2-app-module-wiring-follow-up-result.json: missing commit_hash, migration_added, verification_results, recommend_next_agent
+- OBS-0028 [MEDIUM] baseline / Codex-Orchestrator: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_EVOLUTION_TASKS.md;  M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/BUGTASK-20260709-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A2-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A4-contract.md;  M docs/ops/runs/bug-production-route-smoke-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md
+- OBS-0029 [MEDIUM] baseline / A3-Backend-Critical-Path: /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path dirty status: ?? docs/ops/BUGTASK-20260706-0001_A3_BACKEND_REDISPATCH_REPORT.md
+- OBS-0030 [MEDIUM] baseline / A4-Frontend-UAT-Smoke: /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke dirty status: M docs/ops/BUG-20260706-0001-A4-FRONTEND-UAT-REPORT.md
+- OBS-0031 [MEDIUM] baseline / A5-Data-Readiness: /Users/mac/phoenix-erp-worktrees/a5-data-readiness dirty status: ?? docs/ops/runs/2026-07-07T13-09-44-547Z-A5-Data-Readiness-baseline-lifecycle.json; ?? docs/ops/runs/2026-07-07T13-09-44-548Z-A5-Data-Readiness-baseline-lifecycle.md
+- OBS-0032 [MEDIUM] baseline / A6-Staging-Deploy-Runbook: A6-Staging-Deploy-Runbook worktree HEAD c5cd2134 is behind main c564cf36.
+- OBS-0033 [MEDIUM] baseline / A7-Final-QA-Gate: A7-Final-QA-Gate worktree HEAD 8f6d9249 is behind main c564cf36.
