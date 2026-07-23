@@ -166,6 +166,48 @@ describe('WmsService inventory read queries', () => {
     ]);
   });
 
+  it('persists received quantity two on the inbound line before posting visible inventory', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('SELECT warehouse_code, operator, store_code, status FROM wms_inbound')) {
+          return [{ warehouse_code: 'WH-A', operator: 'old-op', store_code: 'ALL', status: 'PENDING' }];
+        }
+        if (sql.includes('SELECT batch_no, status FROM inv_batches')) return [];
+        return [];
+      }),
+    };
+    const em = {
+      transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
+    };
+    const cls = {
+      get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })),
+    };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.confirmInbound({
+      task_no: 'WI-RECEIVED-2',
+      items: [{
+        batch_no: 'IBN-RECEIVED-2',
+        product_code: 'PRD-EGG-1',
+        actual_qty: 2,
+        broken_qty: 0,
+        warehouse_code: 'WH-A',
+      }],
+    }, { username: 'admin' })).resolves.toMatchObject({
+      code: 200,
+      data: { task_no: 'WI-RECEIVED-2', status: 'COMPLETED' },
+    });
+
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE wms_inbound_items'),
+      [2, 0, 'WI-RECEIVED-2', 'IBN-RECEIVED-2', 'PRD-EGG-1'],
+    );
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO inv_batches'),
+      ['IBN-RECEIVED-2', 'PRD-EGG-1', null, 2, 'WH-A', 'INBOUND-DOCK', 'ALL'],
+    );
+  });
+
   it('ships outbound inventory by SKU across available batches', async () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {

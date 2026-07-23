@@ -212,6 +212,17 @@ export class WmsService {
 
         const productCode = this.nonEmptyString(item.product_code);
         const skuCode = this.nonEmptyString(item.sku_code);
+        await manager.query(
+          `UPDATE wms_inbound_items
+              SET actual_qty = $1::int,
+                  broken_qty = $2::int
+            WHERE task_no = $3
+              AND (
+                ($4::text IS NOT NULL AND batch_no = $4)
+                OR ($4::text IS NULL AND $5::text IS NOT NULL AND product_code = $5)
+              )`,
+          [actualQty, brokenQty, task_no, this.nonEmptyString(item.batch_no), productCode],
+        );
         const baseBatchNo = item.batch_no ||
           `IBN-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
         const warehouseCode = item.warehouse_code || item.warehouse || defaultWarehouse;
