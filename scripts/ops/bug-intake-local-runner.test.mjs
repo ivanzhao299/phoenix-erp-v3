@@ -16,6 +16,7 @@ import {
   selectAutomaticRedispatchCandidates,
   selectReleaseReadyBacklog,
   shouldAttemptReleasePush,
+  shouldResumeAlreadyPushedRelease,
 } from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 import { classifyInfrastructureFailure, evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
@@ -596,4 +597,26 @@ test('release push requires a real unpushed commit even when evidence passes', (
     releaseEvidence,
     unpushedCommitCount: 1,
   }), true);
+});
+
+test('already-pushed verified release resumes CI and lifecycle writeback', () => {
+  const releaseEvidence = [{ bugNo: 'BUG-PUSHED', evidence: { passed: true } }];
+  assert.equal(shouldResumeAlreadyPushedRelease({
+    pushAfterSuccess: true,
+    releaseEvidence,
+    unpushedCommitCount: 0,
+    headIsOnOriginMain: true,
+  }), true);
+  assert.equal(shouldResumeAlreadyPushedRelease({
+    pushAfterSuccess: true,
+    releaseEvidence,
+    unpushedCommitCount: 0,
+    headIsOnOriginMain: false,
+  }), false);
+  assert.equal(shouldResumeAlreadyPushedRelease({
+    pushAfterSuccess: true,
+    releaseEvidence,
+    unpushedCommitCount: 1,
+    headIsOnOriginMain: true,
+  }), false);
 });

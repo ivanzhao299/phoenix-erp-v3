@@ -1260,6 +1260,17 @@ export function shouldAttemptReleasePush({
   return releaseEvidence.length > 0 && releaseEvidence.every((item) => item.evidence.passed);
 }
 
+export function shouldResumeAlreadyPushedRelease({
+  dryRun = false,
+  pushAfterSuccess = false,
+  releaseEvidence = [],
+  unpushedCommitCount = 0,
+  headIsOnOriginMain = false,
+} = {}) {
+  if (dryRun || !pushAfterSuccess || unpushedCommitCount !== 0 || !headIsOnOriginMain) return false;
+  return releaseEvidence.length > 0 && releaseEvidence.every((item) => item.evidence.passed);
+}
+
 function runPushIfReady(args, workerRuns, releaseEvidence) {
   if (args.dryRun || !args.pushAfterSuccess) {
     return {
@@ -1273,6 +1284,22 @@ function runPushIfReady(args, workerRuns, releaseEvidence) {
   const unpushed = safeGit(['rev-list', 'origin/main..HEAD'], args.mainRoot);
   if (!unpushed.ok) return { skipped: true, reason: `cannot inspect unpushed commits: ${unpushed.output}` };
   const unpushedCommitCount = unpushed.output.split('\n').map((sha) => sha.trim()).filter(Boolean).length;
+  const headOnOriginMain = safeGit(['merge-base', '--is-ancestor', 'HEAD', 'origin/main'], args.mainRoot).ok;
+  if (shouldResumeAlreadyPushedRelease({
+    dryRun: args.dryRun,
+    pushAfterSuccess: args.pushAfterSuccess,
+    releaseEvidence,
+    unpushedCommitCount,
+    headIsOnOriginMain: headOnOriginMain,
+  })) {
+    return {
+      skipped: false,
+      status: 0,
+      alreadyPushed: true,
+      stdout: 'release commit is already present on origin/main; resuming CI, production smoke, and lifecycle writeback',
+      stderr: '',
+    };
+  }
   if (!shouldAttemptReleasePush({
     dryRun: args.dryRun,
     pushAfterSuccess: args.pushAfterSuccess,
