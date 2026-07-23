@@ -9,11 +9,11 @@ const QUERY_ALL_PATH = '/accounting/gl/glaccount/getInitBalanceList';
 const GENERATE_TOKEN_PATH = '/v1/common/auth/selfBuiltApp/generateToken';
 
 const TARGETS = Object.freeze([
-  { bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', code: '400101', from: '赵总', to: '赵永伟' },
-  { bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', code: '400102', from: '宋总', to: '宋雷' },
-  { bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', code: '400103', from: '朱总', to: '朱兆存' },
-  { bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI', code: '400101', from: '朱总', to: '朱兆存' },
-  { bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI', code: '400102', from: '宋总', to: '宋雷' },
+  { bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', code: '400101', from: '赵总', to: '赵永伟', providerClassId: 3, direction: -1, parentCode: '4001' },
+  { bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', code: '400102', from: '宋总', to: '宋雷', providerClassId: 3, direction: -1, parentCode: '4001' },
+  { bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', code: '400103', from: '朱总', to: '朱兆存', providerClassId: 3, direction: -1, parentCode: '4001' },
+  { bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI', code: '400101', from: '朱总', to: '朱兆存', providerClassId: 3, direction: -1, parentCode: '4001' },
+  { bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI', code: '400102', from: '宋总', to: '宋雷', providerClassId: 3, direction: -1, parentCode: '4001' },
 ]);
 
 function argValue(name) {
@@ -100,7 +100,10 @@ function parentCodeOf(row) {
   return index > 0 ? path[index - 1] : '';
 }
 
-function providerAccountClassId(row) {
+function providerAccountClassId(row, target) {
+  const locked = Number(target.providerClassId);
+  if (Number.isInteger(locked) && locked >= 1 && locked <= 5) return locked;
+
   const direct = Number(row.glAccountClassId);
   if (Number.isInteger(direct) && direct >= 1 && direct <= 5) return direct;
 
@@ -130,6 +133,9 @@ function updatePayload(target, name, sourceRow) {
   if (!parentCode) {
     throw new Error(`Parent code is missing for ${target.bookId}/${target.code}`);
   }
+  if (parentCode !== target.parentCode || Number(sourceRow.drCrDirection) !== target.direction) {
+    throw new Error(`Target accounting contract mismatch for ${target.bookId}/${target.code}`);
+  }
   return {
     // Keep this contract identical to the provider's documented ordinary
     // account update example. Read models expose internal class ids (for
@@ -138,8 +144,8 @@ function updatePayload(target, name, sourceRow) {
     glAccount: {
       code: target.code,
       name,
-      drCrDirection: String(Number(sourceRow.drCrDirection)),
-      glAccountClassId: providerAccountClassId(sourceRow),
+      drCrDirection: String(target.direction),
+      glAccountClassId: providerAccountClassId(sourceRow, target),
       isCashItem: asBoolean(sourceRow.isCashItem),
       isCodeType: true,
       parentCode,
@@ -365,7 +371,7 @@ async function main() {
           parentCode: parentCodeOf(row),
           sourceClassId: Number(row.glAccountClassId ?? 0),
           sourceClassCode: String(row.glAccountClassCode ?? row.subjectType ?? ''),
-          providerClassId: providerAccountClassId(row),
+          providerClassId: providerAccountClassId(row, target),
           fields: Object.keys(updatePayload(target, target.to, row).glAccount),
         },
       });
