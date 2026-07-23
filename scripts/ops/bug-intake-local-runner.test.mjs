@@ -8,6 +8,7 @@ import {
   buildResultBackfillPlan,
   requeueExpiredCapacityWaits,
   requeueSatisfiedDependencyHolds,
+  restoreVerifiedTerminalEvidence,
   selectRunnableBugTasks,
   selectAutomaticRedispatchCandidates,
   selectReleaseReadyBacklog,
@@ -15,7 +16,7 @@ import {
 } from './bug-intake-local-runner.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 import { classifyInfrastructureFailure, evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
-import { isTerminalLocalTask, mapWithConcurrency } from './bug-intake-sync-from-api.mjs';
+import { isTerminalLocalTask, mapWithConcurrency, pruneLegacySnapshots } from './bug-intake-sync-from-api.mjs';
 
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 
@@ -47,6 +48,44 @@ test('inbox sync never downgrades terminal local task evidence', () => {
   assert.equal(isTerminalLocalTask({ status: 'SKIPPED_NOT_APPLICABLE' }), true);
   assert.equal(isTerminalLocalTask({ status: 'running' }), false);
   assert.equal(isTerminalLocalTask({ status: 'HOLD' }), false);
+});
+
+test('legacy timestamp snapshots are pruned without touching current reports or attachments', () => {
+  const root = fs.mkdtempSync('/tmp/bug-intake-inbox-');
+  fs.mkdirSync(path.join(root, '20260722-010203', 'BUG-X'), { recursive: true });
+  fs.writeFileSync(path.join(root, '20260722-010203', 'BUG-X', 'report.json'), '{"large":"snapshot"}');
+  fs.mkdirSync(path.join(root, 'current', 'BUG-X'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'current', 'BUG-X', 'report.json'), '{"current":true}');
+  fs.mkdirSync(path.join(root, 'attachments', 'BUG-X'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'attachments', 'BUG-X', 'proof.png'), 'fixture');
+
+  const result = pruneLegacySnapshots(root);
+  assert.equal(result.removed, 1);
+  assert.equal(fs.existsSync(path.join(root, '20260722-010203')), false);
+  assert.equal(fs.existsSync(path.join(root, 'current', 'BUG-X', 'report.json')), true);
+  assert.equal(fs.existsSync(path.join(root, 'attachments', 'BUG-X', 'proof.png')), true);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('passed worker evidence restores a transient detached HOLD without rerunning code', () => {
+  const tasks = [{
+    task_id: 'BUGTASK-EVIDENCE-A4',
+    status: 'HOLD',
+    reason: 'detached worker did not write terminal implementation evidence',
+    implementation_commit: '1234567',
+    evidence_gate: {
+      passed: true,
+      role: 'implementation',
+      terminalStatus: 'IMPLEMENTATION_COMPLETED',
+      commitHash: '1234567',
+    },
+  }];
+  assert.deepEqual(restoreVerifiedTerminalEvidence(tasks, new Date('2026-07-23T00:00:00Z')), [{
+    task_id: 'BUGTASK-EVIDENCE-A4',
+    status: 'IMPLEMENTATION_COMPLETED',
+  }]);
+  assert.equal(tasks[0].status, 'IMPLEMENTATION_COMPLETED');
+  assert.equal(tasks[0].evidence_reconciled_at, '2026-07-23T00:00:00.000Z');
 });
 
 test('business and ops changes remain visible after runtime filtering', () => {
@@ -94,6 +133,25 @@ test('technical quarantine generation is eligible for one safe redispatch', () =
     recoveryCount: 0,
     reasons: ['incomplete implementation worktree preserved in quarantine; no code merged', 'blocked by failed dependency: A3'],
   }]);
+});
+
+test('detached worker technical HOLD is eligible for bounded automatic redispatch', () => {
+  const reports = [{
+    bugNo: 'BUG-TEST-DETACHED',
+    status: 'IN_PROGRESS',
+    repairTaskStatus: 'HOLD',
+    repairTaskPayload: {
+      redispatchCount: 0,
+      agentExecutionApproval: { approved: true },
+      agentPlan: { selected_agents: ['A4-Frontend-UAT-Smoke', 'A1-CI-Runtime-Gate'] },
+      redispatchHistory: [],
+    },
+  }];
+  const tasks = [
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-DETACHED', route_active: true, agent: 'A4-Frontend-UAT-Smoke', status: 'HOLD', redispatch_count: 0, reason: 'detached worker did not write terminal implementation evidence; merge refused; worker exit=0' },
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-DETACHED', route_active: true, agent: 'A1-CI-Runtime-Gate', status: 'HOLD', redispatch_count: 0, reason: 'blocked by failed dependency: A4' },
+  ];
+  assert.equal(selectAutomaticRedispatchCandidates(reports, tasks).length, 1);
 });
 
 test('a mixed terminal generation retries technical failures without discarding successful evidence', () => {

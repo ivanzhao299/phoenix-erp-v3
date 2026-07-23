@@ -73,6 +73,9 @@ RUNNER_ARGS=( \\
   --apply-queue \\
   --execute-approved \\
   --approval-token "APPROVE_AGENT_EXECUTION" \\
+  --auto-recover-generation-drift \\
+  --auto-unblock-dirty-worktrees \\
+  --skip-blocked \\
   --commit-audit-artifacts \\
   --audit-commit-minutes "\${PHOENIX_ERP_RUNNER_AUDIT_COMMIT_MINUTES:-30}" \\
 )

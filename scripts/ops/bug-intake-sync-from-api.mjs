@@ -1,6 +1,16 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -47,7 +57,15 @@ Behavior:
 }
 
 function parseArgs(argv) {
-  const args = { dryRun: true, limit: 100, outputDir: DEFAULT_OUTPUT_DIR, fetchTimeoutMs: 45000, fetchConcurrency: 5 };
+  const args = {
+    dryRun: true,
+    limit: 100,
+    outputDir: DEFAULT_OUTPUT_DIR,
+    fetchTimeoutMs: 45000,
+    fetchConcurrency: 5,
+    maxResponseBytes: 8 * 1024 * 1024,
+    pruneLegacySnapshots: true,
+  };
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
@@ -60,6 +78,10 @@ function parseArgs(argv) {
       args.applyQueue = true;
       continue;
     }
+    if (arg === '--no-prune-legacy-snapshots') {
+      args.pruneLegacySnapshots = false;
+      continue;
+    }
     if (arg.startsWith('--')) {
       args[arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase())] = normalized[i + 1];
       i += 1;
@@ -68,6 +90,7 @@ function parseArgs(argv) {
   args.limit = Math.max(1, Math.min(500, Number(args.limit) || 100));
   args.fetchTimeoutMs = Math.max(5000, Number(args.fetchTimeoutMs) || 45000);
   args.fetchConcurrency = Math.max(1, Math.min(10, Number(args.fetchConcurrency) || 5));
+  args.maxResponseBytes = Math.max(1024 * 1024, Number(args.maxResponseBytes) || 8 * 1024 * 1024);
   return args;
 }
 
@@ -96,13 +119,72 @@ function readJson(file) {
 function writeJson(file, value) {
   const target = resolveFile(file);
   mkdirSync(path.dirname(target), { recursive: true });
-  writeFileSync(target, `${JSON.stringify(value, null, 2)}\n`);
+  const temp = `${target}.tmp-${process.pid}-${Date.now()}`;
+  writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`);
+  renameSync(temp, target);
 }
 
-function stamp() {
-  const d = new Date();
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+function stableHash(value) {
+  return createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
+}
+
+function writeJsonIfChanged(file, value) {
+  const target = resolveFile(file);
+  const nextFingerprint = stableHash(value);
+  if (existsSync(target)) {
+    try {
+      const current = JSON.parse(readFileSync(target, 'utf8'));
+      if (stableHash(current) === nextFingerprint) return false;
+    } catch {
+      // Malformed snapshots are atomically replaced.
+    }
+  }
+  writeJson(file, value);
+  return true;
+}
+
+export function pruneLegacySnapshots(outputDir) {
+  const target = resolveFile(outputDir);
+  if (!existsSync(target)) return { removed: 0, reclaimedBytes: 0 };
+  const legacy = readdirSync(target, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^\d{8}-\d{6}$/.test(entry.name));
+  let reclaimedBytes = 0;
+  let removed = 0;
+  const directorySize = (file) => {
+    const info = statSync(file);
+    if (info.isFile()) return info.size;
+    if (!info.isDirectory()) return 0;
+    return readdirSync(file).reduce((sum, child) => sum + directorySize(path.join(file, child)), 0);
+  };
+  for (const entry of legacy) {
+    const legacyDir = path.join(target, entry.name);
+    reclaimedBytes += directorySize(legacyDir);
+    rmSync(legacyDir, { recursive: true, force: true });
+    removed += 1;
+  }
+  return { removed, reclaimedBytes };
+}
+
+async function readBoundedText(response, maxBytes) {
+  const contentLength = Number(response.headers.get('content-length') || 0);
+  if (contentLength > maxBytes) {
+    throw new Error(`response payload exceeds ${maxBytes} bytes (content-length ${contentLength})`);
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error(`response payload exceeds ${maxBytes} bytes while streaming`);
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 function getToken(args) {
@@ -122,7 +204,7 @@ async function apiGet(args, endpoint) {
     const timeout = setTimeout(() => controller.abort(), args.fetchTimeoutMs);
     try {
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal });
-      const text = await res.text();
+      const text = await readBoundedText(res, args.maxResponseBytes);
       if (!res.ok) {
         const error = new Error(`GET ${endpoint} failed HTTP ${res.status}: ${text.slice(0, 500)}`);
         error.retryable = res.status >= 500 || res.status === 429;
@@ -290,27 +372,28 @@ function withLocalEvidence(report, localAttachments) {
   return next;
 }
 
-async function writeInboxReports(args, reports, batchDir) {
+async function writeInboxReports(args, reports, currentDir) {
   const files = [];
   const enrichedReports = [];
+  let changedReports = 0;
   for (const report of reports) {
-    const bugDir = path.join(batchDir, safeBugFileName(report.bugNo));
+    const bugDir = path.join(currentDir, safeBugFileName(report.bugNo));
     const attachmentCacheDir = path.join(args.outputDir, 'attachments', safeBugFileName(report.bugNo));
     const localAttachments = isQueueCandidate(report)
       ? await downloadAttachments(args, report, attachmentCacheDir)
       : [];
     const enriched = withLocalEvidence(report, localAttachments);
     const file = path.join(bugDir, 'report.json');
-    writeJson(file, enriched);
+    if (writeJsonIfChanged(file, enriched)) changedReports += 1;
     files.push(file);
     enrichedReports.push(enriched);
   }
   writeJson(path.join(args.outputDir, 'latest-index.json'), {
     generated_at: new Date().toISOString(),
-    batch_dir: batchDir,
+    snapshot_dir: currentDir,
     files,
   });
-  return { files, reports: enrichedReports };
+  return { files, reports: enrichedReports, changedReports };
 }
 
 function queueHandoff(file, apply) {
@@ -442,9 +525,12 @@ function writeMarkdownSummary(file, summary) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const reports = await fetchReports(args);
-  const batchDir = path.join(args.outputDir, stamp());
-  mkdirSync(resolveFile(batchDir), { recursive: true });
-  const inbox = await writeInboxReports(args, reports, batchDir);
+  const currentDir = path.join(args.outputDir, 'current');
+  mkdirSync(resolveFile(currentDir), { recursive: true });
+  const inbox = await writeInboxReports(args, reports, currentDir);
+  const cachePrune = args.pruneLegacySnapshots
+    ? pruneLegacySnapshots(args.outputDir)
+    : { removed: 0, reclaimedBytes: 0, skipped: true };
   const files = inbox.files;
   const enrichedReports = inbox.reports;
   const fileByBugNo = new Map(files.map((file, index) => [enrichedReports[index]?.bugNo, file]));
@@ -486,8 +572,10 @@ async function main() {
     decision: args.applyQueue ? 'BUG_INTAKE_QUEUE_APPLIED' : 'BUG_INTAKE_SYNC_DRY_RUN',
     generated_at: new Date().toISOString(),
     api_base: args.fixtureJson ? 'fixture' : args.apiBase,
-    output_dir: batchDir,
+    output_dir: currentDir,
     reports_fetched: reports.length,
+    reports_changed: inbox.changedReports,
+    cache_prune: cachePrune,
     apply_queue: Boolean(args.applyQueue),
     queue_candidates: queueCandidates.map((report) => ({
       bugNo: report.bugNo,

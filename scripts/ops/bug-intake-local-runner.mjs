@@ -14,7 +14,9 @@ import {
   computeRunnerMetrics,
   evaluateCiBarrier,
   pendingOutboxRecords,
+  persistTaskSnapshot,
   planConcurrentTaskBatch,
+  readQueueTasks,
   runnerHealthDecision,
   writeJsonIfMateriallyChanged,
 } from './bug-runner-platform.mjs';
@@ -84,7 +86,7 @@ function parseArgs(argv) {
     childTimeoutMs: 900000,
     fetchTimeoutMs: 45000,
     staleLeaseMinutes: 1,
-    autoRecoverGenerationDrift: false,
+    autoRecoverGenerationDrift: true,
     maxAutoRecoveries: 2,
     maxAutoRedispatchPerCycle: 3,
     commitAuditArtifacts: false,
@@ -569,16 +571,80 @@ function findTask(taskId) {
 }
 
 function patchTask(taskId, patch) {
-  const tasks = readJson(TASKS_FILE, []);
+  const tasks = readQueueTasks(TASKS_FILE);
   const index = tasks.findIndex((task) => task.task_id === taskId);
   if (index < 0) return null;
+  const baseTasks = structuredClone(tasks);
   tasks[index] = { ...tasks[index], ...patch };
   if (!['claimed', 'running'].includes(tasks[index].status)) {
     tasks[index].claimed_by = null;
     tasks[index].claimed_at = null;
   }
-  writeJson(TASKS_FILE, tasks);
-  return tasks[index];
+  const result = persistTaskSnapshot({
+    tasksFile: TASKS_FILE,
+    eventsFile: 'docs/ops/agent-queue/events.jsonl',
+    baseTasks,
+    incomingTasks: tasks,
+  });
+  return result.tasks.find((task) => task.task_id === taskId) || null;
+}
+
+export function restoreVerifiedTerminalEvidence(tasks, now = new Date()) {
+  const restored = [];
+  for (const task of tasks || []) {
+    if (!['HOLD', 'hold', 'running', 'claimed'].includes(task.status)) continue;
+    const evidence = task.evidence_gate;
+    const terminalStatus = String(evidence?.terminalStatus || '');
+    if (evidence?.passed !== true || !SUCCESS_STATUSES.has(terminalStatus)) continue;
+    if (evidence.role === 'implementation' && !/^[0-9a-f]{7,40}$/i.test(String(task.implementation_commit || evidence.commitHash || ''))) {
+      continue;
+    }
+    task.status = terminalStatus;
+    task.reason = 'terminal status restored from passed worker evidence';
+    task.claimed_by = null;
+    task.claimed_at = null;
+    task.completed_at = task.completed_at || now.toISOString();
+    task.evidence_reconciled_at = now.toISOString();
+    restored.push({ task_id: task.task_id, status: terminalStatus });
+  }
+  return restored;
+}
+
+function reconcileVerifiedWorkerEvidence(args) {
+  const tasks = readQueueTasks(TASKS_FILE);
+  const restored = restoreVerifiedTerminalEvidence(tasks);
+  if (restored.length > 0 && !args.dryRun) {
+    const current = readQueueTasks(TASKS_FILE);
+    persistTaskSnapshot({
+      tasksFile: TASKS_FILE,
+      eventsFile: 'docs/ops/agent-queue/events.jsonl',
+      baseTasks: current,
+      incomingTasks: tasks,
+    });
+  }
+  return { restored, wrote_queue: restored.length > 0 && !args.dryRun };
+}
+
+function integrateReconciledImplementations(args, reconciliation) {
+  if (args.dryRun || reconciliation.restored.length === 0) return [];
+  const results = [];
+  for (const item of reconciliation.restored) {
+    if (item.status !== 'IMPLEMENTATION_COMPLETED') continue;
+    const task = findTask(item.task_id);
+    if (!task) continue;
+    results.push(integrateImplementationTask(task, task, args));
+  }
+  const tasks = readQueueTasks(TASKS_FILE);
+  if (requeueSatisfiedDependencyHolds(tasks)) {
+    const current = readQueueTasks(TASKS_FILE);
+    persistTaskSnapshot({
+      tasksFile: TASKS_FILE,
+      eventsFile: 'docs/ops/agent-queue/events.jsonl',
+      baseTasks: current,
+      incomingTasks: tasks,
+    });
+  }
+  return results;
 }
 
 function integrateImplementationTask(task, finalTask, args) {
@@ -1420,6 +1486,8 @@ const AUTO_RECOVERY_NOTE = 'AUTO_QUEUE_RECOVERY';
 const TECHNICAL_HOLD_PATTERNS = [
   /incomplete implementation worktree preserved in quarantine/i,
   /blocked by failed dependency/i,
+  /detached worker did not write terminal implementation evidence/i,
+  /worker returned without terminal evidence/i,
   /cherry-pick .* conflict aborted/i,
   /Missing implementation evidence/i,
   /runner-created dependency/i,
@@ -1674,6 +1742,8 @@ function summaryMarkdown(summary) {
 | Release evidence | ${(summary.releaseEvidence || []).map((item) => `${item.bugNo}:${item.evidence?.decision || 'HOLD'}`).join(', ') || 'None'} |
 | Lifecycle writeback | ${summary.lifecycleWriteback?.skipped ? `Skipped: ${summary.lifecycleWriteback.reason}` : 'Attempted'} |
 | Result backfill | ${summary.resultBackfill?.skipped ? `Skipped: ${summary.resultBackfill.reason}` : `${summary.resultBackfill?.results?.length || 0} report(s) checked`} |
+| Evidence status reconciled | ${summary.evidenceReconciliation?.restored?.length || 0} |
+| Reconciled commits integrated | ${(summary.reconciledIntegrations || []).filter((item) => item.ok).length} |
 | Failure classifications | ${summary.failureClassification?.total ?? 0} (${summary.failureClassification?.highestSeverity ?? 'INFO'}) |
 
 ## Runnable Tasks
@@ -1758,6 +1828,17 @@ function prepareTaskDispatch(task, args, blockedTasks) {
 async function finalizeWorkerDispatch(prepared, worker, args, childEnv, blockedTasks) {
   const { task, dependencySetup } = prepared;
   let finalTask = findTask(task.task_id);
+  if (!args.dryRun && finalTask) {
+    const restored = restoreVerifiedTerminalEvidence([finalTask]);
+    if (restored.length > 0) {
+      finalTask = patchTask(task.task_id, {
+        status: restored[0].status,
+        reason: 'terminal status restored from passed worker evidence before detached-worker recovery',
+        evidence_reconciled_at: finalTask.evidence_reconciled_at,
+        completed_at: finalTask.completed_at,
+      }) || finalTask;
+    }
+  }
   const retryRuns = [];
   if (shouldRetryWorker(task, worker, finalTask, args)) {
     retryRuns.push({ reason: 'same-cycle retry suppressed; classified cooldown required', firstWorkerStatus: worker.status, firstFinalStatus: finalTask?.status || 'unknown' });
@@ -1813,6 +1894,21 @@ async function finalizeWorkerDispatch(prepared, worker, args, childEnv, blockedT
 }
 
 function crashSummary(args, cycle, error) {
+  const platformMetrics = computeRunnerMetrics(readJson(TASKS_FILE, []));
+  const { generated_at: _metricsGeneratedAt, ...stablePlatformMetrics } = platformMetrics;
+  writeJsonIfMateriallyChanged(resolveFile('docs/ops/runs/bug-runner-dashboard-latest.json'), {
+    decision: 'HOLD',
+    metrics: stablePlatformMetrics,
+    current_activity: { worker_count: 0, blocked_count: 1 },
+    runner_error: String(error.message || error).slice(0, 2000),
+  });
+  writeMd('docs/ops/runs/bug-runner-dashboard-latest.md', `# Bug Runner Platform Dashboard
+
+- Decision: **HOLD**
+- Queue total / active: ${platformMetrics.total} / ${platformMetrics.active}
+- Current cycle workers / blocked: 0 / 1
+- Runner error: ${String(error.message || error).slice(0, 2000)}
+`);
   const summary = {
     decision: 'BUG_INTAKE_LOCAL_RUNNER_HOLD',
     generatedAt: new Date().toISOString(),
@@ -1901,6 +1997,12 @@ async function runCycle(args, cycle) {
   if (!args.dryRun && generationRecovery.results?.some((item) => item.ok)) {
     sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
   }
+  const evidenceReconciliation = sync.status === 0
+    ? reconcileVerifiedWorkerEvidence(args)
+    : { restored: [], wrote_queue: false, skipped: true, reason: 'sync failed' };
+  const reconciledIntegrations = sync.status === 0
+    ? integrateReconciledImplementations(args, evidenceReconciliation)
+    : [];
   const evolutionCycle = runEvolutionCycle(args, cycle, generationRecovery);
   const preWorkerCommit = { skipped: true, reason: 'audit artifacts are committed once at cycle end' };
   const candidateTasks = sync.status === 0 ? listRunnableBugTasks(args) : [];
@@ -1974,6 +2076,8 @@ async function runCycle(args, cycle) {
     skipBlocked: Boolean(args.skipBlocked),
     sync,
     generationRecovery,
+    evidenceReconciliation,
+    reconciledIntegrations,
     evolutionCycle,
     outboxRecovery,
     leaseRecovery,
