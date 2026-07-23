@@ -166,6 +166,59 @@ describe('WmsService inventory read queries', () => {
     ]);
   });
 
+  it('normalizes a SKU entered in the legacy product-code field so outbound can select the stock', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('SELECT warehouse_code, operator, store_code, status FROM wms_inbound')) {
+          return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING' }];
+        }
+        if (sql.includes('FROM product_skus')) {
+          expect(params).toEqual(['SKU-EGG-A-30']);
+          return [{ sku_code: 'SKU-EGG-A-30', product_code: 'PRD-EGG' }];
+        }
+        if (sql.includes('SELECT batch_no, status FROM inv_batches')) return [];
+        return [];
+      }),
+    };
+    const em = {
+      transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
+    };
+    const cls = {
+      get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })),
+    };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.confirmInbound({
+      task_no: 'WI-LEGACY-SKU',
+      items: [{
+        batch_no: 'IBN-LEGACY-SKU-B1',
+        product_code: 'SKU-EGG-A-30',
+        actual_qty: 4,
+        warehouse_code: 'LPH_MS_EGG_SALES',
+      }],
+    }, { username: 'admin' })).resolves.toMatchObject({
+      code: 200,
+      data: { task_no: 'WI-LEGACY-SKU', status: 'COMPLETED' },
+    });
+
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO inv_batches'),
+      ['IBN-LEGACY-SKU-B1', 'PRD-EGG', 'SKU-EGG-A-30', 4, 'LPH_MS_EGG_SALES', 'INBOUND-DOCK', 'ALL'],
+    );
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO inv_ledger'),
+      [
+        'IBN-LEGACY-SKU-B1',
+        4,
+        'admin',
+        'ALL',
+        'WI-LEGACY-SKU',
+        '入库确认 product=PRD-EGG sku=SKU-EGG-A-30 actual=4 warehouse=LPH_MS_EGG_SALES',
+        'SKU-EGG-A-30',
+      ],
+    );
+  });
+
   it('persists received quantity two on the inbound line before posting visible inventory', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {

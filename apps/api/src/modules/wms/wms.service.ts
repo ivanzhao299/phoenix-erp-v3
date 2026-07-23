@@ -210,8 +210,26 @@ export class WmsService {
         const brokenQty = Number(item.broken_qty) || 0;
         if (actualQty <= 0 && brokenQty <= 0) continue;
 
-        const productCode = this.nonEmptyString(item.product_code);
-        const skuCode = this.nonEmptyString(item.sku_code);
+        let productCode = this.nonEmptyString(item.product_code);
+        let skuCode = this.nonEmptyString(item.sku_code);
+        // The legacy generic inbound form labels its free-text value as product code,
+        // while outbound selects stock by SKU. Preserve real product codes, but when
+        // the entered value is an exact active SKU code, persist both canonical keys
+        // so the same stock is selectable for outbound.
+        if (!skuCode && productCode) {
+          const skuRows = await manager.query(
+            `SELECT sku_code, product_code
+               FROM product_skus
+              WHERE sku_code = $1
+                AND status = 'ACTIVE'
+              LIMIT 1`,
+            [productCode],
+          );
+          if (skuRows.length > 0) {
+            skuCode = this.nonEmptyString(skuRows[0].sku_code);
+            productCode = this.nonEmptyString(skuRows[0].product_code);
+          }
+        }
         await manager.query(
           `UPDATE wms_inbound_items
               SET actual_qty = $1::int,
