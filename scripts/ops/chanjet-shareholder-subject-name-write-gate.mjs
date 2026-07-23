@@ -6,6 +6,7 @@ const APPROVAL_TOKEN = 'APPROVE_CHANJET_SHAREHOLDER_NAME_WRITE_20260723';
 const UPDATE_PATH = '/accounting/gl/glaccount/updateAccountDuia';
 const QUERY_PATH = '/accounting/gl/glaccount/getInitBalanceLists';
 const QUERY_ALL_PATH = '/accounting/gl/glaccount/getInitBalanceList';
+const GENERATE_TOKEN_PATH = '/v1/common/auth/selfBuiltApp/generateToken';
 
 const TARGETS = Object.freeze([
   { bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', code: '400101', from: '赵总', to: '赵永伟' },
@@ -87,13 +88,53 @@ function structuralEvidence(row) {
   };
 }
 
+function parentCodeOf(row) {
+  const direct = String(row.parent?.glAccountCode ?? row.parent?.code ?? '').trim();
+  if (direct) return direct;
+  const path = String(row.treePath ?? '')
+    .split(/\^|-/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const code = rowCode(row);
+  const index = path.lastIndexOf(code);
+  return index > 0 ? path[index - 1] : '';
+}
+
+function updatePayload(target, name, sourceRow) {
+  const parentCode = parentCodeOf(sourceRow);
+  if (!parentCode) {
+    throw new Error(`Parent code is missing for ${target.bookId}/${target.code}`);
+  }
+  return {
+    // The provider's ordinary-account example uses an empty top-level id and
+    // resolves the existing account through glAccount.code.
+    id: '',
+    glAccount: {
+      code: target.code,
+      name,
+      hasSubsidiaryAccounting: asBoolean(
+        sourceRow.hasSubsidiaryAccounting ?? sourceRow.isAssistantAccount,
+      ),
+      hasForeignCurrency: asBoolean(sourceRow.hasForeignCurrency),
+      hasQtyAccunting: asBoolean(
+        sourceRow.hasQtyAccunting ?? sourceRow.hasQtyAccounting ?? sourceRow.hasQtyRecord,
+      ),
+      drCrDirection: Number(sourceRow.drCrDirection),
+      glAccountClassId: Number(sourceRow.glAccountClassId),
+      isCashItem: asBoolean(sourceRow.isCashItem),
+      isCodeType: true,
+      parentCode,
+    },
+  };
+}
+
 function requireEnv(name) {
   const value = String(process.env[name] ?? '').trim();
   if (!value) throw new Error(`Missing required environment variable ${name}`);
   return value;
 }
 
-async function providerCall(path, { method = 'GET', query, body, token }) {
+async function providerCall(path, { method = 'GET', query, body, token, includeMeta = false }) {
   let url = `https://openapi.chanjet.com${path}`;
   if (query && Object.keys(query).length) url += `?${new URLSearchParams(query)}`;
   const response = await fetch(url, {
@@ -110,6 +151,14 @@ async function providerCall(path, { method = 'GET', query, body, token }) {
   const failure = businessFailure(payload);
   if (!response.ok || failure) {
     throw new Error(`Chanjet API failed path=${path} http=${response.status} code=${failure?.code || '-'} message=${failure?.message || response.statusText}`);
+  }
+  if (includeMeta) {
+    return {
+      payload,
+      requestId: response.headers.get('x-request-id')
+        || response.headers.get('request-id')
+        || String(payload.requestId ?? payload.request_id ?? ''),
+    };
   }
   return payload;
 }
@@ -138,16 +187,8 @@ async function writeName(target, name, sourceRow, token) {
   return providerCall(`${UPDATE_PATH}/${target.bookId}`, {
     method: 'POST',
     token,
-    body: {
-      // The official ordinary-account example requires an empty top-level id
-      // and resolves the existing account by glAccount.code.
-      id: '',
-      glAccount: {
-        code: target.code,
-        name,
-        hasSubsidiaryAccounting: asBoolean(sourceRow.hasSubsidiaryAccounting ?? sourceRow.isAssistantAccount),
-      },
-    },
+    body: updatePayload(target, name, sourceRow),
+    includeMeta: true,
   });
 }
 
@@ -197,9 +238,39 @@ async function audit(client, actionCode, target, before, after, status, detail =
   );
 }
 
-async function loadToken(client) {
+async function loadToken(client, fresh = false) {
   const orgId = requireEnv('CHANJET_ORG_ID');
-  const result = await client.query(`SELECT tokens FROM sys_chanjet_state WHERE key='singleton'`);
+  const result = await client.query(
+    `SELECT app_ticket, certificate, tokens FROM sys_chanjet_state WHERE key='singleton'`,
+  );
+  if (fresh) {
+    const appTicket = String(result.rows[0]?.app_ticket ?? '').trim();
+    const certificate = String(result.rows[0]?.certificate ?? '').trim();
+    if (!appTicket || !certificate) {
+      throw new Error('Persisted Chanjet appTicket/certificate is unavailable; enterprise authorization must be updated first');
+    }
+    const response = await fetch(`https://openapi.chanjet.com${GENERATE_TOKEN_PATH}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        appKey: requireEnv('CHANJET_APP_KEY'),
+        appSecret: requireEnv('CHANJET_APP_SECRET'),
+      },
+      body: JSON.stringify({ appTicket, certificate }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    const failure = businessFailure(payload);
+    const token = String(payload?.value?.accessToken ?? '').trim();
+    if (!response.ok || failure || !token) {
+      throw new Error(
+        `Fresh Chanjet token failed http=${response.status} code=${failure?.code || '-'} message=${failure?.message || response.statusText}`,
+      );
+    }
+    if (String(payload?.value?.orgId ?? orgId) !== orgId) {
+      throw new Error('Fresh Chanjet token belongs to an unexpected organization');
+    }
+    return token;
+  }
   const entry = result.rows[0]?.tokens?.[orgId];
   if (!entry?.openToken || Number(entry.expiresAt) <= Date.now() + 60_000) {
     throw new Error('No valid cached Chanjet openToken; refresh through the running API before this Gate');
@@ -240,7 +311,10 @@ async function main() {
   const completed = [];
 
   try {
-    const token = await loadToken(client);
+    // A real write must never inherit an openToken minted before the latest
+    // enterprise authorization. Dry-run remains side-effect free and may use
+    // the cached token for read-only discovery.
+    const token = await loadToken(client, execute);
     const prepared = [];
     for (const target of TARGETS.slice(0, maxTargets)) {
       const [row, listRow] = await Promise.all([
@@ -268,6 +342,10 @@ async function main() {
         action: name === target.to ? 'UNCHANGED' : execute ? 'UPDATE' : 'WOULD_UPDATE',
         structuralHash: stableHash(evidence),
         structuralEvidence: evidence,
+        updateContract: {
+          parentCode: parentCodeOf(row),
+          fields: Object.keys(updatePayload(target, target.to, row).glAccount),
+        },
       });
     }
 
@@ -287,9 +365,10 @@ async function main() {
       output.providerReceipts.push({
         bookId: item.target.bookId,
         code: item.target.code,
-        response: response && typeof response === 'object'
-          ? Object.fromEntries(Object.entries(response).filter(([key]) => !/token|secret|ticket|certificate/i.test(key)))
-          : response,
+        requestId: response.requestId || '-',
+        response: response.payload && typeof response.payload === 'object'
+          ? Object.fromEntries(Object.entries(response.payload).filter(([key]) => !/token|secret|ticket|certificate/i.test(key)))
+          : response.payload,
       });
       // Provider acknowledgements may precede read-model convergence. Treat an
       // acknowledged request as compensatable before polling its readback.
@@ -301,7 +380,8 @@ async function main() {
       }
       await audit(client, 'CHANJET_SUBJECT_NAME_UPDATE', item.target, item.name, item.target.to, 'SUCCESS', {
         sourceStructuralHash: stableHash(item.evidence),
-        responseHash: stableHash(response),
+        responseHash: stableHash(response.payload),
+        providerRequestId: response.requestId || '-',
       });
       output.changed += 1;
     }
@@ -312,7 +392,7 @@ async function main() {
   } catch (error) {
     const rollbackErrors = [];
     try {
-      const token = await loadToken(client);
+      const token = await loadToken(client, true);
       for (const item of completed.reverse()) {
         try {
           await writeName(item.target, item.name, item.row, token);

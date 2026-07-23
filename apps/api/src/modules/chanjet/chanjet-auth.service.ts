@@ -114,7 +114,11 @@ export class ChanjetAuthService implements OnModuleInit {
       const state = await this.stateRepo.findOneBy({ key: SINGLETON_KEY });
       if (state) {
         if (state.appTicket) this.appTicket = state.appTicket;
-        if (state.certificate && !this.cert) this.cert = state.certificate;
+        // The callback-persisted certificate is newer than the bootstrap env
+        // value after an enterprise authorization update. Prefer it on every
+        // restart so an old container secret cannot silently restore old API
+        // permissions.
+        if (state.certificate) this.cert = state.certificate;
         if (state.tokens) {
           for (const [org, entry] of Object.entries(state.tokens)) {
             this.tokenCache.set(org, entry);
@@ -209,8 +213,15 @@ export class ChanjetAuthService implements OnModuleInit {
   }
 
   setCertificate(cert: string) {
+    const changed = Boolean(cert && cert !== this.cert);
     this.cert = cert;
-    this.log.log('certificate 已更新: [REDACTED]');
+    if (changed) {
+      // An openToken is bound to the authorization represented by the
+      // certificate. Reusing it after a permission update makes newly granted
+      // APIs appear to return successful no-ops.
+      this.tokenCache.clear();
+    }
+    this.log.log(`certificate 已更新: [REDACTED] tokenCacheInvalidated=${changed}`);
     void this.persistState();
   }
 
@@ -236,7 +247,7 @@ export class ChanjetAuthService implements OnModuleInit {
       ?? (json.data as Record<string, unknown>)?.certificate
       ?? (json.value as Record<string, unknown>)?.certificate) as string | undefined;
     if (certificate) {
-      this.cert = certificate;
+      this.setCertificate(certificate);
       return certificate;
     }
     throw new Error(`authCode→certificate 失败: ${JSON.stringify(json).slice(0, 500)}`);
@@ -289,7 +300,7 @@ export class ChanjetAuthService implements OnModuleInit {
       throw new Error(`获取 certificate 失败: ${JSON.stringify(json).slice(0, 500)}`);
     }
 
-    this.cert = certificate;
+    this.setCertificate(certificate);
     return certificate;
   }
 
