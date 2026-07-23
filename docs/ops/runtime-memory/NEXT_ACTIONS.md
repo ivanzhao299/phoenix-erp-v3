@@ -1287,7 +1287,7 @@ Next actions:
 1. `CHANJET_SHAREHOLDER_4001_READONLY_RECONCILIATION_REFRESH`
 2. Refresh the shareholder accounting mirror and verify that title-alias differences are eliminated.
 3. Keep generic Chanjet writeback, voucher push and delete operations disabled.
-4. Use browser login only for separately approved provider-admin corrections that lack a durable OpenAPI contract.
+4. Keep provider-admin corrections on HOLD until a durable official API contract exists; do not use browser login as a fallback.
 
 ## 2026-07-22 - Shareholder equity accounting reconciliation
 

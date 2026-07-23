@@ -40,7 +40,7 @@
     "shareholder_name_write_false_success_request_id": "23581010-55596768",
     "shareholder_name_write_openapi_behavior": "used_subject_update_returns_result_true_without_persistence",
     "shareholder_name_write_final_gate": "GO_changed_0_unchanged_5_rolledBack_0",
-    "chanjet_browser_login_boundary": "routine_api_sync_does_not_require_browser_login_ui_session_only_for_separately_approved_provider_admin_corrections",
+    "chanjet_browser_login_boundary": "browser_login_forbidden_for_future_integration_operations_api_only_fail_closed_hold_when_provider_contract_is_missing",
     "shareholder_name_write_report": "docs/ops/CHANJET_SHAREHOLDER_SUBJECT_NAME_WRITE_EXPERIMENT_REPORT_20260723.md",
     "readonly_mirror_tables": [
       "chanjet_read_snapshots",

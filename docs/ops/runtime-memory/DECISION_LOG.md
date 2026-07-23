@@ -1962,3 +1962,12 @@ Decision: counterparty resolution `GO`.
 - No vouchers, deletes, ERP business data, legal equity or contribution records were modified.
 - Routine Chanjet synchronization continues through API credentials and token lifecycle management without browser login; UI login remains an exceptional, separately approved administrator Gate.
 - Next Gate: `CHANJET_SHAREHOLDER_4001_READONLY_RECONCILIATION_REFRESH`.
+
+# 2026-07-23 - Make Chanjet integration API-only
+
+- Future Chanjet integration operations must not use browser login or business-page automation.
+- Routine readonly synchronization and any future separately approved writeback must use official API credentials and managed token lifecycle only.
+- Provider transport success is not enough: durable readback and unchanged-structure verification remain mandatory.
+- Missing capability, false-success or an undocumented force path returns `HOLD`; it does not fall back to manual UI editing.
+- Personal passwords, browser cookies, local storage and SSO sessions must not be persisted or automated.
+- The completed five-name correction is retained as historical evidence, not as a reusable execution pattern.

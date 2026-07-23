@@ -1,6 +1,6 @@
 # Runtime Memory Guardrails
 
-Last updated: 2026-07-20
+Last updated: 2026-07-23
 
 1. Do not rely on long-lived chat context for Store Payment project state.
 2. Codex-Orchestrator must read `docs/ops/runtime-memory/*` before continuing Store Payment.
@@ -104,3 +104,9 @@ Last updated: 2026-07-20
 96. Chanjet accounting sync must never overwrite `shr_project_equity`, `shr_capital_contributions`, legal shareholder identity, or capital workflow state.
 97. A shareholder accounting inbound batch requires fresh source evidence, one 4001 parent per book, child-parent equality, a stable plan hash and zero mapping conflicts.
 98. Non-person 4001 child accounts must remain `SOURCE_ONLY`; ambiguous person names must HOLD rather than guess.
+99. Chanjet operations must use official API credentials, token lifecycle management, bounded retries, idempotency and provider readback; browser or business-page login must not be used as an execution path.
+100. If a Chanjet API returns transport success without durable business persistence, the operation must be classified as provider false-success and set to `HOLD`.
+101. Missing or unreliable Chanjet API capability must be resolved through an official provider API contract, capability enablement or provider defect correction; it must not fall back to manual UI editing.
+102. Personal credentials, browser cookies, local storage, SSO sessions and interactive login state must never be stored or automated for Chanjet integration.
+103. Every approved Chanjet write API must name the endpoint, account book, immutable payload hash, idempotency key, readback endpoint, rollback/compensation method and audit receipt.
+104. Routine readonly synchronization and future approved writeback must remain service-account/API based and must not require the user to log in.
