@@ -66,6 +66,20 @@ describe('DashboardBffController', () => {
 });
 
 describe('PackagingTerminalBffController', () => {
+  it('allows collection editors to open a collection shift', () => {
+    const requirement = Reflect.getMetadata(
+      REQUIRE_MENU_KEY,
+      PackagingTerminalBffController.prototype.openShift,
+    ) as MenuRequirement;
+
+    expect(requirement).toEqual({
+      menu: 'MENU_PKG_OP',
+      perm: 'E',
+      altMenus: ['MENU_PROD_COLLECTION'],
+      denialMessage: undefined,
+    });
+  });
+
   it('allows collection editors to close a collection shift', () => {
     const requirement = Reflect.getMetadata(
       REQUIRE_MENU_KEY,

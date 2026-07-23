@@ -1384,7 +1384,7 @@ export class PackagingTerminalBffController {
   }
 
   @Post('shifts/open')
-  @RequireMenu('MENU_PKG_OP', 'E')
+  @RequireMenu('MENU_PKG_OP', 'E', ['MENU_PROD_COLLECTION'])
   async openShift(@Body() body: any, @Req() req: any) {
     const today = this.today;
     const lineId = body.lineId || body.line_id || 'line-01';
