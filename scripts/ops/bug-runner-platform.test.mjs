@@ -72,6 +72,32 @@ test('queue persistence uses an atomic merge and append-only events', () => {
   assert.match(fs.readFileSync(eventsFile, 'utf8'), /task_transitioned/);
 });
 
+test('rejected recovery cannot overwrite HOLD evidence with contradictory terminal fields', () => {
+  const current = [{
+    task_id: 'A',
+    status: 'HOLD',
+    reason: 'original hold',
+    evidence_gate: { passed: false, terminalStatus: 'HOLD' },
+  }];
+  const incoming = [{
+    task_id: 'A',
+    status: 'COMPLETED_MERGED',
+    reason: 'verified integrated implementation evidence',
+    evidence_gate: { passed: true, terminalStatus: 'IMPLEMENTATION_COMPLETED' },
+    integrated_commit: 'abc1234',
+  }];
+  const rejected = mergeTaskSnapshot(current, current, incoming);
+  assert.equal(rejected.tasks[0].status, 'HOLD');
+  assert.equal(rejected.tasks[0].reason, 'original hold');
+  assert.equal(rejected.tasks[0].evidence_gate.passed, false);
+  assert.equal(rejected.tasks[0].integrated_commit, undefined);
+
+  const recovered = mergeTaskSnapshot(current, current, incoming, { verifiedEvidenceRecovery: true });
+  assert.equal(recovered.tasks[0].status, 'COMPLETED_MERGED');
+  assert.equal(recovered.tasks[0].evidence_gate.passed, true);
+  assert.equal(recovered.tasks[0].integrated_commit, 'abc1234');
+});
+
 test('idempotency key is stable for a task generation', () => {
   const task = { task_id: 'T1', source_bug_no: 'BUG-1', agent: 'A3', redispatch_count: 2 };
   assert.equal(taskIdempotencyKey(task), taskIdempotencyKey({ ...task }));

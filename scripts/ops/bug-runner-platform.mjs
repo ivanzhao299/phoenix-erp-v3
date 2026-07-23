@@ -66,7 +66,7 @@ export function canTransitionTaskStatus(from, to, options = {}) {
   if (
     options.verifiedEvidenceRecovery === true &&
     ['HOLD', 'hold', 'running', 'claimed'].includes(previous) &&
-    ['IMPLEMENTATION_COMPLETED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE'].includes(next)
+    ['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE'].includes(next)
   ) {
     return true;
   }
@@ -186,7 +186,8 @@ export function mergeTaskSnapshot(currentTasks, baseTasks, incomingTasks, option
 
     const current = next[currentIndex];
     let desiredStatus = incoming.status || current.status;
-    if (!canTransitionTaskStatus(current.status, desiredStatus, options)) desiredStatus = current.status;
+    const transitionAllowed = canTransitionTaskStatus(current.status, desiredStatus, options);
+    if (!transitionAllowed) desiredStatus = current.status;
     const merged = {
       ...current,
       ...incoming,
@@ -195,6 +196,22 @@ export function mergeTaskSnapshot(currentTasks, baseTasks, incomingTasks, option
       state_version: Number(current.state_version || 0) + 1,
       state_updated_at: new Date().toISOString(),
     };
+    if (!transitionAllowed) {
+      for (const field of [
+        'reason',
+        'evidence_gate',
+        'result_file',
+        'implementation_commit',
+        'integrated_commit',
+        'integrated_at',
+        'completed_at',
+        'claimed_by',
+        'claimed_at',
+      ]) {
+        if (Object.hasOwn(current, field)) merged[field] = current[field];
+        else delete merged[field];
+      }
+    }
     next[currentIndex] = merged;
     events.push({
       type: current.status === desiredStatus ? 'task_updated' : 'task_transitioned',

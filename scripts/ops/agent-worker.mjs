@@ -171,6 +171,7 @@ function writeTasks(tasks, options = {}) {
     baseTasks: lastTaskSnapshot,
     incomingTasks: tasks,
     explicitRedispatch: options.explicitRedispatch === true,
+    verifiedEvidenceRecovery: options.verifiedEvidenceRecovery === true,
   });
   lastTaskSnapshot = structuredClone(result.tasks);
 }
@@ -648,7 +649,7 @@ function recoverSandboxCommit(args) {
     task.claimed_by = null;
     task.claimed_at = null;
   }
-  writeTasks(tasks);
+  writeTasks(tasks, { verifiedEvidenceRecovery: true });
   console.log(`${task.task_id} -> ${task.status}`);
   return task.status === 'COMPLETED_MERGED' ? 0 : 2;
 }
@@ -721,7 +722,7 @@ function recoverCompletedRun(args) {
   task.completed_at = new Date().toISOString();
   task.recovered_from_run_log = path.relative(process.cwd(), runLog);
   task.reason = evidence.passed ? 'completed Agent run recovered after parent timeout/output-buffer interruption' : evidence.reason;
-  writeTasks(tasks);
+  writeTasks(tasks, { verifiedEvidenceRecovery: true });
   console.log(`${task.task_id} -> ${task.status}`);
   console.log(`Worker log: ${path.relative(process.cwd(), log)}`);
   return evidence.passed ? 0 : 2;
@@ -777,7 +778,7 @@ function recoverIntegratedCommit(args) {
   task.claimed_at = null;
   task.reason = 'verified integrated implementation evidence';
   task.retry_after = null;
-  writeTasks(tasks);
+  writeTasks(tasks, { verifiedEvidenceRecovery: true });
   console.log(`${task.task_id} -> ${task.status}`);
   console.log(`Integrated commit: ${commit.output}`);
   return 0;

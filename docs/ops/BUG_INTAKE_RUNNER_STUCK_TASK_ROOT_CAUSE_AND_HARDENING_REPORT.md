@@ -26,6 +26,13 @@ The administrator-facing Bug Intake workflow appeared stuck even though several 
 12. The evidence classifier checked "already fixed/not applicable" wording before respecting an explicit HOLD conclusion.
 13. The packaging warehouse handover page caught an API failure but still displayed "入库成功".
 14. If another safe integration step had already pushed the verified release to `origin/main`, the runner treated zero unpushed commits as "no release" and skipped CI, production smoke and lifecycle writeback.
+15. A frontend Agent treated the Codex sandbox's `listen EPERM` as a business
+    implementation failure even after typecheck, lint and all focused tests
+    passed, leaving a valid committed repair in HOLD.
+16. The worker's integrated-commit recovery generated valid evidence but did
+    not pass `verifiedEvidenceRecovery` to the atomic queue writer. The writer
+    retained HOLD while copying the new success reason and evidence, creating
+    a contradictory state that the next cycle could not release.
 
 ## 3. Root Cause Evidence
 
@@ -44,6 +51,8 @@ The administrator-facing Bug Intake workflow appeared stuck even though several 
 | HOLD classification order | Explicit HOLD evidence containing "already present" text was accepted as not applicable | A failed implementation could appear complete |
 | False warehouse success | UI set success state after the request catch path | Operator saw success while inbound detail remained unchanged |
 | Already-pushed lifecycle gap | Verified commit existed on `origin/main`, but zero unpushed commits caused release steps to be skipped | Code could deploy while the administrator report stayed HOLD |
+| Sandbox verification conflation | Local browser server could not bind because the Agent sandbox returned `listen EPERM` | Deterministic frontend evidence passed, but the task remained HOLD |
+| Recovery state split-brain | Queue rejected `HOLD -> COMPLETED_MERGED` but copied incoming success metadata | Administrator saw HOLD carrying passed evidence and a success reason |
 
 ## 4. Implemented Hardening
 
@@ -72,6 +81,14 @@ The administrator-facing Bug Intake workflow appeared stuck even though several 
   then fails closed to HOLD instead of silently publishing success.
 - A4 must emit exactly one canonical conclusion. Mixed conclusions such as
   `NOT APPLICABLE / HOLD` are forbidden and cannot satisfy release evidence.
+- A sandbox-only `listen EPERM` is recorded as a verification condition, not
+  an implementation HOLD, when Web typecheck, lint and focused frontend tests
+  all pass. CI and production semantic smoke still remain mandatory.
+- Sandbox, completed-run and integrated-commit recovery paths now pass an
+  explicit verified-evidence transition flag to the atomic queue writer.
+- If a transition is rejected, status-coupled evidence, reason, commit and
+  lease fields remain unchanged; partial success metadata can no longer
+  produce a split-brain task.
 
 ### 4.3 Queue And Release Safety
 

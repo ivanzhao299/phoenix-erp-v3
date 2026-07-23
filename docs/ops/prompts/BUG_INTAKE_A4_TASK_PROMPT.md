@@ -41,4 +41,9 @@ Return exactly one canonical conclusion. Never combine conclusions such as
   stating which existing files and behavior were verified.
 - If the issue genuinely has no frontend ownership, return exactly
   `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If local browser or dev-server startup is blocked only by the Codex sandbox
+  (for example `listen EPERM`), record that as a condition rather than a
+  blocker when Web typecheck, lint, and focused component/route regression
+  tests all pass. Return exactly `PASS WITH CONDITIONS`; CI and the runner's
+  production semantic smoke remain mandatory before business acceptance.
 - If required verification cannot be completed, return exactly `HOLD`.
