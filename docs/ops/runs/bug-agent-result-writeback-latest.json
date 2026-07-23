@@ -1,39 +1,20 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260723-0004",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260723-0004/agent-result",
+  "bugNo": "BUG-20260723-0005",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260723-0005/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260723-0004-A3",
-    "agent": "A3-Backend-Critical-Path",
+    "taskId": "BUGTASK-20260723-0005-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
     "conclusion": "HOLD",
-    "resultFile": "docs/ops/runs/BUGTASK-20260723-0004-A3-worker-log.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260723-0005-A4-detached-worker-recovery.md",
     "commitHash": "",
-    "changedFiles": [],
-    "validationResults": {
-      "evidenceGate": {
-        "version": 1,
-        "agent": "A3-Backend-Critical-Path",
-        "exitCode": 0,
-        "conclusion": "PASS_WITH_CONDITIONS",
-        "responseChars": 530,
-        "beforeHead": "dd3a4362f90242c16c166eb5b073f004a8e9d9c2",
-        "afterHead": "dd3a4362f90242c16c166eb5b073f004a8e9d9c2",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
-        "parentCommitRecovered": false,
-        "infrastructureFailure": null,
-        "checkedAt": "2026-07-23T07:10:56.382Z",
-        "passed": false,
-        "role": "implementation",
-        "terminalStatus": "HOLD",
-        "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
-      },
-      "queueStatus": "HOLD",
-      "integratedCommit": ""
-    },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260723-0004-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260723-0004-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260723-0004-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260723-0004-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260723-0004-A3-worker-assembled-prompt.md\nAssembled prompt chars: 35068\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T07-10-56-287Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS — GO，仅可进入 CI/CD、生产冒烟与业务验收，不能宣称生产 Bug 已解决。\n\n- 根因：旧作业台提交的 `receivedQty` 是扣除脏蛋、裂纹蛋后的可分级数量；后端新校验只接受总采集数，因此触库前返回 HTTP 400。\n- 修复：兼容新旧两种合法口径，持久化前统一规范化为总采集数；其他数量不一致仍拒绝。\n- 回归测试：10/10 通过。\n- API TypeScript 检查：通过，0 errors。\n- Diff 检查：通过，仅涉及 `apps/api/**` 和任务报告。\n- 提交：`dd3a4362f90242c16c166eb5b073f004a8e9d9c2`\n- 未推送、未部署、未写数据库、未执行迁移。\n\n详细证据见 [BUGTASK-20260723-0004-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUGTASK-20260723-0004-a3-backend-report.md)。现有未跟踪的两个 `node_modules` 目录未作处理、未纳入提交。\nBaseline autopilot skipped by caller; caller must ru",
+    "changedFiles": [
+      "apps/web/src/__tests__/bug-20260723-0005-packaging-workbench-navigation.test.ts",
+      "apps/web/src/app/(admin)/packaging/page.tsx",
+      "docs/ops/BUGTASK-20260723-0005-a4-frontend-uat-report.md"
+    ],
+    "validationResults": null,
+    "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260723-0005-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | HOLD |\n| Worker exit | 0 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.\n",
     "nextAction": ""
   }
 }

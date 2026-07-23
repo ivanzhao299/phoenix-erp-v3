@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-07-23T07:11:12.950Z",
-  "fingerprint": "33a13dd07030c71bdc6c48af05a7143263f04388d7ad19c5da751f6a3a4540ed",
+  "generated_at": "2026-07-23T08:51:59.074Z",
+  "fingerprint": "dc455cb68863fb7b9b1304afb428155768c3dacac13f34e7b931d006bb42e740",
   "decision": "DEGRADED",
   "metrics": {
-    "total": 386,
-    "active": 2,
+    "total": 388,
+    "active": 4,
     "status_counts": {
       "archived": 214,
       "completed": 3,
       "SKIPPED_NOT_APPLICABLE": 20,
       "VALIDATION_COMPLETED": 73,
       "COMPLETED_MERGED": 74,
-      "HOLD": 2
+      "HOLD": 4
     },
     "queue_wait_p50_ms": null,
     "queue_wait_p95_ms": null,
@@ -23,7 +23,7 @@
     "terminal_evidence_coverage": 1
   },
   "current_activity": {
-    "worker_count": 0,
-    "blocked_count": 0
+    "worker_count": 1,
+    "blocked_count": 1
   }
 }

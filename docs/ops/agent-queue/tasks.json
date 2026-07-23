@@ -29286,5 +29286,125 @@
     "state_updated_at": "2026-07-23T07:08:35.891Z",
     "retry_after": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+  },
+  {
+    "task_id": "BUGTASK-20260723-0005-A4",
+    "request_id": "BUGTASK-20260723-0005",
+    "title": "Repair BUG-20260723-0005: 生产管理-包装管理，进入作业台跳转错误 (A4-Frontend-UAT-Smoke)",
+    "source_bug_no": "BUG-20260723-0005",
+    "source_repair_task_no": "BUGTASK-20260723-0005",
+    "source": "bug-intake",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "status": "HOLD",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/web/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/api/src/database/migrations/**",
+      "migrations/**",
+      "schema/entity/table/column",
+      "deploy scripts",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260723-0005-A4-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a4",
+    "branch": "codex/bug-intake-a4",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-23T08:51:57.368Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260723-0005-A4-detached-worker-recovery.md",
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "915147ed386d8048a8697cfe6baa264990c70394599d9f9a09295abec030dad5",
+    "state_version": 4,
+    "state_updated_at": "2026-07-23T08:51:57.379Z",
+    "changed_files": [
+      "apps/web/src/__tests__/bug-20260723-0005-packaging-workbench-navigation.test.ts",
+      "apps/web/src/app/(admin)/packaging/page.tsx",
+      "docs/ops/BUGTASK-20260723-0005-a4-frontend-uat-report.md"
+    ],
+    "retry_after": null,
+    "baseline_autopilot_exit_code": null,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=0"
+  },
+  {
+    "task_id": "BUGTASK-20260723-0005-A1",
+    "request_id": "BUGTASK-20260723-0005",
+    "title": "Repair BUG-20260723-0005: 生产管理-包装管理，进入作业台跳转错误 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260723-0005",
+    "source_repair_task_no": "BUGTASK-20260723-0005",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "HOLD",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260723-0005-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260723-0005-A4"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-23T08:51:59.065Z",
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A4-Frontend-UAT-Smoke",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "49633aeef369371debe7d56e90d61253b4b5939e71b254793620985b8563ac1c",
+    "state_version": 1,
+    "reason": "blocked by failed dependency: BUGTASK-20260723-0005-A4",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260723-0005-A4",
+      "checkedAt": "2026-07-23T08:51:59.065Z"
+    }
   }
 ]
