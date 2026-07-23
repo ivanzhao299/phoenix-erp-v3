@@ -8,6 +8,7 @@ import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { usePackagingDicts, getDictLabel, buildGradeMap } from '@/hooks/usePackagingDicts';
 import { assertWarehouseHandoverCommitted, packagingApi } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
+import styles from './warehouse-handover.module.css';
 export default function WarehouseHandoverPage() {
   const router = useRouter();
   const {
@@ -35,6 +36,7 @@ export default function WarehouseHandoverPage() {
   const [location, setLocation] = useState('');
   const [receiver, setReceiver] = useState('');
   const [error, setError] = useState('');
+  const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -66,7 +68,7 @@ export default function WarehouseHandoverPage() {
   const canSubmit = allScanned && receiver && location;
   const handleSubmit = async () => {
     setSubmitting(true);
-    setError('');
+    setSubmitError('');
     try {
       const result = await packagingApi.confirmHandover({
         shiftId: ctx.currentShift?.id,
@@ -80,11 +82,11 @@ export default function WarehouseHandoverPage() {
       assertWarehouseHandoverCommitted(result);
       setDone(true);
       setTimeout(() => router.push('/terminal/packaging/shift-close'), 2000);
-    } catch (e: unknown) {
+    } catch (e) {
       console.error('入库确认失败', e);
-      setError(e instanceof Error
+      setSubmitError(e instanceof Error && e.message
         ? e.message
-        : t('ui.入库确认失败', '入库确认失败'));
+        : t('ui.入库确认失败请重试', '入库确认失败，请重试'));
     } finally {
       setSubmitting(false);
     }
@@ -196,7 +198,7 @@ export default function WarehouseHandoverPage() {
         </div>
       </div>
 
-      <div style={{
+      <div className={styles.content} style={{
       flex: 1,
       overflow: 'hidden',
       minHeight: 0,
@@ -205,7 +207,7 @@ export default function WarehouseHandoverPage() {
       gap: 16
     }}>
         {/* 左：扫码区 */}
-        <div style={{
+        <div className={styles.scanColumn} style={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
@@ -223,7 +225,7 @@ export default function WarehouseHandoverPage() {
             marginBottom: 12,
             fontWeight: 600
           }}>{t('ui.扫描箱码入库', '扫描箱码入库')}</div>
-            <div style={{
+            <div className={styles.scanActions} style={{
             display: 'flex',
             gap: 10,
             marginBottom: 12
@@ -326,7 +328,7 @@ export default function WarehouseHandoverPage() {
             marginBottom: 12,
             fontWeight: 600
           }}>{t('ui.托盘库位信息', '托盘 & 库位信息')}</div>
-            <div style={{
+            <div className={styles.detailGrid} style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr 1fr',
             gap: 12
@@ -371,7 +373,7 @@ export default function WarehouseHandoverPage() {
         </div>
 
         {/* 右：汇总 */}
-        <div style={{
+        <div className={styles.summaryColumn} style={{
         width: 220,
         flexShrink: 0
       }}>
@@ -427,7 +429,7 @@ export default function WarehouseHandoverPage() {
         </div>
       </div>
 
-      <div style={{
+      <div className={styles.footer} style={{
       background: T.CARD,
       borderTop: `1px solid ${T.BOR}`,
       padding: '17px 16px',
@@ -446,6 +448,9 @@ export default function WarehouseHandoverPage() {
         cursor: 'pointer'
       }}>{t('common.back', '返回')}</button>
         <div className={u.flex1} />
+        {submitError && <div className={styles.submitError} role="alert">
+          ⚠️ {t('ui.入库确认失败', '入库确认失败')}：{submitError}
+        </div>}
         <button type="button" onClick={() => setShowConfirm(true)} disabled={!canSubmit || submitting} style={{
         padding: '9px 40px',
         borderRadius: 10,
@@ -469,7 +474,7 @@ export default function WarehouseHandoverPage() {
       justifyContent: 'center',
       zIndex: 200
     }}>
-          <div style={{
+          <div className={styles.confirmDialog} role="dialog" aria-modal="true" aria-labelledby="warehouse-confirm-title" style={{
         background: T.CARD,
         borderRadius: 16,
         padding: 32,
@@ -477,7 +482,7 @@ export default function WarehouseHandoverPage() {
         border: `1px solid ${T.BOR}`,
         textAlign: 'center'
       }}>
-            <div style={{
+            <div id="warehouse-confirm-title" style={{
           fontSize: 48,
           marginBottom: 12
         }}>🏭</div>
