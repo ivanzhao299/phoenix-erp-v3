@@ -9,10 +9,14 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
-import { Search, RefreshCw, Plus, Eye, CheckCircle, X } from "lucide-react";
+import { Search, RefreshCw, Plus, X } from "lucide-react";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
 import { WarehouseSelector, UserSelector, MaterialSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
+import {
+  receiptScopeFromPurchaseOrder,
+  type ReceiptPurchaseOrderScope,
+} from "@/lib/procurement-receipt-submit";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -71,6 +75,10 @@ interface PoOrderItem {
   qty: number;
   receivedQty: number;
   unit?: string;
+}
+interface PoOrderDetail extends ReceiptPurchaseOrderScope {
+  poNo?: string;
+  items?: PoOrderItem[];
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -135,6 +143,7 @@ export default function ReceiptsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formPoId, setFormPoId] = useState("");
   const [formPoNo, setFormPoNo] = useState("");
+  const [formPoScope, setFormPoScope] = useState<ReceiptPurchaseOrderScope>({});
   const [formShipId, setFormShipId] = useState("");
   const [formShipNo, setFormShipNo] = useState("");
   const [formWh, setFormWh] = useState("");
@@ -184,7 +193,8 @@ export default function ReceiptsPage() {
     }
   }, [page, pageSize, keyword, status, toast]);
   useEffect(() => {
-    loadList(1);
+    const timer = window.setTimeout(() => void loadList(1), 0);
+    return () => window.clearTimeout(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = () => {
@@ -206,7 +216,9 @@ export default function ReceiptsPage() {
         headers: hdr()
       });
       if (!res.ok) return;
-      const po = await res.json();
+      const po: PoOrderDetail = await res.json();
+      setFormPoScope(receiptScopeFromPurchaseOrder(po));
+      if (po.poNo) setFormPoNo(po.poNo);
       const poItems: PoOrderItem[] = po.items ?? [];
       if (poItems.length > 0) {
         setFormItems(poItems.map(i => ({
@@ -228,6 +240,7 @@ export default function ReceiptsPage() {
   const openNew = () => {
     setFormPoId("");
     setFormPoNo("");
+    setFormPoScope({});
     setFormShipId("");
     setFormShipNo("");
     setFormWh("");
@@ -256,6 +269,7 @@ export default function ReceiptsPage() {
         body: JSON.stringify({
           poId: formPoId,
           poNo: formPoNo,
+          ...formPoScope,
           shipmentId: formShipId || undefined,
           shipmentNo: formShipNo || undefined,
           warehouseCode: formWh || undefined,
@@ -519,7 +533,10 @@ export default function ReceiptsPage() {
                 <label className={s.lbl}>{t('prc2.po_internal_id', "采购订单 ID")} <span style={{
                   color: "var(--color-danger)"
                 }}>*</span></label>
-                <input className={s.inp} value={formPoId} onChange={e => setFormPoId(e.target.value)} onBlur={() => formPoId && loadPoItems(formPoId)} placeholder={t('prc2.po_id_ph', "采购订单内部 ID（填完后自动加载明细）")} />
+                <input className={s.inp} value={formPoId} onChange={e => {
+                  setFormPoId(e.target.value);
+                  setFormPoScope({});
+                }} onBlur={() => formPoId && loadPoItems(formPoId)} placeholder={t('prc2.po_id_ph', "采购订单内部 ID（填完后自动加载明细）")} />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>{t('prc2.po_no', "采购订单号")} <span style={{
