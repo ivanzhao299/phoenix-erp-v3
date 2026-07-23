@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdirSync,
   openSync,
+  readSync,
   readFileSync,
   renameSync,
   statSync,
@@ -219,14 +220,57 @@ export function appendOutboxRecord(file, record) {
   return id;
 }
 
-export function pendingOutboxRecords(file) {
+function latestOutboxRecords(file) {
   if (!existsSync(file)) return [];
   const latest = new Map();
-  for (const line of readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
-    const item = JSON.parse(line);
-    latest.set(item.id, item);
+  const descriptor = openSync(file, 'r');
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  let remainder = '';
+  try {
+    while (true) {
+      const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
+      if (bytesRead === 0) break;
+      const text = remainder + buffer.subarray(0, bytesRead).toString('utf8');
+      const lines = text.split('\n');
+      remainder = lines.pop() || '';
+      if (remainder.length > 8 * 1024 * 1024) throw new Error('outbox contains an oversized JSONL record');
+      for (const line of lines) {
+        if (!line) continue;
+        const item = JSON.parse(line);
+        latest.set(item.id, item);
+      }
+    }
+    if (remainder) {
+      const item = JSON.parse(remainder);
+      latest.set(item.id, item);
+    }
+  } finally {
+    closeSync(descriptor);
   }
-  return [...latest.values()].filter((item) => item.status === 'PENDING' || item.status === 'RETRY');
+  return [...latest.values()];
+}
+
+export function pendingOutboxRecords(file) {
+  const latest = latestOutboxRecords(file);
+  return latest.filter((item) => item.status === 'PENDING' || item.status === 'RETRY');
+}
+
+export function compactOutbox(file) {
+  const target = path.resolve(file);
+  if (!existsSync(target)) return { compacted: false, beforeBytes: 0, afterBytes: 0, retained: 0 };
+  const beforeBytes = statSync(target).size;
+  const retained = latestOutboxRecords(target)
+    .filter((item) => item.status === 'PENDING' || item.status === 'RETRY');
+  const payload = retained.map((item) => JSON.stringify(item)).join('\n');
+  const temp = `${target}.tmp-${process.pid}-${Date.now()}`;
+  writeFileSync(temp, payload ? `${payload}\n` : '');
+  renameSync(temp, target);
+  return {
+    compacted: true,
+    beforeBytes,
+    afterBytes: statSync(target).size,
+    retained: retained.length,
+  };
 }
 
 function priorityRank(priority) {

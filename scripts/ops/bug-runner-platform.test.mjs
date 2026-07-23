@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import {
   appendOutboxRecord,
+  compactOutbox,
   canTransitionTaskStatus,
   classifyChangedPaths,
   computeRunnerMetrics,
@@ -78,6 +79,22 @@ test('outbox keeps only unacknowledged records pending', () => {
   assert.equal(pendingOutboxRecords(file).length, 1);
   appendOutboxRecord(file, { id, bugNo: 'BUG-1', endpoint: '/result', payload: { ok: true }, status: 'ACK' });
   assert.equal(pendingOutboxRecords(file).length, 0);
+});
+
+test('outbox compaction removes acknowledged history and retains retry state', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phoenix-outbox-compact-'));
+  const file = path.join(root, 'outbox.jsonl');
+  for (let index = 0; index < 100; index += 1) {
+    appendOutboxRecord(file, { id: `ACK-${index}`, status: 'PENDING', payload: { index } });
+    appendOutboxRecord(file, { id: `ACK-${index}`, status: 'ACK', payload: { index } });
+  }
+  appendOutboxRecord(file, { id: 'RETRY-1', status: 'RETRY', payload: { keep: true } });
+  const before = fs.statSync(file).size;
+  const result = compactOutbox(file);
+  assert.equal(result.retained, 1);
+  assert.ok(result.afterBytes < before);
+  assert.deepEqual(pendingOutboxRecords(file).map((item) => item.id), ['RETRY-1']);
+  fs.rmSync(root, { recursive: true, force: true });
 });
 
 test('scheduler parallelizes distinct worktrees and serializes the same write domain', () => {

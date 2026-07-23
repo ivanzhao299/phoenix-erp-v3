@@ -11,6 +11,7 @@ import {
   REQUIRED_CI_WORKFLOWS,
   appendOutboxRecord,
   atomicWriteJson,
+  compactOutbox,
   computeRunnerMetrics,
   evaluateCiBarrier,
   pendingOutboxRecords,
@@ -1369,7 +1370,8 @@ async function flushResultOutbox(args, childEnv) {
     });
     results.push({ id: record.id, bugNo: record.bugNo, ...delivery });
   }
-  return { pending: pending.length, delivered: results.filter((item) => item.ok).length, results };
+  const compaction = compactOutbox(file);
+  return { pending: pending.length, delivered: results.filter((item) => item.ok).length, results, compaction };
 }
 
 async function postAgentResult(args, childEnv, bugNo, payload) {
