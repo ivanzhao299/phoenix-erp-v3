@@ -14,7 +14,7 @@
   "reporterUsername": "admin",
   "reporterName": "金凤凰总控",
   "createdAt": "2026-07-23T09:04:40.727Z",
-  "updatedAt": "2026-07-23T09:22:19.581Z",
+  "updatedAt": "2026-07-23T09:24:30.086Z",
   "closedAt": null,
   "attachmentCount": 1,
   "description": "销售管理-价格管理，新建价格册并添加价格明细后，点击“提交审批”，提示“[400]当前业务未配置审批规则，请先在审批规则中配置后再提交”，给我直接配一套跟采购申请审批一样的规则，选择下一审批人",
@@ -2196,57 +2196,57 @@
       {
         "agent": "A3-Backend-Critical-Path",
         "taskId": "BUGTASK-20260723-0007-A3",
-        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260723-0007-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Conclusion | HOLD |\n| Worker exit | 2 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.",
+        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260723-0007-A3 |\n| Agent | A3-Backend-Critical-Path |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --prompt docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260723-0007-A3-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260723-0007-A3-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A3-Backend-Critical-Path\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a3\nBranch: codex/bug-intake-a3\nPrompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260723-0007-A3-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260723-0007-A3-worker-assembled-prompt.md\nAssembled prompt chars: 30128\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T09-24-26-296Z-A3-Backend-Critical-Path.md\nPASS WITH CONDITIONS — GO 进入 CI/CD 与受控验证。\n\n根因：价格簿提交未将 `approverUserId` 传给审批引擎，导致回退到未配置的固定审批规则并返回 400。\n\n已完成：\n\n- 接入与采购申请一致的“选择下一审批人”动态审批链路。\n- 保留 RBAC、DataScope 和制单/审核分离校验。\n- 聚焦测试：1 suite、9 tests 全部通过。\n- API `tsc --noEmit`：退出码 0。\n- 无数据库、迁移、schema、entity 或前端改动。\n- 修复提交：`cd7f7774 fix(api): repair BUG-20260723-0007`\n- 报告：[BUGTASK-20260723-0007-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUGTASK-20260723-0007-a3-backend-report.md)\n\n未部署、未推送、未执行生产 smoke test。必须通过 CI/CD、生产验证及业务验收后，才能认定该 Bug 已解决。\nBaseline autopilot skipped by caller; caller must run lifec",
         "commitHash": "",
         "conclusion": "HOLD",
         "nextAction": "",
-        "recordedAt": "2026-07-23T09:22:17.684Z",
+        "recordedAt": "2026-07-23T09:24:28.130Z",
         "recordedBy": "bug_intake_runner",
-        "resultFile": "docs/ops/runs/BUGTASK-20260723-0007-A3-detached-worker-recovery.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260723-0007-A3-worker-log.md",
         "changedFiles": [],
-        "redispatchCount": 1,
-        "validationResults": null
+        "redispatchCount": 2,
+        "validationResults": {
+          "queueStatus": "HOLD",
+          "evidenceGate": {
+            "role": "implementation",
+            "agent": "A3-Backend-Critical-Path",
+            "passed": false,
+            "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "cd7f7774b8a71f813d208d13fedb1dabe8877ec6",
+            "checkedAt": "2026-07-23T09:24:26.389Z",
+            "beforeHead": "cd7f7774b8a71f813d208d13fedb1dabe8877ec6",
+            "commitHash": "",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 523,
+            "terminalStatus": "HOLD",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "integratedCommit": ""
+        }
       },
       {
         "taskId": "BUGTASK-20260723-0007-A4",
         "agent": "A4-Frontend-UAT-Smoke",
         "conclusion": "HOLD",
-        "resultFile": "docs/ops/runs/BUGTASK-20260723-0007-A4-worker-log.md",
+        "resultFile": "docs/ops/runs/BUGTASK-20260723-0007-A4-detached-worker-recovery.md",
         "commitHash": "",
         "changedFiles": [],
-        "validationResults": {
-          "evidenceGate": {
-            "version": 1,
-            "agent": "A4-Frontend-UAT-Smoke",
-            "exitCode": 0,
-            "conclusion": "PASS_WITH_CONDITIONS",
-            "responseChars": 904,
-            "beforeHead": "9473b48ba478c28951192913c349ead1306530eb",
-            "afterHead": "9473b48ba478c28951192913c349ead1306530eb",
-            "commitHash": "",
-            "changedFiles": [],
-            "businessChangedFiles": [],
-            "reportFiles": [],
-            "parentCommitRecovered": false,
-            "infrastructureFailure": null,
-            "checkedAt": "2026-07-23T09:22:16.119Z",
-            "passed": false,
-            "role": "implementation",
-            "terminalStatus": "HOLD",
-            "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
-          },
-          "queueStatus": "HOLD",
-          "integratedCommit": ""
-        },
-        "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260723-0007-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260723-0007-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260723-0007-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260723-0007-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260723-0007-A4-worker-assembled-prompt.md\nAssembled prompt chars: 31021\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T09-22-16-032Z-A4-Frontend-UAT-Smoke.md\n## PASS WITH CONDITIONS\n\n基线提交 `9473b48b` 已包含正确的前端修复，本轮复验未新增改动。\n\n- 修复文件：[销售价格管理页](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/pricing/page.tsx)\n- 回归测试：[审批人选择测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/bug-20260723-0007-sales-pricing-approver.test.ts)\n- 任务报告：[BUGTASK-20260723-0007-frontend-repair.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260723-0007-frontend-repair.md)\n\n验证结果：\n\n- 聚焦测试：3 files、12 tests 全部通过。\n- Web TypeScript：`tsc --noEmit`，0 errors。\n- RBAC：提交入口继续受 `pricePerm.canApprove` 控制。\n- DataScop",
+        "validationResults": null,
+        "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260723-0007-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | HOLD |\n| Worker exit | 2 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.",
         "nextAction": "",
-        "redispatchCount": 1,
+        "redispatchCount": 2,
         "recordedBy": "bug_intake_runner",
-        "recordedAt": "2026-07-23T09:22:19.579Z"
+        "recordedAt": "2026-07-23T09:24:30.084Z"
       }
     ],
     "suggestedOwner": "",
-    "redispatchCount": 1,
+    "redispatchCount": 2,
     "timeoutRecovery": {},
     "repairGuardrails": {
       "autoRepairExecuted": false,
@@ -2258,38 +2258,15 @@
       "taskId": "BUGTASK-20260723-0007-A4",
       "agent": "A4-Frontend-UAT-Smoke",
       "conclusion": "HOLD",
-      "resultFile": "docs/ops/runs/BUGTASK-20260723-0007-A4-worker-log.md",
+      "resultFile": "docs/ops/runs/BUGTASK-20260723-0007-A4-detached-worker-recovery.md",
       "commitHash": "",
       "changedFiles": [],
-      "validationResults": {
-        "evidenceGate": {
-          "version": 1,
-          "agent": "A4-Frontend-UAT-Smoke",
-          "exitCode": 0,
-          "conclusion": "PASS_WITH_CONDITIONS",
-          "responseChars": 904,
-          "beforeHead": "9473b48ba478c28951192913c349ead1306530eb",
-          "afterHead": "9473b48ba478c28951192913c349ead1306530eb",
-          "commitHash": "",
-          "changedFiles": [],
-          "businessChangedFiles": [],
-          "reportFiles": [],
-          "parentCommitRecovered": false,
-          "infrastructureFailure": null,
-          "checkedAt": "2026-07-23T09:22:16.119Z",
-          "passed": false,
-          "role": "implementation",
-          "terminalStatus": "HOLD",
-          "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
-        },
-        "queueStatus": "HOLD",
-        "integratedCommit": ""
-      },
-      "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260723-0007-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | HOLD |\n\n## Command\n\n```bash\n/usr/local/bin/node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --prompt docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md --task-contract docs/ops/runs/BUGTASK-20260723-0007-A4-contract.md --assembled-prompt-output docs/ops/runs/BUGTASK-20260723-0007-A4-worker-assembled-prompt.md --allow-bug-intake-worktree --require-approval-token APPROVE_AGENT_EXECUTION --skip-baseline-autopilot --allow-ops-runtime-dirty\n```\n\n## Stdout\n\n```text\nAgent: A4-Frontend-UAT-Smoke\nWorktree: /Users/mac/phoenix-erp-worktrees/bug-intake-a4\nBranch: codex/bug-intake-a4\nPrompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md\nTask contract: docs/ops/runs/BUGTASK-20260723-0007-A4-contract.md\nAssembled prompt: docs/ops/runs/BUGTASK-20260723-0007-A4-worker-assembled-prompt.md\nAssembled prompt chars: 31021\nCodex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -\nCodex timeout ms: 600000\nCodex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)\nRun log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T09-22-16-032Z-A4-Frontend-UAT-Smoke.md\n## PASS WITH CONDITIONS\n\n基线提交 `9473b48b` 已包含正确的前端修复，本轮复验未新增改动。\n\n- 修复文件：[销售价格管理页](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/pricing/page.tsx)\n- 回归测试：[审批人选择测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/bug-20260723-0007-sales-pricing-approver.test.ts)\n- 任务报告：[BUGTASK-20260723-0007-frontend-repair.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260723-0007-frontend-repair.md)\n\n验证结果：\n\n- 聚焦测试：3 files、12 tests 全部通过。\n- Web TypeScript：`tsc --noEmit`，0 errors。\n- RBAC：提交入口继续受 `pricePerm.canApprove` 控制。\n- DataScop",
+      "validationResults": null,
+      "summary": "# Detached Worker Recovery\n\n| Field | Value |\n| --- | --- |\n| Task | BUGTASK-20260723-0007-A4 |\n| Agent | A4-Frontend-UAT-Smoke |\n| Conclusion | HOLD |\n| Worker exit | 2 |\n| Child waited seconds | n/a |\n| Worktree status before recovery | clean |\n| Baseline autopilot | REFUSED: no implementation evidence |\n\n## Safety\n\n- Push: No\n- Deploy: No\n- Migration: No\n- DB write: No\n\nAn abnormal/detached worker result is never allowed to merge. The task remains HOLD until a fresh worker run produces an owned business diff, a task report, a commit, and an explicit conclusion.",
       "nextAction": "",
-      "redispatchCount": 1,
+      "redispatchCount": 2,
       "recordedBy": "bug_intake_runner",
-      "recordedAt": "2026-07-23T09:22:19.579Z"
+      "recordedAt": "2026-07-23T09:24:30.084Z"
     },
     "redispatchHistory": [
       {
@@ -2306,12 +2283,27 @@
           "A1-CI-Runtime-Gate"
         ],
         "previousRepairTaskStatus": "HOLD"
+      },
+      {
+        "mode": "REQUEUE",
+        "note": "AUTO_QUEUE_RECOVERY: dependency symlink false-dirty/quarantine generation 1",
+        "redispatchNo": 2,
+        "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
+        "previousStatus": "IN_PROGRESS",
+        "redispatchedAt": "2026-07-23T09:22:44.704Z",
+        "redispatchedBy": "bug_intake_runner",
+        "selectedAgents": [
+          "A3-Backend-Critical-Path",
+          "A4-Frontend-UAT-Smoke",
+          "A1-CI-Runtime-Gate"
+        ],
+        "previousRepairTaskStatus": "HOLD"
       }
     ],
     "acceptanceCriteria": "给我直接配一套跟采购申请审批一样的规则，选择下一审批人",
-    "agentPlanGeneratedAt": "2026-07-23T09:20:50.182Z",
+    "agentPlanGeneratedAt": "2026-07-23T09:22:44.704Z",
     "agentPlanGeneratedBy": "redispatch-explicit:bug_intake_runner",
-    "activeRedispatchCount": 1,
+    "activeRedispatchCount": 2,
     "failureClassification": {
       "category": "API_5XX",
       "evidence": [
@@ -2331,11 +2323,11 @@
     },
     "agentExecutionApproval": {
       "approved": true,
-      "approvedAt": "2026-07-23T09:20:50.182Z",
+      "approvedAt": "2026-07-23T09:22:44.705Z",
       "approvedBy": "bug_intake_runner",
       "redispatch": true,
       "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-      "redispatchCount": 1,
+      "redispatchCount": 2,
       "forbiddenActions": [
         "production deploy without separate approval",
         "database write without separate gate",
@@ -2464,6 +2456,93 @@
           "aggregateBackfill": true,
           "baselineAutopilotExitCode": null
         }
+      },
+      {
+        "agent": "A3-Backend-Critical-Path",
+        "taskId": "BUGTASK-20260723-0007-A3",
+        "summary": "Local bug-intake task BUGTASK-20260723-0007-A3 reached HOLD.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+        "commitHash": "",
+        "conclusion": "HOLD",
+        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
+        "recordedAt": "2026-07-23T09:22:26.323Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260723-0007-A3-detached-worker-recovery.md",
+        "changedFiles": [],
+        "redispatchCount": 1,
+        "validationResults": {
+          "completedAt": "2026-07-23T09:22:16.199Z",
+          "evidenceGate": null,
+          "localTaskStatus": "HOLD",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": null
+        }
+      },
+      {
+        "agent": "A4-Frontend-UAT-Smoke",
+        "taskId": "BUGTASK-20260723-0007-A4",
+        "summary": "Local bug-intake task BUGTASK-20260723-0007-A4 reached HOLD.\nBaseline lifecycle: read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts.",
+        "commitHash": "",
+        "conclusion": "HOLD",
+        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
+        "recordedAt": "2026-07-23T09:22:26.906Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "docs/ops/runs/BUGTASK-20260723-0007-A4-worker-log.md",
+        "changedFiles": [],
+        "redispatchCount": 1,
+        "validationResults": {
+          "completedAt": "2026-07-23T09:22:16.119Z",
+          "evidenceGate": {
+            "role": "implementation",
+            "agent": "A4-Frontend-UAT-Smoke",
+            "passed": false,
+            "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report",
+            "version": 1,
+            "exitCode": 0,
+            "afterHead": "9473b48ba478c28951192913c349ead1306530eb",
+            "checkedAt": "2026-07-23T09:22:16.119Z",
+            "beforeHead": "9473b48ba478c28951192913c349ead1306530eb",
+            "commitHash": "",
+            "conclusion": "PASS_WITH_CONDITIONS",
+            "reportFiles": [],
+            "changedFiles": [],
+            "responseChars": 904,
+            "terminalStatus": "HOLD",
+            "businessChangedFiles": [],
+            "infrastructureFailure": null,
+            "parentCommitRecovered": false
+          },
+          "localTaskStatus": "HOLD",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": null
+        }
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "taskId": "BUGTASK-20260723-0007-A1",
+        "summary": "Local bug-intake task BUGTASK-20260723-0007-A1 reached HOLD.",
+        "commitHash": "",
+        "conclusion": "HOLD",
+        "nextAction": "Keep bug report in HOLD until the failed local Agent task is reviewed.",
+        "recordedAt": "2026-07-23T09:22:27.475Z",
+        "recordedBy": "bug_intake_runner",
+        "resultFile": "/Users/mac/.phoenix-erp/runs/bug-intake-local-runner/latest-summary.md",
+        "changedFiles": [],
+        "redispatchCount": 1,
+        "validationResults": {
+          "completedAt": "2026-07-23T09:22:19.856Z",
+          "evidenceGate": {
+            "role": "dependency",
+            "agent": "A1-CI-Runtime-Gate",
+            "passed": false,
+            "reason": "blocked by failed dependency: BUGTASK-20260723-0007-A3, BUGTASK-20260723-0007-A4",
+            "version": 1,
+            "checkedAt": "2026-07-23T09:22:19.856Z",
+            "terminalStatus": "HOLD"
+          },
+          "localTaskStatus": "HOLD",
+          "aggregateBackfill": true,
+          "baselineAutopilotExitCode": null
+        }
       }
     ]
   },
@@ -2504,7 +2583,7 @@
         "status": "PENDING"
       }
     ],
-    "completedAt": "2026-07-23T09:22:19.579Z",
+    "completedAt": "2026-07-23T09:24:30.084Z",
     "nextAction": "需要重新分派或人工 Gate"
   },
   "updatedBy": "bug_intake_runner"

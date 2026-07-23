@@ -27,26 +27,22 @@ Assembled prompt chars: 30128
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T09-21-55-590Z-A3-Backend-Critical-Path.md
-PASS WITH CONDITIONS — GO（进入 CI/CD 与受控验证）
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T09-24-26-296Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS — GO 进入 CI/CD 与受控验证。
 
-后端修复已在提交 `cd7f7774` 中完成：
+根因：价格簿提交未将 `approverUserId` 传给审批引擎，导致回退到未配置的固定审批规则并返回 400。
 
-- 价格簿提交 DTO 支持 `approverUserId`
-- 映射为审批引擎的 `pickedApproverId`
-- 使用 `MENU_SALES2_PRICE` 校验审批候选人的权限和 DataScope
-- 未修改数据库、迁移、实体或前端
+已完成：
 
-验证结果：
+- 接入与采购申请一致的“选择下一审批人”动态审批链路。
+- 保留 RBAC、DataScope 和制单/审核分离校验。
+- 聚焦测试：1 suite、9 tests 全部通过。
+- API `tsc --noEmit`：退出码 0。
+- 无数据库、迁移、schema、entity 或前端改动。
+- 修复提交：`cd7f7774 fix(api): repair BUG-20260723-0007`
+- 报告：[BUGTASK-20260723-0007-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUGTASK-20260723-0007-a3-backend-report.md)
 
-- 聚焦 Jest：9/9 passed
-- API `tsc --noEmit`：0 errors
-- 修复范围：3 个 API 文件及任务报告
-- 未部署、未推送、未写数据库
-
-报告：[BUGTASK-20260723-0007-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUGTASK-20260723-0007-a3-backend-report.md)
-
-条件：调用端必须提交 `approverUserId`；仍需 CI/CD、生产 smoke test 和业务审批闭环验收后，才能认定 BUG 已解决。
+未部署、未推送、未执行生产 smoke test。必须通过 CI/CD、生产验证及业务验收后，才能认定该 Bug 已解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -63,7 +59,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f8e47-3a4e-7432-afc0-52a7187f5e16
+session id: 019f8e48-f58f-7110-b7cb-ae871fe84ebb
 --------
 user
 # Base Agent Prompt
@@ -506,7 +502,7 @@ Assigned agent: A3-Backend-Critical-Path
           },
           {
             "tag": "a",
-...<truncated 81053 chars>
+...<truncated 75451 chars>
 
 ```
 
@@ -518,7 +514,7 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 519,
+  "responseChars": 523,
   "beforeHead": "cd7f7774b8a71f813d208d13fedb1dabe8877ec6",
   "afterHead": "cd7f7774b8a71f813d208d13fedb1dabe8877ec6",
   "commitHash": "",
@@ -527,7 +523,7 @@ Assigned agent: A3-Backend-Critical-Path
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-23T09:21:55.678Z",
+  "checkedAt": "2026-07-23T09:24:26.389Z",
   "passed": false,
   "role": "implementation",
   "terminalStatus": "HOLD",
@@ -539,9 +535,11 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": false,
+  "attempted": true,
   "ok": false,
-  "reason": "worktree has no uncommitted Agent changes",
-  "files": []
+  "files": [
+    "docs/ops/BUGTASK-20260723-0007-a3-backend-report.md"
+  ],
+  "error": "no apps/api/ implementation file"
 }
 ```

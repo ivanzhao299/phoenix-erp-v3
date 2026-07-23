@@ -5,7 +5,7 @@
 | Task | BUGTASK-20260723-0007-A4 |
 | Agent | A4-Frontend-UAT-Smoke |
 | Conclusion | HOLD |
-| Worker exit | 0 |
+| Worker exit | 2 |
 | Child waited seconds | n/a |
 | Worktree status before recovery | clean |
 | Baseline autopilot | REFUSED: no implementation evidence |

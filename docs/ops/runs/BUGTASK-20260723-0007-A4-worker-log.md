@@ -27,27 +27,25 @@ Assembled prompt chars: 31021
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T09-22-16-032Z-A4-Frontend-UAT-Smoke.md
-## PASS WITH CONDITIONS
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-23T09-24-03-770Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS
 
-基线提交 `9473b48b` 已包含正确的前端修复，本轮复验未新增改动。
+基线提交 `9473b48b` 已包含前端修复：
 
-- 修复文件：[销售价格管理页](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/sales2/pricing/page.tsx)
-- 回归测试：[审批人选择测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/__tests__/bug-20260723-0007-sales-pricing-approver.test.ts)
-- 任务报告：[BUGTASK-20260723-0007-frontend-repair.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260723-0007-frontend-repair.md)
+- 销售价格册提交时可选择下一审批人。
+- 保留 `MENU_SALES2_PRICE` 权限门禁及公司 DataScope 过滤。
+- 保留加载、无候选、接口错误和提交中状态。
+- 已提交 `approverUserId` 与可选说明。
+- 专项及相邻测试：12/12 通过。
+- Web TypeScript：0 errors。
+- 新增专项测试 ESLint：通过。
+- 本地服务因沙箱 `listen EPERM :3000` 无法启动，桌面及移动端完成结构性响应式检查，仍需 CI/运行器语义冒烟。
+- 页面级 ESLint 存在既有历史债务：19 errors、3 warnings；本次新增测试无新增 lint 问题。
+- 未修改 API、数据库或迁移；未推送、部署或写库。
 
-验证结果：
+报告：[BUGTASK-20260723-0007-frontend-repair.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260723-0007-frontend-repair.md)
 
-- 聚焦测试：3 files、12 tests 全部通过。
-- Web TypeScript：`tsc --noEmit`，0 errors。
-- RBAC：提交入口继续受 `pricePerm.canApprove` 控制。
-- DataScope：候选人请求携带 `MENU_SALES2_PRICE:E` 和 `companyCode`。
-- 加载、无候选、API 错误、提交中状态均已保留。
-- 桌面和移动响应式结构检查通过：弹窗限制视口宽高、候选区可滚动、按钮满宽且操作区可换行。
-- 本地浏览器语义冒烟受沙箱 `listen EPERM 127.0.0.1:3000` 限制，未宣称实际浏览器验证通过。
-- 目标页 lint 存在既有债务：19 errors、3 warnings；本修复新增代码未引入对应报错。
-
-尚须 CI/CD、可启动环境中的桌面/移动生产语义冒烟、销售价格审批规则确认及业务验收，才能认定缺陷已解决。未推送、部署、写库或执行迁移。
+仍须配置/确认销售价格册审批规则，并完成 CI/CD、生产桌面与移动端冒烟及业务验收后，才能认定缺陷解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -64,7 +62,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f8e47-3a92-7042-9919-e356beb22ee3
+session id: 019f8e48-f58f-7680-96c5-0a8f1f031d8e
 --------
 user
 # Base Agent Prompt
@@ -485,7 +483,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           },
           {
             
-...<truncated 107681 chars>
+...<truncated 122009 chars>
 
 ```
 
@@ -497,7 +495,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 904,
+  "responseChars": 592,
   "beforeHead": "9473b48ba478c28951192913c349ead1306530eb",
   "afterHead": "9473b48ba478c28951192913c349ead1306530eb",
   "commitHash": "",
@@ -506,7 +504,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-23T09:22:16.119Z",
+  "checkedAt": "2026-07-23T09:24:03.852Z",
   "passed": false,
   "role": "implementation",
   "terminalStatus": "HOLD",

@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-23T09:20:59.753Z |
-| Run files inspected | 2371 |
+| Generated at | 2026-07-23T09:22:53.376Z |
+| Run files inspected | 2373 |
 | Task count | 393 |
 | Findings count | 35 |
 | Highest severity | CRITICAL |
@@ -280,7 +280,7 @@
 ### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/BUGTASK-20260723-0005-A1-contract.md;  M docs/ops/runs/BUGTASK-20260723-0005-A4-contract.md;  M docs/ops/runs/BUGTASK-20260723-0005-A4-worker-assembled-prompt.md;  M docs/ops/runs/BUGTASK-20260723-0005-A4-worker-log.md;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md; ?? docs/ops/runs/2026-07-23T08-53-27-971Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-23T08-57-16-569Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-23T08-58-18-943Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-23T09-00-11-666Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-23T09-01-41-406Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-23T09-19-44-684Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/2026-07-23T09-20-21-734Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/BUGTASK-20260723-0005-A1-worker-log.md; ?? docs/ops/runs/BUGTASK-20260723-0006-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0006-A4-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0006-A4-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260723-0006-A4-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260723-0006-A4-worker-log.md; ?? docs/ops/runs/BUGTASK-20260723-0007-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0007-A3-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0007-A3-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260723-0007-A3-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260723-0007-A3-worker-log.md; ?? docs/ops/runs/BUGTASK-20260723-0007-A4-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0007-A4-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260723-0007-A4-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260723-0007-A4-worker-log.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260723-0007-A1-contract.md;  M docs/ops/runs/BUGTASK-20260723-0007-A3-contract.md;  M docs/ops/runs/BUGTASK-20260723-0007-A4-contract.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false

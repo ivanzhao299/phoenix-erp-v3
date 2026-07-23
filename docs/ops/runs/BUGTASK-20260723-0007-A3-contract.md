@@ -1119,11 +1119,11 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-23T09:20:50.182Z",
+    "approvedAt": "2026-07-23T09:22:44.705Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
     "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-    "redispatchCount": 1,
+    "redispatchCount": 2,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
