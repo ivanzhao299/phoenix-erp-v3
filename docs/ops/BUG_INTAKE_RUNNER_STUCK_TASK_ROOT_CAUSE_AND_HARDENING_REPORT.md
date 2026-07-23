@@ -33,6 +33,9 @@ The administrator-facing Bug Intake workflow appeared stuck even though several 
     not pass `verifiedEvidenceRecovery` to the atomic queue writer. The writer
     retained HOLD while copying the new success reason and evidence, creating
     a contradictory state that the next cycle could not release.
+17. Runtime audit commits calculated their semantic fingerprint from a full
+    binary patch. Large generated reports could exceed V8's maximum string
+    length before Git committed them, repeatedly aborting a watch cycle.
 
 ## 3. Root Cause Evidence
 
@@ -53,6 +56,7 @@ The administrator-facing Bug Intake workflow appeared stuck even though several 
 | Already-pushed lifecycle gap | Verified commit existed on `origin/main`, but zero unpushed commits caused release steps to be skipped | Code could deploy while the administrator report stayed HOLD |
 | Sandbox verification conflation | Local browser server could not bind because the Agent sandbox returned `listen EPERM` | Deterministic frontend evidence passed, but the task remained HOLD |
 | Recovery state split-brain | Queue rejected `HOLD -> COMPLETED_MERGED` but copied incoming success metadata | Administrator saw HOLD carrying passed evidence and a success reason |
+| Unbounded audit fingerprint | `git diff --cached --binary` was read into one Node string | Repeated `Cannot create a string longer than 0x1fffffe8 characters` errors and stalled audit cycles |
 
 ## 4. Implemented Hardening
 
@@ -100,6 +104,10 @@ The administrator-facing Bug Intake workflow appeared stuck even though several 
 - Release task identifiers are deterministic for the released commit.
 - Push remains blocked by non-runtime business changes, but generated queue state no longer creates a false block.
 - A verified release already present on `origin/main` resumes at CI wait, production smoke and lifecycle writeback instead of being mistaken for an idle cycle.
+- Runtime audit commits fingerprint the compact Git index raw record
+  (blob hashes, modes and paths) instead of materializing the full binary
+  patch. Git output is capped at 16 MiB, and failed fingerprint/commit steps
+  automatically unstage runtime paths so the index cannot remain wedged.
 
 ### 4.4 Business Repair Verified By The Pipeline
 
@@ -141,7 +149,7 @@ The administrator-facing Bug Intake workflow appeared stuck even though several 
 
 ## 6. Verification
 
-- Focused Bug Runner tests: **45/45 PASS**.
+- Focused Bug Runner tests: **60/60 PASS**.
 - Warehouse service tests: **7/7 PASS**.
 - Packaging handover client tests: **2/2 PASS**.
 - Focused platform and business regression total: **54/54 PASS**.

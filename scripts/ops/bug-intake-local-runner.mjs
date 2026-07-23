@@ -364,8 +364,15 @@ function activeAgentProcesses() {
     ));
 }
 
+const MAX_GIT_OUTPUT_BYTES = 16 * 1024 * 1024;
+
 function execGit(args, cwd) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: MAX_GIT_OUTPUT_BYTES,
+  }).trim();
 }
 
 function safeGit(args, cwd) {
@@ -384,6 +391,10 @@ function isRunnerRuntimeFile(file) {
     || file.startsWith('docs/ops/evolution/');
 }
 
+export function auditFingerprintGitArgs(paths = OPS_RUNTIME_PATHS) {
+  return ['diff', '--cached', '--raw', '--no-renames', '--', ...paths];
+}
+
 function commitOpsRuntimeArtifacts(args) {
   if (args.dryRun) return { skipped: true, reason: 'dry-run' };
   if (!args.commitAuditArtifacts) return { skipped: true, reason: 'automatic audit commits disabled' };
@@ -399,17 +410,24 @@ function commitOpsRuntimeArtifacts(args) {
   const add = safeGit(['add', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
   if (!add.ok) return { skipped: false, ok: false, step: 'git add', error: add.output };
   const staged = safeGit(['diff', '--cached', '--name-only', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
-  if (!staged.ok) return { skipped: false, ok: false, step: 'git diff --cached', error: staged.output };
+  if (!staged.ok) {
+    safeGit(['restore', '--staged', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
+    return { skipped: false, ok: false, step: 'git diff --cached', error: staged.output };
+  }
   if (!staged.output.trim()) return { skipped: true, reason: 'no staged ops runtime artifacts' };
-  const stagedDiff = safeGit(['diff', '--cached', '--binary', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
-  if (!stagedDiff.ok) return { skipped: false, ok: false, step: 'git diff --cached', error: stagedDiff.output };
-  const semanticHash = createHash('sha256').update(stagedDiff.output).digest('hex');
+  const stagedFingerprint = safeGit(auditFingerprintGitArgs(), args.mainRoot);
+  if (!stagedFingerprint.ok) {
+    safeGit(['restore', '--staged', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
+    return { skipped: false, ok: false, step: 'git diff --cached --raw', error: stagedFingerprint.output };
+  }
+  const semanticHash = createHash('sha256').update(stagedFingerprint.output).digest('hex');
   if (semanticHash === previous.semanticHash) {
     safeGit(['restore', '--staged', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
     return { skipped: true, reason: 'audit state unchanged' };
   }
   const commit = safeGit(['commit', '-m', 'docs(ops): record bug intake runner artifacts'], args.mainRoot);
   if (commit.ok) writeJson(AUDIT_COMMIT_STATE_FILE, { committedAt: new Date().toISOString(), semanticHash });
+  else safeGit(['restore', '--staged', '--', ...OPS_RUNTIME_PATHS], args.mainRoot);
   return commit.ok
     ? { skipped: false, ok: true, files: staged.output.split('\n').filter(Boolean), output: commit.output, semanticHash }
     : { skipped: false, ok: false, step: 'git commit', error: commit.output };

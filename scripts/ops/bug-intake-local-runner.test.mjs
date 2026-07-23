@@ -5,6 +5,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  auditFingerprintGitArgs,
   bootstrapResultDeliveryReceipts,
   buildResultBackfillPlan,
   requeueExpiredCapacityWaits,
@@ -37,6 +38,23 @@ test('runner queue state and append-only events are runtime artifacts', () => {
   const source = fs.readFileSync(new URL('./bug-intake-local-runner.mjs', import.meta.url), 'utf8');
   assert.equal(source.includes("file.startsWith('docs/ops/agent-queue/')"), true);
   assert.equal(source.includes("'docs/ops/agent-queue'"), true);
+});
+
+test('audit artifact fingerprint is compact and never loads a binary patch', () => {
+  const args = auditFingerprintGitArgs(['docs/ops/runs']);
+  assert.deepEqual(args, [
+    'diff',
+    '--cached',
+    '--raw',
+    '--no-renames',
+    '--',
+    'docs/ops/runs',
+  ]);
+  assert.equal(args.includes('--binary'), false);
+
+  const source = fs.readFileSync(new URL('./bug-intake-local-runner.mjs', import.meta.url), 'utf8');
+  assert.equal(source.includes('maxBuffer: MAX_GIT_OUTPUT_BYTES'), true);
+  assert.equal(source.includes("['diff', '--cached', '--binary'"), false);
 });
 
 test('result delivery id is stable and changes with worker evidence', () => {
