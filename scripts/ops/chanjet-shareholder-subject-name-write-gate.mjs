@@ -6,6 +6,7 @@ const APPROVAL_TOKEN = 'APPROVE_CHANJET_SHAREHOLDER_NAME_WRITE_20260723';
 const UPDATE_PATH = '/accounting/gl/glaccount/updateAccountDuia';
 const QUERY_PATH = '/accounting/gl/glaccount/getInitBalanceLists';
 const QUERY_ALL_PATH = '/accounting/gl/glaccount/getInitBalanceList';
+const QUERY_MASTER_PATH = '/accounting/openapi/cc/subject/list';
 const GENERATE_TOKEN_PATH = '/v1/common/auth/selfBuiltApp/generateToken';
 
 const TARGETS = Object.freeze([
@@ -208,6 +209,16 @@ async function readSubjectList(target, token) {
   return rows[0];
 }
 
+async function readSubjectMaster(target, token) {
+  const payload = await providerCall(`${QUERY_MASTER_PATH}/${target.bookId}`, {
+    token,
+    query: { _: String(Date.now()) },
+  });
+  const rows = collectRows(payload).filter((row) => rowCode(row) === target.code);
+  if (rows.length !== 1) throw new Error(`Expected one subject-master row for ${target.bookId}/${target.code}, found ${rows.length}`);
+  return rows[0];
+}
+
 async function writeName(target, name, sourceRow, token) {
   return providerCall(`${UPDATE_PATH}/${target.bookId}`, {
     method: 'POST',
@@ -305,6 +316,7 @@ async function loadToken(client, fresh = false) {
 
 async function main() {
   const execute = process.argv.includes('--execute');
+  const verifyOnly = process.argv.includes('--verify-only');
   const approvalToken = argValue('--approval-token') || '';
   const maxTargets = Number(argValue('--max-targets') || TARGETS.length);
   if (execute && approvalToken !== APPROVAL_TOKEN) throw new Error('Explicit approval token is missing or invalid');
@@ -324,7 +336,7 @@ async function main() {
 
   const output = {
     gate: 'CHANJET_SHAREHOLDER_SUBJECT_NAME_APPROVAL_20260723',
-    mode: execute ? 'EXECUTE' : 'DRY_RUN',
+    mode: execute ? 'EXECUTE' : verifyOnly ? 'VERIFY_ONLY' : 'DRY_RUN',
     decision: 'HOLD',
     writeChanjet: execute,
     targets: [],
@@ -339,15 +351,17 @@ async function main() {
     // A real write must never inherit an openToken minted before the latest
     // enterprise authorization. Dry-run remains side-effect free and may use
     // the cached token for read-only discovery.
-    const token = await loadToken(client, execute);
+    const token = await loadToken(client, execute || verifyOnly);
     const prepared = [];
     for (const target of TARGETS.slice(0, maxTargets)) {
-      const [row, listRow] = await Promise.all([
+      const [row, listRow, masterRow] = await Promise.all([
         readSubject(target, token),
         readSubjectList(target, token),
+        readSubjectMaster(target, token),
       ]);
       const name = rowName(row);
       const listName = rowName(listRow);
+      const masterName = rowName(masterRow);
       if (listName !== name) {
         throw new Error(`Read models disagree for ${target.bookId}/${target.code}: balance=${name}, subject-list=${listName}`);
       }
@@ -364,6 +378,7 @@ async function main() {
         subjectId: evidence.id,
         currentName: name,
         subjectListName: listName,
+        subjectMasterName: masterName,
         action: name === target.to ? 'UNCHANGED' : execute ? 'UPDATE' : 'WOULD_UPDATE',
         structuralHash: stableHash(evidence),
         structuralEvidence: evidence,
@@ -379,7 +394,7 @@ async function main() {
 
     output.planHash = stableHash(output.targets);
     if (!execute) {
-      output.decision = 'READY_FOR_APPROVED_EXECUTION';
+      output.decision = verifyOnly ? 'READBACK_VERIFIED' : 'READY_FOR_APPROVED_EXECUTION';
       console.log(JSON.stringify(output, null, 2));
       return;
     }
