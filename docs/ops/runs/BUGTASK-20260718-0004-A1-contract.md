@@ -1183,11 +1183,11 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-22T01:04:11.638Z",
+    "approvedAt": "2026-07-23T06:13:28.293Z",
     "approvedBy": "admin",
     "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 2,
+    "redispatchCount": 3,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

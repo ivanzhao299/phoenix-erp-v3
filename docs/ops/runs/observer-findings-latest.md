@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-23T06:00:50.595Z |
-| Run files inspected | 2317 |
-| Task count | 379 |
+| Generated at | 2026-07-23T06:28:02.532Z |
+| Run files inspected | 2324 |
+| Task count | 382 |
 | Findings count | 33 |
 | Highest severity | HIGH |
 | Routing findings | 8 |
@@ -262,7 +262,7 @@
 ### OBS-0028 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_EVOLUTION_TASKS.md;  M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/BUGTASK-20260709-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260709-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A2-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A4-contract.md;  M docs/ops/runs/bug-production-route-smoke-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260720-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md; ?? docs/ops/runs/2026-07-23T06-27-31-801Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A2-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A3-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A3-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A3-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A3-worker-log.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
