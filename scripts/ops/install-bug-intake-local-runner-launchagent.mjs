@@ -95,6 +95,7 @@ function plistContent() {
   <string>${LABEL}</string>
   <key>ProgramArguments</key>
   <array>
+    <string>/bin/bash</string>
     <string>${WRAPPER}</string>
   </array>
   <key>RunAtLoad</key>
@@ -136,7 +137,22 @@ PHOENIX_ERP_CODEX_BIN=/Applications/ChatGPT.app/Contents/Resources/codex
 }
 
 function runLaunchctl(args) {
-  return spawnSync('launchctl', args, { encoding: 'utf8' });
+  return spawnSync('launchctl', args, { encoding: 'utf8', timeout: 10_000 });
+}
+
+function inspectLoadedService(service, attempts = 15) {
+  let inspected = { status: 1, stdout: '', stderr: 'service inspection not attempted' };
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    inspected = runLaunchctl(['print', service]);
+    if (
+      inspected.status === 0
+      && /state = running|pid = \d+/.test(String(inspected.stdout || ''))
+    ) {
+      return { ...inspected, attempts: attempt };
+    }
+    spawnSync('/bin/sleep', ['1'], { timeout: 2_000 });
+  }
+  return { ...inspected, attempts };
 }
 
 function main() {
@@ -161,9 +177,16 @@ function main() {
   writeFileSync(WRAPPER, wrapperContent(), { mode: 0o700 });
   writeFileSync(PLIST, plistContent());
   if (args.load) {
-    runLaunchctl(['bootout', `gui/${process.getuid()}`, PLIST]);
+    const domain = `gui/${process.getuid()}`;
+    const service = `${domain}/${LABEL}`;
+    runLaunchctl(['bootout', service]);
+    runLaunchctl(['bootout', domain, PLIST]);
     const loaded = runLaunchctl(['bootstrap', `gui/${process.getuid()}`, PLIST]);
     const enabled = runLaunchctl(['enable', `gui/${process.getuid()}/${LABEL}`]);
+    const inspected =
+      loaded.status === 0 && enabled.status === 0
+        ? inspectLoadedService(service)
+        : { status: 1, stdout: '', stderr: 'bootstrap or enable failed', attempts: 0 };
     summary.launchctl = {
       bootstrapStatus: loaded.status ?? 1,
       bootstrapStdout: loaded.stdout,
@@ -171,7 +194,20 @@ function main() {
       enableStatus: enabled.status ?? 1,
       enableStdout: enabled.stdout,
       enableStderr: enabled.stderr,
+      inspectStatus: inspected.status ?? 1,
+      inspectAttempts: inspected.attempts,
+      inspectStdout: inspected.stdout,
+      inspectStderr: inspected.stderr,
     };
+    if (
+      loaded.status !== 0
+      || enabled.status !== 0
+      || inspected.status !== 0
+      || !/state = running|pid = \d+/.test(String(inspected.stdout || ''))
+    ) {
+      console.error(JSON.stringify({ decision: 'LAUNCHAGENT_INSTALL_FAILED', ...summary }, null, 2));
+      process.exit(1);
+    }
   }
   console.log(JSON.stringify({ decision: 'LAUNCHAGENT_INSTALLED', ...summary }, null, 2));
 }
