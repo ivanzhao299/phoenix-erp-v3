@@ -88,6 +88,14 @@ test('passed worker evidence restores a transient detached HOLD without rerunnin
   assert.equal(tasks[0].evidence_reconciled_at, '2026-07-23T00:00:00.000Z');
 });
 
+test('runner reconciles passed evidence before considering generation redispatch', () => {
+  const runnerSource = fs.readFileSync(path.join(TEST_DIR, 'bug-intake-local-runner.mjs'), 'utf8');
+  const reconciliation = runnerSource.indexOf('const evidenceReconciliation = sync.status === 0');
+  const redispatch = runnerSource.indexOf('const generationRecovery = sync.status === 0');
+  assert.ok(reconciliation > 0);
+  assert.ok(redispatch > reconciliation);
+});
+
 test('business and ops changes remain visible after runtime filtering', () => {
   assert.equal(filterRunnerRuntimeStatus([
     '?? node_modules',

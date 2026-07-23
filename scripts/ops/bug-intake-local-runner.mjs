@@ -1991,18 +1991,18 @@ async function runCycle(args, cycle) {
     ? { skipped: true, reason: 'dry-run' }
     : await flushResultOutbox(args, childEnv);
   let sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
-  const generationRecovery = sync.status === 0
-    ? await recoverTechnicalGenerationDrift(args, childEnv)
-    : { skipped: true, reason: 'sync failed', candidates: [], results: [] };
-  if (!args.dryRun && generationRecovery.results?.some((item) => item.ok)) {
-    sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
-  }
   const evidenceReconciliation = sync.status === 0
     ? reconcileVerifiedWorkerEvidence(args)
     : { restored: [], wrote_queue: false, skipped: true, reason: 'sync failed' };
   const reconciledIntegrations = sync.status === 0
     ? integrateReconciledImplementations(args, evidenceReconciliation)
     : [];
+  const generationRecovery = sync.status === 0
+    ? await recoverTechnicalGenerationDrift(args, childEnv)
+    : { skipped: true, reason: 'sync failed', candidates: [], results: [] };
+  if (!args.dryRun && generationRecovery.results?.some((item) => item.ok)) {
+    sync = run(syncCommand(args), { tokenEnv: args.tokenEnv, childTokenEnv: args.childTokenEnv, env: childEnv });
+  }
   const evolutionCycle = runEvolutionCycle(args, cycle, generationRecovery);
   const preWorkerCommit = { skipped: true, reason: 'audit artifacts are committed once at cycle end' };
   const candidateTasks = sync.status === 0 ? listRunnableBugTasks(args) : [];
