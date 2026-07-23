@@ -637,9 +637,10 @@ export function restoreVerifiedTerminalEvidence(tasks, now = new Date()) {
   return restored;
 }
 
-export function requeueInvalidTerminalEvidence(tasks, now = new Date()) {
+export function requeueInvalidTerminalEvidence(tasks, now = new Date(), eligibleBugNos = null) {
   const requeued = [];
   for (const task of tasks || []) {
+    if (eligibleBugNos instanceof Set && !eligibleBugNos.has(String(task.source_bug_no || ''))) continue;
     if (!SUCCESS_STATUSES.has(task.status) || task.evidence_gate?.passed === true) continue;
     const recoveryCount = Number(task.invalid_terminal_recovery_count || 0);
     const interruptedPersistenceRecovery = recoveryCount === 1
@@ -677,7 +678,11 @@ export function requeueInvalidTerminalEvidence(tasks, now = new Date()) {
 function reconcileVerifiedWorkerEvidence(args) {
   const tasks = readQueueTasks(TASKS_FILE);
   const restored = restoreVerifiedTerminalEvidence(tasks);
-  const requeued = requeueInvalidTerminalEvidence(tasks);
+  const eligibleBugNos = new Set(readLatestInboxReports(args)
+    .filter((report) => ['HOLD', 'AGENT_APPROVED', 'AGENT_RUNNING'].includes(String(report?.repairTaskStatus || '')))
+    .map((report) => String(report?.bugNo || ''))
+    .filter(Boolean));
+  const requeued = requeueInvalidTerminalEvidence(tasks, new Date(), eligibleBugNos);
   if ((restored.length > 0 || requeued.length > 0) && !args.dryRun) {
     const current = readQueueTasks(TASKS_FILE);
     persistTaskSnapshot({

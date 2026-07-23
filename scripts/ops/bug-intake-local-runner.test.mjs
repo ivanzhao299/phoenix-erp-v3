@@ -228,6 +228,21 @@ test('interrupted invalid-evidence redispatch is persisted without consuming ano
   assert.equal(tasks[0].invalid_terminal_recovery_count, 1);
 });
 
+test('invalid terminal recovery is limited to currently actionable inbox bugs', () => {
+  const tasks = [
+    { task_id: 'CURRENT', source_bug_no: 'BUG-CURRENT', status: 'SKIPPED_NOT_APPLICABLE', evidence_gate: null },
+    { task_id: 'LEGACY', source_bug_no: 'BUG-LEGACY', status: 'COMPLETED_MERGED', evidence_gate: null },
+  ];
+  const recovered = requeueInvalidTerminalEvidence(
+    tasks,
+    new Date('2026-07-23T00:00:00Z'),
+    new Set(['BUG-CURRENT']),
+  );
+  assert.deepEqual(recovered.map((item) => item.task_id), ['CURRENT']);
+  assert.equal(tasks[0].status, 'pending');
+  assert.equal(tasks[1].status, 'COMPLETED_MERGED');
+});
+
 test('invalid terminal evidence recovery uses explicit redispatch persistence', () => {
   const runnerSource = fs.readFileSync(path.join(TEST_DIR, 'bug-intake-local-runner.mjs'), 'utf8');
   assert.match(runnerSource, /explicitRedispatch: requeued\.length > 0/);
