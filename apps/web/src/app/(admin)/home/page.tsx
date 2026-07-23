@@ -26,9 +26,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { buildHomeFarmKpi, type HomeFarmKpiState } from "@/lib/home-farm-kpi";
 import { getHomeFarmKpiRequestPlan } from "@/lib/home-request-plan";
-import { resolveProcurementCenterHref } from "@/lib/home-navigation";
+import { resolveHomeHeroMetricHref, resolveProcurementCenterHref } from "@/lib/home-navigation";
 import { getFirstAccessiblePath, type PermissionChecker } from "@/components/layout/Sidebar";
 import { cockpitCard, inlineBadge, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue } from "@/components/design-system/cockpit-styles";
+import styles from "./home.module.css";
 
 // ── 数据类型 ─────────────────────────────────────────
 interface WorkflowSummary { todo: number; ccUnread: number; overdueTodo: number; running: number; startedRunning: number; }
@@ -208,6 +209,7 @@ export default function HomePage() {
         highAlertCount={scores?.highAlertCount ?? 0}
         masterDataPath={masterDataPath}
         showAlertBubble={hasQualityPerm}
+        hasPermission={hasPermission}
       />
 
       {/* g200m(2026-06-20):养殖 KPI 6 卡 emoji→lucide,自写卡 → kpiCardCompact(tone) */}
@@ -275,22 +277,22 @@ export default function HomePage() {
 // ══════════════════════════════════════════════════════
 // Hero 欢迎横幅
 // ══════════════════════════════════════════════════════
-function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount, masterDataPath, showAlertBubble }: {
+function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount, masterDataPath, showAlertBubble, hasPermission }: {
   greeting: string; userName: string; briefing: string;
   ctaLabel: string; ctaHref: string; CtaIcon: any;
   todoCount: number; overdueCount: number; highAlertCount: number;
   masterDataPath?: string; showAlertBubble: boolean;
+  hasPermission: PermissionChecker;
 }) {
   const { t } = useLanguage();
   return (
-    <div style={{
+    <div className={styles.hero} style={{
       position: 'relative',
       borderRadius: 16,
       overflow: 'hidden',
       background: `linear-gradient(135deg, var(--color-primary) 0%, rgba(0,0,0,0) 80%), var(--bg-card)`,
       border: '1px solid var(--border)',
       display: 'grid',
-      gridTemplateColumns: '1fr auto',
       alignItems: 'center',
       gap: 20,
       padding: '18px 24px',
@@ -349,40 +351,71 @@ function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, 
       </div>
 
       {/* 右：数字气泡 — G11：高危告警仅治理类角色可见 */}
-      <div style={{ position: 'relative', display: 'flex', gap: 8 }}>
-        <NumberBubble icon={<Inbox size={13} />} label={t('home.todo', '待办')} value={todoCount} tone="brand" />
-        <NumberBubble icon={<Clock size={13} />} label={t('home.overdue', '超时')} value={overdueCount} tone={overdueCount > 0 ? 'danger' : 'default'} />
+      <div className={styles.heroMetrics} style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <NumberBubble
+          icon={<Inbox size={13} />}
+          label={t('home.todo', '待办')}
+          value={todoCount}
+          tone="brand"
+          href={resolveHomeHeroMetricHref("todo", hasPermission)}
+        />
+        <NumberBubble
+          icon={<Clock size={13} />}
+          label={t('home.overdue', '超时')}
+          value={overdueCount}
+          tone={overdueCount > 0 ? 'danger' : 'default'}
+          href={resolveHomeHeroMetricHref("overdue", hasPermission)}
+        />
         {showAlertBubble && (
-          <NumberBubble icon={<Bell size={13} />} label={t('home.highAlert', '高危告警')} value={highAlertCount} tone={highAlertCount > 0 ? 'warning' : 'default'} />
+          <NumberBubble
+            icon={<Bell size={13} />}
+            label={t('home.highAlert', '高危告警')}
+            value={highAlertCount}
+            tone={highAlertCount > 0 ? 'warning' : 'default'}
+            href={resolveHomeHeroMetricHref("highAlert", hasPermission)}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function NumberBubble({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone: 'brand' | 'warning' | 'danger' | 'default' }) {
+function NumberBubble({ icon, label, value, tone, href }: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone: 'brand' | 'warning' | 'danger' | 'default';
+  href?: string;
+}) {
   const color = tone === 'brand'   ? 'var(--color-primary)'
               : tone === 'warning' ? 'var(--status-warning)'
               : tone === 'danger'  ? 'var(--status-danger)'
               : 'var(--text-primary)';
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: '8px 12px',
-      background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: 10,
-      minWidth: 110,
-    }}>
+  const content = (
+    <>
       <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         width: 26, height: 26, borderRadius: 6,
         background: `${color}1a`, color,
       }}>{icon}</span>
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <span style={{ display: 'flex', flexDirection: 'column' }}>
         <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{label}</span>
         <strong style={{ fontSize: 16, fontWeight: 700, color, lineHeight: 1.1 }}>{value}</strong>
-      </div>
-    </div>
+      </span>
+    </>
   );
+  const style: React.CSSProperties = {
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '8px 12px',
+      background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: 10,
+      minWidth: 110,
+      color: 'inherit',
+      textDecoration: 'none',
+      cursor: href ? 'pointer' : 'default',
+  };
+  return href
+    ? <Link href={href} className={styles.metricLink} aria-label={`${label} ${value}，点击查看`} title={`查看${label}`} style={style}>{content}</Link>
+    : <div aria-label={`${label} ${value}`} style={style}>{content}</div>;
 }
 
 // ══════════════════════════════════════════════════════

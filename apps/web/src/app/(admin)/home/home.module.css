@@ -1,0 +1,33 @@
+.hero {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.heroMetrics {
+  justify-content: flex-end;
+}
+
+.metricLink {
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.metricLink:hover {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 4px 12px var(--overlay-black-15);
+  transform: translateY(-1px);
+}
+
+.metricLink:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px !important;
+  }
+
+  .heroMetrics {
+    justify-content: flex-start;
+  }
+}
