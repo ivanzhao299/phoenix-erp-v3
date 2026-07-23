@@ -26,6 +26,11 @@ test('terminal task states cannot regress without explicit redispatch', () => {
   assert.equal(canTransitionTaskStatus('COMPLETED_MERGED', 'pending', { explicitRedispatch: true }), true);
   assert.equal(canTransitionTaskStatus('running', 'COMPLETED_MERGED'), true);
   assert.equal(canTransitionTaskStatus('IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED'), true);
+  assert.equal(canTransitionTaskStatus('HOLD', 'IMPLEMENTATION_COMPLETED'), false);
+  assert.equal(
+    canTransitionTaskStatus('HOLD', 'IMPLEMENTATION_COMPLETED', { verifiedEvidenceRecovery: true }),
+    true,
+  );
 });
 
 test('snapshot merge only applies locally changed tasks and preserves terminal status', () => {

@@ -199,19 +199,43 @@ function runAsync(command, options = {}) {
     let stdout = '';
     let stderr = '';
     let timedOut = false;
+    let settled = false;
+    let exitGrace = null;
+    let killGrace = null;
     child.stdout.on('data', (chunk) => { stdout = `${stdout}${chunk}`.slice(-12000); });
     child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-12000); });
+    const finish = (code, signal, error = null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (exitGrace) clearTimeout(exitGrace);
+      if (killGrace) clearTimeout(killGrace);
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      resolve({
+        command: command.map(redact),
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        status: code ?? 1,
+        signal: signal || null,
+        timedOut,
+        stdout: redact(stdout),
+        stderr: redact(error ? `${stderr}\n${error.message}` : stderr),
+      });
+    };
     const timeout = setTimeout(() => {
       timedOut = true;
       child.kill('SIGTERM');
+      killGrace = setTimeout(() => {
+        if (!settled && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      }, 5000);
     }, Number(options.timeoutMs || options.childTimeoutMs || 180000));
-    child.on('error', (error) => {
-      clearTimeout(timeout);
-      resolve({ command: command.map(redact), startedAt, finishedAt: new Date().toISOString(), status: 1, signal: null, timedOut, stdout: redact(stdout), stderr: redact(`${stderr}\n${error.message}`) });
-    });
-    child.on('close', (code, signal) => {
-      clearTimeout(timeout);
-      resolve({ command: command.map(redact), startedAt, finishedAt: new Date().toISOString(), status: code ?? 1, signal: signal || null, timedOut, stdout: redact(stdout), stderr: redact(stderr) });
+    child.on('error', (error) => finish(1, null, error));
+    child.on('close', (code, signal) => finish(code, signal));
+    child.on('exit', (code, signal) => {
+      // Grandchildren may inherit the worker's pipes and prevent "close" forever.
+      // Preserve a short output drain window, then settle from the real process exit.
+      exitGrace = setTimeout(() => finish(code, signal), 500);
     });
   });
 }
@@ -571,7 +595,7 @@ function findTask(taskId) {
   return readJson(TASKS_FILE, []).find((task) => task.task_id === taskId) || null;
 }
 
-function patchTask(taskId, patch) {
+function patchTask(taskId, patch, options = {}) {
   const tasks = readQueueTasks(TASKS_FILE);
   const index = tasks.findIndex((task) => task.task_id === taskId);
   if (index < 0) return null;
@@ -586,6 +610,7 @@ function patchTask(taskId, patch) {
     eventsFile: 'docs/ops/agent-queue/events.jsonl',
     baseTasks,
     incomingTasks: tasks,
+    verifiedEvidenceRecovery: options.verifiedEvidenceRecovery === true,
   });
   return result.tasks.find((task) => task.task_id === taskId) || null;
 }
@@ -621,6 +646,7 @@ function reconcileVerifiedWorkerEvidence(args) {
       eventsFile: 'docs/ops/agent-queue/events.jsonl',
       baseTasks: current,
       incomingTasks: tasks,
+      verifiedEvidenceRecovery: true,
     });
   }
   return { restored, wrote_queue: restored.length > 0 && !args.dryRun };
@@ -1838,7 +1864,7 @@ async function finalizeWorkerDispatch(prepared, worker, args, childEnv, blockedT
         reason: 'terminal status restored from passed worker evidence before detached-worker recovery',
         evidence_reconciled_at: finalTask.evidence_reconciled_at,
         completed_at: finalTask.completed_at,
-      }) || finalTask;
+      }, { verifiedEvidenceRecovery: true }) || finalTask;
     }
   }
   const retryRuns = [];

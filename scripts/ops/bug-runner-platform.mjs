@@ -63,6 +63,13 @@ export function canTransitionTaskStatus(from, to, options = {}) {
   const previous = String(from || 'pending');
   const next = String(to || previous);
   if (previous === next) return true;
+  if (
+    options.verifiedEvidenceRecovery === true &&
+    ['HOLD', 'hold', 'running', 'claimed'].includes(previous) &&
+    ['IMPLEMENTATION_COMPLETED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE'].includes(next)
+  ) {
+    return true;
+  }
   if (isTerminalTaskStatus(previous)) {
     return options.explicitRedispatch === true && next === 'pending';
   }
@@ -200,10 +207,20 @@ export function mergeTaskSnapshot(currentTasks, baseTasks, incomingTasks, option
   return { tasks: next, events };
 }
 
-export function persistTaskSnapshot({ tasksFile, eventsFile, baseTasks, incomingTasks, explicitRedispatch = false }) {
+export function persistTaskSnapshot({
+  tasksFile,
+  eventsFile,
+  baseTasks,
+  incomingTasks,
+  explicitRedispatch = false,
+  verifiedEvidenceRecovery = false,
+}) {
   return withQueueLock(path.dirname(tasksFile), () => {
     const current = readQueueTasks(tasksFile);
-    const merged = mergeTaskSnapshot(current, baseTasks, incomingTasks, { explicitRedispatch });
+    const merged = mergeTaskSnapshot(current, baseTasks, incomingTasks, {
+      explicitRedispatch,
+      verifiedEvidenceRecovery,
+    });
     atomicWriteJson(tasksFile, merged.tasks);
     for (const event of merged.events) appendJsonEvent(eventsFile, event);
     return merged;
