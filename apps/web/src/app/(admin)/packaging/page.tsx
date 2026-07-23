@@ -81,7 +81,7 @@ export default function PackagingOverviewPage() {
         actions={
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" onClick={load} style={secondaryActionButton}><RefreshCw size={13} /> {t("common.refresh", "刷新")}</button>
-            <a href="/terminal/packaging/dashboard" target="_blank" style={{ ...primaryActionButton, background: "var(--status-warning)", textDecoration: "none" }}>
+            <a href="/terminal/packaging/dashboard" target="_blank" rel="noopener noreferrer" style={{ ...primaryActionButton, background: "var(--status-warning)", textDecoration: "none" }}>
               <Monitor size={14} /> {t("ui.进入作业台", "进入作业台")}
             </a>
           </div>
