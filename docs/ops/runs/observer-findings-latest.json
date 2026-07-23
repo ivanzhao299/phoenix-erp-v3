@@ -1,16 +1,16 @@
 {
   "summary": {
-    "generated_at": "2026-07-23T06:28:02.532Z",
+    "generated_at": "2026-07-23T07:09:43.883Z",
     "dry_run": true,
-    "run_files_inspected": 2324,
-    "task_count": 382,
+    "run_files_inspected": 2342,
+    "task_count": 386,
     "task_status_counts": {
       "archived": 214,
       "completed": 3,
-      "SKIPPED_NOT_APPLICABLE": 18,
-      "VALIDATION_COMPLETED": 70,
+      "SKIPPED_NOT_APPLICABLE": 20,
+      "VALIDATION_COMPLETED": 73,
       "COMPLETED_MERGED": 74,
-      "pending": 3
+      "pending": 2
     },
     "registered_agents": 8,
     "findings_count": 33,
@@ -327,7 +327,7 @@
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260720-0003-A1-contract.md;  M docs/ops/runs/BUGTASK-20260720-0003-A4-contract.md;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md; ?? docs/ops/runs/2026-07-23T06-27-31-801Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A2-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A3-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A3-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A3-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260723-0002-A3-worker-log.md",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md; ?? docs/ops/runs/2026-07-23T07-03-50-053Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/2026-07-23T07-06-15-145Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/2026-07-23T07-08-06-117Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/2026-07-23T07-09-14-987Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/BUGTASK-20260723-0003-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0003-A1-worker-log.md; ?? docs/ops/runs/BUGTASK-20260723-0003-A3-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0003-A3-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260723-0003-A3-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260723-0003-A3-worker-log.md; ?? docs/ops/runs/BUGTASK-20260723-0004-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0004-A3-contract.md; ?? docs/ops/runs/BUGTASK-20260723-0004-A3-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260723-0004-A3-worker-assembled-prompt.md; ?? docs/ops/runs/BUGTASK-20260723-0004-A3-worker-log.md",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
