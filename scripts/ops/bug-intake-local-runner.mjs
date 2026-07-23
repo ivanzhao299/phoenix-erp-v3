@@ -19,6 +19,7 @@ import {
   planConcurrentTaskBatch,
   readQueueTasks,
   runnerHealthDecision,
+  stableHash,
   writeJsonIfMateriallyChanged,
 } from './bug-runner-platform.mjs';
 
@@ -1283,7 +1284,12 @@ function runPushIfReady(args, workerRuns, releaseEvidence) {
   const branch = safeGit(['branch', '--show-current'], args.mainRoot);
   const status = safeGit(['status', '--short'], args.mainRoot);
   if (!branch.ok) return { skipped: true, reason: `cannot read branch: ${branch.output}` };
-  if (!status.ok || status.output !== '') return { skipped: true, reason: `main root dirty: ${status.output}` };
+  const blockingDirtyFiles = status.ok
+    ? gitStatusFiles(status.output).filter((file) => !isRunnerRuntimeFile(file))
+    : [];
+  if (!status.ok || blockingDirtyFiles.length > 0) {
+    return { skipped: true, reason: `main root contains non-runtime changes: ${blockingDirtyFiles.join(', ') || status.output}` };
+  }
   return run(pushCommand(args), { cwd: args.mainRoot });
 }
 
@@ -1379,6 +1385,64 @@ function resultOutboxFile(args) {
   return path.join(args.outputDir, 'result-outbox.jsonl');
 }
 
+function resultReceiptFile(args) {
+  return path.join(args.outputDir, 'result-delivery-receipts.json');
+}
+
+export function resultDeliveryId(bugNo, endpoint, payload) {
+  return stableHash({ bugNo, endpoint, payload });
+}
+
+function resultWasDelivered(args, id) {
+  const receipts = readJson(resultReceiptFile(args), {});
+  return Boolean(receipts[id]?.deliveredAt);
+}
+
+function boundedResultDeliveryReceipts(receipts) {
+  return Object.fromEntries(
+    Object.entries(receipts)
+      .sort((a, b) => String(a[1]?.deliveredAt || '').localeCompare(String(b[1]?.deliveredAt || '')))
+      .slice(-5000),
+  );
+}
+
+function rememberResultDelivery(args, id, record) {
+  const file = resultReceiptFile(args);
+  const receipts = readJson(file, {});
+  receipts[id] = {
+    bugNo: record.bugNo,
+    endpoint: record.endpoint,
+    taskId: record.payload?.taskId || '',
+    agent: record.payload?.agent || '',
+    deliveredAt: new Date().toISOString(),
+  };
+  atomicWriteJson(file, boundedResultDeliveryReceipts(receipts));
+}
+
+export function bootstrapResultDeliveryReceipts(args) {
+  const file = resultReceiptFile(args);
+  const receipts = readJson(file, {});
+  const summary = readJson(path.join(args.outputDir, 'latest-summary.json'), {});
+  let imported = 0;
+  for (const result of summary.resultBackfill?.results || []) {
+    for (const posted of result.posted || []) {
+      if (!posted?.ok || !posted?.outboxId || receipts[posted.outboxId]?.deliveredAt) continue;
+      receipts[posted.outboxId] = {
+        bugNo: result.bugNo || '',
+        endpoint: '',
+        taskId: posted.task_id || '',
+        agent: posted.agent || '',
+        deliveredAt: summary.generatedAt || new Date().toISOString(),
+        bootstrapped: true,
+      };
+      imported += 1;
+    }
+  }
+  const bounded = boundedResultDeliveryReceipts(receipts);
+  if (imported > 0) atomicWriteJson(file, bounded);
+  return { imported, total: Object.keys(bounded).length, file };
+}
+
 async function deliverOutboxRecord(args, childEnv, record) {
   const token = childEnv[args.childTokenEnv] || process.env[args.tokenEnv] || args.token || '';
   if (!token) return { ok: false, reason: 'missing token' };
@@ -1406,6 +1470,7 @@ async function flushResultOutbox(args, childEnv) {
   const results = [];
   for (const record of pending) {
     const delivery = await deliverOutboxRecord(args, childEnv, record);
+    if (delivery.ok) rememberResultDelivery(args, record.id, record);
     appendOutboxRecord(file, {
       ...record,
       status: delivery.ok ? 'ACK' : 'RETRY',
@@ -1423,8 +1488,13 @@ async function postAgentResult(args, childEnv, bugNo, payload) {
   if (!args.apiBase || !token || !bugNo) return { skipped: true, reason: 'missing api-base/token/bug-no' };
   const endpoint = `${args.apiBase.replace(/\/$/, '')}/api/bug-intake/reports/${encodeURIComponent(bugNo)}/agent-result`;
   const file = resultOutboxFile(args);
-  const id = appendOutboxRecord(file, { bugNo, endpoint, payload, status: 'PENDING', attempts: 0 });
+  const id = resultDeliveryId(bugNo, endpoint, payload);
+  if (resultWasDelivered(args, id)) {
+    return { skipped: true, reason: 'identical result already delivered', outboxId: id, ok: true };
+  }
+  appendOutboxRecord(file, { id, bugNo, endpoint, payload, status: 'PENDING', attempts: 0 });
   const delivery = await deliverOutboxRecord(args, childEnv, { id, bugNo, endpoint, payload });
+  if (delivery.ok) rememberResultDelivery(args, id, { bugNo, endpoint, payload });
   appendOutboxRecord(file, {
     id,
     bugNo,
@@ -2033,6 +2103,9 @@ async function runCycle(args, cycle) {
 
   const token = await loginToken(args);
   const childEnv = token ? { [args.childTokenEnv]: token } : {};
+  const resultReceiptBootstrap = args.dryRun
+    ? { skipped: true, reason: 'dry-run' }
+    : bootstrapResultDeliveryReceipts(args);
   const outboxRecovery = args.dryRun
     ? { skipped: true, reason: 'dry-run' }
     : await flushResultOutbox(args, childEnv);
@@ -2125,6 +2198,7 @@ async function runCycle(args, cycle) {
     evidenceReconciliation,
     reconciledIntegrations,
     evolutionCycle,
+    resultReceiptBootstrap,
     outboxRecovery,
     leaseRecovery,
     preWorkerCommit,

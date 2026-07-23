@@ -5,9 +5,11 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  bootstrapResultDeliveryReceipts,
   buildResultBackfillPlan,
   requeueExpiredCapacityWaits,
   requeueSatisfiedDependencyHolds,
+  resultDeliveryId,
   restoreVerifiedTerminalEvidence,
   selectRunnableBugTasks,
   selectAutomaticRedispatchCandidates,
@@ -32,6 +34,47 @@ test('runner queue state and append-only events are runtime artifacts', () => {
   const source = fs.readFileSync(new URL('./bug-intake-local-runner.mjs', import.meta.url), 'utf8');
   assert.equal(source.includes("file.startsWith('docs/ops/agent-queue/')"), true);
   assert.equal(source.includes("'docs/ops/agent-queue'"), true);
+});
+
+test('result delivery id is stable and changes with worker evidence', () => {
+  const endpoint = 'https://erp.example/api/bug-intake/reports/BUG-1/agent-result';
+  const base = { taskId: 'TASK-1', agent: 'A1', conclusion: 'PASS' };
+  assert.equal(
+    resultDeliveryId('BUG-1', endpoint, base),
+    resultDeliveryId('BUG-1', endpoint, { ...base }),
+  );
+  assert.notEqual(
+    resultDeliveryId('BUG-1', endpoint, base),
+    resultDeliveryId('BUG-1', endpoint, { ...base, conclusion: 'HOLD' }),
+  );
+});
+
+test('successful legacy result backfill bootstraps durable delivery receipts', () => {
+  const outputDir = fs.mkdtempSync('/tmp/bug-result-receipts-');
+  fs.writeFileSync(path.join(outputDir, 'latest-summary.json'), JSON.stringify({
+    generatedAt: '2026-07-23T01:02:03.000Z',
+    resultBackfill: {
+      results: [{
+        bugNo: 'BUG-1',
+        posted: [
+          { task_id: 'TASK-1', agent: 'A1', outboxId: 'delivered-1', ok: true },
+          { task_id: 'TASK-2', agent: 'A2', outboxId: 'failed-1', ok: false },
+        ],
+      }],
+    },
+  }));
+
+  const first = bootstrapResultDeliveryReceipts({ outputDir });
+  const second = bootstrapResultDeliveryReceipts({ outputDir });
+  const receipts = JSON.parse(fs.readFileSync(path.join(outputDir, 'result-delivery-receipts.json'), 'utf8'));
+
+  assert.equal(first.imported, 1);
+  assert.equal(first.total, 1);
+  assert.equal(second.imported, 0);
+  assert.equal(receipts['delivered-1'].taskId, 'TASK-1');
+  assert.equal(receipts['delivered-1'].bootstrapped, true);
+  assert.equal(receipts['failed-1'], undefined);
+  fs.rmSync(outputDir, { recursive: true, force: true });
 });
 
 test('inbox detail fetch keeps bounded concurrency and result order', async () => {
