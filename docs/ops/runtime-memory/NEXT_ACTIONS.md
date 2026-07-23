@@ -1270,23 +1270,24 @@ Next actions:
 
 ## 2026-07-23 — Chanjet Shareholder Subject Name Write Experiment
 
-Current stage: `CHANJET_SHAREHOLDER_NAME_WRITE_EXPERIMENT_HOLD`
+Current stage: `CHANJET_SHAREHOLDER_NAME_WRITE_EXPERIMENT_COMPLETED`
 
-Decision: `HOLD`
+Decision: `GO`
 
 Completed:
 
-- Verified five exact title-alias to ERP shareholder-name candidates.
-- Executed only the first exact canary through the official subject-update endpoint.
-- Provider returned `result:true`, but two independent official read endpoints continued to return `赵总` instead of `赵永伟`.
-- Stopped before the other four targets and verified all five source names, balances and structural fingerprints remain unchanged.
-- ERP business facts, legal equity, contributions and vouchers remain unchanged.
+- Five approved `4001` child-subject aliases now use ERP-confirmed formal shareholder names.
+- The official business UI force path was required because the public OpenAPI returns `result:true` without persisting used-subject renames.
+- Final OpenAPI verification returned `GO`, with all five targets already matching the approved names.
+- Subject IDs, hierarchy, classification, direction and balances remain unchanged.
+- Routine readonly synchronization remains API-based and does not require browser login.
 
 Next actions:
 
-1. `CHANJET_PROVIDER_SUBJECT_UPDATE_PERMISSION_CONTRACT_REVIEW`
-2. Confirm app/operator/book subject-edit permission and obtain provider request processing evidence.
-3. Keep the remaining four writes blocked until one canary has a durable dual-readback result.
+1. `CHANJET_SHAREHOLDER_4001_READONLY_RECONCILIATION_REFRESH`
+2. Refresh the shareholder accounting mirror and verify that title-alias differences are eliminated.
+3. Keep generic Chanjet writeback, voucher push and delete operations disabled.
+4. Use browser login only for separately approved provider-admin corrections that lack a durable OpenAPI contract.
 
 ## 2026-07-22 - Shareholder equity accounting reconciliation
 

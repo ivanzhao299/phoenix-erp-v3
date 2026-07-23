@@ -1951,3 +1951,14 @@ Decision: counterparty resolution `GO`.
 - The executor stopped before the other four targets, issued a compensating original-name request and verified all five names, balances and structural fingerprints remain unchanged.
 - Persistent Chanjet changes are zero; ERP business data, legal equity, contributions and vouchers are unchanged.
 - Decision: `HOLD_PROVIDER_ACK_NO_PERSISTENCE`; next Gate is provider app/operator/book subject-edit permission and request-log confirmation.
+
+# 2026-07-23 - Complete Chanjet shareholder subject-name normalization
+
+- Decision: `GO`; all five explicitly approved `4001` child-subject names are persisted and independently read back.
+- The public OpenAPI update returned `result:true` without persisting used-subject names; request `23581010-55596768` is retained as false-success evidence.
+- The official business UI force path was used per account book, followed by OpenAPI verification.
+- Final Gate result is `changed=0`, `unchanged=5`, `rolledBack=0`: all five names already matched during the independent final readback.
+- Subject IDs, parent relationships, account class, debit/credit direction, leaf/status flags and opening/ending balances are unchanged.
+- No vouchers, deletes, ERP business data, legal equity or contribution records were modified.
+- Routine Chanjet synchronization continues through API credentials and token lifecycle management without browser login; UI login remains an exceptional, separately approved administrator Gate.
+- Next Gate: `CHANJET_SHAREHOLDER_4001_READONLY_RECONCILIATION_REFRESH`.
