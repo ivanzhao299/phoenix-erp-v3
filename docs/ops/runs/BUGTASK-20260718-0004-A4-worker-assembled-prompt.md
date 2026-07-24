@@ -1239,11 +1239,11 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-24T08:02:37.416Z",
-    "approvedBy": "admin",
+    "approvedAt": "2026-07-24T08:11:42.047Z",
+    "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 5,
+    "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
+    "redispatchCount": 6,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

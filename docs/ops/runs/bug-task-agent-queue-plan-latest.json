@@ -1,22 +1,22 @@
 {
   "summary": {
     "decision": "BUG_TASK_QUEUE_PLAN_READY",
-    "source_repair_task_no": "BUGTASK-20260718-0002",
+    "source_repair_task_no": "BUGTASK-20260724-0004",
     "selected_agents": [
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
     "generated_tasks": [
-      "BUGTASK-20260718-0002-A3",
-      "BUGTASK-20260718-0002-A1"
+      "BUGTASK-20260724-0004-A3",
+      "BUGTASK-20260724-0004-A1"
     ],
     "agent_execution_approval": {
       "approved": true,
-      "approvedAt": "2026-07-24T07:52:53.329Z",
-      "approvedBy": "bug_intake_runner",
+      "approvedAt": "2026-07-24T08:39:51.664Z",
+      "approvedBy": "admin",
       "redispatch": true,
-      "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-      "redispatchCount": 5,
+      "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+      "redispatchCount": 1,
       "forbiddenActions": [
         "production deploy without separate approval",
         "database write without separate gate",
@@ -28,23 +28,65 @@
     "apply": true
   },
   "routePlan": {
-    "source_bug_no": "BUG-20260718-0002",
+    "source_bug_no": "BUG-20260724-0004",
     "route_decision": "PLAN_READY",
     "split_strategy": [
       {
+        "agent": "A2-Security-Regression-Gate",
+        "reasons": [
+          "security/RBAC/DataScope signal matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
         "agent": "A3-Backend-Critical-Path",
         "reasons": [
-          "administrator-approved redispatch scope"
+          "backend/API/error route matched",
+          "failure classification PG_SQL"
         ],
-        "execution_mode": "approved-execution",
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A4-Frontend-UAT-Smoke",
+        "reasons": [
+          "frontend/UI route or wording matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "reasons": [
+          "data readiness/master data signal matched"
+        ],
+        "execution_mode": "dry-run-first",
         "approval_required": true
       },
       {
         "agent": "A1-CI-Runtime-Gate",
         "reasons": [
-          "administrator-approved redispatch scope"
+          "failure classification PG_SQL",
+          "required validation after repair"
         ],
-        "execution_mode": "approved-execution",
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A6-Staging-Deploy-Runbook",
+        "reasons": [
+          "deploy/runbook signal matched"
+        ],
+        "execution_mode": "dry-run-first",
+        "approval_required": true
+      },
+      {
+        "agent": "A7-Final-QA-Gate",
+        "reasons": [
+          "release gate signal matched"
+        ],
+        "execution_mode": "dry-run-first",
         "approval_required": true
       }
     ],
@@ -60,20 +102,27 @@
       "human approval required before code repair execution"
     ],
     "route_confidence": 0.92,
-    "source_repair_task_no": "BUGTASK-20260718-0002",
+    "source_repair_task_no": "BUGTASK-20260724-0004",
     "selected_agents_after_bug_intake_policy": [
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "route_source": "administrator-approved-explicit-redispatch"
+    "bug_intake_policy_reasons": {
+      "A3-Backend-Critical-Path": [
+        "bug-intake policy: API/server/runtime evidence requires A3"
+      ],
+      "A1-CI-Runtime-Gate": [
+        "bug-intake policy: every repair requires A1 validation"
+      ]
+    }
   },
   "tasks": [
     {
-      "task_id": "BUGTASK-20260718-0002-A3",
-      "request_id": "BUGTASK-20260718-0002",
-      "title": "Repair BUG-20260718-0002: 财务结算中心-费用管理-新建申请后提交审批报错“HTTP 400” (A3-Backend-Critical-Path)",
-      "source_bug_no": "BUG-20260718-0002",
-      "source_repair_task_no": "BUGTASK-20260718-0002",
+      "task_id": "BUGTASK-20260724-0004-A3",
+      "request_id": "BUGTASK-20260724-0004",
+      "title": "Repair BUG-20260724-0004: 库存管理-库存与出入库无法联动 (A3-Backend-Critical-Path)",
+      "source_bug_no": "BUG-20260724-0004",
+      "source_repair_task_no": "BUGTASK-20260724-0004",
       "source": "bug-intake",
       "agent": "A3-Backend-Critical-Path",
       "status": "pending",
@@ -90,7 +139,7 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260718-0002-A3-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260724-0004-A3-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
       "branch": "codex/bug-intake-a3",
@@ -110,15 +159,15 @@
         "A3-Backend-Critical-Path",
         "A1-CI-Runtime-Gate"
       ],
-      "redispatch_count": 5,
-      "last_redispatch_at": "2026-07-24T07:52:53.329Z"
+      "redispatch_count": 1,
+      "last_redispatch_at": "2026-07-24T08:39:51.664Z"
     },
     {
-      "task_id": "BUGTASK-20260718-0002-A1",
-      "request_id": "BUGTASK-20260718-0002",
-      "title": "Repair BUG-20260718-0002: 财务结算中心-费用管理-新建申请后提交审批报错“HTTP 400” (A1-CI-Runtime-Gate)",
-      "source_bug_no": "BUG-20260718-0002",
-      "source_repair_task_no": "BUGTASK-20260718-0002",
+      "task_id": "BUGTASK-20260724-0004-A1",
+      "request_id": "BUGTASK-20260724-0004",
+      "title": "Repair BUG-20260724-0004: 库存管理-库存与出入库无法联动 (A1-CI-Runtime-Gate)",
+      "source_bug_no": "BUG-20260724-0004",
+      "source_repair_task_no": "BUGTASK-20260724-0004",
       "source": "bug-intake",
       "agent": "A1-CI-Runtime-Gate",
       "status": "pending",
@@ -136,12 +185,12 @@
         "production deploy"
       ],
       "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
-      "contract_file": "docs/ops/runs/BUGTASK-20260718-0002-A1-contract.md",
+      "contract_file": "docs/ops/runs/BUGTASK-20260724-0004-A1-contract.md",
       "request_spec": "",
       "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
       "branch": "w5-a1-ci-runtime-gate",
       "dependencies": [
-        "BUGTASK-20260718-0002-A3"
+        "BUGTASK-20260724-0004-A3"
       ],
       "claimed_by": null,
       "claimed_at": null,
@@ -158,8 +207,8 @@
         "A3-Backend-Critical-Path",
         "A1-CI-Runtime-Gate"
       ],
-      "redispatch_count": 5,
-      "last_redispatch_at": "2026-07-24T07:52:53.329Z"
+      "redispatch_count": 1,
+      "last_redispatch_at": "2026-07-24T08:39:51.664Z"
     }
   ]
 }

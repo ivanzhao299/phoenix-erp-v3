@@ -34,7 +34,15 @@ Implement the backend portion of exactly one approved bug report. Read the attac
 4. task-specific report naming the source bug, root cause, changed files, validation results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
 5. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
 
-If the issue has no backend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+Return exactly one canonical conclusion. Never combine conclusions such as
+`NOT APPLICABLE / HOLD`, `PASS / HOLD`, or similar ambiguous wording.
+
+- If the current baseline already contains the correct backend-owned repair,
+  verify it with focused tests and return exactly `PASS WITH CONDITIONS`,
+  stating which existing files and behavior were verified.
+- If the issue genuinely has no backend ownership, return exactly
+  `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If required verification cannot be completed, return exactly `HOLD`.
 
 ---
 

@@ -21,17 +21,47 @@ LOCAL_BUG_INTAKE_VALIDATION
 $ git status --short
 exit: 0
 stdout:
+ M docs/ops/OBSERVER_FINDINGS_REPORT.md
+ M docs/ops/agent-queue/events.jsonl
  M docs/ops/agent-queue/tasks.json
- M docs/ops/runs/BUGTASK-20260716-0001-A4-worker-log.md
- M docs/ops/runs/BUGTASK-20260716-0004-A3-worker-log.md
+ M docs/ops/evolution/evolution-state.json
+ M docs/ops/evolution/improvement-backlog.json
+ M docs/ops/evolution/learning-log.json
+ M docs/ops/runs/BUGTASK-20260717-0001-A3-worker-assembled-prompt.md
  M docs/ops/runs/BUGTASK-20260717-0001-A3-worker-log.md
+ M docs/ops/runs/BUGTASK-20260717-0001-A4-worker-log.md
+ M docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md
+ M docs/ops/runs/BUGTASK-20260718-0004-A1-worker-log.md
+ M docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md
+ M docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md
+ M docs/ops/runs/BUGTASK-20260718-0004-A4-worker-log.md
+ M docs/ops/runs/BUGTASK-20260721-0001-A1-contract.md
+ M docs/ops/runs/BUGTASK-20260721-0001-A1-worker-log.md
+ M docs/ops/runs/BUGTASK-20260721-0001-A3-contract.md
+ M docs/ops/runs/BUGTASK-20260721-0001-A4-contract.md
+ M docs/ops/runs/BUGTASK-20260721-0001-A4-worker-assembled-prompt.md
+ M docs/ops/runs/BUGTASK-20260721-0001-A4-worker-log.md
+ M docs/ops/runs/BUGTASK-20260723-0005-A4-worker-log.md
  M docs/ops/runs/bug-agent-result-writeback-latest.json
  M docs/ops/runs/bug-agent-result-writeback-response-latest.json
-?? docs/ops/runs/2026-07-18T13-27-58-426Z-A4-Frontend-UAT-Smoke.md
-?? docs/ops/runs/2026-07-18T13-31-43-238Z-A3-Backend-Critical-Path.md
-?? docs/ops/runs/2026-07-18T13-33-03-545Z-A3-Backend-Critical-Path.md
-?? docs/ops/runs/BUGTASK-20260716-0001-A1-worker-log.md
-?? docs/ops/runs/BUGTASK-20260716-0004-A1-worker-log.md
+ M docs/ops/runs/bug-production-route-smoke-latest.json
+ M docs/ops/runs/bug-runner-dashboard-latest.json
+ M docs/ops/runs/bug-runner-dashboard-latest.md
+ M docs/ops/runs/bug-task-agent-queue-plan-latest.json
+ M docs/ops/runs/bug-task-agent-queue-plan-latest.md
+ M docs/ops/runs/evolution-plan-latest.json
+ M docs/ops/runs/evolution-plan-latest.md
+ M docs/ops/runs/observer-findings-latest.json
+ M docs/ops/runs/observer-findings-latest.md
+?? docs/ops/runs/2026-07-24T08-12-56-957Z-A4-Frontend-UAT-Smoke.md
+?? docs/ops/runs/2026-07-24T08-13-13-154Z-A3-Backend-Critical-Path.md
+?? docs/ops/runs/2026-07-24T08-14-22-106Z-A4-Frontend-UAT-Smoke.md
+?? docs/ops/runs/2026-07-24T08-36-38-660Z-A3-Backend-Critical-Path.md
+?? docs/ops/runs/BUGTASK-20260724-0004-A1-contract.md
+?? docs/ops/runs/BUGTASK-20260724-0004-A1-worker-log.md
+?? docs/ops/runs/BUGTASK-20260724-0004-A3-contract.md
+?? docs/ops/runs/BUGTASK-20260724-0004-A3-worker-assembled-prompt.md
+?? docs/ops/runs/BUGTASK-20260724-0004-A3-worker-log.md
 
 stderr:
 
@@ -114,7 +144,7 @@ stderr:
   "agent": "A1-CI-Runtime-Gate",
   "exitCode": 0,
   "conclusion": "PASS",
-  "responseChars": 2200,
+  "responseChars": 3792,
   "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
   "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
   "commitHash": "",
@@ -123,7 +153,7 @@ stderr:
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-18T13:35:11.955Z",
+  "checkedAt": "2026-07-24T08:36:53.754Z",
   "passed": true,
   "role": "validation",
   "terminalStatus": "VALIDATION_COMPLETED",

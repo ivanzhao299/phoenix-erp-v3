@@ -6,7 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | SKIPPED_NOT_APPLICABLE |
 
 ## Command
 
@@ -23,29 +23,33 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260721-0001-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260721-0001-A4-worker-assembled-prompt.md
-Assembled prompt chars: 34215
+Assembled prompt chars: 34314
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-24T08-09-48-446Z-A4-Frontend-UAT-Smoke.md
-**PASS WITH CONDITIONS**
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-24T08-14-22-106Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS
 
-基线提交 `ec8d3251` 已正确修复该前端问题：
+基线提交 `ec8d3251` 已包含正确的前端修复：
 
-- 总采集数：800
-- 脏蛋：10
-- 裂纹蛋：10
-- 可分级及初始剩余：780，不再重复扣减为760
-- 回归测试：2/2 通过
-- Web TypeScript：0 errors
-- 修复文件 ESLint：通过
-- RBAC、DataScope、加载/空态/错误态未改变
-- 桌面与移动布局完成静态复核；沙箱因 `listen EPERM` 无法启动本地服务进行真实 viewport smoke
-- 页面存在3条既有 effect lint 债务，与本次数量修复无关
+- 总采集数：`total_qty = 800`
+- 可分级及初始剩余：直接采用净值 `received_qty = 780`
+- 不再重复扣除脏蛋 10、裂纹蛋 10
 
-已将报告统一为单一 canonical conclusion：[BUGTASK-20260721-0001-frontend-uat.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260721-0001-frontend-uat.md)。
+本轮复验：
 
-尚不能声明生产问题已解决；仍需 CI/CD、生产桌面/移动 smoke 和业务验收。未提交、推送、部署或写数据库。
+- 数量回归测试：2/2 PASS
+- Web TypeScript：PASS，0 errors
+- 聚焦工具代码 ESLint：PASS
+- 提交 diff/check：PASS
+- 加载、空态、错误态、RBAC 路径未被改动
+- 桌面与移动布局相关 DOM/CSS 未被该修复改变
+- 路由文件存在 3 条既有 React effect lint 错误，不属于数量修复变更
+- 浏览器 smoke 因沙箱禁止监听端口（`listen EPERM`）未能执行
+
+报告：[BUGTASK-20260721-0001-frontend-uat.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260721-0001-frontend-uat.md)
+
+未修改文件，未部署、推送或操作数据库。仍须通过 CI/CD、生产桌面与移动端 smoke，并完成业务验收后才能认定生产问题解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -53,8 +57,8 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-2026-07-24T08:08:20.604968Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-24T08:08:20.604985Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-07-24T08:13:17.694779Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-07-24T08:13:17.694805Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4
@@ -64,7 +68,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f932b-0f35-7330-915a-3f87f4e446eb
+session id: 019f932f-97da-7483-8eb0-6a4d5c2c76f0
 --------
 user
 # Base Agent Prompt
@@ -413,7 +417,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
           {
             "tag": "div",
             "pat
-...<truncated 141901 chars>
+...<truncated 128995 chars>
 
 ```
 
@@ -425,20 +429,20 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 521,
-  "beforeHead": "e35482b26935194763c825980546d6bb30cef418",
-  "afterHead": "e35482b26935194763c825980546d6bb30cef418",
+  "responseChars": 579,
+  "beforeHead": "aa203c07837916f2c04cefae16cf795ede198547",
+  "afterHead": "aa203c07837916f2c04cefae16cf795ede198547",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-24T08:09:48.521Z",
-  "passed": false,
-  "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+  "checkedAt": "2026-07-24T08:14:22.194Z",
+  "passed": true,
+  "role": "implementation_verified_existing",
+  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
 }
 ```
 
@@ -446,78 +450,9 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ```json
 {
-  "attempted": true,
+  "attempted": false,
   "ok": false,
-  "files": [
-    "docs/ops/BUGTASK-20260721-0001-frontend-uat.md"
-  ],
-  "error": "no apps/web/ implementation file",
-  "existingTaskCommitRecovery": {
-    "candidate": null,
-    "accepted": [],
-    "rejected": [
-      {
-        "passed": false,
-        "commitHash": "6a3574e292e02d6edf0b863c74a08e717ec1cc82",
-        "parentHash": "c038308b461739537e49604fd55465cc6e13e5cf",
-        "changedFiles": [
-          "docs/ops/BUGTASK-20260717-0001-frontend-repair.md"
-        ],
-        "businessFiles": [],
-        "reportFiles": [],
-        "identityMatched": false,
-        "outsideAllowed": [],
-        "forbiddenFiles": [],
-        "reasons": [
-          "commit message does not identify this bug/task",
-          "no apps/web/ business file",
-          "task-specific report is missing"
-        ]
-      },
-      {
-        "passed": false,
-        "commitHash": "9a9d3ba1d1d85fb333942cef2d829b44815fea58",
-        "parentHash": "6a3574e292e02d6edf0b863c74a08e717ec1cc82",
-        "changedFiles": [
-          "docs/ops/BUGTASK-20260723-0005-a4-frontend-uat-report.md"
-        ],
-        "businessFiles": [],
-        "reportFiles": [],
-        "identityMatched": false,
-        "outsideAllowed": [],
-        "forbiddenFiles": [],
-        "reasons": [
-          "commit message does not identify this bug/task",
-          "no apps/web/ business file",
-          "task-specific report is missing"
-        ]
-      },
-      {
-        "passed": false,
-        "commitHash": "e35482b26935194763c825980546d6bb30cef418",
-        "parentHash": "9a9d3ba1d1d85fb333942cef2d829b44815fea58",
-        "changedFiles": [
-          "apps/web/src/__tests__/mobile-roles.test.ts",
-          "apps/web/src/app/(mobile)/mobile/henhouse/page.tsx",
-          "apps/web/src/lib/mobile-roles.ts",
-          "docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
-        ],
-        "businessFiles": [
-          "apps/web/src/__tests__/mobile-roles.test.ts",
-          "apps/web/src/app/(mobile)/mobile/henhouse/page.tsx",
-          "apps/web/src/lib/mobile-roles.ts"
-        ],
-        "reportFiles": [],
-        "identityMatched": false,
-        "outsideAllowed": [],
-        "forbiddenFiles": [],
-        "reasons": [
-          "commit message does not identify this bug/task",
-          "task-specific report is missing"
-        ]
-      }
-    ],
-    "reason": "no task-specific unintegrated implementation commit passed the recovery gate"
-  }
+  "reason": "worktree has no uncommitted Agent changes",
+  "files": []
 }
 ```

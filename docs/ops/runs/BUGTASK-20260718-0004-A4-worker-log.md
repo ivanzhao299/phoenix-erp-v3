@@ -6,7 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | SKIPPED_NOT_APPLICABLE |
 
 ## Command
 
@@ -23,31 +23,31 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md
-Assembled prompt chars: 33216
+Assembled prompt chars: 33315
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-24T08-08-14-419Z-A4-Frontend-UAT-Smoke.md
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-24T08-12-56-957Z-A4-Frontend-UAT-Smoke.md
 PASS WITH CONDITIONS
 
-已修复 `BUG-20260718-0004` 的前端权限门控：
-
-- 养殖场长拥有 `MENU_FARM_MASTER:V` 时，可新建本场鸡舍。
-- 非场长仍保持只读。
-- 无关菜单权限仍拒绝访问。
-- DataScope、RBAC、加载/空态/错误态均保留。
+当前基线已包含 BUG-20260718-0004 的前端修复，提交为 `e35482b2`。
 
 验证结果：
 
-- Vitest：30/30 通过
-- Web typecheck：0 errors
-- 聚焦 ESLint：0 errors、0 warnings
-- `git diff --check`：通过
-- 浏览器检查受沙箱 `listen EPERM` 限制，需 CI/runner 补充桌面和移动端真实渲染验证
+- 场长 + `MENU_FARM_MASTER:V`：可新建本场鸡舍。
+- 兽医等非场长：保持只读。
+- 无关菜单权限：继续拒绝访问，不发生越权回退。
+- 权限、加载、空态、保存及错误状态均保留。
+- 专项 Vitest：30/30 通过。
+- Web TypeScript：0 errors。
+- 聚焦 ESLint：0 errors、0 warnings。
+- 修复提交 `git diff --check`：通过。
+- 未修改 API、数据库或迁移；未部署、未推送。
+- 工作区仅有既存未跟踪的 `node_modules`，本轮未改动文件。
 
-报告：[BUGTASK-20260718-0004-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md)
+任务报告：[BUGTASK-20260718-0004-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md)
 
-未提交、未推送、未部署、未操作数据库。CI/CD、生产冒烟及业务验收完成前，不应宣称该 Bug 已解决。
+本地开发服务器因沙箱禁止监听端口而返回 `listen EPERM`，因此真实桌面/移动浏览器渲染仍需 CI/runner 补验。还必须完成生产环境语义冒烟、`linhong` DataScope 验证、原始截图核对及业务验收，才能认定该 Bug 已解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -55,8 +55,8 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-2026-07-24T08:06:05.741125Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-24T08:06:05.741147Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+2026-07-24T08:11:52.685585Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-07-24T08:11:52.685609Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4
@@ -66,7 +66,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f9329-0084-7903-962f-903d55163289
+session id: 019f932e-4b9a-7b01-851a-c43b5a303e5f
 --------
 user
 # Base Agent Prompt
@@ -458,7 +458,7 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
           {
             "tag": "div",
             "path": ".sidebar-module__C8A-ya__
-...<truncated 177364 chars>
+...<truncated 58395 chars>
 
 ```
 
@@ -470,31 +470,20 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 530,
-  "beforeHead": "9a9d3ba1d1d85fb333942cef2d829b44815fea58",
-  "afterHead": "e35482b26935194763c825980546d6bb30cef418",
-  "commitHash": "e35482b26935194763c825980546d6bb30cef418",
-  "changedFiles": [
-    "apps/web/src/__tests__/mobile-roles.test.ts",
-    "apps/web/src/app/(mobile)/mobile/henhouse/page.tsx",
-    "apps/web/src/lib/mobile-roles.ts",
-    "docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
-  ],
-  "businessChangedFiles": [
-    "apps/web/src/__tests__/mobile-roles.test.ts",
-    "apps/web/src/app/(mobile)/mobile/henhouse/page.tsx",
-    "apps/web/src/lib/mobile-roles.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
-  ],
+  "responseChars": 644,
+  "beforeHead": "aa203c07837916f2c04cefae16cf795ede198547",
+  "afterHead": "aa203c07837916f2c04cefae16cf795ede198547",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-24T08:08:14.594Z",
+  "checkedAt": "2026-07-24T08:12:57.041Z",
   "passed": true,
-  "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "role": "implementation_verified_existing",
+  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
 }
 ```
 
@@ -502,24 +491,9 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/web/src/__tests__/mobile-roles.test.ts",
-    "apps/web/src/app/(mobile)/mobile/henhouse/page.tsx",
-    "apps/web/src/lib/mobile-roles.ts",
-    "docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
-  ],
-  "businessFiles": [
-    "apps/web/src/__tests__/mobile-roles.test.ts",
-    "apps/web/src/app/(mobile)/mobile/henhouse/page.tsx",
-    "apps/web/src/lib/mobile-roles.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
-  ],
-  "commitHash": "e35482b26935194763c825980546d6bb30cef418",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 e35482b2] fix(web): repair BUG-20260718-0004\n 4 files changed, 127 insertions(+), 2 deletions(-)\n create mode 100644 docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
+  "attempted": false,
+  "ok": false,
+  "reason": "worktree has no uncommitted Agent changes",
+  "files": []
 }
 ```

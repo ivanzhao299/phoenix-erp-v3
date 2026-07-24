@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-24T07:53:02.354Z |
-| Run files inspected | 2340 |
-| Task count | 399 |
+| Generated at | 2026-07-24T08:11:51.768Z |
+| Run files inspected | 2352 |
+| Task count | 403 |
 | Findings count | 35 |
 | Highest severity | CRITICAL |
 | Routing findings | 8 |
@@ -226,7 +226,7 @@
 ### OBS-0024 - MEDIUM - repeat-hold
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: Queue HOLD count is 5.
+- Evidence: Queue HOLD count is 7.
 - Suggested Fix: Cluster HOLD reasons and create one platform evolution task per repeated blocker.
 - Auto Fix Eligible: false
 - Requires Human Gate: true
@@ -235,7 +235,7 @@
 ### OBS-0025 - CRITICAL - runner-generation-drift
 
 - Affected Agent: BugIntakeLocalRunner
-- Evidence: 2 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
+- Evidence: 3 terminal task(s) match runner-owned quarantine/dependency HOLD evidence.
 - Suggested Fix: Filter runner-created dependency links and create a bounded new redispatch generation for approved technical HOLDs.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -280,7 +280,7 @@
 ### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260713-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A1-worker-log.md;  M docs/ops/runs/BUGTASK-20260713-0004-A2-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A2-worker-log.md;  M docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md;  M docs/ops/runs/BUGTASK-20260713-0004-A3-worker-assembled-prompt.md;  M docs/ops/runs/BUGTASK-20260713-0004-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260715-0001-A1-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md;  M docs/ops/runs/BUGTASK-20260715-0001-A4-contract.md;  M docs/ops/runs/BUGTASK-20260717-0001-A1-contract.md;  M docs/ops/runs/BUGTASK-20260717-0001-A3-contract.md;  M docs/ops/runs/BUGTASK-20260717-0001-A3-worker-assembled-prompt.md;  M docs/ops/runs/BUGTASK-20260717-0001-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260717-0001-A4-contract.md;  M docs/ops/runs/BUGTASK-20260717-0001-A4-worker-assembled-prompt.md;  M docs/ops/runs/BUGTASK-20260717-0001-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260718-0002-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0002-A3-contract.md;  M docs/ops/runs/BUGTASK-20260718-0002-A3-worker-assembled-prompt.md;  M docs/ops/runs/BUGTASK-20260718-0002-A3-worker-log.md;  M docs/ops/runs/BUGTASK-20260723-0005-A1-contract.md;  M docs/ops/runs/BUGTASK-20260723-0005-A4-contract.md;  M docs/ops/runs/BUGTASK-20260723-0005-A4-worker-assembled-prompt.md;  M docs/ops/runs/BUGTASK-20260723-0005-A4-worker-log.md;  M docs/ops/runs/BUGTASK-20260724-0002-A3-worker-log.md;  M docs/ops/runs/bug-agent-result-writeback-latest.json;  M docs/ops/runs/bug-agent-result-writeback-response-latest.json;  M docs/ops/runs/bug-production-route-smoke-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.json;  M docs/ops/runs/bug-runner-dashboard-latest.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md; ?? docs/ops/runs/2026-07-24T07-47-57-258Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/2026-07-24T07-48-45-375Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-24T07-50-02-097Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/2026-07-24T07-50-04-162Z-A4-Frontend-UAT-Smoke.md; ?? docs/ops/runs/2026-07-24T07-52-17-611Z-A3-Backend-Critical-Path.md; ?? docs/ops/runs/BUGTASK-20260717-0001-A3-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260718-0002-A3-detached-worker-recovery.md; ?? docs/ops/runs/BUGTASK-20260724-0002-A1-worker-log.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/agent-queue/events.jsonl;  M docs/ops/agent-queue/tasks.json;  M docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md;  M docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md;  M docs/ops/runs/BUGTASK-20260721-0001-A1-contract.md;  M docs/ops/runs/BUGTASK-20260721-0001-A3-contract.md;  M docs/ops/runs/BUGTASK-20260721-0001-A4-contract.md;  M docs/ops/runs/bug-task-agent-queue-plan-latest.json;  M docs/ops/runs/bug-task-agent-queue-plan-latest.md; ?? docs/ops/runs/BUGTASK-20260724-0004-A1-contract.md; ?? docs/ops/runs/BUGTASK-20260724-0004-A3-contract.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
