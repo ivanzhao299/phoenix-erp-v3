@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mergeExistingQueueTask } from './bug-task-to-agent-queue.mjs';
+import { mergeExistingQueueTask, resolveRoutePlan } from './bug-task-to-agent-queue.mjs';
 
 const sharedTask = {
   task_id: 'BUGTASK-1-A3',
@@ -121,4 +121,41 @@ test('interrupted approved reactivation is idempotently completed on the next sy
   assert.equal(result.action, 'requeued');
   assert.equal(result.task.status, 'pending');
   assert.equal(result.task.route_active, true);
+});
+
+test('explicit administrator redispatch route is not overwritten by keyword refinement', () => {
+  const route = resolveRoutePlan({
+    title: 'mobile端鸡舍管理页面提示错误',
+    agentPlanGeneratedBy: 'redispatch-explicit:bug_intake_runner',
+    agentPlan: {
+      route_decision: 'PLAN_READY',
+      selected_agents: ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate'],
+    },
+    agentExecutionApproval: {
+      approved: true,
+      redispatch: true,
+      redispatchCount: 4,
+    },
+  });
+
+  assert.deepEqual(route.selected_agents, [
+    'A3-Backend-Critical-Path',
+    'A1-CI-Runtime-Gate',
+  ]);
+  assert.equal(route.route_source, 'administrator-approved-explicit-redispatch');
+});
+
+test('ordinary bug route still applies evidence-based keyword refinement', () => {
+  const route = resolveRoutePlan({
+    title: 'mobile端页面按钮样式错位',
+    agentPlan: {
+      route_decision: 'PLAN_READY',
+      selected_agents: ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate'],
+    },
+  });
+
+  assert.deepEqual(route.selected_agents, [
+    'A4-Frontend-UAT-Smoke',
+    'A1-CI-Runtime-Gate',
+  ]);
 });

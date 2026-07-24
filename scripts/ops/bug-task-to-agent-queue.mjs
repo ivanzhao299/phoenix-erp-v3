@@ -208,6 +208,25 @@ function refineRoutePlan(payload, routePlan) {
   };
 }
 
+export function resolveRoutePlan(payload) {
+  const plannedRoute = payload.agentPlan || routeRequest(buildRouteText(payload));
+  const approval = getApproval(payload);
+  const explicitRedispatch = approval?.redispatch === true
+    && String(payload.agentPlanGeneratedBy || '').startsWith('redispatch-explicit:')
+    && Array.isArray(plannedRoute.selected_agents)
+    && plannedRoute.selected_agents.length > 0;
+
+  if (explicitRedispatch) {
+    return {
+      ...plannedRoute,
+      selected_agents_after_bug_intake_policy: [...plannedRoute.selected_agents],
+      route_source: 'administrator-approved-explicit-redispatch',
+    };
+  }
+
+  return refineRoutePlan(payload, plannedRoute);
+}
+
 function compactContractPayload(payload) {
   const context = payload.context && typeof payload.context === 'object' ? payload.context : {};
   const truncate = (value, max = 4000) => {
@@ -465,7 +484,7 @@ function main() {
   const input = readJson(args.repairTaskJson);
   const payload = extractPayload(input);
   const dispatchMap = readJson(DISPATCH_MAP_FILE);
-  const routePlan = refineRoutePlan(payload, payload.agentPlan || routeRequest(buildRouteText(payload)));
+  const routePlan = resolveRoutePlan(payload);
   if (routePlan.route_decision === 'HOLD') {
     console.log('HOLD: route plan is HOLD; no agent queue tasks generated.');
     console.log(JSON.stringify(routePlan.held_reasons || [], null, 2));
