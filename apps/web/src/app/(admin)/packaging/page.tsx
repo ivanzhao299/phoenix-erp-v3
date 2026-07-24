@@ -23,7 +23,6 @@ interface ExceptionRow {
   description?: string;
   detail?: string;
 }
-import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Package, Monitor, AlertCircle, RefreshCw, CheckCircle, Clock, ChevronRight } from "lucide-react";
@@ -43,7 +42,6 @@ const hdr = () => ({
   Authorization: `Bearer ${tok()}`
 });
 export default function PackagingOverviewPage() {
-  const router = useRouter();
   const {
     t
   } = useLanguage();
@@ -71,7 +69,10 @@ export default function PackagingOverviewPage() {
     }
   }, []);
   useEffect(() => {
-    load();
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
   const openExceptions = exceptions.filter(e => !["CLOSED", "CANCELLED"].includes(e.status || ""));
   return <div className={s.pageRoot}>
@@ -81,7 +82,7 @@ export default function PackagingOverviewPage() {
         actions={
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" onClick={load} style={secondaryActionButton}><RefreshCw size={13} /> {t("common.refresh", "刷新")}</button>
-            <a href="/terminal/packaging/dashboard" target="_blank" rel="noopener noreferrer" style={{ ...primaryActionButton, background: "var(--status-warning)", textDecoration: "none" }}>
+            <a href="/terminal/packaging/dashboard" style={{ ...primaryActionButton, background: "var(--status-warning)", textDecoration: "none" }}>
               <Monitor size={14} /> {t("ui.进入作业台", "进入作业台")}
             </a>
           </div>

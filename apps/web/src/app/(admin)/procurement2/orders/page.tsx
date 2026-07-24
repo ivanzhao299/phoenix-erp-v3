@@ -299,7 +299,7 @@ export default function PurchaseOrdersPage() {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json"
   };
-  const load = useCallback(async (p = page) => {
+  const load = useCallback(async (p: number) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -322,15 +322,14 @@ export default function PurchaseOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, fStatus, fType, fCross, fKeyword, fDateFrom, fDateTo, token]); // eslint-disable-line
+  }, [fStatus, fType, fCross, fKeyword, fDateFrom, fDateTo, token]); // eslint-disable-line
 
   useEffect(() => {
-    load(1);
-    setPage(1);
-  }, [fStatus, fType, fCross, fKeyword, fDateFrom, fDateTo]); // eslint-disable-line
-  useEffect(() => {
-    load(page);
-  }, [page]); // eslint-disable-line
+    const timer = window.setTimeout(() => {
+      void load(page);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load, page]);
 
   async function openDetail(row: PurchaseOrder) {
     setDetailData(row);
@@ -518,16 +517,16 @@ export default function PurchaseOrdersPage() {
       flexWrap: "wrap",
       alignItems: "center"
     }}>
-        <input value={fKeyword} onChange={e => setFKeyword(e.target.value)} placeholder={t('prc2.search_placeholder', '关键字（采购订单号/主题/供应商）')} style={inlineInput} />
-        <select value={fStatus} onChange={e => setFStatus(e.target.value)} style={inlineSelect}>
+        <input value={fKeyword} onChange={e => { setFKeyword(e.target.value); setPage(1); }} placeholder={t('prc2.search_placeholder', '关键字（采购订单号/主题/供应商）')} style={inlineInput} />
+        <select value={fStatus} onChange={e => { setFStatus(e.target.value); setPage(1); }} style={inlineSelect}>
           <option value="">{t('prc2.filter_all_status', '全部状态')}</option>
           {Object.entries(STATUS_MAP).map(([v, o]) => <option key={v} value={v}>{o.label}</option>)}
         </select>
-        <select value={fType} onChange={e => setFType(e.target.value)} style={inlineSelect}>
+        <select value={fType} onChange={e => { setFType(e.target.value); setPage(1); }} style={inlineSelect}>
           <option value="">{t('prc2.filter_all_type', '全部类型')}</option>
           {PURCHASE_TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <select value={fCross} onChange={e => setFCross(e.target.value)} style={inlineSelect}>
+        <select value={fCross} onChange={e => { setFCross(e.target.value); setPage(1); }} style={inlineSelect}>
           <option value="">{t('prc2.filter_all_source', '全部来源')}</option>
           <option value="false">{t('prc2.local_purchase', '本地采购')}</option>
           <option value="true">{t('prc2.cross_border_purchase', '跨境采购')}</option>
@@ -540,12 +539,12 @@ export default function PurchaseOrdersPage() {
         <input type="date" style={{
         ...inlineSelect,
         flex: "0 0 130px"
-      }} value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} />
+      }} value={fDateFrom} onChange={e => { setFDateFrom(e.target.value); setPage(1); }} />
         <span className={u.muted12}>~</span>
         <input type="date" style={{
         ...inlineSelect,
         flex: "0 0 130px"
-      }} value={fDateTo} onChange={e => setFDateTo(e.target.value)} />
+      }} value={fDateTo} onChange={e => { setFDateTo(e.target.value); setPage(1); }} />
       </div>
 
       {/* 表格 */}

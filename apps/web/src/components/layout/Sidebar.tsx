@@ -29,24 +29,26 @@ import { useLanguage } from "@/contexts/LanguageContext";
 function Accordion({ open, children }: { open: boolean; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [maxH, setMaxH] = useState(open ? "none" : "0px");
-  const [visible, setVisible] = useState(open);
   useEffect(() => {
     const el = ref.current; if (!el) return;
-    if (open) {
-      setVisible(true);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => {
+      if (open) {
+        setMaxH(`${el.scrollHeight}px`);
+        timer = setTimeout(() => setMaxH("none"), 260);
+        return;
+      }
       setMaxH(`${el.scrollHeight}px`);
-      const t = setTimeout(() => setMaxH("none"), 260);
-      return () => clearTimeout(t);
-    } else {
-      setMaxH(`${el.scrollHeight}px`);
-      requestAnimationFrame(() => requestAnimationFrame(() => setMaxH("0px")));
-      const t = setTimeout(() => setVisible(false), 260);
-      return () => clearTimeout(t);
-    }
+      requestAnimationFrame(() => setMaxH("0px"));
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      if (timer) clearTimeout(timer);
+    };
   }, [open]);
   return (
     <div ref={ref} style={{ maxHeight: maxH, overflow: "hidden", transition: "max-height 240ms cubic-bezier(0.4,0,0.2,1)", background: "var(--overlay-black-15)" }}>
-      {visible && children}
+      {children}
     </div>
   );
 }
@@ -522,8 +524,6 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                   }) && (
                     <a
                       href="/terminal/packaging/dashboard"
-                      target="_blank"
-                      rel="noopener noreferrer"
                       style={{
                         display: "flex", alignItems: "center", gap: 8,
                         padding: "9px 12px 9px 28px",

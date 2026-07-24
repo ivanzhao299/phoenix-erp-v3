@@ -572,6 +572,8 @@ test('existing-fix wording variants remain idempotent', () => {
     'PASS WITH CONDITIONS. Reconciled the already-integrated backend repair. No new edits were needed in this rerun.',
     'PASS WITH CONDITIONS. The backend failure mode is fixed; final resolution still needs CI/CD and production smoke.',
     'PASS WITH CONDITIONS. No new frontend source edit was needed in this pass because the branch already contains the frontend repair.',
+    'PASS WITH CONDITIONS。当前基线已包含正确修复，聚焦测试与类型检查通过。',
+    'PASS WITH CONDITIONS。当前基线已包含计数修复，聚焦测试通过。',
   ]) {
     const evidence = evaluateWorkerEvidence({
       task: { task_id: 'BUGTASK-X-A3', source_bug_no: 'BUG-X', agent: 'A3-Backend-Critical-Path' },

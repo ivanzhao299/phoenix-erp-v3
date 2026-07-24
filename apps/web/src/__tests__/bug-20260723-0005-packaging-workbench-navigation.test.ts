@@ -18,14 +18,20 @@ const terminalDashboard = readFileSync(
 describe('BUG-20260723-0005 packaging workbench navigation', () => {
   it('routes the packaging page action to the existing terminal dashboard safely', () => {
     expect(packagingPage).toMatch(
-      /href="\/terminal\/packaging\/dashboard"\s+target="_blank"\s+rel="noopener noreferrer"/,
+      /href="\/terminal\/packaging\/dashboard"/,
+    );
+    expect(packagingPage).not.toMatch(
+      /href="\/terminal\/packaging\/dashboard"\s+target="_blank"/,
     );
     expect(terminalDashboard).toContain('export default function TerminalDashboard()');
   });
 
   it('routes the production sidebar action to the same terminal dashboard', () => {
     expect(sidebar).toMatch(
-      /href="\/terminal\/packaging\/dashboard"\s+target="_blank"\s+rel="noopener noreferrer"/,
+      /href="\/terminal\/packaging\/dashboard"/,
+    );
+    expect(sidebar).not.toMatch(
+      /href="\/terminal\/packaging\/dashboard"\s+target="_blank"/,
     );
   });
 
