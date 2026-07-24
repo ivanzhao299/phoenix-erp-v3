@@ -34,6 +34,19 @@ test('terminal task states cannot regress without explicit redispatch', () => {
   );
 });
 
+test('strict evidence recovery can replace a false not-applicable terminal result', () => {
+  assert.equal(
+    canTransitionTaskStatus('SKIPPED_NOT_APPLICABLE', 'IMPLEMENTATION_COMPLETED', {
+      verifiedEvidenceRecovery: true,
+    }),
+    true,
+  );
+  assert.equal(
+    canTransitionTaskStatus('SKIPPED_NOT_APPLICABLE', 'IMPLEMENTATION_COMPLETED'),
+    false,
+  );
+});
+
 test('snapshot merge only applies locally changed tasks and preserves terminal status', () => {
   const base = [
     { task_id: 'A', status: 'running', value: 1 },

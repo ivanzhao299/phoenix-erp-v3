@@ -65,7 +65,7 @@ export function canTransitionTaskStatus(from, to, options = {}) {
   if (previous === next) return true;
   if (
     options.verifiedEvidenceRecovery === true &&
-    ['HOLD', 'hold', 'running', 'claimed'].includes(previous) &&
+    ['HOLD', 'hold', 'running', 'claimed', 'SKIPPED_NOT_APPLICABLE'].includes(previous) &&
     ['IMPLEMENTATION_COMPLETED', 'COMPLETED_MERGED', 'VALIDATION_COMPLETED', 'SKIPPED_NOT_APPLICABLE'].includes(next)
   ) {
     return true;
