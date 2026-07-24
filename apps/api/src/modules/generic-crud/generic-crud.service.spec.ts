@@ -90,6 +90,21 @@ describe('GenericCrudService', () => {
       expect(query.mock.calls[0][0]).toContain('SELECT * FROM "brd_daily_logs"');
     });
 
+    it('returns breeding daily logs in deterministic oldest-first order for the legacy client reversal', async () => {
+      const query = jest.fn().mockResolvedValueOnce([]);
+      const { svc } = buildSvc(query);
+
+      await svc.findAll('brd_daily_logs', {});
+
+      expect(query.mock.calls[0][0]).toContain(
+        'ORDER BY "log_date" DESC, "created_at" DESC NULLS LAST, "id" DESC LIMIT $1 OFFSET $2',
+      );
+      expect(query.mock.calls[0][0]).toContain(
+        'AS "daily_logs_page" ORDER BY "log_date" ASC, "created_at" ASC NULLS FIRST, "id" ASC',
+      );
+      expect(query.mock.calls[0][1]).toEqual([100, 0]);
+    });
+
     it('keeps daily log reason label enrichment after date normalization', async () => {
       const query = jest
         .fn()

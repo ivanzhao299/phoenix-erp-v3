@@ -2371,7 +2371,14 @@ export class GenericCrudService implements OnModuleInit {
     if (whereClauses.length > 0) {
       sql += ` WHERE ${whereClauses.join(' AND ')}`;
     }
-    sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    // The legacy breeding daily page reverses this list before rendering.
+    // Select the newest page first, then return that page oldest-first so the
+    // client reversal remains correct even when total rows exceed the limit.
+    if (table === 'brd_daily_logs') {
+      sql = `SELECT * FROM (${sql} ORDER BY "log_date" DESC, "created_at" DESC NULLS LAST, "id" DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}) AS "daily_logs_page" ORDER BY "log_date" ASC, "created_at" ASC NULLS FIRST, "id" ASC`;
+    } else {
+      sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    }
     queryValues.push(limit, offset);
 
     return { sql, queryValues };
