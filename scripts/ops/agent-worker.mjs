@@ -135,6 +135,22 @@ function normalizedReferenceKey(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
+function trackedTaskReportFiles(task) {
+  const tracked = safeGit(['ls-files', 'docs/ops'], process.cwd());
+  if (!tracked.ok) return [];
+  const referenceKeys = [
+    task.source_bug_no,
+    task.task_id,
+    task.source_repair_task_no || task.request_id,
+  ].map(normalizedReferenceKey).filter(Boolean);
+  return tracked.output.split('\n').map((item) => item.trim()).filter((file) => {
+    const lower = file.toLowerCase();
+    if (!lower.startsWith('docs/ops/') || lower.startsWith('docs/ops/runs/')) return false;
+    const fileKey = normalizedReferenceKey(lower);
+    return referenceKeys.some((key) => fileKey.includes(key));
+  });
+}
+
 function sandboxCommitBlocker(text) {
   return /index\.lock[\s\S]{0,240}(operation not permitted|permission denied)|could not (create|make) (the )?(required )?(local )?commit|git add[\s\S]{0,240}operation not permitted/i.test(String(text || ''));
 }
@@ -787,7 +803,9 @@ function recoverIntegratedCommit(args) {
   const before = safeGit(['rev-parse', `${commit.output}^`], process.cwd());
   const files = safeGit(['show', '--format=', '--name-only', commit.output], process.cwd());
   if (!before.ok || !files.ok) fail(`cannot inspect integrated commit: ${commit.output}`);
-  const changedFiles = files.output.split('\n').map((item) => item.trim()).filter(Boolean);
+  const implementationFiles = files.output.split('\n').map((item) => item.trim()).filter(Boolean);
+  const supplementalReportFiles = trackedTaskReportFiles(task);
+  const changedFiles = [...new Set([...implementationFiles, ...supplementalReportFiles])];
   const evidence = evaluateWorkerEvidence({
     task,
     exitCode: 0,
@@ -814,6 +832,7 @@ function recoverIntegratedCommit(args) {
   task.integrated_commit = commit.output;
   task.integrated_at = new Date().toISOString();
   task.changed_files = changedFiles;
+  task.supplemental_report_files = supplementalReportFiles;
   task.status = 'COMPLETED_MERGED';
   task.completed_at = new Date().toISOString();
   task.baseline_autopilot_exit_code = 0;

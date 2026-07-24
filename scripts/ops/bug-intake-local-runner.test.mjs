@@ -496,6 +496,11 @@ test('integrated commit recovery accepts implementation completed tasks', () => 
     workerSource,
     /recoverIntegratedCommit[\s\S]*\['pending',[\s\S]*'IMPLEMENTATION_COMPLETED'[\s\S]*\.includes\(task\.status\)/,
   );
+  assert.match(
+    workerSource,
+    /trackedTaskReportFiles\(task\)[\s\S]*new Set\(\[\.\.\.implementationFiles, \.\.\.supplementalReportFiles\]\)/,
+    'integrated implementation recovery must accept a separately tracked task report',
+  );
 });
 
 test('resident evolution artifacts are treated as recoverable runner-owned dirty state', () => {
