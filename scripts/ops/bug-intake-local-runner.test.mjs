@@ -448,6 +448,31 @@ test('source repair task report name satisfies implementation evidence', () => {
   assert.equal(evidence.terminalStatus, 'IMPLEMENTATION_COMPLETED');
 });
 
+test('bug report evidence treats hyphens and underscores as the same task identity', () => {
+  const task = {
+    task_id: 'BUGTASK-20260724-0001-A3',
+    request_id: 'BUGTASK-20260724-0001',
+    source_repair_task_no: 'BUGTASK-20260724-0001',
+    source_bug_no: 'BUG-20260724-0001',
+    agent: 'A3-Backend-Critical-Path',
+  };
+  const evidence = evaluateWorkerEvidence({
+    task,
+    exitCode: 0,
+    stdout: 'PASS WITH CONDITIONS',
+    beforeHead: 'a',
+    afterHead: 'b',
+    changedFiles: [
+      'apps/api/src/modules/approval-engine/approval-engine.controller.ts',
+      'docs/ops/BUG_20260724_0001_WORKFLOW_APPROVAL_PERMISSION_FIX_REPORT.md',
+    ],
+  });
+  assert.equal(evidence.passed, true);
+  assert.deepEqual(evidence.reportFiles, [
+    'docs/ops/BUG_20260724_0001_WORKFLOW_APPROVAL_PERMISSION_FIX_REPORT.md',
+  ]);
+});
+
 test('integrated commit recovery accepts implementation completed tasks', () => {
   const workerSource = fs.readFileSync(path.join(TEST_DIR, 'agent-worker.mjs'), 'utf8');
   assert.match(

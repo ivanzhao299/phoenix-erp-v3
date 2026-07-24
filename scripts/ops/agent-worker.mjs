@@ -131,6 +131,10 @@ function matchesPathRule(file, rule) {
   return new RegExp(`^${escaped}$`).test(file);
 }
 
+function normalizedReferenceKey(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
 function sandboxCommitBlocker(text) {
   return /index\.lock[\s\S]{0,240}(operation not permitted|permission denied)|could not (create|make) (the )?(required )?(local )?commit|git add[\s\S]{0,240}operation not permitted/i.test(String(text || ''));
 }
@@ -150,16 +154,17 @@ function commitSandboxChanges(task, stdout = '') {
     file.startsWith('deploy/'));
   const businessPrefix = task.agent === 'A3-Backend-Critical-Path' ? 'apps/api/' : task.agent === 'A4-Frontend-UAT-Smoke' ? 'apps/web/' : '';
   const businessFiles = businessPrefix ? status.files.filter((file) => file.startsWith(businessPrefix)) : [];
-  const bugNo = String(task.source_bug_no || '').toLowerCase();
-  const taskId = String(task.task_id || '').toLowerCase();
-  const sourceRepairTaskNo = String(task.source_repair_task_no || task.request_id || '').toLowerCase();
+  const reportReferenceKeys = [
+    task.source_bug_no,
+    task.task_id,
+    task.source_repair_task_no || task.request_id,
+  ].map(normalizedReferenceKey).filter(Boolean);
   const reportFiles = status.files.filter((file) => {
     const lower = file.toLowerCase();
+    const fileKey = normalizedReferenceKey(lower);
     return lower.startsWith('docs/ops/')
       && !lower.startsWith('docs/ops/runs/')
-      && ((bugNo && lower.includes(bugNo))
-        || (taskId && lower.includes(taskId))
-        || (sourceRepairTaskNo && lower.includes(sourceRepairTaskNo)));
+      && reportReferenceKeys.some((key) => fileKey.includes(key));
   });
   if (outsideAllowed.length || hardForbidden.length || businessFiles.length === 0 || reportFiles.length === 0) {
     return {

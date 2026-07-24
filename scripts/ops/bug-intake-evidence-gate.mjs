@@ -25,6 +25,10 @@ function unique(values) {
   return [...new Set((values || []).map((value) => String(value || '').trim()).filter(Boolean))];
 }
 
+function normalizedReferenceKey(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
 function normalizedConclusion(text) {
   const value = String(text || '').toUpperCase();
   const candidates = [
@@ -58,15 +62,16 @@ function isNotApplicable(response) {
 }
 
 function reportFilesForTask(task, changedFiles) {
-  const bugNo = String(task?.source_bug_no || '').toLowerCase();
-  const taskId = String(task?.task_id || '').toLowerCase();
-  const sourceRepairTaskNo = String(task?.source_repair_task_no || task?.request_id || '').toLowerCase();
+  const referenceKeys = unique([
+    task?.source_bug_no,
+    task?.task_id,
+    task?.source_repair_task_no || task?.request_id,
+  ].map(normalizedReferenceKey));
   return unique(changedFiles).filter((file) => {
     const lower = file.toLowerCase();
     if (!lower.startsWith('docs/ops/') || lower.startsWith('docs/ops/runs/')) return false;
-    return (bugNo && lower.includes(bugNo))
-      || (taskId && lower.includes(taskId))
-      || (sourceRepairTaskNo && lower.includes(sourceRepairTaskNo));
+    const fileKey = normalizedReferenceKey(lower);
+    return referenceKeys.some((key) => key && fileKey.includes(key));
   });
 }
 
