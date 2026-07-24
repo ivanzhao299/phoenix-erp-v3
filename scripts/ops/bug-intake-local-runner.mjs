@@ -720,11 +720,22 @@ function reconcileVerifiedWorkerEvidence(args) {
 }
 
 function integrateReconciledImplementations(args, reconciliation) {
-  if (args.dryRun || reconciliation.restored.length === 0) return [];
+  if (args.dryRun) return [];
   const results = [];
-  for (const item of reconciliation.restored) {
-    if (item.status !== 'IMPLEMENTATION_COMPLETED') continue;
-    const task = findTask(item.task_id);
+  const taskIds = new Set((reconciliation.restored || [])
+    .filter((item) => item.status === 'IMPLEMENTATION_COMPLETED')
+    .map((item) => item.task_id));
+  for (const task of readQueueTasks(TASKS_FILE)) {
+    if (
+      task.status === 'IMPLEMENTATION_COMPLETED'
+      && task.evidence_gate?.passed === true
+      && task.evidence_gate?.role === 'implementation'
+    ) {
+      taskIds.add(task.task_id);
+    }
+  }
+  for (const taskId of taskIds) {
+    const task = findTask(taskId);
     if (!task) continue;
     results.push(integrateImplementationTask(task, task, args));
   }

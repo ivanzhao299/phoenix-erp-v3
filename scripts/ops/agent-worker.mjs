@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
+import { findExistingTaskCommit } from './bug-intake-existing-commit.mjs';
 import { filterRunnerRuntimeFiles, filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
 import { persistTaskSnapshot, readQueueTasks } from './bug-runner-platform.mjs';
 
@@ -27,6 +28,7 @@ function usage(exitCode = 1) {
   node scripts/ops/agent-worker.mjs --agent <agent> [--claim-next] [--once] [--loop] [--dry-run] [--request-id <id>] [--task-id <id>] [--approval-token <token>]
   node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-sandbox-commit --approval-token <token>
   node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-completed-run --run-log <file> --approval-token <token>
+  node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-worktree-commit --approval-token <token>
   node scripts/ops/agent-worker.mjs --agent <agent> --task-id <id> --recover-integrated-commit --commit <sha> --approval-token <token>`);
   process.exit(exitCode);
 }
@@ -36,7 +38,7 @@ function parseArgs(argv) {
   const values = { dryRun: true };
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
-    if (['--claim-next', '--once', '--loop', '--dry-run', '--recover-sandbox-commit', '--recover-completed-run', '--recover-integrated-commit'].includes(arg)) {
+    if (['--claim-next', '--once', '--loop', '--dry-run', '--recover-sandbox-commit', '--recover-completed-run', '--recover-worktree-commit', '--recover-integrated-commit'].includes(arg)) {
       values[arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase())] = true;
       continue;
     }
@@ -71,6 +73,39 @@ function changedFilesBetween(cwd, beforeHead, afterHead) {
   if (!beforeHead || !afterHead || beforeHead === afterHead) return [];
   const diff = safeGit(['diff', '--name-only', `${beforeHead}..${afterHead}`], cwd);
   return diff.ok ? diff.output.split('\n').map((item) => item.trim()).filter(Boolean) : [];
+}
+
+function recoverExistingCommitEvidence(task, result, evidence) {
+  if (evidence.passed || Number(result.status ?? 1) !== 0) return { evidence, recovery: null };
+  if (!['A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke'].includes(task.agent)) {
+    return { evidence, recovery: null };
+  }
+  if (evidence.role !== 'implementation' || !/^Missing implementation evidence:/.test(evidence.reason || '')) {
+    return { evidence, recovery: null };
+  }
+  const recovery = findExistingTaskCommit(task);
+  if (!recovery.candidate) return { evidence, recovery };
+  const candidate = recovery.candidate;
+  const recoveredEvidence = evaluateWorkerEvidence({
+    task,
+    exitCode: 0,
+    stdout: `${result.stdout || ''}\nPASS WITH CONDITIONS. Recovered a verified task-specific implementation commit from the dedicated worktree.`,
+    stderr: result.stderr || '',
+    beforeHead: candidate.parentHash,
+    afterHead: candidate.commitHash,
+    changedFiles: candidate.changedFiles,
+  });
+  if (!recoveredEvidence.passed || recoveredEvidence.role !== 'implementation') {
+    return { evidence, recovery: { ...recovery, candidateRejectedByEvidenceGate: recoveredEvidence } };
+  }
+  return {
+    evidence: {
+      ...recoveredEvidence,
+      recoveredExistingCommit: true,
+      recoveryReason: 'task-specific unintegrated implementation commit verified after a no-diff redispatch',
+    },
+    recovery,
+  };
 }
 
 function dirtyFiles(cwd) {
@@ -544,7 +579,7 @@ function runOne(args) {
     ? commitSandboxChanges(task, `${result.stdout || ''}\n${result.stderr || ''}`)
     : { attempted: false, ok: false, reason: 'not an eligible implementation execution' };
   const afterHead = safeGit(['rev-parse', 'HEAD'], task.worktree).output;
-  const evidence = evaluateWorkerEvidence({
+  const initialEvidence = evaluateWorkerEvidence({
     task,
     exitCode: result.status ?? 1,
     stdout: result.stdout ?? '',
@@ -554,6 +589,8 @@ function runOne(args) {
     changedFiles: changedFilesBetween(task.worktree, beforeHead, afterHead),
     parentCommitRecovered: parentCommit.ok && parentCommit.recoveredSandboxBlocker,
   });
+  const existingCommitRecovery = recoverExistingCommitEvidence(task, result, initialEvidence);
+  const evidence = existingCommitRecovery.evidence;
   const log = writeWorkerLog(task, {
     dryRun: false,
     exitCode: result.status ?? 1,
@@ -561,7 +598,9 @@ function runOne(args) {
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
     evidence,
-    parentCommit,
+    parentCommit: existingCommitRecovery.recovery
+      ? { ...parentCommit, existingTaskCommitRecovery: existingCommitRecovery.recovery }
+      : parentCommit,
   });
   task.result_file = path.relative(process.cwd(), log);
   task.evidence_gate = evidence;
@@ -784,12 +823,63 @@ function recoverIntegratedCommit(args) {
   return 0;
 }
 
+function recoverWorktreeCommit(args) {
+  if (args.approvalToken !== APPROVAL_TOKEN) fail('worktree commit recovery requires --approval-token APPROVE_AGENT_EXECUTION');
+  const tasks = readTasks();
+  const task = tasks.find((item) => item.task_id === args.taskId && item.agent === args.agent);
+  if (!task) fail(`task not found for worktree commit recovery: ${args.taskId}`);
+  if (!['pending', 'HOLD', 'hold', 'WAITING_CAPACITY', 'SKIPPED_NOT_APPLICABLE', 'failed'].includes(task.status)) {
+    fail(`task is not recoverable from a worktree commit: ${task.status}`);
+  }
+  const recovery = findExistingTaskCommit(task);
+  if (!recovery.candidate) fail(`worktree commit recovery refused: ${recovery.reason}`);
+  const candidate = recovery.candidate;
+  const evidence = evaluateWorkerEvidence({
+    task,
+    exitCode: 0,
+    stdout: 'PASS WITH CONDITIONS. Recovered a verified task-specific implementation commit from the dedicated worktree.',
+    stderr: '',
+    beforeHead: candidate.parentHash,
+    afterHead: candidate.commitHash,
+    changedFiles: candidate.changedFiles,
+  });
+  if (!evidence.passed || evidence.role !== 'implementation') {
+    fail(`worktree commit evidence rejected: ${evidence.reason}`);
+  }
+  evidence.recoveredExistingCommit = true;
+  evidence.recoveryReason = 'explicit recovery of a task-specific unintegrated implementation commit';
+  const log = writeWorkerLog(task, {
+    dryRun: false,
+    exitCode: 0,
+    command: ['parent-runner-worktree-commit-recovery', task.task_id, candidate.commitHash],
+    stdout: 'PASS WITH CONDITIONS. Existing implementation commit verified for selective parent-runner integration.',
+    stderr: '',
+    evidence,
+    parentCommit: { attempted: false, ok: true, existingTaskCommitRecovery: recovery },
+  });
+  task.result_file = path.relative(process.cwd(), log);
+  task.evidence_gate = evidence;
+  task.implementation_commit = candidate.commitHash;
+  task.changed_files = candidate.changedFiles;
+  task.status = 'IMPLEMENTATION_COMPLETED';
+  task.completed_at = new Date().toISOString();
+  task.claimed_by = null;
+  task.claimed_at = null;
+  task.reason = 'verified task-specific implementation commit is ready for selective integration';
+  task.retry_after = null;
+  writeTasks(tasks, { verifiedEvidenceRecovery: true });
+  console.log(`${task.task_id} -> ${task.status}`);
+  console.log(`Recovered worktree commit: ${candidate.commitHash}`);
+  return 0;
+}
+
 const args = parseArgs(process.argv.slice(2));
 if (!args.agent) usage(1);
-if (!args.claimNext && !args.once && !args.loop && !args.recoverSandboxCommit && !args.recoverCompletedRun && !args.recoverIntegratedCommit) usage(1);
+if (!args.claimNext && !args.once && !args.loop && !args.recoverSandboxCommit && !args.recoverCompletedRun && !args.recoverWorktreeCommit && !args.recoverIntegratedCommit) usage(1);
 
 if (args.recoverSandboxCommit) process.exit(recoverSandboxCommit(args));
 if (args.recoverCompletedRun) process.exit(recoverCompletedRun(args));
+if (args.recoverWorktreeCommit) process.exit(recoverWorktreeCommit(args));
 if (args.recoverIntegratedCommit) process.exit(recoverIntegratedCommit(args));
 
 if (args.loop && !args.dryRun) {
