@@ -34,6 +34,19 @@ test('terminal task states cannot regress without explicit redispatch', () => {
   );
 });
 
+test('verified integrated evidence can complete a pending recovery task', () => {
+  assert.equal(
+    canTransitionTaskStatus('pending', 'COMPLETED_MERGED', {
+      verifiedEvidenceRecovery: true,
+    }),
+    true,
+  );
+  assert.equal(
+    canTransitionTaskStatus('pending', 'COMPLETED_MERGED'),
+    false,
+  );
+});
+
 test('strict evidence recovery can replace a false not-applicable terminal result', () => {
   assert.equal(
     canTransitionTaskStatus('SKIPPED_NOT_APPLICABLE', 'IMPLEMENTATION_COMPLETED', {
