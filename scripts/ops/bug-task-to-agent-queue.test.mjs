@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mergeExistingQueueTask, resolveRoutePlan } from './bug-task-to-agent-queue.mjs';
+import {
+  isTechnicalRedispatch,
+  mergeExistingQueueTask,
+  resolveRoutePlan,
+} from './bug-task-to-agent-queue.mjs';
 
 const sharedTask = {
   task_id: 'BUGTASK-1-A3',
@@ -52,7 +56,7 @@ test('new redispatch generation resets terminal evidence and uses clean executio
   assert.equal(result.task.evidence_gate, null);
 });
 
-test('new redispatch generation preserves verified successful evidence', () => {
+test('administrator business redispatch resets verified successful evidence', () => {
   const previous = {
     ...sharedTask,
     status: 'COMPLETED_MERGED',
@@ -64,11 +68,64 @@ test('new redispatch generation preserves verified successful evidence', () => {
 
   const result = mergeExistingQueueTask(previous, next, { redispatchRequested: true });
 
+  assert.equal(result.action, 'requeued');
+  assert.equal(result.task.status, 'pending');
+  assert.equal(result.task.redispatch_count, 3);
+  assert.equal(result.task.evidence_gate, null);
+  assert.equal(result.task.implementation_commit, '');
+  assert.equal(result.task.carried_forward_at, null);
+  assert.equal(result.task.carried_forward_reason, null);
+});
+
+test('technical runner redispatch may preserve verified successful evidence', () => {
+  const previous = {
+    ...sharedTask,
+    status: 'COMPLETED_MERGED',
+    redispatch_count: 2,
+    evidence_gate: { passed: true, role: 'implementation', commitHash: 'abc1234' },
+    implementation_commit: 'abc1234',
+  };
+  const next = { ...sharedTask, redispatch_count: 3, dependencies: ['BUGTASK-1-A5'] };
+
+  const result = mergeExistingQueueTask(previous, next, {
+    redispatchRequested: true,
+    preserveTerminalEvidence: true,
+  });
+
   assert.equal(result.action, 'carried_forward_terminal');
   assert.equal(result.task.status, 'COMPLETED_MERGED');
   assert.equal(result.task.redispatch_count, 3);
   assert.equal(result.task.evidence_gate.commitHash, 'abc1234');
   assert.deepEqual(result.task.dependencies, ['BUGTASK-1-A5']);
+});
+
+test('only the dedicated runner explicit redispatch is technical', () => {
+  assert.equal(isTechnicalRedispatch({
+    agentPlanGeneratedBy: 'redispatch-explicit:bug_intake_runner',
+    agentExecutionApproval: {
+      approved: true,
+      approvedBy: 'bug_intake_runner',
+      redispatch: true,
+    },
+  }), true);
+
+  assert.equal(isTechnicalRedispatch({
+    agentPlanGeneratedBy: 'redispatch:admin',
+    agentExecutionApproval: {
+      approved: true,
+      approvedBy: 'admin',
+      redispatch: true,
+    },
+  }), false);
+
+  assert.equal(isTechnicalRedispatch({
+    agentPlanGeneratedBy: 'redispatch-explicit:admin',
+    agentExecutionApproval: {
+      approved: true,
+      approvedBy: 'admin',
+      redispatch: true,
+    },
+  }), false);
 });
 
 test('approved task is reactivated after remote NOT_READY archival without generation drift', () => {

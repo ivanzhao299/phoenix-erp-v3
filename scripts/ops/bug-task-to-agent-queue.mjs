@@ -101,6 +101,23 @@ function isAgentExecutionApproved(payload) {
   return getApproval(payload)?.approved === true;
 }
 
+export function isTechnicalRedispatch(payload) {
+  const approval = getApproval(payload);
+  if (approval?.redispatch !== true) return false;
+
+  const generatedBy = String(payload.agentPlanGeneratedBy || '').trim().toLowerCase();
+  const approvedBy = String(approval.approvedBy || '').trim().toLowerCase();
+  const technicalActors = new Set([
+    'bug_intake_runner',
+    'bug-intake-runner',
+    'bug intake runner',
+  ]);
+
+  return generatedBy.startsWith('redispatch-explicit:')
+    && technicalActors.has(generatedBy.slice('redispatch-explicit:'.length))
+    && technicalActors.has(approvedBy);
+}
+
 function buildRouteText(payload) {
   return [
     payload.title,
@@ -372,7 +389,11 @@ function buildTasks(payload, plan, dispatchMap) {
   return tasks;
 }
 
-export function mergeExistingQueueTask(previous, task, { redispatchRequested = false } = {}) {
+export function mergeExistingQueueTask(
+  previous,
+  task,
+  { redispatchRequested = false, preserveTerminalEvidence = false } = {},
+) {
   const previousRedispatchCount = Number(previous.redispatch_count || 0);
   const nextRedispatchCount = Number(task.redispatch_count || 0);
   const newerRedispatch = redispatchRequested && nextRedispatchCount > previousRedispatchCount;
@@ -384,7 +405,7 @@ export function mergeExistingQueueTask(previous, task, { redispatchRequested = f
     && (remoteNotReadyArchive || interruptedApprovedReactivation)
     && task.route_active !== false;
 
-  if (newerRedispatch && previous.evidence_gate?.passed === true && [
+  if (newerRedispatch && preserveTerminalEvidence && previous.evidence_gate?.passed === true && [
     'completed',
     'completed_merged',
     'validation_completed',
@@ -455,8 +476,17 @@ export function mergeExistingQueueTask(previous, task, { redispatchRequested = f
       integrated_at: null,
       changed_files: [],
       baseline_autopilot_exit_code: null,
+      baseline_autopilot_skipped: null,
       redispatch_count: Math.max(previousRedispatchCount, nextRedispatchCount),
       redispatched_at: task.last_redispatch_at || new Date().toISOString(),
+      carried_forward_at: null,
+      carried_forward_reason: null,
+      dependency_recovered_at: null,
+      recovered_from_run_log: null,
+      integration_method: null,
+      worktree_baseline_sync: null,
+      retry_after: null,
+      remote_repair_status: null,
       redispatch_history: [
         ...(Array.isArray(previous.redispatch_history) ? previous.redispatch_history : []),
         {
@@ -527,6 +557,7 @@ function main() {
     const skippedExisting = [];
     const approval = getApproval(payload);
     const redispatchRequested = approval?.redispatch === true;
+    const preserveTerminalEvidence = isTechnicalRedispatch(payload);
     const generatedIds = new Set(tasks.map((task) => task.task_id));
     const sourceBugNo = payload.bugNo || payload.bug_no || '';
     const superseded = [];
@@ -551,7 +582,10 @@ function main() {
       }
       const index = existingIndex.get(task.task_id);
       const previous = queue[index];
-      const merged = mergeExistingQueueTask(previous, task, { redispatchRequested });
+      const merged = mergeExistingQueueTask(previous, task, {
+        redispatchRequested,
+        preserveTerminalEvidence,
+      });
       queue[index] = merged.task;
       if (merged.action !== 'requeued') {
         skippedExisting.push(previous);
