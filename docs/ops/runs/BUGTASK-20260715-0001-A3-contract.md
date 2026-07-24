@@ -955,29 +955,30 @@ Assigned agent: A3-Backend-Critical-Path
     }
   },
   "failureClassification": {
-    "category": "PG_SQL",
+    "category": "RBAC_403",
     "evidence": [
-      "数据库/PG/SQL 信号"
+      "权限/RBAC/DataScope 信号"
     ],
     "priority": "P1",
     "severity": "HIGH",
-    "confidence": 0.92,
-    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
+    "confidence": 0.9,
+    "suggestedFix": "对齐菜单码、角色权限和 DataScope，避免前端透传无权限入口。",
     "autoFixEligible": true,
     "recommendedAgents": [
+      "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
     "requiresHumanGate": true,
-    "ownerRecommendation": "A3-Backend-Critical-Path"
+    "ownerRecommendation": "A2-Security-Regression-Gate"
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-23T05:54:51.993Z",
+    "approvedAt": "2026-07-24T06:55:38.134Z",
     "approvedBy": "admin",
     "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 6,
+    "redispatchCount": 7,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

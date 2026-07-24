@@ -22080,8 +22080,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 6,
-    "last_redispatch_at": "2026-07-23T05:53:45.955Z",
+    "redispatch_count": 7,
+    "last_redispatch_at": "2026-07-24T06:55:21.795Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A2-Security-Regression-Gate",
@@ -22108,11 +22108,11 @@
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "remote_repair_status": "HOLD",
-    "carried_forward_at": "2026-07-23T06:00:49.483Z",
+    "carried_forward_at": "2026-07-24T06:55:43.729Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "2312fa7905001ea1c86ba18d2a8bc0a5a748504120278078f0e83d904cb1cb84",
-    "state_version": 3,
-    "state_updated_at": "2026-07-23T06:00:49.490Z"
+    "state_version": 4,
+    "state_updated_at": "2026-07-24T06:55:43.736Z"
   },
   {
     "task_id": "BUGTASK-20260713-0004-A3",
@@ -22157,8 +22157,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 6,
-    "last_redispatch_at": "2026-07-23T05:53:45.955Z",
+    "redispatch_count": 7,
+    "last_redispatch_at": "2026-07-24T06:55:21.795Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -22185,11 +22185,11 @@
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "remote_repair_status": "HOLD",
-    "carried_forward_at": "2026-07-23T06:00:49.484Z",
+    "carried_forward_at": "2026-07-24T06:55:43.730Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "62be7ca230b759b9affdf1729f30acea325567e5982bc012fb0ca4e1806f0894",
-    "state_version": 3,
-    "state_updated_at": "2026-07-23T06:00:49.490Z"
+    "state_version": 4,
+    "state_updated_at": "2026-07-24T06:55:43.736Z"
   },
   {
     "task_id": "BUGTASK-20260713-0004-A1",
@@ -22238,8 +22238,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 6,
-    "last_redispatch_at": "2026-07-23T05:53:45.955Z",
+    "redispatch_count": 7,
+    "last_redispatch_at": "2026-07-24T06:55:21.795Z",
     "remote_repair_status": "HOLD",
     "evidence_gate": {
       "version": 1,
@@ -22266,11 +22266,11 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "carried_forward_at": "2026-07-23T06:00:49.484Z",
+    "carried_forward_at": "2026-07-24T06:55:43.730Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "8e2521f3b00b6b6623aa2e6b46e9545e3ef6cdcee2561a18ef266db0a9a78316",
-    "state_version": 3,
-    "state_updated_at": "2026-07-23T06:00:49.490Z"
+    "state_version": 4,
+    "state_updated_at": "2026-07-24T06:55:43.736Z"
   },
   {
     "task_id": "BUGTASK-20260715-0002-A3",
@@ -22492,8 +22492,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 6,
-    "last_redispatch_at": "2026-07-23T05:54:51.993Z",
+    "redispatch_count": 7,
+    "last_redispatch_at": "2026-07-24T06:55:38.134Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -22547,11 +22547,11 @@
         "source_repair_task_no": "BUGTASK-20260715-0001"
       }
     ],
-    "carried_forward_at": "2026-07-23T06:00:49.422Z",
+    "carried_forward_at": "2026-07-24T06:55:43.681Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "01e432d93c9148409951a5a9bcf405ae3b61c6d281bc1c70da25fb2c316a0d84",
-    "state_version": 3,
-    "state_updated_at": "2026-07-23T06:00:49.430Z"
+    "state_version": 4,
+    "state_updated_at": "2026-07-24T06:55:43.688Z"
   },
   {
     "task_id": "BUGTASK-20260715-0001-A4",
@@ -22599,8 +22599,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 6,
-    "last_redispatch_at": "2026-07-23T05:54:51.993Z",
+    "redispatch_count": 7,
+    "last_redispatch_at": "2026-07-24T06:55:38.134Z",
     "remote_repair_status": "HOLD",
     "evidence_gate": {
       "version": 1,
@@ -22660,11 +22660,11 @@
     ],
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "integration_method": "cherry-pick-verified-agent-commit",
-    "carried_forward_at": "2026-07-23T06:00:49.423Z",
+    "carried_forward_at": "2026-07-24T06:55:43.681Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "af4435891d30b1a2876ad3e85105b00cc0917b79e397cb94cb930b7ae9934835",
-    "state_version": 3,
-    "state_updated_at": "2026-07-23T06:00:49.430Z"
+    "state_version": 4,
+    "state_updated_at": "2026-07-24T06:55:43.688Z"
   },
   {
     "task_id": "BUGTASK-20260715-0001-A1",
@@ -22713,8 +22713,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 6,
-    "last_redispatch_at": "2026-07-23T05:54:51.993Z",
+    "redispatch_count": 7,
+    "last_redispatch_at": "2026-07-24T06:55:38.134Z",
     "remote_repair_status": "HOLD",
     "reason": null,
     "evidence_gate": {
@@ -22754,11 +22754,11 @@
     ],
     "retry_after": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "carried_forward_at": "2026-07-23T06:00:49.423Z",
+    "carried_forward_at": "2026-07-24T06:55:43.681Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "d95a79f51db2d64d6dd57a4a9e16fb9e3cd36a704719cc00d4d5e7d1ebdea121",
-    "state_version": 3,
-    "state_updated_at": "2026-07-23T06:00:49.430Z"
+    "state_version": 4,
+    "state_updated_at": "2026-07-24T06:55:43.688Z"
   },
   {
     "task_id": "BUGTASK-20260713-0006-A3",
@@ -25678,8 +25678,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 3,
-    "last_redispatch_at": "2026-07-22T01:06:05.255Z",
+    "redispatch_count": 4,
+    "last_redispatch_at": "2026-07-24T07:16:51.693Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -25730,11 +25730,11 @@
       "ok": true,
       "baseline": "71a1d23bec07f4a19e07ef1d73f111077b3aff73"
     },
-    "carried_forward_at": "2026-07-22T01:07:14.222Z",
+    "carried_forward_at": "2026-07-24T07:28:32.132Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "80a4837a9a481671c4c9f983b190010d2725e5d193500763d7ce676858cc1bdc",
-    "state_version": 2,
-    "state_updated_at": "2026-07-22T01:07:14.229Z"
+    "state_version": 3,
+    "state_updated_at": "2026-07-24T07:28:32.139Z"
   },
   {
     "task_id": "BUGTASK-20260716-0004-A4",
@@ -25782,8 +25782,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 3,
-    "last_redispatch_at": "2026-07-22T01:06:05.255Z",
+    "redispatch_count": 4,
+    "last_redispatch_at": "2026-07-24T07:16:51.693Z",
     "remote_repair_status": "HOLD",
     "evidence_gate": {
       "version": 1,
@@ -25810,11 +25810,11 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "carried_forward_at": "2026-07-22T01:07:14.223Z",
+    "carried_forward_at": "2026-07-24T07:28:32.132Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "8b430ab17485b776551217ee7daac5dd5aab255839a8aa18a68f22beb7b80a51",
-    "state_version": 2,
-    "state_updated_at": "2026-07-22T01:07:14.229Z"
+    "state_version": 3,
+    "state_updated_at": "2026-07-24T07:28:32.139Z"
   },
   {
     "task_id": "BUGTASK-20260716-0004-A1",
@@ -25863,8 +25863,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 3,
-    "last_redispatch_at": "2026-07-22T01:06:05.255Z",
+    "redispatch_count": 4,
+    "last_redispatch_at": "2026-07-24T07:16:51.693Z",
     "reason": "dependency recovered; automatically requeued",
     "evidence_gate": {
       "version": 1,
@@ -25893,11 +25893,11 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "carried_forward_at": "2026-07-22T01:07:14.223Z",
+    "carried_forward_at": "2026-07-24T07:28:32.132Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "f2e335da2b6fe141745824f2c7bcad4322c10964b4348b5e1280eeb6b7cf552e",
-    "state_version": 2,
-    "state_updated_at": "2026-07-22T01:07:14.229Z"
+    "state_version": 3,
+    "state_updated_at": "2026-07-24T07:28:32.139Z"
   },
   {
     "task_id": "BUGTASK-20260716-0003-A4",
@@ -26114,8 +26114,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 5,
-    "last_redispatch_at": "2026-07-22T01:06:33.556Z",
+    "redispatch_count": 6,
+    "last_redispatch_at": "2026-07-24T06:56:35.977Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A3-Backend-Critical-Path",
@@ -26174,11 +26174,11 @@
     ],
     "runner_recovery_count": 1,
     "runner_recovered_at": "2026-07-18T13:22:56.669Z",
-    "carried_forward_at": "2026-07-22T01:07:14.271Z",
+    "carried_forward_at": "2026-07-24T07:07:32.275Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "05156f6abb6896f020da8bf5cea8a7e005d6afe3421e0f09ffd40025a981f83f",
-    "state_version": 2,
-    "state_updated_at": "2026-07-22T01:07:14.277Z"
+    "state_version": 3,
+    "state_updated_at": "2026-07-24T07:07:32.282Z"
   },
   {
     "task_id": "BUGTASK-20260716-0002-A1",
@@ -26225,8 +26225,8 @@
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 5,
-    "last_redispatch_at": "2026-07-22T01:06:33.556Z",
+    "redispatch_count": 6,
+    "last_redispatch_at": "2026-07-24T06:56:35.977Z",
     "reason": "dependency recovered; automatically requeued",
     "evidence_gate": {
       "version": 1,
@@ -26274,11 +26274,11 @@
     "dependency_recovered_at": "2026-07-18T13:45:08.275Z",
     "retry_after": null,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "carried_forward_at": "2026-07-22T01:07:14.271Z",
+    "carried_forward_at": "2026-07-24T07:07:32.276Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "4a102c9e7ed80ac736720c4e41b5bf20894ef1b96b0be0ea025259020d7a520f",
-    "state_version": 2,
-    "state_updated_at": "2026-07-22T01:07:14.277Z"
+    "state_version": 3,
+    "state_updated_at": "2026-07-24T07:07:32.282Z"
   },
   {
     "task_id": "BUGTASK-20260716-0001-A4",
@@ -26325,8 +26325,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 4,
-    "last_redispatch_at": "2026-07-23T06:35:01.044Z",
+    "redispatch_count": 5,
+    "last_redispatch_at": "2026-07-24T06:56:10.240Z",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -26380,11 +26380,11 @@
       "ok": true,
       "baseline": "35b048156209c292176f0ca4c6ba2e8db5ce1bdd"
     },
-    "carried_forward_at": "2026-07-23T06:44:43.830Z",
+    "carried_forward_at": "2026-07-24T07:07:32.323Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "432e69f890952f380c96022235c7411639494e58dec59ea876bbb3f0b6310a09",
-    "state_version": 3,
-    "state_updated_at": "2026-07-23T06:44:43.838Z"
+    "state_version": 4,
+    "state_updated_at": "2026-07-24T07:07:32.330Z"
   },
   {
     "task_id": "BUGTASK-20260716-0001-A1",
@@ -26431,8 +26431,8 @@
       "A4-Frontend-UAT-Smoke",
       "A1-CI-Runtime-Gate"
     ],
-    "redispatch_count": 4,
-    "last_redispatch_at": "2026-07-23T06:35:01.044Z",
+    "redispatch_count": 5,
+    "last_redispatch_at": "2026-07-24T06:56:10.240Z",
     "remote_repair_status": "HOLD",
     "reason": "dependency recovered; automatically requeued",
     "evidence_gate": {
@@ -26461,11 +26461,11 @@
     "retry_after": null,
     "baseline_autopilot_exit_code": 0,
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
-    "carried_forward_at": "2026-07-23T06:44:43.830Z",
+    "carried_forward_at": "2026-07-24T07:07:32.323Z",
     "carried_forward_reason": "verified terminal evidence preserved across a technical redispatch generation",
     "idempotency_key": "17caa3023af013a061cfa69109b670e337a985caf2574416873b1adb99bd5e19",
-    "state_version": 3,
-    "state_updated_at": "2026-07-23T06:44:43.838Z"
+    "state_version": 4,
+    "state_updated_at": "2026-07-24T07:07:32.330Z"
   },
   {
     "task_id": "BUGTASK-20260720-0001-A4",
@@ -30272,5 +30272,418 @@
     "integrated_commit": "bbf9c265e8b53b4b30aca869d5128e5f6a1c9bed",
     "integrated_at": "2026-07-24T06:44:47.756Z",
     "reason": "verified integrated implementation evidence"
+  },
+  {
+    "task_id": "BUGTASK-20260724-0001-A2",
+    "request_id": "BUGTASK-20260724-0001",
+    "title": "Repair BUG-20260724-0001: 审批中心-我的待办-审批点击“提交同意”提示“MENU_PERMISSION_DENIED” (A2-Security-Regression-Gate)",
+    "source_bug_no": "BUG-20260724-0001",
+    "source_repair_task_no": "BUGTASK-20260724-0001",
+    "source": "bug-intake",
+    "agent": "A2-Security-Regression-Gate",
+    "status": "VALIDATION_COMPLETED",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "scripts/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260724-0001-A2-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+    "branch": "w5-a2-security-regression-gate",
+    "dependencies": [
+      "BUGTASK-20260724-0001-A3"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-24T07:09:39.282Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260724-0001-A2-worker-log.md",
+    "next_agents": [
+      "A1-CI-Runtime-Gate",
+      "A3-Backend-Critical-Path",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-24T07:07:09.954Z",
+    "idempotency_key": "aaa0aae1a933248c6250c914e3ed65def911fc676357ac2863a16cc849108f57",
+    "state_version": 4,
+    "reason": null,
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A2-Security-Regression-Gate",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 840,
+      "beforeHead": "8b1a893e522ffb06c5e62cc1478c3e58276273e3",
+      "afterHead": "8b1a893e522ffb06c5e62cc1478c3e58276273e3",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-24T07:09:39.281Z",
+      "passed": true,
+      "role": "validation",
+      "terminalStatus": "VALIDATION_COMPLETED",
+      "reason": "Validation evidence recorded; this is not implementation evidence"
+    },
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": null,
+    "implementation_commit": "",
+    "integrated_commit": "",
+    "integrated_at": null,
+    "changed_files": [],
+    "baseline_autopilot_exit_code": 0,
+    "redispatched_at": "2026-07-24T07:07:09.954Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-24T07:07:32.226Z",
+        "previous_status": "HOLD",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260724-0001",
+        "source_repair_task_no": "BUGTASK-20260724-0001",
+        "reason": "explicit redispatch generation"
+      }
+    ],
+    "reactivation_reason": null,
+    "state_updated_at": "2026-07-24T07:09:39.288Z",
+    "retry_after": null,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+  },
+  {
+    "task_id": "BUGTASK-20260724-0001-A3",
+    "request_id": "BUGTASK-20260724-0001",
+    "title": "Repair BUG-20260724-0001: 审批中心-我的待办-审批点击“提交同意”提示“MENU_PERMISSION_DENIED” (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260724-0001",
+    "source_repair_task_no": "BUGTASK-20260724-0001",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "COMPLETED_MERGED",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260724-0001-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-24T07:09:12.420Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260724-0001-A3-worker-log.md",
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-24T07:07:09.954Z",
+    "idempotency_key": "97959691a362efc64fcfb7af4cb23a39d6f37a46e795a527f6e173d98e3770b5",
+    "state_version": 5,
+    "state_updated_at": "2026-07-24T07:09:12.427Z",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A3-Backend-Critical-Path",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 121,
+      "beforeHead": "ce833c71584f2dcfe0930524bfea758a28eb708f",
+      "afterHead": "46a032ac95e418ec6a3389f771f9ffa0ddfcc17f",
+      "commitHash": "46a032ac95e418ec6a3389f771f9ffa0ddfcc17f",
+      "changedFiles": [
+        "apps/api/src/modules/approval-engine/approval-action-menu-gate.spec.ts",
+        "apps/api/src/modules/approval-engine/approval-engine.controller.ts",
+        "apps/api/src/modules/workflow/workflow-task.controller.ts",
+        "docs/ops/BUG_20260724_0001_WORKFLOW_APPROVAL_PERMISSION_FIX_REPORT.md"
+      ],
+      "businessChangedFiles": [
+        "apps/api/src/modules/approval-engine/approval-action-menu-gate.spec.ts",
+        "apps/api/src/modules/approval-engine/approval-engine.controller.ts",
+        "apps/api/src/modules/workflow/workflow-task.controller.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/BUG_20260724_0001_WORKFLOW_APPROVAL_PERMISSION_FIX_REPORT.md"
+      ],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-24T07:09:12.419Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present"
+    },
+    "implementation_commit": "46a032ac95e418ec6a3389f771f9ffa0ddfcc17f",
+    "changed_files": [
+      "apps/api/src/modules/approval-engine/approval-action-menu-gate.spec.ts",
+      "apps/api/src/modules/approval-engine/approval-engine.controller.ts",
+      "apps/api/src/modules/workflow/workflow-task.controller.ts",
+      "docs/ops/BUG_20260724_0001_WORKFLOW_APPROVAL_PERMISSION_FIX_REPORT.md"
+    ],
+    "retry_after": null,
+    "reason": "verified integrated implementation evidence",
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": null,
+    "integrated_commit": "46a032ac95e418ec6a3389f771f9ffa0ddfcc17f",
+    "integrated_at": "2026-07-24T07:09:12.420Z",
+    "baseline_autopilot_exit_code": 0,
+    "redispatched_at": "2026-07-24T07:07:09.954Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-24T07:07:32.225Z",
+        "previous_status": "HOLD",
+        "previous_result_file": "docs/ops/runs/BUGTASK-20260724-0001-A3-worker-log.md",
+        "source_bug_no": "BUG-20260724-0001",
+        "source_repair_task_no": "BUGTASK-20260724-0001",
+        "reason": "explicit redispatch generation"
+      }
+    ],
+    "reactivation_reason": null,
+    "baseline_autopilot_skipped": "commit already integrated in current main; lifecycle verified by recovery gate"
+  },
+  {
+    "task_id": "BUGTASK-20260724-0001-A1",
+    "request_id": "BUGTASK-20260724-0001",
+    "title": "Repair BUG-20260724-0001: 审批中心-我的待办-审批点击“提交同意”提示“MENU_PERMISSION_DENIED” (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260724-0001",
+    "source_repair_task_no": "BUGTASK-20260724-0001",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "VALIDATION_COMPLETED",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260724-0001-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260724-0001-A3",
+      "BUGTASK-20260724-0001-A2"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-24T07:09:45.562Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260724-0001-A1-worker-log.md",
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 1,
+    "last_redispatch_at": "2026-07-24T07:07:09.954Z",
+    "idempotency_key": "6033aa4d2b0966dbfdf5c59c6f64cee94a4379f62fab0cdfc247fcb02611eb6e",
+    "state_version": 4,
+    "reason": null,
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "exitCode": 0,
+      "conclusion": "PASS",
+      "responseChars": 2909,
+      "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-24T07:09:45.561Z",
+      "passed": true,
+      "role": "validation",
+      "terminalStatus": "VALIDATION_COMPLETED",
+      "reason": "Validation evidence recorded; this is not implementation evidence"
+    },
+    "remote_repair_status": "HOLD",
+    "route_superseded_reason": null,
+    "implementation_commit": "",
+    "integrated_commit": "",
+    "integrated_at": null,
+    "changed_files": [],
+    "baseline_autopilot_exit_code": 0,
+    "redispatched_at": "2026-07-24T07:07:09.954Z",
+    "redispatch_history": [
+      {
+        "at": "2026-07-24T07:07:32.226Z",
+        "previous_status": "HOLD",
+        "previous_result_file": null,
+        "source_bug_no": "BUG-20260724-0001",
+        "source_repair_task_no": "BUGTASK-20260724-0001",
+        "reason": "explicit redispatch generation"
+      }
+    ],
+    "reactivation_reason": null,
+    "state_updated_at": "2026-07-24T07:09:45.568Z",
+    "retry_after": null,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
+  },
+  {
+    "task_id": "BUGTASK-20260724-0002-A3",
+    "request_id": "BUGTASK-20260724-0002",
+    "title": "Repair BUG-20260724-0002: 生产管理-日生产日报-展示顺序问题 (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260724-0002",
+    "source_repair_task_no": "BUGTASK-20260724-0002",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "HOLD",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260724-0002-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-24T07:32:05.603Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260724-0002-A3-detached-worker-recovery.md",
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "e1a756c0e54761b4556b1459cd0e62498849c89bb6075cd72f3e733eaa675167",
+    "state_version": 4,
+    "state_updated_at": "2026-07-24T07:32:05.616Z",
+    "changed_files": [
+      "apps/api/src/modules/generic-crud/generic-crud.service.spec.ts",
+      "apps/api/src/modules/generic-crud/generic-crud.service.ts",
+      "docs/ops/BUGTASK-20260724-0002-a3-backend-repair.md"
+    ],
+    "retry_after": null,
+    "baseline_autopilot_exit_code": null,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=0"
+  },
+  {
+    "task_id": "BUGTASK-20260724-0002-A1",
+    "request_id": "BUGTASK-20260724-0002",
+    "title": "Repair BUG-20260724-0002: 生产管理-日生产日报-展示顺序问题 (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260724-0002",
+    "source_repair_task_no": "BUGTASK-20260724-0002",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "HOLD",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260724-0002-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260724-0002-A3"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-24T07:32:08.040Z",
+    "result_file": null,
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "80cc2c09869cae0326ca914baf1107ef787c6dd48d50783144c1b4c31eb98c92",
+    "state_version": 1,
+    "reason": "blocked by failed dependency: BUGTASK-20260724-0002-A3",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "passed": false,
+      "role": "dependency",
+      "terminalStatus": "HOLD",
+      "reason": "blocked by failed dependency: BUGTASK-20260724-0002-A3",
+      "checkedAt": "2026-07-24T07:32:08.040Z"
+    }
   }
 ]
