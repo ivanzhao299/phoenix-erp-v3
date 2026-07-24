@@ -160,6 +160,18 @@ function writeMd(file, text) {
   writeFileSync(target, text);
 }
 
+export function redactBoundedOutput(value, secretValues = [], maxChars = 12000) {
+  const bounded = String(value || '').slice(-Math.max(1, Number(maxChars) || 12000));
+  const secrets = [...new Set(secretValues
+    .filter(Boolean)
+    .map(String)
+    .filter((secret) => secret.length >= 8))];
+  return secrets.reduce(
+    (next, secret) => next.split(secret).join('<redacted>'),
+    bounded,
+  );
+}
+
 function run(command, options = {}) {
   const startedAt = new Date().toISOString();
   const result = spawnSync(command[0], command.slice(1), {
@@ -172,16 +184,16 @@ function run(command, options = {}) {
   const secretValues = [process.env[options.tokenEnv], options.env?.[options.tokenEnv], options.env?.[options.childTokenEnv]]
     .filter(Boolean)
     .map(String);
-  const redact = (value) => secretValues.reduce((next, secret) => next.split(secret).join('<redacted>'), String(value));
+  const redact = (value, maxChars = 12000) => redactBoundedOutput(value, secretValues, maxChars);
   return {
-    command: command.map(redact),
+    command: command.map((part) => redact(part, 4000)),
     startedAt,
     finishedAt: new Date().toISOString(),
     status: result.status ?? 1,
     signal: result.signal || null,
     timedOut: result.error?.code === 'ETIMEDOUT',
-    stdout: redact(result.stdout || '').slice(-12000),
-    stderr: redact(result.stderr || '').slice(-12000),
+    stdout: redact(result.stdout || ''),
+    stderr: redact(result.stderr || ''),
   };
 }
 
@@ -196,15 +208,15 @@ function runAsync(command, options = {}) {
     const secretValues = [process.env[options.tokenEnv], options.env?.[options.tokenEnv], options.env?.[options.childTokenEnv]]
       .filter(Boolean)
       .map(String);
-    const redact = (value) => secretValues.reduce((next, secret) => next.split(secret).join('<redacted>'), String(value));
+    const redact = (value, maxChars = 12000) => redactBoundedOutput(value, secretValues, maxChars);
     let stdout = '';
     let stderr = '';
     let timedOut = false;
     let settled = false;
     let exitGrace = null;
     let killGrace = null;
-    child.stdout.on('data', (chunk) => { stdout = `${stdout}${chunk}`.slice(-12000); });
-    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-12000); });
+    child.stdout.on('data', (chunk) => { stdout = `${stdout}${String(chunk).slice(-12000)}`.slice(-12000); });
+    child.stderr.on('data', (chunk) => { stderr = `${stderr}${String(chunk).slice(-12000)}`.slice(-12000); });
     const finish = (code, signal, error = null) => {
       if (settled) return;
       settled = true;
@@ -214,7 +226,7 @@ function runAsync(command, options = {}) {
       child.stdout?.destroy();
       child.stderr?.destroy();
       resolve({
-        command: command.map(redact),
+        command: command.map((part) => redact(part, 4000)),
         startedAt,
         finishedAt: new Date().toISOString(),
         status: code ?? 1,
@@ -2440,8 +2452,10 @@ async function main() {
         summary = await runCycle(args, cycle);
       } catch (error) {
         crashSummary(args, cycle, error);
-        console.error(`ERROR: ${error.message}`);
-        if (!args.watch) throw error;
+        console.error(error?.stack || `ERROR: ${error.message}`);
+        // Reusing a resident process after a V8 buffer/string ceiling is not
+        // safe. Exit and let launchd restart a clean runner process.
+        throw error;
       }
       if (args.watch && cycle < cycles) {
         const busy = (summary?.workerRuns?.length || 0) > 0 || (summary?.runnableTasks?.length || 0) > 0;

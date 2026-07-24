@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-07-24T08:43:19.667Z",
-  "fingerprint": "7b5d4f1cffda3f52e38fefffb84209b9a6bd4ae2314b202c1638efb8a9e2ea10",
+  "generated_at": "2026-07-24T08:44:03.716Z",
+  "fingerprint": "80940d85026dbddbdef566a427fd0830eca1a1a7476848ed824997166bbbaf36",
   "decision": "GO",
   "metrics": {
     "total": 403,
@@ -22,7 +22,7 @@
     "terminal_evidence_coverage": 1
   },
   "current_activity": {
-    "worker_count": 2,
+    "worker_count": 0,
     "blocked_count": 0
   }
 }

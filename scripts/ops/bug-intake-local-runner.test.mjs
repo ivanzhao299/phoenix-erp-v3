@@ -8,6 +8,7 @@ import {
   auditFingerprintGitArgs,
   bootstrapResultDeliveryReceipts,
   buildResultBackfillPlan,
+  redactBoundedOutput,
   requeueExpiredCapacityWaits,
   requeueSatisfiedDependencyHolds,
   resultDeliveryId,
@@ -69,6 +70,14 @@ test('result delivery id is stable and changes with worker evidence', () => {
     resultDeliveryId('BUG-1', endpoint, base),
     resultDeliveryId('BUG-1', endpoint, { ...base, conclusion: 'HOLD' }),
   );
+});
+
+test('runner output is bounded before redaction and ignores unsafe short secrets', () => {
+  const secret = 'runner-secret-value';
+  const output = redactBoundedOutput(`${'x'.repeat(2_000_000)}${secret}`, [secret, 'x'], 12000);
+  assert.equal(output.includes(secret), false);
+  assert.equal(output.endsWith('<redacted>'), true);
+  assert.equal(output.length <= 12000, true);
 });
 
 test('successful legacy result backfill bootstraps durable delivery receipts', () => {

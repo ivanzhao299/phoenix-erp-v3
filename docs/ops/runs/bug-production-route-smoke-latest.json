@@ -1,12 +1,12 @@
 {
   "decision": "PRODUCTION_ROUTE_SMOKE_PASS",
-  "generated_at": "2026-07-24T08:31:26.019Z",
+  "generated_at": "2026-07-24T08:50:23.151Z",
   "base_url": "https://erp.eggslao.com",
   "routes": [
     "/bug-reports",
-    "/settings/users",
-    "/finance2/expenses",
-    "/warehouse/query"
+    "/system/health",
+    "/packaging",
+    "/procurement2/orders"
   ],
   "results": [
     {
@@ -20,49 +20,49 @@
       "bodyBytes": 14910,
       "matchedFailureMarkers": [],
       "location": "",
-      "elapsedMs": 1714,
+      "elapsedMs": 2141,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
-      "route": "/settings/users",
-      "url": "https://erp.eggslao.com/settings/users",
+      "route": "/system/health",
+      "url": "https://erp.eggslao.com/system/health",
       "status": 200,
       "ok": true,
       "httpOk": true,
       "semanticOk": true,
       "contentType": "text/html; charset=utf-8",
-      "bodyBytes": 15126,
+      "bodyBytes": 15124,
       "matchedFailureMarkers": [],
       "location": "",
-      "elapsedMs": 515,
+      "elapsedMs": 519,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
-      "route": "/finance2/expenses",
-      "url": "https://erp.eggslao.com/finance2/expenses",
+      "route": "/packaging",
+      "url": "https://erp.eggslao.com/packaging",
       "status": 200,
       "ok": true,
       "httpOk": true,
       "semanticOk": true,
       "contentType": "text/html; charset=utf-8",
-      "bodyBytes": 17027,
+      "bodyBytes": 14670,
       "matchedFailureMarkers": [],
       "location": "",
-      "elapsedMs": 600,
+      "elapsedMs": 589,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     },
     {
-      "route": "/warehouse/query",
-      "url": "https://erp.eggslao.com/warehouse/query",
+      "route": "/procurement2/orders",
+      "url": "https://erp.eggslao.com/procurement2/orders",
       "status": 200,
       "ok": true,
       "httpOk": true,
       "semanticOk": true,
       "contentType": "text/html; charset=utf-8",
-      "bodyBytes": 16385,
+      "bodyBytes": 15602,
       "matchedFailureMarkers": [],
       "location": "",
-      "elapsedMs": 532,
+      "elapsedMs": 617,
       "excerpt": "<!DOCTYPE html><html lang=\"zh-CN\" data-theme=\"light\" class=\"inter_fd4cbf2f-module__rmSy_a__className\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"/><link rel=\"preload\" href=\"/_next/static/media"
     }
   ],
