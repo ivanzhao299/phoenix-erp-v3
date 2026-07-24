@@ -156,7 +156,14 @@ export class FarmFeedService {
    */
   async createHouse(
     body: { house_code?: string; house_name?: string; capacity?: number; house_type?: string },
-    scope: { isGlobal: boolean; farmCode: string | null; siteCode: string | null },
+    scope: {
+      isGlobal: boolean;
+      farmCode: string | null;
+      siteCode: string | null;
+      farmCodes?: string[];
+      siteCodes?: string[];
+      companyCodes?: string[];
+    },
   ) {
     if (scope.isGlobal) {
       throw new Error('集团/管理员请在 PC 端「鸡舍管理」创建并指定农场；手机端仅供场长建本场鸡舍。');
@@ -165,20 +172,45 @@ export class FarmFeedService {
     const name = (body.house_name || '').trim();
     if (!code || !name) throw new Error('鸡舍编码和名称必填');
 
-    // 从同场已有鸡舍复制 farm/site/company（保证新舍映射与本场一致）
-    const siteOrFarm = scope.siteCode || scope.farmCode;
-    if (!siteOrFarm) throw new Error('无法确定您所属农场/场区，请联系管理员配置后再建鸡舍。');
+    const farmCodes = [...new Set(
+      (scope.farmCodes?.length ? scope.farmCodes : (scope.farmCode ? [scope.farmCode] : []))
+        .filter(Boolean),
+    )];
+    const siteCodes = [...new Set(
+      (scope.siteCodes?.length ? scope.siteCodes : (scope.siteCode ? [scope.siteCode] : []))
+        .filter(Boolean),
+    )];
+    const companyCodes = [...new Set((scope.companyCodes ?? []).filter(Boolean))];
+    if (farmCodes.length === 0 && siteCodes.length === 0) {
+      throw new Error('无法确定您所属农场/场区，请联系管理员配置后再建鸡舍。');
+    }
+    if (farmCodes.length > 1 || siteCodes.length > 1 || companyCodes.length > 1) {
+      throw new Error('当前账号关联多个农场或公司，请在 PC 端明确选择归属后创建鸡舍。');
+    }
+
+    // 从同场已有鸡舍复制 farm/site/company（保证新舍映射与本场一致）。
+    // 若这是本场首间鸡舍，则使用 DataScope 的唯一归属，避免“必须先有鸡舍才能建首间鸡舍”的自锁。
+    const params: any[] = [];
+    const ownershipWhere: string[] = [];
+    if (farmCodes.length) {
+      params.push(farmCodes);
+      ownershipWhere.push(`farm_code = ANY($${params.length})`);
+    }
+    if (siteCodes.length) {
+      params.push(siteCodes);
+      ownershipWhere.push(`site_code = ANY($${params.length})`);
+    }
     const sib = await this.em.query(
       `SELECT farm_code, farm_name, site_code, company_code
          FROM brd_houses
-        WHERE (site_code = $1 OR farm_code = $1) AND status = 'ACTIVE'
+        WHERE (${ownershipWhere.join(' OR ')}) AND status = 'ACTIVE'
         ORDER BY house_code LIMIT 1`,
-      [siteOrFarm],
+      params,
     );
     const s = sib[0] || {};
-    const farmCode    = s.farm_code    || scope.farmCode || null;
-    const siteCode    = s.site_code    || scope.siteCode || null;
-    const companyCode = s.company_code || null;
+    const farmCode    = s.farm_code    || farmCodes[0] || null;
+    const siteCode    = s.site_code    || siteCodes[0] || null;
+    const companyCode = s.company_code || companyCodes[0] || null;
     if (!farmCode && !siteCode) throw new Error('本场尚无任何鸡舍映射基准，请先在 PC 端建立首间鸡舍。');
 
     const dup = await this.em.query(`SELECT 1 FROM brd_houses WHERE house_code = $1`, [code]);
