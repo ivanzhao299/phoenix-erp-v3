@@ -59,7 +59,11 @@ export class AssignmentResolverService {
         return this.byProjectRole(approverRole!, bizContext?.projectCode);
 
       case 'ORG_MANAGER':
-        return this.byOrgManager(bizContext?.companyCode, bizContext?.projectCode);
+        return this.byOrgManager(
+          bizContext?.companyCode,
+          bizContext?.projectCode,
+          bizContext?.starterUserId,
+        );
 
       case 'PROJECT_MANAGER':
         return this.byProjectManager(bizContext?.projectCode);
@@ -179,7 +183,40 @@ export class AssignmentResolverService {
   private async byOrgManager(
     companyCode?: string,
     projectCode?: string,
+    starterUserId?: string,
   ): Promise<ResolvedApprover[]> {
+    // ORG_MANAGER 表示「申请人所属组织负责人」。优先从申请人的主组织
+    // 向上寻找最近的显式负责人，避免把公司节点负责人误当成所有员工的直属业务负责人。
+    if (starterUserId) {
+      const starterOrgRows: Array<{ manager_user_id: string }> =
+        await this.ds.query(
+          `WITH RECURSIVE org_chain AS (
+             SELECT o.id, o.parent_id, o.manager_user_id, 0 AS depth
+             FROM sys_user_orgs uo
+             JOIN sys_organizations o ON o.id = uo.org_id
+             WHERE uo.user_id = $1 AND uo.is_primary = true
+             UNION ALL
+             SELECT parent.id, parent.parent_id, parent.manager_user_id, child.depth + 1
+             FROM sys_organizations parent
+             JOIN org_chain child ON child.parent_id = parent.id
+           )
+           SELECT manager_user_id
+           FROM org_chain
+           WHERE manager_user_id IS NOT NULL
+           ORDER BY depth
+           LIMIT 1`,
+          [starterUserId],
+        );
+      if (starterOrgRows[0]?.manager_user_id) {
+        const approvers = await this.byUserId(
+          String(starterOrgRows[0].manager_user_id),
+          'ORG_MANAGER',
+        );
+        if (approvers.length > 0) return approvers;
+      }
+    }
+
+    // 兼容没有用户主组织绑定的历史数据：回退到原有项目/公司节点负责人。
     const code = projectCode ?? companyCode;
     if (!code) return [];
 
