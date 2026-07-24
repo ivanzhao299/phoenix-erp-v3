@@ -47,7 +47,7 @@
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-24T19:50:33.711Z"
+    "updated_at": "2026-07-24T20:20:45.509Z"
   },
   {
     "improvement_id": "IMPROVE-BUG-INTAKE-QUEUE-RECOVERY",
@@ -99,7 +99,7 @@
     "severity": "CRITICAL",
     "status": "OPEN",
     "created_at": "2026-07-12T10:30:37.057Z",
-    "updated_at": "2026-07-24T19:50:33.711Z"
+    "updated_at": "2026-07-24T20:20:45.509Z"
   },
   {
     "improvement_id": "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
@@ -149,7 +149,7 @@
     "severity": "MEDIUM",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-24T19:50:33.711Z"
+    "updated_at": "2026-07-24T20:20:45.509Z"
   },
   {
     "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
@@ -199,7 +199,7 @@
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-24T19:50:33.711Z"
+    "updated_at": "2026-07-24T20:20:45.509Z"
   },
   {
     "improvement_id": "IMPROVE-ROUTER-A5-READINESS",
@@ -249,7 +249,7 @@
     "severity": "HIGH",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-24T19:50:33.711Z"
+    "updated_at": "2026-07-24T20:20:45.509Z"
   },
   {
     "improvement_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
@@ -299,6 +299,6 @@
     "severity": "MEDIUM",
     "status": "OPEN",
     "created_at": "2026-06-22T16:31:17.086Z",
-    "updated_at": "2026-07-24T19:50:33.711Z"
+    "updated_at": "2026-07-24T20:20:45.509Z"
   }
 ]
