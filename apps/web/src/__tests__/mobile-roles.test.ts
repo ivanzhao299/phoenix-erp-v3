@@ -155,6 +155,36 @@ describe('getMobileAccessLevel (unified gate: JWT first, then role matrix)', () 
   it('fail-closed: empty subject yields none', () => {
     expect(getMobileAccessLevel('feed', {})).toBe('none');
   });
+
+  it('lets a farm manager create a local henhouse when the menu snapshot grants view', () => {
+    expect(
+      getMobileAccessLevel('henhouse', {
+        permissions: ['MENU_FARM_MASTER:V'],
+        roles: [R.FARM_MGR, R.VET],
+      }),
+    ).toBe('write');
+  });
+
+  it('keeps henhouse view-only for a non-manager and denies an unrelated permission snapshot', () => {
+    expect(
+      getMobileAccessLevel('henhouse', {
+        permissions: ['MENU_FARM_MASTER:V'],
+        role: R.VET,
+      }),
+    ).toBe('read');
+    expect(
+      getMobileAccessLevel('henhouse', {
+        permissions: ['MENU_UNRELATED:V'],
+        role: R.FARM_MGR,
+      }),
+    ).toBe('none');
+    expect(
+      getMobileAccessLevel('henhouse', {
+        permissions: ['MENU_FARM_MASTER:V'],
+        role: R.ADMIN,
+      }),
+    ).toBe('read');
+  });
 });
 
 describe('canAccessMobile + getVisibleMobilePages', () => {

@@ -462,7 +462,19 @@ export interface MobileSubject {
  */
 export function getMobileAccessLevel(pageKey: string, subject: MobileSubject): AccessLevel {
   const jwt = getMobileAccessFromJWT(subject.permissions, pageKey);
-  if (jwt !== 'none') return jwt;
+  if (jwt !== 'none') {
+    // 鸡舍是“可见菜单 + 场长职责 + DataScope”的移动端本场维护入口。
+    // MENU_FARM_MASTER:V 只负责允许进入；不能把明确的场长角色降为只读。
+    // 非场长仍严格沿用 JWT 的 read/write 级别。
+    if (
+      pageKey === 'henhouse'
+      && jwt === 'read'
+      && expandRoles([...(subject.roles ?? []), subject.role]).includes(R.FARM_MGR)
+    ) {
+      return 'write';
+    }
+    return jwt;
+  }
   if ((subject.permissions?.length ?? 0) > 0 && PAGE_MENU_PERMS[pageKey]) return 'none';
   const all = [...(subject.roles ?? []), subject.role];
   return getAccessLevelMulti(pageKey, all);

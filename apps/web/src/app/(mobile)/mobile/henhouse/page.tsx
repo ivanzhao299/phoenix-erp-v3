@@ -37,7 +37,11 @@ export default function HenHouseMobilePage() {
     } catch { setHouses([]); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { if (allowed) void load(); }, [allowed, load]);
+  useEffect(() => {
+    if (!allowed) return;
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [allowed, load]);
 
   const submit = async () => {
     setError('');
