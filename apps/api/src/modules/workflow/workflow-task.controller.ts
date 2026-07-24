@@ -45,13 +45,14 @@ export class WorkflowTaskController {
   }
 
   @Post(':id/approve')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'A')
+  // 动作权限由任务 owner/assignee 校验收口；菜单层只控制待办入口。
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
   approve(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.approveTask(Number(id), body, req.user);
   }
 
   @Post(':id/reject')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'A')
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
   reject(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.rejectTask(Number(id), body, req.user);
   }
@@ -70,14 +71,14 @@ export class WorkflowTaskController {
 
   // WF-UAT-1: 退回
   @Post(':id/return')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'A')
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
   return(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.returnTask(Number(id), body, req.user);
   }
 
   // WF-UAT-1: 加签
   @Post(':id/countersign')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'A')
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
   countersign(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.countersignTask(Number(id), body, req.user);
   }

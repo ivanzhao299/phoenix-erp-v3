@@ -65,7 +65,9 @@ export class ApprovalEngineController {
 
   /** 审批通过 */
   @Post('instances/:id/approve')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'A')
+  // 能看到待办只是入口门禁；是否能处理该任务由 approveStep 的当前步骤
+  // assignee user/role 校验决定，避免业务审批人因缺少重复的通用 A 位被误拒。
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
   async approve(
     @Param('id') id: string,
     @Body() body: { comment?: string },
@@ -75,7 +77,7 @@ export class ApprovalEngineController {
 
   /** 审批拒绝 */
   @Post('instances/:id/reject')
-  @RequireMenu('MENU_WORKFLOW_TODO', 'A')
+  @RequireMenu('MENU_WORKFLOW_TODO', 'V')
   async reject(
     @Param('id') id: string,
     @Body() body: { comment?: string },
