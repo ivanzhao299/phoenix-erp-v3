@@ -17,6 +17,7 @@ import {
   selectRunnableBugTasks,
   selectAutomaticRedispatchCandidates,
   selectReleaseReadyBacklog,
+  shouldRecoverDetachedCommit,
   shouldAttemptReleasePush,
   shouldResumeAlreadyPushedRelease,
 } from './bug-intake-local-runner.mjs';
@@ -177,6 +178,22 @@ test('passed worker evidence restores a transient detached HOLD without rerunnin
   }]);
   assert.equal(tasks[0].status, 'IMPLEMENTATION_COMPLETED');
   assert.equal(tasks[0].evidence_reconciled_at, '2026-07-23T00:00:00.000Z');
+});
+
+test('successful worker completion output triggers task-specific commit recovery', () => {
+  const task = { task_id: 'BUGTASK-RECOVER-A4' };
+  assert.equal(shouldRecoverDetachedCommit(task, {
+    status: 0,
+    stdout: 'work complete\nBUGTASK-RECOVER-A4 -> IMPLEMENTATION_COMPLETED\n',
+  }), true);
+  assert.equal(shouldRecoverDetachedCommit(task, {
+    status: 0,
+    stdout: 'another task -> IMPLEMENTATION_COMPLETED',
+  }), false);
+  assert.equal(shouldRecoverDetachedCommit(task, {
+    status: 1,
+    stdout: 'BUGTASK-RECOVER-A4 -> IMPLEMENTATION_COMPLETED',
+  }), false);
 });
 
 test('passed validation evidence restores a late A1 HOLD without implementation commit', () => {

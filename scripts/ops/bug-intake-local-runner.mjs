@@ -951,6 +951,11 @@ function detachedRecoveryReportFile(task) {
   return `docs/ops/runs/${task.task_id}-detached-worker-recovery.md`;
 }
 
+export function shouldRecoverDetachedCommit(task, worker) {
+  if (!task?.task_id || worker?.status !== 0) return false;
+  return String(worker.stdout || '').includes(`${task.task_id} -> IMPLEMENTATION_COMPLETED`);
+}
+
 function recoverDetachedWorkerResult(task, args, worker, childWait = null) {
   if (args.dryRun) return { recovered: false, reason: 'dry-run' };
   if (!task?.worktree || !task?.branch || !task?.agent) return { recovered: false, reason: 'task missing worktree/branch/agent' };
@@ -972,6 +977,30 @@ function recoverDetachedWorkerResult(task, args, worker, childWait = null) {
       reportFile: restoredTask?.result_file || null,
       task: restoredTask || latestTask,
     };
+  }
+
+  if (shouldRecoverDetachedCommit(task, worker)) {
+    const recoveryResult = run([
+      NODE_BIN,
+      'scripts/ops/agent-worker.mjs',
+      '--agent',
+      task.agent,
+      '--task-id',
+      task.task_id,
+      '--recover-worktree-commit',
+      '--approval-token',
+      APPROVAL_TOKEN,
+    ], { cwd: args.mainRoot, childTimeoutMs: args.childTimeoutMs });
+    const recoveredTask = findTask(task.task_id);
+    if (recoveryResult.status === 0 && recoveredTask?.status === 'IMPLEMENTATION_COMPLETED' && recoveredTask?.evidence_gate?.passed === true) {
+      return {
+        recovered: true,
+        reason: 'worker completion output reconciled with its task-specific worktree commit',
+        result: recoveryResult,
+        reportFile: recoveredTask.result_file || null,
+        task: recoveredTask,
+      };
+    }
   }
 
   const before = gitStatusShort(task.worktree);

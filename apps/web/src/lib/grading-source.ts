@@ -16,19 +16,21 @@ const quantity = (value: unknown): number => {
 };
 
 /**
- * The source-batches API uses total_qty for gross collection and received_qty
- * for the net quantity accepted for grading. Keep the legacy fallbacks for
- * older payloads, but never subtract defects from received_qty a second time.
+ * Source batches persist received_qty as the gross collection count. Defects
+ * remain part of that count, so the grading ceiling is total - dirty - cracked.
+ * Prefer the server-computed gradable quantity when available.
  */
 export function normalizeGradingSourceBatch(batch: SourceBatchPayload, index: number): GradingSourceBatch {
   const dirty = quantity(batch.dirty_qty ?? batch.dirty_count ?? batch.dirtyQty);
   const cracked = quantity(batch.cracked_qty ?? batch.cracked_count ?? batch.crackedQty);
-  const hasNetReceived = batch.received_qty != null || batch.receivedQty != null;
-  const netReceived = quantity(batch.received_qty ?? batch.receivedQty);
   const grossReceived = quantity(
-    batch.total_qty ?? batch.totalQty ?? batch.expected_qty ?? batch.expectedQty
-      ?? (hasNetReceived ? netReceived + dirty + cracked : 0),
+    batch.total_qty ?? batch.totalQty ?? batch.received_qty ?? batch.receivedQty
+      ?? batch.expected_qty ?? batch.expectedQty,
   );
+  const serverGradable = batch.gradable_qty ?? batch.gradableQty ?? batch.available_qty ?? batch.availableQty;
+  const available = serverGradable == null
+    ? Math.max(0, grossReceived - dirty - cracked)
+    : Math.min(grossReceived, quantity(serverGradable));
 
   return {
     id: quantity(batch.id ?? batch.batch_id) || index + 1,
@@ -37,6 +39,6 @@ export function normalizeGradingSourceBatch(batch: SourceBatchPayload, index: nu
     received_qty: grossReceived,
     dirty_qty: dirty,
     cracked_qty: cracked,
-    available: hasNetReceived ? netReceived : Math.max(0, grossReceived - dirty - cracked),
+    available,
   };
 }

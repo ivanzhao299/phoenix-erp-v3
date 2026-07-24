@@ -119,7 +119,13 @@ function parsePayload(args) {
     /^##+\s+Result\s*\n+\s*([A-Z_ ]+)/im,
     /^##+\s+结论\s*\n+\s*([A-Z_ ]+)/im,
   ]);
-  const conclusion = normalizeConclusion(parsedConclusion) || (/LOCAL_A1_VALIDATION/.test(raw) && /\| Exit code \|\s*0\s*\|/.test(raw) ? 'PASS' : 'HOLD');
+  const verifiedQueueConclusion = queueEvidence?.passed === true
+    && ['implementation', 'implementation_verified_existing', 'validation'].includes(queueEvidence.role)
+    ? 'PASS WITH CONDITIONS'
+    : '';
+  const conclusion = verifiedQueueConclusion
+    || normalizeConclusion(parsedConclusion)
+    || (/LOCAL_A1_VALIDATION/.test(raw) && /\| Exit code \|\s*0\s*\|/.test(raw) ? 'PASS' : 'HOLD');
   const commitHash = json?.commit_hash || json?.commitHash || queueEvidence?.commitHash || queueTask?.implementation_commit || firstMatch(raw, [
     /commit hash[:：]\s*([0-9a-f]{7,40})/i,
     /commit[:：]\s*([0-9a-f]{7,40})/i,

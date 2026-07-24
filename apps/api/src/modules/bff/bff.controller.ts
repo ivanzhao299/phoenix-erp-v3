@@ -1456,6 +1456,7 @@ export class PackagingTerminalBffController {
          )
          SELECT psb.*,
                 COALESCE(bh.house_name, psb.house_code) AS house_name,
+                GREATEST(psb.total_qty - psb.dirty_qty - psb.cracked_qty, 0)::int AS gradable_qty,
                 (SELECT total_graded FROM graded_sum) AS total_graded_today
          FROM pkg_source_batches psb
          LEFT JOIN brd_houses bh ON bh.house_code = psb.house_code

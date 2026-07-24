@@ -833,7 +833,7 @@ function recoverWorktreeCommit(args) {
   const tasks = readTasks();
   const task = tasks.find((item) => item.task_id === args.taskId && item.agent === args.agent);
   if (!task) fail(`task not found for worktree commit recovery: ${args.taskId}`);
-  if (!['pending', 'HOLD', 'hold', 'WAITING_CAPACITY', 'SKIPPED_NOT_APPLICABLE', 'failed'].includes(task.status)) {
+  if (!['pending', 'claimed', 'running', 'HOLD', 'hold', 'WAITING_CAPACITY', 'SKIPPED_NOT_APPLICABLE', 'failed'].includes(task.status)) {
     fail(`task is not recoverable from a worktree commit: ${task.status}`);
   }
   const recovery = findExistingTaskCommit(task);

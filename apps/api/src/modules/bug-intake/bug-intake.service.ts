@@ -10,7 +10,9 @@ import { BugReportEntity } from './bug-report.entity';
 const ALLOWED_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.pdf']);
 const MAX_SCREENSHOT_COUNT = 5;
 const MAX_JSON_ITEMS = 30;
-const BUG_STORAGE_ROOT = 'storage/bug-reports';
+// Keep bug evidence under the uploads volume so container replacement does not
+// delete screenshots while their metadata remains in PostgreSQL.
+const BUG_STORAGE_ROOT = 'uploads/bug-reports';
 const VALID_STATUSES = ['OPEN', 'TRIAGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'] as const;
 const VALID_PRIORITIES = ['P0', 'P1', 'P2', 'P3'] as const;
 const STALE_AGENT_RUNNING_MINUTES = 45;
