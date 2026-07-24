@@ -35,7 +35,20 @@ Implement the frontend portion of exactly one approved bug report. Read the atta
 5. task-specific report naming the source bug, root cause, changed files, verification results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
 6. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
 
-If the issue has no frontend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+Return exactly one canonical conclusion. Never combine conclusions such as
+`NOT APPLICABLE / HOLD`, `PASS / HOLD`, or similar ambiguous wording.
+
+- If the current baseline already contains the correct frontend-owned repair,
+  verify it with focused tests and return exactly `PASS WITH CONDITIONS`,
+  stating which existing files and behavior were verified.
+- If the issue genuinely has no frontend ownership, return exactly
+  `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If local browser or dev-server startup is blocked only by the Codex sandbox
+  (for example `listen EPERM`), record that as a condition rather than a
+  blocker when Web typecheck, lint, and focused component/route regression
+  tests all pass. Return exactly `PASS WITH CONDITIONS`; CI and the runner's
+  production semantic smoke remain mandatory before business acceptance.
+- If required verification cannot be completed, return exactly `HOLD`.
 
 ---
 
@@ -1204,9 +1217,7 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-203132/BUG-20260718-0004/attachments/01-1784344473306-143ce004.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": {
@@ -1228,12 +1239,16 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-18T03:15:05.136Z",
+    "approvedAt": "2026-07-24T08:02:37.416Z",
     "approvedBy": "admin",
+    "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 5,
     "forbiddenActions": [
+      "production deploy without separate approval",
       "database write without separate gate",
       "migration execution without separate gate",
+      "push without release approval",
       "force push"
     ]
   }
@@ -1242,7 +1257,7 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-203132/BUG-20260718-0004/attachments/01-1784344473306-143ce004.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
 
 ---
 

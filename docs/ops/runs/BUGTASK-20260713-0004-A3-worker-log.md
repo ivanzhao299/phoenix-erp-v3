@@ -23,24 +23,25 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260713-0004-A3-worker-assembled-prompt.md
-Assembled prompt chars: 23177
+Assembled prompt chars: 23170
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T01-04-42-257Z-A3-Backend-Critical-Path.md
-PASS WITH CONDITIONS.
+Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-24T07-47-57-258Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS
 
-BUG-20260713-0004 is already implemented on this branch in commit `48417a0e fix(api): repair BUG-20260713-0004`. The backend now enriches `/api/inventory/batches` by joining `wms_warehouses` and returning `warehouse_name` / `warehouse_name_zh` while preserving `warehouse_code` and DataScope filtering on `b.warehouse_code`.
+BUG-20260713-0004 的后端修复已存在于当前基线提交 `345a215d`：
 
-Changed files:
-- [wms.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.ts:478)
-- [wms.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/wms/wms.service.spec.ts:21)
-- [BUG report](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260713-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md:1)
+- 库存接口关联 `wms_warehouses`，优先返回 `warehouse_name_zh`
+- 保留 `warehouse_code` 回退及原有 DataScope
+- 聚焦测试：8/8 PASS
+- API TypeScript 检查：0 errors
+- 无数据库写入、迁移、部署或推送
+- 本次无需重复修改文件
 
-Validation:
-- `cd apps/api && pnpm test -- wms.service.spec.ts --runInBand` -> PASS, 4 tests.
-- `cd apps/api && ./node_modules/.bin/tsc --noEmit` -> PASS, 0 errors.
+完整报告：[BUG-20260713-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260713-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md)
 
-No deploy, push, DB write, migration, schema/entity change, or frontend edit was performed. Final user-visible closure still needs CI/CD, `/warehouse/query` environment smoke, and business acceptance.
+仍需 CI/CD、目标环境页面 smoke 和业务验收后，才能宣告问题正式解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -48,16 +49,18 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-OpenAI Codex v0.142.5
+2026-07-24T07:47:12.181466Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-07-24T07:47:12.181487Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
+OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
-model: gpt-5.5
+model: gpt-5.6-sol
 provider: openai
 approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
-reasoning effort: high
+reasoning effort: low
 reasoning summaries: none
-session id: 019f634d-2d84-76b0-9de4-0675174a79da
+session id: 019f9317-b476-7711-bdb9-c5411a95d131
 --------
 user
 # Base Agent Prompt
@@ -492,20 +495,8 @@ Assigned agent: A3-Backend-Critical-Path
               "y": 596
             },
             "label": "临期预警",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 628
-            },
-            "label": "日结对账",
-            "dis
-...<truncated 380229 chars>
+
+...<truncated 75426 chars>
 
 ```
 
@@ -517,16 +508,16 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 1089,
-  "beforeHead": "7ad8918f1aad61731109ca452c420bd7875ce29d",
-  "afterHead": "7ad8918f1aad61731109ca452c420bd7875ce29d",
+  "responseChars": 446,
+  "beforeHead": "c038308b461739537e49604fd55465cc6e13e5cf",
+  "afterHead": "c038308b461739537e49604fd55465cc6e13e5cf",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-15T01:04:42.345Z",
+  "checkedAt": "2026-07-24T07:47:57.347Z",
   "passed": true,
   "role": "implementation_verified_existing",
   "terminalStatus": "SKIPPED_NOT_APPLICABLE",

@@ -1165,14 +1165,14 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
     }
   },
   "failureClassification": {
-    "category": "PG_SQL",
+    "category": "API_5XX",
     "evidence": [
-      "数据库/PG/SQL 信号"
+      "API 5xx/异常信号"
     ],
     "priority": "P1",
     "severity": "HIGH",
-    "confidence": 0.92,
-    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
+    "confidence": 0.88,
+    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
     "autoFixEligible": true,
     "recommendedAgents": [
       "A3-Backend-Critical-Path",
@@ -1183,11 +1183,11 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-24T06:41:47.967Z",
-    "approvedBy": "bug_intake_runner",
+    "approvedAt": "2026-07-24T08:02:37.416Z",
+    "approvedBy": "admin",
     "redispatch": true,
-    "approvalScope": "Only recover verified integrated implementation evidence and run A1 validation; no DB write or migration.",
-    "redispatchCount": 4,
+    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 5,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

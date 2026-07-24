@@ -6,7 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | SKIPPED_NOT_APPLICABLE |
+| Evidence gate | IMPLEMENTATION_COMPLETED |
 
 ## Command
 
@@ -23,26 +23,31 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md
-Assembled prompt chars: 32409
+Assembled prompt chars: 33216
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-34-39-120Z-A4-Frontend-UAT-Smoke.md
-NOT APPLICABLE — HOLD
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-24T08-08-14-419Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS
 
-BUG-20260718-0004 没有前端归属的修复：
+已修复 `BUG-20260718-0004` 的前端权限门控：
 
-- `linhong` 已通过前端 `ROLE_FARM_MGR` 写权限并进入新建表单，前端角色判断正常。
-- 截图中的报错来自创建接口返回的 `res.msg`；该文案不存在于前端源码。
-- 前端按既定安全约束不提交农场字段，农场必须由服务端依据 DataScope 自动绑定。
-- 因此故障点是服务端未能为 `linhong` 派生唯一农场。前端选择农场或放宽权限会绕过 DataScope，不能实施。
-- 无 owned frontend diff；依照“无前端修复则不编辑文件”的合同要求，未创建报告文件。
-- 权限、加载、空状态、错误展示和移动响应式布局均保持原状。
-- `mobile-roles.test.ts`：28/28 PASS。
-- Web `tsc --noEmit`：PASS。
-- 未部署、推送、写数据库或执行迁移。
+- 养殖场长拥有 `MENU_FARM_MASTER:V` 时，可新建本场鸡舍。
+- 非场长仍保持只读。
+- 无关菜单权限仍拒绝访问。
+- DataScope、RBAC、加载/空态/错误态均保留。
 
-建议转交 A3 Backend，检查 `linhong` 的组织/农场 DataScope 绑定及 `/api/farm/feed/houses` 的农场派生逻辑。修复后仍需 CI/CD、生产移动端 smoke 和业务验收，当前不能宣称问题已解决。
+验证结果：
+
+- Vitest：30/30 通过
+- Web typecheck：0 errors
+- 聚焦 ESLint：0 errors、0 warnings
+- `git diff --check`：通过
+- 浏览器检查受沙箱 `listen EPERM` 限制，需 CI/runner 补充桌面和移动端真实渲染验证
+
+报告：[BUGTASK-20260718-0004-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md)
+
+未提交、未推送、未部署、未操作数据库。CI/CD、生产冒烟及业务验收完成前，不应宣称该 Bug 已解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -50,6 +55,8 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
+2026-07-24T08:06:05.741125Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
+2026-07-24T08:06:05.741147Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4
@@ -59,7 +66,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f7537-2f5b-7d90-8859-b09e0dddf51e
+session id: 019f9329-0084-7903-962f-903d55163289
 --------
 user
 # Base Agent Prompt
@@ -99,7 +106,20 @@ Implement the frontend portion of exactly one approved bug report. Read the atta
 5. task-specific report naming the source bug, root cause, changed files, verification results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
 6. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
 
-If the issue has no frontend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+Return exactly one canonical conclusion. Never combine conclusions such as
+`NOT APPLICABLE / HOLD`, `PASS / HOLD`, or similar ambiguous wording.
+
+- If the current baseline already contains the correct frontend-owned repair,
+  verify it with focused tests and return exactly `PASS WITH CONDITIONS`,
+  stating which existing files and behavior were verified.
+- If the issue genuinely has no frontend ownership, return exactly
+  `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If local browser or dev-server startup is blocked only by the Codex sandbox
+  (for example `listen EPERM`), record that as a condition rather than a
+  blocker when Web typecheck, lint, and focused component/route regression
+  tests all pass. Return exactly `PASS WITH CONDITIONS`; CI and the runner's
+  production semantic smoke remain mandatory before business acceptance.
+- If required verification cannot be completed, return exactly `HOLD`.
 
 ---
 
@@ -437,51 +457,8 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
           },
           {
             "tag": "div",
-            "path": ".sidebar-module__C8A-ya__groupHeader.",
-            "rect": {
-              "h": 38,
-              "w": 215,
-              "x": 0,
-              "y": 432
-            },
-            "label": "经营分析",
-            "disabled": false
-          },
-          {
-            "tag": "div",
-            "path": ".sidebar-module__C8A-ya__groupHeader.",
-            "rect": {
-              "h": 38,
-              "w": 215,
-              "x": 0,
-              "y": 470
-            },
-            "label": "主数据中心",
-            "disabled": false
-          },
-          {
-            "tag": "div",
-            "path": ".sidebar-module__C8A-ya__groupHeader.sidebar-module__C8A-ya__groupActive",
-            "rect": {
-              "h": 38,
-              "w": 215,
-              "x": 0,
-              "y": 508
-            },
-            "label": "系统设置",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.sidebar-module__C8A-ya__subActive",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 546
-            },
-           
-...<truncated 73157 chars>
+            "path": ".sidebar-module__C8A-ya__
+...<truncated 177364 chars>
 
 ```
 
@@ -492,21 +469,32 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
-  "conclusion": "HOLD",
-  "responseChars": 552,
-  "beforeHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
-  "afterHead": "05a0a5ef0cdd470a785fe9fb5e015da281192f38",
-  "commitHash": "",
-  "changedFiles": [],
-  "businessChangedFiles": [],
-  "reportFiles": [],
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 530,
+  "beforeHead": "9a9d3ba1d1d85fb333942cef2d829b44815fea58",
+  "afterHead": "e35482b26935194763c825980546d6bb30cef418",
+  "commitHash": "e35482b26935194763c825980546d6bb30cef418",
+  "changedFiles": [
+    "apps/web/src/__tests__/mobile-roles.test.ts",
+    "apps/web/src/app/(mobile)/mobile/henhouse/page.tsx",
+    "apps/web/src/lib/mobile-roles.ts",
+    "docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
+  ],
+  "businessChangedFiles": [
+    "apps/web/src/__tests__/mobile-roles.test.ts",
+    "apps/web/src/app/(mobile)/mobile/henhouse/page.tsx",
+    "apps/web/src/lib/mobile-roles.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
+  ],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-18T12:34:39.226Z",
+  "checkedAt": "2026-07-24T08:08:14.594Z",
   "passed": true,
-  "role": "implementation_verified_existing",
-  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
-  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
+  "role": "implementation",
+  "terminalStatus": "IMPLEMENTATION_COMPLETED",
+  "reason": "Business change, task report, commit, and conclusion are present"
 }
 ```
 
@@ -514,9 +502,24 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
 
 ```json
 {
-  "attempted": false,
-  "ok": false,
-  "reason": "worktree has no uncommitted Agent changes",
-  "files": []
+  "attempted": true,
+  "ok": true,
+  "files": [
+    "apps/web/src/__tests__/mobile-roles.test.ts",
+    "apps/web/src/app/(mobile)/mobile/henhouse/page.tsx",
+    "apps/web/src/lib/mobile-roles.ts",
+    "docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
+  ],
+  "businessFiles": [
+    "apps/web/src/__tests__/mobile-roles.test.ts",
+    "apps/web/src/app/(mobile)/mobile/henhouse/page.tsx",
+    "apps/web/src/lib/mobile-roles.ts"
+  ],
+  "reportFiles": [
+    "docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
+  ],
+  "commitHash": "e35482b26935194763c825980546d6bb30cef418",
+  "recoveredSandboxBlocker": false,
+  "output": "[codex/bug-intake-a4 e35482b2] fix(web): repair BUG-20260718-0004\n 4 files changed, 127 insertions(+), 2 deletions(-)\n create mode 100644 docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md"
 }
 ```

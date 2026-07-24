@@ -891,36 +891,33 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/attachments/BUG-20260723-0005/attachments/01-1784795790608-aa7ee4ac.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": {
-    "category": "RBAC_403",
+    "category": "PG_SQL",
     "evidence": [
-      "权限/RBAC/DataScope 信号"
+      "数据库/PG/SQL 信号"
     ],
     "priority": "P1",
     "severity": "HIGH",
-    "confidence": 0.9,
-    "suggestedFix": "对齐菜单码、角色权限和 DataScope，避免前端透传无权限入口。",
+    "confidence": 0.92,
+    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
     "autoFixEligible": true,
     "recommendedAgents": [
-      "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
     "requiresHumanGate": true,
-    "ownerRecommendation": "A2-Security-Regression-Gate"
+    "ownerRecommendation": "A3-Backend-Critical-Path"
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-23T08:54:06.593Z",
+    "approvedAt": "2026-07-24T07:46:48.930Z",
     "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-    "redispatchCount": 2,
+    "approvalScope": "复测未通过：必须重新执行当前代际实现与验证，不得继承旧代际证据；发布仍受 CI/生产 smoke 门禁。",
+    "redispatchCount": 4,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -934,7 +931,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/attachments/BUG-20260723-0005/attachments/01-1784795790608-aa7ee4ac.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
 
 ---
 

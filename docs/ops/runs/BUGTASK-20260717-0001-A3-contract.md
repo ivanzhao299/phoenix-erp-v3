@@ -1116,11 +1116,11 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-22T01:04:47.578Z",
-    "approvedBy": "admin",
+    "approvedAt": "2026-07-24T07:46:42.972Z",
+    "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 2,
+    "approvalScope": "复测未通过：必须重新执行当前代际实现与验证，不得继承旧代际证据；发布仍受 CI/生产 smoke 门禁。",
+    "redispatchCount": 4,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

@@ -1136,37 +1136,38 @@ Assigned agent: A3-Backend-Critical-Path
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192659/BUG-20260717-0001/attachments/01-1784274045807-a396b76e.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": {
-    "category": "RBAC_403",
+    "category": "PG_SQL",
     "evidence": [
-      "权限/RBAC/DataScope 信号"
+      "数据库/PG/SQL 信号"
     ],
     "priority": "P1",
     "severity": "HIGH",
-    "confidence": 0.9,
-    "suggestedFix": "对齐菜单码、角色权限和 DataScope，避免前端透传无权限入口。",
+    "confidence": 0.92,
+    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
     "autoFixEligible": true,
     "recommendedAgents": [
-      "A2-Security-Regression-Gate",
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
     ],
     "requiresHumanGate": true,
-    "ownerRecommendation": "A2-Security-Regression-Gate"
+    "ownerRecommendation": "A3-Backend-Critical-Path"
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-17T07:41:16.361Z",
-    "approvedBy": "admin",
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "approvedAt": "2026-07-24T07:46:42.972Z",
+    "approvedBy": "bug_intake_runner",
+    "redispatch": true,
+    "approvalScope": "复测未通过：必须重新执行当前代际实现与验证，不得继承旧代际证据；发布仍受 CI/生产 smoke 门禁。",
+    "redispatchCount": 4,
     "forbiddenActions": [
+      "production deploy without separate approval",
       "database write without separate gate",
       "migration execution without separate gate",
+      "push without release approval",
       "force push"
     ]
   }
@@ -1175,7 +1176,7 @@ Assigned agent: A3-Backend-Critical-Path
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-192659/BUG-20260717-0001/attachments/01-1784274045807-a396b76e.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
 
 ---
 
