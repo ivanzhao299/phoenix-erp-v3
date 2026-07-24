@@ -138,6 +138,33 @@ describe('BugIntakeService evidence lifecycle', () => {
     expect(row.status).toBe('IN_PROGRESS');
   });
 
+  it('preserves results from different Agents that share one business task id', async () => {
+    const { row, service } = build();
+    const sharedTaskId = 'BUGTASK-TEST-0001';
+
+    await service.recordAgentResult(row.bugNo, {
+      taskId: sharedTaskId,
+      agent: 'A3-Backend-Critical-Path',
+      conclusion: 'PASS_WITH_CONDITIONS',
+      commitHash: 'abc123',
+      changedFiles: ['apps/api/src/x.ts'],
+      validationResults: { evidenceGate: { passed: true, role: 'implementation' } },
+    }, user, meta);
+    await service.recordAgentResult(row.bugNo, {
+      taskId: sharedTaskId,
+      agent: 'A1-CI-Runtime-Gate',
+      conclusion: 'PASS',
+      validationResults: { evidenceGate: { passed: true, role: 'validation' } },
+    }, user, meta);
+
+    const payload = row.repairTaskPayload as Record<string, any>;
+    expect(payload.agentResults).toEqual(expect.arrayContaining([
+      expect.objectContaining({ taskId: sharedTaskId, agent: 'A3-Backend-Critical-Path' }),
+      expect.objectContaining({ taskId: sharedTaskId, agent: 'A1-CI-Runtime-Gate' }),
+    ]));
+    expect(row.repairTaskStatus).toBe('AGENT_EXECUTION_FINISHED');
+  });
+
   it('accepts release evidence when persisted status lags behind complete Agent evidence', async () => {
     const { row, service } = build();
     row.repairTaskStatus = 'AGENT_RUNNING';

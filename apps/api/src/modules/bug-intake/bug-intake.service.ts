@@ -933,7 +933,11 @@ export class BugIntakeService {
       .filter((item) => Number(item.redispatchCount || 0) === activeRedispatchCount);
     const deduplicatedExisting = isRunnerLifecycle
       ? existing.filter((item) => String(item.agent || '') !== 'BugIntakeLocalRunner')
-      : existing.filter((item) => item.taskId !== agentResult.taskId || !agentResult.taskId);
+      : existing.filter((item) =>
+          !agentResult.taskId ||
+          String(item.agent || '') !== agentResult.agent ||
+          String(item.taskId || '') !== agentResult.taskId,
+        );
     const agentResults = [
       ...deduplicatedExisting,
       agentResult,
