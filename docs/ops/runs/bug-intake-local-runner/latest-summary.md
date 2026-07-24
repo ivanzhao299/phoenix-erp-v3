@@ -2,25 +2,27 @@
 
 | Field | Value |
 | --- | --- |
-| Decision | BUG_INTAKE_LOCAL_RUNNER_RECOVERY_EXECUTED |
+| Decision | BUG_INTAKE_LOCAL_RUNNER_EXECUTED |
 | Dry run | No |
 | Cycle | 1 |
 | Synced | PASS |
-| Queue apply | lease-recovery-only |
+| Queue apply | applied-approved-only |
 | Runnable tasks | 0 |
 | Worker runs | 0 |
 | Blocked/skipped tasks | 0 |
-| Stale leases recovered | 1 |
+| Stale leases recovered | 0 |
 | Auto-unblock dirty worktrees | Enabled |
 | Skip blocked tasks | Enabled |
 | Safe retry | Disabled |
 | Push after success | Disabled |
-| Push result | Skipped: recover-leases-only |
-| CI wait | Skipped: recover-leases-only |
-| Production route smoke | HOLD |
+| Push result | Skipped: push-after-success disabled |
+| CI wait | Skipped: wait-ci-after-push disabled |
+| Production route smoke | Skipped: production-smoke-after-ci disabled |
 | Release evidence | None |
-| Lifecycle writeback | Skipped: recover-leases-only |
+| Lifecycle writeback | Skipped: automatic release is disabled; preserve Agent execution state |
 | Result backfill | 0 report(s) checked |
+| Evidence status reconciled | 0 |
+| Reconciled commits integrated | 0 |
 | Failure classifications | 0 (INFO) |
 
 ## Runnable Tasks
@@ -37,7 +39,7 @@
 
 ## Stale Lease Recovery
 
-- BUGTASK-20260707-0002-A3: A3-Backend-Critical-Path running -> pending (4 minutes old)
+- None
 
 ## Failure Classification
 

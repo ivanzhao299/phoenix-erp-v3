@@ -1,0 +1,205 @@
+{
+  "b4339e8466229917fe343d39a97dd5b2e3c13d5d54211d9f7ec400a06614f25e": {
+    "bugNo": "BUG-20260723-0007",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260723-0007/agent-result",
+    "taskId": "BUGTASK-20260723-0007-A2-Security-Regression-Gate-NA-3",
+    "agent": "A2-Security-Regression-Gate",
+    "deliveredAt": "2026-07-24T06:45:26.191Z"
+  },
+  "7e47eda7ed641ab753e68c5727c1dbaf324a8383ed7fed50a9ed8808ad45cf0a": {
+    "bugNo": "BUG-20260723-0007",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260723-0007/agent-result",
+    "taskId": "BUGTASK-20260723-0007-A5-Data-Readiness-NA-3",
+    "agent": "A5-Data-Readiness",
+    "deliveredAt": "2026-07-24T06:45:26.795Z"
+  },
+  "b9c02720b8f6945ddc2cb0e3e805b71ce1aec76837fd3342e63009e66859aa93": {
+    "bugNo": "BUG-20260723-0007",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260723-0007/agent-result",
+    "taskId": "BUGTASK-20260723-0007-A3",
+    "agent": "A3-Backend-Critical-Path",
+    "deliveredAt": "2026-07-24T06:45:27.381Z"
+  },
+  "0c27c4664da0bf4cab51ce9e57aaeaf3ba02cf48b39ba74557af160c4c3e6086": {
+    "bugNo": "BUG-20260723-0007",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260723-0007/agent-result",
+    "taskId": "BUGTASK-20260723-0007-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "deliveredAt": "2026-07-24T06:45:27.960Z"
+  },
+  "a348c3a1b3e14f8987316ff14e45a5a721478fb96b20607c50b58fd2fe7212f3": {
+    "bugNo": "BUG-20260723-0007",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260723-0007/agent-result",
+    "taskId": "BUGTASK-20260723-0007-A1",
+    "agent": "A1-CI-Runtime-Gate",
+    "deliveredAt": "2026-07-24T06:45:28.533Z"
+  },
+  "f6bd22be76e6e6200d6b2532015443a921f75242e3fdb5fc036cf9228854f990": {
+    "bugNo": "BUG-20260720-0003",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260720-0003/agent-result",
+    "taskId": "BUGTASK-20260720-0003-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "deliveredAt": "2026-07-24T06:45:29.101Z"
+  },
+  "986db2fbb201b5f6f61df8e7a29a712d058d1edab3636d2053d18291eda9898c": {
+    "bugNo": "BUG-20260720-0003",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260720-0003/agent-result",
+    "taskId": "BUGTASK-20260720-0003-A1",
+    "agent": "A1-CI-Runtime-Gate",
+    "deliveredAt": "2026-07-24T06:45:29.809Z"
+  },
+  "7921dfe3e14b0ec98763772e7587d2d485ad41be11b5c75a93eeac4747cb39d5": {
+    "bugNo": "BUG-20260718-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260718-0004/agent-result",
+    "taskId": "BUGTASK-20260718-0004-A1",
+    "agent": "A1-CI-Runtime-Gate",
+    "deliveredAt": "2026-07-24T06:45:30.372Z"
+  },
+  "92c0bff14866bd8031fc0176675c407928541bb4837d953689b286b616073ec0": {
+    "bugNo": "BUG-20260718-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260718-0004/agent-result",
+    "taskId": "BUGTASK-20260718-0004-A3",
+    "agent": "A3-Backend-Critical-Path",
+    "deliveredAt": "2026-07-24T06:45:31.132Z"
+  },
+  "11010c7e34a4cdcdc13eb4ec316ee992c93dbb7b1ccf6c5e99f50e5660a56eae": {
+    "bugNo": "BUG-20260716-0001",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260716-0001/agent-result",
+    "taskId": "BUGTASK-20260716-0001-A2-Security-Regression-Gate-NA-4",
+    "agent": "A2-Security-Regression-Gate",
+    "deliveredAt": "2026-07-24T06:45:31.722Z"
+  },
+  "54b2ca7b8381d049eaa9d8f95726ca90cc79feb2799c0250ea9c9a86f7841321": {
+    "bugNo": "BUG-20260716-0001",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260716-0001/agent-result",
+    "taskId": "BUGTASK-20260716-0001-A3-Backend-Critical-Path-NA-4",
+    "agent": "A3-Backend-Critical-Path",
+    "deliveredAt": "2026-07-24T06:45:32.286Z"
+  },
+  "5270e472b8b9088b3cff90cd61cb9f22bc9a9cd1fdee35d8124c8c9fd258c128": {
+    "bugNo": "BUG-20260716-0001",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260716-0001/agent-result",
+    "taskId": "BUGTASK-20260716-0001-A5-Data-Readiness-NA-4",
+    "agent": "A5-Data-Readiness",
+    "deliveredAt": "2026-07-24T06:45:32.936Z"
+  },
+  "e020f5fe16569bdd18cf49ca6f33aad2964dd4b5c71326232c897b37f3b72715": {
+    "bugNo": "BUG-20260716-0001",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260716-0001/agent-result",
+    "taskId": "BUGTASK-20260716-0001-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "deliveredAt": "2026-07-24T06:45:33.522Z"
+  },
+  "3630c60aa87dfe1cee36fd7d7b91ea161549d1e30f86aa216acf21d87d5b1198": {
+    "bugNo": "BUG-20260716-0001",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260716-0001/agent-result",
+    "taskId": "BUGTASK-20260716-0001-A1",
+    "agent": "A1-CI-Runtime-Gate",
+    "deliveredAt": "2026-07-24T06:45:34.092Z"
+  },
+  "788f25eacfb41ae86dc39855b7017252082fddbfd7c4d5047da7dad5fa498fd3": {
+    "bugNo": "BUG-20260715-0001",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260715-0001/agent-result",
+    "taskId": "BUGTASK-20260715-0001-A2-Security-Regression-Gate-NA-6",
+    "agent": "A2-Security-Regression-Gate",
+    "deliveredAt": "2026-07-24T06:45:35.032Z"
+  },
+  "a077c510a1c1e5f4072a79f3ffc401af32a73a071df373fe0abfe7aeef3471d7": {
+    "bugNo": "BUG-20260715-0001",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260715-0001/agent-result",
+    "taskId": "BUGTASK-20260715-0001-A5-Data-Readiness-NA-6",
+    "agent": "A5-Data-Readiness",
+    "deliveredAt": "2026-07-24T06:45:35.852Z"
+  },
+  "2f68cfaa6e8526e55af89d055a3c0a00e367a4091e98f2db82d97b62e91c22e0": {
+    "bugNo": "BUG-20260715-0001",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260715-0001/agent-result",
+    "taskId": "BUGTASK-20260715-0001-A3",
+    "agent": "A3-Backend-Critical-Path",
+    "deliveredAt": "2026-07-24T06:45:36.647Z"
+  },
+  "3743176dc6b10220fbece039dd94921567fcea8f9a9dfae69cba95b95d4b1457": {
+    "bugNo": "BUG-20260715-0001",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260715-0001/agent-result",
+    "taskId": "BUGTASK-20260715-0001-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "deliveredAt": "2026-07-24T06:45:37.267Z"
+  },
+  "3c092ab6a2c8ca98523b0a8e19db050826ab0bbe77a92cef31ce632e2a100acd": {
+    "bugNo": "BUG-20260715-0001",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260715-0001/agent-result",
+    "taskId": "BUGTASK-20260715-0001-A1",
+    "agent": "A1-CI-Runtime-Gate",
+    "deliveredAt": "2026-07-24T06:45:37.836Z"
+  },
+  "43e9424a3315f13c6ea21ff8698c5cea436f7bb30ba87d2675407a4193c0c1db": {
+    "bugNo": "BUG-20260713-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260713-0004/agent-result",
+    "taskId": "BUGTASK-20260713-0004-A4-Frontend-UAT-Smoke-NA-6",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "deliveredAt": "2026-07-24T06:45:38.414Z"
+  },
+  "a0c357fad7523a7b97a9282aaaef571f511b76daf42b1104d2f77bfe1df3ccde": {
+    "bugNo": "BUG-20260713-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260713-0004/agent-result",
+    "taskId": "BUGTASK-20260713-0004-A5-Data-Readiness-NA-6",
+    "agent": "A5-Data-Readiness",
+    "deliveredAt": "2026-07-24T06:45:38.987Z"
+  },
+  "e5ad8ff2367b6cd8518f57fc7a2389f821c0a8ba3a14a8b4777ddcbb020b82a5": {
+    "bugNo": "BUG-20260713-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260713-0004/agent-result",
+    "taskId": "BUGTASK-20260713-0004-A2",
+    "agent": "A2-Security-Regression-Gate",
+    "deliveredAt": "2026-07-24T06:45:39.573Z"
+  },
+  "37d3073df257c36c4e8e74caaa440a2fae2db72028027c807627b2ab600f45ee": {
+    "bugNo": "BUG-20260713-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260713-0004/agent-result",
+    "taskId": "BUGTASK-20260713-0004-A3",
+    "agent": "A3-Backend-Critical-Path",
+    "deliveredAt": "2026-07-24T06:45:40.277Z"
+  },
+  "5a3838420a3e212a164eefdbf698b2ba679ba74615b6929de74da8030ba2b338": {
+    "bugNo": "BUG-20260713-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260713-0004/agent-result",
+    "taskId": "BUGTASK-20260713-0004-A1",
+    "agent": "A1-CI-Runtime-Gate",
+    "deliveredAt": "2026-07-24T06:45:40.862Z"
+  },
+  "56877c88ac0038ff211da5639081eb36385b22b3aae96fcf5cc97749c619addf": {
+    "bugNo": "BUG-20260709-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0004/agent-result",
+    "taskId": "BUGTASK-20260709-0004-A2-Security-Regression-Gate-NA-14",
+    "agent": "A2-Security-Regression-Gate",
+    "deliveredAt": "2026-07-24T06:45:42.511Z"
+  },
+  "84a20aca68acf5181ae5244463004c9627935bf9deb3531fb4089d22fbaa8a42": {
+    "bugNo": "BUG-20260709-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0004/agent-result",
+    "taskId": "BUGTASK-20260709-0004-A5-Data-Readiness-NA-14",
+    "agent": "A5-Data-Readiness",
+    "deliveredAt": "2026-07-24T06:45:43.258Z"
+  },
+  "a335b7f60d9776f4be56f99e78043cefe1c7cc475fa0beaf89d2bab37e208f95": {
+    "bugNo": "BUG-20260709-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0004/agent-result",
+    "taskId": "BUGTASK-20260709-0004-A3",
+    "agent": "A3-Backend-Critical-Path",
+    "deliveredAt": "2026-07-24T06:45:44.057Z"
+  },
+  "fe9cce3f9d451b7fd20bba06351e23a90069b86fe82fbce1c744d45e49a5992c": {
+    "bugNo": "BUG-20260709-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0004/agent-result",
+    "taskId": "BUGTASK-20260709-0004-A4",
+    "agent": "A4-Frontend-UAT-Smoke",
+    "deliveredAt": "2026-07-24T06:45:45.092Z"
+  },
+  "f3610f419756e3c37ea1649ae754b435e0ca3915a917f0b9ba0fc4689073c60d": {
+    "bugNo": "BUG-20260709-0004",
+    "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260709-0004/agent-result",
+    "taskId": "BUGTASK-20260709-0004-A1",
+    "agent": "A1-CI-Runtime-Gate",
+    "deliveredAt": "2026-07-24T06:45:46.149Z"
+  }
+}

@@ -1096,19 +1096,19 @@ Assigned agent: A1-CI-Runtime-Gate
     },
     "localEvidence": {
       "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/attachments/BUG-20260723-0007/attachments/01-1784797480726-3b341687.png"
+        "docs/ops/runs/bug-intake-inbox/attachments/BUG-20260723-0007/attachments/01-1784797480726-3b341687.png"
       ]
     }
   },
   "failureClassification": {
-    "category": "API_5XX",
+    "category": "PG_SQL",
     "evidence": [
-      "API 5xx/异常信号"
+      "数据库/PG/SQL 信号"
     ],
     "priority": "P1",
     "severity": "HIGH",
-    "confidence": 0.88,
-    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+    "confidence": 0.92,
+    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
     "autoFixEligible": true,
     "recommendedAgents": [
       "A3-Backend-Critical-Path",
@@ -1119,11 +1119,11 @@ Assigned agent: A1-CI-Runtime-Gate
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-23T09:22:44.705Z",
-    "approvedBy": "bug_intake_runner",
+    "approvedAt": "2026-07-24T06:42:17.955Z",
+    "approvedBy": "admin",
     "redispatch": true,
-    "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-    "redispatchCount": 2,
+    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 3,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1137,4 +1137,4 @@ Assigned agent: A1-CI-Runtime-Gate
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/attachments/BUG-20260723-0007/attachments/01-1784797480726-3b341687.png
+- docs/ops/runs/bug-intake-inbox/attachments/BUG-20260723-0007/attachments/01-1784797480726-3b341687.png

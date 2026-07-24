@@ -1,38 +1,82 @@
 {
-  "decision": "BUG_INTAKE_LOCAL_RUNNER_RECOVERY_EXECUTED",
-  "generatedAt": "2026-07-10T06:21:22.963Z",
+  "decision": "BUG_INTAKE_LOCAL_RUNNER_EXECUTED",
+  "generatedAt": "2026-07-24T06:50:06.938Z",
   "cycle": 1,
   "dryRun": false,
-  "queueApply": "lease-recovery-only",
-  "executeApproved": false,
+  "queueApply": "applied-approved-only",
+  "executeApproved": true,
   "pushAfterSuccess": false,
   "retrySafeUiOnce": false,
   "autoUnblockDirtyWorktrees": true,
   "skipBlocked": true,
   "sync": {
+    "command": [
+      "/usr/local/bin/node",
+      "scripts/ops/bug-intake-sync-from-api.mjs",
+      "--output-dir",
+      "docs/ops/runs/bug-intake-inbox",
+      "--fetch-timeout-ms",
+      "45000",
+      "--api-base",
+      "https://erp.eggslao.com",
+      "--token-env",
+      "PHOENIX_ERP_RUNNER_TOKEN",
+      "--apply-queue"
+    ],
+    "startedAt": "2026-07-24T06:49:59.697Z",
+    "finishedAt": "2026-07-24T06:50:06.852Z",
     "status": 0,
-    "stdout": "",
-    "stderr": "",
+    "signal": null,
+    "timedOut": false,
+    "stdout": "{\n  \"decision\": \"BUG_INTAKE_QUEUE_APPLIED\",\n  \"generated_at\": \"2026-07-24T06:50:06.846Z\",\n  \"api_base\": \"https://erp.eggslao.com\",\n  \"output_dir\": \"docs/ops/runs/bug-intake-inbox/current\",\n  \"reports_fetched\": 21,\n  \"reports_changed\": 0,\n  \"cache_prune\": {\n    \"removed\": 0,\n    \"reclaimedBytes\": 0\n  },\n  \"apply_queue\": true,\n  \"queue_candidates\": [],\n  \"not_ready\": [\n    {\n      \"bugNo\": \"BUG-20260723-0007\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260723-0006\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260723-0005\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260723-0004\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260723-0003\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260723-0002\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260722-0004\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260722-0003\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260721-0001\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260720-0003\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260718-0004\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260718-0002\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260717-0001\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260716-0004\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260716-0002\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260716-0001\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260715-0001\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260713-0004\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260709-0004\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260705-0003\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    },\n    {\n      \"bugNo\": \"BUG-20260705-0001\",\n      \"repairTaskStatus\": \"FIX_READY_FOR_UAT\",\n      \"reason\": \"repairTaskStatus is FIX_READY_FOR_UAT\"\n    }\n  ],\n  \"queue_results\": [],\n  \"deactivated_not_ready_tasks\": [],\n  \"fetch_errors\": [],\n  \"safety\": {\n    \"codex_cli_executed\": false,\n    \"business_code_modified\": false,\n    \"database_written\": false,\n    \"deployed\": false,\n    \"pushed\": false\n  }\n}\n",
+    "stderr": ""
+  },
+  "generationRecovery": {
+    "skipped": false,
+    "reason": "no safe technical HOLD candidates",
+    "candidates": [],
+    "results": []
+  },
+  "evidenceReconciliation": {
+    "restored": [],
+    "requeued": [],
+    "wrote_queue": false
+  },
+  "reconciledIntegrations": [],
+  "evolutionCycle": {
     "skipped": true,
-    "reason": "recover-leases-only"
+    "reason": "not scheduled this cycle"
+  },
+  "resultReceiptBootstrap": {
+    "imported": 0,
+    "total": 29,
+    "file": "docs/ops/runs/bug-intake-local-runner/result-delivery-receipts.json"
+  },
+  "outboxRecovery": {
+    "pending": 0,
+    "delivered": 0,
+    "results": [],
+    "compaction": {
+      "compacted": true,
+      "beforeBytes": 126674,
+      "afterBytes": 0,
+      "retained": 0
+    }
   },
   "leaseRecovery": {
-    "recovered": [
-      {
-        "task_id": "BUGTASK-20260707-0002-A3",
-        "agent": "A3-Backend-Critical-Path",
-        "previous_status": "running",
-        "claimed_at": "2026-07-10T06:17:23.506Z",
-        "age_minutes": 4
-      }
-    ],
+    "recovered": [],
+    "released_terminal_leases": [],
     "active_processes": [],
-    "wrote_queue": true,
+    "wrote_queue": false,
     "stale_after_minutes": 1
   },
   "preWorkerCommit": {
     "skipped": true,
-    "reason": "recover-leases-only"
+    "reason": "audit artifacts are committed once at cycle end"
+  },
+  "cycleAuditCommit": {
+    "skipped": true,
+    "reason": "automatic audit commits disabled"
   },
   "candidateTasks": [],
   "blockedTasks": [],
@@ -40,22 +84,58 @@
   "workerRuns": [],
   "push": {
     "skipped": true,
-    "reason": "recover-leases-only"
+    "reason": "push-after-success disabled"
+  },
+  "auditPush": {
+    "skipped": true,
+    "reason": "push-after-success disabled"
   },
   "ci": {
     "skipped": true,
-    "reason": "recover-leases-only"
+    "reason": "wait-ci-after-push disabled"
   },
-  "headSha": "ef8a2e795273f6dc50684bb577a41d7b48e3f3a0",
-  "tokenSource": "not-required",
-  "lifecycleWriteback": {
+  "productionSmoke": {
     "skipped": true,
-    "reason": "recover-leases-only"
+    "reason": "production-smoke-after-ci disabled"
   },
+  "releaseEvidence": [],
+  "headSha": "8d0c7f3362a03b314de18b7fb875d93752b68a51",
+  "tokenSource": "PHOENIX_ERP_RUNNER_TOKEN",
+  "outputDir": "docs/ops/runs/bug-intake-local-runner",
+  "platformMetrics": {
+    "generated_at": "2026-07-24T06:50:06.916Z",
+    "total": 394,
+    "active": 0,
+    "status_counts": {
+      "archived": 214,
+      "completed": 3,
+      "SKIPPED_NOT_APPLICABLE": 17,
+      "VALIDATION_COMPLETED": 77,
+      "COMPLETED_MERGED": 83
+    },
+    "queue_wait_p50_ms": null,
+    "queue_wait_p95_ms": null,
+    "lead_time_p50_ms": null,
+    "lead_time_p95_ms": null,
+    "false_complete_count": 0,
+    "legacy_evidence_exemption_count": 3,
+    "raw_terminal_evidence_coverage": 0.9833333333333333,
+    "terminal_evidence_coverage": 1
+  },
+  "platformHealth": "GO",
   "failureClassification": {
     "total": 0,
     "byCategory": {},
     "highestSeverity": "INFO",
     "items": []
+  },
+  "resultBackfill": {
+    "skipped": false,
+    "reportsChecked": 21,
+    "results": []
+  },
+  "lifecycleWriteback": {
+    "skipped": true,
+    "reason": "automatic release is disabled; preserve Agent execution state"
   }
 }

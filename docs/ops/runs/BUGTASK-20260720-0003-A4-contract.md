@@ -1135,9 +1135,7 @@ Assigned agent: A4-Frontend-UAT-Smoke
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/attachments/BUG-20260720-0003/attachments/01-1784509297449-44d01a6b.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": {
@@ -1159,11 +1157,11 @@ Assigned agent: A4-Frontend-UAT-Smoke
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-23T06:17:07.584Z",
-    "approvedBy": "admin",
+    "approvedAt": "2026-07-24T06:41:47.369Z",
+    "approvedBy": "bug_intake_runner",
     "redispatch": true,
-    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 3,
+    "approvalScope": "Only recover verified integrated implementation evidence and run A1 validation; no DB write or migration.",
+    "redispatchCount": 4,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1177,4 +1175,4 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/attachments/BUG-20260720-0003/attachments/01-1784509297449-44d01a6b.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
