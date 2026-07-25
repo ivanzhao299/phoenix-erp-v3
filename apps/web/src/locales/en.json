@@ -13778,5 +13778,14 @@
   "ui.多候选待复核": "Multiple candidates require review",
   "ui.借款 / 垫资已隔离": "Loans and advances isolated",
   "ui.这些记录进入股东往来和清偿台账，不计入股权实缴或好业财4001对账。": "These records belong to shareholder current accounts and settlement ledgers; they are excluded from equity paid-in capital and Chanjet 4001 reconciliation.",
-  "ui.查看股东资金往来": "View shareholder fund movements"
+  "ui.查看股东资金往来": "View shareholder fund movements",
+  "common.processing": "Processing",
+  "ui.确认出库将扣减库存并写入台账是否继续": "Confirm outbound? Inventory will be deducted and the stock ledger will be updated.",
+  "ui.确认出库": "Confirm outbound",
+  "ui.入库状态核验失败": "Failed to verify inbound status",
+  "ui.正在核验服务端入库状态": "Verifying inbound status with the server...",
+  "ui.已完成入库": "Inbound completed",
+  "ui.枚已写入库存台账": "eggs recorded in the stock ledger",
+  "ui.枚已入库": "eggs received",
+  "ui.前往交班": "Continue to shift handover"
 }
