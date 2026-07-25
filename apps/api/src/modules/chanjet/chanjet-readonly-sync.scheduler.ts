@@ -7,6 +7,9 @@ import { ChanjetIntegrationService } from './chanjet-integration.service';
 import { ChanjetErpInboundSyncService } from './chanjet-erp-inbound-sync.service';
 
 const JOB_NAME = 'chanjet-full-readonly-sync';
+const DEFAULT_RECOVERY_COOLDOWN_MS = 15 * 60 * 1000;
+const MAX_RECOVERY_COUNT = 2;
+const MAX_ERROR_MESSAGE_LENGTH = 2_000;
 
 type ManualSyncRequest = {
   scope?: string[];
@@ -200,6 +203,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
         request.bookId,
         period,
         request.maxAttempts || 3,
+        { compact: true },
       );
       if (result.decision === 'HOLD') {
         throw new Error(
@@ -269,7 +273,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
       });
       this.log.log(`${JOB_NAME} completed decision=${decision} targets=${targetCount} attempts=${attempts} exactApproved=${exactApproved}`);
     } catch (error) {
-      const message = (error as Error).message;
+      const message = this.truncateMessage((error as Error).message);
       this.log.error(`${JOB_NAME} failed: ${message}`);
       await this.cronMon.fail(JOB_NAME, message);
       const state = message.includes('HOLD') || message.includes('unresolved readonly sync failures') ? 'HOLD' : 'FAILED';
@@ -304,6 +308,27 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
       const scope = persisted.request_scope || {};
       const runId = String(scope.orchestrationRunId || '');
       if (!runId) return;
+      const recoveryCount = Math.max(Number(scope.recoveryCount) || 0, 0);
+      if (recoveryCount >= MAX_RECOVERY_COUNT) {
+        const message = `automatic recovery exhausted after ${recoveryCount} retries; manual restart required`;
+        this.lastRun = {
+          ...this.mapPersistedRun(persisted),
+          state: 'HOLD',
+          completedAt: new Date().toISOString(),
+          decision: 'HOLD',
+          message,
+        };
+        await this.persistTerminalState(runId, 'FAIL', 'HOLD', 'HOLD', message, {
+          recoveryCount,
+          recoveryExhausted: true,
+        });
+        this.log.error(`${JOB_NAME} ${message} run=${runId}`);
+        return;
+      }
+
+      const lastUpdatedAt = new Date(persisted.updated_at).getTime();
+      const cooldownMs = this.recoveryCooldownMs();
+      const remainingCooldownMs = Math.max(0, cooldownMs - (Date.now() - lastUpdatedAt));
       const request: ManualSyncRequest = {
         scope: Array.isArray(scope.scope) ? scope.scope.map(String) : [],
         bookId: String(scope.bookId || '') || undefined,
@@ -325,13 +350,24 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
         [runId, JSON.stringify({
           lifecycleState: 'QUEUED',
           recoveredAt: new Date().toISOString(),
-          recoveryCount: Number(scope.recoveryCount || 0) + 1,
+          recoveryCount: recoveryCount + 1,
+          recoveryCooldownMs: cooldownMs,
         })],
       );
-      this.log.warn(`${JOB_NAME} recovering interrupted run ${runId}`);
-      setImmediate(() => {
-        void this.executeSync(requestedBy, request, runId);
-      });
+      this.log.warn(
+        `${JOB_NAME} queued interrupted run ${runId} recovery=${recoveryCount + 1}/${MAX_RECOVERY_COUNT}`
+        + ` cooldownMs=${remainingCooldownMs}`,
+      );
+      if (remainingCooldownMs === 0) {
+        setImmediate(() => {
+          void this.executeSync(requestedBy, request, runId);
+        });
+      } else {
+        const timer = setTimeout(() => {
+          void this.executeSync(requestedBy, request, runId);
+        }, remainingCooldownMs);
+        timer.unref();
+      }
     } catch (error) {
       this.log.error(`${JOB_NAME} recovery failed: ${(error as Error).message}`);
     }
@@ -432,5 +468,18 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
       decision: null,
       message: null,
     };
+  }
+
+  private recoveryCooldownMs(): number {
+    const configured = Number(process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS);
+    if (!Number.isFinite(configured)) return DEFAULT_RECOVERY_COOLDOWN_MS;
+    return Math.min(Math.max(Math.trunc(configured), 1_000), 60 * 60 * 1000);
+  }
+
+  private truncateMessage(value: unknown): string {
+    const text = String(value || 'unknown error');
+    return text.length <= MAX_ERROR_MESSAGE_LENGTH
+      ? text
+      : `${text.slice(0, MAX_ERROR_MESSAGE_LENGTH)}…[truncated]`;
   }
 }

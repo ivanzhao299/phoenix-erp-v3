@@ -71,8 +71,6 @@ export class AuditLogInterceptor implements NestInterceptor {
       tap(async (responseBody) => {
         if (!user) return; // 未登录操作(如登录接口本身)，通常在专门地方记录
 
-        const afterValue = responseBody; // 或基于 body 构建
-        
         const logEntry = {
           user_id: user.userId,
           user_name: user.realName || user.username,
@@ -80,7 +78,7 @@ export class AuditLogInterceptor implements NestInterceptor {
           entity_type: this.guessEntityType(path),
           entity_id: this.guessEntityId(request.params, responseBody),
           before_value: beforeValue,
-          after_value: afterValue,
+          after_value: summarizeAuditValue(responseBody),
           ip_addr: ip,
           user_agent: userAgent,
         };
@@ -88,6 +86,10 @@ export class AuditLogInterceptor implements NestInterceptor {
         // 异步写入数据库 (不要 await 以免阻塞响应)
         try {
           // await this.auditLogRepo.save(logEntry);
+          // Never print the full HTTP response. Integration and Agent endpoints
+          // can return thousands of rows or large evidence payloads; formatting
+          // those objects duplicated them on the Node heap and contributed to
+          // production OOM/restart loops.
           console.log('[AuditLogInterceptor] Recorded:', logEntry);
         } catch (error) {
           console.error('[AuditLogInterceptor] Failed to write audit log:', error);
@@ -112,4 +114,35 @@ export class AuditLogInterceptor implements NestInterceptor {
     if (responseBody && responseBody.id) return String(responseBody.id);
     return null;
   }
+}
+
+function summarizeAuditValue(value: unknown): Record<string, unknown> | null {
+  if (value === null || value === undefined) return null;
+  if (Array.isArray(value)) {
+    return {
+      responseType: 'array',
+      count: value.length,
+      sampleIds: value.slice(0, 5).map((item) => (
+        item && typeof item === 'object'
+          ? String((item as Record<string, unknown>).id ?? (item as Record<string, unknown>).bugNo ?? '')
+          : ''
+      )).filter(Boolean),
+    };
+  }
+  if (typeof value !== 'object') {
+    return { responseType: typeof value, value: String(value).slice(0, 256) };
+  }
+  const row = value as Record<string, unknown>;
+  const data = row.data;
+  return {
+    responseType: 'object',
+    success: typeof row.success === 'boolean' ? row.success : undefined,
+    decision: typeof row.decision === 'string' ? row.decision.slice(0, 64) : undefined,
+    status: typeof row.status === 'string' ? row.status.slice(0, 64) : undefined,
+    id: row.id === undefined ? undefined : String(row.id).slice(0, 128),
+    bugNo: row.bugNo === undefined ? undefined : String(row.bugNo).slice(0, 128),
+    dataType: Array.isArray(data) ? 'array' : typeof data,
+    dataCount: Array.isArray(data) ? data.length : undefined,
+    keys: Object.keys(row).slice(0, 20),
+  };
 }

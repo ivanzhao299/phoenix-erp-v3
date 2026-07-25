@@ -849,6 +849,53 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(subject.productionReadinessOverview).toHaveBeenCalledTimes(1);
   });
 
+  it('returns bounded alignment evidence for background scheduler runs', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.syncReadOnlyMirrorResilient = jest.fn().mockResolvedValue({
+      decision: 'GO', results: [], attempts: 1, unresolvedFailures: [],
+    });
+    subject.confirmDeterministicCounterpartyMappings = jest.fn().mockResolvedValue({
+      generated: { preview: { candidates: new Array(1_000).fill({ rawData: 'large' }) } },
+      eligible: 10,
+      approved: 8,
+      skipped: 2,
+      sourceOnlyResolved: 5,
+      remainingPending: 1,
+      remainingConflicts: 0,
+      errors: new Array(30).fill(null).map((_, index) => ({ candidateKey: String(index), error: 'x' })),
+    });
+    subject.confirmDeterministicMasterDataMappings = jest.fn().mockResolvedValue({
+      reviewed: 4, exactApproved: 1, sourceOnlyApproved: 3, unchanged: 0, conflicts: 0, unresolved: 0, errors: [],
+    });
+    subject.runMappingReconciliation = jest.fn().mockResolvedValue({
+      scanned: 4,
+      created: 1,
+      unchanged: 2,
+      autoResolved: 1,
+      statusCounts: { WARN: 1 },
+      results: new Array(1_000).fill({ rawData: 'large' }),
+    });
+    subject.productionReadinessOverview = jest.fn().mockResolvedValue({ decision: 'GO' });
+
+    const result = await subject.runReadonlyAlignmentCycle(
+      'system:scheduler',
+      [],
+      undefined,
+      '202607',
+      3,
+      { compact: true },
+    );
+
+    expect(result.exactMappings).not.toHaveProperty('generated');
+    expect(result.exactMappings?.errors).toHaveLength(20);
+    expect(result.reconciliation).not.toHaveProperty('results');
+    expect(result).toMatchObject({
+      decision: 'GO',
+      exactMappings: { approved: 8 },
+      reconciliation: { created: 1, autoResolved: 1 },
+    });
+  });
+
   it('stops the readonly alignment cycle before mapping when mirror sync is HOLD', async () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     subject.syncReadOnlyMirrorResilient = jest.fn().mockResolvedValue({

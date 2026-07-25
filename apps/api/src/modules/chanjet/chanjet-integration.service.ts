@@ -6526,6 +6526,7 @@ export class ChanjetIntegrationService {
     bookId?: string,
     period?: string,
     maxAttempts = 3,
+    options: { compact?: boolean } = {},
   ): Promise<{
     decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
     requestedBy: string;
@@ -6534,9 +6535,13 @@ export class ChanjetIntegrationService {
     writeChanjet: false;
     writeErpBusinessTables: false;
     mirror: Awaited<ReturnType<ChanjetIntegrationService['syncReadOnlyMirrorResilient']>>;
-    exactMappings: Awaited<ReturnType<ChanjetIntegrationService['confirmDeterministicCounterpartyMappings']>> | null;
+    exactMappings: Awaited<ReturnType<ChanjetIntegrationService['confirmDeterministicCounterpartyMappings']>>
+      | { eligible: number; approved: number; skipped: number; sourceOnlyResolved: number; remainingPending: number; remainingConflicts: number; errors: Array<{ candidateKey: string; error: string }> }
+      | null;
     masterDataMappings: Awaited<ReturnType<ChanjetIntegrationService['confirmDeterministicMasterDataMappings']>> | null;
-    reconciliation: Awaited<ReturnType<ChanjetIntegrationService['runMappingReconciliation']>> | null;
+    reconciliation: Awaited<ReturnType<ChanjetIntegrationService['runMappingReconciliation']>>
+      | { scanned: number; created: number; unchanged: number; autoResolved: number; statusCounts: Record<string, number> }
+      | null;
     readiness: ChanjetProductionReadiness | null;
     stoppedAt: string | null;
   }> {
@@ -6560,11 +6565,36 @@ export class ChanjetIntegrationService {
       };
     }
 
-    const [exactMappings, masterDataMappings] = await Promise.all([
-      this.confirmDeterministicCounterpartyMappings(actor),
-      this.confirmDeterministicMasterDataMappings(actor),
-    ]);
-    const reconciliation = await this.runMappingReconciliation();
+    // Keep these phases sequential. Each can inspect thousands of mapping rows;
+    // running them in parallel made the API retain multiple large object graphs
+    // and repeatedly exceed the production Node heap during scheduled recovery.
+    const exactMappingsFull = options.compact
+      ? await this.confirmDeterministicCounterpartyMappings(actor, { compact: true })
+      : await this.confirmDeterministicCounterpartyMappings(actor);
+    const exactMappings = options.compact
+      ? {
+          eligible: exactMappingsFull.eligible,
+          approved: exactMappingsFull.approved,
+          skipped: exactMappingsFull.skipped,
+          sourceOnlyResolved: exactMappingsFull.sourceOnlyResolved,
+          remainingPending: exactMappingsFull.remainingPending,
+          remainingConflicts: exactMappingsFull.remainingConflicts,
+          errors: exactMappingsFull.errors.slice(0, 20),
+        }
+      : exactMappingsFull;
+    const masterDataMappings = await this.confirmDeterministicMasterDataMappings(actor);
+    const reconciliationFull = options.compact
+      ? await this.runMappingReconciliation({ compact: true })
+      : await this.runMappingReconciliation();
+    const reconciliation = options.compact
+      ? {
+          scanned: reconciliationFull.scanned,
+          created: reconciliationFull.created,
+          unchanged: reconciliationFull.unchanged,
+          autoResolved: reconciliationFull.autoResolved,
+          statusCounts: reconciliationFull.statusCounts,
+        }
+      : reconciliationFull;
     const readiness = await this.productionReadinessOverview();
     return {
       decision: readiness.decision,
@@ -7194,7 +7224,7 @@ export class ChanjetIntegrationService {
     });
   }
 
-  async runMappingReconciliation(): Promise<{
+  async runMappingReconciliation(options: { compact?: boolean } = {}): Promise<{
     scanned: number;
     created: number;
     unchanged: number;
@@ -7217,6 +7247,8 @@ export class ChanjetIntegrationService {
         }),
       ]);
       const results: ChanjetReconciliationResultEntity[] = [];
+      const statusCounts: Record<string, number> = {};
+      let created = 0;
       const activeIssueKeys = new Set<string>();
       let unchanged = 0;
       for (const mapping of mappings) {
@@ -7267,7 +7299,10 @@ export class ChanjetIntegrationService {
           resolvedBy: null,
           resolvedAt: null,
         });
-        results.push(await this.reconciliationRepo.save(result));
+        const saved = await this.reconciliationRepo.save(result);
+        created += 1;
+        statusCounts[saved.status] = (statusCounts[saved.status] || 0) + 1;
+        if (!options.compact) results.push(saved);
       }
 
       let autoResolved = 0;
@@ -7286,18 +7321,14 @@ export class ChanjetIntegrationService {
         await this.reconciliationRepo.save(openResult);
         autoResolved += 1;
       }
-      const statusCounts = results.reduce<Record<string, number>>((acc, r) => {
-        acc[r.status] = (acc[r.status] || 0) + 1;
-        return acc;
-      }, {});
       await this.finishJob(job, 'SUCCESS', {
         scanned: mappings.length,
-        created: results.length,
+        created,
         unchanged,
         autoResolved,
         statusCounts,
       });
-      return { scanned: mappings.length, created: results.length, unchanged, autoResolved, statusCounts, results };
+      return { scanned: mappings.length, created, unchanged, autoResolved, statusCounts, results };
     } catch (err) {
       await this.finishJob(job, 'FAIL', {}, (err as Error).message);
       throw err;
@@ -7617,7 +7648,10 @@ export class ChanjetIntegrationService {
     };
   }
 
-  async confirmDeterministicCounterpartyMappings(reviewedBy = 'system:chanjet-exact-match'): Promise<{
+  async confirmDeterministicCounterpartyMappings(
+    reviewedBy = 'system:chanjet-exact-match',
+    options: { compact?: boolean } = {},
+  ): Promise<{
     generated: Awaited<ReturnType<ChanjetIntegrationService['generateCounterpartyMappingCandidates']>>;
     eligible: number;
     approved: number;
@@ -7660,16 +7694,33 @@ export class ChanjetIntegrationService {
         errors.push({ candidateKey: candidate.candidateKey, error: (error as Error).message });
       }
     }
+    const eligible = eligibleCandidates.length;
+    const compactGenerated = options.compact
+      ? {
+          ...generated,
+          preview: {
+            ...generated.preview,
+            candidates: [],
+          },
+        }
+      : generated;
+    if (options.compact) {
+      generated.preview.candidates.length = 0;
+      eligibleCandidates.length = 0;
+      pendingMappings.length = 0;
+    }
     const resolvedOverview = await this.counterpartyMappingCandidates();
+    const resolvedSummary = resolvedOverview.summary;
+    if (options.compact) resolvedOverview.candidates.length = 0;
     return {
-      generated,
-      eligible: eligibleCandidates.length,
+      generated: compactGenerated,
+      eligible,
       approved,
       skipped,
-      sourceOnlyResolved: resolvedOverview.summary.sourceOnly,
-      remainingPending: resolvedOverview.summary.pending,
-      remainingConflicts: resolvedOverview.summary.conflicts,
-      errors,
+      sourceOnlyResolved: resolvedSummary.sourceOnly,
+      remainingPending: resolvedSummary.pending,
+      remainingConflicts: resolvedSummary.conflicts,
+      errors: options.compact ? errors.slice(0, 20) : errors,
     };
   }
 

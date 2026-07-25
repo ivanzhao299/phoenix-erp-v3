@@ -2,6 +2,7 @@ import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler'
 
 describe('ChanjetReadonlySyncScheduler', () => {
   const previousEnabled = process.env.CHANJET_READONLY_SYNC_ENABLED;
+  const previousRecoveryCooldown = process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS;
   const readiness = {
     generatedAt: '2026-07-21T00:00:00.000Z',
     decision: 'GO' as const,
@@ -17,6 +18,7 @@ describe('ChanjetReadonlySyncScheduler', () => {
 
   afterEach(() => {
     process.env.CHANJET_READONLY_SYNC_ENABLED = previousEnabled;
+    process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS = previousRecoveryCooldown;
     jest.restoreAllMocks();
   });
 
@@ -104,6 +106,7 @@ describe('ChanjetReadonlySyncScheduler', () => {
     expect(runner.release).toHaveBeenCalledTimes(1);
     expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith(
       'system:chanjet-readonly-sync', [], undefined, expect.stringMatching(/^\d{6}$/), 3,
+      { compact: true },
     );
     expect(cronMonitor.ok).toHaveBeenCalledTimes(1);
     expect(cronMonitor.fail).not.toHaveBeenCalled();
@@ -158,7 +161,9 @@ describe('ChanjetReadonlySyncScheduler', () => {
 
     expect(accepted).toMatchObject({ accepted: true, run: { state: 'QUEUED', requestedBy: 'user:admin' } });
     await expect(waitForTerminal(scheduler)).resolves.toMatchObject({ state: 'COMPLETED', decision: 'GO' });
-    expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith('user:admin', [], undefined, '202607', 3);
+    expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith(
+      'user:admin', [], undefined, '202607', 3, { compact: true },
+    );
   });
 
   it('recovers and completes a persisted RUNNING orchestration after API restart', async () => {
@@ -205,6 +210,51 @@ describe('ChanjetReadonlySyncScheduler', () => {
     });
     expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith(
       'user:admin', ['ACCOUNT_BOOKS'], undefined, '202607', 3,
+      { compact: true },
+    );
+  });
+
+  it('moves an repeatedly interrupted run to HOLD instead of creating a restart loop', async () => {
+    const { runner } = createQueryRunner();
+    const integration = createIntegration();
+    const persisted = {
+      status: 'RUNNING',
+      request_scope: {
+        orchestrationRunId: 'CHANJET-RO-EXHAUSTED',
+        requestedBy: 'system:test',
+        recoveryCount: 2,
+      },
+      result_summary: null,
+      error_message: null,
+      created_at: '2026-07-21T00:00:00.000Z',
+      updated_at: '2026-07-21T00:01:00.000Z',
+    };
+    let terminalPersisted = false;
+    const dataQuery = jest.fn().mockImplementation((sql: string) => {
+      if (sql.includes('SELECT status') && !terminalPersisted) return Promise.resolve([persisted]);
+      if (sql.includes('result_summary = $4::jsonb')) terminalPersisted = true;
+      return Promise.resolve([]);
+    });
+    const scheduler = new ChanjetReadonlySyncScheduler(
+      integration as never,
+      { ok: jest.fn(), fail: jest.fn() } as never,
+      createDataSource(runner, dataQuery) as never,
+      createInboundSync() as never,
+    );
+
+    scheduler.onApplicationBootstrap();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    await expect(scheduler.getRunState()).resolves.toMatchObject({
+      runId: 'CHANJET-RO-EXHAUSTED',
+      state: 'HOLD',
+      decision: 'HOLD',
+      message: expect.stringContaining('automatic recovery exhausted'),
+    });
+    expect(integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
+    expect(dataQuery).toHaveBeenCalledWith(
+      expect.stringContaining('result_summary = $4::jsonb'),
+      expect.arrayContaining(['CHANJET-RO-EXHAUSTED', 'FAIL']),
     );
   });
 });

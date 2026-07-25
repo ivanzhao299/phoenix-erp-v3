@@ -1163,10 +1163,8 @@ export class ChanjetCallbackController {
     this.log.warn(`system confirm exact chanjet mappings requested user=${requestedBy}`);
     try {
       const actor = `system:exact-match:${requestedBy}`;
-      const [counterparties, masterData] = await Promise.all([
-        this.integration.confirmDeterministicCounterpartyMappings(actor),
-        this.integration.confirmDeterministicMasterDataMappings(actor),
-      ]);
+      const counterparties = await this.integration.confirmDeterministicCounterpartyMappings(actor, { compact: true });
+      const masterData = await this.integration.confirmDeterministicMasterDataMappings(actor);
       return {
         success: counterparties.errors.length === 0 && masterData.errors.length === 0,
         writeChanjet: false,
@@ -1418,7 +1416,7 @@ export class ChanjetCallbackController {
   async runIntegrationReconciliation(@Req() req: any) {
     this.log.warn(`manual chanjet mapping reconciliation triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'}`);
     try {
-      const result = await this.integration.runMappingReconciliation();
+      const result = await this.integration.runMappingReconciliation({ compact: true });
       return { success: true, ...result };
     } catch (e) {
       return { success: false, error: (e as Error).message };
