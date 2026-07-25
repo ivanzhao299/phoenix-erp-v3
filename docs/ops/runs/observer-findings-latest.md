@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-25T09:25:51.594Z |
+| Generated at | 2026-07-25T09:56:07.127Z |
 | Run files inspected | 2381 |
 | Task count | 405 |
 | Findings count | 35 |
