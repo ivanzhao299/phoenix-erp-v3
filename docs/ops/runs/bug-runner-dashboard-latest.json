@@ -1,17 +1,16 @@
 {
-  "generated_at": "2026-07-25T03:25:59.296Z",
-  "fingerprint": "c8055833f5ef208939f4d2140b3cdf437ae4e1eb1ac459688739b6dd376b9c1a",
-  "decision": "DEGRADED",
+  "generated_at": "2026-07-25T16:28:52.364Z",
+  "fingerprint": "5e93cbac00c55c345d1ead5c4cc6e9d4e4016776fda832e7526a78673136ccc6",
+  "decision": "GO",
   "metrics": {
     "total": 405,
-    "active": 4,
+    "active": 0,
     "status_counts": {
-      "archived": 214,
+      "archived": 218,
       "completed": 3,
       "SKIPPED_NOT_APPLICABLE": 22,
       "VALIDATION_COMPLETED": 81,
-      "COMPLETED_MERGED": 81,
-      "HOLD": 4
+      "COMPLETED_MERGED": 81
     },
     "queue_wait_p50_ms": null,
     "queue_wait_p95_ms": null,

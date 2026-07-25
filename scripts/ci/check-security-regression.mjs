@@ -14,8 +14,8 @@ function git(args) {
 function changedFiles() {
   const files = new Set();
   const candidates = [
-    [`${baseRef}...${headRef}`],
     [`origin/${baseRef}...${headRef}`],
+    [`${baseRef}...${headRef}`],
     ['HEAD~1...HEAD'],
   ];
 

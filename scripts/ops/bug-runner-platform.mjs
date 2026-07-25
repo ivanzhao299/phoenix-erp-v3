@@ -38,6 +38,15 @@ export const REQUIRED_CI_WORKFLOWS = [
   'CI/CD — Build & Deploy',
 ];
 
+export function requiredCiWorkflowsForPaths(files = [], required = REQUIRED_CI_WORKFLOWS) {
+  const scope = classifyChangedPaths(files);
+  if (!scope.opsOnly) return [...required];
+  // GitHub intentionally skips the security workflow for docs/ops-only
+  // audit commits. Waiting for a workflow that cannot be created strands an
+  // otherwise verified release in AGENT_EXECUTION_FINISHED.
+  return required.filter((name) => name !== 'AI Delivery CI Security');
+}
+
 const TRANSITIONS = new Map([
   ['pending', new Set(['pending', 'claimed', 'running', 'HOLD', 'hold', 'WAITING_CAPACITY', 'WAITING_RUNNER', 'archived'])],
   ['claimed', new Set(['claimed', 'pending', 'running', 'HOLD', 'hold', 'WAITING_CAPACITY', 'WAITING_RUNNER', 'archived'])],

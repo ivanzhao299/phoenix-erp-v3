@@ -30,7 +30,12 @@ import {
   worktreeNeedsOriginMainSync,
 } from './bug-intake-worktree-runtime.mjs';
 import { classifyInfrastructureFailure, evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
-import { isTerminalLocalTask, mapWithConcurrency, pruneLegacySnapshots } from './bug-intake-sync-from-api.mjs';
+import {
+  isTerminalLocalTask,
+  mapWithConcurrency,
+  pruneLegacySnapshots,
+  shouldPreserveLocalRoute,
+} from './bug-intake-sync-from-api.mjs';
 
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,6 +51,25 @@ test('runner queue state and append-only events are runtime artifacts', () => {
   const source = fs.readFileSync(new URL('./bug-intake-local-runner.mjs', import.meta.url), 'utf8');
   assert.equal(source.includes("file.startsWith('docs/ops/agent-queue/')"), true);
   assert.equal(source.includes("'docs/ops/agent-queue'"), true);
+});
+
+test('UAT-ready reports archive stale local HOLD routes instead of degrading the runner', () => {
+  const approved = {
+    status: 'IN_PROGRESS',
+    repairTaskPayload: { agentExecutionApproval: { approved: true } },
+  };
+  assert.equal(
+    shouldPreserveLocalRoute({ ...approved, repairTaskStatus: 'AGENT_EXECUTION_FINISHED' }, true),
+    true,
+  );
+  assert.equal(
+    shouldPreserveLocalRoute({ ...approved, repairTaskStatus: 'FIX_READY_FOR_UAT' }, true),
+    false,
+  );
+  assert.equal(
+    shouldPreserveLocalRoute({ ...approved, repairTaskStatus: 'BUSINESS_VERIFIED' }, true),
+    false,
+  );
 });
 
 test('audit artifact fingerprint is compact and never loads a binary patch', () => {

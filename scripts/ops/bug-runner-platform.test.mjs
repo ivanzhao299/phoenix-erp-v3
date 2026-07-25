@@ -15,6 +15,7 @@ import {
   pendingOutboxRecords,
   persistTaskSnapshot,
   planConcurrentTaskBatch,
+  requiredCiWorkflowsForPaths,
   runnerHealthDecision,
   taskIdempotencyKey,
   writeJsonIfMateriallyChanged,
@@ -190,6 +191,21 @@ test('CI barrier waits for every required workflow and fails closed', () => {
     { name: 'Deploy', status: 'completed', conclusion: 'failure' },
   ], required).decision, 'HOLD');
   assert.equal(evaluateCiBarrier(required.map((name) => ({ name, status: 'completed', conclusion: 'success' })), required).decision, 'PASS');
+});
+
+test('docs-only audit commits do not wait for a workflow that GitHub does not trigger', () => {
+  const required = requiredCiWorkflowsForPaths(['docs/ops/runs/runner.json']);
+  assert.equal(required.includes('AI Delivery CI Security'), false);
+  assert.equal(required.includes('CI/CD — Build & Deploy'), true);
+  assert.deepEqual(
+    requiredCiWorkflowsForPaths(['apps/api/src/main.ts']),
+    [
+      'AI Delivery CI Security',
+      'CI Web Unit Tests',
+      'AI Delivery CI Build',
+      'CI/CD — Build & Deploy',
+    ],
+  );
 });
 
 test('metrics expose false completion and health decision', () => {

@@ -1,5 +1,29 @@
 # Next Actions
 
+## 2026-07-26 - Bug Intake HOLD queue cleared without false completion
+
+Current stage: `QUEUE_RECOVERED_WAITING_BUSINESS_UAT`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Fixed the docs-only release barrier so the Runner no longer waits for a Security workflow that GitHub intentionally does not create for ops-only audit commits.
+2. Fixed local route reconciliation so a remote report already in `FIX_READY_FOR_UAT` or `BUSINESS_VERIFIED` archives its stale local HOLD tasks.
+3. Archived four stale local HOLD routes and restored the local execution queue to zero active tasks.
+4. Recorded release evidence for `BUG-20260718-0004`; CI/CD run `30165198894` and production health both passed.
+5. Verified the production report set contains 13 `FIX_READY_FOR_UAT`, one `BUSINESS_VERIFIED`, zero HOLD and zero `AGENT_EXECUTION_FINISHED`.
+6. Kept business acceptance separate from technical completion; no report was auto-promoted to `BUSINESS_VERIFIED`.
+
+Next actions:
+
+1. Business-retest the 13 `FIX_READY_FOR_UAT` reports, prioritizing delivery creation, inventory outbound linkage and packaging inbound re-entry.
+2. Redispatch only a report that fails its acceptance criteria; do not reactivate historical HOLD routes.
+3. Keep the resident Runner active and alert on any new HOLD, stale claim, CI timeout or false-complete attempt.
+4. Continue Chanjet readonly alignment independently from the Bug Intake lane.
+
+Evidence: `docs/ops/BUG_INTAKE_HOLD_QUEUE_AND_CHANJET_OOM_CLEARANCE_20260726.md`.
+
 ## 2026-07-22 - Chanjet to ERP accounting inbound production verified
 
 Current stage: `CHANJET_TO_ERP_ACCOUNTING_INBOUND_PRODUCTION_VERIFIED`

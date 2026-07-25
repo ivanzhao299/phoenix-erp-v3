@@ -18,6 +18,7 @@ import {
   persistTaskSnapshot,
   planConcurrentTaskBatch,
   readQueueTasks,
+  requiredCiWorkflowsForPaths,
   runnerHealthDecision,
   stableHash,
   writeJsonIfMateriallyChanged,
@@ -1522,6 +1523,11 @@ async function waitForGithubActionsIfRequested(args, push) {
   if ((ghCheck.status ?? 1) !== 0) return { skipped: true, reason: 'gh CLI unavailable' };
   const headSha = currentHead(args.mainRoot);
   if (!headSha) return { skipped: true, reason: 'cannot resolve HEAD sha' };
+  const headFiles = safeGit(['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], args.mainRoot);
+  if (!headFiles.ok) return { skipped: false, ok: false, step: 'git diff-tree', error: headFiles.output };
+  const requiredWorkflows = requiredCiWorkflowsForPaths(
+    headFiles.output.split('\n').map((file) => file.trim()).filter(Boolean),
+  );
   const startedAt = Date.now();
   const timeoutMs = Number(args.ciTimeoutMs || 900000);
   const pollMs = Number(args.ciPollMs || 15000);
@@ -1541,14 +1547,14 @@ async function waitForGithubActionsIfRequested(args, push) {
       return { skipped: false, ok: false, step: 'gh run list', error: list.stderr || list.stdout };
     }
     lastRuns = JSON.parse(list.stdout || '[]').filter((run) => run.headSha === headSha);
-    const barrier = evaluateCiBarrier(lastRuns, REQUIRED_CI_WORKFLOWS);
+    const barrier = evaluateCiBarrier(lastRuns, requiredWorkflows);
     if (barrier.complete) {
       return {
         skipped: false,
         ok: barrier.ready,
         headSha,
         runs: lastRuns,
-        requiredWorkflows: REQUIRED_CI_WORKFLOWS,
+        requiredWorkflows,
         barrier,
         conclusion: barrier.decision,
       };
@@ -1560,8 +1566,8 @@ async function waitForGithubActionsIfRequested(args, push) {
     ok: false,
     headSha,
     runs: lastRuns,
-    requiredWorkflows: REQUIRED_CI_WORKFLOWS,
-    barrier: evaluateCiBarrier(lastRuns, REQUIRED_CI_WORKFLOWS),
+    requiredWorkflows,
+    barrier: evaluateCiBarrier(lastRuns, requiredWorkflows),
     conclusion: 'HOLD',
     error: `CI wait timed out after ${timeoutMs}ms`,
   };

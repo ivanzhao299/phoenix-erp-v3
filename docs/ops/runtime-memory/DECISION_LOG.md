@@ -1971,3 +1971,12 @@ Decision: counterparty resolution `GO`.
 - Missing capability, false-success or an undocumented force path returns `HOLD`; it does not fall back to manual UI editing.
 - Personal passwords, browser cookies, local storage and SSO sessions must not be persisted or automated.
 - The completed five-name correction is retained as historical evidence, not as a reusable execution pattern.
+# 2026-07-26 - Separate technical release completion from business acceptance
+
+- Decision: `GO_WITH_CONDITIONS`; the execution queue is recovered and empty, while 13 reports remain explicitly waiting for business UAT.
+- A docs/ops-only release must not wait for `AI Delivery CI Security` because that workflow is intentionally not created for ops-only paths.
+- A remote report in `FIX_READY_FOR_UAT` or `BUSINESS_VERIFIED` supersedes and archives stale local HOLD routes.
+- `FIX_READY_FOR_UAT` is not completion: only an explicit successful business retest may set `BUSINESS_VERIFIED`.
+- Delivery creation, inventory outbound linkage and packaging inbound re-entry fixes are deployed and remain in the business-retest set.
+- The production API restart loop was caused by unbounded readonly-job boot recovery plus oversized audit payload serialization; bounded recovery and payload limits are deployed.
+- Current evidence: 13 `FIX_READY_FOR_UAT`, one `BUSINESS_VERIFIED`, zero HOLD, zero `AGENT_EXECUTION_FINISHED`, local active queue zero.

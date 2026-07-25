@@ -300,6 +300,13 @@ function isQueueCandidate(report) {
   return report?.repairTaskStatus === APPROVED_REPAIR_STATUS && hasAgentApproval(report);
 }
 
+export function shouldPreserveLocalRoute(report, isLatestRoute) {
+  if (!isLatestRoute || !hasAgentApproval(report)) return false;
+  if (!ACTIVE_REPORT_STATUSES.has(String(report?.status || ''))) return false;
+  return ['AGENT_APPROVED', 'AGENT_RUNNING', 'AGENT_EXECUTION_FINISHED', 'HOLD']
+    .includes(String(report?.repairTaskStatus || ''));
+}
+
 function safeBugFileName(bugNo) {
   return String(bugNo || 'BUG-UNKNOWN').replace(/[^\w.-]/g, '_');
 }
@@ -447,10 +454,7 @@ function deactivateNotReadyQueueTasks(reports, apply) {
     if (isTerminalLocalTask(task)) continue;
     const latestRedispatch = latestRedispatchByBug.get(task.source_bug_no) ?? 0;
     const isLatestRoute = Number(task.redispatch_count || 0) === latestRedispatch;
-    const approvalActive = report?.repairTaskPayload?.agentExecutionApproval?.approved === true;
-    const preserveLocalRoute = approvalActive
-      && ACTIVE_REPORT_STATUSES.has(String(report.status || ''))
-      && isLatestRoute;
+    const preserveLocalRoute = shouldPreserveLocalRoute(report, isLatestRoute);
 
     if (preserveLocalRoute) {
       task.remote_repair_status = remoteStatus;

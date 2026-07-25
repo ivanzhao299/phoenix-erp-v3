@@ -1,39 +1,25 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260725-0001",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260725-0001/agent-result",
+  "bugNo": "BUG-20260718-0004",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260718-0004/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260725-0001-A1",
-    "agent": "A1-CI-Runtime-Gate",
+    "taskId": "LOCAL-RUNNER-BUG-20260718-0004-bfd64a08cc8e",
+    "agent": "BugIntakeLocalRunner",
     "conclusion": "PASS WITH CONDITIONS",
-    "resultFile": "docs/ops/runs/BUGTASK-20260725-0001-A1-worker-log.md",
-    "commitHash": "",
+    "resultFile": "docs/ops/runs/BUG-20260718-0004-release-lifecycle-receipt.json",
+    "commitHash": "bfd64a08cc8e65c1281b39d0d9b6898240757652",
     "changedFiles": [],
     "validationResults": {
-      "evidenceGate": {
-        "version": 1,
-        "agent": "A1-CI-Runtime-Gate",
-        "exitCode": 0,
-        "conclusion": "PASS",
-        "responseChars": 2469,
-        "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-        "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
-        "commitHash": "",
-        "changedFiles": [],
-        "businessChangedFiles": [],
-        "reportFiles": [],
-        "parentCommitRecovered": false,
-        "infrastructureFailure": null,
-        "checkedAt": "2026-07-25T03:25:41.250Z",
-        "passed": true,
-        "role": "validation",
-        "terminalStatus": "VALIDATION_COMPLETED",
-        "reason": "Validation evidence recorded; this is not implementation evidence"
-      },
-      "queueStatus": "VALIDATION_COMPLETED",
-      "integratedCommit": ""
+      "releaseEvidence": "PASS",
+      "push": "PASS",
+      "ci": "PASS",
+      "productionSmoke": "PASS",
+      "releaseCommit": "bfd64a08cc8e65c1281b39d0d9b6898240757652",
+      "ciRun": "30165198894",
+      "productionHealth": "HTTP 200",
+      "recordedAt": "2026-07-26T00:25:00+08:00"
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260725-0001-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260725-0001-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/agent-queue/events.jsonl\n M docs/ops/agent-queue/tasks.json\n M docs/ops/evolution/evolution-state.json\n M docs/ops/evolution/improvement-backlog.json\n M docs/ops/evolution/learning-log.json\n M docs/ops/runs/bug-agent-result-writeback-latest.json\n M docs/ops/runs/bug-agent-result-writeback-response-latest.json\n M docs/ops/runs/bug-task-agent-queue-plan-latest.json\n M docs/ops/runs/bug-task-agent-queue-plan-latest.md\n M docs/ops/runs/evolution-plan-latest.json\n M docs/ops/runs/evolution-plan-latest.md\n M docs/ops/runs/observer-findings-latest.json\n M docs/ops/runs/observer-findings-latest.md\n?? docs/ops/runs/2026-07-25T03-25-34-196Z-A3-Backend-Critical-Path.md\n?? docs/ops/runs/BUGTASK-20260725-0001-A1-contract.md\n?? docs/ops/runs/BUGTASK-20260725-0001-A3-contract.md\n?? docs/ops/runs/BUGTASK-20260725-0001-A3-worker-assembled-prompt.md\n?? docs/ops/runs/BUGTASK-20260725-0001-A3-worker-log.md\n\nstderr:\n\n---\n$ apps/api/node_modules/.bin/tsc --project apps/api/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ apps/web/node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit --pretty false\nexit: 0\nstdout:\n\nstderr:\n\n---\n$ /usr/local/bin/node scripts/ci/check-w5-closeout-gate.mjs\nexit: 0\nstdout:\nPASS: Phase 0 operating docs exist\nPASS: PR template exists\nPASS: migration down() gate script exists\nPASS: migration data-DML gate script exists\nPASS: nullable unique gate script exists\nPASS: RBAC audit script exists\nPASS: smoke test script exists\nPASS: freeze boundary static gate passes\nPASS: security regression static gate passes\nPASS: unsafe attachment reference gate passes\nPASS: menu permission at",
-    "nextAction": ""
+    "summary": "The selected implementation and A1 validation evidence were already complete. Commit bfd64a08 was pushed to origin/main, GitHub Actions CI/CD run 30165198894 passed, and the production health smoke returned HTTP 200. This receipt advances the report only to business UAT readiness; it does not claim business acceptance.",
+    "nextAction": "Administrator retests the reported business workflow. Mark BUSINESS_VERIFIED only after the observed behavior matches the acceptance criteria."
   }
 }

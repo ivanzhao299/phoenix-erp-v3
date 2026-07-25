@@ -25738,7 +25738,7 @@
     "source_repair_task_no": "BUGTASK-20260717-0001",
     "source": "bug-intake",
     "agent": "A4-Frontend-UAT-Smoke",
-    "status": "HOLD",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -25770,7 +25770,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
@@ -25813,7 +25813,7 @@
     "idempotency_key": "6860b0a7b3956aead83f3dcbf6d8c0a125f247e8927abdd5e7259908b561f0c7",
     "state_version": 10,
     "state_updated_at": "2026-07-25T01:58:33.146Z",
-    "route_superseded_reason": null,
+    "route_superseded_reason": "remote bug is not executable: FIX_READY_FOR_UAT",
     "redispatched_at": "2026-07-25T01:56:38.571Z",
     "dependency_recovered_at": null,
     "integration_method": null,
@@ -25846,7 +25846,7 @@
     "source_repair_task_no": "BUGTASK-20260717-0001",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "HOLD",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -25879,7 +25879,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A3-Backend-Critical-Path",
       "A4-Frontend-UAT-Smoke",
@@ -25909,7 +25909,7 @@
     "idempotency_key": "70eb67ccb0cdf5514ed590efdc4673e9d64247900468737eca0267c6ff08764e",
     "state_version": 8,
     "state_updated_at": "2026-07-25T01:56:51.995Z",
-    "route_superseded_reason": null,
+    "route_superseded_reason": "remote bug is not executable: FIX_READY_FOR_UAT",
     "integrated_commit": "",
     "integrated_at": null,
     "redispatched_at": "2026-07-25T01:56:38.571Z",
@@ -26417,7 +26417,7 @@
     "source_repair_task_no": "BUGTASK-20260716-0002",
     "source": "bug-intake",
     "agent": "A3-Backend-Critical-Path",
-    "status": "HOLD",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "MEDIUM/HIGH",
     "allowed_paths": [
@@ -26446,7 +26446,7 @@
       "A4-Frontend-UAT-Smoke"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
@@ -26494,7 +26494,7 @@
     "idempotency_key": "05156f6abb6896f020da8bf5cea8a7e005d6afe3421e0f09ffd40025a981f83f",
     "state_version": 8,
     "state_updated_at": "2026-07-25T02:05:30.408Z",
-    "route_superseded_reason": null,
+    "route_superseded_reason": "remote bug is not executable: FIX_READY_FOR_UAT",
     "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
     "dependency_recovered_at": null,
     "recovered_from_run_log": null,
@@ -26510,7 +26510,7 @@
     "source_repair_task_no": "BUGTASK-20260716-0002",
     "source": "bug-intake",
     "agent": "A1-CI-Runtime-Gate",
-    "status": "HOLD",
+    "status": "archived",
     "priority": "P2",
     "risk_level": "LOW/MEDIUM",
     "allowed_paths": [
@@ -26542,7 +26542,7 @@
       "A7-Final-QA-Gate"
     ],
     "approval_required": true,
-    "route_active": true,
+    "route_active": false,
     "route_selected_agents": [
       "A3-Backend-Critical-Path",
       "A1-CI-Runtime-Gate"
@@ -26598,7 +26598,7 @@
     "idempotency_key": "4a102c9e7ed80ac736720c4e41b5bf20894ef1b96b0be0ea025259020d7a520f",
     "state_version": 4,
     "state_updated_at": "2026-07-25T02:02:44.864Z",
-    "route_superseded_reason": null,
+    "route_superseded_reason": "remote bug is not executable: FIX_READY_FOR_UAT",
     "recovered_from_run_log": null,
     "integration_method": null,
     "worktree_baseline_sync": null,
