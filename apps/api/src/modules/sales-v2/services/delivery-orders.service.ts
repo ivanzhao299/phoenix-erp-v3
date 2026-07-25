@@ -178,14 +178,18 @@ export class DeliveryOrdersService {
   async create(dto: CreateDeliveryOrderDto) {
     const user = this.currentUser();
 
-    // 验证销售订单
-    const soIds = dto.salesOrderIds.map(Number);
+    // 前端字段历史名为 salesOrderIds，但业务人员实际使用可见的 SO-* 订单号。
+    // 将纯数字引用作为主键查询，其余引用作为订单号查询，避免 Number('SO-*')
+    // 产生 NaN 后触发 PostgreSQL 22P02。
+    const orderRefs = [...new Set(dto.salesOrderIds.map((ref) => ref.trim()).filter(Boolean))];
+    const soIds = orderRefs.filter((ref) => /^\d+$/.test(ref));
+    const orderNos = orderRefs.filter((ref) => !/^\d+$/.test(ref));
     const orders = await this.ds.query(
       `SELECT id, order_no, customer_code, customer_name, delivery_address,
               total_amount, status, company_code
        FROM sal_sales_orders
-       WHERE id = ANY($1)`,
-      [soIds],
+       WHERE id = ANY($1::bigint[]) OR order_no = ANY($2::text[])`,
+      [soIds, orderNos],
     );
 
     if (!orders.length) throw new BadRequestException('未找到有效的销售订单');
