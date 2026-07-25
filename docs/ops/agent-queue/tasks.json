@@ -25778,7 +25778,7 @@
     ],
     "redispatch_count": 5,
     "last_redispatch_at": "2026-07-25T01:56:38.571Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "evidence_gate": {
       "version": 1,
       "agent": "A4-Frontend-UAT-Smoke",
@@ -25887,7 +25887,7 @@
     ],
     "redispatch_count": 5,
     "last_redispatch_at": "2026-07-25T01:56:38.571Z",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "reason": "blocked by failed dependency: BUGTASK-20260717-0001-A4",
     "evidence_gate": {
       "version": 1,
@@ -26458,7 +26458,7 @@
     "changed_files": [],
     "retry_after": null,
     "reason": "detached worker did not write terminal implementation evidence; merge refused; worker exit=0",
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "integrated_commit": "",
     "integrated_at": null,
     "baseline_autopilot_exit_code": null,
@@ -26559,7 +26559,7 @@
       "reason": "blocked by failed dependency: BUGTASK-20260716-0002-A3",
       "checkedAt": "2026-07-25T02:05:32.551Z"
     },
-    "remote_repair_status": "HOLD",
+    "remote_repair_status": "FIX_READY_FOR_UAT",
     "implementation_commit": "",
     "integrated_commit": "",
     "integrated_at": null,
