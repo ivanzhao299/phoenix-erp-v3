@@ -23,25 +23,23 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260713-0004-A3-worker-assembled-prompt.md
-Assembled prompt chars: 23170
+Assembled prompt chars: 23626
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-24T07-47-57-258Z-A3-Backend-Critical-Path.md
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-25T02-17-09-389Z-A3-Backend-Critical-Path.md
 PASS WITH CONDITIONS
 
-BUG-20260713-0004 的后端修复已存在于当前基线提交 `345a215d`：
+当前基线已包含后端修复提交 `345a215d`：
 
-- 库存接口关联 `wms_warehouses`，优先返回 `warehouse_name_zh`
-- 保留 `warehouse_code` 回退及原有 DataScope
-- 聚焦测试：8/8 PASS
-- API TypeScript 检查：0 errors
-- 无数据库写入、迁移、部署或推送
-- 本次无需重复修改文件
+- 库存接口关联 `wms_warehouses`，优先返回中文 `warehouse_name_zh`。
+- RBAC 与 Warehouse DataScope 保持不变。
+- 聚焦测试：8/8 通过。
+- API TypeScript 检查：0 errors。
+- 未执行数据库写入、迁移、部署或推送。
+- 已更新[任务报告](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260713-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md)。
 
-完整报告：[BUG-20260713-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260713-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md)
-
-仍需 CI/CD、目标环境页面 smoke 和业务验收后，才能宣告问题正式解决。
+最终关闭仍需 CI/CD、生产环境 `/warehouse/query` smoke test 及业务验收。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -49,8 +47,6 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-2026-07-24T07:47:12.181466Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-24T07:47:12.181487Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
@@ -60,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f9317-b476-7711-bdb9-c5411a95d131
+session id: 019f970e-eaec-7463-b9a4-739b407c48cc
 --------
 user
 # Base Agent Prompt
@@ -99,7 +95,15 @@ Implement the backend portion of exactly one approved bug report. Read the attac
 4. task-specific report naming the source bug, root cause, changed files, validation results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
 5. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
 
-If the issue has no backend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+Return exactly one canonical conclusion. Never combine conclusions such as
+`NOT APPLICABLE / HOLD`, `PASS / HOLD`, or similar ambiguous wording.
+
+- If the current baseline already contains the correct backend-owned repair,
+  verify it with focused tests and return exactly `PASS WITH CONDITIONS`,
+  stating which existing files and behavior were verified.
+- If the issue genuinely has no backend ownership, return exactly
+  `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If required verification cannot be completed, return exactly `HOLD`.
 
 ---
 
@@ -488,15 +492,8 @@ Assigned agent: A3-Backend-Critical-Path
           {
             "tag": "a",
             "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 596
-            },
-            "label": "临期预警",
-
-...<truncated 75426 chars>
+       
+...<truncated 58296 chars>
 
 ```
 
@@ -508,16 +505,16 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 446,
-  "beforeHead": "c038308b461739537e49604fd55465cc6e13e5cf",
-  "afterHead": "c038308b461739537e49604fd55465cc6e13e5cf",
+  "responseChars": 382,
+  "beforeHead": "d6d1159c5837d2c4d5b9720a3794c201099a3fb0",
+  "afterHead": "d6d1159c5837d2c4d5b9720a3794c201099a3fb0",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-24T07:47:57.347Z",
+  "checkedAt": "2026-07-25T02:17:09.479Z",
   "passed": true,
   "role": "implementation_verified_existing",
   "terminalStatus": "SKIPPED_NOT_APPLICABLE",
@@ -529,9 +526,11 @@ Assigned agent: A3-Backend-Critical-Path
 
 ```json
 {
-  "attempted": false,
+  "attempted": true,
   "ok": false,
-  "reason": "worktree has no uncommitted Agent changes",
-  "files": []
+  "files": [
+    "docs/ops/BUG-20260713-0004_A3_BACKEND_CRITICAL_PATH_REPORT.md"
+  ],
+  "error": "no apps/api/ implementation file"
 }
 ```

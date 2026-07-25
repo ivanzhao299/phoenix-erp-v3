@@ -21,15 +21,62 @@ LOCAL_BUG_INTAKE_VALIDATION
 $ git status --short
 exit: 0
 stdout:
+ M docs/ops/agent-queue/events.jsonl
  M docs/ops/agent-queue/tasks.json
+ M docs/ops/runs/BUGTASK-20260715-0001-A1-contract.md
+ M docs/ops/runs/BUGTASK-20260715-0001-A1-worker-log.md
+ M docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md
+ M docs/ops/runs/BUGTASK-20260715-0001-A3-worker-assembled-prompt.md
+ M docs/ops/runs/BUGTASK-20260715-0001-A3-worker-log.md
+ M docs/ops/runs/BUGTASK-20260715-0001-A4-contract.md
+ M docs/ops/runs/BUGTASK-20260715-0001-A4-worker-assembled-prompt.md
+ M docs/ops/runs/BUGTASK-20260715-0001-A4-worker-log.md
+ M docs/ops/runs/BUGTASK-20260716-0001-A1-contract.md
+ M docs/ops/runs/BUGTASK-20260716-0001-A4-contract.md
+ M docs/ops/runs/BUGTASK-20260716-0001-A4-worker-assembled-prompt.md
  M docs/ops/runs/BUGTASK-20260716-0001-A4-worker-log.md
+ M docs/ops/runs/BUGTASK-20260716-0002-A1-contract.md
+ M docs/ops/runs/BUGTASK-20260716-0002-A3-contract.md
+ M docs/ops/runs/BUGTASK-20260716-0002-A3-worker-assembled-prompt.md
+ M docs/ops/runs/BUGTASK-20260716-0002-A3-worker-log.md
+ M docs/ops/runs/BUGTASK-20260716-0004-A1-contract.md
+ M docs/ops/runs/BUGTASK-20260716-0004-A1-worker-log.md
+ M docs/ops/runs/BUGTASK-20260716-0004-A3-contract.md
+ M docs/ops/runs/BUGTASK-20260716-0004-A3-worker-assembled-prompt.md
  M docs/ops/runs/BUGTASK-20260716-0004-A3-worker-log.md
+ M docs/ops/runs/BUGTASK-20260716-0004-A4-contract.md
+ M docs/ops/runs/BUGTASK-20260716-0004-A4-worker-assembled-prompt.md
+ M docs/ops/runs/BUGTASK-20260716-0004-A4-worker-log.md
+ M docs/ops/runs/BUGTASK-20260717-0001-A1-contract.md
+ M docs/ops/runs/BUGTASK-20260717-0001-A3-contract.md
+ M docs/ops/runs/BUGTASK-20260717-0001-A3-worker-assembled-prompt.md
  M docs/ops/runs/BUGTASK-20260717-0001-A3-worker-log.md
+ M docs/ops/runs/BUGTASK-20260717-0001-A4-contract.md
+ M docs/ops/runs/BUGTASK-20260717-0001-A4-worker-assembled-prompt.md
+ M docs/ops/runs/BUGTASK-20260717-0001-A4-worker-log.md
+ M docs/ops/runs/BUGTASK-20260718-0002-A1-contract.md
+ M docs/ops/runs/BUGTASK-20260718-0002-A1-worker-log.md
+ M docs/ops/runs/BUGTASK-20260718-0002-A3-contract.md
+ M docs/ops/runs/BUGTASK-20260718-0002-A3-worker-assembled-prompt.md
+ M docs/ops/runs/BUGTASK-20260718-0002-A3-worker-log.md
+ M docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md
+ M docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md
  M docs/ops/runs/bug-agent-result-writeback-latest.json
  M docs/ops/runs/bug-agent-result-writeback-response-latest.json
-?? docs/ops/runs/2026-07-18T13-27-58-426Z-A4-Frontend-UAT-Smoke.md
-?? docs/ops/runs/2026-07-18T13-31-43-238Z-A3-Backend-Critical-Path.md
-?? docs/ops/runs/2026-07-18T13-33-03-545Z-A3-Backend-Critical-Path.md
+ M docs/ops/runs/bug-runner-dashboard-latest.json
+ M docs/ops/runs/bug-runner-dashboard-latest.md
+ M docs/ops/runs/bug-task-agent-queue-plan-latest.json
+ M docs/ops/runs/bug-task-agent-queue-plan-latest.md
+?? docs/ops/runs/2026-07-25T01-58-27-073Z-A3-Backend-Critical-Path.md
+?? docs/ops/runs/2026-07-25T01-58-33-045Z-A4-Frontend-UAT-Smoke.md
+?? docs/ops/runs/2026-07-25T02-00-00-892Z-A3-Backend-Critical-Path.md
+?? docs/ops/runs/2026-07-25T02-01-53-654Z-A3-Backend-Critical-Path.md
+?? docs/ops/runs/2026-07-25T02-02-16-686Z-A4-Frontend-UAT-Smoke.md
+?? docs/ops/runs/2026-07-25T02-03-38-713Z-A3-Backend-Critical-Path.md
+?? docs/ops/runs/2026-07-25T02-03-47-991Z-A4-Frontend-UAT-Smoke.md
+?? docs/ops/runs/2026-07-25T02-05-06-264Z-A4-Frontend-UAT-Smoke.md
+?? docs/ops/runs/2026-07-25T02-05-26-474Z-A3-Backend-Critical-Path.md
+?? docs/ops/runs/BUGTASK-20260716-0002-A3-detached-worker-recovery.md
 
 stderr:
 
@@ -112,7 +159,7 @@ stderr:
   "agent": "A1-CI-Runtime-Gate",
   "exitCode": 0,
   "conclusion": "PASS",
-  "responseChars": 2088,
+  "responseChars": 4855,
   "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
   "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
   "commitHash": "",
@@ -121,7 +168,7 @@ stderr:
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-18T13:34:53.760Z",
+  "checkedAt": "2026-07-25T02:05:37.332Z",
   "passed": true,
   "role": "validation",
   "terminalStatus": "VALIDATION_COMPLETED",

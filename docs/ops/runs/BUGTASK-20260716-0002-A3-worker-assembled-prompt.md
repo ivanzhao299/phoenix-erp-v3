@@ -34,7 +34,15 @@ Implement the backend portion of exactly one approved bug report. Read the attac
 4. task-specific report naming the source bug, root cause, changed files, validation results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
 5. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
 
-If the issue has no backend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+Return exactly one canonical conclusion. Never combine conclusions such as
+`NOT APPLICABLE / HOLD`, `PASS / HOLD`, or similar ambiguous wording.
+
+- If the current baseline already contains the correct backend-owned repair,
+  verify it with focused tests and return exactly `PASS WITH CONDITIONS`,
+  stating which existing files and behavior were verified.
+- If the issue genuinely has no backend ownership, return exactly
+  `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If required verification cannot be completed, return exactly `HOLD`.
 
 ---
 
@@ -1208,9 +1216,7 @@ Assigned agent: A3-Backend-Critical-Path
       "devicePixelRatio": 1.600000023841858
     },
     "localEvidence": {
-      "localAttachmentPaths": [
-        "/Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-193120/BUG-20260716-0002/attachments/01-1784164130742-ce14643e.png"
-      ]
+      "localAttachmentPaths": []
     }
   },
   "failureClassification": {
@@ -1232,11 +1238,11 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-18T11:31:05.260Z",
-    "approvedBy": "bug_intake_runner",
+    "approvedAt": "2026-07-25T02:01:20.903Z",
+    "approvedBy": "admin",
     "redispatch": true,
-    "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-    "redispatchCount": 2,
+    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 7,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
@@ -1250,7 +1256,7 @@ Assigned agent: A3-Backend-Critical-Path
 
 ## Local Evidence
 
-- /Users/mac/.phoenix-erp/runs/bug-intake-inbox/20260718-193120/BUG-20260716-0002/attachments/01-1784164130742-ce14643e.png
+- No local attachment downloaded. If screenshot evidence is required, HOLD and request evidence sync.
 
 ---
 

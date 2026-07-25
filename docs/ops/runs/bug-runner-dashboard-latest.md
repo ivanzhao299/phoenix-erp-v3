@@ -1,7 +1,7 @@
 # Bug Runner Platform Dashboard
 
-- Decision: **GO**
-- Queue total / active: 403 / 0
+- Decision: **DEGRADED**
+- Queue total / active: 403 / 4
 - False completion: 0
 - Raw terminal evidence coverage: 98.4%
 - Governed evidence coverage: 100.0%

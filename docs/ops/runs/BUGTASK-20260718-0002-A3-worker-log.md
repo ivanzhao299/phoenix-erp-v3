@@ -23,30 +23,23 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260718-0002-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260718-0002-A3-worker-assembled-prompt.md
-Assembled prompt chars: 23524
+Assembled prompt chars: 23425
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-24T08-10-46-022Z-A3-Backend-Critical-Path.md
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-25T02-00-00-892Z-A3-Backend-Critical-Path.md
 PASS WITH CONDITIONS
 
-当前基线已包含后端修复：
+当前基线已包含正确的后端修复，已重新验证：
 
-- 根因：`ORG_MANAGER` 只查询公司/项目节点负责人，未使用审批引擎传入的申请人 `starterUserId`。
-- 修复：从申请人主组织沿父链解析最近的有效负责人，并保留原公司/项目负责人回退与安全失败行为。
-- [修复代码](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/assignment-resolver.service.ts)
-- [回归测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/assignment-resolver.service.spec.ts)
-- [任务报告](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-repairs/BUG-20260718-0002-a3-backend.md)
+- `ORG_MANAGER` 按发起人主组织父链解析最近的 ACTIVE 负责人，并保留公司节点回退。
+- 聚焦测试：1 suite、2 tests 全部通过。
+- API TypeScript 检查：0 errors。
+- 修复文件：[assignment-resolver.service.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/assignment-resolver.service.ts)
+- 回归测试：[assignment-resolver.service.spec.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/apps/api/src/modules/workflow/assignment-resolver.service.spec.ts)
+- 任务报告：[BUG-20260718-0002-a3-backend.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-repairs/BUG-20260718-0002-a3-backend.md)
 
-验证结果：
-
-- 聚焦 Jest：2/2 tests passed
-- API `tsc --noEmit`：退出码 0
-- `git diff --check`：通过
-- 无前端、迁移、schema、entity 或数据库改动
-- 未部署、未推送、未执行数据库操作
-
-仍须通过 CI/CD、生产或预发布 smoke，以及业务验收后，才能认定线上问题已解决。
+未执行数据库写入、迁移、部署或推送。仍须通过 CI/CD、预发布或生产 smoke，以及业务验收后才能声明线上问题已解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -54,8 +47,6 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-2026-07-24T08:09:54.185925Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-24T08:09:54.185950Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a3
@@ -65,7 +56,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f932c-7cc2-7dc0-a2f5-c616cd523b85
+session id: 019f96fe-f02d-7860-9303-4b32cf6eb53d
 --------
 user
 # Base Agent Prompt
@@ -467,8 +458,20 @@ Assigned agent: A3-Backend-Critical-Path
             },
             "label": "好业财同步",
             "disabled": false
-       
-...<truncated 48601 chars>
+          },
+          {
+            "tag": "a",
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 620
+            },
+            "label": "好业财中间层",
+            "disabled": false
+   
+...<truncated 61373 chars>
 
 ```
 
@@ -480,16 +483,16 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 680,
-  "beforeHead": "19f763c2dea1f1978087c684ed50431cd306518a",
-  "afterHead": "19f763c2dea1f1978087c684ed50431cd306518a",
+  "responseChars": 669,
+  "beforeHead": "03f6e57b51e396c7db9c327b84b85ffdf11c1e92",
+  "afterHead": "03f6e57b51e396c7db9c327b84b85ffdf11c1e92",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-24T08:10:46.098Z",
+  "checkedAt": "2026-07-25T02:00:00.982Z",
   "passed": true,
   "role": "implementation_verified_existing",
   "terminalStatus": "SKIPPED_NOT_APPLICABLE",

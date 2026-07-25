@@ -1,12 +1,12 @@
 {
   "decision": "BUG_AGENT_RESULT_WRITEBACK_APPLY",
-  "bugNo": "BUG-20260724-0004",
-  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260724-0004/agent-result",
+  "bugNo": "BUG-20260713-0004",
+  "endpoint": "https://erp.eggslao.com/api/bug-intake/reports/BUG-20260713-0004/agent-result",
   "payload": {
-    "taskId": "BUGTASK-20260724-0004-A1",
+    "taskId": "BUGTASK-20260713-0004-A1",
     "agent": "A1-CI-Runtime-Gate",
     "conclusion": "PASS WITH CONDITIONS",
-    "resultFile": "docs/ops/runs/BUGTASK-20260724-0004-A1-worker-log.md",
+    "resultFile": "docs/ops/runs/BUGTASK-20260713-0004-A1-worker-log.md",
     "commitHash": "",
     "changedFiles": [],
     "validationResults": {
@@ -15,7 +15,7 @@
         "agent": "A1-CI-Runtime-Gate",
         "exitCode": 0,
         "conclusion": "PASS",
-        "responseChars": 4226,
+        "responseChars": 5960,
         "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
         "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
         "commitHash": "",
@@ -24,7 +24,7 @@
         "reportFiles": [],
         "parentCommitRecovered": false,
         "infrastructureFailure": null,
-        "checkedAt": "2026-07-24T08:43:17.793Z",
+        "checkedAt": "2026-07-25T02:17:19.401Z",
         "passed": true,
         "role": "validation",
         "terminalStatus": "VALIDATION_COMPLETED",
@@ -33,7 +33,7 @@
       "queueStatus": "VALIDATION_COMPLETED",
       "integratedCommit": ""
     },
-    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260724-0004-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260724-0004-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/OBSERVER_FINDINGS_REPORT.md\n M docs/ops/agent-queue/events.jsonl\n M docs/ops/agent-queue/tasks.json\n M docs/ops/evolution/evolution-state.json\n M docs/ops/evolution/improvement-backlog.json\n M docs/ops/evolution/learning-log.json\n M docs/ops/runs/BUGTASK-20260717-0001-A1-worker-log.md\n M docs/ops/runs/BUGTASK-20260717-0001-A3-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260717-0001-A3-worker-log.md\n M docs/ops/runs/BUGTASK-20260717-0001-A4-worker-log.md\n M docs/ops/runs/BUGTASK-20260718-0004-A1-contract.md\n M docs/ops/runs/BUGTASK-20260718-0004-A1-worker-log.md\n M docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md\n M docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260718-0004-A4-worker-log.md\n M docs/ops/runs/BUGTASK-20260721-0001-A1-contract.md\n M docs/ops/runs/BUGTASK-20260721-0001-A1-worker-log.md\n M docs/ops/runs/BUGTASK-20260721-0001-A3-contract.md\n M docs/ops/runs/BUGTASK-20260721-0001-A4-contract.md\n M docs/ops/runs/BUGTASK-20260721-0001-A4-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260721-0001-A4-worker-log.md\n M docs/ops/runs/BUGTASK-20260723-0005-A1-worker-log.md\n M docs/ops/runs/BUGTASK-20260723-0005-A4-worker-log.md\n M docs/ops/runs/BUGTASK-20260724-0003-A3-worker-log.md\n M docs/ops/runs/bug-agent-result-writeback-latest.json\n M docs/ops/runs/bug-agent-result-writeback-response-latest.json\n M docs/ops/runs/bug-production-route-smoke-latest.json\n M docs/ops/runs/bug-runner-dashboard-latest.json\n M docs/ops/runs/bug-runner-dashboard-latest.md\n M docs/ops/runs/bug-task-agent-queue-plan-latest.json\n M docs/ops/runs/bug-task-agent-queue-",
+    "summary": "# Agent Worker Log\n\n| Field | Value |\n| --- | --- |\n| Task ID | BUGTASK-20260713-0004-A1 |\n| Agent | A1-CI-Runtime-Gate |\n| Dry run | No |\n| Exit code | 0 |\n| Evidence gate | VALIDATION_COMPLETED |\n\n## Command\n\n```bash\nlocal-a1-validation BUGTASK-20260713-0004-A1\n```\n\n## Stdout\n\n```text\nLOCAL_BUG_INTAKE_VALIDATION\n$ git status --short\nexit: 0\nstdout:\n M docs/ops/OBSERVER_EVOLUTION_TASKS.md\n M docs/ops/OBSERVER_FINDINGS_REPORT.md\n M docs/ops/agent-queue/events.jsonl\n M docs/ops/agent-queue/tasks.json\n M docs/ops/evolution/evolution-state.json\n M docs/ops/evolution/improvement-backlog.json\n M docs/ops/evolution/learning-log.json\n M docs/ops/runs/BUGTASK-20260713-0004-A1-contract.md\n M docs/ops/runs/BUGTASK-20260713-0004-A2-contract.md\n M docs/ops/runs/BUGTASK-20260713-0004-A2-worker-log.md\n M docs/ops/runs/BUGTASK-20260713-0004-A3-contract.md\n M docs/ops/runs/BUGTASK-20260713-0004-A3-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260713-0004-A3-worker-log.md\n M docs/ops/runs/BUGTASK-20260715-0001-A1-contract.md\n M docs/ops/runs/BUGTASK-20260715-0001-A1-worker-log.md\n M docs/ops/runs/BUGTASK-20260715-0001-A3-contract.md\n M docs/ops/runs/BUGTASK-20260715-0001-A3-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260715-0001-A3-worker-log.md\n M docs/ops/runs/BUGTASK-20260715-0001-A4-contract.md\n M docs/ops/runs/BUGTASK-20260715-0001-A4-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260715-0001-A4-worker-log.md\n M docs/ops/runs/BUGTASK-20260716-0001-A1-contract.md\n M docs/ops/runs/BUGTASK-20260716-0001-A1-worker-log.md\n M docs/ops/runs/BUGTASK-20260716-0001-A4-contract.md\n M docs/ops/runs/BUGTASK-20260716-0001-A4-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260716-0001-A4-worker-log.md\n M docs/ops/runs/BUGTASK-20260716-0002-A1-contract.md\n M docs/ops/runs/BUGTASK-20260716-0002-A3-contract.md\n M docs/ops/runs/BUGTASK-20260716-0002-A3-worker-assembled-prompt.md\n M docs/ops/runs/BUGTASK-20260716-0002-A3-worker-log.md\n M docs/ops/runs/BUGTASK-2026071",
     "nextAction": ""
   }
 }

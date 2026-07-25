@@ -34,7 +34,15 @@ Implement the backend portion of exactly one approved bug report. Read the attac
 4. task-specific report naming the source bug, root cause, changed files, validation results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
 5. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
 
-If the issue has no backend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+Return exactly one canonical conclusion. Never combine conclusions such as
+`NOT APPLICABLE / HOLD`, `PASS / HOLD`, or similar ambiguous wording.
+
+- If the current baseline already contains the correct backend-owned repair,
+  verify it with focused tests and return exactly `PASS WITH CONDITIONS`,
+  stating which existing files and behavior were verified.
+- If the issue genuinely has no backend ownership, return exactly
+  `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If required verification cannot be completed, return exactly `HOLD`.
 
 ---
 
@@ -849,14 +857,14 @@ Assigned agent: A3-Backend-Critical-Path
     }
   },
   "failureClassification": {
-    "category": "API_5XX",
+    "category": "PG_SQL",
     "evidence": [
-      "API 5xx/异常信号"
+      "数据库/PG/SQL 信号"
     ],
     "priority": "P1",
     "severity": "HIGH",
-    "confidence": 0.88,
-    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+    "confidence": 0.92,
+    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
     "autoFixEligible": true,
     "recommendedAgents": [
       "A3-Backend-Critical-Path",
@@ -867,11 +875,11 @@ Assigned agent: A3-Backend-Critical-Path
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-24T07:44:25.472Z",
+    "approvedAt": "2026-07-25T02:15:50.585Z",
     "approvedBy": "admin",
     "redispatch": true,
     "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
-    "redispatchCount": 8,
+    "redispatchCount": 9,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",

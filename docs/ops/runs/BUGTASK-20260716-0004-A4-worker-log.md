@@ -23,41 +23,28 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260716-0004-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260716-0004-A4-worker-assembled-prompt.md
-Assembled prompt chars: 26531
+Assembled prompt chars: 27288
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T12-09-23-942Z-A4-Frontend-UAT-Smoke.md
-结论：**NOT APPLICABLE（Frontend） / HOLD**
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-25T02-02-16-686Z-A4-Frontend-UAT-Smoke.md
+NOT APPLICABLE
 
-BUG-20260716-0004 没有可安全实施的前端修复，未修改任何文件。
+该问题无前端修复归属：
 
-证据：
-
-- “从日报预填”已正确请求 `GET /v3/farm/daily-logs/eggs-breakdown?date=...&houseCode=...`。
-- 提示仅在接口成功返回 `logs=0` 或 `total=0` 时出现，并非前端请求失败。
-- 查询结果受后端 `MENU_FARM_DAILY:V` 和 DataScope 约束。
-- 日报的 `eggs_by_grade` 是可选字段；前端不能根据产蛋总数可靠推导九档数量。
-- 权限不足若返回 403，现有请求封装会显示接口错误，不会产生本次“暂无日报”提示。
-- 前端强行回填或绕过检查会掩盖权限、DataScope 或日报数据缺失问题。
+- [daily-inbound/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/daily-inbound/page.tsx:67) 仅在接口成功返回 `logs=0` 或 `total=0` 时显示该提示。
+- 日报页只有实际填写九档数据时才提交 `eggs_by_grade`；普通“提交日报”不保证产生预填数据。
+- 修复需要调整 API/数据契约，超出本任务允许范围。原任务分类也指向 `PG_SQL` 与后端代理 A3。
+- 未修改任何文件，未创建报告，未触碰 API、数据库、迁移、部署或推送。
 
 验证结果：
 
-- Web TypeScript：PASS，`tsc --noEmit`
-- 聚焦测试：PASS，`breeding-daily.test.ts` 4/4
-- owned scope diff：空
-- 桌面：依据 2000×1081 生产快照确认按钮及错误状态正常呈现
-- 移动端：源码确认表单操作区支持换行；因没有可用登录态运行环境，未完成真实移动端交互 smoke
-- RBAC、DataScope、加载、错误和空状态均未改动
+- Web TypeScript：通过
+- `breeding-daily.test.ts`：4/4 通过
+- 目标日报及入库页面 ESLint：通过
+- 页面快照与源码错误分支一致；本地截图缺失不影响归属判断
 
-后续需由后端/安全负责人核查该用户请求的实际响应及数据库只读结果：
-
-1. 是否命中 `MENU_FARM_DAILY:V`。
-2. DataScope 是否包含日报所属 farm/site/company。
-3. 当日日报是否实际保存了非空 `eggs_by_grade`。
-4. 是否存在日期或鸡舍编码不一致。
-
-在 CI/CD、生产 smoke 和业务验收前，不声明该缺陷已解决。
+应转交后端任务处理 `eggs-breakdown` 查询及“已提交但未含九档数据”的业务契约。不得在 CI/CD、生产语义冒烟和业务验收前宣称 BUG 已解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -74,7 +61,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f7520-5cf4-7a51-bdc8-51e1db15f78a
+session id: 019f9700-be9d-7b70-b433-f1bc53dfd6bb
 --------
 user
 # Base Agent Prompt
@@ -114,7 +101,20 @@ Implement the frontend portion of exactly one approved bug report. Read the atta
 5. task-specific report naming the source bug, root cause, changed files, verification results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
 6. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
 
-If the issue has no frontend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+Return exactly one canonical conclusion. Never combine conclusions such as
+`NOT APPLICABLE / HOLD`, `PASS / HOLD`, or similar ambiguous wording.
+
+- If the current baseline already contains the correct frontend-owned repair,
+  verify it with focused tests and return exactly `PASS WITH CONDITIONS`,
+  stating which existing files and behavior were verified.
+- If the issue genuinely has no frontend ownership, return exactly
+  `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If local browser or dev-server startup is blocked only by the Codex sandbox
+  (for example `listen EPERM`), record that as a condition rather than a
+  blocker when Web typecheck, lint, and focused component/route regression
+  tests all pass. Return exactly `PASS WITH CONDITIONS`; CI and the runner's
+  production semantic smoke remain mandatory before business acceptance.
+- If required verification cannot be completed, return exactly `HOLD`.
 
 ---
 
@@ -493,42 +493,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
               "w": 215,
               "x": 0,
               "y": 699
-            },
-            "label": "包装日报",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 731
-            },
-            "label": "异常处理",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 763
-            },
-            "label": "补打日志",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-  
-...<truncated 83540 chars>
+            }
+...<truncated 99998 chars>
 
 ```
 
@@ -539,17 +505,17 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
-  "conclusion": "HOLD",
-  "responseChars": 810,
-  "beforeHead": "6606d45144c39a97ca7621378e80f8bb62027023",
-  "afterHead": "6606d45144c39a97ca7621378e80f8bb62027023",
+  "conclusion": "",
+  "responseChars": 547,
+  "beforeHead": "011a2910bb7c5d2e17a252d49bc3fa2e9e6928ea",
+  "afterHead": "011a2910bb7c5d2e17a252d49bc3fa2e9e6928ea",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-18T12:09:24.042Z",
+  "checkedAt": "2026-07-25T02:02:16.777Z",
   "passed": true,
   "role": "implementation_verified_existing",
   "terminalStatus": "SKIPPED_NOT_APPLICABLE",

@@ -23,31 +23,26 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260718-0004-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260718-0004-A4-worker-assembled-prompt.md
-Assembled prompt chars: 33315
+Assembled prompt chars: 33223
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-24T08-12-56-957Z-A4-Frontend-UAT-Smoke.md
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-25T02-06-57-239Z-A4-Frontend-UAT-Smoke.md
 PASS WITH CONDITIONS
 
-当前基线已包含 BUG-20260718-0004 的前端修复，提交为 `e35482b2`。
+当前基线已包含正确修复，提交为 `e35482b2`。已验证：
 
-验证结果：
-
-- 场长 + `MENU_FARM_MASTER:V`：可新建本场鸡舍。
-- 兽医等非场长：保持只读。
-- 无关菜单权限：继续拒绝访问，不发生越权回退。
-- 权限、加载、空态、保存及错误状态均保留。
-- 专项 Vitest：30/30 通过。
+- 养殖场长 + `MENU_FARM_MASTER:V` 获得本场鸡舍维护权限。
+- 兽医仍为只读，管理员不会因角色被误提升，无关菜单权限继续拒绝。
+- 加载、空态、错误态、RBAC 和 DataScope 语义保持不变。
+- 专项测试：30/30 PASS。
 - Web TypeScript：0 errors。
-- 聚焦 ESLint：0 errors、0 warnings。
-- 修复提交 `git diff --check`：通过。
-- 未修改 API、数据库或迁移；未部署、未推送。
-- 工作区仅有既存未跟踪的 `node_modules`，本轮未改动文件。
+- 聚焦 ESLint：0 warnings。
+- 本地浏览器验证受沙箱 `listen EPERM` 限制，未完成真实桌面/移动渲染。
 
-任务报告：[BUGTASK-20260718-0004-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md)
+报告：[BUGTASK-20260718-0004-a4-frontend-uat-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260718-0004-a4-frontend-uat-report.md)
 
-本地开发服务器因沙箱禁止监听端口而返回 `listen EPERM`，因此真实桌面/移动浏览器渲染仍需 CI/runner 补验。还必须完成生产环境语义冒烟、`linhong` DataScope 验证、原始截图核对及业务验收，才能认定该 Bug 已解决。
+未修改 API、数据库或迁移，未部署、推送。仍须 CI/CD、生产环境移动/桌面语义冒烟及业务验收后才能认定 Bug 已解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -55,8 +50,6 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-2026-07-24T08:11:52.685585Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-24T08:11:52.685609Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
 OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4
@@ -66,7 +59,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f932e-4b9a-7b01-851a-c43b5a303e5f
+session id: 019f9705-bacd-77c3-9732-578e8b0c728e
 --------
 user
 # Base Agent Prompt
@@ -457,8 +450,20 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
           },
           {
             "tag": "div",
-            "path": ".sidebar-module__C8A-ya__
-...<truncated 58395 chars>
+            "path": ".sidebar-module__C8A-ya__groupHeader.",
+            "rect": {
+              "h": 38,
+              "w": 215,
+              "x": 0,
+              "y": 432
+            },
+            "label": "经营分析",
+            "disabled": false
+          },
+          {
+            "tag": "div",
+            "path": ".sidebar-module__
+...<truncated 64063 chars>
 
 ```
 
@@ -470,16 +475,16 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 644,
-  "beforeHead": "aa203c07837916f2c04cefae16cf795ede198547",
-  "afterHead": "aa203c07837916f2c04cefae16cf795ede198547",
+  "responseChars": 506,
+  "beforeHead": "672b1c7c4d1c9faed813dcb66f83c76aaa8bba79",
+  "afterHead": "672b1c7c4d1c9faed813dcb66f83c76aaa8bba79",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-24T08:12:57.041Z",
+  "checkedAt": "2026-07-25T02:06:57.331Z",
   "passed": true,
   "role": "implementation_verified_existing",
   "terminalStatus": "SKIPPED_NOT_APPLICABLE",

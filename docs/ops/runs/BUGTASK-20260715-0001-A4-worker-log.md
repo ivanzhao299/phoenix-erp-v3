@@ -6,7 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | SKIPPED_NOT_APPLICABLE |
 
 ## Command
 
@@ -23,30 +23,23 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260715-0001-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260715-0001-A4-worker-assembled-prompt.md
-Assembled prompt chars: 26402
+Assembled prompt chars: 27079
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-15T12-06-13-763Z-A4-Frontend-UAT-Smoke.md
-Implemented the frontend repair for `BUG-20260715-0001`.
+Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-25T02-03-47-991Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS
 
-The root cause was a source mismatch: `/breeding` used `brd_flocks.current_qty` for 存栏总数, while `/home` inferred 当前总存栏 from `/v3/farm/daily-hen-report`. I changed `/home` to fetch `/crud/brd_flocks?limit=1000` under the existing `MENU_FARM_DATA:V` gate and made `brd_flocks.current_qty` authoritative for current stock. I also aligned `/breeding` to request flocks with `limit=1000`.
+当前基线已包含前端修复 `f243a9e7`，无需重复编辑：
 
-Changed:
-- [home/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/home/page.tsx:155)
-- [breeding/page.tsx](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/page.tsx:155)
-- [home-farm-kpi.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-farm-kpi.ts:72)
-- [home-farm-kpi.test.ts](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/home-farm-kpi.test.ts:5)
-- [A4 report](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md:1)
+- 运营工作台和养殖场总览均以 `brd_flocks.current_qty` 计算存栏。
+- RBAC、DataScope、静默错误降级、空数据和加载状态保持不变。
+- 聚焦测试：2 files、10 tests 全部通过。
+- Web TypeScript 与聚焦 ESLint：通过。
+- 本地浏览器桌面/移动端验证受沙箱 `listen EPERM` 限制，需由 CI/CD、可运行环境语义冒烟及业务验收确认。
+- 未部署、推送、写数据库或执行迁移。
 
-Verification:
-- `vitest` focused tests: PASS, 10 tests
-- `cd apps/web && ./node_modules/.bin/tsc --noEmit`: PASS
-- `git diff --check`: PASS
-- helper ESLint: PASS
-
-Status: `PASS WITH CONDITIONS`, release gate `HOLD`.
-
-I did not run deploy, push, migrations, database writes, or task-board updates. Browser desktop/mobile smoke could not be captured locally because Next dev server binding failed with `listen EPERM 127.0.0.1:3000`; the report records that condition explicitly and does not claim production resolution.
+任务报告：[BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md)
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -54,22 +47,16 @@ Baseline autopilot skipped by caller; caller must run lifecycle hook.
 ## Stderr
 
 ```text
-2026-07-15T12:02:15.984300Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
-2026-07-15T12:02:15.985680Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=/Users/mac/.codex/.tmp/plugins/plugins/ngs-analysis/.codex-plugin/plugin.json
-2026-07-15T12:02:16.246827Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-15T12:02:16.246844Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-2026-07-15T12:02:16.308726Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path with '..' must resolve under plugin assets/
-2026-07-15T12:02:16.308738Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path with '..' must resolve under plugin assets/
-OpenAI Codex v0.142.5
+OpenAI Codex v0.145.0-alpha.18
 --------
 workdir: /Users/mac/phoenix-erp-worktrees/bug-intake-a4
-model: gpt-5.5
+model: gpt-5.6-sol
 provider: openai
 approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
-reasoning effort: high
+reasoning effort: low
 reasoning summaries: none
-session id: 019f65a7-fe01-7060-b1cd-61b28b497fa7
+session id: 019f9702-b81e-7b72-85b0-83bdf50a07a7
 --------
 user
 # Base Agent Prompt
@@ -109,7 +96,20 @@ Implement the frontend portion of exactly one approved bug report. Read the atta
 5. task-specific report naming the source bug, root cause, changed files, verification results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
 6. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
 
-If the issue has no frontend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+Return exactly one canonical conclusion. Never combine conclusions such as
+`NOT APPLICABLE / HOLD`, `PASS / HOLD`, or similar ambiguous wording.
+
+- If the current baseline already contains the correct frontend-owned repair,
+  verify it with focused tests and return exactly `PASS WITH CONDITIONS`,
+  stating which existing files and behavior were verified.
+- If the issue genuinely has no frontend ownership, return exactly
+  `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If local browser or dev-server startup is blocked only by the Codex sandbox
+  (for example `listen EPERM`), record that as a condition rather than a
+  blocker when Web typecheck, lint, and focused component/route regression
+  tests all pass. Return exactly `PASS WITH CONDITIONS`; CI and the runner's
+  production semantic smoke remain mandatory before business acceptance.
+- If required verification cannot be completed, return exactly `HOLD`.
 
 ---
 
@@ -489,8 +489,16 @@ Assigned agent: A4-Frontend-UAT-Smoke
           },
           {
             "tag": "a",
-            "path": ".sidebar-module__C8A-
-...<truncated 672211 chars>
+            "path": ".sidebar-module__C8A-ya__subItem.",
+            "rect": {
+              "h": 32,
+              "w": 215,
+              "x": 0,
+              "y": 699
+            },
+            "label": "包装日报",
+            "disa
+...<truncated 96696 chars>
 
 ```
 
@@ -501,34 +509,21 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "version": 1,
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
-  "conclusion": "PASS",
-  "responseChars": 1539,
-  "beforeHead": "8a4d78463f65fab3d1dd01969681cf067762254b",
-  "afterHead": "a029612af5063f9da364052531db0436857db81d",
-  "commitHash": "a029612af5063f9da364052531db0436857db81d",
-  "changedFiles": [
-    "apps/web/src/app/(admin)/breeding/page.tsx",
-    "apps/web/src/app/(admin)/home/page.tsx",
-    "apps/web/src/lib/home-farm-kpi.test.ts",
-    "apps/web/src/lib/home-farm-kpi.ts",
-    "docs/ops/BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md"
-  ],
-  "businessChangedFiles": [
-    "apps/web/src/app/(admin)/breeding/page.tsx",
-    "apps/web/src/app/(admin)/home/page.tsx",
-    "apps/web/src/lib/home-farm-kpi.test.ts",
-    "apps/web/src/lib/home-farm-kpi.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md"
-  ],
+  "conclusion": "PASS_WITH_CONDITIONS",
+  "responseChars": 447,
+  "beforeHead": "011a2910bb7c5d2e17a252d49bc3fa2e9e6928ea",
+  "afterHead": "011a2910bb7c5d2e17a252d49bc3fa2e9e6928ea",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-15T12:06:13.928Z",
+  "checkedAt": "2026-07-25T02:03:48.083Z",
   "passed": true,
-  "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "role": "implementation_verified_existing",
+  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
 }
 ```
 
@@ -536,26 +531,9 @@ Assigned agent: A4-Frontend-UAT-Smoke
 
 ```json
 {
-  "attempted": true,
-  "ok": true,
-  "files": [
-    "apps/web/src/app/(admin)/breeding/page.tsx",
-    "apps/web/src/app/(admin)/home/page.tsx",
-    "apps/web/src/lib/home-farm-kpi.test.ts",
-    "apps/web/src/lib/home-farm-kpi.ts",
-    "docs/ops/BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md"
-  ],
-  "businessFiles": [
-    "apps/web/src/app/(admin)/breeding/page.tsx",
-    "apps/web/src/app/(admin)/home/page.tsx",
-    "apps/web/src/lib/home-farm-kpi.test.ts",
-    "apps/web/src/lib/home-farm-kpi.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md"
-  ],
-  "commitHash": "a029612af5063f9da364052531db0436857db81d",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 a029612a] fix(web): repair BUG-20260715-0001\n 5 files changed, 146 insertions(+), 8 deletions(-)\n create mode 100644 docs/ops/BUG-20260715-0001_A4_FRONTEND_UIUX_UAT_REPORT.md"
+  "attempted": false,
+  "ok": false,
+  "reason": "worktree has no uncommitted Agent changes",
+  "files": []
 }
 ```

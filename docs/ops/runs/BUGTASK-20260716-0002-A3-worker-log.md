@@ -6,7 +6,7 @@
 | Agent | A3-Backend-Critical-Path |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | HOLD |
+| Evidence gate | SKIPPED_NOT_APPLICABLE |
 
 ## Command
 
@@ -23,21 +23,25 @@ Branch: codex/bug-intake-a3
 Prompt: docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260716-0002-A3-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260716-0002-A3-worker-assembled-prompt.md
-Assembled prompt chars: 33044
+Assembled prompt chars: 33233
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a3 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T13-42-06-988Z-A3-Backend-Critical-Path.md
-`PASS WITH CONDITIONS`（技术 GO，发布与业务关闭仍 HOLD）。
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-25T02-05-26-474Z-A3-Backend-Critical-Path.md
+PASS WITH CONDITIONS
 
-- 根因：`inv_ledger` 可选列在部署环境中漂移，固定列 INSERT 触发 PostgreSQL 500。
-- 当前分支已包含对应兼容修复，无需重复修改后端代码。
-- 聚焦测试：10/10 通过。
-- API `tsc --noEmit`：0 错误。
-- 未写数据库、未运行迁移、未部署、未 push。
-- 报告：[BUG-20260716-0002-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/BUG-20260716-0002-a3-backend-report.md)
+当前基线已包含该药品入库 HTTP 500 的后端修复，无需重复修改业务代码。
 
-仍需 CI/CD、生产冒烟及业务验收后，才能认定该 Bug 已解决。
+验证结果：
+
+- 聚焦测试：10/10 通过
+- API `tsc --noEmit`：0 errors
+- 未写数据库、未执行迁移、未部署、未 push
+- 新增报告：[BUG-20260716-0002-a3-backend-report.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a3/docs/ops/bug-intake/BUG-20260716-0002-a3-backend-report.md)
+
+根因是旧环境 `inv_ledger` 可选列漂移导致固定 INSERT 抛出 PostgreSQL 列不存在错误。现有实现按数据库实际存在的列生成流水 INSERT，同时保留 RBAC、DataScope 和事务控制。
+
+仍须通过 CI/CD、生产 smoke 和业务验收后，才能认定 Bug 已解决。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -54,7 +58,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f7575-1375-74e1-a87c-b50ca41d5bb0
+session id: 019f9703-be40-7b91-a8c2-ebe00d0892e5
 --------
 user
 # Base Agent Prompt
@@ -93,7 +97,15 @@ Implement the backend portion of exactly one approved bug report. Read the attac
 4. task-specific report naming the source bug, root cause, changed files, validation results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
 5. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
 
-If the issue has no backend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+Return exactly one canonical conclusion. Never combine conclusions such as
+`NOT APPLICABLE / HOLD`, `PASS / HOLD`, or similar ambiguous wording.
+
+- If the current baseline already contains the correct backend-owned repair,
+  verify it with focused tests and return exactly `PASS WITH CONDITIONS`,
+  stating which existing files and behavior were verified.
+- If the issue genuinely has no backend ownership, return exactly
+  `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If required verification cannot be completed, return exactly `HOLD`.
 
 ---
 
@@ -424,26 +436,8 @@ Assigned agent: A3-Backend-Critical-Path
           },
           {
             "tag": "div",
-            "path": ".sidebar-module__C8A-ya__groupHeader.",
-            "rect": {
-              "h": 38,
-              "w": 220,
-              "x": 0,
-              "y": 498
-            },
-            "label": "审批中心",
-            "disabled": false
-          },
-          {
-            "tag": "div",
-            "path": ".sidebar-module__C8A-ya__groupHeader.",
-            "rect": {
-              "h": 38,
-              "w": 220,
-              "x": 0,
-              "y": 536
-            },
-...<truncated 99898 chars>
+            "path": ".sidebar-module__C8
+...<truncated 86661 chars>
 
 ```
 
@@ -455,20 +449,20 @@ Assigned agent: A3-Backend-Critical-Path
   "agent": "A3-Backend-Critical-Path",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 381,
-  "beforeHead": "71a1d23bec07f4a19e07ef1d73f111077b3aff73",
-  "afterHead": "71a1d23bec07f4a19e07ef1d73f111077b3aff73",
+  "responseChars": 449,
+  "beforeHead": "e5b24adc10a4f3fb58d93ef570ac8df9369ef537",
+  "afterHead": "e5b24adc10a4f3fb58d93ef570ac8df9369ef537",
   "commitHash": "",
   "changedFiles": [],
   "businessChangedFiles": [],
   "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-18T13:42:07.086Z",
-  "passed": false,
-  "role": "implementation",
-  "terminalStatus": "HOLD",
-  "reason": "Missing implementation evidence: approved business-file change, new implementation commit, task-specific report"
+  "checkedAt": "2026-07-25T02:05:26.566Z",
+  "passed": true,
+  "role": "implementation_verified_existing",
+  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
 }
 ```
 
@@ -479,7 +473,7 @@ Assigned agent: A3-Backend-Critical-Path
   "attempted": true,
   "ok": false,
   "files": [
-    "docs/ops/BUG-20260716-0002-a3-backend-report.md"
+    "docs/ops/bug-intake/BUG-20260716-0002-a3-backend-report.md"
   ],
   "error": "no apps/api/ implementation file"
 }

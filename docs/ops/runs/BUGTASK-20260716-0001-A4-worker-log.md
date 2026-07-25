@@ -6,7 +6,7 @@
 | Agent | A4-Frontend-UAT-Smoke |
 | Dry run | No |
 | Exit code | 0 |
-| Evidence gate | IMPLEMENTATION_COMPLETED |
+| Evidence gate | SKIPPED_NOT_APPLICABLE |
 
 ## Command
 
@@ -23,37 +23,31 @@ Branch: codex/bug-intake-a4
 Prompt: docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md
 Task contract: docs/ops/runs/BUGTASK-20260716-0001-A4-contract.md
 Assembled prompt: docs/ops/runs/BUGTASK-20260716-0001-A4-worker-assembled-prompt.md
-Assembled prompt chars: 26249
+Assembled prompt chars: 27056
 Codex command: codex exec -C /Users/mac/phoenix-erp-worktrees/bug-intake-a4 --sandbox workspace-write -
 Codex timeout ms: 600000
 Codex CLI: /Applications/ChatGPT.app/Contents/Resources/codex (codex-cli 0.145.0-alpha.18)
-Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-18T13-27-58-426Z-A4-Frontend-UAT-Smoke.md
-结论：**PASS WITH CONDITIONS；发布状态 HOLD。**
+Run log: /Users/mac/phoenix-erp-worktrees/codex-orchestrator/docs/ops/runs/2026-07-25T02-05-06-264Z-A4-Frontend-UAT-Smoke.md
+PASS WITH CONDITIONS
 
-已修复鸡群档案保存后的刷新时序：
+当前基线已包含前端修复提交 `35b04815`：
 
-- 保存成功后先等待列表重新取数，再关闭抽屉并显示成功提示。
-- CRUD 列表请求增加 `cache: 'no-store'`，避免读取旧缓存。
-- 保存期间禁用按钮，防止重复提交。
-- RBAC、DataScope、错误态、空态及附件 ACL 均未改变。
+- 编辑/新建成功后先 `await load()`，再关闭抽屉。
+- CRUD 列表请求使用 `cache: 'no-store'`。
+- 保存期间禁用按钮，避免重复提交。
+- RBAC、DataScope、错误态、空态和加载态保持不变。
 
-验证结果：
+验证：
 
-- 聚焦测试：3/3 通过
 - Web TypeScript：0 errors
+- 聚焦回归测试：3/3 通过
 - `git diff --check`：通过
-- 桌面附件及移动响应式规则已检查
-- ESLint 命中 5 个既有错误、7 个既有警告；本次新增行无诊断
-- 浏览器端到端验证受沙箱 `listen EPERM 0.0.0.0:3000` 限制，尚未完成
+- 聚焦 lint：既有基线 5 errors、7 warnings；修复新增行无诊断
+- 浏览器验证：沙箱禁止监听 `127.0.0.1:3000`，报 `listen EPERM`
 
-改动：
+报告已更新为单一规范结论：[BUGTASK-20260716-0001-frontend-repair.md](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260716-0001-frontend-repair.md)。
 
-- [鸡群档案页面](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/app/(admin)/breeding/flock/page.tsx)
-- [useCrud hook](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/hooks/useCrud.ts)
-- [聚焦回归测试](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts)
-- [任务报告](/Users/mac/phoenix-erp-worktrees/bug-intake-a4/docs/ops/BUGTASK-20260716-0001-frontend-repair.md)
-
-未提交、未推送、未部署、未操作数据库。CI、测试环境桌面/移动端 smoke、生产 smoke 和业务验收完成前，不声明该 Bug 已解决。
+仍需 CI、可运行环境的桌面/移动端保存 smoke、生产 smoke 和业务验收；目前不声明生产问题已解决。未推送、部署或执行数据库操作。
 Baseline autopilot skipped by caller; caller must run lifecycle hook.
 
 ```
@@ -70,7 +64,7 @@ approval: never
 sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: low
 reasoning summaries: none
-session id: 019f7566-0bca-79b0-bae2-755cbb4876b9
+session id: 019f9703-bea4-73b1-9637-4f7d1e7ca815
 --------
 user
 # Base Agent Prompt
@@ -110,7 +104,20 @@ Implement the frontend portion of exactly one approved bug report. Read the atta
 5. task-specific report naming the source bug, root cause, changed files, verification results, and explicit `PASS WITH CONDITIONS`, `HOLD`, or `FAIL`;
 6. no claim that the bug is resolved before CI/CD, production smoke, and business acceptance.
 
-If the issue has no frontend-owned fix, return `NOT APPLICABLE` with concrete evidence and do not edit files.
+Return exactly one canonical conclusion. Never combine conclusions such as
+`NOT APPLICABLE / HOLD`, `PASS / HOLD`, or similar ambiguous wording.
+
+- If the current baseline already contains the correct frontend-owned repair,
+  verify it with focused tests and return exactly `PASS WITH CONDITIONS`,
+  stating which existing files and behavior were verified.
+- If the issue genuinely has no frontend ownership, return exactly
+  `NOT APPLICABLE` with concrete evidence and do not edit files.
+- If local browser or dev-server startup is blocked only by the Codex sandbox
+  (for example `listen EPERM`), record that as a condition rather than a
+  blocker when Web typecheck, lint, and focused component/route regression
+  tests all pass. Return exactly `PASS WITH CONDITIONS`; CI and the runner's
+  production semantic smoke remain mandatory before business acceptance.
+- If required verification cannot be completed, return exactly `HOLD`.
 
 ---
 
@@ -501,42 +508,8 @@ Assigned agent: A4-Frontend-UAT-Smoke
           },
           {
             "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 635
-            },
-            "label": "包装作业",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 667
-            },
-            "label": "包装批次",
-            "disabled": false
-          },
-          {
-            "tag": "a",
-            "path": ".sidebar-module__C8A-ya__subItem.",
-            "rect": {
-              "h": 32,
-              "w": 215,
-              "x": 0,
-              "y": 699
-            },
-            "label": "包装日报",
-            "disabled": false
-          },
-          
-...<truncated 250602 chars>
+            "path": ".sidebar-
+...<truncated 90798 chars>
 
 ```
 
@@ -548,31 +521,20 @@ Assigned agent: A4-Frontend-UAT-Smoke
   "agent": "A4-Frontend-UAT-Smoke",
   "exitCode": 0,
   "conclusion": "PASS_WITH_CONDITIONS",
-  "responseChars": 868,
-  "beforeHead": "6400d55a444b3ad3ceed97af1d4ddf1ee270bbb8",
-  "afterHead": "443364921ef49b77afb9cc7a09f69da2f9d01dbd",
-  "commitHash": "443364921ef49b77afb9cc7a09f69da2f9d01dbd",
-  "changedFiles": [
-    "apps/web/src/app/(admin)/breeding/flock/page.tsx",
-    "apps/web/src/hooks/useCrud.ts",
-    "apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts",
-    "docs/ops/BUGTASK-20260716-0001-frontend-repair.md"
-  ],
-  "businessChangedFiles": [
-    "apps/web/src/app/(admin)/breeding/flock/page.tsx",
-    "apps/web/src/hooks/useCrud.ts",
-    "apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUGTASK-20260716-0001-frontend-repair.md"
-  ],
+  "responseChars": 562,
+  "beforeHead": "011a2910bb7c5d2e17a252d49bc3fa2e9e6928ea",
+  "afterHead": "011a2910bb7c5d2e17a252d49bc3fa2e9e6928ea",
+  "commitHash": "",
+  "changedFiles": [],
+  "businessChangedFiles": [],
+  "reportFiles": [],
   "parentCommitRecovered": false,
   "infrastructureFailure": null,
-  "checkedAt": "2026-07-18T13:27:58.614Z",
+  "checkedAt": "2026-07-25T02:05:06.360Z",
   "passed": true,
-  "role": "implementation",
-  "terminalStatus": "IMPLEMENTATION_COMPLETED",
-  "reason": "Business change, task report, commit, and conclusion are present"
+  "role": "implementation_verified_existing",
+  "terminalStatus": "SKIPPED_NOT_APPLICABLE",
+  "reason": "Agent verified an already-integrated implementation in its ownership boundary without redundant code churn"
 }
 ```
 
@@ -581,23 +543,10 @@ Assigned agent: A4-Frontend-UAT-Smoke
 ```json
 {
   "attempted": true,
-  "ok": true,
+  "ok": false,
   "files": [
-    "apps/web/src/app/(admin)/breeding/flock/page.tsx",
-    "apps/web/src/hooks/useCrud.ts",
-    "apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts",
     "docs/ops/BUGTASK-20260716-0001-frontend-repair.md"
   ],
-  "businessFiles": [
-    "apps/web/src/app/(admin)/breeding/flock/page.tsx",
-    "apps/web/src/hooks/useCrud.ts",
-    "apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts"
-  ],
-  "reportFiles": [
-    "docs/ops/BUGTASK-20260716-0001-frontend-repair.md"
-  ],
-  "commitHash": "443364921ef49b77afb9cc7a09f69da2f9d01dbd",
-  "recoveredSandboxBlocker": false,
-  "output": "[codex/bug-intake-a4 44336492] fix(web): repair BUG-20260716-0001\n 4 files changed, 143 insertions(+), 19 deletions(-)\n create mode 100644 apps/web/src/lib/bug-20260716-0001-flock-refresh.test.ts\n create mode 100644 docs/ops/BUGTASK-20260716-0001-frontend-repair.md"
+  "error": "no apps/web/ implementation file"
 }
 ```

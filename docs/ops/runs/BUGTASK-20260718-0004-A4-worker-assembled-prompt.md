@@ -1221,14 +1221,14 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
     }
   },
   "failureClassification": {
-    "category": "API_5XX",
+    "category": "PG_SQL",
     "evidence": [
-      "API 5xx/异常信号"
+      "数据库/PG/SQL 信号"
     ],
     "priority": "P1",
     "severity": "HIGH",
-    "confidence": 0.88,
-    "suggestedFix": "复现失败接口，修正后端异常并补充 A1 回归验证。",
+    "confidence": 0.92,
+    "suggestedFix": "定位 SQL/ORM 查询并补充类型、别名、字段或迁移门禁验证。",
     "autoFixEligible": true,
     "recommendedAgents": [
       "A3-Backend-Critical-Path",
@@ -1239,11 +1239,11 @@ mobile端-鸡舍管理，新建鸡舍提示“集团/管理员请在PC端「鸡�
   },
   "agentExecutionApproval": {
     "approved": true,
-    "approvedAt": "2026-07-24T08:11:42.047Z",
-    "approvedBy": "bug_intake_runner",
+    "approvedAt": "2026-07-25T02:00:54.736Z",
+    "approvedBy": "admin",
     "redispatch": true,
-    "approvalScope": "Automatic recovery is limited to runner-created technical HOLD evidence; original business approval and forbidden actions remain unchanged.",
-    "redispatchCount": 6,
+    "approvalScope": "仅允许按当前 Agent 修复计划写入本地任务队列；不自动部署、不写数据库、不执行 migration。",
+    "redispatchCount": 7,
     "forbiddenActions": [
       "production deploy without separate approval",
       "database write without separate gate",
