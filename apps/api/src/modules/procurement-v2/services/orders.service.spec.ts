@@ -1,19 +1,26 @@
 import { OrdersService } from './orders.service';
 
-describe('OrdersService list keyword search', () => {
-  function buildService() {
+describe('OrdersService list', () => {
+  function buildService(listResult: [unknown[], number] = [[], 0]) {
     const qb = {
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn(async () => [[], 0]),
+      getManyAndCount: jest.fn(async () => listResult),
     };
     const poRepo = {
       createQueryBuilder: jest.fn(() => qb),
     };
+    const itemQb = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn(async () => []),
+    };
     const itemRepo = {
-      createQueryBuilder: jest.fn(),
+      createQueryBuilder: jest.fn(() => itemQb),
     };
     const scopeHelper = {
       applyToQb: jest.fn(),
@@ -50,5 +57,27 @@ describe('OrdersService list keyword search', () => {
       { kw: '%178409%' },
     );
     expect(itemRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('returns the unmodified filtered record count when the page contains orders', async () => {
+    const orders = [
+      { id: '35', poNo: 'PO2-20260707-00002' },
+      { id: '34', poNo: 'PO2-20260707-00001' },
+    ];
+    const { service, qb, scopeHelper } = buildService([orders, 5]);
+
+    const result = await service.list({ page: 1, pageSize: 2 });
+
+    expect(qb.getManyAndCount).toHaveBeenCalledTimes(1);
+    expect(scopeHelper.applyToQb).toHaveBeenCalledWith(qb, { alias: 'p' });
+    expect(result).toMatchObject({
+      total: 5,
+      page: 1,
+      pageSize: 2,
+      items: [
+        { id: '35', itemCount: 0 },
+        { id: '34', itemCount: 0 },
+      ],
+    });
   });
 });
