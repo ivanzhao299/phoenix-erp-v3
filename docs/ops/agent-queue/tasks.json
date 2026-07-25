@@ -31517,5 +31517,178 @@
       }
     ],
     "reactivation_reason": null
+  },
+  {
+    "task_id": "BUGTASK-20260725-0001-A3",
+    "request_id": "BUGTASK-20260725-0001",
+    "title": "Repair BUG-20260725-0001: 销售管理-配送管理-新建配送单输入信息后点击“确认新建”，报错“HTTP 400” (A3-Backend-Critical-Path)",
+    "source_bug_no": "BUG-20260725-0001",
+    "source_repair_task_no": "BUGTASK-20260725-0001",
+    "source": "bug-intake",
+    "agent": "A3-Backend-Critical-Path",
+    "status": "COMPLETED_MERGED",
+    "priority": "P2",
+    "risk_level": "MEDIUM/HIGH",
+    "allowed_paths": [
+      "apps/api/**",
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/web/**",
+      "apps/api/src/database/migrations/** unless schema gate approved",
+      "schema/entity/table/column unless schema gate approved",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260725-0001-A3-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/bug-intake-a3",
+    "branch": "codex/bug-intake-a3",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-25T03:25:36.762Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260725-0001-A3-worker-log.md",
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A4-Frontend-UAT-Smoke"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "a2a4a265cc0ea7e5a0cf54b99c591c5e96d6b726c416964fdce54fbd5df55908",
+    "state_version": 5,
+    "state_updated_at": "2026-07-25T03:25:36.775Z",
+    "changed_files": [
+      "apps/api/src/modules/sales-v2/services/delivery-orders.service.spec.ts",
+      "apps/api/src/modules/sales-v2/services/delivery-orders.service.ts",
+      "docs/ops/BUGTASK-20260725-0001-backend-repair.md"
+    ],
+    "retry_after": null,
+    "baseline_autopilot_exit_code": 0,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A3-Backend-Critical-Path",
+      "exitCode": 0,
+      "conclusion": "PASS_WITH_CONDITIONS",
+      "responseChars": 107,
+      "beforeHead": "c3cdcb42d072decddb39a1e839dfda1b8a9ee275",
+      "afterHead": "2272b9b12f5e52433badce4ca460c17dbda57d5b",
+      "commitHash": "2272b9b12f5e52433badce4ca460c17dbda57d5b",
+      "changedFiles": [
+        "apps/api/src/modules/sales-v2/services/delivery-orders.service.spec.ts",
+        "apps/api/src/modules/sales-v2/services/delivery-orders.service.ts",
+        "docs/ops/BUGTASK-20260725-0001-backend-repair.md"
+      ],
+      "businessChangedFiles": [
+        "apps/api/src/modules/sales-v2/services/delivery-orders.service.spec.ts",
+        "apps/api/src/modules/sales-v2/services/delivery-orders.service.ts"
+      ],
+      "reportFiles": [
+        "docs/ops/BUGTASK-20260725-0001-backend-repair.md"
+      ],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-25T03:25:34.677Z",
+      "passed": true,
+      "role": "implementation",
+      "terminalStatus": "IMPLEMENTATION_COMPLETED",
+      "reason": "Business change, task report, commit, and conclusion are present",
+      "recoveredExistingCommit": true,
+      "recoveryReason": "explicit recovery of a task-specific unintegrated implementation commit"
+    },
+    "implementation_commit": "2272b9b12f5e52433badce4ca460c17dbda57d5b",
+    "reason": "verified task-specific implementation commit is ready for selective integration",
+    "integrated_commit": "7779e529fa0d46448a223f6e53e4bcad5c5c3151",
+    "integrated_at": "2026-07-25T03:25:36.762Z",
+    "integration_method": "cherry-pick-verified-agent-commit",
+    "worktree_baseline_sync": {
+      "skipped": false,
+      "ok": true,
+      "baseline": "7779e529fa0d46448a223f6e53e4bcad5c5c3151"
+    }
+  },
+  {
+    "task_id": "BUGTASK-20260725-0001-A1",
+    "request_id": "BUGTASK-20260725-0001",
+    "title": "Repair BUG-20260725-0001: 销售管理-配送管理-新建配送单输入信息后点击“确认新建”，报错“HTTP 400” (A1-CI-Runtime-Gate)",
+    "source_bug_no": "BUG-20260725-0001",
+    "source_repair_task_no": "BUGTASK-20260725-0001",
+    "source": "bug-intake",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "VALIDATION_COMPLETED",
+    "priority": "P2",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**",
+      "scripts/ci/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "forbidden_paths": [
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "production deploy"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/BUGTASK-20260725-0001-A1-contract.md",
+    "request_spec": "",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [
+      "BUGTASK-20260725-0001-A3"
+    ],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": "2026-07-25T03:25:41.250Z",
+    "result_file": "docs/ops/runs/BUGTASK-20260725-0001-A1-worker-log.md",
+    "next_agents": [
+      "A2-Security-Regression-Gate",
+      "A4-Frontend-UAT-Smoke",
+      "A7-Final-QA-Gate"
+    ],
+    "approval_required": true,
+    "route_active": true,
+    "route_selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A1-CI-Runtime-Gate"
+    ],
+    "redispatch_count": 0,
+    "last_redispatch_at": null,
+    "idempotency_key": "895cc219d662e54e1c84e4ce36152ba199b17a583ba9f732bf2a6a6ae043670b",
+    "state_version": 3,
+    "state_updated_at": "2026-07-25T03:25:41.257Z",
+    "evidence_gate": {
+      "version": 1,
+      "agent": "A1-CI-Runtime-Gate",
+      "exitCode": 0,
+      "conclusion": "PASS",
+      "responseChars": 2469,
+      "beforeHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "afterHead": "437b2f2224014b220c5cb8f9aead61f64de7b905",
+      "commitHash": "",
+      "changedFiles": [],
+      "businessChangedFiles": [],
+      "reportFiles": [],
+      "parentCommitRecovered": false,
+      "infrastructureFailure": null,
+      "checkedAt": "2026-07-25T03:25:41.250Z",
+      "passed": true,
+      "role": "validation",
+      "terminalStatus": "VALIDATION_COMPLETED",
+      "reason": "Validation evidence recorded; this is not implementation evidence"
+    },
+    "implementation_commit": "",
+    "changed_files": [],
+    "retry_after": null,
+    "baseline_autopilot_exit_code": 0,
+    "baseline_autopilot_skipped": "read-only validation agent; merge lifecycle is handled by orchestrator/main runner artifacts"
   }
 ]

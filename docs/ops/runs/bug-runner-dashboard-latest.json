@@ -1,16 +1,16 @@
 {
-  "generated_at": "2026-07-25T02:17:39.859Z",
-  "fingerprint": "24b542187efea57bd601b64ea59246c3d481f7e7e1053af555be52a3a189a2c0",
+  "generated_at": "2026-07-25T03:25:43.223Z",
+  "fingerprint": "7c311e4810383eb0cc6c95a59d05a3d9088924d2cf4ae96f3204f65c28814c0a",
   "decision": "DEGRADED",
   "metrics": {
-    "total": 403,
+    "total": 405,
     "active": 4,
     "status_counts": {
       "archived": 214,
       "completed": 3,
       "SKIPPED_NOT_APPLICABLE": 22,
-      "VALIDATION_COMPLETED": 80,
-      "COMPLETED_MERGED": 80,
+      "VALIDATION_COMPLETED": 81,
+      "COMPLETED_MERGED": 81,
       "HOLD": 4
     },
     "queue_wait_p50_ms": null,
@@ -19,11 +19,11 @@
     "lead_time_p95_ms": null,
     "false_complete_count": 0,
     "legacy_evidence_exemption_count": 3,
-    "raw_terminal_evidence_coverage": 0.9837837837837838,
+    "raw_terminal_evidence_coverage": 0.983957219251337,
     "terminal_evidence_coverage": 1
   },
   "current_activity": {
-    "worker_count": 0,
+    "worker_count": 2,
     "blocked_count": 0
   }
 }

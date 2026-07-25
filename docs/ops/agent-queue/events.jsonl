@@ -634,3 +634,11 @@
 {"at":"2026-07-25T02:17:12.341Z","type":"task_transitioned","task_id":"BUGTASK-20260713-0004-A2","from":"running","to":"VALIDATION_COMPLETED","state_version":10}
 {"at":"2026-07-25T02:17:15.116Z","type":"task_transitioned","task_id":"BUGTASK-20260713-0004-A1","from":"pending","to":"running","state_version":9}
 {"at":"2026-07-25T02:17:19.412Z","type":"task_transitioned","task_id":"BUGTASK-20260713-0004-A1","from":"running","to":"VALIDATION_COMPLETED","state_version":10}
+{"at":"2026-07-25T03:24:02.137Z","type":"task_created","task_id":"BUGTASK-20260725-0001-A3","status":"pending"}
+{"at":"2026-07-25T03:24:02.137Z","type":"task_created","task_id":"BUGTASK-20260725-0001-A1","status":"pending"}
+{"at":"2026-07-25T03:24:02.476Z","type":"task_transitioned","task_id":"BUGTASK-20260725-0001-A3","from":"pending","to":"running","state_version":2}
+{"at":"2026-07-25T03:25:34.379Z","type":"task_updated","task_id":"BUGTASK-20260725-0001-A3","from":"running","to":"running","state_version":3}
+{"at":"2026-07-25T03:25:34.691Z","type":"task_transitioned","task_id":"BUGTASK-20260725-0001-A3","from":"running","to":"IMPLEMENTATION_COMPLETED","state_version":4}
+{"at":"2026-07-25T03:25:36.778Z","type":"task_transitioned","task_id":"BUGTASK-20260725-0001-A3","from":"IMPLEMENTATION_COMPLETED","to":"COMPLETED_MERGED","state_version":5}
+{"at":"2026-07-25T03:25:36.905Z","type":"task_transitioned","task_id":"BUGTASK-20260725-0001-A1","from":"pending","to":"running","state_version":2}
+{"at":"2026-07-25T03:25:41.260Z","type":"task_transitioned","task_id":"BUGTASK-20260725-0001-A1","from":"running","to":"VALIDATION_COMPLETED","state_version":3}
