@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 import {
   auditFingerprintGitArgs,
+  boundedDiagnosticText,
   bootstrapResultDeliveryReceipts,
   buildResultBackfillPlan,
+  classifyRunnerFailure,
   redactBoundedOutput,
   requeueExpiredCapacityWaits,
   requeueSatisfiedDependencyHolds,
@@ -22,7 +24,11 @@ import {
   shouldAttemptReleasePush,
   shouldResumeAlreadyPushedRelease,
 } from './bug-intake-local-runner.mjs';
-import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
+import {
+  filterRunnerRuntimeStatus,
+  gitStatusFiles,
+  worktreeNeedsOriginMainSync,
+} from './bug-intake-worktree-runtime.mjs';
 import { classifyInfrastructureFailure, evaluateBugReleaseEvidence, evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 import { isTerminalLocalTask, mapWithConcurrency, pruneLegacySnapshots } from './bug-intake-sync-from-api.mjs';
 
@@ -78,6 +84,27 @@ test('runner output is bounded before redaction and ignores unsafe short secrets
   assert.equal(output.includes(secret), false);
   assert.equal(output.endsWith('<redacted>'), true);
   assert.equal(output.length <= 12000, true);
+});
+
+test('failure classification compacts huge nested payloads before serialization', () => {
+  const huge = {
+    step: 'worker',
+    stderr: 'timeout while waiting for Codex',
+    nested: Array.from({ length: 100_000 }, (_, index) => ({
+      index,
+      output: 'x'.repeat(10_000),
+    })),
+  };
+  const diagnostic = boundedDiagnosticText(huge);
+  assert.equal(diagnostic.length <= 32768, true);
+  assert.equal(classifyRunnerFailure(huge).category, 'RUNNER_TIMEOUT');
+});
+
+test('worker synchronizes both behind and diverged branches before execution', () => {
+  assert.equal(worktreeNeedsOriginMainSync(true, false), true);
+  assert.equal(worktreeNeedsOriginMainSync(false, false), true);
+  assert.equal(worktreeNeedsOriginMainSync(false, true), false);
+  assert.equal(worktreeNeedsOriginMainSync(true, true), false);
 });
 
 test('successful legacy result backfill bootstraps durable delivery receipts', () => {

@@ -33,3 +33,10 @@ export function gitStatusFiles(statusOutput) {
 export function filterRunnerRuntimeFiles(files) {
   return (files || []).filter((file) => !RUNNER_RUNTIME_DEPENDENCY_PATHS.has(String(file || '').replace(/\/$/, '')));
 }
+
+export function worktreeNeedsOriginMainSync(branchIsAncestorOfOriginMain, originMainIsAncestorOfBranch) {
+  if (originMainIsAncestorOfBranch) return false;
+  // A branch can be strictly behind or diverged after an earlier task commit.
+  // Both cases must be rebased before a fresh Agent run.
+  return branchIsAncestorOfOriginMain || !originMainIsAncestorOfBranch;
+}

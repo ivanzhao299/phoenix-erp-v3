@@ -402,7 +402,10 @@ export function BatchSelector(p: BaseProps) {
         .map(b => ({
           value: b.batch_no,
           label: `${b.batch_no}｜${b.sku_code ?? b.product_code ?? ''} 可用${b.qty_available ?? ''}`,
-          raw: b,
+          raw: {
+            ...b,
+            inventory_item_code: b.sku_code ?? b.product_code ?? '',
+          },
         }));
     }} />;
 }

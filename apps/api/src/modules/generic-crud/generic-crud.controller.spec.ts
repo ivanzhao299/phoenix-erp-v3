@@ -6,7 +6,7 @@ describe('GenericCrudController WMS RBAC', () => {
   let controller: GenericCrudController;
   let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'create' | 'findOneByColumn' | 'update'>>;
   let dataScopeService: { resolve: jest.Mock };
-  let wmsService: { confirmInbound: jest.Mock };
+  let wmsService: { confirmInbound: jest.Mock; confirmStandaloneOutbound: jest.Mock };
   let cls: { set: jest.Mock };
 
   const req = (permissions: string[]) => ({
@@ -42,6 +42,7 @@ describe('GenericCrudController WMS RBAC', () => {
     };
     wmsService = {
       confirmInbound: jest.fn().mockResolvedValue({ code: 200, msg: '入库确认成功' }),
+      confirmStandaloneOutbound: jest.fn().mockResolvedValue({ code: 200, msg: '出库确认成功' }),
     };
     cls = {
       set: jest.fn(),
@@ -435,5 +436,33 @@ describe('GenericCrudController WMS RBAC', () => {
       },
       expect.objectContaining({ username: 'wangweihua' }),
     );
+  });
+
+  it('routes a generic DONE update through the inventory-linked outbound confirmation', async () => {
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 10,
+      outbound_no: 'WO-20260725-001',
+      status: 'PENDING',
+      item: 'SKU-EGG-A-30',
+      batch_no: 'B-EGG-A-1',
+      qty: 20,
+      warehouse_code: 'LPH_MS_EGG_SALES',
+    });
+
+    await expect(
+      controller.updateWithColumn(
+        'wms_outbound',
+        'id',
+        '10',
+        { status: 'DONE' },
+        req(['MENU_WMS_INOUT:E']),
+      ),
+    ).resolves.toEqual({ code: 200, msg: '出库确认成功' });
+
+    expect(wmsService.confirmStandaloneOutbound).toHaveBeenCalledWith(
+      'WO-20260725-001',
+      expect.objectContaining({ username: 'wangweihua' }),
+    );
+    expect(svc.update).not.toHaveBeenCalled();
   });
 });

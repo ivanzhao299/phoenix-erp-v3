@@ -310,6 +310,13 @@ export class GenericCrudController {
     return nextStatus === 'COMPLETED' && currentStatus !== 'COMPLETED';
   }
 
+  private isCompletingWmsOutbound(table: string, existing: any, body: any): boolean {
+    if (table !== 'wms_outbound') return false;
+    const nextStatus = String(body?.status ?? '').trim().toUpperCase();
+    const currentStatus = String(existing?.status ?? '').trim().toUpperCase();
+    return nextStatus === 'DONE' && currentStatus !== 'DONE';
+  }
+
   private buildWmsInboundConfirmPayload(existing: any, body: any) {
     const row = { ...(existing || {}), ...(body || {}) };
     const taskNo = String(row.task_no || row.inbound_no || '').trim();
@@ -499,6 +506,22 @@ export class GenericCrudController {
       }
       const payload = this.buildWmsInboundConfirmPayload(existing, detailFields);
       return await this.wmsService.confirmInbound(payload, req.user);
+    }
+
+    if (this.isCompletingWmsOutbound(table, existing, safeBody)) {
+      const detailFields = { ...safeBody };
+      delete detailFields.status;
+      if (Object.keys(detailFields).length > 0) {
+        await this.crudService.update(table, idColumn, id, detailFields);
+      }
+      if (tableScope) {
+        this.cls.set('dataScope', tableScope);
+      }
+      const outboundNo = String(detailFields.outbound_no || existing.outbound_no || '').trim();
+      if (!outboundNo) {
+        throw new BadRequestException('wms_outbound outbound_no 必填，无法确认出库');
+      }
+      return await this.wmsService.confirmStandaloneOutbound(outboundNo, req.user);
     }
 
     const result = await this.crudService.update(table, idColumn, id, safeBody);

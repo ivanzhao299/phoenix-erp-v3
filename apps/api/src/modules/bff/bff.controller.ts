@@ -2157,26 +2157,85 @@ export class PackagingTerminalBffController {
     };
   }
 
+  @Get('warehouse/status')
+  @RequireMenu('MENU_PKG_OP', 'V')
+  async getWarehouseHandoverStatus(@Query('packingCode') packingCode: string) {
+    const normalizedCode = String(packingCode || '').trim();
+    if (!normalizedCode) throw new BadRequestException('packingCode 必填');
+
+    const [handoverRows, inventoryRows] = await Promise.all([
+      this.em.query(
+        `SELECT code, packing_code, box_count, pallet_code, location, receiver,
+                production_date, created_at
+           FROM pkg_handover_records
+          WHERE packing_code = $1
+          ORDER BY created_at DESC
+          LIMIT 1`,
+        [normalizedCode],
+      ),
+      this.em.query(
+        `SELECT COUNT(*)::int AS batch_count,
+                COALESCE(SUM(qty), 0)::int AS total_inbound
+           FROM inv_batches
+          WHERE packaging_batch_ref = $1
+            AND source_type = 'PACKAGING'`,
+        [normalizedCode],
+      ),
+    ]);
+
+    const handover = handoverRows[0] || null;
+    const batchCount = Number(inventoryRows[0]?.batch_count || 0);
+    const totalInbound = Number(inventoryRows[0]?.total_inbound || 0);
+    const committed = Boolean(handover) && batchCount > 0 && totalInbound > 0;
+    const state = committed
+      ? 'COMMITTED'
+      : handover
+        ? 'HANDOVER_ONLY'
+        : batchCount > 0
+          ? 'INVENTORY_ONLY'
+          : 'PENDING';
+
+    return {
+      code: 200,
+      data: {
+        packingCode: normalizedCode,
+        state,
+        committed,
+        handoverCode: handover?.code ?? null,
+        boxCount: Number(handover?.box_count || 0),
+        inventoryBatchCount: batchCount,
+        totalInbound,
+        committedAt: handover?.created_at ?? null,
+        message: committed
+          ? '包装交接及库存入账均已完成'
+          : state === 'HANDOVER_ONLY'
+            ? '交接记录已存在，但库存入账证据缺失，可重试确认'
+            : state === 'INVENTORY_ONLY'
+              ? '库存已生成，但交接记录缺失，可重试确认'
+              : '尚未完成入库交接',
+      },
+    };
+  }
+
   @Post('warehouse/confirm')
   @RequireMenu('MENU_PKG_OP', 'E')
   async confirmHandover(@Body() body: Record<string, any>) {
+    const packingCode = String(body.packingCode || '').trim();
+    if (!packingCode) throw new BadRequestException('packingCode 必填');
+
     const today = new Date().toISOString().slice(0, 10);
     const productionDate = body.productionDate || today;
-    const code = `WH-${productionDate.replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
-    const boxes = (body.boxes as string[]) || [];
-    await this.safe(
-      this.em.query(
-        `INSERT INTO pkg_handover_records
-         (code, shift_id, packing_code, boxes_json, box_count, pallet_code, location, receiver, production_date, created_at)
-         VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,NOW())
-         ON CONFLICT (code) DO NOTHING`,
-        [code, body.shiftId || null, body.packingCode || null,
-         JSON.stringify(boxes), boxes.length,
-         body.palletCode || '', body.location || '', body.receiver || '',
-         productionDate],
-      ),
-      null,
+    const existing = await this.em.query(
+      `SELECT code
+         FROM pkg_handover_records
+        WHERE packing_code = $1
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [packingCode],
     );
+    const code = existing[0]?.code
+      || `WH-${productionDate.replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}`;
+    const boxes = (body.boxes as string[]) || [];
 
     // ── P1C 收口 + P1E 失败显性化：成品交接完成 = 唯一库存入口 ──────────────────
     //   调 PackagingInventoryIntegrationService 生成 Sales V2 可售库存（EGG-YYYYMMDD-*,
@@ -2185,24 +2244,46 @@ export class PackagingTerminalBffController {
     //   P1E：库存生成失败不再 safe 吞错 → 明确 error log + 返回 inventoryOk=false + message，
     //        杜绝"页面显示成功但库存没生成"的静默失败。
     let inventory: any = null;
-    let inventoryOk = true;
+    let inventoryOk = false;
     let message: string | undefined;
-    if (body.packingCode) {
-      try {
-        inventory = await this.pkgInv.completeTerminalPacking(body.packingCode, { companyCode: body.companyCode });
-      } catch (e: any) {
-        inventoryOk = false;
-        message = '包装交接已记录，但库存生成失败，请联系管理员处理。';
-        // 不再静默吞错：明确记录 error log（含堆栈），便于生产排障
-        console.error(
-          `[warehouse/confirm][ERR] 包装库存生成失败 packingCode=${body.packingCode}: ${e?.message}`,
-          e?.stack,
-        );
-        inventory = { ok: false, error: e?.message ?? '库存生成失败', message };
+    try {
+      inventory = await this.pkgInv.completeTerminalPacking(packingCode, { companyCode: body.companyCode });
+      inventoryOk = inventory?.idempotent === true || Number(inventory?.totalInbound || 0) > 0;
+      if (!inventoryOk) {
+        message = inventory?.note
+          || (inventory?.skippedByMode
+            ? `当前库存来源模式为 ${inventory?.mode || 'UNKNOWN'}，未生成包装入库库存`
+            : '包装批次未生成有效库存，交接保持待处理');
       }
+    } catch (e: any) {
+      message = '库存生成失败，交接未完成，请修复后重试。';
+      console.error(
+        `[warehouse/confirm][ERR] 包装库存生成失败 packingCode=${packingCode}: ${e?.message}`,
+        e?.stack,
+      );
+      inventory = { ok: false, error: e?.message ?? '库存生成失败', message };
     }
 
-    return { code: 200, data: { code, inventory, inventoryOk, message } };
+    // 库存入账成功后才新增交接记录；旧版遗留的 HANDOVER_ONLY 记录会在重试时复用。
+    if (inventoryOk && existing.length === 0) {
+      await this.em.query(
+        `INSERT INTO pkg_handover_records
+         (code, shift_id, packing_code, boxes_json, box_count, pallet_code, location, receiver, production_date, created_at)
+         VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,NOW())
+         ON CONFLICT (code) DO NOTHING`,
+        [code, body.shiftId || null, packingCode,
+         JSON.stringify(boxes), boxes.length,
+         body.palletCode || '', body.location || '', body.receiver || '',
+         productionDate],
+      );
+    }
+
+    const statusResponse = await this.getWarehouseHandoverStatus(packingCode);
+    const status = statusResponse.data;
+    inventoryOk = status.committed;
+    message = inventoryOk ? undefined : (message || status.message);
+
+    return { code: 200, data: { code, inventory, inventoryOk, message, status } };
   }
 
   // ── R3：真实场站列表（开班场站选择）────────────────────────────────────────

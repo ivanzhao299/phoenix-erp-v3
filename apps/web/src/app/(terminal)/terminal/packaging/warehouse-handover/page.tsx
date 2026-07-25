@@ -1,12 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { usePackagingDicts, getDictLabel, buildGradeMap } from '@/hooks/usePackagingDicts';
-import { assertWarehouseHandoverCommitted, packagingApi } from '@/lib/packaging-api';
+import {
+  assertWarehouseHandoverCommitted,
+  packagingApi,
+  type WarehouseHandoverStatus,
+} from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
 import styles from './warehouse-handover.module.css';
 export default function WarehouseHandoverPage() {
@@ -40,6 +44,34 @@ export default function WarehouseHandoverPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [handoverStatus, setHandoverStatus] = useState<WarehouseHandoverStatus | null>(null);
+  const [checkedPackingCode, setCheckedPackingCode] = useState('');
+  const activeHandoverStatus = handoverStatus?.packingCode === ctx.packingCode
+    ? handoverStatus
+    : null;
+  const statusLoading = Boolean(ctx.packingCode) && checkedPackingCode !== ctx.packingCode;
+
+  useEffect(() => {
+    let cancelled = false;
+    const packingCode = ctx.packingCode;
+    if (!packingCode) return;
+    packagingApi.getHandoverStatus(packingCode)
+      .then((status) => {
+        if (cancelled) return;
+        setHandoverStatus(status);
+        if (status.state === 'HANDOVER_ONLY' || status.state === 'INVENTORY_ONLY') {
+          setSubmitError(status.message);
+        }
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setSubmitError(e instanceof Error ? e.message : t('ui.入库状态核验失败', '入库状态核验失败'));
+      })
+      .finally(() => {
+        if (!cancelled) setCheckedPackingCode(packingCode);
+      });
+    return () => { cancelled = true; };
+  }, [ctx.packingCode, t]);
   const handleScan = (manualCode?: string) => {
     const code = (manualCode ?? scanInput).trim();
     if (!code) return;
@@ -65,7 +97,7 @@ export default function WarehouseHandoverPage() {
     return a + (b?.qty || 0);
   }, 0);
   const allScanned = pendingBoxes.every(b => scanned.includes(b.code));
-  const canSubmit = allScanned && receiver && location;
+  const canSubmit = allScanned && receiver && location && !statusLoading && !activeHandoverStatus?.committed;
   const handleSubmit = async () => {
     setSubmitting(true);
     setSubmitError('');
@@ -80,6 +112,7 @@ export default function WarehouseHandoverPage() {
         productionDate: new Date().toISOString().slice(0, 10)
       });
       assertWarehouseHandoverCommitted(result);
+      if (result.status) setHandoverStatus(result.status);
       setDone(true);
       setTimeout(() => router.push('/terminal/packaging/shift-close'), 2000);
     } catch (e) {
@@ -91,6 +124,43 @@ export default function WarehouseHandoverPage() {
       setSubmitting(false);
     }
   };
+  if (statusLoading) return <div style={{
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: T.BG,
+    color: T.MUT
+  }}>{t('ui.正在核验服务端入库状态', '正在核验服务端入库状态...')}</div>;
+  if (done || activeHandoverStatus?.committed) return <div style={{
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: T.BG,
+    gap: 16
+  }}>
+      <div style={{ fontSize: 64 }}>🏭</div>
+      <div style={{ fontSize: 24, fontWeight: 700, color: T.GRN }}>
+        {t('ui.已完成入库', '已完成入库')}
+      </div>
+      <div style={{ color: T.MUT }}>
+        {activeHandoverStatus
+          ? `${activeHandoverStatus.boxCount} ${t('ui.箱', '箱')} · ${activeHandoverStatus.totalInbound} ${t('ui.枚已写入库存台账', '枚已写入库存台账')}`
+          : `${scanned.length} ${t('ui.箱', '箱')} · ${totalQty} ${t('ui.枚已入库', '枚已入库')}`}
+      </div>
+      <button type="button" onClick={() => router.push('/terminal/packaging/shift-close')} style={{
+        padding: '12px 28px',
+        borderRadius: 10,
+        background: T.ACC,
+        color: 'var(--bg-page)',
+        border: 'none',
+        fontSize: 14,
+        fontWeight: 700,
+        cursor: 'pointer'
+      }}>{t('ui.前往交班', '前往交班')}</button>
+    </div>;
   if (pendingBoxes.length === 0) return <div style={{
     height: '100%',
     display: 'flex',
@@ -125,27 +195,6 @@ export default function WarehouseHandoverPage() {
     }}>
         → {t('terminal.packing', '前往包装')}
       </button>
-    </div>;
-  if (done) return <div style={{
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: T.BG,
-    gap: 16
-  }}>
-      <div style={{
-      fontSize: 64
-    }}>🏭</div>
-      <div style={{
-      fontSize: 24,
-      fontWeight: 700,
-      color: T.GRN
-    }}>{t('ui.入库成功', '入库成功')}</div>
-      <div style={{
-      color: T.MUT
-    }}>{scanned.length} {t('ui.箱', '箱')} · {totalQty} {t('ui.枚已入库跳转交班', '枚已入库，跳转交班...')}</div>
     </div>;
   return <div style={{
     height: '100%',

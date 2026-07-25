@@ -61,5 +61,9 @@ describe('DeliveryOrdersService creation', () => {
       expect.stringContaining('INSERT INTO sal_delivery_order_items'),
       expect.arrayContaining(['101', 'SO-20260725-00001']),
     );
+    expect(managerQuery).toHaveBeenCalledWith(
+      expect.stringContaining("SET status='ALLOCATED'"),
+      [['101']],
+    );
   });
 });

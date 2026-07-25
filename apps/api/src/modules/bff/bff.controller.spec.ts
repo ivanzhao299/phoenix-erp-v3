@@ -214,4 +214,131 @@ describe('PackagingTerminalBffController', () => {
     );
     expect(scopedCalls.every(([, params]) => params?.[1] === 42)).toBe(true);
   });
+
+  it('reports warehouse handover as committed only when handover and inventory evidence both exist', async () => {
+    const em = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM pkg_handover_records')) {
+          return [{
+            code: 'WH-20260725-1',
+            packing_code: 'PKG-20260725-1',
+            box_count: 6,
+            created_at: '2026-07-25T08:00:00.000Z',
+          }];
+        }
+        if (sql.includes('COUNT(*)::int AS batch_count')) {
+          return [{ batch_count: 2, total_inbound: 180 }];
+        }
+        return [];
+      }),
+    };
+    const controller = new PackagingTerminalBffController(em as never, {} as never);
+
+    await expect(
+      controller.getWarehouseHandoverStatus('PKG-20260725-1'),
+    ).resolves.toMatchObject({
+      code: 200,
+      data: {
+        state: 'COMMITTED',
+        committed: true,
+        handoverCode: 'WH-20260725-1',
+        boxCount: 6,
+        inventoryBatchCount: 2,
+        totalInbound: 180,
+      },
+    });
+  });
+
+  it('creates the handover record only after packaging inventory is posted', async () => {
+    let inserted = false;
+    const em = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('SELECT code, packing_code')) {
+          return inserted ? [{
+            code: 'WH-20260725-1',
+            packing_code: 'PKG-20260725-1',
+            box_count: 3,
+            created_at: '2026-07-25T08:00:00.000Z',
+          }] : [];
+        }
+        if (sql.includes('SELECT code') && sql.includes('FROM pkg_handover_records')) return [];
+        if (sql.includes('INSERT INTO pkg_handover_records')) {
+          inserted = true;
+          return [];
+        }
+        if (sql.includes('COUNT(*)::int AS batch_count')) {
+          return [{ batch_count: 1, total_inbound: 90 }];
+        }
+        return [];
+      }),
+    };
+    const pkgInv = {
+      completeTerminalPacking: jest.fn().mockResolvedValue({
+        refNo: 'PKG-20260725-1',
+        idempotent: false,
+        totalInbound: 90,
+      }),
+    };
+    const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
+
+    await expect(controller.confirmHandover({
+      packingCode: 'PKG-20260725-1',
+      boxes: ['BOX-1', 'BOX-2', 'BOX-3'],
+      location: 'WH-A',
+      receiver: 'tester',
+      productionDate: '2026-07-25',
+    })).resolves.toMatchObject({
+      code: 200,
+      data: {
+        inventoryOk: true,
+        status: { state: 'COMMITTED', committed: true },
+      },
+    });
+
+    expect(pkgInv.completeTerminalPacking).toHaveBeenCalledWith(
+      'PKG-20260725-1',
+      { companyCode: undefined },
+    );
+    expect(em.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO pkg_handover_records'),
+      expect.arrayContaining(['PKG-20260725-1', expect.any(String), 3]),
+    );
+  });
+
+  it('does not create a completed handover when inventory posting produces no stock', async () => {
+    const em = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM pkg_handover_records')) return [];
+        if (sql.includes('COUNT(*)::int AS batch_count')) {
+          return [{ batch_count: 0, total_inbound: 0 }];
+        }
+        return [];
+      }),
+    };
+    const pkgInv = {
+      completeTerminalPacking: jest.fn().mockResolvedValue({
+        refNo: 'PKG-20260725-NO-STOCK',
+        idempotent: false,
+        totalInbound: 0,
+        skippedByMode: true,
+        mode: 'TEMP_PRODUCTION_INBOUND',
+      }),
+    };
+    const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
+
+    await expect(controller.confirmHandover({
+      packingCode: 'PKG-20260725-NO-STOCK',
+      boxes: ['BOX-1'],
+    })).resolves.toMatchObject({
+      code: 200,
+      data: {
+        inventoryOk: false,
+        status: { state: 'PENDING', committed: false },
+      },
+    });
+
+    expect(em.query.mock.calls.some(([sql]) =>
+      String(sql).includes('INSERT INTO pkg_handover_records'),
+    )).toBe(false);
+  });
 });

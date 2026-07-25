@@ -18,6 +18,19 @@ export interface WarehouseHandoverResult {
   inventory?: unknown;
   inventoryOk: boolean;
   message?: string;
+  status?: WarehouseHandoverStatus;
+}
+
+export interface WarehouseHandoverStatus {
+  packingCode: string;
+  state: 'PENDING' | 'HANDOVER_ONLY' | 'INVENTORY_ONLY' | 'COMMITTED';
+  committed: boolean;
+  handoverCode: string | null;
+  boxCount: number;
+  inventoryBatchCount: number;
+  totalInbound: number;
+  committedAt: string | null;
+  message: string;
 }
 
 export function assertWarehouseHandoverCommitted(result: WarehouseHandoverResult): WarehouseHandoverResult {
@@ -181,6 +194,12 @@ export const packagingApi = {
   // ── 入库交接 ──────────────────────────────────────────────────────────────────
   confirmHandover: (body: Record<string, unknown>) =>
     request<WarehouseHandoverResult>('POST', '/api/packaging/terminal/warehouse/confirm', body),
+
+  getHandoverStatus: (packingCode: string) =>
+    request<WarehouseHandoverStatus>(
+      'GET',
+      `/api/packaging/terminal/warehouse/status?packingCode=${encodeURIComponent(packingCode)}`,
+    ),
 
   // ── 数据字典 ──────────────────────────────────────────────────────────────────
   /**

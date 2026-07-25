@@ -33,6 +33,12 @@ export class OutboundController {
     return await this.wmsService.advanceOutboundOrder(orderNo, body, req.user);
   }
 
+  @Post('standalone/:outbound_no/confirm')
+  @RequireMenu('MENU_WMS_INOUT', 'E')
+  async confirmStandalone(@Param('outbound_no') outboundNo: string, @Req() req: any) {
+    return await this.wmsService.confirmStandaloneOutbound(outboundNo, req.user);
+  }
+
   @Post('orders/:order_no/receive-sign')
   @RequireMenu('MENU_WMS_INOUT', 'E')
   async receiveSign(@Param('order_no') orderNo: string, @Body() body: any, @Req() req: any) {

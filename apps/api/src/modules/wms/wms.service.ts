@@ -483,6 +483,144 @@ export class WmsService {
     });
   }
 
+  /**
+   * 确认独立出库单。
+   *
+   * wms_outbound 是仓储页面的单据表，不能通过通用 CRUD 直接把状态改为 DONE。
+   * 只有库存批次扣减和 inv_ledger 流水都成功后，事务才会提交 DONE。
+   */
+  async confirmStandaloneOutbound(outboundNo: string, user: any) {
+    const normalizedNo = this.nonEmptyString(outboundNo);
+    if (!normalizedNo) throw new BadRequestException('outbound_no 必填');
+
+    return await this.em.transaction(async (manager) => {
+      const rows = await manager.query(
+        `SELECT id, outbound_no, status, warehouse_code, store_code,
+                item, batch_no, qty
+           FROM wms_outbound
+          WHERE outbound_no = $1
+          FOR UPDATE`,
+        [normalizedNo],
+      );
+      if (!rows.length) {
+        throw new BadRequestException(`出库单 ${normalizedNo} 不存在`);
+      }
+
+      const order = rows[0];
+      const status = String(order.status || 'PENDING').toUpperCase();
+      this.assertWritableWarehouse(order.warehouse_code, `出库单 ${normalizedNo}`);
+      if (status === 'DONE') {
+        return {
+          code: 200,
+          msg: `出库单 ${normalizedNo} 已完成`,
+          idempotent: true,
+          data: { outbound_no: normalizedNo, status: 'DONE' },
+        };
+      }
+      if (!['PENDING', 'PICKING'].includes(status)) {
+        throw new BadRequestException(`出库单 ${normalizedNo} 当前状态 ${status} 不允许确认`);
+      }
+
+      const qty = Number(order.qty);
+      if (!Number.isInteger(qty) || qty <= 0) {
+        throw new BadRequestException(`出库单 ${normalizedNo} 的出库数量必须为正整数`);
+      }
+
+      const batchNo = this.nonEmptyString(order.batch_no);
+      const itemCode = this.nonEmptyString(order.item);
+      if (batchNo) {
+        const [batch] = await manager.query(
+          `SELECT batch_no, product_code, sku_code, qty, qty_available,
+                  warehouse_code, store_code
+             FROM inv_batches
+            WHERE batch_no = $1
+            FOR UPDATE`,
+          [batchNo],
+        );
+        if (!batch) throw new BadRequestException(`库存批次 ${batchNo} 不存在`);
+        if (order.warehouse_code && batch.warehouse_code !== order.warehouse_code) {
+          throw new BadRequestException(
+            `库存批次 ${batchNo} 属于仓库 ${batch.warehouse_code || '-'}，与出库仓库 ${order.warehouse_code} 不一致`,
+          );
+        }
+        await this.deductOutboundBatch(manager, batch, qty, normalizedNo, order, user, 'DONE');
+      } else if (itemCode) {
+        await this.deductStandaloneOutboundByItem(
+          manager,
+          itemCode,
+          qty,
+          normalizedNo,
+          order,
+          user,
+        );
+      } else {
+        throw new BadRequestException(`出库单 ${normalizedNo} 缺少库存批次或物料编码`);
+      }
+
+      await manager.query(
+        `UPDATE wms_outbound
+            SET status = 'DONE',
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1`,
+        [order.id],
+      );
+      return {
+        code: 200,
+        msg: '出库确认成功，库存与台账已同步扣减',
+        data: { outbound_no: normalizedNo, status: 'DONE', qty },
+      };
+    });
+  }
+
+  private async deductStandaloneOutboundByItem(
+    manager: EntityManager,
+    itemCode: string,
+    qty: number,
+    outboundNo: string,
+    order: any,
+    user: any,
+  ): Promise<void> {
+    const params: unknown[] = [itemCode];
+    let warehouseSql = '';
+    if (order.warehouse_code) {
+      params.push(order.warehouse_code);
+      warehouseSql = `AND warehouse_code = $${params.length}`;
+    }
+    const batches = await manager.query(
+      `SELECT batch_no, product_code, sku_code, qty, qty_available,
+              warehouse_code, store_code
+         FROM inv_batches
+        WHERE (sku_code = $1 OR product_code = $1)
+          ${warehouseSql}
+          AND COALESCE(qty_available, qty, 0) > 0
+          AND COALESCE(status, 'AVAILABLE') = 'AVAILABLE'
+        ORDER BY expire_date NULLS LAST, created_at ASC, batch_no ASC
+        FOR UPDATE`,
+      params,
+    );
+
+    let remaining = qty;
+    for (const batch of batches) {
+      if (remaining <= 0) break;
+      const available = Number(batch.qty_available ?? batch.qty) || 0;
+      if (available <= 0) continue;
+      const deductQty = Math.min(remaining, available);
+      await this.deductOutboundBatch(
+        manager,
+        batch,
+        deductQty,
+        outboundNo,
+        order,
+        user,
+        'DONE',
+      );
+      remaining -= deductQty;
+    }
+    if (remaining > 0) {
+      throw new BadRequestException(`库存不足：${itemCode} 仍缺 ${remaining}`);
+    }
+  }
+
   private async deductOutboundBySelector(
     manager: EntityManager,
     column: 'sku_code' | 'product_code',

@@ -5,7 +5,11 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 import { findExistingTaskCommit } from './bug-intake-existing-commit.mjs';
-import { filterRunnerRuntimeFiles, filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
+import {
+  filterRunnerRuntimeFiles,
+  filterRunnerRuntimeStatus,
+  worktreeNeedsOriginMainSync,
+} from './bug-intake-worktree-runtime.mjs';
 import { persistTaskSnapshot, readQueueTasks } from './bug-runner-platform.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
@@ -254,7 +258,7 @@ function checkWorktree(task) {
   if (!result.clean) result.errors.push(`dirty worktree: ${status}`);
   const ancestor = safeGit(['merge-base', '--is-ancestor', task.branch, 'origin/main'], task.worktree);
   const reverse = safeGit(['merge-base', '--is-ancestor', 'origin/main', task.branch], task.worktree);
-  result.needsRebase = ancestor.ok && !reverse.ok;
+  result.needsRebase = worktreeNeedsOriginMainSync(ancestor.ok, reverse.ok);
   return result;
 }
 

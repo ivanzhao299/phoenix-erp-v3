@@ -215,6 +215,7 @@ export class DeliveryOrdersService {
     const deliveryNo = await this.genDeliveryNo();
     const totalOrders = orders.length;
     const totalQty = orders.reduce((s: number, o: any) => s + Number(o.total_amount || 0), 0);
+    const resolvedOrderIds = orders.map((order: any) => String(order.id));
 
     return this.ds.transaction(async (mgr) => {
       // 写配送单主表
@@ -259,8 +260,8 @@ export class DeliveryOrdersService {
       // 销售订单 → ALLOCATED（已安排配送）
       await mgr.query(
         `UPDATE sal_sales_orders SET status='ALLOCATED', updated_at=NOW()
-         WHERE id = ANY($1) AND status IN ('APPROVED')`,
-        [soIds],
+         WHERE id = ANY($1::bigint[]) AND status IN ('APPROVED')`,
+        [resolvedOrderIds],
       );
 
       this.logger.log(`配送单 ${deliveryNo} 已创建，关联 ${totalOrders} 张销售订单`);

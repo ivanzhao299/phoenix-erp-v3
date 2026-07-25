@@ -324,4 +324,117 @@ describe('WmsService inventory read queries', () => {
       'SKU-EGG-A-30',
     ]);
   });
+
+  it('confirms a standalone outbound only after deducting its batch and writing the ledger', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM wms_outbound')) {
+          return [{
+            id: '31',
+            outbound_no: 'WO-20260725-001',
+            status: 'PENDING',
+            warehouse_code: 'LPH_MS_EGG_SALES',
+            store_code: 'ALL',
+            item: 'SKU-EGG-A-30',
+            batch_no: 'B-EGG-A-1',
+            qty: 12,
+          }];
+        }
+        if (sql.includes('FROM inv_batches') && sql.includes('batch_no = $1')) {
+          return [{
+            batch_no: 'B-EGG-A-1',
+            product_code: 'PRD-EGG',
+            sku_code: 'SKU-EGG-A-30',
+            qty: 20,
+            qty_available: 20,
+            warehouse_code: 'LPH_MS_EGG_SALES',
+            store_code: 'ALL',
+          }];
+        }
+        return [];
+      }),
+    };
+    const em = {
+      transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
+    };
+    const cls = {
+      get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })),
+    };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(
+      service.confirmStandaloneOutbound('WO-20260725-001', { username: 'warehouse-admin' }),
+    ).resolves.toMatchObject({
+      code: 200,
+      data: { outbound_no: 'WO-20260725-001', status: 'DONE', qty: 12 },
+    });
+
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE inv_batches'),
+      [12, 'B-EGG-A-1'],
+    );
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO inv_ledger'),
+      [
+        'B-EGG-A-1',
+        12,
+        'warehouse-admin',
+        'ALL',
+        'WO-20260725-001',
+        '出库 status=DONE batch=B-EGG-A-1 product=PRD-EGG sku=SKU-EGG-A-30 qty=12',
+        'SKU-EGG-A-30',
+      ],
+    );
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining("SET status = 'DONE'"),
+      ['31'],
+    );
+  });
+
+  it('keeps a standalone outbound pending when inventory is insufficient', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM wms_outbound')) {
+          return [{
+            id: '32',
+            outbound_no: 'WO-20260725-002',
+            status: 'PENDING',
+            warehouse_code: 'LPH_MS_EGG_SALES',
+            store_code: 'ALL',
+            item: 'SKU-EGG-A-30',
+            batch_no: 'B-EGG-A-2',
+            qty: 12,
+          }];
+        }
+        if (sql.includes('FROM inv_batches') && sql.includes('batch_no = $1')) {
+          return [{
+            batch_no: 'B-EGG-A-2',
+            product_code: 'PRD-EGG',
+            sku_code: 'SKU-EGG-A-30',
+            qty: 5,
+            qty_available: 5,
+            warehouse_code: 'LPH_MS_EGG_SALES',
+            store_code: 'ALL',
+          }];
+        }
+        return [];
+      }),
+    };
+    const em = {
+      transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
+    };
+    const cls = {
+      get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })),
+    };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(
+      service.confirmStandaloneOutbound('WO-20260725-002', { username: 'warehouse-admin' }),
+    ).rejects.toThrow('余量 5 不足 12');
+
+    const doneUpdate = manager.query.mock.calls.find(([sql]) =>
+      String(sql).includes("SET status = 'DONE'"),
+    );
+    expect(doneUpdate).toBeUndefined();
+  });
 });

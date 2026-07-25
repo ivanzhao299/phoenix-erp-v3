@@ -253,14 +253,55 @@ function runAsync(command, options = {}) {
   });
 }
 
-function classifyRunnerFailure(input = {}) {
+export function compactDiagnosticValue(value, options = {}, state = { seen: new WeakSet(), depth: 0 }) {
+  const maxDepth = Number(options.maxDepth || 4);
+  const maxEntries = Number(options.maxEntries || 30);
+  const maxStringChars = Number(options.maxStringChars || 4000);
+  if (value === null || value === undefined || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value === 'string') {
+    return value.length > maxStringChars
+      ? `${value.slice(0, maxStringChars)}\n...[truncated ${value.length - maxStringChars} chars]`
+      : value;
+  }
+  if (typeof value !== 'object') return String(value);
+  if (state.depth >= maxDepth) return '[depth limit]';
+  if (state.seen.has(value)) return '[circular]';
+  state.seen.add(value);
+  const childState = { seen: state.seen, depth: state.depth + 1 };
+  if (Array.isArray(value)) {
+    const compact = value.slice(0, maxEntries).map((item) => compactDiagnosticValue(item, options, childState));
+    if (value.length > maxEntries) compact.push(`[truncated ${value.length - maxEntries} items]`);
+    return compact;
+  }
+  const entries = Object.entries(value);
+  const compact = Object.fromEntries(entries
+    .slice(0, maxEntries)
+    .map(([key, item]) => [key, compactDiagnosticValue(item, options, childState)]));
+  if (entries.length > maxEntries) compact.__truncated_keys__ = entries.length - maxEntries;
+  return compact;
+}
+
+export function boundedDiagnosticText(input, maxChars = 32768) {
+  let text;
+  try {
+    text = JSON.stringify(compactDiagnosticValue(input));
+  } catch (error) {
+    text = `[diagnostic serialization failed: ${error.message}]`;
+  }
+  if (text.length <= maxChars) return text;
+  const suffix = '\n...[diagnostic truncated]';
+  return `${text.slice(0, Math.max(0, maxChars - suffix.length))}${suffix}`;
+}
+
+export function classifyRunnerFailure(input = {}) {
   const text = [
     input.step,
     input.reason,
     input.error,
     input.stdout,
     input.stderr,
-    JSON.stringify(input),
+    boundedDiagnosticText(input),
   ].join('\n').toLowerCase();
   const evidence = [];
   const match = (pattern, label) => {

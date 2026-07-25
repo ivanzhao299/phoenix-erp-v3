@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Plus } from "lucide-react";
+import apiRequest from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 // g200e 模板 token(2026-06-20)
 import {
@@ -46,6 +47,7 @@ export default function OutboundPage() {
   const [confirmOpen,  setConfirmOpen]  = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [typeFilter,   setTypeFilter]   = useState("");
+  const [confirmingNo, setConfirmingNo] = useState("");
 
   // 当前用户的 site/farm 推导 — 用于 Selector 过滤
   const userStore = useMemo(() => getStoreCode(), []);
@@ -87,7 +89,11 @@ export default function OutboundPage() {
     { key: "warehouse_code", label: t("ui.出库仓库", "出库仓库"), type: "warehouse", required: true,
       ...(siteCode ? { filterBy: { siteCode } } : {}) } as any,
     { key: "item",           label: t("ui.物料/SKU", "物料/SKU"), type: "sku", required: true },
-    { key: "batch_no",       label: t("ui.批次号",   "批次号(可选)"),   type: "text" },
+    { key: "batch_no",       label: t("ui.库存批次", "库存批次(可选，不选则按物料先进先出)"), type: "batch",
+      onPickKeys: {
+        item: "inventory_item_code",
+        warehouse_code: "warehouse_code",
+      } },
     { key: "qty",            label: t("ui.出库数量", "出库数量"), type: "number", required: true },
     { key: "destination_type",          label: t("ui.去向类型", "去向类型"), type: "dict", dictType: "INV_OUTBOUND_DEST_TYPE" },
     { key: "destination_house_code",    label: t("ui.去向鸡舍", "去向鸡舍(去向=鸡舍时)"), type: "house",
@@ -99,12 +105,6 @@ export default function OutboundPage() {
     { key: "order_no",       label: t("ui.关联订单", "关联订单(可选)"), type: "text" },
     { key: "remark",         label: t("common.remark", "备注"), type: "textarea" },
     { key: "attachment_url", label: t("ui.出库附件", "出库附件"), type: "attachment" },
-    { key: "status", label: t("common.status", "状态"), type: "select", options: [
-      { label: t("status.pending",   "待出库"), value: "PENDING"   },
-      { label: t("status.picking",   "拣货中"), value: "PICKING"   },
-      { label: t("status.done",      "已出库"), value: "DONE"      },
-      { label: t("status.cancelled", "已取消"), value: "CANCELLED" },
-    ]},
   ];
 
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);
@@ -139,6 +139,21 @@ export default function OutboundPage() {
     setConfirmOpen(false); refresh();
   }, [deleteTarget, refresh]);
 
+  const confirmOutbound = useCallback(async (row: Row) => {
+    const outboundNo = String(row.outbound_no || "").trim();
+    if (!outboundNo || confirmingNo) return;
+    if (!window.confirm(t("ui.确认出库将扣减库存并写入台账是否继续", "确认出库将扣减库存并写入台账，是否继续？"))) return;
+    setConfirmingNo(outboundNo);
+    try {
+      await apiRequest(`/outbound/standalone/${encodeURIComponent(outboundNo)}/confirm`, {
+        method: "POST",
+      });
+      refresh();
+    } finally {
+      setConfirmingNo("");
+    }
+  }, [confirmingNo, refresh, t]);
+
   const COLUMNS: Column<Row>[] = [
     { key: "outbound_no",     title: t("ui.出库单号", "出库单号"), width: 160 },
     { key: "date",            title: t("ui.出库日期", "出库日期"), width: 110 },
@@ -161,8 +176,14 @@ export default function OutboundPage() {
     { key: "_actions",        title: t("common.operation", "操作"), width: 140, align: "center",
       render: (_, row) => (
         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-          {canEditInout && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
-          {canDeleteInout && (
+          {canEditInout && ["PENDING", "PICKING"].includes(String(row.status)) && (
+            <button type="button" style={actionPill("success")} disabled={confirmingNo === String(row.outbound_no)}
+              onClick={() => confirmOutbound(row)}>
+              {confirmingNo === String(row.outbound_no) ? t("common.processing", "处理中") : t("ui.确认出库", "确认出库")}
+            </button>
+          )}
+          {canEditInout && String(row.status) !== "DONE" && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
+          {canDeleteInout && String(row.status) === "PENDING" && (
             <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
           )}
         </div>
