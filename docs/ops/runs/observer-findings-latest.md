@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-25T15:02:32.279Z |
+| Generated at | 2026-07-25T15:34:46.932Z |
 | Run files inspected | 2381 |
 | Task count | 405 |
 | Findings count | 35 |
@@ -277,13 +277,13 @@
 - Requires Human Gate: false
 - Recommended Next Task: Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP.
 
-### OBS-0030 - MEDIUM - baseline
+### OBS-0030 - HIGH - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M apps/api/src/modules/bff/bff.controller.spec.ts;  M apps/api/src/modules/bff/bff.controller.ts;  M apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts;  M apps/api/src/modules/generic-crud/generic-crud.controller.ts;  M apps/api/src/modules/sales-v2/services/delivery-orders.service.spec.ts;  M apps/api/src/modules/sales-v2/services/delivery-orders.service.ts;  M apps/api/src/modules/wms/outbound.controller.ts;  M apps/api/src/modules/wms/wms.service.spec.ts;  M apps/api/src/modules/wms/wms.service.ts;  M apps/web/src/app/(admin)/warehouse/outbound/page.tsx;  M apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx;  M apps/web/src/components/shared-selectors/MasterDataSelectors.tsx;  M apps/web/src/lib/packaging-api.ts;  M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
+- Auto Fix Eligible: false
+- Requires Human Gate: true
 - Recommended Next Task: Baseline cleanup for Codex-Orchestrator.
 
 ### OBS-0031 - MEDIUM - baseline

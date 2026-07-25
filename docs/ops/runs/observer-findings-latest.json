@@ -1,6 +1,6 @@
 {
   "summary": {
-    "generated_at": "2026-07-25T15:02:32.279Z",
+    "generated_at": "2026-07-25T15:34:46.932Z",
     "dry_run": true,
     "run_files_inspected": 2381,
     "task_count": 405,
@@ -346,13 +346,13 @@
     },
     {
       "id": "OBS-0030",
-      "severity": "MEDIUM",
+      "severity": "HIGH",
       "category": "baseline",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M apps/api/src/modules/bff/bff.controller.spec.ts;  M apps/api/src/modules/bff/bff.controller.ts;  M apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts;  M apps/api/src/modules/generic-crud/generic-crud.controller.ts;  M apps/api/src/modules/sales-v2/services/delivery-orders.service.spec.ts;  M apps/api/src/modules/sales-v2/services/delivery-orders.service.ts;  M apps/api/src/modules/wms/outbound.controller.ts;  M apps/api/src/modules/wms/wms.service.spec.ts;  M apps/api/src/modules/wms/wms.service.ts;  M apps/web/src/app/(admin)/warehouse/outbound/page.tsx;  M apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx;  M apps/web/src/components/shared-selectors/MasterDataSelectors.tsx;  M apps/web/src/lib/packaging-api.ts;  M docs/ops/OBSERVER_FINDINGS_REPORT.md;  M docs/ops/evolution/evolution-state.json;  M docs/ops/evolution/improvement-backlog.json;  M docs/ops/evolution/learning-log.json;  M docs/ops/runs/evolution-plan-latest.json;  M docs/ops/runs/evolution-plan-latest.md;  M docs/ops/runs/observer-findings-latest.json;  M docs/ops/runs/observer-findings-latest.md",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
+      "auto_fix_eligible": false,
+      "requires_human_gate": true,
       "recommended_next_task": "Baseline cleanup for Codex-Orchestrator."
     },
     {
