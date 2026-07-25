@@ -95,6 +95,10 @@ The receipt advances the report only to `FIX_READY_FOR_UAT`; it does not claim b
 - Runner platform and lifecycle tests: 69/69 PASS.
 - Synchronization: 14 reports fetched, zero fetch errors.
 - Controlled Runner cycle: zero runnable, zero blocked, zero worker executions.
+- Resident LaunchAgent: running; three consecutive post-release cycles completed with zero runnable and zero blocked tasks.
+- Platform fix revision: `502f9a56761b86b95f24dfa0dd803a70d4ab9e87`.
+- GitHub Actions: Security, Web Unit, Build, and CI/CD run `30165837632` all PASS.
+- Production API: healthy, database connected, restart count zero, `OOMKilled=false`.
 - Local dashboard: `GO`.
 - False completion count: zero.
 

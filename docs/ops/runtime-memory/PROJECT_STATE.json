@@ -1094,7 +1094,7 @@
     "remote_reports_agent_execution_finished": 0,
     "false_complete_count": 0,
     "terminal_evidence_coverage": 1,
-    "resident_runner": "restart_after_release_validation",
+    "resident_runner": "active_cycle_3_zero_runnable_zero_blocked",
     "queue_lane_filters": "implemented",
     "safe_redispatch_gate": "implemented",
     "docs_only_ci_barrier_fix": "implemented",
@@ -1102,6 +1102,8 @@
     "latest_release_receipt": "docs/ops/runs/BUG-20260718-0004-release-lifecycle-receipt.json",
     "latest_release_commit": "bfd64a08cc8e65c1281b39d0d9b6898240757652",
     "latest_release_ci_run": "30165198894",
+    "platform_fix_commit": "502f9a56761b86b95f24dfa0dd803a70d4ab9e87",
+    "platform_fix_ci_deploy_run": "30165837632",
     "delivery_inventory_packaging_fix_commit": "3abdc810",
     "chanjet_restart_loop_fix_commit": "416591c1",
     "production_api_health": "HTTP_200_restart_0_oom_false"
