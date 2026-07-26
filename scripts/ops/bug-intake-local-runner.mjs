@@ -1363,6 +1363,11 @@ export function collectReleaseCommitHashes(releaseEvidence = []) {
     .filter((commit) => /^[0-9a-f]{7,40}$/i.test(commit)))];
 }
 
+export function isEmptyCherryPickFailure(result) {
+  const output = `${result?.stdout || ''}\n${result?.stderr || ''}`;
+  return /previous cherry-pick is now empty|nothing to commit, working tree clean/i.test(output);
+}
+
 function publishReleaseCommits(args, releaseEvidence) {
   const fetch = run(['git', 'fetch', 'origin', 'main'], { cwd: args.mainRoot, timeoutMs: 120000 });
   if (fetch.status !== 0) {
@@ -1421,6 +1426,10 @@ function publishReleaseCommits(args, releaseEvidence) {
         if (safeGit(['merge-base', '--is-ancestor', commit, 'HEAD'], integrationDir).ok) continue;
         const cherryPick = run(['git', 'cherry-pick', commit], { cwd: integrationDir, timeoutMs: 120000 });
         if (cherryPick.status !== 0) {
+          if (isEmptyCherryPickFailure(cherryPick)) {
+            const skip = run(['git', 'cherry-pick', '--skip'], { cwd: integrationDir, timeoutMs: 30000 });
+            if (skip.status === 0) continue;
+          }
           run(['git', 'cherry-pick', '--abort'], { cwd: integrationDir, timeoutMs: 30000 });
           return {
             skipped: false,

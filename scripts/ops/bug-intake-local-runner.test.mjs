@@ -11,6 +11,7 @@ import {
   buildResultBackfillPlan,
   classifyRunnerFailure,
   collectReleaseCommitHashes,
+  isEmptyCherryPickFailure,
   redactBoundedOutput,
   requeueExpiredCapacityWaits,
   requeueSatisfiedDependencyHolds,
@@ -105,6 +106,18 @@ test('result delivery id is stable and changes with worker evidence', () => {
     resultDeliveryId('BUG-1', endpoint, { ...base, summary: 'cycle 1', resultFile: '/tmp/one.md' }),
     resultDeliveryId('BUG-1', endpoint, { ...base, summary: 'cycle 2', resultFile: '/tmp/two.md' }),
   );
+});
+
+test('selective release treats an already integrated patch as an empty cherry-pick', () => {
+  assert.equal(isEmptyCherryPickFailure({
+    status: 1,
+    stdout: 'nothing to commit, working tree clean',
+    stderr: 'The previous cherry-pick is now empty, possibly due to conflict resolution.',
+  }), true);
+  assert.equal(isEmptyCherryPickFailure({
+    status: 1,
+    stderr: 'CONFLICT (content): Merge conflict in service.ts',
+  }), false);
 });
 
 test('runner output is bounded before redaction and ignores unsafe short secrets', () => {
