@@ -4,7 +4,7 @@ import type { ClsService } from 'nestjs-cls';
 import { DeliveryOrdersService } from './delivery-orders.service';
 
 describe('DeliveryOrdersService creation', () => {
-  it('accepts a visible sales order number without casting it to bigint', async () => {
+  it('uses ordered item quantity rather than order amount for delivery quantities', async () => {
     let transactionCommitted = false;
     const managerQuery = jest.fn(async (sql: string) => {
       if (sql.includes('INSERT INTO sal_delivery_orders')) {
@@ -17,6 +17,7 @@ describe('DeliveryOrdersService creation', () => {
       if (sql.includes('FROM sal_sales_orders')) {
         expect(sql).toContain('id = ANY($1::bigint[])');
         expect(sql).toContain('order_no = ANY($2::text[])');
+        expect(sql).toContain('SUM(qty) AS planned_qty');
         expect(params).toEqual([[], ['SO-20260725-00001']]);
         return [{
           id: '101',
@@ -24,7 +25,8 @@ describe('DeliveryOrdersService creation', () => {
           customer_code: 'CUS-1',
           customer_name: '测试客户',
           delivery_address: '测试地址',
-          total_amount: '12',
+          total_amount: '500',
+          planned_qty: '10',
           status: 'APPROVED',
           company_code: 'COMP-1',
         }];
@@ -64,7 +66,11 @@ describe('DeliveryOrdersService creation', () => {
 
     expect(managerQuery).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO sal_delivery_order_items'),
-      expect.arrayContaining(['101', 'SO-20260725-00001']),
+      ['201', '101', 'SO-20260725-00001', 'CUS-1', '测试客户', '测试地址', '10'],
+    );
+    expect(managerQuery).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO sal_delivery_orders'),
+      expect.arrayContaining([1, 10]),
     );
     expect(managerQuery).toHaveBeenCalledWith(
       expect.stringContaining("SET status='ALLOCATED'"),

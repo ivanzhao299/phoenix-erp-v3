@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -449,9 +449,12 @@ export function auditFingerprintGitArgs(paths = OPS_RUNTIME_PATHS) {
   return ['diff', '--cached', '--raw', '--no-renames', '--', ...paths];
 }
 
-function commitOpsRuntimeArtifacts(args) {
+function commitOpsRuntimeArtifacts(args, options = {}) {
   if (args.dryRun) return { skipped: true, reason: 'dry-run' };
   if (!args.commitAuditArtifacts) return { skipped: true, reason: 'automatic audit commits disabled' };
+  if (options.meaningfulActivity !== true) {
+    return { skipped: true, reason: 'idle cycle; audit commit deferred until meaningful runner activity' };
+  }
   const previous = readJson(AUDIT_COMMIT_STATE_FILE, {});
   const minIntervalMs = Math.max(1, Number(args.auditCommitMinutes || 30)) * 60 * 1000;
   const lastCommittedAt = Date.parse(previous.committedAt || '');
@@ -1347,13 +1350,125 @@ function writebackCommand(task, finalTask, args) {
   return command;
 }
 
-function pushCommand(args) {
-  return ['git', 'push', 'origin', 'HEAD:main'];
-}
-
 function currentHead(cwd) {
   const sha = safeGit(['rev-parse', 'HEAD'], cwd);
   return sha.ok ? sha.output : '';
+}
+
+export function collectReleaseCommitHashes(releaseEvidence = []) {
+  return [...new Set(releaseEvidence
+    .filter((item) => item?.evidence?.passed === true)
+    .flatMap((item) => item.evidence?.commitHashes || [])
+    .map((commit) => String(commit || '').trim())
+    .filter((commit) => /^[0-9a-f]{7,40}$/i.test(commit)))];
+}
+
+function publishReleaseCommits(args, releaseEvidence) {
+  const fetch = run(['git', 'fetch', 'origin', 'main'], { cwd: args.mainRoot, timeoutMs: 120000 });
+  if (fetch.status !== 0) {
+    return { skipped: false, status: fetch.status, step: 'git fetch origin main', stdout: fetch.stdout, stderr: fetch.stderr };
+  }
+
+  const commitHashes = collectReleaseCommitHashes(releaseEvidence);
+  const missingCommits = commitHashes.filter((commit) => !safeGit(['cat-file', '-e', `${commit}^{commit}`], args.mainRoot).ok);
+  if (missingCommits.length > 0) {
+    return {
+      skipped: false,
+      status: 1,
+      step: 'release commit validation',
+      stderr: `verified implementation commit(s) are unavailable locally: ${missingCommits.join(', ')}`,
+      commitHashes,
+    };
+  }
+
+  const pendingCommits = commitHashes.filter((commit) =>
+    !safeGit(['merge-base', '--is-ancestor', commit, 'origin/main'], args.mainRoot).ok,
+  );
+  if (pendingCommits.length === 0) {
+    const originHead = safeGit(['rev-parse', 'origin/main'], args.mainRoot);
+    return {
+      skipped: false,
+      status: originHead.ok ? 0 : 1,
+      alreadyPushed: originHead.ok,
+      headSha: originHead.ok ? originHead.output : '',
+      commitHashes,
+      pendingCommits,
+      stdout: originHead.ok
+        ? 'all verified implementation commits are already present on origin/main'
+        : '',
+      stderr: originHead.ok ? '' : originHead.output,
+    };
+  }
+
+  let lastFailure = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const refresh = run(['git', 'fetch', 'origin', 'main'], { cwd: args.mainRoot, timeoutMs: 120000 });
+    if (refresh.status !== 0) return { ...refresh, skipped: false, step: 'git fetch origin main', attempt };
+
+    const integrationDir = mkdtempSync('/tmp/phoenix-bug-release-');
+    const addWorktree = run(
+      ['git', 'worktree', 'add', '--detach', integrationDir, 'origin/main'],
+      { cwd: args.mainRoot, timeoutMs: 120000 },
+    );
+    if (addWorktree.status !== 0) {
+      rmSync(integrationDir, { recursive: true, force: true });
+      return { ...addWorktree, skipped: false, step: 'create isolated release worktree', attempt };
+    }
+
+    try {
+      const integrated = [];
+      for (const commit of pendingCommits) {
+        if (safeGit(['merge-base', '--is-ancestor', commit, 'HEAD'], integrationDir).ok) continue;
+        const cherryPick = run(['git', 'cherry-pick', commit], { cwd: integrationDir, timeoutMs: 120000 });
+        if (cherryPick.status !== 0) {
+          run(['git', 'cherry-pick', '--abort'], { cwd: integrationDir, timeoutMs: 30000 });
+          return {
+            skipped: false,
+            status: cherryPick.status,
+            step: 'selective release integration',
+            attempt,
+            commit,
+            commitHashes,
+            pendingCommits,
+            stdout: cherryPick.stdout,
+            stderr: cherryPick.stderr,
+          };
+        }
+        integrated.push(commit);
+      }
+      const headSha = currentHead(integrationDir);
+      const push = run(['git', 'push', 'origin', 'HEAD:main'], { cwd: integrationDir, timeoutMs: 180000 });
+      if (push.status === 0) {
+        return {
+          ...push,
+          skipped: false,
+          attempt,
+          headSha,
+          commitHashes,
+          pendingCommits,
+          integrated,
+          isolatedRelease: true,
+        };
+      }
+      lastFailure = {
+        ...push,
+        skipped: false,
+        attempt,
+        headSha,
+        commitHashes,
+        pendingCommits,
+        integrated,
+        isolatedRelease: true,
+      };
+      if (!/non-fast-forward|fetch first|behind its remote/i.test(`${push.stdout}\n${push.stderr}`)) {
+        return lastFailure;
+      }
+    } finally {
+      run(['git', 'worktree', 'remove', '--force', integrationDir], { cwd: args.mainRoot, timeoutMs: 120000 });
+      rmSync(integrationDir, { recursive: true, force: true });
+    }
+  }
+  return lastFailure || { skipped: false, status: 1, stderr: 'release push failed after 3 attempts' };
 }
 
 export function selectReleaseReadyBacklog(reports, tasks) {
@@ -1441,43 +1556,14 @@ function runPushIfReady(args, workerRuns, releaseEvidence) {
   if (releaseEvidence.length === 0 || releaseEvidence.some((item) => !item.evidence.passed)) {
     return { skipped: true, reason: 'release evidence is incomplete; refusing push' };
   }
-  const unpushed = safeGit(['rev-list', 'origin/main..HEAD'], args.mainRoot);
-  if (!unpushed.ok) return { skipped: true, reason: `cannot inspect unpushed commits: ${unpushed.output}` };
-  const unpushedCommitCount = unpushed.output.split('\n').map((sha) => sha.trim()).filter(Boolean).length;
-  const headOnOriginMain = safeGit(['merge-base', '--is-ancestor', 'HEAD', 'origin/main'], args.mainRoot).ok;
-  if (shouldResumeAlreadyPushedRelease({
-    dryRun: args.dryRun,
-    pushAfterSuccess: args.pushAfterSuccess,
-    releaseEvidence,
-    unpushedCommitCount,
-    headIsOnOriginMain: headOnOriginMain,
-  })) {
-    return {
-      skipped: false,
-      status: 0,
-      alreadyPushed: true,
-      stdout: 'release commit is already present on origin/main; resuming CI, production smoke, and lifecycle writeback',
-      stderr: '',
-    };
-  }
-  if (!shouldAttemptReleasePush({
-    dryRun: args.dryRun,
-    pushAfterSuccess: args.pushAfterSuccess,
-    releaseEvidence,
-    unpushedCommitCount,
-  })) {
-    return { skipped: true, reason: 'no unpushed release commit' };
-  }
-  const branch = safeGit(['branch', '--show-current'], args.mainRoot);
   const status = safeGit(['status', '--short'], args.mainRoot);
-  if (!branch.ok) return { skipped: true, reason: `cannot read branch: ${branch.output}` };
   const blockingDirtyFiles = status.ok
     ? gitStatusFiles(status.output).filter((file) => !isRunnerRuntimeFile(file))
     : [];
   if (!status.ok || blockingDirtyFiles.length > 0) {
     return { skipped: true, reason: `main root contains non-runtime changes: ${blockingDirtyFiles.join(', ') || status.output}` };
   }
-  return run(pushCommand(args), { cwd: args.mainRoot });
+  return publishReleaseCommits(args, releaseEvidence);
 }
 
 function pushOpsAuditCommitsIfSafe(args, releasePush) {
@@ -1493,7 +1579,12 @@ function pushOpsAuditCommitsIfSafe(args, releasePush) {
   if (paths.length === 0 || paths.some((file) => !file.startsWith('docs/ops/'))) {
     return { skipped: true, reason: 'unpushed commits contain non-audit paths; release evidence is required', paths };
   }
-  return { ...run(pushCommand(args), { cwd: args.mainRoot }), auditOnly: true, paths };
+  return {
+    skipped: true,
+    reason: 'ops audit commits remain on the runner audit branch and never ride the production release path',
+    auditOnly: true,
+    paths,
+  };
 }
 
 function runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence) {
@@ -1521,9 +1612,9 @@ async function waitForGithubActionsIfRequested(args, push) {
   if (push?.skipped || push?.status !== 0) return { skipped: true, reason: 'push did not complete successfully' };
   const ghCheck = spawnSync('gh', ['--version'], { cwd: args.mainRoot, encoding: 'utf8' });
   if ((ghCheck.status ?? 1) !== 0) return { skipped: true, reason: 'gh CLI unavailable' };
-  const headSha = currentHead(args.mainRoot);
+  const headSha = String(push?.headSha || currentHead(args.mainRoot));
   if (!headSha) return { skipped: true, reason: 'cannot resolve HEAD sha' };
-  const headFiles = safeGit(['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], args.mainRoot);
+  const headFiles = safeGit(['diff-tree', '--no-commit-id', '--name-only', '-r', headSha], args.mainRoot);
   if (!headFiles.ok) return { skipped: false, ok: false, step: 'git diff-tree', error: headFiles.output };
   const requiredWorkflows = requiredCiWorkflowsForPaths(
     headFiles.output.split('\n').map((file) => file.trim()).filter(Boolean),
@@ -1582,7 +1673,19 @@ function resultReceiptFile(args) {
 }
 
 export function resultDeliveryId(bugNo, endpoint, payload) {
-  return stableHash({ bugNo, endpoint, payload });
+  return stableHash({
+    bugNo,
+    endpoint,
+    payload: {
+      taskId: payload?.taskId || '',
+      agent: payload?.agent || '',
+      conclusion: payload?.conclusion || '',
+      commitHash: payload?.commitHash || '',
+      changedFiles: [...new Set(payload?.changedFiles || [])].sort(),
+      validationResults: payload?.validationResults || null,
+      nextAction: payload?.nextAction || '',
+    },
+  });
 }
 
 function resultWasDelivered(args, id) {
@@ -1707,15 +1810,21 @@ export function runnerLifecycleWritebackDecision(args, summary) {
   if (summary.push?.skipped) {
     return { run: false, reason: `no release attempt occurred: ${summary.push.reason || 'push skipped'}` };
   }
-  return { run: true, reason: 'release attempt completed' };
+  if (summary.push?.status !== 0) {
+    return { run: false, reason: 'release push failed; preserve Agent evidence and report the pipeline failure separately' };
+  }
+  if (summary.ci?.skipped || summary.ci?.ok !== true) {
+    return { run: false, reason: 'CI/CD did not pass; preserve Agent evidence and report the pipeline failure separately' };
+  }
+  if (summary.productionSmoke?.skipped || summary.productionSmoke?.status !== 0) {
+    return { run: false, reason: 'production smoke did not pass; preserve Agent evidence and report the pipeline failure separately' };
+  }
+  return { run: true, reason: 'release, CI/CD, and production smoke all passed' };
 }
 
 async function writebackRunnerLifecycle(args, childEnv, summary) {
   const decision = runnerLifecycleWritebackDecision(args, summary);
   if (!decision.run) return { skipped: true, reason: decision.reason };
-  const pushOk = !summary.push?.skipped && summary.push?.status === 0;
-  const ciOk = !summary.ci?.skipped && summary.ci?.ok === true;
-  const smokeOk = !summary.productionSmoke?.skipped && summary.productionSmoke?.status === 0;
   const results = [];
   for (const candidate of summary.releaseEvidence || []) {
     const releaseOk = candidate.evidence?.passed === true;
@@ -1731,26 +1840,24 @@ async function writebackRunnerLifecycle(args, childEnv, summary) {
       });
       continue;
     }
-    const conclusion = releaseOk && pushOk && ciOk && smokeOk ? 'PASS_WITH_CONDITIONS' : 'HOLD';
+    const conclusion = 'PASS_WITH_CONDITIONS';
     const payload = {
-      taskId: `LOCAL-RUNNER-${candidate.bugNo}-${String(summary.headSha || 'release').slice(0, 12)}`,
+      taskId: `LOCAL-RUNNER-${candidate.bugNo}-${String(summary.releaseSha || summary.headSha || 'release').slice(0, 12)}`,
       agent: 'BugIntakeLocalRunner',
       conclusion,
       resultFile: `${args.outputDir}/latest-summary.md`,
-      commitHash: summary.headSha || '',
+      commitHash: summary.releaseSha || summary.headSha || '',
       changedFiles: candidate.evidence?.changedFiles || [],
       validationResults: {
         sync: summary.sync.status === 0 ? 'PASS' : 'FAIL',
         releaseEvidence: releaseOk ? 'PASS' : 'HOLD',
         releaseEvidenceDetail: candidate.evidence,
-        push: pushOk ? 'PASS' : `HOLD: ${summary.push?.reason || summary.push?.status || 'not completed'}`,
-        ci: ciOk ? 'PASS' : `HOLD: ${summary.ci?.reason || summary.ci?.conclusion || 'not completed'}`,
-        productionSmoke: smokeOk ? 'PASS' : `HOLD: ${summary.productionSmoke?.reason || summary.productionSmoke?.status || 'not completed'}`,
+        push: 'PASS',
+        ci: 'PASS',
+        productionSmoke: 'PASS',
       },
       summary: summaryMarkdown(summary).slice(0, 3900),
-      nextAction: conclusion === 'HOLD'
-        ? 'Keep the report in HOLD until implementation, CI/CD, and production route evidence all pass.'
-        : 'Technical release evidence passed; administrator performs business acceptance before resolving.',
+      nextAction: 'Technical release evidence passed; administrator performs business acceptance before resolving.',
     };
     const bugNo = candidate.bugNo;
     results.push({ bugNo, ...(await postAgentResult(args, childEnv, bugNo, payload)) });
@@ -2380,7 +2487,12 @@ async function runCycle(args, cycle) {
     current_activity: { worker_count: workerRuns.length, blocked_count: blockedTasks.length },
   });
   writeMd('docs/ops/runs/bug-runner-dashboard-latest.md', `# Bug Runner Platform Dashboard\n\n- Decision: **${platformHealth}**\n- Queue total / active: ${platformMetrics.total} / ${platformMetrics.active}\n- False completion: ${platformMetrics.false_complete_count}\n- Raw terminal evidence coverage: ${(platformMetrics.raw_terminal_evidence_coverage * 100).toFixed(1)}%\n- Governed evidence coverage: ${(platformMetrics.terminal_evidence_coverage * 100).toFixed(1)}%\n- Legacy evidence exemptions: ${platformMetrics.legacy_evidence_exemption_count}\n- Current cycle workers / blocked: ${workerRuns.length} / ${blockedTasks.length}\n`);
-  const cycleAuditCommit = commitOpsRuntimeArtifacts(args);
+  const meaningfulActivity = workerRuns.length > 0
+    || (generationRecovery.results || []).some((item) => item.ok)
+    || (evidenceReconciliation.restored || []).length > 0
+    || (evidenceReconciliation.requeued || []).length > 0
+    || reconciledIntegrations.some((item) => item.ok);
+  const cycleAuditCommit = commitOpsRuntimeArtifacts(args, { meaningfulActivity });
   const releaseEvidence = releaseEvidenceForWorkerRuns(args, workerRuns);
   const push = runPushIfReady(args, workerRuns, releaseEvidence);
   const ci = await waitForGithubActionsIfRequested(args, push);
@@ -2437,6 +2549,7 @@ async function runCycle(args, cycle) {
     ci,
     productionSmoke,
     releaseEvidence,
+    releaseSha: push?.status === 0 ? push.headSha || '' : '',
     headSha: currentHead(args.mainRoot),
     tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,
     outputDir: args.outputDir,

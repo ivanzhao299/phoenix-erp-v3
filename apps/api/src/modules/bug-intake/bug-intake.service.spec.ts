@@ -318,6 +318,35 @@ describe('BugIntakeService evidence lifecycle', () => {
     expect(payload.agentResults.filter((item: any) => item.agent === 'BugIntakeLocalRunner')).toHaveLength(1);
   });
 
+  it('does not revoke FIX_READY_FOR_UAT when an unrelated later release attempt fails', async () => {
+    const { row, service } = build();
+    row.repairTaskStatus = 'FIX_READY_FOR_UAT';
+    row.status = 'IN_PROGRESS';
+    row.resolutionNote = '等待管理员业务验收。';
+    row.repairTaskPayload = {
+      agentPlan: { selected_agents: ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate'] },
+      agentResults: [
+        {
+          taskId: 'A3', agent: 'A3-Backend-Critical-Path', conclusion: 'PASS_WITH_CONDITIONS',
+          commitHash: 'abc123', changedFiles: ['apps/api/src/x.ts'],
+          validationResults: { evidenceGate: { passed: true, role: 'implementation' } },
+        },
+        {
+          taskId: 'A1', agent: 'A1-CI-Runtime-Gate', conclusion: 'PASS_WITH_CONDITIONS',
+          validationResults: { evidenceGate: { passed: true, role: 'validation' } },
+        },
+      ],
+    };
+
+    await service.recordAgentResult(row.bugNo, {
+      taskId: 'RUNNER-LATER-FAILURE', agent: 'BugIntakeLocalRunner', conclusion: 'HOLD',
+      validationResults: { releaseEvidence: 'PASS', push: 'HOLD', ci: 'HOLD', productionSmoke: 'HOLD' },
+    }, user, meta);
+
+    expect(row.repairTaskStatus).toBe('FIX_READY_FOR_UAT');
+    expect(row.resolutionNote).toContain('不会撤销已完成修复');
+  });
+
   it('does not present a HOLD repair task as successfully completed', async () => {
     const { row, service } = build();
     row.repairTaskStatus = 'HOLD';

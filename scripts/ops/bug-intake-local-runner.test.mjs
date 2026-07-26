@@ -10,6 +10,7 @@ import {
   bootstrapResultDeliveryReceipts,
   buildResultBackfillPlan,
   classifyRunnerFailure,
+  collectReleaseCommitHashes,
   redactBoundedOutput,
   requeueExpiredCapacityWaits,
   requeueSatisfiedDependencyHolds,
@@ -100,6 +101,10 @@ test('result delivery id is stable and changes with worker evidence', () => {
     resultDeliveryId('BUG-1', endpoint, base),
     resultDeliveryId('BUG-1', endpoint, { ...base, conclusion: 'HOLD' }),
   );
+  assert.equal(
+    resultDeliveryId('BUG-1', endpoint, { ...base, summary: 'cycle 1', resultFile: '/tmp/one.md' }),
+    resultDeliveryId('BUG-1', endpoint, { ...base, summary: 'cycle 2', resultFile: '/tmp/two.md' }),
+  );
 });
 
 test('runner output is bounded before redaction and ignores unsafe short secrets', () => {
@@ -174,10 +179,33 @@ test('idle or release-disabled cycles never downgrade Agent execution to HOLD', 
   assert.deepEqual(
     runnerLifecycleWritebackDecision(
       { dryRun: false, pushAfterSuccess: true },
-      { push: { skipped: false, status: 0 } },
+      {
+        push: { skipped: false, status: 0 },
+        ci: { skipped: false, ok: true },
+        productionSmoke: { skipped: false, status: 0 },
+      },
     ),
-    { run: true, reason: 'release attempt completed' },
+    { run: true, reason: 'release, CI/CD, and production smoke all passed' },
   );
+  assert.equal(
+    runnerLifecycleWritebackDecision(
+      { dryRun: false, pushAfterSuccess: true },
+      {
+        push: { skipped: false, status: 1 },
+        ci: { skipped: true },
+        productionSmoke: { skipped: true },
+      },
+    ).run,
+    false,
+  );
+});
+
+test('release commit collection excludes audit-only branch commits', () => {
+  assert.deepEqual(collectReleaseCommitHashes([
+    { bugNo: 'BUG-1', evidence: { passed: true, commitHashes: ['abc1234', 'def5678'] } },
+    { bugNo: 'BUG-2', evidence: { passed: true, commitHashes: ['abc1234'] } },
+    { bugNo: 'BUG-3', evidence: { passed: false, commitHashes: ['bad9999'] } },
+  ]), ['abc1234', 'def5678']);
 });
 
 test('inbox detail fetch keeps bounded concurrency and result order', async () => {

@@ -185,10 +185,15 @@ export class DeliveryOrdersService {
     const soIds = orderRefs.filter((ref) => /^\d+$/.test(ref));
     const orderNos = orderRefs.filter((ref) => !/^\d+$/.test(ref));
     const orders = await this.ds.query(
-      `SELECT id, order_no, customer_code, customer_name, delivery_address,
-              total_amount, status, company_code
-       FROM sal_sales_orders
-       WHERE id = ANY($1::bigint[]) OR order_no = ANY($2::text[])`,
+      `SELECT so.id, so.order_no, so.customer_code, so.customer_name, so.delivery_address,
+              so.status, so.company_code, COALESCE(items.planned_qty, 0) AS planned_qty
+       FROM sal_sales_orders so
+       LEFT JOIN (
+         SELECT sales_order_id, SUM(qty) AS planned_qty
+         FROM sal_order_items
+         GROUP BY sales_order_id
+       ) items ON items.sales_order_id = so.id
+       WHERE so.id = ANY($1::bigint[]) OR so.order_no = ANY($2::text[])`,
       [soIds, orderNos],
     );
 
@@ -214,7 +219,7 @@ export class DeliveryOrdersService {
 
     const deliveryNo = await this.genDeliveryNo();
     const totalOrders = orders.length;
-    const totalQty = orders.reduce((s: number, o: any) => s + Number(o.total_amount || 0), 0);
+    const totalQty = orders.reduce((s: number, o: any) => s + Number(o.planned_qty || 0), 0);
     const resolvedOrderIds = orders.map((order: any) => String(order.id));
 
     const deliveryOrderId = await this.ds.transaction(async (mgr) => {
@@ -252,7 +257,7 @@ export class DeliveryOrdersService {
             so.customer_code ?? null,
             so.customer_name ?? null,
             so.delivery_address ?? null,
-            so.total_amount ?? 0,
+            so.planned_qty ?? 0,
           ],
         );
       }

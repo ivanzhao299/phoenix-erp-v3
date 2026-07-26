@@ -952,10 +952,13 @@ export class BugIntakeService {
     };
     if (isRunnerLifecycle) {
       const lifecycle = this.runnerLifecycleEvidence(report, agentResult);
-      report.repairTaskStatus = lifecycle.passed ? 'FIX_READY_FOR_UAT' : 'HOLD';
+      const previouslyReadyForUat = report.repairTaskStatus === 'FIX_READY_FOR_UAT';
+      report.repairTaskStatus = lifecycle.passed || previouslyReadyForUat ? 'FIX_READY_FOR_UAT' : 'HOLD';
       report.status = 'IN_PROGRESS';
       report.resolutionNote = lifecycle.passed
         ? '实现证据、CI/CD 与生产路由 smoke 已通过，等待管理员执行业务验收；验收通过后方可标记已解决。'
+        : previouslyReadyForUat
+          ? `先前的发布与生产 smoke 证据仍然有效；后续独立发布尝试未通过，但不会撤销已完成修复：${lifecycle.reason}`
         : `自动修复生命周期证据不完整，保持 HOLD：${lifecycle.reason}`;
     } else if (['HOLD', 'FAIL'].includes(normalizedConclusion)) {
       report.repairTaskStatus = 'HOLD';
