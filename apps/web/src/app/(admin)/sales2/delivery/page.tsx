@@ -12,6 +12,7 @@ import { hexToAccent, KPI_GRID } from '@/lib/design-tokens';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, DriverSelector, VehicleSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
+import { resolveDeliveryStatus } from '@/lib/delivery-status-transition';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -424,12 +425,34 @@ export default function DeliveryPage() {
 
   // ── 状态机操作 ───────────────────────────────────────────────────────────────
 
+  const applySuccessfulAction = (endpoint: string, response: unknown) => {
+    if (!selected) return;
+    const status = resolveDeliveryStatus(endpoint, response);
+    const responseOrder = response && typeof response === 'object'
+      ? response as Partial<DeliveryOrder>
+      : {};
+    const updated = {
+      ...selected,
+      ...responseOrder,
+      ...(status ? { status } : {}),
+    };
+
+    // The action response is the first authoritative acknowledgement. Reflect it
+    // immediately so the status badge and available action buttons cannot remain
+    // stale while the follow-up detail/list requests are in flight.
+    setSelected(updated);
+    setOrders(current => current.map(order =>
+      order.id === updated.id ? { ...order, ...updated } : order
+    ));
+  };
+
   const doAction = async (endpoint: string) => {
     if (!selected) return;
     setActionLoading(true);
     setActionErr('');
     try {
-      await api('POST', `/api/v2/sales/delivery/${selected.id}/${endpoint}`, {});
+      const updated = await api('POST', `/api/v2/sales/delivery/${selected.id}/${endpoint}`, {});
+      applySuccessfulAction(endpoint, updated);
       await Promise.all([refreshDetail(), loadOrders(), loadStats()]);
     } catch (e: any) {
       setActionErr(e.message);
@@ -446,7 +469,8 @@ export default function DeliveryPage() {
     setActionLoading(true);
     setActionErr('');
     try {
-      await api('POST', `/api/v2/sales/delivery/${selected.id}/cancel`, {});
+      const updated = await api('POST', `/api/v2/sales/delivery/${selected.id}/cancel`, {});
+      applySuccessfulAction('cancel', updated);
       await Promise.all([refreshDetail(), loadOrders(), loadStats()]);
     } catch (e: any) {
       setActionErr(e.message);
