@@ -156,10 +156,16 @@ describe('getMobileAccessLevel (unified gate: JWT first, then role matrix)', () 
     expect(getMobileAccessLevel('feed', {})).toBe('none');
   });
 
-  it('lets a farm manager create a local henhouse when the menu snapshot grants view', () => {
+  it('requires an explicit create/edit action before a farm manager can create a local henhouse', () => {
     expect(
       getMobileAccessLevel('henhouse', {
         permissions: ['MENU_FARM_MASTER:V'],
+        roles: [R.FARM_MGR, R.VET],
+      }),
+    ).toBe('read');
+    expect(
+      getMobileAccessLevel('henhouse', {
+        permissions: ['MENU_FARM_MASTER:V,C'],
         roles: [R.FARM_MGR, R.VET],
       }),
     ).toBe('write');

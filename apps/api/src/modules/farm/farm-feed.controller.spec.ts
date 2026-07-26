@@ -1,5 +1,6 @@
 import { FarmFeedController } from './farm-feed.controller';
 import { FarmFeedService } from './farm-feed.service';
+import { REQUIRE_MENU_KEY } from '../../common/guards/menu.guard';
 
 describe('FarmFeedController ledger save payload compatibility', () => {
   const date = '2026-07-20';
@@ -35,5 +36,19 @@ describe('FarmFeedController ledger save payload compatibility', () => {
     );
 
     expect(saveLedger).toHaveBeenCalledWith(date, rows, 'operator-id');
+  });
+
+  it('guards local henhouse creation with the create action, not the edit action', () => {
+    const requirement = Reflect.getMetadata(
+      REQUIRE_MENU_KEY,
+      FarmFeedController.prototype.createHouse,
+    );
+
+    expect(requirement).toEqual({
+      menu: 'MENU_FARM_MASTER',
+      perm: 'C',
+      altMenus: ['MENU_FARM_DATA'],
+      denialMessage: undefined,
+    });
   });
 });

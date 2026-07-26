@@ -13787,5 +13787,13 @@
   "ui.已完成入库": "已完成入库",
   "ui.枚已写入库存台账": "枚已写入库存台账",
   "ui.枚已入库": "枚已入库",
-  "ui.前往交班": "前往交班"
+  "ui.前往交班": "前往交班",
+  "breeding.dailyBreakdownMissing": "日报已存在，但有班次未录九档分级，请先返回日报补齐",
+  "breeding.daily.grade_breakdown_required": "：已录产蛋数，必须补齐 9 档分级后才能提交",
+  "fin2.expenses.approver_load_failed": "审批人加载失败",
+  "fin2.expenses.pick_approver": "提交审批 · 选择下一审批人",
+  "fin2.expenses.submit_selected": "提交给所选审批人",
+  "fin2.expenses.approver_hint": "仅显示具备费用审批权限且数据域覆盖本公司的人员。",
+  "fin2.expenses.approver_loading": "正在加载审批人…",
+  "fin2.expenses.no_approver": "当前公司没有符合权限和数据域要求的审批人，请先由管理员补齐配置。"
 }

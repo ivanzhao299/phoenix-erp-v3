@@ -51,10 +51,11 @@ export class FarmFeedController {
 
   /**
    * POST /api/farm/feed/houses — G109 场长新建本场鸡舍
-   *   farm/site/company 由场长 scope 自动派生（不可指定农场）。需 MENU_FARM_DATA:E。
+   *   farm/site/company 由场长 scope 自动派生（不可指定农场）。
+   *   新建动作使用 C；优先使用养殖主档权限，兼容已有的养殖数据创建权限。
    */
   @Post('houses')
-  @RequireMenu('MENU_FARM_DATA', 'E')
+  @RequireMenu('MENU_FARM_MASTER', 'C', ['MENU_FARM_DATA'])
   async createHouse(@Body() body: any, @Req() req: any) {
     try {
       return await this.feedService.createHouse(body, deriveOrgScope(req), {

@@ -237,7 +237,27 @@ export class PermissionsService {
       if (rows.length > 0) {
         await mgr.insert(SysRoleMenuPermissionEntity, rows);
       }
-      return { role_code: roleCode, written: rows.length };
+      // 角色权限属于 JWT 快照。每次替换后必须使该角色所有有效用户的旧 token
+      // 失效，否则数据库矩阵已更新但浏览器仍携带旧动作位，表现为按钮与接口不一致。
+      const affected = await mgr.query(
+        `UPDATE sys_user u
+            SET perms_version = COALESCE(u.perms_version, 0) + 1,
+                updated_at = NOW()
+          WHERE EXISTS (
+            SELECT 1
+              FROM sys_user_role ur
+             WHERE ur.user_id = u.user_id
+               AND ur.role_id = $1
+               AND COALESCE(ur.is_visible, true) = true
+          )
+          RETURNING u.user_id`,
+        [role.role_id],
+      );
+      return {
+        role_code: roleCode,
+        written: rows.length,
+        invalidated_users: affected.length,
+      };
     });
   }
 

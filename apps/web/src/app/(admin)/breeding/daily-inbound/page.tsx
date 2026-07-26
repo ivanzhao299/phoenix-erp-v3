@@ -71,7 +71,7 @@ export default function DailyInboundPage() {
           `${eggDate}${houseCode ? ` · ${houseCode}` : ''} `
           + t(
             'breeding.dailyBreakdownMissing',
-            `日报已存在（产蛋 ${r.reportedEggs} 枚），但有 ${r.missingBreakdownLogs} 个班次未录九档分级，请先返回日报补齐`,
+            '日报已存在，但有班次未录九档分级，请先返回日报补齐',
           ),
         );
         return;

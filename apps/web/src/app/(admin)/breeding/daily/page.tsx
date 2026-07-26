@@ -274,7 +274,7 @@ export default function DailyPage() {
       if (eggs > 0 && gradeSum === 0) {
         toast.error(
           `${shiftLabel(r.shift)}${t(
-            'ui.：已录产蛋数，必须补齐 9 档分级后才能提交',
+            'breeding.daily.grade_breakdown_required',
             '：已录产蛋数，必须补齐 9 档分级后才能提交',
           )}`,
         );

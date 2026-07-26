@@ -13787,5 +13787,13 @@
   "ui.已完成入库": "Inbound completed",
   "ui.枚已写入库存台账": "eggs recorded in the stock ledger",
   "ui.枚已入库": "eggs received",
-  "ui.前往交班": "Continue to shift handover"
+  "ui.前往交班": "Continue to shift handover",
+  "breeding.dailyBreakdownMissing": "The daily report exists, but one or more shifts are missing the nine-grade breakdown. Complete the report first.",
+  "breeding.daily.grade_breakdown_required": ": egg production is recorded; complete the nine-grade breakdown before submitting",
+  "fin2.expenses.approver_load_failed": "Failed to load approvers",
+  "fin2.expenses.pick_approver": "Submit for approval · Select next approver",
+  "fin2.expenses.submit_selected": "Submit to selected approver",
+  "fin2.expenses.approver_hint": "Only people with expense approval permission and data scope for this company are shown.",
+  "fin2.expenses.approver_loading": "Loading approvers…",
+  "fin2.expenses.no_approver": "No approver currently meets both the permission and company data-scope requirements. Ask an administrator to complete the configuration."
 }
