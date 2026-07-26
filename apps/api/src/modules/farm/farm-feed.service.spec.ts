@@ -95,4 +95,62 @@ describe('FarmFeedService mobile house ownership', () => {
 
     expect(query).not.toHaveBeenCalled();
   });
+
+  it('recovers a farm manager accidentally widened to GROUP from the unique primary SITE binding', async () => {
+    const { service, query } = buildService([
+      [{ org_code: 'SITE-DONGPENG-LAYER', company_code: 'COMP-LAO-AGRI' }],
+      [{
+        farm_code: 'LPH-DP',
+        farm_name: '东鹏蛋鸡养殖场',
+        site_code: 'SITE-DONGPENG-LAYER',
+        company_code: 'COMP-LAO-AGRI',
+      }],
+      [],
+      [],
+    ]);
+
+    await expect(service.createHouse(
+      { house_code: 'DP-H08', house_name: '东鹏8号舍' },
+      {
+        isGlobal: true,
+        farmCode: null,
+        siteCode: null,
+        farmCodes: [],
+        siteCodes: [],
+        companyCodes: [],
+      },
+      { userId: 7, roles: ['ROLE_FARM_MGR'] },
+    )).resolves.toMatchObject({
+      data: {
+        farm_code: 'LPH-DP',
+        site_code: 'SITE-DONGPENG-LAYER',
+        company_code: 'COMP-LAO-AGRI',
+      },
+    });
+
+    expect(query).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining(`o.org_type = 'SITE'`),
+      [7],
+    );
+  });
+
+  it('never converts an administrator global scope into the mobile farm-manager shortcut', async () => {
+    const { service, query } = buildService([]);
+
+    await expect(service.createHouse(
+      { house_code: 'H-ADMIN', house_name: '管理员鸡舍' },
+      {
+        isGlobal: true,
+        farmCode: null,
+        siteCode: null,
+        farmCodes: [],
+        siteCodes: [],
+        companyCodes: [],
+      },
+      { userId: 1, roles: ['ROLE_ADMIN', 'ROLE_FARM_MGR'] },
+    )).rejects.toThrow('集团/管理员请在 PC 端');
+
+    expect(query).not.toHaveBeenCalled();
+  });
 });

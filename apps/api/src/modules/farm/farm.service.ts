@@ -463,7 +463,16 @@ export class FarmService {
     date: string,
     houseCode: string | null,
     scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null },
-  ): Promise<{ code: number; date: string; houseCode: string | null; eggsByGrade: Record<string, number>; total: number; logs: number }> {
+  ): Promise<{
+    code: number;
+    date: string;
+    houseCode: string | null;
+    eggsByGrade: Record<string, number>;
+    total: number;
+    logs: number;
+    missingBreakdownLogs: number;
+    reportedEggs: number;
+  }> {
     if (!date) throw new BadRequestException('date 参数必填');
 
     // 返回结构以 ACTIVE 等级主数据为准，并为未录数量的档位补 0。
@@ -476,13 +485,13 @@ export class FarmService {
     );
 
     const params: any[] = [date];
-    const where: string[] = [`dl.log_date = $1`, `dl.eggs_by_grade IS NOT NULL`];
+    const where: string[] = [`dl.log_date = $1`];
     if (houseCode) { params.push(houseCode); where.push(`dl.house_code = $${params.length}`); }
     const ebScope = dailyLogScopeWhere(scope, params); // 历史日报 scope 为空时按鸡舍归属兜底
     if (ebScope) where.push(ebScope);
 
-    const rows: Array<{ eggs_by_grade: any }> = await this.entityManager.query(
-      `SELECT dl.eggs_by_grade
+    const rows: Array<{ eggs_by_grade: any; eggs_produced: number | string | null }> = await this.entityManager.query(
+      `SELECT dl.eggs_by_grade, dl.eggs_produced
        FROM brd_daily_logs dl
        LEFT JOIN brd_houses h ON h.house_code = dl.house_code
        WHERE ${where.join(' AND ')}`,
@@ -492,16 +501,37 @@ export class FarmService {
     const aggregated: Record<string, number> = Object.fromEntries(
       activeGrades.map(({ grade_code }) => [grade_code, 0]),
     );
+    let missingBreakdownLogs = 0;
+    let reportedEggs = 0;
     for (const r of rows) {
-      const ebg = typeof r.eggs_by_grade === 'string' ? JSON.parse(r.eggs_by_grade) : r.eggs_by_grade;
-      if (!ebg || typeof ebg !== 'object') continue;
-      for (const [grade, qty] of Object.entries(ebg)) {
+      const eggs = Math.max(0, Number(r.eggs_produced) || 0);
+      reportedEggs += eggs;
+      let ebg: unknown = r.eggs_by_grade;
+      if (typeof ebg === 'string') {
+        try { ebg = JSON.parse(ebg); } catch { ebg = null; }
+      }
+      const hasBreakdown = ebg && typeof ebg === 'object'
+        && Object.values(ebg as Record<string, unknown>).some(qty => Number(qty) > 0);
+      if (!hasBreakdown) {
+        if (eggs > 0) missingBreakdownLogs += 1;
+        continue;
+      }
+      for (const [grade, qty] of Object.entries(ebg as Record<string, unknown>)) {
         const n = Math.max(0, Number(qty) || 0);
         aggregated[grade] = (aggregated[grade] || 0) + n;
       }
     }
     const total = Object.values(aggregated).reduce((s, n) => s + n, 0);
-    return { code: 200, date, houseCode, eggsByGrade: aggregated, total, logs: rows.length };
+    return {
+      code: 200,
+      date,
+      houseCode,
+      eggsByGrade: aggregated,
+      total,
+      logs: rows.length,
+      missingBreakdownLogs,
+      reportedEggs,
+    };
   }
 
   async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null }) {

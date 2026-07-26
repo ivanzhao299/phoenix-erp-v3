@@ -69,6 +69,18 @@ function hasRowsPayload(payload: unknown): boolean {
   return isRecord(payload) && ('data' in payload || 'rows' in payload);
 }
 
+export function isCanonicalCurrentFlock(row: unknown): boolean {
+  const status = String(getField(row, 'status') ?? '').trim().toUpperCase();
+  if (!status) return true;
+  return status === 'ACTIVE' || status === 'LAYING';
+}
+
+export function sumCanonicalFlockStock(rows: unknown[]): number {
+  return rows
+    .filter(isCanonicalCurrentFlock)
+    .reduce<number>((sum, row) => sum + asNumber(getField(row, 'current_qty')), 0);
+}
+
 export function buildHomeFarmKpi(
   hen: unknown,
   iot: unknown,
@@ -81,7 +93,7 @@ export function buildHomeFarmKpi(
   const dailyRows = asRows(dailyLogs);
 
   const totalStockFromFlocks = hasRowsPayload(flocks)
-    ? (sumKnownRows(flockRows, ['current_qty']) ?? 0)
+    ? sumCanonicalFlockStock(flockRows)
     : null;
   const totalStockFromRows = rows.reduce((sum: number, row: unknown) => (
     sum + (asNumber(getField(row, 'current_qty')) || asNumber(getField(row, 'total_qty')))

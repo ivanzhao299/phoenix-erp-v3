@@ -9,6 +9,7 @@ import { moneyCell } from "@/components/design-system/cockpit-styles";
 import {
   filterWarehouseBatchRows,
   formatWarehouseBatchDate,
+  formatWarehouseDisplay,
   getWarehouseBatchQuantity,
   normalizeWarehouseBatchRows,
   type WarehouseQueryBatch,
@@ -155,7 +156,7 @@ export default function StockQueryPage() {
                   <tr key={`${row.id ?? row.batch_no ?? index}`} style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={tdStrongStyle}>{row.batch_no || "—"}</td>
                     <td style={tdStyle}>{row.product_code || "—"}</td>
-                    <td style={tdStyle}>{row.warehouse_code || "—"}</td>
+                    <td style={tdStyle}>{formatWarehouseDisplay(row)}</td>
                     <td style={tdStyle}>{row.location_code || "—"}</td>
                     <td style={{ ...tdRightStyle, ...moneyCell(qty > 0 ? "success" : "warning", "md") }}>{qty.toLocaleString()}</td>
                     <td style={tdStyle}><span style={statusPillStyle}>{row.status || "AVAILABLE"}</span></td>

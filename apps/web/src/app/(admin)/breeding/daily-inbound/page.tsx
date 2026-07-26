@@ -63,7 +63,19 @@ export default function DailyInboundPage() {
         eggsByGrade: Record<string, number>;
         total: number;
         logs: number;
+        missingBreakdownLogs: number;
+        reportedEggs: number;
       }>(`/v3/farm/daily-logs/eggs-breakdown?${qs.toString()}`);
+      if (r.missingBreakdownLogs > 0) {
+        setError(
+          `${eggDate}${houseCode ? ` · ${houseCode}` : ''} `
+          + t(
+            'breeding.dailyBreakdownMissing',
+            `日报已存在（产蛋 ${r.reportedEggs} 枚），但有 ${r.missingBreakdownLogs} 个班次未录九档分级，请先返回日报补齐`,
+          ),
+        );
+        return;
+      }
       if (!r.logs || r.total === 0) {
         setError(`${eggDate}${houseCode ? ` · ${houseCode}` : ''} ${t('breeding.noDailyOr9Grade', '暂无日报或未按 9 档录入')}`);
         return;

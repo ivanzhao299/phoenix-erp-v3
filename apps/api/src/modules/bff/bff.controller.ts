@@ -2163,7 +2163,7 @@ export class PackagingTerminalBffController {
     const normalizedCode = String(packingCode || '').trim();
     if (!normalizedCode) throw new BadRequestException('packingCode 必填');
 
-    const [handoverRows, inventoryRows] = await Promise.all([
+    const [handoverRows, inventoryRows, inventoryMode] = await Promise.all([
       this.em.query(
         `SELECT code, packing_code, box_count, pallet_code, location, receiver,
                 production_date, created_at
@@ -2181,12 +2181,15 @@ export class PackagingTerminalBffController {
             AND source_type = 'PACKAGING'`,
         [normalizedCode],
       ),
+      this.pkgInv.getTerminalInventoryMode(normalizedCode),
     ]);
 
     const handover = handoverRows[0] || null;
     const batchCount = Number(inventoryRows[0]?.batch_count || 0);
     const totalInbound = Number(inventoryRows[0]?.total_inbound || 0);
-    const committed = Boolean(handover) && batchCount > 0 && totalInbound > 0;
+    const tempMode = inventoryMode === 'TEMP_PRODUCTION_INBOUND';
+    const committed = Boolean(handover)
+      && ((batchCount > 0 && totalInbound > 0) || tempMode);
     const state = committed
       ? 'COMMITTED'
       : handover
@@ -2205,9 +2208,12 @@ export class PackagingTerminalBffController {
         boxCount: Number(handover?.box_count || 0),
         inventoryBatchCount: batchCount,
         totalInbound,
+        inventoryMode,
         committedAt: handover?.created_at ?? null,
         message: committed
-          ? '包装交接及库存入账均已完成'
+          ? tempMode
+            ? '交接已完成；TEMP_PRODUCTION_INBOUND 模式不重复生成包装库存'
+            : '包装交接及库存入账均已完成'
           : state === 'HANDOVER_ONLY'
             ? '交接记录已存在，但库存入账证据缺失，可重试确认'
             : state === 'INVENTORY_ONLY'

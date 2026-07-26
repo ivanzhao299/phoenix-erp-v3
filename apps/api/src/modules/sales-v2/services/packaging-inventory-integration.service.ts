@@ -307,6 +307,29 @@ export class PackagingInventoryIntegrationService {
     return r;
   }
 
+  /**
+   * 查询车间包装记录当前采用的库存来源模式。
+   * 状态接口必须复用同一模式判定，否则 TEMP 模式确认后刷新会被误判为未入库。
+   */
+  async getTerminalInventoryMode(
+    packingCode: string,
+    opts?: { companyCode?: string },
+  ): Promise<string> {
+    const rows = await this.ds.query(
+      `SELECT pr.shift_id, ws.site_id
+         FROM pkg_packing_records pr
+         LEFT JOIN pkg_work_shifts ws ON ws.id = pr.shift_id
+        WHERE pr.code = $1
+        LIMIT 1`,
+      [packingCode],
+    );
+    const companyCode = await this.resolveCompanyCode(opts?.companyCode);
+    return this.modeSvc.resolveMode({
+      siteCode: rows[0]?.site_id ?? null,
+      companyCode,
+    });
+  }
+
   /** R3：按规格名解析 packaging_specs.spec_code（用于写 inv_batches.spec_code / 解析 SKU） */
   private async resolveSpecCode(specName: string | null): Promise<string | null> {
     if (!specName) return null;

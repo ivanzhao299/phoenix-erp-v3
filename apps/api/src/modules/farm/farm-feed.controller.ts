@@ -57,7 +57,10 @@ export class FarmFeedController {
   @RequireMenu('MENU_FARM_DATA', 'E')
   async createHouse(@Body() body: any, @Req() req: any) {
     try {
-      return await this.feedService.createHouse(body, deriveOrgScope(req));
+      return await this.feedService.createHouse(body, deriveOrgScope(req), {
+        userId: req.user?.userId ?? req.user?.id ?? req.user?.sub,
+        roles: Array.isArray(req.user?.roles) ? req.user.roles : [],
+      });
     } catch (e: any) {
       return { code: 400, msg: e?.message || '建鸡舍失败' };
     }

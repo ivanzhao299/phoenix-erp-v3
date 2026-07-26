@@ -8,6 +8,8 @@ export interface WarehouseQueryBatch {
   quantity_kg?: number | string | null;
   qty_available?: number | string | null;
   warehouse_code?: string;
+  warehouse_name?: string;
+  warehouse_name_zh?: string;
   location_code?: string;
   expire_date?: string;
   expiry_date?: string;
@@ -53,10 +55,19 @@ export function filterWarehouseBatchRows(rows: WarehouseQueryBatch[], keyword: s
     row.product_name,
     row.sku_name,
     row.warehouse_code,
+    row.warehouse_name,
+    row.warehouse_name_zh,
     row.location_code,
     row.store_code,
     row.status,
   ].some((value) => String(value ?? "").toLowerCase().includes(q)));
+}
+
+export function formatWarehouseDisplay(row: WarehouseQueryBatch): string {
+  const code = String(row.warehouse_code ?? "").trim();
+  const name = String(row.warehouse_name_zh ?? row.warehouse_name ?? "").trim();
+  if (name && code && name !== code) return `${name}（${code}）`;
+  return name || code || "—";
 }
 
 export function formatWarehouseBatchDate(value?: string): string {

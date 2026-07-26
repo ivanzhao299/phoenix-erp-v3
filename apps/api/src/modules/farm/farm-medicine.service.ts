@@ -231,9 +231,14 @@ export class FarmMedicineService {
           `INSERT INTO inv_batches
              (batch_no, product_code, qty, qty_available, warehouse_code, store_code,
               company_code, source_type, source_no, status, created_at, updated_at)
-           SELECT $1, $2, $3, $3, $4, $5, $6, $7, $8, 'AVAILABLE', NOW(), NOW()
+           SELECT $1::varchar, $2::varchar, $3::numeric, $3::numeric,
+                  $4::varchar, $5::varchar, $6::varchar, $7::varchar,
+                  $8::varchar, 'AVAILABLE', NOW(), NOW()
            WHERE EXISTS (
-             SELECT 1 FROM brd_medications WHERE medication_code = $2 AND status = 'ACTIVE'
+             SELECT 1
+               FROM brd_medications
+              WHERE medication_code = $2::varchar
+                AND status = 'ACTIVE'
            )
            ON CONFLICT (batch_no) DO UPDATE SET
              qty = COALESCE(inv_batches.qty, 0) + EXCLUDED.qty,

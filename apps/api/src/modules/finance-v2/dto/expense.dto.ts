@@ -118,6 +118,9 @@ export class QueryExpenseRequestDto {
 export class SubmitExpenseRequestDto {
   @IsOptional() @IsString()
   remark?: string;
+
+  @IsOptional() @IsString()
+  pickedApproverId?: string;
 }
 
 export class CancelExpenseRequestDto {

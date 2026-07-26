@@ -25,6 +25,7 @@ import {
   localDateString,
   sumBreedingOverviewTodayMetrics,
 } from "@/lib/breeding-overview-metrics";
+import { isCanonicalCurrentFlock } from "@/lib/home-farm-kpi";
 
 type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 const API = "";
@@ -178,7 +179,7 @@ export default function BreedingPage() {
         flockFarmMap[fk.flock_no as string] = fk.farm_code as string;
         flockQtyMap[fk.flock_no as string] = asNumber(fk.current_qty);
       }
-      if (fk.farm_code) {
+      if (fk.farm_code && isCanonicalCurrentFlock(fk)) {
         const fc = fk.farm_code as string;
         farmBirdsMap[fc] = (farmBirdsMap[fc] || 0) + asNumber(fk.current_qty);
       }

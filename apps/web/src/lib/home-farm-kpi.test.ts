@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHomeFarmKpi } from './home-farm-kpi';
+import { buildHomeFarmKpi, sumCanonicalFlockStock } from './home-farm-kpi';
 
 describe('buildHomeFarmKpi', () => {
   it('uses brd_flocks current_qty as the authoritative current stock source', () => {
@@ -35,6 +35,16 @@ describe('buildHomeFarmKpi', () => {
 
     expect(kpi.totalStock).toBe(0);
     expect(kpi.layRate).toBe(0);
+  });
+
+  it('excludes non-current flock lifecycle states from the current-stock KPI', () => {
+    expect(sumCanonicalFlockStock([
+      { status: 'ACTIVE', current_qty: 1000 },
+      { status: 'LAYING', current_qty: 800 },
+      { status: 'PEAK', current_qty: 500 },
+      { status: 'GROWING', current_qty: 200 },
+      { status: 'CLOSED', current_qty: 100 },
+    ])).toBe(1800);
   });
 
   it('uses daily logs for feed and water when today has breeding log entries', () => {

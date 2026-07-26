@@ -10,6 +10,7 @@ import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { currencySymbol } from '@/lib/currency';
 import { DrawerV2 } from '@/components/design-system/drawers/DrawerV2';
+import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 import {
@@ -59,6 +60,11 @@ interface WfStep {
   comment: string | null;
   acted_at: string | null;
   due_at: string | null;
+}
+interface ApprovalCandidate {
+  userId: string;
+  displayName: string;
+  roleNameZh: string | null;
 }
 interface Summary {
   totalExpenses: number;
@@ -249,6 +255,10 @@ function ExpenseDrawer({
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState('');
+  const [pickOpen, setPickOpen] = useState(false);
+  const [pickLoading, setPickLoading] = useState(false);
+  const [approvers, setApprovers] = useState<ApprovalCandidate[]>([]);
+  const [pickedApproverId, setPickedApproverId] = useState('');
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -276,6 +286,34 @@ function ExpenseDrawer({
     } finally {
       setActing(false);
     }
+  };
+  const openSubmit = async () => {
+    if (!data) return;
+    setError('');
+    setPickOpen(true);
+    setPickLoading(true);
+    setPickedApproverId('');
+    try {
+      const params = new URLSearchParams({
+        menuCode: 'MENU_FIN2_EXPENSE',
+        requiredPerm: 'E',
+        companyCode: data.company_code,
+      });
+      const candidates = await apiFetch<unknown>(`/api/approval/eligible-approvers?${params}`);
+      const list = Array.isArray(candidates) ? candidates as ApprovalCandidate[] : [];
+      setApprovers(list);
+      if (list[0]?.userId) setPickedApproverId(list[0].userId);
+    } catch (e: unknown) {
+      setApprovers([]);
+      setError(e instanceof Error ? e.message : t('fin2.expenses.approver_load_failed', '审批人加载失败'));
+    } finally {
+      setPickLoading(false);
+    }
+  };
+  const submitToApprover = async () => {
+    if (!pickedApproverId) return;
+    setPickOpen(false);
+    await action(`/api/v2/finance/expenses/${id}/submit`, { pickedApproverId });
   };
   return <DrawerV2 open title={loading || !data ? t('fin2.expenses.detail_title','费用详情') : data.expense_no} onClose={onClose} width={540}>
       {loading || !data ? <div className="text-text-muted" style={{ padding: 28 }}>{t('fin2.expenses.loading_dots','加载中...')}</div> : <>
@@ -319,13 +357,90 @@ function ExpenseDrawer({
       marginBottom: 16,
       flexWrap: 'wrap'
     }}>
-        {data.status === 'DRAFT' && <button onClick={() => void action(`/api/v2/finance/expenses/${id}/submit`)} disabled={acting} style={primaryActionButton}>
+        {data.status === 'DRAFT' && <button onClick={() => void openSubmit()} disabled={acting} style={primaryActionButton}>
             <Send size={13} /> {t('fin2.common.submit_approval','提交审批')}
           </button>}
         {['DRAFT', 'REJECTED'].includes(data.status) && <button onClick={() => void action(`/api/v2/finance/expenses/${id}/cancel`)} disabled={acting} style={actionPill('danger', acting)}>
             {t('fin2.expenses.cancel_request','取消申请')}
           </button>}
       </div>
+
+      <ModalV2
+        open={pickOpen}
+        title={t('fin2.expenses.pick_approver', '提交审批 · 选择下一审批人')}
+        width={460}
+        onClose={() => setPickOpen(false)}
+        footer={<>
+          <button type="button" onClick={() => setPickOpen(false)} style={secondaryActionButton}>
+            {t('fin2.common.cancel', '取消')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void submitToApprover()}
+            disabled={!pickedApproverId || acting}
+            style={{
+              ...primaryActionButton,
+              opacity: pickedApproverId && !acting ? 1 : 0.55,
+              cursor: pickedApproverId && !acting ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {t('fin2.expenses.submit_selected', '提交给所选审批人')}
+          </button>
+        </>}
+      >
+        <div style={{ color: 'var(--text-secondary)', fontSize: 12.5, lineHeight: 1.6, marginBottom: 12 }}>
+          {t('fin2.expenses.approver_hint', '仅显示具备费用审批权限且数据域覆盖本公司的人员。')}
+        </div>
+        {pickLoading ? (
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>
+            {t('fin2.expenses.approver_loading', '正在加载审批人…')}
+          </div>
+        ) : approvers.length === 0 ? (
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--status-warning)', lineHeight: 1.6 }}>
+            {t('fin2.expenses.no_approver', '当前公司没有符合权限和数据域要求的审批人，请先由管理员补齐配置。')}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+            {approvers.map(candidate => {
+              const selected = pickedApproverId === candidate.userId;
+              return (
+                <button
+                  type="button"
+                  key={candidate.userId}
+                  onClick={() => setPickedApproverId(candidate.userId)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: `1px solid ${selected ? 'var(--color-primary)' : 'var(--border)'}`,
+                    background: selected
+                      ? 'color-mix(in srgb, var(--color-primary) 8%, var(--bg-card))'
+                      : 'var(--bg-card)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: selected ? 'var(--color-primary)' : 'var(--border)',
+                  }} />
+                  <strong>{candidate.displayName}</strong>
+                  {candidate.roleNameZh && (
+                    <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontSize: 11 }}>
+                      {candidate.roleNameZh}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </ModalV2>
 
       {/* Workflow Timeline */}
       {data.wfTimeline && data.wfTimeline.length > 0 && <div className={u.mb16}>

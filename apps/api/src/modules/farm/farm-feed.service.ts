@@ -164,7 +164,35 @@ export class FarmFeedService {
       siteCodes?: string[];
       companyCodes?: string[];
     },
+    actor?: { userId?: number | string; roles?: string[] },
   ) {
+    if (scope.isGlobal && actor?.roles?.includes('ROLE_FARM_MGR')
+      && !actor.roles.some(role => role === 'ROLE_ADMIN' || role === 'ROLE_SUPER_ADMIN')) {
+      const bindings = actor.userId == null ? [] : await this.em.query(
+        `SELECT o.org_code, o.company_code
+           FROM sys_user_orgs uo
+           JOIN sys_organizations o ON o.id = uo.org_id
+          WHERE uo.user_id = $1
+            AND o.status = 'ACTIVE'
+            AND o.org_type = 'SITE'
+            AND (uo.is_primary = TRUE OR uo.is_manager = TRUE)
+          ORDER BY uo.is_primary DESC, o.org_code`,
+        [actor.userId],
+      );
+      const uniqueSites = [...new Map(
+        bindings.map((row: any) => [row.org_code, row]),
+      ).values()] as Array<{ org_code: string; company_code?: string | null }>;
+      if (uniqueSites.length === 1) {
+        scope = {
+          isGlobal: false,
+          farmCode: null,
+          siteCode: uniqueSites[0].org_code,
+          farmCodes: [],
+          siteCodes: [uniqueSites[0].org_code],
+          companyCodes: uniqueSites[0].company_code ? [uniqueSites[0].company_code] : [],
+        };
+      }
+    }
     if (scope.isGlobal) {
       throw new Error('集团/管理员请在 PC 端「鸡舍管理」创建并指定农场；手机端仅供场长建本场鸡舍。');
     }

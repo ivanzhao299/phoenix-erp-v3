@@ -271,6 +271,15 @@ export default function DailyPage() {
     for (const r of rows) {
       const eggs = Number(r.eggs) || 0;
       const gradeSum = gradeSumOf(r.gradeQty);
+      if (eggs > 0 && gradeSum === 0) {
+        toast.error(
+          `${shiftLabel(r.shift)}${t(
+            'ui.：已录产蛋数，必须补齐 9 档分级后才能提交',
+            '：已录产蛋数，必须补齐 9 档分级后才能提交',
+          )}`,
+        );
+        return;
+      }
       if (gradeSum > 0 && eggs > 0) {
         const diff = Math.abs(gradeSum - eggs);
         const tolerance = Math.max(3, eggs * 0.03);

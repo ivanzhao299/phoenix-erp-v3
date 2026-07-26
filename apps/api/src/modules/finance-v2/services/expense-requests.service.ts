@@ -286,6 +286,8 @@ export class ExpenseRequestsService {
         projectCode:  exp.project_code ?? undefined,
         projectName:  exp.project_name ?? undefined,
         subject:      `费用申请 ${exp.expense_no} - ${exp.expense_type}`,
+        moduleCode:   'MENU_FIN2_EXPENSE',
+        pickedApproverId: dto.pickedApproverId,
       }, mgr);
 
       if (instance) {

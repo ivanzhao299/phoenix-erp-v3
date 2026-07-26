@@ -232,7 +232,10 @@ describe('PackagingTerminalBffController', () => {
         return [];
       }),
     };
-    const controller = new PackagingTerminalBffController(em as never, {} as never);
+    const pkgInv = {
+      getTerminalInventoryMode: jest.fn().mockResolvedValue('PACKAGING_INVENTORY'),
+    };
+    const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
 
     await expect(
       controller.getWarehouseHandoverStatus('PKG-20260725-1'),
@@ -278,6 +281,7 @@ describe('PackagingTerminalBffController', () => {
         idempotent: false,
         totalInbound: 90,
       }),
+      getTerminalInventoryMode: jest.fn().mockResolvedValue('PACKAGING_INVENTORY'),
     };
     const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
 
@@ -336,6 +340,7 @@ describe('PackagingTerminalBffController', () => {
         skippedByMode: true,
         mode: 'TEMP_PRODUCTION_INBOUND',
       }),
+      getTerminalInventoryMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND'),
     };
     const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
 
@@ -358,5 +363,41 @@ describe('PackagingTerminalBffController', () => {
     expect(em.query.mock.calls.some(([sql]) =>
       String(sql).includes('INSERT INTO pkg_handover_records'),
     )).toBe(true);
+  });
+
+  it('keeps a TEMP-mode handover committed after the page reloads', async () => {
+    const em = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM pkg_handover_records')) {
+          return [{
+            code: 'WH-20260725-TEMP',
+            packing_code: 'PKG-20260725-NO-STOCK',
+            box_count: 1,
+            created_at: '2026-07-25T08:00:00.000Z',
+          }];
+        }
+        if (sql.includes('COUNT(*)::int AS batch_count')) {
+          return [{ batch_count: 0, total_inbound: 0 }];
+        }
+        return [];
+      }),
+    };
+    const pkgInv = {
+      getTerminalInventoryMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND'),
+    };
+    const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
+
+    await expect(
+      controller.getWarehouseHandoverStatus('PKG-20260725-NO-STOCK'),
+    ).resolves.toMatchObject({
+      code: 200,
+      data: {
+        state: 'COMMITTED',
+        committed: true,
+        inventoryMode: 'TEMP_PRODUCTION_INBOUND',
+        inventoryBatchCount: 0,
+        totalInbound: 0,
+      },
+    });
   });
 });

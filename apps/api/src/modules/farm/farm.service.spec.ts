@@ -179,15 +179,37 @@ describe('FarmService', () => {
         { grade_code: 'GRADE_4' }, { grade_code: 'GRADE_5' }, { grade_code: 'DIRTY' },
         { grade_code: 'CRACKED' }, { grade_code: 'BROKEN' }, { grade_code: 'DAMAGED' },
       ])
-      .mockResolvedValueOnce([{ eggs_by_grade: { GRADE_1: 120, BROKEN: 2 } }]);
+      .mockResolvedValueOnce([{
+        eggs_by_grade: { GRADE_1: 120, BROKEN: 2 },
+        eggs_produced: 122,
+      }]);
 
     await expect(svc.getEggsBreakdown('2026-07-16', null)).resolves.toMatchObject({
       logs: 1,
       total: 122,
+      missingBreakdownLogs: 0,
+      reportedEggs: 122,
       eggsByGrade: {
         GRADE_1: 120, GRADE_2: 0, GRADE_3: 0, GRADE_4: 0, GRADE_5: 0,
         DIRTY: 0, CRACKED: 0, BROKEN: 2, DAMAGED: 0,
       },
+    });
+  });
+
+  it('reports existing daily logs whose grade breakdown is missing', async () => {
+    const { entityManager, svc } = buildSvc();
+    entityManager.query
+      .mockResolvedValueOnce([{ grade_code: 'GRADE_1' }])
+      .mockResolvedValueOnce([
+        { eggs_by_grade: null, eggs_produced: 90 },
+        { eggs_by_grade: {}, eggs_produced: 30 },
+      ]);
+
+    await expect(svc.getEggsBreakdown('2026-07-16', 'A001')).resolves.toMatchObject({
+      logs: 2,
+      total: 0,
+      missingBreakdownLogs: 2,
+      reportedEggs: 120,
     });
   });
 });

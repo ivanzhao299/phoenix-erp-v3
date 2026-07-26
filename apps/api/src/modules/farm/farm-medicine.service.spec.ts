@@ -71,6 +71,8 @@ describe('FarmMedicineService', () => {
     expect(scopeHelper.assertWritableWarehouse).toHaveBeenCalledWith('LPH_MS_MEDICINE', '药品库存');
     expect(manager.query).toHaveBeenCalledTimes(2);
     expect(manager.query.mock.calls[0][0]).toContain('INSERT INTO inv_batches');
+    expect(manager.query.mock.calls[0][0]).toContain('$2::varchar');
+    expect(manager.query.mock.calls[0][0]).toContain('$3::numeric');
     expect(manager.query.mock.calls[0][0]).toContain('ON CONFLICT (batch_no) DO UPDATE');
     expect(manager.query.mock.calls[0][0]).toContain('qty = COALESCE(inv_batches.qty, 0) + EXCLUDED.qty');
     expect(manager.query.mock.calls[0][0]).toContain('company_code');
