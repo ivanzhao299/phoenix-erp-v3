@@ -305,10 +305,23 @@ describe('PackagingTerminalBffController', () => {
     );
   });
 
-  it('does not create a completed handover when inventory posting produces no stock', async () => {
+  it('completes the handover without duplicate packaging stock in TEMP production inbound mode', async () => {
+    let inserted = false;
     const em = {
       query: jest.fn(async (sql: string) => {
-        if (sql.includes('FROM pkg_handover_records')) return [];
+        if (sql.includes('SELECT code, packing_code')) {
+          return inserted ? [{
+            code: 'WH-20260725-TEMP',
+            packing_code: 'PKG-20260725-NO-STOCK',
+            box_count: 1,
+            created_at: '2026-07-25T08:00:00.000Z',
+          }] : [];
+        }
+        if (sql.includes('SELECT code') && sql.includes('FROM pkg_handover_records')) return [];
+        if (sql.includes('INSERT INTO pkg_handover_records')) {
+          inserted = true;
+          return [];
+        }
         if (sql.includes('COUNT(*)::int AS batch_count')) {
           return [{ batch_count: 0, total_inbound: 0 }];
         }
@@ -332,13 +345,18 @@ describe('PackagingTerminalBffController', () => {
     })).resolves.toMatchObject({
       code: 200,
       data: {
-        inventoryOk: false,
-        status: { state: 'PENDING', committed: false },
+        inventoryOk: true,
+        status: {
+          state: 'COMMITTED',
+          committed: true,
+          inventoryBatchCount: 0,
+          totalInbound: 0,
+        },
       },
     });
 
     expect(em.query.mock.calls.some(([sql]) =>
       String(sql).includes('INSERT INTO pkg_handover_records'),
-    )).toBe(false);
+    )).toBe(true);
   });
 });

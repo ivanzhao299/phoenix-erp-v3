@@ -2245,10 +2245,17 @@ export class PackagingTerminalBffController {
     //        杜绝"页面显示成功但库存没生成"的静默失败。
     let inventory: any = null;
     let inventoryOk = false;
+    let skippedPackagingInventory = false;
     let message: string | undefined;
     try {
       inventory = await this.pkgInv.completeTerminalPacking(packingCode, { companyCode: body.companyCode });
-      inventoryOk = inventory?.idempotent === true || Number(inventory?.totalInbound || 0) > 0;
+      skippedPackagingInventory =
+        inventory?.skippedByMode === true
+        && inventory?.mode === 'TEMP_PRODUCTION_INBOUND';
+      inventoryOk =
+        inventory?.idempotent === true
+        || Number(inventory?.totalInbound || 0) > 0
+        || skippedPackagingInventory;
       if (!inventoryOk) {
         message = inventory?.note
           || (inventory?.skippedByMode
@@ -2264,7 +2271,8 @@ export class PackagingTerminalBffController {
       inventory = { ok: false, error: e?.message ?? '库存生成失败', message };
     }
 
-    // 库存入账成功后才新增交接记录；旧版遗留的 HANDOVER_ONLY 记录会在重试时复用。
+    // 包装库存已入账，或 TEMP 模式已由日产蛋链路入账时，新增交接记录。
+    // 旧版遗留的 HANDOVER_ONLY 记录会在重试时复用。
     if (inventoryOk && existing.length === 0) {
       await this.em.query(
         `INSERT INTO pkg_handover_records
@@ -2280,6 +2288,12 @@ export class PackagingTerminalBffController {
 
     const statusResponse = await this.getWarehouseHandoverStatus(packingCode);
     const status = statusResponse.data;
+    // TEMP 模式不会、也不应生成 source_type=PACKAGING 的库存证据；交接记录即为本步骤完成证据。
+    if (skippedPackagingInventory && status.handoverCode) {
+      status.state = 'COMMITTED';
+      status.committed = true;
+      status.message = '交接已完成；TEMP_PRODUCTION_INBOUND 模式不重复生成包装入库库存';
+    }
     inventoryOk = status.committed;
     message = inventoryOk ? undefined : (message || status.message);
 
