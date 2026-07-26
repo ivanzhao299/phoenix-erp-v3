@@ -1526,6 +1526,7 @@ function releaseEvidenceForWorkerRuns(args, workerRuns) {
     return {
       bugNo,
       route: report.route || '',
+      repairTaskStatus: String(report.repairTaskStatus || ''),
       evidence: evaluateBugReleaseEvidence(localTasks, selectedAgents),
     };
   });
@@ -1787,13 +1788,13 @@ async function flushResultOutbox(args, childEnv) {
   return { pending: pending.length, delivered: results.filter((item) => item.ok).length, results, compaction };
 }
 
-async function postAgentResult(args, childEnv, bugNo, payload) {
+async function postAgentResult(args, childEnv, bugNo, payload, options = {}) {
   const token = childEnv[args.childTokenEnv] || process.env[args.tokenEnv] || args.token || '';
   if (!args.apiBase || !token || !bugNo) return { skipped: true, reason: 'missing api-base/token/bug-no' };
   const endpoint = `${args.apiBase.replace(/\/$/, '')}/api/bug-intake/reports/${encodeURIComponent(bugNo)}/agent-result`;
   const file = resultOutboxFile(args);
   const id = resultDeliveryId(bugNo, endpoint, payload);
-  if (resultWasDelivered(args, id)) {
+  if (!options.force && resultWasDelivered(args, id)) {
     return { skipped: true, reason: 'identical result already delivered', outboxId: id, ok: true };
   }
   appendOutboxRecord(file, { id, bugNo, endpoint, payload, status: 'PENDING', attempts: 0 });
@@ -1809,6 +1810,10 @@ async function postAgentResult(args, childEnv, bugNo, payload) {
     attempts: 1,
   });
   return { skipped: false, outboxId: id, ...delivery };
+}
+
+export function shouldForceLifecycleRedelivery(repairTaskStatus) {
+  return ['HOLD', 'AGENT_RUNNING', 'AGENT_APPROVED'].includes(String(repairTaskStatus || ''));
 }
 
 export function runnerLifecycleWritebackDecision(args, summary) {
@@ -1869,7 +1874,12 @@ async function writebackRunnerLifecycle(args, childEnv, summary) {
       nextAction: 'Technical release evidence passed; administrator performs business acceptance before resolving.',
     };
     const bugNo = candidate.bugNo;
-    results.push({ bugNo, ...(await postAgentResult(args, childEnv, bugNo, payload)) });
+    results.push({
+      bugNo,
+      ...(await postAgentResult(args, childEnv, bugNo, payload, {
+        force: shouldForceLifecycleRedelivery(candidate.repairTaskStatus),
+      })),
+    });
   }
   return { skipped: false, results };
 }

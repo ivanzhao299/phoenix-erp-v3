@@ -17,6 +17,7 @@ import {
   requeueSatisfiedDependencyHolds,
   resultDeliveryId,
   runnerLifecycleWritebackDecision,
+  shouldForceLifecycleRedelivery,
   restoreVerifiedTerminalEvidence,
   requeueInvalidTerminalEvidence,
   selectRunnableBugTasks,
@@ -118,6 +119,13 @@ test('selective release treats an already integrated patch as an empty cherry-pi
     status: 1,
     stderr: 'CONFLICT (content): Merge conflict in service.ts',
   }), false);
+});
+
+test('verified lifecycle evidence is redelivered when the remote report regressed to HOLD', () => {
+  assert.equal(shouldForceLifecycleRedelivery('HOLD'), true);
+  assert.equal(shouldForceLifecycleRedelivery('AGENT_RUNNING'), true);
+  assert.equal(shouldForceLifecycleRedelivery('FIX_READY_FOR_UAT'), false);
+  assert.equal(shouldForceLifecycleRedelivery('BUSINESS_VERIFIED'), false);
 });
 
 test('runner output is bounded before redaction and ignores unsafe short secrets', () => {
