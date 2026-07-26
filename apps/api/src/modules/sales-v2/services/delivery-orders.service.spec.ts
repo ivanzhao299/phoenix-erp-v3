@@ -5,6 +5,7 @@ import { DeliveryOrdersService } from './delivery-orders.service';
 
 describe('DeliveryOrdersService creation', () => {
   it('accepts a visible sales order number without casting it to bigint', async () => {
+    let transactionCommitted = false;
     const managerQuery = jest.fn(async (sql: string) => {
       if (sql.includes('INSERT INTO sal_delivery_orders')) {
         return [{ id: '201', delivery_no: 'DV-20260725-0001' }];
@@ -29,6 +30,7 @@ describe('DeliveryOrdersService creation', () => {
         }];
       }
       if (sql.includes('SELECT * FROM sal_delivery_orders WHERE id = $1')) {
+        expect(transactionCommitted).toBe(true);
         return [{ id: '201', delivery_no: 'DV-20260725-0001', company_code: 'COMP-1' }];
       }
       if (sql.includes('FROM sal_delivery_order_items')) return [];
@@ -37,8 +39,11 @@ describe('DeliveryOrdersService creation', () => {
     });
     const ds = {
       query,
-      transaction: jest.fn(async (callback: (manager: { query: typeof managerQuery }) => unknown) =>
-        callback({ query: managerQuery })),
+      transaction: jest.fn(async (callback: (manager: { query: typeof managerQuery }) => unknown) => {
+        const result = await callback({ query: managerQuery });
+        transactionCommitted = true;
+        return result;
+      }),
     } as unknown as DataSource;
     const cls = {
       get: jest.fn((key: string) => {

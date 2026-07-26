@@ -217,7 +217,7 @@ export class DeliveryOrdersService {
     const totalQty = orders.reduce((s: number, o: any) => s + Number(o.total_amount || 0), 0);
     const resolvedOrderIds = orders.map((order: any) => String(order.id));
 
-    return this.ds.transaction(async (mgr) => {
+    const deliveryOrderId = await this.ds.transaction(async (mgr) => {
       // 写配送单主表
       const [doRow] = await mgr.query(
         `INSERT INTO sal_delivery_orders (
@@ -265,8 +265,12 @@ export class DeliveryOrdersService {
       );
 
       this.logger.log(`配送单 ${deliveryNo} 已创建，关联 ${totalOrders} 张销售订单`);
-      return this.findById(String(doRow.id));
+      return String(doRow.id);
     });
+
+    // 详情查询必须发生在事务提交后。事务内使用 DataSource 的另一连接查询，
+    // 无法看到尚未提交的新配送单，会误报“配送单不存在”并回滚整笔创建。
+    return this.findById(deliveryOrderId);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
