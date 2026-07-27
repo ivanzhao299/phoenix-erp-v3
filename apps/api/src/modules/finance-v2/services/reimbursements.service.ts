@@ -29,7 +29,7 @@ import {
  *
  * pay() 事务链：
  *   1. SERIALIZABLE 事务锁定账户
- *   2. 校验余额 ≥ reimb_amount_base
+ *   2. 校验账户公司/币种与报销一致，余额 ≥ reimb_amount_original
  *   3. 扣减 current_balance
  *   4. 写 fin_cash_transactions（OUT, source_type=REIMBURSEMENT）
  *   5. 更新 fin_reimbursements.status=PAID + payment_txn_id
@@ -214,7 +214,7 @@ export class ReimbursementsService {
    * SERIALIZABLE 事务：
    *   1. 锁定 fin_reimbursements（防重复付款）
    *   2. 锁定 fin_cash_accounts（防超支）
-   *   3. 校验余额 ≥ reimb_amount_base
+   *   3. 校验账户公司/币种与报销一致，余额 ≥ reimb_amount_original
    *   4. UPDATE fin_cash_accounts SET current_balance -= amount
    *   5. INSERT fin_cash_transactions（OUT, REIMBURSEMENT）
    *   6. UPDATE fin_reimbursements SET status=PAID
@@ -246,11 +246,22 @@ export class ReimbursementsService {
         throw new NotFoundException(`现金账户 ${dto.cashAccountId} 不存在或已冻结`);
       }
 
-      // 3. 校验余额（Base Currency）
-      const payAmount = Number(reimb.reimb_amount_base);
+      // 3. 账户余额按账户币种记账，必须与报销原币使用同一计量单位
+      if (acct.company_code !== reimb.company_code) {
+        throw new ForbiddenException(
+          `现金账户 ${acct.account_code} 不属于报销公司 ${reimb.company_code}`,
+        );
+      }
+      if (acct.currency_code !== reimb.currency_code) {
+        throw new BadRequestException(
+          `现金账户币种 ${acct.currency_code} 与报销币种 ${reimb.currency_code} 不一致`,
+        );
+      }
+
+      const payAmount = Number(reimb.reimb_amount_original);
       if (Number(acct.current_balance) < payAmount) {
         throw new BadRequestException(
-          `账户余额不足：当前 ¥${Number(acct.current_balance).toFixed(2)}，需要 ¥${payAmount.toFixed(2)}`,
+          `账户余额不足：当前 ${Number(acct.current_balance).toFixed(2)} ${acct.currency_code}，需要 ${payAmount.toFixed(2)} ${reimb.currency_code}`,
         );
       }
 
