@@ -3,6 +3,14 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../org/services/data-scope.service';
+import { hasPerm, PermCode } from '../../auth/permissions.util';
+import {
+  isIssueOutboundType,
+  resolveOutboundDestinationCode,
+  resolveOutboundLedgerType,
+  validateOutboundPolicy,
+} from './wms-outbound-policy';
+import { validateInboundPolicy } from './wms-inbound-policy';
 
 /**
  * V3 WmsService
@@ -47,8 +55,25 @@ export class WmsService {
     return normalized ? normalized : null;
   }
 
-  private itemIdentityLabel(item: { batch_no?: unknown; product_code?: unknown; sku_code?: unknown }): string {
+  private assertOutboundPermission(type: unknown, user: any, perm: PermCode): void {
+    const roles = Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean);
+    if (roles.includes('ROLE_ADMIN')) return;
+    const menu = isIssueOutboundType(type) ? 'MENU_WMS_ISSUE' : 'MENU_WMS_INOUT';
+    if (!hasPerm(user?.permissions, menu, perm)) {
+      throw new ForbiddenException(`缺少 ${menu}:${perm} 权限`);
+    }
+  }
+
+  private validateStandaloneOutbound(body: any): void {
+    const errors = validateOutboundPolicy(body);
+    if (errors.length > 0) {
+      throw new BadRequestException({ code: 400, msg: '出库业务校验失败', errors });
+    }
+  }
+
+  private itemIdentityLabel(item: { batch_no?: unknown; product_code?: unknown; sku_code?: unknown; material_code?: unknown }): string {
     return this.nonEmptyString(item.batch_no)
+      || this.nonEmptyString(item.material_code)
       || this.nonEmptyString(item.sku_code)
       || this.nonEmptyString(item.product_code)
       || '(未指定)';
@@ -154,7 +179,8 @@ export class WmsService {
       const expected = it.expected_qty != null ? Number(it.expected_qty) : null;
       const productCode = this.nonEmptyString(it.product_code);
       const skuCode = this.nonEmptyString(it.sku_code);
-      if (expected != null && actual + broken !== expected) {
+      const materialCode = this.nonEmptyString(it.material_code);
+      if (expected != null && Math.abs((actual + broken) - expected) > 0.0005) {
         validationErrors.push(
           `批次 ${this.itemIdentityLabel(it)}: actual(${actual}) + broken(${broken}) ≠ expected(${expected})`,
         );
@@ -164,10 +190,16 @@ export class WmsService {
           `批次 ${this.itemIdentityLabel(it)}: actual_qty / broken_qty 不可为负`,
         );
       }
+      if (
+        Math.abs(Math.round(actual * 1000) - actual * 1000) > 1e-7
+        || Math.abs(Math.round(broken * 1000) - broken * 1000) > 1e-7
+      ) {
+        validationErrors.push(`批次 ${this.itemIdentityLabel(it)}: 数量最多保留 3 位小数`);
+      }
       if (actual > 0 || broken > 0) {
         hasEffectiveInboundLine = true;
-        if (!productCode && !skuCode) {
-          validationErrors.push(`批次 ${this.itemIdentityLabel(it)}: product_code 或 sku_code 必填`);
+        if (!productCode && !skuCode && !materialCode) {
+          validationErrors.push(`批次 ${this.itemIdentityLabel(it)}: material_code / product_code / sku_code 至少一项必填`);
         }
       }
     }
@@ -181,7 +213,7 @@ export class WmsService {
     return await this.em.transaction(async (manager) => {
       // V2 fidelity: 幂等 — 仅 PENDING/PROCESSING 状态允许确认
       const tasks = await manager.query(
-        `SELECT warehouse_code, operator, store_code, status FROM wms_inbound WHERE task_no = $1 FOR UPDATE`,
+        `SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound WHERE task_no = $1 FOR UPDATE`,
         [task_no],
       );
       if (tasks.length === 0) {
@@ -212,6 +244,23 @@ export class WmsService {
 
         let productCode = this.nonEmptyString(item.product_code);
         let skuCode = this.nonEmptyString(item.sku_code);
+        let materialCode = this.nonEmptyString(item.material_code);
+        let itemType = this.nonEmptyString(item.item_type);
+        let materialType = this.nonEmptyString(item.material_type);
+        let unit = this.nonEmptyString(item.unit) || '件';
+        if (materialCode || skuCode || itemType) {
+          const identity = await this.resolveInventoryItem(
+            manager,
+            materialCode || skuCode || productCode,
+            itemType,
+          );
+          productCode = identity.productCode;
+          skuCode = identity.skuCode;
+          materialCode = identity.materialCode;
+          itemType = identity.itemType;
+          materialType = identity.materialType;
+          unit = identity.unit;
+        }
         // The legacy generic inbound form labels its free-text value as product code,
         // while outbound selects stock by SKU. Preserve real product codes, but when
         // the entered value is an exact active SKU code, persist both canonical keys
@@ -228,12 +277,26 @@ export class WmsService {
           if (skuRows.length > 0) {
             skuCode = this.nonEmptyString(skuRows[0].sku_code);
             productCode = this.nonEmptyString(skuRows[0].product_code);
+            itemType = 'SKU';
+            materialType = 'FINISHED_PRODUCT';
+            unit = '枚';
           }
+        }
+        const inboundPolicyErrors = validateInboundPolicy({
+          type: task.type,
+          item_type: itemType,
+        });
+        if (inboundPolicyErrors.length > 0) {
+          throw new BadRequestException({
+            code: 400,
+            msg: '入库业务类型与库存品目不匹配',
+            errors: inboundPolicyErrors,
+          });
         }
         await manager.query(
           `UPDATE wms_inbound_items
-              SET actual_qty = $1::int,
-                  broken_qty = $2::int
+              SET actual_qty = $1::numeric,
+                  broken_qty = $2::numeric
             WHERE task_no = $3
               AND (
                 ($4::text IS NOT NULL AND batch_no = $4)
@@ -264,23 +327,33 @@ export class WmsService {
         // 正常入库：actual_qty → AVAILABLE batch
         if (actualQty > 0) {
           await manager.query(
-            `INSERT INTO inv_batches (batch_no, product_code, sku_code, qty, qty_available, status, warehouse_code, location_code, store_code)
-             VALUES ($1, $2, $3, $4::int, $4::int, 'AVAILABLE', $5, $6, $7)
+          `INSERT INTO inv_batches (
+             batch_no, product_code, sku_code, material_code, item_type, material_type,
+             unit, qty, qty_available, status, warehouse_code, location_code, store_code
+           )
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
+               material_code = COALESCE(inv_batches.material_code, EXCLUDED.material_code),
+               item_type = COALESCE(inv_batches.item_type, EXCLUDED.item_type),
+               material_type = COALESCE(inv_batches.material_type, EXCLUDED.material_type),
+               unit = COALESCE(inv_batches.unit, EXCLUDED.unit),
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
                updated_at = now()`,
-            [baseBatchNo, productCode, skuCode, actualQty, warehouseCode, locationCode, storeCode],
+            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode],
           );
           await manager.query(
-            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, sku_code)
-             VALUES ($1, 'INBOUND', $2::int, $3, $4, $5, $6, $7)`,
+            `INSERT INTO inv_ledger (
+               batch_no, change_type, qty_change, operator, store_code, ref_no, note,
+               sku_code, material_code, warehouse_code, business_type, unit
+             )
+             VALUES ($1, 'INBOUND', $2::numeric, $3, $4, $5, $6, $7, $8, $9, 'INBOUND', $10)`,
             [
               baseBatchNo, actualQty, operator, storeCode, task_no,
-              `入库确认 product=${productCode || '-'} sku=${skuCode || '-'} actual=${actualQty} warehouse=${warehouseCode}`,
-              skuCode,
+              `入库确认 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} actual=${actualQty} warehouse=${warehouseCode}`,
+              skuCode, materialCode, warehouseCode, unit,
             ],
           );
         }
@@ -289,24 +362,34 @@ export class WmsService {
         if (brokenQty > 0) {
           const brokenBatchNo = `${baseBatchNo}-BROKEN`;
           await manager.query(
-            `INSERT INTO inv_batches (batch_no, product_code, sku_code, qty, qty_available, status, warehouse_code, location_code, store_code)
-             VALUES ($1, $2, $3, $4::int, 0, 'QUARANTINE', $5, $6, $7)
+            `INSERT INTO inv_batches (
+               batch_no, product_code, sku_code, material_code, item_type, material_type,
+               unit, qty, qty_available, status, warehouse_code, location_code, store_code
+             )
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, 0, 'QUARANTINE', $9, $10, $11)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
+               material_code = COALESCE(inv_batches.material_code, EXCLUDED.material_code),
+               item_type = COALESCE(inv_batches.item_type, EXCLUDED.item_type),
+               material_type = COALESCE(inv_batches.material_type, EXCLUDED.material_type),
+               unit = COALESCE(inv_batches.unit, EXCLUDED.unit),
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = 0,
                status = 'QUARANTINE',
                updated_at = now()`,
-            [brokenBatchNo, productCode, skuCode, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode],
+            [brokenBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode],
           );
           await manager.query(
-            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, sku_code)
-             VALUES ($1, 'INBOUND_BROKEN', $2::int, $3, $4, $5, $6, $7)`,
+            `INSERT INTO inv_ledger (
+               batch_no, change_type, qty_change, operator, store_code, ref_no, note,
+               sku_code, material_code, warehouse_code, business_type, unit
+             )
+             VALUES ($1, 'INBOUND_BROKEN', $2::numeric, $3, $4, $5, $6, $7, $8, $9, 'INBOUND_BROKEN', $10)`,
             [
               brokenBatchNo, brokenQty, operator, storeCode, task_no,
-              `破损入隔离 product=${productCode || '-'} sku=${skuCode || '-'} broken=${brokenQty}`,
-              skuCode,
+              `破损入隔离 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} broken=${brokenQty}`,
+              skuCode, materialCode, warehouseCode, unit,
             ],
           );
         }
@@ -319,7 +402,7 @@ export class WmsService {
    * G84 采购收货入库 — 供采购模块在其「收货确认」事务内调用，统一写 inv_batches/inv_ledger。
    * 守护：库存唯一写入口（CLAUDE.md #6）；批次状态 AVAILABLE 取自 INV_STOCK_STATUS（#7）。
    * 与调用方同一事务（传入 manager），保证收货确认与库存入账原子一致。
-   * 数量为整数（inv_batches.qty 为 INTEGER），按四舍五入入账；无物料编码/数量≤0 的行跳过（不写脏批次）。
+   * 数量保留最多三位小数；物料/SKU 身份从统一主数据解析。
    */
   async inboundFromReceipt(
     manager: EntityManager,
@@ -328,7 +411,15 @@ export class WmsService {
       warehouseCode?: string;
       storeCode?: string;
       operator?: string;
-      items: { productCode?: string; skuCode?: string; qty: number; batchNo?: string; locationCode?: string }[];
+      items: {
+        itemCode?: string;
+        itemType?: string;
+        productCode?: string;
+        skuCode?: string;
+        qty: number;
+        batchNo?: string;
+        locationCode?: string;
+      }[];
     },
   ): Promise<{ batchNos: string[]; skipped: number }> {
     const storeCode = ctx.storeCode || 'ALL';
@@ -339,29 +430,53 @@ export class WmsService {
     let skipped = 0;
     for (let idx = 0; idx < ctx.items.length; idx++) {
       const it = ctx.items[idx];
-      const qty = Math.round(Number(it.qty) || 0);
-      const productCode = this.nonEmptyString(it.productCode);
-      const skuCode = this.nonEmptyString(it.skuCode);
-      if (qty <= 0 || (!productCode && !skuCode)) { skipped++; continue; }
+      const qty = Number(it.qty) || 0;
+      const suppliedCode = this.nonEmptyString(it.itemCode)
+        || this.nonEmptyString(it.skuCode)
+        || this.nonEmptyString(it.productCode);
+      if (qty <= 0 || !suppliedCode) { skipped++; continue; }
+      if (Math.abs(Math.round(qty * 1000) - qty * 1000) > 1e-7) {
+        throw new BadRequestException(`采购收货 ${ctx.refNo} 的数量最多保留 3 位小数`);
+      }
+      const identity = await this.resolveInventoryItem(
+        manager,
+        suppliedCode,
+        this.nonEmptyString(it.itemType),
+      );
+      const productCode = identity.productCode;
+      const skuCode = identity.skuCode;
       const batchNo = (it.batchNo || `${ctx.refNo}-${String(idx + 1).padStart(3, '0')}`).slice(0, 64);
       const locationCode = (it.locationCode || 'INBOUND-DOCK').slice(0, 64);
       await manager.query(
-        `INSERT INTO inv_batches (batch_no, product_code, sku_code, qty, qty_available, status, warehouse_code, location_code, store_code)
-         VALUES ($1, $2, $3, $4::int, $4::int, 'AVAILABLE', $5, $6, $7)
+        `INSERT INTO inv_batches (
+           batch_no, product_code, sku_code, material_code, item_type, material_type,
+           unit, qty, qty_available, status, warehouse_code, location_code, store_code
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11)
          ON CONFLICT (batch_no) DO UPDATE SET
            product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
            sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
+           material_code = COALESCE(inv_batches.material_code, EXCLUDED.material_code),
+           item_type = COALESCE(inv_batches.item_type, EXCLUDED.item_type),
+           material_type = COALESCE(inv_batches.material_type, EXCLUDED.material_type),
+           unit = COALESCE(inv_batches.unit, EXCLUDED.unit),
            qty = inv_batches.qty + EXCLUDED.qty,
            qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
            updated_at = now()`,
-        [batchNo, productCode, skuCode, qty, warehouseCode, locationCode, storeCode],
+        [
+          batchNo, productCode, skuCode, identity.materialCode, identity.itemType,
+          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode,
+        ],
       );
       await manager.query(
-        `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, sku_code)
-         VALUES ($1, 'INBOUND', $2::int, $3, $4, $5, $6, $7)`,
+        `INSERT INTO inv_ledger (
+           batch_no, change_type, qty_change, operator, store_code, ref_no, note,
+           sku_code, material_code, warehouse_code, business_type, unit
+         )
+         VALUES ($1, 'PURCHASE_INBOUND', $2::numeric, $3, $4, $5, $6, $7, $8, $9, 'PURCHASE', $10)`,
         [batchNo, qty, operator, storeCode, ctx.refNo,
-         `采购收货入库 product=${productCode || '-'} sku=${skuCode || '-'} qty=${qty} wh=${warehouseCode}`,
-         skuCode],
+         `采购收货入库 item=${identity.itemCode} type=${identity.itemType} qty=${qty} wh=${warehouseCode}`,
+         skuCode, identity.materialCode, warehouseCode, identity.unit],
       );
       batchNos.push(batchNo);
     }
@@ -489,14 +604,241 @@ export class WmsService {
    * wms_outbound 是仓储页面的单据表，不能通过通用 CRUD 直接把状态改为 DONE。
    * 只有库存批次扣减和 inv_ledger 流水都成功后，事务才会提交 DONE。
    */
+  async createStandaloneOutbound(body: any, user: any) {
+    this.assertOutboundPermission(body?.type, user, 'C');
+    this.validateStandaloneOutbound(body);
+    const warehouseCode = this.nonEmptyString(body?.warehouse_code);
+    this.assertWritableWarehouse(warehouseCode, '出库单');
+
+    return this.em.transaction(async manager => {
+      const identity = await this.resolveInventoryItem(
+        manager,
+        this.nonEmptyString(body?.item),
+        this.nonEmptyString(body?.item_type),
+      );
+      this.validateStandaloneOutbound({
+        ...body,
+        item: identity.itemCode,
+        item_type: identity.itemType,
+        material_type: identity.materialType,
+      });
+      const outboundNo = this.nonEmptyString(body?.outbound_no)
+        || `WO-${Date.now().toString().slice(-10)}`;
+      const destinationCode = resolveOutboundDestinationCode(body);
+      const rows = await manager.query(
+        `INSERT INTO wms_outbound (
+           outbound_no, date, type, warehouse_code, item, item_name, item_type,
+           material_type, material_code, sku_code, unit, batch_no, qty, status,
+           destination_type, destination_code, destination_house_code,
+           destination_customer_code, destination_warehouse_code, destination_store_code,
+           department_code, project_code, receiver_username, purpose_code,
+           picker, operator, ref_no, order_no, remark, attachment_url,
+           site_code, company_code, store_code, created_at, updated_at
+         ) VALUES (
+           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::numeric,'PENDING',
+           $14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,
+           $30,$31,$32,now(),now()
+         )
+         RETURNING *`,
+        [
+          outboundNo,
+          body?.date || new Date().toISOString().slice(0, 10),
+          String(body.type).toUpperCase(),
+          warehouseCode,
+          identity.itemCode,
+          identity.itemName,
+          identity.itemType,
+          identity.materialType,
+          identity.materialCode,
+          identity.skuCode,
+          identity.unit,
+          this.nonEmptyString(body?.batch_no),
+          Number(body.qty),
+          String(body.destination_type).toUpperCase(),
+          destinationCode,
+          this.nonEmptyString(body?.destination_house_code),
+          this.nonEmptyString(body?.destination_customer_code),
+          this.nonEmptyString(body?.destination_warehouse_code),
+          this.nonEmptyString(body?.destination_store_code),
+          this.nonEmptyString(body?.department_code),
+          this.nonEmptyString(body?.project_code),
+          this.nonEmptyString(body?.receiver_username),
+          this.nonEmptyString(body?.purpose_code),
+          this.nonEmptyString(body?.picker),
+          String(user?.username || user?.userId || body?.operator || 'SYS'),
+          this.nonEmptyString(body?.ref_no),
+          this.nonEmptyString(body?.order_no),
+          this.nonEmptyString(body?.remark),
+          this.nonEmptyString(body?.attachment_url),
+          this.nonEmptyString(body?.site_code),
+          this.nonEmptyString(body?.company_code),
+          this.nonEmptyString(body?.store_code) || 'ALL',
+        ],
+      );
+      return { code: 200, msg: '出库单已创建，待确认扣减库存', data: rows[0] };
+    });
+  }
+
+  async updateStandaloneOutbound(outboundNo: string, body: any, user: any) {
+    const normalizedNo = this.nonEmptyString(outboundNo);
+    if (!normalizedNo) throw new BadRequestException('outbound_no 必填');
+
+    return this.em.transaction(async manager => {
+      const [existing] = await manager.query(
+        `SELECT * FROM wms_outbound WHERE outbound_no = $1 FOR UPDATE`,
+        [normalizedNo],
+      );
+      if (!existing) throw new BadRequestException(`出库单 ${normalizedNo} 不存在`);
+      if (String(existing.status).toUpperCase() !== 'PENDING') {
+        throw new BadRequestException(`出库单 ${normalizedNo} 已进入作业，不允许编辑`);
+      }
+
+      const merged = { ...existing, ...body, outbound_no: normalizedNo };
+      this.assertOutboundPermission(existing.type, user, 'E');
+      this.assertOutboundPermission(merged.type, user, 'E');
+      this.validateStandaloneOutbound(merged);
+      const warehouseCode = this.nonEmptyString(merged.warehouse_code);
+      this.assertWritableWarehouse(warehouseCode, `出库单 ${normalizedNo}`);
+      const identity = await this.resolveInventoryItem(
+        manager,
+        this.nonEmptyString(merged.item),
+        this.nonEmptyString(merged.item_type),
+      );
+      this.validateStandaloneOutbound({
+        ...merged,
+        item: identity.itemCode,
+        item_type: identity.itemType,
+        material_type: identity.materialType,
+      });
+      const destinationCode = resolveOutboundDestinationCode(merged);
+      const rows = await manager.query(
+        `UPDATE wms_outbound
+            SET date=$2, type=$3, warehouse_code=$4, item=$5, item_name=$6,
+                item_type=$7, material_type=$8, material_code=$9, sku_code=$10,
+                unit=$11, batch_no=$12, qty=$13::numeric, destination_type=$14,
+                destination_code=$15, destination_house_code=$16,
+                destination_customer_code=$17, destination_warehouse_code=$18,
+                destination_store_code=$19, department_code=$20, project_code=$21,
+                receiver_username=$22, purpose_code=$23, picker=$24, operator=$25,
+                ref_no=$26, order_no=$27, remark=$28, attachment_url=$29,
+                site_code=$30, company_code=$31, store_code=$32, updated_at=now()
+          WHERE outbound_no=$1
+          RETURNING *`,
+        [
+          normalizedNo,
+          merged.date,
+          String(merged.type).toUpperCase(),
+          warehouseCode,
+          identity.itemCode,
+          identity.itemName,
+          identity.itemType,
+          identity.materialType,
+          identity.materialCode,
+          identity.skuCode,
+          identity.unit,
+          this.nonEmptyString(merged.batch_no),
+          Number(merged.qty),
+          String(merged.destination_type).toUpperCase(),
+          destinationCode,
+          this.nonEmptyString(merged.destination_house_code),
+          this.nonEmptyString(merged.destination_customer_code),
+          this.nonEmptyString(merged.destination_warehouse_code),
+          this.nonEmptyString(merged.destination_store_code),
+          this.nonEmptyString(merged.department_code),
+          this.nonEmptyString(merged.project_code),
+          this.nonEmptyString(merged.receiver_username),
+          this.nonEmptyString(merged.purpose_code),
+          this.nonEmptyString(merged.picker),
+          String(user?.username || user?.userId || merged.operator || 'SYS'),
+          this.nonEmptyString(merged.ref_no),
+          this.nonEmptyString(merged.order_no),
+          this.nonEmptyString(merged.remark),
+          this.nonEmptyString(merged.attachment_url),
+          this.nonEmptyString(merged.site_code),
+          this.nonEmptyString(merged.company_code),
+          this.nonEmptyString(merged.store_code) || 'ALL',
+        ],
+      );
+      return { code: 200, msg: '出库单已更新', data: rows[0] };
+    });
+  }
+
+  private async resolveInventoryItem(
+    manager: EntityManager,
+    itemCode: string | null,
+    requestedType: string | null,
+  ): Promise<{
+    itemCode: string;
+    itemName: string;
+    itemType: 'MATERIAL' | 'SKU';
+    materialType: string | null;
+    materialCode: string | null;
+    skuCode: string | null;
+    productCode: string | null;
+    unit: string;
+  }> {
+    if (!itemCode) throw new BadRequestException('物料或 SKU 必填');
+    const normalizedType = String(requestedType || '').toUpperCase();
+    if (!normalizedType || normalizedType === 'MATERIAL') {
+      const [material] = await manager.query(
+        `SELECT material_code, material_name, material_type, unit
+           FROM mst_materials
+          WHERE material_code = $1 AND status = 'ACTIVE'
+          LIMIT 1`,
+        [itemCode],
+      );
+      if (material) {
+        return {
+          itemCode: material.material_code,
+          itemName: material.material_name,
+          itemType: 'MATERIAL',
+          materialType: material.material_type || null,
+          materialCode: material.material_code,
+          skuCode: null,
+          productCode: null,
+          unit: material.unit || '件',
+        };
+      }
+    }
+    if (!normalizedType || normalizedType === 'SKU') {
+      const [sku] = await manager.query(
+        `SELECT ps.sku_code, ps.product_code,
+                COALESCE(ps.sku_name, ps.product_name, ps.sku_code) AS sku_name,
+                COALESCE(spec.base_unit, '枚') AS unit
+           FROM product_skus ps
+           LEFT JOIN packaging_specs spec ON spec.spec_code = ps.spec_code
+          WHERE ps.sku_code = $1 AND ps.status = 'ACTIVE'
+          LIMIT 1`,
+        [itemCode],
+      );
+      if (sku) {
+        return {
+          itemCode: sku.sku_code,
+          itemName: sku.sku_name,
+          itemType: 'SKU',
+          materialType: 'FINISHED_PRODUCT',
+          materialCode: null,
+          skuCode: sku.sku_code,
+          productCode: sku.product_code || null,
+          unit: sku.unit || '枚',
+        };
+      }
+    }
+    throw new BadRequestException(`库存品目 ${itemCode} 不存在或已停用`);
+  }
+
   async confirmStandaloneOutbound(outboundNo: string, user: any) {
     const normalizedNo = this.nonEmptyString(outboundNo);
     if (!normalizedNo) throw new BadRequestException('outbound_no 必填');
 
     return await this.em.transaction(async (manager) => {
       const rows = await manager.query(
-        `SELECT id, outbound_no, status, warehouse_code, store_code,
-                item, batch_no, qty
+        `SELECT id, outbound_no, status, type, warehouse_code, store_code, company_code,
+                item, item_type, material_type, material_code, sku_code, unit,
+                batch_no, qty, destination_type, destination_code,
+                destination_house_code, destination_customer_code,
+                destination_warehouse_code, destination_store_code,
+                department_code, project_code, receiver_username, purpose_code
            FROM wms_outbound
           WHERE outbound_no = $1
           FOR UPDATE`,
@@ -507,6 +849,8 @@ export class WmsService {
       }
 
       const order = rows[0];
+      this.assertOutboundPermission(order.type, user, 'E');
+      this.validateStandaloneOutbound(order);
       const status = String(order.status || 'PENDING').toUpperCase();
       this.assertWritableWarehouse(order.warehouse_code, `出库单 ${normalizedNo}`);
       if (status === 'DONE') {
@@ -522,16 +866,16 @@ export class WmsService {
       }
 
       const qty = Number(order.qty);
-      if (!Number.isInteger(qty) || qty <= 0) {
-        throw new BadRequestException(`出库单 ${normalizedNo} 的出库数量必须为正整数`);
+      if (!Number.isFinite(qty) || qty <= 0) {
+        throw new BadRequestException(`出库单 ${normalizedNo} 的出库数量必须大于 0`);
       }
 
       const batchNo = this.nonEmptyString(order.batch_no);
       const itemCode = this.nonEmptyString(order.item);
       if (batchNo) {
         const [batch] = await manager.query(
-          `SELECT batch_no, product_code, sku_code, qty, qty_available,
-                  warehouse_code, store_code
+          `SELECT batch_no, product_code, sku_code, material_code, item_type,
+                  material_type, unit, qty, qty_available, warehouse_code, store_code
              FROM inv_batches
             WHERE batch_no = $1
             FOR UPDATE`,
@@ -541,6 +885,14 @@ export class WmsService {
         if (order.warehouse_code && batch.warehouse_code !== order.warehouse_code) {
           throw new BadRequestException(
             `库存批次 ${batchNo} 属于仓库 ${batch.warehouse_code || '-'}，与出库仓库 ${order.warehouse_code} 不一致`,
+          );
+        }
+        const batchItemCode = this.nonEmptyString(batch.material_code)
+          || this.nonEmptyString(batch.sku_code)
+          || this.nonEmptyString(batch.product_code);
+        if (itemCode && batchItemCode !== itemCode) {
+          throw new BadRequestException(
+            `库存批次 ${batchNo} 的品目 ${batchItemCode || '-'} 与出库品目 ${itemCode} 不一致`,
           );
         }
         await this.deductOutboundBatch(manager, batch, qty, normalizedNo, order, user, 'DONE');
@@ -587,10 +939,10 @@ export class WmsService {
       warehouseSql = `AND warehouse_code = $${params.length}`;
     }
     const batches = await manager.query(
-      `SELECT batch_no, product_code, sku_code, qty, qty_available,
-              warehouse_code, store_code
+      `SELECT batch_no, product_code, sku_code, material_code, item_type,
+              material_type, unit, qty, qty_available, warehouse_code, store_code
          FROM inv_batches
-        WHERE (sku_code = $1 OR product_code = $1)
+        WHERE (sku_code = $1 OR product_code = $1 OR material_code = $1)
           ${warehouseSql}
           AND COALESCE(qty_available, qty, 0) > 0
           AND COALESCE(status, 'AVAILABLE') = 'AVAILABLE'
@@ -633,7 +985,8 @@ export class WmsService {
   ): Promise<void> {
     const label = `${column}=${value}`;
     const batches = await manager.query(
-      `SELECT batch_no, product_code, sku_code, qty, qty_available, warehouse_code, store_code
+      `SELECT batch_no, product_code, sku_code, material_code, item_type,
+              material_type, unit, qty, qty_available, warehouse_code, store_code
          FROM inv_batches
         WHERE ${column} = $1
           AND COALESCE(qty_available, qty, 0) > 0
@@ -678,26 +1031,43 @@ export class WmsService {
 
     await manager.query(
       `UPDATE inv_batches
-          SET qty = GREATEST(COALESCE(qty, 0) - $1::int, 0),
+          SET qty = GREATEST(COALESCE(qty, 0) - $1::numeric, 0),
               qty_available = CASE
                 WHEN qty_available IS NULL THEN NULL
-                ELSE GREATEST(qty_available - $1::int, 0)
+                ELSE GREATEST(qty_available - $1::numeric, 0)
               END,
               updated_at = now()
         WHERE batch_no = $2`,
       [qty, batchNo],
     );
     await manager.query(
-      `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, sku_code)
-       VALUES ($1, 'OUTBOUND', -$2::int, $3, $4, $5, $6, $7)`,
+      `INSERT INTO inv_ledger (
+         batch_no, change_type, qty_change, operator, store_code, ref_no, note,
+         sku_code, material_code, warehouse_code, company_code, business_type,
+         destination_type, destination_code, project_code, department_code, unit
+       )
+       VALUES (
+         $1, $8, -$2::numeric, $3, $4, $5, $6, $7, $9, $10, $11, $12,
+         $13, $14, $15, $16, $17
+       )`,
       [
         batchNo,
         qty,
         String(user?.userId || user?.username || 'SYS'),
         order.store_code || batch.store_code || 'ALL',
         orderNo,
-        `出库 status=${nextStatus} batch=${batchNo} product=${batch.product_code || '-'} sku=${batch.sku_code || '-'} qty=${qty}`,
+        `出库 type=${order.type || 'SALE'} status=${nextStatus} batch=${batchNo} product=${batch.product_code || '-'} sku=${batch.sku_code || '-'} material=${batch.material_code || '-'} qty=${qty}`,
         batch.sku_code || null,
+        resolveOutboundLedgerType(order.type || 'SALE'),
+        batch.material_code || order.material_code || null,
+        batch.warehouse_code || order.warehouse_code || null,
+        order.company_code || null,
+        order.type || 'SALE',
+        order.destination_type || null,
+        resolveOutboundDestinationCode(order) || null,
+        order.project_code || null,
+        order.department_code || null,
+        batch.unit || order.unit || null,
       ],
     );
   }

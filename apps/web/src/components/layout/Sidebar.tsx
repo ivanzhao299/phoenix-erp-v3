@@ -120,6 +120,7 @@ export const MENU: MenuItem[] = [
     { id: "inv-srcmode", path: "/warehouse/source-mode",  Icon: Settings,        label: "库存来源模式", perm: "MENU_INV_SOURCE_MODE" },
     { id: "wh-in",       path: "/warehouse/inbound",      Icon: PackagePlus,     label: "入库管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-out",      path: "/warehouse/outbound",     Icon: PackageMinus,    label: "出库管理",   perm: "MENU_WMS_INOUT" },
+    { id: "wh-issue",    path: "/warehouse/issues",       Icon: ClipboardCheck,  label: "领用管理",   perm: "MENU_WMS_ISSUE" },
     { id: "wh-transfer", path: "/warehouse/transfer",     Icon: RefreshCw,       label: "调拨管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-stock",    path: "/warehouse/stocktake",    Icon: ListChecks,      label: "盘点管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-ledger",   path: "/warehouse/ledger",       Icon: ScrollText,      label: "出入库流水", perm: "MENU_WMS_VIEW"  },

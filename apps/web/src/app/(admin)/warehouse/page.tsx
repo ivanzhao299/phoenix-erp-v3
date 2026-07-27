@@ -20,6 +20,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { NavCard } from "@/components/ui/NavCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { getWarehouseDashboardAccess } from "@/lib/warehouse-dashboard-access";
+import { groupWarehouseQuantitiesByUnit } from "@/lib/warehouse-query";
 import styles from "./warehouse.module.css";
 import {
   PackagePlus, PackageMinus, ListChecks, Search, ArrowDown, ArrowUp,
@@ -29,7 +30,6 @@ import {
   MONO_FONT, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
   actionGroupBox, detailInfoBox, recordRow, inlineAlert,
   secondaryActionButton, moneyCell,
-  statTile, statTileLabel, statTileValue,
 } from "@/components/design-system/cockpit-styles";
 
 interface Zone {
@@ -47,6 +47,7 @@ interface InboundRow {
   inbound_no: string;
   item: string;
   qty: number;
+  unit?: string;
   warehouse_code: string;
   date: string;
   created_at: string;
@@ -56,6 +57,7 @@ interface OutboundRow {
   outbound_no: string;
   item: string;
   qty: number;
+  unit?: string;
   dest: string;
   date: string;
   time?: string;
@@ -66,6 +68,7 @@ interface BatchRow {
   batch_no: string;
   expire_date: string;
   qty_available: number;
+  unit?: string;
 }
 
 // ── 库区卡片 — g200e 重写,克制白底 + 进度条用 var(--status-*)
@@ -169,9 +172,7 @@ export default function WarehouseDashboard() {
   const today = new Date().toISOString().slice(0, 10);
   const todayIn = useMemo(() => inbounds.filter(r => (r.date || r.created_at?.slice(0, 10)) === today), [inbounds, today]);
   const todayOut = useMemo(() => outbounds.filter(r => (r.date || r.created_at?.slice(0, 10)) === today), [outbounds, today]);
-  const totalInQty = todayIn.reduce((s, r) => s + (Number(r.qty) || 0), 0);
-  const totalOutQty = todayOut.reduce((s, r) => s + (Number(r.qty) || 0), 0);
-  const totalStock = batches.reduce((s, b) => s + (Number(b.qty_available) || 0), 0);
+  const stockByUnit = useMemo(() => groupWarehouseQuantitiesByUnit(batches), [batches]);
 
   const activity = useMemo(() => {
     const inLabel = t("ui.入库", "入库");
@@ -184,6 +185,7 @@ export default function WarehouseDashboard() {
       label: inLabel,
       desc: `${r.item || itemLabel} → ${r.warehouse_code || zoneLabel}`,
       qty: r.qty,
+      unit: r.unit,
       date: r.date || r.created_at?.slice(0, 10) || "",
       time: r.created_at?.slice(11, 16) || "--:--",
     }));
@@ -192,6 +194,7 @@ export default function WarehouseDashboard() {
       label: outLabel,
       desc: `${r.item || itemLabel} → ${r.dest || destLabel}`,
       qty: r.qty,
+      unit: r.unit,
       date: r.date || r.created_at?.slice(0, 10) || "",
       time: r.time || r.created_at?.slice(11, 16) || "--:--",
     }));
@@ -200,9 +203,9 @@ export default function WarehouseDashboard() {
 
   // g200e KPI 4 卡:kpiCardCompact(tone) 统一
   const KPIs = [
-    { label: t("ui.库存总量", "库存总量"), value: loading ? "…" : totalStock.toLocaleString(),                  unit: t("ui.单位", "单位"), tone: "info"    as const, Icon: Package },
-    { label: t("ui.今日入库", "今日入库"), value: loading ? "…" : canViewInout ? (totalInQty || todayIn.length).toString() : "—",    unit: canViewInout ? (totalInQty ? t("ui.枚", "枚") : t("ui.单", "单")) : t("ui.受限", "受限"), tone: "success" as const, Icon: ArrowDown },
-    { label: t("ui.今日出库", "今日出库"), value: loading ? "…" : canViewInout ? (totalOutQty || todayOut.length).toString() : "—",  unit: canViewInout ? (totalOutQty ? t("ui.枚", "枚") : t("ui.单", "单")) : t("ui.受限", "受限"), tone: "danger"  as const, Icon: ArrowUp },
+    { label: t("ui.可用库存批次", "可用库存批次"), value: loading ? "…" : batches.length.toLocaleString(), unit: t("ui.批", "批"), tone: "info" as const, Icon: Package },
+    { label: t("ui.今日入库单", "今日入库单"), value: loading ? "…" : canViewInout ? todayIn.length.toString() : "—", unit: canViewInout ? t("ui.单", "单") : t("ui.受限", "受限"), tone: "success" as const, Icon: ArrowDown },
+    { label: t("ui.今日出库单", "今日出库单"), value: loading ? "…" : canViewInout ? todayOut.length.toString() : "—", unit: canViewInout ? t("ui.单", "单") : t("ui.受限", "受限"), tone: "danger" as const, Icon: ArrowUp },
     { label: t("ui.临期批次", "临期批次"), value: loading ? "…" : expiry.length.toString(),                    unit: t("ui.批", "批"),  tone: "warning" as const, Icon: AlertTriangle },
   ];
 
@@ -210,6 +213,7 @@ export default function WarehouseDashboard() {
   const QUICK = [
     { path: "/warehouse/inbound",   Icon: PackagePlus,    label: t("ui.入库管理", "入库管理"), desc: t("ui.入库单创建", "入库单录入、扫码收货、批次台账上链。"),       accent: "green"  as const, perm: "MENU_WMS_INOUT" },
     { path: "/warehouse/outbound",  Icon: PackageMinus,   label: t("ui.出库管理", "出库管理"), desc: t("ui.出库单创建", "出库单录入、FIFO 出库、含调拨与销售出库。"), accent: "red"    as const, perm: "MENU_WMS_INOUT" },
+    { path: "/warehouse/issues",    Icon: PackageMinus,   label: t("ui.生产与内部领用", "生产与内部领用"), desc: t("ui.生产与内部领用说明", "饲料、兽药、包材、配件、后勤和维修领用，按用途与领用对象归集。"), accent: "amber" as const, perm: "MENU_WMS_ISSUE" },
     { path: "/warehouse/transfer",  Icon: MoveHorizontal, label: t("ui.库存调拨", "库存调拨"), desc: t("ui.库存调拨", "库间调拨,事务安全,源/目仓批次一致。"),         accent: "blue"   as const, perm: "MENU_WMS_INOUT" },
     { path: "/warehouse/stocktake", Icon: ListChecks,     label: t("ui.盘点管理", "盘点管理"), desc: t("ui.盘点单", "盘点单生成、差异比对、盘盈/盘亏入账。"),         accent: "amber"  as const, perm: "MENU_WMS_INOUT" },
     { path: "/warehouse/query",     Icon: Search,         label: t("ui.库存查询", "库存查询"), desc: t("ui.库存查询", "按批次/库位/品目/到期日多维查询。"),          accent: "violet" as const, perm: "MENU_WMS_VIEW" },
@@ -267,6 +271,29 @@ export default function WarehouseDashboard() {
           );
         })}
       </div>
+
+      {!loading && stockByUnit.length > 0 && (
+        <div style={{ ...actionGroupBox, marginBottom: 20, padding: "12px 14px", background: "var(--bg-card)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 10 }}>
+            {t("ui.库存按计量单位汇总", "库存按计量单位汇总")}
+          </div>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            {stockByUnit.map((group) => (
+              <div key={group.unit} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <strong style={{ fontFamily: MONO_FONT, fontSize: 18, color: "var(--text-primary)" }}>
+                  {group.quantity.toLocaleString()}
+                </strong>
+                <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>
+                  {group.unit} · {group.batchCount} {t("ui.批", "批")}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div style={{ color: "var(--text-dim)", fontSize: 11, marginTop: 8 }}>
+            {t("ui.不同计量单位不合并相加", "不同计量单位不合并相加，避免把枚、kg、件等形成无业务意义的总数。")}
+          </div>
+        </div>
+      )}
 
       {/* 主内容区:库区 + 侧边栏 — 弹性 minmax 避免文本截断 */}
       <div className={styles.dashboardGrid}>
@@ -340,7 +367,9 @@ export default function WarehouseDashboard() {
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text-secondary)", wordBreak: "break-word" }}>{a.desc}</div>
                   </div>
-                  <div style={moneyCell(a.type === "in" ? "success" : "danger", "md")}>{a.qty}</div>
+                  <div style={moneyCell(a.type === "in" ? "success" : "danger", "md")}>
+                    {a.qty}{a.unit ? ` ${a.unit}` : ""}
+                  </div>
                 </div>
               ))
             )}

@@ -19,6 +19,7 @@ import { ALLOWED_TABLES } from './crud.constants';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
 import { WmsService } from '../wms/wms.service';
+import { WMS_ISSUE_OUTBOUND_TYPES } from '../wms/wms-outbound-policy';
 
 @Controller('api/crud')
 @UseGuards(AuthGuard('jwt'))
@@ -124,6 +125,10 @@ export class GenericCrudController {
   private tableToAltMenus(table: string, method: string): string[] {
     // BUG-20260707-0002: 库存总览只读拉取 wms_* 汇总数据时应接受仓储查看权。
     // 保留 MENU_WMS_INOUT 作为 GET 备选，避免已有出入库作业角色因未显式持 MENU_WMS_VIEW 被误挡。
+    if (table === 'wms_outbound') {
+      if (method === 'GET') return ['MENU_WMS_INOUT', 'MENU_WMS_ISSUE'];
+      return ['MENU_WMS_ISSUE'];
+    }
     if (method === 'GET' && table.startsWith('wms_')) return ['MENU_WMS_INOUT'];
     // BUG-20260707-0004: 库存查询/台账是只读库存事实表，历史仓库作业角色常持
     // MENU_INV_BATCH / MENU_INV_LEDGER / MENU_WMS_INOUT，而不一定持 MENU_WMS_VIEW。
@@ -348,6 +353,17 @@ export class GenericCrudController {
   async findAll(@Param('table') table: string, @Query() query: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'GET');
     const tableScope = await this.resolveTableScope(table, req, 'GET');
+    const permissions: string[] = req.user?.permissions || [];
+    const isAdmin = permissions.includes('*') || req.user?.username === 'admin';
+    if (table === 'wms_outbound' && !isAdmin) {
+      const canViewInout = hasPerm(permissions, 'MENU_WMS_INOUT', 'V');
+      const canViewIssue = hasPerm(permissions, 'MENU_WMS_ISSUE', 'V');
+      if (canViewIssue && !canViewInout) {
+        query = { ...query, type: [...WMS_ISSUE_OUTBOUND_TYPES] };
+      } else if (canViewInout && !canViewIssue) {
+        query = { ...query, type: ['SALE', 'TRANSFER', 'SCRAP', 'RETURN'] };
+      }
+    }
 
     // 行级租户隔离：非全局角色自动注入 store_code 过滤，防止跨站点数据泄露
     const userStoreCode: string | undefined = req.user?.storeCode;
@@ -462,6 +478,11 @@ export class GenericCrudController {
       }
     }
 
+    if (table === 'wms_outbound') {
+      if (tableScope) this.cls.set('dataScope', tableScope);
+      return await this.wmsService.createStandaloneOutbound(body, req.user);
+    }
+
     // Minimal safety check
     const fields = Object.keys(body);
     if (!fields.every((f) => /^[a-zA-Z0-9_]+$/.test(f))) {
@@ -511,9 +532,6 @@ export class GenericCrudController {
     if (this.isCompletingWmsOutbound(table, existing, safeBody)) {
       const detailFields = { ...safeBody };
       delete detailFields.status;
-      if (Object.keys(detailFields).length > 0) {
-        await this.crudService.update(table, idColumn, id, detailFields);
-      }
       if (tableScope) {
         this.cls.set('dataScope', tableScope);
       }
@@ -521,7 +539,19 @@ export class GenericCrudController {
       if (!outboundNo) {
         throw new BadRequestException('wms_outbound outbound_no 必填，无法确认出库');
       }
+      if (Object.keys(detailFields).length > 0) {
+        await this.wmsService.updateStandaloneOutbound(outboundNo, detailFields, req.user);
+      }
       return await this.wmsService.confirmStandaloneOutbound(outboundNo, req.user);
+    }
+
+    if (table === 'wms_outbound') {
+      if (tableScope) this.cls.set('dataScope', tableScope);
+      const outboundNo = String(safeBody.outbound_no || existing.outbound_no || '').trim();
+      if (!outboundNo) {
+        throw new BadRequestException('wms_outbound outbound_no 必填');
+      }
+      return await this.wmsService.updateStandaloneOutbound(outboundNo, safeBody, req.user);
     }
 
     const result = await this.crudService.update(table, idColumn, id, safeBody);

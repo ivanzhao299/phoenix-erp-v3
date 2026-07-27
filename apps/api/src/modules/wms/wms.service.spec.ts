@@ -95,7 +95,7 @@ describe('WmsService inventory read queries', () => {
     ).rejects.toMatchObject({
       response: expect.objectContaining({
         msg: '入库数据校验失败',
-        errors: expect.arrayContaining(['批次 (未指定): product_code 或 sku_code 必填']),
+        errors: expect.arrayContaining(['批次 (未指定): material_code / product_code / sku_code 至少一项必填']),
       }),
     });
     expect(em.transaction).not.toHaveBeenCalled();
@@ -104,8 +104,11 @@ describe('WmsService inventory read queries', () => {
   it('accepts SKU-only inbound confirmation and persists SKU to batch and ledger', async () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
-        if (sql.includes('SELECT warehouse_code, operator, store_code, status FROM wms_inbound')) {
-          return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING' }];
+        if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
+          return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
+        }
+        if (sql.includes('FROM product_skus')) {
+          return [{ sku_code: 'SKU-EGG-A-30', product_code: 'PRD-EGG', sku_name: '鸡蛋SKU' }];
         }
         if (sql.includes('SELECT batch_no, status FROM inv_batches')) {
           return [];
@@ -147,8 +150,12 @@ describe('WmsService inventory read queries', () => {
     expect(insertBatchCall).toBeDefined();
     expect(insertBatchCall?.[1]).toEqual([
       'IBN-SKU-ONLY-B1',
-      null,
+      'PRD-EGG',
       'SKU-EGG-A-30',
+      null,
+      'SKU',
+      'FINISHED_PRODUCT',
+      '枚',
       8,
       'LPH_MS_EGG_SALES',
       'INBOUND-DOCK',
@@ -165,16 +172,19 @@ describe('WmsService inventory read queries', () => {
       'admin',
       'ALL',
       'WI-SKU-ONLY',
-      '入库确认 product=- sku=SKU-EGG-A-30 actual=8 warehouse=LPH_MS_EGG_SALES',
+      '入库确认 product=PRD-EGG sku=SKU-EGG-A-30 material=- actual=8 warehouse=LPH_MS_EGG_SALES',
       'SKU-EGG-A-30',
+      null,
+      'LPH_MS_EGG_SALES',
+      '枚',
     ]);
   });
 
   it('normalizes a SKU entered in the legacy product-code field so outbound can select the stock', async () => {
     const manager = {
       query: jest.fn(async (sql: string, params?: unknown[]) => {
-        if (sql.includes('SELECT warehouse_code, operator, store_code, status FROM wms_inbound')) {
-          return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING' }];
+        if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
+          return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
         }
         if (sql.includes('FROM product_skus')) {
           expect(params).toEqual(['SKU-EGG-A-30']);
@@ -207,7 +217,19 @@ describe('WmsService inventory read queries', () => {
 
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_batches'),
-      ['IBN-LEGACY-SKU-B1', 'PRD-EGG', 'SKU-EGG-A-30', 4, 'LPH_MS_EGG_SALES', 'INBOUND-DOCK', 'ALL'],
+      [
+        'IBN-LEGACY-SKU-B1',
+        'PRD-EGG',
+        'SKU-EGG-A-30',
+        null,
+        'SKU',
+        'FINISHED_PRODUCT',
+        '枚',
+        4,
+        'LPH_MS_EGG_SALES',
+        'INBOUND-DOCK',
+        'ALL',
+      ],
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_ledger'),
@@ -217,8 +239,11 @@ describe('WmsService inventory read queries', () => {
         'admin',
         'ALL',
         'WI-LEGACY-SKU',
-        '入库确认 product=PRD-EGG sku=SKU-EGG-A-30 actual=4 warehouse=LPH_MS_EGG_SALES',
+        '入库确认 product=PRD-EGG sku=SKU-EGG-A-30 material=- actual=4 warehouse=LPH_MS_EGG_SALES',
         'SKU-EGG-A-30',
+        null,
+        'LPH_MS_EGG_SALES',
+        '枚',
       ],
     );
   });
@@ -226,8 +251,16 @@ describe('WmsService inventory read queries', () => {
   it('persists received quantity two on the inbound line before posting visible inventory', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
-        if (sql.includes('SELECT warehouse_code, operator, store_code, status FROM wms_inbound')) {
-          return [{ warehouse_code: 'WH-A', operator: 'old-op', store_code: 'ALL', status: 'PENDING' }];
+        if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
+          return [{ warehouse_code: 'WH-A', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
+        }
+        if (sql.includes('FROM mst_materials')) {
+          return [{
+            material_code: 'MAT-FEED-1',
+            material_name: '饲料原料',
+            material_type: 'FEED_RAW',
+            unit: 'kg',
+          }];
         }
         if (sql.includes('SELECT batch_no, status FROM inv_batches')) return [];
         return [];
@@ -245,7 +278,8 @@ describe('WmsService inventory read queries', () => {
       task_no: 'WI-RECEIVED-2',
       items: [{
         batch_no: 'IBN-RECEIVED-2',
-        product_code: 'PRD-EGG-1',
+        material_code: 'MAT-FEED-1',
+        item_type: 'MATERIAL',
         actual_qty: 2,
         broken_qty: 0,
         warehouse_code: 'WH-A',
@@ -257,11 +291,11 @@ describe('WmsService inventory read queries', () => {
 
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE wms_inbound_items'),
-      [2, 0, 'WI-RECEIVED-2', 'IBN-RECEIVED-2', 'PRD-EGG-1'],
+      [2, 0, 'WI-RECEIVED-2', 'IBN-RECEIVED-2', null],
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_batches'),
-      ['IBN-RECEIVED-2', 'PRD-EGG-1', null, 2, 'WH-A', 'INBOUND-DOCK', 'ALL'],
+      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL'],
     );
   });
 
@@ -302,7 +336,7 @@ describe('WmsService inventory read queries', () => {
     expect(updateCalls[1][1]).toEqual([7, 'B-SKU-2']);
 
     const ledgerCalls = manager.query.mock.calls.filter(([sql]) =>
-      String(sql).includes('INSERT INTO inv_ledger') && String(sql).includes('OUTBOUND'),
+      String(sql).includes('INSERT INTO inv_ledger'),
     );
     expect(ledgerCalls).toHaveLength(2);
     expect(ledgerCalls[0][1]).toEqual([
@@ -311,8 +345,18 @@ describe('WmsService inventory read queries', () => {
       'admin',
       'ALL',
       'SO-SKU-1',
-      '出库 status=SHIPPED batch=B-SKU-1 product=- sku=SKU-EGG-A-30 qty=5',
+      '出库 type=SALE status=SHIPPED batch=B-SKU-1 product=- sku=SKU-EGG-A-30 material=- qty=5',
       'SKU-EGG-A-30',
+      'SALE_OUTBOUND',
+      null,
+      'LPH_MS_EGG_SALES',
+      null,
+      'SALE',
+      null,
+      null,
+      null,
+      null,
+      null,
     ]);
     expect(ledgerCalls[1][1]).toEqual([
       'B-SKU-2',
@@ -320,8 +364,18 @@ describe('WmsService inventory read queries', () => {
       'admin',
       'ALL',
       'SO-SKU-1',
-      '出库 status=SHIPPED batch=B-SKU-2 product=- sku=SKU-EGG-A-30 qty=7',
+      '出库 type=SALE status=SHIPPED batch=B-SKU-2 product=- sku=SKU-EGG-A-30 material=- qty=7',
       'SKU-EGG-A-30',
+      'SALE_OUTBOUND',
+      null,
+      'LPH_MS_EGG_SALES',
+      null,
+      'SALE',
+      null,
+      null,
+      null,
+      null,
+      null,
     ]);
   });
 
@@ -335,9 +389,18 @@ describe('WmsService inventory read queries', () => {
             status: 'PENDING',
             warehouse_code: 'LPH_MS_EGG_SALES',
             store_code: 'ALL',
+            company_code: 'COMP-LAO-AGRI',
+            type: 'SALE',
             item: 'SKU-EGG-A-30',
+            item_type: 'SKU',
+            material_type: 'FINISHED_PRODUCT',
+            sku_code: 'SKU-EGG-A-30',
+            unit: '枚',
             batch_no: 'B-EGG-A-1',
             qty: 12,
+            destination_type: 'CUSTOMER',
+            destination_code: 'CUS-1',
+            destination_customer_code: 'CUS-1',
           }];
         }
         if (sql.includes('FROM inv_batches') && sql.includes('batch_no = $1')) {
@@ -363,7 +426,7 @@ describe('WmsService inventory read queries', () => {
     const service = new WmsService(em as any, cls as any);
 
     await expect(
-      service.confirmStandaloneOutbound('WO-20260725-001', { username: 'warehouse-admin' }),
+      service.confirmStandaloneOutbound('WO-20260725-001', { username: 'warehouse-admin', roles: ['ROLE_ADMIN'] }),
     ).resolves.toMatchObject({
       code: 200,
       data: { outbound_no: 'WO-20260725-001', status: 'DONE', qty: 12 },
@@ -381,8 +444,18 @@ describe('WmsService inventory read queries', () => {
         'warehouse-admin',
         'ALL',
         'WO-20260725-001',
-        '出库 status=DONE batch=B-EGG-A-1 product=PRD-EGG sku=SKU-EGG-A-30 qty=12',
+        '出库 type=SALE status=DONE batch=B-EGG-A-1 product=PRD-EGG sku=SKU-EGG-A-30 material=- qty=12',
         'SKU-EGG-A-30',
+        'SALE_OUTBOUND',
+        null,
+        'LPH_MS_EGG_SALES',
+        'COMP-LAO-AGRI',
+        'SALE',
+        'CUSTOMER',
+        'CUS-1',
+        null,
+        null,
+        '枚',
       ],
     );
     expect(manager.query).toHaveBeenCalledWith(
@@ -401,9 +474,18 @@ describe('WmsService inventory read queries', () => {
             status: 'PENDING',
             warehouse_code: 'LPH_MS_EGG_SALES',
             store_code: 'ALL',
+            company_code: 'COMP-LAO-AGRI',
+            type: 'SALE',
             item: 'SKU-EGG-A-30',
+            item_type: 'SKU',
+            material_type: 'FINISHED_PRODUCT',
+            sku_code: 'SKU-EGG-A-30',
+            unit: '枚',
             batch_no: 'B-EGG-A-2',
             qty: 12,
+            destination_type: 'CUSTOMER',
+            destination_code: 'CUS-1',
+            destination_customer_code: 'CUS-1',
           }];
         }
         if (sql.includes('FROM inv_batches') && sql.includes('batch_no = $1')) {
@@ -429,7 +511,7 @@ describe('WmsService inventory read queries', () => {
     const service = new WmsService(em as any, cls as any);
 
     await expect(
-      service.confirmStandaloneOutbound('WO-20260725-002', { username: 'warehouse-admin' }),
+      service.confirmStandaloneOutbound('WO-20260725-002', { username: 'warehouse-admin', roles: ['ROLE_ADMIN'] }),
     ).rejects.toThrow('余量 5 不足 12');
 
     const doneUpdate = manager.query.mock.calls.find(([sql]) =>

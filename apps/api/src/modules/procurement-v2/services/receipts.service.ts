@@ -299,7 +299,7 @@ export class ReceiptsService {
         warehouseCode: rcp.warehouseCode,
         operator:      this.userId(),
         items: items.map(i => ({
-          productCode: i.itemCode,
+          itemCode:    i.itemCode,
           qty:         Number(i.actualQty),
         })),
       });

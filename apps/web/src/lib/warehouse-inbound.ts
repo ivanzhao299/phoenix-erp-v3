@@ -1,5 +1,10 @@
 export interface WarehouseInboundConfirmItem {
-  product_code: string;
+  product_code?: string;
+  sku_code?: string;
+  material_code?: string;
+  item_type?: string;
+  material_type?: string;
+  unit?: string;
   actual_qty: number;
   expected_qty?: number;
   batch_no?: string;
@@ -28,9 +33,9 @@ function stringValue(value: unknown): string {
   return String(value ?? "").trim();
 }
 
-function intValue(value: unknown): number {
+function quantityValue(value: unknown): number {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+  return Number.isFinite(parsed) ? Math.round(parsed * 1000) / 1000 : 0;
 }
 
 function buildTaskNo(now: Date, random: () => number): string {
@@ -47,7 +52,8 @@ export function buildWarehouseInboundSavePayload(
   values: Record<string, unknown>,
   options: WarehouseInboundSaveOptions = {},
 ): Record<string, unknown> {
-  const { status: _status, ...payload } = values;
+  const payload = { ...values };
+  delete payload.status;
   if (options.isEditing) return payload;
 
   const now = options.now ?? new Date();
@@ -65,17 +71,31 @@ export function buildWarehouseInboundConfirmPayload(row: InboundRow): WarehouseI
   const taskNo = stringValue(row?.task_no);
   if (!taskNo) return { ok: false, reason: "missing_task_no" };
 
-  const productCode = stringValue(row?.product_code) || stringValue(row?.item);
-  if (!productCode) return { ok: false, reason: "missing_product_code" };
+  const productCode = stringValue(row?.product_code);
+  const skuCode = stringValue(row?.sku_code);
+  const materialCode = stringValue(row?.material_code);
+  const fallbackItem = stringValue(row?.item);
+  if (!productCode && !skuCode && !materialCode && !fallbackItem) {
+    return { ok: false, reason: "missing_product_code" };
+  }
 
-  const actualQty = intValue(row?.actual_qty ?? row?.qty);
+  const actualQty = quantityValue(row?.actual_qty ?? row?.qty);
   if (actualQty <= 0) return { ok: false, reason: "invalid_qty" };
 
   const item: WarehouseInboundConfirmItem = {
-    product_code: productCode,
     actual_qty: actualQty,
     expected_qty: actualQty,
   };
+  if (productCode) item.product_code = productCode;
+  if (skuCode) item.sku_code = skuCode;
+  if (materialCode) item.material_code = materialCode;
+  if (!productCode && !skuCode && !materialCode) item.product_code = fallbackItem;
+  const itemType = stringValue(row?.item_type);
+  const materialType = stringValue(row?.material_type);
+  const unit = stringValue(row?.unit);
+  if (itemType) item.item_type = itemType;
+  if (materialType) item.material_type = materialType;
+  if (unit) item.unit = unit;
 
   const batchNo = stringValue(row?.batch_no);
   const warehouseCode = stringValue(row?.warehouse_code);
@@ -88,5 +108,10 @@ export function buildWarehouseInboundConfirmPayload(row: InboundRow): WarehouseI
 }
 
 export function getWarehouseInboundConfirmKeyword(row: InboundRow): string {
-  return stringValue(row?.product_code) || stringValue(row?.item) || stringValue(row?.inbound_no) || stringValue(row?.task_no);
+  return stringValue(row?.material_code)
+    || stringValue(row?.sku_code)
+    || stringValue(row?.product_code)
+    || stringValue(row?.item)
+    || stringValue(row?.inbound_no)
+    || stringValue(row?.task_no);
 }

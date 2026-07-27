@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { crudApi } from "@/lib/api-client";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -10,7 +11,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Plus } from "lucide-react";
 import apiRequest from "@/lib/api-client";
-import s from "@/components/ui/admin-ui.module.css";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
@@ -30,31 +30,60 @@ const getStoreCode = () => {
 };
 
 // 出库类型（与 sys_dict.INV_OUTBOUND_TYPE 对齐，G17 seed）
-const OUT_TYPES = ["", "SALE", "TRANSFER", "PRODUCTION_USE", "FEED_DISTRIBUTION", "MEDICINE_DISTRIBUTION", "SCRAP", "RETURN"] as const;
+const OUT_TYPES = [
+  "",
+  "SALE",
+  "TRANSFER",
+  "PRODUCTION_USE",
+  "FEED_DISTRIBUTION",
+  "MEDICINE_DISTRIBUTION",
+  "LOGISTICS_USE",
+  "SPARE_PART_USE",
+  "OFFICE_USE",
+  "MAINTENANCE_USE",
+  "SCRAP",
+  "RETURN",
+] as const;
+
+const ISSUE_TYPES = new Set([
+  "PRODUCTION_USE",
+  "FEED_DISTRIBUTION",
+  "MEDICINE_DISTRIBUTION",
+  "LOGISTICS_USE",
+  "SPARE_PART_USE",
+  "OFFICE_USE",
+  "MAINTENANCE_USE",
+]);
 
 type Row = Record<string, unknown>;
 
 export default function OutboundPage() {
   const { t } = useLanguage();
-  const { canCreate, canEdit, canDelete } = useAuth();
+  const pathname = usePathname();
+  const issueOnly = pathname === "/warehouse/issues";
+  const { canCreate, canEdit, canDelete, hasPermission } = useAuth();
   const canCreateInout = canCreate("MENU_WMS_INOUT");
   const canEditInout = canEdit("MENU_WMS_INOUT");
   const canDeleteInout = canDelete("MENU_WMS_INOUT");
+  const canCreateIssue = canCreate("MENU_WMS_ISSUE");
+  const canEditIssue = canEdit("MENU_WMS_ISSUE");
+  const canDeleteIssue = canDelete("MENU_WMS_ISSUE");
+  const canViewIssue = hasPermission("MENU_WMS_ISSUE", "V");
+  const canCreateAny = canCreateInout || canCreateIssue;
+  const canEditAny = canEditInout || canEditIssue;
   const [drawerOpen,   setDrawerOpen]   = useState(false);
   const [editing,      setEditing]      = useState<Row | null>(null);
   const [saving,       setSaving]       = useState(false);
   const [refreshKey,   setRefreshKey]   = useState(0);
   const [confirmOpen,  setConfirmOpen]  = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
-  const [typeFilter,   setTypeFilter]   = useState("");
+  const [typeFilter,   setTypeFilter]   = useState(issueOnly ? "PRODUCTION_USE" : "");
   const [confirmingNo, setConfirmingNo] = useState("");
 
   // 当前用户的 site/farm 推导 — 用于 Selector 过滤
   const userStore = useMemo(() => getStoreCode(), []);
   const isSite = userStore.startsWith("SITE-");
-  const isFarm = userStore.startsWith("LPH_") || userStore.startsWith("LPH-");
   const siteCode = isSite ? userStore : undefined;
-  const companyCode = !isSite && !isFarm ? undefined : undefined;  // 暂从 site/farm 反推留后续
 
   // g200e:tone 替换 cls,接 actionPill(tone)
   const TYPE_LABEL: Record<string, { label: string; tone: ActionTone }> = {
@@ -63,6 +92,10 @@ export default function OutboundPage() {
     PRODUCTION_USE:         { label: t("ui.生产领用",     "生产领用"), tone: "success" },
     FEED_DISTRIBUTION:      { label: t("ui.饲料发放",     "饲料发放"), tone: "success" },
     MEDICINE_DISTRIBUTION:  { label: t("ui.兽药发放",     "兽药发放"), tone: "success" },
+    LOGISTICS_USE:          { label: t("ui.后勤领用",     "后勤领用"), tone: "brand"   },
+    SPARE_PART_USE:         { label: t("ui.配件领用",     "配件领用"), tone: "brand"   },
+    OFFICE_USE:             { label: t("ui.办公领用",     "办公领用"), tone: "info"    },
+    MAINTENANCE_USE:        { label: t("ui.维修领用",     "维修领用"), tone: "warning" },
     SCRAP:                  { label: t("ui.报废出库",     "报废出库"), tone: "danger"  },
     RETURN:                 { label: t("ui.退货出库",     "退货出库"), tone: "warning" },
   };
@@ -85,20 +118,61 @@ export default function OutboundPage() {
   const FIELDS: FormField[] = [
     { key: "outbound_no",    label: t("ui.出库单号", "出库单号"), type: "text",   placeholder: t("ui.留空自动生成WO", "留空自动生成 WO-XXXXXX") },
     { key: "date",           label: t("ui.出库日期", "出库日期"), type: "date",   required: true },
-    { key: "type",           label: t("ui.出库类型", "出库类型"), type: "dict",   dictType: "INV_OUTBOUND_TYPE", required: true },
+    { key: "type",           label: t("ui.出库类型", "出库类型"), type: "select", required: true,
+      options: (issueOnly
+        ? OUT_TYPES.filter(type => ISSUE_TYPES.has(type))
+        : OUT_TYPES.filter(type => ["SALE", "SCRAP", "RETURN"].includes(type))
+      ).map(type => ({ value: type, label: TYPE_LABEL[type]?.label ?? type })) },
     { key: "warehouse_code", label: t("ui.出库仓库", "出库仓库"), type: "warehouse", required: true,
       ...(siteCode ? { filterBy: { siteCode } } : {}) } as any,
-    { key: "item",           label: t("ui.物料/SKU", "物料/SKU"), type: "sku", required: true },
+    { key: "item",           label: t("ui.库存物料/SKU", "库存物料/SKU"), type: "inventory-item", required: true,
+      onPickKeys: {
+        item_name: "itemName",
+        item_type: "itemType",
+        material_type: "materialType",
+        material_code: "materialCode",
+        sku_code: "skuCode",
+        product_code: "productCode",
+        unit: "unit",
+      } },
+    { key: "item_name",      label: t("ui.物料名称", "物料名称"), type: "readonly" },
+    { key: "unit",           label: t("ui.计量单位", "计量单位"), type: "readonly" },
     { key: "batch_no",       label: t("ui.库存批次", "库存批次(可选，不选则按物料先进先出)"), type: "batch",
       onPickKeys: {
         item: "inventory_item_code",
         warehouse_code: "warehouse_code",
       } },
     { key: "qty",            label: t("ui.出库数量", "出库数量"), type: "number", required: true },
-    { key: "destination_type",          label: t("ui.去向类型", "去向类型"), type: "dict", dictType: "INV_OUTBOUND_DEST_TYPE" },
-    { key: "destination_house_code",    label: t("ui.去向鸡舍", "去向鸡舍(去向=鸡舍时)"), type: "house",
+    { key: "destination_type",          label: t("ui.去向类型", "去向类型"), type: "dict", dictType: "INV_OUTBOUND_DEST_TYPE", required: true },
+    { key: "destination_house_code",    label: t("ui.领用鸡舍", "领用鸡舍"), type: "house",
+      required: true,
+      visibleWhen: { field: "destination_type", values: ["HOUSE"] },
       ...(siteCode ? { filterBy: { siteCode } } : {}) } as any,
-    { key: "destination_customer_code", label: t("ui.去向客户", "去向客户(去向=客户时)"), type: "customer" },
+    { key: "destination_customer_code", label: t("ui.收货客户", "收货客户"), type: "customer",
+      required: true,
+      visibleWhen: { field: "destination_type", values: ["CUSTOMER"] } },
+    { key: "destination_warehouse_code", label: t("ui.调入仓库", "调入仓库"), type: "warehouse",
+      required: true,
+      visibleWhen: { field: "destination_type", values: ["WAREHOUSE"] } },
+    { key: "destination_store_code", label: t("ui.收货门店", "收货门店"), type: "store",
+      required: true,
+      visibleWhen: { field: "destination_type", values: ["STORE"] } },
+    { key: "department_code", label: t("ui.领用部门", "领用部门"), type: "department",
+      required: true,
+      visibleWhen: { field: "destination_type", values: ["DEPARTMENT"] },
+      filterBy: { companyField: "company_code" } },
+    { key: "project_code", label: t("ui.领用项目", "领用项目"), type: "project",
+      required: true,
+      visibleWhen: { field: "destination_type", values: ["PROJECT"] } },
+    { key: "receiver_username", label: t("ui.领用人", "领用人"), type: "user",
+      required: true,
+      visibleWhen: { field: "destination_type", values: ["EMPLOYEE"] } },
+    { key: "destination_code", label: t("ui.供应商/其他去向", "供应商/其他去向"), type: "text",
+      required: true,
+      visibleWhen: { field: "destination_type", values: ["SUPPLIER", "OTHER"] } },
+    { key: "company_code", label: t("ui.归属公司", "归属公司"), type: "company" },
+    { key: "purpose_code", label: t("ui.用途/工单", "用途/工单"), type: "text",
+      placeholder: t("ui.填写用途工单设备或维修事项", "填写用途、工单、设备或维修事项") },
     { key: "picker",         label: t("ui.拣货员",   "拣货员"),   type: "user" },
     { key: "operator",       label: t("ui.操作员",   "操作员"),   type: "user" },
     { key: "ref_no",         label: t("ui.关联单据", "关联单据(可选)"), type: "text" },
@@ -108,36 +182,57 @@ export default function OutboundPage() {
   ];
 
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);
-  const openNew     = useCallback(() => { if (!canCreateInout) return; setEditing(null); setDrawerOpen(true); }, [canCreateInout]);
-  const openEdit    = useCallback((row: Row) => { if (!canEditInout) return; setEditing(row); setDrawerOpen(true); }, [canEditInout]);
+  const canCreateType = useCallback((type: unknown) => {
+    return ISSUE_TYPES.has(String(type || "")) ? canCreateIssue : canCreateInout;
+  }, [canCreateInout, canCreateIssue]);
+  const canEditType = useCallback((type: unknown) => {
+    return ISSUE_TYPES.has(String(type || "")) ? canEditIssue : canEditInout;
+  }, [canEditInout, canEditIssue]);
+  const canDeleteType = useCallback((type: unknown) => {
+    return ISSUE_TYPES.has(String(type || "")) ? canDeleteIssue : canDeleteInout;
+  }, [canDeleteInout, canDeleteIssue]);
+  const canCreateCurrent = issueOnly ? canCreateIssue : canCreateAny;
+  const openNew     = useCallback(() => { if (!canCreateCurrent) return; setEditing(null); setDrawerOpen(true); }, [canCreateCurrent]);
+  const openEdit    = useCallback((row: Row) => { if (!canEditType(row.type)) return; setEditing(row); setDrawerOpen(true); }, [canEditType]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const handleSave = useCallback(async (values: Row) => {
     setSaving(true);
     try {
       // G17：outbound_no 后端 UNIQUE 约束护底；前端兜底生成；site_code 自动注入
-      const payload = editing?.id
-        ? values
-        : {
-            ...values,
-            outbound_no: values.outbound_no || ("WO-" + Date.now().toString().slice(-8)),
-            status:      values.status || "PENDING",
-            date:        values.date   || new Date().toISOString().slice(0, 10),
-            ...(siteCode ? { site_code: siteCode } : {}),
-          };
-      editing?.id
-        ? await crudApi.update(TABLE, editing.id as number, payload)
-        : await crudApi.create(TABLE, payload);
+      if (!canCreateType(values.type) && !editing) return;
+      if (!canEditType(values.type) && editing) return;
+      const payload = {
+        ...values,
+        outbound_no: values.outbound_no || ("WO-" + Date.now().toString().slice(-8)),
+        status:      values.status || "PENDING",
+        date:        values.date   || new Date().toISOString().slice(0, 10),
+        ...(siteCode ? { site_code: siteCode } : {}),
+      };
+      const outboundNo = encodeURIComponent(String(payload.outbound_no));
+      await apiRequest(
+        editing
+          ? `/outbound/standalone/${outboundNo}`
+          : "/outbound/standalone",
+        {
+          method: editing ? "PUT" : "POST",
+          body: JSON.stringify(payload),
+        },
+      );
       setDrawerOpen(false); refresh();
     } finally { setSaving(false); }
-  }, [editing, refresh, siteCode]);
+  }, [canCreateType, canEditType, editing, refresh, siteCode]);
 
-  const handleDelete  = useCallback((row: Row) => { if (!canDeleteInout) return; setDeleteTarget(row); setConfirmOpen(true); }, [canDeleteInout]);
-  const confirmDelete = useCallback(async () => {
+  const handleDelete = (row: Row) => {
+    if (!canDeleteType(row.type)) return;
+    setDeleteTarget(row);
+    setConfirmOpen(true);
+  };
+  const confirmDelete = async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);
     setConfirmOpen(false); refresh();
-  }, [deleteTarget, refresh]);
+  };
 
   const confirmOutbound = useCallback(async (row: Row) => {
     const outboundNo = String(row.outbound_no || "").trim();
@@ -176,14 +271,14 @@ export default function OutboundPage() {
     { key: "_actions",        title: t("common.operation", "操作"), width: 140, align: "center",
       render: (_, row) => (
         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-          {canEditInout && ["PENDING", "PICKING"].includes(String(row.status)) && (
+          {canEditType(row.type) && ["PENDING", "PICKING"].includes(String(row.status)) && (
             <button type="button" style={actionPill("success")} disabled={confirmingNo === String(row.outbound_no)}
               onClick={() => confirmOutbound(row)}>
               {confirmingNo === String(row.outbound_no) ? t("common.processing", "处理中") : t("ui.确认出库", "确认出库")}
             </button>
           )}
-          {canEditInout && String(row.status) !== "DONE" && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
-          {canDeleteInout && String(row.status) === "PENDING" && (
+          {canEditType(row.type) && String(row.status) !== "DONE" && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
+          {canDeleteType(row.type) && String(row.status) === "PENDING" && (
             <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
           )}
         </div>
@@ -194,19 +289,23 @@ export default function OutboundPage() {
   return (
     <div>
       <PageHeader
-        title={t("ui.出库管理", "出库管理")}
-        subtitle={t("ui.各类出库单管理门店补货团购报废", "出库单据 · 销售/调拨/生产领用/饲料兽药发放/报废/退货")}
-        breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.出库管理", "出库管理")]}
-        actions={canCreateInout ? (
+        title={t("ui.出库与领用管理", "出库与领用管理")}
+        subtitle={t("ui.统一管理销售出库调拨和内部领用", "统一管理销售出库、调拨、生产领用、后勤领用、配件领用与报废退货")}
+        breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.出库与领用管理", "出库与领用管理")]}
+        actions={canCreateCurrent ? (
           <button type="button" style={primaryActionButton} onClick={openNew}>
-            <Plus size={14} />{t("ui.新建出库单", "新建出库单")}
+            <Plus size={14} />{t("ui.新建出库领用单", "新建出库/领用单")}
           </button>
         ) : undefined}
       />
 
       {/* g200e:tab pill → toolbarFilterPill token */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-        {OUT_TYPES.map(tp => (
+        {OUT_TYPES.filter(tp => {
+          if (!tp) return !issueOnly;
+          if (issueOnly) return ISSUE_TYPES.has(tp);
+          return ISSUE_TYPES.has(tp) ? canViewIssue : hasPermission("MENU_WMS_INOUT", "V");
+        }).map(tp => (
           <button key={tp} type="button" onClick={() => setTypeFilter(tp)} style={toolbarFilterPill(typeFilter === tp)}>
             {tp === "" ? t("ui.全部", "全部") : (TYPE_LABEL[tp]?.label ?? tp)}
           </button>
@@ -217,9 +316,9 @@ export default function OutboundPage() {
         table={TABLE}
         columns={COLUMNS}
         params={typeFilter ? { type: typeFilter } as any : undefined}
-        onNew={canCreateInout ? openNew : undefined}
-        onEdit={canEditInout ? openEdit : undefined}
-        onDelete={canDeleteInout ? handleDelete : undefined}
+        onNew={canCreateCurrent ? openNew : undefined}
+        onEdit={canEditAny ? openEdit : undefined}
+        onDelete={(canDeleteInout || canDeleteIssue) ? handleDelete : undefined}
         showActions={false}
         refreshKey={refreshKey}
         emptyText={t("common.no_data", "暂无出库记录")}

@@ -70,9 +70,36 @@ describe("warehouse inbound helpers", () => {
         task_no: "INB-20260708-EFGH",
         items: [{
           product_code: "SKU-EGG",
-          actual_qty: 8,
-          expected_qty: 8,
+          actual_qty: 8.9,
+          expected_qty: 8.9,
           batch_no: "B-001",
+        }],
+      },
+    });
+  });
+
+  it("preserves canonical material identity and fractional quantities for production supplies", () => {
+    expect(buildWarehouseInboundConfirmPayload({
+      task_no: "INB-FEED-001",
+      item: "MAT-FEED-001",
+      material_code: "MAT-FEED-001",
+      item_type: "MATERIAL",
+      material_type: "FEED_RAW",
+      unit: "kg",
+      qty: "12.375",
+      warehouse_code: "WH-FEED",
+    })).toEqual({
+      ok: true,
+      payload: {
+        task_no: "INB-FEED-001",
+        items: [{
+          material_code: "MAT-FEED-001",
+          item_type: "MATERIAL",
+          material_type: "FEED_RAW",
+          unit: "kg",
+          actual_qty: 12.375,
+          expected_qty: 12.375,
+          warehouse_code: "WH-FEED",
         }],
       },
     });

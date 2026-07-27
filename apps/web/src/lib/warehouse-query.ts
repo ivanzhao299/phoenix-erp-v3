@@ -2,6 +2,11 @@ export interface WarehouseQueryBatch {
   id?: number;
   batch_no?: string;
   product_code?: string;
+  sku_code?: string;
+  material_code?: string;
+  item_type?: string;
+  material_type?: string;
+  unit?: string;
   product_name?: string;
   sku_name?: string;
   qty?: number | string | null;
@@ -46,12 +51,40 @@ export function getWarehouseBatchQuantity(row: WarehouseQueryBatch): number {
   return Number.isFinite(qty) ? qty : 0;
 }
 
+export interface WarehouseQuantityGroup {
+  unit: string;
+  quantity: number;
+  batchCount: number;
+}
+
+export function groupWarehouseQuantitiesByUnit(rows: WarehouseQueryBatch[]): WarehouseQuantityGroup[] {
+  const groups = new Map<string, WarehouseQuantityGroup>();
+  for (const row of rows) {
+    const unit = String(row.unit ?? "").trim() || "未标单位";
+    const current = groups.get(unit) ?? { unit, quantity: 0, batchCount: 0 };
+    current.quantity += getWarehouseBatchQuantity(row);
+    current.batchCount += 1;
+    groups.set(unit, current);
+  }
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      quantity: Math.round(group.quantity * 1000) / 1000,
+    }))
+    .sort((a, b) => a.unit.localeCompare(b.unit, "zh-CN"));
+}
+
 export function filterWarehouseBatchRows(rows: WarehouseQueryBatch[], keyword: string): WarehouseQueryBatch[] {
   const q = keyword.trim().toLowerCase();
   if (!q) return rows;
   return rows.filter((row) => [
     row.batch_no,
     row.product_code,
+    row.sku_code,
+    row.material_code,
+    row.item_type,
+    row.material_type,
+    row.unit,
     row.product_name,
     row.sku_name,
     row.warehouse_code,

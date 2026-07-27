@@ -44,6 +44,7 @@ const TITLE_KEY_MAP: Record<string, string> = {
   "/warehouse":                    "menu.wh-dash",
   "/warehouse/inbound":            "menu.wh-in",
   "/warehouse/outbound":           "menu.wh-out",
+  "/warehouse/issues":             "menu.wh-issue",
   "/warehouse/transfer":           "menu.wh-transfer",
   "/warehouse/stocktake":          "menu.wh-stock",
   "/warehouse/ledger":             "menu.wh-ledger",

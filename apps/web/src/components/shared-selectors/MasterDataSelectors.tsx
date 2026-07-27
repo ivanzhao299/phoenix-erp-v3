@@ -401,10 +401,10 @@ export function BatchSelector(p: BaseProps) {
       return (Array.isArray(list) ? list : [])
         .map(b => ({
           value: b.batch_no,
-          label: `${b.batch_no}｜${b.sku_code ?? b.product_code ?? ''} 可用${b.qty_available ?? ''}`,
+          label: `${b.batch_no}｜${b.material_code ?? b.sku_code ?? b.product_code ?? ''} 可用${b.qty_available ?? ''}${b.unit ? ` ${b.unit}` : ''}`,
           raw: {
             ...b,
-            inventory_item_code: b.sku_code ?? b.product_code ?? '',
+            inventory_item_code: b.material_code ?? b.sku_code ?? b.product_code ?? '',
           },
         }));
     }} />;
@@ -545,10 +545,37 @@ export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: s
 export function MaterialSelector(p: BaseProps) {
   const { t } = useLanguage();
   return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
-    loader={async () => (await lookupArr('/master-data/runtime/material/active')).map((r: any) => {
+    loader={async () => (await lookupArr('/lookup/materials')).map((r: any) => {
       const code = r.material_code ?? r.code ?? '';
       const name = r.material_name ?? r.name ?? code;
       const spec = r.spec ?? '';
       return { value: code, label: `${name}（${code}${spec ? ' · ' + spec : ''}）`, raw: r };
     })} />;
+}
+
+// ── WMS 统一品目（物料 + 产成品 SKU）─────────────────────────────────────────
+export function InventoryItemSelector(p: BaseProps) {
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择库存品目','请选择物料或产成品 SKU')}
+    loader={async () => (await lookupArr('/lookup/inventory-items')).map((r: any) => ({
+      value: r.itemCode,
+      label: `${r.itemName}（${r.itemCode} · ${r.itemType === 'SKU' ? t('ui.产成品','产成品') : t('ui.物料','物料')}${r.unit ? ` · ${r.unit}` : ''}）`,
+      raw: r,
+    }))} />;
+}
+
+// ── 成本归集部门（仅 ACTIVE，按公司 DataScope）──────────────────────────────
+export function DepartmentSelector(p: BaseProps & { companyCode?: string }) {
+  const { t } = useLanguage();
+  const { companyCode, ...base } = p;
+  const url = companyCode
+    ? `/lookup/departments?companyCode=${encodeURIComponent(companyCode)}`
+    : '/lookup/departments';
+  return <ScopedSelect {...base} placeholder={base.placeholder ?? t('ui.请选择部门','请选择部门')}
+    reloadDeps={[companyCode]}
+    loader={async () => (await lookupArr(url)).map((r: any) => ({
+      value: r.departmentCode,
+      label: `${r.departmentName}（${r.departmentCode}）`,
+      raw: r,
+    }))} />;
 }

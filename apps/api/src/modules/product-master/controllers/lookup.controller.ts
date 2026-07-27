@@ -282,6 +282,75 @@ export class LookupController {
   }
 
   /**
+   * GET /api/lookup/inventory-items — WMS 入出库统一品目。
+   *
+   * 物料主数据负责饲料、兽药、包材、配件、办公及生产辅料；产品 SKU
+   * 负责鸡蛋和包装产成品。返回统一结构，避免入库自由文本与出库仅 SKU
+   * 两套身份体系继续制造无法对账的库存批次。
+   */
+  @Get('inventory-items')
+  async inventoryItems() {
+    const rows = await this.em.query(`
+      SELECT material_code AS "itemCode",
+             material_name AS "itemName",
+             'MATERIAL' AS "itemType",
+             material_type AS "materialType",
+             unit,
+             material_code AS "materialCode",
+             NULL::varchar AS "skuCode",
+             NULL::varchar AS "productCode",
+             status
+        FROM mst_materials
+       WHERE status = 'ACTIVE'
+      UNION ALL
+      SELECT ps.sku_code AS "itemCode",
+             COALESCE(ps.sku_name, ps.product_name, ps.sku_code) AS "itemName",
+             'SKU' AS "itemType",
+             'FINISHED_PRODUCT' AS "materialType",
+             COALESCE(spec.base_unit, '枚')::varchar AS unit,
+             NULL::varchar AS "materialCode",
+             ps.sku_code AS "skuCode",
+             ps.product_code AS "productCode",
+             ps.status
+        FROM product_skus ps
+        LEFT JOIN packaging_specs spec ON spec.spec_code = ps.spec_code
+       WHERE ps.status = 'ACTIVE'
+       ORDER BY "itemType", "materialType", "itemName"
+    `);
+    return { code: 200, data: rows };
+  }
+
+  /** GET /api/lookup/departments — 成本归集部门下拉，按公司 DataScope 收口。 */
+  @Get('departments')
+  async departments(@Query('companyCode') companyCode?: string) {
+    const scope = await this.resolveCompanyScope('MENU_WMS_ISSUE');
+    if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
+
+    const params: unknown[] = [];
+    const conditions = [`org_type = 'DEPARTMENT'`, `status = 'ACTIVE'`];
+    if (companyCode) {
+      params.push(companyCode);
+      conditions.push(`company_code = $${params.length}`);
+    }
+    if (!scope.isGlobal) {
+      params.push(scope.companyCodes);
+      conditions.push(`company_code = ANY($${params.length})`);
+    }
+    const rows = await this.em.query(
+      `SELECT org_code AS "departmentCode",
+              org_name AS "departmentName",
+              company_code AS "companyCode",
+              parent_code AS "parentCode",
+              status
+         FROM sys_organizations
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY sort_order NULLS LAST, org_code`,
+      params,
+    );
+    return { code: 200, data: rows };
+  }
+
+  /**
    * POST /api/lookup/materials/quick — 采购录入页就地快建物料。
    *
    * 查询下拉保持 JWT-only；写入必须走菜单权限。采购申请/订单高频场景允许

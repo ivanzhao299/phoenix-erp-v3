@@ -11,6 +11,7 @@ import {
   formatWarehouseBatchDate,
   formatWarehouseDisplay,
   getWarehouseBatchQuantity,
+  groupWarehouseQuantitiesByUnit,
   normalizeWarehouseBatchRows,
   type WarehouseQueryBatch,
 } from "@/lib/warehouse-query";
@@ -62,7 +63,7 @@ export default function StockQueryPage() {
     return filterWarehouseBatchRows(rows, keyword);
   }, [rows, keyword]);
 
-  const totalQty = useMemo(() => filteredRows.reduce((sum, row) => sum + getWarehouseBatchQuantity(row), 0), [filteredRows]);
+  const quantityGroups = useMemo(() => groupWarehouseQuantitiesByUnit(filteredRows), [filteredRows]);
 
   return (
     <div>
@@ -81,11 +82,13 @@ export default function StockQueryPage() {
           <strong style={summaryValueStyle}>{filteredRows.length}</strong>
           <span style={summaryHintStyle}>{t("ui.按当前账号仓库范围", "按当前账号仓库范围")}</span>
         </div>
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>{t("ui.可见库存量", "可见库存量")}</span>
-          <strong style={{ ...summaryValueStyle, color: "var(--status-success)" }}>{totalQty.toLocaleString()}</strong>
-          <span style={summaryHintStyle}>{t("ui.来自专用库存接口", "来自专用库存接口")}</span>
-        </div>
+        {quantityGroups.map((group) => (
+          <div key={group.unit} style={summaryCardStyle}>
+            <span style={summaryLabelStyle}>{t("ui.可见库存量", "可见库存量")} · {group.unit}</span>
+            <strong style={{ ...summaryValueStyle, color: "var(--status-success)" }}>{group.quantity.toLocaleString()}</strong>
+            <span style={summaryHintStyle}>{group.batchCount} {t("ui.批", "批")} · {t("ui.不同单位不合并", "不同单位不合并")}</span>
+          </div>
+        ))}
       </div>
 
       <div style={{
@@ -133,7 +136,7 @@ export default function StockQueryPage() {
             <thead>
               <tr style={{ background: "var(--bg-muted)", color: "var(--text-secondary)" }}>
                 <th style={thStyle}>{t("ui.批次号", "批次号")}</th>
-                <th style={thStyle}>{t("ui.产品编码", "产品编码")}</th>
+                <th style={thStyle}>{t("ui.库存品目", "库存品目")}</th>
                 <th style={thStyle}>{t("ui.仓库", "仓库")}</th>
                 <th style={thStyle}>{t("ui.库位", "库位")}</th>
                 <th style={thRightStyle}>{t("ui.库存数量", "库存数量")}</th>
@@ -155,10 +158,17 @@ export default function StockQueryPage() {
                 return (
                   <tr key={`${row.id ?? row.batch_no ?? index}`} style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={tdStrongStyle}>{row.batch_no || "—"}</td>
-                    <td style={tdStyle}>{row.product_code || "—"}</td>
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 700 }}>{row.material_code || row.sku_code || row.product_code || "—"}</div>
+                      <div style={{ color: "var(--text-secondary)", fontSize: 11, marginTop: 2 }}>
+                        {[row.item_type, row.material_type, row.unit].filter(Boolean).join(" · ") || "—"}
+                      </div>
+                    </td>
                     <td style={tdStyle}>{formatWarehouseDisplay(row)}</td>
                     <td style={tdStyle}>{row.location_code || "—"}</td>
-                    <td style={{ ...tdRightStyle, ...moneyCell(qty > 0 ? "success" : "warning", "md") }}>{qty.toLocaleString()}</td>
+                    <td style={{ ...tdRightStyle, ...moneyCell(qty > 0 ? "success" : "warning", "md") }}>
+                      {qty.toLocaleString()} {row.unit || ""}
+                    </td>
                     <td style={tdStyle}><span style={statusPillStyle}>{row.status || "AVAILABLE"}</span></td>
                     <td style={tdStyle}>{formatWarehouseBatchDate(row.expire_date || row.expiry_date)}</td>
                     <td style={tdStyle}>{row.store_code || "—"}</td>

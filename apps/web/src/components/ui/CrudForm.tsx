@@ -6,7 +6,7 @@ import { DictSelect } from "@/components/shared-selectors/DictSelect";
 import {
   CompanySelector, CustomerSelector, SupplierSelector, ProjectSelector,
   WarehouseSelector, ZoneSelector, LocationSelector, SkuSelector,
-  UserSelector,
+  UserSelector, InventoryItemSelector, DepartmentSelector,
   // G4-C：销售域
   StoreSelector, ChannelSelector, DriverSelector, VehicleSelector,
   // G4-E：生产/包装域
@@ -28,6 +28,7 @@ export type FieldType =
   | "text" | "number" | "select" | "date" | "datetime" | "textarea" | "readonly" | "upload"
   | "company" | "customer" | "supplier" | "project"
   | "warehouse" | "zone" | "location" | "sku" | "user"
+  | "inventory-item" | "department"
   // G4-C：销售域
   | "store" | "channel" | "driver" | "vehicle"
   // G4-E：生产/包装域
@@ -54,6 +55,7 @@ export interface FormField {
   };
   valueField?: 'code' | 'id' | 'username';                              // user/cashAccount
   onPickKeys?: Record<string, string>;                                   // 主数据自动带出：{ 目标 key: raw 字段名 }
+  visibleWhen?: { field: string; values: Array<string | number> };        // 按其它字段值显隐
 }
 
 interface CrudFormProps {
@@ -69,7 +71,7 @@ function buildInitValues(
   fields: FormField[],
   initialValues: Record<string, unknown>
 ): Record<string, unknown> {
-  const init: Record<string, unknown> = {};
+  const init: Record<string, unknown> = { ...initialValues };
   fields.forEach(f => {
     init[f.key] = initialValues[f.key] ?? f.defaultValue ?? "";
   });
@@ -114,6 +116,7 @@ export const CrudForm = memo(function CrudForm({
   const validate = useCallback((): boolean => {
     const errs: Record<string, string> = {};
     fields.forEach(f => {
+      if (f.visibleWhen && !f.visibleWhen.values.includes(values[f.visibleWhen.field] as string | number)) return;
       if (f.required && !values[f.key] && values[f.key] !== 0) {
         errs[f.key] = `${f.label}${t('ui.不能为空', '不能为空')}`;
       }
@@ -128,7 +131,7 @@ export const CrudForm = memo(function CrudForm({
     setSubmitting(true);
     try {
       // ✅ 提交时才做 number 类型转换，避免输入过程中转换破坏中间状态（如小数点）
-      const submitValues: Record<string, unknown> = {};
+      const submitValues: Record<string, unknown> = { ...values };
       fields.forEach(f => {
         const val = values[f.key];
         if (f.type === "number" && val !== "" && val !== null && val !== undefined) {
@@ -148,7 +151,11 @@ export const CrudForm = memo(function CrudForm({
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
       <div className={styles.grid}>
-        {fields.map(field => (
+        {fields.map(field => {
+          if (field.visibleWhen && !field.visibleWhen.values.includes(values[field.visibleWhen.field] as string | number)) {
+            return null;
+          }
+          return (
           <div
             key={field.key}
             className={`${styles.fieldGroup} ${field.span === 2 ? styles.fullSpan : ""}`}
@@ -269,6 +276,20 @@ export const CrudForm = memo(function CrudForm({
                     set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
                   });
                 }} />
+            ) : field.type === "inventory-item" ? (
+              <InventoryItemSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "department" ? (
+              <DepartmentSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                companyCode={field.filterBy?.companyField ? String(values[field.filterBy.companyField] ?? "") : field.filterBy?.companyCode} />
             ) : field.type === "batch" ? (
               <BatchSelector
                 value={String(values[field.key] ?? "")}
@@ -364,7 +385,7 @@ export const CrudForm = memo(function CrudForm({
               <span className={styles.errorMsg}>{errors[field.key]}</span>
             )}
           </div>
-        ))}
+        );})}
       </div>
 
       <div className={styles.actions}>

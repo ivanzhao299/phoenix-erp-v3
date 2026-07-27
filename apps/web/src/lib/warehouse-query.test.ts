@@ -4,6 +4,7 @@ import {
   formatWarehouseBatchDate,
   formatWarehouseDisplay,
   getWarehouseBatchQuantity,
+  groupWarehouseQuantitiesByUnit,
   normalizeWarehouseBatchRows,
 } from "./warehouse-query";
 
@@ -58,6 +59,19 @@ describe("warehouse query helpers", () => {
     expect(getWarehouseBatchQuantity({ qty: "8" })).toBe(8);
     expect(getWarehouseBatchQuantity({ quantity_kg: 6 })).toBe(6);
     expect(getWarehouseBatchQuantity({ qty_available: "not-a-number" })).toBe(0);
+  });
+
+  it("never adds incompatible inventory units into one stock total", () => {
+    expect(groupWarehouseQuantitiesByUnit([
+      { batch_no: "EGG-1", qty_available: "120", unit: "枚" },
+      { batch_no: "EGG-2", qty_available: "30.5", unit: "枚" },
+      { batch_no: "FEED-1", qty_available: "25.75", unit: "kg" },
+      { batch_no: "LEGACY-1", qty_available: 2 },
+    ])).toEqual([
+      { unit: "枚", quantity: 150.5, batchCount: 2 },
+      { unit: "未标单位", quantity: 2, batchCount: 1 },
+      { unit: "kg", quantity: 25.75, batchCount: 1 },
+    ]);
   });
 
   it("formats batch dates without leaking undefined into the table", () => {

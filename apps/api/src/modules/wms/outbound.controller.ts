@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { WmsService } from './wms.service';
 import { RequireMenu, MenuGuard } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
@@ -34,9 +34,25 @@ export class OutboundController {
   }
 
   @Post('standalone/:outbound_no/confirm')
-  @RequireMenu('MENU_WMS_INOUT', 'E')
+  @RequireMenu('MENU_WMS_INOUT', 'E', ['MENU_WMS_ISSUE'])
   async confirmStandalone(@Param('outbound_no') outboundNo: string, @Req() req: any) {
     return await this.wmsService.confirmStandaloneOutbound(outboundNo, req.user);
+  }
+
+  @Post('standalone')
+  @RequireMenu('MENU_WMS_INOUT', 'C', ['MENU_WMS_ISSUE'])
+  async createStandalone(@Body() body: any, @Req() req: any) {
+    return await this.wmsService.createStandaloneOutbound(body, req.user);
+  }
+
+  @Put('standalone/:outbound_no')
+  @RequireMenu('MENU_WMS_INOUT', 'E', ['MENU_WMS_ISSUE'])
+  async updateStandalone(
+    @Param('outbound_no') outboundNo: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
+    return await this.wmsService.updateStandaloneOutbound(outboundNo, body, req.user);
   }
 
   @Post('orders/:order_no/receive-sign')

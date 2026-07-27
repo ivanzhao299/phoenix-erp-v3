@@ -25,7 +25,7 @@ const TABLE = "wms_inbound";
 
 // B1 + B8: wms_inbound 真实列对齐 — type / item / qty / warehouse_code / operator / date / remark / inbound_no
 //          状态枚举改用后端 wms.service 同款 (PENDING / PROCESSING / COMPLETED / CANCELLED)
-const SOURCE_TYPES = ["", "PRODUCTION", "PURCHASE", "TRANSFER", "RETURN"] as const;
+const SOURCE_TYPES = ["", "PURCHASE", "PRODUCTION", "TRANSFER_RECEIVE", "RETURN", "ADJUSTMENT"] as const;
 
 type Row = Record<string, unknown>;
 type InboundConfirmResponse = { code?: number; msg?: string; message?: string };
@@ -54,8 +54,9 @@ export default function InboundPage() {
   const SOURCE_LABEL: Record<string, string> = {
     PRODUCTION: t("ui.生产入库", "生产入库"),
     PURCHASE:   t("ui.采购入库", "采购入库"),
-    TRANSFER:   t("ui.调拨入库", "调拨入库"),
+    TRANSFER_RECEIVE: t("ui.调拨入库", "调拨入库"),
     RETURN:     t("ui.退货入库", "退货入库"),
+    ADJUSTMENT: t("ui.盘盈入库", "盘盈入库"),
   };
 
   // g200e:状态徽章用 actionPill(tone),替换 s.badgeXxx 老 css module
@@ -68,18 +69,25 @@ export default function InboundPage() {
     CANCELLED:  { tone: "default", label: t("status.cancelled", "已取消") },
   };
 
-  // G30：入库单"品目"业务模型修正
-  //   旧：type='sku' 绑 product_skus（28 行全是鸡蛋成品 SKU）
-  //       → 手工入库饲料/兽药/原料时下拉无可选项 → 业务方报"数据混乱"
-  //   新：type='text' 自由文本（物料名或编码均可），物料主数据完整后再切回
-  //   2026-06-03 seed 的 product_skus 仍保留供"包装/销售"用，不删
+  // WMS 品目唯一口径：物料主数据（原料/饲料/兽药/包材/配件）+ 产成品 SKU。
+  // 禁止自由文本入库，否则出库、批次和成本归集无法可靠匹配。
   const FIELDS: FormField[] = [
     { key: "inbound_no",     label: t("ui.入库单号", "入库单号"),  type: "text",   placeholder: t("ui.留空自动生成WI", "留空自动生成 WI-XXXXXX") },
     { key: "date",           label: t("ui.入库日期", "入库日期"),  type: "date",   required: true, defaultValue: new Date().toISOString().slice(0, 10) },
     { key: "type",           label: t("ui.入库类型", "入库类型"),  type: "dict",   dictType: "INV_INBOUND_TYPE", required: true },
     { key: "warehouse_code", label: t("ui.仓库",     "仓库"),      type: "warehouse", required: true },
-    { key: "item",           label: t("ui.产品编码物料编码", "产品编码/物料编码"), type: "text", required: true,
-      placeholder: t("ui.产品编码物料编码placeholder", "如：PRD-EGG-1 / LPH-MED-003 / 玉米") },
+    { key: "item",           label: t("ui.库存品目", "库存品目"), type: "inventory-item", required: true,
+      onPickKeys: {
+        item_name: "itemName",
+        item_type: "itemType",
+        material_type: "materialType",
+        material_code: "materialCode",
+        sku_code: "skuCode",
+        product_code: "productCode",
+        unit: "unit",
+      } },
+    { key: "item_name",      label: t("ui.品目名称", "品目名称"), type: "readonly" },
+    { key: "unit",           label: t("ui.计量单位", "计量单位"), type: "readonly" },
     { key: "qty",            label: t("ui.入库数量", "入库数量"),  type: "number", required: true },
     // G31: 默认自动取当前登录用户（generic-crud 后端注入），手动选可代录入
     { key: "operator",       label: t("ui.操作员",   "操作员（留空=当前用户）"),    type: "user"   },
@@ -156,7 +164,8 @@ export default function InboundPage() {
     { key: "type",           title: t("ui.入库类型", "入库类型"),  width: 100,
       render: v => <span style={{ fontSize: 12, fontWeight: 600 }}>{SOURCE_LABEL[String(v)] ?? String(v ?? "—")}</span> },
     { key: "warehouse_code", title: t("ui.仓库",     "仓库"),      width: 120 },
-    { key: "item",           title: t("ui.产品编码物料编码", "产品编码/物料编码"), width: 160 },
+    { key: "item",           title: t("ui.品目编码", "品目编码"), width: 130 },
+    { key: "item_name",      title: t("ui.品目名称", "品目名称"), width: 160 },
     { key: "qty",            title: t("ui.入库数量", "入库数量"),  width: 90, align: "right",
       render: v => { const n = Number(v ?? 0); return <span style={moneyCell(n > 0 ? "success" : "default", "md")}>{n}</span>; } },
     { key: "status",         title: t("common.status", "状态"),    width: 90, align: "center",
@@ -191,7 +200,7 @@ export default function InboundPage() {
     <div>
       <PageHeader
         title={t("ui.入库管理", "入库管理")}
-        subtitle={t("ui.管理各类仓库入库单审核数据追踪", "管理各类仓库入库单 · 审核 · 数据追踪")}
+        subtitle={t("ui.管理各类仓库入库单审核数据追踪", "采购/生产/退货/调拨接收入库 · 批次台账 · 库存守恒")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.入库管理", "入库管理")]}
         actions={canCreateInout ? (
           <button type="button" style={primaryActionButton} onClick={openNew}>
