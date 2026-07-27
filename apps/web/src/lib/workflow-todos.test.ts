@@ -20,6 +20,19 @@ describe("workflow todo helpers", () => {
     })).toBe(1);
   });
 
+  it("covers BUG-20260727-0002: the header reflects all visible pending tasks", () => {
+    expect(getWorkflowTodoDisplayTotal({
+      items: [
+        { taskSource: "APPROVAL_ENGINE", taskId: "approval-1" },
+        { taskSource: "WORKFLOW_ENGINE", taskId: "workflow-1" },
+        { taskSource: "APPROVAL_ENGINE", taskId: "approval-2" },
+      ],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    })).toBe(3);
+  });
+
   it("covers BUG-20260709-0004: header count follows visible pending rows when API total is stale", () => {
     expect(getWorkflowTodoDisplayTotal({
       items: [{
