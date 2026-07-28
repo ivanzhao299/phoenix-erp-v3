@@ -2064,3 +2064,14 @@ Decision: counterparty resolution `GO`.
 - Source identity is now the mapping idempotency authority. Approved mappings cannot be downgraded by readonly candidate refresh.
 - The reviewed migration archives deterministic pending duplicates before adding the source-identity unique index; it has not been deployed.
 - Chanjet write/delete/modify, voucher push, deployment and Git push remain disabled for this run.
+
+# 2026-07-28 - Accept deployed mapping source identity and evidence-only WMS bridge
+
+- Decision: `GO_WITH_CONDITIONS`; production revision `37399002` passed CI/CD run `30369742061`.
+- Both reviewed migrations are applied. Thirty-seven deterministic stale pending candidates are archived and duplicate source identities are zero.
+- All 49 approved cash-account mappings remain intact.
+- The WMS refresh observed 187 source identities: 14 exact, 173 source-only and zero conflicts.
+- The promotion read model contains 2,625 candidates: 2,623 `NEED_MAPPING`, two `HOLD`, zero `APPROVED` and zero `PROMOTED`.
+- ERP inventory and finance fingerprints are unchanged; the writeback Outbox remains empty.
+- Source-only objects are not guessed or auto-approved. Provider permission and explicit mappings are required before a separately approved ERP promotion canary.
+- Chanjet write/delete/modify and automatic ERP inventory promotion remain disabled.

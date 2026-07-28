@@ -1,5 +1,32 @@
 # Next Actions
 
+## 2026-07-28 - 好业财映射源身份与 WMS 运行态验收完成
+
+Current stage: `CHANJET_MAPPING_SOURCE_IDENTITY_DEPLOYED_WMS_RUNTIME_ACCEPTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Deployed both WMS bridge and source-identity migrations through CI/CD run `30369742061`.
+2. Archived 37 deterministic stale cash-account mapping candidates and reduced duplicate source identities to zero.
+3. Preserved all 49 approved cash-account mappings.
+4. Refreshed 187 WMS master-data identities: 14 exact, 173 source-only and zero conflicts.
+5. Generated 2,625 evidence-only promotion candidates: 2,623 `NEED_MAPPING` and two source-document `HOLD`.
+6. Verified zero approved/promoted candidates, zero writeback Outbox rows and no Chanjet external write.
+7. Verified ERP inventory and finance business-fact fingerprints remained unchanged.
+
+Next actions:
+
+1. Enter `CHANJET_WMS_MANUAL_MAPPING_CLOSURE_AND_PROVIDER_PERMISSION`.
+2. Resolve warehouse, product and UOM mappings from explicit evidence; do not guess by similar names.
+3. Obtain provider permissions for `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT`.
+4. Rerun blocked readonly scopes and regenerate promotion candidates.
+5. Run A2/A1/A7 before any separately approved single-document ERP promotion canary.
+6. Keep Chanjet write/delete/modify and automatic ERP inventory promotion disabled.
+
+Evidence: `docs/ops/CHANJET_MAPPING_IDENTITY_AND_WMS_RUNTIME_ACCEPTANCE_REPORT_20260728.md`.
+
 ## 2026-07-28 - 好业财 WMS / 财务单向同步已回验
 
 Current stage: `CHANJET_WMS_FINANCE_ONE_WAY_SYNC_VERIFIED`

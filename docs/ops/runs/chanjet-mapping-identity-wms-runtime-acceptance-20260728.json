@@ -1,0 +1,64 @@
+{
+  "generated_at": "2026-07-28T23:05:00+08:00",
+  "decision": "GO_WITH_CONDITIONS",
+  "production_revision": "37399002",
+  "ci_cd_run": "30369742061",
+  "security_run": "30369741328",
+  "containers_healthy": true,
+  "migrations": {
+    "CompleteChanjetWmsBridge1785400000000": "APPLIED",
+    "EnforceChanjetMappingSourceIdentity1785410000000": "APPLIED"
+  },
+  "mapping_identity": {
+    "archived_duplicate_rows": 37,
+    "duplicate_source_groups_after": 0,
+    "unique_index_present": true,
+    "cash_account_approved_matched": 37,
+    "cash_account_approved_source_only": 12
+  },
+  "wms_mapping_refresh": {
+    "source_identities": 187,
+    "exact_matched": 14,
+    "source_only": 173,
+    "conflicts": 0,
+    "preserved_approved": 14,
+    "erp_business_tables_mutated": false,
+    "external_write_executed": false
+  },
+  "promotion_candidates": {
+    "scanned": 2625,
+    "need_mapping": 2623,
+    "hold": 2,
+    "approved": 0,
+    "promoted": 0,
+    "outbox_rows": 0
+  },
+  "wms_snapshots": {
+    "total": 3999,
+    "finished_goods_stock_in": 698,
+    "inventory_on_hand": 851,
+    "inventory_on_hand_lot": 523,
+    "material_stock_out": 854,
+    "other_stock_out": 1058,
+    "stock_count": 6,
+    "stock_transfer": 9
+  },
+  "business_fact_fingerprints": {
+    "fin_cash_accounts_rows": 62,
+    "fin_cash_accounts_balance_sum": "2415170587.98",
+    "inv_batches_rows": 257,
+    "inv_batches_qty_sum": "806794.950",
+    "inv_batches_available_sum": "806794.950",
+    "inv_ledger_rows": 111,
+    "inv_ledger_qty_change_sum": "2011.400",
+    "unchanged_by_refresh": true
+  },
+  "guardrails": {
+    "chanjet_read_only": true,
+    "external_write_enabled": false,
+    "automatic_business_table_promotion": false,
+    "automatic_mapping_approval": false,
+    "manual_review_required": true
+  },
+  "next_gate": "CHANJET_WMS_MANUAL_MAPPING_CLOSURE_AND_PROVIDER_PERMISSION"
+}
