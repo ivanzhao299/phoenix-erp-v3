@@ -6,7 +6,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const LABEL = 'com.phoenix.erp.bug-intake-runner';
-const REPO = '/Users/mac/phoenix-erp-worktrees/codex-orchestrator';
+const STATE_REPO = '/Users/mac/phoenix-erp-worktrees/bug-intake-runner-main';
+const CODE_REPO = '/Users/mac/phoenix-erp-worktrees/bug-intake-runner-code';
 const HOME = os.homedir();
 const CONFIG_DIR = path.join(HOME, '.phoenix-erp');
 const ENV_FILE = path.join(CONFIG_DIR, 'bug-intake-runner.env');
@@ -59,7 +60,20 @@ if [ -z "$NODE_BIN" ]; then
   echo "node binary not found; set PHOENIX_ERP_NODE_BIN in ${shellQuote(ENV_FILE)}" >&2
   exit 127
 fi
-cd ${shellQuote(REPO)}
+STATE_REPO="\${PHOENIX_ERP_RUNNER_STATE_REPO:-${STATE_REPO}}"
+CODE_REPO="\${PHOENIX_ERP_RUNNER_CODE_REPO:-${CODE_REPO}}"
+git -C "$STATE_REPO" fetch origin main --quiet
+if [ -e "$CODE_REPO/.git" ]; then
+  if [ -n "$(git -C "$CODE_REPO" status --porcelain)" ]; then
+    echo "runner code worktree is dirty; refusing to execute stale or mixed source: $CODE_REPO" >&2
+    exit 75
+  fi
+  git -C "$CODE_REPO" checkout --detach origin/main --quiet
+else
+  mkdir -p "$(dirname "$CODE_REPO")"
+  git -C "$STATE_REPO" worktree add --detach "$CODE_REPO" origin/main
+fi
+cd "$STATE_REPO"
 RUNNER_ARGS=( \\
   --api-base "https://erp.eggslao.com" \\
   --watch \\
@@ -82,7 +96,7 @@ RUNNER_ARGS=( \\
 if [ "\${PHOENIX_ERP_RUNNER_AUTO_RELEASE:-false}" = "true" ]; then
   RUNNER_ARGS+=(--push-after-success --wait-ci-after-push --production-smoke-after-ci)
 fi
-exec "$NODE_BIN" scripts/ops/bug-intake-local-runner.mjs "\${RUNNER_ARGS[@]}"
+exec "$NODE_BIN" "$CODE_REPO/scripts/ops/bug-intake-local-runner.mjs" "\${RUNNER_ARGS[@]}"
 `;
 }
 
@@ -112,7 +126,7 @@ function plistContent() {
   <key>StandardErrorPath</key>
   <string>${path.join(LOG_DIR, 'bug-intake-runner.err.log')}</string>
   <key>WorkingDirectory</key>
-  <string>${REPO}</string>
+  <string>${STATE_REPO}</string>
 </dict>
 </plist>
 `;
@@ -129,6 +143,8 @@ PHOENIX_ERP_RUNNER_MAX_TASKS=6
 PHOENIX_ERP_RUNNER_PARALLEL_WORKERS=3
 PHOENIX_ERP_RUNNER_MAX_CYCLES=999999
 PHOENIX_ERP_RUNNER_AUDIT_COMMIT_MINUTES=30
+PHOENIX_ERP_RUNNER_STATE_REPO=${STATE_REPO}
+PHOENIX_ERP_RUNNER_CODE_REPO=${CODE_REPO}
 # Backlog consumption and production release are separate gates.
 PHOENIX_ERP_RUNNER_AUTO_RELEASE=false
 PHOENIX_ERP_RUNNER_PATH=/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
@@ -163,6 +179,8 @@ function main() {
     wrapper: WRAPPER,
     envFile: ENV_FILE,
     logDir: LOG_DIR,
+    stateRepo: STATE_REPO,
+    codeRepo: CODE_REPO,
     dryRun: args.dryRun,
     load: Boolean(args.load),
   };

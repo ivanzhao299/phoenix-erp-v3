@@ -13,8 +13,10 @@ import {
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
+const OPS_SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const opsScript = (name) => path.join(OPS_SCRIPT_DIR, name);
 const DEFAULT_OUTPUT_DIR = 'docs/ops/runs/bug-intake-inbox';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const DEFAULT_STATUSES = ['OPEN', 'TRIAGED', 'IN_PROGRESS'];
@@ -406,7 +408,7 @@ async function writeInboxReports(args, reports, currentDir) {
 function queueHandoff(file, apply) {
   const command = [
     NODE_BIN,
-    'scripts/ops/bug-task-to-agent-queue.mjs',
+    opsScript('bug-task-to-agent-queue.mjs'),
     '--repair-task-json',
     file,
     apply ? '--apply' : '--dry-run',

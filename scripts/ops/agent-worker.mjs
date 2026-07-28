@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
 import { findExistingTaskCommit } from './bug-intake-existing-commit.mjs';
 import {
@@ -13,6 +14,8 @@ import {
 import { persistTaskSnapshot, readQueueTasks } from './bug-runner-platform.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
+const OPS_SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const opsScript = (name) => path.join(OPS_SCRIPT_DIR, name);
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const EVENTS_FILE = 'docs/ops/agent-queue/events.jsonl';
 const RUN_DIR = 'docs/ops/runs';
@@ -274,7 +277,7 @@ function commandForTask(task, dryRun, approvalToken) {
   const assembled = path.join(RUN_DIR, `${task.task_id}-worker-assembled-prompt.md`);
   const command = [
     NODE_BIN,
-    'scripts/ops/run-agent-task.mjs',
+    opsScript('run-agent-task.mjs'),
     '--agent',
     task.agent,
     '--worktree',
@@ -296,7 +299,7 @@ function commandForTask(task, dryRun, approvalToken) {
 function baselineAutopilotCommand(task, dryRun = true) {
   const command = [
     NODE_BIN,
-    'scripts/ops/agent-baseline-autopilot.mjs',
+    opsScript('agent-baseline-autopilot.mjs'),
     '--agent',
     task.agent,
     '--branch',
@@ -348,9 +351,9 @@ function runLocalA1Validation(task) {
     ['apps/api/node_modules/.bin/tsc', '--project', 'apps/api/tsconfig.json', '--noEmit', '--pretty', 'false'],
     ['apps/web/node_modules/.bin/tsc', '--project', 'apps/web/tsconfig.json', '--noEmit', '--pretty', 'false'],
     [NODE_BIN, 'scripts/ci/check-w5-closeout-gate.mjs'],
-    [NODE_BIN, '--check', 'scripts/ops/run-agent-task.mjs'],
-    [NODE_BIN, '--check', 'scripts/ops/agent-worker.mjs'],
-    [NODE_BIN, '--check', 'scripts/ops/bug-intake-local-runner.mjs'],
+    [NODE_BIN, '--check', opsScript('run-agent-task.mjs')],
+    [NODE_BIN, '--check', opsScript('agent-worker.mjs')],
+    [NODE_BIN, '--check', opsScript('bug-intake-local-runner.mjs')],
   ];
   const sections = [];
   let failed = false;
@@ -399,9 +402,9 @@ function runLocalA2SecurityReview(task) {
     findings.push('High-risk operation keyword detected; keep repair behind explicit gate.');
   }
   const commands = [
-    [NODE_BIN, '--check', 'scripts/ops/bug-intake-local-runner.mjs'],
-    [NODE_BIN, '--check', 'scripts/ops/agent-worker.mjs'],
-    [NODE_BIN, '--check', 'scripts/ops/bug-task-to-agent-queue.mjs'],
+    [NODE_BIN, '--check', opsScript('bug-intake-local-runner.mjs')],
+    [NODE_BIN, '--check', opsScript('agent-worker.mjs')],
+    [NODE_BIN, '--check', opsScript('bug-task-to-agent-queue.mjs')],
   ];
   const sections = [];
   let failed = false;
@@ -450,9 +453,9 @@ function runLocalA5Readiness(task) {
     findings.push('Data/readiness context detected; verify master-data mapping and DataScope before marking business issue resolved.');
   }
   const commands = [
-    [NODE_BIN, '--check', 'scripts/ops/bug-intake-local-runner.mjs'],
-    [NODE_BIN, '--check', 'scripts/ops/agent-worker.mjs'],
-    [NODE_BIN, '--check', 'scripts/ops/bug-intake-sync-from-api.mjs'],
+    [NODE_BIN, '--check', opsScript('bug-intake-local-runner.mjs')],
+    [NODE_BIN, '--check', opsScript('agent-worker.mjs')],
+    [NODE_BIN, '--check', opsScript('bug-intake-sync-from-api.mjs')],
   ];
   const sections = [];
   let failed = false;

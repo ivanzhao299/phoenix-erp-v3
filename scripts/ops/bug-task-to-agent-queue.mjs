@@ -23,16 +23,23 @@ const TERMINAL_TASK_STATUSES = new Set([
 ]);
 const BUG_INTAKE_EXECUTION = {
   'A3-Backend-Critical-Path': {
-    worktree: '/Users/mac/phoenix-erp-worktrees/bug-intake-a3',
-    branch: 'codex/bug-intake-a3',
     prompt_file: 'docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md',
   },
   'A4-Frontend-UAT-Smoke': {
-    worktree: '/Users/mac/phoenix-erp-worktrees/bug-intake-a4',
-    branch: 'codex/bug-intake-a4',
     prompt_file: 'docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md',
   },
 };
+
+export function bugIntakeExecutionSlot(agent, taskId, fallback = {}) {
+  if (!BUG_INTAKE_EXECUTION[agent]) return fallback;
+  const slug = String(taskId || 'unknown-task').toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+  return {
+    ...fallback,
+    ...BUG_INTAKE_EXECUTION[agent],
+    worktree: `/Users/mac/phoenix-erp-worktrees/bug-intake-${slug}`,
+    branch: `codex/bug-intake-${slug}`,
+  };
+}
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -327,9 +334,9 @@ function buildTasks(payload, plan, dispatchMap) {
   const approval = getApproval(payload);
   const redispatchCount = Number(payload.redispatchCount || approval?.redispatchCount || 0);
   const tasks = selected.map((agent) => {
-    const cfg = { ...(dispatchMap[agent] || {}), ...(BUG_INTAKE_EXECUTION[agent] || {}) };
     const short = agentShort(agent);
     const taskId = `${repairTaskNo}-${short}`;
+    const cfg = bugIntakeExecutionSlot(agent, taskId, dispatchMap[agent] || {});
     const contractFile = `${RUNS_DIR}/${taskId}-contract.md`;
     return {
       task_id: taskId,

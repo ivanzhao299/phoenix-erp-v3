@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { evaluateBugReleaseEvidence } from './bug-intake-evidence-gate.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
 import {
@@ -25,6 +25,8 @@ import {
 } from './bug-runner-platform.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
+const OPS_SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const opsScript = (name) => path.join(OPS_SCRIPT_DIR, name);
 const MAIN_ROOT = process.cwd();
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const RUN_DIR = 'docs/ops/runs/bug-intake-local-runner';
@@ -493,12 +495,12 @@ function commitOpsRuntimeArtifacts(args, options = {}) {
 function runEvolutionCycle(args, cycle, generationRecovery) {
   const due = cycle % 12 === 0 || (generationRecovery?.candidates?.length || 0) > 0;
   if (!due) return { skipped: true, reason: 'not scheduled this cycle' };
-  const observer = run([NODE_BIN, 'scripts/ops/agent-observer.mjs', '--output-dir', 'docs/ops/runs', '--dry-run'], {
+  const observer = run([NODE_BIN, opsScript('agent-observer.mjs'), '--output-dir', 'docs/ops/runs', '--dry-run'], {
     cwd: args.mainRoot,
     timeoutMs: 180000,
   });
   const planner = observer.status === 0
-    ? run([NODE_BIN, 'scripts/ops/agent-evolution-planner.mjs', args.dryRun ? '--dry-run' : '--apply'], {
+    ? run([NODE_BIN, opsScript('agent-evolution-planner.mjs'), args.dryRun ? '--dry-run' : '--apply'], {
       cwd: args.mainRoot,
       timeoutMs: 180000,
     })
@@ -573,7 +575,7 @@ function writeTokenCache(args, username, token) {
 }
 
 function syncCommand(args) {
-  const command = [NODE_BIN, 'scripts/ops/bug-intake-sync-from-api.mjs', '--output-dir', args.syncOutputDir, '--fetch-timeout-ms', String(args.fetchTimeoutMs)];
+  const command = [NODE_BIN, opsScript('bug-intake-sync-from-api.mjs'), '--output-dir', args.syncOutputDir, '--fetch-timeout-ms', String(args.fetchTimeoutMs)];
   if (args.fixtureJson) command.push('--fixture-json', args.fixtureJson);
   else {
     command.push('--api-base', args.apiBase || '');
@@ -967,7 +969,7 @@ async function waitForAgentChildrenToExit(args, task) {
 }
 
 function workerCommand(task, args) {
-  const command = [NODE_BIN, 'scripts/ops/agent-worker.mjs', '--agent', task.agent, '--claim-next', '--task-id', task.task_id];
+  const command = [NODE_BIN, opsScript('agent-worker.mjs'), '--agent', task.agent, '--claim-next', '--task-id', task.task_id];
   if (args.dryRun) command.push('--dry-run');
   else command.push('--approval-token', args.approvalToken);
   return command;
@@ -989,7 +991,7 @@ function taskAllowsCode(task) {
 function baselineAutopilotCommand(task, args) {
   const command = [
     NODE_BIN,
-    'scripts/ops/agent-baseline-autopilot.mjs',
+    opsScript('agent-baseline-autopilot.mjs'),
     '--agent',
     task.agent,
     '--branch',
@@ -1039,7 +1041,7 @@ function recoverDetachedWorkerResult(task, args, worker, childWait = null) {
   if (shouldRecoverDetachedCommit(task, worker)) {
     const recoveryResult = run([
       NODE_BIN,
-      'scripts/ops/agent-worker.mjs',
+      opsScript('agent-worker.mjs'),
       '--agent',
       task.agent,
       '--task-id',
@@ -1135,6 +1137,33 @@ function ensureTaskWorktreeDependencies(task, args) {
   }
 }
 
+function ensureTaskWorktree(task, args) {
+  if (taskUsesMainRootLocalWorker(task) || existsSync(task.worktree)) {
+    return { ok: true, skipped: true, reason: taskUsesMainRootLocalWorker(task) ? 'local validation task' : 'worktree exists' };
+  }
+  if (
+    task.source !== 'bug-intake'
+    || !String(task.worktree || '').includes('/bug-intake-')
+    || !String(task.branch || '').startsWith('codex/bug-intake-')
+  ) {
+    return { ok: false, skipped: false, error: `worktree does not exist: ${task.worktree || '<missing>'}` };
+  }
+  if (args.dryRun) {
+    return { ok: true, skipped: false, dryRun: true, reason: 'dry-run would create a task-isolated worktree from origin/main' };
+  }
+  mkdirSync(path.dirname(task.worktree), { recursive: true });
+  const fetch = safeGit(['fetch', 'origin', 'main'], args.mainRoot);
+  if (!fetch.ok) return { ok: false, skipped: false, error: `cannot refresh origin/main: ${fetch.output}` };
+  const branchExists = safeGit(['show-ref', '--verify', '--quiet', `refs/heads/${task.branch}`], args.mainRoot).ok;
+  const command = branchExists
+    ? ['worktree', 'add', task.worktree, task.branch]
+    : ['worktree', 'add', '-b', task.branch, task.worktree, 'origin/main'];
+  const created = safeGit(command, args.mainRoot);
+  return created.ok
+    ? { ok: true, skipped: false, created: true, branch: task.branch, worktree: task.worktree }
+    : { ok: false, skipped: false, error: `cannot create task-isolated worktree: ${created.output}` };
+}
+
 function inferDirtyWorktreeOwner(task, statusOutput) {
   const taskIds = [...String(statusOutput || '').matchAll(/BUGTASK-[A-Z0-9-]+-A[1-7](?=[^A-Z0-9]|$)/gi)]
     .map((match) => match[0].toUpperCase());
@@ -1172,9 +1201,24 @@ function quarantineDirtyImplementationWorktree(task, args, before) {
   mkdirSync(quarantineRoot, { recursive: true });
   const fetch = safeGit(['fetch', 'origin', 'main'], args.mainRoot);
   if (!fetch.ok) return { task_id: task.task_id, agent: task.agent, status: 'BLOCKED', reason: `cannot refresh origin/main before quarantine: ${fetch.output}`, before: before.output };
+  const currentBranch = safeGit(['branch', '--show-current'], task.worktree);
   const moved = safeGit(['worktree', 'move', task.worktree, quarantinePath], args.mainRoot);
   if (!moved.ok) return { task_id: task.task_id, agent: task.agent, status: 'BLOCKED', reason: `cannot preserve dirty worktree: ${moved.output}`, before: before.output };
-  const renamed = safeGit(['branch', '-m', quarantineBranch], quarantinePath);
+  let renamed;
+  if (currentBranch.ok && currentBranch.output.trim()) {
+    renamed = safeGit(['branch', '-m', quarantineBranch], quarantinePath);
+  } else {
+    const originalBranchExists = safeGit(
+      ['show-ref', '--verify', '--quiet', `refs/heads/${task.branch}`],
+      args.mainRoot,
+    ).ok;
+    if (originalBranchExists) {
+      renamed = safeGit(['branch', '-m', task.branch, quarantineBranch], args.mainRoot);
+      if (renamed.ok) renamed = safeGit(['switch', quarantineBranch], quarantinePath);
+    } else {
+      renamed = safeGit(['switch', '-c', quarantineBranch], quarantinePath);
+    }
+  }
   const taskPatch = {
     status: 'HOLD',
     worktree: quarantinePath,
@@ -1333,7 +1377,7 @@ function writebackCommand(task, finalTask, args) {
   if (!bugNo || !resultFile || !args.apiBase) return null;
   const command = [
     NODE_BIN,
-    'scripts/ops/bug-agent-result-to-report.mjs',
+    opsScript('bug-agent-result-to-report.mjs'),
     '--bug-no',
     bugNo,
     '--task-id',
@@ -1539,10 +1583,7 @@ export function shouldAttemptReleasePush({
   unpushedCommitCount = 0,
 } = {}) {
   if (dryRun || !pushAfterSuccess || unpushedCommitCount < 1) return false;
-  // A previous cycle can finish implementation while a later cycle performs
-  // the final evidence backfill. Requiring a worker in the same cycle left
-  // verified commits permanently stranded ahead of origin/main.
-  return releaseEvidence.length > 0 && releaseEvidence.every((item) => item.evidence.passed);
+  return releaseEvidence.some((item) => item.evidence?.passed === true);
 }
 
 export function shouldResumeAlreadyPushedRelease({
@@ -1553,7 +1594,14 @@ export function shouldResumeAlreadyPushedRelease({
   headIsOnOriginMain = false,
 } = {}) {
   if (dryRun || !pushAfterSuccess || unpushedCommitCount !== 0 || !headIsOnOriginMain) return false;
-  return releaseEvidence.length > 0 && releaseEvidence.every((item) => item.evidence.passed);
+  return releaseEvidence.some((item) => item.evidence?.passed === true);
+}
+
+export function partitionReleaseEvidence(releaseEvidence = []) {
+  return {
+    ready: releaseEvidence.filter((item) => item?.evidence?.passed === true),
+    held: releaseEvidence.filter((item) => item?.evidence?.passed !== true),
+  };
 }
 
 function runPushIfReady(args, workerRuns, releaseEvidence) {
@@ -1563,8 +1611,13 @@ function runPushIfReady(args, workerRuns, releaseEvidence) {
       reason: args.dryRun ? 'dry-run' : 'push-after-success disabled',
     };
   }
-  if (releaseEvidence.length === 0 || releaseEvidence.some((item) => !item.evidence.passed)) {
-    return { skipped: true, reason: 'release evidence is incomplete; refusing push' };
+  const { ready, held } = partitionReleaseEvidence(releaseEvidence);
+  if (ready.length === 0) {
+    return {
+      skipped: true,
+      reason: 'no independently release-ready report',
+      heldBugNos: held.map((item) => item.bugNo),
+    };
   }
   const status = safeGit(['status', '--short'], args.mainRoot);
   const blockingDirtyFiles = status.ok
@@ -1573,7 +1626,12 @@ function runPushIfReady(args, workerRuns, releaseEvidence) {
   if (!status.ok || blockingDirtyFiles.length > 0) {
     return { skipped: true, reason: `main root contains non-runtime changes: ${blockingDirtyFiles.join(', ') || status.output}` };
   }
-  return publishReleaseCommits(args, releaseEvidence);
+  const published = publishReleaseCommits(args, ready);
+  return {
+    ...published,
+    releaseBugNos: ready.map((item) => item.bugNo),
+    heldBugNos: held.map((item) => item.bugNo),
+  };
 }
 
 function pushOpsAuditCommitsIfSafe(args, releasePush) {
@@ -1606,7 +1664,7 @@ function runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence) {
   if (routes.length === 0) return { skipped: true, reason: 'no production route available for release evidence' };
   return run([
     NODE_BIN,
-    'scripts/ops/bug-production-route-smoke.mjs',
+    opsScript('bug-production-route-smoke.mjs'),
     '--base-url',
     args.apiBase,
     '--routes',
@@ -1938,6 +1996,9 @@ const TECHNICAL_HOLD_PATTERNS = [
   /Missing implementation evidence/i,
   /runner-created dependency/i,
   /runner root must be clean[\s\S]*(OBSERVER_FINDINGS_REPORT|docs\/ops\/evolution)/i,
+  /git rebase main failed/i,
+  /worktree preserved but quarantine branch rename failed/i,
+  /quarantine preserved, but clean slot recreation failed/i,
   /Codex CLI usage capacity is exhausted/i,
 ];
 
@@ -2186,6 +2247,8 @@ function summaryMarkdown(summary) {
 | CI wait | ${summary.ci?.skipped ? `Skipped: ${summary.ci.reason}` : (summary.ci?.ok ? 'PASS' : 'HOLD')} |
 | Production route smoke | ${summary.productionSmoke?.skipped ? `Skipped: ${summary.productionSmoke.reason}` : (summary.productionSmoke?.status === 0 ? 'PASS' : 'HOLD')} |
 | Release evidence | ${(summary.releaseEvidence || []).map((item) => `${item.bugNo}:${item.evidence?.decision || 'HOLD'}`).join(', ') || 'None'} |
+| Release-ready reports | ${(summary.releaseReadyEvidence || []).map((item) => item.bugNo).join(', ') || 'None'} |
+| Isolated HOLD reports | ${(summary.releaseHeldEvidence || []).map((item) => item.bugNo).join(', ') || 'None'} |
 | Lifecycle writeback | ${summary.lifecycleWriteback?.skipped ? `Skipped: ${summary.lifecycleWriteback.reason}` : 'Attempted'} |
 | Result backfill | ${summary.resultBackfill?.skipped ? `Skipped: ${summary.resultBackfill.reason}` : `${summary.resultBackfill?.results?.length || 0} report(s) checked`} |
 | Evidence status reconciled | ${summary.evidenceReconciliation?.restored?.length || 0} |
@@ -2244,6 +2307,16 @@ async function waitForWake(args, seconds) {
 }
 
 function prepareTaskDispatch(task, args, blockedTasks) {
+  const worktreeSetup = ensureTaskWorktree(task, args);
+  if (!worktreeSetup.ok) {
+    blockedTasks.push({
+      task_id: task.task_id,
+      agent: task.agent,
+      status: 'BLOCKED',
+      reason: worktreeSetup.error,
+    });
+    return null;
+  }
   const dependencySetup = ensureTaskWorktreeDependencies(task, args);
   if (!dependencySetup.ok) {
     blockedTasks.push({ task_id: task.task_id, agent: task.agent, status: 'BLOCKED', reason: `cannot prepare worktree dependencies: ${dependencySetup.error}` });
@@ -2268,7 +2341,7 @@ function prepareTaskDispatch(task, args, blockedTasks) {
       return null;
     }
   }
-  return { task, dependencySetup };
+  return { task, worktreeSetup, dependencySetup };
 }
 
 async function finalizeWorkerDispatch(prepared, worker, args, childEnv, blockedTasks) {
@@ -2513,6 +2586,7 @@ async function runCycle(args, cycle) {
     || reconciledIntegrations.some((item) => item.ok);
   const cycleAuditCommit = commitOpsRuntimeArtifacts(args, { meaningfulActivity });
   const releaseEvidence = releaseEvidenceForWorkerRuns(args, workerRuns);
+  const releasePartition = partitionReleaseEvidence(releaseEvidence);
   const push = runPushIfReady(args, workerRuns, releaseEvidence);
   const ci = await waitForGithubActionsIfRequested(args, push);
   const productionSmoke = runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence);
@@ -2568,6 +2642,8 @@ async function runCycle(args, cycle) {
     ci,
     productionSmoke,
     releaseEvidence,
+    releaseReadyEvidence: releasePartition.ready,
+    releaseHeldEvidence: releasePartition.held,
     releaseSha: push?.status === 0 ? push.headSha || '' : '',
     headSha: currentHead(args.mainRoot),
     tokenSource: args.fixtureJson ? 'fixture' : args.token ? 'argument' : args.tokenEnv && process.env[args.tokenEnv] ? args.tokenEnv : `${args.loginUserEnv}/${args.loginPasswordEnv}`,

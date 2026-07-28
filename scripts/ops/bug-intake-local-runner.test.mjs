@@ -20,6 +20,7 @@ import {
   shouldForceLifecycleRedelivery,
   restoreVerifiedTerminalEvidence,
   requeueInvalidTerminalEvidence,
+  partitionReleaseEvidence,
   selectRunnableBugTasks,
   selectAutomaticRedispatchCandidates,
   selectReleaseReadyBacklog,
@@ -27,6 +28,7 @@ import {
   shouldAttemptReleasePush,
   shouldResumeAlreadyPushedRelease,
 } from './bug-intake-local-runner.mjs';
+import { bugIntakeExecutionSlot } from './bug-task-to-agent-queue.mjs';
 import {
   filterRunnerRuntimeStatus,
   gitStatusFiles,
@@ -466,6 +468,43 @@ test('detached worker technical HOLD is eligible for bounded automatic redispatc
   assert.equal(selectAutomaticRedispatchCandidates(reports, tasks).length, 1);
 });
 
+test('stale shared-worktree rebase and quarantine failures are automatically redispatched', () => {
+  const reports = [
+    {
+      bugNo: 'BUG-TEST-REBASE',
+      status: 'IN_PROGRESS',
+      repairTaskStatus: 'HOLD',
+      repairTaskPayload: {
+        redispatchCount: 0,
+        agentExecutionApproval: { approved: true },
+        agentPlan: { selected_agents: ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate'] },
+        redispatchHistory: [],
+      },
+    },
+    {
+      bugNo: 'BUG-TEST-QUARANTINE',
+      status: 'IN_PROGRESS',
+      repairTaskStatus: 'HOLD',
+      repairTaskPayload: {
+        redispatchCount: 0,
+        agentExecutionApproval: { approved: true },
+        agentPlan: { selected_agents: ['A4-Frontend-UAT-Smoke', 'A1-CI-Runtime-Gate'] },
+        redispatchHistory: [],
+      },
+    },
+  ];
+  const tasks = [
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-REBASE', route_active: true, agent: 'A3-Backend-Critical-Path', status: 'HOLD', redispatch_count: 0, reason: 'git rebase main failed: conflict in an unrelated historical bug commit' },
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-REBASE', route_active: true, agent: 'A1-CI-Runtime-Gate', status: 'HOLD', redispatch_count: 0, reason: 'blocked by failed dependency: A3' },
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-QUARANTINE', route_active: true, agent: 'A4-Frontend-UAT-Smoke', status: 'HOLD', redispatch_count: 0, reason: 'worktree preserved but quarantine branch rename failed: cannot rename current branch while not on any' },
+    { source: 'bug-intake', source_bug_no: 'BUG-TEST-QUARANTINE', route_active: true, agent: 'A1-CI-Runtime-Gate', status: 'HOLD', redispatch_count: 0, reason: 'blocked by failed dependency: A4' },
+  ];
+  assert.deepEqual(
+    selectAutomaticRedispatchCandidates(reports, tasks).map((item) => item.bugNo),
+    ['BUG-TEST-REBASE', 'BUG-TEST-QUARANTINE'],
+  );
+});
+
 test('a mixed terminal generation retries technical failures without discarding successful evidence', () => {
   const reports = [{
     bugNo: 'BUG-TEST-MIXED', status: 'IN_PROGRESS', repairTaskStatus: 'HOLD',
@@ -842,6 +881,31 @@ test('release push requires a real unpushed commit even when evidence passes', (
     releaseEvidence,
     unpushedCommitCount: 1,
   }), true);
+});
+
+test('one HOLD report cannot starve an independent release-ready report', () => {
+  const evidence = [
+    { bugNo: 'BUG-READY', evidence: { passed: true, commitHashes: ['abc1234'] } },
+    { bugNo: 'BUG-HOLD', evidence: { passed: false, commitHashes: [] } },
+  ];
+  assert.equal(shouldAttemptReleasePush({
+    pushAfterSuccess: true,
+    releaseEvidence: evidence,
+    unpushedCommitCount: 1,
+  }), true);
+  assert.deepEqual(partitionReleaseEvidence(evidence), {
+    ready: [evidence[0]],
+    held: [evidence[1]],
+  });
+});
+
+test('A3 and A4 use task-isolated execution branches and worktrees', () => {
+  const a3 = bugIntakeExecutionSlot('A3-Backend-Critical-Path', 'BUGTASK-20260728-0001-A3');
+  const a4 = bugIntakeExecutionSlot('A4-Frontend-UAT-Smoke', 'BUGTASK-20260728-0002-A4');
+  assert.equal(a3.branch, 'codex/bug-intake-bugtask-20260728-0001-a3');
+  assert.equal(a4.branch, 'codex/bug-intake-bugtask-20260728-0002-a4');
+  assert.notEqual(a3.worktree, a4.worktree);
+  assert.match(a3.worktree, /bug-intake-bugtask-20260728-0001-a3$/);
 });
 
 test('already-pushed verified release resumes CI and lifecycle writeback', () => {
