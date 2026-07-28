@@ -8259,6 +8259,7 @@ export class ChanjetIntegrationService {
     let sourceTotalPages: number | null = null;
     let sourceTotalRows: number | null = null;
     let pagesFetched = 0;
+    const seenPageFingerprints = new Set<string>();
 
     for (let page = 1; page <= config.maxPages; page += 1) {
       const response = await this.auth.callApi(path, {
@@ -8279,6 +8280,18 @@ export class ChanjetIntegrationService {
       lastResponse = response;
       pagesFetched = page;
       const pageRows = this.extractRows(response);
+      if (pageRows.length > 0) {
+        const pageFingerprint = crypto
+          .createHash('sha256')
+          .update(JSON.stringify(pageRows))
+          .digest('hex');
+        if (seenPageFingerprints.has(pageFingerprint)) {
+          throw new Error(
+            `好业财 ${ep.key} 第 ${page} 页与之前页面重复；接口可能忽略分页参数，拒绝生成重复或截断镜像`,
+          );
+        }
+        seenPageFingerprints.add(pageFingerprint);
+      }
       collectedRows.push(...pageRows);
       const responseRecord = this.isRecord(response) ? response : {};
       const data = this.isRecord(responseRecord.data) ? responseRecord.data : {};
@@ -8289,8 +8302,10 @@ export class ChanjetIntegrationService {
 
       const reachedDeclaredEnd = sourceTotalPages !== null && page >= sourceTotalPages;
       const reachedCount = sourceTotalRows !== null && collectedRows.length >= sourceTotalRows;
-      const reachedShortPage = pageRows.length < config.pageSize;
-      if (pageRows.length === 0 || reachedDeclaredEnd || reachedCount || reachedShortPage) break;
+      // Some Chanjet endpoints cap a page below the requested pageSize (for
+      // example 50 rows when 100 was requested). Only an empty page or
+      // declared total is authoritative; a short page is not.
+      if (pageRows.length === 0 || reachedDeclaredEnd || reachedCount) break;
       if (page === config.maxPages) {
         throw new Error(
           `好业财 ${ep.key} 分页超过安全上限 ${config.maxPages} 页；已读取 ${collectedRows.length} 行，拒绝静默截断`,

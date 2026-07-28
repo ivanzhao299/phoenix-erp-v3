@@ -174,6 +174,52 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     }));
   });
 
+  it('continues after provider-capped short pages until an empty page', async () => {
+    const subject = Object.create(ChanjetIntegrationService.prototype) as any;
+    subject.auth = {
+      callApi: jest
+        .fn()
+        .mockResolvedValueOnce({ success: true, data: { rows: [{ id: '1' }] } })
+        .mockResolvedValueOnce({ success: true, data: { rows: [{ id: '2' }] } })
+        .mockResolvedValueOnce({ success: true, data: { rows: [] } }),
+    };
+
+    const response = await subject.fetchProbePayload({
+      key: 'MATERIAL_STOCK_OUT',
+      method: 'POST',
+      pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 10 },
+    }, '/accounting/openapi/cc/inv/materialstock/list/BOOK-1', {
+      query: {},
+      body: { page: 1, pageSize: 100 },
+    });
+
+    expect(response.data.rows).toEqual([{ id: '1' }, { id: '2' }]);
+    expect(response.erpReadonlyPagination).toMatchObject({
+      pagesFetched: 3,
+      rowsFetched: 2,
+      truncated: false,
+    });
+  });
+
+  it('fails closed when a provider repeats the same page', async () => {
+    const subject = Object.create(ChanjetIntegrationService.prototype) as any;
+    subject.auth = {
+      callApi: jest.fn().mockResolvedValue({
+        success: true,
+        data: { rows: [{ id: 'same-page' }] },
+      }),
+    };
+
+    await expect(subject.fetchProbePayload({
+      key: 'OTHER_STOCK_OUT',
+      method: 'POST',
+      pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 10 },
+    }, '/accounting/openapi/cc/inv/stockout/list/BOOK-1', {
+      query: {},
+      body: { page: 1, pageSize: 100 },
+    })).rejects.toThrow('接口可能忽略分页参数');
+  });
+
   it('routes mirror baseline debt to the actual unresolved condition', () => {
     expect(service.mirrorBaselineNextGate({
       missingReportTargets: 1,
