@@ -1998,3 +1998,12 @@ Decision: counterparty resolution `GO`.
 - Each scope exposed 17 top-level response fields, while all six returned zero document rows. Empty source data is recorded as a real condition, not backfilled or fabricated.
 - The runner wrote ERP middle-layer snapshots and audit records only. No Chanjet write/update/delete, voucher push or ERP inventory-fact overwrite occurred.
 - The next Gate is value-level reconciliation after real inventory documents exist; writeback remains blocked.
+
+# 2026-07-28 - Expand Chanjet WMS baseline to all reviewed inventory scopes
+
+- The previous six-target production evidence covered only purchase inbound and sales outbound; it did not prove that other inventory data was absent.
+- Nine additional official readonly contracts are now registered: on-hand, lot on-hand, finished-goods inbound, material outbound, other inbound/outbound, transfer, count and retail outbound.
+- The production completeness target changes from six to 33 scopes across three enabled books.
+- Source records enter `chanjet_read_snapshots` and `chanjet_entity_snapshots` only. They never directly mutate ERP WMS documents, `inv_batches` or `inv_ledger`.
+- ERP-to-Chanjet inventory synchronization is architecture-ready but disabled until a dedicated WMS Outbox, exact mappings, provider write contracts, A2/A1/A7 Gates and a single-document readback canary exist.
+- Full plan: `docs/ops/CHANJET_ERP_WMS_SYNC_BASELINE_AND_GAP_PLAN.md`.

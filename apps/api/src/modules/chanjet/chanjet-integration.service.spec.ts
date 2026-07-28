@@ -96,8 +96,10 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(subject).toMatchObject({ query: {}, body: {} });
   });
 
-  it('registers book-scoped paginated stock-in and sales stock-out contracts', () => {
-    const endpoints = service.listProbeEndpoints();
+  it('registers the complete book-scoped readonly inventory baseline', () => {
+    const endpoints = service.listProbeEndpoints()
+      .filter((endpoint: { apiDomain: string }) => endpoint.apiDomain === 'inventory');
+    expect(endpoints).toHaveLength(11);
     expect(endpoints).toEqual(expect.arrayContaining([
       expect.objectContaining({
         key: 'STOCK_IN',
@@ -108,6 +110,30 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       expect.objectContaining({
         key: 'SALES_STOCK_OUT',
         path: '/accounting/openapi/cc/salesstockout/list/{bookid}',
+        requiresBook: true,
+        paginated: true,
+      }),
+      expect.objectContaining({
+        key: 'INVENTORY_ON_HAND',
+        path: '/accounting/openapi/cc/inv/onhandqty/{bookid}',
+        requiresBook: true,
+        paginated: true,
+      }),
+      expect.objectContaining({
+        key: 'INVENTORY_ON_HAND_LOT',
+        path: '/accounting/openapi/cc/inv/onhandqtylot/{bookid}',
+        requiresBook: true,
+        paginated: true,
+      }),
+      expect.objectContaining({ key: 'FINISHED_GOODS_STOCK_IN' }),
+      expect.objectContaining({ key: 'MATERIAL_STOCK_OUT' }),
+      expect.objectContaining({ key: 'OTHER_STOCK_IN' }),
+      expect.objectContaining({ key: 'OTHER_STOCK_OUT' }),
+      expect.objectContaining({ key: 'STOCK_TRANSFER' }),
+      expect.objectContaining({ key: 'STOCK_COUNT' }),
+      expect.objectContaining({
+        key: 'RETAIL_STOCK_OUT',
+        path: '/accounting/openapi/cc/retailstock/list/{bookid}',
         requiresBook: true,
         paginated: true,
       }),

@@ -1,5 +1,29 @@
 # Next Actions
 
+## 2026-07-28 - 好业财 WMS 完整只读基线
+
+Current stage: `CHANJET_WMS_FULL_READONLY_BASELINE_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Expanded the readonly inventory baseline from two document APIs to 11 official scopes.
+2. Covered on-hand, lot on-hand, purchase/sales/production/other inbound and outbound, transfer, count and retail stock-out.
+3. Kept all source data in the ERP middle layer; no Chanjet write and no ERP inventory-fact mutation occurs.
+4. Added 33-scope freshness/row evidence and explicit reverse-sync readiness.
+5. Changed the mirror runner to bounded resilient synchronization with at most three attempts.
+
+Next actions:
+
+1. Deploy and execute `CHANJET_WMS_PRODUCTION_FULL_SCOPE_SYNC` for 11 scopes across three books.
+2. Build exact company, warehouse, SKU/product, UOM, lot, counterparty, project and department mappings.
+3. Add on-hand/batch/document reconciliation against `inv_batches`, `inv_ledger`, WMS documents and packaging facts.
+4. Implement the dedicated WMS Outbox and provider write-contract preflight while external write remains disabled.
+5. Allow only a separately approved single-document canary after A2/A1/A7 Gates.
+
+Evidence: `docs/ops/CHANJET_WMS_FULL_READONLY_BASELINE_REPORT_20260728.md`.
+
 ## 2026-07-28 - WMS / 好业财库存单据只读等效
 
 Current stage: `CHANJET_WMS_READONLY_EQUIVALENCE_IMPLEMENTED`

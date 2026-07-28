@@ -21,7 +21,7 @@ const outputDir = getArg('--output-dir', 'docs/ops/runs');
 
 function markdown(alignment) {
   const scopeRows = alignment.scopes.map((scope) =>
-    `|${scope.entityType}|${scope.bookName || scope.bookId}|${scope.bookId}|${scope.latestPulledAt || 'MISSING'}|`,
+    `|${scope.label || scope.entityType}|${scope.bookName || scope.bookId}|${scope.bookId}|${scope.sourceRows || 0}|${scope.latestPulledAt || 'MISSING'}|`,
   );
   const contractRows = alignment.contracts.flatMap((contract) =>
     contract.fields.map((field) =>
@@ -38,7 +38,9 @@ function markdown(alignment) {
     '## 摘要',
     '',
     `- 启用账套：${alignment.summary.enabledBooks}`,
+    `- 官方库存接口：${alignment.summary.inventoryContracts || alignment.contracts.length}`,
     `- 新鲜 scope：${alignment.summary.freshScopes}/${alignment.summary.expectedScopes}`,
+    `- 中间层库存行：${alignment.summary.sourceRows || 0}`,
     `- 只读单据/明细：${alignment.summary.sourceDocuments}/${alignment.summary.sourceLines}`,
     `- 官方字段：${alignment.summary.officialFieldCount}`,
     `- ERP 业务字段覆盖：${alignment.summary.erpBusinessColumnCoverage}%`,
@@ -46,8 +48,8 @@ function markdown(alignment) {
     '',
     '## 账套 Scope',
     '',
-    '|单据类型|账套|bookId|最近同步|',
-    '|---|---|---|---|',
+    '|库存范围|账套|bookId|镜像行数|最近同步|',
+    '|---|---|---|---:|---|',
     ...scopeRows,
     '',
     '## 字段契约',
@@ -59,6 +61,13 @@ function markdown(alignment) {
     '## 条件项',
     '',
     ...(alignment.conditions.length ? alignment.conditions.map((item) => `- ${item}`) : ['- 无']),
+    '',
+    '## 反向同步就绪度',
+    '',
+    `- 当前结论：${alignment.reverseSyncReadiness?.decision || 'HOLD'}`,
+    `- 好业财写入开关：${alignment.reverseSyncReadiness?.externalWriteEnabled ? '已开启' : '关闭'}`,
+    `- 库存专用 Outbox：${alignment.reverseSyncReadiness?.wmsOutboxImplemented ? '已实现' : '未实现'}`,
+    ...(alignment.reverseSyncReadiness?.prerequisites || []).map((item) => `- 前置：${item}`),
     '',
     '## 安全边界',
     '',

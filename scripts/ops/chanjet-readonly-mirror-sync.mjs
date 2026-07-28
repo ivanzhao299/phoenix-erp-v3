@@ -21,6 +21,7 @@ const token = process.env.PHOENIX_ADMIN_TOKEN || process.env.PHOENIX_AUTH_TOKEN 
 const scope = getArg('--scope', '').split(',').map((item) => item.trim()).filter(Boolean);
 const bookId = getArg('--book-id', '');
 const period = getArg('--period', '');
+const maxAttempts = Math.max(1, Math.min(3, Number(getArg('--max-attempts', '3')) || 3));
 const remoteApiOnly = hasArg('--remote-api-only') || /^https?:\/\/(?!localhost(?::|\/|$)|127\.0\.0\.1(?::|\/|$)|\[?::1\]?(?::|\/|$))/i.test(apiBase);
 const includeCoverage = !hasArg('--skip-coverage');
 const healthTimeoutMs = Number(getArg('--health-timeout-ms', '30000'));
@@ -184,6 +185,7 @@ async function main() {
     requestedScope: scope,
     bookId,
     period,
+    maxAttempts,
     apiBase,
     remoteApiOnly,
     timeouts: {
@@ -192,6 +194,46 @@ async function main() {
       syncTimeoutMs,
     },
   });
+
+  if (dryRun) {
+    const result = {
+      generatedAt,
+      decision: 'PLAN_READY',
+      plan,
+      prechecks: {
+        dbReachable: { status: 'SKIP', reason: 'dry-run does not access the database' },
+        mirrorTables: { status: 'SKIP', reason: 'dry-run does not inspect runtime tables' },
+        apiHealth: { status: 'SKIP', httpStatus: 0 },
+        authToken: { status: token ? 'PRESENT_NOT_USED' : 'NOT_REQUIRED' },
+        chanjetEnv: { status: 'SKIP', envPresence: plan.chanjetEnv },
+        financeCoverage: { status: 'SKIP', httpStatus: 0 },
+      },
+      blockers: [],
+      coverage: null,
+      execution: {
+        executed: false,
+        summary: { dryRun: true, message: 'plan only; no network, database, mirror or external call executed' },
+      },
+      boundaries: {
+        writeChanjet: false,
+        deleteChanjet: false,
+        modifyChanjet: false,
+        voucherPush: false,
+        deploy: false,
+        push: false,
+      },
+      outputs: { outputJson, outputMd },
+    };
+    writeReports(result);
+    console.log(JSON.stringify({
+      decision: result.decision,
+      blockers: result.blockers,
+      executed: result.execution.executed,
+      outputJson,
+      outputMd,
+    }, null, 2));
+    return;
+  }
 
   const dbIdentity = remoteApiOnly
     ? { ok: true, status: 0, stdout: 'remote-api-only', stderr: '' }
@@ -275,7 +317,7 @@ async function main() {
     coverage: financeCoverage.json?.coverage || null,
     execution: {
       executed: false,
-      summary: dryRun ? { dryRun: true, message: 'dry-run only; no mirror sync executed' } : {},
+      summary: {},
     },
     boundaries: {
       writeChanjet: false,
@@ -293,10 +335,11 @@ async function main() {
       ...(scope.length ? { scope } : {}),
       ...(bookId ? { bookId } : {}),
       ...(period ? { period } : {}),
+      maxAttempts,
     };
     let sync = { ok: false, status: 0, json: null };
     try {
-      sync = await fetchJson('/api/chanjet/integration/mirror/sync', {
+      sync = await fetchJson('/api/chanjet/integration/mirror/sync-resilient', {
         method: 'POST',
         body: JSON.stringify(body),
       }, syncTimeoutMs);

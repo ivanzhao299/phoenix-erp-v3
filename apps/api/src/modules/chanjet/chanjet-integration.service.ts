@@ -1264,6 +1264,119 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 200 },
   },
   {
+    key: 'INVENTORY_ON_HAND',
+    label: '库存现存量',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/inv/onhandqty/{bookid}',
+    body: {
+      withZero: false,
+      groupCondition: 'WAREHOUSE_PRODUCTSPEC',
+      page: 1,
+      pageSize: 500,
+    },
+    requiresBook: true,
+    entityType: 'INVENTORY_ON_HAND',
+    mirrorDefault: true,
+    pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 500, maxPages: 200 },
+  },
+  {
+    key: 'INVENTORY_ON_HAND_LOT',
+    label: '库存批次现存量',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/inv/onhandqtylot/{bookid}',
+    body: { page: 1, pageSize: 100 },
+    requiresBook: true,
+    entityType: 'INVENTORY_ON_HAND_LOT',
+    mirrorDefault: true,
+    pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 500 },
+  },
+  {
+    key: 'FINISHED_GOODS_STOCK_IN',
+    label: '产成品入库单列表',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/inv/finishedgoodsstock/list/{bookid}',
+    body: { page: 1, pageSize: 100 },
+    requiresBook: true,
+    entityType: 'FINISHED_GOODS_STOCK_IN',
+    mirrorDefault: true,
+    pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 200 },
+  },
+  {
+    key: 'MATERIAL_STOCK_OUT',
+    label: '材料出库单列表',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/inv/materialstock/list/{bookid}',
+    body: { page: 1, pageSize: 100 },
+    requiresBook: true,
+    entityType: 'MATERIAL_STOCK_OUT',
+    mirrorDefault: true,
+    pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 200 },
+  },
+  {
+    key: 'OTHER_STOCK_IN',
+    label: '其他入库单列表',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/inv/stockin/list/{bookid}',
+    body: { page: 1, pageSize: 100 },
+    requiresBook: true,
+    entityType: 'OTHER_STOCK_IN',
+    mirrorDefault: true,
+    pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 200 },
+  },
+  {
+    key: 'OTHER_STOCK_OUT',
+    label: '其他出库单列表',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/inv/stockout/list/{bookid}',
+    body: { page: 1, pageSize: 100 },
+    requiresBook: true,
+    entityType: 'OTHER_STOCK_OUT',
+    mirrorDefault: true,
+    pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 200 },
+  },
+  {
+    key: 'STOCK_TRANSFER',
+    label: '调拨单列表',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/inv/stocktransfer/list/{bookid}',
+    body: { page: 1, pageSize: 100 },
+    requiresBook: true,
+    entityType: 'STOCK_TRANSFER',
+    mirrorDefault: true,
+    pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 200 },
+  },
+  {
+    key: 'STOCK_COUNT',
+    label: '盘点单列表',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/inv/stockcount/list/{bookid}',
+    body: { page: 1, pageSize: 100 },
+    requiresBook: true,
+    entityType: 'STOCK_COUNT',
+    mirrorDefault: true,
+    pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 200 },
+  },
+  {
+    key: 'RETAIL_STOCK_OUT',
+    label: '零售出库单列表',
+    apiDomain: 'inventory',
+    method: 'POST',
+    path: '/accounting/openapi/cc/retailstock/list/{bookid}',
+    body: { pageNo: 1, pageSize: 100 },
+    requiresBook: true,
+    entityType: 'RETAIL_STOCK_OUT',
+    mirrorDefault: true,
+    pagination: { pageField: 'pageNo', pageSizeField: 'pageSize', pageSize: 100, maxPages: 200 },
+  },
+  {
     key: 'VOUCHER_SEARCH',
     label: '凭证列表',
     apiDomain: 'voucher',
@@ -1378,7 +1491,13 @@ export class ChanjetIntegrationService {
   }
 
   async wmsReadonlyAlignmentOverview() {
-    const entityTypes = ['STOCK_IN', 'SALES_STOCK_OUT'];
+    const inventoryEndpoints = PROBE_ENDPOINTS.filter((endpoint) => (
+      endpoint.apiDomain === 'inventory'
+      && endpoint.mirrorDefault
+      && endpoint.entityType
+    ));
+    const entityTypes = inventoryEndpoints.map((endpoint) => endpoint.entityType as string);
+    const transactionalEntityTypes = new Set(['STOCK_IN', 'SALES_STOCK_OUT']);
     const [snapshots, enabledBooks, schemaRows] = await Promise.all([
       this.entitySnapshotRepo.find({
         where: { entityType: In(entityTypes) },
@@ -1400,51 +1519,67 @@ export class ChanjetIntegrationService {
     const enabledBookIds = new Set(enabledBooks.map((book) => book.bookId));
     const scopedSnapshots = snapshots.filter((snapshot) => enabledBookIds.has(snapshot.bookId));
     const missingColumns = CHANJET_WMS_ERP_COLUMN_REQUIREMENTS.filter((target) => !existingColumns.has(target));
-    const documents = scopedSnapshots.map((snapshot) => normalizeChanjetInventoryDocument(
-      snapshot.rawData || {},
-      snapshot.entityType as 'STOCK_IN' | 'SALES_STOCK_OUT',
-      snapshot.bookId,
-    ));
+    const documents = scopedSnapshots
+      .filter((snapshot) => transactionalEntityTypes.has(snapshot.entityType))
+      .map((snapshot) => normalizeChanjetInventoryDocument(
+        snapshot.rawData || {},
+        snapshot.entityType as 'STOCK_IN' | 'SALES_STOCK_OUT',
+        snapshot.bookId,
+      ));
     const latestByScope = new Map<string, string>();
+    const rowCountByScope = new Map<string, number>();
     for (const snapshot of scopedSnapshots) {
       const scopeKey = `${snapshot.entityType}:${snapshot.bookId}`;
       const updatedAt = snapshot.updatedAt ? new Date(snapshot.updatedAt).toISOString() : '';
       const current = latestByScope.get(scopeKey) || '';
       if (updatedAt > current) latestByScope.set(scopeKey, updatedAt);
+      rowCountByScope.set(scopeKey, (rowCountByScope.get(scopeKey) || 0) + 1);
     }
-    const expectedScopes = enabledBooks.flatMap((book) => entityTypes.map((entityType) => ({
-      entityType,
+    const expectedScopes = enabledBooks.flatMap((book) => inventoryEndpoints.map((endpoint) => ({
+      endpointKey: endpoint.key,
+      label: endpoint.label,
+      entityType: endpoint.entityType as string,
       bookId: book.bookId,
       bookName: book.bookName,
-      latestPulledAt: latestByScope.get(`${entityType}:${book.bookId}`) || null,
+      sourceRows: rowCountByScope.get(`${endpoint.entityType}:${book.bookId}`) || 0,
+      latestPulledAt: latestByScope.get(`${endpoint.entityType}:${book.bookId}`) || null,
     })));
     const staleBefore = Date.now() - 24 * 60 * 60 * 1000;
     const staleOrMissingScopes = expectedScopes.filter((scope) => (
       !scope.latestPulledAt || new Date(scope.latestPulledAt).getTime() < staleBefore
     ));
-    const contracts = [
-      {
-        key: 'STOCK_IN',
-        label: '采购入库单',
-        method: 'POST',
-        path: '/accounting/openapi/cc/purchasestockin/list/{bookid}',
-        reference: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/30644?id=33283',
-        requestRequiredFields: ['page', 'pageSize'],
-        statusValues: ['SUBMITTED', 'EFFECTIVE'],
-        fields: CHANJET_STOCK_IN_FIELD_CONTRACT,
-      },
-      {
-        key: 'SALES_STOCK_OUT',
-        label: '销售出库单',
-        method: 'POST',
-        path: '/accounting/openapi/cc/salesstockout/list/{bookid}',
-        reference: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/hyc_pjjk/hyc_pjjk_kcgl?id=32791',
-        requestRequiredFields: ['page', 'pageSize'],
-        statusValues: ['SUBMITTED', 'EFFECTIVE'],
-        fields: CHANJET_SALES_STOCK_OUT_FIELD_CONTRACT,
-      },
-    ];
+    const officialReferences: Record<string, string> = {
+      STOCK_IN: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/30644?id=33283',
+      SALES_STOCK_OUT: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/hyc_pjjk/hyc_pjjk_kcgl?id=32791',
+      INVENTORY_ON_HAND: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/kc?id=30797',
+      INVENTORY_ON_HAND_LOT: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/kc?id=32477',
+      FINISHED_GOODS_STOCK_IN: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/ccprkd?id=32394',
+      MATERIAL_STOCK_OUT: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/clckd?id=32386',
+      OTHER_STOCK_IN: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/qtrkd?id=32398',
+      OTHER_STOCK_OUT: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/qtckd?id=32407',
+      STOCK_TRANSFER: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/dbd?id=32390',
+      STOCK_COUNT: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/pdd?id=32858',
+      RETAIL_STOCK_OUT: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/lsgl/hyc_retailstock?id=33339',
+    };
+    const contracts = inventoryEndpoints.map((endpoint) => ({
+      key: endpoint.key,
+      label: endpoint.label,
+      method: endpoint.method,
+      path: endpoint.path,
+      reference: officialReferences[endpoint.key] || '',
+      requestRequiredFields: endpoint.pagination
+        ? [endpoint.pagination.pageField, endpoint.pagination.pageSizeField]
+        : [],
+      statusValues: transactionalEntityTypes.has(endpoint.key) ? ['SUBMITTED', 'EFFECTIVE'] : [],
+      fields: endpoint.key === 'STOCK_IN'
+        ? CHANJET_STOCK_IN_FIELD_CONTRACT
+        : endpoint.key === 'SALES_STOCK_OUT'
+          ? CHANJET_SALES_STOCK_OUT_FIELD_CONTRACT
+          : [],
+      storageLayer: 'CHANJET_READ_SNAPSHOT_AND_ENTITY_SNAPSHOT',
+    }));
     const officialFieldCount = contracts.reduce((sum, contract) => sum + contract.fields.length, 0);
+    const sourceRows = scopedSnapshots.length;
     const sourceDocuments = documents.length;
     const sourceLines = documents.reduce((sum, document) => sum + document.lines.length, 0);
     const schemaCoverage = CHANJET_WMS_ERP_COLUMN_REQUIREMENTS.length
@@ -1454,19 +1589,24 @@ export class ChanjetIntegrationService {
     const conditions = [
       ...(staleOrMissingScopes.length ? [`${staleOrMissingScopes.length} 个账套单据 scope 缺失或超过 24 小时`] : []),
       ...(missingColumns.length ? [`ERP 业务字段仍缺 ${missingColumns.length} 列`] : []),
-      ...(sourceDocuments === 0 ? ['好业财当前返回 0 条入库/销售出库样本，字段类型需待真实单据继续验证'] : []),
+      ...(sourceRows === 0 ? ['好业财当前 11 类库存 scope 均无镜像数据，需完成生产只读全量拉取后判断源数据完整性'] : []),
+      ...(sourceRows > 0 && sourceDocuments === 0
+        ? ['库存余额或其他单据已有镜像，但采购入库/销售出库仍无样本，详细业务字段需继续验证']
+        : []),
     ];
     return {
       generatedAt: new Date().toISOString(),
       decision: missingColumns.length || staleOrMissingScopes.length
         ? 'HOLD'
-        : sourceDocuments === 0
+        : sourceRows === 0
           ? 'GO_WITH_CONDITIONS'
           : 'GO',
       summary: {
         enabledBooks: enabledBooks.length,
+        inventoryContracts: inventoryEndpoints.length,
         expectedScopes: expectedScopes.length,
         freshScopes: expectedScopes.length - staleOrMissingScopes.length,
+        sourceRows,
         sourceDocuments,
         sourceLines,
         officialFieldCount,
@@ -1481,11 +1621,34 @@ export class ChanjetIntegrationService {
       missingColumns,
       conditions,
       businessRules: {
+        mirrorAuthority: '好业财库存数据先进入只读中间层镜像；镜像不等同于 ERP 库存事实，不触发库存增减。',
         inboundAuthority: '好业财采购入库只读单据用于财务/库存对账；ERP 实际库存仍由 wms confirm 原子事务记账。',
         outboundAuthority: '好业财销售出库只读单据用于销售履约对账；ERP 销售/生产/后勤/配件出库保持独立业务类型。',
+        balanceAuthority: '好业财现存量与批次现存量用于基线和差异检测；ERP inv_batches/inv_ledger 继续作为 ERP 业务台账。',
         statusMapping: { SUBMITTED: 'PENDING', EFFECTIVE: 'COMPLETED' },
         redBlueRule: '红字单据必须保留 redBlueFlagEnum，后续写入设计不得按普通正数单据处理。',
         attachmentRule: '好业财 attachmentList 原始 URL 仅留在受控中间层证据，不向普通业务 UI 暴露。',
+      },
+      reverseSyncReadiness: {
+        decision: missingColumns.length || staleOrMissingScopes.length ? 'HOLD' : 'PREPARED_DISABLED',
+        externalWriteEnabled: false,
+        wmsOutboxImplemented: false,
+        canonicalDocumentModelReady: missingColumns.length === 0,
+        supportedErpDirections: [
+          '采购/产成品/其他入库',
+          '销售/生产领料/后勤/配件/其他/零售出库',
+          '仓库调拨',
+          '库存盘点',
+        ],
+        prerequisites: [
+          '账套与 ERP company_code 一一核准',
+          '仓库、商品/SKU/规格、计量单位、批次映射覆盖率达到 100%',
+          '好业财写入接口、字段、状态机和红蓝单规则完成官方合同审查',
+          '建立库存专用 outbox、幂等键、回执和补偿策略，不复用凭证 outbox',
+          'A2 安全、A1 回归、A7 发布 Gate 通过',
+          '先单笔草稿 canary，人工批准后写入并立即只读回查',
+        ],
+        rule: '当前只具备反向同步架构准备，不允许自动写好业财；任何写入必须单独批准。',
       },
       guardrails: {
         chanjetWrite: false,
@@ -1493,7 +1656,7 @@ export class ChanjetIntegrationService {
         chanjetModify: false,
         erpBusinessWrite: false,
         automaticVoucherWrite: false,
-        rule: '本接口只读 ERP 中间层与 information_schema；不会调用好业财写接口，也不会写 ERP 出入库业务表。',
+        rule: '本接口只读 ERP 中间层与 information_schema；同步任务只写 ERP 中间层镜像，不写好业财，也不写 ERP 出入库业务表。',
       },
     };
   }
