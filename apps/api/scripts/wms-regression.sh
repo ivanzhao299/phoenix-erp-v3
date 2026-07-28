@@ -69,7 +69,7 @@ LEDGER_BASE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger;")
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
-cyan "▶ T1: A3 confirmInbound — 同步写 inv_ledger INBOUND"
+cyan "▶ T1: A3 confirmInbound — 同步写采购入库语义流水"
 # 先调 inventory API（注意 InboundController 路由是 /api/inbound）
 # 实际 confirmInbound 在 wms.service，让我们直接通过 inventory.controller 或 inbound.controller 的路径调
 # 这里走 receiving/orders/:order_no/confirm（已挂 wms.service.confirmReceivingOrder，仅 update 状态）
@@ -86,9 +86,9 @@ fi
 QTY_AFTER=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T1.2 UPSERT 累加 1000+500=1500" "1500" "$QTY_AFTER"
 
-# inv_ledger 应有新的 INBOUND 流水
-LEDGER_INB=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='INBOUND';")
-assert_eq "T1.3 inv_ledger INBOUND 流水 +1" "1" "$LEDGER_INB"
+# PURCHASE 入库必须写入细分后的采购入库流水，并保留业务类型用于对账。
+LEDGER_INB=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='PURCHASE_INBOUND' AND business_type='PURCHASE';")
+assert_eq "T1.3 inv_ledger PURCHASE_INBOUND/PURCHASE 流水 +1" "1" "$LEDGER_INB"
 
 # wms_inbound.status → COMPLETED
 INB_STATUS=$($PSQL $DB -tA -c "SELECT status FROM wms_inbound WHERE task_no='$TASK_NO';")
