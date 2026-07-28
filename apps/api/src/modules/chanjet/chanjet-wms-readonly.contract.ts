@@ -190,7 +190,7 @@ export const CHANJET_SALES_STOCK_OUT_FIELD_CONTRACT: ChanjetWmsFieldContract[] =
   header('soldToCustomerName', 'soldToCustomerName', 'wms_outbound.sold_to_customer_name'),
   header('billToCustomerCode', 'billToCustomerCode', 'wms_outbound.bill_to_customer_code'),
   header('billToCustomerName', 'billToCustomerName', 'wms_outbound.bill_to_customer_name'),
-  header('departmentCode', 'departmentCode', 'wms_outbound.department'),
+  header('departmentCode', 'departmentCode', 'wms_outbound.department_code'),
   header('departmentName', 'departmentName', 'wms_outbound.department_name'),
   header('bizEmployeeCode', 'employeeCode', 'wms_outbound.biz_employee_code'),
   header('bizEmployeeName', 'employeeName', 'wms_outbound.biz_employee_name'),
@@ -339,7 +339,9 @@ export function normalizeChanjetInventoryDocument(
   return {
     entityType,
     bookId,
-    externalDocumentId: text(raw, 'id', 'voucherId', 'externalCode'),
+    // Provider codes are not stable substitutes for immutable document IDs.
+    // Keep them separate so downstream promotion can require manual review.
+    externalDocumentId: text(raw, 'id', 'voucherId'),
     externalDocumentCode: text(raw, 'code', 'voucherCode', 'billCode'),
     externalCode: text(raw, 'externalCode'),
     status,

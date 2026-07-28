@@ -1,5 +1,30 @@
 # Next Actions
 
+## 2026-07-28 - 好业财 WMS 生产级实现完成，运行态保持 HOLD
+
+Current stage: `CHANJET_WMS_PRODUCTION_GRADE_IMPLEMENTED_RUNTIME_HOLD`
+
+Decision: `HOLD`
+
+Completed:
+
+1. Completed WMS inbound/outbound domain policies for purchase, sales, production, logistics, spares, office, maintenance, return, adjustment, transfer, stocktake and loss.
+2. Completed canonical identity, exact master mapping, red/blue, dual-UOM and document/line reconciliation.
+3. Added evidence-only promotion candidates and a dedicated WMS writeback Outbox.
+4. Kept automatic ERP inventory mutation and all Chanjet external writes disabled.
+5. Added administrator bridge readiness and ordinary-user source/reconciliation indicators.
+6. Passed 58 API tests, 3 Web tests, API/Web TypeScript, WMS DataScope and migration gates.
+
+Next actions:
+
+1. Open `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT` for all three books and rerun only the six blocked scopes.
+2. Run the reviewed TypeORM migration Gate; do not treat `currency_code` as deployed before that succeeds.
+3. Refresh promotion candidates and resolve every real `NEED_MAPPING`, `NEED_MANUAL_REVIEW` and `HOLD`.
+4. Run A2/A1/A7 runtime acceptance.
+5. Keep the external WMS write endpoint absent until a separately approved single-document canary.
+
+Evidence: `docs/ops/CHANJET_WMS_PRODUCTION_GRADE_IMPLEMENTATION_REPORT_20260728.md`.
+
 ## 2026-07-28 - Agent task-generation workspace isolation
 
 Current stage: `AGENT_TASK_WORKSPACE_ISOLATION_V2_ACTIVE`

@@ -1,12 +1,12 @@
 {
   "last_updated": "2026-07-28",
   "active_module": "WMS / Chanjet Inventory Alignment",
-  "current_stage": "CHANJET_WMS_FULL_READONLY_BASELINE_PARTIAL",
+  "current_stage": "CHANJET_WMS_PRODUCTION_GRADE_IMPLEMENTED_RUNTIME_HOLD",
   "active_decision": "HOLD",
   "agent_workspace_isolation": "task-generation-isolated-v2",
   "canonical_agent_execution_allowed": false,
   "workspace_retry_policy": "retire_generation_and_allocate_next",
-  "next_gate": "CHANJET_WMS_SOURCE_PERMISSION_AND_SCHEMA_CLOSURE",
+  "next_gate": "CHANJET_WMS_RUNTIME_PERMISSION_MIGRATION_AND_MAPPING_ACCEPTANCE",
   "page_entry": "/finance2/chanjet-integration",
   "menu_entry": "财务结算中心 / 好业财中间层（管理员）",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -28,7 +28,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_WMS_FULL_READONLY_BASELINE_PARTIAL",
+    "current_stage": "CHANJET_WMS_PRODUCTION_GRADE_IMPLEMENTED_RUNTIME_HOLD",
     "active_decision": "HOLD",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -1126,8 +1126,10 @@
     "production_api_health": "HTTP_200_restart_0_oom_false"
   },
   "chanjet_wms_readonly_equivalence": {
-    "current_stage": "CHANJET_WMS_FULL_READONLY_BASELINE_PARTIAL",
+    "current_stage": "CHANJET_WMS_PRODUCTION_GRADE_IMPLEMENTED_RUNTIME_HOLD",
     "active_decision": "HOLD",
+    "implementation_acceptance": "GO_WITH_CONDITIONS",
+    "runtime_acceptance": "HOLD",
     "production_commit": "86fe2113200e4c8374edfe820d493482a38fad32",
     "ci_deploy_run": "30346579170",
     "enabled_books": 3,
@@ -1154,8 +1156,12 @@
     "official_fields_observed": 120,
     "lossless_mirror_coverage_percent": 100,
     "erp_business_column_coverage_percent": 98.1,
-    "missing_business_columns": [
+    "production_audit_missing_business_columns": [
       "wms_outbound.department",
+      "wms_outbound.currency_code"
+    ],
+    "contract_correction": "departmentCode maps to existing wms_outbound.department_code",
+    "pending_migration_business_columns": [
       "wms_outbound.currency_code"
     ],
     "provider_permission_blocked_scopes": [
@@ -1164,18 +1170,26 @@
     ],
     "pagination_short_page_truncation_fixed": true,
     "successful_empty_scope_freshness_fixed": true,
+    "wms_domain_policies": "implemented_and_tested",
+    "reconciliation_engine": "implemented_and_tested",
+    "promotion_candidate_bridge": "implemented_migration_not_deployed",
+    "dedicated_wms_outbox": "implemented_external_transport_disabled",
+    "external_execution_endpoint_exposed": false,
+    "automatic_business_table_promotion": false,
     "write_chanjet": false,
     "write_erp_inventory_facts": false,
     "latest_evidence": "docs/ops/runs/chanjet-wms-readonly-alignment-latest.json",
     "latest_batch_evidence": "docs/ops/runs/chanjet-wms-batches/final-scope-results.tsv",
     "full_baseline_plan": "docs/ops/CHANJET_ERP_WMS_SYNC_BASELINE_AND_GAP_PLAN.md",
+    "implementation_report": "docs/ops/CHANJET_WMS_PRODUCTION_GRADE_IMPLEMENTATION_REPORT_20260728.md",
     "reverse_sync_readiness": "HOLD_EXTERNAL_WRITE_DISABLED",
-    "next_gate": "CHANJET_WMS_SOURCE_PERMISSION_AND_SCHEMA_CLOSURE"
+    "next_gate": "CHANJET_WMS_RUNTIME_PERMISSION_MIGRATION_AND_MAPPING_ACCEPTANCE"
   },
   "next_action": [
-    "CHANJET_WMS_SOURCE_PERMISSION_AND_SCHEMA_CLOSURE",
-    "CHANJET_WMS_MASTER_MAPPING_BASELINE",
-    "CHANJET_WMS_INVENTORY_RECONCILIATION",
+    "OPEN_CHANJET_OTHER_STOCK_IN_AND_RETAIL_STOCK_OUT_FOR_THREE_BOOKS",
+    "RUN_REVIEWED_CHANJET_WMS_BRIDGE_MIGRATION_GATE",
+    "REFRESH_CHANJET_WMS_PROMOTION_CANDIDATES_AND_RESOLVE_EXACT_MAPPINGS",
+    "RUN_A2_A1_A7_RUNTIME_ACCEPTANCE_BEFORE_ANY_CANARY",
     "BUSINESS_RETEST_13_FIX_READY_FOR_UAT_REPORTS",
     "MARK_BUSINESS_VERIFIED_ONLY_AFTER_ACCEPTANCE",
     "KEEP_RESIDENT_BUG_RUNNER_ACTIVE_AND_ZERO_HOLD",

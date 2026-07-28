@@ -121,6 +121,14 @@ export default function WmsStocktakeTerminalPage() {
           <div style={{ fontSize: 17, fontWeight: 700, color: T.TXT }}>{t('terminal.wms_stocktake', '仓储盘点')}</div>
           <div style={{ fontSize: 12, color: T.MUT }}>{t('terminal.wms_stocktake_hint', '扫码或选择批次，录入实盘数，差额即时入账（写流水）')}</div>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: T.MUT }}>
+            {t('terminal.wms_business_source', '业务来源')}：{t('terminal.wms_erp_batch_ledger', 'ERP 在库批次')}
+          </span>
+          <span style={{ borderRadius: 999, padding: '3px 8px', background: 'color-mix(in srgb,var(--status-warning) 16%,transparent)', color: 'var(--status-warning)', fontSize: 10.5, fontWeight: 700 }}>
+            {t('terminal.wms_reconciliation_pending', '外部对账待核验')}
+          </span>
+        </div>
         {toast && <div style={{ fontSize: 14, fontWeight: 700, color: T.GRN }}>✓ {toast}</div>}
       </div>
 

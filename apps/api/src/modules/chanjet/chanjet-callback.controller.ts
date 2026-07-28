@@ -7,6 +7,8 @@ import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetArSyncService } from './chanjet-ar-sync.service';
 import { ChanjetExternalCanaryApprovalInput, ChanjetIntegrationService } from './chanjet-integration.service';
 import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler';
+import { ChanjetWmsBridgeService, PrepareWmsWritebackInput } from './chanjet-wms-bridge.service';
+import { ChanjetWmsPromotionState } from './chanjet-wms-promotion-candidate.entity';
 import * as crypto from 'crypto';
 
 type ChanjetProxyMethod = 'GET' | 'POST';
@@ -63,6 +65,7 @@ export class ChanjetCallbackController {
     private readonly arSync: ChanjetArSyncService,
     private readonly integration: ChanjetIntegrationService,
     private readonly readonlySyncScheduler: ChanjetReadonlySyncScheduler,
+    private readonly wmsBridge: ChanjetWmsBridgeService,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
@@ -815,6 +818,77 @@ export class ChanjetCallbackController {
     } catch (e) {
       return { success: false, error: (e as Error).message };
     }
+  }
+
+  /**
+   * GET /api/chanjet/integration/wms/bridge-readiness
+   * 只读输出好业财 WMS 镜像、晋级候选和写回草稿状态。
+   */
+  @Get('integration/wms/bridge-readiness')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationWmsBridgeReadiness() {
+    return { success: true, bridge: await this.wmsBridge.overview() };
+  }
+
+  @Get('integration/wms/promotion-candidates')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationWmsPromotionCandidates(
+    @Query('limit') limit: string,
+    @Query('state') state?: ChanjetWmsPromotionState,
+  ) {
+    const candidates = await this.wmsBridge.listPromotionCandidates(Number(limit) || 200, state);
+    return { success: true, count: candidates.length, candidates };
+  }
+
+  @Post('integration/wms/promotion-candidates/refresh')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async refreshIntegrationWmsPromotionCandidates(
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const actor = String(req?.user?.username || req?.user?.userId || 'unknown');
+    this.log.warn(`manual Chanjet WMS candidate refresh triggered user=${actor}`);
+    return {
+      success: true,
+      result: await this.wmsBridge.refreshPromotionCandidates(actor),
+    };
+  }
+
+  @Post('integration/wms/promotion-candidates/:id/review')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async reviewIntegrationWmsPromotionCandidate(
+    @Param('id') id: string,
+    @Body() body: { decision: 'APPROVE' | 'REJECT' },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const actor = String(req?.user?.username || req?.user?.userId || '');
+    return {
+      success: true,
+      result: await this.wmsBridge.reviewPromotionCandidate(id, body.decision, actor),
+    };
+  }
+
+  @Get('integration/wms/writeback-outbox')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationWmsWritebackOutbox(
+    @Query('limit') limit: string,
+    @Query('state') state?: string,
+  ) {
+    const outbox = await this.wmsBridge.listWritebackOutbox(Number(limit) || 100, state);
+    return { success: true, count: outbox.length, outbox };
+  }
+
+  @Post('integration/wms/writeback-outbox/prepare')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async prepareIntegrationWmsWritebackOutbox(
+    @Body() body: PrepareWmsWritebackInput,
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const actor = String(req?.user?.username || req?.user?.userId || '');
+    return {
+      success: true,
+      outbox: await this.wmsBridge.prepareWriteback(body, actor),
+      externalWriteExecuted: false,
+    };
   }
 
   /**

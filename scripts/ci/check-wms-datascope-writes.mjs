@@ -17,9 +17,9 @@ const checks = [
       'this.assertWritableWarehouse(to_warehouse,',
       'this.assertWritableWarehouse(src.warehouse_code, `调拨源批次',
       'this.assertWritableWarehouse(stocktakeRows[0].warehouse_code || null',
-      'this.assertWritableWarehouse(batchRows[0].warehouse_code, `盘点批次',
+      'this.assertWritableWarehouse(batch.warehouse_code, `盘点批次',
       'this.assertWritableWarehouse(lossRows[0].warehouse_code || null',
-      'this.assertWritableWarehouse(batchRows[0].warehouse_code, `损耗批次',
+      'this.assertWritableWarehouse(batch.warehouse_code, `损耗批次',
     ],
   },
   {

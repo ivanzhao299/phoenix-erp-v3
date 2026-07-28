@@ -148,6 +148,17 @@ export default function WmsOutboundTerminalPage() {
           <div style={{ fontSize: 17, fontWeight: 700, color: T.TXT }}>{t('terminal.wms_outbound', '仓储出库')}</div>
           <div style={{ fontSize: 12, color: T.MUT }}>{t('terminal.wms_outbound_hint', '扫码或选择订单，逐项核对批次与出库数量后装车')}</div>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: T.MUT }}>
+            {t('terminal.wms_business_source', '业务来源')}：
+            {selected
+              ? `${t('terminal.wms_sales_order', '销售订单')} ${selected.order_no}`
+              : t('terminal.wms_erp_outbound_task', 'ERP 出库任务')}
+          </span>
+          <span style={{ borderRadius: 999, padding: '3px 8px', background: 'color-mix(in srgb,var(--status-warning) 16%,transparent)', color: 'var(--status-warning)', fontSize: 10.5, fontWeight: 700 }}>
+            {t('terminal.wms_reconciliation_pending', '外部对账待核验')}
+          </span>
+        </div>
         {toast && <div style={{ fontSize: 14, fontWeight: 700, color: T.GRN }}>✓ {toast}</div>}
       </div>
 

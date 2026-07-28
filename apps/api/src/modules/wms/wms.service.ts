@@ -8,9 +8,14 @@ import {
   isIssueOutboundType,
   resolveOutboundDestinationCode,
   resolveOutboundLedgerType,
+  resolveOutboundPolicy,
   validateOutboundPolicy,
 } from './wms-outbound-policy';
-import { validateInboundPolicy } from './wms-inbound-policy';
+import {
+  resolveInboundPolicy,
+  validateInboundPolicy,
+  validateInboundWorkflow,
+} from './wms-inbound-policy';
 
 /**
  * V3 WmsService
@@ -220,6 +225,18 @@ export class WmsService {
         return { code: 404, msg: `入库单 ${task_no} 不存在` };
       }
       const task = tasks[0];
+      const workflowErrors = validateInboundWorkflow(task.type, 'GENERIC_INBOUND');
+      if (workflowErrors.length > 0) {
+        throw new BadRequestException({
+          code: 400,
+          msg: '入库业务类型必须通过指定工作流执行',
+          errors: workflowErrors,
+        });
+      }
+      const inboundPolicy = resolveInboundPolicy(task.type);
+      if (!inboundPolicy) {
+        throw new BadRequestException(`不支持的入库类型：${task.type || '(空)'}`);
+      }
       this.assertWritableWarehouse(task.warehouse_code || null, `入库单 ${task_no}`);
       if (task.status === 'COMPLETED') {
         return { code: 400, msg: `入库单 ${task_no} 已确认（COMPLETED），请勿重复操作`, idempotent: true };
@@ -349,11 +366,12 @@ export class WmsService {
                batch_no, change_type, qty_change, operator, store_code, ref_no, note,
                sku_code, material_code, warehouse_code, business_type, unit
              )
-             VALUES ($1, 'INBOUND', $2::numeric, $3, $4, $5, $6, $7, $8, $9, 'INBOUND', $10)`,
+             VALUES ($1, $11, $2::numeric, $3, $4, $5, $6, $7, $8, $9, $12, $10)`,
             [
               baseBatchNo, actualQty, operator, storeCode, task_no,
               `入库确认 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} actual=${actualQty} warehouse=${warehouseCode}`,
               skuCode, materialCode, warehouseCode, unit,
+              inboundPolicy.ledgerType, inboundPolicy.businessType,
             ],
           );
         }
@@ -385,11 +403,12 @@ export class WmsService {
                batch_no, change_type, qty_change, operator, store_code, ref_no, note,
                sku_code, material_code, warehouse_code, business_type, unit
              )
-             VALUES ($1, 'INBOUND_BROKEN', $2::numeric, $3, $4, $5, $6, $7, $8, $9, 'INBOUND_BROKEN', $10)`,
+             VALUES ($1, 'INBOUND_BROKEN', $2::numeric, $3, $4, $5, $6, $7, $8, $9, $11, $10)`,
             [
               brokenBatchNo, brokenQty, operator, storeCode, task_no,
               `破损入隔离 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} broken=${brokenQty}`,
               skuCode, materialCode, warehouseCode, unit,
+              `${inboundPolicy.businessType}_BROKEN`,
             ],
           );
         }
@@ -422,6 +441,15 @@ export class WmsService {
       }[];
     },
   ): Promise<{ batchNos: string[]; skipped: number }> {
+    const purchasePolicy = resolveInboundPolicy('PURCHASE');
+    const workflowErrors = validateInboundWorkflow('PURCHASE', 'PURCHASE_RECEIPT');
+    if (!purchasePolicy || workflowErrors.length > 0) {
+      throw new BadRequestException({
+        code: 400,
+        msg: '采购收货入库策略不可用',
+        errors: workflowErrors,
+      });
+    }
     const storeCode = ctx.storeCode || 'ALL';
     const operator = ctx.operator || 'SYS';
     const warehouseCode = ctx.warehouseCode || 'WMS-VTE-MAIN';
@@ -473,10 +501,11 @@ export class WmsService {
            batch_no, change_type, qty_change, operator, store_code, ref_no, note,
            sku_code, material_code, warehouse_code, business_type, unit
          )
-         VALUES ($1, 'PURCHASE_INBOUND', $2::numeric, $3, $4, $5, $6, $7, $8, $9, 'PURCHASE', $10)`,
+         VALUES ($1, $11, $2::numeric, $3, $4, $5, $6, $7, $8, $9, $12, $10)`,
         [batchNo, qty, operator, storeCode, ctx.refNo,
          `采购收货入库 item=${identity.itemCode} type=${identity.itemType} qty=${qty} wh=${warehouseCode}`,
-         skuCode, identity.materialCode, warehouseCode, identity.unit],
+         skuCode, identity.materialCode, warehouseCode, identity.unit,
+         purchasePolicy.ledgerType, purchasePolicy.businessType],
       );
       batchNos.push(batchNo);
     }
@@ -1029,6 +1058,11 @@ export class WmsService {
       throw new Error(`batch ${batchNo} 余量 ${available} 不足 ${qty}`);
     }
 
+    const outboundPolicy = resolveOutboundPolicy(order.type || 'SALE');
+    if (!outboundPolicy) {
+      throw new BadRequestException(`不支持的出库类型：${order.type || '(空)'}`);
+    }
+
     await manager.query(
       `UPDATE inv_batches
           SET qty = GREATEST(COALESCE(qty, 0) - $1::numeric, 0),
@@ -1056,13 +1090,13 @@ export class WmsService {
         String(user?.userId || user?.username || 'SYS'),
         order.store_code || batch.store_code || 'ALL',
         orderNo,
-        `出库 type=${order.type || 'SALE'} status=${nextStatus} batch=${batchNo} product=${batch.product_code || '-'} sku=${batch.sku_code || '-'} material=${batch.material_code || '-'} qty=${qty}`,
+        `出库 type=${outboundPolicy.type} status=${nextStatus} batch=${batchNo} product=${batch.product_code || '-'} sku=${batch.sku_code || '-'} material=${batch.material_code || '-'} qty=${qty}`,
         batch.sku_code || null,
-        resolveOutboundLedgerType(order.type || 'SALE'),
+        resolveOutboundLedgerType(outboundPolicy.type),
         batch.material_code || order.material_code || null,
         batch.warehouse_code || order.warehouse_code || null,
         order.company_code || null,
-        order.type || 'SALE',
+        outboundPolicy.businessType,
         order.destination_type || null,
         resolveOutboundDestinationCode(order) || null,
         order.project_code || null,
@@ -1308,6 +1342,27 @@ export class WmsService {
     if (!Array.isArray(items) || items.length === 0) {
       return { code: 400, msg: '调拨明细 items 必填' };
     }
+    const invalidLines = items.flatMap((item: any, index: number) => {
+      const qty = Number(item?.qty);
+      const errors: string[] = [];
+      if (!this.nonEmptyString(item?.batch_no)) errors.push(`第 ${index + 1} 行批次号必填`);
+      if (!Number.isFinite(qty) || qty <= 0 || Math.abs(Math.round(qty * 1000) - qty * 1000) > 1e-7) {
+        errors.push(`第 ${index + 1} 行调拨数量必须大于 0，且最多保留 3 位小数`);
+      }
+      return errors;
+    });
+    if (invalidLines.length > 0) {
+      throw new BadRequestException({
+        code: 400,
+        msg: '调拨业务校验失败',
+        errors: invalidLines,
+      });
+    }
+    const transferOutPolicy = resolveOutboundPolicy('TRANSFER');
+    const transferInPolicy = resolveInboundPolicy('TRANSFER_RECEIVE');
+    if (!transferOutPolicy || !transferInPolicy) {
+      throw new BadRequestException('库存调拨策略不可用');
+    }
 
     const transferNo = body.transfer_no ||
       `TR-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
@@ -1318,47 +1373,84 @@ export class WmsService {
         `INSERT INTO wms_transfer (transfer_no, from_warehouse, to_warehouse, status, operator_id, created_at, updated_at)
          VALUES ($1, $2, $3, 'COMPLETED', $4, now(), now())`,
         [transferNo, from_warehouse, to_warehouse, user?.userId || null],
-      ).catch((e: any) => {
-        console.warn('[confirmTransfer][WARN] wms_transfer INSERT skipped:', e?.message);
-      });
+      );
 
       // 2) + 3) 逐 batch 原子扣减 + 增加
       const opName = String(user?.username || operator || 'SYS');
       for (const it of items) {
-        const qty = Number(it?.qty) || 0;
-        if (qty <= 0 || !it?.batch_no) continue;
+        const qty = Number(it.qty);
 
         const [src] = await manager.query(
-          `SELECT batch_no, product_code, qty, expire_date, store_code, warehouse_code
+          `SELECT batch_no, product_code, sku_code, material_code, item_type, material_type,
+                  unit, qty, qty_available, status, expire_date, store_code, warehouse_code
              FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
           [it.batch_no],
         );
         if (!src) throw new Error(`源 batch ${it.batch_no} 不存在`);
         this.assertWritableWarehouse(src.warehouse_code, `调拨源批次 ${it.batch_no}`);
-        if (Number(src.qty) < qty) throw new Error(`源 batch ${it.batch_no} 余量 ${src.qty} 不足 ${qty}`);
+        if (src.warehouse_code !== from_warehouse) {
+          throw new BadRequestException(
+            `源 batch ${it.batch_no} 属于仓库 ${src.warehouse_code || '-'}，与调拨源仓库 ${from_warehouse} 不一致`,
+          );
+        }
+        if (String(src.status || 'AVAILABLE').toUpperCase() !== 'AVAILABLE') {
+          throw new BadRequestException(`源 batch ${it.batch_no} 状态 ${src.status} 不允许调拨`);
+        }
+        const available = Number(src.qty_available ?? src.qty) || 0;
+        if (available < qty) throw new Error(`源 batch ${it.batch_no} 可用量 ${available} 不足 ${qty}`);
 
         // 源 -
         await manager.query(
-          `UPDATE inv_batches SET qty = qty - $1::int, updated_at = now() WHERE batch_no = $2`,
+          `UPDATE inv_batches
+              SET qty = GREATEST(COALESCE(qty, 0) - $1::numeric, 0),
+                  qty_available = CASE
+                    WHEN qty_available IS NULL THEN NULL
+                    ELSE GREATEST(qty_available - $1::numeric, 0)
+                  END,
+                  updated_at = now()
+            WHERE batch_no = $2`,
           [qty, it.batch_no],
         );
         await manager.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, 'TRANSFER_OUT', -$2::int, $3, $4, $5, $6)`,
-          [it.batch_no, qty, opName, src.store_code || 'ALL', transferNo, `调拨出 → ${to_warehouse}`],
+          `INSERT INTO inv_ledger (
+             batch_no, change_type, qty_change, operator, store_code, ref_no, note,
+             sku_code, material_code, warehouse_code, business_type, unit
+           )
+           VALUES ($1, $7, -$2::numeric, $3, $4, $5, $6, $8, $9, $10, $11, $12)`,
+          [
+            it.batch_no, qty, opName, src.store_code || 'ALL', transferNo,
+            `调拨出 → ${to_warehouse}`, transferOutPolicy.ledgerType,
+            src.sku_code || null, src.material_code || null, from_warehouse,
+            transferOutPolicy.businessType, src.unit || null,
+          ],
         );
 
         // 目标 + （新建一条目标 batch，追溯链保留）
         const dstBatchNo = `${it.batch_no}-T-${Math.random().toString(36).slice(2,5).toUpperCase()}`;
         await manager.query(
-          `INSERT INTO inv_batches (batch_no, product_code, qty, warehouse_code, location_code, expire_date, store_code)
-           VALUES ($1, $2, $3::int, $4, $5, $6, $7)`,
-          [dstBatchNo, src.product_code, qty, to_warehouse, 'TRANSFER-IN', src.expire_date, src.store_code || 'ALL'],
+          `INSERT INTO inv_batches (
+             batch_no, product_code, sku_code, material_code, item_type, material_type,
+             unit, qty, qty_available, status, warehouse_code, location_code, expire_date, store_code
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12)`,
+          [
+            dstBatchNo, src.product_code || null, src.sku_code || null, src.material_code || null,
+            src.item_type || null, src.material_type || null, src.unit || null, qty,
+            to_warehouse, 'TRANSFER-IN', src.expire_date, src.store_code || 'ALL',
+          ],
         );
         await manager.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, 'TRANSFER_IN', $2::int, $3, $4, $5, $6)`,
-          [dstBatchNo, qty, opName, src.store_code || 'ALL', transferNo, `调拨入 ← ${from_warehouse} 源 batch=${it.batch_no}`],
+          `INSERT INTO inv_ledger (
+             batch_no, change_type, qty_change, operator, store_code, ref_no, note,
+             sku_code, material_code, warehouse_code, business_type, unit
+           )
+           VALUES ($1, $7, $2::numeric, $3, $4, $5, $6, $8, $9, $10, $11, $12)`,
+          [
+            dstBatchNo, qty, opName, src.store_code || 'ALL', transferNo,
+            `调拨入 ← ${from_warehouse} 源 batch=${it.batch_no}`, transferInPolicy.ledgerType,
+            src.sku_code || null, src.material_code || null, to_warehouse,
+            transferInPolicy.businessType, src.unit || null,
+          ],
         );
       }
 
@@ -1396,25 +1488,42 @@ export class WmsService {
       // 差额必须有 batch_no 才能真扣账
       if (batch_no && diff !== 0) {
         const batchRows = await manager.query(
-          `SELECT warehouse_code FROM inv_batches WHERE batch_no = $1 LIMIT 1`,
+          `SELECT warehouse_code, store_code, qty, qty_available
+             FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
           [batch_no],
         );
         if (!batchRows.length) throw new Error(`batch ${batch_no} 不存在`);
-        this.assertWritableWarehouse(batchRows[0].warehouse_code, `盘点批次 ${batch_no}`);
+        const batch = batchRows[0];
+        this.assertWritableWarehouse(batch.warehouse_code, `盘点批次 ${batch_no}`);
+        const nextQty = Number(batch.qty || 0) + diff;
+        if (nextQty < 0) {
+          throw new BadRequestException(`盘亏后库存不能为负：当前 ${batch.qty}，差额 ${diff}`);
+        }
         await manager.query(
-          `UPDATE inv_batches SET qty = qty + $1::int, updated_at = now() WHERE batch_no = $2`,
+          `UPDATE inv_batches
+              SET qty = COALESCE(qty, 0) + $1::numeric,
+                  qty_available = CASE
+                    WHEN qty_available IS NULL THEN NULL
+                    ELSE GREATEST(qty_available + $1::numeric, 0)
+                  END,
+                  updated_at = now()
+            WHERE batch_no = $2`,
           [diff, batch_no],
         );
         await manager.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, $2, $3::int, $4, 'ALL', $5, $6)`,
+          `INSERT INTO inv_ledger (
+             batch_no, change_type, qty_change, operator, store_code, ref_no, note, business_type
+           )
+           VALUES ($1, $2, $3::numeric, $4, $5, $6, $7, $8)`,
           [
             batch_no,
             diff > 0 ? 'STOCKTAKE_UP' : 'STOCKTAKE_DOWN',
             diff,
             opName,
+            batch.store_code || 'ALL',
             stocktake_no,
             `盘点差额 item=${item || '—'} diff=${diff}`,
+            diff > 0 ? 'STOCKTAKE_GAIN' : 'STOCKTAKE_LOSS',
           ],
         );
       }
@@ -1583,19 +1692,34 @@ export class WmsService {
 
       if (batch_no) {
         const batchRows = await manager.query(
-          `SELECT warehouse_code FROM inv_batches WHERE batch_no = $1 LIMIT 1`,
+          `SELECT warehouse_code, store_code, qty, qty_available
+             FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
           [batch_no],
         );
         if (!batchRows.length) throw new Error(`batch ${batch_no} 不存在`);
-        this.assertWritableWarehouse(batchRows[0].warehouse_code, `损耗批次 ${batch_no}`);
+        const batch = batchRows[0];
+        this.assertWritableWarehouse(batch.warehouse_code, `损耗批次 ${batch_no}`);
+        const available = Number(batch.qty_available ?? batch.qty) || 0;
+        if (available < qty) {
+          throw new BadRequestException(`损耗数量 ${qty} 超过批次 ${batch_no} 可用库存 ${available}`);
+        }
         await manager.query(
-          `UPDATE inv_batches SET qty = qty - $1::int, updated_at = now() WHERE batch_no = $2`,
+          `UPDATE inv_batches
+              SET qty = GREATEST(COALESCE(qty, 0) - $1::numeric, 0),
+                  qty_available = CASE
+                    WHEN qty_available IS NULL THEN NULL
+                    ELSE GREATEST(qty_available - $1::numeric, 0)
+                  END,
+                  updated_at = now()
+            WHERE batch_no = $2`,
           [qty, batch_no],
         );
         await manager.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, 'LOSS', -$2::int, $3, 'ALL', $4, $5)`,
-          [batch_no, qty, opName, loss_no, `损耗 ${reason || '未填'} qty=${qty}`],
+          `INSERT INTO inv_ledger (
+             batch_no, change_type, qty_change, operator, store_code, ref_no, note, business_type
+           )
+           VALUES ($1, 'LOSS', -$2::numeric, $3, $4, $5, $6, 'SCRAP')`,
+          [batch_no, qty, opName, batch.store_code || 'ALL', loss_no, `损耗 ${reason || '未填'} qty=${qty}`],
         );
       }
 

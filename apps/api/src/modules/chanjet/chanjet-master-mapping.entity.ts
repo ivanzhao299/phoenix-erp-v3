@@ -12,6 +12,7 @@ export type ChanjetMappingType =
   | 'PROJECT'
   | 'WAREHOUSE'
   | 'PRODUCT'
+  | 'UOM'
   | 'CURRENCY'
   | 'SHAREHOLDER';
 

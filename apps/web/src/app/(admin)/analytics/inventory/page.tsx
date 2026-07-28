@@ -191,6 +191,19 @@ export default function InventoryAnalyticsPage() {
         }
       />
 
+      <div style={{
+        marginBottom: 16,
+        padding: "10px 12px",
+        borderRadius: "var(--radius-md)",
+        border: "1px solid #bfdbfe",
+        background: "#eff6ff",
+        color: "#1e3a8a",
+        fontSize: 12,
+        lineHeight: 1.6,
+      }}>
+        {t("analytics.inventory_source_note", "统计来源：ERP 批次库存汇总。外部财务库存用于差异核验；本接口未返回外部对账结果时，页面不推测一致性。")}
+      </div>
+
       {/* 错误提示 */}
       {error && (
         <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderRadius: "var(--radius-md)", border: "1px solid color-mix(in srgb,var(--status-danger) 25%,transparent)", background: "color-mix(in srgb,var(--status-danger) 10%,var(--bg-card))", color: "var(--status-danger)", fontSize: 13 }}>

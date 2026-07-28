@@ -17,6 +17,14 @@ import {
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
+import {
+  getWmsScopeFreshness,
+  isPermissionFailure,
+  isWmsMappingType,
+  isWmsReconciliationType,
+  summarizeWmsScopes,
+  type WmsScopeEvidence,
+} from './wms-view-model';
 
 type TabKey = 'readiness' | 'governance' | 'adapter' | 'coverage' | 'readonlyAdapters' | 'wmsAlignment' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'statementReports' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
 
@@ -45,8 +53,11 @@ interface WmsReadonlyAlignment {
   decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
   summary: {
     enabledBooks: number;
+    inventoryContracts: number;
     expectedScopes: number;
     freshScopes: number;
+    failedScopes: number;
+    sourceRows: number;
     sourceDocuments: number;
     sourceLines: number;
     officialFieldCount: number;
@@ -69,12 +80,7 @@ interface WmsReadonlyAlignment {
       storage: string;
     }>;
   }>;
-  scopes: Array<{
-    entityType: string;
-    bookId: string;
-    bookName: string;
-    latestPulledAt: string | null;
-  }>;
+  scopes: WmsScopeEvidence[];
   documentPreview: Array<{
     entityType: string;
     bookId: string;
@@ -89,6 +95,23 @@ interface WmsReadonlyAlignment {
   documentPreviewTruncated: boolean;
   missingColumns: string[];
   conditions: string[];
+}
+
+interface WmsBridgeReadiness {
+  decision: 'GO_WITH_CONDITIONS' | 'HOLD';
+  activeBookCount: number;
+  sourceDocumentCount: number;
+  promotionCandidateCount: number;
+  promotionStates: Record<string, number>;
+  writebackOutboxCount: number;
+  writebackStates: Record<string, number>;
+  guardrails: {
+    chanjetReadOnly: true;
+    externalWriteEnabled: false;
+    externalExecutionEndpointExposed: false;
+    automaticBusinessTablePromotion: false;
+    manualReviewRequired: true;
+  };
 }
 
 interface AccountBook {
@@ -822,6 +845,7 @@ export default function ChanjetIntegrationPage() {
   const [receiptPaymentLocks, setReceiptPaymentLocks] = useState<ReceiptPaymentLocksOverview | null>(null);
   const [readonlyFieldAdapters, setReadonlyFieldAdapters] = useState<ReadonlyFieldAdaptersOverview | null>(null);
   const [wmsAlignment, setWmsAlignment] = useState<WmsReadonlyAlignment | null>(null);
+  const [wmsBridge, setWmsBridge] = useState<WmsBridgeReadiness | null>(null);
   const [baselineReadiness, setBaselineReadiness] = useState<MirrorBaselineReadiness | null>(null);
   const [accountBookGate, setAccountBookGate] = useState<AccountBookMappingGate | null>(null);
   const [counterpartyCandidates, setCounterpartyCandidates] = useState<CounterpartyCandidateOverview | null>(null);
@@ -847,7 +871,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, outboxResp, writebackPreparationResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, wmsAlignmentResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, outboxResp, writebackPreparationResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, wmsAlignmentResp, wmsBridgeResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -869,6 +893,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; receiptPaymentLocks: ReceiptPaymentLocksOverview; error?: string }>('/chanjet/integration/receipt-payment-locks'),
         request<{ success: boolean; readonlyFieldAdapters: ReadonlyFieldAdaptersOverview; error?: string }>('/chanjet/integration/readonly-field-adapters'),
         request<{ success: boolean; alignment: WmsReadonlyAlignment; error?: string }>('/chanjet/integration/wms-readonly-alignment'),
+        request<{ success: boolean; bridge: WmsBridgeReadiness; error?: string }>('/chanjet/integration/wms/bridge-readiness'),
         request<{ success: boolean; baseline: MirrorBaselineReadiness; error?: string }>('/chanjet/integration/baseline-readiness?freshnessHours=24'),
         request<{ success: boolean; gate: AccountBookMappingGate; error?: string }>('/chanjet/integration/account-book-mapping-gate'),
         request<{ success: boolean; candidateOverview: CounterpartyCandidateOverview; error?: string }>('/chanjet/integration/counterparty-mapping-candidates'),
@@ -896,6 +921,7 @@ export default function ChanjetIntegrationPage() {
       setReceiptPaymentLocks(receiptPaymentLocksResp.receiptPaymentLocks || null);
       setReadonlyFieldAdapters(readonlyFieldAdaptersResp.readonlyFieldAdapters || null);
       setWmsAlignment(wmsAlignmentResp.alignment || null);
+      setWmsBridge(wmsBridgeResp.bridge || null);
       setBaselineReadiness(baselineResp.baseline || null);
       setAccountBookGate(accountBookGateResp.gate || null);
       setCounterpartyCandidates(counterpartyCandidateResp.candidateOverview || null);
@@ -922,6 +948,33 @@ export default function ChanjetIntegrationPage() {
     { label: '字段差异', value: overview?.fieldMappings ?? 0, sub: `${overview?.unmappedFields ?? 0} 个待归类字段`, icon: GitCompareArrows },
     { label: '开放差异', value: overview?.openReconciliationIssues ?? 0, sub: `${overview?.failedJobs ?? 0} 个失败作业`, icon: AlertTriangle },
   ], [overview]);
+
+  const wmsScopeSummary = useMemo(
+    () => summarizeWmsScopes(wmsAlignment?.scopes || []),
+    [wmsAlignment],
+  );
+  const wmsMappings = useMemo(
+    () => mappings.filter((mapping) => isWmsMappingType(mapping.mappingType)),
+    [mappings],
+  );
+  const wmsReconciliation = useMemo(
+    () => reconciliation.filter((item) => (
+      isWmsReconciliationType(item.reconciliationType, item.subjectType)
+    )),
+    [reconciliation],
+  );
+  const wmsMappingSummary = useMemo(() => ({
+    total: wmsMappings.length,
+    approved: wmsMappings.filter((mapping) => mapping.reviewStatus === 'APPROVED').length,
+    pending: wmsMappings.filter((mapping) => mapping.reviewStatus === 'PENDING').length,
+    conflicts: wmsMappings.filter((mapping) => mapping.matchStatus === 'CONFLICT').length,
+  }), [wmsMappings]);
+  const wmsReconciliationSummary = useMemo(() => ({
+    total: wmsReconciliation.length,
+    open: wmsReconciliation.filter((item) => !item.resolved).length,
+    hold: wmsReconciliation.filter((item) => item.status === 'HOLD').length,
+    mismatch: wmsReconciliation.filter((item) => item.status === 'MISMATCH').length,
+  }), [wmsReconciliation]);
 
   async function runAction(label: string, action: () => Promise<unknown>) {
     if (!canEdit) return;
@@ -1705,90 +1758,293 @@ export default function ChanjetIntegrationPage() {
       )}
 
       {tab === 'wmsAlignment' && (
-        <section style={cardStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
-            <div>
-              <strong>{t('ui.好业财入库销售出库只读对齐', '好业财入库 / 销售出库只读对齐')}</strong>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
-                {t('ui.库存只读对齐说明', '官方账套接口逐页读取，原始字段无损保存在中间层；ERP 业务表只展示字段适配状态，本页不会写好业财或库存业务表。')}
+        <section style={{ display: 'grid', gap: 14 }}>
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+              <div>
+                <strong>{t('ui.好业财库存只读对齐', '好业财库存只读对齐')}</strong>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4, maxWidth: 900 }}>
+                  {t('ui.库存只读对齐说明', '管理员可查看 11 类库存接口 × 启用账套的同步证据、字段覆盖、主数据映射和差异状态。本页只读好业财并写入受控镜像，不改 ERP 库存事实。')}
+                </div>
               </div>
+              <Badge tone={statusTone(wmsAlignment?.decision || 'HOLD')}>
+                {wmsAlignment?.decision || t('ui.未取得证据', '未取得证据')}
+              </Badge>
             </div>
-            <Badge tone={statusTone(wmsAlignment?.decision || 'HOLD')}>{wmsAlignment?.decision || t('ui.未加载', '未加载')}</Badge>
           </div>
+
           {wmsAlignment ? (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
                 {[
-                  [t('ui.账套Scope', '账套 Scope'), `${wmsAlignment.summary.freshScopes}/${wmsAlignment.summary.expectedScopes}`],
-                  [t('ui.好业财单据', '好业财单据'), wmsAlignment.summary.sourceDocuments],
-                  [t('ui.单据明细', '单据明细'), wmsAlignment.summary.sourceLines],
-                  [t('ui.官方字段', '官方字段'), wmsAlignment.summary.officialFieldCount],
-                  [t('ui.ERP字段覆盖', 'ERP 字段覆盖'), `${wmsAlignment.summary.erpBusinessColumnCoverage}%`],
-                ].map(([label, value]) => (
-                  <div key={String(label)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12 }}>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{label}</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, marginTop: 5 }}>{value}</div>
-                  </div>
-                ))}
+                  {
+                    label: t('ui.接口账套范围', '接口账套范围'),
+                    value: `${wmsAlignment.summary.inventoryContracts} × ${wmsAlignment.summary.enabledBooks}`,
+                    sub: `${wmsAlignment.summary.expectedScopes} scope`,
+                    tone: 'blue' as const,
+                  },
+                  {
+                    label: t('ui.同步新鲜度', '同步新鲜度'),
+                    value: `${wmsScopeSummary.fresh}/${wmsScopeSummary.total}`,
+                    sub: `${wmsScopeSummary.stale} 过期 · ${wmsScopeSummary.missing} 缺失`,
+                    tone: wmsScopeSummary.fresh === wmsScopeSummary.total ? 'green' as const : 'amber' as const,
+                  },
+                  {
+                    label: t('ui.最近同步失败', '最近同步失败'),
+                    value: wmsScopeSummary.failed,
+                    sub: `${wmsScopeSummary.permissionFailures} 个接口权限阻断`,
+                    tone: wmsScopeSummary.failed ? 'red' as const : 'green' as const,
+                  },
+                  {
+                    label: t('ui.镜像数据量', '镜像数据量'),
+                    value: wmsAlignment.summary.sourceRows.toLocaleString('zh-CN'),
+                    sub: `${wmsAlignment.summary.sourceDocuments.toLocaleString('zh-CN')} 单 · ${wmsAlignment.summary.sourceLines.toLocaleString('zh-CN')} 行`,
+                    tone: 'blue' as const,
+                  },
+                  {
+                    label: t('ui.ERP字段覆盖', 'ERP 字段覆盖'),
+                    value: `${wmsAlignment.summary.erpBusinessColumnCoverage}%`,
+                    sub: `${wmsAlignment.summary.missingBusinessColumns} 个业务字段缺口`,
+                    tone: wmsAlignment.summary.missingBusinessColumns ? 'amber' as const : 'green' as const,
+                  },
+                  {
+                    label: t('ui.无损镜像覆盖', '无损镜像覆盖'),
+                    value: `${wmsAlignment.summary.losslessMirrorCoverage}%`,
+                    sub: `${wmsAlignment.summary.officialFieldCount} 个已声明官方字段`,
+                    tone: wmsAlignment.summary.losslessMirrorCoverage === 100 ? 'green' as const : 'amber' as const,
+                  },
+                ].map((item) => {
+                  const tone = {
+                    green: ['#dcfce7', '#166534'],
+                    amber: ['#fef3c7', '#92400e'],
+                    red: ['#fee2e2', '#991b1b'],
+                    blue: ['#dbeafe', '#1d4ed8'],
+                  }[item.tone];
+                  return (
+                    <div key={item.label} style={{ ...cardStyle, padding: 14, borderTop: `3px solid ${tone[1]}` }}>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>{item.label}</div>
+                      <div style={{ fontSize: 24, fontWeight: 800, marginTop: 8, color: 'var(--text-primary)' }}>{item.value}</div>
+                      <div style={{ fontSize: 12, color: tone[1], marginTop: 5 }}>{item.sub}</div>
+                    </div>
+                  );
+                })}
               </div>
-              {wmsAlignment.conditions.length > 0 && (
-                <div style={{ border: '1px solid var(--warning-border)', background: 'var(--warning-bg)', borderRadius: 6, padding: 12, marginBottom: 16 }}>
-                  <strong>{t('ui.条件项', '条件项')}</strong>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 5 }}>
-                    {wmsAlignment.conditions.join('；')}
+
+              {(wmsAlignment.conditions.length > 0 || wmsScopeSummary.permissionFailures > 0) && (
+                <div style={{ ...cardStyle, borderColor: 'var(--warning-border)', background: 'var(--warning-bg)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <AlertTriangle size={17} color="var(--status-warning)" />
+                    <strong>{t('ui.阻断与条件项', '阻断与条件项')}</strong>
                   </div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 8 }}>
+                    {wmsAlignment.conditions.length
+                      ? wmsAlignment.conditions.join('；')
+                      : t('ui.无额外条件', '无额外条件')}
+                  </div>
+                  {wmsAlignment.scopes.filter((scope) => isPermissionFailure(scope.latestSyncError)).map((scope) => (
+                    <div key={`${scope.endpointKey}:${scope.bookId}`} style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-card)', border: '1px solid var(--warning-border)', fontSize: 12 }}>
+                      <strong>{scope.label}</strong> · {scope.bookName || scope.bookId}
+                      <div style={{ color: 'var(--status-danger)', marginTop: 3 }}>{scope.latestSyncError}</div>
+                    </div>
+                  ))}
                 </div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14, marginBottom: 16 }}>
-                {wmsAlignment.contracts.map((definition) => (
-                  <div key={definition.key} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 14 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                      <strong>{definition.label}</strong>
-                      <Badge tone="blue">{definition.fields.length} {t('ui.字段', '字段')}</Badge>
+
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  <div>
+                    <strong>{t('ui.库存同步Scope明细', '库存同步 Scope 明细')}</strong>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 3 }}>
+                      {t('ui.Scope明细说明', '每个接口与账套独立判定；失败、缺失或超过 24 小时均不会显示为正常。')}
                     </div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 8 }}>{definition.method} {definition.path}</div>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>
-                      {t('ui.状态', '状态')} {definition.statusValues.join(' / ')} · {t('ui.必填字段', '必填字段')} {definition.fields.filter((field) => field.required).length}
-                    </div>
-                    <a href={definition.reference} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 8 }}>
-                      {t('ui.查看官方接口契约', '查看官方接口契约')}
-                    </a>
                   </div>
-                ))}
-              </div>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('ui.字段覆盖与缺口', '字段覆盖与缺口')}</div>
-              <table style={tableStyle}>
-                <thead>
-                  <tr>{[
-                    t('ui.好业财字段', '好业财字段'),
-                    t('ui.标准字段', '标准字段'),
-                    t('ui.ERP落点', 'ERP 落点'),
-                    t('ui.必填', '必填'),
-                    t('ui.存储策略', '存储策略'),
-                  ].map((heading) => (
-                    <th key={heading} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{heading}</th>
-                  ))}</tr>
-                </thead>
-                <tbody>
-                  {wmsAlignment.contracts.flatMap((contract) => contract.fields.map((field) => (
-                    <tr key={`${contract.key}:${field.sourcePath}:${field.canonicalField}`}>
-                      <td style={cellStyle}>{contract.key}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{field.sourcePath}</div></td>
-                      <td style={cellStyle}>{field.canonicalField}</td>
-                      <td style={cellStyle}>{field.erpTarget}</td>
-                      <td style={cellStyle}>{field.required ? <Badge tone="amber">{t('ui.必填', '必填')}</Badge> : '—'}</td>
-                      <td style={cellStyle}><Badge tone={field.storage === 'BUSINESS_COLUMN' ? 'blue' : 'muted'}>{field.storage}</Badge></td>
-                    </tr>
-                  )))}
-                </tbody>
-              </table>
-              {wmsAlignment.missingColumns.length > 0 && (
-                <div style={{ marginTop: 12, color: 'var(--danger)' }}>
-                  {t('ui.尚缺业务列', '尚缺业务列：')}{wmsAlignment.missingColumns.join('、')}
+                  <Badge tone={wmsScopeSummary.fresh === wmsScopeSummary.total ? 'green' : 'amber'}>
+                    {wmsScopeSummary.total}/{wmsAlignment.summary.expectedScopes}
+                  </Badge>
                 </div>
-              )}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ ...tableStyle, minWidth: 960 }}>
+                    <thead>
+                      <tr>{[
+                        t('ui.账套', '账套'),
+                        t('ui.库存接口', '库存接口'),
+                        t('ui.镜像行数', '镜像行数'),
+                        t('ui.最近成功同步', '最近成功同步'),
+                        t('ui.证据状态', '证据状态'),
+                        t('ui.失败原因', '失败原因'),
+                      ].map((heading) => (
+                        <th key={heading} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{heading}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody>
+                      {[...wmsAlignment.scopes]
+                        .sort((a, b) => {
+                          const rank = { FAILED: 0, MISSING: 1, STALE: 2, FRESH: 3 };
+                          return rank[getWmsScopeFreshness(a)] - rank[getWmsScopeFreshness(b)]
+                            || a.bookName.localeCompare(b.bookName)
+                            || a.label.localeCompare(b.label);
+                        })
+                        .map((scope) => {
+                          const freshness = getWmsScopeFreshness(scope);
+                          const freshnessLabel = {
+                            FRESH: t('ui.新鲜', '新鲜'),
+                            STALE: t('ui.已过期', '已过期'),
+                            MISSING: t('ui.缺少证据', '缺少证据'),
+                            FAILED: t('ui.同步失败', '同步失败'),
+                          }[freshness];
+                          return (
+                            <tr key={`${scope.endpointKey}:${scope.bookId}`}>
+                              <td style={cellStyle}><strong>{scope.bookName || scope.bookId}</strong><div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{scope.bookId}</div></td>
+                              <td style={cellStyle}>{scope.label}<div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{scope.endpointKey}</div></td>
+                              <td style={cellStyle}>{Number(scope.sourceRows || 0).toLocaleString('zh-CN')}</td>
+                              <td style={cellStyle}>{fmtDate(scope.latestPulledAt)}</td>
+                              <td style={cellStyle}><Badge tone={statusTone(freshness)}>{freshnessLabel}</Badge></td>
+                              <td style={{ ...cellStyle, color: scope.latestSyncError ? 'var(--status-danger)' : 'var(--text-secondary)', maxWidth: 360 }}>
+                                {scope.latestSyncError || '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 14 }}>
+                <div style={cardStyle}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <strong>{t('ui.WMS主数据映射', 'WMS 主数据映射')}</strong>
+                    <Badge tone={wmsMappingSummary.pending || wmsMappingSummary.conflicts ? 'amber' : wmsMappingSummary.total ? 'green' : 'amber'}>
+                      {wmsMappingSummary.total ? `${wmsMappingSummary.approved}/${wmsMappingSummary.total}` : t('ui.未取得映射证据', '未取得映射证据')}
+                    </Badge>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 10 }}>
+                    {wmsMappingSummary.total
+                      ? `${t('ui.已批准', '已批准')} ${wmsMappingSummary.approved} · ${t('ui.待审核', '待审核')} ${wmsMappingSummary.pending} · ${t('ui.冲突', '冲突')} ${wmsMappingSummary.conflicts}`
+                      : t('ui.WMS映射缺失说明', '未返回公司、仓库、商品、部门、项目或币种映射，自动对齐保持关闭。')}
+                  </div>
+                  {wmsMappings.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                      {Array.from(new Set(wmsMappings.map((mapping) => mapping.mappingType))).map((mappingType) => (
+                        <Badge key={mappingType} tone="blue">{mappingType}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <strong>{t('ui.WMS对账差异', 'WMS 对账差异')}</strong>
+                    <Badge tone={!wmsReconciliationSummary.total ? 'amber' : wmsReconciliationSummary.open ? 'red' : 'green'}>
+                      {!wmsReconciliationSummary.total
+                        ? t('ui.未取得对账证据', '未取得对账证据')
+                        : `${wmsReconciliationSummary.open} ${t('ui.项待处理', '项待处理')}`}
+                    </Badge>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 10 }}>
+                    {wmsReconciliationSummary.total
+                      ? `${t('ui.总计', '总计')} ${wmsReconciliationSummary.total} · MISMATCH ${wmsReconciliationSummary.mismatch} · HOLD ${wmsReconciliationSummary.hold}`
+                      : t('ui.WMS对账缺失说明', '当前接口未返回库存专属差异记录；页面不会把“无记录”解释为“两端一致”。')}
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <strong>{t('ui.WMS晋级候选', 'WMS 晋级候选')}</strong>
+                    <Badge tone={wmsBridge?.decision === 'GO_WITH_CONDITIONS' ? 'amber' : 'red'}>
+                      {wmsBridge?.decision || 'HOLD'}
+                    </Badge>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 10 }}>
+                    {wmsBridge
+                      ? `${t('ui.只读源单据', '只读源单据')} ${wmsBridge.sourceDocumentCount} · ${t('ui.候选', '候选')} ${wmsBridge.promotionCandidateCount}`
+                      : t('ui.WMS桥接证据缺失', '桥接状态未返回，禁止自动晋级到 ERP 库存事实表。')}
+                  </div>
+                  {wmsBridge && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                      {Object.entries(wmsBridge.promotionStates).map(([state, count]) => (
+                        <Badge key={state} tone={statusTone(state)}>{state} {count}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <strong>{t('ui.WMS写回边界', 'WMS 写回边界')}</strong>
+                    <Badge tone="green">{t('ui.外部写入关闭', '外部写入关闭')}</Badge>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 10 }}>
+                    {wmsBridge
+                      ? `${t('ui.本地草稿', '本地草稿')} ${wmsBridge.writebackOutboxCount} · ${t('ui.自动晋级', '自动晋级')} ${wmsBridge.guardrails.automaticBusinessTablePromotion ? t('common.yes', '是') : t('common.no', '否')}`
+                      : t('ui.WMS写回证据缺失', '未取得 WMS Outbox 状态；任何写回操作保持不可用。')}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                    <Badge tone="green">{t('ui.好业财只读', '好业财只读')}</Badge>
+                    <Badge tone="green">{t('ui.无执行端点', '无执行端点')}</Badge>
+                    <Badge tone="amber">{t('ui.必须人工复核', '必须人工复核')}</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <div style={{ fontWeight: 700, marginBottom: 10 }}>{t('ui.接口与字段合同', '接口与字段合同')}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 10, marginBottom: 16 }}>
+                  {wmsAlignment.contracts.map((definition) => (
+                    <div key={definition.key} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                        <strong>{definition.label}</strong>
+                        <Badge tone="blue">{definition.fields.length} {t('ui.字段', '字段')}</Badge>
+                      </div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 8, overflowWrap: 'anywhere' }}>{definition.method} {definition.path}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>
+                        {t('ui.状态', '状态')} {definition.statusValues.join(' / ') || '—'} · {t('ui.必填字段', '必填字段')} {definition.fields.filter((field) => field.required).length}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {wmsAlignment.contracts.some((contract) => contract.fields.length > 0) && (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ ...tableStyle, minWidth: 820 }}>
+                      <thead>
+                        <tr>{[
+                          t('ui.好业财字段', '好业财字段'),
+                          t('ui.标准字段', '标准字段'),
+                          t('ui.ERP落点', 'ERP 落点'),
+                          t('ui.必填', '必填'),
+                          t('ui.存储策略', '存储策略'),
+                        ].map((heading) => (
+                          <th key={heading} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{heading}</th>
+                        ))}</tr>
+                      </thead>
+                      <tbody>
+                        {wmsAlignment.contracts.flatMap((contract) => contract.fields.map((field) => (
+                          <tr key={`${contract.key}:${field.sourcePath}:${field.canonicalField}`}>
+                            <td style={cellStyle}>{contract.key}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{field.sourcePath}</div></td>
+                            <td style={cellStyle}>{field.canonicalField}</td>
+                            <td style={cellStyle}>{field.erpTarget}</td>
+                            <td style={cellStyle}>{field.required ? <Badge tone="amber">{t('ui.必填', '必填')}</Badge> : '—'}</td>
+                            <td style={cellStyle}><Badge tone={field.storage === 'BUSINESS_COLUMN' ? 'blue' : 'muted'}>{field.storage}</Badge></td>
+                          </tr>
+                        )))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {wmsAlignment.missingColumns.length > 0 && (
+                  <div style={{ marginTop: 12, color: 'var(--status-danger)', fontSize: 13 }}>
+                    {t('ui.尚缺业务列', '尚缺业务列：')}{wmsAlignment.missingColumns.join('、')}
+                  </div>
+                )}
+              </div>
             </>
           ) : (
-            <div style={{ color: 'var(--text-secondary)' }}>{t('ui.对齐数据尚未加载', '对齐数据尚未加载。')}</div>
+            <div style={{ ...cardStyle, borderColor: 'var(--warning-border)', background: 'var(--warning-bg)' }}>
+              <strong>{t('ui.库存对齐证据不可用', '库存对齐证据不可用')}</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 6 }}>
+                {t('ui.对齐数据尚未加载', '未取得后端库存对齐证据，所有 scope、覆盖率、映射和差异均保持未知，不展示推测数据。')}
+              </div>
+            </div>
           )}
         </section>
       )}

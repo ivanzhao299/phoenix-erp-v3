@@ -209,6 +209,39 @@ function SkuBadge({
   }}>{skuCode}</span>;
 }
 
+function InventorySourceTrace({ batch }: { batch: InvBatch }) {
+  const { t } = useLanguage();
+  const sourceType = String(batch.source_type || '').toUpperCase();
+  const sourceLabel = sourceType.includes('PACK')
+    ? t('ui.包装完工', '包装完工')
+    : sourceType.includes('PRODUCTION')
+      ? t('ui.生产入库', '生产入库')
+      : sourceType.includes('PURCHASE')
+        ? t('ui.采购入库', '采购入库')
+        : sourceType.includes('RETURN')
+          ? t('ui.退货入库', '退货入库')
+          : sourceType.includes('CHANJET')
+            ? t('ui.外部库存参考', '外部库存参考')
+            : batch.source_type || t('ui.ERP库存台账', 'ERP 库存台账');
+  const hasSourceEvidence = Boolean(batch.source_type || batch.source_no);
+
+  return (
+    <div style={{ display: 'grid', gap: 4, minWidth: 0 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: hasSourceEvidence ? 'var(--text-primary)' : 'var(--status-warning)' }}>
+        {hasSourceEvidence ? sourceLabel : t('ui.来源未关联', '来源未关联')}
+      </div>
+      {batch.source_no && (
+        <div title={batch.source_no} style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {batch.source_no}
+        </div>
+      )}
+      <span style={{ width: 'fit-content', borderRadius: 999, padding: '2px 7px', fontSize: 10.5, fontWeight: 700, color: '#92400e', background: '#fef3c7' }}>
+        {t('ui.外部对账待核验', '外部对账待核验')}
+      </span>
+    </div>
+  );
+}
+
 // ── 仪表盘统计卡 ───────────────────────────────────────────────────────────────
 
 function StatCard({
@@ -432,6 +465,25 @@ function BatchesTab() {
       marginBottom: 8
     }}>{error}</div>}
 
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        marginBottom: 12,
+        padding: '10px 12px',
+        borderRadius: 8,
+        border: '1px solid #bfdbfe',
+        background: '#eff6ff',
+        color: '#1e3a8a',
+        fontSize: 12,
+        lineHeight: 1.6,
+      }}>
+        <span aria-hidden="true">ⓘ</span>
+        <span>
+          {t('ui.库存来源融合说明', '当前数量来自 ERP 业务库存台账；来源单据随批次展示。外部财务库存仅用于对账，未取得差异证据时统一显示“待核验”，不会自动判定一致。')}
+        </span>
+      </div>
+
       {/* 创建批次表单 */}
       {showCreate && <div style={{
       background: 'var(--status-success-bg-page)',
@@ -558,7 +610,7 @@ function BatchesTab() {
               <col style={{ width: 92 }} />
               <col style={{ width: 112 }} />
               <col style={{ width: 112 }} />
-              <col style={{ width: 160 }} />
+              <col style={{ width: 190 }} />
             </colgroup>
             <thead>
               <tr>
@@ -597,7 +649,7 @@ function BatchesTab() {
               fontWeight: b.expire_date && new Date(b.expire_date) < new Date() ? 700 : undefined,
               whiteSpace: 'nowrap'
             }}>{fmtDate(b.expire_date)}</td>
-                  <td>{b.source_no ?? '—'}</td>
+                  <td><InventorySourceTrace batch={b} /></td>
                 </tr>)}
             </tbody>
           </table>

@@ -1,5 +1,19 @@
 # Decision Log
 
+## 2026-07-28 - Accept Chanjet WMS implementation but keep production runtime HOLD
+
+Decision: `GO_WITH_CONDITIONS` for implementation and `HOLD` for production runtime.
+
+- WMS domain policies, canonical contracts, exact mapping gates, reconciliation, promotion candidates and the dedicated WMS Outbox are implemented.
+- Missing provider document identity is persisted as HOLD evidence; code-only identity requires manual review.
+- The Outbox only accepts reviewed WMS document types and explicit approval evidence.
+- No external execution endpoint exists; `externalWriteEnabled=false`.
+- API and Web tests/typechecks pass, including WMS DataScope and migration gates.
+- Production remains 27/33 because six scopes return provider `50111`.
+- The migration adding `currency_code`, promotion candidates and the WMS Outbox was created but not executed.
+- Production must not be described as fully ready until permissions, migration, real mapping candidates and A2/A1/A7 runtime Gates pass.
+- Evidence: `docs/ops/CHANJET_WMS_PRODUCTION_GRADE_IMPLEMENTATION_REPORT_20260728.md`.
+
 ## 2026-07-28 - Hold Chanjet WMS baseline at 27/33 scopes
 
 Decision: `HOLD`.

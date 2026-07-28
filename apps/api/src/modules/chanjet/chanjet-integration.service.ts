@@ -1671,7 +1671,9 @@ export class ChanjetIntegrationService {
           ? 'HOLD'
           : 'PREPARED_DISABLED',
         externalWriteEnabled: false,
-        wmsOutboxImplemented: false,
+        wmsOutboxImplemented: true,
+        promotionCandidateBridgeImplemented: true,
+        externalExecutionEndpointExposed: false,
         canonicalDocumentModelReady: missingColumns.length === 0,
         supportedErpDirections: [
           '采购/产成品/其他入库',
@@ -1683,11 +1685,11 @@ export class ChanjetIntegrationService {
           '账套与 ERP company_code 一一核准',
           '仓库、商品/SKU/规格、计量单位、批次映射覆盖率达到 100%',
           '好业财写入接口、字段、状态机和红蓝单规则完成官方合同审查',
-          '建立库存专用 outbox、幂等键、回执和补偿策略，不复用凭证 outbox',
+          '库存专用 outbox 已建立；真实 transport 继续保持未实现和不可调用',
           'A2 安全、A1 回归、A7 发布 Gate 通过',
           '先单笔草稿 canary，人工批准后写入并立即只读回查',
         ],
-        rule: '当前只具备反向同步架构准备，不允许自动写好业财；任何写入必须单独批准。',
+        rule: '当前具备本地候选与 Outbox 草稿能力，但无外部执行端点；任何好业财写入必须另立 Gate。',
       },
       guardrails: {
         chanjetWrite: false,

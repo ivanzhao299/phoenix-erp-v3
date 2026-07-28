@@ -177,6 +177,8 @@ describe('WmsService inventory read queries', () => {
       null,
       'LPH_MS_EGG_SALES',
       '枚',
+      'PURCHASE_INBOUND',
+      'PURCHASE',
     ]);
   });
 
@@ -244,13 +246,15 @@ describe('WmsService inventory read queries', () => {
         null,
         'LPH_MS_EGG_SALES',
         '枚',
+        'PURCHASE_INBOUND',
+        'PURCHASE',
       ],
     );
   });
 
   it('persists received quantity two on the inbound line before posting visible inventory', async () => {
     const manager = {
-      query: jest.fn(async (sql: string) => {
+      query: jest.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
           return [{ warehouse_code: 'WH-A', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
         }
@@ -518,5 +522,178 @@ describe('WmsService inventory read queries', () => {
       String(sql).includes("SET status = 'DONE'"),
     );
     expect(doneUpdate).toBeUndefined();
+  });
+
+  it('blocks transfer receiving from the generic inbound confirmation workflow', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM wms_inbound')) {
+          return [{
+            warehouse_code: 'WH-B',
+            operator: 'admin',
+            store_code: 'ALL',
+            status: 'PENDING',
+            type: 'TRANSFER_RECEIVE',
+          }];
+        }
+        return [];
+      }),
+    };
+    const em = {
+      transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
+    };
+    const cls = {
+      get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })),
+    };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.confirmInbound({
+      task_no: 'WI-TRANSFER-BYPASS',
+      items: [{ sku_code: 'SKU-EGG-A', actual_qty: 1 }],
+    }, { username: 'admin' })).rejects.toMatchObject({
+      response: expect.objectContaining({
+        msg: '入库业务类型必须通过指定工作流执行',
+        errors: expect.arrayContaining([
+          '库存调拨必须通过调拨管理的原子双边事务，不得以独立入库单执行',
+        ]),
+      }),
+    });
+    expect(manager.query).not.toHaveBeenCalledWith(
+      expect.stringContaining("SET status = 'COMPLETED'"),
+      expect.anything(),
+    );
+  });
+
+  it('rejects malformed transfer lines before opening a transaction', async () => {
+    const em = { transaction: jest.fn() };
+    const cls = {
+      get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })),
+    };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.confirmTransfer({
+      from_warehouse: 'WH-A',
+      to_warehouse: 'WH-B',
+      items: [{ batch_no: '', qty: 1.1234 }],
+    }, { username: 'admin' })).rejects.toMatchObject({
+      response: expect.objectContaining({
+        msg: '调拨业务校验失败',
+        errors: expect.arrayContaining([
+          '第 1 行批次号必填',
+          '第 1 行调拨数量必须大于 0，且最多保留 3 位小数',
+        ]),
+      }),
+    });
+    expect(em.transaction).not.toHaveBeenCalled();
+  });
+
+  it('keeps transfer identity and available quantity in one atomic transaction', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('FROM inv_batches WHERE batch_no = $1 FOR UPDATE')) {
+          return [{
+            batch_no: 'B-MAT-1',
+            product_code: null,
+            sku_code: null,
+            material_code: 'MAT-SPARE-1',
+            item_type: 'MATERIAL',
+            material_type: 'EQUIPMENT',
+            unit: '件',
+            qty: 10,
+            qty_available: 8,
+            status: 'AVAILABLE',
+            expire_date: null,
+            store_code: 'ALL',
+            warehouse_code: 'WH-A',
+          }];
+        }
+        return [];
+      }),
+    };
+    const em = {
+      transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
+    };
+    const cls = {
+      get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })),
+    };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.confirmTransfer({
+      transfer_no: 'TR-ATOMIC-1',
+      from_warehouse: 'WH-A',
+      to_warehouse: 'WH-B',
+      items: [{ batch_no: 'B-MAT-1', qty: 2.5 }],
+    }, { username: 'admin', userId: 'U-1' })).resolves.toEqual({
+      code: 200,
+      msg: '调拨完成',
+      transfer_no: 'TR-ATOMIC-1',
+    });
+
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('qty_available = CASE'),
+      [2.5, 'B-MAT-1'],
+    );
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO inv_batches'),
+      expect.arrayContaining([
+        null,
+        null,
+        'MAT-SPARE-1',
+        'MATERIAL',
+        'EQUIPMENT',
+        '件',
+        2.5,
+        'WH-B',
+        'TRANSFER-IN',
+      ]),
+    );
+    const ledgerCalls = manager.query.mock.calls.filter(([sql]) =>
+      String(sql).includes('INSERT INTO inv_ledger'),
+    );
+    expect(ledgerCalls).toHaveLength(2);
+    expect(ledgerCalls[0][1]).toEqual(expect.arrayContaining([
+      'B-MAT-1',
+      2.5,
+      'TRANSFER_OUT',
+      'MAT-SPARE-1',
+      'WH-A',
+      'TRANSFER',
+      '件',
+    ]));
+    expect(ledgerCalls[1][1]).toEqual(expect.arrayContaining([
+      2.5,
+      'TRANSFER_IN',
+      'MAT-SPARE-1',
+      'WH-B',
+      'TRANSFER',
+      '件',
+    ]));
+  });
+
+  it('does not mutate inventory when the transfer master record cannot be written', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('INSERT INTO wms_transfer')) throw new Error('transfer master unavailable');
+        return [];
+      }),
+    };
+    const em = {
+      transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
+    };
+    const cls = {
+      get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })),
+    };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.confirmTransfer({
+      transfer_no: 'TR-FAIL-CLOSED',
+      from_warehouse: 'WH-A',
+      to_warehouse: 'WH-B',
+      items: [{ batch_no: 'B-1', qty: 1 }],
+    }, { username: 'admin' })).rejects.toThrow('transfer master unavailable');
+    expect(manager.query).not.toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE inv_batches'),
+      expect.anything(),
+    );
   });
 });
