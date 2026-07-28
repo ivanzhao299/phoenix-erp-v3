@@ -4,8 +4,13 @@ export class AddWmsChanjetEquivalentFields1785300000000 implements MigrationInte
   name = 'AddWmsChanjetEquivalentFields1785300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`
-      ALTER TABLE IF EXISTS wms_inbound
+    const hasInbound = await queryRunner.hasTable('wms_inbound');
+    const hasOutbound = await queryRunner.hasTable('wms_outbound');
+    const hasInboundItems = await queryRunner.hasTable('wms_inbound_items');
+    const hasOutboundItems = await queryRunner.hasTable('wms_outbound_items');
+
+    if (hasInbound) await queryRunner.query(`
+      ALTER TABLE wms_inbound
         ADD COLUMN IF NOT EXISTS source_system VARCHAR(24) NOT NULL DEFAULT 'ERP',
         ADD COLUMN IF NOT EXISTS external_book_id VARCHAR(64),
         ADD COLUMN IF NOT EXISTS external_document_id VARCHAR(128),
@@ -32,8 +37,8 @@ export class AddWmsChanjetEquivalentFields1785300000000 implements MigrationInte
         ADD COLUMN IF NOT EXISTS sync_status VARCHAR(32) NOT NULL DEFAULT 'ERP_ONLY',
         ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ
     `);
-    await queryRunner.query(`
-      ALTER TABLE IF EXISTS wms_outbound
+    if (hasOutbound) await queryRunner.query(`
+      ALTER TABLE wms_outbound
         ADD COLUMN IF NOT EXISTS source_system VARCHAR(24) NOT NULL DEFAULT 'ERP',
         ADD COLUMN IF NOT EXISTS external_book_id VARCHAR(64),
         ADD COLUMN IF NOT EXISTS external_document_id VARCHAR(128),
@@ -71,8 +76,8 @@ export class AddWmsChanjetEquivalentFields1785300000000 implements MigrationInte
         ADD COLUMN IF NOT EXISTS sync_status VARCHAR(32) NOT NULL DEFAULT 'ERP_ONLY',
         ADD COLUMN IF NOT EXISTS synced_at TIMESTAMPTZ
     `);
-    await queryRunner.query(`
-      ALTER TABLE IF EXISTS wms_inbound_items
+    if (hasInboundItems) await queryRunner.query(`
+      ALTER TABLE wms_inbound_items
         ADD COLUMN IF NOT EXISTS external_line_id VARCHAR(128),
         ADD COLUMN IF NOT EXISTS external_line_code VARCHAR(128),
         ADD COLUMN IF NOT EXISTS product_name VARCHAR(256),
@@ -102,8 +107,8 @@ export class AddWmsChanjetEquivalentFields1785300000000 implements MigrationInte
         ADD COLUMN IF NOT EXISTS serial_numbers JSONB NOT NULL DEFAULT '[]'::jsonb,
         ADD COLUMN IF NOT EXISTS external_raw JSONB NOT NULL DEFAULT '{}'::jsonb
     `);
-    await queryRunner.query(`
-      ALTER TABLE IF EXISTS wms_outbound_items
+    if (hasOutboundItems) await queryRunner.query(`
+      ALTER TABLE wms_outbound_items
         ADD COLUMN IF NOT EXISTS external_line_id VARCHAR(128),
         ADD COLUMN IF NOT EXISTS external_line_code VARCHAR(128),
         ADD COLUMN IF NOT EXISTS product_name VARCHAR(256),
@@ -130,18 +135,18 @@ export class AddWmsChanjetEquivalentFields1785300000000 implements MigrationInte
         ADD COLUMN IF NOT EXISTS serial_numbers JSONB NOT NULL DEFAULT '[]'::jsonb,
         ADD COLUMN IF NOT EXISTS external_raw JSONB NOT NULL DEFAULT '{}'::jsonb
     `);
-    await queryRunner.query(`
+    if (hasInbound) await queryRunner.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS UX_wms_inbound_chanjet_document
         ON wms_inbound(source_system, external_book_id, external_document_id)
         WHERE source_system = 'CHANJET' AND external_document_id IS NOT NULL
     `);
-    await queryRunner.query(`
+    if (hasOutbound) await queryRunner.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS UX_wms_outbound_chanjet_document
         ON wms_outbound(source_system, external_book_id, external_document_id)
         WHERE source_system = 'CHANJET' AND external_document_id IS NOT NULL
     `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_wms_inbound_source_order ON wms_inbound(source_order_no)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_wms_outbound_source_order ON wms_outbound(source_order_no)`);
+    if (hasInbound) await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_wms_inbound_source_order ON wms_inbound(source_order_no)`);
+    if (hasOutbound) await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_wms_outbound_source_order ON wms_outbound(source_order_no)`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -149,8 +154,8 @@ export class AddWmsChanjetEquivalentFields1785300000000 implements MigrationInte
     await queryRunner.query(`DROP INDEX IF EXISTS IDX_wms_inbound_source_order`);
     await queryRunner.query(`DROP INDEX IF EXISTS UX_wms_outbound_chanjet_document`);
     await queryRunner.query(`DROP INDEX IF EXISTS UX_wms_inbound_chanjet_document`);
-    await queryRunner.query(`
-      ALTER TABLE IF EXISTS wms_outbound_items
+    if (await queryRunner.hasTable('wms_outbound_items')) await queryRunner.query(`
+      ALTER TABLE wms_outbound_items
         DROP COLUMN IF EXISTS external_raw,
         DROP COLUMN IF EXISTS serial_numbers,
         DROP COLUMN IF EXISTS source_order_no,
@@ -177,8 +182,8 @@ export class AddWmsChanjetEquivalentFields1785300000000 implements MigrationInte
         DROP COLUMN IF EXISTS external_line_code,
         DROP COLUMN IF EXISTS external_line_id
     `);
-    await queryRunner.query(`
-      ALTER TABLE IF EXISTS wms_inbound_items
+    if (await queryRunner.hasTable('wms_inbound_items')) await queryRunner.query(`
+      ALTER TABLE wms_inbound_items
         DROP COLUMN IF EXISTS external_raw,
         DROP COLUMN IF EXISTS serial_numbers,
         DROP COLUMN IF EXISTS source_order_no,
@@ -208,8 +213,8 @@ export class AddWmsChanjetEquivalentFields1785300000000 implements MigrationInte
         DROP COLUMN IF EXISTS external_line_code,
         DROP COLUMN IF EXISTS external_line_id
     `);
-    await queryRunner.query(`
-      ALTER TABLE IF EXISTS wms_outbound
+    if (await queryRunner.hasTable('wms_outbound')) await queryRunner.query(`
+      ALTER TABLE wms_outbound
         DROP COLUMN IF EXISTS synced_at,
         DROP COLUMN IF EXISTS sync_status,
         DROP COLUMN IF EXISTS external_payload_hash,
@@ -247,8 +252,8 @@ export class AddWmsChanjetEquivalentFields1785300000000 implements MigrationInte
         DROP COLUMN IF EXISTS external_book_id,
         DROP COLUMN IF EXISTS source_system
     `);
-    await queryRunner.query(`
-      ALTER TABLE IF EXISTS wms_inbound
+    if (await queryRunner.hasTable('wms_inbound')) await queryRunner.query(`
+      ALTER TABLE wms_inbound
         DROP COLUMN IF EXISTS synced_at,
         DROP COLUMN IF EXISTS sync_status,
         DROP COLUMN IF EXISTS external_payload_hash,

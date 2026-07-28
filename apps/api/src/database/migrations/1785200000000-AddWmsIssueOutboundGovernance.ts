@@ -7,7 +7,12 @@ export class AddWmsIssueOutboundGovernance1785200000000 implements MigrationInte
   name = 'AddWmsIssueOutboundGovernance1785200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`
+    const hasInbound = await queryRunner.hasTable('wms_inbound');
+    const hasOutbound = await queryRunner.hasTable('wms_outbound');
+    const hasBatches = await queryRunner.hasTable('inv_batches');
+    const hasLedger = await queryRunner.hasTable('inv_ledger');
+
+    if (hasInbound) await queryRunner.query(`
       ALTER TABLE wms_inbound
         ADD COLUMN IF NOT EXISTS item_name VARCHAR(160),
         ADD COLUMN IF NOT EXISTS item_type VARCHAR(24),
@@ -16,7 +21,7 @@ export class AddWmsIssueOutboundGovernance1785200000000 implements MigrationInte
         ADD COLUMN IF NOT EXISTS sku_code VARCHAR(64),
         ADD COLUMN IF NOT EXISTS unit VARCHAR(24)
     `);
-    await queryRunner.query(`
+    if (hasOutbound) await queryRunner.query(`
       ALTER TABLE wms_outbound
         ADD COLUMN IF NOT EXISTS item_name VARCHAR(160),
         ADD COLUMN IF NOT EXISTS item_type VARCHAR(24),
@@ -32,14 +37,14 @@ export class AddWmsIssueOutboundGovernance1785200000000 implements MigrationInte
         ADD COLUMN IF NOT EXISTS receiver_username VARCHAR(128),
         ADD COLUMN IF NOT EXISTS purpose_code VARCHAR(64)
     `);
-    await queryRunner.query(`
+    if (hasBatches) await queryRunner.query(`
       ALTER TABLE inv_batches
         ADD COLUMN IF NOT EXISTS item_type VARCHAR(24),
         ADD COLUMN IF NOT EXISTS material_type VARCHAR(48),
         ADD COLUMN IF NOT EXISTS material_code VARCHAR(64),
         ADD COLUMN IF NOT EXISTS unit VARCHAR(24)
     `);
-    await queryRunner.query(`
+    if (hasLedger) await queryRunner.query(`
       ALTER TABLE inv_ledger
         ADD COLUMN IF NOT EXISTS material_code VARCHAR(64),
         ADD COLUMN IF NOT EXISTS warehouse_code VARCHAR(64),
@@ -51,20 +56,22 @@ export class AddWmsIssueOutboundGovernance1785200000000 implements MigrationInte
         ADD COLUMN IF NOT EXISTS department_code VARCHAR(64),
         ADD COLUMN IF NOT EXISTS unit VARCHAR(24)
     `);
-    await queryRunner.query(`
+    if (hasInbound) await queryRunner.query(`
       ALTER TABLE wms_inbound
         ALTER COLUMN qty TYPE NUMERIC(14,3) USING qty::numeric(14,3)
     `);
-    await queryRunner.query(`
+    if (hasOutbound) await queryRunner.query(`
       ALTER TABLE wms_outbound
         ALTER COLUMN qty TYPE NUMERIC(14,3) USING qty::numeric(14,3)
     `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_wms_outbound_issue_type ON wms_outbound(type, status, date)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_wms_outbound_cost_object ON wms_outbound(company_code, project_code, department_code)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_inv_batches_material_code ON inv_batches(material_code)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_inv_ledger_business_type ON inv_ledger(business_type, created_at)`);
+    if (hasOutbound) {
+      await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_wms_outbound_issue_type ON wms_outbound(type, status, date)`);
+      await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_wms_outbound_cost_object ON wms_outbound(company_code, project_code, department_code)`);
+    }
+    if (hasBatches) await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_inv_batches_material_code ON inv_batches(material_code)`);
+    if (hasLedger) await queryRunner.query(`CREATE INDEX IF NOT EXISTS IDX_inv_ledger_business_type ON inv_ledger(business_type, created_at)`);
 
-    await queryRunner.query(`
+    if (await queryRunner.hasTable('sys_dict')) await queryRunner.query(`
       INSERT INTO sys_dict
         (dict_type, dict_code, dict_label_zh, dict_label_lo, dict_label_en, dict_value, sort_no, status, name)
       VALUES
@@ -85,7 +92,8 @@ export class AddWmsIssueOutboundGovernance1785200000000 implements MigrationInte
         status = EXCLUDED.status
     `);
 
-    await queryRunner.query(`
+    const hasMenu = await queryRunner.hasTable('sys_menu');
+    if (hasMenu) await queryRunner.query(`
       INSERT INTO sys_menu
         (menu_code, menu_name_zh, menu_name_lo, domain, parent_code, sort_order, icon, route)
       VALUES
@@ -99,7 +107,11 @@ export class AddWmsIssueOutboundGovernance1785200000000 implements MigrationInte
         route = EXCLUDED.route
     `);
 
-    await queryRunner.query(`
+    if (
+      hasMenu
+      && await queryRunner.hasTable('sys_role')
+      && await queryRunner.hasTable('sys_role_menu_permission')
+    ) await queryRunner.query(`
       INSERT INTO sys_role_menu_permission (role_id, menu_id, perm_codes)
       SELECT r.role_id, m.menu_id, v.perm_codes
       FROM (VALUES
@@ -115,21 +127,31 @@ export class AddWmsIssueOutboundGovernance1785200000000 implements MigrationInte
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const fractionalRows = await queryRunner.query(`
-      SELECT
-        EXISTS (SELECT 1 FROM wms_inbound WHERE qty <> trunc(qty)) OR
-        EXISTS (SELECT 1 FROM wms_outbound WHERE qty <> trunc(qty)) AS has_fractional
-    `);
-    if (fractionalRows[0]?.has_fractional) {
+    const hasInbound = await queryRunner.hasTable('wms_inbound');
+    const hasOutbound = await queryRunner.hasTable('wms_outbound');
+    const hasBatches = await queryRunner.hasTable('inv_batches');
+    const hasLedger = await queryRunner.hasTable('inv_ledger');
+    const inboundFractional = hasInbound
+      ? await queryRunner.query(`SELECT EXISTS (SELECT 1 FROM wms_inbound WHERE qty <> trunc(qty)) AS value`)
+      : [{ value: false }];
+    const outboundFractional = hasOutbound
+      ? await queryRunner.query(`SELECT EXISTS (SELECT 1 FROM wms_outbound WHERE qty <> trunc(qty)) AS value`)
+      : [{ value: false }];
+    if (inboundFractional[0]?.value || outboundFractional[0]?.value) {
       throw new Error('Cannot downgrade WMS quantities: fractional inventory documents exist.');
     }
 
-    await queryRunner.query(`
+    if (
+      await queryRunner.hasTable('sys_role_menu_permission')
+      && await queryRunner.hasTable('sys_menu')
+    ) await queryRunner.query(`
       DELETE FROM sys_role_menu_permission p USING sys_menu m
       WHERE p.menu_id = m.menu_id AND m.menu_code = 'MENU_WMS_ISSUE'
     `);
-    await queryRunner.query(`DELETE FROM sys_menu WHERE menu_code = 'MENU_WMS_ISSUE'`);
-    await queryRunner.query(`
+    if (await queryRunner.hasTable('sys_menu')) {
+      await queryRunner.query(`DELETE FROM sys_menu WHERE menu_code = 'MENU_WMS_ISSUE'`);
+    }
+    if (await queryRunner.hasTable('sys_dict')) await queryRunner.query(`
       DELETE FROM sys_dict
       WHERE (dict_type = 'INV_OUTBOUND_TYPE' AND dict_code IN (
         'LOGISTICS_USE','SPARE_PART_USE','OFFICE_USE','MAINTENANCE_USE'
@@ -141,9 +163,9 @@ export class AddWmsIssueOutboundGovernance1785200000000 implements MigrationInte
     await queryRunner.query(`DROP INDEX IF EXISTS IDX_inv_batches_material_code`);
     await queryRunner.query(`DROP INDEX IF EXISTS IDX_wms_outbound_cost_object`);
     await queryRunner.query(`DROP INDEX IF EXISTS IDX_wms_outbound_issue_type`);
-    await queryRunner.query(`ALTER TABLE wms_inbound ALTER COLUMN qty TYPE INTEGER USING qty::integer`);
-    await queryRunner.query(`ALTER TABLE wms_outbound ALTER COLUMN qty TYPE INTEGER USING qty::integer`);
-    await queryRunner.query(`
+    if (hasInbound) await queryRunner.query(`ALTER TABLE wms_inbound ALTER COLUMN qty TYPE INTEGER USING qty::integer`);
+    if (hasOutbound) await queryRunner.query(`ALTER TABLE wms_outbound ALTER COLUMN qty TYPE INTEGER USING qty::integer`);
+    if (hasLedger) await queryRunner.query(`
       ALTER TABLE inv_ledger
         DROP COLUMN IF EXISTS unit,
         DROP COLUMN IF EXISTS department_code,
@@ -155,14 +177,14 @@ export class AddWmsIssueOutboundGovernance1785200000000 implements MigrationInte
         DROP COLUMN IF EXISTS warehouse_code,
         DROP COLUMN IF EXISTS material_code
     `);
-    await queryRunner.query(`
+    if (hasBatches) await queryRunner.query(`
       ALTER TABLE inv_batches
         DROP COLUMN IF EXISTS unit,
         DROP COLUMN IF EXISTS material_code,
         DROP COLUMN IF EXISTS material_type,
         DROP COLUMN IF EXISTS item_type
     `);
-    await queryRunner.query(`
+    if (hasOutbound) await queryRunner.query(`
       ALTER TABLE wms_outbound
         DROP COLUMN IF EXISTS purpose_code,
         DROP COLUMN IF EXISTS receiver_username,
@@ -178,7 +200,7 @@ export class AddWmsIssueOutboundGovernance1785200000000 implements MigrationInte
         DROP COLUMN IF EXISTS item_type,
         DROP COLUMN IF EXISTS item_name
     `);
-    await queryRunner.query(`
+    if (hasInbound) await queryRunner.query(`
       ALTER TABLE wms_inbound
         DROP COLUMN IF EXISTS unit,
         DROP COLUMN IF EXISTS sku_code,
