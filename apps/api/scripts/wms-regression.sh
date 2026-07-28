@@ -40,6 +40,7 @@ cyan ""
 cyan "▶ 1) Seed 测试数据"
 WH_A=WH-REGR-A
 WH_B=WH-REGR-B
+MATERIAL_CODE=MAT-REGR-WMS
 BATCH_NO="REGR-BAT-$(date +%s | tail -c 6)"
 TASK_NO="REGR-INB-$(date +%s | tail -c 6)"
 
@@ -53,8 +54,11 @@ $PSQL $DB -q -c "DELETE FROM wms_stocktake WHERE stocktake_no LIKE 'REGR-%' OR s
 # Seed: 仓库 (wms_warehouses)
 $PSQL $DB -q -c "INSERT INTO wms_warehouses (warehouse_code, warehouse_name_zh, status) VALUES ('$WH_A','回归测试仓A','ACTIVE'),('$WH_B','回归测试仓B','ACTIVE') ON CONFLICT (warehouse_code) DO NOTHING;" >/dev/null
 
+# Seed: 真实 ACTIVE 物料主数据。入库治理禁止虚构 product_code 绕过主数据。
+$PSQL $DB -q -c "INSERT INTO mst_materials (material_code, material_name, material_type, unit, status, created_by) VALUES ('$MATERIAL_CODE','WMS回归测试物料','OTHER','件','ACTIVE','CI') ON CONFLICT (material_code) DO UPDATE SET status='ACTIVE', material_name=EXCLUDED.material_name, material_type=EXCLUDED.material_type, unit=EXCLUDED.unit;" >/dev/null
+
 # Seed: 一个 inv_batches 作为调拨/出库源
-$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, product_code, qty, warehouse_code, location_code, store_code) VALUES ('$BATCH_NO','REGR-PROD',1000,'$WH_A','LOC-01','ALL');" >/dev/null
+$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, material_code, item_type, material_type, unit, qty, warehouse_code, location_code, store_code) VALUES ('$BATCH_NO','$MATERIAL_CODE','MATERIAL','OTHER','件',1000,'$WH_A','LOC-01','ALL');" >/dev/null
 
 # Seed: 一个 wms_inbound task 用于 A3 测试
 $PSQL $DB -q -c "INSERT INTO wms_inbound (task_no, status, warehouse_code, type, item, qty) VALUES ('$TASK_NO','PENDING','$WH_A','PURCHASE','REGR测试品',500);" >/dev/null
@@ -72,8 +76,11 @@ cyan "▶ T1: A3 confirmInbound — 同步写 inv_ledger INBOUND"
 # A3 fix 实际在 confirmInbound，路由通过 inbound.controller (POST /api/inbound/confirm)
 R1=$(curl -s -o /tmp/r1.json -w '%{http_code}' -X POST "$API/api/inbound/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"task_no\":\"$TASK_NO\",\"items\":[{\"batch_no\":\"$BATCH_NO\",\"product_code\":\"REGR-PROD\",\"qty\":500,\"warehouse_code\":\"$WH_A\"}]}")
+  -d "{\"task_no\":\"$TASK_NO\",\"items\":[{\"batch_no\":\"$BATCH_NO\",\"material_code\":\"$MATERIAL_CODE\",\"item_type\":\"MATERIAL\",\"qty\":500,\"warehouse_code\":\"$WH_A\"}]}")
 assert_ok "T1.1 confirmInbound 200" "$R1"
+if [[ "$R1" != 20* ]]; then
+  red "      response: $(head -c 500 /tmp/r1.json)"
+fi
 
 # UPSERT: $BATCH_NO 原 1000 + 入库 500 = 1500
 QTY_AFTER=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
@@ -197,7 +204,7 @@ $PSQL $DB -q -c "INSERT INTO wms_inbound (task_no, status, warehouse_code, type,
 # T8-V2.1 严格校验 — actual=80 broken=15 expected=100 → 失败 (80+15≠100)
 R_V2_1=$(curl -s -o /tmp/v2_ib1.json -w '%{http_code}' -X POST "$API/api/inbound/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"task_no\":\"$TASK_V2\",\"items\":[{\"batch_no\":\"$BATCH_V2\",\"product_code\":\"REGR-PROD\",\"actual_qty\":80,\"broken_qty\":15,\"expected_qty\":100,\"warehouse_code\":\"$WH_A\"}]}")
+  -d "{\"task_no\":\"$TASK_V2\",\"items\":[{\"batch_no\":\"$BATCH_V2\",\"material_code\":\"$MATERIAL_CODE\",\"item_type\":\"MATERIAL\",\"actual_qty\":80,\"broken_qty\":15,\"expected_qty\":100,\"warehouse_code\":\"$WH_A\"}]}")
 case "$R_V2_1" in 4*) green "  ✓ T8-V2.1 校验失败拦截 (HTTP $R_V2_1)"; PASS=$((PASS+1));; *) red "  ✗ T8-V2.1 应失败 但 HTTP=$R_V2_1"; FAIL=$((FAIL+1)); FAILURES+=("T8-V2.1");; esac
 
 # 入库单状态应仍为 PENDING（事务回滚 / 校验前置）
@@ -207,8 +214,11 @@ assert_eq "T8-V2.1.1 task 仍 PENDING" "PENDING" "$V2_TASK_STATUS"
 # T8-V2.2 正确入库 — actual=80 broken=20 expected=100 → AVAILABLE batch +80 + QUARANTINE batch +20
 R_V2_2=$(curl -s -o /tmp/v2_ib2.json -w '%{http_code}' -X POST "$API/api/inbound/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"task_no\":\"$TASK_V2\",\"items\":[{\"batch_no\":\"$BATCH_V2\",\"product_code\":\"REGR-PROD\",\"actual_qty\":80,\"broken_qty\":20,\"expected_qty\":100,\"warehouse_code\":\"$WH_A\"}]}")
+  -d "{\"task_no\":\"$TASK_V2\",\"items\":[{\"batch_no\":\"$BATCH_V2\",\"material_code\":\"$MATERIAL_CODE\",\"item_type\":\"MATERIAL\",\"actual_qty\":80,\"broken_qty\":20,\"expected_qty\":100,\"warehouse_code\":\"$WH_A\"}]}")
 assert_ok "T8-V2.2 严格校验通过 confirmInbound 200" "$R_V2_2"
+if [[ "$R_V2_2" != 20* ]]; then
+  red "      response: $(head -c 500 /tmp/v2_ib2.json)"
+fi
 QTY_AV=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_V2';")
 assert_eq "T8-V2.2.1 AVAILABLE batch qty=80" "80" "$QTY_AV"
 STAT_AV=$($PSQL $DB -tA -c "SELECT status FROM inv_batches WHERE batch_no='$BATCH_V2';")
@@ -223,7 +233,7 @@ assert_eq "T8-V2.2.5 QUARANTINE batch.qty_available=0" "0" "$AVAIL_BRK"
 # T8-V2.3 幂等：再次 confirmInbound → 拒绝
 R_V2_3=$(curl -s -o /tmp/v2_ib3.json -w '%{http_code}' -X POST "$API/api/inbound/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"task_no\":\"$TASK_V2\",\"items\":[{\"batch_no\":\"$BATCH_V2-2\",\"product_code\":\"REGR-PROD\",\"actual_qty\":50,\"warehouse_code\":\"$WH_A\"}]}")
+  -d "{\"task_no\":\"$TASK_V2\",\"items\":[{\"batch_no\":\"$BATCH_V2-2\",\"material_code\":\"$MATERIAL_CODE\",\"item_type\":\"MATERIAL\",\"actual_qty\":50,\"warehouse_code\":\"$WH_A\"}]}")
 case "$R_V2_3" in 4*) green "  ✓ T8-V2.3 重复确认拒绝 (HTTP $R_V2_3)"; PASS=$((PASS+1));; 20*)
   # 兼容返回 code:400 in body 但 HTTP 201
   BODY_CODE=$(cat /tmp/v2_ib3.json | grep -oE '"code":[0-9]+' | head -1 | cut -d: -f2)
@@ -233,12 +243,12 @@ esac
 
 # T8-V2.4 EXPIRED 批次拦截 — 准备一个 LOCKED 批次后尝试入库
 LOCKED_BATCH="REGR-V2-LOCKED-$(date +%s | tail -c 6)"
-$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, location_code, store_code) VALUES ('$LOCKED_BATCH','REGR-PROD',50,50,'LOCKED','$WH_A','LOC-01','ALL');" >/dev/null
+$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, material_code, item_type, material_type, unit, qty, qty_available, status, warehouse_code, location_code, store_code) VALUES ('$LOCKED_BATCH','$MATERIAL_CODE','MATERIAL','OTHER','件',50,50,'LOCKED','$WH_A','LOC-01','ALL');" >/dev/null
 TASK_V2_LK="REGR-V2-IB-LK-$(date +%s | tail -c 6)"
 $PSQL $DB -q -c "INSERT INTO wms_inbound (task_no, status, warehouse_code, type, item, qty, store_code) VALUES ('$TASK_V2_LK','PENDING','$WH_A','PURCHASE','REGR测试品',30,'ALL');" >/dev/null
 R_V2_4=$(curl -s -o /tmp/v2_ib4.json -w '%{http_code}' -X POST "$API/api/inbound/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"task_no\":\"$TASK_V2_LK\",\"items\":[{\"batch_no\":\"$LOCKED_BATCH\",\"product_code\":\"REGR-PROD\",\"actual_qty\":30,\"expected_qty\":30,\"warehouse_code\":\"$WH_A\"}]}")
+  -d "{\"task_no\":\"$TASK_V2_LK\",\"items\":[{\"batch_no\":\"$LOCKED_BATCH\",\"material_code\":\"$MATERIAL_CODE\",\"item_type\":\"MATERIAL\",\"actual_qty\":30,\"expected_qty\":30,\"warehouse_code\":\"$WH_A\"}]}")
 case "$R_V2_4" in 5*|4*) green "  ✓ T8-V2.4 LOCKED 批次入库拦截 (HTTP $R_V2_4)"; PASS=$((PASS+1));; *) red "  ✗ T8-V2.4 应拦截 HTTP=$R_V2_4"; FAIL=$((FAIL+1)); FAILURES+=("T8-V2.4");; esac
 LOCKED_QTY_AFTER=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$LOCKED_BATCH';")
 assert_eq "T8-V2.4.1 LOCKED batch qty 未变 (仍 50)" "50" "$LOCKED_QTY_AFTER"
@@ -290,6 +300,7 @@ $PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no LIKE 'REGR-%' OR batch_n
 $PSQL $DB -q -c "DELETE FROM wms_inbound WHERE task_no LIKE 'REGR-%';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM wms_stocktake WHERE stocktake_no LIKE 'REGR-%';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM wms_warehouses WHERE warehouse_code IN ('$WH_A','$WH_B');" >/dev/null
+$PSQL $DB -q -c "DELETE FROM mst_materials WHERE material_code='$MATERIAL_CODE' AND created_by='CI';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM pda_sync_log WHERE pda_id='REGR-PDA-1' OR op_id LIKE 'REGR-V2-OP-%';" >/dev/null
 green "  ✓ test data 清理完毕"
 
