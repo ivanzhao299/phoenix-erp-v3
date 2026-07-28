@@ -1562,10 +1562,16 @@ function publishReleaseCommits(args, releaseEvidence) {
   return lastFailure || { skipped: false, status: 1, stderr: 'release push failed after 3 attempts' };
 }
 
+export function reportAcceptsTechnicalRelease(report) {
+  if (!report?.bugNo || ['RESOLVED', 'CLOSED', 'REJECTED'].includes(String(report.status || ''))) return false;
+  return !['FIX_READY_FOR_UAT', 'BUSINESS_VERIFIED', 'AGENT_COMPLETED'].includes(
+    String(report.repairTaskStatus || ''),
+  );
+}
+
 export function selectReleaseReadyBacklog(reports, tasks) {
   return (reports || []).flatMap((report) => {
-    if (!report?.bugNo || ['RESOLVED', 'CLOSED', 'REJECTED'].includes(String(report.status || ''))) return [];
-    if (['FIX_READY_FOR_UAT', 'BUSINESS_VERIFIED', 'AGENT_COMPLETED'].includes(String(report.repairTaskStatus || ''))) return [];
+    if (!reportAcceptsTechnicalRelease(report)) return [];
     const localTasks = (tasks || []).filter((task) =>
       task.source === 'bug-intake' && task.source_bug_no === report.bugNo,
     );
@@ -1590,6 +1596,7 @@ function releaseEvidenceForWorkerRuns(args, workerRuns) {
   };
   const unpushedBugNos = tasks
     .filter((task) => task.source === 'bug-intake' && task.source_bug_no)
+    .filter((task) => reportAcceptsTechnicalRelease(reportByBug.get(task.source_bug_no)))
     .filter((task) => commitIsUnpushed(task.integrated_commit))
     .map((task) => task.source_bug_no);
   // A fix can complete in one resident cycle and only become releasable after

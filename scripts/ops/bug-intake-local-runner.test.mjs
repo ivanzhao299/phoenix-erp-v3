@@ -20,6 +20,7 @@ import {
   shouldForceLifecycleRedelivery,
   restoreVerifiedTerminalEvidence,
   requeueInvalidTerminalEvidence,
+  reportAcceptsTechnicalRelease,
   partitionReleaseEvidence,
   selectRunnableBugTasks,
   selectAutomaticRedispatchCandidates,
@@ -867,6 +868,24 @@ test('UAT-ready reports are not released again by an idle resident cycle', () =>
     },
   ];
   assert.deepEqual(selectReleaseReadyBacklog(reports, tasks), []);
+});
+
+test('released or closed reports cannot re-enter release through stale local commit evidence', () => {
+  assert.equal(reportAcceptsTechnicalRelease({
+    bugNo: 'BUG-RUNNING',
+    status: 'IN_PROGRESS',
+    repairTaskStatus: 'AGENT_EXECUTION_FINISHED',
+  }), true);
+  assert.equal(reportAcceptsTechnicalRelease({
+    bugNo: 'BUG-UAT',
+    status: 'IN_PROGRESS',
+    repairTaskStatus: 'FIX_READY_FOR_UAT',
+  }), false);
+  assert.equal(reportAcceptsTechnicalRelease({
+    bugNo: 'BUG-CLOSED',
+    status: 'CLOSED',
+    repairTaskStatus: 'HOLD',
+  }), false);
 });
 
 test('release push requires a real unpushed commit even when evidence passes', () => {
