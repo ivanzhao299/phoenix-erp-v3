@@ -23,6 +23,12 @@ import {
   stableHash,
   writeJsonIfMateriallyChanged,
 } from './bug-runner-platform.mjs';
+import {
+  assignTaskWorkspace,
+  ensureTaskWorkspace as ensureIsolatedTaskWorkspace,
+  retireTaskGeneration,
+  validateTaskWorkspace,
+} from './agent-task-workspace.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const OPS_SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -925,15 +931,23 @@ function recoverStaleTaskLeases(args) {
       const lockFile = path.resolve(args.mainRoot, `docs/ops/agent-queue/locks/${task.task_id}.lock`);
       rmSync(lockFile, { force: true });
     }
-    return {
+    return retireTaskGeneration({
       ...task,
       status: 'pending',
       claimed_by: null,
       claimed_at: null,
       last_recovered_at: new Date(now).toISOString(),
-      last_recovery_reason: 'stale bug-intake task lease without active agent process',
+      last_recovery_reason: 'stale task generation retired; fresh generation allocated',
       recovery_count: Number(task.recovery_count || 0) + 1,
-    };
+    }, {
+      reason: 'stale lease without active Agent process',
+      retiredAt: new Date(now).toISOString(),
+      config: {
+        prompt_file: task.prompt_file,
+        worktree_path: task.template_worktree,
+        canonical_branch: task.template_branch,
+      },
+    });
   });
 
   if (changed && !args.dryRun) writeJson(TASKS_FILE, nextTasks);
@@ -1138,30 +1152,44 @@ function ensureTaskWorktreeDependencies(task, args) {
 }
 
 function ensureTaskWorktree(task, args) {
-  if (taskUsesMainRootLocalWorker(task) || existsSync(task.worktree)) {
-    return { ok: true, skipped: true, reason: taskUsesMainRootLocalWorker(task) ? 'local validation task' : 'worktree exists' };
+  if (taskUsesMainRootLocalWorker(task)) {
+    return { ok: true, skipped: true, reason: 'read-only local validation task' };
   }
-  if (
-    task.source !== 'bug-intake'
-    || !String(task.worktree || '').includes('/bug-intake-')
-    || !String(task.branch || '').startsWith('codex/bug-intake-')
-  ) {
-    return { ok: false, skipped: false, error: `worktree does not exist: ${task.worktree || '<missing>'}` };
+  const identity = validateTaskWorkspace({
+    taskId: task.task_id,
+    agent: task.agent,
+    generation: task.workspace_generation || Number(task.redispatch_count || 0) + 1,
+    worktree: task.worktree,
+    branch: task.branch,
+  });
+  if (!identity.ok || task.workspace_policy !== 'task-generation-isolated-v2') {
+    return {
+      ok: false,
+      skipped: false,
+      error: `task workspace identity is invalid or legacy: ${[...identity.errors, `policy=${task.workspace_policy || 'missing'}`].join('; ')}`,
+    };
+  }
+  if (existsSync(task.worktree)) {
+    const actualBranch = safeGit(['branch', '--show-current'], task.worktree);
+    if (!actualBranch.ok || actualBranch.output.trim() !== task.branch) {
+      return { ok: false, skipped: false, error: `existing task worktree branch mismatch: ${actualBranch.output || '<unknown>'}` };
+    }
+    return { ok: true, skipped: true, reason: 'task-generation-isolated worktree exists' };
   }
   if (args.dryRun) {
     return { ok: true, skipped: false, dryRun: true, reason: 'dry-run would create a task-isolated worktree from origin/main' };
   }
-  mkdirSync(path.dirname(task.worktree), { recursive: true });
-  const fetch = safeGit(['fetch', 'origin', 'main'], args.mainRoot);
-  if (!fetch.ok) return { ok: false, skipped: false, error: `cannot refresh origin/main: ${fetch.output}` };
-  const branchExists = safeGit(['show-ref', '--verify', '--quiet', `refs/heads/${task.branch}`], args.mainRoot).ok;
-  const command = branchExists
-    ? ['worktree', 'add', task.worktree, task.branch]
-    : ['worktree', 'add', '-b', task.branch, task.worktree, 'origin/main'];
-  const created = safeGit(command, args.mainRoot);
+  const created = ensureIsolatedTaskWorkspace({
+    taskId: task.task_id,
+    agent: task.agent,
+    generation: task.workspace_generation,
+    worktree: task.worktree,
+    branch: task.branch,
+    mainRoot: args.mainRoot,
+  });
   return created.ok
-    ? { ok: true, skipped: false, created: true, branch: task.branch, worktree: task.worktree }
-    : { ok: false, skipped: false, error: `cannot create task-isolated worktree: ${created.output}` };
+    ? { ...created, skipped: false }
+    : { ok: false, skipped: false, error: created.error };
 }
 
 function inferDirtyWorktreeOwner(task, statusOutput) {
@@ -1174,11 +1202,11 @@ function inferDirtyWorktreeOwner(task, statusOutput) {
 }
 
 function quarantineDirtyImplementationWorktree(task, args, before) {
-  if (!args.autoUnblockDirtyWorktrees || !String(task.worktree || '').includes('/bug-intake-')) return null;
+  if (!args.autoUnblockDirtyWorktrees || !String(task.worktree || '').includes('/agent-tasks/')) return null;
   const ownerTask = inferDirtyWorktreeOwner(task, before.output);
   const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
   const safeTaskId = String(ownerTask.task_id || 'unknown-task').replace(/[^A-Za-z0-9._-]/g, '-');
-  const quarantineRoot = path.join(path.dirname(task.worktree), 'bug-intake-quarantine');
+  const quarantineRoot = path.join(path.dirname(task.worktree), 'quarantine');
   const quarantinePath = path.join(quarantineRoot, `${safeTaskId}-${timestamp}`);
   const quarantineBranch = `codex/quarantine/${safeTaskId.toLowerCase()}-${timestamp}`;
   const reportFile = `docs/ops/runs/${safeTaskId}-worktree-quarantine.md`;
@@ -1231,9 +1259,6 @@ function quarantineDirtyImplementationWorktree(task, args, before) {
     quarantine_source_worktree: task.worktree,
   };
   const heldTask = patchTask(ownerTask.task_id, taskPatch);
-  let recreated = { ok: false, output: 'skipped because quarantine branch rename failed' };
-  if (renamed.ok) recreated = safeGit(['worktree', 'add', '-b', task.branch, task.worktree, 'origin/main'], args.mainRoot);
-
   writeMd(reportFile, `# Bug Intake Worktree Quarantine
 
 | Field | Value |
@@ -1244,7 +1269,7 @@ function quarantineDirtyImplementationWorktree(task, args, before) {
 | Original worktree | \`${task.worktree}\` |
 | Quarantine worktree | \`${quarantinePath}\` |
 | Quarantine branch | \`${renamed.ok ? quarantineBranch : task.branch}\` |
-| Clean execution slot recreated | ${recreated.ok ? 'Yes' : 'No'} |
+| Same execution slot recreated | No (forbidden) |
 
 ## Preserved status
 
@@ -1254,9 +1279,7 @@ ${before.output || '(unknown)'}
 
 ## Decision
 
-HOLD. The incomplete files are preserved for diagnosis. They were not committed, merged, pushed, or deployed. A fresh dedicated worktree is created from \`origin/main\` only when every preservation step succeeds.
-
-${recreated.ok ? '' : `Recreate error: ${recreated.output}`}
+HOLD. The incomplete files are preserved for diagnosis. They were not committed, merged, pushed, or deployed. This task generation is retired permanently. A redispatch must increment \`workspace_generation\` and create a different branch and worktree from \`origin/main\`.
 `);
 
   return {
@@ -1264,13 +1287,13 @@ ${recreated.ok ? '' : `Recreate error: ${recreated.output}`}
     trigger_task_id: task.task_id,
     agent: ownerTask.agent,
     status: 'HOLD',
-    reason: recreated.ok ? 'incomplete worktree quarantined; clean execution slot recreated' : `quarantine preserved, but clean slot recreation failed: ${recreated.output}`,
+    reason: 'incomplete worktree quarantined; task generation retired; redispatch requires a fresh generation',
     before: before.output,
     quarantinePath,
     quarantineBranch: renamed.ok ? quarantineBranch : task.branch,
     reportFile,
     task: heldTask,
-    result: { moved: moved.ok, renamed: renamed.ok, recreated: recreated.ok },
+    result: { moved: moved.ok, renamed: renamed.ok, recreated: false },
   };
 }
 

@@ -4,6 +4,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { filterRunnerRuntimeStatus } from './bug-intake-worktree-runtime.mjs';
+import {
+  isStaticAgentWorktree,
+  ensureTaskWorkspace,
+  taskWorkspaceIdentity,
+  validateTaskWorkspace,
+} from './agent-task-workspace.mjs';
 
 const AGENTS = {
   'Codex-Orchestrator': {
@@ -47,49 +53,22 @@ const AGENTS = {
     prompt: 'docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md',
   },
 };
-const BUG_INTAKE_OVERRIDES = {
-  'A3-Backend-Critical-Path': {
-    branch: 'codex/bug-intake-a3',
-    worktree: '/Users/mac/phoenix-erp-worktrees/bug-intake-a3',
-    prompt: 'docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md',
-  },
-  'A4-Frontend-UAT-Smoke': {
-    branch: 'codex/bug-intake-a4',
-    worktree: '/Users/mac/phoenix-erp-worktrees/bug-intake-a4',
-    prompt: 'docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md',
-  },
+const EXTRA_AGENT_PROMPTS = {
+  'A3-Backend-Critical-Path': ['docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md'],
+  'A4-Frontend-UAT-Smoke': ['docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md'],
 };
-const BUG_INTAKE_WORKTREE_ROOT = '/Users/mac/phoenix-erp-worktrees';
-
-function resolveBugIntakeExecutionConfig(agent, requestedWorktree) {
-  const base = BUG_INTAKE_OVERRIDES[agent];
-  if (!base) return null;
-  if (requestedWorktree === base.worktree) return base;
-
-  const parent = path.dirname(requestedWorktree);
-  const name = path.basename(requestedWorktree);
-  if (
-    parent !== BUG_INTAKE_WORKTREE_ROOT
-    || !/^bug-intake-bugtask-[a-z0-9-]+-a[34]$/.test(name)
-  ) {
-    return null;
-  }
-  return {
-    ...base,
-    worktree: requestedWorktree,
-    branch: `codex/${name}`,
-  };
-}
 
 function usage(exitCode = 1) {
   console.log(`Usage:
-  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--timeout-ms <ms>] [--dry-run] [--skip-baseline-autopilot] [--allow-ops-runtime-dirty] [--allow-bug-intake-worktree]
+  node scripts/ops/run-agent-task.mjs --agent <name> --task-id <id> --workspace-generation <n> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--timeout-ms <ms>] [--dry-run] [--skip-baseline-autopilot] [--allow-ops-runtime-dirty]
 
 Example:
   node scripts/ops/run-agent-task.mjs \\
-    --agent A1-CI-Runtime-Gate \\
-    --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate \\
-    --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md \\
+    --agent A3-Backend-Critical-Path \\
+    --task-id BUGTASK-20260728-0001-A3 \\
+    --workspace-generation 1 \\
+    --worktree /Users/mac/phoenix-erp-worktrees/agent-tasks/bugtask-20260728-0001-a3-g1-a3 \\
+    --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md \\
     --dry-run`);
   process.exit(exitCode);
 }
@@ -109,10 +88,6 @@ function parseArgs(argv) {
     }
     if (arg === '--allow-ops-runtime-dirty') {
       values['allow-ops-runtime-dirty'] = true;
-      continue;
-    }
-    if (arg === '--allow-bug-intake-worktree') {
-      values['allow-bug-intake-worktree'] = true;
       continue;
     }
     if (arg === '--help' || arg === '-h') {
@@ -332,45 +307,77 @@ if (!config) {
 }
 
 const worktree = path.resolve(args.worktree);
-const override = args['allow-bug-intake-worktree']
-  ? resolveBugIntakeExecutionConfig(args.agent, worktree)
+const generation = Number.parseInt(args['workspace-generation'] || '1', 10);
+const isolated = args['task-id']
+  ? taskWorkspaceIdentity({
+    taskId: args['task-id'],
+    agent: args.agent,
+    generation,
+    promptFile: config.prompt,
+  })
   : null;
-if (args['allow-bug-intake-worktree'] && BUG_INTAKE_OVERRIDES[args.agent] && !override) {
-  fail(`invalid isolated bug-intake worktree for ${args.agent}: ${worktree}`);
+if (!isolated && !args.dryRun) {
+  fail('real Agent execution requires --task-id and a task-generation-isolated workspace');
 }
-const executionConfig = override || config;
-if (worktree !== executionConfig.worktree) {
-  fail(`worktree mismatch for ${args.agent}; expected ${executionConfig.worktree}, got ${worktree}`);
+if (isolated) {
+  const identity = validateTaskWorkspace({
+    taskId: args['task-id'],
+    agent: args.agent,
+    generation,
+    worktree,
+    branch: isolated.branch,
+  });
+  if (!identity.ok) fail(identity.errors.join('; '));
+}
+if (isStaticAgentWorktree(worktree) && !args.dryRun) {
+  fail('static Agent worktrees are template-only; real execution requires a task-generation-isolated workspace');
+}
+
+const executionConfig = isolated
+  ? { ...config, worktree: isolated.worktree, branch: isolated.branch }
+  : config;
+let branch = executionConfig.branch;
+if (isolated) {
+  const setup = ensureTaskWorkspace({
+    taskId: args['task-id'],
+    agent: args.agent,
+    generation,
+    worktree,
+    branch: isolated.branch,
+    mainRoot: process.cwd(),
+    dryRun: args.dryRun,
+  });
+  if (!setup.ok) fail(setup.error);
 }
 if (!existsSync(worktree)) {
-  fail(`worktree does not exist: ${worktree}`);
-}
-
-ensureGitRepo(worktree);
-
-const branch = runGit(['branch', '--show-current'], worktree);
-if (branch !== executionConfig.branch) {
-  fail(`branch mismatch for ${args.agent}; expected ${executionConfig.branch}, got ${branch}`);
-}
-
-const status = filterRunnerRuntimeStatus(runGit(['status', '--short'], worktree));
-if (status && !(args['allow-ops-runtime-dirty'] && isOnlyAllowedOpsRuntimeDirty(status))) {
-  fail(`worktree is not clean:\n${status}`);
+  if (!args.dryRun || !isolated) fail(`worktree does not exist: ${worktree}`);
+  console.log(`Dry-run: task workspace will be created from origin/main at ${worktree}`);
+} else {
+  ensureGitRepo(worktree);
+  branch = runGit(['branch', '--show-current'], worktree);
+  if (branch !== executionConfig.branch) {
+    fail(`branch mismatch for ${args.agent}; expected ${executionConfig.branch}, got ${branch}`);
+  }
+  const status = filterRunnerRuntimeStatus(runGit(['status', '--short'], worktree));
+  if (status && !(args['allow-ops-runtime-dirty'] && isOnlyAllowedOpsRuntimeDirty(status))) {
+    fail(`worktree is not clean:\n${status}`);
+  }
 }
 
 const promptFile = resolvePrompt(args.prompt);
-const expectedPrompt = path.resolve(process.cwd(), executionConfig.prompt);
-if (promptFile !== expectedPrompt) {
-  fail(`prompt mismatch for ${args.agent}; expected ${executionConfig.prompt}, got ${args.prompt}`);
+const allowedPrompts = [
+  config.prompt,
+  ...(EXTRA_AGENT_PROMPTS[args.agent] || []),
+].map((prompt) => path.resolve(process.cwd(), prompt));
+if (!allowedPrompts.includes(promptFile)) {
+  fail(`prompt mismatch for ${args.agent}; allowed ${allowedPrompts.map((prompt) => path.relative(process.cwd(), prompt)).join(', ')}, got ${args.prompt}`);
 }
 
 const requestSpecFile = args['request-spec'] ? resolvePrompt(args['request-spec']) : null;
 const taskContractFile = args['task-contract'] ? resolvePrompt(args['task-contract']) : null;
 const assembledPromptOutput = args['assembled-prompt-output'] ?? null;
-const hasDispatchPayload = Boolean(requestSpecFile || taskContractFile);
-
-if (!args.dryRun && hasDispatchPayload && args['require-approval-token'] !== 'APPROVE_AGENT_EXECUTION') {
-  fail('non-dry-run Agent execution with request spec or task contract requires --require-approval-token APPROVE_AGENT_EXECUTION');
+if (!args.dryRun && args['require-approval-token'] !== 'APPROVE_AGENT_EXECUTION') {
+  fail('real Agent execution requires --require-approval-token APPROVE_AGENT_EXECUTION');
 }
 
 const prompt = buildAssembledPrompt({

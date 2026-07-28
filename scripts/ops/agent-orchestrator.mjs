@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } fr
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { routeRequest } from './agent-route-request.mjs';
+import { approvedExecutionCommand, assignTaskWorkspace } from './agent-task-workspace.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const DISPATCH_MAP = 'docs/ops/AGENT_DISPATCH_MAP.json';
@@ -473,14 +474,14 @@ function ensureQueueFiles() {
   return files;
 }
 
-function appendQueueTasks({ requestId, requestText, agentArtifacts, dispatchMap, signals, specPath }) {
+function appendQueueTasks({ requestId, requestText, agentArtifacts, dispatchMap, signals, specPath, dryRun = false }) {
   const files = ensureQueueFiles();
   const current = JSON.parse(readFileSync(files.tasksFile, 'utf8'));
   const existingIds = new Set(current.map((task) => task.task_id));
-  const tasks = agentArtifacts.map((artifact, index) => {
+  const tasks = agentArtifacts.map((artifact) => {
     const config = dispatchMap[artifact.agent];
-    const taskId = `${requestId}-${String(index + 1).padStart(2, '0')}-${artifact.agent.replace(/^A(\d)-.*/, 'A$1')}`;
-    return {
+    const taskId = artifact.task_id;
+    return assignTaskWorkspace({
       task_id: taskId,
       request_id: requestId,
       title: `Closed-loop task for ${artifact.agent}`,
@@ -494,8 +495,6 @@ function appendQueueTasks({ requestId, requestText, agentArtifacts, dispatchMap,
       prompt_file: config.prompt_file,
       contract_file: artifact.contract,
       request_spec: path.relative(process.cwd(), specPath),
-      worktree: config.worktree_path,
-      branch: config.canonical_branch,
       dependencies: [],
       claimed_by: null,
       claimed_at: null,
@@ -503,9 +502,17 @@ function appendQueueTasks({ requestId, requestText, agentArtifacts, dispatchMap,
       result_file: null,
       next_agents: [],
       approval_required: true,
-    };
+    }, config);
   });
   const newTasks = tasks.filter((task) => !existingIds.has(task.task_id));
+  if (dryRun) {
+    return {
+      tasks_file: path.relative(process.cwd(), files.tasksFile),
+      events_file: path.relative(process.cwd(), files.eventsFile),
+      created_tasks: newTasks,
+      persisted: false,
+    };
+  }
   current.push(...newTasks);
   writeFileSync(files.tasksFile, `${JSON.stringify(current, null, 2)}\n`);
   appendFileSync(
@@ -590,9 +597,20 @@ const agentArtifacts = [];
 for (const agent of selectedAgents) {
   const config = dispatchMap[agent];
   if (!config) continue;
-  const check = checkWorktree(agent, config, args.dryRun || args.mode !== 'execute-approved', args.approvalToken);
+  const artifactTaskId = `${requestId}-${agent.replace(/^A(\d)-.*/, 'A$1')}`;
+  const execution = assignTaskWorkspace({
+    task_id: artifactTaskId,
+    agent,
+    prompt_file: config.prompt_file,
+  }, config);
+  const executionConfig = {
+    ...config,
+    worktree_path: execution.worktree,
+    canonical_branch: execution.branch,
+  };
+  const check = checkWorktree(agent, executionConfig, true, args.approvalToken);
   worktreeChecks.push(check);
-  const contract = makeContract({ requestId, requestText, agent, config, signals });
+  const contract = makeContract({ requestId, requestText, agent, config: executionConfig, signals });
   const contractPath = path.join(outputDir, `${requestId}-agent-contract-${agent}.md`);
   writeFileSync(contractPath, contract);
   const basePrompt = readFileSync(resolvePath(config.prompt_file), 'utf8');
@@ -602,22 +620,27 @@ for (const agent of selectedAgents) {
   const command = [
     'node scripts/ops/run-agent-task.mjs',
     `--agent ${agent}`,
-    `--worktree ${config.worktree_path}`,
+    `--worktree ${execution.worktree}`,
     `--prompt ${config.prompt_file}`,
     `--request-spec ${path.relative(process.cwd(), specPath)}`,
     `--task-contract ${path.relative(process.cwd(), contractPath)}`,
     `--assembled-prompt-output ${path.relative(process.cwd(), promptPath)}`,
     '--dry-run',
+    `--task-id ${artifactTaskId}`,
+    '--workspace-generation 1',
   ].join(' ');
   nextCommands.push(command);
   safeMergeCommands.push(
-    `node scripts/ops/agent-baseline-autopilot.mjs --agent ${agent} --branch ${config.canonical_branch} --worktree ${config.worktree_path} --max-retries 3 --dry-run`,
+    `node scripts/ops/agent-auto-merge.mjs --task-id ${artifactTaskId} --dry-run`,
   );
   agentArtifacts.push({
     agent,
     contract: path.relative(process.cwd(), contractPath),
     assembled_prompt: path.relative(process.cwd(), promptPath),
     run_agent_task_dry_run_command: command,
+    task_id: artifactTaskId,
+    worktree: execution.worktree,
+    branch: execution.branch,
   });
 }
 generatedFiles.agent_artifacts = agentArtifacts;
@@ -631,6 +654,7 @@ if (args.mode === 'closed-loop') {
     dispatchMap,
     signals,
     specPath,
+    dryRun: args.dryRun,
   });
   generatedFiles.agent_queue = queueResult;
 }
@@ -659,7 +683,10 @@ if (!args.dryRun && args.mode === 'execute-approved') {
     const executableArtifacts = agentArtifacts.filter((artifact) => SAFE_EXECUTION_AGENTS.has(artifact.agent));
     const limit = Math.max(1, args.parallel);
     const runResults = await runWithLimit(executableArtifacts, limit, async (artifact) => {
-      const command = artifact.run_agent_task_dry_run_command.replace(/\s--dry-run$/, ` --require-approval-token ${APPROVAL_TOKEN}`);
+      const command = approvedExecutionCommand(
+        artifact.run_agent_task_dry_run_command,
+        APPROVAL_TOKEN,
+      );
       const parts = command.split(/\s+/);
       const result = spawnSync(parts[0], parts.slice(1), { cwd: process.cwd(), encoding: 'utf8' });
       const exitCode = result.status ?? 1;

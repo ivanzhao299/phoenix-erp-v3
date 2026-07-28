@@ -110,3 +110,9 @@ Last updated: 2026-07-23
 102. Personal credentials, browser cookies, local storage, SSO sessions and interactive login state must never be stored or automated for Chanjet integration.
 103. Every approved Chanjet write API must name the endpoint, account book, immutable payload hash, idempotency key, readback endpoint, rollback/compensation method and audit receipt.
 104. Routine readonly synchronization and future approved writeback must remain service-account/API based and must not require the user to log in.
+105. Long-lived A1-A7 and Codex-Orchestrator worktrees are templates only; no real task may execute or merge from a canonical Agent worktree.
+106. Every executable task must use `task-generation-isolated-v2` identity derived from `task_id + workspace_generation + agent`.
+107. Redispatch, stale-lease recovery and interrupted-task recovery must increment `workspace_generation`; an old generation is never cleaned and reused.
+108. Dirty or incomplete task worktrees must be preserved in quarantine. Automatic reset, branch reattachment and same-slot recreation are forbidden.
+109. Agent roles are capability labels, not branch ownership. Recomposition of Agents must preserve task identity isolation.
+110. Automatic merge must reject legacy/static workspaces and any branch/worktree/task/generation mismatch.

@@ -284,13 +284,14 @@ function commandForTask(task, dryRun, approvalToken) {
     task.worktree,
     '--prompt',
     task.prompt_file,
+    '--task-id',
+    task.task_id,
+    '--workspace-generation',
+    String(task.workspace_generation || Number(task.redispatch_count || 0) + 1),
   ];
   if (task.request_spec) command.push('--request-spec', task.request_spec);
   if (task.contract_file) command.push('--task-contract', task.contract_file);
   command.push('--assembled-prompt-output', assembled);
-  if (task.source === 'bug-intake' && String(task.worktree || '').includes('/bug-intake-')) {
-    command.push('--allow-bug-intake-worktree');
-  }
   if (dryRun) command.push('--dry-run');
   else command.push('--require-approval-token', approvalToken, '--skip-baseline-autopilot', '--allow-ops-runtime-dirty');
   return command;

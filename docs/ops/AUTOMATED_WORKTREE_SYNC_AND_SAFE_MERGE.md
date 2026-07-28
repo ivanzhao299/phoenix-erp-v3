@@ -16,6 +16,8 @@ Manual rebase and merge commands across `main`, A1, A2, A3, and Codex-Orchestrat
 6. safe merge through `merge-agent-to-main.mjs`;
 7. post-merge status/log/gate summary.
 
+Generated Agent work uses a task-generation branch such as `codex/task/<task-id>/g1/a3`. The long-lived `w5-a1-*` through `w5-a7-*` branches are templates and are rejected for real task merge.
+
 ## 3. Correct Input Location
 
 Run from the main repository:
@@ -97,5 +99,5 @@ Schema gate dry-run:
 
 ```bash
 cd /Users/mac/phoenix-erp
-node scripts/ops/agent-sync-and-merge.mjs w5-a3-backend-critical-path --schema-gate REQ-STORE-PAYMENT-UNIFIED-CODE-001 --dry-run
+node scripts/ops/agent-sync-and-merge.mjs codex/task/req-store-payment-001-a3/g1/a3 --schema-gate REQ-STORE-PAYMENT-001 --dry-run
 ```

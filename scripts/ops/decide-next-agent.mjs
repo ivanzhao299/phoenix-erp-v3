@@ -2,6 +2,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { assignTaskWorkspace } from './agent-task-workspace.mjs';
 
 const DISPATCH_MAP = 'docs/ops/AGENT_DISPATCH_MAP.json';
 
@@ -208,11 +209,16 @@ if (missing.length > 0) {
     const config = dispatchMap[agent];
     const followUpTaskId = `${result.task_id}-${agent.split('-')[0]}-FOLLOWUP`;
     const requiredOutputReport = outputReport(agent, result.task_id);
+    const execution = assignTaskWorkspace({
+      task_id: followUpTaskId,
+      agent,
+      prompt_file: config.prompt_file,
+    }, config);
     const dispatch = {
       follow_up_task_id: followUpTaskId,
       next_agent: agent,
-      worktree: config.worktree_path,
-      branch: config.canonical_branch,
+      worktree: execution.worktree,
+      branch: execution.branch,
       prompt_file: config.prompt_file,
       generated_contract_file: '',
       required_review_scope: reviewScope(agent, result),
@@ -228,10 +234,12 @@ if (missing.length > 0) {
     dispatch.run_agent_task_dry_run_command = [
       'node scripts/ops/run-agent-task.mjs',
       `--agent ${agent}`,
-      `--worktree ${config.worktree_path}`,
+      `--worktree ${execution.worktree}`,
       `--prompt ${config.prompt_file}`,
       `--task-contract ${dispatch.generated_contract_file}`,
       `--assembled-prompt-output docs/ops/runs/${followUpTaskId}-assembled-prompt.md`,
+      `--task-id ${followUpTaskId}`,
+      '--workspace-generation 1',
       '--dry-run',
     ].join(' ');
     return dispatch;

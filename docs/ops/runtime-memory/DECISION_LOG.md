@@ -2020,3 +2020,12 @@ Decision: counterparty resolution `GO`.
 - Source records enter `chanjet_read_snapshots` and `chanjet_entity_snapshots` only. They never directly mutate ERP WMS documents, `inv_batches` or `inv_ledger`.
 - ERP-to-Chanjet inventory synchronization is architecture-ready but disabled until a dedicated WMS Outbox, exact mappings, provider write contracts, A2/A1/A7 Gates and a single-document readback canary exist.
 - Full plan: `docs/ops/CHANJET_ERP_WMS_SYNC_BASELINE_AND_GAP_PLAN.md`.
+
+# 2026-07-28 - Retire shared Agent execution branches
+
+- Root cause: only the Bug Intake A3/A4 path allocated task-specific worktrees; ordinary orchestration, follow-up dispatch, direct runner and queue paths still consumed canonical Agent branches.
+- Decision: all A1-A7 and Orchestrator task artifacts now use `task_id + workspace_generation + agent` identity.
+- Canonical Agent worktrees remain templates and diagnostics references only; `canonical_execution_allowed=false`.
+- Redispatch and stale lease recovery allocate a new generation. Dirty or detached old generations are preserved/retired and never reattached.
+- Automatic execution and merge fail closed on static worktrees or identity mismatch.
+- Regression result: the task workspace and existing Bug Intake suites pass together.

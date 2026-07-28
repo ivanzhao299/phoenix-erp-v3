@@ -2,6 +2,7 @@
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { taskWorkspaceIdentity } from './agent-task-workspace.mjs';
 
 const BOARD = 'docs/ops/AGENT_TASK_BOARD.md';
 
@@ -95,14 +96,22 @@ const config = AGENT_CONFIG[next.agent] ?? {
   worktree: 'UNKNOWN',
   prompt: 'UNKNOWN',
 };
+const execution = taskWorkspaceIdentity({
+  taskId: next.taskId,
+  agent: next.agent,
+  generation: 1,
+  promptFile: config.prompt,
+});
 
 console.log('Suggested next Agent task:');
 console.log(`Task ID: ${next.taskId}`);
 console.log(`Agent: ${next.agent}`);
-console.log(`Branch: ${next.branch}`);
+console.log(`Template branch: ${next.branch}`);
 console.log(`Status: ${next.status}`);
 console.log(`Risk: ${next.risk}`);
-console.log(`Worktree: ${config.worktree}`);
+console.log(`Worktree: ${execution.worktree}`);
+console.log(`Branch: ${execution.branch}`);
+console.log('Workspace policy: task-generation-isolated-v2');
 console.log(`Prompt: ${config.prompt}`);
 console.log(`Blockers: ${next.blocker}`);
 console.log(`Next step: ${next.nextStep}`);

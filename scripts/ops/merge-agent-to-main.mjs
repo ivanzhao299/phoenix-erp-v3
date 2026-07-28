@@ -2,8 +2,14 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import { stdin as input, stdout as output } from 'node:process';
 import path from 'node:path';
+import {
+  isStaticAgentBranch,
+  TASK_BRANCH_PREFIX,
+  validateTaskWorkspace,
+} from './agent-task-workspace.mjs';
 
 const args = process.argv.slice(2).map((arg) => arg.replace(/^–+/, '--'));
 const targetBranch = args.find((arg) => !arg.startsWith('-'));
@@ -23,15 +29,19 @@ function usage(exitCode = 1) {
 
 Examples:
   node scripts/ops/merge-agent-to-main.mjs w5-codex-orchestrator --dry-run
-  node scripts/ops/merge-agent-to-main.mjs w5-a5-data-readiness --yes
-  node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --allow-code --dry-run
-  node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --schema-gate REQ-STORE-PAYMENT-UNIFIED-CODE-001 --dry-run
+  node scripts/ops/merge-agent-to-main.mjs codex/task/bugtask-20260728-0001-a5/g1/a5 --yes
+  node scripts/ops/merge-agent-to-main.mjs codex/task/bugtask-20260728-0001-a3/g1/a3 --allow-code --dry-run
+  node scripts/ops/merge-agent-to-main.mjs codex/task/req-store-payment-001-a3/g1/a3 --schema-gate REQ-STORE-PAYMENT-001 --dry-run
   node scripts/ops/merge-agent-to-main.mjs w5-codex-orchestrator --staging-bootstrap --dry-run`);
   process.exit(exitCode);
 }
 
 if (!targetBranch || args.includes('--help') || args.includes('-h') || (schemaGateIndex >= 0 && !schemaGate)) {
   usage(args.includes('--help') || args.includes('-h') ? 0 : 1);
+}
+if (!dryRun && isStaticAgentBranch(targetBranch)) {
+  console.error('ERROR: canonical Agent branches are template-only; direct real merge is forbidden');
+  process.exit(1);
 }
 
 function runGit(args, options = {}) {
@@ -62,6 +72,26 @@ function ensureGitRepo() {
     runGit(['rev-parse', '--is-inside-work-tree']);
   } catch {
     fail('must run inside a git repository');
+  }
+}
+
+function validateQueuedTaskBranch(branch) {
+  if (!branch.startsWith(`${TASK_BRANCH_PREFIX}/`)) return;
+  const queueFile = path.resolve(process.cwd(), 'docs/ops/agent-queue/tasks.json');
+  if (!existsSync(queueFile)) fail(`task queue is missing for task-generation branch: ${queueFile}`);
+  const payload = JSON.parse(readFileSync(queueFile, 'utf8'));
+  const tasks = Array.isArray(payload) ? payload : payload.tasks || [];
+  const task = tasks.find((item) => item.branch === branch && item.route_active !== false);
+  if (!task) fail(`task-generation branch is not owned by an active queued task: ${branch}`);
+  const identity = validateTaskWorkspace({
+    taskId: task.task_id,
+    agent: task.agent,
+    generation: task.workspace_generation || Number(task.redispatch_count || 0) + 1,
+    worktree: task.worktree,
+    branch,
+  });
+  if (!identity.ok || task.workspace_policy !== 'task-generation-isolated-v2') {
+    fail(`queued task workspace identity is invalid: ${identity.errors.join('; ') || task.workspace_policy || 'missing policy'}`);
   }
 }
 
@@ -291,6 +321,7 @@ function isAncestor(ancestor, descendant) {
 }
 
 ensureGitRepo();
+validateQueuedTaskBranch(targetBranch);
 
 const currentBranch = runGit(['branch', '--show-current']);
 if (currentBranch !== 'main') {

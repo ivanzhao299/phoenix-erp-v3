@@ -6,6 +6,8 @@
 2. `release-planning`: A6 can prepare runbooks after merge readiness; no deploy.
 3. `final-readonly-gate`: A7 can review evidence after A1/A2/A4/A6 outputs.
 
+Every generated task in a parallel group has its own immutable task-generation worktree. Parallelism is a scheduling decision, never permission to share a branch or worktree.
+
 ## Code Work
 
 A3 and A4 can only run in parallel when:
@@ -14,6 +16,7 @@ A3 and A4 can only run in parallel when:
 2. no migration/schema/entity/table/column is involved;
 3. A2 high-risk pre-review is complete when Auth/RBAC/DataScope/Finance/Payment/Chanjet is involved;
 4. user approval exists.
+5. A3 and A4 each use their own `task_id + generation + agent` workspace.
 
 ## A4 UI/UX Parallel Rules
 
@@ -37,6 +40,8 @@ The platform must HOLD for:
 6. dirty worktree;
 7. rebase conflict;
 8. missing Agent result evidence.
+9. static/canonical Agent worktree used as an execution slot;
+10. branch or worktree identity not matching task id and generation.
 
 ## Gate Requirements
 

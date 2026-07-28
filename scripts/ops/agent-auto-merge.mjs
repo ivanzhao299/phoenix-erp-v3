@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { validateTaskWorkspace } from './agent-task-workspace.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
@@ -92,6 +93,16 @@ if (!task) {
 }
 const diagnosis = loadDiagnosis(args);
 const reasons = [];
+const workspaceIdentity = validateTaskWorkspace({
+  taskId: task.task_id,
+  agent: task.agent,
+  generation: task.workspace_generation || Number(task.redispatch_count || 0) + 1,
+  worktree: task.worktree,
+  branch: task.branch,
+});
+if (!workspaceIdentity.ok || task.workspace_policy !== 'task-generation-isolated-v2') {
+  reasons.push(`task workspace identity rejected: ${workspaceIdentity.errors.join('; ') || 'legacy workspace policy'}`);
+}
 if (!diagnosis) reasons.push('diagnosis-json missing');
 if (diagnosis && diagnosis.recommendation !== 'auto-merge-eligible') reasons.push(`diagnosis recommendation is ${diagnosis.recommendation}`);
 if (diagnosis?.touched_frozen_boundary || diagnosis?.added_migration_or_schema) reasons.push('frozen boundary or migration/schema touched');
@@ -106,6 +117,8 @@ const command = [
   task.agent,
   '--branch',
   task.branch,
+  '--worktree',
+  task.worktree,
   '--max-retries',
   '3',
   '--dry-run',

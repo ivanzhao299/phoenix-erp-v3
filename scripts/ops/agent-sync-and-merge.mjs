@@ -2,6 +2,7 @@
 
 import { existsSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { isStaticAgentBranch } from './agent-task-workspace.mjs';
 
 const MAIN_ROOT = '/Users/mac/phoenix-erp';
 const RUN_ARTIFACT_PREFIX = 'docs/ops/runs/';
@@ -14,7 +15,7 @@ function usage(exitCode = 1) {
 Examples:
   node scripts/ops/agent-sync-and-merge.mjs w5-codex-orchestrator --dry-run
   node scripts/ops/agent-sync-and-merge.mjs w5-codex-orchestrator --yes
-  node scripts/ops/agent-sync-and-merge.mjs w5-a3-backend-critical-path --schema-gate REQ-STORE-PAYMENT-UNIFIED-CODE-001 --dry-run
+  node scripts/ops/agent-sync-and-merge.mjs codex/task/bugtask-20260728-0001-a3/g1/a3 --allow-code --dry-run
   node scripts/ops/agent-sync-and-merge.mjs w5-codex-orchestrator --staging-bootstrap --dry-run`);
   process.exit(exitCode);
 }
@@ -110,6 +111,9 @@ function scriptPath(script) {
 
 const args = parseArgs(process.argv.slice(2));
 if (!args.branch) usage(1);
+if (!args.dryRun && isStaticAgentBranch(args.branch)) {
+  fail('canonical Agent branches are template-only; merge a task-generation branch through agent-auto-merge.mjs');
+}
 
 if (process.cwd() !== MAIN_ROOT) {
   fail(`must run from ${MAIN_ROOT}`, { current: process.cwd() });

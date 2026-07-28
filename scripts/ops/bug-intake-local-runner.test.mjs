@@ -921,10 +921,10 @@ test('one HOLD report cannot starve an independent release-ready report', () => 
 test('A3 and A4 use task-isolated execution branches and worktrees', () => {
   const a3 = bugIntakeExecutionSlot('A3-Backend-Critical-Path', 'BUGTASK-20260728-0001-A3');
   const a4 = bugIntakeExecutionSlot('A4-Frontend-UAT-Smoke', 'BUGTASK-20260728-0002-A4');
-  assert.equal(a3.branch, 'codex/bug-intake-bugtask-20260728-0001-a3');
-  assert.equal(a4.branch, 'codex/bug-intake-bugtask-20260728-0002-a4');
+  assert.equal(a3.branch, 'codex/task/bugtask-20260728-0001-a3/g1/a3');
+  assert.equal(a4.branch, 'codex/task/bugtask-20260728-0002-a4/g1/a4');
   assert.notEqual(a3.worktree, a4.worktree);
-  assert.match(a3.worktree, /bug-intake-bugtask-20260728-0001-a3$/);
+  assert.match(a3.worktree, /agent-tasks\/bugtask-20260728-0001-a3-g1-a3$/);
 });
 
 test('already-pushed verified release resumes CI and lifecycle writeback', () => {

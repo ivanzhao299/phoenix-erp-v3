@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, openSync, closeSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { persistTaskSnapshot, readQueueTasks } from './bug-runner-platform.mjs';
+import { assignTaskWorkspace, retireTaskGeneration } from './agent-task-workspace.mjs';
 
 const QUEUE_DIR = 'docs/ops/agent-queue';
 const TASKS_FILE = `${QUEUE_DIR}/tasks.json`;
@@ -90,7 +91,7 @@ function timestamp() {
 }
 
 function defaultTask({ requestId, title, agent, index = 1 }) {
-  return {
+  return assignTaskWorkspace({
     task_id: `${requestId}-${String(index).padStart(2, '0')}-${agent.replace(/^A(\d)-.*/, 'A$1')}`,
     request_id: requestId,
     title,
@@ -102,8 +103,6 @@ function defaultTask({ requestId, title, agent, index = 1 }) {
     forbidden_paths: ['apps/api/**', 'apps/web/**', 'apps/api/src/database/migrations/**', 'schema/entity/table/column'],
     prompt_file: agent.includes('A2') ? 'docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md' : 'docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md',
     contract_file: '',
-    worktree: agent.includes('A2') ? '/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate' : '/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate',
-    branch: agent.includes('A2') ? 'w5-a2-security-regression-gate' : 'w5-a1-ci-runtime-gate',
     dependencies: [],
     claimed_by: null,
     claimed_at: null,
@@ -111,7 +110,7 @@ function defaultTask({ requestId, title, agent, index = 1 }) {
     result_file: null,
     next_agents: [],
     approval_required: true,
-  };
+  });
 }
 
 function lockTask(taskId) {
@@ -162,7 +161,11 @@ if (args.addTask) {
   const file = path.isAbsolute(args.addTask) ? args.addTask : path.resolve(process.cwd(), args.addTask);
   const payload = JSON.parse(readFileSync(file, 'utf8'));
   const tasks = readTasks();
-  const incoming = Array.isArray(payload) ? payload : [payload];
+  const incoming = (Array.isArray(payload) ? payload : [payload]).map((task) => assignTaskWorkspace(task, {
+    prompt_file: task.prompt_file,
+    worktree_path: task.template_worktree,
+    canonical_branch: task.template_branch,
+  }));
   tasks.push(...incoming);
   writeTasks(tasks);
   event('tasks_added', { task_ids: incoming.map((task) => task.task_id) });
@@ -206,7 +209,8 @@ if (args.claim) {
 function updateTask(status) {
   if (!args.taskId) usage(1);
   const tasks = readTasks();
-  const task = tasks.find((item) => item.task_id === args.taskId);
+  const taskIndex = tasks.findIndex((item) => item.task_id === args.taskId);
+  let task = tasks[taskIndex];
   if (!task) {
     console.error(`ERROR: task not found: ${args.taskId}`);
     process.exit(1);
@@ -217,6 +221,15 @@ function updateTask(status) {
     task.claimed_at = null;
   }
   if (status === 'pending') {
+    task = retireTaskGeneration(task, {
+      reason: 'explicit task release',
+      config: {
+        prompt_file: task.prompt_file,
+        worktree_path: task.template_worktree,
+        canonical_branch: task.template_branch,
+      },
+    });
+    tasks[taskIndex] = task;
     task.claimed_by = null;
     task.claimed_at = null;
     unlockTask(task.task_id);

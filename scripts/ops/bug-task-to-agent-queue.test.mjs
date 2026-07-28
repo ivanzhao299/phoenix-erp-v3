@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  bugIntakeExecutionSlot,
   isTechnicalRedispatch,
   mergeExistingQueueTask,
   resolveRoutePlan,
 } from './bug-task-to-agent-queue.mjs';
+import { taskWorkspaceIdentity } from './agent-task-workspace.mjs';
+
+const sharedIdentity = taskWorkspaceIdentity({
+  taskId: 'BUGTASK-1-A3',
+  agent: 'A3-Backend-Critical-Path',
+  generation: 3,
+});
 
 const sharedTask = {
   task_id: 'BUGTASK-1-A3',
@@ -12,10 +20,28 @@ const sharedTask = {
   source_repair_task_no: 'BUGTASK-1',
   agent: 'A3-Backend-Critical-Path',
   status: 'pending',
-  worktree: '/Users/mac/phoenix-erp-worktrees/bug-intake-a3',
-  branch: 'codex/bug-intake-a3',
+  worktree: sharedIdentity.worktree,
+  branch: sharedIdentity.branch,
+  workspace_policy: sharedIdentity.workspace_policy,
+  workspace_generation: 3,
   redispatch_count: 2,
 };
+
+test('Bug Intake execution slot carries the task-generation policy', () => {
+  const slot = bugIntakeExecutionSlot(
+    'A4-Frontend-UAT-Smoke',
+    'BUGTASK-200-A4',
+    {
+      prompt_file: 'docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md',
+      worktree_path: '/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke',
+      canonical_branch: 'w5-a4-frontend-uat-smoke',
+    },
+  );
+  assert.equal(slot.workspace_policy, 'task-generation-isolated-v2');
+  assert.equal(slot.workspace_generation, 1);
+  assert.match(slot.worktree, /agent-tasks\/bugtask-200-a4-g1-a4$/);
+  assert.match(slot.branch, /codex\/task\/bugtask-200-a4\/g1\/a4$/);
+});
 
 test('same-generation sync preserves quarantined terminal task', () => {
   const previous = {
@@ -43,15 +69,26 @@ test('new redispatch generation resets terminal evidence and uses clean executio
     reason: 'quarantined',
     evidence_gate: { passed: false },
   };
-  const next = { ...sharedTask, redispatch_count: 3 };
+  const nextIdentity = taskWorkspaceIdentity({
+    taskId: sharedTask.task_id,
+    agent: sharedTask.agent,
+    generation: 4,
+  });
+  const next = {
+    ...sharedTask,
+    redispatch_count: 3,
+    workspace_generation: 4,
+    worktree: nextIdentity.worktree,
+    branch: nextIdentity.branch,
+  };
 
   const result = mergeExistingQueueTask(previous, next, { redispatchRequested: true });
 
   assert.equal(result.action, 'requeued');
   assert.equal(result.task.status, 'pending');
   assert.equal(result.task.redispatch_count, 3);
-  assert.equal(result.task.worktree, sharedTask.worktree);
-  assert.equal(result.task.branch, sharedTask.branch);
+  assert.equal(result.task.worktree, nextIdentity.worktree);
+  assert.equal(result.task.branch, nextIdentity.branch);
   assert.equal(result.task.reason, null);
   assert.equal(result.task.evidence_gate, null);
 });

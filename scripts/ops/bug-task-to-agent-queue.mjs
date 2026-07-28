@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { routeRequest } from './agent-route-request.mjs';
 import { atomicWriteJson, persistTaskSnapshot, readQueueTasks } from './bug-runner-platform.mjs';
+import { assignTaskWorkspace } from './agent-task-workspace.mjs';
 
 const QUEUE_FILE = 'docs/ops/agent-queue/tasks.json';
 const EVENTS_FILE = 'docs/ops/agent-queue/events.jsonl';
@@ -31,14 +32,11 @@ const BUG_INTAKE_EXECUTION = {
 };
 
 export function bugIntakeExecutionSlot(agent, taskId, fallback = {}) {
-  if (!BUG_INTAKE_EXECUTION[agent]) return fallback;
-  const slug = String(taskId || 'unknown-task').toLowerCase().replace(/[^a-z0-9-]+/g, '-');
-  return {
-    ...fallback,
-    ...BUG_INTAKE_EXECUTION[agent],
-    worktree: `/Users/mac/phoenix-erp-worktrees/bug-intake-${slug}`,
-    branch: `codex/bug-intake-${slug}`,
-  };
+  return assignTaskWorkspace({
+    task_id: taskId,
+    agent,
+    prompt_file: BUG_INTAKE_EXECUTION[agent]?.prompt_file || fallback.prompt_file || '',
+  }, fallback);
 }
 
 function usage(code = 1) {
@@ -336,7 +334,12 @@ function buildTasks(payload, plan, dispatchMap) {
   const tasks = selected.map((agent) => {
     const short = agentShort(agent);
     const taskId = `${repairTaskNo}-${short}`;
-    const cfg = bugIntakeExecutionSlot(agent, taskId, dispatchMap[agent] || {});
+    const cfg = assignTaskWorkspace({
+      task_id: taskId,
+      agent,
+      prompt_file: BUG_INTAKE_EXECUTION[agent]?.prompt_file || dispatchMap[agent]?.prompt_file || '',
+      redispatch_count: redispatchCount,
+    }, dispatchMap[agent] || {});
     const contractFile = `${RUNS_DIR}/${taskId}-contract.md`;
     return {
       task_id: taskId,
@@ -356,6 +359,11 @@ function buildTasks(payload, plan, dispatchMap) {
       request_spec: '',
       worktree: cfg.worktree || cfg.worktree_path || '',
       branch: cfg.branch || cfg.canonical_branch || '',
+      workspace_policy: cfg.workspace_policy,
+      workspace_generation: cfg.workspace_generation,
+      workspace_reusable: cfg.workspace_reusable,
+      template_worktree: cfg.template_worktree,
+      template_branch: cfg.template_branch,
       dependencies: [],
       claimed_by: null,
       claimed_at: null,

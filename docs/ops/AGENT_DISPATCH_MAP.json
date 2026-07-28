@@ -7,6 +7,10 @@
     "worktree_path": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
     "branch": "codex/orchestrator-main-sync-20260701",
     "canonical_branch": "codex/orchestrator-main-sync-20260701",
+    "template_worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
+    "template_branch": "codex/orchestrator-main-sync-20260701",
+    "execution_workspace_policy": "task-generation-isolated-v2",
+    "canonical_execution_allowed": false,
     "prompt_file": "docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md",
     "allowed_paths": [
       "docs/ops/**",
@@ -49,6 +53,10 @@
     "worktree_path": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
     "branch": "w5-a1-ci-runtime-gate",
     "canonical_branch": "w5-a1-ci-runtime-gate",
+    "template_worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "template_branch": "w5-a1-ci-runtime-gate",
+    "execution_workspace_policy": "task-generation-isolated-v2",
+    "canonical_execution_allowed": false,
     "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
     "allowed_paths": [
       "docs/ops/**",
@@ -89,6 +97,10 @@
     "worktree_path": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
     "branch": "w5-a2-security-regression-gate",
     "canonical_branch": "w5-a2-security-regression-gate",
+    "template_worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+    "template_branch": "w5-a2-security-regression-gate",
+    "execution_workspace_policy": "task-generation-isolated-v2",
+    "canonical_execution_allowed": false,
     "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
     "allowed_paths": [
       "docs/ops/**",
@@ -134,6 +146,10 @@
     "worktree_path": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
     "branch": "w5-a3-backend-critical-path",
     "canonical_branch": "w5-a3-backend-critical-path",
+    "template_worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
+    "template_branch": "w5-a3-backend-critical-path",
+    "execution_workspace_policy": "task-generation-isolated-v2",
+    "canonical_execution_allowed": false,
     "prompt_file": "docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md",
     "allowed_paths": [
       "apps/api/**",
@@ -176,6 +192,10 @@
     "worktree_path": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
     "branch": "w5-a4-frontend-uat-smoke",
     "canonical_branch": "w5-a4-frontend-uat-smoke",
+    "template_worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
+    "template_branch": "w5-a4-frontend-uat-smoke",
+    "execution_workspace_policy": "task-generation-isolated-v2",
+    "canonical_execution_allowed": false,
     "prompt_file": "docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md",
     "allowed_paths": [
       "apps/web/**",
@@ -233,6 +253,10 @@
     "worktree_path": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
     "branch": "w5-a5-data-readiness",
     "canonical_branch": "w5-a5-data-readiness",
+    "template_worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+    "template_branch": "w5-a5-data-readiness",
+    "execution_workspace_policy": "task-generation-isolated-v2",
+    "canonical_execution_allowed": false,
     "prompt_file": "docs/ops/prompts/A5_DATA_READINESS_PROMPT.md",
     "allowed_paths": [
       "docs/ops/**",
@@ -272,6 +296,10 @@
     "worktree_path": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
     "branch": "w5-a6-staging-deploy-runbook",
     "canonical_branch": "w5-a6-staging-deploy-runbook",
+    "template_worktree": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
+    "template_branch": "w5-a6-staging-deploy-runbook",
+    "execution_workspace_policy": "task-generation-isolated-v2",
+    "canonical_execution_allowed": false,
     "prompt_file": "docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md",
     "allowed_paths": [
       "docs/ops/**",
@@ -310,6 +338,10 @@
     "worktree_path": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
     "branch": "w5-a7-final-qa-gate",
     "canonical_branch": "w5-a7-final-qa-gate",
+    "template_worktree": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
+    "template_branch": "w5-a7-final-qa-gate",
+    "execution_workspace_policy": "task-generation-isolated-v2",
+    "canonical_execution_allowed": false,
     "prompt_file": "docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md",
     "allowed_paths": [
       "docs/ops/**"

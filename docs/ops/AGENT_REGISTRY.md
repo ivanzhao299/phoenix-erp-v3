@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This registry defines the eight controlled workspaces used by Phoenix ERP AI Delivery Factory: Codex-Orchestrator plus A1-A7.
+This registry defines the eight capability roles used by Phoenix ERP AI Delivery Factory: Codex-Orchestrator plus A1-A7. Worktree and branch values are templates for discovery and diagnostics, not permanent execution slots.
 
 ## Registry
 
@@ -18,6 +18,10 @@ This registry defines the eight controlled workspaces used by Phoenix ERP AI Del
 | A7-Final-QA-Gate | 最终只读验收、GO / GO WITH CONDITIONS / HOLD / ROLLBACK | `/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate` | `w5-a7-final-qa-gate` | `docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md` | final-readonly-gate |
 
 Canonical machine-readable config: `docs/ops/AGENT_DISPATCH_MAP.json`.
+
+## Task Workspace Rule
+
+Every routed task is assigned a `task-generation-isolated-v2` workspace under `/Users/mac/phoenix-erp-worktrees/agent-tasks/`. The actual branch and worktree are derived from `task_id + workspace_generation + agent`; no task may execute in the template worktree shown in the registry. A redispatch increments the generation and cannot inherit commits from its predecessor.
 
 ## A4 Naming Note
 

@@ -167,3 +167,12 @@
 3. `PASS_WITH_CI_CONDITIONS` must list the exact pending CI checks.
 4. `HOLD` must list owner, blocker, and required decision.
 5. Production deploy tasks must remain `HOLD` until `PRODUCTION_GO_NO_GO` records GO or GO WITH CONDITIONS.
+# AGENT-TASK-WORKSPACE-ISOLATION-V2
+
+- Agent: Codex-Orchestrator
+- Status: done
+- Output:
+  - `scripts/ops/agent-task-workspace.mjs`
+  - `scripts/ops/agent-task-workspace.test.mjs`
+  - `docs/ops/AGENT_TASK_WORKSPACE_ISOLATION_V2.md`
+  - task-isolated integration across orchestrator, queue, worker, runner, recovery and auto-merge

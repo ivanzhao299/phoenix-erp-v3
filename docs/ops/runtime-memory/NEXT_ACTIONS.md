@@ -1,5 +1,29 @@
 # Next Actions
 
+## 2026-07-28 - Agent task-generation workspace isolation
+
+Current stage: `AGENT_TASK_WORKSPACE_ISOLATION_V2_ACTIVE`
+
+Decision: `GO`
+
+Completed:
+
+1. Replaced long-lived A1-A7 execution branches/worktrees with immutable task-generation identities.
+2. Applied the same identity gate to Orchestrator, Bug Intake, generic queue, workers, direct runner, follow-up dispatch and all merge layers.
+3. Made explicit release, stale lease recovery and technical redispatch allocate a new generation.
+4. Quarantined dirty interrupted workspaces without reset, cleanup or reuse.
+5. Rejected canonical Agent branches, legacy Bug Intake A3/A4 branches and task branches not owned by the active queue.
+6. Passed 96 platform tests and real entrypoint rejection checks.
+
+Next actions:
+
+1. Keep canonical A1-A7 worktrees as read-only templates only.
+2. Alert if a future task lacks `workspace_policy`, `workspace_generation`, `task_id`, or a matching branch/worktree identity.
+3. Periodically archive retired and quarantined generations after their audit retention period; never reuse their identity.
+4. Recompose Agent roles by capability when useful without weakening task-generation isolation.
+
+Evidence: `docs/ops/AGENT_TASK_WORKSPACE_ISOLATION_V2.md`.
+
 ## 2026-07-28 - 好业财 WMS 完整只读基线
 
 Current stage: `CHANJET_WMS_FULL_READONLY_BASELINE_PARTIAL`
@@ -1414,3 +1438,9 @@ Next actions:
 2. Rerun the six readonly scopes when the first real purchase stock-in or sales stock-out document exists.
 3. Compare header, lines, quantity, dual UOM, tax, cost, warehouse, lot and serial values without silently changing ERP inventory facts.
 4. `KEEP_CHANJET_WRITEBACK_BLOCKED`
+# Agent workspace lifecycle
+
+1. Use task-generation-isolated workspaces for every new Agent task.
+2. Observe the first resident-runner redispatch and verify g1 is retired before g2 starts.
+3. Remove remaining display-only references that describe canonical Agent worktrees as execution locations.
+4. Keep canonical worktrees clean as templates; never merge task commits from them.
