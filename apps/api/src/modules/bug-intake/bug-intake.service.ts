@@ -1834,6 +1834,39 @@ export class BugIntakeService {
     return { passed: true, reason: '' };
   }
 
+  private runnerReleaseEvidence(agentPlan: unknown, agentResult: Record<string, unknown>) {
+    const validation = this.payloadObject(agentResult.validationResults);
+    const detail = this.payloadObject(validation.releaseEvidenceDetail);
+    if (detail.passed !== true || detail.decision !== 'RELEASE_EVIDENCE_READY') {
+      return { passed: false, reason: 'runner release evidence detail is missing or not ready' };
+    }
+
+    const missingAgents = Array.isArray(detail.missingAgents) ? detail.missingAgents : [];
+    const unfinishedTasks = Array.isArray(detail.unfinishedTasks) ? detail.unfinishedTasks : [];
+    const failedTasks = Array.isArray(detail.failedTasks) ? detail.failedTasks : [];
+    const implementationTasks = Array.isArray(detail.implementationTasks) ? detail.implementationTasks : [];
+    const validationTasks = Array.isArray(detail.validationTasks) ? detail.validationTasks : [];
+    const changedFiles = Array.isArray(detail.changedFiles) ? detail.changedFiles : [];
+    const commitHashes = Array.isArray(detail.commitHashes) ? detail.commitHashes : [];
+
+    if (missingAgents.length > 0 || unfinishedTasks.length > 0 || failedTasks.length > 0) {
+      return { passed: false, reason: 'runner release evidence contains missing, unfinished, or failed tasks' };
+    }
+    if (implementationTasks.length === 0 || changedFiles.length === 0 || commitHashes.length === 0) {
+      return { passed: false, reason: 'runner release evidence has no verified implementation commit' };
+    }
+
+    const plan = this.payloadObject(agentPlan);
+    const selectedAgents = Array.isArray(plan.selected_agents) ? plan.selected_agents.map(String) : [];
+    if (selectedAgents.includes('A1-CI-Runtime-Gate') && validationTasks.length === 0) {
+      return { passed: false, reason: 'runner release evidence has no A1 validation task' };
+    }
+    if (!agentResult.commitHash || !Array.isArray(agentResult.changedFiles) || agentResult.changedFiles.length === 0) {
+      return { passed: false, reason: 'runner lifecycle result has no released commit or changed files' };
+    }
+    return { passed: true, reason: '' };
+  }
+
   private runnerLifecycleEvidence(report: BugReportEntity, agentResult: Record<string, unknown>) {
     // A repeated successful release receipt must be idempotent. The resident
     // runner can legitimately re-verify an already released report during a
@@ -1843,8 +1876,12 @@ export class BugIntakeService {
     const agentResults = (Array.isArray(payload.agentResults) ? payload.agentResults : [])
       .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && String((item as Record<string, unknown>).agent ?? '') !== 'BugIntakeLocalRunner');
     const implementation = this.agentPlanEvidence(payload.agentPlan, agentResults);
-    if (!implementation.passed) {
-      return { passed: false, reason: `implementation evidence gate is not ready: ${implementation.reason}` };
+    const releasedImplementation = this.runnerReleaseEvidence(payload.agentPlan, agentResult);
+    if (!implementation.passed && !releasedImplementation.passed) {
+      return {
+        passed: false,
+        reason: `implementation evidence gate is not ready: ${implementation.reason}; ${releasedImplementation.reason}`,
+      };
     }
     const validation = this.payloadObject(agentResult.validationResults);
     const required = ['releaseEvidence', 'push', 'ci', 'productionSmoke'];

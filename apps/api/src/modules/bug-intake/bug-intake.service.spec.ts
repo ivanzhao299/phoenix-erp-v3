@@ -377,6 +377,66 @@ describe('BugIntakeService evidence lifecycle', () => {
     expect(row.resolutionNote).toContain('selected Agent result is missing');
   });
 
+  it('accepts strict runner release evidence when a refined task generation differs from the original agent plan', async () => {
+    const { row, service } = build();
+    row.repairTaskStatus = 'AGENT_RUNNING';
+    row.repairTaskPayload = {
+      agentPlan: {
+        selected_agents: ['A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke', 'A1-CI-Runtime-Gate'],
+      },
+      redispatchCount: 2,
+      agentResults: [
+        {
+          taskId: 'CURRENT-A3',
+          agent: 'A3-Backend-Critical-Path',
+          conclusion: 'PASS_WITH_CONDITIONS',
+          redispatchCount: 2,
+          validationResults: {
+            evidenceGate: { passed: true, role: 'implementation_verified_existing' },
+          },
+        },
+        {
+          taskId: 'CURRENT-A1',
+          agent: 'A1-CI-Runtime-Gate',
+          conclusion: 'PASS_WITH_CONDITIONS',
+          redispatchCount: 2,
+          validationResults: {
+            evidenceGate: { passed: true, role: 'validation' },
+          },
+        },
+      ],
+    };
+
+    await service.recordAgentResult(row.bugNo, {
+      taskId: 'RUNNER-REFINED-RELEASE',
+      agent: 'BugIntakeLocalRunner',
+      conclusion: 'PASS_WITH_CONDITIONS',
+      commitHash: 'release123',
+      changedFiles: ['apps/web/src/lib/workflow-todos.test.ts'],
+      validationResults: {
+        releaseEvidence: 'PASS',
+        push: 'PASS',
+        ci: 'PASS',
+        productionSmoke: 'PASS',
+        releaseEvidenceDetail: {
+          passed: true,
+          decision: 'RELEASE_EVIDENCE_READY',
+          selectedAgents: ['A3-Backend-Critical-Path', 'A1-CI-Runtime-Gate'],
+          missingAgents: [],
+          unfinishedTasks: [],
+          failedTasks: [],
+          implementationTasks: ['CURRENT-A3'],
+          validationTasks: ['CURRENT-A1'],
+          changedFiles: ['apps/web/src/lib/workflow-todos.test.ts'],
+          commitHashes: ['implementation123'],
+        },
+      },
+    }, user, meta);
+
+    expect(row.repairTaskStatus).toBe('FIX_READY_FOR_UAT');
+    expect(row.resolutionNote).toContain('等待管理员执行业务验收');
+  });
+
   it('isolates redispatch evidence so prior agent results cannot cause false completion', async () => {
     const { row, service } = build();
     row.repairTaskStatus = 'HOLD';
