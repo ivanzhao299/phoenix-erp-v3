@@ -1113,7 +1113,27 @@
     "chanjet_restart_loop_fix_commit": "416591c1",
     "production_api_health": "HTTP_200_restart_0_oom_false"
   },
+  "chanjet_wms_readonly_equivalence": {
+    "current_stage": "CHANJET_WMS_READONLY_EQUIVALENCE_PRODUCTION_VERIFIED",
+    "active_decision": "GO_WITH_CONDITIONS",
+    "production_commit": "7606c623053705b6b9ae8b0f12a85840fdec59a9",
+    "ci_deploy_run": "30321257352",
+    "enabled_books": 3,
+    "requested_scopes": [
+      "STOCK_IN",
+      "SALES_STOCK_OUT"
+    ],
+    "successful_targets": 6,
+    "failed_targets": 0,
+    "source_document_rows": 0,
+    "response_fields_per_target": 17,
+    "write_chanjet": false,
+    "write_erp_inventory_facts": false,
+    "latest_evidence": "docs/ops/runs/chanjet-wms-readonly-sync-latest.json",
+    "next_gate": "CHANJET_WMS_REAL_DOCUMENT_VALUE_RECONCILIATION"
+  },
   "next_action": [
+    "CHANJET_WMS_REAL_DOCUMENT_VALUE_RECONCILIATION",
     "BUSINESS_RETEST_13_FIX_READY_FOR_UAT_REPORTS",
     "MARK_BUSINESS_VERIFIED_ONLY_AFTER_ACCEPTANCE",
     "KEEP_RESIDENT_BUG_RUNNER_ACTIVE_AND_ZERO_HOLD",

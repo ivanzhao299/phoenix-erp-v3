@@ -1,0 +1,768 @@
+{
+  "generatedAt": "2026-07-28T02:00:24.994Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "plan": {
+    "requestedScope": [
+      "STOCK_IN",
+      "SALES_STOCK_OUT"
+    ],
+    "bookId": "",
+    "period": "",
+    "apiBase": "https://erp.eggslao.com",
+    "remoteApiOnly": true,
+    "timeouts": {
+      "healthTimeoutMs": 30000,
+      "coverageTimeoutMs": 120000,
+      "syncTimeoutMs": 300000
+    },
+    "tokenPresent": true,
+    "chanjetEnv": {
+      "CHANJET_APP_KEY": true,
+      "CHANJET_APP_SECRET": true,
+      "CHANJET_CERT": true,
+      "CHANJET_ACCESS_TOKEN": false,
+      "CHANJET_ORG_ID": true,
+      "CHANJET_ORG_IDS": false,
+      "CHANJET_MSG_SECRET": true
+    },
+    "db": {
+      "host": "127.0.0.1",
+      "port": "5432",
+      "user": "mac",
+      "name": "phoenix_erp",
+      "passwordPresent": true
+    }
+  },
+  "prechecks": {
+    "dbReachable": {
+      "status": "PASS",
+      "identity": "remote-api-only"
+    },
+    "mirrorTables": {
+      "status": "PASS",
+      "presentTables": [
+        "remote-api-protected-endpoint"
+      ],
+      "checkedBy": "remote protected API"
+    },
+    "apiHealth": {
+      "status": "PASS",
+      "httpStatus": 200
+    },
+    "authToken": {
+      "status": "PASS"
+    },
+    "chanjetEnv": {
+      "status": "PASS",
+      "envPresence": {
+        "CHANJET_APP_KEY": true,
+        "CHANJET_APP_SECRET": true,
+        "CHANJET_CERT": true,
+        "CHANJET_ACCESS_TOKEN": false,
+        "CHANJET_ORG_ID": true,
+        "CHANJET_ORG_IDS": false,
+        "CHANJET_MSG_SECRET": true
+      }
+    },
+    "financeCoverage": {
+      "status": "PASS",
+      "httpStatus": 200
+    }
+  },
+  "blockers": [],
+  "coverage": {
+    "generatedAt": "2026-07-28T02:00:46.939Z",
+    "writeChanjet": false,
+    "writeBusinessTables": false,
+    "pushVoucher": false,
+    "accountBooks": [
+      {
+        "bookId": "3537748712226818",
+        "bookName": "老挝东鹏县星驰农业发展有限公司",
+        "companyCode": "COMP-LAO-XINGCHI",
+        "companyName": "星驰农业",
+        "enabled": true
+      },
+      {
+        "bookId": "3533914511118750",
+        "bookName": "老挝凤凰农业发展有限公司",
+        "companyCode": "COMP-LAO-AGRI",
+        "companyName": "凤凰农业",
+        "enabled": true
+      },
+      {
+        "bookId": "3539743721526654",
+        "bookName": "老挝凤凰食品集团有限公司",
+        "companyCode": "COMP-LAO-FOOD",
+        "companyName": "凤凰食品",
+        "enabled": true
+      }
+    ],
+    "fullReadonlyScope": [
+      {
+        "key": "ACCOUNT_BOOKS",
+        "label": "账套列表",
+        "entityType": "ACCOUNT_BOOK",
+        "apiDomain": "account-book"
+      },
+      {
+        "key": "DEPARTMENT",
+        "label": "部门列表",
+        "entityType": "DEPARTMENT",
+        "apiDomain": "master-data"
+      },
+      {
+        "key": "CUSTOMER_SUPPLIER",
+        "label": "往来单位",
+        "entityType": "CUSTOMER_SUPPLIER",
+        "apiDomain": "master-data"
+      },
+      {
+        "key": "SUBJECT",
+        "label": "科目列表",
+        "entityType": "SUBJECT",
+        "apiDomain": "accounting"
+      },
+      {
+        "key": "PROJECT",
+        "label": "项目列表",
+        "entityType": "PROJECT",
+        "apiDomain": "master-data"
+      },
+      {
+        "key": "FIN_ACCOUNT",
+        "label": "资金账号",
+        "entityType": "CASH_ACCOUNT",
+        "apiDomain": "master-data"
+      },
+      {
+        "key": "PAYABLE_STATISTICS",
+        "label": "应付统计",
+        "entityType": "AP_STATISTICS",
+        "apiDomain": "ap"
+      },
+      {
+        "key": "RECEIVABLE_STATISTICS",
+        "label": "应收统计",
+        "entityType": "AR_STATISTICS",
+        "apiDomain": "ar"
+      },
+      {
+        "key": "PAYMENT_AP",
+        "label": "付款单列表",
+        "entityType": "AP_PAYMENT",
+        "apiDomain": "payment"
+      },
+      {
+        "key": "PAYMENT_AR",
+        "label": "收款单列表",
+        "entityType": "AR_RECEIPT",
+        "apiDomain": "payment"
+      },
+      {
+        "key": "PURCHASE_ORDER",
+        "label": "采购订单列表",
+        "entityType": "PURCHASE_ORDER",
+        "apiDomain": "procurement"
+      },
+      {
+        "key": "SALES_ORDER",
+        "label": "销售订单列表",
+        "entityType": "SALES_ORDER",
+        "apiDomain": "sales"
+      },
+      {
+        "key": "PURCHASE_APPLY",
+        "label": "采购申请单列表",
+        "entityType": "PURCHASE_APPLY",
+        "apiDomain": "procurement"
+      },
+      {
+        "key": "STOCK_IN",
+        "label": "入库单列表",
+        "entityType": "STOCK_IN",
+        "apiDomain": "inventory"
+      },
+      {
+        "key": "SALES_STOCK_OUT",
+        "label": "销售出库单列表",
+        "entityType": "SALES_STOCK_OUT",
+        "apiDomain": "inventory"
+      },
+      {
+        "key": "VOUCHER_SEARCH",
+        "label": "凭证列表",
+        "entityType": "VOUCHER",
+        "apiDomain": "voucher"
+      },
+      {
+        "key": "GL_BALANCE",
+        "label": "科目余额表",
+        "entityType": "GL_BALANCE",
+        "apiDomain": "gl"
+      },
+      {
+        "key": "BALANCE_SHEET",
+        "label": "资产负债表",
+        "entityType": "BALANCE_SHEET",
+        "apiDomain": "report"
+      },
+      {
+        "key": "INCOME_STATEMENT",
+        "label": "利润表",
+        "entityType": "INCOME_STATEMENT",
+        "apiDomain": "report"
+      },
+      {
+        "key": "CASH_FLOW",
+        "label": "现金流量表",
+        "entityType": "CASH_FLOW",
+        "apiDomain": "report"
+      }
+    ],
+    "endpointCoverage": [
+      {
+        "key": "ACCOUNT_BOOKS",
+        "label": "账套列表",
+        "apiDomain": "account-book",
+        "entityType": "ACCOUNT_BOOK",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 0,
+        "rowCount": 0,
+        "entityCount": 9,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T00:45:00.509Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "DEPARTMENT",
+        "label": "部门列表",
+        "apiDomain": "master-data",
+        "entityType": "DEPARTMENT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 0,
+        "rowCount": 0,
+        "entityCount": 31,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T00:45:01.482Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "CUSTOMER_SUPPLIER",
+        "label": "往来单位",
+        "apiDomain": "master-data",
+        "entityType": "CUSTOMER_SUPPLIER",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 32,
+        "rowCount": 5840,
+        "entityCount": 358,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T00:45:04.054Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "SUBJECT",
+        "label": "科目列表",
+        "apiDomain": "accounting",
+        "entityType": "SUBJECT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 591,
+        "rowCount": 181240,
+        "entityCount": 920,
+        "amountSum": 315789883.73000014,
+        "latestPulledAt": "2026-07-28T00:45:09.586Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PROJECT",
+        "label": "项目列表",
+        "apiDomain": "master-data",
+        "entityType": "PROJECT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 591,
+        "rowCount": 1182,
+        "entityCount": 6,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T00:45:10.992Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "FIN_ACCOUNT",
+        "label": "资金账号",
+        "apiDomain": "master-data",
+        "entityType": "CASH_ACCOUNT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 0,
+        "rowCount": 0,
+        "entityCount": 49,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T00:45:11.844Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PAYABLE_STATISTICS",
+        "label": "应付统计",
+        "apiDomain": "ap",
+        "entityType": "AP_STATISTICS",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 7,
+        "rowCount": 197,
+        "entityCount": 54,
+        "amountSum": -8647450.540000003,
+        "latestPulledAt": "2026-07-27T16:15:12.368Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "RECEIVABLE_STATISTICS",
+        "label": "应收统计",
+        "apiDomain": "ar",
+        "entityType": "AR_STATISTICS",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 6,
+        "rowCount": 222,
+        "entityCount": 74,
+        "amountSum": -17935336.68000001,
+        "latestPulledAt": "2026-07-27T16:15:13.425Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PAYMENT_AP",
+        "label": "付款单列表",
+        "apiDomain": "payment",
+        "entityType": "AP_PAYMENT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 591,
+        "rowCount": 19700,
+        "entityCount": 432,
+        "amountSum": 27092012052.850002,
+        "latestPulledAt": "2026-07-28T00:45:17.672Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PAYMENT_AR",
+        "label": "收款单列表",
+        "apiDomain": "payment",
+        "entityType": "AR_RECEIPT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 591,
+        "rowCount": 19700,
+        "entityCount": 1446,
+        "amountSum": 17380187914.5,
+        "latestPulledAt": "2026-07-28T00:45:27.703Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PURCHASE_ORDER",
+        "label": "采购订单列表",
+        "apiDomain": "procurement",
+        "entityType": "PURCHASE_ORDER",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 591,
+        "rowCount": 8471,
+        "entityCount": 43,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T00:45:28.924Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "SALES_ORDER",
+        "label": "销售订单列表",
+        "apiDomain": "sales",
+        "entityType": "SALES_ORDER",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 593,
+        "rowCount": 790,
+        "entityCount": 5,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T00:45:29.917Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "PURCHASE_APPLY",
+        "label": "采购申请单列表",
+        "apiDomain": "procurement",
+        "entityType": "PURCHASE_APPLY",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 594,
+        "rowCount": 0,
+        "entityCount": 0,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T00:45:30.635Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "STOCK_IN",
+        "label": "入库单列表",
+        "apiDomain": "inventory",
+        "entityType": "STOCK_IN",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 204,
+        "rowCount": 0,
+        "entityCount": 0,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T02:00:34.002Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "SALES_STOCK_OUT",
+        "label": "销售出库单列表",
+        "apiDomain": "inventory",
+        "entityType": "SALES_STOCK_OUT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 600,
+        "rowCount": 0,
+        "entityCount": 0,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T02:00:34.682Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "VOUCHER_SEARCH",
+        "label": "凭证列表",
+        "apiDomain": "voucher",
+        "entityType": "VOUCHER",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 3,
+        "rowCount": 2491,
+        "entityCount": 1616,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-27T04:15:38.758Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "GL_BALANCE",
+        "label": "科目余额表",
+        "apiDomain": "gl",
+        "entityType": "GL_BALANCE",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 2,
+        "rowCount": 218,
+        "entityCount": 279,
+        "amountSum": 191593931.68000004,
+        "latestPulledAt": "2026-07-27T00:45:43.780Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "BALANCE_SHEET",
+        "label": "资产负债表",
+        "apiDomain": "report",
+        "entityType": "BALANCE_SHEET",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 2,
+        "rowCount": 66,
+        "entityCount": 161,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-27T00:45:45.198Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "INCOME_STATEMENT",
+        "label": "利润表",
+        "apiDomain": "report",
+        "entityType": "INCOME_STATEMENT",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 2,
+        "rowCount": 86,
+        "entityCount": 181,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-27T00:45:46.376Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      },
+      {
+        "key": "CASH_FLOW",
+        "label": "现金流量表",
+        "apiDomain": "report",
+        "entityType": "CASH_FLOW",
+        "requiredForP0": true,
+        "covered": true,
+        "snapshotCount": 0,
+        "rowCount": 0,
+        "entityCount": 114,
+        "amountSum": 0,
+        "latestPulledAt": "2026-07-28T00:45:51.384Z",
+        "latestJobStatus": "SUCCESS",
+        "latestJobError": null
+      }
+    ],
+    "cardCoverage": [
+      {
+        "cardKey": "arOpen",
+        "label": "应收待收",
+        "endpoints": [
+          "RECEIVABLE_STATISTICS"
+        ],
+        "entityTypes": [
+          "AR_STATISTICS"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "apOpen",
+        "label": "应付待付",
+        "endpoints": [
+          "PAYABLE_STATISTICS"
+        ],
+        "entityTypes": [
+          "AP_STATISTICS"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "cashBalance",
+        "label": "现金 / 银行余额",
+        "endpoints": [
+          "GL_BALANCE"
+        ],
+        "entityTypes": [
+          "GL_BALANCE"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "todayReceipt",
+        "label": "今日收款",
+        "endpoints": [
+          "PAYMENT_AR"
+        ],
+        "entityTypes": [
+          "AR_RECEIPT"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "todayPayment",
+        "label": "今日付款",
+        "endpoints": [
+          "PAYMENT_AP"
+        ],
+        "entityTypes": [
+          "AP_PAYMENT"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "subjectBalance",
+        "label": "科目余额",
+        "endpoints": [
+          "GL_BALANCE"
+        ],
+        "entityTypes": [
+          "GL_BALANCE"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "incomeStatement",
+        "label": "利润表关键项",
+        "endpoints": [
+          "INCOME_STATEMENT"
+        ],
+        "entityTypes": [
+          "INCOME_STATEMENT"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "balanceSheet",
+        "label": "资产负债表关键项",
+        "endpoints": [
+          "BALANCE_SHEET"
+        ],
+        "entityTypes": [
+          "BALANCE_SHEET"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      },
+      {
+        "cardKey": "counterpartyBalance",
+        "label": "客户 / 供应商往来余额",
+        "endpoints": [
+          "CUSTOMER_SUPPLIER",
+          "RECEIVABLE_STATISTICS",
+          "PAYABLE_STATISTICS"
+        ],
+        "entityTypes": [
+          "CUSTOMER_SUPPLIER",
+          "AR_STATISTICS",
+          "AP_STATISTICS"
+        ],
+        "covered": true,
+        "status": "COVERED",
+        "sourceRule": "好业财只读镜像优先；ERP 明细作为辅助差异分析。"
+      }
+    ],
+    "fieldCoverage": {
+      "totalFieldMappings": 3171,
+      "coveredFieldMappings": 3171,
+      "coverageRate": 1,
+      "statusCounts": {
+        "PENDING": 3171
+      },
+      "missingFields": 0,
+      "transformRequired": 0
+    },
+    "summary": {
+      "endpointCoverageRate": 1,
+      "cardCoverageRate": 1,
+      "fieldCoverageRate": 1,
+      "missingEndpointKeys": [],
+      "failedLatestJobs": [],
+      "decision": "GO"
+    },
+    "guardrails": {
+      "chanjetWrite": false,
+      "chanjetDelete": false,
+      "erpBusinessOverwrite": false,
+      "rule": "好业财有数据时财务卡片优先标注好业财口径；ERP 业务明细只做辅助明细和差异解释，不静默覆盖。"
+    }
+  },
+  "execution": {
+    "executed": true,
+    "summary": {
+      "httpStatus": 201,
+      "response": {
+        "success": true,
+        "writeChanjet": false,
+        "requestedScope": [
+          "STOCK_IN",
+          "SALES_STOCK_OUT"
+        ],
+        "books": [
+          "3533914511118750",
+          "3537748712226818",
+          "3539743721526654"
+        ],
+        "results": [
+          {
+            "key": "STOCK_IN",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 17,
+            "rows": 0,
+            "rawSnapshotId": "18831",
+            "entityRows": 0
+          },
+          {
+            "key": "STOCK_IN",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 17,
+            "rows": 0,
+            "rawSnapshotId": "18832",
+            "entityRows": 0
+          },
+          {
+            "key": "STOCK_IN",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 17,
+            "rows": 0,
+            "rawSnapshotId": "18833",
+            "entityRows": 0
+          },
+          {
+            "key": "SALES_STOCK_OUT",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 17,
+            "rows": 0,
+            "rawSnapshotId": "18834",
+            "entityRows": 0
+          },
+          {
+            "key": "SALES_STOCK_OUT",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 17,
+            "rows": 0,
+            "rawSnapshotId": "18835",
+            "entityRows": 0
+          },
+          {
+            "key": "SALES_STOCK_OUT",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 17,
+            "rows": 0,
+            "rawSnapshotId": "18836",
+            "entityRows": 0
+          }
+        ],
+        "fieldGapSummary": {
+          "scanned": 4116,
+          "upserted": 3404,
+          "statusCounts": {
+            "PENDING": 3185,
+            "MATCHED": 219
+          }
+        }
+      }
+    }
+  },
+  "boundaries": {
+    "writeChanjet": false,
+    "deleteChanjet": false,
+    "modifyChanjet": false,
+    "voucherPush": false,
+    "deploy": false,
+    "push": false
+  },
+  "outputs": {
+    "outputJson": "/tmp/chanjet-wms-readonly-sync/chanjet-readonly-mirror-sync-latest.json",
+    "outputMd": "/tmp/chanjet-wms-readonly-sync/chanjet-readonly-mirror-sync-latest.md"
+  }
+}

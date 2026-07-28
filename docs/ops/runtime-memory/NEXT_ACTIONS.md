@@ -1364,3 +1364,24 @@ Next actions:
 1. `CHANJET_FINANCE_READ_MODEL_PROMOTION_REVIEW`
 2. Promote only authority-ready readonly finance metrics with visible ERP differences.
 3. `KEEP_CHANJET_WRITEBACK_BLOCKED`
+
+## 2026-07-28 — Chanjet WMS Readonly Equivalence Deployed
+
+Current stage: `CHANJET_WMS_READONLY_EQUIVALENCE_PRODUCTION_VERIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+- Production revision `7606c623053705b6b9ae8b0f12a85840fdec59a9` passed CI/CD run `30321257352`.
+- WMS issue-outbound governance and Chanjet-equivalent field migrations are applied.
+- `STOCK_IN` and `SALES_STOCK_OUT` completed for all three enabled books: 6/6 SUCCESS.
+- The current books returned zero inventory documents. Interface reachability and contracts are verified; value-level document reconciliation remains conditional.
+- No Chanjet write, update, delete or voucher push was executed.
+
+Next actions:
+
+1. `CHANJET_WMS_REAL_DOCUMENT_VALUE_RECONCILIATION`
+2. Rerun the six readonly scopes when the first real purchase stock-in or sales stock-out document exists.
+3. Compare header, lines, quantity, dual UOM, tax, cost, warehouse, lot and serial values without silently changing ERP inventory facts.
+4. `KEEP_CHANJET_WRITEBACK_BLOCKED`

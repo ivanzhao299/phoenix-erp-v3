@@ -1989,3 +1989,12 @@ Decision: counterparty resolution `GO`.
 - Only ERP `PURCHASE` inbound and `SALES` outbound are equivalent to the two current Chanjet contracts; internal issue and transfer semantics remain ERP-owned.
 - Unknown status, unmapped warehouse/product/unit or conflicting quantity/amount returns HOLD/NEED_MAPPING rather than silent overwrite.
 - Chanjet write, modify and delete remain disabled.
+
+# 2026-07-28 - Deploy and verify Chanjet WMS readonly equivalence
+
+- Production revision `7606c623053705b6b9ae8b0f12a85840fdec59a9` passed CI/CD run `30321257352`; API, Web and PostgreSQL are healthy.
+- `AddWmsIssueOutboundGovernance1785200000000` and `AddWmsChanjetEquivalentFields1785300000000` are applied in production.
+- The protected readonly mirror ran `STOCK_IN` and `SALES_STOCK_OUT` against three enabled books; all six jobs completed successfully.
+- Each scope exposed 17 top-level response fields, while all six returned zero document rows. Empty source data is recorded as a real condition, not backfilled or fabricated.
+- The runner wrote ERP middle-layer snapshots and audit records only. No Chanjet write/update/delete, voucher push or ERP inventory-fact overwrite occurred.
+- The next Gate is value-level reconciliation after real inventory documents exist; writeback remains blocked.
