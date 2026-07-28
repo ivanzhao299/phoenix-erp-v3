@@ -59,6 +59,27 @@ const BUG_INTAKE_OVERRIDES = {
     prompt: 'docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md',
   },
 };
+const BUG_INTAKE_WORKTREE_ROOT = '/Users/mac/phoenix-erp-worktrees';
+
+function resolveBugIntakeExecutionConfig(agent, requestedWorktree) {
+  const base = BUG_INTAKE_OVERRIDES[agent];
+  if (!base) return null;
+  if (requestedWorktree === base.worktree) return base;
+
+  const parent = path.dirname(requestedWorktree);
+  const name = path.basename(requestedWorktree);
+  if (
+    parent !== BUG_INTAKE_WORKTREE_ROOT
+    || !/^bug-intake-bugtask-[a-z0-9-]+-a[34]$/.test(name)
+  ) {
+    return null;
+  }
+  return {
+    ...base,
+    worktree: requestedWorktree,
+    branch: `codex/${name}`,
+  };
+}
 
 function usage(exitCode = 1) {
   console.log(`Usage:
@@ -310,9 +331,14 @@ if (!config) {
   fail(`unknown agent: ${args.agent}`);
 }
 
-const override = args['allow-bug-intake-worktree'] ? BUG_INTAKE_OVERRIDES[args.agent] : null;
-const executionConfig = override || config;
 const worktree = path.resolve(args.worktree);
+const override = args['allow-bug-intake-worktree']
+  ? resolveBugIntakeExecutionConfig(args.agent, worktree)
+  : null;
+if (args['allow-bug-intake-worktree'] && BUG_INTAKE_OVERRIDES[args.agent] && !override) {
+  fail(`invalid isolated bug-intake worktree for ${args.agent}: ${worktree}`);
+}
+const executionConfig = override || config;
 if (worktree !== executionConfig.worktree) {
   fail(`worktree mismatch for ${args.agent}; expected ${executionConfig.worktree}, got ${worktree}`);
 }

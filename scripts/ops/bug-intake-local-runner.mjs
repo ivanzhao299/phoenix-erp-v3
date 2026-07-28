@@ -1407,6 +1407,21 @@ export function collectReleaseCommitHashes(releaseEvidence = []) {
     .filter((commit) => /^[0-9a-f]{7,40}$/i.test(commit)))];
 }
 
+function releaseCommitOwners(releaseEvidence = []) {
+  const owners = new Map();
+  for (const candidate of releaseEvidence) {
+    if (candidate?.evidence?.passed !== true) continue;
+    for (const value of candidate.evidence?.commitHashes || []) {
+      const commit = String(value || '').trim();
+      if (!/^[0-9a-f]{7,40}$/i.test(commit)) continue;
+      const bugNos = owners.get(commit) || new Set();
+      bugNos.add(candidate.bugNo);
+      owners.set(commit, bugNos);
+    }
+  }
+  return owners;
+}
+
 export function isEmptyCherryPickFailure(result) {
   const output = `${result?.stdout || ''}\n${result?.stderr || ''}`;
   return /previous cherry-pick is now empty|nothing to commit, working tree clean/i.test(output);
@@ -1419,6 +1434,7 @@ function publishReleaseCommits(args, releaseEvidence) {
   }
 
   const commitHashes = collectReleaseCommitHashes(releaseEvidence);
+  const commitOwners = releaseCommitOwners(releaseEvidence);
   const missingCommits = commitHashes.filter((commit) => !safeGit(['cat-file', '-e', `${commit}^{commit}`], args.mainRoot).ok);
   if (missingCommits.length > 0) {
     return {
@@ -1466,6 +1482,7 @@ function publishReleaseCommits(args, releaseEvidence) {
 
     try {
       const integrated = [];
+      const rejected = [];
       for (const commit of pendingCommits) {
         if (safeGit(['merge-base', '--is-ancestor', commit, 'HEAD'], integrationDir).ok) continue;
         const cherryPick = run(['git', 'cherry-pick', commit], { cwd: integrationDir, timeoutMs: 120000 });
@@ -1475,19 +1492,34 @@ function publishReleaseCommits(args, releaseEvidence) {
             if (skip.status === 0) continue;
           }
           run(['git', 'cherry-pick', '--abort'], { cwd: integrationDir, timeoutMs: 30000 });
-          return {
-            skipped: false,
-            status: cherryPick.status,
-            step: 'selective release integration',
-            attempt,
+          rejected.push({
             commit,
-            commitHashes,
-            pendingCommits,
+            bugNos: [...(commitOwners.get(commit) || [])],
             stdout: cherryPick.stdout,
             stderr: cherryPick.stderr,
-          };
+          });
+          continue;
         }
         integrated.push(commit);
+      }
+      const rejectedBugNos = [...new Set(rejected.flatMap((item) => item.bugNos))];
+      const releasedBugNos = releaseEvidence
+        .map((item) => item.bugNo)
+        .filter((bugNo) => !rejectedBugNos.includes(bugNo));
+      if (integrated.length === 0 && rejected.length > 0) {
+        return {
+          skipped: false,
+          status: 1,
+          step: 'selective release integration',
+          attempt,
+          commitHashes,
+          pendingCommits,
+          integrated,
+          rejected,
+          releasedBugNos: [],
+          heldBugNos: rejectedBugNos,
+          stderr: 'all pending implementation commits conflicted with current origin/main',
+        };
       }
       const headSha = currentHead(integrationDir);
       const push = run(['git', 'push', 'origin', 'HEAD:main'], { cwd: integrationDir, timeoutMs: 180000 });
@@ -1500,6 +1532,9 @@ function publishReleaseCommits(args, releaseEvidence) {
           commitHashes,
           pendingCommits,
           integrated,
+          rejected,
+          releasedBugNos,
+          heldBugNos: rejectedBugNos,
           isolatedRelease: true,
         };
       }
@@ -1511,6 +1546,9 @@ function publishReleaseCommits(args, releaseEvidence) {
         commitHashes,
         pendingCommits,
         integrated,
+        rejected,
+        releasedBugNos,
+        heldBugNos: rejectedBugNos,
         isolatedRelease: true,
       };
       if (!/non-fast-forward|fetch first|behind its remote/i.test(`${push.stdout}\n${push.stderr}`)) {
@@ -1629,8 +1667,11 @@ function runPushIfReady(args, workerRuns, releaseEvidence) {
   const published = publishReleaseCommits(args, ready);
   return {
     ...published,
-    releaseBugNos: ready.map((item) => item.bugNo),
-    heldBugNos: held.map((item) => item.bugNo),
+    releaseBugNos: published.releasedBugNos || ready.map((item) => item.bugNo),
+    heldBugNos: [...new Set([
+      ...held.map((item) => item.bugNo),
+      ...(published.heldBugNos || []),
+    ])],
   };
 }
 
@@ -1660,7 +1701,11 @@ function runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence) {
   if (args.dryRun) return { skipped: true, reason: 'dry-run' };
   if (push?.skipped || push?.status !== 0) return { skipped: true, reason: 'push did not pass' };
   if (ci?.skipped || ci?.ok !== true) return { skipped: true, reason: 'CI/CD did not pass' };
-  const routes = [...new Set(releaseEvidence.filter((item) => item.evidence.passed).map((item) => item.route).filter(Boolean))];
+  const releasedBugNos = Array.isArray(push?.releaseBugNos) ? new Set(push.releaseBugNos) : null;
+  const routes = [...new Set(releaseEvidence
+    .filter((item) => item.evidence.passed && (!releasedBugNos || releasedBugNos.has(item.bugNo)))
+    .map((item) => item.route)
+    .filter(Boolean))];
   if (routes.length === 0) return { skipped: true, reason: 'no production route available for release evidence' };
   return run([
     NODE_BIN,
@@ -1899,6 +1944,17 @@ async function writebackRunnerLifecycle(args, childEnv, summary) {
   if (!decision.run) return { skipped: true, reason: decision.reason };
   const results = [];
   for (const candidate of summary.releaseEvidence || []) {
+    if (
+      Array.isArray(summary.push?.releaseBugNos)
+      && !summary.push.releaseBugNos.includes(candidate.bugNo)
+    ) {
+      results.push({
+        bugNo: candidate.bugNo,
+        skipped: true,
+        reason: 'this report was isolated from the successful release batch',
+      });
+      continue;
+    }
     const releaseOk = candidate.evidence?.passed === true;
     // A partial Agent batch is not a release failure. Posting a runner-level
     // HOLD here used to replace AGENT_RUNNING on the server, and the next sync
@@ -1999,6 +2055,7 @@ const TECHNICAL_HOLD_PATTERNS = [
   /git rebase main failed/i,
   /worktree preserved but quarantine branch rename failed/i,
   /quarantine preserved, but clean slot recreation failed/i,
+  /Agent process exited with [1-9]\d*/i,
   /Codex CLI usage capacity is exhausted/i,
 ];
 
