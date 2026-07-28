@@ -38,6 +38,10 @@ Orchestrator, follow-up dispatch, ordinary queue and direct runner paths could s
 8. A dirty incomplete worktree is moved to quarantine. It is never cleaned, reset or reused automatically.
 9. An existing generation branch without its original worktree is considered retired and cannot be reattached.
 10. Automatic merge accepts only a valid task-generation identity.
+11. Baseline Autopilot fetches the remote authority before rebasing. It only fast-forwards
+    a local main that is strictly behind and refuses a diverged main before replay begins.
+12. A diverged local main must first be preserved on an audit backup branch and then
+    realigned to the authoritative `origin/main`; it is never repaired by a giant rebase.
 
 ## Agent Recomposition
 
@@ -108,6 +112,6 @@ Tests prove:
 - orchestrator dry-run does not mutate the live queue;
 - existing Bug Intake queue and release lifecycle behavior remains green.
 
-The implementation is covered by 96 platform tests. Real entrypoint checks also reject
+The implementation is covered by 99 platform tests. Real entrypoint checks also reject
 the legacy A3 branch, an unowned task branch and the canonical A3 worktree before any
 Codex execution or merge can start.

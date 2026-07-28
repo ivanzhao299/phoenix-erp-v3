@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const MAIN_ROOT = '/Users/mac/phoenix-erp';
 const DEFAULT_MAX_RETRIES = 3;
@@ -299,6 +300,56 @@ function retryGuard(summary, maxRetries, reason) {
   }
 }
 
+export function classifyMainAuthority({
+  localHead,
+  remoteHead,
+  remoteIsAncestorOfLocal = false,
+  localIsAncestorOfRemote = false,
+}) {
+  if (!localHead || !remoteHead) return 'missing';
+  if (localHead === remoteHead) return 'aligned';
+  if (remoteIsAncestorOfLocal) return 'local-ahead';
+  if (localIsAncestorOfRemote) return 'local-behind';
+  return 'diverged';
+}
+
+function syncMainAuthority(args, summary) {
+  const localHead = run('git', ['rev-parse', 'main'], { cwd: MAIN_ROOT });
+  const remoteHead = run('git', ['rev-parse', 'origin/main'], { cwd: MAIN_ROOT });
+  const state = classifyMainAuthority({
+    localHead,
+    remoteHead,
+    remoteIsAncestorOfLocal: safe('git', ['merge-base', '--is-ancestor', 'origin/main', 'main'], { cwd: MAIN_ROOT }).ok,
+    localIsAncestorOfRemote: safe('git', ['merge-base', '--is-ancestor', 'main', 'origin/main'], { cwd: MAIN_ROOT }).ok,
+  });
+  summary.main_authority = {
+    state,
+    local_head: localHead,
+    origin_main_head: remoteHead,
+  };
+
+  if (state === 'aligned' || state === 'local-ahead') return;
+  if (state === 'local-behind') {
+    if (args.dryRun) {
+      summary.main_authority.action = 'dry-run: would fast-forward local main to origin/main';
+      return;
+    }
+    const fastForward = safe('git', ['merge', '--ff-only', 'origin/main'], { cwd: MAIN_ROOT });
+    if (!fastForward.ok) fail('local main fast-forward to origin/main failed', { error: fastForward.output });
+    summary.main_authority.action = 'fast-forwarded local main to origin/main';
+    summary.main_authority.local_head = run('git', ['rev-parse', 'main'], { cwd: MAIN_ROOT });
+    return;
+  }
+
+  const counts = safe('git', ['rev-list', '--left-right', '--count', 'origin/main...main'], { cwd: MAIN_ROOT });
+  fail('local main diverged from origin/main; refusing to replay historical commits into a new Agent task', {
+    localHead,
+    originMainHead: remoteHead,
+    uniqueCommitCounts: counts.output || 'unknown',
+    recovery: 'preserve local main on a backup branch, then realign local main to origin/main in a separately audited operation',
+  });
+}
+
 function reportPathFor(summary, ext) {
   const root = summary.worktree || process.cwd();
   const dir = path.resolve(root, 'docs/ops/runs');
@@ -336,6 +387,7 @@ function writeLifecycleReport(summary) {
 | Deploy | ${summary.deploy} |
 | Migration executed | ${summary.migration_executed} |
 | Database written | ${summary.database_written} |
+| Main authority | ${summary.main_authority?.state || 'not-checked'} |
 | HOLD reason | ${summary.hold_reason || 'None'} |
 
 ## Auto Commit Planned
@@ -464,6 +516,7 @@ function main() {
   const fetch = args.dryRun ? { ok: true, output: 'dry-run' } : safe('git', ['fetch', 'origin'], { cwd: worktree });
   if (!fetch.ok) fail('git fetch origin failed', { error: fetch.output });
   console.log(args.dryRun ? 'Dry-run: would run git fetch origin.' : 'Fetched origin.');
+  syncMainAuthority(args, summary);
 
   if (args.dryRun) {
     summary.rebase = 'dry-run: would run git rebase main';
@@ -516,4 +569,6 @@ function main() {
   console.log('Database written: No');
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

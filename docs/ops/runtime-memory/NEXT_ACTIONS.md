@@ -13,7 +13,12 @@ Completed:
 3. Made explicit release, stale lease recovery and technical redispatch allocate a new generation.
 4. Quarantined dirty interrupted workspaces without reset, cleanup or reuse.
 5. Rejected canonical Agent branches, legacy Bug Intake A3/A4 branches and task branches not owned by the active queue.
-6. Passed 96 platform tests and real entrypoint rejection checks.
+6. Passed 99 platform tests and real entrypoint rejection checks.
+7. Added Baseline Autopilot main-authority classification so a diverged local main is
+   rejected before any historical replay starts.
+8. Preserved the stale July 10 local main at
+   `backup/local-main-pre-authority-realign-20260728` and realigned local main to
+   authoritative `origin/main` without deleting historical commits.
 
 Next actions:
 

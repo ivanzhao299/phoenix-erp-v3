@@ -2029,3 +2029,12 @@ Decision: counterparty resolution `GO`.
 - Redispatch and stale lease recovery allocate a new generation. Dirty or detached old generations are preserved/retired and never reattached.
 - Automatic execution and merge fail closed on static worktrees or identity mismatch.
 - Regression result: the task workspace and existing Bug Intake suites pass together.
+# 2026-07-28 - Remote main is the automated execution authority
+
+- Decision: automated task workspaces are created from `origin/main`; canonical Agent
+  worktrees are templates only.
+- Baseline Autopilot may fast-forward a clean local main that is strictly behind.
+- Baseline Autopilot must HOLD before rebase when local main and `origin/main` diverge.
+- The stale local main was preserved at
+  `backup/local-main-pre-authority-realign-20260728` before local main was realigned.
+- A giant historical rebase is never an accepted recovery mechanism.
