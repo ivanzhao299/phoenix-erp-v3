@@ -1,4 +1,15 @@
-export type ChanjetInventoryEntityType = 'STOCK_IN' | 'SALES_STOCK_OUT';
+export type ChanjetInventoryEntityType =
+  | 'STOCK_IN'
+  | 'SALES_STOCK_OUT'
+  | 'INVENTORY_ON_HAND'
+  | 'INVENTORY_ON_HAND_LOT'
+  | 'FINISHED_GOODS_STOCK_IN'
+  | 'MATERIAL_STOCK_OUT'
+  | 'OTHER_STOCK_IN'
+  | 'OTHER_STOCK_OUT'
+  | 'STOCK_TRANSFER'
+  | 'STOCK_COUNT'
+  | 'RETAIL_STOCK_OUT';
 
 export interface ChanjetWmsFieldContract {
   sourcePath: string;

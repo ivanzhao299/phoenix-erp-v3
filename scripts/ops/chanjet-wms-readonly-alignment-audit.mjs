@@ -21,7 +21,7 @@ const outputDir = getArg('--output-dir', 'docs/ops/runs');
 
 function markdown(alignment) {
   const scopeRows = alignment.scopes.map((scope) =>
-    `|${scope.label || scope.entityType}|${scope.bookName || scope.bookId}|${scope.bookId}|${scope.sourceRows || 0}|${scope.latestPulledAt || 'MISSING'}|`,
+    `|${scope.label || scope.entityType}|${scope.bookName || scope.bookId}|${scope.bookId}|${scope.sourceRows || 0}|${scope.latestSyncStatus || 'MISSING'}|${scope.latestPulledAt || 'MISSING'}|`,
   );
   const contractRows = alignment.contracts.flatMap((contract) =>
     contract.fields.map((field) =>
@@ -40,6 +40,7 @@ function markdown(alignment) {
     `- 启用账套：${alignment.summary.enabledBooks}`,
     `- 官方库存接口：${alignment.summary.inventoryContracts || alignment.contracts.length}`,
     `- 新鲜 scope：${alignment.summary.freshScopes}/${alignment.summary.expectedScopes}`,
+    `- 最近失败 scope：${alignment.summary.failedScopes || 0}`,
     `- 中间层库存行：${alignment.summary.sourceRows || 0}`,
     `- 只读单据/明细：${alignment.summary.sourceDocuments}/${alignment.summary.sourceLines}`,
     `- 官方字段：${alignment.summary.officialFieldCount}`,
@@ -48,8 +49,8 @@ function markdown(alignment) {
     '',
     '## 账套 Scope',
     '',
-    '|库存范围|账套|bookId|镜像行数|最近同步|',
-    '|---|---|---|---:|---|',
+    '|库存范围|账套|bookId|镜像行数|同步状态|最近同步|',
+    '|---|---|---|---:|---|---|',
     ...scopeRows,
     '',
     '## 字段契约',

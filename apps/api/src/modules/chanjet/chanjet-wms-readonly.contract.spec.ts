@@ -76,4 +76,30 @@ describe('Chanjet WMS readonly contract', () => {
       secondaryUnitName: '盘',
     });
   });
+
+  it('normalizes production inventory documents through the shared contract', () => {
+    const normalized = normalizeChanjetInventoryDocument({
+      id: 'MATERIAL-OUT-1',
+      code: 'MO-001',
+      voucherStatusEnum: 'EFFECTIVE',
+      bizDate: '2026-07-28',
+      voucherDetailList: [{
+        productCode: 'FEED-001',
+        productName: '产蛋鸡饲料',
+        warehouseCode: 'WH-RAW',
+        issuedQty: 12,
+        transUomName: '袋',
+      }],
+    }, 'MATERIAL_STOCK_OUT', 'BOOK-1');
+
+    expect(normalized.entityType).toBe('MATERIAL_STOCK_OUT');
+    expect(normalized.erpWorkflowStatus).toBe('COMPLETED');
+    expect(normalized.lines[0]).toMatchObject({
+      productCode: 'FEED-001',
+      warehouseCode: 'WH-RAW',
+      quantity: 12,
+      unitName: '袋',
+    });
+    expect(normalized.rawUrlExposed).toBe(false);
+  });
 });

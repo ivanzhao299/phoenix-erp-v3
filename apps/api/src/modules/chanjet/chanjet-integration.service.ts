@@ -1497,10 +1497,18 @@ export class ChanjetIntegrationService {
       && endpoint.entityType
     ));
     const entityTypes = inventoryEndpoints.map((endpoint) => endpoint.entityType as string);
-    const transactionalEntityTypes = new Set(['STOCK_IN', 'SALES_STOCK_OUT']);
-    const [snapshots, enabledBooks, schemaRows] = await Promise.all([
+    const balanceEntityTypes = new Set(['INVENTORY_ON_HAND', 'INVENTORY_ON_HAND_LOT']);
+    const transactionalEntityTypes = new Set(
+      entityTypes.filter((entityType) => !balanceEntityTypes.has(entityType)),
+    );
+    const [snapshots, syncJobs, enabledBooks, schemaRows] = await Promise.all([
       this.entitySnapshotRepo.find({
         where: { entityType: In(entityTypes) },
+        order: { updatedAt: 'DESC' },
+        take: 10000,
+      }),
+      this.jobRepo.find({
+        where: { jobType: 'SNAPSHOT' },
         order: { updatedAt: 'DESC' },
         take: 10000,
       }),
@@ -1523,7 +1531,7 @@ export class ChanjetIntegrationService {
       .filter((snapshot) => transactionalEntityTypes.has(snapshot.entityType))
       .map((snapshot) => normalizeChanjetInventoryDocument(
         snapshot.rawData || {},
-        snapshot.entityType as 'STOCK_IN' | 'SALES_STOCK_OUT',
+        snapshot.entityType as Parameters<typeof normalizeChanjetInventoryDocument>[1],
         snapshot.bookId,
       ));
     const latestByScope = new Map<string, string>();
@@ -1535,19 +1543,46 @@ export class ChanjetIntegrationService {
       if (updatedAt > current) latestByScope.set(scopeKey, updatedAt);
       rowCountByScope.set(scopeKey, (rowCountByScope.get(scopeKey) || 0) + 1);
     }
+    const latestJobByScope = new Map<string, ChanjetSyncJobEntity>();
+    const latestSuccessfulJobByScope = new Map<string, ChanjetSyncJobEntity>();
+    for (const job of syncJobs) {
+      const endpointKey = String(job.requestScope?.key || '');
+      if (!endpointKey || !enabledBookIds.has(job.bookId)) continue;
+      const scopeKey = `${endpointKey}:${job.bookId}`;
+      if (!latestJobByScope.has(scopeKey)) latestJobByScope.set(scopeKey, job);
+      if (job.status === 'SUCCESS' && !latestSuccessfulJobByScope.has(scopeKey)) {
+        latestSuccessfulJobByScope.set(scopeKey, job);
+      }
+    }
     const expectedScopes = enabledBooks.flatMap((book) => inventoryEndpoints.map((endpoint) => ({
-      endpointKey: endpoint.key,
-      label: endpoint.label,
-      entityType: endpoint.entityType as string,
-      bookId: book.bookId,
-      bookName: book.bookName,
-      sourceRows: rowCountByScope.get(`${endpoint.entityType}:${book.bookId}`) || 0,
-      latestPulledAt: latestByScope.get(`${endpoint.entityType}:${book.bookId}`) || null,
-    })));
+      endpoint,
+      book,
+    }))).map(({ endpoint, book }) => {
+      const entityScopeKey = `${endpoint.entityType}:${book.bookId}`;
+      const jobScopeKey = `${endpoint.key}:${book.bookId}`;
+      const latestJob = latestJobByScope.get(jobScopeKey);
+      const latestSuccessfulJob = latestSuccessfulJobByScope.get(jobScopeKey);
+      const jobRows = Number(latestSuccessfulJob?.resultSummary?.rows);
+      return {
+        endpointKey: endpoint.key,
+        label: endpoint.label,
+        entityType: endpoint.entityType as string,
+        bookId: book.bookId,
+        bookName: book.bookName,
+        sourceRows: rowCountByScope.get(entityScopeKey)
+          || (Number.isFinite(jobRows) ? jobRows : 0),
+        latestPulledAt: latestSuccessfulJob?.updatedAt
+          ? new Date(latestSuccessfulJob.updatedAt).toISOString()
+          : latestByScope.get(entityScopeKey) || null,
+        latestSyncStatus: latestJob?.status || 'MISSING',
+        latestSyncError: latestJob?.errorMessage || null,
+      };
+    });
     const staleBefore = Date.now() - 24 * 60 * 60 * 1000;
     const staleOrMissingScopes = expectedScopes.filter((scope) => (
       !scope.latestPulledAt || new Date(scope.latestPulledAt).getTime() < staleBefore
     ));
+    const failedScopes = expectedScopes.filter((scope) => scope.latestSyncStatus === 'FAIL');
     const officialReferences: Record<string, string> = {
       STOCK_IN: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/30644?id=33283',
       SALES_STOCK_OUT: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/hyc_pjjk/hyc_pjjk_kcgl?id=32791',
@@ -1588,6 +1623,7 @@ export class ChanjetIntegrationService {
       : 100;
     const conditions = [
       ...(staleOrMissingScopes.length ? [`${staleOrMissingScopes.length} 个账套单据 scope 缺失或超过 24 小时`] : []),
+      ...(failedScopes.length ? [`${failedScopes.length} 个账套单据 scope 最近同步失败`] : []),
       ...(missingColumns.length ? [`ERP 业务字段仍缺 ${missingColumns.length} 列`] : []),
       ...(sourceRows === 0 ? ['好业财当前 11 类库存 scope 均无镜像数据，需完成生产只读全量拉取后判断源数据完整性'] : []),
       ...(sourceRows > 0 && sourceDocuments === 0
@@ -1596,7 +1632,7 @@ export class ChanjetIntegrationService {
     ];
     return {
       generatedAt: new Date().toISOString(),
-      decision: missingColumns.length || staleOrMissingScopes.length
+      decision: missingColumns.length || staleOrMissingScopes.length || failedScopes.length
         ? 'HOLD'
         : sourceRows === 0
           ? 'GO_WITH_CONDITIONS'
@@ -1606,6 +1642,7 @@ export class ChanjetIntegrationService {
         inventoryContracts: inventoryEndpoints.length,
         expectedScopes: expectedScopes.length,
         freshScopes: expectedScopes.length - staleOrMissingScopes.length,
+        failedScopes: failedScopes.length,
         sourceRows,
         sourceDocuments,
         sourceLines,
@@ -1630,7 +1667,9 @@ export class ChanjetIntegrationService {
         attachmentRule: '好业财 attachmentList 原始 URL 仅留在受控中间层证据，不向普通业务 UI 暴露。',
       },
       reverseSyncReadiness: {
-        decision: missingColumns.length || staleOrMissingScopes.length ? 'HOLD' : 'PREPARED_DISABLED',
+        decision: missingColumns.length || staleOrMissingScopes.length || failedScopes.length
+          ? 'HOLD'
+          : 'PREPARED_DISABLED',
         externalWriteEnabled: false,
         wmsOutboxImplemented: false,
         canonicalDocumentModelReady: missingColumns.length === 0,
