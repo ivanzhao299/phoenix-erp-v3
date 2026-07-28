@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
@@ -25,6 +26,7 @@ import {
 } from './chanjet-wms-readonly.contract';
 import { buildChanjetWmsCanonicalIdentity } from './chanjet-wms-reconciliation';
 import { ChanjetWmsWritebackOutboxEntity } from './chanjet-wms-writeback-outbox.entity';
+import { ChanjetIntegrationService } from './chanjet-integration.service';
 
 const TRANSACTION_ENTITY_TYPES: ChanjetInventoryEntityType[] = [
   'STOCK_IN',
@@ -90,6 +92,21 @@ export interface RefreshWmsMasterMappingsResult {
   externalWriteExecuted: false;
 }
 
+type WmsMappingType = Extract<ChanjetMappingType, 'WAREHOUSE' | 'PRODUCT' | 'UOM'>;
+
+export interface ErpMappingCandidate {
+  code: string;
+  name: string;
+  company_code: string;
+  entity_type: 'WAREHOUSE' | 'PRODUCT' | 'SKU' | 'MATERIAL' | 'UOM';
+}
+
+export interface ReviewWmsMasterMappingInput {
+  decision: 'APPROVE' | 'REJECT';
+  erpCode?: string;
+  erpEntityType?: ErpMappingCandidate['entity_type'];
+}
+
 export interface PrepareWmsWritebackInput {
   bookId: string;
   companyCode: string;
@@ -122,10 +139,12 @@ export class ChanjetWmsBridgeService {
     private readonly candidateRepository: Repository<ChanjetWmsPromotionCandidateEntity>,
     @InjectRepository(ChanjetWmsWritebackOutboxEntity)
     private readonly outboxRepository: Repository<ChanjetWmsWritebackOutboxEntity>,
+    @Optional()
+    private readonly integration?: ChanjetIntegrationService,
   ) {}
 
   async overview() {
-    const [bookMaps, sourceCount, candidateCount, outboxCount, candidateStates, outboxStates] = await Promise.all([
+    const [bookMaps, sourceCount, candidateCount, outboxCount, candidateStates, outboxStates, alignment] = await Promise.all([
       this.bookMapRepository.find({ where: { syncEnabled: true } }),
       this.snapshotRepository.count({ where: { entityType: In(TRANSACTION_ENTITY_TYPES) } }),
       this.candidateRepository.count(),
@@ -140,7 +159,9 @@ export class ChanjetWmsBridgeService {
         .addSelect('COUNT(*)', 'count')
         .groupBy('outbox.state')
         .getRawMany<{ state: string; count: string }>(),
+      this.integration?.wmsReadonlyAlignmentOverview() ?? Promise.resolve(null),
     ]);
+    const alignmentReady = alignment?.decision === 'GO';
 
     return {
       decision: sourceCount > 0 && bookMaps.length > 0 ? 'GO_WITH_CONDITIONS' : 'HOLD',
@@ -150,6 +171,14 @@ export class ChanjetWmsBridgeService {
       promotionStates: Object.fromEntries(candidateStates.map((row) => [row.state, Number(row.count)])),
       writebackOutboxCount: outboxCount,
       writebackStates: Object.fromEntries(outboxStates.map((row) => [row.state, Number(row.count)])),
+      promotionApprovalGate: {
+        ready: alignmentReady,
+        decision: alignment?.decision || 'HOLD',
+        expectedScopes: alignment?.summary.expectedScopes || 0,
+        freshScopes: alignment?.summary.freshScopes || 0,
+        failedScopes: alignment?.summary.failedScopes || 0,
+        conditions: alignment?.conditions || ['WMS_READONLY_ALIGNMENT_EVIDENCE_UNAVAILABLE'],
+      },
       guardrails: {
         chanjetReadOnly: true,
         externalWriteEnabled: false,
@@ -288,7 +317,7 @@ export class ChanjetWmsBridgeService {
 
   async refreshMasterMappingCandidates(actor: string): Promise<RefreshWmsMasterMappingsResult> {
     if (!text(actor)) throw new BadRequestException('mapping refresh actor required');
-    const [bookMaps, snapshots, existing, warehouses, products, units] = await Promise.all([
+    const [bookMaps, snapshots, existing, erpCandidates] = await Promise.all([
       this.bookMapRepository.find({ where: { syncEnabled: true } }),
       this.snapshotRepository.find({
         where: { entityType: In(TRANSACTION_ENTITY_TYPES) },
@@ -297,39 +326,7 @@ export class ChanjetWmsBridgeService {
       this.mappingRepository.find({
         where: { mappingType: In<ChanjetMappingType>(['WAREHOUSE', 'PRODUCT', 'UOM']) },
       }),
-      this.mappingRepository.manager.query(`
-        SELECT
-          warehouse_code AS code,
-          COALESCE(NULLIF(warehouse_name_zh, ''), warehouse_name, '') AS name,
-          COALESCE(company_code, '') AS company_code
-        FROM wms_warehouses
-        WHERE status = 'ACTIVE'
-      `) as Promise<Array<{ code: string; name: string; company_code: string }>>,
-      this.mappingRepository.manager.query(`
-        SELECT
-          product_code AS code,
-          COALESCE(NULLIF(product_name_zh, ''), product_name, '') AS name,
-          '' AS company_code
-        FROM mst_products
-        WHERE status = 'ACTIVE'
-      `) as Promise<Array<{ code: string; name: string; company_code: string }>>,
-      this.mappingRepository.manager.query(`
-        SELECT DISTINCT unit_name AS code, unit_name AS name, '' AS company_code
-        FROM (
-          SELECT NULLIF(TRIM(unit_zh), '') AS unit_name
-          FROM mst_products
-          WHERE status = 'ACTIVE'
-          UNION
-          SELECT NULLIF(TRIM(base_unit), '')
-          FROM packaging_specs
-          WHERE status = 'ACTIVE'
-          UNION
-          SELECT NULLIF(TRIM(display_unit), '')
-          FROM packaging_specs
-          WHERE status = 'ACTIVE'
-        ) source
-        WHERE unit_name IS NOT NULL
-      `) as Promise<Array<{ code: string; name: string; company_code: string }>>,
+      this.loadWmsErpCandidates(),
     ]);
     const books = new Map(bookMaps.map((book) => [book.bookid, book]));
     const sources = new Map<string, {
@@ -363,11 +360,6 @@ export class ChanjetWmsBridgeService {
       }
     }
 
-    const erpCandidates = {
-      WAREHOUSE: warehouses,
-      PRODUCT: products,
-      UOM: units,
-    };
     let exactMatched = 0;
     let sourceOnly = 0;
     let conflicts = 0;
@@ -401,6 +393,7 @@ export class ChanjetWmsBridgeService {
       }
 
       const matches = erpCandidates[source.mappingType].filter((candidate) => {
+        if (source.mappingType === 'PRODUCT' && candidate.entity_type !== 'PRODUCT') return false;
         if (
           source.mappingType === 'WAREHOUSE'
           && source.companyCode
@@ -409,7 +402,9 @@ export class ChanjetWmsBridgeService {
         ) return false;
         const codeMatch = upper(candidate.code) === upper(source.code);
         const nameMatch = this.normalizedWmsName(candidate.name) === this.normalizedWmsName(source.name);
-        return codeMatch || (!!source.name && nameMatch);
+        const uomAliasMatch = source.mappingType === 'UOM'
+          && this.canonicalUomAlias(source.code || source.name) === this.normalizedWmsName(candidate.name);
+        return codeMatch || (!!source.name && nameMatch) || uomAliasMatch;
       });
       const uniqueMatches = [...new Map(matches.map((match) => [upper(match.code), match])).values()];
       const match = uniqueMatches.length === 1 ? uniqueMatches[0] : null;
@@ -419,6 +414,7 @@ export class ChanjetWmsBridgeService {
         bookId: source.bookId,
         erpCode: match?.code || '',
         erpName: match?.name || '',
+        erpEntityType: match?.entity_type || '',
         chanjetId: source.code,
         chanjetCode: source.code,
         chanjetName: source.name || source.code,
@@ -435,7 +431,10 @@ export class ChanjetWmsBridgeService {
           sourceCompanyCode: source.companyCode,
           exactCandidates: uniqueMatches,
           rule: match
-            ? 'same-book company boundary plus exact code or unique normalized name'
+            ? source.mappingType === 'UOM'
+              && this.canonicalUomAlias(source.code || source.name) === this.normalizedWmsName(match.name)
+              ? 'reviewed dimension-preserving UOM alias kg -> 公斤'
+              : 'same-book company boundary plus exact code or unique normalized name'
             : uniqueMatches.length > 1
               ? 'multiple exact candidates; fail closed'
               : 'source identity only; ERP master mapping required before promotion',
@@ -453,6 +452,192 @@ export class ChanjetWmsBridgeService {
       sourceOnly,
       conflicts,
       preservedApproved,
+      erpBusinessTablesMutated: false,
+      externalWriteExecuted: false,
+    };
+  }
+
+  async mappingGapOverview() {
+    const [mappings, books, erpCandidates, alignment] = await Promise.all([
+      this.mappingRepository.find({
+        where: { mappingType: In<ChanjetMappingType>(['WAREHOUSE', 'PRODUCT', 'UOM']) },
+        order: { mappingType: 'ASC', bookId: 'ASC', chanjetName: 'ASC' },
+      }),
+      this.bookMapRepository.find({ where: { syncEnabled: true } }),
+      this.loadWmsErpCandidates(),
+      this.integration?.wmsReadonlyAlignmentOverview() ?? Promise.resolve(null),
+    ]);
+    const bookById = new Map(books.map((book) => [book.bookid, book]));
+    const rows = mappings.map((mapping) => {
+      const mapped = (
+        mapping.reviewStatus === 'APPROVED'
+        && ['MATCHED', 'MANUAL'].includes(mapping.matchStatus)
+        && !!mapping.erpCode
+      );
+      const companyCode = text(mapping.rawData?.sourceCompanyCode)
+        || bookById.get(mapping.bookId)?.companyCode
+        || '';
+      const candidates = erpCandidates[mapping.mappingType as WmsMappingType]
+        .filter((candidate) => (
+          mapping.mappingType !== 'WAREHOUSE'
+          || !companyCode
+          || !candidate.company_code
+          || candidate.company_code === companyCode
+        ));
+      return {
+        id: mapping.id,
+        mappingType: mapping.mappingType,
+        bookId: mapping.bookId,
+        bookName: bookById.get(mapping.bookId)?.bookName || mapping.bookId,
+        companyCode,
+        sourceCode: mapping.chanjetCode || mapping.chanjetId,
+        sourceName: mapping.chanjetName,
+        erpCode: mapping.erpCode,
+        erpName: mapping.erpName,
+        erpEntityType: mapping.erpEntityType,
+        matchStatus: mapping.matchStatus,
+        reviewStatus: mapping.reviewStatus,
+        closureState: mapped
+          ? 'MAPPED'
+          : mapping.matchStatus === 'CONFLICT'
+            ? 'CONFLICT'
+            : 'NEED_MAPPING',
+        allowedTargetCount: candidates.length,
+        nextAction: mapped
+          ? 'NONE'
+          : mapping.mappingType === 'WAREHOUSE' && candidates.length === 0
+            ? 'CREATE_OR_ACTIVATE_COMPANY_WAREHOUSE_THEN_MAP'
+            : mapping.mappingType === 'PRODUCT' && candidates.length === 0
+              ? 'CREATE_OR_ACTIVATE_PRODUCT_MASTER_THEN_MAP'
+              : mapping.mappingType === 'UOM' && candidates.length === 0
+                ? 'DEFINE_UOM_OR_SKU_PACKAGING_CONVERSION'
+                : 'SELECT_VERIFIED_ERP_TARGET',
+      };
+    });
+    const byType = (['WAREHOUSE', 'PRODUCT', 'UOM'] as WmsMappingType[]).map((mappingType) => {
+      const scoped = rows.filter((row) => row.mappingType === mappingType);
+      return {
+        mappingType,
+        total: scoped.length,
+        mapped: scoped.filter((row) => row.closureState === 'MAPPED').length,
+        needMapping: scoped.filter((row) => row.closureState === 'NEED_MAPPING').length,
+        conflicts: scoped.filter((row) => row.closureState === 'CONFLICT').length,
+      };
+    });
+    const mapped = rows.filter((row) => row.closureState === 'MAPPED').length;
+    const permissionHolds = alignment?.scopes?.filter((scope) => (
+      scope.latestSyncStatus === 'FAIL'
+      && /50111|无调用该接口的权限|permission/i.test(scope.latestSyncError || '')
+    )).map((scope) => ({
+      endpointKey: scope.endpointKey,
+      bookId: scope.bookId,
+      bookName: scope.bookName,
+      error: scope.latestSyncError,
+    })) || [];
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: rows.length > 0 && mapped === rows.length && alignment?.decision === 'GO'
+        ? 'GO'
+        : 'HOLD',
+      summary: {
+        total: rows.length,
+        mapped,
+        needMapping: rows.filter((row) => row.closureState === 'NEED_MAPPING').length,
+        conflicts: rows.filter((row) => row.closureState === 'CONFLICT').length,
+        mappingCoverageRate: rows.length ? Number(((mapped / rows.length) * 100).toFixed(2)) : 0,
+        providerPermissionHolds: permissionHolds.length,
+      },
+      byType,
+      providerPermissionHolds: permissionHolds,
+      targetCatalog: erpCandidates,
+      rows,
+      guardrails: {
+        chanjetReadOnly: true,
+        erpBusinessTablesMutated: false,
+        externalWriteExecuted: false,
+        explicitTargetEvidenceRequired: true,
+      },
+    };
+  }
+
+  async reviewMasterMapping(
+    id: string,
+    input: ReviewWmsMasterMappingInput,
+    actor: string,
+  ) {
+    if (!text(actor)) throw new BadRequestException('mapping review actor required');
+    if (!['APPROVE', 'REJECT'].includes(input.decision)) {
+      throw new BadRequestException('decision must be APPROVE or REJECT');
+    }
+    const mapping = await this.mappingRepository.findOne({ where: { id } });
+    if (!mapping || !['WAREHOUSE', 'PRODUCT', 'UOM'].includes(mapping.mappingType)) {
+      throw new NotFoundException('WMS master mapping not found');
+    }
+    if (input.decision === 'REJECT') {
+      mapping.reviewStatus = 'REJECTED';
+      mapping.reviewedBy = actor;
+      mapping.reviewedAt = new Date();
+      mapping.rawData = {
+        ...(mapping.rawData || {}),
+        rejectedAt: mapping.reviewedAt.toISOString(),
+        rejectedBy: actor,
+      };
+      await this.mappingRepository.save(mapping);
+      return {
+        mapping,
+        erpBusinessTablesMutated: false,
+        externalWriteExecuted: false,
+      };
+    }
+
+    const erpCode = text(input.erpCode);
+    if (!erpCode) throw new BadRequestException('erpCode is required for WMS mapping approval');
+    const erpEntityType = text(input.erpEntityType);
+    if (!erpEntityType) {
+      throw new BadRequestException('erpEntityType is required for WMS mapping approval');
+    }
+    const candidates = await this.loadWmsErpCandidates();
+    const target = candidates[mapping.mappingType as WmsMappingType]
+      .find((candidate) => (
+        upper(candidate.code) === upper(erpCode)
+        && candidate.entity_type === erpEntityType
+      ));
+    if (!target) throw new BadRequestException('ERP mapping target does not exist or is inactive');
+    const sourceCompanyCode = text(mapping.rawData?.sourceCompanyCode);
+    if (
+      mapping.mappingType === 'WAREHOUSE'
+      && sourceCompanyCode
+      && target.company_code
+      && sourceCompanyCode !== target.company_code
+    ) {
+      throw new BadRequestException('warehouse target is outside the source account-book company');
+    }
+    mapping.erpCode = target.code;
+    mapping.erpName = target.name;
+    mapping.erpEntityType = target.entity_type;
+    mapping.matchStatus = 'MANUAL';
+    mapping.confidence = '1.00';
+    mapping.reviewStatus = 'APPROVED';
+    mapping.reviewedBy = actor;
+    mapping.reviewedAt = new Date();
+    mapping.rawData = {
+      ...(mapping.rawData || {}),
+      manualMappingEvidence: {
+        reviewedAt: mapping.reviewedAt.toISOString(),
+        reviewedBy: actor,
+        sourceIdentity: `${mapping.mappingType}:${mapping.bookId}:${mapping.chanjetId}`,
+        target: {
+          code: target.code,
+          name: target.name,
+          companyCode: target.company_code,
+          entityType: target.entity_type,
+        },
+        rule: 'explicit administrator selection validated against active ERP master data',
+      },
+    };
+    await this.mappingRepository.save(mapping);
+    return {
+      mapping,
       erpBusinessTablesMutated: false,
       externalWriteExecuted: false,
     };
@@ -479,6 +664,12 @@ export class ChanjetWmsBridgeService {
     if (!actor) throw new BadRequestException('review actor required');
 
     if (decision === 'APPROVE') {
+      const alignment = await this.integration?.wmsReadonlyAlignmentOverview();
+      if (!alignment || alignment.decision !== 'GO') {
+        throw new BadRequestException(
+          'WMS readonly baseline is not approval-ready; all provider scopes must be fresh and successful',
+        );
+      }
       if (candidate.state !== 'CANDIDATE' || candidate.blockers.length > 0 || candidate.conditions.length > 0) {
         throw new BadRequestException(
           'WMS promotion candidate is not approval-ready; resolve blockers and conditions first',
@@ -593,10 +784,13 @@ export class ChanjetWmsBridgeService {
       ...document.lines.map((line) => ({ dimension: 'WAREHOUSE' as const, code: line.warehouseCode })),
       ...document.lines.map((line) => ({ dimension: 'PRODUCT' as const, code: line.productCode })),
       ...document.lines.map((line) => ({ dimension: 'UOM' as const, code: line.unitName })),
+      ...document.lines.map((line) => ({ dimension: 'UOM' as const, code: line.secondaryUnitName })),
       ...(document.currencyCode ? [{ dimension: 'CURRENCY' as const, code: document.currencyCode }] : []),
     ];
 
-    return unique(sources.map((source) => `${source.dimension}:${upper(source.code)}`))
+    return unique(sources
+      .filter((source) => !!text(source.code))
+      .map((source) => `${source.dimension}:${upper(source.code)}`))
       .map((key) => {
         const [dimension, ...codeParts] = key.split(':');
         const code = codeParts.join(':');
@@ -654,6 +848,78 @@ export class ChanjetWmsBridgeService {
       .normalize('NFKC')
       .replace(/[\s\u3000（）()\-—_]+/g, '')
       .toLowerCase();
+  }
+
+  private canonicalUomAlias(value: string): string {
+    const normalized = this.normalizedWmsName(value);
+    if (normalized === 'kg' || normalized === 'ｋｇ') {
+      return this.normalizedWmsName('公斤');
+    }
+    return '';
+  }
+
+  private async loadWmsErpCandidates(): Promise<Record<WmsMappingType, ErpMappingCandidate[]>> {
+    const [warehouses, products, units] = await Promise.all([
+      this.mappingRepository.manager.query(`
+        SELECT
+          warehouse_code AS code,
+          COALESCE(NULLIF(warehouse_name_zh, ''), warehouse_name, '') AS name,
+          COALESCE(company_code, '') AS company_code,
+          'WAREHOUSE' AS entity_type
+        FROM wms_warehouses
+        WHERE status = 'ACTIVE'
+      `) as Promise<ErpMappingCandidate[]>,
+      this.mappingRepository.manager.query(`
+        SELECT code, name, company_code, entity_type
+        FROM (
+          SELECT
+            product_code AS code,
+            COALESCE(NULLIF(product_name_zh, ''), product_name, '') AS name,
+            '' AS company_code,
+            'PRODUCT' AS entity_type
+          FROM mst_products
+          WHERE status = 'ACTIVE'
+          UNION ALL
+          SELECT
+            sku_code AS code,
+            COALESCE(NULLIF(sku_name, ''), product_name, '') AS name,
+            '' AS company_code,
+            'SKU' AS entity_type
+          FROM product_skus
+          WHERE status = 'ACTIVE'
+          UNION ALL
+          SELECT
+            material_code AS code,
+            COALESCE(material_name, '') AS name,
+            '' AS company_code,
+            'MATERIAL' AS entity_type
+          FROM mst_materials
+          WHERE status = 'ACTIVE'
+        ) candidates
+      `) as Promise<ErpMappingCandidate[]>,
+      this.mappingRepository.manager.query(`
+        SELECT DISTINCT
+          unit_name AS code,
+          unit_name AS name,
+          '' AS company_code,
+          'UOM' AS entity_type
+        FROM (
+          SELECT NULLIF(TRIM(unit_zh), '') AS unit_name
+          FROM mst_products
+          WHERE status = 'ACTIVE'
+          UNION
+          SELECT NULLIF(TRIM(base_unit), '')
+          FROM packaging_specs
+          WHERE status = 'ACTIVE'
+          UNION
+          SELECT NULLIF(TRIM(display_unit), '')
+          FROM packaging_specs
+          WHERE status = 'ACTIVE'
+        ) source
+        WHERE unit_name IS NOT NULL
+      `) as Promise<ErpMappingCandidate[]>,
+    ]);
+    return { WAREHOUSE: warehouses, PRODUCT: products, UOM: units };
   }
 
   private mappingRank(mapping: ChanjetMasterMappingEntity): number {

@@ -49,6 +49,9 @@ export class ChanjetMasterMappingEntity {
   @Column({ name: 'erp_name', type: 'varchar', length: 256, default: '' })
   erpName: string;
 
+  @Column({ name: 'erp_entity_type', type: 'varchar', length: 32, default: '' })
+  erpEntityType: 'WAREHOUSE' | 'PRODUCT' | 'SKU' | 'MATERIAL' | 'UOM' | '';
+
   @Column({ name: 'chanjet_id', type: 'varchar', length: 128, default: '' })
   chanjetId: string;
 

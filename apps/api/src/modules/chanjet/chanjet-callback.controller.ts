@@ -830,6 +830,15 @@ export class ChanjetCallbackController {
     return { success: true, bridge: await this.wmsBridge.overview() };
   }
 
+  @Get('integration/wms/mapping-gaps')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationWmsMappingGaps() {
+    return {
+      success: true,
+      mappingGaps: await this.wmsBridge.mappingGapOverview(),
+    };
+  }
+
   @Get('integration/wms/promotion-candidates')
   @RequireMenu(CHANJET_PROXY_MENU, 'V')
   async integrationWmsPromotionCandidates(
@@ -863,6 +872,27 @@ export class ChanjetCallbackController {
     return {
       success: true,
       result: await this.wmsBridge.refreshMasterMappingCandidates(actor),
+    };
+  }
+
+  @Post('integration/wms/master-mappings/:id/review')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async reviewIntegrationWmsMasterMapping(
+    @Param('id') id: string,
+    @Body() body: {
+      decision: 'APPROVE' | 'REJECT';
+      erpCode?: string;
+      erpEntityType?: 'WAREHOUSE' | 'PRODUCT' | 'SKU' | 'MATERIAL' | 'UOM';
+    },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const actor = String(req?.user?.username || req?.user?.userId || '');
+    this.log.warn(
+      `manual Chanjet WMS master mapping review triggered user=${actor} mapping=${id} decision=${body.decision}`,
+    );
+    return {
+      success: true,
+      result: await this.wmsBridge.reviewMasterMapping(id, body, actor),
     };
   }
 

@@ -115,9 +115,9 @@ describe('ChanjetWmsBridgeService', () => {
       find: jest.fn().mockResolvedValue([]),
       manager: {
         query: jest.fn()
-          .mockResolvedValueOnce([{ code: 'WH-CJ', name: 'Warehouse', company_code: 'COMP-1' }])
+          .mockResolvedValueOnce([{ code: 'WH-CJ', name: 'Warehouse', company_code: 'COMP-1', entity_type: 'WAREHOUSE' }])
           .mockResolvedValueOnce([])
-          .mockResolvedValueOnce([{ code: 'PCS', name: 'PCS', company_code: '' }]),
+          .mockResolvedValueOnce([{ code: 'PCS', name: 'PCS', company_code: '', entity_type: 'UOM' }]),
       },
     });
     const service = new ChanjetWmsBridgeService(
@@ -173,7 +173,7 @@ describe('ChanjetWmsBridgeService', () => {
       manager: {
         query: jest.fn()
           .mockResolvedValueOnce([])
-          .mockResolvedValueOnce([{ code: 'EGG', name: 'Egg', company_code: '' }])
+          .mockResolvedValueOnce([{ code: 'EGG', name: 'Egg', company_code: '', entity_type: 'PRODUCT' }])
           .mockResolvedValueOnce([]),
       },
     });
@@ -188,6 +188,9 @@ describe('ChanjetWmsBridgeService', () => {
     const result = await service.refreshMasterMappingCandidates('admin');
 
     expect(result.exactMatched).toBe(1);
+    const candidateQueries = mappingRepo.manager.query.mock.calls.map(([sql]) => String(sql));
+    expect(candidateQueries.join('\n')).not.toContain('sku_name_zh');
+    expect(candidateQueries.join('\n')).not.toContain('material_name_zh');
     expect(mappingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
       mappingType: 'PRODUCT',
       chanjetId: 'SKU-CJ',
@@ -195,6 +198,189 @@ describe('ChanjetWmsBridgeService', () => {
       matchStatus: 'MATCHED',
       reviewStatus: 'APPROVED',
     }));
+  });
+
+  it('maps kg to the dimension-preserving ERP unit 公斤 and keeps other units fail-closed', async () => {
+    const kgSnapshot = {
+      ...snapshot,
+      rawData: {
+        ...snapshot.rawData,
+        voucherDetailList: [{
+          ...snapshot.rawData.voucherDetailList[0],
+          transUomName: 'kg',
+        }],
+      },
+    };
+    const mappingRepo = repository({
+      find: jest.fn().mockResolvedValue([]),
+      manager: {
+        query: jest.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ code: '公斤', name: '公斤', company_code: '', entity_type: 'UOM' }]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository({ find: jest.fn().mockResolvedValue([activeBook]) }) as never,
+      repository({ find: jest.fn().mockResolvedValue([kgSnapshot]) }) as never,
+      mappingRepo as never,
+      repository() as never,
+      repository() as never,
+    );
+
+    const result = await service.refreshMasterMappingCandidates('admin');
+
+    expect(result.exactMatched).toBe(1);
+    expect(mappingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      mappingType: 'UOM',
+      chanjetCode: 'kg',
+      erpCode: '公斤',
+      matchStatus: 'MATCHED',
+      reviewStatus: 'APPROVED',
+      rawData: expect.objectContaining({
+        rule: 'reviewed dimension-preserving UOM alias kg -> 公斤',
+      }),
+    }));
+  });
+
+  it('requires both primary and secondary UOM mappings before promotion', async () => {
+    const candidateRepo = repository();
+    const dualUomSnapshot = {
+      ...snapshot,
+      rawData: {
+        ...snapshot.rawData,
+        voucherDetailList: [{
+          ...snapshot.rawData.voucherDetailList[0],
+          trans2UomName: 'BOX',
+        }],
+      },
+    };
+    const service = new ChanjetWmsBridgeService(
+      repository({ find: jest.fn().mockResolvedValue([activeBook]) }) as never,
+      repository({ find: jest.fn().mockResolvedValue([dualUomSnapshot]) }) as never,
+      repository({ find: jest.fn().mockResolvedValue(mappings) }) as never,
+      candidateRepo as never,
+      repository() as never,
+    );
+
+    const result = await service.refreshPromotionCandidates('admin');
+
+    expect(result.states.NEED_MAPPING).toBe(1);
+    expect(candidateRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      conditions: expect.arrayContaining(['UOM_MAPPING_REQUIRED:BOX']),
+    }));
+  });
+
+  it('persists an explicit WMS master mapping only after validating the active ERP target', async () => {
+    const sourceOnly = {
+      id: '88',
+      mappingType: 'WAREHOUSE',
+      bookId: 'BOOK-1',
+      chanjetId: 'WH-CJ',
+      chanjetCode: 'WH-CJ',
+      chanjetName: 'Source warehouse',
+      erpCode: '',
+      erpName: '',
+      matchStatus: 'SOURCE_ONLY',
+      reviewStatus: 'APPROVED',
+      confidence: '1.00',
+      rawData: { sourceCompanyCode: 'COMP-1' },
+    };
+    const mappingRepo = repository({
+      findOne: jest.fn().mockResolvedValue(sourceOnly),
+      manager: {
+        query: jest.fn()
+          .mockResolvedValueOnce([{ code: 'WH-ERP', name: 'ERP warehouse', company_code: 'COMP-1', entity_type: 'WAREHOUSE' }])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository() as never,
+      repository() as never,
+      mappingRepo as never,
+      repository() as never,
+      repository() as never,
+    );
+
+    const result = await service.reviewMasterMapping(
+      '88',
+      { decision: 'APPROVE', erpCode: 'WH-ERP', erpEntityType: 'WAREHOUSE' },
+      'admin',
+    );
+
+    expect(result.mapping).toMatchObject({
+      erpCode: 'WH-ERP',
+      erpName: 'ERP warehouse',
+      matchStatus: 'MANUAL',
+      reviewStatus: 'APPROVED',
+      reviewedBy: 'admin',
+    });
+    expect(mappingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      rawData: expect.objectContaining({
+        manualMappingEvidence: expect.objectContaining({
+          sourceIdentity: 'WAREHOUSE:BOOK-1:WH-CJ',
+        }),
+      }),
+    }));
+  });
+
+  it('rejects a warehouse mapping target outside the source account-book company', async () => {
+    const mappingRepo = repository({
+      findOne: jest.fn().mockResolvedValue({
+        id: '88',
+        mappingType: 'WAREHOUSE',
+        bookId: 'BOOK-1',
+        chanjetId: 'WH-CJ',
+        rawData: { sourceCompanyCode: 'COMP-1' },
+      }),
+      manager: {
+        query: jest.fn()
+          .mockResolvedValueOnce([{ code: 'WH-ERP', name: 'Wrong warehouse', company_code: 'COMP-2', entity_type: 'WAREHOUSE' }])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository() as never,
+      repository() as never,
+      mappingRepo as never,
+      repository() as never,
+      repository() as never,
+    );
+
+    await expect(service.reviewMasterMapping(
+      '88',
+      { decision: 'APPROVE', erpCode: 'WH-ERP', erpEntityType: 'WAREHOUSE' },
+      'admin',
+    )).rejects.toThrow('outside the source account-book company');
+  });
+
+  it('blocks promotion approval while the readonly provider baseline is incomplete', async () => {
+    const candidateRepo = repository({
+      findOne: jest.fn().mockResolvedValue({
+        id: '1',
+        state: 'CANDIDATE',
+        blockers: [],
+        conditions: [],
+      }),
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository() as never,
+      repository() as never,
+      repository() as never,
+      candidateRepo as never,
+      repository() as never,
+      {
+        wmsReadonlyAlignmentOverview: jest.fn().mockResolvedValue({
+          decision: 'HOLD',
+          conditions: ['6 scopes blocked by provider permissions'],
+        }),
+      } as never,
+    );
+
+    await expect(service.reviewPromotionCandidate('1', 'APPROVE', 'admin'))
+      .rejects.toThrow('all provider scopes must be fresh and successful');
   });
 
   it('persists missing source identity as HOLD evidence instead of skipping it', async () => {

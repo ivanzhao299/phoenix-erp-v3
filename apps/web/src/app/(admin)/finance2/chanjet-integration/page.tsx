@@ -105,6 +105,14 @@ interface WmsBridgeReadiness {
   promotionStates: Record<string, number>;
   writebackOutboxCount: number;
   writebackStates: Record<string, number>;
+  promotionApprovalGate: {
+    ready: boolean;
+    decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+    expectedScopes: number;
+    freshScopes: number;
+    failedScopes: number;
+    conditions: string[];
+  };
   guardrails: {
     chanjetReadOnly: true;
     externalWriteEnabled: false;
@@ -112,6 +120,68 @@ interface WmsBridgeReadiness {
     automaticBusinessTablePromotion: false;
     manualReviewRequired: true;
   };
+}
+
+type WmsMappingTarget = {
+  code: string;
+  name: string;
+  company_code: string;
+  entity_type: 'WAREHOUSE' | 'PRODUCT' | 'SKU' | 'MATERIAL' | 'UOM';
+};
+
+interface WmsMappingGapOverview {
+  generatedAt: string;
+  decision: 'GO' | 'HOLD';
+  summary: {
+    total: number;
+    mapped: number;
+    needMapping: number;
+    conflicts: number;
+    mappingCoverageRate: number;
+    providerPermissionHolds: number;
+  };
+  byType: Array<{
+    mappingType: 'WAREHOUSE' | 'PRODUCT' | 'UOM';
+    total: number;
+    mapped: number;
+    needMapping: number;
+    conflicts: number;
+  }>;
+  providerPermissionHolds: Array<{
+    endpointKey: string;
+    bookId: string;
+    bookName: string;
+    error: string;
+  }>;
+  targetCatalog: Record<'WAREHOUSE' | 'PRODUCT' | 'UOM', WmsMappingTarget[]>;
+  rows: Array<{
+    id: string;
+    mappingType: 'WAREHOUSE' | 'PRODUCT' | 'UOM';
+    bookId: string;
+    bookName: string;
+    companyCode: string;
+    sourceCode: string;
+    sourceName: string;
+    erpCode: string;
+    erpName: string;
+    matchStatus: string;
+    reviewStatus: string;
+    closureState: 'MAPPED' | 'NEED_MAPPING' | 'CONFLICT';
+    allowedTargetCount: number;
+    nextAction: string;
+  }>;
+}
+
+function allowedWmsTargets(
+  overview: WmsMappingGapOverview,
+  row: WmsMappingGapOverview['rows'][number],
+) {
+  return (overview.targetCatalog[row.mappingType] || []).filter((target) => (
+    row.mappingType !== 'WAREHOUSE'
+    || !row.companyCode
+    || !target.company_code
+    || target.company_code === row.companyCode
+  ));
 }
 
 interface AccountBook {
@@ -846,6 +916,8 @@ export default function ChanjetIntegrationPage() {
   const [readonlyFieldAdapters, setReadonlyFieldAdapters] = useState<ReadonlyFieldAdaptersOverview | null>(null);
   const [wmsAlignment, setWmsAlignment] = useState<WmsReadonlyAlignment | null>(null);
   const [wmsBridge, setWmsBridge] = useState<WmsBridgeReadiness | null>(null);
+  const [wmsMappingGaps, setWmsMappingGaps] = useState<WmsMappingGapOverview | null>(null);
+  const [wmsMappingTargets, setWmsMappingTargets] = useState<Record<string, string>>({});
   const [baselineReadiness, setBaselineReadiness] = useState<MirrorBaselineReadiness | null>(null);
   const [accountBookGate, setAccountBookGate] = useState<AccountBookMappingGate | null>(null);
   const [counterpartyCandidates, setCounterpartyCandidates] = useState<CounterpartyCandidateOverview | null>(null);
@@ -871,7 +943,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, outboxResp, writebackPreparationResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, wmsAlignmentResp, wmsBridgeResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, outboxResp, writebackPreparationResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, wmsAlignmentResp, wmsBridgeResp, wmsMappingGapResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -894,6 +966,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; readonlyFieldAdapters: ReadonlyFieldAdaptersOverview; error?: string }>('/chanjet/integration/readonly-field-adapters'),
         request<{ success: boolean; alignment: WmsReadonlyAlignment; error?: string }>('/chanjet/integration/wms-readonly-alignment'),
         request<{ success: boolean; bridge: WmsBridgeReadiness; error?: string }>('/chanjet/integration/wms/bridge-readiness'),
+        request<{ success: boolean; mappingGaps: WmsMappingGapOverview; error?: string }>('/chanjet/integration/wms/mapping-gaps'),
         request<{ success: boolean; baseline: MirrorBaselineReadiness; error?: string }>('/chanjet/integration/baseline-readiness?freshnessHours=24'),
         request<{ success: boolean; gate: AccountBookMappingGate; error?: string }>('/chanjet/integration/account-book-mapping-gate'),
         request<{ success: boolean; candidateOverview: CounterpartyCandidateOverview; error?: string }>('/chanjet/integration/counterparty-mapping-candidates'),
@@ -922,6 +995,7 @@ export default function ChanjetIntegrationPage() {
       setReadonlyFieldAdapters(readonlyFieldAdaptersResp.readonlyFieldAdapters || null);
       setWmsAlignment(wmsAlignmentResp.alignment || null);
       setWmsBridge(wmsBridgeResp.bridge || null);
+      setWmsMappingGaps(wmsMappingGapResp.mappingGaps || null);
       setBaselineReadiness(baselineResp.baseline || null);
       setAccountBookGate(accountBookGateResp.gate || null);
       setCounterpartyCandidates(counterpartyCandidateResp.candidateOverview || null);
@@ -998,6 +1072,25 @@ export default function ChanjetIntegrationPage() {
       method: 'POST',
       body: JSON.stringify({ reviewStatus }),
     }));
+  }
+
+  async function reviewWmsMapping(id: string, decision: 'APPROVE' | 'REJECT') {
+    const selectedTarget = wmsMappingTargets[id] || '';
+    const [erpEntityType, ...erpCodeParts] = selectedTarget.split(':');
+    const erpCode = erpCodeParts.join(':');
+    await runAction(
+      decision === 'APPROVE'
+        ? t('ui.确认WMS主数据映射', '确认 WMS 主数据映射')
+        : t('ui.拒绝WMS主数据映射', '拒绝 WMS 主数据映射'),
+      () => request(`/chanjet/integration/wms/master-mappings/${id}/review`, {
+        method: 'POST',
+        body: JSON.stringify({
+          decision,
+          erpCode: decision === 'APPROVE' ? erpCode : undefined,
+          erpEntityType: decision === 'APPROVE' ? erpEntityType : undefined,
+        }),
+      }),
+    );
   }
 
   async function runFullReadonlyAlignment() {
@@ -1985,6 +2078,145 @@ export default function ChanjetIntegrationPage() {
                     <Badge tone="amber">{t('ui.必须人工复核', '必须人工复核')}</Badge>
                   </div>
                 </div>
+              </div>
+
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <strong>{t('ui.WMS映射闭环', 'WMS 映射闭环')}</strong>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                      {t(
+                        'ui.WMS映射闭环说明',
+                        '源身份已确认不等于 ERP 主档已映射。管理员必须选择同公司、有效的 ERP 目标；保存只更新中间层证据，不改库存事实。',
+                      )}
+                    </div>
+                  </div>
+                  <Badge tone={wmsMappingGaps?.decision === 'GO' ? 'green' : 'amber'}>
+                    {wmsMappingGaps
+                      ? `${wmsMappingGaps.summary.mapped}/${wmsMappingGaps.summary.total} · ${wmsMappingGaps.summary.mappingCoverageRate}%`
+                      : 'HOLD'}
+                  </Badge>
+                </div>
+
+                {wmsMappingGaps && (
+                  <>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                      {wmsMappingGaps.byType.map((item) => (
+                        <Badge key={item.mappingType} tone={item.needMapping || item.conflicts ? 'amber' : 'green'}>
+                          {item.mappingType} {item.mapped}/{item.total}
+                        </Badge>
+                      ))}
+                      <Badge tone={wmsMappingGaps.summary.providerPermissionHolds ? 'red' : 'green'}>
+                        {t('ui.供应商权限阻断', '供应商权限阻断')} {wmsMappingGaps.summary.providerPermissionHolds}
+                      </Badge>
+                    </div>
+
+                    {wmsMappingGaps.providerPermissionHolds.length > 0 && (
+                      <div style={{ border: '1px solid var(--danger-border)', background: 'var(--danger-bg)', borderRadius: 6, padding: 10, marginBottom: 12 }}>
+                        <strong style={{ color: 'var(--status-danger)' }}>
+                          {t('ui.晋级审批保持关闭', '晋级审批保持关闭')}
+                        </strong>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                          {t(
+                            'ui.供应商权限补齐说明',
+                            'OTHER_STOCK_IN / RETAIL_STOCK_OUT 尚未取得供应商接口权限。全部只读 Scope 新鲜且成功前，任何库存单据不得批准晋级。',
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ ...tableStyle, minWidth: 1040 }}>
+                        <thead>
+                          <tr>{[
+                            t('ui.类型与账套', '类型 / 账套'),
+                            t('ui.好业财源身份', '好业财源身份'),
+                            t('ui.闭环状态', '闭环状态'),
+                            t('ui.ERP目标', 'ERP 目标'),
+                            t('ui.操作', '操作'),
+                          ].map((heading) => (
+                            <th key={heading} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{heading}</th>
+                          ))}</tr>
+                        </thead>
+                        <tbody>
+                          {wmsMappingGaps.rows
+                            .filter((row) => row.closureState !== 'MAPPED')
+                            .slice(0, 100)
+                            .map((row) => (
+                              <tr key={row.id}>
+                                <td style={cellStyle}>
+                                  <strong>{row.mappingType}</strong>
+                                  <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{row.bookName}</div>
+                                  <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{row.companyCode || '—'}</div>
+                                </td>
+                                <td style={cellStyle}>
+                                  {row.sourceName || row.sourceCode}
+                                  <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{row.sourceCode}</div>
+                                </td>
+                                <td style={cellStyle}>
+                                  <Badge tone={statusTone(row.closureState)}>{row.closureState}</Badge>
+                                  <div style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 4 }}>{row.nextAction}</div>
+                                </td>
+                                <td style={cellStyle}>
+                                  {allowedWmsTargets(wmsMappingGaps, row).length > 0 ? (
+                                    <select
+                                      aria-label={`${row.sourceName || row.sourceCode} ERP target`}
+                                      value={wmsMappingTargets[row.id] || ''}
+                                      onChange={(event) => setWmsMappingTargets((current) => ({
+                                        ...current,
+                                        [row.id]: event.target.value,
+                                      }))}
+                                      style={{ width: '100%', minWidth: 240, minHeight: 36, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-card)', color: 'var(--text-primary)', padding: '6px 8px' }}
+                                    >
+                                      <option value="">{t('ui.选择已核验ERP主档', '选择已核验的 ERP 主档')}</option>
+                                      {allowedWmsTargets(wmsMappingGaps, row).map((target) => (
+                                        <option
+                                          key={`${target.entity_type}:${target.code}`}
+                                          value={`${target.entity_type}:${target.code}`}
+                                        >
+                                          [{target.entity_type}] {target.name || target.code} · {target.code}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span style={{ color: 'var(--status-warning)', fontSize: 12 }}>
+                                      {t('ui.无可用ERP目标', '当前没有同公司、有效的 ERP 目标')}
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={cellStyle}>
+                                  <div style={{ display: 'flex', gap: 6 }}>
+                                    <Button
+                                      size="xs"
+                                      disabled={!canEdit || loading || !wmsMappingTargets[row.id]}
+                                      onClick={() => void reviewWmsMapping(row.id, 'APPROVE')}
+                                    >
+                                      {t('common.confirm', '确认')}
+                                    </Button>
+                                    <Button
+                                      size="xs"
+                                      variant="outline"
+                                      disabled={!canEdit || loading}
+                                      onClick={() => void reviewWmsMapping(row.id, 'REJECT')}
+                                    >
+                                      {t('ui.拒绝', '拒绝')}
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          {wmsMappingGaps.rows.filter((row) => row.closureState !== 'MAPPED').length === 0 && (
+                            <tr>
+                              <td style={cellStyle} colSpan={5}>
+                                {t('ui.WMS映射已闭环', 'WMS 主数据映射已全部闭环。')}
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div style={cardStyle}>
