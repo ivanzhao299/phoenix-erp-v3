@@ -1,5 +1,18 @@
 # Decision Log
 
+## 2026-07-28 - Hold Chanjet WMS baseline at 27/33 scopes
+
+Decision: `HOLD`.
+
+- Production synchronization succeeded for 27 of 33 book-scoped inventory targets.
+- `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT` failed for all three books with provider code `50111`: the current `openToken` has no permission for those APIs.
+- The latest successful batch read 3,490 rows. The middle layer retains 3,659 external entities, 2,625 canonical documents and 9,655 lines; these are different grains and must not be presented as the same metric.
+- A provider short page is not an end-of-pagination signal. Pagination now stops only on an empty page or declared total/page count, and repeated pages fail closed.
+- Successful empty scopes now derive freshness from the successful snapshot job rather than requiring an entity row.
+- ERP business-column coverage is 98.1%; `wms_outbound.department` and `wms_outbound.currency_code` remain open.
+- No Chanjet write and no ERP inventory-fact write occurred. Reverse synchronization remains disabled until 33/33 source coverage, 100% required business columns, exact mappings, WMS Outbox and A2/A1/A7 Gates are complete.
+- Evidence: `docs/ops/CHANJET_WMS_FULL_READONLY_BASELINE_REPORT_20260728.md`.
+
 ## 2026-07-20 - Close Chanjet finance readonly implementation audit
 
 Decision: `GO_WITH_CONDITIONS`.

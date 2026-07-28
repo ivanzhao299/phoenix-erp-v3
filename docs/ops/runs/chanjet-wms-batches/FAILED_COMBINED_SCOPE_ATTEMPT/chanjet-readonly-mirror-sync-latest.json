@@ -1,0 +1,100 @@
+{
+  "generatedAt": "2026-07-28T06:00:02.857Z",
+  "decision": "HOLD",
+  "plan": {
+    "requestedScope": [
+      "STOCK_IN SALES_STOCK_OUT INVENTORY_ON_HAND INVENTORY_ON_HAND_LOT FINISHED_GOODS_STOCK_IN MATERIAL_STOCK_OUT OTHER_STOCK_IN OTHER_STOCK_OUT STOCK_TRANSFER STOCK_COUNT RETAIL_STOCK_OUT"
+    ],
+    "bookId": "",
+    "period": "",
+    "maxAttempts": 3,
+    "apiBase": "https://erp.eggslao.com",
+    "remoteApiOnly": true,
+    "timeouts": {
+      "healthTimeoutMs": 30000,
+      "coverageTimeoutMs": 120000,
+      "syncTimeoutMs": 300000
+    },
+    "tokenPresent": true,
+    "chanjetEnv": {
+      "CHANJET_APP_KEY": false,
+      "CHANJET_APP_SECRET": false,
+      "CHANJET_CERT": false,
+      "CHANJET_ACCESS_TOKEN": false,
+      "CHANJET_ORG_ID": false,
+      "CHANJET_ORG_IDS": false,
+      "CHANJET_MSG_SECRET": false
+    },
+    "db": {
+      "host": "127.0.0.1",
+      "port": "5432",
+      "user": "mac",
+      "name": "phoenix_erp",
+      "passwordPresent": false
+    }
+  },
+  "prechecks": {
+    "dbReachable": {
+      "status": "PASS",
+      "identity": "remote-api-only"
+    },
+    "mirrorTables": {
+      "status": "PASS",
+      "presentTables": [
+        "remote-api-protected-endpoint"
+      ],
+      "checkedBy": "remote protected API"
+    },
+    "apiHealth": {
+      "status": "PASS",
+      "httpStatus": 200
+    },
+    "authToken": {
+      "status": "PASS"
+    },
+    "chanjetEnv": {
+      "status": "PASS",
+      "envPresence": {
+        "CHANJET_APP_KEY": false,
+        "CHANJET_APP_SECRET": false,
+        "CHANJET_CERT": false,
+        "CHANJET_ACCESS_TOKEN": false,
+        "CHANJET_ORG_ID": false,
+        "CHANJET_ORG_IDS": false,
+        "CHANJET_MSG_SECRET": false
+      }
+    },
+    "financeCoverage": {
+      "status": "SKIP",
+      "httpStatus": 0
+    }
+  },
+  "blockers": [
+    "mirror sync API failed: status=201 error=未找到可执行 mirror scope: STOCK_IN SALES_STOCK_OUT INVENTORY_ON_HAND INVENTORY_ON_HAND_LOT FINISHED_GOODS_STOCK_IN MATERIAL_STOCK_OUT OTHER_STOCK_IN OTHER_STOCK_OUT STOCK_TRANSFER STOCK_COUNT RETAIL_STOCK_OUT"
+  ],
+  "coverage": null,
+  "execution": {
+    "executed": true,
+    "summary": {
+      "httpStatus": 201,
+      "response": {
+        "success": false,
+        "writeChanjet": false,
+        "writeErpBusinessTables": false,
+        "error": "未找到可执行 mirror scope: STOCK_IN SALES_STOCK_OUT INVENTORY_ON_HAND INVENTORY_ON_HAND_LOT FINISHED_GOODS_STOCK_IN MATERIAL_STOCK_OUT OTHER_STOCK_IN OTHER_STOCK_OUT STOCK_TRANSFER STOCK_COUNT RETAIL_STOCK_OUT"
+      }
+    }
+  },
+  "boundaries": {
+    "writeChanjet": false,
+    "deleteChanjet": false,
+    "modifyChanjet": false,
+    "voucherPush": false,
+    "deploy": false,
+    "push": false
+  },
+  "outputs": {
+    "outputJson": "docs/ops/runs/chanjet-wms-batches/STOCK_IN SALES_STOCK_OUT INVENTORY_ON_HAND INVENTORY_ON_HAND_LOT FINISHED_GOODS_STOCK_IN MATERIAL_STOCK_OUT OTHER_STOCK_IN OTHER_STOCK_OUT STOCK_TRANSFER STOCK_COUNT RETAIL_STOCK_OUT/chanjet-readonly-mirror-sync-latest.json",
+    "outputMd": "docs/ops/runs/chanjet-wms-batches/STOCK_IN SALES_STOCK_OUT INVENTORY_ON_HAND INVENTORY_ON_HAND_LOT FINISHED_GOODS_STOCK_IN MATERIAL_STOCK_OUT OTHER_STOCK_IN OTHER_STOCK_OUT STOCK_TRANSFER STOCK_COUNT RETAIL_STOCK_OUT/chanjet-readonly-mirror-sync-latest.md"
+  }
+}

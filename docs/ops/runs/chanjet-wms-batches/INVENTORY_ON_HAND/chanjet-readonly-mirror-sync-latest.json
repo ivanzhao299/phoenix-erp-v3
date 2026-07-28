@@ -1,0 +1,148 @@
+{
+  "generatedAt": "2026-07-28T09:42:42.423Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "plan": {
+    "requestedScope": [
+      "INVENTORY_ON_HAND"
+    ],
+    "bookId": "",
+    "period": "",
+    "maxAttempts": 3,
+    "apiBase": "https://erp.eggslao.com",
+    "remoteApiOnly": true,
+    "timeouts": {
+      "healthTimeoutMs": 30000,
+      "coverageTimeoutMs": 120000,
+      "syncTimeoutMs": 900000
+    },
+    "tokenPresent": true,
+    "chanjetEnv": {
+      "CHANJET_APP_KEY": false,
+      "CHANJET_APP_SECRET": false,
+      "CHANJET_CERT": false,
+      "CHANJET_ACCESS_TOKEN": false,
+      "CHANJET_ORG_ID": false,
+      "CHANJET_ORG_IDS": false,
+      "CHANJET_MSG_SECRET": false
+    },
+    "db": {
+      "host": "127.0.0.1",
+      "port": "5432",
+      "user": "mac",
+      "name": "phoenix_erp",
+      "passwordPresent": false
+    }
+  },
+  "prechecks": {
+    "dbReachable": {
+      "status": "PASS",
+      "identity": "remote-api-only"
+    },
+    "mirrorTables": {
+      "status": "PASS",
+      "presentTables": [
+        "remote-api-protected-endpoint"
+      ],
+      "checkedBy": "remote protected API"
+    },
+    "apiHealth": {
+      "status": "PASS",
+      "httpStatus": 200
+    },
+    "authToken": {
+      "status": "PASS"
+    },
+    "chanjetEnv": {
+      "status": "PASS",
+      "envPresence": {
+        "CHANJET_APP_KEY": false,
+        "CHANJET_APP_SECRET": false,
+        "CHANJET_CERT": false,
+        "CHANJET_ACCESS_TOKEN": false,
+        "CHANJET_ORG_ID": false,
+        "CHANJET_ORG_IDS": false,
+        "CHANJET_MSG_SECRET": false
+      }
+    },
+    "financeCoverage": {
+      "status": "SKIP",
+      "httpStatus": 0
+    }
+  },
+  "blockers": [],
+  "coverage": null,
+  "execution": {
+    "executed": true,
+    "summary": {
+      "httpStatus": 201,
+      "response": {
+        "success": true,
+        "writeChanjet": false,
+        "writeErpBusinessTables": false,
+        "decision": "GO",
+        "requestedScope": [
+          "INVENTORY_ON_HAND"
+        ],
+        "books": [
+          "3533914511118750",
+          "3537748712226818",
+          "3539743721526654"
+        ],
+        "attempts": 1,
+        "results": [
+          {
+            "key": "INVENTORY_ON_HAND",
+            "bookId": "3533914511118750",
+            "status": "SUCCESS",
+            "fields": 47,
+            "rows": 278,
+            "rawSnapshotId": "19150",
+            "entityRows": 278,
+            "attempt": 1
+          },
+          {
+            "key": "INVENTORY_ON_HAND",
+            "bookId": "3537748712226818",
+            "status": "SUCCESS",
+            "fields": 48,
+            "rows": 125,
+            "rawSnapshotId": "19151",
+            "entityRows": 125,
+            "attempt": 1
+          },
+          {
+            "key": "INVENTORY_ON_HAND",
+            "bookId": "3539743721526654",
+            "status": "SUCCESS",
+            "fields": 17,
+            "rows": 0,
+            "rawSnapshotId": "19152",
+            "entityRows": 0,
+            "attempt": 1
+          }
+        ],
+        "unresolvedFailures": [],
+        "fieldGapSummary": {
+          "scanned": 5000,
+          "upserted": 4096,
+          "statusCounts": {
+            "PENDING": 3816,
+            "MATCHED": 280
+          }
+        }
+      }
+    }
+  },
+  "boundaries": {
+    "writeChanjet": false,
+    "deleteChanjet": false,
+    "modifyChanjet": false,
+    "voucherPush": false,
+    "deploy": false,
+    "push": false
+  },
+  "outputs": {
+    "outputJson": "docs/ops/runs/chanjet-wms-batches/INVENTORY_ON_HAND/chanjet-readonly-mirror-sync-latest.json",
+    "outputMd": "docs/ops/runs/chanjet-wms-batches/INVENTORY_ON_HAND/chanjet-readonly-mirror-sync-latest.md"
+  }
+}

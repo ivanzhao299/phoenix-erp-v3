@@ -2,9 +2,9 @@
 
 ## 2026-07-28 - 好业财 WMS 完整只读基线
 
-Current stage: `CHANJET_WMS_FULL_READONLY_BASELINE_IMPLEMENTED`
+Current stage: `CHANJET_WMS_FULL_READONLY_BASELINE_PARTIAL`
 
-Decision: `GO_WITH_CONDITIONS`
+Decision: `HOLD`
 
 Completed:
 
@@ -13,14 +13,19 @@ Completed:
 3. Kept all source data in the ERP middle layer; no Chanjet write and no ERP inventory-fact mutation occurs.
 4. Added 33-scope freshness/row evidence and explicit reverse-sync readiness.
 5. Changed the mirror runner to bounded resilient synchronization with at most three attempts.
+6. Deployed the pagination correction and completed the production batch: 27/33 scopes succeeded.
+7. Read 3,490 rows in the latest batch; the middle layer currently retains 3,659 entities, 2,625 documents and 9,655 lines.
+8. Confirmed 100% lossless raw-mirror coverage and 98.1% ERP business-column coverage.
 
 Next actions:
 
-1. Deploy and execute `CHANJET_WMS_PRODUCTION_FULL_SCOPE_SYNC` for 11 scopes across three books.
-2. Build exact company, warehouse, SKU/product, UOM, lot, counterparty, project and department mappings.
-3. Add on-hand/batch/document reconciliation against `inv_batches`, `inv_ledger`, WMS documents and packaging facts.
-4. Implement the dedicated WMS Outbox and provider write-contract preflight while external write remains disabled.
-5. Allow only a separately approved single-document canary after A2/A1/A7 Gates.
+1. Enter `CHANJET_WMS_SOURCE_PERMISSION_AND_SCHEMA_CLOSURE`.
+2. Obtain official API permission for `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT`, then rerun only the six blocked targets.
+3. Close `wms_outbound.department` and `wms_outbound.currency_code`.
+4. Build exact company, warehouse, SKU/product, UOM, lot, counterparty, project and department mappings.
+5. Add on-hand/batch/document reconciliation against `inv_batches`, `inv_ledger`, WMS documents and packaging facts.
+6. Implement the dedicated WMS Outbox and provider write-contract preflight while external write remains disabled.
+7. Allow only a separately approved single-document canary after A2/A1/A7 Gates.
 
 Evidence: `docs/ops/CHANJET_WMS_FULL_READONLY_BASELINE_REPORT_20260728.md`.
 

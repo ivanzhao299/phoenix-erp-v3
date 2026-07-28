@@ -1,70 +1,114 @@
 # 好业财 WMS 全量只读基线实施报告
 
-## 1. 结论
+## 1. 最终结论
 
-当前结论：**GO WITH CONDITIONS**
+当前结论：**HOLD**
 
-已将好业财库存读取范围从采购入库、销售出库 2 类扩展到 11 类官方库存接口。所有调用均为只读；同步仅写 Phoenix ERP 的好业财中间层镜像，不修改好业财，也不直接写 ERP 库存事实表。
+11 类库存接口、三个启用账套共形成 33 个只读 scope。本轮生产同步 27 个成功，6 个因好业财 `openToken` 缺少接口权限而失败。成功 scope 最新批次读取 3,490 行；ERP 好业财中间层当前保留 3,659 个外部实体、2,625 张单据和 9,655 条明细。
 
-## 2. 根因
+本轮没有写好业财，没有修改 ERP `wms_inbound`、`wms_outbound`、`inv_batches` 或 `inv_ledger`。ERP 到好业财反向同步继续关闭。
 
-历史生产同步只覆盖：
+## 2. 发现并修复的根因
 
-- `STOCK_IN`
-- `SALES_STOCK_OUT`
+### 2.1 历史读取范围不完整
 
-其余库存余额、批次、产成品入库、材料出库、其他出入库、调拨、盘点和零售出库虽然有官方只读接口，但未进入 `PROBE_ENDPOINTS`，也未进入只读代理白名单。生产预检因此返回 `CHANJET_EXTERNAL_WRITE_DISABLED`。这不是好业财“没有数据”的证据，而是 ERP 从未被允许读取这些 scope。
+历史生产同步仅覆盖 `STOCK_IN` 和 `SALES_STOCK_OUT`。本阶段已扩展到余额、批次余额、产成品入库、材料出库、其他出入库、调拨、盘点和零售出库等 11 类官方库存接口。
 
-## 3. 实施内容
+### 2.2 分页会静默截断
 
-1. 增加 9 个官方库存只读路径白名单。
-2. 将 11 类库存接口全部注册为账套级、分页、默认镜像 scope。
-3. 现存量按仓库和商品规格分组，批次现存量使用官方 100 行分页上限。
-4. 同步 runner 默认改用最多三次重试的 `mirror/sync-resilient`。
-5. WMS 对齐 API 按 11 类 × 启用账套计算 scope 新鲜度和镜像行数。
-6. 保留采购入库、销售出库的详细 canonical document preview。
-7. 增加反向同步 readiness，明确库存专用 Outbox、映射、合同、Gate 和 canary 前置条件。
+好业财部分接口即使请求 100 行，也可能每页只返回 50 行。旧逻辑把“返回行数小于请求页大小”误判为最后一页，会把多页数据静默截断。
 
-## 4. 生产前证据
+现已改为：
 
-| 检查 | 结果 |
-| --- | --- |
-| 三个启用账套 | 已确认 |
-| 采购入库 3 scope | API 成功，0 行 |
-| 销售出库 3 scope | API 成功，0 行 |
-| 其余 27 scope | 被旧版只读白名单阻断 |
-| 好业财写入 | 否 |
-| ERP 业务库存写入 | 否 |
+1. 仅空页或官方声明的总数/总页数可以结束分页。
+2. 对相邻页生成指纹；若提供方忽略页码并重复返回同一页，立即 fail closed。
+3. 增加分页回归测试，禁止再次把短页当作结束条件。
 
-生产部署后必须重新运行 33 个 scope。只有 API 成功和镜像新鲜，才能判断每类源数据是否真实为空。
+### 2.3 空结果被误判为未同步
 
-## 5. ERP 业务逻辑
+合法成功但为 0 行的 scope 过去会因没有实体快照而被当作缺失。现在新鲜度以成功的 `SNAPSHOT` job 为准，行数从实体镜像和任务摘要读取；空结果可正确记为“成功且为空”，最近失败仍单独暴露。
 
-ERP 已具备采购、销售、生产、包装和通用 WMS 工作流。好业财镜像作为外部进销存证据，不替代 WMS 原子确认事务：
+## 3. 生产同步结果
 
-- ERP 入库/出库确认仍经 WMS service 更新 `inv_batches` 和 `inv_ledger`。
-- 好业财现存量和单据用于映射、对账、差异解释和未来 promotion candidate。
-- 未映射或不一致的数据 fail closed，不静默覆盖。
+| Scope | 账套一 | 账套二 | 账套三 | 合计 | 结果 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `STOCK_IN` | 0 | 0 | 0 | 0 | PASS |
+| `SALES_STOCK_OUT` | 0 | 0 | 0 | 0 | PASS |
+| `INVENTORY_ON_HAND` | 278 | 125 | 0 | 403 | PASS |
+| `INVENTORY_ON_HAND_LOT` | 323 | 152 | 0 | 475 | PASS |
+| `FINISHED_GOODS_STOCK_IN` | 390 | 308 | 0 | 698 | PASS |
+| `MATERIAL_STOCK_OUT` | 418 | 424 | 0 | 842 | PASS |
+| `OTHER_STOCK_IN` | FAIL | FAIL | FAIL | 0 | HOLD：`50111 openToken无调用该接口的权限` |
+| `OTHER_STOCK_OUT` | 436 | 621 | 0 | 1,057 | PASS |
+| `STOCK_TRANSFER` | 0 | 9 | 0 | 9 | PASS |
+| `STOCK_COUNT` | 2 | 2 | 2 | 6 | PASS |
+| `RETAIL_STOCK_OUT` | FAIL | FAIL | FAIL | 0 | HOLD：`50111 openToken无调用该接口的权限` |
+
+账套一为 `3533914511118750`，账套二为 `3537748712226818`，账套三为 `3539743721526654`。
+
+3,490 是本次成功 API 批次的返回行数。3,659 是中间层按 `book_id + entity_type + external_id` 保存的当前/历史外部实体数；中间层不是破坏性全量替换，因此两个数字口径不同，不得互相替代。
+
+## 4. 数据质量与字段覆盖
+
+| 指标 | 结果 |
+| --- | ---: |
+| 启用账套 | 3 |
+| 库存合同 | 11 |
+| 预期 scope | 33 |
+| 成功且新鲜 scope | 27（81.8%） |
+| 失败 scope | 6（18.2%） |
+| 中间层实体 | 3,659 |
+| 标准化单据 | 2,625 |
+| 标准化明细 | 9,655 |
+| 官方观测字段 | 120 |
+| 原始镜像保真覆盖 | 100% |
+| ERP 业务列覆盖 | 98.1% |
+
+ERP 仍缺两列：
+
+- `wms_outbound.department`
+- `wms_outbound.currency_code`
+
+字段覆盖率高不等于可直接形成 ERP 库存。公司、仓库、商品/SKU、计量单位、批次、部门、项目及往来单位必须完成精确映射，差异必须可追溯。
+
+## 5. ERP 业务和权威边界
+
+1. 好业财库存数据先进入只读中间层镜像。
+2. 好业财现存量和单据用于源数据重现、映射、对账、差异解释和未来 promotion candidate。
+3. ERP 实际库存增减仍必须通过 WMS 原子确认事务。
+4. 未映射、口径不一致或来源权限不足时必须 `HOLD`，不静默覆盖。
+5. 红字单、双计量、成本、税、批次和源单关系必须保留。
 
 ## 6. 反向同步就绪度
 
-当前为 `PREPARED_DISABLED`：
+当前结论：**HOLD**
 
-- 业务方向和等效关系已定义。
-- 好业财写入开关关闭。
-- 库存专用 Outbox 尚未实现。
-- 写入接口、红蓝单、撤销和回读合同尚未完成审查。
-- 只有完成映射 100%、A2/A1/A7 Gate 和单笔 canary 后，才可申请一次明确写入。
+- `externalWriteEnabled=false`
+- 库存专用 Outbox 未实现
+- 11 类 canonical write contract 未完成
+- 仓库/SKU/UOM/批次映射未达到 100%
+- 红蓝单、撤销、回读和补偿合同未完成 A2/A1/A7 审查
 
-## 7. 验证
+ERP 端会按完整业务逻辑准备反向同步，但在单据草稿、幂等、回执、回读、补偿和单笔 canary 全部通过前，不调用好业财写接口。
 
-- Chanjet focused Jest：98/98 PASS。
-- API typecheck：执行中，最终结果随提交记录更新。
-- 生产 33 scope：待部署后受控执行并更新运行产物。
-- migration：未新增。
+## 7. 验证和部署
+
+- 聚焦测试：75/75 PASS。
+- API typecheck：PASS。
+- WMS 分页短页与重复页回归：PASS。
+- CI/CD：run `30346579170` SUCCESS。
+- 生产部署 commit：`86fe2113200e4c8374edfe820d493482a38fad32`。
+- migration：未新增、未执行。
 - 好业财写入：否。
 - ERP 库存事实写入：否。
 
-## 8. 下一步
+## 8. 下一 Gate
 
-按 `docs/ops/CHANJET_ERP_WMS_SYNC_BASELINE_AND_GAP_PLAN.md` 的 P0-P6 顺序推进。第一 Gate 是 33 scope 生产全量只读同步和源数据盘点；反向同步继续 HOLD。
+进入 `CHANJET_WMS_SOURCE_PERMISSION_AND_SCHEMA_CLOSURE`：
+
+1. 补齐 `OTHER_STOCK_IN` 和 `RETAIL_STOCK_OUT` 的好业财 API 权限并重跑 6 个失败 scope。
+2. 增加或建立 `department`、`currency_code` 的受控语义映射。
+3. 完成主数据映射基线和逐单/逐批次差异中心。
+4. 在 33/33 scope、字段和映射基线全部通过前，反向同步保持 HOLD。
+
+完整实施顺序见 `docs/ops/CHANJET_ERP_WMS_SYNC_BASELINE_AND_GAP_PLAN.md`。
