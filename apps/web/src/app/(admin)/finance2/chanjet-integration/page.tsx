@@ -1134,7 +1134,7 @@ export default function ChanjetIntegrationPage() {
           ['adapter', 'P0 财务适配'],
           ['coverage', '覆盖率看板'],
           ['readonlyAdapters', '只读适配器'],
-          ['wmsAlignment', '库存单据对齐'],
+          ['wmsAlignment', t('ui.库存单据对齐', '库存单据对齐')],
           ['mirror', '只读镜像'],
           ['fieldGaps', '字段差异'],
           ['mappings', '主数据映射'],
@@ -1708,22 +1708,22 @@ export default function ChanjetIntegrationPage() {
         <section style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
             <div>
-              <strong>好业财入库 / 销售出库只读对齐</strong>
+              <strong>{t('ui.好业财入库销售出库只读对齐', '好业财入库 / 销售出库只读对齐')}</strong>
               <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
-                官方账套接口逐页读取，原始字段无损保存在中间层；ERP 业务表只展示字段适配状态，本页不会写好业财或库存业务表。
+                {t('ui.库存只读对齐说明', '官方账套接口逐页读取，原始字段无损保存在中间层；ERP 业务表只展示字段适配状态，本页不会写好业财或库存业务表。')}
               </div>
             </div>
-            <Badge tone={statusTone(wmsAlignment?.decision || 'HOLD')}>{wmsAlignment?.decision || '未加载'}</Badge>
+            <Badge tone={statusTone(wmsAlignment?.decision || 'HOLD')}>{wmsAlignment?.decision || t('ui.未加载', '未加载')}</Badge>
           </div>
           {wmsAlignment ? (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
                 {[
-                  ['账套 Scope', `${wmsAlignment.summary.freshScopes}/${wmsAlignment.summary.expectedScopes}`],
-                  ['好业财单据', wmsAlignment.summary.sourceDocuments],
-                  ['单据明细', wmsAlignment.summary.sourceLines],
-                  ['官方字段', wmsAlignment.summary.officialFieldCount],
-                  ['ERP 字段覆盖', `${wmsAlignment.summary.erpBusinessColumnCoverage}%`],
+                  [t('ui.账套Scope', '账套 Scope'), `${wmsAlignment.summary.freshScopes}/${wmsAlignment.summary.expectedScopes}`],
+                  [t('ui.好业财单据', '好业财单据'), wmsAlignment.summary.sourceDocuments],
+                  [t('ui.单据明细', '单据明细'), wmsAlignment.summary.sourceLines],
+                  [t('ui.官方字段', '官方字段'), wmsAlignment.summary.officialFieldCount],
+                  [t('ui.ERP字段覆盖', 'ERP 字段覆盖'), `${wmsAlignment.summary.erpBusinessColumnCoverage}%`],
                 ].map(([label, value]) => (
                   <div key={String(label)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12 }}>
                     <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{label}</div>
@@ -1733,7 +1733,7 @@ export default function ChanjetIntegrationPage() {
               </div>
               {wmsAlignment.conditions.length > 0 && (
                 <div style={{ border: '1px solid var(--warning-border)', background: 'var(--warning-bg)', borderRadius: 6, padding: 12, marginBottom: 16 }}>
-                  <strong>条件项</strong>
+                  <strong>{t('ui.条件项', '条件项')}</strong>
                   <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 5 }}>
                     {wmsAlignment.conditions.join('；')}
                   </div>
@@ -1744,22 +1744,28 @@ export default function ChanjetIntegrationPage() {
                   <div key={definition.key} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                       <strong>{definition.label}</strong>
-                      <Badge tone="blue">{definition.fields.length} 字段</Badge>
+                      <Badge tone="blue">{definition.fields.length} {t('ui.字段', '字段')}</Badge>
                     </div>
                     <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 8 }}>{definition.method} {definition.path}</div>
                     <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>
-                      状态 {definition.statusValues.join(' / ')} · 必填字段 {definition.fields.filter((field) => field.required).length}
+                      {t('ui.状态', '状态')} {definition.statusValues.join(' / ')} · {t('ui.必填字段', '必填字段')} {definition.fields.filter((field) => field.required).length}
                     </div>
                     <a href={definition.reference} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 8 }}>
-                      查看官方接口契约
+                      {t('ui.查看官方接口契约', '查看官方接口契约')}
                     </a>
                   </div>
                 ))}
               </div>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>字段覆盖与缺口</div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('ui.字段覆盖与缺口', '字段覆盖与缺口')}</div>
               <table style={tableStyle}>
                 <thead>
-                  <tr>{['好业财字段', '标准字段', 'ERP 落点', '必填', '存储策略'].map((heading) => (
+                  <tr>{[
+                    t('ui.好业财字段', '好业财字段'),
+                    t('ui.标准字段', '标准字段'),
+                    t('ui.ERP落点', 'ERP 落点'),
+                    t('ui.必填', '必填'),
+                    t('ui.存储策略', '存储策略'),
+                  ].map((heading) => (
                     <th key={heading} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{heading}</th>
                   ))}</tr>
                 </thead>
@@ -1769,7 +1775,7 @@ export default function ChanjetIntegrationPage() {
                       <td style={cellStyle}>{contract.key}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{field.sourcePath}</div></td>
                       <td style={cellStyle}>{field.canonicalField}</td>
                       <td style={cellStyle}>{field.erpTarget}</td>
-                      <td style={cellStyle}>{field.required ? <Badge tone="amber">必填</Badge> : '—'}</td>
+                      <td style={cellStyle}>{field.required ? <Badge tone="amber">{t('ui.必填', '必填')}</Badge> : '—'}</td>
                       <td style={cellStyle}><Badge tone={field.storage === 'BUSINESS_COLUMN' ? 'blue' : 'muted'}>{field.storage}</Badge></td>
                     </tr>
                   )))}
@@ -1777,12 +1783,12 @@ export default function ChanjetIntegrationPage() {
               </table>
               {wmsAlignment.missingColumns.length > 0 && (
                 <div style={{ marginTop: 12, color: 'var(--danger)' }}>
-                  尚缺业务列：{wmsAlignment.missingColumns.join('、')}
+                  {t('ui.尚缺业务列', '尚缺业务列：')}{wmsAlignment.missingColumns.join('、')}
                 </div>
               )}
             </>
           ) : (
-            <div style={{ color: 'var(--text-secondary)' }}>对齐数据尚未加载。</div>
+            <div style={{ color: 'var(--text-secondary)' }}>{t('ui.对齐数据尚未加载', '对齐数据尚未加载。')}</div>
           )}
         </section>
       )}

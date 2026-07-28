@@ -1,12 +1,12 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-21T01:58:39.190Z
+Generated: 2026-07-28T01:27:30.493Z
 
-Scanned hardcoded literals: 3269
-Covered by validated runtime bridge: 3269
+Scanned hardcoded literals: 3282
+Covered by validated runtime bridge: 3282
 Release-blocking uncovered literals: 0
 Locale quality issues: 0
-Affected files: 178
+Affected files: 180
 
 A scanned literal is not automatically debt: the runtime bridge is accepted only when the same source text has real English and Lao translations. Release blocking is based on uncovered literals and locale quality issues.
 
@@ -14,16 +14,16 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 
 | File | Count | Samples |
 |---|---:|---|
-| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 428 | 805:总览加载失败<br>843:账套缓存<br>844:字段目录<br>844:脱敏字段样本<br>845:映射候选<br>846:凭证草稿<br>847:镜像实体<br>848:字段差异 |
+| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 428 | 877:总览加载失败<br>917:账套缓存<br>918:字段目录<br>918:脱敏字段样本<br>919:映射候选<br>920:凭证草稿<br>921:镜像实体<br>922:字段差异 |
 | `apps/web/src/components/master-data/detail-configs.tsx` | 199 | 88:客户中心<br>92:订单<br>93:应收<br>97:订单数<br>98:单 (近期)<br>101:近期销售额<br>105:应收余额<br>112:逾期单据 |
-| `apps/web/src/components/layout/Sidebar.tsx` | 159 | 72:运营工作台<br>74:每日工作台<br>81:经营仪表盘<br>84:生产管理<br>86:养殖总览<br>87:鸡舍管理<br>88:鸡群档案<br>89:日生产日报 |
+| `apps/web/src/components/layout/Sidebar.tsx` | 161 | 74:运营工作台<br>76:每日工作台<br>83:经营仪表盘<br>86:生产管理<br>88:养殖总览<br>89:鸡舍管理<br>90:鸡群档案<br>91:日生产日报 |
 | `apps/web/src/lib/workflow-templates.ts` | 124 | 35:费用报销审批<br>36:财务<br>40:费用报销单<br>43:申请金额<br>44:费用类型<br>44:差旅费<br>44:招待费<br>44:办公费 |
 | `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx` | 97 | 67:发起申请<br>73:一级审批<br>83:流程完成<br>95:财务会计<br>98:财务负责人<br>101:采购员<br>104:仓储负责人<br>107:品控负责人 |
 | `apps/web/src/lib/dict-type-labels.ts` | 88 | 9:审批模块类型<br>10:品种<br>10:品种类型<br>10:淘汰原因<br>11:鸡群状态<br>11:鸡舍类型<br>11:死亡原因<br>12:养殖班次 |
 | `apps/web/src/app/(admin)/traceability/page.tsx` | 73 | 19:库存批次<br>24:包装批次<br>29:标签码<br>30:标签号 label_no<br>34:销售单<br>35:SO / 订单号<br>39:客户<br>40:客户编码 |
 | `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 71 | 303:好业财口径<br>304:ERP回退<br>313:待同步好业财镜像<br>319:已对齐<br>320:小差异<br>321:需对账<br>322:待字段锁定<br>323:ERP回退 |
 | `apps/web/src/lib/workflow-data-catalog.ts` | 56 | 23:系统用户<br>24:用户<br>35:用户ID<br>35:作为提交值<br>36:用户姓名<br>36:作为页面显示<br>41:系统角色<br>42:角色 |
-| `apps/web/src/lib/shareholder-api.ts` | 48 | 56:蛋鸡养殖场<br>56:肉鸡养殖场<br>56:屠宰加工厂<br>57:食品厂<br>57:有机肥生产厂<br>57:孵化场<br>58:饲料厂<br>58:其他 |
+| `apps/web/src/lib/shareholder-api.ts` | 48 | 119:蛋鸡养殖场<br>119:肉鸡养殖场<br>119:屠宰加工厂<br>120:食品厂<br>120:有机肥生产厂<br>120:孵化场<br>121:饲料厂<br>121:其他 |
 | `apps/web/src/app/(admin)/system/alerts/page.tsx` | 47 | 74:API 500 / PG 错误<br>75:定时任务失败<br>75:Cron 失败写入 CRON_FAILURE 告警<br>76:IoT 同步异常<br>77:数据质量风险<br>222:手动处理<br>315:当前值班待办<br>322:严重告警 |
 | `apps/web/src/app/(admin)/finance2/page.tsx` | 41 | 162:来源待确认<br>163:好业财应收汇总<br>164:好业财应付汇总<br>165:好业财资金账户<br>166:好业财收款镜像<br>167:好业财付款镜像<br>168:好业财科目余额<br>169:好业财资产负债表 |
 | `apps/web/src/lib/design-tokens.ts` | 39 | 204:成功<br>205:警告<br>206:危险<br>207:信息<br>208:禁用<br>209:正常<br>210:待处理<br>211:运行中 |
@@ -51,7 +51,8 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 | `apps/web/src/app/(admin)/master-data/customers/_fields.ts` | 24 | 5:客户名称<br>5:基本信息<br>6:客户类型<br>6:基本信息<br>7:所属公司<br>7:基本信息<br>8:联系人<br>8:联系方式 |
 | `apps/web/src/app/(admin)/shareholders/capital/import/page.tsx` | 24 | 93:项目<br>93:项目名称<br>94:股东<br>94:股东姓名<br>95:金额<br>95:出资金额<br>96:日期<br>96:出资日期 |
 | `apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx` | 24 | 131:待分配<br>139:暂无待处理节点<br>140:无待处理人<br>141:流程当前无需人工处理<br>143:从发起到当前的运行时长<br>149:等待审批处理<br>150:等待系统流转<br>151:流程已完成 |
-| `apps/web/src/app/(admin)/sales2/pricing/page.tsx` | 23 | 23:草稿<br>27:审批中<br>31:已批准<br>35:生效中<br>39:已失效<br>43:已取消<br>50:0号蛋<br>51:1号蛋 |
+| `apps/web/src/lib/warehouse-ledger-change-type.ts` | 24 | 4:库存调整<br>5:蛋品入库<br>6:蛋品冲销<br>7:养殖入库<br>8:养殖用药出库<br>9:养殖冲销<br>10:药品入库<br>11:药品出库 |
+| `apps/web/src/app/(admin)/sales2/pricing/page.tsx` | 23 | 25:草稿<br>29:审批中<br>33:已批准<br>37:生效中<br>41:已失效<br>45:已取消<br>52:0号蛋<br>53:1号蛋 |
 | `apps/web/src/app/(admin)/workflow/forms/page.tsx` | 23 | 21:财务<br>21:采购<br>21:合同<br>21:人事<br>21:仓储<br>21:品控<br>21:门店<br>21:养殖 |
 | `apps/web/src/app/(admin)/uat/page.tsx` | 22 | 62:未命名维度<br>76:未命名验收项<br>108:采购管理<br>109:财务管理<br>110:销售管理<br>111:配送管理<br>112:库存管理<br>113:审批流程 |
 | `apps/web/src/app/(admin)/workflow/page.tsx` | 22 | 13:采购申请<br>13:采购<br>14:费用报销<br>14:财务<br>15:库存调整<br>15:仓储<br>16:门店折扣<br>16:门店 |
@@ -63,4 +64,3 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 | `apps/web/src/app/(admin)/breeding/device-alerts/page.tsx` | 19 | 73:实时<br>77:延迟<br>81:陈旧<br>85:无数据<br>101:环境<br>106:控制<br>111:饲喂<br>116:饮水 |
 | `apps/web/src/app/(admin)/finance2/ap/page.tsx` | 19 | 143:未到期<br>147:逾期 ≤30天<br>151:逾期 31-60天<br>155:逾期 61-90天<br>159:逾期 >90天<br>168:手工<br>172:采购订单<br>176:费用 |
 | `apps/web/src/lib/warehouse-zone-display.ts` | 19 | 4:常温区<br>5:常温区<br>6:冷藏区<br>7:冷藏区<br>8:冷藏区<br>9:冷冻区<br>10:冷冻区<br>11:暂存区 |
-| `apps/web/src/app/(admin)/sales2/returns/page.tsx` | 18 | 94:草稿<br>98:已提交<br>102:待审批<br>106:质检中<br>110:回库中<br>114:已完成<br>118:已拒绝<br>122:已取消 |
