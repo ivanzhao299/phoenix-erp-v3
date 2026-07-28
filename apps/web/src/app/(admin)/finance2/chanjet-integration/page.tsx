@@ -18,7 +18,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-type TabKey = 'readiness' | 'governance' | 'adapter' | 'coverage' | 'readonlyAdapters' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'statementReports' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
+type TabKey = 'readiness' | 'governance' | 'adapter' | 'coverage' | 'readonlyAdapters' | 'wmsAlignment' | 'mirror' | 'fieldGaps' | 'mappings' | 'reconciliation' | 'semantic' | 'readModel' | 'statementReports' | 'receiptPaymentLocks' | 'drafts' | 'fields' | 'jobs';
 
 interface Overview {
   accountBooks: number;
@@ -38,6 +38,57 @@ interface Overview {
   unmappedFields: number;
   pushEnabled: boolean;
   boundary: string;
+}
+
+interface WmsReadonlyAlignment {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    enabledBooks: number;
+    expectedScopes: number;
+    freshScopes: number;
+    sourceDocuments: number;
+    sourceLines: number;
+    officialFieldCount: number;
+    losslessMirrorCoverage: number;
+    erpBusinessColumnCoverage: number;
+    missingBusinessColumns: number;
+  };
+  contracts: Array<{
+    key: string;
+    label: string;
+    method: string;
+    path: string;
+    reference: string;
+    statusValues: string[];
+    fields: Array<{
+      sourcePath: string;
+      canonicalField: string;
+      erpTarget: string;
+      required: boolean;
+      storage: string;
+    }>;
+  }>;
+  scopes: Array<{
+    entityType: string;
+    bookId: string;
+    bookName: string;
+    latestPulledAt: string | null;
+  }>;
+  documentPreview: Array<{
+    entityType: string;
+    bookId: string;
+    externalDocumentCode: string;
+    status: string;
+    businessDate: string;
+    counterpartyName: string;
+    soldToCustomerName: string;
+    warehouseName: string;
+    lines: unknown[];
+  }>;
+  documentPreviewTruncated: boolean;
+  missingColumns: string[];
+  conditions: string[];
 }
 
 interface AccountBook {
@@ -770,6 +821,7 @@ export default function ChanjetIntegrationPage() {
   const [financeReadonlyReports, setFinanceReadonlyReports] = useState<FinanceReadonlyStatementReportOverview | null>(null);
   const [receiptPaymentLocks, setReceiptPaymentLocks] = useState<ReceiptPaymentLocksOverview | null>(null);
   const [readonlyFieldAdapters, setReadonlyFieldAdapters] = useState<ReadonlyFieldAdaptersOverview | null>(null);
+  const [wmsAlignment, setWmsAlignment] = useState<WmsReadonlyAlignment | null>(null);
   const [baselineReadiness, setBaselineReadiness] = useState<MirrorBaselineReadiness | null>(null);
   const [accountBookGate, setAccountBookGate] = useState<AccountBookMappingGate | null>(null);
   const [counterpartyCandidates, setCounterpartyCandidates] = useState<CounterpartyCandidateOverview | null>(null);
@@ -795,7 +847,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, outboxResp, writebackPreparationResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
+      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, outboxResp, writebackPreparationResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, wmsAlignmentResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -816,6 +868,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; readonlyReport: FinanceReadonlyStatementReportOverview; error?: string }>('/chanjet/integration/subject-balance-readonly-report'),
         request<{ success: boolean; receiptPaymentLocks: ReceiptPaymentLocksOverview; error?: string }>('/chanjet/integration/receipt-payment-locks'),
         request<{ success: boolean; readonlyFieldAdapters: ReadonlyFieldAdaptersOverview; error?: string }>('/chanjet/integration/readonly-field-adapters'),
+        request<{ success: boolean; alignment: WmsReadonlyAlignment; error?: string }>('/chanjet/integration/wms-readonly-alignment'),
         request<{ success: boolean; baseline: MirrorBaselineReadiness; error?: string }>('/chanjet/integration/baseline-readiness?freshnessHours=24'),
         request<{ success: boolean; gate: AccountBookMappingGate; error?: string }>('/chanjet/integration/account-book-mapping-gate'),
         request<{ success: boolean; candidateOverview: CounterpartyCandidateOverview; error?: string }>('/chanjet/integration/counterparty-mapping-candidates'),
@@ -842,6 +895,7 @@ export default function ChanjetIntegrationPage() {
       setFinanceReadonlyReports(financeReadonlyReportResp.readonlyReport || null);
       setReceiptPaymentLocks(receiptPaymentLocksResp.receiptPaymentLocks || null);
       setReadonlyFieldAdapters(readonlyFieldAdaptersResp.readonlyFieldAdapters || null);
+      setWmsAlignment(wmsAlignmentResp.alignment || null);
       setBaselineReadiness(baselineResp.baseline || null);
       setAccountBookGate(accountBookGateResp.gate || null);
       setCounterpartyCandidates(counterpartyCandidateResp.candidateOverview || null);
@@ -1080,6 +1134,7 @@ export default function ChanjetIntegrationPage() {
           ['adapter', 'P0 财务适配'],
           ['coverage', '覆盖率看板'],
           ['readonlyAdapters', '只读适配器'],
+          ['wmsAlignment', '库存单据对齐'],
           ['mirror', '只读镜像'],
           ['fieldGaps', '字段差异'],
           ['mappings', '主数据映射'],
@@ -1646,6 +1701,89 @@ export default function ChanjetIntegrationPage() {
             ))}
             {!readonlyFieldAdapters?.adapters?.length && <div style={cardStyle}>暂无只读适配器数据。</div>}
           </div>
+        </section>
+      )}
+
+      {tab === 'wmsAlignment' && (
+        <section style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
+            <div>
+              <strong>好业财入库 / 销售出库只读对齐</strong>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                官方账套接口逐页读取，原始字段无损保存在中间层；ERP 业务表只展示字段适配状态，本页不会写好业财或库存业务表。
+              </div>
+            </div>
+            <Badge tone={statusTone(wmsAlignment?.decision || 'HOLD')}>{wmsAlignment?.decision || '未加载'}</Badge>
+          </div>
+          {wmsAlignment ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
+                {[
+                  ['账套 Scope', `${wmsAlignment.summary.freshScopes}/${wmsAlignment.summary.expectedScopes}`],
+                  ['好业财单据', wmsAlignment.summary.sourceDocuments],
+                  ['单据明细', wmsAlignment.summary.sourceLines],
+                  ['官方字段', wmsAlignment.summary.officialFieldCount],
+                  ['ERP 字段覆盖', `${wmsAlignment.summary.erpBusinessColumnCoverage}%`],
+                ].map(([label, value]) => (
+                  <div key={String(label)} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12 }}>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, marginTop: 5 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              {wmsAlignment.conditions.length > 0 && (
+                <div style={{ border: '1px solid var(--warning-border)', background: 'var(--warning-bg)', borderRadius: 6, padding: 12, marginBottom: 16 }}>
+                  <strong>条件项</strong>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 5 }}>
+                    {wmsAlignment.conditions.join('；')}
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14, marginBottom: 16 }}>
+                {wmsAlignment.contracts.map((definition) => (
+                  <div key={definition.key} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                      <strong>{definition.label}</strong>
+                      <Badge tone="blue">{definition.fields.length} 字段</Badge>
+                    </div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 8 }}>{definition.method} {definition.path}</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>
+                      状态 {definition.statusValues.join(' / ')} · 必填字段 {definition.fields.filter((field) => field.required).length}
+                    </div>
+                    <a href={definition.reference} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 8 }}>
+                      查看官方接口契约
+                    </a>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>字段覆盖与缺口</div>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>{['好业财字段', '标准字段', 'ERP 落点', '必填', '存储策略'].map((heading) => (
+                    <th key={heading} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{heading}</th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  {wmsAlignment.contracts.flatMap((contract) => contract.fields.map((field) => (
+                    <tr key={`${contract.key}:${field.sourcePath}:${field.canonicalField}`}>
+                      <td style={cellStyle}>{contract.key}<div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{field.sourcePath}</div></td>
+                      <td style={cellStyle}>{field.canonicalField}</td>
+                      <td style={cellStyle}>{field.erpTarget}</td>
+                      <td style={cellStyle}>{field.required ? <Badge tone="amber">必填</Badge> : '—'}</td>
+                      <td style={cellStyle}><Badge tone={field.storage === 'BUSINESS_COLUMN' ? 'blue' : 'muted'}>{field.storage}</Badge></td>
+                    </tr>
+                  )))}
+                </tbody>
+              </table>
+              {wmsAlignment.missingColumns.length > 0 && (
+                <div style={{ marginTop: 12, color: 'var(--danger)' }}>
+                  尚缺业务列：{wmsAlignment.missingColumns.join('、')}
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ color: 'var(--text-secondary)' }}>对齐数据尚未加载。</div>
+          )}
         </section>
       )}
 

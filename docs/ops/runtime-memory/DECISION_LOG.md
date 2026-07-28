@@ -1980,3 +1980,12 @@ Decision: counterparty resolution `GO`.
 - Delivery creation, inventory outbound linkage and packaging inbound re-entry fixes are deployed and remain in the business-retest set.
 - The production API restart loop was caused by unbounded readonly-job boot recovery plus oversized audit payload serialization; bounded recovery and payload limits are deployed.
 - Current evidence: 13 `FIX_READY_FOR_UAT`, one `BUSINESS_VERIFIED`, zero HOLD, zero `AGENT_EXECUTION_FINISHED`, local active queue zero.
+
+# 2026-07-28 - Use official book-scoped WMS contracts and keep inventory mirrors read-only
+
+- The old global purchase-stock-in endpoint is retired; all active inventory reads use `{bookid}`.
+- Purchase inbound and sales outbound are paginated to completion with an explicit 200-page HOLD boundary.
+- Chanjet inventory documents are evidence/reconciliation facts and do not directly mutate ERP `inv_batches` or `inv_ledger`.
+- Only ERP `PURCHASE` inbound and `SALES` outbound are equivalent to the two current Chanjet contracts; internal issue and transfer semantics remain ERP-owned.
+- Unknown status, unmapped warehouse/product/unit or conflicting quantity/amount returns HOLD/NEED_MAPPING rather than silent overwrite.
+- Chanjet write, modify and delete remain disabled.

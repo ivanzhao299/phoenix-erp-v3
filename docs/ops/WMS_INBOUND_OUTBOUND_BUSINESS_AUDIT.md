@@ -127,3 +127,14 @@
 **GO WITH CONDITIONS**
 
 代码和静态测试已经达到 UAT 准入标准；真实 UAT 仍以迁移在 UAT 环境成功、主数据覆盖率和历史批次映射报告为前置。生产迁移、生产数据回填、部署和推送均未在本轮执行。
+
+## 10. 好业财入库出库等效边界
+
+- 采购入库使用账套级官方接口 `/accounting/openapi/cc/purchasestockin/list/{bookid}`；旧版无账套路径停止使用。
+- 销售出库使用 `/accounting/openapi/cc/salesstockout/list/{bookid}`。
+- 两类单据都执行完整分页，最多 200 页；超过上限明确 HOLD，不静默截断。
+- 好业财 `SUBMITTED/EFFECTIVE` 分别解释为 ERP `PENDING/COMPLETED`，未知状态 HOLD。
+- 采购入库只与 ERP `PURCHASE` 入库等效；销售出库只与 ERP `SALES` 出库等效。
+- ERP 的生产、饲料、兽药、后勤、配件、办公、维修、退供、报废和原子调拨继续保留行业业务语义。
+- 好业财镜像只用于对账，不直接增减 `inv_batches`，防止与 ERP 确认事务双记账。
+- 完整字段契约和差异规则见 `CHANJET_WMS_READONLY_EQUIVALENCE_AUDIT.md` 与 `CHANJET_WMS_FIELD_MAPPING_MATRIX.md`。

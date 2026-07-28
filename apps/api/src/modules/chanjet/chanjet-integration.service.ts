@@ -13,6 +13,12 @@ import { ChanjetReadSnapshotEntity } from './chanjet-read-snapshot.entity';
 import { ChanjetEntitySnapshotEntity } from './chanjet-entity-snapshot.entity';
 import { ChanjetErpFieldMappingEntity } from './chanjet-erp-field-mapping.entity';
 import { ChanjetOutboxState, ChanjetWritebackOutboxEntity } from './chanjet-writeback-outbox.entity';
+import {
+  CHANJET_SALES_STOCK_OUT_FIELD_CONTRACT,
+  CHANJET_STOCK_IN_FIELD_CONTRACT,
+  CHANJET_WMS_ERP_COLUMN_REQUIREMENTS,
+  normalizeChanjetInventoryDocument,
+} from './chanjet-wms-readonly.contract';
 import * as crypto from 'crypto';
 
 type HttpMethod = 'GET' | 'POST';
@@ -32,6 +38,12 @@ interface ProbeEndpoint {
   periodQuery?: boolean;
   periodBody?: 'SINGLE' | 'RANGE';
   mirrorDefault?: boolean;
+  pagination?: {
+    pageField: string;
+    pageSizeField: string;
+    pageSize: number;
+    maxPages: number;
+  };
 }
 
 const DEFAULT_ACCOUNTING_PERIOD = new Date().toISOString().slice(0, 7).replace('-', '');
@@ -1232,10 +1244,12 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     label: '入库单列表',
     apiDomain: 'inventory',
     method: 'POST',
-    path: '/accounting/openapi/cc/purchasestockin/list',
-    body: {},
+    path: '/accounting/openapi/cc/purchasestockin/list/{bookid}',
+    body: { page: 1, pageSize: 100 },
+    requiresBook: true,
     entityType: 'STOCK_IN',
     mirrorDefault: true,
+    pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 200 },
   },
   {
     key: 'SALES_STOCK_OUT',
@@ -1243,10 +1257,11 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
     apiDomain: 'inventory',
     method: 'POST',
     path: '/accounting/openapi/cc/salesstockout/list/{bookid}',
-    body: {},
+    body: { page: 1, pageSize: 100 },
     requiresBook: true,
     entityType: 'SALES_STOCK_OUT',
     mirrorDefault: true,
+    pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 100, maxPages: 200 },
   },
   {
     key: 'VOUCHER_SEARCH',
@@ -1349,7 +1364,7 @@ export class ChanjetIntegrationService {
   ) {}
 
   listProbeEndpoints() {
-    return PROBE_ENDPOINTS.map(({ key, label, apiDomain, method, path, requiresBook, entityType, mirrorDefault }) => ({
+    return PROBE_ENDPOINTS.map(({ key, label, apiDomain, method, path, requiresBook, entityType, mirrorDefault, pagination }) => ({
       key,
       label,
       apiDomain,
@@ -1358,7 +1373,129 @@ export class ChanjetIntegrationService {
       requiresBook: !!requiresBook,
       entityType: entityType || '',
       mirrorDefault: !!mirrorDefault,
+      paginated: !!pagination,
     }));
+  }
+
+  async wmsReadonlyAlignmentOverview() {
+    const entityTypes = ['STOCK_IN', 'SALES_STOCK_OUT'];
+    const [snapshots, enabledBooks, schemaRows] = await Promise.all([
+      this.entitySnapshotRepo.find({
+        where: { entityType: In(entityTypes) },
+        order: { updatedAt: 'DESC' },
+        take: 10000,
+      }),
+      this.accountBookRepo.find({ where: { enabled: true }, order: { bookName: 'ASC' } }),
+      this.ds.query(`
+        SELECT table_name, column_name
+          FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name IN ('wms_inbound', 'wms_outbound', 'wms_inbound_items', 'wms_outbound_items')
+      `),
+    ]);
+    const existingColumns = new Set(
+      (schemaRows as Array<{ table_name: string; column_name: string }>)
+        .map((row) => `${row.table_name}.${row.column_name}`),
+    );
+    const enabledBookIds = new Set(enabledBooks.map((book) => book.bookId));
+    const scopedSnapshots = snapshots.filter((snapshot) => enabledBookIds.has(snapshot.bookId));
+    const missingColumns = CHANJET_WMS_ERP_COLUMN_REQUIREMENTS.filter((target) => !existingColumns.has(target));
+    const documents = scopedSnapshots.map((snapshot) => normalizeChanjetInventoryDocument(
+      snapshot.rawData || {},
+      snapshot.entityType as 'STOCK_IN' | 'SALES_STOCK_OUT',
+      snapshot.bookId,
+    ));
+    const latestByScope = new Map<string, string>();
+    for (const snapshot of scopedSnapshots) {
+      const scopeKey = `${snapshot.entityType}:${snapshot.bookId}`;
+      const updatedAt = snapshot.updatedAt ? new Date(snapshot.updatedAt).toISOString() : '';
+      const current = latestByScope.get(scopeKey) || '';
+      if (updatedAt > current) latestByScope.set(scopeKey, updatedAt);
+    }
+    const expectedScopes = enabledBooks.flatMap((book) => entityTypes.map((entityType) => ({
+      entityType,
+      bookId: book.bookId,
+      bookName: book.bookName,
+      latestPulledAt: latestByScope.get(`${entityType}:${book.bookId}`) || null,
+    })));
+    const staleBefore = Date.now() - 24 * 60 * 60 * 1000;
+    const staleOrMissingScopes = expectedScopes.filter((scope) => (
+      !scope.latestPulledAt || new Date(scope.latestPulledAt).getTime() < staleBefore
+    ));
+    const contracts = [
+      {
+        key: 'STOCK_IN',
+        label: '采购入库单',
+        method: 'POST',
+        path: '/accounting/openapi/cc/purchasestockin/list/{bookid}',
+        reference: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/zjkcgl/30644?id=33283',
+        requestRequiredFields: ['page', 'pageSize'],
+        statusValues: ['SUBMITTED', 'EFFECTIVE'],
+        fields: CHANJET_STOCK_IN_FIELD_CONTRACT,
+      },
+      {
+        key: 'SALES_STOCK_OUT',
+        label: '销售出库单',
+        method: 'POST',
+        path: '/accounting/openapi/cc/salesstockout/list/{bookid}',
+        reference: 'https://open.chanjet.com/md/docs/file/apiFile/zplus/hyc_pjjk/hyc_pjjk_kcgl?id=32791',
+        requestRequiredFields: ['page', 'pageSize'],
+        statusValues: ['SUBMITTED', 'EFFECTIVE'],
+        fields: CHANJET_SALES_STOCK_OUT_FIELD_CONTRACT,
+      },
+    ];
+    const officialFieldCount = contracts.reduce((sum, contract) => sum + contract.fields.length, 0);
+    const sourceDocuments = documents.length;
+    const sourceLines = documents.reduce((sum, document) => sum + document.lines.length, 0);
+    const schemaCoverage = CHANJET_WMS_ERP_COLUMN_REQUIREMENTS.length
+      ? Number((((CHANJET_WMS_ERP_COLUMN_REQUIREMENTS.length - missingColumns.length)
+        / CHANJET_WMS_ERP_COLUMN_REQUIREMENTS.length) * 100).toFixed(2))
+      : 100;
+    const conditions = [
+      ...(staleOrMissingScopes.length ? [`${staleOrMissingScopes.length} 个账套单据 scope 缺失或超过 24 小时`] : []),
+      ...(missingColumns.length ? [`ERP 业务字段仍缺 ${missingColumns.length} 列`] : []),
+      ...(sourceDocuments === 0 ? ['好业财当前返回 0 条入库/销售出库样本，字段类型需待真实单据继续验证'] : []),
+    ];
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: missingColumns.length || staleOrMissingScopes.length
+        ? 'HOLD'
+        : sourceDocuments === 0
+          ? 'GO_WITH_CONDITIONS'
+          : 'GO',
+      summary: {
+        enabledBooks: enabledBooks.length,
+        expectedScopes: expectedScopes.length,
+        freshScopes: expectedScopes.length - staleOrMissingScopes.length,
+        sourceDocuments,
+        sourceLines,
+        officialFieldCount,
+        losslessMirrorCoverage: 100,
+        erpBusinessColumnCoverage: schemaCoverage,
+        missingBusinessColumns: missingColumns.length,
+      },
+      contracts,
+      scopes: expectedScopes,
+      documentPreview: documents.slice(0, 200),
+      documentPreviewTruncated: documents.length > 200,
+      missingColumns,
+      conditions,
+      businessRules: {
+        inboundAuthority: '好业财采购入库只读单据用于财务/库存对账；ERP 实际库存仍由 wms confirm 原子事务记账。',
+        outboundAuthority: '好业财销售出库只读单据用于销售履约对账；ERP 销售/生产/后勤/配件出库保持独立业务类型。',
+        statusMapping: { SUBMITTED: 'PENDING', EFFECTIVE: 'COMPLETED' },
+        redBlueRule: '红字单据必须保留 redBlueFlagEnum，后续写入设计不得按普通正数单据处理。',
+        attachmentRule: '好业财 attachmentList 原始 URL 仅留在受控中间层证据，不向普通业务 UI 暴露。',
+      },
+      guardrails: {
+        chanjetWrite: false,
+        chanjetDelete: false,
+        chanjetModify: false,
+        erpBusinessWrite: false,
+        automaticVoucherWrite: false,
+        rule: '本接口只读 ERP 中间层与 information_schema；不会调用好业财写接口，也不会写 ERP 出入库业务表。',
+      },
+    };
   }
 
   async listAccountBooks(): Promise<ChanjetAccountBookEntity[]> {
@@ -2784,7 +2921,7 @@ export class ChanjetIntegrationService {
     }
     const normalizeName = (value: unknown) => String(value || '')
       .normalize('NFKC')
-      .replace(/[\s　]+/g, '')
+      .replace(/[\s\u3000]+/g, '')
       .toLowerCase();
     const ledgerDirectoryKeys = new Set(eligibleRows.map((row) => {
       const raw = row.rawData || {};
@@ -6387,11 +6524,7 @@ export class ChanjetIntegrationService {
           mode: 'read-chanjet-write-erp-middle-layer',
         });
         try {
-          const resp = await this.auth.callApi(path, {
-            method: ep.method,
-            query: request.query,
-            body: request.body,
-          });
+          const resp = await this.fetchProbePayload(ep, path, request);
           if (ep.key === 'ACCOUNT_BOOKS') {
             await this.persistAccountBooks(resp);
           }
@@ -7854,11 +7987,7 @@ export class ChanjetIntegrationService {
         });
         try {
           const request = this.buildProbeRequest(ep);
-          const resp = await this.auth.callApi(path, {
-            method: ep.method,
-            query: request.query,
-            body: request.body,
-          });
+          const resp = await this.fetchProbePayload(ep, path, request);
           const fields = await this.recordApiSample(ep.apiDomain, path, ep.method, resp);
           if (ep.mappingType && ep.key !== 'CUSTOMER_SUPPLIER') {
             await this.createMappingCandidates(ep.mappingType, targetBookId, resp);
@@ -7909,6 +8038,86 @@ export class ChanjetIntegrationService {
     return { period, query, body };
   }
 
+  private async fetchProbePayload(
+    ep: ProbeEndpoint,
+    path: string,
+    request: { query: Record<string, string>; body?: Record<string, unknown> },
+  ): Promise<unknown> {
+    if (!ep.pagination) {
+      return this.auth.callApi(path, {
+        method: ep.method,
+        query: request.query,
+        body: request.body,
+      });
+    }
+
+    const config = ep.pagination;
+    const collectedRows: Record<string, unknown>[] = [];
+    let lastResponse: unknown = null;
+    let sourceTotalPages: number | null = null;
+    let sourceTotalRows: number | null = null;
+    let pagesFetched = 0;
+
+    for (let page = 1; page <= config.maxPages; page += 1) {
+      const response = await this.auth.callApi(path, {
+        method: ep.method,
+        query: request.query,
+        body: {
+          ...(request.body || {}),
+          [config.pageField]: page,
+          [config.pageSizeField]: config.pageSize,
+        },
+      });
+      const failure = getChanjetBusinessFailure(response);
+      if (failure) {
+        throw new Error(
+          `好业财 ${ep.key} 第 ${page} 页失败 code=${failure.code} requestId=${failure.requestId || '-'} msg=${failure.message}`,
+        );
+      }
+      lastResponse = response;
+      pagesFetched = page;
+      const pageRows = this.extractRows(response);
+      collectedRows.push(...pageRows);
+      const responseRecord = this.isRecord(response) ? response : {};
+      const data = this.isRecord(responseRecord.data) ? responseRecord.data : {};
+      const totalPageValue = Number(data.totalPage ?? data.totalPages ?? responseRecord.totalPage);
+      const totalRowsValue = Number(data.count ?? data.total ?? data.totalCount ?? responseRecord.total);
+      if (Number.isFinite(totalPageValue) && totalPageValue >= 0) sourceTotalPages = totalPageValue;
+      if (Number.isFinite(totalRowsValue) && totalRowsValue >= 0) sourceTotalRows = totalRowsValue;
+
+      const reachedDeclaredEnd = sourceTotalPages !== null && page >= sourceTotalPages;
+      const reachedCount = sourceTotalRows !== null && collectedRows.length >= sourceTotalRows;
+      const reachedShortPage = pageRows.length < config.pageSize;
+      if (pageRows.length === 0 || reachedDeclaredEnd || reachedCount || reachedShortPage) break;
+      if (page === config.maxPages) {
+        throw new Error(
+          `好业财 ${ep.key} 分页超过安全上限 ${config.maxPages} 页；已读取 ${collectedRows.length} 行，拒绝静默截断`,
+        );
+      }
+    }
+
+    const responseRecord = this.isRecord(lastResponse) ? lastResponse : {};
+    const responseData = this.isRecord(responseRecord.data) ? responseRecord.data : {};
+    return {
+      ...responseRecord,
+      data: {
+        ...responseData,
+        rows: collectedRows,
+        count: sourceTotalRows ?? collectedRows.length,
+        currentPage: 1,
+        currentPageSize: collectedRows.length,
+        totalPage: 1,
+      },
+      erpReadonlyPagination: {
+        pagesFetched,
+        rowsFetched: collectedRows.length,
+        sourceTotalPages,
+        sourceTotalRows,
+        truncated: false,
+      },
+    };
+  }
+
   private async recordReadSnapshot(
     ep: ProbeEndpoint,
     bookId: string,
@@ -7953,7 +8162,7 @@ export class ChanjetIntegrationService {
       throw new Error(`拒绝生成好业财实体快照 code=${failure.code} requestId=${failure.requestId || '-'} msg=${failure.message}`);
     }
     const entityType = ep.entityType || ep.key;
-    const rows = this.extractRows(payload).slice(0, 5000);
+    const rows = this.extractRows(payload);
     if (this.isAggregateStatisticsEndpoint(ep.key, entityType)) {
       await this.entitySnapshotRepo.delete({ bookId, endpointKey: ep.key, entityType });
     }
@@ -7997,7 +8206,7 @@ export class ChanjetIntegrationService {
     const sourceRow = entityType === 'ACCOUNT_BOOK' && this.isRecord(row.tenant) ? row.tenant : row;
     const idCandidate = this.firstText(sourceRow, [
       'id', 'ID', 'bookId', 'bookid', 'tenantId', 'subjectId', 'projectId',
-      'accountId', 'glAccountId', 'assistantCustomer', 'voucherId', 'code',
+      'accountId', 'glAccountId', 'assistantCustomer', 'voucherId', 'externalCode', 'code',
     ]);
     const id = this.isUsableExternalId(idCandidate, entityType, endpointKey) ? idCandidate : '';
     const code = this.firstText(sourceRow, [
@@ -8009,8 +8218,8 @@ export class ChanjetIntegrationService {
       'name', 'Name', 'bookName', 'deptName', 'subjectName', 'projectName',
       'accountName', 'glAccountName', 'customerName', 'supplierName', 'fullName', 'title', 'summary',
     ]);
-    const status = this.firstText(sourceRow, ['status', 'state', 'statusEnum', 'voucherState', 'approveStatus', 'auditStatus', 'enableStatus']);
-    const period = this.firstText(sourceRow, ['period', 'openingPeriod', 'accountPeriod', 'yearMonth', 'bizPeriod']);
+    const status = this.firstText(sourceRow, ['voucherStatusEnum', 'status', 'state', 'statusEnum', 'voucherState', 'approveStatus', 'auditStatus', 'enableStatus']);
+    const period = this.firstText(sourceRow, ['period', 'openingPeriod', 'accountPeriod', 'yearMonth', 'bizPeriod', 'bizDate']);
     const currency = this.firstText(sourceRow, ['currency', 'currencyCode', 'currencyName', 'baseCurrencyId', 'origCurrency']) || 'RMB';
     const amount = this.firstNumberText(sourceRow, [
       'amount',
@@ -8056,6 +8265,46 @@ export class ChanjetIntegrationService {
         riskLevel: 'LOW',
         analysisNote: 'API envelope 字段，不作为 ERP 业务 schema 缺口。',
       };
+    }
+    const inventoryContracts = /\/purchasestockin\/list\//i.test(field.apiPath)
+      ? CHANJET_STOCK_IN_FIELD_CONTRACT
+      : /\/salesstockout\/list\//i.test(field.apiPath)
+        ? CHANJET_SALES_STOCK_OUT_FIELD_CONTRACT
+        : [];
+    if (inventoryContracts.length) {
+      const observedLeaf = String(field.fieldPath || '')
+        .split('.')
+        .pop()
+        ?.replace(/\[\d+\]|\[\]/g, '')
+        .toLowerCase() || '';
+      const contract = inventoryContracts.find((candidate) => (
+        candidate.sourcePath
+          .split('.')
+          .pop()
+          ?.replace(/\[\d+\]|\[\]/g, '')
+          .toLowerCase() === observedLeaf
+      ));
+      if (contract) {
+        const numericTarget = /(qty|price|amount|rate|tax|discount)/i.test(contract.canonicalField);
+        return {
+          erpDomain: 'inventory',
+          erpTable: contract.erpTarget.split('.')[0],
+          erpField: contract.erpTarget.split('.').slice(1).join('.'),
+          erpType: contract.storage === 'MIDDLE_LAYER_JSON'
+            ? 'jsonb'
+            : numericTarget
+              ? 'numeric'
+              : 'varchar/date/jsonb',
+          transformRule: contract.storage === 'BUSINESS_COLUMN'
+            ? '按好业财库存单据官方契约标准化；只读镜像不直接覆盖 ERP 库存台账。'
+            : '完整保存在中间层 raw_data；附件 URL 不进入普通业务返回。',
+          matchStatus: contract.storage === 'BUSINESS_COLUMN' ? 'PENDING' : 'MATCHED',
+          riskLevel: /(amount|price|tax|status|customer|vendor|warehouse|serial)/i.test(contract.canonicalField)
+            ? 'HIGH'
+            : 'MEDIUM',
+          analysisNote: `命中好业财库存单据契约 ${contract.sourcePath} → ${contract.erpTarget}。`,
+        };
+      }
     }
     const haystack = `${field.apiDomain} ${field.apiPath} ${field.fieldPath}`.toLowerCase();
     const normalizedName = field.fieldPath.split('.').pop()?.replace(/\[\d+\]/g, '') || field.fieldPath;

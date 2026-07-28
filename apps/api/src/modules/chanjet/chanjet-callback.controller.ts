@@ -28,7 +28,7 @@ const CHANJET_PROXY_READONLY_RULES: ReadonlyArray<{
   { method: 'POST', path: /^\/accounting\/openapi\/cc\/payment\/(?:ap|ar)\/list\/[^/?#]+$/ },
   { method: 'POST', path: /^\/accounting\/openapi\/cc\/purchaseorder\/list\/[^/?#]+$/ },
   { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/purchaseapply\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/purchasestockin\/list$/ },
+  { method: 'POST', path: /^\/accounting\/openapi\/cc\/purchasestockin\/list\/[^/?#]+$/ },
   { method: 'POST', path: /^\/accounting\/openapi\/cc\/salesstockout\/list\/[^/?#]+$/ },
   { method: 'POST', path: /^\/accounting\/openapi\/cc\/salesorder\/list\/[^/?#]+$/ },
   { method: 'POST', path: /^\/accounting\/gl\/balance\/rpt\/[^/?#]+$/ },
@@ -787,6 +787,22 @@ export class ChanjetCallbackController {
     try {
       const mappings = await this.integration.listFieldMappings(Number(limit) || 500, matchStatus || undefined);
       return { success: true, count: mappings.length, mappings };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/integration/wms-readonly-alignment
+   * 好业财采购入库/销售出库官方字段契约、ERP 等效字段覆盖和只读样本状态。
+   * 只读 ERP 中间层与 information_schema，不调用好业财写接口。
+   */
+  @Get('integration/wms-readonly-alignment')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationWmsReadonlyAlignment() {
+    try {
+      const alignment = await this.integration.wmsReadonlyAlignmentOverview();
+      return { success: true, alignment };
     } catch (e) {
       return { success: false, error: (e as Error).message };
     }

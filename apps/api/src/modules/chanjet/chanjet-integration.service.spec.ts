@@ -96,6 +96,58 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(subject).toMatchObject({ query: {}, body: {} });
   });
 
+  it('registers book-scoped paginated stock-in and sales stock-out contracts', () => {
+    const endpoints = service.listProbeEndpoints();
+    expect(endpoints).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        key: 'STOCK_IN',
+        path: '/accounting/openapi/cc/purchasestockin/list/{bookid}',
+        requiresBook: true,
+        paginated: true,
+      }),
+      expect.objectContaining({
+        key: 'SALES_STOCK_OUT',
+        path: '/accounting/openapi/cc/salesstockout/list/{bookid}',
+        requiresBook: true,
+        paginated: true,
+      }),
+    ]));
+  });
+
+  it('collects every readonly inventory page without writing Chanjet', async () => {
+    const subject = Object.create(ChanjetIntegrationService.prototype) as any;
+    subject.auth = {
+      callApi: jest
+        .fn()
+        .mockResolvedValueOnce({
+          success: true,
+          data: { rows: [{ id: '1' }, { id: '2' }], count: 3, totalPage: 2 },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          data: { rows: [{ id: '3' }], count: 3, totalPage: 2 },
+        }),
+    };
+    const response = await subject.fetchProbePayload({
+      key: 'STOCK_IN',
+      method: 'POST',
+      pagination: { pageField: 'page', pageSizeField: 'pageSize', pageSize: 2, maxPages: 10 },
+    }, '/accounting/openapi/cc/purchasestockin/list/BOOK-1', {
+      query: {},
+      body: { page: 1, pageSize: 2 },
+    });
+
+    expect(response.data.rows).toEqual([{ id: '1' }, { id: '2' }, { id: '3' }]);
+    expect(response.erpReadonlyPagination).toMatchObject({
+      pagesFetched: 2,
+      rowsFetched: 3,
+      truncated: false,
+    });
+    expect(subject.auth.callApi).toHaveBeenNthCalledWith(2, expect.any(String), expect.objectContaining({
+      body: { page: 2, pageSize: 2 },
+    }));
+  });
+
   it('routes mirror baseline debt to the actual unresolved condition', () => {
     expect(service.mirrorBaselineNextGate({
       missingReportTargets: 1,

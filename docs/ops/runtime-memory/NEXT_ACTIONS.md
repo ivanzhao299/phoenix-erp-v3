@@ -1,5 +1,27 @@
 # Next Actions
 
+## 2026-07-28 - WMS / 好业财库存单据只读等效
+
+Current stage: `CHANJET_WMS_READONLY_EQUIVALENCE_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Replaced the obsolete global purchase-stock-in path with the official book-scoped endpoint.
+2. Added full pagination for purchase inbound and sales outbound; no 5,000-row entity truncation remains.
+3. Added canonical inbound/outbound contracts and ERP business columns for header, line, dual-UOM, tax, cost, logistics, source-order and serial evidence.
+4. Added administrator-only alignment UI and reusable audit command.
+5. Kept Chanjet write/delete/modify disabled and prevented readonly mirrors from changing ERP inventory.
+
+Next actions:
+
+1. Deploy the ERP migrations and refresh six readonly scopes across the three enabled books.
+2. Verify the official purchase-inbound path has replaced all active old global scopes.
+3. Capture real non-empty document samples when available; empty successful lists remain `GO_WITH_CONDITIONS`.
+4. Build reconciliation candidates only after company, warehouse, product, unit and counterparty mappings are locked.
+5. Keep every Chanjet write path HOLD.
+
 ## 2026-07-26 - Bug Intake HOLD queue cleared without false completion
 
 Current stage: `QUEUE_RECOVERED_WAITING_BUSINESS_UAT`
