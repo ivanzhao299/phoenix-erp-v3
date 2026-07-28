@@ -1,0 +1,68 @@
+{
+  "generated_at": "2026-07-28T21:55:00+08:00",
+  "environment": "production",
+  "direction": "CHANJET_TO_ERP_ONLY",
+  "decision": "GO_WITH_CONDITIONS",
+  "readonly_refresh": {
+    "requested_scopes": 21,
+    "go_scopes": 19,
+    "hold_scopes": 2,
+    "hold_contracts": [
+      "OTHER_STOCK_IN",
+      "RETAIL_STOCK_OUT"
+    ],
+    "fetched_rows": 6049
+  },
+  "wms": {
+    "snapshot_rows": 3999,
+    "entity_counts": {
+      "FINISHED_GOODS_STOCK_IN": 698,
+      "INVENTORY_ON_HAND": 851,
+      "INVENTORY_ON_HAND_LOT": 523,
+      "MATERIAL_STOCK_OUT": 854,
+      "OTHER_STOCK_OUT": 1058,
+      "STOCK_COUNT": 6,
+      "STOCK_TRANSFER": 9
+    },
+    "source_identities_written_to_erp_middle_layer": 185,
+    "mapping_counts": {
+      "WAREHOUSE_SOURCE_ONLY": 23,
+      "PRODUCT_MATCHED": 10,
+      "PRODUCT_SOURCE_ONLY": 124,
+      "UOM_MATCHED": 4,
+      "UOM_SOURCE_ONLY": 24,
+      "CONFLICT": 0
+    },
+    "erp_inventory_business_tables_mutated": false
+  },
+  "finance": {
+    "cash_account_snapshots": 49,
+    "gl_balance_snapshots": 292,
+    "ap_payment_snapshots": 446,
+    "ar_receipt_snapshots": 1489,
+    "ap_statistics_snapshots": 55,
+    "ar_statistics_snapshots": 74,
+    "cash_account_exact_mappings": 37,
+    "cash_account_source_only": 12,
+    "latest_cash_bank_leaf_rows": 31,
+    "covered_books": 3,
+    "latest_base_balance_cny": 1634534.07,
+    "erp_transaction_balance_overwritten": false
+  },
+  "guardrails": {
+    "chanjet_write": false,
+    "chanjet_delete": false,
+    "chanjet_modify": false,
+    "voucher_push": false,
+    "erp_operational_inventory_write": false,
+    "erp_finance_transaction_write": false,
+    "production_deploy": false,
+    "git_push": false
+  },
+  "conditions": [
+    "OTHER_STOCK_IN and RETAIL_STOCK_OUT remain provider-permission HOLD for three books",
+    "23 warehouse identities require explicit ERP warehouse mapping",
+    "124 product identities and 24 UOM identities remain source-only",
+    "37 stale pending cash-account mapping duplicates require the reviewed source-identity migration before the next refresh"
+  ]
+}

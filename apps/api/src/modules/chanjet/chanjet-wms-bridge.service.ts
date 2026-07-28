@@ -80,6 +80,16 @@ export interface RefreshPromotionCandidatesResult {
   erpBusinessTablesMutated: false;
 }
 
+export interface RefreshWmsMasterMappingsResult {
+  sourceIdentities: number;
+  exactMatched: number;
+  sourceOnly: number;
+  conflicts: number;
+  preservedApproved: number;
+  erpBusinessTablesMutated: false;
+  externalWriteExecuted: false;
+}
+
 export interface PrepareWmsWritebackInput {
   bookId: string;
   companyCode: string;
@@ -276,6 +286,178 @@ export class ChanjetWmsBridgeService {
     };
   }
 
+  async refreshMasterMappingCandidates(actor: string): Promise<RefreshWmsMasterMappingsResult> {
+    if (!text(actor)) throw new BadRequestException('mapping refresh actor required');
+    const [bookMaps, snapshots, existing, warehouses, products, units] = await Promise.all([
+      this.bookMapRepository.find({ where: { syncEnabled: true } }),
+      this.snapshotRepository.find({
+        where: { entityType: In(TRANSACTION_ENTITY_TYPES) },
+        order: { updatedAt: 'ASC' },
+      }),
+      this.mappingRepository.find({
+        where: { mappingType: In<ChanjetMappingType>(['WAREHOUSE', 'PRODUCT', 'UOM']) },
+      }),
+      this.mappingRepository.manager.query(`
+        SELECT
+          warehouse_code AS code,
+          COALESCE(NULLIF(warehouse_name_zh, ''), warehouse_name, '') AS name,
+          COALESCE(company_code, '') AS company_code
+        FROM wms_warehouses
+        WHERE status = 'ACTIVE'
+      `) as Promise<Array<{ code: string; name: string; company_code: string }>>,
+      this.mappingRepository.manager.query(`
+        SELECT
+          product_code AS code,
+          COALESCE(NULLIF(product_name_zh, ''), product_name, '') AS name,
+          '' AS company_code
+        FROM mst_products
+        WHERE status = 'ACTIVE'
+      `) as Promise<Array<{ code: string; name: string; company_code: string }>>,
+      this.mappingRepository.manager.query(`
+        SELECT DISTINCT unit_name AS code, unit_name AS name, '' AS company_code
+        FROM (
+          SELECT NULLIF(TRIM(unit_zh), '') AS unit_name
+          FROM mst_products
+          WHERE status = 'ACTIVE'
+          UNION
+          SELECT NULLIF(TRIM(base_unit), '')
+          FROM packaging_specs
+          WHERE status = 'ACTIVE'
+          UNION
+          SELECT NULLIF(TRIM(display_unit), '')
+          FROM packaging_specs
+          WHERE status = 'ACTIVE'
+        ) source
+        WHERE unit_name IS NOT NULL
+      `) as Promise<Array<{ code: string; name: string; company_code: string }>>,
+    ]);
+    const books = new Map(bookMaps.map((book) => [book.bookid, book]));
+    const sources = new Map<string, {
+      mappingType: Extract<ChanjetMappingType, 'WAREHOUSE' | 'PRODUCT' | 'UOM'>;
+      bookId: string;
+      companyCode: string;
+      code: string;
+      name: string;
+    }>();
+    for (const snapshot of snapshots) {
+      const entityType = snapshot.entityType as ChanjetInventoryEntityType;
+      if (!TRANSACTION_ENTITY_TYPES.includes(entityType)) continue;
+      const document = normalizeChanjetInventoryDocument(snapshot.rawData, entityType, snapshot.bookId);
+      const companyCode = books.get(snapshot.bookId)?.companyCode || '';
+      this.collectWmsMappingSource(
+        sources, 'WAREHOUSE', snapshot.bookId, companyCode, document.warehouseCode, document.warehouseName,
+      );
+      for (const line of document.lines) {
+        this.collectWmsMappingSource(
+          sources, 'WAREHOUSE', snapshot.bookId, companyCode, line.warehouseCode, line.warehouseName,
+        );
+        this.collectWmsMappingSource(
+          sources, 'PRODUCT', snapshot.bookId, companyCode, line.productCode, line.productName,
+        );
+        this.collectWmsMappingSource(
+          sources, 'UOM', snapshot.bookId, companyCode, line.unitName, line.unitName,
+        );
+        this.collectWmsMappingSource(
+          sources, 'UOM', snapshot.bookId, companyCode, line.secondaryUnitName, line.secondaryUnitName,
+        );
+      }
+    }
+
+    const erpCandidates = {
+      WAREHOUSE: warehouses,
+      PRODUCT: products,
+      UOM: units,
+    };
+    let exactMatched = 0;
+    let sourceOnly = 0;
+    let conflicts = 0;
+    let preservedApproved = 0;
+
+    for (const source of sources.values()) {
+      const current = existing
+        .filter((mapping) => (
+          mapping.mappingType === source.mappingType
+          && mapping.bookId === source.bookId
+          && upper(mapping.chanjetId) === upper(source.code)
+        ))
+        .sort((left, right) => this.mappingRank(right) - this.mappingRank(left))[0];
+      if (
+        current?.reviewStatus === 'APPROVED'
+        && ['MATCHED', 'MANUAL'].includes(current.matchStatus)
+        && current.erpCode
+      ) {
+        current.chanjetCode = source.code;
+        current.chanjetName = source.name || source.code;
+        current.rawData = {
+          ...(current.rawData || {}),
+          refreshedAt: new Date().toISOString(),
+          refreshedBy: actor,
+          sourceCompanyCode: source.companyCode,
+        };
+        await this.mappingRepository.save(current);
+        preservedApproved += 1;
+        exactMatched += 1;
+        continue;
+      }
+
+      const matches = erpCandidates[source.mappingType].filter((candidate) => {
+        if (
+          source.mappingType === 'WAREHOUSE'
+          && source.companyCode
+          && candidate.company_code
+          && candidate.company_code !== source.companyCode
+        ) return false;
+        const codeMatch = upper(candidate.code) === upper(source.code);
+        const nameMatch = this.normalizedWmsName(candidate.name) === this.normalizedWmsName(source.name);
+        return codeMatch || (!!source.name && nameMatch);
+      });
+      const uniqueMatches = [...new Map(matches.map((match) => [upper(match.code), match])).values()];
+      const match = uniqueMatches.length === 1 ? uniqueMatches[0] : null;
+      const next = this.mappingRepository.create({
+        ...(current || {}),
+        mappingType: source.mappingType,
+        bookId: source.bookId,
+        erpCode: match?.code || '',
+        erpName: match?.name || '',
+        chanjetId: source.code,
+        chanjetCode: source.code,
+        chanjetName: source.name || source.code,
+        matchStatus: match ? 'MATCHED' : uniqueMatches.length > 1 ? 'CONFLICT' : 'SOURCE_ONLY',
+        confidence: match ? '1.00' : uniqueMatches.length > 1 ? '0.00' : '1.00',
+        reviewStatus: match || uniqueMatches.length === 0 ? 'APPROVED' : 'PENDING',
+        reviewedBy: match
+          ? `system:chanjet-wms-exact:${actor}`
+          : uniqueMatches.length === 0
+            ? `system:chanjet-wms-source-only:${actor}`
+            : null,
+        reviewedAt: uniqueMatches.length <= 1 ? new Date() : null,
+        rawData: {
+          sourceCompanyCode: source.companyCode,
+          exactCandidates: uniqueMatches,
+          rule: match
+            ? 'same-book company boundary plus exact code or unique normalized name'
+            : uniqueMatches.length > 1
+              ? 'multiple exact candidates; fail closed'
+              : 'source identity only; ERP master mapping required before promotion',
+        },
+      });
+      await this.mappingRepository.save(next);
+      if (match) exactMatched += 1;
+      else if (uniqueMatches.length > 1) conflicts += 1;
+      else sourceOnly += 1;
+    }
+
+    return {
+      sourceIdentities: sources.size,
+      exactMatched,
+      sourceOnly,
+      conflicts,
+      preservedApproved,
+      erpBusinessTablesMutated: false,
+      externalWriteExecuted: false,
+    };
+  }
+
   async listPromotionCandidates(limit = 200, state?: ChanjetWmsPromotionState) {
     return this.candidateRepository.find({
       where: state ? { state } : {},
@@ -436,6 +618,53 @@ export class ChanjetWmsBridgeService {
             : `${dimension}_MAPPING_REQUIRED:${code || 'SOURCE_CODE_MISSING'}`,
         };
       });
+  }
+
+  private collectWmsMappingSource(
+    sources: Map<string, {
+      mappingType: Extract<ChanjetMappingType, 'WAREHOUSE' | 'PRODUCT' | 'UOM'>;
+      bookId: string;
+      companyCode: string;
+      code: string;
+      name: string;
+    }>,
+    mappingType: Extract<ChanjetMappingType, 'WAREHOUSE' | 'PRODUCT' | 'UOM'>,
+    bookId: string,
+    companyCode: string,
+    codeValue: string,
+    nameValue: string,
+  ): void {
+    const code = text(codeValue);
+    if (!code) return;
+    const key = `${mappingType}:${bookId}:${upper(code)}`;
+    const current = sources.get(key);
+    if (!current || (!current.name && text(nameValue))) {
+      sources.set(key, {
+        mappingType,
+        bookId,
+        companyCode,
+        code,
+        name: text(nameValue),
+      });
+    }
+  }
+
+  private normalizedWmsName(value: string): string {
+    return text(value)
+      .normalize('NFKC')
+      .replace(/[\s\u3000（）()\-—_]+/g, '')
+      .toLowerCase();
+  }
+
+  private mappingRank(mapping: ChanjetMasterMappingEntity): number {
+    if (
+      mapping.reviewStatus === 'APPROVED'
+      && ['MATCHED', 'MANUAL'].includes(mapping.matchStatus)
+      && mapping.erpCode
+    ) return 400;
+    if (mapping.reviewStatus === 'APPROVED' && mapping.matchStatus === 'SOURCE_ONLY') return 300;
+    if (mapping.reviewStatus === 'APPROVED') return 200;
+    return 100;
   }
 
   private promotionState(

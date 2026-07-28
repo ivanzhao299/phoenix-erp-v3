@@ -853,6 +853,19 @@ export class ChanjetCallbackController {
     };
   }
 
+  @Post('integration/wms/master-mapping-candidates/refresh')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async refreshIntegrationWmsMasterMappingCandidates(
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const actor = String(req?.user?.username || req?.user?.userId || 'unknown');
+    this.log.warn(`manual Chanjet WMS master mapping refresh triggered user=${actor}`);
+    return {
+      success: true,
+      result: await this.wmsBridge.refreshMasterMappingCandidates(actor),
+    };
+  }
+
   @Post('integration/wms/promotion-candidates/:id/review')
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async reviewIntegrationWmsPromotionCandidate(

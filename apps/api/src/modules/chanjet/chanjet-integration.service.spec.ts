@@ -1616,9 +1616,12 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     ]));
   });
 
-  it('uses the account-book-scoped master mapping unique key for readonly upserts', async () => {
+  it('uses the account-book-scoped master mapping key for a new readonly source identity', async () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
-    subject.mappingRepo = { upsert: jest.fn().mockResolvedValue(undefined) };
+    subject.mappingRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      upsert: jest.fn().mockResolvedValue(undefined),
+    };
 
     await subject.upsertMasterMapping({
       mappingType: 'PROJECT',
@@ -1639,6 +1642,80 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
         conflictPaths: ['mappingType', 'bookId', 'erpCode', 'chanjetId'],
       }),
     );
+  });
+
+  it('preserves an approved ERP mapping when readonly refresh observes the same Chanjet source', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const approved = {
+      mappingType: 'CASH_ACCOUNT',
+      bookId: 'BOOK-1',
+      erpCode: 'BANK-001',
+      erpName: '银行账户',
+      chanjetId: 'CJ-ACCOUNT-1',
+      chanjetCode: '100201',
+      chanjetName: '旧名称',
+      matchStatus: 'MATCHED',
+      confidence: '1.00',
+      reviewStatus: 'APPROVED',
+      reviewedBy: 'finance-admin',
+      reviewedAt: new Date('2026-07-01T00:00:00Z'),
+      rawData: { old: true },
+      updatedAt: new Date(),
+    };
+    subject.mappingRepo = {
+      find: jest.fn().mockResolvedValue([approved]),
+      save: jest.fn().mockImplementation(async (value) => value),
+      upsert: jest.fn(),
+    };
+
+    await subject.upsertMasterMapping({
+      mappingType: 'CASH_ACCOUNT',
+      bookId: 'BOOK-1',
+      erpCode: '',
+      chanjetId: 'CJ-ACCOUNT-1',
+      chanjetCode: '100201',
+      chanjetName: '最新名称',
+      matchStatus: 'PENDING',
+      reviewStatus: 'PENDING',
+      rawData: { fresh: true },
+    });
+
+    expect(subject.mappingRepo.upsert).not.toHaveBeenCalled();
+    expect(subject.mappingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      erpCode: 'BANK-001',
+      erpName: '银行账户',
+      chanjetName: '最新名称',
+      matchStatus: 'MATCHED',
+      reviewStatus: 'APPROVED',
+      reviewedBy: 'finance-admin',
+      rawData: { fresh: true },
+    }));
+  });
+
+  it('fails closed when one Chanjet source has multiple approved ERP targets', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.mappingRepo = {
+      find: jest.fn().mockResolvedValue([
+        {
+          mappingType: 'CASH_ACCOUNT', bookId: 'BOOK-1', chanjetId: 'CJ-1',
+          erpCode: 'BANK-1', reviewStatus: 'APPROVED', matchStatus: 'MATCHED',
+        },
+        {
+          mappingType: 'CASH_ACCOUNT', bookId: 'BOOK-1', chanjetId: 'CJ-1',
+          erpCode: 'BANK-2', reviewStatus: 'APPROVED', matchStatus: 'MATCHED',
+        },
+      ]),
+      save: jest.fn(),
+      upsert: jest.fn(),
+    };
+
+    await expect(subject.upsertMasterMapping({
+      mappingType: 'CASH_ACCOUNT',
+      bookId: 'BOOK-1',
+      chanjetId: 'CJ-1',
+    })).rejects.toThrow('CHANJET_MAPPING_SOURCE_IDENTITY_CONFLICT');
+    expect(subject.mappingRepo.save).not.toHaveBeenCalled();
+    expect(subject.mappingRepo.upsert).not.toHaveBeenCalled();
   });
 
   it('accepts a legitimate exact zero cash balance', async () => {

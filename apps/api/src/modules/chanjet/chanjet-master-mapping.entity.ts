@@ -26,6 +26,11 @@ export type ChanjetMappingType =
 // Chanjet master IDs are local to an account book. The same ID can represent
 // different cash accounts in different books, so bookId is part of identity.
 @Unique('uq_chanjet_master_mapping', ['mappingType', 'bookId', 'erpCode', 'chanjetId'])
+@Index(
+  'uq_chanjet_master_mapping_source_identity',
+  ['mappingType', 'bookId', 'chanjetId'],
+  { unique: true, where: `"chanjet_id" <> ''` },
+)
 @Index('idx_chanjet_master_mapping_type_status', ['mappingType', 'matchStatus', 'reviewStatus'])
 @Index('idx_chanjet_master_mapping_book', ['bookId'])
 export class ChanjetMasterMappingEntity {

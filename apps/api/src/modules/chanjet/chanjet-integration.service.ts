@@ -9027,13 +9027,66 @@ export class ChanjetIntegrationService {
   }
 
   private async upsertMasterMapping(input: Partial<ChanjetMasterMappingEntity>) {
+    const mappingType = input.mappingType;
+    const bookId = input.bookId ?? '';
+    const chanjetId = input.chanjetId ?? '';
+    const incomingReviewStatus = input.reviewStatus ?? 'PENDING';
+
+    if (mappingType && chanjetId) {
+      const sourceRows = await this.mappingRepo.find({
+        where: { mappingType, bookId, chanjetId },
+        order: { updatedAt: 'DESC' },
+      });
+      const approvedRows = sourceRows.filter((row) => row.reviewStatus === 'APPROVED');
+      const approvedErpCodes = [...new Set(approvedRows.map((row) => row.erpCode).filter(Boolean))];
+      if (approvedErpCodes.length > 1) {
+        throw new Error(
+          `CHANJET_MAPPING_SOURCE_IDENTITY_CONFLICT:${mappingType}:${bookId}:${chanjetId}`,
+        );
+      }
+
+      const preferred = [...sourceRows].sort((left, right) => (
+        this.masterMappingPreservationRank(right) - this.masterMappingPreservationRank(left)
+      ))[0];
+      if (preferred) {
+        const existingApproved = preferred.reviewStatus === 'APPROVED';
+        const incomingApproved = incomingReviewStatus === 'APPROVED';
+        if (
+          existingApproved
+          && incomingApproved
+          && preferred.erpCode
+          && input.erpCode
+          && preferred.erpCode !== input.erpCode
+        ) {
+          throw new Error(
+            `CHANJET_MAPPING_APPROVED_TARGET_CONFLICT:${mappingType}:${bookId}:${chanjetId}`,
+          );
+        }
+
+        preferred.chanjetCode = input.chanjetCode ?? preferred.chanjetCode;
+        preferred.chanjetName = input.chanjetName ?? preferred.chanjetName;
+        preferred.rawData = input.rawData ?? preferred.rawData;
+        if (!existingApproved || incomingApproved) {
+          preferred.erpCode = input.erpCode ?? preferred.erpCode;
+          preferred.erpName = input.erpName ?? preferred.erpName;
+          preferred.matchStatus = input.matchStatus ?? preferred.matchStatus;
+          preferred.confidence = input.confidence ?? preferred.confidence;
+          preferred.reviewStatus = incomingReviewStatus;
+          preferred.reviewedBy = input.reviewedBy ?? preferred.reviewedBy;
+          preferred.reviewedAt = input.reviewedAt ?? preferred.reviewedAt;
+        }
+        await this.mappingRepo.save(preferred);
+        return;
+      }
+    }
+
     await this.mappingRepo.upsert(
       {
-        mappingType: input.mappingType,
-        bookId: input.bookId ?? '',
+        mappingType,
+        bookId,
         erpCode: input.erpCode ?? '',
         erpName: input.erpName ?? '',
-        chanjetId: input.chanjetId ?? '',
+        chanjetId,
         chanjetCode: input.chanjetCode ?? '',
         chanjetName: input.chanjetName ?? '',
         matchStatus: input.matchStatus ?? 'PENDING',
@@ -9053,6 +9106,17 @@ export class ChanjetIntegrationService {
         skipUpdateIfNoValuesChanged: false,
       },
     );
+  }
+
+  private masterMappingPreservationRank(mapping: ChanjetMasterMappingEntity): number {
+    if (
+      mapping.reviewStatus === 'APPROVED'
+      && ['MATCHED', 'MANUAL'].includes(mapping.matchStatus)
+      && mapping.erpCode
+    ) return 400;
+    if (mapping.reviewStatus === 'APPROVED' && mapping.matchStatus === 'SOURCE_ONLY') return 300;
+    if (mapping.reviewStatus === 'APPROVED') return 200;
+    return 100;
   }
 
   private async recordApiSample(apiDomain: string, apiPath: string, method: HttpMethod, sample: unknown): Promise<number> {

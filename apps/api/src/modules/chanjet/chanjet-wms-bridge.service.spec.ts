@@ -12,6 +12,9 @@ const repository = (overrides: Record<string, unknown> = {}) => ({
     groupBy: jest.fn().mockReturnThis(),
     getRawMany: jest.fn().mockResolvedValue([]),
   })),
+  manager: {
+    query: jest.fn().mockResolvedValue([]),
+  },
   ...overrides,
 });
 
@@ -104,6 +107,93 @@ describe('ChanjetWmsBridgeService', () => {
     expect(candidateRepo.save).toHaveBeenCalledWith(expect.objectContaining({
       state: 'NEED_MAPPING',
       conditions: expect.arrayContaining(['PRODUCT_MAPPING_REQUIRED:SKU-CJ']),
+    }));
+  });
+
+  it('creates exact and source-only WMS mapping evidence without touching business tables', async () => {
+    const mappingRepo = repository({
+      find: jest.fn().mockResolvedValue([]),
+      manager: {
+        query: jest.fn()
+          .mockResolvedValueOnce([{ code: 'WH-CJ', name: 'Warehouse', company_code: 'COMP-1' }])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ code: 'PCS', name: 'PCS', company_code: '' }]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository({ find: jest.fn().mockResolvedValue([activeBook]) }) as never,
+      repository({ find: jest.fn().mockResolvedValue([snapshot]) }) as never,
+      mappingRepo as never,
+      repository() as never,
+      repository() as never,
+    );
+
+    const result = await service.refreshMasterMappingCandidates('admin');
+
+    expect(result).toMatchObject({
+      sourceIdentities: 3,
+      exactMatched: 2,
+      sourceOnly: 1,
+      conflicts: 0,
+      erpBusinessTablesMutated: false,
+      externalWriteExecuted: false,
+    });
+    expect(mappingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      mappingType: 'WAREHOUSE',
+      chanjetCode: 'WH-CJ',
+      erpCode: 'WH-CJ',
+      matchStatus: 'MATCHED',
+      reviewStatus: 'APPROVED',
+    }));
+    expect(mappingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      mappingType: 'PRODUCT',
+      chanjetCode: 'SKU-CJ',
+      erpCode: '',
+      matchStatus: 'SOURCE_ONLY',
+      reviewStatus: 'APPROVED',
+    }));
+  });
+
+  it('upgrades an approved source-only identity when a unique exact ERP master appears', async () => {
+    const sourceOnly = {
+      mappingType: 'PRODUCT',
+      bookId: 'BOOK-1',
+      chanjetId: 'SKU-CJ',
+      chanjetCode: 'SKU-CJ',
+      chanjetName: 'Egg',
+      erpCode: '',
+      erpName: '',
+      matchStatus: 'SOURCE_ONLY',
+      reviewStatus: 'APPROVED',
+      confidence: '1.00',
+      rawData: {},
+    };
+    const mappingRepo = repository({
+      find: jest.fn().mockResolvedValue([sourceOnly]),
+      manager: {
+        query: jest.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ code: 'EGG', name: 'Egg', company_code: '' }])
+          .mockResolvedValueOnce([]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository({ find: jest.fn().mockResolvedValue([activeBook]) }) as never,
+      repository({ find: jest.fn().mockResolvedValue([snapshot]) }) as never,
+      mappingRepo as never,
+      repository() as never,
+      repository() as never,
+    );
+
+    const result = await service.refreshMasterMappingCandidates('admin');
+
+    expect(result.exactMatched).toBe(1);
+    expect(mappingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      mappingType: 'PRODUCT',
+      chanjetId: 'SKU-CJ',
+      erpCode: 'EGG',
+      matchStatus: 'MATCHED',
+      reviewStatus: 'APPROVED',
     }));
   });
 

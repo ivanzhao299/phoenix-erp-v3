@@ -1,5 +1,31 @@
 # Next Actions
 
+## 2026-07-28 - 好业财 WMS / 财务单向同步已回验
+
+Current stage: `CHANJET_WMS_FINANCE_ONE_WAY_SYNC_VERIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Refreshed 21 production readonly contracts; 19 passed and two provider-permission contracts stayed HOLD.
+2. Verified 3,999 WMS production snapshots in the ERP middle layer.
+3. Persisted 185 WMS source identities: 14 exact mappings, 171 source-only identities and zero conflicts.
+4. Refreshed 49 cash accounts, 292 GL balance rows, AR/AP statistics and receipt/payment snapshots.
+5. Verified the latest three-book cash/bank leaf base balance is CNY `1,634,534.07`.
+6. Kept ERP inventory facts and finance transaction balances unchanged.
+7. Fixed source-identity idempotency in code and added an archival deduplication migration.
+
+Next actions:
+
+1. Deploy the reviewed mapping source-identity migration and archive the 37 stale cash-account candidate duplicates.
+2. Complete exact warehouse, product and UOM mappings before any WMS document promotion.
+3. Obtain provider permissions for `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT`.
+4. Refresh promotion candidates and run A2/A1/A7 acceptance.
+5. Keep all external Chanjet writes disabled.
+
+Evidence: `docs/ops/CHANJET_WMS_FINANCE_ONE_WAY_SYNC_REPORT_20260728.md`.
+
 ## 2026-07-28 - 好业财 WMS 生产级实现完成，运行态保持 HOLD
 
 Current stage: `CHANJET_WMS_PRODUCTION_GRADE_IMPLEMENTED_RUNTIME_HOLD`

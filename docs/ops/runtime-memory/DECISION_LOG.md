@@ -2052,3 +2052,15 @@ Decision: counterparty resolution `GO`.
 - The stale local main was preserved at
   `backup/local-main-pre-authority-realign-20260728` before local main was realigned.
 - A giant historical rebase is never an accepted recovery mechanism.
+
+# 2026-07-28 - Synchronize Chanjet WMS and finance facts into the ERP middle layer only
+
+- Decision: `GO_WITH_CONDITIONS`.
+- A production readonly refresh confirmed real Chanjet WMS data: 3,999 retained inventory snapshots across on-hand, lot, production inbound, material/other outbound, transfer and stocktake.
+- ERP persisted 185 book-scoped WMS source identities: 14 unique exact mappings, 171 source-only identities and zero conflicts.
+- Source-only mappings are evidence, not permission to promote a document into ERP inventory.
+- Finance refresh retained 49 cash-account and 292 GL-balance snapshots; the latest three-book 1001/1002 leaf base balance is CNY `1,634,534.07`.
+- ERP `fin_cash_accounts.current_balance`, WMS operational documents, `inv_batches` and inventory ledger remain unchanged.
+- Source identity is now the mapping idempotency authority. Approved mappings cannot be downgraded by readonly candidate refresh.
+- The reviewed migration archives deterministic pending duplicates before adding the source-identity unique index; it has not been deployed.
+- Chanjet write/delete/modify, voucher push, deployment and Git push remain disabled for this run.
