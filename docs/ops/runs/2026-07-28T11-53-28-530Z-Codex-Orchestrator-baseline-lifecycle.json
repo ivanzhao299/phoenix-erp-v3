@@ -1,0 +1,41 @@
+{
+  "agent": "Codex-Orchestrator",
+  "branch": "codex/i18n-debt-clearance",
+  "worktree": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
+  "status": "HOLD",
+  "dry_run": true,
+  "max_retries": 3,
+  "retries": 0,
+  "auto_commit_planned": [
+    {
+      "label": "target worktree",
+      "message": "docs(ops): record generated ops artifacts",
+      "files": [
+        "scripts/ops/agent-baseline-autopilot.mjs",
+        "docs/ops/runs/2026-07-28T11-48-04-243Z-Codex-Orchestrator-baseline-lifecycle.json",
+        "docs/ops/runs/2026-07-28T11-48-04-244Z-Codex-Orchestrator-baseline-lifecycle.md",
+        "scripts/ops/agent-baseline-autopilot.test.mjs"
+      ]
+    }
+  ],
+  "auto_commits": [],
+  "rebase": "not-started",
+  "merge": "not-started",
+  "gate": "not-started",
+  "push": "No",
+  "deploy": "No",
+  "migration_executed": "No",
+  "database_written": "No",
+  "main_authority": {
+    "state": "diverged",
+    "local_head": "c564cf3626d7de48bace17973edb25063dd9e270",
+    "origin_main_head": "155758eeada5e62a7d1856fedbbe67095b454e8d"
+  },
+  "hold_reason": "local main diverged from origin/main; refusing to replay historical commits into a new Agent task",
+  "hold_context": {
+    "localHead": "c564cf3626d7de48bace17973edb25063dd9e270",
+    "originMainHead": "155758eeada5e62a7d1856fedbbe67095b454e8d",
+    "uniqueCommitCounts": "1685\t179",
+    "recovery": "preserve local main on a backup branch, then realign local main to origin/main in a separately audited operation"
+  }
+}
