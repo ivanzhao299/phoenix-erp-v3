@@ -1,5 +1,33 @@
 # Next Actions
 
+## 2026-07-29 - 好业财 WMS 映射闭环已部署，主数据与供应商权限继续 HOLD
+
+Current stage: `CHANJET_WMS_MAPPING_CLOSURE_DEPLOYED_PROVIDER_PERMISSION_HOLD`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Deployed revision `39e79ff3` through CI/CD run `30377709519`; production API, Web and PostgreSQL are healthy.
+2. Applied `AddChanjetWmsMappingEntityType1785420000000`.
+3. Refreshed all 187 WMS source identities with authenticated readonly APIs.
+4. Closed 16 exact mappings and retained 171 explicit mapping gaps with zero conflicts.
+5. Measured real coverage at 8.56%: warehouse 0/25, product/SKU/material 10/134 and UOM 6/28.
+6. Kept six provider permission failures explicit: three `OTHER_STOCK_IN` and three `RETAIL_STOCK_OUT`, all provider error `50111`.
+7. Verified `inv_batches`, `inv_ledger` and `fin_cash_accounts` fingerprints are unchanged.
+8. Verified zero approved/promoted candidates, zero writeback Outbox rows and zero Chanjet external writes.
+
+Next actions:
+
+1. Enter `CHANJET_WMS_ERP_MASTER_DATA_GAP_CLOSURE_AND_PROVIDER_AUTHORIZATION`.
+2. Add or repair same-company ERP warehouse and location masters; do not map chicken houses directly as warehouses.
+3. Close product, SKU, material and live-bird model gaps using explicit evidence.
+4. Define SKU-level package/UOM conversions; do not use global fuzzy conversion.
+5. Obtain provider authorization for the six blocked readonly scopes and rerun only those scopes.
+6. Keep promotion approval, ERP inventory mutation and all Chanjet write/delete/modify disabled.
+
+Evidence: `docs/ops/runs/chanjet-wms-mapping-closure-runtime-20260729.json`.
+
 ## 2026-07-28 - 好业财映射源身份与 WMS 运行态验收完成
 
 Current stage: `CHANJET_MAPPING_SOURCE_IDENTITY_DEPLOYED_WMS_RUNTIME_ACCEPTED`

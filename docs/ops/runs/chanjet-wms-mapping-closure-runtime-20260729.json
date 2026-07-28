@@ -1,0 +1,125 @@
+{
+  "generatedAt": "2026-07-29T00:39:12+08:00",
+  "gate": "CHANJET_WMS_MANUAL_MAPPING_CLOSURE_AND_PROVIDER_PERMISSION",
+  "decision": "GO_WITH_CONDITIONS",
+  "promotionDecision": "HOLD",
+  "release": {
+    "commit": "39e79ff3",
+    "ciDeployRun": "30377709519",
+    "aiBuildRun": "30377709429",
+    "ciDeployResult": "SUCCESS",
+    "aiBuildResult": "SUCCESS",
+    "productionHealthy": true
+  },
+  "migration": {
+    "name": "AddChanjetWmsMappingEntityType1785420000000",
+    "applied": true,
+    "column": "chanjet_master_data_mappings.erp_entity_type"
+  },
+  "readonlyRefresh": {
+    "sourceIdentities": 187,
+    "exactMatched": 16,
+    "sourceOnly": 171,
+    "conflicts": 0,
+    "preservedApproved": 14,
+    "erpBusinessTablesMutated": false,
+    "externalWriteExecuted": false
+  },
+  "mappingGaps": {
+    "coveragePercent": 8.56,
+    "providerPermissionHolds": 6,
+    "byType": {
+      "WAREHOUSE": {
+        "total": 25,
+        "mapped": 0,
+        "needMapping": 25
+      },
+      "PRODUCT": {
+        "total": 134,
+        "mapped": 10,
+        "needMapping": 124
+      },
+      "UOM": {
+        "total": 28,
+        "mapped": 6,
+        "needMapping": 22
+      }
+    },
+    "providerHolds": [
+      {
+        "scope": "OTHER_STOCK_IN",
+        "bookCount": 3,
+        "providerErrorCode": "50111"
+      },
+      {
+        "scope": "RETAIL_STOCK_OUT",
+        "bookCount": 3,
+        "providerErrorCode": "50111"
+      }
+    ],
+    "targetCatalog": {
+      "WAREHOUSE": 7,
+      "PRODUCT": 77,
+      "UOM": 7
+    }
+  },
+  "bridgeGate": {
+    "readonlyExpectedScopes": 33,
+    "readonlyFreshScopes": 27,
+    "readonlyFailedScopes": 6,
+    "promotionApprovalReady": false,
+    "promotionApprovalDecision": "HOLD",
+    "promotionCandidates": {
+      "total": 2625,
+      "needMapping": 2623,
+      "hold": 2,
+      "approved": 0,
+      "promoted": 0
+    },
+    "writebackOutboxRows": 0,
+    "externalWriteEnabledRows": 0
+  },
+  "businessFactFingerprints": {
+    "before": {
+      "invBatches": {
+        "rows": 257,
+        "quantity": "806794.950",
+        "availableQuantity": "806794.950"
+      },
+      "invLedger": {
+        "rows": 111,
+        "quantityChange": "2011.400"
+      },
+      "finCashAccounts": {
+        "rows": 62,
+        "balance": "2415170587.98"
+      }
+    },
+    "after": {
+      "invBatches": {
+        "rows": 257,
+        "quantity": "806794.950",
+        "availableQuantity": "806794.950"
+      },
+      "invLedger": {
+        "rows": 111,
+        "quantityChange": "2011.400"
+      },
+      "finCashAccounts": {
+        "rows": 62,
+        "balance": "2415170587.98"
+      }
+    },
+    "unchanged": true
+  },
+  "guardrails": {
+    "chanjetReadonly": true,
+    "chanjetWriteExecuted": false,
+    "erpInventoryFactWriteExecuted": false,
+    "erpFinanceTransactionWriteExecuted": false,
+    "automaticFuzzyMapping": false,
+    "automaticPromotion": false,
+    "explicitTargetEvidenceRequired": true
+  },
+  "nextGate": "CHANJET_WMS_ERP_MASTER_DATA_GAP_CLOSURE_AND_PROVIDER_AUTHORIZATION"
+}

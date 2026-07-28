@@ -2075,3 +2075,14 @@ Decision: counterparty resolution `GO`.
 - ERP inventory and finance fingerprints are unchanged; the writeback Outbox remains empty.
 - Source-only objects are not guessed or auto-approved. Provider permission and explicit mappings are required before a separately approved ERP promotion canary.
 - Chanjet write/delete/modify and automatic ERP inventory promotion remain disabled.
+
+# 2026-07-29 - Deploy typed WMS mapping closure and retain promotion HOLD
+
+- Decision: `GO_WITH_CONDITIONS`; production revision `39e79ff3` passed CI/CD run `30377709519`.
+- Typed mapping targets are mandatory: `WAREHOUSE`, `PRODUCT`, `SKU`, `MATERIAL` or `UOM`; an ERP code without its entity type is insufficient evidence.
+- Only reviewed exact identities and the lossless `kg -> 公斤` alias may close automatically. Similar names, chicken-house aliases and package units do not authorize mapping.
+- Production readonly refresh found 187 source identities, 16 mapped, 171 needing explicit mapping and zero conflicts; real coverage is 8.56%.
+- Six provider readonly scopes remain blocked by error `50111`: `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT` in all three books.
+- The 33/33 readonly baseline is a hard promotion prerequisite; current state is 27 fresh and six failed, so approval remains HOLD.
+- Inventory and finance business fingerprints are unchanged, promotion approved/promoted counts are zero and the writeback Outbox is empty.
+- No Chanjet write, modify or delete occurred. The next Gate closes ERP master-data gaps and provider authorization before any canary.

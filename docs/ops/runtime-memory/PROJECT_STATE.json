@@ -1,20 +1,20 @@
 {
-  "last_updated": "2026-07-28",
+  "last_updated": "2026-07-29",
   "active_module": "WMS / Chanjet Inventory Alignment",
-  "current_stage": "CHANJET_MAPPING_SOURCE_IDENTITY_DEPLOYED_WMS_RUNTIME_ACCEPTED",
+  "current_stage": "CHANJET_WMS_MAPPING_CLOSURE_DEPLOYED_PROVIDER_PERMISSION_HOLD",
   "active_decision": "GO_WITH_CONDITIONS",
   "agent_workspace_isolation": "task-generation-isolated-v2",
   "canonical_agent_execution_allowed": false,
   "workspace_retry_policy": "retire_generation_and_allocate_next",
-  "next_gate": "CHANJET_WMS_MANUAL_MAPPING_CLOSURE_AND_PROVIDER_PERMISSION",
+  "next_gate": "CHANJET_WMS_ERP_MASTER_DATA_GAP_CLOSURE_AND_PROVIDER_AUTHORIZATION",
   "page_entry": "/finance2/chanjet-integration",
   "menu_entry": "财务结算中心 / 好业财中间层（管理员）",
   "attachment_preview": "protected_account_qr_uat_passed",
   "raw_url_exposure": "forbidden",
-  "deploy_status": "37399002_verified_production_healthy_run_30369742061",
+  "deploy_status": "39e79ff3_verified_production_healthy_run_30377709519",
   "push_status": "pushed_main",
-  "database_write_status": "erp_middle_layer_only_187_wms_source_identities_2625_promotion_candidates_no_inventory_or_finance_transaction_write",
-  "migration_status": "chanjet_source_identity_and_wms_bridge_migrations_applied",
+  "database_write_status": "erp_middle_layer_mapping_only_187_wms_source_identities_2625_promotion_candidates_no_inventory_or_finance_transaction_write",
+  "migration_status": "chanjet_source_identity_wms_bridge_and_mapping_entity_type_migrations_applied",
   "last_full_deploy": {
     "date": "2026-06-27",
     "run": "28277134665",
@@ -28,7 +28,7 @@
   },
   "chanjet_integration": {
     "mode": "readonly_first",
-    "current_stage": "CHANJET_MAPPING_SOURCE_IDENTITY_DEPLOYED_WMS_RUNTIME_ACCEPTED",
+    "current_stage": "CHANJET_WMS_MAPPING_CLOSURE_DEPLOYED_PROVIDER_PERMISSION_HOLD",
     "active_decision": "GO_WITH_CONDITIONS",
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
@@ -58,9 +58,32 @@
     "wms_readonly_erp_inventory_write": false,
     "wms_production_snapshot_rows": 3999,
     "wms_source_identities_synced": 187,
-    "wms_exact_master_mappings": 14,
-    "wms_source_only_mappings": 173,
+    "wms_exact_master_mappings": 16,
+    "wms_source_only_mappings": 171,
     "wms_mapping_conflicts": 0,
+    "wms_mapping_coverage_percent": 8.56,
+    "wms_mapping_by_type": {
+      "WAREHOUSE": {
+        "total": 25,
+        "mapped": 0,
+        "need_mapping": 25
+      },
+      "PRODUCT": {
+        "total": 134,
+        "mapped": 10,
+        "need_mapping": 124
+      },
+      "UOM": {
+        "total": 28,
+        "mapped": 6,
+        "need_mapping": 22
+      }
+    },
+    "wms_provider_permission_holds": 6,
+    "wms_provider_permission_hold_scopes": [
+      "OTHER_STOCK_IN",
+      "RETAIL_STOCK_OUT"
+    ],
     "wms_mapping_backup": "/opt/phoenix-erp-backups/chanjet-wms-inbound-20260728-215143",
     "finance_cash_account_snapshots": 49,
     "finance_gl_balance_snapshots": 292,
@@ -113,7 +136,10 @@
     "local_mirror_tables_ready": true,
     "real_mirror_sync_executed": true,
     "real_mirror_sync_hold_reason": null,
-    "next_action": "close explicit WMS master mappings and provider permissions before any single-document ERP promotion canary; keep all external Chanjet writes disabled",
+    "next_action": "close ERP warehouse product SKU material UOM master-data gaps and obtain six provider readonly permissions before any single-document ERP promotion canary; keep all external Chanjet writes disabled",
+    "production_revision": "39e79ff3",
+    "production_deploy_run": "30377709519",
+    "wms_mapping_closure_runtime_evidence": "docs/ops/runs/chanjet-wms-mapping-closure-runtime-20260729.json",
     "erp_inbound_accounting_sync": "implemented_fail_closed_idempotent",
     "erp_inbound_accounting_authority": "Chanjet_4001_posted_facts_to_ERP_accounting_mirror_only",
     "erp_inbound_legal_equity_overwrite": false,
