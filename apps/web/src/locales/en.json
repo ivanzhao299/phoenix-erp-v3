@@ -13952,5 +13952,8 @@
   "ui.WMS按业务对象定义计数单位口径": "Define contextual count-unit semantics",
   "ui.WMS先定义SKU包装换算率": "Define the SKU package conversion first",
   "ui.WMS补齐标准计量单位后映射": "Define the canonical unit before mapping",
-  "ui.WMS映射已闭环短语": "Closed"
+  "ui.WMS映射已闭环短语": "Closed",
+  "ui.枚已完成包装交接": " eggs handed over from packaging",
+  "ui.当前为日产蛋入库模式包装交接不重复写库存": "Daily egg inbound mode is active. Packaging handover does not post inventory again; verify the quantity in the daily inbound ledger.",
+  "ui.包装交接完成但库存证据缺失": "Packaging handover is complete, but inventory posting evidence is unavailable. Ask a warehouse administrator to verify it."
 }
