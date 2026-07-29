@@ -149,6 +149,46 @@ interface MasterDataAlignmentDomainDefinition {
   authorityRule: string;
 }
 
+interface ChanjetMirrorEvidenceBook {
+  bookId: string;
+  bookName: string;
+  companyCode: string | null;
+  companyName: string | null;
+  enabled: boolean;
+}
+
+interface ChanjetMirrorEvidenceSnapshot {
+  endpointKey: string;
+  bookId: string;
+  rowCount: number;
+  pulledAt: Date;
+  rawPayload: Record<string, unknown>;
+}
+
+interface ChanjetMirrorEvidenceEntity {
+  endpointKey: string;
+  bookId: string;
+  entityType: string;
+  amount: number;
+  updatedAt: Date;
+  rawData: Record<string, unknown>;
+}
+
+interface ChanjetMirrorEvidenceJob {
+  endpointKey: string;
+  bookId: string;
+  status: ChanjetSyncJobEntity['status'];
+  errorMessage: string | null;
+  updatedAt: Date;
+}
+
+interface ChanjetMirrorEvidence {
+  books: ChanjetMirrorEvidenceBook[];
+  snapshots: ChanjetMirrorEvidenceSnapshot[];
+  entities: ChanjetMirrorEvidenceEntity[];
+  jobs: ChanjetMirrorEvidenceJob[];
+}
+
 export type FinanceReconciliationStatus = 'OK' | 'WARN' | 'MISMATCH' | 'HOLD' | 'NEED_MAPPING' | 'NEED_MANUAL_REVIEW';
 export type FinanceSemanticLockStatus = 'LOCKED' | 'PARTIAL' | 'PENDING' | 'HOLD';
 
@@ -1465,6 +1505,8 @@ export class ChanjetIntegrationService {
   private productionReadinessInFlight?: Promise<ChanjetProductionReadiness>;
   private currentStateCache?: { expiresAt: number; value: ChanjetCurrentStateOverview };
   private currentStateInFlight?: Promise<ChanjetCurrentStateOverview>;
+  private mirrorEvidenceCache?: { expiresAt: number; value: ChanjetMirrorEvidence };
+  private mirrorEvidenceInFlight?: Promise<ChanjetMirrorEvidence>;
 
   constructor(
     private readonly auth: ChanjetAuthService,
@@ -1882,15 +1924,14 @@ export class ChanjetIntegrationService {
 
   async mirrorBaselineReadiness(freshnessHours = 24): Promise<ChanjetMirrorBaselineReadiness> {
     const safeFreshnessHours = Math.min(Math.max(Number(freshnessHours) || 24, 1), 168);
-    const [books, snapshots, entities, jobs, accountBookGate] = await Promise.all([
-      this.accountBookRepo.find({ where: { enabled: true }, order: { bookName: 'ASC' } }),
-      this.readSnapshotRepo.find({ order: { pulledAt: 'DESC' }, take: 5000 }),
-      this.entitySnapshotRepo.find({ order: { updatedAt: 'DESC' }, take: 10000 }),
-      this.jobRepo.find({ where: { jobType: 'SNAPSHOT' }, order: { createdAt: 'DESC' }, take: 500 }),
+    const [evidence, accountBookGate] = await Promise.all([
+      this.loadMirrorEvidence(),
       this.accountBookMappingGate(),
     ]);
-    const validSnapshots = snapshots.filter((snapshot) => !getChanjetBusinessFailure(snapshot.rawPayload));
-    const validEntities = entities.filter((entity) => !getChanjetBusinessFailure(entity.rawData));
+    const books = evidence.books.filter((book) => book.enabled);
+    const validSnapshots = evidence.snapshots.filter((snapshot) => !getChanjetBusinessFailure(snapshot.rawPayload));
+    const validEntities = evidence.entities.filter((entity) => !getChanjetBusinessFailure(entity.rawData));
+    const jobs = evidence.jobs;
     const now = Date.now();
     const endpoints = PROBE_ENDPOINTS.filter((endpoint) => endpoint.mirrorDefault);
     const scopes: ChanjetMirrorBaselineReadiness['scopes'] = [];
@@ -1900,10 +1941,9 @@ export class ChanjetIntegrationService {
       if (endpoint.requiresBook && targets.length === 0) targets.push('');
       for (const targetBookId of targets) {
         const snapshot = validSnapshots.find((item) => item.endpointKey === endpoint.key && item.bookId === targetBookId);
-        const latestJob = jobs.find((job) => {
-          const scope = job.requestScope || {};
-          return String(scope.key || '') === endpoint.key && job.bookId === targetBookId;
-        });
+        const latestJob = jobs.find((job) => (
+          job.endpointKey === endpoint.key && job.bookId === targetBookId
+        ));
         // An unchanged payload is intentionally deduplicated and therefore does not
         // create a new snapshot row. A successful SNAPSHOT job still proves that the
         // source was polled successfully, so include its audit timestamp in freshness.
@@ -1983,6 +2023,135 @@ export class ChanjetIntegrationService {
         businessTableWrite: false,
         rule: '基线只读取 ERP 中间层快照、作业审计和账套映射，不调用好业财写接口。',
       },
+    };
+  }
+
+  /**
+   * Load only scalar evidence needed by readiness/coverage. The raw mirror
+   * payloads can exceed 80 MB in PostgreSQL and expand far beyond the 320 MB
+   * V8 heap when TypeORM materializes them. Extracting failure-envelope fields
+   * in SQL preserves fail-closed filtering without loading document bodies.
+   */
+  private async loadMirrorEvidence(): Promise<ChanjetMirrorEvidence> {
+    const now = Date.now();
+    if (this.mirrorEvidenceCache && this.mirrorEvidenceCache.expiresAt > now) {
+      return this.mirrorEvidenceCache.value;
+    }
+    if (this.mirrorEvidenceInFlight) {
+      return this.mirrorEvidenceInFlight;
+    }
+    const task = this.computeMirrorEvidence();
+    this.mirrorEvidenceInFlight = task;
+    try {
+      const value = await task;
+      this.mirrorEvidenceCache = {
+        expiresAt: Date.now() + (this.runtimeOverviewCacheTtlMs || 30_000),
+        value,
+      };
+      return value;
+    } finally {
+      if (this.mirrorEvidenceInFlight === task) {
+        this.mirrorEvidenceInFlight = undefined;
+      }
+    }
+  }
+
+  private async computeMirrorEvidence(): Promise<ChanjetMirrorEvidence> {
+    const [bookRows, snapshotRows, entityRows, jobRows] = await Promise.all([
+      this.ds.query(
+        `SELECT book_id, book_name, company_code, company_name, enabled
+           FROM chanjet_account_books
+          ORDER BY book_name ASC`,
+      ),
+      this.ds.query(
+        `SELECT endpoint_key, book_id, row_count, pulled_at,
+                raw_payload->>'success' AS envelope_success,
+                COALESCE(NULLIF(raw_payload->>'code', ''), raw_payload#>>'{error,code}', '') AS envelope_code,
+                COALESCE(NULLIF(raw_payload->>'msg', ''), NULLIF(raw_payload->>'message', ''),
+                         raw_payload#>>'{error,msg}', raw_payload#>>'{error,message}', '') AS envelope_message,
+                COALESCE(NULLIF(raw_payload->>'requestId', ''), NULLIF(raw_payload->>'request_id', ''),
+                         raw_payload#>>'{error,requestId}', '') AS envelope_request_id,
+                COALESCE(NULLIF(raw_payload->>'status', ''), raw_payload#>>'{error,status}', '') AS envelope_status,
+                (raw_payload ? 'data' AND raw_payload->'data' = 'null'::jsonb) AS envelope_null_data,
+                (jsonb_typeof(raw_payload->'error') = 'object'
+                  AND raw_payload->'error' <> '{}'::jsonb) AS envelope_has_error
+           FROM chanjet_read_snapshots
+          ORDER BY pulled_at DESC`,
+      ),
+      this.ds.query(
+        `SELECT endpoint_key, book_id, entity_type, amount, updated_at,
+                raw_data->>'success' AS envelope_success,
+                COALESCE(NULLIF(raw_data->>'code', ''), raw_data#>>'{error,code}', '') AS envelope_code,
+                COALESCE(NULLIF(raw_data->>'msg', ''), NULLIF(raw_data->>'message', ''),
+                         raw_data#>>'{error,msg}', raw_data#>>'{error,message}', '') AS envelope_message,
+                COALESCE(NULLIF(raw_data->>'requestId', ''), NULLIF(raw_data->>'request_id', ''),
+                         raw_data#>>'{error,requestId}', '') AS envelope_request_id,
+                COALESCE(NULLIF(raw_data->>'status', ''), raw_data#>>'{error,status}', '') AS envelope_status,
+                (raw_data ? 'data' AND raw_data->'data' = 'null'::jsonb) AS envelope_null_data,
+                (jsonb_typeof(raw_data->'error') = 'object'
+                  AND raw_data->'error' <> '{}'::jsonb) AS envelope_has_error
+           FROM chanjet_entity_snapshots
+          ORDER BY updated_at DESC`,
+      ),
+      this.ds.query(
+        `SELECT DISTINCT ON (COALESCE(request_scope->>'key', ''), book_id)
+                COALESCE(request_scope->>'key', '') AS endpoint_key,
+                book_id, status, error_message, updated_at
+           FROM chanjet_sync_jobs
+          WHERE job_type = 'SNAPSHOT'
+          ORDER BY COALESCE(request_scope->>'key', ''), book_id, created_at DESC`,
+      ),
+    ]);
+    const failureEnvelope = (row: Record<string, unknown>): Record<string, unknown> => {
+      const error = row.envelope_has_error
+        ? {
+          code: String(row.envelope_code || ''),
+          message: String(row.envelope_message || ''),
+          requestId: String(row.envelope_request_id || ''),
+          status: String(row.envelope_status || ''),
+        }
+        : undefined;
+      return {
+        success: row.envelope_success,
+        code: String(row.envelope_code || ''),
+        message: String(row.envelope_message || ''),
+        requestId: String(row.envelope_request_id || ''),
+        status: String(row.envelope_status || ''),
+        ...(row.envelope_null_data ? { data: null } : {}),
+        ...(error ? { error } : {}),
+      };
+    };
+    const toDate = (value: unknown) => value instanceof Date ? value : new Date(String(value || ''));
+    return {
+      books: (bookRows as Array<Record<string, unknown>>).map((row) => ({
+        bookId: String(row.book_id || ''),
+        bookName: String(row.book_name || ''),
+        companyCode: row.company_code ? String(row.company_code) : null,
+        companyName: row.company_name ? String(row.company_name) : null,
+        enabled: row.enabled === true || String(row.enabled).toLowerCase() === 'true',
+      })),
+      snapshots: (snapshotRows as Array<Record<string, unknown>>).map((row) => ({
+        endpointKey: String(row.endpoint_key || ''),
+        bookId: String(row.book_id || ''),
+        rowCount: Number(row.row_count || 0),
+        pulledAt: toDate(row.pulled_at),
+        rawPayload: failureEnvelope(row),
+      })),
+      entities: (entityRows as Array<Record<string, unknown>>).map((row) => ({
+        endpointKey: String(row.endpoint_key || ''),
+        bookId: String(row.book_id || ''),
+        entityType: String(row.entity_type || ''),
+        amount: Number(row.amount || 0),
+        updatedAt: toDate(row.updated_at),
+        rawData: failureEnvelope(row),
+      })),
+      jobs: (jobRows as Array<Record<string, unknown>>).map((row) => ({
+        endpointKey: String(row.endpoint_key || ''),
+        bookId: String(row.book_id || ''),
+        status: String(row.status || 'RUNNING') as ChanjetSyncJobEntity['status'],
+        errorMessage: row.error_message ? String(row.error_message) : null,
+        updatedAt: toDate(row.updated_at),
+      })),
     };
   }
 
@@ -4944,19 +5113,15 @@ export class ChanjetIntegrationService {
 
   async financeReadonlyCoverage() {
     const expectedEndpoints = PROBE_ENDPOINTS.filter((ep) => ep.mirrorDefault);
-    const [storedRawRows, storedEntityRows, fieldMappings, recentJobs, books] = await Promise.all([
-      this.readSnapshotRepo.find({ order: { pulledAt: 'DESC' }, take: 5000 }),
-      this.entitySnapshotRepo.find({ order: { updatedAt: 'DESC' }, take: 10000 }),
-      this.fieldMappingRepo.find({ take: 10000 }),
-      this.jobRepo.find({
-        where: { jobType: 'SNAPSHOT' },
-        order: { createdAt: 'DESC' },
-        take: 300,
-      }),
-      this.listAccountBooks(),
+    const [evidence, fieldMappings] = await Promise.all([
+      this.loadMirrorEvidence(),
+      this.ds.query(
+        `SELECT erp_domain, match_status, chanjet_endpoint
+           FROM chanjet_erp_field_mapping`,
+      ),
     ]);
-    const validRawRows = storedRawRows.filter((row) => !getChanjetBusinessFailure(row.rawPayload));
-    const validEntityRows = storedEntityRows.filter((row) => !getChanjetBusinessFailure(row.rawData));
+    const validRawRows = evidence.snapshots.filter((row) => !getChanjetBusinessFailure(row.rawPayload));
+    const validEntityRows = evidence.entities.filter((row) => !getChanjetBusinessFailure(row.rawData));
     const rawRows = expectedEndpoints.map((endpoint) => {
       const rows = validRawRows.filter((row) => row.endpointKey === endpoint.key);
       return {
@@ -4985,9 +5150,9 @@ export class ChanjetIntegrationService {
 
     const rawByEndpoint = new Map(rawRows.map((row: any) => [String(row.endpointKey), row]));
     const entityByType = new Map(entityRows.map((row: any) => [String(row.entityType), row]));
-    const latestJobByEndpoint = new Map<string, ChanjetSyncJobEntity>();
-    for (const job of recentJobs) {
-      const key = String(job.requestScope?.key || '');
+    const latestJobByEndpoint = new Map<string, ChanjetMirrorEvidenceJob>();
+    for (const job of evidence.jobs) {
+      const key = job.endpointKey;
       if (key && !latestJobByEndpoint.has(key)) latestJobByEndpoint.set(key, job);
     }
 
@@ -5014,16 +5179,18 @@ export class ChanjetIntegrationService {
     });
 
     const coveredEndpointKeys = new Set(endpointCoverage.filter((item) => item.covered).map((item) => item.key));
-    const validBusinessFieldMappings = fieldMappings.filter((mapping) => {
-      if (mapping.erpDomain === 'api_metadata') return false;
+    const validBusinessFieldMappings = (fieldMappings as Array<Record<string, unknown>>).filter((mapping) => {
+      if (String(mapping.erp_domain || '') === 'api_metadata') return false;
       const endpoint = expectedEndpoints.find((item) => {
         const prefix = item.path.split('{bookid}')[0];
-        return mapping.chanjetEndpoint === item.path || mapping.chanjetEndpoint.startsWith(prefix);
+        const chanjetEndpoint = String(mapping.chanjet_endpoint || '');
+        return chanjetEndpoint === item.path || chanjetEndpoint.startsWith(prefix);
       });
       return Boolean(endpoint && coveredEndpointKeys.has(endpoint.key));
     });
     const fieldStatusCounts = validBusinessFieldMappings.reduce<Record<string, number>>((acc, row) => {
-      acc[String(row.matchStatus || 'UNKNOWN')] = (acc[String(row.matchStatus || 'UNKNOWN')] || 0) + 1;
+      const status = String(row.match_status || 'UNKNOWN');
+      acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {});
     const totalFieldMappings = Object.values(fieldStatusCounts).reduce((sum, count) => sum + count, 0);
@@ -5063,7 +5230,7 @@ export class ChanjetIntegrationService {
       writeChanjet: false,
       writeBusinessTables: false,
       pushVoucher: false,
-      accountBooks: books.map((book) => ({
+      accountBooks: evidence.books.map((book) => ({
         bookId: book.bookId,
         bookName: book.bookName,
         companyCode: book.companyCode,

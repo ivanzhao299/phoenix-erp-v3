@@ -1186,6 +1186,82 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(subject.computeProductionReadinessOverview).toHaveBeenCalledTimes(1);
   });
 
+  it('loads mirror readiness evidence without materializing raw JSON documents', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.ds = {
+      query: jest.fn((sql: string) => {
+        if (sql.includes('FROM chanjet_account_books')) {
+          return Promise.resolve([{
+            book_id: 'BOOK-1',
+            book_name: '账套一',
+            company_code: 'COMP-1',
+            company_name: '公司一',
+            enabled: true,
+          }]);
+        }
+        if (sql.includes('FROM chanjet_read_snapshots')) {
+          return Promise.resolve([{
+            endpoint_key: 'GL_BALANCE',
+            book_id: 'BOOK-1',
+            row_count: 12,
+            pulled_at: new Date('2026-07-29T00:00:00.000Z'),
+            envelope_success: 'true',
+            envelope_code: 'openApi.e0000',
+            envelope_message: 'success',
+            envelope_request_id: 'REQ-1',
+            envelope_status: '200',
+            envelope_null_data: false,
+            envelope_has_error: false,
+          }]);
+        }
+        if (sql.includes('FROM chanjet_entity_snapshots')) {
+          return Promise.resolve([{
+            endpoint_key: 'GL_BALANCE',
+            book_id: 'BOOK-1',
+            entity_type: 'GL_BALANCE',
+            amount: '10.50',
+            updated_at: new Date('2026-07-29T00:00:00.000Z'),
+            envelope_success: null,
+            envelope_code: '',
+            envelope_message: '',
+            envelope_request_id: '',
+            envelope_status: '',
+            envelope_null_data: false,
+            envelope_has_error: false,
+          }]);
+        }
+        if (sql.includes('FROM chanjet_sync_jobs')) {
+          return Promise.resolve([{
+            endpoint_key: 'GL_BALANCE',
+            book_id: 'BOOK-1',
+            status: 'SUCCESS',
+            error_message: null,
+            updated_at: new Date('2026-07-29T00:00:00.000Z'),
+          }]);
+        }
+        throw new Error(`unexpected query: ${sql}`);
+      }),
+    };
+
+    const [first, second] = await Promise.all([
+      subject.loadMirrorEvidence(),
+      subject.loadMirrorEvidence(),
+    ]);
+    const cached = await subject.loadMirrorEvidence();
+
+    expect(first).toBe(second);
+    expect(cached).toBe(first);
+    expect(subject.ds.query).toHaveBeenCalledTimes(4);
+    expect(first).toMatchObject({
+      books: [{ bookId: 'BOOK-1', enabled: true }],
+      snapshots: [{ endpointKey: 'GL_BALANCE', rowCount: 12 }],
+      entities: [{ entityType: 'GL_BALANCE', amount: 10.5 }],
+      jobs: [{ endpointKey: 'GL_BALANCE', status: 'SUCCESS' }],
+    });
+    expect(JSON.stringify(first)).not.toContain('raw_payload');
+    expect(JSON.stringify(first)).not.toContain('raw_data');
+  });
+
   it('clears a failed current-state calculation so the next request can retry', async () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     const recovered = {
