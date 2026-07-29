@@ -1460,6 +1460,11 @@ export function classifyChanjetSyncFailure(error: string): {
 @Injectable()
 export class ChanjetIntegrationService {
   private readonly log = new Logger('ChanjetIntegration');
+  private readonly runtimeOverviewCacheTtlMs = 30_000;
+  private productionReadinessCache?: { expiresAt: number; value: ChanjetProductionReadiness };
+  private productionReadinessInFlight?: Promise<ChanjetProductionReadiness>;
+  private currentStateCache?: { expiresAt: number; value: ChanjetCurrentStateOverview };
+  private currentStateInFlight?: Promise<ChanjetCurrentStateOverview>;
 
   constructor(
     private readonly auth: ChanjetAuthService,
@@ -5103,29 +5108,79 @@ export class ChanjetIntegrationService {
   }
 
   async productionReadinessOverview(): Promise<ChanjetProductionReadiness> {
-    const [
-      baseline,
-      accountBookGate,
-      masterAlignment,
-      masterMappingReview,
-      coverage,
-      readModel,
-      cardAuthority,
-      reconciliation,
-      counterparties,
-      jobs,
-    ] = await Promise.all([
-      this.mirrorBaselineReadiness(24),
-      this.accountBookMappingGate(),
-      this.masterDataAlignmentOverview(),
-      this.masterDataMappingReview(),
-      this.financeReadonlyCoverage(),
-      this.financeReadModelOverview(),
-      this.financeCardAuthorityOverview(),
-      this.financeReconciliationOverview(),
-      this.counterpartyMappingCandidates(),
-      this.listSyncJobs(100),
-    ]);
+    const now = Date.now();
+    if (this.productionReadinessCache && this.productionReadinessCache.expiresAt > now) {
+      return this.productionReadinessCache.value;
+    }
+    if (this.productionReadinessInFlight) {
+      return this.productionReadinessInFlight;
+    }
+    const task = this.computeProductionReadinessOverview();
+    this.productionReadinessInFlight = task;
+    try {
+      const value = await task;
+      this.productionReadinessCache = {
+        expiresAt: Date.now() + (this.runtimeOverviewCacheTtlMs || 30_000),
+        value,
+      };
+      return value;
+    } finally {
+      if (this.productionReadinessInFlight === task) {
+        this.productionReadinessInFlight = undefined;
+      }
+    }
+  }
+
+  private async computeProductionReadinessOverview(): Promise<ChanjetProductionReadiness> {
+    // These aggregates can each contain thousands of mirror rows. Resolve them
+    // sequentially and retain only the compact fields used by this endpoint so
+    // the 512 MB production API container never holds every raw model at once.
+    const baseline = await this.mirrorBaselineReadiness(24).then((value) => ({
+      decision: value.decision,
+      summary: value.summary,
+    }));
+    const accountBookGate = await this.accountBookMappingGate().then((value) => ({
+      decision: value.decision,
+      summary: value.summary,
+      blockingIssues: value.blockingIssues,
+    }));
+    const masterAlignment = await this.masterDataAlignmentOverview().then((value) => ({
+      summary: value.summary,
+    }));
+    const masterMappingReview = await this.masterDataMappingReview().then((value) => ({
+      decision: value.decision,
+      summary: value.summary,
+    }));
+    const coverage = await this.financeReadonlyCoverage().then((value) => ({
+      summary: value.summary,
+    }));
+    const readModel = await this.financeReadModelOverview().then((value) => ({
+      decision: value.decision,
+      summary: value.summary,
+    }));
+    const cardAuthority = await this.financeCardAuthorityOverview().then((value) => ({
+      decision: value.decision,
+      summary: value.summary,
+    }));
+    const reconciliation = await this.financeReconciliationOverview().then((value) => ({
+      decision: value.decision,
+      summary: value.summary,
+    }));
+    const counterpartyCandidateCounts = await this.counterpartyMappingCandidates().then((value) => ({
+      exact: value.candidates.filter((candidate) => (
+        candidate.systemApprovalEligible && candidate.requiresApproval
+      )).length,
+      manual: value.candidates.filter((candidate) => (
+        candidate.requiresApproval && !candidate.systemApprovalEligible
+      )).length,
+    }));
+    const recentJobCounts = await this.listSyncJobs(100).then((jobs) => {
+      const relevant = jobs.filter((job) => job.jobType === 'SNAPSHOT').slice(0, 50);
+      return {
+        total: relevant.length,
+        success: relevant.filter((job) => job.status === 'SUCCESS').length,
+      };
+    });
     const tokenHealth = this.auth.diagnostics();
     const percent = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
     const ratio = (numerator: number, denominator: number) => denominator > 0 ? numerator / denominator : 0;
@@ -5143,22 +5198,15 @@ export class ChanjetIntegrationService {
     ) * 100);
     const semanticCoverageRate = percent(coverage.summary.fieldCoverageRate * 100);
     const authorityReadyRate = percent(ratio(cardAuthority.summary.authorityReady, cardAuthority.summary.totalCards) * 100);
-    const relevantJobs = jobs.filter((job) => job.jobType === 'SNAPSHOT').slice(0, 50);
     const recentJobSuccessRate = percent(ratio(
-      relevantJobs.filter((job) => job.status === 'SUCCESS').length,
-      relevantJobs.length,
+      recentJobCounts.success,
+      recentJobCounts.total,
     ) * 100);
-    const exactCounterpartyCandidates = counterparties.candidates.filter((candidate) => (
-      candidate.systemApprovalEligible && candidate.requiresApproval
-    )).length;
     const exactSystemApprovalCandidates = masterMappingReview.summary.exactMatches
-      + exactCounterpartyCandidates;
-    const manualCounterpartyCandidates = counterparties.candidates.filter((candidate) => (
-      candidate.requiresApproval && !candidate.systemApprovalEligible
-    )).length;
+      + counterpartyCandidateCounts.exact;
     const manualMappingCandidates = masterMappingReview.summary.needMapping
       + masterMappingReview.summary.conflicts
-      + manualCounterpartyCandidates;
+      + counterpartyCandidateCounts.manual;
     const readModelReadyRate = percent(ratio(
       readModel.summary.authorityReady + readModel.summary.readonlyReady,
       readModel.summary.totalMetrics,
@@ -5281,23 +5329,53 @@ export class ChanjetIntegrationService {
    * 唯一实时状态入口。历史 docs/ops/runs 只保留审计价值，不得覆盖本端点的当前结论。
    */
   async currentStateOverview(): Promise<ChanjetCurrentStateOverview> {
-    // productionReadinessOverview already fans out across the heavy read models.
-    // Running every aggregate beside it exhausted the production DB pool and made
-    // this endpoint intermittently return a connection timeout. Keep the live
-    // state current while bounding high-level query concurrency.
+    const now = Date.now();
+    if (this.currentStateCache && this.currentStateCache.expiresAt > now) {
+      return this.currentStateCache.value;
+    }
+    if (this.currentStateInFlight) {
+      return this.currentStateInFlight;
+    }
+    const task = this.computeCurrentStateOverview();
+    this.currentStateInFlight = task;
+    try {
+      const value = await task;
+      this.currentStateCache = {
+        expiresAt: Date.now() + (this.runtimeOverviewCacheTtlMs || 30_000),
+        value,
+      };
+      return value;
+    } finally {
+      if (this.currentStateInFlight === task) {
+        this.currentStateInFlight = undefined;
+      }
+    }
+  }
+
+  private async computeCurrentStateOverview(): Promise<ChanjetCurrentStateOverview> {
     const readiness = await this.productionReadinessOverview();
-    const [readModel, cardAuthority] = await Promise.all([
-      this.financeReadModelOverview(),
-      this.financeCardAuthorityOverview(),
-    ]);
-    const [masterMappingReview, reconciliation] = await Promise.all([
-      this.masterDataMappingReview(),
-      this.financeReconciliationOverview(),
-    ]);
-    const [overview, unsafePushAllowed] = await Promise.all([
-      this.overview(),
-      this.voucherDraftRepo.count({ where: { pushAllowed: true } }),
-    ]);
+    const readModel = await this.financeReadModelOverview().then((value) => ({
+      decision: value.decision,
+      summary: value.summary,
+    }));
+    const cardAuthority = await this.financeCardAuthorityOverview().then((value) => ({
+      decision: value.decision,
+      summary: value.summary,
+    }));
+    const masterMappingReview = await this.masterDataMappingReview().then((value) => ({
+      decision: value.decision,
+      summary: value.summary,
+    }));
+    const reconciliation = await this.financeReconciliationOverview().then((value) => ({
+      summary: value.summary,
+    }));
+    const overview = await this.overview().then((value) => ({
+      voucherDrafts: value.voucherDrafts,
+      pushReadyDrafts: value.pushReadyDrafts,
+      fieldMappings: value.fieldMappings,
+      unmappedFields: value.unmappedFields,
+    }));
+    const unsafePushAllowed = await this.voucherDraftRepo.count({ where: { pushAllowed: true } });
     const phase = (key: ChanjetProductionReadiness['phases'][number]['key']) =>
       readiness.phases.find((item) => item.key === key);
     const reconciliationOpen = reconciliation.summary.mismatch

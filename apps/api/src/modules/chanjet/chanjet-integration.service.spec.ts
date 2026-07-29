@@ -1158,6 +1158,58 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(result.guardrails).toMatchObject({ chanjetWrite: false, voucherPush: false, erpBusinessOverwrite: false });
   });
 
+  it('deduplicates concurrent production readiness calculations and serves the short cache', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const result = {
+      generatedAt: '2026-07-29T00:00:00.000Z',
+      decision: 'GO_WITH_CONDITIONS',
+      score: 90,
+      grade: 'A',
+      summary: { mirrorFreshRate: 90 },
+      phases: [],
+      blockers: [],
+      conditions: [],
+      tokenHealth: {},
+      guardrails: { chanjetWrite: false },
+    };
+    subject.computeProductionReadinessOverview = jest.fn().mockResolvedValue(result);
+
+    const [first, second] = await Promise.all([
+      subject.productionReadinessOverview(),
+      subject.productionReadinessOverview(),
+    ]);
+    const cached = await subject.productionReadinessOverview();
+
+    expect(first).toBe(result);
+    expect(second).toBe(result);
+    expect(cached).toBe(result);
+    expect(subject.computeProductionReadinessOverview).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears a failed current-state calculation so the next request can retry', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    const recovered = {
+      generatedAt: '2026-07-29T00:00:00.000Z',
+      decision: 'GO_WITH_CONDITIONS',
+      authoritativeEvidence: 'RUNTIME_CURRENT_STATE',
+      productionReadiness: {},
+      implementationOrder: [],
+      summary: {},
+      blockers: [],
+      conditions: [],
+      staleEvidencePolicy: 'runtime only',
+      guardrails: { chanjetWrite: false },
+    };
+    subject.computeCurrentStateOverview = jest.fn()
+      .mockRejectedValueOnce(new Error('transient aggregate failure'))
+      .mockResolvedValueOnce(recovered);
+
+    await expect(subject.currentStateOverview()).rejects.toThrow('transient aggregate failure');
+    await expect(subject.currentStateOverview()).resolves.toBe(recovered);
+
+    expect(subject.computeCurrentStateOverview).toHaveBeenCalledTimes(2);
+  });
+
   it('uses the verified daily receipt/payment contract in finance reconciliation', async () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     subject.erpFinanceAggregate = jest.fn().mockResolvedValue({ available: true, value: 0, rows: 0 });
