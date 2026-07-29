@@ -1,4 +1,8 @@
-import { ChanjetAuthService, getChanjetBusinessFailure } from './chanjet-auth.service';
+import {
+  ChanjetAuthService,
+  getChanjetBusinessFailure,
+  isHealthyAccountBookResponse,
+} from './chanjet-auth.service';
 
 function createService(options: {
   envCertificate?: string;
@@ -67,6 +71,19 @@ describe('Chanjet business response guard', () => {
     })).toBeNull();
     expect(getChanjetBusinessFailure({ code: '1001', name: '现金账户', balance: 10 })).toBeNull();
     expect(getChanjetBusinessFailure({ code: '50000', status: 'ACTIVE', name: '合法业务对象' })).toBeNull();
+  });
+});
+
+describe('Chanjet account-book health response', () => {
+  it('accepts direct arrays and supported provider envelopes', () => {
+    expect(isHealthyAccountBookResponse([{ id: 'BOOK-1' }])).toBe(true);
+    expect(isHealthyAccountBookResponse({ code: '200', value: [] })).toBe(true);
+    expect(isHealthyAccountBookResponse({ data: [{ id: 'BOOK-1' }] })).toBe(true);
+  });
+
+  it('rejects malformed and explicit failure responses', () => {
+    expect(isHealthyAccountBookResponse(null)).toBe(false);
+    expect(isHealthyAccountBookResponse({ code: '50111', message: 'permission denied' })).toBe(false);
   });
 });
 

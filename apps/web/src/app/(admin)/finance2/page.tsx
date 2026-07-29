@@ -257,20 +257,44 @@ export default function Finance2DashboardPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
+    const fetchIfAllowed = <T,>(allowed: boolean, path: string): Promise<T | null> => (
+      allowed ? apiFetch<T>(path) : Promise.resolve(null)
+    );
     try {
       const [ar, cashSummary, pendingTfr, sh, exp, rpt, alignment] = await Promise.allSettled([
-        apiFetch<ArSummaryData>('/api/v2/finance/ar/summary'),
-        apiFetch<CashDashData['summary']>('/api/v2/finance/cash/accounts/summary'),
-        apiFetch<{ total: number }>('/api/v2/finance/cash/transfers?status=PENDING_APPROVAL&pageSize=1'),
-        apiFetch<ShSummaryData>('/api/v2/finance/shareholders/contributions/summary'),
-        apiFetch<ExpSummaryData>('/api/v2/finance/expenses/summary'),
-        apiFetch<ReportOverviewData>('/api/v2/finance/reports/overview'),
-        apiFetch<ChanjetAlignmentData>('/api/v2/finance/reports/chanjet-alignment'),
+        fetchIfAllowed<ArSummaryData>(
+          hasPermission('MENU_FIN2_AR', 'V'),
+          '/api/v2/finance/ar/summary',
+        ),
+        fetchIfAllowed<CashDashData['summary']>(
+          hasPermission('MENU_FIN2_CASH_VIEW', 'V'),
+          '/api/v2/finance/cash/accounts/summary',
+        ),
+        fetchIfAllowed<{ total: number }>(
+          hasPermission('MENU_FIN2_CASH_TRANSFER', 'V'),
+          '/api/v2/finance/cash/transfers?status=PENDING_APPROVAL&pageSize=1',
+        ),
+        fetchIfAllowed<ShSummaryData>(
+          hasPermission('MENU_FIN2_SHAREHOLDER', 'V'),
+          '/api/v2/finance/shareholders/contributions/summary',
+        ),
+        fetchIfAllowed<ExpSummaryData>(
+          hasPermission('MENU_FIN2_EXPENSE', 'V'),
+          '/api/v2/finance/expenses/summary',
+        ),
+        fetchIfAllowed<ReportOverviewData>(
+          hasPermission('MENU_FIN2_REPORT', 'V'),
+          '/api/v2/finance/reports/overview',
+        ),
+        fetchIfAllowed<ChanjetAlignmentData>(
+          hasPermission('MENU_FIN2_REPORT', 'V'),
+          '/api/v2/finance/reports/chanjet-alignment',
+        ),
       ]);
 
       if (ar.status  === 'fulfilled') setArSummary(ar.value);
       // G60：后端 contributions/summary 返回 {totals,byType,byStatus}，适配为 ShSummaryData
-      if (sh.status  === 'fulfilled') {
+      if (sh.status  === 'fulfilled' && sh.value) {
         const raw = sh.value as unknown as { totals?: Record<string, unknown>; byStatus?: Array<Record<string, unknown>> } | null;
         if (raw?.totals) {
           const t = raw.totals; const bs = raw.byStatus ?? [];
@@ -293,16 +317,16 @@ export default function Finance2DashboardPage() {
         summary:          cashSummary.status === 'fulfilled' ? cashSummary.value : null,
         todayIn:          0,
         todayOut:         0,
-        pendingTransfers: pendingTfr.status === 'fulfilled' ? pendingTfr.value.total : 0,
+        pendingTransfers: pendingTfr.status === 'fulfilled' ? pendingTfr.value?.total ?? 0 : 0,
       });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t('fin2.common.load_failed','加载失败'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasPermission, t]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   // G58 多币种金额按币种堆叠多行渲染（避免单行 break-all 拦腰截断数字）。
   const renderMultiCcy = (rows: { ccy: string; amount: number }[]): React.ReactNode => {

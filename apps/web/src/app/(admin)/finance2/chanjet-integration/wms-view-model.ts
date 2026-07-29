@@ -10,6 +10,8 @@ export interface WmsScopeEvidence {
   latestPulledAt: string | null;
   latestSyncStatus: string;
   latestSyncError: string | null;
+  providerCapability?: 'SUPPORTED' | 'PERMISSION_HOLD' | 'UNSUPPORTED';
+  retryEligible?: boolean;
 }
 
 export interface WmsScopeSummary {

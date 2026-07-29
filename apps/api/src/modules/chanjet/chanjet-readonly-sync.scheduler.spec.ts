@@ -2,6 +2,7 @@ import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler'
 
 describe('ChanjetReadonlySyncScheduler', () => {
   const previousEnabled = process.env.CHANJET_READONLY_SYNC_ENABLED;
+  const previousInboundEnabled = process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED;
   const previousRecoveryCooldown = process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS;
   const readiness = {
     generatedAt: '2026-07-21T00:00:00.000Z',
@@ -18,6 +19,7 @@ describe('ChanjetReadonlySyncScheduler', () => {
 
   afterEach(() => {
     process.env.CHANJET_READONLY_SYNC_ENABLED = previousEnabled;
+    process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = previousInboundEnabled;
     process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS = previousRecoveryCooldown;
     jest.restoreAllMocks();
   });
@@ -88,6 +90,7 @@ describe('ChanjetReadonlySyncScheduler', () => {
 
   it('persists one durable run and uses one dedicated connection for advisory lock lifecycle', async () => {
     process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = 'true';
     const { query, runner } = createQueryRunner();
     const integration = createIntegration();
     const cronMonitor = {
@@ -116,6 +119,22 @@ describe('ChanjetReadonlySyncScheduler', () => {
     expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining("status = 'RUNNING'"), expect.any(Array));
     expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('result_summary = $4::jsonb'), expect.any(Array));
     await expect(scheduler.getRunState()).resolves.toMatchObject({ state: 'COMPLETED', decision: 'GO' });
+  });
+
+  it('keeps ERP inbound promotion disabled by default for a readonly run', async () => {
+    delete process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED;
+    const { runner } = createQueryRunner();
+    const inboundSync = createInboundSync();
+    const scheduler = new ChanjetReadonlySyncScheduler(
+      createIntegration() as never,
+      { ok: jest.fn().mockResolvedValue(undefined), fail: jest.fn() } as never,
+      createDataSource(runner) as never,
+      inboundSync as never,
+    );
+
+    await scheduler.runScheduledSync();
+
+    expect(inboundSync.syncScheduledShareholderBalances).not.toHaveBeenCalled();
   });
 
   it('records HOLD as a durable monitored failure and still releases the lock', async () => {

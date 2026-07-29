@@ -2110,3 +2110,19 @@ Decision: counterparty resolution `GO`.
   `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT`; the ERP cannot self-repair provider grants.
 - Chanjet writes and ERP inventory-fact promotion remain disabled. The next Gate stages
   canonical ERP masters and defines house-to-warehouse/location ownership.
+
+# 2026-07-29 - Complete Chanjet P0-P5 code path and require explicit domain policies
+
+- Decision: `GO_WITH_CONDITIONS`.
+- A Chanjet chicken-house-shaped warehouse identity may only resolve through an explicit
+  ERP house plus real WMS warehouse/location policy; it may never be approved as a
+  warehouse by name similarity.
+- Package/context units are resolved by account book, source product and source UOM.
+  Global package conversion remains forbidden.
+- Provider error `50111` is a permission HOLD and is not automatically retried.
+- ERP inbound accounting mirror is disabled by default and requires
+  `CHANJET_ERP_INBOUND_SYNC_ENABLED=true`.
+- The current read contract contains 29 endpoints; with three enabled books the dynamic
+  theoretical evidence target is 85. Historical `56/56` is not current full coverage.
+- The policy migration was created but not executed. No production DB write, push,
+  deploy, inventory promotion or Chanjet write occurred.

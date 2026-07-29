@@ -1,5 +1,35 @@
 # Next Actions
 
+## 2026-07-29 - 好业财 P0-P5 代码闭环，进入策略迁移与运行审核 Gate
+
+Current stage: `CHANJET_WMS_DOMAIN_POLICY_IMPLEMENTED_MIGRATION_PROVIDER_HOLD`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added fail-closed house-to-real-warehouse/location policy and product-specific UOM conversion policy.
+2. Added administrator review APIs and usable review controls under `/finance2/chanjet-integration`.
+3. Hardened token health response classification and stopped automatic retry for provider `50111` permission failures.
+4. Made ERP inbound accounting mirror opt-in instead of a misleading readonly scheduler default.
+5. Made finance-card API calls obey atomic permissions and made administrator panels degrade independently.
+6. Replaced the stale universal `56/56` claim with a dynamic current target: 29 contracts and three books produce 85 theoretical targets.
+7. Kept Chanjet external write, ERP inventory promotion, push, deploy and migration execution disabled in this batch.
+
+Next actions:
+
+1. Obtain explicit approval for `1785500000000-AddChanjetWmsDomainPolicies`.
+2. Apply the ERP-only migration and verify both policy tables.
+3. Review house/location and product/UOM policies against real ERP masters.
+4. Obtain provider access for six `OTHER_STOCK_IN` / `RETAIL_STOCK_OUT` scopes.
+5. Rebuild the dynamic 85-target readonly baseline and promotion candidates.
+6. Keep all Chanjet external writes disabled until a separate exact canary approval.
+
+Evidence:
+
+- `docs/ops/CHANJET_COMPLETE_IMPLEMENTATION_LONG_TASK_PLAN_20260729.md`
+- `docs/ops/CHANJET_WMS_DOMAIN_POLICY_AND_READONLY_RESILIENCE_REPORT_20260729.md`
+
 ## 2026-07-29 - 好业财 WMS 映射闭环已部署，主数据与供应商权限继续 HOLD
 
 Current stage: `CHANJET_WMS_MAPPING_CLOSURE_DEPLOYED_PROVIDER_PERMISSION_HOLD`

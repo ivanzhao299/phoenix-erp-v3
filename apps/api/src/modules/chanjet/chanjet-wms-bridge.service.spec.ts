@@ -402,6 +402,106 @@ describe('ChanjetWmsBridgeService', () => {
     }));
   });
 
+  it('uses approved house-location and product UOM policies without pretending they are master mappings', async () => {
+    const candidateRepo = repository();
+    const mappingRepo = repository({
+      find: jest.fn().mockResolvedValue(
+        mappings.filter((item) => item.mappingType === 'PRODUCT'),
+      ),
+      manager: {
+        query: jest.fn()
+          .mockResolvedValueOnce([{
+            id: 'HOUSE-POLICY-1',
+            book_id: 'BOOK-1',
+            company_code: 'COMP-1',
+            source_warehouse_code: 'WH-CJ',
+            erp_house_code: 'HOUSE-MS-01',
+            erp_warehouse_code: 'WH-ERP',
+            erp_location_code: 'LOC-ERP',
+          }])
+          .mockResolvedValueOnce([{
+            id: 'UOM-POLICY-1',
+            book_id: 'BOOK-1',
+            source_product_code: 'SKU-CJ',
+            source_uom: 'PCS',
+            erp_entity_type: 'SKU',
+            erp_product_code: 'SKU-ERP',
+            erp_base_uom: '枚',
+            conversion_ratio: '1',
+          }]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository({ find: jest.fn().mockResolvedValue([activeBook]) }) as never,
+      repository({ find: jest.fn().mockResolvedValue([snapshot]) }) as never,
+      mappingRepo as never,
+      candidateRepo as never,
+      repository() as never,
+    );
+
+    const result = await service.refreshPromotionCandidates('admin');
+
+    expect(result.states.CANDIDATE).toBe(1);
+    expect(candidateRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      state: 'CANDIDATE',
+      blockers: [],
+      conditions: [],
+      mappingEvidence: expect.objectContaining({
+        dimensions: expect.arrayContaining([
+          expect.objectContaining({
+            dimension: 'WAREHOUSE',
+            sourceCode: 'WH-CJ',
+            erpCode: 'LOC-ERP',
+            resolutionType: 'HOUSE_LOCATION_POLICY',
+          }),
+          expect.objectContaining({
+            dimension: 'UOM',
+            sourceCode: 'PCS',
+            contextCode: 'SKU-CJ',
+            erpCode: '枚',
+            resolutionType: 'PRODUCT_UOM_POLICY',
+          }),
+        ]),
+      }),
+    }));
+  });
+
+  it('records a rejected product UOM policy without requiring an ERP target or conversion ratio', async () => {
+    const mappingRepo = repository({
+      manager: {
+        query: jest.fn().mockResolvedValueOnce([{
+          id: 'UOM-POLICY-REJECTED',
+          state: 'REJECTED',
+        }]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository() as never,
+      repository() as never,
+      mappingRepo as never,
+      repository() as never,
+      repository() as never,
+    );
+
+    const result = await service.reviewUomConversionPolicy({
+      bookId: 'BOOK-1',
+      sourceProductCode: 'SKU-CJ',
+      sourceUom: '桶',
+      erpEntityType: 'PRODUCT',
+      erpProductCode: '',
+      erpBaseUom: '',
+      conversionRatio: 0,
+      decision: 'REJECT',
+    }, 'admin');
+
+    expect(result).toMatchObject({
+      policy: { id: 'UOM-POLICY-REJECTED', state: 'REJECTED' },
+      erpInventoryFactsMutated: false,
+      externalWriteExecuted: false,
+    });
+    expect(mappingRepo.manager.query).toHaveBeenCalledTimes(1);
+  });
+
   it('persists an explicit WMS master mapping only after validating the active ERP target', async () => {
     const sourceOnly = {
       id: '88',

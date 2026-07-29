@@ -1444,6 +1444,19 @@ const PROBE_ENDPOINTS: ProbeEndpoint[] = [
   },
 ];
 
+export function classifyChanjetSyncFailure(error: string): {
+  retryEligible: boolean;
+  capability: 'SUPPORTED' | 'PERMISSION_HOLD' | 'UNSUPPORTED';
+} {
+  if (/50111|无调用该接口的权限|permission denied|forbidden/i.test(error)) {
+    return { retryEligible: false, capability: 'PERMISSION_HOLD' };
+  }
+  if (/not supported|unsupported|不存在该接口/i.test(error)) {
+    return { retryEligible: false, capability: 'UNSUPPORTED' };
+  }
+  return { retryEligible: true, capability: 'SUPPORTED' };
+}
+
 @Injectable()
 export class ChanjetIntegrationService {
   private readonly log = new Logger('ChanjetIntegration');
@@ -1563,6 +1576,14 @@ export class ChanjetIntegrationService {
       const latestJob = latestJobByScope.get(jobScopeKey);
       const latestSuccessfulJob = latestSuccessfulJobByScope.get(jobScopeKey);
       const jobRows = Number(latestSuccessfulJob?.resultSummary?.rows);
+      const latestSyncError = latestJob?.errorMessage || null;
+      const providerCapability = latestJob?.status === 'FAIL'
+        && /50111|无调用该接口的权限|permission/i.test(latestSyncError || '')
+        ? 'PERMISSION_HOLD'
+        : latestJob?.status === 'FAIL'
+          && /not supported|unsupported|不存在该接口/i.test(latestSyncError || '')
+          ? 'UNSUPPORTED'
+          : 'SUPPORTED';
       return {
         endpointKey: endpoint.key,
         label: endpoint.label,
@@ -1575,7 +1596,9 @@ export class ChanjetIntegrationService {
           ? new Date(latestSuccessfulJob.updatedAt).toISOString()
           : latestByScope.get(entityScopeKey) || null,
         latestSyncStatus: latestJob?.status || 'MISSING',
-        latestSyncError: latestJob?.errorMessage || null,
+        latestSyncError,
+        providerCapability,
+        retryEligible: providerCapability === 'SUPPORTED',
       };
     });
     const staleBefore = Date.now() - 24 * 60 * 60 * 1000;
@@ -6804,7 +6827,10 @@ export class ChanjetIntegrationService {
     let attempts = 1;
 
     while (attempts < safeMaxAttempts) {
-      const failures = [...resultByTarget.values()].filter((result) => result.status === 'FAIL');
+      const failures = [...resultByTarget.values()].filter((result) => (
+        result.status === 'FAIL'
+        && classifyChanjetSyncFailure(result.error || '').retryEligible
+      ));
       if (!failures.length) break;
       attempts += 1;
       for (const failed of failures) {

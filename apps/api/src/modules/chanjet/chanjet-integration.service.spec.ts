@@ -1,4 +1,21 @@
-import { ChanjetIntegrationService } from './chanjet-integration.service';
+import {
+  ChanjetIntegrationService,
+  classifyChanjetSyncFailure,
+} from './chanjet-integration.service';
+
+describe('Chanjet provider failure classification', () => {
+  it('does not retry permanent permission or unsupported endpoint failures', () => {
+    expect(classifyChanjetSyncFailure('HTTP 403 code=50111 openToken无调用该接口的权限'))
+      .toEqual({ retryEligible: false, capability: 'PERMISSION_HOLD' });
+    expect(classifyChanjetSyncFailure('unsupported endpoint'))
+      .toEqual({ retryEligible: false, capability: 'UNSUPPORTED' });
+  });
+
+  it('keeps transient network failures retryable', () => {
+    expect(classifyChanjetSyncFailure('HTTP 502 upstream timeout'))
+      .toEqual({ retryEligible: true, capability: 'SUPPORTED' });
+  });
+});
 
 describe('ChanjetIntegrationService field-gap helpers', () => {
   const service = Object.create(ChanjetIntegrationService.prototype) as any;

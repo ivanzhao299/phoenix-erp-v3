@@ -72,8 +72,10 @@ type MappingDimension = 'WAREHOUSE' | 'PRODUCT' | 'UOM' | 'CURRENCY';
 interface MappingCheck {
   dimension: MappingDimension;
   sourceCode: string;
+  contextCode?: string;
   mapped: boolean;
   erpCode: string;
+  resolutionType?: 'MASTER_MAPPING' | 'HOUSE_LOCATION_POLICY' | 'PRODUCT_UOM_POLICY';
   reason: string;
 }
 
@@ -120,6 +122,53 @@ export interface PrepareWmsWritebackInput {
   canonicalPayload: Record<string, unknown>;
   approvalReference: string;
   approvalConfirmed: boolean;
+}
+
+interface ApprovedHouseLocationPolicy {
+  id: string;
+  book_id: string;
+  company_code: string;
+  source_warehouse_code: string;
+  erp_house_code: string;
+  erp_warehouse_code: string;
+  erp_location_code: string;
+}
+
+interface ApprovedUomConversionPolicy {
+  id: string;
+  book_id: string;
+  source_product_code: string;
+  source_uom: string;
+  erp_entity_type: 'PRODUCT' | 'SKU' | 'MATERIAL';
+  erp_product_code: string;
+  erp_base_uom: string;
+  conversion_ratio: string;
+}
+
+export interface ReviewHouseLocationPolicyInput {
+  bookId: string;
+  companyCode: string;
+  sourceWarehouseCode: string;
+  sourceWarehouseName?: string;
+  erpHouseCode: string;
+  erpWarehouseCode: string;
+  erpLocationCode: string;
+  decision: 'APPROVE' | 'REJECT' | 'HOLD';
+  evidence?: Record<string, unknown>;
+}
+
+export interface ReviewUomConversionPolicyInput {
+  bookId: string;
+  companyCode?: string;
+  sourceProductCode: string;
+  sourceProductName?: string;
+  sourceUom: string;
+  erpEntityType: 'PRODUCT' | 'SKU' | 'MATERIAL';
+  erpProductCode: string;
+  erpBaseUom: string;
+  conversionRatio: number;
+  decision: 'APPROVE' | 'REJECT' | 'HOLD';
+  evidence?: Record<string, unknown>;
 }
 
 const text = (value: unknown): string => String(value ?? '').trim();
@@ -195,7 +244,7 @@ export class ChanjetWmsBridgeService {
   }
 
   async refreshPromotionCandidates(actor: string): Promise<RefreshPromotionCandidatesResult> {
-    const [bookMaps, snapshots, mappings] = await Promise.all([
+    const [bookMaps, snapshots, mappings, policies] = await Promise.all([
       this.bookMapRepository.find({ where: { syncEnabled: true } }),
       this.snapshotRepository.find({
         where: { entityType: In(TRANSACTION_ENTITY_TYPES) },
@@ -206,6 +255,7 @@ export class ChanjetWmsBridgeService {
           mappingType: In<ChanjetMappingType>(['WAREHOUSE', 'PRODUCT', 'UOM', 'CURRENCY']),
         },
       }),
+      this.loadApprovedWmsPolicies(),
     ]);
     const books = new Map(bookMaps.map((item) => [item.bookid, item]));
     const existing = await this.candidateRepository.find();
@@ -234,7 +284,12 @@ export class ChanjetWmsBridgeService {
       const externalDocumentId = identity.externalIdentity || `SNAPSHOT-${snapshot.id}`;
 
       const book = books.get(snapshot.bookId);
-      const checks = this.mappingChecks(document, mappings);
+      const checks = this.mappingChecks(
+        document,
+        mappings,
+        policies.houseLocations,
+        policies.uomConversions,
+      );
       const blockers = unique([
         ...(identity.status === 'HOLD' ? identity.reasons : []),
         !book ? 'BOOK_COMPANY_MAPPING_MISSING_OR_DISABLED' : '',
@@ -474,7 +529,7 @@ export class ChanjetWmsBridgeService {
   }
 
   async mappingGapOverview() {
-    const [mappings, books, erpCandidates, alignment] = await Promise.all([
+    const [mappings, books, erpCandidates, alignment, policies] = await Promise.all([
       this.mappingRepository.find({
         where: { mappingType: In<ChanjetMappingType>(['WAREHOUSE', 'PRODUCT', 'UOM']) },
         order: { mappingType: 'ASC', bookId: 'ASC', chanjetName: 'ASC' },
@@ -482,6 +537,7 @@ export class ChanjetWmsBridgeService {
       this.bookMapRepository.find({ where: { syncEnabled: true } }),
       this.loadWmsErpCandidates(),
       this.integration?.wmsReadonlyAlignmentOverview() ?? Promise.resolve(null),
+      this.loadWmsPolicies(),
     ]);
     const bookById = new Map(books.map((book) => [book.bookid, book]));
     const rows = mappings.map((mapping) => {
@@ -605,6 +661,7 @@ export class ChanjetWmsBridgeService {
       byType,
       byGapClass: gapClasses,
       providerPermissionHolds: permissionHolds,
+      domainPolicies: policies,
       targetCatalog: erpCandidates,
       rows,
       guardrails: {
@@ -614,7 +671,306 @@ export class ChanjetWmsBridgeService {
         explicitTargetEvidenceRequired: true,
         fuzzyAutoMappingAllowed: false,
         houseAsWarehouseAllowed: false,
+        productSpecificPackageConversionRequired: true,
       },
+    };
+  }
+
+  async domainPolicyOverview() {
+    const [mappingGaps, policies, houseTargets, locationTargets, snapshots] = await Promise.all([
+      this.mappingGapOverview(),
+      this.loadWmsPolicies(),
+      this.mappingRepository.manager.query(`
+        SELECT
+          house_code AS code,
+          COALESCE(NULLIF(house_name, ''), house_code) AS name,
+          COALESCE(status, 'ACTIVE') AS status
+        FROM brd_houses
+        WHERE COALESCE(status, 'ACTIVE') = 'ACTIVE'
+        ORDER BY house_code
+      `) as Promise<Array<{ code: string; name: string; status: string }>>,
+      this.mappingRepository.manager.query(`
+        SELECT
+          l.location_code AS code,
+          COALESCE(NULLIF(l.location_name, ''), l.location_code) AS name,
+          l.warehouse_code,
+          COALESCE(w.company_code, '') AS company_code
+        FROM wms_locations l
+        JOIN wms_warehouses w ON w.warehouse_code = l.warehouse_code
+        WHERE COALESCE(l.status, 'ACTIVE') = 'ACTIVE'
+          AND COALESCE(w.status, 'ACTIVE') = 'ACTIVE'
+        ORDER BY l.warehouse_code, l.location_code
+      `) as Promise<Array<{
+        code: string;
+        name: string;
+        warehouse_code: string;
+        company_code: string;
+      }>>,
+      this.snapshotRepository.find({
+        where: { entityType: In(TRANSACTION_ENTITY_TYPES) },
+        order: { updatedAt: 'ASC' },
+      }),
+    ]);
+    const houseCandidates = mappingGaps.rows
+      .filter((row) => row.gapClass === 'HOUSE_INVENTORY_BRIDGE_REQUIRED')
+      .map((row) => ({
+        ...row,
+        currentPolicy: policies.houseLocations.rows.find((policy) => (
+          text(policy.book_id) === row.bookId
+          && upper(policy.source_warehouse_code) === upper(row.sourceCode)
+        )) || null,
+      }));
+    const uomGapKeys = new Set(mappingGaps.rows
+      .filter((row) => (
+        ['SKU_UOM_CONVERSION_REQUIRED', 'CONTEXTUAL_UOM_REQUIRED'].includes(row.gapClass)
+      ))
+      .map((row) => `${row.bookId}:${upper(row.sourceCode)}`));
+    const companyByBook = new Map(mappingGaps.rows.map((row) => [row.bookId, row.companyCode]));
+    const uomCandidateMap = new Map<string, {
+      candidateKey: string;
+      bookId: string;
+      companyCode: string;
+      sourceProductCode: string;
+      sourceProductName: string;
+      sourceUom: string;
+      currentPolicy: Record<string, unknown> | null;
+    }>();
+    for (const snapshot of snapshots) {
+      const entityType = snapshot.entityType as ChanjetInventoryEntityType;
+      if (!TRANSACTION_ENTITY_TYPES.includes(entityType)) continue;
+      const document = normalizeChanjetInventoryDocument(
+        snapshot.rawData,
+        entityType,
+        snapshot.bookId,
+      );
+      for (const line of document.lines) {
+        for (const sourceUom of unique([line.unitName, line.secondaryUnitName].filter(Boolean))) {
+          if (!uomGapKeys.has(`${snapshot.bookId}:${upper(sourceUom)}`)) continue;
+          const candidateKey = `${snapshot.bookId}:${upper(line.productCode)}:${upper(sourceUom)}`;
+          uomCandidateMap.set(candidateKey, {
+            candidateKey,
+            bookId: snapshot.bookId,
+            companyCode: companyByBook.get(snapshot.bookId) || '',
+            sourceProductCode: line.productCode,
+            sourceProductName: line.productName,
+            sourceUom,
+            currentPolicy: policies.uomConversions.rows.find((policy) => (
+              text(policy.book_id) === snapshot.bookId
+              && upper(policy.source_product_code) === upper(line.productCode)
+              && upper(policy.source_uom) === upper(sourceUom)
+            )) || null,
+          });
+        }
+      }
+    }
+    const uomCandidates = [...uomCandidateMap.values()];
+    const approvedHousePolicies = houseCandidates.filter(
+      (candidate) => text(candidate.currentPolicy?.state) === 'APPROVED',
+    ).length;
+    const approvedUomPolicies = uomCandidates.filter(
+      (candidate) => text(candidate.currentPolicy?.state) === 'APPROVED',
+    ).length;
+    return {
+      generatedAt: new Date().toISOString(),
+      decision: (
+        houseCandidates.length === approvedHousePolicies
+        && uomCandidates.length === approvedUomPolicies
+      ) ? 'GO_WITH_CONDITIONS' : 'HOLD',
+      summary: {
+        houseCandidates: houseCandidates.length,
+        approvedHousePolicies,
+        uomCandidates: uomCandidates.length,
+        approvedUomPolicies,
+      },
+      candidates: {
+        houseLocations: houseCandidates,
+        uomConversions: uomCandidates,
+      },
+      targets: {
+        houses: houseTargets,
+        locations: locationTargets,
+        products: mappingGaps.targetCatalog.PRODUCT,
+        units: mappingGaps.targetCatalog.UOM,
+      },
+      policies,
+      guardrails: {
+        chanjetReadOnly: true,
+        erpInventoryFactsMutated: false,
+        houseAsWarehouseAllowed: false,
+        conversionRatioMustBePositive: true,
+        explicitReviewRequired: true,
+      },
+    };
+  }
+
+  async reviewHouseLocationPolicy(
+    input: ReviewHouseLocationPolicyInput,
+    actor: string,
+  ) {
+    if (!text(actor)) throw new BadRequestException('policy review actor required');
+    if (!['APPROVE', 'REJECT', 'HOLD'].includes(input.decision)) {
+      throw new BadRequestException('decision must be APPROVE, REJECT or HOLD');
+    }
+    const source = await this.mappingRepository.findOne({
+      where: {
+        mappingType: 'WAREHOUSE',
+        bookId: text(input.bookId),
+        chanjetId: text(input.sourceWarehouseCode),
+      },
+    });
+    if (!source) throw new NotFoundException('source warehouse identity not found');
+    if (input.decision === 'APPROVE') {
+      const [houseRows, targetRows] = await Promise.all([
+        this.mappingRepository.manager.query(
+          `SELECT house_code FROM brd_houses
+           WHERE house_code = $1 AND COALESCE(status, 'ACTIVE') = 'ACTIVE'
+           LIMIT 1`,
+          [text(input.erpHouseCode)],
+        ) as Promise<Array<{ house_code: string }>>,
+        this.mappingRepository.manager.query(
+          `SELECT l.location_code, l.warehouse_code, COALESCE(w.company_code, '') AS company_code
+           FROM wms_locations l
+           JOIN wms_warehouses w ON w.warehouse_code = l.warehouse_code
+           WHERE l.location_code = $1
+             AND l.warehouse_code = $2
+             AND COALESCE(l.status, 'ACTIVE') = 'ACTIVE'
+             AND COALESCE(w.status, 'ACTIVE') = 'ACTIVE'
+           LIMIT 1`,
+          [text(input.erpLocationCode), text(input.erpWarehouseCode)],
+        ) as Promise<Array<{
+          location_code: string;
+          warehouse_code: string;
+          company_code: string;
+        }>>,
+      ]);
+      if (!houseRows.length) throw new BadRequestException('active ERP house does not exist');
+      const target = targetRows[0];
+      if (!target) {
+        throw new BadRequestException('active ERP warehouse/location ownership does not exist');
+      }
+      if (
+        text(input.companyCode)
+        && target.company_code
+        && target.company_code !== text(input.companyCode)
+      ) {
+        throw new BadRequestException('warehouse/location is outside the source account-book company');
+      }
+    }
+    const state = input.decision === 'APPROVE'
+      ? 'APPROVED'
+      : input.decision === 'REJECT'
+        ? 'REJECTED'
+        : 'HOLD';
+    const [saved] = await this.mappingRepository.manager.query(
+      `INSERT INTO chanjet_wms_house_location_policies (
+         book_id, company_code, source_warehouse_code, source_warehouse_name,
+         erp_house_code, erp_warehouse_code, erp_location_code, state,
+         evidence, reviewed_by, reviewed_at, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,now(),now())
+       ON CONFLICT (book_id, source_warehouse_code) DO UPDATE SET
+         company_code = EXCLUDED.company_code,
+         source_warehouse_name = EXCLUDED.source_warehouse_name,
+         erp_house_code = EXCLUDED.erp_house_code,
+         erp_warehouse_code = EXCLUDED.erp_warehouse_code,
+         erp_location_code = EXCLUDED.erp_location_code,
+         state = EXCLUDED.state,
+         evidence = EXCLUDED.evidence,
+         reviewed_by = EXCLUDED.reviewed_by,
+         reviewed_at = now(),
+         updated_at = now()
+       RETURNING *`,
+      [
+        text(input.bookId),
+        text(input.companyCode),
+        text(input.sourceWarehouseCode),
+        text(input.sourceWarehouseName),
+        text(input.erpHouseCode),
+        text(input.erpWarehouseCode),
+        text(input.erpLocationCode),
+        state,
+        JSON.stringify(input.evidence || {}),
+        actor,
+      ],
+    ) as Array<Record<string, unknown>>;
+    return {
+      policy: saved,
+      erpInventoryFactsMutated: false,
+      externalWriteExecuted: false,
+    };
+  }
+
+  async reviewUomConversionPolicy(
+    input: ReviewUomConversionPolicyInput,
+    actor: string,
+  ) {
+    if (!text(actor)) throw new BadRequestException('policy review actor required');
+    if (!['APPROVE', 'REJECT', 'HOLD'].includes(input.decision)) {
+      throw new BadRequestException('decision must be APPROVE, REJECT or HOLD');
+    }
+    const ratio = Number(input.conversionRatio);
+    let baseUom = text(input.erpBaseUom);
+    if (input.decision === 'APPROVE') {
+      if (!Number.isFinite(ratio) || ratio <= 0) {
+        throw new BadRequestException('conversionRatio must be greater than zero');
+      }
+      const candidates = await this.loadWmsErpCandidates();
+      const product = candidates.PRODUCT.find((candidate) => (
+        candidate.entity_type === input.erpEntityType
+        && upper(candidate.code) === upper(input.erpProductCode)
+      ));
+      if (!product) {
+        throw new BadRequestException('active ERP product/SKU/material target does not exist');
+      }
+      const unit = candidates.UOM.find((candidate) => (
+        upper(candidate.code) === upper(input.erpBaseUom)
+        || this.normalizedWmsName(candidate.name) === this.normalizedWmsName(input.erpBaseUom)
+      ));
+      if (!unit) throw new BadRequestException('active ERP base UOM does not exist');
+      baseUom = unit.code;
+    }
+    const state = input.decision === 'APPROVE'
+      ? 'APPROVED'
+      : input.decision === 'REJECT'
+        ? 'REJECTED'
+        : 'HOLD';
+    const [saved] = await this.mappingRepository.manager.query(
+      `INSERT INTO chanjet_wms_uom_conversion_policies (
+         book_id, company_code, source_product_code, source_product_name,
+         source_uom, erp_entity_type, erp_product_code, erp_base_uom,
+         conversion_ratio, state, evidence, reviewed_by, reviewed_at, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,now(),now())
+       ON CONFLICT (book_id, source_product_code, source_uom) DO UPDATE SET
+         company_code = EXCLUDED.company_code,
+         source_product_name = EXCLUDED.source_product_name,
+         erp_entity_type = EXCLUDED.erp_entity_type,
+         erp_product_code = EXCLUDED.erp_product_code,
+         erp_base_uom = EXCLUDED.erp_base_uom,
+         conversion_ratio = EXCLUDED.conversion_ratio,
+         state = EXCLUDED.state,
+         evidence = EXCLUDED.evidence,
+         reviewed_by = EXCLUDED.reviewed_by,
+         reviewed_at = now(),
+         updated_at = now()
+       RETURNING *`,
+      [
+        text(input.bookId),
+        text(input.companyCode),
+        text(input.sourceProductCode),
+        text(input.sourceProductName),
+        text(input.sourceUom),
+        input.erpEntityType,
+        text(input.erpProductCode),
+        baseUom,
+        Number.isFinite(ratio) && ratio > 0 ? ratio : 1,
+        state,
+        JSON.stringify(input.evidence || {}),
+        actor,
+      ],
+    ) as Array<Record<string, unknown>>;
+    return {
+      policy: saved,
+      erpInventoryFactsMutated: false,
+      externalWriteExecuted: false,
     };
   }
 
@@ -870,22 +1226,39 @@ export class ChanjetWmsBridgeService {
   private mappingChecks(
     document: NormalizedChanjetInventoryDocument,
     mappings: ChanjetMasterMappingEntity[],
+    housePolicies: ApprovedHouseLocationPolicy[] = [],
+    uomPolicies: ApprovedUomConversionPolicy[] = [],
   ): MappingCheck[] {
-    const sources: Array<{ dimension: MappingDimension; code: string }> = [
+    const sources: Array<{ dimension: MappingDimension; code: string; contextCode?: string }> = [
       { dimension: 'WAREHOUSE', code: document.warehouseCode },
-      ...document.lines.map((line) => ({ dimension: 'WAREHOUSE' as const, code: line.warehouseCode })),
-      ...document.lines.map((line) => ({ dimension: 'PRODUCT' as const, code: line.productCode })),
-      ...document.lines.map((line) => ({ dimension: 'UOM' as const, code: line.unitName })),
-      ...document.lines.map((line) => ({ dimension: 'UOM' as const, code: line.secondaryUnitName })),
-      ...(document.currencyCode ? [{ dimension: 'CURRENCY' as const, code: document.currencyCode }] : []),
+      ...document.lines.map((line) => ({
+        dimension: 'WAREHOUSE' as const,
+        code: line.warehouseCode,
+      })),
+      ...document.lines.map((line) => ({
+        dimension: 'PRODUCT' as const,
+        code: line.productCode,
+      })),
+      ...document.lines.map((line) => ({
+        dimension: 'UOM' as const,
+        code: line.unitName,
+        contextCode: line.productCode,
+      })),
+      ...document.lines.map((line) => ({
+        dimension: 'UOM' as const,
+        code: line.secondaryUnitName,
+        contextCode: line.productCode,
+      })),
+      ...(document.currencyCode
+        ? [{ dimension: 'CURRENCY' as const, code: document.currencyCode }]
+        : []),
     ];
 
     return unique(sources
       .filter((source) => !!text(source.code))
-      .map((source) => `${source.dimension}:${upper(source.code)}`))
+      .map((source) => `${source.dimension}:${upper(source.code)}:${upper(source.contextCode)}`))
       .map((key) => {
-        const [dimension, ...codeParts] = key.split(':');
-        const code = codeParts.join(':');
+        const [dimension, code, contextCode] = key.split(':');
         const mapping = mappings.find((candidate) => (
           candidate.mappingType === dimension
           && candidate.bookId === document.bookId
@@ -894,16 +1267,84 @@ export class ChanjetWmsBridgeService {
           && candidate.reviewStatus === 'APPROVED'
           && ['MATCHED', 'MANUAL'].includes(candidate.matchStatus)
         ));
+        const housePolicy = dimension === 'WAREHOUSE' && !mapping
+          ? housePolicies.find((policy) => (
+            policy.book_id === document.bookId
+            && upper(policy.source_warehouse_code) === code
+          ))
+          : undefined;
+        const uomPolicy = dimension === 'UOM' && !mapping
+          ? uomPolicies.find((policy) => (
+            policy.book_id === document.bookId
+            && upper(policy.source_uom) === code
+            && upper(policy.source_product_code) === contextCode
+          ))
+          : undefined;
+        const mapped = !!mapping || !!housePolicy || !!uomPolicy;
         return {
           dimension: dimension as MappingDimension,
           sourceCode: code,
-          mapped: !!mapping,
-          erpCode: mapping?.erpCode || '',
-          reason: mapping
+          contextCode: contextCode || undefined,
+          mapped,
+          erpCode: mapping?.erpCode
+            || housePolicy?.erp_location_code
+            || uomPolicy?.erp_base_uom
+            || '',
+          resolutionType: mapping
+            ? 'MASTER_MAPPING' as const
+            : housePolicy
+              ? 'HOUSE_LOCATION_POLICY' as const
+              : uomPolicy
+                ? 'PRODUCT_UOM_POLICY' as const
+                : undefined,
+          reason: mapped
             ? ''
             : `${dimension}_MAPPING_REQUIRED:${code || 'SOURCE_CODE_MISSING'}`,
         };
       });
+  }
+
+  private async loadApprovedWmsPolicies() {
+    const [houseLocations, uomConversions] = await Promise.all([
+      this.mappingRepository.manager.query(`
+        SELECT *
+        FROM chanjet_wms_house_location_policies
+        WHERE state = 'APPROVED'
+      `) as Promise<ApprovedHouseLocationPolicy[]>,
+      this.mappingRepository.manager.query(`
+        SELECT *
+        FROM chanjet_wms_uom_conversion_policies
+        WHERE state = 'APPROVED'
+      `) as Promise<ApprovedUomConversionPolicy[]>,
+    ]);
+    return { houseLocations, uomConversions };
+  }
+
+  private async loadWmsPolicies() {
+    const [houseRows, uomRows] = await Promise.all([
+      this.mappingRepository.manager.query(`
+        SELECT *
+        FROM chanjet_wms_house_location_policies
+        ORDER BY updated_at DESC
+      `) as Promise<Array<Record<string, unknown> & { state: string }>>,
+      this.mappingRepository.manager.query(`
+        SELECT *
+        FROM chanjet_wms_uom_conversion_policies
+        ORDER BY updated_at DESC
+      `) as Promise<Array<Record<string, unknown> & { state: string }>>,
+    ]);
+    return {
+      houseLocations: {
+        total: houseRows.length,
+        approved: houseRows.filter((row) => row.state === 'APPROVED').length,
+        rows: houseRows,
+      },
+      uomConversions: {
+        total: uomRows.length,
+        approved: uomRows.filter((row) => row.state === 'APPROVED').length,
+        rows: uomRows,
+      },
+    };
   }
 
   private collectWmsMappingSource(

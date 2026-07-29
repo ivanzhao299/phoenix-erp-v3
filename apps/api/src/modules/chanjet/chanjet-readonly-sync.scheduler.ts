@@ -229,7 +229,9 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
         }
       }
       let erpInbound: Record<string, unknown> = { enabled: false, applied: false };
-      if (String(process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED || 'true').toLowerCase() !== 'false') {
+      // A readonly mirror refresh must not silently promote data into ERP
+      // accounting mirrors. Promotion is a separate, explicitly enabled Gate.
+      if (String(process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED || 'false').toLowerCase() === 'true') {
         try {
           const inboundResult = await this.inboundSync.syncScheduledShareholderBalances(period, requestedBy);
           erpInbound = {

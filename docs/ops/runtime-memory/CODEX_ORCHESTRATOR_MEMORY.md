@@ -1,17 +1,33 @@
 # Codex-Orchestrator Runtime Memory
 
-Last updated: 2026-07-21
+Last updated: 2026-07-29
 
 ## Active Context
 
-- Active module: Chanjet Integration
-- Current stage: CHANJET_WAVE_7_APPROVAL_PRECHECK_READY
-- Active decision: WAITING_EXPLICIT_APPROVAL
-- Next gate: CHANJET_WAVE_7_EXTERNAL_MINIMAL_WRITE_APPROVAL
+- Active module: Chanjet Finance and WMS Integration
+- Current stage: CHANJET_WMS_DOMAIN_POLICY_IMPLEMENTED_MIGRATION_PROVIDER_HOLD
+- Active decision: GO_WITH_CONDITIONS
+- Next gate: CHANJET_WMS_DOMAIN_POLICY_MIGRATION_AND_RUNTIME_REVIEW
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
 
 ## Latest Chanjet Decision
+
+- P0-P5 code-side completion is recorded in
+  `docs/ops/CHANJET_COMPLETE_IMPLEMENTATION_LONG_TASK_PLAN_20260729.md`.
+- The current read catalog contains 29 contracts. With three enabled books the
+  theoretical evidence target is 85; historical `56/56` covers an older finance scope
+  and is not a current full-platform baseline.
+- WMS production evidence remains 27/33 because the provider rejects
+  `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT` for all three books with `50111`.
+- House-shaped source warehouses now require an explicit ERP house plus real
+  warehouse/location policy. Product package units require a product-specific
+  conversion policy.
+- The administrator review UI is under `/finance2/chanjet-integration`.
+- The new domain-policy migration is created but not executed.
+- ERP inbound accounting mirror is disabled by default and requires an explicit
+  `CHANJET_ERP_INBOUND_SYNC_ENABLED=true`.
+- Chanjet external write, delete, modify and voucher push remain disabled.
 
 - End-to-end program `CHANJET-E2E-20260720` contains 10 waves and 51 dependency-linked tasks; Waves 0-6 are implemented and production-verified.
 - Plan: `docs/ops/CHANJET_END_TO_END_DEEP_DELIVERY_PLAN.md`.

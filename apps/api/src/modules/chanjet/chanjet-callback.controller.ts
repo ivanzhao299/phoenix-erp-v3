@@ -7,7 +7,12 @@ import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetArSyncService } from './chanjet-ar-sync.service';
 import { ChanjetExternalCanaryApprovalInput, ChanjetIntegrationService } from './chanjet-integration.service';
 import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler';
-import { ChanjetWmsBridgeService, PrepareWmsWritebackInput } from './chanjet-wms-bridge.service';
+import {
+  ChanjetWmsBridgeService,
+  PrepareWmsWritebackInput,
+  ReviewHouseLocationPolicyInput,
+  ReviewUomConversionPolicyInput,
+} from './chanjet-wms-bridge.service';
 import { ChanjetWmsPromotionState } from './chanjet-wms-promotion-candidate.entity';
 import * as crypto from 'crypto';
 
@@ -836,6 +841,47 @@ export class ChanjetCallbackController {
     return {
       success: true,
       mappingGaps: await this.wmsBridge.mappingGapOverview(),
+    };
+  }
+
+  @Get('integration/wms/domain-policies')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationWmsDomainPolicies() {
+    return {
+      success: true,
+      domainPolicies: await this.wmsBridge.domainPolicyOverview(),
+    };
+  }
+
+  @Post('integration/wms/domain-policies/house-location/review')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async reviewIntegrationWmsHouseLocationPolicy(
+    @Body() body: ReviewHouseLocationPolicyInput,
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const actor = String(req?.user?.username || req?.user?.userId || '');
+    this.log.warn(
+      `Chanjet WMS house/location policy review user=${actor} source=${body.bookId}:${body.sourceWarehouseCode} decision=${body.decision}`,
+    );
+    return {
+      success: true,
+      result: await this.wmsBridge.reviewHouseLocationPolicy(body, actor),
+    };
+  }
+
+  @Post('integration/wms/domain-policies/uom-conversion/review')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async reviewIntegrationWmsUomConversionPolicy(
+    @Body() body: ReviewUomConversionPolicyInput,
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const actor = String(req?.user?.username || req?.user?.userId || '');
+    this.log.warn(
+      `Chanjet WMS UOM conversion policy review user=${actor} source=${body.bookId}:${body.sourceProductCode}:${body.sourceUom} decision=${body.decision}`,
+    );
+    return {
+      success: true,
+      result: await this.wmsBridge.reviewUomConversionPolicy(body, actor),
     };
   }
 

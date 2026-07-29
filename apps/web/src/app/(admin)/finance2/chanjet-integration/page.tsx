@@ -158,6 +158,18 @@ interface WmsMappingGapOverview {
     bookName: string;
     error: string;
   }>;
+  domainPolicies?: {
+    houseLocations: {
+      total: number;
+      approved: number;
+      rows: Array<Record<string, unknown>>;
+    };
+    uomConversions: {
+      total: number;
+      approved: number;
+      rows: Array<Record<string, unknown>>;
+    };
+  };
   targetCatalog: Record<'WAREHOUSE' | 'PRODUCT' | 'UOM', WmsMappingTarget[]>;
   rows: Array<{
     id: string;
@@ -181,6 +193,48 @@ interface WmsMappingGapOverview {
     allowedTargetCount: number;
     nextAction: string;
   }>;
+}
+
+interface WmsDomainPolicyOverview {
+  generatedAt: string;
+  decision: 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    houseCandidates: number;
+    approvedHousePolicies: number;
+    uomCandidates: number;
+    approvedUomPolicies: number;
+  };
+  candidates: {
+    houseLocations: Array<{
+      id: string;
+      bookId: string;
+      bookName: string;
+      companyCode: string;
+      sourceCode: string;
+      sourceName: string;
+      currentPolicy: Record<string, unknown> | null;
+    }>;
+    uomConversions: Array<{
+      candidateKey: string;
+      bookId: string;
+      companyCode: string;
+      sourceProductCode: string;
+      sourceProductName: string;
+      sourceUom: string;
+      currentPolicy: Record<string, unknown> | null;
+    }>;
+  };
+  targets: {
+    houses: Array<{ code: string; name: string }>;
+    locations: Array<{
+      code: string;
+      name: string;
+      warehouse_code: string;
+      company_code: string;
+    }>;
+    products: WmsMappingTarget[];
+    units: WmsMappingTarget[];
+  };
 }
 
 function allowedWmsTargets(
@@ -974,6 +1028,16 @@ export default function ChanjetIntegrationPage() {
   const [wmsBridge, setWmsBridge] = useState<WmsBridgeReadiness | null>(null);
   const [wmsMappingGaps, setWmsMappingGaps] = useState<WmsMappingGapOverview | null>(null);
   const [wmsMappingTargets, setWmsMappingTargets] = useState<Record<string, string>>({});
+  const [wmsDomainPolicies, setWmsDomainPolicies] = useState<WmsDomainPolicyOverview | null>(null);
+  const [wmsHousePolicyDrafts, setWmsHousePolicyDrafts] = useState<Record<string, {
+    houseCode: string;
+    locationCode: string;
+  }>>({});
+  const [wmsUomPolicyDrafts, setWmsUomPolicyDrafts] = useState<Record<string, {
+    productTarget: string;
+    baseUom: string;
+    ratio: string;
+  }>>({});
   const [baselineReadiness, setBaselineReadiness] = useState<MirrorBaselineReadiness | null>(null);
   const [accountBookGate, setAccountBookGate] = useState<AccountBookMappingGate | null>(null);
   const [counterpartyCandidates, setCounterpartyCandidates] = useState<CounterpartyCandidateOverview | null>(null);
@@ -999,7 +1063,7 @@ export default function ChanjetIntegrationPage() {
     setLoading(true);
     setError('');
     try {
-      const [ov, bookResp, mapResp, fieldResp, jobResp, draftResp, outboxResp, writebackPreparationResp, reconResp, readResp, entityResp, fieldMapResp, financeAdapterResp, financeCoverageResp, financeRuntimeReconResp, financeSemanticExtractorResp, financeReadModelResp, financeReadonlyReportResp, receiptPaymentLocksResp, readonlyFieldAdaptersResp, wmsAlignmentResp, wmsBridgeResp, wmsMappingGapResp, baselineResp, accountBookGateResp, counterpartyCandidateResp, currentStateResp] = await Promise.all([
+      const results = await Promise.allSettled([
         request<{ success: boolean; overview: Overview; error?: string }>('/chanjet/integration/overview'),
         request<{ success: boolean; books: AccountBook[]; error?: string }>('/chanjet/integration/account-books'),
         request<{ success: boolean; mappings: Mapping[]; error?: string }>('/chanjet/integration/master-mappings'),
@@ -1027,7 +1091,40 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; gate: AccountBookMappingGate; error?: string }>('/chanjet/integration/account-book-mapping-gate'),
         request<{ success: boolean; candidateOverview: CounterpartyCandidateOverview; error?: string }>('/chanjet/integration/counterparty-mapping-candidates'),
         request<{ success: boolean; currentState: CurrentStateOverview; error?: string }>('/chanjet/integration/current-state'),
+        request<{ success: boolean; domainPolicies: WmsDomainPolicyOverview; error?: string }>('/chanjet/integration/wms/domain-policies'),
       ]);
+      const valueAt = <T,>(index: number, fallback: T): T => {
+        const result = results[index];
+        return result?.status === 'fulfilled' ? result.value as T : fallback;
+      };
+      const ov = valueAt(0, { success: false, overview: null as unknown as Overview, error: '总览加载失败' });
+      const bookResp = valueAt(1, { success: false, books: [] as AccountBook[] });
+      const mapResp = valueAt(2, { success: false, mappings: [] as Mapping[] });
+      const fieldResp = valueAt(3, { success: false, fields: [] as FieldCatalog[] });
+      const jobResp = valueAt(4, { success: false, jobs: [] as SyncJob[] });
+      const draftResp = valueAt(5, { success: false, drafts: [] as VoucherDraft[] });
+      const outboxResp = valueAt(6, { success: false, outbox: [] as WritebackOutbox[] });
+      const writebackPreparationResp = valueAt(7, { success: false, preparation: null as WritebackPreparation | null });
+      const reconResp = valueAt(8, { success: false, results: [] as ReconciliationResult[] });
+      const readResp = valueAt(9, { success: false, snapshots: [] as ReadSnapshot[] });
+      const entityResp = valueAt(10, { success: false, entities: [] as EntitySnapshot[] });
+      const fieldMapResp = valueAt(11, { success: false, mappings: [] as FieldMapping[] });
+      const financeAdapterResp = valueAt(12, { success: false, adapter: null as FinanceAdapterOverview | null });
+      const financeCoverageResp = valueAt(13, { success: false, coverage: null as FinanceReadonlyCoverage | null });
+      const financeRuntimeReconResp = valueAt(14, { success: false, reconciliation: null as FinanceRuntimeReconciliation | null });
+      const financeSemanticExtractorResp = valueAt(15, { success: false, semanticExtractors: null as FinanceSemanticExtractorsOverview | null });
+      const financeReadModelResp = valueAt(16, { success: false, readModel: null as FinanceReadModelOverview | null });
+      const financeReadonlyReportResp = valueAt(17, { success: false, readonlyReport: null as FinanceReadonlyStatementReportOverview | null });
+      const receiptPaymentLocksResp = valueAt(18, { success: false, receiptPaymentLocks: null as ReceiptPaymentLocksOverview | null });
+      const readonlyFieldAdaptersResp = valueAt(19, { success: false, readonlyFieldAdapters: null as ReadonlyFieldAdaptersOverview | null });
+      const wmsAlignmentResp = valueAt(20, { success: false, alignment: null as WmsReadonlyAlignment | null });
+      const wmsBridgeResp = valueAt(21, { success: false, bridge: null as WmsBridgeReadiness | null });
+      const wmsMappingGapResp = valueAt(22, { success: false, mappingGaps: null as WmsMappingGapOverview | null });
+      const baselineResp = valueAt(23, { success: false, baseline: null as MirrorBaselineReadiness | null });
+      const accountBookGateResp = valueAt(24, { success: false, gate: null as AccountBookMappingGate | null });
+      const counterpartyCandidateResp = valueAt(25, { success: false, candidateOverview: null as CounterpartyCandidateOverview | null });
+      const currentStateResp = valueAt(26, { success: false, currentState: null as CurrentStateOverview | null });
+      const wmsDomainPolicyResp = valueAt(27, { success: false, domainPolicies: null as WmsDomainPolicyOverview | null });
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
       setBooks(bookResp.books || []);
@@ -1056,7 +1153,12 @@ export default function ChanjetIntegrationPage() {
       setAccountBookGate(accountBookGateResp.gate || null);
       setCounterpartyCandidates(counterpartyCandidateResp.candidateOverview || null);
       setCurrentState(currentStateResp.currentState || null);
+      setWmsDomainPolicies(wmsDomainPolicyResp.domainPolicies || null);
       setProductionReadiness(currentStateResp.currentState?.productionReadiness || null);
+      const failedPanels = results.slice(1).filter((result) => result.status === 'rejected').length;
+      if (failedPanels > 0) {
+        setMessage(`${failedPanels} 个治理面板暂不可用；其余只读数据已正常加载`);
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -1144,6 +1246,64 @@ export default function ChanjetIntegrationPage() {
           decision,
           erpCode: decision === 'APPROVE' ? erpCode : undefined,
           erpEntityType: decision === 'APPROVE' ? erpEntityType : undefined,
+        }),
+      }),
+    );
+  }
+
+  async function reviewWmsHousePolicy(
+    candidate: WmsDomainPolicyOverview['candidates']['houseLocations'][number],
+    decision: 'APPROVE' | 'REJECT' | 'HOLD',
+  ) {
+    const draft = wmsHousePolicyDrafts[candidate.id] || { houseCode: '', locationCode: '' };
+    const location = wmsDomainPolicies?.targets.locations.find(
+      (item) => item.code === draft.locationCode,
+    );
+    await runAction(
+      t('ui.审核鸡舍仓位策略', '审核鸡舍仓位策略'),
+      () => request('/chanjet/integration/wms/domain-policies/house-location/review', {
+        method: 'POST',
+        body: JSON.stringify({
+          bookId: candidate.bookId,
+          companyCode: candidate.companyCode,
+          sourceWarehouseCode: candidate.sourceCode,
+          sourceWarehouseName: candidate.sourceName,
+          erpHouseCode: decision === 'APPROVE' ? draft.houseCode : '',
+          erpWarehouseCode: decision === 'APPROVE' ? location?.warehouse_code || '' : '',
+          erpLocationCode: decision === 'APPROVE' ? draft.locationCode : '',
+          decision,
+          evidence: { reviewedFrom: 'chanjet-integration-wms-ui' },
+        }),
+      }),
+    );
+  }
+
+  async function reviewWmsUomPolicy(
+    candidate: WmsDomainPolicyOverview['candidates']['uomConversions'][number],
+    decision: 'APPROVE' | 'REJECT' | 'HOLD',
+  ) {
+    const draft = wmsUomPolicyDrafts[candidate.candidateKey] || {
+      productTarget: '',
+      baseUom: '',
+      ratio: '',
+    };
+    const [erpEntityType, ...productCodeParts] = draft.productTarget.split(':');
+    await runAction(
+      t('ui.审核产品单位换算策略', '审核产品单位换算策略'),
+      () => request('/chanjet/integration/wms/domain-policies/uom-conversion/review', {
+        method: 'POST',
+        body: JSON.stringify({
+          bookId: candidate.bookId,
+          companyCode: candidate.companyCode,
+          sourceProductCode: candidate.sourceProductCode,
+          sourceProductName: candidate.sourceProductName,
+          sourceUom: candidate.sourceUom,
+          erpEntityType: decision === 'APPROVE' ? erpEntityType : 'PRODUCT',
+          erpProductCode: decision === 'APPROVE' ? productCodeParts.join(':') : '',
+          erpBaseUom: decision === 'APPROVE' ? draft.baseUom : '',
+          conversionRatio: decision === 'APPROVE' ? Number(draft.ratio) : 1,
+          decision,
+          evidence: { reviewedFrom: 'chanjet-integration-wms-ui' },
         }),
       }),
     );
@@ -2063,6 +2223,13 @@ export default function ChanjetIntegrationPage() {
                               <td style={cellStyle}>{fmtDate(scope.latestPulledAt)}</td>
                               <td style={cellStyle}><Badge tone={statusTone(freshness)}>{freshnessLabel}</Badge></td>
                               <td style={{ ...cellStyle, color: scope.latestSyncError ? 'var(--status-danger)' : 'var(--text-secondary)', maxWidth: 360 }}>
+                                {scope.providerCapability === 'PERMISSION_HOLD' && (
+                                  <div style={{ marginBottom: 4 }}>
+                                    <Badge tone="red">
+                                      {t('ui.供应商权限保持', '供应商权限 HOLD，不自动重试')}
+                                    </Badge>
+                                  </div>
+                                )}
                                 {scope.latestSyncError || '—'}
                               </td>
                             </tr>
@@ -2153,6 +2320,246 @@ export default function ChanjetIntegrationPage() {
               <div style={cardStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
                   <div>
+                    <strong>{t('ui.WMS业务归属与换算策略', 'WMS 业务归属与换算策略')}</strong>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4, maxWidth: 920 }}>
+                      {t(
+                        'ui.WMS业务策略说明',
+                        '鸡舍不能伪装成仓库；包装单位也不能脱离具体商品做全局换算。审核只保存中间层策略，不修改 ERP 库存事实，也不写好业财。',
+                      )}
+                    </div>
+                  </div>
+                  <Badge tone={wmsDomainPolicies?.decision === 'GO_WITH_CONDITIONS' ? 'green' : 'amber'}>
+                    {wmsDomainPolicies
+                      ? `${wmsDomainPolicies.summary.approvedHousePolicies + wmsDomainPolicies.summary.approvedUomPolicies}/${
+                        wmsDomainPolicies.summary.houseCandidates + wmsDomainPolicies.summary.uomCandidates
+                      }`
+                      : 'HOLD'}
+                  </Badge>
+                </div>
+
+                {wmsDomainPolicies ? (
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    <details open={wmsDomainPolicies.summary.approvedHousePolicies < wmsDomainPolicies.summary.houseCandidates}>
+                      <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
+                        {t('ui.鸡舍库存归属策略', '鸡舍库存归属策略')} ·{' '}
+                        {wmsDomainPolicies.summary.approvedHousePolicies}/{wmsDomainPolicies.summary.houseCandidates}
+                      </summary>
+                      <div style={{ overflowX: 'auto', marginTop: 10 }}>
+                        <table style={{ ...tableStyle, minWidth: 980 }}>
+                          <thead>
+                            <tr>{[
+                              t('ui.好业财源仓位', '好业财源仓位'),
+                              t('ui.ERP鸡舍', 'ERP 鸡舍'),
+                              t('ui.ERP真实仓库库位', 'ERP 真实仓库 / 库位'),
+                              t('ui.策略状态', '策略状态'),
+                              t('ui.操作', '操作'),
+                            ].map((heading) => (
+                              <th key={heading} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{heading}</th>
+                            ))}</tr>
+                          </thead>
+                          <tbody>
+                            {wmsDomainPolicies.candidates.houseLocations.map((candidate) => {
+                              const draft = wmsHousePolicyDrafts[candidate.id] || { houseCode: '', locationCode: '' };
+                              const policyState = String(candidate.currentPolicy?.state || 'PENDING');
+                              const locations = wmsDomainPolicies.targets.locations.filter((location) => (
+                                !candidate.companyCode
+                                || !location.company_code
+                                || location.company_code === candidate.companyCode
+                              ));
+                              return (
+                                <tr key={candidate.id}>
+                                  <td style={cellStyle}>
+                                    <strong>{candidate.sourceName || candidate.sourceCode}</strong>
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
+                                      {candidate.bookName} · {candidate.sourceCode}
+                                    </div>
+                                  </td>
+                                  <td style={cellStyle}>
+                                    <select
+                                      aria-label={`${candidate.sourceCode} ERP house`}
+                                      value={draft.houseCode}
+                                      onChange={(event) => setWmsHousePolicyDrafts((current) => ({
+                                        ...current,
+                                        [candidate.id]: { ...draft, houseCode: event.target.value },
+                                      }))}
+                                      style={{ width: '100%', minWidth: 180, minHeight: 36, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-card)', color: 'var(--text-primary)', padding: '6px 8px' }}
+                                    >
+                                      <option value="">{t('ui.选择ERP鸡舍', '选择 ERP 鸡舍')}</option>
+                                      {wmsDomainPolicies.targets.houses.map((house) => (
+                                        <option key={house.code} value={house.code}>{house.name} · {house.code}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td style={cellStyle}>
+                                    <select
+                                      aria-label={`${candidate.sourceCode} ERP location`}
+                                      value={draft.locationCode}
+                                      onChange={(event) => setWmsHousePolicyDrafts((current) => ({
+                                        ...current,
+                                        [candidate.id]: { ...draft, locationCode: event.target.value },
+                                      }))}
+                                      style={{ width: '100%', minWidth: 240, minHeight: 36, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-card)', color: 'var(--text-primary)', padding: '6px 8px' }}
+                                    >
+                                      <option value="">{t('ui.选择ERP真实仓库库位', '选择真实仓库 / 库位')}</option>
+                                      {locations.map((location) => (
+                                        <option key={`${location.warehouse_code}:${location.code}`} value={location.code}>
+                                          {location.warehouse_code} / {location.name} · {location.code}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td style={cellStyle}><Badge tone={statusTone(policyState)}>{policyState}</Badge></td>
+                                  <td style={cellStyle}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                      <Button
+                                        size="xs"
+                                        disabled={!canEdit || loading || !draft.houseCode || !draft.locationCode}
+                                        onClick={() => void reviewWmsHousePolicy(candidate, 'APPROVE')}
+                                      >
+                                        {t('common.confirm', '确认')}
+                                      </Button>
+                                      <Button size="xs" variant="outline" disabled={!canEdit || loading} onClick={() => void reviewWmsHousePolicy(candidate, 'HOLD')}>
+                                        HOLD
+                                      </Button>
+                                      <Button size="xs" variant="outline" disabled={!canEdit || loading} onClick={() => void reviewWmsHousePolicy(candidate, 'REJECT')}>
+                                        {t('ui.拒绝', '拒绝')}
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+
+                    <details open={wmsDomainPolicies.summary.approvedUomPolicies < wmsDomainPolicies.summary.uomCandidates}>
+                      <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
+                        {t('ui.产品专属单位换算策略', '产品专属单位换算策略')} ·{' '}
+                        {wmsDomainPolicies.summary.approvedUomPolicies}/{wmsDomainPolicies.summary.uomCandidates}
+                      </summary>
+                      <div style={{ overflowX: 'auto', marginTop: 10 }}>
+                        <table style={{ ...tableStyle, minWidth: 1120 }}>
+                          <thead>
+                            <tr>{[
+                              t('ui.好业财商品与单位', '好业财商品 / 单位'),
+                              t('ui.ERP商品主档', 'ERP 商品主档'),
+                              t('ui.ERP基础单位', 'ERP 基础单位'),
+                              t('ui.换算率', '换算率'),
+                              t('ui.策略状态', '策略状态'),
+                              t('ui.操作', '操作'),
+                            ].map((heading) => (
+                              <th key={heading} style={{ ...cellStyle, textAlign: 'left', color: 'var(--text-secondary)' }}>{heading}</th>
+                            ))}</tr>
+                          </thead>
+                          <tbody>
+                            {wmsDomainPolicies.candidates.uomConversions.map((candidate) => {
+                              const draft = wmsUomPolicyDrafts[candidate.candidateKey] || {
+                                productTarget: '',
+                                baseUom: '',
+                                ratio: '',
+                              };
+                              const policyState = String(candidate.currentPolicy?.state || 'PENDING');
+                              return (
+                                <tr key={candidate.candidateKey}>
+                                  <td style={cellStyle}>
+                                    <strong>{candidate.sourceProductName || candidate.sourceProductCode}</strong>
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
+                                      {candidate.sourceProductCode} · {candidate.sourceUom}
+                                    </div>
+                                  </td>
+                                  <td style={cellStyle}>
+                                    <select
+                                      aria-label={`${candidate.candidateKey} ERP product`}
+                                      value={draft.productTarget}
+                                      onChange={(event) => setWmsUomPolicyDrafts((current) => ({
+                                        ...current,
+                                        [candidate.candidateKey]: { ...draft, productTarget: event.target.value },
+                                      }))}
+                                      style={{ width: '100%', minWidth: 240, minHeight: 36, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-card)', color: 'var(--text-primary)', padding: '6px 8px' }}
+                                    >
+                                      <option value="">{t('ui.选择ERP商品主档', '选择 ERP 商品 / SKU / 物料')}</option>
+                                      {wmsDomainPolicies.targets.products.map((product) => (
+                                        <option key={`${product.entity_type}:${product.code}`} value={`${product.entity_type}:${product.code}`}>
+                                          [{product.entity_type}] {product.name || product.code} · {product.code}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td style={cellStyle}>
+                                    <select
+                                      aria-label={`${candidate.candidateKey} ERP base UOM`}
+                                      value={draft.baseUom}
+                                      onChange={(event) => setWmsUomPolicyDrafts((current) => ({
+                                        ...current,
+                                        [candidate.candidateKey]: { ...draft, baseUom: event.target.value },
+                                      }))}
+                                      style={{ width: '100%', minWidth: 160, minHeight: 36, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-card)', color: 'var(--text-primary)', padding: '6px 8px' }}
+                                    >
+                                      <option value="">{t('ui.选择ERP基础单位', '选择基础单位')}</option>
+                                      {wmsDomainPolicies.targets.units.map((unit) => (
+                                        <option key={unit.code} value={unit.code}>{unit.name || unit.code} · {unit.code}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td style={cellStyle}>
+                                    <input
+                                      type="number"
+                                      min="0.000001"
+                                      step="any"
+                                      aria-label={`${candidate.candidateKey} conversion ratio`}
+                                      value={draft.ratio}
+                                      onChange={(event) => setWmsUomPolicyDrafts((current) => ({
+                                        ...current,
+                                        [candidate.candidateKey]: { ...draft, ratio: event.target.value },
+                                      }))}
+                                      placeholder="1"
+                                      style={{ width: 100, minHeight: 36, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-card)', color: 'var(--text-primary)', padding: '6px 8px' }}
+                                    />
+                                  </td>
+                                  <td style={cellStyle}><Badge tone={statusTone(policyState)}>{policyState}</Badge></td>
+                                  <td style={cellStyle}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                      <Button
+                                        size="xs"
+                                        disabled={
+                                          !canEdit
+                                          || loading
+                                          || !draft.productTarget
+                                          || !draft.baseUom
+                                          || !(Number(draft.ratio) > 0)
+                                        }
+                                        onClick={() => void reviewWmsUomPolicy(candidate, 'APPROVE')}
+                                      >
+                                        {t('common.confirm', '确认')}
+                                      </Button>
+                                      <Button size="xs" variant="outline" disabled={!canEdit || loading} onClick={() => void reviewWmsUomPolicy(candidate, 'HOLD')}>
+                                        HOLD
+                                      </Button>
+                                      <Button size="xs" variant="outline" disabled={!canEdit || loading} onClick={() => void reviewWmsUomPolicy(candidate, 'REJECT')}>
+                                        {t('ui.拒绝', '拒绝')}
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  </div>
+                ) : (
+                  <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+                    {t('ui.WMS业务策略尚未启用', '策略表尚未迁移或当前证据不可用；库存晋级继续 HOLD。')}
+                  </div>
+                )}
+              </div>
+
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                  <div>
                     <strong>{t('ui.WMS映射闭环', 'WMS 映射闭环')}</strong>
                     <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
                       {t(
@@ -2181,6 +2588,28 @@ export default function ChanjetIntegrationPage() {
                       </Badge>
                       <Badge tone={wmsMappingGaps.summary.autoCloseEligible ? 'blue' : 'muted'}>
                         {t('ui.唯一精确候选', '唯一精确候选')} {wmsMappingGaps.summary.autoCloseEligible}
+                      </Badge>
+                      <Badge tone={
+                        wmsMappingGaps.domainPolicies
+                        && (wmsMappingGaps.domainPolicies.houseLocations.approved || 0)
+                          === (wmsMappingGaps.domainPolicies?.houseLocations.total || 0)
+                          ? 'green'
+                          : 'amber'
+                      }>
+                        {t('ui.鸡舍仓位策略', '鸡舍仓位策略')}{' '}
+                        {wmsMappingGaps.domainPolicies?.houseLocations.approved || 0}/
+                        {wmsMappingGaps.domainPolicies?.houseLocations.total || 0}
+                      </Badge>
+                      <Badge tone={
+                        wmsMappingGaps.domainPolicies
+                        && (wmsMappingGaps.domainPolicies.uomConversions.approved || 0)
+                          === (wmsMappingGaps.domainPolicies?.uomConversions.total || 0)
+                          ? 'green'
+                          : 'amber'
+                      }>
+                        {t('ui.产品单位换算策略', '产品单位换算策略')}{' '}
+                        {wmsMappingGaps.domainPolicies?.uomConversions.approved || 0}/
+                        {wmsMappingGaps.domainPolicies?.uomConversions.total || 0}
                       </Badge>
                     </div>
 

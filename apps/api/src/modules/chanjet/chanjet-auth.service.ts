@@ -20,6 +20,15 @@ export interface ChanjetBusinessFailure {
   requestId: string;
 }
 
+export function isHealthyAccountBookResponse(result: unknown): boolean {
+  if (Array.isArray(result)) return true;
+  if (!result || typeof result !== 'object') return false;
+  const payload = result as Record<string, unknown>;
+  return String(payload.code || '') === '200'
+    || Array.isArray(payload.value)
+    || Array.isArray(payload.data);
+}
+
 const CHANJET_SUCCESS_CODES = new Set([
   '0',
   '200',
@@ -183,8 +192,8 @@ export class ChanjetAuthService implements OnModuleInit {
   async cronHealthCheck(): Promise<void> {
     if (!this.isConfigured()) return;
     try {
-      const result = await this.listAccountBooks() as Record<string, unknown>;
-      const ok = result?.code === '200' || Array.isArray(result?.value);
+      const result = await this.listAccountBooks() as unknown;
+      const ok = isHealthyAccountBookResponse(result);
       if (ok) {
         this.log.log('cron health check: 连接正常');
         await this.cronMon.ok('chanjet-health-check');
