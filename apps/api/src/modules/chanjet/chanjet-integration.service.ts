@@ -5483,7 +5483,7 @@ export class ChanjetIntegrationService {
         exactSystemApprovalCandidates,
         manualMappingCandidates,
         nextGate: blockers.length
-          ? 'CHANJET_PRODUCTION_READINESS_REPAIR'
+          ? baseline.summary.nextGate
           : exactSystemApprovalCandidates
             ? 'CHANJET_P2_EXACT_MAPPING_APPROVAL_GATE'
             : 'CHANJET_CONTINUOUS_READONLY_RECONCILIATION',
