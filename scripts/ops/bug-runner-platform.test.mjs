@@ -179,7 +179,13 @@ test('change scope prevents ops-only commits from deploying application images',
   assert.equal(classifyChangedPaths(['docs/ops/report.md', 'scripts/ops/tool.mjs']).deployScope, 'ops-only');
   assert.equal(classifyChangedPaths(['apps/web/src/app/page.tsx']).deployScope, 'web');
   assert.equal(classifyChangedPaths(['apps/api/src/main.ts']).deployScope, 'api');
+  assert.equal(classifyChangedPaths(['apps/api/src/main.ts', 'docs/ops/runs/lifecycle.md']).deployScope, 'api');
   assert.equal(classifyChangedPaths(['apps/api/src/main.ts', 'apps/web/src/app/page.tsx']).deployScope, 'full');
+  assert.equal(classifyChangedPaths([
+    'apps/api/src/main.ts',
+    'apps/web/src/app/page.tsx',
+    'docs/ops/runs/lifecycle.md',
+  ]).deployScope, 'full');
 });
 
 test('CI barrier waits for every required workflow and fails closed', () => {

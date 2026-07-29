@@ -82,8 +82,17 @@ jobs:
         id: scope
         if: github.event_name != 'workflow_dispatch'
         shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
-          files="$(git diff --name-only HEAD^ HEAD)"
+          # Baseline lifecycle may append a docs-only audit commit after an
+          # application commit. Inspect the complete push range so the audit
+          # commit cannot hide API/Web changes from deployment.
+          base="$BEFORE_SHA"
+          if [ -z "$base" ] || printf '%s' "$base" | grep -Eq '^0+$' || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base="HEAD^"
+          fi
+          files="$(git diff --name-only "$base" HEAD)"
           if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -Ev '^(docs/ops/|scripts/ops/)' >/dev/null; then
             echo "ops_only=true" >> "$GITHUB_OUTPUT"
           else
@@ -150,9 +159,9 @@ jobs:
             echo "::notice::手动模式: $MODE"
           else
             # 自动判定 — 优先级 fast-css < web < api < full
-            if [ "$OPS_ONLY" = "true" ]; then
-              MODE="ops-only"
-            elif [ "$INFRA" = "true" ] || [ "$WEB_DEPS" = "true" ]; then
+            # Application/infra signals always win over ops-only. This is the
+            # second fail-safe for multi-commit pushes ending in audit docs.
+            if [ "$INFRA" = "true" ] || [ "$WEB_DEPS" = "true" ]; then
               MODE="full"
             elif [ "$API_OR_DB" = "true" ] && [ "$WEB_ONLY" = "true" ]; then
               MODE="full"  # api + web 同改 → 安全起见走 full
@@ -162,6 +171,8 @@ jobs:
               MODE="web"
             elif [ "$RUNTIME_CSS" = "true" ]; then
               MODE="fast-css"
+            elif [ "$OPS_ONLY" = "true" ]; then
+              MODE="ops-only"
             else
               MODE="web"  # 默认兜底(docs/scripts 改动) — web 部署最廉价
             fi

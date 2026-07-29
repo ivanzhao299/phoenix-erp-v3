@@ -85,6 +85,9 @@
 - 无 migration。
 - 无 DB write。
 - 无好业财写入。
+- 首次 push 发现基线审计提交位于代码提交之后时，部署工作流错误判定为
+  `ops-only`。已修正为按完整 push range 判断，并让 API/Web/infra 信号优先，
+  防止 lifecycle 审计提交再次遮蔽真实代码部署。
 
 ## 下一 Gate
 
