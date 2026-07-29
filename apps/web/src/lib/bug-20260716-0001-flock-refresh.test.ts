@@ -22,6 +22,16 @@ describe("BUG-20260716-0001 flock refresh", () => {
     expect(success).toBeGreaterThan(close);
   });
 
+  it("patches the visible row immediately before the server reconciliation", () => {
+    const optimistic = flockPageSource.indexOf("setFlocks(current => current.map");
+    const refresh = flockPageSource.indexOf("await load();", optimistic);
+    expect(optimistic).toBeGreaterThan(-1);
+    expect(refresh).toBeGreaterThan(optimistic);
+    expect(flockPageSource.slice(optimistic, refresh)).toContain(
+      "quantity: Number(form.qty) || 0",
+    );
+  });
+
   it("prevents duplicate submissions while the mutation and refresh are pending", () => {
     expect(flockPageSource).toContain("const [submitting, setSubmitting] = useState(false)");
     expect(flockPageSource).toContain("disabled={submitting}");

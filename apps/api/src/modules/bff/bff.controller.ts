@@ -2163,7 +2163,7 @@ export class PackagingTerminalBffController {
     const normalizedCode = String(packingCode || '').trim();
     if (!normalizedCode) throw new BadRequestException('packingCode 必填');
 
-    const [handoverRows, inventoryRows, inventoryMode] = await Promise.all([
+    const [handoverRows, inventoryRows, inventoryMode, packingRows] = await Promise.all([
       this.em.query(
         `SELECT code, packing_code, box_count, pallet_code, location, receiver,
                 production_date, created_at
@@ -2182,9 +2182,17 @@ export class PackagingTerminalBffController {
         [normalizedCode],
       ),
       this.pkgInv.getTerminalInventoryMode(normalizedCode),
+      this.em.query(
+        `SELECT total_eggs
+           FROM pkg_packing_records
+          WHERE code = $1
+          LIMIT 1`,
+        [normalizedCode],
+      ),
     ]);
 
     const handover = handoverRows[0] || null;
+    const handoverQuantity = Number(packingRows[0]?.total_eggs || 0);
     const batchCount = Number(inventoryRows[0]?.batch_count || 0);
     const totalInbound = Number(inventoryRows[0]?.total_inbound || 0);
     const tempMode = inventoryMode === 'TEMP_PRODUCTION_INBOUND';
@@ -2206,9 +2214,11 @@ export class PackagingTerminalBffController {
         committed,
         handoverCode: handover?.code ?? null,
         boxCount: Number(handover?.box_count || 0),
+        handoverQuantity,
         inventoryBatchCount: batchCount,
         totalInbound,
         inventoryMode,
+        inventoryPosted: batchCount > 0 && totalInbound > 0,
         committedAt: handover?.created_at ?? null,
         message: committed
           ? tempMode

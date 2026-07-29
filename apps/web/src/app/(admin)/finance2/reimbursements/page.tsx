@@ -7,6 +7,11 @@ import PageHeader from '@/components/PageHeader';
 import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { currencySymbol } from '@/lib/currency';
+import {
+  hasSufficientReimbursementBalance,
+  normalizeCashAccountPayment,
+  type CashAccountPaymentLike,
+} from '@/lib/reimbursement-payment';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -38,12 +43,10 @@ interface Reimbursement {
   expense_type?: string;
   expense_date?: string;
 }
-interface CashAccount {
+interface CashAccount extends CashAccountPaymentLike {
   id: number;
-  account_code: string;
-  account_name: string;
-  current_balance: string;
-  currency_code: string;
+  accountCode?: string;
+  accountName?: string;
 }
 interface ReimbSummary {
   totalReimb: number;
@@ -162,6 +165,11 @@ function PayModal({
     }
   };
   const selected = selectedAccRaw;
+  const normalizedSelected = normalizeCashAccountPayment(selected);
+  const balanceEnough = hasSufficientReimbursementBalance(
+    selected,
+    reimb.reimb_amount_original,
+  );
   return <div style={modalMask} onClick={onClose}>
       <div style={modalPanel(420)} onClick={e => e.stopPropagation()}>
         <div className="text-text" style={{
@@ -201,9 +209,17 @@ function PayModal({
           marginBottom: 6
         }}>{t('fin2.reimburse.pay_account','付款账户')} *</div>
           {/* G4-A：资金账户主数据(仅 ACTIVE)，value=id；选中后自动带出余额并校验 */}
-          <CashAccountSelector value={selectedAccount} valueField="id" onChange={setSelectedAccount} onPick={o => setSelectedAccRaw((o?.raw ?? null) as CashAccount | null)} />
-          {selected && <div className={`text-xs font-semibold mt-1.5 ${Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? 'text-emerald-600 dark:text-emerald-400' : 'text-danger'}`}>
-              {Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? t('fin2.reimburse.balance_enough','✓ 余额充足') : t('fin2.reimburse.balance_insufficient','✗ 余额不足')}
+          <CashAccountSelector
+            value={selectedAccount}
+            valueField="id"
+            currencyCode={reimb.currency_code}
+            companyCode={reimb.company_code}
+            onChange={setSelectedAccount}
+            onPick={o => setSelectedAccRaw((o?.raw ?? null) as CashAccount | null)}
+          />
+          {selected && <div className={`text-xs font-semibold mt-1.5 ${balanceEnough ? 'text-emerald-600 dark:text-emerald-400' : 'text-danger'}`}>
+              {balanceEnough ? t('fin2.reimburse.balance_enough','✓ 余额充足') : t('fin2.reimburse.balance_insufficient','✗ 余额不足')}
+              {normalizedSelected && ` · ${currencySymbol(normalizedSelected.currencyCode || reimb.currency_code)}${fmt(normalizedSelected.currentBalance)}`}
             </div>}
         </div>
 
@@ -220,7 +236,7 @@ function PayModal({
         {error && <div style={{ ...inlineAlert('danger'), marginBottom: 12 }}>{error}</div>}
         <div style={drawerFooter}>
           <button onClick={onClose} style={secondaryActionButton}>{t('fin2.common.cancel','取消')}</button>
-          <button onClick={() => void pay()} disabled={paying || !selectedAccount} style={{ ...primaryActionButton, opacity: (paying || !selectedAccount) ? 0.5 : 1, cursor: (paying || !selectedAccount) ? 'not-allowed' : 'pointer' }}>
+          <button onClick={() => void pay()} disabled={paying || !selectedAccount || !balanceEnough} style={{ ...primaryActionButton, opacity: (paying || !selectedAccount || !balanceEnough) ? 0.5 : 1, cursor: (paying || !selectedAccount || !balanceEnough) ? 'not-allowed' : 'pointer' }}>
             {paying ? t('fin2.reimburse.paying','付款中...') : t('fin2.reimburse.confirm_pay','确认付款')}
           </button>
         </div>

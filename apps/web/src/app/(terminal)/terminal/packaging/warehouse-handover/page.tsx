@@ -147,9 +147,30 @@ export default function WarehouseHandoverPage() {
       </div>
       <div style={{ color: T.MUT }}>
         {activeHandoverStatus
-          ? `${activeHandoverStatus.boxCount} ${t('ui.箱', '箱')} · ${activeHandoverStatus.totalInbound} ${t('ui.枚已写入库存台账', '枚已写入库存台账')}`
+          ? activeHandoverStatus.inventoryPosted
+            ? `${activeHandoverStatus.boxCount} ${t('ui.箱', '箱')} · ${activeHandoverStatus.totalInbound} ${t('ui.枚已写入库存台账', '枚已写入库存台账')}`
+            : `${activeHandoverStatus.boxCount} ${t('ui.箱', '箱')} · ${activeHandoverStatus.handoverQuantity} ${t('ui.枚已完成包装交接', '枚已完成包装交接')}`
           : `${scanned.length} ${t('ui.箱', '箱')} · ${totalQty} ${t('ui.枚已入库', '枚已入库')}`}
       </div>
+      {activeHandoverStatus && !activeHandoverStatus.inventoryPosted && (
+        <div style={{
+          color: T.ACC,
+          fontSize: 13,
+          maxWidth: 520,
+          textAlign: 'center',
+          lineHeight: 1.6,
+        }}>
+          {activeHandoverStatus.inventoryMode === 'TEMP_PRODUCTION_INBOUND'
+            ? t(
+              'ui.当前为日产蛋入库模式包装交接不重复写库存',
+              '当前为日产蛋入库模式：包装交接不重复写库存，请在日产蛋入库台账核对对应数量。',
+            )
+            : t(
+              'ui.包装交接完成但库存证据缺失',
+              '包装交接完成，但尚未取得库存入账证据，请联系仓库管理员核验。',
+            )}
+        </div>
+      )}
       <button type="button" onClick={() => router.push('/terminal/packaging/shift-close')} style={{
         padding: '12px 28px',
         borderRadius: 10,

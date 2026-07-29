@@ -271,6 +271,19 @@ export default function FlockPage() {
         });
       }
       if (ok) {
+        if (editId) {
+          setFlocks(current => current.map(row => row.id === editId ? {
+            ...row,
+            farmName: farms.find(f => f.farm_code === form.farmCode)?.farm_name || form.farmCode,
+            house: form.house,
+            breed: form.breed,
+            inDate: form.inDate,
+            quantity: Number(form.qty) || 0,
+            feedRatio: form.feedConvRatio ? Number(form.feedConvRatio) : '—',
+            status: form.flockStatus,
+            _raw: { ...(row._raw || {}), ...payload },
+          } : row));
+        }
         // Refresh before returning control to the list so edited quantities and
         // other fields are already current when the success dialog is dismissed.
         await load();

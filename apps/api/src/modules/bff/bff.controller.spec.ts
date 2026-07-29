@@ -405,6 +405,9 @@ describe('PackagingTerminalBffController', () => {
         if (sql.includes('COUNT(*)::int AS batch_count')) {
           return [{ batch_count: 0, total_inbound: 0 }];
         }
+        if (sql.includes('SELECT total_eggs')) {
+          return [{ total_eggs: 540 }];
+        }
         return [];
       }),
     };
@@ -423,6 +426,8 @@ describe('PackagingTerminalBffController', () => {
         inventoryMode: 'TEMP_PRODUCTION_INBOUND',
         inventoryBatchCount: 0,
         totalInbound: 0,
+        handoverQuantity: 540,
+        inventoryPosted: false,
       },
     });
   });

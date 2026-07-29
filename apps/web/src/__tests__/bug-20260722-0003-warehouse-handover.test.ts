@@ -36,4 +36,11 @@ describe('BUG-20260722-0003 warehouse handover', () => {
     expect(css).toContain('grid-template-columns: 1fr !important');
     expect(css).toContain('width: 100% !important');
   });
+
+  it('does not describe a TEMP-mode handover as zero inventory posted', () => {
+    expect(page).toContain('activeHandoverStatus.inventoryPosted');
+    expect(page).toContain('activeHandoverStatus.handoverQuantity');
+    expect(page).toContain('枚已完成包装交接');
+    expect(page).toContain('包装交接不重复写库存');
+  });
 });

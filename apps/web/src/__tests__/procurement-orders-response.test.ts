@@ -19,6 +19,12 @@ describe("normalizeProcurementOrdersPage", () => {
     });
   });
 
+  it("uses the loaded page boundary when a later page carries a stale total", () => {
+    expect(normalizeProcurementOrdersPage({
+      items: [order], total: 0, page: 2, pageSize: 20,
+    })).toMatchObject({ total: 21, page: 2, pageSize: 20 });
+  });
+
   it("accepts wrapped responses and keeps empty or malformed states safe", () => {
     expect(normalizeProcurementOrdersPage({ data: { items: [order], count: 1 } })).toMatchObject({
       items: [order], total: 1,

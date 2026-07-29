@@ -29,19 +29,22 @@ export function normalizeProcurementOrdersPage<T>(
     : Array.isArray(record.data)
       ? record.data as T[]
       : [];
-  const parsedTotal = Number(record.total ?? record.count);
-  const total = Number.isFinite(parsedTotal) && parsedTotal >= items.length
-    ? parsedTotal
-    : items.length;
   const parsedPage = Number(record.page);
   const parsedPageSize = Number(record.pageSize);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : fallbackPage;
+  const pageSize = Number.isFinite(parsedPageSize) && parsedPageSize > 0
+    ? parsedPageSize
+    : fallbackPageSize;
+  const parsedTotal = Number(record.total ?? record.count);
+  const loadedMinimum = (page - 1) * pageSize + items.length;
+  const total = Number.isFinite(parsedTotal) && parsedTotal >= loadedMinimum
+    ? parsedTotal
+    : loadedMinimum;
 
   return {
     items,
     total,
-    page: Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : fallbackPage,
-    pageSize: Number.isFinite(parsedPageSize) && parsedPageSize > 0
-      ? parsedPageSize
-      : fallbackPageSize,
+    page,
+    pageSize,
   };
 }

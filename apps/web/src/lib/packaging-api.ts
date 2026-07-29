@@ -27,8 +27,11 @@ export interface WarehouseHandoverStatus {
   committed: boolean;
   handoverCode: string | null;
   boxCount: number;
+  handoverQuantity: number;
   inventoryBatchCount: number;
   totalInbound: number;
+  inventoryMode: 'TEMP_PRODUCTION_INBOUND' | 'PACKAGING_INBOUND' | string;
+  inventoryPosted: boolean;
   committedAt: string | null;
   message: string;
 }

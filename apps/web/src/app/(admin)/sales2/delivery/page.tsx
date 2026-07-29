@@ -12,7 +12,10 @@ import { hexToAccent, KPI_GRID } from '@/lib/design-tokens';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, DriverSelector, VehicleSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
-import { resolveDeliveryStatus } from '@/lib/delivery-status-transition';
+import {
+  resolveDeliveryStatus,
+  unwrapDeliveryActionOrder,
+} from '@/lib/delivery-status-transition';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -24,6 +27,7 @@ const BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 async function api<T = any>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(BASE + path, {
     method,
+    cache: 'no-store',
     headers: {
       Authorization: `Bearer ${tok()}`,
       'Content-Type': 'application/json'
@@ -428,9 +432,7 @@ export default function DeliveryPage() {
   const applySuccessfulAction = (endpoint: string, response: unknown) => {
     if (!selected) return;
     const status = resolveDeliveryStatus(endpoint, response);
-    const responseOrder = response && typeof response === 'object'
-      ? response as Partial<DeliveryOrder>
-      : {};
+    const responseOrder = unwrapDeliveryActionOrder<DeliveryOrder>(response);
     const updated = {
       ...selected,
       ...responseOrder,
@@ -454,6 +456,9 @@ export default function DeliveryPage() {
       const updated = await api('POST', `/api/v2/sales/delivery/${selected.id}/${endpoint}`, {});
       applySuccessfulAction(endpoint, updated);
       await Promise.all([refreshDetail(), loadOrders(), loadStats()]);
+      // A stale list/detail read must not roll the UI back to the pre-action
+      // status. Re-apply the mutation acknowledgement after reconciliation.
+      applySuccessfulAction(endpoint, updated);
     } catch (e: any) {
       setActionErr(e.message);
     } finally {
@@ -472,6 +477,7 @@ export default function DeliveryPage() {
       const updated = await api('POST', `/api/v2/sales/delivery/${selected.id}/cancel`, {});
       applySuccessfulAction('cancel', updated);
       await Promise.all([refreshDetail(), loadOrders(), loadStats()]);
+      applySuccessfulAction('cancel', updated);
     } catch (e: any) {
       setActionErr(e.message);
     } finally {
