@@ -542,6 +542,7 @@ export interface ChanjetMirrorBaselineReadiness {
     staleTargets: number;
     missingTargets: number;
     failedRecentJobs: number;
+    providerPermissionHolds: number;
     endpointCoverageRate: number;
     nextGate: string;
   };
@@ -1987,6 +1988,10 @@ export class ChanjetIntegrationService {
     const staleTargets = scopes.filter((scope) => scope.status === 'STALE').length;
     const missingTargets = scopes.filter((scope) => scope.status === 'MISSING').length;
     const failedRecentJobs = scopes.filter((scope) => scope.latestJobStatus === 'FAIL').length;
+    const providerPermissionHolds = scopes.filter((scope) => (
+      scope.latestJobStatus === 'FAIL'
+      && classifyChanjetSyncFailure(scope.latestJobError || '').capability === 'PERMISSION_HOLD'
+    )).length;
     const reportEndpointKeys = new Set(['GL_BALANCE', 'BALANCE_SHEET', 'INCOME_STATEMENT', 'CASH_FLOW']);
     const missingReportTargets = scopes.filter((scope) => scope.status === 'MISSING' && reportEndpointKeys.has(scope.endpointKey)).length;
     const decision = accountBookGate.decision === 'HOLD' || missingTargets > 0
@@ -2005,12 +2010,14 @@ export class ChanjetIntegrationService {
         staleTargets,
         missingTargets,
         failedRecentJobs,
+        providerPermissionHolds,
         endpointCoverageRate: scopes.length ? Number((((scopes.length - missingTargets) / scopes.length) * 100).toFixed(2)) : 0,
         nextGate: this.mirrorBaselineNextGate({
           missingReportTargets,
           missingTargets,
           staleTargets,
           failedRecentJobs,
+          providerPermissionHolds,
         }),
       },
       accountBookGate,
@@ -2160,8 +2167,10 @@ export class ChanjetIntegrationService {
     missingTargets: number;
     staleTargets: number;
     failedRecentJobs: number;
+    providerPermissionHolds: number;
   }): string {
     if (input.missingReportTargets > 0) return 'CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR';
+    if (input.providerPermissionHolds > 0) return 'CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR';
     if (input.missingTargets > 0) return 'CHANJET_MIRROR_BASELINE_REPAIR';
     if (input.failedRecentJobs > 0) return 'CHANJET_READONLY_SYNC_FAILURE_REPAIR';
     if (input.staleTargets > 0) return 'CHANJET_STALE_READONLY_SCOPE_REFRESH';
@@ -5443,7 +5452,11 @@ export class ChanjetIntegrationService {
     const conditions: string[] = [];
     if (!tokenHealth.configured) blockers.push('好业财认证配置不完整');
     if (!tokenReady) blockers.push('没有可证明有效的运行态 token');
-    if (baseline.summary.missingTargets > 0) blockers.push(`缺失 ${baseline.summary.missingTargets} 个只读镜像目标`);
+    if (baseline.summary.providerPermissionHolds > 0) {
+      blockers.push(`好业财 openToken 对 ${baseline.summary.providerPermissionHolds} 个只读镜像目标缺少接口权限`);
+    } else if (baseline.summary.missingTargets > 0) {
+      blockers.push(`缺失 ${baseline.summary.missingTargets} 个只读镜像目标`);
+    }
     if (accountBookGate.decision === 'HOLD') blockers.push(...accountBookGate.blockingIssues);
     if (manualMappingCandidates > 0) conditions.push(`${manualMappingCandidates} 个主数据候选仍需映射或复核`);
     if (semanticCoverageRate < 90) conditions.push(`业务字段语义覆盖仅 ${semanticCoverageRate}%`);

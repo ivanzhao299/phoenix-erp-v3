@@ -243,18 +243,28 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       missingTargets: 1,
       staleTargets: 0,
       failedRecentJobs: 0,
+      providerPermissionHolds: 0,
     })).toBe('CHANJET_REPORT_ENDPOINT_PARAMETER_REPAIR');
+    expect(service.mirrorBaselineNextGate({
+      missingReportTargets: 0,
+      missingTargets: 6,
+      staleTargets: 0,
+      failedRecentJobs: 6,
+      providerPermissionHolds: 6,
+    })).toBe('CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR');
     expect(service.mirrorBaselineNextGate({
       missingReportTargets: 0,
       missingTargets: 0,
       staleTargets: 2,
       failedRecentJobs: 0,
+      providerPermissionHolds: 0,
     })).toBe('CHANJET_STALE_READONLY_SCOPE_REFRESH');
     expect(service.mirrorBaselineNextGate({
       missingReportTargets: 0,
       missingTargets: 0,
       staleTargets: 0,
       failedRecentJobs: 0,
+      providerPermissionHolds: 0,
     })).toBe('KEEP_SCHEDULED_READONLY_SYNC');
   });
 
