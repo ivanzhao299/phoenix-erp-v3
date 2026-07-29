@@ -1,5 +1,36 @@
 # Next Actions
 
+## 2026-07-29 - Readiness runtime stabilized; provider permission Gate is authoritative
+
+Current stage: `CHANJET_READINESS_RUNTIME_STABLE_PROVIDER_PERMISSION_HOLD`
+
+Decision: `HOLD`
+
+Completed:
+
+1. Removed full snapshot-body hydration from readiness evidence calculation.
+2. Added bounded cache and in-flight coalescing for expensive readiness requests.
+3. Deployed revision `64fb5558` through CI/CD run `30464528298`.
+4. Verified production API/Web healthy, API restart count zero and OOM log count zero.
+5. Classified all six missing targets as provider `50111` permission HOLDs.
+6. Aligned production-readiness and current-state to the exact next Gate
+   `CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR`.
+7. Confirmed 79/85 targets fresh, zero stale, and no unresolved exact mapping conflicts.
+
+Next actions:
+
+1. Grant readonly access to `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT` for all three
+   enabled books.
+2. Rerun only those six targets; do not retry them before the provider grant changes.
+3. Require 85/85 fresh targets before clearing the provider permission HOLD.
+4. Reconcile the five non-OK finance comparisons and improve finance authority
+   coverage without silently overwriting ERP business facts.
+5. Keep all Chanjet external writes disabled.
+
+Evidence:
+
+- `docs/ops/CHANJET_READINESS_OOM_AND_PROVIDER_PERMISSION_GATE_REVIEW_20260729.md`
+
 ## 2026-07-29 - 好业财 P0-P5 代码闭环，进入策略迁移与运行审核 Gate
 
 Current stage: `CHANJET_WMS_DOMAIN_POLICY_IMPLEMENTED_MIGRATION_PROVIDER_HOLD`

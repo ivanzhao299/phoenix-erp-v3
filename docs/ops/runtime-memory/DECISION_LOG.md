@@ -2126,3 +2126,21 @@ Decision: counterparty resolution `GO`.
   theoretical evidence target is 85. Historical `56/56` is not current full coverage.
 - The policy migration was created but not executed. No production DB write, push,
   deploy, inventory promotion or Chanjet write occurred.
+
+# 2026-07-29 - Stabilize readiness memory and isolate provider permission HOLD
+
+- Decision: `HOLD`; next Gate is `CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR`.
+- Root cause of the readiness restart risk was large compressed snapshot payloads
+  expanded inside a Node.js process with a 320 MB heap and 512 MB container limit.
+- Readiness now uses scalar SQL evidence, bounded caching and in-flight request
+  coalescing; raw snapshot bodies are not hydrated into the response path.
+- Production revision `64fb5558` passed CI/CD run `30464528298`.
+- Production API and Web are healthy; API restart count is zero and recent OOM log
+  matches are zero.
+- The dynamic baseline is 79/85 fresh with zero stale targets. The six missing targets
+  are `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT` across three books, all rejected by
+  Chanjet provider code `50111`.
+- Provider permission failures are non-retryable until the grant changes. They must
+  not consume the retry queue or be represented as generic ERP sync failures.
+- Exact mapping confirmation found no pending/conflicting exact candidates and made
+  no Chanjet, ERP inventory or ERP finance business-fact writes.

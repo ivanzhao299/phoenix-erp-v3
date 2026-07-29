@@ -5,13 +5,27 @@ Last updated: 2026-07-29
 ## Active Context
 
 - Active module: Chanjet Finance and WMS Integration
-- Current stage: CHANJET_WMS_DOMAIN_POLICY_IMPLEMENTED_MIGRATION_PROVIDER_HOLD
-- Active decision: GO_WITH_CONDITIONS
-- Next gate: CHANJET_WMS_DOMAIN_POLICY_MIGRATION_AND_RUNTIME_REVIEW
+- Current stage: CHANJET_READINESS_RUNTIME_STABLE_PROVIDER_PERMISSION_HOLD
+- Active decision: HOLD
+- Next gate: CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
 
 ## Latest Chanjet Decision
+
+- Production revision `64fb5558` passed full CI/CD run `30464528298`.
+- Readiness no longer hydrates raw snapshot bodies; scalar SQL evidence, bounded cache
+  and in-flight coalescing prevent the previous heap pressure.
+- Production API/Web are healthy, API restart count is 0 and recent OOM matches are 0.
+- Current dynamic baseline is 79/85 fresh, zero stale and six provider permission
+  HOLDs. All six are Chanjet code `50111` for `OTHER_STOCK_IN` and
+  `RETAIL_STOCK_OUT` across three enabled books.
+- Production readiness and current state both point to
+  `CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR`.
+- Do not retry the six blocked targets until the provider grant changes. Chanjet
+  external writes remain disabled.
+- Evidence:
+  `docs/ops/CHANJET_READINESS_OOM_AND_PROVIDER_PERMISSION_GATE_REVIEW_20260729.md`.
 
 - P0-P5 code-side completion is recorded in
   `docs/ops/CHANJET_COMPLETE_IMPLEMENTATION_LONG_TASK_PLAN_20260729.md`.
