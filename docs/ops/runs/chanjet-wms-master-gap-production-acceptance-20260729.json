@@ -1,0 +1,54 @@
+{
+  "recorded_at": "2026-07-29T00:21:30Z",
+  "decision": "GO_WITH_CONDITIONS",
+  "production_revision": "f1c6568a9a8ef78000db3537fa0530bd7af40b3f",
+  "ci_deploy_run": "30410308259",
+  "ci_deploy_mode": "full",
+  "ci_deploy_result": "PASS",
+  "production_health": {
+    "api": "healthy",
+    "web": "healthy",
+    "database": "healthy"
+  },
+  "mapping_summary": {
+    "total": 187,
+    "mapped": 16,
+    "need_mapping": 171,
+    "conflicts": 0,
+    "mapping_coverage_percent": 8.56,
+    "auto_close_eligible": 0
+  },
+  "gap_classes": {
+    "PRODUCT_SKU_MODEL_REQUIRED": 45,
+    "PRODUCT_MASTER_REVIEW_REQUIRED": 37,
+    "MATERIAL_MASTER_CANDIDATE": 33,
+    "SKU_UOM_CONVERSION_REQUIRED": 18,
+    "HOUSE_INVENTORY_BRIDGE_REQUIRED": 14,
+    "WAREHOUSE_MASTER_CANDIDATE": 11,
+    "LIVESTOCK_MASTER_REQUIRED": 9,
+    "CONTEXTUAL_UOM_REQUIRED": 2,
+    "UOM_DEFINITION_CANDIDATE": 2
+  },
+  "negative_gate_test": {
+    "source": "1号鸡舍",
+    "attempted_target": "LPH_MS_EGG_FARM",
+    "http_status": 400,
+    "result": "REJECTED_BEFORE_WRITE",
+    "reason": "breeding house cannot be mapped directly to a warehouse"
+  },
+  "provider_readonly_retry": {
+    "decision": "HOLD",
+    "attempts": 1,
+    "failed_targets": 6,
+    "blocked_scopes": [
+      "OTHER_STOCK_IN",
+      "RETAIL_STOCK_OUT"
+    ],
+    "provider_error_code": 50111,
+    "write_chanjet": false,
+    "write_erp_business_tables": false
+  },
+  "migration_executed": false,
+  "chanjet_write_executed": false,
+  "erp_inventory_fact_write_executed": false
+}

@@ -89,6 +89,24 @@
   `ops-only`。已修正为按完整 push range 判断，并让 API/Web/infra 信号优先，
   防止 lifecycle 审计提交再次遮蔽真实代码部署。
 
+## 生产部署与只读验收
+
+- 生产 revision：`f1c6568a9a8ef78000db3537fa0530bd7af40b3f`。
+- CI/CD：run `30410308259`，`full` 模式，类型检查、五域回归、API/Web
+  镜像构建、SSH 部署全部 PASS。
+- 生产 API、Web、PostgreSQL 容器均为 healthy；API 健康检查返回 `OK`。
+- 生产 `mapping-gaps` 返回 187 条源身份、16 条已映射、171 条待治理、0
+  冲突，覆盖率 8.56%，`autoCloseEligible=0`。
+- 九类缺口的生产计数与本报告基线一致：45 / 37 / 33 / 18 / 14 / 11 /
+  9 / 2 / 2。
+- 负向验收：尝试将好业财“1号鸡舍”直接映射到 ERP 仓库
+  `LPH_MS_EGG_FARM`，生产 API 返回 HTTP 400，映射未写入。
+- 供应商权限只读重试执行 1 次，三个账套的 `OTHER_STOCK_IN` 和
+  `RETAIL_STOCK_OUT` 仍全部返回 `50111`。结果为 HOLD，且明确
+  `writeChanjet=false`、`writeErpBusinessTables=false`。
+- 生产证据：
+  `docs/ops/runs/chanjet-wms-master-gap-production-acceptance-20260729.json`。
+
 ## 下一 Gate
 
 `CHANJET_WMS_ERP_MASTER_STAGING_AND_HOUSE_LOCATION_POLICY`

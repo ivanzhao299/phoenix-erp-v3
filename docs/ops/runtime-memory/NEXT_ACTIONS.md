@@ -1558,7 +1558,7 @@ Next actions:
 
 ## 2026-07-29 - Chanjet WMS ERP master-data gap closure
 
-Current stage: `CHANJET_WMS_MASTER_GAPS_CLASSIFIED`
+Current stage: `CHANJET_WMS_MASTER_GAP_CLOSURE_PRODUCTION_VERIFIED_PROVIDER_HOLD`
 
 Decision: `GO_WITH_CONDITIONS`
 
@@ -1569,6 +1569,10 @@ Completed:
 - Egg products require SKU targets; material identities require MATERIAL targets.
 - Livestock and package/context UOM mappings fail closed until their policies exist.
 - Provider permission failures can be retried through the readonly resilient sync only.
+- Production revision `f1c6568a` passed full CI/CD run `30410308259`.
+- Production API rejected house-to-warehouse mapping with HTTP 400 before any write.
+- The provider readonly retry confirmed six `50111` permission failures and no external or
+  ERP business-table write.
 
 Next actions:
 

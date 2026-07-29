@@ -2096,3 +2096,17 @@ Decision: counterparty resolution `GO`.
 - Exact active ERP targets may close only when entity semantics match; fuzzy names never auto-approve.
 - The six provider `50111` failures remain a hard 33/33 readonly-baseline blocker.
 - No Chanjet write and no ERP inventory-fact mutation are permitted by this Gate.
+
+# 2026-07-29 - Accept production WMS gap classification and retain provider HOLD
+
+- Decision: `GO_WITH_CONDITIONS`.
+- Production revision `f1c6568a` passed full CI/CD run `30410308259`; API, Web and
+  PostgreSQL are healthy.
+- Production classification is stable at 187 source identities, 16 mapped, 171 open,
+  zero conflicts and zero auto-close-eligible rows.
+- A house-to-warehouse approval attempt was rejected with HTTP 400 before persistence,
+  proving the domain guard is enforced outside the UI.
+- A one-attempt readonly retry reconfirmed six provider `50111` failures across
+  `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT`; the ERP cannot self-repair provider grants.
+- Chanjet writes and ERP inventory-fact promotion remain disabled. The next Gate stages
+  canonical ERP masters and defines house-to-warehouse/location ownership.
