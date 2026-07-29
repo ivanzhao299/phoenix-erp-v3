@@ -1555,3 +1555,26 @@ Next actions:
 2. Observe the first resident-runner redispatch and verify g1 is retired before g2 starts.
 3. Remove remaining display-only references that describe canonical Agent worktrees as execution locations.
 4. Keep canonical worktrees clean as templates; never merge task commits from them.
+
+## 2026-07-29 - Chanjet WMS ERP master-data gap closure
+
+Current stage: `CHANJET_WMS_MASTER_GAPS_CLASSIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+- All 171 open WMS source identities now have a domain class, risk and executable next action.
+- Chicken houses cannot be mapped directly to warehouses.
+- Egg products require SKU targets; material identities require MATERIAL targets.
+- Livestock and package/context UOM mappings fail closed until their policies exist.
+- Provider permission failures can be retried through the readonly resilient sync only.
+
+Next actions:
+
+1. `CHANJET_WMS_ERP_MASTER_STAGING_AND_HOUSE_LOCATION_POLICY`
+2. Stage evidence-backed warehouse, material and SKU candidates without fuzzy approval.
+3. Define `brd_houses` to WMS warehouse/location ownership.
+4. Define base UOM and product-specific package conversions.
+5. Recheck the six provider scopes after provider authorization.
+6. Keep Chanjet external write and ERP inventory-fact promotion disabled.

@@ -27,6 +27,11 @@ import {
 import { buildChanjetWmsCanonicalIdentity } from './chanjet-wms-reconciliation';
 import { ChanjetWmsWritebackOutboxEntity } from './chanjet-wms-writeback-outbox.entity';
 import { ChanjetIntegrationService } from './chanjet-integration.service';
+import {
+  ChanjetWmsGapClassification,
+  ChanjetWmsGapClass,
+  classifyChanjetWmsGap,
+} from './chanjet-wms-gap-classifier';
 
 const TRANSACTION_ENTITY_TYPES: ChanjetInventoryEntityType[] = [
   'STOCK_IN',
@@ -392,8 +397,16 @@ export class ChanjetWmsBridgeService {
         continue;
       }
 
+      const sourceClassification = classifyChanjetWmsGap({
+        mappingType: source.mappingType,
+        sourceCode: source.code,
+        sourceName: source.name,
+        mapped: false,
+        conflict: false,
+        exactTargetCount: 0,
+      });
       const matches = erpCandidates[source.mappingType].filter((candidate) => {
-        if (source.mappingType === 'PRODUCT' && candidate.entity_type !== 'PRODUCT') return false;
+        if (!this.isWmsCandidateSemanticallyAllowed(sourceClassification, candidate)) return false;
         if (
           source.mappingType === 'WAREHOUSE'
           && source.companyCode
@@ -406,7 +419,10 @@ export class ChanjetWmsBridgeService {
           && this.canonicalUomAlias(source.code || source.name) === this.normalizedWmsName(candidate.name);
         return codeMatch || (!!source.name && nameMatch) || uomAliasMatch;
       });
-      const uniqueMatches = [...new Map(matches.map((match) => [upper(match.code), match])).values()];
+      const uniqueMatches = [...new Map(matches.map((match) => [
+        `${match.entity_type}:${upper(match.code)}`,
+        match,
+      ])).values()];
       const match = uniqueMatches.length === 1 ? uniqueMatches[0] : null;
       const next = this.mappingRepository.create({
         ...(current || {}),
@@ -484,6 +500,37 @@ export class ChanjetWmsBridgeService {
           || !candidate.company_code
           || candidate.company_code === companyCode
         ));
+      const baseClassification = classifyChanjetWmsGap({
+        mappingType: mapping.mappingType as WmsMappingType,
+        sourceCode: mapping.chanjetCode || mapping.chanjetId,
+        sourceName: mapping.chanjetName,
+        mapped,
+        conflict: mapping.matchStatus === 'CONFLICT',
+        exactTargetCount: 0,
+      });
+      const exactTargets = candidates.filter((candidate) => (
+        this.isWmsCandidateSemanticallyAllowed(baseClassification, candidate)
+        && (
+          upper(candidate.code) === upper(mapping.chanjetCode || mapping.chanjetId)
+          || (
+            !!mapping.chanjetName
+            && this.normalizedWmsName(candidate.name) === this.normalizedWmsName(mapping.chanjetName)
+          )
+          || (
+            mapping.mappingType === 'UOM'
+            && this.canonicalUomAlias(mapping.chanjetCode || mapping.chanjetName)
+              === this.normalizedWmsName(candidate.name)
+          )
+        )
+      ));
+      const classification = classifyChanjetWmsGap({
+        mappingType: mapping.mappingType as WmsMappingType,
+        sourceCode: mapping.chanjetCode || mapping.chanjetId,
+        sourceName: mapping.chanjetName,
+        mapped,
+        conflict: mapping.matchStatus === 'CONFLICT',
+        exactTargetCount: exactTargets.length,
+      });
       return {
         id: mapping.id,
         mappingType: mapping.mappingType,
@@ -502,16 +549,14 @@ export class ChanjetWmsBridgeService {
           : mapping.matchStatus === 'CONFLICT'
             ? 'CONFLICT'
             : 'NEED_MAPPING',
+        gapClass: classification.gapClass,
+        riskLevel: classification.riskLevel,
+        suggestedEntityType: classification.suggestedEntityType,
+        classificationReason: classification.reason,
+        autoCloseEligible: classification.autoCloseEligible,
+        exactTargetCount: exactTargets.length,
         allowedTargetCount: candidates.length,
-        nextAction: mapped
-          ? 'NONE'
-          : mapping.mappingType === 'WAREHOUSE' && candidates.length === 0
-            ? 'CREATE_OR_ACTIVATE_COMPANY_WAREHOUSE_THEN_MAP'
-            : mapping.mappingType === 'PRODUCT' && candidates.length === 0
-              ? 'CREATE_OR_ACTIVATE_PRODUCT_MASTER_THEN_MAP'
-              : mapping.mappingType === 'UOM' && candidates.length === 0
-                ? 'DEFINE_UOM_OR_SKU_PACKAGING_CONVERSION'
-                : 'SELECT_VERIFIED_ERP_TARGET',
+        nextAction: classification.nextAction,
       };
     });
     const byType = (['WAREHOUSE', 'PRODUCT', 'UOM'] as WmsMappingType[]).map((mappingType) => {
@@ -525,6 +570,15 @@ export class ChanjetWmsBridgeService {
       };
     });
     const mapped = rows.filter((row) => row.closureState === 'MAPPED').length;
+    const gapClasses = Object.entries(rows.reduce<Record<string, number>>((counts, row) => {
+      if (row.gapClass !== 'CLOSED') {
+        counts[row.gapClass] = (counts[row.gapClass] || 0) + 1;
+      }
+      return counts;
+    }, {})).map(([gapClass, count]) => ({
+      gapClass: gapClass as ChanjetWmsGapClass,
+      count,
+    })).sort((left, right) => right.count - left.count);
     const permissionHolds = alignment?.scopes?.filter((scope) => (
       scope.latestSyncStatus === 'FAIL'
       && /50111|无调用该接口的权限|permission/i.test(scope.latestSyncError || '')
@@ -546,8 +600,10 @@ export class ChanjetWmsBridgeService {
         conflicts: rows.filter((row) => row.closureState === 'CONFLICT').length,
         mappingCoverageRate: rows.length ? Number(((mapped / rows.length) * 100).toFixed(2)) : 0,
         providerPermissionHolds: permissionHolds.length,
+        autoCloseEligible: rows.filter((row) => row.autoCloseEligible).length,
       },
       byType,
+      byGapClass: gapClasses,
       providerPermissionHolds: permissionHolds,
       targetCatalog: erpCandidates,
       rows,
@@ -556,6 +612,8 @@ export class ChanjetWmsBridgeService {
         erpBusinessTablesMutated: false,
         externalWriteExecuted: false,
         explicitTargetEvidenceRequired: true,
+        fuzzyAutoMappingAllowed: false,
+        houseAsWarehouseAllowed: false,
       },
     };
   }
@@ -603,6 +661,40 @@ export class ChanjetWmsBridgeService {
         && candidate.entity_type === erpEntityType
       ));
     if (!target) throw new BadRequestException('ERP mapping target does not exist or is inactive');
+    const classification = classifyChanjetWmsGap({
+      mappingType: mapping.mappingType as WmsMappingType,
+      sourceCode: mapping.chanjetCode || mapping.chanjetId,
+      sourceName: mapping.chanjetName,
+      mapped: false,
+      conflict: mapping.matchStatus === 'CONFLICT',
+      exactTargetCount: 0,
+    });
+    if (classification.gapClass === 'HOUSE_INVENTORY_BRIDGE_REQUIRED') {
+      throw new BadRequestException(
+        'breeding house cannot be mapped directly to a warehouse; define its canonical warehouse/location ownership first',
+      );
+    }
+    if (classification.gapClass === 'LIVESTOCK_MASTER_REQUIRED') {
+      throw new BadRequestException(
+        'livestock identity requires a livestock inventory/accounting policy before WMS mapping',
+      );
+    }
+    if (
+      ['SKU_UOM_CONVERSION_REQUIRED', 'CONTEXTUAL_UOM_REQUIRED'].includes(classification.gapClass)
+    ) {
+      throw new BadRequestException(
+        'packaging or contextual UOM requires a reviewed conversion/context policy before mapping',
+      );
+    }
+    if (
+      ['PRODUCT_SKU_MODEL_REQUIRED', 'MATERIAL_MASTER_CANDIDATE'].includes(classification.gapClass)
+      && classification.suggestedEntityType
+      && target.entity_type !== classification.suggestedEntityType
+    ) {
+      throw new BadRequestException(
+        `source identity requires ERP ${classification.suggestedEntityType} target, received ${target.entity_type}`,
+      );
+    }
     const sourceCompanyCode = text(mapping.rawData?.sourceCompanyCode);
     if (
       mapping.mappingType === 'WAREHOUSE'
@@ -858,6 +950,27 @@ export class ChanjetWmsBridgeService {
     return '';
   }
 
+  private isWmsCandidateSemanticallyAllowed(
+    classification: ChanjetWmsGapClassification,
+    candidate: ErpMappingCandidate,
+  ): boolean {
+    if ([
+      'HOUSE_INVENTORY_BRIDGE_REQUIRED',
+      'LIVESTOCK_MASTER_REQUIRED',
+      'SKU_UOM_CONVERSION_REQUIRED',
+      'CONTEXTUAL_UOM_REQUIRED',
+    ].includes(classification.gapClass)) {
+      return false;
+    }
+    if (
+      ['PRODUCT_SKU_MODEL_REQUIRED', 'MATERIAL_MASTER_CANDIDATE'].includes(classification.gapClass)
+      && classification.suggestedEntityType
+    ) {
+      return candidate.entity_type === classification.suggestedEntityType;
+    }
+    return true;
+  }
+
   private async loadWmsErpCandidates(): Promise<Record<WmsMappingType, ErpMappingCandidate[]>> {
     const [warehouses, products, units] = await Promise.all([
       this.mappingRepository.manager.query(`
@@ -915,6 +1028,11 @@ export class ChanjetWmsBridgeService {
           SELECT NULLIF(TRIM(display_unit), '')
           FROM packaging_specs
           WHERE status = 'ACTIVE'
+          UNION
+          SELECT NULLIF(TRIM(COALESCE(dict_label_zh, name, dict_value)), '')
+          FROM sys_dict
+          WHERE status = 'ACTIVE'
+            AND dict_type = 'INV_UOM'
         ) source
         WHERE unit_name IS NOT NULL
       `) as Promise<ErpMappingCandidate[]>,

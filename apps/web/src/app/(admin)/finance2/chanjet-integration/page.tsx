@@ -139,6 +139,7 @@ interface WmsMappingGapOverview {
     conflicts: number;
     mappingCoverageRate: number;
     providerPermissionHolds: number;
+    autoCloseEligible: number;
   };
   byType: Array<{
     mappingType: 'WAREHOUSE' | 'PRODUCT' | 'UOM';
@@ -146,6 +147,10 @@ interface WmsMappingGapOverview {
     mapped: number;
     needMapping: number;
     conflicts: number;
+  }>;
+  byGapClass: Array<{
+    gapClass: string;
+    count: number;
   }>;
   providerPermissionHolds: Array<{
     endpointKey: string;
@@ -167,6 +172,12 @@ interface WmsMappingGapOverview {
     matchStatus: string;
     reviewStatus: string;
     closureState: 'MAPPED' | 'NEED_MAPPING' | 'CONFLICT';
+    gapClass: string;
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+    suggestedEntityType: WmsMappingTarget['entity_type'] | 'HOUSE' | '';
+    classificationReason: string;
+    autoCloseEligible: boolean;
+    exactTargetCount: number;
     allowedTargetCount: number;
     nextAction: string;
   }>;
@@ -176,13 +187,58 @@ function allowedWmsTargets(
   overview: WmsMappingGapOverview,
   row: WmsMappingGapOverview['rows'][number],
 ) {
+  const blockedClasses = new Set([
+    'HOUSE_INVENTORY_BRIDGE_REQUIRED',
+    'LIVESTOCK_MASTER_REQUIRED',
+    'SKU_UOM_CONVERSION_REQUIRED',
+    'CONTEXTUAL_UOM_REQUIRED',
+  ]);
   return (overview.targetCatalog[row.mappingType] || []).filter((target) => (
-    row.mappingType !== 'WAREHOUSE'
-    || !row.companyCode
-    || !target.company_code
-    || target.company_code === row.companyCode
+    !blockedClasses.has(row.gapClass)
+    && (
+      !row.suggestedEntityType
+      || row.suggestedEntityType === 'HOUSE'
+      || target.entity_type === row.suggestedEntityType
+    )
+    && (
+      row.mappingType !== 'WAREHOUSE'
+      || !row.companyCode
+      || !target.company_code
+      || target.company_code === row.companyCode
+    )
   ));
 }
+
+const WMS_GAP_LABELS: Record<string, { key: string; fallback: string }> = {
+  MAPPING_CONFLICT: { key: 'ui.WMS精确候选冲突', fallback: '精确候选冲突' },
+  EXISTING_TARGET_SELECTION_REQUIRED: { key: 'ui.WMS已有精确主档待确认', fallback: '已有精确主档待确认' },
+  WAREHOUSE_MASTER_CANDIDATE: { key: 'ui.WMS仓库主档待补齐', fallback: '仓库主档待补齐' },
+  HOUSE_INVENTORY_BRIDGE_REQUIRED: { key: 'ui.WMS鸡舍库存归属待桥接', fallback: '鸡舍库存归属待桥接' },
+  WAREHOUSE_CLASSIFICATION_REVIEW_REQUIRED: { key: 'ui.WMS仓储实体类型待核准', fallback: '仓储实体类型待核准' },
+  PRODUCT_SKU_MODEL_REQUIRED: { key: 'ui.WMS蛋品SKU待对齐', fallback: '蛋品 SKU 待对齐' },
+  MATERIAL_MASTER_CANDIDATE: { key: 'ui.WMS物料主档待补齐', fallback: '物料主档待补齐' },
+  LIVESTOCK_MASTER_REQUIRED: { key: 'ui.WMS活禽主档与核算策略待补齐', fallback: '活禽主档与核算策略待补齐' },
+  PRODUCT_MASTER_REVIEW_REQUIRED: { key: 'ui.WMS商品实体类型待核准', fallback: '商品实体类型待核准' },
+  UOM_DEFINITION_CANDIDATE: { key: 'ui.WMS基础计量单位待定义', fallback: '基础计量单位待定义' },
+  SKU_UOM_CONVERSION_REQUIRED: { key: 'ui.WMS包装单位换算待定义', fallback: '包装单位换算待定义' },
+  CONTEXTUAL_UOM_REQUIRED: { key: 'ui.WMS场景计量单位待定义', fallback: '场景计量单位待定义' },
+};
+
+const WMS_NEXT_ACTION_LABELS: Record<string, { key: string; fallback: string }> = {
+  RESOLVE_MAPPING_CONFLICT: { key: 'ui.WMS消除重复候选后再确认', fallback: '消除重复候选后再确认' },
+  REFRESH_AND_CONFIRM_EXACT_MAPPING: { key: 'ui.WMS刷新并确认唯一精确映射', fallback: '刷新并确认唯一精确映射' },
+  CREATE_OR_ACTIVATE_COMPANY_WAREHOUSE_THEN_MAP: { key: 'ui.WMS补齐同公司仓库主档后映射', fallback: '补齐同公司仓库主档后映射' },
+  LINK_BRD_HOUSE_TO_CANONICAL_WMS_WAREHOUSE_LOCATION: { key: 'ui.WMS建立鸡舍到标准仓库库位的库存归属', fallback: '建立鸡舍到标准仓库/库位的库存归属' },
+  CLASSIFY_AS_WAREHOUSE_HOUSE_OR_LOCATION: { key: 'ui.WMS核准为仓库鸡舍或库位', fallback: '核准为仓库、鸡舍或库位' },
+  MAP_TO_OR_CREATE_CANONICAL_EGG_SKU: { key: 'ui.WMS映射或补齐标准蛋品SKU', fallback: '映射或补齐标准蛋品 SKU' },
+  CREATE_OR_ACTIVATE_MATERIAL_MASTER_THEN_MAP: { key: 'ui.WMS补齐物料主档后映射', fallback: '补齐物料主档后映射' },
+  DEFINE_LIVESTOCK_PRODUCT_AND_WMS_ACCOUNTING_POLICY: { key: 'ui.WMS先定义活禽主档与库存核算策略', fallback: '先定义活禽主档与库存核算策略' },
+  CLASSIFY_AS_PRODUCT_SKU_MATERIAL_OR_LIVESTOCK: { key: 'ui.WMS核准为商品SKU物料或活禽', fallback: '核准为商品、SKU、物料或活禽' },
+  DEFINE_CONTEXTUAL_UOM_POLICY_BEFORE_MAPPING: { key: 'ui.WMS按业务对象定义计数单位口径', fallback: '按业务对象定义计数单位口径' },
+  DEFINE_SKU_UOM_CONVERSION_BEFORE_MAPPING: { key: 'ui.WMS先定义SKU包装换算率', fallback: '先定义 SKU 包装换算率' },
+  DEFINE_CANONICAL_UOM_THEN_MAP: { key: 'ui.WMS补齐标准计量单位后映射', fallback: '补齐标准计量单位后映射' },
+  NONE: { key: 'ui.WMS映射已闭环短语', fallback: '已闭环' },
+};
 
 interface AccountBook {
   bookId: string;
@@ -1089,6 +1145,20 @@ export default function ChanjetIntegrationPage() {
           erpCode: decision === 'APPROVE' ? erpCode : undefined,
           erpEntityType: decision === 'APPROVE' ? erpEntityType : undefined,
         }),
+      }),
+    );
+  }
+
+  async function recheckWmsProviderPermissions() {
+    const scope = [...new Set(
+      (wmsMappingGaps?.providerPermissionHolds || []).map((item) => item.endpointKey),
+    )];
+    if (scope.length === 0) return;
+    await runAction(
+      t('ui.重新检查供应商权限', '重新检查供应商权限'),
+      () => request('/chanjet/integration/mirror/sync-resilient', {
+        method: 'POST',
+        body: JSON.stringify({ scope, maxAttempts: 1 }),
       }),
     );
   }
@@ -2109,18 +2179,46 @@ export default function ChanjetIntegrationPage() {
                       <Badge tone={wmsMappingGaps.summary.providerPermissionHolds ? 'red' : 'green'}>
                         {t('ui.供应商权限阻断', '供应商权限阻断')} {wmsMappingGaps.summary.providerPermissionHolds}
                       </Badge>
+                      <Badge tone={wmsMappingGaps.summary.autoCloseEligible ? 'blue' : 'muted'}>
+                        {t('ui.唯一精确候选', '唯一精确候选')} {wmsMappingGaps.summary.autoCloseEligible}
+                      </Badge>
                     </div>
+
+                    {wmsMappingGaps.byGapClass.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                        {wmsMappingGaps.byGapClass.map((item) => (
+                          <Badge key={item.gapClass} tone="muted">
+                            {WMS_GAP_LABELS[item.gapClass]
+                              ? t(WMS_GAP_LABELS[item.gapClass].key, WMS_GAP_LABELS[item.gapClass].fallback)
+                              : item.gapClass} {item.count}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
 
                     {wmsMappingGaps.providerPermissionHolds.length > 0 && (
                       <div style={{ border: '1px solid var(--danger-border)', background: 'var(--danger-bg)', borderRadius: 6, padding: 10, marginBottom: 12 }}>
-                        <strong style={{ color: 'var(--status-danger)' }}>
-                          {t('ui.晋级审批保持关闭', '晋级审批保持关闭')}
-                        </strong>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
-                          {t(
-                            'ui.供应商权限补齐说明',
-                            'OTHER_STOCK_IN / RETAIL_STOCK_OUT 尚未取得供应商接口权限。全部只读 Scope 新鲜且成功前，任何库存单据不得批准晋级。',
-                          )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                          <div>
+                            <strong style={{ color: 'var(--status-danger)' }}>
+                              {t('ui.晋级审批保持关闭', '晋级审批保持关闭')}
+                            </strong>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                              {t(
+                                'ui.供应商权限补齐说明',
+                                'OTHER_STOCK_IN / RETAIL_STOCK_OUT 尚未取得供应商接口权限。全部只读 Scope 新鲜且成功前，任何库存单据不得批准晋级。',
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={!canEdit || loading}
+                            onClick={() => void recheckWmsProviderPermissions()}
+                          >
+                            <RefreshCw size={14} />
+                            {t('ui.只读重试', '只读重试')}
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -2155,7 +2253,21 @@ export default function ChanjetIntegrationPage() {
                                 </td>
                                 <td style={cellStyle}>
                                   <Badge tone={statusTone(row.closureState)}>{row.closureState}</Badge>
-                                  <div style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 4 }}>{row.nextAction}</div>
+                                  <div style={{ fontSize: 12, fontWeight: 600, marginTop: 5 }}>
+                                    {WMS_GAP_LABELS[row.gapClass]
+                                      ? t(WMS_GAP_LABELS[row.gapClass].key, WMS_GAP_LABELS[row.gapClass].fallback)
+                                      : row.gapClass}
+                                  </div>
+                                  <div style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 3 }}>
+                                    {WMS_NEXT_ACTION_LABELS[row.nextAction]
+                                      ? t(WMS_NEXT_ACTION_LABELS[row.nextAction].key, WMS_NEXT_ACTION_LABELS[row.nextAction].fallback)
+                                      : row.nextAction}
+                                  </div>
+                                  <div style={{ marginTop: 5 }}>
+                                    <Badge tone={row.riskLevel === 'HIGH' ? 'red' : row.riskLevel === 'MEDIUM' ? 'amber' : 'green'}>
+                                      {row.riskLevel}
+                                    </Badge>
+                                  </div>
                                 </td>
                                 <td style={cellStyle}>
                                   {allowedWmsTargets(wmsMappingGaps, row).length > 0 ? (

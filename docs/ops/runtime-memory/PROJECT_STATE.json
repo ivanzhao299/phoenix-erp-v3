@@ -1232,7 +1232,30 @@
     "reverse_sync_readiness": "HOLD_EXTERNAL_WRITE_DISABLED",
     "next_gate": "CHANJET_WMS_RUNTIME_PERMISSION_MIGRATION_AND_MAPPING_ACCEPTANCE"
   },
+  "chanjet_wms_master_gap_closure": {
+    "current_stage": "CHANJET_WMS_MASTER_GAPS_CLASSIFIED",
+    "active_decision": "GO_WITH_CONDITIONS",
+    "source_identities": 187,
+    "mapped_identities": 16,
+    "open_identities": 171,
+    "mapping_coverage_percent": 8.56,
+    "provider_permission_holds": 6,
+    "house_as_warehouse_allowed": false,
+    "fuzzy_auto_mapping_allowed": false,
+    "product_exact_target_types": [
+      "PRODUCT",
+      "SKU",
+      "MATERIAL"
+    ],
+    "next_gate": "CHANJET_WMS_ERP_MASTER_STAGING_AND_HOUSE_LOCATION_POLICY",
+    "report": "docs/ops/CHANJET_WMS_ERP_MASTER_DATA_GAP_CLOSURE_REPORT_20260729.md",
+    "write_chanjet": false,
+    "write_erp_inventory_facts": false
+  },
   "next_action": [
+    "STAGE_VERIFIED_CHANJET_WMS_ERP_MASTER_CANDIDATES",
+    "DEFINE_BRD_HOUSE_TO_WMS_WAREHOUSE_LOCATION_POLICY",
+    "DEFINE_PRODUCT_SPECIFIC_UOM_CONVERSIONS",
     "OPEN_CHANJET_OTHER_STOCK_IN_AND_RETAIL_STOCK_OUT_FOR_THREE_BOOKS",
     "RUN_REVIEWED_CHANJET_WMS_BRIDGE_MIGRATION_GATE",
     "REFRESH_CHANJET_WMS_PROMOTION_CANDIDATES_AND_RESOLVE_EXACT_MAPPINGS",

@@ -200,6 +200,137 @@ describe('ChanjetWmsBridgeService', () => {
     }));
   });
 
+  it('allows an exact Chanjet product identity to map to the matching ERP material master', async () => {
+    const medicineSnapshot = {
+      ...snapshot,
+      rawData: {
+        ...snapshot.rawData,
+        voucherDetailList: [{
+          ...snapshot.rawData.voucherDetailList[0],
+          productCode: 'CJ-MED-1',
+          productName: '阿莫西林',
+        }],
+      },
+    };
+    const mappingRepo = repository({
+      find: jest.fn().mockResolvedValue([]),
+      manager: {
+        query: jest.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{
+            code: 'MAT-AMOX',
+            name: '阿莫西林',
+            company_code: '',
+            entity_type: 'MATERIAL',
+          }])
+          .mockResolvedValueOnce([]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository({ find: jest.fn().mockResolvedValue([activeBook]) }) as never,
+      repository({ find: jest.fn().mockResolvedValue([medicineSnapshot]) }) as never,
+      mappingRepo as never,
+      repository() as never,
+      repository() as never,
+    );
+
+    const result = await service.refreshMasterMappingCandidates('admin');
+
+    expect(result.exactMatched).toBe(1);
+    expect(mappingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      mappingType: 'PRODUCT',
+      chanjetCode: 'CJ-MED-1',
+      erpCode: 'MAT-AMOX',
+      erpEntityType: 'MATERIAL',
+      matchStatus: 'MATCHED',
+      reviewStatus: 'APPROVED',
+    }));
+  });
+
+  it('rejects direct chicken-house to warehouse mapping even when the target exists', async () => {
+    const sourceOnly = {
+      id: 'HOUSE-1',
+      mappingType: 'WAREHOUSE',
+      bookId: 'BOOK-1',
+      chanjetId: '101',
+      chanjetCode: '101',
+      chanjetName: '1号鸡舍',
+      erpCode: '',
+      matchStatus: 'SOURCE_ONLY',
+      reviewStatus: 'APPROVED',
+      rawData: { sourceCompanyCode: 'COMP-1' },
+    };
+    const mappingRepo = repository({
+      findOne: jest.fn().mockResolvedValue(sourceOnly),
+      manager: {
+        query: jest.fn()
+          .mockResolvedValueOnce([{
+            code: 'WH-1',
+            name: '总仓',
+            company_code: 'COMP-1',
+            entity_type: 'WAREHOUSE',
+          }])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository() as never,
+      repository() as never,
+      mappingRepo as never,
+      repository() as never,
+      repository() as never,
+    );
+
+    await expect(service.reviewMasterMapping('HOUSE-1', {
+      decision: 'APPROVE',
+      erpCode: 'WH-1',
+      erpEntityType: 'WAREHOUSE',
+    }, 'admin')).rejects.toThrow('breeding house cannot be mapped directly to a warehouse');
+  });
+
+  it('rejects package UOM mapping until a product-specific conversion is reviewed', async () => {
+    const sourceOnly = {
+      id: 'UOM-1',
+      mappingType: 'UOM',
+      bookId: 'BOOK-1',
+      chanjetId: '桶',
+      chanjetCode: '桶',
+      chanjetName: '桶',
+      erpCode: '',
+      matchStatus: 'SOURCE_ONLY',
+      reviewStatus: 'APPROVED',
+      rawData: {},
+    };
+    const mappingRepo = repository({
+      findOne: jest.fn().mockResolvedValue(sourceOnly),
+      manager: {
+        query: jest.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{
+            code: '桶',
+            name: '桶',
+            company_code: '',
+            entity_type: 'UOM',
+          }]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository() as never,
+      repository() as never,
+      mappingRepo as never,
+      repository() as never,
+      repository() as never,
+    );
+
+    await expect(service.reviewMasterMapping('UOM-1', {
+      decision: 'APPROVE',
+      erpCode: '桶',
+      erpEntityType: 'UOM',
+    }, 'admin')).rejects.toThrow('requires a reviewed conversion/context policy');
+  });
+
   it('maps kg to the dimension-preserving ERP unit 公斤 and keeps other units fail-closed', async () => {
     const kgSnapshot = {
       ...snapshot,

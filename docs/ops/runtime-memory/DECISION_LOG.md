@@ -2086,3 +2086,13 @@ Decision: counterparty resolution `GO`.
 - The 33/33 readonly baseline is a hard promotion prerequisite; current state is 27 fresh and six failed, so approval remains HOLD.
 - Inventory and finance business fingerprints are unchanged, promotion approved/promoted counts are zero and the writeback Outbox is empty.
 - No Chanjet write, modify or delete occurred. The next Gate closes ERP master-data gaps and provider authorization before any canary.
+
+# 2026-07-29 - Classify Chanjet WMS source identities before master-data creation
+
+- Decision: `GO_WITH_CONDITIONS`.
+- Source dimensions are not equivalent to ERP entity types: a Chanjet warehouse may be a breeding house, a product may be an SKU/material/livestock, and a UOM may require a product-specific conversion.
+- All 171 open identities are classified before any ERP master creation or mapping approval.
+- Server-side policy rejects house-as-warehouse, livestock-without-accounting-policy and package/context-UOM-without-conversion even if the API is called outside the admin UI.
+- Exact active ERP targets may close only when entity semantics match; fuzzy names never auto-approve.
+- The six provider `50111` failures remain a hard 33/33 readonly-baseline blocker.
+- No Chanjet write and no ERP inventory-fact mutation are permitted by this Gate.
