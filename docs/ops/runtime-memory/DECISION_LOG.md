@@ -2158,3 +2158,24 @@ Decision: counterparty resolution `GO`.
 - No JWT, refresh token, Chanjet openToken, App Secret, certificate, database
   password, SSH credential or cookie is persisted in Runtime Memory.
 - Provider `50111` remains non-retryable until its permission grant changes.
+
+# 2026-07-30 - Lock WMS and bank-account bidirectional synchronization model
+
+- Decision: `HOLD`; readonly evidence is sufficient for planning but not for ERP
+  inventory-fact promotion or Chanjet external write.
+- Production has 4,242 WMS source rows, 2,685 canonical documents and 9,930 lines.
+  The mirror and canonical field models are complete, but only 16 / 187 WMS
+  identities are mapped.
+- Historical WMS documents must not be replayed into ERP. The approved design is an
+  opening on-hand cutover followed by watermark-based incremental documents.
+- Chanjet `FIN_ACCOUNT` is an account directory. Latest-period leaf 1001 / 1002
+  `GL_BALANCE` is the posted cash/bank balance authority.
+- ERP cash accounts remain operational accounts. Their multi-currency original
+  balances must not be added and compared to a CNY base-currency balance.
+- Chanjet is authoritative for posted accounting balance; ERP is authoritative for
+  operational cash transactions. Neither source silently overwrites the other.
+- ERP to Chanjet will eventually send approved documents through an Outbox and
+  readback Gate. Direct inventory SQL writes and direct bank-balance writes remain
+  forbidden.
+- Canonical plan:
+  `docs/ops/CHANJET_WMS_BANK_ACCOUNT_BIDIRECTIONAL_SYNC_PROGRESS_AND_PLAN_20260730.md`.

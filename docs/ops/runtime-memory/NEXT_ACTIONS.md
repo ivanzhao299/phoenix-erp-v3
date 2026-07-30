@@ -1641,6 +1641,34 @@ Next actions:
 3. Remove remaining display-only references that describe canonical Agent worktrees as execution locations.
 4. Keep canonical worktrees clean as templates; never merge task commits from them.
 
+## 2026-07-30 — 好业财 WMS / 银行账户同步下一 Gate
+
+当前真实状态：
+
+- 好业财 WMS 已进入只读中间层：27/33 目标新鲜、4,242 行、2,685 张单据、9,930 条明细。
+- WMS 字段模型覆盖 100%，但主数据映射仅 16/187（8.56%），ERP 库存业务台账晋升仍为 0。
+- 好业财银行账户目录 49 条，37 条已映射（75.51%）；好业财 CNY 本位币余额为 1,634,534.07。
+- ERP 42 个 ACTIVE 账户的原币余额不能跨 CNY/LAK/THB/USD 直接求和后与 CNY 本位币比较。
+- ERP → 好业财仅有 Outbox/状态机准备，真实外部传输仍禁用。
+
+顺序执行：
+
+1. `CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR`
+2. `CHANJET_BANK_BALANCE_COMPARABILITY_FIX`
+3. `CHANJET_WMS_AND_BANK_MASTER_MAPPING_CLOSURE`
+4. `CHANJET_WMS_OPENING_BALANCE_CANARY_PRECHECK`
+5. `CHANJET_WMS_INCREMENTAL_INBOUND`
+6. `CHANJET_BANK_ACCOUNT_READ_MODEL_ALIGNMENT`
+7. `CHANJET_BIDIRECTIONAL_SINGLE_DOCUMENT_CANARY_PRECHECK`
+
+执行边界：
+
+- 不把 2,685 张历史单据直接重放进 ERP。
+- 先用即时库存建立期初，再从水位点以后增量同步。
+- 任何库存写入必须走 ERP WMS 统一服务。
+- 不直接写银行余额；ERP 出站只允许审批后的业务单据/凭证。
+- 未经单据级批准，不执行好业财外部写入。
+
 ## 2026-07-29 - Chanjet WMS ERP master-data gap closure
 
 Current stage: `CHANJET_WMS_MASTER_GAP_CLOSURE_PRODUCTION_VERIFIED_PROVIDER_HOLD`

@@ -1,0 +1,157 @@
+{
+  "plan_id": "CHANJET-WMS-BANK-BIDIRECTIONAL-SYNC-20260730",
+  "generated_at": "2026-07-30T11:05:26+08:00",
+  "decision": "HOLD",
+  "next_gate": "CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR",
+  "authority": {
+    "wms_read_source": "CHANJET",
+    "erp_inventory_ledger": "ERP_WMS_SERVICE_ONLY",
+    "posted_bank_balance": "CHANJET_GL_BALANCE",
+    "erp_operational_cash_transactions": "ERP",
+    "direct_balance_write": "FORBIDDEN"
+  },
+  "current_evidence": {
+    "wms_expected_targets": 33,
+    "wms_fresh_targets": 27,
+    "wms_provider_permission_holds": 6,
+    "wms_source_rows": 4242,
+    "wms_source_documents": 2685,
+    "wms_source_lines": 9930,
+    "wms_lossless_mirror_coverage_percent": 100,
+    "wms_business_column_coverage_percent": 100,
+    "wms_master_identities": 187,
+    "wms_confirmed_mappings": 16,
+    "wms_mapping_coverage_percent": 8.56,
+    "wms_promotion_candidates": 2625,
+    "wms_promoted_candidates": 0,
+    "wms_writeback_outbox_rows": 0,
+    "bank_account_directory_rows": 49,
+    "bank_account_confirmed_mappings": 37,
+    "bank_account_source_only": 12,
+    "bank_account_mapping_coverage_percent": 75.51,
+    "erp_active_cash_accounts": 42,
+    "chanjet_cash_bank_leaf_rows": 31,
+    "chanjet_base_balance_cny": 1634534.07,
+    "erp_raw_mixed_currency_total": 2054822167.04,
+    "mixed_currency_total_comparable": false
+  },
+  "phases": [
+    {
+      "phase": "P0",
+      "title": "口径正确性与供应商权限",
+      "status": "READY",
+      "tasks": [
+        "禁止混币种原币余额直接相加后与 CNY 本位币比较",
+        "增加 comparisonComparable 和不可比状态",
+        "开放 OTHER_STOCK_IN / RETAIL_STOCK_OUT 三账套只读权限",
+        "只重跑六个权限失败目标"
+      ],
+      "acceptance": [
+        "WMS 33/33 目标新鲜",
+        "不可比余额不产生数值差异"
+      ]
+    },
+    {
+      "phase": "P1",
+      "title": "WMS 与银行主数据映射清账",
+      "status": "HOLD",
+      "tasks": [
+        "仓库 25/25 确定性映射",
+        "商品/物料 134/134 确定性映射",
+        "单位 28/28 和产品专属换算",
+        "银行账户目录 49/49 映射",
+        "解释账户目录与总账末级行的 26 个关联缺口"
+      ],
+      "acceptance": [
+        "WMS 映射覆盖率 100%",
+        "银行账户映射覆盖率 100%",
+        "冲突数 0"
+      ]
+    },
+    {
+      "phase": "P2",
+      "title": "好业财库存期初单向导入 ERP",
+      "status": "HOLD",
+      "tasks": [
+        "确定切换时间和增量水位",
+        "生成期初库存预览",
+        "一个账套一个仓库 Canary",
+        "经 WMS 统一服务写入",
+        "验证幂等和回滚"
+      ],
+      "acceptance": [
+        "数量、批次、成本、单位、仓库、库位差异为 0",
+        "重复执行不重复入账"
+      ]
+    },
+    {
+      "phase": "P3",
+      "title": "好业财库存增量同步 ERP",
+      "status": "HOLD",
+      "tasks": [
+        "按水位同步入库、出库、调拨和盘点",
+        "单据版本和明细行幂等",
+        "红字/作废使用逆向库存动作",
+        "每日差异对账"
+      ],
+      "acceptance": [
+        "连续七天无丢单和重复入账",
+        "差异为 0 或有明确 HOLD 原因"
+      ]
+    },
+    {
+      "phase": "P4",
+      "title": "银行账户单向财务对齐",
+      "status": "READY_AFTER_P1",
+      "tasks": [
+        "同步账户目录、原币余额、本位币余额和期间",
+        "好业财余额作为财务卡片主值",
+        "ERP 流水作为辅助明细",
+        "逐账户逐币种逐期间对账"
+      ],
+      "acceptance": [
+        "49/49 账户可解释",
+        "集团本位币余额与好业财一致"
+      ]
+    },
+    {
+      "phase": "P5",
+      "title": "ERP 到好业财写入准备",
+      "status": "HOLD",
+      "tasks": [
+        "业务单据生成 Outbox 草稿",
+        "写前校验、双人审批和防重",
+        "保存 requestId、外部单号和回读快照",
+        "只允许官方 API 支持的业务单据"
+      ],
+      "acceptance": [
+        "草稿可重放且防重复",
+        "本阶段外部写入仍为 0"
+      ]
+    },
+    {
+      "phase": "P6",
+      "title": "最小双向 Canary 与生产化",
+      "status": "HOLD",
+      "tasks": [
+        "逐域批准一张低风险单据",
+        "推送后立即回读",
+        "验证幂等、补偿和审计",
+        "接入 token、限流、漂移、延迟和差异告警"
+      ],
+      "acceptance": [
+        "单笔写入、回读、对账和补偿闭环通过",
+        "A2/A1/A5/A7 全部通过"
+      ]
+    }
+  ],
+  "guardrails": {
+    "write_chanjet": false,
+    "delete_chanjet": false,
+    "silent_overwrite": false,
+    "replay_all_history_into_erp": false,
+    "direct_inventory_sql_write": false,
+    "direct_bank_balance_write": false,
+    "production_canary_requires_explicit_approval": true
+  }
+}
