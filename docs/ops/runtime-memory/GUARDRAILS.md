@@ -1,6 +1,24 @@
 # Runtime Memory Guardrails
 
-Last updated: 2026-07-23
+Last updated: 2026-07-30
+
+## New Window and Chanjet Endpoint Handoff
+
+1. Every new window must read
+   `docs/ops/runtime-memory/CHANJET_ENDPOINT_HANDOFF.md` after parsing
+   `PROJECT_STATE.json`.
+2. `GET /api/chanjet/integration/current-state` is the only authoritative live
+   Chanjet decision. Historical reports and run artifacts cannot override it.
+3. Runtime Memory must never contain JWT, refresh token, Chanjet openToken, App
+   Key, App Secret, certificate, database password, SSH credential or cookie.
+4. A missing, unauthenticated or unsuccessful current-state response is `HOLD`;
+   do not reconstruct a live decision from stale files.
+5. Provider code `50111` is non-retryable until the provider grant changes.
+6. Readonly synchronization may write only ERP integration/mapping/audit tables.
+   It does not authorize Chanjet writes or ERP inventory/finance business-fact
+   mutation.
+7. `MENU_SETTINGS_CHANJET:V` is required for state reads and `:E` for manual
+   synchronization/alignment.
 
 1. Do not rely on long-lived chat context for Store Payment project state.
 2. Codex-Orchestrator must read `docs/ops/runtime-memory/*` before continuing Store Payment.

@@ -2144,3 +2144,17 @@ Decision: counterparty resolution `GO`.
   not consume the retry queue or be represented as generic ERP sync failures.
 - Exact mapping confirmation found no pending/conflicting exact candidates and made
   no Chanjet, ERP inventory or ERP finance business-fact writes.
+
+# 2026-07-30 - Establish durable Chanjet endpoint handoff for new windows
+
+- Decision: `GO_WITH_CONDITIONS`; the live business decision remains `HOLD` at
+  `CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR`.
+- `CHANJET_ENDPOINT_HANDOFF.md` is the canonical new-window route and safety
+  contract.
+- Every new window must probe
+  `GET /api/chanjet/integration/current-state` before using historical reports.
+- The handoff records production UI/API routes, permission bits, readonly
+  operation routes, expected evidence and fail-closed behavior.
+- No JWT, refresh token, Chanjet openToken, App Secret, certificate, database
+  password, SSH credential or cookie is persisted in Runtime Memory.
+- Provider `50111` remains non-retryable until its permission grant changes.

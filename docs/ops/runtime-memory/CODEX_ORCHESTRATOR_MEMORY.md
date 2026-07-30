@@ -1,6 +1,6 @@
 # Codex-Orchestrator Runtime Memory
 
-Last updated: 2026-07-29
+Last updated: 2026-07-30
 
 ## Active Context
 
@@ -10,6 +10,24 @@ Last updated: 2026-07-29
 - Next gate: CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
+
+## New Window Bootstrap
+
+- Endpoint handoff: `docs/ops/runtime-memory/CHANJET_ENDPOINT_HANDOFF.md`.
+- A new window must read the handoff after `PROJECT_STATE.json`, then call
+  `GET /api/chanjet/integration/current-state` before planning or executing a
+  Chanjet task.
+- `current-state` is the only authoritative live decision. Reports and
+  `docs/ops/runs/**` are historical evidence.
+- Production admin entry:
+  `https://erp.eggslao.com/finance2/chanjet-integration`.
+- Production API origin: `https://erp.eggslao.com`.
+- Required permission: `MENU_SETTINGS_CHANJET:V`; synchronization and alignment
+  require `MENU_SETTINGS_CHANJET:E`.
+- Runtime Memory stores no JWT, refresh token, Chanjet openToken, App Secret,
+  certificate, database password or SSH credential.
+- Current expected state is `HOLD / 83 / B / 79-of-85`, with next Gate
+  `CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR`.
 
 ## Latest Chanjet Decision
 

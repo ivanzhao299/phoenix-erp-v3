@@ -1,5 +1,29 @@
 # Next Actions
 
+## 2026-07-30 - New-window Chanjet endpoint handoff enabled
+
+Current stage: `CHANJET_READINESS_RUNTIME_STABLE_PROVIDER_PERMISSION_HOLD`
+
+Decision: `HOLD`
+
+Completed:
+
+1. Added `docs/ops/runtime-memory/CHANJET_ENDPOINT_HANDOFF.md` as the durable
+   route, authentication and fail-closed contract.
+2. Made `GET /api/chanjet/integration/current-state` the mandatory first live
+   probe for a new window.
+3. Recorded the readiness, baseline, diagnostics, token health, readonly sync,
+   alignment and exact-mapping endpoints without storing credentials.
+4. Added the machine-readable handoff contract to `PROJECT_STATE.json`.
+
+Next actions:
+
+1. A new window reads Runtime Memory and probes `current-state` before using
+   historical reports.
+2. Repair provider grants for `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT`.
+3. Rerun only the six blocked targets after the provider permission changes.
+4. Keep Chanjet external writes and ERP business-fact promotion disabled.
+
 ## 2026-07-29 - Readiness runtime stabilized; provider permission Gate is authoritative
 
 Current stage: `CHANJET_READINESS_RUNTIME_STABLE_PROVIDER_PERMISSION_HOLD`
