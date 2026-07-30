@@ -844,6 +844,95 @@ export class ChanjetCallbackController {
     };
   }
 
+  /**
+   * Unified exact-mapping closure view. Deterministic matches are separated
+   * from missing ERP masters, domain-policy gaps and ambiguous identities.
+   */
+  @Get('integration/exact-mapping-closure')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationExactMappingClosure() {
+    const [masterData, wms] = await Promise.all([
+      this.integration.masterDataMappingReview(),
+      this.wmsBridge.mappingGapOverview(),
+    ]);
+    const exactAutoConfirmable = masterData.candidates
+      .filter((candidate) => candidate.closureState === 'EXACT_AUTO_CONFIRMABLE').length
+      + wms.summary.autoCloseEligible;
+    const structuralGaps = masterData.candidates
+      .filter((candidate) => [
+        'ERP_MASTER_MISSING',
+        'UNRESOLVED',
+      ].includes(candidate.closureState)).length
+      + wms.summary.needMapping;
+    const conflicts = masterData.summary.conflicts + wms.summary.conflicts;
+    const cashAccount = masterData.domains.find((domain) => domain.domain === 'CASH_ACCOUNT');
+
+    return {
+      success: true,
+      closure: {
+        generatedAt: new Date().toISOString(),
+        decision: conflicts > 0
+          ? 'HOLD'
+          : structuralGaps > 0
+            ? 'GO_WITH_CONDITIONS'
+            : 'GO',
+        summary: {
+          exactAutoConfirmable,
+          structuralGaps,
+          conflicts,
+          financeExactMatches: cashAccount?.exactMatches || 0,
+          financeSourceRows: cashAccount?.sourceRows || 0,
+          wmsMapped: wms.summary.mapped,
+          wmsTotal: wms.summary.total,
+          wmsCoverageRate: wms.summary.mappingCoverageRate,
+          providerPermissionHolds: wms.summary.providerPermissionHolds,
+        },
+        masterData,
+        wms: {
+          summary: wms.summary,
+          byType: wms.byType,
+          byGapClass: wms.byGapClass,
+        },
+        guardrails: {
+          exactOnly: true,
+          sameCompanyRequired: true,
+          sameCurrencyRequiredForCashAccount: true,
+          oneSourceToOneTargetRequired: true,
+          fuzzyAutoMapping: false,
+          chanjetWrite: false,
+          erpBusinessTableWrite: false,
+        },
+      },
+    };
+  }
+
+  /**
+   * Close every mapping that is provably exact. Unresolved rows retain an
+   * explicit blocker instead of being force-mapped.
+   */
+  @Post('integration/exact-mapping-closure/run')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async runIntegrationExactMappingClosure(
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    const actor = `system:exact-closure:${requestedBy}`;
+    this.log.warn(`Chanjet exact mapping closure requested user=${requestedBy}`);
+    const [masterData, wms] = await Promise.all([
+      this.integration.confirmDeterministicMasterDataMappings(actor),
+      this.wmsBridge.refreshMasterMappingCandidates(actor),
+    ]);
+    const status = await this.integrationExactMappingClosure();
+    return {
+      success: masterData.errors.length === 0 && wms.conflicts === 0,
+      writeChanjet: false,
+      writeErpBusinessTables: false,
+      masterData,
+      wms,
+      closure: status.closure,
+    };
+  }
+
   @Get('integration/wms/domain-policies')
   @RequireMenu(CHANJET_PROXY_MENU, 'V')
   async integrationWmsDomainPolicies() {

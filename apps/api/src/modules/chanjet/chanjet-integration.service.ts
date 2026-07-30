@@ -2549,7 +2549,7 @@ export class ChanjetIntegrationService {
         currency: snapshot.currency || this.firstChanjetText(raw, ['currencyCode', 'currency']),
       };
     });
-    const candidates = sourceRows.map((source) => this.buildMasterDataReviewCandidate(source, masters));
+    let candidates = sourceRows.map((source) => this.buildMasterDataReviewCandidate(source, masters));
     const currencySources = [...new Set(sourceRows
       .filter((row) => row.domain === 'CASH_ACCOUNT')
       .map((row) => row.currency)
@@ -2565,6 +2565,48 @@ export class ChanjetIntegrationService {
         currency,
       }));
     candidates.push(...currencySources.map((source) => this.buildMasterDataReviewCandidate(source, masters)));
+
+    // One ERP target may represent only one source identity inside an account
+    // book. Multiple source masters hitting the same target is a conflict, even
+    // when every individual name comparison looked exact.
+    const exactTargetSources = candidates
+      .filter((candidate) => candidate.status === 'EXACT_MATCH' && candidate.erpCode)
+      .reduce<Map<string, Set<string>>>((groups, candidate) => {
+        const key = [
+          candidate.domain,
+          candidate.bookId,
+          candidate.companyCode,
+          candidate.erpCode,
+        ].join(':');
+        const identities = groups.get(key) || new Set<string>();
+        identities.add(candidate.chanjetId);
+        groups.set(key, identities);
+        return groups;
+      }, new Map());
+    candidates = candidates.map((candidate) => {
+      if (candidate.status !== 'EXACT_MATCH' || !candidate.erpCode) return candidate;
+      const key = [
+        candidate.domain,
+        candidate.bookId,
+        candidate.companyCode,
+        candidate.erpCode,
+      ].join(':');
+      const sourceIdentities = exactTargetSources.get(key) || new Set<string>();
+      if (sourceIdentities.size <= 1) return candidate;
+      return {
+        ...candidate,
+        status: 'CONFLICT',
+        closureState: 'SOURCE_COLLISION_ON_ERP_TARGET',
+        blockerCode: 'MULTIPLE_CHANJET_SOURCES_SHARE_ONE_ERP_TARGET',
+        nextAction: 'DEDUPLICATE_SOURCE_OR_CREATE_DISTINCT_ERP_MASTERS',
+        evidence: [
+          `${sourceIdentities.size} 个好业财源身份命中同一 ERP 主档，禁止自动多对一映射`,
+        ],
+        systemApprovalEligible: false,
+        requiresApproval: true,
+        usableForErpWrite: false,
+      };
+    });
 
     const byDomain = ['DEPARTMENT', 'PROJECT', 'CASH_ACCOUNT', 'SUBJECT', 'CURRENCY'].map((domain) => {
       const rows = candidates.filter((candidate) => candidate.domain === domain);
@@ -2582,6 +2624,10 @@ export class ChanjetIntegrationService {
     const sourceReferences = candidates.filter((candidate) => candidate.status === 'SOURCE_REFERENCE').length;
     const exactMatches = candidates.filter((candidate) => candidate.status === 'EXACT_MATCH').length;
     const needMapping = candidates.filter((candidate) => candidate.status === 'NEED_MAPPING').length;
+    const closureStates = Object.entries(candidates.reduce<Record<string, number>>((counts, candidate) => {
+      counts[candidate.closureState] = (counts[candidate.closureState] || 0) + 1;
+      return counts;
+    }, {})).map(([closureState, count]) => ({ closureState, count }));
     return {
       generatedAt: new Date().toISOString(),
       decision: conflicts ? 'HOLD' : 'GO_WITH_CONDITIONS',
@@ -2592,6 +2638,7 @@ export class ChanjetIntegrationService {
         exactMatches,
         needMapping,
         conflicts,
+        closureStates,
         domains: byDomain.length,
         nextGate: conflicts
           ? 'CHANJET_P2_MASTER_DATA_MAPPING_CONFLICT_REPAIR'
@@ -9256,6 +9303,9 @@ export class ChanjetIntegrationService {
       return {
         ...source,
         status: 'SOURCE_REFERENCE',
+        closureState: 'READONLY_REFERENCE',
+        blockerCode: '',
+        nextAction: 'KEEP_AS_CHANJET_READONLY_SUBJECT_REFERENCE',
         erpCode: '',
         erpName: '',
         evidence: ['ERP 当前没有同粒度总账科目主表；保留为好业财账套级只读科目基准，不写 ERP 业务事实表'],
@@ -9298,6 +9348,27 @@ export class ChanjetIntegrationService {
     return {
       ...source,
       status,
+      closureState: status === 'EXACT_MATCH'
+        ? 'EXACT_AUTO_CONFIRMABLE'
+        : status === 'CONFLICT'
+          ? 'AMBIGUOUS_EXACT_TARGET'
+          : status === 'SOURCE_REFERENCE'
+            ? 'ERP_MASTER_MISSING'
+            : 'UNRESOLVED',
+      blockerCode: status === 'CONFLICT'
+        ? 'MULTIPLE_EXACT_ERP_TARGETS'
+        : status === 'SOURCE_REFERENCE'
+          ? 'ERP_MASTER_NOT_FOUND'
+          : status === 'NEED_MAPPING'
+            ? 'SOURCE_IDENTITY_INCOMPLETE_OR_TARGET_MISSING'
+            : '',
+      nextAction: status === 'EXACT_MATCH'
+        ? 'SYSTEM_CONFIRM_EXACT_MAPPING'
+        : status === 'CONFLICT'
+          ? 'RESOLVE_DUPLICATE_ERP_MASTER_OR_SOURCE_IDENTITY'
+          : status === 'SOURCE_REFERENCE'
+            ? 'CREATE_OR_ACTIVATE_ERP_MASTER_THEN_RERUN_EXACT_MAPPING'
+            : 'COMPLETE_SOURCE_IDENTITY_AND_ERP_MASTER_EVIDENCE',
       erpCode: selected?.code || '',
       erpName: selected?.name || '',
       evidence: status === 'EXACT_MATCH'

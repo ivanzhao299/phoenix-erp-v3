@@ -239,6 +239,22 @@ interface WmsDomainPolicyOverview {
   };
 }
 
+interface ExactMappingClosureOverview {
+  generatedAt: string;
+  decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD';
+  summary: {
+    exactAutoConfirmable: number;
+    structuralGaps: number;
+    conflicts: number;
+    financeExactMatches: number;
+    financeSourceRows: number;
+    wmsMapped: number;
+    wmsTotal: number;
+    wmsCoverageRate: number;
+    providerPermissionHolds: number;
+  };
+}
+
 function allowedWmsTargets(
   overview: WmsMappingGapOverview,
   row: WmsMappingGapOverview['rows'][number],
@@ -1052,6 +1068,7 @@ export default function ChanjetIntegrationPage() {
   const [wmsMappingGaps, setWmsMappingGaps] = useState<WmsMappingGapOverview | null>(null);
   const [wmsMappingTargets, setWmsMappingTargets] = useState<Record<string, string>>({});
   const [wmsDomainPolicies, setWmsDomainPolicies] = useState<WmsDomainPolicyOverview | null>(null);
+  const [exactMappingClosure, setExactMappingClosure] = useState<ExactMappingClosureOverview | null>(null);
   const [wmsHousePolicyDrafts, setWmsHousePolicyDrafts] = useState<Record<string, {
     houseCode: string;
     locationCode: string;
@@ -1115,6 +1132,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; candidateOverview: CounterpartyCandidateOverview; error?: string }>('/chanjet/integration/counterparty-mapping-candidates'),
         request<{ success: boolean; currentState: CurrentStateOverview; error?: string }>('/chanjet/integration/current-state'),
         request<{ success: boolean; domainPolicies: WmsDomainPolicyOverview; error?: string }>('/chanjet/integration/wms/domain-policies'),
+        request<{ success: boolean; closure: ExactMappingClosureOverview; error?: string }>('/chanjet/integration/exact-mapping-closure'),
       ]);
       const valueAt = <T,>(index: number, fallback: T): T => {
         const result = results[index];
@@ -1148,6 +1166,7 @@ export default function ChanjetIntegrationPage() {
       const counterpartyCandidateResp = valueAt(25, { success: false, candidateOverview: null as CounterpartyCandidateOverview | null });
       const currentStateResp = valueAt(26, { success: false, currentState: null as CurrentStateOverview | null });
       const wmsDomainPolicyResp = valueAt(27, { success: false, domainPolicies: null as WmsDomainPolicyOverview | null });
+      const exactMappingClosureResp = valueAt(28, { success: false, closure: null as ExactMappingClosureOverview | null });
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
       setBooks(bookResp.books || []);
@@ -1177,6 +1196,7 @@ export default function ChanjetIntegrationPage() {
       setCounterpartyCandidates(counterpartyCandidateResp.candidateOverview || null);
       setCurrentState(currentStateResp.currentState || null);
       setWmsDomainPolicies(wmsDomainPolicyResp.domainPolicies || null);
+      setExactMappingClosure(exactMappingClosureResp.closure || null);
       setProductionReadiness(currentStateResp.currentState?.productionReadiness || null);
       const failedPanels = results.slice(1).filter((result) => result.status === 'rejected').length;
       if (failedPanels > 0) {
@@ -1474,7 +1494,7 @@ export default function ChanjetIntegrationPage() {
             <Button variant="outline" onClick={load} disabled={loading}><RefreshCw size={16} />刷新</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('账套刷新', () => request('/chanjet/integration/account-books/refresh', { method: 'POST' }))}>刷新账套</Button>
             <Button disabled={!canEdit || loading} onClick={runFullReadonlyAlignment}>运行完整只读闭环</Button>
-            <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('系统确认精确映射', () => request('/chanjet/integration/master-mappings/system-confirm-exact', { method: 'POST' }))}>确认精确映射</Button>
+            <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('最终精确映射闭环', () => request('/chanjet/integration/exact-mapping-closure/run', { method: 'POST' }))}>运行精确映射闭环</Button>
             <Button disabled={!canEdit || loading} onClick={() => runAction('字段探针', () => request('/chanjet/integration/probe', { method: 'POST', body: JSON.stringify({ scope: ['ACCOUNT_BOOKS', 'DEPARTMENT', 'CUSTOMER_SUPPLIER', 'SUBJECT', 'PROJECT', 'FIN_ACCOUNT'] }) }))}>运行探针</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('字段差异分析', () => request('/chanjet/integration/field-mappings/analyze', { method: 'POST' }))}>字段分析</Button>
           </>
@@ -2341,6 +2361,35 @@ export default function ChanjetIntegrationPage() {
               </div>
 
               <div style={cardStyle}>
+                {exactMappingClosure && (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12, marginBottom: 14, background: 'var(--bg-muted)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+                      <strong>{t('ui.精确映射闭环状态', '精确映射闭环状态')}</strong>
+                      <Badge tone={exactMappingClosure.decision === 'GO' ? 'green' : exactMappingClosure.decision === 'HOLD' ? 'red' : 'amber'}>
+                        {exactMappingClosure.decision}
+                      </Badge>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      <Badge tone={exactMappingClosure.summary.exactAutoConfirmable ? 'blue' : 'green'}>
+                        {t('ui.可自动精确闭环', '可自动精确闭环')} {exactMappingClosure.summary.exactAutoConfirmable}
+                      </Badge>
+                      <Badge tone={exactMappingClosure.summary.structuralGaps ? 'amber' : 'green'}>
+                        {t('ui.结构性主数据缺口', '结构性主数据缺口')} {exactMappingClosure.summary.structuralGaps}
+                      </Badge>
+                      <Badge tone={exactMappingClosure.summary.conflicts ? 'red' : 'green'}>
+                        {t('ui.映射冲突', '映射冲突')} {exactMappingClosure.summary.conflicts}
+                      </Badge>
+                      <Badge tone="muted">
+                        {t('ui.资金账户精确映射', '资金账户精确映射')}{' '}
+                        {exactMappingClosure.summary.financeExactMatches}/{exactMappingClosure.summary.financeSourceRows}
+                      </Badge>
+                      <Badge tone="muted">
+                        WMS {exactMappingClosure.summary.wmsMapped}/{exactMappingClosure.summary.wmsTotal}
+                        {' · '}{exactMappingClosure.summary.wmsCoverageRate}%
+                      </Badge>
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
                   <div>
                     <strong>{t('ui.WMS业务归属与换算策略', 'WMS 业务归属与换算策略')}</strong>

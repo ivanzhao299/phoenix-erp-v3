@@ -488,15 +488,74 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
 
     expect(exact).toMatchObject({
       status: 'EXACT_MATCH',
+      closureState: 'EXACT_AUTO_CONFIRMABLE',
       erpCode: 'ERP-CASH-101',
       systemApprovalEligible: true,
     });
     expect(wrongCurrency).toMatchObject({
       status: 'SOURCE_REFERENCE',
+      closureState: 'ERP_MASTER_MISSING',
+      blockerCode: 'ERP_MASTER_NOT_FOUND',
       erpCode: '',
       systemApprovalEligible: true,
       usableForErpWrite: false,
     });
+  });
+
+  it('blocks multiple Chanjet source identities from sharing one ERP target', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.entitySnapshotRepo = {
+      find: jest.fn().mockResolvedValue([
+        {
+          id: 'S1',
+          entityType: 'CASH_ACCOUNT',
+          bookId: 'BOOK-1',
+          externalId: 'CJ-1',
+          externalCode: '001',
+          externalName: '总部现金',
+          currency: 'CNY',
+          rawData: { id: 'CJ-1', accountCode: '001', accountName: '总部现金', currencyCode: 'CNY' },
+        },
+        {
+          id: 'S2',
+          entityType: 'CASH_ACCOUNT',
+          bookId: 'BOOK-1',
+          externalId: 'CJ-2',
+          externalCode: '002',
+          externalName: '总部现金',
+          currency: 'CNY',
+          rawData: { id: 'CJ-2', accountCode: '002', accountName: '总部现金', currencyCode: 'CNY' },
+        },
+      ]),
+    };
+    subject.bookCompanyMapRepo = {
+      find: jest.fn().mockResolvedValue([{
+        bookid: 'BOOK-1',
+        companyCode: 'COMP-1',
+        syncEnabled: true,
+      }]),
+    };
+    subject.ds = {
+      query: jest.fn().mockResolvedValue([{
+        domain: 'CASH_ACCOUNT',
+        code: 'ERP-CASH-1',
+        name: '总部现金',
+        company_code: 'COMP-1',
+        currency: 'CNY',
+        status: 'ACTIVE',
+      }]),
+    };
+
+    const result = await subject.masterDataMappingReview();
+
+    expect(result.summary.conflicts).toBe(2);
+    expect(result.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        closureState: 'SOURCE_COLLISION_ON_ERP_TARGET',
+        blockerCode: 'MULTIPLE_CHANJET_SOURCES_SHARE_ONE_ERP_TARGET',
+        systemApprovalEligible: false,
+      }),
+    ]));
   });
 
   it('does not fuzzy-match project names or cross company boundaries', () => {
