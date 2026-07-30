@@ -2447,3 +2447,60 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     });
   });
 });
+
+describe('Chanjet finance master gap proposal staging', () => {
+  it('writes proposal evidence without changing mapping approval or match state', async () => {
+    const mapping = {
+      mappingType: 'PROJECT',
+      bookId: 'BOOK-1',
+      chanjetId: 'PROJECT-1',
+      matchStatus: 'SOURCE_ONLY',
+      reviewStatus: 'APPROVED',
+      rawData: { resolutionKind: 'CHANJET_READONLY_SOURCE_IDENTITY' },
+    };
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.financeMasterGapClosureManifest = jest.fn().mockResolvedValue({
+      proposalGroups: 1,
+      sourceRows: 1,
+      proposals: [{
+        proposalId: 'ERP-FIN-GAP-1',
+        sourceDomain: 'PROJECT',
+        targetEntityType: 'PROJECT',
+        targetTable: 'biz_projects',
+        proposedAction: 'CREATE_OR_ACTIVATE_ERP_PROJECT_AFTER_BUSINESS_OWNER_REVIEW',
+        riskLevel: 'MEDIUM',
+        requiredFields: ['project_code'],
+        blockerCodes: ['ERP_MASTER_NOT_FOUND'],
+        sources: [{
+          bookId: 'BOOK-1',
+          sourceId: 'PROJECT-1',
+        }],
+      }],
+    });
+    subject.mappingRepo = {
+      find: jest.fn().mockResolvedValue([mapping]),
+      save: jest.fn().mockImplementation(async (value) => value),
+    };
+
+    const result = await subject.stageFinanceMasterGapClosureProposals('system:test');
+
+    expect(result).toMatchObject({
+      stagedSourceRows: 1,
+      writeChanjet: false,
+      writeErpBusinessTables: false,
+      automaticErpMasterCreation: false,
+    });
+    expect(mapping).toMatchObject({
+      matchStatus: 'SOURCE_ONLY',
+      reviewStatus: 'APPROVED',
+      rawData: {
+        resolutionKind: 'CHANJET_READONLY_SOURCE_IDENTITY',
+        erpMasterGapProposal: {
+          proposalId: 'ERP-FIN-GAP-1',
+          autoCreateAllowed: false,
+          requiresApproval: true,
+        },
+      },
+    });
+  });
+});

@@ -740,4 +740,60 @@ describe('ChanjetWmsBridgeService', () => {
       'CHANJET_WMS_EXTERNAL_WRITE_DISABLED',
     );
   });
+
+  it('stages WMS gap evidence without approving mappings or writing inventory', async () => {
+    const mapping = {
+      id: '15',
+      mappingType: 'WAREHOUSE',
+      bookId: 'BOOK-1',
+      matchStatus: 'SOURCE_ONLY',
+      reviewStatus: 'APPROVED',
+      rawData: { sourceCompanyCode: 'COMP-1' },
+    };
+    const subject: any = Object.create(ChanjetWmsBridgeService.prototype);
+    subject.erpMasterGapClosureManifest = jest.fn().mockResolvedValue({
+      proposalGroups: 1,
+      sourceRows: 1,
+      proposals: [{
+        proposalId: 'ERP-WMS-GAP-1',
+        sourceDomain: 'WAREHOUSE',
+        gapClass: 'HOUSE_INVENTORY_BRIDGE_REQUIRED',
+        targetEntityType: 'HOUSE_LOCATION_POLICY',
+        targetTable: 'chanjet_wms_house_location_policies',
+        proposedAction: 'LINK_HOUSE_TO_CANONICAL_WAREHOUSE_LOCATION',
+        riskLevel: 'HIGH',
+        requiredFields: ['house_code', 'warehouse_code', 'location_code'],
+        blockerCodes: ['HOUSE_IS_NOT_WAREHOUSE'],
+        sources: [{
+          bookId: 'BOOK-1',
+          sourceId: '15',
+        }],
+      }],
+    });
+    subject.mappingRepository = {
+      find: jest.fn().mockResolvedValue([mapping]),
+      save: jest.fn().mockImplementation(async (value) => value),
+    };
+
+    const result = await subject.stageErpMasterGapClosureProposals('system:test');
+
+    expect(result).toMatchObject({
+      stagedSourceRows: 1,
+      writeChanjet: false,
+      writeErpInventory: false,
+      automaticErpMasterCreation: false,
+    });
+    expect(mapping).toMatchObject({
+      matchStatus: 'SOURCE_ONLY',
+      reviewStatus: 'APPROVED',
+      rawData: {
+        sourceCompanyCode: 'COMP-1',
+        erpMasterGapProposal: {
+          proposalId: 'ERP-WMS-GAP-1',
+          autoCreateAllowed: false,
+          requiresApproval: true,
+        },
+      },
+    });
+  });
 });

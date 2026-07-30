@@ -1,5 +1,26 @@
 # Decision Log
 
+## 2026-07-30 - Stage ERP master gaps as evidence, never as automatic masters
+
+Decision: `GO_WITH_CONDITIONS`.
+
+- The 225 structural mapping gaps now have deterministic review proposals.
+- Finance proposals distinguish departments, projects and cash accounts.
+- WMS proposals distinguish real warehouses, chicken-house location policies,
+  egg SKUs, materials, livestock policies, base UOMs and product/context UOM
+  conversions.
+- Proposal staging changes only Chanjet mapping metadata and preserves match and
+  review state.
+- Automatic master creation, automatic mapping approval, fuzzy mapping,
+  cross-company mapping and historical WMS replay remain forbidden.
+- The WMS policy migration is already applied in production; both policy tables
+  exist with zero reviewed rows.
+- No Chanjet write and no ERP inventory or finance business-fact write occurred.
+- Evidence:
+  `docs/ops/CHANJET_ERP_MASTER_DATA_GAP_CLOSURE_REPORT_20260730.md`.
+- Next Gate:
+  `CHANJET_ERP_MASTER_DATA_GAP_CLOSURE_PRODUCTION_VERIFY`.
+
 ## 2026-07-28 - Accept Chanjet WMS implementation but keep production runtime HOLD
 
 Decision: `GO_WITH_CONDITIONS` for implementation and `HOLD` for production runtime.

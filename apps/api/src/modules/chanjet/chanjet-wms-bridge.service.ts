@@ -32,6 +32,10 @@ import {
   ChanjetWmsGapClass,
   classifyChanjetWmsGap,
 } from './chanjet-wms-gap-classifier';
+import {
+  buildWmsMasterGapProposals,
+  wmsGapSourceKey,
+} from './chanjet-erp-master-gap-closure';
 
 const TRANSACTION_ENTITY_TYPES: ChanjetInventoryEntityType[] = [
   'STOCK_IN',
@@ -677,6 +681,112 @@ export class ChanjetWmsBridgeService {
         providerPermissionAutomaticRetryAllowed: false,
         providerPermissionRetryRule: '50111 仅在好业财开放对应只读接口权限后允许人工复检；后台不得自动重试。',
       },
+    };
+  }
+
+  /**
+   * Groups WMS source-only identities into domain-safe ERP master proposals.
+   * No warehouse, SKU, material, UOM or inventory fact is created here.
+   */
+  async erpMasterGapClosureManifest() {
+    const overview = await this.mappingGapOverview();
+    const proposals = buildWmsMasterGapProposals(overview.rows.map((row) => ({
+      id: row.id,
+      mappingType: row.mappingType as 'WAREHOUSE' | 'PRODUCT' | 'UOM',
+      bookId: row.bookId,
+      companyCode: row.companyCode,
+      sourceCode: row.sourceCode,
+      sourceName: row.sourceName,
+      closureState: row.closureState,
+      gapClass: row.gapClass,
+      riskLevel: row.riskLevel,
+      suggestedEntityType: row.suggestedEntityType,
+      classificationReason: row.classificationReason,
+      nextAction: row.nextAction,
+    })));
+    return {
+      generatedAt: new Date().toISOString(),
+      proposalGroups: proposals.length,
+      sourceRows: proposals.reduce((sum, proposal) => sum + proposal.sourceCount, 0),
+      proposals,
+      providerPermissionHolds: overview.providerPermissionHolds,
+      policyState: overview.domainPolicies,
+      guardrails: {
+        middleLayerEvidenceOnly: true,
+        automaticErpMasterCreation: false,
+        fuzzyAutoMapping: false,
+        crossCompanyMapping: false,
+        erpInventoryWrite: false,
+        chanjetWrite: false,
+      },
+    };
+  }
+
+  async stageErpMasterGapClosureProposals(actor: string) {
+    const manifest = await this.erpMasterGapClosureManifest();
+    const proposalBySource = new Map(
+      manifest.proposals.flatMap((proposal) => proposal.sources.map((source) => [
+        wmsGapSourceKey({
+          mappingType: proposal.sourceDomain as 'WAREHOUSE' | 'PRODUCT' | 'UOM',
+          bookId: source.bookId,
+          id: source.sourceId,
+        }),
+        proposal,
+      ] as const)),
+    );
+    const ids = [...new Set(manifest.proposals.flatMap((proposal) => (
+      proposal.sources.map((source) => source.sourceId)
+    )))];
+    const mappings = ids.length
+      ? await this.mappingRepository.find({ where: { id: In(ids) } })
+      : [];
+    let stagedSourceRows = 0;
+    let unchangedSourceRows = 0;
+    const stagedAt = new Date().toISOString();
+    for (const mapping of mappings) {
+      const proposal = proposalBySource.get(wmsGapSourceKey({
+        mappingType: mapping.mappingType as 'WAREHOUSE' | 'PRODUCT' | 'UOM',
+        bookId: mapping.bookId,
+        id: mapping.id,
+      }));
+      if (!proposal) continue;
+      const current = mapping.rawData?.erpMasterGapProposal as Record<string, unknown> | undefined;
+      if (
+        current?.proposalId === proposal.proposalId
+        && current?.proposedAction === proposal.proposedAction
+      ) {
+        unchangedSourceRows += 1;
+        continue;
+      }
+      mapping.rawData = {
+        ...(mapping.rawData || {}),
+        erpMasterGapProposal: {
+          proposalId: proposal.proposalId,
+          sourceDomain: proposal.sourceDomain,
+          gapClass: proposal.gapClass,
+          targetEntityType: proposal.targetEntityType,
+          targetTable: proposal.targetTable,
+          proposedAction: proposal.proposedAction,
+          riskLevel: proposal.riskLevel,
+          requiredFields: proposal.requiredFields,
+          blockerCodes: proposal.blockerCodes,
+          autoCreateAllowed: false,
+          requiresApproval: true,
+          stagedBy: actor,
+          stagedAt,
+        },
+      };
+      await this.mappingRepository.save(mapping);
+      stagedSourceRows += 1;
+    }
+    return {
+      proposalGroups: manifest.proposalGroups,
+      sourceRows: manifest.sourceRows,
+      stagedSourceRows,
+      unchangedSourceRows,
+      writeChanjet: false,
+      writeErpInventory: false,
+      automaticErpMasterCreation: false,
     };
   }
 

@@ -1,5 +1,40 @@
 # Next Actions
 
+## 2026-07-30 - ERP master-data gap proposals implemented and locally verified
+
+Current stage: `CHANJET_ERP_MASTER_DATA_GAP_CLOSURE_LOCAL_VERIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added deterministic finance and WMS master-gap proposal generation.
+2. Routed departments, projects, cash accounts, warehouses, chicken houses,
+   products, materials, livestock and UOMs to explicit ERP target or policy
+   domains.
+3. Added administrator-only review and evidence-staging endpoints.
+4. Made staging idempotent and limited it to Chanjet middle-layer mapping
+   metadata.
+5. Added administrator UI counts and an explicit staging action.
+6. Verified API/Web typecheck, API/Web production builds, 190 Chanjet tests,
+   242 Web tests, i18n 3300/3300 and W5 20/20.
+7. Confirmed the WMS policy migration is already applied; both policy tables
+   exist and currently have zero reviewed rows.
+
+Next actions:
+
+1. Deploy and production-verify the live proposal manifest.
+2. Stage proposal evidence and confirm zero Chanjet and ERP business-table
+   writes.
+3. Review high-risk house/location, livestock and UOM conversion proposals.
+4. Enter `CHANJET_ERP_MASTER_DATA_PROPOSAL_REVIEW_AND_CONTROLLED_CREATION`.
+5. Keep provider permission repair separate and keep all external writeback
+   disabled.
+
+Evidence:
+
+- `docs/ops/CHANJET_ERP_MASTER_DATA_GAP_CLOSURE_REPORT_20260730.md`
+
 ## 2026-07-30 - Exact mapping closure deployed and production-verified
 
 Current stage: `CHANJET_EXACT_MAPPING_CLOSURE_PRODUCTION_VERIFIED_STRUCTURAL_GAPS`

@@ -255,6 +255,26 @@ interface ExactMappingClosureOverview {
   };
 }
 
+interface ErpMasterGapClosureOverview {
+  generatedAt: string;
+  decision: 'GO' | 'READY_FOR_REVIEW';
+  summary: {
+    proposalGroups: number;
+    sourceRows: number;
+    financeProposalGroups: number;
+    financeSourceRows: number;
+    wmsProposalGroups: number;
+    wmsSourceRows: number;
+    highRiskGroups: number;
+    autoCreateAllowed: number;
+    requiresApproval: number;
+  };
+  policyState: {
+    houseLocations: { total: number; approved: number };
+    uomConversions: { total: number; approved: number };
+  };
+}
+
 function allowedWmsTargets(
   overview: WmsMappingGapOverview,
   row: WmsMappingGapOverview['rows'][number],
@@ -1069,6 +1089,7 @@ export default function ChanjetIntegrationPage() {
   const [wmsMappingTargets, setWmsMappingTargets] = useState<Record<string, string>>({});
   const [wmsDomainPolicies, setWmsDomainPolicies] = useState<WmsDomainPolicyOverview | null>(null);
   const [exactMappingClosure, setExactMappingClosure] = useState<ExactMappingClosureOverview | null>(null);
+  const [erpMasterGapClosure, setErpMasterGapClosure] = useState<ErpMasterGapClosureOverview | null>(null);
   const [wmsHousePolicyDrafts, setWmsHousePolicyDrafts] = useState<Record<string, {
     houseCode: string;
     locationCode: string;
@@ -1133,6 +1154,7 @@ export default function ChanjetIntegrationPage() {
         request<{ success: boolean; currentState: CurrentStateOverview; error?: string }>('/chanjet/integration/current-state'),
         request<{ success: boolean; domainPolicies: WmsDomainPolicyOverview; error?: string }>('/chanjet/integration/wms/domain-policies'),
         request<{ success: boolean; closure: ExactMappingClosureOverview; error?: string }>('/chanjet/integration/exact-mapping-closure'),
+        request<{ success: boolean; closure: ErpMasterGapClosureOverview; error?: string }>('/chanjet/integration/erp-master-gap-closure'),
       ]);
       const valueAt = <T,>(index: number, fallback: T): T => {
         const result = results[index];
@@ -1167,6 +1189,7 @@ export default function ChanjetIntegrationPage() {
       const currentStateResp = valueAt(26, { success: false, currentState: null as CurrentStateOverview | null });
       const wmsDomainPolicyResp = valueAt(27, { success: false, domainPolicies: null as WmsDomainPolicyOverview | null });
       const exactMappingClosureResp = valueAt(28, { success: false, closure: null as ExactMappingClosureOverview | null });
+      const erpMasterGapClosureResp = valueAt(29, { success: false, closure: null as ErpMasterGapClosureOverview | null });
       if (!ov.success) throw new Error(ov.error || '总览加载失败');
       setOverview(ov.overview);
       setBooks(bookResp.books || []);
@@ -1197,6 +1220,7 @@ export default function ChanjetIntegrationPage() {
       setCurrentState(currentStateResp.currentState || null);
       setWmsDomainPolicies(wmsDomainPolicyResp.domainPolicies || null);
       setExactMappingClosure(exactMappingClosureResp.closure || null);
+      setErpMasterGapClosure(erpMasterGapClosureResp.closure || null);
       setProductionReadiness(currentStateResp.currentState?.productionReadiness || null);
       const failedPanels = results.slice(1).filter((result) => result.status === 'rejected').length;
       if (failedPanels > 0) {
@@ -1503,6 +1527,16 @@ export default function ChanjetIntegrationPage() {
               )}
             >
               {t('ui.运行精确映射闭环', '运行精确映射闭环')}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!canEdit || loading}
+              onClick={() => runAction(
+                t('ui.暂存主数据缺口提案', '暂存主数据缺口提案'),
+                () => request('/chanjet/integration/erp-master-gap-closure/stage', { method: 'POST' }),
+              )}
+            >
+              {t('ui.暂存主数据缺口提案', '暂存主数据缺口提案')}
             </Button>
             <Button disabled={!canEdit || loading} onClick={() => runAction('字段探针', () => request('/chanjet/integration/probe', { method: 'POST', body: JSON.stringify({ scope: ['ACCOUNT_BOOKS', 'DEPARTMENT', 'CUSTOMER_SUPPLIER', 'SUBJECT', 'PROJECT', 'FIN_ACCOUNT'] }) }))}>运行探针</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('字段差异分析', () => request('/chanjet/integration/field-mappings/analyze', { method: 'POST' }))}>字段分析</Button>
@@ -2396,6 +2430,43 @@ export default function ChanjetIntegrationPage() {
                         WMS {exactMappingClosure.summary.wmsMapped}/{exactMappingClosure.summary.wmsTotal}
                         {' · '}{exactMappingClosure.summary.wmsCoverageRate}%
                       </Badge>
+                    </div>
+                  </div>
+                )}
+                {erpMasterGapClosure && (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12, marginBottom: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+                      <strong>{t('ui.ERP主数据缺口暂存', 'ERP 主数据缺口暂存')}</strong>
+                      <Badge tone={erpMasterGapClosure.decision === 'GO' ? 'green' : 'amber'}>
+                        {erpMasterGapClosure.decision}
+                      </Badge>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      <Badge tone="blue">
+                        {t('ui.去重提案组', '去重提案组')} {erpMasterGapClosure.summary.proposalGroups}
+                      </Badge>
+                      <Badge tone="muted">
+                        {t('ui.财务主数据源', '财务主数据源')} {erpMasterGapClosure.summary.financeSourceRows}
+                      </Badge>
+                      <Badge tone="muted">
+                        WMS {erpMasterGapClosure.summary.wmsSourceRows}
+                      </Badge>
+                      <Badge tone={erpMasterGapClosure.summary.highRiskGroups ? 'amber' : 'green'}>
+                        {t('ui.高风险提案', '高风险提案')} {erpMasterGapClosure.summary.highRiskGroups}
+                      </Badge>
+                      <Badge tone="green">
+                        {t('ui.自动创建业务主数据', '自动创建业务主数据')} {erpMasterGapClosure.summary.autoCreateAllowed}
+                      </Badge>
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 8 }}>
+                      {t(
+                        'ui.主数据缺口暂存说明',
+                        '仅暂存去重后的中间层提案和核准证据；不创建 ERP 主数据，不改变映射审批状态，也不写好业财。',
+                      )}
+                      {' · '}
+                      {t('ui.鸡舍策略', '鸡舍策略')} {erpMasterGapClosure.policyState.houseLocations.approved}/{erpMasterGapClosure.policyState.houseLocations.total}
+                      {' · '}
+                      {t('ui.商品单位换算策略', '商品单位换算策略')} {erpMasterGapClosure.policyState.uomConversions.approved}/{erpMasterGapClosure.policyState.uomConversions.total}
                     </div>
                   </div>
                 )}

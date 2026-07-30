@@ -13987,5 +13987,14 @@
   "ui.运行精确映射闭环": "Run exact mapping closure",
   "ui.按币种列示": "Shown by currency",
   "ui.口径不可比": "Not comparable",
-  "ui.总额差异已禁用": "Aggregate difference disabled"
+  "ui.总额差异已禁用": "Aggregate difference disabled",
+  "ui.暂存主数据缺口提案": "Stage master-data gap proposals",
+  "ui.ERP主数据缺口暂存": "ERP master-data gap staging",
+  "ui.去重提案组": "Deduplicated proposal groups",
+  "ui.财务主数据源": "Finance master sources",
+  "ui.高风险提案": "High-risk proposals",
+  "ui.自动创建业务主数据": "Automatic business-master creation",
+  "ui.主数据缺口暂存说明": "Only deduplicated middle-layer proposals and review evidence are staged. No ERP master is created, no mapping approval changes, and no Chanjet write occurs.",
+  "ui.鸡舍策略": "House policies",
+  "ui.商品单位换算策略": "Product UOM policies"
 }

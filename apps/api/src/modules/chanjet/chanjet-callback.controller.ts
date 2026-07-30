@@ -14,6 +14,7 @@ import {
   ReviewUomConversionPolicyInput,
 } from './chanjet-wms-bridge.service';
 import { ChanjetWmsPromotionState } from './chanjet-wms-promotion-candidate.entity';
+import { summarizeMasterGapProposals } from './chanjet-erp-master-gap-closure';
 import * as crypto from 'crypto';
 
 type ChanjetProxyMethod = 'GET' | 'POST';
@@ -930,6 +931,66 @@ export class ChanjetCallbackController {
       masterData,
       wms,
       closure: status.closure,
+    };
+  }
+
+  /**
+   * Review-ready ERP master gap manifest. It groups repeated source identities
+   * but never creates ERP masters or changes approved mapping decisions.
+   */
+  @Get('integration/erp-master-gap-closure')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationErpMasterGapClosure() {
+    const [finance, wms] = await Promise.all([
+      this.integration.financeMasterGapClosureManifest(),
+      this.wmsBridge.erpMasterGapClosureManifest(),
+    ]);
+    const summary = summarizeMasterGapProposals(finance.proposals, wms.proposals);
+    return {
+      success: true,
+      closure: {
+        generatedAt: new Date().toISOString(),
+        decision: summary.proposalGroups ? 'READY_FOR_REVIEW' : 'GO',
+        summary,
+        finance,
+        wms,
+        policyState: {
+          houseLocations: wms.policyState.houseLocations,
+          uomConversions: wms.policyState.uomConversions,
+        },
+        guardrails: {
+          proposalEvidenceOnly: true,
+          automaticErpMasterCreation: false,
+          automaticMappingApproval: false,
+          fuzzyMapping: false,
+          chanjetWrite: false,
+          erpBusinessTableWrite: false,
+        },
+      },
+    };
+  }
+
+  @Post('integration/erp-master-gap-closure/stage')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async stageIntegrationErpMasterGapClosure(
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    const actor = `system:erp-master-gap-stage:${requestedBy}`;
+    this.log.warn(`Chanjet ERP master gap proposals staged user=${requestedBy}`);
+    const [finance, wms] = await Promise.all([
+      this.integration.stageFinanceMasterGapClosureProposals(actor),
+      this.wmsBridge.stageErpMasterGapClosureProposals(actor),
+    ]);
+    return {
+      success: true,
+      stagedAt: new Date().toISOString(),
+      finance,
+      wms,
+      closure: (await this.integrationErpMasterGapClosure()).closure,
+      writeChanjet: false,
+      writeErpBusinessTables: false,
+      automaticErpMasterCreation: false,
     };
   }
 

@@ -14,6 +14,10 @@ import { ChanjetEntitySnapshotEntity } from './chanjet-entity-snapshot.entity';
 import { ChanjetErpFieldMappingEntity } from './chanjet-erp-field-mapping.entity';
 import { ChanjetOutboxState, ChanjetWritebackOutboxEntity } from './chanjet-writeback-outbox.entity';
 import {
+  buildFinanceMasterGapProposals,
+  financeGapSourceKey,
+} from './chanjet-erp-master-gap-closure';
+import {
   CHANJET_SALES_STOCK_OUT_FIELD_CONTRACT,
   CHANJET_STOCK_IN_FIELD_CONTRACT,
   CHANJET_WMS_ERP_COLUMN_REQUIREMENTS,
@@ -2658,6 +2662,103 @@ export class ChanjetIntegrationService {
         erpBusinessTableWrite: false,
         middleLayerWrite: false,
       },
+    };
+  }
+
+  /**
+   * Groups missing ERP finance masters into deterministic review proposals.
+   * This is evidence preparation only: it does not create ERP masters, alter
+   * approved mapping states or call a Chanjet write API.
+   */
+  async financeMasterGapClosureManifest() {
+    const review = await this.masterDataMappingReview();
+    const proposals = buildFinanceMasterGapProposals(review.candidates.map((candidate) => ({
+      domain: candidate.domain,
+      bookId: candidate.bookId,
+      companyCode: candidate.companyCode,
+      sourceId: candidate.chanjetId,
+      sourceCode: candidate.chanjetCode,
+      sourceName: candidate.chanjetName,
+      currency: candidate.currency,
+      closureState: candidate.closureState,
+      blockerCode: candidate.blockerCode,
+    })));
+    return {
+      generatedAt: new Date().toISOString(),
+      proposalGroups: proposals.length,
+      sourceRows: proposals.reduce((sum, proposal) => sum + proposal.sourceCount, 0),
+      proposals,
+      guardrails: {
+        middleLayerEvidenceOnly: true,
+        automaticErpMasterCreation: false,
+        mappingStateMutation: false,
+        erpBusinessTableWrite: false,
+        chanjetWrite: false,
+      },
+    };
+  }
+
+  async stageFinanceMasterGapClosureProposals(actor: string) {
+    const manifest = await this.financeMasterGapClosureManifest();
+    const proposalBySource = new Map(
+      manifest.proposals.flatMap((proposal) => proposal.sources.map((source) => [
+        financeGapSourceKey({ domain: proposal.sourceDomain, bookId: source.bookId, sourceId: source.sourceId }),
+        proposal,
+      ] as const)),
+    );
+    const mappings = await this.mappingRepo.find({
+      where: {
+        mappingType: In<ChanjetMappingType>(['DEPARTMENT', 'PROJECT', 'CASH_ACCOUNT']),
+      },
+      order: { updatedAt: 'DESC' },
+      take: 10000,
+    });
+    let stagedSourceRows = 0;
+    let unchangedSourceRows = 0;
+    const stagedAt = new Date().toISOString();
+    for (const mapping of mappings) {
+      const proposal = proposalBySource.get(financeGapSourceKey({
+        domain: mapping.mappingType,
+        bookId: mapping.bookId,
+        sourceId: mapping.chanjetId,
+      }));
+      if (!proposal) continue;
+      const current = mapping.rawData?.erpMasterGapProposal as Record<string, unknown> | undefined;
+      if (
+        current?.proposalId === proposal.proposalId
+        && current?.proposedAction === proposal.proposedAction
+      ) {
+        unchangedSourceRows += 1;
+        continue;
+      }
+      mapping.rawData = {
+        ...(mapping.rawData || {}),
+        erpMasterGapProposal: {
+          proposalId: proposal.proposalId,
+          sourceDomain: proposal.sourceDomain,
+          targetEntityType: proposal.targetEntityType,
+          targetTable: proposal.targetTable,
+          proposedAction: proposal.proposedAction,
+          riskLevel: proposal.riskLevel,
+          requiredFields: proposal.requiredFields,
+          blockerCodes: proposal.blockerCodes,
+          autoCreateAllowed: false,
+          requiresApproval: true,
+          stagedBy: actor,
+          stagedAt,
+        },
+      };
+      await this.mappingRepo.save(mapping);
+      stagedSourceRows += 1;
+    }
+    return {
+      proposalGroups: manifest.proposalGroups,
+      sourceRows: manifest.sourceRows,
+      stagedSourceRows,
+      unchangedSourceRows,
+      writeChanjet: false,
+      writeErpBusinessTables: false,
+      automaticErpMasterCreation: false,
     };
   }
 

@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 import path from "path";
 
+const monorepoRoot = path.resolve(__dirname, "../..");
+
 const nextConfig: NextConfig = {
   // Turbopack root = monorepo 根目录（防止误判到 /Users/mac/package-lock.json）
-  turbopack: { root: path.resolve(__dirname, "../..") },
+  turbopack: { root: monorepoRoot },
 
   // ✅ 允许 HMR 跨源 (Next 16 开发期跨源保护)
   // 不在白名单的 origin 会拿到首屏 HTML 但 JS hydration / HMR 全部失效, 表现为按钮死、输入框无反应
@@ -91,7 +93,7 @@ const nextConfig: NextConfig = {
 
   // ── 实验性优化 ───────────────────────────────────────────────────
   // pnpm monorepo standalone: 让文件追踪器从 monorepo 根开始，确保 node_modules 完整复制
-  outputFileTracingRoot: path.join(__dirname, "../../"),
+  outputFileTracingRoot: monorepoRoot,
 
   experimental: {
     // 优化包导入，减少首屏 bundle 大小

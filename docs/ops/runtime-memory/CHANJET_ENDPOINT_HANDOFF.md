@@ -1,6 +1,6 @@
 # Chanjet Endpoint Handoff
 
-Last updated: 2026-07-30
+Last updated: 2026-07-30 22:35 CST
 
 This card is the durable bootstrap contract for a new Codex window. It contains
 routes and safety rules only. It must never contain a JWT, refresh token,
@@ -55,6 +55,10 @@ credential.
   `POST /api/chanjet/integration/alignment/run`
 - Deterministic exact mapping confirmation:
   `POST /api/chanjet/integration/master-mappings/system-confirm-exact`
+- ERP master gap review manifest:
+  `GET /api/chanjet/integration/erp-master-gap-closure`
+- ERP master gap evidence staging:
+  `POST /api/chanjet/integration/erp-master-gap-closure/stage`
 
 These operations may write only Phoenix ERP integration, mapping and audit
 tables. They must report:
@@ -64,6 +68,11 @@ tables. They must report:
 
 They do not authorize a Chanjet external write, voucher push, ERP inventory
 promotion, finance business-fact overwrite, migration or deployment.
+
+The ERP master gap staging endpoint may update only proposal evidence inside
+existing Chanjet middle-layer mapping rows. It must never create ERP masters,
+approve a mapping, infer a finance balance, replay historical WMS documents or
+write a Chanjet object.
 
 ## Expected Live State
 
@@ -102,4 +111,3 @@ books. They are non-retryable until the provider grant changes.
 - Production code revision: `64fb5558`
 - Successful full CI/CD run: `30464528298`
 - Repository memory revision before this card: `7e679790`
-
