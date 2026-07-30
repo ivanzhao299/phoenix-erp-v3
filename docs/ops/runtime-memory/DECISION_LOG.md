@@ -2194,3 +2194,23 @@ Decision: counterparty resolution `GO`.
   push or deployment occurred.
 - Report:
   `docs/ops/CHANJET_WMS_BANK_SYNC_P0_IMPLEMENTATION_REPORT_20260730.md`.
+
+# 2026-07-30 - Production-close deterministic Chanjet mappings
+
+- Decision: `GO_WITH_CONDITIONS`.
+- `main` is the sole release authority. Historical A1-A7, Bug Intake, task and
+  quarantine branches were audited but not merged because their old baselines
+  would replay obsolete changes.
+- Revision `1acbcd87` passed CI/CD run `30516721208`; production API, Web and
+  PostgreSQL are healthy and run that exact revision.
+- The production closure engine verified 41 deterministic exact identities,
+  225 structural gaps and zero conflicts.
+- All exact mappings were already approved, so the run preserved 91 reviewed
+  master rows and 16 WMS exact mappings without duplicate writes.
+- The live WMS source grew from 187 to 191 identities; four new product
+  identities were classified as gaps instead of silently mapped.
+- Cash-account coverage is 37/49. WMS coverage is 16/191. The remaining work is
+  ERP master-data and domain-policy closure, not an algorithmic matching defect.
+- No Chanjet external write and no ERP inventory, finance or other business-table
+  write occurred. Fuzzy mapping remains forbidden.
+- Next Gate: `CHANJET_ERP_MASTER_DATA_GAP_CLOSURE`.

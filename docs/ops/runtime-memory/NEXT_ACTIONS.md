@@ -1,5 +1,44 @@
 # Next Actions
 
+## 2026-07-30 - Exact mapping closure deployed and production-verified
+
+Current stage: `CHANJET_EXACT_MAPPING_CLOSURE_PRODUCTION_VERIFIED_STRUCTURAL_GAPS`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Audited all branches and worktrees; retained `main` as the only release
+   authority and did not merge stale A1-A7, Bug Intake or quarantine branches.
+2. Deployed revision `1acbcd87` through CI/CD run `30516721208`.
+3. Added unified exact-mapping closure status and execution endpoints.
+4. Production-verified 41 deterministic exact identities, zero conflicts and
+   zero mapping errors.
+5. Preserved all previously approved exact mappings without duplicate writes.
+6. Classified 225 structural gaps instead of forcing fuzzy mappings.
+7. Confirmed zero Chanjet external writes and zero ERP business-table writes.
+
+Production coverage:
+
+- Cash account: 37 / 49 exact.
+- WMS: 16 / 191 mapped, 8.38%.
+- Open WMS: warehouse 25, product 128, UOM 22.
+- Master closure states: 41 exact, 50 ERP-master gaps, 923 readonly references.
+- Provider permission HOLD: six targets.
+
+Next actions:
+
+1. Enter `CHANJET_ERP_MASTER_DATA_GAP_CLOSURE`.
+2. Build reviewed ERP candidates for the 50 finance/master gaps.
+3. Stage the 175 WMS gaps by warehouse/location, product/SKU/material/livestock
+   and product-specific UOM semantics.
+4. Repair the six provider readonly permissions separately.
+5. Keep Chanjet writeback and ERP historical document promotion disabled.
+
+Evidence:
+
+- `docs/ops/CHANJET_FINAL_EXACT_MAPPING_CLOSURE_REPORT_20260730.md`
+
 ## 2026-07-30 - New-window Chanjet endpoint handoff enabled
 
 Current stage: `CHANJET_READINESS_RUNTIME_STABLE_PROVIDER_PERMISSION_HOLD`
