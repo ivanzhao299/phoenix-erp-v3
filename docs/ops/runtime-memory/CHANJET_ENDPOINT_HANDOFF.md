@@ -1,6 +1,6 @@
 # Chanjet Endpoint Handoff
 
-Last updated: 2026-07-30 22:35 CST
+Last updated: 2026-07-30 22:57 CST
 
 This card is the durable bootstrap contract for a new Codex window. It contains
 routes and safety rules only. It must never contain a JWT, refresh token,
@@ -90,6 +90,16 @@ The first probe in a new window should currently return:
 The six blocked targets cover the two scopes across three enabled account
 books. They are non-retryable until the provider grant changes.
 
+The ERP master gap closure Gate is also production-verified at revision
+`1b1bbcdc`:
+
+- 225 review proposals: 50 finance and 175 WMS;
+- 225 require explicit approval and 0 allow automatic creation;
+- proposal staging is idempotent: the second run returned 225 unchanged rows;
+- ERP inventory and finance business-table fingerprints remained unchanged;
+- next controlled Gate:
+  `CHANJET_ERP_MASTER_DATA_PROPOSAL_REVIEW_AND_CONTROLLED_CREATION`.
+
 ## Fail-Closed Rules
 
 1. If `current-state` is not HTTP 200, returns `success: false`, or cannot be
@@ -110,4 +120,8 @@ books. They are non-retryable until the provider grant changes.
   `docs/ops/CHANJET_READINESS_OOM_AND_PROVIDER_PERMISSION_GATE_REVIEW_20260729.md`
 - Production code revision: `64fb5558`
 - Successful full CI/CD run: `30464528298`
+- ERP master gap closure evidence:
+  `docs/ops/runs/chanjet-erp-master-gap-closure-runtime-20260730.json`
+- ERP master gap closure revision / deploy:
+  `1b1bbcdc` / `30553067351`
 - Repository memory revision before this card: `7e679790`

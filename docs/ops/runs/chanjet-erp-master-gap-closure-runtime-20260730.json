@@ -1,0 +1,129 @@
+{
+  "evidenceVersion": "chanjet-erp-master-gap-closure-runtime-v1",
+  "recordedAt": "2026-07-30T22:57:00+08:00",
+  "environment": "production",
+  "productionRevision": "1b1bbcdc65817c8fa747fc2fe78a764976a86112",
+  "deployRun": {
+    "id": "30553067351",
+    "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/30553067351",
+    "result": "SUCCESS"
+  },
+  "manifest": {
+    "decision": "READY_FOR_REVIEW",
+    "proposalGroups": 225,
+    "sourceRows": 225,
+    "financeProposalGroups": 50,
+    "financeSourceRows": 50,
+    "wmsProposalGroups": 175,
+    "wmsSourceRows": 175,
+    "highRiskGroups": 92,
+    "autoCreateAllowed": 0,
+    "requiresApproval": 225,
+    "providerPermissionHolds": 6,
+    "providerPermissionScopes": [
+      "OTHER_STOCK_IN",
+      "RETAIL_STOCK_OUT"
+    ],
+    "providerPermissionBooks": 3
+  },
+  "firstStage": {
+    "finance": {
+      "stagedSourceRows": 50,
+      "unchangedSourceRows": 0
+    },
+    "wms": {
+      "stagedSourceRows": 175,
+      "unchangedSourceRows": 0
+    }
+  },
+  "idempotencyStage": {
+    "finance": {
+      "proposalGroups": 50,
+      "sourceRows": 50,
+      "stagedSourceRows": 0,
+      "unchangedSourceRows": 50
+    },
+    "wms": {
+      "proposalGroups": 175,
+      "sourceRows": 175,
+      "stagedSourceRows": 0,
+      "unchangedSourceRows": 175
+    },
+    "result": "PASS"
+  },
+  "businessTableEvidence": {
+    "before": {
+      "inv_batches": {
+        "count": 257,
+        "fingerprint": "2b181afe184fcf97da6a5a8a363e3630"
+      },
+      "inv_ledger": {
+        "count": 111,
+        "fingerprint": "9c6e96f1031406f8633f2a7498ca30fd"
+      },
+      "fin_cash_accounts": {
+        "count": 62,
+        "fingerprint": "d84b91113c0416f5f5018590cd6fe44b"
+      }
+    },
+    "after": {
+      "inv_batches": {
+        "count": 257,
+        "fingerprint": "2b181afe184fcf97da6a5a8a363e3630"
+      },
+      "inv_ledger": {
+        "count": 111,
+        "fingerprint": "9c6e96f1031406f8633f2a7498ca30fd"
+      },
+      "fin_cash_accounts": {
+        "count": 62,
+        "fingerprint": "d84b91113c0416f5f5018590cd6fe44b"
+      }
+    },
+    "fingerprintsUnchanged": true
+  },
+  "mappingEvidence": {
+    "rowsWithProposalEvidence": 225,
+    "cashAccount": {
+      "matchedApproved": 37,
+      "sourceOnlyApproved": 12
+    },
+    "department": {
+      "pendingPending": 1,
+      "sourceOnlyApproved": 32
+    },
+    "project": {
+      "sourceOnlyApproved": 6
+    },
+    "product": {
+      "matchedApproved": 10,
+      "sourceOnlyApproved": 128
+    },
+    "uom": {
+      "matchedApproved": 6,
+      "sourceOnlyApproved": 22
+    },
+    "warehouse": {
+      "sourceOnlyApproved": 25
+    }
+  },
+  "policyState": {
+    "houseLocationRows": 0,
+    "uomConversionRows": 0
+  },
+  "guardrails": {
+    "writeChanjet": false,
+    "writeErpBusinessTables": false,
+    "automaticErpMasterCreation": false,
+    "automaticMappingApproval": false,
+    "migrationExecuted": false,
+    "fuzzyMapping": false
+  },
+  "productionHealth": {
+    "api": "healthy",
+    "web": "healthy",
+    "database": "healthy"
+  },
+  "decision": "GO_WITH_CONDITIONS",
+  "nextGate": "CHANJET_ERP_MASTER_DATA_PROPOSAL_REVIEW_AND_CONTROLLED_CREATION"
+}

@@ -1786,3 +1786,35 @@ Next actions:
 4. Define base UOM and product-specific package conversions.
 5. Recheck the six provider scopes after provider authorization.
 6. Keep Chanjet external write and ERP inventory-fact promotion disabled.
+
+## 2026-07-30 - Chanjet ERP master gap proposals production-verified
+
+Current stage:
+`CHANJET_ERP_MASTER_DATA_GAP_CLOSURE_PRODUCTION_VERIFIED_REVIEW_READY`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+- Production revision `1b1bbcdc` passed CI/CD run `30553067351`.
+- The live manifest produced 225 explicit proposals: 50 finance and 175 WMS.
+- All 225 proposals require approval; zero are eligible for automatic creation.
+- The first controlled run staged proposal evidence only.
+- The second run returned 225 unchanged rows and zero new writes.
+- `inv_batches`, `inv_ledger` and `fin_cash_accounts` retained identical row
+  counts and fingerprints before and after the idempotency run.
+- Six provider permission HOLDs remain visible and non-retryable.
+
+Next actions:
+
+1. `CHANJET_ERP_MASTER_DATA_PROPOSAL_REVIEW_AND_CONTROLLED_CREATION`
+2. Review the 50 finance proposals and 175 WMS proposals by risk and source
+   identity.
+3. Create only explicitly approved same-company ERP masters with complete
+   required fields.
+4. Re-run deterministic exact mapping after each controlled creation batch.
+5. Define house/location and product-specific UOM policies before inventory
+   promotion.
+6. Repair the provider grants for `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT`.
+7. Keep Chanjet external write, fuzzy mapping and ERP business-ledger promotion
+   disabled.

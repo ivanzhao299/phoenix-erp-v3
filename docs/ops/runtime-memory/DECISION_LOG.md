@@ -2235,3 +2235,25 @@ Decision: counterparty resolution `GO`.
 - No Chanjet external write and no ERP inventory, finance or other business-table
   write occurred. Fuzzy mapping remains forbidden.
 - Next Gate: `CHANJET_ERP_MASTER_DATA_GAP_CLOSURE`.
+
+# 2026-07-30 - Production-verify ERP master gap proposal staging
+
+- Decision: `GO_WITH_CONDITIONS`.
+- Revision `1b1bbcdc` passed CI/CD run `30553067351`; production API, Web and
+  database containers are healthy.
+- The production manifest contains 225 review proposals: 50 finance and 175
+  WMS. Ninety-two groups are high risk, all 225 require approval, and zero are
+  eligible for automatic ERP master creation.
+- The first run staged proposal evidence into existing middle-layer mapping
+  rows. A second run returned 50 finance plus 175 WMS rows unchanged and wrote
+  no new proposal evidence.
+- Deterministic fingerprints for `inv_batches`, `inv_ledger` and
+  `fin_cash_accounts` were identical before and after the idempotency run.
+- Proposal staging does not change mapping match/review status, create ERP
+  masters, promote inventory, infer balances or call a Chanjet write API.
+- Six provider permission HOLDs remain for `OTHER_STOCK_IN` and
+  `RETAIL_STOCK_OUT` across three books.
+- Next Gate:
+  `CHANJET_ERP_MASTER_DATA_PROPOSAL_REVIEW_AND_CONTROLLED_CREATION`.
+- Evidence:
+  `docs/ops/runs/chanjet-erp-master-gap-closure-runtime-20260730.json`.

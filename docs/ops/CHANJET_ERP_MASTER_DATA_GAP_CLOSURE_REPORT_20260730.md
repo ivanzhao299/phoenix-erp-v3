@@ -92,12 +92,51 @@ control plane.
 - Nullable unique Gate: PASS.
 - W5 closeout Gate with approved freeze/security evidence flags: PASS, 20 / 20.
 - `git diff --check`: PASS.
+- GitHub CI/CD run `30553067351`: PASS.
+- Production revision: `1b1bbcdc65817c8fa747fc2fe78a764976a86112`.
+- Production API, Web and database containers: healthy.
 
 The local Web build initially failed because the main repository's direct
 dependency symlinks still pointed to the retired Codex worktree. Reinstalling
 from the frozen lockfile rebuilt local links; no dependency version or lockfile
 changed. `next.config.ts` now reuses one canonical monorepo root value for
 Turbopack and standalone tracing.
+
+## Production Runtime Evidence
+
+The deployed manifest returned:
+
+- 225 proposal groups / 225 source rows;
+- 50 finance proposal groups;
+- 175 WMS proposal groups;
+- 92 high-risk groups;
+- 0 proposals eligible for automatic creation;
+- 225 proposals requiring explicit approval;
+- 6 provider permission HOLDs across `OTHER_STOCK_IN` and
+  `RETAIL_STOCK_OUT` for three account books.
+
+The first controlled staging run recorded proposal evidence for all 225 source
+rows. It changed only `chanjet_master_mapping.raw_data.erpMasterGapProposal`.
+It did not change matching status, review status or an ERP business table.
+
+The second staging run proved idempotency:
+
+| Domain | Proposal groups | Source rows | Newly staged | Unchanged |
+| --- | ---: | ---: | ---: | ---: |
+| Finance | 50 | 50 | 0 | 50 |
+| WMS | 175 | 175 | 0 | 175 |
+
+Business-table counts and deterministic row fingerprints were captured before
+and after the second staging run:
+
+| Table | Rows | Before fingerprint | After fingerprint | Result |
+| --- | ---: | --- | --- | --- |
+| `inv_batches` | 257 | `2b181afe184fcf97da6a5a8a363e3630` | `2b181afe184fcf97da6a5a8a363e3630` | PASS |
+| `inv_ledger` | 111 | `9c6e96f1031406f8633f2a7498ca30fd` | `9c6e96f1031406f8633f2a7498ca30fd` | PASS |
+| `fin_cash_accounts` | 62 | `d84b91113c0416f5f5018590cd6fe44b` | `d84b91113c0416f5f5018590cd6fe44b` | PASS |
+
+The complete sanitized evidence is stored at
+`docs/ops/runs/chanjet-erp-master-gap-closure-runtime-20260730.json`.
 
 ## Runtime Conditions
 
@@ -107,9 +146,10 @@ tables exist but currently contain zero reviewed rows:
 - `chanjet_wms_house_location_policies`;
 - `chanjet_wms_uom_conversion_policies`.
 
-The next runtime action is to deploy this Gate, inspect the live manifest, stage
-the evidence-only proposals, and verify that business-table fingerprints remain
-unchanged.
+The Gate is deployed and production-verified. The remaining 225 rows are not
+presented as completed mappings: they are explicit review proposals for missing
+ERP masters or domain policies. The six provider permission HOLDs remain
+visible and non-retryable until the Chanjet grant changes.
 
 ## Next Gate
 
