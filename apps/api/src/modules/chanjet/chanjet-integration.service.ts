@@ -249,6 +249,12 @@ export type ReceiptPaymentSystemConfirmationStatus =
   | 'SYSTEM_WAITING_SAMPLE'
   | 'HOLD';
 
+export interface FinanceCurrencyBalance {
+  currency: string;
+  amount: number;
+  rows: number;
+}
+
 export interface FinanceReadModelMetric {
   key: string;
   label: string;
@@ -258,6 +264,10 @@ export interface FinanceReadModelMetric {
   displayValue: number | null;
   erpAuxiliaryValue: number | null;
   diff: number | null;
+  comparisonComparable: boolean;
+  comparisonReason: string;
+  chanjetBreakdown: FinanceCurrencyBalance[];
+  erpBreakdown: FinanceCurrencyBalance[];
   valueSource: string;
   sourceEntityTypes: string[];
   sampleRows: number;
@@ -790,6 +800,10 @@ export interface FinanceReconciliationItem {
   erpValue: number | null;
   diff: number | null;
   diffRate: number | null;
+  comparisonComparable: boolean;
+  comparisonReason: string;
+  chanjetBreakdown: FinanceCurrencyBalance[];
+  erpBreakdown: FinanceCurrencyBalance[];
   status: FinanceReconciliationStatus;
   evidence: {
     chanjetRows: number;
@@ -2903,11 +2917,7 @@ export class ChanjetIntegrationService {
            FROM fin_ap_invoices
           WHERE status NOT IN ('PAID','CANCELLED')`,
       ),
-      this.erpFinanceAggregate(
-        `SELECT COALESCE(SUM(current_balance),0) AS value, COUNT(*) AS rows
-           FROM fin_cash_accounts
-          WHERE status = 'ACTIVE'`,
-      ),
+      this.erpCashBalanceAggregate(),
       this.erpFinanceAggregate(
         `SELECT COALESCE(SUM(amount),0) AS value, COUNT(*) AS rows
            FROM fin_cash_transactions
@@ -2988,6 +2998,10 @@ export class ChanjetIntegrationService {
         chanjet: chanjetCash,
         erp: erpCash,
         reason: '好业财 GL_BALANCE 最新期间 1001/1002 叶子科目的 baseEndingBalance 为现金/银行本位币期末余额；ERP 现金账户余额仅作辅助差异。',
+        comparisonComparable: false,
+        comparisonReason: '好业财为 CNY 本位币期末余额，ERP 当前保存各币种原币余额；在逐账户汇率和账户映射完成前禁止汇总求差。',
+        chanjetBreakdown: chanjetCash.breakdown,
+        erpBreakdown: erpCash.breakdown,
       }),
       this.buildFinanceReconciliationItem({
         key: 'TODAY_RECEIPT',
@@ -3503,6 +3517,7 @@ export class ChanjetIntegrationService {
     value: number;
     rows: number;
     latestPulledAt: string | null;
+    breakdown: FinanceCurrencyBalance[];
     error?: string;
   }> {
     try {
@@ -3512,6 +3527,7 @@ export class ChanjetIntegrationService {
         value: lock.totalBaseBalance ?? 0,
         rows: lock.eligibleBalanceRows,
         latestPulledAt: lock.latestPulledAt,
+        breakdown: lock.currencyBalances,
         ...(lock.readyForCardAuthority ? {} : { error: lock.blockerReasons.join(';') || lock.status }),
       };
     } catch (error) {
@@ -3521,6 +3537,7 @@ export class ChanjetIntegrationService {
         value: 0,
         rows: 0,
         latestPulledAt: null,
+        breakdown: [],
         error: (error as Error).message,
       };
     }
@@ -3957,6 +3974,10 @@ export class ChanjetIntegrationService {
       displayValue: number | null;
       erpAuxiliaryValue: number | null;
       diff: number | null;
+      comparisonComparable: boolean;
+      comparisonReason: string;
+      chanjetBreakdown: FinanceCurrencyBalance[];
+      erpBreakdown: FinanceCurrencyBalance[];
       sourceEntityTypes: string[];
       latestPulledAt: string | null;
       businessDate?: string | null;
@@ -3998,6 +4019,7 @@ export class ChanjetIntegrationService {
         ? (authorityEnabled ? daily.amount : null)
         : (authorityEnabled ? metric?.displayValue ?? null : null);
       const erpAuxiliaryValue = metric?.erpAuxiliaryValue ?? null;
+      const comparisonComparable = metric?.comparisonComparable ?? true;
       return {
         cardKey: definition.cardKey,
         label: definition.label,
@@ -4006,20 +4028,28 @@ export class ChanjetIntegrationService {
         authorityEnabled,
         displayValue,
         erpAuxiliaryValue,
-        diff: authorityEnabled && displayValue !== null && erpAuxiliaryValue !== null
+        diff: comparisonComparable && authorityEnabled && displayValue !== null && erpAuxiliaryValue !== null
           ? displayValue - erpAuxiliaryValue
           : null,
+        comparisonComparable,
+        comparisonReason: metric?.comparisonReason || '两端已使用同一汇总口径，可计算差异。',
+        chanjetBreakdown: metric?.chanjetBreakdown || [],
+        erpBreakdown: metric?.erpBreakdown || [],
         sourceEntityTypes: daily ? [daily.entityType] : metric?.sourceEntityTypes || [],
         latestPulledAt: daily?.latestPulledAt || metric?.latestPulledAt || null,
         businessDate: daily?.businessDate || null,
         receiptPaymentLockStatus: lock?.status || null,
         readyForCardAuthority: daily?.readyForCardAuthority ?? lock?.readyForCardAuthority ?? null,
-        reason: authorityEnabled
+        reason: !comparisonComparable
+          ? metric?.comparisonReason || '两端口径不可直接比较。'
+          : authorityEnabled
           ? daily
             ? `已按 ${daily.businessDate} 业务日与 EFFECTIVE 状态完成只读对账，可接入主卡片并保留 ERP 辅助差异。`
             : '已达到 AUTHORITY_READY，可接入主卡片，并保留 ERP 辅助差异。'
           : daily?.reason || lock?.reason || metric?.reason || '尚未达到 AUTHORITY_READY，主卡片必须保留 ERP 值。',
-        nextAction: authorityEnabled
+        nextAction: !comparisonComparable
+          ? '完成资金账户映射和汇率口径锁定；当前按币种并列展示，禁止汇总求差。'
+          : authorityEnabled
           ? daily
             ? '每日重跑业务日对账，SUBMITTED 和所有非 EFFECTIVE 状态保持排除。'
             : '在财务卡片标明好业财权威口径，并展示 ERP 辅助差异。'
@@ -5858,6 +5888,47 @@ export class ChanjetIntegrationService {
     }
   }
 
+  private async erpCashBalanceAggregate(): Promise<{
+    available: boolean;
+    value: number;
+    rows: number;
+    breakdown: FinanceCurrencyBalance[];
+    error?: string;
+  }> {
+    try {
+      const rows = await this.ds.query(
+        `SELECT UPPER(COALESCE(NULLIF(TRIM(currency_code), ''), 'CNY')) AS currency,
+                COALESCE(SUM(current_balance), 0) AS value,
+                COUNT(*) AS rows
+           FROM fin_cash_accounts
+          WHERE status = 'ACTIVE'
+          GROUP BY UPPER(COALESCE(NULLIF(TRIM(currency_code), ''), 'CNY'))
+          ORDER BY currency`,
+      );
+      const breakdown: FinanceCurrencyBalance[] = rows.map((row: Record<string, unknown>) => ({
+        currency: String(row.currency || 'CNY').toUpperCase(),
+        amount: Number(row.value || 0),
+        rows: Number(row.rows || 0),
+      }));
+      return {
+        available: true,
+        // 仅保留兼容旧接口的原币算术和，前端和对账逻辑不得把它当作可比较总额。
+        value: breakdown.reduce((sum, row) => sum + row.amount, 0),
+        rows: breakdown.reduce((sum, row) => sum + row.rows, 0),
+        breakdown,
+      };
+    } catch (error) {
+      this.log.warn(`ERP cash balance aggregate unavailable: ${(error as Error).message}`);
+      return {
+        available: false,
+        value: 0,
+        rows: 0,
+        breakdown: [],
+        error: (error as Error).message,
+      };
+    }
+  }
+
   private async chanjetEntityAggregate(entityTypes: string[]): Promise<{
     available: boolean;
     value: number;
@@ -5906,11 +5977,21 @@ export class ChanjetIntegrationService {
     erp: { available: boolean; value: number; rows: number; error?: string } | null;
     reason: string;
     forceStatus?: FinanceReconciliationStatus;
+    comparisonComparable?: boolean;
+    comparisonReason?: string;
+    chanjetBreakdown?: FinanceCurrencyBalance[];
+    erpBreakdown?: FinanceCurrencyBalance[];
   }): FinanceReconciliationItem {
     const semanticLock = this.financeSemanticLockFor(input.key);
     const chanjetValue = input.chanjet.available && input.chanjet.value !== null ? input.chanjet.value : null;
     const erpValue = input.erp?.available ? input.erp.value : null;
-    const diff = chanjetValue !== null && erpValue !== null ? chanjetValue - erpValue : null;
+    const comparisonComparable = input.comparisonComparable ?? true;
+    const comparisonReason = input.comparisonReason || (
+      comparisonComparable ? '两端已使用同一汇总口径，可计算差异。' : '两端口径尚未锁定，禁止计算汇总差异。'
+    );
+    const diff = comparisonComparable && chanjetValue !== null && erpValue !== null
+      ? chanjetValue - erpValue
+      : null;
     const base = Math.max(Math.abs(chanjetValue ?? 0), Math.abs(erpValue ?? 0), 1);
     const diffRate = diff === null ? null : Math.abs(diff) / base;
     const status = input.forceStatus
@@ -5918,6 +5999,8 @@ export class ChanjetIntegrationService {
         ? 'NEED_MAPPING'
         : input.erp && !input.erp.available
           ? 'HOLD'
+          : !comparisonComparable
+            ? 'WARN'
           : diff === null
             ? 'NEED_MAPPING'
             : Math.abs(diff) < 0.01
@@ -5936,6 +6019,10 @@ export class ChanjetIntegrationService {
       erpValue,
       diff,
       diffRate,
+      comparisonComparable,
+      comparisonReason,
+      chanjetBreakdown: input.chanjetBreakdown || [],
+      erpBreakdown: input.erpBreakdown || [],
       status,
       evidence: {
         chanjetRows: input.chanjet.rows,
@@ -5943,9 +6030,11 @@ export class ChanjetIntegrationService {
         erpRows: input.erp?.rows || 0,
       },
       reason: input.reason,
-      recommendedAction: status === 'WARN' && input.erp === null
-        ? '保持好业财行级只读展示和字段漂移检测；ERP 无同粒度事实时不构造伪差异。'
-        : this.financeReconciliationNextAction(status),
+      recommendedAction: !comparisonComparable
+        ? '按币种和账户展示两端余额；完成账户映射与汇率口径前，不显示总额差异。'
+        : status === 'WARN' && input.erp === null
+          ? '保持好业财行级只读展示和字段漂移检测；ERP 无同粒度事实时不构造伪差异。'
+          : this.financeReconciliationNextAction(status),
       diagnosis: this.financeDifferenceDiagnosis(input.key),
       semanticLock,
     };
@@ -6080,7 +6169,13 @@ export class ChanjetIntegrationService {
       authorityEligible: status === 'AUTHORITY_READY',
       displayValue,
       erpAuxiliaryValue: item.erpValue,
-      diff: displayValue !== null && item.erpValue !== null ? displayValue - item.erpValue : null,
+      diff: item.comparisonComparable && displayValue !== null && item.erpValue !== null
+        ? displayValue - item.erpValue
+        : null,
+      comparisonComparable: item.comparisonComparable,
+      comparisonReason: item.comparisonReason,
+      chanjetBreakdown: item.chanjetBreakdown,
+      erpBreakdown: item.erpBreakdown,
       valueSource: readonlyReportOnly && status === 'READONLY_READY'
         ? `chanjet_entity_snapshots.${item.chanjetEntityTypes.join('_')}.rawData semantic rows`
         : displayValue !== null

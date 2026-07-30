@@ -2179,3 +2179,18 @@ Decision: counterparty resolution `GO`.
   forbidden.
 - Canonical plan:
   `docs/ops/CHANJET_WMS_BANK_ACCOUNT_BIDIRECTIONAL_SYNC_PROGRESS_AND_PLAN_20260730.md`.
+
+# 2026-07-30 - Eliminate cross-currency pseudo differences and retry starvation
+
+- Decision: `GO_WITH_CONDITIONS`; internal comparison and retry defects are fixed,
+  while provider permission and master mapping conditions remain HOLD.
+- Chanjet cash/bank authority is CNY base currency. ERP cash accounts are now
+  presented by original currency and are never arithmetically totalled for comparison.
+- Reconciliation, read model and finance card layers share one explicit
+  `comparisonComparable` contract; a non-comparable metric always returns a null diff.
+- Provider error `50111` is emitted as `retryable=false` with required action
+  `OPEN_PROVIDER_READONLY_SCOPE`. The UI only permits a recheck after authorization.
+- No Chanjet write, ERP inventory-fact promotion, bank-balance mutation, migration,
+  push or deployment occurred.
+- Report:
+  `docs/ops/CHANJET_WMS_BANK_SYNC_P0_IMPLEMENTATION_REPORT_20260730.md`.

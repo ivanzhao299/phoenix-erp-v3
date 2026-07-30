@@ -1669,6 +1669,23 @@ Next actions:
 - 不直接写银行余额；ERP 出站只允许审批后的业务单据/凭证。
 - 未经单据级批准，不执行好业财外部写入。
 
+## 2026-07-30 — 好业财现金余额口径与 WMS 权限阻断整改
+
+已完成：
+
+- 禁止好业财 CNY 本位币余额与 ERP 多币种原币总和直接求差。
+- ERP 现金账户改为按 CNY / LAK / THB / USD 分币种辅助展示。
+- reconciliation、read model、card authority 三层统一使用可比性标记。
+- 六个 `50111` Scope 标记为不可自动重试，页面只允许“授权后复检”。
+
+下一步：
+
+1. `OPEN_CHANJET_OTHER_STOCK_IN_AND_RETAIL_STOCK_OUT_READONLY_PERMISSIONS_FOR_THREE_BOOKS`
+2. `RERUN_ONLY_SIX_PROVIDER_BLOCKED_TARGETS_AND_REQUIRE_85_OF_85_FRESH`
+3. `CHANJET_WMS_AND_BANK_MASTER_MAPPING_CLOSURE`
+4. `CHANJET_WMS_OPENING_BALANCE_CANARY_PRECHECK`
+5. `KEEP_CHANJET_EXTERNAL_WRITE_AND_ERP_INVENTORY_PROMOTION_BLOCKED`
+
 ## 2026-07-29 - Chanjet WMS ERP master-data gap closure
 
 Current stage: `CHANJET_WMS_MASTER_GAP_CLOSURE_PRODUCTION_VERIFIED_PROVIDER_HOLD`

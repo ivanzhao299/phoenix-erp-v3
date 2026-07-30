@@ -157,6 +157,8 @@ interface WmsMappingGapOverview {
     bookId: string;
     bookName: string;
     error: string;
+    retryable: boolean;
+    requiredAction: 'OPEN_PROVIDER_READONLY_SCOPE';
   }>;
   domainPolicies?: {
     houseLocations: {
@@ -674,6 +676,10 @@ interface FinanceRuntimeReconciliationItem {
   erpValue: number | null;
   diff: number | null;
   diffRate: number | null;
+  comparisonComparable: boolean;
+  comparisonReason: string;
+  chanjetBreakdown: FinanceCurrencyBalance[];
+  erpBreakdown: FinanceCurrencyBalance[];
   status: FinanceRuntimeReconciliationStatus;
   evidence: {
     chanjetRows: number;
@@ -764,6 +770,12 @@ interface FinanceSemanticExtractorsOverview {
 
 type FinanceReadModelStatus = 'AUTHORITY_READY' | 'READONLY_READY' | 'BLOCKED_MAPPING' | 'WAITING_SAMPLE' | 'NEED_MANUAL_REVIEW' | 'HOLD';
 
+interface FinanceCurrencyBalance {
+  currency: string;
+  amount: number;
+  rows: number;
+}
+
 interface FinanceReadModelMetric {
   key: string;
   label: string;
@@ -773,6 +785,10 @@ interface FinanceReadModelMetric {
   displayValue: number | null;
   erpAuxiliaryValue: number | null;
   diff: number | null;
+  comparisonComparable: boolean;
+  comparisonReason: string;
+  chanjetBreakdown: FinanceCurrencyBalance[];
+  erpBreakdown: FinanceCurrencyBalance[];
   valueSource: string;
   sourceEntityTypes: string[];
   sampleRows: number;
@@ -991,6 +1007,13 @@ function fmtSignedMoney(value: number | null | undefined) {
   const n = Number(value);
   const abs = Math.abs(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return `${n > 0 ? '+' : n < 0 ? '-' : ''}${abs}`;
+}
+
+function fmtCurrencyBreakdown(rows: FinanceCurrencyBalance[] | null | undefined) {
+  if (!rows?.length) return '—';
+  return rows
+    .map((row) => `${row.currency} ${fmtMoney(row.amount)} · ${row.rows} 行`)
+    .join('；');
 }
 
 function fmtDate(value: string | null | undefined) {
@@ -2635,7 +2658,7 @@ export default function ChanjetIntegrationPage() {
                             <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
                               {t(
                                 'ui.供应商权限补齐说明',
-                                'OTHER_STOCK_IN / RETAIL_STOCK_OUT 尚未取得供应商接口权限。全部只读 Scope 新鲜且成功前，任何库存单据不得批准晋级。',
+                                'OTHER_STOCK_IN / RETAIL_STOCK_OUT 尚未取得供应商接口权限。错误 50111 不会自动重试；须先在好业财开放对应只读权限，再进行一次人工复检。',
                               )}
                             </div>
                           </div>
@@ -2646,7 +2669,7 @@ export default function ChanjetIntegrationPage() {
                             onClick={() => void recheckWmsProviderPermissions()}
                           >
                             <RefreshCw size={14} />
-                            {t('ui.只读重试', '只读重试')}
+                            {t('ui.授权后复检', '授权后复检')}
                           </Button>
                         </div>
                       </div>
@@ -3019,14 +3042,33 @@ export default function ChanjetIntegrationPage() {
                         待锁: {(item.semanticLock?.pendingFields || []).slice(0, 4).join(' / ') || '—'}
                       </div>
                     </td>
-                    <td style={{ ...cellStyle, fontWeight: 800 }}>{fmtMoney(item.chanjetValue)}</td>
+                    <td style={{ ...cellStyle, fontWeight: 800 }}>
+                      {fmtMoney(item.chanjetValue)}
+                      {!!item.chanjetBreakdown?.length && (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 400, marginTop: 4 }}>
+                          {fmtCurrencyBreakdown(item.chanjetBreakdown)}
+                        </div>
+                      )}
+                    </td>
                     <td style={cellStyle}>
-                      <div style={{ fontWeight: 700 }}>{fmtMoney(item.erpValue)}</div>
+                      <div style={{ fontWeight: 700 }}>
+                        {item.comparisonComparable ? fmtMoney(item.erpValue) : '按币种列示'}
+                      </div>
+                      {!item.comparisonComparable && (
+                        <div style={{ color: 'var(--text-primary)', fontSize: 12, marginTop: 4 }}>
+                          {fmtCurrencyBreakdown(item.erpBreakdown)}
+                        </div>
+                      )}
                       <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{item.erpSources.join(' / ')}</div>
                     </td>
                     <td style={{ ...cellStyle, color: item.diff == null ? 'var(--text-secondary)' : Math.abs(item.diff) > 0.01 ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 800 }}>
-                      {fmtSignedMoney(item.diff)}
-                      {item.diffRate != null && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{Math.round(item.diffRate * 10000) / 100}%</div>}
+                      {item.comparisonComparable ? fmtSignedMoney(item.diff) : <Badge tone="amber">口径不可比</Badge>}
+                      {item.comparisonComparable && item.diffRate != null && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{Math.round(item.diffRate * 10000) / 100}%</div>}
+                      {!item.comparisonComparable && (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 400, marginTop: 6 }}>
+                          {item.comparisonReason}
+                        </div>
+                      )}
                     </td>
                     <td style={cellStyle}>
                       好业财行 {item.evidence.chanjetRows}
@@ -3236,8 +3278,15 @@ export default function ChanjetIntegrationPage() {
                       <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{item.valueSource}</div>
                     </td>
                     <td style={cellStyle}>
-                      {fmtMoney(item.erpAuxiliaryValue)}
-                      <div style={{ color: item.diff ? 'var(--status-warning)' : 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>差异 {fmtSignedMoney(item.diff)}</div>
+                      {item.comparisonComparable ? fmtMoney(item.erpAuxiliaryValue) : '按币种列示'}
+                      {!item.comparisonComparable && (
+                        <div style={{ color: 'var(--text-primary)', fontSize: 12, marginTop: 4 }}>
+                          {fmtCurrencyBreakdown(item.erpBreakdown)}
+                        </div>
+                      )}
+                      <div style={{ color: item.diff ? 'var(--status-warning)' : 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                        {item.comparisonComparable ? `差异 ${fmtSignedMoney(item.diff)}` : '总额差异已禁用'}
+                      </div>
                     </td>
                     <td style={cellStyle}>
                       <div>样本 {item.sampleRows} · {fmtDate(item.latestPulledAt)}</div>

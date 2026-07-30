@@ -643,6 +643,8 @@ export class ChanjetWmsBridgeService {
       bookId: scope.bookId,
       bookName: scope.bookName,
       error: scope.latestSyncError,
+      retryable: false,
+      requiredAction: 'OPEN_PROVIDER_READONLY_SCOPE',
     })) || [];
     return {
       generatedAt: new Date().toISOString(),
@@ -672,6 +674,8 @@ export class ChanjetWmsBridgeService {
         fuzzyAutoMappingAllowed: false,
         houseAsWarehouseAllowed: false,
         productSpecificPackageConversionRequired: true,
+        providerPermissionAutomaticRetryAllowed: false,
+        providerPermissionRetryRule: '50111 仅在好业财开放对应只读接口权限后允许人工复检；后台不得自动重试。',
       },
     };
   }

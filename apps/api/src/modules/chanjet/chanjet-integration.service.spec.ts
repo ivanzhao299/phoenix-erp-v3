@@ -15,6 +15,98 @@ describe('Chanjet provider failure classification', () => {
     expect(classifyChanjetSyncFailure('HTTP 502 upstream timeout'))
       .toEqual({ retryEligible: true, capability: 'SUPPORTED' });
   });
+
+  it('never computes a total cash difference across incompatible currency scopes', () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+
+    const result = subject.buildFinanceReconciliationItem({
+      key: 'CASH_BALANCE',
+      label: '现金 / 银行余额',
+      priority: 'P0',
+      chanjetEndpointKeys: ['GL_BALANCE'],
+      chanjetEntityTypes: ['GL_BALANCE'],
+      erpSources: ['fin_cash_accounts.current_balance'],
+      chanjet: { available: true, value: 1_634_534.07, rows: 31, latestPulledAt: '2026-07-30T00:00:00.000Z' },
+      erp: { available: true, value: 2_054_822_167.04, rows: 42 },
+      reason: 'cash balance reconciliation',
+      comparisonComparable: false,
+      comparisonReason: 'Chanjet CNY base balance cannot be compared with ERP original-currency balances.',
+      chanjetBreakdown: [{ currency: 'CNY', amount: 1_634_534.07, rows: 31 }],
+      erpBreakdown: [
+        { currency: 'CNY', amount: 172_153.29, rows: 9 },
+        { currency: 'LAK', amount: 2_054_645_246.75, rows: 29 },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      status: 'WARN',
+      comparisonComparable: false,
+      diff: null,
+      diffRate: null,
+    });
+    expect(result.erpBreakdown).toHaveLength(2);
+    expect(result.recommendedAction).toContain('不显示总额差异');
+  });
+
+  it('groups ERP cash account balances by currency without claiming a comparable total', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.ds = {
+      query: jest.fn().mockResolvedValue([
+        { currency: 'CNY', value: '172153.29', rows: '9' },
+        { currency: 'LAK', value: '2054645246.75', rows: '29' },
+        { currency: 'USD', value: '141', rows: '2' },
+      ]),
+    };
+
+    const result = await subject.erpCashBalanceAggregate();
+
+    expect(result).toMatchObject({
+      available: true,
+      rows: 40,
+      breakdown: [
+        { currency: 'CNY', amount: 172153.29, rows: 9 },
+        { currency: 'LAK', amount: 2054645246.75, rows: 29 },
+        { currency: 'USD', amount: 141, rows: 2 },
+      ],
+    });
+    expect(subject.ds.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the finance card cash diff disabled when the read model is not comparable', async () => {
+    const subject: any = Object.create(ChanjetIntegrationService.prototype);
+    subject.financeReadModelOverview = jest.fn().mockResolvedValue({
+      metrics: [
+        { key: 'AR_OPEN', status: 'AUTHORITY_READY', displayValue: 100, erpAuxiliaryValue: 100, sourceEntityTypes: ['AR_STATISTICS'] },
+        { key: 'AP_OPEN', status: 'AUTHORITY_READY', displayValue: 80, erpAuxiliaryValue: 80, sourceEntityTypes: ['AP_STATISTICS'] },
+        {
+          key: 'CASH_BALANCE',
+          status: 'AUTHORITY_READY',
+          displayValue: 1_634_534.07,
+          erpAuxiliaryValue: 2_054_822_167.04,
+          comparisonComparable: false,
+          comparisonReason: 'Cross-currency totals are not comparable.',
+          chanjetBreakdown: [{ currency: 'CNY', amount: 1_634_534.07, rows: 31 }],
+          erpBreakdown: [{ currency: 'LAK', amount: 2_054_645_246.75, rows: 29 }],
+          sourceEntityTypes: ['GL_BALANCE'],
+        },
+      ],
+    });
+    subject.financeReceiptPaymentDateStatusLockOverview = jest.fn().mockResolvedValue({ locks: [] });
+    subject.financeReceiptPaymentDailyReconciliationOverview = jest.fn().mockResolvedValue({
+      summary: { authorityReady: 0 },
+      metrics: [],
+    });
+
+    const result = await subject.financeCardAuthorityOverview();
+    const cashCard = result.cards.find((card: any) => card.cardKey === 'cashBalance');
+
+    expect(cashCard).toMatchObject({
+      authorityEnabled: true,
+      comparisonComparable: false,
+      diff: null,
+    });
+    expect(cashCard.erpBreakdown).toEqual([{ currency: 'LAK', amount: 2_054_645_246.75, rows: 29 }]);
+  });
 });
 
 describe('ChanjetIntegrationService field-gap helpers', () => {
@@ -1299,6 +1391,12 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
   it('uses the verified daily receipt/payment contract in finance reconciliation', async () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     subject.erpFinanceAggregate = jest.fn().mockResolvedValue({ available: true, value: 0, rows: 0 });
+    subject.erpCashBalanceAggregate = jest.fn().mockResolvedValue({
+      available: true,
+      value: 0,
+      rows: 0,
+      breakdown: [],
+    });
     subject.chanjetEntityAggregate = jest.fn().mockResolvedValue({
       available: true,
       value: 0,
