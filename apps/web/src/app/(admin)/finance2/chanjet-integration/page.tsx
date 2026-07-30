@@ -1494,7 +1494,16 @@ export default function ChanjetIntegrationPage() {
             <Button variant="outline" onClick={load} disabled={loading}><RefreshCw size={16} />刷新</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('账套刷新', () => request('/chanjet/integration/account-books/refresh', { method: 'POST' }))}>刷新账套</Button>
             <Button disabled={!canEdit || loading} onClick={runFullReadonlyAlignment}>运行完整只读闭环</Button>
-            <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('最终精确映射闭环', () => request('/chanjet/integration/exact-mapping-closure/run', { method: 'POST' }))}>运行精确映射闭环</Button>
+            <Button
+              variant="outline"
+              disabled={!canEdit || loading}
+              onClick={() => runAction(
+                t('ui.最终精确映射闭环', '最终精确映射闭环'),
+                () => request('/chanjet/integration/exact-mapping-closure/run', { method: 'POST' }),
+              )}
+            >
+              {t('ui.运行精确映射闭环', '运行精确映射闭环')}
+            </Button>
             <Button disabled={!canEdit || loading} onClick={() => runAction('字段探针', () => request('/chanjet/integration/probe', { method: 'POST', body: JSON.stringify({ scope: ['ACCOUNT_BOOKS', 'DEPARTMENT', 'CUSTOMER_SUPPLIER', 'SUBJECT', 'PROJECT', 'FIN_ACCOUNT'] }) }))}>运行探针</Button>
             <Button variant="outline" disabled={!canEdit || loading} onClick={() => runAction('字段差异分析', () => request('/chanjet/integration/field-mappings/analyze', { method: 'POST' }))}>字段分析</Button>
           </>
@@ -3101,7 +3110,7 @@ export default function ChanjetIntegrationPage() {
                     </td>
                     <td style={cellStyle}>
                       <div style={{ fontWeight: 700 }}>
-                        {item.comparisonComparable ? fmtMoney(item.erpValue) : '按币种列示'}
+                        {item.comparisonComparable ? fmtMoney(item.erpValue) : t('ui.按币种列示', '按币种列示')}
                       </div>
                       {!item.comparisonComparable && (
                         <div style={{ color: 'var(--text-primary)', fontSize: 12, marginTop: 4 }}>
@@ -3111,7 +3120,9 @@ export default function ChanjetIntegrationPage() {
                       <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{item.erpSources.join(' / ')}</div>
                     </td>
                     <td style={{ ...cellStyle, color: item.diff == null ? 'var(--text-secondary)' : Math.abs(item.diff) > 0.01 ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 800 }}>
-                      {item.comparisonComparable ? fmtSignedMoney(item.diff) : <Badge tone="amber">口径不可比</Badge>}
+                      {item.comparisonComparable
+                        ? fmtSignedMoney(item.diff)
+                        : <Badge tone="amber">{t('ui.口径不可比', '口径不可比')}</Badge>}
                       {item.comparisonComparable && item.diffRate != null && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{Math.round(item.diffRate * 10000) / 100}%</div>}
                       {!item.comparisonComparable && (
                         <div style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 400, marginTop: 6 }}>
@@ -3327,14 +3338,18 @@ export default function ChanjetIntegrationPage() {
                       <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{item.valueSource}</div>
                     </td>
                     <td style={cellStyle}>
-                      {item.comparisonComparable ? fmtMoney(item.erpAuxiliaryValue) : '按币种列示'}
+                      {item.comparisonComparable
+                        ? fmtMoney(item.erpAuxiliaryValue)
+                        : t('ui.按币种列示', '按币种列示')}
                       {!item.comparisonComparable && (
                         <div style={{ color: 'var(--text-primary)', fontSize: 12, marginTop: 4 }}>
                           {fmtCurrencyBreakdown(item.erpBreakdown)}
                         </div>
                       )}
                       <div style={{ color: item.diff ? 'var(--status-warning)' : 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
-                        {item.comparisonComparable ? `差异 ${fmtSignedMoney(item.diff)}` : '总额差异已禁用'}
+                        {item.comparisonComparable
+                          ? `${t('ui.差异', '差异')} ${fmtSignedMoney(item.diff)}`
+                          : t('ui.总额差异已禁用', '总额差异已禁用')}
                       </div>
                     </td>
                     <td style={cellStyle}>

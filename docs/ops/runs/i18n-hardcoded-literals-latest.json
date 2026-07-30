@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-28T01:27:30.493Z",
+  "generated_at": "2026-07-30T05:45:56.669Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 3282,
-  "auto_translatable_findings": 3282,
+  "total_findings": 3300,
+  "auto_translatable_findings": 3300,
   "manual_componentization_findings": 0,
   "locale_quality_issue_count": 0,
   "locale_quality_issues": [],
@@ -10,62 +10,62 @@
   "top_files": [
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "count": 428,
+      "count": 446,
       "samples": [
         {
           "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-          "line": 877,
+          "line": 285,
           "kind": "string-literal",
-          "text": "总览加载失败",
+          "text": "精确候选冲突",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-          "line": 917,
+          "line": 286,
           "kind": "string-literal",
-          "text": "账套缓存",
+          "text": "已有精确主档待确认",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-          "line": 918,
+          "line": 287,
           "kind": "string-literal",
-          "text": "字段目录",
+          "text": "仓库主档待补齐",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-          "line": 918,
+          "line": 288,
           "kind": "string-literal",
-          "text": "脱敏字段样本",
+          "text": "鸡舍库存归属待桥接",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-          "line": 919,
+          "line": 289,
           "kind": "string-literal",
-          "text": "映射候选",
+          "text": "仓储实体类型待核准",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-          "line": 920,
+          "line": 290,
           "kind": "string-literal",
-          "text": "凭证草稿",
+          "text": "蛋品 SKU 待对齐",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-          "line": 921,
+          "line": 291,
           "kind": "string-literal",
-          "text": "镜像实体",
+          "text": "物料主档待补齐",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-          "line": 922,
+          "line": 293,
           "kind": "string-literal",
-          "text": "字段差异",
+          "text": "商品实体类型待核准",
           "auto_translatable": true
         }
       ]
@@ -4743,2996 +4743,3122 @@
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 877,
+      "line": 285,
       "kind": "string-literal",
-      "text": "总览加载失败",
+      "text": "精确候选冲突",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 917,
+      "line": 286,
       "kind": "string-literal",
-      "text": "账套缓存",
+      "text": "已有精确主档待确认",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 918,
+      "line": 287,
       "kind": "string-literal",
-      "text": "字段目录",
+      "text": "仓库主档待补齐",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 918,
+      "line": 288,
       "kind": "string-literal",
-      "text": "脱敏字段样本",
+      "text": "鸡舍库存归属待桥接",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 919,
+      "line": 289,
       "kind": "string-literal",
-      "text": "映射候选",
+      "text": "仓储实体类型待核准",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 920,
+      "line": 290,
       "kind": "string-literal",
-      "text": "凭证草稿",
+      "text": "蛋品 SKU 待对齐",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 921,
+      "line": 291,
       "kind": "string-literal",
-      "text": "镜像实体",
+      "text": "物料主档待补齐",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 922,
+      "line": 293,
       "kind": "string-literal",
-      "text": "字段差异",
+      "text": "商品实体类型待核准",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 923,
+      "line": 294,
       "kind": "string-literal",
-      "text": "开放差异",
+      "text": "基础计量单位待定义",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 944,
+      "line": 295,
       "kind": "string-literal",
-      "text": "映射审核",
+      "text": "包装单位换算待定义",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 976,
+      "line": 296,
       "kind": "string-literal",
-      "text": "排队中",
+      "text": "场景计量单位待定义",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 976,
+      "line": 300,
       "kind": "string-literal",
-      "text": "运行中",
+      "text": "消除重复候选后再确认",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 982,
+      "line": 301,
       "kind": "string-literal",
-      "text": "完成",
+      "text": "刷新并确认唯一精确映射",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 992,
+      "line": 304,
       "kind": "string-literal",
-      "text": "凭证草稿审核",
+      "text": "核准为仓库、鸡舍或库位",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1014,
+      "line": 305,
       "kind": "string-literal",
-      "text": "凭证分录必须为数组",
+      "text": "映射或补齐标准蛋品 SKU",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1025,
+      "line": 306,
       "kind": "string-literal",
-      "text": "人工凭证草稿",
+      "text": "补齐物料主档后映射",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1045,
+      "line": 308,
       "kind": "string-literal",
-      "text": "凭证草稿创建",
+      "text": "核准为商品、SKU、物料或活禽",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1050,
+      "line": 310,
       "kind": "string-literal",
-      "text": "人工凭证草稿",
+      "text": "先定义 SKU 包装换算率",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1061,
+      "line": 311,
       "kind": "string-literal",
-      "text": "好业财中间层",
+      "text": "补齐标准计量单位后映射",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1062,
-      "kind": "jsx-text",
-      "text": "无权限访问。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1070,
+      "line": 312,
       "kind": "string-literal",
-      "text": "好业财中间层",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1072,
-      "kind": "string-literal",
-      "text": "系统设置",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1072,
-      "kind": "string-literal",
-      "text": "好业财中间层",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1075,
-      "kind": "jsx-text",
-      "text": "刷新",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1076,
-      "kind": "string-literal",
-      "text": "账套刷新",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1076,
-      "kind": "jsx-text",
-      "text": "刷新账套",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1077,
-      "kind": "jsx-text",
-      "text": "运行完整只读闭环",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1078,
-      "kind": "string-literal",
-      "text": "系统确认精确映射",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1078,
-      "kind": "jsx-text",
-      "text": "确认精确映射",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1079,
-      "kind": "string-literal",
-      "text": "字段探针",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1079,
-      "kind": "jsx-text",
-      "text": "运行探针",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1080,
-      "kind": "string-literal",
-      "text": "字段差异分析",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1080,
-      "kind": "jsx-text",
-      "text": "字段分析",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1114,
-      "kind": "jsx-text",
-      "text": "账套缓存",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1121,
-      "kind": "string-literal",
-      "text": "启用",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1121,
-      "kind": "string-literal",
-      "text": "未启用",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1124,
-      "kind": "string-literal",
-      "text": "未映射公司",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1132,
-      "kind": "string-literal",
-      "text": "P0-P6 准备度",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1133,
-      "kind": "string-literal",
-      "text": "治理 Gate",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1134,
-      "kind": "string-literal",
-      "text": "P0 财务适配",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1135,
-      "kind": "string-literal",
-      "text": "覆盖率看板",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1136,
-      "kind": "string-literal",
-      "text": "只读适配器",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1138,
-      "kind": "string-literal",
-      "text": "只读镜像",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1139,
-      "kind": "string-literal",
-      "text": "字段差异",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1140,
-      "kind": "string-literal",
-      "text": "主数据映射",
+      "text": "已闭环",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1141,
       "kind": "string-literal",
-      "text": "对账差异",
+      "text": "总览加载失败",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1142,
+      "line": 1170,
       "kind": "string-literal",
-      "text": "语义提取器",
+      "text": "总览加载失败",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1143,
+      "line": 1218,
       "kind": "string-literal",
-      "text": "财务 Read Model",
+      "text": "账套缓存",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1144,
-      "kind": "string-literal",
-      "text": "科目/报表只读",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1145,
-      "kind": "string-literal",
-      "text": "收付款日期状态锁",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1146,
-      "kind": "string-literal",
-      "text": "凭证草稿",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1147,
+      "line": 1219,
       "kind": "string-literal",
       "text": "字段目录",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1148,
+      "line": 1219,
       "kind": "string-literal",
-      "text": "作业审计",
+      "text": "脱敏字段样本",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1172,
-      "kind": "jsx-text",
-      "text": "好业财融合生产准备度",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1227,
+      "line": 1220,
       "kind": "string-literal",
-      "text": "镜像新鲜度",
+      "text": "映射候选",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1228,
+      "line": 1221,
       "kind": "string-literal",
-      "text": "账套映射",
+      "text": "凭证草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1229,
+      "line": 1222,
       "kind": "string-literal",
-      "text": "主数据批准覆盖",
+      "text": "镜像实体",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1230,
+      "line": 1223,
       "kind": "string-literal",
-      "text": "字段语义覆盖",
+      "text": "字段差异",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1231,
+      "line": 1224,
       "kind": "string-literal",
-      "text": "财务卡片权威覆盖",
+      "text": "开放差异",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1232,
+      "line": 1272,
       "kind": "string-literal",
-      "text": "最近作业成功率",
+      "text": "映射审核",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1243,
-      "kind": "jsx-text",
-      "text": "阻断项",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1245,
-      "kind": "jsx-text",
-      "text": "无硬阻断。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1249,
-      "kind": "jsx-text",
-      "text": "条件项",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1251,
-      "kind": "jsx-text",
-      "text": "无开放条件。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1257,
-      "kind": "jsx-text",
-      "text": "认证配置:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1258,
-      "kind": "jsx-text",
-      "text": "好业财写入: 永久关闭",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1259,
-      "kind": "jsx-text",
-      "text": "普通用户可见: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1260,
-      "kind": "jsx-text",
-      "text": "可系统确认精确映射:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1261,
-      "kind": "jsx-text",
-      "text": "待人工映射:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1266,
-      "kind": "jsx-text",
-      "text": "本次完整只读闭环",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1270,
-      "kind": "jsx-text",
-      "text": "镜像目标：",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1270,
-      "kind": "jsx-text",
-      "text": "· 重试轮次：",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1271,
-      "kind": "jsx-text",
-      "text": "精确映射：",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1274,
-      "kind": "jsx-text",
-      "text": "新增差异：",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1274,
-      "kind": "jsx-text",
-      "text": "· 保持：",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1275,
-      "kind": "jsx-text",
-      "text": "自动结案：",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1282,
-      "kind": "jsx-text",
-      "text": "下一 Gate:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1282,
-      "kind": "jsx-text",
-      "text": "· 生成时间",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1290,
-      "kind": "jsx-text",
-      "text": "好业财只读融合治理 Gate",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1300,
+      "line": 1395,
       "kind": "string-literal",
-      "text": "往来单位候选生成",
+      "text": "排队中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1301,
-      "kind": "jsx-text",
-      "text": "生成待审核候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1307,
-      "kind": "jsx-text",
-      "text": "镜像新鲜目标",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1309,
-      "kind": "jsx-text",
-      "text": "阈值",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1309,
-      "kind": "jsx-text",
-      "text": "h · 覆盖",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1312,
-      "kind": "jsx-text",
-      "text": "过期 / 缺失",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1314,
-      "kind": "jsx-text",
-      "text": "最近失败作业",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1317,
-      "kind": "jsx-text",
-      "text": "有效账套映射",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1319,
-      "kind": "jsx-text",
-      "text": "阻断",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1319,
-      "kind": "jsx-text",
-      "text": "· 警告",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1330,
-      "kind": "jsx-text",
-      "text": "好业财写入: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1331,
-      "kind": "jsx-text",
-      "text": "业务表覆盖: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1333,
-      "kind": "jsx-text",
-      "text": "模糊自动匹配: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1335,
-      "kind": "jsx-text",
-      "text": "下一 Gate:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1340,
-      "kind": "jsx-text",
-      "text": "账套 ↔ 公司映射",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1342,
+      "line": 1395,
       "kind": "string-literal",
-      "text": "账套",
+      "text": "运行中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1342,
+      "line": 1401,
       "kind": "string-literal",
-      "text": "ERP 公司",
+      "text": "完成",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1342,
+      "line": 1411,
       "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1342,
-      "kind": "string-literal",
-      "text": "问题",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1352,
-      "kind": "jsx-text",
-      "text": "暂无账套映射。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1358,
-      "kind": "jsx-text",
-      "text": "往来单位候选（前 30 条）",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1360,
-      "kind": "string-literal",
-      "text": "好业财往来单位",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1360,
-      "kind": "string-literal",
-      "text": "角色",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1360,
-      "kind": "string-literal",
-      "text": "ERP 候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1360,
-      "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1360,
-      "kind": "string-literal",
-      "text": "置信度",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1366,
-      "kind": "string-literal",
-      "text": "待匹配",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1371,
-      "kind": "jsx-text",
-      "text": "暂无往来单位镜像候选。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1378,
-      "kind": "jsx-text",
-      "text": "16 scope 镜像基线",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1380,
-      "kind": "string-literal",
-      "text": "账套",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1380,
-      "kind": "string-literal",
-      "text": "新鲜度",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1380,
-      "kind": "string-literal",
-      "text": "快照/实体",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1380,
-      "kind": "string-literal",
-      "text": "最近拉取",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1380,
-      "kind": "string-literal",
-      "text": "作业",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1385,
-      "kind": "string-literal",
-      "text": "企业级",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1392,
-      "kind": "jsx-text",
-      "text": "暂无镜像基线数据。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1403,
-      "kind": "jsx-text",
-      "text": "P0 财务只读适配层",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1408,
-      "kind": "jsx-text",
-      "text": "凭证推送关闭",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1412,
-      "kind": "jsx-text",
-      "text": "P0 桶",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1414,
-      "kind": "jsx-text",
-      "text": "/ 条件项",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1417,
-      "kind": "jsx-text",
-      "text": "待镜像同步",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1422,
-      "kind": "jsx-text",
-      "text": "下一 Gate",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1424,
-      "kind": "jsx-text",
-      "text": "仍需人工字段复核",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1428,
-      "kind": "jsx-text",
-      "text": "安全边界",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1430,
-      "kind": "jsx-text",
-      "text": "好业财写入: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1431,
-      "kind": "jsx-text",
-      "text": "凭证推送: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1432,
-      "kind": "jsx-text",
-      "text": "ERP 业务表写入: 否",
+      "text": "凭证草稿审核",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1433,
-      "kind": "jsx-text",
-      "text": "fin_ar_invoices 连接: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1439,
       "kind": "string-literal",
-      "text": "适配桶",
+      "text": "凭证分录必须为数组",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1439,
+      "line": 1444,
       "kind": "string-literal",
-      "text": "镜像/实体",
+      "text": "人工凭证草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1439,
+      "line": 1464,
       "kind": "string-literal",
-      "text": "字段风险",
+      "text": "凭证草稿创建",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1439,
+      "line": 1469,
       "kind": "string-literal",
-      "text": "ERP 目标",
+      "text": "人工凭证草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1439,
+      "line": 1480,
       "kind": "string-literal",
-      "text": "下一步",
+      "text": "好业财中间层",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1454,
+      "line": 1481,
       "kind": "jsx-text",
-      "text": "快照",
+      "text": "无权限访问。",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1455,
-      "kind": "jsx-text",
-      "text": "实体",
+      "line": 1489,
+      "kind": "string-literal",
+      "text": "好业财中间层",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1456,
-      "kind": "jsx-text",
-      "text": "最近:",
+      "line": 1491,
+      "kind": "string-literal",
+      "text": "系统设置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1459,
-      "kind": "jsx-text",
-      "text": "字段",
+      "line": 1491,
+      "kind": "string-literal",
+      "text": "好业财中间层",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1460,
+      "line": 1494,
       "kind": "jsx-text",
-      "text": "高风险待审",
+      "text": "刷新",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1488,
-      "kind": "jsx-text",
-      "text": "接口覆盖率",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1490,
-      "kind": "jsx-text",
-      "text": "个 P0 接口已镜像",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1493,
-      "kind": "jsx-text",
-      "text": "财务卡片覆盖率",
+      "line": 1495,
+      "kind": "string-literal",
+      "text": "账套刷新",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
       "line": 1495,
       "kind": "jsx-text",
-      "text": "张卡有好业财依据",
+      "text": "刷新账套",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1498,
+      "line": 1496,
       "kind": "jsx-text",
-      "text": "字段覆盖率",
+      "text": "运行完整只读闭环",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1500,
-      "kind": "jsx-text",
-      "text": "缺字段",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1500,
-      "kind": "jsx-text",
-      "text": "/ 转换",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1503,
-      "kind": "jsx-text",
-      "text": "同步异常",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1505,
-      "kind": "jsx-text",
-      "text": "失败会写入系统告警中心",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1509,
-      "kind": "jsx-text",
-      "text": "口径规则",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1512,
-      "kind": "jsx-text",
-      "text": "好业财写入: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1513,
-      "kind": "jsx-text",
-      "text": "ERP 业务表覆盖: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1514,
-      "kind": "jsx-text",
-      "text": "凭证推送: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1519,
-      "kind": "jsx-text",
-      "text": "P0 接口清单",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1521,
+      "line": 1507,
       "kind": "string-literal",
-      "text": "接口",
+      "text": "字段探针",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1521,
-      "kind": "string-literal",
-      "text": "覆盖",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1521,
-      "kind": "string-literal",
-      "text": "快照/实体",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1521,
-      "kind": "string-literal",
-      "text": "最近作业",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1526,
-      "kind": "string-literal",
-      "text": "已覆盖",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1526,
-      "kind": "string-literal",
-      "text": "待同步",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1527,
+      "line": 1507,
       "kind": "jsx-text",
-      "text": "快照",
+      "text": "运行探针",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1527,
-      "kind": "jsx-text",
-      "text": "/ 行",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1527,
-      "kind": "jsx-text",
-      "text": "实体",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1535,
-      "kind": "jsx-text",
-      "text": "暂无覆盖率数据。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1540,
-      "kind": "jsx-text",
-      "text": "财务卡片来源覆盖",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1542,
-      "kind": "string-literal",
-      "text": "卡片",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1542,
-      "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1542,
-      "kind": "string-literal",
-      "text": "依赖接口",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1542,
-      "kind": "string-literal",
-      "text": "规则",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1552,
-      "kind": "jsx-text",
-      "text": "暂无卡片覆盖率数据。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1564,
-      "kind": "jsx-text",
-      "text": "好业财只读字段适配器",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1576,
-      "kind": "jsx-text",
-      "text": "适配器",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1581,
-      "kind": "jsx-text",
-      "text": "凭证头 / 明细",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1583,
-      "kind": "jsx-text",
-      "text": "只读样本行",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1586,
-      "kind": "jsx-text",
-      "text": "往来单位",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1588,
-      "kind": "jsx-text",
-      "text": "需映射审核后业务使用",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1591,
-      "kind": "jsx-text",
-      "text": "字段覆盖率",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1593,
-      "kind": "jsx-text",
-      "text": "缺字段自动进入整改清单",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1598,
-      "kind": "jsx-text",
-      "text": "安全边界",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1600,
-      "kind": "jsx-text",
-      "text": "下一 Gate:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1602,
-      "kind": "jsx-text",
-      "text": "好业财写入: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1603,
-      "kind": "jsx-text",
-      "text": "凭证推送: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1604,
-      "kind": "jsx-text",
-      "text": "ERP 业务表覆盖: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1605,
-      "kind": "jsx-text",
-      "text": "普通用户可见: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1616,
-      "kind": "jsx-text",
-      "text": "· 样本",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1616,
-      "kind": "jsx-text",
-      "text": "· 最近同步",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1626,
-      "kind": "jsx-text",
-      "text": "已映射字段",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1630,
-      "kind": "jsx-text",
-      "text": "关键缺口",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1636,
-      "kind": "jsx-text",
-      "text": "下一步",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1644,
-      "kind": "string-literal",
-      "text": "凭证号",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1644,
-      "kind": "string-literal",
-      "text": "账套/期间",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1644,
-      "kind": "string-literal",
-      "text": "日期",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1644,
-      "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1644,
-      "kind": "string-literal",
-      "text": "摘要",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1644,
-      "kind": "string-literal",
-      "text": "制单/审核",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1650,
-      "kind": "jsx-text",
-      "text": "入账",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1653,
-      "kind": "jsx-text",
-      "text": "审核",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1662,
-      "kind": "string-literal",
-      "text": "凭证/行",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1662,
-      "kind": "string-literal",
-      "text": "科目",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1662,
-      "kind": "string-literal",
-      "text": "摘要",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1662,
-      "kind": "string-literal",
-      "text": "借方",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1662,
-      "kind": "string-literal",
-      "text": "贷方",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1662,
-      "kind": "string-literal",
-      "text": "辅助核算",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1672,
-      "kind": "jsx-text",
-      "text": "往来",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1673,
-      "kind": "jsx-text",
-      "text": "项目",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1673,
-      "kind": "jsx-text",
-      "text": "/ 部门",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1683,
-      "kind": "string-literal",
-      "text": "好业财往来",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1683,
-      "kind": "string-literal",
-      "text": "类型候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1683,
-      "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1683,
-      "kind": "string-literal",
-      "text": "ERP 候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1683,
-      "kind": "string-literal",
-      "text": "审核",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1683,
-      "kind": "string-literal",
-      "text": "置信度",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1690,
-      "kind": "string-literal",
-      "text": "未匹配",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1702,
-      "kind": "jsx-text",
-      "text": "暂无只读适配器数据。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1800,
-      "kind": "jsx-text",
-      "text": "好业财只读镜像",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1805,
-      "kind": "string-literal",
-      "text": "只读镜像同步",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1806,
-      "kind": "jsx-text",
-      "text": "同步镜像",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1811,
-      "kind": "jsx-text",
-      "text": "标准化实体",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1813,
-      "kind": "string-literal",
-      "text": "类型",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1813,
-      "kind": "string-literal",
-      "text": "编码 / 名称",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1813,
-      "kind": "string-literal",
-      "text": "账套",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1813,
-      "kind": "string-literal",
-      "text": "金额",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1813,
-      "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1819,
-      "kind": "string-literal",
-      "text": "全局",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1829,
-      "kind": "jsx-text",
-      "text": "原始快照审计",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1831,
-      "kind": "string-literal",
-      "text": "接口",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1831,
-      "kind": "string-literal",
-      "text": "行数",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1831,
-      "kind": "string-literal",
-      "text": "账套/期间",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1831,
-      "kind": "string-literal",
-      "text": "时间",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1837,
-      "kind": "string-literal",
-      "text": "全局",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1841,
-      "kind": "jsx-text",
-      "text": "暂无原始快照。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1853,
-      "kind": "jsx-text",
-      "text": "好业财字段 ↔ ERP 字段差异",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1856,
+      "line": 1508,
       "kind": "string-literal",
       "text": "字段差异分析",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1857,
+      "line": 1508,
       "kind": "jsx-text",
-      "text": "重新分析",
+      "text": "字段分析",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1861,
+      "line": 1542,
+      "kind": "jsx-text",
+      "text": "账套缓存",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1549,
       "kind": "string-literal",
-      "text": "好业财字段",
+      "text": "启用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1861,
+      "line": 1549,
       "kind": "string-literal",
-      "text": "ERP 候选",
+      "text": "未启用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1861,
+      "line": 1552,
       "kind": "string-literal",
-      "text": "状态",
+      "text": "未映射公司",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1861,
+      "line": 1560,
       "kind": "string-literal",
-      "text": "风险",
+      "text": "P0-P6 准备度",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1861,
+      "line": 1561,
       "kind": "string-literal",
-      "text": "转换/说明",
+      "text": "治理 Gate",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1866,
+      "line": 1562,
       "kind": "string-literal",
-      "text": "未分类",
+      "text": "P0 财务适配",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1881,
-      "kind": "jsx-text",
-      "text": "ERP ↔ 好业财主数据映射",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1882,
+      "line": 1563,
       "kind": "string-literal",
-      "text": "映射对账",
+      "text": "覆盖率看板",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1883,
-      "kind": "jsx-text",
-      "text": "生成映射对账",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1887,
+      "line": 1564,
       "kind": "string-literal",
-      "text": "类型",
+      "text": "只读适配器",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1887,
+      "line": 1566,
       "kind": "string-literal",
-      "text": "好业财",
+      "text": "只读镜像",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1887,
+      "line": 1567,
       "kind": "string-literal",
-      "text": "匹配",
+      "text": "字段差异",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1887,
+      "line": 1568,
       "kind": "string-literal",
-      "text": "审核",
+      "text": "主数据映射",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1887,
+      "line": 1569,
       "kind": "string-literal",
-      "text": "操作",
+      "text": "对账差异",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1891,
+      "line": 1570,
       "kind": "string-literal",
-      "text": "全局",
+      "text": "语义提取器",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1892,
+      "line": 1571,
       "kind": "string-literal",
-      "text": "未绑定",
+      "text": "财务 Read Model",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1898,
-      "kind": "jsx-text",
-      "text": "批准",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1899,
-      "kind": "jsx-text",
-      "text": "拒绝",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1904,
-      "kind": "jsx-text",
-      "text": "暂无映射候选。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1914,
-      "kind": "jsx-text",
-      "text": "财务口径对账中心",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1926,
-      "kind": "jsx-text",
-      "text": "对账项",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1928,
-      "kind": "jsx-text",
-      "text": "P0 未闭环",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1931,
-      "kind": "jsx-text",
-      "text": "已对齐 / 轻微差异",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1936,
-      "kind": "jsx-text",
-      "text": "待字段映射",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1941,
-      "kind": "jsx-text",
-      "text": "需人工确认",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1943,
-      "kind": "jsx-text",
-      "text": "日期 / 审核状态口径待锁定",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1946,
-      "kind": "jsx-text",
-      "text": "语义锁进度",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1949,
-      "kind": "jsx-text",
-      "text": "可作权威候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1949,
-      "kind": "jsx-text",
-      "text": "· 待锁",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1955,
-      "kind": "jsx-text",
-      "text": "只读边界",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1958,
-      "kind": "jsx-text",
-      "text": "好业财写入: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1959,
-      "kind": "jsx-text",
-      "text": "凭证推送: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1960,
-      "kind": "jsx-text",
-      "text": "ERP 业务覆盖: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1961,
-      "kind": "jsx-text",
-      "text": "migration: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1968,
+      "line": 1572,
       "kind": "string-literal",
-      "text": "口径",
+      "text": "科目/报表只读",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1968,
+      "line": 1573,
       "kind": "string-literal",
-      "text": "状态",
+      "text": "收付款日期状态锁",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1968,
+      "line": 1574,
       "kind": "string-literal",
-      "text": "语义锁",
+      "text": "凭证草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1968,
+      "line": 1575,
       "kind": "string-literal",
-      "text": "好业财值",
+      "text": "字段目录",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1968,
+      "line": 1576,
       "kind": "string-literal",
-      "text": "ERP 辅助值",
+      "text": "作业审计",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1968,
-      "kind": "string-literal",
-      "text": "差异",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1968,
-      "kind": "string-literal",
-      "text": "证据",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1968,
-      "kind": "string-literal",
-      "text": "下一步",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1986,
-      "kind": "string-literal",
-      "text": "可作权威候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1986,
-      "kind": "string-literal",
-      "text": "不可作权威值",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 1990,
+      "line": 1600,
       "kind": "jsx-text",
-      "text": "待锁:",
+      "text": "好业财融合生产准备度",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2003,
-      "kind": "jsx-text",
-      "text": "好业财行",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2004,
-      "kind": "jsx-text",
-      "text": "ERP 行",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2005,
-      "kind": "jsx-text",
-      "text": "最近同步",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2014,
-      "kind": "jsx-text",
-      "text": "暂无运行时财务对账数据。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2019,
-      "kind": "jsx-text",
-      "text": "中间层对账差异流水",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2021,
+      "line": 1655,
       "kind": "string-literal",
-      "text": "状态",
+      "text": "镜像新鲜度",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2021,
+      "line": 1656,
       "kind": "string-literal",
-      "text": "对象",
+      "text": "账套映射",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2021,
+      "line": 1657,
       "kind": "string-literal",
-      "text": "差异",
+      "text": "主数据批准覆盖",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2021,
+      "line": 1658,
       "kind": "string-literal",
-      "text": "建议动作",
+      "text": "字段语义覆盖",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2021,
+      "line": 1659,
       "kind": "string-literal",
-      "text": "时间",
+      "text": "财务卡片权威覆盖",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2032,
+      "line": 1660,
+      "kind": "string-literal",
+      "text": "最近作业成功率",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1671,
       "kind": "jsx-text",
-      "text": "暂无对账差异流水。",
+      "text": "阻断项",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2042,
+      "line": 1673,
       "kind": "jsx-text",
-      "text": "财务字段语义提取器",
+      "text": "无硬阻断。",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2054,
+      "line": 1677,
       "kind": "jsx-text",
-      "text": "提取器总数",
+      "text": "条件项",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2056,
+      "line": 1679,
+      "kind": "jsx-text",
+      "text": "无开放条件。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1685,
+      "kind": "jsx-text",
+      "text": "认证配置:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1686,
+      "kind": "jsx-text",
+      "text": "好业财写入: 永久关闭",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1687,
+      "kind": "jsx-text",
+      "text": "普通用户可见: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1688,
+      "kind": "jsx-text",
+      "text": "可系统确认精确映射:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1689,
+      "kind": "jsx-text",
+      "text": "待人工映射:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1694,
+      "kind": "jsx-text",
+      "text": "本次完整只读闭环",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1698,
+      "kind": "jsx-text",
+      "text": "镜像目标：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1698,
+      "kind": "jsx-text",
+      "text": "· 重试轮次：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1699,
+      "kind": "jsx-text",
+      "text": "精确映射：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1702,
+      "kind": "jsx-text",
+      "text": "新增差异：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1702,
+      "kind": "jsx-text",
+      "text": "· 保持：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1703,
+      "kind": "jsx-text",
+      "text": "自动结案：",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1710,
       "kind": "jsx-text",
       "text": "下一 Gate:",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2061,
+      "line": 1710,
       "kind": "jsx-text",
-      "text": "可权威候选",
+      "text": "· 生成时间",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2064,
+      "line": 1718,
       "kind": "jsx-text",
-      "text": "缺少 P0 必需字段",
+      "text": "好业财只读融合治理 Gate",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2066,
-      "kind": "jsx-text",
-      "text": "缺口必须进入整改清单",
+      "line": 1728,
+      "kind": "string-literal",
+      "text": "往来单位候选生成",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2069,
+      "line": 1729,
       "kind": "jsx-text",
-      "text": "缺样本 / 待提取",
+      "text": "生成待审核候选",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2076,
+      "line": 1735,
       "kind": "jsx-text",
-      "text": "安全边界",
+      "text": "镜像新鲜目标",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2079,
+      "line": 1737,
+      "kind": "jsx-text",
+      "text": "阈值",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1737,
+      "kind": "jsx-text",
+      "text": "h · 覆盖",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1740,
+      "kind": "jsx-text",
+      "text": "过期 / 缺失",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1742,
+      "kind": "jsx-text",
+      "text": "最近失败作业",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1745,
+      "kind": "jsx-text",
+      "text": "有效账套映射",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1747,
+      "kind": "jsx-text",
+      "text": "阻断",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1747,
+      "kind": "jsx-text",
+      "text": "· 警告",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1758,
       "kind": "jsx-text",
       "text": "好业财写入: 否",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2080,
+      "line": 1759,
       "kind": "jsx-text",
       "text": "业务表覆盖: 否",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2081,
+      "line": 1761,
       "kind": "jsx-text",
-      "text": "凭证推送: 否",
+      "text": "模糊自动匹配: 否",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2082,
+      "line": 1763,
       "kind": "jsx-text",
-      "text": "migration: 否",
+      "text": "下一 Gate:",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2089,
+      "line": 1768,
+      "kind": "jsx-text",
+      "text": "账套 ↔ 公司映射",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1770,
       "kind": "string-literal",
-      "text": "口径",
+      "text": "账套",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2089,
+      "line": 1770,
+      "kind": "string-literal",
+      "text": "ERP 公司",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1770,
       "kind": "string-literal",
       "text": "状态",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2089,
+      "line": 1770,
       "kind": "string-literal",
-      "text": "样本",
+      "text": "问题",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2089,
-      "kind": "string-literal",
-      "text": "字段锁定",
+      "line": 1780,
+      "kind": "jsx-text",
+      "text": "暂无账套映射。",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2089,
-      "kind": "string-literal",
-      "text": "候选路径",
+      "line": 1786,
+      "kind": "jsx-text",
+      "text": "往来单位候选（前 30 条）",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2089,
+      "line": 1788,
+      "kind": "string-literal",
+      "text": "好业财往来单位",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1788,
+      "kind": "string-literal",
+      "text": "角色",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1788,
+      "kind": "string-literal",
+      "text": "ERP 候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1788,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1788,
+      "kind": "string-literal",
+      "text": "置信度",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1794,
+      "kind": "string-literal",
+      "text": "待匹配",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1799,
+      "kind": "jsx-text",
+      "text": "暂无往来单位镜像候选。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1806,
+      "kind": "jsx-text",
+      "text": "16 scope 镜像基线",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1808,
+      "kind": "string-literal",
+      "text": "账套",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1808,
+      "kind": "string-literal",
+      "text": "新鲜度",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1808,
+      "kind": "string-literal",
+      "text": "快照/实体",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1808,
+      "kind": "string-literal",
+      "text": "最近拉取",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1808,
+      "kind": "string-literal",
+      "text": "作业",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1813,
+      "kind": "string-literal",
+      "text": "企业级",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1820,
+      "kind": "jsx-text",
+      "text": "暂无镜像基线数据。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1831,
+      "kind": "jsx-text",
+      "text": "P0 财务只读适配层",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1836,
+      "kind": "jsx-text",
+      "text": "凭证推送关闭",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1840,
+      "kind": "jsx-text",
+      "text": "P0 桶",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1842,
+      "kind": "jsx-text",
+      "text": "/ 条件项",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1845,
+      "kind": "jsx-text",
+      "text": "待镜像同步",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1850,
+      "kind": "jsx-text",
+      "text": "下一 Gate",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1852,
+      "kind": "jsx-text",
+      "text": "仍需人工字段复核",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1856,
+      "kind": "jsx-text",
+      "text": "安全边界",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1858,
+      "kind": "jsx-text",
+      "text": "好业财写入: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1859,
+      "kind": "jsx-text",
+      "text": "凭证推送: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1860,
+      "kind": "jsx-text",
+      "text": "ERP 业务表写入: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1861,
+      "kind": "jsx-text",
+      "text": "fin_ar_invoices 连接: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1867,
+      "kind": "string-literal",
+      "text": "适配桶",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1867,
+      "kind": "string-literal",
+      "text": "镜像/实体",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1867,
+      "kind": "string-literal",
+      "text": "字段风险",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1867,
+      "kind": "string-literal",
+      "text": "ERP 目标",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1867,
       "kind": "string-literal",
       "text": "下一步",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2102,
-      "kind": "string-literal",
-      "text": "可作权威值",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2102,
-      "kind": "string-literal",
-      "text": "不可作权威值",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2106,
+      "line": 1882,
       "kind": "jsx-text",
-      "text": "样本",
+      "text": "快照",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2112,
+      "line": 1883,
       "kind": "jsx-text",
-      "text": "缺:",
+      "text": "实体",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2120,
-      "kind": "string-literal",
-      "text": "无候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2131,
+      "line": 1884,
       "kind": "jsx-text",
-      "text": "暂无语义提取数据。",
+      "text": "最近:",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2142,
+      "line": 1887,
       "kind": "jsx-text",
-      "text": "好业财财务只读 Read Model",
+      "text": "字段",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2154,
+      "line": 1888,
       "kind": "jsx-text",
-      "text": "指标总数",
+      "text": "高风险待审",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2156,
+      "line": 1916,
       "kind": "jsx-text",
-      "text": "下一 Gate:",
+      "text": "接口覆盖率",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2159,
+      "line": 1918,
       "kind": "jsx-text",
-      "text": "权威 / 只读",
+      "text": "个 P0 接口已镜像",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2161,
+      "line": 1921,
       "kind": "jsx-text",
-      "text": "权威值仍需显示 ERP 辅助差异",
+      "text": "财务卡片覆盖率",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2164,
+      "line": 1923,
       "kind": "jsx-text",
-      "text": "P0 阻断",
+      "text": "张卡有好业财依据",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2166,
+      "line": 1926,
       "kind": "jsx-text",
-      "text": "不得进入财务首页主值",
+      "text": "字段覆盖率",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2169,
+      "line": 1928,
       "kind": "jsx-text",
-      "text": "人工复核 / 缺样本",
+      "text": "缺字段",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2171,
+      "line": 1928,
       "kind": "jsx-text",
-      "text": "日期、状态或样本不足",
+      "text": "/ 转换",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2176,
+      "line": 1931,
       "kind": "jsx-text",
-      "text": "只读边界",
+      "text": "同步异常",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2179,
+      "line": 1933,
+      "kind": "jsx-text",
+      "text": "失败会写入系统告警中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1937,
+      "kind": "jsx-text",
+      "text": "口径规则",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1940,
       "kind": "jsx-text",
       "text": "好业财写入: 否",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2180,
+      "line": 1941,
       "kind": "jsx-text",
       "text": "ERP 业务表覆盖: 否",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2181,
+      "line": 1942,
       "kind": "jsx-text",
       "text": "凭证推送: 否",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2182,
+      "line": 1947,
       "kind": "jsx-text",
-      "text": "migration: 否",
+      "text": "P0 接口清单",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2189,
-      "kind": "string-literal",
-      "text": "指标",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2189,
-      "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2189,
-      "kind": "string-literal",
-      "text": "显示值",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2189,
-      "kind": "string-literal",
-      "text": "ERP 辅助",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2189,
-      "kind": "string-literal",
-      "text": "字段证据",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2189,
-      "kind": "string-literal",
-      "text": "原因 / 下一步",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2202,
-      "kind": "string-literal",
-      "text": "权威候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2202,
-      "kind": "string-literal",
-      "text": "阻止权威使用",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2211,
-      "kind": "jsx-text",
-      "text": "差异",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2214,
-      "kind": "jsx-text",
-      "text": "样本",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2216,
-      "kind": "jsx-text",
-      "text": "缺:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2219,
-      "kind": "string-literal",
-      "text": "暂无金额字段候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2228,
-      "kind": "jsx-text",
-      "text": "暂无财务 read model 数据。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2251,
-      "kind": "jsx-text",
-      "text": "只读报表",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2253,
-      "kind": "jsx-text",
-      "text": "下一 Gate:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2256,
-      "kind": "jsx-text",
-      "text": "行级证据",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2258,
-      "kind": "jsx-text",
-      "text": "来自 chanjet_entity_snapshots",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2261,
-      "kind": "jsx-text",
-      "text": "字段阻断",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2263,
-      "kind": "jsx-text",
-      "text": "缺字段时不能喂主卡片",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2266,
-      "kind": "jsx-text",
-      "text": "缺样本 / HOLD",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2268,
-      "kind": "jsx-text",
-      "text": "继续只读同步补证据",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2273,
-      "kind": "jsx-text",
-      "text": "只读边界",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2276,
-      "kind": "jsx-text",
-      "text": "好业财写入: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2277,
-      "kind": "jsx-text",
-      "text": "凭证推送: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2278,
-      "kind": "jsx-text",
-      "text": "ERP 业务表覆盖: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2279,
-      "kind": "jsx-text",
-      "text": "主卡片切换: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2290,
-      "kind": "jsx-text",
-      "text": "· 样本",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2290,
-      "kind": "jsx-text",
-      "text": "· 最近拉取",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2299,
-      "kind": "jsx-text",
-      "text": "金额字段候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2301,
-      "kind": "string-literal",
-      "text": "暂无",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2305,
-      "kind": "jsx-text",
-      "text": "缺失字段",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2311,
-      "kind": "jsx-text",
-      "text": "阻断原因",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2321,
-      "kind": "string-literal",
-      "text": "行键",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2321,
-      "kind": "string-literal",
-      "text": "名称",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2321,
-      "kind": "string-literal",
-      "text": "账套 / 期间",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2321,
-      "kind": "string-literal",
-      "text": "金额",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2321,
-      "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2321,
-      "kind": "string-literal",
-      "text": "证据摘录",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2360,
-      "kind": "jsx-text",
-      "text": "暂无科目/报表只读报告。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2370,
-      "kind": "jsx-text",
-      "text": "今日收款 / 今日付款语义锁",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2382,
-      "kind": "jsx-text",
-      "text": "锁定对象",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2384,
-      "kind": "jsx-text",
-      "text": "下一 Gate:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2387,
-      "kind": "jsx-text",
-      "text": "可财务复核",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2389,
-      "kind": "jsx-text",
-      "text": "字段候选已完整才可复核",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2392,
-      "kind": "jsx-text",
-      "text": "可切主卡权威",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2394,
-      "kind": "jsx-text",
-      "text": "本 Gate 仍不自动切换",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2397,
-      "kind": "jsx-text",
-      "text": "缺样本 / HOLD",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2404,
-      "kind": "jsx-text",
-      "text": "执行边界",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2407,
-      "kind": "jsx-text",
-      "text": "好业财写入: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2408,
-      "kind": "jsx-text",
-      "text": "ERP 业务表覆盖: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2409,
-      "kind": "jsx-text",
-      "text": "今日卡片切换: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2410,
-      "kind": "jsx-text",
-      "text": "migration: 否",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2417,
-      "kind": "string-literal",
-      "text": "口径",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2417,
-      "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2417,
-      "kind": "string-literal",
-      "text": "样本",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2417,
-      "kind": "string-literal",
-      "text": "维度锁定",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2417,
-      "kind": "string-literal",
-      "text": "规则",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2417,
-      "kind": "string-literal",
-      "text": "字段候选 / 下一步",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2430,
-      "kind": "string-literal",
-      "text": "可财务复核",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2430,
-      "kind": "string-literal",
-      "text": "等待字段补齐",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2433,
-      "kind": "string-literal",
-      "text": "可切权威",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2433,
-      "kind": "string-literal",
-      "text": "禁止切权威",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2437,
-      "kind": "jsx-text",
-      "text": "样本",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2438,
-      "kind": "jsx-text",
-      "text": "最近拉取:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2441,
-      "kind": "jsx-text",
-      "text": "已锁:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2443,
-      "kind": "jsx-text",
-      "text": "缺失:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2445,
-      "kind": "jsx-text",
-      "text": "必需:",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2448,
-      "kind": "jsx-text",
-      "text": "日期",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2449,
-      "kind": "jsx-text",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2450,
-      "kind": "jsx-text",
-      "text": "方向",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2451,
-      "kind": "jsx-text",
-      "text": "金额",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2459,
-      "kind": "string-literal",
-      "text": "暂无字段候选",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2466,
-      "kind": "jsx-text",
-      "text": "暂无收付款语义锁数据。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2507,
-      "kind": "jsx-text",
-      "text": "创建凭证草稿",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2508,
-      "kind": "jsx-text",
-      "text": "只写中间层，不推送好业财。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2511,
-      "kind": "string-literal",
-      "text": "来源类型，如 PROCUREMENT_PAYMENT",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2512,
-      "kind": "string-literal",
-      "text": "来源单号/ID",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2513,
-      "kind": "string-literal",
-      "text": "凭证摘要",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2526,
-      "kind": "jsx-text",
-      "text": "保存草稿",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2531,
-      "kind": "string-literal",
-      "text": "草稿",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2531,
-      "kind": "string-literal",
-      "text": "来源",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2531,
-      "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2531,
-      "kind": "string-literal",
-      "text": "分录",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2531,
-      "kind": "string-literal",
-      "text": "操作",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2537,
-      "kind": "string-literal",
-      "text": "待另行 Gate",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2537,
-      "kind": "string-literal",
-      "text": "禁用",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2542,
-      "kind": "jsx-text",
-      "text": "复核",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2543,
-      "kind": "jsx-text",
-      "text": "批准",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2546,
-      "kind": "jsx-text",
-      "text": "拒绝",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2551,
-      "kind": "jsx-text",
-      "text": "暂无凭证草稿。",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2584,
-      "kind": "jsx-text",
-      "text": "好业财 API 字段目录",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2586,
+      "line": 1949,
       "kind": "string-literal",
       "text": "接口",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2586,
+      "line": 1949,
       "kind": "string-literal",
-      "text": "字段",
+      "text": "覆盖",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2586,
+      "line": 1949,
       "kind": "string-literal",
-      "text": "类型",
+      "text": "快照/实体",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2586,
+      "line": 1949,
       "kind": "string-literal",
-      "text": "脱敏样本",
+      "text": "最近作业",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2586,
+      "line": 1954,
       "kind": "string-literal",
-      "text": "次数",
+      "text": "已覆盖",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2605,
+      "line": 1954,
+      "kind": "string-literal",
+      "text": "待同步",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1955,
       "kind": "jsx-text",
-      "text": "同步 / 探针 / 对账作业审计",
+      "text": "快照",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2607,
+      "line": 1955,
+      "kind": "jsx-text",
+      "text": "/ 行",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1955,
+      "kind": "jsx-text",
+      "text": "实体",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1963,
+      "kind": "jsx-text",
+      "text": "暂无覆盖率数据。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1968,
+      "kind": "jsx-text",
+      "text": "财务卡片来源覆盖",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1970,
       "kind": "string-literal",
-      "text": "类型",
+      "text": "卡片",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2607,
+      "line": 1970,
       "kind": "string-literal",
       "text": "状态",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2607,
+      "line": 1970,
+      "kind": "string-literal",
+      "text": "依赖接口",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1970,
+      "kind": "string-literal",
+      "text": "规则",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1980,
+      "kind": "jsx-text",
+      "text": "暂无卡片覆盖率数据。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 1992,
+      "kind": "jsx-text",
+      "text": "好业财只读字段适配器",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2004,
+      "kind": "jsx-text",
+      "text": "适配器",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2009,
+      "kind": "jsx-text",
+      "text": "凭证头 / 明细",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2011,
+      "kind": "jsx-text",
+      "text": "只读样本行",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2014,
+      "kind": "jsx-text",
+      "text": "往来单位",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2016,
+      "kind": "jsx-text",
+      "text": "需映射审核后业务使用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2019,
+      "kind": "jsx-text",
+      "text": "字段覆盖率",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2021,
+      "kind": "jsx-text",
+      "text": "缺字段自动进入整改清单",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2026,
+      "kind": "jsx-text",
+      "text": "安全边界",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2028,
+      "kind": "jsx-text",
+      "text": "下一 Gate:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2030,
+      "kind": "jsx-text",
+      "text": "好业财写入: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2031,
+      "kind": "jsx-text",
+      "text": "凭证推送: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2032,
+      "kind": "jsx-text",
+      "text": "ERP 业务表覆盖: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2033,
+      "kind": "jsx-text",
+      "text": "普通用户可见: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2044,
+      "kind": "jsx-text",
+      "text": "· 样本",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2044,
+      "kind": "jsx-text",
+      "text": "· 最近同步",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2054,
+      "kind": "jsx-text",
+      "text": "已映射字段",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2058,
+      "kind": "jsx-text",
+      "text": "关键缺口",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2064,
+      "kind": "jsx-text",
+      "text": "下一步",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2072,
+      "kind": "string-literal",
+      "text": "凭证号",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2072,
       "kind": "string-literal",
       "text": "账套/期间",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2607,
+      "line": 2072,
       "kind": "string-literal",
-      "text": "错误",
+      "text": "日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2607,
+      "line": 2072,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2072,
+      "kind": "string-literal",
+      "text": "摘要",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2072,
+      "kind": "string-literal",
+      "text": "制单/审核",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2078,
+      "kind": "jsx-text",
+      "text": "入账",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2081,
+      "kind": "jsx-text",
+      "text": "审核",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2090,
+      "kind": "string-literal",
+      "text": "凭证/行",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2090,
+      "kind": "string-literal",
+      "text": "科目",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2090,
+      "kind": "string-literal",
+      "text": "摘要",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2090,
+      "kind": "string-literal",
+      "text": "借方",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2090,
+      "kind": "string-literal",
+      "text": "贷方",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2090,
+      "kind": "string-literal",
+      "text": "辅助核算",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2100,
+      "kind": "jsx-text",
+      "text": "往来",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2101,
+      "kind": "jsx-text",
+      "text": "项目",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2101,
+      "kind": "jsx-text",
+      "text": "/ 部门",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2111,
+      "kind": "string-literal",
+      "text": "好业财往来",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2111,
+      "kind": "string-literal",
+      "text": "类型候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2111,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2111,
+      "kind": "string-literal",
+      "text": "ERP 候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2111,
+      "kind": "string-literal",
+      "text": "审核",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2111,
+      "kind": "string-literal",
+      "text": "置信度",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2118,
+      "kind": "string-literal",
+      "text": "未匹配",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2130,
+      "kind": "jsx-text",
+      "text": "暂无只读适配器数据。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2910,
+      "kind": "jsx-text",
+      "text": "好业财只读镜像",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2915,
+      "kind": "string-literal",
+      "text": "只读镜像同步",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2916,
+      "kind": "jsx-text",
+      "text": "同步镜像",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2921,
+      "kind": "jsx-text",
+      "text": "标准化实体",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2923,
+      "kind": "string-literal",
+      "text": "类型",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2923,
+      "kind": "string-literal",
+      "text": "编码 / 名称",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2923,
+      "kind": "string-literal",
+      "text": "账套",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2923,
+      "kind": "string-literal",
+      "text": "金额",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2923,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2929,
+      "kind": "string-literal",
+      "text": "全局",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2939,
+      "kind": "jsx-text",
+      "text": "原始快照审计",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2941,
+      "kind": "string-literal",
+      "text": "接口",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2941,
+      "kind": "string-literal",
+      "text": "行数",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2941,
+      "kind": "string-literal",
+      "text": "账套/期间",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2941,
       "kind": "string-literal",
       "text": "时间",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
-      "line": 2618,
+      "line": 2947,
+      "kind": "string-literal",
+      "text": "全局",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2951,
+      "kind": "jsx-text",
+      "text": "暂无原始快照。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2963,
+      "kind": "jsx-text",
+      "text": "好业财字段 ↔ ERP 字段差异",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2966,
+      "kind": "string-literal",
+      "text": "字段差异分析",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2967,
+      "kind": "jsx-text",
+      "text": "重新分析",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2971,
+      "kind": "string-literal",
+      "text": "好业财字段",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2971,
+      "kind": "string-literal",
+      "text": "ERP 候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2971,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2971,
+      "kind": "string-literal",
+      "text": "风险",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2971,
+      "kind": "string-literal",
+      "text": "转换/说明",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2976,
+      "kind": "string-literal",
+      "text": "未分类",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2991,
+      "kind": "jsx-text",
+      "text": "ERP ↔ 好业财主数据映射",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2992,
+      "kind": "string-literal",
+      "text": "映射对账",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2993,
+      "kind": "jsx-text",
+      "text": "生成映射对账",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2997,
+      "kind": "string-literal",
+      "text": "类型",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2997,
+      "kind": "string-literal",
+      "text": "好业财",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2997,
+      "kind": "string-literal",
+      "text": "匹配",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2997,
+      "kind": "string-literal",
+      "text": "审核",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 2997,
+      "kind": "string-literal",
+      "text": "操作",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3001,
+      "kind": "string-literal",
+      "text": "全局",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3002,
+      "kind": "string-literal",
+      "text": "未绑定",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3008,
+      "kind": "jsx-text",
+      "text": "批准",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3009,
+      "kind": "jsx-text",
+      "text": "拒绝",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3014,
+      "kind": "jsx-text",
+      "text": "暂无映射候选。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3024,
+      "kind": "jsx-text",
+      "text": "财务口径对账中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3036,
+      "kind": "jsx-text",
+      "text": "对账项",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3038,
+      "kind": "jsx-text",
+      "text": "P0 未闭环",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3041,
+      "kind": "jsx-text",
+      "text": "已对齐 / 轻微差异",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3046,
+      "kind": "jsx-text",
+      "text": "待字段映射",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3051,
+      "kind": "jsx-text",
+      "text": "需人工确认",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3053,
+      "kind": "jsx-text",
+      "text": "日期 / 审核状态口径待锁定",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3056,
+      "kind": "jsx-text",
+      "text": "语义锁进度",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3059,
+      "kind": "jsx-text",
+      "text": "可作权威候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3059,
+      "kind": "jsx-text",
+      "text": "· 待锁",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3065,
+      "kind": "jsx-text",
+      "text": "只读边界",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3068,
+      "kind": "jsx-text",
+      "text": "好业财写入: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3069,
+      "kind": "jsx-text",
+      "text": "凭证推送: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3070,
+      "kind": "jsx-text",
+      "text": "ERP 业务覆盖: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3071,
+      "kind": "jsx-text",
+      "text": "migration: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3078,
+      "kind": "string-literal",
+      "text": "口径",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3078,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3078,
+      "kind": "string-literal",
+      "text": "语义锁",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3078,
+      "kind": "string-literal",
+      "text": "好业财值",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3078,
+      "kind": "string-literal",
+      "text": "ERP 辅助值",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3078,
+      "kind": "string-literal",
+      "text": "差异",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3078,
+      "kind": "string-literal",
+      "text": "证据",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3078,
+      "kind": "string-literal",
+      "text": "下一步",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3096,
+      "kind": "string-literal",
+      "text": "可作权威候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3096,
+      "kind": "string-literal",
+      "text": "不可作权威值",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3100,
+      "kind": "jsx-text",
+      "text": "待锁:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3134,
+      "kind": "jsx-text",
+      "text": "好业财行",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3135,
+      "kind": "jsx-text",
+      "text": "ERP 行",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3136,
+      "kind": "jsx-text",
+      "text": "最近同步",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3145,
+      "kind": "jsx-text",
+      "text": "暂无运行时财务对账数据。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3150,
+      "kind": "jsx-text",
+      "text": "中间层对账差异流水",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3152,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3152,
+      "kind": "string-literal",
+      "text": "对象",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3152,
+      "kind": "string-literal",
+      "text": "差异",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3152,
+      "kind": "string-literal",
+      "text": "建议动作",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3152,
+      "kind": "string-literal",
+      "text": "时间",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3163,
+      "kind": "jsx-text",
+      "text": "暂无对账差异流水。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3173,
+      "kind": "jsx-text",
+      "text": "财务字段语义提取器",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3185,
+      "kind": "jsx-text",
+      "text": "提取器总数",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3187,
+      "kind": "jsx-text",
+      "text": "下一 Gate:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3192,
+      "kind": "jsx-text",
+      "text": "可权威候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3195,
+      "kind": "jsx-text",
+      "text": "缺少 P0 必需字段",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3197,
+      "kind": "jsx-text",
+      "text": "缺口必须进入整改清单",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3200,
+      "kind": "jsx-text",
+      "text": "缺样本 / 待提取",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3207,
+      "kind": "jsx-text",
+      "text": "安全边界",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3210,
+      "kind": "jsx-text",
+      "text": "好业财写入: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3211,
+      "kind": "jsx-text",
+      "text": "业务表覆盖: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3212,
+      "kind": "jsx-text",
+      "text": "凭证推送: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3213,
+      "kind": "jsx-text",
+      "text": "migration: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3220,
+      "kind": "string-literal",
+      "text": "口径",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3220,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3220,
+      "kind": "string-literal",
+      "text": "样本",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3220,
+      "kind": "string-literal",
+      "text": "字段锁定",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3220,
+      "kind": "string-literal",
+      "text": "候选路径",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3220,
+      "kind": "string-literal",
+      "text": "下一步",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3233,
+      "kind": "string-literal",
+      "text": "可作权威值",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3233,
+      "kind": "string-literal",
+      "text": "不可作权威值",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3237,
+      "kind": "jsx-text",
+      "text": "样本",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3243,
+      "kind": "jsx-text",
+      "text": "缺:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3251,
+      "kind": "string-literal",
+      "text": "无候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3262,
+      "kind": "jsx-text",
+      "text": "暂无语义提取数据。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3273,
+      "kind": "jsx-text",
+      "text": "好业财财务只读 Read Model",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3285,
+      "kind": "jsx-text",
+      "text": "指标总数",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3287,
+      "kind": "jsx-text",
+      "text": "下一 Gate:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3290,
+      "kind": "jsx-text",
+      "text": "权威 / 只读",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3292,
+      "kind": "jsx-text",
+      "text": "权威值仍需显示 ERP 辅助差异",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3295,
+      "kind": "jsx-text",
+      "text": "P0 阻断",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3297,
+      "kind": "jsx-text",
+      "text": "不得进入财务首页主值",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3300,
+      "kind": "jsx-text",
+      "text": "人工复核 / 缺样本",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3302,
+      "kind": "jsx-text",
+      "text": "日期、状态或样本不足",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3307,
+      "kind": "jsx-text",
+      "text": "只读边界",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3310,
+      "kind": "jsx-text",
+      "text": "好业财写入: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3311,
+      "kind": "jsx-text",
+      "text": "ERP 业务表覆盖: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3312,
+      "kind": "jsx-text",
+      "text": "凭证推送: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3313,
+      "kind": "jsx-text",
+      "text": "migration: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3320,
+      "kind": "string-literal",
+      "text": "指标",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3320,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3320,
+      "kind": "string-literal",
+      "text": "显示值",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3320,
+      "kind": "string-literal",
+      "text": "ERP 辅助",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3320,
+      "kind": "string-literal",
+      "text": "字段证据",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3320,
+      "kind": "string-literal",
+      "text": "原因 / 下一步",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3333,
+      "kind": "string-literal",
+      "text": "权威候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3333,
+      "kind": "string-literal",
+      "text": "阻止权威使用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3356,
+      "kind": "jsx-text",
+      "text": "样本",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3358,
+      "kind": "jsx-text",
+      "text": "缺:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3361,
+      "kind": "string-literal",
+      "text": "暂无金额字段候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3370,
+      "kind": "jsx-text",
+      "text": "暂无财务 read model 数据。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3393,
+      "kind": "jsx-text",
+      "text": "只读报表",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3395,
+      "kind": "jsx-text",
+      "text": "下一 Gate:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3398,
+      "kind": "jsx-text",
+      "text": "行级证据",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3400,
+      "kind": "jsx-text",
+      "text": "来自 chanjet_entity_snapshots",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3403,
+      "kind": "jsx-text",
+      "text": "字段阻断",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3405,
+      "kind": "jsx-text",
+      "text": "缺字段时不能喂主卡片",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3408,
+      "kind": "jsx-text",
+      "text": "缺样本 / HOLD",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3410,
+      "kind": "jsx-text",
+      "text": "继续只读同步补证据",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3415,
+      "kind": "jsx-text",
+      "text": "只读边界",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3418,
+      "kind": "jsx-text",
+      "text": "好业财写入: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3419,
+      "kind": "jsx-text",
+      "text": "凭证推送: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3420,
+      "kind": "jsx-text",
+      "text": "ERP 业务表覆盖: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3421,
+      "kind": "jsx-text",
+      "text": "主卡片切换: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3432,
+      "kind": "jsx-text",
+      "text": "· 样本",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3432,
+      "kind": "jsx-text",
+      "text": "· 最近拉取",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3441,
+      "kind": "jsx-text",
+      "text": "金额字段候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3443,
+      "kind": "string-literal",
+      "text": "暂无",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3447,
+      "kind": "jsx-text",
+      "text": "缺失字段",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3453,
+      "kind": "jsx-text",
+      "text": "阻断原因",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3463,
+      "kind": "string-literal",
+      "text": "行键",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3463,
+      "kind": "string-literal",
+      "text": "名称",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3463,
+      "kind": "string-literal",
+      "text": "账套 / 期间",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3463,
+      "kind": "string-literal",
+      "text": "金额",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3463,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3463,
+      "kind": "string-literal",
+      "text": "证据摘录",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3502,
+      "kind": "jsx-text",
+      "text": "暂无科目/报表只读报告。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3512,
+      "kind": "jsx-text",
+      "text": "今日收款 / 今日付款语义锁",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3524,
+      "kind": "jsx-text",
+      "text": "锁定对象",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3526,
+      "kind": "jsx-text",
+      "text": "下一 Gate:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3529,
+      "kind": "jsx-text",
+      "text": "可财务复核",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3531,
+      "kind": "jsx-text",
+      "text": "字段候选已完整才可复核",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3534,
+      "kind": "jsx-text",
+      "text": "可切主卡权威",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3536,
+      "kind": "jsx-text",
+      "text": "本 Gate 仍不自动切换",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3539,
+      "kind": "jsx-text",
+      "text": "缺样本 / HOLD",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3546,
+      "kind": "jsx-text",
+      "text": "执行边界",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3549,
+      "kind": "jsx-text",
+      "text": "好业财写入: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3550,
+      "kind": "jsx-text",
+      "text": "ERP 业务表覆盖: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3551,
+      "kind": "jsx-text",
+      "text": "今日卡片切换: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3552,
+      "kind": "jsx-text",
+      "text": "migration: 否",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3559,
+      "kind": "string-literal",
+      "text": "口径",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3559,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3559,
+      "kind": "string-literal",
+      "text": "样本",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3559,
+      "kind": "string-literal",
+      "text": "维度锁定",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3559,
+      "kind": "string-literal",
+      "text": "规则",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3559,
+      "kind": "string-literal",
+      "text": "字段候选 / 下一步",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3572,
+      "kind": "string-literal",
+      "text": "可财务复核",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3572,
+      "kind": "string-literal",
+      "text": "等待字段补齐",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3575,
+      "kind": "string-literal",
+      "text": "可切权威",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3575,
+      "kind": "string-literal",
+      "text": "禁止切权威",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3579,
+      "kind": "jsx-text",
+      "text": "样本",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3580,
+      "kind": "jsx-text",
+      "text": "最近拉取:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3583,
+      "kind": "jsx-text",
+      "text": "已锁:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3585,
+      "kind": "jsx-text",
+      "text": "缺失:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3587,
+      "kind": "jsx-text",
+      "text": "必需:",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3590,
+      "kind": "jsx-text",
+      "text": "日期",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3591,
+      "kind": "jsx-text",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3592,
+      "kind": "jsx-text",
+      "text": "方向",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3593,
+      "kind": "jsx-text",
+      "text": "金额",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3601,
+      "kind": "string-literal",
+      "text": "暂无字段候选",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3608,
+      "kind": "jsx-text",
+      "text": "暂无收付款语义锁数据。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3649,
+      "kind": "jsx-text",
+      "text": "创建凭证草稿",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3650,
+      "kind": "jsx-text",
+      "text": "只写中间层，不推送好业财。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3653,
+      "kind": "string-literal",
+      "text": "来源类型，如 PROCUREMENT_PAYMENT",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3654,
+      "kind": "string-literal",
+      "text": "来源单号/ID",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3655,
+      "kind": "string-literal",
+      "text": "凭证摘要",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3668,
+      "kind": "jsx-text",
+      "text": "保存草稿",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3673,
+      "kind": "string-literal",
+      "text": "草稿",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3673,
+      "kind": "string-literal",
+      "text": "来源",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3673,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3673,
+      "kind": "string-literal",
+      "text": "分录",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3673,
+      "kind": "string-literal",
+      "text": "操作",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3679,
+      "kind": "string-literal",
+      "text": "待另行 Gate",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3679,
+      "kind": "string-literal",
+      "text": "禁用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3684,
+      "kind": "jsx-text",
+      "text": "复核",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3685,
+      "kind": "jsx-text",
+      "text": "批准",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3688,
+      "kind": "jsx-text",
+      "text": "拒绝",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3693,
+      "kind": "jsx-text",
+      "text": "暂无凭证草稿。",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3726,
+      "kind": "jsx-text",
+      "text": "好业财 API 字段目录",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3728,
+      "kind": "string-literal",
+      "text": "接口",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3728,
+      "kind": "string-literal",
+      "text": "字段",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3728,
+      "kind": "string-literal",
+      "text": "类型",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3728,
+      "kind": "string-literal",
+      "text": "脱敏样本",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3728,
+      "kind": "string-literal",
+      "text": "次数",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3747,
+      "kind": "jsx-text",
+      "text": "同步 / 探针 / 对账作业审计",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3749,
+      "kind": "string-literal",
+      "text": "类型",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3749,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3749,
+      "kind": "string-literal",
+      "text": "账套/期间",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3749,
+      "kind": "string-literal",
+      "text": "错误",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3749,
+      "kind": "string-literal",
+      "text": "时间",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
+      "line": 3760,
       "kind": "jsx-text",
       "text": "暂无作业。",
       "auto_translatable": true
@@ -8103,70 +8229,70 @@
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/page.tsx",
-      "line": 500,
+      "line": 524,
       "kind": "jsx-text",
       "text": "好业财财务口径对齐",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/page.tsx",
-      "line": 548,
+      "line": 572,
       "kind": "jsx-text",
       "text": "行 ·",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/page.tsx",
-      "line": 548,
+      "line": 572,
       "kind": "string-literal",
       "text": "无期间",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/page.tsx",
-      "line": 549,
+      "line": 573,
       "kind": "jsx-text",
       "text": "ERP 辅助 ¥",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/page.tsx",
-      "line": 551,
+      "line": 575,
       "kind": "jsx-text",
       "text": "差异 ¥",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx",
-      "line": 88,
+      "line": 91,
       "kind": "string-literal",
       "text": "待付款",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx",
-      "line": 94,
+      "line": 97,
       "kind": "string-literal",
       "text": "审批中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx",
-      "line": 100,
+      "line": 103,
       "kind": "string-literal",
       "text": "已审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx",
-      "line": 106,
+      "line": 109,
       "kind": "string-literal",
       "text": "已付款",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx",
-      "line": 112,
+      "line": 115,
       "kind": "string-literal",
       "text": "已取消",
       "auto_translatable": true
@@ -11757,119 +11883,119 @@
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 50,
+      "line": 54,
       "kind": "string-literal",
       "text": "待装车",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 56,
+      "line": 60,
       "kind": "string-literal",
       "text": "装车中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 62,
+      "line": 66,
       "kind": "string-literal",
       "text": "已装车",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 68,
+      "line": 72,
       "kind": "string-literal",
       "text": "已发车",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 74,
+      "line": 78,
       "kind": "string-literal",
       "text": "已到达",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 80,
+      "line": 84,
       "kind": "string-literal",
       "text": "部分签收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 86,
+      "line": 90,
       "kind": "string-literal",
       "text": "已完成",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 92,
+      "line": 96,
       "kind": "string-literal",
       "text": "已取消",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 107,
+      "line": 111,
       "kind": "string-literal",
       "text": "开始装车",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 113,
+      "line": 117,
       "kind": "string-literal",
       "text": "装车完成",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 119,
+      "line": 123,
       "kind": "string-literal",
       "text": "确认发车",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 125,
+      "line": 129,
       "kind": "string-literal",
       "text": "确认到达",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 131,
+      "line": 135,
       "kind": "string-literal",
       "text": "强制完成",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 137,
+      "line": 141,
       "kind": "string-literal",
       "text": "强制完成",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
-      "line": 148,
-      "kind": "string-literal",
-      "text": "正常签收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
       "line": 152,
       "kind": "string-literal",
-      "text": "部分签收",
+      "text": "正常签收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
       "line": 156,
+      "kind": "string-literal",
+      "text": "部分签收",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+      "line": 160,
       "kind": "string-literal",
       "text": "异常签收",
       "auto_translatable": true
@@ -11911,70 +12037,70 @@
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 226,
+      "line": 259,
       "kind": "string-literal",
       "text": "批次",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 227,
+      "line": 260,
       "kind": "string-literal",
       "text": "可用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 228,
+      "line": 261,
       "kind": "string-literal",
       "text": "临期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 229,
+      "line": 262,
       "kind": "string-literal",
       "text": "风险",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 231,
+      "line": 264,
       "kind": "string-literal",
       "text": "统计",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 766,
+      "line": 818,
       "kind": "string-literal",
       "text": "手动分配",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 1036,
+      "line": 1088,
       "kind": "string-literal",
       "text": "批次库存",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 1039,
+      "line": 1091,
       "kind": "string-literal",
       "text": "临期库存",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 1042,
+      "line": 1094,
       "kind": "string-literal",
       "text": "FIFO 出库",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
-      "line": 1045,
+      "line": 1097,
       "kind": "string-literal",
       "text": "损耗分析",
       "auto_translatable": true
@@ -23860,14 +23986,14 @@
     },
     {
       "file": "apps/web/src/lib/packaging-api.ts",
-      "line": 115,
+      "line": 118,
       "kind": "string-literal",
       "text": "登录已过期，请重新登录",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/packaging-api.ts",
-      "line": 124,
+      "line": 127,
       "kind": "string-literal",
       "text": "操作失败",
       "auto_translatable": true
