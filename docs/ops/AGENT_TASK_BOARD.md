@@ -182,3 +182,4 @@
   - `scripts/ops/agent-task-workspace.test.mjs`
   - `docs/ops/AGENT_TASK_WORKSPACE_ISOLATION_V2.md`
   - task-isolated integration across orchestrator, queue, worker, runner, recovery and auto-merge
+| CHANJET-ERP-MASTER-SYSTEM-BUSINESS-REVIEW-20260731 | Codex-Orchestrator | main | done-with-conditions | L3 | System-reviewed ERP master mapping | ERP master data only; no Chanjet write or ERP balance/inventory fact import | Reviewed 225 proposals, created 10 cash accounts + 6 projects + 9 warehouses, recorded 25 approved mappings and audit evidence; production target missing 0/name mismatch 0; report `docs/ops/CHANJET_ERP_MASTER_SYSTEM_BUSINESS_REVIEW_AND_MAPPING_REPORT_20260731.md` | 200 rows remain HOLD for department/entity, product/SKU/UOM, house/location or ambiguous warehouse/account semantics; six provider scopes remain 50111 | Enter `CHANJET_REMAINING_MASTER_POLICY_CLOSURE`; keep Chanjet writeback and ERP fact promotion disabled |

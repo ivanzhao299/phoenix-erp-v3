@@ -1,5 +1,40 @@
 # Next Actions
 
+## 2026-07-31 - System-reviewed Chanjet ERP master mapping applied
+
+Current stage: `CHANJET_ERP_MASTER_SYSTEM_REVIEW_PRODUCTION_APPLIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Replaced finance-person review with deterministic system business review.
+2. Reviewed 225 source-only proposals under exact company and semantic rules.
+3. Created 10 cash-account masters, 6 operation projects and 9 warehouses.
+4. Recorded 25 approved mappings with review evidence and production audit.
+5. Kept all opening/current balances at zero and did not write cash or inventory facts.
+6. Kept all Chanjet external writes disabled.
+7. Verified target missing 0, name mismatch 0 and post-apply actionable 0.
+8. Deployed revisions `c34260cb` and `3f6a6a62`; CI/CD runs `30598655730`
+   and `30599127868` passed.
+
+Next actions:
+
+1. Enter `CHANJET_REMAINING_MASTER_POLICY_CLOSURE`.
+2. Classify 32 mixed department identities into company/store/house/workshop or
+   accounting-only dimensions.
+3. Close 128 product/SKU/material/livestock and 22 UOM rows with complete grade,
+   spec, context and conversion evidence.
+4. Map 14 house identities through house/location policy instead of warehouses.
+5. Resolve two generic warehouse and two cash-account semantic HOLDs.
+6. Repair six provider readonly permissions for `OTHER_STOCK_IN` and
+   `RETAIL_STOCK_OUT`.
+7. Keep Chanjet writeback and ERP inventory/business-fact promotion disabled.
+
+Evidence:
+
+- `docs/ops/CHANJET_ERP_MASTER_SYSTEM_BUSINESS_REVIEW_AND_MAPPING_REPORT_20260731.md`
+
 ## 2026-07-30 - ERP master-data gap proposals implemented and locally verified
 
 Current stage: `CHANJET_ERP_MASTER_DATA_GAP_CLOSURE_LOCAL_VERIFIED`

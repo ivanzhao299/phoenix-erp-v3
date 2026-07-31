@@ -2257,3 +2257,22 @@ Decision: counterparty resolution `GO`.
   `CHANJET_ERP_MASTER_DATA_PROPOSAL_REVIEW_AND_CONTROLLED_CREATION`.
 - Evidence:
   `docs/ops/runs/chanjet-erp-master-gap-closure-runtime-20260730.json`.
+## 2026-07-31 - 主 Agent 代行业务审核并直接映射 ERP 主数据
+
+- Decision: `GO_WITH_CONDITIONS`
+- Finance manual review: removed for evidence-complete deterministic rows.
+- Input: 225 staged Chanjet source-only ERP master gaps.
+- Applied: 25 ERP masters (10 cash accounts, 6 projects, 9 warehouses).
+- Held: 200 ambiguous or policy-incomplete rows.
+- Safety: exact company boundary, no fuzzy match, transactional target
+  verification, review hash, explicit token and audit log.
+- External boundary: no Chanjet write/delete/modify.
+- Fact boundary: no account balance, cash transaction, inventory batch or
+  inventory ledger import.
+- Recovery: pre-apply backup stored at
+  `/home/ops/phoenix-erp/backups/chanjet-erp-master-business-review-20260731-102804`.
+- Production verification: target missing 0, name mismatch 0, cash/inventory
+  fact counts unchanged, generated cash balances zero.
+- Deployment: `c34260cb` + `3f6a6a62`; GitHub Actions `30598655730` and
+  `30599127868` PASS.
+- Next Gate: `CHANJET_REMAINING_MASTER_POLICY_CLOSURE`.

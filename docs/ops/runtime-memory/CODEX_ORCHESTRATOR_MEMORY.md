@@ -264,3 +264,22 @@ Store Payment is ready for controlled pilot with conditions:
 - No production-side remediation write until backup/snapshot and a specific fix Gate are approved.
 - No broad historical upload metadata backfill. The 15 AUTO_CLAIM_READY rows have been claimed; the 59 unresolved files remain HOLD and require manual review or broader owner evidence before any future write Gate.
 - No raw URL exposure.
+# 2026-07-31 Chanjet ERP master business review
+
+- Active stage: `CHANJET_ERP_MASTER_SYSTEM_REVIEW_PRODUCTION_APPLIED`.
+- The main Agent now performs deterministic business review; finance-person
+  confirmation is no longer required for evidence-complete rows.
+- Production reviewed 225 source-only proposals and created 25 ERP masters:
+  10 cash accounts, 6 operation projects and 9 warehouses.
+- Mapping coverage after apply: cash accounts 47/49; warehouse 9/25; product
+  10/138; UOM 6/28; project 6/6.
+- 200 ambiguous rows remain fail-closed HOLD. Do not fuzzy-map departments,
+  product/SKU/UOM, house/location or generic warehouse identities.
+- Generated cash accounts have zero opening/current balances. Cash
+  transactions, inventory batches and inventory ledger counts were unchanged.
+- Chanjet was not written, modified or deleted.
+- Production revisions: `c34260cb`, `3f6a6a62`; deploy runs `30598655730`,
+  `30599127868`.
+- Audit report:
+  `docs/ops/CHANJET_ERP_MASTER_SYSTEM_BUSINESS_REVIEW_AND_MAPPING_REPORT_20260731.md`.
+- Next Gate: `CHANJET_REMAINING_MASTER_POLICY_CLOSURE`.
