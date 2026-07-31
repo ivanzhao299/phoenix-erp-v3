@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import { DataSource, QueryRunner } from 'typeorm';
 
 export const CHANJET_ERP_MASTER_APPLY_TOKEN = 'APPROVE_CHANJET_ERP_MASTER_MAPPING';
+export const CHANJET_ERP_MASTER_REVIEW_ACTION = 'CHANJET_ERP_MAP_APPLY';
 
 export type ChanjetErpMasterReviewDecision = 'MAP_EXISTING' | 'CREATE_MASTER' | 'HOLD';
 
@@ -813,10 +814,11 @@ export class ChanjetErpMasterBusinessReviewService {
       `INSERT INTO sys_operation_logs
         (username, module_code, action_code, biz_type, biz_no,
          after_data, result_status)
-       VALUES ($1,'MENU_SETTINGS_CHANJET','CHANJET_ERP_MASTER_BUSINESS_REVIEW_APPLY',
-               'CHANJET',$2,$3::jsonb,'SUCCESS')`,
+       VALUES ($1,'MENU_SETTINGS_CHANJET',$2,
+               'CHANJET',$3,$4::jsonb,'SUCCESS')`,
       [
         actor,
+        CHANJET_ERP_MASTER_REVIEW_ACTION,
         plan.reviewHash.slice(0, 80),
         JSON.stringify({
           reviewHash: plan.reviewHash,

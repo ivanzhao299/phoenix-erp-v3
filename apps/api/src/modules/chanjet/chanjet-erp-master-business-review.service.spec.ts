@@ -1,5 +1,6 @@
 import {
   CHANJET_ERP_MASTER_APPLY_TOKEN,
+  CHANJET_ERP_MASTER_REVIEW_ACTION,
   ChanjetErpMasterBusinessReviewService,
 } from './chanjet-erp-master-business-review.service';
 
@@ -43,6 +44,10 @@ function createService(
 }
 
 describe('ChanjetErpMasterBusinessReviewService', () => {
+  it('keeps the production audit action code within sys_operation_logs varchar(32)', () => {
+    expect(CHANJET_ERP_MASTER_REVIEW_ACTION.length).toBeLessThanOrEqual(32);
+  });
+
   it('creates only semantically complete masters and holds unsafe dimensions', async () => {
     const { service } = createService([
       source({ id: '1' }),

@@ -16,6 +16,7 @@ import {
 import { ChanjetWmsPromotionState } from './chanjet-wms-promotion-candidate.entity';
 import { summarizeMasterGapProposals } from './chanjet-erp-master-gap-closure';
 import {
+  CHANJET_ERP_MASTER_REVIEW_ACTION,
   ChanjetErpMasterBusinessReviewService,
 } from './chanjet-erp-master-business-review.service';
 import * as crypto from 'crypto';
@@ -1029,7 +1030,7 @@ export class ChanjetCallbackController {
       });
       await this.writeChanjetAudit(
         req,
-        'CHANJET_ERP_MASTER_BUSINESS_REVIEW_APPLY',
+        CHANJET_ERP_MASTER_REVIEW_ACTION,
         result.reviewHash,
         'SUCCESS',
         result,
@@ -1038,7 +1039,7 @@ export class ChanjetCallbackController {
     } catch (error) {
       await this.writeChanjetAudit(
         req,
-        'CHANJET_ERP_MASTER_BUSINESS_REVIEW_APPLY',
+        CHANJET_ERP_MASTER_REVIEW_ACTION,
         String(body.reviewHash || ''),
         'FAIL',
         { error: (error as Error).message },
