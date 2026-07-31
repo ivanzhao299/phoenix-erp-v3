@@ -15,6 +15,9 @@ import {
 } from './chanjet-wms-bridge.service';
 import { ChanjetWmsPromotionState } from './chanjet-wms-promotion-candidate.entity';
 import { summarizeMasterGapProposals } from './chanjet-erp-master-gap-closure';
+import {
+  ChanjetErpMasterBusinessReviewService,
+} from './chanjet-erp-master-business-review.service';
 import * as crypto from 'crypto';
 
 type ChanjetProxyMethod = 'GET' | 'POST';
@@ -72,6 +75,7 @@ export class ChanjetCallbackController {
     private readonly integration: ChanjetIntegrationService,
     private readonly readonlySyncScheduler: ChanjetReadonlySyncScheduler,
     private readonly wmsBridge: ChanjetWmsBridgeService,
+    private readonly erpMasterBusinessReview: ChanjetErpMasterBusinessReviewService,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
@@ -992,6 +996,55 @@ export class ChanjetCallbackController {
       writeErpBusinessTables: false,
       automaticErpMasterCreation: false,
     };
+  }
+
+  /**
+   * System business review for staged Chanjet -> ERP master gaps.
+   * Only exact, same-company and semantically complete candidates are actionable.
+   */
+  @Get('integration/erp-master-gap-closure/business-review')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationErpMasterBusinessReview() {
+    return {
+      success: true,
+      plan: await this.erpMasterBusinessReview.plan(),
+      writeChanjet: false,
+      financialBalanceImport: false,
+      inventoryFactImport: false,
+    };
+  }
+
+  @Post('integration/erp-master-gap-closure/business-review/apply')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async applyIntegrationErpMasterBusinessReview(
+    @Body() body: { reviewHash?: string; approvalToken?: string },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    try {
+      const result = await this.erpMasterBusinessReview.apply({
+        reviewHash: String(body.reviewHash || ''),
+        approvalToken: String(body.approvalToken || ''),
+        actor: `system:chanjet-business-review:${requestedBy}`,
+      });
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_ERP_MASTER_BUSINESS_REVIEW_APPLY',
+        result.reviewHash,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_ERP_MASTER_BUSINESS_REVIEW_APPLY',
+        String(body.reviewHash || ''),
+        'FAIL',
+        { error: (error as Error).message },
+      );
+      throw error;
+    }
   }
 
   @Get('integration/wms/domain-policies')

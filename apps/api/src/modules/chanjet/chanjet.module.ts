@@ -29,6 +29,7 @@ import { ChanjetWmsWritebackOutboxEntity } from './chanjet-wms-writeback-outbox.
 import { ChanjetWmsBridgeService } from './chanjet-wms-bridge.service';
 import { ChanjetWmsHouseLocationPolicyEntity } from './chanjet-wms-house-location-policy.entity';
 import { ChanjetWmsUomConversionPolicyEntity } from './chanjet-wms-uom-conversion-policy.entity';
+import { ChanjetErpMasterBusinessReviewService } from './chanjet-erp-master-business-review.service';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { ChanjetWmsUomConversionPolicyEntity } from './chanjet-wms-uom-conversio
     ChanjetErpInboundSyncService,
     ChanjetReadonlySyncScheduler,
     ChanjetWmsBridgeService,
+    ChanjetErpMasterBusinessReviewService,
   ],
   exports: [
     ChanjetAuthService,
@@ -73,6 +75,7 @@ import { ChanjetWmsUomConversionPolicyEntity } from './chanjet-wms-uom-conversio
     ChanjetErpInboundSyncService,
     ChanjetReadonlySyncScheduler,
     ChanjetWmsBridgeService,
+    ChanjetErpMasterBusinessReviewService,
   ],
 })
 export class ChanjetModule {}
