@@ -195,6 +195,8 @@ describe('ApInvoicesService status labels', () => {
   });
 
   it('pays an AP invoice by writing allocation, updating invoice status, and appending AP_PAYMENT cash transaction', async () => {
+    const currentYm = new Date().toISOString().slice(0, 7).replace('-', '');
+    const generatedAllocNo = `APA-${currentYm}-00001`;
     const qrQuery = jest
       .fn()
       .mockResolvedValueOnce([
@@ -229,7 +231,7 @@ describe('ApInvoicesService status labels', () => {
         },
       ])
       .mockResolvedValueOnce([{ cnt: 0 }])
-      .mockResolvedValueOnce([{ id: '21', alloc_no: 'APA-202607-00001' }])
+      .mockResolvedValueOnce([{ id: '21', alloc_no: generatedAllocNo }])
       .mockResolvedValueOnce([]);
     const dsQuery = jest
       .fn()
@@ -248,7 +250,7 @@ describe('ApInvoicesService status labels', () => {
       .mockResolvedValueOnce([
         {
           id: '21',
-          alloc_no: 'APA-202607-00001',
+          alloc_no: generatedAllocNo,
           amount_original: '25.00',
           currency_code: 'CNY',
           payment_date: '2026-07-13',
@@ -277,7 +279,7 @@ describe('ApInvoicesService status labels', () => {
     expect(qr.rollbackTransaction).not.toHaveBeenCalled();
     expect(qrQuery).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO fin_ap_payment_allocations'),
-      expect.arrayContaining(['APA-202607-00001', '9', 'COMP-LAO-AGRI', 'CNY', 25]),
+      expect.arrayContaining([generatedAllocNo, '9', 'COMP-LAO-AGRI', 'CNY', 25]),
     );
     expect(qrQuery).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE fin_ap_invoices'),
@@ -290,7 +292,7 @@ describe('ApInvoicesService status labels', () => {
       direction: 'OUT',
       sourceType: 'AP_PAYMENT',
       sourceId: '21',
-      sourceNo: 'APA-202607-00001',
+      sourceNo: generatedAllocNo,
       amount: 25,
       balanceAfter: 75,
     }));
@@ -298,7 +300,7 @@ describe('ApInvoicesService status labels', () => {
       id: '9',
       status_label: '部分付款',
       payment_status_label: '部分付款',
-      allocations: [expect.objectContaining({ alloc_no: 'APA-202607-00001' })],
+      allocations: [expect.objectContaining({ alloc_no: generatedAllocNo })],
     }));
   });
 
