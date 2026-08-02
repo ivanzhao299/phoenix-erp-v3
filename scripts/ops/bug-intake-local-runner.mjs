@@ -109,7 +109,7 @@ function parseArgs(argv) {
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
     if (arg === '--help' || arg === '-h') usage(0);
-    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--production-smoke-after-ci', '--retry-safe-ui-once', '--auto-unblock-dirty-worktrees', '--skip-blocked', '--recover-leases-only', '--commit-audit-artifacts', '--auto-recover-generation-drift'].includes(arg)) {
+    if (['--dry-run', '--once', '--watch', '--apply-queue', '--execute-approved', '--push-after-success', '--wait-ci-after-push', '--deploy-after-ci', '--production-smoke-after-ci', '--retry-safe-ui-once', '--auto-unblock-dirty-worktrees', '--skip-blocked', '--recover-leases-only', '--commit-audit-artifacts', '--auto-recover-generation-drift'].includes(arg)) {
       const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
       args[key] = true;
       if (arg === '--dry-run') explicitDryRun = true;
@@ -1749,6 +1749,51 @@ function runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence) {
   ], { env: childEnv, tokenEnv: args.childTokenEnv, childTokenEnv: args.childTokenEnv, timeoutMs: 120000 });
 }
 
+function deployProductionAfterCiIfRequested(args, push, ci) {
+  if (!args.deployAfterCi) return { skipped: true, reason: 'deploy-after-ci disabled' };
+  if (args.dryRun) return { skipped: true, reason: 'dry-run' };
+  if (push?.skipped || push?.status !== 0) return { skipped: true, reason: 'push did not pass' };
+  if (ci?.skipped || ci?.ok !== true) return { skipped: true, reason: 'CI/CD did not pass' };
+  const headSha = String(push?.headSha || currentHead(args.mainRoot));
+  const startedAt = new Date().toISOString();
+  const dispatch = spawnSync('gh', [
+    'workflow', 'run', 'deploy.yml', '--ref', 'main',
+    '-f', 'mode=auto', '-f', 'skip_deploy=false', '-f', 'approve_production=true',
+  ], { cwd: args.mainRoot, encoding: 'utf8' });
+  if ((dispatch.status ?? 1) !== 0) {
+    return { skipped: false, ok: false, step: 'gh workflow run deploy.yml', error: dispatch.stderr || dispatch.stdout };
+  }
+  const deadline = Date.now() + Number(args.deployTimeoutMs || 1800000);
+  let run = null;
+  while (Date.now() < deadline && !run) {
+    const list = spawnSync('gh', [
+      'run', 'list', '--workflow', 'deploy.yml', '--event', 'workflow_dispatch',
+      '--branch', 'main', '--limit', '10', '--json', 'databaseId,headSha,createdAt,status,conclusion,url',
+    ], { cwd: args.mainRoot, encoding: 'utf8' });
+    if ((list.status ?? 1) !== 0) {
+      return { skipped: false, ok: false, step: 'gh run list deploy.yml', error: list.stderr || list.stdout };
+    }
+    const runs = JSON.parse(list.stdout || '[]');
+    run = runs.find((item) => item.headSha === headSha && item.createdAt >= startedAt) || null;
+    if (!run) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000);
+  }
+  if (!run) return { skipped: false, ok: false, step: 'locate deployment run', headSha, error: 'deployment workflow was not created before timeout' };
+  const watch = spawnSync('gh', ['run', 'watch', String(run.databaseId), '--exit-status'], {
+    cwd: args.mainRoot,
+    encoding: 'utf8',
+    timeout: Math.max(1000, deadline - Date.now()),
+  });
+  return {
+    skipped: false,
+    ok: (watch.status ?? 1) === 0,
+    status: watch.status,
+    runId: run.databaseId,
+    url: run.url,
+    headSha,
+    output: redactBoundedOutput(`${watch.stdout || ''}\n${watch.stderr || ''}`),
+  };
+}
+
 async function waitForGithubActionsIfRequested(args, push) {
   if (!args.waitCiAfterPush) return { skipped: true, reason: 'wait-ci-after-push disabled' };
   if (args.dryRun) return { skipped: true, reason: 'dry-run' };
@@ -2676,7 +2721,10 @@ async function runCycle(args, cycle) {
   const releasePartition = partitionReleaseEvidence(releaseEvidence);
   const push = runPushIfReady(args, workerRuns, releaseEvidence);
   const ci = await waitForGithubActionsIfRequested(args, push);
-  const productionSmoke = runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence);
+  const deployment = deployProductionAfterCiIfRequested(args, push, ci);
+  const productionSmoke = deployment.skipped || deployment.ok !== true
+    ? { skipped: true, reason: deployment.skipped ? deployment.reason : 'production deployment did not pass' }
+    : runProductionSmokeIfReady(args, childEnv, push, ci, releaseEvidence);
   const auditPush = pushOpsAuditCommitsIfSafe(args, push);
   const summary = {
     decision: args.dryRun ? 'BUG_INTAKE_LOCAL_RUNNER_DRY_RUN' : 'BUG_INTAKE_LOCAL_RUNNER_EXECUTED',
@@ -2727,6 +2775,7 @@ async function runCycle(args, cycle) {
     push,
     auditPush,
     ci,
+    deployment,
     productionSmoke,
     releaseEvidence,
     releaseReadyEvidence: releasePartition.ready,

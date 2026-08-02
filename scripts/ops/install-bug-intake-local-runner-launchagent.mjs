@@ -94,7 +94,7 @@ RUNNER_ARGS=( \\
   --audit-commit-minutes "\${PHOENIX_ERP_RUNNER_AUDIT_COMMIT_MINUTES:-30}" \\
 )
 if [ "\${PHOENIX_ERP_RUNNER_AUTO_RELEASE:-false}" = "true" ]; then
-  RUNNER_ARGS+=(--push-after-success --wait-ci-after-push --production-smoke-after-ci)
+  RUNNER_ARGS+=(--push-after-success --wait-ci-after-push --deploy-after-ci --production-smoke-after-ci)
 fi
 exec "$NODE_BIN" "$CODE_REPO/scripts/ops/bug-intake-local-runner.mjs" "\${RUNNER_ARGS[@]}"
 `;

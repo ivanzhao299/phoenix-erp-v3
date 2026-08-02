@@ -38,7 +38,7 @@ jobs:
             exit 1
           }
 
-      - name: Back up RBAC and provision least-privilege runner account
+      - name: Back up RBAC and provision full-automation runner account
         uses: appleboy/ssh-action@v1
         env:
           BUG_INTAKE_RUNNER_PASSWORD: ${{ secrets.BUG_INTAKE_RUNNER_PASSWORD }}
@@ -75,24 +75,11 @@ jobs:
               sh "$PASSWORD_HASH" <<'SQL'
             BEGIN;
 
-            INSERT INTO sys_role
-              (role_code, role_name_zh, role_name_lo, role_type, approval_level, description, status, created_at)
-            VALUES
-              ('ROLE_BUG_INTAKE_RUNNER', '问题反馈自动处理服务', NULL, 'SYSTEM', 1,
-               'Dedicated least-privilege account for the production bug-intake runner', 'ACTIVE', NOW())
-            ON CONFLICT (role_code) DO UPDATE SET
-              role_name_zh = EXCLUDED.role_name_zh,
-              role_type = EXCLUDED.role_type,
-              approval_level = EXCLUDED.approval_level,
-              description = EXCLUDED.description,
-              status = 'ACTIVE',
-              deprecated_at = NULL;
-
             INSERT INTO sys_user
               (username, password_hash, real_name, store_code, status, locale, note, perms_version, created_at, updated_at)
             VALUES
               ('svc_bug_intake_runner', :'runner_hash', '问题反馈生产 Runner', 'ALL', 1, 'zh-CN',
-               'Non-human production service account; managed by GitHub Actions', 1, NOW(), NOW())
+               'Non-human full-automation production service account; managed by GitHub Actions', 1, NOW(), NOW())
             ON CONFLICT (username) DO UPDATE SET
               password_hash = EXCLUDED.password_hash,
               real_name = EXCLUDED.real_name,
@@ -109,17 +96,8 @@ jobs:
             INSERT INTO sys_user_role (user_id, role_id, is_primary, is_visible, granted_at)
             SELECT u.user_id, r.role_id, TRUE, TRUE, NOW()
               FROM sys_user u
-              JOIN sys_role r ON r.role_code = 'ROLE_BUG_INTAKE_RUNNER'
+              JOIN sys_role r ON r.role_code = 'ROLE_ADMIN'
              WHERE u.username = 'svc_bug_intake_runner';
-
-            DELETE FROM sys_role_menu_permission
-             WHERE role_id = (SELECT role_id FROM sys_role WHERE role_code = 'ROLE_BUG_INTAKE_RUNNER');
-
-            INSERT INTO sys_role_menu_permission (role_id, menu_id, perm_codes)
-            SELECT r.role_id, m.menu_id, 'V,E'
-              FROM sys_role r
-              JOIN sys_menu m ON m.menu_code = 'MENU_BUG_REPORT'
-             WHERE r.role_code = 'ROLE_BUG_INTAKE_RUNNER';
 
             DO $$
             BEGIN
@@ -128,13 +106,11 @@ jobs:
                   FROM sys_user u
                   JOIN sys_user_role ur ON ur.user_id = u.user_id
                   JOIN sys_role r ON r.role_id = ur.role_id
-                  JOIN sys_role_menu_permission p ON p.role_id = r.role_id
-                  JOIN sys_menu m ON m.menu_id = p.menu_id
                  WHERE u.username = 'svc_bug_intake_runner'
                    AND u.status = 1
-                   AND r.role_code = 'ROLE_BUG_INTAKE_RUNNER'
-                   AND m.menu_code = 'MENU_BUG_REPORT'
-                   AND p.perm_codes = 'V,E'
+                   AND r.role_code = 'ROLE_ADMIN'
+                   AND ur.is_primary = TRUE
+                   AND COALESCE(ur.is_visible, TRUE) = TRUE
               ) THEN
                 RAISE EXCEPTION 'Runner RBAC verification failed';
               END IF;
@@ -145,7 +121,7 @@ jobs:
 
             echo "Production runner account provisioned; backup=$BACKUP_FILE"
 
-      - name: Verify production login and least-privilege API access
+      - name: Verify production login and full automation API access
         shell: bash
         env:
           RUNNER_USER: svc_bug_intake_runner
@@ -164,5 +140,5 @@ jobs:
           HTTP_CODE="$(curl --silent --output /dev/null --write-out '%{http_code}' \
             -H "Authorization: Bearer $TOKEN" \
             'https://erp.eggslao.com/api/system/users')"
-          test "$HTTP_CODE" = "403"
-          echo "Production login, bug-intake access, and negative RBAC check passed"
+          test "$HTTP_CODE" = "200"
+          echo "Production login, bug-intake access, and full-admin automation check passed"
