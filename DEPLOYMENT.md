@@ -121,6 +121,18 @@ docker compose exec db pg_dump -U $DB_USER $DB_NAME | gzip > /backups/pre-upgrad
 
 ## 5. 回滚
 
+生产发布由 `.github/workflows/deploy.yml` 自动保护：发布失败会把服务器代码、
+API/Web 容器镜像和本次替换的 Nginx 配置恢复到发布前版本，并重新执行 API/Web
+健康检查。API/full 发布在任何迁移前都会生成 PostgreSQL custom-format 备份及
+SHA-256 校验文件：
+
+`/opt/phoenix-erp-backups/deploy-pre-migration-<run-id>/`
+
+数据库不会在失败时无人值守地执行覆盖恢复。若迁移已经改变 schema，必须先审核
+失败日志和备份，再使用 `scripts/ops/restore-runner.sh` 走显式生产恢复 Gate。
+
+以下命令仅用于 CI/CD 自动回滚失效后的人工应急：
+
 ```bash
 # 1. 停 api
 docker compose stop api
@@ -188,12 +200,18 @@ docker compose exec db psql -U $DB_USER -d $DB_NAME -c "
 
 ## 9. CI/CD（GitHub Actions）
 
-`.github/workflows/regression.yml` 已配齐：
-- 推送 `v3-admin` / `main` 自动触发
-- 起 PG service container
-- pnpm install → tsc → build
-- 跑 10 模块 regression + E2E
-- 失败时 dump 最近 200 行 API 日志
+生产入口为 `.github/workflows/deploy.yml`：
+
+- 推送 `main` 自动执行范围检测、类型检查、迁移门禁、回归和镜像构建，但不直接部署。
+- 生产部署必须从 GitHub Actions 手动运行 `CI/CD — Build & Deploy`，并勾选
+  `approve_production`；未批准时部署 job 不会启动。
+- 手动 `auto` 模式按 `full` 执行，避免手动运行缺少 push diff 时漏部署 API 或漏跑迁移。
+- SSH 部署前要求服务器 Git 工作树完全干净；存在 tracked/untracked 改动即失败，
+  不再自动 `git stash`。
+- API/full 模式迁移前强制生成并校验数据库备份。
+- 失败时自动回滚应用代码、不可变镜像和 Nginx；数据库备份保留供受控恢复。
+- GitHub 当前套餐不支持 Environment required reviewers，因此审批由上述手动触发和
+  `approve_production` 双重门禁实现。
 
 PR 必须绿色才允许合并。
 
