@@ -75,7 +75,7 @@ else
 fi
 cd "$STATE_REPO"
 RUNNER_ARGS=( \\
-  --api-base "https://erp.eggslao.com" \\
+  --api-base "\${PHOENIX_ERP_RUNNER_API_BASE:-https://erp.eggslao.com}" \\
   --watch \\
   --interval "\${PHOENIX_ERP_RUNNER_INTERVAL:-30}" \\
   --max-cycles "\${PHOENIX_ERP_RUNNER_MAX_CYCLES:-999999}" \\
@@ -138,6 +138,7 @@ function envExample() {
 # Use a dedicated service/admin account with MENU_BUG_REPORT permission.
 PHOENIX_ERP_RUNNER_USER=
 PHOENIX_ERP_RUNNER_PASS=
+PHOENIX_ERP_RUNNER_API_BASE=https://erp.eggslao.com
 PHOENIX_ERP_RUNNER_INTERVAL=30
 PHOENIX_ERP_RUNNER_MAX_TASKS=6
 PHOENIX_ERP_RUNNER_PARALLEL_WORKERS=3

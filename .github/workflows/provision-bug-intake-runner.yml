@@ -1,0 +1,168 @@
+name: Provision Bug Intake Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_production:
+        description: "Confirm production service-account provisioning"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provision-production-bug-intake-runner
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    if: github.ref == 'refs/heads/main' && inputs.approve_production == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      BUG_INTAKE_RUNNER_PASSWORD: ${{ secrets.BUG_INTAKE_RUNNER_PASSWORD }}
+    steps:
+      - name: Require service-account secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$BUG_INTAKE_RUNNER_PASSWORD" || {
+            echo "BUG_INTAKE_RUNNER_PASSWORD is not configured" >&2
+            exit 1
+          }
+          test "${#BUG_INTAKE_RUNNER_PASSWORD}" -ge 24 || {
+            echo "BUG_INTAKE_RUNNER_PASSWORD must contain at least 24 characters" >&2
+            exit 1
+          }
+
+      - name: Back up RBAC and provision least-privilege runner account
+        uses: appleboy/ssh-action@v1
+        env:
+          BUG_INTAKE_RUNNER_PASSWORD: ${{ secrets.BUG_INTAKE_RUNNER_PASSWORD }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: BUG_INTAKE_RUNNER_PASSWORD
+          script: |
+            set -euo pipefail
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            BACKUP_DIR="/opt/phoenix-erp-backups/bug-intake-runner"
+            BACKUP_FILE="$BACKUP_DIR/pre-provision-$(date -u +%Y%m%dT%H%M%SZ).dump"
+            mkdir -p "$BACKUP_DIR"
+            docker compose exec -T db sh -c \
+              'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > "$BACKUP_FILE"
+            test -s "$BACKUP_FILE"
+            sha256sum "$BACKUP_FILE" > "$BACKUP_FILE.sha256"
+            chmod 600 "$BACKUP_FILE" "$BACKUP_FILE.sha256"
+
+            PASSWORD_HASH="$(docker compose exec -T \
+              -e RUNNER_PASSWORD="$BUG_INTAKE_RUNNER_PASSWORD" api \
+              node -e "require('bcrypt').hash(process.env.RUNNER_PASSWORD, 12).then(v => process.stdout.write(v))")"
+            test "${#PASSWORD_HASH}" -eq 60
+
+            docker compose exec -T db sh -c \
+              'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v runner_hash="$1"' \
+              sh "$PASSWORD_HASH" <<'SQL'
+            BEGIN;
+
+            INSERT INTO sys_role
+              (role_code, role_name_zh, role_name_lo, role_type, approval_level, description, status, created_at)
+            VALUES
+              ('ROLE_BUG_INTAKE_RUNNER', '问题反馈自动处理服务', NULL, 'SYSTEM', 1,
+               'Dedicated least-privilege account for the production bug-intake runner', 'ACTIVE', NOW())
+            ON CONFLICT (role_code) DO UPDATE SET
+              role_name_zh = EXCLUDED.role_name_zh,
+              role_type = EXCLUDED.role_type,
+              approval_level = EXCLUDED.approval_level,
+              description = EXCLUDED.description,
+              status = 'ACTIVE',
+              deprecated_at = NULL;
+
+            INSERT INTO sys_user
+              (username, password_hash, real_name, store_code, status, locale, note, perms_version, created_at, updated_at)
+            VALUES
+              ('svc_bug_intake_runner', :'runner_hash', '问题反馈生产 Runner', 'ALL', 1, 'zh-CN',
+               'Non-human production service account; managed by GitHub Actions', 1, NOW(), NOW())
+            ON CONFLICT (username) DO UPDATE SET
+              password_hash = EXCLUDED.password_hash,
+              real_name = EXCLUDED.real_name,
+              store_code = EXCLUDED.store_code,
+              status = 1,
+              locale = EXCLUDED.locale,
+              note = EXCLUDED.note,
+              perms_version = COALESCE(sys_user.perms_version, 0) + 1,
+              updated_at = NOW();
+
+            DELETE FROM sys_user_role
+             WHERE user_id = (SELECT user_id FROM sys_user WHERE username = 'svc_bug_intake_runner');
+
+            INSERT INTO sys_user_role (user_id, role_id, is_primary, is_visible, granted_at)
+            SELECT u.user_id, r.role_id, TRUE, TRUE, NOW()
+              FROM sys_user u
+              JOIN sys_role r ON r.role_code = 'ROLE_BUG_INTAKE_RUNNER'
+             WHERE u.username = 'svc_bug_intake_runner';
+
+            DELETE FROM sys_role_menu_permission
+             WHERE role_id = (SELECT role_id FROM sys_role WHERE role_code = 'ROLE_BUG_INTAKE_RUNNER');
+
+            INSERT INTO sys_role_menu_permission (role_id, menu_id, perm_codes)
+            SELECT r.role_id, m.menu_id, 'V,E'
+              FROM sys_role r
+              JOIN sys_menu m ON m.menu_code = 'MENU_BUG_REPORT'
+             WHERE r.role_code = 'ROLE_BUG_INTAKE_RUNNER';
+
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1
+                  FROM sys_user u
+                  JOIN sys_user_role ur ON ur.user_id = u.user_id
+                  JOIN sys_role r ON r.role_id = ur.role_id
+                  JOIN sys_role_menu_permission p ON p.role_id = r.role_id
+                  JOIN sys_menu m ON m.menu_id = p.menu_id
+                 WHERE u.username = 'svc_bug_intake_runner'
+                   AND u.status = 1
+                   AND r.role_code = 'ROLE_BUG_INTAKE_RUNNER'
+                   AND m.menu_code = 'MENU_BUG_REPORT'
+                   AND p.perm_codes = 'V,E'
+              ) THEN
+                RAISE EXCEPTION 'Runner RBAC verification failed';
+              END IF;
+            END $$;
+
+            COMMIT;
+            SQL
+
+            echo "Production runner account provisioned; backup=$BACKUP_FILE"
+
+      - name: Verify production login and least-privilege API access
+        shell: bash
+        env:
+          RUNNER_USER: svc_bug_intake_runner
+          RUNNER_PASS: ${{ secrets.BUG_INTAKE_RUNNER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          LOGIN_JSON="$(jq -nc --arg username "$RUNNER_USER" --arg password "$RUNNER_PASS" '{username:$username,password:$password}')"
+          TOKEN="$(curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors \
+            -H 'Content-Type: application/json' \
+            -d "$LOGIN_JSON" \
+            https://erp.eggslao.com/api/auth/login | jq -er '.token')"
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $TOKEN" \
+            'https://erp.eggslao.com/api/bug-intake/reports?page=1&limit=1' >/dev/null
+          HTTP_CODE="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" \
+            'https://erp.eggslao.com/api/system/users')"
+          test "$HTTP_CODE" = "403"
+          echo "Production login, bug-intake access, and negative RBAC check passed"
