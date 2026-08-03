@@ -145,9 +145,11 @@ function uniqueCanonicalUoms(values: string[]): string[] {
 }
 
 function inferMaterialType(name: string): string {
-  if (/料|玉米|豆粕|米糠|石粉|鱼粉|麸皮|豆油/.test(name)) return 'FEED_RAW';
+  if (/料|玉米|豆粕|米糠|石粉|鱼粉|麸皮|豆油|碳酸氢[钠纳]/.test(name)) return 'FEED_RAW';
   if (/箱|托|袋|筐|包装|标签|胶带/.test(name)) return 'PACKAGING';
-  if (/疫苗|霉素|沙星|头孢|卡巴|葡萄糖|注射液|口服液|药|多维|消毒/.test(name)) return 'VET_DRUG';
+  if (
+    /疫苗|新城疫|流感|二联|四系|稀释液|霉素|环素|菌素|沙星|头孢|卡巴|葡萄糖|注射液|口服液|可溶性粉|药|多维|消毒/.test(name)
+  ) return 'VET_DRUG';
   if (/纸|笔|文件夹|档案袋|办公/.test(name)) return 'OFFICE';
   if (/灯|泵|管|机|设备|配件|皮带/.test(name)) return 'EQUIPMENT';
   return 'OTHER';
@@ -1034,6 +1036,13 @@ export class ChanjetErpMasterBusinessReviewService {
           `observed specifications ${specs.join(' | ')}`,
         ]);
       }
+      const materialType = inferMaterialType(source.chanjet_name);
+      if (materialType === 'OTHER') {
+        return holdCandidate(source, [gapClass, 'MATERIAL_TYPE_NOT_DETERMINISTIC'], [
+          `runtime evidence rows ${evidence.evidenceCount}`,
+          `runtime base UOM ${baseUom}`,
+        ]);
+      }
       return {
         ...holdCandidate(source, [], [
           `runtime evidence rows ${evidence.evidenceCount}`,
@@ -1050,7 +1059,7 @@ export class ChanjetErpMasterBusinessReviewService {
         createPayload: {
           materialCode,
           materialName: source.chanjet_name.trim(),
-          materialType: inferMaterialType(source.chanjet_name),
+          materialType,
           spec: specs[0] || '',
           unit: baseUom,
         },
