@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { isStaticAgentBranch } from './agent-task-workspace.mjs';
 
-const MAIN_ROOT = '/Users/mac/phoenix-erp';
+const MAIN_ROOT = process.env.PHOENIX_ERP_MAIN_ROOT || process.cwd();
 const RUN_ARTIFACT_PREFIX = 'docs/ops/runs/';
 const RUN_ARTIFACT_COMMIT = 'docs(ops): record generated ops run artifacts';
 

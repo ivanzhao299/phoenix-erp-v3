@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { evaluateBugReleaseEvidence } from './bug-intake-evidence-gate.mjs';
 import { filterRunnerRuntimeStatus, gitStatusFiles } from './bug-intake-worktree-runtime.mjs';
@@ -52,11 +53,12 @@ const OPS_RUNTIME_PATHS = [
   'docs/ops/evolution',
 ];
 const NODE_BIN = process.execPath;
-const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
+const RUNNER_HOME = process.env.PHOENIX_ERP_RUNNER_HOME || path.join(os.homedir(), '.phoenix-erp');
+const DEFAULT_PATH = `${path.join(os.homedir(), '.npm-global', 'bin')}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`;
 const LOCK_DIR = '/tmp/phoenix-erp-bug-intake-local-runner.lock';
 const LOCK_PID_FILE = `${LOCK_DIR}/pid`;
-const TOKEN_CACHE_FILE = '/Users/mac/.phoenix-erp/bug-intake-runner-token.json';
-const AUDIT_COMMIT_STATE_FILE = '/Users/mac/.phoenix-erp/bug-intake-runner-audit-commit.json';
+const TOKEN_CACHE_FILE = process.env.PHOENIX_ERP_RUNNER_TOKEN_CACHE_FILE || path.join(RUNNER_HOME, 'bug-intake-runner-token.json');
+const AUDIT_COMMIT_STATE_FILE = process.env.PHOENIX_ERP_RUNNER_AUDIT_STATE_FILE || path.join(RUNNER_HOME, 'bug-intake-runner-audit-commit.json');
 
 function usage(code = 1) {
   console.log(`Usage:
@@ -420,7 +422,7 @@ function activeAgentProcesses() {
     .filter(Boolean)
     .filter((item) => item.pid !== process.pid)
     .filter((item) => (
-      item.command.includes('codex exec -C /Users/mac/phoenix-erp-worktrees/') ||
+      (item.command.includes('codex exec -C ') && item.command.includes('phoenix-erp')) ||
       item.command.includes('scripts/ops/agent-worker.mjs') ||
       item.command.includes('scripts/ops/run-agent-task.mjs')
     ));

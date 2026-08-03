@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -29,7 +30,7 @@ const TERMINAL_LOCAL_TASK_STATUSES = new Set([
   'SKIPPED_NOT_APPLICABLE',
 ]);
 const NODE_BIN = process.execPath;
-const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
+const DEFAULT_PATH = `${path.join(os.homedir(), '.npm-global', 'bin')}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`;
 const FETCH_ERRORS = [];
 
 export function isTerminalLocalTask(task) {

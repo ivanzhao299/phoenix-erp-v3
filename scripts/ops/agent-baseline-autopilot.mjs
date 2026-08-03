@@ -5,7 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const MAIN_ROOT = '/Users/mac/phoenix-erp';
+const MAIN_ROOT = process.env.PHOENIX_ERP_MAIN_ROOT || process.cwd();
 const DEFAULT_MAX_RETRIES = 3;
 const RUN_ARTIFACT_COMMIT = 'docs(ops): record generated ops run artifacts';
 const OPS_ARTIFACT_COMMIT = 'docs(ops): record generated ops artifacts';

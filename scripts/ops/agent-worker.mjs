@@ -2,6 +2,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { evaluateWorkerEvidence } from './bug-intake-evidence-gate.mjs';
@@ -20,7 +21,7 @@ const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
 const EVENTS_FILE = 'docs/ops/agent-queue/events.jsonl';
 const RUN_DIR = 'docs/ops/runs';
 const NODE_BIN = process.execPath;
-const DEFAULT_PATH = '/Users/mac/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
+const DEFAULT_PATH = `${path.join(os.homedir(), '.npm-global', 'bin')}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`;
 const BASELINE_MERGE_AGENTS = new Set([
   'Codex-Orchestrator',
   'A3-Backend-Critical-Path',

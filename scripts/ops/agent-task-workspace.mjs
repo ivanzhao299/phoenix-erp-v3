@@ -1,8 +1,10 @@
 import path from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import os from 'node:os';
 
-export const AGENT_TASK_WORKTREE_ROOT = '/Users/mac/phoenix-erp-worktrees/agent-tasks';
+export const AGENT_TASK_WORKTREE_ROOT = process.env.PHOENIX_ERP_AGENT_WORKTREE_ROOT
+  || path.join(os.homedir(), 'phoenix-erp-worktrees', 'agent-tasks');
 export const TASK_BRANCH_PREFIX = 'codex/task';
 export const WORKSPACE_POLICY = 'task-generation-isolated-v2';
 
