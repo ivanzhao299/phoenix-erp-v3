@@ -1,0 +1,51 @@
+name: Probe Office Runner Host
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe 204 through Aliyun WireGuard jump host
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 192.168.2.204
+          username: ubuntu
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 22
+          proxy_host: 123.57.220.65
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          command_timeout: 5m
+          script: |
+            set -eu
+            echo "HOST=$(hostname)"
+            echo "USER=$(id -un) UID=$(id -u)"
+            uname -a
+            test "$(id -un)" = ubuntu
+            echo "SUDO=$(sudo -n true >/dev/null 2>&1 && echo yes || echo no)"
+            echo "SYSTEMD=$(command -v systemctl || true)"
+            echo "GIT=$(command -v git || true)"
+            echo "NODE=$(command -v node || true)"
+            echo "DOCKER=$(command -v docker || true)"
+            echo "GH=$(command -v gh || true)"
+            echo "CODEX=$(command -v codex || true)"
+            df -h / /opt 2>/dev/null || df -h /
+            free -h || true
+            if [ -e /opt/anksen/agent-studio ]; then
+              echo "TARGET_EXISTS=yes"
+              ls -ld /opt/anksen/agent-studio
+              git -C /opt/anksen/agent-studio remote -v 2>/dev/null || true
+              git -C /opt/anksen/agent-studio status --short 2>/dev/null || true
+            else
+              echo "TARGET_EXISTS=no"
+            fi
+            curl -fsSI --max-time 15 https://github.com >/dev/null && echo "GITHUB_EGRESS=yes"
+            curl -fsSI --max-time 15 https://erp.eggslao.com/api/health >/dev/null && echo "ERP_EGRESS=yes"
+            curl -fsSI --max-time 15 https://api.openai.com >/dev/null && echo "OPENAI_EGRESS=yes"
