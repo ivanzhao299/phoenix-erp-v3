@@ -29,6 +29,7 @@ type ExistingMaster = {
   bankName?: string;
   accountNo?: string;
   targetTable: string;
+  targetEntityType?: string;
 };
 
 export type ChanjetErpMasterReviewCandidate = {
@@ -208,11 +209,22 @@ export class ChanjetErpMasterBusinessReviewService {
   constructor(@InjectDataSource() private readonly ds: DataSource) {}
 
   async plan(): Promise<ChanjetErpMasterBusinessReviewPlan> {
-    const [sources, cashAccounts, projects, warehouses] = await Promise.all([
+    const [
+      sources,
+      cashAccounts,
+      projects,
+      warehouses,
+      companyOrganizations,
+      stores,
+      houses,
+    ] = await Promise.all([
       this.loadSourceMappings(),
       this.loadCashAccounts(),
       this.loadProjects(),
       this.loadWarehouses(),
+      this.loadCompanyOrganizations(),
+      this.loadStores(),
+      this.loadHouses(),
     ]);
 
     const genericWarehouseNamesByCompany = new Map<string, number>();
@@ -228,7 +240,15 @@ export class ChanjetErpMasterBusinessReviewService {
 
     const candidates = sources.map((source) => this.reviewSource(
       source,
-      { cashAccounts, projects, warehouses, genericWarehouseNamesByCompany },
+      {
+        cashAccounts,
+        projects,
+        warehouses,
+        companyOrganizations,
+        stores,
+        houses,
+        genericWarehouseNamesByCompany,
+      },
     ));
     const byMappingType: Record<string, Record<ChanjetErpMasterReviewDecision, number>> = {};
     for (const candidate of candidates) {
@@ -396,12 +416,63 @@ export class ChanjetErpMasterBusinessReviewService {
     return rows.map((row: ExistingMaster) => ({ ...row, targetTable: 'wms_warehouses' }));
   }
 
+  private async loadCompanyOrganizations(): Promise<ExistingMaster[]> {
+    const rows = await this.ds.query(
+      `SELECT org_code AS code,
+              org_name AS name,
+              company_code AS "companyCode"
+         FROM sys_organizations
+        WHERE status = 'ACTIVE'
+          AND company_code <> ''
+          AND org_code = company_code`,
+    );
+    return rows.map((row: ExistingMaster) => ({
+      ...row,
+      targetTable: 'sys_organizations',
+      targetEntityType: 'COMPANY',
+    }));
+  }
+
+  private async loadStores(): Promise<ExistingMaster[]> {
+    const rows = await this.ds.query(
+      `SELECT store_code AS code,
+              store_name AS name,
+              company_code AS "companyCode"
+         FROM mst_stores
+        WHERE status = 'ACTIVE'`,
+    );
+    return rows.map((row: ExistingMaster) => ({
+      ...row,
+      targetTable: 'mst_stores',
+      targetEntityType: 'STORE',
+    }));
+  }
+
+  private async loadHouses(): Promise<ExistingMaster[]> {
+    const rows = await this.ds.query(
+      `SELECT house_code AS code,
+              house_name AS name,
+              company_code AS "companyCode"
+         FROM brd_houses
+        WHERE status = 'ACTIVE'
+          AND company_code <> ''`,
+    );
+    return rows.map((row: ExistingMaster) => ({
+      ...row,
+      targetTable: 'brd_houses',
+      targetEntityType: 'HOUSE',
+    }));
+  }
+
   private reviewSource(
     source: SourceMappingRow,
     context: {
       cashAccounts: ExistingMaster[];
       projects: ExistingMaster[];
       warehouses: ExistingMaster[];
+      companyOrganizations: ExistingMaster[];
+      stores: ExistingMaster[];
+      houses: ExistingMaster[];
       genericWarehouseNamesByCompany: Map<string, number>;
     },
   ): ChanjetErpMasterReviewCandidate {
@@ -422,10 +493,7 @@ export class ChanjetErpMasterBusinessReviewService {
       );
     }
     if (source.mapping_type === 'DEPARTMENT') {
-      return holdCandidate(source, [
-        'CHANJET_DEPARTMENT_DIMENSION_MIXES_ORG_STORE_HOUSE_AND_ACCOUNTING_LABELS',
-        'TARGET_ENTITY_TYPE_REQUIRES_DOMAIN_CLASSIFICATION',
-      ]);
+      return this.reviewDepartment(source, context);
     }
     if (source.mapping_type === 'PRODUCT') {
       return holdCandidate(source, [
@@ -440,6 +508,97 @@ export class ChanjetErpMasterBusinessReviewService {
       ]);
     }
     return holdCandidate(source, ['UNSUPPORTED_MAPPING_TYPE']);
+  }
+
+  private reviewDepartment(
+    source: SourceMappingRow,
+    context: {
+      companyOrganizations: ExistingMaster[];
+      stores: ExistingMaster[];
+      houses: ExistingMaster[];
+    },
+  ): ChanjetErpMasterReviewCandidate {
+    const name = source.chanjet_name.trim();
+    if (/^(总部|总\s*部|公司总部|总公司)$/.test(name)) {
+      const targets = context.companyOrganizations.filter(
+        (master) => master.companyCode === source.company_code,
+      );
+      if (targets.length !== 1) {
+        return holdCandidate(source, [
+          targets.length > 1
+            ? 'MULTIPLE_ERP_COMPANY_ORGANIZATION_TARGETS'
+            : 'ERP_COMPANY_ORGANIZATION_TARGET_MISSING',
+        ]);
+      }
+      return this.departmentMappingCandidate(source, targets[0], [
+        'source department is a deterministic headquarters/company alias',
+        'one enabled company organization exists inside the account-book company boundary',
+      ]);
+    }
+
+    if (/直营店$|合作店$/.test(name)) {
+      const exact = findExactMaster(source, context.stores);
+      if (exact.ambiguous) return holdCandidate(source, ['MULTIPLE_ERP_STORE_TARGETS']);
+      if (exact.master) {
+        return this.departmentMappingCandidate(source, exact.master, [
+          ...exact.evidence,
+          'source department has store semantics',
+        ]);
+      }
+      return holdCandidate(source, [
+        'ERP_STORE_EXACT_IDENTITY_MISSING',
+        'STORE_ALIAS_OR_BUSINESS_TYPE_REQUIRES_EXPLICIT_POLICY',
+      ]);
+    }
+
+    if (/^(?:\d+号鸡舍|公鸡舍|育雏舍?)$/.test(name)) {
+      const exact = findExactMaster(source, context.houses);
+      if (exact.ambiguous) return holdCandidate(source, ['MULTIPLE_ERP_HOUSE_TARGETS']);
+      if (exact.master) {
+        return this.departmentMappingCandidate(source, exact.master, [
+          ...exact.evidence,
+          'source department has breeding-house semantics',
+        ]);
+      }
+      return holdCandidate(source, [
+        'ERP_HOUSE_EXACT_IDENTITY_MISSING',
+        'HOUSE_MASTER_AND_SITE_OWNERSHIP_REQUIRED',
+      ]);
+    }
+
+    if (/车间$/.test(name)) {
+      return holdCandidate(source, [
+        'WORKSHOP_OPERATIONAL_ENTITY_REQUIRES_SITE_AND_PROCESS_OWNERSHIP',
+      ]);
+    }
+    if (/^(鸡舍|直营店)$/.test(name)) {
+      return holdCandidate(source, [
+        'ACCOUNTING_DIMENSION_GROUP_NODE_MUST_NOT_MAP_TO_TRANSACTIONAL_MASTER',
+      ]);
+    }
+    return holdCandidate(source, [
+      'ACCOUNTING_ONLY_DEPARTMENT_DIMENSION',
+      'NO_SAFE_ERP_TRANSACTIONAL_MASTER_TARGET',
+    ]);
+  }
+
+  private departmentMappingCandidate(
+    source: SourceMappingRow,
+    master: ExistingMaster,
+    evidence: string[],
+  ): ChanjetErpMasterReviewCandidate {
+    return {
+      ...holdCandidate(source, [], [
+        ...evidence,
+        'same account-book company boundary',
+        'existing active ERP master only; no master or business fact created',
+      ]),
+      decision: 'MAP_EXISTING',
+      targetTable: master.targetTable,
+      targetCode: master.code,
+      targetName: master.name,
+      targetEntityType: master.targetEntityType || '',
+    };
   }
 
   private reviewCashAccount(
@@ -789,6 +948,18 @@ export class ChanjetErpMasterBusinessReviewService {
                 COALESCE(warehouse_name_zh, warehouse_name) AS name,
                 company_code AS company
            FROM wms_warehouses WHERE warehouse_code = $1`,
+      sys_organizations:
+        `SELECT org_code AS code, org_name AS name, company_code AS company
+           FROM sys_organizations
+          WHERE org_code = $1 AND status = 'ACTIVE'`,
+      mst_stores:
+        `SELECT store_code AS code, store_name AS name, company_code AS company
+           FROM mst_stores
+          WHERE store_code = $1 AND status = 'ACTIVE'`,
+      brd_houses:
+        `SELECT house_code AS code, house_name AS name, company_code AS company
+           FROM brd_houses
+          WHERE house_code = $1 AND status = 'ACTIVE'`,
     };
     const sql = contracts[candidate.targetTable];
     if (!sql) throw new Error(`unsupported target table ${candidate.targetTable}`);

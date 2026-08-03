@@ -28,6 +28,9 @@ function createService(
     cash?: Array<Record<string, unknown>>;
     projects?: Array<Record<string, unknown>>;
     warehouses?: Array<Record<string, unknown>>;
+    companies?: Array<Record<string, unknown>>;
+    stores?: Array<Record<string, unknown>>;
+    houses?: Array<Record<string, unknown>>;
   } = {},
 ) {
   const ds = {
@@ -36,6 +39,9 @@ function createService(
       if (sql.includes('FROM fin_cash_accounts')) return targets.cash || [];
       if (sql.includes('FROM biz_projects')) return targets.projects || [];
       if (sql.includes('FROM wms_warehouses')) return targets.warehouses || [];
+      if (sql.includes('FROM sys_organizations')) return targets.companies || [];
+      if (sql.includes('FROM mst_stores')) return targets.stores || [];
+      if (sql.includes('FROM brd_houses')) return targets.houses || [];
       throw new Error(`unexpected query: ${sql}`);
     }),
     createQueryRunner: jest.fn(),
@@ -155,6 +161,76 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
       targetCode: 'ERP-BCEL-140',
       targetTable: 'fin_cash_accounts',
     });
+  });
+
+  it('classifies mixed Chanjet departments and maps only deterministic existing ERP targets', async () => {
+    const { service } = createService(
+      [
+        source({
+          id: 'dept-company',
+          mapping_type: 'DEPARTMENT',
+          chanjet_name: '公司总部',
+        }),
+        source({
+          id: 'dept-store',
+          mapping_type: 'DEPARTMENT',
+          chanjet_name: '孟赛直营店',
+        }),
+        source({
+          id: 'dept-house',
+          mapping_type: 'DEPARTMENT',
+          chanjet_name: '2号鸡舍',
+        }),
+        source({
+          id: 'dept-workshop',
+          mapping_type: 'DEPARTMENT',
+          chanjet_name: '变蛋车间',
+        }),
+        source({
+          id: 'dept-group',
+          mapping_type: 'DEPARTMENT',
+          chanjet_name: '鸡舍',
+        }),
+      ],
+      {
+        companies: [{
+          code: 'COMP-LAO-AGRI',
+          name: '老挝凤凰农业发展有限公司',
+          companyCode: 'COMP-LAO-AGRI',
+        }],
+        stores: [{
+          code: 'STORE-MX-001',
+          name: '孟赛直营店',
+          companyCode: 'COMP-LAO-AGRI',
+        }],
+        houses: [{
+          code: 'HOUSE_MS_02',
+          name: '2号鸡舍',
+          companyCode: 'COMP-LAO-AGRI',
+        }],
+      },
+    );
+
+    const plan = await service.plan();
+
+    expect(plan.summary.mapExisting).toBe(3);
+    expect(plan.candidates.find((item) => item.mappingId === 'dept-company')).toMatchObject({
+      decision: 'MAP_EXISTING',
+      targetTable: 'sys_organizations',
+      targetEntityType: 'COMPANY',
+    });
+    expect(plan.candidates.find((item) => item.mappingId === 'dept-store')).toMatchObject({
+      decision: 'MAP_EXISTING',
+      targetTable: 'mst_stores',
+      targetEntityType: 'STORE',
+    });
+    expect(plan.candidates.find((item) => item.mappingId === 'dept-house')).toMatchObject({
+      decision: 'MAP_EXISTING',
+      targetTable: 'brd_houses',
+      targetEntityType: 'HOUSE',
+    });
+    expect(plan.candidates.find((item) => item.mappingId === 'dept-workshop')?.decision).toBe('HOLD');
+    expect(plan.candidates.find((item) => item.mappingId === 'dept-group')?.decision).toBe('HOLD');
   });
 
   it('rejects apply before any database write when approval token is missing', async () => {
