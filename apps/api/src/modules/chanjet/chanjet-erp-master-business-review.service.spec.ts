@@ -276,11 +276,41 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
       targetEntityType: 'SKU',
       createPayload: {
         productCode: 'EGG',
-        gradeCode: 'CJ_GRADE_1',
-        specCode: 'CJ_RED_STANDARD',
+        gradeCode: 'CJ_G1',
+        specCode: 'CJ_RED_STD',
         baseUom: '枚',
       },
     });
+    expect(String(plan.candidates[0].createPayload?.gradeCode)).toHaveLength(5);
+    expect(String(plan.candidates[0].createPayload?.specCode).length).toBeLessThanOrEqual(16);
+  });
+
+  it('keeps unclassified egg SKU dimension codes within the production schema limit', async () => {
+    const { service } = createService([
+      source({
+        id: 'egg-natural-broken',
+        mapping_type: 'PRODUCT',
+        chanjet_code: '902',
+        chanjet_name: '破损鸡蛋',
+        raw_data: { erpMasterGapProposal: { gapClass: 'PRODUCT_SKU_MODEL_REQUIRED' } },
+      }),
+    ], {
+      productEvidence: [{
+        bookId: 'BOOK-1',
+        productCode: '902',
+        productName: '破损鸡蛋',
+        evidenceCount: 8,
+        baseUoms: ['枚'],
+        specs: [],
+      }],
+    });
+
+    const plan = await service.plan();
+    const payload = plan.candidates[0].createPayload;
+
+    expect(payload).toMatchObject({ gradeCode: 'CJ_GX', specCode: 'CJ_NAT_BRK' });
+    expect(String(payload?.gradeCode).length).toBeLessThanOrEqual(16);
+    expect(String(payload?.specCode).length).toBeLessThanOrEqual(16);
   });
 
   it('creates a material identity only when its base UOM and specification evidence are stable', async () => {

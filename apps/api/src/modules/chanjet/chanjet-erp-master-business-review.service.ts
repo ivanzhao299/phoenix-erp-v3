@@ -158,15 +158,15 @@ function inferMaterialType(name: string): string {
 function eggDimensions(name: string): { gradeCode: string; specCode: string } | null {
   if (!/蛋/.test(name) || /蛋鸡|鸡蛋料|蛋托|蛋筐|蛋箱|蛋白/.test(name)) return null;
   const grade = name.match(/([0-5])号/);
-  const gradeCode = grade ? `CJ_GRADE_${grade[1]}` : 'CJ_GRADE_UNCLASSIFIED';
+  const gradeCode = grade ? `CJ_G${grade[1]}` : 'CJ_GX';
   const dimensions = [
-    /红/.test(name) ? 'RED' : /粉/.test(name) ? 'PINK' : 'NATURAL',
-    /破损|破蛋/.test(name) ? 'BROKEN'
-      : /脏/.test(name) ? 'DIRTY'
-        : /水洗/.test(name) ? 'WASHED'
-          : /变蛋/.test(name) ? 'PRESERVED'
-            : /咸/.test(name) ? 'SALTED'
-              : 'STANDARD',
+    /红/.test(name) ? 'RED' : /粉/.test(name) ? 'PINK' : 'NAT',
+    /破损|破蛋/.test(name) ? 'BRK'
+      : /脏/.test(name) ? 'DRT'
+        : /水洗/.test(name) ? 'WSH'
+          : /变蛋/.test(name) ? 'PRS'
+            : /咸/.test(name) ? 'SLT'
+              : 'STD',
   ];
   return { gradeCode, specCode: `CJ_${dimensions.join('_')}` };
 }
