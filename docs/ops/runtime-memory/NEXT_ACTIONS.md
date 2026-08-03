@@ -1,5 +1,39 @@
 # Next Actions
 
+## 2026-08-03 - Deterministic department mappings applied in production
+
+Current stage: `CHANJET_DEPARTMENT_POLICY_PRODUCTION_APPLIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Classified the remaining department identities by real ERP business domain.
+2. Mapped 15 deterministic headquarters, store and breeding-house identities to
+   existing same-company ERP masters.
+3. Created no ERP masters and wrote no Chanjet data, balances, transactions or
+   inventory facts.
+4. Verified all 15 targets by exact code and name; missing/mismatch count is zero.
+5. Verified nine ERP business-table counts and fingerprints were unchanged.
+6. Re-ran the plan after apply: actionable 0 and 185 policy-incomplete rows HOLD.
+7. Deployed revision `461a7559` through run `30801206556`; production is healthy.
+
+Next actions:
+
+1. Enter `CHANJET_PRODUCT_SKU_UOM_POLICY_CLOSURE`.
+2. Define product, SKU, grade, specification, package UOM and conversion evidence
+   for 128 product and 22 UOM identities.
+3. Resolve site/workshop ownership and house-inventory bridge policies separately.
+4. Keep two generic cash-account and two generic warehouse semantics HOLD until
+   exact evidence exists.
+5. Repair six provider readonly permissions for `OTHER_STOCK_IN` and
+   `RETAIL_STOCK_OUT` without automatic retry.
+6. Keep Chanjet writeback and ERP finance/inventory fact import disabled.
+
+Evidence:
+
+- `docs/ops/CHANJET_REMAINING_MASTER_POLICY_CLOSURE_REPORT_20260803.md`
+
 ## 2026-07-31 - System-reviewed Chanjet ERP master mapping applied
 
 Current stage: `CHANJET_ERP_MASTER_SYSTEM_REVIEW_PRODUCTION_APPLIED`

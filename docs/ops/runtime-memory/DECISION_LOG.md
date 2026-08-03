@@ -2276,3 +2276,19 @@ Decision: counterparty resolution `GO`.
 - Deployment: `c34260cb` + `3f6a6a62`; GitHub Actions `30598655730` and
   `30599127868` PASS.
 - Next Gate: `CHANJET_REMAINING_MASTER_POLICY_CLOSURE`.
+
+## 2026-08-03 - Apply deterministic Chanjet department identities to ERP mappings
+
+- Decision: `GO_WITH_CONDITIONS`.
+- Production revision `461a7559` passed deployment run `30801206556`.
+- Applied 15 existing-target mappings: six company/headquarters aliases, four
+  exact stores and five exact breeding houses; created zero ERP masters.
+- Mapping target verification is 15 exact, zero missing and zero mismatched.
+- Nine ERP master/fact table fingerprints are identical before and after apply.
+- Post-apply planning is idempotent: zero actionable and 185 HOLD.
+- Remaining HOLDs are policy work, not matching backlog: 2 cash accounts, 17
+  departments, 128 products, 22 UOMs and 16 warehouses.
+- Chanjet external write and ERP finance/inventory fact import remain disabled.
+- Next Gate: `CHANJET_PRODUCT_SKU_UOM_POLICY_CLOSURE`.
+- Evidence:
+  `docs/ops/CHANJET_REMAINING_MASTER_POLICY_CLOSURE_REPORT_20260803.md`.

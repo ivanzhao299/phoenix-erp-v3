@@ -1,13 +1,13 @@
 # Codex-Orchestrator Runtime Memory
 
-Last updated: 2026-07-30
+Last updated: 2026-08-03
 
 ## Active Context
 
-- Active module: Chanjet Finance and WMS Integration
-- Current stage: CHANJET_READINESS_RUNTIME_STABLE_PROVIDER_PERMISSION_HOLD
-- Active decision: HOLD
-- Next gate: CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR
+- Active module: Chanjet Remaining Master Policy Closure
+- Current stage: CHANJET_DEPARTMENT_POLICY_PRODUCTION_APPLIED
+- Active decision: GO_WITH_CONDITIONS
+- Next gate: CHANJET_PRODUCT_SKU_UOM_POLICY_CLOSURE
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
 
@@ -26,10 +26,22 @@ Last updated: 2026-07-30
   require `MENU_SETTINGS_CHANJET:E`.
 - Runtime Memory stores no JWT, refresh token, Chanjet openToken, App Secret,
   certificate, database password or SSH credential.
-- Current expected state is `HOLD / 83 / B / 79-of-85`, with next Gate
-  `CHANJET_PROVIDER_SCOPE_PERMISSION_REPAIR`.
+- Current production state includes 15 newly approved existing-target department
+  mappings and 185 policy-incomplete HOLD rows. Six provider readonly scope HOLDs
+  remain separate.
 
 ## Latest Chanjet Decision
+
+- Production revision `461a7559` passed deployment run `30801206556`.
+- The remaining department policy review mapped 15 deterministic headquarters,
+  store and breeding-house identities to existing same-company ERP targets.
+- It created zero ERP masters and wrote no Chanjet data or ERP business facts.
+- Target readback is 15/15 exact; nine ERP business-table fingerprints are
+  unchanged before and after apply.
+- The post-apply plan is idempotent: zero actionable and 185 HOLD.
+- Next Gate is `CHANJET_PRODUCT_SKU_UOM_POLICY_CLOSURE`.
+- Evidence:
+  `docs/ops/CHANJET_REMAINING_MASTER_POLICY_CLOSURE_REPORT_20260803.md`.
 
 - Production revision `64fb5558` passed full CI/CD run `30464528298`.
 - Readiness no longer hydrates raw snapshot bodies; scalar SQL evidence, bounded cache
