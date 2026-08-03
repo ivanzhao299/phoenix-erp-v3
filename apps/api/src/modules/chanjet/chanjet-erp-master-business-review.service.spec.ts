@@ -31,11 +31,15 @@ function createService(
     companies?: Array<Record<string, unknown>>;
     stores?: Array<Record<string, unknown>>;
     houses?: Array<Record<string, unknown>>;
+    productMasters?: Array<Record<string, unknown>>;
+    productEvidence?: Array<Record<string, unknown>>;
   } = {},
 ) {
   const ds = {
     query: jest.fn(async (sql: string) => {
       if (sql.includes('FROM chanjet_master_mapping')) return sources;
+      if (sql.includes('WITH evidence AS')) return targets.productEvidence || [];
+      if (sql.includes('AS "targetEntityType"')) return targets.productMasters || [];
       if (sql.includes('FROM fin_cash_accounts')) return targets.cash || [];
       if (sql.includes('FROM biz_projects')) return targets.projects || [];
       if (sql.includes('FROM wms_warehouses')) return targets.warehouses || [];
@@ -242,5 +246,103 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
       actor: 'test',
     })).rejects.toThrow('CHANJET_ERP_MASTER_MAPPING_APPROVAL_TOKEN_INVALID');
     expect(ds.createQueryRunner).not.toHaveBeenCalled();
+  });
+
+  it('creates a source-preserving egg SKU only with repeated runtime UOM evidence', async () => {
+    const { service } = createService([
+      source({
+        id: 'egg-red-1',
+        mapping_type: 'PRODUCT',
+        chanjet_code: '901',
+        chanjet_name: '1号红蛋',
+        raw_data: { erpMasterGapProposal: { gapClass: 'PRODUCT_SKU_MODEL_REQUIRED' } },
+      }),
+    ], {
+      productEvidence: [{
+        bookId: 'BOOK-1',
+        productCode: '901',
+        productName: '1号红蛋',
+        evidenceCount: 20,
+        baseUoms: ['枚'],
+        specs: [],
+      }],
+    });
+
+    const plan = await service.plan();
+
+    expect(plan.candidates[0]).toMatchObject({
+      decision: 'CREATE_MASTER',
+      targetTable: 'product_skus',
+      targetEntityType: 'SKU',
+      createPayload: {
+        productCode: 'EGG',
+        gradeCode: 'CJ_GRADE_1',
+        specCode: 'CJ_RED_STANDARD',
+        baseUom: '枚',
+      },
+    });
+  });
+
+  it('creates a material identity only when its base UOM and specification evidence are stable', async () => {
+    const { service } = createService([
+      source({
+        id: 'material-1',
+        mapping_type: 'PRODUCT',
+        chanjet_code: '01063',
+        chanjet_name: '头孢噻肟钠',
+        raw_data: { erpMasterGapProposal: { gapClass: 'MATERIAL_MASTER_CANDIDATE' } },
+      }),
+    ], {
+      productEvidence: [{
+        bookId: 'BOOK-1',
+        productCode: '01063',
+        productName: '头孢噻肟钠',
+        evidenceCount: 16,
+        baseUoms: ['kg'],
+        specs: ['50kg'],
+      }],
+    });
+
+    const plan = await service.plan();
+
+    expect(plan.candidates[0]).toMatchObject({
+      decision: 'CREATE_MASTER',
+      targetTable: 'mst_materials',
+      targetEntityType: 'MATERIAL',
+      createPayload: {
+        materialName: '头孢噻肟钠',
+        materialType: 'VET_DRUG',
+        unit: '公斤',
+        spec: '50kg',
+      },
+    });
+  });
+
+  it('holds a material whose runtime base UOM requires a conversion policy', async () => {
+    const { service } = createService([
+      source({
+        id: 'feed-1',
+        mapping_type: 'PRODUCT',
+        chanjet_code: '106',
+        chanjet_name: '蛋鸡料',
+        raw_data: { erpMasterGapProposal: { gapClass: 'MATERIAL_MASTER_CANDIDATE' } },
+      }),
+    ], {
+      productEvidence: [{
+        bookId: 'BOOK-1',
+        productCode: '106',
+        productName: '蛋鸡料',
+        evidenceCount: 100,
+        baseUoms: ['斤'],
+        specs: [],
+      }],
+    });
+
+    const plan = await service.plan();
+
+    expect(plan.candidates[0].decision).toBe('HOLD');
+    expect(plan.candidates[0].blockers).toContain(
+      'MASS_UNIT_CONVERSION_POLICY_REQUIRED_BEFORE_MASTER_CREATION',
+    );
   });
 });

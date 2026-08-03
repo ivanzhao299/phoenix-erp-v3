@@ -30,6 +30,16 @@ type ExistingMaster = {
   accountNo?: string;
   targetTable: string;
   targetEntityType?: string;
+  baseUom?: string;
+};
+
+type ProductEvidence = {
+  bookId: string;
+  productCode: string;
+  productName: string;
+  evidenceCount: number;
+  baseUoms: string[];
+  specs: string[];
 };
 
 export type ChanjetErpMasterReviewCandidate = {
@@ -72,6 +82,11 @@ export type ChanjetErpMasterBusinessReviewPlan = {
     financialBalanceImport: false;
     inventoryFactImport: false;
     ambiguousRowsHeld: true;
+    authoritySource: 'CHANJET';
+    activeSyncDirection: 'CHANJET_TO_ERP';
+    erpMasterWrite: true;
+    reverseWriteCapability: 'READY_BUT_LOCKED';
+    bidirectionalContractReady: true;
   };
 };
 
@@ -110,6 +125,48 @@ function companyAlias(companyCode: string): string {
   if (companyCode.endsWith('-XINGCHI')) return 'XINGCHI';
   if (companyCode.endsWith('-FOOD')) return 'FOOD';
   return safeCodePart(companyCode, 'COMP').slice(-16);
+}
+
+function shortHash(value: string): string {
+  return createHash('sha256').update(value).digest('hex').slice(0, 12).toUpperCase();
+}
+
+function canonicalBaseUom(value: unknown): string {
+  const unit = String(value || '').normalize('NFKC').trim();
+  if (/^(kg|KG|公斤|千克)$/.test(unit)) return '公斤';
+  if (/^(l|L|升|公升)$/.test(unit)) return '升';
+  if (/^(pcs?|PCS?|枚)$/.test(unit)) return '枚';
+  if (/^(个)$/.test(unit)) return '个';
+  return unit;
+}
+
+function uniqueCanonicalUoms(values: string[]): string[] {
+  return [...new Set(values.map(canonicalBaseUom).filter(Boolean))].sort();
+}
+
+function inferMaterialType(name: string): string {
+  if (/料|玉米|豆粕|米糠|石粉|鱼粉|麸皮|豆油/.test(name)) return 'FEED_RAW';
+  if (/箱|托|袋|筐|包装|标签|胶带/.test(name)) return 'PACKAGING';
+  if (/疫苗|霉素|沙星|头孢|卡巴|葡萄糖|注射液|口服液|药|多维|消毒/.test(name)) return 'VET_DRUG';
+  if (/纸|笔|文件夹|档案袋|办公/.test(name)) return 'OFFICE';
+  if (/灯|泵|管|机|设备|配件|皮带/.test(name)) return 'EQUIPMENT';
+  return 'OTHER';
+}
+
+function eggDimensions(name: string): { gradeCode: string; specCode: string } | null {
+  if (!/蛋/.test(name) || /蛋鸡|鸡蛋料|蛋托|蛋筐|蛋箱|蛋白/.test(name)) return null;
+  const grade = name.match(/([0-5])号/);
+  const gradeCode = grade ? `CJ_GRADE_${grade[1]}` : 'CJ_GRADE_UNCLASSIFIED';
+  const dimensions = [
+    /红/.test(name) ? 'RED' : /粉/.test(name) ? 'PINK' : 'NATURAL',
+    /破损|破蛋/.test(name) ? 'BROKEN'
+      : /脏/.test(name) ? 'DIRTY'
+        : /水洗/.test(name) ? 'WASHED'
+          : /变蛋/.test(name) ? 'PRESERVED'
+            : /咸/.test(name) ? 'SALTED'
+              : 'STANDARD',
+  ];
+  return { gradeCode, specCode: `CJ_${dimensions.join('_')}` };
 }
 
 function rawRecord(rawData: Record<string, unknown> | null): Record<string, unknown> {
@@ -217,6 +274,8 @@ export class ChanjetErpMasterBusinessReviewService {
       companyOrganizations,
       stores,
       houses,
+      productMasters,
+      productEvidence,
     ] = await Promise.all([
       this.loadSourceMappings(),
       this.loadCashAccounts(),
@@ -225,6 +284,8 @@ export class ChanjetErpMasterBusinessReviewService {
       this.loadCompanyOrganizations(),
       this.loadStores(),
       this.loadHouses(),
+      this.loadProductMasters(),
+      this.loadProductEvidence(),
     ]);
 
     const genericWarehouseNamesByCompany = new Map<string, number>();
@@ -247,6 +308,8 @@ export class ChanjetErpMasterBusinessReviewService {
         companyOrganizations,
         stores,
         houses,
+        productMasters,
+        productEvidence,
         genericWarehouseNamesByCompany,
       },
     ));
@@ -283,6 +346,11 @@ export class ChanjetErpMasterBusinessReviewService {
         financialBalanceImport: false,
         inventoryFactImport: false,
         ambiguousRowsHeld: true,
+        authoritySource: 'CHANJET',
+        activeSyncDirection: 'CHANJET_TO_ERP',
+        erpMasterWrite: true,
+        reverseWriteCapability: 'READY_BUT_LOCKED',
+        bidirectionalContractReady: true,
       },
     };
   }
@@ -312,6 +380,9 @@ export class ChanjetErpMasterBusinessReviewService {
         writeChanjet: false,
         financialBalanceImport: false,
         inventoryFactImport: false,
+        authoritySource: 'CHANJET',
+        activeSyncDirection: 'CHANJET_TO_ERP',
+        reverseWriteCapability: 'READY_BUT_LOCKED',
       };
     }
 
@@ -347,6 +418,9 @@ export class ChanjetErpMasterBusinessReviewService {
         writeChanjet: false,
         financialBalanceImport: false,
         inventoryFactImport: false,
+        authoritySource: 'CHANJET',
+        activeSyncDirection: 'CHANJET_TO_ERP',
+        reverseWriteCapability: 'READY_BUT_LOCKED',
       };
     } catch (error) {
       await runner.rollbackTransaction();
@@ -464,6 +538,73 @@ export class ChanjetErpMasterBusinessReviewService {
     }));
   }
 
+  private async loadProductMasters(): Promise<ExistingMaster[]> {
+    const rows = await this.ds.query(
+      `SELECT code, name, "companyCode", "targetEntityType", "targetTable", "baseUom"
+         FROM (
+           SELECT product_code AS code,
+                  COALESCE(NULLIF(product_name_zh, ''), product_name, '') AS name,
+                  '' AS "companyCode",
+                  'PRODUCT' AS "targetEntityType",
+                  'mst_products' AS "targetTable",
+                  COALESCE(unit_zh, '') AS "baseUom"
+             FROM mst_products
+            WHERE status = 'ACTIVE'
+           UNION ALL
+           SELECT sku_code,
+                  COALESCE(NULLIF(sku_name, ''), product_name, ''),
+                  '', 'SKU', 'product_skus',
+                  CASE WHEN product_code = 'EGG' OR product_code LIKE 'PRD-EGG-%' THEN '枚' ELSE '' END
+             FROM product_skus
+            WHERE status = 'ACTIVE'
+           UNION ALL
+           SELECT material_code, COALESCE(material_name, ''), '',
+                  'MATERIAL', 'mst_materials', COALESCE(unit, '')
+             FROM mst_materials
+            WHERE status = 'ACTIVE'
+         ) catalog`,
+    );
+    return rows;
+  }
+
+  private async loadProductEvidence(): Promise<ProductEvidence[]> {
+    const rows = await this.ds.query(
+      `WITH evidence AS (
+         SELECT book_id,
+                raw_data->>'productCode' AS product_code,
+                raw_data->>'productName' AS product_name,
+                NULLIF(TRIM(raw_data->>'specNo'), '') AS spec,
+                NULLIF(TRIM(raw_data->>'baseUomName'), '') AS base_uom
+           FROM chanjet_entity_snapshots
+          WHERE entity_type IN ('INVENTORY_ON_HAND', 'INVENTORY_ON_HAND_LOT')
+         UNION ALL
+         SELECT s.book_id,
+                line->>'productCode',
+                line->>'productName',
+                NULLIF(TRIM(line->>'productSpecNo'), ''),
+                NULLIF(TRIM(COALESCE(line->>'productBaseUomName', line->>'transUomName')), '')
+           FROM chanjet_entity_snapshots s
+           CROSS JOIN LATERAL jsonb_array_elements(s.raw_data->'voucherDetailList') line
+          WHERE jsonb_typeof(s.raw_data->'voucherDetailList') = 'array'
+       )
+       SELECT book_id AS "bookId",
+              product_code AS "productCode",
+              MAX(product_name) AS "productName",
+              COUNT(*)::int AS "evidenceCount",
+              ARRAY_REMOVE(ARRAY_AGG(DISTINCT base_uom), NULL) AS "baseUoms",
+              ARRAY_REMOVE(ARRAY_AGG(DISTINCT spec), NULL) AS specs
+         FROM evidence
+        WHERE COALESCE(product_code, '') <> ''
+        GROUP BY book_id, product_code`,
+    );
+    return rows.map((row: ProductEvidence) => ({
+      ...row,
+      evidenceCount: Number(row.evidenceCount || 0),
+      baseUoms: Array.isArray(row.baseUoms) ? row.baseUoms : [],
+      specs: Array.isArray(row.specs) ? row.specs : [],
+    }));
+  }
+
   private reviewSource(
     source: SourceMappingRow,
     context: {
@@ -473,6 +614,8 @@ export class ChanjetErpMasterBusinessReviewService {
       companyOrganizations: ExistingMaster[];
       stores: ExistingMaster[];
       houses: ExistingMaster[];
+      productMasters: ExistingMaster[];
+      productEvidence: ProductEvidence[];
       genericWarehouseNamesByCompany: Map<string, number>;
     },
   ): ChanjetErpMasterReviewCandidate {
@@ -496,10 +639,7 @@ export class ChanjetErpMasterBusinessReviewService {
       return this.reviewDepartment(source, context);
     }
     if (source.mapping_type === 'PRODUCT') {
-      return holdCandidate(source, [
-        proposalGapClass(source.raw_data) || 'PRODUCT_DOMAIN_CLASSIFICATION_REQUIRED',
-        'PRODUCT_GRADE_SPEC_UOM_EVIDENCE_INCOMPLETE',
-      ]);
+      return this.reviewProduct(source, context.productMasters, context.productEvidence);
     }
     if (source.mapping_type === 'UOM') {
       return holdCandidate(source, [
@@ -791,6 +931,143 @@ export class ChanjetErpMasterBusinessReviewService {
     };
   }
 
+  private reviewProduct(
+    source: SourceMappingRow,
+    masters: ExistingMaster[],
+    evidenceRows: ProductEvidence[],
+  ): ChanjetErpMasterReviewCandidate {
+    const gapClass = proposalGapClass(source.raw_data) || 'PRODUCT_DOMAIN_CLASSIFICATION_REQUIRED';
+    const expectedEntityTypes = gapClass === 'PRODUCT_SKU_MODEL_REQUIRED'
+      ? ['SKU']
+      : gapClass === 'MATERIAL_MASTER_CANDIDATE'
+        ? ['MATERIAL']
+        : ['PRODUCT', 'SKU', 'MATERIAL'];
+    const exactMatches = masters.filter((master) => (
+      expectedEntityTypes.includes(master.targetEntityType || '')
+      && normalized(master.name) === normalized(source.chanjet_name)
+    ));
+    if (exactMatches.length === 1) {
+      const master = exactMatches[0];
+      return {
+        ...holdCandidate(source, [], [
+          'exact normalized ERP master name',
+          `source gap class ${gapClass} agrees with ERP entity ${master.targetEntityType}`,
+          'global ERP product master; source account-book identity remains on mapping row',
+        ]),
+        decision: 'MAP_EXISTING',
+        targetTable: master.targetTable,
+        targetCode: master.code,
+        targetName: master.name,
+        targetEntityType: master.targetEntityType || '',
+      };
+    }
+    if (exactMatches.length > 1) {
+      return holdCandidate(source, ['MULTIPLE_EXACT_ERP_PRODUCT_TARGETS', gapClass]);
+    }
+
+    const evidence = evidenceRows.find((row) => (
+      row.bookId === source.book_id
+      && String(row.productCode) === String(source.chanjet_code)
+    ));
+    if (!evidence || evidence.evidenceCount < 3) {
+      return holdCandidate(source, [gapClass, 'PRODUCT_RUNTIME_EVIDENCE_INSUFFICIENT']);
+    }
+    const baseUoms = uniqueCanonicalUoms(evidence.baseUoms);
+    if (baseUoms.length !== 1) {
+      return holdCandidate(source, [
+        gapClass,
+        baseUoms.length ? 'PRODUCT_BASE_UOM_CONFLICT' : 'PRODUCT_BASE_UOM_MISSING',
+      ], [`runtime evidence rows ${evidence.evidenceCount}`]);
+    }
+
+    if (gapClass === 'PRODUCT_SKU_MODEL_REQUIRED') {
+      const dimensions = eggDimensions(source.chanjet_name);
+      if (!dimensions || baseUoms[0] !== '枚') {
+        return holdCandidate(source, [
+          gapClass,
+          'EGG_SKU_DIMENSIONS_OR_BASE_UOM_NOT_DETERMINISTIC',
+        ], [`runtime base UOM ${baseUoms[0]}`, `runtime evidence rows ${evidence.evidenceCount}`]);
+      }
+      const identity = normalized(source.chanjet_name);
+      const skuCode = `CJ-EGG-${shortHash(identity)}`;
+      return {
+        ...holdCandidate(source, [], [
+          `runtime evidence rows ${evidence.evidenceCount}`,
+          'runtime base UOM consistently 枚',
+          `deterministic grade ${dimensions.gradeCode}`,
+          `deterministic egg attributes ${dimensions.specCode}`,
+          'one ERP SKU per normalized Chanjet product identity; no inventory fact imported',
+        ]),
+        decision: 'CREATE_MASTER',
+        targetTable: 'product_skus',
+        targetCode: skuCode,
+        targetName: source.chanjet_name.trim(),
+        targetEntityType: 'SKU',
+        createPayload: {
+          skuCode,
+          skuName: source.chanjet_name.trim(),
+          productCode: 'EGG',
+          productName: '鸡蛋',
+          gradeCode: dimensions.gradeCode,
+          specCode: dimensions.specCode,
+          baseUom: '枚',
+        },
+      };
+    }
+
+    if (gapClass === 'MATERIAL_MASTER_CANDIDATE') {
+      const baseUom = baseUoms[0];
+      if (['斤', '吨'].includes(baseUom)) {
+        return holdCandidate(source, [
+          gapClass,
+          'MASS_UNIT_CONVERSION_POLICY_REQUIRED_BEFORE_MASTER_CREATION',
+        ], [`runtime base UOM ${baseUom}`, `runtime evidence rows ${evidence.evidenceCount}`]);
+      }
+      const materialCode = `CJ-MAT-${companyAlias(source.company_code)}-${safeCodePart(
+        source.chanjet_code,
+        shortHash(`${source.book_id}:${source.chanjet_name}`),
+      )}`.slice(0, 64);
+      const specs = [...new Set(evidence.specs.map((item) => String(item).trim()).filter(Boolean))];
+      if (specs.length > 1) {
+        return holdCandidate(source, [gapClass, 'MULTIPLE_SOURCE_PRODUCT_SPECIFICATIONS'], [
+          `runtime evidence rows ${evidence.evidenceCount}`,
+          `observed specifications ${specs.join(' | ')}`,
+        ]);
+      }
+      return {
+        ...holdCandidate(source, [], [
+          `runtime evidence rows ${evidence.evidenceCount}`,
+          `runtime base UOM consistently ${baseUom}`,
+          specs.length ? `single observed specification ${specs[0]}` : 'no conflicting specification observed',
+          'source account-book product code retained in deterministic ERP material code',
+          'master identity only; no quantity, cost or inventory fact imported',
+        ]),
+        decision: 'CREATE_MASTER',
+        targetTable: 'mst_materials',
+        targetCode: materialCode,
+        targetName: source.chanjet_name.trim(),
+        targetEntityType: 'MATERIAL',
+        createPayload: {
+          materialCode,
+          materialName: source.chanjet_name.trim(),
+          materialType: inferMaterialType(source.chanjet_name),
+          spec: specs[0] || '',
+          unit: baseUom,
+        },
+      };
+    }
+
+    return holdCandidate(source, [
+      gapClass,
+      gapClass === 'LIVESTOCK_MASTER_REQUIRED'
+        ? 'LIVESTOCK_MUST_MAP_TO_BREEDING_MASTER_NOT_PRODUCT_MASTER'
+        : 'PRODUCT_SEMANTIC_OWNER_REQUIRES_EXPLICIT_POLICY',
+    ], [
+      `runtime evidence rows ${evidence.evidenceCount}`,
+      `runtime base UOM ${baseUoms[0]}`,
+    ]);
+  }
+
   private async applyCandidate(
     runner: QueryRunner,
     candidate: ChanjetErpMasterReviewCandidate,
@@ -828,6 +1105,9 @@ export class ChanjetErpMasterBusinessReviewService {
       reviewedBy: actor,
       reviewedAt: new Date().toISOString(),
       writeChanjet: false,
+      authoritySource: 'CHANJET',
+      activeSyncDirection: 'CHANJET_TO_ERP',
+      reverseWriteCapability: 'READY_BUT_LOCKED',
       financialBalanceImport: false,
       inventoryFactImport: false,
     };
@@ -929,6 +1209,43 @@ export class ChanjetErpMasterBusinessReviewService {
       );
       return;
     }
+    if (candidate.targetTable === 'product_skus') {
+      await runner.query(
+        `INSERT INTO product_skus
+          (sku_code, sku_name, product_code, product_name, grade_code,
+           spec_code, status, remark)
+         VALUES ($1,$2,$3,$4,$5,$6,'ACTIVE',$7)
+         ON CONFLICT (sku_code) DO NOTHING`,
+        [
+          payload.skuCode,
+          payload.skuName,
+          payload.productCode,
+          payload.productName,
+          payload.gradeCode,
+          payload.specCode,
+          remark,
+        ],
+      );
+      return;
+    }
+    if (candidate.targetTable === 'mst_materials') {
+      await runner.query(
+        `INSERT INTO mst_materials
+          (material_code, material_name, material_type, spec, unit,
+           default_currency, status, remark)
+         VALUES ($1,$2,$3,$4,$5,'LAK','ACTIVE',$6)
+         ON CONFLICT (material_code) DO NOTHING`,
+        [
+          payload.materialCode,
+          payload.materialName,
+          payload.materialType,
+          payload.spec,
+          payload.unit,
+          remark,
+        ],
+      );
+      return;
+    }
     throw new Error(`target table ${candidate.targetTable} is not approved for automatic creation`);
   }
 
@@ -960,13 +1277,29 @@ export class ChanjetErpMasterBusinessReviewService {
         `SELECT house_code AS code, house_name AS name, company_code AS company
            FROM brd_houses
           WHERE house_code = $1 AND status = 'ACTIVE'`,
+      mst_products:
+        `SELECT product_code AS code,
+                COALESCE(NULLIF(product_name_zh, ''), product_name) AS name,
+                '' AS company
+           FROM mst_products
+          WHERE product_code = $1 AND status = 'ACTIVE'`,
+      product_skus:
+        `SELECT sku_code AS code, COALESCE(NULLIF(sku_name, ''), product_name) AS name,
+                '' AS company
+           FROM product_skus
+          WHERE sku_code = $1 AND status = 'ACTIVE'`,
+      mst_materials:
+        `SELECT material_code AS code, material_name AS name, '' AS company
+           FROM mst_materials
+          WHERE material_code = $1 AND status = 'ACTIVE'`,
     };
     const sql = contracts[candidate.targetTable];
     if (!sql) throw new Error(`unsupported target table ${candidate.targetTable}`);
     const rows = await runner.query(sql, [candidate.targetCode]);
     if (
       rows.length !== 1
-      || rows[0].company !== candidate.companyCode
+      || (!['mst_products', 'product_skus', 'mst_materials'].includes(candidate.targetTable)
+        && rows[0].company !== candidate.companyCode)
       || normalized(rows[0].name) !== normalized(candidate.targetName)
     ) {
       throw new Error(
@@ -996,6 +1329,9 @@ export class ChanjetErpMasterBusinessReviewService {
           summary: plan.summary,
           result,
           writeChanjet: false,
+          authoritySource: 'CHANJET',
+          activeSyncDirection: 'CHANJET_TO_ERP',
+          reverseWriteCapability: 'READY_BUT_LOCKED',
           financialBalanceImport: false,
           inventoryFactImport: false,
         }),
