@@ -1091,8 +1091,8 @@ export class ChanjetErpMasterBusinessReviewService {
 
     let status = 'MAPPED_EXISTING';
     if (candidate.decision === 'CREATE_MASTER') {
-      await this.createMaster(runner, candidate, actor);
-      status = 'CREATED';
+      const created = await this.createMaster(runner, candidate, actor);
+      status = created ? 'CREATED' : 'MAPPED_EXISTING';
     }
     await this.assertTarget(runner, candidate);
     const reviewEvidence = {
@@ -1148,17 +1148,18 @@ export class ChanjetErpMasterBusinessReviewService {
     runner: QueryRunner,
     candidate: ChanjetErpMasterReviewCandidate,
     actor: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const payload = candidate.createPayload || {};
     const remark = `好业财只读主档映射 ${candidate.bookId}:${candidate.chanjetCode}; system business review; no balance/fact import`;
     if (candidate.targetTable === 'fin_cash_accounts') {
-      await runner.query(
+      const rows = await runner.query(
         `INSERT INTO fin_cash_accounts
           (account_code, account_name, company_code, company_name, currency_code,
            account_type, opening_balance, current_balance, bank_name,
            bank_account_no, status, remark, created_by, updated_by)
          VALUES ($1,$2,$3,$4,$5,$6,0,0,$7,$8,'ACTIVE',$9,$10,$10)
-         ON CONFLICT (account_code) DO NOTHING`,
+         ON CONFLICT (account_code) DO NOTHING
+         RETURNING account_code`,
         [
           payload.accountCode,
           payload.accountName,
@@ -1172,15 +1173,16 @@ export class ChanjetErpMasterBusinessReviewService {
           actor,
         ],
       );
-      return;
+      return rows.length === 1;
     }
     if (candidate.targetTable === 'biz_projects') {
-      await runner.query(
+      const rows = await runner.query(
         `INSERT INTO biz_projects
           (project_code, project_name, project_type, company_code, status,
            sort_order, remark, created_by)
          VALUES ($1,$2,$3,$4,'ACTIVE',0,$5,$6)
-         ON CONFLICT (project_code) WHERE deleted_at IS NULL DO NOTHING`,
+         ON CONFLICT (project_code) WHERE deleted_at IS NULL DO NOTHING
+         RETURNING project_code`,
         [
           payload.projectCode,
           payload.projectName,
@@ -1190,15 +1192,16 @@ export class ChanjetErpMasterBusinessReviewService {
           actor,
         ],
       );
-      return;
+      return rows.length === 1;
     }
     if (candidate.targetTable === 'wms_warehouses') {
-      await runner.query(
+      const rows = await runner.query(
         `INSERT INTO wms_warehouses
           (warehouse_code, warehouse_name, warehouse_name_zh, type,
            status, company_code, remark)
          VALUES ($1,$2,$2,$3,'ACTIVE',$4,$5)
-         ON CONFLICT (warehouse_code) DO NOTHING`,
+         ON CONFLICT (warehouse_code) DO NOTHING
+         RETURNING warehouse_code`,
         [
           payload.warehouseCode,
           payload.warehouseName,
@@ -1207,15 +1210,16 @@ export class ChanjetErpMasterBusinessReviewService {
           remark,
         ],
       );
-      return;
+      return rows.length === 1;
     }
     if (candidate.targetTable === 'product_skus') {
-      await runner.query(
+      const rows = await runner.query(
         `INSERT INTO product_skus
           (sku_code, sku_name, product_code, product_name, grade_code,
            spec_code, status, remark)
          VALUES ($1,$2,$3,$4,$5,$6,'ACTIVE',$7)
-         ON CONFLICT (sku_code) DO NOTHING`,
+         ON CONFLICT (sku_code) DO NOTHING
+         RETURNING sku_code`,
         [
           payload.skuCode,
           payload.skuName,
@@ -1226,15 +1230,16 @@ export class ChanjetErpMasterBusinessReviewService {
           remark,
         ],
       );
-      return;
+      return rows.length === 1;
     }
     if (candidate.targetTable === 'mst_materials') {
-      await runner.query(
+      const rows = await runner.query(
         `INSERT INTO mst_materials
           (material_code, material_name, material_type, spec, unit,
            default_currency, status, remark)
          VALUES ($1,$2,$3,$4,$5,'LAK','ACTIVE',$6)
-         ON CONFLICT (material_code) DO NOTHING`,
+         ON CONFLICT (material_code) DO NOTHING
+         RETURNING material_code`,
         [
           payload.materialCode,
           payload.materialName,
@@ -1244,7 +1249,7 @@ export class ChanjetErpMasterBusinessReviewService {
           remark,
         ],
       );
-      return;
+      return rows.length === 1;
     }
     throw new Error(`target table ${candidate.targetTable} is not approved for automatic creation`);
   }
