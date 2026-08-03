@@ -4,10 +4,10 @@ Last updated: 2026-08-03
 
 ## Active Context
 
-- Active module: Chanjet Remaining Master Policy Closure
-- Current stage: CHANJET_DEPARTMENT_POLICY_PRODUCTION_APPLIED
+- Active module: Chanjet Product/SKU/UOM Policy Closure
+- Current stage: CHANJET_PRODUCT_SKU_POLICY_PRODUCTION_APPLIED
 - Active decision: GO_WITH_CONDITIONS
-- Next gate: CHANJET_PRODUCT_SKU_UOM_POLICY_CLOSURE
+- Next gate: CHANJET_UOM_CONVERSION_POLICY_CLOSURE
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
 
@@ -26,11 +26,25 @@ Last updated: 2026-08-03
   require `MENU_SETTINGS_CHANJET:E`.
 - Runtime Memory stores no JWT, refresh token, Chanjet openToken, App Secret,
   certificate, database password or SSH credential.
-- Current production state includes 15 newly approved existing-target department
-  mappings and 185 policy-incomplete HOLD rows. Six provider readonly scope HOLDs
-  remain separate.
+- Current production state includes 19 generated ERP SKUs, 28 generated ERP
+  materials and 78 new deterministic source mappings. The final plan has zero
+  actionable rows and 107 policy-incomplete HOLD rows. Six provider readonly
+  scope HOLDs remain separate.
 
 ## Latest Chanjet Decision
+
+- Production revision `b6e7fd09` passed deployment run `30808189992`.
+- The product policy closure created 19 SKU masters and 28 material masters and
+  recorded 78 new deterministic source mappings.
+- Production readback is exact: target missing 0, target name mismatch 0 and
+  final actionable rows 0.
+- The remaining 107 HOLD rows are 2 cash accounts, 17 departments, 50 products,
+  22 UOMs and 16 warehouses.
+- Active synchronization remains `CHANJET_TO_ERP`; reverse-write capability is
+  `READY_BUT_LOCKED`. No Chanjet data or ERP financial/inventory fact was written.
+- Next Gate is `CHANJET_UOM_CONVERSION_POLICY_CLOSURE`.
+- Evidence:
+  `docs/ops/CHANJET_PRODUCT_SKU_UOM_POLICY_CLOSURE_REPORT_20260803.md`.
 
 - Production revision `461a7559` passed deployment run `30801206556`.
 - The remaining department policy review mapped 15 deterministic headquarters,

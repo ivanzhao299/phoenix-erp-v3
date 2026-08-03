@@ -2292,3 +2292,23 @@ Decision: counterparty resolution `GO`.
 - Next Gate: `CHANJET_PRODUCT_SKU_UOM_POLICY_CLOSURE`.
 - Evidence:
   `docs/ops/CHANJET_REMAINING_MASTER_POLICY_CLOSURE_REPORT_20260803.md`.
+
+## 2026-08-03 - Apply authoritative Chanjet product identities into ERP masters
+
+- Decision: `GO_WITH_CONDITIONS`.
+- Production revision `b6e7fd09` passed deployment run `30808189992`.
+- The first apply failed on overlong generated SKU dimension codes and rolled
+  back transactionally with zero residue. Compact bounded codes fixed the schema
+  mismatch and the target regression suite passed 9/9.
+- Production apply created 19 SKU masters and 28 material masters and recorded
+  78 deterministic source mappings across the initial and convergence passes.
+- Final readback shows 88 mapped product identities, target missing 0, target
+  name mismatch 0 and zero remaining actionable rows.
+- A total of 107 evidence-incomplete rows remain HOLD: cash 2, department 17,
+  product 50, UOM 22 and warehouse 16.
+- Active synchronization is `CHANJET_TO_ERP`. Reverse-write capability is
+  modeled as `READY_BUT_LOCKED`; no Chanjet write, finance fact import, inventory
+  fact import or migration occurred.
+- Next Gate: `CHANJET_UOM_CONVERSION_POLICY_CLOSURE`.
+- Evidence:
+  `docs/ops/CHANJET_PRODUCT_SKU_UOM_POLICY_CLOSURE_REPORT_20260803.md`.

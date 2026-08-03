@@ -1,5 +1,38 @@
 # Next Actions
 
+## 2026-08-03 - Chanjet product identities applied to ERP masters
+
+Current stage: `CHANJET_PRODUCT_SKU_POLICY_PRODUCTION_APPLIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Created 19 bounded-code ERP SKU masters and 28 classified material masters.
+2. Added 78 deterministic Chanjet source mappings; total mapped product
+   identities are now 88.
+3. Verified zero target missing and zero target name mismatch.
+4. Converged the plan to zero actionable rows without fuzzy matching.
+5. Kept 107 evidence-incomplete rows HOLD instead of guessing.
+6. Kept active synchronization `CHANJET_TO_ERP`; reverse write is
+   `READY_BUT_LOCKED`.
+7. Deployed revision `b6e7fd09` through production run `30808189992`.
+
+Next actions:
+
+1. Enter `CHANJET_UOM_CONVERSION_POLICY_CLOSURE` for 22 UOM identities.
+2. Resolve the remaining 50 product HOLDs using explicit unit, livestock,
+   grade and specification evidence.
+3. Close 17 department, 16 warehouse and 2 cash-account rows in separate
+   deterministic policy Gates.
+4. Repair six provider readonly grants for `OTHER_STOCK_IN` and
+   `RETAIL_STOCK_OUT`.
+5. Keep Chanjet external write and ERP finance/inventory fact import disabled.
+
+Evidence:
+
+- `docs/ops/CHANJET_PRODUCT_SKU_UOM_POLICY_CLOSURE_REPORT_20260803.md`
+
 ## 2026-08-03 - Deterministic department mappings applied in production
 
 Current stage: `CHANJET_DEPARTMENT_POLICY_PRODUCTION_APPLIED`
