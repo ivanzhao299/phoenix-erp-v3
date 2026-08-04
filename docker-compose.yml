@@ -43,6 +43,11 @@ services:
     #   context: .
     #   dockerfile: apps/api/Dockerfile
     container_name: phoenix-v3-api
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
     depends_on:
       db:
@@ -89,6 +94,11 @@ services:
     #   context: .
     #   dockerfile: apps/web/Dockerfile
     container_name: phoenix-v3-web
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
     depends_on:
       api:
