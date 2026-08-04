@@ -2312,3 +2312,11 @@ Decision: counterparty resolution `GO`.
 - Next Gate: `CHANJET_UOM_CONVERSION_POLICY_CLOSURE`.
 - Evidence:
   `docs/ops/CHANJET_PRODUCT_SKU_UOM_POLICY_CLOSURE_REPORT_20260803.md`.
+# 2026-08-04 - Chanjet optimization is proposal-first and approval-gated
+
+- Remaining HOLD rows are no longer treated as one undifferentiated backlog.
+- Finance facts remain Chanjet-authoritative; operational facts remain ERP-authoritative.
+- Chanjet source corrections require an exact old/new value, reason, rollback,
+  explicit user approval, one-row canary and official dual readback.
+- Precision audit and UOM evidence extraction are read-only and cannot execute
+  external writes.

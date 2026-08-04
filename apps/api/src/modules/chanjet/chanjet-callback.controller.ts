@@ -19,6 +19,7 @@ import {
   CHANJET_ERP_MASTER_REVIEW_ACTION,
   ChanjetErpMasterBusinessReviewService,
 } from './chanjet-erp-master-business-review.service';
+import { ChanjetHoldResolutionAuditService } from './chanjet-hold-resolution-audit.service';
 import * as crypto from 'crypto';
 
 type ChanjetProxyMethod = 'GET' | 'POST';
@@ -77,6 +78,7 @@ export class ChanjetCallbackController {
     private readonly readonlySyncScheduler: ChanjetReadonlySyncScheduler,
     private readonly wmsBridge: ChanjetWmsBridgeService,
     private readonly erpMasterBusinessReview: ChanjetErpMasterBusinessReviewService,
+    private readonly holdResolutionAudit: ChanjetHoldResolutionAuditService,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
@@ -1012,6 +1014,22 @@ export class ChanjetCallbackController {
       writeChanjet: false,
       financialBalanceImport: false,
       inventoryFactImport: false,
+    };
+  }
+
+  /**
+   * Splits legacy HOLD rows into deterministic policy, intentional non-mapping,
+   * source-quality proposals and genuine unresolved items. This endpoint is
+   * strictly read-only and never changes Chanjet or ERP business facts.
+   */
+  @Get('integration/erp-master-gap-closure/precision-audit')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async integrationErpMasterPrecisionAudit() {
+    return {
+      success: true,
+      audit: await this.holdResolutionAudit.audit(),
+      writeChanjet: false,
+      writeErpBusinessTables: false,
     };
   }
 

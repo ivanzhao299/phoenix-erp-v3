@@ -1,5 +1,33 @@
 # Next Actions
 
+## 2026-08-04 - Chanjet HOLD precision audit and optimization governance
+
+Current stage: `CHANJET_HOLD_PRECISION_AUDIT_IMPLEMENTED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Added a read-only precision audit that separates intentional non-mapping,
+   ERP policy gaps, source-quality proposals, cross-system review and genuine HOLD.
+2. Added authority ownership, confidence, risk, evidence, rollback and explicit
+   approval requirements to every remaining row.
+3. Derived stable product-specific UOM evidence from source vouchers instead of
+   creating unsafe global aliases.
+4. Added high-confidence source-name repair candidates without writing Chanjet.
+
+Next actions:
+
+1. Deploy and run the precision audit against the production 107-row baseline.
+2. Freeze the exact classification counts and audit hash in runtime evidence.
+3. Close intentional non-mappings and build ERP-only UOM/master policy candidates.
+4. Present one explicit Chanjet correction canary for user approval.
+5. Keep all Chanjet writes and ERP financial/inventory fact writes disabled.
+
+Evidence:
+
+- `docs/ops/CHANJET_HOLD_PRECISION_AUDIT_AND_OPTIMIZATION_GOVERNANCE_20260804.md`
+
 ## 2026-08-03 - Chanjet product identities applied to ERP masters
 
 Current stage: `CHANJET_PRODUCT_SKU_POLICY_PRODUCTION_APPLIED`

@@ -28,6 +28,7 @@
     "erp_master_gap_closure_status_endpoint": "GET /api/chanjet/integration/erp-master-gap-closure",
     "erp_master_gap_closure_stage_endpoint": "POST /api/chanjet/integration/erp-master-gap-closure/stage",
     "erp_master_business_review_endpoint": "GET /api/chanjet/integration/erp-master-gap-closure/business-review",
+    "erp_master_hold_precision_audit_endpoint": "GET /api/chanjet/integration/erp-master-gap-closure/precision-audit",
     "erp_master_business_review_apply_endpoint": "POST /api/chanjet/integration/erp-master-gap-closure/business-review/apply",
     "required_menu": "MENU_SETTINGS_CHANJET",
     "read_action_bit": "V",
