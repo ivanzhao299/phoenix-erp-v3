@@ -399,6 +399,7 @@ jobs:
           test -n "$TOKEN"
           PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-house-alignment-readonly.mjs \
             --execute \
+            --skip-refresh \
             --api-base=https://erp.eggslao.com \
             --output-dir=docs/ops/runs
 

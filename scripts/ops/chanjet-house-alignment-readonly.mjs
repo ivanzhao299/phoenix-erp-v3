@@ -13,6 +13,7 @@ const getArg = (name, fallback = '') => {
 };
 
 const execute = args.includes('--execute');
+const skipRefresh = args.includes('--skip-refresh');
 const apiBase = getArg('--api-base', 'https://erp.eggslao.com').replace(/\/+$/, '');
 const outputDir = getArg('--output-dir', 'docs/ops/runs');
 const token = process.env.PHOENIX_ADMIN_TOKEN || '';
@@ -95,16 +96,39 @@ function isHouse(record) {
 }
 
 function statusOf(record) {
-  const raw = first(record, ['status', 'rawData.status', 'rawData.enabled', 'rawData.isEnabled', 'rawData.state']);
+  const rawData = record.rawData || {};
+  for (const key of ['isStop', 'isStopped', 'disabled', 'isDisabled', 'isDelete', 'isDeleted']) {
+    if (typeof rawData[key] === 'boolean') {
+      return { raw: `${key}=${rawData[key]}`, productionState: rawData[key] ? 'INACTIVE' : 'ACTIVE' };
+    }
+  }
+  for (const key of ['enabled', 'isEnabled', 'active', 'isActive', 'valid', 'isValid']) {
+    if (typeof rawData[key] === 'boolean') {
+      return { raw: `${key}=${rawData[key]}`, productionState: rawData[key] ? 'ACTIVE' : 'INACTIVE' };
+    }
+  }
+  const raw = first(record, ['status', 'rawData.status', 'rawData.state']);
   const normalized = normalize(raw);
   const active = ['active', 'enabled', 'enable', '1', 'true', '启用', '正常', '使用中'].includes(normalized);
   const inactive = ['inactive', 'disabled', 'disable', '0', 'false', '停用', '禁用', '已停用'].includes(normalized);
   return { raw: raw || 'UNKNOWN', productionState: active ? 'ACTIVE' : inactive ? 'INACTIVE' : 'UNKNOWN' };
 }
 
+function rawStatusFlags(rawData) {
+  if (!rawData || typeof rawData !== 'object') return {};
+  return Object.fromEntries(Object.entries(rawData)
+    .filter(([key, value]) => /status|enable|stop|state|valid|active|delete|disable/i.test(key)
+      && ['string', 'number', 'boolean'].includes(typeof value))
+    .slice(0, 20));
+}
+
 const syncResults = [];
 const blockers = [];
 for (const book of books) {
+  if (skipRefresh) {
+    syncResults.push({ ...book, success: true, skipped: true, writeChanjet: false });
+    continue;
+  }
   try {
     const result = await request('/api/chanjet/integration/mirror/sync', {
       method: 'POST',
@@ -141,6 +165,7 @@ const houseLikeDepartments = departments.filter(isHouse).map((row) => ({
   code: text(row.externalCode),
   name: text(row.externalName),
   ...statusOf(row),
+  rawStatusFlags: rawStatusFlags(row.rawData),
   lastSeenAt: text(row.lastSeenAt),
 }));
 const erpHouses = erpHousesRaw.map((row) => ({
@@ -151,15 +176,38 @@ const erpHouses = erpHousesRaw.map((row) => ({
   capacity: first(row, ['capacity']),
 })).filter((row) => row.code || row.name);
 
+const expectedBookId = (erp) => {
+  const farm = normalize(erp.farmCode);
+  const name = normalize(erp.name);
+  if (farm.includes('mengsai') || farm.includes('lph') || name.includes('孟赛')) return books[0].bookId;
+  if (farm.includes('farmdp') || farm.includes('dongpeng') || name.includes('东鹏')) return books[1].bookId;
+  if (farm.includes('vte') || name.includes('万象')) return books[2].bookId;
+  return '';
+};
+const isTestHouse = (erp) => /debug|test|测试|cs[-_]?\d*/i.test(`${erp.code} ${erp.name} ${erp.farmCode}`);
+
 const mappings = erpHouses.map((erp) => {
+  const bookId = expectedBookId(erp);
   const exactCode = chanjetHouses.filter((item) => normalize(item.code) === normalize(erp.code));
-  const exactName = chanjetHouses.filter((item) => normalize(item.name) === normalize(erp.name));
+  const exactName = chanjetHouses.filter((item) => (!bookId || item.bookId === bookId) && normalize(item.name) === normalize(erp.name));
   const candidates = exactCode.length ? exactCode : exactName;
+  const departmentCandidates = houseLikeDepartments.filter((item) => (!bookId || item.bookId === bookId)
+    && normalize(item.name) === normalize(erp.name));
+  const testData = isTestHouse(erp);
   return {
     erp,
-    matchStatus: candidates.length === 1 ? 'EXACT_CANDIDATE' : candidates.length > 1 ? 'AMBIGUOUS' : 'MISSING_IN_CHANJET',
-    matchBasis: exactCode.length ? 'CODE' : exactName.length ? 'NAME' : 'NONE',
+    expectedBookId: bookId,
+    dataClass: testData ? 'TEST_OR_DEBUG' : 'PRODUCTION_CANDIDATE',
+    matchStatus: testData ? 'EXCLUDE_TEST_DATA'
+      : candidates.length === 1 ? 'EXACT_PROJECT_CANDIDATE'
+        : candidates.length > 1 ? 'AMBIGUOUS_PROJECT'
+          : departmentCandidates.length === 1 ? 'FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION'
+            : departmentCandidates.length > 1 ? 'AMBIGUOUS_DEPARTMENT'
+              : 'MISSING_IN_CHANJET',
+    matchBasis: exactCode.length ? 'PROJECT_CODE' : exactName.length ? 'PROJECT_NAME'
+      : departmentCandidates.length ? 'DEPARTMENT_NAME' : 'NONE',
     chanjet: candidates,
+    chanjetDepartments: departmentCandidates,
   };
 });
 
@@ -168,6 +216,7 @@ const report = {
   decision: blockers.length ? 'HOLD' : 'READY_FOR_HUMAN_REVIEW',
   writeChanjet: false,
   writeErpBusinessTables: false,
+  skipRefresh,
   books,
   syncResults,
   blockers,
@@ -211,9 +260,9 @@ const md = [
   '',
   '## ERP ↔ 好业财映射候选',
   '',
-  table(['ERP编码', 'ERP名称', '场区', 'ERP状态', '匹配状态', '匹配依据', '好业财项目'], mappings.map((row) => [
-    row.erp.code, row.erp.name, row.erp.farmCode, row.erp.status, row.matchStatus, row.matchBasis,
-    row.chanjet.map((item) => `${item.code}:${item.name}`).join('; '),
+  table(['ERP编码', 'ERP名称', '场区', '数据分类', '目标账套', '匹配状态', '匹配依据', '好业财对象'], mappings.map((row) => [
+    row.erp.code, row.erp.name, row.erp.farmCode, row.dataClass, row.expectedBookId, row.matchStatus, row.matchBasis,
+    [...row.chanjet, ...row.chanjetDepartments].map((item) => `${item.code}:${item.name}`).join('; '),
   ])),
   '',
   '## 阻断项',
