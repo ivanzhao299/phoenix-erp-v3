@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, role-business-production, chanjet-readonly-production, chanjet-readonly-adapter-production'
+        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, role-business-production, chanjet-readonly-production, chanjet-readonly-adapter-production, chanjet-house-alignment-readonly'
         required: false
         default: documented-only
   pull_request:
@@ -381,6 +381,26 @@ jobs:
             > docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.md
           test -s docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.json
           test -s docs/ops/runs/chanjet-readonly-field-adapter-audit-latest.md
+
+      - name: Run Chanjet house alignment readonly audit
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-house-alignment-readonly'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$TOKEN"
+          PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-house-alignment-readonly.mjs \
+            --execute \
+            --api-base=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs
 
       - name: Upload runtime smoke artifacts
         if: always() && github.event_name == 'workflow_dispatch'
