@@ -18,9 +18,14 @@ const port = process.env.DEPLOY_PORT || '22';
 const deployPath = process.env.DEPLOY_PATH || '~/phoenix-erp';
 const expiresIn = process.env.PHOENIX_CI_TOKEN_EXPIRES_IN || '20m';
 const maxAttempts = Math.max(1, Number(process.env.PHOENIX_SSH_MAX_ATTEMPTS || 3));
+const proxyHost = process.env.DEPLOY_PROXY_HOST || '';
+const proxyUser = process.env.DEPLOY_PROXY_USER || user;
+const proxyPort = process.env.DEPLOY_PROXY_PORT || '22';
+const proxyKey = process.env.DEPLOY_PROXY_SSH_KEY || '';
 
 const tempDir = mkdtempSync(join(tmpdir(), 'phoenix-ci-ssh-'));
 const keyPath = join(tempDir, 'deploy_key');
+const proxyKeyPath = join(tempDir, 'proxy_key');
 
 const tokenScript = `
 const jwt = require('jsonwebtoken');
@@ -68,13 +73,16 @@ const remoteCommand = [
 
 try {
   writeFileSync(keyPath, `${process.env.DEPLOY_SSH_KEY.trim()}\n`, { mode: 0o600 });
+  if (proxyHost) {
+    writeFileSync(proxyKeyPath, `${(proxyKey || process.env.DEPLOY_SSH_KEY).trim()}\n`, { mode: 0o600 });
+  }
   let token = '';
   let lastError = '';
   let lastStdout = '';
   let lastStatus = null;
 
   for (let attempt = 1; attempt <= maxAttempts && !token; attempt += 1) {
-    const ssh = spawnSync('ssh', [
+    const sshArgs = [
       '-S', 'none',
       '-i', keyPath,
       '-p', String(port),
@@ -86,9 +94,16 @@ try {
       '-o', 'StrictHostKeyChecking=no',
       '-o', 'UserKnownHostsFile=/dev/null',
       '-o', 'ConnectTimeout=30',
-      `${user}@${host}`,
-      remoteCommand,
-    ], {
+    ];
+    if (proxyHost) {
+      sshArgs.push(
+        '-o',
+        `ProxyCommand=ssh -S none -i ${proxyKeyPath} -p ${proxyPort} -o ControlMaster=no -o ControlPath=none -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p ${proxyUser}@${proxyHost}`,
+      );
+    }
+    sshArgs.push(`${user}@${host}`, remoteCommand);
+
+    const ssh = spawnSync('ssh', sshArgs, {
       encoding: 'utf8',
       maxBuffer: 1024 * 1024,
     });
