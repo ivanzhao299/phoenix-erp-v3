@@ -1975,3 +1975,24 @@ Next actions:
 6. Repair the provider grants for `OTHER_STOCK_IN` and `RETAIL_STOCK_OUT`.
 7. Keep Chanjet external write, fuzzy mapping and ERP business-ledger promotion
    disabled.
+
+# 2026-08-04 - 好业财商品名称单行修正等待开放平台 API 授权
+
+当前 Gate：`HOLD_PROVIDER_API_PERMISSION`
+
+- 用户已批准且仅批准 mapping `307052`：`阿莫西林可溶性分` 修正为
+  `阿莫西林可溶性粉`。
+- 已精确定位账套 `3537748712226818`、商品编码 `0100005` 和商品 id
+  `3557635884849011`。
+- 生产 token 与全新 token 调用官方商品查询 API `31146` 均返回
+  `HTTP 403 / 50111`，确认是应用 API 授权缺口，不是 token 过期。
+- 未调用写接口，好业财和 ERP 业务数据修改行数均为 0。
+
+恢复顺序：
+
+1. 为当前好业财开放平台应用授予 API `31146`（查询商品）。
+2. 授予 API `19953`（批量同步商品）。
+3. 重新生成 token，执行写前精确读取。
+4. 仅执行 mapping `307052` 单行修正。
+5. 完成官方 API 回读、ERP 镜像回读和非目标字段一致性验证。
+6. 任何差异触发单行回滚并保持 HOLD。

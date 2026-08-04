@@ -2336,3 +2336,21 @@ Decision: counterparty resolution `GO`.
   defect. Regression tests now lock the production primary-key type.
 - Revision `81a191b8`, deployment run `30871812793`, decision
   `GO_WITH_CONDITIONS`.
+
+# 2026-08-04 - Approved Chanjet product-name canary held by provider API grant
+
+- The user approved exactly one correction: mapping `307052`, book
+  `3537748712226818`, product `0100005` / `3557635884849011`, from
+  `阿莫西林可溶性分` to `阿莫西林可溶性粉`.
+- The official product query API is API id `31146`; the official batch product
+  upsert API is API id `19953`.
+- Both the production token and a freshly generated token returned
+  `HTTP 403 / code 50111` for API `31146`.
+- Root cause is the Open Platform application's missing product API grant, not
+  token staleness.
+- Fail-closed decision: `HOLD_PROVIDER_API_PERMISSION`. The write API was not
+  called, provider rows modified = 0, ERP business rows modified = 0, rollback
+  not required.
+- Resume only after APIs `31146` and `19953` are granted. The resumed operation
+  remains API-only and must include pre-read, one-row write, provider readback,
+  ERP mirror readback and rollback-on-difference.
