@@ -58,7 +58,9 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
     });
   }
 
-  @Cron('0 15 */4 * * *', { name: JOB_NAME, timeZone: 'Asia/Shanghai' })
+  // Four full refreshes/day keep the mirror current while leaving enough of
+  // the 30k monthly free allowance for operator checks and controlled writes.
+  @Cron('0 15 */6 * * *', { name: JOB_NAME, timeZone: 'Asia/Shanghai' })
   async runScheduledSync(): Promise<void> {
     if (String(process.env.CHANJET_READONLY_SYNC_ENABLED || 'true').toLowerCase() === 'false') {
       this.log.warn(`${JOB_NAME} disabled by CHANJET_READONLY_SYNC_ENABLED=false`);

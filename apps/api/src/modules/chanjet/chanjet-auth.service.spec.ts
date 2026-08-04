@@ -139,4 +139,31 @@ describe('Chanjet authorization lifecycle', () => {
 
     expect(internals.tokenCache.size).toBe(1);
   });
+
+  it('coalesces concurrent identical reads and serves the short cache', async () => {
+    const { service } = createService({
+      persistedCertificate: 'certificate',
+      persistedTokens: {
+        'org-id': { openToken: 'open-token', expiresAt: Date.now() + 120_000 },
+      },
+    });
+    jest.spyOn(global, 'setImmediate').mockImplementation(() => 0 as never);
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({ code: '200', data: [{ id: 'ROW-1' }] }),
+    } as Response);
+    await service.onModuleInit();
+
+    const [first, second] = await Promise.all([
+      service.callApi('/accounting/openapi/cc/book/findByEnterpriseId', { method: 'GET' }),
+      service.callApi('/accounting/openapi/cc/book/findByEnterpriseId', { method: 'GET' }),
+    ]);
+    const third = await service.callApi('/accounting/openapi/cc/book/findByEnterpriseId', { method: 'GET' });
+
+    expect(first).toEqual(second);
+    expect(third).toEqual(first);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
 });
