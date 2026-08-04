@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  bugIntakeAllowedPaths,
   bugIntakeExecutionSlot,
   isTechnicalRedispatch,
   mergeExistingQueueTask,
@@ -41,6 +42,17 @@ test('Bug Intake execution slot carries the task-generation policy', () => {
   assert.equal(slot.workspace_generation, 1);
   assert.match(slot.worktree, /agent-tasks\/bugtask-200-a4-g1-a4$/);
   assert.match(slot.branch, /codex\/task\/bugtask-200-a4\/g1\/a4$/);
+});
+
+test('Bug Intake implementation agents receive their business ownership paths', () => {
+  assert.deepEqual(
+    bugIntakeAllowedPaths('A3-Backend-Critical-Path'),
+    ['apps/api/**', 'docs/ops/**'],
+  );
+  assert.deepEqual(
+    bugIntakeAllowedPaths('A4-Frontend-UAT-Smoke'),
+    ['apps/web/**', 'docs/ops/**'],
+  );
 });
 
 test('same-generation sync preserves quarantined terminal task', () => {

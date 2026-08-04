@@ -25,9 +25,11 @@ const TERMINAL_TASK_STATUSES = new Set([
 const BUG_INTAKE_EXECUTION = {
   'A3-Backend-Critical-Path': {
     prompt_file: 'docs/ops/prompts/BUG_INTAKE_A3_TASK_PROMPT.md',
+    allowed_paths: ['apps/api/**', 'docs/ops/**'],
   },
   'A4-Frontend-UAT-Smoke': {
     prompt_file: 'docs/ops/prompts/BUG_INTAKE_A4_TASK_PROMPT.md',
+    allowed_paths: ['apps/web/**', 'docs/ops/**'],
   },
 };
 
@@ -37,6 +39,10 @@ export function bugIntakeExecutionSlot(agent, taskId, fallback = {}) {
     agent,
     prompt_file: BUG_INTAKE_EXECUTION[agent]?.prompt_file || fallback.prompt_file || '',
   }, fallback);
+}
+
+export function bugIntakeAllowedPaths(agent, fallback = ['docs/ops/**']) {
+  return BUG_INTAKE_EXECUTION[agent]?.allowed_paths || fallback;
 }
 
 function usage(code = 1) {
@@ -334,12 +340,14 @@ function buildTasks(payload, plan, dispatchMap) {
   const tasks = selected.map((agent) => {
     const short = agentShort(agent);
     const taskId = `${repairTaskNo}-${short}`;
+    const execution = BUG_INTAKE_EXECUTION[agent] || {};
     const cfg = assignTaskWorkspace({
       task_id: taskId,
       agent,
-      prompt_file: BUG_INTAKE_EXECUTION[agent]?.prompt_file || dispatchMap[agent]?.prompt_file || '',
+      prompt_file: execution.prompt_file || dispatchMap[agent]?.prompt_file || '',
+      allowed_paths: execution.allowed_paths || dispatchMap[agent]?.allowed_paths,
       redispatch_count: redispatchCount,
-    }, dispatchMap[agent] || {});
+    }, { ...dispatchMap[agent], ...execution });
     const contractFile = `${RUNS_DIR}/${taskId}-contract.md`;
     return {
       task_id: taskId,
@@ -352,7 +360,7 @@ function buildTasks(payload, plan, dispatchMap) {
       status: 'pending',
       priority: payload.priority || (agent.includes('A1') || agent.includes('A2') ? 'P0' : 'P1'),
       risk_level: agent.includes('A3') || agent.includes('A4') ? 'MEDIUM/HIGH' : 'LOW/MEDIUM',
-      allowed_paths: cfg.allowed_paths || ['docs/ops/**'],
+      allowed_paths: bugIntakeAllowedPaths(agent, cfg.allowed_paths),
       forbidden_paths: cfg.forbidden_paths || ['production deploy', 'DB write', 'migration execution'],
       prompt_file: cfg.prompt_file || '',
       contract_file: contractFile,
