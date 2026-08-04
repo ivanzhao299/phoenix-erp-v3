@@ -36,7 +36,9 @@ fi
 sudo -u "$RUNNER_USER" -H bash -lc \
   "cd '$INSTALL_ROOT/state' && corepack pnpm install --frozen-lockfile"
 install -d -m 0700 -o "$RUNNER_USER" -g "$RUNNER_USER" \
-  "/home/$RUNNER_USER/.cache" "/home/$RUNNER_USER/.config"
+  "/home/$RUNNER_USER/.cache" "/home/$RUNNER_USER/.codex" \
+  "/home/$RUNNER_USER/.config" "/home/$RUNNER_USER/.local" \
+  "/home/$RUNNER_USER/.local/share"
 
 ENV_FILE="$INSTALL_ROOT/config/bug-intake-runner.env"
 if [ ! -f "$ENV_FILE" ]; then
@@ -113,6 +115,7 @@ User=$RUNNER_USER
 Group=$RUNNER_USER
 WorkingDirectory=$INSTALL_ROOT/state
 Environment=HOME=/home/$RUNNER_USER
+Environment=CODEX_HOME=/home/$RUNNER_USER/.codex
 Environment=PHOENIX_RUNNER_ROOT=$INSTALL_ROOT
 ExecStart=$INSTALL_ROOT/run.sh
 Restart=always
@@ -123,7 +126,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=$INSTALL_ROOT /home/$RUNNER_USER/.cache /home/$RUNNER_USER/.config
+ReadWritePaths=$INSTALL_ROOT /home/$RUNNER_USER/.cache /home/$RUNNER_USER/.codex /home/$RUNNER_USER/.config /home/$RUNNER_USER/.local/share
 UMask=0077
 StandardOutput=journal
 StandardError=journal
