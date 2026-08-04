@@ -73,6 +73,12 @@ set -a
 source "${PHOENIX_RUNNER_ROOT:-/opt/phoenix-runner}/config/bug-intake-runner.env"
 set +a
 export PATH="$PHOENIX_ERP_RUNNER_PATH"
+# Ubuntu's restricted unprivileged user namespaces can prevent Codex's nested
+# bubblewrap sandbox from configuring loopback. The systemd unit already owns
+# the production isolation boundary via ProtectSystem/ProtectHome and the
+# explicit ReadWritePaths allowlist, so avoid a second incompatible sandbox.
+: "${PHOENIX_ERP_CODEX_SANDBOX_MODE:=danger-full-access}"
+export PHOENIX_ERP_CODEX_SANDBOX_MODE
 
 git -C "$PHOENIX_ERP_RUNNER_STATE_REPO" fetch origin main --quiet
 if [ -n "$(git -C "$PHOENIX_ERP_RUNNER_CODE_REPO" status --porcelain)" ]; then
