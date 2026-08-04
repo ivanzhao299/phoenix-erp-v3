@@ -1,5 +1,36 @@
 # Next Actions
 
+## 2026-08-04 - Chanjet current data quality audit
+
+Current stage: `CHANJET_DATA_QUALITY_AND_ERP_ADAPTATION_AUDITED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Production read-only evidence:
+
+1. Audited 11,435 mirror snapshots, 2,400 inventory rows, 382 counterparties,
+   51 cash accounts and current sync/reconciliation state.
+2. Found 365 negative on-hand rows, 368 negative available rows and 92
+   mixed-grain inventory summary rows that must not enter the ERP warehouse
+   ledger as normal detail.
+3. Identified account-book legal metadata, counterparty completeness, product
+   naming/specification and department/cost-center semantics for finance review.
+4. Isolated provider permission, token lifecycle, extractor completeness and
+   stale reconciliation states as technical-team debt rather than finance debt.
+5. Executed no Chanjet write, ERP business-fact write, migration or deployment.
+
+Next actions:
+
+1. Reconcile negative inventory by book, warehouse, product, batch and date.
+2. Correct account-book legal metadata and the bounded source master issues.
+3. Classify inventory grain and prevent summary/detail double counting.
+4. Repair token refresh and permanent-permission HOLD circuit breaking.
+5. Auto-close stale reconciliation findings after deterministic mappings pass.
+
+Evidence:
+
+- `docs/ops/CHANJET_CURRENT_DATA_QUALITY_AND_ERP_ADAPTATION_AUDIT_20260804.md`
+
 ## 2026-08-04 - Production precision audit reduced genuine HOLD from 107 to 2
 
 Current stage: `CHANJET_HOLD_PRECISION_AUDIT_PRODUCTION_VERIFIED`

@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-08-04T12:00:16+08:00",
+  "last_updated": "2026-08-04T15:30:00+08:00",
   "active_module": "Chanjet HOLD Precision Resolution",
   "current_stage": "CHANJET_PRODUCT_NAME_CANARY_HOLD_PROVIDER_API_PERMISSION",
   "active_decision": "HOLD",
@@ -63,6 +63,24 @@
     "mode": "readonly_first",
     "current_stage": "CHANJET_PRODUCT_NAME_CANARY_HOLD_PROVIDER_API_PERMISSION",
     "active_decision": "HOLD",
+    "current_data_quality_audit": {
+      "decision": "GO_WITH_CONDITIONS",
+      "maturity_score": 72,
+      "report": "docs/ops/CHANJET_CURRENT_DATA_QUALITY_AND_ERP_ADAPTATION_AUDIT_20260804.md",
+      "readonly_snapshot_rows": 11435,
+      "inventory_rows": 2400,
+      "negative_on_hand_rows": 365,
+      "negative_available_rows": 368,
+      "mixed_grain_inventory_rows": 92,
+      "counterparty_rows": 382,
+      "cash_account_rows": 51,
+      "open_historical_reconciliation_rows": 1080,
+      "provider_permission_holds": 6,
+      "token_expiry_failures_last_24h": 96,
+      "source_cleanup_required": true,
+      "inventory_fact_promotion_allowed": false,
+      "external_write_allowed": false
+    },
     "write_chanjet_allowed": false,
     "delete_chanjet_allowed": false,
     "modify_chanjet_allowed": false,
@@ -1475,6 +1493,11 @@
     "report": "docs/ops/CHANJET_FINAL_EXACT_MAPPING_CLOSURE_REPORT_20260730.md"
   },
   "next_action": [
+    "CHANJET_NEGATIVE_INVENTORY_ROOT_CAUSE_RECONCILIATION",
+    "CHANJET_ACCOUNT_BOOK_AND_COUNTERPARTY_MASTER_CLEANUP",
+    "CHANJET_INVENTORY_GRAIN_CLASSIFICATION_AND_DOUBLE_COUNT_GUARD",
+    "CHANJET_TOKEN_REFRESH_AND_PERMISSION_CIRCUIT_BREAKER_REPAIR",
+    "CHANJET_RECONCILIATION_RESULT_LIFECYCLE_CLOSURE",
     "CLOSE_50_REVIEWED_ERP_FINANCE_AND_MASTER_DATA_GAPS",
     "STAGE_175_WMS_MASTER_AND_UOM_GAPS_BY_SEMANTIC_TYPE",
     "OPEN_CHANJET_OTHER_STOCK_IN_AND_RETAIL_STOCK_OUT_READONLY_PERMISSIONS_FOR_THREE_BOOKS",

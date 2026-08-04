@@ -2354,3 +2354,22 @@ Decision: counterparty resolution `GO`.
 - Resume only after APIs `31146` and `19953` are granted. The resumed operation
   remains API-only and must include pre-read, one-row write, provider readback,
   ERP mirror readback and rollback-on-difference.
+
+# 2026-08-04 - Chanjet data quality and ERP adaptation audit
+
+- Decision: `GO_WITH_CONDITIONS` with an evidence-based maturity score of 72.
+- Production read-only evidence contains 11,435 snapshots and 2,400 inventory
+  rows. Of those inventory rows, 365 have negative on-hand quantity, 368 have
+  negative available quantity and 92 are mixed-grain summary rows without a
+  warehouse identity.
+- Chanjet remains authoritative for posted finance facts, but its inventory
+  facts cannot be promoted to the ERP warehouse ledger until negative stock and
+  grain ambiguity are reconciled.
+- Account-book industry/legal metadata, active company counterparties, product
+  specifications and finance dimensions require bounded source cleanup.
+- Provider permission, token renewal, extractor completeness and 1,080 stale
+  reconciliation findings are technical-team debt and must not be assigned to
+  finance users.
+- No Chanjet write, ERP business-fact write, migration or deployment occurred.
+- Evidence:
+  `docs/ops/CHANJET_CURRENT_DATA_QUALITY_AND_ERP_ADAPTATION_AUDIT_20260804.md`.
