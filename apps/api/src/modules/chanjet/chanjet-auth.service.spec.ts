@@ -8,6 +8,7 @@ function createService(options: {
   envCertificate?: string;
   persistedCertificate?: string | null;
   persistedTokens?: Record<string, { openToken: string; expiresAt: number }> | null;
+  budgetQuery?: jest.Mock;
 } = {}) {
   const stateRepo = {
     findOneBy: jest.fn().mockResolvedValue({
@@ -17,6 +18,13 @@ function createService(options: {
       tokens: options.persistedTokens ?? null,
     }),
     save: jest.fn().mockResolvedValue(undefined),
+    ...(options.budgetQuery ? {
+      manager: {
+        transaction: jest.fn(async (work: (tx: { query: jest.Mock }) => Promise<unknown>) => work({
+          query: options.budgetQuery as jest.Mock,
+        })),
+      },
+    } : {}),
   };
   const values: Record<string, string> = {
     CHANJET_APP_KEY: 'app-key',
@@ -165,5 +173,34 @@ describe('Chanjet authorization lifecycle', () => {
     expect(first).toEqual(second);
     expect(third).toEqual(first);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('caps reads below the total daily budget to reserve write capacity', async () => {
+    const budgetQuery = jest.fn().mockResolvedValue([{ request_count: 1 }]);
+    const { service } = createService({ budgetQuery });
+    const reserve = (service as unknown as {
+      reserveTrafficBudget: (kind: 'READ' | 'WRITE', path: string) => Promise<void>;
+    }).reserveTrafficBudget.bind(service);
+
+    await reserve('READ', '/readonly');
+    await reserve('WRITE', '/write');
+
+    expect(budgetQuery.mock.calls.map((call) => call[1]?.[0])).toEqual([
+      expect.stringMatching(/^M:/),
+      expect.stringMatching(/^D:/),
+      expect.stringMatching(/^R:/),
+      expect.stringMatching(/^M:/),
+      expect.stringMatching(/^D:/),
+      expect.stringMatching(/^W:/),
+    ]);
+    const readReservation = budgetQuery.mock.calls.find((call) => String(call[1]?.[0]).startsWith('R:'));
+    const dailyReservation = budgetQuery.mock.calls.find((call) => String(call[1]?.[0]).startsWith('D:'));
+    expect(readReservation?.[1]?.[1]).toBe(620);
+    expect(dailyReservation?.[1]?.[1]).toBe(650);
+    expect(service.diagnostics().trafficPolicy).toMatchObject({
+      dailyLocalBudget: 650,
+      dailyReadBudget: 620,
+      dailyWriteBudget: 20,
+    });
   });
 });
