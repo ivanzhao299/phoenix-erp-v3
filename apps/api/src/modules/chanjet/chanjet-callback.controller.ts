@@ -1602,6 +1602,186 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * 单条鸡舍成本项目试写。只允许从 ACTIVE ERP 鸡舍创建同编码项目；不修改原部门、
+   * 人员、历史单据或权限。失败时把本次新建项目停用，避免半成品继续参与业务选择。
+   */
+  @Post('integration/house-projects/pilot')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async createHouseProjectPilot(
+    @Req() req: any,
+    @Body() body: {
+      approveProduction: boolean;
+      confirmation: string;
+      bookId: string;
+      houseCode: string;
+      expectedName: string;
+      projectCategoryCode?: string;
+    },
+  ) {
+    const allowedBooks = new Set(['3533914511118750', '3537748712226818', '3539743721526654']);
+    const bookId = String(body.bookId || '').trim();
+    const houseCode = String(body.houseCode || '').trim();
+    const expectedName = String(body.expectedName || '').trim();
+    const categoryCode = String(body.projectCategoryCode || '00').trim();
+    if (body.approveProduction !== true || body.confirmation !== 'CREATE_HOUSE_PROJECT_CANARY') {
+      throw new ForbiddenException('生产试写需要 approveProduction=true 和精确确认短语');
+    }
+    if (!allowedBooks.has(bookId)) throw new ForbiddenException('账套不在已审核白名单');
+    if (!/^HOUSE_[A-Z0-9_]{2,50}$/.test(houseCode) || /DEBUG|TEST|_CS_/i.test(houseCode)) {
+      throw new ForbiddenException('鸡舍编码不符合生产主数据规则');
+    }
+    if (!expectedName || expectedName.length > 100 || /测试|调试/i.test(expectedName)) {
+      throw new ForbiddenException('鸡舍名称不符合生产主数据规则');
+    }
+    if (categoryCode !== '00') throw new ForbiddenException('试点仅允许已验证的项目分类 00');
+
+    const rows = await this.ds.query(
+      `SELECT house_code, house_name, farm_code, status
+         FROM brd_houses
+        WHERE house_code=$1
+        LIMIT 2`,
+      [houseCode],
+    );
+    if (rows.length !== 1 || String(rows[0].status) !== 'ACTIVE' || String(rows[0].house_name || '') !== expectedName) {
+      throw new ForbiddenException('ERP 鸡舍不存在、非 ACTIVE 或名称不一致');
+    }
+
+    const listPath = `/accounting/openapi/cc/project/list/${bookId}`;
+    const addPath = `/accounting/openapi/cc/project/add/${bookId}`;
+    let createdId = '';
+    let rollbackAttempted = false;
+    let rollbackSucceeded = false;
+    const projectInput = {
+      code: houseCode,
+      name: expectedName,
+      projectCategoryCode: categoryCode,
+      statusEnum: 'A',
+      comments: `Phoenix ERP鸡舍成本对象 ${houseCode}`,
+    };
+    const projectRows = (payload: unknown): Array<Record<string, unknown>> => {
+      if (Array.isArray(payload)) return payload as Array<Record<string, unknown>>;
+      if (!payload || typeof payload !== 'object') return [];
+      const record = payload as Record<string, unknown>;
+      if (Array.isArray(record.rows)) return record.rows as Array<Record<string, unknown>>;
+      for (const key of ['data', 'result', 'value']) {
+        const nested = projectRows(record[key]);
+        if (nested.length) return nested;
+      }
+      return [];
+    };
+    const projectData = (payload: unknown): Record<string, unknown> => {
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return {};
+      const record = payload as Record<string, unknown>;
+      const data = record.data;
+      if (data && typeof data === 'object' && !Array.isArray(data)) return data as Record<string, unknown>;
+      return record;
+    };
+
+    try {
+      const before = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
+      const collision = projectRows(before).find((item) => String(item.code || '') === houseCode || String(item.name || '') === expectedName);
+      if (collision) {
+        await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', addPath, 'SUCCESS', {
+          outcome: 'IDEMPOTENT_EXISTING', bookId, houseCode, expectedName,
+          externalId: String(collision.id || ''), writeChanjet: false,
+        });
+        return {
+          success: true,
+          outcome: 'IDEMPOTENT_EXISTING',
+          writeChanjet: false,
+          changedExistingDepartment: false,
+          project: { id: String(collision.id || ''), code: String(collision.code || ''), name: String(collision.name || '') },
+        };
+      }
+
+      const added = await this.auth.callApi<Record<string, unknown>>(addPath, {
+        method: 'POST', body: projectInput, kind: 'WRITE',
+      });
+      const addedData = projectData(added);
+      createdId = String(addedData.id || projectRows(added)[0]?.id || '');
+      if (!createdId) {
+        const afterAddList = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
+        const created = projectRows(afterAddList).find((item) => String(item.code || '') === houseCode);
+        createdId = String(created?.id || '');
+      }
+      if (!createdId) throw new Error('新增返回后无法解析项目 ID');
+
+      const detailPath = `/accounting/openapi/cc/project/query/${encodeURIComponent(createdId)}/${bookId}`;
+      const detailEnvelope = await this.auth.callApi<Record<string, unknown>>(detailPath, { method: 'GET', kind: 'READ' });
+      const detail = projectData(detailEnvelope);
+      const category = detail.projectCategory && typeof detail.projectCategory === 'object'
+        ? detail.projectCategory as Record<string, unknown> : {};
+      const status = detail.statusEnum && typeof detail.statusEnum === 'object'
+        ? String((detail.statusEnum as Record<string, unknown>).value || '') : String(detail.statusEnum || '');
+      if (String(detail.code || '') !== houseCode
+        || String(detail.name || '') !== expectedName
+        || String(category.code || detail.projectCategoryCode || '') !== categoryCode
+        || status !== 'A') {
+        throw new Error('好业财项目详情回读与写入目标不一致');
+      }
+
+      const mirror = await this.integration.syncReadOnlyMirror(['PROJECT'], bookId);
+      const mirrorRows = await this.ds.query(
+        `SELECT external_id, external_code, external_name, status
+           FROM chanjet_entity_snapshots
+          WHERE book_id=$1 AND entity_type='PROJECT' AND external_code=$2
+          ORDER BY updated_at DESC
+          LIMIT 2`,
+        [bookId, houseCode],
+      );
+      if (mirrorRows.length !== 1 || String(mirrorRows[0].external_name || '') !== expectedName) {
+        throw new Error('ERP 镜像回读未形成唯一一致项目');
+      }
+
+      await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', addPath, 'SUCCESS', {
+        outcome: 'CREATED_AND_VERIFIED', bookId, houseCode, expectedName, createdId,
+        projectCategoryCode: categoryCode, changedExistingDepartment: false,
+        mirrorJobId: (mirror as Record<string, unknown>).jobId || null,
+      });
+      return {
+        success: true,
+        outcome: 'CREATED_AND_VERIFIED',
+        writeChanjet: true,
+        changedExistingDepartment: false,
+        project: { id: createdId, code: houseCode, name: expectedName, projectCategoryCode: categoryCode, statusEnum: 'A' },
+        readback: { detail: true, erpMirror: true },
+      };
+    } catch (error) {
+      if (createdId) {
+        rollbackAttempted = true;
+        try {
+          await this.auth.callApi(`/accounting/openapi/cc/project/update/${bookId}`, {
+            method: 'POST',
+            kind: 'WRITE',
+            body: { id: createdId, ...projectInput, statusEnum: 'I', comments: `${projectInput.comments} [ROLLBACK]` },
+          });
+          const rolledBack = await this.auth.callApi<Record<string, unknown>>(
+            `/accounting/openapi/cc/project/query/${encodeURIComponent(createdId)}/${bookId}`,
+            { method: 'GET', kind: 'READ' },
+          );
+          const detail = projectData(rolledBack);
+          const status = detail.statusEnum && typeof detail.statusEnum === 'object'
+            ? String((detail.statusEnum as Record<string, unknown>).value || '') : String(detail.statusEnum || '');
+          rollbackSucceeded = status === 'I';
+        } catch (rollbackError) {
+          this.log.error(`house project rollback failed id=${createdId}: ${(rollbackError as Error).message}`);
+        }
+      }
+      await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', addPath, 'FAIL', {
+        bookId, houseCode, expectedName, createdId: createdId || null,
+        error: (error as Error).message, rollbackAttempted, rollbackSucceeded,
+      });
+      return {
+        success: false,
+        writeChanjet: Boolean(createdId),
+        changedExistingDepartment: false,
+        error: (error as Error).message,
+        rollback: { attempted: rollbackAttempted, succeeded: rollbackSucceeded },
+      };
+    }
+  }
+
+  /**
    * POST /api/chanjet/integration/master-mappings/:id/review
    * 人工审核映射候选。仅改中间层映射审核状态，不改 ERP/好业财主数据。
    */
