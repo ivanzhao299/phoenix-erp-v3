@@ -551,9 +551,14 @@ export class ChanjetAuthService implements OnModuleInit {
     const now = new Date(Date.now() + 8 * 60 * 60 * 1000);
     const monthKey = `M:${now.toISOString().slice(0, 7)}`;
     const dayKey = `D:${now.toISOString().slice(0, 10)}`;
+    const readKey = `R:${now.toISOString().slice(0, 10)}`;
     const writeKey = `W:${now.toISOString().slice(0, 10)}`;
     const monthLimit = this.positiveInt('CHANJET_MONTHLY_LOCAL_BUDGET', 20_000);
     const dayLimit = this.positiveInt('CHANJET_DAILY_LOCAL_BUDGET', 650);
+    const readLimit = Math.min(
+      dayLimit,
+      this.positiveInt('CHANJET_DAILY_READ_BUDGET', 620),
+    );
     const writeLimit = this.positiveInt('CHANJET_DAILY_WRITE_BUDGET', 20);
 
     const reserve = async (
@@ -581,7 +586,11 @@ export class ChanjetAuthService implements OnModuleInit {
     await manager.transaction(async (tx) => {
       await reserve(tx, monthKey, monthLimit);
       await reserve(tx, dayKey, dayLimit);
-      if (kind === 'WRITE') await reserve(tx, writeKey, writeLimit);
+      if (kind === 'READ') {
+        await reserve(tx, readKey, readLimit);
+      } else {
+        await reserve(tx, writeKey, writeLimit);
+      }
     });
   }
 
@@ -643,6 +652,10 @@ export class ChanjetAuthService implements OnModuleInit {
         minRequestIntervalMs: this.positiveInt('CHANJET_MIN_REQUEST_INTERVAL_MS', 250),
         monthlyLocalBudget: this.positiveInt('CHANJET_MONTHLY_LOCAL_BUDGET', 20_000),
         dailyLocalBudget: this.positiveInt('CHANJET_DAILY_LOCAL_BUDGET', 650),
+        dailyReadBudget: Math.min(
+          this.positiveInt('CHANJET_DAILY_LOCAL_BUDGET', 650),
+          this.positiveInt('CHANJET_DAILY_READ_BUDGET', 620),
+        ),
         dailyWriteBudget: this.positiveInt('CHANJET_DAILY_WRITE_BUDGET', 20),
         readCacheTtlMs: this.positiveInt('CHANJET_READ_CACHE_TTL_MS', 30_000),
         readCacheMaxEntries: this.positiveInt('CHANJET_READ_CACHE_MAX_ENTRIES', 500),
