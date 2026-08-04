@@ -16,7 +16,7 @@ jobs:
         with:
           host: 192.168.2.204
           username: ubuntu
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          key: ${{ secrets.OFFICE_RUNNER_SSH_KEY }}
           port: 22
           proxy_host: 123.57.220.65
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
@@ -49,3 +49,38 @@ jobs:
             curl -fsSI --max-time 15 https://github.com >/dev/null && echo "GITHUB_EGRESS=yes"
             curl -fsSI --max-time 15 https://erp.eggslao.com/api/health >/dev/null && echo "ERP_EGRESS=yes"
             curl -fsSI --max-time 15 https://api.openai.com >/dev/null && echo "OPENAI_EGRESS=yes"
+
+            echo "RUNNER_SERVICE=$(sudo systemctl is-active phoenix-bug-intake-runner)"
+            test "$(sudo systemctl is-enabled phoenix-bug-intake-runner)" = enabled
+            test "$(sudo systemctl is-active phoenix-bug-intake-runner)" = active
+            sudo systemctl show phoenix-bug-intake-runner \
+              -p MainPID -p ActiveEnterTimestamp -p RuntimeMaxUSec --no-pager
+
+            STATE_REPO=/opt/phoenix-runner/state
+            CODE_REPO=/opt/phoenix-runner/code
+            test -d "$STATE_REPO/.git"
+            test -e "$CODE_REPO/.git"
+            STATE_SHA="$(git -C "$STATE_REPO" rev-parse HEAD)"
+            CODE_SHA="$(git -C "$CODE_REPO" rev-parse HEAD)"
+            ORIGIN_SHA="$(git -C "$STATE_REPO" rev-parse origin/main)"
+            echo "RUNNER_STATE_SHA=$STATE_SHA"
+            echo "RUNNER_CODE_SHA=$CODE_SHA"
+            echo "RUNNER_ORIGIN_SHA=$ORIGIN_SHA"
+            test "$STATE_SHA" = "$ORIGIN_SHA"
+            test "$CODE_SHA" = "$ORIGIN_SHA"
+
+            RUNNER_CMD="$(tr '\0' ' ' </proc/$(sudo systemctl show phoenix-bug-intake-runner -p MainPID --value)/cmdline)"
+            echo "RUNNER_COMMAND=$RUNNER_CMD"
+            for required_arg in \
+              '--watch' '--parallel-workers 3' '--wake-file' \
+              '--apply-queue' '--execute-approved' \
+              '--auto-recover-generation-drift' '--auto-unblock-dirty-worktrees' \
+              '--skip-blocked' '--commit-audit-artifacts' '--audit-commit-minutes 30' \
+              '--push-after-success' '--wait-ci-after-push' '--deploy-after-ci' \
+              '--production-smoke-after-ci'; do
+              case "$RUNNER_CMD" in
+                *"$required_arg"*) ;;
+                *) echo "missing runner capability: $required_arg" >&2; exit 1 ;;
+              esac
+            done
+            sudo journalctl -u phoenix-bug-intake-runner -n 30 --no-pager -o short-iso
