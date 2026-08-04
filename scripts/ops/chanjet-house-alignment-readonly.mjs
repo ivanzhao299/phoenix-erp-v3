@@ -175,6 +175,20 @@ const erpHouses = erpHousesRaw.map((row) => ({
   status: first(row, ['status']),
   capacity: first(row, ['capacity']),
 })).filter((row) => row.code || row.name);
+const projectCatalog = projects.map((row) => ({
+  bookId: text(row.bookId),
+  externalId: text(row.externalId),
+  code: text(row.externalCode) || first(row.rawData || {}, ['code', 'projectCode']),
+  name: text(row.externalName) || first(row.rawData || {}, ['name', 'projectName']),
+  projectCategoryCode: first(row.rawData || {}, [
+    'projectCategoryCode', 'categoryCode', 'projectCategory.code', 'projectCategoryCode.code',
+  ]),
+  projectCategoryName: first(row.rawData || {}, [
+    'projectCategoryName', 'categoryName', 'projectCategory.name', 'projectCategoryCode.name',
+  ]),
+  ...statusOf(row),
+  rawStatusFlags: rawStatusFlags(row.rawData),
+}));
 
 const expectedBookId = (erp) => {
   const farm = normalize(erp.farmCode);
@@ -229,6 +243,7 @@ const report = {
   },
   chanjetHouses,
   houseLikeDepartments,
+  projectCatalog,
   erpHouses,
   mappings,
 };
@@ -257,6 +272,12 @@ const md = [
   '## 好业财鸡舍项目',
   '',
   table(['账套', '编码', '名称', '状态', '最后读取'], chanjetHouses.map((row) => [row.bookId, row.code, row.name, `${row.productionState}/${row.raw}`, row.lastSeenAt])),
+  '',
+  '## 好业财现有项目分类证据',
+  '',
+  table(['账套', '项目编码', '项目名称', '分类编码', '分类名称', '状态'], projectCatalog.map((row) => [
+    row.bookId, row.code, row.name, row.projectCategoryCode, row.projectCategoryName, `${row.productionState}/${row.raw}`,
+  ])),
   '',
   '## ERP ↔ 好业财映射候选',
   '',
