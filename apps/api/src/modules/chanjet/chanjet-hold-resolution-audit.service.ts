@@ -534,7 +534,7 @@ export class ChanjetHoldResolutionAuditService {
     return this.ds.query(
       `SELECT id::text, raw_data
          FROM chanjet_master_mapping
-        WHERE id = ANY($1::uuid[])`,
+        WHERE id = ANY($1::bigint[])`,
       [mappingIds],
     );
   }

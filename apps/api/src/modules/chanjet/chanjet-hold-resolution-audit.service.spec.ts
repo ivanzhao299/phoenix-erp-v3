@@ -3,7 +3,7 @@ import { ChanjetErpMasterReviewCandidate } from './chanjet-erp-master-business-r
 
 function candidate(overrides: Partial<ChanjetErpMasterReviewCandidate>): ChanjetErpMasterReviewCandidate {
   return {
-    mappingId: '00000000-0000-0000-0000-000000000001',
+    mappingId: '1',
     mappingType: 'PRODUCT',
     bookId: 'BOOK-1',
     companyCode: 'COMP-LAO-AGRI',
@@ -50,22 +50,22 @@ describe('ChanjetHoldResolutionAuditService', () => {
   it('separates intentional non-mapping, source repair and ERP policy rows', async () => {
     const service = createService([
       candidate({
-        mappingId: '00000000-0000-0000-0000-000000000001',
+        mappingId: '1',
         mappingType: 'CASH_ACCOUNT',
         chanjetName: '银行转账',
       }),
       candidate({
-        mappingId: '00000000-0000-0000-0000-000000000002',
+        mappingId: '2',
         mappingType: 'DEPARTMENT',
         chanjetName: '鸡舍',
       }),
       candidate({
-        mappingId: '00000000-0000-0000-0000-000000000003',
+        mappingId: '3',
         mappingType: 'PRODUCT',
         chanjetName: '阿莫西林可溶性分',
       }),
       candidate({
-        mappingId: '00000000-0000-0000-0000-000000000004',
+        mappingId: '4',
         mappingType: 'PRODUCT',
         chanjetName: '蛋鸡',
       }),
@@ -130,7 +130,7 @@ describe('ChanjetHoldResolutionAuditService', () => {
   });
 
   it('does not invent a specific external update when bank identity evidence is incomplete', async () => {
-    const mappingId = '00000000-0000-0000-0000-000000000005';
+    const mappingId = '5';
     const service = createService([
       candidate({
         mappingId,
@@ -153,5 +153,28 @@ describe('ChanjetHoldResolutionAuditService', () => {
       chanjetChangeProposal: null,
     });
     expect(audit.recommendedCanary).toBeNull();
+  });
+
+  it('queries mapping source rows with the production bigint primary-key type', async () => {
+    const query = jest.fn(async (sql: string, _params?: unknown[]) => {
+      if (sql.includes('FROM chanjet_master_mapping')) return [];
+      if (sql.includes('WITH lines AS')) return [];
+      throw new Error(`unexpected query: ${sql}`);
+    });
+    const businessReview = {
+      plan: jest.fn(async () => ({
+        reviewHash: 'review-hash',
+        candidates: [candidate({ mappingId: '42' })],
+      })),
+    };
+    const service = new ChanjetHoldResolutionAuditService(
+      { query } as never,
+      businessReview as never,
+    );
+
+    await service.audit();
+
+    expect(query.mock.calls[0][0]).toContain('ANY($1::bigint[])');
+    expect(query.mock.calls[0][1]).toEqual([['42']]);
   });
 });
