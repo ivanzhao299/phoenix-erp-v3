@@ -6,7 +6,7 @@ on:
       action:
         description: Read-only audit or guarded cleanup
         type: choice
-        options: [audit, cleanup]
+        options: [audit, cleanup, repair-generated-worktree]
         default: audit
       approve_production:
         description: Confirm the production maintenance gate
@@ -32,6 +32,8 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           ACTION: ${{ inputs.action }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          MAINTENANCE_RUN_ID: ${{ github.run_id }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -41,7 +43,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: ACTION
+          envs: ACTION,DEPLOY_PATH,MAINTENANCE_RUN_ID
           script: |
             set -Eeuo pipefail
 
@@ -70,6 +72,59 @@ jobs:
 
             echo "action=$ACTION"
             report_disk
+            if [ "$ACTION" = repair-generated-worktree ]; then
+              cd "$DEPLOY_PATH"
+              allowed_files=(
+                docs/ops/runs/chanjet-readonly-mirror-sync-latest.json
+                docs/ops/runs/chanjet-readonly-mirror-sync-latest.md
+              )
+              mapfile -t dirty_lines < <(git status --porcelain --untracked-files=all)
+              if [ "${#dirty_lines[@]}" -eq 0 ]; then
+                echo "✅ Production worktree already clean"
+                exit 0
+              fi
+              for line in "${dirty_lines[@]}"; do
+                status="${line:0:2}"
+                path="${line:3}"
+                if [ "$status" != ' M' ] && [ "$status" != 'M ' ]; then
+                  echo "::error::Refusing worktree repair; unsupported git status '$status' for: $path"
+                  exit 30
+                fi
+                allowed=false
+                for candidate in "${allowed_files[@]}"; do
+                  if [ "$path" = "$candidate" ]; then allowed=true; break; fi
+                done
+                if [ "$allowed" != true ]; then
+                  echo "::error::Refusing worktree repair; unexpected dirty path: $path"
+                  exit 31
+                fi
+              done
+
+              archive_dir="/opt/phoenix-erp-backups/generated-worktree-${MAINTENANCE_RUN_ID}"
+              mkdir -p "$archive_dir"
+              chmod 700 "$archive_dir"
+              for file in "${allowed_files[@]}"; do
+                git ls-files --error-unmatch "$file" >/dev/null
+                if ! git diff --quiet -- "$file"; then
+                  if [ ! -f "$file" ]; then
+                    echo "::error::Refusing worktree repair; generated report is not a regular file: $file"
+                    exit 33
+                  fi
+                  cp -- "$file" "$archive_dir/$(basename "$file")"
+                fi
+              done
+              find "$archive_dir" -maxdepth 1 -type f -exec sha256sum {} + > "$archive_dir/SHA256SUMS"
+              chmod 600 "$archive_dir"/*
+
+              git restore --source=HEAD --worktree -- "${allowed_files[@]}"
+              if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+                echo "::error::Worktree remains dirty after exact generated-artifact repair"
+                git status --short
+                exit 32
+              fi
+              echo "✅ Archived generated reports to $archive_dir and restored clean worktree"
+              exit 0
+            fi
             [ "$ACTION" = cleanup ] || exit 0
 
             # Never prune volumes or running containers. Unused images and old

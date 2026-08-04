@@ -117,6 +117,7 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          REMOTE_OUTPUT_DIR: /tmp/phoenix-chanjet-readonly-${{ github.run_id }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -126,11 +127,17 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH
+          envs: DEPLOY_PATH,REMOTE_OUTPUT_DIR
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
             git pull --ff-only origin main
+            if [[ ! "$REMOTE_OUTPUT_DIR" =~ ^/tmp/phoenix-chanjet-readonly-[0-9]+$ ]]; then
+              echo "::error::Invalid remote output directory"
+              exit 7
+            fi
+            mkdir -p "$REMOTE_OUTPUT_DIR"
+            chmod 700 "$REMOTE_OUTPUT_DIR"
 
             USER_ROW="$(docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select user_id::text || '"'"'|'"'"' || coalesce(perms_version,1)::text from sys_user where username='"'"'admin'"'"' and status=1 limit 1"' | tr -d '\r\n')"
             if [ -z "$USER_ROW" ]; then
@@ -183,7 +190,7 @@ jobs:
               --api-base=https://erp.eggslao.com \
               --sync-timeout-ms=300000 \
               --coverage-timeout-ms=120000 \
-              --output-dir=docs/ops/runs
+              --output-dir="$REMOTE_OUTPUT_DIR"
 
             PHOENIX_ADMIN_TOKEN="$TOKEN" node --input-type=module - <<'NODE'
             const response = await fetch('https://erp.eggslao.com/api/chanjet/integration/counterparty-mapping-candidates/generate', {
@@ -211,7 +218,7 @@ jobs:
 
             PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-p0-production-readonly-gate-audit.mjs \
               --api-base=https://erp.eggslao.com/api \
-              --output-dir=docs/ops/runs
+              --output-dir="$REMOTE_OUTPUT_DIR"
 
       - name: Pull Chanjet readonly sync artifacts from production
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-production'
@@ -224,6 +231,7 @@ jobs:
           DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
           DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          REMOTE_OUTPUT_DIR: /tmp/phoenix-chanjet-readonly-${{ github.run_id }}
         run: |
           set -euo pipefail
           mkdir -p docs/ops/runs "$RUNNER_TEMP/phoenix-ssh"
@@ -251,21 +259,44 @@ jobs:
           fi
 
           ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cat \"${DEPLOY_PATH}/docs/ops/runs/chanjet-readonly-mirror-sync-latest.json\"" \
+            "cat \"${REMOTE_OUTPUT_DIR}/chanjet-readonly-mirror-sync-latest.json\"" \
             > docs/ops/runs/chanjet-readonly-mirror-sync-latest.json
           ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cat \"${DEPLOY_PATH}/docs/ops/runs/chanjet-readonly-mirror-sync-latest.md\"" \
+            "cat \"${REMOTE_OUTPUT_DIR}/chanjet-readonly-mirror-sync-latest.md\"" \
             > docs/ops/runs/chanjet-readonly-mirror-sync-latest.md
           ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cat \"${DEPLOY_PATH}/docs/ops/runs/chanjet-p0-production-readonly-gate-latest.json\"" \
+            "cat \"${REMOTE_OUTPUT_DIR}/chanjet-p0-production-readonly-gate-latest.json\"" \
             > docs/ops/runs/chanjet-p0-production-readonly-gate-latest.json
           ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cat \"${DEPLOY_PATH}/docs/ops/runs/chanjet-p0-production-readonly-gate-latest.md\"" \
+            "cat \"${REMOTE_OUTPUT_DIR}/chanjet-p0-production-readonly-gate-latest.md\"" \
             > docs/ops/runs/chanjet-p0-production-readonly-gate-latest.md
           test -s docs/ops/runs/chanjet-readonly-mirror-sync-latest.json
           test -s docs/ops/runs/chanjet-readonly-mirror-sync-latest.md
           test -s docs/ops/runs/chanjet-p0-production-readonly-gate-latest.json
           test -s docs/ops/runs/chanjet-p0-production-readonly-gate-latest.md
+
+      - name: Remove temporary Chanjet production audit directory
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-production'
+        uses: appleboy/ssh-action@v1
+        env:
+          REMOTE_OUTPUT_DIR: /tmp/phoenix-chanjet-readonly-${{ github.run_id }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: REMOTE_OUTPUT_DIR
+          script: |
+            set -euo pipefail
+            if [[ ! "$REMOTE_OUTPUT_DIR" =~ ^/tmp/phoenix-chanjet-readonly-[0-9]+$ ]]; then
+              echo "::error::Refusing unsafe temporary directory cleanup"
+              exit 7
+            fi
+            rm -rf --one-file-system "$REMOTE_OUTPUT_DIR"
 
       - name: Run Chanjet readonly adapter production audit
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-adapter-production'
