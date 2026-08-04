@@ -51,12 +51,14 @@ PHOENIX_ERP_RUNNER_INTERVAL=30
 PHOENIX_ERP_RUNNER_MAX_TASKS=6
 PHOENIX_ERP_RUNNER_PARALLEL_WORKERS=3
 PHOENIX_ERP_RUNNER_MAX_CYCLES=999999
+PHOENIX_ERP_RUNNER_AUDIT_COMMIT_MINUTES=30
 PHOENIX_ERP_RUNNER_AUTO_RELEASE=false
 PHOENIX_ERP_RUNNER_HOME=$INSTALL_ROOT/config
 PHOENIX_ERP_RUNNER_STATE_REPO=$INSTALL_ROOT/state
 PHOENIX_ERP_RUNNER_CODE_REPO=$INSTALL_ROOT/code
 PHOENIX_ERP_RUNNER_OUTPUT_DIR=$INSTALL_ROOT/runs/local-runner
 PHOENIX_ERP_RUNNER_SYNC_OUTPUT_DIR=$INSTALL_ROOT/runs/inbox
+PHOENIX_ERP_RUNNER_WAKE_FILE=$INSTALL_ROOT/runs/bug-runner-wakeup.json
 PHOENIX_ERP_AGENT_WORKTREE_ROOT=$INSTALL_ROOT/worktrees/agent-tasks
 PHOENIX_ERP_MAIN_ROOT=$INSTALL_ROOT/state
 PHOENIX_ERP_NODE_BIN=$(command -v node)
@@ -78,7 +80,10 @@ export PATH="$PHOENIX_ERP_RUNNER_PATH"
 # the production isolation boundary via ProtectSystem/ProtectHome and the
 # explicit ReadWritePaths allowlist, so avoid a second incompatible sandbox.
 : "${PHOENIX_ERP_CODEX_SANDBOX_MODE:=danger-full-access}"
+: "${PHOENIX_ERP_RUNNER_AUDIT_COMMIT_MINUTES:=30}"
+: "${PHOENIX_ERP_RUNNER_WAKE_FILE:=${PHOENIX_RUNNER_ROOT:-/opt/phoenix-runner}/runs/bug-runner-wakeup.json}"
 export PHOENIX_ERP_CODEX_SANDBOX_MODE
+export PHOENIX_ERP_RUNNER_AUDIT_COMMIT_MINUTES PHOENIX_ERP_RUNNER_WAKE_FILE
 
 git -C "$PHOENIX_ERP_RUNNER_STATE_REPO" fetch origin main --quiet
 if [ -n "$(git -C "$PHOENIX_ERP_RUNNER_CODE_REPO" status --porcelain)" ]; then
@@ -94,11 +99,13 @@ ARGS=(
   --max-cycles "$PHOENIX_ERP_RUNNER_MAX_CYCLES"
   --max-tasks "$PHOENIX_ERP_RUNNER_MAX_TASKS"
   --parallel-workers "$PHOENIX_ERP_RUNNER_PARALLEL_WORKERS"
+  --wake-file "$PHOENIX_ERP_RUNNER_WAKE_FILE"
   --output-dir "$PHOENIX_ERP_RUNNER_OUTPUT_DIR"
   --sync-output-dir "$PHOENIX_ERP_RUNNER_SYNC_OUTPUT_DIR"
   --apply-queue --execute-approved --approval-token APPROVE_AGENT_EXECUTION
   --auto-recover-generation-drift --auto-unblock-dirty-worktrees --skip-blocked
   --commit-audit-artifacts
+  --audit-commit-minutes "$PHOENIX_ERP_RUNNER_AUDIT_COMMIT_MINUTES"
 )
 if [ "${PHOENIX_ERP_RUNNER_AUTO_RELEASE:-false}" = true ]; then
   ARGS+=(--push-after-success --wait-ci-after-push --deploy-after-ci --production-smoke-after-ci)
@@ -126,6 +133,8 @@ Environment=PHOENIX_RUNNER_ROOT=$INSTALL_ROOT
 ExecStart=$INSTALL_ROOT/run.sh
 Restart=always
 RestartSec=15
+# Re-enter run.sh periodically so the long-lived worker refreshes origin/main.
+RuntimeMaxSec=21600
 TimeoutStopSec=60
 KillSignal=SIGTERM
 NoNewPrivileges=true
