@@ -385,7 +385,12 @@ const prompt = buildAssembledPrompt({
   requestSpecPath: requestSpecFile,
   taskContractPath: taskContractFile,
 });
-const command = ['codex', 'exec', '-C', worktree, '--sandbox', 'workspace-write', '-'];
+const codexSandboxMode = process.env.PHOENIX_ERP_CODEX_SANDBOX_MODE || 'workspace-write';
+const allowedCodexSandboxModes = new Set(['workspace-write', 'danger-full-access']);
+if (!allowedCodexSandboxModes.has(codexSandboxMode)) {
+  fail(`invalid PHOENIX_ERP_CODEX_SANDBOX_MODE: ${codexSandboxMode}`);
+}
+const command = ['codex', 'exec', '-C', worktree, '--sandbox', codexSandboxMode, '-'];
 const timeoutMs = parsePositiveInt(args['timeout-ms'] ?? process.env.PHOENIX_ERP_AGENT_TIMEOUT_MS, 600000);
 
 let assembledPromptFile = null;
