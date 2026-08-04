@@ -1,0 +1,100 @@
+name: Production Disk Maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Read-only audit or guarded cleanup
+        type: choice
+        options: [audit, cleanup]
+        default: audit
+      approve_production:
+        description: Confirm the production maintenance gate
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phoenix-production-disk-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    if: inputs.approve_production == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Audit or clean only regenerable production artifacts
+        uses: appleboy/ssh-action@v1
+        env:
+          ACTION: ${{ inputs.action }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: ACTION
+          script: |
+            set -Eeuo pipefail
+
+            report_disk() {
+              echo "=== filesystem ==="
+              df -hT /
+              echo "=== Phoenix deploy and backup directories ==="
+              du -x -h --max-depth=2 /opt/phoenix-erp /opt/phoenix-erp-backups /opt/phoenix 2>/dev/null | sort -h | tail -n 80 || true
+              echo "=== Docker usage ==="
+              docker system df || true
+              echo "=== Phoenix container log files ==="
+              for container in phoenix-v3-db phoenix-v3-api phoenix-v3-web; do
+                log_path="$(docker inspect --format '{{.LogPath}}' "$container" 2>/dev/null || true)"
+                if [ -n "$log_path" ] && [ -f "$log_path" ]; then
+                  du -h "$log_path"
+                else
+                  echo "$container: no json log file"
+                fi
+              done
+              echo "=== journal usage ==="
+              journalctl --disk-usage || true
+              echo "=== migration backup inventory ==="
+              find /opt/phoenix-erp-backups -mindepth 1 -maxdepth 1 -type d \
+                -name 'deploy-pre-migration-*' -printf '%TY-%Tm-%Td %TH:%TM %s %p\n' 2>/dev/null | sort || true
+            }
+
+            echo "action=$ACTION"
+            report_disk
+            [ "$ACTION" = cleanup ] || exit 0
+
+            # Never prune volumes or running containers. Unused images and old
+            # build cache are reproducible from GHCR/source.
+            docker image prune -a -f || true
+            docker buildx prune -f --filter 'until=168h' --keep-storage=2GB 2>/dev/null \
+              || docker builder prune -f --filter 'until=168h' 2>/dev/null \
+              || true
+
+            # Keep the newest five migration backups regardless of age. Only
+            # older deploy-generated backup directories past 30 days qualify.
+            mapfile -t migration_backups < <(
+              find /opt/phoenix-erp-backups -mindepth 1 -maxdepth 1 -type d \
+                -name 'deploy-pre-migration-*' -printf '%T@ %p\n' 2>/dev/null \
+                | sort -nr | awk 'NR > 5 { sub(/^[^ ]+ /, ""); print }'
+            )
+            for backup_dir in "${migration_backups[@]}"; do
+              [ -n "$backup_dir" ] || continue
+              [ "$(find "$backup_dir" -maxdepth 0 -type d -mtime +30 -print)" = "$backup_dir" ] || continue
+              rm -rf --one-file-system "$backup_dir"
+              echo "removed expired deploy backup: $backup_dir"
+            done
+
+            find /root -maxdepth 1 -type f -name 'nginx-erp.eggslao.com.pre-*.conf' -mtime +30 -delete 2>/dev/null || true
+            journalctl --vacuum-size=256M || true
+
+            echo "=== after cleanup ==="
+            report_disk
