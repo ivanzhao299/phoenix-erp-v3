@@ -2320,3 +2320,19 @@ Decision: counterparty resolution `GO`.
   explicit user approval, one-row canary and official dual readback.
 - Precision audit and UOM evidence extraction are read-only and cannot execute
   external writes.
+
+# 2026-08-04 - Production HOLD precision audit verified
+
+- Production endpoint classified all 107 legacy HOLD rows under audit hash
+  `781f6ed00984faf54e841512cf82e3e3886025ff1a6b6071df669ac009d10dcd`.
+- Genuine HOLD is 2, not 107: `地美` and `马利克` have no stable runtime evidence.
+- 29 rows are deterministic ERP-only master candidates, 63 require explicit
+  ERP operational/UOM policy, and four are intentional non-mappings.
+- Six rows remain cross-system identity reviews.
+- Three exact Chanjet name corrections are proposals only. No external write
+  occurred; mapping `307052` is the recommended one-row canary after explicit
+  approval.
+- Production readback found and fixed a `bigint[]`/`uuid[]` schema-contract
+  defect. Regression tests now lock the production primary-key type.
+- Revision `81a191b8`, deployment run `30871812793`, decision
+  `GO_WITH_CONDITIONS`.

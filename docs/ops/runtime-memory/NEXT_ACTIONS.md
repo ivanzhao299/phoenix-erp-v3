@@ -1,5 +1,32 @@
 # Next Actions
 
+## 2026-08-04 - Production precision audit reduced genuine HOLD from 107 to 2
+
+Current stage: `CHANJET_HOLD_PRECISION_AUDIT_PRODUCTION_VERIFIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Production result:
+
+1. Classified all 107 legacy HOLD rows with production evidence and audit hash.
+2. Identified 29 deterministic ERP-only master candidates and 63 mapping-policy rows.
+3. Closed four rows conceptually as intentional non-mappings.
+4. Isolated six cross-system reviews and only two genuine evidence gaps.
+5. Generated three exact Chanjet correction proposals; executed zero external writes.
+6. Deployed revision `81a191b8` through run `30871812793`.
+
+Next actions:
+
+1. Apply and verify the 29 ERP-only master candidates without importing facts.
+2. Materialize 63 operational/UOM policies and four intentional non-mappings.
+3. Keep six cross-system rows and two evidence-incomplete products blocked.
+4. Await explicit approval for canary mapping `307052` only.
+
+Evidence:
+
+- `docs/ops/CHANJET_HOLD_PRECISION_AUDIT_PRODUCTION_REPORT_20260804.md`
+- `docs/ops/runs/chanjet-hold-precision-audit-20260804.json`
+
 ## 2026-08-04 - Chanjet HOLD precision audit and optimization governance
 
 Current stage: `CHANJET_HOLD_PRECISION_AUDIT_IMPLEMENTED`
