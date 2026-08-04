@@ -132,6 +132,29 @@ const HIGH_CONFIDENCE_NAME_REPAIRS: Record<string, { value: string; reason: stri
   },
 };
 
+// Short veterinary trade names are common in the source books. They are not
+// suitable for fuzzy matching, but their business domain is deterministic
+// enough to create a source-preserving ERP material when runtime UOM evidence
+// exists. Names without runtime evidence remain HOLD.
+const VETERINARY_PRODUCT_NAMES = new Set([
+  '传喉',
+  '阿莫西林',
+  '地美',
+  '新流腺',
+  'H5+H7',
+  '新支减流',
+  '水溶性VC99%',
+  '强力拜固舒',
+  '氯化胺',
+  '支易佳',
+  '新易支',
+  '柴素清',
+  '马利克',
+  '麻杏石甘',
+  '新支流法腺',
+  '盛美观（复方磺胺间甲嘧啶纳可溶粉）',
+]);
+
 function emptyDispositionCounts(): Record<ChanjetHoldDisposition, number> {
   return Object.fromEntries(DISPOSITIONS.map((value) => [value, 0])) as Record<ChanjetHoldDisposition, number>;
 }
@@ -164,6 +187,7 @@ function canonicalUom(value: unknown): string {
 }
 
 function productDomain(name: string): 'LIVESTOCK' | 'FEED' | 'PACKAGING' | 'PROCESSED' | 'MEDICINE' | 'OTHER' {
+  if (VETERINARY_PRODUCT_NAMES.has(name)) return 'MEDICINE';
   if (/^(蛋鸡|公鸡|小公鸡|雏鸡|母鸡|小鸡苗|小母鸡)$/.test(name)) return 'LIVESTOCK';
   if (/料|煤炭|玉米|豆粕|米糠|麸皮|石粉/.test(name)) return 'FEED';
   if (/筐|框|蛋托|包装|标签|胶带/.test(name)) return 'PACKAGING';
@@ -492,11 +516,14 @@ export class ChanjetHoldResolutionAuditService {
         }],
       };
     }
+    const isLivestockPiece = base.chanjetName === '只';
     return {
       ...base,
       disposition: 'ERP_POLICY_REQUIRED',
       confidence: 0.9,
-      recommendedAction: '按产品建立包装单位换算证据；“只”按禽只语义处理，不得全局映射为“枚”。',
+      recommendedAction: isLivestockPiece
+        ? '“只”按禽只语义处理，不得全局映射为“枚”；原单据值和来源单位必须保留。'
+        : '保留来源单位；取得同产品至少 3 笔稳定换算证据后建立产品级换算，不得凭单位名称全局折算。',
     };
   }
 

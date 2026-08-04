@@ -177,4 +177,33 @@ describe('ChanjetHoldResolutionAuditService', () => {
     expect(query.mock.calls[0][0]).toContain('ANY($1::bigint[])');
     expect(query.mock.calls[0][1]).toEqual([['42']]);
   });
+
+  it('classifies evidenced veterinary trade names without requiring manual domain review', async () => {
+    const service = createService([
+      candidate({
+        mappingId: '43',
+        chanjetName: '新流腺',
+        evidence: ['runtime evidence rows 14', 'runtime base UOM 瓶'],
+      }),
+    ]);
+
+    const audit = await service.audit();
+
+    expect(audit.items[0]).toMatchObject({
+      disposition: 'ERP_AUTO_APPLY_ELIGIBLE',
+      authorityOwner: 'ERP_OPERATIONS',
+      autoApplyEligible: true,
+    });
+  });
+
+  it('does not describe every unresolved packaging unit as livestock pieces', async () => {
+    const service = createService([
+      candidate({ mappingId: '44', mappingType: 'UOM', chanjetName: '瓶' }),
+    ]);
+
+    const audit = await service.audit();
+
+    expect(audit.items[0].recommendedAction).toContain('产品级换算');
+    expect(audit.items[0].recommendedAction).not.toContain('禽只');
+  });
 });
