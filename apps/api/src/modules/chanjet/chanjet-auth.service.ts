@@ -12,6 +12,16 @@ interface TokenEntry {
   expiresAt: number;
 }
 
+type ChanjetCallKind = 'READ' | 'WRITE';
+
+interface ChanjetCallOptions {
+  method?: 'GET' | 'POST';
+  query?: Record<string, string>;
+  body?: Record<string, unknown>;
+  orgId?: string;
+  kind?: ChanjetCallKind;
+}
+
 const SINGLETON_KEY = 'singleton';
 
 export interface ChanjetBusinessFailure {
@@ -84,6 +94,9 @@ export class ChanjetAuthService implements OnModuleInit {
 
   private appTicket = '';
   private tokenCache = new Map<string, TokenEntry>();
+  private trafficQueue: Promise<void> = Promise.resolve();
+  private readCache = new Map<string, { expiresAt: number; value: unknown }>();
+  private readInFlight = new Map<string, Promise<unknown>>();
 
   constructor(
     private cfg: ConfigService,
@@ -393,9 +406,43 @@ export class ChanjetAuthService implements OnModuleInit {
    */
   async callApi<T = unknown>(
     path: string,
-    opts: { method?: 'GET' | 'POST'; query?: Record<string, string>; body?: Record<string, unknown>; orgId?: string } = {},
+    opts: ChanjetCallOptions = {},
     _isRetry = false,
   ): Promise<T> {
+    const kind = opts.kind || this.inferCallKind(path);
+    if (kind === 'READ' && !_isRetry) {
+      const cacheKey = this.readCacheKey(path, opts);
+      const cached = this.readCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) return cached.value as T;
+      if (cached) this.readCache.delete(cacheKey);
+
+      const active = this.readInFlight.get(cacheKey);
+      if (active) return active as Promise<T>;
+
+      const request = this.executeCallApi<T>(path, opts, false);
+      this.readInFlight.set(cacheKey, request);
+      try {
+        const value = await request;
+        this.storeReadCache(cacheKey, value);
+        return value;
+      } finally {
+        this.readInFlight.delete(cacheKey);
+      }
+    }
+
+    const result = await this.executeCallApi<T>(path, opts, _isRetry);
+    if (kind === 'WRITE') this.readCache.clear();
+    return result;
+  }
+
+  private async executeCallApi<T>(
+    path: string,
+    opts: ChanjetCallOptions,
+    isRetry: boolean,
+  ): Promise<T> {
+    const kind = opts.kind || this.inferCallKind(path);
+    await this.reserveTrafficBudget(kind, path);
+    await this.waitForTrafficSlot();
     const token = await this.getOpenToken(opts.orgId);
     let url = `https://openapi.chanjet.com${path}`;
     if (opts.query && Object.keys(opts.query).length) {
@@ -418,10 +465,10 @@ export class ChanjetAuthService implements OnModuleInit {
 
     // 50107 = openToken 已失效(被 resend 作废 / 过期),清缓存重换重试一次
     const code = (json.code ?? (json.error as Record<string, unknown>)?.code) as string | undefined;
-    if (!_isRetry && code === '50107') {
+    if (!isRetry && code === '50107') {
       this.log.warn(`callApi 50107 token 失效,清缓存重试 path=${path}`);
       this.tokenCache.delete(opts.orgId || this.orgId);
-      return this.callApi<T>(path, opts, true);
+      return this.executeCallApi<T>(path, opts, true);
     }
 
     const businessFailure = getChanjetBusinessFailure(json);
@@ -438,6 +485,109 @@ export class ChanjetAuthService implements OnModuleInit {
     }
 
     return json as T;
+  }
+
+  private readCacheKey(path: string, opts: ChanjetCallOptions): string {
+    return JSON.stringify([
+      opts.orgId || this.orgId,
+      opts.method || 'POST',
+      path,
+      opts.query || {},
+      opts.body || {},
+    ]);
+  }
+
+  private storeReadCache(key: string, value: unknown): void {
+    const ttlMs = this.positiveInt('CHANJET_READ_CACHE_TTL_MS', 30_000);
+    const maxEntries = this.positiveInt('CHANJET_READ_CACHE_MAX_ENTRIES', 500);
+    this.readCache.set(key, { expiresAt: Date.now() + ttlMs, value });
+    while (this.readCache.size > maxEntries) {
+      const oldestKey = this.readCache.keys().next().value as string | undefined;
+      if (!oldestKey) break;
+      this.readCache.delete(oldestKey);
+    }
+  }
+
+  private inferCallKind(path: string): ChanjetCallKind {
+    return /\/(?:add|update|remove|delete|batchUpsert)(?:\/|$)/i.test(path)
+      ? 'WRITE'
+      : 'READ';
+  }
+
+  /**
+   * Provider-side traffic is billed even when a request fails. Keep one
+   * process-wide queue so scheduled sync, manual probes and writeback cannot
+   * create a burst against the same appKey.
+   */
+  private async waitForTrafficSlot(): Promise<void> {
+    const configured = Number(this.cfg.get('CHANJET_MIN_REQUEST_INTERVAL_MS', '250'));
+    const intervalMs = Number.isFinite(configured) ? Math.max(configured, 100) : 250;
+    const previous = this.trafficQueue;
+    let release!: () => void;
+    this.trafficQueue = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    try {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, intervalMs);
+      });
+    } finally {
+      release();
+    }
+  }
+
+  /**
+   * Durable local safety budget. Defaults intentionally stay below the
+   * provider's 30,000/month free allowance, leaving room for callbacks,
+   * operator diagnostics and traffic recorded before this guard was deployed.
+   */
+  private async reserveTrafficBudget(kind: ChanjetCallKind, path: string): Promise<void> {
+    const manager = (this.stateRepo as unknown as {
+      manager?: { transaction?: <T>(fn: (tx: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }) => Promise<T>) => Promise<T> };
+    }).manager;
+    if (!manager?.transaction) return;
+
+    // Provider quota is operated in China Standard Time. Build the durable
+    // budget keys in the same timezone so midnight does not split one day.
+    const now = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    const monthKey = `M:${now.toISOString().slice(0, 7)}`;
+    const dayKey = `D:${now.toISOString().slice(0, 10)}`;
+    const writeKey = `W:${now.toISOString().slice(0, 10)}`;
+    const monthLimit = this.positiveInt('CHANJET_MONTHLY_LOCAL_BUDGET', 20_000);
+    const dayLimit = this.positiveInt('CHANJET_DAILY_LOCAL_BUDGET', 650);
+    const writeLimit = this.positiveInt('CHANJET_DAILY_WRITE_BUDGET', 20);
+
+    const reserve = async (
+      tx: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> },
+      key: string,
+      limit: number,
+    ) => {
+      const rows = await tx.query(
+        `INSERT INTO sys_chanjet_api_budget (budget_key, request_count, updated_at)
+         VALUES ($1, 1, NOW())
+         ON CONFLICT (budget_key) DO UPDATE
+           SET request_count = sys_chanjet_api_budget.request_count + 1,
+               updated_at = NOW()
+         WHERE sys_chanjet_api_budget.request_count < $2
+         RETURNING request_count`,
+        [key, limit],
+      );
+      if (!rows.length) {
+        throw new Error(
+          `CHANJET_LOCAL_BUDGET_EXHAUSTED key=${key} limit=${limit} kind=${kind} path=${path}`,
+        );
+      }
+    };
+
+    await manager.transaction(async (tx) => {
+      await reserve(tx, monthKey, monthLimit);
+      await reserve(tx, dayKey, dayLimit);
+      if (kind === 'WRITE') await reserve(tx, writeKey, writeLimit);
+    });
+  }
+
+  private positiveInt(key: string, fallback: number): number {
+    const value = Number(this.cfg.get(key, String(fallback)));
+    return Number.isInteger(value) && value > 0 ? value : fallback;
   }
 
   /**
@@ -489,6 +639,14 @@ export class ChanjetAuthService implements OnModuleInit {
       hasAppTicket: !!this.appTicket,
       hasCert: !!this.cert,
       tokens,
+      trafficPolicy: {
+        minRequestIntervalMs: this.positiveInt('CHANJET_MIN_REQUEST_INTERVAL_MS', 250),
+        monthlyLocalBudget: this.positiveInt('CHANJET_MONTHLY_LOCAL_BUDGET', 20_000),
+        dailyLocalBudget: this.positiveInt('CHANJET_DAILY_LOCAL_BUDGET', 650),
+        dailyWriteBudget: this.positiveInt('CHANJET_DAILY_WRITE_BUDGET', 20),
+        readCacheTtlMs: this.positiveInt('CHANJET_READ_CACHE_TTL_MS', 30_000),
+        readCacheMaxEntries: this.positiveInt('CHANJET_READ_CACHE_MAX_ENTRIES', 500),
+      },
     };
   }
 }

@@ -1507,6 +1507,9 @@ export function classifyChanjetSyncFailure(error: string): {
   retryEligible: boolean;
   capability: 'SUPPORTED' | 'PERMISSION_HOLD' | 'UNSUPPORTED';
 } {
+  if (/CHANJET_LOCAL_BUDGET_EXHAUSTED|traffic budget exhausted/i.test(error)) {
+    return { retryEligible: false, capability: 'SUPPORTED' };
+  }
   if (/50111|无调用该接口的权限|permission denied|forbidden/i.test(error)) {
     return { retryEligible: false, capability: 'PERMISSION_HOLD' };
   }

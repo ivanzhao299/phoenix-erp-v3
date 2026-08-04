@@ -16,6 +16,11 @@ describe('Chanjet provider failure classification', () => {
       .toEqual({ retryEligible: true, capability: 'SUPPORTED' });
   });
 
+  it('does not retry after the local provider traffic budget is exhausted', () => {
+    expect(classifyChanjetSyncFailure('CHANJET_LOCAL_BUDGET_EXHAUSTED key=D:2026-08-04 limit=650'))
+      .toEqual({ retryEligible: false, capability: 'SUPPORTED' });
+  });
+
   it('never computes a total cash difference across incompatible currency scopes', () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
 
