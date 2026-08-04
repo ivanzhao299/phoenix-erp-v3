@@ -1,20 +1,40 @@
-name: Chanjet House Alignment Readonly
+name: Chanjet House Alignment
 
 on:
   workflow_dispatch:
     inputs:
+      operation:
+        description: 'Operation to run'
+        required: true
+        default: readonly
+        type: choice
+        options:
+          - readonly
+          - pilot
       approve_readonly:
         description: 'Confirm production read-only audit (no Chanjet writes)'
         required: true
-        default: 'false'
+        default: false
+        type: boolean
+      approve_pilot:
+        description: 'Approve one guarded production project canary'
+        required: true
+        default: false
+        type: boolean
+      pilot_confirmation:
+        description: 'For pilot only: type CREATE_HOUSE_PROJECT_CANARY'
+        required: false
+        default: ''
 
 concurrency:
-  group: chanjet-house-alignment-readonly
+  group: chanjet-house-alignment
   cancel-in-progress: false
 
 jobs:
   audit:
-    if: inputs.approve_readonly == 'true'
+    if: >-
+      (inputs.operation == 'readonly' && inputs.approve_readonly) ||
+      (inputs.operation == 'pilot' && inputs.approve_pilot && inputs.pilot_confirmation == 'CREATE_HOUSE_PROJECT_CANARY')
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -28,8 +48,10 @@ jobs:
         run: |
           node --check scripts/ops/mint-production-admin-token-over-ssh.mjs
           node --check scripts/ops/chanjet-house-alignment-readonly.mjs
+          node --check scripts/ops/chanjet-house-project-pilot.mjs
 
       - name: Run targeted production readonly audit
+        if: inputs.operation == 'readonly'
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -48,12 +70,37 @@ jobs:
             --api-base=https://erp.eggslao.com \
             --output-dir=docs/ops/runs
 
+      - name: Run one guarded production project pilot
+        if: inputs.operation == 'pilot'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$TOKEN"
+          PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-house-project-pilot.mjs \
+            --execute \
+            --confirmation=CREATE_HOUSE_PROJECT_CANARY \
+            --api-base=https://erp.eggslao.com \
+            --book-id=3533914511118750 \
+            --house-code=HOUSE_MS_02 \
+            --expected-name=2号鸡舍 \
+            --output-dir=docs/ops/runs
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: chanjet-house-alignment-readonly-${{ github.run_id }}
+          name: chanjet-house-alignment-${{ inputs.operation }}-${{ github.run_id }}
           path: |
             docs/ops/runs/chanjet-house-alignment-readonly-latest.json
             docs/ops/runs/chanjet-house-alignment-readonly-latest.md
+            docs/ops/runs/chanjet-house-project-pilot-latest.json
           if-no-files-found: warn
           retention-days: 14
