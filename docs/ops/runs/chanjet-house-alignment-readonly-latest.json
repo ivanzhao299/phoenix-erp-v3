@@ -1,0 +1,557 @@
+{
+  "generatedAt": "2026-08-05T08:15:56.139Z",
+  "decision": "READY_FOR_HUMAN_REVIEW",
+  "writeChanjet": false,
+  "writeErpBusinessTables": false,
+  "skipRefresh": false,
+  "books": [
+    {
+      "bookId": "3533914511118750",
+      "companyCode": "COMP-LAO-AGRI",
+      "companyName": "凤凰农业"
+    },
+    {
+      "bookId": "3537748712226818",
+      "companyCode": "COMP-LAO-XINGCHI",
+      "companyName": "星驰农业"
+    },
+    {
+      "bookId": "3539743721526654",
+      "companyCode": "COMP-LAO-FOOD",
+      "companyName": "凤凰食品"
+    }
+  ],
+  "syncResults": [
+    {
+      "bookId": "3533914511118750",
+      "companyCode": "COMP-LAO-AGRI",
+      "companyName": "凤凰农业",
+      "success": true,
+      "writeChanjet": false
+    },
+    {
+      "bookId": "3537748712226818",
+      "companyCode": "COMP-LAO-XINGCHI",
+      "companyName": "星驰农业",
+      "success": true,
+      "writeChanjet": false
+    },
+    {
+      "bookId": "3539743721526654",
+      "companyCode": "COMP-LAO-FOOD",
+      "companyName": "凤凰食品",
+      "success": true,
+      "writeChanjet": false
+    }
+  ],
+  "blockers": [],
+  "counts": {
+    "chanjetProjects": 6,
+    "chanjetDepartments": 36,
+    "chanjetHouseProjects": 0,
+    "chanjetHouseDepartments": 13,
+    "erpHouses": 11
+  },
+  "chanjetHouses": [],
+  "houseLikeDepartments": [
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3551710443738506",
+      "code": "106",
+      "name": "公鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:02.093Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3551710443738502",
+      "code": "105",
+      "name": "5号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:02.091Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3551710443738497",
+      "code": "104",
+      "name": "4号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:02.089Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3551710443738494",
+      "code": "103",
+      "name": "3号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:02.088Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3551709638432642",
+      "code": "102",
+      "name": "2号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:02.086Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3551709638432636",
+      "code": "101",
+      "name": "1号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:02.085Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3551709638432635",
+      "code": "10",
+      "name": "鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:02.081Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3537641336865781",
+      "code": "106",
+      "name": "6号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:01.462Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3537641336865775",
+      "code": "105",
+      "name": "5号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:01.460Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3537641336865768",
+      "code": "104",
+      "name": "4号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:01.458Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3537640532739068",
+      "code": "103",
+      "name": "3号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:01.456Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3537640532739064",
+      "code": "102",
+      "name": "2号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:01.454Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3537640532739056",
+      "code": "101",
+      "name": "1号鸡舍",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {},
+      "lastSeenAt": "2026-08-05T04:15:01.425Z"
+    }
+  ],
+  "projectCatalog": [
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3560618337764955",
+      "code": "0002",
+      "name": "会晒直营店",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3560618337764919",
+      "code": "0001",
+      "name": "沙耶武里直营店",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3566439492624796",
+      "code": "0004",
+      "name": "万象直营店",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3566439492624719",
+      "code": "0003",
+      "name": "波利坎赛直营店",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3566439230868108",
+      "code": "0002",
+      "name": "琅勃拉邦直营店",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3566438559785777",
+      "code": "0001",
+      "name": "孟赛直营店",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "UNKNOWN",
+      "productionState": "UNKNOWN",
+      "rawStatusFlags": {}
+    }
+  ],
+  "erpHouses": [
+    {
+      "code": "H-DEBUG-A01",
+      "name": "X",
+      "farmCode": "F-DEBUG",
+      "status": "ACTIVE",
+      "capacity": "0"
+    },
+    {
+      "code": "HOUSE_CS_01",
+      "name": "测试鸡舍",
+      "farmCode": "LPH_MENGSAI",
+      "status": "ACTIVE",
+      "capacity": "1000"
+    },
+    {
+      "code": "HOUSE_CS_02",
+      "name": "测试鸡舍2",
+      "farmCode": "LPH_MENGSAI",
+      "status": "ACTIVE",
+      "capacity": "2000"
+    },
+    {
+      "code": "CS0716",
+      "name": "测试鸡舍",
+      "farmCode": "CS-0001",
+      "status": "ACTIVE",
+      "capacity": "1000"
+    },
+    {
+      "code": "HOUSE_CS_03",
+      "name": "测试鸡舍3-东鹏",
+      "farmCode": "",
+      "status": "ACTIVE",
+      "capacity": "1000"
+    },
+    {
+      "code": "HOUSE_CS_04",
+      "name": "测试鸡舍4",
+      "farmCode": "FARM-DP",
+      "status": "ACTIVE",
+      "capacity": "10000"
+    },
+    {
+      "code": "HOUSE_MS_02",
+      "name": "2号鸡舍",
+      "farmCode": "LPH_MENGSAI",
+      "status": "ACTIVE",
+      "capacity": "46000"
+    },
+    {
+      "code": "HOUSE_MS_03",
+      "name": "3号鸡舍",
+      "farmCode": "LPH_MENGSAI",
+      "status": "ACTIVE",
+      "capacity": "40000"
+    },
+    {
+      "code": "HOUSE_MS_04",
+      "name": "4号鸡舍",
+      "farmCode": "LPH_MENGSAI",
+      "status": "ACTIVE",
+      "capacity": "45000"
+    },
+    {
+      "code": "HOUSE_MS_05",
+      "name": "5号鸡舍",
+      "farmCode": "LPH_MENGSAI",
+      "status": "ACTIVE",
+      "capacity": "44000"
+    },
+    {
+      "code": "HOUSE_MS_06",
+      "name": "6号鸡舍",
+      "farmCode": "LPH_MENGSAI",
+      "status": "ACTIVE",
+      "capacity": "43000"
+    }
+  ],
+  "mappings": [
+    {
+      "erp": {
+        "code": "H-DEBUG-A01",
+        "name": "X",
+        "farmCode": "F-DEBUG",
+        "status": "ACTIVE",
+        "capacity": "0"
+      },
+      "expectedBookId": "",
+      "dataClass": "TEST_OR_DEBUG",
+      "matchStatus": "EXCLUDE_TEST_DATA",
+      "matchBasis": "NONE",
+      "chanjet": [],
+      "chanjetDepartments": []
+    },
+    {
+      "erp": {
+        "code": "HOUSE_CS_01",
+        "name": "测试鸡舍",
+        "farmCode": "LPH_MENGSAI",
+        "status": "ACTIVE",
+        "capacity": "1000"
+      },
+      "expectedBookId": "3533914511118750",
+      "dataClass": "TEST_OR_DEBUG",
+      "matchStatus": "EXCLUDE_TEST_DATA",
+      "matchBasis": "NONE",
+      "chanjet": [],
+      "chanjetDepartments": []
+    },
+    {
+      "erp": {
+        "code": "HOUSE_CS_02",
+        "name": "测试鸡舍2",
+        "farmCode": "LPH_MENGSAI",
+        "status": "ACTIVE",
+        "capacity": "2000"
+      },
+      "expectedBookId": "3533914511118750",
+      "dataClass": "TEST_OR_DEBUG",
+      "matchStatus": "EXCLUDE_TEST_DATA",
+      "matchBasis": "NONE",
+      "chanjet": [],
+      "chanjetDepartments": []
+    },
+    {
+      "erp": {
+        "code": "CS0716",
+        "name": "测试鸡舍",
+        "farmCode": "CS-0001",
+        "status": "ACTIVE",
+        "capacity": "1000"
+      },
+      "expectedBookId": "",
+      "dataClass": "TEST_OR_DEBUG",
+      "matchStatus": "EXCLUDE_TEST_DATA",
+      "matchBasis": "NONE",
+      "chanjet": [],
+      "chanjetDepartments": []
+    },
+    {
+      "erp": {
+        "code": "HOUSE_CS_03",
+        "name": "测试鸡舍3-东鹏",
+        "farmCode": "",
+        "status": "ACTIVE",
+        "capacity": "1000"
+      },
+      "expectedBookId": "3537748712226818",
+      "dataClass": "TEST_OR_DEBUG",
+      "matchStatus": "EXCLUDE_TEST_DATA",
+      "matchBasis": "NONE",
+      "chanjet": [],
+      "chanjetDepartments": []
+    },
+    {
+      "erp": {
+        "code": "HOUSE_CS_04",
+        "name": "测试鸡舍4",
+        "farmCode": "FARM-DP",
+        "status": "ACTIVE",
+        "capacity": "10000"
+      },
+      "expectedBookId": "3537748712226818",
+      "dataClass": "TEST_OR_DEBUG",
+      "matchStatus": "EXCLUDE_TEST_DATA",
+      "matchBasis": "NONE",
+      "chanjet": [],
+      "chanjetDepartments": []
+    },
+    {
+      "erp": {
+        "code": "HOUSE_MS_02",
+        "name": "2号鸡舍",
+        "farmCode": "LPH_MENGSAI",
+        "status": "ACTIVE",
+        "capacity": "46000"
+      },
+      "expectedBookId": "3533914511118750",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION",
+      "matchBasis": "DEPARTMENT_NAME",
+      "chanjet": [],
+      "chanjetDepartments": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3537640532739064",
+          "code": "102",
+          "name": "2号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-05T04:15:01.454Z"
+        }
+      ]
+    },
+    {
+      "erp": {
+        "code": "HOUSE_MS_03",
+        "name": "3号鸡舍",
+        "farmCode": "LPH_MENGSAI",
+        "status": "ACTIVE",
+        "capacity": "40000"
+      },
+      "expectedBookId": "3533914511118750",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION",
+      "matchBasis": "DEPARTMENT_NAME",
+      "chanjet": [],
+      "chanjetDepartments": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3537640532739068",
+          "code": "103",
+          "name": "3号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-05T04:15:01.456Z"
+        }
+      ]
+    },
+    {
+      "erp": {
+        "code": "HOUSE_MS_04",
+        "name": "4号鸡舍",
+        "farmCode": "LPH_MENGSAI",
+        "status": "ACTIVE",
+        "capacity": "45000"
+      },
+      "expectedBookId": "3533914511118750",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION",
+      "matchBasis": "DEPARTMENT_NAME",
+      "chanjet": [],
+      "chanjetDepartments": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3537641336865768",
+          "code": "104",
+          "name": "4号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-05T04:15:01.458Z"
+        }
+      ]
+    },
+    {
+      "erp": {
+        "code": "HOUSE_MS_05",
+        "name": "5号鸡舍",
+        "farmCode": "LPH_MENGSAI",
+        "status": "ACTIVE",
+        "capacity": "44000"
+      },
+      "expectedBookId": "3533914511118750",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION",
+      "matchBasis": "DEPARTMENT_NAME",
+      "chanjet": [],
+      "chanjetDepartments": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3537641336865775",
+          "code": "105",
+          "name": "5号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-05T04:15:01.460Z"
+        }
+      ]
+    },
+    {
+      "erp": {
+        "code": "HOUSE_MS_06",
+        "name": "6号鸡舍",
+        "farmCode": "LPH_MENGSAI",
+        "status": "ACTIVE",
+        "capacity": "43000"
+      },
+      "expectedBookId": "3533914511118750",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION",
+      "matchBasis": "DEPARTMENT_NAME",
+      "chanjet": [],
+      "chanjetDepartments": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3537641336865781",
+          "code": "106",
+          "name": "6号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-05T04:15:01.462Z"
+        }
+      ]
+    }
+  ]
+}

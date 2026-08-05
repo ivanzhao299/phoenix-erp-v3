@@ -28,6 +28,7 @@ type ExistingMaster = {
   accountType?: string;
   bankName?: string;
   accountNo?: string;
+  operationType?: string;
   targetTable: string;
   targetEntityType?: string;
   baseUom?: string;
@@ -274,6 +275,7 @@ export class ChanjetErpMasterBusinessReviewService {
       projects,
       warehouses,
       companyOrganizations,
+      departments,
       stores,
       houses,
       productMasters,
@@ -284,6 +286,7 @@ export class ChanjetErpMasterBusinessReviewService {
       this.loadProjects(),
       this.loadWarehouses(),
       this.loadCompanyOrganizations(),
+      this.loadDepartments(),
       this.loadStores(),
       this.loadHouses(),
       this.loadProductMasters(),
@@ -308,6 +311,7 @@ export class ChanjetErpMasterBusinessReviewService {
         projects,
         warehouses,
         companyOrganizations,
+        departments,
         stores,
         houses,
         productMasters,
@@ -509,11 +513,38 @@ export class ChanjetErpMasterBusinessReviewService {
     }));
   }
 
+  private async loadDepartments(): Promise<ExistingMaster[]> {
+    const rows = await this.ds.query(
+      `SELECT department.org_code AS code,
+              department.org_name AS name,
+              COALESCE(
+                NULLIF(department.company_code, ''),
+                NULLIF(parent.company_code, ''),
+                NULLIF(company.org_code, ''),
+                ''
+              ) AS "companyCode"
+         FROM sys_organizations department
+         LEFT JOIN sys_organizations parent
+           ON parent.org_code = department.parent_code
+         LEFT JOIN sys_organizations company
+           ON company.org_code = parent.parent_code
+          AND company.org_type = 'COMPANY'
+        WHERE department.status = 'ACTIVE'
+          AND department.org_type = 'DEPARTMENT'`,
+    );
+    return rows.map((row: ExistingMaster) => ({
+      ...row,
+      targetTable: 'sys_organizations',
+      targetEntityType: 'DEPARTMENT',
+    }));
+  }
+
   private async loadStores(): Promise<ExistingMaster[]> {
     const rows = await this.ds.query(
       `SELECT store_code AS code,
               store_name AS name,
-              company_code AS "companyCode"
+              company_code AS "companyCode",
+              COALESCE(operation_type, '') AS "operationType"
          FROM mst_stores
         WHERE status = 'ACTIVE'`,
     );
@@ -614,6 +645,7 @@ export class ChanjetErpMasterBusinessReviewService {
       projects: ExistingMaster[];
       warehouses: ExistingMaster[];
       companyOrganizations: ExistingMaster[];
+      departments: ExistingMaster[];
       stores: ExistingMaster[];
       houses: ExistingMaster[];
       productMasters: ExistingMaster[];
@@ -656,6 +688,7 @@ export class ChanjetErpMasterBusinessReviewService {
     source: SourceMappingRow,
     context: {
       companyOrganizations: ExistingMaster[];
+      departments: ExistingMaster[];
       stores: ExistingMaster[];
       houses: ExistingMaster[];
     },
@@ -687,6 +720,30 @@ export class ChanjetErpMasterBusinessReviewService {
           'source department has store semantics',
         ]);
       }
+      const sameCompanyStores = context.stores.filter(
+        (master) => master.companyCode === source.company_code,
+      );
+      const aliases = name === '万象仓库直营店'
+        ? sameCompanyStores.filter(
+            (master) => /万象/.test(master.name) && /仓储|仓库/.test(master.name),
+          )
+        : name === '波利坎赛合作店'
+          ? sameCompanyStores.filter(
+              (master) => /波利坎赛/.test(master.name)
+                && /合作/.test(String(master.operationType || '')),
+            )
+          : [];
+      if (aliases.length === 1) {
+        return this.departmentMappingCandidate(source, aliases[0], [
+          'reviewed store alias policy matched one same-company active store',
+          name === '万象仓库直营店'
+            ? 'location 万象 + warehouse semantics are equivalent'
+            : 'location 波利坎赛 + cooperative operation type are equivalent',
+        ]);
+      }
+      if (aliases.length > 1) {
+        return holdCandidate(source, ['MULTIPLE_ERP_STORE_ALIAS_TARGETS']);
+      }
       return holdCandidate(source, [
         'ERP_STORE_EXACT_IDENTITY_MISSING',
         'STORE_ALIAS_OR_BUSINESS_TYPE_REQUIRES_EXPLICIT_POLICY',
@@ -716,6 +773,23 @@ export class ChanjetErpMasterBusinessReviewService {
     if (/^(鸡舍|直营店)$/.test(name)) {
       return holdCandidate(source, [
         'ACCOUNTING_DIMENSION_GROUP_NODE_MUST_NOT_MAP_TO_TRANSACTIONAL_MASTER',
+      ]);
+    }
+    if (name === '生成部') {
+      const productionDepartments = context.departments.filter(
+        (master) => master.companyCode === source.company_code
+          && /生产部$/.test(master.name),
+      );
+      if (productionDepartments.length === 1) {
+        return this.departmentMappingCandidate(source, productionDepartments[0], [
+          'reviewed accounting-dimension typo alias 生成部 -> 生产部',
+          'one active production department exists inside the account-book company boundary',
+        ]);
+      }
+      return holdCandidate(source, [
+        productionDepartments.length > 1
+          ? 'MULTIPLE_ERP_PRODUCTION_DEPARTMENT_TARGETS'
+          : 'ERP_PRODUCTION_DEPARTMENT_TARGET_MISSING',
       ]);
     }
     return holdCandidate(source, [
