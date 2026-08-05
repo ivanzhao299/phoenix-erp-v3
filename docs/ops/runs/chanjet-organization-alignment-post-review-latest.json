@@ -1,0 +1,55 @@
+{
+  "generatedAt": "2026-08-05T09:12:09Z",
+  "environment": "production",
+  "postReviewHash": "3cdffc0f2b8bf53f93184b3c37b2ffac10895b9e356d6ad84eb31f2c602ad8fb",
+  "reviewSummary": {
+    "totalOpenRows": 104,
+    "actionable": 0,
+    "hold": 104,
+    "departmentHold": 14
+  },
+  "departmentMappingState": {
+    "rawSnapshots": 36,
+    "validDomainIdentities": 32,
+    "mappedApproved": 18,
+    "sourceOnlyApprovedHold": 14,
+    "pendingSourceQuality": 2,
+    "mappingRecords": 34,
+    "unstagedSyntheticRows": 2
+  },
+  "pendingSourceQualityRows": [
+    {
+      "mappingId": "1",
+      "bookId": "3539743721526654",
+      "sourceCode": "50000",
+      "sourceName": "50000"
+    },
+    {
+      "mappingId": "307196",
+      "bookId": "3533914511118750",
+      "sourceCode": "07",
+      "sourceName": "拉邦酒店"
+    }
+  ],
+  "unstagedSyntheticRows": [
+    {
+      "bookId": "3533914511118750",
+      "company": "凤凰农业",
+      "sourceCode": "50000",
+      "sourceName": "50000"
+    },
+    {
+      "bookId": "3537748712226818",
+      "company": "星驰农业",
+      "sourceCode": "50000",
+      "sourceName": "50000"
+    }
+  ],
+  "guardrails": {
+    "chanjetWrite": false,
+    "erpMasterCreation": false,
+    "erpBusinessFactWrite": false,
+    "migration": false,
+    "fuzzyMapping": false
+  }
+}

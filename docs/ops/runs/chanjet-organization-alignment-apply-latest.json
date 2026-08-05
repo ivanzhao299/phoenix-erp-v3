@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-08-05T09:12:08.872Z",
+  "environment": "production",
+  "deploymentRevision": "41a5e9954fc47998d8b6da2f3cb016aa0189fe4f",
+  "deploymentRun": "30991367785",
+  "preReviewHash": "6e9e74213eaa5bc3e0bfff2c0c9fb8ab7a3ba7a6655318c6f5ad324be378ee30",
+  "result": {
+    "created": 0,
+    "mappedExisting": 3,
+    "skipped": 0,
+    "hold": 104,
+    "writeChanjet": false,
+    "financialBalanceImport": false,
+    "inventoryFactImport": false
+  },
+  "mappings": [
+    {
+      "mappingId": "6178",
+      "source": "万象仓库直营店",
+      "targetTable": "mst_stores",
+      "targetCode": "STORE-VTE-WH-001",
+      "targetName": "万象仓储中心店"
+    },
+    {
+      "mappingId": "6180",
+      "source": "波利坎赛合作店",
+      "targetTable": "mst_stores",
+      "targetCode": "STORE-BKX-001",
+      "targetName": "波利坎赛省直营店"
+    },
+    {
+      "mappingId": "6183",
+      "source": "生成部",
+      "targetTable": "sys_organizations",
+      "targetCode": "DEPT-SITE-MENGSAI-LAYER-PROD",
+      "targetName": "孟赛蛋鸡养殖场-生产部"
+    }
+  ],
+  "masterCountsBeforeAndAfter": {
+    "sysOrganizations": 50,
+    "stores": 10,
+    "houses": 11,
+    "unchanged": true
+  }
+}

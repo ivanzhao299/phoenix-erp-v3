@@ -2027,3 +2027,29 @@ Next actions:
 4. 仅执行 mapping `307052` 单行修正。
 5. 完成官方 API 回读、ERP 镜像回读和非目标字段一致性验证。
 6. 任何差异触发单行回滚并保持 HOLD。
+
+# 2026-08-05 - 好业财组织架构确定性映射已生产落地
+
+Current stage: `CHANJET_ORGANIZATION_ALIGNMENT_PRODUCTION_APPLIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+- 远程 `main` 已同步，组织别名规则和执行校验修复已合并并部署至生产 revision `41a5e995`。
+- 三条同公司、唯一、可证明的别名已映射到既有 ERP 主数据：万象仓库直营店、波利坎赛合作店、生成部。
+- 部门维度已批准映射由 15 条增至 18 条，写后 actionable 为 0。
+- 36 条来源快照已对账：32 条有效业务身份，另有 4 条来源质量异常被 fail-closed 隔离。
+- ERP 组织、门店、鸡舍数量保持 50 / 10 / 11，没有伪造主数据。
+- 好业财外部写入、ERP 业务事实写入、migration 均未执行。
+
+Next actions:
+
+1. `CHANJET_ORGANIZATION_REMAINING_MASTER_CREATION_REVIEW`
+2. 对星驰 1-5号鸡舍、公鸡舍、育雏逐项核验场区归属和正式编码，再决定是否创建 ERP 主档。
+3. 为变蛋、烧鸡、蛋托车间定义场区与工艺归属后再映射。
+4. 会计分组“借款”“鸡舍”保持 intentional non-mapping。
+5. “拉邦酒店”和合成 `50000` 来源行保持质量 HOLD。
+6. 继续禁止好业财外部写入和模糊匹配。
+
+Evidence: `docs/ops/CHANJET_ORGANIZATION_ALIGNMENT_REPORT_20260805.md`.

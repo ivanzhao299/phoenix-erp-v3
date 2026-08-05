@@ -2355,6 +2355,25 @@ Decision: counterparty resolution `GO`.
   remains API-only and must include pre-read, one-row write, provider readback,
   ERP mirror readback and rollback-on-difference.
 
+# 2026-08-05 - Chanjet organization aliases applied to existing ERP masters
+
+- Decision: `GO_WITH_CONDITIONS`.
+- Production planning found exactly three deterministic same-company aliases.
+- The first apply exposed a contract defect: planning inherited department company
+  ownership from the organization parent chain, while apply verification read only
+  the department row's `company_code`. The transaction rolled back with no residue.
+- Revision `41a5e995` aligned both paths, passed focused Jest 11/11, API typecheck,
+  W5 20/20 and production deployment run `30991367785`.
+- Production apply mapped three existing masters and created none:
+  `STORE-VTE-WH-001`, `STORE-BKX-001`, and
+  `DEPT-SITE-MENGSAI-LAYER-PROD`.
+- Post-review actionable count is zero. Organization/store/house counts remained
+  50/10/11. Fourteen evidence-incomplete department identities remain HOLD and two
+  source-quality rows remain PENDING.
+- No Chanjet write, ERP business-fact write, migration, financial balance import,
+  inventory fact import or fuzzy mapping occurred.
+- Evidence: `docs/ops/CHANJET_ORGANIZATION_ALIGNMENT_REPORT_20260805.md`.
+
 # 2026-08-04 - Chanjet data quality and ERP adaptation audit
 
 - Decision: `GO_WITH_CONDITIONS` with an evidence-based maturity score of 72.
