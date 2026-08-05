@@ -29,6 +29,7 @@ function createService(
     projects?: Array<Record<string, unknown>>;
     warehouses?: Array<Record<string, unknown>>;
     companies?: Array<Record<string, unknown>>;
+    departments?: Array<Record<string, unknown>>;
     stores?: Array<Record<string, unknown>>;
     houses?: Array<Record<string, unknown>>;
     productMasters?: Array<Record<string, unknown>>;
@@ -43,6 +44,7 @@ function createService(
       if (sql.includes('FROM fin_cash_accounts')) return targets.cash || [];
       if (sql.includes('FROM biz_projects')) return targets.projects || [];
       if (sql.includes('FROM wms_warehouses')) return targets.warehouses || [];
+      if (sql.includes("department.org_type = 'DEPARTMENT'")) return targets.departments || [];
       if (sql.includes('FROM sys_organizations')) return targets.companies || [];
       if (sql.includes('FROM mst_stores')) return targets.stores || [];
       if (sql.includes('FROM brd_houses')) return targets.houses || [];
@@ -195,6 +197,21 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
           mapping_type: 'DEPARTMENT',
           chanjet_name: '鸡舍',
         }),
+        source({
+          id: 'dept-store-warehouse-alias',
+          mapping_type: 'DEPARTMENT',
+          chanjet_name: '万象仓库直营店',
+        }),
+        source({
+          id: 'dept-store-cooperative-alias',
+          mapping_type: 'DEPARTMENT',
+          chanjet_name: '波利坎赛合作店',
+        }),
+        source({
+          id: 'dept-production-typo',
+          mapping_type: 'DEPARTMENT',
+          chanjet_name: '生成部',
+        }),
       ],
       {
         companies: [{
@@ -205,6 +222,21 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
         stores: [{
           code: 'STORE-MX-001',
           name: '孟赛直营店',
+          companyCode: 'COMP-LAO-AGRI',
+        }, {
+          code: 'STORE-VTE-WH-001',
+          name: '万象仓储中心店',
+          companyCode: 'COMP-LAO-AGRI',
+          operationType: '直营店',
+        }, {
+          code: 'STORE-BKX-001',
+          name: '波利坎赛省直营店',
+          companyCode: 'COMP-LAO-AGRI',
+          operationType: '代理商合作店',
+        }],
+        departments: [{
+          code: 'DEPT-SITE-MENGSAI-LAYER-PROD',
+          name: '孟赛蛋鸡养殖场-生产部',
           companyCode: 'COMP-LAO-AGRI',
         }],
         houses: [{
@@ -217,7 +249,7 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
 
     const plan = await service.plan();
 
-    expect(plan.summary.mapExisting).toBe(3);
+    expect(plan.summary.mapExisting).toBe(6);
     expect(plan.candidates.find((item) => item.mappingId === 'dept-company')).toMatchObject({
       decision: 'MAP_EXISTING',
       targetTable: 'sys_organizations',
@@ -235,6 +267,48 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
     });
     expect(plan.candidates.find((item) => item.mappingId === 'dept-workshop')?.decision).toBe('HOLD');
     expect(plan.candidates.find((item) => item.mappingId === 'dept-group')?.decision).toBe('HOLD');
+    expect(plan.candidates.find((item) => item.mappingId === 'dept-store-warehouse-alias')).toMatchObject({
+      decision: 'MAP_EXISTING',
+      targetCode: 'STORE-VTE-WH-001',
+      targetEntityType: 'STORE',
+    });
+    expect(plan.candidates.find((item) => item.mappingId === 'dept-store-cooperative-alias')).toMatchObject({
+      decision: 'MAP_EXISTING',
+      targetCode: 'STORE-BKX-001',
+      targetEntityType: 'STORE',
+    });
+    expect(plan.candidates.find((item) => item.mappingId === 'dept-production-typo')).toMatchObject({
+      decision: 'MAP_EXISTING',
+      targetCode: 'DEPT-SITE-MENGSAI-LAYER-PROD',
+      targetEntityType: 'DEPARTMENT',
+    });
+  });
+
+  it('holds reviewed department aliases when their ERP target is not unique', async () => {
+    const { service } = createService([
+      source({
+        id: 'dept-production-ambiguous',
+        mapping_type: 'DEPARTMENT',
+        chanjet_name: '生成部',
+      }),
+    ], {
+      departments: [{
+        code: 'DEPT-PROD-1',
+        name: '第一生产部',
+        companyCode: 'COMP-LAO-AGRI',
+      }, {
+        code: 'DEPT-PROD-2',
+        name: '第二生产部',
+        companyCode: 'COMP-LAO-AGRI',
+      }],
+    });
+
+    const plan = await service.plan();
+
+    expect(plan.candidates[0]).toMatchObject({
+      decision: 'HOLD',
+      blockers: ['MULTIPLE_ERP_PRODUCTION_DEPARTMENT_TARGETS'],
+    });
   });
 
   it('rejects apply before any database write when approval token is missing', async () => {
