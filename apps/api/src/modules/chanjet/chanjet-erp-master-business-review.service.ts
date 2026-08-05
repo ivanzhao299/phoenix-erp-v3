@@ -1354,9 +1354,23 @@ export class ChanjetErpMasterBusinessReviewService {
                 company_code AS company
            FROM wms_warehouses WHERE warehouse_code = $1`,
       sys_organizations:
-        `SELECT org_code AS code, org_name AS name, company_code AS company
-           FROM sys_organizations
-          WHERE org_code = $1 AND status = 'ACTIVE'`,
+        `SELECT organization.org_code AS code,
+                organization.org_name AS name,
+                COALESCE(
+                  NULLIF(organization.company_code, ''),
+                  NULLIF(parent.company_code, ''),
+                  CASE WHEN parent.org_type = 'COMPANY' THEN parent.org_code END,
+                  NULLIF(company.org_code, ''),
+                  ''
+                ) AS company
+           FROM sys_organizations organization
+           LEFT JOIN sys_organizations parent
+             ON parent.org_code = organization.parent_code
+           LEFT JOIN sys_organizations company
+             ON company.org_code = parent.parent_code
+            AND company.org_type = 'COMPANY'
+          WHERE organization.org_code = $1
+            AND organization.status = 'ACTIVE'`,
       mst_stores:
         `SELECT store_code AS code, store_name AS name, company_code AS company
            FROM mst_stores

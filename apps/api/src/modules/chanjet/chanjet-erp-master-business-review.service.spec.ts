@@ -60,6 +60,31 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
     expect(CHANJET_ERP_MASTER_REVIEW_ACTION.length).toBeLessThanOrEqual(32);
   });
 
+  it('verifies a department target with company ownership resolved from its parent chain', async () => {
+    const { service } = createService([]);
+    const runner = {
+      query: jest.fn(async (sql: string) => {
+        expect(sql).toContain('LEFT JOIN sys_organizations parent');
+        expect(sql).toContain("parent.org_type = 'COMPANY'");
+        return [{
+          code: 'DEPT-SITE-MENGSAI-LAYER-PROD',
+          name: '孟赛蛋鸡养殖场-生产部',
+          company: 'COMP-LAO-AGRI',
+        }];
+      }),
+    };
+
+    await expect((service as any).assertTarget(runner, {
+      targetTable: 'sys_organizations',
+      targetCode: 'DEPT-SITE-MENGSAI-LAYER-PROD',
+      targetName: '孟赛蛋鸡养殖场-生产部',
+      companyCode: 'COMP-LAO-AGRI',
+    })).resolves.toBeUndefined();
+    expect(runner.query).toHaveBeenCalledWith(expect.any(String), [
+      'DEPT-SITE-MENGSAI-LAYER-PROD',
+    ]);
+  });
+
   it('creates only semantically complete masters and holds unsafe dimensions', async () => {
     const { service } = createService([
       source({ id: '1' }),
