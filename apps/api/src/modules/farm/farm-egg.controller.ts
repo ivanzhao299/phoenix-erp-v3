@@ -19,6 +19,7 @@ export class FarmEggController {
 
   /** GET /api/farm/egg/ledger?start=YYYY-MM-DD&end=YYYY-MM-DD */
   @Get('ledger')
+  @RequireMenu('MENU_PROD_INBOUND', 'V', ['MENU_BREEDING'])
   async getLedger(
     @Query('start') start: string,
     @Query('end') end: string,
