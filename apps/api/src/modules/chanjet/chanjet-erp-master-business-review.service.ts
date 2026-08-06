@@ -389,6 +389,7 @@ export class ChanjetErpMasterBusinessReviewService {
   async apply(input: {
     reviewHash: string;
     approvalToken: string;
+    mappingTypes?: string[];
     actor: string;
   }) {
     if (input.approvalToken !== CHANJET_ERP_MASTER_APPLY_TOKEN) {
@@ -398,7 +399,22 @@ export class ChanjetErpMasterBusinessReviewService {
     if (!input.reviewHash || input.reviewHash !== plan.reviewHash) {
       throw new Error('CHANJET_ERP_MASTER_MAPPING_PLAN_STALE');
     }
-    const actionable = plan.candidates.filter((candidate) => candidate.decision !== 'HOLD');
+    const requestedMappingTypes = input.mappingTypes?.map((value) => String(value || '').trim().toUpperCase());
+    if (requestedMappingTypes && requestedMappingTypes.length === 0) {
+      throw new Error('CHANJET_ERP_MASTER_MAPPING_SCOPE_EMPTY');
+    }
+    const invalidMappingTypes = requestedMappingTypes?.filter(
+      (mappingType) => !REVIEWED_MAPPING_TYPES.includes(mappingType),
+    ) || [];
+    if (invalidMappingTypes.length > 0) {
+      throw new Error(`CHANJET_ERP_MASTER_MAPPING_SCOPE_INVALID:${invalidMappingTypes.join(',')}`);
+    }
+    const appliedMappingTypes = requestedMappingTypes
+      ? [...new Set(requestedMappingTypes)]
+      : [...REVIEWED_MAPPING_TYPES];
+    const actionable = plan.candidates.filter(
+      (candidate) => candidate.decision !== 'HOLD' && appliedMappingTypes.includes(candidate.mappingType),
+    );
     if (!actionable.length) {
       return {
         appliedAt: new Date().toISOString(),
@@ -407,6 +423,7 @@ export class ChanjetErpMasterBusinessReviewService {
         mappedExisting: 0,
         skipped: 0,
         hold: plan.summary.hold,
+        appliedMappingTypes,
         results: [],
         writeChanjet: false,
         financialBalanceImport: false,
@@ -445,6 +462,7 @@ export class ChanjetErpMasterBusinessReviewService {
         mappedExisting,
         skipped,
         hold: plan.summary.hold,
+        appliedMappingTypes,
         results,
         writeChanjet: false,
         financialBalanceImport: false,

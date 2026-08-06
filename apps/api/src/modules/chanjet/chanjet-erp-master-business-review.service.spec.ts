@@ -481,6 +481,114 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
     expect(ds.createQueryRunner).not.toHaveBeenCalled();
   });
 
+  it('rejects an empty or unknown mapping scope before opening a transaction', async () => {
+    const { service, ds } = createService([]);
+    jest.spyOn(service, 'plan').mockResolvedValue({
+      generatedAt: new Date().toISOString(),
+      reviewHash: 'review-hash',
+      decision: 'HOLD',
+      summary: {
+        total: 0,
+        actionable: 0,
+        mapExisting: 0,
+        createMaster: 0,
+        hold: 0,
+        byMappingType: {},
+      },
+      candidates: [],
+      guardrails: {
+        systemBusinessReview: true,
+        exactCompanyBoundary: true,
+        fuzzyMapping: false,
+        chanjetWrite: false,
+        financialBalanceImport: false,
+        inventoryFactImport: false,
+        ambiguousRowsHeld: true,
+        authoritySource: 'CHANJET',
+        activeSyncDirection: 'CHANJET_TO_ERP',
+        erpMasterWrite: true,
+        reverseWriteCapability: 'READY_BUT_LOCKED',
+        bidirectionalContractReady: true,
+      },
+    });
+
+    await expect(service.apply({
+      reviewHash: 'review-hash',
+      approvalToken: CHANJET_ERP_MASTER_APPLY_TOKEN,
+      mappingTypes: [],
+      actor: 'test',
+    })).rejects.toThrow('CHANJET_ERP_MASTER_MAPPING_SCOPE_EMPTY');
+    await expect(service.apply({
+      reviewHash: 'review-hash',
+      approvalToken: CHANJET_ERP_MASTER_APPLY_TOKEN,
+      mappingTypes: ['NOT_A_MAPPING_TYPE'],
+      actor: 'test',
+    })).rejects.toThrow('CHANJET_ERP_MASTER_MAPPING_SCOPE_INVALID:NOT_A_MAPPING_TYPE');
+    expect(ds.createQueryRunner).not.toHaveBeenCalled();
+  });
+
+  it('does not apply actionable candidates outside the approved mapping scope', async () => {
+    const { service, ds } = createService([]);
+    jest.spyOn(service, 'plan').mockResolvedValue({
+      generatedAt: new Date().toISOString(),
+      reviewHash: 'scoped-review-hash',
+      decision: 'READY_TO_APPLY',
+      summary: {
+        total: 1,
+        actionable: 1,
+        mapExisting: 0,
+        createMaster: 1,
+        hold: 0,
+        byMappingType: { CASH_ACCOUNT: { MAP_EXISTING: 0, CREATE_MASTER: 1, HOLD: 0 } },
+      },
+      candidates: [{
+        mappingId: 'cash-1',
+        mappingType: 'CASH_ACCOUNT',
+        bookId: 'BOOK-1',
+        companyCode: 'COMP-LAO-AGRI',
+        companyName: '凤凰农业',
+        chanjetId: 'CA-1',
+        chanjetCode: '01',
+        chanjetName: '备用金',
+        decision: 'CREATE_MASTER',
+        targetTable: 'fin_cash_accounts',
+        targetCode: 'CJ-CA-1',
+        targetName: '备用金',
+        targetEntityType: 'CASH_ACCOUNT',
+        evidence: [],
+        blockers: [],
+        createPayload: { accountCode: 'CJ-CA-1' },
+      }],
+      guardrails: {
+        systemBusinessReview: true,
+        exactCompanyBoundary: true,
+        fuzzyMapping: false,
+        chanjetWrite: false,
+        financialBalanceImport: false,
+        inventoryFactImport: false,
+        ambiguousRowsHeld: true,
+        authoritySource: 'CHANJET',
+        activeSyncDirection: 'CHANJET_TO_ERP',
+        erpMasterWrite: true,
+        reverseWriteCapability: 'READY_BUT_LOCKED',
+        bidirectionalContractReady: true,
+      },
+    });
+
+    await expect(service.apply({
+      reviewHash: 'scoped-review-hash',
+      approvalToken: CHANJET_ERP_MASTER_APPLY_TOKEN,
+      mappingTypes: ['DEPARTMENT'],
+      actor: 'test',
+    })).resolves.toMatchObject({
+      created: 0,
+      mappedExisting: 0,
+      appliedMappingTypes: ['DEPARTMENT'],
+      results: [],
+    });
+    expect(ds.createQueryRunner).not.toHaveBeenCalled();
+  });
+
   it('creates a source-preserving egg SKU only with repeated runtime UOM evidence', async () => {
     const { service } = createService([
       source({
