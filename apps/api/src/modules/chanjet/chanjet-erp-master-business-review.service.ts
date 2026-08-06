@@ -32,6 +32,9 @@ type ExistingMaster = {
   targetTable: string;
   targetEntityType?: string;
   baseUom?: string;
+  farmCode?: string;
+  siteCode?: string;
+  projectCode?: string;
 };
 
 type ProductEvidence = {
@@ -41,6 +44,22 @@ type ProductEvidence = {
   evidenceCount: number;
   baseUoms: string[];
   specs: string[];
+};
+
+type DepartmentOperationalEvidence = {
+  bookId: string;
+  departmentId: string;
+  evidenceCount: number;
+  finishedGoodsStockInCount: number;
+  materialStockOutCount: number;
+  otherStockOutCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+
+const HOUSE_SITE_PREFIXES: Record<string, string> = {
+  'SITE-MENGSAI-LAYER': 'MS',
+  'SITE-DONGPENG-LAYER': 'DP',
 };
 
 export type ChanjetErpMasterReviewCandidate = {
@@ -278,8 +297,10 @@ export class ChanjetErpMasterBusinessReviewService {
       departments,
       stores,
       houses,
+      breedingSites,
       productMasters,
       productEvidence,
+      departmentOperationalEvidence,
     ] = await Promise.all([
       this.loadSourceMappings(),
       this.loadCashAccounts(),
@@ -289,8 +310,10 @@ export class ChanjetErpMasterBusinessReviewService {
       this.loadDepartments(),
       this.loadStores(),
       this.loadHouses(),
+      this.loadBreedingSites(),
       this.loadProductMasters(),
       this.loadProductEvidence(),
+      this.loadDepartmentOperationalEvidence(),
     ]);
 
     const genericWarehouseNamesByCompany = new Map<string, number>();
@@ -314,8 +337,10 @@ export class ChanjetErpMasterBusinessReviewService {
         departments,
         stores,
         houses,
+        breedingSites,
         productMasters,
         productEvidence,
+        departmentOperationalEvidence,
         genericWarehouseNamesByCompany,
       },
     ));
@@ -571,6 +596,52 @@ export class ChanjetErpMasterBusinessReviewService {
     }));
   }
 
+  private async loadBreedingSites(): Promise<ExistingMaster[]> {
+    const rows = await this.ds.query(
+      `SELECT site.org_code AS code,
+              site.org_name AS name,
+              company.org_code AS "companyCode",
+              farm_alias.alias_code AS "farmCode",
+              site.org_code AS "siteCode",
+              project.project_code AS "projectCode"
+         FROM sys_organizations site
+         JOIN sys_organizations company
+           ON company.org_code = site.parent_code
+          AND company.org_type = 'COMPANY'
+         JOIN biz_projects project
+           ON project.company_code = company.org_code
+          AND project.deleted_at IS NULL
+          AND project.status = 'ACTIVE'
+          AND REPLACE(REPLACE(project.project_name, '经营项目', ''), '养殖', '')
+            = REPLACE(site.org_name, '养殖', '')
+         JOIN LATERAL (
+           SELECT alias.alias_code
+             FROM biz_site_aliases alias
+            WHERE alias.site_code = site.org_code
+              AND alias.alias_type = 'FARM_CODE'
+              AND alias.status = 'ACTIVE'
+            ORDER BY CASE WHEN EXISTS (
+              SELECT 1
+                FROM brd_houses house
+               WHERE house.site_code = site.org_code
+                 AND house.company_code = company.org_code
+                 AND house.farm_code = alias.alias_code
+            ) THEN 0 ELSE 1 END,
+            alias.alias_code
+            LIMIT 1
+         ) farm_alias ON TRUE
+        WHERE site.status = 'ACTIVE'
+          AND site.org_type = 'SITE'
+          AND site.org_code = ANY($1::varchar[])`,
+      [Object.keys(HOUSE_SITE_PREFIXES)],
+    );
+    return rows.map((row: ExistingMaster) => ({
+      ...row,
+      targetTable: 'sys_organizations',
+      targetEntityType: 'SITE',
+    }));
+  }
+
   private async loadProductMasters(): Promise<ExistingMaster[]> {
     const rows = await this.ds.query(
       `SELECT code, name, "companyCode", "targetEntityType", "targetTable", "baseUom"
@@ -638,6 +709,34 @@ export class ChanjetErpMasterBusinessReviewService {
     }));
   }
 
+  private async loadDepartmentOperationalEvidence(): Promise<DepartmentOperationalEvidence[]> {
+    const rows = await this.ds.query(
+      `SELECT book_id AS "bookId",
+              raw_data->>'departmentId' AS "departmentId",
+              COUNT(*)::int AS "evidenceCount",
+              COUNT(*) FILTER (WHERE entity_type = 'FINISHED_GOODS_STOCK_IN')::int
+                AS "finishedGoodsStockInCount",
+              COUNT(*) FILTER (WHERE entity_type = 'MATERIAL_STOCK_OUT')::int
+                AS "materialStockOutCount",
+              COUNT(*) FILTER (WHERE entity_type = 'OTHER_STOCK_OUT')::int
+                AS "otherStockOutCount",
+              MIN(COALESCE(last_seen_at, updated_at))::text AS "firstSeenAt",
+              MAX(COALESCE(last_seen_at, updated_at))::text AS "lastSeenAt"
+         FROM chanjet_entity_snapshots
+        WHERE entity_type = ANY($1::varchar[])
+          AND COALESCE(raw_data->>'departmentId', '') <> ''
+        GROUP BY book_id, raw_data->>'departmentId'`,
+      [['FINISHED_GOODS_STOCK_IN', 'MATERIAL_STOCK_OUT', 'OTHER_STOCK_OUT']],
+    );
+    return rows.map((row: DepartmentOperationalEvidence) => ({
+      ...row,
+      evidenceCount: Number(row.evidenceCount || 0),
+      finishedGoodsStockInCount: Number(row.finishedGoodsStockInCount || 0),
+      materialStockOutCount: Number(row.materialStockOutCount || 0),
+      otherStockOutCount: Number(row.otherStockOutCount || 0),
+    }));
+  }
+
   private reviewSource(
     source: SourceMappingRow,
     context: {
@@ -648,8 +747,10 @@ export class ChanjetErpMasterBusinessReviewService {
       departments: ExistingMaster[];
       stores: ExistingMaster[];
       houses: ExistingMaster[];
+      breedingSites: ExistingMaster[];
       productMasters: ExistingMaster[];
       productEvidence: ProductEvidence[];
+      departmentOperationalEvidence: DepartmentOperationalEvidence[];
       genericWarehouseNamesByCompany: Map<string, number>;
     },
   ): ChanjetErpMasterReviewCandidate {
@@ -691,6 +792,8 @@ export class ChanjetErpMasterBusinessReviewService {
       departments: ExistingMaster[];
       stores: ExistingMaster[];
       houses: ExistingMaster[];
+      breedingSites: ExistingMaster[];
+      departmentOperationalEvidence: DepartmentOperationalEvidence[];
     },
   ): ChanjetErpMasterReviewCandidate {
     const name = source.chanjet_name.trim();
@@ -759,15 +862,94 @@ export class ChanjetErpMasterBusinessReviewService {
           'source department has breeding-house semantics',
         ]);
       }
-      return holdCandidate(source, [
-        'ERP_HOUSE_EXACT_IDENTITY_MISSING',
-        'HOUSE_MASTER_AND_SITE_OWNERSHIP_REQUIRED',
-      ]);
+      const operationalEvidence = this.departmentEvidence(source, context.departmentOperationalEvidence);
+      const breedingSites = context.breedingSites.filter(
+        (site) => site.companyCode === source.company_code,
+      );
+      if (breedingSites.length !== 1) {
+        return holdCandidate(source, [
+          breedingSites.length > 1
+            ? 'MULTIPLE_ACTIVE_ERP_BREEDING_SITES_IN_COMPANY'
+            : 'ERP_BREEDING_SITE_AND_PROJECT_OWNERSHIP_MISSING',
+        ], operationalEvidence ? this.departmentEvidenceLines(operationalEvidence) : []);
+      }
+      const site = breedingSites[0];
+      const prefix = HOUSE_SITE_PREFIXES[String(site.siteCode || '')];
+      const numbered = name.match(/^(\d+)号鸡舍$/);
+      const number = numbered
+        ? Number(numbered[1])
+        : name === '公鸡舍' && source.chanjet_code === '106'
+          ? 6
+          : 0;
+      if (!prefix || !number || number < 1 || number > 99) {
+        return holdCandidate(source, [
+          'HOUSE_CANONICAL_CODE_POLICY_REQUIRED',
+          name.startsWith('育雏')
+            ? 'BROODING_HOUSE_REQUIRES_DISTINCT_TYPE_AND_CODE_POLICY'
+            : 'SOURCE_HOUSE_CODE_CANNOT_BE_MAPPED_TO_ERP_HOUSE_SEQUENCE',
+        ], operationalEvidence ? this.departmentEvidenceLines(operationalEvidence) : []);
+      }
+      if (!operationalEvidence || operationalEvidence.evidenceCount < 3) {
+        return holdCandidate(source, [
+          'HOUSE_OPERATIONAL_DOCUMENT_EVIDENCE_INSUFFICIENT',
+        ], operationalEvidence ? this.departmentEvidenceLines(operationalEvidence) : []);
+      }
+      const houseCode = `HOUSE_${prefix}_${String(number).padStart(2, '0')}`;
+      const collision = context.houses.find((house) => house.code === houseCode);
+      if (collision) {
+        return holdCandidate(source, [
+          normalized(collision.name) === normalized(name)
+            ? 'ERP_HOUSE_EXISTED_BUT_WAS_NOT_SAME_COMPANY'
+            : 'ERP_HOUSE_CODE_COLLISION',
+        ], this.departmentEvidenceLines(operationalEvidence));
+      }
+      return {
+        ...holdCandidate(source, [], [
+          ...this.departmentEvidenceLines(operationalEvidence),
+          `one active ERP breeding site ${site.siteCode}`,
+          `one active ERP breeding project ${site.projectCode}`,
+          'canonical house code follows HOUSE_{SITE_SHORT}_{NN}',
+          'master identity only; capacity, flock, inventory and accounting facts are not imported',
+        ]),
+        decision: 'CREATE_MASTER',
+        targetTable: 'brd_houses',
+        targetCode: houseCode,
+        targetName: name,
+        targetEntityType: 'HOUSE',
+        createPayload: {
+          houseCode,
+          houseName: name,
+          farmCode: site.farmCode,
+          farmName: site.name,
+          houseType: name === '公鸡舍' ? 'ROOSTER' : 'LAYER',
+          companyCode: source.company_code,
+          projectCode: site.projectCode,
+          siteCode: site.siteCode,
+        },
+      };
     }
 
     if (/车间$/.test(name)) {
-      return holdCandidate(source, [
-        'WORKSHOP_OPERATIONAL_ENTITY_REQUIRES_SITE_AND_PROCESS_OWNERSHIP',
+      const operationalEvidence = this.departmentEvidence(source, context.departmentOperationalEvidence);
+      const productionDepartments = context.departments.filter(
+        (master) => master.companyCode === source.company_code && /生产部$/.test(master.name),
+      );
+      if (!operationalEvidence || operationalEvidence.evidenceCount < 3) {
+        return holdCandidate(source, [
+          'WORKSHOP_OPERATIONAL_DOCUMENT_EVIDENCE_INSUFFICIENT',
+        ], operationalEvidence ? this.departmentEvidenceLines(operationalEvidence) : []);
+      }
+      if (productionDepartments.length !== 1) {
+        return holdCandidate(source, [
+          productionDepartments.length > 1
+            ? 'MULTIPLE_ERP_PRODUCTION_DEPARTMENT_TARGETS'
+            : 'ERP_PRODUCTION_DEPARTMENT_MISSING_FOR_WORKSHOP',
+        ], this.departmentEvidenceLines(operationalEvidence));
+      }
+      return this.departmentMappingCandidate(source, productionDepartments[0], [
+        ...this.departmentEvidenceLines(operationalEvidence),
+        'source workshop is an accounting process dimension, not a separate legal organization',
+        'one active production department exists inside the account-book company boundary',
       ]);
     }
     if (/^(鸡舍|直营店)$/.test(name)) {
@@ -796,6 +978,25 @@ export class ChanjetErpMasterBusinessReviewService {
       'ACCOUNTING_ONLY_DEPARTMENT_DIMENSION',
       'NO_SAFE_ERP_TRANSACTIONAL_MASTER_TARGET',
     ]);
+  }
+
+  private departmentEvidence(
+    source: SourceMappingRow,
+    evidence: DepartmentOperationalEvidence[],
+  ): DepartmentOperationalEvidence | undefined {
+    return evidence.find(
+      (item) => item.bookId === source.book_id && item.departmentId === source.chanjet_id,
+    );
+  }
+
+  private departmentEvidenceLines(evidence: DepartmentOperationalEvidence): string[] {
+    return [
+      `operational documents ${evidence.evidenceCount}`,
+      `finished-goods stock-in ${evidence.finishedGoodsStockInCount}`,
+      `material stock-out ${evidence.materialStockOutCount}`,
+      `other stock-out ${evidence.otherStockOutCount}`,
+      `evidence window ${evidence.firstSeenAt} -> ${evidence.lastSeenAt}`,
+    ];
   }
 
   private departmentMappingCandidate(
@@ -1330,6 +1531,28 @@ export class ChanjetErpMasterBusinessReviewService {
           payload.spec,
           payload.unit,
           remark,
+        ],
+      );
+      return rows.length === 1;
+    }
+    if (candidate.targetTable === 'brd_houses') {
+      const rows = await runner.query(
+        `INSERT INTO brd_houses
+          (house_code, house_name, farm_code, farm_name, house_type,
+           capacity, current_birds, status, company_code, project_code,
+           site_code, updated_at)
+         VALUES ($1,$2,$3,$4,$5,0,0,'ACTIVE',$6,$7,$8,NOW())
+         ON CONFLICT (house_code) DO NOTHING
+         RETURNING house_code`,
+        [
+          payload.houseCode,
+          payload.houseName,
+          payload.farmCode,
+          payload.farmName,
+          payload.houseType,
+          payload.companyCode,
+          payload.projectCode,
+          payload.siteCode,
         ],
       );
       return rows.length === 1;

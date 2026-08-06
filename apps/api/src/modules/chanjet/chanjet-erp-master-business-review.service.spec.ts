@@ -32,18 +32,26 @@ function createService(
     departments?: Array<Record<string, unknown>>;
     stores?: Array<Record<string, unknown>>;
     houses?: Array<Record<string, unknown>>;
+    breedingSites?: Array<Record<string, unknown>>;
     productMasters?: Array<Record<string, unknown>>;
     productEvidence?: Array<Record<string, unknown>>;
+    departmentEvidence?: Array<Record<string, unknown>>;
   } = {},
 ) {
   const ds = {
     query: jest.fn(async (sql: string) => {
       if (sql.includes('FROM chanjet_master_mapping')) return sources;
       if (sql.includes('WITH evidence AS')) return targets.productEvidence || [];
+      if (sql.includes('raw_data->>\'departmentId\' AS "departmentId"')) {
+        return targets.departmentEvidence || [];
+      }
       if (sql.includes('AS "targetEntityType"')) return targets.productMasters || [];
       if (sql.includes('FROM fin_cash_accounts')) return targets.cash || [];
       if (sql.includes('FROM biz_projects')) return targets.projects || [];
       if (sql.includes('FROM wms_warehouses')) return targets.warehouses || [];
+      if (sql.includes('JOIN LATERAL') && sql.includes('biz_site_aliases')) {
+        return targets.breedingSites || [];
+      }
       if (sql.includes("department.org_type = 'DEPARTMENT'")) return targets.departments || [];
       if (sql.includes('FROM sys_organizations')) return targets.companies || [];
       if (sql.includes('FROM mst_stores')) return targets.stores || [];
@@ -333,6 +341,132 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
     expect(plan.candidates[0]).toMatchObject({
       decision: 'HOLD',
       blockers: ['MULTIPLE_ERP_PRODUCTION_DEPARTMENT_TARGETS'],
+    });
+  });
+
+  it('creates a canonical house only with one breeding site and repeated operational evidence', async () => {
+    const { service } = createService([
+      source({
+        id: 'dept-house-create',
+        mapping_type: 'DEPARTMENT',
+        company_code: 'COMP-LAO-XINGCHI',
+        chanjet_id: 'DEPT-HOUSE-1',
+        chanjet_code: '101',
+        chanjet_name: '1号鸡舍',
+      }),
+    ], {
+      breedingSites: [{
+        code: 'FARM-DP',
+        name: '东鹏蛋鸡场',
+        companyCode: 'COMP-LAO-XINGCHI',
+        farmCode: 'FARM-DP',
+        siteCode: 'SITE-DONGPENG-LAYER',
+        projectCode: 'PRJ_DONGPENG_LAYER',
+      }],
+      departmentEvidence: [{
+        bookId: 'BOOK-1',
+        departmentId: 'DEPT-HOUSE-1',
+        evidenceCount: 12,
+        finishedGoodsStockInCount: 4,
+        materialStockOutCount: 7,
+        otherStockOutCount: 1,
+        firstSeenAt: '2026-06-01T00:00:00Z',
+        lastSeenAt: '2026-08-01T00:00:00Z',
+      }],
+    });
+
+    const plan = await service.plan();
+
+    expect(plan.candidates[0]).toMatchObject({
+      decision: 'CREATE_MASTER',
+      targetTable: 'brd_houses',
+      targetCode: 'HOUSE_DP_01',
+      targetEntityType: 'HOUSE',
+      createPayload: {
+        farmCode: 'FARM-DP',
+        siteCode: 'SITE-DONGPENG-LAYER',
+        projectCode: 'PRJ_DONGPENG_LAYER',
+      },
+    });
+    expect(plan.candidates[0].evidence).toContain('operational documents 12');
+  });
+
+  it('maps an operational workshop to the unique same-company production department', async () => {
+    const { service } = createService([
+      source({
+        id: 'dept-workshop-map',
+        mapping_type: 'DEPARTMENT',
+        company_code: 'COMP-LAO-XINGCHI',
+        chanjet_id: 'DEPT-WORKSHOP-1',
+        chanjet_name: '变蛋车间',
+      }),
+    ], {
+      departments: [{
+        code: 'DEPT-SITE-DONGPENG-LAYER-PROD',
+        name: '东鹏蛋鸡养殖场-生产部',
+        companyCode: 'COMP-LAO-XINGCHI',
+      }],
+      departmentEvidence: [{
+        bookId: 'BOOK-1',
+        departmentId: 'DEPT-WORKSHOP-1',
+        evidenceCount: 8,
+        finishedGoodsStockInCount: 4,
+        materialStockOutCount: 3,
+        otherStockOutCount: 1,
+        firstSeenAt: '2026-07-01T00:00:00Z',
+        lastSeenAt: '2026-08-01T00:00:00Z',
+      }],
+    });
+
+    const plan = await service.plan();
+
+    expect(plan.candidates[0]).toMatchObject({
+      decision: 'MAP_EXISTING',
+      targetTable: 'sys_organizations',
+      targetCode: 'DEPT-SITE-DONGPENG-LAYER-PROD',
+      targetEntityType: 'DEPARTMENT',
+    });
+  });
+
+  it('keeps brooding dimensions on hold until their distinct house-code policy is approved', async () => {
+    const { service } = createService([
+      source({
+        id: 'dept-brooding-hold',
+        mapping_type: 'DEPARTMENT',
+        company_code: 'COMP-LAO-XINGCHI',
+        chanjet_id: 'DEPT-BROODING',
+        chanjet_code: '100',
+        chanjet_name: '育雏',
+      }),
+    ], {
+      breedingSites: [{
+        code: 'FARM-DP',
+        name: '东鹏蛋鸡场',
+        companyCode: 'COMP-LAO-XINGCHI',
+        farmCode: 'FARM-DP',
+        siteCode: 'SITE-DONGPENG-LAYER',
+        projectCode: 'PRJ_DONGPENG_LAYER',
+      }],
+      departmentEvidence: [{
+        bookId: 'BOOK-1',
+        departmentId: 'DEPT-BROODING',
+        evidenceCount: 80,
+        finishedGoodsStockInCount: 1,
+        materialStockOutCount: 79,
+        otherStockOutCount: 0,
+        firstSeenAt: '2026-05-01T00:00:00Z',
+        lastSeenAt: '2026-08-01T00:00:00Z',
+      }],
+    });
+
+    const plan = await service.plan();
+
+    expect(plan.candidates[0]).toMatchObject({
+      decision: 'HOLD',
+      blockers: [
+        'HOUSE_CANONICAL_CODE_POLICY_REQUIRED',
+        'BROODING_HOUSE_REQUIRES_DISTINCT_TYPE_AND_CODE_POLICY',
+      ],
     });
   });
 
