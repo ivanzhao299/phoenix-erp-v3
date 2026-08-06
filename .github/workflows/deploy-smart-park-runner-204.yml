@@ -24,7 +24,8 @@ jobs:
           PROXY_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
         run: |
           set -eu
-          install -m 600 /dev/null /tmp/office-runner-key /tmp/proxy-key
+          install -m 600 /dev/null /tmp/office-runner-key
+          install -m 600 /dev/null /tmp/proxy-key
           printf '%s\n' "$OFFICE_KEY" > /tmp/office-runner-key
           printf '%s\n' "$PROXY_KEY" > /tmp/proxy-key
           ssh-keyscan -H 123.57.220.65 >> ~/.ssh/known_hosts
