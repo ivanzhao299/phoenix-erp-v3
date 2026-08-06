@@ -28,6 +28,7 @@ jobs:
           install -m 600 /dev/null /tmp/proxy-key
           printf '%s\n' "$OFFICE_KEY" > /tmp/office-runner-key
           printf '%s\n' "$PROXY_KEY" > /tmp/proxy-key
+          install -d -m 700 ~/.ssh
           ssh-keyscan -H 123.57.220.65 >> ~/.ssh/known_hosts
       - name: Install isolated Studio and Smart Park repositories
         env:
