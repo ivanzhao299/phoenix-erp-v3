@@ -39,12 +39,17 @@ jobs:
           ENABLE_AUTO_RELEASE: ${{ inputs.enable_auto_release }}
         run: |
           set -eu
-          ssh_opts="-i /tmp/office-runner-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ProxyCommand=ssh -i /tmp/proxy-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -W %h:%p $PROXY_USER@123.57.220.65"
-          printf '%s' "$STUDIO_DEPLOY_KEY" | base64 -w0 | ssh $ssh_opts ubuntu@192.168.2.204 \
+          ssh_opts=(
+            -i /tmp/office-runner-key
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=accept-new
+            -o "ProxyCommand=ssh -i /tmp/proxy-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -W %h:%p $PROXY_USER@123.57.220.65"
+          )
+          printf '%s' "$STUDIO_DEPLOY_KEY" | base64 -w0 | ssh "${ssh_opts[@]}" ubuntu@192.168.2.204 \
             'sudo install -d -m 0700 /etc/anksen-runner/bootstrap && base64 -d | sudo tee /etc/anksen-runner/bootstrap/studio-deploy-key >/dev/null && sudo chmod 600 /etc/anksen-runner/bootstrap/studio-deploy-key'
-          printf '%s' "$SMART_PARK_DEPLOY_KEY" | base64 -w0 | ssh $ssh_opts ubuntu@192.168.2.204 \
+          printf '%s' "$SMART_PARK_DEPLOY_KEY" | base64 -w0 | ssh "${ssh_opts[@]}" ubuntu@192.168.2.204 \
             'base64 -d | sudo tee /etc/anksen-runner/bootstrap/smart-park-deploy-key >/dev/null && sudo chmod 600 /etc/anksen-runner/bootstrap/smart-park-deploy-key'
-          ssh $ssh_opts ubuntu@192.168.2.204 'set -eu
+          ssh "${ssh_opts[@]}" ubuntu@192.168.2.204 'set -eu
             if [ ! -d /srv/agent-studio/.git ]; then
               sudo GIT_SSH_COMMAND="ssh -i /etc/anksen-runner/bootstrap/studio-deploy-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git clone git@github.com:ivanzhao299/anksen-agent-studio.git /srv/agent-studio
             else
@@ -54,7 +59,7 @@ jobs:
             fi
             sudo STUDIO_DEPLOY_KEY_FILE=/etc/anksen-runner/bootstrap/studio-deploy-key SMART_PARK_DEPLOY_KEY_FILE=/etc/anksen-runner/bootstrap/smart-park-deploy-key bash /srv/agent-studio/scripts/install-smart-park-runner-systemd.sh'
           encoded_password="$(printf '%s' "$SMART_PARK_RUNNER_PASSWORD" | base64 -w0)"
-          ssh $ssh_opts ubuntu@192.168.2.204 "set -eu
+          ssh "${ssh_opts[@]}" ubuntu@192.168.2.204 "set -eu
             password=\$(printf '%s' '$encoded_password' | base64 -d)
             sudo sed -i 's/^SMART_PARK_RUNNER_USER=.*/SMART_PARK_RUNNER_USER=studio_runner/' /etc/anksen-runner/smart-park-runner.env
             sudo sed -i \"s|^SMART_PARK_RUNNER_PASSWORD=.*|SMART_PARK_RUNNER_PASSWORD=\$password|\" /etc/anksen-runner/smart-park-runner.env
