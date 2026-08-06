@@ -1036,7 +1036,7 @@ export class ChanjetCallbackController {
   @Post('integration/erp-master-gap-closure/business-review/apply')
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async applyIntegrationErpMasterBusinessReview(
-    @Body() body: { reviewHash?: string; approvalToken?: string },
+    @Body() body: { reviewHash?: string; approvalToken?: string; mappingTypes?: string[] },
     @Req() req: { user?: { username?: string; userId?: string } },
   ) {
     const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
@@ -1044,6 +1044,7 @@ export class ChanjetCallbackController {
       const result = await this.erpMasterBusinessReview.apply({
         reviewHash: String(body.reviewHash || ''),
         approvalToken: String(body.approvalToken || ''),
+        mappingTypes: Array.isArray(body.mappingTypes) ? body.mappingTypes : undefined,
         actor: `system:chanjet-business-review:${requestedBy}`,
       });
       await this.writeChanjetAudit(
