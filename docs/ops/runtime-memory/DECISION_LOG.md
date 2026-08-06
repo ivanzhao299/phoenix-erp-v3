@@ -2392,3 +2392,21 @@ Decision: counterparty resolution `GO`.
 - No Chanjet write, ERP business-fact write, migration or deployment occurred.
 - Evidence:
   `docs/ops/CHANJET_CURRENT_DATA_QUALITY_AND_ERP_ADAPTATION_AUDIT_20260804.md`.
+
+# 2026-08-06 - Chanjet organization master closure applied with exact scope
+
+- Decision: `GO_WITH_CONDITIONS`.
+- Production revision `440cca8f` passed deployment run `31065216212`.
+- The apply request explicitly limited `mappingTypes` to `DEPARTMENT`; cash
+  accounts and every other mapping type were excluded.
+- Created seven house masters and mapped three workshops to the existing
+  Dongpeng production department.
+- Readback verified 7/7 houses with exact company/site/project ownership and
+  zero capacity/current birds, plus 10/10 mappings at confidence 100.
+- Post-apply department actionable count is zero. Three cash-account candidates
+  and 95 HOLD rows remain unchanged.
+- No Chanjet write, finance balance import, inventory fact import, migration or
+  fuzzy mapping occurred.
+- Next Gate: `CHANJET_CASH_ACCOUNT_CONTROLLED_CREATION_REVIEW`.
+- Evidence:
+  `docs/ops/CHANJET_ORGANIZATION_MASTER_CLOSURE_REPORT_20260806.md`.

@@ -1,13 +1,13 @@
 # Codex-Orchestrator Runtime Memory
 
-Last updated: 2026-08-03
+Last updated: 2026-08-06
 
 ## Active Context
 
-- Active module: Chanjet Product/SKU/UOM Policy Closure
-- Current stage: CHANJET_PRODUCT_SKU_POLICY_PRODUCTION_APPLIED
+- Active module: Chanjet Organization Master Closure
+- Current stage: CHANJET_ORGANIZATION_MASTER_CLOSURE_PRODUCTION_APPLIED
 - Active decision: GO_WITH_CONDITIONS
-- Next gate: CHANJET_UOM_CONVERSION_POLICY_CLOSURE
+- Next gate: CHANJET_CASH_ACCOUNT_CONTROLLED_CREATION_REVIEW
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
 
@@ -32,6 +32,18 @@ Last updated: 2026-08-03
   scope HOLDs remain separate.
 
 ## Latest Chanjet Decision
+
+- Production revision `440cca8f` passed deployment run `31065216212`.
+- The organization Gate applied only `DEPARTMENT`: seven zero-fact house masters
+  were created and three workshops were mapped to the existing Dongpeng
+  production department.
+- Production readback is exact: 7/7 houses, 10/10 mappings, confidence 100 and
+  zero remaining department actionable rows.
+- Three cash-account candidates and 95 HOLD rows were not changed.
+- Chanjet writeback and ERP finance/inventory fact import remain disabled.
+- Next Gate is `CHANJET_CASH_ACCOUNT_CONTROLLED_CREATION_REVIEW`.
+- Evidence:
+  `docs/ops/CHANJET_ORGANIZATION_MASTER_CLOSURE_REPORT_20260806.md`.
 
 - Production revision `b6e7fd09` passed deployment run `30808189992`.
 - The product policy closure created 19 SKU masters and 28 material masters and

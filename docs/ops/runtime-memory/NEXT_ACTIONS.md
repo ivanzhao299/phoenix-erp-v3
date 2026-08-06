@@ -1,5 +1,34 @@
 # Next Actions
 
+## 2026-08-06 - Chanjet organization master closure applied
+
+Current stage: `CHANJET_ORGANIZATION_MASTER_CLOSURE_PRODUCTION_APPLIED`
+
+Decision: `GO_WITH_CONDITIONS`
+
+Completed:
+
+1. Deployed revision `440cca8f` through production run `31065216212`.
+2. Applied only the approved `DEPARTMENT` scope.
+3. Created seven bounded house masters with zero capacity and zero current birds.
+4. Mapped three same-company workshop dimensions to the existing Dongpeng
+   production department.
+5. Verified 10/10 mappings at confidence 100 and reduced department actionable
+   rows to zero.
+6. Left all three cash-account candidates and 95 HOLD rows untouched.
+7. Wrote no Chanjet data and imported no finance or inventory facts.
+
+Next actions:
+
+1. Review the three cash-account candidates in a separate controlled Gate.
+2. Keep five evidence-incomplete department identities HOLD.
+3. Continue product/UOM/warehouse semantic closure without fuzzy mapping.
+4. Keep reverse write `READY_BUT_LOCKED` until a separately approved canary.
+
+Evidence:
+
+- `docs/ops/CHANJET_ORGANIZATION_MASTER_CLOSURE_REPORT_20260806.md`
+
 ## 2026-08-04 - Chanjet current data quality audit
 
 Current stage: `CHANJET_DATA_QUALITY_AND_ERP_ADAPTATION_AUDITED`
