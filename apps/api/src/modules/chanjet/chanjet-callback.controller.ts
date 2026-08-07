@@ -1690,17 +1690,70 @@ export class ChanjetCallbackController {
       const before = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
       const collision = projectRows(before).find((item) => String(item.code || '') === houseCode || String(item.name || '') === expectedName);
       if (collision) {
-        await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'SUCCESS', {
-          outcome: 'IDEMPOTENT_EXISTING', bookId, houseCode, expectedName,
-          externalId: String(collision.id || ''), writeChanjet: false,
-        });
-        return {
-          success: true,
-          outcome: 'IDEMPOTENT_EXISTING',
-          writeChanjet: false,
-          changedExistingDepartment: false,
-          project: { id: String(collision.id || ''), code: String(collision.code || ''), name: String(collision.name || '') },
-        };
+        if (String(collision.code || '') !== houseCode || String(collision.name || '') !== expectedName) {
+          throw new Error('项目编码或名称已被其他主数据占用');
+        }
+        createdId = String(collision.id || '');
+        if (!createdId) throw new Error('已有项目缺少可回读的唯一 ID');
+        const existingDetailEnvelope = await this.auth.callApi<Record<string, unknown>>(
+          `/accounting/openapi/cc/project/query/${encodeURIComponent(createdId)}/${bookId}`,
+          { method: 'GET', kind: 'READ' },
+        );
+        const existingDetail = projectData(existingDetailEnvelope);
+        const existingCategory = projectCategory(existingDetail);
+        const existingStatus = existingDetail.statusEnum && typeof existingDetail.statusEnum === 'object'
+          ? String((existingDetail.statusEnum as Record<string, unknown>).value || '')
+          : String(existingDetail.statusEnum || '');
+        if (String(existingDetail.code || '') !== houseCode
+          || String(existingDetail.name || '') !== expectedName
+          || String(existingCategory.code || existingDetail.projectCategoryCode || '') !== categoryCode) {
+          throw new Error('已有项目详情与金丝雀目标不一致');
+        }
+        if (existingStatus === 'A') {
+          detailVerified = true;
+          const mirror = await this.integration.syncReadOnlyMirror(['PROJECT'], bookId);
+          const projectSync = mirror.results?.find((result) => (
+            result.key === 'PROJECT' && result.bookId === bookId
+          ));
+          if (projectSync?.status === 'FAIL') {
+            throw new Error(`ERP 镜像同步失败，不自动重试: ${projectSync.error || '未知错误'}`);
+          }
+          const existingMirrorRows = await this.ds.query(
+            `SELECT external_id, external_code, external_name, status
+               FROM chanjet_entity_snapshots
+              WHERE book_id=$1 AND entity_type='PROJECT' AND external_code=$2
+              ORDER BY updated_at DESC
+              LIMIT 2`,
+            [bookId, houseCode],
+          );
+          if (existingMirrorRows.length !== 1
+            || String(existingMirrorRows[0].external_id || '') !== createdId
+            || String(existingMirrorRows[0].external_name || '') !== expectedName) {
+            throw new Error('已有启用项目未在 ERP 镜像中形成唯一一致记录');
+          }
+          await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'SUCCESS', {
+            outcome: 'IDEMPOTENT_EXISTING_VERIFIED', bookId, houseCode, expectedName,
+            externalId: createdId, statusEnum: existingStatus, writeChanjet: false,
+            readback: { detail: true, erpMirror: true },
+          });
+          return {
+            success: true,
+            outcome: 'IDEMPOTENT_EXISTING_VERIFIED',
+            writeChanjet: false,
+            changedExistingDepartment: false,
+            project: {
+              id: createdId,
+              code: houseCode,
+              name: expectedName,
+              projectCategoryCode: categoryCode,
+              statusEnum: existingStatus,
+            },
+            readback: { detail: true, erpMirror: true, mirrorAttempts: 1 },
+          };
+        }
+        if (existingStatus !== 'I') {
+          throw new Error(`已有项目状态不允许幂等处理: ${existingStatus || 'UNKNOWN'}`);
+        }
       }
 
       // The app is authorized for the integration batchUpsert API, while the
@@ -1741,7 +1794,7 @@ export class ChanjetCallbackController {
         throw new Error(`项目同步接口拒绝 ${houseCode}: ${String(failResultMap[houseCode])}`);
       }
       upsertSucceeded = true;
-      createdId = String(successResultMap[houseCode] || addedData.id || projectRows(added)[0]?.id || '');
+      createdId = String(successResultMap[houseCode] || addedData.id || projectRows(added)[0]?.id || createdId || '');
       if (!createdId) {
         const afterAddList = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
         const created = projectRows(afterAddList).find((item) => String(item.code || '') === houseCode);
