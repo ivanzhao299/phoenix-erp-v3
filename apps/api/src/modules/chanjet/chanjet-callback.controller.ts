@@ -1648,17 +1648,12 @@ export class ChanjetCallbackController {
     }
 
     const listPath = `/accounting/openapi/cc/project/list/${bookId}`;
-    const addPath = `/accounting/openapi/cc/project/add/${bookId}`;
+    const syncPath = `/accounting/document/integration/project/batchUpsert/${bookId}`;
     let createdId = '';
+    let projectCategoryId = 0;
+    let upsertSucceeded = false;
     let rollbackAttempted = false;
     let rollbackSucceeded = false;
-    const projectInput = {
-      code: houseCode,
-      name: expectedName,
-      projectCategoryCode: categoryCode,
-      statusEnum: 'A',
-      comments: `Phoenix ERP鸡舍成本对象 ${houseCode}`,
-    };
     const projectRows = (payload: unknown): Array<Record<string, unknown>> => {
       if (Array.isArray(payload)) return payload as Array<Record<string, unknown>>;
       if (!payload || typeof payload !== 'object') return [];
@@ -1677,12 +1672,17 @@ export class ChanjetCallbackController {
       if (data && typeof data === 'object' && !Array.isArray(data)) return data as Record<string, unknown>;
       return record;
     };
+    const projectCategory = (payload: Record<string, unknown>): Record<string, unknown> => (
+      payload.projectCategory && typeof payload.projectCategory === 'object' && !Array.isArray(payload.projectCategory)
+        ? payload.projectCategory as Record<string, unknown>
+        : {}
+    );
 
     try {
       const before = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
       const collision = projectRows(before).find((item) => String(item.code || '') === houseCode || String(item.name || '') === expectedName);
       if (collision) {
-        await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', addPath, 'SUCCESS', {
+        await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'SUCCESS', {
           outcome: 'IDEMPOTENT_EXISTING', bookId, houseCode, expectedName,
           externalId: String(collision.id || ''), writeChanjet: false,
         });
@@ -1695,11 +1695,45 @@ export class ChanjetCallbackController {
         };
       }
 
-      const added = await this.auth.callApi<Record<string, unknown>>(addPath, {
-        method: 'POST', body: projectInput, kind: 'WRITE',
+      // The app is authorized for the integration batchUpsert API, while the
+      // standalone project/add permission is not granted. The reviewed list
+      // contract already returns projectCategory.id/code, so reuse that
+      // read-before-write evidence instead of spending another provider call.
+      const categorySeed = projectRows(before).find((item) => {
+        const category = projectCategory(item);
+        return String(category.code || item.projectCategoryCode || '') === categoryCode;
+      });
+      const verifiedCategory = categorySeed ? projectCategory(categorySeed) : {};
+      projectCategoryId = Number(verifiedCategory.id || categorySeed?.projectCategoryId || 0);
+      if (!Number.isSafeInteger(projectCategoryId) || projectCategoryId <= 0
+        || String(verifiedCategory.code || categorySeed?.projectCategoryCode || '') !== categoryCode) {
+        throw new Error(`无法从现有项目解析分类 ${categoryCode} 的有效读前证据`);
+      }
+      const projectInput = {
+        id: projectCategoryId,
+        code: houseCode,
+        name: expectedName,
+        statusEnum: 'A',
+      };
+      const added = await this.auth.callApi<Record<string, unknown>>(syncPath, {
+        method: 'POST', body: [projectInput], kind: 'WRITE',
       });
       const addedData = projectData(added);
-      createdId = String(addedData.id || projectRows(added)[0]?.id || '');
+      const successResultMap = (
+        addedData.successResultMap && typeof addedData.successResultMap === 'object'
+          ? addedData.successResultMap as Record<string, unknown>
+          : {}
+      );
+      const failResultMap = (
+        addedData.failResultMap && typeof addedData.failResultMap === 'object'
+          ? addedData.failResultMap as Record<string, unknown>
+          : {}
+      );
+      if (Object.prototype.hasOwnProperty.call(failResultMap, houseCode)) {
+        throw new Error(`项目同步接口拒绝 ${houseCode}: ${String(failResultMap[houseCode])}`);
+      }
+      upsertSucceeded = true;
+      createdId = String(successResultMap[houseCode] || addedData.id || projectRows(added)[0]?.id || '');
       if (!createdId) {
         const afterAddList = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
         const created = projectRows(afterAddList).find((item) => String(item.code || '') === houseCode);
@@ -1710,8 +1744,7 @@ export class ChanjetCallbackController {
       const detailPath = `/accounting/openapi/cc/project/query/${encodeURIComponent(createdId)}/${bookId}`;
       const detailEnvelope = await this.auth.callApi<Record<string, unknown>>(detailPath, { method: 'GET', kind: 'READ' });
       const detail = projectData(detailEnvelope);
-      const category = detail.projectCategory && typeof detail.projectCategory === 'object'
-        ? detail.projectCategory as Record<string, unknown> : {};
+      const category = projectCategory(detail);
       const status = detail.statusEnum && typeof detail.statusEnum === 'object'
         ? String((detail.statusEnum as Record<string, unknown>).value || '') : String(detail.statusEnum || '');
       if (String(detail.code || '') !== houseCode
@@ -1734,9 +1767,9 @@ export class ChanjetCallbackController {
         throw new Error('ERP 镜像回读未形成唯一一致项目');
       }
 
-      await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', addPath, 'SUCCESS', {
+      await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'SUCCESS', {
         outcome: 'CREATED_AND_VERIFIED', bookId, houseCode, expectedName, createdId,
-        projectCategoryCode: categoryCode, changedExistingDepartment: false,
+        projectCategoryCode: categoryCode, projectCategoryId, changedExistingDepartment: false,
         mirrorJobId: (mirror as Record<string, unknown>).jobId || null,
       });
       return {
@@ -1744,17 +1777,20 @@ export class ChanjetCallbackController {
         outcome: 'CREATED_AND_VERIFIED',
         writeChanjet: true,
         changedExistingDepartment: false,
-        project: { id: createdId, code: houseCode, name: expectedName, projectCategoryCode: categoryCode, statusEnum: 'A' },
+        project: {
+          id: createdId, code: houseCode, name: expectedName,
+          projectCategoryCode: categoryCode, projectCategoryId, statusEnum: 'A',
+        },
         readback: { detail: true, erpMirror: true },
       };
     } catch (error) {
-      if (createdId) {
+      if (upsertSucceeded && projectCategoryId > 0) {
         rollbackAttempted = true;
         try {
-          await this.auth.callApi(`/accounting/openapi/cc/project/update/${bookId}`, {
+          await this.auth.callApi(syncPath, {
             method: 'POST',
             kind: 'WRITE',
-            body: { id: createdId, ...projectInput, statusEnum: 'I', comments: `${projectInput.comments} [ROLLBACK]` },
+            body: [{ id: projectCategoryId, code: houseCode, name: expectedName, statusEnum: 'I' }],
           });
           const rolledBack = await this.auth.callApi<Record<string, unknown>>(
             `/accounting/openapi/cc/project/query/${encodeURIComponent(createdId)}/${bookId}`,
@@ -1768,13 +1804,14 @@ export class ChanjetCallbackController {
           this.log.error(`house project rollback failed id=${createdId}: ${(rollbackError as Error).message}`);
         }
       }
-      await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', addPath, 'FAIL', {
+      await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'FAIL', {
         bookId, houseCode, expectedName, createdId: createdId || null,
+        projectCategoryId: projectCategoryId || null, upsertSucceeded,
         error: (error as Error).message, rollbackAttempted, rollbackSucceeded,
       });
       return {
         success: false,
-        writeChanjet: Boolean(createdId),
+        writeChanjet: upsertSucceeded,
         changedExistingDepartment: false,
         error: (error as Error).message,
         rollback: { attempted: rollbackAttempted, succeeded: rollbackSucceeded },
