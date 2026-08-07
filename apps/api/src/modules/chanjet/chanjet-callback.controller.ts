@@ -1652,8 +1652,16 @@ export class ChanjetCallbackController {
     let createdId = '';
     let projectCategoryId = 0;
     let upsertSucceeded = false;
+    let detailVerified = false;
     let rollbackAttempted = false;
     let rollbackSucceeded = false;
+    const mirrorReadbackEvidence: Array<{
+      attempt: number;
+      delayMs: number;
+      syncStatus: 'SUCCESS' | 'FAIL' | 'UNKNOWN';
+      syncError: string | null;
+      rows: Array<{ externalId: string; externalCode: string; externalName: string; status: string }>;
+    }> = [];
     const projectRows = (payload: unknown): Array<Record<string, unknown>> => {
       if (Array.isArray(payload)) return payload as Array<Record<string, unknown>>;
       if (!payload || typeof payload !== 'object') return [];
@@ -1753,24 +1761,68 @@ export class ChanjetCallbackController {
         || status !== 'A') {
         throw new Error('好业财项目详情回读与写入目标不一致');
       }
+      detailVerified = true;
 
-      const mirror = await this.integration.syncReadOnlyMirror(['PROJECT'], bookId);
-      const mirrorRows = await this.ds.query(
-        `SELECT external_id, external_code, external_name, status
-           FROM chanjet_entity_snapshots
-          WHERE book_id=$1 AND entity_type='PROJECT' AND external_code=$2
-          ORDER BY updated_at DESC
-          LIMIT 2`,
-        [bookId, houseCode],
-      );
-      if (mirrorRows.length !== 1 || String(mirrorRows[0].external_name || '') !== expectedName) {
-        throw new Error('ERP 镜像回读未形成唯一一致项目');
+      // batchUpsert detail is strongly readable before the project list always
+      // converges. Delay the first mirror read and retry only a successful-but-
+      // stale list response. Provider/business failures are never retried here.
+      const mirrorDelaysMs = process.env.NODE_ENV === 'test'
+        ? [0, 0, 0]
+        : [2_000, 3_000, 5_000];
+      let mirrorVerified = false;
+      for (let index = 0; index < mirrorDelaysMs.length; index += 1) {
+        const delayMs = mirrorDelaysMs[index];
+        if (delayMs > 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+        }
+        const mirror = await this.integration.syncReadOnlyMirror(['PROJECT'], bookId);
+        const projectSync = mirror.results?.find((result) => (
+          result.key === 'PROJECT' && result.bookId === bookId
+        ));
+        if (projectSync?.status === 'FAIL') {
+          mirrorReadbackEvidence.push({
+            attempt: index + 1,
+            delayMs,
+            syncStatus: 'FAIL',
+            syncError: projectSync.error || '未知错误',
+            rows: [],
+          });
+          throw new Error(`ERP 镜像同步失败，不自动重试: ${projectSync.error || '未知错误'}`);
+        }
+        const mirrorRows = await this.ds.query(
+          `SELECT external_id, external_code, external_name, status
+             FROM chanjet_entity_snapshots
+            WHERE book_id=$1 AND entity_type='PROJECT' AND external_code=$2
+            ORDER BY updated_at DESC
+            LIMIT 2`,
+          [bookId, houseCode],
+        );
+        const evidenceRows = mirrorRows.map((row: Record<string, unknown>) => ({
+          externalId: String(row.external_id || ''),
+          externalCode: String(row.external_code || ''),
+          externalName: String(row.external_name || ''),
+          status: String(row.status || ''),
+        }));
+        mirrorReadbackEvidence.push({
+          attempt: index + 1,
+          delayMs,
+          syncStatus: projectSync?.status || 'UNKNOWN',
+          syncError: null,
+          rows: evidenceRows,
+        });
+        if (mirrorRows.length === 1 && String(mirrorRows[0].external_name || '') === expectedName) {
+          mirrorVerified = true;
+          break;
+        }
+      }
+      if (!mirrorVerified) {
+        throw new Error(`ERP 镜像回读未在 ${mirrorReadbackEvidence.length} 次低频延迟确认内形成唯一一致项目`);
       }
 
       await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'SUCCESS', {
         outcome: 'CREATED_AND_VERIFIED', bookId, houseCode, expectedName, createdId,
         projectCategoryCode: categoryCode, projectCategoryId, changedExistingDepartment: false,
-        mirrorJobId: (mirror as Record<string, unknown>).jobId || null,
+        mirrorReadbackEvidence,
       });
       return {
         success: true,
@@ -1781,7 +1833,7 @@ export class ChanjetCallbackController {
           id: createdId, code: houseCode, name: expectedName,
           projectCategoryCode: categoryCode, projectCategoryId, statusEnum: 'A',
         },
-        readback: { detail: true, erpMirror: true },
+        readback: { detail: true, erpMirror: true, mirrorAttempts: mirrorReadbackEvidence.length },
       };
     } catch (error) {
       if (upsertSucceeded && projectCategoryId > 0) {
@@ -1807,13 +1859,20 @@ export class ChanjetCallbackController {
       await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'FAIL', {
         bookId, houseCode, expectedName, createdId: createdId || null,
         projectCategoryId: projectCategoryId || null, upsertSucceeded,
-        error: (error as Error).message, rollbackAttempted, rollbackSucceeded,
+        error: (error as Error).message, detailVerified, mirrorReadbackEvidence,
+        rollbackAttempted, rollbackSucceeded,
       });
       return {
         success: false,
         writeChanjet: upsertSucceeded,
         changedExistingDepartment: false,
         error: (error as Error).message,
+        readback: {
+          detail: detailVerified,
+          erpMirror: false,
+          mirrorAttempts: mirrorReadbackEvidence.length,
+          evidence: mirrorReadbackEvidence,
+        },
         rollback: { attempted: rollbackAttempted, succeeded: rollbackSucceeded },
       };
     }
