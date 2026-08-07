@@ -3,6 +3,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { statusOf } from './chanjet-house-alignment-status.mjs';
+
 const args = process.argv.slice(2);
 const getArg = (name, fallback = '') => {
   const inline = args.find((arg) => arg.startsWith(`${name}=`));
@@ -93,25 +95,6 @@ function isHouse(record) {
     first(record.rawData || {}, ['code', 'name', 'projectCode', 'projectName']),
   ].join(' ');
   return /鸡舍|舍号|henhouse|chickenhouse|\bhouse[\s_-]*\w+/i.test(value);
-}
-
-function statusOf(record) {
-  const rawData = record.rawData || {};
-  for (const key of ['isStop', 'isStopped', 'disabled', 'isDisabled', 'isDelete', 'isDeleted']) {
-    if (typeof rawData[key] === 'boolean') {
-      return { raw: `${key}=${rawData[key]}`, productionState: rawData[key] ? 'INACTIVE' : 'ACTIVE' };
-    }
-  }
-  for (const key of ['enabled', 'isEnabled', 'active', 'isActive', 'valid', 'isValid']) {
-    if (typeof rawData[key] === 'boolean') {
-      return { raw: `${key}=${rawData[key]}`, productionState: rawData[key] ? 'ACTIVE' : 'INACTIVE' };
-    }
-  }
-  const raw = first(record, ['status', 'rawData.status', 'rawData.state']);
-  const normalized = normalize(raw);
-  const active = ['active', 'enabled', 'enable', '1', 'true', '启用', '正常', '使用中'].includes(normalized);
-  const inactive = ['inactive', 'disabled', 'disable', '0', 'false', '停用', '禁用', '已停用'].includes(normalized);
-  return { raw: raw || 'UNKNOWN', productionState: active ? 'ACTIVE' : inactive ? 'INACTIVE' : 'UNKNOWN' };
 }
 
 function rawStatusFlags(rawData) {
