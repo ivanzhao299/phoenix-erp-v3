@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-05T08:15:56.139Z",
+  "generatedAt": "2026-08-09T08:53:59.492Z",
   "decision": "READY_FOR_HUMAN_REVIEW",
   "writeChanjet": false,
   "writeErpBusinessTables": false,
@@ -46,13 +46,122 @@
   ],
   "blockers": [],
   "counts": {
-    "chanjetProjects": 6,
+    "chanjetProjects": 18,
     "chanjetDepartments": 36,
-    "chanjetHouseProjects": 0,
+    "chanjetHouseProjects": 12,
     "chanjetHouseDepartments": 13,
-    "erpHouses": 11
+    "erpHouses": 18
   },
-  "chanjetHouses": [],
+  "chanjetHouses": [
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652525134975987",
+      "code": "HOUSE_DP_06",
+      "name": "公鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:08.766Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652524466113525",
+      "code": "HOUSE_DP_05",
+      "name": "5号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:08.765Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652523792801638",
+      "code": "HOUSE_DP_04",
+      "name": "4号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:08.764Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652523390148892",
+      "code": "HOUSE_DP_03",
+      "name": "3号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:08.762Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652522587067774",
+      "code": "HOUSE_DP_02",
+      "name": "2号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:08.761Z"
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652522316405609",
+      "code": "HOUSE_DP_01",
+      "name": "1号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:08.760Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3652521242663394",
+      "code": "HOUSE_MS_06",
+      "name": "6号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:01.512Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3652520439587801",
+      "code": "HOUSE_MS_05",
+      "name": "5号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:01.511Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3652520034697291",
+      "code": "HOUSE_MS_04",
+      "name": "4号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:01.509Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3652519365837859",
+      "code": "HOUSE_MS_03",
+      "name": "3号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:01.508Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3650197932874743",
+      "code": "HOUSE_MS_02",
+      "name": "2号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:01.507Z"
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3652517887214593",
+      "code": "HOUSE_MS_01",
+      "name": "1号鸡舍",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "lastSeenAt": "2026-08-09T08:54:01.505Z"
+    }
+  ],
   "houseLikeDepartments": [
     {
       "bookId": "3537748712226818",
@@ -62,7 +171,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:02.093Z"
+      "lastSeenAt": "2026-08-09T08:54:08.228Z"
     },
     {
       "bookId": "3537748712226818",
@@ -72,7 +181,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:02.091Z"
+      "lastSeenAt": "2026-08-09T08:54:08.227Z"
     },
     {
       "bookId": "3537748712226818",
@@ -82,7 +191,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:02.089Z"
+      "lastSeenAt": "2026-08-09T08:54:08.226Z"
     },
     {
       "bookId": "3537748712226818",
@@ -92,7 +201,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:02.088Z"
+      "lastSeenAt": "2026-08-09T08:54:08.224Z"
     },
     {
       "bookId": "3537748712226818",
@@ -102,7 +211,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:02.086Z"
+      "lastSeenAt": "2026-08-09T08:54:08.223Z"
     },
     {
       "bookId": "3537748712226818",
@@ -112,7 +221,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:02.085Z"
+      "lastSeenAt": "2026-08-09T08:54:08.222Z"
     },
     {
       "bookId": "3537748712226818",
@@ -122,7 +231,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:02.081Z"
+      "lastSeenAt": "2026-08-09T08:54:08.219Z"
     },
     {
       "bookId": "3533914511118750",
@@ -132,7 +241,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:01.462Z"
+      "lastSeenAt": "2026-08-09T08:54:00.947Z"
     },
     {
       "bookId": "3533914511118750",
@@ -142,7 +251,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:01.460Z"
+      "lastSeenAt": "2026-08-09T08:54:00.946Z"
     },
     {
       "bookId": "3533914511118750",
@@ -152,7 +261,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:01.458Z"
+      "lastSeenAt": "2026-08-09T08:54:00.945Z"
     },
     {
       "bookId": "3533914511118750",
@@ -162,7 +271,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:01.456Z"
+      "lastSeenAt": "2026-08-09T08:54:00.944Z"
     },
     {
       "bookId": "3533914511118750",
@@ -172,7 +281,7 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:01.454Z"
+      "lastSeenAt": "2026-08-09T08:54:00.942Z"
     },
     {
       "bookId": "3533914511118750",
@@ -182,10 +291,76 @@
       "raw": "UNKNOWN",
       "productionState": "UNKNOWN",
       "rawStatusFlags": {},
-      "lastSeenAt": "2026-08-05T04:15:01.425Z"
+      "lastSeenAt": "2026-08-09T08:54:00.940Z"
     }
   ],
   "projectCatalog": [
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652525134975987",
+      "code": "HOUSE_DP_06",
+      "name": "公鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652524466113525",
+      "code": "HOUSE_DP_05",
+      "name": "5号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652523792801638",
+      "code": "HOUSE_DP_04",
+      "name": "4号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652523390148892",
+      "code": "HOUSE_DP_03",
+      "name": "3号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652522587067774",
+      "code": "HOUSE_DP_02",
+      "name": "2号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3537748712226818",
+      "externalId": "3652522316405609",
+      "code": "HOUSE_DP_01",
+      "name": "1号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
     {
       "bookId": "3537748712226818",
       "externalId": "3560618337764955",
@@ -193,8 +368,8 @@
       "name": "会晒直营店",
       "projectCategoryCode": "00",
       "projectCategoryName": "未分类",
-      "raw": "UNKNOWN",
-      "productionState": "UNKNOWN",
+      "raw": "A",
+      "productionState": "ACTIVE",
       "rawStatusFlags": {}
     },
     {
@@ -204,8 +379,74 @@
       "name": "沙耶武里直营店",
       "projectCategoryCode": "00",
       "projectCategoryName": "未分类",
-      "raw": "UNKNOWN",
-      "productionState": "UNKNOWN",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3652521242663394",
+      "code": "HOUSE_MS_06",
+      "name": "6号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3652520439587801",
+      "code": "HOUSE_MS_05",
+      "name": "5号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3652520034697291",
+      "code": "HOUSE_MS_04",
+      "name": "4号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3652519365837859",
+      "code": "HOUSE_MS_03",
+      "name": "3号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3650197932874743",
+      "code": "HOUSE_MS_02",
+      "name": "2号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
+      "rawStatusFlags": {}
+    },
+    {
+      "bookId": "3533914511118750",
+      "externalId": "3652517887214593",
+      "code": "HOUSE_MS_01",
+      "name": "1号鸡舍",
+      "projectCategoryCode": "00",
+      "projectCategoryName": "未分类",
+      "raw": "A",
+      "productionState": "ACTIVE",
       "rawStatusFlags": {}
     },
     {
@@ -215,8 +456,8 @@
       "name": "万象直营店",
       "projectCategoryCode": "00",
       "projectCategoryName": "未分类",
-      "raw": "UNKNOWN",
-      "productionState": "UNKNOWN",
+      "raw": "A",
+      "productionState": "ACTIVE",
       "rawStatusFlags": {}
     },
     {
@@ -226,8 +467,8 @@
       "name": "波利坎赛直营店",
       "projectCategoryCode": "00",
       "projectCategoryName": "未分类",
-      "raw": "UNKNOWN",
-      "productionState": "UNKNOWN",
+      "raw": "A",
+      "productionState": "ACTIVE",
       "rawStatusFlags": {}
     },
     {
@@ -237,8 +478,8 @@
       "name": "琅勃拉邦直营店",
       "projectCategoryCode": "00",
       "projectCategoryName": "未分类",
-      "raw": "UNKNOWN",
-      "productionState": "UNKNOWN",
+      "raw": "A",
+      "productionState": "ACTIVE",
       "rawStatusFlags": {}
     },
     {
@@ -248,8 +489,8 @@
       "name": "孟赛直营店",
       "projectCategoryCode": "00",
       "projectCategoryName": "未分类",
-      "raw": "UNKNOWN",
-      "productionState": "UNKNOWN",
+      "raw": "A",
+      "productionState": "ACTIVE",
       "rawStatusFlags": {}
     }
   ],
@@ -295,6 +536,55 @@
       "farmCode": "FARM-DP",
       "status": "ACTIVE",
       "capacity": "10000"
+    },
+    {
+      "code": "HOUSE_MS_01",
+      "name": "1号鸡舍",
+      "farmCode": "LPH_MENGSAI",
+      "status": "ACTIVE",
+      "capacity": "0"
+    },
+    {
+      "code": "HOUSE_DP_01",
+      "name": "1号鸡舍",
+      "farmCode": "FARM-DP",
+      "status": "ACTIVE",
+      "capacity": "0"
+    },
+    {
+      "code": "HOUSE_DP_02",
+      "name": "2号鸡舍",
+      "farmCode": "FARM-DP",
+      "status": "ACTIVE",
+      "capacity": "0"
+    },
+    {
+      "code": "HOUSE_DP_03",
+      "name": "3号鸡舍",
+      "farmCode": "FARM-DP",
+      "status": "ACTIVE",
+      "capacity": "0"
+    },
+    {
+      "code": "HOUSE_DP_04",
+      "name": "4号鸡舍",
+      "farmCode": "FARM-DP",
+      "status": "ACTIVE",
+      "capacity": "0"
+    },
+    {
+      "code": "HOUSE_DP_05",
+      "name": "5号鸡舍",
+      "farmCode": "FARM-DP",
+      "status": "ACTIVE",
+      "capacity": "0"
+    },
+    {
+      "code": "HOUSE_DP_06",
+      "name": "公鸡舍",
+      "farmCode": "FARM-DP",
+      "status": "ACTIVE",
+      "capacity": "0"
     },
     {
       "code": "HOUSE_MS_02",
@@ -425,6 +715,258 @@
     },
     {
       "erp": {
+        "code": "HOUSE_MS_01",
+        "name": "1号鸡舍",
+        "farmCode": "LPH_MENGSAI",
+        "status": "ACTIVE",
+        "capacity": "0"
+      },
+      "expectedBookId": "3533914511118750",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3652517887214593",
+          "code": "HOUSE_MS_01",
+          "name": "1号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:01.505Z"
+        }
+      ],
+      "chanjetDepartments": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3537640532739056",
+          "code": "101",
+          "name": "1号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-09T08:54:00.940Z"
+        }
+      ]
+    },
+    {
+      "erp": {
+        "code": "HOUSE_DP_01",
+        "name": "1号鸡舍",
+        "farmCode": "FARM-DP",
+        "status": "ACTIVE",
+        "capacity": "0"
+      },
+      "expectedBookId": "3537748712226818",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3652522316405609",
+          "code": "HOUSE_DP_01",
+          "name": "1号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:08.760Z"
+        }
+      ],
+      "chanjetDepartments": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3551709638432636",
+          "code": "101",
+          "name": "1号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-09T08:54:08.222Z"
+        }
+      ]
+    },
+    {
+      "erp": {
+        "code": "HOUSE_DP_02",
+        "name": "2号鸡舍",
+        "farmCode": "FARM-DP",
+        "status": "ACTIVE",
+        "capacity": "0"
+      },
+      "expectedBookId": "3537748712226818",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3652522587067774",
+          "code": "HOUSE_DP_02",
+          "name": "2号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:08.761Z"
+        }
+      ],
+      "chanjetDepartments": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3551709638432642",
+          "code": "102",
+          "name": "2号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-09T08:54:08.223Z"
+        }
+      ]
+    },
+    {
+      "erp": {
+        "code": "HOUSE_DP_03",
+        "name": "3号鸡舍",
+        "farmCode": "FARM-DP",
+        "status": "ACTIVE",
+        "capacity": "0"
+      },
+      "expectedBookId": "3537748712226818",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3652523390148892",
+          "code": "HOUSE_DP_03",
+          "name": "3号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:08.762Z"
+        }
+      ],
+      "chanjetDepartments": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3551710443738494",
+          "code": "103",
+          "name": "3号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-09T08:54:08.224Z"
+        }
+      ]
+    },
+    {
+      "erp": {
+        "code": "HOUSE_DP_04",
+        "name": "4号鸡舍",
+        "farmCode": "FARM-DP",
+        "status": "ACTIVE",
+        "capacity": "0"
+      },
+      "expectedBookId": "3537748712226818",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3652523792801638",
+          "code": "HOUSE_DP_04",
+          "name": "4号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:08.764Z"
+        }
+      ],
+      "chanjetDepartments": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3551710443738497",
+          "code": "104",
+          "name": "4号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-09T08:54:08.226Z"
+        }
+      ]
+    },
+    {
+      "erp": {
+        "code": "HOUSE_DP_05",
+        "name": "5号鸡舍",
+        "farmCode": "FARM-DP",
+        "status": "ACTIVE",
+        "capacity": "0"
+      },
+      "expectedBookId": "3537748712226818",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3652524466113525",
+          "code": "HOUSE_DP_05",
+          "name": "5号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:08.765Z"
+        }
+      ],
+      "chanjetDepartments": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3551710443738502",
+          "code": "105",
+          "name": "5号鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-09T08:54:08.227Z"
+        }
+      ]
+    },
+    {
+      "erp": {
+        "code": "HOUSE_DP_06",
+        "name": "公鸡舍",
+        "farmCode": "FARM-DP",
+        "status": "ACTIVE",
+        "capacity": "0"
+      },
+      "expectedBookId": "3537748712226818",
+      "dataClass": "PRODUCTION_CANDIDATE",
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3652525134975987",
+          "code": "HOUSE_DP_06",
+          "name": "公鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:08.766Z"
+        }
+      ],
+      "chanjetDepartments": [
+        {
+          "bookId": "3537748712226818",
+          "externalId": "3551710443738506",
+          "code": "106",
+          "name": "公鸡舍",
+          "raw": "UNKNOWN",
+          "productionState": "UNKNOWN",
+          "rawStatusFlags": {},
+          "lastSeenAt": "2026-08-09T08:54:08.228Z"
+        }
+      ]
+    },
+    {
+      "erp": {
         "code": "HOUSE_MS_02",
         "name": "2号鸡舍",
         "farmCode": "LPH_MENGSAI",
@@ -433,9 +975,19 @@
       },
       "expectedBookId": "3533914511118750",
       "dataClass": "PRODUCTION_CANDIDATE",
-      "matchStatus": "FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION",
-      "matchBasis": "DEPARTMENT_NAME",
-      "chanjet": [],
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3650197932874743",
+          "code": "HOUSE_MS_02",
+          "name": "2号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:01.507Z"
+        }
+      ],
       "chanjetDepartments": [
         {
           "bookId": "3533914511118750",
@@ -445,7 +997,7 @@
           "raw": "UNKNOWN",
           "productionState": "UNKNOWN",
           "rawStatusFlags": {},
-          "lastSeenAt": "2026-08-05T04:15:01.454Z"
+          "lastSeenAt": "2026-08-09T08:54:00.942Z"
         }
       ]
     },
@@ -459,9 +1011,19 @@
       },
       "expectedBookId": "3533914511118750",
       "dataClass": "PRODUCTION_CANDIDATE",
-      "matchStatus": "FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION",
-      "matchBasis": "DEPARTMENT_NAME",
-      "chanjet": [],
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3652519365837859",
+          "code": "HOUSE_MS_03",
+          "name": "3号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:01.508Z"
+        }
+      ],
       "chanjetDepartments": [
         {
           "bookId": "3533914511118750",
@@ -471,7 +1033,7 @@
           "raw": "UNKNOWN",
           "productionState": "UNKNOWN",
           "rawStatusFlags": {},
-          "lastSeenAt": "2026-08-05T04:15:01.456Z"
+          "lastSeenAt": "2026-08-09T08:54:00.944Z"
         }
       ]
     },
@@ -485,9 +1047,19 @@
       },
       "expectedBookId": "3533914511118750",
       "dataClass": "PRODUCTION_CANDIDATE",
-      "matchStatus": "FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION",
-      "matchBasis": "DEPARTMENT_NAME",
-      "chanjet": [],
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3652520034697291",
+          "code": "HOUSE_MS_04",
+          "name": "4号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:01.509Z"
+        }
+      ],
       "chanjetDepartments": [
         {
           "bookId": "3533914511118750",
@@ -497,7 +1069,7 @@
           "raw": "UNKNOWN",
           "productionState": "UNKNOWN",
           "rawStatusFlags": {},
-          "lastSeenAt": "2026-08-05T04:15:01.458Z"
+          "lastSeenAt": "2026-08-09T08:54:00.945Z"
         }
       ]
     },
@@ -511,9 +1083,19 @@
       },
       "expectedBookId": "3533914511118750",
       "dataClass": "PRODUCTION_CANDIDATE",
-      "matchStatus": "FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION",
-      "matchBasis": "DEPARTMENT_NAME",
-      "chanjet": [],
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3652520439587801",
+          "code": "HOUSE_MS_05",
+          "name": "5号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:01.511Z"
+        }
+      ],
       "chanjetDepartments": [
         {
           "bookId": "3533914511118750",
@@ -523,7 +1105,7 @@
           "raw": "UNKNOWN",
           "productionState": "UNKNOWN",
           "rawStatusFlags": {},
-          "lastSeenAt": "2026-08-05T04:15:01.460Z"
+          "lastSeenAt": "2026-08-09T08:54:00.946Z"
         }
       ]
     },
@@ -537,9 +1119,19 @@
       },
       "expectedBookId": "3533914511118750",
       "dataClass": "PRODUCTION_CANDIDATE",
-      "matchStatus": "FOUND_AS_DEPARTMENT_REQUIRES_MIGRATION",
-      "matchBasis": "DEPARTMENT_NAME",
-      "chanjet": [],
+      "matchStatus": "EXACT_PROJECT_CANDIDATE",
+      "matchBasis": "PROJECT_CODE",
+      "chanjet": [
+        {
+          "bookId": "3533914511118750",
+          "externalId": "3652521242663394",
+          "code": "HOUSE_MS_06",
+          "name": "6号鸡舍",
+          "raw": "A",
+          "productionState": "ACTIVE",
+          "lastSeenAt": "2026-08-09T08:54:01.512Z"
+        }
+      ],
       "chanjetDepartments": [
         {
           "bookId": "3533914511118750",
@@ -549,7 +1141,7 @@
           "raw": "UNKNOWN",
           "productionState": "UNKNOWN",
           "rawStatusFlags": {},
-          "lastSeenAt": "2026-08-05T04:15:01.462Z"
+          "lastSeenAt": "2026-08-09T08:54:00.947Z"
         }
       ]
     }

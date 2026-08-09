@@ -1,5 +1,42 @@
 # Next Actions
 
+## 2026-08-09 - Chanjet house project alignment completed
+
+Current stage: `CHANJET_HOUSE_PROJECT_ALIGNMENT_PRODUCTION_COMPLETE`
+
+Decision: `GO`
+
+Completed:
+
+1. Restored the existing `HOUSE_MS_02` immediately after the first provider
+   behavior probe showed that a reused `batchUpsert.id` overwrites instead of
+   creating.
+2. Added unique stable source identities, pre-existing ID collision rejection,
+   exact project-count invariants and original-value rollback.
+3. Deployed revision `c54299d9` through protected API run `31303925835`.
+4. Created the eleven missing house projects strictly one at a time.
+5. Verified every item through provider detail, provider list and ERP mirror
+   readback before releasing the next item.
+6. Final readonly run `31304598356` passed: 18 projects, 12 active house
+   projects, 36 departments, 13 house-shaped departments, 18 ERP houses and
+   zero blockers.
+7. Changed no users, departments, user-organization bindings, finance facts or
+   inventory facts.
+
+Next actions:
+
+1. Treat the house cost-object line as closed; do not recreate or rename these
+   projects without a new explicit Gate.
+2. Continue cash-account review separately under
+   `CHANJET_CASH_ACCOUNT_CONTROLLED_CREATION_REVIEW`.
+3. Keep provider permission repair and historical reconciliation cleanup in
+   their own read/write approvals.
+
+Evidence:
+
+- `docs/ops/CHANJET_HOUSE_PROJECT_ROLLOUT_CLOSURE_REPORT_20260809.md`
+- `docs/ops/runs/chanjet-house-alignment-readonly-latest.json`
+
 ## 2026-08-06 - Chanjet organization master closure applied
 
 Current stage: `CHANJET_ORGANIZATION_MASTER_CLOSURE_PRODUCTION_APPLIED`
