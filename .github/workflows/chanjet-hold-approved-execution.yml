@@ -10,6 +10,7 @@ on:
         options:
           - B0_INTENTIONAL_NON_MAPPING
           - B1_PRODUCT_NAME_CANARY
+          - B3_ORGANIZATION_POLICY
       mapping_id:
         description: 'B1 mapping id; ignored for B0'
         required: false
