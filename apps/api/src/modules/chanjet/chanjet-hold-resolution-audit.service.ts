@@ -139,9 +139,9 @@ const HIGH_CONFIDENCE_NAME_REPAIRS: Record<string, { value: string; reason: stri
 };
 
 // Short veterinary trade names are common in the source books. They are not
-// suitable for fuzzy matching, but their business domain is deterministic
-// enough to create a source-preserving ERP material when runtime UOM evidence
-// exists. Names without runtime evidence remain HOLD.
+// suitable for fuzzy matching. This set is only a domain-policy hint: a row
+// that the authoritative business review kept on HOLD must never become an
+// automatic ERP master creation merely because its name looks veterinary.
 const VETERINARY_PRODUCT_NAMES = new Set([
   '传喉',
   '阿莫西林',
@@ -454,7 +454,7 @@ export class ChanjetHoldResolutionAuditService {
     if (candidate.mappingType === 'CASH_ACCOUNT') return this.classifyCashAccount(base, source);
     if (candidate.mappingType === 'DEPARTMENT') return this.classifyDepartment(base);
     if (candidate.mappingType === 'WAREHOUSE') return this.classifyWarehouse(base);
-    if (candidate.mappingType === 'PRODUCT') return this.classifyProduct(base);
+    if (candidate.mappingType === 'PRODUCT') return this.classifyProduct(base, source);
     if (candidate.mappingType === 'UOM') return this.classifyUom(base, ratios);
     return base;
   }
@@ -564,7 +564,10 @@ export class ChanjetHoldResolutionAuditService {
     return base;
   }
 
-  private classifyProduct(base: ChanjetHoldResolutionItem): ChanjetHoldResolutionItem {
+  private classifyProduct(
+    base: ChanjetHoldResolutionItem,
+    source: SourceRow | undefined,
+  ): ChanjetHoldResolutionItem {
     const repair = HIGH_CONFIDENCE_NAME_REPAIRS[base.chanjetName];
     if (repair) {
       return this.nameProposal(
@@ -580,6 +583,11 @@ export class ChanjetHoldResolutionAuditService {
     const domain = productDomain(base.chanjetName);
     const evidenceCount = evidenceNumber(base.evidence, 'runtime evidence rows');
     const baseUom = evidenceValue(base.evidence, 'runtime base UOM');
+    const raw = sourceRaw(source);
+    const gapProposal = raw.erpMasterGapProposal && typeof raw.erpMasterGapProposal === 'object'
+      ? raw.erpMasterGapProposal as Record<string, unknown>
+      : {};
+    const gapClass = String(gapProposal.gapClass || base.blockers[0] || 'PRODUCT_DOMAIN_CLASSIFICATION_REQUIRED');
     if (domain === 'LIVESTOCK') {
       return {
         ...base,
@@ -602,11 +610,16 @@ export class ChanjetHoldResolutionAuditService {
       return {
         ...base,
         authorityOwner: 'ERP_OPERATIONS',
-        disposition: 'ERP_AUTO_APPLY_ELIGIBLE',
+        disposition: 'ERP_POLICY_REQUIRED',
         confidence: 0.96,
-        risk: 'LOW',
-        recommendedAction: '允许 ERP 侧创建来源保留的物料主数据；仍不得写好业财或导入库存事实。',
-        autoApplyEligible: true,
+        risk: 'MEDIUM',
+        evidence: [
+          ...base.evidence,
+          `source product domain hint ${domain}`,
+          `authoritative business review remains HOLD (${gapClass})`,
+        ],
+        recommendedAction: '先审批产品语义归属，并由权威业务审查生成 CREATE_MASTER 候选；在此之前禁止创建 ERP 物料。',
+        autoApplyEligible: false,
       };
     }
     return {
