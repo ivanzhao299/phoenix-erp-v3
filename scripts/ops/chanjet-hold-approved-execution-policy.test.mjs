@@ -73,3 +73,36 @@ test('execution evidence requires rollback and dual readback', () => {
     result: { auditHash, outcome: 'UPDATED_AND_VERIFIED', evidence: {} },
   }), /evidence is incomplete/);
 });
+
+test('B3 binds the exact brooding accounting-group policy and evidence', () => {
+  const execution = buildApprovedExecution({
+    auditHash,
+    items: [{
+      mappingId: '6198', mappingType: 'DEPARTMENT', bookId: '3537748712226818',
+      companyCode: 'COMP-LAO-XINGCHI', chanjetCode: '100', chanjetName: '育雏',
+      disposition: 'ERP_POLICY_REQUIRED',
+    }],
+  }, {
+    batch: 'B3_ORGANIZATION_POLICY',
+    confirmation: 'CLOSE_ORGANIZATION_POLICY:6198',
+  });
+  assert.equal(execution.path, '/api/chanjet/integration/erp-master-gap-closure/organization-policy/close');
+  assert.equal(execution.expectedWriteCount, 1);
+  assert.doesNotThrow(() => assertApprovedExecutionResult(execution, {
+    result: {
+      auditHash,
+      closed: [{
+        mappingId: '6198',
+        matchStatus: 'NOT_APPLICABLE',
+        policy: 'KEEP_ACCOUNTING_GROUP_NOT_TRANSACTION_DEPARTMENT',
+      }],
+      writeChanjet: false,
+      writeErpBusinessTables: false,
+      automaticRollbackOnFailure: true,
+    },
+  }));
+  assert.throws(() => buildApprovedExecution({ auditHash, items: [] }, {
+    batch: 'B3_ORGANIZATION_POLICY',
+    confirmation: 'CLOSE_ORGANIZATION_POLICY:6198',
+  }), /exact organization-policy target/);
+});

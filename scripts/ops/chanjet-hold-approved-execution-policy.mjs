@@ -76,7 +76,36 @@ export function buildApprovedExecution(audit, input) {
     };
   }
 
-  throw new Error('batch must be B0_INTENTIONAL_NON_MAPPING or B1_PRODUCT_NAME_CANARY');
+  if (batch === 'B3_ORGANIZATION_POLICY') {
+    const expectedConfirmation = 'CLOSE_ORGANIZATION_POLICY:6198';
+    if (confirmation !== expectedConfirmation) {
+      throw new Error(`B3 confirmation must be ${expectedConfirmation}`);
+    }
+    const targets = (audit.items || []).filter((item) => (
+      text(item.mappingId) === '6198'
+      && item.mappingType === 'DEPARTMENT'
+      && text(item.bookId) === '3537748712226818'
+      && text(item.companyCode) === 'COMP-LAO-XINGCHI'
+      && text(item.chanjetCode) === '100'
+      && text(item.chanjetName) === '育雏'
+      && item.disposition === 'ERP_POLICY_REQUIRED'
+    ));
+    if (targets.length !== 1) throw new Error('B3 current audit must contain the exact organization-policy target');
+    return {
+      batch,
+      auditHash,
+      alreadyComplete: false,
+      expectedWriteCount: 1,
+      path: '/api/chanjet/integration/erp-master-gap-closure/organization-policy/close',
+      body: {
+        auditHash,
+        approveProduction: true,
+        confirmation,
+      },
+    };
+  }
+
+  throw new Error('batch must be B0_INTENTIONAL_NON_MAPPING, B1_PRODUCT_NAME_CANARY, or B3_ORGANIZATION_POLICY');
 }
 
 export function assertApprovedExecutionResult(execution, envelope) {
@@ -89,6 +118,20 @@ export function assertApprovedExecutionResult(execution, envelope) {
       || result.writeErpBusinessTables !== false
       || result.automaticRollbackOnFailure !== true) {
       throw new Error('B0 readback/rollback evidence is incomplete');
+    }
+    return result;
+  }
+  if (execution.batch === 'B3_ORGANIZATION_POLICY') {
+    if (text(result?.auditHash) !== execution.auditHash
+      || !Array.isArray(result?.closed)
+      || result.closed.length !== 1
+      || text(result.closed[0]?.mappingId) !== '6198'
+      || text(result.closed[0]?.matchStatus) !== 'NOT_APPLICABLE'
+      || text(result.closed[0]?.policy) !== 'KEEP_ACCOUNTING_GROUP_NOT_TRANSACTION_DEPARTMENT'
+      || result.writeChanjet !== false
+      || result.writeErpBusinessTables !== false
+      || result.automaticRollbackOnFailure !== true) {
+      throw new Error('B3 readback/rollback evidence is incomplete');
     }
     return result;
   }

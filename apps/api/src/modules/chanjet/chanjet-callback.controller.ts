@@ -1126,6 +1126,48 @@ export class ChanjetCallbackController {
     }
   }
 
+  /**
+   * Closes the exact audited "育雏" accounting grouping as non-transactional.
+   * The write is limited to the ERP mapping layer and is transactionally rolled
+   * back when identity or policy readback changes.
+   */
+  @Post('integration/erp-master-gap-closure/organization-policy/close')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async closeIntegrationOrganizationPolicy(
+    @Body() body: {
+      auditHash?: string;
+      approveProduction?: boolean;
+      confirmation?: string;
+    },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    try {
+      const result = await this.holdResolutionAudit.closeOrganizationPolicy({
+        auditHash: String(body.auditHash || ''),
+        approveProduction: body.approveProduction === true,
+        confirmation: String(body.confirmation || ''),
+      }, `system:chanjet-organization-policy:${requestedBy}`);
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_ORGANIZATION_POLICY_CLOSE',
+        result.auditHash,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_ORGANIZATION_POLICY_CLOSE',
+        String(body.auditHash || ''),
+        'FAIL',
+        { error: (error as Error).message },
+      );
+      throw error;
+    }
+  }
+
   /** One provider read, zero writes. Confirms the exact row and current API grant. */
   @Post('integration/product-name-canary/preflight')
   @RequireMenu(CHANJET_PROXY_MENU, 'V')

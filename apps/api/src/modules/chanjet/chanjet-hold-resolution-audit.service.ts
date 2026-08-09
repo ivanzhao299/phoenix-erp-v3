@@ -127,6 +127,8 @@ export type CloseIntentionalNonMappingInput = {
   confirmation: string;
 };
 
+export type CloseOrganizationPolicyInput = CloseIntentionalNonMappingInput;
+
 const DISPOSITIONS: ChanjetHoldDisposition[] = [
   'ERP_AUTO_APPLY_ELIGIBLE',
   'ERP_POLICY_REQUIRED',
@@ -436,6 +438,138 @@ export class ChanjetHoldResolutionAuditService {
       return {
         auditHash: audit.auditHash,
         closed,
+        writeChanjet: false,
+        writeErpBusinessTables: false,
+        automaticRollbackOnFailure: true,
+      };
+    } catch (error) {
+      await runner.rollbackTransaction();
+      throw error;
+    } finally {
+      await runner.release();
+    }
+  }
+
+  async closeOrganizationPolicy(
+    input: CloseOrganizationPolicyInput,
+    actor: string,
+  ): Promise<{
+    auditHash: string;
+    closed: Array<{
+      mappingId: string;
+      mappingType: string;
+      bookId: string;
+      chanjetCode: string;
+      chanjetName: string;
+      previousMatchStatus: string;
+      matchStatus: 'NOT_APPLICABLE';
+      policy: 'KEEP_ACCOUNTING_GROUP_NOT_TRANSACTION_DEPARTMENT';
+    }>;
+    writeChanjet: false;
+    writeErpBusinessTables: false;
+    automaticRollbackOnFailure: true;
+  }> {
+    const expectedConfirmation = 'CLOSE_ORGANIZATION_POLICY:6198';
+    if (input.approveProduction !== true || input.confirmation !== expectedConfirmation) {
+      throw new Error('organization policy closure requires exact production confirmation');
+    }
+    if (!actor.trim()) throw new Error('organization policy closure actor is required');
+
+    const audit = await this.audit();
+    if (!input.auditHash || input.auditHash !== audit.auditHash) {
+      throw new Error('precision audit hash changed; rerun read-only audit before closure');
+    }
+    const targets = audit.items.filter((item) => (
+      item.mappingId === '6198'
+      && item.mappingType === 'DEPARTMENT'
+      && item.bookId === '3537748712226818'
+      && item.companyCode === 'COMP-LAO-XINGCHI'
+      && item.chanjetCode === '100'
+      && item.chanjetName === '育雏'
+      && item.disposition === 'ERP_POLICY_REQUIRED'
+      && item.blockers.includes('HOUSE_CANONICAL_CODE_POLICY_REQUIRED')
+      && item.blockers.includes('BROODING_HOUSE_REQUIRES_DISTINCT_TYPE_AND_CODE_POLICY')
+    ));
+    if (targets.length !== 1) {
+      throw new Error('organization policy exact audited target changed; no write executed');
+    }
+
+    const target = targets[0];
+    const policy = 'KEEP_ACCOUNTING_GROUP_NOT_TRANSACTION_DEPARTMENT' as const;
+    const runner = this.ds.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      const rows = await runner.query(
+        `SELECT id::text, mapping_type, book_id, chanjet_id, chanjet_code,
+                chanjet_name, match_status, review_status
+           FROM chanjet_master_mapping
+          WHERE id = $1
+          FOR UPDATE`,
+        [target.mappingId],
+      );
+      const current = rows[0];
+      if (!current
+        || String(current.mapping_type) !== target.mappingType
+        || String(current.book_id) !== target.bookId
+        || String(current.chanjet_id) !== target.chanjetId
+        || String(current.chanjet_code) !== target.chanjetCode
+        || String(current.chanjet_name) !== target.chanjetName
+        || String(current.match_status) !== 'SOURCE_ONLY'
+        || String(current.review_status) !== 'APPROVED') {
+        throw new Error(`mapping ${target.mappingId} changed after audit; transaction rolled back`);
+      }
+      await runner.query(
+        `UPDATE chanjet_master_mapping
+            SET match_status = 'NOT_APPLICABLE',
+                confidence = 100,
+                review_status = 'APPROVED',
+                reviewed_by = $2,
+                reviewed_at = NOW(),
+                raw_data = COALESCE(raw_data, '{}'::jsonb)
+                  || jsonb_build_object('holdResolution', $3::jsonb),
+                updated_at = NOW()
+          WHERE id = $1`,
+        [
+          target.mappingId,
+          actor,
+          JSON.stringify({
+            disposition: target.disposition,
+            auditHash: audit.auditHash,
+            policy,
+            reason: '育雏保留为好业财核算分组；ERP 交易归属由鸡舍项目和仓位承载，不创建重复部门。',
+            closedAt: new Date().toISOString(),
+            writeChanjet: false,
+            writeErpBusinessTables: false,
+          }),
+        ],
+      );
+      const readback = await runner.query(
+        `SELECT id::text, match_status, review_status,
+                raw_data->'holdResolution'->>'policy' AS policy
+           FROM chanjet_master_mapping
+          WHERE id = $1`,
+        [target.mappingId],
+      );
+      if (readback.length !== 1
+        || String(readback[0].match_status) !== 'NOT_APPLICABLE'
+        || String(readback[0].review_status) !== 'APPROVED'
+        || String(readback[0].policy) !== policy) {
+        throw new Error('organization policy readback mismatch; transaction rolled back');
+      }
+      await runner.commitTransaction();
+      return {
+        auditHash: audit.auditHash,
+        closed: [{
+          mappingId: target.mappingId,
+          mappingType: target.mappingType,
+          bookId: target.bookId,
+          chanjetCode: target.chanjetCode,
+          chanjetName: target.chanjetName,
+          previousMatchStatus: String(current.match_status),
+          matchStatus: 'NOT_APPLICABLE',
+          policy,
+        }],
         writeChanjet: false,
         writeErpBusinessTables: false,
         automaticRollbackOnFailure: true,

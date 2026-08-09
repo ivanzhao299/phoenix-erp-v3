@@ -338,4 +338,59 @@ describe('ChanjetHoldResolutionAuditService', () => {
     expect(runner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(runner.commitTransaction).not.toHaveBeenCalled();
   });
+
+  it('closes only the exact brooding accounting grouping with transactional readback', async () => {
+    const runner = {
+      connect: jest.fn(), startTransaction: jest.fn(), commitTransaction: jest.fn(),
+      rollbackTransaction: jest.fn(), release: jest.fn(),
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FOR UPDATE')) {
+          return [{
+            id: '6198', mapping_type: 'DEPARTMENT', book_id: '3537748712226818',
+            chanjet_id: '3551710443738513', chanjet_code: '100', chanjet_name: '育雏',
+            match_status: 'SOURCE_ONLY', review_status: 'APPROVED',
+          }];
+        }
+        if (sql.includes('UPDATE chanjet_master_mapping')) return [];
+        if (sql.includes("raw_data->'holdResolution'")) {
+          return [{
+            id: '6198', match_status: 'NOT_APPLICABLE', review_status: 'APPROVED',
+            policy: 'KEEP_ACCOUNTING_GROUP_NOT_TRANSACTION_DEPARTMENT',
+          }];
+        }
+        throw new Error(`unexpected query: ${sql}`);
+      }),
+    };
+    const service = createService([]);
+    (service as any).ds.createQueryRunner = jest.fn(() => runner);
+    jest.spyOn(service, 'audit').mockResolvedValue({
+      auditHash: 'audit-hash',
+      items: [{
+        mappingId: '6198', mappingType: 'DEPARTMENT', bookId: '3537748712226818',
+        companyCode: 'COMP-LAO-XINGCHI', chanjetId: '3551710443738513',
+        chanjetCode: '100', chanjetName: '育雏', authorityOwner: 'ERP_OPERATIONS',
+        disposition: 'ERP_POLICY_REQUIRED', confidence: 0.99, risk: 'MEDIUM', sourceQualityIssues: [],
+        evidence: [], blockers: [
+          'HOUSE_CANONICAL_CODE_POLICY_REQUIRED',
+          'BROODING_HOUSE_REQUIRES_DISTINCT_TYPE_AND_CODE_POLICY',
+        ], recommendedAction: 'policy', autoApplyEligible: false, requiresChanjetApproval: false,
+        chanjetChangeProposal: null, uomPolicyCandidates: [], referenceEvidence: null,
+      }],
+    } as any);
+
+    const result = await service.closeOrganizationPolicy({
+      auditHash: 'audit-hash',
+      approveProduction: true,
+      confirmation: 'CLOSE_ORGANIZATION_POLICY:6198',
+    }, 'tester');
+
+    expect(result.closed).toEqual([expect.objectContaining({
+      mappingId: '6198',
+      matchStatus: 'NOT_APPLICABLE',
+      policy: 'KEEP_ACCOUNTING_GROUP_NOT_TRANSACTION_DEPARTMENT',
+    })]);
+    expect(result.writeChanjet).toBe(false);
+    expect(runner.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(runner.rollbackTransaction).not.toHaveBeenCalled();
+  });
 });
