@@ -1034,6 +1034,48 @@ export class ChanjetCallbackController {
     };
   }
 
+  /**
+   * Closes only audit-proven accounting grouping/payment identities that must
+   * never become ERP transaction masters. The transaction is ERP middle-layer
+   * only and rolls back automatically if any identity or readback changed.
+   */
+  @Post('integration/erp-master-gap-closure/intentional-non-mapping/close')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async closeIntegrationIntentionalNonMappings(
+    @Body() body: {
+      auditHash?: string;
+      approveProduction?: boolean;
+      confirmation?: string;
+    },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    try {
+      const result = await this.holdResolutionAudit.closeIntentionalNonMappings({
+        auditHash: String(body.auditHash || ''),
+        approveProduction: body.approveProduction === true,
+        confirmation: String(body.confirmation || ''),
+      }, `system:chanjet-intentional-non-mapping:${requestedBy}`);
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_INTENTIONAL_NON_MAPPING_CLOSE',
+        result.auditHash,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_INTENTIONAL_NON_MAPPING_CLOSE',
+        String(body.auditHash || ''),
+        'FAIL',
+        { error: (error as Error).message },
+      );
+      throw error;
+    }
+  }
+
   @Post('integration/erp-master-gap-closure/business-review/apply')
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async applyIntegrationErpMasterBusinessReview(
