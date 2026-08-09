@@ -25,7 +25,7 @@ if (!execute) {
   process.exit(2);
 }
 if (!token) {
-  console.error('PHOENIX_ADMIN_TOKEN is required.');
+  console.error('Protected admin authentication is required.');
   process.exit(2);
 }
 
