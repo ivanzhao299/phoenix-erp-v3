@@ -70,6 +70,36 @@ test('ambiguous or cross-company locations fail closed', () => {
   assert.equal(plan.rows[0].exactLocationCandidateCount, 2);
 });
 
+test('one exact company warehouse yields a deterministic location-creation proposal', () => {
+  const plan = buildHoldBatchPlan({
+    audit: {
+      auditHash: 'audit', sourceReviewHash: 'review',
+      items: [{
+        mappingId: '1', mappingType: 'WAREHOUSE', bookId: 'BOOK',
+        companyCode: 'COMP-LAO-AGRI', chanjetCode: '05', chanjetName: '1号鸡舍',
+        disposition: 'ERP_POLICY_REQUIRED', risk: 'MEDIUM', blockers: [],
+      }],
+    },
+    businessPlan: { candidates: [] },
+    domainPolicies: {
+      candidates: { houseLocations: [] },
+      targets: {
+        houses: [{ code: 'HOUSE_MS_01', name: '1号鸡舍' }],
+        warehouses: [{ code: 'WH-AGRI', name: '农业仓', company_code: 'COMP-LAO-AGRI' }],
+        locations: [],
+      },
+    },
+  });
+  assert.equal(plan.rows[0].readiness, 'LOCATION_CREATION_READY');
+  assert.deepEqual(plan.rows[0].proposedLocation, {
+    code: 'LOC-HOUSE_MS_01',
+    name: '1号鸡舍',
+    warehouse_code: 'WH-AGRI',
+    company_code: 'COMP-LAO-AGRI',
+  });
+  assert.equal(plan.rows[0].productionWriteNeeded, 'ERP_LOCATION_MASTER_THEN_POLICY');
+});
+
 test('product policies remain explicit business decisions', () => {
   const plan = buildHoldBatchPlan({
     audit: {
