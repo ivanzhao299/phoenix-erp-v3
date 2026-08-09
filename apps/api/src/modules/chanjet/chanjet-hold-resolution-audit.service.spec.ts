@@ -178,22 +178,32 @@ describe('ChanjetHoldResolutionAuditService', () => {
     expect(query.mock.calls[0][1]).toEqual([['42']]);
   });
 
-  it('classifies evidenced veterinary trade names without requiring manual domain review', async () => {
+  it('never upgrades a business-review HOLD to automatic creation from a veterinary-looking name', async () => {
     const service = createService([
       candidate({
         mappingId: '43',
         chanjetName: '新流腺',
         evidence: ['runtime evidence rows 14', 'runtime base UOM 瓶'],
+        blockers: ['PRODUCT_MASTER_REVIEW_REQUIRED', 'PRODUCT_SEMANTIC_OWNER_REQUIRES_EXPLICIT_POLICY'],
       }),
-    ]);
+    ], {
+      sourceRows: [{
+        id: '43',
+        raw_data: { erpMasterGapProposal: { gapClass: 'PRODUCT_MASTER_REVIEW_REQUIRED' } },
+      }],
+    });
 
     const audit = await service.audit();
 
     expect(audit.items[0]).toMatchObject({
-      disposition: 'ERP_AUTO_APPLY_ELIGIBLE',
+      disposition: 'ERP_POLICY_REQUIRED',
       authorityOwner: 'ERP_OPERATIONS',
-      autoApplyEligible: true,
+      autoApplyEligible: false,
+      risk: 'MEDIUM',
     });
+    expect(audit.items[0].evidence).toContain(
+      'authoritative business review remains HOLD (PRODUCT_MASTER_REVIEW_REQUIRED)',
+    );
   });
 
   it('does not describe every unresolved packaging unit as livestock pieces', async () => {
