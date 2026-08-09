@@ -32,7 +32,7 @@ if (!execute) {
   process.exit(2);
 }
 if (!token) {
-  console.error('PHOENIX_ADMIN_TOKEN is required.');
+  console.error('Required authentication material is unavailable.');
   process.exit(2);
 }
 
