@@ -42,6 +42,7 @@ describe('Chanjet readonly proxy policy', () => {
 describe('Chanjet house project pilot', () => {
   const bookId = '3533914511118750';
   const categoryId = 2409064369358300;
+  const syncSourceId = 3533914913770789;
   const listPayload = {
     data: {
       rows: [{
@@ -59,6 +60,25 @@ describe('Chanjet house project pilot', () => {
         code: 'HOUSE_MS_02',
         name: '2号鸡舍',
         projectCategory: { id: categoryId, code: '00', name: '未分类' },
+      }],
+    },
+  };
+  const createdHouseListPayload = {
+    data: {
+      rows: [
+        ...listPayload.data.rows,
+        {
+          id: '9001', code: 'HOUSE_MS_02', name: '2号鸡舍',
+          projectCategory: { id: categoryId, code: '00', name: '未分类' }, statusEnum: 'A',
+        },
+      ],
+    },
+  };
+  const reactivatedHouseListPayload = {
+    data: {
+      rows: [{
+        id: '9001', code: 'HOUSE_MS_02', name: '2号鸡舍',
+        projectCategory: { id: categoryId, code: '00', name: '未分类' }, statusEnum: 'A',
       }],
     },
   };
@@ -122,6 +142,7 @@ describe('Chanjet house project pilot', () => {
           projectCategory: { id: categoryId, code: '00', name: '未分类' }, statusEnum: 'A',
         },
       },
+      createdHouseListPayload,
     ]);
 
     const result = await ctx.controller.createHouseProjectPilot(ctx.request, ctx.body);
@@ -140,7 +161,7 @@ describe('Chanjet house project pilot', () => {
       {
         method: 'POST',
         kind: 'WRITE',
-        body: [{ id: categoryId, code: 'HOUSE_MS_02', name: '2号鸡舍', statusEnum: 'A' }],
+        body: [{ id: syncSourceId, code: 'HOUSE_MS_02', name: '2号鸡舍', statusEnum: 'A' }],
       },
     );
     expect(ctx.integration.syncReadOnlyMirror).toHaveBeenCalledWith(['PROJECT'], bookId);
@@ -187,6 +208,7 @@ describe('Chanjet house project pilot', () => {
           projectCategory: { id: categoryId, code: '00', name: '未分类' }, statusEnum: 'A',
         },
       },
+      reactivatedHouseListPayload,
     ]);
 
     const result = await ctx.controller.createHouseProjectPilot(ctx.request, ctx.body);
@@ -204,7 +226,7 @@ describe('Chanjet house project pilot', () => {
       {
         method: 'POST',
         kind: 'WRITE',
-        body: [{ id: categoryId, code: 'HOUSE_MS_02', name: '2号鸡舍', statusEnum: 'A' }],
+        body: [{ id: syncSourceId, code: 'HOUSE_MS_02', name: '2号鸡舍', statusEnum: 'A' }],
       },
     );
   });
@@ -229,6 +251,40 @@ describe('Chanjet house project pilot', () => {
     expect(ctx.auth.callApi).toHaveBeenCalledTimes(1);
   });
 
+  it('detects an upsert that overwrites an existing project and restores its original values', async () => {
+    const existingId = String(listPayload.data.rows[0].id);
+    const ctx = setup([
+      listPayload,
+      { successResultMap: { HOUSE_MS_02: existingId }, failResultMap: {} },
+      { successResultMap: { '0001': existingId }, failResultMap: {} },
+      {
+        data: {
+          id: existingId, code: '0001', name: '孟赛直营店',
+          projectCategory: { id: categoryId, code: '00', name: '未分类' }, statusEnum: 'A',
+        },
+      },
+    ]);
+
+    const result = await ctx.controller.createHouseProjectPilot(ctx.request, ctx.body);
+
+    expect(result).toMatchObject({
+      success: false,
+      writeChanjet: true,
+      error: expect.stringContaining('覆盖而非新增'),
+      rollback: { attempted: true, succeeded: true },
+    });
+    expect(ctx.auth.callApi).toHaveBeenNthCalledWith(
+      3,
+      `/accounting/document/integration/project/batchUpsert/${bookId}`,
+      {
+        method: 'POST',
+        kind: 'WRITE',
+        body: [{ id: syncSourceId, code: '0001', name: '孟赛直营店', statusEnum: 'A' }],
+      },
+    );
+    expect(ctx.integration.syncReadOnlyMirror).not.toHaveBeenCalled();
+  });
+
   it('waits for bounded list convergence before accepting ERP mirror readback', async () => {
     const ctx = setup([
       listPayload,
@@ -239,6 +295,7 @@ describe('Chanjet house project pilot', () => {
           projectCategory: { id: categoryId, code: '00', name: '未分类' }, statusEnum: 'A',
         },
       },
+      createdHouseListPayload,
     ], [
       [],
       [{ external_id: '9001', external_code: 'HOUSE_MS_02', external_name: '2号鸡舍', status: 'A' }],
@@ -263,6 +320,7 @@ describe('Chanjet house project pilot', () => {
           projectCategory: { id: categoryId, code: '00', name: '未分类' }, statusEnum: 'A',
         },
       },
+      createdHouseListPayload,
       { successResultMap: { HOUSE_MS_02: '9001' }, failResultMap: {} },
       {
         data: {
@@ -295,6 +353,7 @@ describe('Chanjet house project pilot', () => {
           projectCategory: { id: categoryId, code: '00', name: '未分类' }, statusEnum: 'A',
         },
       },
+      createdHouseListPayload,
       { successResultMap: { HOUSE_MS_02: '9001' }, failResultMap: {} },
       {
         data: {
@@ -348,7 +407,7 @@ describe('Chanjet house project pilot', () => {
       {
         method: 'POST',
         kind: 'WRITE',
-        body: [{ id: categoryId, code: 'HOUSE_MS_02', name: '2号鸡舍', statusEnum: 'I' }],
+        body: [{ id: syncSourceId, code: 'HOUSE_MS_02', name: '2号鸡舍', statusEnum: 'I' }],
       },
     );
     expect(ctx.integration.syncReadOnlyMirror).not.toHaveBeenCalled();

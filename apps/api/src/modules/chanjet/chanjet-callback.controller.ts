@@ -1653,12 +1653,17 @@ export class ChanjetCallbackController {
 
     const listPath = `/accounting/openapi/cc/project/list/${bookId}`;
     const syncPath = `/accounting/document/integration/project/batchUpsert/${bookId}`;
+    const syncSourceId = approvedTarget.syncSourceId;
     let createdId = '';
     let projectCategoryId = 0;
     let upsertSucceeded = false;
     let detailVerified = false;
+    let listVerified = false;
     let rollbackAttempted = false;
     let rollbackSucceeded = false;
+    let reactivatingExistingId = '';
+    let beforeProjectRows: Array<Record<string, unknown>> = [];
+    let overwrittenBeforeProject: Record<string, unknown> | null = null;
     const mirrorReadbackEvidence: Array<{
       attempt: number;
       delayMs: number;
@@ -1689,10 +1694,43 @@ export class ChanjetCallbackController {
         ? payload.projectCategory as Record<string, unknown>
         : {}
     );
+    const enumValue = (value: unknown): string => (
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? String((value as Record<string, unknown>).value || '')
+        : String(value || '')
+    );
+    const projectInvariant = (row: Record<string, unknown>) => {
+      const category = projectCategory(row);
+      const relation = (key: string) => {
+        const value = row[key];
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+        const record = value as Record<string, unknown>;
+        return {
+          id: String(record.id || ''),
+          code: String(record.code || record.empCode || ''),
+          name: String(record.name || record.partyName || ''),
+        };
+      };
+      return JSON.stringify({
+        id: String(row.id || ''),
+        code: String(row.code || ''),
+        name: String(row.name || ''),
+        statusEnum: enumValue(row.statusEnum),
+        projectCategory: {
+          id: String(category.id || ''),
+          code: String(category.code || row.projectCategoryCode || ''),
+        },
+        department: relation('department'),
+        employee: relation('employee'),
+        custVendor: relation('custVendor'),
+        parentProject: relation('parentProject'),
+      });
+    };
 
     try {
       const before = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
-      const collision = projectRows(before).find((item) => String(item.code || '') === houseCode || String(item.name || '') === expectedName);
+      beforeProjectRows = projectRows(before);
+      const collision = beforeProjectRows.find((item) => String(item.code || '') === houseCode || String(item.name || '') === expectedName);
       if (collision) {
         if (String(collision.code || '') !== houseCode || String(collision.name || '') !== expectedName) {
           throw new Error('项目编码或名称已被其他主数据占用');
@@ -1758,6 +1796,7 @@ export class ChanjetCallbackController {
         if (existingStatus !== 'I') {
           throw new Error(`已有项目状态不允许幂等处理: ${existingStatus || 'UNKNOWN'}`);
         }
+        reactivatingExistingId = createdId;
       }
 
       // The app is authorized for the integration batchUpsert API, while the
@@ -1775,7 +1814,7 @@ export class ChanjetCallbackController {
         throw new Error(`无法从现有项目解析分类 ${categoryCode} 的有效读前证据`);
       }
       const projectInput = {
-        id: projectCategoryId,
+        id: syncSourceId,
         code: houseCode,
         name: expectedName,
         statusEnum: 'A',
@@ -1805,6 +1844,12 @@ export class ChanjetCallbackController {
         createdId = String(created?.id || '');
       }
       if (!createdId) throw new Error('新增返回后无法解析项目 ID');
+      if (!reactivatingExistingId) {
+        overwrittenBeforeProject = beforeProjectRows.find((item) => String(item.id || '') === createdId) || null;
+        if (overwrittenBeforeProject) {
+          throw new Error(`项目同步返回既有项目 ID ${createdId}，判定为覆盖而非新增`);
+        }
+      }
 
       const detailPath = `/accounting/openapi/cc/project/query/${encodeURIComponent(createdId)}/${bookId}`;
       const detailEnvelope = await this.auth.callApi<Record<string, unknown>>(detailPath, { method: 'GET', kind: 'READ' });
@@ -1819,6 +1864,45 @@ export class ChanjetCallbackController {
         throw new Error('好业财项目详情回读与写入目标不一致');
       }
       detailVerified = true;
+
+      // The provider's public contract describes batchUpsert.id ambiguously.
+      // Production proved that reusing it can overwrite an unrelated project.
+      // Require an exact +1 cardinality change (or same count for a reviewed
+      // inactive reactivation) and preserve every pre-write identity/relation.
+      const listDelaysMs = process.env.NODE_ENV === 'test' ? [0, 0, 0] : [2_000, 3_000, 5_000];
+      const expectedCount = beforeProjectRows.length + (reactivatingExistingId ? 0 : 1);
+      const beforeById = new Map(beforeProjectRows.map((item) => [String(item.id || ''), projectInvariant(item)]));
+      for (let index = 0; index < listDelaysMs.length; index += 1) {
+        const delayMs = listDelaysMs[index];
+        if (delayMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+        const afterEnvelope = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
+        const afterRows = projectRows(afterEnvelope);
+        const afterById = new Map(afterRows.map((item) => [String(item.id || ''), item]));
+        const targetRows = afterRows.filter((item) => (
+          String(item.id || '') === createdId
+          && String(item.code || '') === houseCode
+          && String(item.name || '') === expectedName
+        ));
+        const changedBefore = beforeProjectRows.find((item) => {
+          const id = String(item.id || '');
+          if (reactivatingExistingId && id === reactivatingExistingId) return false;
+          const after = afterById.get(id);
+          return !after || projectInvariant(after) !== beforeById.get(id);
+        });
+        if (changedBefore) {
+          overwrittenBeforeProject = changedBefore;
+          throw new Error(`项目同步改变了既有项目 ${String(changedBefore.id || '')}，触发原值回滚`);
+        }
+        if (targetRows.length === 1 && afterRows.length === expectedCount) {
+          listVerified = true;
+          break;
+        }
+        const stillPreWriteSnapshot = targetRows.length === 0 && afterRows.length === beforeProjectRows.length;
+        if (!stillPreWriteSnapshot || index === listDelaysMs.length - 1) {
+          throw new Error(`项目列表回读未满足数量与唯一性不变量: before=${beforeProjectRows.length} after=${afterRows.length}`);
+        }
+      }
+      if (!listVerified) throw new Error('项目列表回读未通过');
 
       // batchUpsert detail is strongly readable before the project list always
       // converges. Delay the first mirror read and retry only a successful-but-
@@ -1878,7 +1962,8 @@ export class ChanjetCallbackController {
 
       await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'SUCCESS', {
         outcome: 'CREATED_AND_VERIFIED', bookId, houseCode, expectedName, createdId,
-        projectCategoryCode: categoryCode, projectCategoryId, changedExistingDepartment: false,
+        projectCategoryCode: categoryCode, projectCategoryId, syncSourceId,
+        changedExistingDepartment: false, listVerified,
         mirrorReadbackEvidence,
       });
       return {
@@ -1888,18 +1973,24 @@ export class ChanjetCallbackController {
         changedExistingDepartment: false,
         project: {
           id: createdId, code: houseCode, name: expectedName,
-          projectCategoryCode: categoryCode, projectCategoryId, statusEnum: 'A',
+          projectCategoryCode: categoryCode, projectCategoryId, syncSourceId, statusEnum: 'A',
         },
-        readback: { detail: true, erpMirror: true, mirrorAttempts: mirrorReadbackEvidence.length },
+        readback: { detail: true, list: true, erpMirror: true, mirrorAttempts: mirrorReadbackEvidence.length },
       };
     } catch (error) {
-      if (upsertSucceeded && projectCategoryId > 0) {
+      if (upsertSucceeded && syncSourceId > 0) {
         rollbackAttempted = true;
         try {
+          const rollbackCode = overwrittenBeforeProject
+            ? String(overwrittenBeforeProject.code || '') : houseCode;
+          const rollbackName = overwrittenBeforeProject
+            ? String(overwrittenBeforeProject.name || '') : expectedName;
+          const rollbackStatus = overwrittenBeforeProject
+            ? (enumValue(overwrittenBeforeProject.statusEnum) || 'A') : 'I';
           await this.auth.callApi(syncPath, {
             method: 'POST',
             kind: 'WRITE',
-            body: [{ id: projectCategoryId, code: houseCode, name: expectedName, statusEnum: 'I' }],
+            body: [{ id: syncSourceId, code: rollbackCode, name: rollbackName, statusEnum: rollbackStatus }],
           });
           const rolledBack = await this.auth.callApi<Record<string, unknown>>(
             `/accounting/openapi/cc/project/query/${encodeURIComponent(createdId)}/${bookId}`,
@@ -1908,15 +1999,17 @@ export class ChanjetCallbackController {
           const detail = projectData(rolledBack);
           const status = detail.statusEnum && typeof detail.statusEnum === 'object'
             ? String((detail.statusEnum as Record<string, unknown>).value || '') : String(detail.statusEnum || '');
-          rollbackSucceeded = status === 'I';
+          rollbackSucceeded = String(detail.code || '') === rollbackCode
+            && String(detail.name || '') === rollbackName
+            && status === rollbackStatus;
         } catch (rollbackError) {
           this.log.error(`house project rollback failed id=${createdId}: ${(rollbackError as Error).message}`);
         }
       }
       await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'FAIL', {
         bookId, houseCode, expectedName, createdId: createdId || null,
-        projectCategoryId: projectCategoryId || null, upsertSucceeded,
-        error: (error as Error).message, detailVerified, mirrorReadbackEvidence,
+        projectCategoryId: projectCategoryId || null, syncSourceId, upsertSucceeded,
+        error: (error as Error).message, detailVerified, listVerified, mirrorReadbackEvidence,
         rollbackAttempted, rollbackSucceeded,
       });
       return {
