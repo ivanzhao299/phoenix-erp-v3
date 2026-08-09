@@ -36,14 +36,16 @@ test('proposes only an active non-admin exact organization-code match', () => {
   });
 });
 
-test('keeps inactive users and role-global admins unbound', () => {
+test('keeps inactive users, role-global admins, and service identities unbound', () => {
   const result = plan([
     { id: 8, username: 'frozen', status: 'FROZEN', role: 'ROLE_STORE', store_code: 'STORE-A' },
     { id: 9, username: 'admin', status: 'ACTIVE', role: 'ROLE_ADMIN', store_code: 'ALL' },
+    { id: 13, username: 'runner', status: 'ACTIVE', role: 'ROLE_BUG_INTAKE_RUNNER', store_code: 'ALL' },
   ]);
   assert.deepEqual(result.entries.map((entry) => entry.disposition), [
     'KEEP_UNBOUND_INACTIVE',
     'KEEP_UNBOUND_ROLE_GLOBAL',
+    'KEEP_UNBOUND_SERVICE_IDENTITY',
   ]);
   assert.equal(result.summary.exactWriteCandidates, 0);
 });
