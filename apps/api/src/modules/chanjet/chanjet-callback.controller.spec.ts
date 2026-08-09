@@ -118,6 +118,7 @@ describe('Chanjet house project pilot', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       ds as never,
     );
     const request = { user: { userId: 'admin-1', username: 'admin', roles: ['ROLE_ADMIN'] } };

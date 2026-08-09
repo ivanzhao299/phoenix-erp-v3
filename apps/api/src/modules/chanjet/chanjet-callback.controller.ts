@@ -20,6 +20,10 @@ import {
   ChanjetErpMasterBusinessReviewService,
 } from './chanjet-erp-master-business-review.service';
 import { ChanjetHoldResolutionAuditService } from './chanjet-hold-resolution-audit.service';
+import {
+  ChanjetProductNameCanaryError,
+  ChanjetProductNameCanaryService,
+} from './chanjet-product-name-canary.service';
 import { resolveChanjetHouseProjectTarget } from './chanjet-house-project-policy';
 import * as crypto from 'crypto';
 
@@ -80,6 +84,7 @@ export class ChanjetCallbackController {
     private readonly wmsBridge: ChanjetWmsBridgeService,
     private readonly erpMasterBusinessReview: ChanjetErpMasterBusinessReviewService,
     private readonly holdResolutionAudit: ChanjetHoldResolutionAuditService,
+    private readonly productNameCanary: ChanjetProductNameCanaryService,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
@@ -1071,6 +1076,83 @@ export class ChanjetCallbackController {
         String(body.auditHash || ''),
         'FAIL',
         { error: (error as Error).message },
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * One-row, name-only Chanjet product correction. The service derives the
+   * target from the current precision-audit hash, reads before writing, verifies
+   * the provider and ERP mirror, and restores the original name on any drift.
+   */
+  @Post('integration/product-name-canary/execute')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async executeIntegrationProductNameCanary(
+    @Body() body: {
+      mappingId?: string;
+      auditHash?: string;
+      approveProduction?: boolean;
+      confirmation?: string;
+    },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    try {
+      const result = await this.productNameCanary.execute({
+        mappingId: String(body.mappingId || ''),
+        auditHash: String(body.auditHash || ''),
+        approveProduction: body.approveProduction === true,
+        confirmation: String(body.confirmation || ''),
+      }, `system:chanjet-product-name-canary:${requestedBy}`);
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_PRODUCT_NAME_CANARY',
+        result.evidence.productCode,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      const evidence = error instanceof ChanjetProductNameCanaryError ? error.evidence : {};
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_PRODUCT_NAME_CANARY',
+        String(body.mappingId || ''),
+        'FAIL',
+        { error: (error as Error).message, evidence },
+      );
+      throw error;
+    }
+  }
+
+  /** One provider read, zero writes. Confirms the exact row and current API grant. */
+  @Post('integration/product-name-canary/preflight')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async preflightIntegrationProductNameCanary(
+    @Body() body: { mappingId?: string; auditHash?: string },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    try {
+      const result = await this.productNameCanary.preflight({
+        mappingId: String(body.mappingId || ''),
+        auditHash: String(body.auditHash || ''),
+      });
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_PRODUCT_NAME_PREFLIGHT',
+        result.productCode,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_PRODUCT_NAME_PREFLIGHT',
+        String(body.mappingId || ''),
+        'FAIL',
+        { error: (error as Error).message, writeChanjet: false },
       );
       throw error;
     }
