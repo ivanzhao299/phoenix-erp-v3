@@ -115,6 +115,20 @@ function planUom(item, domainPolicies) {
   };
 }
 
+function planReferenceEvidence(item, exactMatchReadiness, noMatchReadiness) {
+  const referenceEvidence = item.referenceEvidence || null;
+  const scanned = Number(referenceEvidence?.scannedSnapshotCount || 0);
+  const exact = Number(referenceEvidence?.exactSnapshotCount || 0);
+  return {
+    referenceEvidence,
+    readiness: exact > 0
+      ? exactMatchReadiness
+      : scanned > 0
+        ? noMatchReadiness
+        : 'SOURCE_MIRROR_COVERAGE_REQUIRED',
+  };
+}
+
 export function buildHoldBatchPlan({ audit, businessPlan, domainPolicies }) {
   const reviewById = new Map((businessPlan?.candidates || []).map((candidate) => [
     text(candidate.mappingId), candidate,
@@ -173,13 +187,21 @@ export function buildHoldBatchPlan({ audit, businessPlan, domainPolicies }) {
     if (batch === 'B7_BUSINESS_OWNER_REVIEW') {
       return {
         ...base,
-        readiness: 'FINANCE_OR_OPERATIONS_OWNER_DECISION_REQUIRED',
+        ...planReferenceEvidence(
+          item,
+          'EXACT_USAGE_EVIDENCE_READY_FOR_OWNER_DECISION',
+          'NO_EXACT_USAGE_IN_CURRENT_MIRROR_REQUIRES_OWNER_CONFIRMATION',
+        ),
         productionWriteNeeded: 'NONE_UNTIL_OWNER_DECISION',
       };
     }
     return {
       ...base,
-      readiness: 'MORE_SOURCE_EVIDENCE_REQUIRED',
+      ...planReferenceEvidence(
+        item,
+        'EXACT_USAGE_EVIDENCE_READY_FOR_DOMAIN_REVIEW',
+        'NO_EXACT_USAGE_IN_CURRENT_MIRROR_REQUIRES_FRESH_SOURCE_CONFIRMATION',
+      ),
       productionWriteNeeded: 'NONE_UNTIL_EVIDENCE_COMPLETE',
     };
   });

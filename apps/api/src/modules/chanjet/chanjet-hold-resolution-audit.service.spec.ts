@@ -28,12 +28,14 @@ function createService(
   options: {
     sourceRows?: Array<Record<string, unknown>>;
     ratios?: Array<Record<string, unknown>>;
+    referenceEvidence?: Array<Record<string, unknown>>;
   } = {},
 ) {
   const ds = {
     query: jest.fn(async (sql: string) => {
       if (sql.includes('FROM chanjet_master_mapping')) return options.sourceRows || [];
       if (sql.includes('WITH lines AS')) return options.ratios || [];
+      if (sql.includes('WITH targets AS')) return options.referenceEvidence || [];
       throw new Error(`unexpected query: ${sql}`);
     }),
   };
@@ -159,6 +161,7 @@ describe('ChanjetHoldResolutionAuditService', () => {
     const query = jest.fn(async (sql: string, _params?: unknown[]) => {
       if (sql.includes('FROM chanjet_master_mapping')) return [];
       if (sql.includes('WITH lines AS')) return [];
+      if (sql.includes('WITH targets AS')) return [];
       throw new Error(`unexpected query: ${sql}`);
     });
     const businessReview = {
@@ -215,6 +218,43 @@ describe('ChanjetHoldResolutionAuditService', () => {
 
     expect(audit.items[0].recommendedAction).toContain('产品级换算');
     expect(audit.items[0].recommendedAction).not.toContain('禽只');
+  });
+
+  it('attaches exact read-only mirror reference evidence to unresolved rows', async () => {
+    const service = createService([
+      candidate({
+        mappingId: '45',
+        mappingType: 'WAREHOUSE',
+        chanjetId: 'SOURCE-WH-1',
+        chanjetCode: '01',
+        chanjetName: '总仓',
+      }),
+    ], {
+      referenceEvidence: [{
+        mappingId: '45',
+        scannedSnapshotCount: 120,
+        exactSnapshotCount: 8,
+        headerMatchCount: 5,
+        lineMatchCount: 4,
+        entityTypes: ['PURCHASE_STOCK_IN', 'SALE_STOCK_OUT'],
+        firstSeenAt: '2026-07-01T00:00:00.000Z',
+        lastSeenAt: '2026-08-08T00:00:00.000Z',
+      }],
+    });
+
+    const audit = await service.audit();
+
+    expect(audit.items[0].referenceEvidence).toEqual({
+      source: 'ERP_READONLY_MIRROR',
+      matchingMode: 'EXACT_IDENTIFIER_ONLY',
+      scannedSnapshotCount: 120,
+      exactSnapshotCount: 8,
+      headerMatchCount: 5,
+      lineMatchCount: 4,
+      entityTypes: ['PURCHASE_STOCK_IN', 'SALE_STOCK_OUT'],
+      firstSeenAt: '2026-07-01T00:00:00.000Z',
+      lastSeenAt: '2026-08-08T00:00:00.000Z',
+    });
   });
 
   it('closes only audit-proven intentional non-mappings in one rollback-safe transaction', async () => {

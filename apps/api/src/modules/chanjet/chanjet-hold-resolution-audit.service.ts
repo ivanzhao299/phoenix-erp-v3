@@ -37,6 +37,18 @@ type StableUomRatio = {
   maxFactor: number;
 };
 
+export type ChanjetExactReferenceEvidence = {
+  source: 'ERP_READONLY_MIRROR';
+  matchingMode: 'EXACT_IDENTIFIER_ONLY';
+  scannedSnapshotCount: number;
+  exactSnapshotCount: number;
+  headerMatchCount: number;
+  lineMatchCount: number;
+  entityTypes: string[];
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+
 type ChangeProposal = {
   field: string;
   currentValue: string;
@@ -66,6 +78,7 @@ export type ChanjetHoldResolutionItem = {
   requiresChanjetApproval: boolean;
   chanjetChangeProposal: ChangeProposal | null;
   uomPolicyCandidates: StableUomRatio[];
+  referenceEvidence: ChanjetExactReferenceEvidence | null;
 };
 
 export type ChanjetHoldResolutionAudit = {
@@ -219,11 +232,21 @@ export class ChanjetHoldResolutionAuditService {
       this.loadStableUomRatios(),
     ]);
     const sourceById = new Map(sourceRows.map((row) => [row.id, row]));
-    const items = holds.map((candidate) => this.classify(
+    const classified = holds.map((candidate) => this.classify(
       candidate,
       sourceById.get(candidate.mappingId),
       uomRatios,
     ));
+    const referenceTargets = classified.filter((item) => (
+      item.disposition === 'CROSS_SYSTEM_REVIEW_REQUIRED'
+      || item.disposition === 'KEEP_HOLD'
+    ));
+    const referenceEvidence = await this.loadExactReferenceEvidence(referenceTargets);
+    const referenceById = new Map(referenceEvidence.map((row) => [row.mappingId, row.evidence]));
+    const items = classified.map((item) => ({
+      ...item,
+      referenceEvidence: referenceById.get(item.mappingId) || null,
+    }));
     const byDisposition = emptyDispositionCounts();
     const byMappingType: Record<string, Record<ChanjetHoldDisposition, number>> = {};
     for (const item of items) {
@@ -243,6 +266,7 @@ export class ChanjetHoldResolutionAuditService {
       confidence: item.confidence,
       proposal: item.chanjetChangeProposal,
       policies: item.uomPolicyCandidates,
+      referenceEvidence: item.referenceEvidence,
     }));
     return {
       generatedAt: new Date().toISOString(),
@@ -449,6 +473,7 @@ export class ChanjetHoldResolutionAuditService {
       requiresChanjetApproval: false,
       chanjetChangeProposal: null,
       uomPolicyCandidates: [],
+      referenceEvidence: null,
     };
 
     if (candidate.mappingType === 'CASH_ACCOUNT') return this.classifyCashAccount(base, source);
@@ -775,6 +800,136 @@ export class ChanjetHoldResolutionAuditService {
       conversionFactor: round(Number(row.conversionFactor || 0), 6),
       minFactor: round(Number(row.minFactor || 0), 6),
       maxFactor: round(Number(row.maxFactor || 0), 6),
+    }));
+  }
+
+  private async loadExactReferenceEvidence(items: ChanjetHoldResolutionItem[]): Promise<Array<{
+    mappingId: string;
+    evidence: ChanjetExactReferenceEvidence;
+  }>> {
+    if (!items.length) return [];
+    const targets = items.map((item) => ({
+      mappingId: item.mappingId,
+      mappingType: item.mappingType,
+      bookId: item.bookId,
+      chanjetId: item.chanjetId,
+      chanjetCode: item.chanjetCode,
+    }));
+    const rows = await this.ds.query(
+      `WITH targets AS (
+         SELECT "mappingId" AS mapping_id,
+                "mappingType" AS mapping_type,
+                "bookId" AS book_id,
+                "chanjetId" AS chanjet_id,
+                "chanjetCode" AS chanjet_code
+           FROM jsonb_to_recordset($1::jsonb) AS x(
+             "mappingId" text,
+             "mappingType" text,
+             "bookId" text,
+             "chanjetId" text,
+             "chanjetCode" text
+           )
+       ), coverage AS (
+         SELECT t.mapping_id, COUNT(s.id)::int AS scanned_snapshot_count
+           FROM targets t
+           LEFT JOIN chanjet_entity_snapshots s ON s.book_id = t.book_id
+            AND s.entity_type NOT IN (
+              'DEPARTMENT', 'WAREHOUSE', 'PRODUCT', 'CASH_ACCOUNT', 'BANK_ACCOUNT',
+              'UOM', 'ACCOUNT_BOOK'
+            )
+          GROUP BY t.mapping_id
+       ), header_matches AS (
+         SELECT t.mapping_id, s.id AS snapshot_id, s.entity_type,
+                COALESCE(s.last_seen_at, s.updated_at) AS seen_at,
+                'HEADER'::text AS match_level
+           FROM targets t
+           JOIN chanjet_entity_snapshots s ON s.book_id = t.book_id
+            AND s.entity_type NOT IN (
+              'DEPARTMENT', 'WAREHOUSE', 'PRODUCT', 'CASH_ACCOUNT', 'BANK_ACCOUNT',
+              'UOM', 'ACCOUNT_BOOK'
+            )
+          WHERE CASE t.mapping_type
+            WHEN 'DEPARTMENT' THEN ARRAY[
+              s.raw_data->>'departmentId', s.raw_data->>'departmentCode'
+            ] && ARRAY[t.chanjet_id, t.chanjet_code]
+            WHEN 'WAREHOUSE' THEN ARRAY[
+              s.raw_data->>'warehouseId', s.raw_data->>'warehouseCode'
+            ] && ARRAY[t.chanjet_id, t.chanjet_code]
+            WHEN 'PRODUCT' THEN ARRAY[
+              s.raw_data->>'productId', s.raw_data->>'productCode'
+            ] && ARRAY[t.chanjet_id, t.chanjet_code]
+            WHEN 'CASH_ACCOUNT' THEN ARRAY[
+              s.raw_data->>'cashAccountId', s.raw_data->>'cashAccountCode',
+              s.raw_data->>'bankAccountId', s.raw_data->>'settlementAccountId',
+              s.raw_data->>'payAccountId', s.raw_data->>'paymentAccountId'
+            ] && ARRAY[t.chanjet_id, t.chanjet_code]
+            ELSE false
+          END
+       ), line_matches AS (
+         SELECT t.mapping_id, s.id AS snapshot_id, s.entity_type,
+                COALESCE(s.last_seen_at, s.updated_at) AS seen_at,
+                'LINE'::text AS match_level
+           FROM targets t
+           JOIN chanjet_entity_snapshots s ON s.book_id = t.book_id
+            AND s.entity_type NOT IN (
+              'DEPARTMENT', 'WAREHOUSE', 'PRODUCT', 'CASH_ACCOUNT', 'BANK_ACCOUNT',
+              'UOM', 'ACCOUNT_BOOK'
+            )
+           CROSS JOIN LATERAL jsonb_array_elements(
+             CASE WHEN jsonb_typeof(s.raw_data->'voucherDetailList') = 'array'
+               THEN s.raw_data->'voucherDetailList' ELSE '[]'::jsonb END
+           ) line
+          WHERE CASE t.mapping_type
+            WHEN 'DEPARTMENT' THEN ARRAY[
+              line->>'departmentId', line->>'departmentCode'
+            ] && ARRAY[t.chanjet_id, t.chanjet_code]
+            WHEN 'WAREHOUSE' THEN ARRAY[
+              line->>'warehouseId', line->>'warehouseCode'
+            ] && ARRAY[t.chanjet_id, t.chanjet_code]
+            WHEN 'PRODUCT' THEN ARRAY[
+              line->>'productId', line->>'productCode'
+            ] && ARRAY[t.chanjet_id, t.chanjet_code]
+            WHEN 'CASH_ACCOUNT' THEN ARRAY[
+              line->>'cashAccountId', line->>'cashAccountCode',
+              line->>'bankAccountId', line->>'settlementAccountId',
+              line->>'payAccountId', line->>'paymentAccountId'
+            ] && ARRAY[t.chanjet_id, t.chanjet_code]
+            ELSE false
+          END
+       ), matches AS (
+         SELECT * FROM header_matches
+         UNION ALL
+         SELECT * FROM line_matches
+       )
+       SELECT t.mapping_id AS "mappingId",
+              COALESCE(c.scanned_snapshot_count, 0)::int AS "scannedSnapshotCount",
+              COUNT(DISTINCT m.snapshot_id)::int AS "exactSnapshotCount",
+              COUNT(*) FILTER (WHERE m.match_level = 'HEADER')::int AS "headerMatchCount",
+              COUNT(*) FILTER (WHERE m.match_level = 'LINE')::int AS "lineMatchCount",
+              COALESCE(ARRAY_AGG(DISTINCT m.entity_type) FILTER (WHERE m.entity_type IS NOT NULL), '{}')
+                AS "entityTypes",
+              COALESCE(MIN(m.seen_at)::text, '') AS "firstSeenAt",
+              COALESCE(MAX(m.seen_at)::text, '') AS "lastSeenAt"
+         FROM targets t
+         LEFT JOIN coverage c ON c.mapping_id = t.mapping_id
+         LEFT JOIN matches m ON m.mapping_id = t.mapping_id
+        GROUP BY t.mapping_id, c.scanned_snapshot_count
+        ORDER BY t.mapping_id`,
+      [JSON.stringify(targets)],
+    );
+    return rows.map((row: Record<string, unknown>) => ({
+      mappingId: String(row.mappingId || ''),
+      evidence: {
+        source: 'ERP_READONLY_MIRROR',
+        matchingMode: 'EXACT_IDENTIFIER_ONLY',
+        scannedSnapshotCount: Number(row.scannedSnapshotCount || 0),
+        exactSnapshotCount: Number(row.exactSnapshotCount || 0),
+        headerMatchCount: Number(row.headerMatchCount || 0),
+        lineMatchCount: Number(row.lineMatchCount || 0),
+        entityTypes: Array.isArray(row.entityTypes) ? row.entityTypes.map(String) : [],
+        firstSeenAt: String(row.firstSeenAt || ''),
+        lastSeenAt: String(row.lastSeenAt || ''),
+      },
     }));
   }
 }

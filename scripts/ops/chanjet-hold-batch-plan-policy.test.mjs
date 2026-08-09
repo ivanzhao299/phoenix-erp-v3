@@ -102,3 +102,60 @@ test('explicit livestock names override incomplete upstream blocker codes', () =
   });
   assert.equal(plan.rows[0].proposedDomain, 'LIVESTOCK');
 });
+
+test('exact mirror usage evidence advances B7 and B8 without authorizing writes', () => {
+  const sharedEvidence = {
+    source: 'ERP_READONLY_MIRROR',
+    matchingMode: 'EXACT_IDENTIFIER_ONLY',
+    scannedSnapshotCount: 50,
+    exactSnapshotCount: 4,
+    headerMatchCount: 2,
+    lineMatchCount: 3,
+    entityTypes: ['SALE_STOCK_OUT'],
+    firstSeenAt: '2026-07-01T00:00:00.000Z',
+    lastSeenAt: '2026-08-01T00:00:00.000Z',
+  };
+  const plan = buildHoldBatchPlan({
+    audit: {
+      auditHash: 'audit', sourceReviewHash: 'review',
+      items: [
+        {
+          mappingId: '7', mappingType: 'WAREHOUSE', bookId: 'BOOK', companyCode: 'COMP',
+          chanjetCode: '01', chanjetName: '总仓', disposition: 'CROSS_SYSTEM_REVIEW_REQUIRED',
+          risk: 'HIGH', blockers: [], referenceEvidence: sharedEvidence,
+        },
+        {
+          mappingId: '8', mappingType: 'PRODUCT', bookId: 'BOOK', companyCode: 'COMP',
+          chanjetCode: 'P8', chanjetName: '马利克', disposition: 'KEEP_HOLD',
+          risk: 'MEDIUM', blockers: [], referenceEvidence: sharedEvidence,
+        },
+      ],
+    },
+    businessPlan: { candidates: [] },
+    domainPolicies: {},
+  });
+  assert.equal(plan.rows[0].readiness, 'EXACT_USAGE_EVIDENCE_READY_FOR_OWNER_DECISION');
+  assert.equal(plan.rows[1].readiness, 'EXACT_USAGE_EVIDENCE_READY_FOR_DOMAIN_REVIEW');
+  assert.equal(plan.guardrails.writeChanjet, false);
+  assert.equal(plan.guardrails.writeErpBusinessTables, false);
+});
+
+test('zero exact mirror matches remain fail-closed', () => {
+  const plan = buildHoldBatchPlan({
+    audit: {
+      auditHash: 'audit', sourceReviewHash: 'review',
+      items: [{
+        mappingId: '9', mappingType: 'DEPARTMENT', bookId: 'BOOK', companyCode: 'COMP',
+        chanjetCode: '07', chanjetName: '拉邦酒店', disposition: 'KEEP_HOLD',
+        risk: 'MEDIUM', blockers: [],
+        referenceEvidence: { scannedSnapshotCount: 50, exactSnapshotCount: 0 },
+      }],
+    },
+    businessPlan: { candidates: [] },
+    domainPolicies: {},
+  });
+  assert.equal(
+    plan.rows[0].readiness,
+    'NO_EXACT_USAGE_IN_CURRENT_MIRROR_REQUIRES_FRESH_SOURCE_CONFIRMATION',
+  );
+});
