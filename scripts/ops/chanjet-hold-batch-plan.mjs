@@ -62,8 +62,8 @@ writeFileSync(jsonPath, `${JSON.stringify(plan, null, 2)}\n`, 'utf8');
 
 const escape = (value) => String(value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 const table = [
-  '|批次|映射ID|类型|公司|来源编码|来源名称|就绪状态|目标/领域|',
-  '|---|---:|---|---|---|---|---|---|',
+  '|批次|映射ID|类型|公司|来源编码|来源名称|就绪状态|精确引用快照|目标/领域|',
+  '|---|---:|---|---|---|---|---|---:|---|',
   ...plan.rows.map((row) => [
     row.closureBatch,
     row.mappingId,
@@ -72,6 +72,7 @@ const table = [
     row.chanjetCode,
     row.chanjetName,
     row.readiness,
+    row.referenceEvidence?.exactSnapshotCount ?? '',
     row.expectedHouseCode || row.proposedDomain || row.proposedPolicy || '',
   ].map(escape).join('|')).map((line) => `|${line}|`),
 ];
