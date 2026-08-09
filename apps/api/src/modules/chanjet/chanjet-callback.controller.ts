@@ -1168,6 +1168,80 @@ export class ChanjetCallbackController {
     }
   }
 
+  /**
+   * Creates only the exact approved ERP locations for one company and records
+   * their house/location bridge policies. No Chanjet or inventory-fact write.
+   */
+  @Post('integration/erp-master-gap-closure/house-location-policy/preflight')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async preflightIntegrationHouseLocationPolicy(
+    @Body() body: { companyCode?: string; auditHash?: string },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    try {
+      const result = await this.holdResolutionAudit.preflightHouseLocationPolicies({
+        companyCode: String(body.companyCode || ''),
+        auditHash: String(body.auditHash || ''),
+      });
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_HOUSE_LOCATION_POLICY_PREFLIGHT',
+        result.companyCode,
+        result.ready ? 'SUCCESS' : 'FAIL',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_HOUSE_LOCATION_POLICY_PREFLIGHT',
+        String(body.companyCode || ''),
+        'FAIL',
+        { error: (error as Error).message, writeChanjet: false },
+      );
+      throw error;
+    }
+  }
+
+  @Post('integration/erp-master-gap-closure/house-location-policy/close')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async closeIntegrationHouseLocationPolicy(
+    @Body() body: {
+      companyCode?: string;
+      auditHash?: string;
+      approveProduction?: boolean;
+      confirmation?: string;
+    },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    try {
+      const result = await this.holdResolutionAudit.closeHouseLocationPolicies({
+        companyCode: String(body.companyCode || ''),
+        auditHash: String(body.auditHash || ''),
+        approveProduction: body.approveProduction === true,
+        confirmation: String(body.confirmation || ''),
+      }, `system:chanjet-house-location-policy:${requestedBy}`);
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_HOUSE_LOCATION_POLICY_CLOSE',
+        result.companyCode,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_HOUSE_LOCATION_POLICY_CLOSE',
+        String(body.companyCode || ''),
+        'FAIL',
+        { error: (error as Error).message },
+      );
+      throw error;
+    }
+  }
+
   /** One provider read, zero writes. Confirms the exact row and current API grant. */
   @Post('integration/product-name-canary/preflight')
   @RequireMenu(CHANJET_PROXY_MENU, 'V')
