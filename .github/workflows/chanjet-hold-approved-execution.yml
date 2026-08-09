@@ -1,0 +1,80 @@
+name: Chanjet HOLD Approved Production Batch
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch:
+        description: 'Exact approved HOLD batch'
+        required: true
+        type: choice
+        options:
+          - B0_INTENTIONAL_NON_MAPPING
+          - B1_PRODUCT_NAME_CANARY
+      mapping_id:
+        description: 'B1 mapping id; ignored for B0'
+        required: false
+        default: '307052'
+        type: string
+      confirmation:
+        description: 'Exact production confirmation token'
+        required: true
+        type: string
+      approve_production:
+        description: 'Approve this exact production batch'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: chanjet-hold-approved-production
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: inputs.approve_production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate guarded execution
+        run: |
+          node --check scripts/ops/mint-production-admin-token-over-ssh.mjs
+          node --check scripts/ops/chanjet-hold-approved-execution.mjs
+          node --check scripts/ops/chanjet-hold-approved-execution-policy.mjs
+          node --test scripts/ops/chanjet-hold-approved-execution-policy.test.mjs
+
+      - name: Execute exact approved production batch
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          CHANJET_HOLD_BATCH: ${{ inputs.batch }}
+          MAPPING_ID: ${{ inputs.mapping_id }}
+          PRODUCTION_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$TOKEN"
+          PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-hold-approved-execution.mjs \
+            --execute \
+            --api-base=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chanjet-hold-approved-execution-${{ github.run_id }}
+          path: docs/ops/runs/chanjet-hold-approved-execution-latest.json
+          if-no-files-found: error
+          retention-days: 30
