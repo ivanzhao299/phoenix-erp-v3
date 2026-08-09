@@ -62,7 +62,7 @@ export class ChanjetMasterMappingEntity {
   chanjetName: string;
 
   @Column({ name: 'match_status', type: 'varchar', length: 32, default: 'PENDING' })
-  matchStatus: 'MATCHED' | 'SOURCE_ONLY' | 'MISSING_IN_ERP' | 'MISSING_IN_CHANJET' | 'CONFLICT' | 'MANUAL' | 'PENDING';
+  matchStatus: 'MATCHED' | 'SOURCE_ONLY' | 'NOT_APPLICABLE' | 'MISSING_IN_ERP' | 'MISSING_IN_CHANJET' | 'CONFLICT' | 'MANUAL' | 'PENDING';
 
   @Column({ name: 'confidence', type: 'numeric', precision: 5, scale: 2, default: 0 })
   confidence: string;

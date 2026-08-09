@@ -108,6 +108,12 @@ export type ChanjetHoldResolutionAudit = {
   };
 };
 
+export type CloseIntentionalNonMappingInput = {
+  auditHash: string;
+  approveProduction: boolean;
+  confirmation: string;
+};
+
 const DISPOSITIONS: ChanjetHoldDisposition[] = [
   'ERP_AUTO_APPLY_ELIGIBLE',
   'ERP_POLICY_REQUIRED',
@@ -279,6 +285,143 @@ export class ChanjetHoldResolutionAuditService {
         rollbackRequired: true,
       },
     };
+  }
+
+  async closeIntentionalNonMappings(
+    input: CloseIntentionalNonMappingInput,
+    actor: string,
+  ): Promise<{
+    auditHash: string;
+    closed: Array<{
+      mappingId: string;
+      mappingType: string;
+      bookId: string;
+      chanjetCode: string;
+      chanjetName: string;
+      previousMatchStatus: string;
+      matchStatus: 'NOT_APPLICABLE';
+    }>;
+    writeChanjet: false;
+    writeErpBusinessTables: false;
+    automaticRollbackOnFailure: true;
+  }> {
+    if (input.approveProduction !== true || input.confirmation !== 'CLOSE_INTENTIONAL_NON_MAPPING') {
+      throw new Error('intentional non-mapping closure requires exact production confirmation');
+    }
+    if (!actor.trim()) throw new Error('intentional non-mapping closure actor is required');
+
+    const audit = await this.audit();
+    if (!input.auditHash || input.auditHash !== audit.auditHash) {
+      throw new Error('precision audit hash changed; rerun read-only audit before closure');
+    }
+    const targets = audit.items
+      .filter((item) => item.disposition === 'NO_ERP_MASTER_REQUIRED')
+      .sort((left, right) => left.mappingId.localeCompare(right.mappingId));
+    if (!targets.length) {
+      return {
+        auditHash: audit.auditHash,
+        closed: [],
+        writeChanjet: false,
+        writeErpBusinessTables: false,
+        automaticRollbackOnFailure: true,
+      };
+    }
+
+    const runner = this.ds.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      const closed = [] as Array<{
+        mappingId: string;
+        mappingType: string;
+        bookId: string;
+        chanjetCode: string;
+        chanjetName: string;
+        previousMatchStatus: string;
+        matchStatus: 'NOT_APPLICABLE';
+      }>;
+      for (const target of targets) {
+        const rows = await runner.query(
+          `SELECT id::text, mapping_type, book_id, chanjet_id, chanjet_code,
+                  chanjet_name, match_status, review_status
+             FROM chanjet_master_mapping
+            WHERE id = $1
+            FOR UPDATE`,
+          [target.mappingId],
+        );
+        const current = rows[0];
+        if (!current
+          || String(current.mapping_type) !== target.mappingType
+          || String(current.book_id) !== target.bookId
+          || String(current.chanjet_id) !== target.chanjetId
+          || String(current.chanjet_code) !== target.chanjetCode
+          || String(current.chanjet_name) !== target.chanjetName
+          || String(current.match_status) !== 'SOURCE_ONLY'
+          || String(current.review_status) !== 'APPROVED') {
+          throw new Error(`mapping ${target.mappingId} changed after audit; transaction rolled back`);
+        }
+        await runner.query(
+          `UPDATE chanjet_master_mapping
+              SET match_status = 'NOT_APPLICABLE',
+                  confidence = 100,
+                  review_status = 'APPROVED',
+                  reviewed_by = $2,
+                  reviewed_at = NOW(),
+                  raw_data = COALESCE(raw_data, '{}'::jsonb)
+                    || jsonb_build_object('holdResolution', $3::jsonb),
+                  updated_at = NOW()
+            WHERE id = $1`,
+          [
+            target.mappingId,
+            actor,
+            JSON.stringify({
+              disposition: target.disposition,
+              auditHash: audit.auditHash,
+              reason: target.recommendedAction,
+              closedAt: new Date().toISOString(),
+              writeChanjet: false,
+              writeErpBusinessTables: false,
+            }),
+          ],
+        );
+        closed.push({
+          mappingId: target.mappingId,
+          mappingType: target.mappingType,
+          bookId: target.bookId,
+          chanjetCode: target.chanjetCode,
+          chanjetName: target.chanjetName,
+          previousMatchStatus: String(current.match_status),
+          matchStatus: 'NOT_APPLICABLE',
+        });
+      }
+      const readback = await runner.query(
+        `SELECT id::text, match_status, review_status
+           FROM chanjet_master_mapping
+          WHERE id = ANY($1::bigint[])
+          ORDER BY id`,
+        [targets.map((target) => target.mappingId)],
+      );
+      if (readback.length !== targets.length
+        || readback.some((row: Record<string, unknown>) => (
+          String(row.match_status) !== 'NOT_APPLICABLE'
+          || String(row.review_status) !== 'APPROVED'
+        ))) {
+        throw new Error('intentional non-mapping readback mismatch; transaction rolled back');
+      }
+      await runner.commitTransaction();
+      return {
+        auditHash: audit.auditHash,
+        closed,
+        writeChanjet: false,
+        writeErpBusinessTables: false,
+        automaticRollbackOnFailure: true,
+      };
+    } catch (error) {
+      await runner.rollbackTransaction();
+      throw error;
+    } finally {
+      await runner.release();
+    }
   }
 
   private classify(

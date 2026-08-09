@@ -206,4 +206,86 @@ describe('ChanjetHoldResolutionAuditService', () => {
     expect(audit.items[0].recommendedAction).toContain('产品级换算');
     expect(audit.items[0].recommendedAction).not.toContain('禽只');
   });
+
+  it('closes only audit-proven intentional non-mappings in one rollback-safe transaction', async () => {
+    const runner = {
+      connect: jest.fn(),
+      startTransaction: jest.fn(),
+      commitTransaction: jest.fn(),
+      rollbackTransaction: jest.fn(),
+      release: jest.fn(),
+      query: jest.fn(async (sql: string, params: unknown[]) => {
+        if (sql.includes('FOR UPDATE')) {
+          return [{
+            id: String(params[0]),
+            mapping_type: 'DEPARTMENT',
+            book_id: 'BOOK-1',
+            chanjet_id: 'SOURCE-2',
+            chanjet_code: '10',
+            chanjet_name: '鸡舍',
+            match_status: 'SOURCE_ONLY',
+            review_status: 'APPROVED',
+          }];
+        }
+        if (sql.includes('UPDATE chanjet_master_mapping')) return [];
+        if (sql.includes('id = ANY')) {
+          return [{ id: '2', match_status: 'NOT_APPLICABLE', review_status: 'APPROVED' }];
+        }
+        throw new Error(`unexpected query: ${sql}`);
+      }),
+    };
+    const service = createService([]);
+    (service as any).ds.createQueryRunner = jest.fn(() => runner);
+    jest.spyOn(service, 'audit').mockResolvedValue({
+      auditHash: 'audit-hash',
+      items: [{
+        mappingId: '2', mappingType: 'DEPARTMENT', bookId: 'BOOK-1', companyCode: 'COMP-1',
+        chanjetId: 'SOURCE-2', chanjetCode: '10', chanjetName: '鸡舍', authorityOwner: 'SHARED_MASTER_POLICY',
+        disposition: 'NO_ERP_MASTER_REQUIRED', confidence: 1, risk: 'LOW', sourceQualityIssues: [],
+        evidence: [], blockers: [], recommendedAction: 'intentional grouping', autoApplyEligible: false,
+        requiresChanjetApproval: false, chanjetChangeProposal: null, uomPolicyCandidates: [],
+      }],
+    } as any);
+
+    const result = await service.closeIntentionalNonMappings({
+      auditHash: 'audit-hash',
+      approveProduction: true,
+      confirmation: 'CLOSE_INTENTIONAL_NON_MAPPING',
+    }, 'tester');
+
+    expect(result.closed).toHaveLength(1);
+    expect(result.closed[0]).toMatchObject({ mappingId: '2', matchStatus: 'NOT_APPLICABLE' });
+    expect(result.writeChanjet).toBe(false);
+    expect(runner.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(runner.rollbackTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rolls back intentional non-mapping closure when a source identity changed', async () => {
+    const runner = {
+      connect: jest.fn(), startTransaction: jest.fn(), commitTransaction: jest.fn(),
+      rollbackTransaction: jest.fn(), release: jest.fn(),
+      query: jest.fn(async () => [{
+        mapping_type: 'DEPARTMENT', book_id: 'BOOK-1', chanjet_id: 'SOURCE-2',
+        chanjet_code: '10', chanjet_name: 'renamed', match_status: 'SOURCE_ONLY', review_status: 'APPROVED',
+      }]),
+    };
+    const service = createService([]);
+    (service as any).ds.createQueryRunner = jest.fn(() => runner);
+    jest.spyOn(service, 'audit').mockResolvedValue({
+      auditHash: 'audit-hash',
+      items: [{
+        mappingId: '2', mappingType: 'DEPARTMENT', bookId: 'BOOK-1', companyCode: 'COMP-1',
+        chanjetId: 'SOURCE-2', chanjetCode: '10', chanjetName: '鸡舍', authorityOwner: 'SHARED_MASTER_POLICY',
+        disposition: 'NO_ERP_MASTER_REQUIRED', confidence: 1, risk: 'LOW', sourceQualityIssues: [],
+        evidence: [], blockers: [], recommendedAction: 'intentional grouping', autoApplyEligible: false,
+        requiresChanjetApproval: false, chanjetChangeProposal: null, uomPolicyCandidates: [],
+      }],
+    } as any);
+
+    await expect(service.closeIntentionalNonMappings({
+      auditHash: 'audit-hash', approveProduction: true, confirmation: 'CLOSE_INTENTIONAL_NON_MAPPING',
+    }, 'tester')).rejects.toThrow('changed after audit');
+    expect(runner.rollbackTransaction).toHaveBeenCalledTimes(1);
+    expect(runner.commitTransaction).not.toHaveBeenCalled();
+  });
 });
