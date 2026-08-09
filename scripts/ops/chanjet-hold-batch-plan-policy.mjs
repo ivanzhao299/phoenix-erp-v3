@@ -61,8 +61,13 @@ function policyForSource(domainPolicies, item) {
 function planHouseLocation(item, domainPolicies) {
   const expectedCode = expectedHouseCode(item);
   const houses = domainPolicies?.targets?.houses || [];
+  const warehouses = domainPolicies?.targets?.warehouses || [];
   const locations = domainPolicies?.targets?.locations || [];
   const house = houses.find((candidate) => text(candidate.code) === expectedCode);
+  const companyWarehouses = warehouses.filter((warehouse) => (
+    text(warehouse.company_code) === text(item.companyCode)
+  ));
+  const exactWarehouse = companyWarehouses.length === 1 ? companyWarehouses[0] : null;
   const exactLocations = exactLocationCandidates(item, locations, expectedCode);
   const sourcePolicy = policyForSource(domainPolicies, item);
   const currentPolicy = sourcePolicy?.currentPolicy || null;
@@ -71,19 +76,33 @@ function planHouseLocation(item, domainPolicies) {
   let readiness = 'ERP_HOUSE_AND_LOCATION_REQUIRED';
   if (approved) readiness = 'ALREADY_POLICY_APPROVED';
   else if (house && exactLocation) readiness = 'POLICY_TARGET_READY';
+  else if (house && exactWarehouse) readiness = 'LOCATION_CREATION_READY';
   else if (house) readiness = exactLocations.length > 1
     ? 'AMBIGUOUS_ERP_LOCATION'
-    : 'ERP_LOCATION_REQUIRED';
+    : companyWarehouses.length > 1
+      ? 'WAREHOUSE_OWNER_SELECTION_REQUIRED'
+      : 'ERP_WAREHOUSE_OR_LOCATION_REQUIRED';
   else if (exactLocation) readiness = 'ERP_HOUSE_REQUIRED';
+  const proposedLocation = readiness === 'LOCATION_CREATION_READY' ? {
+    code: `LOC-${expectedCode}`,
+    name: text(item.chanjetName),
+    warehouse_code: text(exactWarehouse.code),
+    company_code: text(item.companyCode),
+  } : null;
   return {
     readiness,
     expectedHouseCode: expectedCode,
     erpHouse: house || null,
     erpLocation: exactLocation,
+    proposedLocation,
+    companyWarehouseCandidateCount: companyWarehouses.length,
+    erpWarehouse: exactWarehouse,
     exactLocationCandidateCount: exactLocations.length,
     currentPolicy,
     productionWriteNeeded: approved ? 'NONE' : house && exactLocation
       ? 'ERP_MIDDLE_LAYER_POLICY'
+      : house && exactWarehouse
+        ? 'ERP_LOCATION_MASTER_THEN_POLICY'
       : 'ERP_MASTER_DATA_THEN_POLICY',
   };
 }

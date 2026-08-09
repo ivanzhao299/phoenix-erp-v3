@@ -806,7 +806,7 @@ export class ChanjetWmsBridgeService {
   }
 
   async domainPolicyOverview() {
-    const [mappingGaps, policies, houseTargets, locationTargets, snapshots] = await Promise.all([
+    const [mappingGaps, policies, houseTargets, warehouseTargets, locationTargets, snapshots] = await Promise.all([
       this.mappingGapOverview(),
       this.loadWmsPolicies(),
       this.mappingRepository.manager.query(`
@@ -818,6 +818,23 @@ export class ChanjetWmsBridgeService {
         WHERE COALESCE(status, 'ACTIVE') = 'ACTIVE'
         ORDER BY house_code
       `) as Promise<Array<{ code: string; name: string; status: string }>>,
+      this.mappingRepository.manager.query(`
+        SELECT
+          warehouse_code AS code,
+          COALESCE(NULLIF(warehouse_name_zh, ''), NULLIF(warehouse_name, ''), warehouse_code) AS name,
+          COALESCE(company_code, '') AS company_code,
+          COALESCE(type, '') AS warehouse_type,
+          COALESCE(status, 'ACTIVE') AS status
+        FROM wms_warehouses
+        WHERE COALESCE(status, 'ACTIVE') = 'ACTIVE'
+        ORDER BY company_code, warehouse_code
+      `) as Promise<Array<{
+        code: string;
+        name: string;
+        company_code: string;
+        warehouse_type: string;
+        status: string;
+      }>>,
       this.mappingRepository.manager.query(`
         SELECT
           l.location_code AS code,
@@ -917,6 +934,7 @@ export class ChanjetWmsBridgeService {
       },
       targets: {
         houses: houseTargets,
+        warehouses: warehouseTargets,
         locations: locationTargets,
         products: mappingGaps.targetCatalog.PRODUCT,
         units: mappingGaps.targetCatalog.UOM,
