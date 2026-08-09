@@ -1,6 +1,6 @@
 # Chanjet Endpoint Handoff
 
-Last updated: 2026-07-30 22:57 CST
+Last updated: 2026-08-09 16:54 CST
 
 This card is the durable bootstrap contract for a new Codex window. It contains
 routes and safety rules only. It must never contain a JWT, refresh token,
@@ -90,6 +90,17 @@ The first probe in a new window should currently return:
 The six blocked targets cover the two scopes across three enabled account
 books. They are non-retryable until the provider grant changes.
 
+The separately approved house cost-object Gate is closed at revision
+`c54299d9`:
+
+- final readonly run `31304598356` reports 18 Chanjet projects, 12 exact active
+  house projects, 36 departments, 13 house-shaped departments, 18 ERP houses
+  and zero blockers;
+- all house projects use category `00` and exact ERP book/code/name mappings;
+- no user, department, user-organization binding, finance fact or inventory
+  fact write is authorized by that closure;
+- do not run the house project write endpoint again without a new explicit Gate.
+
 The ERP master gap closure Gate is also production-verified at revision
 `1b1bbcdc`:
 
@@ -125,3 +136,7 @@ The ERP master gap closure Gate is also production-verified at revision
 - ERP master gap closure revision / deploy:
   `1b1bbcdc` / `30553067351`
 - Repository memory revision before this card: `7e679790`
+- House project closure report:
+  `docs/ops/CHANJET_HOUSE_PROJECT_ROLLOUT_CLOSURE_REPORT_20260809.md`
+- House project production revision / deploy / final readonly:
+  `c54299d9` / `31303925835` / `31304598356`
