@@ -86,3 +86,19 @@ test('product policies remain explicit business decisions', () => {
   assert.equal(plan.rows[0].readiness, 'BUSINESS_DOMAIN_APPROVAL_REQUIRED');
   assert.equal(plan.rows[0].proposedDomain, 'LIVESTOCK');
 });
+
+test('explicit livestock names override incomplete upstream blocker codes', () => {
+  const plan = buildHoldBatchPlan({
+    audit: {
+      auditHash: 'audit', sourceReviewHash: 'review',
+      items: [{
+        mappingId: '3', mappingType: 'PRODUCT', bookId: 'BOOK', companyCode: 'COMP',
+        chanjetCode: 'CHICK', chanjetName: '雏鸡', disposition: 'ERP_POLICY_REQUIRED',
+        risk: 'MEDIUM', blockers: ['PRODUCT_MASTER_REVIEW_REQUIRED'],
+      }],
+    },
+    businessPlan: { candidates: [] },
+    domainPolicies: {},
+  });
+  assert.equal(plan.rows[0].proposedDomain, 'LIVESTOCK');
+});

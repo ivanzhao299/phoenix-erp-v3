@@ -42,7 +42,8 @@ function exactLocationCandidates(item, locations, expectedCode) {
 function productDomain(item) {
   const blockers = new Set(item.blockers || []);
   const name = text(item.chanjetName);
-  if (blockers.has('LIVESTOCK_MASTER_REQUIRED')) return 'LIVESTOCK';
+  if (blockers.has('LIVESTOCK_MASTER_REQUIRED')
+    || /^(蛋鸡|公鸡|小公鸡|雏鸡|母鸡|小鸡苗|小母鸡)$/.test(name)) return 'LIVESTOCK';
   if (blockers.has('MATERIAL_MASTER_CANDIDATE')) return /煤炭/.test(name) ? 'FUEL_MATERIAL' : 'FEED_MATERIAL';
   if (blockers.has('PRODUCT_SKU_MODEL_REQUIRED')) return 'PROCESSED_FOOD';
   if (/筐|框|蛋托|包装|标签|胶带/.test(name)) return 'PACKAGING';
