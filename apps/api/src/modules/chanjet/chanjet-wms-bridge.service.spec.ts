@@ -154,6 +154,59 @@ describe('ChanjetWmsBridgeService', () => {
     }));
   });
 
+  it('does not let historical document snapshots undo a provider-verified product name canary', async () => {
+    const productMapping = {
+      mappingType: 'PRODUCT',
+      bookId: 'BOOK-1',
+      chanjetId: 'SKU-CJ',
+      chanjetCode: 'SKU-CJ',
+      chanjetName: 'Egg corrected',
+      erpCode: '',
+      erpName: '',
+      matchStatus: 'SOURCE_ONLY',
+      reviewStatus: 'APPROVED',
+      confidence: '1.00',
+      rawData: {
+        productNameCanary: {
+          originalName: 'Egg',
+          verifiedName: 'Egg corrected',
+        },
+      },
+    };
+    const mappingRepo = repository({
+      find: jest.fn().mockResolvedValue([productMapping]),
+      manager: {
+        query: jest.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]),
+      },
+    });
+    const service = new ChanjetWmsBridgeService(
+      repository({ find: jest.fn().mockResolvedValue([activeBook]) }) as never,
+      repository({ find: jest.fn().mockResolvedValue([snapshot]) }) as never,
+      mappingRepo as never,
+      repository() as never,
+      repository() as never,
+    );
+
+    await service.refreshMasterMappingCandidates('admin');
+
+    const savedProduct = mappingRepo.save.mock.calls
+      .map(([value]) => value)
+      .find((value) => value.mappingType === 'PRODUCT');
+    expect(savedProduct).toMatchObject({
+      chanjetName: 'Egg corrected',
+      rawData: {
+        productNameCanary: {
+          originalName: 'Egg',
+          verifiedName: 'Egg corrected',
+        },
+        productNameCanaryPreserved: true,
+      },
+    });
+  });
+
   it('upgrades an approved source-only identity when a unique exact ERP master appears', async () => {
     const sourceOnly = {
       mappingType: 'PRODUCT',

@@ -31,6 +31,7 @@ import { ChanjetWmsHouseLocationPolicyEntity } from './chanjet-wms-house-locatio
 import { ChanjetWmsUomConversionPolicyEntity } from './chanjet-wms-uom-conversion-policy.entity';
 import { ChanjetErpMasterBusinessReviewService } from './chanjet-erp-master-business-review.service';
 import { ChanjetHoldResolutionAuditService } from './chanjet-hold-resolution-audit.service';
+import { ChanjetProductNameCanaryService } from './chanjet-product-name-canary.service';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { ChanjetHoldResolutionAuditService } from './chanjet-hold-resolution-aud
     ChanjetWmsBridgeService,
     ChanjetErpMasterBusinessReviewService,
     ChanjetHoldResolutionAuditService,
+    ChanjetProductNameCanaryService,
   ],
   exports: [
     ChanjetAuthService,
@@ -79,6 +81,7 @@ import { ChanjetHoldResolutionAuditService } from './chanjet-hold-resolution-aud
     ChanjetWmsBridgeService,
     ChanjetErpMasterBusinessReviewService,
     ChanjetHoldResolutionAuditService,
+    ChanjetProductNameCanaryService,
   ],
 })
 export class ChanjetModule {}
