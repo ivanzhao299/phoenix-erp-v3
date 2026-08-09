@@ -3,6 +3,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { resolveHouseProjectRolloutTarget } from './chanjet-house-project-rollout-policy.mjs';
+
 const args = process.argv.slice(2);
 const getArg = (name, fallback = '') => {
   const inline = args.find((arg) => arg.startsWith(`${name}=`));
@@ -15,11 +17,20 @@ const getArg = (name, fallback = '') => {
 const execute = args.includes('--execute');
 const apiBase = getArg('--api-base', 'https://erp.eggslao.com').replace(/\/+$/, '');
 const outputDir = getArg('--output-dir', 'docs/ops/runs');
-const bookId = getArg('--book-id');
 const houseCode = getArg('--house-code');
-const expectedName = getArg('--expected-name');
+const requestedBookId = getArg('--book-id');
+const requestedName = getArg('--expected-name');
 const confirmation = getArg('--confirmation');
 const token = process.env.PHOENIX_ADMIN_TOKEN || '';
+
+let target;
+try {
+  target = resolveHouseProjectRolloutTarget(houseCode);
+} catch (error) {
+  console.error(error.message);
+  process.exit(2);
+}
+const { bookId, expectedName, projectCategoryCode, order, phase } = target;
 
 if (!execute) {
   console.error('Refusing production write without --execute.');
@@ -33,8 +44,8 @@ if (!token) {
   console.error('PHOENIX_ADMIN_TOKEN is required.');
   process.exit(2);
 }
-if (!bookId || !houseCode || !expectedName) {
-  console.error('--book-id, --house-code and --expected-name are required.');
+if ((requestedBookId && requestedBookId !== bookId) || (requestedName && requestedName !== expectedName)) {
+  console.error('Provided book or name does not match the reviewed rollout target.');
   process.exit(2);
 }
 
@@ -57,7 +68,7 @@ try {
       bookId,
       houseCode,
       expectedName,
-      projectCategoryCode: '00',
+      projectCategoryCode,
     }),
   });
   payload = await response.json().catch(() => ({}));
@@ -67,7 +78,7 @@ try {
 
 const report = {
   generatedAt: new Date().toISOString(),
-  request: { bookId, houseCode, expectedName, projectCategoryCode: '00' },
+  request: { bookId, houseCode, expectedName, projectCategoryCode, order, phase },
   httpStatus: response?.status || 0,
   success: response?.ok === true && payload?.success === true,
   outcome: payload?.outcome || 'FAILED',
