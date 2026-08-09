@@ -20,6 +20,7 @@ import {
   ChanjetErpMasterBusinessReviewService,
 } from './chanjet-erp-master-business-review.service';
 import { ChanjetHoldResolutionAuditService } from './chanjet-hold-resolution-audit.service';
+import { resolveChanjetHouseProjectTarget } from './chanjet-house-project-policy';
 import * as crypto from 'crypto';
 
 type ChanjetProxyMethod = 'GET' | 'POST';
@@ -1619,7 +1620,6 @@ export class ChanjetCallbackController {
       projectCategoryCode?: string;
     },
   ) {
-    const allowedBooks = new Set(['3533914511118750', '3537748712226818', '3539743721526654']);
     const bookId = String(body.bookId || '').trim();
     const houseCode = String(body.houseCode || '').trim();
     const expectedName = String(body.expectedName || '').trim();
@@ -1627,7 +1627,6 @@ export class ChanjetCallbackController {
     if (body.approveProduction !== true || body.confirmation !== 'CREATE_HOUSE_PROJECT_CANARY') {
       throw new ForbiddenException('生产试写需要 approveProduction=true 和精确确认短语');
     }
-    if (!allowedBooks.has(bookId)) throw new ForbiddenException('账套不在已审核白名单');
     if (!/^HOUSE_[A-Z0-9_]{2,50}$/.test(houseCode) || /DEBUG|TEST|_CS_/i.test(houseCode)) {
       throw new ForbiddenException('鸡舍编码不符合生产主数据规则');
     }
@@ -1635,6 +1634,8 @@ export class ChanjetCallbackController {
       throw new ForbiddenException('鸡舍名称不符合生产主数据规则');
     }
     if (categoryCode !== '00') throw new ForbiddenException('试点仅允许已验证的项目分类 00');
+    const approvedTarget = resolveChanjetHouseProjectTarget(bookId, houseCode, expectedName, categoryCode);
+    if (!approvedTarget) throw new ForbiddenException('鸡舍项目目标不在精确审核白名单或账套/名称不一致');
 
     const rows = await this.ds.query(
       `SELECT house_code, house_name, farm_code, status
@@ -1643,8 +1644,11 @@ export class ChanjetCallbackController {
         LIMIT 2`,
       [houseCode],
     );
-    if (rows.length !== 1 || String(rows[0].status) !== 'ACTIVE' || String(rows[0].house_name || '') !== expectedName) {
-      throw new ForbiddenException('ERP 鸡舍不存在、非 ACTIVE 或名称不一致');
+    if (rows.length !== 1
+      || String(rows[0].status) !== 'ACTIVE'
+      || String(rows[0].house_name || '') !== expectedName
+      || String(rows[0].farm_code || '') !== approvedTarget.farmCode) {
+      throw new ForbiddenException('ERP 鸡舍不存在、非 ACTIVE 或名称/场区不一致');
     }
 
     const listPath = `/accounting/openapi/cc/project/list/${bookId}`;

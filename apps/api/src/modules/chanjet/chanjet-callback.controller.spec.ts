@@ -374,4 +374,36 @@ describe('Chanjet house project pilot', () => {
     });
     expect(ctx.auth.callApi).toHaveBeenCalledTimes(1);
   });
+
+  it('blocks a reviewed house when the requested account book is wrong', async () => {
+    const ctx = setup([]);
+    ctx.body.bookId = '3537748712226818';
+
+    await expect(ctx.controller.createHouseProjectPilot(ctx.request, ctx.body))
+      .rejects.toThrow('鸡舍项目目标不在精确审核白名单');
+    expect(ctx.ds.query).not.toHaveBeenCalled();
+    expect(ctx.auth.callApi).not.toHaveBeenCalled();
+  });
+
+  it('blocks an active ERP house that is not in the reviewed rollout set', async () => {
+    const ctx = setup([]);
+    ctx.body.houseCode = 'HOUSE_MS_07';
+    ctx.body.expectedName = '7号鸡舍';
+
+    await expect(ctx.controller.createHouseProjectPilot(ctx.request, ctx.body))
+      .rejects.toThrow('鸡舍项目目标不在精确审核白名单');
+    expect(ctx.ds.query).not.toHaveBeenCalled();
+    expect(ctx.auth.callApi).not.toHaveBeenCalled();
+  });
+
+  it('blocks a reviewed tuple when the ERP house belongs to another farm', async () => {
+    const ctx = setup([]);
+    ctx.ds.query.mockResolvedValueOnce([{
+      house_code: 'HOUSE_MS_02', house_name: '2号鸡舍', farm_code: 'FARM-DP', status: 'ACTIVE',
+    }]);
+
+    await expect(ctx.controller.createHouseProjectPilot(ctx.request, ctx.body))
+      .rejects.toThrow('名称/场区不一致');
+    expect(ctx.auth.callApi).not.toHaveBeenCalled();
+  });
 });
