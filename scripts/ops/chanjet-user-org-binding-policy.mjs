@@ -65,6 +65,13 @@ function dispositionForUnbound(user, organizationsByCode) {
       reason: 'ROLE_ADMIN is already an explicit global scope; adding an organization binding would be redundant.',
     };
   }
+  if (roles.includes('ROLE_BUG_INTAKE_RUNNER')) {
+    return {
+      disposition: 'KEEP_UNBOUND_SERVICE_IDENTITY',
+      writeEligible: false,
+      reason: 'The bug-intake runner is a non-human service identity and must not inherit a business organization data scope.',
+    };
+  }
   if (!storeCode || upper(storeCode) === 'ALL') {
     return {
       disposition: 'HOLD_ACTIVE_USER_ORG_EVIDENCE_REQUIRED',

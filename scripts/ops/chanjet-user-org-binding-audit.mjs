@@ -69,11 +69,19 @@ const plan = buildUserOrgBindingPlan({
   bindingsByUserId: new Map(bindings.map((row) => [row.userId, row.rows])),
 });
 const publicPlan = publicUserOrgBindingPlan(plan);
+const unresolvedActiveUsers = publicPlan.entries.filter((entry) => (
+  entry.status === 'ACTIVE'
+  && entry.bindingCount === 0
+  && ![
+    'KEEP_UNBOUND_ROLE_GLOBAL',
+    'KEEP_UNBOUND_SERVICE_IDENTITY',
+  ].includes(entry.disposition)
+)).length;
 const report = {
   generatedAt: new Date().toISOString(),
   decision: publicPlan.summary.exactWriteCandidates > 0
     ? 'READY_FOR_EXACT_BATCH_APPROVAL'
-    : publicPlan.summary.activeUnboundUsers > 0
+    : unresolvedActiveUsers > 0
       ? 'HOLD_ACTIVE_USER_ORG_EVIDENCE_REQUIRED'
       : 'NO_USER_ORG_WRITE_REQUIRED',
   evidenceHash: evidenceHashForUserOrgBindingPlan(plan),
@@ -86,6 +94,7 @@ const report = {
     rawUserIdentityInArtifact: false,
     existingBindingsPreserved: true,
     inactiveUsersNeverGrantedAccess: true,
+    serviceIdentitiesNeverGrantedBusinessScope: true,
   },
 };
 mkdirSync(outputDir, { recursive: true });
