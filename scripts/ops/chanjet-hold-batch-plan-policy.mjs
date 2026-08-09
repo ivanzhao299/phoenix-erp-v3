@@ -96,6 +96,13 @@ function planHouseLocation(item, domainPolicies) {
     erpLocation: exactLocation,
     proposedLocation,
     companyWarehouseCandidateCount: companyWarehouses.length,
+    erpWarehouseCandidates: companyWarehouses.map((warehouse) => ({
+      code: text(warehouse.code),
+      name: text(warehouse.name),
+      warehouseType: text(warehouse.warehouse_type),
+      companyCode: text(warehouse.company_code),
+      status: text(warehouse.status),
+    })),
     erpWarehouse: exactWarehouse,
     exactLocationCandidateCount: exactLocations.length,
     currentPolicy,

@@ -100,6 +100,53 @@ test('one exact company warehouse yields a deterministic location-creation propo
   assert.equal(plan.rows[0].productionWriteNeeded, 'ERP_LOCATION_MASTER_THEN_POLICY');
 });
 
+test('ambiguous warehouse ownership exposes exact same-company candidates for approval', () => {
+  const plan = buildHoldBatchPlan({
+    audit: {
+      auditHash: 'audit', sourceReviewHash: 'review',
+      items: [{
+        mappingId: '1', mappingType: 'WAREHOUSE', bookId: 'BOOK',
+        companyCode: 'COMP-LAO-AGRI', chanjetCode: '05', chanjetName: '1号鸡舍',
+        disposition: 'ERP_POLICY_REQUIRED', risk: 'MEDIUM', blockers: [],
+      }],
+    },
+    businessPlan: { candidates: [] },
+    domainPolicies: {
+      candidates: { houseLocations: [] },
+      targets: {
+        houses: [{ code: 'HOUSE_MS_01', name: '1号鸡舍' }],
+        warehouses: [
+          {
+            code: 'WH-AGRI-A', name: '农业一仓', company_code: 'COMP-LAO-AGRI',
+            warehouse_type: 'RAW_MATERIAL', status: 'ACTIVE',
+          },
+          {
+            code: 'WH-AGRI-B', name: '农业二仓', company_code: 'COMP-LAO-AGRI',
+            warehouse_type: 'FINISHED_GOODS', status: 'ACTIVE',
+          },
+          {
+            code: 'WH-XC', name: '兴驰仓', company_code: 'COMP-LAO-XINGCHI',
+            warehouse_type: 'FINISHED_GOODS', status: 'ACTIVE',
+          },
+        ],
+        locations: [],
+      },
+    },
+  });
+  assert.equal(plan.rows[0].readiness, 'WAREHOUSE_OWNER_SELECTION_REQUIRED');
+  assert.equal(plan.rows[0].companyWarehouseCandidateCount, 2);
+  assert.deepEqual(plan.rows[0].erpWarehouseCandidates, [
+    {
+      code: 'WH-AGRI-A', name: '农业一仓', warehouseType: 'RAW_MATERIAL',
+      companyCode: 'COMP-LAO-AGRI', status: 'ACTIVE',
+    },
+    {
+      code: 'WH-AGRI-B', name: '农业二仓', warehouseType: 'FINISHED_GOODS',
+      companyCode: 'COMP-LAO-AGRI', status: 'ACTIVE',
+    },
+  ]);
+});
+
 test('product policies remain explicit business decisions', () => {
   const plan = buildHoldBatchPlan({
     audit: {
