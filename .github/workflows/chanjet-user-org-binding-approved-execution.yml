@@ -1,0 +1,75 @@
+name: Chanjet User Organization Binding Approved Production Batch
+
+on:
+  workflow_dispatch:
+    inputs:
+      identity_hash:
+        description: 'Exact redacted user identity hash from the current audit'
+        required: true
+        type: string
+      evidence_hash:
+        description: 'Exact current user-org audit evidence hash'
+        required: true
+        type: string
+      confirmation:
+        description: 'BIND_ACTIVE_USER_ORG:<identity_hash>:<org_code>'
+        required: true
+        type: string
+      approve_production:
+        description: 'Approve this exact one-user ERP authorization write'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: chanjet-user-org-binding-production
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: inputs.approve_production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate guarded execution
+        run: |
+          node --check scripts/ops/chanjet-user-org-binding-policy.mjs
+          node --check scripts/ops/chanjet-user-org-binding-approved-execution.mjs
+          node --test scripts/ops/chanjet-user-org-binding-policy.test.mjs
+
+      - name: Execute one exact approved ERP binding
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          USER_IDENTITY_HASH: ${{ inputs.identity_hash }}
+          USER_ORG_EVIDENCE_HASH: ${{ inputs.evidence_hash }}
+          PRODUCTION_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$TOKEN"
+          PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-user-org-binding-approved-execution.mjs \
+            --execute \
+            --api-base=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chanjet-user-org-binding-execution-${{ github.run_id }}
+          path: docs/ops/runs/chanjet-user-org-binding-approved-execution-latest.json
+          if-no-files-found: error
+          retention-days: 30
