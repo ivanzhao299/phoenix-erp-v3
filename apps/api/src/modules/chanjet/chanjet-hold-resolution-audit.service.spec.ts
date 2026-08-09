@@ -393,4 +393,215 @@ describe('ChanjetHoldResolutionAuditService', () => {
     expect(runner.commitTransaction).toHaveBeenCalledTimes(1);
     expect(runner.rollbackTransaction).not.toHaveBeenCalled();
   });
+
+  it('preflights the exact B4 production schema and company boundary without writes', async () => {
+    const targets = [1, 2, 3, 4, 5, 6].map((number, index) => ({
+      mappingId: String(307155 + index),
+      bookId: '3533914511118750',
+      companyCode: 'COMP-LAO-AGRI',
+      chanjetCode: String(4 + number).padStart(2, '0'),
+      chanjetName: `${number}号鸡舍`,
+      houseCode: `HOUSE_MS_${String(number).padStart(2, '0')}`,
+    }));
+    const requiredColumns = [
+      'location_code', 'warehouse_code', 'zone_code', 'location_name', 'capacity_qty',
+      'status', 'store_code', 'created_at', 'updated_at',
+    ];
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('information_schema.columns')) {
+        return requiredColumns.map((column_name) => ({ column_name }));
+      }
+      if (sql.includes('FROM chanjet_master_mapping')) {
+        return targets.map((target) => ({
+          id: target.mappingId,
+          mapping_type: 'WAREHOUSE',
+          book_id: target.bookId,
+          chanjet_code: target.chanjetCode,
+          chanjet_name: target.chanjetName,
+          match_status: 'SOURCE_ONLY',
+          review_status: 'APPROVED',
+        }));
+      }
+      if (sql.includes('FROM brd_houses')) {
+        return targets.map((target) => ({ house_code: target.houseCode, status: 'ACTIVE' }));
+      }
+      if (sql.includes('FROM wms_warehouses')) {
+        return [{
+          warehouse_code: 'LPH_MS_EGG_FARM', company_code: 'COMP-LAO-AGRI', status: 'ACTIVE',
+        }];
+      }
+      if (sql.includes('FROM wms_locations')) return [];
+      if (sql.includes('FROM chanjet_wms_house_location_policies')) return [];
+      throw new Error(`unexpected query: ${sql}`);
+    });
+    const service = new ChanjetHoldResolutionAuditService(
+      { query } as never,
+      { plan: jest.fn() } as never,
+    );
+    jest.spyOn(service, 'audit').mockResolvedValue({
+      auditHash: 'audit-hash',
+      items: targets.map((target) => ({
+        mappingId: target.mappingId, mappingType: 'WAREHOUSE', bookId: target.bookId,
+        companyCode: target.companyCode, chanjetId: `SOURCE-${target.mappingId}`,
+        chanjetCode: target.chanjetCode, chanjetName: target.chanjetName,
+        authorityOwner: 'ERP_OPERATIONS', disposition: 'ERP_POLICY_REQUIRED', confidence: 0.99,
+        risk: 'MEDIUM', sourceQualityIssues: [], evidence: [], blockers: [],
+        recommendedAction: 'policy', autoApplyEligible: false, requiresChanjetApproval: false,
+        chanjetChangeProposal: null, uomPolicyCandidates: [], referenceEvidence: null,
+      })),
+    } as any);
+
+    const result = await service.preflightHouseLocationPolicies({
+      companyCode: 'COMP-LAO-AGRI', auditHash: 'audit-hash',
+    });
+
+    expect(result.ready).toBe(true);
+    expect(result.targets).toHaveLength(6);
+    expect(result.targets.every((target) => target.blockers.length === 0)).toBe(true);
+    expect(result.schema.missingColumns).toEqual([]);
+    expect(result.writeErpMasterTables).toBe(false);
+    expect(query.mock.calls.some(([sql]) => String(sql).match(/INSERT|UPDATE|DELETE/))).toBe(false);
+  });
+
+  it('creates one company house-location batch with pre-state backup and dual readback', async () => {
+    const targets = [1, 2, 3, 4, 5, 6].map((number, index) => ({
+      mappingId: String(307155 + index),
+      bookId: '3533914511118750',
+      companyCode: 'COMP-LAO-AGRI',
+      chanjetId: `SOURCE-${number}`,
+      chanjetCode: String(4 + number).padStart(2, '0'),
+      chanjetName: `${number}号鸡舍`,
+      houseCode: `HOUSE_MS_${String(number).padStart(2, '0')}`,
+      locationCode: `LOC-HOUSE_MS_${String(number).padStart(2, '0')}`,
+    }));
+    const runner = {
+      connect: jest.fn(), startTransaction: jest.fn(), commitTransaction: jest.fn(),
+      rollbackTransaction: jest.fn(), release: jest.fn(),
+      query: jest.fn(async (sql: string, params: unknown[]) => {
+        if (sql.includes('JOIN chanjet_wms_house_location_policies')) {
+          return targets.map((target) => ({
+            id: target.mappingId,
+            match_status: 'NOT_APPLICABLE',
+            review_status: 'APPROVED',
+            company_code: target.companyCode,
+            source_warehouse_code: target.chanjetCode,
+            source_warehouse_name: target.chanjetName,
+            erp_house_code: target.houseCode,
+            erp_warehouse_code: 'LPH_MS_EGG_FARM',
+            erp_location_code: target.locationCode,
+            state: 'APPROVED',
+            location_warehouse_code: 'LPH_MS_EGG_FARM',
+            location_name: target.chanjetName,
+            location_status: 'ACTIVE',
+          }));
+        }
+        if (sql.includes('FROM chanjet_master_mapping') && sql.includes('FOR UPDATE')) {
+          const target = targets.find((item) => item.mappingId === String(params[0]));
+          return target ? [{
+            id: target.mappingId,
+            mapping_type: 'WAREHOUSE',
+            book_id: target.bookId,
+            chanjet_id: target.chanjetId,
+            chanjet_code: target.chanjetCode,
+            chanjet_name: target.chanjetName,
+            match_status: 'SOURCE_ONLY',
+            review_status: 'APPROVED',
+          }] : [];
+        }
+        if (sql.includes('FROM brd_houses')) return [{ house_code: params[0], status: 'ACTIVE' }];
+        if (sql.includes('FROM wms_warehouses')) {
+          return [{ warehouse_code: params[0], company_code: 'COMP-LAO-AGRI', status: 'ACTIVE' }];
+        }
+        if (sql.includes('FROM wms_locations')) return [];
+        if (sql.includes('FROM chanjet_wms_house_location_policies')) return [];
+        if (sql.includes('INSERT INTO wms_locations')) return [];
+        if (sql.includes('INSERT INTO chanjet_wms_house_location_policies')) return [];
+        if (sql.includes('UPDATE chanjet_master_mapping')) return [];
+        throw new Error(`unexpected query: ${sql}`);
+      }),
+    };
+    const service = createService([]);
+    (service as any).ds.createQueryRunner = jest.fn(() => runner);
+    jest.spyOn(service, 'audit').mockResolvedValue({
+      auditHash: 'audit-hash',
+      items: targets.map((target) => ({
+        mappingId: target.mappingId, mappingType: 'WAREHOUSE', bookId: target.bookId,
+        companyCode: target.companyCode, chanjetId: target.chanjetId,
+        chanjetCode: target.chanjetCode, chanjetName: target.chanjetName,
+        authorityOwner: 'ERP_OPERATIONS', disposition: 'ERP_POLICY_REQUIRED',
+        confidence: 0.99, risk: 'MEDIUM', sourceQualityIssues: [], evidence: [], blockers: [],
+        recommendedAction: 'policy', autoApplyEligible: false, requiresChanjetApproval: false,
+        chanjetChangeProposal: null, uomPolicyCandidates: [], referenceEvidence: null,
+      })),
+    } as any);
+
+    const result = await service.closeHouseLocationPolicies({
+      companyCode: 'COMP-LAO-AGRI',
+      auditHash: 'audit-hash',
+      approveProduction: true,
+      confirmation: 'CREATE_HOUSE_LOCATIONS_AND_APPROVE_POLICY:COMP-LAO-AGRI:6',
+    }, 'tester');
+
+    expect(result.closed).toHaveLength(6);
+    expect(result.preStateBackup).toHaveLength(6);
+    expect(result.closed.every((row) => row.locationCreated && row.policyCreated)).toBe(true);
+    expect(result).toMatchObject({
+      companyCode: 'COMP-LAO-AGRI',
+      writeChanjet: false,
+      writeErpMasterTables: true,
+      writeErpBusinessFacts: false,
+      automaticRollbackOnFailure: true,
+    });
+    expect(runner.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(runner.rollbackTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the complete house-location company batch on a location conflict', async () => {
+    const runner = {
+      connect: jest.fn(), startTransaction: jest.fn(), commitTransaction: jest.fn(),
+      rollbackTransaction: jest.fn(), release: jest.fn(),
+      query: jest.fn(async (sql: string, params: unknown[]) => {
+        if (sql.includes('FROM chanjet_master_mapping')) {
+          return [{
+            id: String(params[0]), mapping_type: 'WAREHOUSE', book_id: '3533914511118750',
+            chanjet_id: 'SOURCE-1', chanjet_code: '05', chanjet_name: '1号鸡舍',
+            match_status: 'SOURCE_ONLY', review_status: 'APPROVED',
+          }];
+        }
+        if (sql.includes('FROM brd_houses')) return [{ house_code: params[0], status: 'ACTIVE' }];
+        if (sql.includes('FROM wms_warehouses')) {
+          return [{ warehouse_code: params[0], company_code: 'COMP-LAO-AGRI', status: 'ACTIVE' }];
+        }
+        if (sql.includes('FROM wms_locations')) {
+          return [{
+            location_code: params[0], warehouse_code: 'WRONG-WAREHOUSE',
+            location_name: '1号鸡舍', status: 'ACTIVE',
+          }];
+        }
+        throw new Error(`unexpected query: ${sql}`);
+      }),
+    };
+    const service = createService([]);
+    (service as any).ds.createQueryRunner = jest.fn(() => runner);
+    jest.spyOn(service, 'audit').mockResolvedValue({
+      auditHash: 'audit-hash',
+      items: [1, 2, 3, 4, 5, 6].map((number, index) => ({
+        mappingId: String(307155 + index), mappingType: 'WAREHOUSE',
+        bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI',
+        chanjetId: `SOURCE-${number}`, chanjetCode: String(4 + number).padStart(2, '0'),
+        chanjetName: `${number}号鸡舍`, authorityOwner: 'ERP_OPERATIONS',
+        disposition: 'ERP_POLICY_REQUIRED', confidence: 0.99, risk: 'MEDIUM',
+        sourceQualityIssues: [], evidence: [], blockers: [], recommendedAction: 'policy',
+        autoApplyEligible: false, requiresChanjetApproval: false, chanjetChangeProposal: null,
+        uomPolicyCandidates: [], referenceEvidence: null,
+      })),
+    } as any);
+
+    await expect(service.closeHouseLocationPolicies({
+      companyCode: 'COMP-LAO-AGRI', auditHash: 'audit-hash', approveProduction: true,
+      confirmation: 'CREATE_HOUSE_LOCATIONS_AND_APPROVE_POLICY:COMP-LAO-AGRI:6',
+    }, 'tester')).rejects.toThrow('conflicts with approved target');
+    expect(runner.rollbackTransaction).toHaveBeenCalledTimes(1);
+    expect(runner.commitTransaction).not.toHaveBeenCalled();
+  });
 });

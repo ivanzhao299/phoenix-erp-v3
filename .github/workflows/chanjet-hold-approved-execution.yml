@@ -11,6 +11,8 @@ on:
           - B0_INTENTIONAL_NON_MAPPING
           - B1_PRODUCT_NAME_CANARY
           - B3_ORGANIZATION_POLICY
+          - B4_HOUSE_LOCATION_AGRI
+          - B4_HOUSE_LOCATION_XINGCHI
       mapping_id:
         description: 'B1 mapping id; ignored for B0'
         required: false

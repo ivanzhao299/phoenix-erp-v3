@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  assertApprovedExecutionPreflight,
   assertApprovedExecutionResult,
   buildApprovedExecution,
 } from './chanjet-hold-approved-execution-policy.mjs';
@@ -53,9 +54,17 @@ const precisionEnvelope = await request('/api/chanjet/integration/erp-master-gap
 const audit = precisionEnvelope.audit || precisionEnvelope;
 const execution = buildApprovedExecution(audit, { batch, mappingId, confirmation });
 let result;
+let preflight = null;
 if (execution.alreadyComplete) {
   result = { outcome: 'ALREADY_COMPLETE', auditHash: execution.auditHash };
 } else {
+  if (execution.preflightPath) {
+    const preflightEnvelope = await request(execution.preflightPath, {
+      method: 'POST',
+      body: execution.preflightBody,
+    });
+    preflight = assertApprovedExecutionPreflight(execution, preflightEnvelope);
+  }
   const envelope = await request(execution.path, { method: 'POST', body: execution.body });
   result = assertApprovedExecutionResult(execution, envelope);
 }
@@ -65,6 +74,7 @@ const report = {
   batch,
   auditHash: execution.auditHash,
   expectedWriteCount: execution.expectedWriteCount,
+  preflight,
   result,
 };
 mkdirSync(outputDir, { recursive: true });

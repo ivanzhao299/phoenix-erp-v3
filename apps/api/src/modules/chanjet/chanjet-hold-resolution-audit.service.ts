@@ -129,6 +129,36 @@ export type CloseIntentionalNonMappingInput = {
 
 export type CloseOrganizationPolicyInput = CloseIntentionalNonMappingInput;
 
+export type CloseHouseLocationPolicyInput = CloseIntentionalNonMappingInput & {
+  companyCode: string;
+};
+
+type HouseLocationClosureTarget = {
+  mappingId: string;
+  bookId: string;
+  companyCode: string;
+  chanjetCode: string;
+  chanjetName: string;
+  houseCode: string;
+  warehouseCode: string;
+  locationCode: string;
+};
+
+const HOUSE_LOCATION_CLOSURE_TARGETS: readonly HouseLocationClosureTarget[] = Object.freeze([
+  { mappingId: '307155', bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', chanjetCode: '05', chanjetName: '1号鸡舍', houseCode: 'HOUSE_MS_01', warehouseCode: 'LPH_MS_EGG_FARM', locationCode: 'LOC-HOUSE_MS_01' },
+  { mappingId: '307156', bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', chanjetCode: '06', chanjetName: '2号鸡舍', houseCode: 'HOUSE_MS_02', warehouseCode: 'LPH_MS_EGG_FARM', locationCode: 'LOC-HOUSE_MS_02' },
+  { mappingId: '307157', bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', chanjetCode: '07', chanjetName: '3号鸡舍', houseCode: 'HOUSE_MS_03', warehouseCode: 'LPH_MS_EGG_FARM', locationCode: 'LOC-HOUSE_MS_03' },
+  { mappingId: '307158', bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', chanjetCode: '08', chanjetName: '4号鸡舍', houseCode: 'HOUSE_MS_04', warehouseCode: 'LPH_MS_EGG_FARM', locationCode: 'LOC-HOUSE_MS_04' },
+  { mappingId: '307159', bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', chanjetCode: '09', chanjetName: '5号鸡舍', houseCode: 'HOUSE_MS_05', warehouseCode: 'LPH_MS_EGG_FARM', locationCode: 'LOC-HOUSE_MS_05' },
+  { mappingId: '307160', bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI', chanjetCode: '10', chanjetName: '6号鸡舍', houseCode: 'HOUSE_MS_06', warehouseCode: 'LPH_MS_EGG_FARM', locationCode: 'LOC-HOUSE_MS_06' },
+  { mappingId: '307170', bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI', chanjetCode: '101', chanjetName: '1号鸡舍', houseCode: 'HOUSE_DP_01', warehouseCode: 'CJ-WH-XINGCHI-01', locationCode: 'LOC-HOUSE_DP_01' },
+  { mappingId: '307171', bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI', chanjetCode: '102', chanjetName: '2号鸡舍', houseCode: 'HOUSE_DP_02', warehouseCode: 'CJ-WH-XINGCHI-01', locationCode: 'LOC-HOUSE_DP_02' },
+  { mappingId: '307172', bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI', chanjetCode: '103', chanjetName: '3号鸡舍', houseCode: 'HOUSE_DP_03', warehouseCode: 'CJ-WH-XINGCHI-01', locationCode: 'LOC-HOUSE_DP_03' },
+  { mappingId: '307173', bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI', chanjetCode: '104', chanjetName: '4号鸡舍', houseCode: 'HOUSE_DP_04', warehouseCode: 'CJ-WH-XINGCHI-01', locationCode: 'LOC-HOUSE_DP_04' },
+  { mappingId: '307174', bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI', chanjetCode: '105', chanjetName: '5号鸡舍', houseCode: 'HOUSE_DP_05', warehouseCode: 'CJ-WH-XINGCHI-01', locationCode: 'LOC-HOUSE_DP_05' },
+  { mappingId: '307175', bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI', chanjetCode: '106', chanjetName: '公鸡舍', houseCode: 'HOUSE_DP_06', warehouseCode: 'CJ-WH-XINGCHI-01', locationCode: 'LOC-HOUSE_DP_06' },
+]);
+
 const DISPOSITIONS: ChanjetHoldDisposition[] = [
   'ERP_AUTO_APPLY_ELIGIBLE',
   'ERP_POLICY_REQUIRED',
@@ -572,6 +602,456 @@ export class ChanjetHoldResolutionAuditService {
         }],
         writeChanjet: false,
         writeErpBusinessTables: false,
+        automaticRollbackOnFailure: true,
+      };
+    } catch (error) {
+      await runner.rollbackTransaction();
+      throw error;
+    } finally {
+      await runner.release();
+    }
+  }
+
+  async preflightHouseLocationPolicies(input: {
+    companyCode: string;
+    auditHash: string;
+  }): Promise<{
+    auditHash: string;
+    companyCode: string;
+    ready: boolean;
+    targets: Array<HouseLocationClosureTarget & {
+      locationExisted: boolean;
+      policyExisted: boolean;
+      blockers: string[];
+    }>;
+    schema: { table: 'wms_locations'; requiredColumns: string[]; missingColumns: string[] };
+    writeChanjet: false;
+    writeErpMasterTables: false;
+    writeErpBusinessFacts: false;
+  }> {
+    const companyCode = String(input.companyCode || '').trim();
+    const targets = HOUSE_LOCATION_CLOSURE_TARGETS.filter(
+      (target) => target.companyCode === companyCode,
+    );
+    if (targets.length !== 6) throw new Error('house-location company target set is not approved');
+    const audit = await this.audit();
+    if (!input.auditHash || input.auditHash !== audit.auditHash) {
+      throw new Error('precision audit hash changed; rerun read-only audit before preflight');
+    }
+    const auditedIdentities = new Set(audit.items
+      .filter((item) => item.mappingType === 'WAREHOUSE' && item.disposition === 'ERP_POLICY_REQUIRED')
+      .map((item) => [
+        item.mappingId, item.bookId, item.companyCode, item.chanjetCode, item.chanjetName,
+      ].join(':')));
+    const expectedIdentities = targets.map((target) => [
+      target.mappingId, target.bookId, target.companyCode, target.chanjetCode, target.chanjetName,
+    ].join(':'));
+    if (expectedIdentities.some((identity) => !auditedIdentities.has(identity))) {
+      throw new Error('house-location exact audited target set changed; preflight stopped');
+    }
+
+    const requiredColumns = [
+      'location_code', 'warehouse_code', 'zone_code', 'location_name', 'capacity_qty',
+      'status', 'store_code', 'created_at', 'updated_at',
+    ];
+    const [columnRows, mappingRows, houseRows, warehouseRows, locationRows, policyRows] = await Promise.all([
+      this.ds.query(
+        `SELECT column_name
+           FROM information_schema.columns
+          WHERE table_schema = current_schema() AND table_name = 'wms_locations'`,
+      ),
+      this.ds.query(
+        `SELECT id::text, mapping_type, book_id, chanjet_code, chanjet_name,
+                match_status, review_status
+           FROM chanjet_master_mapping
+          WHERE id = ANY($1::bigint[])`,
+        [targets.map((target) => target.mappingId)],
+      ),
+      this.ds.query(
+        `SELECT house_code, COALESCE(status, 'ACTIVE') AS status
+           FROM brd_houses
+          WHERE house_code = ANY($1::varchar[])`,
+        [targets.map((target) => target.houseCode)],
+      ),
+      this.ds.query(
+        `SELECT warehouse_code, COALESCE(company_code, '') AS company_code,
+                COALESCE(status, 'ACTIVE') AS status
+           FROM wms_warehouses
+          WHERE warehouse_code = ANY($1::varchar[])`,
+        [[...new Set(targets.map((target) => target.warehouseCode))]],
+      ),
+      this.ds.query(
+        `SELECT location_code, warehouse_code, COALESCE(location_name, '') AS location_name,
+                COALESCE(status, 'ACTIVE') AS status
+           FROM wms_locations
+          WHERE location_code = ANY($1::varchar[])`,
+        [targets.map((target) => target.locationCode)],
+      ),
+      this.ds.query(
+        `SELECT book_id, company_code, source_warehouse_code, source_warehouse_name,
+                erp_house_code, erp_warehouse_code, erp_location_code, state
+           FROM chanjet_wms_house_location_policies
+          WHERE book_id = $1 AND source_warehouse_code = ANY($2::varchar[])`,
+        [targets[0].bookId, targets.map((target) => target.chanjetCode)],
+      ),
+    ]);
+    const columns = new Set(columnRows.map((row: Record<string, unknown>) => String(row.column_name)));
+    const missingColumns = requiredColumns.filter((column) => !columns.has(column));
+    const planned = targets.map((target) => {
+      const mapping = mappingRows.find((row: Record<string, unknown>) => String(row.id) === target.mappingId);
+      const house = houseRows.find((row: Record<string, unknown>) => String(row.house_code) === target.houseCode);
+      const warehouse = warehouseRows.find(
+        (row: Record<string, unknown>) => String(row.warehouse_code) === target.warehouseCode,
+      );
+      const location = locationRows.find(
+        (row: Record<string, unknown>) => String(row.location_code) === target.locationCode,
+      );
+      const policy = policyRows.find((row: Record<string, unknown>) => (
+        String(row.book_id) === target.bookId
+        && String(row.source_warehouse_code) === target.chanjetCode
+      ));
+      const blockers: string[] = [];
+      if (!mapping
+        || String(mapping.mapping_type) !== 'WAREHOUSE'
+        || String(mapping.book_id) !== target.bookId
+        || String(mapping.chanjet_code) !== target.chanjetCode
+        || String(mapping.chanjet_name) !== target.chanjetName
+        || String(mapping.match_status) !== 'SOURCE_ONLY'
+        || String(mapping.review_status) !== 'APPROVED') blockers.push('SOURCE_MAPPING_CHANGED');
+      if (!house || String(house.status) !== 'ACTIVE') blockers.push('ACTIVE_HOUSE_MISSING');
+      if (!warehouse
+        || String(warehouse.company_code) !== target.companyCode
+        || String(warehouse.status) !== 'ACTIVE') blockers.push('ACTIVE_SAME_COMPANY_WAREHOUSE_MISSING');
+      if (location && (
+        String(location.warehouse_code) !== target.warehouseCode
+        || String(location.location_name) !== target.chanjetName
+        || String(location.status) !== 'ACTIVE'
+      )) blockers.push('LOCATION_IDENTITY_CONFLICT');
+      if (policy && (
+        String(policy.company_code) !== target.companyCode
+        || String(policy.source_warehouse_name) !== target.chanjetName
+        || String(policy.erp_house_code) !== target.houseCode
+        || String(policy.erp_warehouse_code) !== target.warehouseCode
+        || String(policy.erp_location_code) !== target.locationCode
+      )) blockers.push('POLICY_IDENTITY_CONFLICT');
+      if (missingColumns.length) blockers.push('WMS_LOCATION_SCHEMA_MISMATCH');
+      return {
+        ...target,
+        locationExisted: !!location,
+        policyExisted: !!policy,
+        blockers,
+      };
+    });
+    return {
+      auditHash: audit.auditHash,
+      companyCode,
+      ready: planned.every((target) => target.blockers.length === 0),
+      targets: planned,
+      schema: { table: 'wms_locations', requiredColumns, missingColumns },
+      writeChanjet: false,
+      writeErpMasterTables: false,
+      writeErpBusinessFacts: false,
+    };
+  }
+
+  async closeHouseLocationPolicies(
+    input: CloseHouseLocationPolicyInput,
+    actor: string,
+  ): Promise<{
+    auditHash: string;
+    companyCode: string;
+    closed: Array<{
+      mappingId: string;
+      bookId: string;
+      chanjetCode: string;
+      chanjetName: string;
+      houseCode: string;
+      warehouseCode: string;
+      locationCode: string;
+      locationCreated: boolean;
+      policyCreated: boolean;
+      previousMatchStatus: string;
+      matchStatus: 'NOT_APPLICABLE';
+    }>;
+    preStateBackup: Array<{
+      mappingId: string;
+      previousMatchStatus: string;
+      previousReviewStatus: string;
+      locationExisted: boolean;
+      policyExisted: boolean;
+      previousPolicyState: string;
+    }>;
+    writeChanjet: false;
+    writeErpMasterTables: true;
+    writeErpBusinessFacts: false;
+    automaticRollbackOnFailure: true;
+  }> {
+    const companyCode = String(input.companyCode || '').trim();
+    const targets = HOUSE_LOCATION_CLOSURE_TARGETS.filter(
+      (target) => target.companyCode === companyCode,
+    );
+    const expectedConfirmation = `CREATE_HOUSE_LOCATIONS_AND_APPROVE_POLICY:${companyCode}:6`;
+    if (input.approveProduction !== true || input.confirmation !== expectedConfirmation) {
+      throw new Error('house-location policy closure requires exact production confirmation');
+    }
+    if (!actor.trim()) throw new Error('house-location policy closure actor is required');
+    if (targets.length !== 6) throw new Error('house-location company target set is not approved');
+
+    const audit = await this.audit();
+    if (!input.auditHash || input.auditHash !== audit.auditHash) {
+      throw new Error('precision audit hash changed; rerun read-only audit before closure');
+    }
+    const auditTargets = audit.items.filter((item) => targets.some((target) => (
+      target.mappingId === item.mappingId
+      && item.mappingType === 'WAREHOUSE'
+      && target.bookId === item.bookId
+      && target.companyCode === item.companyCode
+      && target.chanjetCode === item.chanjetCode
+      && target.chanjetName === item.chanjetName
+      && item.disposition === 'ERP_POLICY_REQUIRED'
+    )));
+    if (auditTargets.length !== targets.length) {
+      throw new Error('house-location exact audited target set changed; no write executed');
+    }
+
+    const runner = this.ds.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      const closed = [] as Array<{
+        mappingId: string;
+        bookId: string;
+        chanjetCode: string;
+        chanjetName: string;
+        houseCode: string;
+        warehouseCode: string;
+        locationCode: string;
+        locationCreated: boolean;
+        policyCreated: boolean;
+        previousMatchStatus: string;
+        matchStatus: 'NOT_APPLICABLE';
+      }>;
+      const preStateBackup = [] as Array<{
+        mappingId: string;
+        previousMatchStatus: string;
+        previousReviewStatus: string;
+        locationExisted: boolean;
+        policyExisted: boolean;
+        previousPolicyState: string;
+      }>;
+
+      for (const target of targets) {
+        const mappingRows = await runner.query(
+          `SELECT id::text, mapping_type, book_id, chanjet_id, chanjet_code,
+                  chanjet_name, match_status, review_status
+             FROM chanjet_master_mapping
+            WHERE id = $1
+            FOR UPDATE`,
+          [target.mappingId],
+        );
+        const mapping = mappingRows[0];
+        if (!mapping
+          || String(mapping.mapping_type) !== 'WAREHOUSE'
+          || String(mapping.book_id) !== target.bookId
+          || String(mapping.chanjet_code) !== target.chanjetCode
+          || String(mapping.chanjet_name) !== target.chanjetName
+          || String(mapping.match_status) !== 'SOURCE_ONLY'
+          || String(mapping.review_status) !== 'APPROVED') {
+          throw new Error(`mapping ${target.mappingId} changed after audit; transaction rolled back`);
+        }
+
+        const houseRows = await runner.query(
+          `SELECT house_code, COALESCE(status, 'ACTIVE') AS status
+             FROM brd_houses
+            WHERE house_code = $1
+            FOR UPDATE`,
+          [target.houseCode],
+        );
+        if (houseRows.length !== 1 || String(houseRows[0].status) !== 'ACTIVE') {
+          throw new Error(`active ERP house ${target.houseCode} does not exist`);
+        }
+        const warehouseRows = await runner.query(
+          `SELECT warehouse_code, COALESCE(company_code, '') AS company_code,
+                  COALESCE(status, 'ACTIVE') AS status
+             FROM wms_warehouses
+            WHERE warehouse_code = $1
+            FOR UPDATE`,
+          [target.warehouseCode],
+        );
+        const warehouse = warehouseRows[0];
+        if (!warehouse
+          || String(warehouse.company_code) !== target.companyCode
+          || String(warehouse.status) !== 'ACTIVE') {
+          throw new Error(`active same-company warehouse ${target.warehouseCode} does not exist`);
+        }
+
+        const locationRows = await runner.query(
+          `SELECT location_code, warehouse_code, COALESCE(location_name, '') AS location_name,
+                  COALESCE(status, 'ACTIVE') AS status
+             FROM wms_locations
+            WHERE location_code = $1
+            FOR UPDATE`,
+          [target.locationCode],
+        );
+        const location = locationRows[0];
+        if (location && (
+          String(location.warehouse_code) !== target.warehouseCode
+          || String(location.location_name) !== target.chanjetName
+          || String(location.status) !== 'ACTIVE'
+        )) {
+          throw new Error(`ERP location ${target.locationCode} conflicts with approved target`);
+        }
+        const locationCreated = !location;
+        if (locationCreated) {
+          await runner.query(
+            `INSERT INTO wms_locations (
+               location_code, warehouse_code, zone_code, location_name,
+               capacity_qty, status, store_code, created_at, updated_at
+             ) VALUES ($1,$2,NULL,$3,0,'ACTIVE','ALL',NOW(),NOW())`,
+            [target.locationCode, target.warehouseCode, target.chanjetName],
+          );
+        }
+
+        const policyRows = await runner.query(
+          `SELECT id::text, book_id, company_code, source_warehouse_code,
+                  source_warehouse_name, erp_house_code, erp_warehouse_code,
+                  erp_location_code, state
+             FROM chanjet_wms_house_location_policies
+            WHERE book_id = $1 AND source_warehouse_code = $2
+            FOR UPDATE`,
+          [target.bookId, target.chanjetCode],
+        );
+        const policy = policyRows[0];
+        if (policy && (
+          String(policy.company_code) !== target.companyCode
+          || String(policy.source_warehouse_name) !== target.chanjetName
+          || String(policy.erp_house_code) !== target.houseCode
+          || String(policy.erp_warehouse_code) !== target.warehouseCode
+          || String(policy.erp_location_code) !== target.locationCode
+        )) {
+          throw new Error(`house-location policy ${target.bookId}:${target.chanjetCode} conflicts with approved target`);
+        }
+        const policyCreated = !policy;
+        const evidence = {
+          auditHash: audit.auditHash,
+          mappingId: target.mappingId,
+          sourceIdentity: `${target.bookId}:${target.chanjetCode}:${target.chanjetName}`,
+          policy: 'HOUSE_IS_COST_PROJECT_AND_WMS_LOCATION_NOT_WAREHOUSE',
+          approvedAt: new Date().toISOString(),
+          writeChanjet: false,
+          writeErpBusinessFacts: false,
+        };
+        await runner.query(
+          `INSERT INTO chanjet_wms_house_location_policies (
+             book_id, company_code, source_warehouse_code, source_warehouse_name,
+             erp_house_code, erp_warehouse_code, erp_location_code, state,
+             evidence, reviewed_by, reviewed_at, created_at, updated_at
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,'APPROVED',$8::jsonb,$9,NOW(),NOW(),NOW())
+           ON CONFLICT (book_id, source_warehouse_code) DO UPDATE SET
+             state = 'APPROVED', evidence = EXCLUDED.evidence,
+             reviewed_by = EXCLUDED.reviewed_by, reviewed_at = NOW(), updated_at = NOW()`,
+          [
+            target.bookId,
+            target.companyCode,
+            target.chanjetCode,
+            target.chanjetName,
+            target.houseCode,
+            target.warehouseCode,
+            target.locationCode,
+            JSON.stringify(evidence),
+            actor,
+          ],
+        );
+        await runner.query(
+          `UPDATE chanjet_master_mapping
+              SET match_status = 'NOT_APPLICABLE',
+                  confidence = 100,
+                  review_status = 'APPROVED',
+                  reviewed_by = $2,
+                  reviewed_at = NOW(),
+                  raw_data = COALESCE(raw_data, '{}'::jsonb)
+                    || jsonb_build_object('holdResolution', $3::jsonb),
+                  updated_at = NOW()
+            WHERE id = $1`,
+          [
+            target.mappingId,
+            actor,
+            JSON.stringify({
+              ...evidence,
+              disposition: 'ERP_POLICY_REQUIRED',
+              houseCode: target.houseCode,
+              warehouseCode: target.warehouseCode,
+              locationCode: target.locationCode,
+              directWarehouseMapping: false,
+            }),
+          ],
+        );
+        preStateBackup.push({
+          mappingId: target.mappingId,
+          previousMatchStatus: String(mapping.match_status),
+          previousReviewStatus: String(mapping.review_status),
+          locationExisted: !!location,
+          policyExisted: !!policy,
+          previousPolicyState: policy ? String(policy.state) : '',
+        });
+        closed.push({
+          mappingId: target.mappingId,
+          bookId: target.bookId,
+          chanjetCode: target.chanjetCode,
+          chanjetName: target.chanjetName,
+          houseCode: target.houseCode,
+          warehouseCode: target.warehouseCode,
+          locationCode: target.locationCode,
+          locationCreated,
+          policyCreated,
+          previousMatchStatus: String(mapping.match_status),
+          matchStatus: 'NOT_APPLICABLE',
+        });
+      }
+
+      const readback = await runner.query(
+        `SELECT m.id::text, m.match_status, m.review_status,
+                p.company_code, p.source_warehouse_code, p.source_warehouse_name,
+                p.erp_house_code, p.erp_warehouse_code, p.erp_location_code, p.state,
+                l.warehouse_code AS location_warehouse_code,
+                COALESCE(l.location_name, '') AS location_name,
+                COALESCE(l.status, 'ACTIVE') AS location_status
+           FROM chanjet_master_mapping m
+           JOIN chanjet_wms_house_location_policies p
+             ON p.book_id = m.book_id AND p.source_warehouse_code = m.chanjet_code
+           JOIN wms_locations l ON l.location_code = p.erp_location_code
+          WHERE m.id = ANY($1::bigint[])
+          ORDER BY m.id`,
+        [targets.map((target) => target.mappingId)],
+      );
+      if (readback.length !== targets.length || readback.some((row: Record<string, unknown>) => {
+        const target = targets.find((candidate) => candidate.mappingId === String(row.id));
+        return !target
+          || String(row.match_status) !== 'NOT_APPLICABLE'
+          || String(row.review_status) !== 'APPROVED'
+          || String(row.company_code) !== target.companyCode
+          || String(row.source_warehouse_code) !== target.chanjetCode
+          || String(row.source_warehouse_name) !== target.chanjetName
+          || String(row.erp_house_code) !== target.houseCode
+          || String(row.erp_warehouse_code) !== target.warehouseCode
+          || String(row.erp_location_code) !== target.locationCode
+          || String(row.state) !== 'APPROVED'
+          || String(row.location_warehouse_code) !== target.warehouseCode
+          || String(row.location_name) !== target.chanjetName
+          || String(row.location_status) !== 'ACTIVE';
+      })) {
+        throw new Error('house-location dual readback mismatch; transaction rolled back');
+      }
+
+      await runner.commitTransaction();
+      return {
+        auditHash: audit.auditHash,
+        companyCode,
+        closed,
+        preStateBackup,
+        writeChanjet: false,
+        writeErpMasterTables: true,
+        writeErpBusinessFacts: false,
         automaticRollbackOnFailure: true,
       };
     } catch (error) {
