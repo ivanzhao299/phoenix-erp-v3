@@ -1,0 +1,61 @@
+name: Chanjet Bidirectional Boundary Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_readonly:
+        description: 'Confirm production read-only boundary/HOLD audit'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: chanjet-bidirectional-boundary-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: inputs.approve_readonly
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate audit scripts
+        run: |
+          node --check scripts/ops/mint-production-admin-token-over-ssh.mjs
+          node --check scripts/ops/chanjet-bidirectional-boundary-audit.mjs
+          node --test scripts/ops/chanjet-bidirectional-boundary-status.test.mjs
+
+      - name: Run protected production read-only audit
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$TOKEN"
+          PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-bidirectional-boundary-audit.mjs \
+            --execute \
+            --api-base=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chanjet-bidirectional-boundary-audit-${{ github.run_id }}
+          path: |
+            docs/ops/runs/chanjet-bidirectional-boundary-audit-latest.json
+            docs/ops/runs/chanjet-bidirectional-boundary-audit-latest.md
+          if-no-files-found: error
+          retention-days: 14
