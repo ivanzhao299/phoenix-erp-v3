@@ -50,35 +50,62 @@ async function request(path, options = {}) {
   return payload;
 }
 
-const precisionEnvelope = await request('/api/chanjet/integration/erp-master-gap-closure/precision-audit');
-const audit = precisionEnvelope.audit || precisionEnvelope;
-const execution = buildApprovedExecution(audit, { batch, mappingId, confirmation });
-let result;
-let preflight = null;
-if (execution.alreadyComplete) {
-  result = { outcome: 'ALREADY_COMPLETE', auditHash: execution.auditHash };
-} else {
-  if (execution.preflightPath) {
-    const preflightEnvelope = await request(execution.preflightPath, {
-      method: 'POST',
-      body: execution.preflightBody,
-    });
-    preflight = assertApprovedExecutionPreflight(execution, preflightEnvelope);
-  }
-  const envelope = await request(execution.path, { method: 'POST', body: execution.body });
-  result = assertApprovedExecutionResult(execution, envelope);
+function writeReport(report) {
+  mkdirSync(outputDir, { recursive: true });
+  const output = join(outputDir, 'chanjet-hold-approved-execution-latest.json');
+  writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  return output;
 }
 
-const report = {
-  generatedAt: new Date().toISOString(),
-  batch,
-  auditHash: execution.auditHash,
-  expectedWriteCount: execution.expectedWriteCount,
-  preflight,
-  result,
-};
-mkdirSync(outputDir, { recursive: true });
-const output = join(outputDir, 'chanjet-hold-approved-execution-latest.json');
-writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-console.log(`Chanjet approved HOLD batch complete batch=${batch} outcome=${result.outcome || 'VERIFIED'}`);
-console.log(`artifact=${output}`);
+let execution = null;
+let preflight = null;
+try {
+  const precisionEnvelope = await request('/api/chanjet/integration/erp-master-gap-closure/precision-audit');
+  const audit = precisionEnvelope.audit || precisionEnvelope;
+  execution = buildApprovedExecution(audit, { batch, mappingId, confirmation });
+  let result;
+  if (execution.alreadyComplete) {
+    result = { outcome: 'ALREADY_COMPLETE', auditHash: execution.auditHash };
+  } else {
+    if (execution.preflightPath) {
+      const preflightEnvelope = await request(execution.preflightPath, {
+        method: 'POST',
+        body: execution.preflightBody,
+      });
+      preflight = assertApprovedExecutionPreflight(execution, preflightEnvelope);
+    }
+    const envelope = await request(execution.path, { method: 'POST', body: execution.body });
+    result = assertApprovedExecutionResult(execution, envelope);
+  }
+
+  const output = writeReport({
+    generatedAt: new Date().toISOString(),
+    status: 'SUCCESS',
+    batch,
+    auditHash: execution.auditHash,
+    expectedWriteCount: execution.expectedWriteCount,
+    preflight,
+    result,
+  });
+  console.log(`Chanjet approved HOLD batch complete batch=${batch} outcome=${result.outcome || 'VERIFIED'}`);
+  console.log(`artifact=${output}`);
+} catch (error) {
+  const output = writeReport({
+    generatedAt: new Date().toISOString(),
+    status: 'FAILED',
+    batch,
+    auditHash: execution?.auditHash || null,
+    expectedWriteCount: execution?.expectedWriteCount ?? null,
+    preflight,
+    failure: {
+      name: error instanceof Error ? error.name : 'Error',
+      message: error instanceof Error ? error.message : String(error),
+    },
+    safety: {
+      subsequentBatchesStopped: true,
+      credentialsIncluded: false,
+    },
+  });
+  console.error(`Chanjet approved HOLD batch failed batch=${batch} artifact=${output}`);
+  throw error;
+}
