@@ -335,7 +335,7 @@ describe('PackagingTerminalBffController', () => {
     );
   });
 
-  it('completes the handover without duplicate packaging stock in TEMP production inbound mode', async () => {
+  it('does not report a TEMP-mode handover as successful when inventory evidence is missing', async () => {
     let inserted = false;
     const em = {
       query: jest.fn(async (sql: string) => {
@@ -363,7 +363,7 @@ describe('PackagingTerminalBffController', () => {
         refNo: 'PKG-20260725-NO-STOCK',
         idempotent: false,
         totalInbound: 0,
-        skippedByMode: true,
+        skippedByMode: false,
         mode: 'TEMP_PRODUCTION_INBOUND',
       }),
       getTerminalInventoryMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND'),
@@ -376,10 +376,10 @@ describe('PackagingTerminalBffController', () => {
     })).resolves.toMatchObject({
       code: 200,
       data: {
-        inventoryOk: true,
+        inventoryOk: false,
         status: {
-          state: 'COMMITTED',
-          committed: true,
+          state: 'PENDING',
+          committed: false,
           inventoryBatchCount: 0,
           totalInbound: 0,
         },
@@ -388,10 +388,10 @@ describe('PackagingTerminalBffController', () => {
 
     expect(em.query.mock.calls.some(([sql]) =>
       String(sql).includes('INSERT INTO pkg_handover_records'),
-    )).toBe(true);
+    )).toBe(false);
   });
 
-  it('keeps a TEMP-mode handover committed after the page reloads', async () => {
+  it('reports a legacy TEMP-mode handover without inventory as incomplete after reload', async () => {
     const em = {
       query: jest.fn(async (sql: string) => {
         if (sql.includes('FROM pkg_handover_records')) {
@@ -421,8 +421,8 @@ describe('PackagingTerminalBffController', () => {
     ).resolves.toMatchObject({
       code: 200,
       data: {
-        state: 'COMMITTED',
-        committed: true,
+        state: 'HANDOVER_ONLY',
+        committed: false,
         inventoryMode: 'TEMP_PRODUCTION_INBOUND',
         inventoryBatchCount: 0,
         totalInbound: 0,

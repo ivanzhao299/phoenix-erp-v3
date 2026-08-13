@@ -93,6 +93,8 @@ export class PackagingInventoryIntegrationService {
       eggDate?: string;
       collectionRef?: string | null;
       packSpec?: string | null;
+      /** 作业台成品交接必须真实入账，不能把“模式跳过”当成功。 */
+      requireInventory?: boolean;
     },
   ): Promise<{
     refNo: string;
@@ -128,16 +130,22 @@ export class PackagingInventoryIntegrationService {
 
     const companyCode = await this.resolveCompanyCode(opts?.companyCode);
 
-    // ── P1A 互斥门控：仅 PACKAGING_INBOUND 模式允许包装完成生成可售库存（SITE 级灰度）──
-    //   TEMP_PRODUCTION_INBOUND 模式下，库存由日产蛋入库生成，包装完成不再写可售库存（防双写）。
+    // 普通包装完成仍遵守来源模式互斥；成品交接必须产生真实库存证据。
+    // packaging_batch_ref 作为幂等键，保证交接重试不会重复入库。
     const mode = await this.modeSvc.resolveMode({ siteCode: opts?.siteCode ?? null, companyCode });
-    if (mode !== 'PACKAGING_INBOUND') {
+    if (mode !== 'PACKAGING_INBOUND' && !opts?.requireInventory) {
       this.logger.log(`[PkgInv] 包装批次 ${refNo} 当前为 ${mode} 模式，跳过包装可售入库（互斥，防双写）`);
       return {
         refNo, idempotent: false, companyCode,
         batches: [], skippedNonSaleable: [], totalInbound: 0,
         mode, skippedByMode: true,
       };
+    }
+    if (mode !== 'PACKAGING_INBOUND') {
+      this.logger.warn(
+        `[PkgInv] 包装批次 ${refNo} 来自成品交接，覆盖 ${mode} 模式并生成统一库存；` +
+        '该交接以 packaging_batch_ref 保证幂等',
+      );
     }
 
     const eggDate = opts?.eggDate || new Date().toISOString().slice(0, 10);
@@ -303,6 +311,7 @@ export class PackagingInventoryIntegrationService {
       siteCode,
       eggDate,
       collectionRef,
+      requireInventory: true,
     });
     return r;
   }
