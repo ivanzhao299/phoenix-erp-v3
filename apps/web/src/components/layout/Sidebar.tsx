@@ -97,7 +97,6 @@ export const MENU: MenuItem[] = [
     // G15：集蛋记录已废弃 — 蛋品统计合并到「日生产日报」（含 9 档 JSONB）
     // 日产蛋入库（库存来源模式 P1A：临时生产入库模式下直接形成销售库存）
     { id: "prod-inbound",   path: "/breeding/daily-inbound",  Icon: PackagePlus,    label: "日产蛋入库",   perm: "MENU_PROD_INBOUND" },
-    { id: "prod-inbound-ledger", path: "/breeding/daily-inbound-ledger", Icon: ScrollText, label: "日产蛋入库台账", perm: "MENU_PROD_INBOUND" },
     // 分级包装（包装作业中心：包装完成 = 唯一库存入口）
     { id: "pkg-op",         path: "/packaging",               Icon: Egg,            label: "包装作业",     perm: "MENU_PKG_OP"  },
     { id: "pkg-batch",      path: "/packaging/batch",         Icon: Layers,         label: "包装批次",     perm: "MENU_PKG_MGR" },

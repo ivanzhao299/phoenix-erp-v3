@@ -160,10 +160,15 @@ export default function WarehouseHandoverPage() {
           textAlign: 'center',
           lineHeight: 1.6,
         }}>
-          {t(
-            'ui.包装交接完成但库存证据缺失',
-            '包装交接尚未取得库存入账证据，请重试；仍失败时联系仓库管理员核验。',
-          )}
+          {activeHandoverStatus.inventoryMode === 'TEMP_PRODUCTION_INBOUND'
+            ? t(
+              'ui.当前为日产蛋入库模式包装交接不重复写库存',
+              '当前为日产蛋入库模式：包装交接不重复写库存，请在日产蛋入库台账核对对应数量。',
+            )
+            : t(
+              'ui.包装交接完成但库存证据缺失',
+              '包装交接完成，但尚未取得库存入账证据，请联系仓库管理员核验。',
+            )}
         </div>
       )}
       <button type="button" onClick={() => router.push('/terminal/packaging/shift-close')} style={{

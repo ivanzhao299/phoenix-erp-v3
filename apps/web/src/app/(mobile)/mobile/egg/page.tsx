@@ -27,7 +27,7 @@ function toDate(s: string): Date {
 // 历史：硬编码 0-5/DIRTY/BROKEN 已废，等级改从 product_grades 主数据动态拉
 // （见组件内 useProductGrades）— 与 inv_batches.grade_code_std 同源。
 
-type Tab = 'stock' | 'inbound' | 'outbound' | 'ledger';
+type Tab = 'stock' | 'inbound' | 'outbound';
 
 // 行格式：grade → qty（枚）
 type GradeQtyMap = Record<string, number>;
@@ -117,7 +117,7 @@ export default function EggPage() {
 
   useEffect(() => {
     if (tab === 'stock') loadStock();
-    else if (tab === 'ledger') loadLedger(date);
+    else loadLedger(date);
   }, [tab, date, loadStock, loadLedger]);
 
   // 拉取栋舍和客户列表（组织隔离：农场用户只见本场数据）
@@ -220,9 +220,6 @@ export default function EggPage() {
     EGG_INBOUND_HOUSE: tr('mob.brd.inbound', '入库'),
     EGG_OUTBOUND_SALE: tr('mob.brd.outbound', '出库'),
     EGG_WRITE_OFF:     tr('mob.brd.write_off', '报损'),
-    TEMP_PRODUCTION_INBOUND: tr('mob.brd.inbound', '日产蛋入库'),
-    PACKAGING_INBOUND: tr('mob.brd.packaging_inbound', '包装入库'),
-    INBOUND: tr('mob.brd.inbound', '入库'),
   };
 
   return (
@@ -269,15 +266,14 @@ export default function EggPage() {
         )}
       </div>
 
-      {/* 统一库存快照与入库流水 */}
+      {/* Tab 切换（R1：鸡蛋库存已由库存来源模式统一管理，入库/出库入口冻结，本页仅供查询） */}
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(2,1fr)',
+        display: 'grid', gridTemplateColumns: 'repeat(1,1fr)',
         background: t.appBarBg,
         borderBottom: `1px solid ${t.barBorder}`,
       }}>
         {([
           { key: 'stock',    label: tr('mob.brd.stock_query', '库存查询'), icon: <Package size={14} /> },
-          { key: 'ledger',   label: tr('mob.brd.egg_ledger', '入库台账'), icon: <TrendingUp size={14} /> },
         ] as const).map(tab_ => (
           <button key={tab_.key} onClick={() => setTab(tab_.key)}
             style={{
@@ -294,7 +290,7 @@ export default function EggPage() {
         ))}
       </div>
 
-      {/* 台账日期 */}
+      {/* 日期（仅入库/出库 tab 显示） */}
       {tab !== 'stock' && (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -324,9 +320,9 @@ export default function EggPage() {
         </div>
       )}
 
-      {/* 统一库存口径说明 */}
+      {/* R1 — Farm Egg 库存能力已删除（本入口不再生成库存） */}
       <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'var(--status-warning-bg-light)', border: '1px solid var(--status-warning)', color: 'var(--status-warning)', fontSize: 12, lineHeight: 1.5 }}>
-        {tr('mob.brd.egg_unified_banner', '本页读取统一鸡蛋库存台账；作业台完成成品交接后，库存和入库记录会同步显示。')}
+        ⚠️ {tr('mob.brd.egg_frozen_banner', '该入口不再生成库存，库存来源由系统模式控制（临时生产入库 / 包装入库）。请到「包装作业中心」完成集蛋→分级→包装；本页仅供查询。')}
       </div>
 
       {/* 内容区 */}
@@ -375,35 +371,6 @@ export default function EggPage() {
                 </div>
               ))
             )}
-          </>
-        )}
-
-        {tab === 'ledger' && (
-          <>
-            {loading ? (
-              <div className={u.tac} style={{ padding: 32, color: t.textMuted }}>{tr('mob.brd.loading', '加载中…')}</div>
-            ) : ledger.length === 0 ? (
-              <div className={u.tac} style={{ padding: 32, color: t.textMuted }}>{tr('mob.brd.no_ledger', '当日暂无鸡蛋库存流水')}</div>
-            ) : ledger.map(e => (
-              <div key={e.id} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '11px 12px', borderRadius: 10, marginBottom: 7,
-                background: t.sectionBg, border: `1px solid ${t.cardBorder}`,
-              }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
-                    {CHANGE_LABELS[e.change_type] ?? e.change_type}
-                    <span style={{ marginLeft: 8, color: t.textMuted, fontWeight: 500 }}>{e.grade}</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: t.textFaint, marginTop: 3 }}>
-                    {e.house_code || e.customer_no || e.operator || ''}
-                  </div>
-                </div>
-                <span style={{ fontSize: 16, fontWeight: 800, color: e.qty_change > 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
-                  {e.qty_change > 0 ? '+' : ''}{Number(e.qty_change).toLocaleString()}
-                </span>
-              </div>
-            ))}
           </>
         )}
 
