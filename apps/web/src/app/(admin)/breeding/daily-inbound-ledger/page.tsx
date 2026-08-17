@@ -65,7 +65,7 @@ export default function DailyInboundLedgerPage() {
     <div style={{ display: 'flex', gap: 12, alignItems: 'end', margin: '18px 0' }}>
       <label style={{ display: 'grid', gap: 5, fontSize: 12 }}>开始日期<input type="date" value={start} onChange={e => setStart(e.target.value)} /></label>
       <label style={{ display: 'grid', gap: 5, fontSize: 12 }}>结束日期<input type="date" value={end} onChange={e => setEnd(e.target.value)} /></label>
-      <button type="button" onClick={() => void load()} disabled={loading} style={{ padding: '7px 16px' }}>{loading ? '查询中…' : '查询'}</button>
+      <button type="button" onClick={() => void load()} disabled={loading} style={{ padding: '7px 16px' }}>{loading ? t('ui.查询中', '查询中…') : '查询'}</button>
     </div>
     {error && <div style={{ color: 'var(--status-danger)', marginBottom: 12 }}>{error}</div>}
     <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>

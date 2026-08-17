@@ -13960,6 +13960,9 @@
   "ui.WMS补齐标准计量单位后映射": "Define the canonical unit before mapping",
   "ui.WMS映射已闭环短语": "Closed",
   "ui.枚已完成包装交接": " eggs handed over from packaging",
+  "ui.包装交接不重复写库存": "packaging handover does not write inventory twice",
+  "ui.包装交接尚未取得库存入账证据": "The handover has not received inventory posting evidence. Retry, or ask the warehouse administrator to verify.",
+  "ui.查询中": "Loading…",
   "ui.当前为日产蛋入库模式包装交接不重复写库存": "Daily egg inbound mode is active. Packaging handover does not post inventory again; verify the quantity in the daily inbound ledger.",
   "ui.包装交接完成但库存证据缺失": "Packaging handover is complete, but inventory posting evidence is unavailable. Ask a warehouse administrator to verify it.",
   "ui.审核鸡舍仓位策略": "Review house location policy",
@@ -13996,5 +13999,11 @@
   "ui.自动创建业务主数据": "Automatic business-master creation",
   "ui.主数据缺口暂存说明": "Only deduplicated middle-layer proposals and review evidence are staged. No ERP master is created, no mapping approval changes, and no Chanjet write occurs.",
   "ui.鸡舍策略": "House policies",
-  "ui.商品单位换算策略": "Product UOM policies"
+  "ui.商品单位换算策略": "Product UOM policies",
+  "breeding.inboundLedgerTitle": "Daily Egg Inbound Ledger",
+  "breeding.inboundLedgerSubtitle": "Unified egg inventory movements from packaging handover and daily egg inbound",
+  "mob.brd.packaging_inbound": "Packaging inbound",
+  "mob.brd.egg_ledger": "Inbound ledger",
+  "mob.brd.egg_unified_banner": "This page reads the unified egg inventory ledger; inventory and inbound records sync after finished-product handover.",
+  "mob.brd.no_ledger": "No egg inventory movements today"
 }

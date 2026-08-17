@@ -149,7 +149,7 @@ export default function WarehouseHandoverPage() {
         {activeHandoverStatus
           ? activeHandoverStatus.inventoryPosted
             ? `${activeHandoverStatus.boxCount} ${t('ui.箱', '箱')} · ${activeHandoverStatus.totalInbound} ${t('ui.枚已写入库存台账', '枚已写入库存台账')}`
-            : `${activeHandoverStatus.boxCount} ${t('ui.箱', '箱')} · ${activeHandoverStatus.handoverQuantity} ${t('ui.枚已完成包装交接', '枚已完成包装交接')}`
+            : `${activeHandoverStatus.boxCount} ${t('ui.箱', '箱')} · ${activeHandoverStatus.handoverQuantity} ${t('ui.枚已完成包装交接', '枚已完成包装交接')} · ${t('ui.包装交接不重复写库存', '包装交接不重复写库存')}`
           : `${scanned.length} ${t('ui.箱', '箱')} · ${totalQty} ${t('ui.枚已入库', '枚已入库')}`}
       </div>
       {activeHandoverStatus && !activeHandoverStatus.inventoryPosted && (
@@ -162,7 +162,7 @@ export default function WarehouseHandoverPage() {
         }}>
           {t(
             'ui.包装交接完成但库存证据缺失',
-            '包装交接尚未取得库存入账证据，请重试；仍失败时联系仓库管理员核验。',
+            t('ui.包装交接尚未取得库存入账证据', '包装交接尚未取得库存入账证据，请重试；仍失败时联系仓库管理员核验。'),
           )}
         </div>
       )}
