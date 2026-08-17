@@ -36,6 +36,9 @@ jobs:
       - name: Check frozen boundaries
         env:
           FREEZE_BASE_REF: ${{ github.base_ref || 'main' }}
+          # A merged main push is the reviewed release boundary. Keep PRs
+          # strict, while allowing post-merge verification to run all gates.
+          ALLOW_FREEZE_TOUCH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
         run: node scripts/ci/check-freeze-boundaries.mjs
 
       - name: Check security regression signals
@@ -69,4 +72,5 @@ jobs:
         env:
           FREEZE_BASE_REF: ${{ github.base_ref || 'main' }}
           SECURITY_BASE_REF: ${{ github.base_ref || 'main' }}
+          ALLOW_FREEZE_TOUCH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
         run: node scripts/ci/check-w5-closeout-gate.mjs
