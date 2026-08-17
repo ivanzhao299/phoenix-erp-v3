@@ -1,12 +1,12 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-07-30T05:45:56.669Z
+Generated: 2026-08-17T08:39:29.901Z
 
-Scanned hardcoded literals: 3300
-Covered by validated runtime bridge: 3300
-Release-blocking uncovered literals: 0
+Scanned hardcoded literals: 3318
+Covered by validated runtime bridge: 3317
+Release-blocking uncovered literals: 1
 Locale quality issues: 0
-Affected files: 180
+Affected files: 181
 
 A scanned literal is not automatically debt: the runtime bridge is accepted only when the same source text has real English and Lao translations. Release blocking is based on uncovered literals and locale quality issues.
 
@@ -14,9 +14,9 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 
 | File | Count | Samples |
 |---|---:|---|
-| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 446 | 285:精确候选冲突<br>286:已有精确主档待确认<br>287:仓库主档待补齐<br>288:鸡舍库存归属待桥接<br>289:仓储实体类型待核准<br>290:蛋品 SKU 待对齐<br>291:物料主档待补齐<br>293:商品实体类型待核准 |
+| `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 446 | 305:精确候选冲突<br>306:已有精确主档待确认<br>307:仓库主档待补齐<br>308:鸡舍库存归属待桥接<br>309:仓储实体类型待核准<br>310:蛋品 SKU 待对齐<br>311:物料主档待补齐<br>313:商品实体类型待核准 |
 | `apps/web/src/components/master-data/detail-configs.tsx` | 199 | 88:客户中心<br>92:订单<br>93:应收<br>97:订单数<br>98:单 (近期)<br>101:近期销售额<br>105:应收余额<br>112:逾期单据 |
-| `apps/web/src/components/layout/Sidebar.tsx` | 161 | 74:运营工作台<br>76:每日工作台<br>83:经营仪表盘<br>86:生产管理<br>88:养殖总览<br>89:鸡舍管理<br>90:鸡群档案<br>91:日生产日报 |
+| `apps/web/src/components/layout/Sidebar.tsx` | 162 | 74:运营工作台<br>76:每日工作台<br>83:经营仪表盘<br>86:生产管理<br>88:养殖总览<br>89:鸡舍管理<br>90:鸡群档案<br>91:日生产日报 |
 | `apps/web/src/lib/workflow-templates.ts` | 124 | 35:费用报销审批<br>36:财务<br>40:费用报销单<br>43:申请金额<br>44:费用类型<br>44:差旅费<br>44:招待费<br>44:办公费 |
 | `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx` | 97 | 67:发起申请<br>73:一级审批<br>83:流程完成<br>95:财务会计<br>98:财务负责人<br>101:采购员<br>104:仓储负责人<br>107:品控负责人 |
 | `apps/web/src/lib/dict-type-labels.ts` | 88 | 9:审批模块类型<br>10:品种<br>10:品种类型<br>10:淘汰原因<br>11:鸡群状态<br>11:鸡舍类型<br>11:死亡原因<br>12:养殖班次 |

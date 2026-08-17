@@ -13961,6 +13961,8 @@
   "ui.WMS映射已闭环短语": "Closed",
   "ui.枚已完成包装交接": " eggs handed over from packaging",
   "ui.包装交接不重复写库存": "packaging handover does not write inventory twice",
+  "ui.包装交接尚未取得库存入账证据": "The handover has not received inventory posting evidence. Retry, or ask the warehouse administrator to verify.",
+  "ui.查询中": "Loading…",
   "ui.当前为日产蛋入库模式包装交接不重复写库存": "Daily egg inbound mode is active. Packaging handover does not post inventory again; verify the quantity in the daily inbound ledger.",
   "ui.包装交接完成但库存证据缺失": "Packaging handover is complete, but inventory posting evidence is unavailable. Ask a warehouse administrator to verify it.",
   "ui.审核鸡舍仓位策略": "Review house location policy",
