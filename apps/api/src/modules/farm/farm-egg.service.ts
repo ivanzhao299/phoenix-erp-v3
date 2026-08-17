@@ -79,7 +79,7 @@ export class FarmEggService {
        FROM inv_ledger l
        JOIN inv_batches b ON b.batch_no = l.batch_no
        WHERE b.product_code LIKE 'PRD-EGG-%'
-         AND COALESCE(l.log_date, l.created_at::date) BETWEEN $1 AND $2
+         AND COALESCE(l.log_date, b.egg_date, l.created_at::date) BETWEEN $1 AND $2
          AND ($3::boolean OR b.company_code = ANY($4::text[]))
        ORDER BY l.created_at DESC`,
       [startDate, endDate, scope.global, scope.codes],

@@ -156,6 +156,9 @@ export class EggInventoryService {
       qualityGrade?:   string | null;
       /** Phase H4: 从批次传递 sku_code，写入 inv_ledger 便于追溯 */
       skuCode?:        string | null;
+      logDate?:        string | null;
+      warehouseCode?:  string | null;
+      locationCode?:   string | null;
     },
     mgr?: EntityManager,
   ) {
@@ -163,8 +166,9 @@ export class EggInventoryService {
     await q(
       `INSERT INTO inv_ledger
          (batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-          batch_expire_date, quality_grade, company_code, sku_code)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          batch_expire_date, quality_grade, company_code, sku_code,
+          log_date, warehouse_code, location_code)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
       [
         params.batchNo,
         params.changeType,
@@ -177,6 +181,9 @@ export class EggInventoryService {
         params.qualityGrade ?? null,
         params.companyCode,
         params.skuCode ?? null,
+        params.logDate ?? null,
+        params.warehouseCode ?? null,
+        params.locationCode ?? null,
       ],
     );
   }
@@ -216,6 +223,7 @@ export class EggInventoryService {
   async createProductionBatch(params: {
     companyCode:    string;
     warehouseCode?: string;
+    locationCode?: string;
     eggDate:        string;
     qualityGrade?:  string;
     packagingSpec?: string;
@@ -276,7 +284,7 @@ export class EggInventoryService {
     const sourceType = params.sourceType ?? 'PRODUCTION';
     const [batch] = await this.ds.query(
       `INSERT INTO inv_batches (
-         batch_no, product_code, company_code, warehouse_code,
+         batch_no, product_code, company_code, warehouse_code, location_code,
          egg_date, expire_date, quality_grade, packaging_spec,
          source_type, source_no,
          qty, qty_available, status,
@@ -284,15 +292,15 @@ export class EggInventoryService {
          packaging_batch_ref, collection_batch_ref,
          created_at, updated_at
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-         $11,$11,'AVAILABLE',
-         $12,$13,$14,
-         $15,$16,
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
+         $13,$13,'AVAILABLE',
+         $14,$15,$16,
+         $17,$18,
          NOW(),NOW()
        ) RETURNING *`,
       [
         batchNo, productCode, params.companyCode,
-        params.warehouseCode ?? null,
+        params.warehouseCode ?? 'WMS-VTE-MAIN', params.locationCode ?? 'INBOUND-DOCK',
         params.eggDate, expireDate, grade,
         params.packagingSpec ?? null,
         sourceType,
@@ -317,6 +325,9 @@ export class EggInventoryService {
       batchExpireDate: expireDate,
       qualityGrade:    grade,
       skuCode,
+      logDate:         params.eggDate,
+      warehouseCode:   params.warehouseCode ?? 'WMS-VTE-MAIN',
+      locationCode:    params.locationCode ?? 'INBOUND-DOCK',
     });
 
     this.logger.log(`[EggInv] 生产入库: ${batchNo} qty=${qty} expire=${expireDate}${skuCode ? ` sku=${skuCode}` : ''}`);
