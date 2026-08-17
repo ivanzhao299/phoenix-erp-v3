@@ -76,8 +76,7 @@ export class PackagingInventoryIntegrationService {
    * 【收口核心 · P1C】按等级产出生成 Sales V2 可售库存批次（幂等 + 模式门控）
    *
    * 与具体来源（pkg_tasks / BFF 车间流 pkg_packing_records）解耦：调用方只需提供
-   * 等级→数量 映射与上下文，本方法负责 幂等 / 来源模式门控 / 不可售隔离 / 统一命名。
-   * 成品交接调用方传 requireInventory=true：交接不能在零库存证据下宣告成功。
+   * 等级→数量 映射与上下文，本方法负责 幂等 / 互斥门控 / 不可售隔离 / 统一命名。
    *
    * @param refNo        幂等键（包装任务号 task_no 或 BFF 包装记录号 packingCode）→ 写入 packaging_batch_ref
    * @param items  Array<{grade, specName?, qty}>（grade 已归一化；specName 为规格名，用于解析 spec_code/sku_code）
@@ -131,9 +130,8 @@ export class PackagingInventoryIntegrationService {
 
     const companyCode = await this.resolveCompanyCode(opts?.companyCode);
 
-    // ── P1A 来源模式门控 ────────────────────────────────────────────────
-    // 普通包装完成仍遵守模式互斥；成品交接必须有真实库存证据，因此由
-    // requireInventory 覆盖旧 TEMP 跳过行为，并用 packaging_batch_ref 保证重试幂等。
+    // 普通包装完成仍遵守来源模式互斥；成品交接必须产生真实库存证据。
+    // packaging_batch_ref 作为幂等键，保证交接重试不会重复入库。
     const mode = await this.modeSvc.resolveMode({ siteCode: opts?.siteCode ?? null, companyCode });
     if (mode !== 'PACKAGING_INBOUND' && !opts?.requireInventory) {
       this.logger.log(`[PkgInv] 包装批次 ${refNo} 当前为 ${mode} 模式，跳过包装可售入库（互斥，防双写）`);

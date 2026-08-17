@@ -1,0 +1,81 @@
+name: Deploy Smart Park Runner to Office 204
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_auto_release:
+        description: Enable production auto release after doctor passes
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Prepare audited SSH identities
+        env:
+          OFFICE_KEY: ${{ secrets.OFFICE_RUNNER_SSH_KEY }}
+          PROXY_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -eu
+          install -m 600 /dev/null /tmp/office-runner-key
+          install -m 600 /dev/null /tmp/proxy-key
+          printf '%s\n' "$OFFICE_KEY" > /tmp/office-runner-key
+          printf '%s\n' "$PROXY_KEY" > /tmp/proxy-key
+          install -d -m 700 ~/.ssh
+          ssh-keyscan -H 123.57.220.65 >> ~/.ssh/known_hosts
+      - name: Install isolated Studio and Smart Park repositories
+        env:
+          PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          STUDIO_DEPLOY_KEY: ${{ secrets.STUDIO_RUNNER_DEPLOY_KEY }}
+          SMART_PARK_DEPLOY_KEY: ${{ secrets.SMART_PARK_RUNNER_DEPLOY_KEY }}
+          SMART_PARK_RUNNER_PASSWORD: ${{ secrets.SMART_PARK_RUNNER_PASSWORD }}
+          ENABLE_AUTO_RELEASE: ${{ inputs.enable_auto_release }}
+        run: |
+          set -eu
+          ssh_opts="-i /tmp/office-runner-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ProxyCommand=ssh -i /tmp/proxy-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -W %h:%p $PROXY_USER@123.57.220.65"
+          printf '%s' "$STUDIO_DEPLOY_KEY" | base64 -w0 | ssh $ssh_opts ubuntu@192.168.2.204 \
+            'sudo install -d -m 0700 /etc/anksen-runner/bootstrap && base64 -d | sudo tee /etc/anksen-runner/bootstrap/studio-deploy-key >/dev/null && sudo chmod 600 /etc/anksen-runner/bootstrap/studio-deploy-key'
+          printf '%s' "$SMART_PARK_DEPLOY_KEY" | base64 -w0 | ssh $ssh_opts ubuntu@192.168.2.204 \
+            'base64 -d | sudo tee /etc/anksen-runner/bootstrap/smart-park-deploy-key >/dev/null && sudo chmod 600 /etc/anksen-runner/bootstrap/smart-park-deploy-key'
+          ssh $ssh_opts ubuntu@192.168.2.204 'set -eu
+            if [ ! -d /srv/agent-studio/.git ]; then
+              sudo GIT_SSH_COMMAND="ssh -i /etc/anksen-runner/bootstrap/studio-deploy-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git clone git@github.com:ivanzhao299/anksen-agent-studio.git /srv/agent-studio
+            else
+              sudo GIT_SSH_COMMAND="ssh -i /etc/anksen-runner/bootstrap/studio-deploy-key -o IdentitiesOnly=yes" git -C /srv/agent-studio fetch origin main
+              sudo git -C /srv/agent-studio checkout main
+              sudo git -C /srv/agent-studio merge --ff-only origin/main
+            fi
+            sudo STUDIO_DEPLOY_KEY_FILE=/etc/anksen-runner/bootstrap/studio-deploy-key SMART_PARK_DEPLOY_KEY_FILE=/etc/anksen-runner/bootstrap/smart-park-deploy-key bash /srv/agent-studio/scripts/install-smart-park-runner-systemd.sh'
+          encoded_password="$(printf '%s' "$SMART_PARK_RUNNER_PASSWORD" | base64 -w0)"
+          ssh $ssh_opts ubuntu@192.168.2.204 "set -eu
+            password=\$(printf '%s' '$encoded_password' | base64 -d)
+            sudo sed -i 's/^SMART_PARK_RUNNER_USER=.*/SMART_PARK_RUNNER_USER=studio_runner/' /etc/anksen-runner/smart-park-runner.env
+            sudo sed -i \"s|^SMART_PARK_RUNNER_PASSWORD=.*|SMART_PARK_RUNNER_PASSWORD=\$password|\" /etc/anksen-runner/smart-park-runner.env
+            sudo sed -i 's/^SMART_PARK_AUTO_RELEASE=.*/SMART_PARK_AUTO_RELEASE=$ENABLE_AUTO_RELEASE/' /etc/anksen-runner/smart-park-runner.env
+            sudo chmod 640 /etc/anksen-runner/smart-park-runner.env
+            sudo -u anksen-runner -H env SMART_PARK_RUNNER_ENV_FILE=/etc/anksen-runner/smart-park-runner.env node /srv/agent-studio/scripts/smart-park-runner-doctor.mjs
+            sudo systemctl restart anksen-smart-park-runner
+            sudo systemctl is-active --quiet anksen-smart-park-runner
+            sudo systemctl show anksen-smart-park-runner -p MainPID -p ActiveEnterTimestamp --no-pager
+            sudo journalctl -u anksen-smart-park-runner -n 30 --no-pager -o short-iso"
+      - name: Verify Phoenix isolation remains intact
+        env:
+          PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+        run: |
+          set -eu
+          ssh -i /tmp/office-runner-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
+            -o ProxyCommand="ssh -i /tmp/proxy-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -W %h:%p $PROXY_USER@123.57.220.65" \
+            ubuntu@192.168.2.204 'set -eu
+              test "$(sudo systemctl is-active phoenix-bug-intake-runner)" = active
+              test "$(sudo systemctl is-active anksen-smart-park-runner)" = active
+              test "$(sudo systemctl show phoenix-bug-intake-runner -p User --value)" != "$(sudo systemctl show anksen-smart-park-runner -p User --value)"
+              test -d /opt/phoenix-runner
+              test -d /srv/agent-studio
+              test -d /srv/managed-projects/jinhu-smart-park'

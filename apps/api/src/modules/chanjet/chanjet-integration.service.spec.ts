@@ -413,10 +413,28 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       projectId: 'PROJECT-1',
       projectCode: 'P001',
       projectName: '孟赛项目',
+      statusEnum: { value: 'A', name: '启用' },
     }, 'PROJECT', 0, 'PROJECT')).toMatchObject({
       externalId: 'PROJECT-1',
       externalCode: 'P001',
       externalName: '孟赛项目',
+      status: 'A',
+    });
+  });
+
+  it('keeps overlong period and currency candidates in raw data instead of overflowing mirror columns', () => {
+    expect(service.normalizeExternalEntity({
+      projectId: 'PROJECT-2',
+      projectCode: 'HOUSE_MS_02',
+      projectName: '2号鸡舍',
+      period: '2026-08-07T10:04:00.000Z',
+      currencyName: 'LONG_CURRENCY_DESCRIPTION_OVER_16',
+    }, 'PROJECT', 0, 'PROJECT')).toMatchObject({
+      externalId: 'PROJECT-2',
+      externalCode: 'HOUSE_MS_02',
+      externalName: '2号鸡舍',
+      period: '',
+      currency: '',
     });
   });
 

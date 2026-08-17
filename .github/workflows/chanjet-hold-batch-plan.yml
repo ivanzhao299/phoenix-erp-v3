@@ -1,0 +1,62 @@
+name: Chanjet HOLD Read-only Batch Plan
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_readonly:
+        description: 'Confirm production read-only HOLD planning (zero writes)'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: chanjet-hold-batch-plan
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: inputs.approve_readonly
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate read-only planning scripts
+        run: |
+          node --check scripts/ops/mint-production-admin-token-over-ssh.mjs
+          node --check scripts/ops/chanjet-hold-batch-plan.mjs
+          node --check scripts/ops/chanjet-hold-batch-plan-policy.mjs
+          node --test scripts/ops/chanjet-hold-batch-plan-policy.test.mjs
+
+      - name: Build protected production read-only HOLD plan
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$TOKEN"
+          PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-hold-batch-plan.mjs \
+            --execute \
+            --api-base=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chanjet-hold-batch-plan-${{ github.run_id }}
+          path: |
+            docs/ops/runs/chanjet-hold-batch-plan-latest.json
+            docs/ops/runs/chanjet-hold-batch-plan-latest.md
+          if-no-files-found: error
+          retention-days: 14

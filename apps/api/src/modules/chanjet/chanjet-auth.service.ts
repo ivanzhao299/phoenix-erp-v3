@@ -17,7 +17,9 @@ type ChanjetCallKind = 'READ' | 'WRITE';
 interface ChanjetCallOptions {
   method?: 'GET' | 'POST';
   query?: Record<string, string>;
-  body?: Record<string, unknown>;
+  // Most business APIs accept an object, while reviewed integration upsert
+  // endpoints accept a top-level array.
+  body?: unknown;
   orgId?: string;
   kind?: ChanjetCallKind;
 }

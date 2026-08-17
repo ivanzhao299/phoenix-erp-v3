@@ -437,18 +437,31 @@ export class ChanjetWmsBridgeService {
           && upper(mapping.chanjetId) === upper(source.code)
         ))
         .sort((left, right) => this.mappingRank(right) - this.mappingRank(left))[0];
+      const canaryEvidence = current?.rawData?.productNameCanary
+        && typeof current.rawData.productNameCanary === 'object'
+        && !Array.isArray(current.rawData.productNameCanary)
+        ? current.rawData.productNameCanary as Record<string, unknown>
+        : {};
+      const canaryOriginalName = text(canaryEvidence.originalName);
+      const canaryVerifiedName = text(canaryEvidence.verifiedName);
+      const preserveVerifiedProductName = source.mappingType === 'PRODUCT'
+        && !!canaryVerifiedName
+        && [canaryOriginalName, canaryVerifiedName].includes(source.name);
+      const reviewedSource = preserveVerifiedProductName
+        ? { ...source, name: canaryVerifiedName }
+        : source;
       if (
         current?.reviewStatus === 'APPROVED'
         && ['MATCHED', 'MANUAL'].includes(current.matchStatus)
         && current.erpCode
       ) {
-        current.chanjetCode = source.code;
-        current.chanjetName = source.name || source.code;
+        current.chanjetCode = reviewedSource.code;
+        current.chanjetName = reviewedSource.name || reviewedSource.code;
         current.rawData = {
           ...(current.rawData || {}),
           refreshedAt: new Date().toISOString(),
           refreshedBy: actor,
-          sourceCompanyCode: source.companyCode,
+          sourceCompanyCode: reviewedSource.companyCode,
         };
         await this.mappingRepository.save(current);
         preservedApproved += 1;
@@ -457,26 +470,26 @@ export class ChanjetWmsBridgeService {
       }
 
       const sourceClassification = classifyChanjetWmsGap({
-        mappingType: source.mappingType,
-        sourceCode: source.code,
-        sourceName: source.name,
+        mappingType: reviewedSource.mappingType,
+        sourceCode: reviewedSource.code,
+        sourceName: reviewedSource.name,
         mapped: false,
         conflict: false,
         exactTargetCount: 0,
       });
-      const matches = erpCandidates[source.mappingType].filter((candidate) => {
+      const matches = erpCandidates[reviewedSource.mappingType].filter((candidate) => {
         if (!this.isWmsCandidateSemanticallyAllowed(sourceClassification, candidate)) return false;
         if (
-          source.mappingType === 'WAREHOUSE'
-          && source.companyCode
+          reviewedSource.mappingType === 'WAREHOUSE'
+          && reviewedSource.companyCode
           && candidate.company_code
-          && candidate.company_code !== source.companyCode
+          && candidate.company_code !== reviewedSource.companyCode
         ) return false;
-        const codeMatch = upper(candidate.code) === upper(source.code);
-        const nameMatch = this.normalizedWmsName(candidate.name) === this.normalizedWmsName(source.name);
-        const uomAliasMatch = source.mappingType === 'UOM'
-          && this.canonicalUomAlias(source.code || source.name) === this.normalizedWmsName(candidate.name);
-        return codeMatch || (!!source.name && nameMatch) || uomAliasMatch;
+        const codeMatch = upper(candidate.code) === upper(reviewedSource.code);
+        const nameMatch = this.normalizedWmsName(candidate.name) === this.normalizedWmsName(reviewedSource.name);
+        const uomAliasMatch = reviewedSource.mappingType === 'UOM'
+          && this.canonicalUomAlias(reviewedSource.code || reviewedSource.name) === this.normalizedWmsName(candidate.name);
+        return codeMatch || (!!reviewedSource.name && nameMatch) || uomAliasMatch;
       });
       const uniqueMatches = [...new Map(matches.map((match) => [
         `${match.entity_type}:${upper(match.code)}`,
@@ -485,14 +498,14 @@ export class ChanjetWmsBridgeService {
       const match = uniqueMatches.length === 1 ? uniqueMatches[0] : null;
       const next = this.mappingRepository.create({
         ...(current || {}),
-        mappingType: source.mappingType,
-        bookId: source.bookId,
+        mappingType: reviewedSource.mappingType,
+        bookId: reviewedSource.bookId,
         erpCode: match?.code || '',
         erpName: match?.name || '',
         erpEntityType: match?.entity_type || '',
-        chanjetId: source.code,
-        chanjetCode: source.code,
-        chanjetName: source.name || source.code,
+        chanjetId: reviewedSource.code,
+        chanjetCode: reviewedSource.code,
+        chanjetName: reviewedSource.name || reviewedSource.code,
         matchStatus: match ? 'MATCHED' : uniqueMatches.length > 1 ? 'CONFLICT' : 'SOURCE_ONLY',
         confidence: match ? '1.00' : uniqueMatches.length > 1 ? '0.00' : '1.00',
         reviewStatus: match || uniqueMatches.length === 0 ? 'APPROVED' : 'PENDING',
@@ -503,11 +516,13 @@ export class ChanjetWmsBridgeService {
             : null,
         reviewedAt: uniqueMatches.length <= 1 ? new Date() : null,
         rawData: {
-          sourceCompanyCode: source.companyCode,
+          ...(current?.rawData || {}),
+          sourceCompanyCode: reviewedSource.companyCode,
+          productNameCanaryPreserved: preserveVerifiedProductName,
           exactCandidates: uniqueMatches,
           rule: match
-            ? source.mappingType === 'UOM'
-              && this.canonicalUomAlias(source.code || source.name) === this.normalizedWmsName(match.name)
+            ? reviewedSource.mappingType === 'UOM'
+              && this.canonicalUomAlias(reviewedSource.code || reviewedSource.name) === this.normalizedWmsName(match.name)
               ? 'reviewed dimension-preserving UOM alias kg -> 公斤'
               : 'same-book company boundary plus exact code or unique normalized name'
             : uniqueMatches.length > 1
@@ -791,7 +806,7 @@ export class ChanjetWmsBridgeService {
   }
 
   async domainPolicyOverview() {
-    const [mappingGaps, policies, houseTargets, locationTargets, snapshots] = await Promise.all([
+    const [mappingGaps, policies, houseTargets, warehouseTargets, locationTargets, snapshots] = await Promise.all([
       this.mappingGapOverview(),
       this.loadWmsPolicies(),
       this.mappingRepository.manager.query(`
@@ -803,6 +818,23 @@ export class ChanjetWmsBridgeService {
         WHERE COALESCE(status, 'ACTIVE') = 'ACTIVE'
         ORDER BY house_code
       `) as Promise<Array<{ code: string; name: string; status: string }>>,
+      this.mappingRepository.manager.query(`
+        SELECT
+          warehouse_code AS code,
+          COALESCE(NULLIF(warehouse_name_zh, ''), NULLIF(warehouse_name, ''), warehouse_code) AS name,
+          COALESCE(company_code, '') AS company_code,
+          COALESCE(type, '') AS warehouse_type,
+          COALESCE(status, 'ACTIVE') AS status
+        FROM wms_warehouses
+        WHERE COALESCE(status, 'ACTIVE') = 'ACTIVE'
+        ORDER BY company_code, warehouse_code
+      `) as Promise<Array<{
+        code: string;
+        name: string;
+        company_code: string;
+        warehouse_type: string;
+        status: string;
+      }>>,
       this.mappingRepository.manager.query(`
         SELECT
           l.location_code AS code,
@@ -902,6 +934,7 @@ export class ChanjetWmsBridgeService {
       },
       targets: {
         houses: houseTargets,
+        warehouses: warehouseTargets,
         locations: locationTargets,
         products: mappingGaps.targetCatalog.PRODUCT,
         units: mappingGaps.targetCatalog.UOM,

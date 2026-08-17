@@ -20,6 +20,11 @@ import {
   ChanjetErpMasterBusinessReviewService,
 } from './chanjet-erp-master-business-review.service';
 import { ChanjetHoldResolutionAuditService } from './chanjet-hold-resolution-audit.service';
+import {
+  ChanjetProductNameCanaryError,
+  ChanjetProductNameCanaryService,
+} from './chanjet-product-name-canary.service';
+import { resolveChanjetHouseProjectTarget } from './chanjet-house-project-policy';
 import * as crypto from 'crypto';
 
 type ChanjetProxyMethod = 'GET' | 'POST';
@@ -79,6 +84,7 @@ export class ChanjetCallbackController {
     private readonly wmsBridge: ChanjetWmsBridgeService,
     private readonly erpMasterBusinessReview: ChanjetErpMasterBusinessReviewService,
     private readonly holdResolutionAudit: ChanjetHoldResolutionAuditService,
+    private readonly productNameCanary: ChanjetProductNameCanaryService,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
@@ -1033,6 +1039,241 @@ export class ChanjetCallbackController {
     };
   }
 
+  /**
+   * Closes only audit-proven accounting grouping/payment identities that must
+   * never become ERP transaction masters. The transaction is ERP middle-layer
+   * only and rolls back automatically if any identity or readback changed.
+   */
+  @Post('integration/erp-master-gap-closure/intentional-non-mapping/close')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async closeIntegrationIntentionalNonMappings(
+    @Body() body: {
+      auditHash?: string;
+      approveProduction?: boolean;
+      confirmation?: string;
+    },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    try {
+      const result = await this.holdResolutionAudit.closeIntentionalNonMappings({
+        auditHash: String(body.auditHash || ''),
+        approveProduction: body.approveProduction === true,
+        confirmation: String(body.confirmation || ''),
+      }, `system:chanjet-intentional-non-mapping:${requestedBy}`);
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_INTENTIONAL_NON_MAPPING_CLOSE',
+        result.auditHash,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_INTENTIONAL_NON_MAPPING_CLOSE',
+        String(body.auditHash || ''),
+        'FAIL',
+        { error: (error as Error).message },
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * One-row, name-only Chanjet product correction. The service derives the
+   * target from the current precision-audit hash, reads before writing, verifies
+   * the provider and ERP mirror, and restores the original name on any drift.
+   */
+  @Post('integration/product-name-canary/execute')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async executeIntegrationProductNameCanary(
+    @Body() body: {
+      mappingId?: string;
+      auditHash?: string;
+      approveProduction?: boolean;
+      confirmation?: string;
+    },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    try {
+      const result = await this.productNameCanary.execute({
+        mappingId: String(body.mappingId || ''),
+        auditHash: String(body.auditHash || ''),
+        approveProduction: body.approveProduction === true,
+        confirmation: String(body.confirmation || ''),
+      }, `system:chanjet-product-name-canary:${requestedBy}`);
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_PRODUCT_NAME_CANARY',
+        result.evidence.productCode,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      const evidence = error instanceof ChanjetProductNameCanaryError ? error.evidence : {};
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_PRODUCT_NAME_CANARY',
+        String(body.mappingId || ''),
+        'FAIL',
+        { error: (error as Error).message, evidence },
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Closes the exact audited "育雏" accounting grouping as non-transactional.
+   * The write is limited to the ERP mapping layer and is transactionally rolled
+   * back when identity or policy readback changes.
+   */
+  @Post('integration/erp-master-gap-closure/organization-policy/close')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async closeIntegrationOrganizationPolicy(
+    @Body() body: {
+      auditHash?: string;
+      approveProduction?: boolean;
+      confirmation?: string;
+    },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    try {
+      const result = await this.holdResolutionAudit.closeOrganizationPolicy({
+        auditHash: String(body.auditHash || ''),
+        approveProduction: body.approveProduction === true,
+        confirmation: String(body.confirmation || ''),
+      }, `system:chanjet-organization-policy:${requestedBy}`);
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_ORGANIZATION_POLICY_CLOSE',
+        result.auditHash,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_ORGANIZATION_POLICY_CLOSE',
+        String(body.auditHash || ''),
+        'FAIL',
+        { error: (error as Error).message },
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Creates only the exact approved ERP locations for one company and records
+   * their house/location bridge policies. No Chanjet or inventory-fact write.
+   */
+  @Post('integration/erp-master-gap-closure/house-location-policy/preflight')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async preflightIntegrationHouseLocationPolicy(
+    @Body() body: { companyCode?: string; auditHash?: string },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    try {
+      const result = await this.holdResolutionAudit.preflightHouseLocationPolicies({
+        companyCode: String(body.companyCode || ''),
+        auditHash: String(body.auditHash || ''),
+      });
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_HOUSE_LOCATION_POLICY_PREFLIGHT',
+        result.companyCode,
+        result.ready ? 'SUCCESS' : 'FAIL',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_HOUSE_LOCATION_POLICY_PREFLIGHT',
+        String(body.companyCode || ''),
+        'FAIL',
+        { error: (error as Error).message, writeChanjet: false },
+      );
+      throw error;
+    }
+  }
+
+  @Post('integration/erp-master-gap-closure/house-location-policy/close')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async closeIntegrationHouseLocationPolicy(
+    @Body() body: {
+      companyCode?: string;
+      auditHash?: string;
+      approveProduction?: boolean;
+      confirmation?: string;
+    },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    try {
+      const result = await this.holdResolutionAudit.closeHouseLocationPolicies({
+        companyCode: String(body.companyCode || ''),
+        auditHash: String(body.auditHash || ''),
+        approveProduction: body.approveProduction === true,
+        confirmation: String(body.confirmation || ''),
+      }, `system:chanjet-house-location-policy:${requestedBy}`);
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_HOUSE_LOCATION_POLICY_CLOSE',
+        result.companyCode,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_HOUSE_LOCATION_POLICY_CLOSE',
+        String(body.companyCode || ''),
+        'FAIL',
+        { error: (error as Error).message },
+      );
+      throw error;
+    }
+  }
+
+  /** One provider read, zero writes. Confirms the exact row and current API grant. */
+  @Post('integration/product-name-canary/preflight')
+  @RequireMenu(CHANJET_PROXY_MENU, 'V')
+  async preflightIntegrationProductNameCanary(
+    @Body() body: { mappingId?: string; auditHash?: string },
+    @Req() req: { user?: { username?: string; userId?: string } },
+  ) {
+    try {
+      const result = await this.productNameCanary.preflight({
+        mappingId: String(body.mappingId || ''),
+        auditHash: String(body.auditHash || ''),
+      });
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_PRODUCT_NAME_PREFLIGHT',
+        result.productCode,
+        'SUCCESS',
+        result,
+      );
+      return { success: true, result };
+    } catch (error) {
+      await this.writeChanjetAudit(
+        req,
+        'CHANJET_PRODUCT_NAME_PREFLIGHT',
+        String(body.mappingId || ''),
+        'FAIL',
+        { error: (error as Error).message, writeChanjet: false },
+      );
+      throw error;
+    }
+  }
+
   @Post('integration/erp-master-gap-closure/business-review/apply')
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async applyIntegrationErpMasterBusinessReview(
@@ -1619,7 +1860,6 @@ export class ChanjetCallbackController {
       projectCategoryCode?: string;
     },
   ) {
-    const allowedBooks = new Set(['3533914511118750', '3537748712226818', '3539743721526654']);
     const bookId = String(body.bookId || '').trim();
     const houseCode = String(body.houseCode || '').trim();
     const expectedName = String(body.expectedName || '').trim();
@@ -1627,7 +1867,6 @@ export class ChanjetCallbackController {
     if (body.approveProduction !== true || body.confirmation !== 'CREATE_HOUSE_PROJECT_CANARY') {
       throw new ForbiddenException('生产试写需要 approveProduction=true 和精确确认短语');
     }
-    if (!allowedBooks.has(bookId)) throw new ForbiddenException('账套不在已审核白名单');
     if (!/^HOUSE_[A-Z0-9_]{2,50}$/.test(houseCode) || /DEBUG|TEST|_CS_/i.test(houseCode)) {
       throw new ForbiddenException('鸡舍编码不符合生产主数据规则');
     }
@@ -1635,6 +1874,8 @@ export class ChanjetCallbackController {
       throw new ForbiddenException('鸡舍名称不符合生产主数据规则');
     }
     if (categoryCode !== '00') throw new ForbiddenException('试点仅允许已验证的项目分类 00');
+    const approvedTarget = resolveChanjetHouseProjectTarget(bookId, houseCode, expectedName, categoryCode);
+    if (!approvedTarget) throw new ForbiddenException('鸡舍项目目标不在精确审核白名单或账套/名称不一致');
 
     const rows = await this.ds.query(
       `SELECT house_code, house_name, farm_code, status
@@ -1643,22 +1884,33 @@ export class ChanjetCallbackController {
         LIMIT 2`,
       [houseCode],
     );
-    if (rows.length !== 1 || String(rows[0].status) !== 'ACTIVE' || String(rows[0].house_name || '') !== expectedName) {
-      throw new ForbiddenException('ERP 鸡舍不存在、非 ACTIVE 或名称不一致');
+    if (rows.length !== 1
+      || String(rows[0].status) !== 'ACTIVE'
+      || String(rows[0].house_name || '') !== expectedName
+      || String(rows[0].farm_code || '') !== approvedTarget.farmCode) {
+      throw new ForbiddenException('ERP 鸡舍不存在、非 ACTIVE 或名称/场区不一致');
     }
 
     const listPath = `/accounting/openapi/cc/project/list/${bookId}`;
-    const addPath = `/accounting/openapi/cc/project/add/${bookId}`;
+    const syncPath = `/accounting/document/integration/project/batchUpsert/${bookId}`;
+    const syncSourceId = approvedTarget.syncSourceId;
     let createdId = '';
+    let projectCategoryId = 0;
+    let upsertSucceeded = false;
+    let detailVerified = false;
+    let listVerified = false;
     let rollbackAttempted = false;
     let rollbackSucceeded = false;
-    const projectInput = {
-      code: houseCode,
-      name: expectedName,
-      projectCategoryCode: categoryCode,
-      statusEnum: 'A',
-      comments: `Phoenix ERP鸡舍成本对象 ${houseCode}`,
-    };
+    let reactivatingExistingId = '';
+    let beforeProjectRows: Array<Record<string, unknown>> = [];
+    let overwrittenBeforeProject: Record<string, unknown> | null = null;
+    const mirrorReadbackEvidence: Array<{
+      attempt: number;
+      delayMs: number;
+      syncStatus: 'SUCCESS' | 'FAIL' | 'UNKNOWN';
+      syncError: string | null;
+      rows: Array<{ externalId: string; externalCode: string; externalName: string; status: string }>;
+    }> = [];
     const projectRows = (payload: unknown): Array<Record<string, unknown>> => {
       if (Array.isArray(payload)) return payload as Array<Record<string, unknown>>;
       if (!payload || typeof payload !== 'object') return [];
@@ -1677,41 +1929,172 @@ export class ChanjetCallbackController {
       if (data && typeof data === 'object' && !Array.isArray(data)) return data as Record<string, unknown>;
       return record;
     };
+    const projectCategory = (payload: Record<string, unknown>): Record<string, unknown> => (
+      payload.projectCategory && typeof payload.projectCategory === 'object' && !Array.isArray(payload.projectCategory)
+        ? payload.projectCategory as Record<string, unknown>
+        : {}
+    );
+    const enumValue = (value: unknown): string => (
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? String((value as Record<string, unknown>).value || '')
+        : String(value || '')
+    );
+    const projectInvariant = (row: Record<string, unknown>) => {
+      const category = projectCategory(row);
+      const relation = (key: string) => {
+        const value = row[key];
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+        const record = value as Record<string, unknown>;
+        return {
+          id: String(record.id || ''),
+          code: String(record.code || record.empCode || ''),
+          name: String(record.name || record.partyName || ''),
+        };
+      };
+      return JSON.stringify({
+        id: String(row.id || ''),
+        code: String(row.code || ''),
+        name: String(row.name || ''),
+        statusEnum: enumValue(row.statusEnum),
+        projectCategory: {
+          id: String(category.id || ''),
+          code: String(category.code || row.projectCategoryCode || ''),
+        },
+        department: relation('department'),
+        employee: relation('employee'),
+        custVendor: relation('custVendor'),
+        parentProject: relation('parentProject'),
+      });
+    };
 
     try {
       const before = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
-      const collision = projectRows(before).find((item) => String(item.code || '') === houseCode || String(item.name || '') === expectedName);
+      beforeProjectRows = projectRows(before);
+      const collision = beforeProjectRows.find((item) => String(item.code || '') === houseCode || String(item.name || '') === expectedName);
       if (collision) {
-        await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', addPath, 'SUCCESS', {
-          outcome: 'IDEMPOTENT_EXISTING', bookId, houseCode, expectedName,
-          externalId: String(collision.id || ''), writeChanjet: false,
-        });
-        return {
-          success: true,
-          outcome: 'IDEMPOTENT_EXISTING',
-          writeChanjet: false,
-          changedExistingDepartment: false,
-          project: { id: String(collision.id || ''), code: String(collision.code || ''), name: String(collision.name || '') },
-        };
+        if (String(collision.code || '') !== houseCode || String(collision.name || '') !== expectedName) {
+          throw new Error('项目编码或名称已被其他主数据占用');
+        }
+        createdId = String(collision.id || '');
+        if (!createdId) throw new Error('已有项目缺少可回读的唯一 ID');
+        const existingDetailEnvelope = await this.auth.callApi<Record<string, unknown>>(
+          `/accounting/openapi/cc/project/query/${encodeURIComponent(createdId)}/${bookId}`,
+          { method: 'GET', kind: 'READ' },
+        );
+        const existingDetail = projectData(existingDetailEnvelope);
+        const existingCategory = projectCategory(existingDetail);
+        const existingStatus = existingDetail.statusEnum && typeof existingDetail.statusEnum === 'object'
+          ? String((existingDetail.statusEnum as Record<string, unknown>).value || '')
+          : String(existingDetail.statusEnum || '');
+        if (String(existingDetail.code || '') !== houseCode
+          || String(existingDetail.name || '') !== expectedName
+          || String(existingCategory.code || existingDetail.projectCategoryCode || '') !== categoryCode) {
+          throw new Error('已有项目详情与金丝雀目标不一致');
+        }
+        if (existingStatus === 'A') {
+          detailVerified = true;
+          const mirror = await this.integration.syncReadOnlyMirror(['PROJECT'], bookId);
+          const projectSync = mirror.results?.find((result) => (
+            result.key === 'PROJECT' && result.bookId === bookId
+          ));
+          if (projectSync?.status === 'FAIL') {
+            throw new Error(`ERP 镜像同步失败，不自动重试: ${projectSync.error || '未知错误'}`);
+          }
+          const existingMirrorRows = await this.ds.query(
+            `SELECT external_id, external_code, external_name, status
+               FROM chanjet_entity_snapshots
+              WHERE book_id=$1 AND entity_type='PROJECT' AND external_code=$2
+              ORDER BY updated_at DESC
+              LIMIT 2`,
+            [bookId, houseCode],
+          );
+          if (existingMirrorRows.length !== 1
+            || String(existingMirrorRows[0].external_id || '') !== createdId
+            || String(existingMirrorRows[0].external_name || '') !== expectedName) {
+            throw new Error('已有启用项目未在 ERP 镜像中形成唯一一致记录');
+          }
+          await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'SUCCESS', {
+            outcome: 'IDEMPOTENT_EXISTING_VERIFIED', bookId, houseCode, expectedName,
+            externalId: createdId, statusEnum: existingStatus, writeChanjet: false,
+            readback: { detail: true, erpMirror: true },
+          });
+          return {
+            success: true,
+            outcome: 'IDEMPOTENT_EXISTING_VERIFIED',
+            writeChanjet: false,
+            changedExistingDepartment: false,
+            project: {
+              id: createdId,
+              code: houseCode,
+              name: expectedName,
+              projectCategoryCode: categoryCode,
+              statusEnum: existingStatus,
+            },
+            readback: { detail: true, erpMirror: true, mirrorAttempts: 1 },
+          };
+        }
+        if (existingStatus !== 'I') {
+          throw new Error(`已有项目状态不允许幂等处理: ${existingStatus || 'UNKNOWN'}`);
+        }
+        reactivatingExistingId = createdId;
       }
 
-      const added = await this.auth.callApi<Record<string, unknown>>(addPath, {
-        method: 'POST', body: projectInput, kind: 'WRITE',
+      // The app is authorized for the integration batchUpsert API, while the
+      // standalone project/add permission is not granted. The reviewed list
+      // contract already returns projectCategory.id/code, so reuse that
+      // read-before-write evidence instead of spending another provider call.
+      const categorySeed = projectRows(before).find((item) => {
+        const category = projectCategory(item);
+        return String(category.code || item.projectCategoryCode || '') === categoryCode;
+      });
+      const verifiedCategory = categorySeed ? projectCategory(categorySeed) : {};
+      projectCategoryId = Number(verifiedCategory.id || categorySeed?.projectCategoryId || 0);
+      if (!Number.isSafeInteger(projectCategoryId) || projectCategoryId <= 0
+        || String(verifiedCategory.code || categorySeed?.projectCategoryCode || '') !== categoryCode) {
+        throw new Error(`无法从现有项目解析分类 ${categoryCode} 的有效读前证据`);
+      }
+      const projectInput = {
+        id: syncSourceId,
+        code: houseCode,
+        name: expectedName,
+        statusEnum: 'A',
+      };
+      const added = await this.auth.callApi<Record<string, unknown>>(syncPath, {
+        method: 'POST', body: [projectInput], kind: 'WRITE',
       });
       const addedData = projectData(added);
-      createdId = String(addedData.id || projectRows(added)[0]?.id || '');
+      const successResultMap = (
+        addedData.successResultMap && typeof addedData.successResultMap === 'object'
+          ? addedData.successResultMap as Record<string, unknown>
+          : {}
+      );
+      const failResultMap = (
+        addedData.failResultMap && typeof addedData.failResultMap === 'object'
+          ? addedData.failResultMap as Record<string, unknown>
+          : {}
+      );
+      if (Object.prototype.hasOwnProperty.call(failResultMap, houseCode)) {
+        throw new Error(`项目同步接口拒绝 ${houseCode}: ${String(failResultMap[houseCode])}`);
+      }
+      upsertSucceeded = true;
+      createdId = String(successResultMap[houseCode] || addedData.id || projectRows(added)[0]?.id || createdId || '');
       if (!createdId) {
         const afterAddList = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
         const created = projectRows(afterAddList).find((item) => String(item.code || '') === houseCode);
         createdId = String(created?.id || '');
       }
       if (!createdId) throw new Error('新增返回后无法解析项目 ID');
+      if (!reactivatingExistingId) {
+        overwrittenBeforeProject = beforeProjectRows.find((item) => String(item.id || '') === createdId) || null;
+        if (overwrittenBeforeProject) {
+          throw new Error(`项目同步返回既有项目 ID ${createdId}，判定为覆盖而非新增`);
+        }
+      }
 
       const detailPath = `/accounting/openapi/cc/project/query/${encodeURIComponent(createdId)}/${bookId}`;
       const detailEnvelope = await this.auth.callApi<Record<string, unknown>>(detailPath, { method: 'GET', kind: 'READ' });
       const detail = projectData(detailEnvelope);
-      const category = detail.projectCategory && typeof detail.projectCategory === 'object'
-        ? detail.projectCategory as Record<string, unknown> : {};
+      const category = projectCategory(detail);
       const status = detail.statusEnum && typeof detail.statusEnum === 'object'
         ? String((detail.statusEnum as Record<string, unknown>).value || '') : String(detail.statusEnum || '');
       if (String(detail.code || '') !== houseCode
@@ -1720,41 +2103,134 @@ export class ChanjetCallbackController {
         || status !== 'A') {
         throw new Error('好业财项目详情回读与写入目标不一致');
       }
+      detailVerified = true;
 
-      const mirror = await this.integration.syncReadOnlyMirror(['PROJECT'], bookId);
-      const mirrorRows = await this.ds.query(
-        `SELECT external_id, external_code, external_name, status
-           FROM chanjet_entity_snapshots
-          WHERE book_id=$1 AND entity_type='PROJECT' AND external_code=$2
-          ORDER BY updated_at DESC
-          LIMIT 2`,
-        [bookId, houseCode],
-      );
-      if (mirrorRows.length !== 1 || String(mirrorRows[0].external_name || '') !== expectedName) {
-        throw new Error('ERP 镜像回读未形成唯一一致项目');
+      // The provider's public contract describes batchUpsert.id ambiguously.
+      // Production proved that reusing it can overwrite an unrelated project.
+      // Require an exact +1 cardinality change (or same count for a reviewed
+      // inactive reactivation) and preserve every pre-write identity/relation.
+      const listDelaysMs = process.env.NODE_ENV === 'test' ? [0, 0, 0] : [2_000, 3_000, 5_000];
+      const expectedCount = beforeProjectRows.length + (reactivatingExistingId ? 0 : 1);
+      const beforeById = new Map(beforeProjectRows.map((item) => [String(item.id || ''), projectInvariant(item)]));
+      for (let index = 0; index < listDelaysMs.length; index += 1) {
+        const delayMs = listDelaysMs[index];
+        if (delayMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+        const afterEnvelope = await this.auth.callApi(listPath, { method: 'POST', body: {}, kind: 'READ' });
+        const afterRows = projectRows(afterEnvelope);
+        const afterById = new Map(afterRows.map((item) => [String(item.id || ''), item]));
+        const targetRows = afterRows.filter((item) => (
+          String(item.id || '') === createdId
+          && String(item.code || '') === houseCode
+          && String(item.name || '') === expectedName
+        ));
+        const changedBefore = beforeProjectRows.find((item) => {
+          const id = String(item.id || '');
+          if (reactivatingExistingId && id === reactivatingExistingId) return false;
+          const after = afterById.get(id);
+          return !after || projectInvariant(after) !== beforeById.get(id);
+        });
+        if (changedBefore) {
+          overwrittenBeforeProject = changedBefore;
+          throw new Error(`项目同步改变了既有项目 ${String(changedBefore.id || '')}，触发原值回滚`);
+        }
+        if (targetRows.length === 1 && afterRows.length === expectedCount) {
+          listVerified = true;
+          break;
+        }
+        const stillPreWriteSnapshot = targetRows.length === 0 && afterRows.length === beforeProjectRows.length;
+        if (!stillPreWriteSnapshot || index === listDelaysMs.length - 1) {
+          throw new Error(`项目列表回读未满足数量与唯一性不变量: before=${beforeProjectRows.length} after=${afterRows.length}`);
+        }
+      }
+      if (!listVerified) throw new Error('项目列表回读未通过');
+
+      // batchUpsert detail is strongly readable before the project list always
+      // converges. Delay the first mirror read and retry only a successful-but-
+      // stale list response. Provider/business failures are never retried here.
+      const mirrorDelaysMs = process.env.NODE_ENV === 'test'
+        ? [0, 0, 0]
+        : [2_000, 3_000, 5_000];
+      let mirrorVerified = false;
+      for (let index = 0; index < mirrorDelaysMs.length; index += 1) {
+        const delayMs = mirrorDelaysMs[index];
+        if (delayMs > 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+        }
+        const mirror = await this.integration.syncReadOnlyMirror(['PROJECT'], bookId);
+        const projectSync = mirror.results?.find((result) => (
+          result.key === 'PROJECT' && result.bookId === bookId
+        ));
+        if (projectSync?.status === 'FAIL') {
+          mirrorReadbackEvidence.push({
+            attempt: index + 1,
+            delayMs,
+            syncStatus: 'FAIL',
+            syncError: projectSync.error || '未知错误',
+            rows: [],
+          });
+          throw new Error(`ERP 镜像同步失败，不自动重试: ${projectSync.error || '未知错误'}`);
+        }
+        const mirrorRows = await this.ds.query(
+          `SELECT external_id, external_code, external_name, status
+             FROM chanjet_entity_snapshots
+            WHERE book_id=$1 AND entity_type='PROJECT' AND external_code=$2
+            ORDER BY updated_at DESC
+            LIMIT 2`,
+          [bookId, houseCode],
+        );
+        const evidenceRows = mirrorRows.map((row: Record<string, unknown>) => ({
+          externalId: String(row.external_id || ''),
+          externalCode: String(row.external_code || ''),
+          externalName: String(row.external_name || ''),
+          status: String(row.status || ''),
+        }));
+        mirrorReadbackEvidence.push({
+          attempt: index + 1,
+          delayMs,
+          syncStatus: projectSync?.status || 'UNKNOWN',
+          syncError: null,
+          rows: evidenceRows,
+        });
+        if (mirrorRows.length === 1 && String(mirrorRows[0].external_name || '') === expectedName) {
+          mirrorVerified = true;
+          break;
+        }
+      }
+      if (!mirrorVerified) {
+        throw new Error(`ERP 镜像回读未在 ${mirrorReadbackEvidence.length} 次低频延迟确认内形成唯一一致项目`);
       }
 
-      await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', addPath, 'SUCCESS', {
+      await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'SUCCESS', {
         outcome: 'CREATED_AND_VERIFIED', bookId, houseCode, expectedName, createdId,
-        projectCategoryCode: categoryCode, changedExistingDepartment: false,
-        mirrorJobId: (mirror as Record<string, unknown>).jobId || null,
+        projectCategoryCode: categoryCode, projectCategoryId, syncSourceId,
+        changedExistingDepartment: false, listVerified,
+        mirrorReadbackEvidence,
       });
       return {
         success: true,
         outcome: 'CREATED_AND_VERIFIED',
         writeChanjet: true,
         changedExistingDepartment: false,
-        project: { id: createdId, code: houseCode, name: expectedName, projectCategoryCode: categoryCode, statusEnum: 'A' },
-        readback: { detail: true, erpMirror: true },
+        project: {
+          id: createdId, code: houseCode, name: expectedName,
+          projectCategoryCode: categoryCode, projectCategoryId, syncSourceId, statusEnum: 'A',
+        },
+        readback: { detail: true, list: true, erpMirror: true, mirrorAttempts: mirrorReadbackEvidence.length },
       };
     } catch (error) {
-      if (createdId) {
+      if (upsertSucceeded && syncSourceId > 0) {
         rollbackAttempted = true;
         try {
-          await this.auth.callApi(`/accounting/openapi/cc/project/update/${bookId}`, {
+          const rollbackCode = overwrittenBeforeProject
+            ? String(overwrittenBeforeProject.code || '') : houseCode;
+          const rollbackName = overwrittenBeforeProject
+            ? String(overwrittenBeforeProject.name || '') : expectedName;
+          const rollbackStatus = overwrittenBeforeProject
+            ? (enumValue(overwrittenBeforeProject.statusEnum) || 'A') : 'I';
+          await this.auth.callApi(syncPath, {
             method: 'POST',
             kind: 'WRITE',
-            body: { id: createdId, ...projectInput, statusEnum: 'I', comments: `${projectInput.comments} [ROLLBACK]` },
+            body: [{ id: syncSourceId, code: rollbackCode, name: rollbackName, statusEnum: rollbackStatus }],
           });
           const rolledBack = await this.auth.callApi<Record<string, unknown>>(
             `/accounting/openapi/cc/project/query/${encodeURIComponent(createdId)}/${bookId}`,
@@ -1763,20 +2239,30 @@ export class ChanjetCallbackController {
           const detail = projectData(rolledBack);
           const status = detail.statusEnum && typeof detail.statusEnum === 'object'
             ? String((detail.statusEnum as Record<string, unknown>).value || '') : String(detail.statusEnum || '');
-          rollbackSucceeded = status === 'I';
+          rollbackSucceeded = String(detail.code || '') === rollbackCode
+            && String(detail.name || '') === rollbackName
+            && status === rollbackStatus;
         } catch (rollbackError) {
           this.log.error(`house project rollback failed id=${createdId}: ${(rollbackError as Error).message}`);
         }
       }
-      await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', addPath, 'FAIL', {
+      await this.writeChanjetAudit(req, 'CHANJET_HOUSE_PROJECT_PILOT', syncPath, 'FAIL', {
         bookId, houseCode, expectedName, createdId: createdId || null,
-        error: (error as Error).message, rollbackAttempted, rollbackSucceeded,
+        projectCategoryId: projectCategoryId || null, syncSourceId, upsertSucceeded,
+        error: (error as Error).message, detailVerified, listVerified, mirrorReadbackEvidence,
+        rollbackAttempted, rollbackSucceeded,
       });
       return {
         success: false,
-        writeChanjet: Boolean(createdId),
+        writeChanjet: upsertSucceeded,
         changedExistingDepartment: false,
         error: (error as Error).message,
+        readback: {
+          detail: detailVerified,
+          erpMirror: false,
+          mirrorAttempts: mirrorReadbackEvidence.length,
+          evidence: mirrorReadbackEvidence,
+        },
         rollback: { attempted: rollbackAttempted, succeeded: rollbackSucceeded },
       };
     }

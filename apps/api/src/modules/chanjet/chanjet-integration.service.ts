@@ -8967,9 +8967,20 @@ export class ChanjetIntegrationService {
       'name', 'Name', 'bookName', 'deptName', 'subjectName', 'projectName',
       'accountName', 'glAccountName', 'customerName', 'supplierName', 'fullName', 'title', 'summary',
     ]);
-    const status = this.firstText(sourceRow, ['voucherStatusEnum', 'status', 'state', 'statusEnum', 'voucherState', 'approveStatus', 'auditStatus', 'enableStatus']);
-    const period = this.firstText(sourceRow, ['period', 'openingPeriod', 'accountPeriod', 'yearMonth', 'bizPeriod', 'bizDate']);
-    const currency = this.firstText(sourceRow, ['currency', 'currencyCode', 'currencyName', 'baseCurrencyId', 'origCurrency']) || 'RMB';
+    const statusEnum = this.isRecord(sourceRow.statusEnum)
+      ? this.firstText(sourceRow.statusEnum, ['value', 'code', 'name'])
+      : '';
+    const status = this.firstText(sourceRow, ['voucherStatusEnum', 'status', 'state', 'statusEnum', 'voucherState', 'approveStatus', 'auditStatus', 'enableStatus'])
+      || statusEnum;
+    const periodCandidate = this.firstText(sourceRow, ['period', 'openingPeriod', 'accountPeriod', 'yearMonth', 'bizPeriod', 'bizDate']);
+    const currencyCandidate = this.firstText(sourceRow, ['currency', 'currencyCode', 'currencyName', 'baseCurrencyId', 'origCurrency']);
+    // Standard columns are deliberately bounded; the complete provider value
+    // remains available in raw_data. Reject an overlong semantic candidate
+    // instead of letting one new master row abort the entire readonly mirror.
+    const period = this.boundedMirrorText(periodCandidate, 16, 'period');
+    const currency = currencyCandidate
+      ? this.boundedMirrorText(currencyCandidate, 16, 'currency')
+      : 'RMB';
     const amount = this.firstNumberText(sourceRow, [
       'amount',
       'totalAmount',
@@ -9203,6 +9214,15 @@ export class ChanjetIntegrationService {
         if (text) return text;
       }
     }
+    return '';
+  }
+
+  private boundedMirrorText(value: string, maxLength: number, field: 'period' | 'currency'): string {
+    const text = String(value || '').trim();
+    if (text.length <= maxLength) return text;
+    (this.log as Logger | undefined)?.warn(
+      `Chanjet mirror ignored overlong ${field} candidate length=${text.length}`,
+    );
     return '';
   }
 

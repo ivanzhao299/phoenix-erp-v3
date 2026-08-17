@@ -1,12 +1,12 @@
 # Codex-Orchestrator Runtime Memory
 
-Last updated: 2026-08-06
+Last updated: 2026-08-09
 
 ## Active Context
 
-- Active module: Chanjet Organization Master Closure
-- Current stage: CHANJET_ORGANIZATION_MASTER_CLOSURE_PRODUCTION_APPLIED
-- Active decision: GO_WITH_CONDITIONS
+- Active module: Chanjet House Project Alignment
+- Current stage: CHANJET_HOUSE_PROJECT_ALIGNMENT_PRODUCTION_COMPLETE
+- Active decision: GO
 - Next gate: CHANJET_CASH_ACCOUNT_CONTROLLED_CREATION_REVIEW
 - Page entry: `/finance2/chanjet-integration`
 - Menu entry: 财务结算中心 / 好业财中间层（管理员）
@@ -30,8 +30,30 @@ Last updated: 2026-08-06
   materials and 78 new deterministic source mappings. The final plan has zero
   actionable rows and 107 policy-incomplete HOLD rows. Six provider readonly
   scope HOLDs remain separate.
+- The approved house cost-object line is complete: 12/12 reviewed ERP houses
+  exist as active Chanjet projects in category `00`; final counts are 18
+  projects, 12 house projects, 36 departments, 13 house-shaped departments and
+  18 ERP houses, with zero blockers.
 
 ## Latest Chanjet Decision
+
+- Production revision `c54299d9` passed protected API deployment run
+  `31303925835`.
+- Eleven missing house cost objects were written strictly one at a time. Every
+  target passed provider detail, provider list cardinality/unchanged-existing
+  invariants and ERP mirror readback.
+- Final readonly run `31304598356` proves 12/12 exact active house projects in
+  category `00`, 36 departments unchanged and zero blockers.
+- The initial `HOUSE_MS_01` attempt exposed `batchUpsert.id` overwrite behavior;
+  the queue stopped, `HOUSE_MS_02` was restored by run `31302930947`, and
+  readonly run `31302979203` proved the exact pre-rollout baseline before the
+  permanent unique-source-id and original-value rollback fix was deployed.
+- No user, department, user-organization binding, finance fact or inventory fact
+  mutation exists in the rollout path.
+- The house project Gate is closed. Cash-account, product permission,
+  reconciliation and other Chanjet work remain separate unapproved Gates.
+- Evidence:
+  `docs/ops/CHANJET_HOUSE_PROJECT_ROLLOUT_CLOSURE_REPORT_20260809.md`.
 
 - Production revision `440cca8f` passed deployment run `31065216212`.
 - The organization Gate applied only `DEPARTMENT`: seven zero-fact house masters

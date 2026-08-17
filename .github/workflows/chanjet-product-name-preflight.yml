@@ -1,0 +1,65 @@
+name: Chanjet Product Name Read-only Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_readonly:
+        description: 'Confirm one exact production product read (zero writes)'
+        required: true
+        default: false
+        type: boolean
+      mapping_id:
+        description: 'Precision-audit product mapping id'
+        required: true
+        type: string
+
+concurrency:
+  group: chanjet-product-name-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: inputs.approve_readonly
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate read-only preflight
+        run: |
+          node --check scripts/ops/mint-production-admin-token-over-ssh.mjs
+          node --check scripts/ops/chanjet-product-name-preflight.mjs
+
+      - name: Run protected production read-only preflight
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          MAPPING_ID: ${{ inputs.mapping_id }}
+        run: |
+          set -euo pipefail
+          case "$MAPPING_ID" in (*[!0-9]*|'') echo 'mapping_id must be numeric' >&2; exit 2;; esac
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$TOKEN"
+          PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-product-name-preflight.mjs \
+            --execute \
+            --mapping-id="$MAPPING_ID" \
+            --api-base=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chanjet-product-name-preflight-${{ github.run_id }}
+          path: docs/ops/runs/chanjet-product-name-preflight-latest.json
+          if-no-files-found: error
+          retention-days: 14
