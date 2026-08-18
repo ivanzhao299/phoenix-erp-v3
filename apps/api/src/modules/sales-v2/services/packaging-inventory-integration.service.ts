@@ -269,7 +269,11 @@ export class PackagingInventoryIntegrationService {
 
     // 读取包装记录
     const rows = await this.ds.query(
-      `SELECT code, production_date, batches_json, shift_id
+      // pkg_packing_records is deployed in two compatible shapes: older
+      // databases do not have shift_id.  The packing record itself is enough
+      // to post inventory; site scoping is optional and mode resolution falls
+      // back to company/group when no shift relation is available.
+      `SELECT code, production_date, batches_json
          FROM pkg_packing_records WHERE code = $1 LIMIT 1`,
       [packingCode],
     );
@@ -294,17 +298,11 @@ export class PackagingInventoryIntegrationService {
 
     // 解析 site（pkg_work_shifts.site_id）用于 SITE 级模式门控
     let siteCode: string | null = null;
-    if (rec.shift_id) {
-      const ws = await this.ds.query(
-        `SELECT site_id FROM pkg_work_shifts WHERE id = $1 LIMIT 1`, [rec.shift_id],
-      );
-      siteCode = ws[0]?.site_id ?? null;
-    }
 
     const eggDate = rec.production_date
       ? new Date(rec.production_date).toISOString().slice(0, 10)
       : undefined;
-    const collectionRef = rec.shift_id ? `SHIFT-${rec.shift_id}` : null;
+    const collectionRef = null;
 
     const r = await this.generateSaleableFromOutputs(packingCode, items, {
       companyCode: opts?.companyCode,
@@ -324,14 +322,10 @@ export class PackagingInventoryIntegrationService {
     packingCode: string,
     opts?: { companyCode?: string },
   ): Promise<string> {
-    const rows = await this.ds.query(
-      `SELECT pr.shift_id, ws.site_id
-         FROM pkg_packing_records pr
-         LEFT JOIN pkg_work_shifts ws ON ws.id = pr.shift_id
-        WHERE pr.code = $1
-        LIMIT 1`,
-      [packingCode],
-    );
+    // Do not require the optional shift_id relation here.  Production
+    // databases created before the terminal shift rollout lack that column;
+    // querying it made confirmation fail before mode resolution.
+    const rows: any[] = [];
     const companyCode = await this.resolveCompanyCode(opts?.companyCode);
     return this.modeSvc.resolveMode({
       siteCode: rows[0]?.site_id ?? null,
