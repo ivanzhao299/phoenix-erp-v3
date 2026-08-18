@@ -175,7 +175,7 @@ describe('PackagingTerminalBffController', () => {
 
     const sourceCall = em.query.mock.calls.find(([sql]) => String(sql).includes('AS total_gradable'));
     expect(String(sourceCall?.[0])).toContain('NULLIF(total_qty, 0)');
-    expect(String(sourceCall?.[0])).toContain("batch_status = 'RECEIVED'");
+    expect(String(sourceCall?.[0])).toContain("batch_status IN ('RECEIVED', 'COMPLETED', 'CLOSED')");
   });
 
   it('accepts the reported grading batch when output exactly matches the remaining gradable quantity', async () => {
@@ -202,6 +202,22 @@ describe('PackagingTerminalBffController', () => {
       String(sql).includes('INSERT INTO pkg_grading_records'),
     );
     expect(insertCall?.[1]).toEqual(expect.arrayContaining([290]));
+  });
+
+  it('normalizes numeric-string outputs from legacy terminals', async () => {
+    const em = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('AS total_gradable')) return [{ total_received: 100, total_gradable: 100 }];
+        if (sql.includes('AS total_graded')) return [{ total_graded: 0 }];
+        return [];
+      }),
+    };
+    const controller = new PackagingTerminalBffController(em as never, {} as never);
+    await expect(controller.submitGrading({
+      productionDate: '2026-08-18', outputs: { EGG_GRADE_1: '100' },
+    })).resolves.toMatchObject({ code: 200 });
+    const insertCall = em.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO pkg_grading_records'));
+    expect((insertCall as any)?.[1]).toEqual(expect.arrayContaining([100, expect.any(String)]));
   });
 
   it('summarizes every handover stage for the requested shift', async () => {

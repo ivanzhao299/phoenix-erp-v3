@@ -1950,13 +1950,16 @@ export class PackagingTerminalBffController {
   async submitGrading(@Body() body: Record<string, any>) {
     const today = new Date().toISOString().slice(0, 10);
     const productionDate = body.productionDate || today;
-    const outputs = body.outputs as Record<string, number> || {};
+    const rawOutputs = body.outputs as Record<string, unknown> || {};
+    const outputs: Record<string, number> = {};
 
-    // 校验每项产出非负
-    for (const [k, v] of Object.entries(outputs)) {
-      if (typeof v !== 'number' || v < 0 || !Number.isFinite(v)) {
+    // 兼容旧终端把数字序列化为字符串；服务端统一转成有限非负数。
+    for (const [k, raw] of Object.entries(rawOutputs)) {
+      const v = typeof raw === 'number' || typeof raw === 'string' ? Number(raw) : NaN;
+      if (!Number.isFinite(v) || v < 0) {
         throw new BadRequestException(`等级 ${k} 的数量无效`);
       }
+      outputs[k] = v;
     }
 
     const totalOutput = Object.values(outputs).reduce((a: number, b: number) => a + b, 0);
@@ -1964,12 +1967,16 @@ export class PackagingTerminalBffController {
     // 服务端校验：总产出不得超过当日净可分级量（已收 − 已分级）
     const [recvRow] = await this.em.query<{ total_received: number; total_gradable: number }[]>(
       `SELECT COALESCE(SUM(
-                CASE WHEN batch_status = 'RECEIVED'
+                CASE WHEN batch_status IN ('RECEIVED', 'COMPLETED', 'CLOSED')
+                          OR COALESCE(total_qty, 0) > 0
+                          OR COALESCE(received_qty, 0) > 0
                   THEN COALESCE(NULLIF(total_qty, 0), NULLIF(received_qty, 0), 0)
                   ELSE 0 END
               ), 0)::int AS total_received,
               COALESCE(SUM(
-                CASE WHEN batch_status = 'RECEIVED'
+                CASE WHEN batch_status IN ('RECEIVED', 'COMPLETED', 'CLOSED')
+                          OR COALESCE(total_qty, 0) > 0
+                          OR COALESCE(received_qty, 0) > 0
                   THEN GREATEST(
                     COALESCE(NULLIF(total_qty, 0), NULLIF(received_qty, 0), 0)
                     - COALESCE(dirty_qty, 0) - COALESCE(cracked_qty, 0), 0
