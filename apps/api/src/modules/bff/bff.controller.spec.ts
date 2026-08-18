@@ -391,7 +391,38 @@ describe('PackagingTerminalBffController', () => {
     )).toBe(false);
   });
 
-  it('reports a legacy TEMP-mode handover without inventory as incomplete after reload', async () => {
+  it('commits a TEMP-mode handover when inventory generation is intentionally skipped', async () => {
+    let inserted = false;
+    const em = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('SELECT code, packing_code')) return inserted ? [{
+          code: 'WH-20260725-TEMP-OK', packing_code: 'PKG-TEMP-OK', box_count: 1,
+          created_at: '2026-07-25T08:00:00.000Z',
+        }] : [];
+        if (sql.includes('SELECT code') && sql.includes('FROM pkg_handover_records')) return [];
+        if (sql.includes('INSERT INTO pkg_handover_records')) { inserted = true; return []; }
+        if (sql.includes('COUNT(*)::int AS batch_count')) return [{ batch_count: 0, total_inbound: 0 }];
+        return [];
+      }),
+    };
+    const pkgInv = {
+      completeTerminalPacking: jest.fn().mockResolvedValue({
+        refNo: 'PKG-TEMP-OK', idempotent: false, totalInbound: 0,
+        skippedByMode: true, mode: 'TEMP_PRODUCTION_INBOUND',
+      }),
+      getTerminalInventoryMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND'),
+    };
+    const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
+
+    await expect(controller.confirmHandover({ packingCode: 'PKG-TEMP-OK', boxes: ['BOX-1'] }))
+      .resolves.toMatchObject({ code: 200, data: {
+        inventoryOk: true,
+        status: { state: 'COMMITTED', committed: true, inventoryBatchCount: 0 },
+      } });
+    expect(inserted).toBe(true);
+  });
+
+  it('keeps a legacy TEMP-mode handover committed after reload', async () => {
     const em = {
       query: jest.fn(async (sql: string) => {
         if (sql.includes('FROM pkg_handover_records')) {
@@ -421,8 +452,8 @@ describe('PackagingTerminalBffController', () => {
     ).resolves.toMatchObject({
       code: 200,
       data: {
-        state: 'HANDOVER_ONLY',
-        committed: false,
+        state: 'COMMITTED',
+        committed: true,
         inventoryMode: 'TEMP_PRODUCTION_INBOUND',
         inventoryBatchCount: 0,
         totalInbound: 0,

@@ -2195,8 +2195,9 @@ export class PackagingTerminalBffController {
     const handoverQuantity = Number(packingRows[0]?.total_eggs || 0);
     const batchCount = Number(inventoryRows[0]?.batch_count || 0);
     const totalInbound = Number(inventoryRows[0]?.total_inbound || 0);
+    const tempMode = inventoryMode === 'TEMP_PRODUCTION_INBOUND';
     const committed = Boolean(handover)
-      && batchCount > 0 && totalInbound > 0;
+      && ((batchCount > 0 && totalInbound > 0) || tempMode);
     const state = committed
       ? 'COMMITTED'
       : handover
@@ -2220,7 +2221,9 @@ export class PackagingTerminalBffController {
         inventoryPosted: batchCount > 0 && totalInbound > 0,
         committedAt: handover?.created_at ?? null,
         message: committed
-          ? '包装交接及库存入账均已完成'
+          ? tempMode
+            ? '交接已完成；TEMP_PRODUCTION_INBOUND 模式不重复生成包装库存'
+            : '包装交接及库存入账均已完成'
           : state === 'HANDOVER_ONLY'
             ? '交接记录已存在，但库存入账证据缺失，可重试确认'
             : state === 'INVENTORY_ONLY'
@@ -2263,7 +2266,9 @@ export class PackagingTerminalBffController {
       inventory = await this.pkgInv.completeTerminalPacking(packingCode, { companyCode: body.companyCode });
       inventoryOk =
         inventory?.idempotent === true
-        || Number(inventory?.totalInbound || 0) > 0;
+        || Number(inventory?.totalInbound || 0) > 0
+        || (inventory?.skippedByMode === true
+          && inventory?.mode === 'TEMP_PRODUCTION_INBOUND');
       if (!inventoryOk) {
         message = inventory?.note
           || (inventory?.skippedByMode
@@ -2279,7 +2284,7 @@ export class PackagingTerminalBffController {
       inventory = { ok: false, error: e?.message ?? '库存生成失败', message };
     }
 
-    // 只有包装库存已有确切入账证据时才新增交接记录。
+    // 包装库存已入账，或 TEMP 模式已由日产蛋链路入账时，新增交接记录。
     // 旧版遗留的 HANDOVER_ONLY 记录会在重试时复用。
     if (inventoryOk && existing.length === 0) {
       await this.em.query(
@@ -2296,6 +2301,13 @@ export class PackagingTerminalBffController {
 
     const statusResponse = await this.getWarehouseHandoverStatus(packingCode);
     const status = statusResponse.data;
+    if (inventory?.skippedByMode === true
+      && inventory?.mode === 'TEMP_PRODUCTION_INBOUND'
+      && status.handoverCode) {
+      status.state = 'COMMITTED';
+      status.committed = true;
+      status.message = '交接已完成；TEMP_PRODUCTION_INBOUND 模式不重复生成包装库存';
+    }
     inventoryOk = status.committed;
     message = inventoryOk ? undefined : (message || status.message);
 
