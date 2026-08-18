@@ -299,6 +299,7 @@ describe('PackagingTerminalBffController', () => {
     let inserted = false;
     const em = {
       query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM wms_locations')) return [{ location_code: 'WH-A' }];
         if (sql.includes('SELECT code, packing_code')) {
           return inserted ? [{
             code: 'WH-20260725-1',
@@ -356,6 +357,7 @@ describe('PackagingTerminalBffController', () => {
     let inserted = false;
     const em = {
       query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM wms_locations')) return [{ location_code: 'LOC-1' }];
         if (sql.includes('SELECT code, packing_code')) {
           return inserted ? [{
             code: 'WH-20260725-TEMP',
@@ -390,6 +392,7 @@ describe('PackagingTerminalBffController', () => {
     await expect(controller.confirmHandover({
       packingCode: 'PKG-20260725-NO-STOCK',
       boxes: ['BOX-1'],
+      location: 'LOC-1',
     })).resolves.toMatchObject({
       code: 200,
       data: {
@@ -412,6 +415,7 @@ describe('PackagingTerminalBffController', () => {
     let inserted = false;
     const em = {
       query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM wms_locations')) return [{ location_code: 'LOC-1' }];
         if (sql.includes('SELECT code, packing_code')) return inserted ? [{
           code: 'WH-20260725-TEMP-OK', packing_code: 'PKG-TEMP-OK', box_count: 1,
           created_at: '2026-07-25T08:00:00.000Z',
@@ -431,7 +435,7 @@ describe('PackagingTerminalBffController', () => {
     };
     const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
 
-    await expect(controller.confirmHandover({ packingCode: 'PKG-TEMP-OK', boxes: ['BOX-1'] }))
+    await expect(controller.confirmHandover({ packingCode: 'PKG-TEMP-OK', boxes: ['BOX-1'], location: 'LOC-1' }))
       .resolves.toMatchObject({ code: 200, data: {
         inventoryOk: true,
         status: { state: 'COMMITTED', committed: true, inventoryBatchCount: 0 },

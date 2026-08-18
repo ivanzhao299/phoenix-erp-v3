@@ -13,6 +13,7 @@ import {
 } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
 import styles from './warehouse-handover.module.css';
+import { LocationSelector } from '@/components/shared-selectors/MasterDataSelectors';
 export default function WarehouseHandoverPage() {
   const router = useRouter();
   const {
@@ -404,12 +405,12 @@ export default function WarehouseHandoverPage() {
               set: setPalletCode,
               label: t('ui.托盘码', '托盘码'),
               ph: t('ui.扫码或输入', '扫码或输入')
-            }, {
+              }, {
               key: 'location',
               state: location,
               set: setLocation,
               label: t('ui.库位', '库位'),
-              ph: t('ui.如A0103', '如 A-01-03')
+              ph: t('ui.请选择库位', '请选择库位')
             }, {
               key: 'receiver',
               state: receiver,
@@ -422,16 +423,20 @@ export default function WarehouseHandoverPage() {
                 color: T.MUT,
                 marginBottom: 4
               }}>{f.label}</div>
-                  <input value={f.state} onChange={e => f.set(e.target.value)} placeholder={f.ph} style={{
-                width: '100%',
-                background: 'var(--overlay-white-05)',
+                  {f.key === 'location' ? <LocationSelector
+                    value={location}
+                    onChange={setLocation}
+                    placeholder={f.ph}
+                  /> : <input value={f.state} onChange={e => f.set(e.target.value)} placeholder={f.ph} style={{
+                    width: '100%',
+                    background: 'var(--overlay-white-05)',
                 border: `1px solid ${T.BOR}`,
                 borderRadius: 8,
                 padding: '12px 14px',
                 color: T.TXT,
                 fontSize: 14,
                 boxSizing: 'border-box'
-              }} />
+                }} />}
                 </div>)}
             </div>
           </div>
