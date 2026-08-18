@@ -171,7 +171,7 @@ describe('PackagingTerminalBffController', () => {
     await expect(controller.submitGrading({
       productionDate: '2026-07-21',
       outputs: { GRADE_1: 781 },
-    })).rejects.toThrow('可分级余量 780');
+    })).resolves.toMatchObject({ code: 200, data: { totalOutput: 781, warnings: [expect.stringContaining('可分级余量')] } });
 
     const sourceCall = em.query.mock.calls.find(([sql]) => String(sql).includes('AS total_gradable'));
     expect(String(sourceCall?.[0])).toContain('NULLIF(total_qty, 0)');

@@ -1995,13 +1995,14 @@ export class PackagingTerminalBffController {
     const totalGradable = Number(recvRow?.total_gradable) || 0;
     const totalGraded   = Number(gradedRow?.total_graded)  || 0;
     const netAvailable  = totalGradable - totalGraded;
+    const warnings: string[] = [];
 
     if (totalReceived === 0) {
-      throw new BadRequestException('今日尚未录入集蛋数据，无法提交分级');
+      warnings.push('未读取到今日已接收来源批次，已记录分级结果，请核对来源批次状态');
     }
     if (totalOutput > netAvailable) {
-      throw new BadRequestException(
-        `产出 ${totalOutput} 超过今日可分级余量 ${netAvailable}（可分级 ${totalGradable} − 已分级 ${totalGraded}）`,
+      warnings.push(
+        `产出 ${totalOutput} 超过服务端计算的今日可分级余量 ${netAvailable}（可分级 ${totalGradable} − 已分级 ${totalGraded}），已记录结果，请复核台账`,
       );
     }
 
@@ -2017,7 +2018,7 @@ export class PackagingTerminalBffController {
       ),
       null,
     );
-    return { code: 200, data: { code } };
+    return { code: 200, data: { code, totalOutput, warnings } };
   }
 
   /**
