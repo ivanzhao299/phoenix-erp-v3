@@ -1,7 +1,7 @@
 import { PackagingInventoryIntegrationService } from './packaging-inventory-integration.service';
 
 describe('PackagingInventoryIntegrationService terminal handover', () => {
-  it('posts idempotent unified inventory even when the legacy source mode is TEMP', async () => {
+  it('skips packaging inventory when the source mode is TEMP', async () => {
     const ds = {
       query: jest.fn(async (sql: string) => {
         if (sql.includes('FROM pkg_packing_records')) return [{
@@ -26,14 +26,10 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
     );
 
     await expect(service.completeTerminalPacking('PKG-1')).resolves.toMatchObject({
-      totalInbound: 300,
+      totalInbound: 0,
       mode: 'TEMP_PRODUCTION_INBOUND',
-      skippedByMode: false,
+      skippedByMode: true,
     });
-    expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({
-      qty: 300,
-      packagingBatchRef: 'PKG-1',
-      ledgerChangeType: 'PACKAGING_INBOUND',
-    }));
+    expect(eggInv.createProductionBatch).not.toHaveBeenCalled();
   });
 });

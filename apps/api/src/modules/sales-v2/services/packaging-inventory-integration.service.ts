@@ -130,8 +130,8 @@ export class PackagingInventoryIntegrationService {
 
     const companyCode = await this.resolveCompanyCode(opts?.companyCode);
 
-    // 普通包装完成仍遵守来源模式互斥；成品交接必须产生真实库存证据。
-    // packaging_batch_ref 作为幂等键，保证交接重试不会重复入库。
+    // 包装完成遵守库存来源模式互斥：TEMP 模式由日产蛋入库负责库存，
+    // 成品交接只落交接记录；PACKAGING 模式才由本链路生成可售库存。
     const mode = await this.modeSvc.resolveMode({ siteCode: opts?.siteCode ?? null, companyCode });
     if (mode !== 'PACKAGING_INBOUND' && !opts?.requireInventory) {
       this.logger.log(`[PkgInv] 包装批次 ${refNo} 当前为 ${mode} 模式，跳过包装可售入库（互斥，防双写）`);
@@ -309,7 +309,6 @@ export class PackagingInventoryIntegrationService {
       siteCode,
       eggDate,
       collectionRef,
-      requireInventory: true,
     });
     return r;
   }
