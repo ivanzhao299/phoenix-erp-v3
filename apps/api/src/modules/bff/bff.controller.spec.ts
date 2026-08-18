@@ -174,7 +174,8 @@ describe('PackagingTerminalBffController', () => {
     })).rejects.toThrow('可分级余量 780');
 
     const sourceCall = em.query.mock.calls.find(([sql]) => String(sql).includes('AS total_gradable'));
-    expect(String(sourceCall?.[0])).toContain('SUM(total_qty - dirty_qty - cracked_qty)');
+    expect(String(sourceCall?.[0])).toContain('NULLIF(total_qty, 0)');
+    expect(String(sourceCall?.[0])).toContain("batch_status = 'RECEIVED'");
   });
 
   it('accepts the reported grading batch when output exactly matches the remaining gradable quantity', async () => {

@@ -1456,7 +1456,11 @@ export class PackagingTerminalBffController {
          )
          SELECT psb.*,
                 COALESCE(bh.house_name, psb.house_code) AS house_name,
-                GREATEST(psb.total_qty - psb.dirty_qty - psb.cracked_qty, 0)::int AS gradable_qty,
+                GREATEST(
+                  COALESCE(NULLIF(psb.total_qty, 0), NULLIF(psb.received_qty, 0), 0)
+                  - COALESCE(psb.dirty_qty, 0) - COALESCE(psb.cracked_qty, 0),
+                  0
+                )::int AS gradable_qty,
                 (SELECT total_graded FROM graded_sum) AS total_graded_today
          FROM pkg_source_batches psb
          LEFT JOIN brd_houses bh ON bh.house_code = psb.house_code
@@ -1959,8 +1963,19 @@ export class PackagingTerminalBffController {
 
     // 服务端校验：总产出不得超过当日净可分级量（已收 − 已分级）
     const [recvRow] = await this.em.query<{ total_received: number; total_gradable: number }[]>(
-      `SELECT COALESCE(SUM(received_qty), 0)::int AS total_received,
-              COALESCE(SUM(total_qty - dirty_qty - cracked_qty), 0)::int AS total_gradable
+      `SELECT COALESCE(SUM(
+                CASE WHEN batch_status = 'RECEIVED'
+                  THEN COALESCE(NULLIF(total_qty, 0), NULLIF(received_qty, 0), 0)
+                  ELSE 0 END
+              ), 0)::int AS total_received,
+              COALESCE(SUM(
+                CASE WHEN batch_status = 'RECEIVED'
+                  THEN GREATEST(
+                    COALESCE(NULLIF(total_qty, 0), NULLIF(received_qty, 0), 0)
+                    - COALESCE(dirty_qty, 0) - COALESCE(cracked_qty, 0), 0
+                  )
+                  ELSE 0 END
+              ), 0)::int AS total_gradable
        FROM pkg_source_batches WHERE production_date = $1`,
       [productionDate],
     );
