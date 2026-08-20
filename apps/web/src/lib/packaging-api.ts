@@ -121,7 +121,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ msg: res.statusText }));
-    throw new Error(err.msg || `HTTP ${res.status}`);
+    const message = Array.isArray(err?.message) ? err.message.join('、') : err?.message;
+    throw new Error(message || err?.msg || `HTTP ${res.status}`);
   }
   const data = await res.json();
   if (data.code && data.code !== 200) throw new Error(data.msg || '操作失败');
