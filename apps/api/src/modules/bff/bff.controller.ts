@@ -2276,7 +2276,7 @@ export class PackagingTerminalBffController {
       || `WH-${productionDate.replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}`;
     const boxes = (body.boxes as string[]) || [];
     const location = String(body.location || '').trim();
-    if (!location) throw new BadRequestException('库位必选');
+    if (!location) throw new BadRequestException('输入的库位在系统中不存在，请核实后再试');
     const locationRows = await this.em.query(
       `SELECT location_code
          FROM wms_locations
@@ -2285,7 +2285,7 @@ export class PackagingTerminalBffController {
         LIMIT 1`,
       [location],
     );
-    if (!locationRows[0]) throw new BadRequestException(`库位不存在或已锁定：${location}`);
+    if (!locationRows[0]) throw new BadRequestException('输入的库位在系统中不存在，请核实后再试');
 
     // ── P1C 收口 + P1E 失败显性化：成品交接完成 = 唯一库存入口 ──────────────────
     //   调 PackagingInventoryIntegrationService 生成 Sales V2 可售库存（EGG-YYYYMMDD-*,
