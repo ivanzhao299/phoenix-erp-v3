@@ -93,5 +93,43 @@ jobs:
              WHERE table_schema = current_schema()
                AND table_name = 'wms_outbound'
              ORDER BY ordinal_position;
+
+            WITH targets(table_name, column_name) AS (VALUES
+              ('wf_approval_instance_steps', 'approver_type'),
+              ('chanjet_ar_snapshot', 'assistant_customer_code'),
+              ('chanjet_ar_snapshot', 'subject_id'),
+              ('fin_ar_ledger', 'base_currency'),
+              ('sys_notifications', 'user_id'),
+              ('prc_purchase_orders', 'total_amount'),
+              ('prc_purchase_orders', 'currency_code'),
+              ('prc_purchase_orders', 'status'),
+              ('prc_purchase_orders', 'plan_qty'),
+              ('prc_purchase_orders', 'received_qty'),
+              ('sal_drivers', 'status'),
+              ('sal_order_items', 'allocated_qty'),
+              ('sal_return_items', 'returned_qty'),
+              ('sal_return_items', 'accepted_qty'),
+              ('sal_return_items', 'damaged_qty'),
+              ('sal_return_items', 'unit_price'),
+              ('sal_return_items', 'amount'),
+              ('sal_return_items', 'inspection_result'),
+              ('sal_return_items', 'restock_status'),
+              ('sal_return_orders', 'currency_code'),
+              ('sal_return_orders', 'subtotal'),
+              ('sal_return_orders', 'status'),
+              ('sal_return_orders', 'need_approval'),
+              ('sal_vehicles', 'status')
+            )
+            SELECT 'R4_SCHEMA' AS section,
+                   t.table_name,
+                   t.column_name,
+                   c.is_nullable,
+                   c.column_default
+              FROM targets t
+              LEFT JOIN information_schema.columns c
+                ON c.table_schema = current_schema()
+               AND c.table_name = t.table_name
+               AND c.column_name = t.column_name
+             ORDER BY t.table_name, t.column_name;
             COMMIT;
             SQL
