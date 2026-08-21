@@ -101,9 +101,9 @@ jobs:
                    WHERE p.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
                 )
              ORDER BY l.created_at DESC;
-            SELECT 'MODE' AS section, setting_key, setting_value, updated_at
-             FROM sys_settings
-             WHERE setting_key ILIKE '%INVENTORY%' OR setting_key ILIKE '%SOURCE%'
-             ORDER BY updated_at DESC;
+            SELECT 'MODE' AS section, to_jsonb(s) AS setting
+              FROM sys_settings s
+             WHERE to_jsonb(s)::text ILIKE '%INVENTORY%'
+                OR to_jsonb(s)::text ILIKE '%SOURCE%';
             COMMIT;
             SQL
