@@ -120,7 +120,7 @@ export class QueryArInvoiceDto {
   currencyCode?: string;
 
   @IsOptional() @IsString()
-  @IsIn(['SALES_ORDER','MANUAL','CONTRACT','OPENING'])
+  @IsIn(['SALES_ORDER','SALES_RETURN','STORE_SALE','STORE_SALE_RETURN','MANUAL','CONTRACT','OPENING'])
   sourceType?: string;
 
   @IsOptional() @IsDateString()
