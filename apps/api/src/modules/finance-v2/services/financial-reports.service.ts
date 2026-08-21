@@ -518,7 +518,7 @@ export class FinancialReportsService {
         // AP 未付款余额
         run(`SELECT COALESCE(SUM(balance_amount_base),0) AS v FROM fin_ap_invoices WHERE status NOT IN ('PAID','CANCELLED') ${sf}`),
         // AR 未收款余额
-        run(`SELECT COALESCE(SUM(balance_amount_base),0) AS v FROM fin_ar_invoices WHERE status NOT IN ('COLLECTED','CANCELLED') ${sf}`),
+        run(`SELECT COALESCE(SUM(balance_amount_base),0) AS v FROM fin_ar_invoices WHERE status NOT IN ('RECEIVED','CANCELLED') ${sf}`),
         // 现金账户总余额
         run(`SELECT COALESCE(SUM(current_balance),0) AS v FROM fin_cash_accounts WHERE status='ACTIVE' ${sf}`),
         // 股东出资余额
@@ -811,7 +811,7 @@ export class FinancialReportsService {
                           THEN balance_amount_base END), 0)                                                AS d_over90,
          COALESCE(SUM(balance_amount_base), 0)                                                             AS total
        FROM fin_ar_invoices
-       WHERE status NOT IN ('COLLECTED','CANCELLED')
+       WHERE status NOT IN ('RECEIVED','CANCELLED')
        ${filter}
        GROUP BY customer_name, currency_code, company_code
        ORDER BY total DESC`,
@@ -1142,7 +1142,7 @@ export class FinancialReportsService {
         params,
       ),
       this.ds.query(
-        `SELECT company_code, COALESCE(SUM(balance_amount_base),0) AS v FROM fin_ar_invoices WHERE status NOT IN ('COLLECTED','CANCELLED') ${filter} GROUP BY company_code`,
+        `SELECT company_code, COALESCE(SUM(balance_amount_base),0) AS v FROM fin_ar_invoices WHERE status NOT IN ('RECEIVED','CANCELLED') ${filter} GROUP BY company_code`,
         params,
       ),
       this.ds.query(

@@ -10,6 +10,8 @@ import {
  *
  * 来源类型（source_type）：
  *   SALES_ORDER — 销售订单自动生成（Phase 3）
+ *   SALES_RETURN — 销售退货红字应收
+ *   STORE_SALE / STORE_SALE_RETURN — POS 赊销 / 退货红字应收
  *   MANUAL      — 财务手工录入
  *   CONTRACT    — 合同应收
  *   OPENING     — 期初余额导入
@@ -38,7 +40,7 @@ export class FinArInvoiceEntity {
   arNo: string;
 
   // ── 来源追踪 ─────────────────────────────────────────────────────────────
-  /** SALES_ORDER / MANUAL / CONTRACT / OPENING */
+  /** SALES_ORDER / SALES_RETURN / STORE_SALE / STORE_SALE_RETURN / MANUAL / CONTRACT / OPENING */
   @Column({ name: 'source_type', type: 'varchar', length: 30, default: 'MANUAL' })
   sourceType: string;
 

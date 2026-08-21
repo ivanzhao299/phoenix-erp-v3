@@ -1,6 +1,22 @@
 import { FinancialReportsService } from './financial-reports.service';
 
 describe('FinancialReportsService Chanjet daily authority', () => {
+  it('uses RECEIVED, never the obsolete COLLECTED value, for AR outstanding balances', async () => {
+    const subject: any = Object.create(FinancialReportsService.prototype);
+    subject.scope = jest.fn().mockReturnValue({ all: true, codes: [] });
+    subject.buildScopeFilter = jest.fn().mockReturnValue({ filter: '', params: [] });
+    subject.getChanjetDailyDocumentAggregate = jest.fn().mockResolvedValue({ available: false });
+    subject.getChanjetArLedgerAggregate = jest.fn().mockResolvedValue({ available: false });
+    subject.ds = { query: jest.fn().mockResolvedValue([]) };
+    subject.logger = { warn: jest.fn() };
+
+    await subject.getOverview({});
+
+    const sql = subject.ds.query.mock.calls.map(([statement]: [string]) => statement).join('\n');
+    expect(sql).toContain("status NOT IN ('RECEIVED','CANCELLED')");
+    expect(sql).not.toContain('COLLECTED');
+  });
+
   it('uses the exact business-date and EFFECTIVE contract for daily totals', async () => {
     const subject: any = Object.create(FinancialReportsService.prototype);
     subject.ds = {

@@ -66,30 +66,10 @@ jobs:
             \x on
             BEGIN TRANSACTION READ ONLY;
             SELECT 'AUDIT_WINDOW' AS section, :'window_start' AS window_start, :'window_end' AS window_end;
-            SELECT c.conrelid::regclass AS table_name,
-                   c.conname,
-                   pg_get_constraintdef(c.oid) AS constraint_definition
-              FROM pg_constraint c
-             WHERE c.conrelid IN (
-                     'fin_ar_invoices'::regclass,
-                     'fin_ap_invoices'::regclass,
-                     'fin_cash_transactions'::regclass,
-                     'fin_shareholder_contributions'::regclass
-                   )
-               AND c.contype = 'c'
-             ORDER BY 1, 2;
-            SELECT 'fin_ar_invoices' AS table_name, source_type, COUNT(*) AS row_count
-              FROM fin_ar_invoices GROUP BY source_type ORDER BY source_type;
-            SELECT 'fin_ap_invoices' AS table_name, source_type, COUNT(*) AS row_count
-              FROM fin_ap_invoices GROUP BY source_type ORDER BY source_type;
-            SELECT 'fin_cash_transactions' AS table_name, source_type, COUNT(*) AS row_count
-              FROM fin_cash_transactions GROUP BY source_type ORDER BY source_type;
-            SELECT 'fin_shareholder_contributions' AS table_name, source_type, COUNT(*) AS row_count
-              FROM fin_shareholder_contributions GROUP BY source_type ORDER BY source_type;
-            SELECT ordinal_position, column_name, data_type, is_nullable, column_default
+            SELECT table_schema, table_name, column_name, data_type, is_nullable, column_default
               FROM information_schema.columns
              WHERE table_schema = current_schema()
-               AND table_name = 'wms_outbound'
-             ORDER BY ordinal_position;
+               AND table_name = 'sys_user'
+               AND column_name = 'store_code';
             COMMIT;
             SQL
