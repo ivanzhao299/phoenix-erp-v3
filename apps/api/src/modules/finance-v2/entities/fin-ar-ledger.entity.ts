@@ -56,8 +56,8 @@ export class FinArLedgerEntity {
   @Column({ name: 'closing_amount_base', type: 'numeric', precision: 20, scale: 2, nullable: true })
   closingAmountBase: string | null;
 
-  @Column({ name: 'base_currency', type: 'varchar', length: 8, default: 'CNY' })
-  baseCurrency: string;
+  @Column({ name: 'base_currency', type: 'varchar', length: 8, default: 'CNY', nullable: true })
+  baseCurrency: string | null;
 
   /** OCR_PENDING_VERIFY / VERIFIED / RECON */
   @Column({ name: 'source', type: 'varchar', length: 32, default: 'OCR_PENDING_VERIFY' })

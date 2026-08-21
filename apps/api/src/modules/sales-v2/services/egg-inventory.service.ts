@@ -814,7 +814,14 @@ export class EggInventoryService {
     days?: number;
   }): Promise<EggBatch[]> {
     const days = params.days ?? EXPIRING_WARN_DAYS;
-    const cond = params.companyCode ? `AND company_code='${params.companyCode}'` : '';
+    const scope = this.cls.get('dataScope');
+    const requested = params.companyCode;
+    if (!scope?.isGlobal && scope && scope.allowedCompanyCodes.length === 0) return [];
+    if (!scope?.isGlobal && requested && scope && !scope.allowedCompanyCodes.includes(requested)) return [];
+    const companyCodes = requested ? [requested] : (!scope || scope.isGlobal ? null : scope.allowedCompanyCodes);
+    const values: unknown[] = [days];
+    const cond = companyCodes ? `AND company_code = ANY($2)` : '';
+    if (companyCodes) values.push(companyCodes);
 
     return this.ds.query(
       `SELECT *,
@@ -824,9 +831,9 @@ export class EggInventoryService {
          AND qty_available > 0
          AND expire_date IS NOT NULL
          AND expire_date >= CURRENT_DATE
-         AND expire_date <= CURRENT_DATE + INTERVAL '${days} days'
+         AND expire_date <= CURRENT_DATE + ($1 * INTERVAL '1 day')
          ${cond}
-       ORDER BY expire_date ASC`,
+       ORDER BY expire_date ASC`, values,
     );
   }
 

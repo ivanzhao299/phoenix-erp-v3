@@ -81,8 +81,8 @@ export class SalOrderItemEntity {
   allocatedBatchNo: string | null;
 
   /** 实际分配数量 */
-  @Column({ name: 'allocated_qty', type: 'numeric', precision: 18, scale: 2, default: 0 })
-  allocatedQty: number;
+  @Column({ name: 'allocated_qty', type: 'numeric', precision: 18, scale: 2, default: 0, nullable: true })
+  allocatedQty: number | null;
 
   // ── Phase H5 — SKU 接入 ──────────────────────────────────────────────────
   /** SKU 编码（product_skus.sku_code，可选，旧订单为 NULL） */

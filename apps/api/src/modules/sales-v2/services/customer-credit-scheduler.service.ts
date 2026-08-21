@@ -4,6 +4,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CustomerCreditService } from './customer-credit.service';
 import { CronMonitorService } from '../../system-monitor/services/cron-monitor.service';
+import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
 
 /**
  * 客户信用定时任务
@@ -24,6 +25,7 @@ export class CustomerCreditSchedulerService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly creditService: CustomerCreditService,
     private readonly cronMon: CronMonitorService,
+    private readonly recipients: ScopedNotificationRecipientService,
   ) {}
 
   @Cron('0 0 2 * * *', { name: 'credit_daily_refresh', timeZone: 'Asia/Vientiane' })
@@ -41,6 +43,7 @@ export class CustomerCreditSchedulerService {
       await this.doRefresh();
       await this.cronMon.ok('credit_daily_refresh');
     } catch (e: any) {
+      this.logger.error(`[CreditScheduler] 执行失败: ${e?.message ?? String(e)}`);
       await this.cronMon.fail('credit_daily_refresh', e?.message ?? String(e));
     } finally {
       await this.ds.query(
@@ -137,15 +140,16 @@ export class CustomerCreditSchedulerService {
       }
     }
 
-    // 批量写通知（去重：同类型同公司同天仅写一次）
+    // 按公司 DataScope ∩ 信用查看权限实名投递。
     for (const n of notifyBatch) {
-      await this.ds.query(
+      const userIds = await this.recipients.resolve(n.company_code, ['MENU_SALES2_CREDIT']);
+      for (const userId of userIds) await this.ds.query(
         `INSERT INTO sys_notifications
-           (notification_type, title, content, company_code, status, created_at)
-         VALUES ($1, $2, $3, $4, 'UNREAD', NOW())
+           (user_id, notification_type, title, content, company_code, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, 'UNREAD', NOW())
          ON CONFLICT DO NOTHING`,
-        [n.type, n.title, n.body, n.company_code],
-      ).catch(e => this.logger.warn(`写通知失败: ${e.message}`));
+        [userId, n.type, n.title, n.body, n.company_code],
+      );
     }
 
     this.logger.log(
