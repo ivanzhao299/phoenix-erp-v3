@@ -18,7 +18,7 @@
 | 后端 | NestJS 10 + TypeORM + PostgreSQL 18 |
 | 包管理 | pnpm workspaces（monorepo） |
 | 端口 | Web 3000 / API 3100 |
-| 部署 | Docker Compose；post-commit 钩子自动推 origin/main 触发 CI/CD |
+| 部署 | Docker Compose；显式 push 后触发 CI/CD（当前未安装 post-commit 自动推送钩子） |
 
 ## 工程结构
 
@@ -54,6 +54,9 @@ pnpm build
 
 # Lint
 pnpm lint
+
+# Web 单元测试
+cd apps/web && ./node_modules/.bin/vitest run
 ```
 
 ---
@@ -71,9 +74,10 @@ pnpm lint
 | G4-B | 采购单据主数据化 + 物料 SKU 化 | ✅ `v3-g4b-procurement-runtime` |
 | G4-C | 销售单据主数据化 | ✅ `v3-g4c-sales-runtime` |
 | G4-D | 库存治理（仓库/库区/货位/状态/WarehouseScope/inv_batches 唯一台账） | ✅ `v3-g4d-inventory-governance` |
-| G4-E | 生产 & 包装治理 | 待启动 |
+| G4-E | 生产 & 包装治理 | ✅ 2026-06-04（commit `05a5084c`，无专用 tag） |
+| G5x / G76–G201 | 运行时收口、生产审计与工程治理 | ✅ 持续演进（详见 `docs/`） |
 
-每阶段产出物固定为：**一份 docs/g4x-*.md 报告 + 一份 TS 迁移 `apps/api/src/database/migrations/<ts>-G4x*Seed.ts`（若引入新 dict，含 down()，g195 起）+ 一次 commit + 一个 tag**。
+G4-x 阶段的标准产出物为：**一份 `docs/g4x-*.md` 报告 + 一份 TS 迁移 `apps/api/src/database/migrations/<ts>-G4x*Seed.ts`（仅在引入 schema / dict 变更时，含 `down()`，g195 起）+ 一次 commit + 一个 tag**。历史阶段可能缺少专用 tag，以 git log 与报告为准；后续治理阶段按各自报告定义交付物。
 
 ### G4-x 阶段标准 SOP（用户每次会复用这套流程）
 
@@ -254,9 +258,9 @@ ON CONFLICT 永不匹配,每次 upsert 都插入新副本。2026-06-19 chanjet_a
 - 真 scope-audit 写法：用 `<input[^>]*field` 单字段窄正则 + 计数；或用 `onChange.*e\.target\.value` 抓"裸 input 写主数据字段"特征
 
 ### post-commit hook 已停自动推（2026-06-10 起）
-- `git commit` 完只本地落，hook 提示 `📝 [post-commit] 已本地提交（自动推送已关闭）`
+- 当前 `.git/hooks/post-commit` 未安装；`git commit` 完只在本地落盘，不会自动 push
 - 推 main = 大节点，需用户拍板才 `git push origin main`
-- 若要恢复自动推：取消 `.git/hooks/post-commit` 里"原自动推送逻辑"段的注释
+- 若未来恢复自动推，必须显式安装并审查新的 `post-commit` hook
 
 ### 新迁移走 TypeORM TS（g195 起）—— 裸 SQL 双目录都已冻结
 - ✅ **新 schema/数据迁移**：`apps/api/src/database/migrations/<ts>-PascalCase.ts`
@@ -323,7 +327,7 @@ Co-Authored-By: Codex Opus 4.7 (1M context) <noreply@anthropic.com>
 
 用户已授权在本项目目录内**拥有全部常规开发操作权限**，不再征求同意：
 - 自由读 / 写 / 编辑文件
-- 自由 git add / commit / tag（post-commit 已自动推 main）
+- 自由 git add / commit / tag（push 必须显式执行）
 - 自由跑 pnpm / tsc / lint / curl localhost / docker compose
 - 自由建迁移文件 / 改 service / 改前端
 - 自由跑 G 阶段全闭环（审计→改造→字典→报告→验证→commit→tag）
