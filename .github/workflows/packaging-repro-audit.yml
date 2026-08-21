@@ -28,6 +28,8 @@ jobs:
             [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
             date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
           done
+          [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+            || { echo "window_start must be before window_end" >&2; exit 1; }
       - name: Readonly production packaging audit
         uses: appleboy/ssh-action@v1
         env:
@@ -51,6 +53,8 @@ jobs:
               [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
               date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
             done
+            [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+              || { echo "window_start must be before window_end" >&2; exit 1; }
             cd "$DEPLOY_PATH"
             docker compose exec -T \
               -e AUDIT_WINDOW_START="$WINDOW_START" \
@@ -74,36 +78,71 @@ jobs:
                         AND table_name = 'pkg_packing_records'
                         AND column_name = 'grading_codes_json'
                    ) AS grading_codes_json_exists;
-            SELECT 'PACKING' AS section, p.*
+            SELECT 'PACKING_V3' AS section, p.*
               FROM pkg_packing_records p
-             WHERE p.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
+             WHERE p.created_at >= :'window_start'::timestamp
+               AND p.created_at <  :'window_end'::timestamp
              ORDER BY p.created_at DESC;
-            SELECT 'HANDOVER' AS section, h.*
+            SELECT 'HANDOVER_V3' AS section,
+                   to_jsonb(h) AS handover_record,
+                   to_jsonb(p) AS packing_record,
+                   to_jsonb(ws) AS shift_record
               FROM pkg_handover_records h
-             WHERE h.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
+              LEFT JOIN pkg_packing_records p ON p.code = h.packing_code
+              LEFT JOIN pkg_work_shifts ws ON ws.id = h.shift_id
+             WHERE h.created_at >= :'window_start'::timestamp
+               AND h.created_at <  :'window_end'::timestamp
              ORDER BY h.created_at DESC;
             SELECT 'BATCHES' AS section, b.batch_no, b.product_code, b.qty, b.qty_available, b.status,
                    b.company_code, b.quality_grade, b.grade_code_std, b.source_type,
                    b.packaging_batch_ref, b.created_at
               FROM inv_batches b
-             WHERE b.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
+             WHERE (b.created_at >= :'window_start'::timestamp
+               AND b.created_at <  :'window_end'::timestamp)
                 OR b.packaging_batch_ref IN (
                   SELECT p.code FROM pkg_packing_records p
-                   WHERE p.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
+                   WHERE p.created_at >= :'window_start'::timestamp
+                     AND p.created_at <  :'window_end'::timestamp
                 )
              ORDER BY b.created_at DESC;
             SELECT 'LEDGER' AS section, l.id, l.batch_no, l.change_type, l.qty_change,
                    l.company_code, l.quality_grade, l.log_date, l.created_at, l.ref_no
               FROM inv_ledger l
-             WHERE l.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
+             WHERE (l.created_at >= :'window_start'::timestamp
+               AND l.created_at <  :'window_end'::timestamp)
                 OR l.ref_no IN (
                   SELECT p.code FROM pkg_packing_records p
-                   WHERE p.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
+                   WHERE p.created_at >= :'window_start'::timestamp
+                     AND p.created_at <  :'window_end'::timestamp
                 )
              ORDER BY l.created_at DESC;
-            SELECT 'MODE' AS section, to_jsonb(s) AS setting
-              FROM sys_settings s
-             WHERE to_jsonb(s)::text ILIKE '%INVENTORY%'
-                OR to_jsonb(s)::text ILIKE '%SOURCE%';
+            SELECT 'INVENTORY_SOURCE_MODE_V3' AS section,
+                   scope_level, scope_code, mode
+              FROM inv_source_mode
+             ORDER BY scope_level, scope_code;
+            SELECT 'WMS_INBOUND_STATUS_V3' AS section,
+                   status, COUNT(*)::int AS row_count
+              FROM wms_inbound
+             WHERE created_at >= :'window_start'::timestamp
+               AND created_at <  :'window_end'::timestamp
+             GROUP BY status
+             ORDER BY status;
+            SELECT 'WMS_INBOUND_ROWS_V3' AS section, wi.*
+              FROM wms_inbound wi
+             WHERE wi.created_at >= :'window_start'::timestamp
+               AND wi.created_at <  :'window_end'::timestamp
+             ORDER BY wi.created_at DESC;
+            SELECT 'WORK_SHIFT_SITE_DISTRIBUTION_V3' AS section,
+                   site_id, COUNT(*)::int AS shift_count
+              FROM pkg_work_shifts
+             WHERE created_at >= :'window_start'::timestamp
+               AND created_at <  :'window_end'::timestamp
+             GROUP BY site_id
+             ORDER BY site_id NULLS FIRST;
+            SELECT 'WORK_SHIFT_ROWS_V3' AS section, ws.*
+              FROM pkg_work_shifts ws
+             WHERE ws.created_at >= :'window_start'::timestamp
+               AND ws.created_at <  :'window_end'::timestamp
+             ORDER BY ws.created_at DESC;
             COMMIT;
             SQL
