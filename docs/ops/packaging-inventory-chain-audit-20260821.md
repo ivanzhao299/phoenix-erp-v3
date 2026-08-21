@@ -154,3 +154,6 @@ TEMP 模式不需要再点一次包装 inbound confirm 才生成包装库存；�
 - API 全量 Jest：56 suites / 502 tests 全部通过；其中新增 Terminal 模式测试 5/5 通过。
 - 说明：`pnpm test -- --runInBand` 被项目脚本误解析为测试 pattern，未执行任何用例；随后使用 `pnpm exec jest --runInBand` 正确完成全量验证。
 - 决策：观察到的 5 条链路属于 TEMP 设计行为，不修改生产配置；代码仅修复独立的 SITE 灰度解析缺口。
+- main 合并提交：`79092bf2 fix: merge packaging inventory chain audit`，已推送。
+- push CI：run [32461444350](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/32461444350) 成功；Type-check/Regression、API/Web 镜像构建均通过。push 流程按仓库策略不直接部署，Deploy job 正常 skipped。
+- 显式生产部署：`mode=api`、`approve_production=true`，run [32461969808](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/32461969808) 成功；API 镜像构建、`Deploy via SSH`、部署通知全部通过，Deploy job 耗时 2m9s。
