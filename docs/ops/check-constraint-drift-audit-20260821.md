@@ -107,7 +107,11 @@
 - 迁移 down 门禁：61/61 通过。
 - 迁移 no-data-DML 门禁：61/61 通过；本迁移无豁免。
 - Web 未修改，不运行 Web tsc。
-- 部署与部署后只读复查：待合并 main 后填写。
+- main 合并提交：`1d4c2ebb810630f48251a0f04cd853ba1727a190`。
+- push CI/CD：[32468035565](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/32468035565)，success；API/Web type-check、DDL migration、entity drift 与 system/breeding/packaging/wms/finance 回归全绿。
+- 同提交的 AI Build、AI Security、Web Unit Tests 三个独立 workflow 均 success。
+- 显式生产 API 部署（`mode=api`, `approve_production=true`）：[32468474078](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/32468474078)，success；`Deploy · api` success。
+- 部署后专用只读复查：[32469017284](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/32469017284)，success；生产返回四个新约束及完整修正版定义，cash 保留 NULL，AR 包含 SALES_RETURN / STORE_SALE / STORE_SALE_RETURN，且所有存量分组查询成功。
 
 ## 8. 回滚方法
 
