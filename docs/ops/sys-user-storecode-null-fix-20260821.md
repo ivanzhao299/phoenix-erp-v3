@@ -77,6 +77,8 @@
 
 ### CI/CD 与生产验证
 
-- 分支、commit、PR/main merge、部署 run：待执行。
+- 修复分支 `codex/fix-sys-user-storecode-null-20260821` 已推送；commit `70573329` 已 fast-forward 合并并推送 main。
+- 同 SHA 自动 push CI run `32465597581`：success。
+- 显式生产部署 run `32465604021`：`mode=api`、`approve_production=true`，success；production SSH deploy（含 TypeORM `migration:run`）完成。
 - 新增 `sys-user-storecode-schema-audit.yml`。它只查询 `information_schema.columns`，并保留 runner/SSH 双重时间格式与顺序校验、psql `-v` 参数化、`PGOPTIONS=default_transaction_read_only=on`、`BEGIN TRANSACTION READ ONLY`、`ON_ERROR_STOP=1`。
-- 部署后期望：`sys_user.store_code` 的 `is_nullable = 'YES'`；实际 run 与输出待回填。
+- 部署后只读 schema 审计 run `32466525993`：success。生产 `public.sys_user.store_code` 为 `character varying`，`is_nullable = 'YES'`，默认值仍为 `'ALL'::character varying`。事务以 `READ ONLY` 执行且无业务数据查询/写入。
