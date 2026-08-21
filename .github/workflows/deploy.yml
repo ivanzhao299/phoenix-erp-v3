@@ -335,6 +335,9 @@ jobs:
       - name: Check nullable-in-unique constraints (g198)
         run: node scripts/check-nullable-in-unique.js
 
+      - name: Check constraint drift (g201)
+        run: node scripts/check-constraint-drift.js
+
       - name: Build API
         working-directory: apps/api
         run: pnpm build

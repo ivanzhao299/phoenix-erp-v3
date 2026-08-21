@@ -196,6 +196,18 @@ ON CONFLICT 永不匹配,每次 upsert 都插入新副本。2026-06-19 chanjet_a
 - 审核入账(`POST /api/chanjet/ar-ledger-import`):`MENU_FIN2_AR_LEDGER:E`(财务总监独占)
 - 三方对账(`GET /api/v2/finance/ar-reconciliation`):`MENU_FIN2_AR_LEDGER:V`
 
+### 0.7 约束语义必须三对齐(g201 铁律,2026-08-21 起)
+
+**迁移链末态约束 / 冻结基线意图 / 代码写值必须一致**。
+
+**Why**：代码允许或写入的新值若未同步 schema，会在生产触发 500；重建表若漏掉历史 CHECK，会让防脏值护栏静默消失。
+
+**How**：
+- 改 `NOT NULL` / `DEFAULT` / `CHECK` 语义时，同时核对冻结 SQL 基线、`apps/api/src/database/migrations/` TS 迁移末态和 TS 写入路径/DTO/entity。
+- 本地运行 `node scripts/check-constraint-drift.js`；R1/R2/R3 是硬错误，R4（entity nullable 与迁移末态不一致）暂为警告。
+- 有意移除或静态误报才可登记 `.github/constraint-drift-allowlist.txt`，格式 `规则|表.列|原因`，原因不能为空；真实 bug 禁止用 allowlist 掩盖。
+- 解析器是纯静态正则扫描；动态拼接 SQL、通用 CRUD、复杂 DO/EXECUTE 与无法解析的跨文件枚举需人工复核。
+
 ### 1. 主数据只用 ACTIVE
 **Why**：业务方禁用旧主数据后，相关单据不能再选到它。
 **How**：所有 Selector 都已经在 loader 里加了 `status='ACTIVE'` 过滤；不要绕过去直接调 `/crud/*` 拿全量。
