@@ -41,6 +41,5 @@
 ## 合并与部署
 
 - `main` 已快进合并 v2，并推送 `8cb008d0`；审计兼容修正 `3a396fb3` 随后已推送 main 与 v2 分支。
-- CI/CD run：<https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/32459995450>
-- 截至本报告提交时，run 状态为 `pending`，production environment 待人工批准；未观察到构建或部署失败。批准后需以该 run 的最终 conclusion 作为生产部署结论。
-
+- 代码变更 CI/CD run：<https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/32459863386>，最终结论为 `success`；Type-check & Regression、Web/API 镜像构建及部署链均通过。
+- 中间 run `32459995450` 在等待 production environment 时被后续 docs-only push 取消，不代表构建或部署失败。
