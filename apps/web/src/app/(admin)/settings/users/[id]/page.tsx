@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
 import { Users, Shield, Key, Lock, Unlock, Building2, Eye, Archive, RotateCcw } from "lucide-react";
 import { enterImpersonation } from "@/lib/impersonate";
+import { roleSignature } from "@/lib/user-role-logic";
 import s from "@/components/ui/admin-ui.module.css";
 import UserOrgBindingPanel from "@/components/settings/UserOrgBindingPanel";
 import { RolePicker, levelColor, type UserRole, type RoleOption } from "@/components/settings/RolePicker";
@@ -64,16 +65,6 @@ export default function UserDetailPage() {
   const [storeOpts, setStoreOpts] = useState<{ value: string; label: string }[]>([]);
 
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
-
-  const roleSignature = (roles: UserRole[]) => JSON.stringify(
-    roles
-      .map(r => ({
-        role_code: r.role_code,
-        is_primary: !!r.is_primary,
-        is_visible: r.is_visible !== false,
-      }))
-      .sort((a, b) => a.role_code.localeCompare(b.role_code)),
-  );
 
   const loadData = useCallback(async () => {
     setLoading(true);
