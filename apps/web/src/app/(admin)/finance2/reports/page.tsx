@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { currencySymbol } from '@/lib/currency';  // G61 多币种符号
+import { financeAlignmentSummary, financeSourceLabel, financeStatusLabel } from '@/lib/finance-report-logic';
 import u from "@/styles/uix-utils.module.css";
 import { PieChart, BarChart2, TrendingDown, TrendingUp, Wallet, Users, Receipt, Building2, FolderOpen, RefreshCw, AlertTriangle, CheckCircle, DollarSign, ArrowLeftRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -299,10 +300,7 @@ interface AlignmentMetric {
 }
 
 function sourceLabel(source?: string) {
-  if (!source) return '';
-  if (source.startsWith('CHANJET')) return '好业财口径';
-  if (source === 'ERP_FALLBACK') return 'ERP回退';
-  return source.replace(/_/g, ' ');
+  return financeSourceLabel(source);
 }
 
 function chanjetSub(data: OverviewData, key: string) {
@@ -316,18 +314,7 @@ function chanjetSub(data: OverviewData, key: string) {
 }
 
 function statusLabel(status?: string) {
-  if (status === 'OK') return '已对齐';
-  if (status === 'WARN') return '小差异';
-  if (status === 'MISMATCH') return '需对账';
-  if (status === 'NEEDS_MAPPING') return '待字段锁定';
-  if (status === 'ERP_FALLBACK') return 'ERP回退';
-  if (status === 'AUTHORITY_READY') return '权威可用';
-  if (status === 'READONLY_READY') return '只读就绪';
-  if (status === 'BLOCKED_MAPPING') return '映射阻断';
-  if (status === 'WAITING_SAMPLE') return '待同步样本';
-  if (status === 'NEED_MANUAL_REVIEW') return '待人工确认';
-  if (status === 'HOLD') return '暂停';
-  return status || '未确认';
+  return financeStatusLabel(status);
 }
 
 function statusStyle(status?: string): CSSProperties {
@@ -343,16 +330,7 @@ function statusStyle(status?: string): CSSProperties {
 }
 
 function alignmentSummary(items: { metric: AlignmentMetric }[]) {
-  const statuses = items.map((item) => item.metric.status);
-  if (statuses.includes('HOLD')) return { status: 'HOLD', label: '暂停升权' };
-  if (statuses.some((status) => status === 'MISMATCH' || status === 'WARN')) {
-    return { status: statuses.includes('MISMATCH') ? 'MISMATCH' : 'WARN', label: '存在差异' };
-  }
-  if (statuses.some((status) => ['NEEDS_MAPPING', 'BLOCKED_MAPPING', 'NEED_MANUAL_REVIEW', 'WAITING_SAMPLE'].includes(status))) {
-    return { status: 'BLOCKED_MAPPING', label: '待字段锁定' };
-  }
-  if (statuses.includes('READONLY_READY')) return { status: 'READONLY_READY', label: '仅只读可用' };
-  return { status: 'AUTHORITY_READY', label: '权威可用' };
+  return financeAlignmentSummary(items.map(item => item.metric.status));
 }
 
 function FinanceAlignmentPanel({ data }: { data: OverviewData }) {

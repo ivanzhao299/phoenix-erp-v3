@@ -49,4 +49,6 @@
 
 ## 部署验证
 
-阶段合并、CI、显式 API 部署与部署后只读复查将在 main 推送后追加记录。
+- main 合并：`d5b8224f`；tag：`v3-g201b-r4-hard-gate`。
+- push CI：Build `32474052338`、Web Tests `32474052285`、Security `32474052533`、CI/CD build `32474052272` 全绿。
+- 显式生产部署：run `32474508700`，`mode=api`、`approve_production=true`，API 构建、回归、SSH 部署全部成功；本阶段无 schema 迁移或生产数据写入。

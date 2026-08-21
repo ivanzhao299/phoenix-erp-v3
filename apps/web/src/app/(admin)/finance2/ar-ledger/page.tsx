@@ -8,6 +8,7 @@ import {
   inputField, kpiCard, tableContainer,
 } from '@/components/design-system/cockpit-styles';
 import { currencySymbol } from '@/lib/currency';
+import { arLedgerQuery, pendingOcrCount } from '@/lib/finance-report-logic';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LoadingSkeleton } from '@/components/design-system';
 
@@ -57,10 +58,7 @@ export default function ArLedgerPage() {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const qs = new URLSearchParams();
-      if (farmCode) qs.set('farmCode', farmCode);
-      if (periodDate) qs.set('periodDate', periodDate);
-      const d = await request<{ rows: Row[]; totals: Totals }>(`/v2/finance/ar-ledger${qs.toString() ? `?${qs}` : ''}`);
+      const d = await request<{ rows: Row[]; totals: Totals }>(arLedgerQuery(farmCode, periodDate));
       setRows(d.rows || []); setTotals(d.totals || null);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : t('fin2.common.load_failed', '加载失败')); }
     finally { setLoading(false); }
@@ -68,7 +66,7 @@ export default function ArLedgerPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const pendingCount = rows.filter(r => r.source === 'OCR_PENDING_VERIFY').length;
+  const pendingCount = pendingOcrCount(rows);
 
   return (
     <div className="animate-fade-in" style={{ padding: '24px 32px' }}>

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { packagingApi } from '@/lib/packaging-api';
+import { addPackingItem, canAddPacking, remainingByGrade } from '@/lib/packing-flow-logic';
 import { usePackagingDicts, buildGradeMap, FALLBACK_DICTS, getDictLabel } from '@/hooks/usePackagingDicts';
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
@@ -87,17 +88,12 @@ export default function PackingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [done, setDone] = useState(false);
-  const localPacked = items.reduce<Record<string, number>>((acc, b) => {
-    acc[b.grade] = (acc[b.grade] || 0) + b.eggs;
-    return acc;
-  }, {});
-
   // 对每个等级：服务端剩余 - 本端临时 = 实际可用
-  const remaining = Object.fromEntries(allGradeItems.map(d => [d.code, Math.max(0, (serverRemaining[d.code] ?? 0) - (localPacked[d.code] || 0))]));
+  const remaining = remainingByGrade(allGradeItems.map(d => d.code), serverRemaining, items);
   const boxes = parseInt(boxCount) || 0;
   const eggs = boxes * (selectedSpec?.qty || 0);
   const eggsAvailable = selectedGrade ? remaining[selectedGrade] ?? 0 : 0;
-  const canAdd = !!(selectedGrade && selectedSpec && boxes > 0 && eggs > 0 && eggs <= eggsAvailable);
+  const canAdd = canAddPacking({ grade: selectedGrade, specQty: selectedSpec?.qty, boxes, available: eggsAvailable });
   const handleSelectGrade = (code: string) => {
     setSelectedGrade(code);
     setBoxCount('');
@@ -105,21 +101,13 @@ export default function PackingPage() {
   };
   const handleAdd = () => {
     if (!canAdd || !selectedGrade || !selectedSpec) return;
-    setItems(prev => {
-      const idx = prev.findIndex(b => b.grade === selectedGrade && b.specId === selectedSpec.id);
-      if (idx >= 0) return prev.map((b, i) => i === idx ? {
-        ...b,
-        boxes: b.boxes + boxes,
-        eggs: b.eggs + eggs
-      } : b);
-      return [...prev, {
+    setItems(prev => addPackingItem(prev, {
         grade: selectedGrade,
         spec: selectedSpec.name,
         specId: selectedSpec.id,
         boxes,
         eggs
-      }];
-    });
+      }));
     setBoxCount('');
     setNumpadKey(k => k + 1);
   };
