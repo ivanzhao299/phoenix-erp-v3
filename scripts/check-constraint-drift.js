@@ -219,6 +219,19 @@ function buildMigrationModel() {
   for (const file of baselineFiles) { parseSql(fs.readFileSync(file, 'utf8'), model, true); model.stats.sqlFiles++; }
   const tsFiles = walk(TS_MIGRATIONS, (f) => f.endsWith('.ts')).sort((a, b) => path.basename(a).localeCompare(path.basename(b)));
   for (const file of tsFiles) { extractTsSql(fs.readFileSync(file, 'utf8'), model); model.stats.tsFiles++; }
+  // Dynamic historical migrations are intentionally skipped by the regex parser.
+  // These six terminal states were verified read-only against production in
+  // G201B audit run 32472985151 (2026-08-21).
+  for (const [tableName, columnName, notNull] of [
+    ['wf_approval_instance_steps', 'approver_type', true],
+    ['chanjet_ar_snapshot', 'assistant_customer_code', true],
+    ['chanjet_ar_snapshot', 'subject_id', true],
+    ['sal_drivers', 'status', true],
+    ['sal_vehicles', 'status', true],
+    ['sys_notifications', 'user_id', true],
+  ]) table(model, tableName).columns.set(columnName, {
+    ...(table(model, tableName).columns.get(columnName) || {}), notNull,
+  });
   return model;
 }
 
@@ -325,7 +338,7 @@ function detect(model, code) {
   }
   for (const entity of code.entities) {
     const state = model.tables.get(entity.table)?.columns.get(entity.column);
-    if (state && entity.nullable === state.notNull) warnings.push({ rule: 'R4', key: `${entity.table}.${entity.column}`, detail: `${entity.file}: entity nullable=${entity.nullable}, migration NOT NULL=${state.notNull}` });
+    if (state && entity.nullable === state.notNull) violations.push({ rule: 'R4', key: `${entity.table}.${entity.column}`, detail: `${entity.file}: entity nullable=${entity.nullable}, migration NOT NULL=${state.notNull}` });
   }
   return { violations: uniqueFindings(violations), warnings: uniqueFindings(warnings) };
 }
@@ -340,7 +353,7 @@ function loadAllowlist(file = ALLOWLIST) {
   const entries = new Map();
   fs.readFileSync(file, 'utf8').split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#')).forEach((line) => {
     const [rule, key, ...reason] = line.split('|');
-    if (!/^R[123]$/.test(rule) || !/^\w+\.\w+$/.test(key) || !reason.join('|').trim()) throw new Error(`invalid allowlist entry: ${line}`);
+    if (!/^R[1234]$/.test(rule) || !/^\w+\.\w+$/.test(key) || !reason.join('|').trim()) throw new Error(`invalid allowlist entry: ${line}`);
     entries.set(`${rule}|${key}`, reason.join('|').trim());
   });
   return entries;
@@ -356,11 +369,18 @@ function fixture(sql, ts) {
   return evaluate(model, { writes: extractWrites(ts, 'fixture.ts'), entities: [], dtoEnums: [] });
 }
 
+function entityFixture(sql, entityTs) {
+  const model = emptyModel(); parseSql(sql, model, true);
+  return evaluate(model, { writes: [], entities: extractEntities(entityTs, 'fixture.entity.ts'), dtoEnums: [] });
+}
+
 function selfTest() {
   const cases = [
     ['R1 / P0-3 null write vs NOT NULL', fixture(`CREATE TABLE sys_user (store_code text NOT NULL);`, `db.query(\`INSERT INTO sys_user (store_code) VALUES ($1)\`, [dto.storeCode || null])`), 'R1', true],
     ['R2 / P0-4a dropped baseline CHECK', (() => { const m = emptyModel(); parseSql(`CREATE TABLE fin_ar_invoices (source_type text, CONSTRAINT chk_source CHECK (source_type IN ('MANUAL')));`, m, true); parseSql(`ALTER TABLE fin_ar_invoices DROP CONSTRAINT chk_source;`, m); return evaluate(m, { writes: [], entities: [] }); })(), 'R2', true],
     ['R3 / P0-4b code value outside CHECK', fixture(`CREATE TABLE fin_ar_invoices (source_type text, CHECK (source_type IN ('MANUAL')));`, `db.query(\`INSERT INTO fin_ar_invoices (source_type) VALUES ('STORE_SALE')\`)`), 'R3', true],
+    ['R4 / entity nullable vs NOT NULL', entityFixture(`CREATE TABLE demo (value text NOT NULL);`, `@Entity('demo') class Demo { @Column({ nullable: true }) value: string | null; }`), 'R4', true],
+    ['R4 / aligned entity', entityFixture(`CREATE TABLE demo (value text NOT NULL);`, `@Entity('demo') class Demo { @Column({}) value: string; }`), null, false],
     ['clean fixture', fixture(`CREATE TABLE fin_ar_invoices (source_type text, CHECK (source_type IN ('MANUAL','STORE_SALE')));`, `db.query(\`INSERT INTO fin_ar_invoices (source_type) VALUES ('STORE_SALE')\`)`), null, false],
   ];
   let failed = false;
@@ -369,7 +389,7 @@ function selfTest() {
     const ok = shouldBlock ? result.blocked.some((v) => v.rule === rule) : result.blocked.length === 0;
     console.log(`${ok ? '✅' : '❌'} ${name}: ${shouldBlock ? `red (${rule})` : 'green'}`); failed ||= !ok;
   }
-  console.log(failed ? '❌ self-test failed' : '✅ self-test: 3 red fixtures detected; clean fixture green');
+  console.log(failed ? '❌ self-test failed' : '✅ self-test: R1-R4 red fixtures detected; clean fixtures green');
   process.exitCode = failed ? 1 : 0;
 }
 

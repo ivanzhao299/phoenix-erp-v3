@@ -208,7 +208,7 @@ ON CONFLICT 永不匹配,每次 upsert 都插入新副本。2026-06-19 chanjet_a
 
 **How**：
 - 改 `NOT NULL` / `DEFAULT` / `CHECK` 语义时，同时核对冻结 SQL 基线、`apps/api/src/database/migrations/` TS 迁移末态和 TS 写入路径/DTO/entity。
-- 本地运行 `node scripts/check-constraint-drift.js`；R1/R2/R3 是硬错误，R4（entity nullable 与迁移末态不一致）暂为警告。
+- 本地运行 `node scripts/check-constraint-drift.js`；R1/R2/R3/R4 均为硬错误，R4 校验 entity nullable 与迁移末态一致。
 - 有意移除或静态误报才可登记 `.github/constraint-drift-allowlist.txt`，格式 `规则|表.列|原因`，原因不能为空；真实 bug 禁止用 allowlist 掩盖。
 - 解析器是纯静态正则扫描；动态拼接 SQL、通用 CRUD、复杂 DO/EXECUTE 与无法解析的跨文件枚举需人工复核。
 

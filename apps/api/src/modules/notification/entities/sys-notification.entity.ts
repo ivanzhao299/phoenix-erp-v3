@@ -11,9 +11,9 @@ export class SysNotificationEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
 
-  /** 收件用户 ID；NULL 表示公司级/系统级通知（信用预警、库存临期等） */
-  @Column({ name: 'user_id', type: 'bigint', nullable: true })
-  userId: string | null;
+  /** 实名收件用户 ID；公司级预警按权限与 DataScope 展开后逐用户投递 */
+  @Column({ name: 'user_id', type: 'bigint' })
+  userId: string;
 
   @Column({ name: 'notification_type', length: 32, default: 'WORKFLOW_TASK' })
   notificationType: string;

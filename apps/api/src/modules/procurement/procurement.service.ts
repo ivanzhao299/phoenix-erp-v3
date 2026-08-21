@@ -271,8 +271,8 @@ export class ProcurementService {
   async updateReceiveProgress(poNo: string, receivedQty: number) {
     const po = await this.em.findOne(PurchaseOrderEntity, { where: { po_no: poNo } });
     if (!po) throw new BadRequestException(`采购单 ${poNo} 不存在`);
-    po.received_qty += receivedQty;
-    po.status = po.received_qty >= po.plan_qty ? 'COMPLETED' : 'PARTIAL_RECEIVED';
+    po.received_qty = (po.received_qty ?? 0) + receivedQty;
+    po.status = po.received_qty >= (po.plan_qty ?? 0) ? 'COMPLETED' : 'PARTIAL_RECEIVED';
     await this.em.save(PurchaseOrderEntity, po);
     return { code: 200, data: po };
   }

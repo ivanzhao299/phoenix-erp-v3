@@ -10,6 +10,7 @@ import { PresenceController }         from './presence.controller';             
 import { NotificationDispatcherService } from './notification-dispatcher.service';   // V1: 规则引擎
 import { NotificationSchedulerService }  from './notification-scheduler.service';    // V1: cron
 import { NotificationConfigController }  from './notification-config.controller';    // V1: 配置 CRUD
+import { ScopedNotificationRecipientService } from './scoped-notification-recipient.service';
 
 @Global()
 @Module({
@@ -21,12 +22,14 @@ import { NotificationConfigController }  from './notification-config.controller'
     PresenceService,
     NotificationDispatcherService,
     NotificationSchedulerService,
+    ScopedNotificationRecipientService,
   ],
   exports:     [
     NotificationService,
     PushNotificationService,
     PresenceService,
     NotificationDispatcherService,
+    ScopedNotificationRecipientService,
   ],
 })
 export class NotificationModule {}

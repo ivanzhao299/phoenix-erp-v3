@@ -1,5 +1,5 @@
 # g201 constraint-drift allowlist
 # Format: RULE|table.column|reason
-# RULE is R1, R2, or R3. Every exception must document the verified intent or
-# precise static-parser false-positive. R4 is warn-only and is never allowlisted.
+# RULE is R1, R2, R3, or R4. Every exception must document the verified intent
+# or precise static-parser false-positive. Real drift must never be allowlisted.
 R2|fin_cash_transactions.txn_type|有意模型替换：Phase 3 重建资金流水，以 direction + source_type 取代旧 txn_type，旧 CHECK 随列一并移除

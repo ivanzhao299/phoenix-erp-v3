@@ -4,6 +4,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { EggInventoryService } from './egg-inventory.service';
 import { CronMonitorService } from '../../system-monitor/services/cron-monitor.service';
+import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
 
 /**
  * EggInventorySchedulerService — Sales V2 Phase 7
@@ -23,6 +24,7 @@ export class EggInventorySchedulerService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly eggInventory: EggInventoryService,
     private readonly cronMon: CronMonitorService,
+    private readonly recipients: ScopedNotificationRecipientService,
   ) {}
 
   // ── 每日 01:00 鸡蛋库存维护 ─────────────────────────────────────────────────
@@ -83,29 +85,28 @@ export class EggInventorySchedulerService {
     // 2. 扫描临期库存并写通知
     // [Phase R2 — Config Governance] 预警天数从 sys_configs 读取
     const expiringDays = await this._cfgInt('inventory.expiring_warn_days', 7);
-    const urgentDays   = await this._cfgInt('inventory.urgent_warn_days',   3);
     const expiringBatches = await this.eggInventory.getExpiringBatches({ days: expiringDays });
     let notifications = 0;
 
     for (const batch of expiringBatches) {
       const daysRemaining = (batch as any).days_remaining ?? 0;
-      const level = daysRemaining <= urgentDays ? 'URGENT' : 'WARNING';
-
-      try {
+      const userIds = await this.recipients.resolve(batch.company_code, [
+        'MENU_SALES2_INVENTORY', 'MENU_WMS_VIEW', 'MENU_INV_BATCH',
+      ]);
+      for (const userId of userIds) {
         await this.ds.query(
           `INSERT INTO sys_notifications
-             (notification_type, title, content, biz_type, biz_id, status, created_at)
-           VALUES ('INVENTORY_EXPIRING', $1, $2, 'inv_batch', $3, $4, NOW())`,
+             (user_id, notification_type, title, content, company_code, biz_type, biz_id, status, created_at)
+           VALUES ($1, 'INVENTORY_EXPIRING', $2, $3, $4, 'inv_batch', $5, 'UNREAD', NOW())`,
           [
+            userId,
             `临期库存预警：${batch.batch_no}`,
             `批次 ${batch.batch_no}（${batch.product_code}）剩余 ${daysRemaining} 天到期，可用数量 ${batch.qty_available}`,
+            batch.company_code,
             String(batch.batch_no),
-            level === 'URGENT' ? 'UNREAD' : 'UNREAD',  // 统一写 UNREAD，level 信息在 title 中体现
           ],
         );
         notifications++;
-      } catch {
-        // sys_notifications 字段不存在时静默处理
       }
     }
 

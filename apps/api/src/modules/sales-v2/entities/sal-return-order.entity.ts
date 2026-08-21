@@ -75,17 +75,17 @@ export class SalReturnOrderEntity {
   @Column({ name: 'reason_code', type: 'varchar', length: 64, nullable: true })
   reasonCode: string | null;
 
-  @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'LAK' })
-  currencyCode: string;
+  @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'LAK', nullable: true })
+  currencyCode: string | null;
 
-  @Column({ name: 'subtotal', type: 'numeric', precision: 18, scale: 2, default: 0 })
-  subtotal: number;
+  @Column({ name: 'subtotal', type: 'numeric', precision: 18, scale: 2, default: 0, nullable: true })
+  subtotal: number | null;
 
-  @Column({ name: 'status', type: 'varchar', length: 32, default: 'DRAFT' })
-  status: string;
+  @Column({ name: 'status', type: 'varchar', length: 32, default: 'DRAFT', nullable: true })
+  status: string | null;
 
-  @Column({ name: 'need_approval', type: 'boolean', default: false })
-  needApproval: boolean;
+  @Column({ name: 'need_approval', type: 'boolean', default: false, nullable: true })
+  needApproval: boolean | null;
 
   @Column({ name: 'wf_instance_id', type: 'bigint', nullable: true })
   wfInstanceId: string | null;

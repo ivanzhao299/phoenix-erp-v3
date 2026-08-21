@@ -394,20 +394,6 @@ export class CustomerCreditService {
       [customerId],
     );
 
-    // 写系统通知
-    await this.ds.query(
-      `INSERT INTO sys_notifications
-         (notification_type, title, content, company_code, status, created_at)
-       VALUES ($1, $2, $3, $4, 'UNREAD', NOW())
-       ON CONFLICT DO NOTHING`,
-      [
-        'CUSTOMER_FROZEN',
-        `客户自动冻结：${cust.customer_name}`,
-        `客户「${cust.customer_name}」逾期 ${overdueDays} 天（超账期 ${threshold} 天阈值），系统已自动冻结，待财务处理。`,
-        cust.company_code,
-      ],
-    ).catch(e => this.logger.warn(`写通知失败: ${e.message}`));
-
     this.logger.warn(`[AutoFreeze] 客户 ${cust.customer_name}(${customerId}) 自动冻结 — 逾期${overdueDays}天`);
     return true;
   }

@@ -47,31 +47,31 @@ export class SalReturnItemEntity {
   packagingSpec: string | null;
 
   /** 客户申请退货数量 */
-  @Column({ name: 'returned_qty', type: 'numeric', precision: 18, scale: 2, default: 0 })
-  returnedQty: number;
+  @Column({ name: 'returned_qty', type: 'numeric', precision: 18, scale: 2, default: 0, nullable: true })
+  returnedQty: number | null;
 
   /** 质检通过可回库数量 */
-  @Column({ name: 'accepted_qty', type: 'numeric', precision: 18, scale: 2, default: 0 })
-  acceptedQty: number;
+  @Column({ name: 'accepted_qty', type: 'numeric', precision: 18, scale: 2, default: 0, nullable: true })
+  acceptedQty: number | null;
 
   /** 破损/报废数量（写 inv_ledger WRITE_OFF，不回库存） */
-  @Column({ name: 'damaged_qty', type: 'numeric', precision: 18, scale: 2, default: 0 })
-  damagedQty: number;
+  @Column({ name: 'damaged_qty', type: 'numeric', precision: 18, scale: 2, default: 0, nullable: true })
+  damagedQty: number | null;
 
-  @Column({ name: 'unit_price', type: 'numeric', precision: 18, scale: 2, default: 0 })
-  unitPrice: number;
+  @Column({ name: 'unit_price', type: 'numeric', precision: 18, scale: 2, default: 0, nullable: true })
+  unitPrice: number | null;
 
   /** accepted_qty * unit_price — Credit Note 金额依据 */
-  @Column({ name: 'amount', type: 'numeric', precision: 18, scale: 2, default: 0 })
-  amount: number;
+  @Column({ name: 'amount', type: 'numeric', precision: 18, scale: 2, default: 0, nullable: true })
+  amount: number | null;
 
   /** PENDING / ACCEPTED / PARTIAL / REJECTED / DAMAGED */
-  @Column({ name: 'inspection_result', type: 'varchar', length: 32, default: 'PENDING' })
-  inspectionResult: string;
+  @Column({ name: 'inspection_result', type: 'varchar', length: 32, default: 'PENDING', nullable: true })
+  inspectionResult: string | null;
 
   /** PENDING / RESTOCKED / WRITTEN_OFF */
-  @Column({ name: 'restock_status', type: 'varchar', length: 32, default: 'PENDING' })
-  restockStatus: string;
+  @Column({ name: 'restock_status', type: 'varchar', length: 32, default: 'PENDING', nullable: true })
+  restockStatus: string | null;
 
   @Column({ name: 'remark', type: 'text', nullable: true })
   remark: string | null;

@@ -25,20 +25,20 @@ export class PurchaseOrderEntity {
   @Column({ type: 'varchar', length: 256, nullable: true })
   subject: string;          // 采购主题/摘要
 
-  @Column({ type: 'decimal', precision: 18, scale: 2, default: 0 })
-  total_amount: number;
+  @Column({ type: 'decimal', precision: 18, scale: 2, default: 0, nullable: true })
+  total_amount: number | null;
 
-  @Column({ type: 'varchar', length: 8, default: 'LAK' })
-  currency_code: string;
+  @Column({ type: 'varchar', length: 8, default: 'LAK', nullable: true })
+  currency_code: string | null;
 
-  @Column({ type: 'varchar', length: 32, default: 'DRAFT' })
-  status: string;
+  @Column({ type: 'varchar', length: 32, default: 'DRAFT', nullable: true })
+  status: string | null;
 
-  @Column({ type: 'int', default: 0 })
-  plan_qty: number;
+  @Column({ type: 'int', default: 0, nullable: true })
+  plan_qty: number | null;
 
-  @Column({ type: 'int', default: 0 })
-  received_qty: number;
+  @Column({ type: 'int', default: 0, nullable: true })
+  received_qty: number | null;
 
   @Column({ type: 'varchar', length: 32, nullable: true })
   store_code: string;
