@@ -230,7 +230,8 @@ export class SystemUsersController {
          RETURNING user_id`,
         [
           username, password_hash, real_name_zh,
-          store_code || 'ALL',
+          // G76: store_code 仅用于 POS 门店行级隔离；公司范围由 sys_user_orgs 决定。
+          store_code || null,
           locale || 'zh-CN',
           real_name_lo || null,
         ],

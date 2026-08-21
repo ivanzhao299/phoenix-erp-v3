@@ -1,6 +1,35 @@
 import { REQUIRE_MENU_KEY, MenuRequirement } from '../../common/guards/menu.guard';
-import { DashboardBffController, PackagingTerminalBffController } from './bff.controller';
+import { DashboardBffController, PackagingTerminalBffController, UsersBffController } from './bff.controller';
 import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
+
+describe('UsersBffController', () => {
+  it('creates a non-POS user without store_code and persists SQL NULL', async () => {
+    const em = {
+      query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('INSERT INTO sys_user')) return [{ user_id: 42 }];
+        return [];
+      }),
+    };
+    const controller = new UsersBffController(em as never);
+
+    await expect(controller.createUser({
+      username: 'new-user',
+      real_name_zh: '新用户',
+      password: 'Password123',
+      user_type: 'NORMAL',
+    }, {})).resolves.toMatchObject({ code: 200, data: { id: 42 } });
+
+    const insertCall = em.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO sys_user'));
+    expect(insertCall).toBeDefined();
+    expect(insertCall?.[1]).toEqual([
+      'new-user',
+      expect.any(String),
+      '新用户',
+      null,
+      null,
+    ]);
+  });
+});
 
 describe('DashboardBffController', () => {
   function buildController() {

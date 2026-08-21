@@ -1,0 +1,75 @@
+name: Sys User Store Code Readonly Schema Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      window_start:
+        description: 'UTC audit start timestamp, e.g. 2026-08-21 00:00:00'
+        required: true
+      window_end:
+        description: 'UTC audit end timestamp, e.g. 2026-08-22 00:00:00'
+        required: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate audit window
+        shell: bash
+        env:
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        run: |
+          set -euo pipefail
+          timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+          for value in "$WINDOW_START" "$WINDOW_END"; do
+            [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+            date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+          done
+          [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+            || { echo "window_start must be before window_end" >&2; exit 1; }
+      - name: Readonly production column audit
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,WINDOW_START,WINDOW_END
+          script: |
+            set -euo pipefail
+            timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+            for value in "$WINDOW_START" "$WINDOW_END"; do
+              [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+              date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+            done
+            [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+              || { echo "window_start must be before window_end" >&2; exit 1; }
+            cd "$DEPLOY_PATH"
+            docker compose exec -T \
+              -e AUDIT_WINDOW_START="$WINDOW_START" \
+              -e AUDIT_WINDOW_END="$WINDOW_END" \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -v window_start="$AUDIT_WINDOW_START" -v window_end="$AUDIT_WINDOW_END" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            \x on
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'AUDIT_WINDOW' AS section, :'window_start' AS window_start, :'window_end' AS window_end;
+            SELECT table_schema, table_name, column_name, data_type, is_nullable, column_default
+              FROM information_schema.columns
+             WHERE table_schema = current_schema()
+               AND table_name = 'sys_user'
+               AND column_name = 'store_code';
+            COMMIT;
+            SQL
