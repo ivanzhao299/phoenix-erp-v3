@@ -1,5 +1,6 @@
 import { REQUIRE_MENU_KEY, MenuRequirement } from '../../common/guards/menu.guard';
 import { DashboardBffController, PackagingTerminalBffController } from './bff.controller';
+import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
 
 describe('DashboardBffController', () => {
   function buildController() {
@@ -72,18 +73,63 @@ describe('PackagingTerminalBffController', () => {
     };
     const controller = new PackagingTerminalBffController(em as never, {} as never);
 
-    await expect(controller.submitPacking({
+    const result = controller.submitPacking({
       productionDate: '2026-08-21',
       batches: [{ grade: 'A', boxes: 2, eggs: 360 }],
-    })).rejects.toThrow('包装记录写入失败');
+    });
+
+    await expect(result).rejects.toBeInstanceOf(InternalServerErrorException);
+    await expect(result).rejects.toMatchObject({
+      status: 500,
+      response: expect.objectContaining({
+        message: '包装记录写入失败，请稍后重试或联系管理员',
+      }),
+    });
+    await expect(result).rejects.not.toThrow('column shift_id does not exist');
   });
 
   it('rejects an empty packing submission before creating a handover candidate', async () => {
     const em = { query: jest.fn() };
     const controller = new PackagingTerminalBffController(em as never, {} as never);
 
-    await expect(controller.submitPacking({ batches: [] })).rejects.toThrow('包装批次不能为空');
+    await expect(controller.submitPacking({ batches: [] })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.submitPacking({ batches: [] })).rejects.toThrow('batches 必须是非空数组');
     expect(em.query).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ grade: 'A', boxes: -1, eggs: 360 }, 'batches[0].boxes 必须是有限正数'],
+    [{ grade: 'A', boxes: 2, eggs: '360' }, 'batches[0].eggs 必须是有限正数'],
+    [{ grade: '', boxes: 2, eggs: 360 }, 'batches[0].grade 必须是非空字符串'],
+  ])('rejects malformed packing batches before touching the database', async (batch, message) => {
+    const em = { query: jest.fn() };
+    const controller = new PackagingTerminalBffController(em as never, {} as never);
+
+    await expect(controller.submitPacking({ batches: [batch] })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.submitPacking({ batches: [batch] })).rejects.toThrow(message);
+    expect(em.query).not.toHaveBeenCalled();
+  });
+
+  it('inserts a valid packing record with the existing code and conflict semantics', async () => {
+    const em = { query: jest.fn().mockResolvedValue([]) };
+    const controller = new PackagingTerminalBffController(em as never, {} as never);
+    const batches = [{ grade: 'A', boxes: 2, eggs: 360 }];
+
+    const result = await controller.submitPacking({
+      productionDate: '2026-08-21',
+      gradingCodes: [' GC-A ', 42, ''],
+      shiftId: 'shift-1',
+      batches,
+    });
+
+    expect(result).toMatchObject({ code: 200, data: { totalBoxes: 2, totalEggs: 360 } });
+    expect(result.data.code).toMatch(/^PKG-20260821-\d{6}$/);
+    expect(em.query).toHaveBeenCalledTimes(1);
+    expect(em.query).toHaveBeenCalledWith(
+      expect.stringContaining('ON CONFLICT (code) DO NOTHING'),
+      [result.data.code, 'GC-A', JSON.stringify(['GC-A']), '2026-08-21',
+        JSON.stringify(batches), 2, 360, 'shift-1'],
+    );
   });
 
   it('allows collection editors to open a collection shift', () => {

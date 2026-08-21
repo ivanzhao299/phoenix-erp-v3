@@ -16,6 +16,18 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v5
+      - name: Validate audit window
+        shell: bash
+        env:
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        run: |
+          set -euo pipefail
+          timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+          for value in "$WINDOW_START" "$WINDOW_END"; do
+            [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+            date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+          done
       - name: Readonly production packaging audit
         uses: appleboy/ssh-action@v1
         env:
@@ -34,40 +46,64 @@ jobs:
           envs: DEPLOY_PATH,WINDOW_START,WINDOW_END
           script: |
             set -euo pipefail
+            timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+            for value in "$WINDOW_START" "$WINDOW_END"; do
+              [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+              date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+            done
             cd "$DEPLOY_PATH"
-            docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<SQL
+            docker compose exec -T \
+              -e AUDIT_WINDOW_START="$WINDOW_START" \
+              -e AUDIT_WINDOW_END="$WINDOW_END" \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -v window_start="$AUDIT_WINDOW_START" -v window_end="$AUDIT_WINDOW_END" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
             \pset pager off
             \x on
-            SELECT 'WINDOW' AS section, '$WINDOW_START' AS window_start, '$WINDOW_END' AS window_end;
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'WINDOW' AS section, :'window_start' AS window_start, :'window_end' AS window_end;
+            SELECT 'SCHEMA_DRIFT' AS section,
+                   EXISTS (
+                     SELECT 1 FROM information_schema.columns
+                      WHERE table_schema = current_schema()
+                        AND table_name = 'pkg_packing_records'
+                        AND column_name = 'shift_id'
+                   ) AS shift_id_exists,
+                   EXISTS (
+                     SELECT 1 FROM information_schema.columns
+                      WHERE table_schema = current_schema()
+                        AND table_name = 'pkg_packing_records'
+                        AND column_name = 'grading_codes_json'
+                   ) AS grading_codes_json_exists;
             SELECT 'PACKING' AS section, p.*
               FROM pkg_packing_records p
-             WHERE p.created_at BETWEEN '$WINDOW_START'::timestamp AND '$WINDOW_END'::timestamp
+             WHERE p.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
              ORDER BY p.created_at DESC;
             SELECT 'HANDOVER' AS section, h.*
               FROM pkg_handover_records h
-             WHERE h.created_at BETWEEN '$WINDOW_START'::timestamp AND '$WINDOW_END'::timestamp
+             WHERE h.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
              ORDER BY h.created_at DESC;
             SELECT 'BATCHES' AS section, b.batch_no, b.product_code, b.qty, b.qty_available, b.status,
                    b.company_code, b.quality_grade, b.grade_code_std, b.source_type,
                    b.packaging_batch_ref, b.created_at
               FROM inv_batches b
-             WHERE b.created_at BETWEEN '$WINDOW_START'::timestamp AND '$WINDOW_END'::timestamp
+             WHERE b.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
                 OR b.packaging_batch_ref IN (
                   SELECT p.code FROM pkg_packing_records p
-                   WHERE p.created_at BETWEEN '$WINDOW_START'::timestamp AND '$WINDOW_END'::timestamp
+                   WHERE p.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
                 )
              ORDER BY b.created_at DESC;
             SELECT 'LEDGER' AS section, l.id, l.batch_no, l.change_type, l.qty_change,
                    l.company_code, l.quality_grade, l.log_date, l.created_at, l.ref_no
               FROM inv_ledger l
-             WHERE l.created_at BETWEEN '$WINDOW_START'::timestamp AND '$WINDOW_END'::timestamp
+             WHERE l.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
                 OR l.ref_no IN (
                   SELECT p.code FROM pkg_packing_records p
-                   WHERE p.created_at BETWEEN '$WINDOW_START'::timestamp AND '$WINDOW_END'::timestamp
+                   WHERE p.created_at BETWEEN :'window_start'::timestamp AND :'window_end'::timestamp
                 )
              ORDER BY l.created_at DESC;
             SELECT 'MODE' AS section, setting_key, setting_value, updated_at
-              FROM sys_settings
+             FROM sys_settings
              WHERE setting_key ILIKE '%INVENTORY%' OR setting_key ILIKE '%SOURCE%'
              ORDER BY updated_at DESC;
+            COMMIT;
             SQL

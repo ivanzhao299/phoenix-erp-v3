@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -2105,15 +2105,30 @@ export class PackagingTerminalBffController {
     const today = new Date().toISOString().slice(0, 10);
     const productionDate = body.productionDate || today;
     const code = `PKG-${productionDate.replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
-    const batches = (body.batches as any[]) || [];
-    const totalBoxes = batches.reduce((a: number, b: any) => a + (b.boxes || 0), 0);
-    const totalEggs  = batches.reduce((a: number, b: any) => a + (b.eggs  || 0), 0);
-    const gradingCodes: string[] = Array.isArray(body.gradingCodes)
-      ? body.gradingCodes.filter((c: unknown) => typeof c === 'string')
-      : (body.gradingCode ? [body.gradingCode] : []);
-    if (batches.length === 0 || totalBoxes <= 0 || totalEggs <= 0) {
-      throw new BadRequestException('包装批次不能为空，箱数和鸡蛋数量必须大于 0');
+    if (!Array.isArray(body.batches) || body.batches.length === 0) {
+      throw new BadRequestException('batches 必须是非空数组');
     }
+    const batches = body.batches as Array<Record<string, unknown>>;
+    batches.forEach((batch, index) => {
+      if (typeof batch?.grade !== 'string' || batch.grade.trim() === '') {
+        throw new BadRequestException(`batches[${index}].grade 必须是非空字符串`);
+      }
+      if (typeof batch.boxes !== 'number' || !Number.isFinite(batch.boxes) || batch.boxes <= 0) {
+        throw new BadRequestException(`batches[${index}].boxes 必须是有限正数`);
+      }
+      if (typeof batch.eggs !== 'number' || !Number.isFinite(batch.eggs) || batch.eggs <= 0) {
+        throw new BadRequestException(`batches[${index}].eggs 必须是有限正数`);
+      }
+    });
+    const totalBoxes = batches.reduce((a, b) => a + (b.boxes as number), 0);
+    const totalEggs = batches.reduce((a, b) => a + (b.eggs as number), 0);
+    const gradingCodes: string[] = Array.isArray(body.gradingCodes)
+      ? body.gradingCodes
+        .filter((c: unknown): c is string => typeof c === 'string')
+        .map((c: string) => c.trim())
+        .filter(Boolean)
+      : (typeof body.gradingCode === 'string' && body.gradingCode.trim()
+        ? [body.gradingCode.trim()] : []);
     try {
       await this.em.query(
         `INSERT INTO pkg_packing_records
@@ -2126,7 +2141,7 @@ export class PackagingTerminalBffController {
       );
     } catch (error: any) {
       console.error(`[packing/submit][ERR] 包装记录写入失败 code=${code}: ${error?.message}`, error?.stack);
-      throw new BadRequestException(`包装记录写入失败：${error?.message || '数据库错误'}`);
+      throw new InternalServerErrorException('包装记录写入失败，请稍后重试或联系管理员');
     }
     return { code: 200, data: { code, totalBoxes, totalEggs } };
   }
