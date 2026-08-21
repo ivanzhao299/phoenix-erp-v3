@@ -13,7 +13,7 @@
 | SITE | FARM-DP | TEMP_PRODUCTION_INBOUND |
 | SITE | FARM-MS | PACKAGING_INBOUND |
 
-因此无需代码修复，也不应擅自修改生产配置。若业务决定让 CS-0001 或 FARM-DP 在交接时生成包装库存，需要先完成 TEMP 库存切断与对账，再把对应 SITE 配置切到 `PACKAGING_INBOUND`；不能只改配置而保留日产蛋写入，否则可能双写。
+因此观察到的 5 条记录无需改变 TEMP/PACKAGING 业务逻辑，也不应擅自修改生产配置。审计另发现 SITE 模式解析被 legacy 兼容逻辑旁路，已在本分支修复；若业务决定让 CS-0001 或 FARM-DP 在交接时生成包装库存，仍需先完成 TEMP 库存切断与对账，再把对应 SITE 配置切到 `PACKAGING_INBOUND`，不能只改配置而保留日产蛋写入，否则可能双写。
 
 ## 2. 完整调用链
 
@@ -117,24 +117,26 @@ TEMP 模式不需要再点一次包装 inbound confirm 才生成包装库存；�
 
 生产行为与 `12535ceb + 213f76e9` 的修复预期完全一致。
 
-## 7. 潜在代码缺口（不是本次现象根因）
+## 7. SITE 模式解析缺口与修复（不是本次现象根因）
 
 `completeTerminalPacking` 当前把 `siteCode` 固定为 `null`，`getTerminalInventoryMode` 也用空 rows 解析模式。因此实际运行时没有按 `shift_id → pkg_work_shifts.site_id` 使用 SITE 配置，而是回落 COMPANY/GROUP/default。
 
-本次 5 条不受影响：CS-0001、FARM-DP 与 GROUP/ALL 都是 TEMP，正确解析 SITE 或回落 GROUP 的结果相同。但 FARM-MS 已配置为 `PACKAGING_INBOUND`；如果 FARM-MS 走同一 Terminal 链路，现代码可能错误回落到 GROUP TEMP，导致本应交接即入账却被跳过。这是灰度切换前必须单独修复并测试的潜在 bug，不宜借本次 TEMP 证据直接改动后合并。
+本次 5 条不受影响：CS-0001、FARM-DP 与 GROUP/ALL 都是 TEMP，正确解析 SITE 或回落 GROUP 的结果相同。但 FARM-MS 已配置为 `PACKAGING_INBOUND`；如果 FARM-MS 走同一 Terminal 链路，修复前会错误回落到 GROUP TEMP，导致本应交接即入账却被跳过。
 
-建议在准备 FARM-MS 灰度前：
+本分支已完成最小修复：
 
-1. 在生产 schema 已确认完整的前提下，恢复 `pkg_packing_records.shift_id → pkg_work_shifts.site_id` 查询。
-2. `completeTerminalPacking` 与 `getTerminalInventoryMode` 复用同一解析方法，避免 confirm 与刷新状态模式不一致。
-3. 增加 SITE=PACKAGING、SITE=TEMP、无 shift 回落 GROUP、legacy 无列兼容四组测试。
+1. 恢复 `pkg_packing_records.shift_id → pkg_work_shifts.site_id` 查询。
+2. `completeTerminalPacking` 与 `getTerminalInventoryMode` 复用 `loadTerminalPackingContext`，避免 confirm 与刷新状态模式不一致。
+3. 只有 PostgreSQL `undefined_column (42703)` 才使用不含 `shift_id` 的 legacy 查询；其他数据库错误继续显性抛出。
+4. 库存批次恢复写入 `collectionBatchRef=SHIFT-<shift_id>`。
+5. 新增 SITE=PACKAGING、SITE=TEMP、无 shift 回落、状态刷新一致、legacy 缺列五组测试。
 
 ## 8. 配置/操作建议
 
 当前不做配置变更。若业务决定把某场站切为包装库存权威源，操作顺序应为：
 
 1. 对齐该场站 TEMP 上游库存与包装交接数量，确认切换时点和存量处理。
-2. 先修复并验证上述 SITE 模式解析缺口。
+2. 部署并验证本分支的 SITE 模式解析修复。
 3. 停止该 SITE 的 TEMP 日产蛋库存写入路径。
 4. 经审批后将 `inv_source_mode(SITE, <site_code>)` 更新为 `PACKAGING_INBOUND`；本报告不执行生产写入。
 5. 真实跑一笔包装提交 → warehouse confirm，核验 `inv_batches.packaging_batch_ref`、`inv_ledger.change_type='PACKAGING_INBOUND'`、数量和幂等重试。
@@ -146,5 +148,9 @@ TEMP 模式不需要再点一次包装 inbound confirm 才生成包装库存；�
 - workflow 提交：`629ed395 ci: deepen packaging inventory chain audit`
 - workflow 验证：run 32460978538 成功，生产 SQL 全部在只读事务中完成。
 - 静态验证：`git diff --check` 通过；GitHub Actions 实际解析并运行 workflow 成功。
-- 决策：观察到的 5 条链路属于 TEMP 设计行为，不修改 API 代码、不修改生产配置、不触发 main 部署。
-
+- API 修复文件：`packaging-inventory-integration.service.ts`；测试文件：`packaging-inventory-integration.service.spec.ts`。
+- API TypeScript：`tsc --noEmit` 通过。
+- Web TypeScript：`tsc --noEmit` 通过。
+- API 全量 Jest：56 suites / 502 tests 全部通过；其中新增 Terminal 模式测试 5/5 通过。
+- 说明：`pnpm test -- --runInBand` 被项目脚本误解析为测试 pattern，未执行任何用例；随后使用 `pnpm exec jest --runInBand` 正确完成全量验证。
+- 决策：观察到的 5 条链路属于 TEMP 设计行为，不修改生产配置；代码仅修复独立的 SITE 灰度解析缺口。

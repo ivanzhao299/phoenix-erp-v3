@@ -267,17 +267,9 @@ export class PackagingInventoryIntegrationService {
       return { refNo: '', idempotent: false, companyCode: 'ALL', batches: [], skippedNonSaleable: [], totalInbound: 0, note: '无 packingCode，跳过库存生成' };
     }
 
-    // 读取包装记录
-    const rows = await this.ds.query(
-      // pkg_packing_records is deployed in two compatible shapes: older
-      // databases do not have shift_id.  The packing record itself is enough
-      // to post inventory; site scoping is optional and mode resolution falls
-      // back to company/group when no shift relation is available.
-      `SELECT code, production_date, batches_json
-         FROM pkg_packing_records WHERE code = $1 LIMIT 1`,
-      [packingCode],
-    );
-    const rec = rows[0];
+    // 读取包装记录，并解析 shift → site 供 SITE 级库存来源模式门控使用。
+    // legacy 数据库若仍缺 shift_id，则 helper 会降级到 company/group 模式。
+    const rec = await this.loadTerminalPackingContext(packingCode);
     if (!rec) {
       return { refNo: packingCode, idempotent: false, companyCode: 'ALL', batches: [], skippedNonSaleable: [], totalInbound: 0, note: `包装记录不存在：${packingCode}` };
     }
@@ -296,17 +288,14 @@ export class PackagingInventoryIntegrationService {
       items.push({ grade: g, specName: b.spec ?? null, qty: Number(b.eggs || 0) });
     }
 
-    // 解析 site（pkg_work_shifts.site_id）用于 SITE 级模式门控
-    let siteCode: string | null = null;
-
     const eggDate = rec.production_date
       ? new Date(rec.production_date).toISOString().slice(0, 10)
       : undefined;
-    const collectionRef = null;
+    const collectionRef = rec.shift_id ? `SHIFT-${rec.shift_id}` : null;
 
     const r = await this.generateSaleableFromOutputs(packingCode, items, {
       companyCode: opts?.companyCode,
-      siteCode,
+      siteCode: rec.site_id ?? null,
       eggDate,
       collectionRef,
     });
@@ -321,15 +310,43 @@ export class PackagingInventoryIntegrationService {
     packingCode: string,
     opts?: { companyCode?: string },
   ): Promise<string> {
-    // Do not require the optional shift_id relation here.  Production
-    // databases created before the terminal shift rollout lack that column;
-    // querying it made confirmation fail before mode resolution.
-    const rows: any[] = [];
+    const rec = await this.loadTerminalPackingContext(packingCode);
     const companyCode = await this.resolveCompanyCode(opts?.companyCode);
     return this.modeSvc.resolveMode({
-      siteCode: rows[0]?.site_id ?? null,
+      siteCode: rec?.site_id ?? null,
       companyCode,
     });
+  }
+
+  /**
+   * 读取 Terminal 包装上下文。生产库已部署 shift_id；对尚未补列的 legacy
+   * 数据库仅在 PostgreSQL undefined_column(42703) 时降级，其他 SQL 错误继续抛出。
+   */
+  private async loadTerminalPackingContext(packingCode: string): Promise<any | null> {
+    try {
+      const rows = await this.ds.query(
+        `SELECT p.code, p.production_date, p.batches_json, p.shift_id, ws.site_id
+           FROM pkg_packing_records p
+           LEFT JOIN pkg_work_shifts ws ON ws.id = p.shift_id
+          WHERE p.code = $1
+          LIMIT 1`,
+        [packingCode],
+      );
+      return rows[0] ?? null;
+    } catch (error: any) {
+      if (error?.code !== '42703') throw error;
+      this.logger.warn(
+        `[PkgInv] legacy pkg_packing_records 缺 shift_id，包装批次 ${packingCode} 回落 company/group 模式`,
+      );
+      const rows = await this.ds.query(
+        `SELECT code, production_date, batches_json
+           FROM pkg_packing_records
+          WHERE code = $1
+          LIMIT 1`,
+        [packingCode],
+      );
+      return rows[0] ?? null;
+    }
   }
 
   /** R3：按规格名解析 packaging_specs.spec_code（用于写 inv_batches.spec_code / 解析 SKU） */
