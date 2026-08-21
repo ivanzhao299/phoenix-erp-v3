@@ -66,6 +66,26 @@ describe('DashboardBffController', () => {
 });
 
 describe('PackagingTerminalBffController', () => {
+  it('does not report packing success when the packing record write fails', async () => {
+    const em = {
+      query: jest.fn().mockRejectedValue(new Error('column shift_id does not exist')),
+    };
+    const controller = new PackagingTerminalBffController(em as never, {} as never);
+
+    await expect(controller.submitPacking({
+      productionDate: '2026-08-21',
+      batches: [{ grade: 'A', boxes: 2, eggs: 360 }],
+    })).rejects.toThrow('包装记录写入失败');
+  });
+
+  it('rejects an empty packing submission before creating a handover candidate', async () => {
+    const em = { query: jest.fn() };
+    const controller = new PackagingTerminalBffController(em as never, {} as never);
+
+    await expect(controller.submitPacking({ batches: [] })).rejects.toThrow('包装批次不能为空');
+    expect(em.query).not.toHaveBeenCalled();
+  });
+
   it('allows collection editors to open a collection shift', () => {
     const requirement = Reflect.getMetadata(
       REQUIRE_MENU_KEY,

@@ -2111,8 +2111,11 @@ export class PackagingTerminalBffController {
     const gradingCodes: string[] = Array.isArray(body.gradingCodes)
       ? body.gradingCodes.filter((c: unknown) => typeof c === 'string')
       : (body.gradingCode ? [body.gradingCode] : []);
-    await this.safe(
-      this.em.query(
+    if (batches.length === 0 || totalBoxes <= 0 || totalEggs <= 0) {
+      throw new BadRequestException('包装批次不能为空，箱数和鸡蛋数量必须大于 0');
+    }
+    try {
+      await this.em.query(
         `INSERT INTO pkg_packing_records
          (code, grading_code, grading_codes_json, production_date, batches_json, total_boxes, total_eggs, shift_id, created_at)
          VALUES ($1,$2,$3::jsonb,$4,$5::jsonb,$6,$7,$8,NOW())
@@ -2120,9 +2123,11 @@ export class PackagingTerminalBffController {
         [code, gradingCodes[0] ?? null, JSON.stringify(gradingCodes),
          productionDate, JSON.stringify(batches), totalBoxes, totalEggs,
          body.shiftId || null],
-      ),
-      null,
-    );
+      );
+    } catch (error: any) {
+      console.error(`[packing/submit][ERR] 包装记录写入失败 code=${code}: ${error?.message}`, error?.stack);
+      throw new BadRequestException(`包装记录写入失败：${error?.message || '数据库错误'}`);
+    }
     return { code: 200, data: { code, totalBoxes, totalEggs } };
   }
 
