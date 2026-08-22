@@ -45,3 +45,12 @@
 3. toast 出现后，不手动刷新页面，确认列表立即显示新值。
 4. 再刷新页面，确认仍是相同新值。
 5. 若仍异常，在浏览器 Network 中保存该次 PUT 与紧随其后的 GET 响应体及响应头。
+
+## 第二轮取证（用户保存后 GET 到达性）
+
+- 只读审计 workflow 新 run：`32548804093`，UTC 窗口 `2026-08-22 00:22:41` 至 `2026-08-22 03:22:41`，执行成功；生产 checkout、API 镜像与 Web 镜像仍为修复 revision `942266845d4127f96b665cc72802b9b31b2ee721`。
+- 数据库只读快照显示三条近期更新：脱敏编号 `FK-…NTU` 于 `03:15:14.428Z` 更新为 `150`、`FK-…H4Y` 于 `03:16:12.478Z` 更新为 `900`、`FK-…M0Q` 于 `03:20:12.199Z` 更新为 `212`，证明该时段确有保存落库活动。
+- 本轮 `nginx -T` 关键词输出显示目标 API 反代层存在 `proxy_pass http://127.0.0.1:3100` 且明确配置 `proxy_cache off`，未见启用 Nginx proxy cache 的证据。
+- 但当前 `flock-refresh-readonly-audit.yml` 未包含 access-log 路径发现与日志读取命令，仅输出 `nginx -T` 的 `upstream/proxy_pass/proxy_cache` 关键词；因此 run 中没有 `PUT /api/crud/brd_flocks`、`GET /api/crud/brd_flocks`、来源 IP、响应字节数或 User-Agent 日志行，也没有完整 server 块。不能凭数据库 `updated_at` 推断保存后的 GET 是否到达 Nginx，亦不能核实 Nginx 前是否还有 CDN/上游代理。
+
+结论为 **C：日志不足以下结论**。缺少同一三小时窗口内 Nginx access log 的完整 PUT/GET 行，以及完整 `nginx -T` 中目标 server/location 块；在补齐这些只读证据前，A（本机代理直接应答）与 B（GET 已到服务器）均不能成立。本轮未改生产、未改业务代码。
