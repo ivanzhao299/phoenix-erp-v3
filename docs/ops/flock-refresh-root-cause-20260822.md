@@ -96,3 +96,10 @@
 - 同一 production build、同一 Chrome 151 用例修复后通过：`1 passed (3.7s)`。
 - Web production build 成功；Web TypeScript `0 errors`；Vitest `71 files / 402 tests passed`。
 - `sw.js` 已完整核对：同源 `/api/*` GET 仅 `fetch(req)`，失败返回 503，不读写 Cache；静态 stale-while-revalidate 不覆盖 API，因此不是本次根因。
+
+### CI、部署与只读核实
+
+- 修复提交 `b6cb71c3`，workspace lockfile 补齐提交 `4f6a67f1`；均已合入并推送 main。首个 SHA 的 CI 正确发现根 lockfile 未同步并红灯，补齐后本地 frozen install 通过。
+- 最终 SHA `4f6a67f193e39a0a32e7a69caeab088c35044599` 的四条 push CI 全绿：主 CI/CD `32550677434`、Web Unit Tests `32550677303`、AI Delivery CI Build `32550677315`、AI Delivery CI Security `32550677329`。
+- 显式生产部署 workflow `32551007319` 使用 `mode=web`、`skip_deploy=false`、`approve_production=true`，成功；API 镜像未重建/未重启，未执行生产迁移。
+- 部署后只读 workflow `32551242155` 成功：生产 checkout SHA 为 `4f6a67f193e39a0a32e7a69caeab088c35044599`，Web image revision 同为该 SHA，Web 容器启动时间为本次部署时段；API image revision 保持此前的 `94226684...`，符合 web-only 部署预期。
