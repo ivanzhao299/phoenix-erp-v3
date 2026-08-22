@@ -510,7 +510,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ matrix.target == 'web' && 'API_TARGET=http://api:3100' || '' }}
+          build-args: |
+            API_TARGET=http://api:3100
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to:   type=gha,scope=${{ matrix.target }},mode=max
 

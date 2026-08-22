@@ -22,7 +22,9 @@ COPY apps/web ./apps/web
 
 # API_TARGET 在 build 时嵌入 rewrites；Docker Compose 里 api 服务名固定为 api
 ARG API_TARGET=http://api:3100
+ARG GIT_SHA=unknown
 ENV API_TARGET=${API_TARGET}
+ENV NEXT_PUBLIC_BUILD_SHA=${GIT_SHA}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 WORKDIR /workspace
@@ -31,9 +33,11 @@ RUN pnpm --filter web build
 # ─── Stage 2: runtime ──────────────────────────────────────────
 FROM node:20-alpine AS runtime
 
+ARG GIT_SHA=unknown
 LABEL org.opencontainers.image.title="Phoenix ERP V3 Web"
 LABEL org.opencontainers.image.description="Next.js frontend for Phoenix ERP V3"
 LABEL org.opencontainers.image.source="https://github.com/ivanzhao299/phoenix-erp-v3"
+LABEL org.opencontainers.image.revision="${GIT_SHA}"
 
 RUN apk add --no-cache curl tini
 

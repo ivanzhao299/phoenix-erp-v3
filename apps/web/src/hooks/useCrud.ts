@@ -12,6 +12,7 @@
  */
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDialog } from '../contexts/DialogContext';
+import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LatestRequestRunner } from '../lib/latest-request';
 
@@ -19,7 +20,8 @@ export const useCrud = (table: string) => {
   const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || '') + '/api/crud';
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
-  const { showAlert, showConfirm } = useDialog();
+  const { showConfirm } = useDialog();
+  const toast = useToast();
   const { t } = useLanguage();
   const requestGeneration = useRef(0);
   const listRequests = useRef(new LatestRequestRunner<any>());
@@ -87,7 +89,7 @@ export const useCrud = (table: string) => {
 
   const createRecord = useCallback(async (data: Record<string, unknown>, successMsg?: string) => {
     if (!data || Object.keys(data).length === 0) {
-      await showAlert({ icon:'⚠️', type:'warning', title:t('crud.err.emptyTitle', '数据为空'), message:t('crud.err.empty', '检测到试图提交全空白的空气建档，已被拒绝。') });
+      toast.warning(t('crud.err.empty', '检测到试图提交全空白的空气建档，已被拒绝。'));
       return false;
     }
     const hasMeaningfulData = Object.entries(data).some(([k, v]) => {
@@ -95,14 +97,14 @@ export const useCrud = (table: string) => {
       return v !== null && v !== undefined && String(v).trim() !== '';
     });
     if (!hasMeaningfulData && Object.keys(data).length > 0) {
-      await showAlert({ icon:'⚠️', type:'warning', title:t('crud.err.nearEmptyTitle', '表单几乎为空'), message:t('crud.err.nearEmpty', '必要字段全部为空，无法创建记录，请填写必要信息。') });
+      toast.warning(t('crud.err.nearEmpty', '必要字段全部为空，无法创建记录，请填写必要信息。'));
       return false;
     }
     const { success, error: reqErr } = await executeReq(`${API_BASE}/${table}`, { method:'POST', body:JSON.stringify(data) });
-    if (success && successMsg) await showAlert({ icon:'✅', type:'success', title:t('common.success', '操作成功'), message:successMsg, confirmLabel:t('common.ok', '好的') });
-    else if (!success && reqErr !== '__401__') await showAlert({ icon:'❌', type:'danger', title:t('crud.err.submitFailTitle', '提交失败'), message:reqErr||t('crud.err.submitFail', '网络连接失败，请检查服务器'), confirmLabel:t('common.close', '关闭') });
+    if (success && successMsg) toast.success(successMsg);
+    else if (!success && reqErr !== '__401__') toast.error(reqErr || t('crud.err.submitFail', '网络连接失败，请检查服务器'));
     return success;
-  }, [table, showAlert, t]);
+  }, [table, toast, t]);
 
   const getRecords = useCallback(async (queryParams: Record<string, string | number> = {}) => {
     const qs = Object.keys(queryParams).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries(queryParams).map(([k, v]) => [k, String(v)]))).toString()}` : '';
@@ -116,24 +118,24 @@ export const useCrud = (table: string) => {
 
   const updateRecord = useCallback(async (id: string | number, data: Record<string, unknown>, idColumn = 'id', successMsg?: string) => {
     const { success, error: reqErr } = await executeReq(`${API_BASE}/${table}/${idColumn}/${id}`, { method:'PUT', body:JSON.stringify(data) });
-    if (success && successMsg) await showAlert({ icon:'✅', type:'success', title:t('common.success', '操作成功'), message:successMsg, confirmLabel:t('common.ok', '好的') });
-    if (!success && reqErr !== '__401__') await showAlert({ icon:'❌', type:'danger', title:t('crud.err.updateFailTitle', '更新失败'), message:reqErr||t('crud.err.updateFail', '更新失败，请稍后重试'), confirmLabel:t('common.close', '关闭') });
+    if (success && successMsg) toast.success(successMsg);
+    if (!success && reqErr !== '__401__') toast.error(reqErr || t('crud.err.updateFail', '更新失败，请稍后重试'));
     return success;
-  }, [table, showAlert, t]);
+  }, [table, toast, t]);
 
   const deleteRecord = useCallback(async (id: string | number, idColumn = 'id', successMsg?: string, confirmMsg?: string) => {
     const _u = (() => { try { return JSON.parse(sessionStorage.getItem('phoenix_user') || '{}'); } catch { return {}; } })();
     if (_u.role !== 'ROLE_ADMIN') {
-      await showAlert({ icon:'🚫', type:'danger', title:t('crud.err.noPermTitle', '无权限'), message:t('crud.err.noPermission', '历史记录数据仅系统管理员可删除，如需处理请联系管理员。'), confirmLabel:t('common.understood', '知道了') });
+      toast.error(t('crud.err.noPermission', '历史记录数据仅系统管理员可删除，如需处理请联系管理员。'));
       return false;
     }
     const ok = await showConfirm({ icon:'🗑️', type:'danger', title:t('crud.err.deleteConfirmTitle', '确认删除'), message:confirmMsg??t('crud.err.deleteConfirm', '确认删除此记录？删除后无法恢复。'), confirmLabel:t('crud.err.deleteConfirmBtn', '确认删除'), cancelLabel:t('common.cancel', '取消') });
     if (!ok) return false;
     const { success, error: reqErr } = await executeReq(`${API_BASE}/${table}/${idColumn}/${id}`, { method:'DELETE' });
-    if (success && successMsg) await showAlert({ icon:'✅', type:'success', title:t('common.success', '操作成功'), message:successMsg, confirmLabel:t('common.ok', '好的') });
-    if (!success && reqErr !== '__401__') await showAlert({ icon:'❌', type:'danger', title:t('crud.err.deleteFailTitle', '删除失败'), message:reqErr||t('crud.err.deleteFail', '删除失败，请稍后重试'), confirmLabel:t('common.close', '关闭') });
+    if (success && successMsg) toast.success(successMsg);
+    if (!success && reqErr !== '__401__') toast.error(reqErr || t('crud.err.deleteFail', '删除失败，请稍后重试'));
     return success;
-  }, [table, showAlert, showConfirm, t]);
+  }, [table, showConfirm, toast, t]);
 
   return { createRecord, getRecords, fetchRecords: getRecords, updateRecord, deleteRecord, loading, error };
 };

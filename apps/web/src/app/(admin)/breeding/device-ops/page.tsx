@@ -9,6 +9,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useDialog } from "@/contexts/DialogContext";
+import { useToast } from "@/contexts/ToastContext";
 const API = "/api/farm-device";
 type TabId = "mapping" | "jobs" | "devices" | "dict" | "opslog";
 
@@ -229,10 +230,8 @@ export default function DeviceOpsPage() {
   const {
     t
   } = useLanguage();
-  const {
-    showAlert,
-    showConfirm
-  } = useDialog();
+  const { showConfirm } = useDialog();
+  const toast = useToast();
   const [tab, setTab] = useState<TabId>("mapping");
   const [mappings, setMappings] = useState<Mapping[]>([]);
   const [vendorHouses, setVendorHouses] = useState<VendorHouse[]>([]);
@@ -330,22 +329,12 @@ export default function DeviceOpsPage() {
         method: "POST"
       });
       if (!d) {
-        await showAlert({
-          icon: "❌",
-          type: "danger",
-          title: t("ui.同步失败", "同步失败"),
-          message: t("crud.err.timeout", "网络连接失败，请检查服务器后重试"),
-          confirmLabel: t("common.ok", "好的")
-        });
+        toast.error(t("crud.err.timeout", "网络连接失败，请检查服务器后重试"));
         return;
       }
-      await showAlert({
-        icon: d.ok ? "✅" : "❌",
-        type: d.ok ? "success" : "danger",
-        title: d.ok ? t("ui.同步完成", "同步完成") : t("ui.同步失败", "同步失败"),
-        message: d.ok ? `${t('ui.已同步', '已同步')} ${d.synced ?? 0} ${t('ui.条第三方栏舍数据', '条第三方栏舍数据')}` : d.error || t('ui.第三方 API 返回错误，请检查认证配置', '第三方 API 返回错误，请检查认证配置'),
-        confirmLabel: t("common.ok", "好的")
-      });
+      const syncMessage = d.ok ? `${t('ui.已同步', '已同步')} ${d.synced ?? 0} ${t('ui.条第三方栏舍数据', '条第三方栏舍数据')}` : d.error || t('ui.第三方 API 返回错误，请检查认证配置', '第三方 API 返回错误，请检查认证配置');
+      if (d.ok) toast.success(syncMessage);
+      else toast.error(syncMessage);
       if (d.ok) await loadAll();
     } finally {
       setSyncing(false);
@@ -359,13 +348,7 @@ export default function DeviceOpsPage() {
       vendor_house_id
     } = mapForm;
     if (!erp_farm_code || !erp_house_code || !vendor_farm_id || !vendor_house_id) {
-      return showAlert({
-        icon: "⚠️",
-        type: "warning",
-        title: t("ui.请完整填写所有映射字段", "请完整填写所有映射字段"),
-        message: "",
-        confirmLabel: t("common.ok", "好的")
-      });
+      return toast.warning(t("ui.请完整填写所有映射字段", "请完整填写所有映射字段"));
     }
     setSaving(true);
     try {
@@ -378,24 +361,12 @@ export default function DeviceOpsPage() {
         body: JSON.stringify(mapForm)
       });
       if (d?.ok) {
-        await showAlert({
-          icon: "✅",
-          type: "success",
-          title: t("ui.映射已保存", "映射已保存"),
-          message: d.message ?? "",
-          confirmLabel: t("common.ok", "好的")
-        });
+        toast.success(d.message || t("ui.映射已保存", "映射已保存"));
         setShowMapForm(false);
         setMapForm(emptyMapForm());
         loadAll();
       } else {
-        await showAlert({
-          icon: "❌",
-          type: "danger",
-          title: t("ui.保存失败", "保存失败"),
-          message: d?.error ?? "",
-          confirmLabel: t("common.close", "关闭")
-        });
+        toast.error(d?.error || t("ui.保存失败", "保存失败"));
       }
     } finally {
       setSaving(false);
@@ -418,13 +389,9 @@ export default function DeviceOpsPage() {
     }>(`${API}/mapping/${row.id}`, {
       method: "DELETE"
     });
-    await showAlert({
-      icon: d?.ok ? "✅" : "❌",
-      type: d?.ok ? "success" : "danger",
-      title: d?.ok ? t("ui.已删除", "已删除") : t("ui.删除失败", "删除失败"),
-      message: d?.msg || d?.error || "",
-      confirmLabel: t("common.ok", "好的")
-    });
+    const deleteMessage = d?.msg || d?.error || (d?.ok ? t("ui.已删除", "已删除") : t("ui.删除失败", "删除失败"));
+    if (d?.ok) toast.success(deleteMessage);
+    else toast.error(deleteMessage);
     if (d?.ok) loadAll();
   };
   const handleOpenEdit = async (row: Mapping) => {
@@ -452,13 +419,7 @@ export default function DeviceOpsPage() {
       vendor_house_id
     } = editForm;
     if (!erp_farm_code || !erp_house_code || !vendor_farm_id || !vendor_house_id) {
-      return showAlert({
-        icon: "⚠️",
-        type: "warning",
-        title: t("ui.请完整填写", "请完整填写必填字段"),
-        message: "",
-        confirmLabel: t("common.ok", "好的")
-      });
+      return toast.warning(t("ui.请完整填写", "请完整填写必填字段"));
     }
     if (!editRow) return;
     setSaving(true);
@@ -472,23 +433,11 @@ export default function DeviceOpsPage() {
         body: JSON.stringify(editForm)
       });
       if (d?.ok) {
-        await showAlert({
-          icon: "✅",
-          type: "success",
-          title: t("ui.保存成功", "保存成功"),
-          message: d.msg ?? "",
-          confirmLabel: t("common.ok", "好的")
-        });
+        toast.success(d.msg || t("ui.保存成功", "保存成功"));
         setEditRow(null);
         loadAll();
       } else {
-        await showAlert({
-          icon: "❌",
-          type: "danger",
-          title: t("ui.保存失败", "保存失败"),
-          message: d?.error ?? "",
-          confirmLabel: t("common.close", "关闭")
-        });
+        toast.error(d?.error || t("ui.保存失败", "保存失败"));
       }
     } finally {
       setSaving(false);
@@ -515,13 +464,7 @@ export default function DeviceOpsPage() {
       if (d?.ok) {
         setDictEditRow(null);
         loadDict();
-      } else await showAlert({
-        icon: "❌",
-        type: "danger",
-        title: t("ui.保存失败", "保存失败"),
-        message: d?.error ?? "",
-        confirmLabel: t("common.close", "关闭")
-      });
+      } else toast.error(d?.error || t("ui.保存失败", "保存失败"));
     } finally {
       setSaving(false);
     }
