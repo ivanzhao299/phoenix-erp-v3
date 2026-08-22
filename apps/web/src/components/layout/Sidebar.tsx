@@ -526,6 +526,8 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                   }) && (
                     <a
                       href="/terminal/packaging/dashboard"
+                      target="_blank"
+                      rel="noopener"
                       style={{
                         display: "flex", alignItems: "center", gap: 8,
                         padding: "9px 12px 9px 28px",
@@ -541,7 +543,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                         cursor: "pointer",
                         transition: "background 0.15s",
                       }}
-                      title={t('layout.enter_terminal', '进入包装作业台')}
+                      title={t('layout.enter_terminal_new_tab', '在新标签页打开包装作业台')}
                     >
                       <Zap size={12} />
                       <span>🖥️ {t('layout.enter_terminal', '进入包装作业台')}</span>

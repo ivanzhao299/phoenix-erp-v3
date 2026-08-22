@@ -26,13 +26,14 @@ describe('BUG-20260723-0005 packaging workbench navigation', () => {
     expect(terminalDashboard).toContain('export default function TerminalDashboard()');
   });
 
-  it('routes the production sidebar action to the same terminal dashboard', () => {
+  it('opens the production sidebar terminal action in a separate safe tab', () => {
     expect(sidebar).toMatch(
       /href="\/terminal\/packaging\/dashboard"/,
     );
-    expect(sidebar).not.toMatch(
+    expect(sidebar).toMatch(
       /href="\/terminal\/packaging\/dashboard"\s+target="_blank"/,
     );
+    expect(sidebar).toMatch(/target="_blank"\s+rel="noopener"/);
   });
 
   it('preserves packaging workbench visibility for operator and manager permissions', () => {

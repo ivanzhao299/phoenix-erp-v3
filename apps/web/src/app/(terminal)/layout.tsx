@@ -12,6 +12,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'next/navigation';
 import TerminalNavRail from '@/components/terminal/TerminalNavRail';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
+import { ADMIN_HOME_PATH, canReturnToAdmin } from '@/lib/terminal-navigation';
+import styles from './terminal-layout.module.css';
 
 /**
  * 时钟单独抽成组件：setNow 每秒触发重渲染只影响此组件，
@@ -40,13 +42,14 @@ const LANG_ORDER = ['zh', 'en', 'lo'];
 const SHIFT_LABELS: Record<string, string> = { MORNING: '早班', AFTERNOON: '下午班', NIGHT: '夜班' };
 
 export default function TerminalLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, hasPermission } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
   const [isFullscreen, setIsFullscreen] = useState(false);
   // [优化] now 状态已移入独立的 TerminalClock 组件，消除每秒全局 re-render
   const { lang, setAppLanguage } = useLanguage();
   const { ctx } = useTerminalContext();
+  const showAdminReturn = canReturnToAdmin(hasPermission);
 
   const handleLogout = () => {
     if (document.fullscreenElement) {
@@ -143,13 +146,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
         flexDirection: 'column',
       }}>
         {/* 全局顶栏：时钟 | 语言 | 用户 | 退出 */}
-        <div style={{
-          height: 46, flexShrink: 0,
-          background: 'var(--deep-blue-2)',
-          borderBottom: '1px solid var(--brand-deep-3)',
-          display: 'flex', alignItems: 'center',
-          padding: '0 16px', gap: 12,
-        }}>
+        <div className={styles.topbar}>
           {/* 时钟：独立组件隔离重渲染，每秒 setState 只影响自身 */}
           <TerminalClock />
 
@@ -178,6 +175,17 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
           )}
 
           <div className={u.flex1} />
+
+          {showAdminReturn && (
+            <button
+              type="button"
+              className={styles.topbarAction}
+              onClick={() => router.push(ADMIN_HOME_PATH)}
+              title={t('terminal.return_admin', '返回管理后台')}
+            >
+              {t('terminal.return_admin', '返回管理后台')}
+            </button>
+          )}
 
           {/* 语言切换 */}
           <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid var(--brand-deep-3)' }}>
@@ -209,20 +217,13 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
             }}>
               {(user?.name || user?.username || '?').charAt(0).toUpperCase()}
             </div>
-            <span style={{ fontSize: 12, color: 'var(--slate-500)' }}>
+            <span className={styles.userName}>
               {user?.name || user?.username}
             </span>
           </div>
 
           {/* 退出 */}
-          <button type="button" onClick={handleLogout}
-            style={{
-              padding: '4px 12px', borderRadius: 6,
-              border: '1px solid var(--brand-deep-3)',
-              background: 'transparent', color: 'var(--slate-600)',
-              fontSize: 11, fontWeight: 500, cursor: 'pointer',
-              WebkitTapHighlightColor: 'transparent',
-            }}>
+          <button type="button" onClick={handleLogout} className={styles.topbarAction}>
             {t('terminal.logout', '退出')}
           </button>
         </div>
