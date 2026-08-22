@@ -17,6 +17,7 @@ import {
   drawerHeroBox, drawerHeroLabel, drawerHeroCodeValue, drawerHeroNameValue, inlineAlert,
 } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
+import { useRefreshToken } from "@/lib/list-refresh";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
@@ -200,7 +201,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
     finally { setLoading(false); }
   }, [type, filterStatus]);
 
-  useEffect(() => { load(); }, [load]);
+  useRefreshToken(load);
   // G131：挂载时读 query（?create=1 / returnTo）；create=1 且有权 → 自动打开「新增」抽屉
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);

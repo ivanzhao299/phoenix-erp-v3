@@ -216,7 +216,7 @@ export default function FlockPage() {
         }
       }).finally(() => clearTimeout(tid));
       if (res.ok) {
-        load();
+        await load();
       } else {
         const err = await res.json().catch(() => ({}));
         await showAlert({
@@ -271,21 +271,8 @@ export default function FlockPage() {
         });
       }
       if (ok) {
-        if (editId) {
-          setFlocks(current => current.map(row => row.id === editId ? {
-            ...row,
-            farmName: farms.find(f => f.farm_code === form.farmCode)?.farm_name || form.farmCode,
-            house: form.house,
-            breed: form.breed,
-            inDate: form.inDate,
-            quantity: Number(form.qty) || 0,
-            feedRatio: form.feedConvRatio ? Number(form.feedConvRatio) : '—',
-            status: form.flockStatus,
-            _raw: { ...(row._raw || {}), ...payload },
-          } : row));
-        }
-        // Refresh before returning control to the list so edited quantities and
-        // other fields are already current when the success dialog is dismissed.
+        // The controlled latest request is authoritative. Keeping a separate
+        // optimistic map here would reintroduce two competing sources of truth.
         await load();
         setShowDrawer(false);
         setEditId(null);
@@ -408,7 +395,8 @@ export default function FlockPage() {
         </div>
       } />
 
-      <RightDrawer isOpen={showDrawer} onClose={() => {
+      <RightDrawer isOpen={showDrawer} closeDisabled={submitting} onClose={() => {
+      if (submitting) return;
       setShowDrawer(false);
       setEditId(null);
     }} title={`${editId ? t('common.edit', '编辑') : t('common.new', '新建')}${t('ui.鸡群档案', '鸡群档案')}`} width="460px">

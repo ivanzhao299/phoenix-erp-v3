@@ -1,0 +1,77 @@
+name: Production Web Image Readonly Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      window_start:
+        description: 'UTC audit start timestamp, e.g. 2026-08-22 00:00:00'
+        required: true
+      window_end:
+        description: 'UTC audit end timestamp, e.g. 2026-08-23 00:00:00'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-web-image-readonly-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate audit window
+        shell: bash
+        env:
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        run: |
+          set -euo pipefail
+          timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+          for value in "$WINDOW_START" "$WINDOW_END"; do
+            [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+            date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+          done
+          [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+            || { echo "window_start must be before window_end" >&2; exit 1; }
+      - name: Inspect production web image without mutation
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,WINDOW_START,WINDOW_END
+          script: |
+            set -euo pipefail
+            timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+            for value in "$WINDOW_START" "$WINDOW_END"; do
+              [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+              date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+            done
+            [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+              || { echo "window_start must be before window_end" >&2; exit 1; }
+
+            cd "$DEPLOY_PATH"
+            echo "AUDIT_WINDOW=$WINDOW_START .. $WINDOW_END"
+            echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
+            docker compose images web
+            web_container="$(docker compose ps -q web)"
+            [[ -n "$web_container" ]] || { echo "web container is not running" >&2; exit 1; }
+            docker inspect "$web_container" --format 'WEB_IMAGE={{.Image}} LABELS={{json .Config.Labels}}'
+            docker exec "$web_container" sh -c '
+              if [ -f /app/.next/BUILD_ID ]; then printf "NEXT_BUILD_ID="; cat /app/.next/BUILD_ID; fi
+              if [ -f /app/package.json ]; then printf "PACKAGE_VERSION="; node -p "require(\"/app/package.json\").version"; fi
+            '

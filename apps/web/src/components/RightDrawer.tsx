@@ -11,6 +11,7 @@ interface RightDrawerProps {
   children: React.ReactNode;
   width?: string;
   footer?: React.ReactNode;
+  closeDisabled?: boolean;
 }
 
 // Z-index hierarchy (2025 V3 standard):
@@ -20,7 +21,7 @@ interface RightDrawerProps {
 //   Backdrop     → 10100  ← covers full viewport
 //   ConfirmDialog→ 10200
 export default function RightDrawer({
-  isOpen, onClose, title, children, width = '480px', footer,
+  isOpen, onClose, title, children, width = '480px', footer, closeDisabled = false,
 }: RightDrawerProps) {
   const { t } = useLanguage();
   const savedScroll = useRef(0);
@@ -48,10 +49,10 @@ export default function RightDrawer({
 
   useEffect(() => {
     if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && !closeDisabled) onClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, closeDisabled]);
 
   if (!isOpen || typeof document === 'undefined') return null;
 
@@ -59,7 +60,7 @@ export default function RightDrawer({
     <>
       {/* ── Sidebar tap intercept ── */}
       <div
-        onClick={onClose}
+        onClick={closeDisabled ? undefined : onClose}
         style={{
           position: 'fixed', top: 0, left: 0,
           width: 'var(--sidebar-width, 56px)', bottom: 0,
@@ -69,7 +70,7 @@ export default function RightDrawer({
 
       {/* ── Backdrop ── */}
       <div
-        onClick={onClose}
+        onClick={closeDisabled ? undefined : onClose}
         style={{
           position: 'fixed',
           top: 56, left: 0, right: 0, bottom: 0,
@@ -116,7 +117,7 @@ export default function RightDrawer({
             {title}
           </h3>
           <button
-type="button"             onClick={onClose}
+type="button"             onClick={onClose} disabled={closeDisabled}
             title={t('ui.关闭', '关闭')}
             aria-label={t('ui.关闭抽屉', '关闭抽屉')}
             style={{

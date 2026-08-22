@@ -10,9 +10,10 @@
  *   新：import { crudApi } from '@/lib/api-client'
  *       await crudApi.create('brd_xxx', payload)
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDialog } from '../contexts/DialogContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { LatestRequestRunner } from '../lib/latest-request';
 
 export const useCrud = (table: string) => {
   const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || '') + '/api/crud';
@@ -20,6 +21,10 @@ export const useCrud = (table: string) => {
   const [error, setError]     = useState<string | null>(null);
   const { showAlert, showConfirm } = useDialog();
   const { t } = useLanguage();
+  const requestGeneration = useRef(0);
+  const listRequests = useRef(new LatestRequestRunner<any>());
+
+  useEffect(() => () => listRequests.current.abort(), []);
 
   const httpMsg = (status: number): string => ({
     400: t('crud.err.400', '请求参数有误，请检查表单内容'),
@@ -32,9 +37,12 @@ export const useCrud = (table: string) => {
   } as Record<number, string>)[status] ?? `${t('crud.err.unknown', '请求失败')} (${status})`;
 
   const executeReq = async (url: string, options: RequestInit = {}) => {
+    const generation = ++requestGeneration.current;
     setLoading(true);
     setError(null);
     const controller = new AbortController();
+    const abortFromCaller = () => controller.abort();
+    options.signal?.addEventListener('abort', abortFromCaller, { once: true });
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     try {
       const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : null;
@@ -63,13 +71,17 @@ export const useCrud = (table: string) => {
       }
     } catch (err: any) {
       clearTimeout(timeoutId);
+      if (err.name === 'AbortError' && options.signal?.aborted) {
+        return { success: false, error: '__STALE__' };
+      }
       let msg = err.message;
       if (err.name === 'AbortError') msg = t('crud.err.timeout', '网络超时，请检查连接后重试');
       console.error(`useCrud [${table}] Error:`, msg);
       setError(msg);
       return { success: false, error: msg };
     } finally {
-      setLoading(false);
+      options.signal?.removeEventListener('abort', abortFromCaller);
+      if (generation === requestGeneration.current) setLoading(false);
     }
   };
 
@@ -96,8 +108,10 @@ export const useCrud = (table: string) => {
     const qs = Object.keys(queryParams).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries(queryParams).map(([k, v]) => [k, String(v)]))).toString()}` : '';
     // CRUD list reads are commonly issued immediately after a successful mutation.
     // Do not let the browser reuse a stale HTTP response for that refresh.
-    const { success, data } = await executeReq(`${API_BASE}/${table}${qs}`, { method:'GET', cache:'no-store' });
-    return success ? (data.data || data) : null;
+    return listRequests.current.run(async signal => {
+      const { success, data } = await executeReq(`${API_BASE}/${table}${qs}`, { method:'GET', cache:'no-store', signal });
+      return success ? (data.data || data) : null;
+    });
   }, [table]);
 
   const updateRecord = useCallback(async (id: string | number, data: Record<string, unknown>, idColumn = 'id', successMsg?: string) => {

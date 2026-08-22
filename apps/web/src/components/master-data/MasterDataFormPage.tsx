@@ -9,6 +9,7 @@ import {
   drawerHeroBox, drawerHeroLabel, drawerHeroCodeValue, drawerHeroNameValue,
 } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
+import { saveAndReturn } from "@/lib/list-refresh";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { renderMdFieldInput, multilingualNameFields, type MdField } from "./MasterDataRuntimePanel";
 
@@ -86,7 +87,7 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
         );
         if (resp?.pendingChange) setNotice(resp.message || t('ui.关键字段变更已提交审批,通过后生效。','关键字段变更已提交审批,通过后生效。'));
       }
-      router.push(listRoute);
+      saveAndReturn(listRoute, router);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t('ui.保存失败','保存失败'));
     } finally { setSaving(false); }

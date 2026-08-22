@@ -22,14 +22,10 @@ describe("BUG-20260716-0001 flock refresh", () => {
     expect(success).toBeGreaterThan(close);
   });
 
-  it("patches the visible row immediately before the server reconciliation", () => {
-    const optimistic = flockPageSource.indexOf("setFlocks(current => current.map");
-    const refresh = flockPageSource.indexOf("await load();", optimistic);
-    expect(optimistic).toBeGreaterThan(-1);
-    expect(refresh).toBeGreaterThan(optimistic);
-    expect(flockPageSource.slice(optimistic, refresh)).toContain(
-      "quantity: Number(form.qty) || 0",
-    );
+  it("uses the controlled server reload as the single post-save source of truth", () => {
+    expect(flockPageSource).not.toContain("setFlocks(current => current.map");
+    expect(flockPageSource).toContain("await load();");
+    expect(useCrudSource).toContain("listRequests.current.run(async signal =>");
   });
 
   it("prevents duplicate submissions while the mutation and refresh are pending", () => {
@@ -39,6 +35,6 @@ describe("BUG-20260716-0001 flock refresh", () => {
   });
 
   it("bypasses stale browser cache for post-mutation CRUD list reads", () => {
-    expect(useCrudSource).toContain("{ method:'GET', cache:'no-store' }");
+    expect(useCrudSource).toContain("{ method:'GET', cache:'no-store', signal }");
   });
 });
