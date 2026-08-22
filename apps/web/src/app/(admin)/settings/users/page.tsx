@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
+import { useRefreshToken } from "@/lib/list-refresh";
 import {
   Users, Shield, Plus, Lock, Unlock, Key, Edit2, UserCheck,
   FlaskConical, RefreshCw, Search, ChevronUp, ChevronDown,
@@ -125,7 +126,7 @@ export default function UserManagementPage() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useRefreshToken(loadData);
 
   // ── Filtered + sorted list ────────────────────────────────────────────────────
   const filtered = useMemo(() => {

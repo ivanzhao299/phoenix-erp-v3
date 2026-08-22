@@ -23,6 +23,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useRefreshToken } from "@/lib/list-refresh";
 import { Shield, Plus, Trash2, Edit2, Save, Copy, Grid, AlertTriangle, Users, Lock, X, ChevronDown, ChevronRight, Archive, ArchiveRestore, Eye, EyeOff } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { modalMask, primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
@@ -416,9 +417,7 @@ export default function RoleManagementPage() {
     // reference every render; including them would trigger infinite re-fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+  useRefreshToken(loadAll);
 
   // ── 平铺所有菜单（便于查找） ───────────────────────────────────────────
   const allMenus = useMemo(() => menuGroups.flatMap(g => g.menus), [menuGroups]);

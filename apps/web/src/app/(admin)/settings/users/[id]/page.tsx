@@ -10,6 +10,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { Users, Shield, Key, Lock, Unlock, Building2, Eye, Archive, RotateCcw } from "lucide-react";
 import { enterImpersonation } from "@/lib/impersonate";
 import { roleSignature } from "@/lib/user-role-logic";
+import { saveAndReturn } from "@/lib/list-refresh";
 import s from "@/components/ui/admin-ui.module.css";
 import UserOrgBindingPanel from "@/components/settings/UserOrgBindingPanel";
 import { RolePicker, levelColor, type UserRole, type RoleOption } from "@/components/settings/RolePicker";
@@ -144,7 +145,7 @@ export default function UserDetailPage() {
       }
 
       toast.success(t("ui.修改成功", "修改成功"));
-      await loadData();
+      saveAndReturn("/settings/users", router);
     } finally { setSubmitting(false); }
   };
 

@@ -14,6 +14,7 @@ import { inlineBadge, primaryActionButton, secondaryActionButton, actionPill } f
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
+import { saveAndReturn } from "@/lib/list-refresh";
 import { Shield, Save, AlertTriangle, Lock, Grid, FileText } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 
@@ -280,7 +281,7 @@ export default function RoleDetailPage() {
       if (setR.code && setR.code !== 200) throw new Error(setR.msg || t("ui.权限保存失败", "权限保存失败"));
 
       toast.success(t("ui.角色与权限已更新", "角色与权限已更新"));
-      await loadAll();
+      saveAndReturn("/settings/roles", router);
     } catch (e: any) {
       toast.error(e.message || t("ui.保存失败", "保存失败"));
     } finally {
