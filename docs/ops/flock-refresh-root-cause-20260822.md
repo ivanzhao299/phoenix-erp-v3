@@ -54,3 +54,19 @@
 - 但当前 `flock-refresh-readonly-audit.yml` 未包含 access-log 路径发现与日志读取命令，仅输出 `nginx -T` 的 `upstream/proxy_pass/proxy_cache` 关键词；因此 run 中没有 `PUT /api/crud/brd_flocks`、`GET /api/crud/brd_flocks`、来源 IP、响应字节数或 User-Agent 日志行，也没有完整 server 块。不能凭数据库 `updated_at` 推断保存后的 GET 是否到达 Nginx，亦不能核实 Nginx 前是否还有 CDN/上游代理。
 
 结论为 **C：日志不足以下结论**。缺少同一三小时窗口内 Nginx access log 的完整 PUT/GET 行，以及完整 `nginx -T` 中目标 server/location 块；在补齐这些只读证据前，A（本机代理直接应答）与 B（GET 已到服务器）均不能成立。本轮未改生产、未改业务代码。
+
+## 第三轮取证：PUT 请求体日志
+
+- 只读审计 workflow run：`32549648645`，production environment，UTC 窗口 `2026-08-22 03:15:00` 至 `2026-08-22 03:25:00`，执行成功。runner 与 SSH 端均执行 UTC 格式、可解析性和起止先后双重校验，SSH 脚本启用 `set -euo pipefail`；本轮仅执行 `docker logs`、`grep`、`tail`、Nginx 配置/日志读取和数据库只读事务，未写生产、未重启容器。
+- 目标鸡群在 `03:20:12.199590365Z` 到达 API 的原始日志如下（GitHub Actions 会将与 secret 值碰撞的时间片段显示为 `***`，纳秒时间与本轮 `--since/--until` UTC 窗口、数据库 `updated_at=2026-08-22T03:20:12.199Z` 相互印证）：
+
+```text
+2026-08-22T03:20:12.199590365Z [SVC Update START] table=brd_flocks pk=flock_no id=FK-MR8VGZS4M0Q body={"farm_code":"LPH_MENGSAI","farm_name":"孟赛蛋鸡场","source_farm":"SUP-VNSBM-001","house_code":"HOUSE_CS_02","breed_type":"科宝500","start_date":"2026-07-05T00:00:00.000Z","current_qty":212,"placement_age":1,"cost":1,"target_weeks":80,"status":"LAYING","elimination_date":"2027-07-05T00:00:00.000Z","peak_lay_rate":null,"feed_conversion_ratio":null}
+2026-08-22T03:20:12.200650711Z [CRUD Update] ✅ success on attempt 0
+```
+
+- 同一 UTC 窗口内，`FK-MR8VGZS4M0Q` 的 PUT 请求体依次为：`03:16:16Z current_qty=208`、`03:17:47Z current_qty=207`、`03:18:09Z current_qty=209`、`03:19:18Z current_qty=210`、`03:20:12Z current_qty=212`；每笔均紧随 `success on attempt 0`。窗口内没有 `current_qty=213`，也没有 `failed`。
+- Nginx access log 使用 `+0800`：`11:20:12 +0800`（即 `03:20:12Z`）记录 `PUT /api/crud/brd_flocks/flock_no/FK-MR8VGZS4M0Q` 返回 HTTP 200、响应 41 bytes，下一行同秒记录 `GET /api/crud/brd_flocks` 返回 HTTP 200、响应 1061 bytes。来源 IP 已在本文省略，日志未输出 Authorization/token 等请求头。
+- 全量末 60 条还发现窗口之外 `03:40:48.102367319Z` 有一笔同鸡群 `current_qty=213`，并于 `03:40:48.103473755Z` `success on attempt 0`；Nginx 同样记录该 PUT 200 及随后 GET 200。这是原 `03:20` 事件后二十分钟的新写入，不能改变原事件请求体为 212 的事实，也不属于“03:20:12 之后还有 PUT 213 但失败/未到达”的 C 情形。
+
+结论为 **A：03:20:12 的 PUT body 中 `current_qty=212`（不是用户声称输入的 213），请求到达 API 后成功落库；截至 `03:25:00Z` 没有其他 213 PUT 或失败 PUT。根因位于前端提交前的表单状态/绑定链路，不在数据库 UPDATE 或服务端持久化。** 此结论取代第二轮因日志不足暂定的 C。
