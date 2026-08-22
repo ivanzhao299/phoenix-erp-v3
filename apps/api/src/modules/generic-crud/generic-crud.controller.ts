@@ -11,6 +11,7 @@ import {
   Req,
   ForbiddenException,
   BadRequestException,
+  Header,
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { GenericCrudService } from './generic-crud.service';
@@ -350,6 +351,7 @@ export class GenericCrudController {
   }
 
   @Get(':table')
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
   async findAll(@Param('table') table: string, @Query() query: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'GET');
     const tableScope = await this.resolveTableScope(table, req, 'GET');

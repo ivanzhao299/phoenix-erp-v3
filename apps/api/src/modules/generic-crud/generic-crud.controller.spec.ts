@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import { HEADERS_METADATA } from '@nestjs/common/constants';
 import { GenericCrudController } from './generic-crud.controller';
 import { GenericCrudService } from './generic-crud.service';
 
@@ -52,6 +53,22 @@ describe('GenericCrudController WMS RBAC', () => {
       dataScopeService as any,
       wmsService as any,
       cls as any,
+    );
+  });
+
+  it('marks generic CRUD list responses as non-cacheable', () => {
+    const headers = Reflect.getMetadata(
+      HEADERS_METADATA,
+      GenericCrudController.prototype.findAll,
+    );
+
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        {
+          name: 'Cache-Control',
+          value: 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      ]),
     );
   });
 
