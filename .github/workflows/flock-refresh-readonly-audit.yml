@@ -123,3 +123,36 @@ jobs:
               -H 'Host: erp.eggslao.com' \
               'http://127.0.0.1/api/crud/brd_flocks?limit=1' \
               | sed -n '/^[Cc]ache-[Cc]ontrol:/p;/^[Aa]ge:/p;/^[Vv]ia:/p;/^[Xx]-[Cc]ache:/p;/^HTTP\//p'
+
+            echo 'API_BRD_FLOCKS_UPDATE_LOGS_LAST_60'
+            docker logs --timestamps "$api_container" 2>&1 \
+              | grep -E 'SVC Update START.*brd_flocks|CRUD Update.*(success|failed)' \
+              | tail -60 || true
+
+            echo 'API_BRD_FLOCKS_UPDATE_LOGS_IN_WINDOW'
+            window_start_rfc3339="$(date -u -d "$WINDOW_START" '+%Y-%m-%dT%H:%M:%S')"
+            window_end_rfc3339="$(date -u -d "$WINDOW_END" '+%Y-%m-%dT%H:%M:%S')"
+            docker logs --timestamps \
+              --since "${window_start_rfc3339}Z" \
+              --until "${window_end_rfc3339}Z" \
+              "$api_container" 2>&1 \
+              | grep -E 'SVC Update START.*brd_flocks|CRUD Update.*(success|failed)' || true
+
+            echo 'API_BRD_FLOCKS_GET_LOGS_IN_WINDOW'
+            docker logs --timestamps \
+              --since "${window_start_rfc3339}Z" \
+              --until "${window_end_rfc3339}Z" \
+              "$api_container" 2>&1 \
+              | grep -E 'GET /api/crud/brd_flocks' || true
+
+            echo 'NGINX_BRD_FLOCKS_ACCESS_LOGS_IN_WINDOW'
+            while IFS= read -r access_log; do
+              [[ -n "$access_log" && "$access_log" != "off" ]] || continue
+              [[ "$access_log" = /* ]] || access_log="/var/log/nginx/$access_log"
+              [[ -r "$access_log" ]] || { echo "UNREADABLE_ACCESS_LOG=$access_log"; continue; }
+              echo "ACCESS_LOG=$access_log"
+              sudo tail -n 20000 "$access_log" \
+                | grep -E '(GET|PUT) /api/crud/brd_flocks' || true
+            done < <(sudo nginx -T 2>&1 \
+              | sed -n 's/^[[:space:]]*access_log[[:space:]]\+\([^ ;]*\).*/\1/p' \
+              | sort -u)
