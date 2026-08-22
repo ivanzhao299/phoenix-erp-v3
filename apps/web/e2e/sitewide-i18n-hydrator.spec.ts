@@ -102,3 +102,27 @@ test('Lao mode uses a new flock quantity and Chinese restore keeps that latest s
   await page.locator('header select').selectOption('zh');
   await expect(row).toContainText('300羽');
 });
+
+test('flock quantity unit follows an in-page language round trip without refresh', async ({ page }) => {
+  await authenticate(page, 'zh');
+  const flock = {
+    flock_no: 'PW-FLOCK-LANG-SWITCH', farm_code: 'PW-FARM', farm_name: '测试养殖场',
+    house_code: 'PW-HOUSE', breed_type: '海兰褐', source_farm: '', start_date: '2026-01-01',
+    current_qty: 900, placement_age: 1, cost: 1, target_weeks: 80, status: 'LAYING',
+  };
+  await page.route('**/api/crud/brd_flocks**', route => route.fulfill({ json: [flock] }));
+  await page.route('**/api/crud/brd_farms**', route => route.fulfill({ json: [{ farm_code: 'PW-FARM', farm_name: '测试养殖场' }] }));
+  await page.route('**/api/crud/brd_houses**', route => route.fulfill({ json: [{ house_code: 'PW-HOUSE', farm_code: 'PW-FARM', house_name: '测试鸡舍', house_type: 'LAYER' }] }));
+  await page.route('**/api/crud/sys_dict**', route => route.fulfill({ json: [] }));
+  await page.route('**/api/master-data/runtime/supplier/active**', route => route.fulfill({ json: [] }));
+
+  await page.goto('/breeding/flock');
+  const row = page.locator('tbody tr').filter({ hasText: 'PW-FLOCK-LANG-SWITCH' });
+  await expect(row).toContainText('900羽');
+
+  await page.locator('header select').selectOption('lo');
+  await expect(row).toContainText('900ຂົນ');
+
+  await page.locator('header select').selectOption('zh');
+  await expect(row).toContainText('900羽');
+});

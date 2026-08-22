@@ -452,7 +452,7 @@ export function FlockSelector(p: BaseProps & { farmCode?: string; houseCode?: st
       return (Array.isArray(list) ? list : [])
         .map(f => ({
           value: f.flockNo,
-          label: `${f.flockNo}（${f.houseCode ?? ''}${f.currentQty ? ' · ' + f.currentQty + '羽' : ''}）`,
+          label: `${f.flockNo}（${f.houseCode ?? ''}${f.currentQty ? ` · ${f.currentQty}${t('ui.羽', '羽')}` : ''}）`,
           raw: f,
         }));
     }} />;

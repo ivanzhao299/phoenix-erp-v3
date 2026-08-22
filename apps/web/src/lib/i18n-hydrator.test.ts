@@ -18,10 +18,10 @@ describe('resolveHydrationValue', () => {
     });
   });
 
-  it('does not mistake a hydrator-written translation containing Chinese for a new source', () => {
+  it('keeps a hydrator-written translation containing Chinese without replacing the source', () => {
     expect(resolveHydrationValue('译文300羽', '300羽', 'lo', translate, true)).toEqual({
       source: '300羽',
-      output: 'lo:300羽',
+      output: '译文300羽',
     });
   });
 
@@ -35,6 +35,20 @@ describe('resolveHydrationValue', () => {
   it('leaves an unknown non-Chinese value untouched', () => {
     expect(resolveHydrationValue('300 birds', undefined, 'en', translate)).toEqual({
       output: '300 birds',
+    });
+  });
+
+  it.each(['lo', 'en'])('does not replace a localized React value with an old source in %s', (lang) => {
+    expect(resolveHydrationValue('300 birds', '300羽', lang, translate)).toEqual({
+      source: '300羽',
+      output: '300 birds',
+    });
+  });
+
+  it('still restores the stored source from a localized React value in Chinese', () => {
+    expect(resolveHydrationValue('300 birds', '300羽', 'zh', translate)).toEqual({
+      source: '300羽',
+      output: '300羽',
     });
   });
 });

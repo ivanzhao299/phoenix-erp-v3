@@ -552,7 +552,7 @@ function CustomersTab() {
                   <td style={{
                 padding: "9px 12px",
                 textAlign: "center"
-              }}>{row.payment_terms}天</td>
+              }}>{row.payment_terms}{t('ui.天', '天')}</td>
                   <td style={{
                 padding: "9px 12px"
               }}>
@@ -1336,15 +1336,15 @@ function CreditTab() {
               color: analysis.overdueReceivable > 0 ? "var(--status-danger)" : "var(--status-success)"
             }, {
               label: t('ui.账期', '账期'),
-              val: `${analysis.paymentTerms ?? 0} 天`,
+              val: `${analysis.paymentTerms ?? 0} ${t('ui.天', '天')}`,
               color: undefined
             }, {
               label: t('ui.逾期天数', '逾期天数'),
-              val: analysis.overdueDays > 0 ? `${analysis.overdueDays} 天` : "—",
+              val: analysis.overdueDays > 0 ? `${analysis.overdueDays} ${t('ui.天', '天')}` : "—",
               color: analysis.overdueDays > 0 ? "var(--status-danger)" : undefined
             }, {
               label: t('ui.未收发票', '未收发票'),
-              val: `${analysis.openInvoiceCount ?? 0} 张`,
+              val: `${analysis.openInvoiceCount ?? 0} ${t('ui.张', '张')}`,
               color: undefined
             }, {
               label: t('ui.最早逾期', '最早逾期'),

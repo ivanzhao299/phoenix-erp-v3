@@ -92,3 +92,49 @@
 - 该 SHA 的四条 push CI 全绿：主 CI/CD `32552052084`、Web Unit Tests `32552052097`、AI Delivery CI Build `32552052076`、AI Delivery CI Security `32552052166`。主 CI 自动判定 `mode=web`，API 镜像明确跳过。
 - 显式生产 Web 部署 run `32552335095`：`mode=web`、`skip_deploy=false`、`approve_production=true`，部署成功；API 未构建、未重启，生产数据库未写入。
 - 部署后只读审计 run `32552549444` 成功：`DEPLOY_CHECKOUT_SHA=cada20aa747d7665bd2d75c6ea25b36b37248197`；Web 容器镜像 digest 为 `sha256:6935ba835e390f232417e24c915c510e6e83b48fb24f427b1a59dcb3c4f40775`，OCI revision 同为 `cada20aa747d7665bd2d75c6ea25b36b37248197`。
+
+## 语言切换单位修复（2026-08-22）
+
+### 假设实证与失败证据
+
+- `LanguageContext.tsx` 的 `translateLiteral` 仅把整段文本规范空白后查询 `literalTranslationMap`；没有数字与单位的子串替换。`900羽` 若无完整字典 value 命中，结果就是原文 `900羽`。
+- 修复前以 production build 真跑 Chromium：中文首挂鸡群档案显示 `900羽`，页内切换 lo 后 React 已渲染目标单位，但 observer 使用缓存的中文源 `900羽` 再次决策，最终行文本仍为 `...900羽...`。
+- Playwright 失败断言为：期望 `900ຂົນ`，实际 `PW-FLOCK-LANG-SWITCH...900羽...`；失败发生在新增往返用例的 lo 断言，证明不是 lo 冷启动或刷新路径。宿主缺 `libnspr4.so`，因此沿用既有 Playwright `v1.62.1-noble` 容器执行；第一次服务连接失败不计为缺陷证据。
+
+### 决策函数新语义
+
+`current` 含中文且不是 hydrator 自写时，仍始终成为最新 source。新约束是：非中文语言下，非中文 `current` 是 React 已本地化结果，水合器无权用旧 source 覆盖。
+
+| lang | current | source | 自写 | 结果 |
+|---|---|---|---|---|
+| zh | 中文 | 有/无 | 否 | current 成为最新 source，输出 current |
+| zh | 非中文 | 有 | 否 | 输出 source，恢复中文 |
+| zh | 非中文 | 无 | 否 | 原样输出 current |
+| lo/en | 中文 | 有/无 | 否 | current 成为最新 source，翻译 current |
+| lo/en | 非中文 | 有/无 | 否 | 原样输出 current，保留既有 source |
+| lo/en | 中文或非中文 | 有/无 | 是 | 原样输出本次 hydrator 结果，不误认 source、不重复覆盖 |
+
+这也保留了上一轮的数据更新闭环：lo 下 React 写入新的中文 `300羽` 时，它仍更新 source 并输出 `300ຂົນ`；随后切回 zh，从最新 source 恢复 `300羽`。非中文 React 直接写 `300ຂົນ` / `300 birds` 时则保持该值，切回 zh 才恢复缓存中文源。
+
+### 硬编码单位审计与改点
+
+本轮修改明确位于动态选择器、表格或 KPI 值中的单位：
+
+- `MasterDataSelectors.tsx`：鸡群选择器 `${currentQty}羽` 改为 `t('ui.羽', '羽')`。
+- `sales2/customers/page.tsx`：客户列表账期及分析卡片的 `天`、未收发票的 `张` 改用既有 `ui.*` key。
+- `workflow/metrics/page.tsx`：逾期表格的 `天` / `h` 改用 `ui.天` / `ui.小时`。
+
+审计还发现以下遗留组，本次不扩大改造：工作流 analytics/monitor/instance/todo 的整句时长 formatter；系统告警、在线用户、设备告警的相对时间长句；财务账龄表头；终端包装 fallback label；追溯标签；Dashboard fallback 单位；多页面的 `%`。这些既包含整句翻译问题，也包含符号无需翻译的情况，应按页面语境另行治理，不能机械替换。
+
+### E2E 与验证
+
+- 新增站点级用例：`zh 900羽 → 页内 lo 900ຂົນ → 页内 zh 900羽`，全过程不刷新。
+- 既有 lo 冷启动并编辑用例继续验证：`150ຂົນ → 300ຂົນ → zh 300羽`。
+- 纯逻辑测试：8/8；全量 Vitest：72 files / 410 tests passed。
+- Web TypeScript：0 errors。
+- Web production build：成功，231 个页面；只有既有 Cache-Control 与 middleware 弃用警告。
+- production server + Chromium：站点级水合器用例 4/4 passed（3.9s）。
+
+### CI 与部署验证
+
+待本提交 push、CI、显式 `mode=web` 部署与只读 revision 审计完成后补录。

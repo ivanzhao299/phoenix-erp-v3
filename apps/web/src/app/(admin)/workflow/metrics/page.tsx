@@ -476,7 +476,9 @@ export default function WorkflowMetricsPage() {
                   fontSize: 12,
                   border: '1px solid var(--status-danger)'
                 }}>
-                          {t.overdueHours >= 24 ? `${Math.floor(t.overdueHours / 24)}天${t.overdueHours % 24}h` : `${t.overdueHours}h`}
+                          {t.overdueHours >= 24
+                            ? `${Math.floor(t.overdueHours / 24)}${tr('ui.天', '天')} ${t.overdueHours % 24}${tr('ui.小时', '小时')}`
+                            : `${t.overdueHours}${tr('ui.小时', '小时')}`}
                         </span>
                       </td>
                       <td style={{

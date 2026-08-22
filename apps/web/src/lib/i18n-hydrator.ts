@@ -19,9 +19,16 @@ export function resolveHydrationValue(
   translate: (source: string) => string,
   isHydratorWrite = false,
 ): HydrationDecision {
-  const source = !isHydratorWrite && HAS_CHINESE.test(current)
-    ? current
-    : storedSource;
+  const currentHasChinese = HAS_CHINESE.test(current);
+  const source = !isHydratorWrite && currentHasChinese ? current : storedSource;
+
+  // In a non-Chinese locale, a non-Chinese React value is already localized.
+  // The hydrator must not replace it with a translation of an older Chinese
+  // source. Hydrator-authored values are also final for this observation,
+  // including target-language strings which still contain Chinese glyphs.
+  if (lang !== 'zh' && (isHydratorWrite || !currentHasChinese)) {
+    return source === undefined ? { output: current } : { source, output: current };
+  }
 
   if (!source) return { output: current };
   return {
