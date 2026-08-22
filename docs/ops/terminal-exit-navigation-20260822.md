@@ -25,7 +25,7 @@
 1. 后台 Sidebar 的“包装作业台”入口使用 `target="_blank" rel="noopener"`。后台标签页保留，浏览器标签切换即是低成本、符合用户认知的“最小化”。登录状态可通过现有 localStorage fallback 在新标签页恢复。
 2. 终端顶栏仅在 `hasPermission('MENU_DASHBOARD', 'V')` 为真时显示“返回管理后台”，点击进入 `/dashboard`。判断复用 AuthContext 权限权威，不按角色名猜测。
 3. 纯终端账号不显示 admin 返回按钮，继续使用现有左轨“首页”进入 `/terminal/home`，避免 `/dashboard` 权限陷阱。
-4. 不新增迁移；新文案使用 `t(key, 中文 fallback)`。不额外改造 shift-open/shift-close 导航，避免把跨壳修复扩张为流程重设计。
+4. 不新增迁移；新文案使用 `t(key, 中文 fallback)` 并补齐 zh/en/lo locale。不额外改造 shift-open/shift-close 导航，避免把跨壳修复扩张为流程重设计。
 5. 未采用可选的动态 tab 标题：当前 terminal layout 是 client component，单独引入标题生命周期或 server/client 双层 layout 对本次故障收益有限；新标签入口的 title 已明确提示“在新标签页打开”。
 
 ## 3. 改动清单

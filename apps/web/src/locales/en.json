@@ -4248,6 +4248,8 @@
   "terminal.shift_close": "Close Shift",
   "terminal.title": "Packaging\nTerminal",
   "terminal.logout": "Log out",
+  "terminal.return_admin": "Back to Admin",
+  "layout.enter_terminal_new_tab": "Open Packaging Terminal in a new tab",
   "terminal.long_press_hint": "Click to toggle logout",
   "ui.不能为空": "is required",
   "ui.共": "Total",

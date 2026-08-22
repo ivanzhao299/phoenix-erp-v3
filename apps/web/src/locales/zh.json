@@ -4248,6 +4248,8 @@
   "terminal.shift_close": "交班",
   "terminal.title": "包装\n作业台",
   "terminal.logout": "退出登录",
+  "terminal.return_admin": "返回管理后台",
+  "layout.enter_terminal_new_tab": "在新标签页打开包装作业台",
   "terminal.long_press_hint": "点击切换退出选项",
   "ui.不能为空": "不能为空",
   "ui.共": "共",

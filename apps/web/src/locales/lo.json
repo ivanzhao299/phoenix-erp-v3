@@ -4248,6 +4248,8 @@
   "terminal.shift_close": "ປິດກະ",
   "terminal.title": "ໂຕ໊ະ\nຫຸ້ມ",
   "terminal.logout": "ອອກ",
+  "terminal.return_admin": "ກັບໄປໜ້າບໍລິຫານ",
+  "layout.enter_terminal_new_tab": "ເປີດໂຕະຫຸ້ມໃນແທັບໃໝ່",
   "terminal.long_press_hint": "ຄລິກສະຫຼັບ",
   "ui.不能为空": "ບໍ່ສາມາດເວ້ນຫວ່າງ",
   "ui.共": "ລວມ",
