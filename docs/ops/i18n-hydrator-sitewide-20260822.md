@@ -88,4 +88,7 @@
 
 ## CI 与部署验证
 
-待本提交 push、CI、web-only 显式部署与部署后 revision 只读核实完成后补录。
+- 功能分支 `fix/i18n-hydrator-sitewide-20260822` 提交 `cada20aa747d7665bd2d75c6ea25b36b37248197`，随后 fast-forward 合入 main 并 push。
+- 该 SHA 的四条 push CI 全绿：主 CI/CD `32552052084`、Web Unit Tests `32552052097`、AI Delivery CI Build `32552052076`、AI Delivery CI Security `32552052166`。主 CI 自动判定 `mode=web`，API 镜像明确跳过。
+- 显式生产 Web 部署 run `32552335095`：`mode=web`、`skip_deploy=false`、`approve_production=true`，部署成功；API 未构建、未重启，生产数据库未写入。
+- 部署后只读审计 run `32552549444` 成功：`DEPLOY_CHECKOUT_SHA=cada20aa747d7665bd2d75c6ea25b36b37248197`；Web 容器镜像 digest 为 `sha256:6935ba835e390f232417e24c915c510e6e83b48fb24f427b1a59dcb3c4f40775`，OCI revision 同为 `cada20aa747d7665bd2d75c6ea25b36b37248197`。
