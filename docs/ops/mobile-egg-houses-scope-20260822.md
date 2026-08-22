@@ -62,4 +62,10 @@
 ## CI 与部署验证
 
 - 修复代码 main commit：`008fbed878db407ceb9a86219ef84b7d68fdfc50`。
-- push-main CI、最终报告 commit、显式生产部署和只读 revision 核实将在本节追加最终 run/SHA 证据。
+- 报告/部署目标 main commit：`c21009d7f029683955490ac3376bd567f8319438`。
+- push-main CI run `32564797571`：成功；Type-check & Regression、全部 schema/constraint/entity 门禁和五组业务回归全绿。
+- 显式生产部署 run `32565279981`：`workflow_dispatch`，`mode=full`、`approve_production=true`，成功。选择 full 是因为主根因修复在 Web 缓存层，同时 API 有 DataScope fail-closed 修复；只部署 api 会遗留线上主故障。
+- 部署构建的 API image manifest：`sha256:c45023f78ccaa0212d948932190cc7c2263a7913866f73b9f6a132f58ebec2a4`，OCI revision 为目标 commit。
+- 部署构建并运行的 Web image：`sha256:b73de77af2f6c0af33eb3f3524f8791d8f2526bd73a24929067c918f08da4273`，OCI revision 为目标 commit。
+- 部署后生产只读鸡舍审计 run `32565565557`：checkout SHA 为目标 commit，数据库仍为 19/19 ACTIVE，admin endpoint 返回 19 行。
+- 部署后 Web image 只读审计 run `32565576895`：checkout SHA、运行 image digest、OCI revision 三者均与上述目标一致。
