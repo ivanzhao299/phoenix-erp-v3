@@ -26,6 +26,7 @@
 
 - Web 镜像构建新增 `GIT_SHA` build arg，并在 Next 构建期注入 `NEXT_PUBLIC_BUILD_SHA`。
 - 根 Providers 首次挂载时输出 `[Phoenix ERP] build <SHA>`。
+- Next 生产构建的 console 清理规则明确保留 `info`（以及既有的 `warn/error`），避免版本日志被编译器移除。
 - Web 镜像增加 `org.opencontainers.image.revision=<SHA>` label，便于部署主机只读核对镜像 revision。
 - deploy workflow 将 `${{ github.sha }}` 传入镜像构建。选择 console 标识而非新增“关于”页面，以最小改动覆盖登录页和全部应用页面。
 

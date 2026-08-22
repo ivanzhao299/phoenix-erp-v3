@@ -78,7 +78,7 @@ const nextConfig: NextConfig = {
   // ── 编译优化 ────────────────────────────────────────────────────
   compiler: {
     // 生产环境移除 console.log（保留 warn/error）
-    removeConsole: process.env.NODE_ENV === "production"
+    removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["warn", "error", "info"] } : false
       ? { exclude: ["error", "warn"] }
       : false,
   },
