@@ -33,7 +33,10 @@
 
 ## 部署验证
 
-待 full 部署完成后补录 workflow run、API/Web revision 与公网响应头。
+- main commit：`942266845d4127f96b665cc72802b9b31b2ee721`。
+- push CI：run `32547574598` 全绿；Type-check、DDL migration、entity drift、system/breeding/packaging/WMS/finance regression 和 API/Web 镜像构建均成功。
+- 显式生产 full 部署：run `32547917777`，`approve_production=true`，成功。
+- 部署后只读审计：run `32548211819`，生产 checkout、API 镜像与 Web 镜像 revision 均为 `942266845d4127f96b665cc72802b9b31b2ee721`；单实例拓扑保持不变。
 
 ## 用户侧复核
 
