@@ -38,4 +38,8 @@
 - `node scripts/check-constraint-drift.js`：0 new drifts（1 条既有 allowlist）。
 - API TypeScript：0 errors。
 - scope audit：受影响页面的主数据字段裸 input / `onChange(e.target.value)` 特征为 0。
-- CI / 生产 Web 部署 / 容器 revision：待合并部署后回填。
+- main 应用提交：`3eb64c249c6e95f4fdce6b198e4809cdb3515bdc`（toast 主改造合并提交 `c17044c3`，版本日志保留修正 `3eb64c24`）。
+- Push CI：四个 workflow 全部 success；主 CI/CD run `32544739416` 的类型检查、迁移门禁、实体漂移、模块回归及 Web 镜像构建全部通过。
+- 显式生产 Web 部署：run `32545022459`，`mode=web`、`approve_production=true`，终态 success。
+- 生产只读镜像审计：run `32545256180`，终态 success；部署 checkout 为 `3eb64c249c6e95f4fdce6b198e4809cdb3515bdc`，运行镜像 digest 为 `sha256:0cc03f6ac1484b736c1928ad79b3b4d5cb307abe442393aa9d08539e7bdde971`，OCI revision label 与提交一致。
+- 公开 HTTP 核验：`/login` 引用的 `/_next/static/chunks/14cq8sbxetnth.js` 内含完整构建 SHA `3eb64c249c6e95f4fdce6b198e4809cdb3515bdc`，证明公开 HTML 引用的是本次构建 chunk，而非 nginx 旧缓存。
