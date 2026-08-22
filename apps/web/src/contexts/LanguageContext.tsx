@@ -1,5 +1,6 @@
 'use client';
 import React, { createContext, useContext, useState, useCallback, useRef, useReducer, useMemo } from 'react';
+import { resolveHydrationValue } from '@/lib/i18n-hydrator';
 
 const SUPPORTED_LANGS = ['zh', 'en', 'lo'];
 
@@ -145,31 +146,32 @@ function HardcodedChineseHydrator() {
   const ctx = React.useContext(LanguageContext);
   const textOriginals = useRef<WeakMap<Text, string>>(new WeakMap());
   const attrOriginals = useRef<WeakMap<Element, Record<string, string>>>(new WeakMap());
+  const textWrites = useRef<WeakMap<Text, string>>(new WeakMap());
+  const attrWrites = useRef<WeakMap<Element, Record<string, string>>>(new WeakMap());
 
   React.useEffect(() => {
     if (!ctx || typeof document === 'undefined') return undefined;
-    const translateNode = (node: Node) => {
+    const translateNode = (node: Node, changedAttr?: string | null) => {
       if (node.nodeType === TEXT_NODE) {
         const textNode = node as Text;
         const parent = textNode.parentElement;
         if (!parent || SKIP_TAGS.has(parent.tagName) || parent.closest('[data-i18n-skip="true"]')) return;
         const current = textNode.nodeValue || '';
-        // Chinese is the source language. React may legitimately update a text
-        // node in place (for example `150羽` -> `900羽`). Treat that new value
-        // as the latest source instead of restoring the first value observed.
-        // Restoring the stale value here desynchronizes the live DOM from the
-        // committed React fiber, so later renders believe there is nothing to do.
-        if (ctx.lang === 'zh' && /[\u4e00-\u9fff]/.test(current)) {
-          textOriginals.current.set(textNode, current);
-          return;
+        const expectedWrite = textWrites.current.get(textNode);
+        const isHydratorWrite = expectedWrite === current;
+        if (expectedWrite !== undefined) textWrites.current.delete(textNode);
+        const decision = resolveHydrationValue(
+          current,
+          textOriginals.current.get(textNode),
+          ctx.lang,
+          ctx.translateLiteral,
+          isHydratorWrite,
+        );
+        if (decision.source !== undefined) textOriginals.current.set(textNode, decision.source);
+        if (decision.output !== current) {
+          textWrites.current.set(textNode, decision.output);
+          textNode.nodeValue = decision.output;
         }
-        if (/[\u4e00-\u9fff]/.test(current) && !textOriginals.current.has(textNode)) {
-          textOriginals.current.set(textNode, current);
-        }
-        const original = textOriginals.current.get(textNode);
-        if (!original) return;
-        const next = ctx.lang === 'zh' ? original : ctx.translateLiteral(original);
-        if (next !== current) textNode.nodeValue = next;
         return;
       }
 
@@ -177,26 +179,33 @@ function HardcodedChineseHydrator() {
       if (SKIP_TAGS.has(node.tagName) || node.closest('[data-i18n-skip="true"]')) return;
 
       const originals = attrOriginals.current.get(node) || {};
+      const pendingWrites = attrWrites.current.get(node) || {};
       let touched = false;
       for (const attr of ATTRS) {
         const current = node.getAttribute(attr);
         if (!current) continue;
-        if (ctx.lang === 'zh' && /[\u4e00-\u9fff]/.test(current)) {
-          originals[attr] = current;
+        const isChangedAttr = changedAttr === attr;
+        const isHydratorWrite = isChangedAttr && pendingWrites[attr] === current;
+        if (isChangedAttr) delete pendingWrites[attr];
+        const decision = resolveHydrationValue(
+          current,
+          originals[attr],
+          ctx.lang,
+          ctx.translateLiteral,
+          isHydratorWrite,
+        );
+        if (decision.source !== undefined && decision.source !== originals[attr]) {
+          originals[attr] = decision.source;
           touched = true;
-        } else if (/[\u4e00-\u9fff]/.test(current) && !originals[attr]) {
-          originals[attr] = current;
-          touched = true;
+        }
+        if (decision.output !== current) {
+          pendingWrites[attr] = decision.output;
+          node.setAttribute(attr, decision.output);
         }
       }
       if (touched) attrOriginals.current.set(node, originals);
-      const stored = attrOriginals.current.get(node);
-      if (stored) {
-        for (const [attr, original] of Object.entries(stored)) {
-          const next = ctx.lang === 'zh' ? original : ctx.translateLiteral(original);
-          if (node.getAttribute(attr) !== next) node.setAttribute(attr, next);
-        }
-      }
+      if (Object.keys(pendingWrites).length) attrWrites.current.set(node, pendingWrites);
+      else attrWrites.current.delete(node);
     };
 
     const walk = (root: Node) => {
@@ -214,7 +223,7 @@ function HardcodedChineseHydrator() {
       for (const mutation of mutations) {
         for (const node of Array.from(mutation.addedNodes)) walk(node);
         if (mutation.type === 'characterData') translateNode(mutation.target);
-        if (mutation.type === 'attributes') translateNode(mutation.target);
+        if (mutation.type === 'attributes') translateNode(mutation.target, mutation.attributeName);
       }
     });
     observer.observe(document.body, {
