@@ -45,7 +45,10 @@ function readStoredAuth(): { user: AuthUser | null; token: string | null } {
       sessionStorage.removeItem('phoenix_token');
       sessionStorage.removeItem('phoenix_user');
       sessionStorage.setItem('phoenix_session_version', SESSION_VERSION);
-      return { user: null, token: null };
+      // A new tab has its own sessionStorage (or receives a stale cloned copy),
+      // while localStorage is shared. Continue into the localStorage fallback in
+      // this same mount; returning here makes TerminalLayout treat a valid
+      // cross-tab session as logged out and redirect back to /login.
     }
     // 优先 sessionStorage，fallback localStorage（路由切换/刷新/新标签页时 sessionStorage 可能为空）
     const storedToken = sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token');
