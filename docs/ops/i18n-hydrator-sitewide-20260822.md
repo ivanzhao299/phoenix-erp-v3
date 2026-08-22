@@ -137,4 +137,7 @@
 
 ### CI 与部署验证
 
-待本提交 push、CI、显式 `mode=web` 部署与只读 revision 审计完成后补录。
+- 功能提交 `a10bfa253008af78196a4fff93d6f23422ba400a` 从 `fix/i18n-hydrator-language-unit-20260822` fast-forward 合入 main 并 push。
+- 该 SHA 四条 push CI 全绿：主 CI/CD `32556207588`、Web Unit Tests `32556207595`、AI Delivery CI Build `32556207587`、AI Delivery CI Security `32556207615`；主 CI 自动判定 web-only，API 镜像明确跳过。
+- 显式生产 Web 部署 run `32556512072`：`mode=web`、`skip_deploy=false`、`approve_production=true`，成功；API 镜像跳过，未执行生产数据库迁移。
+- 部署后只读审计 run `32556702823` 成功：`DEPLOY_CHECKOUT_SHA=a10bfa253008af78196a4fff93d6f23422ba400a`；Web 容器镜像 digest 为 `sha256:3b12bff3489d41eca2657a65ff3dc1c51962a5994b5d53486d109fb8e230741a`，OCI revision 同为 `a10bfa253008af78196a4fff93d6f23422ba400a`。
