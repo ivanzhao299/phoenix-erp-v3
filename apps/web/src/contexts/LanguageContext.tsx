@@ -154,6 +154,15 @@ function HardcodedChineseHydrator() {
         const parent = textNode.parentElement;
         if (!parent || SKIP_TAGS.has(parent.tagName) || parent.closest('[data-i18n-skip="true"]')) return;
         const current = textNode.nodeValue || '';
+        // Chinese is the source language. React may legitimately update a text
+        // node in place (for example `150羽` -> `900羽`). Treat that new value
+        // as the latest source instead of restoring the first value observed.
+        // Restoring the stale value here desynchronizes the live DOM from the
+        // committed React fiber, so later renders believe there is nothing to do.
+        if (ctx.lang === 'zh' && /[\u4e00-\u9fff]/.test(current)) {
+          textOriginals.current.set(textNode, current);
+          return;
+        }
         if (/[\u4e00-\u9fff]/.test(current) && !textOriginals.current.has(textNode)) {
           textOriginals.current.set(textNode, current);
         }
@@ -171,8 +180,11 @@ function HardcodedChineseHydrator() {
       let touched = false;
       for (const attr of ATTRS) {
         const current = node.getAttribute(attr);
-        if (!current || !/[\u4e00-\u9fff]/.test(current)) continue;
-        if (!originals[attr]) {
+        if (!current) continue;
+        if (ctx.lang === 'zh' && /[\u4e00-\u9fff]/.test(current)) {
+          originals[attr] = current;
+          touched = true;
+        } else if (/[\u4e00-\u9fff]/.test(current) && !originals[attr]) {
           originals[attr] = current;
           touched = true;
         }

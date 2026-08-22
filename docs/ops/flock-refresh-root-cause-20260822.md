@@ -70,3 +70,29 @@
 - 全量末 60 条还发现窗口之外 `03:40:48.102367319Z` 有一笔同鸡群 `current_qty=213`，并于 `03:40:48.103473755Z` `success on attempt 0`；Nginx 同样记录该 PUT 200 及随后 GET 200。这是原 `03:20` 事件后二十分钟的新写入，不能改变原事件请求体为 212 的事实，也不属于“03:20:12 之后还有 PUT 213 但失败/未到达”的 C 情形。
 
 结论为 **A：03:20:12 的 PUT body 中 `current_qty=212`（不是用户声称输入的 213），请求到达 API 后成功落库；截至 `03:25:00Z` 没有其他 213 PUT 或失败 PUT。根因位于前端提交前的表单状态/绑定链路，不在数据库 UPDATE 或服务端持久化。** 此结论取代第二轮因日志不足暂定的 C。
+
+## 第三轮：本地浏览器复现与最终修复
+
+### 真实浏览器复现
+
+- 本地用 Compose PostgreSQL 16 初始化空库并执行冻结 SQL 迁移链，API 以开发登录模式连接本地库；仅在本地插入 `PW-FARM-001`、`PW-HOUSE-001`、`PW-FLOCK-001` 测试数据。
+- 仓库原无 Playwright 基建，本轮新增最小配置与鸡群刷新用例。浏览器为 Playwright Chromium 对应的 Chrome for Testing `151.0.7922.34`。
+- 宿主缺少 `libnspr4.so` 且无 sudo 权限，改用官方 `mcr.microsoft.com/playwright:v1.62.1-noble` 容器运行浏览器；未伪造宿主执行结果。
+- dev 首轮因容器访问 `host.docker.internal` 不在 `allowedDevOrigins`，Turbopack HMR WebSocket 被 Next 拒绝，页面无法作为可靠水合环境，因此不计作业务复现。
+- 停止 dev 后执行 `pnpm build`，再用 production server 重测。用例完整执行登录 → `/breeding/flock` → 编辑 `150` 为 `900` → 保存，并监听 PUT 后的 `GET /api/crud/brd_flocks`。
+- 红灯证据：GET 响应体含 `current_qty=900`，toast 已出现，但表格 10 秒内始终为 `150羽`。这与生产现象完全一致。
+
+### 最终根因
+
+根因不是 CRUD 请求、React state、DataTable 或 Service Worker，而是 `LanguageContext` 中用于翻译硬编码中文的全局 `MutationObserver`（`HardcodedChineseHydrator`）。它首次看到文本节点 `150羽` 时将其永久保存为“中文原文”。React 随后已把该节点提交为 `900羽`，observer 收到 `characterData` 变更后又在中文模式下写回保存的 `150羽`。
+
+活体调试同时确认：页面 state、DataTable props、目标 `td` 的 React Fiber `memoizedProps.children` 均为 `900羽`，Fiber alternate 为 `150羽`，但 DOM `textContent` 为 `150羽`。说明 React 已完成新值提交，DOM 随后被 React 之外的 observer 篡改；React 之后又因 Fiber 已是 900 而不会重复写 DOM。“当前共 0 个鸡群批次”等含中文的动态文本也受同一缺陷影响。
+
+### 修复与回归
+
+- 中文作为源语言时，MutationObserver 发现 React 写入的新中文动态文本或属性后，更新 WeakMap 中的源值并立即返回，不再恢复首次观察到的旧值。
+- 非中文语言仍使用最新中文源值执行硬编码文案翻译；切回中文时仍可从 WeakMap 恢复源文案。
+- Playwright 回归同时断言：保存后的 GET 含新数量、toast 出现、同一页面不刷新即可看到新数量，并收集未捕获浏览器异常。
+- 同一 production build、同一 Chrome 151 用例修复后通过：`1 passed (3.7s)`。
+- Web production build 成功；Web TypeScript `0 errors`；Vitest `71 files / 402 tests passed`。
+- `sw.js` 已完整核对：同源 `/api/*` GET 仅 `fetch(req)`，失败返回 503，不读写 Cache；静态 stale-while-revalidate 不覆盖 API，因此不是本次根因。
