@@ -1,0 +1,80 @@
+name: Mobile Egg Houses Production Readonly Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read house inventory without mutation
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
+            docker compose exec -T \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT count(*) AS total,
+                   count(*) FILTER (WHERE status = 'ACTIVE') AS active,
+                   count(*) FILTER (WHERE status <> 'ACTIVE' OR status IS NULL) AS non_active
+              FROM brd_houses;
+            SELECT COALESCE(farm_code, '<NULL>') AS farm_code,
+                   count(*) AS total,
+                   count(*) FILTER (WHERE status = 'ACTIVE') AS active
+              FROM brd_houses
+             GROUP BY farm_code
+             ORDER BY farm_code NULLS FIRST;
+            SELECT COALESCE(status, '<NULL>') AS status, count(*) AS total
+              FROM brd_houses
+             GROUP BY status
+             ORDER BY status NULLS FIRST;
+            SELECT house_code, house_name, farm_code, site_code, company_code, status
+              FROM brd_houses
+             ORDER BY house_code;
+            COMMIT;
+            SQL
+      - name: Probe current production admin response
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          response="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $token" \
+            https://erp.eggslao.com/api/farm/feed/houses)"
+          RESPONSE="$response" node - <<'NODE'
+          const payload = JSON.parse(process.env.RESPONSE || '{}');
+          const rows = Array.isArray(payload) ? payload : payload.data;
+          if (!Array.isArray(rows)) throw new Error('House response is not an array');
+          console.log(`ADMIN_HOUSE_RESPONSE_COUNT=${rows.length}`);
+          console.log(JSON.stringify(rows));
+          NODE

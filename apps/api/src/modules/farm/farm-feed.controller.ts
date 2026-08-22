@@ -46,7 +46,13 @@ export class FarmFeedController {
   async getHouses(@Req() req: any) {
     const scope = deriveOrgScope(req);
     if (scope.isGlobal) return this.feedService.getHouses();
-    return this.feedService.getHouses(scope.farmCodes, scope.siteCodes);
+    const farmCodes = scope.farmCodes ?? [];
+    const siteCodes = scope.siteCodes ?? [];
+    const companyCodes = scope.companyCodes ?? [];
+    if (farmCodes.length === 0 && siteCodes.length === 0 && companyCodes.length === 0) {
+      return { code: 200, data: [] };
+    }
+    return this.feedService.getHouses(farmCodes, siteCodes, companyCodes);
   }
 
   /**

@@ -9,10 +9,12 @@ describe('FarmFeedController ledger save payload compatibility', () => {
   function setup() {
     const feedService = {
       saveLedger: jest.fn().mockResolvedValue({ code: 200, data: rows }),
-    } as unknown as jest.Mocked<Pick<FarmFeedService, 'saveLedger'>>;
+      getHouses: jest.fn().mockResolvedValue([]),
+    } as unknown as jest.Mocked<Pick<FarmFeedService, 'saveLedger' | 'getHouses'>>;
     return {
       controller: new FarmFeedController(feedService as unknown as FarmFeedService),
       saveLedger: feedService.saveLedger,
+      getHouses: feedService.getHouses,
     };
   }
 
@@ -50,5 +52,52 @@ describe('FarmFeedController ledger save payload compatibility', () => {
       altMenus: ['MENU_FARM_DATA'],
       denialMessage: undefined,
     });
+  });
+
+  it('returns the full active house list for an administrator global scope', async () => {
+    const { controller, getHouses } = setup();
+
+    await controller.getHouses({
+      user: { roles: ['ROLE_ADMIN'], storeCode: 'ALL' },
+      dataScope: { isGlobal: true },
+    });
+
+    expect(getHouses).toHaveBeenCalledWith();
+  });
+
+  it('passes a single-farm user scope through to the house query', async () => {
+    const { controller, getHouses } = setup();
+
+    await controller.getHouses({
+      user: { roles: ['ROLE_FARM_MGR'], storeCode: 'LPH_MENGSAI' },
+      dataScope: {
+        isGlobal: false,
+        allowedFarmCodes: ['LPH_MENGSAI'],
+        allowedSiteCodes: [],
+        allowedCompanyCodes: ['COMP-LAO-AGRI'],
+      },
+    });
+
+    expect(getHouses).toHaveBeenCalledWith(
+      ['LPH_MENGSAI'],
+      [],
+      ['COMP-LAO-AGRI'],
+    );
+  });
+
+  it('fails closed without querying houses when a non-global user has no scope', async () => {
+    const { controller, getHouses } = setup();
+
+    await expect(controller.getHouses({
+      user: { roles: ['ROLE_FARM_MGR'], storeCode: 'ALL' },
+      dataScope: {
+        isGlobal: false,
+        allowedFarmCodes: [],
+        allowedSiteCodes: [],
+        allowedCompanyCodes: [],
+      },
+    })).resolves.toEqual({ code: 200, data: [] });
+
+    expect(getHouses).not.toHaveBeenCalled();
   });
 });

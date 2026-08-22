@@ -30,7 +30,9 @@ async function getCached<T>(cacheKey: string, fetcher: () => Promise<T>, ttlMs: 
 
 /** 手动清除某个 key 的缓存（例如提交数据后强制刷新） */
 export function invalidateCache(cacheKey: string) {
-  _memCache.delete(cacheKey);
+  for (const key of _memCache.keys()) {
+    if (key === cacheKey || key.startsWith(`${cacheKey}:`)) _memCache.delete(key);
+  }
 }
 
 function tok(): string {
@@ -352,7 +354,7 @@ export const mobileApi = {
 
   /** G109 鸡舍列表明细（code+中文名+容量，5 分钟缓存）——按当前用户农场/场区隔离 */
   getFeedHousesDetail: (): Promise<Array<{ house_code: string; house_name: string; capacity?: number | null; house_type?: string | null; current_birds?: number | null }>> =>
-    getCached('feedHousesDetail', () => get<Array<{ house_code: string; house_name: string; capacity?: number | null }>>('/api/farm/feed/houses'), 5 * 60_000)
+    getCached(`feedHousesDetail:${tok()}`, () => get<Array<{ house_code: string; house_name: string; capacity?: number | null }>>('/api/farm/feed/houses'), 5 * 60_000)
       .then(rows => (Array.isArray(rows) ? rows : [])),
 
   /** 鸡舍 code 列表（向后兼容：以 code 为数据键的页面继续可用） */
