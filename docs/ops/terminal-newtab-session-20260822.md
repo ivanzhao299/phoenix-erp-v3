@@ -92,3 +92,10 @@
 ### 为什么上两轮没修好
 
 第一轮只改变了入口行为；第二轮依据代码推演，把真实问题误归因到续签分裂，并补了 return 落点。两轮都没有运行“真实登录 → 新 page → terminal”的浏览器用例，因而遗漏了 hydration 阶段的 session 版本提前 return。第二轮单测只验证刷新写入与纯函数导航，无法覆盖 AuthProvider 首次 mount 和 TerminalLayout 的组合。本轮生产请求时序与真实浏览器失败先共同复现，才修改一行控制流，并把该链路保留为 E2E 回归。
+
+### 第三轮验证与部署
+
+- 本地 API/Web `tsc --noEmit` 均 0 errors；Web Vitest 75 files / 425 tests 全绿；production build 231 pages 成功；真实登录 Playwright 新标签回归 1/1 passed。
+- PR `#56` 合并为 main revision `943f9bf227ef112443afbcc2f08c899b9eaf149b`。main CI：Security `32563042659`、Vitest `32563042605`、Build `32563042623`、Build & Deploy CI `32563042572` 全绿；后者包含 API/Web typecheck、迁移门禁、entity drift、system/breeding/packaging/wms/finance regression 与 web 镜像构建。
+- 显式 web 部署 run `32563346192` 成功，`Deploy · web` 完成；API 镜像构建按 web 模式跳过，未运行生产数据库写入。
+- 部署后生产只读审计 run `32563556439` 成功：`DEPLOY_CHECKOUT_SHA=943f9bf...`，运行 web 容器 `org.opencontainers.image.revision=943f9bf...`，启动时间为本次部署窗口；checkout 与 web 容器 revision 一致。
