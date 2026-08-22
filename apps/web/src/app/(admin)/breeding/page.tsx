@@ -369,21 +369,11 @@ export default function BreedingPage() {
       const childJson = await childRes.json().catch(() => null);
       const childRows = (childJson?.data ?? childJson ?? []) as unknown[];
       if (Array.isArray(childRows) && childRows.length > 0) {
-        await dialog.showAlert({
-          title: t('ui.无法删除', '无法删除'),
-          message: `${t('ui.养殖场', '养殖场')}「${farm.name}」${t('ui.下仍有鸡舍存在请先解散', '下仍有鸡舍存在，请先解散所有鸡舍后再删除场区')}`,
-          type: "warning",
-          icon: "🚫"
-        });
+        toast.warning(`${t('ui.养殖场', '养殖场')}「${farm.name}」${t('ui.下仍有鸡舍存在请先解散', '下仍有鸡舍存在，请先解散所有鸡舍后再删除场区')}`);
         return;
       }
     } catch {
-      await dialog.showAlert({
-        title: t('ui.无法验证子记录', '无法验证子记录'),
-        message: t('ui.子记录检查失败删除已取消', '子记录检查失败，删除已取消以防止数据孤立，请稍后重试'),
-        type: "warning",
-        icon: "⚠️"
-      });
+      toast.warning(t('ui.子记录检查失败删除已取消', '子记录检查失败，删除已取消以防止数据孤立，请稍后重试'));
       return;
     }
     const ok = await dialog.showConfirm({

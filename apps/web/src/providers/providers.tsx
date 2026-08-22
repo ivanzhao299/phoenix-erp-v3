@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AuthProvider }     from '@/contexts/AuthContext';
 import { ThemeProvider }    from '@/contexts/ThemeContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
@@ -9,6 +9,10 @@ import { BrandProvider }    from '@/contexts/BrandContext';
 import { ErrorBoundary }    from '@/components/ErrorBoundary';
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    console.info(`[Phoenix ERP] build ${process.env.NEXT_PUBLIC_BUILD_SHA || 'unknown'}`);
+  }, []);
+
   return (
     <ErrorBoundary>
       <ThemeProvider>

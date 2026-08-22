@@ -12,14 +12,15 @@ const useCrudSource = readFileSync(
 );
 
 describe("BUG-20260716-0001 flock refresh", () => {
-  it("refreshes the flock list before closing the editor and confirming success", () => {
+  it("refreshes the flock list before closing the editor and showing non-blocking success", () => {
     const refresh = flockPageSource.indexOf("await load();");
     const close = flockPageSource.indexOf("setShowDrawer(false);", refresh);
-    const success = flockPageSource.indexOf("await showAlert({", close);
+    const success = flockPageSource.indexOf("toast.success(successMessage);", close);
 
     expect(refresh).toBeGreaterThan(-1);
     expect(close).toBeGreaterThan(refresh);
     expect(success).toBeGreaterThan(close);
+    expect(flockPageSource).not.toContain("await showAlert({");
   });
 
   it("uses the controlled server reload as the single post-save source of truth", () => {
@@ -31,6 +32,8 @@ describe("BUG-20260716-0001 flock refresh", () => {
   it("prevents duplicate submissions while the mutation and refresh are pending", () => {
     expect(flockPageSource).toContain("const [submitting, setSubmitting] = useState(false)");
     expect(flockPageSource).toContain("disabled={submitting}");
+    expect(flockPageSource).toContain("closeDisabled={submitting}");
+    expect(flockPageSource).toContain("onClick={() => { if (submitting) return; setShowDrawer(false);");
     expect(flockPageSource).toContain("setSubmitting(false)");
   });
 

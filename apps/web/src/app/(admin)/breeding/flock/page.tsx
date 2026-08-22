@@ -23,6 +23,7 @@ import RightDrawer from '@/components/RightDrawer';
 import { useCrud } from '@/hooks/useCrud';
 import { usePermission } from '@/hooks/usePermission';
 import { useDialog } from '@/contexts/DialogContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
@@ -46,10 +47,8 @@ const emptyForm = () => ({
   flockStatus: 'GROWING'
 });
 export default function FlockPage() {
-  const {
-    showConfirm,
-    showAlert
-  } = useDialog();
+  const { showConfirm } = useDialog();
+  const toast = useToast();
   const {
     can
   } = usePermission('MENU_FARM_DATA');
@@ -185,12 +184,7 @@ export default function FlockPage() {
   const handleDelete = async (row: FlockCard) => {
     const currentQty = Number(row.quantity ?? 0);
     if (currentQty > 0) {
-      await showAlert({
-        icon: '🚫',
-        type: 'warning',
-        title: t('ui.无法删除', '无法删除'),
-        message: `${t('ui.鸡群', '鸡群')}「${row.batchNo}」${t('ui.仍有', '仍有')} ${currentQty.toLocaleString()} ${t('ui.只在栏，请先办理出栏 (status=RETIRED) 后再删除档案', '只在栏，请先办理出栏 (status=RETIRED) 后再删除档案')}`
-      });
+      toast.warning(`${t('ui.鸡群', '鸡群')}「${row.batchNo}」${t('ui.仍有', '仍有')} ${currentQty.toLocaleString()} ${t('ui.只在栏，请先办理出栏 (status=RETIRED) 后再删除档案', '只在栏，请先办理出栏 (status=RETIRED) 后再删除档案')}`);
       return;
     }
     const ok = await showConfirm({
@@ -219,24 +213,13 @@ export default function FlockPage() {
         await load();
       } else {
         const err = await res.json().catch(() => ({}));
-        await showAlert({
-          icon: '❌',
-          type: 'danger',
-          title: t('crud.err.deleteFailTitle', '删除失败'),
-          message: err.msg || err.message || t('crud.err.deleteFail', '删除失败，请稍后重试'),
-          confirmLabel: t('common.close', '关闭')
-        });
+        toast.error(err.msg || err.message || t('crud.err.deleteFail', '删除失败，请稍后重试'));
       }
     }
   };
   const handleSubmit = async () => {
     if (form.eliminationDate && form.inDate && form.eliminationDate <= form.inDate) {
-      await showAlert({
-        icon: '⚠️',
-        type: 'warning',
-        title: t('ui.日期错误', '日期错误'),
-        message: t('ui.淘汰日期必须晚于进雏日期', '预计淘汰日期必须晚于进雏入栏日期')
-      });
+      toast.warning(t('ui.淘汰日期必须晚于进雏日期', '预计淘汰日期必须晚于进雏入栏日期'));
       return;
     }
     const payload = {
@@ -276,13 +259,7 @@ export default function FlockPage() {
         await load();
         setShowDrawer(false);
         setEditId(null);
-        await showAlert({
-          icon: '✅',
-          type: 'success',
-          title: t('common.success', '操作成功'),
-          message: successMessage,
-          confirmLabel: t('common.ok', '好的')
-        });
+        toast.success(successMessage);
       }
     } finally {
       setSubmitting(false);
@@ -520,7 +497,7 @@ export default function FlockPage() {
           gap: 10,
           marginTop: 8
         }}>
-            <button type="button" style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }} onClick={() => { setShowDrawer(false); setEditId(null); }}>{t('common.cancel', '取消')}</button>
+            <button type="button" disabled={submitting} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center", opacity: submitting ? 0.65 : 1 }} onClick={() => { if (submitting) return; setShowDrawer(false); setEditId(null); }}>{t('common.cancel', '取消')}</button>
             <button type="button" disabled={submitting} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: submitting ? 0.65 : 1 }} onClick={handleSubmit}>{submitting ? t('common.saving', '保存中...') : editId ? t('ui.保存修改', '保存修改') : t('ui.确认建档', '确认建档')}</button>
           </div>
         </div>
