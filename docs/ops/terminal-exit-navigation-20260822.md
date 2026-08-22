@@ -49,4 +49,14 @@
 
 ## 5. 发布与生产核实
 
-待 main push、CI、显式 `mode=web / approve_production=true` 部署完成后回填最终 workflow、commit SHA 与生产只读 revision。
+- 修复分支提交：`772dbbbd`；合入 main 后因 i18n 静态门禁要求补齐三语键，最终运行时代码提交为 `b463c5be13da127c97c2726ec2ade42cb61b7c06`。
+- main push CI 全绿：
+  - AI Delivery CI Security：run `32558108502`
+  - CI Web Unit Tests：run `32558108497`
+  - AI Delivery CI Build：run `32558108493`
+  - CI/CD Build & Regression / Web image：run `32558108582`
+- 显式生产 Web 部署：workflow run `32558634222`，输入 `mode=web`、`skip_deploy=false`、`approve_production=true`，部署成功。
+- 生产只读审计：workflow run `32558844756`，成功确认：
+  - `DEPLOY_CHECKOUT_SHA=b463c5be13da127c97c2726ec2ade42cb61b7c06`
+  - 运行容器 `org.opencontainers.image.revision=b463c5be13da127c97c2726ec2ade42cb61b7c06`
+  - Web image digest：`sha256:f8f827fbb217430f499dd6495313331606bd2dbe06c7b30d3a869f1cca75e5d4`
