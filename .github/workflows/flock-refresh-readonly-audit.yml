@@ -156,3 +156,22 @@ jobs:
             done < <(sudo nginx -T 2>&1 \
               | sed -n 's/^[[:space:]]*access_log[[:space:]]\+\([^ ;]*\).*/\1/p' \
               | sort -u)
+
+            echo 'API_AUTH_LOGS_IN_WINDOW'
+            docker logs --timestamps \
+              --since "${window_start_rfc3339}Z" \
+              --until "${window_end_rfc3339}Z" \
+              "$api_container" 2>&1 \
+              | grep -E '/api/auth/(login|refresh)|AuthController|refreshToken|Login' || true
+
+            echo 'NGINX_TERMINAL_SESSION_ACCESS_LOGS_RECENT'
+            while IFS= read -r access_log; do
+              [[ -n "$access_log" && "$access_log" != "off" ]] || continue
+              [[ "$access_log" = /* ]] || access_log="/var/log/nginx/$access_log"
+              [[ -r "$access_log" ]] || { echo "UNREADABLE_ACCESS_LOG=$access_log"; continue; }
+              echo "ACCESS_LOG=$access_log"
+              sudo tail -n 50000 "$access_log" \
+                | grep -E '(GET /login\?[^ ]*return=[^ ]*terminal|GET /terminal/|/api/auth/(login|refresh))' || true
+            done < <(sudo nginx -T 2>&1 \
+              | sed -n 's/^[[:space:]]*access_log[[:space:]]\+\([^ ;]*\).*/\1/p' \
+              | sort -u)
