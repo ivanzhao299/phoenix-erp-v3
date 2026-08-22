@@ -2,6 +2,7 @@
  * packaging-api.ts — Terminal 作业台真实 API 客户端
  * 替换 packaging-mock.ts，通过 /api/packaging/terminal/* 调用后端
  */
+import { refreshAndPersistSession } from '@/lib/auth-session';
 
 export interface PrintLogRow {
   id: number;
@@ -51,13 +52,6 @@ function tok(): string {
       || '';
 }
 
-/** 写 token：同步写两个存储，保证 sessionStorage + localStorage 一致 */
-function saveTok(t: string) {
-  if (typeof window === 'undefined') return;
-  sessionStorage.setItem('phoenix_token', t);
-  localStorage.setItem('phoenix_token', t);
-}
-
 let _refreshing: Promise<boolean> | null = null;
 
 /** 静默刷新 token（与 api-client.ts 的 ensureFreshToken 逻辑对齐） */
@@ -67,15 +61,7 @@ async function tryRefresh(): Promise<boolean> {
     try {
       const t = tok();
       if (!t) return false;
-      const r = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-      });
-      if (!r.ok) return false;
-      const d = await r.json();
-      const newToken = d?.access_token || d?.data?.access_token;
-      if (newToken) { saveTok(newToken); return true; }
-      return false;
+      return Boolean(await refreshAndPersistSession(t));
     } catch { return false; }
     finally { setTimeout(() => { _refreshing = null; }, 2000); }
   })();

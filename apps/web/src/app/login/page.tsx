@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBrand } from "@/contexts/BrandContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Shield, User, Lock, AlertTriangle, Globe, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { resolveLoginDestination } from "@/lib/auth-navigation";
 const LAST_USER_KEY = "phoenix_last_username"; // 记忆上次登录的账户名（不存密码）
 
 const IS_DEV = process.env.NODE_ENV !== "production";
@@ -309,33 +310,28 @@ function LoginInner() {
       try {
         localStorage.setItem(LAST_USER_KEY, u.trim());
       } catch {/* noop */}
-      // 优先跳回 middleware 附带的 returnUrl，其次走角色首页
-      // 特例：returnUrl 是通用 /dashboard（根路径兜底重定向产生）且该角色有专属首页时，
-      // 角色首页优先，避免 terminal 操作员被送到管理后台
+      // 优先跳回 middleware 附带且通过站内路径/路由权限校验的 returnUrl，
+      // 无 return 或无权访问时才走现有角色首页。
       const returnUrl = sp.get("return");
       const allRoles: string[] = Array.isArray(info?.roles) ? info.roles : info?.role ? [info.role] : [];
-      // ROLE_ADMIN 优先：只要 roles 数组中含超管角色，强制走 /dashboard
-      // 避免超管同时持有其他角色时被错误路由到 terminal/packaging
+      // ROLE_ADMIN 仅决定无 return 时的角色落点；有效 return 始终优先。
       const isAdmin = allRoles.includes("ROLE_ADMIN") || info?.permissions?.includes("*");
       const effectiveRole = isAdmin ? "ROLE_ADMIN" : info?.role || allRoles[0] || "";
-      // HOME-1 强化：
-      // · ROLE_ADMIN → /dashboard（集团驾驶舱）
-      // · terminal → 专属页面
-      // · 其它一律 /home（运营工作台），**忽略 returnUrl**——避免历史 sessionStorage
-      //   残留把普通用户带到 /dashboard 等高权限页面
+      // 无 return 时：管理员 → /dashboard；terminal → 专属页；其它 → /home。
       const isTerminalRole = TERMINAL_ROLES.has(effectiveRole);
-      let dest: string;
+      let roleFallback: string;
       if (isAdmin) {
-        dest = '/dashboard';
+        roleFallback = '/dashboard';
       } else if (isTerminalRole) {
-        dest = ROLE_HOME[effectiveRole] || '/terminal/packaging/dashboard';
+        roleFallback = ROLE_HOME[effectiveRole] || '/terminal/packaging/dashboard';
       } else {
-        // 普通用户：只允许 returnUrl 是非 /dashboard 的同源路径，否则强制 /home
-        const safeReturn = returnUrl && returnUrl.startsWith('/')
-          && returnUrl !== '/dashboard'
-          && !returnUrl.startsWith('/dashboard/');
-        dest = safeReturn ? returnUrl : '/home';
+        roleFallback = '/home';
       }
+      const dest = resolveLoginDestination({
+        returnPath: returnUrl,
+        subject: { role: info?.role, roles: allRoles, permissions: info?.permissions },
+        roleFallback,
+      });
       router.replace(dest);
     } catch {
       setError(t('ui.网络连接失败', '网络连接失败，请重试'));

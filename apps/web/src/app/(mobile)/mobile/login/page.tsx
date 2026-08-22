@@ -3,6 +3,7 @@
 import { useState, useEffect, FormEvent, useRef, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { resolveLoginDestination } from '@/lib/auth-navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useBrand } from '@/contexts/BrandContext';
@@ -153,8 +154,11 @@ function MobileLoginInner() {
       const returnUrl = sp.get('return');
       const effectiveRole = info?.role || info?.roles?.[0] || '';
       const roleDest = MOBILE_ROLE_HOME[effectiveRole] || '/mobile/home';
-      const isGenericDashboard = returnUrl === '/dashboard';
-      const dest = returnUrl && returnUrl.startsWith('/') && !isGenericDashboard ? returnUrl : roleDest;
+      const dest = resolveLoginDestination({
+        returnPath: returnUrl,
+        subject: { role: info?.role, roles: info?.roles, permissions: info?.permissions },
+        roleFallback: roleDest,
+      });
       router.replace(dest);
     } catch {
       setError(t('ui.网络连接失败', '网络连接失败，请重试'));

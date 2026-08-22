@@ -5,6 +5,7 @@
 
 import type { CrudListResponse, PaginationParams } from "@/types";
 import { dispatchAuthExpired } from "@/lib/auth-dispatch";
+import { refreshAndPersistSession } from "@/lib/auth-session";
 
 const API_BASE = "/api";
 
@@ -21,11 +22,6 @@ function getToken(): string | null {
   } catch {
     return null;
   }
-}
-
-function setToken(t: string) {
-  if (typeof window === "undefined") return;
-  sessionStorage.setItem("phoenix_token", t);
 }
 
 // ── 静默 Refresh —— 当 token 剩余时间 < REFRESH_THRESHOLD 时主动续期 ───────
@@ -46,14 +42,7 @@ async function tryRefresh(currentToken: string): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     try {
-      const r = await fetch(`${API_BASE}/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${currentToken}` },
-      });
-      if (!r.ok) return null;
-      const j = await r.json().catch(() => null) as { token?: string } | null;
-      if (j?.token) { setToken(j.token); return j.token; }
-      return null;
+      return await refreshAndPersistSession(currentToken);
     } catch { return null; }
     finally {
       // 留一段冷却窗口避免风暴
