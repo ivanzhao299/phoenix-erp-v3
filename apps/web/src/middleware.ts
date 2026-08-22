@@ -95,6 +95,7 @@ function isMobileDevice(request: NextRequest): boolean {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const originalTarget = `${pathname}${request.nextUrl.search}`;
 
   // 1. 移动端分流（必须在 isPublic 之前，否则 /login 会被提前放行）
   if (pathname === '/') {
@@ -141,7 +142,7 @@ export function middleware(request: NextRequest) {
   if (!token) {
     // 无 Token → 重定向到登录页，附带 returnUrl
     const loginUrl = new URL(loginBase, request.url);
-    loginUrl.searchParams.set('return', pathname);
+    loginUrl.searchParams.set('return', originalTarget);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -150,7 +151,7 @@ export function middleware(request: NextRequest) {
 
   if (!payload) {
     const loginUrl = new URL(loginBase, request.url);
-    loginUrl.searchParams.set('return', pathname);
+    loginUrl.searchParams.set('return', originalTarget);
     loginUrl.searchParams.set('reason', 'expired');
     return NextResponse.redirect(loginUrl);
   }
@@ -159,7 +160,7 @@ export function middleware(request: NextRequest) {
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp && payload.exp + 10 < now) {
     const loginUrl = new URL(loginBase, request.url);
-    loginUrl.searchParams.set('return', pathname);
+    loginUrl.searchParams.set('return', originalTarget);
     loginUrl.searchParams.set('reason', 'expired');
     return NextResponse.redirect(loginUrl);
   }

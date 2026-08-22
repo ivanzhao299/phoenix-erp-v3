@@ -1,5 +1,6 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import { buildAccessTokenCookie, refreshAndPersistSession } from '@/lib/auth-session';
 
 type AuthUser = {
   id?: string | number;
@@ -133,11 +134,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const ck = sessionStorage.getItem('phoenix_cookie_token')
           || localStorage.getItem('phoenix_cookie_token') || t;
-        const payload = parseJwtPayload(ck);
-        if (payload?.exp) {
-          const maxAge = Math.max(0, payload.exp - Math.floor(Date.now() / 1000));
-          document.cookie = `phoenix_access_token=${ck}; path=/; max-age=${maxAge}; SameSite=Lax`;
-        }
+        document.cookie = buildAccessTokenCookie(ck);
       } catch { /* ignore */ }
     }
   }, []);
@@ -170,13 +167,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   /** 从 JWT payload 解析过期时间，写入中间件可读的 cookie */
   const _setCookieToken = (tokenStr: string) => {
     try {
-      const payload = parseJwtPayload(tokenStr);
-      const maxAge = payload?.exp
-        ? Math.max(0, payload.exp - Math.floor(Date.now() / 1000))
-        : 86400;
       // JS-side cookie: middleware reads it server-side via request.cookies
       // Note: HttpOnly must come from server Set-Cookie — ignored when set via document.cookie
-      document.cookie = `phoenix_access_token=${tokenStr}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      document.cookie = buildAccessTokenCookie(tokenStr);
     } catch { /* ignore */ }
   };
 
@@ -308,9 +301,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!payload) return;
         const remainSec = payload.exp - Math.floor(Date.now() / 1000);
         if (remainSec > 0 && remainSec < REFRESH_THRESHOLD) {
-          const resp = await fetch(`${API}/api/auth/refresh`, { method: 'POST', headers: { Authorization: `Bearer ${currentToken}` } });
-          const data = await resp.json();
-          if (data.code === 200 && data.token) { sessionStorage.setItem('phoenix_token', data.token); setToken(data.token); }
+          const refreshedToken = await refreshAndPersistSession(currentToken, API);
+          if (refreshedToken) setToken(refreshedToken);
         }
       } catch (err) {
         console.warn('[AuthContext] Token 刷新失败，将在下次操作时重新登录', err);
