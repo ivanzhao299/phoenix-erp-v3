@@ -1,0 +1,125 @@
+name: Flock Refresh Production Readonly Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      window_start:
+        description: 'UTC audit start timestamp, e.g. 2026-08-22 00:00:00'
+        required: true
+      window_end:
+        description: 'UTC audit end timestamp, e.g. 2026-08-23 00:00:00'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flock-refresh-production-readonly-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate audit window
+        shell: bash
+        env:
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        run: |
+          set -euo pipefail
+          timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+          for value in "$WINDOW_START" "$WINDOW_END"; do
+            [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+            date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+          done
+          [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+            || { echo "window_start must be before window_end" >&2; exit 1; }
+      - name: Read production database and topology without mutation
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,WINDOW_START,WINDOW_END
+          script: |
+            set -euo pipefail
+            timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+            for value in "$WINDOW_START" "$WINDOW_END"; do
+              [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+              date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+            done
+            [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+              || { echo "window_start must be before window_end" >&2; exit 1; }
+
+            cd "$DEPLOY_PATH"
+            echo "AUDIT_WINDOW=$WINDOW_START .. $WINDOW_END"
+            echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
+            docker compose ps -a
+
+            for service in api web; do
+              container="$(docker compose ps -q "$service")"
+              [[ -n "$container" ]] || { echo "$service container is not running" >&2; exit 1; }
+              docker inspect "$container" --format "SERVICE=$service IMAGE={{.Image}} STARTED={{.State.StartedAt}} LABELS={{json .Config.Labels}}"
+            done
+
+            api_container="$(docker compose ps -q api)"
+            docker exec "$api_container" node -e '
+              const raw = process.env.DATABASE_URL;
+              if (!raw) { console.log("API_DATABASE_URL=unset (individual PG variables may be in use)"); process.exit(0); }
+              const u = new URL(raw);
+              console.log(`API_DATABASE_TARGET=${u.hostname}:${u.port || "5432"}/${u.pathname.replace(/^\//, "")}`);
+            '
+
+            docker compose exec -T \
+              -e AUDIT_WINDOW_START="$WINDOW_START" \
+              -e AUDIT_WINDOW_END="$WINDOW_END" \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -v window_start="$AUDIT_WINDOW_START" -v window_end="$AUDIT_WINDOW_END" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'AUDIT_WINDOW' AS section, :'window_start' AS window_start, :'window_end' AS window_end;
+            SELECT column_name, data_type
+              FROM information_schema.columns
+             WHERE table_schema = current_schema()
+               AND table_name = 'brd_flocks'
+               AND (column_name IN ('flock_no', 'current_qty') OR column_name ~ '(updated|modified|created|version)')
+             ORDER BY ordinal_position;
+            SELECT format(
+                     'SELECT row_to_json(flock_row) AS latest_flock FROM (SELECT flock_no, current_qty, %1$I AS activity_marker FROM brd_flocks ORDER BY %1$I DESC NULLS LAST LIMIT 5) AS flock_row;',
+                     COALESCE(
+                       (SELECT column_name
+                          FROM information_schema.columns
+                         WHERE table_schema = current_schema()
+                           AND table_name = 'brd_flocks'
+                           AND column_name IN ('updated_at', 'modified_at', 'created_at', 'version')
+                         ORDER BY CASE column_name
+                           WHEN 'updated_at' THEN 1 WHEN 'modified_at' THEN 2
+                           WHEN 'created_at' THEN 3 ELSE 4 END
+                         LIMIT 1),
+                       'flock_no'
+                     )
+                   )
+            \gexec
+            COMMIT;
+            SQL
+
+            echo 'NGINX_PROXY_TOPOLOGY'
+            sudo nginx -T 2>&1 | sed -n '/upstream\|proxy_pass\|proxy_cache/p'
+            echo 'CRUD_RESPONSE_HEADERS'
+            curl --fail --silent --show-error --head \
+              -H 'Host: erp.eggslao.com' \
+              'http://127.0.0.1/api/crud/brd_flocks?limit=1' \
+              | sed -n '/^[Cc]ache-[Cc]ontrol:/p;/^[Aa]ge:/p;/^[Vv]ia:/p;/^[Xx]-[Cc]ache:/p;/^HTTP\//p'
