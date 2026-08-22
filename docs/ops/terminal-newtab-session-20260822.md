@@ -46,7 +46,10 @@
 
 ## 部署验证
 
-待提交、合并 main、push、CI、显式 `mode=web / approve_production=true` 部署完成后补写 commit、workflow run 与只读 production revision。
+- 实现 commit：`96a5f5a3`；合并 main 并 push 后 revision：`8bd2f74841a5ea3e37a50de6787feebc0c8f0648`。
+- main CI 全绿：Web Vitest run `32560663556`、AI Delivery Security `32560663561`、AI Delivery Build `32560663642`、Build & Deploy CI `32560663698`。最后一条包含 API/Web typecheck、build 及 system/breeding/packaging/wms/finance 回归，并成功构建推送 web 镜像；push 事件没有生产部署。
+- 显式生产部署 run `32560973016`：workflow_dispatch 输入 `mode=web`、`skip_deploy=false`、`approve_production=true`，目标 SHA `8bd2f748...`；Type-check & Regression、Build & Push web、Deploy · web 全部成功，API image job按模式跳过实际构建，未执行生产数据库迁移。
+- 只读生产镜像审计 run `32561221325` 成功：`DEPLOY_CHECKOUT_SHA=8bd2f748...`；运行中 web 容器 OCI label `org.opencontainers.image.revision=8bd2f748...`，checkout 与实际容器镜像 revision 一致。审计仅执行 git/docker inspect 与容器内版本读取，无生产写入。
 
 ## 用户侧复核步骤
 
