@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { BREEDING_FARMS_TABLE, BreedingScopedTable } from './crud.constants';
 
 @Injectable()
 export class GenericCrudService implements OnModuleInit {
@@ -2306,7 +2307,7 @@ export class GenericCrudService implements OnModuleInit {
   }
 
   async findAllBreedingScoped(
-    table: 'brd_farms' | 'brd_houses' | 'brd_flocks',
+    table: BreedingScopedTable,
     query: any,
     scope: { farmCodes: string[]; siteCodes: string[]; companyCodes: string[] } | null,
   ) {
@@ -2314,17 +2315,17 @@ export class GenericCrudService implements OnModuleInit {
     const extraValues: unknown[] = [];
     if (scope !== null) {
       const ors: string[] = [];
-      const siteColumn = table === 'brd_farms' ? 'mapped_site_code' : 'site_code';
+      const siteColumn = table === BREEDING_FARMS_TABLE ? 'mapped_site_code' : 'site_code';
       if (scope.farmCodes.length > 0) {
         ors.push(`"farm_code" = ANY($${this.nextParamIndex(query, extraValues.length)})`);
         extraValues.push(scope.farmCodes);
       }
       if (scope.siteCodes.length > 0) {
         const idx = this.nextParamIndex(query, extraValues.length);
-        ors.push(table === 'brd_farms'
+        ors.push(table === BREEDING_FARMS_TABLE
           ? `"${siteColumn}" = ANY($${idx})`
           : `("${siteColumn}" = ANY($${idx}) OR EXISTS (
-              SELECT 1 FROM "brd_farms" f
+              SELECT 1 FROM "${BREEDING_FARMS_TABLE}" f
               WHERE f."farm_code" = "${table}"."farm_code"
                 AND f."mapped_site_code" = ANY($${idx})
             ))`);
@@ -2332,10 +2333,10 @@ export class GenericCrudService implements OnModuleInit {
       }
       if (scope.companyCodes.length > 0) {
         const idx = this.nextParamIndex(query, extraValues.length);
-        ors.push(table === 'brd_farms'
+        ors.push(table === BREEDING_FARMS_TABLE
           ? `"company_code" = ANY($${idx})`
           : `("company_code" = ANY($${idx}) OR EXISTS (
-              SELECT 1 FROM "brd_farms" f
+              SELECT 1 FROM "${BREEDING_FARMS_TABLE}" f
               WHERE f."farm_code" = "${table}"."farm_code"
                 AND f."company_code" = ANY($${idx})
             ))`);

@@ -34,3 +34,9 @@ export const ALLOWED_TABLES = [
   // 注意：biz_purchase_order / biz_sales_order / fin_invoices 已从 ALLOWED_TABLES 移除。
   // 对应数据库表仍然保留，如需历史数据可通过 DBA 直接查询。
 ];
+
+export type BreedingScopedTable = `brd_${'farms' | 'houses' | 'flocks'}`;
+export const BREEDING_SCOPED_TABLES = ALLOWED_TABLES.filter((table) =>
+  table.startsWith('brd_') && ['_farms', '_houses', '_flocks'].some((suffix) => table.endsWith(suffix)),
+) as BreedingScopedTable[];
+export const BREEDING_FARMS_TABLE = BREEDING_SCOPED_TABLES.find((table) => table.endsWith('_farms'))!;

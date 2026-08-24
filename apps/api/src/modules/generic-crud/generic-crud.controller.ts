@@ -16,7 +16,7 @@ import {
 import { ClsService } from 'nestjs-cls';
 import { GenericCrudService } from './generic-crud.service';
 import { AuthGuard } from '@nestjs/passport';
-import { ALLOWED_TABLES } from './crud.constants';
+import { ALLOWED_TABLES, BREEDING_SCOPED_TABLES, BreedingScopedTable } from './crud.constants';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
 import { WmsService } from '../wms/wms.service';
@@ -432,13 +432,13 @@ export class GenericCrudController {
       return { code: 200, data };
     }
 
-    if (table === 'brd_farms' || table === 'brd_houses' || table === 'brd_flocks') {
+    if (BREEDING_SCOPED_TABLES.includes(table as BreedingScopedTable)) {
       const breedingScope = isGlobal ? null : {
         farmCodes: tableScope?.allowedFarmCodes ?? [],
         siteCodes: tableScope?.allowedSiteCodes ?? [],
         companyCodes: tableScope?.allowedCompanyCodes ?? [],
       };
-      const data = await this.crudService.findAllBreedingScoped(table, query, breedingScope);
+      const data = await this.crudService.findAllBreedingScoped(table as BreedingScopedTable, query, breedingScope);
       return { code: 200, data };
     }
 
