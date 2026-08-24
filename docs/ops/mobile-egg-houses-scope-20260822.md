@@ -176,4 +176,6 @@ UPDATE brd_flocks
 
 ### CI、部署与生产只读核验
 
-待本轮 commit、push、CI、显式 full 部署和只读审计完成后补入对应 SHA、run ID、OCI revision、五态字典、生产 status 分布以及 `LAYING + PEAK + DECLINING` 数据库/API 对账结果。
+首个 main commit `297e4bf96d89a26ac93a029e39692a55ca3ea843` 的 push CI 中，Web Vitest run `32683347847` 与安全 run `32683347834` 成功；综合 run `32683347840` 在空库迁移测试暴露 `brd_flocks` 是 Generic CRUD 运行时表、冻结 migration 空库并不创建该表。字典迁移直接执行 `ALTER TABLE brd_flocks` 因此失败。修复提交改用 `queryRunner.hasTable('brd_flocks')`：生产存在该表时收口默认值，CI 空库不存在时安全跳过；没有改写前一提交。
+
+待修复提交 push、CI、显式 full 部署和只读审计完成后补入最终 SHA、run ID、OCI revision、五态字典、生产 status 分布以及 `LAYING + PEAK + DECLINING` 数据库/API 对账结果。

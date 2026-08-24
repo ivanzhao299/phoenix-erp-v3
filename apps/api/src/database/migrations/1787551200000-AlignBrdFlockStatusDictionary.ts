@@ -8,9 +8,11 @@ export class AlignBrdFlockStatusDictionary1787551200000 implements MigrationInte
   name = 'AlignBrdFlockStatusDictionary1787551200000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`
-      ALTER TABLE brd_flocks ALTER COLUMN status SET DEFAULT 'GROWING'
-    `);
+    if (await queryRunner.hasTable('brd_flocks')) {
+      await queryRunner.query(`
+        ALTER TABLE brd_flocks ALTER COLUMN status SET DEFAULT 'GROWING'
+      `);
+    }
     await queryRunner.query(`
       UPDATE sys_dict
          SET status = 'ARCHIVED', updated_at = NOW()
@@ -39,9 +41,11 @@ export class AlignBrdFlockStatusDictionary1787551200000 implements MigrationInte
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`
-      ALTER TABLE brd_flocks ALTER COLUMN status SET DEFAULT 'ACTIVE'
-    `);
+    if (await queryRunner.hasTable('brd_flocks')) {
+      await queryRunner.query(`
+        ALTER TABLE brd_flocks ALTER COLUMN status SET DEFAULT 'ACTIVE'
+      `);
+    }
     await queryRunner.query(`
       UPDATE sys_dict
          SET status = 'ARCHIVED', updated_at = NOW()
