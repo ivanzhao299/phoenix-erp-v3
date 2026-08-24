@@ -335,7 +335,9 @@ export const mobileApi = {
 
   /** 产蛋录入鸡群：所有在产状态（LAYING / PEAK / DECLINING）。 */
   getFlocks: () =>
-    getCached(`flocks:${tok()}`, () => get<{ data: FlockRecord[]; total: number }>('/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100'), 5 * 60_000),
+    // 范围敏感数据不做 5 分钟内存缓存：管理员收窄范围后，下一次读取必须触发
+    // perms_version 对账并收到 PERMS_CHANGED，而不是继续展示旧全量数据。
+    get<{ data: FlockRecord[]; total: number }>('/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100'),
 
   /** 饲料台账 — 查询某日 */
   getFeedLedger: (date: string) =>
@@ -352,9 +354,9 @@ export const mobileApi = {
       body: JSON.stringify({ date, items }),
     }).then(r => r.json()),
 
-  /** G109 鸡舍列表明细（code+中文名+容量，5 分钟缓存）——按当前用户农场/场区隔离 */
+  /** G109 鸡舍列表明细（code+中文名+容量）——按当前用户农场/场区隔离 */
   getFeedHousesDetail: (): Promise<Array<{ house_code: string; house_name: string; capacity?: number | null; house_type?: string | null; current_birds?: number | null }>> =>
-    getCached(`feedHousesDetail:${tok()}`, () => get<Array<{ house_code: string; house_name: string; capacity?: number | null }>>('/api/farm/feed/houses'), 5 * 60_000)
+    get<Array<{ house_code: string; house_name: string; capacity?: number | null }>>('/api/farm/feed/houses')
       .then(rows => (Array.isArray(rows) ? rows : [])),
 
   /** 鸡舍 code 列表（向后兼容：以 code 为数据键的页面继续可用） */

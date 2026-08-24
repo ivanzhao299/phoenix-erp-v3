@@ -559,7 +559,9 @@ export class OrgService {
    *   effectiveQuery[scopeField]=userStoreCode），而非 sys_user_orgs 本身。G122 已一次性
    *   回填，但**管理员在系统设置 UI 改组织绑定时未同步 store_code** → 会重新引入 G122 修过的
    *   行级范围漂移（场长看空养殖、店长看空销售等假空）。此处把 G122 的规则接进 UI 写路径，
-   *   使「组织绑定」改动在系统设置 UI 上即等效。bump perms_version 强制目标用户重登拿新 storeCode。
+   *   使「组织绑定」改动在系统设置 UI 上即等效。每次范围变更都 bump perms_version，
+   *   强制目标用户重登并让新令牌绕开旧 DataScope 缓存；不能只在 store_code 改变时 bump，
+   *   因为同一组织上的 data_scope_level 变化同样会改变可见范围。
    */
   private async syncPrimaryStoreCode(userId: number): Promise<void> {
     const rows = await this.userOrgRepo.manager.query(
@@ -570,12 +572,13 @@ export class OrgService {
         LIMIT 1`,
       [userId],
     );
-    const code: string | undefined = rows[0]?.code;
-    if (!code) return;   // 无主绑定 → 保持 store_code 不动（避免误清）
+    const code: string | null = rows[0]?.code ?? null;
     await this.userOrgRepo.manager.query(
       `UPDATE sys_user
-          SET store_code = $1, perms_version = COALESCE(perms_version, 0) + 1, updated_at = NOW()
-        WHERE user_id = $2 AND COALESCE(store_code, '') <> $1`,
+          SET store_code = COALESCE($1, store_code),
+              perms_version = COALESCE(perms_version, 0) + 1,
+              updated_at = NOW()
+        WHERE user_id = $2`,
       [code, userId],
     );
   }

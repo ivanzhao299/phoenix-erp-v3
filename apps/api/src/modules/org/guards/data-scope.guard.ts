@@ -36,7 +36,9 @@ export class DataScopeGuard implements CanActivate {
       const roles: string[] = (user['roles'] as string[] | undefined) ?? (user['role'] ? [user['role'] as string] : []);
       const userId = String(user['userId'] ?? user['id'] ?? '');
       const menuForScope = this.resolveMatchedMenu(user, requirement);
-      const scope = await this.dataScopeService.resolve(userId, roles, menuForScope);
+      const rawPermsVersion = user['perms_version'];
+      const permsVersion = Number.isFinite(Number(rawPermsVersion)) ? Number(rawPermsVersion) : undefined;
+      const scope = await this.dataScopeService.resolve(userId, roles, menuForScope, permsVersion);
       this.cls.set('dataScope', scope);
       // G125：同时挂到 req，供 farm 模块的纯函数 deriveOrgScope(req) 读取真实数据范围。
       const req = context.switchToHttp().getRequest();

@@ -150,9 +150,10 @@ jobs:
             db_readonly <<'SQL'
             \pset pager off
             BEGIN TRANSACTION READ ONLY;
-            SELECT user_id, username, real_name, store_code, status, perms_version
+            SELECT user_id, username, real_name, store_code, status, perms_version, updated_at
               FROM sys_user WHERE username = 'linhong';
             SELECT uo.id, uo.user_id, uo.org_id, uo.is_primary, uo.data_scope_level,
+                   uo.created_at,
                    o.org_code, o.org_name, o.org_name_cn, o.org_type, o.company_code,
                    o.parent_id, o.parent_code, o.site_code, o.path
               FROM sys_user_orgs uo
@@ -264,3 +265,19 @@ jobs:
             }
             probe LINHONG_EGGLOG_FLOCK 'https://erp.eggslao.com/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100'
             probe LINHONG_FARM_FEED_HOUSE 'https://erp.eggslao.com/api/farm/feed/houses'
+
+            echo 'LINHONG_SCOPE_UPDATE_REQUESTS_BEGIN'
+            api_container="$(docker compose ps -q api)"
+            docker logs --timestamps --since 24h "$api_container" 2>&1 \
+              | grep -E 'PUT /api/org/user-orgs/12460|user-orgs/12460' \
+              | tail -20 || true
+            for access_log in $(sudo nginx -T 2>&1 \
+              | sed -n 's/^[[:space:]]*access_log[[:space:]]\+\([^ ;]*\).*/\1/p' \
+              | sort -u); do
+              [ -f "$access_log" ] || continue
+              sudo tail -n 50000 "$access_log" \
+                | grep -E 'PUT /api/org/user-orgs/12460' \
+                | sed -E 's/^[^ ]+/[REDACTED_IP]/' \
+                | tail -20 || true
+            done
+            echo 'LINHONG_SCOPE_UPDATE_REQUESTS_END'
