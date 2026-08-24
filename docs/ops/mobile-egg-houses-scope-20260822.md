@@ -178,4 +178,14 @@ UPDATE brd_flocks
 
 首个 main commit `297e4bf96d89a26ac93a029e39692a55ca3ea843` 的 push CI 中，Web Vitest run `32683347847` 与安全 run `32683347834` 成功；综合 run `32683347840` 在空库迁移测试暴露 `brd_flocks` 是 Generic CRUD 运行时表、冻结 migration 空库并不创建该表。字典迁移直接执行 `ALTER TABLE brd_flocks` 因此失败。修复提交改用 `queryRunner.hasTable('brd_flocks')`：生产存在该表时收口默认值，CI 空库不存在时安全跳过；没有改写前一提交。
 
-待修复提交 push、CI、显式 full 部署和只读审计完成后补入最终 SHA、run ID、OCI revision、五态字典、生产 status 分布以及 `LAYING + PEAK + DECLINING` 数据库/API 对账结果。
+最终运行时代码 SHA 为 `5356788d2bba5c1aebd6131580669b1a24a78ca7`。该 SHA 的 push CI 全绿：综合 CI `32683621463`、独立 build `32683621432`、Web Vitest `32683621514`、安全门禁 `32683621485`。综合 CI 已在空库成功执行全部迁移，证明 `hasTable` 分支修复有效。
+
+显式生产 full 部署 run `32683972836` 使用 `mode=full`、`skip_deploy=false`、`approve_production=true`，成功构建并部署 Web/API，随后成功执行 `AlignBrdFlockStatusDictionary1787551200000`。Web image digest 为 `sha256:d2991abe0e9a2eaaac7f8dbe127e0657fae99b4a8765d8a174f77092f894eaf2`，API image digest 为 `sha256:dc4aa41cfad2e0efd5eaf948300dac5a6c1ba3d10779a040c04a7ffd53bdd76c`；两者 OCI revision 均为上述 SHA。
+
+部署后生产只读审计 run `32684334829` 成功，全程使用 `PGOPTIONS='-c default_transaction_read_only=on'` 和 `BEGIN TRANSACTION READ ONLY`：
+
+- 生产 checkout 为上述 SHA；`brd_flocks` 分布为 `GROWING=2 / LAYING=8 / PEAK=1`，`ACTIVE=0 / DECLINING=0 / RETIRED=0`，上一轮 5 行修正保持不变。
+- `pg_constraint` 查询确认 `brd_flocks` 的 CHECK 为 **0 条**，生产实测与迁移链末态一致，不存在漏 `DECLINING` 的拒写约束。
+- `BRD_FLOCK_STATUS` 的 `GROWING/LAYING/PEAK/DECLINING/RETIRED` 五项均为 `ACTIVE`；旧 `ACTIVE/BROODING/CULLING/INACTIVE` 均为 `ARCHIVED`。
+- 数据库三态查询 `status = ANY (ARRAY['LAYING','PEAK','DECLINING'])` 期望数为 **9**；admin 请求 `/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100` 返回 **9** 行，返回状态集合为 `LAYING,PEAK`。生产当前没有 `DECLINING` 行，所以响应集合未出现该值，但请求已包含且允许该状态；数据库期望数与接口返回数严格一致。
+- 部署日志确认迁移实际执行 `ALTER TABLE brd_flocks ALTER COLUMN status SET DEFAULT 'GROWING'` 并成功登记；未对 `brd_flocks` 执行 UPDATE，未修改任何生产鸡群数据。
