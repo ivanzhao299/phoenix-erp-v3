@@ -96,3 +96,76 @@
 **HOLD（代码修复已部署，账号数据修正待授权）**。
 
 G1、G4 的代码闸门已修复并部署，admin/公司级/正常 scoped 语义有回归覆盖。linhong 仍全局的唯一决定性阻塞是 `sys_user_orgs.id=12460.data_scope_level='GROUP'`；按任务红线未写生产数据。只有获批把该行修正为 SITE（并 bump `perms_version`）后，才能完成“linhong 只见东鹏”最终生产验收。
+
+## 7. 数据范围修改不生效（追加取证与闭环）
+
+### 7.1 手工修改实际写入位置
+
+用户详情页“组织与数据范围”组件提交 `PUT /api/org/user-orgs/:id`，payload 为
+`{ dataScopeLevel }`；后端 `OrgService.updateUserOrg()` 保存到
+`sys_user_orgs.data_scope_level`。这与 G124 的绑定行判定读取的是同一权威字段，故 S1
+不成立。角色范围编辑器 `/settings/data-scopes` 是另一套入口，写
+`sys_data_scopes.scope_type`；本次 linhong 的两个角色在该表均无规则。
+
+`sys_user_orgs` 的生产 schema 只有 `created_at`，没有 `updated_at`，因此无法用绑定行
+更新时间倒推点击时刻；本轮改用 `sys_user.updated_at`、`perms_version` 变化和 nginx/API
+请求日志交叉取证。
+
+### 7.2 与上一轮基线的生产差异
+
+2026-08-24 新一轮生产只读 runs `32695530164`、`32695942841` 显示：
+
+| 项目 | 上一轮 `32686156016` | 本轮 `32695530164` | 判定 |
+|---|---|---|---|
+| `sys_user_orgs.id=12460.data_scope_level` | `GROUP` | `COMPANY` | UI 修改确已写入 G124 权威字段 |
+| 绑定组织 | 东鹏 SITE | 东鹏 SITE | 未改变 |
+| `sys_user.store_code` | `ALL` | `SITE-DONGPENG-LAYER` | 正规路径同步成功 |
+| `sys_user.perms_version` | `444` | `451` | 旧 JWT 应触发 `PERMS_CHANGED` |
+| 可见角色 | FARM_MGR + VET | FARM_MGR + VET | 无 `ROLE_ADMIN` |
+| `sys_data_scopes` | 0 行 | 0 行 | 无第二个 GROUP 来源 |
+
+生产 API 容器用当前画像签发的新令牌实测：`/api/crud/brd_flocks` 仅返回东鹏 1 群，
+`/api/farm/feed/houses` 仅返回东鹏 8 栋。数据库与后端新请求已经达到“只见东鹏”；
+S3 不成立。
+
+日志进一步钉死写路径：nginx 在 `11:56:38–11:56:42`、`13:46:02–13:48:24`
+记录到多次 `PUT /api/org/user-orgs/12460`，全部 HTTP 200，Referer 均为
+`/settings/users/7`；IP 已在审计输出中脱敏。`sys_user.updated_at=2026-08-24
+05:48:25.401329+00`（新加坡时间 13:48:25），与最后一次成功 PUT 相差约 1 秒。
+这证明用户操作命中了正规组织绑定端点并执行了同步，不是改到了角色规则或无关字段。
+绑定行的 `created_at=2026-06-17 13:04:13.912602+00`，该表无 `updated_at`。
+
+### 7.3 用户仍见全量的原因
+
+S2/S4 共同造成旧会话体验不闭环：
+
+1. 组织绑定路径已有进程内 `DataScopeService.invalidate(userId)`，120 秒缓存命中不续期，
+   所以单靠该缓存不能解释“一直不生效”。
+2. 原实现仅在同步后的 `store_code` 与旧值不同时 bump `perms_version`。只修改同一组织的
+   `data_scope_level` 时可能不 bump，旧 JWT 不会被强制失效。
+3. DataScope 缓存 key 不含 `perms_version`。即使旧 JWT 被拒、用户重新登录，同角色的新
+   JWT 在多 API 实例或未执行本地 invalidate 的实例上仍可能短暂复用旧全局范围。
+4. 手机端鸡群和鸡舍列表以“完整 token”为 key 做 5 分钟内存缓存；TTL 内直接返回旧数组，
+   完全不访问 API，因此既看不到新范围，也收不到服务端 `401 PERMS_CHANGED`。这与用户感知
+   “修改后仍见全部鸡场”直接吻合。
+
+### 7.4 修复
+
+1. 所有用户组织绑定增改删均无条件递增目标用户 `perms_version`；没有主绑定时保留
+   `store_code`，但仍使旧 JWT 失效。
+2. DataScope 缓存 key 加入 JWT 的 `perms_version`，新令牌不会命中旧版本范围缓存，覆盖
+   多 API 实例场景；既有主动 `invalidate(userId)` 保留。
+3. 手机端 `getFlocks()` 和 `getFeedHousesDetail()` 移除 5 分钟 SWR 内存缓存。二者是权限
+   敏感列表，下一次读取必须真正请求服务端，以触发权限版本对账和统一重登提示。
+4. 既有全局 401 拦截器识别 `PERMS_CHANGED`，会清 session 并跳转登录页；本次确认该链已
+   就位，无需另造提示机制。
+
+### 7.5 回归标准
+
+- 先缓存 `perms_version=444` 的 GROUP 结果，再将绑定改为 COMPANY 并以版本 445 解析；
+  断言不得复用旧缓存，结果仅含东鹏 site/company。
+- 即使主组织 `store_code` 不变，范围同步 SQL 也必须递增 `perms_version`。
+- 手机端鸡群/鸡舍范围敏感读取不得走 5 分钟内存缓存，确保下一次操作能收到 401 并重登。
+
+本轮仍遵守“生产只读”：没有代用户修改任何生产范围数据。用户已经自行完成的 COMPANY
+修改保留原样；由于东鹏 SITE 隶属独立公司，当前生产结果只包含东鹏场。

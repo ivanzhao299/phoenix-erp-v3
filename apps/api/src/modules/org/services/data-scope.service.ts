@@ -74,6 +74,7 @@ export class DataScopeService {
     userId: string,
     roles: string[],
     menuCode: string,
+    permsVersion?: number,
   ): Promise<DataScopeContext> {
     // ROLE_ADMIN 直接全局
     if (roles.includes('ROLE_ADMIN')) {
@@ -90,7 +91,9 @@ export class DataScopeService {
     }
 
     // 缓存检查
-    const cacheKey = `${userId}:${[...roles].sort().join(',')}:${menuCode}`;
+    // 权限版本进入缓存键：组织/角色范围变更 bump perms_version 后，新令牌绝不复用
+    // 旧版本解析出的范围。此举也覆盖多 API 实例（本地 invalidate 只能清当前进程）。
+    const cacheKey = `${userId}:${[...roles].sort().join(',')}:${menuCode}:${permsVersion ?? 'legacy'}`;
     const cached = cache.get(cacheKey);
     if (cached && cached.expireAt > Date.now()) {
       return cached.context;

@@ -32,6 +32,7 @@ describe('DataScopeGuard', () => {
     const clsValues = new Map<string, unknown>([
       ['user', {
         userId: '42',
+        perms_version: 7,
         roles: ['ROLE_WMS_OP'],
         permissions: ['MENU_INV_BATCH:V'],
       }],
@@ -45,7 +46,7 @@ describe('DataScopeGuard', () => {
 
     await expect(guard.canActivate(context() as any)).resolves.toBe(true);
 
-    expect(dataScopeService.resolve).toHaveBeenCalledWith('42', ['ROLE_WMS_OP'], 'MENU_INV_BATCH');
+    expect(dataScopeService.resolve).toHaveBeenCalledWith('42', ['ROLE_WMS_OP'], 'MENU_INV_BATCH', 7);
     expect(cls.set).toHaveBeenCalledWith('dataScope', {
       isGlobal: false,
       allowedWarehouseCodes: ['LPH_MS_EGG_SALES'],
