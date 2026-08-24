@@ -8,7 +8,7 @@ import request from '@/lib/api-client';
  * 数据源：/api/lookup/product-grades（product_grades 主数据表，仅 ACTIVE）
  *   · grade_code   — 现行等级码（G67 统一到包装方案）：GRADE_1..5 + DIRTY/CRACKED/BROKEN/DAMAGED（9 档）
  *   · grade_name   — 中文名：1号蛋 / 2号蛋 / 3号蛋 / 4号蛋 / 5号蛋（可售，带 weight_range 重量段）
- *                    + 脏蛋 / 裂缝蛋 / 破蛋 / 损坏蛋（缺陷）
+ *                    + 脏蛋 / 裂缝蛋 / 破损蛋 / 损坏蛋（缺陷）
  *   · is_saleable  — 是否可销售（脏/裂/破/损为 false）
  *   · is_storable  — 是否可入库
  *
@@ -59,7 +59,7 @@ const FALLBACK: ProductGrade[] = [
   { grade_code: 'GRADE_5', grade_name: '5号蛋', sort_order: 50, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
   { grade_code: 'DIRTY',   grade_name: '脏蛋',   sort_order: 60, is_saleable: false, is_storable: true,  status: 'ACTIVE' },
   { grade_code: 'CRACKED', grade_name: '裂缝蛋', sort_order: 70, is_saleable: false, is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'BROKEN',  grade_name: '破蛋',   sort_order: 80, is_saleable: false, is_storable: false, status: 'ACTIVE' },
+  { grade_code: 'BROKEN',  grade_name: '破损蛋', sort_order: 80, is_saleable: false, is_storable: false, status: 'ACTIVE' },
   { grade_code: 'DAMAGED', grade_name: '损坏蛋', sort_order: 90, is_saleable: false, is_storable: false, status: 'ACTIVE' },
 ];
 
