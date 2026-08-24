@@ -91,6 +91,22 @@ jobs:
             \pset pager off
             BEGIN TRANSACTION READ ONLY;
             SELECT 'AUDIT_WINDOW' AS section, :'window_start' AS window_start, :'window_end' AS window_end;
+            SELECT status, count(*) AS flock_count
+              FROM brd_flocks
+             GROUP BY status
+             ORDER BY status;
+            SELECT format(
+                     'SELECT row_to_json(flock_row) AS flock_inventory FROM (SELECT flock_no, farm_code, house_code, status, current_qty, %s AS created_at, %s AS updated_at FROM brd_flocks ORDER BY farm_code, house_code, flock_no) AS flock_row;',
+                     CASE WHEN EXISTS (
+                       SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = current_schema() AND table_name = 'brd_flocks' AND column_name = 'created_at'
+                     ) THEN 'created_at' ELSE 'NULL' END,
+                     CASE WHEN EXISTS (
+                       SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = current_schema() AND table_name = 'brd_flocks' AND column_name = 'updated_at'
+                     ) THEN 'updated_at' ELSE 'NULL' END
+                   )
+            \gexec
             SELECT column_name, data_type
               FROM information_schema.columns
              WHERE table_schema = current_schema()
@@ -152,7 +168,7 @@ jobs:
               [[ -r "$access_log" ]] || { echo "UNREADABLE_ACCESS_LOG=$access_log"; continue; }
               echo "ACCESS_LOG=$access_log"
               sudo tail -n 20000 "$access_log" \
-                | grep -E '(GET|PUT) /api/crud/brd_flocks' || true
+              | grep -E '(GET|POST|PUT|PATCH) /api/crud/brd_flocks' || true
             done < <(sudo nginx -T 2>&1 \
               | sed -n 's/^[[:space:]]*access_log[[:space:]]\+\([^ ;]*\).*/\1/p' \
               | sort -u)
