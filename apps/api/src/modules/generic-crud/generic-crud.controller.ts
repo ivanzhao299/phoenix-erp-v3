@@ -373,12 +373,12 @@ export class GenericCrudController {
     // G125：集团层级角色（超管/CEO/集团财务）视为全局——修「ROLE_ADMIN 被默认绑单场(如孟赛)后
     //   username≠'admin' → 被判非全局 → brd_daily_logs 等行级注入 store/site → 只看一个场」。
     const GLOBAL_ROLES = new Set(['ROLE_ADMIN', 'ROLE_CEO', 'ROLE_GROUP_FINANCE']);
-    const isGlobal =
-      !userStoreCode ||
+    const legacyGlobal =
       userStoreCode === 'ALL' ||
       (req.user?.permissions || []).includes('*') ||
       req.user?.username === 'admin' ||
       roles.some((r) => GLOBAL_ROLES.has(r));
+    const isGlobal = tableScope ? tableScope.isGlobal === true : legacyGlobal;
 
     // 行级 scope 字段映射（2026-06-06 修）：
     // 历史上 brd_* 一律按 farm_code 过滤，但 userStoreCode 是 SITE 维度（如
@@ -392,7 +392,8 @@ export class GenericCrudController {
       brd_medications:        'store_code',  // v3_schema 已有（主档表）
       brd_medication_records: 'site_code',   // G21-4 业务记录表按 site 隔离
       brd_vaccinations: null,  // G33-C：表无 store_code/site_code 列，注入 SQL 500；scope 留待 schema 补 site_code 列
-      brd_houses:       null,                // 无可靠 site 列，暂不行级隔离（受 RBAC 限制）
+      // 三张 breeding 主表在下方走 findAllBreedingScoped；这里不再承担其隔离。
+      brd_houses:       null,
       brd_flocks:       null,
     };
     // G17：历史 WMS / INV 类表曾按 site_code 隔离，但库存事实表真实口径是 warehouse_code。
@@ -428,6 +429,16 @@ export class GenericCrudController {
     if (isInventoryFactTable(table)) {
       const allowedWarehouseCodes = isGlobal ? null : (tableScope?.allowedWarehouseCodes ?? []);
       const data = await this.crudService.findAllInventoryScoped(table, query, allowedWarehouseCodes);
+      return { code: 200, data };
+    }
+
+    if (table === 'brd_farms' || table === 'brd_houses' || table === 'brd_flocks') {
+      const breedingScope = isGlobal ? null : {
+        farmCodes: tableScope?.allowedFarmCodes ?? [],
+        siteCodes: tableScope?.allowedSiteCodes ?? [],
+        companyCodes: tableScope?.allowedCompanyCodes ?? [],
+      };
+      const data = await this.crudService.findAllBreedingScoped(table, query, breedingScope);
       return { code: 200, data };
     }
 

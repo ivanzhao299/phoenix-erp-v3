@@ -167,6 +167,39 @@ describe('GenericCrudService', () => {
     });
   });
 
+  describe('findAllBreedingScoped', () => {
+    it('combines farm, site, and company dimensions with OR', async () => {
+      const query = jest.fn().mockResolvedValueOnce([]);
+      const { svc } = buildSvc(query);
+
+      await svc.findAllBreedingScoped('brd_flocks', { status: ['LAYING', 'PEAK'] }, {
+        farmCodes: ['FARM-DP'],
+        siteCodes: ['SITE-DONGPENG-LAYER'],
+        companyCodes: ['COMP-LAO-XINGCHI'],
+      });
+
+      expect(query.mock.calls[0][0]).toContain('"farm_code" = ANY($2)');
+      expect(query.mock.calls[0][0]).toContain('"site_code" = ANY($3) OR EXISTS');
+      expect(query.mock.calls[0][0]).toContain('"mapped_site_code" = ANY($3)');
+      expect(query.mock.calls[0][0]).toContain('"company_code" = ANY($4) OR EXISTS');
+      expect(query.mock.calls[0][1]).toEqual([
+        ['LAYING', 'PEAK'], ['FARM-DP'], ['SITE-DONGPENG-LAYER'],
+        ['COMP-LAO-XINGCHI'], 100, 0,
+      ]);
+    });
+
+    it('returns no rows for a non-global user with no breeding dimension', async () => {
+      const query = jest.fn().mockResolvedValueOnce([]);
+      const { svc } = buildSvc(query);
+
+      await svc.findAllBreedingScoped('brd_houses', {}, {
+        farmCodes: [], siteCodes: [], companyCodes: [],
+      });
+
+      expect(query.mock.calls[0][0]).toContain('WHERE 1=0');
+    });
+  });
+
   describe('update', () => {
     it('returns success when UPDATE RETURNING matches a row', async () => {
       const query = jest.fn().mockResolvedValueOnce([[{ location_code: 'LOC-A-01' }], 1]);

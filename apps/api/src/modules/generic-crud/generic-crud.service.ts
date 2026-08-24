@@ -2305,6 +2305,53 @@ export class GenericCrudService implements OnModuleInit {
     }
   }
 
+  async findAllBreedingScoped(
+    table: 'brd_farms' | 'brd_houses' | 'brd_flocks',
+    query: any,
+    scope: { farmCodes: string[]; siteCodes: string[]; companyCodes: string[] } | null,
+  ) {
+    const extraWhere: string[] = [];
+    const extraValues: unknown[] = [];
+    if (scope !== null) {
+      const ors: string[] = [];
+      const siteColumn = table === 'brd_farms' ? 'mapped_site_code' : 'site_code';
+      if (scope.farmCodes.length > 0) {
+        ors.push(`"farm_code" = ANY($${this.nextParamIndex(query, extraValues.length)})`);
+        extraValues.push(scope.farmCodes);
+      }
+      if (scope.siteCodes.length > 0) {
+        const idx = this.nextParamIndex(query, extraValues.length);
+        ors.push(table === 'brd_farms'
+          ? `"${siteColumn}" = ANY($${idx})`
+          : `("${siteColumn}" = ANY($${idx}) OR EXISTS (
+              SELECT 1 FROM "brd_farms" f
+              WHERE f."farm_code" = "${table}"."farm_code"
+                AND f."mapped_site_code" = ANY($${idx})
+            ))`);
+        extraValues.push(scope.siteCodes);
+      }
+      if (scope.companyCodes.length > 0) {
+        const idx = this.nextParamIndex(query, extraValues.length);
+        ors.push(table === 'brd_farms'
+          ? `"company_code" = ANY($${idx})`
+          : `("company_code" = ANY($${idx}) OR EXISTS (
+              SELECT 1 FROM "brd_farms" f
+              WHERE f."farm_code" = "${table}"."farm_code"
+                AND f."company_code" = ANY($${idx})
+            ))`);
+        extraValues.push(scope.companyCodes);
+      }
+      extraWhere.push(ors.length > 0 ? `(${ors.join(' OR ')})` : '1=0');
+    }
+
+    const { sql, queryValues } = this.buildFindAllSql(table, query, extraWhere, extraValues);
+    try {
+      return await this.entityManager.query(sql, queryValues);
+    } catch (e) {
+      throw new InternalServerErrorException((e as Error).message);
+    }
+  }
+
   private nextParamIndex(query: any, extraValueCount: number): number {
     let idx = 1;
     for (const [key] of Object.entries(query)) {

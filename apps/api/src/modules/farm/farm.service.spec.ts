@@ -2,6 +2,15 @@ import { FarmService, dailyLogScopeWhere, deriveOrgScope } from './farm.service'
 
 describe('FarmService', () => {
   describe('organization scope', () => {
+    it('fails closed when DataScope is missing and the token has no storeCode', () => {
+      expect(deriveOrgScope({
+        user: { username: 'linhong', roles: ['ROLE_FARM_MGR'], permissions: [] },
+      })).toEqual({
+        isGlobal: false, farmCode: null, siteCode: null,
+        farmCodes: [], siteCodes: [], companyCodes: [],
+      });
+    });
+
     it('does not treat a scoped farm manager without legacy storeCode as global', () => {
       const scope = deriveOrgScope({
         user: { username: 'linhong', roles: ['ROLE_FARM_MGR'], permissions: [] },
