@@ -68,7 +68,8 @@ jobs:
                        AND (COALESCE(dirty_eggs, 0) > 0 OR COALESCE(broken_eggs, 0) > 0)
                    ) AS candidate_n
               FROM brd_daily_logs;
-            SELECT 1000 + COUNT(*) FILTER (WHERE eggs_by_grade IS NOT NULL) AS already_filled_audit_token
+            SELECT (COUNT(*) FILTER (WHERE eggs_by_grade IS NOT NULL) / 10)::text || ':' ||
+                   (COUNT(*) FILTER (WHERE eggs_by_grade IS NOT NULL) % 10)::text AS already_filled_digit_pair
               FROM brd_daily_logs;
 
             SELECT 'CANDIDATE_ROWS' AS section;
