@@ -213,8 +213,8 @@ jobs:
               sh -c 'psql -X -v ON_ERROR_STOP=1 -v expected_n="$EXPECTED_N" -v expected_filled="$EXPECTED_FILLED" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
             \pset pager off
             BEGIN TRANSACTION READ ONLY;
-            CREATE TEMP TABLE execution_params ON COMMIT DROP AS
-            SELECT :'expected_n'::integer AS expected_n, :'expected_filled'::integer AS expected_filled;
+            SELECT set_config('phoenix.expected_n', :'expected_n', true),
+                   set_config('phoenix.expected_filled', :'expected_filled', true);
             SELECT grade_code, grade_name, is_saleable, sort_order, status FROM product_grades WHERE grade_code = 'BROKEN';
             SELECT dict_type, dict_code, name, dict_label_zh, status FROM sys_dict
              WHERE dict_type IN ('PKG_EGG_GRADE', 'PKG_EGG_DEFECT') AND dict_code = 'BROKEN' ORDER BY dict_type;
@@ -235,7 +235,8 @@ jobs:
                 RAISE EXCEPTION 'Verified candidates remain after backfill';
               END IF;
               IF (SELECT count(*) FROM brd_daily_logs WHERE eggs_by_grade IS NOT NULL)
-                   <> (SELECT expected_filled + expected_n FROM execution_params) THEN
+                   <> current_setting('phoenix.expected_filled')::integer
+                      + current_setting('phoenix.expected_n')::integer THEN
                 RAISE EXCEPTION 'already_filled did not increase by expected_n';
               END IF;
             END
