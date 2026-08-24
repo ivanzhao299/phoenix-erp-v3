@@ -21,7 +21,7 @@ export const FALLBACK_DICTS: DictMap = {
   PKG_EGG_DEFECT: [
     { code:'DIRTY',   label:'脏蛋',   labelEn:'Dirty',   labelLo:'ໄຂ່ສົກ',  terminalCode:'DIRTY',   color:'#f97316', icon:'💧', isTerminalGrade:true, isDefect:true },
     { code:'CRACKED', label:'裂缝蛋', labelEn:'Cracked', labelLo:'ໄຂ່ຮ້າວ', terminalCode:'CRACKED', color:'#eab308', icon:'🥚', isTerminalGrade:true, isDefect:true },
-    { code:'BROKEN',  label:'破蛋',   labelEn:'Broken',  labelLo:'ໄຂ່ແຕກ',  terminalCode:'BROKEN',  color:'#ef4444', icon:'💔', isTerminalGrade:true, isDefect:true },
+    { code:'BROKEN',  label:'破损蛋', labelEn:'Broken',  labelLo:'ໄຂ່ແຕກ',  terminalCode:'BROKEN',  color:'#ef4444', icon:'💔', isTerminalGrade:true, isDefect:true },
     { code:'DAMAGED', label:'损坏蛋', labelEn:'Damaged', labelLo:'ໄຂ່ເສຍ',  terminalCode:'DAMAGED', color:'#6b7280', icon:'🚫', isTerminalGrade:true, isDefect:true },
   ],
   PKG_PACK_SPEC: [

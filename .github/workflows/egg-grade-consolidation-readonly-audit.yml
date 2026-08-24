@@ -1,0 +1,104 @@
+name: Egg Grade Consolidation Production Readonly Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: egg-grade-consolidation-production
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read-only production preflight
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
+            docker compose exec -T \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+
+            SELECT 'PRODUCT_GRADES' AS section;
+            SELECT grade_code, grade_name, is_saleable, sort_order, status
+              FROM product_grades
+             ORDER BY sort_order, grade_code;
+
+            SELECT 'DEPRECATED_DICT_MIRRORS' AS section;
+            SELECT dict_type, dict_code, name, dict_label_zh, sort_no, status
+              FROM sys_dict
+             WHERE dict_type IN ('PKG_EGG_GRADE', 'PKG_EGG_DEFECT')
+               AND dict_code = 'BROKEN'
+             ORDER BY dict_type, sort_no, dict_code;
+
+            SELECT 'BACKFILL_COUNTS' AS section;
+            SELECT COUNT(*) AS total,
+                   COUNT(*) FILTER (WHERE eggs_by_grade IS NOT NULL) AS already_filled,
+                   COUNT(*) FILTER (WHERE eggs_by_grade IS NULL AND eggs_produced > 0) AS missing_positive,
+                   COUNT(*) FILTER (
+                     WHERE eggs_by_grade IS NULL AND COALESCE(bad_eggs, 0) > 0
+                       AND COALESCE(dirty_eggs, 0) = 0 AND COALESCE(broken_eggs, 0) = 0
+                   ) AS bad_only_rows,
+                   COUNT(*) FILTER (
+                     WHERE eggs_by_grade IS NULL
+                       AND eggs_produced >= 0
+                       AND COALESCE(dirty_eggs, 0) + COALESCE(broken_eggs, 0) = eggs_produced
+                       AND (COALESCE(dirty_eggs, 0) > 0 OR COALESCE(broken_eggs, 0) > 0)
+                   ) AS candidate_n
+              FROM brd_daily_logs;
+
+            SELECT 'CANDIDATE_ROWS' AS section;
+            SELECT id, log_date, house_code, shift, eggs_produced, bad_eggs, dirty_eggs, broken_eggs
+              FROM brd_daily_logs
+             WHERE eggs_by_grade IS NULL
+               AND eggs_produced >= 0
+               AND COALESCE(dirty_eggs, 0) + COALESCE(broken_eggs, 0) = eggs_produced
+               AND (COALESCE(dirty_eggs, 0) > 0 OR COALESCE(broken_eggs, 0) > 0)
+             ORDER BY log_date, id;
+
+            SELECT 'BAD_ONLY_MANUAL_REVIEW' AS section;
+            SELECT id, log_date, house_code, shift, eggs_produced, bad_eggs, dirty_eggs, broken_eggs
+              FROM brd_daily_logs
+             WHERE eggs_by_grade IS NULL AND COALESCE(bad_eggs, 0) > 0
+               AND COALESCE(dirty_eggs, 0) = 0 AND COALESCE(broken_eggs, 0) = 0
+             ORDER BY log_date, id;
+
+            DO $assert$
+            DECLARE
+              grade_count integer;
+              broken_count integer;
+            BEGIN
+              SELECT count(*) INTO grade_count FROM product_grades;
+              SELECT count(*) INTO broken_count
+                FROM product_grades
+               WHERE grade_code = 'BROKEN' AND status = 'ACTIVE'
+                 AND grade_name IN ('破蛋', '破损蛋');
+              IF grade_count <> 9 OR broken_count <> 1 THEN
+                RAISE EXCEPTION 'Preflight failed: grade_count=%, valid_active_broken_count=%', grade_count, broken_count;
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL

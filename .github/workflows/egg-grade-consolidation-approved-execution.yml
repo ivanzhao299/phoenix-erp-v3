@@ -1,0 +1,283 @@
+name: Egg Grade Consolidation Approved Production Execution
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_candidate_n:
+        description: "Exact candidate_n reported by the read-only preflight"
+        required: true
+        type: string
+      expected_already_filled:
+        description: "Exact already_filled reported by the read-only preflight"
+        required: true
+        type: string
+      confirmation:
+        description: "Type CONSOLIDATE_BROKEN_GRADE_AND_BACKFILL_VERIFIED_ROWS"
+        required: true
+        type: string
+      approve_production:
+        description: "Approve the two narrowly scoped production updates"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: egg-grade-consolidation-production
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: ${{ inputs.approve_production == true && inputs.confirmation == 'CONSOLIDATE_BROKEN_GRADE_AND_BACKFILL_VERIFIED_ROWS' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate expected candidate count
+        env:
+          EXPECTED_N: ${{ inputs.expected_candidate_n }}
+          EXPECTED_FILLED: ${{ inputs.expected_already_filled }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_N" =~ ^[0-9]+$ ]] || { echo 'expected_candidate_n must be a non-negative integer' >&2; exit 1; }
+          [[ "$EXPECTED_FILLED" =~ ^[0-9]+$ ]] || { echo 'expected_already_filled must be a non-negative integer' >&2; exit 1; }
+
+      - name: Update canonical BROKEN name in its own transaction
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN;
+            SELECT id, grade_code, grade_name, status
+              FROM product_grades
+             WHERE grade_code = 'BROKEN'
+             FOR UPDATE;
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM product_grades WHERE grade_code = 'BROKEN' AND status = 'ACTIVE' AND grade_name IN ('破蛋', '破损蛋')) <> 1 THEN
+                RAISE EXCEPTION 'BROKEN must exist once, be ACTIVE, and have an allowed pre-update name';
+              END IF;
+            END
+            $assert$;
+            CREATE TEMP TABLE broken_name_changed ON COMMIT DROP AS
+            WITH changed AS (
+              UPDATE product_grades
+                 SET grade_name = '破损蛋', updated_at = NOW()
+               WHERE grade_code = 'BROKEN' AND grade_name = '破蛋'
+              RETURNING id, grade_code, grade_name
+            ) SELECT * FROM changed;
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM broken_name_changed) NOT IN (0, 1) THEN
+                RAISE EXCEPTION 'BROKEN UPDATE affected more than one row';
+              END IF;
+              IF (SELECT count(*) FROM product_grades WHERE grade_code = 'BROKEN' AND status = 'ACTIVE' AND grade_name = '破损蛋') <> 1 THEN
+                RAISE EXCEPTION 'BROKEN post-update assertion failed';
+              END IF;
+            END
+            $assert$;
+            SELECT 'BROKEN_UPDATE_RETURNING' AS section, * FROM broken_name_changed;
+            SELECT count(*) AS returning_row_count FROM broken_name_changed;
+            SELECT 'DEPRECATED_DICT_MIRRORS_UNCHANGED' AS section,
+                   dict_type, dict_code, name, dict_label_zh, sort_no, status
+              FROM sys_dict
+             WHERE dict_type IN ('PKG_EGG_GRADE', 'PKG_EGG_DEFECT') AND dict_code = 'BROKEN'
+             ORDER BY dict_type, sort_no, dict_code;
+            COMMIT;
+            SQL
+
+      - name: Backfill only verified daily-log rows in a separate transaction
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          EXPECTED_N: ${{ inputs.expected_candidate_n }}
+          EXPECTED_FILLED: ${{ inputs.expected_already_filled }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,EXPECTED_N,EXPECTED_FILLED
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            docker compose exec -T -e EXPECTED_N="$EXPECTED_N" db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -v expected_n="$EXPECTED_N" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN;
+            CREATE TEMP TABLE execution_params ON COMMIT DROP AS
+            SELECT :'expected_n'::integer AS expected_n;
+            CREATE TEMP TABLE egg_grade_before ON COMMIT DROP AS
+            SELECT id, log_date, house_code, shift, eggs_produced, dirty_eggs, broken_eggs, eggs_by_grade
+              FROM brd_daily_logs
+             WHERE eggs_by_grade IS NULL
+               AND eggs_produced >= 0
+               AND COALESCE(dirty_eggs, 0) + COALESCE(broken_eggs, 0) = eggs_produced
+               AND (COALESCE(dirty_eggs, 0) > 0 OR COALESCE(broken_eggs, 0) > 0)
+             FOR UPDATE;
+            DO $assert$
+            DECLARE locked_count integer;
+            BEGIN
+              SELECT count(*) INTO locked_count FROM egg_grade_before;
+              IF locked_count <> (SELECT expected_n FROM execution_params) THEN
+                RAISE EXCEPTION 'Candidate drift: locked_count=%, expected_n=%; rolling back', locked_count, (SELECT expected_n FROM execution_params);
+              END IF;
+            END
+            $assert$;
+            CREATE TEMP TABLE egg_grade_changed (id bigint, eggs_by_grade jsonb) ON COMMIT DROP;
+            WITH changed AS (
+              UPDATE brd_daily_logs
+                 SET eggs_by_grade = jsonb_strip_nulls(jsonb_build_object(
+                   'DIRTY', NULLIF(GREATEST(COALESCE(dirty_eggs, 0), 0), 0),
+                   'BROKEN', NULLIF(GREATEST(COALESCE(broken_eggs, 0), 0), 0)
+                 ))
+               WHERE eggs_by_grade IS NULL
+                 AND eggs_produced >= 0
+                 AND COALESCE(dirty_eggs, 0) + COALESCE(broken_eggs, 0) = eggs_produced
+                 AND (COALESCE(dirty_eggs, 0) > 0 OR COALESCE(broken_eggs, 0) > 0)
+              RETURNING id, eggs_by_grade
+            )
+            INSERT INTO egg_grade_changed SELECT id, eggs_by_grade FROM changed;
+            DO $assert$
+            DECLARE changed_count integer; mismatch_count integer;
+            BEGIN
+              SELECT count(*) INTO changed_count FROM egg_grade_changed;
+              IF changed_count <> (SELECT expected_n FROM execution_params) THEN
+                RAISE EXCEPTION 'UPDATE RETURNING count=%, expected_n=%; rolling back', changed_count, (SELECT expected_n FROM execution_params);
+              END IF;
+              SELECT count(*) INTO mismatch_count
+                FROM brd_daily_logs l JOIN egg_grade_changed c USING (id)
+               WHERE COALESCE((l.eggs_by_grade->>'DIRTY')::int, 0) <> COALESCE(l.dirty_eggs, 0)
+                  OR COALESCE((l.eggs_by_grade->>'BROKEN')::int, 0) <> COALESCE(l.broken_eggs, 0);
+              IF mismatch_count <> 0 THEN
+                RAISE EXCEPTION 'Backfill reconciliation mismatch_count=%; rolling back', mismatch_count;
+              END IF;
+            END
+            $assert$;
+            SELECT 'BACKFILL_UPDATE_RETURNING' AS section, c.id, c.eggs_by_grade
+              FROM egg_grade_changed c ORDER BY c.id;
+            SELECT count(*) AS returning_row_count FROM egg_grade_changed;
+            SELECT 'BEFORE_AFTER_SAMPLE' AS section, b.id, b.log_date, b.house_code, b.shift,
+                   b.eggs_by_grade AS eggs_by_grade_before, c.eggs_by_grade AS eggs_by_grade_after
+              FROM egg_grade_before b JOIN egg_grade_changed c USING (id)
+             ORDER BY b.log_date, b.id LIMIT 5;
+            SELECT 'ROLLBACK_SQL' AS section,
+                   'UPDATE brd_daily_logs SET eggs_by_grade = NULL WHERE id IN (' ||
+                   string_agg(id::text, ',' ORDER BY id) || ') AND eggs_by_grade IS NOT NULL;' AS sql
+              FROM egg_grade_changed;
+            COMMIT;
+            SQL
+
+      - name: Immediate read-only verification
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          EXPECTED_N: ${{ inputs.expected_candidate_n }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,EXPECTED_N
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            docker compose exec -T -e EXPECTED_N="$EXPECTED_N" -e EXPECTED_FILLED="$EXPECTED_FILLED" \
+              -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -v expected_n="$EXPECTED_N" -v expected_filled="$EXPECTED_FILLED" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            CREATE TEMP TABLE execution_params ON COMMIT DROP AS
+            SELECT :'expected_n'::integer AS expected_n, :'expected_filled'::integer AS expected_filled;
+            SELECT grade_code, grade_name, is_saleable, sort_order, status FROM product_grades WHERE grade_code = 'BROKEN';
+            SELECT dict_type, dict_code, name, dict_label_zh, status FROM sys_dict
+             WHERE dict_type IN ('PKG_EGG_GRADE', 'PKG_EGG_DEFECT') AND dict_code = 'BROKEN' ORDER BY dict_type;
+            SELECT count(*) AS remaining_candidate_n FROM brd_daily_logs
+             WHERE eggs_by_grade IS NULL AND eggs_produced >= 0
+               AND COALESCE(dirty_eggs, 0) + COALESCE(broken_eggs, 0) = eggs_produced
+               AND (COALESCE(dirty_eggs, 0) > 0 OR COALESCE(broken_eggs, 0) > 0);
+            SELECT count(*) FILTER (WHERE eggs_by_grade IS NOT NULL) AS already_filled
+              FROM brd_daily_logs;
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM product_grades WHERE grade_code='BROKEN' AND grade_name='破损蛋' AND status='ACTIVE') <> 1 THEN
+                RAISE EXCEPTION 'BROKEN verification failed';
+              END IF;
+              IF (SELECT count(*) FROM brd_daily_logs WHERE eggs_by_grade IS NULL AND eggs_produced >= 0
+                    AND COALESCE(dirty_eggs,0)+COALESCE(broken_eggs,0)=eggs_produced
+                    AND (COALESCE(dirty_eggs,0)>0 OR COALESCE(broken_eggs,0)>0)) <> 0 THEN
+                RAISE EXCEPTION 'Verified candidates remain after backfill';
+              END IF;
+              IF (SELECT count(*) FROM brd_daily_logs WHERE eggs_by_grade IS NOT NULL)
+                   <> (SELECT expected_filled + expected_n FROM execution_params) THEN
+                RAISE EXCEPTION 'already_filled did not increase by expected_n';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
+
+      - name: Delayed read-only concurrency verification
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            sleep 60
+            cd "$DEPLOY_PATH"
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT grade_code, grade_name, status FROM product_grades WHERE grade_code = 'BROKEN';
+            SELECT count(*) AS remaining_candidate_n FROM brd_daily_logs
+             WHERE eggs_by_grade IS NULL AND eggs_produced >= 0
+               AND COALESCE(dirty_eggs,0)+COALESCE(broken_eggs,0)=eggs_produced
+               AND (COALESCE(dirty_eggs,0)>0 OR COALESCE(broken_eggs,0)>0);
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM product_grades WHERE grade_code='BROKEN' AND grade_name='破损蛋' AND status='ACTIVE') <> 1
+                 OR (SELECT count(*) FROM brd_daily_logs WHERE eggs_by_grade IS NULL AND eggs_produced >= 0
+                       AND COALESCE(dirty_eggs,0)+COALESCE(broken_eggs,0)=eggs_produced
+                       AND (COALESCE(dirty_eggs,0)>0 OR COALESCE(broken_eggs,0)>0)) <> 0 THEN
+                RAISE EXCEPTION 'Delayed verification failed';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
