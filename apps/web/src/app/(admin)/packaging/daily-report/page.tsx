@@ -10,6 +10,7 @@ import PageHeader from "@/components/PageHeader";
 import { RefreshCw, BarChart2, Package, CheckCircle2, TrendingUp, Layers } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useProductGrades } from "@/hooks/useProductGrades";
 import {
   primaryActionButton, inputField, toolbarFilterPill,
   kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
@@ -30,6 +31,9 @@ interface ShiftSummaryItem {
   receivedWeight: number;
   openExceptionCount: number;
   closedExceptionCount: number;
+  gradingOutputs?: Record<string, number>;
+  gradedQty?: number;
+  shiftPackedEggs?: number;
 }
 interface DailySummary {
   total_tasks: number | string;
@@ -41,6 +45,7 @@ interface ReportData { date: string; summary: DailySummary; by_grade: GradeRow[]
 
 export default function DailyReportPage() {
   const { t } = useLanguage();
+  const { grades: productGrades } = useProductGrades();
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [report, setReport] = useState<ReportData | null>(null);
@@ -55,19 +60,25 @@ export default function DailyReportPage() {
         if (Array.isArray(raw)) {
           const items = raw as ShiftSummaryItem[];
           const totalQty = items.reduce((acc, it) => acc + Number(it.receivedQty || 0), 0);
+          const totalPacked = items.reduce((acc, it) => acc + Number(it.shiftPackedEggs || 0), 0);
+          const gradeTotals = items.reduce<Record<string, number>>((acc, item) => {
+            for (const [grade, qty] of Object.entries(item.gradingOutputs || {})) acc[grade] = (acc[grade] || 0) + Number(qty || 0);
+            return acc;
+          }, {});
           setReport({
             date,
-            summary: { total_tasks: items.length, total_packed: totalQty, total_plan: totalQty },
-            by_grade: [],
+            summary: { total_tasks: items.length, total_packed: totalPacked, total_plan: totalQty },
+            by_grade: Object.entries(gradeTotals).map(([grade, qty]) => ({ grade, qty, tasks: items.length })),
           });
         } else if (raw && typeof raw === "object") {
           // Already shaped or single shift object
           const item = raw as ShiftSummaryItem;
-          const qty = Number(item.receivedQty || 0);
+          const receivedQty = Number(item.receivedQty || 0);
+          const packedQty = Number(item.shiftPackedEggs || 0);
           setReport({
             date,
-            summary: { total_tasks: 1, total_packed: qty, total_plan: qty },
-            by_grade: [],
+            summary: { total_tasks: item.shift ? 1 : 0, total_packed: packedQty, total_plan: receivedQty },
+            by_grade: Object.entries(item.gradingOutputs || {}).map(([grade, qty]) => ({ grade, qty, tasks: 1 })),
           });
         } else {
           setReport(null);
@@ -83,6 +94,7 @@ export default function DailyReportPage() {
   const s_plan   = Number(report?.summary?.total_plan   || 0);
   const s_tasks  = Number(report?.summary?.total_tasks  || 0);
   const s_pct    = s_plan > 0 ? Math.round(s_total / s_plan * 100) : 0;
+  const gradeQty = new Map((report?.by_grade || []).map(row => [row.grade, Number(row.qty || 0)]));
 
   return (
     <div>
@@ -165,8 +177,14 @@ export default function DailyReportPage() {
               </tr>
               <tr>
                 <td>{t("ui.接收量枚", "接收量（枚）")}</td>
-                <td style={{ textAlign: "right", fontWeight: 700 }}>{s_total.toLocaleString()}</td>
+                <td style={{ textAlign: "right", fontWeight: 700 }}>{s_plan.toLocaleString()}</td>
               </tr>
+              {productGrades.map(grade => (
+                <tr key={grade.grade_code}>
+                  <td>{grade.grade_name}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700 }}>{(gradeQty.get(grade.grade_code) || 0).toLocaleString()}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
@@ -174,5 +192,4 @@ export default function DailyReportPage() {
     </div>
   );
 }
-
 

@@ -14,6 +14,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { loadEgglogFlocks, registerEgglogVisibilityRefresh } from '@/lib/egglog-refresh';
+import { buildEgglogPayload } from '@/lib/egglog-payload';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,6 @@ function NumInput({
 
 interface HouseEntry {
   eggs: number;
-  bad: number;
   dirty: number;
   broken: number;
   temp: string;
@@ -78,7 +78,6 @@ interface HouseEntry {
 }
 const emptyEntry = (): HouseEntry => ({
   eggs: 0,
-  bad: 0,
   dirty: 0,
   broken: 0,
   temp: '',
@@ -105,7 +104,7 @@ function HouseCard({
   } = useMobileTheme();
   const { t: tr } = useLanguage();
   const [open, setOpen] = useState(false);
-  const hasQuality = entry.bad > 0 || entry.dirty > 0 || entry.broken > 0;
+  const hasQuality = entry.dirty > 0 || entry.broken > 0;
   const hasEnv = entry.temp !== '' || entry.humidity !== '';
   const dirty = entry.eggs !== existing;
   return <div style={{
@@ -209,17 +208,13 @@ function HouseCard({
           </div>
           <div className={u.flexWrap12}>
             {([{
-          key: 'bad',
-          label: tr('mob.brd.bad_egg', '破损'),
-          color: 'var(--status-danger)'
-        }, {
           key: 'dirty',
           label: tr('mob.brd.dirty_egg', '脏蛋'),
           color: 'var(--status-warning)'
         }, {
           key: 'broken',
-          label: tr('mob.brd.broken_egg', '碎蛋'),
-          color: 'var(--status-warning)'
+          label: tr('mob.brd.broken_egg', '破损蛋'),
+          color: 'var(--status-danger)'
         }] as const).map(({
           key,
           label,
@@ -374,8 +369,8 @@ export default function EggLogPage() {
         existMap[key] = (existMap[key] || 0) + Number(r.eggs_produced || 0);
         entryMap[key] = {
           eggs: (entryMap[key]?.eggs || 0) + Number(r.eggs_produced || 0),
-          bad: (entryMap[key]?.bad || 0) + Number((r as any).bad_eggs || 0),
           dirty: (entryMap[key]?.dirty || 0) + Number((r as any).dirty_eggs || 0),
+          // bad_eggs is legacy-only. Never add it to broken_eggs or defects double-count.
           broken: (entryMap[key]?.broken || 0) + Number((r as any).broken_eggs || 0),
           temp: (r as any).temp != null ? String((r as any).temp) : '',
           humidity: (r as any).humidity != null ? String((r as any).humidity) : ''
@@ -413,7 +408,7 @@ export default function EggLogPage() {
     const toSave = flocks.filter(f => {
       const key = f.house_code || f.flock_no;
       const e = getEntry(key);
-      return e.eggs > 0 || e.bad > 0 || e.dirty > 0 || e.broken > 0;
+      return e.eggs > 0 || e.dirty > 0 || e.broken > 0;
     });
     if (toSave.length === 0) {
       setError(tr('mob.brd.no_data_to_submit', '没有需要提交的数据'));
@@ -427,19 +422,13 @@ export default function EggLogPage() {
       const key = f.house_code || f.flock_no;
       const e = getEntry(key);
       try {
-        await mobileApi.submitDailyLog({
+        await mobileApi.submitDailyLog(buildEgglogPayload(e, {
           house_code: f.house_code || key,
           flock_no: f.flock_no,
           log_date: date,
           shift,
-          eggs_produced: e.eggs,
-          bad_eggs: e.bad,
-          dirty_eggs: e.dirty,
-          broken_eggs: e.broken,
-          temp: e.temp !== '' ? Number(e.temp) : null,
-          humidity: e.humidity !== '' ? Number(e.humidity) : null,
           operator
-        });
+        }));
       } catch (err: any) {
         errors.push(`${key}: ${err?.message || tr('mob.brd.failed', '失败')}`);
       }

@@ -8,6 +8,7 @@ import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { packagingApi } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
 import styles from './shift-close.module.css';
+import { useProductGrades } from '@/hooks/useProductGrades';
 export default function ShiftClosePage() {
   const router = useRouter();
   const {
@@ -19,6 +20,7 @@ export default function ShiftClosePage() {
     setShift
   } = useTerminalContext();
   const shift = ctx.currentShift;
+  const { grades: productGrades } = useProductGrades();
   const [varianceReason, setVarianceReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -31,13 +33,7 @@ export default function ShiftClosePage() {
     receivedQty: 0,
     receivedWeight: 0,
     gradedQty: 0,
-    largeA: 0,
-    mediumA: 0,
-    smallA: 0,
-    bGrade: 0,
-    broken: 0,
-    dirty: 0,
-    rejected: 0,
+    gradingOutputs: {} as Record<string, number>,
     packedBoxes: 0,
     packedEggs: 0,
     warehousedBoxes: 0,
@@ -71,13 +67,7 @@ export default function ShiftClosePage() {
         receivedQty: received,
         receivedWeight: data.receivedWeight || 0,
         gradedQty,
-        largeA: gradingOutputs['A_LARGE'] || 0,
-        mediumA: gradingOutputs['A_MEDIUM'] || 0,
-        smallA: gradingOutputs['A_SMALL'] || 0,
-        bGrade: gradingOutputs['B'] || 0,
-        broken: gradingOutputs['BROKEN'] || 0,
-        dirty: gradingOutputs['DIRTY'] || 0,
-        rejected: gradingOutputs['REJECTED'] || 0,
+        gradingOutputs,
         packedBoxes: totalPacked,
         packedEggs: totalEggs,
         warehousedBoxes: totalPacked,
@@ -279,7 +269,10 @@ export default function ShiftClosePage() {
             marginBottom: 10,
             fontWeight: 600
           }}>📊 {t('ui.分级产出', '分级产出')}</div>
-            {[[t('ui.A大码', 'A大码'), summary.largeA.toLocaleString()], [t('ui.A中码', 'A中码'), summary.mediumA.toLocaleString()], [t('ui.A小码', 'A小码'), summary.smallA.toLocaleString()], [t('ui.B级', 'B级'), summary.bGrade.toLocaleString()], [t('ui.破损', '破损'), summary.broken.toLocaleString()], [t('ui.脏污', '脏污'), summary.dirty.toLocaleString()]].map(([k, v]) => <div key={k} style={{
+            {productGrades.map(grade => [
+              grade.grade_name,
+              Number(summary.gradingOutputs[grade.grade_code] || 0).toLocaleString(),
+            ]).map(([k, v]) => <div key={k} style={{
             display: 'flex',
             justifyContent: 'space-between',
             padding: '4px 0',

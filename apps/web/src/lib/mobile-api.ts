@@ -457,9 +457,9 @@ export const mobileApi = {
     log_date:      string;
     shift:         string;
     eggs_produced: number;
-    bad_eggs?:     number;
     dirty_eggs?:   number;
     broken_eggs?:  number;
+    eggs_by_grade?: Record<string, number>;
     temp?:         number | null;
     humidity?:     number | null;
     operator?:     string;
