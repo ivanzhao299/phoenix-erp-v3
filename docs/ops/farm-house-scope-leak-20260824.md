@@ -253,3 +253,63 @@ scope 内在产鸡群的产蛋录入清单。两者集合不同是有意的业�
   证明 COMPANY 过滤生效且 admin 未回归。
 - 本轮唯一代码库变更是扩充生产只读审计 workflow 的证据查询；无应用构建物、schema、
   迁移或生产部署。
+
+## 9. DECLINING 显示核查
+
+### 9.1 结论：W1，生产当前没有下降期鸡群
+
+决定性只读取证为 GitHub Actions run `32701748735`（成功），审计窗口为
+`2026-08-23 07:29:46Z` 至 `2026-08-24 07:29:46Z`。SQL 使用
+`PGOPTIONS='-c default_transaction_read_only=on'` 和显式只读事务；日志与 API 访问记录
+仅作读取。取证时数据库状态分布为：
+
+| 状态 | 数量 |
+|---|---:|
+| GROWING | 2 |
+| LAYING | 8 |
+| PEAK | 1 |
+| RETIRED | 1 |
+| DECLINING | **0** |
+
+全量 12 群逐行清单同样没有 DECLINING。东鹏三群分别为：
+
+| flock_no | house_code | 当前状态 | current_qty | updated_at（UTC） |
+|---|---|---|---:|---|
+| `FK-MRMS8EKGNTU` | `CS0716` | GROWING | 150 | `2026-08-23 03:15:14.428` |
+| `FK-MT6LRP7S1AF` | `HOUSE_CS_03` | RETIRED | 100 | `2026-08-24 06:45:51.907` |
+| `FK-MT6VCNMDURN` | `HOUSE_CS_04` | LAYING | 1000 | NULL |
+
+因此当前 egglog 无法显示下降期鸡群的直接原因是数据库期望集为空，不是三态查询或
+breeding scope 把已有 DECLINING 行过滤掉。W2、W3 的前提 `DECLINING>0` 均不成立。
+
+### 9.2 用户改状态的操作确实落库，但随后被覆盖
+
+生产 API 日志完整记录了同一鸡群 `FK-MT6LRP7S1AF` 的连续更新（UTC；新加坡时间加 8
+小时）：
+
+| 时间 | 请求 payload 中的 status | API service 结果 |
+|---|---|---|
+| `06:44:29.577` | GROWING | success |
+| `06:45:29.301` | RETIRED | success |
+| `06:45:33.283` | PEAK | success |
+| `06:45:43.070` | **DECLINING** | **success** |
+| `06:45:51.907` | RETIRED | success |
+
+对应 nginx access log 中 `14:44:29`、`14:45:29`、`14:45:33`、`14:45:43`、
+`14:45:51`（新加坡时间）的 PUT 均为 HTTP 200。尤其是 DECLINING 成功写入后，egglog 在
+`14:45:47` 发起三态 GET 并得到 HTTP 200；4 秒后该群又被 PUT 为 RETIRED。最终数据库
+`updated_at=06:45:51.907Z` 与最后一次 RETIRED 写入精确一致。
+
+这组生产证据同时验证了管理端 PUT 会携带 status、后端接受 DECLINING、数据库写入成功。
+它比“本地把测试群改为 DECLINING”更贴近报告现场，故不再用本地模拟替代已发生的生产
+事实，也未写任何生产数据。
+
+### 9.3 处置
+
+- 不修改业务代码：`LAYING + PEAK + DECLINING` 查询口径有效，写入链也有效；无可复现缺陷。
+- 不部署应用：本轮没有应用构建物、schema 或迁移变更。
+- 保留只读审计增强：状态分布、全量鸡群清单和 POST/PUT/PATCH 日志已加入 workflow，便于
+  后续同类问题一次取证。
+- 请操作方确认 `2026-08-24 14:45:51`（新加坡时间）为何再次选择并保存 RETIRED。若目标
+  是让 `HOUSE_CS_03` 出现在产蛋录入，应由有权限的用户把该鸡群最终状态保存为 DECLINING，
+  并确认没有紧随其后的 RETIRED 保存；本报告不代用户修改生产业务数据。
