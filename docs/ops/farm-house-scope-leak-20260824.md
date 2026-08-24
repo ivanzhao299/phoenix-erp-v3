@@ -373,3 +373,21 @@ breeding 页面和 home 页的请求，直至本轮审计都没有新的 `/mobil
   标签页后重新打开 `/mobile/egglog`。若页面出现登录失效提示，先重新登录再进入产蛋录入。
 - 刷新后的网络请求应为上述三态 URL、HTTP 200；返回中已有
   `FK-MT6LRP7S1AF / HOUSE_CS_03 / DECLINING`，页面应随即显示该鸡群。
+
+## 11. egglog 鸡群列表自动刷新
+
+第 10 节确认的驻留页面陈旧问题已在 `/mobile/egglog` 客户端收口，不改变
+`getFlocks()` 的三态查询、权限或 scope 口径，也不增加常驻轮询：
+
+- 首次挂载、下拉刷新与前台切回统一复用 `loadFlocks`；原有按
+  `house_code || flock_no` 的 `localeCompare` 排序保持不变。
+- 下拉刷新继续加载当前日期/班次记录，同时重取鸡群列表。
+- `visibilitychange` 进入 `visible` 时重取鸡群；连续前台事件按 60 秒节流，避免移动端短时间
+  多次切换造成重复请求。若当日记录距上次加载也已满 60 秒，则一并刷新记录；未满阈值只
+  刷鸡群。
+- 鸡群请求使用 in-flight Promise 守卫；初次加载、下拉和前台事件重叠时复用同一请求。
+  组件卸载时移除 visibility 监听。
+
+回归测试使用 jsdom 派发真实 `visibilitychange`，覆盖鸡群 API 调用与原排序、visible 重取、
+监听清理、60 秒内二次 visible 节流，以及当日记录的 60 秒陈旧判断。测试按先红后绿执行：
+实现文件尚不存在时定向 Vitest 红；实现完成后 4/4 全绿。

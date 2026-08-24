@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Save, RefreshCw, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
@@ -13,6 +13,7 @@ import { MobilePageSkeleton, MobileEmptyState } from '@/components/mobile/Mobile
 import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { loadEgglogFlocks, registerEgglogVisibilityRefresh } from '@/lib/egglog-refresh';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -326,9 +327,6 @@ export default function EggLogPage() {
     readonly
   } = useMobilePermission('egglog');
   const toast = useToast();
-  const {
-    pullHandlers
-  } = usePullToRefresh(() => loadExisting(date, shift));
   const [date, setDate] = useState(todayStr());
   const [shift, setShift] = useState('早班');
   const [flocks, setFlocks] = useState<FlockRecord[]>([]);
@@ -338,14 +336,26 @@ export default function EggLogPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const flockRequestRef = useRef<Promise<void> | null>(null);
+  const lastLogLoadedAtRef = useRef(0);
 
-  // Load flocks once
-  useEffect(() => {
-    mobileApi.getFlocks().then(res => {
-      const arr: FlockRecord[] = Array.isArray(res) ? res : (res as any)?.data ?? [];
-      setFlocks(arr.sort((a, b) => (a.house_code || a.flock_no).localeCompare(b.house_code || b.flock_no)));
-    }).catch(() => {});
+  const loadFlocks = useCallback(() => {
+    if (flockRequestRef.current) return flockRequestRef.current;
+
+    const request = loadEgglogFlocks()
+      .then(setFlocks)
+      .catch(() => {})
+      .finally(() => {
+        flockRequestRef.current = null;
+      });
+    flockRequestRef.current = request;
+    return request;
   }, []);
+
+  // Initial flock load; later refreshes reuse the same in-flight guarded request.
+  useEffect(() => {
+    void loadFlocks();
+  }, [loadFlocks]);
 
   // Load existing logs for date+shift
   const loadExisting = useCallback(async (d: string, s: string) => {
@@ -377,12 +387,21 @@ export default function EggLogPage() {
       setEntries({});
       setExisting({});
     } finally {
+      lastLogLoadedAtRef.current = Date.now();
       setLoading(false);
     }
   }, []);
   useEffect(() => {
     loadExisting(date, shift);
   }, [date, shift, loadExisting]);
+  useEffect(() => registerEgglogVisibilityRefresh({
+    refreshFlocks: loadFlocks,
+    refreshLogs: () => loadExisting(date, shift),
+    getLastLogLoadedAt: () => lastLogLoadedAtRef.current,
+  }), [date, shift, loadExisting, loadFlocks]);
+  const {
+    pullHandlers
+  } = usePullToRefresh(() => Promise.all([loadExisting(date, shift), loadFlocks()]));
   if (permLoading) return <MobilePageSkeleton title={tr('mob.brd.egg_entry', '产蛋录入')} onBack={() => router.back()} />;
   if (!allowed) return null;
   const getEntry = (house: string) => entries[house] ?? emptyEntry();
