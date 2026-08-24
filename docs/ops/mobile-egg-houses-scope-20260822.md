@@ -120,4 +120,20 @@ UPDATE brd_flocks
 
 ### 执行审计
 
-待 workflow 实测后补录：执行 run、只读预检 5 行完整清单、事务内更新前后值、`RETURNING` 行数、提交后状态分布、admin API 返回 8 行以及间隔 1 分钟的只读复核结果。
+生产修正 workflow run `32682704375`（checkout `a8b38448706cd9a2e2fa43dd267ecb383682bd2d`，生产远端 checkout `f4a8f3b651a6f14355768c6ca544f275f0277d5e`）使用 `approve_production=true` 与精确确认词执行。第 1 段通过 `PGOPTIONS='-c default_transaction_read_only=on'` 和 `BEGIN TRANSACTION READ ONLY` 完成；目标数与其中 `ACTIVE` 数均断言为 5，预检清单如下（原 `updated_at` 均为 NULL）：
+
+| flock_no | farm_code | house_code | current_qty | status | updated_at |
+| --- | --- | --- | ---: | --- | --- |
+| `LPH_MS_F02` | `LPH_MENGSAI` | `HOUSE_MS_02` | 45,598 | `ACTIVE` | NULL |
+| `LPH_MS_F03` | `LPH_MENGSAI` | `HOUSE_MS_03` | 37,500 | `ACTIVE` | NULL |
+| `LPH_MS_F04` | `LPH_MENGSAI` | `HOUSE_MS_04` | 44,000 | `ACTIVE` | NULL |
+| `LPH_MS_F05` | `LPH_MENGSAI` | `HOUSE_MS_05` | 42,368 | `ACTIVE` | NULL |
+| `LPH_MS_F06` | `LPH_MENGSAI` | `HOUSE_MS_06` | 41,700 | `ACTIVE` | NULL |
+
+第 2 段在单事务内再次 `FOR UPDATE` 锁定并断言同一 5 行仍全部为 `ACTIVE`，随后仅对精确 flock_no 且 `status='ACTIVE'` 的行执行更新。审计临时表记录 `RETURNING` 行数为 **5**；5 行均由 `ACTIVE` 变为 `LAYING`，`updated_at` 均由 NULL 变为 `2026-08-24 02:20:04.945788+00`，其他列未更新，事务成功 `COMMIT`。5 行 `current_qty` 合计 211,166 羽。
+
+### 复核结果与并发事实
+
+提交后的即时只读查询得到 `ACTIVE=0 / GROWING=2 / LAYING=8 / PEAK=1`（总数 11），因此 workflow 按预写的 `LAYING=7 / 总数=10` 断言失败，后续步骤被 fail-fast 跳过；失败发生在只读复核段，已提交的精确 5 行修正没有部分更新问题。调查确认生产在前一轮审计之后、本次 workflow 之前已新增 `FK-MT6LRP7S1AF`：`created_at=2026-08-24 02:14:18.506Z`、`house_code=HOUSE_CS_03`、`farm_code=FARM-DP`、`current_qty=100`、初始状态即为 `LAYING`。该行不在授权目标内，本次 UPDATE 未触碰它；它解释了相对原先已确证分布多出的 1 个 `LAYING` 和总数 1。
+
+随后两次独立生产只读审计均成功，未执行任何写入：run `32682756486` 在 `02:20:58Z` 确认上述实际分布，admin API 返回 9 行；run `32682811446` 在 `02:22:02Z`（距事务提交超过 1 分钟）再次确认 `ACTIVE=0 / GROWING=2 / LAYING=8 / PEAK=1`，在 `02:22:12Z` 请求 `/api/crud/brd_flocks?status=LAYING&status=PEAK&limit=100` 返回 **9 行**、状态集合严格为 `LAYING,PEAK`。因此原计划的“总数 10、LAYING 7、接口 8 行”因执行前合法新增的鸡群已不再成立；修正目标本身全部完成且未发生并发写回。
