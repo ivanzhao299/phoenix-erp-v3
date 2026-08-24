@@ -79,7 +79,10 @@ function createRunner(expectedMirrorName = proposedName) {
 function createService(callApiResults: unknown[], expectedMirrorName = proposedName) {
   const runner = createRunner(expectedMirrorName);
   const auth = { callApi: jest.fn() };
-  for (const result of callApiResults) auth.callApi.mockResolvedValueOnce(result);
+  for (const result of callApiResults) {
+    if (result instanceof Error) auth.callApi.mockRejectedValueOnce(result);
+    else auth.callApi.mockResolvedValueOnce(result);
+  }
   const ds = {
     createQueryRunner: jest.fn(() => runner),
     query: jest.fn().mockResolvedValue([{
@@ -190,30 +193,30 @@ describe('ChanjetProductNameCanaryService', () => {
     expect(runner.commitTransaction).toHaveBeenCalledTimes(1);
   });
 
-  it('restores the original name when provider readback changes any non-name field', async () => {
+  it('fails closed without a blind rollback when provider readback changes any non-name field', async () => {
     const before = product(originalName);
     const drifted = product(proposedName, { specNo: '200g/瓶' });
-    const restored = product(originalName);
     const { service, runner, auth } = createService([
       { success: true, data: { rows: [before] } },
       { success: true, data: [] },
       { success: true, data: { rows: [drifted] } },
-      { success: true, data: [] },
-      { success: true, data: { rows: [restored] } },
+      { success: true, data: { rows: [drifted] } },
     ]);
 
     await expect(service.execute(input, 'tester')).rejects.toMatchObject({
       name: 'ChanjetProductNameCanaryError',
       evidence: {
-        rollbackAttempted: true,
-        rollbackSucceeded: true,
+        failureReadbackAttempted: true,
+        providerStateAfterFailure: 'UNKNOWN',
+        rollbackAttempted: false,
+        rollbackSucceeded: false,
         erpMirrorReadbackVerified: false,
       },
     });
     expect(auth.callApi).toHaveBeenNthCalledWith(
       4,
-      `/accounting/openapi/cc/product/update/${bookId}`,
-      { method: 'POST', body: [{ productCode, productName: originalName }], kind: 'WRITE' },
+      `/accounting/openapi/cc/product/list/${bookId}`,
+      { method: 'POST', body: { codes: [productCode], pageSize: 20, pageNo: 1 }, kind: 'READ' },
     );
     expect(runner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(runner.commitTransaction).not.toHaveBeenCalled();
@@ -221,10 +224,12 @@ describe('ChanjetProductNameCanaryService', () => {
 
   it('fails closed and restores the original name on an ambiguous row-level update result', async () => {
     const before = product(originalName);
+    const applied = product(proposedName);
     const restored = product(originalName);
     const { service, runner, auth } = createService([
       { success: true, data: { rows: [before] } },
       { success: true, data: [{ productCode: 'ANOTHER-SKU' }] },
+      { success: true, data: { rows: [applied] } },
       { success: true, data: [] },
       { success: true, data: { rows: [restored] } },
     ]);
@@ -234,17 +239,72 @@ describe('ChanjetProductNameCanaryService', () => {
       evidence: {
         providerWriteAttempted: true,
         providerWriteSucceeded: false,
+        failureReadbackVerified: true,
+        providerStateAfterFailure: 'PROPOSED',
         rollbackAttempted: true,
         rollbackSucceeded: true,
       },
     });
     expect(auth.callApi).toHaveBeenNthCalledWith(
       3,
+      `/accounting/openapi/cc/product/list/${bookId}`,
+      { method: 'POST', body: { codes: [productCode], pageSize: 20, pageNo: 1 }, kind: 'READ' },
+    );
+    expect(auth.callApi).toHaveBeenNthCalledWith(
+      4,
       `/accounting/openapi/cc/product/update/${bookId}`,
       { method: 'POST', body: [{ productCode, productName: originalName }], kind: 'WRITE' },
     );
     expect(runner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(runner.commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('does not issue a rollback write when an uncertain write is read back as original', async () => {
+    const before = product(originalName);
+    const { service, runner, auth } = createService([
+      { success: true, data: { rows: [before] } },
+      new Error('openApi.e9999 系统繁忙'),
+      { success: true, data: { rows: [before] } },
+    ]);
+
+    await expect(service.execute(input, 'tester')).rejects.toMatchObject({
+      name: 'ChanjetProductNameCanaryError',
+      message: expect.stringContaining('provider state verified original; no compensating rollback required'),
+      evidence: {
+        providerWriteAttempted: true,
+        providerWriteSucceeded: false,
+        failureReadbackAttempted: true,
+        failureReadbackVerified: true,
+        providerStateAfterFailure: 'ORIGINAL',
+        rollbackAttempted: false,
+      },
+    });
+    expect(auth.callApi).toHaveBeenCalledTimes(3);
+    expect(auth.callApi.mock.calls.filter(([, options]) => options.kind === 'WRITE')).toHaveLength(1);
+    expect(runner.rollbackTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires manual recovery without a blind rollback when failure readback is unavailable', async () => {
+    const before = product(originalName);
+    const { service, runner, auth } = createService([
+      { success: true, data: { rows: [before] } },
+      new Error('openApi.e9999 系统繁忙'),
+      new Error('provider read unavailable'),
+    ]);
+
+    await expect(service.execute(input, 'tester')).rejects.toMatchObject({
+      name: 'ChanjetProductNameCanaryError',
+      message: expect.stringContaining('MANUAL_RECOVERY_REQUIRED provider state unknown'),
+      evidence: {
+        failureReadbackAttempted: true,
+        failureReadbackVerified: false,
+        providerStateAfterFailure: 'UNKNOWN',
+        rollbackAttempted: false,
+      },
+    });
+    expect(auth.callApi).toHaveBeenCalledTimes(3);
+    expect(auth.callApi.mock.calls.filter(([, options]) => options.kind === 'WRITE')).toHaveLength(1);
+    expect(runner.rollbackTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('fails before any provider call when the exact production confirmation is absent', async () => {

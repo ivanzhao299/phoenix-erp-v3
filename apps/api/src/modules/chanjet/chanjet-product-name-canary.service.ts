@@ -27,6 +27,9 @@ export type ChanjetProductNameCanaryEvidence = {
   providerWriteSucceeded: boolean;
   rollbackAttempted: boolean;
   rollbackSucceeded: boolean;
+  failureReadbackAttempted: boolean;
+  failureReadbackVerified: boolean;
+  providerStateAfterFailure: 'NOT_CHECKED' | 'ORIGINAL' | 'PROPOSED' | 'UNKNOWN';
   providerReadbackVerified: boolean;
   erpMirrorReadbackVerified: boolean;
 };
@@ -199,6 +202,9 @@ export class ChanjetProductNameCanaryService {
       providerWriteSucceeded: false,
       rollbackAttempted: false,
       rollbackSucceeded: false,
+      failureReadbackAttempted: false,
+      failureReadbackVerified: false,
+      providerStateAfterFailure: 'NOT_CHECKED',
       providerReadbackVerified: false,
       erpMirrorReadbackVerified: false,
     };
@@ -207,21 +213,22 @@ export class ChanjetProductNameCanaryService {
     const listBody = { codes: [target.chanjetCode], pageSize: 20, pageNo: 1 };
     let providerCalls = 0;
     let beforeProduct: Record<string, unknown> | null = null;
+    let beforeInvariant = '';
     const runner = this.ds.createQueryRunner();
     await runner.connect();
     await runner.startTransaction();
     try {
       await this.lockExactTarget(runner, target);
+      providerCalls += 1;
       const beforeEnvelope = await this.auth.callApi<Record<string, unknown>>(listPath, {
         method: 'POST', body: listBody, kind: 'READ',
       });
-      providerCalls += 1;
       beforeProduct = this.exactProduct(beforeEnvelope, target.chanjetCode);
       const providerName = String(beforeProduct.name || '');
       if (providerName !== proposal.currentValue && providerName !== proposal.proposedValue) {
         throw new Error(`provider product name changed after audit: ${providerName || 'EMPTY'}`);
       }
-      const beforeInvariant = chanjetProductInvariant(beforeProduct);
+      beforeInvariant = chanjetProductInvariant(beforeProduct);
       evidence.beforeHash = sha256(JSON.stringify(canonicalize(beforeProduct)));
 
       if (providerName === proposal.proposedValue) {
@@ -248,21 +255,21 @@ export class ChanjetProductNameCanaryService {
       }
 
       evidence.providerWriteAttempted = true;
+      providerCalls += 1;
       const updateEnvelope = await this.auth.callApi<Record<string, unknown>>(updatePath, {
         method: 'POST',
         body: [{ productCode: target.chanjetCode, productName: proposal.proposedValue }],
         kind: 'WRITE',
       });
-      providerCalls += 1;
       if (!updateAccepted(updateEnvelope, target.chanjetCode)) {
         throw new Error('provider product update response contains a failure');
       }
       evidence.providerWriteSucceeded = true;
 
+      providerCalls += 1;
       const afterEnvelope = await this.auth.callApi<Record<string, unknown>>(listPath, {
         method: 'POST', body: listBody, kind: 'READ',
       });
-      providerCalls += 1;
       const afterProduct = this.exactProduct(afterEnvelope, target.chanjetCode);
       evidence.afterHash = sha256(JSON.stringify(canonicalize(afterProduct)));
       if (String(afterProduct.id || '') !== String(beforeProduct.id || '')
@@ -292,40 +299,67 @@ export class ChanjetProductNameCanaryService {
       };
     } catch (error) {
       let rollbackError = '';
+      let reconciliationError = '';
       if (evidence.providerWriteAttempted && beforeProduct) {
-        evidence.rollbackAttempted = true;
+        evidence.failureReadbackAttempted = true;
+        evidence.providerStateAfterFailure = 'UNKNOWN';
         try {
-          const rollbackEnvelope = await this.auth.callApi<Record<string, unknown>>(updatePath, {
-            method: 'POST',
-            body: [{ productCode: target.chanjetCode, productName: proposal.rollbackValue }],
-            kind: 'WRITE',
-          });
           providerCalls += 1;
-          if (!updateAccepted(rollbackEnvelope, target.chanjetCode)) {
-            throw new Error('provider rejected compensating rollback');
-          }
-          const rollbackReadEnvelope = await this.auth.callApi<Record<string, unknown>>(listPath, {
+          const failureReadEnvelope = await this.auth.callApi<Record<string, unknown>>(listPath, {
             method: 'POST', body: listBody, kind: 'READ',
           });
-          providerCalls += 1;
-          const rollbackProduct = this.exactProduct(rollbackReadEnvelope, target.chanjetCode);
-          if (String(rollbackProduct.id || '') !== String(beforeProduct.id || '')
-            || String(rollbackProduct.name || '') !== proposal.rollbackValue
-            || chanjetProductInvariant(rollbackProduct) !== chanjetProductInvariant(beforeProduct)) {
-            throw new Error('provider rollback readback mismatch');
+          const failureProduct = this.exactProduct(failureReadEnvelope, target.chanjetCode);
+          const sameIdentityAndInvariant = String(failureProduct.id || '') === String(beforeProduct.id || '')
+            && chanjetProductInvariant(failureProduct) === beforeInvariant;
+          const failureName = String(failureProduct.name || '');
+          if (!sameIdentityAndInvariant
+            || (failureName !== proposal.currentValue && failureName !== proposal.proposedValue)) {
+            evidence.providerStateAfterFailure = 'UNKNOWN';
+            throw new Error('provider failure readback found identity or invariant drift');
           }
-          evidence.rollbackSucceeded = true;
-        } catch (rollbackFailure) {
-          rollbackError = (rollbackFailure as Error).message;
+          evidence.failureReadbackVerified = true;
+          evidence.providerStateAfterFailure = failureName === proposal.currentValue ? 'ORIGINAL' : 'PROPOSED';
+
+          if (evidence.providerStateAfterFailure === 'PROPOSED') {
+            evidence.rollbackAttempted = true;
+            providerCalls += 1;
+            const rollbackEnvelope = await this.auth.callApi<Record<string, unknown>>(updatePath, {
+              method: 'POST',
+              body: [{ productCode: target.chanjetCode, productName: proposal.rollbackValue }],
+              kind: 'WRITE',
+            });
+            if (!updateAccepted(rollbackEnvelope, target.chanjetCode)) {
+              throw new Error('provider rejected compensating rollback');
+            }
+            providerCalls += 1;
+            const rollbackReadEnvelope = await this.auth.callApi<Record<string, unknown>>(listPath, {
+              method: 'POST', body: listBody, kind: 'READ',
+            });
+            const rollbackProduct = this.exactProduct(rollbackReadEnvelope, target.chanjetCode);
+            if (String(rollbackProduct.id || '') !== String(beforeProduct.id || '')
+              || String(rollbackProduct.name || '') !== proposal.rollbackValue
+              || chanjetProductInvariant(rollbackProduct) !== beforeInvariant) {
+              throw new Error('provider rollback readback mismatch');
+            }
+            evidence.rollbackSucceeded = true;
+          }
+        } catch (reconciliationFailure) {
+          const failureMessage = (reconciliationFailure as Error).message;
+          if (evidence.rollbackAttempted) rollbackError = failureMessage;
+          else reconciliationError = failureMessage;
         }
       }
       await runner.rollbackTransaction();
       const originalMessage = (error as Error).message;
-      const suffix = evidence.rollbackAttempted
+      const suffix = evidence.providerStateAfterFailure === 'ORIGINAL' && evidence.failureReadbackVerified
+        ? 'provider state verified original; no compensating rollback required'
+        : evidence.rollbackAttempted
         ? evidence.rollbackSucceeded
           ? 'compensating rollback verified'
           : `MANUAL_RECOVERY_REQUIRED rollback failed: ${rollbackError || 'unknown'}`
-        : 'no provider write attempted';
+        : evidence.providerWriteAttempted
+          ? `MANUAL_RECOVERY_REQUIRED provider state unknown: ${reconciliationError || 'unknown'}`
+          : 'no provider write attempted';
       throw new ChanjetProductNameCanaryError(`${originalMessage}; ${suffix}; providerCalls=${providerCalls}`, evidence);
     } finally {
       await runner.release();
