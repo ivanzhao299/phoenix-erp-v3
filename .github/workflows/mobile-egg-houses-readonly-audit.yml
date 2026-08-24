@@ -53,6 +53,13 @@ jobs:
             SELECT house_code, house_name, farm_code, site_code, company_code, status
               FROM brd_houses
              ORDER BY house_code;
+            SELECT COALESCE(status, '<NULL>') AS status, count(*) AS total
+              FROM brd_flocks
+             GROUP BY status
+             ORDER BY status NULLS FIRST;
+            SELECT count(*) AS egglog_expected_total
+              FROM brd_flocks
+             WHERE status = ANY (ARRAY['LAYING', 'PEAK']);
             COMMIT;
             SQL
       - name: Probe current production admin response
@@ -76,5 +83,33 @@ jobs:
           const rows = Array.isArray(payload) ? payload : payload.data;
           if (!Array.isArray(rows)) throw new Error('House response is not an array');
           console.log(`ADMIN_HOUSE_RESPONSE_COUNT=${rows.length}`);
+          console.log(JSON.stringify(rows));
+          NODE
+      - name: Probe current production egglog flock response
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          response="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $token" \
+            'https://erp.eggslao.com/api/crud/brd_flocks?status=LAYING&status=PEAK&limit=100')"
+          RESPONSE="$response" node - <<'NODE'
+          const payload = JSON.parse(process.env.RESPONSE || '{}');
+          const rows = Array.isArray(payload) ? payload : payload.data;
+          if (!Array.isArray(rows)) throw new Error('Flock response is not an array');
+          const statuses = [...new Set(rows.map((row) => row.status))].sort();
+          if (statuses.some((status) => status !== 'LAYING' && status !== 'PEAK')) {
+            throw new Error(`Unexpected flock status: ${statuses.join(',')}`);
+          }
+          console.log(`ADMIN_EGGLOG_FLOCK_RESPONSE_COUNT=${rows.length}`);
+          console.log(`ADMIN_EGGLOG_FLOCK_STATUSES=${statuses.join(',')}`);
           console.log(JSON.stringify(rows));
           NODE

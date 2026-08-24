@@ -97,4 +97,8 @@ Vitest 已按先红后绿执行：红测分别证明旧请求缺少 `PEAK`，以
 
 本地最终验证：API `tsc --noEmit` 0 errors；Web `tsc --noEmit` 0 errors；API Jest 60 suites、516 tests 全绿；Web Vitest 75 files、428 tests 全绿。此次未改页面表单或主数据输入控件，静态 scope-audit 的适用改动面为空。
 
-main CI、`mode=web` 显式部署、运行 revision 和生产 API 只读过滤结果将在完成后继续补记；全程不写生产数据库。
+main commit `f4a8f3b651a6f14355768c6ca544f275f0277d5e` 已推送。push CI：`32679815784`（完整类型检查、迁移/约束门禁、五组回归与 Web 镜像构建）、`32679815818`（Web Vitest）、`32679815850`（双端 build/typecheck + API Jest）、`32679815790`（安全门禁）全部成功。
+
+显式生产部署 run `32680175771` 使用 `workflow_dispatch`、`mode=web`、`skip_deploy=false`、`approve_production=true`，成功；API image 构建被跳过，仅构建并重启 Web，未运行生产 DB 迁移。部署后 Web image 只读审计 run `32680481428` 成功：生产 checkout 为上述目标 commit，运行 Web image digest 为 `sha256:77b4941233ed1a85f2cf071972e005a06bd5fc8f3b7d9df65d8a9250ac2aeb64`，OCI revision 同为上述目标 commit。Flock 生产只读审计 run `32680483025` 同样确认生产 checkout 和 Web OCI revision 一致，API 容器仍保持上一轮 revision，符合 `mode=web` 预期。
+
+生产 API 的 `LAYING + PEAK` admin token 只读过滤计数将在扩展既有只读审计后补记；全程不写生产数据库。
