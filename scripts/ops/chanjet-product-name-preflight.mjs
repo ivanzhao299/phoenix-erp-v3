@@ -69,6 +69,12 @@ if (result.decision !== 'READY_FOR_EXPLICIT_APPROVAL'
   throw new Error('production preflight did not prove the required read-only guardrails');
 }
 
+const errorEnvelope = await request('/api/system/error-logs?httpStatus=500&page=1&limit=100');
+const latestCanaryFailure = (errorEnvelope.items || []).find((item) => (
+  String(item.request_path || item.requestPath || '')
+    .includes('/api/chanjet/integration/product-name-canary/execute')
+));
+
 const report = {
   generatedAt: new Date().toISOString(),
   decision: result.decision,
@@ -82,6 +88,14 @@ const report = {
   providerCalls: 1,
   writeChanjet: false,
   writeErpBusinessTables: false,
+  latestCanaryFailure: latestCanaryFailure ? {
+    id: latestCanaryFailure.id,
+    errorType: latestCanaryFailure.error_type || latestCanaryFailure.errorType,
+    httpStatus: latestCanaryFailure.http_status || latestCanaryFailure.httpStatus,
+    errorMessage: latestCanaryFailure.error_message || latestCanaryFailure.errorMessage,
+    pgErrorCode: latestCanaryFailure.pg_error_code || latestCanaryFailure.pgErrorCode || null,
+    createdAt: latestCanaryFailure.created_at || latestCanaryFailure.createdAt,
+  } : null,
 };
 mkdirSync(outputDir, { recursive: true });
 const output = join(outputDir, 'chanjet-product-name-preflight-latest.json');
