@@ -313,3 +313,63 @@ breeding scope 把已有 DECLINING 行过滤掉。W2、W3 的前提 `DECLINING>0
 - 请操作方确认 `2026-08-24 14:45:51`（新加坡时间）为何再次选择并保存 RETIRED。若目标
   是让 `HOUSE_CS_03` 出现在产蛋录入，应由有权限的用户把该鸡群最终状态保存为 DECLINING，
   并确认没有紧随其后的 RETIRED 保存；本报告不代用户修改生产业务数据。
+
+## 10. DECLINING 二轮取证
+
+### 10.1 结论：丢失发生在用户浏览器中的既有页面状态
+
+用户再次保存后，GitHub Actions 生产只读审计 run `32702476645`、时间窗审计 run
+`32702568519` 和 Web 镜像审计 run `32702571273` 均成功。数据库、保存日志、admin API、
+linhong API 与生产构建逐层结果一致：该群已经是 DECLINING，且后端对实际查看账号会返回
+该群。唯一缺失的是保存后的用户浏览器没有重新发起 egglog 鸡群请求。
+
+### 10.2 DB 与保存日志
+
+`FK-MT6LRP7S1AF` 当前生产画像为：
+
+| flock_no | farm_code | house_code | site_code | company_code | status | current_qty | updated_at（UTC） |
+|---|---|---|---|---|---|---:|---|
+| `FK-MT6LRP7S1AF` | `FARM-DP` | `HOUSE_CS_03` | NULL | NULL | **DECLINING** | 100 | `2026-08-24 07:30:47.006` |
+
+重点字段 `farm_code` 并非 NULL，因此本案不命中“flock 缺 farm_code 导致 breeding scope
+回查失败”的候选缺陷。生产 API 日志在 `07:30:47.006Z` 记录该 flock 的 PUT payload
+`status="DECLINING"`；nginx 同一时刻记录 PUT HTTP 200。此后截至 `07:40:41Z` 的审计点
+没有新的覆盖写入，数据库 `updated_at` 与这次成功保存完全吻合。
+
+### 10.3 API 与账号 scope
+
+审计直接调用三态 URL：
+
+`/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100`
+
+- admin 返回 10 群，状态集合为 `DECLINING,LAYING,PEAK`，其中包含
+  `FK-MT6LRP7S1AF / HOUSE_CS_03 / FARM-DP / DECLINING`。
+- 按生产 `linhong` 用户、角色、组织绑定与 `perms_version` 签发的令牌返回 2 群，二者均为
+  `FARM-DP`；其中同样包含该 DECLINING 群。
+- linhong 的 `/api/farm/feed/houses` 结果也包含 `HOUSE_CS_03`。
+
+因此 status 数组解析、普通 WHERE 与 breeding scope 的叠加在本案均正常；无需修改 generic
+CRUD。虽然静态审计确认 `brd_flocks.farm_code IS NULL` 时当前 scope 没有
+`house_code → brd_houses → farm` 兜底，但本行 `farm_code=FARM-DP`，不能用未命中的潜在风险
+解释本次现象，也不在本轮扩大修改范围。
+
+### 10.4 客户端与生产构建
+
+取证时生产 checkout、API 镜像和 Web 镜像 revision 均为
+`90c798750b0ead3653866fe71d32b6a984db7506`，不是混跑旧镜像。该 revision 的构建内
+`mobile-api.ts` 已包含三态 URL，且 `getFlocks()` 不走 5 分钟内存缓存。
+
+nginx 访问记录给出更直接的页面侧证据：用户浏览器在第一次操作期间确实持续请求三态
+URL；最后一次是新加坡时间 `14:45:56`。第二次在 `15:30:47` 成功保存 DECLINING 后，只有
+breeding 页面和 home 页的请求，直至本轮审计都没有新的 `/mobile/egglog` 三态 GET。
+产蛋页当前只在组件首次挂载的 `useEffect` 中加载一次，页面实例若一直驻留，就会继续显示
+首次加载时的旧 flock 列表。
+
+### 10.5 处置与用户验收
+
+- 不改业务代码、不部署：生产构建、DB 与两个账号的 API 返回都正确，本轮属于驻留页面未
+  重新加载，不是服务端数据丢失。
+- 用户在产蛋录入页执行一次硬刷新（Windows Chrome：`Ctrl+Shift+R`），或关闭该 ERP
+  标签页后重新打开 `/mobile/egglog`。若页面出现登录失效提示，先重新登录再进入产蛋录入。
+- 刷新后的网络请求应为上述三态 URL、HTTP 200；返回中已有
+  `FK-MT6LRP7S1AF / HOUSE_CS_03 / DECLINING`，页面应随即显示该鸡群。
