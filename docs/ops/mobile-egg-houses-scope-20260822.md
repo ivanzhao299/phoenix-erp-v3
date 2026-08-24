@@ -69,3 +69,32 @@
 - 部署构建并运行的 Web image：`sha256:b73de77af2f6c0af33eb3f3524f8791d8f2526bd73a24929067c918f08da4273`，OCI revision 为目标 commit。
 - 部署后生产只读鸡舍审计 run `32565565557`：checkout SHA 为目标 commit，数据库仍为 19/19 ACTIVE，admin endpoint 返回 19 行。
 - 部署后 Web image 只读审计 run `32565576895`：checkout SHA、运行 image digest、OCI revision 三者均与上述目标一致。
+
+## 第二轮：真根因（2026-08-24）
+
+### 页面归属勘误
+
+上一轮把“产蛋录入”误定位为 `/mobile/egg`，并修复了它使用的 `/api/farm/feed/houses` 链路。`/mobile/egg` 实为鸡蛋库存页；真正的产蛋录入入口是 mobile home 的 `/mobile/egglog`。上一轮发现的 token 缓存串用与 DataScope fail-open 都是真实缺陷，修复予以保留，但与线上“所有账号只显示 2 个鸡舍”无关。上一轮关于那 2 行来自旧鸡舍缓存的表述据此更正为错误归因。
+
+真实主链路为：`/mobile/egglog` 挂载时调用 `mobileApi.getFlocks()`，后者查询 `GET /api/crud/brd_flocks`，页面再按鸡群的 `house_code`（缺失时回退 `flock_no`）排序并展示。
+
+### 真根因与生产数据对照
+
+修复前 `getFlocks()` 固定请求 `status=LAYING&limit=100`。此前生产只读取证的 10 个鸡群中，恰好只有 2 个状态为 `LAYING`（`FK-MR8VGZS4M0Q`、`FK-MR8TWK22H4Y`），与所有账号看到 2 项完全吻合，因此问题与账号权限无关。
+
+其余鸡群为：5 个 `LPH_MS_F02`～`LPH_MS_F06`（合计约 21 万羽）状态为无效存量值 `ACTIVE`；1 个为 `PEAK`；另有 2 个不属于当前产蛋录入口径。鸡群合法业务语义为 `GROWING / LAYING / PEAK / RETIRED`：`GROWING` 尚未进入产蛋期、`RETIRED` 已退役，均不应出现；`PEAK` 是产蛋高峰期，必须出现。
+
+### 修复与 ACTIVE 处置决策
+
+- 查询改为重复参数 `status=LAYING&status=PEAK`。通用 CRUD 会把重复 query key 解析为数组并生成 PostgreSQL `= ANY($n)`；逗号字符串会被当作单个字面值，不能使用。
+- `getFlocks` 缓存 key 改为 `flocks:<current-token>`，避免同一浏览器切换身份后复用前一身份的鸡群范围。既有 `invalidateCache('flocks')` 会同时删除精确 key 与全部 `flocks:` 前缀子 key，无需修改失效逻辑。
+- 不临时兼容 `ACTIVE`。该值不属于鸡群状态语义，若纳入查询会把数据污染固化成长期接口契约，也可能在未来误纳其他含义的 ACTIVE 数据。
+- 本次不写生产数据库。建议另行授权一次显式生产数据变更，将已确认的 5 个 `LPH_MS_F02`～`LPH_MS_F06` 从 `ACTIVE` 更正为 `LAYING`；执行前应再次只读列出目标主键、当前状态和数量，事务内只更新精确目标并核对受影响行数为 5，保留变更审计与回滚 SQL。
+
+### 回归与验证
+
+Vitest 已按先红后绿执行：红测分别证明旧请求缺少 `PEAK`，以及 token 切换后 `flocks` 缓存串用；修复后断言请求 URL 为 `/api/crud/brd_flocks?status=LAYING&status=PEAK&limit=100`，且 token 切换会发起第二次请求并返回对应身份数据。
+
+本地最终验证：API `tsc --noEmit` 0 errors；Web `tsc --noEmit` 0 errors；API Jest 60 suites、516 tests 全绿；Web Vitest 75 files、428 tests 全绿。此次未改页面表单或主数据输入控件，静态 scope-audit 的适用改动面为空。
+
+main CI、`mode=web` 显式部署、运行 revision 和生产 API 只读过滤结果将在完成后继续补记；全程不写生产数据库。
