@@ -142,7 +142,7 @@ ROLLBACK; -- 首次演练固定回滚；审阅结果后另开变更单执行
 ### 6.3 两个 UPDATE 的 RETURNING 审计
 
 - 首次有效执行 run `32714587854`：主数据事务锁定 `id=7/BROKEN/破蛋/ACTIVE`，UPDATE RETURNING 为 `id=7, grade_code=BROKEN, grade_name=破损蛋`，行数 1，随后提交。
-- 历史回填同一 run 的独立事务：预检 N=0，锁定候选 0 行，UPDATE RETURNING=0，对账不一致=0，提交后 `already_filled` 仍为 22。生产没有可验证行，故没有制造任何 JSON。
+- 历史回填同一 run 的独立事务：预检 N=0，锁定候选 0 行，UPDATE RETURNING=0，受影响集合内对账不一致=0，提交后 `already_filled` 仍为 22。生产没有可验证行，故没有制造任何 JSON。
 - 完整成功复核 run `32715385073`：命名 UPDATE 因已完成而 RETURNING=0（幂等正常）；回填继续 RETURNING=0。立即只读复核和间隔 1 分钟复核均通过，BROKEN 为“破损蛋”/ACTIVE，remaining candidate=0。
 - 中间 run `32714587854`、`32715099732`、`32715252141` 的写后只读步骤曾分别暴露 SSH 环境变量透传和只读事务 TEMP CTAS 问题；所有写事务在这些重跑中均受相同断言保护，除第一次名称更新 1 行外，其余均为 0 行幂等执行。最终 workflow 改用 transaction-local setting，保持复核事务无 DDL 且强制只读。
 
@@ -150,6 +150,12 @@ ROLLBACK; -- 首次演练固定回滚；审阅结果后另开变更单执行
 
 - 回填 N=0，所以不存在“前后抽样 5 行”；workflow 如实输出 0 行，而不是用无关记录凑样本。
 - bad-only 清单为 0 行；没有可交付业务人工判定的记录。
+- 第 4 节全局对账 SELECT 在只读 run `32715697099` 返回 12 条既有不一致并按设计使 workflow 失败。它们均为已有 `eggs_by_grade` 行，不属于本次授权的 `eggs_by_grade IS NULL` 回填集合，因此未修改：
+  - ids `45,46,48,53,54,55,56,62,63`：标量 `dirty_eggs=1, broken_eggs=1`，JSON 只有可售档；
+  - id `59`：标量 `dirty_eggs=60, broken_eggs=0`，JSON 只有可售档；
+  - id `64`：标量均为 0，JSON 为 `DIRTY=1/BROKEN=1/CRACKED=1/DAMAGED=1/GRADE_1=100`；
+  - id `66`：标量 `dirty_eggs=1, broken_eggs=1`，JSON 为 `DIRTY=3/GRADE_1=100`。
+- 上述 12 行需要另行确认“JSON 权威还是兼容标量权威”后才能修复；本轮红线禁止覆盖已有 JSON，故全局“0 不一致”目标如实记为未达成，而本次 N=0 回填集合自身为 0 不一致。
 - 回填受影响 ID 清单为空，故无需回滚。留档的零影响回滚形式为：
 
 ```sql
@@ -169,4 +175,6 @@ WHERE id = 7 AND grade_code = 'BROKEN' AND grade_name = '破损蛋';
 ### 6.5 代码、CI 与部署
 
 - `usePackagingDicts` 与 `useProductGrades` 的 BROKEN fallback 已统一为“破损蛋”；仓库不存在含“破蛋”期望值的相关测试或快照，现有 `BROKEN` code 协议测试无需修改。
-- PR `#60/#62/#63/#64/#65/#66` 记录了 workflow 安全门、生产实况断言及只读复核修正；最终 CI、显式 `mode=web` 部署 run 和生产 revision 见本节后续追加记录。
+- PR `#60/#62/#63/#64/#65/#66/#67` 记录了 workflow 安全门、生产实况断言、只读复核修正与执行报告。PR `#67` CI 全绿：Type-check & Regression、Typecheck/Build/Basic Tests、Vitest、regression、Runtime Smoke、Static Security And Freeze Gates 均通过。
+- 显式生产 Web 部署 run `32716049443` 成功：`mode=web`、`approve_production=true`；Type-check & Regression 通过，Web 镜像构建并推送，Deploy · web 成功且容器 Healthy。
+- 只读 revision 证据：部署 checkout、镜像 `org.opencontainers.image.revision`、镜像 tag 与 `TARGET_SHA` 均为 `59c462f6423eebf0bf175e4967abd48330ab981b`；生产仓库从 `8defe9e3` 快进到 `59c462f6`，Web 容器健康。
