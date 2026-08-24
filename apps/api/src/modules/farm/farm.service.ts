@@ -93,7 +93,7 @@ export function dailyLogScopeWhere(
  *     · isGlobal（ROLE_ADMIN / GROUP / GROUP 级绑定）→ 看全部；
  *     · allowedFarmCodes / allowedSiteCodes / allowedCompanyCodes → 多场聚合；
  *   再 ∪ 遗留单 storeCode（向后兼容单场场长——其 storeCode=本场而无 farmScope 行）。
- *   req.dataScope 缺失时（无 @RequireMenu 的路由）回退到旧 storeCode 启发式。
+ *   req.dataScope 缺失时仅保留显式 legacyGlobal；其余一律 fail-closed。
  */
 export function deriveOrgScope(req: any): OrgScope {
   const storeCode: string | undefined = req.user?.storeCode;
@@ -112,7 +112,7 @@ export function deriveOrgScope(req: any): OrgScope {
   // 全局：真实 DataScope 判全局 或 遗留判全局 → 不加任何过滤
   // DataScopeGuard 已给出结论时必须以它为权威。旧逻辑把“没有遗留 storeCode”
   // 直接视为全局，导致真实场长被误判为管理员，也让日报写入缺少农场归属。
-  const isGlobal = ds ? ds.isGlobal === true : (!storeCode || legacyGlobal);
+  const isGlobal = ds ? ds.isGlobal === true : legacyGlobal;
   if (isGlobal) {
     return { isGlobal: true, farmCode: null, siteCode: null, farmCodes: [], siteCodes: [], companyCodes: [] };
   }

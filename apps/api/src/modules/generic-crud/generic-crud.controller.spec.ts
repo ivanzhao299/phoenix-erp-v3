@@ -5,7 +5,7 @@ import { GenericCrudService } from './generic-crud.service';
 
 describe('GenericCrudController WMS RBAC', () => {
   let controller: GenericCrudController;
-  let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'create' | 'findOneByColumn' | 'update'>>;
+  let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'findAllBreedingScoped' | 'create' | 'findOneByColumn' | 'update'>>;
   let dataScopeService: { resolve: jest.Mock };
   let wmsService: { confirmInbound: jest.Mock; confirmStandaloneOutbound: jest.Mock };
   let cls: { set: jest.Mock };
@@ -25,6 +25,7 @@ describe('GenericCrudController WMS RBAC', () => {
     svc = {
       findAll: jest.fn().mockResolvedValue([]),
       findAllInventoryScoped: jest.fn().mockResolvedValue([]),
+      findAllBreedingScoped: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue({ msg: 'ok' }),
       findOneByColumn: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({ msg: 'ok' }),
@@ -245,6 +246,44 @@ describe('GenericCrudController WMS RBAC', () => {
       [],
     );
     expect(svc.findAll).not.toHaveBeenCalled();
+  });
+
+  it('scopes brd_flocks to one farm even when legacy storeCode is ALL', async () => {
+    dataScopeService.resolve.mockResolvedValueOnce({
+      isGlobal: false, scopeLevel: 'SITE', allowedCompanyCodes: [], allowedProjectCodes: [],
+      allowedWarehouseCodes: [], allowedFarmCodes: ['FARM-DP'],
+      allowedSiteCodes: ['SITE-DONGPENG-LAYER'], userId: '7',
+    });
+    await controller.findAll('brd_flocks', { status: ['LAYING', 'PEAK'] }, {
+      user: { userId: '7', username: 'linhong', storeCode: 'ALL', role: 'ROLE_FARM_MGR',
+        roles: ['ROLE_FARM_MGR'], permissions: ['MENU_FARM_DATA:V'] },
+    });
+    expect(svc.findAllBreedingScoped).toHaveBeenCalledWith('brd_flocks',
+      { status: ['LAYING', 'PEAK'] },
+      { farmCodes: ['FARM-DP'], siteCodes: ['SITE-DONGPENG-LAYER'], companyCodes: [] });
+    expect(svc.findAll).not.toHaveBeenCalled();
+  });
+
+  it('preserves explicit company-level breeding scope', async () => {
+    dataScopeService.resolve.mockResolvedValueOnce({
+      isGlobal: false, scopeLevel: 'COMPANY', allowedCompanyCodes: ['COMP-LAO-XINGCHI'],
+      allowedProjectCodes: [], allowedWarehouseCodes: [], allowedFarmCodes: [],
+      allowedSiteCodes: [], userId: '8',
+    });
+    await controller.findAll('brd_houses', {}, {
+      user: { userId: '8', username: 'company-farm-user', storeCode: 'ALL', role: 'ROLE_FARM_MGR',
+        roles: ['ROLE_FARM_MGR'], permissions: ['MENU_FARM_MASTER:V'] },
+    });
+    expect(svc.findAllBreedingScoped).toHaveBeenCalledWith('brd_houses', {},
+      { farmCodes: [], siteCodes: [], companyCodes: ['COMP-LAO-XINGCHI'] });
+  });
+
+  it('keeps admin breeding reads global', async () => {
+    await controller.findAll('brd_flocks', {}, {
+      user: { userId: '1', username: 'admin', storeCode: 'ALL', role: 'ROLE_ADMIN',
+        roles: ['ROLE_ADMIN'], permissions: ['*'] },
+    });
+    expect(svc.findAllBreedingScoped).toHaveBeenCalledWith('brd_flocks', {}, null);
   });
 
   it('does not allow WMS writes with view-only permission', async () => {
