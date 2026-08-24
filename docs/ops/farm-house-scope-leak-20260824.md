@@ -169,3 +169,87 @@ S2/S4 共同造成旧会话体验不闭环：
 
 本轮仍遵守“生产只读”：没有代用户修改任何生产范围数据。用户已经自行完成的 COMPANY
 修改保留原样；由于东鹏 SITE 隶属独立公司，当前生产结果只包含东鹏场。
+
+## 8. COMPANY 范围与鸡舍列表语义
+
+### 8.1 生产只读取证
+
+补充审计使用 GitHub Actions run `32700087053`（成功）；SQL 均在
+`PGOPTIONS='-c default_transaction_read_only=on'` 与显式只读事务中执行，API 仅使用按
+生产当前画像签发的 10 分钟 linhong JWT 调用两个 GET。审计时生产 checkout revision 为
+`90c798750b0ead3653866fe71d32b6a984db7506`，未写生产数据。
+
+linhong 当前仍只绑定 `SITE-DONGPENG-LAYER`，范围为 `COMPANY`，新令牌画像为
+`store_code=SITE-DONGPENG-LAYER`、`perms_version=457`、角色
+`ROLE_FARM_MGR + ROLE_VET`，无 ADMIN/GROUP 权限。
+
+#### A. 公司范围是否正确展开
+
+`COMP-LAO-XINGCHI` 的完整组织子树只有一个养殖场 SITE：
+
+| 深度 | 组织类型 | 组织编码 | 业务含义 |
+|---:|---|---|---|
+| 0 | COMPANY | `COMP-LAO-XINGCHI` | 老挝东鹏县星驰农业发展有限公司 |
+| 1 | SITE | `SITE-DONGPENG-LAYER` | 东鹏蛋鸡养殖场 |
+| 1 | STORE × 4 | `STORE-DP/HS/XB/XC-001` | 门店，不是养殖场 |
+| 2 | DEPARTMENT × 7 | `DEPT-SITE-DONGPENG-LAYER-*` | 东鹏 SITE 下部门 |
+
+`brd_farms` 按 `company_code` 对账同样只有一行：
+`FARM-DP / 东鹏蛋鸡场 / COMP-LAO-XINGCHI / SITE-DONGPENG-LAYER / ACTIVE`。
+孟赛 `LPH_MENGSAI` 属于 `COMP-LAO-AGRI`，不是星驰公司子场。
+
+新令牌生产 API 对账：
+
+| 集合 | 返回 | 归属 | 与组织期望 |
+|---|---:|---|---|
+| `/api/farm/feed/houses` | 9 栋 ACTIVE | 全部 `FARM-DP` | 相等 |
+| `/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100` | 1 群 | `FARM-DP / HOUSE_CS_04` | 相等 |
+
+因此现象 1 **不是 scope 缺陷**：COMPANY 的语义确实是“该公司下所有养殖场”，但生产主
+数据中该公司只有东鹏一个养殖场。三维 OR 与 `brd_farms` company 回查均已正确消费
+`allowedCompanyCodes=['COMP-LAO-XINGCHI']`；本轮不改 scope 代码，也没有扩大任何权限。
+
+#### B. egglog 鸡舍集合为何只有一栋
+
+页面只调用 `mobileApi.getFlocks()`，接口限定 `LAYING/PEAK/DECLINING`；页面卡片直接来自
+返回的 flock，并以 `house_code || flock_no` 为键。因此当前页面显示集合恰好等于返回
+flock 的 `house_code` 去重集合。生产实测两者都是 `{HOUSE_CS_04}`。
+
+取证时东鹏 ACTIVE 鸡舍已经从上一轮的 8 栋变为 **9 栋**；逐栋鸡群状态如下：
+
+| 鸡舍 | 鸡群数 | 在产群数 | 状态 |
+|---|---:|---:|---|
+| `CS0716` | 1 | 0 | GROWING × 1 |
+| `HOUSE_CS_03` | 1 | 0 | RETIRED × 1 |
+| `HOUSE_CS_04` | 1 | 1 | LAYING × 1 |
+| `HOUSE_DP_01`～`HOUSE_DP_06` | 0 | 0 | 无鸡群 |
+
+即 9 栋中 1 栋可录产蛋日报，另外 8 栋被 egglog 隐藏；这不是 DataScope 过滤，而是录入
+对象过滤。
+
+### 8.2 产品语义决策
+
+采用方案 **(a)：维持按在产鸡群推导**，不把 egglog 改成全量鸡舍列表。
+
+理由是产蛋日报的业务事实必须能追溯到实际在产鸡群。当前提交链会携带
+`house_code + flock_no`，并据此更新鸡群存栏与产蛋率。虽然后端对缺失 `flock_no` 有
+`house_code` 兼容回退，且数据库没有强 FK，但利用该兼容路径让“无鸡群鸡舍”录入会失去
+精确鸡群归属，并可能在一舍多群时产生歧义；这不是可接受的新业务语义。
+
+方案 (b) 可以用 `/api/farm/feed/houses` 展示 9 栋 scoped ACTIVE 鸡舍，并将无在产群的
+8 栋标为空/禁录，但它不会增加任何可录入对象，只会把“鸡舍总览”混进“产蛋录入”。若
+未来产品需要这种信息，应新增清晰的鸡舍状态总览，或先定义一舍多群的选择规则，再把
+不可录卡片作为辅助信息接入；不应直接改变现有日报事实模型。
+
+最终口径：`/api/farm/feed/houses` 是 COMPANY scope 下的鸡舍总览；`/mobile/egglog` 是
+scope 内在产鸡群的产蛋录入清单。两者集合不同是有意的业务约束，不是权限泄漏或数据
+范围漏算。
+
+### 8.3 处置与验收
+
+- 现象 1：组织主数据证明星驰公司仅东鹏一场，按正确行为关闭，不改业务代码。
+- 现象 2：生产逐栋状态证明只有 `HOUSE_CS_04` 可形成有鸡群归属的产蛋日报，维持现状。
+- admin 对照仍为 19 栋 ACTIVE、9 个在产状态 flock；linhong 为 9 栋、1 个在产 flock，
+  证明 COMPANY 过滤生效且 admin 未回归。
+- 本轮唯一代码库变更是扩充生产只读审计 workflow 的证据查询；无应用构建物、schema、
+  迁移或生产部署。
