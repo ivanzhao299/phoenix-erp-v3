@@ -137,3 +137,43 @@ UPDATE brd_flocks
 提交后的即时只读查询得到 `ACTIVE=0 / GROWING=2 / LAYING=8 / PEAK=1`（总数 11），因此 workflow 按预写的 `LAYING=7 / 总数=10` 断言失败，后续步骤被 fail-fast 跳过；失败发生在只读复核段，已提交的精确 5 行修正没有部分更新问题。调查确认生产在前一轮审计之后、本次 workflow 之前已新增 `FK-MT6LRP7S1AF`：`created_at=2026-08-24 02:14:18.506Z`、`house_code=HOUSE_CS_03`、`farm_code=FARM-DP`、`current_qty=100`、初始状态即为 `LAYING`。该行不在授权目标内，本次 UPDATE 未触碰它；它解释了相对原先已确证分布多出的 1 个 `LAYING` 和总数 1。
 
 随后两次独立生产只读审计均成功，未执行任何写入：run `32682756486` 在 `02:20:58Z` 确认上述实际分布，admin API 返回 9 行；run `32682811446` 在 `02:22:02Z`（距事务提交超过 1 分钟）再次确认 `ACTIVE=0 / GROWING=2 / LAYING=8 / PEAK=1`，在 `02:22:12Z` 请求 `/api/crud/brd_flocks?status=LAYING&status=PEAK&limit=100` 返回 **9 行**、状态集合严格为 `LAYING,PEAK`。因此原计划的“总数 10、LAYING 7、接口 8 行”因执行前合法新增的鸡群已不再成立；修正目标本身全部完成且未发生并发写回。
+
+## 第四轮：DECLINING 口径补全（2026-08-24）
+
+### 五态事实与第三轮佐证
+
+鸡群编辑页的完整可写集合是 `GROWING / LAYING / PEAK / DECLINING / RETIRED`：`apps/web/src/app/(admin)/breeding/flock/page.tsx:488-492`。同页 `STATUS_MAP` 在 `:64-83` 覆盖这五态；`:84-88` 的 `g200f(2026-06-20)` 注释明确说明 `ACTIVE` 只是 DB 历史值，展示时兼容为 `LAYING` 同义值。因此第三轮把 5 个 `ACTIVE` 更正为 `LAYING` 的方向保持有效，本轮没有回滚、没有再次修改任何生产鸡群数据。
+
+`DECLINING` 是仍在产蛋的下降期。第二轮产蛋录入 URL 只有 `LAYING + PEAK`，会把该状态鸡群静默排除；本轮统一“所有在产状态”为 `LAYING + PEAK + DECLINING`，不再把历史兼容值 `ACTIVE` 当作当前接口契约。
+
+### 同类口径普查与逐处决策
+
+已全仓检索 `brd_flocks`、flock status 判断、`LAYING/PEAK/DECLINING/ACTIVE` 组合及 API raw SQL，并逐处核对消费语义。
+
+| 位置 | 处理 | 判断依据 |
+| --- | --- | --- |
+| `apps/web/src/lib/mobile-api.ts:336-338` | 改为三次重复 `status` 参数 | `/mobile/egglog` 与 mobile dashboard 共用 `getFlocks`，下游不再二次筛状态；这是产蛋录入的直接在产集合。 |
+| `apps/web/src/lib/home-farm-kpi.ts:72-80` | 改为仅计 `LAYING/PEAK/DECLINING` | 首页与养殖中心用该 helper 汇总 `current_qty` 并计算产蛋率，属于在产存栏分母；补 `PEAK/DECLINING`，移除历史 `ACTIVE` 和缺状态的隐式计入。 |
+| `apps/api/src/modules/farm/farm.service.ts:537-555` | 改为 `UPPER(status)` 三态 | `getDailyHenReport()` 以鸡群存栏为日报行和产蛋率分母，明确是所有在产鸡群。 |
+| `apps/api/src/modules/farm/farm.service.ts:688-696` | 改为 `UPPER(status)` 三态 | `getFarmTrend()` 用存栏合计计算当前/上期产蛋率，和日报属于同一在产分母。 |
+| `apps/api/src/modules/bff/bff.controller.ts:117-126,283-290` | 改为 `UPPER(status)` 三态并同步元数据 | BFF 的 `layingTotal/todayLayRate/stockMetricSource` 明确表示在产存栏和今日产蛋率。 |
+| `apps/api/src/modules/product-master/controllers/lookup.controller.ts:670` | **不动，待确认** | `/api/lookup/flocks` 只查 `ACTIVE`，连既有 `LAYING/PEAK` 都不含；更像遗留“可选主档”特定状态，不足以判定为在产口径。 |
+| `apps/api/src/modules/bff/bff.controller.ts:1028-1042` | **不动，待确认** | 旧 overview 返回字段名 `active_flocks` 且只计小写 `active`；没有产蛋率或在产文案，可能是历史特定状态/废弃接口。 |
+| 鸡群档案页状态筛选按钮、用药/免疫/日报等全量选择器 | 不动 | 前者是用户主动选择单一状态，后者没有 status 过滤；都不是“所有在产状态”的联合筛选。 |
+
+### 后端、字典与约束核查
+
+- `BRD_FLOCK_STATUS` 存在，但两个冻结裸 SQL seed 分别留下旧六态，均不含 `PEAK/DECLINING/RETIRED`，与当前五态 UI 不一致。新增 `apps/api/src/database/migrations/1787551200000-AlignBrdFlockStatusDictionary.ts:1-72`：归档旧枚举项，幂等激活五态，`down()` 恢复旧 G19 集合；同时把 `brd_flocks.status` 默认值从历史 `ACTIVE` 收口为合法新建态 `GROWING`。
+- 冻结 schema `docs/schema-snapshot.sql:520-529` 和 Generic CRUD 建表定义都只是 nullable `VARCHAR(20) DEFAULT 'ACTIVE'`，没有 status CHECK；现有 61 条旧 TS 迁移也没有为该列增加 CHECK。因此不存在“CHECK 漏 DECLINING 导致写入失败”的问题，本轮不凭空增加可能阻断历史数据的 CHECK。
+- 写入使用 Generic CRUD：controller 的 POST/PUT 接收 body，service 以参数化 INSERT/UPDATE 落库，没有 status 白名单或 DTO enum。`DECLINING` 已可写；本轮把运行时建表/补列默认值同步改为 `GROWING`，避免省略 status 时继续生成历史 `ACTIVE`。
+- 生产部署后只读 workflow 会同时输出 `pg_constraint`、五态字典、鸡群状态分布和三态接口结果，以实测再次确认迁移末态；不会执行鸡群数据 UPDATE。
+
+### 回归与本地验证
+
+先红后绿证据：先只把 Vitest 期望改为 `/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100`，旧实现按预期得到 1 个失败（received URL 缺 `DECLINING`）；实现补齐后定向 Vitest 13/13、定向 Jest 38/38 全绿。
+
+本地最终验证：Web `tsc --noEmit` 0 errors；API `tsc --noEmit` 0 errors；Web Vitest 75 files、428 tests 全绿；API Jest 60 suites、516 tests 全绿；TS migration down/no-business-DML、constraint drift、nullable-in-unique 门禁全绿。
+
+### CI、部署与生产只读核验
+
+待本轮 commit、push、CI、显式 full 部署和只读审计完成后补入对应 SHA、run ID、OCI revision、五态字典、生产 status 分布以及 `LAYING + PEAK + DECLINING` 数据库/API 对账结果。

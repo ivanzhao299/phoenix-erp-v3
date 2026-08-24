@@ -19,7 +19,7 @@ describe('mobile API',()=>{
     await expect(mobileApi.getFeedHouses()).resolves.toEqual(['HOUSE-ADMIN']);
     expect(fetch).toHaveBeenCalledTimes(2);
   });
-  it('requests laying and peak flocks for egg production entry',async()=>{
+  it('requests all laying flocks for egg production entry',async()=>{
     vi.stubGlobal('window', {});
     vi.stubGlobal('sessionStorage', { getItem: vi.fn(() => 'farm-token') });
     const fetch = vi.fn().mockResolvedValue({ok:true,json:async()=>({code:200,data:[]})});
@@ -27,7 +27,7 @@ describe('mobile API',()=>{
 
     await mobileApi.getFlocks();
 
-    expect(fetch.mock.calls[0][0]).toBe('/api/crud/brd_flocks?status=LAYING&status=PEAK&limit=100');
+    expect(fetch.mock.calls[0][0]).toBe('/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100');
   });
   it('does not reuse a flock list after the mobile token changes',async()=>{
     let token = 'farm-token';

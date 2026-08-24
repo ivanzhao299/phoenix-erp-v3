@@ -111,7 +111,7 @@ export class GenericCrudService implements OnModuleInit {
           placement_age INT,
           initial_qty INT,
           current_qty INT,
-          status VARCHAR(20) DEFAULT 'ACTIVE',
+          status VARCHAR(20) DEFAULT 'GROWING',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
       `);
@@ -148,7 +148,7 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS initial_qty       INT DEFAULT 0`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS current_qty       INT DEFAULT 0`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS current_lay_rate  DECIMAL(5,2)`,
-        `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS status            VARCHAR(20) DEFAULT 'ACTIVE'`,
+        `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS status            VARCHAR(20) DEFAULT 'GROWING'`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS updated_at          TIMESTAMP`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS breed_type         VARCHAR(50)`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS source_farm        VARCHAR(100)`,

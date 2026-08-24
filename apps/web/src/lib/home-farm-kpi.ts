@@ -71,8 +71,7 @@ function hasRowsPayload(payload: unknown): boolean {
 
 export function isCanonicalCurrentFlock(row: unknown): boolean {
   const status = String(getField(row, 'status') ?? '').trim().toUpperCase();
-  if (!status) return true;
-  return status === 'ACTIVE' || status === 'LAYING';
+  return status === 'LAYING' || status === 'PEAK' || status === 'DECLINING';
 }
 
 export function sumCanonicalFlockStock(rows: unknown[]): number {

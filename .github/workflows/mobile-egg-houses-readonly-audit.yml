@@ -57,9 +57,18 @@ jobs:
               FROM brd_flocks
              GROUP BY status
              ORDER BY status NULLS FIRST;
+            SELECT c.conname, pg_get_constraintdef(c.oid) AS definition
+              FROM pg_constraint c
+              JOIN pg_class t ON t.oid = c.conrelid
+             WHERE t.relname = 'brd_flocks' AND c.contype = 'c'
+             ORDER BY c.conname;
+            SELECT dict_code, dict_value, status, sort_no
+              FROM sys_dict
+             WHERE dict_type = 'BRD_FLOCK_STATUS'
+             ORDER BY sort_no, dict_code;
             SELECT count(*) AS egglog_expected_total
               FROM brd_flocks
-             WHERE status = ANY (ARRAY['LAYING', 'PEAK']);
+             WHERE status = ANY (ARRAY['LAYING', 'PEAK', 'DECLINING']);
             COMMIT;
             SQL
       - name: Probe current production admin response
@@ -100,13 +109,13 @@ jobs:
           token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
           response="$(curl --fail --silent --show-error \
             -H "Authorization: Bearer $token" \
-            'https://erp.eggslao.com/api/crud/brd_flocks?status=LAYING&status=PEAK&limit=100')"
+            'https://erp.eggslao.com/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100')"
           RESPONSE="$response" node - <<'NODE'
           const payload = JSON.parse(process.env.RESPONSE || '{}');
           const rows = Array.isArray(payload) ? payload : payload.data;
           if (!Array.isArray(rows)) throw new Error('Flock response is not an array');
           const statuses = [...new Set(rows.map((row) => row.status))].sort();
-          if (statuses.some((status) => status !== 'LAYING' && status !== 'PEAK')) {
+          if (statuses.some((status) => !['LAYING', 'PEAK', 'DECLINING'].includes(status))) {
             throw new Error(`Unexpected flock status: ${statuses.join(',')}`);
           }
           console.log(`ADMIN_EGGLOG_FLOCK_RESPONSE_COUNT=${rows.length}`);

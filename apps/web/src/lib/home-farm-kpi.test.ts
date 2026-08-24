@@ -15,8 +15,8 @@ describe('buildHomeFarmKpi', () => {
       { rows: [] },
       {
         data: [
-          { flock_no: 'F-001', current_qty: 900 },
-          { flock_no: 'F-002', current_qty: '1300' },
+          { flock_no: 'F-001', status: 'LAYING', current_qty: 900 },
+          { flock_no: 'F-002', status: 'PEAK', current_qty: '1300' },
         ],
       },
     );
@@ -42,9 +42,11 @@ describe('buildHomeFarmKpi', () => {
       { status: 'ACTIVE', current_qty: 1000 },
       { status: 'LAYING', current_qty: 800 },
       { status: 'PEAK', current_qty: 500 },
+      { status: 'DECLINING', current_qty: 400 },
       { status: 'GROWING', current_qty: 200 },
       { status: 'CLOSED', current_qty: 100 },
-    ])).toBe(1800);
+      { current_qty: 50 },
+    ])).toBe(1700);
   });
 
   it('uses daily logs for feed and water when today has breeding log entries', () => {

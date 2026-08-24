@@ -537,7 +537,8 @@ export class FarmService {
   async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null }) {
     // ── 鸡群查询 ──────────────────────────────────────────────
     const flockParams: any[] = [];
-    let flockWhere = `WHERE f.status IN ('LAYING','ACTIVE','laying','active')`;
+    // 所有在产状态：产蛋期、高峰期、下降期。
+    let flockWhere = `WHERE UPPER(f.status) IN ('LAYING','PEAK','DECLINING')`;
     const flockScope = scopeWhere(scope, flockParams, 'f.');   // G98：农场/站点/公司多维并集
     if (flockScope) flockWhere += ` AND ${flockScope}`;
     const flocks = await this.entityManager.query(
@@ -686,7 +687,8 @@ export class FarmService {
 
     // flock 存栏数也按农场/场区过滤
     const flockParams: any[] = [];
-    let flockWhere = `WHERE f.status IN ('LAYING','ACTIVE','laying','active')`;
+    // 所有在产状态：产蛋期、高峰期、下降期。
+    let flockWhere = `WHERE UPPER(f.status) IN ('LAYING','PEAK','DECLINING')`;
     const flockScope = scopeWhere(scope, flockParams, 'f.');   // G98：农场/站点/公司多维并集
     if (flockScope) flockWhere += ` AND ${flockScope}`;
     const flockSum = await this.entityManager.query(

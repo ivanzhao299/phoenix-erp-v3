@@ -333,9 +333,9 @@ export const mobileApi = {
   getOpenAlerts: () =>
     get<DeviceAlert[]>('/api/farm-device/alerts?status=OPEN'),
 
-  /** 产蛋录入鸡群：仅产蛋期 LAYING + 高峰期 PEAK；排除育成 GROWING 与退役 RETIRED。 */
+  /** 产蛋录入鸡群：所有在产状态（LAYING / PEAK / DECLINING）。 */
   getFlocks: () =>
-    getCached(`flocks:${tok()}`, () => get<{ data: FlockRecord[]; total: number }>('/api/crud/brd_flocks?status=LAYING&status=PEAK&limit=100'), 5 * 60_000),
+    getCached(`flocks:${tok()}`, () => get<{ data: FlockRecord[]; total: number }>('/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100'), 5 * 60_000),
 
   /** 饲料台账 — 查询某日 */
   getFeedLedger: (date: string) =>
