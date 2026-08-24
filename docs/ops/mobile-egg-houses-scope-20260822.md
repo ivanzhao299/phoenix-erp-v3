@@ -101,4 +101,4 @@ main commit `f4a8f3b651a6f14355768c6ca544f275f0277d5e` 已推送。push CI：`32
 
 显式生产部署 run `32680175771` 使用 `workflow_dispatch`、`mode=web`、`skip_deploy=false`、`approve_production=true`，成功；API image 构建被跳过，仅构建并重启 Web，未运行生产 DB 迁移。部署后 Web image 只读审计 run `32680481428` 成功：生产 checkout 为上述目标 commit，运行 Web image digest 为 `sha256:77b4941233ed1a85f2cf071972e005a06bd5fc8f3b7d9df65d8a9250ac2aeb64`，OCI revision 同为上述目标 commit。Flock 生产只读审计 run `32680483025` 同样确认生产 checkout 和 Web OCI revision 一致，API 容器仍保持上一轮 revision，符合 `mode=web` 预期。
 
-生产 API 的 `LAYING + PEAK` admin token 只读过滤计数将在扩展既有只读审计后补记；全程不写生产数据库。
+扩展后的生产只读审计 run `32680563656` 成功：生产 `brd_flocks` 状态分布为 `ACTIVE=5 / GROWING=2 / LAYING=2 / PEAK=1`，所以产蛋录入口径 `LAYING + PEAK` 的数据库期望数为 3；用现场 API 容器签发的短期 admin token 请求 `/api/crud/brd_flocks?status=LAYING&status=PEAK&limit=100` 返回 3 行，状态集合严格为 `LAYING,PEAK`，与数据库期望数一致。生产 checkout 仍为部署目标 `f4a8f3b6`；审计全程只读，未写生产数据库。
