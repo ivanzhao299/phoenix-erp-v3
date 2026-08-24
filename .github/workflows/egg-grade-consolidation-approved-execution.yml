@@ -203,7 +203,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,EXPECTED_N
+          envs: DEPLOY_PATH,EXPECTED_N,EXPECTED_FILLED
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
