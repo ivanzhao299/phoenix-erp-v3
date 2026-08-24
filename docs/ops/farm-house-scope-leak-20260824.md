@@ -81,4 +81,18 @@
 - Web Vitest：75 files / 428 tests 通过。
 - 旧 HTTP `test/scope-audit.sh`：本机未启动 API，30 项均为 `HTTP 000`（另 1 项因无 fixture 跳过）；这是运行环境不可达，不是断言回归。真实 breeding scope 由新增 Jest 覆盖，部署后再以生产只读 GET 完成端到端验收。
 
-生产部署与部署后 revision/API 复测待代码进入 main 后执行；linhong 最终只见东鹏的验收还依赖上述 GROUP 数据修正授权。
+### 5.1 CI、部署与生产复测
+
+- PR：`#57`，合并到 main revision `c43cb0461076c9fe561deadc5476d42b40462c8b`。
+- PR 功能 CI：build/typecheck/tests、regression、Vitest、runtime smoke 全部通过。PR freeze/security 是仓库设计的人工评审闸；显式 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 复核后 W5 20/20 通过，master-data legacy reference 维持 baseline 30/30。
+- main push build run：`32687059529`，成功；完整 typecheck/regression、API/Web image build 均通过。
+- 显式 API-only 生产部署 run：`32687427992`，成功；`Deploy · api` 完成。
+- 部署后生产只读 run：`32687782047`，成功；生产 checkout revision 与 main 一致：`c43cb0461076c9fe561deadc5476d42b40462c8b`。
+- admin 回归：19 栋 ACTIVE 鸡舍、9 群 egglog 鸡群，保持全量。
+- linhong 部署后：鸡群仍为 9（孟赛 8、东鹏 1），鸡舍仍为 19。结果符合当前 `data_scope_level='GROUP'` 的显式授权语义，证明代码没有偷偷覆盖授权数据；同时也说明用户目标尚未闭环。
+
+## 6. 最终状态
+
+**HOLD（代码修复已部署，账号数据修正待授权）**。
+
+G1、G4 的代码闸门已修复并部署，admin/公司级/正常 scoped 语义有回归覆盖。linhong 仍全局的唯一决定性阻塞是 `sys_user_orgs.id=12460.data_scope_level='GROUP'`；按任务红线未写生产数据。只有获批把该行修正为 SITE（并 bump `perms_version`）后，才能完成“linhong 只见东鹏”最终生产验收。
