@@ -202,7 +202,20 @@ jobs:
             COMMIT;
             SQL
 
-            user_row="$(db_readonly -Atc "SELECT u.user_id::text || '|' || coalesce(u.store_code,'') || '|' || coalesce(u.perms_version,1)::text || '|' || coalesce(string_agg(r.role_code, ',' ORDER BY r.role_code) FILTER (WHERE coalesce(ur.is_visible,true)), '') FROM sys_user u LEFT JOIN sys_user_role ur ON ur.user_id=u.user_id LEFT JOIN sys_role r ON r.role_id=ur.role_id WHERE u.username='linhong' AND u.status=1 GROUP BY u.user_id,u.store_code,u.perms_version" | tr -d '\r\n')"
+            user_row="$(docker compose exec -T \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL' | tr -d '\r\n'
+            SELECT u.user_id::text || '|' || coalesce(u.store_code,'') || '|' ||
+                   coalesce(u.perms_version,1)::text || '|' ||
+                   coalesce(string_agg(r.role_code, ',' ORDER BY r.role_code)
+                     FILTER (WHERE coalesce(ur.is_visible,true)), '')
+              FROM sys_user u
+              LEFT JOIN sys_user_role ur ON ur.user_id=u.user_id
+              LEFT JOIN sys_role r ON r.role_id=ur.role_id
+             WHERE u.username='linhong' AND u.status=1
+             GROUP BY u.user_id,u.store_code,u.perms_version;
+            SQL
+            )"
             [ -n "$user_row" ] || { echo 'ACTIVE_LINHONG_NOT_FOUND' >&2; exit 3; }
             IFS='|' read -r user_id store_code perms_version role_csv <<EOF
             $user_row
