@@ -122,3 +122,51 @@ ROLLBACK; -- 首次演练固定回滚；审阅结果后另开变更单执行
 - `check-constraint-drift.js`：0 new drift；`check-nullable-in-unique.js`：0 违规；`check-entity-drift-baseline.sh`：0 漂移。
 - 字段真审计：mobile egglog 中无 `bad_eggs` 提交、无“碎蛋”输入、无 A大/A中/A小/B 旧等级展示；全 Web 未发现以裸 input 直接写 `bad_eggs/broken_eggs/dirty_eggs` 的模式。
 - 仓库全量 lint 未通过：当前基线为 807 errors / 469 warnings，错误广泛存在于未改文件（React 19 hooks 规则、历史 `any` 等）；本次前后端类型检查、构建和测试均通过，未把全仓历史 lint 债务混入本变更。
+
+## 6. 生产执行记录（2026-08-24）
+
+### 6.1 授权与安全边界
+
+- 用户明确授权两项写入：`product_grades.BROKEN` 中文名统一为“破损蛋”，以及严格按第 4 节条件回填可验证的 `brd_daily_logs.eggs_by_grade`。
+- 执行通过 `production` environment、`approve_production=true`、精确确认词 `CONSOLIDATE_BROKEN_GRADE_AND_BACKFILL_VERIFIED_ROWS` 和不可取消 concurrency group 完成。
+- 两个 UPDATE 各自事务；回填同时受 `eggs_by_grade IS NULL`、候选 N、行锁、RETURNING 数量和 DIRTY/BROKEN 对账约束。没有写入 `GRADE_1..5`，没有修改已有 JSON，也没有修改历史 sys_dict。
+
+### 6.2 只读预检
+
+- 成功 run：`32714523640`（双层只读：`PGOPTIONS default_transaction_read_only=on` + `BEGIN TRANSACTION READ ONLY`）。
+- `product_grades` 全量 18 行：9 个 ACTIVE 现行档 + 9 个 DEPRECATED 历史档。ACTIVE 为 `GRADE_1..5/DIRTY/CRACKED/BROKEN/DAMAGED`；BROKEN 唯一、ACTIVE、更新前名称“破蛋”、`is_saleable=false`、`sort_order=80`。
+- `sys_dict` 中未找到 `PKG_EGG_GRADE/PKG_EGG_DEFECT` 的 BROKEN 镜像行，因此无废弃字典行可列、也未做任何字典写入。
+- `brd_daily_logs`：`total=63`、`already_filled=22`、`missing_positive=38`、`bad_only_rows=0`、精确 UPDATE 条件 `candidate_n=0`。候选清单和 bad-only 人工清单均为空。
+- 初次 run `32713435136` 因把“9 个 ACTIVE 档”误断言成“物理全表 9 行”而停止；日志确认实际是 9 ACTIVE + 9 DEPRECATED 后修正口径，全程只读、未触发写入。
+
+### 6.3 两个 UPDATE 的 RETURNING 审计
+
+- 首次有效执行 run `32714587854`：主数据事务锁定 `id=7/BROKEN/破蛋/ACTIVE`，UPDATE RETURNING 为 `id=7, grade_code=BROKEN, grade_name=破损蛋`，行数 1，随后提交。
+- 历史回填同一 run 的独立事务：预检 N=0，锁定候选 0 行，UPDATE RETURNING=0，对账不一致=0，提交后 `already_filled` 仍为 22。生产没有可验证行，故没有制造任何 JSON。
+- 完整成功复核 run `32715385073`：命名 UPDATE 因已完成而 RETURNING=0（幂等正常）；回填继续 RETURNING=0。立即只读复核和间隔 1 分钟复核均通过，BROKEN 为“破损蛋”/ACTIVE，remaining candidate=0。
+- 中间 run `32714587854`、`32715099732`、`32715252141` 的写后只读步骤曾分别暴露 SSH 环境变量透传和只读事务 TEMP CTAS 问题；所有写事务在这些重跑中均受相同断言保护，除第一次名称更新 1 行外，其余均为 0 行幂等执行。最终 workflow 改用 transaction-local setting，保持复核事务无 DDL 且强制只读。
+
+### 6.4 复核抽样、人工清单与回滚
+
+- 回填 N=0，所以不存在“前后抽样 5 行”；workflow 如实输出 0 行，而不是用无关记录凑样本。
+- bad-only 清单为 0 行；没有可交付业务人工判定的记录。
+- 回填受影响 ID 清单为空，故无需回滚。留档的零影响回滚形式为：
+
+```sql
+UPDATE brd_daily_logs
+SET eggs_by_grade = NULL
+WHERE id IN (NULL) AND eggs_by_grade IS NOT NULL; -- 影响 0 行；N=0 时仅作模板留档
+```
+
+- 若仅需撤销本次主数据命名（不建议在无新授权时执行），精确回滚 SQL 为：
+
+```sql
+UPDATE product_grades
+SET grade_name = '破蛋', updated_at = NOW()
+WHERE id = 7 AND grade_code = 'BROKEN' AND grade_name = '破损蛋';
+```
+
+### 6.5 代码、CI 与部署
+
+- `usePackagingDicts` 与 `useProductGrades` 的 BROKEN fallback 已统一为“破损蛋”；仓库不存在含“破蛋”期望值的相关测试或快照，现有 `BROKEN` code 协议测试无需修改。
+- PR `#60/#62/#63/#64/#65/#66` 记录了 workflow 安全门、生产实况断言及只读复核修正；最终 CI、显式 `mode=web` 部署 run 和生产 revision 见本节后续追加记录。

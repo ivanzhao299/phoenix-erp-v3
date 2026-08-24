@@ -88,6 +88,15 @@ jobs:
                AND COALESCE(dirty_eggs, 0) = 0 AND COALESCE(broken_eggs, 0) = 0
              ORDER BY log_date, id;
 
+            SELECT 'GLOBAL_RECONCILIATION_MISMATCHES' AS section;
+            SELECT id, log_date, house_code, shift, dirty_eggs, broken_eggs, eggs_by_grade
+              FROM brd_daily_logs
+             WHERE eggs_by_grade IS NOT NULL AND (
+               COALESCE((eggs_by_grade->>'DIRTY')::int, 0) <> COALESCE(dirty_eggs, 0)
+               OR COALESCE((eggs_by_grade->>'BROKEN')::int, 0) <> COALESCE(broken_eggs, 0)
+             )
+             ORDER BY log_date, id;
+
             DO $assert$
             DECLARE
               active_grade_count integer;
@@ -100,6 +109,13 @@ jobs:
                  AND grade_name IN ('破蛋', '破损蛋');
               IF active_grade_count <> 9 OR broken_count <> 1 THEN
                 RAISE EXCEPTION 'Preflight failed: active_grade_count=%, valid_active_broken_count=%', active_grade_count, broken_count;
+              END IF;
+              IF (SELECT count(*) FROM brd_daily_logs
+                   WHERE eggs_by_grade IS NOT NULL AND (
+                     COALESCE((eggs_by_grade->>'DIRTY')::int, 0) <> COALESCE(dirty_eggs, 0)
+                     OR COALESCE((eggs_by_grade->>'BROKEN')::int, 0) <> COALESCE(broken_eggs, 0)
+                   )) <> 0 THEN
+                RAISE EXCEPTION 'Global DIRTY/BROKEN reconciliation mismatch exists';
               END IF;
             END
             $assert$;
