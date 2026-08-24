@@ -1,0 +1,250 @@
+name: Correct Five ACTIVE Flocks To LAYING
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type CORRECT_LPH_MS_F02_TO_F06_TO_LAYING"
+        required: true
+        type: string
+      approve_production:
+        description: "Approve the production update of exactly five named flocks"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: correct-active-flocks-to-laying-production
+  cancel-in-progress: false
+
+jobs:
+  correct:
+    if: ${{ inputs.approve_production == true && inputs.confirmation == 'CORRECT_LPH_MS_F02_TO_F06_TO_LAYING' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read-only preflight and exact-target assertions
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
+            docker compose exec -T \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT flock_no, farm_code, house_code, current_qty, status, updated_at
+              FROM brd_flocks
+             WHERE flock_no IN ('LPH_MS_F02', 'LPH_MS_F03', 'LPH_MS_F04', 'LPH_MS_F05', 'LPH_MS_F06')
+             ORDER BY flock_no;
+            DO $assert$
+            DECLARE
+              target_count integer;
+              active_count integer;
+            BEGIN
+              SELECT count(*), count(*) FILTER (WHERE status = 'ACTIVE')
+                INTO target_count, active_count
+                FROM brd_flocks
+               WHERE flock_no IN ('LPH_MS_F02', 'LPH_MS_F03', 'LPH_MS_F04', 'LPH_MS_F05', 'LPH_MS_F06');
+              IF target_count <> 5 OR active_count <> 5 THEN
+                RAISE EXCEPTION 'Preflight failed: target_count=%, active_count=% (both must be 5)', target_count, active_count;
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
+
+      - name: Update exactly five rows in one transaction
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN;
+            CREATE TEMP TABLE flock_status_before ON COMMIT DROP AS
+            SELECT flock_no, farm_code, house_code, current_qty, status, updated_at
+              FROM brd_flocks
+             WHERE flock_no IN ('LPH_MS_F02', 'LPH_MS_F03', 'LPH_MS_F04', 'LPH_MS_F05', 'LPH_MS_F06')
+             FOR UPDATE;
+            DO $assert$
+            DECLARE
+              target_count integer;
+              active_count integer;
+            BEGIN
+              SELECT count(*), count(*) FILTER (WHERE status = 'ACTIVE')
+                INTO target_count, active_count
+                FROM flock_status_before;
+              IF target_count <> 5 OR active_count <> 5 THEN
+                RAISE EXCEPTION 'Locked-target assertion failed: target_count=%, active_count=%; rolling back', target_count, active_count;
+              END IF;
+            END
+            $assert$;
+            CREATE TEMP TABLE flock_status_changed (
+              flock_no text,
+              status text,
+              updated_at timestamptz
+            ) ON COMMIT DROP;
+            WITH changed AS (
+              UPDATE brd_flocks
+                 SET status = 'LAYING', updated_at = NOW()
+               WHERE flock_no IN ('LPH_MS_F02', 'LPH_MS_F03', 'LPH_MS_F04', 'LPH_MS_F05', 'LPH_MS_F06')
+                 AND status = 'ACTIVE'
+              RETURNING flock_no, status, updated_at
+            )
+            INSERT INTO flock_status_changed (flock_no, status, updated_at)
+            SELECT flock_no, status, updated_at FROM changed;
+            DO $assert$
+            DECLARE changed_count integer;
+            BEGIN
+              SELECT count(*) INTO changed_count FROM flock_status_changed;
+              IF changed_count <> 5 THEN
+                RAISE EXCEPTION 'UPDATE RETURNING row count was %, expected 5; rolling back', changed_count;
+              END IF;
+            END
+            $assert$;
+            SELECT b.flock_no, b.farm_code, b.house_code, b.current_qty,
+                   b.status AS status_before, c.status AS status_after,
+                   b.updated_at AS updated_at_before, c.updated_at AS updated_at_after
+              FROM flock_status_before b
+              JOIN flock_status_changed c USING (flock_no)
+             ORDER BY b.flock_no;
+            SELECT count(*) AS returning_row_count FROM flock_status_changed;
+            COMMIT;
+            SQL
+
+      - name: Read-only immediate distribution verification
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            docker compose exec -T \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT status, count(*) AS total FROM brd_flocks GROUP BY status ORDER BY status;
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM brd_flocks) <> 10
+                 OR (SELECT count(*) FROM brd_flocks WHERE status = 'ACTIVE') <> 0
+                 OR (SELECT count(*) FROM brd_flocks WHERE status = 'GROWING') <> 2
+                 OR (SELECT count(*) FROM brd_flocks WHERE status = 'LAYING') <> 7
+                 OR (SELECT count(*) FROM brd_flocks WHERE status = 'PEAK') <> 1 THEN
+                RAISE EXCEPTION 'Post-update flock distribution assertion failed';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
+
+      - name: Verify egglog API returns exactly eight eligible flocks
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          response="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $token" \
+            'https://erp.eggslao.com/api/crud/brd_flocks?status=LAYING&status=PEAK&limit=100')"
+          RESPONSE="$response" node - <<'NODE'
+          const payload = JSON.parse(process.env.RESPONSE || '{}');
+          const rows = Array.isArray(payload) ? payload : payload.data;
+          if (!Array.isArray(rows)) throw new Error('Flock response is not an array');
+          if (rows.length !== 8) throw new Error(`Expected 8 eligible flocks, received ${rows.length}`);
+          const statuses = [...new Set(rows.map((row) => row.status))].sort();
+          if (statuses.some((status) => status !== 'LAYING' && status !== 'PEAK')) {
+            throw new Error(`Unexpected flock status: ${statuses.join(',')}`);
+          }
+          console.log(`ADMIN_EGGLOG_FLOCK_RESPONSE_COUNT=${rows.length}`);
+          console.log(`ADMIN_EGGLOG_FLOCK_STATUSES=${statuses.join(',')}`);
+          console.log(JSON.stringify(rows));
+          NODE
+
+      - name: Read-only delayed distribution verification
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            sleep 60
+            cd "$DEPLOY_PATH"
+            docker compose exec -T \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT status, count(*) AS total FROM brd_flocks GROUP BY status ORDER BY status;
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM brd_flocks) <> 10
+                 OR (SELECT count(*) FROM brd_flocks WHERE status = 'ACTIVE') <> 0
+                 OR (SELECT count(*) FROM brd_flocks WHERE status = 'GROWING') <> 2
+                 OR (SELECT count(*) FROM brd_flocks WHERE status = 'LAYING') <> 7
+                 OR (SELECT count(*) FROM brd_flocks WHERE status = 'PEAK') <> 1 THEN
+                RAISE EXCEPTION 'Delayed flock distribution assertion failed';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
