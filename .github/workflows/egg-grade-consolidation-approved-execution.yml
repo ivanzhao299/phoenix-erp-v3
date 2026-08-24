@@ -194,6 +194,7 @@ jobs:
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
           EXPECTED_N: ${{ inputs.expected_candidate_n }}
+          EXPECTED_FILLED: ${{ inputs.expected_already_filled }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
