@@ -195,11 +195,53 @@ jobs:
               FROM brd_farms
              WHERE farm_code = 'FARM-DP' OR farm_name ILIKE '%东鹏%' OR farm_name ILIKE '%孟赛%'
              ORDER BY farm_code;
+            WITH RECURSIVE company_tree AS (
+              SELECT id, org_code, org_name, org_name_cn, org_type, company_code,
+                     parent_id, parent_code, site_code, path, 0 AS depth
+                FROM sys_organizations
+               WHERE org_code = 'COMP-LAO-XINGCHI'
+              UNION ALL
+              SELECT child.id, child.org_code, child.org_name, child.org_name_cn,
+                     child.org_type, child.company_code, child.parent_id,
+                     child.parent_code, child.site_code, child.path, tree.depth + 1
+                FROM sys_organizations child
+                JOIN company_tree tree ON child.parent_id = tree.id
+            )
+            SELECT depth, id, org_code, org_name, org_name_cn, org_type,
+                   company_code, parent_id, parent_code, site_code, path
+              FROM company_tree
+             ORDER BY depth, org_type, org_code;
+            SELECT COALESCE(company_code, '<NULL>') AS company_code,
+                   COALESCE(status, '<NULL>') AS status,
+                   count(*) AS farms,
+                   array_agg(farm_code || ':' || farm_name ORDER BY farm_code) AS farm_rows
+              FROM brd_farms
+             GROUP BY company_code, status
+             ORDER BY company_code NULLS FIRST, status NULLS FIRST;
+            SELECT farm_code, farm_name, company_code, mapped_site_code, status
+              FROM brd_farms
+             WHERE company_code = 'COMP-LAO-XINGCHI'
+             ORDER BY farm_code;
             SELECT farm_code, count(*) AS houses,
                    array_agg(house_code ORDER BY house_code) AS house_codes
               FROM brd_houses
              WHERE status = 'ACTIVE'
              GROUP BY farm_code ORDER BY farm_code;
+            SELECT h.house_code, h.house_name, h.status AS house_status,
+                   COALESCE(sum(f.status_count), 0) AS flock_count,
+                   COALESCE(sum(f.status_count) FILTER (
+                     WHERE f.status = ANY (ARRAY['LAYING', 'PEAK', 'DECLINING'])), 0) AS egglog_flock_count,
+                   COALESCE(jsonb_object_agg(f.status, f.status_count)
+                     FILTER (WHERE f.status IS NOT NULL), '{}'::jsonb) AS flock_statuses
+              FROM brd_houses h
+              LEFT JOIN (
+                SELECT house_code, status, count(*) AS status_count
+                  FROM brd_flocks
+                 GROUP BY house_code, status
+              ) f ON f.house_code = h.house_code
+             WHERE h.farm_code = 'FARM-DP' AND h.status = 'ACTIVE'
+             GROUP BY h.house_code, h.house_name, h.status
+             ORDER BY h.house_code;
             COMMIT;
             SQL
 
