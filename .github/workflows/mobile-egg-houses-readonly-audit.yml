@@ -122,3 +122,132 @@ jobs:
           console.log(`ADMIN_EGGLOG_FLOCK_STATUSES=${statuses.join(',')}`);
           console.log(JSON.stringify(rows));
           NODE
+      - name: Capture linhong authorization profile and scoped API responses
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "LINHONG_AUDIT_DEPLOY_SHA=$(git rev-parse HEAD)"
+
+            db_readonly() {
+              docker compose exec -T \
+                -e PGOPTIONS='-c default_transaction_read_only=on' \
+                db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' "$@"
+            }
+
+            db_readonly <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT user_id, username, real_name, store_code, status, perms_version
+              FROM sys_user WHERE username = 'linhong';
+            SELECT uo.id, uo.user_id, uo.org_id, uo.is_primary, uo.data_scope_level,
+                   o.org_code, o.org_name, o.org_name_cn, o.org_type, o.company_code,
+                   o.parent_id, o.parent_code, o.site_code, o.path
+              FROM sys_user_orgs uo
+              JOIN sys_user u ON u.user_id = uo.user_id
+              JOIN sys_organizations o ON o.id = uo.org_id
+             WHERE u.username = 'linhong'
+             ORDER BY uo.id;
+            SELECT r.role_id, r.role_code, r.role_name_zh, ur.is_primary, ur.is_visible
+              FROM sys_user_role ur
+              JOIN sys_user u ON u.user_id = ur.user_id
+              JOIN sys_role r ON r.role_id = ur.role_id
+             WHERE u.username = 'linhong'
+             ORDER BY ur.is_primary DESC, r.role_code;
+            SELECT ds.role_code, ds.module_code, ds.scope_type, ds.enabled
+              FROM sys_data_scopes ds
+             WHERE ds.role_code IN (
+               SELECT r.role_code FROM sys_user_role ur
+               JOIN sys_user u ON u.user_id = ur.user_id
+               JOIN sys_role r ON r.role_id = ur.role_id
+               WHERE u.username = 'linhong' AND COALESCE(ur.is_visible, true) = true
+             )
+             ORDER BY ds.role_code, ds.module_code;
+            WITH RECURSIVE target AS (
+              SELECT * FROM sys_organizations
+               WHERE org_name ILIKE '%东鹏%蛋鸡%' OR org_name_cn ILIKE '%东鹏%蛋鸡%'
+                  OR org_name ILIKE '%孟赛%' OR org_name_cn ILIKE '%孟赛%'
+                  OR org_code IN ('FARM-DP', 'LPH_MENGSAI')
+            ), ancestry AS (
+              SELECT id, org_code, org_name, org_name_cn, org_type, company_code,
+                     parent_id, parent_code, site_code, path, id AS target_id, 0 AS depth
+                FROM target
+              UNION ALL
+              SELECT p.id, p.org_code, p.org_name, p.org_name_cn, p.org_type, p.company_code,
+                     p.parent_id, p.parent_code, p.site_code, p.path, a.target_id, a.depth + 1
+                FROM sys_organizations p JOIN ancestry a ON p.id = a.parent_id
+            )
+            SELECT * FROM ancestry ORDER BY target_id, depth;
+            SELECT farm_code, farm_name, company_code, mapped_site_code, status
+              FROM brd_farms
+             WHERE farm_code = 'FARM-DP' OR farm_name ILIKE '%东鹏%' OR farm_name ILIKE '%孟赛%'
+             ORDER BY farm_code;
+            SELECT farm_code, count(*) AS houses,
+                   array_agg(house_code ORDER BY house_code) AS house_codes
+              FROM brd_houses
+             WHERE status = 'ACTIVE'
+             GROUP BY farm_code ORDER BY farm_code;
+            COMMIT;
+            SQL
+
+            user_row="$(db_readonly -Atc "SELECT u.user_id::text || '|' || coalesce(u.store_code,'') || '|' || coalesce(u.perms_version,1)::text || '|' || coalesce(string_agg(r.role_code, ',' ORDER BY r.role_code) FILTER (WHERE coalesce(ur.is_visible,true)), '') FROM sys_user u LEFT JOIN sys_user_role ur ON ur.user_id=u.user_id LEFT JOIN sys_role r ON r.role_id=ur.role_id WHERE u.username='linhong' AND u.status=1 GROUP BY u.user_id,u.store_code,u.perms_version" | tr -d '\r\n')"
+            [ -n "$user_row" ] || { echo 'ACTIVE_LINHONG_NOT_FOUND' >&2; exit 3; }
+            IFS='|' read -r user_id store_code perms_version role_csv <<EOF
+            $user_row
+            EOF
+            token="$(docker compose exec -T \
+              -e AUDIT_USER_ID="$user_id" \
+              -e AUDIT_STORE_CODE="$store_code" \
+              -e AUDIT_PERMS_VERSION="$perms_version" \
+              -e AUDIT_ROLE_CSV="$role_csv" \
+              api node - <<'NODE'
+            const jwt = require('jsonwebtoken');
+            const roles = String(process.env.AUDIT_ROLE_CSV || '').split(',').filter(Boolean);
+            const payload = {
+              userId: Number(process.env.AUDIT_USER_ID),
+              sub: Number(process.env.AUDIT_USER_ID),
+              username: 'linhong',
+              role: roles[0] || 'ROLE_NONE',
+              roles,
+              storeCode: process.env.AUDIT_STORE_CODE || '',
+              store_code: process.env.AUDIT_STORE_CODE || '',
+              permissions: ['MENU_FARM_DATA:V', 'MENU_BREEDING:V'],
+              perms_version: Number(process.env.AUDIT_PERMS_VERSION || 1),
+              locale: 'zh-CN',
+            };
+            process.stdout.write(jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '10m' }));
+            NODE
+            )"
+
+            probe() {
+              label="$1"
+              url="$2"
+              response="$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$url")"
+              LABEL="$label" RESPONSE="$response" node - <<'NODE'
+            const payload = JSON.parse(process.env.RESPONSE || '{}');
+            const rows = Array.isArray(payload) ? payload : payload.data;
+            if (!Array.isArray(rows)) throw new Error(`${process.env.LABEL} response is not an array`);
+            const byFarm = {};
+            for (const row of rows) {
+              const key = row.farm_code || row.farmCode || '<NULL>';
+              byFarm[key] = (byFarm[key] || 0) + 1;
+            }
+            console.log(`${process.env.LABEL}_COUNT=${rows.length}`);
+            console.log(`${process.env.LABEL}_BY_FARM=${JSON.stringify(byFarm)}`);
+            console.log(`${process.env.LABEL}_ROWS=${JSON.stringify(rows)}`);
+            NODE
+            }
+            probe LINHONG_EGGLOG_FLOCK 'https://erp.eggslao.com/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100'
+            probe LINHONG_FARM_FEED_HOUSE 'https://erp.eggslao.com/api/farm/feed/houses'
