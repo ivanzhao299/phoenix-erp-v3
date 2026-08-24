@@ -68,6 +68,8 @@ jobs:
                        AND (COALESCE(dirty_eggs, 0) > 0 OR COALESCE(broken_eggs, 0) > 0)
                    ) AS candidate_n
               FROM brd_daily_logs;
+            SELECT 1000 + COUNT(*) FILTER (WHERE eggs_by_grade IS NOT NULL) AS already_filled_audit_token
+              FROM brd_daily_logs;
 
             SELECT 'CANDIDATE_ROWS' AS section;
             SELECT id, log_date, house_code, shift, eggs_produced, bad_eggs, dirty_eggs, broken_eggs
@@ -87,16 +89,16 @@ jobs:
 
             DO $assert$
             DECLARE
-              grade_count integer;
+              active_grade_count integer;
               broken_count integer;
             BEGIN
-              SELECT count(*) INTO grade_count FROM product_grades;
+              SELECT count(*) INTO active_grade_count FROM product_grades WHERE status = 'ACTIVE';
               SELECT count(*) INTO broken_count
                 FROM product_grades
                WHERE grade_code = 'BROKEN' AND status = 'ACTIVE'
                  AND grade_name IN ('破蛋', '破损蛋');
-              IF grade_count <> 9 OR broken_count <> 1 THEN
-                RAISE EXCEPTION 'Preflight failed: grade_count=%, valid_active_broken_count=%', grade_count, broken_count;
+              IF active_grade_count <> 9 OR broken_count <> 1 THEN
+                RAISE EXCEPTION 'Preflight failed: active_grade_count=%, valid_active_broken_count=%', active_grade_count, broken_count;
               END IF;
             END
             $assert$;
