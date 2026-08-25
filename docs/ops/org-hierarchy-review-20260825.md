@@ -246,6 +246,16 @@ ROLLBACK;
 
 功能分支 `codex/org-site-farm-projection-p1` 提交 `4df00601` 后 fast-forward 合入 main；审计口径与 runner 可移植性修复为 `c45d07a5`、`516d4193`。下一阶段先处理 2 个未映射 SITE 与 1 个未映射 farm 的业务归一裁定，再逐表移除历史单据 ownership fallback；在数据清理、等价复核与单独授权前，不新增约束、不回填或删除旧列。
 
+### 11.7 部署与生产复核
+
+- 显式 full 部署 run `32823653487` 成功，生产 checkout 与目标均为 `44ceca9bdc9a9fc90d3185a7488941fe1df23543`。
+- API 镜像 digest：`sha256:a15945f5368ee376e15b444292990d49aa9f9ff17a317a8a183e1f7f921da320`；Web 镜像 digest：`sha256:c0c43d12560cd50adf7bb4a1a1672659d75c14c80f073eb1913448146b689a3b`；两者构建 revision 均为部署 SHA。
+- 部署后只读矩阵 run `32824406419`：SITE/farm 分类、鸡舍漂移、仓库漂移与部署前完全一致，确认没有生产数据变更。
+- 部署后双账号鸡舍/鸡群 GET run `32824409522`：admin 鸡舍 `19→19`、egglog flock `10→10`；`linhong` 鸡舍 `9→9`、egglog flock `2→2`，且两群仍全部属于 `FARM-DP`。集合计数与逐行响应留痕均等价，无缩权或扩权。
+- 仓库权限实现及生产矩阵确认仍按 `warehouse.company_code`，17 个仓库中 7 个带 SITE 兼容投影且 0 公司漂移。本轮现有双账号 workflow 未输出 warehouse GET 身份集合，故不把“linhong/admin 仓库 API 集合逐项相等”伪记为 PASS；该缺口不影响本轮 farm/house SITE 投影发布，但须在下一次 production role-smoke 凭据补齐后补证。
+- `role-business-production` run `32824412721` 因 production environment 未配置 `ROLE_SMOKE_CREDENTIALS_JSON`，8 个角色 probe 全部 SKIP；workflow 外层成功不代表角色 smoke PASS，已按缺口记录。
+- 遵守零生产写入红线：未执行生产最小入库。测试/CI 的 production-inbound、breeding、WMS 回归均通过，但测试环境目前没有可调度的 staging deploy workflow，因此本轮没有伪造“staging 最小入库”留痕。
+
 ## 10. 验证记录
 
 | 检查 | 结果 |
