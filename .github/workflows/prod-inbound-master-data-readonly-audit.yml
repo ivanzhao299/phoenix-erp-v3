@@ -2,6 +2,11 @@ name: Production Inbound Master Data Readonly Audit
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm_minimal_write:
+        description: '留空=只读；执行最小实测须填 WRITE_GRADE1_X1'
+        required: false
+        default: ''
 
 jobs:
   audit:
@@ -9,6 +14,37 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        if: inputs.confirm_minimal_write == 'WRITE_GRADE1_X1'
+        with:
+          node-version: '20'
+      - name: Authorized minimal GRADE_1 x1 production inbound
+        if: inputs.confirm_minimal_write == 'WRITE_GRADE1_X1'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          response="$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+            -X POST https://erp.eggslao.com/api/v2/inventory/production-inbound \
+            --data '{"houseCode":"HOUSE_MS_02","siteCode":"SITE-MENGSAI-LAYER","warehouseCode":"LPH_MS_EGG_FARM","locationCode":"CS-KW-005","eggDate":"2026-08-25","items":[{"grade":"GRADE_1","qty":1}]}' )"
+          RESPONSE="$response" node - <<'NODE'
+          const body = JSON.parse(process.env.RESPONSE || '{}');
+          if (body.totalInbound !== 1 || body.companyCode !== 'COMP-LAO-AGRI'
+              || body.warehouseCode !== 'LPH_MS_EGG_FARM' || body.locationCode !== 'CS-KW-005'
+              || !Array.isArray(body.batches) || body.batches.length !== 1) {
+            throw new Error(`unexpected response: ${JSON.stringify(body)}`);
+          }
+          console.log(JSON.stringify(body));
+          NODE
       - name: Readonly production master-data audit
         uses: appleboy/ssh-action@v1
         env:
@@ -26,6 +62,9 @@ jobs:
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
+            echo "PRODUCTION_CHECKOUT=$(git rev-parse HEAD)"
+            docker inspect --format 'API_IMAGE_REVISION={{ index .Config.Labels "org.opencontainers.image.revision" }}' phoenix-v3-api
+            docker inspect --format 'WEB_IMAGE_REVISION={{ index .Config.Labels "org.opencontainers.image.revision" }}' phoenix-v3-web
             docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
               sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
             BEGIN TRANSACTION READ ONLY;
@@ -58,6 +97,11 @@ jobs:
             SELECT 'REFERENCE_BATCH' AS section, batch_no, company_code, warehouse_code, location_code,
                    product_code, sku_code, grade_code_std, qty, source_type, created_at
               FROM inv_batches WHERE batch_no='EGG-20260825-00001';
+            SELECT 'POST_GOVERNANCE_BATCH' AS section, batch_no, company_code, warehouse_code, location_code,
+                   product_code, sku_code, grade_code_std, spec_code, qty, source_no, created_at
+              FROM inv_batches
+             WHERE source_type='TEMP_PRODUCTION' AND source_no='TEMP-2026-08-25-HOUSE_MS_02'
+             ORDER BY created_at DESC LIMIT 1;
             SELECT 'GHOST_DETAIL' AS section, batch_no, egg_date, source_no, collection_batch_ref,
                    company_code, warehouse_code, location_code, product_code, sku_code, grade_code_std, spec_code, qty
               FROM inv_batches
