@@ -633,16 +633,16 @@ export class LookupController {
       }
       if (scope.companyCodes.length > 0) {
         params.push(scope.companyCodes);
-        scopeConds.push(`COALESCE(NULLIF(h.company_code, ''), NULLIF(f.company_code, '')) = ANY($${params.length})`);
+        scopeConds.push(`COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) = ANY($${params.length})`);
       }
       conds.push(`(${scopeConds.join(' OR ')})`);
     }
     const rows = await this.em.query(
       `SELECT h.house_code AS "houseCode", h.house_name AS "houseName",
               h.farm_code AS "farmCode",
-              COALESCE(NULLIF(h.company_code, ''), NULLIF(f.company_code, '')) AS "companyCode",
+              COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) AS "companyCode",
               COALESCE(NULLIF(h.site_code, ''), NULLIF(f.mapped_site_code, '')) AS "siteCode",
-              (COALESCE(NULLIF(h.company_code, ''), NULLIF(f.company_code, '')) IS NOT NULL) AS "ownershipResolved",
+              (COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) IS NOT NULL) AS "ownershipResolved",
               h.house_type AS "houseType",
               h.capacity, h.current_birds AS "currentBirds", h.status
          FROM brd_houses h

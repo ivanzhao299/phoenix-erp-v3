@@ -58,7 +58,7 @@ export class ProductionInboundService {
     } | undefined;
     if (dto.houseCode) {
       const rows = await this.ds.query(
-        `SELECT h.company_code AS house_company_code,
+        `SELECT NULLIF(to_jsonb(h)->>'company_code', '') AS house_company_code,
                 h.site_code AS house_site_code,
                 h.farm_code,
                 f.company_code AS farm_company_code,
@@ -82,12 +82,12 @@ export class ProductionInboundService {
       || house?.farm_site_code?.trim();
     if (!companyCode && siteCode) {
       const rows = await this.ds.query(
-        `SELECT DISTINCT COALESCE(NULLIF(h.company_code, ''), NULLIF(f.company_code, '')) AS company_code
+        `SELECT DISTINCT COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) AS company_code
            FROM brd_houses h
            LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
           WHERE COALESCE(NULLIF(h.site_code, ''), NULLIF(f.mapped_site_code, '')) = $1
             AND h.status = 'ACTIVE'
-            AND COALESCE(NULLIF(h.company_code, ''), NULLIF(f.company_code, '')) IS NOT NULL`,
+            AND COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) IS NOT NULL`,
         [siteCode],
       );
       if (rows.length === 1) companyCode = rows[0].company_code;

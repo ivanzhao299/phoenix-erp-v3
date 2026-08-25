@@ -133,7 +133,7 @@ export class FarmFeedService {
     if (siteCodes?.length) { params.push(siteCodes); ors.push(`COALESCE(NULLIF(brd_houses.site_code, ''), NULLIF(f.mapped_site_code, '')) = ANY($${params.length})`); }
     if (companyCodes?.length) {
       params.push(companyCodes);
-      ors.push(`COALESCE(NULLIF(brd_houses.company_code, ''), NULLIF(f.company_code, '')) = ANY($${params.length})`);
+      ors.push(`COALESCE(NULLIF(to_jsonb(brd_houses)->>'company_code', ''), NULLIF(f.company_code, '')) = ANY($${params.length})`);
     }
     if (ors.length) where += ` AND (${ors.join(' OR ')})`;
     // G109：返回 house_code + 中文 house_name（手机端显示中文名、以 code 为数据键）。

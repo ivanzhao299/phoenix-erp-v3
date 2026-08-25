@@ -249,7 +249,7 @@ export class FarmService {
         await this.entityManager.query(
           `SELECT h.farm_code,
                   COALESCE(NULLIF(h.site_code, ''), NULLIF(f.mapped_site_code, '')) AS site_code,
-                  COALESCE(NULLIF(h.company_code, ''), NULLIF(f.company_code, '')) AS company_code
+                  COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) AS company_code
              FROM brd_houses h
              LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
             WHERE h.house_code=$1 AND h.status='ACTIVE' LIMIT 1`,
