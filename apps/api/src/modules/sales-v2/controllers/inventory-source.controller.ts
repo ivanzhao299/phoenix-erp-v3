@@ -64,7 +64,7 @@ export class InventorySourceController {
   @Post('production-inbound')
   @RequireMenu('MENU_PROD_INBOUND', 'C')
   productionInbound(@Body() body: {
-    companyCode?: string; siteCode?: string; houseCode?: string;
+    companyCode?: string; siteCode?: string; houseCode?: string; warehouseCode?: string; locationCode?: string;
     eggDate: string; items: Array<{ grade: string; qty: number; spec?: string }>;
     operator?: string; remark?: string;
   }) {

@@ -4,6 +4,14 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { EggInventoryService } from './egg-inventory.service';
 import { InventorySourceModeService } from './inventory-source-mode.service';
+import { DataScopeContext } from '../../org/services/data-scope.service';
+
+type MasterContext = {
+  companyCode: string;
+  siteCode?: string;
+  warehouseCode: string;
+  locationCode: string;
+};
 
 /**
  * ProductionInboundService — 库存来源模式治理 Phase P1A · 临时生产入库
@@ -32,17 +40,99 @@ export class ProductionInboundService {
     try { return (this.cls.get('user') as any)?.username ?? 'production'; } catch { return 'production'; }
   }
 
-  /** 解析生产公司码（与包装入库一致的兜底链） */
-  private async resolveCompanyCode(explicit?: string): Promise<string> {
-    if (explicit) return explicit;
-    if (process.env.PRODUCTION_COMPANY_CODE) return process.env.PRODUCTION_COMPANY_CODE;
-    try {
+  private assertScope(companyCode: string, warehouseCode?: string): void {
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    if (!scope || scope.isGlobal) return;
+    if (!scope.allowedCompanyCodes.includes(companyCode)) {
+      throw new ForbiddenException(`无权向公司 ${companyCode} 入库`);
+    }
+    if (warehouseCode && scope.allowedWarehouseCodes.length > 0 && !scope.allowedWarehouseCodes.includes(warehouseCode)) {
+      throw new ForbiddenException(`无权向仓库 ${warehouseCode} 入库`);
+    }
+  }
+
+  private async resolveCompanyAndSite(dto: { companyCode?: string; siteCode?: string; houseCode?: string }) {
+    let house: { company_code?: string; site_code?: string } | undefined;
+    if (dto.houseCode) {
       const rows = await this.ds.query(
-        `SELECT company_code FROM sal_customers WHERE company_code IS NOT NULL GROUP BY company_code`,
+        `SELECT COALESCE(h.company_code, f.company_code) AS company_code,
+                COALESCE(h.site_code, f.site_code) AS site_code
+           FROM brd_houses h
+           LEFT JOIN brd_farms f ON f.farm_code = h.farm_code
+          WHERE h.house_code = $1 AND h.status = 'ACTIVE'
+          LIMIT 1`,
+        [dto.houseCode],
       );
-      if (rows.length === 1 && rows[0].company_code) return rows[0].company_code;
-    } catch { /* 兜底 */ }
-    return 'ALL';
+      if (!rows.length) throw new BadRequestException(`鸡舍 ${dto.houseCode} 不存在或已停用`);
+      house = rows[0];
+    }
+
+    let companyCode = dto.companyCode?.trim() || house?.company_code;
+    const siteCode = dto.siteCode?.trim() || house?.site_code;
+    if (!companyCode && siteCode) {
+      const rows = await this.ds.query(
+        `SELECT DISTINCT company_code FROM brd_farms
+          WHERE site_code = $1 AND status = 'ACTIVE' AND company_code IS NOT NULL`,
+        [siteCode],
+      );
+      if (rows.length === 1) companyCode = rows[0].company_code;
+      else if (rows.length > 1) throw new BadRequestException(`场站 ${siteCode} 关联多个公司，请显式选择公司`);
+    }
+    if (!companyCode) {
+      throw new BadRequestException('无法解析真实公司：请选择 ACTIVE 鸡舍，或显式提供公司/场站');
+    }
+    const activeCompany = await this.ds.query(
+      `SELECT 1 FROM sys_organizations
+        WHERE org_type = 'COMPANY' AND status = 'ACTIVE'
+          AND COALESCE(company_code, org_code) = $1 LIMIT 1`,
+      [companyCode],
+    );
+    if (!activeCompany.length) throw new BadRequestException(`公司 ${companyCode} 不存在或已停用`);
+    this.assertScope(companyCode);
+    return { companyCode, siteCode };
+  }
+
+  private async resolveWarehouse(companyCode: string, siteCode?: string, explicit?: string): Promise<string> {
+    const params: unknown[] = [companyCode];
+    let sql = `SELECT warehouse_code FROM wms_warehouses
+      WHERE company_code = $1 AND status = 'ACTIVE'`;
+    if (explicit) { params.push(explicit); sql += ` AND warehouse_code = $2`; }
+    else if (siteCode) { params.push(siteCode); sql += ` AND (site_code = $2 OR site_code IS NULL)`; }
+    sql += ` ORDER BY warehouse_code`;
+    const rows = await this.ds.query(sql, params);
+    if (explicit && rows.length === 0) throw new BadRequestException(`仓库 ${explicit} 不属于公司 ${companyCode} 或未启用`);
+    if (!explicit && rows.length === 0) throw new BadRequestException(`公司 ${companyCode} 没有可用的 ACTIVE 仓库，请先维护仓库主数据`);
+    if (!explicit && rows.length > 1) {
+      throw new BadRequestException(`公司 ${companyCode} 存在多个 ACTIVE 仓库（${rows.map((r: any) => r.warehouse_code).join('、')}），请选择入库仓库`);
+    }
+    const warehouseCode = rows[0].warehouse_code;
+    this.assertScope(companyCode, warehouseCode);
+    return warehouseCode;
+  }
+
+  private async resolveLocation(warehouseCode: string, explicit?: string): Promise<string> {
+    const rows = await this.ds.query(
+      `SELECT location_code FROM wms_locations
+        WHERE warehouse_code = $1 AND status = 'ACTIVE'
+          ${explicit ? 'AND location_code = $2' : ''}
+        ORDER BY location_code`,
+      explicit ? [warehouseCode, explicit] : [warehouseCode],
+    );
+    if (explicit && rows.length === 0) throw new BadRequestException(`库位 ${explicit} 不属于仓库 ${warehouseCode} 或未启用`);
+    if (!explicit && rows.length === 0) throw new BadRequestException(`仓库 ${warehouseCode} 没有 ACTIVE 库位，请先维护入库库位`);
+    if (!explicit && rows.length > 1) {
+      throw new BadRequestException(`仓库 ${warehouseCode} 存在多个 ACTIVE 库位，请选择入库库位`);
+    }
+    return rows[0].location_code;
+  }
+
+  private async resolveMasterContext(dto: {
+    companyCode?: string; siteCode?: string; houseCode?: string; warehouseCode?: string; locationCode?: string;
+  }): Promise<MasterContext> {
+    const { companyCode, siteCode } = await this.resolveCompanyAndSite(dto);
+    const warehouseCode = await this.resolveWarehouse(companyCode, siteCode, dto.warehouseCode?.trim());
+    const locationCode = await this.resolveLocation(warehouseCode, dto.locationCode?.trim());
+    return { companyCode, siteCode, warehouseCode, locationCode };
   }
 
   /**
@@ -52,6 +142,8 @@ export class ProductionInboundService {
     companyCode?: string;
     siteCode?:    string;   // 场站（用于模式解析与追溯）
     houseCode?:   string;   // 鸡舍（追溯）
+    warehouseCode?: string;
+    locationCode?: string;
     eggDate:      string;   // YYYY-MM-DD
     items:        Array<{ grade: string; qty: number; spec?: string }>;
     operator?:    string;
@@ -59,6 +151,9 @@ export class ProductionInboundService {
   }): Promise<{
     mode: string;
     companyCode: string;
+    siteCode?: string;
+    warehouseCode: string;
+    locationCode: string;
     eggDate: string;
     batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }>;
     totalInbound: number;
@@ -66,35 +161,61 @@ export class ProductionInboundService {
     if (!dto.eggDate) throw new BadRequestException('eggDate 必填');
     if (!Array.isArray(dto.items) || dto.items.length === 0) throw new BadRequestException('items 不能为空');
 
-    const companyCode = await this.resolveCompanyCode(dto.companyCode);
+    const context = await this.resolveMasterContext(dto);
+    const { companyCode, siteCode, warehouseCode, locationCode } = context;
 
     // 互斥校验：仅 TEMP_PRODUCTION_INBOUND 模式允许
-    const mode = await this.modeSvc.resolveMode({ siteCode: dto.siteCode, companyCode });
+    const mode = await this.modeSvc.resolveMode({ siteCode, companyCode });
     if (mode !== 'TEMP_PRODUCTION_INBOUND') {
       throw new ForbiddenException(
         '已启用包装入库模式（PACKAGING_INBOUND），不允许直接生成库存。请通过「包装作业中心」完成入库。',
       );
     }
 
-    const collectionRef = dto.houseCode ? `HOUSE-${dto.houseCode}` : (dto.siteCode ? `SITE-${dto.siteCode}` : null);
+    const collectionRef = dto.houseCode ? `HOUSE-${dto.houseCode}` : (siteCode ? `SITE-${siteCode}` : null);
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
 
-    for (const item of dto.items) {
-      const qty = Math.max(0, Math.round(Number(item.qty) || 0));
-      if (qty === 0) continue;
-      // 默认 'L'（一号蛋）— 2026-06-06 product_grades 回归孟赛业务口径后主流销售档
-      const grade = String(item.grade || 'L').trim();
-      const productCode = `PRD-EGG-${grade}`;
+    const effectiveItems = dto.items
+      .map(item => ({ ...item, grade: String(item.grade || '').trim(), qty: Math.max(0, Math.round(Number(item.qty) || 0)) }))
+      .filter(item => item.qty > 0);
+    const grades = [...new Set(effectiveItems.map(item => item.grade))];
+    const skuRows: Array<{ sku_code: string; product_code: string; grade_code: string; spec_code: string }> = grades.length
+      ? await this.ds.query(
+        `SELECT sku_code, product_code, grade_code, spec_code FROM product_skus
+          WHERE status = 'ACTIVE' AND grade_code = ANY($1)
+          ORDER BY grade_code, spec_code, sku_code`,
+        [grades],
+      )
+      : [];
+    const resolved = new Map<string, (typeof skuRows)[number]>();
+    const missing: string[] = [];
+    const ambiguous: string[] = [];
+    for (const item of effectiveItems) {
+      const matches = skuRows.filter(row => row.grade_code === item.grade && (!item.spec || row.spec_code === item.spec));
+      if (matches.length === 0) missing.push(item.spec ? `${item.grade}/${item.spec}` : item.grade);
+      else if (matches.length > 1) ambiguous.push(item.spec ? `${item.grade}/${item.spec}` : item.grade);
+      else resolved.set(`${item.grade}\u0000${item.spec ?? ''}`, matches[0]);
+    }
+    if (missing.length) throw new BadRequestException(`以下蛋品档位缺少 ACTIVE SKU：${[...new Set(missing)].join('、')}。请先在主数据中心维护`);
+    if (ambiguous.length) throw new BadRequestException(`以下蛋品档位匹配多个 ACTIVE SKU：${[...new Set(ambiguous)].join('、')}。请选择规格后重试`);
+
+    for (const item of effectiveItems) {
+      const { qty, grade } = item;
+      const sku = resolved.get(`${grade}\u0000${item.spec ?? ''}`)!;
+      const productCode = sku.product_code;
       const batch = await this.eggInv.createProductionBatch({
         companyCode,
+        warehouseCode,
+        locationCode,
         eggDate:            dto.eggDate,
         qualityGrade:       grade,
-        gradeCodeStd:       grade,
-        specCode:           item.spec ?? undefined,
-        packagingSpec:      item.spec ?? undefined,
+        skuCode:            sku.sku_code,
+        gradeCodeStd:       sku.grade_code,
+        specCode:           sku.spec_code,
+        packagingSpec:      sku.spec_code,
         productCode,
         qty,
-        sourceNo:           `TEMP-${dto.eggDate}-${dto.houseCode ?? dto.siteCode ?? 'PROD'}`,
+        sourceNo:           `TEMP-${dto.eggDate}-${dto.houseCode ?? siteCode ?? companyCode}`,
         sourceType:         'TEMP_PRODUCTION',
         ledgerChangeType:   'TEMP_PRODUCTION_INBOUND',
         collectionBatchRef: collectionRef ?? undefined,
@@ -106,6 +227,6 @@ export class ProductionInboundService {
     this.logger.log(
       `[ProdInbound] 临时生产入库 company=${companyCode} date=${dto.eggDate} 批次=${batches.length} 入库=${totalInbound}`,
     );
-    return { mode, companyCode, eggDate: dto.eggDate, batches, totalInbound };
+    return { mode, companyCode, siteCode, warehouseCode, locationCode, eggDate: dto.eggDate, batches, totalInbound };
   }
 }

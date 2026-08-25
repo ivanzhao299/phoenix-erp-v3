@@ -1,0 +1,60 @@
+name: Production Inbound Master Data Readonly Audit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Readonly production master-data audit
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'REVISION' AS section, current_setting('transaction_read_only') AS read_only;
+            SELECT 'CUSTOMER_COMPANIES' AS section, company_code, count(*)::int AS customers
+              FROM sal_customers WHERE company_code IS NOT NULL GROUP BY company_code ORDER BY company_code;
+            SELECT 'FARM_COMPANY_SITE' AS section, farm_code, farm_name, site_code, company_code, status
+              FROM brd_farms ORDER BY company_code, site_code, farm_code;
+            SELECT 'WAREHOUSES' AS section, warehouse_code, warehouse_name, type, site_code, company_code, status
+              FROM wms_warehouses ORDER BY company_code, site_code, warehouse_code;
+            SELECT 'LOCATIONS' AS section, location_code, location_name, warehouse_code, zone_code, status
+              FROM wms_locations ORDER BY warehouse_code, location_code;
+            SELECT 'GRADES' AS section, grade_code, grade_name, is_saleable, is_storable, status
+              FROM product_grades ORDER BY sort_order, grade_code;
+            SELECT 'ACTIVE_SKUS' AS section, sku_code, product_code, grade_code, spec_code, sku_name, status
+              FROM product_skus WHERE status='ACTIVE' ORDER BY grade_code, spec_code, sku_code;
+            SELECT 'TEMP_BATCH_PROFILE' AS section, company_code, warehouse_code, location_code,
+                   product_code, sku_code, grade_code_std, count(*)::int AS batch_count, sum(qty) AS total_qty
+              FROM inv_batches WHERE source_type='TEMP_PRODUCTION'
+             GROUP BY company_code, warehouse_code, location_code, product_code, sku_code, grade_code_std
+             ORDER BY batch_count DESC, company_code, grade_code_std;
+            SELECT 'GHOST_COUNTS' AS section,
+                   count(*) FILTER (WHERE company_code='ALL')::int AS ghost_company,
+                   count(*) FILTER (WHERE warehouse_code='WMS-VTE-MAIN')::int AS ghost_warehouse,
+                   count(*) FILTER (WHERE location_code='INBOUND-DOCK')::int AS ghost_location,
+                   count(*) FILTER (WHERE product_code LIKE 'PRD-EGG-%')::int AS ghost_product
+              FROM inv_batches WHERE source_type='TEMP_PRODUCTION';
+            SELECT 'REFERENCE_BATCH' AS section, batch_no, company_code, warehouse_code, location_code,
+                   product_code, sku_code, grade_code_std, qty, source_type, created_at
+              FROM inv_batches WHERE batch_no='EGG-20260825-00001';
+            COMMIT;
+            SQL

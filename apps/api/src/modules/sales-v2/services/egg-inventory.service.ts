@@ -245,6 +245,9 @@ export class EggInventoryService {
     collectionBatchRef?: string;
   }): Promise<EggBatch> {
     if (params.qty <= 0) throw new BadRequestException('入库数量必须大于 0');
+    if (params.sourceType === 'TEMP_PRODUCTION' && (!params.warehouseCode || !params.locationCode)) {
+      throw new BadRequestException('日产蛋入库必须解析到真实 ACTIVE 仓库和库位，禁止使用默认占位码');
+    }
 
     // Phase H4 PATH A: 传入 sku_code → 校验并自动推导字段
     let productCode  = params.productCode;

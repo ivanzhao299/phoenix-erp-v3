@@ -27,6 +27,14 @@ describe('EggInventoryService getExpiringBatches DataScope', () => {
 });
 
 describe('EggInventoryService createProductionBatch SQL contract', () => {
+  it('rejects TEMP_PRODUCTION without a resolved warehouse and location', async () => {
+    const service = new EggInventoryService({ query: jest.fn() } as never, { get: jest.fn() } as never);
+    await expect(service.createProductionBatch({
+      companyCode: 'COMP-A', eggDate: '2026-08-25', productCode: 'PROD-A', qty: 1,
+      sourceType: 'TEMP_PRODUCTION',
+    })).rejects.toThrow('禁止使用默认占位码');
+  });
+
   it('keeps inv_batches target columns, value expressions and parameters aligned', async () => {
     const query = jest.fn()
       .mockResolvedValueOnce([{ grade_code: 'GRADE_1' }])
@@ -38,6 +46,8 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
 
     await service.createProductionBatch({
       companyCode: 'COMP-A',
+      warehouseCode: 'WH-A',
+      locationCode: 'LOC-A',
       eggDate: '2026-08-25',
       qualityGrade: 'GRADE_1',
       gradeCodeStd: 'GRADE_1',
