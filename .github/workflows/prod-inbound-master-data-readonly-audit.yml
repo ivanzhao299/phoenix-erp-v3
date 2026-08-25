@@ -32,12 +32,14 @@ jobs:
             SELECT 'REVISION' AS section, current_setting('transaction_read_only') AS read_only;
             SELECT 'CUSTOMER_COMPANIES' AS section, company_code, count(*)::int AS customers
               FROM sal_customers WHERE company_code IS NOT NULL GROUP BY company_code ORDER BY company_code;
-            SELECT 'FARM_COMPANY_SITE' AS section, farm_code, farm_name, site_code, company_code, status
-              FROM brd_farms ORDER BY company_code, site_code, farm_code;
-            SELECT 'WAREHOUSES' AS section, warehouse_code, warehouse_name, type, site_code, company_code, status
-              FROM wms_warehouses ORDER BY company_code, site_code, warehouse_code;
-            SELECT 'LOCATIONS' AS section, location_code, location_name, warehouse_code, zone_code, status
-              FROM wms_locations ORDER BY warehouse_code, location_code;
+            SELECT 'FARM_COMPANY_SITE' AS section, to_jsonb(f) AS record
+              FROM brd_farms f ORDER BY f.farm_code;
+            SELECT 'HOUSES_OWNERSHIP' AS section, to_jsonb(h) AS record
+              FROM brd_houses h ORDER BY h.house_code;
+            SELECT 'WAREHOUSES' AS section, to_jsonb(w) AS record
+              FROM wms_warehouses w ORDER BY w.warehouse_code;
+            SELECT 'LOCATIONS' AS section, to_jsonb(l) AS record
+              FROM wms_locations l ORDER BY l.warehouse_code, l.location_code;
             SELECT 'GRADES' AS section, grade_code, grade_name, is_saleable, is_storable, status
               FROM product_grades ORDER BY sort_order, grade_code;
             SELECT 'ACTIVE_SKUS' AS section, sku_code, product_code, grade_code, spec_code, sku_name, status
