@@ -5,6 +5,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ClsService } from 'nestjs-cls';
 import { ProductMasterService } from '../services/product-master.service';
 import { DataScopeService } from '../../org/services/data-scope.service';
+import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { MasterDataRuntimeService } from '../../master-data/master-data-runtime.service';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 
@@ -620,7 +621,7 @@ export class LookupController {
     const params: any[] = [];
     const conds = [`h.status='ACTIVE'`];
     if (farmCode) { params.push(farmCode); conds.push(`h.farm_code=$${params.length}`); }
-    if (siteCode) { params.push(siteCode); conds.push(`COALESCE(NULLIF(h.site_code, ''), NULLIF(to_jsonb(f)->>'mapped_site_code', ''))=$${params.length}`); }
+    if (siteCode) { params.push(siteCode); conds.push(`${OrgOwnershipService.FARM_SITE_SQL}=$${params.length}`); }
     if (!scope.isGlobal) {
       const scopeConds: string[] = [];
       if (scope.farmCodes.length > 0) {
@@ -629,24 +630,24 @@ export class LookupController {
       }
       if (scope.allowedSiteCodes.length > 0) {
         params.push(scope.allowedSiteCodes);
-        scopeConds.push(`COALESCE(NULLIF(h.site_code, ''), NULLIF(to_jsonb(f)->>'mapped_site_code', '')) = ANY($${params.length})`);
+        scopeConds.push(`${OrgOwnershipService.FARM_SITE_SQL} = ANY($${params.length})`);
       }
       if (scope.companyCodes.length > 0) {
         params.push(scope.companyCodes);
-        scopeConds.push(`COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) = ANY($${params.length})`);
+        scopeConds.push(`NULLIF(f.company_code, '') = ANY($${params.length})`);
       }
       conds.push(`(${scopeConds.join(' OR ')})`);
     }
     const rows = await this.em.query(
       `SELECT h.house_code AS "houseCode", h.house_name AS "houseName",
               h.farm_code AS "farmCode",
-              COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) AS "companyCode",
-              COALESCE(NULLIF(h.site_code, ''), NULLIF(to_jsonb(f)->>'mapped_site_code', '')) AS "siteCode",
-              (COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) IS NOT NULL) AS "ownershipResolved",
+              NULLIF(f.company_code, '') AS "companyCode",
+              ${OrgOwnershipService.FARM_SITE_SQL} AS "siteCode",
+              (NULLIF(f.company_code, '') IS NOT NULL) AS "ownershipResolved",
               h.house_type AS "houseType",
               h.capacity, h.current_birds AS "currentBirds", h.status
          FROM brd_houses h
-         LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
+         ${OrgOwnershipService.ACTIVE_FARM_JOIN}
          WHERE ${conds.join(' AND ')}
          ORDER BY h.house_code`,
       params,

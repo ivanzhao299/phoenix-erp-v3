@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { OrgOwnershipService } from '../org/services/org-ownership.service';
 
 /**
  * FarmService — 养殖中心业务服务
@@ -159,6 +160,7 @@ export class FarmService {
   constructor(
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
+    private readonly ownership: OrgOwnershipService,
   ) {}
 
   /** 把任意 body 过滤为只剩白名单列；用于动态 SQL 拼接前的安全防线 */
@@ -245,22 +247,10 @@ export class FarmService {
     //   再用 scope.farmCode / scope.siteCode 比对真实归属，避免把 SITE-*
     //   误当 LPH_* 比较导致同农场用户被拒。
     if (!scope.isGlobal && body.house_code) {
-      const houseRow: Array<{ farm_code: string | null; site_code: string | null; company_code: string | null }> =
-        await this.entityManager.query(
-          `SELECT h.farm_code,
-                  COALESCE(NULLIF(h.site_code, ''), NULLIF(to_jsonb(f)->>'mapped_site_code', '')) AS site_code,
-                  COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) AS company_code
-             FROM brd_houses h
-             LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
-            WHERE h.house_code=$1 AND h.status='ACTIVE' LIMIT 1`,
-          [body.house_code],
-        );
-      if (houseRow.length === 0) {
-        throw new BadRequestException(`鸡舍不存在：${body.house_code}`);
-      }
-      const realFarm = houseRow[0].farm_code;
-      const realSite = houseRow[0].site_code;
-      const realCompany = houseRow[0].company_code;
+      const house = await this.ownership.resolveHouse(body.house_code);
+      const realFarm = house.farmCode;
+      const realSite = house.siteCode;
+      const realCompany = house.companyCode;
       const allowedFarms = (scope.farmCodes?.length ? scope.farmCodes : (scope.farmCode ? [scope.farmCode] : [])).filter(Boolean);
       const allowedSites = (scope.siteCodes?.length ? scope.siteCodes : (scope.siteCode ? [scope.siteCode] : [])).filter(Boolean);
       if (!scope.isGlobal && allowedFarms.length && realFarm && !allowedFarms.includes(realFarm)) {

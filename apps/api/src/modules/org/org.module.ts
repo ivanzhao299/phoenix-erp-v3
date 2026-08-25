@@ -15,6 +15,7 @@ import { SysUserFarmScopeEntity } from './entities/sys-user-farm-scope.entity'; 
 import { SysDataScopeEntity } from './entities/sys-data-scope.entity';
 
 import { DataScopeService } from './services/data-scope.service';
+import { OrgOwnershipService } from './services/org-ownership.service';
 import { OrgService } from './services/org.service';
 import { DataScopeHelper } from './helpers/data-scope.helper';
 import { DataScopeGuard } from './guards/data-scope.guard';
@@ -34,7 +35,7 @@ import { OrganizationController } from './organization.controller';
     ]),
   ],
   controllers: [OrgController, OrganizationController],
-  providers: [OrgService, DataScopeService, DataScopeHelper, DataScopeGuard],
-  exports: [OrgService, DataScopeService, DataScopeHelper, DataScopeGuard],
+  providers: [OrgService, DataScopeService, OrgOwnershipService, DataScopeHelper, DataScopeGuard],
+  exports: [OrgService, DataScopeService, OrgOwnershipService, DataScopeHelper, DataScopeGuard],
 })
 export class OrgModule {}

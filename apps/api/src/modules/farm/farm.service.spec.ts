@@ -52,7 +52,18 @@ describe('FarmService', () => {
     };
 
     return {
-      svc: new FarmService(entityManager as never),
+      svc: new FarmService(entityManager as never, {
+        resolveHouse: jest.fn(async (houseCode: string) => {
+          const rows = await entityManager.query('', [houseCode]);
+          if (!rows.length) throw new Error(`鸡舍不存在：${houseCode}`);
+          return {
+            houseCode,
+            farmCode: rows[0].farm_code,
+            siteCode: rows[0].site_code,
+            companyCode: rows[0].company_code,
+          };
+        }),
+      } as never),
       entityManager,
       manager,
     };

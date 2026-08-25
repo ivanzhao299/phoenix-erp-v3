@@ -5,6 +5,7 @@ import { ClsService } from 'nestjs-cls';
 import { EggInventoryService } from './egg-inventory.service';
 import { InventorySourceModeService } from './inventory-source-mode.service';
 import { DataScopeContext } from '../../org/services/data-scope.service';
+import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 
 type MasterContext = {
   companyCode: string;
@@ -34,6 +35,7 @@ export class ProductionInboundService {
     private readonly cls: ClsService,
     private readonly eggInv: EggInventoryService,
     private readonly modeSvc: InventorySourceModeService,
+    private readonly ownership: OrgOwnershipService,
   ) {}
 
   private get operator(): string {
@@ -52,42 +54,24 @@ export class ProductionInboundService {
   }
 
   private async resolveCompanyAndSite(dto: { companyCode?: string; siteCode?: string; houseCode?: string }) {
-    let house: {
-      house_company_code?: string; house_site_code?: string; farm_code?: string;
-      farm_company_code?: string; farm_site_code?: string;
-    } | undefined;
+    let house: { farmCode: string; companyCode: string; siteCode?: string } | undefined;
     if (dto.houseCode) {
-      const rows = await this.ds.query(
-        `SELECT NULLIF(to_jsonb(h)->>'company_code', '') AS house_company_code,
-                h.site_code AS house_site_code,
-                h.farm_code,
-                f.company_code AS farm_company_code,
-                NULLIF(to_jsonb(f)->>'mapped_site_code', '') AS farm_site_code
-           FROM brd_houses h
-           LEFT JOIN brd_farms f
-             ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
-          WHERE h.house_code = $1 AND h.status = 'ACTIVE'
-          LIMIT 1`,
-        [dto.houseCode],
-      );
-      if (!rows.length) throw new BadRequestException(`鸡舍 ${dto.houseCode} 不存在或已停用`);
-      house = rows[0];
+      house = await this.ownership.resolveHouse(dto.houseCode);
     }
 
-    let companyCode = dto.companyCode?.trim()
-      || house?.house_company_code?.trim()
-      || house?.farm_company_code?.trim();
-    const siteCode = dto.siteCode?.trim()
-      || house?.house_site_code?.trim()
-      || house?.farm_site_code?.trim();
+    // 选择鸡舍后，以 house→farm 的权威归属覆盖请求值，禁止前端把鸡舍绑到另一公司/SITE。
+    let companyCode = house?.companyCode?.trim()
+      || dto.companyCode?.trim();
+    const siteCode = house?.siteCode?.trim()
+      || dto.siteCode?.trim();
     if (!companyCode && siteCode) {
       const rows = await this.ds.query(
-        `SELECT DISTINCT COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) AS company_code
+        `SELECT DISTINCT NULLIF(f.company_code, '') AS company_code
            FROM brd_houses h
-           LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
-          WHERE COALESCE(NULLIF(h.site_code, ''), NULLIF(to_jsonb(f)->>'mapped_site_code', '')) = $1
+           ${OrgOwnershipService.ACTIVE_FARM_JOIN}
+          WHERE ${OrgOwnershipService.FARM_SITE_SQL} = $1
             AND h.status = 'ACTIVE'
-            AND COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) IS NOT NULL`,
+            AND NULLIF(f.company_code, '') IS NOT NULL`,
         [siteCode],
       );
       if (rows.length === 1) companyCode = rows[0].company_code;
@@ -95,8 +79,8 @@ export class ProductionInboundService {
     }
     if (!companyCode) {
       if (dto.houseCode) {
-        const farmHint = house?.farm_code
-          ? `；关联农场 ${house.farm_code} 也未提供 ACTIVE 公司归属`
+        const farmHint = house?.farmCode
+          ? `；关联农场 ${house.farmCode} 也未提供 ACTIVE 公司归属`
           : '；该鸡舍未关联 ACTIVE 农场';
         throw new BadRequestException(
           `鸡舍 ${dto.houseCode} 缺少公司归属${farmHint}。请到「主数据中心 → 鸡舍」补齐农场/公司归属后重试`,
@@ -129,6 +113,10 @@ export class ProductionInboundService {
       throw new BadRequestException(`公司 ${companyCode} 存在多个 ACTIVE 仓库（${rows.map((r: any) => r.warehouse_code).join('、')}），请选择入库仓库`);
     }
     const warehouseCode = rows[0].warehouse_code;
+    const warehouse = await this.ownership.resolveWarehouse(warehouseCode);
+    if (warehouse.companyCode !== companyCode) {
+      throw new BadRequestException(`仓库 ${warehouseCode} 不属于公司 ${companyCode}`);
+    }
     this.assertScope(companyCode, warehouseCode);
     return warehouseCode;
   }

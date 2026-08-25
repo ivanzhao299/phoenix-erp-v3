@@ -4,12 +4,31 @@ import { ProductionInboundService } from './production-inbound.service';
 describe('ProductionInboundService master-data resolution', () => {
   const makeService = (query: jest.Mock, createProductionBatch = jest.fn(), dataScope?: any) => {
     const modeSvc = { resolveMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND') };
+    let resolvedCompany = 'COMP-A';
     return {
       service: new ProductionInboundService(
         { query } as never,
         { get: jest.fn((key: string) => key === 'dataScope' ? dataScope : undefined) } as never,
         { createProductionBatch } as never,
         modeSvc as never,
+        {
+          resolveHouse: jest.fn(async (houseCode: string) => {
+            const rows = await query('', [houseCode]);
+            if (!rows.length) throw new BadRequestException(`鸡舍 ${houseCode} 不存在或已停用`);
+            const row = rows[0];
+            resolvedCompany = row.farm_company_code ?? row.company_code;
+            return {
+              houseCode,
+              farmCode: row.farm_code,
+              companyCode: row.farm_company_code ?? row.company_code,
+              siteCode: row.farm_site_code ?? row.site_code,
+            };
+          }),
+          resolveWarehouse: jest.fn(async (warehouseCode: string) => ({
+            warehouseCode,
+            companyCode: resolvedCompany,
+          })),
+        } as never,
       ),
       createProductionBatch,
     };
@@ -36,7 +55,7 @@ describe('ProductionInboundService master-data resolution', () => {
     }));
   });
 
-  it('keeps explicit company/site ahead of house and farm ownership', async () => {
+  it('uses house -> farm authority ahead of spoofed explicit company/site', async () => {
     const query = jest.fn()
       .mockResolvedValueOnce([{ house_company_code: 'COMP-H', house_site_code: 'SITE-H', farm_code: 'FARM-A', farm_company_code: 'COMP-F', farm_site_code: 'SITE-F' }])
       .mockResolvedValueOnce([{ '?column?': 1 }])
@@ -47,7 +66,7 @@ describe('ProductionInboundService master-data resolution', () => {
     await expect(service.recordProductionInbound({
       companyCode: 'COMP-X', siteCode: 'SITE-X', houseCode: 'HOUSE-A', warehouseCode: 'WH-X', locationCode: 'LOC-X',
       eggDate: '2026-08-25', items: [{ grade: 'GRADE_1', qty: 1 }],
-    })).resolves.toMatchObject({ companyCode: 'COMP-X', siteCode: 'SITE-X' });
+    })).resolves.toMatchObject({ companyCode: 'COMP-F', siteCode: 'SITE-F' });
   });
 
   it('returns actionable 400 for an orphan house with no ownership at either level', async () => {
@@ -75,7 +94,7 @@ describe('ProductionInboundService master-data resolution', () => {
 
   it('requires an explicit warehouse when a company has multiple ACTIVE warehouses', async () => {
     const query = jest.fn()
-      .mockResolvedValueOnce([{ house_company_code: 'COMP-A', house_site_code: 'SITE-A' }])
+      .mockResolvedValueOnce([{ farm_code: 'FARM-A', farm_company_code: 'COMP-A', farm_site_code: 'SITE-A' }])
       .mockResolvedValueOnce([{ '?column?': 1 }])
       .mockResolvedValueOnce([{ warehouse_code: 'WH-A' }, { warehouse_code: 'WH-B' }]);
     const { service } = makeService(query);
@@ -86,7 +105,7 @@ describe('ProductionInboundService master-data resolution', () => {
 
   it('reports all missing SKU grades before creating any batch', async () => {
     const query = jest.fn()
-      .mockResolvedValueOnce([{ house_company_code: 'COMP-A', house_site_code: 'SITE-A' }])
+      .mockResolvedValueOnce([{ farm_code: 'FARM-A', farm_company_code: 'COMP-A', farm_site_code: 'SITE-A' }])
       .mockResolvedValueOnce([{ '?column?': 1 }])
       .mockResolvedValueOnce([{ warehouse_code: 'WH-A' }])
       .mockResolvedValueOnce([{ location_code: 'LOC-A' }])
