@@ -307,3 +307,47 @@ ROLLBACK;
 - `wms_warehouses.site_code` 与 `brd_farms.store_code` 均未修改；POS `store_code` 域零触碰，列入后续独立治理。
 
 迁移门禁：全部 TS migration `down()` 检查通过；业务 DML 检查通过且本迁移无需 `@allow-data-dml`；nullable unique 与 constraint drift 均无新增。部署、迁移执行、revision、双账号集合和生产回归结果在阶段③ PR 合并后的显式 production run 补记，未执行前不记 PASS。
+
+## 13. 评审拦截与缺陷修复记录
+
+### 13.1 部署安全恢复
+
+对抗评审在 PR #83 合入后、生产仍停留 `44ceca9b` 的窗口内拦截。修复分支首先以独立提交 `a162cda6` 从 TypeORM 迁移链移除 `1787647200000-DropHouseOwnershipRedundantColumns.ts`；因此 main 合入本修复后，任何常规部署都不会执行这次 DROP。迁移意图和重落地前置条件仅留存在 `docs/pending-migrations/drop-brd-houses-ownership-columns.md`，不在可执行迁移目录。
+
+原 12.3 所述“可部署退役”结论至此撤回：三列仍存在于生产和当前 schema，处于“禁止业务读写、等待快照备份后重新设计迁移”的冻结状态。本轮没有生产写入、DDL、部署或 workflow_dispatch。
+
+### 13.2 评审编号闭环
+
+| 编号 | 修复提交 | 闭环内容 |
+|---|---|---|
+| P0-A3 | `b2298258` | Chanjet 三处 house ownership 读取改为 `house→ACTIVE farm`；公司取 `f.company_code`，SITE 取 `mapped_site_code`。日报自身 `dl.site/company` 是落库快照，继续优先保留；仅将历史空值的 `h.*` fallback 替换为 ACTIVE farm 派生。生产入库只读审计同步按 canonical farm 统计。generic CRUD 对三列查询参数（含 `__like`）在 SQL 生成前返回 400。 |
+| P1-A1 | `b2298258` | `GenericCrudService` 增加通用 `table→retired columns` 永久 denylist；查询、主键、create/update/remove 与 `ensureColumn()` 均复用同一断言。service 直调负例证明不会执行 SQL 或以 TEXT 复活三列。 |
+| P1-D2① | `b2298258` | SITE 投影查询保留 SITE↔farm 关联；任一 SITE 对应多个 ACTIVE farm 时硬报错并列出冲突 farm，不再静默并集扩权。 |
+| P1-D2② | `b2298258` | `sys_user_farm_scopes` 显式授权经 `brd_farms.status='ACTIVE'` 批量过滤；停用或不存在 farm fail-closed。 |
+| P1-D2④ | `b2298258` | generic CRUD 将 JWT 当前 `perms_version` 透传 `DataScopeService.resolve()`，权限版本变化立即使用新缓存键，不再落入 120 秒 legacy key。 |
+| P1-A3 门禁 | `b2298258` | `check-house-ownership-writes.mjs` 升级为读写双向扫描，并锁定 controller 与 service denylist 契约；合法 `f.company_code` 派生不误报。 |
+| P1-B2 | `b2298258` | `/master/farms` 的 generic service create/update 强制：非空 `mapped_site_code` 必须指向 ACTIVE SITE，且 farm 公司与 SITE 父公司一致；无 SITE 统一落 `NULL`，作为显式 `UNMAPPED` 语义。组织页创建 SITE 仍只写 `sys_organizations`，不自动建 farm，保持单向投影。数据库唯一约束本轮不加，草案和治理前提登记在 pending migration 文档。 |
+| P1-C1 | `a162cda6` + 文档提交 | 危险迁移移除。重落地文件头必须声明：`down()` 只恢复结构、不保证数据等价；DROP 前必须创建并核对列快照备份表。 |
+| P1-C2 | `b2298258` | 新增 admin/场站/公司/仓库/无绑定五象限 × 鸡舍/鸡群/仓库三资源的 15 个集合内容断言；role smoke 缺整体或单角色凭据一律显式 FAIL，不再用 SKIP 形成外层绿色假象。 |
+| P1-A2 | 本节业务裁定 | 本轮不改变行为：场站绑定会上卷所属公司，并获得该公司全部 ACTIVE 仓库；这是现状而非最小权限语义。`wms_warehouses/zones/locations` 属于 generic CRUD `GLOBAL_TABLES`，不注入行级 warehouse filter；库存事实表 `inv_batches/inv_ledger/wms_inbound/wms_outbound/wms_stocktake/wms_loss/wms_transfer` 仍受 `allowedWarehouseCodes` 约束。最小权限路线见 13.3，需用户拍板后另行实现。 |
+| P1-B1 | `b2298258` + 本节 | VTE 非蛋鸡 SITE 无 ACTIVE farm 时，绑定用户养殖范围为空，禁止借用其他 farm；只读 workflow 新增 `WARNING_UNMAPPED_SITE` 明文告警，同时保留引用与未映射 farm 证据输出。 |
+
+### 13.3 P1-A2 业务裁定与待拍板项
+
+当前语义明确记录为：场站用户通过 SITE 的父 COMPANY 获得公司范围，随后展开该公司全部 ACTIVE 仓库；额外 `sys_user_warehouse_scopes` 继续做并集。这会让“单场仓管”看到同公司其他仓库。与此同时，`GLOBAL_TABLES` 中以下资源只受菜单 RBAC、不受 generic CRUD 行级范围过滤：`sys_dict`、`sys_menu`、`sys_role`、`sys_organizations`、`sys_approval_flows`、`sys_permissions`、`mst_currencies`、`product_grades`、`product_specs`、`product_packaging`、`wms_warehouses`、`wms_zones`、`wms_locations`、`mst_skus`、`mst_products`、`mst_customers`、`mst_suppliers`。
+
+最小权限化路线：① 明确场站角色是否只见显式仓库授权，或默认公司全量；② 若选择最小授权，将 SITE/COMPANY 推导与显式仓库授权改为交集，并为零显式授权定义 fail-closed；③ 将 warehouse/zone/location 从 `GLOBAL_TABLES` 拆出，按 warehouse ownership 对三层资源统一过滤；④ 用五象限真实 HTTP 集合基线复核后发布。待用户拍板的核心问题是：**场站用户应默认获得所属公司全部仓库，还是只获得显式绑定仓库？** 本轮遵照任务要求只记录、不改变现行行为。
+
+### 13.4 P1-B1 非蛋鸡 SITE 边界
+
+`SITE-VTE-BROILER` 与 `SITE-VTE-SLAUGHTER` 是非蛋鸡组织展示节点。未映射 ACTIVE farm 时，其绑定用户保留组织与菜单身份，但 `allowedFarmCodes=[]`，鸡舍、鸡群及蛋鸡日报均为空范围；不得自动创建 farm、映射到 `CS-0001` 或继承其他 SITE 的 farm。workflow 每次只读审计输出未映射 SITE、业务引用计数和未映射 farm 证据，并增加显式 WARNING 行；告警不写生产数据。
+
+### 13.5 验证证据
+
+- 专项 Jest：5 suites / 69 tests 全绿；包含 denylist、farm/SITE 校验、ACTIVE farm scope、SITE 一对多、权限版本和 15 个集合等价断言。
+- `node scripts/ci/check-house-ownership-writes.mjs`：PASS（业务源码无退役列 reader/writer）。
+- API `tsc --noEmit`：0 errors。
+- 全量 API Jest：65 suites / 572 tests 全绿；Web Vitest：79 files / 440 tests 全绿。
+- Web `tsc --noEmit`：0 errors；`git diff --check`：通过。
+- nullable unique：0 违规（1 条既有白名单）；constraint drift：0 new drift（1 条既有 allowlist）；62 条 TS migration `down()` 与 data-DML 门禁通过。
+- 远程 main CI 尚须在 PR 推送/合并后核验；未触发 production deploy 或任何 workflow_dispatch。
