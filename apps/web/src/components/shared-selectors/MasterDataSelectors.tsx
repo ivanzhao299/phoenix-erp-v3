@@ -431,9 +431,10 @@ export function HouseSelector(p: BaseProps & { farmCode?: string; siteCode?: str
       ]);
       return list.map(h => {
         const typeZh = h.houseType ? (typeMap[h.houseType] ?? '') : '';
+        const baseLabel = typeZh ? `${h.houseName ?? h.houseCode} · ${typeZh}` : (h.houseName ?? h.houseCode);
         return {
           value: h.houseCode,
-          label: typeZh ? `${h.houseName ?? h.houseCode} · ${typeZh}` : (h.houseName ?? h.houseCode),
+          label: h.ownershipResolved === false ? `${baseLabel}（未归属）` : baseLabel,
           raw: h,
         };
       });

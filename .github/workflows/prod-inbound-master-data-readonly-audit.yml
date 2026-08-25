@@ -75,6 +75,19 @@ jobs:
               FROM brd_farms f ORDER BY f.farm_code;
             SELECT 'HOUSES_OWNERSHIP' AS section, to_jsonb(h) AS record
               FROM brd_houses h ORDER BY h.house_code;
+            SELECT 'BRD_HOUSES_COLUMNS' AS section, ordinal_position, column_name, data_type, is_nullable
+              FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='brd_houses'
+             ORDER BY ordinal_position;
+            SELECT 'ACTIVE_HOUSE_OWNERSHIP_SUMMARY' AS section,
+                   CASE WHEN house_code LIKE 'HOUSE_CS_%' OR house_code LIKE 'H-DEBUG-%'
+                              OR house_code LIKE 'CS%' OR house_name LIKE '%测试%'
+                        THEN 'TEST_DEBUG' ELSE 'FORMAL' END AS house_class,
+                   count(*)::int AS active_houses,
+                   count(*) FILTER (WHERE NULLIF(company_code, '') IS NULL)::int AS missing_house_company,
+                   count(*) FILTER (WHERE NULLIF(site_code, '') IS NULL)::int AS missing_house_site,
+                   count(*) FILTER (WHERE NULLIF(company_code, '') IS NULL AND NULLIF(site_code, '') IS NULL)::int AS missing_both
+              FROM brd_houses WHERE status='ACTIVE' GROUP BY house_class ORDER BY house_class;
             SELECT 'WAREHOUSES' AS section, to_jsonb(w) AS record
               FROM wms_warehouses w ORDER BY w.warehouse_code;
             SELECT 'WMS_STATUS_VOCABULARY' AS section, 'wms_warehouses' AS table_name,

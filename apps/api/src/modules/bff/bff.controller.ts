@@ -4,6 +4,7 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // P1C 包装收口
+import { DataScopeService } from '../org/services/data-scope.service';
 import {
   normalizeUserRoleAssignments,
   UserRoleAssignmentValidationError,
@@ -1314,6 +1315,7 @@ export class PackagingTerminalBffController {
     @InjectEntityManager() private readonly em: EntityManager,
     // P1C 收口：真实车间流 成品交接 → 生成 Sales V2 可售库存（唯一库存入口）
     private readonly pkgInv: PackagingInventoryIntegrationService,
+    private readonly dataScopeService?: DataScopeService,
   ) {}
 
   private get today() { return new Date().toISOString().slice(0, 10); }
@@ -1321,6 +1323,11 @@ export class PackagingTerminalBffController {
   private safe = async <T,>(p: Promise<T>, fb: T): Promise<T> => {
     try { return await p; } catch { return fb; }
   };
+
+  private async assertActiveHouseScope(houseCode: string) {
+    if (!this.dataScopeService) throw new InternalServerErrorException('鸡舍归属校验服务不可用');
+    await this.dataScopeService.assertActiveHouseOwnership(houseCode);
+  }
 
   // ── Terminal 全局上下文 ────────────────────────────────────────────────────
   @Get('context')
@@ -1530,6 +1537,7 @@ export class PackagingTerminalBffController {
     if (submittedReceivedQty !== totalQty && submittedReceivedQty !== gradableQty) {
       throw new BadRequestException('采集数量与总采集数不一致');
     }
+    await this.assertActiveHouseScope(houseCode);
     const receivedQty = totalQty;
     const houseSlug = houseCode.replace(/\s+/g, '').toUpperCase().slice(0, 8);
     const autoCode = `SRC-${today.replace(/-/g, '')}-${houseSlug}-${Date.now().toString(36).slice(-4).toUpperCase()}`;

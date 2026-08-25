@@ -247,7 +247,12 @@ export class FarmService {
     if (!scope.isGlobal && body.house_code) {
       const houseRow: Array<{ farm_code: string | null; site_code: string | null; company_code: string | null }> =
         await this.entityManager.query(
-          `SELECT farm_code, site_code, company_code FROM brd_houses WHERE house_code=$1 LIMIT 1`,
+          `SELECT h.farm_code,
+                  COALESCE(NULLIF(h.site_code, ''), NULLIF(f.mapped_site_code, '')) AS site_code,
+                  COALESCE(NULLIF(h.company_code, ''), NULLIF(f.company_code, '')) AS company_code
+             FROM brd_houses h
+             LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
+            WHERE h.house_code=$1 AND h.status='ACTIVE' LIMIT 1`,
           [body.house_code],
         );
       if (houseRow.length === 0) {
@@ -258,15 +263,15 @@ export class FarmService {
       const realCompany = houseRow[0].company_code;
       const allowedFarms = (scope.farmCodes?.length ? scope.farmCodes : (scope.farmCode ? [scope.farmCode] : [])).filter(Boolean);
       const allowedSites = (scope.siteCodes?.length ? scope.siteCodes : (scope.siteCode ? [scope.siteCode] : [])).filter(Boolean);
-      if (allowedFarms.length && realFarm && !allowedFarms.includes(realFarm)) {
+      if (!scope.isGlobal && allowedFarms.length && realFarm && !allowedFarms.includes(realFarm)) {
         throw new BadRequestException(`无权写入其他农场的数据（鸡舍 ${body.house_code} 属于 ${realFarm}）`);
       }
-      if (allowedSites.length && realSite && !allowedSites.includes(realSite)) {
+      if (!scope.isGlobal && allowedSites.length && realSite && !allowedSites.includes(realSite)) {
         throw new BadRequestException(`无权写入其他场区的数据（鸡舍 ${body.house_code} 属于 ${realSite}）`);
       }
       // 公司维度强校验：鸡舍归属公司必须在用户数据域内（farm/site 同农场但跨公司时兜底拦截，堵住静默越权）
       const allowedCompanies = (scope.companyCodes ?? []).filter(Boolean);
-      if (allowedCompanies.length && realCompany && !allowedCompanies.includes(realCompany)) {
+      if (!scope.isGlobal && allowedCompanies.length && realCompany && !allowedCompanies.includes(realCompany)) {
         throw new BadRequestException(`无权写入其他公司的数据（鸡舍 ${body.house_code} 属于 ${realCompany}）`);
       }
       if (!realFarm && !realSite && !realCompany) {

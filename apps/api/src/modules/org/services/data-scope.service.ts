@@ -3,7 +3,7 @@
  * RBAC-2 组织范围 + 数据范围解析
  * 2026-05-25
  */
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -60,6 +60,27 @@ export class DataScopeService {
     private readonly orgRepo: Repository<SysOrganizationEntity>,
     private readonly cls: ClsService,
   ) {}
+
+  async assertActiveHouseOwnership(houseCode: string) {
+    const [house] = await this.orgRepo.manager.query(
+      `SELECT h.farm_code,
+              COALESCE(NULLIF(h.company_code, ''), NULLIF(f.company_code, '')) AS company_code,
+              COALESCE(NULLIF(h.site_code, ''), NULLIF(f.mapped_site_code, '')) AS site_code
+         FROM brd_houses h
+         LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
+        WHERE h.house_code = $1 AND h.status = 'ACTIVE' LIMIT 1`,
+      [houseCode],
+    );
+    if (!house) throw new BadRequestException(`鸡舍 ${houseCode} 不存在或已停用`);
+    if (!house.company_code) {
+      throw new BadRequestException(`鸡舍 ${houseCode} 缺少公司归属。请到「主数据中心 → 鸡舍」补齐农场/公司归属后重试`);
+    }
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    if (scope && !scope.isGlobal && !scope.allowedCompanyCodes.includes(house.company_code)) {
+      throw new BadRequestException(`无权接收鸡舍 ${houseCode} 的来源批次`);
+    }
+    return house as { farm_code?: string; company_code: string; site_code?: string };
+  }
 
   /**
    * 解析用户在指定菜单下的数据范围

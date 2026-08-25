@@ -42,7 +42,9 @@ export default function DailyInboundPage() {
   const [loadingMode, setLoadingMode] = useState(true);
   const [eggDate, setEggDate] = useState(today());
   const [houseCode, setHouseCode] = useState("");
+  const [companyCode, setCompanyCode] = useState("");
   const [siteCode, setSiteCode] = useState("");
+  const [ownershipError, setOwnershipError] = useState("");
   const [warehouseCode, setWarehouseCode] = useState("");
   const [locationCode, setLocationCode] = useState("");
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
@@ -131,6 +133,7 @@ export default function DailyInboundPage() {
       setError(t('breeding.inboundMasterRequired', '请选择鸡舍、入库仓库和入库库位'));
       return;
     }
+    if (ownershipError) { setError(ownershipError); return; }
     setSaving(true);
     try {
       const r = await request<{
@@ -148,6 +151,7 @@ export default function DailyInboundPage() {
         body: JSON.stringify({
           eggDate,
           houseCode,
+          companyCode: companyCode || undefined,
           siteCode: siteCode || undefined,
           warehouseCode,
           locationCode,
@@ -249,15 +253,28 @@ export default function DailyInboundPage() {
           }}>{t('breeding.houseRequired', '鸡舍（必选）')}</label>
               <HouseSelector value={houseCode} onChange={value => {
                 setHouseCode(value);
+                if (!value) { setCompanyCode(''); setSiteCode(''); setOwnershipError(''); }
                 setWarehouseCode('');
                 setLocationCode('');
-              }} onPick={opt => setSiteCode(opt?.raw?.siteCode ?? '')} />
+              }} onPick={opt => {
+                const company = opt?.raw?.companyCode ?? '';
+                const site = opt?.raw?.siteCode ?? '';
+                setCompanyCode(company);
+                setSiteCode(site);
+                setOwnershipError(company ? '' : `鸡舍 ${opt?.value ?? ''} 缺少公司归属。请到「主数据中心 → 鸡舍」补齐农场/公司归属后重试`);
+              }} />
             </div>
+            {houseCode && <div style={{ minWidth: 240, padding: '8px 12px', borderRadius: 7,
+              border: `1px solid ${ownershipError ? 'var(--status-danger)' : 'var(--status-success-bg-strong)'}`,
+              background: ownershipError ? 'var(--status-danger-bg-light)' : 'var(--status-success-bg-medium)',
+              color: ownershipError ? 'var(--status-danger)' : 'var(--status-success)', fontSize: 12 }}>
+              {ownershipError || `归属预览：公司 ${companyCode} · 场站 ${siteCode || '未配置'}`}
+            </div>}
             <div style={{ minWidth: 250 }}>
               <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
                 {t('breeding.inboundWarehouse', '入库仓库（ACTIVE）')}
               </label>
-              <WarehouseSelector value={warehouseCode} siteCode={siteCode || undefined} type="EGG_FARM" disabled={!houseCode}
+              <WarehouseSelector value={warehouseCode} companyCode={companyCode || undefined} siteCode={siteCode || undefined} type="EGG_FARM" disabled={!houseCode || !!ownershipError}
                 onChange={value => { setWarehouseCode(value); setLocationCode(''); }} />
             </div>
             <div style={{ minWidth: 250 }}>
