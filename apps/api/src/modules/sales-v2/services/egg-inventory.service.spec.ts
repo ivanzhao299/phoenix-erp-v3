@@ -31,16 +31,7 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
     const query = jest.fn()
       .mockResolvedValueOnce([{ grade_code: 'GRADE_1' }])
       .mockResolvedValueOnce([{ cnt: '0' }])
-      .mockImplementationOnce(async (sql: string, params: unknown[]) => {
-        const insert = sql.match(/INSERT INTO inv_batches\s*\(([^)]*)\)\s*VALUES\s*\(([\s\S]*?)\)\s*RETURNING/);
-        expect(insert).not.toBeNull();
-        const columns = insert![1].split(',').map(value => value.trim());
-        const values = insert![2].split(',').map(value => value.trim());
-        expect(values).toHaveLength(columns.length);
-        const placeholders = [...sql.matchAll(/\$(\d+)/g)].map(match => Number(match[1]));
-        expect(Math.max(...placeholders)).toBe(params.length);
-        return [{ batch_no: 'EGG-20260825-00001' }];
-      })
+      .mockResolvedValueOnce([{ batch_no: 'EGG-20260825-00001' }])
       .mockResolvedValueOnce([]);
     const cls = { get: jest.fn().mockReturnValue({ username: 'tester' }) };
     const service = new EggInventoryService({ query } as never, cls as never);
@@ -55,5 +46,14 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
       sourceType: 'TEMP_PRODUCTION',
       ledgerChangeType: 'TEMP_PRODUCTION_INBOUND',
     });
+
+    const [sql, params] = query.mock.calls[2] as [string, unknown[]];
+    const insert = sql.match(/INSERT INTO inv_batches\s*\(([^)]*)\)\s*VALUES\s*\(([\s\S]*?)\)\s*RETURNING/);
+    expect(insert).not.toBeNull();
+    const columns = insert![1].split(',').map(value => value.trim());
+    const values = insert![2].split(',').map(value => value.trim());
+    expect(values).toHaveLength(columns.length);
+    const placeholders = [...sql.matchAll(/\$(\d+)/g)].map(match => Number(match[1]));
+    expect(Math.max(...placeholders)).toBe(params.length);
   });
 });
