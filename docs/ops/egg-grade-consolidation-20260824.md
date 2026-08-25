@@ -178,3 +178,63 @@ WHERE id = 7 AND grade_code = 'BROKEN' AND grade_name = '破损蛋';
 - PR `#60/#62/#63/#64/#65/#66/#67` 记录了 workflow 安全门、生产实况断言、只读复核修正与执行报告。PR `#67` CI 全绿：Type-check & Regression、Typecheck/Build/Basic Tests、Vitest、regression、Runtime Smoke、Static Security And Freeze Gates 均通过。
 - 显式生产 Web 部署 run `32716049443` 成功：`mode=web`、`approve_production=true`；Type-check & Regression 通过，Web 镜像构建并推送，Deploy · web 成功且容器 Healthy。
 - 只读 revision 证据：部署 checkout、镜像 `org.opencontainers.image.revision`、镜像 tag 与 `TARGET_SHA` 均为 `59c462f6423eebf0bf175e4967abd48330ab981b`；生产仓库从 `8defe9e3` 快进到 `59c462f6`，Web 容器健康。
+
+### 6.6 JSONB 覆盖标量执行记录（2026-08-25）
+
+#### 授权与执行边界
+
+- 用户明确授权仅处理 6.4 节的 12 行（ids `45,46,48,53,54,55,56,59,62,63,64,66`），以 `eggs_by_grade` 为权威重算 `dirty_eggs/broken_eggs`；`eggs_produced` 与 `eggs_by_grade` 均不修改。
+- 生产 run `32793202240`（commit `67d3107d`）通过 `production` environment、`approve_production=true`、精确确认词 `RECONCILE_12_EGG_GRADE_SCALARS_FROM_JSONB` 和不可取消 concurrency group 执行，结论为 success。
+- 预检使用 `PGOPTIONS default_transaction_read_only=on` 与 `BEGIN TRANSACTION READ ONLY` 双重只读。写事务先按 ID `FOR UPDATE`，再断言锁定集合恰为 12 行、ID 完全一致、JSONB 全部非 NULL、12 行仍全部不一致；随后仅更新两列兼容标量并按既定 SQL 刷新 `updated_at`。任何断言失败均由 `ON_ERROR_STOP` 终止并回滚事务。
+
+#### 预检 12 行及目标值
+
+| id | log_date | house_code | shift | dirty 原值→目标 | broken 原值→目标 | eggs_produced | eggs_by_grade |
+|---:|---|---|---|---:|---:|---:|---|
+| 45 | 2026-07-27 | HOUSE_CS_02 | 早班 | 1→0 | 1→0 | 10 | `{"GRADE_1":10}` |
+| 46 | 2026-07-27 | HOUSE_CS_02 | 晚班 | 1→0 | 1→0 | 10 | `{"GRADE_1":9,"GRADE_2":1}` |
+| 48 | 2026-07-27 | H-DEBUG-A01 | 早班 | 1→0 | 1→0 | 20 | `{"GRADE_1":10,"GRADE_2":10}` |
+| 53 | 2026-07-27 | HOUSE_MS_06 | 晚班 | 1→0 | 1→0 | 10 | `{"GRADE_1":10}` |
+| 54 | 2026-07-27 | HOUSE_MS_06 | 早班 | 1→0 | 1→0 | 10 | `{"GRADE_1":10}` |
+| 55 | 2026-07-27 | HOUSE_MS_03 | 晚班 | 1→0 | 1→0 | 10 | `{"GRADE_1":10}` |
+| 56 | 2026-07-27 | HOUSE_MS_03 | 早班 | 1→0 | 1→0 | 10 | `{"GRADE_1":10}` |
+| 59 | 2026-08-19 | HOUSE_MS_01 | 早班 | 60→0 | 0→0 | 0 | `{"GRADE_2":180,"GRADE_3":1080,"GRADE_4":8280}` |
+| 62 | 2026-08-20 | HOUSE_CS_03 | 早班 | 1→0 | 1→0 | 100 | `{"GRADE_1":100}` |
+| 63 | 2026-08-20 | HOUSE_CS_03 | 晚班 | 1→0 | 1→0 | 100 | `{"GRADE_1":100}` |
+| 64 | 2026-08-24 | HOUSE_CS_03 | 晚班 | 0→1 | 0→1 | 104 | `{"DIRTY":1,"BROKEN":1,"CRACKED":1,"DAMAGED":1,"GRADE_1":100}` |
+| 66 | 2026-08-24 | H-DEBUG-A01 | 早班 | 1→3 | 1→0 | 100 | `{"DIRTY":3,"GRADE_1":100}` |
+
+预检返回恰好 12 行，ID 数组与授权清单完全一致，且每行 `eggs_by_grade` 非 NULL。特别地，id 64 仅将 dirty/broken 改为 1/1，`eggs_produced=104` 保持不动。
+
+#### UPDATE RETURNING 与前后抽样
+
+- `UPDATE RETURNING` 恰好 12 行：ids 45/46/48/53/54/55/56/59/62/63 均为 `dirty=0, broken=0`；id 64 为 `1,1`；id 66 为 `3,0`。逐行结果均与事务内原值快照计算出的目标相同，事务提交。
+- 三行前后抽样：id 45 为 `dirty 1→0, broken 1→0`；id 64 为 `0→1, 0→1`；id 66 为 `1→3, 1→0`。三行的 `eggs_produced` 和 `eggs_by_grade` 均保持原值。
+
+#### 全表只读复核
+
+- 提交后立即重跑 6.4 节全局对账：`global_mismatch_n=0`。
+- 同一只读事务确认：`bad_only_n=0`、`remaining_candidate_n=0`。
+- 间隔 60 秒再次只读复核：`global_mismatch_n=0`，未发生并发写回。至此分级历史数据三项检查全面干净。
+
+#### 回滚 SQL 留档
+
+下列语句由写事务锁定后的 12 行原值快照生成，仅在另行授权回滚时使用：
+
+```sql
+UPDATE brd_daily_logs
+SET dirty_eggs = CASE id
+      WHEN 45 THEN 1 WHEN 46 THEN 1 WHEN 48 THEN 1 WHEN 53 THEN 1
+      WHEN 54 THEN 1 WHEN 55 THEN 1 WHEN 56 THEN 1 WHEN 59 THEN 60
+      WHEN 62 THEN 1 WHEN 63 THEN 1 WHEN 64 THEN 0 WHEN 66 THEN 1
+    END,
+    broken_eggs = CASE id
+      WHEN 45 THEN 1 WHEN 46 THEN 1 WHEN 48 THEN 1 WHEN 53 THEN 1
+      WHEN 54 THEN 1 WHEN 55 THEN 1 WHEN 56 THEN 1 WHEN 59 THEN 0
+      WHEN 62 THEN 1 WHEN 63 THEN 1 WHEN 64 THEN 0 WHEN 66 THEN 1
+    END,
+    updated_at = NOW()
+WHERE id IN (45,46,48,53,54,55,56,59,62,63,64,66);
+```
+
+本次为纯生产数据修正与执行留档，无应用代码改动，因此未触发应用部署。
