@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
 
 const root = new URL('../../', import.meta.url).pathname;
 const controllerPath = 'apps/api/src/modules/generic-crud/generic-crud.controller.ts';
@@ -18,8 +18,15 @@ for (const needle of required) {
   if (!controller.includes(needle)) failures.push(`${controllerPath}: missing contract: ${needle}`);
 }
 
-const files = execFileSync('rg', ['--files', 'apps/api/src', '-g', '*.ts'], { cwd: root, encoding: 'utf8' })
-  .trim().split('\n').filter((file) => file && !file.endsWith('.spec.ts'));
+function walk(dir, files = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) walk(path, files);
+    else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.spec.ts')) files.push(relative(root, path));
+  }
+  return files;
+}
+const files = walk(join(root, 'apps/api/src'));
 const allowedProjectionWriters = new Set([
   'apps/api/src/modules/farm/farm-feed.service.ts',
   'apps/api/src/modules/chanjet/chanjet-erp-master-business-review.service.ts',
