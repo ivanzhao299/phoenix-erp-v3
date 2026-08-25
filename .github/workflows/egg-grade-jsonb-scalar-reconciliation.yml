@@ -1,0 +1,214 @@
+name: Egg Grade JSONB Scalar Reconciliation
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type RECONCILE_12_EGG_GRADE_SCALARS_FROM_JSONB"
+        required: true
+        type: string
+      approve_production:
+        description: "Approve the narrowly scoped production update of 12 rows"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: egg-grade-jsonb-scalar-reconciliation-production
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: ${{ inputs.approve_production == true && inputs.confirmation == 'RECONCILE_12_EGG_GRADE_SCALARS_FROM_JSONB' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Preflight, reconcile, and verify production rows
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+
+            echo '=== SEGMENT 1: READ-ONLY PREFLIGHT ==='
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT id, log_date, house_code, shift, dirty_eggs, broken_eggs, eggs_produced,
+                   eggs_by_grade,
+                   COALESCE((eggs_by_grade->>'DIRTY')::int, 0) AS target_dirty_eggs,
+                   COALESCE((eggs_by_grade->>'BROKEN')::int, 0) AS target_broken_eggs
+              FROM brd_daily_logs
+             WHERE id IN (45,46,48,53,54,55,56,59,62,63,64,66)
+             ORDER BY id;
+            DO $assert$
+            DECLARE actual_ids bigint[];
+            BEGIN
+              SELECT array_agg(id ORDER BY id) INTO actual_ids
+                FROM brd_daily_logs
+               WHERE id IN (45,46,48,53,54,55,56,59,62,63,64,66);
+              IF actual_ids IS DISTINCT FROM ARRAY[45,46,48,53,54,55,56,59,62,63,64,66]::bigint[] THEN
+                RAISE EXCEPTION 'Preflight ID set mismatch: %', actual_ids;
+              END IF;
+              IF EXISTS (SELECT 1 FROM brd_daily_logs
+                          WHERE id IN (45,46,48,53,54,55,56,59,62,63,64,66)
+                            AND eggs_by_grade IS NULL) THEN
+                RAISE EXCEPTION 'Preflight found NULL eggs_by_grade';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
+
+            echo '=== SEGMENT 2: LOCKED SINGLE-TRANSACTION UPDATE ==='
+            docker compose exec -T db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN;
+            SELECT id
+              FROM brd_daily_logs
+             WHERE id IN (45,46,48,53,54,55,56,59,62,63,64,66)
+             ORDER BY id
+             FOR UPDATE;
+            CREATE TEMP TABLE scalar_before ON COMMIT DROP AS
+            SELECT id, log_date, house_code, shift, dirty_eggs, broken_eggs, eggs_produced,
+                   eggs_by_grade,
+                   COALESCE((eggs_by_grade->>'DIRTY')::int, 0) AS target_dirty_eggs,
+                   COALESCE((eggs_by_grade->>'BROKEN')::int, 0) AS target_broken_eggs
+             FROM brd_daily_logs
+             WHERE id IN (45,46,48,53,54,55,56,59,62,63,64,66)
+             ORDER BY id;
+            DO $assert$
+            DECLARE actual_ids bigint[];
+            BEGIN
+              SELECT array_agg(id ORDER BY id) INTO actual_ids FROM scalar_before;
+              IF actual_ids IS DISTINCT FROM ARRAY[45,46,48,53,54,55,56,59,62,63,64,66]::bigint[] THEN
+                RAISE EXCEPTION 'Locked ID set mismatch: %; rolling back', actual_ids;
+              END IF;
+              IF EXISTS (SELECT 1 FROM scalar_before WHERE eggs_by_grade IS NULL) THEN
+                RAISE EXCEPTION 'Locked set contains NULL eggs_by_grade; rolling back';
+              END IF;
+              IF (SELECT count(*) FROM scalar_before
+                   WHERE COALESCE(dirty_eggs, 0) <> target_dirty_eggs
+                      OR COALESCE(broken_eggs, 0) <> target_broken_eggs) <> 12 THEN
+                RAISE EXCEPTION 'Concurrency drift: expected all 12 rows still inconsistent; rolling back';
+              END IF;
+            END
+            $assert$;
+            CREATE TEMP TABLE scalar_changed
+              (id bigint, dirty_eggs integer, broken_eggs integer) ON COMMIT DROP;
+            WITH changed AS (
+              UPDATE brd_daily_logs
+                 SET dirty_eggs = COALESCE((eggs_by_grade->>'DIRTY')::int, 0),
+                     broken_eggs = COALESCE((eggs_by_grade->>'BROKEN')::int, 0),
+                     updated_at = NOW()
+               WHERE id IN (45,46,48,53,54,55,56,59,62,63,64,66)
+                 AND eggs_by_grade IS NOT NULL
+              RETURNING id, dirty_eggs, broken_eggs
+            )
+            INSERT INTO scalar_changed SELECT * FROM changed;
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM scalar_changed) <> 12 THEN
+                RAISE EXCEPTION 'UPDATE RETURNING count is not 12; rolling back';
+              END IF;
+              IF EXISTS (
+                SELECT 1 FROM scalar_changed c JOIN scalar_before b USING (id)
+                 WHERE c.dirty_eggs IS DISTINCT FROM b.target_dirty_eggs
+                    OR c.broken_eggs IS DISTINCT FROM b.target_broken_eggs
+              ) THEN
+                RAISE EXCEPTION 'UPDATE result differs from pre-update target; rolling back';
+              END IF;
+            END
+            $assert$;
+            SELECT 'UPDATE_RETURNING' AS section, * FROM scalar_changed ORDER BY id;
+            SELECT count(*) AS returning_row_count FROM scalar_changed;
+            SELECT 'BEFORE_AFTER_SAMPLE' AS section, b.id, b.log_date, b.house_code, b.shift,
+                   b.dirty_eggs AS dirty_before, c.dirty_eggs AS dirty_after,
+                   b.broken_eggs AS broken_before, c.broken_eggs AS broken_after,
+                   b.eggs_produced, b.eggs_by_grade
+              FROM scalar_before b JOIN scalar_changed c USING (id)
+             WHERE b.id IN (45,64,66)
+             ORDER BY b.id;
+            SELECT 'ROLLBACK_SQL' AS section,
+                   'UPDATE brd_daily_logs SET dirty_eggs = CASE id ' ||
+                   string_agg(format('WHEN %s THEN %s', id, COALESCE(dirty_eggs::text, 'NULL')), ' ' ORDER BY id) ||
+                   ' END, broken_eggs = CASE id ' ||
+                   string_agg(format('WHEN %s THEN %s', id, COALESCE(broken_eggs::text, 'NULL')), ' ' ORDER BY id) ||
+                   ' END, updated_at = NOW() WHERE id IN (45,46,48,53,54,55,56,59,62,63,64,66);' AS sql
+              FROM scalar_before;
+            COMMIT;
+            SQL
+
+            echo '=== SEGMENT 3A: IMMEDIATE READ-ONLY VERIFICATION ==='
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT count(*) AS global_mismatch_n FROM brd_daily_logs
+             WHERE eggs_by_grade IS NOT NULL AND (
+               COALESCE((eggs_by_grade->>'DIRTY')::int, 0) <> COALESCE(dirty_eggs, 0)
+               OR COALESCE((eggs_by_grade->>'BROKEN')::int, 0) <> COALESCE(broken_eggs, 0));
+            SELECT count(*) AS bad_only_n FROM brd_daily_logs
+             WHERE eggs_by_grade IS NULL AND COALESCE(bad_eggs, 0) > 0
+               AND COALESCE(dirty_eggs, 0) = 0 AND COALESCE(broken_eggs, 0) = 0;
+            SELECT count(*) AS remaining_candidate_n FROM brd_daily_logs
+             WHERE eggs_by_grade IS NULL AND eggs_produced >= 0
+               AND COALESCE(dirty_eggs, 0) + COALESCE(broken_eggs, 0) = eggs_produced
+               AND (COALESCE(dirty_eggs, 0) > 0 OR COALESCE(broken_eggs, 0) > 0);
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM brd_daily_logs WHERE eggs_by_grade IS NOT NULL AND (
+                    COALESCE((eggs_by_grade->>'DIRTY')::int,0) <> COALESCE(dirty_eggs,0)
+                    OR COALESCE((eggs_by_grade->>'BROKEN')::int,0) <> COALESCE(broken_eggs,0))) <> 0
+                 OR (SELECT count(*) FROM brd_daily_logs WHERE eggs_by_grade IS NULL
+                       AND COALESCE(bad_eggs,0)>0 AND COALESCE(dirty_eggs,0)=0 AND COALESCE(broken_eggs,0)=0) <> 0
+                 OR (SELECT count(*) FROM brd_daily_logs WHERE eggs_by_grade IS NULL AND eggs_produced>=0
+                       AND COALESCE(dirty_eggs,0)+COALESCE(broken_eggs,0)=eggs_produced
+                       AND (COALESCE(dirty_eggs,0)>0 OR COALESCE(broken_eggs,0)>0)) <> 0 THEN
+                RAISE EXCEPTION 'Immediate full-table verification failed';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
+
+            echo '=== SEGMENT 3B: DELAYED READ-ONLY VERIFICATION ==='
+            sleep 60
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT count(*) AS global_mismatch_n FROM brd_daily_logs
+             WHERE eggs_by_grade IS NOT NULL AND (
+               COALESCE((eggs_by_grade->>'DIRTY')::int,0) <> COALESCE(dirty_eggs,0)
+               OR COALESCE((eggs_by_grade->>'BROKEN')::int,0) <> COALESCE(broken_eggs,0));
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM brd_daily_logs WHERE eggs_by_grade IS NOT NULL AND (
+                    COALESCE((eggs_by_grade->>'DIRTY')::int,0) <> COALESCE(dirty_eggs,0)
+                    OR COALESCE((eggs_by_grade->>'BROKEN')::int,0) <> COALESCE(broken_eggs,0))) <> 0 THEN
+                RAISE EXCEPTION 'Delayed reconciliation verification failed';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
