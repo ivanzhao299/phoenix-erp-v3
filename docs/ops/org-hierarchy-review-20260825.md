@@ -353,3 +353,39 @@ ROLLBACK;
 - master-data legacy growth：PASS（`brd_farms` 33/33，未增长）。CI 冻结/安全探针改为由 `reviewed-frozen-boundary`、`reviewed-security-touch` PR 标签显式签字放行；main push 视为已评审合并边界。未贴标签的敏感 PR 仍硬失败。
 - PR #84 已应用上述两个评审标签；首轮静态门禁如设计暴露冻结/安全触碰及 legacy 引用增长，`c600a424` 将新增引用收回基线并把临时分支名特例替换为可审计标签授权。
 - 远程 main CI 尚须在 PR 推送/合并后核验；未触发 production deploy 或任何 workflow_dispatch。
+
+## 14. 修复版部署与生产回归记录
+
+### 14.1 显式 full 部署
+
+- 授权部署目标：`03ac9710f1f54852113b74e4f6966f2274d3df8c`（部署前本地 `main` 与 `origin/main` 一致）；生产前一基线为 `44ceca9bdc9a9fc90d3185a7488941fe1df23543`。
+- `CI/CD — Build & Deploy` workflow_dispatch run `32836443746`：`mode=full`、`skip_deploy=false`、`approve_production=true`，结论 `success`；只触发一次，没有失败重试。API/Web 类型检查、迁移门禁、schema drift 与 system/breeding/packaging/wms/finance regression 均通过，API/Web 镜像构建与 `Deploy · full` 均成功。
+- 部署日志：TypeORM `migration:run` 输出 `No migrations are pending`；对完整 `Deploy · full` job 日志检索 `DROP.*brd_houses|brd_houses.*DROP` 为 0 行，未执行任何 `brd_houses` DROP。生产切换完成于 `2026-08-25 18:25:57 +08:00`。
+- 生产只读 revision 证据来自 run `32837341269` / `32837347326`：checkout、API OCI revision、Web OCI revision 三处均为 `03ac9710f1f54852113b74e4f6966f2274d3df8c`；API image digest `sha256:cdd44e4579a79bd30af08a91398da3f277f323f63da45586db7cad8040ccf6a2`，Web image digest `sha256:81df41e75ec9edcfb4b306bec3fea9b7b150fb98564b473969cb7c58662023d5`。
+
+### 14.2 双账号集合与 mobile egglog
+
+生产只读 workflow `Mobile Egg Houses Production Readonly Audit` run `32837341178` 成功，checkout 为部署目标 SHA。与 `44ceca9b` 基线逐项一致，证明 A2 未上线：
+
+| 账号 | 鸡舍 | mobile egglog 鸡群 | 仓库 | 集合证据 |
+|---|---:|---:|---:|---|
+| `admin` | 19 | 10 | 17 | 鸡群状态仅 `DECLINING/LAYING/PEAK`；17 个 warehouse code 全量响应已留在 run 日志 |
+| `linhong` | 9 | 2 | 7 | 鸡群均属 `FARM-DP`；鸡舍 9 行与仓库 7 行完整 JSON 响应已留在 run 日志 |
+
+`linhong` 仓库仍为 `CJ-WH-XINGCHI-01/03/04/05/06/07` 与 `WH-0001`，即现行“所属公司全仓”语义未改变。A2 收紧分支 `fix/site-warehouse-min-scope-20260825` 未合并、未修改、未部署；A2 继续单独暂停，等待业务裁决。
+
+### 14.3 日产蛋最小入库与四维编码
+
+- `Production Inbound Master Data Readonly Audit` run `32837341269` 成功；唯一授权生产业务写入为一次 `GRADE_1 × 1`，HTTP 业务响应 `totalInbound=1`。
+- 新批次 `EGG-20260825-00005`：`COMP-LAO-AGRI / LPH_MS_EGG_FARM / CS-KW-005 / PRD-EGG-1`，并带出 `SKU-1-LOOSE / GRADE_1 / LOOSE`，数量 `1`，source `TEMP-2026-08-25-HOUSE_CS_01`。随后只读 SQL 已在同一 run 留痕。
+- 主数据只读结果包含 ACTIVE `GRADE_1` 与七个包装规格 SKU（`BOX360/BOX720/GIFT12/GIFT24/LOOSE/TRAY30/TRAY36`）；`Packaging Repro Readonly Audit` run `32837347292` 同时确认包装 schema 所需 `shift_id`、`grading_codes_json` 列存在，窗口内无包装业务写入。
+
+### 14.4 未完成的生产证据与停止点
+
+本轮没有把以下三项记为 PASS：
+
+- Chanjet 主数据审核 GET 链 `loadHouses()/loadBreedingSites()`：现有 `chanjet-house-alignment-readonly.mjs` 会先 POST `/api/chanjet/integration/mirror/sync`；即使参数声明不写 Chanjet，也超出“除最小入库外生产零写入”红线，故未调用。
+- `/api/packaging/terminal/dicts` 真实生产 HTTP：匿名请求返回 401；现有受保护 workflow 只覆盖包装 schema/数据只读 SQL，没有该鉴权 GET。
+- 部署窗口 `sys_error_logs` 精确 SQL（尤其 `column does not exist`）：现有只读 workflow 没有该查询，本机也没有生产 SSH/JWT 凭据。已有 API/Web 健康、回归 HTTP 200、最小入库成功和审计 workflow 全绿，但这些不能替代 `sys_error_logs` 的直接断言。
+
+因此本轮状态是：**部署成功，已执行回归项成功，但生产回归证据不完整，整体不得标记完整 PASS**。按红线保留现场，没有再次部署、没有用含 POST 的脚本补跑、没有新增其他生产写入。相关 run：`32836443746`、`32837341178`、`32837341269`、`32837347292`、`32837347326`。
