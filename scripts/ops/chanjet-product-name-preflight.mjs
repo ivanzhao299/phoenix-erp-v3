@@ -61,12 +61,24 @@ const preflightEnvelope = await request('/api/chanjet/integration/product-name-c
   body: { mappingId, auditHash: audit.auditHash },
 });
 const result = preflightEnvelope.result || preflightEnvelope;
+const expectedUpdatePayloadFields = [
+  'productCategory',
+  'productCode',
+  'productName',
+  'productUomSetting',
+  'specNo',
+  'statusEnum',
+];
 if (result.decision !== 'READY_FOR_EXPLICIT_APPROVAL'
   || result.writeChanjet !== false
   || result.writeErpBusinessTables !== false
   || Number(result.providerCalls) !== 1
   || String(result.mappingId || '') !== mappingId) {
   throw new Error('production preflight did not prove the required read-only guardrails');
+}
+if (!result.updatePayloadHash
+  || JSON.stringify(result.updatePayloadFields) !== JSON.stringify(expectedUpdatePayloadFields)) {
+  throw new Error('production preflight update DTO is incomplete or outside the approved field boundary');
 }
 
 const report = {
@@ -78,6 +90,8 @@ const report = {
   currentName: result.currentName,
   proposedName: result.proposedName,
   providerRowHash: result.providerRowHash,
+  updatePayloadHash: result.updatePayloadHash,
+  updatePayloadFields: result.updatePayloadFields,
   auditHash: result.auditHash,
   providerCalls: 1,
   writeChanjet: false,
