@@ -46,7 +46,7 @@ export class ProductionInboundService {
     if (!scope.allowedCompanyCodes.includes(companyCode)) {
       throw new ForbiddenException(`无权向公司 ${companyCode} 入库`);
     }
-    if (warehouseCode && scope.allowedWarehouseCodes.length > 0 && !scope.allowedWarehouseCodes.includes(warehouseCode)) {
+    if (warehouseCode && !scope.allowedWarehouseCodes.includes(warehouseCode)) {
       throw new ForbiddenException(`无权向仓库 ${warehouseCode} 入库`);
     }
   }
@@ -93,7 +93,7 @@ export class ProductionInboundService {
   private async resolveWarehouse(companyCode: string, siteCode?: string, explicit?: string): Promise<string> {
     const params: unknown[] = [companyCode];
     let sql = `SELECT warehouse_code FROM wms_warehouses
-      WHERE company_code = $1 AND status = 'ACTIVE'`;
+      WHERE company_code = $1 AND status = 'ACTIVE' AND type = 'EGG_FARM'`;
     if (explicit) { params.push(explicit); sql += ` AND warehouse_code = $2`; }
     else if (siteCode) { params.push(siteCode); sql += ` AND (site_code = $2 OR site_code IS NULL)`; }
     sql += ` ORDER BY warehouse_code`;
@@ -111,7 +111,7 @@ export class ProductionInboundService {
   private async resolveLocation(warehouseCode: string, explicit?: string): Promise<string> {
     const rows = await this.ds.query(
       `SELECT location_code FROM wms_locations
-        WHERE warehouse_code = $1 AND status = 'ACTIVE'
+        WHERE warehouse_code = $1 AND status IN ('ACTIVE', 'NORMAL')
           ${explicit ? 'AND location_code = $2' : ''}
         ORDER BY location_code`,
       explicit ? [warehouseCode, explicit] : [warehouseCode],
@@ -174,7 +174,7 @@ export class ProductionInboundService {
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
 
     const effectiveItems = dto.items
-      .map(item => ({ ...item, grade: String(item.grade || '').trim(), qty: Math.max(0, Math.round(Number(item.qty) || 0)) }))
+      .map(item => ({ ...item, spec: item.spec?.trim() || 'LOOSE', grade: String(item.grade || '').trim(), qty: Math.max(0, Math.round(Number(item.qty) || 0)) }))
       .filter(item => item.qty > 0);
     const grades = [...new Set(effectiveItems.map(item => item.grade))];
     const skuRows: Array<{ sku_code: string; product_code: string; grade_code: string; spec_code: string }> = grades.length

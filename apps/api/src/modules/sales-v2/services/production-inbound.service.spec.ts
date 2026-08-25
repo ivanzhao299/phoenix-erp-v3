@@ -21,7 +21,7 @@ describe('ProductionInboundService master-data resolution', () => {
       .mockResolvedValueOnce([{ '?column?': 1 }])
       .mockResolvedValueOnce([{ warehouse_code: 'WH-A' }])
       .mockResolvedValueOnce([{ location_code: 'LOC-IN-A' }])
-      .mockResolvedValueOnce([{ sku_code: 'SKU-EGG-1', product_code: 'PROD-EGG', grade_code: 'GRADE_1', spec_code: 'TRAY' }]);
+      .mockResolvedValueOnce([{ sku_code: 'SKU-EGG-1', product_code: 'PROD-EGG', grade_code: 'GRADE_1', spec_code: 'LOOSE' }]);
     const createProductionBatch = jest.fn().mockResolvedValue({ batch_no: 'EGG-1' });
     const { service } = makeService(query, createProductionBatch);
 
@@ -32,7 +32,7 @@ describe('ProductionInboundService master-data resolution', () => {
     expect(result).toMatchObject({ companyCode: 'COMP-A', siteCode: 'SITE-A', warehouseCode: 'WH-A', locationCode: 'LOC-IN-A' });
     expect(createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({
       companyCode: 'COMP-A', warehouseCode: 'WH-A', locationCode: 'LOC-IN-A',
-      skuCode: 'SKU-EGG-1', productCode: 'PROD-EGG', gradeCodeStd: 'GRADE_1', specCode: 'TRAY',
+      skuCode: 'SKU-EGG-1', productCode: 'PROD-EGG', gradeCodeStd: 'GRADE_1', specCode: 'LOOSE',
     }));
   });
 
@@ -53,7 +53,7 @@ describe('ProductionInboundService master-data resolution', () => {
       .mockResolvedValueOnce([{ '?column?': 1 }])
       .mockResolvedValueOnce([{ warehouse_code: 'WH-A' }])
       .mockResolvedValueOnce([{ location_code: 'LOC-A' }])
-      .mockResolvedValueOnce([{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'TRAY' }]);
+      .mockResolvedValueOnce([{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE' }]);
     const createProductionBatch = jest.fn();
     const { service } = makeService(query, createProductionBatch);
     await expect(service.recordProductionInbound({

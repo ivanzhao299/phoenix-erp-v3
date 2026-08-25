@@ -257,7 +257,7 @@ export default function DailyInboundPage() {
               <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
                 {t('breeding.inboundWarehouse', '入库仓库（ACTIVE）')}
               </label>
-              <WarehouseSelector value={warehouseCode} siteCode={siteCode || undefined} disabled={!houseCode}
+              <WarehouseSelector value={warehouseCode} siteCode={siteCode || undefined} type="EGG_FARM" disabled={!houseCode}
                 onChange={value => { setWarehouseCode(value); setLocationCode(''); }} />
             </div>
             <div style={{ minWidth: 250 }}>

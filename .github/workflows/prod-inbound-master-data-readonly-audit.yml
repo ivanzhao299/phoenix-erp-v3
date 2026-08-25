@@ -58,5 +58,12 @@ jobs:
             SELECT 'REFERENCE_BATCH' AS section, batch_no, company_code, warehouse_code, location_code,
                    product_code, sku_code, grade_code_std, qty, source_type, created_at
               FROM inv_batches WHERE batch_no='EGG-20260825-00001';
+            SELECT 'GHOST_DETAIL' AS section, batch_no, egg_date, source_no, collection_batch_ref,
+                   company_code, warehouse_code, location_code, product_code, sku_code, grade_code_std, spec_code, qty
+              FROM inv_batches
+             WHERE source_type='TEMP_PRODUCTION'
+               AND (company_code='ALL' OR warehouse_code='WMS-VTE-MAIN'
+                    OR location_code='INBOUND-DOCK' OR product_code LIKE 'PRD-EGG-%')
+             ORDER BY created_at, batch_no;
             COMMIT;
             SQL

@@ -294,7 +294,7 @@ export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCo
       const r = await request<any>('/crud/wms_locations?status=ACTIVE&pageSize=500');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
       return list
-        .filter(l => (l.status ?? 'ACTIVE') === 'ACTIVE')
+        .filter(l => ['ACTIVE', 'NORMAL'].includes(l.status ?? 'ACTIVE'))
         .filter(l => !warehouseCode || l.warehouse_code === warehouseCode)
         .filter(l => !zoneCode || l.zone_code === zoneCode)
         .map(l => ({
