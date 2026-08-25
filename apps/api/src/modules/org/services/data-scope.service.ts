@@ -292,7 +292,7 @@ export class DataScopeService {
     if (explicitlyGrantedFarmCodes.length > 0) {
       const activeFarms: Array<{ farm_code: string }> = await this.orgRepo.manager.query(`
         SELECT farm_code
-        FROM brd_farms
+        FROM ${OrgOwnershipService.FARM_TABLE}
         WHERE farm_code = ANY($1)
           AND status = 'ACTIVE'
       `, [explicitlyGrantedFarmCodes]);

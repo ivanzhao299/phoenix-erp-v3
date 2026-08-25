@@ -31,7 +31,7 @@ export interface WarehouseOwnership {
  */
 @Injectable()
 export class OrgOwnershipService {
-  private static readonly FARM_TABLE = ['brd', 'farms'].join('_');
+  static readonly FARM_TABLE = ['brd', 'farms'].join('_');
   static readonly ACTIVE_FARM_JOIN =
     `LEFT JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'`;
   static readonly FARM_SITE_SQL = "NULLIF(to_jsonb(f)->>'mapped_site_code', '')";

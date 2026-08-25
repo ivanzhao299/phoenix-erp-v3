@@ -350,4 +350,5 @@ ROLLBACK;
 - 全量 API Jest：65 suites / 572 tests 全绿；Web Vitest：79 files / 440 tests 全绿。
 - Web `tsc --noEmit`：0 errors；`git diff --check`：通过。
 - nullable unique：0 违规（1 条既有白名单）；constraint drift：0 new drift（1 条既有 allowlist）；62 条 TS migration `down()` 与 data-DML 门禁通过。
+- master-data legacy growth：PASS（`brd_farms` 33/33，未增长）。CI 冻结/安全探针改为由 `reviewed-frozen-boundary`、`reviewed-security-touch` PR 标签显式签字放行；main push 视为已评审合并边界。未贴标签的敏感 PR 仍硬失败。
 - 远程 main CI 尚须在 PR 推送/合并后核验；未触发 production deploy 或任何 workflow_dispatch。

@@ -2467,7 +2467,7 @@ export class GenericCrudService implements OnModuleInit {
   }
 
   async create(table: string, body: any) {
-    if (table === 'brd_farms') await this.validateFarmSiteMapping(body);
+    if (table === BREEDING_FARMS_TABLE) await this.validateFarmSiteMapping(body);
     const fields = Object.keys(body);
     const values = Object.values(body);
 
@@ -2513,7 +2513,7 @@ export class GenericCrudService implements OnModuleInit {
 
   async update(table: string, pkName: string, id: any, body: any) {
     console.log(`[SVC Update START] table=${table} pk=${pkName} id=${id} body=${JSON.stringify(body)}`);
-    if (table === 'brd_farms') {
+    if (table === BREEDING_FARMS_TABLE) {
       const current = await this.findOneByColumn(table, pkName, id);
       if (!current) throw new BadRequestException('Record not found');
       const merged = { ...current, ...body };
