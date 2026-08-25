@@ -13,6 +13,7 @@ import { SysUserProjectScopeEntity } from '../entities/sys-user-project-scope.en
 import { SysUserWarehouseScopeEntity } from '../entities/sys-user-warehouse-scope.entity';
 import { SysUserFarmScopeEntity } from '../entities/sys-user-farm-scope.entity'; // G4-E
 import { SysOrganizationEntity } from '../entities/sys-organization.entity';
+import { OrgOwnershipService } from './org-ownership.service';
 
 export type ScopeLevel = 'SELF' | 'PROJECT' | 'COMPANY' | 'REGION' | 'GROUP';
 
@@ -59,27 +60,20 @@ export class DataScopeService {
     @InjectRepository(SysOrganizationEntity)
     private readonly orgRepo: Repository<SysOrganizationEntity>,
     private readonly cls: ClsService,
+    private readonly ownership: OrgOwnershipService,
   ) {}
 
   async assertActiveHouseOwnership(houseCode: string) {
-    const [house] = await this.orgRepo.manager.query(
-      `SELECT h.farm_code,
-              COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) AS company_code,
-              COALESCE(NULLIF(h.site_code, ''), NULLIF(to_jsonb(f)->>'mapped_site_code', '')) AS site_code
-         FROM brd_houses h
-         LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
-        WHERE h.house_code = $1 AND h.status = 'ACTIVE' LIMIT 1`,
-      [houseCode],
-    );
-    if (!house) throw new BadRequestException(`鸡舍 ${houseCode} 不存在或已停用`);
-    if (!house.company_code) {
-      throw new BadRequestException(`鸡舍 ${houseCode} 缺少公司归属。请到「主数据中心 → 鸡舍」补齐农场/公司归属后重试`);
-    }
+    const resolved = await this.ownership.resolveHouse(houseCode);
     const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
-    if (scope && !scope.isGlobal && !scope.allowedCompanyCodes.includes(house.company_code)) {
+    if (scope && !scope.isGlobal && !scope.allowedCompanyCodes.includes(resolved.companyCode)) {
       throw new BadRequestException(`无权接收鸡舍 ${houseCode} 的来源批次`);
     }
-    return house as { farm_code?: string; company_code: string; site_code?: string };
+    return {
+      farm_code: resolved.farmCode,
+      company_code: resolved.companyCode,
+      site_code: resolved.siteCode,
+    };
   }
 
   /**

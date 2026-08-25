@@ -37,6 +37,7 @@ describe('DataScopeService permission-version cache isolation', () => {
       repo() as any,
       repo() as any,
       { get: jest.fn() } as any,
+      { resolveHouse: jest.fn() } as any,
     );
 
     const before = await service.resolve('7', ['ROLE_FARM_MGR'], 'MENU_FARM_DATA', 444);

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { OrgOwnershipService } from '../org/services/org-ownership.service';
 
 // 默认饲料品种（来自实际台账），单位均为公斤
 const DEFAULT_MATERIALS = [
@@ -130,10 +131,10 @@ export class FarmFeedService {
     // G125：支持多场（全局用户不传 → 看全部；多场用户传全集 → ANY 并集）。
     const ors: string[] = [];
     if (farmCodes?.length) { params.push(farmCodes); ors.push(`brd_houses.farm_code = ANY($${params.length})`); }
-    if (siteCodes?.length) { params.push(siteCodes); ors.push(`COALESCE(NULLIF(brd_houses.site_code, ''), NULLIF(to_jsonb(f)->>'mapped_site_code', '')) = ANY($${params.length})`); }
+    if (siteCodes?.length) { params.push(siteCodes); ors.push(`${OrgOwnershipService.FARM_SITE_SQL} = ANY($${params.length})`); }
     if (companyCodes?.length) {
       params.push(companyCodes);
-      ors.push(`COALESCE(NULLIF(to_jsonb(brd_houses)->>'company_code', ''), NULLIF(f.company_code, '')) = ANY($${params.length})`);
+      ors.push(`NULLIF(f.company_code, '') = ANY($${params.length})`);
     }
     if (ors.length) where += ` AND (${ors.join(' OR ')})`;
     // G109：返回 house_code + 中文 house_name（手机端显示中文名、以 code 为数据键）。
