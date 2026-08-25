@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, production-inbound-write, role-business-production, chanjet-readonly-production, chanjet-readonly-adapter-production, chanjet-house-alignment-readonly'
+        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, role-business-production, chanjet-readonly-production, chanjet-readonly-adapter-production, chanjet-house-alignment-readonly'
         required: false
         default: documented-only
   pull_request:
@@ -100,40 +100,6 @@ jobs:
             --api-url=https://erp.eggslao.com \
             --output-dir=docs/ops/runs \
             --strict
-
-      - name: Run authorized minimum production inbound write
-        if: github.event_name == 'workflow_dispatch' && inputs.target == 'production-inbound-write'
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
-          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
-          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
-          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
-        run: |
-          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
-          export PHOENIX_ADMIN_TOKEN="$TOKEN"
-          node <<'NODE'
-          const base = 'https://erp.eggslao.com';
-          const eggDate = new Date().toISOString().slice(0, 10);
-          const response = await fetch(`${base}/api/v2/inventory/production-inbound`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.PHOENIX_ADMIN_TOKEN}` },
-            body: JSON.stringify({ eggDate, items: [{ grade: 'GRADE_1', qty: 1 }] }),
-          });
-          const text = await response.text();
-          if (response.status !== 200 && response.status !== 201) {
-            throw new Error(`production inbound failed: HTTP ${response.status} ${text.slice(0, 500)}`);
-          }
-          const result = JSON.parse(text);
-          const batch = result?.data?.batches?.[0] ?? result?.batches?.[0];
-          if (!batch?.batchNo || batch.qty !== 1 || batch.grade !== 'GRADE_1') {
-            throw new Error(`unexpected production inbound response: ${text.slice(0, 1000)}`);
-          }
-          console.log(JSON.stringify({ httpStatus: response.status, eggDate, batch, totalInbound: result?.data?.totalInbound ?? result?.totalInbound }));
-          NODE
 
       - name: Run role business production smoke
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'role-business-production'
