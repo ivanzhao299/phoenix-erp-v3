@@ -47,8 +47,10 @@ describe('FarmFeedService mobile house ownership', () => {
     expect(query).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining('INSERT INTO brd_houses'),
-      ['H-NEW', '新鸡舍', 'LPH-MS', '孟赛养殖场', 'SITE-MS', 'COMP-LAO-AGRI', '蛋鸡舍', 12000],
+      ['H-NEW', '新鸡舍', 'LPH-MS', '孟赛养殖场', '蛋鸡舍', 12000],
     );
+    expect(query.mock.calls[1][0]).not.toContain('site_code');
+    expect(query.mock.calls[1][0]).not.toContain('company_code');
   });
 
   it('reuses an existing house ownership mapping within the allowed scope', async () => {

@@ -85,12 +85,11 @@ jobs:
                      WHERE f.site_code IS NOT NULL AND s.org_code IS NULL) AS farm_mapped_to_missing_site
               FROM per_site;
 
-            SELECT 'HOUSE_SNAPSHOT_DRIFT' AS section, count(*) AS total,
-                   count(NULLIF(to_jsonb(h)->>'company_code','')) AS company_filled,
-                   count(NULLIF(to_jsonb(h)->>'site_code','')) AS site_filled,
-                   count(NULLIF(to_jsonb(h)->>'store_code','')) AS store_filled,
-                   count(*) FILTER (WHERE NULLIF(to_jsonb(h)->>'company_code','') IS DISTINCT FROM NULLIF(f.company_code,'')) AS company_drift,
-                   count(*) FILTER (WHERE NULLIF(to_jsonb(h)->>'site_code','') IS DISTINCT FROM NULLIF(to_jsonb(f)->>'mapped_site_code','')) AS site_drift
+            SELECT 'HOUSE_CANONICAL_OWNERSHIP' AS section, count(*) AS total,
+                   count(f.farm_code) AS active_farm_resolved,
+                   count(*) FILTER (WHERE f.farm_code IS NULL) AS unresolved,
+                   count(f.company_code) AS company_resolved,
+                   count(NULLIF(to_jsonb(f)->>'mapped_site_code','')) AS site_projection_resolved
               FROM brd_houses h LEFT JOIN brd_farms f ON f.farm_code=h.farm_code AND f.status='ACTIVE';
 
             SELECT 'WAREHOUSE_SITE_DRIFT' AS section, count(*) AS total,
@@ -120,7 +119,6 @@ jobs:
                  )
             )
             SELECT 'UNMAPPED_SITE_REFERENCES' AS section,u.*,
-                   (SELECT count(*) FROM brd_houses h WHERE NULLIF(to_jsonb(h)->>'site_code','')=u.org_code) AS house_snapshot_refs,
                    (SELECT count(*) FROM brd_flocks fl WHERE NULLIF(to_jsonb(fl)->>'site_code','')=u.org_code) AS flock_snapshot_refs,
                    (SELECT count(*) FROM brd_daily_logs dl WHERE NULLIF(to_jsonb(dl)->>'site_code','')=u.org_code) AS daily_log_refs,
                    (SELECT count(*) FROM wms_warehouses w WHERE NULLIF(to_jsonb(w)->>'site_code','')=u.org_code) AS warehouse_refs

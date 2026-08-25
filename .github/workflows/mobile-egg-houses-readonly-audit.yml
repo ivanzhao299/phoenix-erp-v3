@@ -50,8 +50,11 @@ jobs:
               FROM brd_houses
              GROUP BY status
              ORDER BY status NULLS FIRST;
-            SELECT house_code, house_name, farm_code, site_code, company_code, status
-              FROM brd_houses
+            SELECT h.house_code, h.house_name, h.farm_code,
+                   NULLIF(to_jsonb(f)->>'mapped_site_code','') AS site_code,
+                   f.company_code, h.status
+              FROM brd_houses h
+              LEFT JOIN brd_farms f ON f.farm_code=h.farm_code AND f.status='ACTIVE'
              ORDER BY house_code;
             SELECT COALESCE(status, '<NULL>') AS status, count(*) AS total
               FROM brd_flocks
@@ -93,6 +96,16 @@ jobs:
           if (!Array.isArray(rows)) throw new Error('House response is not an array');
           console.log(`ADMIN_HOUSE_RESPONSE_COUNT=${rows.length}`);
           console.log(JSON.stringify(rows));
+          NODE
+          response="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $token" \
+            https://erp.eggslao.com/api/lookup/warehouses)"
+          RESPONSE="$response" node - <<'NODE'
+          const payload = JSON.parse(process.env.RESPONSE || '{}');
+          const rows = Array.isArray(payload) ? payload : payload.data;
+          if (!Array.isArray(rows)) throw new Error('Warehouse response is not an array');
+          console.log(`ADMIN_WAREHOUSE_RESPONSE_COUNT=${rows.length}`);
+          console.log(`ADMIN_WAREHOUSE_CODES=${rows.map((row) => row.warehouseCode).sort().join(',')}`);
           NODE
       - name: Probe current production egglog flock response
         env:
@@ -307,6 +320,7 @@ jobs:
             }
             probe LINHONG_EGGLOG_FLOCK 'https://erp.eggslao.com/api/crud/brd_flocks?status=LAYING&status=PEAK&status=DECLINING&limit=100'
             probe LINHONG_FARM_FEED_HOUSE 'https://erp.eggslao.com/api/farm/feed/houses'
+            probe LINHONG_WAREHOUSE 'https://erp.eggslao.com/api/lookup/warehouses'
 
             echo 'LINHONG_SCOPE_UPDATE_REQUESTS_BEGIN'
             api_container="$(docker compose ps -q api)"

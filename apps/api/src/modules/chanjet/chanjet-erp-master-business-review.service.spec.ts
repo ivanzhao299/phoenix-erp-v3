@@ -391,6 +391,26 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
     expect(plan.candidates[0].evidence).toContain('operational documents 12');
   });
 
+  it('creates a house without retired ownership snapshot columns', async () => {
+    const { service } = createService([]);
+    const runner = { query: jest.fn().mockResolvedValue([{ house_code: 'HOUSE_DP_01' }]) };
+
+    await expect((service as any).createMaster(runner, {
+      targetTable: 'brd_houses',
+      createPayload: {
+        houseCode: 'HOUSE_DP_01', houseName: '1号鸡舍', farmCode: 'FARM-DP',
+        farmName: '东鹏蛋鸡场', houseType: '蛋鸡舍', projectCode: 'PRJ-DP',
+        companyCode: 'COMP-DP', siteCode: 'SITE-DP',
+      },
+    })).resolves.toBe(true);
+    const sql = runner.query.mock.calls[0][0];
+    expect(sql).not.toContain('company_code');
+    expect(sql).not.toContain('site_code');
+    expect(runner.query.mock.calls[0][1]).toEqual([
+      'HOUSE_DP_01', '1号鸡舍', 'FARM-DP', '东鹏蛋鸡场', '蛋鸡舍', 'PRJ-DP',
+    ]);
+  });
+
   it('maps an operational workshop to the unique same-company production department', async () => {
     const { service } = createService([
       source({

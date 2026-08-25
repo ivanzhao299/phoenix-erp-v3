@@ -243,7 +243,7 @@ export class FarmService {
     }
     if (body.business_date == null) body.business_date = body.log_date;
 
-    // G16-2 安全校验：从 house_code 反查 brd_houses.{farm_code, site_code}，
+    // G16-2 安全校验：从 house_code 经 ACTIVE farm 反查唯一归属，
     //   再用 scope.farmCode / scope.siteCode 比对真实归属，避免把 SITE-*
     //   误当 LPH_* 比较导致同农场用户被拒。
     if (!scope.isGlobal && body.house_code) {

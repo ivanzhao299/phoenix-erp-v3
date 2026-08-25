@@ -27,21 +27,23 @@ function walk(dir, files = []) {
   return files;
 }
 const files = walk(join(root, 'apps/api/src'));
-const allowedProjectionWriters = new Set([
-  'apps/api/src/modules/farm/farm-feed.service.ts',
-  'apps/api/src/modules/chanjet/chanjet-erp-master-business-review.service.ts',
-]);
-const writeSql = /(?:INSERT\s+INTO\s+brd_houses|UPDATE\s+brd_houses\s+SET)[\s\S]{0,1200}?\b(?:company_code|site_code|store_code)\b/gi;
+const insertSql = /INSERT\s+INTO\s+brd_houses\s*\(([^)]*)\)/gi;
+const updateSql = /UPDATE\s+brd_houses\s+SET([\s\S]*?)(?:\bWHERE\b|;|`)/gi;
+const retiredColumn = /\b(?:company_code|site_code|store_code)\b/i;
 
 for (const file of files) {
   const source = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
-  if (!writeSql.test(source)) continue;
-  writeSql.lastIndex = 0;
-  if (!allowedProjectionWriters.has(file)) failures.push(`${file}: unauthorized brd_houses ownership write`);
+  const clauses = [
+    ...Array.from(source.matchAll(insertSql), (match) => match[1]),
+    ...Array.from(source.matchAll(updateSql), (match) => match[1]),
+  ];
+  if (clauses.some((clause) => retiredColumn.test(clause))) {
+    failures.push(`${file}: retired brd_houses ownership column write`);
+  }
 }
 
 if (failures.length > 0) {
   console.error(failures.join('\n'));
   process.exit(1);
 }
-console.log('PASS: brd_houses ownership snapshots have guarded generic CRUD and only approved projection writers.');
+console.log('PASS: brd_houses retired ownership columns have no business writer.');
