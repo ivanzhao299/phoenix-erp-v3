@@ -100,5 +100,50 @@ jobs:
               FROM wms_warehouses w LEFT JOIN sys_organizations s
                 ON s.org_type='SITE' AND s.status='ACTIVE' AND s.org_code=NULLIF(to_jsonb(w)->>'site_code','')
               LEFT JOIN sys_organizations p ON p.id=s.parent_id AND p.org_type='COMPANY' AND p.status='ACTIVE';
+
+            SELECT 'HOUSE_OWNERSHIP_COLUMN_DEFINITION' AS section,
+                   column_name,data_type,character_maximum_length,is_nullable,column_default
+              FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='brd_houses'
+               AND column_name IN ('company_code','site_code','store_code')
+             ORDER BY column_name;
+
+            WITH unmapped_sites AS (
+              SELECT s.org_code,s.org_name,COALESCE(s.company_code,p.company_code) AS company_code
+                FROM sys_organizations s
+                LEFT JOIN sys_organizations p ON p.id=s.parent_id AND p.org_type='COMPANY' AND p.status='ACTIVE'
+               WHERE s.org_type='SITE' AND s.status='ACTIVE'
+                 AND NOT EXISTS (
+                   SELECT 1 FROM brd_farms f
+                    WHERE f.status='ACTIVE'
+                      AND NULLIF(to_jsonb(f)->>'mapped_site_code','')=s.org_code
+                 )
+            )
+            SELECT 'UNMAPPED_SITE_REFERENCES' AS section,u.*,
+                   (SELECT count(*) FROM brd_houses h WHERE NULLIF(to_jsonb(h)->>'site_code','')=u.org_code) AS house_snapshot_refs,
+                   (SELECT count(*) FROM brd_flocks fl WHERE NULLIF(to_jsonb(fl)->>'site_code','')=u.org_code) AS flock_snapshot_refs,
+                   (SELECT count(*) FROM brd_daily_logs dl WHERE NULLIF(to_jsonb(dl)->>'site_code','')=u.org_code) AS daily_log_refs,
+                   (SELECT count(*) FROM wms_warehouses w WHERE NULLIF(to_jsonb(w)->>'site_code','')=u.org_code) AS warehouse_refs
+              FROM unmapped_sites u ORDER BY u.org_code;
+
+            WITH unmapped_farms AS (
+              SELECT f.farm_code,f.farm_name,f.company_code,f.status,
+                     NULLIF(to_jsonb(f)->>'mapped_site_code','') AS mapped_site_code
+                FROM brd_farms f
+               WHERE f.status='ACTIVE'
+                 AND NULLIF(to_jsonb(f)->>'mapped_site_code','') IS NULL
+            )
+            SELECT 'UNMAPPED_FARM_EVIDENCE' AS section,u.*,
+                   count(DISTINCT h.house_code) AS house_count,
+                   count(DISTINCT fl.flock_no) AS flock_count,
+                   max(dl.log_date) AS last_daily_log_date,
+                   max(NULLIF(to_jsonb(fl)->>'updated_at','')) AS last_flock_updated_at,
+                   max(NULLIF(to_jsonb(fl)->>'created_at','')) AS last_flock_created_at
+              FROM unmapped_farms u
+              LEFT JOIN brd_houses h ON h.farm_code=u.farm_code
+              LEFT JOIN brd_flocks fl ON fl.farm_code=u.farm_code OR fl.house_code=h.house_code
+              LEFT JOIN brd_daily_logs dl ON dl.farm_code=u.farm_code OR dl.house_code=h.house_code
+             GROUP BY u.farm_code,u.farm_name,u.company_code,u.status,u.mapped_site_code
+             ORDER BY u.farm_code;
             ROLLBACK;
             SQL
