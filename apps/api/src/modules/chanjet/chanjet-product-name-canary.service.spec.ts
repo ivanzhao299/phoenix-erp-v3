@@ -1,5 +1,6 @@
 import {
   ChanjetProductNameCanaryService,
+  buildChanjetProductUpdatePayload,
   chanjetProductInvariant,
   extractChanjetProductRows,
 } from './chanjet-product-name-canary.service';
@@ -109,6 +110,20 @@ const input = {
 };
 
 describe('ChanjetProductNameCanaryService', () => {
+  it('translates the list DTO into an invariant-preserving update DTO', () => {
+    expect(buildChanjetProductUpdatePayload(product(originalName, {
+      internalOnly: 'must-not-leak',
+      productBrandId: { id: 'BRAND-1', name: '品牌' },
+    }), proposedName)).toEqual({
+      productCode,
+      productName: proposedName,
+      specNo: '100g/瓶',
+      statusEnum: 'A',
+      productCategory: { code: 'VET', name: '兽药' },
+      productUomSetting: { baseUomName: '瓶' },
+    });
+  });
+
   it('unwraps the official product list envelope and locks nested business names', () => {
     expect(extractChanjetProductRows({ data: { rows: [product(originalName)] } })).toHaveLength(1);
     expect(chanjetProductInvariant(product(originalName))).toBe(chanjetProductInvariant(product(proposedName)));
@@ -149,7 +164,18 @@ describe('ChanjetProductNameCanaryService', () => {
     expect(auth.callApi).toHaveBeenNthCalledWith(
       2,
       `/accounting/openapi/cc/product/update/${bookId}`,
-      { method: 'POST', body: [{ productCode, productName: proposedName }], kind: 'WRITE' },
+      {
+        method: 'POST',
+        body: [{
+          productCode,
+          productName: proposedName,
+          specNo: '100g/瓶',
+          statusEnum: 'A',
+          productCategory: { code: 'VET', name: '兽药' },
+          productUomSetting: { baseUomName: '瓶' },
+        }],
+        kind: 'WRITE',
+      },
     );
     expect(runner.commitTransaction).toHaveBeenCalledTimes(1);
     expect(runner.rollbackTransaction).not.toHaveBeenCalled();
@@ -169,6 +195,14 @@ describe('ChanjetProductNameCanaryService', () => {
       providerCalls: 1,
       writeChanjet: false,
       writeErpBusinessTables: false,
+      updatePayloadFields: [
+        'productCategory',
+        'productCode',
+        'productName',
+        'productUomSetting',
+        'specNo',
+        'statusEnum',
+      ],
     });
     expect(auth.callApi).toHaveBeenCalledWith(
       `/accounting/openapi/cc/product/list/${bookId}`,
@@ -253,7 +287,18 @@ describe('ChanjetProductNameCanaryService', () => {
     expect(auth.callApi).toHaveBeenNthCalledWith(
       4,
       `/accounting/openapi/cc/product/update/${bookId}`,
-      { method: 'POST', body: [{ productCode, productName: originalName }], kind: 'WRITE' },
+      {
+        method: 'POST',
+        body: [{
+          productCode,
+          productName: originalName,
+          specNo: '100g/瓶',
+          statusEnum: 'A',
+          productCategory: { code: 'VET', name: '兽药' },
+          productUomSetting: { baseUomName: '瓶' },
+        }],
+        kind: 'WRITE',
+      },
     );
     expect(runner.rollbackTransaction).toHaveBeenCalledTimes(1);
     expect(runner.commitTransaction).not.toHaveBeenCalled();

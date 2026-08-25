@@ -32,6 +32,7 @@ export type ChanjetProductNameCanaryEvidence = {
   providerStateAfterFailure: 'NOT_CHECKED' | 'ORIGINAL' | 'PROPOSED' | 'UNKNOWN';
   providerReadbackVerified: boolean;
   erpMirrorReadbackVerified: boolean;
+  updatePayloadHash: string;
 };
 
 export class ChanjetProductNameCanaryError extends Error {
@@ -76,11 +77,7 @@ function canonicalize(value: unknown): unknown {
   );
 }
 
-/**
- * The product update contract identifies rows by code and accepts a partial
- * payload. Only the top-level name and provider-maintained update metadata may
- * differ. Nested names (category, brand, UOM, vendor) stay locked.
- */
+/** Only the top-level name and provider-maintained update metadata may differ. */
 export function chanjetProductInvariant(product: Record<string, unknown>): string {
   const copy = { ...product };
   delete copy.name;
@@ -88,6 +85,35 @@ export function chanjetProductInvariant(product: Record<string, unknown>): strin
     if (/^(?:update|modified)(?:stamp|time|at|by)?$/i.test(key)) delete copy[key];
   }
   return JSON.stringify(canonicalize(copy));
+}
+
+/**
+ * Chanjet's product list and update endpoints use different DTOs. Build the
+ * update DTO from the exact provider row so category, base UOM, specification
+ * and status remain explicit and unchanged while only productName is replaced.
+ */
+export function buildChanjetProductUpdatePayload(
+  product: Record<string, unknown>,
+  productName: string,
+): Record<string, unknown> {
+  const productCode = String(product.code || '').trim();
+  const category = record(product.parentId);
+  const baseUom = record(product.baseUomId);
+  const payload: Record<string, unknown> = { productCode, productName };
+
+  if (!productCode || !productName.trim()) throw new Error('provider product update identity is incomplete');
+  if (typeof product.specNo === 'string') payload.specNo = product.specNo;
+  if (typeof product.statusEnum === 'string' && product.statusEnum) payload.statusEnum = product.statusEnum;
+  if (String(category.code || '') || String(category.name || '')) {
+    payload.productCategory = {
+      ...(String(category.code || '') ? { code: String(category.code) } : {}),
+      ...(String(category.name || '') ? { name: String(category.name) } : {}),
+    };
+  }
+  if (String(baseUom.uomName || '')) {
+    payload.productUomSetting = { baseUomName: String(baseUom.uomName) };
+  }
+  return payload;
 }
 
 function sha256(value: string): string {
@@ -126,6 +152,8 @@ export class ChanjetProductNameCanaryService {
     currentName: string;
     proposedName: string;
     providerRowHash: string;
+    updatePayloadHash: string;
+    updatePayloadFields: string[];
     providerCalls: 1;
     writeChanjet: false;
     writeErpBusinessTables: false;
@@ -151,6 +179,7 @@ export class ChanjetProductNameCanaryService {
     if (![proposal.currentValue, proposal.proposedValue].includes(providerName)) {
       throw new Error(`provider product name changed after audit: ${providerName || 'EMPTY'}`);
     }
+    const updatePayload = buildChanjetProductUpdatePayload(providerProduct, proposal.proposedValue);
     return {
       decision: 'READY_FOR_EXPLICIT_APPROVAL',
       auditHash: audit.auditHash,
@@ -160,6 +189,8 @@ export class ChanjetProductNameCanaryService {
       currentName: providerName,
       proposedName: proposal.proposedValue,
       providerRowHash: sha256(JSON.stringify(canonicalize(providerProduct))),
+      updatePayloadHash: sha256(JSON.stringify(canonicalize(updatePayload))),
+      updatePayloadFields: Object.keys(updatePayload).sort(),
       providerCalls: 1,
       writeChanjet: false,
       writeErpBusinessTables: false,
@@ -207,6 +238,7 @@ export class ChanjetProductNameCanaryService {
       providerStateAfterFailure: 'NOT_CHECKED',
       providerReadbackVerified: false,
       erpMirrorReadbackVerified: false,
+      updatePayloadHash: '',
     };
     const listPath = `/accounting/openapi/cc/product/list/${target.bookId}`;
     const updatePath = `/accounting/openapi/cc/product/update/${target.bookId}`;
@@ -230,6 +262,8 @@ export class ChanjetProductNameCanaryService {
       }
       beforeInvariant = chanjetProductInvariant(beforeProduct);
       evidence.beforeHash = sha256(JSON.stringify(canonicalize(beforeProduct)));
+      const updatePayload = buildChanjetProductUpdatePayload(beforeProduct, proposal.proposedValue);
+      evidence.updatePayloadHash = sha256(JSON.stringify(canonicalize(updatePayload)));
 
       if (providerName === proposal.proposedValue) {
         await this.updateErpMirror(runner, target, proposal.proposedValue, actor, audit.auditHash, {
@@ -258,7 +292,7 @@ export class ChanjetProductNameCanaryService {
       providerCalls += 1;
       const updateEnvelope = await this.auth.callApi<Record<string, unknown>>(updatePath, {
         method: 'POST',
-        body: [{ productCode: target.chanjetCode, productName: proposal.proposedValue }],
+        body: [updatePayload],
         kind: 'WRITE',
       });
       if (!updateAccepted(updateEnvelope, target.chanjetCode)) {
@@ -325,7 +359,7 @@ export class ChanjetProductNameCanaryService {
             providerCalls += 1;
             const rollbackEnvelope = await this.auth.callApi<Record<string, unknown>>(updatePath, {
               method: 'POST',
-              body: [{ productCode: target.chanjetCode, productName: proposal.rollbackValue }],
+              body: [buildChanjetProductUpdatePayload(beforeProduct, proposal.rollbackValue)],
               kind: 'WRITE',
             });
             if (!updateAccepted(rollbackEnvelope, target.chanjetCode)) {
