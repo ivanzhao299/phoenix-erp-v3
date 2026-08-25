@@ -338,6 +338,19 @@ ROLLBACK;
 
 最小权限化路线：① 明确场站角色是否只见显式仓库授权，或默认公司全量；② 若选择最小授权，将 SITE/COMPANY 推导与显式仓库授权改为交集，并为零显式授权定义 fail-closed；③ 将 warehouse/zone/location 从 `GLOBAL_TABLES` 拆出，按 warehouse ownership 对三层资源统一过滤；④ 用五象限真实 HTTP 集合基线复核后发布。待用户拍板的核心问题是：**场站用户应默认获得所属公司全部仓库，还是只获得显式绑定仓库？** 本轮遵照任务要求只记录、不改变现行行为。
 
+#### 13.3.1 A2 生产只读预检（阻断，未实施）
+
+2026-08-25 用户已裁定 A2：SITE 绑定改为按 `wms_warehouses.site_code` 直接映射，显式 `sys_user_warehouse_scopes` 继续叠加，公司级绑定、admin/GROUP 与 POS `store_code` 语义不变。实现前通过只读工作流 run `32836018010` 核验生产；工作流使用 `PGOPTIONS='-c default_transaction_read_only=on'` 与 `BEGIN TRANSACTION READ ONLY`，没有生产写入或 DDL。
+
+预检命中“存量近期用仓冲突则停止”的发布红线，A2 **尚未实现、未建 PR、未合并、未部署**：
+
+- `linhong` 唯一 SITE 绑定仍为 `SITE-DONGPENG-LAYER`。旧规则按祖先公司 `COMP-LAO-XINGCHI` 展开 7 个 ACTIVE 仓；这 7 个仓的生产 `site_code` 均为空，新规则集合为 0。
+- 会丢失的完整仓库集合：`CJ-WH-XINGCHI-01`（总仓）、`CJ-WH-XINGCHI-03`（会晒仓库）、`CJ-WH-XINGCHI-04`（沙耶武里仓库）、`CJ-WH-XINGCHI-05`（1号粮仓）、`CJ-WH-XINGCHI-06`（2号粮仓）、`CJ-WH-XINGCHI-07`（冷库）、`WH-0001`（DongPengEggsTest）。
+- 最近 90 天实际使用冲突：`wms_inbound` 有 1 行由 `linhong` 操作，仓库为 `CJ-WH-XINGCHI-01`，时间 `2026-08-25T01:44:12Z`；该仓不在新规则集合。
+- 同一 run 的当前生产 HTTP 基线：`linhong /api/lookup/warehouses` 返回上述 7 仓；admin 返回 17 仓。该 run 只采证现行 revision，没有改变任何账号权限。
+
+继续 A2 前需要业务裁决并先完成仓库归属治理：至少把东鹏实际使用仓准确回填到 `site_code='SITE-DONGPENG-LAYER'`，或对确认仍需跨 SITE 使用的仓写入显式 `sys_user_warehouse_scopes`。在这项生产数据准备完成并重新只读预检为“无丢仓冲突”之前，不得把三张仓储主数据移出 `GLOBAL_TABLES`，也不得上线 SITE 仓库收紧代码。
+
 ### 13.4 P1-B1 非蛋鸡 SITE 边界
 
 `SITE-VTE-BROILER` 与 `SITE-VTE-SLAUGHTER` 是非蛋鸡组织展示节点。未映射 ACTIVE farm 时，其绑定用户保留组织与菜单身份，但 `allowedFarmCodes=[]`，鸡舍、鸡群及蛋鸡日报均为空范围；不得自动创建 farm、映射到 `CS-0001` 或继承其他 SITE 的 farm。workflow 每次只读审计输出未映射 SITE、业务引用计数和未映射 farm 证据，并增加显式 WARNING 行；告警不写生产数据。
