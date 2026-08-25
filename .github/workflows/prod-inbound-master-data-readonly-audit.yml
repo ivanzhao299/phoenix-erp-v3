@@ -35,7 +35,7 @@ jobs:
           response="$(curl --fail-with-body --silent --show-error \
             -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
             -X POST https://erp.eggslao.com/api/v2/inventory/production-inbound \
-            --data '{"houseCode":"HOUSE_MS_02","siteCode":"SITE-MENGSAI-LAYER","warehouseCode":"LPH_MS_EGG_FARM","locationCode":"CS-KW-005","eggDate":"2026-08-25","items":[{"grade":"GRADE_1","qty":1}]}' )"
+            --data '{"houseCode":"HOUSE_CS_01","warehouseCode":"LPH_MS_EGG_FARM","locationCode":"CS-KW-005","eggDate":"2026-08-25","items":[{"grade":"GRADE_1","qty":1}]}' )"
           RESPONSE="$response" node - <<'NODE'
           const body = JSON.parse(process.env.RESPONSE || '{}');
           if (body.totalInbound !== 1 || body.companyCode !== 'COMP-LAO-AGRI'
