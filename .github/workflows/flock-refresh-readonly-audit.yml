@@ -76,8 +76,6 @@ jobs:
             done
 
             api_container="$(docker compose ps -q api)"
-            window_start_rfc3339="$(date -u -d "$WINDOW_START" '+%Y-%m-%dT%H:%M:%S')"
-            window_end_rfc3339="$(date -u -d "$WINDOW_END" '+%Y-%m-%dT%H:%M:%S')"
             docker exec "$api_container" node -e '
               const raw = process.env.DATABASE_URL;
               if (!raw) { console.log("API_DATABASE_URL=unset (individual PG variables may be in use)"); process.exit(0); }
@@ -115,37 +113,6 @@ jobs:
                AND table_name = 'brd_flocks'
                AND (column_name IN ('flock_no', 'current_qty') OR column_name ~ '(updated|modified|created|version)')
              ORDER BY ordinal_position;
-            SELECT id, created_at, request_method, request_path, http_status,
-                   error_message, stack_trace, pg_error_code, username
-              FROM sys_error_logs
-             WHERE created_at >= :'window_start'::timestamptz
-               AND created_at < :'window_end'::timestamptz
-               AND request_method = 'POST'
-               AND request_path LIKE '%production-inbound%'
-             ORDER BY created_at DESC
-             LIMIT 5;
-            SELECT conrelid::regclass AS table_name, conname,
-                   pg_get_constraintdef(oid) AS definition
-              FROM pg_constraint
-             WHERE conrelid IN ('inv_batches'::regclass, 'inv_ledger'::regclass)
-             ORDER BY conrelid::regclass::text, conname;
-            SELECT company_code, count(*) AS customer_count
-              FROM sal_customers
-             GROUP BY company_code
-             ORDER BY company_code NULLS FIRST;
-            SELECT table_name, column_name, is_nullable, column_default
-              FROM information_schema.columns
-             WHERE table_schema = current_schema()
-               AND table_name IN ('inv_batches', 'inv_ledger')
-             ORDER BY table_name, ordinal_position;
-            SELECT 'wms_warehouses' AS source, row_to_json(w) AS row
-              FROM (SELECT * FROM wms_warehouses WHERE warehouse_code = 'WMS-VTE-MAIN') w;
-            SELECT 'wms_locations' AS source, row_to_json(l) AS row
-              FROM (SELECT * FROM wms_locations WHERE location_code = 'INBOUND-DOCK') l;
-            SELECT 'product_master' AS source, row_to_json(p) AS row
-              FROM (SELECT * FROM product_master WHERE product_code = 'PRD-EGG-GRADE_1') p;
-            SELECT 'product_skus' AS source, row_to_json(s) AS row
-              FROM (SELECT * FROM product_skus WHERE product_code = 'PRD-EGG-GRADE_1') s;
             SELECT format(
                      'SELECT row_to_json(flock_row) AS latest_flock FROM (SELECT flock_no, current_qty, %1$I AS activity_marker FROM brd_flocks ORDER BY %1$I DESC NULLS LAST LIMIT 5) AS flock_row;',
                      COALESCE(
@@ -178,14 +145,9 @@ jobs:
               | grep -E 'SVC Update START.*brd_flocks|CRUD Update.*(success|failed)' \
               | tail -60 || true
 
-            echo 'API_PRODUCTION_INBOUND_ERRORS_IN_WINDOW'
-            docker logs --timestamps \
-              --since "${window_start_rfc3339}Z" \
-              --until "${window_end_rfc3339}Z" \
-              "$api_container" 2>&1 \
-              | grep -E -C 20 'production-inbound|ProdInbound|EggInv|QueryFailedError' || true
-
             echo 'API_BRD_FLOCKS_UPDATE_LOGS_IN_WINDOW'
+            window_start_rfc3339="$(date -u -d "$WINDOW_START" '+%Y-%m-%dT%H:%M:%S')"
+            window_end_rfc3339="$(date -u -d "$WINDOW_END" '+%Y-%m-%dT%H:%M:%S')"
             docker logs --timestamps \
               --since "${window_start_rfc3339}Z" \
               --until "${window_end_rfc3339}Z" \
