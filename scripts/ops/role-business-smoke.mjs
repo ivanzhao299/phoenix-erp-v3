@@ -230,17 +230,17 @@ if (!profiles.length) {
   checks.push(check('FAIL', 'matrix:profiles', { reason: selectedProfile ? `profile not found: ${selectedProfile}` : 'no profiles configured' }));
   decisionOverride = 'FAIL';
 } else if (!credentials.ok) {
-  checks.push(check('SKIP', 'credentials', { reason: credentials.reason }));
+  checks.push(check('FAIL', 'credentials', { reason: credentials.reason }));
   for (const profile of profiles) {
-    checks.push(check('SKIP', `${profile.profile}:profile`, { reason: 'missing credentials' }));
+    checks.push(check('FAIL', `${profile.profile}:profile`, { reason: 'missing credentials' }));
   }
-  decisionOverride = strict ? 'FAIL' : 'SKIP_CREDENTIALS';
+  decisionOverride = 'FAIL';
 } else {
   const credByProfile = new Map((credentials.data?.profiles ?? []).map((item) => [item.profile, item]));
   for (const profile of profiles) {
     const credential = credByProfile.get(profile.profile);
     if (!credential?.username || !credential?.password) {
-      checks.push(check(strict ? 'FAIL' : 'SKIP', `${profile.profile}:credentials`, { reason: 'profile credentials missing' }));
+      checks.push(check('FAIL', `${profile.profile}:credentials`, { reason: 'profile credentials missing' }));
       continue;
     }
     const loginResult = await login(credential);

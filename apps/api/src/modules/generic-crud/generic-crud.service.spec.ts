@@ -10,6 +10,25 @@ describe('GenericCrudService', () => {
   };
 
   describe('findAll', () => {
+    it.each(['company_code', 'site_code', 'store_code'])(
+      'rejects retired brd_houses query parameter %s before SQL execution',
+      async (column) => {
+        const query = jest.fn();
+        const { svc } = buildSvc(query);
+
+        await expect(svc.findAll('brd_houses', { [column]: 'legacy' }))
+          .rejects.toThrow('已永久退役');
+        expect(query).not.toHaveBeenCalled();
+      },
+    );
+
+    it('rejects retired brd_houses LIKE query parameters', async () => {
+      const query = jest.fn();
+      const { svc } = buildSvc(query);
+      await expect(svc.findAll('brd_houses', { site_code__like: 'SITE-%' }))
+        .rejects.toThrow(BadRequestException);
+      expect(query).not.toHaveBeenCalled();
+    });
     it('translates breeding daily culling reason codes to Chinese labels', async () => {
       const query = jest
         .fn()
@@ -231,6 +250,14 @@ describe('GenericCrudService', () => {
   });
 
   describe('update', () => {
+    it('does not auto-repair a retired brd_houses ownership column on direct service calls', async () => {
+      const query = jest.fn();
+      const { svc } = buildSvc(query);
+
+      await expect(svc.update('brd_houses', 'house_code', 'H-1', { company_code: 'COMP-A' }))
+        .rejects.toThrow('已永久退役');
+      expect(query).not.toHaveBeenCalled();
+    });
     it('returns success when UPDATE RETURNING matches a row', async () => {
       const query = jest.fn().mockResolvedValueOnce([[{ location_code: 'LOC-A-01' }], 1]);
       const { svc } = buildSvc(query);
@@ -246,6 +273,44 @@ describe('GenericCrudService', () => {
 
       await expect(svc.update('wms_locations', 'location_code', 'missing', { status: 'NORMAL' }))
         .rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('create', () => {
+    it('does not auto-repair a retired brd_houses ownership column on direct service calls', async () => {
+      const query = jest.fn();
+      const { svc } = buildSvc(query);
+
+      await expect(svc.create('brd_houses', { house_code: 'H-1', site_code: 'SITE-A' }))
+        .rejects.toThrow('已永久退役');
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it('stores an omitted farm SITE as explicit NULL', async () => {
+      const query = jest.fn().mockResolvedValueOnce([]);
+      const { svc } = buildSvc(query);
+      await expect(svc.create('brd_farms', {
+        farm_code: 'FARM-A', company_code: 'COMP-A', mapped_site_code: '',
+      })).resolves.toEqual({ msg: 'Created successfully' });
+      expect(query.mock.calls[0][0]).toContain('"mapped_site_code"');
+      expect(query.mock.calls[0][1]).toContain(null);
+    });
+
+    it('rejects a farm mapping whose ACTIVE SITE belongs to another company', async () => {
+      const query = jest.fn().mockResolvedValueOnce([{ company_code: 'COMP-B' }]);
+      const { svc } = buildSvc(query);
+      await expect(svc.create('brd_farms', {
+        farm_code: 'FARM-A', company_code: 'COMP-A', mapped_site_code: 'SITE-B',
+      })).rejects.toThrow('不一致');
+      expect(query).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects a farm mapping to a missing or inactive SITE', async () => {
+      const query = jest.fn().mockResolvedValueOnce([]);
+      const { svc } = buildSvc(query);
+      await expect(svc.create('brd_farms', {
+        farm_code: 'FARM-A', company_code: 'COMP-A', mapped_site_code: 'SITE-X',
+      })).rejects.toThrow('未指向 ACTIVE SITE');
     });
   });
 

@@ -10,7 +10,7 @@ describe('GenericCrudController WMS RBAC', () => {
   let wmsService: { confirmInbound: jest.Mock; confirmStandaloneOutbound: jest.Mock };
   let cls: { set: jest.Mock };
 
-  const req = (permissions: string[]) => ({
+  const req = (permissions: string[], permsVersion = 17) => ({
     user: {
       userId: '1',
       id: 1,
@@ -18,6 +18,7 @@ describe('GenericCrudController WMS RBAC', () => {
       role: 'ROLE_MENGSAI_DONGPENG_TREASURER',
       roles: ['ROLE_MENGSAI_DONGPENG_TREASURER'],
       permissions,
+      perms_version: permsVersion,
     },
   });
 
@@ -174,12 +175,13 @@ describe('GenericCrudController WMS RBAC', () => {
             roles: ['ROLE_WMS_OP'],
             storeCode: 'SITE-MENGSAI-LAYER',
             permissions: ['MENU_INV_BATCH:V'],
+            perms_version: 21,
           },
         },
       ),
     ).resolves.toEqual({ code: 200, data: [] });
 
-    expect(dataScopeService.resolve).toHaveBeenCalledWith('42', ['ROLE_WMS_OP'], 'MENU_INV_BATCH');
+    expect(dataScopeService.resolve).toHaveBeenCalledWith('42', ['ROLE_WMS_OP'], 'MENU_INV_BATCH', 21);
     expect(svc.findAllInventoryScoped).toHaveBeenCalledWith(
       'inv_batches',
       { limit: '50', offset: '0' },
@@ -212,12 +214,13 @@ describe('GenericCrudController WMS RBAC', () => {
             roles: ['ROLE_WMS_OP'],
             storeCode: 'SITE-MENGSAI-LAYER',
             permissions: ['MENU_INV_LEDGER:V'],
+            perms_version: 22,
           },
         },
       ),
     ).resolves.toEqual({ code: 200, data: [] });
 
-    expect(dataScopeService.resolve).toHaveBeenCalledWith('42', ['ROLE_WMS_OP'], 'MENU_INV_LEDGER');
+    expect(dataScopeService.resolve).toHaveBeenCalledWith('42', ['ROLE_WMS_OP'], 'MENU_INV_LEDGER', 22);
     expect(svc.findAllInventoryScoped).toHaveBeenCalledWith(
       'inv_ledger',
       { limit: '50', offset: '0' },
@@ -321,6 +324,7 @@ describe('GenericCrudController WMS RBAC', () => {
       '1',
       ['ROLE_MENGSAI_DONGPENG_TREASURER'],
       'MENU_MD_ORG',
+      17,
     );
     expect(svc.create).toHaveBeenCalledWith('brd_farms', {
       farm_code: 'FARM-A3-001',
