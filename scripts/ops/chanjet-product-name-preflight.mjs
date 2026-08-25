@@ -76,11 +76,8 @@ if (result.decision !== 'READY_FOR_EXPLICIT_APPROVAL'
   || String(result.mappingId || '') !== mappingId) {
   throw new Error('production preflight did not prove the required read-only guardrails');
 }
-if (!result.updatePayloadHash
-  || JSON.stringify(result.updatePayloadFields) !== JSON.stringify(expectedUpdatePayloadFields)) {
-  throw new Error('production preflight update DTO is incomplete or outside the approved field boundary');
-}
-
+const updatePayloadReady = Boolean(result.updatePayloadHash)
+  && JSON.stringify(result.updatePayloadFields) === JSON.stringify(expectedUpdatePayloadFields);
 const report = {
   generatedAt: new Date().toISOString(),
   decision: result.decision,
@@ -92,6 +89,7 @@ const report = {
   providerRowHash: result.providerRowHash,
   updatePayloadHash: result.updatePayloadHash,
   updatePayloadFields: result.updatePayloadFields,
+  updatePayloadReady,
   auditHash: result.auditHash,
   providerCalls: 1,
   writeChanjet: false,
@@ -100,5 +98,10 @@ const report = {
 mkdirSync(outputDir, { recursive: true });
 const output = join(outputDir, 'chanjet-product-name-preflight-latest.json');
 writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+console.log(`Chanjet update DTO fields=${JSON.stringify(result.updatePayloadFields || [])}`);
+console.log(`Chanjet update DTO hash=${result.updatePayloadHash || 'MISSING'}`);
+if (!updatePayloadReady) {
+  throw new Error('production preflight update DTO is incomplete or outside the approved field boundary');
+}
 console.log(`Chanjet product-name preflight ready mapping=${mappingId} providerCalls=1`);
 console.log(`artifact=${output}`);
