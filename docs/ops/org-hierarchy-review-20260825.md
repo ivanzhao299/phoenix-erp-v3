@@ -203,5 +203,6 @@ ROLLBACK;
 | 约束漂移 | 0 new drift；1 条既有 allowlist |
 | nullable unique | 0 违规；1 条既有白名单 |
 | diff whitespace | `git diff --check` 通过 |
+| W5 受控边界复核 | 默认门禁按设计阻断 API/RBAC/sales frozen path；审阅改动范围后以 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 显式复核，20/20 PASS |
 
 真实 HTTP/PG regression、双账号生产集合断言、生产数据矩阵、部署 revision 和生产只读关键路径依赖远程环境，在代码提交后的 CI/部署阶段记录；任何未执行项不得写成 PASS。
