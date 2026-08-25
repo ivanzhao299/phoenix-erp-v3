@@ -77,6 +77,16 @@ jobs:
               FROM brd_houses h ORDER BY h.house_code;
             SELECT 'WAREHOUSES' AS section, to_jsonb(w) AS record
               FROM wms_warehouses w ORDER BY w.warehouse_code;
+            SELECT 'WMS_STATUS_VOCABULARY' AS section, 'wms_warehouses' AS table_name,
+                   COALESCE(status, '<NULL>') AS status, count(*)::int AS row_count
+              FROM wms_warehouses GROUP BY status
+            UNION ALL
+            SELECT 'WMS_STATUS_VOCABULARY', 'wms_zones', COALESCE(status, '<NULL>'), count(*)::int
+              FROM wms_zones GROUP BY status
+            UNION ALL
+            SELECT 'WMS_STATUS_VOCABULARY', 'wms_locations', COALESCE(status, '<NULL>'), count(*)::int
+              FROM wms_locations GROUP BY status
+             ORDER BY table_name, status;
             SELECT 'LOCATIONS' AS section, to_jsonb(l) AS record
               FROM wms_locations l ORDER BY l.warehouse_code, l.location_code;
             SELECT 'GRADES' AS section, grade_code, grade_name, is_saleable, is_storable, status

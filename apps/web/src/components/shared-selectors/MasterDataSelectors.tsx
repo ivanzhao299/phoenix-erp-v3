@@ -8,7 +8,8 @@ import { fetchDictMap } from '@/lib/dict-cache'; // G25-A 字典异步缓存
 /**
  * 统一主数据选择器（G4-A 财务单据主数据驱动 + G5-B Lookup 范式化 + G7 收口）
  * ════════════════════════════════════════════════════════════════════════
- * 所有选择器只加载 ACTIVE 主数据；选中后通过 onChange(code) + onPick(item) 回传，
+ * 所有选择器只加载可用主数据（通常为 ACTIVE；WMS 库区/库位兼容 ACTIVE/NORMAL）；
+ * 选中后通过 onChange(code) + onPick(item) 回传，
  * 业务表单据此自动带出名称等字段，杜绝裸字段手填。
  *
  * 数据源（G5-B 后）：
@@ -272,10 +273,11 @@ export function ZoneSelector(p: BaseProps & { warehouseCode?: string }) {
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择库区','请选择库区')}
     reloadDeps={[warehouseCode]}
     loader={async () => {
-      const r = await request<any>('/crud/wms_zones?status=ACTIVE&limit=500');
+      // 不在 URL 传单值 status：历史 WMS 可用态同时存在 ACTIVE/NORMAL，统一在客户端收口。
+      const r = await request<any>('/crud/wms_zones?limit=500');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
       return list
-        .filter(z => (z.status ?? 'ACTIVE') === 'ACTIVE')
+        .filter(z => ['ACTIVE', 'NORMAL'].includes(z.status ?? 'ACTIVE'))
         .filter(z => !warehouseCode || z.warehouse_code === warehouseCode)
         .map(z => ({
           value: z.zone_code,
@@ -291,7 +293,8 @@ export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCo
   const { warehouseCode, zoneCode, ...rest } = p;
   return <ScopedSelect {...rest} reloadDeps={[warehouseCode, zoneCode]} placeholder={p.placeholder ?? t('ui.请选择货位','请选择货位')}
     loader={async () => {
-      const r = await request<any>('/crud/wms_locations?status=ACTIVE&pageSize=500');
+      // Generic CRUD 的 status=ACTIVE 是精确等值，会在客户端过滤前滤光 NORMAL 库位。
+      const r = await request<any>('/crud/wms_locations?pageSize=500');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
       return list
         .filter(l => ['ACTIVE', 'NORMAL'].includes(l.status ?? 'ACTIVE'))
