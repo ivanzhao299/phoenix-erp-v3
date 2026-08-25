@@ -191,6 +191,61 @@ ROLLBACK;
 4. **P4 历史命名清理**：拆分 POS `store_code` 与 farm/site 兼容；收敛 zones `warehouse`；逐模块移除 `ALL`。
 5. **P5 约束化**：数据清理完成并获授权后，才增加 FK/NOT NULL/唯一映射约束；同步冻结基线、迁移末态和写入代码。
 
+## 11. 方案 A 执行记录（第一阶段）
+
+### 11.1 授权与边界
+
+2026-08-25 用户正式裁定方案 A：SITE 是 FARM 的组织树投影。此阶段不改 schema、不迁移存量用户绑定、不写生产数据，也不改变销售/POS `store_code` 语义。生产审计和部署核实均通过 GitHub production environment 执行；SQL 强制 `default_transaction_read_only=on` 与 `BEGIN TRANSACTION READ ONLY`。
+
+### 11.2 生产只读盘点矩阵
+
+只读 workflow：`Organization SITE Farm Production Readonly Audit`，部署前运行 `32823157227`；当时生产 checkout 为 `5c322b91`。
+
+| 审计项 | 生产结果 | 结论 |
+|---|---:|---|
+| ACTIVE SITE | 4 | 全量已逐行输出 |
+| SITE↔farm 一一映射 | 2 | `SITE-DONGPENG-LAYER↔FARM-DP`、`SITE-MENGSAI-LAYER↔LPH_MENGSAI` |
+| 一个 SITE 映射多个 farm | 0 | 无一对多冲突 |
+| 重复 SITE `org_code` | 0 | 无多行同码冲突 |
+| SITE 未映射 farm | 2 | `SITE-VTE-BROILER`、`SITE-VTE-SLAUGHTER`；本阶段保持 fail-closed |
+| ACTIVE farm 未映射 SITE | 1 | 后续归一阶段处理；本阶段不回填生产 |
+| farm 映射到不存在 SITE | 0 | 无悬空映射 |
+| 鸡舍 | 19 | company/site/store 填充分别 12/13/19 |
+| 鸡舍 company/site 副本漂移 | 7/6 | 证明副本不能作权威；读取统一走 farm 派生 |
+| 仓库 | 17 | 7 行带兼容 site；不存在 SITE=0，公司归属漂移=0 |
+
+首版审计曾按 SITE 行自身空 `company_code` 误报公司漂移；已改为通过 SITE 父 COMPANY 派生并重跑，上表只记录修正后的结果。
+
+### 11.3 读取与 DataScope 收口
+
+- `OrgOwnershipService.resolveFarmCodesBySiteCodes()` 成为 `mapped_site_code` 的运行时批量解释入口，只返回 ACTIVE farm 并去重。
+- `DataScopeService` 保留原 `allowedSiteCodes`，同时把 SITE 投影合并进 `allowedFarmCodes`。未映射 SITE 不产生 farm，非全局无绑定用户仍为空范围；ROLE_ADMIN/GROUP 仍直接全局且不执行投影查询。
+- 鸡群 lookup 的 SITE 请求参数、SITE scope 与 house fallback 均改为 `flock/house→ACTIVE farm→mapped_site_code`，不再读取 `fl.site_code`/`house.site_code` 决定范围。
+- 手机端建舍不再从同场鸡舍的稀疏副本复制归属，而由唯一 farm 经 `OrgOwnershipService.resolveFarm()` 投影；SITE 映射不是恰好一个 farm 时拒绝写入。
+- 仓库 lookup 的 `site_code` 仍是兼容投影筛选；公司权限主链已是 `warehouse.company_code`。前端展示、历史单据追溯字段及 POS 门店语义未改。
+- 通用 breeding CRUD 中历史单据自身 `site_code/company_code` fallback 暂留，因其承载历史单据隔离而非 house 权威归属；下一阶段逐表迁移，不能机械删除。
+
+### 11.4 写入门禁
+
+- `/api/crud/brd_houses` create/update 现在显式拒绝 `company_code/site_code/store_code`，并停止按登录用户自动注入鸡舍 `store_code`。
+- 新增 `scripts/ci/check-house-ownership-writes.mjs`：扫描 API 业务源码，三列 SQL 直写仅允许手机建舍投影方与经人工审核的 Chanjet 主数据导入分支；同时锁定 generic CRUD create/update 防绕过契约。
+- 门禁已接入 `ci-security`、部署 workflow 入口及 W5 closeout。负例临时加入 `UPDATE brd_houses SET site_code=...` 后真实返回 exit 1，移除负例后 PASS。
+
+### 11.5 等价证明与验证
+
+| 象限 | 自动断言/生产基线 | 结果 |
+|---|---|---|
+| `linhong` 场长 | SITE 投影为 `FARM-DP`；部署前 `/api/farm/feed/houses` 9 舍、egglog flock 2 群且均为 `FARM-DP` | 基线已留痕，部署后须完全相等 |
+| 公司范围用户 | 公司仍展开 ACTIVE warehouse；SITE 投影只追加对应 farm，不覆盖公司范围 | 单测与原公司展开路径通过 |
+| admin/全局 | `isGlobal=true`，不查询 SITE 投影 | 单测通过；部署前 admin 鸡舍 19 舍 |
+| 无绑定非全局 | SITE/farm/company 均空，不调用投影查询 | fail-closed 单测通过 |
+
+本地验证：API TypeScript 0 errors；Web TypeScript 0 errors；API 64 suites / 543 tests；Web 79 files / 440 tests；nullable unique、constraint drift、legacy growth、W5 closeout 与 `git diff --check` 均通过。生产最小入库会写库存，与本阶段“不写生产数据”红线冲突，故未在生产执行；相关入库服务回归包含在 API 全量测试，后续只能在已隔离 staging 环境留痕。
+
+### 11.6 交付与下一阶段
+
+功能分支 `codex/org-site-farm-projection-p1` 提交 `4df00601` 后 fast-forward 合入 main；审计口径与 runner 可移植性修复为 `c45d07a5`、`516d4193`。下一阶段先处理 2 个未映射 SITE 与 1 个未映射 farm 的业务归一裁定，再逐表移除历史单据 ownership fallback；在数据清理、等价复核与单独授权前，不新增约束、不回填或删除旧列。
+
 ## 10. 验证记录
 
 | 检查 | 结果 |
