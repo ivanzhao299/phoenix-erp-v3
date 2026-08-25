@@ -271,3 +271,26 @@ ROLLBACK;
 | W5 受控边界复核 | 默认门禁按设计阻断 API/RBAC/sales frozen path；审阅改动范围后以 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 显式复核，20/20 PASS |
 
 真实 HTTP/PG regression、双账号生产集合断言、生产数据矩阵、部署 revision 和生产只读关键路径依赖远程环境，在代码提交后的 CI/部署阶段记录；任何未执行项不得写成 PASS。
+
+## 12. 收尾三阶段执行记录
+
+### 12.1 阶段①：SITE↔farm 归一取证
+
+- 只读 workflow `Organization SITE Farm Production Readonly Audit` run `32826936690` 成功；生产 checkout 为 `44ceca9b`，事务同时启用 `default_transaction_read_only=on` 与 `BEGIN TRANSACTION READ ONLY`。
+- `SITE-VTE-BROILER`（万象肉鸡养殖场）和 `SITE-VTE-SLAUGHTER`（万象屠宰加工厂）父公司均为 `COMP-LAO-FOOD`；鸡舍 snapshot、鸡群 snapshot、养殖日报和仓库引用四项计数均为 0。按方案 A 保留为非养殖业务的组织树展示节点，不强行创建 farm 投影。
+- 唯一未映射 ACTIVE farm 为 `CS-0001 / 测试养殖场 / COMP-LAO-AGRI`。生产证据为 0 个鸡舍、1 个鸡群、最近养殖日报 `2026-08-19`，不能仅凭名称判定可停用，也没有证据支持映射到任一 VTE SITE。
+- 判定为 fail-closed：本阶段没有执行 `brd_farms.mapped_site_code` 写入，因此没有 RETURNING 或回滚 SQL；这不是遗漏，而是预检未达到“证据明确支持映射”的写入闸门。
+
+### 12.2 阶段②：历史 ownership fallback 逐表迁移
+
+| 表 | 字段语义 | 处理 |
+|---|---|---|
+| `brd_farms` | `company_code` 是实体归属；`mapped_site_code` 是组织投影 | 保留主档直接过滤 |
+| `brd_houses` | 自身 `company_code/site_code` 是稀疏派生副本，不是历史事实 | generic CRUD 改走 `house.farm_code → ACTIVE farm` |
+| `brd_flocks` | 自身 `company_code/site_code` 是建群时派生副本；实体仍有 `farm_code` | generic CRUD 改走 `flock.farm_code → ACTIVE farm` |
+| `brd_daily_logs` | 单据落库时的归属快照 | 不改；历史事实继续保留 |
+| `brd_medication_records` | 业务记录自身 SITE 隔离字段 | 不改；本阶段不机械扩大范围 |
+
+统一 SQL 谓词集中到 `OrgOwnershipService.farmScopePredicate()`；house/flock 的副本即使漂移，也不能再覆盖 ACTIVE farm 权威归属。固定 fixture 覆盖副本一致、空字符串/NULL fallback 和其他农场，断言迁移前后集合均为 `consistent,sparse`；另有 SQL 断言保证两个表不再读取自身 company/site。
+
+本地验证：API TypeScript 0 errors；Web TypeScript 0 errors；API 64 suites / 545 tests；Web 79 files / 440 tests；`git diff --check` 通过。生产集合等价与部署 revision 在本阶段 PR 合并部署后补记，未执行前不记 PASS。

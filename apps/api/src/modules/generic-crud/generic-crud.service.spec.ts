@@ -168,24 +168,54 @@ describe('GenericCrudService', () => {
   });
 
   describe('findAllBreedingScoped', () => {
-    it('combines farm, site, and company dimensions with OR', async () => {
+    it.each(['brd_houses', 'brd_flocks'] as const)(
+      'uses the ACTIVE farm ownership chain for %s and ignores row snapshots',
+      async (table) => {
       const query = jest.fn().mockResolvedValueOnce([]);
       const { svc } = buildSvc(query);
 
-      await svc.findAllBreedingScoped('brd_flocks', { status: ['LAYING', 'PEAK'] }, {
+      await svc.findAllBreedingScoped(table, { status: ['LAYING', 'PEAK'] }, {
         farmCodes: ['FARM-DP'],
         siteCodes: ['SITE-DONGPENG-LAYER'],
         companyCodes: ['COMP-LAO-XINGCHI'],
       });
 
       expect(query.mock.calls[0][0]).toContain('"farm_code" = ANY($2)');
-      expect(query.mock.calls[0][0]).toContain('COALESCE(NULLIF("brd_flocks"."site_code"');
-      expect(query.mock.calls[0][0]).toContain("SELECT to_jsonb(f)->>'mapped_site_code'");
-      expect(query.mock.calls[0][0]).toContain('COALESCE(NULLIF("brd_flocks"."company_code"');
+      expect(query.mock.calls[0][0]).toContain(`ownership_farm.farm_code = "${table}"."farm_code"`);
+      expect(query.mock.calls[0][0]).toContain("NULLIF(to_jsonb(ownership_farm)->>'mapped_site_code', '') = ANY($3)");
+      expect(query.mock.calls[0][0]).toContain('ownership_farm.company_code = ANY($4)');
+      expect(query.mock.calls[0][0]).not.toContain(`"${table}"."site_code"`);
+      expect(query.mock.calls[0][0]).not.toContain(`"${table}"."company_code"`);
       expect(query.mock.calls[0][1]).toEqual([
         ['LAYING', 'PEAK'], ['FARM-DP'], ['SITE-DONGPENG-LAYER'],
         ['COMP-LAO-XINGCHI'], 100, 0,
       ]);
+      },
+    );
+
+    it('preserves the legacy visible-row set for consistent and sparse historical fixtures', () => {
+      const fixtures = [
+        { id: 'consistent', farmCode: 'FARM-DP', rowSite: 'SITE-DP', rowCompany: 'COMP-DP' },
+        { id: 'sparse', farmCode: 'FARM-DP', rowSite: '', rowCompany: null },
+        { id: 'other', farmCode: 'FARM-MS', rowSite: 'SITE-MS', rowCompany: 'COMP-MS' },
+      ];
+      const farms = new Map([
+        ['FARM-DP', { site: 'SITE-DP', company: 'COMP-DP', status: 'ACTIVE' }],
+        ['FARM-MS', { site: 'SITE-MS', company: 'COMP-MS', status: 'ACTIVE' }],
+      ]);
+      const scope = { sites: ['SITE-DP'], companies: ['COMP-DP'] };
+      const legacy = fixtures.filter((row) => {
+        const farm = farms.get(row.farmCode);
+        return scope.sites.includes(row.rowSite || farm?.site || '')
+          || scope.companies.includes(row.rowCompany || farm?.company || '');
+      }).map((row) => row.id);
+      const canonical = fixtures.filter((row) => {
+        const farm = farms.get(row.farmCode);
+        return farm?.status === 'ACTIVE'
+          && (scope.sites.includes(farm.site) || scope.companies.includes(farm.company));
+      }).map((row) => row.id);
+      expect(canonical).toEqual(legacy);
+      expect(canonical).toEqual(['consistent', 'sparse']);
     });
 
     it('returns no rows for a non-global user with no breeding dimension', async () => {

@@ -36,6 +36,23 @@ export class OrgOwnershipService {
     `LEFT JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'`;
   static readonly FARM_SITE_SQL = "NULLIF(to_jsonb(f)->>'mapped_site_code', '')";
 
+  /** Canonical predicate for rows carrying a farm_code foreign key. */
+  static farmScopePredicate(
+    rowAlias: string,
+    dimension: 'site' | 'company',
+    parameter: string,
+  ): string {
+    const farmValue = dimension === 'site'
+      ? "NULLIF(to_jsonb(ownership_farm)->>'mapped_site_code', '')"
+      : 'ownership_farm.company_code';
+    return `EXISTS (
+              SELECT 1 FROM ${OrgOwnershipService.FARM_TABLE} ownership_farm
+              WHERE ownership_farm.farm_code = "${rowAlias}"."farm_code"
+                AND ownership_farm.status = 'ACTIVE'
+                AND ${farmValue} = ANY(${parameter})
+            )`;
+  }
+
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
   async resolveFarmCodesBySiteCodes(siteCodes: string[]): Promise<string[]> {
