@@ -255,6 +255,78 @@ jobs:
              WHERE h.farm_code = 'FARM-DP' AND h.status = 'ACTIVE'
              GROUP BY h.house_code, h.house_name, h.status
              ORDER BY h.house_code;
+            WITH bound_sites AS (
+              SELECT DISTINCT o.org_code AS site_code
+                FROM sys_user u
+                JOIN sys_user_orgs uo ON uo.user_id = u.user_id
+                JOIN sys_organizations o ON o.id = uo.org_id
+               WHERE u.username = 'linhong' AND o.org_type = 'SITE'
+            ), ancestor_companies AS (
+              SELECT DISTINCT company_code
+                FROM sys_organizations
+               WHERE org_type = 'COMPANY' AND org_code = 'COMP-LAO-XINGCHI'
+            ), old_scope AS (
+              SELECT w.warehouse_code
+                FROM wms_warehouses w
+               WHERE w.company_code IN (SELECT company_code FROM ancestor_companies)
+                 AND COALESCE(w.status, 'ACTIVE') NOT IN ('DISABLED', 'INACTIVE', 'DELETED')
+            ), new_scope AS (
+              SELECT w.warehouse_code
+                FROM wms_warehouses w
+               WHERE NULLIF(to_jsonb(w)->>'site_code', '') IN (SELECT site_code FROM bound_sites)
+                 AND COALESCE(w.status, 'ACTIVE') NOT IN ('DISABLED', 'INACTIVE', 'DELETED')
+              UNION
+              SELECT s.warehouse_code
+                FROM sys_user_warehouse_scopes s
+                JOIN sys_user u ON u.user_id = s.user_id
+               WHERE u.username = 'linhong'
+            )
+            SELECT 'LINHONG_WAREHOUSE_SCOPE_DIFF' AS section,
+                   w.warehouse_code, w.warehouse_name, w.company_code,
+                   NULLIF(to_jsonb(w)->>'site_code', '') AS site_code,
+                   (o.warehouse_code IS NOT NULL) AS visible_old,
+                   (n.warehouse_code IS NOT NULL) AS visible_new
+              FROM wms_warehouses w
+              LEFT JOIN old_scope o ON o.warehouse_code = w.warehouse_code
+              LEFT JOIN new_scope n ON n.warehouse_code = w.warehouse_code
+             WHERE o.warehouse_code IS NOT NULL OR n.warehouse_code IS NOT NULL
+             ORDER BY w.warehouse_code;
+            WITH recent_usage AS (
+              SELECT 'inv_ledger' AS source_table,
+                     NULLIF(to_jsonb(t)->>'warehouse_code', '') AS warehouse_code,
+                     COALESCE(NULLIF(to_jsonb(t)->>'created_at', ''), NULLIF(to_jsonb(t)->>'log_date', '')) AS used_at,
+                     to_jsonb(t) AS row_data
+                FROM inv_ledger t
+              UNION ALL
+              SELECT 'wms_inbound', NULLIF(to_jsonb(t)->>'warehouse_code', ''),
+                     NULLIF(to_jsonb(t)->>'created_at', ''), to_jsonb(t) FROM wms_inbound t
+              UNION ALL
+              SELECT 'wms_outbound', NULLIF(to_jsonb(t)->>'warehouse_code', ''),
+                     NULLIF(to_jsonb(t)->>'created_at', ''), to_jsonb(t) FROM wms_outbound t
+              UNION ALL
+              SELECT 'wms_stocktake', NULLIF(to_jsonb(t)->>'warehouse_code', ''),
+                     NULLIF(to_jsonb(t)->>'created_at', ''), to_jsonb(t) FROM wms_stocktake t
+            ), matched AS (
+              SELECT * FROM recent_usage
+               WHERE used_at::timestamptz >= now() - interval '90 days'
+                 AND lower(concat_ws('|', row_data->>'operator', row_data->>'created_by',
+                                      row_data->>'updated_by', row_data->>'username'))
+                     ~ '(linhong|林红)'
+            ), new_scope AS (
+              SELECT w.warehouse_code
+                FROM wms_warehouses w
+               WHERE NULLIF(to_jsonb(w)->>'site_code', '') = 'SITE-DONGPENG-LAYER'
+                 AND COALESCE(w.status, 'ACTIVE') NOT IN ('DISABLED', 'INACTIVE', 'DELETED')
+              UNION
+              SELECT s.warehouse_code FROM sys_user_warehouse_scopes s
+                JOIN sys_user u ON u.user_id=s.user_id WHERE u.username='linhong'
+            )
+            SELECT 'LINHONG_RECENT_WAREHOUSE_USAGE' AS section, source_table, warehouse_code,
+                   count(*) AS rows, min(used_at) AS first_used_at, max(used_at) AS last_used_at,
+                   (warehouse_code IN (SELECT warehouse_code FROM new_scope)) AS retained_by_new_scope
+              FROM matched
+             GROUP BY source_table, warehouse_code
+             ORDER BY retained_by_new_scope, source_table, warehouse_code;
             COMMIT;
             SQL
 
