@@ -104,22 +104,23 @@ jobs:
       - name: Run authorized minimum production inbound write
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'production-inbound-write'
         env:
-          SMOKE_USER: ${{ secrets.PHOENIX_SMOKE_USER }}
-          SMOKE_PASS: ${{ secrets.PHOENIX_SMOKE_PASS }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
         run: |
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          export PHOENIX_ADMIN_TOKEN="$TOKEN"
           node <<'NODE'
           const base = 'https://erp.eggslao.com';
-          const login = await fetch(`${base}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: process.env.SMOKE_USER, password: process.env.SMOKE_PASS }),
-          });
-          const auth = await login.json();
-          if (login.status !== 200 || !auth.token) throw new Error(`login failed: HTTP ${login.status}`);
           const eggDate = new Date().toISOString().slice(0, 10);
           const response = await fetch(`${base}/api/v2/inventory/production-inbound`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.PHOENIX_ADMIN_TOKEN}` },
             body: JSON.stringify({ eggDate, items: [{ grade: 'GRADE_1', qty: 1 }] }),
           });
           const text = await response.text();
