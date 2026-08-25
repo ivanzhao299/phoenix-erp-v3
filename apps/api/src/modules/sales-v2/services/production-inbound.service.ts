@@ -62,7 +62,7 @@ export class ProductionInboundService {
                 h.site_code AS house_site_code,
                 h.farm_code,
                 f.company_code AS farm_company_code,
-                f.mapped_site_code AS farm_site_code
+                NULLIF(to_jsonb(f)->>'mapped_site_code', '') AS farm_site_code
            FROM brd_houses h
            LEFT JOIN brd_farms f
              ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
@@ -85,7 +85,7 @@ export class ProductionInboundService {
         `SELECT DISTINCT COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) AS company_code
            FROM brd_houses h
            LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
-          WHERE COALESCE(NULLIF(h.site_code, ''), NULLIF(f.mapped_site_code, '')) = $1
+          WHERE COALESCE(NULLIF(h.site_code, ''), NULLIF(to_jsonb(f)->>'mapped_site_code', '')) = $1
             AND h.status = 'ACTIVE'
             AND COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) IS NOT NULL`,
         [siteCode],

@@ -2325,7 +2325,7 @@ export class GenericCrudService implements OnModuleInit {
         ors.push(table === BREEDING_FARMS_TABLE
           ? `"${siteColumn}" = ANY($${idx})`
           : `COALESCE(NULLIF("${table}"."${siteColumn}", ''), (
-              SELECT f."mapped_site_code" FROM "${BREEDING_FARMS_TABLE}" f
+              SELECT to_jsonb(f)->>'mapped_site_code' FROM "${BREEDING_FARMS_TABLE}" f
               WHERE f."farm_code" = "${table}"."farm_code"
                 AND f."status" = 'ACTIVE'
             )) = ANY($${idx})`);
