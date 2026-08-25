@@ -52,11 +52,20 @@ export class ProductionInboundService {
   }
 
   private async resolveCompanyAndSite(dto: { companyCode?: string; siteCode?: string; houseCode?: string }) {
-    let house: { company_code?: string; site_code?: string } | undefined;
+    let house: {
+      house_company_code?: string; house_site_code?: string; farm_code?: string;
+      farm_company_code?: string; farm_site_code?: string;
+    } | undefined;
     if (dto.houseCode) {
       const rows = await this.ds.query(
-        `SELECT h.company_code, h.site_code
+        `SELECT NULLIF(to_jsonb(h)->>'company_code', '') AS house_company_code,
+                h.site_code AS house_site_code,
+                h.farm_code,
+                f.company_code AS farm_company_code,
+                NULLIF(to_jsonb(f)->>'mapped_site_code', '') AS farm_site_code
            FROM brd_houses h
+           LEFT JOIN brd_farms f
+             ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
           WHERE h.house_code = $1 AND h.status = 'ACTIVE'
           LIMIT 1`,
         [dto.houseCode],
@@ -65,19 +74,35 @@ export class ProductionInboundService {
       house = rows[0];
     }
 
-    let companyCode = dto.companyCode?.trim() || house?.company_code;
-    const siteCode = dto.siteCode?.trim() || house?.site_code;
+    let companyCode = dto.companyCode?.trim()
+      || house?.house_company_code?.trim()
+      || house?.farm_company_code?.trim();
+    const siteCode = dto.siteCode?.trim()
+      || house?.house_site_code?.trim()
+      || house?.farm_site_code?.trim();
     if (!companyCode && siteCode) {
       const rows = await this.ds.query(
-        `SELECT DISTINCT company_code FROM brd_houses
-          WHERE site_code = $1 AND status = 'ACTIVE' AND company_code IS NOT NULL`,
+        `SELECT DISTINCT COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) AS company_code
+           FROM brd_houses h
+           LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'
+          WHERE COALESCE(NULLIF(h.site_code, ''), NULLIF(to_jsonb(f)->>'mapped_site_code', '')) = $1
+            AND h.status = 'ACTIVE'
+            AND COALESCE(NULLIF(to_jsonb(h)->>'company_code', ''), NULLIF(f.company_code, '')) IS NOT NULL`,
         [siteCode],
       );
       if (rows.length === 1) companyCode = rows[0].company_code;
       else if (rows.length > 1) throw new BadRequestException(`场站 ${siteCode} 关联多个公司，请显式选择公司`);
     }
     if (!companyCode) {
-      throw new BadRequestException('无法解析真实公司：请选择 ACTIVE 鸡舍，或显式提供公司/场站');
+      if (dto.houseCode) {
+        const farmHint = house?.farm_code
+          ? `；关联农场 ${house.farm_code} 也未提供 ACTIVE 公司归属`
+          : '；该鸡舍未关联 ACTIVE 农场';
+        throw new BadRequestException(
+          `鸡舍 ${dto.houseCode} 缺少公司归属${farmHint}。请到「主数据中心 → 鸡舍」补齐农场/公司归属后重试`,
+        );
+      }
+      throw new BadRequestException('无法解析真实公司：请显式选择公司/场站，或选择已维护归属的 ACTIVE 鸡舍');
     }
     const activeCompany = await this.ds.query(
       `SELECT 1 FROM sys_organizations

@@ -96,11 +96,12 @@ describe('DashboardBffController', () => {
 });
 
 describe('PackagingTerminalBffController', () => {
+  const houseScope = { assertActiveHouseOwnership: jest.fn().mockResolvedValue({ company_code: 'COMP-A' }) };
   it('does not report packing success when the packing record write fails', async () => {
     const em = {
       query: jest.fn().mockRejectedValue(new Error('column shift_id does not exist')),
     };
-    const controller = new PackagingTerminalBffController(em as never, {} as never);
+    const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
 
     const result = controller.submitPacking({
       productionDate: '2026-08-21',
@@ -119,7 +120,7 @@ describe('PackagingTerminalBffController', () => {
 
   it('rejects an empty packing submission before creating a handover candidate', async () => {
     const em = { query: jest.fn() };
-    const controller = new PackagingTerminalBffController(em as never, {} as never);
+    const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
 
     await expect(controller.submitPacking({ batches: [] })).rejects.toBeInstanceOf(BadRequestException);
     await expect(controller.submitPacking({ batches: [] })).rejects.toThrow('batches 必须是非空数组');
@@ -132,7 +133,7 @@ describe('PackagingTerminalBffController', () => {
     [{ grade: '', boxes: 2, eggs: 360 }, 'batches[0].grade 必须是非空字符串'],
   ])('rejects malformed packing batches before touching the database', async (batch, message) => {
     const em = { query: jest.fn() };
-    const controller = new PackagingTerminalBffController(em as never, {} as never);
+    const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
 
     await expect(controller.submitPacking({ batches: [batch] })).rejects.toBeInstanceOf(BadRequestException);
     await expect(controller.submitPacking({ batches: [batch] })).rejects.toThrow(message);
@@ -141,7 +142,7 @@ describe('PackagingTerminalBffController', () => {
 
   it('inserts a valid packing record with the existing code and conflict semantics', async () => {
     const em = { query: jest.fn().mockResolvedValue([]) };
-    const controller = new PackagingTerminalBffController(em as never, {} as never);
+    const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
     const batches = [{ grade: 'A', boxes: 2, eggs: 360 }];
 
     const result = await controller.submitPacking({
@@ -207,11 +208,12 @@ describe('PackagingTerminalBffController', () => {
   it('accepts the legacy gradable quantity and stores the canonical total received quantity', async () => {
     const em = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('FROM brd_houses h')) return [{ farm_code: 'FARM-A', company_code: 'COMP-A', site_code: 'SITE-A' }];
         if (sql.includes('SELECT * FROM pkg_source_batches')) return [{ id: 1, batch_code: 'SRC-LEGACY' }];
         return [];
       }),
     };
-    const controller = new PackagingTerminalBffController(em as never, {} as never);
+    const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
 
     await expect(controller.receiveBatch({
       batchCode: 'SRC-LEGACY',
@@ -230,11 +232,12 @@ describe('PackagingTerminalBffController', () => {
   it('persists all source quantity columns for a new received batch', async () => {
     const em = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('FROM brd_houses h')) return [{ farm_code: 'FARM-A', company_code: 'COMP-A', site_code: 'SITE-A' }];
         if (sql.includes('SELECT * FROM pkg_source_batches')) return [{ id: 1, batch_code: 'SRC-1' }];
         return [];
       }),
     };
-    const controller = new PackagingTerminalBffController(em as never, {} as never);
+    const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
 
     await expect(controller.receiveBatch({
       batchCode: 'SRC-1',

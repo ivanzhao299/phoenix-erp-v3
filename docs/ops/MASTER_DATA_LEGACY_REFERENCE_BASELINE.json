@@ -12,9 +12,9 @@
   "legacy_drift": [
     {
       "table": "brd_farms",
-      "baseline_total": 30,
-      "baseline_module_count": 6,
-      "reason": "养殖场旧主表;新写入应走 sys_organizations(SITE, FARM)",
+      "baseline_total": 33,
+      "baseline_module_count": 7,
+      "reason": "养殖场旧主表；2026-08-25 经生产事故治理确认 brd_houses.farm_code→ACTIVE brd_farms 是鸡舍公司/场站权威回溯链，新增引用仅限归属解析与 DataScope 收窄，其他新写入仍走 sys_organizations(SITE, FARM)",
       "current_owner": "master-data-governance",
       "remediation_priority": "P1"
     },

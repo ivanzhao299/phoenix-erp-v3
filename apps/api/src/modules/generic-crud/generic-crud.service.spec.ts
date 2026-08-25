@@ -179,9 +179,9 @@ describe('GenericCrudService', () => {
       });
 
       expect(query.mock.calls[0][0]).toContain('"farm_code" = ANY($2)');
-      expect(query.mock.calls[0][0]).toContain('"site_code" = ANY($3) OR EXISTS');
-      expect(query.mock.calls[0][0]).toContain('"mapped_site_code" = ANY($3)');
-      expect(query.mock.calls[0][0]).toContain('"company_code" = ANY($4) OR EXISTS');
+      expect(query.mock.calls[0][0]).toContain('COALESCE(NULLIF("brd_flocks"."site_code"');
+      expect(query.mock.calls[0][0]).toContain("SELECT to_jsonb(f)->>'mapped_site_code'");
+      expect(query.mock.calls[0][0]).toContain('COALESCE(NULLIF("brd_flocks"."company_code"');
       expect(query.mock.calls[0][1]).toEqual([
         ['LAYING', 'PEAK'], ['FARM-DP'], ['SITE-DONGPENG-LAYER'],
         ['COMP-LAO-XINGCHI'], 100, 0,
