@@ -41,10 +41,11 @@ jobs:
             SELECT current_database(), current_user, current_setting('transaction_read_only');
 
             WITH sites AS (
-              SELECT org_code, org_name, company_code,
-                     count(*) OVER (PARTITION BY org_code) AS duplicate_org_rows
-                FROM sys_organizations
-               WHERE org_type='SITE' AND status='ACTIVE'
+              SELECT s.org_code, s.org_name, COALESCE(s.company_code,p.company_code) AS company_code,
+                     count(*) OVER (PARTITION BY s.org_code) AS duplicate_org_rows
+                FROM sys_organizations s
+                LEFT JOIN sys_organizations p ON p.id=s.parent_id AND p.org_type='COMPANY' AND p.status='ACTIVE'
+               WHERE s.org_type='SITE' AND s.status='ACTIVE'
             ), farms AS (
               SELECT farm_code, farm_name, company_code,
                      NULLIF(to_jsonb(brd_farms)->>'mapped_site_code','') AS site_code
@@ -95,8 +96,9 @@ jobs:
             SELECT 'WAREHOUSE_SITE_DRIFT' AS section, count(*) AS total,
                    count(NULLIF(to_jsonb(w)->>'site_code','')) AS site_filled,
                    count(*) FILTER (WHERE NULLIF(to_jsonb(w)->>'site_code','') IS NOT NULL AND s.org_code IS NULL) AS missing_site_org,
-                   count(*) FILTER (WHERE s.org_code IS NOT NULL AND NULLIF(w.company_code,'') IS DISTINCT FROM NULLIF(s.company_code,'')) AS company_drift
+                   count(*) FILTER (WHERE s.org_code IS NOT NULL AND NULLIF(w.company_code,'') IS DISTINCT FROM NULLIF(COALESCE(s.company_code,p.company_code),'')) AS company_drift
               FROM wms_warehouses w LEFT JOIN sys_organizations s
-                ON s.org_type='SITE' AND s.status='ACTIVE' AND s.org_code=NULLIF(to_jsonb(w)->>'site_code','');
+                ON s.org_type='SITE' AND s.status='ACTIVE' AND s.org_code=NULLIF(to_jsonb(w)->>'site_code','')
+              LEFT JOIN sys_organizations p ON p.id=s.parent_id AND p.org_type='COMPANY' AND p.status='ACTIVE';
             ROLLBACK;
             SQL
