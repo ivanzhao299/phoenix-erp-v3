@@ -55,10 +55,8 @@ export class ProductionInboundService {
     let house: { company_code?: string; site_code?: string } | undefined;
     if (dto.houseCode) {
       const rows = await this.ds.query(
-        `SELECT COALESCE(h.company_code, f.company_code) AS company_code,
-                COALESCE(h.site_code, f.site_code) AS site_code
+        `SELECT h.company_code, h.site_code
            FROM brd_houses h
-           LEFT JOIN brd_farms f ON f.farm_code = h.farm_code
           WHERE h.house_code = $1 AND h.status = 'ACTIVE'
           LIMIT 1`,
         [dto.houseCode],
@@ -71,7 +69,7 @@ export class ProductionInboundService {
     const siteCode = dto.siteCode?.trim() || house?.site_code;
     if (!companyCode && siteCode) {
       const rows = await this.ds.query(
-        `SELECT DISTINCT company_code FROM brd_farms
+        `SELECT DISTINCT company_code FROM brd_houses
           WHERE site_code = $1 AND status = 'ACTIVE' AND company_code IS NOT NULL`,
         [siteCode],
       );
