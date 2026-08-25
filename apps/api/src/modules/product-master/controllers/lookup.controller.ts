@@ -671,7 +671,7 @@ export class LookupController {
     const conds = [`fl.status='ACTIVE'`];
     if (houseCode) { params.push(houseCode); conds.push(`fl.house_code=$${params.length}`); }
     if (farmCode)  { params.push(farmCode);  conds.push(`fl.farm_code=$${params.length}`); }
-    if (siteCode)  { params.push(siteCode);  conds.push(`fl.site_code=$${params.length}`); }
+    if (siteCode)  { params.push(siteCode);  conds.push(`${OrgOwnershipService.FARM_SITE_SQL}=$${params.length}`); }
     if (!scope.isGlobal) {
       const scopeConds: string[] = [];
       if (scope.farmCodes.length > 0) {
@@ -680,12 +680,13 @@ export class LookupController {
       }
       if (scope.allowedSiteCodes.length > 0) {
         params.push(scope.allowedSiteCodes);
-        scopeConds.push(`fl.site_code = ANY($${params.length})`);
+        scopeConds.push(`${OrgOwnershipService.FARM_SITE_SQL} = ANY($${params.length})`);
         scopeConds.push(`EXISTS (
           SELECT 1
             FROM brd_houses h
+            ${OrgOwnershipService.ACTIVE_FARM_JOIN}
            WHERE h.house_code = fl.house_code
-             AND h.site_code = ANY($${params.length})
+             AND ${OrgOwnershipService.FARM_SITE_SQL} = ANY($${params.length})
         )`);
       }
       if (scope.companyCodes.length > 0) {
@@ -703,6 +704,7 @@ export class LookupController {
       `SELECT fl.flock_no AS "flockNo", fl.house_code AS "houseCode", fl.farm_code AS "farmCode",
               fl.strain, fl.placement_date AS "placementDate", fl.current_qty AS "currentQty", fl.status
          FROM brd_flocks fl
+         LEFT JOIN brd_farms f ON f.farm_code = fl.farm_code AND f.status = 'ACTIVE'
          WHERE ${conds.join(' AND ')}
          ORDER BY fl.flock_no`,
       params,

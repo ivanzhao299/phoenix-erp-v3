@@ -5,14 +5,21 @@ describe('FarmFeedService mobile house ownership', () => {
     const query = jest.fn();
     for (const result of queryResults) query.mockResolvedValueOnce(result);
     return {
-      service: new FarmFeedService({ query } as never),
+      service: new FarmFeedService(
+        { query } as never,
+        { resolveFarm: jest.fn(async (farmCode: string) => ({
+          farmCode,
+          farmName: farmCode === 'LPH-DP' ? '东鹏蛋鸡养殖场' : '孟赛养殖场',
+          companyCode: 'COMP-LAO-AGRI',
+          siteCode: farmCode === 'LPH-DP' ? 'SITE-DONGPENG-LAYER' : 'SITE-MS',
+        })), resolveFarmCodesBySiteCodes: jest.fn().mockResolvedValue(['LPH-DP']) } as never,
+      ),
       query,
     };
   }
 
   it('creates a first house from the manager DataScope when legacy singular scope is empty', async () => {
     const { service, query } = buildService([
-      [], // no sibling house exists yet
       [], // no duplicate code
       [], // insert
     ]);
@@ -38,25 +45,14 @@ describe('FarmFeedService mobile house ownership', () => {
     });
 
     expect(query).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining('farm_code = ANY($1)'),
-      [['LPH-MS'], ['SITE-MS']],
-    );
-    expect(query).toHaveBeenNthCalledWith(
-      3,
+      2,
       expect.stringContaining('INSERT INTO brd_houses'),
-      ['H-NEW', '新鸡舍', 'LPH-MS', null, 'SITE-MS', 'COMP-LAO-AGRI', '蛋鸡舍', 12000],
+      ['H-NEW', '新鸡舍', 'LPH-MS', '孟赛养殖场', 'SITE-MS', 'COMP-LAO-AGRI', '蛋鸡舍', 12000],
     );
   });
 
   it('reuses an existing house ownership mapping within the allowed scope', async () => {
     const { service } = buildService([
-      [{
-        farm_code: 'LPH-MS',
-        farm_name: '孟赛养殖场',
-        site_code: 'SITE-MS',
-        company_code: 'COMP-LAO-AGRI',
-      }],
       [],
       [],
     ]);
@@ -99,12 +95,6 @@ describe('FarmFeedService mobile house ownership', () => {
   it('recovers a farm manager accidentally widened to GROUP from the unique primary SITE binding', async () => {
     const { service, query } = buildService([
       [{ org_code: 'SITE-DONGPENG-LAYER', company_code: 'COMP-LAO-AGRI' }],
-      [{
-        farm_code: 'LPH-DP',
-        farm_name: '东鹏蛋鸡养殖场',
-        site_code: 'SITE-DONGPENG-LAYER',
-        company_code: 'COMP-LAO-AGRI',
-      }],
       [],
       [],
     ]);

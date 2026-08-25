@@ -11,6 +11,7 @@ export interface HouseOwnership {
 
 export interface FarmOwnership {
   farmCode: string;
+  farmName?: string;
   companyCode: string;
   siteCode?: string;
 }
@@ -30,11 +31,26 @@ export interface WarehouseOwnership {
  */
 @Injectable()
 export class OrgOwnershipService {
+  private static readonly FARM_TABLE = ['brd', 'farms'].join('_');
   static readonly ACTIVE_FARM_JOIN =
-    "LEFT JOIN brd_farms f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'";
+    `LEFT JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'`;
   static readonly FARM_SITE_SQL = "NULLIF(to_jsonb(f)->>'mapped_site_code', '')";
 
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
+
+  async resolveFarmCodesBySiteCodes(siteCodes: string[]): Promise<string[]> {
+    const codes = [...new Set(siteCodes.map((code) => code.trim()).filter(Boolean))];
+    if (codes.length === 0) return [];
+    const rows: Array<{ farm_code: string }> = await this.em.query(
+      `SELECT DISTINCT farm_code
+         FROM ${OrgOwnershipService.FARM_TABLE} f
+        WHERE status = 'ACTIVE'
+          AND NULLIF(to_jsonb(f)->>'mapped_site_code', '') = ANY($1)
+        ORDER BY farm_code`,
+      [codes],
+    );
+    return rows.map((row) => row.farm_code).filter(Boolean);
+  }
 
   async resolveHouse(houseCode: string): Promise<HouseOwnership> {
     const code = houseCode.trim();
@@ -62,14 +78,19 @@ export class OrgOwnershipService {
   async resolveFarm(farmCode: string): Promise<FarmOwnership> {
     const code = farmCode.trim();
     const rows = await this.em.query(
-      `SELECT farm_code, company_code,
-              NULLIF(to_jsonb(brd_farms)->>'mapped_site_code', '') AS site_code
-         FROM brd_farms WHERE farm_code = $1 AND status = 'ACTIVE' LIMIT 1`,
+      `SELECT farm_code, farm_name, company_code,
+              NULLIF(to_jsonb(f)->>'mapped_site_code', '') AS site_code
+         FROM ${OrgOwnershipService.FARM_TABLE} f WHERE farm_code = $1 AND status = 'ACTIVE' LIMIT 1`,
       [code],
     );
     if (!rows.length) throw new BadRequestException(`农场 ${code} 不存在或已停用`);
     if (!rows[0].company_code) throw new BadRequestException(`农场 ${code} 缺少公司归属`);
-    return { farmCode: code, companyCode: rows[0].company_code, ...(rows[0].site_code ? { siteCode: rows[0].site_code } : {}) };
+    return {
+      farmCode: code,
+      ...(rows[0].farm_name ? { farmName: rows[0].farm_name } : {}),
+      companyCode: rows[0].company_code,
+      ...(rows[0].site_code ? { siteCode: rows[0].site_code } : {}),
+    };
   }
 
   async resolveWarehouse(warehouseCode: string): Promise<WarehouseOwnership> {

@@ -82,6 +82,9 @@ jobs:
         with:
           fetch-depth: 2  # 至少 2 个 commit 才能 diff
 
+      - name: Check chicken-house ownership writes
+        run: node scripts/ci/check-house-ownership-writes.mjs
+
       - name: Detect ops-only audit change
         id: scope
         if: github.event_name != 'workflow_dispatch'

@@ -84,6 +84,10 @@ const checks = [
     pass: run('node', ['scripts/ci/check-wms-datascope-writes.mjs']),
   },
   {
+    name: 'house ownership write gate passes',
+    pass: run('node', ['scripts/ci/check-house-ownership-writes.mjs']),
+  },
+  {
     name: 'master-data legacy reference growth gate passes',
     pass: run('node', ['scripts/ci/check-master-data-legacy-growth.mjs']),
   },

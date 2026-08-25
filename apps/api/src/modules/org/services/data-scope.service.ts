@@ -290,6 +290,13 @@ export class DataScopeService {
     const extraFarms = await this.userFarmRepo.find({ where: { userId: userIdNum } });
     extraFarms.forEach((ef) => farmCodes.add(ef.farmCode));
 
+    // 方案 A：SITE 仅是 FARM 的组织树投影。保留 allowedSiteCodes 给历史消费方，
+    // 同时把有效 SITE 绑定映射为 ACTIVE farm 范围；未映射保持空，严格 fail-closed。
+    if (siteCodes.size > 0) {
+      const projectedFarmCodes = await this.ownership.resolveFarmCodesBySiteCodes([...siteCodes]);
+      projectedFarmCodes.forEach((farmCode) => farmCodes.add(farmCode));
+    }
+
     const ctx: DataScopeContext = {
       isGlobal: false,
       scopeLevel: topLevel,

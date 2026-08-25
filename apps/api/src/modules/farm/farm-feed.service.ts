@@ -19,7 +19,10 @@ const DEFAULT_MATERIALS = [
 
 @Injectable()
 export class FarmFeedService {
-  constructor(@InjectEntityManager() private readonly em: EntityManager) {}
+  constructor(
+    @InjectEntityManager() private readonly em: EntityManager,
+    private readonly ownership: OrgOwnershipService,
+  ) {}
 
   // ── 初始化表结构 ──────────────────────────────────────────────────────────────
   async ensureTable() {
@@ -208,7 +211,7 @@ export class FarmFeedService {
     const name = (body.house_name || '').trim();
     if (!code || !name) throw new Error('鸡舍编码和名称必填');
 
-    const farmCodes = [...new Set(
+    let farmCodes = [...new Set(
       (scope.farmCodes?.length ? scope.farmCodes : (scope.farmCode ? [scope.farmCode] : []))
         .filter(Boolean),
     )];
@@ -224,30 +227,25 @@ export class FarmFeedService {
       throw new Error('当前账号关联多个农场或公司，请在 PC 端明确选择归属后创建鸡舍。');
     }
 
-    // 从同场已有鸡舍复制 farm/site/company（保证新舍映射与本场一致）。
-    // 若这是本场首间鸡舍，则使用 DataScope 的唯一归属，避免“必须先有鸡舍才能建首间鸡舍”的自锁。
-    const params: any[] = [];
-    const ownershipWhere: string[] = [];
-    if (farmCodes.length) {
-      params.push(farmCodes);
-      ownershipWhere.push(`farm_code = ANY($${params.length})`);
+    if (farmCodes.length === 0 && siteCodes.length === 1) {
+      farmCodes = await this.ownership.resolveFarmCodesBySiteCodes(siteCodes);
+      if (farmCodes.length !== 1) {
+        throw new Error('SITE 尚未映射唯一农场，请联系管理员完成组织投影映射。');
+      }
     }
-    if (siteCodes.length) {
-      params.push(siteCodes);
-      ownershipWhere.push(`site_code = ANY($${params.length})`);
+
+    const farmCode = farmCodes[0] || null;
+    if (!farmCode) throw new Error('SITE 尚未映射唯一农场，请联系管理员完成组织投影映射。');
+    const resolved = await this.ownership.resolveFarm(farmCode);
+    if (companyCodes.length > 0 && !companyCodes.includes(resolved.companyCode)) {
+      throw new Error('农场与公司范围不一致，已拒绝创建鸡舍。');
     }
-    const sib = await this.em.query(
-      `SELECT farm_code, farm_name, site_code, company_code
-         FROM brd_houses
-        WHERE (${ownershipWhere.join(' OR ')}) AND status = 'ACTIVE'
-        ORDER BY house_code LIMIT 1`,
-      params,
-    );
-    const s = sib[0] || {};
-    const farmCode    = s.farm_code    || farmCodes[0] || null;
-    const siteCode    = s.site_code    || siteCodes[0] || null;
-    const companyCode = s.company_code || companyCodes[0] || null;
-    if (!farmCode && !siteCode) throw new Error('本场尚无任何鸡舍映射基准，请先在 PC 端建立首间鸡舍。');
+    if (siteCodes.length > 0 && (!resolved.siteCode || !siteCodes.includes(resolved.siteCode))) {
+      throw new Error('农场与 SITE 投影不一致，已拒绝创建鸡舍。');
+    }
+    const siteCode = resolved.siteCode || null;
+    const companyCode = resolved.companyCode;
+    const farmName = resolved.farmName || null;
 
     const dup = await this.em.query(`SELECT 1 FROM brd_houses WHERE house_code = $1`, [code]);
     if (dup.length) throw new Error(`鸡舍编码「${code}」已存在`);
@@ -257,7 +255,7 @@ export class FarmFeedService {
          (house_code, house_name, farm_code, farm_name, site_code, company_code,
           house_type, capacity, current_birds, status, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,0,'ACTIVE',NOW())`,
-      [code, name, farmCode, s.farm_name || null, siteCode, companyCode,
+      [code, name, farmCode, farmName, siteCode, companyCode,
        body.house_type || '蛋鸡舍', Number(body.capacity) || 0],
     );
     return { code: 200, data: { house_code: code, farm_code: farmCode, site_code: siteCode, company_code: companyCode } };

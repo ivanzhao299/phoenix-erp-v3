@@ -1,0 +1,102 @@
+name: Organization SITE Farm Production Readonly Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: org-site-farm-production-readonly-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit SITE projection and ownership snapshots without mutation
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT current_database(), current_user, current_setting('transaction_read_only');
+
+            WITH sites AS (
+              SELECT org_code, org_name, company_code,
+                     count(*) OVER (PARTITION BY org_code) AS duplicate_org_rows
+                FROM sys_organizations
+               WHERE org_type='SITE' AND status='ACTIVE'
+            ), farms AS (
+              SELECT farm_code, farm_name, company_code,
+                     NULLIF(to_jsonb(brd_farms)->>'mapped_site_code','') AS site_code
+                FROM brd_farms WHERE status='ACTIVE'
+            ), matrix AS (
+              SELECT s.org_code AS site_org_code, s.org_name, s.company_code AS site_company_code,
+                     s.duplicate_org_rows, f.farm_code, f.farm_name, f.company_code AS farm_company_code,
+                     count(f.farm_code) OVER (PARTITION BY s.org_code) AS farms_per_site
+                FROM sites s LEFT JOIN farms f ON f.site_code=s.org_code
+            )
+            SELECT 'SITE_FARM_MATRIX' AS section, *,
+                   CASE WHEN farm_code IS NULL THEN 'SITE_UNMAPPED'
+                        WHEN duplicate_org_rows > 1 THEN 'DUPLICATE_SITE_ORG_CODE'
+                        WHEN farms_per_site > 1 THEN 'ONE_SITE_TO_MANY_FARMS'
+                        WHEN site_company_code IS DISTINCT FROM farm_company_code THEN 'COMPANY_DRIFT'
+                        ELSE 'ONE_TO_ONE' END AS classification
+              FROM matrix ORDER BY site_org_code,farm_code;
+
+            WITH sites AS (
+              SELECT org_code, count(*) AS org_rows FROM sys_organizations
+               WHERE org_type='SITE' AND status='ACTIVE' GROUP BY org_code
+            ), farms AS (
+              SELECT farm_code, company_code,
+                     NULLIF(to_jsonb(brd_farms)->>'mapped_site_code','') AS site_code
+                FROM brd_farms WHERE status='ACTIVE'
+            ), per_site AS (
+              SELECT s.org_code,s.org_rows,count(f.farm_code) AS farm_count
+                FROM sites s LEFT JOIN farms f ON f.site_code=s.org_code GROUP BY s.org_code,s.org_rows
+            )
+            SELECT 'SITE_FARM_CLASS_COUNTS' AS section,
+                   count(*) FILTER (WHERE farm_count=1 AND org_rows=1) AS one_to_one,
+                   count(*) FILTER (WHERE farm_count>1) AS one_site_to_many_farms,
+                   count(*) FILTER (WHERE org_rows>1) AS duplicate_site_org_codes,
+                   count(*) FILTER (WHERE farm_count=0) AS site_unmapped,
+                   (SELECT count(*) FROM farms WHERE site_code IS NULL) AS farm_unmapped,
+                   (SELECT count(*) FROM farms f LEFT JOIN sites s ON s.org_code=f.site_code
+                     WHERE f.site_code IS NOT NULL AND s.org_code IS NULL) AS farm_mapped_to_missing_site
+              FROM per_site;
+
+            SELECT 'HOUSE_SNAPSHOT_DRIFT' AS section, count(*) AS total,
+                   count(NULLIF(to_jsonb(h)->>'company_code','')) AS company_filled,
+                   count(NULLIF(to_jsonb(h)->>'site_code','')) AS site_filled,
+                   count(NULLIF(to_jsonb(h)->>'store_code','')) AS store_filled,
+                   count(*) FILTER (WHERE NULLIF(to_jsonb(h)->>'company_code','') IS DISTINCT FROM NULLIF(f.company_code,'')) AS company_drift,
+                   count(*) FILTER (WHERE NULLIF(to_jsonb(h)->>'site_code','') IS DISTINCT FROM NULLIF(to_jsonb(f)->>'mapped_site_code','')) AS site_drift
+              FROM brd_houses h LEFT JOIN brd_farms f ON f.farm_code=h.farm_code AND f.status='ACTIVE';
+
+            SELECT 'WAREHOUSE_SITE_DRIFT' AS section, count(*) AS total,
+                   count(NULLIF(to_jsonb(w)->>'site_code','')) AS site_filled,
+                   count(*) FILTER (WHERE NULLIF(to_jsonb(w)->>'site_code','') IS NOT NULL AND s.org_code IS NULL) AS missing_site_org,
+                   count(*) FILTER (WHERE s.org_code IS NOT NULL AND NULLIF(w.company_code,'') IS DISTINCT FROM NULLIF(s.company_code,'')) AS company_drift
+              FROM wms_warehouses w LEFT JOIN sys_organizations s
+                ON s.org_type='SITE' AND s.status='ACTIVE' AND s.org_code=NULLIF(to_jsonb(w)->>'site_code','');
+            ROLLBACK;
+            SQL

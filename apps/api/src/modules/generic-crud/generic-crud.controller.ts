@@ -309,6 +309,18 @@ export class GenericCrudController {
     return safeBody;
   }
 
+  private assertNoHouseOwnershipWrite(table: string, body: any) {
+    if (table !== 'brd_houses') return;
+    const blocked = ['company_code', 'site_code', 'store_code'].filter((field) =>
+      Object.prototype.hasOwnProperty.call(body ?? {}, field),
+    );
+    if (blocked.length > 0) {
+      throw new BadRequestException(
+        `鸡舍业务归属由农场投影维护，禁止直接写入：${blocked.join(', ')}`,
+      );
+    }
+  }
+
   private isCompletingWmsInbound(table: string, existing: any, body: any): boolean {
     if (table !== 'wms_inbound') return false;
     const nextStatus = String(body?.status ?? '').trim().toUpperCase();
@@ -455,9 +467,10 @@ export class GenericCrudController {
   async create(@Param('table') table: string, @Body() body: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'POST');
     const tableScope = await this.resolveTableScope(table, req, 'POST');
+    this.assertNoHouseOwnershipWrite(table, body);
     
     // Auto populate store_code if not present, and auto populated created_by
-    if (!body.store_code && req.user?.storeCode) {
+    if (table !== 'brd_houses' && !body.store_code && req.user?.storeCode) {
         body.store_code = req.user.storeCode;
     }
     // G17：wms_outbound/inbound 走 site_code 隔离 — 自动注入 site_code
@@ -522,6 +535,7 @@ export class GenericCrudController {
     }
     this.assertWarehouseRowScope(table, existing, tableScope);
     const safeBody = this.filterBlockedFields(table, body);
+    this.assertNoHouseOwnershipWrite(table, safeBody);
     this.assertWarehouseWriteScope(table, safeBody, tableScope, false);
     
     const fields = Object.keys(safeBody);

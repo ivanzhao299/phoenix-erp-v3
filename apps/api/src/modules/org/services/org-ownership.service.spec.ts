@@ -29,4 +29,15 @@ describe('OrgOwnershipService', () => {
     await expect(service.resolveWarehouse('WH-01')).rejects.toBeInstanceOf(BadRequestException);
     expect(query.mock.calls[0][0]).toContain("status = 'ACTIVE'");
   });
+
+  it('projects SITE bindings to distinct ACTIVE farms and ignores empty input', async () => {
+    const query = jest.fn().mockResolvedValue([{ farm_code: 'FARM-A' }, { farm_code: 'FARM-B' }]);
+    const service = new OrgOwnershipService({ query } as never);
+    await expect(service.resolveFarmCodesBySiteCodes([' SITE-A ', 'SITE-A'])).resolves.toEqual(['FARM-A', 'FARM-B']);
+    expect(query.mock.calls[0][0]).toContain("status = 'ACTIVE'");
+    expect(query.mock.calls[0][0]).toContain("mapped_site_code");
+    expect(query.mock.calls[0][1]).toEqual([['SITE-A']]);
+    await expect(service.resolveFarmCodesBySiteCodes([])).resolves.toEqual([]);
+    expect(query).toHaveBeenCalledTimes(1);
+  });
 });

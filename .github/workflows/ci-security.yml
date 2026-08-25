@@ -67,6 +67,10 @@ jobs:
         if: always()
         run: node scripts/ci/check-user-role-assignment-atomicity.mjs
 
+      - name: Check chicken-house ownership writes
+        if: always()
+        run: node scripts/ci/check-house-ownership-writes.mjs
+
       - name: W5 closeout static gate
         if: always()
         env:

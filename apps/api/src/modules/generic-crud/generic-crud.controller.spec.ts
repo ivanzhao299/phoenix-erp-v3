@@ -73,6 +73,21 @@ describe('GenericCrudController WMS RBAC', () => {
     );
   });
 
+  it('rejects direct chicken-house ownership snapshot writes', async () => {
+    await expect(controller.create(
+      'brd_houses',
+      { house_code: 'H-X', farm_code: 'FARM-A', site_code: 'SITE-A' },
+      req(['MENU_FARM_MASTER:C']),
+    )).rejects.toThrow('禁止直接写入');
+    expect(svc.create).not.toHaveBeenCalled();
+
+    svc.findOneByColumn.mockResolvedValue({ house_code: 'H-X', farm_code: 'FARM-A' });
+    await expect(controller.update(
+      'brd_houses', 'H-X', { company_code: 'COMP-B' }, req(['MENU_FARM_MASTER:E']),
+    )).rejects.toThrow('禁止直接写入');
+    expect(svc.update).not.toHaveBeenCalled();
+  });
+
   it('allows the captured warehouse overview WMS reads with MENU_WMS_VIEW', async () => {
     await expect(
       controller.findAll('wms_zones', { limit: '100', offset: '0' }, req(['MENU_WMS_VIEW:V'])),
