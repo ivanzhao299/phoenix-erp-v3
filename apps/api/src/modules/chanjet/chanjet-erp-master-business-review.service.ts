@@ -1557,9 +1557,8 @@ export class ChanjetErpMasterBusinessReviewService {
       const rows = await runner.query(
         `INSERT INTO brd_houses
           (house_code, house_name, farm_code, farm_name, house_type,
-           capacity, current_birds, status, company_code, project_code,
-           site_code, updated_at)
-         VALUES ($1,$2,$3,$4,$5,0,0,'ACTIVE',$6,$7,$8,NOW())
+           capacity, current_birds, status, project_code, updated_at)
+         VALUES ($1,$2,$3,$4,$5,0,0,'ACTIVE',$6,NOW())
          ON CONFLICT (house_code) DO NOTHING
          RETURNING house_code`,
         [
@@ -1568,9 +1567,7 @@ export class ChanjetErpMasterBusinessReviewService {
           payload.farmCode,
           payload.farmName,
           payload.houseType,
-          payload.companyCode,
           payload.projectCode,
-          payload.siteCode,
         ],
       );
       return rows.length === 1;

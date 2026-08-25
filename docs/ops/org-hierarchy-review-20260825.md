@@ -294,3 +294,16 @@ ROLLBACK;
 统一 SQL 谓词集中到 `OrgOwnershipService.farmScopePredicate()`；house/flock 的副本即使漂移，也不能再覆盖 ACTIVE farm 权威归属。固定 fixture 覆盖副本一致、空字符串/NULL fallback 和其他农场，断言迁移前后集合均为 `consistent,sparse`；另有 SQL 断言保证两个表不再读取自身 company/site。
 
 本地验证：API TypeScript 0 errors；Web TypeScript 0 errors；API 64 suites / 545 tests；Web 79 files / 440 tests；`git diff --check` 通过。生产集合等价与部署 revision 在本阶段 PR 合并部署后补记，未执行前不记 PASS。
+
+### 12.3 阶段③：鸡舍冗余 ownership 列退役
+
+前提闸门证据：阶段① production information_schema 实测 `brd_houses.company_code/site_code/store_code` 均为 nullable `VARCHAR(64)`，其中 `store_code` 默认值为 `'ALL'`；阶段②已移除 generic CRUD 的 snapshot 读取。对 API/Web 业务源码执行精确固定字符串审计后，无 `h.company_code/site_code/store_code`、`to_jsonb(h)` ownership 或限定列读取残留。
+
+- 新增 TypeORM 迁移 `1787647200000-DropHouseOwnershipRedundantColumns.ts`：`up()` 以不带 CASCADE 的 `DROP COLUMN IF EXISTS` 退役三列，若生产还有未知依赖会安全失败；`down()` 按 production 实测完整重建三列，长度均为 64，并恢复 `store_code DEFAULT 'ALL'`。
+- 手机建舍与 Chanjet 审核建舍停止写三列，仅写 `farm_code` 及其他非 ownership 属性；API 返回的 company/SITE 仍由 `OrgOwnershipService.resolveFarm()` 派生，不改变调用契约。
+- generic CRUD 启动补列逻辑删除 house 的 `store_code/site_code`，避免迁移后被应用启动重新创建；写入门禁升级为任何业务 writer 命中三列即失败，不再保留投影写入白名单。
+- 生产只读审计改为 `HOUSE_CANONICAL_OWNERSHIP`，只核验 `house→ACTIVE farm` 解析率；删除 snapshot 漂移与未映射 SITE 的 house snapshot 查询。
+- `brd_houses` 没有 TypeORM entity，删除 raw-table 三列不会减少 entity drift 计数，故 `.github/entity-drift-baseline.txt` 保持 `300`，不伪造 baseline 下调。
+- `wms_warehouses.site_code` 与 `brd_farms.store_code` 均未修改；POS `store_code` 域零触碰，列入后续独立治理。
+
+迁移门禁：全部 TS migration `down()` 检查通过；业务 DML 检查通过且本迁移无需 `@allow-data-dml`；nullable unique 与 constraint drift 均无新增。部署、迁移执行、revision、双账号集合和生产回归结果在阶段③ PR 合并后的显式 production run 补记，未执行前不记 PASS。

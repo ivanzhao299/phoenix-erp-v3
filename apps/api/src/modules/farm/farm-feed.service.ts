@@ -252,10 +252,10 @@ export class FarmFeedService {
 
     await this.em.query(
       `INSERT INTO brd_houses
-         (house_code, house_name, farm_code, farm_name, site_code, company_code,
+         (house_code, house_name, farm_code, farm_name,
           house_type, capacity, current_birds, status, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,0,'ACTIVE',NOW())`,
-      [code, name, farmCode, farmName, siteCode, companyCode,
+       VALUES ($1,$2,$3,$4,$5,$6,0,'ACTIVE',NOW())`,
+      [code, name, farmCode, farmName,
        body.house_type || '蛋鸡舍', Number(body.capacity) || 0],
     );
     return { code: 200, data: { house_code: code, farm_code: farmCode, site_code: siteCode, company_code: companyCode } };

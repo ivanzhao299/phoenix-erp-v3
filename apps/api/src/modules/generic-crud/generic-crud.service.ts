@@ -161,21 +161,19 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS feed_conversion_ratio DECIMAL(5,3)`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS batch_no           VARCHAR(50)`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS current_lay_rate   DECIMAL(5,2)`,
-        // ── Phase C 修复：补全 brd_farms/houses/flocks 的 store_code 列 ──
+        // ── Phase C 修复：补全 brd_farms/flocks 的 store_code 列 ──
         // 这3张表在上方 brdAlters 段已 CREATE，但建表语句和 ALTER 段都漏了 store_code，
         // 导致全新数据库（CI/新装）的 breeding 回归测试因缺列失败。
         // （brd_daily_logs.farm_code / brd_medications.medication_code 在各自 CREATE
         //   语句中已含，无需在此补——且那两表在 businessTables 段才 CREATE，
         //   在此 brdAlters 段 ALTER 会因表未建而失败。）
         `ALTER TABLE brd_farms  ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
-        `ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
-        // B4: lookup.controller farms()/houses() 查询的列（company_code / site_code），
+        // B4: lookup.controller farms() 查询的 company_code，
         //   CI bootstrap 缺 → /api/lookup/farms、/api/lookup/houses 生产 500。补可空列对齐
         //   service 契约（prod 已有则 ADD IF NOT EXISTS no-op）。语义层（治理是否应由站点
         //   映射派生 company、site_code 是否应统一为 store_code）见 task #37，此处仅消 500。
         `ALTER TABLE brd_farms  ADD COLUMN IF NOT EXISTS company_code VARCHAR(64)`,
-        `ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS site_code    VARCHAR(64)`,
         // chn_distributor_grading（经销商分级）
         `CREATE TABLE IF NOT EXISTS chn_distributor_grading (
            id            SERIAL PRIMARY KEY,
