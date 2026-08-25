@@ -248,7 +248,7 @@ export function UserSelector(p: BaseProps & {
 export function WarehouseSelector(p: BaseProps & { companyCode?: string; siteCode?: string; type?: string }) {
   const { t } = useLanguage();
   const { companyCode, siteCode, type, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择仓库','请选择仓库')}
+  return <ScopedSelect {...rest} reloadDeps={[companyCode, siteCode, type]} placeholder={p.placeholder ?? t('ui.请选择仓库','请选择仓库')}
     loader={async () => {
       const qs = new URLSearchParams();
       if (companyCode) qs.set('companyCode', companyCode);
@@ -289,7 +289,7 @@ export function ZoneSelector(p: BaseProps & { warehouseCode?: string }) {
 export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCode?: string }) {
   const { t } = useLanguage();
   const { warehouseCode, zoneCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择货位','请选择货位')}
+  return <ScopedSelect {...rest} reloadDeps={[warehouseCode, zoneCode]} placeholder={p.placeholder ?? t('ui.请选择货位','请选择货位')}
     loader={async () => {
       const r = await request<any>('/crud/wms_locations?status=ACTIVE&pageSize=500');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);

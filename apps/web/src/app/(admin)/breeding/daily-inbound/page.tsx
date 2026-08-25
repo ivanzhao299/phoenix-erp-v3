@@ -8,6 +8,7 @@ import { useProductGrades } from "@/hooks/useProductGrades";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
 import { useLanguage } from '@/contexts/LanguageContext';
+import { HouseSelector, WarehouseSelector, LocationSelector } from '@/components/shared-selectors/MasterDataSelectors';
 
 /**
  * 日产蛋入库（库存来源模式治理 P1A · 临时生产入库）
@@ -41,6 +42,9 @@ export default function DailyInboundPage() {
   const [loadingMode, setLoadingMode] = useState(true);
   const [eggDate, setEggDate] = useState(today());
   const [houseCode, setHouseCode] = useState("");
+  const [siteCode, setSiteCode] = useState("");
+  const [warehouseCode, setWarehouseCode] = useState("");
+  const [locationCode, setLocationCode] = useState("");
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [prefilling, setPrefilling] = useState(false);
@@ -123,6 +127,10 @@ export default function DailyInboundPage() {
       setError(t('breeding.enterAtLeastOne', '请至少录入一档数量'));
       return;
     }
+    if (!houseCode || !warehouseCode || !locationCode) {
+      setError(t('breeding.inboundMasterRequired', '请选择鸡舍、入库仓库和入库库位'));
+      return;
+    }
     setSaving(true);
     try {
       const r = await request<{
@@ -139,7 +147,10 @@ export default function DailyInboundPage() {
         },
         body: JSON.stringify({
           eggDate,
-          houseCode: houseCode || undefined,
+          houseCode,
+          siteCode: siteCode || undefined,
+          warehouseCode,
+          locationCode,
           items
         })
       });
@@ -215,7 +226,7 @@ export default function DailyInboundPage() {
         marginBottom: 16,
         flexWrap: "wrap"
       }}>
-            <div>
+            <div style={{ minWidth: 220 }}>
               <label style={{
             display: "block",
             fontSize: 12,
@@ -235,14 +246,26 @@ export default function DailyInboundPage() {
             fontSize: 12,
             color: "var(--text-secondary)",
             marginBottom: 6
-          }}>{t('breeding.houseOptional', '鸡舍（可选·追溯）')}</label>
-              <input value={houseCode} onChange={e => setHouseCode(e.target.value)} placeholder={t('breeding.houseExample', '如 A001')} className="bg-bg-muted border border-border text-text" style={{
-            padding: "7px 10px",
-            borderRadius: 7,
-            fontSize: 13,
-            outline: "none",
-            width: 140
-          }} />
+          }}>{t('breeding.houseRequired', '鸡舍（必选）')}</label>
+              <HouseSelector value={houseCode} onChange={value => {
+                setHouseCode(value);
+                setWarehouseCode('');
+                setLocationCode('');
+              }} onPick={opt => setSiteCode(opt?.raw?.siteCode ?? '')} />
+            </div>
+            <div style={{ minWidth: 250 }}>
+              <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
+                {t('breeding.inboundWarehouse', '入库仓库（ACTIVE）')}
+              </label>
+              <WarehouseSelector value={warehouseCode} siteCode={siteCode || undefined} disabled={!houseCode}
+                onChange={value => { setWarehouseCode(value); setLocationCode(''); }} />
+            </div>
+            <div style={{ minWidth: 250 }}>
+              <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
+                {t('breeding.inboundLocation', '入库库位（ACTIVE）')}
+              </label>
+              <LocationSelector value={locationCode} warehouseCode={warehouseCode || undefined}
+                disabled={!warehouseCode} onChange={setLocationCode} />
             </div>
             <button onClick={loadMode} className="bg-bg-muted border border-border text-text-muted" style={{
           display: "flex",
