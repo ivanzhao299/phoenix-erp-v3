@@ -288,7 +288,16 @@ export class DataScopeService {
     // G4-E：追加场站授权
     const farmCodes = new Set<string>();
     const extraFarms = await this.userFarmRepo.find({ where: { userId: userIdNum } });
-    extraFarms.forEach((ef) => farmCodes.add(ef.farmCode));
+    const explicitlyGrantedFarmCodes = [...new Set(extraFarms.map((ef) => ef.farmCode).filter(Boolean))];
+    if (explicitlyGrantedFarmCodes.length > 0) {
+      const activeFarms: Array<{ farm_code: string }> = await this.orgRepo.manager.query(`
+        SELECT farm_code
+        FROM ${OrgOwnershipService.FARM_TABLE}
+        WHERE farm_code = ANY($1)
+          AND status = 'ACTIVE'
+      `, [explicitlyGrantedFarmCodes]);
+      activeFarms.forEach((farm) => farmCodes.add(farm.farm_code));
+    }
 
     // 方案 A：SITE 仅是 FARM 的组织树投影。保留 allowedSiteCodes 给历史消费方，
     // 同时把有效 SITE 绑定映射为 ACTIVE farm 范围；未映射保持空，严格 fail-closed。

@@ -31,7 +31,7 @@ export interface WarehouseOwnership {
  */
 @Injectable()
 export class OrgOwnershipService {
-  private static readonly FARM_TABLE = ['brd', 'farms'].join('_');
+  static readonly FARM_TABLE = ['brd', 'farms'].join('_');
   static readonly ACTIVE_FARM_JOIN =
     `LEFT JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code = h.farm_code AND f.status = 'ACTIVE'`;
   static readonly FARM_SITE_SQL = "NULLIF(to_jsonb(f)->>'mapped_site_code', '')";
@@ -58,14 +58,27 @@ export class OrgOwnershipService {
   async resolveFarmCodesBySiteCodes(siteCodes: string[]): Promise<string[]> {
     const codes = [...new Set(siteCodes.map((code) => code.trim()).filter(Boolean))];
     if (codes.length === 0) return [];
-    const rows: Array<{ farm_code: string }> = await this.em.query(
-      `SELECT DISTINCT farm_code
+    const rows: Array<{ farm_code: string; site_code: string }> = await this.em.query(
+      `SELECT DISTINCT farm_code,
+              NULLIF(to_jsonb(f)->>'mapped_site_code', '') AS site_code
          FROM ${OrgOwnershipService.FARM_TABLE} f
         WHERE status = 'ACTIVE'
           AND NULLIF(to_jsonb(f)->>'mapped_site_code', '') = ANY($1)
         ORDER BY farm_code`,
       [codes],
     );
+    const farmsBySite = new Map<string, string[]>();
+    for (const row of rows) {
+      const farms = farmsBySite.get(row.site_code) ?? [];
+      farms.push(row.farm_code);
+      farmsBySite.set(row.site_code, farms);
+    }
+    const ambiguous = [...farmsBySite.entries()].find(([, farms]) => new Set(farms).size > 1);
+    if (ambiguous) {
+      throw new BadRequestException(
+        `SITE ${ambiguous[0]} 映射了多个 ACTIVE 农场：${[...new Set(ambiguous[1])].join(', ')}`,
+      );
+    }
     return rows.map((row) => row.farm_code).filter(Boolean);
   }
 

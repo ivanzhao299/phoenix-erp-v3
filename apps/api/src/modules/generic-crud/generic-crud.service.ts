@@ -6,6 +6,9 @@ import { OrgOwnershipService } from '../org/services/org-ownership.service';
 
 @Injectable()
 export class GenericCrudService implements OnModuleInit {
+  private static readonly RETIRED_COLUMNS: Readonly<Record<string, ReadonlySet<string>>> = {
+    brd_houses: new Set(['company_code', 'site_code', 'store_code']),
+  };
   private static readonly CRUD_ROUTE_ID_ALIAS: Record<string, string> = {
     wms_locations: 'location_code',
     wms_zones: 'zone_code',
@@ -35,9 +38,47 @@ export class GenericCrudService implements OnModuleInit {
    * 当发现列不存在时，自动 ALTER TABLE 添加该列，实现前后端自适应
    */
   private async ensureColumn(table: string, column: string): Promise<void> {
+    this.assertColumnsAllowed(table, [column]);
     await this.entityManager.query(
       `ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${column}" TEXT`
     ).catch((e: any) => { console.error(`[AutoRepair] 补列失败: ${e.message}`); });
+  }
+
+  private assertColumnsAllowed(table: string, columns: Iterable<string>): void {
+    const retired = GenericCrudService.RETIRED_COLUMNS[table];
+    if (!retired) return;
+    const hit = Array.from(columns).find((column) => retired.has(column));
+    if (hit) {
+      throw new BadRequestException(`列 ${table}.${hit} 已永久退役，禁止查询、写入或自动补列`);
+    }
+  }
+
+  private async validateFarmSiteMapping(body: Record<string, any>): Promise<void> {
+    const mappedSiteCode = typeof body.mapped_site_code === 'string'
+      ? body.mapped_site_code.trim()
+      : body.mapped_site_code;
+    body.mapped_site_code = mappedSiteCode || null; // NULL is the explicit UNMAPPED marker.
+    if (!mappedSiteCode) return;
+    const rows: Array<{ company_code: string | null }> = await this.entityManager.query(
+      `SELECT COALESCE(NULLIF(site.company_code, ''), NULLIF(parent.company_code, ''),
+                       CASE WHEN parent.org_type = 'COMPANY' THEN parent.org_code END) AS company_code
+         FROM sys_organizations site
+         LEFT JOIN sys_organizations parent ON parent.id = site.parent_id
+        WHERE site.org_code = $1
+          AND site.org_type = 'SITE'
+          AND site.status = 'ACTIVE'
+        LIMIT 1`,
+      [mappedSiteCode],
+    );
+    if (rows.length !== 1) {
+      throw new BadRequestException(`mapped_site_code ${mappedSiteCode} 未指向 ACTIVE SITE`);
+    }
+    const companyCode = typeof body.company_code === 'string' ? body.company_code.trim() : body.company_code;
+    if (!companyCode || rows[0].company_code !== companyCode) {
+      throw new BadRequestException(
+        `农场公司 ${companyCode || '<EMPTY>'} 与 SITE ${mappedSiteCode} 所属公司 ${rows[0].company_code || '<EMPTY>'} 不一致`,
+      );
+    }
   }
 
   async onModuleInit() {
@@ -2380,12 +2421,14 @@ export class GenericCrudService implements OnModuleInit {
       if (key.endsWith('__like')) {
         const col = key.slice(0, -6);
         if (!SAFE_KEY.test(col)) continue;
+        this.assertColumnsAllowed(table, [col]);
         whereClauses.push(`"${col}" LIKE $${paramIndex}`);
         queryValues.push(val);
         paramIndex++;
         continue;
       }
       if (!SAFE_KEY.test(key)) continue;
+      this.assertColumnsAllowed(table, [key]);
       if (Array.isArray(val)) {
         if (val.length === 0) {
           whereClauses.push('1=0');
@@ -2424,10 +2467,12 @@ export class GenericCrudService implements OnModuleInit {
   }
 
   async create(table: string, body: any) {
+    if (table === BREEDING_FARMS_TABLE) await this.validateFarmSiteMapping(body);
     const fields = Object.keys(body);
     const values = Object.values(body);
 
     if (fields.length === 0) throw new BadRequestException('Empty body');
+    this.assertColumnsAllowed(table, fields);
 
     const placeholders = fields.map((_, i) => `$${i + 1}`).join(',');
     const quotedFields = fields.map((f) => `"${f}"`).join(',');
@@ -2456,6 +2501,7 @@ export class GenericCrudService implements OnModuleInit {
     if (!SAFE_KEY.test(pkName)) {
       throw new BadRequestException('Security Violation: Invalid primary key column');
     }
+    this.assertColumnsAllowed(table, [pkName]);
     const sql = `SELECT * FROM "${table}" WHERE "${pkName}" = $1 LIMIT 1`;
     try {
       const rows = await this.entityManager.query(sql, [id]);
@@ -2467,10 +2513,20 @@ export class GenericCrudService implements OnModuleInit {
 
   async update(table: string, pkName: string, id: any, body: any) {
     console.log(`[SVC Update START] table=${table} pk=${pkName} id=${id} body=${JSON.stringify(body)}`);
+    if (table === BREEDING_FARMS_TABLE) {
+      const current = await this.findOneByColumn(table, pkName, id);
+      if (!current) throw new BadRequestException('Record not found');
+      const merged = { ...current, ...body };
+      await this.validateFarmSiteMapping(merged);
+      if (Object.prototype.hasOwnProperty.call(body, 'mapped_site_code')) {
+        body.mapped_site_code = merged.mapped_site_code;
+      }
+    }
     const fields = Object.keys(body || {});
     const values = Object.values(body);
 
     if (fields.length === 0) throw new BadRequestException('Empty body');
+    this.assertColumnsAllowed(table, [pkName, ...fields]);
 
     const setClauses = fields.map((f, i) => `"${f}" = $${i + 1}`).join(',');
     const hasUpdatedAt = fields.includes('updated_at');
@@ -2513,6 +2569,7 @@ export class GenericCrudService implements OnModuleInit {
   }
 
   async remove(table: string, pkName: string, id: any) {
+    this.assertColumnsAllowed(table, [pkName]);
     if (table === 'brd_farms') {
       const houses = await this.entityManager.query(`SELECT 1 FROM "brd_houses" WHERE farm_code = $1 LIMIT 1`, [id]);
       if (houses && houses.length > 0) {

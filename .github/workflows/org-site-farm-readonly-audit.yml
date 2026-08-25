@@ -124,6 +124,17 @@ jobs:
                    (SELECT count(*) FROM wms_warehouses w WHERE NULLIF(to_jsonb(w)->>'site_code','')=u.org_code) AS warehouse_refs
               FROM unmapped_sites u ORDER BY u.org_code;
 
+            SELECT 'WARNING_UNMAPPED_SITE' AS section, s.org_code, s.org_name,
+                   'ACTIVE SITE has no ACTIVE farm projection; bound users receive an empty breeding scope' AS warning
+              FROM sys_organizations s
+             WHERE s.org_type='SITE' AND s.status='ACTIVE'
+               AND NOT EXISTS (
+                 SELECT 1 FROM brd_farms f
+                  WHERE f.status='ACTIVE'
+                    AND NULLIF(to_jsonb(f)->>'mapped_site_code','')=s.org_code
+               )
+             ORDER BY s.org_code;
+
             WITH unmapped_farms AS (
               SELECT f.farm_code,f.farm_name,f.company_code,f.status,
                      NULLIF(to_jsonb(f)->>'mapped_site_code','') AS mapped_site_code

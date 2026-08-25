@@ -81,4 +81,31 @@ describe('DataScopeService permission-version cache isolation', () => {
     expect(scope.isGlobal).toBe(true);
     expect(ownership.resolveFarmCodesBySiteCodes).not.toHaveBeenCalled();
   });
+
+  it('keeps only ACTIVE farms from explicit farm grants', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM brd_farms')) return [{ farm_code: 'FARM-ACTIVE' }];
+        return [];
+      }),
+    };
+    const repo = (rows: any[] = []) => ({ find: jest.fn().mockResolvedValue(rows), manager });
+    const service = new DataScopeService(
+      repo() as any,
+      repo() as any,
+      repo() as any,
+      repo() as any,
+      repo([{ farmCode: 'FARM-ACTIVE' }, { farmCode: 'FARM-INACTIVE' }]) as any,
+      repo() as any,
+      { get: jest.fn() } as any,
+      { resolveHouse: jest.fn(), resolveFarmCodesBySiteCodes: jest.fn() } as any,
+    );
+
+    const scope = await service.resolve('992', ['ROLE_FARM_MGR'], 'MENU_FARM_DATA', 1);
+    expect(scope.allowedFarmCodes).toEqual(['FARM-ACTIVE']);
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining("status = 'ACTIVE'"),
+      [['FARM-ACTIVE', 'FARM-INACTIVE']],
+    );
+  });
 });

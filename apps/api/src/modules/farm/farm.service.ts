@@ -54,14 +54,14 @@ export function scopeWhere(scope: OrgScope, params: any[], alias = ''): string {
 }
 
 /**
- * 日报历史行有一部分早期数据未写 farm/site/company，真实归属仍可由 brd_houses 追溯。
- * 查询日报时以日志自身归属优先、鸡舍归属兜底，避免“已录入但日报显示 0”。
+ * 日报自身 farm/site/company 是落库快照，历史行为空时再沿 house -> ACTIVE farm 权威链派生。
  */
 export function dailyLogScopeWhere(
   scope: OrgScope,
   params: any[],
   logAlias = 'dl.',
   houseAlias = 'h.',
+  farmAlias = 'hf',
 ): string {
   if (scope.isGlobal) return '';
   const ors: string[] = [];
@@ -74,11 +74,11 @@ export function dailyLogScopeWhere(
   }
   if (sites.length) {
     params.push(sites);
-    ors.push(`COALESCE(${logAlias}site_code, ${houseAlias}site_code) = ANY($${params.length})`);
+    ors.push(`COALESCE(${logAlias}site_code, NULLIF(to_jsonb(${farmAlias})->>'mapped_site_code', '')) = ANY($${params.length})`);
   }
   if (companies.length) {
     params.push(companies);
-    ors.push(`COALESCE(${logAlias}company_code, ${houseAlias}company_code) = ANY($${params.length})`);
+    ors.push(`COALESCE(${logAlias}company_code, ${farmAlias}.company_code) = ANY($${params.length})`);
   }
   return ors.length ? `(${ors.join(' OR ')})` : '';
 }
@@ -489,6 +489,7 @@ export class FarmService {
       `SELECT dl.eggs_by_grade, dl.eggs_produced
        FROM brd_daily_logs dl
        LEFT JOIN brd_houses h ON h.house_code = dl.house_code
+       LEFT JOIN brd_farms hf ON hf.farm_code = h.farm_code AND hf.status = 'ACTIVE'
        WHERE ${where.join(' AND ')}`,
       params,
     );
@@ -576,6 +577,7 @@ export class FarmService {
            FILTER (WHERE dl.mortality_reason IS NOT NULL AND dl.mortality_reason <> '') AS mortality_reason
        FROM brd_daily_logs dl
        LEFT JOIN brd_houses h ON h.house_code = dl.house_code
+       LEFT JOIN brd_farms hf ON hf.farm_code = h.farm_code AND hf.status = 'ACTIVE'
        ${logWhere}
        GROUP BY COALESCE(dl.house_code, dl.flock_no), dl.flock_no`,
       logParams,
@@ -660,6 +662,7 @@ export class FarmService {
          SUM(COALESCE(dl.feed_consumed,0))::numeric  AS feed
        FROM brd_daily_logs dl
        LEFT JOIN brd_houses h ON h.house_code = dl.house_code
+       LEFT JOIN brd_farms hf ON hf.farm_code = h.farm_code AND hf.status = 'ACTIVE'
        ${trendWhere}
        GROUP BY dl.log_date
        ORDER BY dl.log_date ASC`,

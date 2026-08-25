@@ -160,7 +160,14 @@ export class GenericCrudController {
     const userId = String(req.user?.userId ?? req.user?.id ?? '');
     if (!menu || !userId) return null;
     const roles = Array.isArray(req.user?.roles) ? req.user.roles : (req.user?.role ? [req.user.role] : []);
-    return this.dataScopeService.resolve(userId, roles, menu);
+    const rawPermsVersion = req.user?.perms_version;
+    const permsVersion = rawPermsVersion == null ? undefined : Number(rawPermsVersion);
+    return this.dataScopeService.resolve(
+      userId,
+      roles,
+      menu,
+      Number.isFinite(permsVersion) ? permsVersion : undefined,
+    );
   }
 
   private resolveAccessMenu(table: string, req: any, method: string): string | null {

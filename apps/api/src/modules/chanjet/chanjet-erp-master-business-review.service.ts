@@ -600,12 +600,15 @@ export class ChanjetErpMasterBusinessReviewService {
 
   private async loadHouses(): Promise<ExistingMaster[]> {
     const rows = await this.ds.query(
-      `SELECT house_code AS code,
-              house_name AS name,
-              company_code AS "companyCode"
-         FROM brd_houses
-        WHERE status = 'ACTIVE'
-          AND company_code <> ''`,
+      `SELECT h.house_code AS code,
+              h.house_name AS name,
+              f.company_code AS "companyCode"
+         FROM brd_houses h
+         JOIN brd_farms f
+           ON f.farm_code = h.farm_code
+          AND f.status = 'ACTIVE'
+        WHERE h.status = 'ACTIVE'
+          AND NULLIF(f.company_code, '') IS NOT NULL`,
     );
     return rows.map((row: ExistingMaster) => ({
       ...row,
@@ -641,8 +644,11 @@ export class ChanjetErpMasterBusinessReviewService {
             ORDER BY CASE WHEN EXISTS (
               SELECT 1
                 FROM brd_houses house
-               WHERE house.site_code = site.org_code
-                 AND house.company_code = company.org_code
+                JOIN brd_farms farm
+                  ON farm.farm_code = house.farm_code
+                 AND farm.status = 'ACTIVE'
+               WHERE NULLIF(to_jsonb(farm)->>'mapped_site_code', '') = site.org_code
+                 AND farm.company_code = company.org_code
                  AND house.farm_code = alias.alias_code
             ) THEN 0 ELSE 1 END,
             alias.alias_code
@@ -1614,9 +1620,12 @@ export class ChanjetErpMasterBusinessReviewService {
            FROM mst_stores
           WHERE store_code = $1 AND status = 'ACTIVE'`,
       brd_houses:
-        `SELECT house_code AS code, house_name AS name, company_code AS company
-           FROM brd_houses
-          WHERE house_code = $1 AND status = 'ACTIVE'`,
+        `SELECT h.house_code AS code, h.house_name AS name, f.company_code AS company
+           FROM brd_houses h
+           JOIN brd_farms f
+             ON f.farm_code = h.farm_code
+            AND f.status = 'ACTIVE'
+          WHERE h.house_code = $1 AND h.status = 'ACTIVE'`,
       mst_products:
         `SELECT product_code AS code,
                 COALESCE(NULLIF(product_name_zh, ''), product_name) AS name,
