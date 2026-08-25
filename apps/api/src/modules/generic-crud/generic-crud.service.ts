@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, InternalServerErrorException, OnModule
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { BREEDING_FARMS_TABLE, BreedingScopedTable } from './crud.constants';
+import { OrgOwnershipService } from '../org/services/org-ownership.service';
 
 @Injectable()
 export class GenericCrudService implements OnModuleInit {
@@ -2324,22 +2325,14 @@ export class GenericCrudService implements OnModuleInit {
         const idx = this.nextParamIndex(query, extraValues.length);
         ors.push(table === BREEDING_FARMS_TABLE
           ? `"${siteColumn}" = ANY($${idx})`
-          : `COALESCE(NULLIF("${table}"."${siteColumn}", ''), (
-              SELECT to_jsonb(f)->>'mapped_site_code' FROM "${BREEDING_FARMS_TABLE}" f
-              WHERE f."farm_code" = "${table}"."farm_code"
-                AND f."status" = 'ACTIVE'
-            )) = ANY($${idx})`);
+          : OrgOwnershipService.farmScopePredicate(table, 'site', `$${idx}`));
         extraValues.push(scope.siteCodes);
       }
       if (scope.companyCodes.length > 0) {
         const idx = this.nextParamIndex(query, extraValues.length);
         ors.push(table === BREEDING_FARMS_TABLE
           ? `"company_code" = ANY($${idx})`
-          : `COALESCE(NULLIF("${table}"."company_code", ''), (
-              SELECT f."company_code" FROM "${BREEDING_FARMS_TABLE}" f
-              WHERE f."farm_code" = "${table}"."farm_code"
-                AND f."status" = 'ACTIVE'
-            )) = ANY($${idx})`);
+          : OrgOwnershipService.farmScopePredicate(table, 'company', `$${idx}`));
         extraValues.push(scope.companyCodes);
       }
       extraWhere.push(ors.length > 0 ? `(${ors.join(' OR ')})` : '1=0');
