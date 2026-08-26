@@ -276,6 +276,7 @@ export class DataScopeService {
           WHERE company_code = ANY($1)
             AND warehouse_code IS NOT NULL
             AND COALESCE(status, 'ACTIVE') NOT IN ('DISABLED', 'INACTIVE', 'DELETED')
+            AND domain <> 'FINANCE_MAPPING'
         `, [[...companyCodes]]).catch(() => []);
       for (const row of companyWarehouseRows) {
         if (row.warehouse_code) warehouseCodes.add(row.warehouse_code);
@@ -283,7 +284,16 @@ export class DataScopeService {
     }
 
     const extraWarehouses = await this.userWhRepo.find({ where: { userId: userIdNum } });
-    extraWarehouses.forEach((ew) => warehouseCodes.add(ew.warehouseCode));
+    const explicitWarehouseCodes = [...new Set(extraWarehouses.map((ew) => ew.warehouseCode).filter(Boolean))];
+    if (explicitWarehouseCodes.length > 0) {
+      const operationalRows: Array<{ warehouse_code: string }> = await this.orgRepo.manager.query(`
+        SELECT warehouse_code FROM wms_warehouses
+        WHERE warehouse_code = ANY($1)
+          AND COALESCE(status, 'ACTIVE') NOT IN ('DISABLED', 'INACTIVE', 'DELETED')
+          AND domain <> 'FINANCE_MAPPING'
+      `, [explicitWarehouseCodes]);
+      operationalRows.forEach((row) => warehouseCodes.add(row.warehouse_code));
+    }
 
     // G4-E：追加场站授权
     const farmCodes = new Set<string>();

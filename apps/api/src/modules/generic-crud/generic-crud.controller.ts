@@ -189,8 +189,12 @@ export class GenericCrudController {
     return { ...query, warehouse_code: warehouses };
   }
 
-  private assertWarehouseWriteScope(table: string, body: any, scope: DataScopeContext | null, requireWarehouse = true) {
+  private async assertWarehouseWriteScope(table: string, body: any, scope: DataScopeContext | null, requireWarehouse = true) {
     if (!this.WAREHOUSE_SCOPED_TABLES.has(table)) return;
+    await this.crudService.assertOperationalWarehouseCodes([
+      body.warehouse_code, body.from_warehouse, body.to_warehouse,
+      body.from_warehouse_code, body.to_warehouse_code,
+    ]);
     if (scope?.isGlobal) return;
 
     const warehouses = scope?.allowedWarehouseCodes ?? [];
@@ -485,7 +489,7 @@ export class GenericCrudController {
     if ((table === 'wms_outbound' || table === 'wms_inbound') && !body.site_code && sc && sc.startsWith('SITE-')) {
       body.site_code = sc;
     }
-    this.assertWarehouseWriteScope(table, body, tableScope);
+    await this.assertWarehouseWriteScope(table, body, tableScope);
 
     // G31：自动注入 operator/picker/auditor/executor 默认 = 当前登录用户
     //   业务方原话："谁操作不就应该默认是谁吗？"
@@ -543,7 +547,7 @@ export class GenericCrudController {
     this.assertWarehouseRowScope(table, existing, tableScope);
     const safeBody = this.filterBlockedFields(table, body);
     this.assertNoHouseOwnershipWrite(table, safeBody);
-    this.assertWarehouseWriteScope(table, safeBody, tableScope, false);
+    await this.assertWarehouseWriteScope(table, safeBody, tableScope, false);
     
     const fields = Object.keys(safeBody);
     if (!fields.every((f) => /^[a-zA-Z0-9_]+$/.test(f)) || !/^[a-zA-Z0-9_]+$/.test(idColumn)) {

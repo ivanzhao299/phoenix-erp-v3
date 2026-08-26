@@ -5,7 +5,7 @@ import { GenericCrudService } from './generic-crud.service';
 
 describe('GenericCrudController WMS RBAC', () => {
   let controller: GenericCrudController;
-  let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'findAllBreedingScoped' | 'create' | 'findOneByColumn' | 'update'>>;
+  let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'findAllBreedingScoped' | 'create' | 'findOneByColumn' | 'update' | 'assertOperationalWarehouseCodes'>>;
   let dataScopeService: { resolve: jest.Mock };
   let wmsService: { confirmInbound: jest.Mock; confirmStandaloneOutbound: jest.Mock };
   let cls: { set: jest.Mock };
@@ -30,6 +30,7 @@ describe('GenericCrudController WMS RBAC', () => {
       create: jest.fn().mockResolvedValue({ msg: 'ok' }),
       findOneByColumn: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({ msg: 'ok' }),
+      assertOperationalWarehouseCodes: jest.fn().mockResolvedValue(undefined),
     };
     dataScopeService = {
       resolve: jest.fn().mockResolvedValue({

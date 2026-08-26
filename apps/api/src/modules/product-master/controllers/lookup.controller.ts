@@ -545,7 +545,7 @@ export class LookupController {
     const scope = await this.resolveCompanyScope('MENU_MD_WAREHOUSE');
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
-    const conds: string[] = [`status='ACTIVE'`];
+    const conds: string[] = [`status='ACTIVE'`, `domain <> 'FINANCE_MAPPING'`];
     if (companyCode) { params.push(companyCode); conds.push(`company_code=$${params.length}`); }
     if (siteCode)    { params.push(siteCode);    conds.push(`site_code=$${params.length}`); }
     if (type)        { params.push(type);        conds.push(`type=$${params.length}`); }
@@ -554,7 +554,7 @@ export class LookupController {
       `SELECT warehouse_code AS "warehouseCode",
               COALESCE(warehouse_name_zh, warehouse_name) AS "warehouseName",
               company_code AS "companyCode", site_code AS "siteCode",
-              type AS "warehouseType", status
+              type AS "warehouseType", domain, status
          FROM wms_warehouses
          WHERE ${conds.join(' AND ')}
          ORDER BY warehouse_code`,

@@ -264,3 +264,62 @@ DataScopeContext: allowedCompany/Site/Farm/WarehouseCodes
 5. 历史单据引用 CJ 仓的数量与来源；若存在业务事实，必须区分“财务身份被误用于操作”与合法历史追溯，不能直接隐藏后破坏详情页。
 
 所有补证继续采用 GitHub production environment、`PGOPTIONS default_transaction_read_only=on`、`psql -X -v ON_ERROR_STOP=1`、`BEGIN TRANSACTION READ ONLY`；报告只记录真实输出，不以静态 seed 或旧报告冒充当前生产。
+
+## 10. B 阶段执行记录（2026-08-26）
+
+### 10.1 上线前只读补证
+
+专用 workflow：`.github/workflows/warehouse-domain-readonly-audit.yml`。成功运行 `32919546130`，生产 checkout/API/Web revision 与审计日志一并留存；连接级 `default_transaction_read_only=on` 与事务级 `BEGIN TRANSACTION READ ONLY` 同时生效。
+
+- `sys_user_warehouse_scopes`：0 行、0 用户、0 仓码、0 孤儿；`linhong` 无显式仓授权。
+- ACTIVE 账号全景：35 个账号；组织、SITE、farm、显式仓、角色与 WMS 菜单已逐账号输出。东鹏 WMS 相关账号至少包含 `fuqiang`、`linhong`、`liushanjun`、`zhuhuiran` 等；孟赛仓储账号包括 `songshoujiang`、`xuefeng`、`tangzhiwen` 等。
+- 近 90 天足迹：11 个 operator×warehouse 分组。正式仓业务包括孟赛入库、出库、调拨；CJ 仓命中 3 条 ERP 入库，见下表。
+- HTTP 基线：admin `/api/lookup/warehouses` 为 17 仓。既有 `linhong` 基线为 7 仓（6 CJ + `WH-0001`）。生产没有任何显式仓授权，因此“SITE 有显式仓/跨公司额外仓”两象限当前不存在真实账号，不伪造 PASS；B 阶段仍按公司展开，仅做 domain 剥离。
+
+| operator | warehouse | 单号 | 来源 | 处置 |
+|---|---|---|---|---|
+| admin | `CJ-WH-FOOD-01` | `INB-20260825-87YI` | ERP | 存量保留、只读追溯；新单禁止 |
+| fuqiang | `CJ-WH-XINGCHI-01` | `INB-20260825-XRFT` | ERP | 存量保留、只读追溯；新单禁止 |
+| linhong | `CJ-WH-XINGCHI-01` | `INB-20260825-25QJ` | ERP | 存量保留、只读追溯；新单禁止 |
+
+审计未发现 CJ 仓的出库、调拨、盘点、库存批次或库存台账引用。3 条误用规模不构成“大量真实操作单据”停止条件，但证明不能删除或改写历史行；B 阶段采用“新单禁止 + 存量事实不变”的兼容策略。
+
+### 10.2 身份 schema 与数据分类
+
+- TS 迁移 `1787724000000-AddWarehouseDomain.ts` 新增 `domain VARCHAR(32) NOT NULL DEFAULT 'OPERATIONAL'`，含幂等 `up()` 与真实 `down()`；不改 `type`，不迁移既有 type 值。
+- 生产分类由 `.github/workflows/warehouse-domain-production-classify.yml` 显式执行：先断言 9 个 `CJ-WH-*`、1 个 `WH-0001`、7 个 `LPH_MS_*`，再逐组 `UPDATE ... RETURNING`，最后断言 `9/1/7` 并提交。
+- 分类结果：CJ 9 仓=`FINANCE_MAPPING`；`WH-0001`=`TEST`；LPH 7 仓=`OPERATIONAL`。
+- 回滚 SQL（只回滚本轮数据分类，不删除 schema）：
+
+```sql
+BEGIN;
+UPDATE wms_warehouses SET domain='OPERATIONAL'
+ WHERE warehouse_code LIKE 'CJ-WH-%' OR warehouse_code='WH-0001' OR warehouse_code LIKE 'LPH_MS_%';
+COMMIT;
+```
+
+### 10.3 操作入口矩阵
+
+| 入口 | B 阶段规则 | 依据/兼容 |
+|---|---|---|
+| DataScope 公司展开与显式仓并集 | 排除 `FINANCE_MAPPING` | 非全局用户的查询、写入统一继承；TEST 暂保留 |
+| `/api/lookup/warehouses` | 排除 `FINANCE_MAPPING`，返回 domain | 覆盖通用 WarehouseSelector 与直接 lookup 页面 |
+| Generic CRUD warehouse/zone/location | 仓按 domain 排除；zone/location 经 warehouse 归属继承 | 覆盖主档页与 Zone/Location selector |
+| WMS 入/出/调/盘/损及采购收货写入 | DB 边界拒绝 `FINANCE_MAPPING`，管理员也不例外 | 防止绕过 selector 直接提交仓码 |
+| Generic CRUD WMS 写旁路 | 对 warehouse/from/to 仓码统一拒绝 | 覆盖通用 create/update 入口 |
+| 日产蛋入库 | `EGG_FARM + ACTIVE + 非 FINANCE_MAPPING` | 孟赛 `LPH_MS_EGG_FARM` 不受影响 |
+| 库存查询/报表 | 通过剥离后的 allowedWarehouseCodes 收窄 | TEST 在 B 阶段仍保留；A 阶段再排除 |
+| Chanjet 财务对账/只读桥 | 不应用操作面过滤 | 财务映射仓仍由专用 Chanjet 链使用 |
+
+### 10.4 东鹏主数据与过渡影响
+
+本轮不伪造仓码或业务名称。建议参照孟赛用途，待业务确认后至少创建：东鹏蛋品暂存仓（EGG_FARM）、销售成品仓（EGG_SALES）、饲料仓（FEED）、药品/疫苗仓（MEDICINE）；是否同步创建采购到货、原料/包材、包装成品仓由实际流程确认。每仓仍需确认仓码、中老英名称、company=`COMP-LAO-XINGCHI`、site=`SITE-DONGPENG-LAYER`、库区/库位与负责人。
+
+B 阶段只剥离 `FINANCE_MAPPING`，不从操作面排除 `TEST`。因此 `linhong` 由 7 仓过渡为仅 `WH-0001` 1 仓，admin 从 17 仓变为 8 个非财务仓（7 OPERATIONAL + 1 TEST），不是原执行草案中的 9；`domain` 是互斥身份，9+1+7=17。该过渡避免东鹏立即零仓，但 `WH-0001` 仍是测试仓，只能作为短期兜底；东鹏正式仓确认后应尽快创建并进入 A 阶段显式授权。
+
+### 10.5 A 阶段留项
+
+- SITE 操作仓 ∩ 显式授权、零授权 fail-closed；补齐真实的五象限账号与 HTTP 集合断言。
+- `TEST` 从操作面排除；在此之前保持 `WH-0001` 的过渡可见性。
+- facility/usage/capability 双维度治理继续冻结，本轮未触碰 `type` 语义。
+- 旧 CJ 入库三单提供专用历史审计/详情追溯，不恢复其新建或编辑能力。
