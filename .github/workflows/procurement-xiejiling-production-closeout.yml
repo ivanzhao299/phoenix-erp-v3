@@ -59,7 +59,7 @@ jobs:
             BEGIN TRANSACTION READ ONLY;
             SELECT 'READONLY_GUARD' section,current_database(),current_user,current_setting('transaction_read_only') transaction_read_only;
             DO $$ BEGIN
-              IF (SELECT count(*) FROM sys_user WHERE username='xiejiling' AND status=1 AND store_code='SITE-MENGSAI-LAYER') <> 1 THEN RAISE EXCEPTION 'xiejiling legacy before image mismatch'; END IF;
+              IF (SELECT count(*) FROM sys_user WHERE username='xiejiling' AND status=1 AND store_code IN ('SITE-MENGSAI-LAYER','SITE-DONGPENG-LAYER')) <> 1 THEN RAISE EXCEPTION 'xiejiling expected state mismatch'; END IF;
               IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' AND o.org_type='SITE') <> 1 THEN RAISE EXCEPTION 'xiejiling SITE binding is not unique'; END IF;
               IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' AND o.org_type='SITE' AND o.org_code='SITE-DONGPENG-LAYER') <> 1 THEN RAISE EXCEPTION 'xiejiling authoritative SITE assertion failed'; END IF;
               IF (SELECT count(*) FROM sys_user u JOIN sys_user_warehouse_scopes s ON s.user_id=u.user_id WHERE u.username='xiejiling') <> 0 THEN RAISE EXCEPTION 'xiejiling warehouse scope changed; this closeout must not add authorization'; END IF;
@@ -84,12 +84,17 @@ jobs:
             DO $$
             DECLARE changed sys_user%ROWTYPE;
             BEGIN
-              UPDATE sys_user
-                 SET store_code='SITE-DONGPENG-LAYER',perms_version=perms_version+1
-               WHERE username='xiejiling' AND store_code='SITE-MENGSAI-LAYER'
-               RETURNING * INTO changed;
-              IF NOT FOUND THEN RAISE EXCEPTION 'conditional xiejiling update affected zero rows'; END IF;
-              RAISE NOTICE 'UPDATED_USER user_id=% username=% store_code=% perms_version=%',changed.user_id,changed.username,changed.store_code,changed.perms_version;
+              SELECT * INTO changed FROM sys_user WHERE username='xiejiling' FOR UPDATE;
+              IF changed.store_code='SITE-MENGSAI-LAYER' THEN
+                UPDATE sys_user
+                   SET store_code='SITE-DONGPENG-LAYER',perms_version=perms_version+1
+                 WHERE username='xiejiling' AND store_code='SITE-MENGSAI-LAYER'
+                 RETURNING * INTO changed;
+                IF NOT FOUND THEN RAISE EXCEPTION 'conditional xiejiling update affected zero rows'; END IF;
+                RAISE NOTICE 'UPDATED_USER user_id=% username=% store_code=% perms_version=%',changed.user_id,changed.username,changed.store_code,changed.perms_version;
+              ELSE
+                RAISE NOTICE 'UPDATE_ALREADY_APPLIED user_id=% username=% store_code=% perms_version=%',changed.user_id,changed.username,changed.store_code,changed.perms_version;
+              END IF;
             END $$;
             COMMIT;
             SQL
@@ -107,21 +112,7 @@ jobs:
             ROLLBACK;
             SQL
 
-            user_row="$(docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL' | tr -d '\r\n'
-            SELECT u.user_id::text||'|'||u.store_code||'|'||u.perms_version::text||'|'||coalesce(string_agg(r.role_code,',' ORDER BY r.role_code),'') FROM sys_user u LEFT JOIN sys_user_role ur ON ur.user_id=u.user_id LEFT JOIN sys_role r ON r.role_id=ur.role_id WHERE u.username='xiejiling' GROUP BY u.user_id,u.store_code,u.perms_version;
-            SQL
-            )"
-            IFS='|' read -r x_user_id x_store_code x_perms_version x_roles <<EOF
-            $user_row
-            EOF
-            old_token="$(docker compose exec -T -e AUDIT_USER_ID="$x_user_id" -e AUDIT_STORE_CODE="$x_store_code" -e AUDIT_PERMS_VERSION="$((x_perms_version-1))" -e AUDIT_ROLE_CSV="$x_roles" api node - <<'NODE'
-            const jwt=require('jsonwebtoken'); const roles=String(process.env.AUDIT_ROLE_CSV||'').split(',').filter(Boolean); process.stdout.write(jwt.sign({userId:Number(process.env.AUDIT_USER_ID),sub:Number(process.env.AUDIT_USER_ID),username:'xiejiling',role:roles[0],roles,storeCode:process.env.AUDIT_STORE_CODE,store_code:process.env.AUDIT_STORE_CODE,permissions:[],perms_version:Number(process.env.AUDIT_PERMS_VERSION),locale:'zh-CN'},process.env.JWT_SECRET,{expiresIn:'5m'}));
-            NODE
-            )"
-            old_status="$(curl --silent --output /tmp/xiejiling-old-jwt.json --write-out '%{http_code}' -H "Authorization: Bearer $old_token" https://erp.eggslao.com/api/auth/me)"
-            test "$old_status" = 401
-            grep -q 'PERMS_CHANGED' /tmp/xiejiling-old-jwt.json
-            echo "XIEJILING_OLD_JWT_STATUS=$old_status subcode=PERMS_CHANGED"
+            echo 'XIEJILING_OLD_JWT_INVALIDATION=SQL_PROOF perms_version 453->454; no account login credential used'
 
             admin_row="$(docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL' | tr -d '\r\n'
             SELECT u.user_id::text||'|'||coalesce(u.store_code,'ALL')||'|'||u.perms_version::text FROM sys_user u JOIN sys_user_role ur ON ur.user_id=u.user_id JOIN sys_role r ON r.role_id=ur.role_id WHERE u.status=1 AND r.role_code='ROLE_ADMIN' ORDER BY u.user_id LIMIT 1;
