@@ -545,11 +545,15 @@ export class LookupController {
     const scope = await this.resolveCompanyScope('MENU_MD_WAREHOUSE');
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
     const params: any[] = [];
-    const conds: string[] = [`status='ACTIVE'`, `domain <> 'FINANCE_MAPPING'`];
+    const conds: string[] = [`status='ACTIVE'`, `domain = 'OPERATIONAL'`];
     if (companyCode) { params.push(companyCode); conds.push(`company_code=$${params.length}`); }
     if (siteCode)    { params.push(siteCode);    conds.push(`site_code=$${params.length}`); }
     if (type)        { params.push(type);        conds.push(`type=$${params.length}`); }
-    if (!scope.isGlobal) { params.push(scope.companyCodes); conds.push(`company_code = ANY($${params.length})`); }
+    if (!scope.isGlobal) {
+      if (scope.warehouseCodes.length === 0) return { code: 200, data: [] };
+      params.push(scope.warehouseCodes);
+      conds.push(`warehouse_code = ANY($${params.length})`);
+    }
     const rows = await this.em.query(
       `SELECT warehouse_code AS "warehouseCode",
               COALESCE(warehouse_name_zh, warehouse_name) AS "warehouseName",

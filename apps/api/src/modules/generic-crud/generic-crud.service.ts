@@ -2198,11 +2198,11 @@ export class GenericCrudService implements OnModuleInit {
     if (normalized.length === 0) return;
     const blocked: Array<{ warehouse_code: string }> = await this.entityManager.query(`
       SELECT warehouse_code FROM wms_warehouses
-      WHERE warehouse_code = ANY($1) AND domain = 'FINANCE_MAPPING'
+      WHERE warehouse_code = ANY($1) AND domain <> 'OPERATIONAL'
     `, [normalized]);
     if (blocked.length > 0) {
       throw new ForbiddenException(
-        `财务映射仓禁止仓储操作：${blocked.map((row) => row.warehouse_code).join('、')}`,
+        `非操作仓禁止仓储操作：${blocked.map((row) => row.warehouse_code).join('、')}`,
       );
     }
   }
@@ -2428,12 +2428,12 @@ export class GenericCrudService implements OnModuleInit {
     // Warehouse master-data CRUD is an operational surface. Finance mapping
     // warehouses remain queryable through the dedicated Chanjet chain only.
     if (table === 'wms_warehouses') {
-      whereClauses.push(`"domain" <> 'FINANCE_MAPPING'`);
+      whereClauses.push(`"domain" = 'OPERATIONAL'`);
     } else if (table === 'wms_zones' || table === 'wms_locations') {
       whereClauses.push(`EXISTS (
         SELECT 1 FROM wms_warehouses operational_warehouse
         WHERE operational_warehouse.warehouse_code = "${table}"."warehouse_code"
-          AND operational_warehouse.domain <> 'FINANCE_MAPPING'
+          AND operational_warehouse.domain = 'OPERATIONAL'
       )`);
     }
 

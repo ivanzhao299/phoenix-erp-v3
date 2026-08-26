@@ -264,11 +264,11 @@ export class DataScopeService {
     const extraProjects = await this.userProjRepo.find({ where: { userId: userIdNum } });
     extraProjects.forEach((ep) => projectCodes.add(ep.projectCode));
 
-    // G201 修复：仓储角色通常绑定到公司/场站组织，而不是逐仓库写 sys_user_warehouse_scopes。
-    // 如果只把显式 warehouse_code 视作仓库范围，仓管员会出现"能新建入库单，但列表看不到
-    // 自己刚建的单"；如果空仓库范围又放行全部，则会越权。这里把已授权 company_code 下
-    // 的 ACTIVE 仓库展开到 allowedWarehouseCodes，后续 WMS 查询/写入统一用仓库范围过滤。
-    if (companyCodes.size > 0) {
+    // A 阶段：SITE 用户不再继承公司全仓。其范围只能来自“所属 SITE 的 ACTIVE
+    // OPERATIONAL 仓 ∩ sys_user_warehouse_scopes”；没有显式授权即保持空集合。
+    // COMPANY/REGION 等非 SITE 绑定继续沿用公司操作仓全量，语义不变。
+    const hasSiteBinding = siteCodes.size > 0;
+    if (companyCodes.size > 0 && !hasSiteBinding) {
       const companyWarehouseRows: Array<{ warehouse_code: string | null }> =
         await this.orgRepo.manager.query(`
           SELECT warehouse_code
@@ -276,7 +276,7 @@ export class DataScopeService {
           WHERE company_code = ANY($1)
             AND warehouse_code IS NOT NULL
             AND COALESCE(status, 'ACTIVE') NOT IN ('DISABLED', 'INACTIVE', 'DELETED')
-            AND domain <> 'FINANCE_MAPPING'
+            AND domain = 'OPERATIONAL'
         `, [[...companyCodes]]).catch(() => []);
       for (const row of companyWarehouseRows) {
         if (row.warehouse_code) warehouseCodes.add(row.warehouse_code);
@@ -290,8 +290,9 @@ export class DataScopeService {
         SELECT warehouse_code FROM wms_warehouses
         WHERE warehouse_code = ANY($1)
           AND COALESCE(status, 'ACTIVE') NOT IN ('DISABLED', 'INACTIVE', 'DELETED')
-          AND domain <> 'FINANCE_MAPPING'
-      `, [explicitWarehouseCodes]);
+          AND domain = 'OPERATIONAL'
+          ${hasSiteBinding ? 'AND site_code = ANY($2)' : ''}
+      `, hasSiteBinding ? [explicitWarehouseCodes, [...siteCodes]] : [explicitWarehouseCodes]);
       operationalRows.forEach((row) => warehouseCodes.add(row.warehouse_code));
     }
 

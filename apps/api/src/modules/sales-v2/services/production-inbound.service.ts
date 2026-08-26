@@ -103,7 +103,7 @@ export class ProductionInboundService {
     const params: unknown[] = [companyCode];
     let sql = `SELECT warehouse_code FROM wms_warehouses
       WHERE company_code = $1 AND status = 'ACTIVE' AND type = 'EGG_FARM'
-        AND domain <> 'FINANCE_MAPPING'`;
+        AND domain = 'OPERATIONAL'`;
     if (explicit) { params.push(explicit); sql += ` AND warehouse_code = $2`; }
     else if (siteCode) { params.push(siteCode); sql += ` AND (site_code = $2 OR site_code IS NULL)`; }
     sql += ` ORDER BY warehouse_code`;

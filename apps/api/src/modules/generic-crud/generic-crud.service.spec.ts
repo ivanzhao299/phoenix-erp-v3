@@ -192,7 +192,7 @@ describe('GenericCrudService', () => {
         const { svc } = buildSvc(query);
         await svc.findAll(table, {});
         expect(query.mock.calls[0][0]).toContain("domain");
-        expect(query.mock.calls[0][0]).toContain("FINANCE_MAPPING");
+        expect(query.mock.calls[0][0]).toContain("'OPERATIONAL'");
       },
     );
 
@@ -200,7 +200,7 @@ describe('GenericCrudService', () => {
       const query = jest.fn().mockResolvedValueOnce([{ warehouse_code: 'CJ-WH-XINGCHI-01' }]);
       const { svc } = buildSvc(query);
       await expect(svc.assertOperationalWarehouseCodes(['CJ-WH-XINGCHI-01']))
-        .rejects.toThrow('财务映射仓禁止仓储操作');
+        .rejects.toThrow('非操作仓禁止仓储操作');
     });
   });
 

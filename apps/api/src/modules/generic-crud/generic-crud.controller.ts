@@ -146,6 +146,9 @@ export class GenericCrudController {
   }
 
   private readonly WAREHOUSE_SCOPED_TABLES = new Set([
+    'wms_warehouses',
+    'wms_zones',
+    'wms_locations',
     'inv_batches',
     'inv_ledger',
     'wms_inbound',
