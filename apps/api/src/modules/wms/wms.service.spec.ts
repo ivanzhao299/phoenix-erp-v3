@@ -189,6 +189,10 @@ describe('WmsService inventory read queries', () => {
       data: { task_no: 'WI-SKU-ONLY', status: 'COMPLETED' },
     });
 
+    const skuLookup = manager.query.mock.calls.find(([sql]) => String(sql).includes('FROM product_skus'));
+    expect(skuLookup?.[0]).toContain('effective_date IS NULL OR ps.effective_date <= CURRENT_DATE');
+    expect(skuLookup?.[0]).toContain('expire_date IS NULL OR ps.expire_date >= CURRENT_DATE');
+
     const insertBatchCall = manager.query.mock.calls.find(([sql]) =>
       String(sql).includes('INSERT INTO inv_batches') && String(sql).includes('sku_code'),
     );

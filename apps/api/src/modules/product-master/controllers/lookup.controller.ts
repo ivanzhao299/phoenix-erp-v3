@@ -313,9 +313,11 @@ export class LookupController {
              ps.sku_code AS "skuCode",
              ps.product_code AS "productCode",
              ps.status
-        FROM product_skus ps
+       FROM product_skus ps
         LEFT JOIN packaging_specs spec ON spec.spec_code = ps.spec_code
        WHERE ps.status = 'ACTIVE'
+         AND (ps.effective_date IS NULL OR ps.effective_date <= CURRENT_DATE)
+         AND (ps.expire_date IS NULL OR ps.expire_date >= CURRENT_DATE)
        ORDER BY "itemType", "materialType", "itemName"
     `);
     return { code: 200, data: rows };

@@ -758,6 +758,7 @@ export const skuConfig: MasterDataConfig = {
     { key: 'spec_code',      label: '规格' },
     { key: 'barcode',        label: '条码' },
     { key: 'effective_date', label: '生效日期', format: dateStr },
+    { key: 'expire_date',    label: '失效日期', format: dateStr },
   ],
   sections: [
     {
