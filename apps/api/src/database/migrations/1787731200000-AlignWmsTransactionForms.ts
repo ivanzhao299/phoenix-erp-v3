@@ -4,6 +4,26 @@ export class AlignWmsTransactionForms1787731200000 implements MigrationInterface
   name = 'AlignWmsTransactionForms1787731200000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // 空库 CI 的冻结 baseline 不创建 wms_transfer；生产已有该表。这里先补最小骨架，
+    // 随后的 IF NOT EXISTS 列扩展对两种环境保持同一末态。
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS wms_transfer (
+        id bigserial PRIMARY KEY,
+        transfer_no varchar(64) UNIQUE,
+        from_warehouse varchar(64),
+        to_warehouse varchar(64),
+        from_zone varchar(64),
+        to_zone varchar(64),
+        product_code varchar(64),
+        qty numeric(18,3),
+        status varchar(32) DEFAULT 'PENDING',
+        operator_id integer,
+        reason text,
+        store_code text DEFAULT 'ALL',
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      )
+    `);
     await queryRunner.query(`
       ALTER TABLE wms_stocktake
         ADD COLUMN IF NOT EXISTS zone_code varchar(64),
