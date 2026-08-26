@@ -356,7 +356,7 @@ SITE 时 legacy SITE 必须相等；POS 用户用专用 store 规则；不允许
 再按三段模式执行：
 
 1. 只读 preflight 输出 user_id、完整用户 before image、roles、orgs、project/farm/
-   warehouse scopes 与 `perms_version`；硬断言唯一主绑定为 `SITE-DONGPENG-LAYER`、旧值
+   warehouse scopes 与 `perms_version`；硬断言唯一 SITE 绑定为 `SITE-DONGPENG-LAYER`、旧值
    仍为 `SITE-MENGSAI-LAYER`、warehouse scope 为 0、采购员为 3 人。
 2. 单事务条件更新仅执行
    `UPDATE sys_user SET store_code='SITE-DONGPENG-LAYER', perms_version=perms_version+1
@@ -385,6 +385,38 @@ xiejiling 调职后的东鹏仓职责尚未由业务明确，本轮不新增任�
 
 ### 9.4 部署与生产回归结果
 
-待 PR 合入、`workflow_dispatch mode=full / approve_production=true` 完成后回填 run、revision、
-X-A before/after、无写入 usage DryRun（EGG_FARM 400、FEED PASS）、旧链 410、
-`linhong=4/admin=11` 仓集合与 `sys_error_logs` 窗口结果。
+代码 PR [#97](https://github.com/ivanzhao299/phoenix-erp-v3/pull/97) 合入后，main revision
+`67b9ffe09e50c6d06b87758370a2d3640d9b50e5` 的四组主干 CI 全绿；full 部署 run
+`32943420568` 成功。预检发现历史 SITE 绑定唯一但 `is_primary=false`，因此第一次 closeout
+run `32943965204` 在 Phase 1 只读阶段安全退出，未执行 UPDATE。修正为“唯一 SITE 绑定”
+断言的 PR #98 合入并经 full 部署 run `32944630760` 发布，部署末态 revision 为
+`9d15d654725fcfc15bd36142e13afd59d15a9dc7`。
+
+生产唯一写入发生在 run `32945724364`：
+
+| 项 | before | after |
+|---|---|---|
+| user_id / username | `137 / xiejiling` | 不变 |
+| store_code | `SITE-MENGSAI-LAYER` | `SITE-DONGPENG-LAYER` |
+| perms_version | `453` | `454` |
+| 权威 SITE | 唯一 `SITE-DONGPENG-LAYER`，`is_primary=false` 历史标记 | 不变 |
+| warehouse scopes | 0 | 0 |
+
+该 UPDATE 在单事务中按精确旧值条件命中 1 行并 COMMIT；随后独立只读 SQL 已证明两轨一致。
+账号无可用测试登录凭据，因此未使用真实账号签发新 JWT；旧 JWT 失效以
+`perms_version 453→454` 与 `JwtStrategy` 的版本硬校验为证。合成 JWT 探针自身退出后，
+幂等续跑 PR #99 将生产 workflow 改为已完成状态只复核、不再次 bump。成功终态 run
+`32946815876` 留痕如下：
+
+| 生产断言 | 结果 |
+|---|---|
+| checkout / API image / Web image | 三者均为 `9d15d654725fcfc15bd36142e13afd59d15a9dc7` |
+| xiejiling 两轨 | `store_code=SITE-DONGPENG-LAYER` = 唯一 SITE 绑定；`perms_version=454` |
+| 重跑幂等 | `UPDATE_ALREADY_APPLIED`，未再次更新或递增版本 |
+| 采购 usage 无写入 DryRun | `EGG_FARM → HTTP 400`；`FEED → PASS` |
+| 旧采购收货入口 | HTTP 410 |
+| 仓库集合 | `admin=11`；`linhong=4` |
+| `sys_error_logs` 最近 1 小时 | `serverErrors=0` |
+
+生产采购回归使用纯校验端点，没有创建任何采购单、收货单、批次或流水；除 xiejiling
+单行条件 UPDATE 外无业务数据写入。历史单据、DataScope 展开、仓库显式授权均未改变。
