@@ -52,7 +52,7 @@ jobs:
                AND table_name IN ('sys_user','sys_user_orgs','sys_organizations',
                  'sys_user_farm_scopes','sys_user_warehouse_scopes','sys_user_role','sys_role',
                  'sys_role_menu_permission','sys_menu','wms_warehouses','wms_zones','wms_locations',
-                 'wms_inbound','wms_outbound','wms_transfer','wms_stocktake','wms_loss',
+                 'wms_inbound','wms_outbound','wms_transfer','wms_stocktake',
                  'inv_batches','inv_ledger')
              ORDER BY table_name, ordinal_position;
 
@@ -156,8 +156,6 @@ jobs:
                      COALESCE(NULLIF(to_jsonb(x)->>'source_type',''),'<NULL>') FROM wms_transfer x
               UNION ALL SELECT 'wms_stocktake',NULLIF(to_jsonb(x)->>'warehouse_code',''),
                      COALESCE(NULLIF(to_jsonb(x)->>'stocktake_no',''),'<NO_REF>'),'<NULL>' FROM wms_stocktake x
-              UNION ALL SELECT 'wms_loss',NULLIF(to_jsonb(x)->>'warehouse_code',''),
-                     COALESCE(NULLIF(to_jsonb(x)->>'loss_no',''),'<NO_REF>'),'<NULL>' FROM wms_loss x
               UNION ALL SELECT 'inv_batches',NULLIF(to_jsonb(x)->>'warehouse_code',''),
                      COALESCE(NULLIF(to_jsonb(x)->>'batch_no',''),'<NO_REF>'),
                      COALESCE(NULLIF(to_jsonb(x)->>'source_type',''),'<NULL>') FROM inv_batches x
