@@ -100,7 +100,11 @@ jobs:
                  ('MENU_MD_WAREHOUSE','MENU_INV_BATCH','MENU_INV_LEDGER','MENU_INV_SOURCE_MODE')
                GROUP BY ur.user_id
             )
-            SELECT 'ACTIVE_USER_SCOPE_MATRIX' AS section,u.username,u.real_name,u.role,u.store_code,u.user_type,
+            SELECT 'ACTIVE_USER_SCOPE_MATRIX' AS section,u.username,
+                   COALESCE(to_jsonb(u)->>'real_name',to_jsonb(u)->>'real_name_zh','') AS real_name,
+                   COALESCE(to_jsonb(u)->>'role','') AS legacy_role,
+                   COALESCE(to_jsonb(u)->>'store_code','') AS store_code,
+                   COALESCE(to_jsonb(u)->>'user_type','') AS user_type,
                    COALESCE(r.roles,'') AS roles,COALESCE(o.orgs,'') AS orgs,
                    COALESCE(o.companies,'') AS companies,COALESCE(o.sites,'') AS sites,
                    COALESCE(f.explicit_farms,'') AS explicit_farms,
