@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Query, GoneException } from '@nestjs/common';
 import { ProcurementService } from './procurement.service';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
@@ -76,15 +76,15 @@ export class ProcurementController {
   // ─── 收货确认 ──────────────────────────────────────────────────────────────
   @Post(':poNo/confirm-receipt')
   @RequireMenu('MENU_PRC2_RECEIPT', 'E')
-  async confirmReceipt(@Param('poNo') poNo: string, @Body('items') items: any[]) {
-    return await this.procurementService.confirmReceipt(poNo, items || []);
+  async confirmReceipt(@Param('poNo') _poNo: string) {
+    throw new GoneException('旧采购收货入口已停用，请使用采购 V2 收货单确认入口');
   }
 
   // 兼容旧路由
   @Post('receipts/:receipt_no/confirm')
   @RequireMenu('MENU_PRC2_RECEIPT', 'E')
-  async confirmReceiptLegacy(@Param('receipt_no') poNo: string, @Body('items') items: any[]) {
-    return await this.procurementService.confirmReceipt(poNo, items || []);
+  async confirmReceiptLegacy(@Param('receipt_no') _poNo: string) {
+    throw new GoneException('旧采购收货入口已停用，请使用采购 V2 收货单确认入口');
   }
 
   // ─── 供应商 ────────────────────────────────────────────────────────────────

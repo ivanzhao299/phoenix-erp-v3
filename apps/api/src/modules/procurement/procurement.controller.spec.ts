@@ -1,5 +1,6 @@
 import { ProcurementController } from './procurement.controller';
 import { ProcurementService } from './procurement.service';
+import { GoneException } from '@nestjs/common';
 
 describe('ProcurementController', () => {
   let controller: ProcurementController;
@@ -36,9 +37,9 @@ describe('ProcurementController', () => {
     expect(svc.createPurchaseOrder).toHaveBeenCalledWith(body);
   });
 
-  it('POST /:poNo/confirm-receipt passes items array (default to empty)', async () => {
-    svc.confirmReceipt.mockResolvedValue({ ok: true } as never);
-    await controller.confirmReceipt('PO-1', undefined as never);
-    expect(svc.confirmReceipt).toHaveBeenCalledWith('PO-1', []);
+  it('seals both legacy receipt routes with HTTP 410 without touching inventory', async () => {
+    await expect(controller.confirmReceipt('PO-1')).rejects.toBeInstanceOf(GoneException);
+    await expect(controller.confirmReceiptLegacy('PO-1')).rejects.toBeInstanceOf(GoneException);
+    expect(svc.confirmReceipt).not.toHaveBeenCalled();
   });
 });

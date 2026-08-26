@@ -1,4 +1,5 @@
 import { WmsService } from './wms.service';
+import { BadRequestException } from '@nestjs/common';
 
 describe('WmsService inventory read queries', () => {
   const buildService = (rows: any[] = []) => {
@@ -18,6 +19,47 @@ describe('WmsService inventory read queries', () => {
     };
     return { service: new WmsService(em as any, cls as any), em };
   };
+
+  it('rejects PURCHASE receipt inbound to an EGG_FARM warehouse before inventory writes', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => sql.includes('SELECT type')
+        ? [{ type: 'EGG_FARM', domain: 'OPERATIONAL' }]
+        : []),
+    };
+    const em = {
+      query: jest.fn().mockResolvedValue([{ domain: 'OPERATIONAL' }]),
+    };
+    const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.inboundFromReceipt(manager as any, {
+      refNo: 'RCV-EGG-1', warehouseCode: 'LPH_MS_EGG_FARM', items: [],
+    })).rejects.toBeInstanceOf(BadRequestException);
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_batches'), expect.anything());
+  });
+
+  it('allows PURCHASE receipt inbound to a FEED warehouse', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('SELECT type')) return [{ type: 'FEED', domain: 'OPERATIONAL' }];
+        if (sql.includes('FROM mst_materials')) return [{
+          material_code: 'MAT-FEED-1', material_name: '饲料', material_type: 'FEED_RAW', unit: 'kg',
+        }];
+        return [];
+      }),
+    };
+    const em = {
+      query: jest.fn().mockResolvedValue([{ domain: 'OPERATIONAL' }]),
+    };
+    const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.inboundFromReceipt(manager as any, {
+      refNo: 'RCV-FEED-1', warehouseCode: 'LPH_MS_FEED',
+      items: [{ itemCode: 'MAT-FEED-1', itemType: 'MATERIAL', qty: 2 }],
+    })).resolves.toEqual({ batchNos: ['RCV-FEED-1-001'], skipped: 0 });
+    expect(manager.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_batches'), expect.any(Array));
+  });
 
   it('uses qty_available fallback and projects warehouse display name when reading visible inventory batches', async () => {
     const { service, em } = buildService([{ batch_no: 'B1', qty: 0, qty_available: 12, warehouse_name: '孟赛鸡蛋销售成品仓' }]);
@@ -104,6 +146,9 @@ describe('WmsService inventory read queries', () => {
   it('accepts SKU-only inbound confirmation and persists SKU to batch and ledger', async () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
+          return [{ type: 'PURCHASE_RECV', domain: 'OPERATIONAL' }];
+        }
         if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
           return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
         }
@@ -185,6 +230,9 @@ describe('WmsService inventory read queries', () => {
   it('normalizes a SKU entered in the legacy product-code field so outbound can select the stock', async () => {
     const manager = {
       query: jest.fn(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
+          return [{ type: 'PURCHASE_RECV', domain: 'OPERATIONAL' }];
+        }
         if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
           return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
         }
@@ -255,6 +303,9 @@ describe('WmsService inventory read queries', () => {
   it('persists received quantity two on the inbound line before posting visible inventory', async () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
+          return [{ type: 'FEED', domain: 'OPERATIONAL' }];
+        }
         if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
           return [{ warehouse_code: 'WH-A', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
         }
