@@ -1,0 +1,195 @@
+name: Warehouse Domain Production Readonly Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: warehouse-domain-production-readonly-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Capture warehouse scope and history evidence without mutation
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
+            api_container="$(docker compose ps -q api)"
+            web_container="$(docker compose ps -q web)"
+            echo "API_IMAGE_REVISION=$(docker inspect -f '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$api_container")"
+            echo "WEB_IMAGE_REVISION=$(docker inspect -f '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$web_container")"
+
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'READONLY_GUARD' AS section, current_database(), current_user,
+                   current_setting('transaction_read_only') AS transaction_read_only;
+
+            SELECT 'REQUIRED_COLUMNS' AS section, table_name, column_name, data_type, is_nullable
+              FROM information_schema.columns
+             WHERE table_schema='public'
+               AND table_name IN ('sys_user','sys_user_orgs','sys_organizations',
+                 'sys_user_farm_scopes','sys_user_warehouse_scopes','sys_user_role','sys_role',
+                 'sys_role_menu_permission','sys_menu','wms_warehouses','wms_zones','wms_locations',
+                 'wms_inbound','wms_outbound','wms_transfer','wms_stocktake','wms_loss',
+                 'inv_batches','inv_ledger')
+             ORDER BY table_name, ordinal_position;
+
+            WITH s AS (SELECT * FROM sys_user_warehouse_scopes),
+            orphan AS (
+              SELECT DISTINCT s.warehouse_code FROM s
+              LEFT JOIN wms_warehouses w ON w.warehouse_code=s.warehouse_code
+              WHERE w.warehouse_code IS NULL
+            )
+            SELECT 'WAREHOUSE_SCOPE_SUMMARY' AS section, count(*) AS rows,
+                   count(DISTINCT user_id) AS users, count(DISTINCT warehouse_code) AS warehouses,
+                   (SELECT count(*) FROM orphan) AS orphan_codes
+              FROM s;
+            SELECT 'WAREHOUSE_SCOPE_ORPHANS' AS section, s.user_id, s.warehouse_code
+              FROM sys_user_warehouse_scopes s
+              LEFT JOIN wms_warehouses w ON w.warehouse_code=s.warehouse_code
+             WHERE w.warehouse_code IS NULL ORDER BY s.user_id,s.warehouse_code;
+            SELECT 'LINHONG_EXPLICIT_WAREHOUSE_SCOPE' AS section, u.username, s.warehouse_code
+              FROM sys_user u JOIN sys_user_warehouse_scopes s ON s.user_id=u.user_id
+             WHERE u.username='linhong' ORDER BY s.warehouse_code;
+
+            WITH roles AS (
+              SELECT ur.user_id, string_agg(DISTINCT r.role_code, ',' ORDER BY r.role_code) AS roles
+                FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id
+               WHERE COALESCE(to_jsonb(ur)->>'is_visible','true') <> 'false'
+               GROUP BY ur.user_id
+            ), orgs AS (
+              SELECT uo.user_id,
+                     string_agg(DISTINCT o.org_code, ',' ORDER BY o.org_code) AS orgs,
+                     string_agg(DISTINCT NULLIF(o.company_code,''), ',' ORDER BY NULLIF(o.company_code,'')) AS companies,
+                     string_agg(DISTINCT CASE WHEN o.org_type='SITE' THEN o.org_code ELSE NULLIF(o.site_code,'') END,
+                                ',' ORDER BY CASE WHEN o.org_type='SITE' THEN o.org_code ELSE NULLIF(o.site_code,'') END) AS sites
+                FROM sys_user_orgs uo JOIN sys_organizations o ON o.id=uo.org_id GROUP BY uo.user_id
+            ), farms AS (
+              SELECT user_id,string_agg(farm_code,',' ORDER BY farm_code) AS explicit_farms
+                FROM sys_user_farm_scopes GROUP BY user_id
+            ), whs AS (
+              SELECT user_id,string_agg(warehouse_code,',' ORDER BY warehouse_code) AS explicit_warehouses
+                FROM sys_user_warehouse_scopes GROUP BY user_id
+            ), menus AS (
+              SELECT ur.user_id,string_agg(DISTINCT m.menu_code,',' ORDER BY m.menu_code) AS wms_menus
+                FROM sys_user_role ur JOIN sys_role_menu_permission p ON p.role_id=ur.role_id
+                JOIN sys_menu m ON m.menu_id=p.menu_id
+               WHERE m.menu_code LIKE 'MENU_WMS%' OR m.menu_code IN
+                 ('MENU_MD_WAREHOUSE','MENU_INV_BATCH','MENU_INV_LEDGER','MENU_INV_SOURCE_MODE')
+               GROUP BY ur.user_id
+            )
+            SELECT 'ACTIVE_USER_SCOPE_MATRIX' AS section,u.username,u.real_name,u.role,u.store_code,u.user_type,
+                   COALESCE(r.roles,'') AS roles,COALESCE(o.orgs,'') AS orgs,
+                   COALESCE(o.companies,'') AS companies,COALESCE(o.sites,'') AS sites,
+                   COALESCE(f.explicit_farms,'') AS explicit_farms,
+                   COALESCE(w.explicit_warehouses,'') AS explicit_warehouses,
+                   COALESCE(m.wms_menus,'') AS wms_menus
+              FROM sys_user u LEFT JOIN roles r ON r.user_id=u.user_id
+              LEFT JOIN orgs o ON o.user_id=u.user_id LEFT JOIN farms f ON f.user_id=u.user_id
+              LEFT JOIN whs w ON w.user_id=u.user_id LEFT JOIN menus m ON m.user_id=u.user_id
+             WHERE u.status=1 ORDER BY u.username;
+
+            WITH docs AS (
+              SELECT 'wms_inbound'::text AS source_table,
+                     NULLIF(to_jsonb(x)->>'warehouse_code','') AS warehouse_code,
+                     COALESCE(NULLIF(to_jsonb(x)->>'operator_id',''),NULLIF(to_jsonb(x)->>'operator',''),'<NULL>') AS operator,
+                     NULLIF(to_jsonb(x)->>'created_at','')::timestamptz AS created_at
+                FROM wms_inbound x
+              UNION ALL
+              SELECT 'wms_outbound',NULLIF(to_jsonb(x)->>'warehouse_code',''),
+                     COALESCE(NULLIF(to_jsonb(x)->>'operator_id',''),NULLIF(to_jsonb(x)->>'operator',''),NULLIF(to_jsonb(x)->>'picker',''),'<NULL>'),
+                     COALESCE(NULLIF(to_jsonb(x)->>'created_at',''),NULLIF(to_jsonb(x)->>'date',''))::timestamptz
+                FROM wms_outbound x
+              UNION ALL
+              SELECT 'wms_transfer_from',NULLIF(to_jsonb(x)->>'from_warehouse',''),
+                     COALESCE(NULLIF(to_jsonb(x)->>'operator_id',''),NULLIF(to_jsonb(x)->>'operator',''),'<NULL>'),
+                     NULLIF(to_jsonb(x)->>'created_at','')::timestamptz FROM wms_transfer x
+              UNION ALL
+              SELECT 'wms_transfer_to',NULLIF(to_jsonb(x)->>'to_warehouse',''),
+                     COALESCE(NULLIF(to_jsonb(x)->>'operator_id',''),NULLIF(to_jsonb(x)->>'operator',''),'<NULL>'),
+                     NULLIF(to_jsonb(x)->>'created_at','')::timestamptz FROM wms_transfer x
+            )
+            SELECT 'WMS_90D_OPERATOR_FOOTPRINT' AS section,source_table,operator,warehouse_code,count(*) AS rows,
+                   min(created_at) AS first_at,max(created_at) AS last_at
+              FROM docs WHERE created_at >= current_timestamp-interval '90 days'
+             GROUP BY source_table,operator,warehouse_code ORDER BY source_table,rows DESC,operator,warehouse_code;
+
+            WITH refs AS (
+              SELECT 'wms_inbound'::text AS source_table,NULLIF(to_jsonb(x)->>'warehouse_code','') AS warehouse_code,
+                     COALESCE(NULLIF(to_jsonb(x)->>'task_no',''),NULLIF(to_jsonb(x)->>'inbound_no',''),'<NO_REF>') AS document_ref,
+                     COALESCE(NULLIF(to_jsonb(x)->>'source_type',''),NULLIF(to_jsonb(x)->>'source_system',''),'<NULL>') AS source_kind
+                FROM wms_inbound x
+              UNION ALL SELECT 'wms_outbound',NULLIF(to_jsonb(x)->>'warehouse_code',''),
+                     COALESCE(NULLIF(to_jsonb(x)->>'outbound_no',''),NULLIF(to_jsonb(x)->>'order_no',''),'<NO_REF>'),
+                     COALESCE(NULLIF(to_jsonb(x)->>'source_type',''),NULLIF(to_jsonb(x)->>'source_system',''),'<NULL>') FROM wms_outbound x
+              UNION ALL SELECT 'wms_transfer_from',NULLIF(to_jsonb(x)->>'from_warehouse',''),
+                     COALESCE(NULLIF(to_jsonb(x)->>'transfer_no',''),'<NO_REF>'),
+                     COALESCE(NULLIF(to_jsonb(x)->>'source_type',''),'<NULL>') FROM wms_transfer x
+              UNION ALL SELECT 'wms_transfer_to',NULLIF(to_jsonb(x)->>'to_warehouse',''),
+                     COALESCE(NULLIF(to_jsonb(x)->>'transfer_no',''),'<NO_REF>'),
+                     COALESCE(NULLIF(to_jsonb(x)->>'source_type',''),'<NULL>') FROM wms_transfer x
+              UNION ALL SELECT 'wms_stocktake',NULLIF(to_jsonb(x)->>'warehouse_code',''),
+                     COALESCE(NULLIF(to_jsonb(x)->>'stocktake_no',''),'<NO_REF>'),'<NULL>' FROM wms_stocktake x
+              UNION ALL SELECT 'wms_loss',NULLIF(to_jsonb(x)->>'warehouse_code',''),
+                     COALESCE(NULLIF(to_jsonb(x)->>'loss_no',''),'<NO_REF>'),'<NULL>' FROM wms_loss x
+              UNION ALL SELECT 'inv_batches',NULLIF(to_jsonb(x)->>'warehouse_code',''),
+                     COALESCE(NULLIF(to_jsonb(x)->>'batch_no',''),'<NO_REF>'),
+                     COALESCE(NULLIF(to_jsonb(x)->>'source_type',''),'<NULL>') FROM inv_batches x
+              UNION ALL SELECT 'inv_ledger',NULLIF(to_jsonb(x)->>'warehouse_code',''),
+                     COALESCE(NULLIF(to_jsonb(x)->>'ref_no',''),NULLIF(to_jsonb(x)->>'batch_no',''),'<NO_REF>'),
+                     COALESCE(NULLIF(to_jsonb(x)->>'source_type',''),NULLIF(to_jsonb(x)->>'biz_type',''),'<NULL>') FROM inv_ledger x
+            )
+            SELECT 'CJ_WAREHOUSE_HISTORY' AS section,r.warehouse_code,r.source_table,r.source_kind,
+                   count(*) AS rows,count(DISTINCT r.document_ref) AS documents,
+                   string_agg(DISTINCT r.document_ref,',' ORDER BY r.document_ref) AS document_refs
+              FROM refs r WHERE r.warehouse_code LIKE 'CJ-WH-%'
+             GROUP BY r.warehouse_code,r.source_table,r.source_kind
+             ORDER BY r.warehouse_code,r.source_table,r.source_kind;
+
+            SELECT 'WAREHOUSE_BASELINE' AS section,warehouse_code,warehouse_name,type,status,company_code,site_code,remark
+              FROM wms_warehouses ORDER BY warehouse_code;
+            ROLLBACK;
+            SQL
+
+      - name: Capture admin and linhong warehouse HTTP baselines
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          response="$(curl --fail --silent --show-error -H "Authorization: Bearer $token" https://erp.eggslao.com/api/lookup/warehouses)"
+          RESPONSE="$response" node - <<'NODE'
+          const payload=JSON.parse(process.env.RESPONSE||'{}'); const rows=Array.isArray(payload)?payload:payload.data;
+          if(!Array.isArray(rows)) throw new Error('admin warehouse response is not an array');
+          console.log(`ADMIN_LOOKUP_COUNT=${rows.length}`);
+          console.log(`ADMIN_LOOKUP_CODES=${rows.map(x=>x.warehouseCode||x.warehouse_code).sort().join(',')}`);
+          NODE
