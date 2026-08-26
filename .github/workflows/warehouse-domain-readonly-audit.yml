@@ -209,14 +209,15 @@ jobs:
         run: |
           set -euo pipefail
           token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
-          alignment="$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer $token" \
-            https://erp.eggslao.com/api/chanjet/integration/wms-readonly-alignment)"
-          errors="$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer $token" \
-            'https://erp.eggslao.com/api/system/error-logs/summary?hours=1&limit=20')"
-          ALIGNMENT="$alignment" ERRORS="$errors" node - <<'NODE'
-          const alignmentPayload = JSON.parse(process.env.ALIGNMENT || '{}');
+          TOKEN="$token" node - <<'NODE'
+          const headers = { Authorization: `Bearer ${process.env.TOKEN}`, Accept: 'application/json' };
+          const [alignmentResponse, errorResponse] = await Promise.all([
+            fetch('https://erp.eggslao.com/api/chanjet/integration/wms-readonly-alignment', { headers }),
+            fetch('https://erp.eggslao.com/api/system/error-logs/summary?hours=1&limit=20', { headers }),
+          ]);
+          if (!alignmentResponse.ok) throw new Error(`Chanjet probe HTTP ${alignmentResponse.status}`);
+          if (!errorResponse.ok) throw new Error(`error-window probe HTTP ${errorResponse.status}`);
+          const alignmentPayload = await alignmentResponse.json();
           if (alignmentPayload.success !== true || !alignmentPayload.alignment) {
             throw new Error('Chanjet WMS read-only alignment probe failed');
           }
@@ -226,7 +227,7 @@ jobs:
           console.log(`CHANJET_WMS_SOURCE_ROWS=${alignment.summary?.sourceRows}`);
           console.log(`CHANJET_EXTERNAL_WRITE_ENABLED=${alignment.reverseSyncReadiness?.externalWriteEnabled}`);
 
-          const errorSummary = JSON.parse(process.env.ERRORS || '{}');
+          const errorSummary = await errorResponse.json();
           console.log(`ERROR_WINDOW_HOURS=${errorSummary.windowHours}`);
           console.log(`ERROR_WINDOW_TOTAL=${errorSummary.total}`);
           console.log(`ERROR_WINDOW_SERVER_ERRORS=${errorSummary.serverErrors}`);
