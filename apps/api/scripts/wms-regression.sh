@@ -51,8 +51,8 @@ $PSQL $DB -q -c "DELETE FROM wms_inbound WHERE task_no LIKE 'REGR-%';" >/dev/nul
 $PSQL $DB -q -c "DELETE FROM wms_transfer WHERE transfer_no LIKE 'WT-REGR-%' OR transfer_no LIKE 'TR-%REGR%';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM wms_stocktake WHERE stocktake_no LIKE 'REGR-%' OR stocktake_no LIKE 'DC-%REGR%';" >/dev/null
 
-# Seed: 仓库 (wms_warehouses)
-$PSQL $DB -q -c "INSERT INTO wms_warehouses (warehouse_code, warehouse_name_zh, status) VALUES ('$WH_A','回归测试仓A','ACTIVE'),('$WH_B','回归测试仓B','ACTIVE') ON CONFLICT (warehouse_code) DO NOTHING;" >/dev/null
+# Seed: 仓库。PURCHASE 回归必须使用采购允许的 usage，避免测试夹具绕过生产规则。
+$PSQL $DB -q -c "INSERT INTO wms_warehouses (warehouse_code, warehouse_name_zh, type, domain, status) VALUES ('$WH_A','回归测试仓A','PURCHASE_RECV','OPERATIONAL','ACTIVE'),('$WH_B','回归测试仓B','PURCHASE_RECV','OPERATIONAL','ACTIVE') ON CONFLICT (warehouse_code) DO UPDATE SET type=EXCLUDED.type, domain=EXCLUDED.domain, status=EXCLUDED.status;" >/dev/null
 
 # Seed: 真实 ACTIVE 物料主数据。入库治理禁止虚构 product_code 绕过主数据。
 $PSQL $DB -q -c "INSERT INTO mst_materials (material_code, material_name, material_type, unit, status, created_by) VALUES ('$MATERIAL_CODE','WMS回归测试物料','OTHER','件','ACTIVE','CI') ON CONFLICT (material_code) DO UPDATE SET status='ACTIVE', material_name=EXCLUDED.material_name, material_type=EXCLUDED.material_type, unit=EXCLUDED.unit;" >/dev/null
