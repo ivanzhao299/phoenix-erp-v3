@@ -519,6 +519,57 @@ describe('WmsService inventory read queries', () => {
     );
   });
 
+  it('creates a minimal valid sale outbound and keeps it pending', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM product_skus')) {
+          return [{ sku_code: 'SKU-EGG-A-30', product_code: 'PRD-EGG', sku_name: '鸡蛋SKU', unit: '枚' }];
+        }
+        if (sql.includes('INSERT INTO wms_outbound')) {
+          return [{ outbound_no: 'WO-SALE-MIN', status: 'PENDING' }];
+        }
+        return [];
+      }),
+    };
+    const em = {
+      query: jest.fn().mockResolvedValue([{ domain: 'OPERATIONAL' }]),
+      transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
+    };
+    const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.createStandaloneOutbound({
+      outbound_no: 'WO-SALE-MIN', type: 'SALE', warehouse_code: 'LPH_MS_EGG_SALES',
+      item: 'SKU-EGG-A-30', qty: 1, destination_type: 'CUSTOMER',
+      destination_customer_code: 'CUS-1',
+    }, { username: 'admin', roles: ['ROLE_ADMIN'] })).resolves.toMatchObject({
+      code: 200,
+      data: { outbound_no: 'WO-SALE-MIN', status: 'PENDING' },
+    });
+  });
+
+  it('rejects an invalid issue with the complete structured error list before a write', async () => {
+    const em = { query: jest.fn(), transaction: jest.fn() };
+    const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.createStandaloneOutbound({
+      type: 'PRODUCTION_USE', warehouse_code: 'LPH_MS_EGG_FARM', item: 'MAT-1', qty: 0,
+      destination_type: 'CUSTOMER', destination_customer_code: 'CUS-1',
+    }, { username: 'admin', roles: ['ROLE_ADMIN'] })).rejects.toMatchObject({
+      response: {
+        code: 400,
+        msg: '出库业务校验失败',
+        errors: expect.arrayContaining([
+          '出库数量必须大于 0，且最多保留 3 位小数',
+          'PRODUCTION_USE 的去向类型必须是 HOUSE / DEPARTMENT / PROJECT',
+        ]),
+      },
+    });
+    expect(em.query).not.toHaveBeenCalled();
+    expect(em.transaction).not.toHaveBeenCalled();
+  });
+
   it('keeps a standalone outbound pending when inventory is insufficient', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {

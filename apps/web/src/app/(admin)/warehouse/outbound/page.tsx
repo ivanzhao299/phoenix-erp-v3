@@ -11,6 +11,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Plus } from "lucide-react";
 import apiRequest from "@/lib/api-client";
+import { OUTBOUND_DESTINATIONS, validateOutboundItem, validateOutboundQuantity } from "@/lib/warehouse-outbound";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
@@ -126,6 +127,7 @@ export default function OutboundPage() {
     { key: "warehouse_code", label: t("ui.出库仓库", "出库仓库"), type: "warehouse", required: true,
       ...(siteCode ? { filterBy: { siteCode } } : {}) } as any,
     { key: "item",           label: t("ui.库存物料/SKU", "库存物料/SKU"), type: "inventory-item", required: true,
+      validate: validateOutboundItem,
       onPickKeys: {
         item_name: "itemName",
         item_type: "itemType",
@@ -142,8 +144,10 @@ export default function OutboundPage() {
         item: "inventory_item_code",
         warehouse_code: "warehouse_code",
       } },
-    { key: "qty",            label: t("ui.出库数量", "出库数量"), type: "number", required: true },
-    { key: "destination_type",          label: t("ui.去向类型", "去向类型"), type: "dict", dictType: "INV_OUTBOUND_DEST_TYPE", required: true },
+    { key: "qty",            label: t("ui.出库数量", "出库数量"), type: "number", required: true,
+      validate: validateOutboundQuantity },
+    { key: "destination_type",          label: t("ui.去向类型", "去向类型"), type: "dict", dictType: "INV_OUTBOUND_DEST_TYPE", required: true,
+      allowedValuesByField: { field: "type", values: OUTBOUND_DESTINATIONS } },
     { key: "destination_house_code",    label: t("ui.领用鸡舍", "领用鸡舍"), type: "house",
       required: true,
       visibleWhen: { field: "destination_type", values: ["HOUSE"] },

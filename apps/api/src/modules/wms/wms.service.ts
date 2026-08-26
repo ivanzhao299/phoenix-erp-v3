@@ -1407,9 +1407,19 @@ export class WmsService {
     return await this.em.transaction(async (manager) => {
       // 1) 主表
       await manager.query(
-        `INSERT INTO wms_transfer (transfer_no, from_warehouse, to_warehouse, status, operator_id, created_at, updated_at)
-         VALUES ($1, $2, $3, 'COMPLETED', $4, now(), now())`,
-        [transferNo, from_warehouse, to_warehouse, user?.userId || null],
+        `INSERT INTO wms_transfer (
+           transfer_no, from_warehouse, to_warehouse, from_zone, to_zone,
+           from_location, to_location, batch_no, qty, reason, attachment_url,
+           operator, status, operator_id, created_at, updated_at
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,$10,$11,$12,'COMPLETED',$13,now(),now())`,
+        [
+          transferNo, from_warehouse, to_warehouse,
+          this.nonEmptyString(body?.from_zone), this.nonEmptyString(body?.to_zone),
+          this.nonEmptyString(body?.from_location), this.nonEmptyString(body?.to_location),
+          this.nonEmptyString(items[0]?.batch_no), Number(items[0]?.qty),
+          this.nonEmptyString(body?.reason), this.nonEmptyString(body?.attachment_url),
+          String(user?.username || operator || 'SYS'), user?.userId || null,
+        ],
       );
 
       // 2) + 3) 逐 batch 原子扣减 + 增加
@@ -1504,8 +1514,13 @@ export class WmsService {
    */
   async approveStocktake(body: any, user: any) {
     const { stocktake_no, batch_no, diff_qty, item } = body || {};
-    if (!stocktake_no) return { code: 400, msg: 'stocktake_no 必填' };
+    const validationErrors: string[] = [];
+    if (!stocktake_no) validationErrors.push('stocktake_no 必填');
     const diff = Number(diff_qty) || 0;
+    if (diff !== 0 && !batch_no) validationErrors.push('存在盘点差异时批次号必填');
+    if (validationErrors.length > 0) {
+      throw new BadRequestException({ code: 400, msg: '盘点业务校验失败', errors: validationErrors });
+    }
     const opName = String(user?.username || 'SYS');
 
     return await this.em.transaction(async (manager) => {
@@ -1707,9 +1722,14 @@ export class WmsService {
 
   async approveLoss(body: any, user: any) {
     const { loss_no, batch_no, loss_qty, reason } = body || {};
-    if (!loss_no) return { code: 400, msg: 'loss_no 必填' };
+    const validationErrors: string[] = [];
+    if (!loss_no) validationErrors.push('loss_no 必填');
     const qty = Math.abs(Number(loss_qty) || 0);
-    if (qty <= 0) return { code: 400, msg: 'loss_qty 必须大于 0' };
+    if (qty <= 0) validationErrors.push('loss_qty 必须大于 0');
+    if (!batch_no) validationErrors.push('报损批次号必填');
+    if (validationErrors.length > 0) {
+      throw new BadRequestException({ code: 400, msg: '报损业务校验失败', errors: validationErrors });
+    }
     const opName = String(user?.username || 'SYS');
 
     return await this.em.transaction(async (manager) => {

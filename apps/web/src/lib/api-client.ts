@@ -80,17 +80,18 @@ export interface ApiError extends Error {
   status?: number;
   code?: 'AUTH_EXPIRED' | 'SERVER' | 'NETWORK';
   subcode?: AuthSubcode;
+  errors?: string[];
 }
 
-function makeError(message: string, status?: number, code?: ApiError['code'], subcode?: AuthSubcode, silent?: boolean): ApiError {
+function makeError(message: string, status?: number, code?: ApiError['code'], subcode?: AuthSubcode, silent?: boolean, errors?: string[]): ApiError {
   const e = new Error(message) as ApiError;
-  e.status = status; e.code = code; e.subcode = subcode;
+  e.status = status; e.code = code; e.subcode = subcode; e.errors = errors;
   // G25-B：派发全局 api-error 事件，ToastContext 自动 show error toast
   //   401 已有专门 dispatchAuthExpired 处理（跳登录），这里不重复
   //   G70：silent=true 的请求（如可选总览 strip）不弹全局 toast，静默降级
   if (typeof window !== 'undefined' && status !== 401 && !silent) {
     window.dispatchEvent(new CustomEvent('api-error', {
-      detail: { message, status, code, subcode }
+      detail: { message, status, code, subcode, errors }
     }));
   }
   return e;
@@ -175,8 +176,21 @@ async function request<T = unknown>(
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw makeError(err?.message || `请求失败 (HTTP ${res.status})`, res.status, res.status >= 500 ? 'SERVER' : undefined, undefined, silent);
+    const err = await res.json().catch(() => ({ message: res.statusText })) as {
+      message?: string | string[];
+      msg?: string;
+      errors?: unknown;
+    };
+    const validationErrors = Array.isArray(err?.errors)
+      ? err.errors.map(item => String(item).trim()).filter(Boolean)
+      : [];
+    const baseMessage = (Array.isArray(err?.message) ? err.message.join('；') : err?.message)
+      || err?.msg
+      || `请求失败 (HTTP ${res.status})`;
+    const message = validationErrors.length > 0
+      ? `${baseMessage}：${validationErrors.join('；')}`
+      : baseMessage;
+    throw makeError(message, res.status, res.status >= 500 ? 'SERVER' : undefined, undefined, silent, validationErrors);
   }
 
   const data = await res.json();
