@@ -14011,5 +14011,8 @@
   "mob.brd.packaging_inbound": "Packaging inbound",
   "mob.brd.egg_ledger": "Inbound ledger",
   "mob.brd.egg_unified_banner": "This page reads the unified egg inventory ledger; inventory and inbound records sync after finished-product handover.",
-  "mob.brd.no_ledger": "No egg inventory movements today"
+  "mob.brd.no_ledger": "No egg inventory movements today",
+  "ui.报损批次": "Loss batch",
+  "ui.盘点批次": "Stocktake batch",
+  "ui.与当前业务类型不匹配": "does not match the selected business type"
 }

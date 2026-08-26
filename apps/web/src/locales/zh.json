@@ -14011,5 +14011,8 @@
   "mob.brd.packaging_inbound": "包装入库",
   "mob.brd.egg_ledger": "入库台账",
   "mob.brd.egg_unified_banner": "本页读取统一鸡蛋库存台账；作业台完成成品交接后，库存和入库记录会同步显示。",
-  "mob.brd.no_ledger": "当日暂无鸡蛋库存流水"
+  "mob.brd.no_ledger": "当日暂无鸡蛋库存流水",
+  "ui.报损批次": "报损批次",
+  "ui.盘点批次": "盘点批次",
+  "ui.与当前业务类型不匹配": "与当前业务类型不匹配"
 }
