@@ -56,6 +56,8 @@ export interface FormField {
   valueField?: 'code' | 'id' | 'username';                              // user/cashAccount
   onPickKeys?: Record<string, string>;                                   // 主数据自动带出：{ 目标 key: raw 字段名 }
   visibleWhen?: { field: string; values: Array<string | number> };        // 按其它字段值显隐
+  allowedValuesByField?: { field: string; values: Record<string, readonly string[]> };
+  validate?: (value: unknown, values: Record<string, unknown>) => string | undefined;
 }
 
 interface CrudFormProps {
@@ -119,7 +121,15 @@ export const CrudForm = memo(function CrudForm({
       if (f.visibleWhen && !f.visibleWhen.values.includes(values[f.visibleWhen.field] as string | number)) return;
       if (f.required && !values[f.key] && values[f.key] !== 0) {
         errs[f.key] = `${f.label}${t('ui.不能为空', '不能为空')}`;
+        return;
       }
+      const allowed = f.allowedValuesByField?.values[String(values[f.allowedValuesByField.field] ?? '')];
+      if (allowed && values[f.key] && !allowed.includes(String(values[f.key]))) {
+        errs[f.key] = `${f.label}${t('ui.与当前业务类型不匹配', '与当前业务类型不匹配')}`;
+        return;
+      }
+      const customError = f.validate?.(values[f.key], values);
+      if (customError) errs[f.key] = customError;
     });
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -208,6 +218,7 @@ export const CrudForm = memo(function CrudForm({
                 onChange={v => set(field.key, v)}
                 placeholder={field.placeholder}
                 allowEmpty={!field.required}
+                allowedValues={field.allowedValuesByField?.values[String(values[field.allowedValuesByField.field] ?? '')]}
               />
             ) : field.type === "company" ? (
               <CompanySelector

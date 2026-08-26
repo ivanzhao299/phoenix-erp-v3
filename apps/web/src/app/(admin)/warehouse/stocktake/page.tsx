@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { crudApi } from "@/lib/api-client";
+import request, { crudApi } from "@/lib/api-client";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
@@ -50,6 +50,11 @@ export default function StocktakePage() {
     label: t("ui.盘点单号", "盘点单号"),
     type: "text",
     placeholder: t("ui.留空自动生成ST", "留空自动生成 ST-XXXXXX")
+  }, {
+    key: "batch_no",
+    label: t("ui.盘点批次", "盘点批次"),
+    type: "batch",
+    onPickKeys: { item: "inventory_item_code", warehouse_code: "warehouse_code" }
   }, {
     key: "count_type",
     label: t("ui.盘点类型", "盘点类型"),
@@ -212,9 +217,15 @@ export default function StocktakePage() {
     setApproveOpen(true);
   }, [canApproveInout]);
   const confirmApprove = useCallback(async () => {
-    if (!approveTarget?.id) return;
-    await crudApi.update(TABLE, approveTarget.id as number, {
-      status: "APPROVED"
+    if (!approveTarget?.stocktake_no) return;
+    await request("/inventory/stocktake/approve", {
+      method: "POST",
+      body: JSON.stringify({
+        stocktake_no: approveTarget.stocktake_no,
+        batch_no: approveTarget.batch_no,
+        diff_qty: approveTarget.diff_qty,
+        item: approveTarget.item,
+      }),
     });
     setApproveOpen(false);
     refresh();

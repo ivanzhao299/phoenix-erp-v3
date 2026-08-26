@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { crudApi } from "@/lib/api-client";
+import request, { crudApi } from "@/lib/api-client";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
@@ -48,6 +48,12 @@ export default function LossReportPage() {
     label: t("ui.报损单号", "报损单号"),
     type: "text",
     placeholder: t("ui.留空自动生成LR", "留空自动生成 LR-XXXXXX")
+  }, {
+    key: "batch_no",
+    label: t("ui.报损批次", "报损批次"),
+    type: "batch",
+    required: true,
+    onPickKeys: { item: "inventory_item_code", warehouse_code: "warehouse_code" }
   }, {
     key: "warehouse_code",
     label: t("ui.报损仓库", "报损仓库"),
@@ -180,9 +186,15 @@ export default function LossReportPage() {
     setApproveOpen(true);
   }, [canApproveInout]);
   const confirmApprove = useCallback(async () => {
-    if (!approveTarget?.id) return;
-    await crudApi.update(TABLE, approveTarget.id as number, {
-      status: "APPROVED"
+    if (!approveTarget?.stocktake_no) return;
+    await request("/inventory/loss/approve", {
+      method: "POST",
+      body: JSON.stringify({
+        loss_no: approveTarget.stocktake_no,
+        batch_no: approveTarget.batch_no,
+        loss_qty: approveTarget.diff_qty,
+        reason: approveTarget.reason,
+      }),
     });
     setApproveOpen(false);
     refresh();

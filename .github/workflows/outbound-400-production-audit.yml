@@ -1,0 +1,77 @@
+name: Outbound 400 Production Evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read matching error logs and reproduce validation without persistence
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          TOKEN="$token" node - <<'NODE'
+          const headers = { Authorization: `Bearer ${process.env.TOKEN}`, 'Content-Type': 'application/json' };
+          const base = 'https://erp.eggslao.com/api';
+          const listResponse = await fetch(`${base}/system/error-logs?httpStatus=400&limit=100`, { headers });
+          if (!listResponse.ok) throw new Error(`error log list HTTP ${listResponse.status}`);
+          const list = await listResponse.json();
+          const matches = (list.items || []).filter(row => String(row.request_path || '').includes('/outbound/standalone'));
+          console.log(`OUTBOUND_400_LOG_COUNT=${matches.length}`);
+          for (const row of matches.slice(0, 10)) {
+            const detailResponse = await fetch(`${base}/system/error-logs/${row.id}`, { headers });
+            if (!detailResponse.ok) throw new Error(`error detail HTTP ${detailResponse.status}`);
+            const detail = await detailResponse.json();
+            const body = typeof detail.request_body === 'string'
+              ? JSON.parse(detail.request_body || '{}')
+              : (detail.request_body || {});
+            const evidence = {
+              id: detail.id,
+              created_at: detail.created_at,
+              username: detail.username,
+              method: detail.request_method,
+              path: detail.request_path,
+              error_message: detail.error_message,
+              payload: {
+                type: body.type, warehouse_code: body.warehouse_code, item: body.item,
+                item_type: body.item_type, material_type: body.material_type, qty: body.qty,
+                destination_type: body.destination_type,
+                destination_code: body.destination_code,
+                destination_house_code: body.destination_house_code,
+                destination_customer_code: body.destination_customer_code,
+                destination_warehouse_code: body.destination_warehouse_code,
+                destination_store_code: body.destination_store_code,
+                department_code: body.department_code, project_code: body.project_code,
+                receiver_username: body.receiver_username,
+              },
+            };
+            console.log(`OUTBOUND_400_EVIDENCE=${JSON.stringify(evidence)}`);
+          }
+
+          const probe = await fetch(`${base}/outbound/standalone`, {
+            method: 'POST', headers,
+            body: JSON.stringify({ type: 'PRODUCTION_USE', qty: 0, destination_type: 'CUSTOMER' }),
+          });
+          const probeBody = await probe.json().catch(() => ({}));
+          console.log(`INVALID_PROBE_HTTP=${probe.status}`);
+          console.log(`INVALID_PROBE_BODY=${JSON.stringify(probeBody)}`);
+          if (probe.status !== 400 || !Array.isArray(probeBody.errors) || probeBody.errors.length < 3) {
+            throw new Error('structured outbound validation probe did not return the expected complete error list');
+          }
+          NODE

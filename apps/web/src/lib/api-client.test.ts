@@ -7,4 +7,15 @@ describe('api client',()=>{
   it('posts login credentials',async()=>{const fetch=vi.fn().mockResolvedValue(response({token:'t'}));vi.stubGlobal('fetch',fetch);await authApi.login('u','p');expect(fetch.mock.calls[0][1]).toMatchObject({method:'POST',body:'{"username":"u","password":"p"}'});});
   it('maps CRUD pagination',async()=>{const fetch=vi.fn().mockResolvedValue(response({data:[]}));vi.stubGlobal('fetch',fetch);await crudApi.list('t',{page:2,pageSize:10,status:'ACTIVE'});expect(fetch.mock.calls[0][0]).toBe('/api/crud/t?limit=10&offset=10&status=ACTIVE');});
   it('does not retry ordinary 404',async()=>{const fetch=vi.fn().mockResolvedValue(response({message:'missing'},false,404));vi.stubGlobal('fetch',fetch);await expect(request('/missing')).rejects.toThrow('missing');expect(fetch).toHaveBeenCalledTimes(1);});
+  it('preserves structured validation errors and the backend msg on 400',async()=>{
+    const fetch=vi.fn().mockResolvedValue(response({msg:'出库业务校验失败',errors:['去向类型不匹配','数量必须大于 0']},false,400));
+    vi.stubGlobal('fetch',fetch);
+    const error=await request('/outbound/standalone').catch(value=>value);
+    expect(error).toMatchObject({
+      status:400,
+      errors:['去向类型不匹配','数量必须大于 0'],
+      message:'出库业务校验失败：去向类型不匹配；数量必须大于 0',
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
 });

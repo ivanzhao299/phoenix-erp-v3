@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { crudApi } from "@/lib/api-client";
+import request, { crudApi } from "@/lib/api-client";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
@@ -194,16 +194,10 @@ export default function TransferPage() {
       } else {
         // A4: 新建调拨 → 走 /api/inventory/transfer/confirm 原子端点
         //     源 batch FOR UPDATE 扣减 + 目标新 batch 增加 + 双向 inv_ledger 流水
-        const token = typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") : "";
-        const r = await fetch("/api/inventory/transfer/confirm", {
+        await request("/inventory/transfer/confirm", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? {
-              Authorization: `Bearer ${token}`
-            } : {})
-          },
           body: JSON.stringify({
+            ...values,
             from_warehouse: values.from_warehouse,
             to_warehouse: values.to_warehouse,
             transfer_no: values.transfer_no || `WT-${Date.now().toString().slice(-6)}`,
@@ -214,10 +208,6 @@ export default function TransferPage() {
             operator: values.operator
           })
         });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || j?.code !== 200) {
-          throw new Error(j?.msg || `HTTP ${r.status}`);
-        }
       }
       setDrawerOpen(false);
       refresh();

@@ -22,12 +22,13 @@ export interface DictSelectProps {
   allowEmpty?: boolean;           // 是否显示"请选择"空选项
   className?: string;
   style?: React.CSSProperties;
+  allowedValues?: readonly string[];
 }
 
 export function DictSelect({
   dictType, value, onChange,
   placeholder, disabled = false, allowEmpty = true,
-  className, style,
+  className, style, allowedValues,
 }: DictSelectProps) {
   const { t } = useLanguage();
   const resolvedPlaceholder = placeholder ?? t('ui.请选择', '请选择');
@@ -43,7 +44,7 @@ export function DictSelect({
       onChange={(e) => onChange(e.target.value)}
     >
       {allowEmpty && <option value="">{loading ? t('ui.加载中…','加载中…') : resolvedPlaceholder}</option>}
-      {optionPairs.map((opt) => (
+      {optionPairs.filter(opt => !allowedValues || allowedValues.includes(String(opt.value))).map((opt) => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
       ))}
     </select>
