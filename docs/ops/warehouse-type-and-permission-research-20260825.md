@@ -323,3 +323,14 @@ B 阶段只剥离 `FINANCE_MAPPING`，不从操作面排除 `TEST`。因此 `lin
 - `TEST` 从操作面排除；在此之前保持 `WH-0001` 的过渡可见性。
 - facility/usage/capability 双维度治理继续冻结，本轮未触碰 `type` 语义。
 - 旧 CJ 入库三单提供专用历史审计/详情追溯，不恢复其新建或编辑能力。
+
+### 10.6 部署与生产回归实录
+
+- 实现经 PR `#88` 合入，静态门禁适配经 PR `#89` 合入；部署目标提交为 `4e906b8e41845167fc98f0d5479d409fed7d6ee3`。
+- full production 部署 run `32921041452` 成功；部署日志确认 TypeORM 执行 `AddWarehouseDomain1787724000000`。生产分类 run `32921580537` 成功，逐行 `RETURNING` 与末态断言均为 `FINANCE_MAPPING=9 / OPERATIONAL=7 / TEST=1`。
+- 仓库 HTTP 双账号回归：run `32921732506` 记录生产 checkout 为 `4e906b8e...`；admin 为 8 仓（7 个 `LPH_MS_*` + `WH-0001`），`linhong` 为 1 仓且唯一行是 `WH-0001`、`domain=TEST`。这里以生产实值修正原草案 `admin=9`：17−9=8。
+- 孟赛日产蛋最小实测 run `32921803697` 成功：`HOUSE_CS_01` 向 `LPH_MS_EGG_FARM / CS-KW-005` 入库 `GRADE_1 × 1`，生成批次 `EGG-20260825-00006`；响应 company=`COMP-LAO-AGRI`、site=`SITE-MENGSAI-LAYER`，证明正式 `EGG_FARM` 操作链未受剥离影响。该 run 同时核实 checkout、API image、Web image revision 全部为 `4e906b8e...`。
+- 扩展后的生产只读审计经 PR `#90/#91` 合入；成功 run `32922691309` 证明 Chanjet WMS 专用链仍为 `GO`、fresh scopes `33/33`、镜像行 `10000`、external write=`false`。同一 run 的部署后 1 小时 `sys_error_logs` 窗口为 total=`0`、5xx=`0`、4xx=`0`、affected paths=`0`。
+- 本阶段本地全量回归：API Jest 65 suites、576/576；Web Vitest 79 files、440/440；API/Web `tsc --noEmit` 均 0 error；migration down/data-DML、constraint drift、nullable-in-unique 与窄 scope-audit 门禁均通过。PR 与 main CI 均绿。
+
+B 阶段至此完成：财务映射仓已从操作面剥离且财务只读链保留，历史三单未改写；`TEST` 过渡仓仍对东鹏可见。下一业务阻塞不是代码或部署，而是东鹏正式仓码、名称、用途、库区/库位仍待确认，确认后应创建主数据并进入 A 阶段显式授权。
