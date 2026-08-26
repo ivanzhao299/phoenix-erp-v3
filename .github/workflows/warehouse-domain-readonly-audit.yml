@@ -170,7 +170,7 @@ jobs:
              GROUP BY r.warehouse_code,r.source_table,r.source_kind
              ORDER BY r.warehouse_code,r.source_table,r.source_kind;
 
-            SELECT 'WAREHOUSE_BASELINE' AS section,warehouse_code,warehouse_name,type,status,company_code,site_code,remark
+            SELECT 'WAREHOUSE_BASELINE' AS section,warehouse_code,warehouse_name,type,domain,status,company_code,site_code,remark
               FROM wms_warehouses ORDER BY warehouse_code;
             ROLLBACK;
             SQL
@@ -194,4 +194,42 @@ jobs:
           if(!Array.isArray(rows)) throw new Error('admin warehouse response is not an array');
           console.log(`ADMIN_LOOKUP_COUNT=${rows.length}`);
           console.log(`ADMIN_LOOKUP_CODES=${rows.map(x=>x.warehouseCode||x.warehouse_code).sort().join(',')}`);
+          NODE
+
+      - name: Probe Chanjet read-only boundary and post-deploy error window
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          alignment="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $token" \
+            https://erp.eggslao.com/api/chanjet/integration/wms-readonly-alignment)"
+          errors="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $token" \
+            'https://erp.eggslao.com/api/system/error-logs/summary?hours=1&limit=20')"
+          ALIGNMENT="$alignment" ERRORS="$errors" node - <<'NODE'
+          const alignmentPayload = JSON.parse(process.env.ALIGNMENT || '{}');
+          if (alignmentPayload.success !== true || !alignmentPayload.alignment) {
+            throw new Error('Chanjet WMS read-only alignment probe failed');
+          }
+          const alignment = alignmentPayload.alignment;
+          console.log(`CHANJET_WMS_DECISION=${alignment.decision}`);
+          console.log(`CHANJET_WMS_SCOPES=${alignment.summary?.freshScopes}/${alignment.summary?.expectedScopes}`);
+          console.log(`CHANJET_WMS_SOURCE_ROWS=${alignment.summary?.sourceRows}`);
+          console.log(`CHANJET_EXTERNAL_WRITE_ENABLED=${alignment.reverseSyncReadiness?.externalWriteEnabled}`);
+
+          const errorSummary = JSON.parse(process.env.ERRORS || '{}');
+          console.log(`ERROR_WINDOW_HOURS=${errorSummary.windowHours}`);
+          console.log(`ERROR_WINDOW_TOTAL=${errorSummary.total}`);
+          console.log(`ERROR_WINDOW_SERVER_ERRORS=${errorSummary.serverErrors}`);
+          console.log(`ERROR_WINDOW_CLIENT_ERRORS=${errorSummary.permissionOrClientErrors}`);
+          console.log(`ERROR_WINDOW_AFFECTED_PATHS=${errorSummary.affectedPaths}`);
           NODE
