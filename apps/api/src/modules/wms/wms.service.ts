@@ -53,8 +53,8 @@ export class WmsService {
         [warehouseCode],
       );
       if (!warehouse) throw new ForbiddenException(`无权写入该${label}（仓库不存在）`);
-      if (warehouse.domain === 'FINANCE_MAPPING') {
-        throw new ForbiddenException(`无权写入该${label}（财务映射仓禁止仓储操作）`);
+      if (warehouse.domain !== 'OPERATIONAL') {
+        throw new ForbiddenException(`无权写入该${label}（非操作仓禁止仓储操作）`);
       }
     }
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');

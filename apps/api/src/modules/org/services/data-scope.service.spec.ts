@@ -52,8 +52,9 @@ describe('DataScopeService permission-version cache isolation', () => {
     expect(after.allowedSiteCodes).toEqual(['SITE-DONGPENG-LAYER']);
     expect(after.allowedFarmCodes).toEqual(['FARM-DP']);
     expect(after.allowedCompanyCodes).toEqual(['COMP-LAO-XINGCHI']);
-    expect(manager.query).toHaveBeenCalledWith(
-      expect.stringContaining("domain <> 'FINANCE_MAPPING'"),
+    expect(after.allowedWarehouseCodes).toEqual([]);
+    expect(manager.query).not.toHaveBeenCalledWith(
+      expect.stringContaining('FROM wms_warehouses'),
       [['COMP-LAO-XINGCHI']],
     );
   });
@@ -111,5 +112,45 @@ describe('DataScopeService permission-version cache isolation', () => {
       expect.stringContaining("status = 'ACTIVE'"),
       [['FARM-ACTIVE', 'FARM-INACTIVE']],
     );
+  });
+
+  it('intersects SITE grants with OPERATIONAL warehouses at that SITE', async () => {
+    const manager = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM sys_user_orgs')) return [{ org_id: 21, is_primary: true, data_scope_level: 'COMPANY', company_code: null, project_code: null, warehouse_code: null, parent_id: 16, org_type: 'SITE', site_code: 'SITE-DONGPENG-LAYER', org_code: 'SITE-DONGPENG-LAYER' }];
+      if (sql.includes('WITH RECURSIVE up')) return [{ company_code: 'COMP-LAO-XINGCHI' }];
+      if (sql.includes('FROM wms_warehouses')) return [{ warehouse_code: 'LPH_DP_EGG_FARM' }];
+      return [];
+    }) };
+    const repo = (rows: any[] = []) => ({ find: jest.fn().mockResolvedValue(rows), manager });
+    const service = new DataScopeService(
+      repo() as any, repo() as any, repo() as any,
+      repo([{ warehouseCode: 'LPH_DP_EGG_FARM' }, { warehouseCode: 'LPH_MS_FEED' }]) as any,
+      repo() as any, repo() as any, { get: jest.fn() } as any,
+      { resolveHouse: jest.fn(), resolveFarmCodesBySiteCodes: jest.fn().mockResolvedValue(['FARM-DP']) } as any,
+    );
+    const scope = await service.resolve('7', ['ROLE_FARM_MGR'], 'MENU_WMS_VIEW', 77);
+    expect(scope.allowedWarehouseCodes).toEqual(['LPH_DP_EGG_FARM']);
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('AND site_code = ANY($2)'),
+      [['LPH_DP_EGG_FARM', 'LPH_MS_FEED'], ['SITE-DONGPENG-LAYER']],
+    );
+  });
+
+  it('keeps COMPANY operation warehouses and unions a cross-company explicit grant', async () => {
+    const manager = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM sys_user_orgs')) return [{ org_id: 10, is_primary: true, data_scope_level: 'COMPANY', company_code: 'COMP-A', project_code: null, warehouse_code: null, parent_id: 1, org_type: 'COMPANY', site_code: null, org_code: 'COMP-A' }];
+      if (sql.includes('company_code = ANY')) return [{ warehouse_code: 'WH-A' }];
+      if (sql.includes('warehouse_code = ANY')) return [{ warehouse_code: 'WH-B' }];
+      return [];
+    }) };
+    const repo = (rows: any[] = []) => ({ find: jest.fn().mockResolvedValue(rows), manager });
+    const service = new DataScopeService(
+      repo() as any, repo() as any, repo() as any,
+      repo([{ warehouseCode: 'WH-B' }]) as any, repo() as any, repo() as any,
+      { get: jest.fn() } as any,
+      { resolveHouse: jest.fn(), resolveFarmCodesBySiteCodes: jest.fn() } as any,
+    );
+    const scope = await service.resolve('8', ['ROLE_WMS_MGR'], 'MENU_WMS_VIEW', 78);
+    expect(scope.allowedWarehouseCodes).toEqual(['WH-A', 'WH-B']);
   });
 });
