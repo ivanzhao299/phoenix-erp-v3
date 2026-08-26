@@ -379,3 +379,5 @@ admin、GROUP 用户不写显式授权。计划新增 44 行：东鹏 `4×4=16`�
 生产写入由 `.github/workflows/warehouse-domain-a-production-configure.yml` 执行，固定为：只读预检断言 → 单事务 `INSERT RETURNING`（仓/区/位/授权）→ 独立只读复核；日志同时输出精确回滚 SQL。
 
 本阶段有意触碰 DataScope/RBAC 与仓储核心冻结边界；PR `#93` 已加 `reviewed-frozen-boundary`、`reviewed-security-touch`，由 CI 在新的 synchronize 事件中显式留痕复核。
+
+首次生产配置 run `32925143705` 在只读预检通过后，于第一条仓库 INSERT 解析时报 `wms_warehouses.store_code does not exist`；事务未产生任何写入。修复只移除冻结 seed 与生产 schema 不一致的该列，不放宽零授权 baseline、目标仓不存在、8 个 ACTIVE 账号及所有末态计数断言。

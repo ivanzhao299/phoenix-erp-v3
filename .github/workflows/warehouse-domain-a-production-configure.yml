@@ -75,12 +75,12 @@ jobs:
 
             INSERT INTO wms_warehouses
               (warehouse_code,warehouse_name,warehouse_name_zh,warehouse_name_en,warehouse_name_lo,
-               type,domain,status,company_code,site_code,store_code,remark)
+               type,domain,status,company_code,site_code,remark)
             VALUES
-              ('LPH_DP_EGG_FARM','Dongpeng Egg Farm Storage','东鹏农场鸡蛋暂存仓','Dongpeng Egg Farm Storage','ສາງເກັບໄຂ່ຊົ່ວຄາວຂອງຟາມ ຕົງເພັງ','EGG_FARM','OPERATIONAL','ACTIVE','COMP-LAO-XINGCHI','SITE-DONGPENG-LAYER','ALL','Warehouse A phase 2026-08-26; Lao full phrase pending local review'),
-              ('LPH_DP_EGG_SALES','Dongpeng Egg Sales Inventory','东鹏鸡蛋销售成品仓','Dongpeng Egg Sales Inventory','ສາງສິນຄ້າສຳເລັດຮູບຂາຍໄຂ່ ຕົງເພັງ','EGG_SALES','OPERATIONAL','ACTIVE','COMP-LAO-XINGCHI','SITE-DONGPENG-LAYER','ALL','Warehouse A phase 2026-08-26; Lao full phrase pending local review'),
-              ('LPH_DP_FEED','Dongpeng Feed Warehouse','东鹏饲料仓','Dongpeng Feed Warehouse','ສາງອາຫານສັດ ຕົງເພັງ','FEED','OPERATIONAL','ACTIVE','COMP-LAO-XINGCHI','SITE-DONGPENG-LAYER','ALL','Warehouse A phase 2026-08-26; Lao full phrase pending local review'),
-              ('LPH_DP_MEDICINE','Dongpeng Medicine and Vaccine Warehouse','东鹏药品/疫苗仓','Dongpeng Medicine and Vaccine Warehouse','ສາງຢາ/ວັກຊີນ ຕົງເພັງ','MEDICINE','OPERATIONAL','ACTIVE','COMP-LAO-XINGCHI','SITE-DONGPENG-LAYER','ALL','Warehouse A phase 2026-08-26; Lao full phrase pending local review')
+              ('LPH_DP_EGG_FARM','Dongpeng Egg Farm Storage','东鹏农场鸡蛋暂存仓','Dongpeng Egg Farm Storage','ສາງເກັບໄຂ່ຊົ່ວຄາວຂອງຟາມ ຕົງເພັງ','EGG_FARM','OPERATIONAL','ACTIVE','COMP-LAO-XINGCHI','SITE-DONGPENG-LAYER','Warehouse A phase 2026-08-26; Lao full phrase pending local review'),
+              ('LPH_DP_EGG_SALES','Dongpeng Egg Sales Inventory','东鹏鸡蛋销售成品仓','Dongpeng Egg Sales Inventory','ສາງສິນຄ້າສຳເລັດຮູບຂາຍໄຂ່ ຕົງເພັງ','EGG_SALES','OPERATIONAL','ACTIVE','COMP-LAO-XINGCHI','SITE-DONGPENG-LAYER','Warehouse A phase 2026-08-26; Lao full phrase pending local review'),
+              ('LPH_DP_FEED','Dongpeng Feed Warehouse','东鹏饲料仓','Dongpeng Feed Warehouse','ສາງອາຫານສັດ ຕົງເພັງ','FEED','OPERATIONAL','ACTIVE','COMP-LAO-XINGCHI','SITE-DONGPENG-LAYER','Warehouse A phase 2026-08-26; Lao full phrase pending local review'),
+              ('LPH_DP_MEDICINE','Dongpeng Medicine and Vaccine Warehouse','东鹏药品/疫苗仓','Dongpeng Medicine and Vaccine Warehouse','ສາງຢາ/ວັກຊີນ ຕົງເພັງ','MEDICINE','OPERATIONAL','ACTIVE','COMP-LAO-XINGCHI','SITE-DONGPENG-LAYER','Warehouse A phase 2026-08-26; Lao full phrase pending local review')
             RETURNING id,warehouse_code,warehouse_name_zh,warehouse_name_en,warehouse_name_lo,type,domain,status,company_code,site_code;
 
             INSERT INTO wms_zones (zone_code,zone_name,warehouse,warehouse_code,zone_type,status,store_code)
