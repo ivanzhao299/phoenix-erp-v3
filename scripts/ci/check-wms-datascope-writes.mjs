@@ -6,7 +6,7 @@ const checks = [
   {
     file: 'apps/api/src/modules/wms/wms.service.ts',
     required: [
-      'private assertWritableWarehouse',
+      'private async assertWritableWarehouse',
       'scope.allowedWarehouseCodes.includes(warehouseCode)',
       'this.assertWritableWarehouse(task.warehouse_code || null',
       'this.assertWritableWarehouse(warehouseCode, `入库明细',
