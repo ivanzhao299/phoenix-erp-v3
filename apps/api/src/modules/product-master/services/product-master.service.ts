@@ -226,7 +226,15 @@ export class ProductMasterService {
     if (filters?.grade_code)   { conds.push(`grade_code=$${i++}`);   args.push(filters.grade_code); }
     if (filters?.spec_code)    { conds.push(`spec_code=$${i++}`);    args.push(filters.spec_code); }
     if (filters?.status)       { conds.push(`status=$${i++}`);       args.push(filters.status); }
-    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : `WHERE status = 'ACTIVE'`;
+    // 可引用 SKU 与主数据 runtime /active 使用同一口径：ACTIVE 且在生效期内。
+    // 管理列表若显式查询非 ACTIVE 状态仍应完整展示，不套引用期过滤。
+    const activeReference = !filters?.status || filters.status === 'ACTIVE';
+    if (!filters?.status) conds.push(`status = 'ACTIVE'`);
+    if (activeReference) {
+      conds.push(`(effective_date IS NULL OR effective_date <= CURRENT_DATE)`);
+      conds.push(`(expire_date IS NULL OR expire_date >= CURRENT_DATE)`);
+    }
+    const where = `WHERE ${conds.join(' AND ')}`;
     return this.em.query(
       `SELECT * FROM product_skus ${where} ORDER BY product_code, grade_code, spec_code`,
       args,

@@ -45,11 +45,16 @@ export class PriceItemsService {
    */
   private async resolveSkuInfo(skuCode: string): Promise<{ productCode: string; gradeCodeStd: string; specCode: string }> {
     const rows = await this.ds.query(
-      `SELECT product_code, grade_code, spec_code FROM product_skus WHERE sku_code = $1 AND status = 'ACTIVE'`,
+      `SELECT product_code, grade_code, spec_code
+         FROM product_skus
+        WHERE sku_code = $1
+          AND status = 'ACTIVE'
+          AND (effective_date IS NULL OR effective_date <= CURRENT_DATE)
+          AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)`,
       [skuCode],
     );
     if (!rows?.length) {
-      throw new BadRequestException(`SKU "${skuCode}" 不存在或已停用，请先在主数据中心维护 SKU 档案`);
+      throw new BadRequestException(`SKU "${skuCode}" 不存在、已停用或不在生效期，请先在主数据中心维护 SKU 档案`);
     }
     const sku = rows[0];
     return {

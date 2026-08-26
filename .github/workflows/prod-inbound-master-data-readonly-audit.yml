@@ -106,8 +106,31 @@ jobs:
               FROM wms_locations l ORDER BY l.warehouse_code, l.location_code;
             SELECT 'GRADES' AS section, grade_code, grade_name, is_saleable, is_storable, status
               FROM product_grades ORDER BY sort_order, grade_code;
-            SELECT 'ACTIVE_SKUS' AS section, sku_code, product_code, grade_code, spec_code, sku_name, status
+            SELECT 'ACTIVE_SKUS' AS section, sku_code, product_code, grade_code, spec_code, sku_name,
+                   status, effective_date, expire_date,
+                   (effective_date IS NULL OR effective_date <= CURRENT_DATE)
+                     AND (expire_date IS NULL OR expire_date >= CURRENT_DATE) AS in_validity_window
               FROM product_skus WHERE status='ACTIVE' ORDER BY grade_code, spec_code, sku_code;
+            SELECT 'SKU_STATUS_SUMMARY' AS section, status, count(*)::int AS row_count
+              FROM product_skus GROUP BY status ORDER BY status;
+            SELECT 'SKU_NOT_REFERENCEABLE' AS section, sku_code, sku_name, status, effective_date, expire_date
+              FROM product_skus
+             WHERE status <> 'ACTIVE' OR effective_date > CURRENT_DATE OR expire_date < CURRENT_DATE
+             ORDER BY status, sku_code;
+            SELECT 'RECENT_WMS_INBOUND' AS section, task_no, inbound_no, status, type, item,
+                   to_jsonb(i)->>'item_type' AS item_type,
+                   to_jsonb(i)->>'material_code' AS material_code,
+                   to_jsonb(i)->>'sku_code' AS sku_code,
+                   to_jsonb(i)->>'product_code' AS product_code,
+                   created_at, updated_at
+              FROM wms_inbound i
+             WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
+             ORDER BY created_at DESC LIMIT 100;
+            SELECT 'SKU_REJECTION_ERRORS' AS section, created_at, username, request_path, error_message
+              FROM sys_error_logs
+             WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '30 days'
+               AND (error_message ILIKE '%不存在或已停用%' OR error_message ILIKE '%不在生效期%')
+             ORDER BY created_at DESC LIMIT 100;
             SELECT 'TEMP_BATCH_PROFILE' AS section, company_code, warehouse_code, location_code,
                    product_code, sku_code, grade_code_std, count(*)::int AS batch_count, sum(qty) AS total_qty
               FROM inv_batches WHERE source_type='TEMP_PRODUCTION'
@@ -136,3 +159,8 @@ jobs:
              ORDER BY created_at, batch_no;
             COMMIT;
             SQL
+            echo 'SKU_REJECTION_CONTAINER_LOGS_BEGIN'
+            docker logs --since 48h phoenix-v3-api 2>&1 \
+              | grep -E '不存在或已停用|不在生效期|SKU-1-TRAY36|WI-408853|INB-20260826-WMXI' \
+              | tail -n 200 || true
+            echo 'SKU_REJECTION_CONTAINER_LOGS_END'

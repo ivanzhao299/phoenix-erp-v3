@@ -321,9 +321,11 @@ export class WmsService {
         if (!skuCode && productCode) {
           const skuRows = await manager.query(
             `SELECT sku_code, product_code
-               FROM product_skus
+              FROM product_skus
               WHERE sku_code = $1
                 AND status = 'ACTIVE'
+                AND (effective_date IS NULL OR effective_date <= CURRENT_DATE)
+                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
               LIMIT 1`,
             [productCode],
           );
@@ -874,6 +876,8 @@ export class WmsService {
            FROM product_skus ps
            LEFT JOIN packaging_specs spec ON spec.spec_code = ps.spec_code
           WHERE ps.sku_code = $1 AND ps.status = 'ACTIVE'
+            AND (ps.effective_date IS NULL OR ps.effective_date <= CURRENT_DATE)
+            AND (ps.expire_date IS NULL OR ps.expire_date >= CURRENT_DATE)
           LIMIT 1`,
         [itemCode],
       );
@@ -890,7 +894,7 @@ export class WmsService {
         };
       }
     }
-    throw new BadRequestException(`库存品目 ${itemCode} 不存在或已停用`);
+    throw new BadRequestException(`库存品目 ${itemCode} 不存在、已停用或不在生效期`);
   }
 
   async confirmStandaloneOutbound(outboundNo: string, user: any) {

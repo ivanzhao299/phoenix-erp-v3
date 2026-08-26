@@ -436,6 +436,16 @@ export class MasterDataRuntimeService {
       if (f === 'swift_code' && !/^[A-Za-z0-9]{8}([A-Za-z0-9]{3})?$/.test(s)) errors.push(`SWIFT 格式不规范（应 8 或 11 位字母数字）：${s}`);
     }
 
+    // 生效期是所有引用链的共同边界；禁止保存反向区间，避免档案 ACTIVE
+    // 但永远无法被 Selector / 业务校验引用的隐性脏数据。
+    if (!c.noValidityPeriod
+        && (inScope('effective_date') || inScope('expire_date'))
+        && nonEmpty(record.effective_date) && nonEmpty(record.expire_date)) {
+      const effective = String(record.effective_date).slice(0, 10);
+      const expire = String(record.expire_date).slice(0, 10);
+      if (effective > expire) errors.push('生效日期不能晚于失效日期');
+    }
+
     // ④ 值域合法（币种走字典）
     for (const f of ['currency_code', 'default_currency', 'budget_currency']) {
       if (!inScope(f) || !nonEmpty(record[f])) continue;
