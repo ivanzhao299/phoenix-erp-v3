@@ -15,6 +15,7 @@ import {
   BatchSelector,
 } from "@/components/shared-selectors/MasterDataSelectors";
 import { AttachmentUploader, ManagedAttachmentUploader } from "@/components/design-system";
+import { mappedPickValue } from "@/lib/selector-pick";
 
 /**
  * G4-D：CrudForm 新增主数据 / 字典 / 附件类型
@@ -284,7 +285,7 @@ export const CrudForm = memo(function CrudForm({
                 onChange={v => set(field.key, v)}
                 onPick={o => {
                   Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
-                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                    set(k, mappedPickValue(o as any, rawField));
                   });
                 }} />
             ) : field.type === "inventory-item" ? (
@@ -293,7 +294,7 @@ export const CrudForm = memo(function CrudForm({
                 onChange={v => set(field.key, v)}
                 onPick={o => {
                   Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
-                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                    set(k, mappedPickValue(o as any, rawField));
                   });
                 }} />
             ) : field.type === "department" ? (

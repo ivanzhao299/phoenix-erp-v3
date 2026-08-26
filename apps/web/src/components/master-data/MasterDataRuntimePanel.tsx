@@ -19,6 +19,7 @@ import {
 import request from "@/lib/api-client";
 import { useRefreshToken } from "@/lib/list-refresh";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { mappedPickValue } from "@/lib/selector-pick";
 
 /**
  * MasterDataRuntimePanel — 通用核心主数据 Runtime 面板（G3-A）
@@ -94,7 +95,7 @@ export function renderMdFieldInput(
     if (!f.onPickKeys) return;
     setForm(prev => {
       const next = { ...prev };
-      Object.entries(f.onPickKeys!).forEach(([k, raw]) => { next[k] = o?.raw?.[raw] ?? o?.label ?? ""; });
+      Object.entries(f.onPickKeys!).forEach(([k, raw]) => { next[k] = mappedPickValue(o, raw); });
       return next;
     });
   };

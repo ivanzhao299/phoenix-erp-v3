@@ -13,11 +13,28 @@
   `sku_code=SKU-1-TRAY36`、`product_code=PRD-EGG-1`，状态 PENDING。
 - 同一 run 证明 `SKU-1-TRAY36` 的物理状态为 ACTIVE，生效期为 2026-07-01 至
   2030-07-28，当前位于有效窗；54 条 ACTIVE SKU 全部位于有效窗，另有 28 条 ARCHIVED。
-  因此生产事实排除目标行的 H1/H2/H3/H4，不需要数据修正。
+  因此生产事实排除目标行的 H1/H2/H3；容器请求体最终确认 H4。无需主数据修正。
 - 第一轮扩充审计在读取错误日志时误用列名 `path`（生产列为 `request_path`）而失败；失败发生
   在上述只读结果输出之后，未发生任何生产写入。workflow 已修正并增加精确容器日志筛选。
 
 ## 2. 链路与根因判定
+
+### 2.0 已确证根因
+
+生产容器日志给出了完整请求体：用户先选 `SKU-1-TRAY30`，随后改选
+`SKU-1-TRAY36`；两次请求均把展示标签写进 `material_code`，例如：
+
+```text
+item_type=SKU
+material_code=1号蛋 36枚/托（SKU-1-TRAY36 · 产成品 · 枚）
+sku_code=SKU-1-TRAY36
+```
+
+`confirmInbound` 按 `materialCode || skuCode || productCode` 取查询键，因此
+`resolveInventoryItem(..., 展示标签, 'SKU')` 用展示标签匹配 `product_skus.sku_code`，必然查无行并
+抛出题述文案。污染源是 `CrudForm` 的 `onPickKeys`：raw 字段为 null 时错误回退到
+`option.label`。修复为 raw null/undefined 时写空串；SKU 的 `material_code` 保持空，真实
+`sku_code` 成为解析键。
 
 ### 2.1 报错时点
 
@@ -25,8 +42,8 @@
   `resolveInventoryItem`。
 - 点击确认才走 `POST /api/inbound/confirm` → `WmsService.confirmInbound` →
   `resolveInventoryItem`，题述文案只能在确认阶段出现。
-- `CrudForm.onPickKeys` 语义为“目标字段 ← raw 字段”。入库页配置会正确写入
-  `item_type/sku_code/product_code`，不存在 camelCase 落库失配。
+- `CrudForm.onPickKeys` 的字段方向“目标字段 ← raw 字段”正确，但旧实现把 raw null 错误回退为
+  展示 label，污染了本应为空的 `material_code`；不是 camelCase/snake_case 方向问题。
 
 ### 2.2 H1–H4
 
@@ -35,12 +52,10 @@
 | H1 状态双轨 | 排除 | 目标 SKU 物理状态 ACTIVE；档案和 WMS 读取同一列 |
 | H2 目标 SKU 在生效期外 | 排除；但确认存在系统性口径失配 | 目标有效期 2026-07-01～2030-07-28；旧 Selector/WMS 均未过滤日期 |
 | H3 Selector 值域导致目标失败 | 排除；但值域设计失配成立 | 目标在两边均是 ACTIVE；runtime active 与产品/库存 Selector 的日期规则此前不同 |
-| H4 提交值失配 | 排除目标管理端行 | 生产保存行为 `item_type=SKU`、`sku_code=SKU-1-TRAY36`、`product_code=PRD-EGG-1` |
+| H4 提交值失配 | **命中，根因** | `material_code` 被错误写为展示标签，并优先遮蔽正确 `sku_code` |
 
-题述“下拉可选但确认报不存在或停用”不能由目标 SKU 的当前数据或提交身份重现。生产行仍为
-PENDING，证明保存成功、失败发生在确认。剩余根因需由同一时间窗容器日志判定；优先核查生产运行
-revision/旧进程与源码不一致。若日志无该文案，则需用户再次点击确认以获得新的精确时间戳，因为
-Nest BadRequest 不保证落 `sys_error_logs`。
+题述问题已由生产请求体与代码优先级完整闭环，不是状态或有效期数据问题。生产行仍为 PENDING，
+也与“保存成功、确认失败”的时点判定一致。
 
 ## 3. 语义裁定与修复
 
@@ -57,6 +72,8 @@ AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
 - WMS/价格错误文案增加“不在生效期”，避免把过期误导成档案不存在。
 - SKU 档案详情同时展示生效日期和失效日期。
 - runtime 保存增加 `effective_date <= expire_date` 校验，阻止反向区间。
+- 修复通用表单 SKU/库存品目以及 RuntimePanel 的 `onPickKeys` 空值语义，禁止展示标签污染
+  code 字段。
 - FROZEN/ARCHIVED 仍严格拒绝，没有放宽停用保护。
 
 管理档案仍需展示所有生命周期记录；因此精确不变量是：**所有业务 Selector 可选集合 = 所有
