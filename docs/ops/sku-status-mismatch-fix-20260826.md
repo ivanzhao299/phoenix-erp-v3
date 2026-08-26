@@ -109,4 +109,14 @@ writableCols、生产 schema”三方差异，直接扩张会有生产 500 风�
 - API/Web `tsc --noEmit`：PASS。
 - `git diff --check`：PASS。
 
-生产只读 run、PR、main CI、full 部署、revision 和原操作复测结果在执行后追加于本节。
+- 生产只读审计：run `32959507126` PASS；锁定根因请求体。部署后审计 run
+  `32961434322` PASS。
+- PR：[#104](https://github.com/ivanzhao299/phoenix-erp-v3/pull/104)，全部门禁通过后合并；main
+  merge commit `67294558499dd68340d53d8fb35ce478bfd5d9c5`。
+- main CI/build：run `32960286777` PASS。
+- `workflow_dispatch mode=full, approve_production=true`：run `32960832554` PASS。
+- 部署后 revision：production checkout、API image、Web image 均为
+  `67294558499dd68340d53d8fb35ce478bfd5d9c5`。
+- 部署后 30 天 `sys_error_logs` 对目标文案查询无行；新 API 容器的精确关键词窗口也无新行。
+- 没有直接确认用户遗留的 `WI-408853`：确认会产生真实库存写入，且该单据属于用户业务数据。
+  修复后的前端新选 SKU 不再生成污染字段；用户可重新编辑选择 SKU 后确认，或新建单据复测。
