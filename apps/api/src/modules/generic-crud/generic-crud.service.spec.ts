@@ -184,6 +184,24 @@ describe('GenericCrudService', () => {
         { id: 'ZONE-A', zone_code: 'ZONE-A', zone_name: 'A区' },
       ]);
     });
+
+    it.each(['wms_warehouses', 'wms_zones', 'wms_locations'])(
+      'excludes finance mapping warehouses from operational CRUD table %s',
+      async (table) => {
+        const query = jest.fn().mockResolvedValueOnce([]);
+        const { svc } = buildSvc(query);
+        await svc.findAll(table, {});
+        expect(query.mock.calls[0][0]).toContain("domain");
+        expect(query.mock.calls[0][0]).toContain("FINANCE_MAPPING");
+      },
+    );
+
+    it('rejects finance mapping warehouses at generic WMS write boundary', async () => {
+      const query = jest.fn().mockResolvedValueOnce([{ warehouse_code: 'CJ-WH-XINGCHI-01' }]);
+      const { svc } = buildSvc(query);
+      await expect(svc.assertOperationalWarehouseCodes(['CJ-WH-XINGCHI-01']))
+        .rejects.toThrow('财务映射仓禁止仓储操作');
+    });
   });
 
   describe('findAllBreedingScoped', () => {

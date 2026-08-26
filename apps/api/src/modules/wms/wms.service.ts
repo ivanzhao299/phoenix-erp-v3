@@ -41,14 +41,26 @@ export class WmsService {
     };
   }
 
-  private assertWritableWarehouse(warehouseCode: string | null | undefined, label: string): void {
+  private async assertWritableWarehouse(warehouseCode: string | null | undefined, label: string): Promise<void> {
+    if (!warehouseCode) {
+      throw new ForbiddenException(`无权写入该${label}（缺少仓库归属）`);
+    }
+    // Some transaction-focused unit fixtures expose only EntityManager.transaction;
+    // real Nest EntityManager instances always expose query().
+    if (typeof this.em.query === 'function') {
+      const [warehouse] = await this.em.query(
+        `SELECT domain FROM wms_warehouses WHERE warehouse_code = $1 LIMIT 1`,
+        [warehouseCode],
+      );
+      if (!warehouse) throw new ForbiddenException(`无权写入该${label}（仓库不存在）`);
+      if (warehouse.domain === 'FINANCE_MAPPING') {
+        throw new ForbiddenException(`无权写入该${label}（财务映射仓禁止仓储操作）`);
+      }
+    }
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
     if (scope?.isGlobal) return;
     if (!scope || scope.allowedWarehouseCodes.length === 0) {
       throw new ForbiddenException(`无权写入该${label}（未配置仓库范围）`);
-    }
-    if (!warehouseCode) {
-      throw new ForbiddenException(`无权写入该${label}（缺少仓库归属）`);
     }
     if (!scope.allowedWarehouseCodes.includes(warehouseCode)) {
       throw new ForbiddenException(`无权写入该${label}（仓库范围不匹配）`);
@@ -237,7 +249,7 @@ export class WmsService {
       if (!inboundPolicy) {
         throw new BadRequestException(`不支持的入库类型：${task.type || '(空)'}`);
       }
-      this.assertWritableWarehouse(task.warehouse_code || null, `入库单 ${task_no}`);
+      await this.assertWritableWarehouse(task.warehouse_code || null, `入库单 ${task_no}`);
       if (task.status === 'COMPLETED') {
         return { code: 400, msg: `入库单 ${task_no} 已确认（COMPLETED），请勿重复操作`, idempotent: true };
       }
@@ -324,7 +336,7 @@ export class WmsService {
         const baseBatchNo = item.batch_no ||
           `IBN-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
         const warehouseCode = item.warehouse_code || item.warehouse || defaultWarehouse;
-        this.assertWritableWarehouse(warehouseCode, `入库明细 ${baseBatchNo}`);
+        await this.assertWritableWarehouse(warehouseCode, `入库明细 ${baseBatchNo}`);
         const locationCode  = item.location_code || 'INBOUND-DOCK';
 
         // V2 fidelity: 拦截 EXPIRED / LOCKED / QUARANTINE 已存在批次的累加
@@ -453,7 +465,7 @@ export class WmsService {
     const storeCode = ctx.storeCode || 'ALL';
     const operator = ctx.operator || 'SYS';
     const warehouseCode = ctx.warehouseCode || 'WMS-VTE-MAIN';
-    this.assertWritableWarehouse(warehouseCode, `采购收货 ${ctx.refNo}`);
+    await this.assertWritableWarehouse(warehouseCode, `采购收货 ${ctx.refNo}`);
     const batchNos: string[] = [];
     let skipped = 0;
     for (let idx = 0; idx < ctx.items.length; idx++) {
@@ -637,7 +649,7 @@ export class WmsService {
     this.assertOutboundPermission(body?.type, user, 'C');
     this.validateStandaloneOutbound(body);
     const warehouseCode = this.nonEmptyString(body?.warehouse_code);
-    this.assertWritableWarehouse(warehouseCode, '出库单');
+    await this.assertWritableWarehouse(warehouseCode, '出库单');
 
     return this.em.transaction(async manager => {
       const identity = await this.resolveInventoryItem(
@@ -727,7 +739,7 @@ export class WmsService {
       this.assertOutboundPermission(merged.type, user, 'E');
       this.validateStandaloneOutbound(merged);
       const warehouseCode = this.nonEmptyString(merged.warehouse_code);
-      this.assertWritableWarehouse(warehouseCode, `出库单 ${normalizedNo}`);
+      await this.assertWritableWarehouse(warehouseCode, `出库单 ${normalizedNo}`);
       const identity = await this.resolveInventoryItem(
         manager,
         this.nonEmptyString(merged.item),
@@ -881,7 +893,7 @@ export class WmsService {
       this.assertOutboundPermission(order.type, user, 'E');
       this.validateStandaloneOutbound(order);
       const status = String(order.status || 'PENDING').toUpperCase();
-      this.assertWritableWarehouse(order.warehouse_code, `出库单 ${normalizedNo}`);
+      await this.assertWritableWarehouse(order.warehouse_code, `出库单 ${normalizedNo}`);
       if (status === 'DONE') {
         return {
           code: 200,
@@ -1051,7 +1063,7 @@ export class WmsService {
   ): Promise<void> {
     const batchNo = this.nonEmptyString(batch.batch_no);
     if (!batchNo) throw new Error('出库批次号缺失');
-    this.assertWritableWarehouse(batch.warehouse_code, `出库批次 ${batchNo}`);
+    await this.assertWritableWarehouse(batch.warehouse_code, `出库批次 ${batchNo}`);
 
     const available = Number(batch.qty_available ?? batch.qty) || 0;
     if (available < qty) {
@@ -1245,7 +1257,7 @@ export class WmsService {
       [orderNo],
     ).catch(() => []);
     if (rows.length > 0) {
-      this.assertWritableWarehouse(rows[0].warehouse_code || null, `收货单 ${orderNo}`);
+      await this.assertWritableWarehouse(rows[0].warehouse_code || null, `收货单 ${orderNo}`);
     }
     await this.em.query(
       `UPDATE wms_inbound SET status = 'COMPLETED', updated_at = CURRENT_TIMESTAMP WHERE task_no = $1`,
@@ -1337,8 +1349,8 @@ export class WmsService {
     if (!from_warehouse || !to_warehouse || from_warehouse === to_warehouse) {
       return { code: 400, msg: '源/目标仓库必填且不能相同' };
     }
-    this.assertWritableWarehouse(from_warehouse, '库存调拨源仓库');
-    this.assertWritableWarehouse(to_warehouse, '库存调拨目标仓库');
+    await this.assertWritableWarehouse(from_warehouse, '库存调拨源仓库');
+    await this.assertWritableWarehouse(to_warehouse, '库存调拨目标仓库');
     if (!Array.isArray(items) || items.length === 0) {
       return { code: 400, msg: '调拨明细 items 必填' };
     }
@@ -1387,7 +1399,7 @@ export class WmsService {
           [it.batch_no],
         );
         if (!src) throw new Error(`源 batch ${it.batch_no} 不存在`);
-        this.assertWritableWarehouse(src.warehouse_code, `调拨源批次 ${it.batch_no}`);
+        await this.assertWritableWarehouse(src.warehouse_code, `调拨源批次 ${it.batch_no}`);
         if (src.warehouse_code !== from_warehouse) {
           throw new BadRequestException(
             `源 batch ${it.batch_no} 属于仓库 ${src.warehouse_code || '-'}，与调拨源仓库 ${from_warehouse} 不一致`,
@@ -1478,7 +1490,7 @@ export class WmsService {
         [stocktake_no],
       ).catch(() => []);
       if (stocktakeRows.length > 0) {
-        this.assertWritableWarehouse(stocktakeRows[0].warehouse_code || null, `盘点单 ${stocktake_no}`);
+        await this.assertWritableWarehouse(stocktakeRows[0].warehouse_code || null, `盘点单 ${stocktake_no}`);
       }
       await manager.query(
         `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now() WHERE stocktake_no=$2`,
@@ -1494,7 +1506,7 @@ export class WmsService {
         );
         if (!batchRows.length) throw new Error(`batch ${batch_no} 不存在`);
         const batch = batchRows[0];
-        this.assertWritableWarehouse(batch.warehouse_code, `盘点批次 ${batch_no}`);
+        await this.assertWritableWarehouse(batch.warehouse_code, `盘点批次 ${batch_no}`);
         const nextQty = Number(batch.qty || 0) + diff;
         if (nextQty < 0) {
           throw new BadRequestException(`盘亏后库存不能为负：当前 ${batch.qty}，差额 ${diff}`);
@@ -1561,7 +1573,7 @@ export class WmsService {
         );
         if (!rows.length) { results.push({ batch_no: batchNo, error: '批次不存在' }); continue; }
         const b = rows[0];
-        this.assertWritableWarehouse(b.warehouse_code, `盘点批次 ${batchNo}`);
+        await this.assertWritableWarehouse(b.warehouse_code, `盘点批次 ${batchNo}`);
         const sysQty = Math.trunc(Number(b.qty) || 0);
         const diff = counted - sysQty;
         const storeCode = b.store_code || 'ALL';
@@ -1682,7 +1694,7 @@ export class WmsService {
         [loss_no],
       ).catch(() => []);
       if (lossRows.length > 0) {
-        this.assertWritableWarehouse(lossRows[0].warehouse_code || null, `损耗单 ${loss_no}`);
+        await this.assertWritableWarehouse(lossRows[0].warehouse_code || null, `损耗单 ${loss_no}`);
       }
       await manager.query(
         `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now()
@@ -1698,7 +1710,7 @@ export class WmsService {
         );
         if (!batchRows.length) throw new Error(`batch ${batch_no} 不存在`);
         const batch = batchRows[0];
-        this.assertWritableWarehouse(batch.warehouse_code, `损耗批次 ${batch_no}`);
+        await this.assertWritableWarehouse(batch.warehouse_code, `损耗批次 ${batch_no}`);
         const available = Number(batch.qty_available ?? batch.qty) || 0;
         if (available < qty) {
           throw new BadRequestException(`损耗数量 ${qty} 超过批次 ${batch_no} 可用库存 ${available}`);

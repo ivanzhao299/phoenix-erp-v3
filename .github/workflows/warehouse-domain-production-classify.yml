@@ -1,0 +1,81 @@
+name: Warehouse Domain Production Classification
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_production:
+        description: Type true to approve the bounded warehouse-domain update
+        required: true
+        default: 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: warehouse-domain-production-classification
+  cancel-in-progress: false
+
+jobs:
+  classify:
+    if: inputs.approve_production == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Precheck classify and verify warehouse domains
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
+            docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN;
+            DO $$
+            DECLARE cj_count integer; test_count integer; operational_count integer;
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='wms_warehouses' AND column_name='domain') THEN
+                RAISE EXCEPTION 'wms_warehouses.domain migration is not deployed';
+              END IF;
+              SELECT count(*) INTO cj_count FROM wms_warehouses
+               WHERE warehouse_code LIKE 'CJ-WH-%'
+                 AND (warehouse_code LIKE 'CJ-WH-%' OR remark ILIKE '%no balance/fact import%');
+              SELECT count(*) INTO test_count FROM wms_warehouses WHERE warehouse_code='WH-0001';
+              SELECT count(*) INTO operational_count FROM wms_warehouses WHERE warehouse_code LIKE 'LPH_MS_%';
+              IF cj_count <> 9 OR test_count <> 1 OR operational_count <> 7 THEN
+                RAISE EXCEPTION 'classification precheck mismatch: CJ %, TEST %, OPERATIONAL %', cj_count,test_count,operational_count;
+              END IF;
+            END $$;
+
+            UPDATE wms_warehouses SET domain='FINANCE_MAPPING'
+             WHERE warehouse_code LIKE 'CJ-WH-%'
+               AND (warehouse_code LIKE 'CJ-WH-%' OR remark ILIKE '%no balance/fact import%')
+             RETURNING warehouse_code,warehouse_name,domain,remark;
+            UPDATE wms_warehouses SET domain='TEST' WHERE warehouse_code='WH-0001'
+             RETURNING warehouse_code,warehouse_name,domain;
+            UPDATE wms_warehouses SET domain='OPERATIONAL' WHERE warehouse_code LIKE 'LPH_MS_%'
+             RETURNING warehouse_code,warehouse_name,domain;
+
+            DO $$
+            BEGIN
+              IF (SELECT count(*) FROM wms_warehouses WHERE domain='FINANCE_MAPPING') <> 9
+                 OR (SELECT count(*) FROM wms_warehouses WHERE domain='TEST') <> 1
+                 OR (SELECT count(*) FROM wms_warehouses WHERE domain='OPERATIONAL') <> 7 THEN
+                RAISE EXCEPTION 'warehouse domain postcheck failed';
+              END IF;
+            END $$;
+            COMMIT;
+            SELECT domain,count(*) FROM wms_warehouses GROUP BY domain ORDER BY domain;
+            SQL

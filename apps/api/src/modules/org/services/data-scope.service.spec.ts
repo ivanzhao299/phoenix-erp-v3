@@ -52,6 +52,10 @@ describe('DataScopeService permission-version cache isolation', () => {
     expect(after.allowedSiteCodes).toEqual(['SITE-DONGPENG-LAYER']);
     expect(after.allowedFarmCodes).toEqual(['FARM-DP']);
     expect(after.allowedCompanyCodes).toEqual(['COMP-LAO-XINGCHI']);
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining("domain <> 'FINANCE_MAPPING'"),
+      [['COMP-LAO-XINGCHI']],
+    );
   });
 
   it('keeps an unbound non-global user fail-closed without projecting farms', async () => {

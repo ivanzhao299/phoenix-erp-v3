@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { BREEDING_FARMS_TABLE, BreedingScopedTable } from './crud.constants';
@@ -2193,6 +2193,20 @@ export class GenericCrudService implements OnModuleInit {
     }
   }
 
+  async assertOperationalWarehouseCodes(codes: unknown[]): Promise<void> {
+    const normalized = [...new Set(codes.map((code) => String(code ?? '').trim()).filter(Boolean))];
+    if (normalized.length === 0) return;
+    const blocked: Array<{ warehouse_code: string }> = await this.entityManager.query(`
+      SELECT warehouse_code FROM wms_warehouses
+      WHERE warehouse_code = ANY($1) AND domain = 'FINANCE_MAPPING'
+    `, [normalized]);
+    if (blocked.length > 0) {
+      throw new ForbiddenException(
+        `财务映射仓禁止仓储操作：${blocked.map((row) => row.warehouse_code).join('、')}`,
+      );
+    }
+  }
+
   private withCrudRouteIdAlias(table: string, rows: any[]): any[] {
     const aliasColumn = GenericCrudService.CRUD_ROUTE_ID_ALIAS[table];
     if (!aliasColumn || !Array.isArray(rows)) return rows;
@@ -2410,6 +2424,18 @@ export class GenericCrudService implements OnModuleInit {
     const whereClauses = [];
     const queryValues = [];
     let paramIndex = 1;
+
+    // Warehouse master-data CRUD is an operational surface. Finance mapping
+    // warehouses remain queryable through the dedicated Chanjet chain only.
+    if (table === 'wms_warehouses') {
+      whereClauses.push(`"domain" <> 'FINANCE_MAPPING'`);
+    } else if (table === 'wms_zones' || table === 'wms_locations') {
+      whereClauses.push(`EXISTS (
+        SELECT 1 FROM wms_warehouses operational_warehouse
+        WHERE operational_warehouse.warehouse_code = "${table}"."warehouse_code"
+          AND operational_warehouse.domain <> 'FINANCE_MAPPING'
+      )`);
+    }
 
     const SAFE_KEY = /^[a-zA-Z0-9_]+$/;
     for (const [key, val] of Object.entries(query)) {
