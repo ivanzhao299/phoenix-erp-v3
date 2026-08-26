@@ -60,8 +60,8 @@ jobs:
             SELECT 'READONLY_GUARD' section,current_database(),current_user,current_setting('transaction_read_only') transaction_read_only;
             DO $$ BEGIN
               IF (SELECT count(*) FROM sys_user WHERE username='xiejiling' AND status=1 AND store_code='SITE-MENGSAI-LAYER') <> 1 THEN RAISE EXCEPTION 'xiejiling legacy before image mismatch'; END IF;
-              IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' AND uo.is_primary=true AND o.org_type='SITE' AND o.org_code='SITE-DONGPENG-LAYER') <> 1 THEN RAISE EXCEPTION 'xiejiling unique primary SITE assertion failed'; END IF;
-              IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id WHERE u.username='xiejiling' AND uo.is_primary=true) <> 1 THEN RAISE EXCEPTION 'xiejiling primary binding is not unique'; END IF;
+              IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' AND o.org_type='SITE') <> 1 THEN RAISE EXCEPTION 'xiejiling SITE binding is not unique'; END IF;
+              IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' AND o.org_type='SITE' AND o.org_code='SITE-DONGPENG-LAYER') <> 1 THEN RAISE EXCEPTION 'xiejiling authoritative SITE assertion failed'; END IF;
               IF (SELECT count(*) FROM sys_user u JOIN sys_user_warehouse_scopes s ON s.user_id=u.user_id WHERE u.username='xiejiling') <> 0 THEN RAISE EXCEPTION 'xiejiling warehouse scope changed; this closeout must not add authorization'; END IF;
               IF (SELECT count(*) FROM sys_user u JOIN sys_user_role ur ON ur.user_id=u.user_id JOIN sys_role r ON r.role_id=ur.role_id WHERE u.status=1 AND r.role_code='ROLE_PRC_BUYER') <> 3 THEN RAISE EXCEPTION 'ROLE_PRC_BUYER active member count mismatch'; END IF;
             END $$;
@@ -99,7 +99,7 @@ jobs:
               sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
             BEGIN TRANSACTION READ ONLY;
             DO $$ BEGIN
-              IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' AND u.store_code=o.org_code AND u.store_code='SITE-DONGPENG-LAYER' AND uo.is_primary=true) <> 1 THEN RAISE EXCEPTION 'xiejiling two-track verification failed'; END IF;
+              IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' AND u.store_code=o.org_code AND u.store_code='SITE-DONGPENG-LAYER' AND o.org_type='SITE') <> 1 THEN RAISE EXCEPTION 'xiejiling two-track verification failed'; END IF;
               IF (SELECT count(*) FROM sys_user u JOIN sys_user_warehouse_scopes s ON s.user_id=u.user_id WHERE u.username='xiejiling') <> 0 THEN RAISE EXCEPTION 'xiejiling warehouse scope unexpectedly changed'; END IF;
             END $$;
             SELECT 'AFTER_USER_AND_JWT_VERSION' section,u.user_id,u.username,u.store_code,u.perms_version,(u.perms_version-1) invalidated_previous_version FROM sys_user u WHERE u.username='xiejiling';
