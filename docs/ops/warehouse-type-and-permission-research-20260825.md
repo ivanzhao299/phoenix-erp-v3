@@ -334,3 +334,46 @@ B 阶段只剥离 `FINANCE_MAPPING`，不从操作面排除 `TEST`。因此 `lin
 - 本阶段本地全量回归：API Jest 65 suites、576/576；Web Vitest 79 files、440/440；API/Web `tsc --noEmit` 均 0 error；migration down/data-DML、constraint drift、nullable-in-unique 与窄 scope-audit 门禁均通过。PR 与 main CI 均绿。
 
 B 阶段至此完成：财务映射仓已从操作面剥离且财务只读链保留，历史三单未改写；`TEST` 过渡仓仍对东鹏可见。下一业务阻塞不是代码或部署，而是东鹏正式仓码、名称、用途、库区/库位仍待确认，确认后应创建主数据并进入 A 阶段显式授权。
+
+## 11. A 阶段执行记录（2026-08-26）
+
+### 11.1 上线前只读预检与建仓裁定
+
+只读补证 run `32924447895` 成功，生产 checkout/API/Web revision 与双层只读保护均留痕。孟赛七仓中只有 `LPH_MS_EGG_FARM/EGG_SALES` 存在库区，只有 `EGG_FARM` 存在库位，其余五仓并没有可复制的“每仓默认结构”；`WH-0001` 在入库、出库、调拨、盘点、库存批次、库存台账七类事实表均为 0 引用。
+
+本次采用与 `LPH_MS_*` 一致的 `LPH_DP_*` 前缀，便于按法人养殖业务仓识别，创建四个已获裁定的起步仓。采购到货、原料/包材、包装成品三仓暂不创建：东鹏 90 天足迹仅有两笔误入财务映射仓的入库，没有采购收货、原料、包装成品仓流转证据；孟赛对应仓也无库区/库位。后续真实流程需要时按相同三段模式补建，避免空壳主数据。
+
+| 仓码 | 中文 | ລາວ | English | type |
+|---|---|---|---|---|
+| `LPH_DP_EGG_FARM` | 东鹏农场鸡蛋暂存仓 | ສາງເກັບໄຂ່ຊົ່ວຄາວຂອງຟາມ ຕົງເພັງ | Dongpeng Egg Farm Storage | EGG_FARM |
+| `LPH_DP_EGG_SALES` | 东鹏鸡蛋销售成品仓 | ສາງສິນຄ້າສຳເລັດຮູບຂາຍໄຂ່ ຕົງເພັງ | Dongpeng Egg Sales Inventory | EGG_SALES |
+| `LPH_DP_FEED` | 东鹏饲料仓 | ສາງອາຫານສັດ ຕົງເພັງ | Dongpeng Feed Warehouse | FEED |
+| `LPH_DP_MEDICINE` | 东鹏药品/疫苗仓 | ສາງຢາ/ວັກຊີນ ຕົງເພັງ | Dongpeng Medicine and Vaccine Warehouse | MEDICINE |
+
+`ຕົງເພັງ`、`ອາຫານສັດ`、`ຢາ`、`ວັກຊີນ` 直接取自系统既有老挝语；四个完整仓名是这些既有术语的组合句，已在 remark 标注 **pending local review**，需当地业务人员复核语序，但没有编造未知术语。
+
+### 11.2 执行前显式授权矩阵
+
+| 账号 | 目标仓 | 依据 | 裁定 |
+|---|---|---|---|
+| linhong | 东鹏四仓 | 东鹏 SITE；场长/兽医；90 天真实入库 | 授权 |
+| fuqiang | 东鹏四仓 | 东鹏 SITE；工厂/区域经理；90 天真实入库 | 授权 |
+| liushanjun | 东鹏四仓 | 东鹏 SITE；仓储主档经理/WMS 经理 | 授权 |
+| zhuhuiran | 东鹏四仓 | 东鹏 SITE；发货/区域经理；WMS 入出库与主档权限 | 授权 |
+| songshoujiang | 孟赛七仓 | 孟赛 SITE；仓储主档经理/WMS 经理 | 授权 |
+| xuefeng | 孟赛七仓 | 农业公司；产线主管/仓储主档经理/WMS 经理 | 授权 |
+| tangzhiwen | 孟赛七仓 | 农业公司；仓储操作员；90 天 EGG_FARM 出库 | 授权 |
+| songmingguang | 孟赛七仓 | 农业公司；农场经理/生产数据主管；90 天 EGG_SALES 出库 | 授权 |
+| qiantao | — | 采购员，90 天有一次 EGG_FARM 入库，但无逐仓职责依据；公司级语义本就可见公司操作仓 | 待业务确认，不强配 |
+| xiejiling | — | 组织为东鹏 SITE、legacy store 却为孟赛 SITE，身份数据冲突 | 待业务确认，不强配 |
+
+admin、GROUP 用户不写显式授权。计划新增 44 行：东鹏 `4×4=16`，孟赛 `4×7=28`。生产执行 workflow 固定账号、仓码、预期零行 baseline 与逐段断言，禁止运行时自由输入 manifest。
+
+### 11.3 代码最终态
+
+- SITE：`ACTIVE + domain=OPERATIONAL + site_code 属于绑定 SITE` 与显式授权取交集；零授权严格空集合。
+- COMPANY/REGION：公司 OPERATIONAL 仓全量，显式跨公司仓仍取并集；ROLE_ADMIN/GROUP 继续全局。
+- 操作面只承认 `domain=OPERATIONAL`，因此 `FINANCE_MAPPING` 与 `TEST` 同时从 lookup、warehouse/zone/location CRUD、WMS 写边界、日产蛋入库剥离；Chanjet 专用只读链不变。
+- `WH-0001` 行与历史事实均不修改；仅因 `domain=TEST` 不再出现在操作入口。
+
+生产写入由 `.github/workflows/warehouse-domain-a-production-configure.yml` 执行，固定为：只读预检断言 → 单事务 `INSERT RETURNING`（仓/区/位/授权）→ 独立只读复核；日志同时输出精确回滚 SQL。
