@@ -1,0 +1,168 @@
+name: Procurement Usage and Xiejiling Production Closeout
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_production:
+        description: Type APPROVE-PRC-XIEJILING-20260826
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: procurement-xiejiling-production-closeout
+  cancel-in-progress: false
+
+jobs:
+  closeout:
+    if: inputs.approve_production == 'APPROVE-PRC-XIEJILING-20260826'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Preflight, conditional update, and independent read-only regression
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          EXPECTED_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,EXPECTED_SHA
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            deployed_sha="$(git rev-parse HEAD)"
+            api_container="$(docker compose ps -q api)"
+            web_container="$(docker compose ps -q web)"
+            api_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_container")"
+            web_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_container")"
+            echo "DEPLOY_CHECKOUT_SHA=$deployed_sha"
+            echo "API_IMAGE_REVISION=$api_revision"
+            echo "WEB_IMAGE_REVISION=$web_revision"
+            test "$deployed_sha" = "$EXPECTED_SHA"
+            test "$api_revision" = "$EXPECTED_SHA"
+            test "$web_revision" = "$EXPECTED_SHA"
+
+            echo '=== PHASE 1: READ-ONLY PREFLIGHT / BEFORE IMAGE ==='
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'READONLY_GUARD' section,current_database(),current_user,current_setting('transaction_read_only') transaction_read_only;
+            DO $$ BEGIN
+              IF (SELECT count(*) FROM sys_user WHERE username='xiejiling' AND status=1 AND store_code='SITE-MENGSAI-LAYER') <> 1 THEN RAISE EXCEPTION 'xiejiling legacy before image mismatch'; END IF;
+              IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' AND uo.is_primary=true AND o.org_type='SITE' AND o.org_code='SITE-DONGPENG-LAYER') <> 1 THEN RAISE EXCEPTION 'xiejiling unique primary SITE assertion failed'; END IF;
+              IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id WHERE u.username='xiejiling' AND uo.is_primary=true) <> 1 THEN RAISE EXCEPTION 'xiejiling primary binding is not unique'; END IF;
+              IF (SELECT count(*) FROM sys_user u JOIN sys_user_warehouse_scopes s ON s.user_id=u.user_id WHERE u.username='xiejiling') <> 0 THEN RAISE EXCEPTION 'xiejiling warehouse scope changed; this closeout must not add authorization'; END IF;
+              IF (SELECT count(*) FROM sys_user u JOIN sys_user_role ur ON ur.user_id=u.user_id JOIN sys_role r ON r.role_id=ur.role_id WHERE u.status=1 AND r.role_code='ROLE_PRC_BUYER') <> 3 THEN RAISE EXCEPTION 'ROLE_PRC_BUYER active member count mismatch'; END IF;
+            END $$;
+            SELECT 'BEFORE_USER' section,u.user_id,u.username,u.real_name,u.status,u.store_code,u.perms_version FROM sys_user u WHERE u.username='xiejiling';
+            SELECT 'BEFORE_ROLES' section,r.role_code,ur.is_primary,ur.is_visible FROM sys_user u JOIN sys_user_role ur ON ur.user_id=u.user_id JOIN sys_role r ON r.role_id=ur.role_id WHERE u.username='xiejiling' ORDER BY r.role_code;
+            SELECT 'BEFORE_ORGS' section,uo.id,uo.is_primary,uo.data_scope_level,o.org_code,o.org_type,o.company_code,o.site_code FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' ORDER BY uo.is_primary DESC,uo.id;
+            SELECT 'BEFORE_PROJECT_SCOPES' section,s.* FROM sys_user u JOIN sys_user_project_scopes s ON s.user_id=u.user_id WHERE u.username='xiejiling';
+            SELECT 'BEFORE_FARM_SCOPES' section,s.* FROM sys_user u JOIN sys_user_farm_scopes s ON s.user_id=u.user_id WHERE u.username='xiejiling';
+            SELECT 'BEFORE_WAREHOUSE_SCOPES' section,s.* FROM sys_user u JOIN sys_user_warehouse_scopes s ON s.user_id=u.user_id WHERE u.username='xiejiling';
+            SELECT 'PRC_BUYERS' section,u.username,o.org_code,u.store_code FROM sys_user u JOIN sys_user_role ur ON ur.user_id=u.user_id JOIN sys_role r ON r.role_id=ur.role_id LEFT JOIN sys_user_orgs uo ON uo.user_id=u.user_id AND uo.is_primary=true LEFT JOIN sys_organizations o ON o.id=uo.org_id WHERE u.status=1 AND r.role_code='ROLE_PRC_BUYER' ORDER BY u.username;
+            ROLLBACK;
+            SQL
+
+            echo '=== PHASE 2: SINGLE TRANSACTION CONDITIONAL UPDATE ==='
+            docker compose exec -T db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN;
+            SET LOCAL lock_timeout='5s';
+            SET LOCAL statement_timeout='30s';
+            DO $$
+            DECLARE changed sys_user%ROWTYPE;
+            BEGIN
+              UPDATE sys_user
+                 SET store_code='SITE-DONGPENG-LAYER',perms_version=perms_version+1
+               WHERE username='xiejiling' AND store_code='SITE-MENGSAI-LAYER'
+               RETURNING * INTO changed;
+              IF NOT FOUND THEN RAISE EXCEPTION 'conditional xiejiling update affected zero rows'; END IF;
+              RAISE NOTICE 'UPDATED_USER user_id=% username=% store_code=% perms_version=%',changed.user_id,changed.username,changed.store_code,changed.perms_version;
+            END $$;
+            COMMIT;
+            SQL
+
+            echo '=== PHASE 3: INDEPENDENT READ-ONLY VERIFY ==='
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            DO $$ BEGIN
+              IF (SELECT count(*) FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' AND u.store_code=o.org_code AND u.store_code='SITE-DONGPENG-LAYER' AND uo.is_primary=true) <> 1 THEN RAISE EXCEPTION 'xiejiling two-track verification failed'; END IF;
+              IF (SELECT count(*) FROM sys_user u JOIN sys_user_warehouse_scopes s ON s.user_id=u.user_id WHERE u.username='xiejiling') <> 0 THEN RAISE EXCEPTION 'xiejiling warehouse scope unexpectedly changed'; END IF;
+            END $$;
+            SELECT 'AFTER_USER_AND_JWT_VERSION' section,u.user_id,u.username,u.store_code,u.perms_version,(u.perms_version-1) invalidated_previous_version FROM sys_user u WHERE u.username='xiejiling';
+            SELECT 'AFTER_PRIMARY_ORG' section,o.org_code,o.org_type,uo.is_primary FROM sys_user u JOIN sys_user_orgs uo ON uo.user_id=u.user_id JOIN sys_organizations o ON o.id=uo.org_id WHERE u.username='xiejiling' ORDER BY uo.is_primary DESC,uo.id;
+            ROLLBACK;
+            SQL
+
+            user_row="$(docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL' | tr -d '\r\n'
+            SELECT u.user_id::text||'|'||u.store_code||'|'||u.perms_version::text||'|'||coalesce(string_agg(r.role_code,',' ORDER BY r.role_code),'') FROM sys_user u LEFT JOIN sys_user_role ur ON ur.user_id=u.user_id LEFT JOIN sys_role r ON r.role_id=ur.role_id WHERE u.username='xiejiling' GROUP BY u.user_id,u.store_code,u.perms_version;
+            SQL
+            )"
+            IFS='|' read -r x_user_id x_store_code x_perms_version x_roles <<EOF
+            $user_row
+            EOF
+            old_token="$(docker compose exec -T -e AUDIT_USER_ID="$x_user_id" -e AUDIT_STORE_CODE="$x_store_code" -e AUDIT_PERMS_VERSION="$((x_perms_version-1))" -e AUDIT_ROLE_CSV="$x_roles" api node - <<'NODE'
+            const jwt=require('jsonwebtoken'); const roles=String(process.env.AUDIT_ROLE_CSV||'').split(',').filter(Boolean); process.stdout.write(jwt.sign({userId:Number(process.env.AUDIT_USER_ID),sub:Number(process.env.AUDIT_USER_ID),username:'xiejiling',role:roles[0],roles,storeCode:process.env.AUDIT_STORE_CODE,store_code:process.env.AUDIT_STORE_CODE,permissions:[],perms_version:Number(process.env.AUDIT_PERMS_VERSION),locale:'zh-CN'},process.env.JWT_SECRET,{expiresIn:'5m'}));
+            NODE
+            )"
+            old_status="$(curl --silent --output /tmp/xiejiling-old-jwt.json --write-out '%{http_code}' -H "Authorization: Bearer $old_token" https://erp.eggslao.com/api/auth/me)"
+            test "$old_status" = 401
+            grep -q 'PERMS_CHANGED' /tmp/xiejiling-old-jwt.json
+            echo "XIEJILING_OLD_JWT_STATUS=$old_status subcode=PERMS_CHANGED"
+
+            admin_row="$(docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL' | tr -d '\r\n'
+            SELECT u.user_id::text||'|'||coalesce(u.store_code,'ALL')||'|'||u.perms_version::text FROM sys_user u JOIN sys_user_role ur ON ur.user_id=u.user_id JOIN sys_role r ON r.role_id=ur.role_id WHERE u.status=1 AND r.role_code='ROLE_ADMIN' ORDER BY u.user_id LIMIT 1;
+            SQL
+            )"
+            IFS='|' read -r admin_id admin_store admin_version <<EOF
+            $admin_row
+            EOF
+            admin_token="$(docker compose exec -T -e AUDIT_USER_ID="$admin_id" -e AUDIT_STORE_CODE="$admin_store" -e AUDIT_PERMS_VERSION="$admin_version" api node - <<'NODE'
+            const jwt=require('jsonwebtoken'); process.stdout.write(jwt.sign({userId:Number(process.env.AUDIT_USER_ID),sub:Number(process.env.AUDIT_USER_ID),username:'admin',role:'ROLE_ADMIN',roles:['ROLE_ADMIN'],storeCode:process.env.AUDIT_STORE_CODE,store_code:process.env.AUDIT_STORE_CODE,permissions:['MENU_PRC2_RECEIPT:E','MENU_MD_WAREHOUSE:V','MENU_WMS_VIEW:V','MENU_SYS_MONITOR:V'],perms_version:Number(process.env.AUDIT_PERMS_VERSION),locale:'zh-CN'},process.env.JWT_SECRET,{expiresIn:'10m'}));
+            NODE
+            )"
+
+            validate_url='https://erp.eggslao.com/api/v2/procurement/receipts/validate-warehouse'
+            egg_status="$(curl --silent --output /tmp/prc-egg.json --write-out '%{http_code}' -H "Authorization: Bearer $admin_token" -H 'Content-Type: application/json' --data '{"warehouseCode":"LPH_MS_EGG_FARM"}' "$validate_url")"
+            test "$egg_status" = 400
+            grep -q '采购收货仅允许饲料/药品疫苗/采购到货/原料包材仓' /tmp/prc-egg.json
+            feed_response="$(curl --fail --silent --show-error -H "Authorization: Bearer $admin_token" -H 'Content-Type: application/json' --data '{"warehouseCode":"LPH_MS_FEED"}' "$validate_url")"
+            RESPONSE="$feed_response" node -e "const p=JSON.parse(process.env.RESPONSE);if(!p.valid||p.warehouseCode!=='LPH_MS_FEED')throw Error(JSON.stringify(p))"
+            echo 'PURCHASE_USAGE_DRYRUN=EGG_FARM:400,FEED:PASS'
+
+            legacy_status="$(curl --silent --output /tmp/prc-legacy.json --write-out '%{http_code}' -H "Authorization: Bearer $admin_token" -H 'Content-Type: application/json' --data '{"items":[]}' https://erp.eggslao.com/api/procurement/TEST-PO/confirm-receipt)"
+            test "$legacy_status" = 410
+            echo "LEGACY_RECEIPT_STATUS=$legacy_status"
+
+            admin_warehouses="$(curl --fail --silent --show-error -H "Authorization: Bearer $admin_token" https://erp.eggslao.com/api/lookup/warehouses)"
+            RESPONSE="$admin_warehouses" node -e "const p=JSON.parse(process.env.RESPONSE);const r=Array.isArray(p)?p:p.data;if(r.length!==11)throw Error('admin warehouses='+r.length);console.log('ADMIN_WAREHOUSE_COUNT='+r.length)"
+
+            linhong_row="$(docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL' | tr -d '\r\n'
+            SELECT u.user_id::text||'|'||coalesce(u.store_code,'')||'|'||u.perms_version::text||'|'||coalesce(string_agg(r.role_code,',' ORDER BY r.role_code),'') FROM sys_user u LEFT JOIN sys_user_role ur ON ur.user_id=u.user_id LEFT JOIN sys_role r ON r.role_id=ur.role_id WHERE u.username='linhong' GROUP BY u.user_id,u.store_code,u.perms_version;
+            SQL
+            )"
+            IFS='|' read -r l_user_id l_store_code l_version l_roles <<EOF
+            $linhong_row
+            EOF
+            linhong_token="$(docker compose exec -T -e AUDIT_USER_ID="$l_user_id" -e AUDIT_STORE_CODE="$l_store_code" -e AUDIT_PERMS_VERSION="$l_version" -e AUDIT_ROLE_CSV="$l_roles" api node - <<'NODE'
+            const jwt=require('jsonwebtoken');const roles=String(process.env.AUDIT_ROLE_CSV||'').split(',').filter(Boolean);process.stdout.write(jwt.sign({userId:Number(process.env.AUDIT_USER_ID),sub:Number(process.env.AUDIT_USER_ID),username:'linhong',role:roles[0],roles,storeCode:process.env.AUDIT_STORE_CODE,store_code:process.env.AUDIT_STORE_CODE,permissions:['MENU_MD_WAREHOUSE:V','MENU_WMS_VIEW:V'],perms_version:Number(process.env.AUDIT_PERMS_VERSION),locale:'zh-CN'},process.env.JWT_SECRET,{expiresIn:'10m'}));
+            NODE
+            )"
+            linhong_warehouses="$(curl --fail --silent --show-error -H "Authorization: Bearer $linhong_token" https://erp.eggslao.com/api/lookup/warehouses)"
+            RESPONSE="$linhong_warehouses" node -e "const p=JSON.parse(process.env.RESPONSE);const r=Array.isArray(p)?p:p.data;if(r.length!==4)throw Error('linhong warehouses='+r.length);console.log('LINHONG_WAREHOUSE_COUNT='+r.length)"
+
+            errors="$(curl --fail --silent --show-error -H "Authorization: Bearer $admin_token" 'https://erp.eggslao.com/api/system/error-logs/summary?hours=1&limit=20')"
+            RESPONSE="$errors" node -e "const p=JSON.parse(process.env.RESPONSE);if(Number(p.serverErrors)!==0)throw Error('serverErrors='+p.serverErrors);console.log('SYS_ERROR_LOGS_SERVER_ERRORS='+p.serverErrors)"

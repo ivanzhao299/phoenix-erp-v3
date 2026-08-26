@@ -82,6 +82,11 @@ export class ReceiptsService {
     }));
   }
 
+  async validateWarehouseUsage(warehouseCode: string) {
+    await this.wms.assertPurchaseReceiptWarehouseUsage(this.ds.manager, warehouseCode);
+    return { valid: true, warehouseCode };
+  }
+
   // ── 列表 ──────────────────────────────────────────────────────────────────
 
   async list(q: QueryReceiptDto) {
@@ -148,6 +153,7 @@ export class ReceiptsService {
         '采购收货单',
       );
       this.scopeHelper.assertWritableWarehouse(dto.warehouseCode, '采购收货单');
+      await this.wms.assertPurchaseReceiptWarehouseUsage(mgr, dto.warehouseCode);
       if (!['APPROVED', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(po.status))
         throw new ConflictException(`PO 状态 ${po.status} 不允许创建收货单`);
 
@@ -222,6 +228,7 @@ export class ReceiptsService {
         '采购收货单',
       );
       this.scopeHelper.assertWritableWarehouse(rcp.warehouseCode, '采购收货单');
+      await this.wms.assertPurchaseReceiptWarehouseUsage(mgr, rcp.warehouseCode);
       if (rcp.status === 'CONFIRMED')
         throw new ConflictException('该收货单已确认，不可重复确认');
       if (!['DRAFT', 'PARTIAL'].includes(rcp.status))

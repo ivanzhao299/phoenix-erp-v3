@@ -23,6 +23,10 @@ import {
  */
 @Injectable()
 export class WmsService {
+  private static readonly PURCHASE_RECEIPT_WAREHOUSE_TYPES = new Set([
+    'FEED', 'MEDICINE', 'PURCHASE_RECV', 'RAW_MATERIAL',
+  ]);
+
   constructor(
     @InjectEntityManager()
     private readonly em: EntityManager,
@@ -64,6 +68,23 @@ export class WmsService {
     }
     if (!scope.allowedWarehouseCodes.includes(warehouseCode)) {
       throw new ForbiddenException(`无权写入该${label}（仓库范围不匹配）`);
+    }
+  }
+
+  async assertPurchaseReceiptWarehouseUsage(
+    manager: Pick<EntityManager, 'query'>,
+    warehouseCode: string | null | undefined,
+  ): Promise<void> {
+    const normalized = String(warehouseCode ?? '').trim();
+    const [warehouse] = normalized
+      ? await manager.query(
+        `SELECT type, domain FROM wms_warehouses WHERE warehouse_code = $1 LIMIT 1`,
+        [normalized],
+      )
+      : [];
+    if (!warehouse || warehouse.domain !== 'OPERATIONAL'
+      || !WmsService.PURCHASE_RECEIPT_WAREHOUSE_TYPES.has(String(warehouse.type ?? '').toUpperCase())) {
+      throw new BadRequestException('采购收货仅允许饲料/药品疫苗/采购到货/原料包材仓');
     }
   }
 
@@ -248,6 +269,9 @@ export class WmsService {
       const inboundPolicy = resolveInboundPolicy(task.type);
       if (!inboundPolicy) {
         throw new BadRequestException(`不支持的入库类型：${task.type || '(空)'}`);
+      }
+      if (String(task.type ?? '').toUpperCase() === 'PURCHASE') {
+        await this.assertPurchaseReceiptWarehouseUsage(manager, task.warehouse_code || null);
       }
       await this.assertWritableWarehouse(task.warehouse_code || null, `入库单 ${task_no}`);
       if (task.status === 'COMPLETED') {
@@ -465,6 +489,7 @@ export class WmsService {
     const storeCode = ctx.storeCode || 'ALL';
     const operator = ctx.operator || 'SYS';
     const warehouseCode = ctx.warehouseCode || 'WMS-VTE-MAIN';
+    await this.assertPurchaseReceiptWarehouseUsage(manager, warehouseCode);
     await this.assertWritableWarehouse(warehouseCode, `采购收货 ${ctx.refNo}`);
     const batchNos: string[] = [];
     let skipped = 0;

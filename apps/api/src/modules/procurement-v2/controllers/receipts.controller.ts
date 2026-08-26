@@ -27,6 +27,12 @@ export class ReceiptsController {
   @RequireMenu('MENU_PRC2_RECEIPT', 'C')
   create(@Body() dto: CreateReceiptDto) { return this.svc.create(dto); }
 
+  @Post('receipts/validate-warehouse')
+  @RequireMenu('MENU_PRC2_RECEIPT', 'E')
+  validateWarehouse(@Body('warehouseCode') warehouseCode: string) {
+    return this.svc.validateWarehouseUsage(warehouseCode);
+  }
+
   @Post('receipts/:id/confirm')
   @RequireMenu('MENU_PRC2_RECEIPT', 'E')
   confirm(@Param('id') id: string, @Body() dto: ConfirmReceiptDto) { return this.svc.confirm(id, dto); }
