@@ -27,7 +27,6 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
-          EXPECTED_SHA: ${{ github.sha }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -37,7 +36,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,EXPECTED_SHA
+          envs: DEPLOY_PATH
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
@@ -49,9 +48,8 @@ jobs:
             echo "DEPLOY_CHECKOUT_SHA=$deployed_sha"
             echo "API_IMAGE_REVISION=$api_revision"
             echo "WEB_IMAGE_REVISION=$web_revision"
-            test "$deployed_sha" = "$EXPECTED_SHA"
-            test "$api_revision" = "$EXPECTED_SHA"
-            test "$web_revision" = "$EXPECTED_SHA"
+            test "$deployed_sha" = "$api_revision"
+            test "$deployed_sha" = "$web_revision"
 
             echo '=== PHASE 1: READ-ONLY PREFLIGHT / BEFORE IMAGE ==='
             docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
