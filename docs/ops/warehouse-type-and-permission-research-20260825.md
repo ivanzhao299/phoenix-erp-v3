@@ -377,3 +377,5 @@ admin、GROUP 用户不写显式授权。计划新增 44 行：东鹏 `4×4=16`�
 - `WH-0001` 行与历史事实均不修改；仅因 `domain=TEST` 不再出现在操作入口。
 
 生产写入由 `.github/workflows/warehouse-domain-a-production-configure.yml` 执行，固定为：只读预检断言 → 单事务 `INSERT RETURNING`（仓/区/位/授权）→ 独立只读复核；日志同时输出精确回滚 SQL。
+
+本阶段有意触碰 DataScope/RBAC 与仓储核心冻结边界；PR `#93` 已加 `reviewed-frozen-boundary`、`reviewed-security-touch`，由 CI 在新的 synchronize 事件中显式留痕复核。
