@@ -319,6 +319,7 @@ B 阶段只剥离 `FINANCE_MAPPING`，不从操作面排除 `TEST`。因此 `lin
 
 ### 10.5 A 阶段留项
 
+- 本阶段触碰 WMS 安全边界与 TS 迁移目录，PR 必须带 `reviewed-security-touch` 与 `reviewed-frozen-boundary` 两个显式审阅标签后方可合入。
 - SITE 操作仓 ∩ 显式授权、零授权 fail-closed；补齐真实的五象限账号与 HTTP 集合断言。
 - `TEST` 从操作面排除；在此之前保持 `WH-0001` 的过渡可见性。
 - facility/usage/capability 双维度治理继续冻结，本轮未触碰 `type` 语义。
