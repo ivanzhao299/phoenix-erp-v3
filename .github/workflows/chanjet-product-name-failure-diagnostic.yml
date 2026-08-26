@@ -1,0 +1,54 @@
+name: Chanjet Product Name Failure Read-only Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_readonly:
+        description: 'Read the latest persisted B1 failure evidence (zero provider calls)'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: chanjet-product-name-failure-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnostic:
+    if: inputs.approve_readonly
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate diagnostic
+        run: |
+          node --check scripts/ops/mint-production-admin-token-over-ssh.mjs
+          node --check scripts/ops/chanjet-product-name-failure-diagnostic.mjs
+      - name: Read protected production failure evidence
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$TOKEN"
+          PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/chanjet-product-name-failure-diagnostic.mjs \
+            --execute \
+            --api-base=https://erp.eggslao.com \
+            --output-dir=docs/ops/runs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chanjet-product-name-failure-diagnostic-${{ github.run_id }}
+          path: docs/ops/runs/chanjet-product-name-failure-diagnostic-latest.json
+          if-no-files-found: error
+          retention-days: 30

@@ -1274,6 +1274,35 @@ export class ChanjetCallbackController {
     }
   }
 
+  /** Read the latest persisted B1 failure evidence without calling Chanjet. */
+  @Get('integration/product-name-canary/latest-failure')
+  @RequireMenu(CHANJET_PROXY_MENU, 'E')
+  async latestIntegrationProductNameCanaryFailure() {
+    const rows = await this.ds.query(
+      `SELECT id::text, created_at, after_data
+         FROM sys_operation_logs
+        WHERE module_code=$1
+          AND action_code='CHANJET_PRODUCT_NAME_CANARY'
+          AND result_status='FAIL'
+        ORDER BY id DESC
+        LIMIT 1`,
+      [CHANJET_PROXY_MENU],
+    );
+    if (rows.length !== 1) {
+      return { success: true, result: null, readOnly: true, providerCalls: 0 };
+    }
+    return {
+      success: true,
+      result: {
+        id: String(rows[0].id),
+        createdAt: rows[0].created_at,
+        afterData: this.maskSensitive(rows[0].after_data || {}),
+      },
+      readOnly: true,
+      providerCalls: 0,
+    };
+  }
+
   @Post('integration/erp-master-gap-closure/business-review/apply')
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async applyIntegrationErpMasterBusinessReview(
