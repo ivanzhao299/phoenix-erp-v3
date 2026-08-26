@@ -1,0 +1,102 @@
+name: Warehouse Domain A Production Regression
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_two_minimal_writes:
+        description: Type WRITE-MENGSAI-DONGPENG-GRADE1-X1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: warehouse-domain-a-production-regression
+  cancel-in-progress: false
+
+jobs:
+  regression:
+    if: inputs.approve_two_minimal_writes == 'WRITE-MENGSAI-DONGPENG-GRADE1-X1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Two authorized GRADE_1 x1 production inbounds
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          probe_write() {
+            label="$1"; payload="$2"; expected_company="$3"; expected_warehouse="$4"; expected_location="$5"
+            response="$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -X POST https://erp.eggslao.com/api/v2/inventory/production-inbound --data "$payload")"
+            LABEL="$label" RESPONSE="$response" COMPANY="$expected_company" WAREHOUSE="$expected_warehouse" LOCATION="$expected_location" node - <<'NODE'
+          const body=JSON.parse(process.env.RESPONSE||'{}');
+          if(body.totalInbound!==1 || body.companyCode!==process.env.COMPANY || body.warehouseCode!==process.env.WAREHOUSE || body.locationCode!==process.env.LOCATION || !Array.isArray(body.batches) || body.batches.length!==1) throw new Error(`${process.env.LABEL}: ${JSON.stringify(body)}`);
+          console.log(`${process.env.LABEL}=${JSON.stringify(body)}`);
+          NODE
+          }
+          probe_write MENGSAI_GRADE1_X1 '{"houseCode":"HOUSE_CS_01","warehouseCode":"LPH_MS_EGG_FARM","locationCode":"CS-KW-005","eggDate":"2026-08-26","items":[{"grade":"GRADE_1","qty":1}]}' COMP-LAO-AGRI LPH_MS_EGG_FARM CS-KW-005
+          probe_write DONGPENG_GRADE1_X1 '{"houseCode":"HOUSE_DP_01","warehouseCode":"LPH_DP_EGG_FARM","locationCode":"DP-EF-L01","eggDate":"2026-08-26","items":[{"grade":"GRADE_1","qty":1}]}' COMP-LAO-XINGCHI LPH_DP_EGG_FARM DP-EF-L01
+          admin_lookup="$(curl --fail --silent --show-error -H "Authorization: Bearer $token" https://erp.eggslao.com/api/lookup/warehouses)"
+          RESPONSE="$admin_lookup" node - <<'NODE'
+          const p=JSON.parse(process.env.RESPONSE||'{}'); const rows=Array.isArray(p)?p:p.data; const codes=rows.map(x=>x.warehouseCode||x.warehouse_code).sort(); if(codes.length!==11 || codes.some(x=>x==='WH-0001'||x.startsWith('CJ-WH-'))) throw new Error(`admin=${JSON.stringify(codes)}`); console.log(`ADMIN_LOOKUP_COUNT=${codes.length}`); console.log(`ADMIN_LOOKUP_CODES=${codes.join(',')}`);
+          NODE
+          errors="$(curl --fail --silent --show-error -H "Authorization: Bearer $token" 'https://erp.eggslao.com/api/system/error-logs/summary?hours=1&limit=20')"
+          RESPONSE="$errors" node - <<'NODE'
+          const x=JSON.parse(process.env.RESPONSE||'{}'); console.log(`ERROR_WINDOW_TOTAL=${x.total}`); console.log(`ERROR_WINDOW_SERVER_ERRORS=${x.serverErrors}`); console.log(`ERROR_WINDOW_AFFECTED_PATHS=${x.affectedPaths}`); if(Number(x.serverErrors)!==0) throw new Error(JSON.stringify(x));
+          NODE
+
+      - name: Revision, DB final state, linhong HTTP scope, and error window
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
+            api_container="$(docker compose ps -q api)"; web_container="$(docker compose ps -q web)"
+            echo "API_IMAGE_REVISION=$(docker inspect -f '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$api_container")"
+            echo "WEB_IMAGE_REVISION=$(docker inspect -f '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$web_container")"
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'DOMAIN_COUNTS' section,domain,count(*) FROM wms_warehouses GROUP BY domain ORDER BY domain;
+            SELECT 'DP_WAREHOUSES' section,warehouse_code,type,domain,status,company_code,site_code FROM wms_warehouses WHERE warehouse_code LIKE 'LPH_DP_%' ORDER BY warehouse_code;
+            SELECT 'AUTH_MATRIX' section,u.username,string_agg(s.warehouse_code,',' ORDER BY s.warehouse_code) warehouses,count(*) rows FROM sys_user u JOIN sys_user_warehouse_scopes s ON s.user_id=u.user_id GROUP BY u.username ORDER BY u.username;
+            SELECT 'MINIMAL_WRITE_EVIDENCE' section,batch_no,company_code,warehouse_code,location_code,grade_code_std,qty,source_no,created_at FROM inv_batches WHERE source_type='TEMP_PRODUCTION' AND egg_date='2026-08-26' AND warehouse_code IN ('LPH_MS_EGG_FARM','LPH_DP_EGG_FARM') ORDER BY created_at DESC LIMIT 10;
+            ROLLBACK;
+            SQL
+            user_row="$(docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL' | tr -d '\r\n'
+            SELECT u.user_id::text||'|'||coalesce(u.store_code,'')||'|'||coalesce(u.perms_version,1)::text||'|'||coalesce(string_agg(r.role_code,',' ORDER BY r.role_code) FILTER (WHERE coalesce(ur.is_visible,true)),'') FROM sys_user u LEFT JOIN sys_user_role ur ON ur.user_id=u.user_id LEFT JOIN sys_role r ON r.role_id=ur.role_id WHERE u.username='linhong' AND u.status=1 GROUP BY u.user_id,u.store_code,u.perms_version;
+            SQL
+            )"
+            IFS='|' read -r user_id store_code perms_version role_csv <<EOF
+            $user_row
+            EOF
+            token="$(docker compose exec -T -e AUDIT_USER_ID="$user_id" -e AUDIT_STORE_CODE="$store_code" -e AUDIT_PERMS_VERSION="$perms_version" -e AUDIT_ROLE_CSV="$role_csv" api node - <<'NODE'
+            const jwt=require('jsonwebtoken'); const roles=String(process.env.AUDIT_ROLE_CSV||'').split(',').filter(Boolean); process.stdout.write(jwt.sign({userId:Number(process.env.AUDIT_USER_ID),sub:Number(process.env.AUDIT_USER_ID),username:'linhong',role:roles[0],roles,storeCode:process.env.AUDIT_STORE_CODE,store_code:process.env.AUDIT_STORE_CODE,permissions:['MENU_MD_WAREHOUSE:V','MENU_WMS_VIEW:V'],perms_version:Number(process.env.AUDIT_PERMS_VERSION||1),locale:'zh-CN'},process.env.JWT_SECRET,{expiresIn:'10m'}));
+            NODE
+            )"
+            response="$(curl --fail --silent --show-error -H "Authorization: Bearer $token" https://erp.eggslao.com/api/lookup/warehouses)"
+            RESPONSE="$response" node - <<'NODE'
+            const p=JSON.parse(process.env.RESPONSE||'{}'); const rows=Array.isArray(p)?p:p.data; const codes=rows.map(x=>x.warehouseCode||x.warehouse_code).sort(); const expected=['LPH_DP_EGG_FARM','LPH_DP_EGG_SALES','LPH_DP_FEED','LPH_DP_MEDICINE'].sort(); if(JSON.stringify(codes)!==JSON.stringify(expected)) throw new Error(`linhong=${JSON.stringify(codes)}`); console.log(`LINHONG_LOOKUP_COUNT=${codes.length}`); console.log(`LINHONG_LOOKUP_CODES=${codes.join(',')}`);
+            NODE
