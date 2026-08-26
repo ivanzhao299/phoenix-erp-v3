@@ -8,8 +8,14 @@
 - `sys_error_logs` 的既有 run `32798119645` 命中 2026-08-25 的 5 条生产入库 500，均为
   `INSERT has more expressions than target columns`，属于日产蛋入库旧故障，不是本次 WMS
   确认的 BadRequest 文案。
-- BadRequest 不一定写入 `sys_error_logs`；在扩充审计前，仓库中没有足够证据锁定用户所选
-  SKU。因此不做猜测性数据修正。
+- 扩充后的生产只读 run `32959405587` 锁定近期目标行：`INB-20260826-WMXI` /
+  `WI-408853`，品目 `SKU-1-TRAY36`，保存身份字段为 `item_type=SKU`、
+  `sku_code=SKU-1-TRAY36`、`product_code=PRD-EGG-1`，状态 PENDING。
+- 同一 run 证明 `SKU-1-TRAY36` 的物理状态为 ACTIVE，生效期为 2026-07-01 至
+  2030-07-28，当前位于有效窗；54 条 ACTIVE SKU 全部位于有效窗，另有 28 条 ARCHIVED。
+  因此生产事实排除目标行的 H1/H2/H3/H4，不需要数据修正。
+- 第一轮扩充审计在读取错误日志时误用列名 `path`（生产列为 `request_path`）而失败；失败发生
+  在上述只读结果输出之后，未发生任何生产写入。workflow 已修正并增加精确容器日志筛选。
 
 ## 2. 链路与根因判定
 
@@ -26,14 +32,15 @@
 
 | 假设 | 结论 | 依据 |
 |---|---|---|
-| H1 状态双轨 | 排除代码层双轨 | 档案 `GET /master-data/runtime/sku` 与 WMS 均直接读取 `product_skus.status`；Panel 只是标签展示，不另算状态 |
-| H2 生效期链路 | 确认存在系统性口径失配 | runtime `/sku/active` 过滤生效期；SKU Selector、库存品目 lookup、WMS/价格校验此前只过滤 ACTIVE |
-| H3 Selector 值域 | 确认存在 | `/product-master/skus` 与 `/lookup/inventory-items` 此前均忽略生效期，与 runtime active 不同 |
-| H4 提交值失配 | 当前管理端排除 | Selector raw → snake_case 映射正确；旧数据/其他客户端仍由确认兼容路径处理 |
+| H1 状态双轨 | 排除 | 目标 SKU 物理状态 ACTIVE；档案和 WMS 读取同一列 |
+| H2 目标 SKU 在生效期外 | 排除；但确认存在系统性口径失配 | 目标有效期 2026-07-01～2030-07-28；旧 Selector/WMS 均未过滤日期 |
+| H3 Selector 值域导致目标失败 | 排除；但值域设计失配成立 | 目标在两边均是 ACTIVE；runtime active 与产品/库存 Selector 的日期规则此前不同 |
+| H4 提交值失配 | 排除目标管理端行 | 生产保存行为 `item_type=SKU`、`sku_code=SKU-1-TRAY36`、`product_code=PRD-EGG-1` |
 
-题述“下拉可选但确认报不存在或停用”在同一数据库快照、同一现行代码下不能由过期 SKU
-单独造成，因为旧 WMS 校验也未过滤日期。可成立的剩余条件是选择后到确认前状态变化、旧客户端/
-旧单据身份值，或线上 revision 与当前源码不同。最终归因以扩充后的生产只读结果为准。
+题述“下拉可选但确认报不存在或停用”不能由目标 SKU 的当前数据或提交身份重现。生产行仍为
+PENDING，证明保存成功、失败发生在确认。剩余根因需由同一时间窗容器日志判定；优先核查生产运行
+revision/旧进程与源码不一致。若日志无该文案，则需用户再次点击确认以获得新的精确时间戳，因为
+Nest BadRequest 不保证落 `sys_error_logs`。
 
 ## 3. 语义裁定与修复
 

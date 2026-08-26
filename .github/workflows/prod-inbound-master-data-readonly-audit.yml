@@ -126,7 +126,7 @@ jobs:
               FROM wms_inbound i
              WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
              ORDER BY created_at DESC LIMIT 100;
-            SELECT 'SKU_REJECTION_ERRORS' AS section, created_at, username, path, error_message
+            SELECT 'SKU_REJECTION_ERRORS' AS section, created_at, username, request_path, error_message
               FROM sys_error_logs
              WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '30 days'
                AND (error_message ILIKE '%不存在或已停用%' OR error_message ILIKE '%不在生效期%')
@@ -159,3 +159,8 @@ jobs:
              ORDER BY created_at, batch_no;
             COMMIT;
             SQL
+            echo 'SKU_REJECTION_CONTAINER_LOGS_BEGIN'
+            docker logs --since 48h phoenix-v3-api 2>&1 \
+              | grep -E '不存在或已停用|不在生效期|SKU-1-TRAY36|WI-408853|INB-20260826-WMXI' \
+              | tail -n 200 || true
+            echo 'SKU_REJECTION_CONTAINER_LOGS_END'
