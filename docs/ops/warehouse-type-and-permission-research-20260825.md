@@ -381,3 +381,33 @@ admin、GROUP 用户不写显式授权。计划新增 44 行：东鹏 `4×4=16`�
 本阶段有意触碰 DataScope/RBAC 与仓储核心冻结边界；PR `#93` 已加 `reviewed-frozen-boundary`、`reviewed-security-touch`，由 CI 在新的 synchronize 事件中显式留痕复核。
 
 首次生产配置 run `32925143705` 在只读预检通过后，于第一条仓库 INSERT 解析时报 `wms_warehouses.store_code does not exist`；事务未产生任何写入。修复只移除冻结 seed 与生产 schema 不一致的该列，不放宽零授权 baseline、目标仓不存在、8 个 ACTIVE 账号及所有末态计数断言。
+
+### 11.4 生产数据执行与部署
+
+- PR `#93` 合入 A 阶段代码与固定生产配置 workflow；修复生产列差异的 PR `#94` 仅移除不存在的 `wms_warehouses.store_code`。
+- 生产配置 run `32925432306` 成功：只读预检 → 单事务逐行 `RETURNING` → 独立只读复核。末态为 4 个 `LPH_DP_*` OPERATIONAL/ACTIVE 仓、4 个 ACTIVE/NORMAL 库区、4 个 NORMAL 库位、44 条显式授权；授权集合与 §11.2 完全一致。
+- full production 部署 run `32925467542` 成功，target/checkout=`299ad9f4d00c7272f32136abf31d0a47b0cf9ae2`，代码同步、迁移前备份、裸 SQL、TypeORM `No migrations are pending`、Web smoke 均通过。生产回归时 checkout 仍为同一 SHA。容器对象的 `org.opencontainers.image.revision` 本次返回空值，因此只记录 target+checkout 一致，不虚构 OCI 标签 PASS。
+- PR `#95` 增加固定的 production-environment 回归 workflow；不会接受自由仓码、数量或账号输入。
+
+### 11.5 最终生产回归证据
+
+生产回归 run `32926337656` 成功：
+
+| 断言 | 生产结果 |
+|---|---|
+| domain 末态 | `FINANCE_MAPPING=9 / OPERATIONAL=11 / TEST=1` |
+| admin 操作仓 | 11：孟赛 7 + 东鹏 4；无 CJ、无 `WH-0001` |
+| linhong 操作仓 | 4：`LPH_DP_EGG_FARM/EGG_SALES/FEED/MEDICINE` |
+| 东鹏授权 | fuqiang/linhong/liushanjun/zhuhuiran 各 4 |
+| 孟赛授权 | songshoujiang/xuefeng/tangzhiwen/songmingguang 各 7 |
+| 孟赛最小入库 | `EGG-20260826-00001`，`LPH_MS_EGG_FARM / CS-KW-005 / GRADE_1 × 1` |
+| 东鹏最小入库 | `EGG-20260826-00002`，`LPH_DP_EGG_FARM / DP-EF-L01 / GRADE_1 × 1` |
+| 错误窗口 | 1 小时 total=0、serverErrors=0、affectedPaths=0 |
+
+五象限代码断言先红后绿：旧 B 断言真实失败 5 项；升级后定向 Jest 55/55。SITE 有显式授权与真实账号 `linhong` 已通过 HTTP；admin 已通过 HTTP；公司级语义和跨公司显式并集由 fixture 覆盖；SITE 零授权由 fixture 精确断言为空，生产没有为制造该象限而撤销真实账号授权。
+
+### 11.6 两步路径闭环声明
+
+两步路径 A 已闭环：东鹏正式仓及最小区位先落库，显式授权随后落库，最后上线 `SITE 操作仓 ∩ 显式授权` 与零授权 fail-closed；公司级、ROLE_ADMIN/GROUP 语义保持不变。`FINANCE_MAPPING` 与 `TEST` 只退出操作面，Chanjet 财务专用只读链和所有历史事实未改写。`WH-0001` 仍以 ACTIVE/TEST 行保留供审计追溯，但 lookup、主档 CRUD、selector、业务单据与报表不再可见或可写。
+
+回滚 SQL 已由配置 run 留痕，精确删除本轮 44 条授权、4 个东鹏库位、4 个库区和 4 个仓；一旦出现新增业务引用，不得直接删仓，应先停止并人工评审。当前两笔最小实测已形成东鹏正式仓业务引用，因此回滚只能走人工评审路径，不能自动执行删除。
