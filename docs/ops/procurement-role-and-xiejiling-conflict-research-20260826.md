@@ -309,3 +309,82 @@ SITE 时 legacy SITE 必须相等；POS 用户用专用 store 规则；不允许
 5. 中期执行 X-B + X-C，直到 `store_code` 权限消费为零，再讨论 schema 退役。
 
 本轮完成的是取证与方案；以上候选均未写入生产，也未新增授权。
+
+## 9. 执行记录：方案 C + X-A（2026-08-26）
+
+### 9.1 采购收货动作级 usage 收紧
+
+- 新采购链在 `ReceiptsService.create()` 与 `confirm()` 的既有
+  `assertWritableWarehouse()` 后叠加仓主数据校验，允许值固定为
+  `FEED/MEDICINE/PURCHASE_RECV/RAW_MATERIAL`。校验同时读取 `type/domain`，非
+  `OPERATIONAL` 或非四类仓统一返回 HTTP 400：
+  `采购收货仅允许饲料/药品疫苗/采购到货/原料包材仓`。
+- `WmsService.inboundFromReceipt()` 独立执行相同校验；通用 `confirmInbound()` 在
+  `type=PURCHASE` 的 `GENERIC_INBOUND` 路径也执行相同校验。因此收货头已校验时有
+  双层保护，其他 WMS PURCHASE 入参也不能绕过。
+- 旧 `POST /api/procurement/:poNo/confirm-receipt` 与兼容路由仍由注册模块公开，调用方
+  检索未发现当前 Web 或业务脚本使用；其实现会直插 `inv_batches`、默认 `WH-B`、不写
+  `inv_ledger` 且无 DataScope/domain 校验。两路现统一返回 HTTP 410，不再调用旧 service。
+- 新增只校验不落单的
+  `POST /api/v2/procurement/receipts/validate-warehouse`，用于生产回归，权限仍为
+  `MENU_PRC2_RECEIPT:E`，不改变库存只读权限。
+- 角色影响面是当前 `ROLE_PRC_BUYER` 全部 3 名 ACTIVE 成员：`qiantao`、
+  `fanzhenhao`、`wanglejin`；规则挂在采购动作服务，不依赖成员清单，因此未来新采购员
+  自动受保护。`MENU_WMS_VIEW` 与 DataScope 展开代码未改，EGG_FARM 等库存只读保持现状。
+
+### 9.2 回归与门禁
+
+先红后绿证据：新增用例首次运行时 EGG_FARM 入库错误地成功、旧路由仍委托 service，
+随后实现收紧并通过。最终本地结果：
+
+| 检查 | 结果 |
+|---|---|
+| API TypeScript | 0 errors |
+| Web TypeScript | 0 errors |
+| API Jest | 66 suites / 582 tests passed |
+| Web Vitest | 79 files / 440 tests passed |
+| W5 受控边界复核 | `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true`，20/20 PASS；WMS 文件的 security 文本命中是全文件 `CURRENT_TIMESTAMP` 静态误报，本轮未改好业财代码 |
+
+覆盖项包括 EGG_FARM 拒绝、FEED 成功、create/confirm 双校验、WMS PURCHASE 通用入口
+兜底、旧链 HTTP 410，且库存读取测试保持通过。
+
+### 9.3 X-A 三段生产操作与回滚
+
+生产闭环由专用 workflow
+`.github/workflows/procurement-xiejiling-production-closeout.yml` 执行，批准串为
+`APPROVE-PRC-XIEJILING-20260826`。它先核实部署 checkout/API/Web revision 完全一致，
+再按三段模式执行：
+
+1. 只读 preflight 输出 user_id、完整用户 before image、roles、orgs、project/farm/
+   warehouse scopes 与 `perms_version`；硬断言唯一主绑定为 `SITE-DONGPENG-LAYER`、旧值
+   仍为 `SITE-MENGSAI-LAYER`、warehouse scope 为 0、采购员为 3 人。
+2. 单事务条件更新仅执行
+   `UPDATE sys_user SET store_code='SITE-DONGPENG-LAYER', perms_version=perms_version+1
+   WHERE username='xiejiling' AND store_code='SITE-MENGSAI-LAYER'`；返回行数不是 1 即回滚。
+3. 独立只读复核两轨一致、warehouse scope 仍为 0，并用旧版本 JWT 请求 `/api/auth/me`
+   断言 `401/PERMS_CHANGED`。
+
+回滚 SQL 已预写如下。版本不得倒退，否则可能使更旧 JWT 重新有效；回滚采用恢复孟赛
+业务值并再次单调递增版本：
+
+```sql
+BEGIN;
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
+UPDATE sys_user
+   SET store_code='SITE-MENGSAI-LAYER',
+       perms_version=perms_version+1
+ WHERE username='xiejiling'
+   AND store_code='SITE-DONGPENG-LAYER'
+RETURNING user_id,username,store_code,perms_version;
+-- 仅核对恰好 1 行后 COMMIT，否则 ROLLBACK
+```
+
+xiejiling 调职后的东鹏仓职责尚未由业务明确，本轮不新增任何 warehouse scope、组织、
+角色或菜单授权。
+
+### 9.4 部署与生产回归结果
+
+待 PR 合入、`workflow_dispatch mode=full / approve_production=true` 完成后回填 run、revision、
+X-A before/after、无写入 usage DryRun（EGG_FARM 400、FEED PASS）、旧链 410、
+`linhong=4/admin=11` 仓集合与 `sys_error_logs` 窗口结果。
