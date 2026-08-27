@@ -1,61 +1,38 @@
-"use client";
-import { useState, useCallback } from "react";
-import { crudApi } from "@/lib/api-client";
-import { DataTable } from "@/components/data-table/DataTable";
-import { RightDrawer } from "@/components/ui/RightDrawer";
-import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-import PageHeader from "@/components/PageHeader";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { actionPill } from "@/components/design-system/cockpit-styles";
+'use client';
 
-type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
-/* g200k(2026-06-20):状态 tone + 中文 label,按 [feedback_hardcoded_english_to_chinese] */
-const STATUS_CFG: Record<string, { tone: Tone; label: string }> = {
-  PENDING:   { tone: "warning", label: "待处理" },
-  APPROVED:  { tone: "info",    label: "已审批" },
-  DELIVERED: { tone: "success", label: "已配送" },
-  DONE:      { tone: "success", label: "已完成" },
-  REJECTED:  { tone: "danger",  label: "已驳回" },
-  CANCELLED: { tone: "default", label: "已取消" },
-};
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { SkuSelector, StoreMembershipSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { usePermission } from '@/hooks/usePermission';
+import { storePosRequest } from '@/lib/store-pos-api';
 
+type Line = { skuCode:string; skuName:string; qty:number; remark?:string };
+type RequestRow = { id:number; request_no:string; store_code:string; store_name:string; source_warehouse_code?:string; target_warehouse_code:string; status:string; urgency:string; transfer_no?:string; reason:string; lines:Line[] };
 
-// ✅ V3 表: store_replenish_req
-const TABLE = "store_replenish_req";
-export default function Page() {
-  const { t } = useLanguage();
-  const COLUMNS = [{ key: "store_code", title: t('ui.门店', '门店'), width: 100 },
-      { key: "sku_code", title: t('ui.品级', '品级'), width: 110 },
-      { key: "qty", title: t('ui.申请数量', '申请数量'), width: 80 },
-      { key: "status", title: t('common.status', '状态'), width: 90, render: (v:unknown)=>{
-        const cfg = STATUS_CFG[String(v)] ?? { tone: "default" as Tone, label: String(v ?? "—") };
-        return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
-      }}];
-  const FIELDS: FormField[] = [
-    { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "text", required: true },
-    { key: "sku_code", label: t('ui.品级编码', '品级编码'), type: "text", required: true },
-    { key: "qty", label: t('ui.申请数量', '申请数量'), type: "number", required: true },
-    { key: "remark", label: t('common.remark', '备注'), type: "textarea" },
-    { key: "status", label: t('common.status', '状态'), type: "select", options: [{ label: t('status.pending', '待处理'), value: "PENDING"}, { label: t('status.approved', '已审批'), value: "APPROVED" }, { label: t('ui.已配送', '已配送'), value: "DELIVERED" }, { label: t('status.cancelled', '已取消'), value: "CANCELLED" }] },
-  ];
-  const [o,sO]=useState(false);const [e,sE]=useState<Record<string,unknown>|null>(null);
-  const [sv,sSv]=useState(false);const [rk,sRk]=useState(0);
-  const [co,sCo]=useState(false);const [dt,sDt]=useState<Record<string,unknown>|null>(null);
-  const rf=useCallback(()=>sRk(k=>k+1),[]);
-  const oN=useCallback(()=>{sE(null);sO(true);},[]);
-  const oE=useCallback((r:Record<string,unknown>)=>{sE(r);sO(true);},[]);
-  const cl=useCallback(()=>sO(false),[]);
-  const save=useCallback(async(v:Record<string,unknown>)=>{sSv(true);try{e?.id?await crudApi.update(TABLE,e.id as number,v):await crudApi.create(TABLE,v);sO(false);rf();}finally{sSv(false);}},[e,rf]);
-  const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
-  const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
-  return(<div>
-    <PageHeader
-        breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.补货申请', '补货申请')]} title={t('ui.补货申请', '补货申请')} subtitle={t('ui.管理门店补货申请', '管理门店补货申请')} />
-    <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
-    <RightDrawer open={o} title={e?t('ui.编辑补货申请', '编辑补货申请'):t('ui.新增补货申请', '新增补货申请')} onClose={cl}>
-      <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-    </RightDrawer>
-    <ConfirmDialog open={co} title={t('common.confirm', '确认删除')} message={t('ui.删除后不可恢复', '删除后不可恢复？')} onConfirm={cDel} onCancel={()=>sCo(false)} />
-  </div>);
+const statusLabels:Record<string,string>={DRAFT:'草稿',SUBMITTED:'待审批',APPROVED:'待发运',DISPATCHED:'在途',RECEIVED:'差异待确认',CLOSED:'已关闭',REJECTED:'已驳回',CANCELLED:'已取消'};
+
+export default function StoreReplenishmentPage(){
+  const perm=usePermission('MENU_STORE_REPLENISH');
+  const [rows,setRows]=useState<RequestRow[]>([]); const [storeCode,setStoreCode]=useState(''); const [source,setSource]=useState('');
+  const [warehouses,setWarehouses]=useState<any[]>([]); const [reason,setReason]=useState(''); const [urgency,setUrgency]=useState('NORMAL');
+  const [lines,setLines]=useState<Line[]>([]); const [sku,setSku]=useState<any>(null); const [qty,setQty]=useState(1); const [message,setMessage]=useState('');
+  const [detail,setDetail]=useState<any>(null);
+  const load=useCallback(async()=>{try{const data=await storePosRequest<RequestRow[]>('GET','/api/v2/store-replenishments');setRows(Array.isArray(data)?data:[])}catch(e:any){setMessage(e.message)}},[]);
+  useEffect(()=>{void load()},[load]);
+  useEffect(()=>{if(!storeCode){setWarehouses([]);return}void storePosRequest<any[]>('GET',`/api/v2/store-replenishments/source-warehouses?storeCode=${encodeURIComponent(storeCode)}`).then(setWarehouses).catch(e=>setMessage(e.message))},[storeCode]);
+  const act=async(path:string,body?:any)=>{try{await storePosRequest('POST',path,body);setMessage('操作成功');setDetail(null);await load()}catch(e:any){setMessage(e.message||'操作失败')}};
+  const create=async()=>{if(!storeCode||!lines.length)return setMessage('请选择门店并添加明细');await act('/api/v2/store-replenishments',{storeCode,sourceWarehouseCode:source||undefined,urgency,reason,lines}) ;setLines([]);setReason('')};
+  const addLine=()=>{if(!sku||qty<=0)return;setLines(prev=>{const code=sku.value||sku.raw?.sku_code;const exists=prev.find(x=>x.skuCode===code);return exists?prev.map(x=>x.skuCode===code?{...x,qty:x.qty+qty}:x):[...prev,{skuCode:code,skuName:sku.label||sku.raw?.sku_name||code,qty}]});setSku(null);setQty(1)};
+  const showTransfer=async(id:number)=>setDetail(await storePosRequest('GET',`/api/v2/store-replenishments/${id}/transfer`));
+  const receive=async(r:RequestRow)=>{const damaged=Number(prompt('破损数量（无则 0）','0')||0);if(damaged===0)return act(`/api/v2/store-replenishments/${r.id}/receive`,{receive_all:true});if(!detail||detail.transfer_no!==r.transfer_no)await showTransfer(r.id);const d=await storePosRequest<any>('GET',`/api/v2/store-replenishments/${r.id}/transfer`);const items=(d?.items||[]).map((x:any)=>({batch_no:x.source_batch_no,received_qty:Math.max(0,Number(x.expected_qty)-damaged),damaged_qty:damaged}));return act(`/api/v2/store-replenishments/${r.id}/receive`,{items})};
+  const close=async(r:RequestRow)=>{const d=await storePosRequest<any>('GET',`/api/v2/store-replenishments/${r.id}/transfer`);const resolutions=(d?.discrepancies||[]).filter((x:any)=>!x.resolved_at).map((x:any)=>({id:x.id,resolution_type:prompt(`差异 ${x.id} 处理类型 LOSS/ADJUSTMENT`,'LOSS')||'LOSS',resolution_ref:prompt(`差异 ${x.id} 关联处理单号`)||''}));if(resolutions.some((x:any)=>!x.resolution_ref))return setMessage('每条差异都必须关联报损或调整单号');return act(`/api/v2/store-replenishments/${r.id}/close`,{resolutions})};
+
+  const box:React.CSSProperties={background:'var(--surface-card)',border:'1px solid var(--border-default)',borderRadius:10,padding:16};
+  const button:React.CSSProperties={padding:'8px 14px',borderRadius:7,border:'1px solid var(--border-default)',cursor:'pointer'};
+  return <div style={{padding:24}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><h1>门店补货编排</h1><p style={{color:'var(--text-secondary)'}}>店长申请/签收/差异确认；仓管审批/发运。库存只经 WMS 调拨状态机。</p></div><Link href="/warehouse/transfer">仓储调拨台 →</Link></div>
+    {message&&<div style={{...box,marginBottom:12}} onClick={()=>setMessage('')}>{message}</div>}
+    {perm.canCreate&&<section style={{...box,marginBottom:18}}><h3>新建补货申请</h3><div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><StoreMembershipSelector value={storeCode} onChange={setStoreCode}/><select value={source} onChange={e=>setSource(e.target.value)}><option value="">同公司场站源仓（审批时可补）</option>{warehouses.map(w=><option key={w.warehouseCode} value={w.warehouseCode}>{w.warehouseCode} {w.warehouseName}</option>)}</select><select value={urgency} onChange={e=>setUrgency(e.target.value)}><option value="NORMAL">普通</option><option value="URGENT">紧急</option></select></div><div style={{display:'grid',gridTemplateColumns:'2fr 120px 100px',gap:10,marginTop:10}}><SkuSelector value={sku?.value||''} onChange={()=>{}} onPick={setSku}/><input type="number" min="0.001" step="0.001" value={qty} onChange={e=>setQty(Number(e.target.value))}/><button style={button} onClick={addLine}>添加 SKU</button></div>{lines.map((l,i)=><div key={l.skuCode} style={{display:'flex',gap:12,padding:8}}><span>{l.skuName}（{l.skuCode}）</span><b>× {l.qty}</b><button onClick={()=>setLines(x=>x.filter((_,n)=>n!==i))}>删除</button></div>)}<textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="补货原因/备注" style={{width:'100%',marginTop:8}}/><button style={{...button,marginTop:10}} onClick={create}>保存草稿</button></section>}
+    <section style={box}><h3>申请列表</h3><div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr><th>申请号</th><th>门店</th><th>源仓 → 门店仓</th><th>明细</th><th>状态</th><th>调拨单</th><th>操作</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} style={{borderTop:'1px solid var(--border-default)'}}><td>{r.request_no}</td><td>{r.store_name}<br/><small>{r.store_code}</small></td><td>{r.source_warehouse_code||'待审批'} → {r.target_warehouse_code}</td><td>{(r.lines||[]).map((x:any)=><div key={x.skuCode}>{x.skuName||x.skuCode} × {Number(x.requestedQty||x.qty)}</div>)}</td><td>{statusLabels[r.status]||r.status}</td><td>{r.transfer_no?<button onClick={()=>showTransfer(r.id)}>{r.transfer_no}</button>:'—'}</td><td><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{r.status==='DRAFT'&&perm.canCreate&&<button onClick={()=>act(`/api/v2/store-replenishments/${r.id}/submit`)}>提交</button>}{r.status==='SUBMITTED'&&perm.canApprove&&<button onClick={()=>act(`/api/v2/store-replenishments/${r.id}/approve`,{sourceWarehouseCode:r.source_warehouse_code||prompt('源仓编码')})}>审批转调拨</button>}{r.status==='APPROVED'&&perm.canEdit&&<button onClick={()=>act(`/api/v2/store-replenishments/${r.id}/dispatch`)}>发运</button>}{r.status==='DISPATCHED'&&perm.canEdit&&<button onClick={()=>receive(r)}>门店签收</button>}{r.status==='RECEIVED'&&perm.canEdit&&<><button onClick={()=>showTransfer(r.id)}>查看差异</button><button onClick={()=>close(r)}>确认差异并关闭</button><Link href="/warehouse/loss-report">建报损单</Link></>}</div></td></tr>)}</tbody></table></div></section>
+    {detail&&<section style={{...box,marginTop:16}}><h3>调拨 {detail.transfer_no} · {detail.status}</h3><p>{detail.from_warehouse} → {detail.to_warehouse}</p><h4>差异</h4>{(detail.discrepancies||[]).length?(detail.discrepancies||[]).map((d:any)=><div key={d.id}>#{d.id} {d.discrepancy_type} {d.qty} · {d.resolution_type||'待处理'} {d.resolution_ref||''}</div>):<p>无差异</p>}</section>}
+  </div>;
 }

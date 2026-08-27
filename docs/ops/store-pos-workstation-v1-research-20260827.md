@@ -739,3 +739,43 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - full 部署 run `33048907993` 成功：API/Web 镜像均构建推送，TypeORM/DDL 链、entity drift、回归与生产健康检查全部通过；部署 job 为 `Deploy · full`，不是 api-only/web-only。
 - 生产只读验收 run `33049853671` 成功：checkout/API image/Web image 三方 revision 均为 `0cd851012c3cd1dc88e4a79de52ee1f390157713`；真实 amei 短期 JWT 请求 `/contexts` 得到恰好 1 行 `STORE-HS-001`，兼容 `role=STORE_MANAGER`，权威 `roles=['CASHIER','STORE_MANAGER']`；`GET /shift?storeCode=STORE-HS-001` 返回 200；30 分钟 Store POS 错误窗口 0 行；`PRODUCTION_BUSINESS_WRITES=0`。
 - 首次只读 probe run `33049784363` 在 revision 三方一致后因 AuthService 启动输出混入 token 捕获变量而触发 curl 43，实际 contexts 请求尚未发出；修正为 JWT 正则提取后重跑成功。整个验收过程未调用 `POST /shift/open`，未开班，未执行生产业务写入。
+
+## 17. V1-3 主体实施记录：补货编排 + Terminal 收银 UI
+
+> 实施日期：2026-08-27。本文 §7/§8/§13 与组织复查 §14 仍是冻结合同；本节只追加实现和验收证据，不改写历史结论。
+
+### 17.1 补货编排
+
+- 新增 `store_replenishment_requests` / `store_replenishment_request_lines`，申请生命周期固定为 `DRAFT → SUBMITTED → APPROVED → DISPATCHED → RECEIVED → CLOSED`。头表保存 canonical store、公司、源/目标仓与 `transfer_no`；行保存 SKU、申请/审批/实收数量。
+- 店长创建时必须通过 `StoreScopePolicy.resolve(storeCode,'SALES')`，目标仓只能来自有效门店 SALES binding 与 WarehouseScope 的交集；无 membership、无门店仓或无交集均 fail-closed。
+- 仓管审批时源仓必须属于同公司 ACTIVE + OPERATIONAL 仓并命中其 WarehouseScope。审批按 SKU、效期、批次做源仓 FIFO 分配，库存不足硬阻断；成功后调用既有 WMS `createTransfer`。
+- 发运、签收、差异完成分别复用 WMS `dispatchTransfer / receiveTransfer / completeTransfer`。发运扣源库存并进入 IN_TRANSIT；门店签收按实收建目标批次；差异继续使用 `wms_transfer_discrepancies`，每条必须关联 LOSS/ADJUSTMENT 单号后才可 CLOSED。
+- `/store/replenish` 已从 `store_replenish_req` 裸 CRUD 改为申请列表、创建向导、状态动作、调拨追溯和差异处理入口。Terminal 收银台不承载补货；店长签收本轮由 Admin 页面承载。
+
+### 17.2 Terminal 触屏收银
+
+- `/terminal/store-pos` 已由入口壳升级为正式触屏 POS：membership 门店选择、班次横幅、商品网格、购物车数量增减/删除、合计、CASH/CREDIT/MIXED、资金账户、结账、开班/交班及最近销售整单退货。
+- Admin 与 Terminal 共用 `/api/v2/store-sales` scoped API、contexts、班次、价格目录与 V1-2 原子结算/精确 allocation 退货能力；本轮未新增或旁路价格逻辑。
+- 结账按钮要求 `MENU_STORE_POS:C+E`，退货入口要求 D。离线时购物车仅写入 localStorage 草稿，key 包含 schemaVersion/user/store/register；离线成交、开班、交班全部禁止。未实现挂单、离线成交、价格全序、settlement 或财务过账。
+
+### 17.3 权限种子与生产回填待确认清单
+
+迁移只 seed 菜单与标准角色的缺失授权，不回填用户、membership、仓绑定或业务单据：
+
+| role_code | MENU_STORE_REPLENISH | 职责 |
+|---|---|---|
+| `ROLE_STORE_MGR` | `V,C,E` | 查看、创建/提交、签收和差异确认 |
+| `ROLE_WMS_OP` | `V,A,E` | 查看、审批、发运 |
+| `ROLE_WMS_MGR` | `V,A,E` | 查看、审批、发运 |
+| `ROLE_CASHIER` | 无 | 不显示、不调用补货 API |
+
+部署后仍需用户确认的生产检查项：上述三角色是否存在及其既有权限是否需要合并；实际仓管用户绑定哪一个 WMS 角色；受影响用户 `perms_version` 是否需递增并重登；各店 Store Manager membership、SALES binding、源仓 WarehouseScope 是否完整。未确认前不执行额外 `sys_role_menu_permission` 手工回填。
+
+### 17.4 本地验证与线上 UAT 清单
+
+- API/Web `tsc --noEmit`：0 errors。
+- API Jest：72 suites / 628 tests 全绿；新增补货合同断言覆盖全状态链、WMS 四动作、membership/仓 scope 403 与差异追溯。
+- Web Vitest：85 files / 453 tests 全绿；新增购物车增减删除、支付方式集合、草稿隔离、离线/权限/班次门控断言。
+- 治理门禁：migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift、`git diff --check` 全绿。
+
+线上业务 UAT 由用户产生真实单据，顺序为：店长在 `/store/replenish` 建草稿并提交 → 仓管审批转调拨并发运 → 店长按全收或短缺/破损签收 → 有差异时创建报损/调整单并回填关联号 → CLOSED；随后在 `/terminal/store-pos` 选择唯一门店 → 开班 → 加购 → 依次验证 CASH/CREDIT/MIXED → 整单退货 → 交班。验证离线时只能恢复草稿且结账按钮禁用。生产 smoke 只做页面可达、非 admin 权限矩阵、跨店/跨仓 403 与错误窗口，禁止自动创建补货或销售单。

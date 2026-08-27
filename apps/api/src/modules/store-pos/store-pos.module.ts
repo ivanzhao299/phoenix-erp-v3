@@ -17,11 +17,14 @@ import { StoreAliasEntity } from './entities/store-alias.entity';
 import { StoreMembershipEntity } from './entities/store-membership.entity';
 import { StoreWarehouseBindingEntity } from './entities/store-warehouse-binding.entity';
 import { StoreIdentityGovernanceService } from './services/store-identity-governance.service';
+import { WmsModule } from '../wms/wms.module';
+import { StoreReplenishmentController } from './controllers/store-replenishment.controller';
+import { StoreReplenishmentService } from './services/store-replenishment.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([StoreEntity, StoreAliasEntity, StoreMembershipEntity, StoreWarehouseBindingEntity])],
-  controllers: [StorePosController],
-  providers:   [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreIdentityGovernanceService, { provide: StoreContextResolver, useExisting: StoreScopePolicy }],
+  imports: [WmsModule, TypeOrmModule.forFeature([StoreEntity, StoreAliasEntity, StoreMembershipEntity, StoreWarehouseBindingEntity])],
+  controllers: [StorePosController, StoreReplenishmentController],
+  providers:   [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreIdentityGovernanceService, StoreReplenishmentService, { provide: StoreContextResolver, useExisting: StoreScopePolicy }],
   exports:     [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreContextResolver, StoreIdentityGovernanceService],
 })
 export class StorePosModule {}
