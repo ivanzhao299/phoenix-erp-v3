@@ -251,6 +251,14 @@ jobs:
             BEGIN TRANSACTION READ ONLY;
             SELECT 'READONLY_GUARD' AS section, current_setting('transaction_read_only') AS read_only,
                    :'window_start' AS window_start_utc, :'window_end' AS window_end_utc;
+            SELECT 'STORE_V1_2_SCHEMA' AS section,
+                   to_regclass('public.store_sale_allocations') IS NOT NULL AS allocations_table,
+                   to_regclass('public.store_sale_adjustments') IS NOT NULL AS adjustments_table,
+                   EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='sal_store_sales' AND column_name='idempotency_key') AS idempotency_column,
+                   EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='sal_store_sales' AND column_name='warehouse_code') AS warehouse_column,
+                   to_regclass('public.uq_store_sale_payment_idempotency') IS NOT NULL AS idempotency_unique_index,
+                   to_regclass('public.uq_store_shift_open_per_store') IS NOT NULL AS one_open_shift_index,
+                   EXISTS (SELECT 1 FROM migrations WHERE name='EnforceStorePosAtomicSettlement1787878800000') AS migration_recorded;
 
             SELECT 'STORE_DOCUMENT_VOLUME' AS section, 'sal_store_sales' AS source, store_code,
                    count(*)::int AS document_count,

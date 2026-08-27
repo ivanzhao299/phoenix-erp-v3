@@ -3,6 +3,15 @@
 BEGIN TRANSACTION READ ONLY;
 SELECT 'READONLY_GUARD' AS section, current_setting('transaction_read_only') AS read_only;
 
+SELECT 'STORE_V1_2_SCHEMA' AS section,
+       to_regclass('public.store_sale_allocations') IS NOT NULL AS allocations_table,
+       to_regclass('public.store_sale_adjustments') IS NOT NULL AS adjustments_table,
+       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='sal_store_sales' AND column_name='idempotency_key') AS idempotency_column,
+       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='sal_store_sales' AND column_name='warehouse_code') AS warehouse_column,
+       to_regclass('public.uq_store_sale_payment_idempotency') IS NOT NULL AS idempotency_unique_index,
+       to_regclass('public.uq_store_shift_open_per_store') IS NOT NULL AS one_open_shift_index,
+       EXISTS (SELECT 1 FROM migrations WHERE name='EnforceStorePosAtomicSettlement1787878800000') AS migration_recorded;
+
 -- 1. legacy mst_stores -> canonical Store / SITE alias 候选；不自动判定、不写入。
 SELECT 'LEGACY_STORE_SITE_CANDIDATE' AS section, s.store_code, s.store_name, s.company_code, s.mapped_site_code,
        CASE WHEN o.org_code IS NOT NULL THEN 'SITE_MATCHED' ELSE 'SITE_REVIEW_REQUIRED' END AS mapping_status
