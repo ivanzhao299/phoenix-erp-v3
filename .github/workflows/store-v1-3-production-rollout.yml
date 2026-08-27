@@ -8,7 +8,7 @@ on:
         required: true
         default: preflight
         type: choice
-        options: [preflight]
+        options: [preflight, site]
       approve_production:
         description: Type APPROVE-STORE-V1-3-20260827
         required: true
@@ -23,13 +23,13 @@ concurrency:
 
 jobs:
   execute:
-    if: inputs.approve_production == 'APPROVE-STORE-V1-3-20260827' && inputs.phase == 'preflight'
+    if: inputs.approve_production == 'APPROVE-STORE-V1-3-20260827'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
     steps:
       - uses: actions/checkout@v5
-      - name: Production read-only preflight
+      - name: Production rollout phase
         uses: appleboy/ssh-action@v1
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
@@ -54,3 +54,10 @@ jobs:
             git show "$TARGET_SHA:scripts/store-v1-3-production-preflight.sql" \
               | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
                   sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            if [[ "${{ inputs.phase }}" == site ]]; then
+              git show "$TARGET_SHA:scripts/store-v1-3-production-site.sql" \
+                | docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+              git show "$TARGET_SHA:scripts/store-v1-3-production-site-verify.sql" \
+                | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            fi
