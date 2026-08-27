@@ -1,0 +1,54 @@
+name: Chanjet Product Name Preflight Failure Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_readonly:
+        description: 'Read the latest persisted product-name preflight failure (zero provider calls)'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: chanjet-product-name-preflight-failure-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnostic:
+    if: inputs.approve_readonly
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read latest sanitized preflight failure over SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_PATH
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            docker compose exec -T db sh -c \
+              'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At' <<'SQL'
+            SELECT json_build_object(
+              'id', id::text,
+              'createdAt', created_at,
+              'resultStatus', result_status,
+              'error', after_data->>'error',
+              'writeChanjet', COALESCE(after_data->>'writeChanjet', 'false')
+            )::text
+            FROM sys_operation_logs
+            WHERE module_code = 'MENU_SETTINGS_CHANJET'
+              AND action_code = 'CHANJET_PRODUCT_NAME_PREFLIGHT'
+              AND result_status = 'FAIL'
+            ORDER BY created_at DESC
+            LIMIT 1;
+            SQL
