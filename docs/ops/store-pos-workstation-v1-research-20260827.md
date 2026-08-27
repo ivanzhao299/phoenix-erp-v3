@@ -848,3 +848,17 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - 生产 workflow 增加 amei contexts 两个布尔字段硬断言，并实际 GET `source-warehouses?storeCode=STORE-HS-001`；该 GET 会先执行 `resolve()`，因此 200 是目标门店仓交集的运行时证据。部署 revision、错误窗口与 `PRODUCTION_BUSINESS_WRITES=0` 继续硬断言。
 
 本地完整验证已通过：API/Web `tsc --noEmit` 均 0 errors；API Jest 72 suites / 630 tests、Web Vitest 85 files / 456 tests 全绿；migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift、三语 i18n key parity、硬编码 UI 文案覆盖与 `git diff --check` 全绿。PR/CI/full 部署及修复后生产 revision/错误窗口记录在本节后续追加；未完成前不提前记生产 PASS。
+
+#### PR、部署与生产复验
+
+- PR `#123` 全绿后合入 main，merge SHA `4190a7fe55d8f77e1c7b75fd17e81290cdde2e56`；main push 的 Security、Web Vitest、Build/API Jest 及带 PostgreSQL 的全回归四条流水线全部成功。
+- full 生产部署 run `33058701038` 成功：明确 `mode=full`、`approve_production=true`，API/Web 镜像构建、迁移末态、entity drift、容器健康与 SSH 发布全部通过；未运行 membership、WarehouseScope 或角色授权回填。
+- 修复后专用只读 run `33059216618` 成功：checkout/API image/Web image 三方 revision 均为 `4190a7fe55d8f77e1c7b75fd17e81290cdde2e56`。
+- amei 短期 token 请求 `/contexts` 得到恰好 1 行：`STORE-HS-001`、`role=STORE_MANAGER`、`roles=CASHIER,STORE_MANAGER`、`hasSalesWarehouse=true`、`hasWarehouseScopeIntersection=true`。这同时证明 Terminal 与补货共用 selector 的生产数据源非空。
+- `GET /api/v2/store-replenishments` 200；`GET /api/v2/store-replenishments/source-warehouses?storeCode=STORE-HS-001` 200。后者必先执行 `resolve()`，因此确证 amei 的会晒销售仓 binding 与运行时完整 WarehouseScope 存在交集，H2 不成立。
+- `GET /api/v2/store-sales/shift?storeCode=STORE-HS-001` 200；零补货权限对照账号 `cashier` 请求补货为 403，证明修复未放宽权限。
+- 30 分钟 Store POS 错误窗口 0 行，`PRODUCTION_BUSINESS_WRITES=0`。本轮没有执行开班、建补货、销售或任何授权数据写入。
+- 为关闭“完整 WarehouseScope 逐仓明细”证据缺口，专用只读 run `33059425059` 通过生产 `DataScopeService.resolve()` 输出排序后的 `allowedWarehouseCodes` 全集并通过硬断言：
+  - `amei` 8 仓：`LPH_DP_EGG_FARM`、`LPH_DP_EGG_SALES`、`LPH_DP_FEED`、`LPH_DP_MEDICINE`、`ST_LAO_XINGCHI_DP_001_SALES`、`ST_LAO_XINGCHI_HS_001_SALES`、`ST_LAO_XINGCHI_XB_001_SALES`、`ST_LAO_XINGCHI_XC_001_SALES`；明确包含会晒门店仓。
+  - `cashier` 13 仓：`LPH_MS_EGG_FARM`、`LPH_MS_EGG_SALES`、`LPH_MS_FEED`、`LPH_MS_FINISHED`、`LPH_MS_MEDICINE`、`LPH_MS_PURCHASE`、`LPH_MS_RAW`、`ST_LAO_AGRI_BKX_001_SALES`、`ST_LAO_AGRI_LPB_001_SALES`、`ST_LAO_AGRI_MX_001_SALES`、`ST_LAO_AGRI_PSL_001_SALES`、`ST_LAO_AGRI_VTE_001_SALES`、`ST_LAO_AGRI_VTE_WH_001_SALES`；明确包含万象门店仓。
+  - 同一 run 再次确认三方 production revision 为 `4190a7fe55d8f77e1c7b75fd17e81290cdde2e56`、amei contexts 单行、目标仓交集 true、错误窗口 0、生产业务写入 0。H2 由完整运行时仓集合与 endpoint 两层证据共同推翻。
