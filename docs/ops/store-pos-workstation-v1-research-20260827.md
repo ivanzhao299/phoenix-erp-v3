@@ -561,6 +561,7 @@ flowchart TB
 - 五象限：Cashier 有交集、Cashier 空交集、多店 Manager、Finance 无 membership、Admin/GROUP global 仍需 binding。
 - legacy：一致计数但不告警、不一致计指标/结构化日志且不改结果、零 membership 拒绝。
 - 越权路径：共享 policy contract 覆盖 sale list/detail/create、三种 pay、void/return、products/summary，以及 shift open/current/close/history；Admin 与 Terminal 使用同一 scoped client/contexts endpoint。直接 HTTP 无法绕过 service policy。
+- 冻结/安全边界经本任务授权范围复核，PR 使用 `reviewed-frozen-boundary` 与 `reviewed-security-touch` 留痕；本地显式复核 W5 20/20 PASS。三语 i18n parity 与 hardcoded literal gate（uncovered=0）通过。
 - V1-1 只完成身份和门禁，不宣称可生产开售。FIFO、成交原子性、allocation/tender/settlement、支付幂等、价格全序、退货精确反向仍由 V1-2/V1-4 处理。
 
 ### 15.4 回滚与遗留风险
