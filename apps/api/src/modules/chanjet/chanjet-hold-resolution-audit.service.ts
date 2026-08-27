@@ -249,6 +249,20 @@ function productDomain(name: string): 'LIVESTOCK' | 'FEED' | 'PACKAGING' | 'PROC
   return 'OTHER';
 }
 
+function canonicalAuditValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .map(canonicalAuditValue)
+      .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  }
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, canonicalAuditValue(item)]),
+  );
+}
+
 @Injectable()
 export class ChanjetHoldResolutionAuditService {
   constructor(
@@ -303,7 +317,9 @@ export class ChanjetHoldResolutionAuditService {
     return {
       generatedAt: new Date().toISOString(),
       sourceReviewHash: plan.reviewHash,
-      auditHash: createHash('sha256').update(JSON.stringify(canonical)).digest('hex'),
+      auditHash: createHash('sha256')
+        .update(JSON.stringify(canonicalAuditValue(canonical)))
+        .digest('hex'),
       decision: items.some((item) => item.chanjetChangeProposal || item.autoApplyEligible)
         ? 'OPTIMIZATION_CANDIDATES_READY'
         : 'HOLD',

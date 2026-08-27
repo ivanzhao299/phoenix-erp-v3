@@ -49,6 +49,23 @@ function createService(
 }
 
 describe('ChanjetHoldResolutionAuditService', () => {
+  it('keeps the audit hash stable when database-backed evidence sets change order', async () => {
+    const firstCandidate = candidate({ mappingId: '1' });
+    const secondCandidate = candidate({
+      mappingId: '2',
+      chanjetCode: '002',
+      chanjetId: 'SOURCE-2',
+      chanjetName: '鸡舍',
+      mappingType: 'DEPARTMENT',
+    });
+    const first = createService([firstCandidate, secondCandidate]);
+    const second = createService([secondCandidate, firstCandidate]);
+
+    const [firstAudit, secondAudit] = await Promise.all([first.audit(), second.audit()]);
+
+    expect(firstAudit.auditHash).toBe(secondAudit.auditHash);
+  });
+
   it('separates intentional non-mapping, source repair and ERP policy rows', async () => {
     const service = createService([
       candidate({
