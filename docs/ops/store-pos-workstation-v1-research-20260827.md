@@ -805,3 +805,46 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - 用户业务 UAT 仍按 §17.4 清单执行，状态为 **待用户执行**。
 - 17.5 三缺口只读收尾：首次参数化 probe run `33055747106` 已证明 production checkout/API/Web revision 三方同为 `c1d733219b2f03c5406f620da53d4f5c83f5c689`，并完成 amei contexts 单行、补货 GET 200、前端同款 `check('C')=true`、零权限 `cashier` GET 403；随后仅因生产 checkout 不含新加的本地 SQL 文件而在 SQL 阶段失败，不记为整轮 PASS。将 SQL 内嵌 workflow 后重跑 `33055879386` 全部成功：上述 HTTP/JWT 断言再次 PASS，角色末态四行、WMS 角色/用户、44 行 ACTIVE 仓管×11 源仓覆盖矩阵、受影响用户 `perms_version` 与 bump trigger 一次 run 全量输出；只读事务 `transaction_read_only=on` 并 COMMIT 只读事务，错误窗口 0，`PRODUCTION_BUSINESS_WRITES=0`。三个缺口均已关闭，权限/仓范围调整仍按 §17.3 待用户确认清单执行。
 - Revision 修正采用生产 checkout 动态基准：`EXPECTED_REVISION="$(git rev-parse HEAD)"`，继续硬断言 API/Web OCI revision 与 checkout 完全一致，不把 workflow 自身 SHA 误当已部署 SHA。`.github/workflows` 全量 40 位 SHA 检索仅发现并移除了这一处硬编码；其他只读 workflow 没有固定 revision 常量，故本轮未扩大改造范围。
+
+### 17.6 Terminal/补货门店下拉空数据复查与同类收口
+
+#### 根因结论与假设裁决
+
+确证根因是 **H1 的授权语义遇上共享 selector 空态缺陷**：`/contexts` 只认当前用户有效 `store_memberships`，`ROLE_ADMIN` 不自动获得门店 membership；合法空数组与 401/403/5xx 又都被 `ScopedSelect` 收敛为普通“请选择门店”，线上因此表现为“下拉坏了”。权限本身没有放宽，也没有执行 membership 或 WarehouseScope 回填。
+
+| 假设 | 结论 | 证据 |
+|---|---|---|
+| H1 无 membership | **证实为可复现根因** | Terminal、补货、Admin POS 三者均调用 `StoreMembershipSelector → loadStorePosContexts → GET /api/v2/store-sales/contexts`；服务 SQL 只取 `m.user_id=$1` 的 ACTIVE/有效期 membership。admin/刘善军无 membership 时按合同返回 `[]`，admin 角色只绕过菜单/DataScope，不凭空创建 membership。 |
+| H2 新页过滤更严/仓 scope 交集为空 | **推翻其“导致 selector 空”的部分** | `/contexts` 只按 membership、门店 ACTIVE/有效期及公司 DataScope 过滤；仓绑定只形成布尔标志，原实现不按 `hasSalesWarehouse` 或 WarehouseScope 交集删除门店。生产 run `33055879386` 中 amei contexts 恰好一行 `STORE-HS-001`，补货列表 GET 与 shift GET 均 200。修复后契约显式返回 `hasWarehouseScopeIntersection`，无交集门店禁选并给原因，但仍不把它伪装成空 membership。 |
+| H3 两新页客户端端点/鉴权/解析不同 | **推翻** | 三页共用同一 loader；`storePosRequest` 统一去 `/api` 前缀，`api-client` 从 `sessionStorage.phoenix_token` 注入 Bearer，并统一解析 `response.data ?? response`。未认证实测 `/contexts` 为 401。 |
+| H4 16.7 聚合回归 | **推翻** | `e18def10` 只在同一 DataScope 过滤后按 store identity 聚合多角色，新增 `roles[]` 并保留 `role`；SQL membership/ACTIVE/有效期/仓绑定条件、无分页响应均未改变。生产 amei 双角色已稳定聚合成单行。 |
+
+账号/页面预期矩阵：
+
+| 账号 | membership / 角色事实 | `/store-pos` | `/terminal/store-pos` | `/store/replenish` |
+|---|---|---|---|---|
+| `amei` | `STORE-HS-001`，`CASHIER + STORE_MANAGER` | 应见会晒直营店；旧页还会优先恢复 `phoenix_store_info`，但恢复项也必须存在于本次 contexts | 应自动选中会晒直营店 | 应见会晒直营店，且有 `MENU_STORE_REPLENISH:V,C,E` |
+| `cashier` | `STORE-VTE-001`，`CASHIER` | 应见万象店 | 应见万象店 | 角色无补货菜单，页面/API应 403，而不是授予门店补货能力 |
+| `admin` | 若无显式 membership | contexts 合法为空；旧 session 不能越过当前 contexts 校验 | 合法为空，显示“当前账号无门店授权” | 即使菜单为全局也无门店 membership，显示同一授权原因 |
+| `liushanjun` / 刘善军 | WMS Manager；生产只读矩阵证明东鹏 4 仓 scope，但没有门店 membership 证据 | 合法为空 | 合法为空 | 可按 WMS 角色看/处理授权仓相关申请，但不能冒充店长创建门店申请 |
+
+“旧页可见、新页全空”的差异不是数据源差异：V1-3 前 amei 在 Admin POS 可见并开班，证明的是 **amei 当时的 membership、菜单和门店仓链有效**；Terminal 首次进入直接取 `contexts[0]`，补货新建也必须现场选择 contexts。若部署后换成 admin/刘善军测试，新页会合法为空；旧 Admin 页视觉上还可能保留 session 中的门店名称，但初始化仍会用当前 contexts 校验，不能据此推导该账号获得门店授权。若同一时刻同一 amei token 三页结果不同，应按客户端缓存/revision 故障处理；当前生产只读 probe 已证明部署 revision 上 amei API 非空。
+
+#### 同类页面盘点
+
+| 页面/消费者 | 数据源与过滤 | 修复前空态 | 本轮处理 |
+|---|---|---|---|
+| `/store-pos`、`/terminal/store-pos`、`/store/replenish` | membership `/contexts`；ACTIVE/有效期 + 公司 DataScope | 合法空与服务错误均只剩 placeholder | 统一区分“无 membership / 服务失败”；仓未绑定、仓 scope 无交集分别标注并禁选 |
+| `/packaging/exceptions`、`/warehouse/outbound` | `CrudForm(type=store) → StoreSelector → /lookup/stores`；当前字段未传公司过滤 | 空与错误均只剩 placeholder | 共享 selector 统一显示“当前数据范围内无可用门店 / 门店服务加载失败” |
+| `/settings/users/[id]` legacy `store_code` | `/organizations/by-type?type=STORE`，客户端保留 ACTIVE | catch 静默，空与错误不可分 | 显式检查 HTTP status，并区分无可用门店与服务失败；该字段仍不是 membership 授权源 |
+
+补货申请列表原来空 `<tbody>` 无文案，本轮补“暂无补货申请”；Terminal 首屏合法空 membership 同时给页面级消息，避免用户只盯顶部下拉而错过原因。
+
+#### 修复与验证设计
+
+- 后端 contexts 新增 `hasWarehouseScopeIntersection`：由有效 SALES binding 与运行时 `allowedWarehouseCodes` 直接计算；global 仍要求真实有效 binding，不绕过 fail-closed。
+- 前端 option 只有在未绑定有效销售仓或 WarehouseScope 无交集时禁选；合法 membership 仍可见并显示精确修复指引。
+- 红测已先复现 3/3 失败：合法空 membership、服务 reject、仓 scope 无交集；实现后 Web 定向 7/7、API StoreScopePolicy 12/12 通过。
+- 生产 workflow 增加 amei contexts 两个布尔字段硬断言，并实际 GET `source-warehouses?storeCode=STORE-HS-001`；该 GET 会先执行 `resolve()`，因此 200 是目标门店仓交集的运行时证据。部署 revision、错误窗口与 `PRODUCTION_BUSINESS_WRITES=0` 继续硬断言。
+
+本地完整验证已通过：API/Web `tsc --noEmit` 均 0 errors；API Jest 72 suites / 630 tests、Web Vitest 85 files / 456 tests 全绿；migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift 与 `git diff --check` 全绿。PR/CI/full 部署及修复后生产 revision/错误窗口记录在本节后续追加；未完成前不提前记生产 PASS。

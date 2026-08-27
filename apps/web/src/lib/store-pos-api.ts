@@ -14,6 +14,7 @@ export interface StorePosContextOption {
   role: string;
   roles: string[];
   hasSalesWarehouse: boolean;
+  hasWarehouseScopeIntersection: boolean;
 }
 
 export const loadStorePosContexts = () => storePosRequest<StorePosContextOption[]>('GET', '/api/v2/store-sales/contexts');
