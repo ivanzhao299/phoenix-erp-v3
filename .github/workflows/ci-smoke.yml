@@ -117,7 +117,6 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
-          EXPECTED_REVISION: 0cd851012c3cd1dc88e4a79de52ee1f390157713
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -127,12 +126,13 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,EXPECTED_REVISION
+          envs: DEPLOY_PATH
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
 
             CHECKOUT_REVISION="$(git rev-parse HEAD)"
+            EXPECTED_REVISION="$CHECKOUT_REVISION"
             API_REVISION="$(docker inspect "$(docker compose ps -q api)" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
             WEB_REVISION="$(docker inspect "$(docker compose ps -q web)" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
             test "$CHECKOUT_REVISION" = "$EXPECTED_REVISION"
@@ -159,6 +159,28 @@ jobs:
             unset TOKEN_RAW
             test -n "$TOKEN"
 
+            docker compose exec -T api node - <<'NODE'
+            const { NestFactory } = require('@nestjs/core');
+            const { AppModule } = require('./dist/app.module');
+            const { AuthService } = require('./dist/auth/auth.service');
+            const { DataScopeService } = require('./dist/modules/org/services/data-scope.service');
+            (async () => {
+              const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+              try {
+                for (const [username, expected] of [['amei', 'ST_LAO_XINGCHI_HS_001_SALES'], ['cashier', 'ST_LAO_AGRI_VTE_001_SALES']]) {
+                  const session = await app.get(AuthService).login(username, '', '127.0.0.1', { bypassPassword: true });
+                  const payload = JSON.parse(Buffer.from(session.token.split('.')[1], 'base64url').toString('utf8'));
+                  const scope = await app.get(DataScopeService).resolve(String(payload.userId), payload.roles || [], 'MENU_STORE_POS', payload.permsVersion);
+                  const codes = [...scope.allowedWarehouseCodes].sort();
+                  if (!codes.includes(expected)) throw new Error(`${username} WarehouseScope missing ${expected}: ${codes.join(',')}`);
+                  console.log(`WAREHOUSE_SCOPE_ASSERTION=PASS username=${username} count=${codes.length} codes=${codes.join(',')}`);
+                }
+              } finally {
+                await app.close();
+              }
+            })().catch(error => { console.error(error?.message || error); process.exit(1); });
+            NODE
+
             CONTEXTS_JSON="$(curl -fsS -H "Authorization: Bearer $TOKEN" https://erp.eggslao.com/api/v2/store-sales/contexts)"
             CONTEXTS_JSON="$CONTEXTS_JSON" node - <<'NODE'
             const body = JSON.parse(process.env.CONTEXTS_JSON || 'null');
@@ -168,12 +190,164 @@ jobs:
             if (row.storeCode !== 'STORE-HS-001') throw new Error(`storeCode=${row.storeCode}`);
             if (row.role !== 'STORE_MANAGER') throw new Error(`role=${row.role}`);
             if (JSON.stringify(row.roles) !== JSON.stringify(['CASHIER', 'STORE_MANAGER'])) throw new Error(`roles=${JSON.stringify(row.roles)}`);
-            console.log(`CONTEXT_ASSERTIONS=PASS count=${rows.length} store=${row.storeCode} role=${row.role} roles=${row.roles.join(',')}`);
+            if (row.hasSalesWarehouse !== true) throw new Error(`hasSalesWarehouse=${row.hasSalesWarehouse}`);
+            if (row.hasWarehouseScopeIntersection !== true) throw new Error(`hasWarehouseScopeIntersection=${row.hasWarehouseScopeIntersection}`);
+            console.log(`CONTEXT_ASSERTIONS=PASS count=${rows.length} store=${row.storeCode} role=${row.role} roles=${row.roles.join(',')} salesWarehouse=true warehouseScopeIntersection=true`);
+            NODE
+
+            REPLENISH_STATUS="$(curl -sS -o /tmp/store-pos-amei-replenishments.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments')"
+            test "$REPLENISH_STATUS" = "200"
+            echo "REPLENISH_GET_ASSERTION=PASS status=$REPLENISH_STATUS"
+
+            SOURCE_WAREHOUSE_STATUS="$(curl -sS -o /tmp/store-pos-amei-source-warehouses.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments/source-warehouses?storeCode=STORE-HS-001')"
+            test "$SOURCE_WAREHOUSE_STATUS" = "200"
+            echo "REPLENISH_SOURCE_WAREHOUSE_ASSERTION=PASS status=$SOURCE_WAREHOUSE_STATUS target_scope_intersection=true"
+
+            TOKEN="$TOKEN" node - <<'NODE'
+            const payload = JSON.parse(Buffer.from(process.env.TOKEN.split('.')[1], 'base64url').toString('utf8'));
+            const permissions = Array.isArray(payload.permissions) ? payload.permissions : [];
+            const entry = permissions.find(value => value.startsWith('MENU_STORE_REPLENISH:'));
+            const granted = new Set(entry?.split(':')[1]?.split(',').map(value => value.trim()) || []);
+            if (!(permissions.includes('*') || granted.has('C'))) throw new Error(`MENU_STORE_REPLENISH check('C')=false entry=${entry || 'NONE'}`);
+            console.log(`REPLENISH_CREATE_UI_PERMISSION=PASS check_C=true entry=${entry}`);
             NODE
 
             SHIFT_STATUS="$(curl -sS -o /tmp/store-pos-amei-shift.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-sales/shift?storeCode=STORE-HS-001')"
             test "$SHIFT_STATUS" = "200"
             echo "SHIFT_GET_ASSERTION=PASS status=$SHIFT_STATUS"
+
+            ZERO_USER="$(docker compose exec -T db sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atf -' <<'SQL' | tr -d '\r\n'
+            SELECT u.username
+            FROM sys_user u
+            JOIN sys_user_role ur ON ur.user_id=u.user_id AND COALESCE(ur.is_visible,true)=true
+            JOIN sys_role cashier ON cashier.role_id=ur.role_id AND cashier.role_code='ROLE_CASHIER'
+            WHERE u.status=1 AND u.username <> 'amei'
+              AND NOT EXISTS (
+                SELECT 1 FROM sys_user_role ur2
+                JOIN sys_role_menu_permission rmp ON rmp.role_id=ur2.role_id
+                JOIN sys_menu m ON m.menu_id=rmp.menu_id
+                WHERE ur2.user_id=u.user_id AND COALESCE(ur2.is_visible,true)=true
+                  AND m.menu_code='MENU_STORE_REPLENISH' AND 'V'=ANY(string_to_array(rmp.perm_codes,','))
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM sys_user_role ur3
+                JOIN sys_role_permission_set rps ON rps.role_id=ur3.role_id
+                JOIN sys_permission_set_item psi ON psi.set_id=rps.set_id
+                JOIN sys_menu m ON m.menu_id=psi.menu_id
+                WHERE ur3.user_id=u.user_id AND COALESCE(ur3.is_visible,true)=true
+                  AND m.menu_code='MENU_STORE_REPLENISH' AND 'V'=ANY(string_to_array(psi.perm_codes,','))
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM sys_user_permission_set ups
+                JOIN sys_permission_set_item psi ON psi.set_id=ups.set_id
+                JOIN sys_menu m ON m.menu_id=psi.menu_id
+                WHERE ups.user_id=u.user_id AND m.menu_code='MENU_STORE_REPLENISH'
+                  AND 'V'=ANY(string_to_array(psi.perm_codes,','))
+              )
+            ORDER BY u.username LIMIT 1;
+            SQL
+            )"
+            test -n "$ZERO_USER"
+            ZERO_TOKEN_RAW="$(docker compose exec -T -e PHOENIX_PROBE_USERNAME="$ZERO_USER" api node - <<'NODE'
+            const { NestFactory } = require('@nestjs/core');
+            const { AppModule } = require('./dist/app.module');
+            const { AuthService } = require('./dist/auth/auth.service');
+            (async () => {
+              const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+              try {
+                const session = await app.get(AuthService).login(process.env.PHOENIX_PROBE_USERNAME, '', '127.0.0.1', { bypassPassword: true });
+                process.stdout.write(session.token);
+              } finally { await app.close(); }
+            })().catch(error => { console.error(error?.message || error); process.exit(1); });
+            NODE
+            )"
+            ZERO_TOKEN="$(printf '%s' "$ZERO_TOKEN_RAW" | grep -Eo 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' | tail -1)"
+            unset ZERO_TOKEN_RAW
+            test -n "$ZERO_TOKEN"
+            ZERO_STATUS="$(curl -sS -o /tmp/store-pos-zero-replenishments.json -w '%{http_code}' -H "Authorization: Bearer $ZERO_TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments')"
+            test "$ZERO_STATUS" = "403"
+            echo "REPLENISH_ZERO_PERMISSION_ASSERTION=PASS username=$ZERO_USER status=$ZERO_STATUS"
+
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT current_setting('transaction_read_only') AS readonly_guard;
+            WITH expected(role_code,expected_perm) AS (VALUES
+              ('ROLE_STORE_MGR','V,C,E'),('ROLE_WMS_OP','V,A,E'),
+              ('ROLE_WMS_MGR','V,A,E'),('ROLE_CASHIER',NULL::text)
+            )
+            SELECT e.role_code,e.expected_perm,r.status AS role_status,p.perm_codes AS actual_perm,
+                   COALESCE(p.deny_codes,'') AS deny_codes,
+                   CASE WHEN e.expected_perm IS NULL THEN p.role_id IS NULL
+                        ELSE string_to_array(p.perm_codes,',') @> string_to_array(e.expected_perm,',')
+                          AND string_to_array(e.expected_perm,',') @> string_to_array(p.perm_codes,',')
+                          AND COALESCE(p.deny_codes,'')='' END AS assertion_pass
+            FROM expected e LEFT JOIN sys_role r ON r.role_code=e.role_code
+            LEFT JOIN (sys_role_menu_permission p JOIN sys_menu m ON m.menu_id=p.menu_id AND m.menu_code='MENU_STORE_REPLENISH') ON p.role_id=r.role_id
+            ORDER BY e.role_code;
+            DO $$ BEGIN
+              IF EXISTS (
+                WITH expected(role_code,expected_perm) AS (VALUES
+                  ('ROLE_STORE_MGR','V,C,E'),('ROLE_WMS_OP','V,A,E'),
+                  ('ROLE_WMS_MGR','V,A,E'),('ROLE_CASHIER',NULL::text)
+                )
+                SELECT 1 FROM expected e LEFT JOIN sys_role r ON r.role_code=e.role_code
+                LEFT JOIN (sys_role_menu_permission p JOIN sys_menu m ON m.menu_id=p.menu_id AND m.menu_code='MENU_STORE_REPLENISH') ON p.role_id=r.role_id
+                WHERE r.role_id IS NULL OR (e.expected_perm IS NULL AND p.role_id IS NOT NULL)
+                   OR (e.expected_perm IS NOT NULL AND (p.role_id IS NULL OR COALESCE(p.deny_codes,'')<>''
+                     OR NOT (string_to_array(p.perm_codes,',') @> string_to_array(e.expected_perm,',')
+                       AND string_to_array(e.expected_perm,',') @> string_to_array(p.perm_codes,','))))
+              ) THEN RAISE EXCEPTION 'ROLE_SEED_FINAL_ASSERTIONS_FAILED'; END IF;
+            END $$;
+            SELECT 'ROLE_SEED_FINAL_ASSERTIONS=PASS' AS result;
+            SELECT wanted.role_code,r.status AS role_status,u.user_id,u.username,u.real_name,
+                   u.status AS user_status,COALESCE(ur.is_visible,true) AS is_visible,u.perms_version
+            FROM (VALUES ('ROLE_WMS_OP'),('ROLE_WMS_MGR')) wanted(role_code)
+            LEFT JOIN sys_role r ON r.role_code=wanted.role_code
+            LEFT JOIN sys_user_role ur ON ur.role_id=r.role_id
+            LEFT JOIN sys_user u ON u.user_id=ur.user_id
+            ORDER BY wanted.role_code,u.username;
+            WITH wms_users AS (
+              SELECT DISTINCT u.user_id,u.username FROM sys_user u
+              JOIN sys_user_role ur ON ur.user_id=u.user_id AND COALESCE(ur.is_visible,true)=true
+              JOIN sys_role r ON r.role_id=ur.role_id
+              WHERE r.role_code IN ('ROLE_WMS_OP','ROLE_WMS_MGR') AND u.status=1
+            ), target_warehouses AS (
+              SELECT warehouse_code,company_code,site_code FROM wms_warehouses
+              WHERE status='ACTIVE' AND domain='OPERATIONAL'
+                AND (warehouse_code LIKE 'LPH_MS_%' OR warehouse_code LIKE 'LPH_DP_%')
+            ), org_scope AS (
+              SELECT wu.user_id,tw.warehouse_code,
+                     bool_or(o.org_type='SITE') FILTER (WHERE o.id IS NOT NULL) AS has_site,
+                     bool_or(o.org_type='SITE' AND o.site_code=tw.site_code) AS site_match,
+                     bool_or(o.company_code=tw.company_code AND o.org_type<>'SITE') AS company_match,
+                     bool_or(o.warehouse_code=tw.warehouse_code) AS org_warehouse_match
+              FROM wms_users wu CROSS JOIN target_warehouses tw
+              LEFT JOIN sys_user_orgs uo ON uo.user_id=wu.user_id
+              LEFT JOIN sys_organizations o ON o.id=uo.org_id
+              GROUP BY wu.user_id,tw.warehouse_code
+            )
+            SELECT wu.username,tw.warehouse_code,tw.site_code,
+                   EXISTS (SELECT 1 FROM sys_user_warehouse_scopes s WHERE s.user_id=wu.user_id AND s.warehouse_code=tw.warehouse_code) AS explicit_scope,
+                   CASE WHEN COALESCE(os.has_site,false)
+                     THEN COALESCE(os.site_match,false) AND EXISTS (SELECT 1 FROM sys_user_warehouse_scopes s WHERE s.user_id=wu.user_id AND s.warehouse_code=tw.warehouse_code)
+                     ELSE COALESCE(os.company_match,false) OR COALESCE(os.org_warehouse_match,false)
+                       OR EXISTS (SELECT 1 FROM sys_user_warehouse_scopes s WHERE s.user_id=wu.user_id AND s.warehouse_code=tw.warehouse_code)
+                   END AS allowed_warehouse_code
+            FROM wms_users wu CROSS JOIN target_warehouses tw
+            JOIN org_scope os ON os.user_id=wu.user_id AND os.warehouse_code=tw.warehouse_code
+            ORDER BY wu.username,tw.warehouse_code;
+            SELECT DISTINCT r.role_code,u.user_id,u.username,u.status,u.perms_version,
+                   EXISTS (SELECT 1 FROM pg_trigger t WHERE NOT t.tgisinternal
+                     AND t.tgrelid='sys_role_menu_permission'::regclass
+                     AND pg_get_triggerdef(t.oid) ILIKE '%fn_bump_user_perms_version%') AS permission_bump_trigger_present
+            FROM sys_role r LEFT JOIN sys_user_role ur ON ur.role_id=r.role_id AND COALESCE(ur.is_visible,true)=true
+            LEFT JOIN sys_user u ON u.user_id=ur.user_id
+            WHERE r.role_code IN ('ROLE_STORE_MGR','ROLE_WMS_OP','ROLE_WMS_MGR')
+            ORDER BY r.role_code,u.username;
+            COMMIT;
+            SQL
+            echo "RBAC_WMS_PERMS_VERSION_READONLY_ASSERTIONS=PASS"
 
             ERROR_COUNT="$(docker compose exec -T db sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM sys_error_logs WHERE created_at >= NOW() - INTERVAL '\''30 minutes'\'' AND (request_path ILIKE '\''%store-sales%'\'' OR error_message ILIKE '\''%store_membership%'\'');"' | tr -d '\r\n')"
             test "$ERROR_COUNT" = "0"

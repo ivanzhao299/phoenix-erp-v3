@@ -53,6 +53,14 @@ describe('StoreScopePolicy V1-1 quadrants', () => {
       .resolves.toEqual([expect.objectContaining({ storeCode: 'STORE-A', hasSalesWarehouse: false })]);
   });
 
+  it('reports whether each membership store has a WarehouseScope intersection', async () => {
+    const policy = subject({ scope: { isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: ['WH-A'] } });
+    await policy.listMembershipStores();
+    const [sql, params] = (policy as any).ds.query.mock.calls[0];
+    expect(sql).toContain('hasWarehouseScopeIntersection');
+    expect(params).toEqual([7, false, ['WH-A']]);
+  });
+
   it('cashier with membership and warehouse intersection is limited to that store', async () => {
     await expect(subject().resolve('STORE-A')).resolves.toMatchObject({ storeCode: 'STORE-A', warehouseCodes: ['WH-A'] });
     await expect(subject().resolve('STORE-B')).rejects.toBeInstanceOf(ForbiddenException);

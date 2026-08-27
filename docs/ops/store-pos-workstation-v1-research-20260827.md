@@ -739,3 +739,126 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - full 部署 run `33048907993` 成功：API/Web 镜像均构建推送，TypeORM/DDL 链、entity drift、回归与生产健康检查全部通过；部署 job 为 `Deploy · full`，不是 api-only/web-only。
 - 生产只读验收 run `33049853671` 成功：checkout/API image/Web image 三方 revision 均为 `0cd851012c3cd1dc88e4a79de52ee1f390157713`；真实 amei 短期 JWT 请求 `/contexts` 得到恰好 1 行 `STORE-HS-001`，兼容 `role=STORE_MANAGER`，权威 `roles=['CASHIER','STORE_MANAGER']`；`GET /shift?storeCode=STORE-HS-001` 返回 200；30 分钟 Store POS 错误窗口 0 行；`PRODUCTION_BUSINESS_WRITES=0`。
 - 首次只读 probe run `33049784363` 在 revision 三方一致后因 AuthService 启动输出混入 token 捕获变量而触发 curl 43，实际 contexts 请求尚未发出；修正为 JWT 正则提取后重跑成功。整个验收过程未调用 `POST /shift/open`，未开班，未执行生产业务写入。
+
+## 17. V1-3 主体实施记录：补货编排 + Terminal 收银 UI
+
+> 实施日期：2026-08-27。本文 §7/§8/§13 与组织复查 §14 仍是冻结合同；本节只追加实现和验收证据，不改写历史结论。
+
+### 17.1 补货编排
+
+- 新增 `store_replenishment_requests` / `store_replenishment_request_lines`，申请生命周期固定为 `DRAFT → SUBMITTED → APPROVED → DISPATCHED → RECEIVED → CLOSED`。头表保存 canonical store、公司、源/目标仓与 `transfer_no`；行保存 SKU、申请/审批/实收数量。
+- 店长创建时必须通过 `StoreScopePolicy.resolve(storeCode,'SALES')`，目标仓只能来自有效门店 SALES binding 与 WarehouseScope 的交集；无 membership、无门店仓或无交集均 fail-closed。
+- 仓管审批时源仓必须属于同公司 ACTIVE + OPERATIONAL 仓并命中其 WarehouseScope。审批按 SKU、效期、批次做源仓 FIFO 分配，库存不足硬阻断；成功后调用既有 WMS `createTransfer`。
+- 发运、签收、差异完成分别复用 WMS `dispatchTransfer / receiveTransfer / completeTransfer`。发运扣源库存并进入 IN_TRANSIT；门店签收按实收建目标批次；差异继续使用 `wms_transfer_discrepancies`，每条必须关联 LOSS/ADJUSTMENT 单号后才可 CLOSED。
+- `/store/replenish` 已从 `store_replenish_req` 裸 CRUD 改为申请列表、创建向导、状态动作、调拨追溯和差异处理入口。Terminal 收银台不承载补货；店长签收本轮由 Admin 页面承载。
+
+### 17.2 Terminal 触屏收银
+
+- `/terminal/store-pos` 已由入口壳升级为正式触屏 POS：membership 门店选择、班次横幅、商品网格、购物车数量增减/删除、合计、CASH/CREDIT/MIXED、资金账户、结账、开班/交班及最近销售整单退货。
+- Admin 与 Terminal 共用 `/api/v2/store-sales` scoped API、contexts、班次、价格目录与 V1-2 原子结算/精确 allocation 退货能力；本轮未新增或旁路价格逻辑。
+- 结账按钮要求 `MENU_STORE_POS:C+E`，退货入口要求 D。离线时购物车仅写入 localStorage 草稿，key 包含 schemaVersion/user/store/register；离线成交、开班、交班全部禁止。未实现挂单、离线成交、价格全序、settlement 或财务过账。
+
+### 17.3 权限种子与生产回填待确认清单
+
+迁移只 seed 菜单与标准角色的缺失授权，不回填用户、membership、仓绑定或业务单据：
+
+| role_code | MENU_STORE_REPLENISH | 职责 |
+|---|---|---|
+| `ROLE_STORE_MGR` | `V,C,E` | 查看、创建/提交、签收和差异确认 |
+| `ROLE_WMS_OP` | `V,A,E` | 查看、审批、发运 |
+| `ROLE_WMS_MGR` | `V,A,E` | 查看、审批、发运 |
+| `ROLE_CASHIER` | 无 | 不显示、不调用补货 API |
+
+部署后仍需用户确认的生产检查项：上述三角色是否存在及其既有权限是否需要合并；实际仓管用户绑定哪一个 WMS 角色；受影响用户 `perms_version` 是否需递增并重登；各店 Store Manager membership、SALES binding、源仓 WarehouseScope 是否完整。未确认前不执行额外 `sys_role_menu_permission` 手工回填。
+
+2026-08-27 只读收尾 run `33055879386` 已关闭角色种子末态查询缺口：四角色均存在且为 ACTIVE；`ROLE_STORE_MGR=V,C,E`、`ROLE_WMS_OP=V,A,E`、`ROLE_WMS_MGR=V,A,E` 逐行精确相等，`deny_codes` 均为空；`ROLE_CASHIER` 无该菜单授权，四行 `assertion_pass=true`，`ROLE_SEED_FINAL_ASSERTIONS=PASS`。
+
+同一 run 的仓管角色与源仓覆盖实值如下（`allowedWarehouseCodes` 按运行时 SITE fail-closed 规则，以组织展开和显式 `sys_user_warehouse_scopes` 共同计算）：
+
+| 用户 | 姓名 | 角色 | 状态 | 孟赛 7 仓 | 东鹏 4 仓 | `perms_version` |
+|---|---|---|---|---:|---:|---:|
+| `liushanjun` | 刘善军 | `ROLE_WMS_MGR` | ACTIVE | 0/7 | 4/4 | 37 |
+| `songshoujiang` | 宋守江 | `ROLE_WMS_MGR` | ACTIVE | 7/7 | 0/4 | 31 |
+| `xuefeng` | 薛峰 | `ROLE_WMS_MGR` | ACTIVE | 7/7 | 0/4 | 36 |
+| `tangzhiwen` | 唐治文 | `ROLE_WMS_OP` | ACTIVE | 7/7 | 0/4 | 51 |
+| `pilot_wms` | 赵刚（试运行仓库） | `ROLE_WMS_MGR` | INACTIVE | 不进入 ACTIVE 用户矩阵 | 不进入 ACTIVE 用户矩阵 | 16 |
+
+`sys_role_menu_permission` 上的 `fn_bump_user_perms_version` trigger 在生产存在；本次迁移插入角色授权时由数据库自动 bump 绑定用户，JWT 校验又会在 DB 版本高于 token 版本时返回 `401 PERMS_CHANGED`。结论：**不需要也不应手工递增 `perms_version`**；受影响 ACTIVE 用户重新登录获取新 JWT 即可。待用户确认清单收敛为：① 刘善军当前是东鹏 4 仓而非孟赛 7 仓是否符合现岗；② 宋守江/薛峰/唐治文均为孟赛 7 仓是否符合现岗；③ 是否保留停用 `pilot_wms` 的 WMS 角色绑定。任何调整均未在本轮执行。
+
+### 17.4 本地验证与线上 UAT 清单
+
+- API/Web `tsc --noEmit`：0 errors。
+- API Jest：72 suites / 628 tests 全绿；新增补货合同断言覆盖全状态链、WMS 四动作、membership/仓 scope 403 与差异追溯。
+- Web Vitest：85 files / 453 tests 全绿；新增购物车增减删除、支付方式集合、草稿隔离、离线/权限/班次门控断言。
+- 治理门禁：migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift、`git diff --check` 全绿。
+
+线上业务 UAT 由用户产生真实单据，顺序为：店长在 `/store/replenish` 建草稿并提交 → 仓管审批转调拨并发运 → 店长按全收或短缺/破损签收 → 有差异时创建报损/调整单并回填关联号 → CLOSED；随后在 `/terminal/store-pos` 选择唯一门店 → 开班 → 加购 → 依次验证 CASH/CREDIT/MIXED → 整单退货 → 交班。验证离线时只能恢复草稿且结账按钮禁用。生产 smoke 只做页面可达、非 admin 权限矩阵、跨店/跨仓 403 与错误窗口，禁止自动创建补货或销售单。
+
+### 17.5 生产部署与验证记录
+
+- 2026-08-27 通过 `workflow_dispatch` 执行 `mode=full`、`approve_production=true`，run `33054367725` 成功，部署 revision 为 PR `#122` merge SHA `c1d733219b2f03c5406f620da53d4f5c83f5c689`。部署日志确认 checkout 同步到该 SHA，API/Web 均从本 run 的不可变 SHA 镜像构建并健康启动；后续只读审计 `33055003841` 再次断言生产 checkout 为同一 SHA。专用三方 revision probe `33055000773` 因 workflow 的 `EXPECTED_REVISION` 仍硬编码旧 SHA `0cd851012c3cd1dc88e4a79de52ee1f390157713`，在 JWT 签发前 fail-fast，因此本轮没有形成独立的 API/Web image label 三方断言；不得把该 run 记为业务失败或三方 PASS。
+- TypeORM 日志确认数据库原有 69 条迁移、本次发现并成功执行唯一新增迁移 `CreateStoreReplenishmentOrchestration1788134400000`：创建 `store_replenishment_requests`、`store_replenishment_request_lines`、三项索引，插入 `MENU_STORE_REPLENISH`，并按迁移定义补齐标准角色缺失授权；事务 COMMIT 后 API/Web 健康、Web smoke 通过。部署自动迁移与种子之外未执行生产写入。
+- 页面只读探针：`/store/replenish` 与 `/terminal/store-pos` 未认证首跳均为 307 到 `/login?return=...`，跟随认证重定向后为 200；`GET /api/v2/store-replenishments` 未认证为 401，符合受保护路由预期。
+- V1-3 双重只读 SQL run `33055003841` 以 `PGOPTIONS=default_transaction_read_only=on` + `BEGIN READ ONLY` 执行并 `ROLLBACK`，输出 `READONLY_GUARD=on`、`STORE_V1_3_READY_ASSERTIONS=PASS`；cashier binding 与 WarehouseScope 交集为 2 行且均为 `ST_LAO_AGRI_VTE_001_SALES / true`；相关 `sys_error_logs` 扫描窗口为 0 行；生产业务写入为 0。
+- amei 短期 JWT 权限矩阵本轮未完成：run `33055000773` 在固定旧 revision 断言处提前退出，未执行 contexts、补货 GET 或 POST 权限判断。未使用 admin token 替代非 admin 权限证明，未调用任何补货、开班、销售 POST。
+- 17.3 角色末态与待确认清单：部署日志证明菜单种子迁移成功，但现有只读 workflow 未逐行输出 `ROLE_STORE_MGR=V,C,E`、`ROLE_WMS_OP=V,A,E`、`ROLE_WMS_MGR=V,A,E`、`ROLE_CASHIER=无` 的生产查询结果，也未输出 WMS 角色是否存在、绑定用户以及孟赛/东鹏源仓 WarehouseScope 清单。因此这些项保持 **待用户确认/待补充只读审计入口后核实**；未执行 `sys_role_menu_permission`、用户角色、membership、`perms_version` 或 WarehouseScope 手工回填，fail-closed 不放宽。
+- 用户业务 UAT 仍按 §17.4 清单执行，状态为 **待用户执行**。
+- 17.5 三缺口只读收尾：首次参数化 probe run `33055747106` 已证明 production checkout/API/Web revision 三方同为 `c1d733219b2f03c5406f620da53d4f5c83f5c689`，并完成 amei contexts 单行、补货 GET 200、前端同款 `check('C')=true`、零权限 `cashier` GET 403；随后仅因生产 checkout 不含新加的本地 SQL 文件而在 SQL 阶段失败，不记为整轮 PASS。将 SQL 内嵌 workflow 后重跑 `33055879386` 全部成功：上述 HTTP/JWT 断言再次 PASS，角色末态四行、WMS 角色/用户、44 行 ACTIVE 仓管×11 源仓覆盖矩阵、受影响用户 `perms_version` 与 bump trigger 一次 run 全量输出；只读事务 `transaction_read_only=on` 并 COMMIT 只读事务，错误窗口 0，`PRODUCTION_BUSINESS_WRITES=0`。三个缺口均已关闭，权限/仓范围调整仍按 §17.3 待用户确认清单执行。
+- Revision 修正采用生产 checkout 动态基准：`EXPECTED_REVISION="$(git rev-parse HEAD)"`，继续硬断言 API/Web OCI revision 与 checkout 完全一致，不把 workflow 自身 SHA 误当已部署 SHA。`.github/workflows` 全量 40 位 SHA 检索仅发现并移除了这一处硬编码；其他只读 workflow 没有固定 revision 常量，故本轮未扩大改造范围。
+
+### 17.6 Terminal/补货门店下拉空数据复查与同类收口
+
+#### 根因结论与假设裁决
+
+确证根因是 **H1 的授权语义遇上共享 selector 空态缺陷**：`/contexts` 只认当前用户有效 `store_memberships`，`ROLE_ADMIN` 不自动获得门店 membership；合法空数组与 401/403/5xx 又都被 `ScopedSelect` 收敛为普通“请选择门店”，线上因此表现为“下拉坏了”。权限本身没有放宽，也没有执行 membership 或 WarehouseScope 回填。
+
+| 假设 | 结论 | 证据 |
+|---|---|---|
+| H1 无 membership | **证实为可复现根因** | Terminal、补货、Admin POS 三者均调用 `StoreMembershipSelector → loadStorePosContexts → GET /api/v2/store-sales/contexts`；服务 SQL 只取 `m.user_id=$1` 的 ACTIVE/有效期 membership。admin/刘善军无 membership 时按合同返回 `[]`，admin 角色只绕过菜单/DataScope，不凭空创建 membership。 |
+| H2 新页过滤更严/仓 scope 交集为空 | **推翻其“导致 selector 空”的部分** | `/contexts` 只按 membership、门店 ACTIVE/有效期及公司 DataScope 过滤；仓绑定只形成布尔标志，原实现不按 `hasSalesWarehouse` 或 WarehouseScope 交集删除门店。生产 run `33055879386` 中 amei contexts 恰好一行 `STORE-HS-001`，补货列表 GET 与 shift GET 均 200。修复后契约显式返回 `hasWarehouseScopeIntersection`，无交集门店禁选并给原因，但仍不把它伪装成空 membership。 |
+| H3 两新页客户端端点/鉴权/解析不同 | **推翻** | 三页共用同一 loader；`storePosRequest` 统一去 `/api` 前缀，`api-client` 从 `sessionStorage.phoenix_token` 注入 Bearer，并统一解析 `response.data ?? response`。未认证实测 `/contexts` 为 401。 |
+| H4 16.7 聚合回归 | **推翻** | `e18def10` 只在同一 DataScope 过滤后按 store identity 聚合多角色，新增 `roles[]` 并保留 `role`；SQL membership/ACTIVE/有效期/仓绑定条件、无分页响应均未改变。生产 amei 双角色已稳定聚合成单行。 |
+
+账号/页面预期矩阵：
+
+| 账号 | membership / 角色事实 | `/store-pos` | `/terminal/store-pos` | `/store/replenish` |
+|---|---|---|---|---|
+| `amei` | `STORE-HS-001`，`CASHIER + STORE_MANAGER` | 应见会晒直营店；旧页还会优先恢复 `phoenix_store_info`，但恢复项也必须存在于本次 contexts | 应自动选中会晒直营店 | 应见会晒直营店，且有 `MENU_STORE_REPLENISH:V,C,E` |
+| `cashier` | `STORE-VTE-001`，`CASHIER` | 应见万象店 | 应见万象店 | 角色无补货菜单，页面/API应 403，而不是授予门店补货能力 |
+| `admin` | 若无显式 membership | contexts 合法为空；旧 session 不能越过当前 contexts 校验 | 合法为空，显示“当前账号无门店授权” | 即使菜单为全局也无门店 membership，显示同一授权原因 |
+| `liushanjun` / 刘善军 | WMS Manager；生产只读矩阵证明东鹏 4 仓 scope，但没有门店 membership 证据 | 合法为空 | 合法为空 | 可按 WMS 角色看/处理授权仓相关申请，但不能冒充店长创建门店申请 |
+
+“旧页可见、新页全空”的差异不是数据源差异：V1-3 前 amei 在 Admin POS 可见并开班，证明的是 **amei 当时的 membership、菜单和门店仓链有效**；Terminal 首次进入直接取 `contexts[0]`，补货新建也必须现场选择 contexts。若部署后换成 admin/刘善军测试，新页会合法为空；旧 Admin 页视觉上还可能保留 session 中的门店名称，但初始化仍会用当前 contexts 校验，不能据此推导该账号获得门店授权。若同一时刻同一 amei token 三页结果不同，应按客户端缓存/revision 故障处理；当前生产只读 probe 已证明部署 revision 上 amei API 非空。
+
+#### 同类页面盘点
+
+| 页面/消费者 | 数据源与过滤 | 修复前空态 | 本轮处理 |
+|---|---|---|---|
+| `/store-pos`、`/terminal/store-pos`、`/store/replenish` | membership `/contexts`；ACTIVE/有效期 + 公司 DataScope | 合法空与服务错误均只剩 placeholder | 统一区分“无 membership / 服务失败”；仓未绑定、仓 scope 无交集分别标注并禁选 |
+| `/packaging/exceptions`、`/warehouse/outbound` | `CrudForm(type=store) → StoreSelector → /lookup/stores`；当前字段未传公司过滤 | 空与错误均只剩 placeholder | 共享 selector 统一显示“当前数据范围内无可用门店 / 门店服务加载失败” |
+| `/settings/users/[id]` legacy `store_code` | `/organizations/by-type?type=STORE`，客户端保留 ACTIVE | catch 静默，空与错误不可分 | 显式检查 HTTP status，并区分无可用门店与服务失败；该字段仍不是 membership 授权源 |
+
+补货申请列表原来空 `<tbody>` 无文案，本轮补“暂无补货申请”；Terminal 首屏合法空 membership 同时给页面级消息，避免用户只盯顶部下拉而错过原因。
+
+#### 修复与验证设计
+
+- 后端 contexts 新增 `hasWarehouseScopeIntersection`：由有效 SALES binding 与运行时 `allowedWarehouseCodes` 直接计算；global 仍要求真实有效 binding，不绕过 fail-closed。
+- 前端 option 只有在未绑定有效销售仓或 WarehouseScope 无交集时禁选；合法 membership 仍可见并显示精确修复指引。
+- 红测已先复现 3/3 失败：合法空 membership、服务 reject、仓 scope 无交集；实现后 Web 定向 7/7、API StoreScopePolicy 12/12 通过。
+- 生产 workflow 增加 amei contexts 两个布尔字段硬断言，并实际 GET `source-warehouses?storeCode=STORE-HS-001`；该 GET 会先执行 `resolve()`，因此 200 是目标门店仓交集的运行时证据。部署 revision、错误窗口与 `PRODUCTION_BUSINESS_WRITES=0` 继续硬断言。
+
+本地完整验证已通过：API/Web `tsc --noEmit` 均 0 errors；API Jest 72 suites / 630 tests、Web Vitest 85 files / 456 tests 全绿；migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift、三语 i18n key parity、硬编码 UI 文案覆盖与 `git diff --check` 全绿。PR/CI/full 部署及修复后生产 revision/错误窗口记录在本节后续追加；未完成前不提前记生产 PASS。
+
+#### PR、部署与生产复验
+
+- PR `#123` 全绿后合入 main，merge SHA `4190a7fe55d8f77e1c7b75fd17e81290cdde2e56`；main push 的 Security、Web Vitest、Build/API Jest 及带 PostgreSQL 的全回归四条流水线全部成功。
+- full 生产部署 run `33058701038` 成功：明确 `mode=full`、`approve_production=true`，API/Web 镜像构建、迁移末态、entity drift、容器健康与 SSH 发布全部通过；未运行 membership、WarehouseScope 或角色授权回填。
+- 修复后专用只读 run `33059216618` 成功：checkout/API image/Web image 三方 revision 均为 `4190a7fe55d8f77e1c7b75fd17e81290cdde2e56`。
+- amei 短期 token 请求 `/contexts` 得到恰好 1 行：`STORE-HS-001`、`role=STORE_MANAGER`、`roles=CASHIER,STORE_MANAGER`、`hasSalesWarehouse=true`、`hasWarehouseScopeIntersection=true`。这同时证明 Terminal 与补货共用 selector 的生产数据源非空。
+- `GET /api/v2/store-replenishments` 200；`GET /api/v2/store-replenishments/source-warehouses?storeCode=STORE-HS-001` 200。后者必先执行 `resolve()`，因此确证 amei 的会晒销售仓 binding 与运行时完整 WarehouseScope 存在交集，H2 不成立。
+- `GET /api/v2/store-sales/shift?storeCode=STORE-HS-001` 200；零补货权限对照账号 `cashier` 请求补货为 403，证明修复未放宽权限。
+- 30 分钟 Store POS 错误窗口 0 行，`PRODUCTION_BUSINESS_WRITES=0`。本轮没有执行开班、建补货、销售或任何授权数据写入。
+- 为关闭“完整 WarehouseScope 逐仓明细”证据缺口，专用只读 run `33059425059` 通过生产 `DataScopeService.resolve()` 输出排序后的 `allowedWarehouseCodes` 全集并通过硬断言：
+  - `amei` 8 仓：`LPH_DP_EGG_FARM`、`LPH_DP_EGG_SALES`、`LPH_DP_FEED`、`LPH_DP_MEDICINE`、`ST_LAO_XINGCHI_DP_001_SALES`、`ST_LAO_XINGCHI_HS_001_SALES`、`ST_LAO_XINGCHI_XB_001_SALES`、`ST_LAO_XINGCHI_XC_001_SALES`；明确包含会晒门店仓。
+  - `cashier` 13 仓：`LPH_MS_EGG_FARM`、`LPH_MS_EGG_SALES`、`LPH_MS_FEED`、`LPH_MS_FINISHED`、`LPH_MS_MEDICINE`、`LPH_MS_PURCHASE`、`LPH_MS_RAW`、`ST_LAO_AGRI_BKX_001_SALES`、`ST_LAO_AGRI_LPB_001_SALES`、`ST_LAO_AGRI_MX_001_SALES`、`ST_LAO_AGRI_PSL_001_SALES`、`ST_LAO_AGRI_VTE_001_SALES`、`ST_LAO_AGRI_VTE_WH_001_SALES`；明确包含万象门店仓。
+  - 同一 run 再次确认三方 production revision 为 `4190a7fe55d8f77e1c7b75fd17e81290cdde2e56`、amei contexts 单行、目标仓交集 true、错误窗口 0、生产业务写入 0。H2 由完整运行时仓集合与 endpoint 两层证据共同推翻。
