@@ -22,7 +22,7 @@ WITH expected(store_code,warehouse_code) AS (VALUES
  ('STORE-DP-001','ST_LAO_XINGCHI_DP_001_SALES'),('STORE-HS-001','ST_LAO_XINGCHI_HS_001_SALES'),('STORE-XB-001','ST_LAO_XINGCHI_XB_001_SALES'),('STORE-XC-001','ST_LAO_XINGCHI_XC_001_SALES')
 ), inserted AS (
  INSERT INTO wms_zones(zone_code,zone_name,warehouse,warehouse_code,zone_type,status,store_code)
- SELECT e.warehouse_code||'_'||v.purpose,v.zone_name,e.warehouse_code,e.warehouse_code,v.zone_type,'ACTIVE',e.store_code
+ SELECT 'ZN_'||CASE WHEN e.warehouse_code LIKE 'ST_LAO_AGRI_%' THEN 'AGRI' ELSE 'XINGCHI' END||'_'||replace(replace(e.store_code,'STORE-',''),'-','')||'_'||v.purpose,v.zone_name,e.warehouse_code,e.warehouse_code,v.zone_type,'ACTIVE',e.store_code
  FROM expected e CROSS JOIN (VALUES('SALES','销售区','NORMAL'),('RETURNS','退货区','QUARANTINE')) v(purpose,zone_name,zone_type)
  ORDER BY e.store_code,v.purpose RETURNING id,zone_code,zone_name,warehouse,warehouse_code,zone_type,status,store_code
 )
@@ -34,7 +34,7 @@ WITH expected(store_code,warehouse_code) AS (VALUES
  ('STORE-DP-001','ST_LAO_XINGCHI_DP_001_SALES'),('STORE-HS-001','ST_LAO_XINGCHI_HS_001_SALES'),('STORE-XB-001','ST_LAO_XINGCHI_XB_001_SALES'),('STORE-XC-001','ST_LAO_XINGCHI_XC_001_SALES')
 ), inserted AS (
  INSERT INTO wms_locations(location_code,warehouse_code,zone_code,location_name,capacity_qty,status,store_code)
- SELECT e.warehouse_code||'_'||v.purpose||'_NORMAL',e.warehouse_code,e.warehouse_code||'_'||v.purpose,v.location_name,0,'ACTIVE',e.store_code
+ SELECT 'ZN_'||CASE WHEN e.warehouse_code LIKE 'ST_LAO_AGRI_%' THEN 'AGRI' ELSE 'XINGCHI' END||'_'||replace(replace(e.store_code,'STORE-',''),'-','')||'_'||v.purpose||'_NORMAL',e.warehouse_code,'ZN_'||CASE WHEN e.warehouse_code LIKE 'ST_LAO_AGRI_%' THEN 'AGRI' ELSE 'XINGCHI' END||'_'||replace(replace(e.store_code,'STORE-',''),'-','')||'_'||v.purpose,v.location_name,0,'ACTIVE',e.store_code
  FROM expected e CROSS JOIN (VALUES('SALES','销售区标准位'),('RETURNS','退货区标准位')) v(purpose,location_name)
  ORDER BY e.store_code,v.purpose RETURNING location_code,warehouse_code,zone_code,location_name,capacity_qty,status,store_code
 )
