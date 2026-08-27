@@ -771,6 +771,20 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 
 部署后仍需用户确认的生产检查项：上述三角色是否存在及其既有权限是否需要合并；实际仓管用户绑定哪一个 WMS 角色；受影响用户 `perms_version` 是否需递增并重登；各店 Store Manager membership、SALES binding、源仓 WarehouseScope 是否完整。未确认前不执行额外 `sys_role_menu_permission` 手工回填。
 
+2026-08-27 只读收尾 run `33055879386` 已关闭角色种子末态查询缺口：四角色均存在且为 ACTIVE；`ROLE_STORE_MGR=V,C,E`、`ROLE_WMS_OP=V,A,E`、`ROLE_WMS_MGR=V,A,E` 逐行精确相等，`deny_codes` 均为空；`ROLE_CASHIER` 无该菜单授权，四行 `assertion_pass=true`，`ROLE_SEED_FINAL_ASSERTIONS=PASS`。
+
+同一 run 的仓管角色与源仓覆盖实值如下（`allowedWarehouseCodes` 按运行时 SITE fail-closed 规则，以组织展开和显式 `sys_user_warehouse_scopes` 共同计算）：
+
+| 用户 | 姓名 | 角色 | 状态 | 孟赛 7 仓 | 东鹏 4 仓 | `perms_version` |
+|---|---|---|---|---:|---:|---:|
+| `liushanjun` | 刘善军 | `ROLE_WMS_MGR` | ACTIVE | 0/7 | 4/4 | 37 |
+| `songshoujiang` | 宋守江 | `ROLE_WMS_MGR` | ACTIVE | 7/7 | 0/4 | 31 |
+| `xuefeng` | 薛峰 | `ROLE_WMS_MGR` | ACTIVE | 7/7 | 0/4 | 36 |
+| `tangzhiwen` | 唐治文 | `ROLE_WMS_OP` | ACTIVE | 7/7 | 0/4 | 51 |
+| `pilot_wms` | 赵刚（试运行仓库） | `ROLE_WMS_MGR` | INACTIVE | 不进入 ACTIVE 用户矩阵 | 不进入 ACTIVE 用户矩阵 | 16 |
+
+`sys_role_menu_permission` 上的 `fn_bump_user_perms_version` trigger 在生产存在；本次迁移插入角色授权时由数据库自动 bump 绑定用户，JWT 校验又会在 DB 版本高于 token 版本时返回 `401 PERMS_CHANGED`。结论：**不需要也不应手工递增 `perms_version`**；受影响 ACTIVE 用户重新登录获取新 JWT 即可。待用户确认清单收敛为：① 刘善军当前是东鹏 4 仓而非孟赛 7 仓是否符合现岗；② 宋守江/薛峰/唐治文均为孟赛 7 仓是否符合现岗；③ 是否保留停用 `pilot_wms` 的 WMS 角色绑定。任何调整均未在本轮执行。
+
 ### 17.4 本地验证与线上 UAT 清单
 
 - API/Web `tsc --noEmit`：0 errors。
@@ -789,3 +803,5 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - amei 短期 JWT 权限矩阵本轮未完成：run `33055000773` 在固定旧 revision 断言处提前退出，未执行 contexts、补货 GET 或 POST 权限判断。未使用 admin token 替代非 admin 权限证明，未调用任何补货、开班、销售 POST。
 - 17.3 角色末态与待确认清单：部署日志证明菜单种子迁移成功，但现有只读 workflow 未逐行输出 `ROLE_STORE_MGR=V,C,E`、`ROLE_WMS_OP=V,A,E`、`ROLE_WMS_MGR=V,A,E`、`ROLE_CASHIER=无` 的生产查询结果，也未输出 WMS 角色是否存在、绑定用户以及孟赛/东鹏源仓 WarehouseScope 清单。因此这些项保持 **待用户确认/待补充只读审计入口后核实**；未执行 `sys_role_menu_permission`、用户角色、membership、`perms_version` 或 WarehouseScope 手工回填，fail-closed 不放宽。
 - 用户业务 UAT 仍按 §17.4 清单执行，状态为 **待用户执行**。
+- 17.5 三缺口只读收尾：首次参数化 probe run `33055747106` 已证明 production checkout/API/Web revision 三方同为 `c1d733219b2f03c5406f620da53d4f5c83f5c689`，并完成 amei contexts 单行、补货 GET 200、前端同款 `check('C')=true`、零权限 `cashier` GET 403；随后仅因生产 checkout 不含新加的本地 SQL 文件而在 SQL 阶段失败，不记为整轮 PASS。将 SQL 内嵌 workflow 后重跑 `33055879386` 全部成功：上述 HTTP/JWT 断言再次 PASS，角色末态四行、WMS 角色/用户、44 行 ACTIVE 仓管×11 源仓覆盖矩阵、受影响用户 `perms_version` 与 bump trigger 一次 run 全量输出；只读事务 `transaction_read_only=on` 并 COMMIT 只读事务，错误窗口 0，`PRODUCTION_BUSINESS_WRITES=0`。三个缺口均已关闭，权限/仓范围调整仍按 §17.3 待用户确认清单执行。
+- Revision 修正采用生产 checkout 动态基准：`EXPECTED_REVISION="$(git rev-parse HEAD)"`，继续硬断言 API/Web OCI revision 与 checkout 完全一致，不把 workflow 自身 SHA 误当已部署 SHA。`.github/workflows` 全量 40 位 SHA 检索仅发现并移除了这一处硬编码；其他只读 workflow 没有固定 revision 常量，故本轮未扩大改造范围。
