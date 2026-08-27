@@ -56,6 +56,7 @@ export interface CompleteCashSaleDto {
   cashAccountId:   number;
   paidAmount?:     number;   // 默认全额
   paymentMethod?:  string;
+  idempotencyKey:  string;
 }
 
 export interface CompleteMixedSaleDto {
@@ -64,6 +65,7 @@ export interface CompleteMixedSaleDto {
   paymentMethod?: string;
   customerCode?:  string;
   customerName?:  string;
+  idempotencyKey: string;
 }
 
 @Injectable()
@@ -310,18 +312,66 @@ export class StorePosService {
     });
   }
 
+  private async lockSaleForPayment(
+    mgr: any,
+    id: number,
+    idempotencyKey: string,
+    warehouseCodes: string[],
+  ): Promise<any> {
+    const key = idempotencyKey?.trim();
+    if (!key || key.length > 128) {
+      throw new BadRequestException('支付请求必须提供 1-128 字符的 idempotencyKey');
+    }
+    if (!warehouseCodes.length) {
+      throw new BadRequestException('请先配置门店仓绑定');
+    }
+
+    // 同 key 请求先串行，再查唯一结果；数据库 partial unique index 是最终硬门。
+    await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`store-pos-payment:${key}`]);
+    const [replay] = await mgr.query(
+      `SELECT * FROM sal_store_sales WHERE idempotency_key=$1 FOR UPDATE`,
+      [key],
+    );
+    if (replay) {
+      if (Number(replay.id) !== id) throw new ConflictException('idempotencyKey 已用于其他销售单');
+      return { ...replay, idempotentReplay: true, warehouseCodes };
+    }
+
+    const [sale] = await mgr.query(
+      `SELECT * FROM sal_store_sales WHERE id=$1 FOR UPDATE`,
+      [id],
+    );
+    if (!sale) throw new NotFoundException(`销售单 ${id} 不存在`);
+    this.guardStatus(sale, 'OPEN');
+
+    const items = await mgr.query(
+      `SELECT * FROM sal_store_sale_items WHERE sale_id=$1 ORDER BY sort_order,id FOR UPDATE`,
+      [id],
+    );
+    if (!items.length) throw new BadRequestException('销售单没有可结算明细');
+
+    const [shift] = await mgr.query(
+      `SELECT * FROM sal_store_shift_closings
+        WHERE store_code=$1 AND company_code=$2 AND status='OPEN'
+        ORDER BY opened_at DESC LIMIT 1 FOR UPDATE`,
+      [sale.store_code, sale.company_code],
+    );
+    if (!shift) throw new BadRequestException(`门店 ${sale.store_code} 当前无开放班次，请先开班`);
+
+    return { ...sale, items, shift_id: shift.id, warehouseCodes, idempotentReplay: false };
+  }
+
   // ── 2. 现金收款（完整收款）────────────────────────────────────────────────
 
   async completeCashSale(id: number, dto: CompleteCashSaleDto) {
-    const sale = await this.getSale(id);
-    this.guardStatus(sale, 'OPEN');
-
-    const paidAmount = dto.paidAmount ?? Number(sale.total_amount);
-    if (paidAmount < Number(sale.total_amount)) {
-      throw new BadRequestException('现金收款金额不足，请使用"部分收款"');
-    }
-
+    const { context } = await this.storeScope.assertSaleScoped(id, 'SALES');
     await this.ds.transaction(async mgr => {
+      const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
+      if (sale.idempotentReplay) return;
+      const paidAmount = dto.paidAmount ?? Number(sale.total_amount);
+      if (paidAmount < Number(sale.total_amount)) {
+        throw new BadRequestException('现金收款金额不足，请使用"部分收款"');
+      }
       // A. FIFO 扣减库存
       const allocs = await this.fifoDeductItems(sale, mgr);
 
@@ -338,15 +388,18 @@ export class StorePosService {
       });
 
       // C. 更新销售单（FIFO 写回 batch_no）
-      await mgr.query(
+      const updated = await mgr.query(
         `UPDATE sal_store_sales
          SET status = 'COMPLETED', payment_status = 'PAID',
              paid_amount = $2, receivable_amount = 0,
              cash_account_id = $3,
-             completed_at = NOW()
-         WHERE id = $1`,
-        [id, paidAmount, dto.cashAccountId],
+             completed_at = NOW(), idempotency_key=$4, warehouse_code=$5,
+             shift_closing_id=$6
+         WHERE id = $1 AND status='OPEN'
+         RETURNING id`,
+        [id, paidAmount, dto.cashAccountId, dto.idempotencyKey, sale.warehouseCodes[0], sale.shift_id],
       );
+      if (updated.length !== 1) throw new ConflictException('销售单状态已变化，请刷新后重试');
 
       // D. 写回批次号到明细行
       await this.writeBatchNoBack(mgr, sale.id, allocs);
@@ -357,14 +410,14 @@ export class StorePosService {
 
   // ── 3. 赊销（不收现金，生成 AR）──────────────────────────────────────────
 
-  async completeCreditSale(id: number) {
-    const sale = await this.getSale(id);
-    this.guardStatus(sale, 'OPEN');
-    if (!sale.customer_code && !sale.customer_name) {
-      throw new BadRequestException('赊销必须填写客户信息');
-    }
-
+  async completeCreditSale(id: number, dto: { idempotencyKey: string }) {
+    const { context } = await this.storeScope.assertSaleScoped(id, 'SALES');
     await this.ds.transaction(async mgr => {
+      const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
+      if (sale.idempotentReplay) return;
+      if (!sale.customer_code && !sale.customer_name) {
+        throw new BadRequestException('赊销必须填写客户信息');
+      }
       // A. FIFO 扣减库存
       const allocs = await this.fifoDeductItems(sale, mgr);
 
@@ -380,14 +433,16 @@ export class StorePosService {
       });
 
       // C. 更新销售单
-      await mgr.query(
+      const updated = await mgr.query(
         `UPDATE sal_store_sales
          SET status = 'COMPLETED', payment_status = 'UNPAID',
              paid_amount = 0, receivable_amount = $2,
-             ar_invoice_id = $3, completed_at = NOW()
-         WHERE id = $1`,
-        [id, sale.total_amount, arId],
+             ar_invoice_id = $3, completed_at = NOW(), idempotency_key=$4,
+             warehouse_code=$5, shift_closing_id=$6
+         WHERE id = $1 AND status='OPEN' RETURNING id`,
+        [id, sale.total_amount, arId, dto.idempotencyKey, sale.warehouseCodes[0], sale.shift_id],
       );
+      if (updated.length !== 1) throw new ConflictException('销售单状态已变化，请刷新后重试');
 
       await this.writeBatchNoBack(mgr, sale.id, allocs);
     });
@@ -398,19 +453,16 @@ export class StorePosService {
   // ── 4. 部分收款（现金 + AR）──────────────────────────────────────────────
 
   async completeMixedSale(id: number, dto: CompleteMixedSaleDto) {
-    const sale = await this.getSale(id);
-    this.guardStatus(sale, 'OPEN');
-
-    const total       = Number(sale.total_amount);
-    const paid        = dto.paidAmount;
-    const receivable  = Math.round((total - paid) * 100) / 100;
-
-    if (paid <= 0) throw new BadRequestException('实收金额必须大于 0');
-    if (paid >= total) throw new BadRequestException('实收等于或超过总金额，请使用现金收款');
-
-    const custName = dto.customerName ?? sale.customer_name ?? '散客';
-
+    const { context } = await this.storeScope.assertSaleScoped(id, 'SALES');
     await this.ds.transaction(async mgr => {
+      const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
+      if (sale.idempotentReplay) return;
+      const total = Number(sale.total_amount);
+      const paid = dto.paidAmount;
+      const receivable = Math.round((total - paid) * 100) / 100;
+      if (paid <= 0) throw new BadRequestException('实收金额必须大于 0');
+      if (paid >= total) throw new BadRequestException('实收等于或超过总金额，请使用现金收款');
+      const custName = dto.customerName ?? sale.customer_name ?? '散客';
       // A. FIFO 扣减
       const allocs = await this.fifoDeductItems(sale, mgr);
 
@@ -438,15 +490,17 @@ export class StorePosService {
       });
 
       // D. 更新销售单
-      await mgr.query(
+      const updated = await mgr.query(
         `UPDATE sal_store_sales
          SET status = 'COMPLETED', payment_status = 'PARTIAL',
              paid_amount = $2, receivable_amount = $3,
              cash_account_id = $4, ar_invoice_id = $5,
-             completed_at = NOW()
-         WHERE id = $1`,
-        [id, paid, receivable, dto.cashAccountId, arId],
+             completed_at = NOW(), idempotency_key=$6, warehouse_code=$7,
+             shift_closing_id=$8
+         WHERE id = $1 AND status='OPEN' RETURNING id`,
+        [id, paid, receivable, dto.cashAccountId, arId, dto.idempotencyKey, sale.warehouseCodes[0], sale.shift_id],
       );
+      if (updated.length !== 1) throw new ConflictException('销售单状态已变化，请刷新后重试');
 
       await this.writeBatchNoBack(mgr, sale.id, allocs);
     });
@@ -486,16 +540,11 @@ export class StorePosService {
    * 仅 COMPLETED 可退(未完成单走作废);RETURNED 不可重复退。
    */
   async returnSale(id: number, reason: string) {
-    const sale = await this.getSale(id, 'RETURNS');
+    const { sale, context } = await this.storeScope.assertSaleScoped(id, 'RETURNS');
     if (sale.status === 'RETURNED') throw new BadRequestException('已退货，不可重复操作');
     if (sale.status !== 'COMPLETED') {
       throw new BadRequestException(`仅已完成的销售单可退货（当前状态 ${sale.status}）；未完成单请用作废`);
     }
-
-    // 直接取明细行(含 sku_code/grade/spec/id;getSale 的 json 不含 sku_code,会丢 SKU 追溯)
-    const items: any[] = await this.ds.query(
-      `SELECT * FROM sal_store_sale_items WHERE sale_id = $1`, [id],
-    );
 
     const currency = sale.currency_code ?? 'CNY';
     const user     = this.currentUser;
@@ -504,7 +553,7 @@ export class StorePosService {
     await this.ds.transaction(async mgr => {
       // 行锁 + 事务内复检:杜绝并发双退(TOCTOU)双退款/双红冲/双入库
       const [locked] = await mgr.query(
-        `SELECT status FROM sal_store_sales WHERE id = $1 FOR UPDATE`, [id],
+        `SELECT * FROM sal_store_sales WHERE id = $1 FOR UPDATE`, [id],
       );
       if (!locked || locked.status !== 'COMPLETED') {
         throw new BadRequestException(
@@ -514,8 +563,17 @@ export class StorePosService {
         );
       }
 
-      // A. 库存反向:每行入 QUARANTINE 退货批 + inv_ledger SALE_RETURN
-      await this.reverseInventory(mgr, sale, items);
+      const allocations = await mgr.query(
+        `SELECT a.*,i.product_code,i.sku_code,i.grade_code,i.packaging_spec
+           FROM store_sale_allocations a
+           JOIN sal_store_sale_items i ON i.id=a.sale_item_id
+          WHERE a.sale_id=$1 ORDER BY a.id FOR UPDATE`,
+        [id],
+      );
+      if (!allocations.length) {
+        throw new ConflictException('历史销售单缺少批次 allocation，请创建人工退货异常单');
+      }
+      await this.reverseInventory(mgr, sale, allocations, context.warehouseCodes);
 
       // B. 现金腿红冲(已收现金 → OUT 退款)
       const paid = Number(sale.paid_amount) || 0;
@@ -548,13 +606,30 @@ export class StorePosService {
         });
       }
 
-      // D. 更新销售单状态
-      await mgr.query(
+      // 已关班原单只追加 adjustment，不修改历史班次。
+      if (locked.shift_closing_id) {
+        const [closedShift] = await mgr.query(
+          `SELECT id,status FROM sal_store_shift_closings WHERE id=$1 FOR UPDATE`,
+          [locked.shift_closing_id],
+        );
+        if (closedShift?.status === 'CLOSED') {
+          await mgr.query(
+            `INSERT INTO store_sale_adjustments
+               (sale_id,shift_closing_id,adjustment_type,reason,created_by)
+             VALUES ($1,$2,'CLOSED_SHIFT_RETURN',$3,$4)
+             ON CONFLICT (sale_id,adjustment_type) DO NOTHING`,
+            [id, closedShift.id, rsn, user?.username ?? 'pos'],
+          );
+        }
+      }
+
+      const updated = await mgr.query(
         `UPDATE sal_store_sales
          SET status = 'RETURNED', returned_at = NOW(), return_reason = $2
-         WHERE id = $1`,
+         WHERE id = $1 AND status='COMPLETED' RETURNING id`,
         [id, rsn],
       );
+      if (updated.length !== 1) throw new ConflictException('销售单状态已变化，退货已回滚');
     });
 
     this.logger.warn(
@@ -686,89 +761,93 @@ export class StorePosService {
   private async fifoDeductItems(
     sale: any,
     mgr: any,
-  ): Promise<Array<{ itemId: number; batchNo: string }>> {
+  ): Promise<Array<{ itemId: number; batchNo: string; warehouseCode: string; qty: number }>> {
     const items: any[] = Array.isArray(sale.items)
       ? sale.items
       : await mgr.query(`SELECT * FROM sal_store_sale_items WHERE sale_id = $1`, [sale.id]);
 
-    const allocs: Array<{ itemId: number; batchNo: string }> = [];
+    const allocs: Array<{ itemId: number; batchNo: string; warehouseCode: string; qty: number }> = [];
 
     for (const item of items) {
       if (!item || !item.product_code) continue;
       const qty = Number(item.qty);
       if (qty <= 0) continue;
 
-      try {
-        // Phase H5: PATH A（sku_code）优先，PATH B（product+grade）回退
-        const useSkuPath = !!item.sku_code;
-        const lockKey = useSkuPath
-          ? `fifo:${sale.company_code}:sku:${item.sku_code}`
-          : `fifo:${sale.company_code}:${item.product_code}`;
+      // Phase H5: PATH A（sku_code）优先，PATH B（product+grade）回退。
+      const useSkuPath = !!item.sku_code;
+      const lockKey = useSkuPath
+        ? `fifo:${sale.company_code}:${sale.warehouseCodes.join(',')}:sku:${item.sku_code}`
+        : `fifo:${sale.company_code}:${sale.warehouseCodes.join(',')}:${item.product_code}`;
 
         // Advisory Lock 防并发超卖
-        await mgr.query(
-          `SELECT pg_advisory_xact_lock(hashtext($1))`,
-          [lockKey],
-        );
+      await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
 
         // FIFO 批次查询
-        let batches: any[];
-        if (useSkuPath) {
+      let batches: any[];
+      if (useSkuPath) {
           // PATH A: 按 sku_code 精确匹配
           batches = await mgr.query(
-            `SELECT batch_no, qty_available, expire_date
+            `SELECT batch_no, warehouse_code, qty_available, expire_date
              FROM inv_batches
              WHERE sku_code = $1
                AND company_code = $2
+               AND warehouse_code = ANY($3::varchar[])
                AND status = 'AVAILABLE'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
                AND legacy_source IS NULL
-             ORDER BY expire_date ASC NULLS LAST, created_at ASC
+             ORDER BY expire_date ASC NULLS LAST, created_at ASC, batch_no ASC
              FOR UPDATE`,
-            [item.sku_code, sale.company_code],
+            [item.sku_code, sale.company_code, sale.warehouseCodes],
           );
-        } else {
+      } else {
           // PATH B: 旧 product+grade 匹配
           // 安全:grade_code 用绑定参数($3),严禁字符串插值(SQL 注入)
           batches = await mgr.query(
-            `SELECT batch_no, qty_available, expire_date
+            `SELECT batch_no, warehouse_code, qty_available, expire_date
              FROM inv_batches
              WHERE product_code = $1
                AND company_code = $2
+               AND warehouse_code = ANY($3::varchar[])
                AND status = 'AVAILABLE'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
                AND legacy_source IS NULL
-               ${item.grade_code ? `AND quality_grade = $3` : ''}
-             ORDER BY expire_date ASC NULLS LAST, created_at ASC
+               ${item.grade_code ? `AND quality_grade = $4` : ''}
+             ORDER BY expire_date ASC NULLS LAST, created_at ASC, batch_no ASC
              FOR UPDATE`,
             item.grade_code
-              ? [item.product_code, sale.company_code, item.grade_code]
-              : [item.product_code, sale.company_code],
+              ? [item.product_code, sale.company_code, sale.warehouseCodes, item.grade_code]
+              : [item.product_code, sale.company_code, sale.warehouseCodes],
           );
-        }
+      }
 
-        let remaining = qty;
-        let firstBatch = '';
+      let remaining = qty;
 
-        for (const batch of batches) {
+      for (const batch of batches) {
           if (remaining <= 0) break;
           const canTake = Math.min(remaining, Number(batch.qty_available));
           remaining -= canTake;
-          if (!firstBatch) firstBatch = batch.batch_no;
-
-          // 扣减
-          await mgr.query(
-            `UPDATE inv_batches SET qty_available = qty_available - $1, updated_at=NOW() WHERE batch_no=$2`,
-            [canTake, batch.batch_no],
+          const changed = await mgr.query(
+            `UPDATE inv_batches SET qty_available = qty_available - $1, updated_at=NOW()
+              WHERE batch_no=$2 AND warehouse_code=$3 AND qty_available >= $1 RETURNING batch_no`,
+            [canTake, batch.batch_no, batch.warehouse_code],
           );
+          if (changed.length !== 1) throw new ConflictException(`批次 ${batch.batch_no} 可用量已变化`);
+
+          await mgr.query(
+            `INSERT INTO store_sale_allocations
+               (sale_id,sale_item_id,batch_no,warehouse_code,allocated_qty)
+             VALUES ($1,$2,$3,$4,$5)`,
+            [sale.id, item.id, batch.batch_no, batch.warehouse_code, canTake],
+          );
+          allocs.push({ itemId: item.id, batchNo: batch.batch_no, warehouseCode: batch.warehouse_code, qty: canTake });
 
           // 写 inv_ledger FIFO_OUT（Phase H5: 传递 sku_code）
           await mgr.query(
             `INSERT INTO inv_ledger
-               (batch_no, change_type, qty_change, operator, store_code, ref_no, note, sku_code, created_at)
-             VALUES ($1,'FIFO_OUT',$2,$3,$4,$5,$6,$7,NOW())`,
+               (batch_no, change_type, qty_change, operator, store_code, ref_no, note, sku_code, company_code, warehouse_code, created_at)
+             VALUES ($1,'FIFO_OUT',$2,$3,$4,$5,$6,$7,$8,$9,NOW())`,
             [
               batch.batch_no,
               -canTake,
@@ -776,23 +855,17 @@ export class StorePosService {
               sale.store_code,
               sale.sale_no,
               `门店收银 FIFO 出库 ${sale.sale_no} qty=${canTake}`,
-              item.sku_code ?? null,  // Phase H5
+              item.sku_code ?? null,
+              sale.company_code,
+              batch.warehouse_code,
             ],
           );
-        }
+      }
 
-        if (remaining > 0) {
-          // 库存不足时，记录警告但不阻断（门店允许负库存场景，记录欠账）
-          this.logger.warn(
-            `[StorePOS] 库存不足 ${useSkuPath ? 'sku=' + item.sku_code : 'product=' + item.product_code} 缺 ${remaining}，允许继续`,
-          );
-        }
-
-        if (firstBatch) {
-          allocs.push({ itemId: item.id, batchNo: firstBatch });
-        }
-      } catch (err) {
-        this.logger.warn(`[StorePOS] FIFO deduct warn: ${(err as any)?.message}`);
+      if (remaining > 0) {
+        throw new ConflictException(
+          `门店仓库存不足：${useSkuPath ? 'sku=' + item.sku_code : 'product=' + item.product_code} 缺 ${remaining}`,
+        );
       }
     }
 
@@ -827,8 +900,7 @@ export class StorePosService {
       [params.accountId],
     );
     if (!acct) {
-      this.logger.warn(`[StorePOS] cash_account ${params.accountId} 不存在，跳过 cash write`);
-      return;
+      throw new BadRequestException(`资金账户 ${params.accountId} 不存在，成交已回滚`);
     }
 
     // POS-P0-6:资金账户币种必须与销售单币种一致,否则流水/余额会跨币种混记(账实漂移)
@@ -924,32 +996,51 @@ export class StorePosService {
 
   // ── 私有：退货反向（库存 / 现金 / AR）──────────────────────────────────────
 
-  /** 退货库存反向：每行入 QUARANTINE 退货批（待 QC 复检）+ inv_ledger SALE_RETURN（沿用 sales-v2 退货入库语义） */
-  private async reverseInventory(mgr: any, sale: any, items: any[]) {
-    for (const item of items) {
-      const qty = Number(item.qty) || 0;
-      if (qty <= 0) continue;
-      // 退货批按销售明细行 id 唯一(避免同 product_code 多规格行撞键合批 + 控制 batch_no 长度)
-      const batchNo = `RET-${sale.sale_no}-${item.id}`;
-      // 入 QUARANTINE 退货批（同 batch_no 累加，幂等）；status 取自 INV_STOCK_STATUS 5 态
+  /** 严格按原 allocation 反向，并要求 RETURNS 仓存在隔离库位。 */
+  private async reverseInventory(mgr: any, sale: any, allocations: any[], warehouseCodes: string[]) {
+    const [quarantine] = await mgr.query(
+      `SELECT l.warehouse_code,l.location_code,l.zone_code
+         FROM wms_locations l
+         LEFT JOIN wms_zones z ON z.zone_code=l.zone_code
+        WHERE l.warehouse_code=ANY($1::varchar[]) AND l.status='ACTIVE'
+          AND (upper(COALESCE(l.zone_code,'')) LIKE '%QUARANTINE%'
+               OR upper(COALESCE(z.zone_name,'')) LIKE '%QUARANTINE%'
+               OR z.zone_name LIKE '%隔离%')
+        ORDER BY array_position($1::varchar[],l.warehouse_code),l.location_code
+        LIMIT 1 FOR UPDATE OF l`,
+      [warehouseCodes],
+    );
+    if (!quarantine) throw new ConflictException('退货仓缺少 ACTIVE QUARANTINE zone/location，退货已回滚');
+
+    for (const allocation of allocations) {
+      const qty = Number(allocation.allocated_qty) - Number(allocation.returned_qty);
+      if (qty <= 0) throw new ConflictException(`allocation ${allocation.id} 已无可退数量`);
+      const batchNo = `RET-${sale.sale_no}-${allocation.id}`;
       await mgr.query(
         `INSERT INTO inv_batches
            (batch_no, product_code, company_code, qty, qty_available, quality_grade,
-            packaging_spec, source_type, source_no, status, sku_code, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$4,$5,$6,'STORE_RETURN',$7,'QUARANTINE',$8,NOW(),NOW())
+            packaging_spec, source_type, source_no, status, sku_code, warehouse_code, location_code, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$4,$5,$6,'STORE_RETURN',$7,'QUARANTINE',$8,$9,$10,NOW(),NOW())
          ON CONFLICT (batch_no) DO UPDATE SET
            qty           = inv_batches.qty + EXCLUDED.qty,
            qty_available = inv_batches.qty_available + EXCLUDED.qty_available,
            updated_at    = NOW()`,
-        [batchNo, item.product_code, sale.company_code, qty,
-         item.grade_code ?? null, item.packaging_spec ?? null, sale.sale_no, item.sku_code ?? null],
+        [batchNo, allocation.product_code, sale.company_code, qty,
+         allocation.grade_code ?? null, allocation.packaging_spec ?? null, sale.sale_no,
+         allocation.sku_code ?? null, quarantine.warehouse_code, quarantine.location_code],
       );
       await mgr.query(
         `INSERT INTO inv_ledger
-           (batch_no, change_type, qty_change, operator, store_code, ref_no, note, company_code, sku_code, created_at)
-         VALUES ($1,'SALE_RETURN',$2,$3,$4,$5,$6,$7,$8,NOW())`,
+           (batch_no, change_type, qty_change, operator, store_code, ref_no, note, company_code, sku_code, warehouse_code, location_code, created_at)
+         VALUES ($1,'SALE_RETURN',$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())`,
         [batchNo, qty, this.currentUser?.username ?? 'pos', sale.store_code, sale.sale_no,
-         `门店退货入隔离批 ${sale.sale_no} qty=${qty}`, sale.company_code, item.sku_code ?? null],
+         `按 allocation ${allocation.id} 退货入隔离批 ${sale.sale_no} qty=${qty}`, sale.company_code,
+         allocation.sku_code ?? null, quarantine.warehouse_code, quarantine.location_code],
+      );
+      await mgr.query(
+        `UPDATE store_sale_allocations SET returned_qty=allocated_qty,updated_at=NOW()
+          WHERE id=$1 AND returned_qty < allocated_qty`,
+        [allocation.id],
       );
     }
   }

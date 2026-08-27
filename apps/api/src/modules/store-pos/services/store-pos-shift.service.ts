@@ -35,9 +35,9 @@ export class StorePosShiftService {
     try { return this.cls.get('user') as any ?? {}; } catch { return {}; }
   }
 
-  private async genClosingNo(): Promise<string> {
+  private async genClosingNo(queryable: Pick<DataSource, 'query'> = this.ds): Promise<string> {
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const [r] = await this.ds.query(`SELECT nextval('seq_store_closing_no') AS n`);
+    const [r] = await queryable.query(`SELECT nextval('seq_store_closing_no') AS n`);
     return `SHIFT-${dateStr}-${String(r.n).padStart(4, '0')}`;
   }
 
@@ -46,34 +46,29 @@ export class StorePosShiftService {
     const context = await this.storeScope.resolve(dto.storeCode, 'SALES');
     if (dto.companyCode && dto.companyCode !== context.companyCode) throw new BadRequestException('门店与公司不匹配');
     dto = { ...dto, storeCode: context.storeCode, companyCode: context.companyCode };
-    // 检查是否已有 OPEN 班次
-    const [existing] = await this.ds.query<any[]>(
-      `SELECT id FROM sal_store_shift_closings WHERE store_code=$1 AND status='OPEN' LIMIT 1`,
-      [dto.storeCode],
-    );
-    if (existing) {
-      throw new BadRequestException(`门店 ${dto.storeCode} 已有未关班的班次，请先完成交班`);
+    const user = this.currentUser;
+    try {
+      return await this.ds.transaction(async mgr => {
+        await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`store-shift:${dto.storeCode}`]);
+        const [existing] = await mgr.query(
+          `SELECT id FROM sal_store_shift_closings WHERE store_code=$1 AND status='OPEN' FOR UPDATE`,
+          [dto.storeCode],
+        );
+        if (existing) throw new BadRequestException(`门店 ${dto.storeCode} 已有未关班的班次，请先完成交班`);
+        const closingNo = await this.genClosingNo(mgr);
+        const [row] = await mgr.query(
+          `INSERT INTO sal_store_shift_closings
+            (closing_no, store_code, company_code, opening_cash, status, operator_id, operator_name)
+           VALUES ($1,$2,$3,$4,'OPEN',$5,$6) RETURNING id, closing_no`,
+          [closingNo,dto.storeCode,dto.companyCode,dto.openingCash,
+           user?.userId ?? user?.id ?? null,user?.name ?? user?.username ?? null],
+        );
+        return row;
+      });
+    } catch (error: any) {
+      if (error?.code === '23505') throw new BadRequestException(`门店 ${dto.storeCode} 已有未关班的班次，请先完成交班`);
+      throw error;
     }
-
-    const user       = this.currentUser;
-    const closingNo  = await this.genClosingNo();
-
-    const [row] = await this.ds.query<any[]>(
-      `INSERT INTO sal_store_shift_closings
-        (closing_no, store_code, company_code, opening_cash, status, operator_id, operator_name)
-       VALUES ($1,$2,$3,$4,'OPEN',$5,$6)
-       RETURNING id, closing_no`,
-      [
-        closingNo,
-        dto.storeCode,
-        dto.companyCode,
-        dto.openingCash,
-        user?.userId ?? user?.id ?? null,
-        user?.name ?? user?.username ?? null,
-      ],
-    );
-
-    return row;
   }
 
   /** 获取当前班次（OPEN）*/
