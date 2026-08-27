@@ -24,8 +24,8 @@ ORDER BY u.user_id,trim(x.store_code);
 
 -- 3. store -> ACTIVE/OPERATIONAL warehouse binding candidates；purpose/priority 必须人工确认。
 SELECT 'STORE_WAREHOUSE_BINDING_CANDIDATE' AS section, s.store_code, s.company_code, w.warehouse_code, w.warehouse_name, w.domain, w.status,
-       CASE WHEN w.store_code=s.store_code THEN 'LEGACY_DIRECT_MATCH'
-            WHEN w.site_code=s.mapped_site_code AND s.mapped_site_code IS NOT NULL THEN 'SITE_MATCH_REVIEW'
+       CASE WHEN to_jsonb(w)->>'store_code'=s.store_code THEN 'LEGACY_DIRECT_MATCH'
+            WHEN to_jsonb(w)->>'site_code'=s.mapped_site_code AND s.mapped_site_code IS NOT NULL THEN 'SITE_MATCH_REVIEW'
             ELSE 'COMPANY_POOL_REVIEW' END AS candidate_reason
 FROM mst_stores s
 JOIN wms_warehouses w ON w.company_code=s.company_code AND w.status='ACTIVE' AND w.domain='OPERATIONAL'
