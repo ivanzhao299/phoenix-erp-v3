@@ -29,7 +29,8 @@ SELECT current_setting('transaction_read_only')='on'
       WHERE w.company_code=e.company_code AND w.site_code=e.site_code AND w.type='EGG_SALES' AND w.domain='OPERATIONAL' AND w.status='ACTIVE' AND w.owner_store_id=s.id)=10
  AND (SELECT count(*) FROM target_zones t JOIN wms_zones z USING(zone_code) WHERE z.warehouse_code=t.warehouse_code AND z.warehouse=t.warehouse_code AND z.zone_type=t.zone_type AND z.status='ACTIVE' AND z.store_code=t.store_code)=20
  AND (SELECT count(*) FROM target_zones t JOIN wms_locations l ON l.location_code=t.zone_code||'_NORMAL' WHERE l.warehouse_code=t.warehouse_code AND l.zone_code=t.zone_code AND l.status='ACTIVE' AND l.store_code=t.store_code)=20
- AND (SELECT count(*) FROM wms_warehouses WHERE domain='OPERATIONAL')=31 AS assertions_ok
+ AND (SELECT count(*) FROM wms_warehouses WHERE domain='OPERATIONAL')=21
+ AND (SELECT count(*) FROM wms_warehouses)=31 AS assertions_ok
 \gset
 \if :assertions_ok
  \echo 'WAREHOUSE_VERIFY_ASSERTIONS=PASS'

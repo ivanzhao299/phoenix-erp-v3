@@ -37,6 +37,12 @@ SELECT 'WAREHOUSE_PREFLIGHT_COUNTS' section,
  (SELECT count(*) FROM wms_zones z JOIN targets t USING(zone_code)) target_zones,
  (SELECT count(*) FROM wms_locations l JOIN targets t ON l.location_code=t.zone_code||'_NORMAL') target_locations;
 
+SELECT 'WAREHOUSE_CODE_WIDTHS' section,table_name,column_name,character_maximum_length
+FROM information_schema.columns
+WHERE table_schema='public'
+  AND (table_name,column_name) IN (('wms_zones','zone_code'),('wms_locations','location_code'))
+ORDER BY table_name,column_name;
+
 WITH expected(store_code,company_code,site_code,warehouse_code) AS (VALUES
  ('STORE-BKX-001','COMP-LAO-AGRI','SITE-BKX-001-STORE','ST_LAO_AGRI_BKX_001_SALES'),('STORE-LPB-001','COMP-LAO-AGRI','SITE-LPB-001-STORE','ST_LAO_AGRI_LPB_001_SALES'),
  ('STORE-MX-001','COMP-LAO-AGRI','SITE-MX-001-STORE','ST_LAO_AGRI_MX_001_SALES'),('STORE-PSL-001','COMP-LAO-AGRI','SITE-PSL-001-STORE','ST_LAO_AGRI_PSL_001_SALES'),
@@ -47,7 +53,9 @@ WITH expected(store_code,company_code,site_code,warehouse_code) AS (VALUES
 SELECT current_setting('transaction_read_only')='on'
  AND (SELECT count(*) FROM expected e JOIN store_master s USING(store_code) WHERE s.company_code=e.company_code AND s.status='ACTIVE')=10
  AND (SELECT count(*) FROM expected e JOIN sys_organizations o ON o.org_code=e.site_code WHERE o.company_code=e.company_code AND o.org_type='SITE' AND o.site_business_type='STORE' AND o.status='ACTIVE')=10
- AND (SELECT count(*) FROM wms_warehouses WHERE domain='OPERATIONAL')=21
+ AND (SELECT count(*) FROM wms_warehouses WHERE domain='OPERATIONAL')=11
+ AND (SELECT character_maximum_length FROM information_schema.columns WHERE table_schema='public' AND table_name='wms_zones' AND column_name='zone_code') >= (SELECT max(length(zone_code)) FROM targets)
+ AND (SELECT character_maximum_length FROM information_schema.columns WHERE table_schema='public' AND table_name='wms_locations' AND column_name='location_code') >= (SELECT max(length(zone_code||'_NORMAL')) FROM targets)
  AND NOT EXISTS(SELECT 1 FROM wms_warehouses w JOIN expected e USING(warehouse_code))
  AND NOT EXISTS(SELECT 1 FROM wms_zones z JOIN targets t USING(zone_code))
  AND NOT EXISTS(SELECT 1 FROM wms_locations l JOIN targets t ON l.location_code=t.zone_code||'_NORMAL') AS assertions_ok
