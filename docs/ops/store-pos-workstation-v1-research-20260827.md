@@ -600,3 +600,5 @@ GitHub production environment 只读 workflow run `33035061172` 成功；生产 
 - 范围保持：未新增 tender 行、settlement、价格全序或财务过账；未做 Terminal 收银 UI；未关闭旧写入口。
 
 回归新增 `store-pos-atomicity.service.spec.ts` 与 `store-pos-v1-2.contract.spec.ts`，覆盖库存不足拒绝、多批 allocation、同 key 返回既有结果、allocation 精确退回隔离库位、数据库硬约束及旧 warn 路径消失。V1-1 五象限、legacy shadow、跨入口 scope contract 保持通过。部署、迁移日志、revision 与生产只读 smoke 证据在本节后续追加。
+
+PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-frozen-boundary`、`reviewed-security-touch`；这些标签仅批准执行既定 V1-2 变更，不扩大到 V1-3/V1-4。
