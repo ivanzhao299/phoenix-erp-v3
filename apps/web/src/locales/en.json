@@ -473,6 +473,7 @@
   "ui.在途订单": "Orders in transit",
   "ui.待审批申请": "Application pending approval",
   "ui.在途": "In Transit",
+  "ui.已签收待处理": "Received — Action Required",
   "ui.待发货": "Awaiting shipment",
   "ui.已退货": "Returned",
   "ui.采购申请": "Purchase requisition",
