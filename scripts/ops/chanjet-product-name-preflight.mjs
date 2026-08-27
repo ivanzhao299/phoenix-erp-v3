@@ -86,6 +86,9 @@ const report = {
   currentName: result.currentName,
   proposedName: result.proposedName,
   providerRowHash: result.providerRowHash,
+  providerInvariantHash: result.providerInvariantHash,
+  providerState: result.providerState,
+  businessFields: result.businessFields,
   updatePayloadHash: result.updatePayloadHash,
   updatePayloadFields: result.updatePayloadFields,
   updatePayloadReady,
@@ -98,6 +101,7 @@ mkdirSync(outputDir, { recursive: true });
 const output = join(outputDir, 'chanjet-product-name-preflight-latest.json');
 writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 console.log(`Chanjet update DTO fields=${JSON.stringify(result.updatePayloadFields || [])}`);
+console.log(`Chanjet provider state=${result.providerState || 'UNKNOWN'}`);
 console.log(`Chanjet update DTO hash=${result.updatePayloadHash || 'MISSING'}`);
 if (!updatePayloadReady) {
   throw new Error('production preflight update DTO is incomplete or outside the approved field boundary');
