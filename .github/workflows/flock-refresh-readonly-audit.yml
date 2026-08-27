@@ -345,10 +345,10 @@ jobs:
               JOIN wms_warehouses w ON w.company_code=s.company_code AND w.status='ACTIVE' AND w.domain='OPERATIONAL'
              ORDER BY s.store_code,candidate_reason,w.warehouse_code;
 
-            SELECT 'STORE_V1_ERROR_WINDOW' AS section,id,path,method,status_code,error_message,created_at
+            SELECT 'STORE_V1_ERROR_WINDOW' AS section,id,request_path,request_method,http_status,error_message,created_at
               FROM sys_error_logs
              WHERE created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
-               AND (path ILIKE '%store-sales%' OR error_message ILIKE '%store_master%'
+               AND (request_path ILIKE '%store-sales%' OR error_message ILIKE '%store_master%'
                     OR error_message ILIKE '%store_membership%' OR error_message ILIKE '%store_warehouse_bindings%'
                     OR error_message ILIKE '%门店%membership%')
              ORDER BY created_at::timestamp DESC LIMIT 200;

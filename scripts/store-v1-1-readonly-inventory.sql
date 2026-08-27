@@ -32,11 +32,11 @@ JOIN wms_warehouses w ON w.company_code=s.company_code AND w.status='ACTIVE' AND
 ORDER BY s.store_code,candidate_reason,w.warehouse_code;
 
 -- 4. V1-1 部署窗口错误扫描。只读输出门店工作台新 schema / scope 相关错误。
-SELECT 'STORE_V1_ERROR_WINDOW' AS section, id, path, method, status_code, error_message, created_at
+SELECT 'STORE_V1_ERROR_WINDOW' AS section, id, request_path, request_method, http_status, error_message, created_at
 FROM sys_error_logs
 WHERE created_at::timestamp >= :'window_start'::timestamp
   AND created_at::timestamp < :'window_end'::timestamp
-  AND (path ILIKE '%store-sales%'
+  AND (request_path ILIKE '%store-sales%'
        OR error_message ILIKE '%store_master%'
        OR error_message ILIKE '%store_membership%'
        OR error_message ILIKE '%store_warehouse_bindings%'
