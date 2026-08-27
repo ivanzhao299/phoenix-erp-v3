@@ -3,6 +3,14 @@ name: Flock Refresh Production Readonly Audit
 on:
   workflow_dispatch:
     inputs:
+      audit_target:
+        description: 'Readonly audit target'
+        required: true
+        default: 'flock'
+        type: choice
+        options:
+          - flock
+          - store-pos-v1
       window_start:
         description: 'UTC audit start timestamp, e.g. 2026-08-22 00:00:00'
         required: true
@@ -19,6 +27,7 @@ concurrency:
 
 jobs:
   audit:
+    if: inputs.audit_target == 'flock'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
@@ -191,3 +200,124 @@ jobs:
             done < <(sudo nginx -T 2>&1 \
               | sed -n 's/^[[:space:]]*access_log[[:space:]]\+\([^ ;]*\).*/\1/p' \
               | sort -u)
+
+  store-pos-v1-audit:
+    if: inputs.audit_target == 'store-pos-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Validate audit window
+        shell: bash
+        env:
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        run: |
+          set -euo pipefail
+          timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+          for value in "$WINDOW_START" "$WINDOW_END"; do
+            [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+            date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+          done
+          [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+            || { echo "window_start must be before window_end" >&2; exit 1; }
+      - name: Aggregate Store POS V1 evidence without mutation
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,WINDOW_START,WINDOW_END
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "AUDIT_WINDOW=$WINDOW_START .. $WINDOW_END"
+            echo "PRODUCTION_CHECKOUT=$(git rev-parse HEAD)"
+            docker compose exec -T \
+              -e AUDIT_WINDOW_START="$WINDOW_START" \
+              -e AUDIT_WINDOW_END="$WINDOW_END" \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -v window_start="$AUDIT_WINDOW_START" -v window_end="$AUDIT_WINDOW_END" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
+            \pset format aligned
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'READONLY_GUARD' AS section, current_setting('transaction_read_only') AS read_only,
+                   :'window_start' AS window_start_utc, :'window_end' AS window_end_utc;
+
+            SELECT 'STORE_DOCUMENT_VOLUME' AS section, 'sal_store_sales' AS source, store_code,
+                   count(*)::int AS document_count,
+                   count(*) FILTER (WHERE status='COMPLETED')::int AS completed_count,
+                   count(*) FILTER (WHERE status='RETURNED')::int AS returned_count,
+                   COALESCE(sum(total_amount) FILTER (WHERE status='COMPLETED'),0) AS completed_amount
+              FROM sal_store_sales
+             WHERE created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
+             GROUP BY store_code
+            UNION ALL
+            SELECT 'STORE_DOCUMENT_VOLUME', 'pos_sales', store_code, count(*)::int,
+                   count(*) FILTER (WHERE status='COMPLETED')::int, 0,
+                   COALESCE(sum(COALESCE(net_amount,total_amount)) FILTER (WHERE status='COMPLETED'),0)
+              FROM pos_sales
+             WHERE created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
+             GROUP BY store_code
+             ORDER BY source, store_code;
+
+            SELECT 'ACTIVE_CASHIER' AS section, store_code,
+                   count(DISTINCT COALESCE(NULLIF(created_by::text,''),NULLIF(created_by_name,'')))::int AS transacting_cashiers,
+                   count(*)::int AS completed_sales
+              FROM sal_store_sales
+             WHERE status='COMPLETED'
+               AND created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
+             GROUP BY store_code ORDER BY store_code;
+
+            SELECT 'ACTIVE_CASHIER_ROSTER' AS section, u.store_code,
+                   count(DISTINCT u.user_id)::int AS active_cashier_roster
+              FROM sys_user u
+              JOIN sys_user_role ur ON ur.user_id=u.user_id
+              JOIN sys_role r ON r.role_id=ur.role_id AND r.role_code='ROLE_CASHIER'
+             WHERE to_jsonb(u)->>'status' IN ('1','ACTIVE')
+             GROUP BY u.store_code ORDER BY u.store_code;
+
+            SELECT 'SHIFT_FREQUENCY' AS section, store_code,
+                   count(*) FILTER (WHERE status='CLOSED')::int AS closed_shifts,
+                   count(*) FILTER (WHERE status='OPEN')::int AS open_shifts,
+                   round(count(*)::numeric / NULLIF(EXTRACT(epoch FROM (:'window_end'::timestamp-:'window_start'::timestamp))/86400,0),2) AS shifts_per_day,
+                   round((avg(EXTRACT(epoch FROM (closed_at::timestamp-opened_at::timestamp))/3600) FILTER (WHERE closed_at IS NOT NULL))::numeric,2) AS avg_shift_hours
+              FROM sal_store_shift_closings
+             WHERE opened_at::timestamp < :'window_end'::timestamp
+               AND COALESCE(closed_at::timestamp,opened_at::timestamp) >= :'window_start'::timestamp
+             GROUP BY store_code ORDER BY store_code;
+
+            SELECT 'RETURN_RATE' AS section, store_code,
+                   count(*) FILTER (WHERE status IN ('COMPLETED','RETURNED'))::int AS settled_sales,
+                   count(*) FILTER (WHERE status='RETURNED')::int AS returned_sales,
+                   round(100.0*count(*) FILTER (WHERE status='RETURNED')/
+                         NULLIF(count(*) FILTER (WHERE status IN ('COMPLETED','RETURNED')),0),2) AS return_rate_pct
+              FROM sal_store_sales
+             WHERE created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
+             GROUP BY store_code ORDER BY store_code;
+
+            SELECT 'PAYMENT_METHOD_DISTRIBUTION' AS section, 'sal_store_sales' AS source, store_code,
+                   COALESCE(NULLIF(payment_method,''),'UNKNOWN') AS payment_method,
+                   count(*)::int AS document_count, COALESCE(sum(paid_amount),0) AS amount
+              FROM sal_store_sales
+             WHERE status='COMPLETED'
+               AND created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
+             GROUP BY store_code, COALESCE(NULLIF(payment_method,''),'UNKNOWN')
+            UNION ALL
+            SELECT 'PAYMENT_METHOD_DISTRIBUTION', 'store_payment_records', store_code,
+                   COALESCE(NULLIF(payment_method,''),'UNKNOWN'), count(*)::int, COALESCE(sum(amount),0)
+              FROM store_payment_records
+             WHERE status='CONFIRMED'
+               AND created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
+             GROUP BY store_code, COALESCE(NULLIF(payment_method,''),'UNKNOWN')
+             ORDER BY source, store_code, payment_method;
+            COMMIT;
+            SQL

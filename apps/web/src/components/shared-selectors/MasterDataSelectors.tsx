@@ -4,6 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import request from '@/lib/api-client';
 import { cachedGet, TTL } from '@/lib/request-cache'; // G89-P1 主数据下拉缓存+去重
 import { fetchDictMap } from '@/lib/dict-cache'; // G25-A 字典异步缓存
+import { loadStorePosContexts } from '@/lib/store-pos-api';
 
 /**
  * 统一主数据选择器（G4-A 财务单据主数据驱动 + G5-B Lookup 范式化 + G7 收口）
@@ -340,6 +341,17 @@ export function StoreSelector(p: BaseProps & { companyCode?: string }) {
           raw: st,
         }));
     }} />;
+}
+
+/** POS 专用门店：只展示当前用户有效 membership，legacy store_code 不参与。 */
+export function StoreMembershipSelector(p: BaseProps) {
+  const { t } = useLanguage();
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择门店','请选择门店')}
+    loader={async () => (await loadStorePosContexts()).map(st => ({
+      value: st.storeCode,
+      label: `${st.storeName}（${st.storeCode}）${st.hasSalesWarehouse ? '' : ` · ${t('ui.无可用销售仓','无可用销售仓')}`}`,
+      raw: st,
+    }))} />;
 }
 
 // ── 司机（sal_drivers）───────────────────────────────────────────────────────

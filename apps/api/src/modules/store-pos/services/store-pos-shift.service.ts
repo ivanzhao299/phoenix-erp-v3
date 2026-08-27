@@ -10,6 +10,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { StoreScopePolicy } from './store-scope-policy.service';
 
 export interface OpenShiftDto {
   storeCode:    string;
@@ -27,6 +28,7 @@ export class StorePosShiftService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
+    private readonly storeScope: StoreScopePolicy,
   ) {}
 
   private get currentUser() {
@@ -41,6 +43,9 @@ export class StorePosShiftService {
 
   /** 开班 */
   async openShift(dto: OpenShiftDto) {
+    const context = await this.storeScope.resolve(dto.storeCode, 'SALES');
+    if (dto.companyCode && dto.companyCode !== context.companyCode) throw new BadRequestException('门店与公司不匹配');
+    dto = { ...dto, storeCode: context.storeCode, companyCode: context.companyCode };
     // 检查是否已有 OPEN 班次
     const [existing] = await this.ds.query<any[]>(
       `SELECT id FROM sal_store_shift_closings WHERE store_code=$1 AND status='OPEN' LIMIT 1`,
@@ -73,16 +78,18 @@ export class StorePosShiftService {
 
   /** 获取当前班次（OPEN）*/
   async getCurrentShift(storeCode: string) {
+    const context = await this.storeScope.resolve(storeCode, 'SALES');
     const [row] = await this.ds.query<any[]>(
-      `SELECT * FROM sal_store_shift_closings WHERE store_code=$1 AND status='OPEN' ORDER BY opened_at DESC LIMIT 1`,
-      [storeCode],
+      `SELECT * FROM sal_store_shift_closings WHERE store_code=$1 AND company_code=$2 AND status='OPEN' ORDER BY opened_at DESC LIMIT 1`,
+      [context.storeCode, context.companyCode],
     );
     return row ?? null;
   }
 
   /** 交班/日结 */
   async closeShift(storeCode: string, dto: CloseShiftDto) {
-    const shift = await this.getCurrentShift(storeCode);
+    const context = await this.storeScope.resolve(storeCode, 'SALES');
+    const shift = await this.getCurrentShift(context.storeCode);
     if (!shift) {
       throw new BadRequestException(`门店 ${storeCode} 当前无开放班次`);
     }
@@ -98,7 +105,7 @@ export class StorePosShiftService {
        WHERE store_code=$1
          AND created_at >= $2
          AND status != 'VOID'`,
-      [storeCode, shift.opened_at],
+      [context.storeCode, shift.opened_at],
     );
 
     const systemCash = Number(shift.opening_cash) + Number(stats.cash_sales);
@@ -135,7 +142,7 @@ export class StorePosShiftService {
       `UPDATE sal_store_sales
        SET shift_closing_id = $1
        WHERE store_code=$2 AND created_at >= $3 AND status != 'VOID'`,
-      [shift.id, storeCode, shift.opened_at],
+      [shift.id, context.storeCode, shift.opened_at],
     );
 
     const [closed] = await this.ds.query<any[]>(
@@ -154,6 +161,10 @@ export class StorePosShiftService {
     page?:        number;
     limit?:       number;
   }) {
+    const context = await this.storeScope.resolve(params.storeCode, 'SALES');
+    params.storeCode = context.storeCode;
+    if (params.companyCode && params.companyCode !== context.companyCode) throw new BadRequestException('门店与公司不匹配');
+    params.companyCode = context.companyCode;
     const page   = Math.max(1, params.page  ?? 1);
     const limit  = Math.min(100, params.limit ?? 20);
     const offset = (page - 1) * limit;
