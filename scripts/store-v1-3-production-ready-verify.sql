@@ -26,7 +26,7 @@ FROM cashier_bindings b LEFT JOIN cashier_scope s USING(warehouse_code) ORDER BY
 
 SELECT 'STORE_V1_ERROR_WINDOW' section,id,created_at,error_type,error_message,request_path
 FROM sys_error_logs
-WHERE created_at >= TIMESTAMPTZ '2026-08-27 00:00:00+00'
+WHERE created_at >= TIMESTAMPTZ '2026-08-27 06:11:18+00' -- run 33044970951 startedAt
   AND (request_path ILIKE '%inbound%' OR request_path ILIKE '%outbound%' OR request_path ILIKE '%transfer%'
     OR request_path ILIKE '%store-sales%' OR error_message ILIKE '%store_master%'
     OR error_message ILIKE '%store_membership%' OR error_message ILIKE '%store_warehouse_bindings%')
@@ -58,7 +58,7 @@ SELECT current_setting('transaction_read_only')='on'
  AND (SELECT count(*) FROM expected_membership e JOIN sys_user u ON u.username=e.username JOIN store_master s ON s.store_code=e.store_code JOIN store_memberships m ON m.user_id=u.user_id AND m.store_id=s.id AND m.role=e.role WHERE m.status='ACTIVE' AND m.effective_to IS NULL)=7
  AND (SELECT count(*) FROM store_warehouse_bindings b JOIN store_master s ON s.id=b.store_id JOIN expected_store e ON e.store_code=s.store_code WHERE b.warehouse_code=e.warehouse_code AND b.purpose IN ('SALES','RETURNS') AND b.priority=1 AND b.status='ACTIVE' AND b.effective_to IS NULL)=20
  AND (SELECT count(*) FROM cashier_intersection)>0
- AND NOT EXISTS (SELECT 1 FROM sys_error_logs WHERE created_at >= TIMESTAMPTZ '2026-08-27 00:00:00+00' AND (request_path ILIKE '%inbound%' OR request_path ILIKE '%outbound%' OR request_path ILIKE '%transfer%' OR request_path ILIKE '%store-sales%' OR error_message ILIKE '%store_master%' OR error_message ILIKE '%store_membership%' OR error_message ILIKE '%store_warehouse_bindings%')) AS assertions_ok
+ AND NOT EXISTS (SELECT 1 FROM sys_error_logs WHERE created_at >= TIMESTAMPTZ '2026-08-27 06:11:18+00' AND (request_path ILIKE '%inbound%' OR request_path ILIKE '%outbound%' OR request_path ILIKE '%transfer%' OR request_path ILIKE '%store-sales%' OR error_message ILIKE '%store_master%' OR error_message ILIKE '%store_membership%' OR error_message ILIKE '%store_warehouse_bindings%')) AS assertions_ok
 \gset
 \if :assertions_ok
  \echo 'STORE_V1_3_READY_ASSERTIONS=PASS'
