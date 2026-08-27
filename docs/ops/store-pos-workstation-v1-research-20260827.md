@@ -858,4 +858,7 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - `GET /api/v2/store-replenishments` 200；`GET /api/v2/store-replenishments/source-warehouses?storeCode=STORE-HS-001` 200。后者必先执行 `resolve()`，因此确证 amei 的会晒销售仓 binding 与运行时完整 WarehouseScope 存在交集，H2 不成立。
 - `GET /api/v2/store-sales/shift?storeCode=STORE-HS-001` 200；零补货权限对照账号 `cashier` 请求补货为 403，证明修复未放宽权限。
 - 30 分钟 Store POS 错误窗口 0 行，`PRODUCTION_BUSINESS_WRITES=0`。本轮没有执行开班、建补货、销售或任何授权数据写入。
-- 为关闭“完整 WarehouseScope 逐仓明细”证据缺口，专用只读 probe 同时通过生产 `DataScopeService.resolve()` 输出 amei 与 cashier 的排序后 `allowedWarehouseCodes` 全集，并硬断言分别包含 `ST_LAO_XINGCHI_HS_001_SALES` 与 `ST_LAO_AGRI_VTE_001_SALES`；最终 run 编号与逐仓列表在下次只读复验后追加。
+- 为关闭“完整 WarehouseScope 逐仓明细”证据缺口，专用只读 run `33059425059` 通过生产 `DataScopeService.resolve()` 输出排序后的 `allowedWarehouseCodes` 全集并通过硬断言：
+  - `amei` 8 仓：`LPH_DP_EGG_FARM`、`LPH_DP_EGG_SALES`、`LPH_DP_FEED`、`LPH_DP_MEDICINE`、`ST_LAO_XINGCHI_DP_001_SALES`、`ST_LAO_XINGCHI_HS_001_SALES`、`ST_LAO_XINGCHI_XB_001_SALES`、`ST_LAO_XINGCHI_XC_001_SALES`；明确包含会晒门店仓。
+  - `cashier` 13 仓：`LPH_MS_EGG_FARM`、`LPH_MS_EGG_SALES`、`LPH_MS_FEED`、`LPH_MS_FINISHED`、`LPH_MS_MEDICINE`、`LPH_MS_PURCHASE`、`LPH_MS_RAW`、`ST_LAO_AGRI_BKX_001_SALES`、`ST_LAO_AGRI_LPB_001_SALES`、`ST_LAO_AGRI_MX_001_SALES`、`ST_LAO_AGRI_PSL_001_SALES`、`ST_LAO_AGRI_VTE_001_SALES`、`ST_LAO_AGRI_VTE_WH_001_SALES`；明确包含万象门店仓。
+  - 同一 run 再次确认三方 production revision 为 `4190a7fe55d8f77e1c7b75fd17e81290cdde2e56`、amei contexts 单行、目标仓交集 true、错误窗口 0、生产业务写入 0。H2 由完整运行时仓集合与 endpoint 两层证据共同推翻。
