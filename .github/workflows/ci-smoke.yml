@@ -159,6 +159,28 @@ jobs:
             unset TOKEN_RAW
             test -n "$TOKEN"
 
+            docker compose exec -T api node - <<'NODE'
+            const { NestFactory } = require('@nestjs/core');
+            const { AppModule } = require('./dist/app.module');
+            const { AuthService } = require('./dist/auth/auth.service');
+            const { DataScopeService } = require('./dist/modules/org/services/data-scope.service');
+            (async () => {
+              const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+              try {
+                for (const [username, expected] of [['amei', 'ST_LAO_XINGCHI_HS_001_SALES'], ['cashier', 'ST_LAO_AGRI_VTE_001_SALES']]) {
+                  const session = await app.get(AuthService).login(username, '', '127.0.0.1', { bypassPassword: true });
+                  const payload = JSON.parse(Buffer.from(session.token.split('.')[1], 'base64url').toString('utf8'));
+                  const scope = await app.get(DataScopeService).resolve(String(payload.userId), payload.roles || [], 'MENU_STORE_POS', payload.permsVersion);
+                  const codes = [...scope.allowedWarehouseCodes].sort();
+                  if (!codes.includes(expected)) throw new Error(`${username} WarehouseScope missing ${expected}: ${codes.join(',')}`);
+                  console.log(`WAREHOUSE_SCOPE_ASSERTION=PASS username=${username} count=${codes.length} codes=${codes.join(',')}`);
+                }
+              } finally {
+                await app.close();
+              }
+            })().catch(error => { console.error(error?.message || error); process.exit(1); });
+            NODE
+
             CONTEXTS_JSON="$(curl -fsS -H "Authorization: Bearer $TOKEN" https://erp.eggslao.com/api/v2/store-sales/contexts)"
             CONTEXTS_JSON="$CONTEXTS_JSON" node - <<'NODE'
             const body = JSON.parse(process.env.CONTEXTS_JSON || 'null');
