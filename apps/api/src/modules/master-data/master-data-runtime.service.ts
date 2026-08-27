@@ -149,7 +149,7 @@ const TYPES: Record<string, MdTypeConfig> = {
   warehouse: {
     table: 'wms_warehouses', codeCol: 'warehouse_code', nameCol: 'warehouse_name',
     prefix: 'WH', objectType: 'WAREHOUSE', companyCol: 'company_code',
-    writableCols: ['warehouse_name','warehouse_name_zh','warehouse_name_en','warehouse_name_lo','type','company_code','manager','effective_date','expire_date','remark'],
+    writableCols: ['warehouse_name','warehouse_name_zh','warehouse_name_en','warehouse_name_lo','type','company_code','owner_store_id','manager','effective_date','expire_date','remark'],
     // G92：仓库为基础设施实体 → 审批；关键字段=名称/类型/归属公司/管理员，扩展=中文名/备注
     keyFields: ['warehouse_name','type','company_code','manager'],
   },
@@ -463,6 +463,27 @@ export class MasterDataRuntimeService {
       } catch { /* 引用校验失败不阻断 */ }
     }
 
+    if (type === 'warehouse' && inScope('owner_store_id') && nonEmpty(record.owner_store_id)) {
+      try {
+        const [store] = await this.ds.query(
+          `SELECT store_code,company_code,status FROM store_master WHERE id=$1 LIMIT 1`,
+          [record.owner_store_id],
+        );
+        if (!store || store.status !== 'ACTIVE') {
+          errors.push('owner_store_id 必须指向 ACTIVE 门店');
+        } else if (String(record.company_code || '') !== store.company_code) {
+          errors.push('门店自有仓与 owner store 必须属于同一公司');
+        } else if (nonEmpty(record.warehouse_code)) {
+          const companyShort = store.company_code.replace(/^COMP-/, '').replace(/[^A-Z0-9]+/gi, '_').toUpperCase();
+          const storeShort = store.store_code.replace(/^STORE-/, '').replace(/[^A-Z0-9]+/gi, '_').toUpperCase();
+          const expected = `ST_${companyShort}_${storeShort}_SALES`;
+          if (String(record.warehouse_code) !== expected) errors.push(`门店自有仓编码必须为 ${expected}`);
+        }
+      } catch {
+        errors.push('无法校验 owner_store_id，请稍后重试');
+      }
+    }
+
     return errors;
   }
 
@@ -573,11 +594,13 @@ export class MasterDataRuntimeService {
    */
   async create(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; status: string }> {
     const c = this.cfg(type);
-    const code = c.prefix ? await this.nextCode(c) : String(dto[c.codeCol] || '').trim();
+    const code = type === 'warehouse' && dto.owner_store_id
+      ? String(dto[c.codeCol] || '').trim()
+      : c.prefix ? await this.nextCode(c) : String(dto[c.codeCol] || '').trim();
     if (!code) throw new BadRequestException('编码不能为空');
 
     // 自动审批校验（新建校验全字段）
-    const errors = await this.validate(type, c, dto, code);
+    const errors = await this.validate(type, c, { ...dto, [c.codeCol]: code }, code);
     if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
     await this.assertWritableCompanyScope(c, dto);
 
@@ -599,13 +622,15 @@ export class MasterDataRuntimeService {
    */
   async createQuick(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; name: string }> {
     const c = this.cfg(type);
-    const code = c.prefix ? await this.nextCode(c) : String(dto[c.codeCol] || '').trim();
+    const code = type === 'warehouse' && dto.owner_store_id
+      ? String(dto[c.codeCol] || '').trim()
+      : c.prefix ? await this.nextCode(c) : String(dto[c.codeCol] || '').trim();
     if (!code) throw new BadRequestException('编码不能为空');
     const name = String(dto[c.nameCol] ?? '').trim();
     if (!name) throw new BadRequestException('名称不能为空');
 
     // G93：就地快建也走自动审批校验（查重/必填/格式），不过当场退回
-    const errors = await this.validate(type, c, dto, code);
+    const errors = await this.validate(type, c, { ...dto, [c.codeCol]: code }, code);
     if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
     await this.assertWritableCompanyScope(c, dto);
 

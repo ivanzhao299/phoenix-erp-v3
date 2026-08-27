@@ -3,7 +3,9 @@ import { StoreEntity } from './store.entity';
 
 @Entity('store_aliases')
 @Index('uq_store_alias_type_code', ['aliasType', 'aliasCode'], { unique: true })
-@Check('chk_store_alias_type', `"alias_type" IN ('SITE','LEGACY_STORE_CODE')`)
+@Index('uq_store_alias_active_store_site_by_store', ['storeId'], { unique: true, where: `"alias_type"='STORE_SITE' AND "status"='ACTIVE'` })
+@Index('uq_store_alias_active_store_site_by_site', ['aliasCode'], { unique: true, where: `"alias_type"='STORE_SITE' AND "status"='ACTIVE'` })
+@Check('chk_store_alias_type', `"alias_type" IN ('STORE_SITE','LEGACY_STORE_CODE')`)
 @Check('chk_store_alias_status', `"status" IN ('ACTIVE','INACTIVE')`)
 export class StoreAliasEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' }) id: string;

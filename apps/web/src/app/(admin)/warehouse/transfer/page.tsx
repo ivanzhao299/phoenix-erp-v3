@@ -35,12 +35,12 @@ export default function TransferPage() {
   const canEditInout = canEdit("MENU_WMS_INOUT");
   const canDeleteInout = canDelete("MENU_WMS_INOUT");
 
-  // g200e:状态 tone → actionPill(tone),COMPLETED 兼容(DB 真实值)
+  // g200e:状态 tone → actionPill(tone)
   const STATUS_BADGE: Record<string, { tone: ActionTone; label: string }> = {
     PENDING:   { tone: "warning", label: t("status.pending",   "待确认") },
-    DONE:      { tone: "success", label: t("status.done",      "已完成") },
+    IN_TRANSIT:{ tone: "info",    label: t("ui.在途",          "在途") },
+    RECEIVED:  { tone: "warning", label: t("ui.已签收待处理",  "已签收待处理") },
     COMPLETED: { tone: "success", label: t("status.done",      "已完成") },
-    CANCELLED: { tone: "default", label: t("status.cancelled", "已取消") },
   };
 
   // G4-D：调拨单 — 调出/调入仓库、经办人 主数据化；调拨原因 → sys_dict(INV_TRANSFER_REASON)；交接附件统一上传
@@ -235,18 +235,11 @@ export default function TransferPage() {
   const handleScan = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter" || !scanCode.trim()) return;
     if (!canEditInout) return;
-    // 按照 transfer_no 查询并更新为 DONE
-    const res = await crudApi.list<Row>(TABLE, {
-      transfer_no: scanCode.trim(),
-      limit: 1
-    }).catch(() => null);
-    const record = res?.data?.[0] ?? null;
-    if (record?.id) {
-      await crudApi.update(TABLE, record.id as number, {
-        status: "DONE"
-      });
-      refresh();
-    }
+    await request(`/inventory/transfer/${encodeURIComponent(scanCode.trim())}/receive`, {
+      method: "POST",
+      body: JSON.stringify({ receive_all: true })
+    });
+    refresh();
     setScanCode("");
   }, [scanCode, refresh, canEditInout]);
   return <div>

@@ -33,6 +33,29 @@ export class WmsService {
     private readonly cls: ClsService,
   ) {}
 
+  async assertWarehouseOwnership(input: Record<string, any>, existing?: Record<string, any>): Promise<void> {
+    const ownerStoreId = input.owner_store_id ?? existing?.owner_store_id;
+    if (ownerStoreId === undefined || ownerStoreId === null || ownerStoreId === '') return;
+    const companyCode = String(input.company_code ?? existing?.company_code ?? '').trim();
+    const warehouseCode = String(input.warehouse_code ?? existing?.warehouse_code ?? '').trim();
+    const [store] = await this.em.query(
+      `SELECT id,store_code,company_code,status FROM store_master WHERE id=$1 LIMIT 1`,
+      [ownerStoreId],
+    );
+    if (!store || store.status !== 'ACTIVE') {
+      throw new BadRequestException('owner_store_id 必须指向 ACTIVE 门店');
+    }
+    if (!companyCode || store.company_code !== companyCode) {
+      throw new BadRequestException('门店自有仓与 owner store 必须属于同一公司');
+    }
+    const companyShort = companyCode.replace(/^COMP-/, '').replace(/[^A-Z0-9]+/gi, '_').toUpperCase();
+    const storeShort = String(store.store_code).replace(/^STORE-/, '').replace(/[^A-Z0-9]+/gi, '_').toUpperCase();
+    const expectedCode = `ST_${companyShort}_${storeShort}_SALES`;
+    if (warehouseCode !== expectedCode) {
+      throw new BadRequestException(`门店自有仓编码必须为 ${expectedCode}`);
+    }
+  }
+
   private warehouseScope(column = 'warehouse_code', paramOffset = 0): { sql: string; params: unknown[] } {
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
     if (scope?.isGlobal) {
@@ -1415,7 +1438,7 @@ export class WmsService {
            transfer_no, from_warehouse, to_warehouse, from_zone, to_zone,
            from_location, to_location, batch_no, qty, reason, attachment_url,
            operator, status, operator_id, created_at, updated_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,$10,$11,$12,'COMPLETED',$13,now(),now())`,
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,$10,$11,$12,'PENDING',$13,now(),now())`,
         [
           transferNo, from_warehouse, to_warehouse,
           this.nonEmptyString(body?.from_zone), this.nonEmptyString(body?.to_zone),
@@ -1503,9 +1526,230 @@ export class WmsService {
             transferInPolicy.businessType, src.unit || null,
           ],
         );
+        await manager.query(
+          `INSERT INTO wms_transfer_items (
+             transfer_no,source_batch_no,target_batch_no,expected_qty,received_qty,difference_qty,source_snapshot
+           ) VALUES ($1,$2,$3,$4::numeric,$4::numeric,0,$5::jsonb)`,
+          [transferNo, it.batch_no, dstBatchNo, qty, JSON.stringify(src)],
+        );
       }
 
+      const totalQty = items.reduce((sum: number, item: any) => sum + Number(item.qty), 0);
+      await manager.query(
+        `UPDATE wms_transfer SET status='COMPLETED',in_transit_qty=$2::numeric,received_qty=$2::numeric,
+          dispatched_at=now(),dispatched_by=$3,received_at=now(),received_by=$3,
+          completed_at=now(),updated_at=now() WHERE transfer_no=$1 AND status='PENDING'`,
+        [transferNo, totalQty, opName],
+      );
+
       return { code: 200, msg: '调拨完成', transfer_no: transferNo };
+    });
+  }
+
+  private validateTransferInput(body: any): { fromWarehouse: string; toWarehouse: string; items: any[] } {
+    const fromWarehouse = String(body?.from_warehouse || '').trim();
+    const toWarehouse = String(body?.to_warehouse || '').trim();
+    if (!fromWarehouse || !toWarehouse || fromWarehouse === toWarehouse) {
+      throw new BadRequestException('源/目标仓库必填且不能相同');
+    }
+    const items = Array.isArray(body?.items) ? body.items : [];
+    const errors = items.flatMap((item: any, index: number) => {
+      const qty = Number(item?.qty);
+      const lineErrors: string[] = [];
+      if (!this.nonEmptyString(item?.batch_no)) lineErrors.push(`第 ${index + 1} 行批次号必填`);
+      if (!Number.isFinite(qty) || qty <= 0 || Math.abs(Math.round(qty * 1000) - qty * 1000) > 1e-7) {
+        lineErrors.push(`第 ${index + 1} 行调拨数量必须大于 0，且最多保留 3 位小数`);
+      }
+      return lineErrors;
+    });
+    if (!items.length) errors.push('调拨明细 items 必填');
+    if (errors.length) throw new BadRequestException({ code: 400, msg: '调拨业务校验失败', errors });
+    return { fromWarehouse, toWarehouse, items };
+  }
+
+  async createTransfer(body: any, user: any) {
+    const { fromWarehouse, toWarehouse, items } = this.validateTransferInput(body);
+    await this.assertWritableWarehouse(fromWarehouse, '库存调拨源仓库');
+    await this.assertWritableWarehouse(toWarehouse, '库存调拨目标仓库');
+    const transferNo = body.transfer_no ||
+      `TR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    return this.em.transaction(async manager => {
+      await manager.query(
+        `INSERT INTO wms_transfer (
+          transfer_no,from_warehouse,to_warehouse,from_zone,to_zone,from_location,to_location,
+          batch_no,qty,reason,attachment_url,operator,status,operator_id,created_at,updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,$10,$11,$12,'PENDING',$13,now(),now())`,
+        [transferNo, fromWarehouse, toWarehouse, this.nonEmptyString(body.from_zone),
+          this.nonEmptyString(body.to_zone), this.nonEmptyString(body.from_location),
+          this.nonEmptyString(body.to_location), items[0].batch_no, Number(items[0].qty),
+          this.nonEmptyString(body.reason), this.nonEmptyString(body.attachment_url),
+          String(user?.username || body.operator || 'SYS'), user?.userId || null],
+      );
+      for (const item of items) {
+        await manager.query(
+          `INSERT INTO wms_transfer_items (transfer_no,source_batch_no,expected_qty)
+           VALUES ($1,$2,$3::numeric)`,
+          [transferNo, item.batch_no, Number(item.qty)],
+        );
+      }
+      return { code: 200, msg: '调拨单已创建', transfer_no: transferNo, status: 'PENDING' };
+    });
+  }
+
+  async dispatchTransfer(transferNo: string, user: any) {
+    return this.em.transaction(async manager => {
+      const [transfer] = await manager.query(
+        `SELECT * FROM wms_transfer WHERE transfer_no=$1 FOR UPDATE`, [transferNo],
+      );
+      if (!transfer) throw new BadRequestException('调拨单不存在');
+      if (transfer.status !== 'PENDING') throw new BadRequestException(`调拨单状态 ${transfer.status} 不允许发运`);
+      await this.assertWritableWarehouse(transfer.from_warehouse, '库存调拨源仓库');
+      await this.assertWritableWarehouse(transfer.to_warehouse, '库存调拨目标仓库');
+      const items = await manager.query(
+        `SELECT * FROM wms_transfer_items WHERE transfer_no=$1 ORDER BY id FOR UPDATE`, [transferNo],
+      );
+      if (!items.length) throw new BadRequestException('调拨明细不存在');
+      const policy = resolveOutboundPolicy('TRANSFER');
+      if (!policy) throw new BadRequestException('库存调拨出库策略不可用');
+      let total = 0;
+      for (const item of items) {
+        const qty = Number(item.expected_qty);
+        const [src] = await manager.query(
+          `SELECT batch_no,product_code,sku_code,material_code,item_type,material_type,unit,qty,
+                  qty_available,status,expire_date,store_code,warehouse_code
+             FROM inv_batches WHERE batch_no=$1 FOR UPDATE`, [item.source_batch_no],
+        );
+        if (!src || src.warehouse_code !== transfer.from_warehouse) throw new BadRequestException(`源 batch ${item.source_batch_no} 不属于源仓库`);
+        if (String(src.status).toUpperCase() !== 'AVAILABLE') throw new BadRequestException(`源 batch ${item.source_batch_no} 状态不允许调拨`);
+        const available = Number(src.qty_available ?? src.qty) || 0;
+        if (available < qty) throw new BadRequestException(`源 batch ${item.source_batch_no} 可用量 ${available} 不足 ${qty}`);
+        await manager.query(
+          `UPDATE inv_batches SET qty=qty-$1::numeric,
+            qty_available=CASE WHEN qty_available IS NULL THEN NULL ELSE qty_available-$1::numeric END,
+            updated_at=now() WHERE batch_no=$2`, [qty, item.source_batch_no],
+        );
+        await manager.query(
+          `UPDATE wms_transfer_items SET source_snapshot=$2::jsonb,updated_at=now() WHERE id=$1`,
+          [item.id, JSON.stringify(src)],
+        );
+        await manager.query(
+          `INSERT INTO inv_ledger (batch_no,change_type,qty_change,operator,store_code,ref_no,note,
+             sku_code,material_code,warehouse_code,business_type,unit)
+           VALUES ($1,$2,-$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [item.source_batch_no, policy.ledgerType, qty, String(user?.username || 'SYS'),
+            src.store_code || 'ALL', transferNo, `调拨发运 → ${transfer.to_warehouse}（在途）`,
+            src.sku_code || null, src.material_code || null, transfer.from_warehouse,
+            policy.businessType, src.unit || null],
+        );
+        total += qty;
+      }
+      await manager.query(
+        `UPDATE wms_transfer SET status='IN_TRANSIT',in_transit_qty=$2::numeric,
+          dispatched_at=now(),dispatched_by=$3,updated_at=now()
+         WHERE transfer_no=$1 AND status='PENDING'`,
+        [transferNo, total, String(user?.username || 'SYS')],
+      );
+      return { code: 200, msg: '调拨已发运', transfer_no: transferNo, status: 'IN_TRANSIT', in_transit_qty: total };
+    });
+  }
+
+  async receiveTransfer(transferNo: string, body: any, user: any) {
+    return this.em.transaction(async manager => {
+      const [transfer] = await manager.query(`SELECT * FROM wms_transfer WHERE transfer_no=$1 FOR UPDATE`, [transferNo]);
+      if (!transfer) throw new BadRequestException('调拨单不存在');
+      if (transfer.status !== 'IN_TRANSIT') throw new BadRequestException(`调拨单状态 ${transfer.status} 不允许签收`);
+      await this.assertWritableWarehouse(transfer.to_warehouse, '库存调拨目标仓库');
+      const items = await manager.query(`SELECT * FROM wms_transfer_items WHERE transfer_no=$1 ORDER BY id FOR UPDATE`, [transferNo]);
+      const receivedInput = new Map((Array.isArray(body?.items) ? body.items : []).map((x: any) => [String(x.batch_no), x]));
+      const inboundPolicy = resolveInboundPolicy('TRANSFER_RECEIVE');
+      if (!inboundPolicy) throw new BadRequestException('库存调拨入库策略不可用');
+      let totalReceived = 0; let totalDifference = 0;
+      for (const item of items) {
+        const expected = Number(item.expected_qty);
+        const supplied: any = body?.receive_all ? { received_qty: expected, damaged_qty: 0 } : receivedInput.get(String(item.source_batch_no));
+        if (!supplied) throw new BadRequestException(`缺少批次 ${item.source_batch_no} 的签收数量`);
+        const received = Number(supplied.received_qty ?? 0);
+        const damaged = Number(supplied.damaged_qty ?? 0);
+        if (![received, damaged].every(Number.isFinite) || received < 0 || damaged < 0 || received + damaged > expected) {
+          throw new BadRequestException(`批次 ${item.source_batch_no} 签收/破损数量不合法`);
+        }
+        const shortage = expected - received - damaged;
+        const snapshot = typeof item.source_snapshot === 'string' ? JSON.parse(item.source_snapshot) : item.source_snapshot;
+        let targetBatchNo: string | null = null;
+        if (received > 0) {
+          targetBatchNo = `${item.source_batch_no}-T-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+          await manager.query(
+            `INSERT INTO inv_batches (batch_no,product_code,sku_code,material_code,item_type,material_type,
+              unit,qty,qty_available,status,warehouse_code,location_code,expire_date,store_code)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12)`,
+            [targetBatchNo, snapshot.product_code || null, snapshot.sku_code || null, snapshot.material_code || null,
+              snapshot.item_type || null, snapshot.material_type || null, snapshot.unit || null, received,
+              transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',
+              snapshot.expire_date || null, snapshot.store_code || 'ALL'],
+          );
+          await manager.query(
+            `INSERT INTO inv_ledger (batch_no,change_type,qty_change,operator,store_code,ref_no,note,
+              sku_code,material_code,warehouse_code,business_type,unit)
+             VALUES ($1,$2,$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+            [targetBatchNo, inboundPolicy.ledgerType, received, String(user?.username || 'SYS'),
+              snapshot.store_code || 'ALL', transferNo, `调拨签收 ← ${transfer.from_warehouse} 源 batch=${item.source_batch_no}`,
+              snapshot.sku_code || null, snapshot.material_code || null, transfer.to_warehouse,
+              inboundPolicy.businessType, snapshot.unit || null],
+          );
+        }
+        await manager.query(
+          `UPDATE wms_transfer_items SET target_batch_no=$2,received_qty=$3::numeric,
+            damaged_qty=$4::numeric,difference_qty=$5::numeric,updated_at=now() WHERE id=$1`,
+          [item.id, targetBatchNo, received, damaged, shortage + damaged],
+        );
+        for (const discrepancy of [{ type: 'SHORTAGE', qty: shortage }, { type: 'DAMAGE', qty: damaged }]) {
+          if (discrepancy.qty > 0) await manager.query(
+            `INSERT INTO wms_transfer_discrepancies
+              (transfer_no,transfer_item_id,discrepancy_type,qty,note,created_by)
+             VALUES ($1,$2,$3,$4::numeric,$5,$6)`,
+            [transferNo, item.id, discrepancy.type, discrepancy.qty, this.nonEmptyString(supplied.note), String(user?.username || 'SYS')],
+          );
+        }
+        totalReceived += received; totalDifference += shortage + damaged;
+      }
+      await manager.query(
+        `UPDATE wms_transfer SET status='RECEIVED',received_qty=$2::numeric,difference_qty=$3::numeric,
+          received_at=now(),received_by=$4,updated_at=now() WHERE transfer_no=$1 AND status='IN_TRANSIT'`,
+        [transferNo, totalReceived, totalDifference, String(user?.username || 'SYS')],
+      );
+      if (totalDifference === 0) {
+        await manager.query(`UPDATE wms_transfer SET status='COMPLETED',completed_at=now(),updated_at=now() WHERE transfer_no=$1 AND status='RECEIVED'`, [transferNo]);
+      }
+      return { code: 200, msg: totalDifference ? '调拨已签收，差异待处理' : '调拨已签收完成', transfer_no: transferNo,
+        status: totalDifference ? 'RECEIVED' : 'COMPLETED', received_qty: totalReceived, difference_qty: totalDifference };
+    });
+  }
+
+  async completeTransfer(transferNo: string, body: any, user: any) {
+    const resolutions = Array.isArray(body?.resolutions) ? body.resolutions : [];
+    return this.em.transaction(async manager => {
+      const [transfer] = await manager.query(`SELECT * FROM wms_transfer WHERE transfer_no=$1 FOR UPDATE`, [transferNo]);
+      if (!transfer || transfer.status !== 'RECEIVED') throw new BadRequestException('仅差异待处理的 RECEIVED 调拨可完成');
+      const open = await manager.query(
+        `SELECT id FROM wms_transfer_discrepancies WHERE transfer_no=$1 AND resolved_at IS NULL ORDER BY id FOR UPDATE`, [transferNo],
+      );
+      const byId = new Map(resolutions.map((x: any) => [String(x.id), x]));
+      for (const row of open) {
+        const resolution: any = byId.get(String(row.id));
+        if (!resolution || !['LOSS', 'ADJUSTMENT'].includes(String(resolution.resolution_type)) || !this.nonEmptyString(resolution.resolution_ref)) {
+          throw new BadRequestException(`差异 ${row.id} 必须关联报损或调整单号后才能完成`);
+        }
+        await manager.query(
+          `UPDATE wms_transfer_discrepancies SET resolution_type=$2,resolution_ref=$3,resolved_at=now()
+            WHERE id=$1 AND resolved_at IS NULL`,
+          [row.id, resolution.resolution_type, resolution.resolution_ref],
+        );
+      }
+      await manager.query(
+        `UPDATE wms_transfer SET status='COMPLETED',completed_at=now(),updated_at=now()
+          WHERE transfer_no=$1 AND status='RECEIVED'`, [transferNo],
+      );
+      return { code: 200, msg: '调拨差异已关联处理单并完成', transfer_no: transferNo, status: 'COMPLETED', completed_by: String(user?.username || 'SYS') };
     });
   }
 
