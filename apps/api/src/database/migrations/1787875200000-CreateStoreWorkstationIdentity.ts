@@ -24,7 +24,7 @@ export class CreateStoreWorkstationIdentity1787875200000 implements MigrationInt
     )`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_store_alias_store ON store_aliases(store_id)`);
     await queryRunner.query(`CREATE TABLE IF NOT EXISTS store_memberships (
-      id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES sys_user(id),
+      id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES sys_user(user_id),
       store_id BIGINT NOT NULL REFERENCES store_master(id), role VARCHAR(32) NOT NULL,
       effective_from TIMESTAMPTZ NULL, effective_to TIMESTAMPTZ NULL,
       status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

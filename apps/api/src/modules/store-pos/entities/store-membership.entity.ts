@@ -1,6 +1,5 @@
 import { Check, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { StoreEntity } from './store.entity';
-import { SysUserEntity } from '../../../auth/entities/sys-user.entity';
 
 @Entity('store_memberships')
 @Index('idx_store_membership_user_active', ['userId', 'status'])
@@ -15,7 +14,7 @@ export class StoreMembershipEntity {
   @Column({ name: 'effective_from', type: 'timestamptz', nullable: true }) effectiveFrom: Date | null;
   @Column({ name: 'effective_to', type: 'timestamptz', nullable: true }) effectiveTo: Date | null;
   @Column({ length: 16, default: 'ACTIVE' }) status: string;
-  @ManyToOne(() => SysUserEntity, { onDelete: 'NO ACTION' }) @JoinColumn({ name: 'user_id' }) user: SysUserEntity;
+  // sys_user 的真实主键是 user_id；旧 SysUserEntity.id 存在装饰式漂移，禁止用该 relation 生成错误 FK。
   @ManyToOne(() => StoreEntity, { onDelete: 'NO ACTION' }) @JoinColumn({ name: 'store_id' }) store: StoreEntity;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' }) updatedAt: Date;
