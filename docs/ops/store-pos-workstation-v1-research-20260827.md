@@ -567,3 +567,11 @@ flowchart TB
 ### 15.4 回滚与遗留风险
 
 代码紧急回滚使用 `STORE_SCOPE_MODE=fail_closed`，只会收紧为全拒绝；禁止切回 legacy 放行。schema 回滚可执行迁移 `down()`，但仅限确认四张新表无需保留的数据后，并须另行授权执行。当前 legacy 生产数据尚未盘点/回填，因此部署后无 membership 账号按设计 403；在生产开售前仍必须完成经确认的 membership/binding 运维回填及 V1-2 原子性硬门。
+
+### 15.5 合入、部署与生产验证
+
+- PR `#107` 全部门禁通过后以 merge commit `41d17c4338c7e8772220704d3a48c02e927f610d` 合入 main；main push CI 的 Type-check & Regression、空库迁移、entity drift、API/Web image build 全绿。
+- `workflow_dispatch` run `33033107710` 使用 `mode=full / approve_production=true` 成功部署。生产 checkout 从 `132cde1b` 更新到 `41d17c43`；迁移日志显示 source/database 原有 65 条，发现 1 条新迁移并成功执行 `CreateStoreWorkstationIdentity1787875200000`。部署前备份成功，Web smoke PASS。
+- 生产 runtime smoke run `33033489531` 结论 GO；部署后 `/store-pos` HTTP 200、未认证 `/api/v2/store-sales/contexts` HTTP 401、`phoenix_up=1`。新指标初值：legacy shadow match=0、mismatch=0、旧 daily_close 当日写入=0。
+- 本轮未运行盘点 SQL、未写 canonical store/membership/binding 业务数据，保持零业务 DML。
+- 验证缺口：authenticated smoke run `33033521877` 的 workflow job 表面 success，但 `PHOENIX_SMOKE_USER/PASS` secret 为空，脚本实际输出 `authenticated-business-smoke: FAIL`；现有 workflow 也没有 Store POS membership 专项 probe 或通用 `sys_error_logs` 只读窗口查询。因此本轮**不能声称**生产“无 membership 已返回 403”及 `sys_error_logs` 窗口扫描完成。两项在配置有效 smoke 凭据/只读审计入口后补验；在此之前 V1-1 仍不具备生产开售结论。
