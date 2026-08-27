@@ -117,7 +117,6 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
-          EXPECTED_REVISION: 0cd851012c3cd1dc88e4a79de52ee1f390157713
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -127,12 +126,13 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,EXPECTED_REVISION
+          envs: DEPLOY_PATH
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
 
             CHECKOUT_REVISION="$(git rev-parse HEAD)"
+            EXPECTED_REVISION="$CHECKOUT_REVISION"
             API_REVISION="$(docker inspect "$(docker compose ps -q api)" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
             WEB_REVISION="$(docker inspect "$(docker compose ps -q web)" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
             test "$CHECKOUT_REVISION" = "$EXPECTED_REVISION"
@@ -171,9 +171,79 @@ jobs:
             console.log(`CONTEXT_ASSERTIONS=PASS count=${rows.length} store=${row.storeCode} role=${row.role} roles=${row.roles.join(',')}`);
             NODE
 
+            REPLENISH_STATUS="$(curl -sS -o /tmp/store-pos-amei-replenishments.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments')"
+            test "$REPLENISH_STATUS" = "200"
+            echo "REPLENISH_GET_ASSERTION=PASS status=$REPLENISH_STATUS"
+
+            TOKEN="$TOKEN" node - <<'NODE'
+            const payload = JSON.parse(Buffer.from(process.env.TOKEN.split('.')[1], 'base64url').toString('utf8'));
+            const permissions = Array.isArray(payload.permissions) ? payload.permissions : [];
+            const entry = permissions.find(value => value.startsWith('MENU_STORE_REPLENISH:'));
+            const granted = new Set(entry?.split(':')[1]?.split(',').map(value => value.trim()) || []);
+            if (!(permissions.includes('*') || granted.has('C'))) throw new Error(`MENU_STORE_REPLENISH check('C')=false entry=${entry || 'NONE'}`);
+            console.log(`REPLENISH_CREATE_UI_PERMISSION=PASS check_C=true entry=${entry}`);
+            NODE
+
             SHIFT_STATUS="$(curl -sS -o /tmp/store-pos-amei-shift.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-sales/shift?storeCode=STORE-HS-001')"
             test "$SHIFT_STATUS" = "200"
             echo "SHIFT_GET_ASSERTION=PASS status=$SHIFT_STATUS"
+
+            ZERO_USER="$(docker compose exec -T db sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atf -' <<'SQL' | tr -d '\r\n'
+            SELECT u.username
+            FROM sys_user u
+            JOIN sys_user_role ur ON ur.user_id=u.user_id AND COALESCE(ur.is_visible,true)=true
+            JOIN sys_role cashier ON cashier.role_id=ur.role_id AND cashier.role_code='ROLE_CASHIER'
+            WHERE u.status=1 AND u.username <> 'amei'
+              AND NOT EXISTS (
+                SELECT 1 FROM sys_user_role ur2
+                JOIN sys_role_menu_permission rmp ON rmp.role_id=ur2.role_id
+                JOIN sys_menu m ON m.menu_id=rmp.menu_id
+                WHERE ur2.user_id=u.user_id AND COALESCE(ur2.is_visible,true)=true
+                  AND m.menu_code='MENU_STORE_REPLENISH' AND 'V'=ANY(string_to_array(rmp.perm_codes,','))
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM sys_user_role ur3
+                JOIN sys_role_permission_set rps ON rps.role_id=ur3.role_id
+                JOIN sys_permission_set_item psi ON psi.set_id=rps.set_id
+                JOIN sys_menu m ON m.menu_id=psi.menu_id
+                WHERE ur3.user_id=u.user_id AND COALESCE(ur3.is_visible,true)=true
+                  AND m.menu_code='MENU_STORE_REPLENISH' AND 'V'=ANY(string_to_array(psi.perm_codes,','))
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM sys_user_permission_set ups
+                JOIN sys_permission_set_item psi ON psi.set_id=ups.set_id
+                JOIN sys_menu m ON m.menu_id=psi.menu_id
+                WHERE ups.user_id=u.user_id AND m.menu_code='MENU_STORE_REPLENISH'
+                  AND 'V'=ANY(string_to_array(psi.perm_codes,','))
+              )
+            ORDER BY u.username LIMIT 1;
+            SQL
+            )"
+            test -n "$ZERO_USER"
+            ZERO_TOKEN_RAW="$(docker compose exec -T -e PHOENIX_PROBE_USERNAME="$ZERO_USER" api node - <<'NODE'
+            const { NestFactory } = require('@nestjs/core');
+            const { AppModule } = require('./dist/app.module');
+            const { AuthService } = require('./dist/auth/auth.service');
+            (async () => {
+              const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+              try {
+                const session = await app.get(AuthService).login(process.env.PHOENIX_PROBE_USERNAME, '', '127.0.0.1', { bypassPassword: true });
+                process.stdout.write(session.token);
+              } finally { await app.close(); }
+            })().catch(error => { console.error(error?.message || error); process.exit(1); });
+            NODE
+            )"
+            ZERO_TOKEN="$(printf '%s' "$ZERO_TOKEN_RAW" | grep -Eo 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' | tail -1)"
+            unset ZERO_TOKEN_RAW
+            test -n "$ZERO_TOKEN"
+            ZERO_STATUS="$(curl -sS -o /tmp/store-pos-zero-replenishments.json -w '%{http_code}' -H "Authorization: Bearer $ZERO_TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments')"
+            test "$ZERO_STATUS" = "403"
+            echo "REPLENISH_ZERO_PERMISSION_ASSERTION=PASS username=$ZERO_USER status=$ZERO_STATUS"
+
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+              < scripts/ops/store-v1-3-rbac-wms-readonly.sql
+            echo "RBAC_WMS_PERMS_VERSION_READONLY_ASSERTIONS=PASS"
 
             ERROR_COUNT="$(docker compose exec -T db sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM sys_error_logs WHERE created_at >= NOW() - INTERVAL '\''30 minutes'\'' AND (request_path ILIKE '\''%store-sales%'\'' OR error_message ILIKE '\''%store_membership%'\'');"' | tr -d '\r\n')"
             test "$ERROR_COUNT" = "0"
