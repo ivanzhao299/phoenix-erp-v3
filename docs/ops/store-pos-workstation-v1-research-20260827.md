@@ -599,6 +599,16 @@ GitHub production environment 只读 workflow run `33035061172` 成功；生产 
 - 开班使用门店 advisory transaction lock + 行锁检查 + 数据库 partial unique 双保险；并发开班只允许一个 OPEN。
 - 范围保持：未新增 tender 行、settlement、价格全序或财务过账；未做 Terminal 收银 UI；未关闭旧写入口。
 
-回归新增 `store-pos-atomicity.service.spec.ts` 与 `store-pos-v1-2.contract.spec.ts`，覆盖库存不足拒绝、多批 allocation、同 key 返回既有结果、allocation 精确退回隔离库位、数据库硬约束及旧 warn 路径消失。V1-1 五象限、legacy shadow、跨入口 scope contract 保持通过。部署、迁移日志、revision 与生产只读 smoke 证据在本节后续追加。
+回归新增 `store-pos-atomicity.service.spec.ts` 与 `store-pos-v1-2.contract.spec.ts`，覆盖库存不足拒绝、多批 allocation、同 key 返回既有结果、allocation 精确退回隔离库位、数据库硬约束及旧 warn 路径消失。V1-1 五象限、legacy shadow、跨入口 scope contract 保持通过。本地 API 全量 Jest 为 70 suites / 612 tests，Web 全量 Vitest 为 82 files / 447 tests；API/Web `tsc --noEmit`、nullable-in-unique、constraint drift、entity drift、migration down 与 migration no-business-DML 门禁均通过。
 
 PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-frozen-boundary`、`reviewed-security-touch`；这些标签仅批准执行既定 V1-2 变更，不扩大到 V1-3/V1-4。
+
+合入与生产证据：
+
+- PR `#109` 全部门禁通过，以 merge commit `3deab5acfd08e53bad2742884bf3958bd6eae487` 合入 main。对应 main Security、Web、CI/CD、Build runs `33036019710/33036019705/33036019716/33036019701` 全绿。
+- 显式 full 部署 run `33036351583`（`mode=full / approve_production=true`）成功。部署前备份成功，API/Web 均 Healthy，生产 checkout 为 `3deab5acfd08e53bad2742884bf3958bd6eae487`。TypeORM 日志确认只发现 1 条新迁移，并成功执行 `EnforceStorePosAtomicSettlement1787878800000`；生产写入仅限该自动 schema migration，没有业务回填 DML。
+- 部署后公网 runtime smoke run `33036761602` 为 **GO，27 PASS / 0 WARN / 0 FAIL**：`/api/health` 与 `/api/v2/sales/health` 均 HTTP 200，其余既有公开/受保护探针均返回预期状态，未发现新增 403 误伤。支付链路按红线未用真实开售数据直测。
+- 部署后只读 schema run `33036844321` 使用 `PGOPTIONS default_transaction_read_only=on + BEGIN TRANSACTION READ ONLY`，生产输出 `READONLY_GUARD=on`，并确认 allocations 表、adjustments 表、`idempotency_key`/`warehouse_code` 列、支付幂等唯一索引、每店唯一 OPEN 班次索引、TypeORM migration 记录共 7 项全部为 true；事务最终 `ROLLBACK`。
+- 同一部署后窗口 `2026-08-27 03:25:00Z..2026-08-28 00:00:00Z` 的 Store V1 `sys_error_logs` 结果为 **0 行**。`/api/metrics` 暴露 `phoenix_up=1`、legacy shadow match/mismatch 均 0、legacy daily-close 当日写入 0。
+
+生产回填状态仍为：**待用户授权回填**。10 条 Store/SITE、7 条 membership 与 58 条 warehouse binding 仅是候选；本轮没有执行任何 canonical store、alias、membership 或 binding DML。由于尚未回填、也无真实开售，不能用生产支付成交代替事务回归；门店无有效 binding 时继续 fail-closed 403 并提示“请先配置门店仓绑定”。
