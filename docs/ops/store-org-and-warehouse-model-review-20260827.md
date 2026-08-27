@@ -578,7 +578,7 @@ V1 scope 已形成：
 - 回滚 SQL 已在 run 日志留档，精确限定上述 10 个 org_code，并额外限定
   `org_type='SITE' AND site_business_type='STORE'`；未执行回滚。
 
-### 15.3 第二、三段停闸
+### 15.3 第二、三段首次停闸
 
 - 第二段没有执行。原因：批准清单要求仓插入时写 `owner_store_id=对应 store_master.id`，
   现行 FK 与 `trg_warehouse_owner_store` 又要求 owner 为同公司 ACTIVE store；但生产
@@ -589,8 +589,41 @@ V1 scope 已形成：
   trigger、没有绑定场站仓。需要业务负责人明确批准将 `store_master` 基线 INSERT 前移到第二段
   之前（形成独立 1.5 段），或批准交换第二、三段顺序，才可继续。
 
-### 15.4 V1-3 就绪结论
+### 15.4 段序修正与 1.5 段：`store_master` 基线 + `STORE_SITE` alias
 
-当前结论：**NOT READY / FAIL-CLOSED**。SITE 10/10 已完成；仓 0/10、区 0/20、位 0/20、
-membership 0/7、binding 0/20、STORE_SITE alias 0/10。由于门店仓与 binding 尚未建立，
+- 业务负责人确认将原第三段内、已授权的 10 行 `store_master` 基线 INSERT 前移为独立
+  1.5 段；这是纯段序修正，没有扩大数据清单或改写历史事实。
+- production run `33044129965`（审计源码 `c5c4868756458afd92fe99511758e1fb77a131e3`）
+  先重跑原完整只读预检，再执行 1.5 段专用只读预检：`store_master` 目标 0 行，
+  10 个目标 SITE 均为同公司 `SITE/STORE/ACTIVE`，目标 `STORE_SITE` alias 0 行；断言通过。
+- 单事务逐行 `INSERT RETURNING`：`store_master` 10 行、`store_aliases` 10 行；两组 id
+  均为 1–10。门店名称沿用 `mst_stores.store_name`，状态为 `ACTIVE`。时区取老挝法定
+  时区 `Asia/Vientiane`；`business_day_cutoff='00:00:00'` 沿用建表默认及 POS 当前日界惯例。
+- 独立只读事务复核 10+10：每个 alias 都唯一指向对应门店、目标组织为同公司
+  `SITE/STORE/ACTIVE`，ACTIVE STORE_SITE 的 store/site 两侧均为 1:1；输出
+  `STORE_BASELINE_VERIFY_ASSERTIONS=PASS` 后 `ROLLBACK`。
+- run 日志已预留精确逆序回滚 SQL：先按 10 个 SITE code 删除 alias，再按 10 个
+  store code 删除 `store_master`；未执行回滚。
+
+### 15.5 第二段续行尝试与再次停闸
+
+- production run `33044283652`（审计源码 `38061663...`）重跑原只读预检通过；第二段
+  专用预检逐行确认目标仓/区/位均无编码碰撞，但汇总断言失败。旧 workflow 对
+  `psql \\quit` 的退出码未可靠阻断后续管道，写脚本曾进入事务并逐行 RETURNING 10 个仓；
+  随后生产 `wms_zones.zone_code varchar(30)` 拒绝过长 zone code，事务连接失败并整体回滚，
+  没有 COMMIT，也没有留下仓/区/位半成品。
+- 随即将 fail-closed 改为数据库错误式硬停，并新增 audit-only 路径。只读 production run
+  `33044402522`（审计源码 `274e492e...`）独立证明目标仓/区/位仍为 `0/0/0`；同时输出
+  生产仓口径：`domain='OPERATIONAL'` 共 11，且 ACTIVE OPERATIONAL 也是 11。
+- 第二段专用预检原按“admin 视角 21→31”写成 ACTIVE OPERATIONAL 基线 21，该断言与
+  生产实值 11 不符，因此 run 明确输出 `WAREHOUSE_PREFLIGHT_ASSERTIONS=FAIL` 并以数据库
+  异常终止。不能擅自把 21 改成全表口径或删除该断言来继续；按用户红线在本段停闸。
+- 已将拟用 zone code 缩短到不超过生产 `varchar(30)`，并保留仓→区→位逐层 RETURNING、
+  逆序回滚 SQL 和独立复核脚本，但本次停闸后没有重跑写段。第三段 membership/binding、
+  第四段回归与 `sys_error_logs` 全窗口扫描均未执行，避免跳段或降级。
+
+### 15.6 V1-3 就绪结论
+
+当前结论：**NOT READY / FAIL-CLOSED**。SITE 10/10、`store_master` 10/10、STORE_SITE alias
+10/10 已完成；仓 0/10、区 0/20、位 0/20、membership 0/7、binding 0/20。由于门店仓与 binding 尚未建立，
 不执行补货/POS 开售 smoke，不声明试点店进入 V1-3；历史功能与库存事实未被改写。
