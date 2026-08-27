@@ -128,6 +128,13 @@ describe('ChanjetProductNameCanaryService', () => {
   it('unwraps the official product list envelope and locks nested business names', () => {
     expect(extractChanjetProductRows({ data: { rows: [product(originalName)] } })).toHaveLength(1);
     expect(chanjetProductInvariant(product(originalName))).toBe(chanjetProductInvariant(product(proposedName)));
+    expect(chanjetProductInvariant(product(originalName, {
+      updateTime: '2026-08-25T00:00:00Z',
+      providerInternalRevision: '1',
+    }))).toBe(chanjetProductInvariant(product(proposedName, {
+      updateTime: '2026-08-27T00:00:00Z',
+      providerInternalRevision: '2',
+    })));
     expect(chanjetProductInvariant(product(originalName))).not.toBe(chanjetProductInvariant(product(
       proposedName,
       { parentId: { code: 'VET', name: '另一个分类' } },
