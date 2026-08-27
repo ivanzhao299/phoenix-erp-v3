@@ -28,7 +28,7 @@ export default function TerminalStorePosPage() {
   const draftKey = terminalPosDraftKey(userId, storeCode, registerId);
 
   useEffect(()=>{ const sync=()=>setOnline(navigator.onLine); sync(); addEventListener('online',sync); addEventListener('offline',sync); return()=>{removeEventListener('online',sync);removeEventListener('offline',sync)}; },[]);
-  useEffect(()=>{ void loadStorePosContexts().then(cs=>{ const c=cs[0]; if(c){setStoreCode(c.storeCode);setStoreName(c.storeName);setCompanyCode(c.companyCode);} }).catch(()=>setMessage('门店上下文加载失败')); },[]);
+  useEffect(()=>{ void loadStorePosContexts().then(cs=>{ const c=cs[0]; if(c){setStoreCode(c.storeCode);setStoreName(c.storeName);setCompanyCode(c.companyCode);} else setMessage('当前账号无门店授权，请使用店长/收银账号或联系管理员配置 membership'); }).catch(()=>setMessage('门店授权服务加载失败，请刷新重试')); },[]);
   const refresh = useCallback(async()=>{ if(!storeCode||!companyCode)return; try { const [p,s,h]:any = await Promise.all([
     storePosRequest('GET',`/api/v2/store-sales/products?storeCode=${encodeURIComponent(storeCode)}&companyCode=${encodeURIComponent(companyCode)}`),
     storePosRequest('GET',`/api/v2/store-sales/shift?storeCode=${encodeURIComponent(storeCode)}`),

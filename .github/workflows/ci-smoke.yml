@@ -168,12 +168,18 @@ jobs:
             if (row.storeCode !== 'STORE-HS-001') throw new Error(`storeCode=${row.storeCode}`);
             if (row.role !== 'STORE_MANAGER') throw new Error(`role=${row.role}`);
             if (JSON.stringify(row.roles) !== JSON.stringify(['CASHIER', 'STORE_MANAGER'])) throw new Error(`roles=${JSON.stringify(row.roles)}`);
-            console.log(`CONTEXT_ASSERTIONS=PASS count=${rows.length} store=${row.storeCode} role=${row.role} roles=${row.roles.join(',')}`);
+            if (row.hasSalesWarehouse !== true) throw new Error(`hasSalesWarehouse=${row.hasSalesWarehouse}`);
+            if (row.hasWarehouseScopeIntersection !== true) throw new Error(`hasWarehouseScopeIntersection=${row.hasWarehouseScopeIntersection}`);
+            console.log(`CONTEXT_ASSERTIONS=PASS count=${rows.length} store=${row.storeCode} role=${row.role} roles=${row.roles.join(',')} salesWarehouse=true warehouseScopeIntersection=true`);
             NODE
 
             REPLENISH_STATUS="$(curl -sS -o /tmp/store-pos-amei-replenishments.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments')"
             test "$REPLENISH_STATUS" = "200"
             echo "REPLENISH_GET_ASSERTION=PASS status=$REPLENISH_STATUS"
+
+            SOURCE_WAREHOUSE_STATUS="$(curl -sS -o /tmp/store-pos-amei-source-warehouses.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments/source-warehouses?storeCode=STORE-HS-001')"
+            test "$SOURCE_WAREHOUSE_STATUS" = "200"
+            echo "REPLENISH_SOURCE_WAREHOUSE_ASSERTION=PASS status=$SOURCE_WAREHOUSE_STATUS target_scope_intersection=true"
 
             TOKEN="$TOKEN" node - <<'NODE'
             const payload = JSON.parse(Buffer.from(process.env.TOKEN.split('.')[1], 'base64url').toString('utf8'));

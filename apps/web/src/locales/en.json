@@ -14027,5 +14027,12 @@
   "ui.v13建报损单": "Create loss report", "ui.v13调拨": "Transfer", "ui.v13门店上下文失败": "Failed to load store context", "ui.v13请先开班": "Open a shift first",
   "ui.v13结账失败": "Checkout failed", "ui.v13离线禁止开班": "Cannot open shift offline", "ui.v13离线禁止交班": "Cannot close shift offline", "ui.v13整单退货原因": "Full-return reason",
   "ui.v13门店触屏收银": "Touch POS", "ui.v13离线草稿": "Offline draft", "ui.v13整单退货": "Full return", "ui.v13最近销售": "Recent completed sales",
-  "ui.v13离线仅草稿": "Offline: draft only"
+  "ui.v13离线仅草稿": "Offline: draft only",
+  "ui.门店服务加载失败，请刷新重试": "Failed to load stores. Refresh and try again.",
+  "ui.当前数据范围内无可用门店": "No stores are available in your current data scope.",
+  "ui.当前账号无门店授权，请使用店长/收银账号或联系管理员配置 membership": "This account has no store access. Use a store manager or cashier account, or ask an administrator to configure membership.",
+  "ui.门店授权服务加载失败，请刷新重试": "Failed to load store access. Refresh and try again.",
+  "ui.未绑定有效销售仓，请联系管理员配置门店仓": "No active sales warehouse is bound. Ask an administrator to configure the store warehouse.",
+  "ui.无门店仓权限交集，请联系管理员配置 WarehouseScope": "The store warehouse is outside your WarehouseScope. Ask an administrator to update it.",
+  "ui.暂无补货申请": "No replenishment requests"
 }

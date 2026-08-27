@@ -23,7 +23,7 @@ import { loadStorePosContexts } from '@/lib/store-pos-api';
  * 所有 /api/lookup/* 端点都仅 JWT 守卫，业务录入用户可拉，与主数据写权限解耦。
  */
 
-interface Opt { value: string; label: string; raw?: any }
+interface Opt { value: string; label: string; raw?: any; disabled?: boolean }
 
 // G16：兼容 /lookup/* 端点的 { code, data } 包装与原始数组两种格式
 async function lookupArr<T = any>(path: string): Promise<T[]> {
@@ -54,12 +54,18 @@ const selStyle: React.CSSProperties = {
 /** 通用：从端点加载 {value,label} 选项的下拉 */
 function ScopedSelect({
   value, onChange, onPick, placeholder, disabled, className, style,
-  loader, reloadDeps,
-}: BaseProps & { loader: () => Promise<Opt[]>; reloadDeps?: any[] }) {
+  loader, reloadDeps, emptyMessage, errorMessage,
+}: BaseProps & {
+  loader: () => Promise<Opt[]>;
+  reloadDeps?: any[];
+  emptyMessage?: string;
+  errorMessage?: string;
+}) {
   const { t } = useLanguage();
   const resolvedPlaceholder = placeholder ?? t('ui.请选择', '请选择');
   const [opts, setOpts] = useState<Opt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   // 定长依赖键：序列化 reloadDeps 成单一字符串，避免同一 JSX 槽位在不同 Selector
   // （如付款人=公司↔股东）间复用 fiber 时依赖数组长度变化触发 React 警告。
@@ -67,20 +73,23 @@ function ScopedSelect({
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    loader().then(list => { if (alive) setOpts(list); }).catch(() => { if (alive) setOpts([]); })
+    setFailed(false);
+    loader().then(list => { if (alive) setOpts(list); }).catch(() => { if (alive) { setOpts([]); setFailed(true); } })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [reloadKey]); // eslint-disable-line
 
   const mergedClassName = ['phx-select', className].filter(Boolean).join(' ');
 
-  return (
+  const statusMessage = !loading && (failed ? errorMessage : (!opts.length ? emptyMessage : undefined));
+  return <>
     <select className={mergedClassName} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
       onChange={e => { onChange(e.target.value); onPick?.(opts.find(o => o.value === e.target.value) ?? null); }}>
       <option value="">{loading ? t('ui.加载中…','加载中…') : resolvedPlaceholder}</option>
-      {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      {opts.map(o => <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>)}
     </select>
-  );
+    {statusMessage && <small role="status" style={{ display: 'block', marginTop: 4, color: 'var(--text-secondary)' }}>{statusMessage}</small>}
+  </>;
 }
 
 // ── 客户（仅 ACTIVE，G5-B 切 /api/lookup）─────────────────────────────────────
@@ -331,6 +340,8 @@ export function StoreSelector(p: BaseProps & { companyCode?: string }) {
   const { t } = useLanguage();
   const { companyCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择门店','请选择门店')}
+    emptyMessage={t('ui.当前数据范围内无可用门店','当前数据范围内无可用门店')}
+    errorMessage={t('ui.门店服务加载失败，请刷新重试','门店服务加载失败，请刷新重试')}
     loader={async () => {
       const url = companyCode ? `/lookup/stores?companyCode=${encodeURIComponent(companyCode)}` : '/lookup/stores';
       const list = await lookupArr<any>(url);
@@ -347,13 +358,20 @@ export function StoreSelector(p: BaseProps & { companyCode?: string }) {
 export function StoreMembershipSelector(p: BaseProps) {
   const { t } = useLanguage();
   return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择门店','请选择门店')}
+    emptyMessage={t('ui.当前账号无门店授权，请使用店长/收银账号或联系管理员配置 membership','当前账号无门店授权，请使用店长/收银账号或联系管理员配置 membership')}
+    errorMessage={t('ui.门店授权服务加载失败，请刷新重试','门店授权服务加载失败，请刷新重试')}
     loader={async () => {
       const contexts = await loadStorePosContexts();
       const unique = [...new Map(contexts.map(st => [st.storeCode, st])).values()];
       return unique.map(st => ({
         value: st.storeCode,
-        label: `${st.storeName}（${st.storeCode}）${st.hasSalesWarehouse ? '' : ` · ${t('ui.无可用销售仓','无可用销售仓')}`}`,
+        label: `${st.storeName}（${st.storeCode}）${!st.hasSalesWarehouse
+          ? ` · ${t('ui.未绑定有效销售仓，请联系管理员配置门店仓','未绑定有效销售仓，请联系管理员配置门店仓')}`
+          : st.hasWarehouseScopeIntersection === false
+            ? ` · ${t('ui.无门店仓权限交集，请联系管理员配置 WarehouseScope','无门店仓权限交集，请联系管理员配置 WarehouseScope')}`
+            : ''}`,
         raw: st,
+        disabled: st.hasSalesWarehouse === false || st.hasWarehouseScopeIntersection === false,
       }));
     }} />;
 }

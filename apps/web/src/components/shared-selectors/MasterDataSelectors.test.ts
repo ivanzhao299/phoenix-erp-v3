@@ -100,4 +100,42 @@ describe('WMS status-vocabulary selectors', () => {
       .toEqual(['', 'STORE-HS-001']);
     expect(host.textContent?.match(/会晒直营店/g)).toHaveLength(1);
   });
+
+  it('explains an empty membership context instead of leaving a blank selector', async () => {
+    requestMock.mockResolvedValue({ data: [] });
+
+    await act(async () => root.render(createElement(StoreMembershipSelector, {
+      value: '', onChange: () => undefined,
+    })));
+    await flush();
+
+    expect(host.textContent).toContain('当前账号无门店授权，请使用店长/收银账号或联系管理员配置 membership');
+  });
+
+  it('distinguishes a context service failure from missing membership', async () => {
+    requestMock.mockRejectedValue(new Error('network down'));
+
+    await act(async () => root.render(createElement(StoreMembershipSelector, {
+      value: '', onChange: () => undefined,
+    })));
+    await flush();
+
+    expect(host.textContent).toContain('门店授权服务加载失败，请刷新重试');
+    expect(host.textContent).not.toContain('当前账号无门店授权');
+  });
+
+  it('labels a membership whose store warehouse has no WarehouseScope intersection', async () => {
+    requestMock.mockResolvedValue({ data: [{
+      storeCode: 'STORE-HS-001', storeName: '会晒直营店', companyCode: 'COMP-LAO-XINGCHI',
+      role: 'STORE_MANAGER', roles: ['STORE_MANAGER'], hasSalesWarehouse: true,
+      hasWarehouseScopeIntersection: false,
+    }] });
+
+    await act(async () => root.render(createElement(StoreMembershipSelector, {
+      value: '', onChange: () => undefined,
+    })));
+    await flush();
+
+    expect(host.textContent).toContain('无门店仓权限交集，请联系管理员配置 WarehouseScope');
+  });
 });

@@ -64,6 +64,7 @@ export default function UserDetailPage() {
   });
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
   const [storeOpts, setStoreOpts] = useState<{ value: string; label: string }[]>([]);
+  const [storeOptsFailed, setStoreOptsFailed] = useState(false);
 
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -87,7 +88,10 @@ export default function UserDetailPage() {
       }
       // 门店代码下拉：以组织架构 STORE 节点为准
       try {
-        const sRes = await fetch("/api/organizations/by-type?type=STORE", { headers: hdr() }).then(r => r.json());
+        setStoreOptsFailed(false);
+        const response = await fetch("/api/organizations/by-type?type=STORE", { headers: hdr() });
+        if (!response.ok) throw new Error(`store lookup HTTP ${response.status}`);
+        const sRes = await response.json();
         const sList: any[] = Array.isArray(sRes) ? sRes : (sRes.data || sRes.items || []);
         setStoreOpts(sList
           .filter((o: any) => (o.status ?? "ACTIVE") === "ACTIVE")
@@ -95,7 +99,7 @@ export default function UserDetailPage() {
             value: o.orgCode ?? o.org_code,
             label: `${o.orgName ?? o.org_name}（${o.orgCode ?? o.org_code}）`,
           })));
-      } catch { /* 门店列表失败不阻塞 */ }
+      } catch { setStoreOpts([]); setStoreOptsFailed(true); }
     } finally { setLoading(false); }
   }, [userId]);
 
@@ -363,6 +367,12 @@ export default function UserDetailPage() {
         <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6 }}>
           ⚠️ {t("ui.门店代码仅用于 POS 门店行级隔离，", "门店代码仅用于 POS 门店行级隔离，")}<b>{t("ui.不再决定公司数据范围", "不再决定公司数据范围")}</b>{t("ui.（范围看「组织与数据范围」页）。门店来自组织架构 STORE 类型组织。", "（范围看「组织与数据范围」页）。门店来自组织架构 STORE 类型组织。")}
         </div>
+        {storeOptsFailed && <div role="status" style={{ fontSize: 11, color: "var(--color-danger)", marginTop: 6 }}>
+          {t("ui.门店服务加载失败，请刷新重试", "门店服务加载失败，请刷新重试")}
+        </div>}
+        {!storeOptsFailed && storeOpts.length === 0 && <div role="status" style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6 }}>
+          {t("ui.当前数据范围内无可用门店", "当前数据范围内无可用门店")}
+        </div>}
       </div>
     </Panel>
   );
