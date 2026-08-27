@@ -735,4 +735,7 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - 后端 contexts 已按 store identity 聚合：返回每店一行、稳定 `roles[]` 与兼容 `role`；`resolve()` 继续执行 membership 存在性、DataScope 与仓权限交集校验，fail-closed 未放宽。
 - 前端 `/store-pos` 已将开班/交班切为 `canCreate`，退货/作废切为 `canDelete`，结账切为 `canCreate && canEdit`；`StoreMembershipSelector` 增加按 `storeCode` 的防御性去重，Terminal 同步受益。
 - 定向回归新增并通过：后端 11/11（含双角色单店、多店、ACTIVE/有效期 SQL 契约、无仓标记、零 membership）；前端 selector/门控 5/5，普通非 admin amei 风格 JWT 1/1。
-- 双端 tsc、全量 Jest/Vitest、PR/main CI、full 部署、三方 revision、amei 生产只读 HTTP 与错误窗口结果在本节后续以实际 run/SHA 补记；生产验证坚持不开班。
+- 本地全量验证：API/Web `tsc --noEmit` 均 0 errors；API Jest 71 suites / 625 tests，Web Vitest 84 files / 450 tests，全部通过。PR `#117` 全绿后合入 main，merge SHA `0cd851012c3cd1dc88e4a79de52ee1f390157713`。
+- full 部署 run `33048907993` 成功：API/Web 镜像均构建推送，TypeORM/DDL 链、entity drift、回归与生产健康检查全部通过；部署 job 为 `Deploy · full`，不是 api-only/web-only。
+- 生产只读验收 run `33049853671` 成功：checkout/API image/Web image 三方 revision 均为 `0cd851012c3cd1dc88e4a79de52ee1f390157713`；真实 amei 短期 JWT 请求 `/contexts` 得到恰好 1 行 `STORE-HS-001`，兼容 `role=STORE_MANAGER`，权威 `roles=['CASHIER','STORE_MANAGER']`；`GET /shift?storeCode=STORE-HS-001` 返回 200；30 分钟 Store POS 错误窗口 0 行；`PRODUCTION_BUSINESS_WRITES=0`。
+- 首次只读 probe run `33049784363` 在 revision 三方一致后因 AuthService 启动输出混入 token 捕获变量而触发 curl 43，实际 contexts 请求尚未发出；修正为 JWT 正则提取后重跑成功。整个验收过程未调用 `POST /shift/open`，未开班，未执行生产业务写入。
