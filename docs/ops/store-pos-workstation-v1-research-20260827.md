@@ -627,3 +627,5 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 修正版只读清单入口为 `scripts/store-v1-1-readonly-inventory.sql`：输出 10 店公司/SITE 建议、10 店逐店建仓裁定、7 条 membership 候选，并仅从明确 `owner_store_id` 的仓生成 binding 候选（本轮预期 0）。业务回填继续保持待另行授权。
 
 生产只读预检 run `33039619568` 已重跑成功：连接/事务双只读且最终 ROLLBACK；现有调拨仅 3 条 COMPLETED，alias 表为空；10 条 STORE SITE 均待创建确认、7 条 membership 不变、10 条建仓裁定为 9 个自有仓候选加 1 个配送中心候选、binding 候选 0、同窗 `sys_error_logs` 0 行。本次 run 未创建 SITE/仓，也未回填 membership/binding。
+
+定稿实施已通过 PR `#111` 合入 main（`f50063afc584a511c84c26604b488df8a72b6146`）并由 full run `33040272925` 部署。两条 TypeORM 迁移均成功，三方 revision run `33040636403` 一致；runtime smoke `33040638231` 为 27/0/0，部署后只读清单/错误窗口 run `33040640135` 成功且 0 条相关错误。本轮仍未创建 SITE/仓、未回填 membership/binding；下一 Gate 是用户逐店确认第 14.2 节建仓裁定清单。
