@@ -12,6 +12,7 @@ export interface StorePosContextOption {
   storeName: string;
   companyCode: string;
   role: string;
+  roles: string[];
   hasSalesWarehouse: boolean;
 }
 

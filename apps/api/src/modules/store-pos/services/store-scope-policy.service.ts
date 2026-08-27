@@ -10,6 +10,7 @@ export interface StoreContext {
   storeName: string;
   companyCode: string;
   role: string;
+  roles: string[];
   warehouseCodes: string[];
   timezone: string;
   businessDayCutoff: string;
@@ -46,7 +47,23 @@ export class StoreScopePolicy {
        WHERE m.user_id=$1 AND m.status='ACTIVE' AND s.status='ACTIVE'
          AND (m.effective_from IS NULL OR m.effective_from<=NOW()) AND (m.effective_to IS NULL OR m.effective_to>=NOW())
        ORDER BY s.store_code`, [userId]);
-    return rows.filter(r => this.scope?.isGlobal || this.scope?.allowedCompanyCodes?.includes(r.companyCode));
+    const scoped = rows.filter(r => this.scope?.isGlobal || this.scope?.allowedCompanyCodes?.includes(r.companyCode));
+    const rolePriority = ['ADMIN', 'STORE_MANAGER', 'CASHIER'];
+    const byStore = new Map<string, any>();
+    for (const row of scoped) {
+      const key = row.storeId || row.storeCode;
+      const existing = byStore.get(key);
+      if (!existing) {
+        byStore.set(key, { ...row, roles: [row.role] });
+      } else if (!existing.roles.includes(row.role)) {
+        existing.roles.push(row.role);
+      }
+    }
+    return [...byStore.values()].map(store => {
+      store.roles.sort((a: string, b: string) => a.localeCompare(b));
+      store.role = rolePriority.find(role => store.roles.includes(role)) ?? store.roles[0];
+      return store;
+    });
   }
 
   async resolve(storeCode: string | undefined, purpose: StoreWarehousePurpose = 'SALES'): Promise<StoreContext> {

@@ -347,11 +347,15 @@ export function StoreSelector(p: BaseProps & { companyCode?: string }) {
 export function StoreMembershipSelector(p: BaseProps) {
   const { t } = useLanguage();
   return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择门店','请选择门店')}
-    loader={async () => (await loadStorePosContexts()).map(st => ({
-      value: st.storeCode,
-      label: `${st.storeName}（${st.storeCode}）${st.hasSalesWarehouse ? '' : ` · ${t('ui.无可用销售仓','无可用销售仓')}`}`,
-      raw: st,
-    }))} />;
+    loader={async () => {
+      const contexts = await loadStorePosContexts();
+      const unique = [...new Map(contexts.map(st => [st.storeCode, st])).values()];
+      return unique.map(st => ({
+        value: st.storeCode,
+        label: `${st.storeName}（${st.storeCode}）${st.hasSalesWarehouse ? '' : ` · ${t('ui.无可用销售仓','无可用销售仓')}`}`,
+        raw: st,
+      }));
+    }} />;
 }
 
 // ── 司机（sal_drivers）───────────────────────────────────────────────────────

@@ -721,3 +721,18 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - `/store-pos` 的开班/关班改用 `canCreate/check('C')`，退货/作废改用 `canDelete/check('D')`；补普通角色 JWT 格式测试，不能只测 admin。
 - 单独商定 Cashier 是否应有“关班/日结”、Manager 是否应有 D/A；这属于权限矩阵产品决策，不在缺陷修复中偷偷改授权。
 - 修复轮生产验证必须使用 amei 真实 scoped token：contexts 单店一行、开班按钮可见、`GET /shift` 成功；若不实际开班则保持生产零写。任何 `POST /shift/open` UAT 需另获明确写入授权。
+
+### 16.6 方案对齐记录（Q1-Q5 结论）
+
+1. **Q1 接受兼容迁移。** `context.role` 的仓内消费者只有 API/前端类型与测试 fixture；Admin POS、Terminal、selector、`resolve()` 调用者均不读取它。契约保留 `role`，新增权威 `roles[]`；同店角色稳定聚合，兼容 `role` 按 `ADMIN > STORE_MANAGER > CASHIER` 取最高项。`ADMIN` 置顶仅覆盖 schema 已允许的历史值，不改变菜单授权；业务要求的核心优先级仍是 `STORE_MANAGER > CASHIER`。不删除 `role`，避免破坏潜在旧客户端。
+2. **Q2 接受存在性 + scope 语义。** `resolve()` 的全部调用者只消费 `storeCode/companyCode/warehouseCodes` 或依赖其 fail-closed 异常，没有角色授权分支。本轮让它消费每店唯一的聚合 context，从而消除 `.find()` 的偶然首行角色；不新增角色判断，不改变授权边界。
+3. **Q3 接受纳入同轮。** 结账 handler 必经建单 C 与收款 E，按钮同时以 `canCreate && canEdit` 门控；只读用户不再看到必然失败的操作。
+4. **Q4 接受维持权限矩阵。** 开班/关班继续对应 C，退货/作废继续对应 D，结账继续对应 C+E；只把裸码检查改为菜单感知检查。Cashier 是否可关班、是否另设日结 A 保留为待业务拍板项。
+5. **Q5 接受只读生产边界。** 生产仅验证 amei 的 contexts 单店一行、`GET /shift` 200、revision 与错误窗口；不调用 `POST /shift/open`，不开真实班次，不产生业务写入。
+
+### 16.7 修复执行记录
+
+- 后端 contexts 已按 store identity 聚合：返回每店一行、稳定 `roles[]` 与兼容 `role`；`resolve()` 继续执行 membership 存在性、DataScope 与仓权限交集校验，fail-closed 未放宽。
+- 前端 `/store-pos` 已将开班/交班切为 `canCreate`，退货/作废切为 `canDelete`，结账切为 `canCreate && canEdit`；`StoreMembershipSelector` 增加按 `storeCode` 的防御性去重，Terminal 同步受益。
+- 定向回归新增并通过：后端 11/11（含双角色单店、多店、ACTIVE/有效期 SQL 契约、无仓标记、零 membership）；前端 selector/门控 5/5，普通非 admin amei 风格 JWT 1/1。
+- 双端 tsc、全量 Jest/Vitest、PR/main CI、full 部署、三方 revision、amei 生产只读 HTTP 与错误窗口结果在本节后续以实际 run/SHA 补记；生产验证坚持不开班。
