@@ -140,7 +140,7 @@ jobs:
             test "$WEB_REVISION" = "$EXPECTED_REVISION"
             echo "REVISION_ASSERTIONS=PASS checkout=$CHECKOUT_REVISION api=$API_REVISION web=$WEB_REVISION"
 
-            TOKEN="$(docker compose exec -T api node - <<'NODE'
+            TOKEN_RAW="$(docker compose exec -T api node - <<'NODE'
             const { NestFactory } = require('@nestjs/core');
             const { AppModule } = require('./dist/app.module');
             const { AuthService } = require('./dist/auth/auth.service');
@@ -155,6 +155,8 @@ jobs:
             })().catch(error => { console.error(error?.message || error); process.exit(1); });
             NODE
             )"
+            TOKEN="$(printf '%s' "$TOKEN_RAW" | grep -Eo 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' | tail -1)"
+            unset TOKEN_RAW
             test -n "$TOKEN"
 
             CONTEXTS_JSON="$(curl -fsS -H "Authorization: Bearer $TOKEN" https://erp.eggslao.com/api/v2/store-sales/contexts)"
