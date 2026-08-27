@@ -77,16 +77,6 @@ function canonicalize(value: unknown): unknown {
   );
 }
 
-/** Only the top-level name and provider-maintained update metadata may differ. */
-export function chanjetProductInvariant(product: Record<string, unknown>): string {
-  const copy = { ...product };
-  delete copy.name;
-  for (const key of Object.keys(copy)) {
-    if (/^(?:update|modified)(?:stamp|time|at|by)?$/i.test(key)) delete copy[key];
-  }
-  return JSON.stringify(canonicalize(copy));
-}
-
 /**
  * A deliberately small, non-sensitive view of the provider row used during
  * manual recovery. It exposes only the identity and business fields that the
@@ -113,6 +103,17 @@ export function projectChanjetProductBusinessFields(product: Record<string, unkn
       name: String(baseUom.name || baseUom.uomName || ''),
     },
   };
+}
+
+/**
+ * Compare the provider-supported business contract, not its opaque raw row.
+ * Chanjet may add or refresh internal metadata after an update; those fields
+ * are not part of the product update DTO and must not create false drift.
+ */
+export function chanjetProductInvariant(product: Record<string, unknown>): string {
+  const businessFields = projectChanjetProductBusinessFields(product);
+  delete businessFields.name;
+  return JSON.stringify(canonicalize(businessFields));
 }
 
 /**
