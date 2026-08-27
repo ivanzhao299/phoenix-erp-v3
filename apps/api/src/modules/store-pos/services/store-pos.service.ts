@@ -23,6 +23,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { hasPerm } from '../../../auth/permissions.util';
+import { StoreScopePolicy, StoreWarehousePurpose } from './store-scope-policy.service';
 
 export interface SaleItemDto {
   productCode:    string;
@@ -72,6 +73,7 @@ export class StorePosService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
+    private readonly storeScope: StoreScopePolicy,
   ) {}
 
   // ── 工具 ───────────────────────────────────────────────────────────────────
@@ -204,7 +206,8 @@ export class StorePosService {
     );
   }
 
-  private async getSale(id: number) {
+  private async getSale(id: number, purpose: StoreWarehousePurpose = 'SALES') {
+    const { context } = await this.storeScope.assertSaleScoped(id, purpose);
     const [sale] = await this.ds.query<any[]>(
       `SELECT s.*, array_agg(
          json_build_object(
@@ -215,9 +218,9 @@ export class StorePosService {
        ) AS items
        FROM sal_store_sales s
        LEFT JOIN sal_store_sale_items i ON i.sale_id = s.id
-       WHERE s.id = $1
+       WHERE s.id = $1 AND s.store_code = $2 AND s.company_code = $3
        GROUP BY s.id`,
-      [id],
+      [id, context.storeCode, context.companyCode],
     );
     if (!sale) throw new NotFoundException(`销售单 ${id} 不存在`);
     return sale;
@@ -226,6 +229,11 @@ export class StorePosService {
   // ── 1. 创建销售单 ──────────────────────────────────────────────────────────
 
   async createSale(dto: CreateSaleDto) {
+    const context = await this.storeScope.resolve(dto.storeCode, 'SALES');
+    if (dto.companyCode && dto.companyCode !== context.companyCode) {
+      throw new BadRequestException('门店与公司不匹配');
+    }
+    dto = { ...dto, storeCode: context.storeCode, storeName: context.storeName, companyCode: context.companyCode };
     const user    = this.currentUser;
     const saleNo  = await this.genSaleNo();
     const discount = dto.discountAmount ?? 0;
@@ -478,7 +486,7 @@ export class StorePosService {
    * 仅 COMPLETED 可退(未完成单走作废);RETURNED 不可重复退。
    */
   async returnSale(id: number, reason: string) {
-    const sale = await this.getSale(id);
+    const sale = await this.getSale(id, 'RETURNS');
     if (sale.status === 'RETURNED') throw new BadRequestException('已退货，不可重复操作');
     if (sale.status !== 'COMPLETED') {
       throw new BadRequestException(`仅已完成的销售单可退货（当前状态 ${sale.status}）；未完成单请用作废`);
@@ -552,7 +560,7 @@ export class StorePosService {
     this.logger.warn(
       `[StorePOS] 退货 ${sale.sale_no} by ${user?.username ?? '?'} reason=${rsn} (现金退 ${sale.paid_amount} / AR 冲 ${sale.receivable_amount})`,
     );
-    return this.getSale(id);
+    return this.getSale(id, 'RETURNS');
   }
 
   // ── 6. 查询 ──────────────────────────────────────────────────────────────
@@ -568,6 +576,10 @@ export class StorePosService {
     page?:          number;
     limit?:         number;
   }) {
+    const context = await this.storeScope.resolve(params.storeCode, 'SALES');
+    params.storeCode = context.storeCode;
+    if (params.companyCode && params.companyCode !== context.companyCode) throw new BadRequestException('门店与公司不匹配');
+    params.companyCode = context.companyCode;
     const page   = Math.max(1, params.page  ?? 1);
     const limit  = Math.min(200, params.limit ?? 50);
     const offset = (page - 1) * limit;
@@ -609,6 +621,7 @@ export class StorePosService {
 
   /** 今日门店经营摘要 */
   async getDailySummary(storeCode: string) {
+    const context = await this.storeScope.resolve(storeCode, 'SALES');
     const rows = await this.ds.query<any[]>(
       `SELECT
          COUNT(*) FILTER (WHERE status='COMPLETED')           AS sale_count,
@@ -622,7 +635,7 @@ export class StorePosService {
        WHERE store_code = $1
          AND created_at >= CURRENT_DATE
          AND created_at < CURRENT_DATE + INTERVAL '1 day'`,
-      [storeCode],
+      [context.storeCode],
     );
     return rows[0];
   }
@@ -631,6 +644,8 @@ export class StorePosService {
    *  Phase H5: 新增 sku_code 字段，前端可按 SKU 选商品
    */
   async getProducts(storeCode: string, companyCode: string) {
+    const context = await this.storeScope.resolve(storeCode, 'SALES');
+    if (companyCode && companyCode !== context.companyCode) throw new BadRequestException('门店与公司不匹配');
     // 从 sal_price_items 获取有效的价格本商品
     const rows = await this.ds.query<any[]>(
       `SELECT pi.product_code,
@@ -654,7 +669,7 @@ export class StorePosService {
          AND (pb.effective_to IS NULL OR pb.effective_to >= CURRENT_DATE)
          AND pi.unit_price > 0
        ORDER BY pi.sku_code NULLS LAST, pi.product_code, pi.grade_code`,
-      [companyCode],
+      [context.companyCode],
     );
     // 去重（SKU 路径：同 sku_code 取最新价格；旧路径：同 product+grade）
     const seen = new Set<string>();

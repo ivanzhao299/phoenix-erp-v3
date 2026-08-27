@@ -10,33 +10,16 @@ import s from '@/components/ui/admin-ui.module.css'; // G29-B: 表格全局样�
 import { ShoppingCart, Banknote, CreditCard, Wallet, X, Plus, Minus, Search, RefreshCw, CheckCircle, AlertTriangle, Clock, History, LogIn, LogOut, FileText, BarChart2, Loader2, ChevronDown } from 'lucide-react';
 import { usePermission } from '@/hooks/usePermission';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
-import { CustomerSelector, StoreSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 客户主数据 + POS-P0 门店/资金账户选择器
+import { CustomerSelector, StoreMembershipSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { useLanguage } from "@/contexts/LanguageContext";
+import { loadStorePosContexts, storePosRequest } from '@/lib/store-pos-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function tok() {
-  if (typeof window === 'undefined') return '';
-  return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
-}
-const BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 async function api<T = any>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(BASE + path, {
-    method,
-    headers: {
-      Authorization: `Bearer ${tok()}`,
-      'Content-Type': 'application/json'
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
-  }
-  const d = await res.json();
-  return d.data ?? d;
+  return storePosRequest<T>(method, path, body);
 }
 function fmt(n: number | string | null | undefined) {
   if (n === null || n === undefined) return '0.00';
@@ -340,16 +323,19 @@ export default function StorePosPage() {
 
   // ── 初始化门店上下文 ─────────────────────────────────────────────────────
   useEffect(() => {
-    const info = sessionStorage.getItem('phoenix_store_info');
-    if (info) {
-      try {
-        const obj = JSON.parse(info);
-        setStoreCode(obj.storeCode || '');
-        setStoreName(obj.storeName || '');
-        setCompanyCode(obj.companyCode || '');
-        setCompanyName(obj.companyName || '');
-      } catch {/* ignore */}
-    }
+    let alive = true;
+    void loadStorePosContexts().then(contexts => {
+      if (!alive) return;
+      let saved: any = null;
+      try { saved = JSON.parse(sessionStorage.getItem('phoenix_store_info') || 'null'); } catch { /* ignore corrupt legacy context */ }
+      const selected = contexts.find(c => c.storeCode === saved?.storeCode) ?? contexts[0];
+      if (!selected) return;
+      setStoreCode(selected.storeCode);
+      setStoreName(selected.storeName);
+      setCompanyCode(selected.companyCode);
+      setCompanyName(selected.companyCode);
+    }).catch(() => { /* API fail-closed; keep context empty */ });
+    return () => { alive = false; };
   }, []);
 
   // ── 加载商品 ──────────────────────────────────────────────────────────────
@@ -2023,7 +2009,7 @@ export default function StorePosPage() {
             {/* POS-P0-2:门店从主数据选择(去手填),自动带出所属公司,受 DataScope 过滤 */}
             <div className={u.mb12}>
               <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>{t('ui.选择门店 *','选择门店 *')}</label>
-              <StoreSelector
+              <StoreMembershipSelector
                 value={setupStoreCode}
                 onChange={(v) => setSetupStoreCode(v)}
                 onPick={(opt) => {

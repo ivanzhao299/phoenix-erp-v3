@@ -537,3 +537,32 @@ flowchart TB
 | legacy shadow | legacy 与 membership 一致时不告警；不一致只记指标、不改变 membership 权威结果；零 membership 必须拒绝 |
 
 完成定义：API/Web `tsc --noEmit` 均 0 errors；新增 service/controller 单测与 HTTP/e2e scope 测试通过；五象限和跨入口矩阵全绿；`node scripts/check-nullable-in-unique.js`、`node scripts/check-constraint-drift.js`、entity drift gate 不回退；真 scope-audit 覆盖所有 StorePos/Shift 端点；报告列出 migration、实体、接口、测试、遗留风险与回滚开关。V1-1 完成不等于可生产开售，仍须 V1-2 原子性硬门。
+
+## 15. V1-1 执行记录（2026-08-27）
+
+### 15.1 实施结果
+
+- 新增 `store_master` 权威门店表，字段为 `id/store_code/store_name/company_code/status/timezone/business_day_cutoff`；新增 `store_aliases`，只接受 `SITE/LEGACY_STORE_CODE`。
+- 新增 `store_memberships` 与 `store_warehouse_bindings`。生效期允许开口区间，未把 nullable 生效期放入普通 UNIQUE；当前开放记录以 partial unique index 约束。
+- binding 写入由数据库 trigger 校验目标仓为 `ACTIVE + OPERATIONAL`；运行时再计算 `binding ∩ dataScope.allowedWarehouseCodes`，Admin/GROUP global 也不绕过 binding，空集 403。
+- `StoreScopePolicy` 成为 membership 权威门禁；legacy `sys_user.store_code` 仅 shadow compare。环境开关 `STORE_SCOPE_MODE=fail_closed` 可整体拒绝，默认/唯一放行模式是 membership + shadow，不存在 legacy fallback。
+- StorePos 的 products/summary/list/detail/create/pay/void/return 与 Shift open/current/close/history 全部进入统一 policy。ID 路径先用 `sale + store_master + 有效 membership` 联查，再解析仓交集，不再先执行无范围 `getSale(id)`。
+- Admin `/store-pos` 改用 membership selector 与共享 scoped client；Terminal 增加 `/terminal/store-pos` 入口壳，同样只加载 `/api/v2/store-sales/contexts`，未实现购物车或收款 UI。
+- 旧 `pos_sales`/`daily_close` 不关闭、不扩展；`phoenix_store_legacy_daily_close_writes_today_total` 仅用于观察冻结链写入。legacy shadow match/mismatch 暴露为 `phoenix_store_scope_legacy_shadow_total{result=...}`，mismatch 只写无人员明细的结构化日志与计数，不改变授权结果。
+
+### 15.2 迁移与数据边界
+
+迁移为 `apps/api/src/database/migrations/1787875200000-CreateStoreWorkstationIdentity.ts`，具完整 `down()`，`up()` 仅建表、索引、约束、函数与 trigger，没有门店、用户、membership 或 binding seed，也没有业务 DML。本阶段不新增仓双维度字段、不修改 `wms_warehouses.type`、不改/不删 `sys_user.store_code`、不 DROP 历史列。
+
+只读盘点脚本为 `scripts/store-v1-1-readonly-inventory.sql`，固定 `BEGIN TRANSACTION READ ONLY` 并以 `ROLLBACK` 结束，输出三张候选清单：legacy store→SITE、cashier/manager→membership、store→ACTIVE/OPERATIONAL warehouse。本地环境没有运行中的 Compose 服务且无 `psql`，因此本记录不伪造候选行或生产实值；生产执行及任何回填 DML 均待单独授权。
+
+### 15.3 验收覆盖
+
+- 五象限：Cashier 有交集、Cashier 空交集、多店 Manager、Finance 无 membership、Admin/GROUP global 仍需 binding。
+- legacy：一致计数但不告警、不一致计指标/结构化日志且不改结果、零 membership 拒绝。
+- 越权路径：共享 policy contract 覆盖 sale list/detail/create、三种 pay、void/return、products/summary，以及 shift open/current/close/history；Admin 与 Terminal 使用同一 scoped client/contexts endpoint。直接 HTTP 无法绕过 service policy。
+- V1-1 只完成身份和门禁，不宣称可生产开售。FIFO、成交原子性、allocation/tender/settlement、支付幂等、价格全序、退货精确反向仍由 V1-2/V1-4 处理。
+
+### 15.4 回滚与遗留风险
+
+代码紧急回滚使用 `STORE_SCOPE_MODE=fail_closed`，只会收紧为全拒绝；禁止切回 legacy 放行。schema 回滚可执行迁移 `down()`，但仅限确认四张新表无需保留的数据后，并须另行授权执行。当前 legacy 生产数据尚未盘点/回填，因此部署后无 membership 账号按设计 403；在生产开售前仍必须完成经确认的 membership/binding 运维回填及 V1-2 原子性硬门。

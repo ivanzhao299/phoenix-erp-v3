@@ -10,10 +10,17 @@ import { StorePosController }   from './controllers/store-pos.controller';
 import { StorePosService }      from './services/store-pos.service';
 import { StorePosShiftService } from './services/store-pos-shift.service';
 import { SalesEngineService }   from './services/sales-engine.service';
+import { StoreContextResolver, StoreScopePolicy } from './services/store-scope-policy.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { StoreEntity } from './entities/store.entity';
+import { StoreAliasEntity } from './entities/store-alias.entity';
+import { StoreMembershipEntity } from './entities/store-membership.entity';
+import { StoreWarehouseBindingEntity } from './entities/store-warehouse-binding.entity';
 
 @Module({
+  imports: [TypeOrmModule.forFeature([StoreEntity, StoreAliasEntity, StoreMembershipEntity, StoreWarehouseBindingEntity])],
   controllers: [StorePosController],
-  providers:   [StorePosService, StorePosShiftService, SalesEngineService],
-  exports:     [StorePosService, StorePosShiftService, SalesEngineService],
+  providers:   [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, { provide: StoreContextResolver, useExisting: StoreScopePolicy }],
+  exports:     [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreContextResolver],
 })
 export class StorePosModule {}

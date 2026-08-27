@@ -1,6 +1,7 @@
 import { Controller, Get, Header } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { StoreScopePolicy } from './modules/store-pos/services/store-scope-policy.service';
 
 /**
  * 系统健康检查端点
@@ -114,6 +115,11 @@ export class HealthController {
     push('phoenix_node_memory_rss_bytes', 'Resident set size in bytes', 'gauge', [[null, mem.rss]]);
     push('phoenix_node_memory_heap_used_bytes', 'V8 heap used in bytes', 'gauge', [[null, mem.heapUsed]]);
     push('phoenix_node_memory_heap_total_bytes', 'V8 heap allocated in bytes', 'gauge', [[null, mem.heapTotal]]);
+    const storeShadow = StoreScopePolicy.metrics();
+    push('phoenix_store_scope_legacy_shadow_total', 'Legacy store_code shadow comparisons; mismatches never affect authorization', 'counter', [
+      [{ result: 'match' }, storeShadow.shadowMatch],
+      [{ result: 'mismatch' }, storeShadow.shadowMismatch],
+    ]);
 
     // ── 业务指标（容错；DB 不可用时返 0 而不是 500）─────────────────────────
     if (dbUp) {
@@ -142,6 +148,11 @@ export class HealthController {
       ).catch(() => [{ cnt: 0 }]);
       push('phoenix_pos_sales_today_total', 'POS sales count for today', 'gauge', [[null, Number(posToday?.cnt) || 0]]);
 
+      const [legacyDailyClose] = await this.em.query(
+        `SELECT COUNT(*)::int AS cnt FROM daily_close WHERE substr(COALESCE(updated_at,created_at)::text,1,10) = to_char(CURRENT_DATE,'YYYY-MM-DD')`,
+      ).catch(() => [{ cnt: 0 }]);
+      push('phoenix_store_legacy_daily_close_writes_today_total', 'Frozen legacy daily-close rows changed today; new consumers are forbidden in V1-1', 'gauge', [[null, Number(legacyDailyClose?.cnt) || 0]]);
+
       const [v2Resid] = await this.em.query(
         `SELECT COUNT(*)::int AS cnt FROM information_schema.tables WHERE table_name LIKE '_v2_archived_%'`,
       ).catch(() => [{ cnt: 0 }]);
@@ -151,6 +162,7 @@ export class HealthController {
       push('phoenix_orders_total', 'Number of orders grouped by status', 'gauge', [[{ status: 'unknown' }, 0]]);
       push('phoenix_inv_batches_total', 'Number of inventory batches grouped by status', 'gauge', [[{ status: 'unknown' }, 0]]);
       push('phoenix_pos_sales_today_total', 'POS sales count for today', 'gauge', [[null, 0]]);
+      push('phoenix_store_legacy_daily_close_writes_today_total', 'Frozen legacy daily-close rows changed today', 'gauge', [[null, -1]]);
       push('phoenix_v2_residual_tables', 'Count of legacy V2 archived tables', 'gauge', [[null, -1]]); // -1 = unknown
     }
 

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { T } from '@/styles/terminal-theme';
-import { Package2, Warehouse, Truck, type LucideIcon } from 'lucide-react';
+import { Package2, Warehouse, Truck, ShoppingCart, type LucideIcon } from 'lucide-react';
 
 interface DomainTile {
   id: string;
@@ -19,6 +19,7 @@ interface DomainTile {
 }
 
 const TILES: DomainTile[] = [
+  { id: 'store-pos', perm: 'MENU_STORE_POS', path: '/terminal/store-pos', icon: ShoppingCart, titleKey: 'terminal.store_pos_title', titleFb: '门店收银', descKey: 'terminal.store_pos_desc', descFb: '选择授权门店 · V1-1 入口', ready: true },
   { id: 'packaging', perm: 'MENU_PKG_OP',     path: '/terminal/packaging/dashboard', icon: Package2,  titleKey: 'terminal.title',          titleFb: '包装作业', descKey: 'terminal.home_pkg_desc', descFb: '集蛋 · 分级 · 包装 · 入库', ready: true },
   { id: 'wms',       perm: 'MENU_WMS_INOUT',  path: '/terminal/wms/inbound',         icon: Warehouse, titleKey: 'terminal.wms_title',      titleFb: '仓储作业', descKey: 'terminal.home_wms_desc', descFb: '入库 · 出库 · 盘点',         ready: true },
   { id: 'delivery',  perm: 'MENU_MOBILE_DELIVERY', path: '/terminal/delivery',       icon: Truck,     titleKey: 'terminal.delivery_title', titleFb: '配送作业', descKey: 'terminal.home_dlv_desc', descFb: '装车 · 发车 · 签收',         ready: false },

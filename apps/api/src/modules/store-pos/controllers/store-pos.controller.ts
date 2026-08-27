@@ -32,6 +32,7 @@ import { MenuGuard, RequireMenu }    from '../../../common/guards/menu.guard';
 import { DataScopeGuard }            from '../../org/guards/data-scope.guard';
 import { StorePosService }           from '../services/store-pos.service';
 import { StorePosShiftService }      from '../services/store-pos-shift.service';
+import { StoreScopePolicy }          from '../services/store-scope-policy.service';
 
 @Controller('api/v2/store-sales')
 @UseGuards(MenuGuard, DataScopeGuard)
@@ -39,7 +40,12 @@ export class StorePosController {
   constructor(
     private readonly posService:   StorePosService,
     private readonly shiftService: StorePosShiftService,
+    private readonly storeScope: StoreScopePolicy,
   ) {}
+
+  @Get('contexts')
+  @RequireMenu('MENU_STORE_POS', 'V')
+  listContexts() { return this.storeScope.listMembershipStores(); }
 
   // ─── 商品目录 ─────────────────────────────────────────────────────────────
 
