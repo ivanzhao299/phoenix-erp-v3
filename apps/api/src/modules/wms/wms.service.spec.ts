@@ -20,6 +20,29 @@ describe('WmsService inventory read queries', () => {
     return { service: new WmsService(em as any, cls as any), em };
   };
 
+  it('accepts only the company-qualified canonical code for a store-owned warehouse', async () => {
+    const em = { query: jest.fn().mockResolvedValue([{
+      id: 10, store_code: 'STORE-VTE-001', company_code: 'COMP-LAO-AGRI', status: 'ACTIVE',
+    }]) };
+    const service = new WmsService(em as any, { get: jest.fn() } as any);
+    await expect(service.assertWarehouseOwnership({
+      owner_store_id: 10, company_code: 'COMP-LAO-AGRI', warehouse_code: 'ST_LAO_AGRI_VTE_001_SALES',
+    })).resolves.toBeUndefined();
+    await expect(service.assertWarehouseOwnership({
+      owner_store_id: 10, company_code: 'COMP-LAO-AGRI', warehouse_code: 'ST_VTE_001_SALES',
+    })).rejects.toThrow('ST_LAO_AGRI_VTE_001_SALES');
+  });
+
+  it('rejects a store-owned warehouse in another company', async () => {
+    const em = { query: jest.fn().mockResolvedValue([{
+      id: 10, store_code: 'STORE-VTE-001', company_code: 'COMP-LAO-AGRI', status: 'ACTIVE',
+    }]) };
+    const service = new WmsService(em as any, { get: jest.fn() } as any);
+    await expect(service.assertWarehouseOwnership({
+      owner_store_id: 10, company_code: 'COMP-LAO-XINGCHI', warehouse_code: 'ST_LAO_XINGCHI_VTE_001_SALES',
+    })).rejects.toThrow('必须属于同一公司');
+  });
+
   it('rejects PURCHASE receipt inbound to an EGG_FARM warehouse before inventory writes', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => sql.includes('SELECT type')
@@ -801,5 +824,63 @@ describe('WmsService inventory read queries', () => {
       expect.stringContaining('UPDATE inv_batches'),
       expect.anything(),
     );
+  });
+
+  it('creates a PENDING transfer without mutating inventory', async () => {
+    const manager = { query: jest.fn().mockResolvedValue([]) };
+    const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
+    const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.createTransfer({
+      transfer_no: 'TR-LIFECYCLE-1', from_warehouse: 'WH-A', to_warehouse: 'WH-B',
+      items: [{ batch_no: 'B-1', qty: 3 }],
+    }, { username: 'keeper' })).resolves.toMatchObject({ status: 'PENDING' });
+    expect(manager.query).toHaveBeenCalledWith(expect.stringContaining(`'PENDING'`), expect.any(Array));
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE inv_batches'), expect.anything());
+  });
+
+  it('dispatches PENDING stock into auditable in-transit ownership', async () => {
+    const manager = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-2', status: 'PENDING', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
+      if (sql.includes('FROM wms_transfer_items')) return [{ id: 1, source_batch_no: 'B-1', expected_qty: 3 }];
+      if (sql.includes('FROM inv_batches WHERE')) return [{ batch_no: 'B-1', qty: 4, qty_available: 4, status: 'AVAILABLE', warehouse_code: 'WH-A', store_code: 'ALL' }];
+      return [];
+    }) };
+    const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
+    const service = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) } as any);
+
+    await expect(service.dispatchTransfer('TR-2', { username: 'keeper' })).resolves.toMatchObject({ status: 'IN_TRANSIT', in_transit_qty: 3 });
+    expect(manager.query).toHaveBeenCalledWith(expect.stringContaining("status='IN_TRANSIT'"), ['TR-2', 3, 'keeper']);
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_batches'), expect.anything());
+  });
+
+  it('records signing shortage/damage and keeps the transfer RECEIVED until linked resolution', async () => {
+    const manager = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-3', status: 'IN_TRANSIT', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
+      if (sql.includes('FROM wms_transfer_items')) return [{ id: 11, source_batch_no: 'B-1', expected_qty: 5, source_snapshot: {} }];
+      return [];
+    }) };
+    const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
+    const service = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) } as any);
+
+    await expect(service.receiveTransfer('TR-3', {
+      items: [{ batch_no: 'B-1', received_qty: 3, damaged_qty: 1, note: '箱损' }],
+    }, { username: 'manager' })).resolves.toMatchObject({ status: 'RECEIVED', received_qty: 3, difference_qty: 2 });
+    const discrepancyCalls = manager.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO wms_transfer_discrepancies'));
+    expect(discrepancyCalls).toHaveLength(2);
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining("SET status='COMPLETED'"), expect.anything());
+  });
+
+  it('requires every received discrepancy to link a loss or adjustment document', async () => {
+    const manager = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-4', status: 'RECEIVED' }];
+      if (sql.includes('FROM wms_transfer_discrepancies')) return [{ id: 21 }];
+      return [];
+    }) };
+    const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
+    const service = new WmsService(em as any, { get: jest.fn() } as any);
+    await expect(service.completeTransfer('TR-4', { resolutions: [] }, { username: 'manager' }))
+      .rejects.toThrow('必须关联报损或调整单号');
   });
 });

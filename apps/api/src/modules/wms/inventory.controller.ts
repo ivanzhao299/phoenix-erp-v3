@@ -72,6 +72,30 @@ export class InventoryController {
     return await this.wmsService.confirmTransfer(body, req.user);
   }
 
+  @Post('transfer')
+  @RequireMenu('MENU_INV_BATCH', 'E')
+  async createTransfer(@Body() body: any, @Req() req: any) {
+    return await this.wmsService.createTransfer(body, req.user);
+  }
+
+  @Post('transfer/:transfer_no/dispatch')
+  @RequireMenu('MENU_INV_BATCH', 'E')
+  async dispatchTransfer(@Param('transfer_no') transferNo: string, @Req() req: any) {
+    return await this.wmsService.dispatchTransfer(transferNo, req.user);
+  }
+
+  @Post('transfer/:transfer_no/receive')
+  @RequireMenu('MENU_INV_BATCH', 'E')
+  async receiveTransfer(@Param('transfer_no') transferNo: string, @Body() body: any, @Req() req: any) {
+    return await this.wmsService.receiveTransfer(transferNo, body, req.user);
+  }
+
+  @Post('transfer/:transfer_no/complete')
+  @RequireMenu('MENU_INV_BATCH', 'E')
+  async completeTransfer(@Param('transfer_no') transferNo: string, @Body() body: any, @Req() req: any) {
+    return await this.wmsService.completeTransfer(transferNo, body, req.user);
+  }
+
   // A5: 盘点审批（差额入账）
   @Post('stocktake/approve')
   @RequireMenu('MENU_INV_BATCH', 'E')

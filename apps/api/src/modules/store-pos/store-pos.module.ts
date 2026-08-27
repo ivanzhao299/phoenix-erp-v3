@@ -16,11 +16,12 @@ import { StoreEntity } from './entities/store.entity';
 import { StoreAliasEntity } from './entities/store-alias.entity';
 import { StoreMembershipEntity } from './entities/store-membership.entity';
 import { StoreWarehouseBindingEntity } from './entities/store-warehouse-binding.entity';
+import { StoreIdentityGovernanceService } from './services/store-identity-governance.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([StoreEntity, StoreAliasEntity, StoreMembershipEntity, StoreWarehouseBindingEntity])],
   controllers: [StorePosController],
-  providers:   [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, { provide: StoreContextResolver, useExisting: StoreScopePolicy }],
-  exports:     [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreContextResolver],
+  providers:   [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreIdentityGovernanceService, { provide: StoreContextResolver, useExisting: StoreScopePolicy }],
+  exports:     [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreContextResolver, StoreIdentityGovernanceService],
 })
 export class StorePosModule {}

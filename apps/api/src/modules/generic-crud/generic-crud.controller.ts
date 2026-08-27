@@ -493,6 +493,9 @@ export class GenericCrudController {
       body.site_code = sc;
     }
     await this.assertWarehouseWriteScope(table, body, tableScope);
+    if (table === 'wms_warehouses') {
+      await this.wmsService.assertWarehouseOwnership(body);
+    }
 
     // G31：自动注入 operator/picker/auditor/executor 默认 = 当前登录用户
     //   业务方原话："谁操作不就应该默认是谁吗？"
@@ -551,6 +554,13 @@ export class GenericCrudController {
     const safeBody = this.filterBlockedFields(table, body);
     this.assertNoHouseOwnershipWrite(table, safeBody);
     await this.assertWarehouseWriteScope(table, safeBody, tableScope, false);
+    if (table === 'wms_warehouses') {
+      await this.wmsService.assertWarehouseOwnership(safeBody, existing);
+    }
+
+    if (table === 'wms_transfer' && Object.prototype.hasOwnProperty.call(safeBody, 'status')) {
+      throw new BadRequestException('调拨状态必须通过专用 create/dispatch/receive/complete 接口流转');
+    }
     
     const fields = Object.keys(safeBody);
     if (!fields.every((f) => /^[a-zA-Z0-9_]+$/.test(f)) || !/^[a-zA-Z0-9_]+$/.test(idColumn)) {
@@ -627,6 +637,9 @@ export class GenericCrudController {
       throw new BadRequestException('Record not found');
     }
     this.assertWarehouseRowScope(table, existing, tableScope);
+    if (table === 'wms_transfer') {
+      throw new BadRequestException('调拨单保留库存审计事实，禁止通过 Generic CRUD 删除');
+    }
     const result = await this.crudService.remove(table, idColumn, id);
     return { code: 200, msg: result.msg };
   }

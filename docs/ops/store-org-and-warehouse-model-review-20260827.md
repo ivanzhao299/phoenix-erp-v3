@@ -1,9 +1,9 @@
 # 直营店组织归属与门店仓架构复查
 
 > 日期：2026-08-27  
-> 性质：纯调研、零实施  
+> 性质：架构复查 + 9 项裁定执行记录
 > 最高业务裁定：①直营店直属公司，与生产场站平级，不属于任何场站；②直营店必须使用门店自有仓出货，不直接消费场站生产成品仓  
-> 变更边界：本文未改代码、schema、业务数据或部署配置，未执行生产写入
+> 变更边界：本轮改代码与 schema；生产数据仅允许自动迁移中的 `SITE → STORE_SITE` 兼容转换，不建 SITE、不建仓、不回填 membership/binding
 
 ## 0. 结论
 
@@ -224,19 +224,19 @@ V1-2 又已上线支付幂等、销售/班次/批次锁、allocation、库存不
 每个真实持有现场库存的直营店至少一个自有 OPERATIONAL 仓。建议编码：
 
 ```text
-ST_<STORE_SHORT>_SALES
+ST_<COMPANY_SHORT>_<STORE_SHORT>_SALES
 
 示例：
-ST_BKX_001_SALES
-ST_LPB_001_SALES
-ST_MX_001_SALES
-ST_PSL_001_SALES
-ST_VTE_001_SALES
-ST_VTE_WH_001_SALES
-ST_DP_001_SALES
-ST_HS_001_SALES
-ST_XB_001_SALES
-ST_XC_001_SALES
+ST_LAO_AGRI_BKX_001_SALES
+ST_LAO_AGRI_LPB_001_SALES
+ST_LAO_AGRI_MX_001_SALES
+ST_LAO_AGRI_PSL_001_SALES
+ST_LAO_AGRI_VTE_001_SALES
+ST_LAO_AGRI_VTE_WH_001_SALES
+ST_LAO_XINGCHI_DP_001_SALES
+ST_LAO_XINGCHI_HS_001_SALES
+ST_LAO_XINGCHI_XB_001_SALES
+ST_LAO_XINGCHI_XC_001_SALES
 ```
 
 规范建议：
@@ -465,17 +465,17 @@ V1 scope 已形成：
 
 在门店仓创建前，保持无 binding/fail-closed 是正确安全状态，不得临时绑定农场仓开售。
 
-## 12. 待用户拍板
+## 12. 用户裁定（2026-08-27，9 项全部采用 Codex 建议）
 
-1. **Store 与 SITE 主权措辞**：是否正式冻结为“Store 是业务身份 canonical，SITE 是组织/地点 canonical，1:1”，覆盖 M1 中“门店主身份在 SITE”的旧措辞；或坚持 SITE 为身份 canonical、`store_master` 为 POS sidecar。两种都要求直属公司和门店型 SITE，但决定后续主写点。
-2. **SITE alias 最小方案**：保留数据库值 `SITE` 并收紧 trigger，还是新增 `STORE_SITE/ORG_SITE` 后兼容迁移旧值；建议后者语义更清楚。
-3. **门店仓 ownership 终态**：是否在仓双维度治理中增加 `owner_store_id/store_id`；建议增加，binding 只表达用途，不兼任所有权。
-4. **仓编码规范**：是否批准 `ST_<STORE_SHORT>_SALES`；是否需要把公司短码加入避免跨国/并购歧义（如 `ST_AGRI_BKX_001_SALES`）。
-5. **10 店建仓范围**：10 店是否都真实持有现场库存；若不是，逐店裁定“自有仓 / 展示接单点 / 配送中心”。尤其需确认 `STORE-VTE-WH-001`。
-6. **退货结构**：默认同一门店仓设 QUARANTINE zone，还是部分店使用区域退货中心；建议首期同仓隔离。
-7. **补货职责**：谁审批、谁选源仓、谁发运、谁确认差异；是否新设补货协调角色，还是由现有 WMS 仓管+店长分责。
-8. **调拨状态机**：是否要求在途所有权与门店签收差异；建议要求，不能继续使用单步 `COMPLETED` 作为完整业务流。
-9. **普通 Sales V2 FIFO**：是否同步立项从公司池收紧到明确 warehouse scope，避免门店仓出现后普通销售跨仓分配。
+1. Store 为业务身份权威，SITE 为组织/地点投影，二者 1:1；此裁定覆盖 M1 的旧主权措辞，但不改写 M1 历史原文。
+2. alias 正式采用 `STORE_SITE`，部署迁移将存量 `SITE` 兼容转换。
+3. `wms_warehouses.owner_store_id` 表达设施所有权；binding 只表达 `SALES/RETURNS` 用途。
+4. 门店仓编码固定为 `ST_<COMPANY_SHORT>_<STORE_SHORT>_SALES`。
+5. 10 店逐店确认，本轮只出裁定清单，不建仓。
+6. 首期退货进入同一门店仓的 QUARANTINE zone/location。
+7. 不新设角色：现有 WMS 仓管负责源仓发运，店长负责申请与签收/差异确认。
+8. 完整调拨采用 `PENDING → IN_TRANSIT → RECEIVED → COMPLETED`；旧一步确认兼容映射为直接完成。
+9. Sales V2 普通订单 FIFO 收紧 warehouse scope 同步登记为独立治理项，本轮不实施。
 
 ## 13. 最终裁定摘要
 
@@ -486,4 +486,58 @@ V1 scope 已形成：
 - binding：schema/purpose/priority 可复用；58 条候选整体作废，待门店仓创建后重建。
 - 库存：场站仓→正式调拨/补货→门店仓→POS FIFO；退货→门店仓 QUARANTINE。
 - scope：membership → binding → WarehouseScope 交集继续作为唯一放行路径；跨仓补货按职责拆权。
-- 实施状态：本报告只提出修订，不执行任何 schema、代码、回填、部署或生产写入。
+- 实施状态：9 项裁定已进入代码/schema；业务数据、SITE、仓、membership、binding 均未创建或回填。
+
+## 14. 修订执行记录
+
+### 14.1 身份主权与 alias 收紧
+
+- 冻结口径：`store_master` 是 POS、membership、营业日等门店业务身份权威；`sys_organizations(org_type='SITE', site_business_type='STORE')` 是该门店的组织/地点投影，必须 1:1、同公司。
+- 此口径是对 `docs/M1_ORGANIZATION_MODEL.md` §7.1–7.2 旧“SITE 为门店主身份 canonical”措辞的附录覆盖声明；M1 原文作为历史事实不改写。
+- 迁移 `1787961600000-TightenStoreSiteAndWarehouseOwnership.ts` 将 `alias_type='SITE'` 兼容转换为 `STORE_SITE`，收紧 CHECK，并建立 store 方向与 SITE 方向两个 ACTIVE partial unique。
+- trigger 与 `StoreIdentityGovernanceService` 双层校验 ACTIVE、SITE、STORE subtype、同公司；store company 变更可在 service 层拒绝与既有 ACTIVE STORE_SITE 不一致的写入。
+
+### 14.2 门店仓 schema 基线与逐店裁定清单
+
+`wms_warehouses.owner_store_id` 为可空 FK：普通/生产仓必须为空，只有门店自有仓非空。数据库 trigger 与两条仓写入口共同校验 owner store 为 ACTIVE 且同公司；服务端要求公司限定仓码。
+
+| 门店 | 公司 | 建议仓码 | 本轮建议 | 状态 |
+|---|---|---|---|---|
+| STORE-BKX-001 | COMP-LAO-AGRI | ST_LAO_AGRI_BKX_001_SALES | 自有仓候选 | 待业务逐店确认 |
+| STORE-LPB-001 | COMP-LAO-AGRI | ST_LAO_AGRI_LPB_001_SALES | 自有仓候选 | 待业务逐店确认 |
+| STORE-MX-001 | COMP-LAO-AGRI | ST_LAO_AGRI_MX_001_SALES | 自有仓候选 | 待业务逐店确认 |
+| STORE-PSL-001 | COMP-LAO-AGRI | ST_LAO_AGRI_PSL_001_SALES | 自有仓候选 | 待业务逐店确认 |
+| STORE-VTE-001 | COMP-LAO-AGRI | ST_LAO_AGRI_VTE_001_SALES | 自有仓候选 | 待业务逐店确认 |
+| STORE-VTE-WH-001 | COMP-LAO-AGRI | ST_LAO_AGRI_VTE_WH_001_SALES | 配送中心候选（若兼具零售则拆分设施/业务身份） | 待业务逐店确认 |
+| STORE-DP-001 | COMP-LAO-XINGCHI | ST_LAO_XINGCHI_DP_001_SALES | 自有仓候选 | 待业务逐店确认 |
+| STORE-HS-001 | COMP-LAO-XINGCHI | ST_LAO_XINGCHI_HS_001_SALES | 自有仓候选 | 待业务逐店确认 |
+| STORE-XB-001 | COMP-LAO-XINGCHI | ST_LAO_XINGCHI_XB_001_SALES | 自有仓候选 | 待业务逐店确认 |
+| STORE-XC-001 | COMP-LAO-XINGCHI | ST_LAO_XINGCHI_XC_001_SALES | 自有仓候选 | 待业务逐店确认 |
+
+本轮不建上述任何仓，不改 `type/domain` 语义。退货首期固定使用同仓 QUARANTINE zone/location。
+
+### 14.3 调拨状态机与在途所有权
+
+- 新专用接口：创建 `PENDING`、发运 `IN_TRANSIT`、签收 `RECEIVED`、差异关联后 `COMPLETED`；权限仍为 `MENU_INV_BATCH:E` + 原 DataScopeGuard。
+- 在途方案是“源仓发运时扣减 + `TRANSFER_OUT` ledger + `wms_transfer_items.source_snapshot/in_transit_qty` 挂账在途；目标仓仅在签收时按实收量建立批次并写 `TRANSFER_IN`”。它不制造可售的虚拟在途批次，且可用单据、明细、双 ledger 完整审计。
+- 短少/破损写入 `wms_transfer_discrepancies`；存在差异时停在 RECEIVED，必须关联 `LOSS` 报损单或 `ADJUSTMENT` 调整单的 `resolution_ref` 才可完成。
+- 旧 `/api/inventory/transfer/confirm` 保留一步完成兼容；历史 COMPLETED 不改写。Generic CRUD 禁止直接改调拨 status，前端扫码改走专用 receive。
+
+### 14.4 回填清单重制（只读、零回填）
+
+- 10 店公司归属仍为 AGRI 6 店、XINGCHI 4 店，来源不依赖 SITE。
+- 门店型 SITE 建议编码为 `SITE-<原 STORE_CODE 去前缀>-STORE`，名称为“原门店名（组织地点）”，公司见上表；10 条全部待授权创建，正式创建前须按公司/名称/地址反查孤立 SITE。
+- membership 7 条保持原候选：amei 2 条、cashier/chenling/alue/bouavanh/xiaolan 各 1 条，仍需职责与生效期确认。
+- 原 58 条同公司仓池候选全部声明 `VOID_BY_STORE_WAREHOUSE_DECISION`。修正版 SQL 只允许 `owner_store_id` 明确且同公司、ACTIVE、OPERATIONAL 的仓成为 binding 候选；本轮不建仓，因此预期 0 条。
+- 本轮没有执行 Store/SITE、仓、membership、binding 的回填 DML。
+
+### 14.5 补货职责与后续立项
+
+- 店长：补货申请、目标门店仓签收、差异确认；不直接扣源仓。
+- 现有 WMS 仓管：源仓拣货、发运；不新设“补货协调”角色。
+- 完整补货单编排 UI 留在 V1-3，不在本轮扩范围。
+- Sales V2 普通订单从公司库存池收紧至显式 warehouse scope 已登记为独立治理项；本轮不修改 Sales V2 FIFO。
+
+### 14.6 验证、合入与生产证据
+
+待本分支验证、PR、full 部署完成后补录：双端类型检查、API/Web 全量测试、迁移门禁、只读盘点 run、PR/main CI、部署 run、迁移日志、三方 revision、runtime smoke 与 `sys_error_logs` 窗口。
