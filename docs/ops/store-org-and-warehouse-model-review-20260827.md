@@ -544,4 +544,8 @@ V1 scope 已形成：
 - 治理门禁：TS migration down、migration no-business-DML（alias enum 兼容转换有显式豁免）、nullable-in-unique、constraint drift、entity drift、WMS DataScope write gate 全部通过；调拨 4 个写端点均保持 `MENU_INV_BATCH:E + DataScopeGuard`。
 - 生产只读预检 run `33039619568` 成功，`READONLY_GUARD=on` 并最终 `ROLLBACK`。生产 checkout `3deab5ac...`；现有 `wms_transfer` 只有 `COMPLETED=3`，可直接通过新 CHECK，`store_aliases` 为空，无 alias 转换冲突。
 - 同一 run 重证：10 条 STORE SITE 全部 `STORE_SITE_REVIEW_REQUIRED`；7 条 membership 与预期完全一致；10 条逐店建仓清单为 9 个自有仓候选 + 万象仓储中心店配送中心候选；修正版 binding 候选 0；窗口 `sys_error_logs` 0 行。未执行任何业务 DML。
-- PR：`#111`。待 main CI、full 部署完成后补录合入 SHA、部署 run、迁移日志、三方 revision、runtime smoke 与部署后错误窗口。
+- PR `#111` 全部门禁通过，以 merge commit `f50063afc584a511c84c26604b488df8a72b6146` 合入 main。对应 main Security、Web、Build、CI/CD runs `33039955481/33039955465/33039955484/33039955473` 全绿；CI 空库执行两条新迁移、entity drift 与 system/breeding/packaging/wms/finance 回归均通过。
+- 显式 full 部署 run `33040272925` 成功。部署前备份生成并校验；生产从 `3deab5ac...` 更新至 `f50063af...`。TypeORM 日志显示数据库原有 67 条、源码 68 条，发现并成功执行 `TightenStoreSiteAndWarehouseOwnership1787961600000` 与 `UpgradeWmsTransferLifecycle1787965200000`；API/Web Healthy，Web smoke PASS。
+- 部署后三方 revision 只读 run `33040636403` 确认 production checkout、API image、Web image 全为 `f50063afc584a511c84c26604b488df8a72b6146`，数据库 `transaction_read_only=on`；最小写入步骤明确 skipped。
+- 公网 runtime smoke run `33040638231` 为 GO：27 PASS / 0 WARN / 0 FAIL。部署后 Store 只读 run `33040640135` 确认 3 条历史调拨仍全为 COMPLETED、alias/binding 均 0、10+7+10 清单不变、部署窗口相关 `sys_error_logs` 0 行，最终 ROLLBACK。
+- 本轮生产写入仅为部署自动 schema migration；alias 表为空，实际更新 0 行。未建 SITE、未建仓、未回填 membership/binding，历史业务事实零改写。
