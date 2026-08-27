@@ -549,3 +549,48 @@ V1 scope 已形成：
 - 部署后三方 revision 只读 run `33040636403` 确认 production checkout、API image、Web image 全为 `f50063afc584a511c84c26604b488df8a72b6146`，数据库 `transaction_read_only=on`；最小写入步骤明确 skipped。
 - 公网 runtime smoke run `33040638231` 为 GO：27 PASS / 0 WARN / 0 FAIL。部署后 Store 只读 run `33040640135` 确认 3 条历史调拨仍全为 COMPLETED、alias/binding 均 0、10+7+10 清单不变、部署窗口相关 `sys_error_logs` 0 行，最终 ROLLBACK。
 - 本轮生产写入仅为部署自动 schema migration；alias 表为空，实际更新 0 行。未建 SITE、未建仓、未回填 membership/binding，历史业务事实零改写。
+
+## 15. 三段执行记录（2026-08-27）
+
+### 15.1 第 0 步生产只读预检
+
+- 专用 workflow `Store V1-3 Production Rollout` 首次 run `33043470266` 在
+  `transaction_read_only=on` 下安全拒绝只读事务内的临时表创建；未进入业务查询、未执行 DML。
+  修订为纯 `VALUES` CTE 后，run `33043613457` 成功，最终 `ROLLBACK`。
+- 10 条 `mst_stores` 最新实值逐行命中批准清单：`COMP-LAO-AGRI` 6 店、
+  `COMP-LAO-XINGCHI` 4 店；`mapped_site_code` 均为空。
+- 按同公司、门店原名/“（组织地点）”名称和非空地址反查 ACTIVE SITE，疑似孤立
+  SITE 为 0；10 个 `ST_*_SALES` 目标仓码均不存在。
+- 7 条 membership 输入全部命中 ACTIVE 账号、批准 legacy 店码及系统角色：amei 2 条，
+  cashier/chenling/alue/bouavanh/xiaolan 各 1 条。
+- 额外发现并逐行输出：目标 10 店在 `store_master` 中全部不存在。该事实不影响第一段
+  SITE 创建，但会阻断第二段 `owner_store_id` 外键及同公司 trigger。
+
+### 15.2 第一段：10 个门店型 SITE
+
+- 生产 run `33043720603` 在重新执行完整只读预检后，以单事务插入 10 行
+  `sys_organizations`，逐行 `INSERT RETURNING`；事务提交成功。
+- 编码为 `SITE-<店短码>-STORE`，名称为“原门店名（组织地点）”，`org_type='SITE'`、
+  `site_business_type='STORE'`、`status='ACTIVE'`，parent/company 分别严格指向 AGRI/XINGCHI。
+  万象仓储中心店同样建立 `SITE-VTE-WH-001-STORE`，未把设施性质混入组织地点类型。
+- 独立只读事务复核 10/10：`site_code=org_code`、`company_code=parent_code`、SITE/STORE/ACTIVE
+  全部成立，最终 `ROLLBACK`。
+- 回滚 SQL 已在 run 日志留档，精确限定上述 10 个 org_code，并额外限定
+  `org_type='SITE' AND site_business_type='STORE'`；未执行回滚。
+
+### 15.3 第二、三段停闸
+
+- 第二段没有执行。原因：批准清单要求仓插入时写 `owner_store_id=对应 store_master.id`，
+  现行 FK 与 `trg_warehouse_owner_store` 又要求 owner 为同公司 ACTIVE store；但生产
+  `store_master` 目标行是 0/10。
+- 第三段清单才授权“`store_master` 无则 INSERT”。若保持用户指定段序，第二段无法合法执行；
+  若提前 INSERT，则会把第三段 DML 偷渡到第二段，违反“三段模式”和严格限段红线。
+- 因此未建仓/区/位，未写 membership、binding、alias；没有尝试降级为 NULL owner、没有放宽
+  trigger、没有绑定场站仓。需要业务负责人明确批准将 `store_master` 基线 INSERT 前移到第二段
+  之前（形成独立 1.5 段），或批准交换第二、三段顺序，才可继续。
+
+### 15.4 V1-3 就绪结论
+
+当前结论：**NOT READY / FAIL-CLOSED**。SITE 10/10 已完成；仓 0/10、区 0/20、位 0/20、
+membership 0/7、binding 0/20、STORE_SITE alias 0/10。由于门店仓与 binding 尚未建立，
+不执行补货/POS 开售 smoke，不声明试点店进入 V1-3；历史功能与库存事实未被改写。
