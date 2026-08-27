@@ -258,14 +258,14 @@ jobs:
                    count(*) FILTER (WHERE status='RETURNED')::int AS returned_count,
                    COALESCE(sum(total_amount) FILTER (WHERE status='COMPLETED'),0) AS completed_amount
               FROM sal_store_sales
-             WHERE created_at >= :'window_start'::timestamp AND created_at < :'window_end'::timestamp
+             WHERE created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
              GROUP BY store_code
             UNION ALL
             SELECT 'STORE_DOCUMENT_VOLUME', 'pos_sales', store_code, count(*)::int,
                    count(*) FILTER (WHERE status='COMPLETED')::int, 0,
                    COALESCE(sum(COALESCE(net_amount,total_amount)) FILTER (WHERE status='COMPLETED'),0)
               FROM pos_sales
-             WHERE created_at >= :'window_start'::timestamp AND created_at < :'window_end'::timestamp
+             WHERE created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
              GROUP BY store_code
              ORDER BY source, store_code;
 
@@ -274,7 +274,7 @@ jobs:
                    count(*)::int AS completed_sales
               FROM sal_store_sales
              WHERE status='COMPLETED'
-               AND created_at >= :'window_start'::timestamp AND created_at < :'window_end'::timestamp
+               AND created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
              GROUP BY store_code ORDER BY store_code;
 
             SELECT 'ACTIVE_CASHIER_ROSTER' AS section, u.store_code,
@@ -289,10 +289,10 @@ jobs:
                    count(*) FILTER (WHERE status='CLOSED')::int AS closed_shifts,
                    count(*) FILTER (WHERE status='OPEN')::int AS open_shifts,
                    round(count(*)::numeric / NULLIF(EXTRACT(epoch FROM (:'window_end'::timestamp-:'window_start'::timestamp))/86400,0),2) AS shifts_per_day,
-                   round((avg(EXTRACT(epoch FROM (closed_at-opened_at))/3600) FILTER (WHERE closed_at IS NOT NULL))::numeric,2) AS avg_shift_hours
+                   round((avg(EXTRACT(epoch FROM (closed_at::timestamp-opened_at::timestamp))/3600) FILTER (WHERE closed_at IS NOT NULL))::numeric,2) AS avg_shift_hours
               FROM sal_store_shift_closings
-             WHERE opened_at < :'window_end'::timestamp
-               AND COALESCE(closed_at,opened_at) >= :'window_start'::timestamp
+             WHERE opened_at::timestamp < :'window_end'::timestamp
+               AND COALESCE(closed_at::timestamp,opened_at::timestamp) >= :'window_start'::timestamp
              GROUP BY store_code ORDER BY store_code;
 
             SELECT 'RETURN_RATE' AS section, store_code,
@@ -301,7 +301,7 @@ jobs:
                    round(100.0*count(*) FILTER (WHERE status='RETURNED')/
                          NULLIF(count(*) FILTER (WHERE status IN ('COMPLETED','RETURNED')),0),2) AS return_rate_pct
               FROM sal_store_sales
-             WHERE created_at >= :'window_start'::timestamp AND created_at < :'window_end'::timestamp
+             WHERE created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
              GROUP BY store_code ORDER BY store_code;
 
             SELECT 'PAYMENT_METHOD_DISTRIBUTION' AS section, 'sal_store_sales' AS source, store_code,
@@ -309,14 +309,14 @@ jobs:
                    count(*)::int AS document_count, COALESCE(sum(paid_amount),0) AS amount
               FROM sal_store_sales
              WHERE status='COMPLETED'
-               AND created_at >= :'window_start'::timestamp AND created_at < :'window_end'::timestamp
+               AND created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
              GROUP BY store_code, COALESCE(NULLIF(payment_method,''),'UNKNOWN')
             UNION ALL
             SELECT 'PAYMENT_METHOD_DISTRIBUTION', 'store_payment_records', store_code,
                    COALESCE(NULLIF(payment_method,''),'UNKNOWN'), count(*)::int, COALESCE(sum(amount),0)
               FROM store_payment_records
              WHERE status='CONFIRMED'
-               AND created_at >= :'window_start'::timestamp AND created_at < :'window_end'::timestamp
+               AND created_at::timestamp >= :'window_start'::timestamp AND created_at::timestamp < :'window_end'::timestamp
              GROUP BY store_code, COALESCE(NULLIF(payment_method,''),'UNKNOWN')
              ORDER BY source, store_code, payment_method;
             COMMIT;
