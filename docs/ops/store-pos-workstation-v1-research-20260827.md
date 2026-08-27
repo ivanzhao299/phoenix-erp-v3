@@ -847,4 +847,4 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - 红测已先复现 3/3 失败：合法空 membership、服务 reject、仓 scope 无交集；实现后 Web 定向 7/7、API StoreScopePolicy 12/12 通过。
 - 生产 workflow 增加 amei contexts 两个布尔字段硬断言，并实际 GET `source-warehouses?storeCode=STORE-HS-001`；该 GET 会先执行 `resolve()`，因此 200 是目标门店仓交集的运行时证据。部署 revision、错误窗口与 `PRODUCTION_BUSINESS_WRITES=0` 继续硬断言。
 
-本地完整验证已通过：API/Web `tsc --noEmit` 均 0 errors；API Jest 72 suites / 630 tests、Web Vitest 85 files / 456 tests 全绿；migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift 与 `git diff --check` 全绿。PR/CI/full 部署及修复后生产 revision/错误窗口记录在本节后续追加；未完成前不提前记生产 PASS。
+本地完整验证已通过：API/Web `tsc --noEmit` 均 0 errors；API Jest 72 suites / 630 tests、Web Vitest 85 files / 456 tests 全绿；migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift、三语 i18n key parity、硬编码 UI 文案覆盖与 `git diff --check` 全绿。PR/CI/full 部署及修复后生产 revision/错误窗口记录在本节后续追加；未完成前不提前记生产 PASS。
