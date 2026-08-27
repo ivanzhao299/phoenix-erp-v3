@@ -1,0 +1,56 @@
+name: Store V1-3 Production Rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Approved rollout phase
+        required: true
+        default: preflight
+        type: choice
+        options: [preflight]
+      approve_production:
+        description: Type APPROVE-STORE-V1-3-20260827
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-v1-3-production-rollout
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: inputs.approve_production == 'APPROVE-STORE-V1-3-20260827' && inputs.phase == 'preflight'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Production read-only preflight
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          TARGET_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,TARGET_SHA
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            git fetch --quiet origin "$TARGET_SHA"
+            git cat-file -e "$TARGET_SHA^{commit}"
+            echo "AUDIT_SOURCE_SHA=$TARGET_SHA"
+            echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
+            git show "$TARGET_SHA:scripts/store-v1-3-production-preflight.sql" \
+              | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                  sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
