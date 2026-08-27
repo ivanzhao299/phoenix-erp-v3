@@ -67,6 +67,7 @@ const expectedUpdatePayloadFields = [
   'productName',
   'productUomSetting',
   'specNo',
+  'statusEnum',
 ];
 if (result.decision !== 'READY_FOR_EXPLICIT_APPROVAL'
   || result.writeChanjet !== false
