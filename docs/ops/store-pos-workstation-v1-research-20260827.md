@@ -779,3 +779,13 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - 治理门禁：migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift、`git diff --check` 全绿。
 
 线上业务 UAT 由用户产生真实单据，顺序为：店长在 `/store/replenish` 建草稿并提交 → 仓管审批转调拨并发运 → 店长按全收或短缺/破损签收 → 有差异时创建报损/调整单并回填关联号 → CLOSED；随后在 `/terminal/store-pos` 选择唯一门店 → 开班 → 加购 → 依次验证 CASH/CREDIT/MIXED → 整单退货 → 交班。验证离线时只能恢复草稿且结账按钮禁用。生产 smoke 只做页面可达、非 admin 权限矩阵、跨店/跨仓 403 与错误窗口，禁止自动创建补货或销售单。
+
+### 17.5 生产部署与验证记录
+
+- 2026-08-27 通过 `workflow_dispatch` 执行 `mode=full`、`approve_production=true`，run `33054367725` 成功，部署 revision 为 PR `#122` merge SHA `c1d733219b2f03c5406f620da53d4f5c83f5c689`。部署日志确认 checkout 同步到该 SHA，API/Web 均从本 run 的不可变 SHA 镜像构建并健康启动；后续只读审计 `33055003841` 再次断言生产 checkout 为同一 SHA。专用三方 revision probe `33055000773` 因 workflow 的 `EXPECTED_REVISION` 仍硬编码旧 SHA `0cd851012c3cd1dc88e4a79de52ee1f390157713`，在 JWT 签发前 fail-fast，因此本轮没有形成独立的 API/Web image label 三方断言；不得把该 run 记为业务失败或三方 PASS。
+- TypeORM 日志确认数据库原有 69 条迁移、本次发现并成功执行唯一新增迁移 `CreateStoreReplenishmentOrchestration1788134400000`：创建 `store_replenishment_requests`、`store_replenishment_request_lines`、三项索引，插入 `MENU_STORE_REPLENISH`，并按迁移定义补齐标准角色缺失授权；事务 COMMIT 后 API/Web 健康、Web smoke 通过。部署自动迁移与种子之外未执行生产写入。
+- 页面只读探针：`/store/replenish` 与 `/terminal/store-pos` 未认证首跳均为 307 到 `/login?return=...`，跟随认证重定向后为 200；`GET /api/v2/store-replenishments` 未认证为 401，符合受保护路由预期。
+- V1-3 双重只读 SQL run `33055003841` 以 `PGOPTIONS=default_transaction_read_only=on` + `BEGIN READ ONLY` 执行并 `ROLLBACK`，输出 `READONLY_GUARD=on`、`STORE_V1_3_READY_ASSERTIONS=PASS`；cashier binding 与 WarehouseScope 交集为 2 行且均为 `ST_LAO_AGRI_VTE_001_SALES / true`；相关 `sys_error_logs` 扫描窗口为 0 行；生产业务写入为 0。
+- amei 短期 JWT 权限矩阵本轮未完成：run `33055000773` 在固定旧 revision 断言处提前退出，未执行 contexts、补货 GET 或 POST 权限判断。未使用 admin token 替代非 admin 权限证明，未调用任何补货、开班、销售 POST。
+- 17.3 角色末态与待确认清单：部署日志证明菜单种子迁移成功，但现有只读 workflow 未逐行输出 `ROLE_STORE_MGR=V,C,E`、`ROLE_WMS_OP=V,A,E`、`ROLE_WMS_MGR=V,A,E`、`ROLE_CASHIER=无` 的生产查询结果，也未输出 WMS 角色是否存在、绑定用户以及孟赛/东鹏源仓 WarehouseScope 清单。因此这些项保持 **待用户确认/待补充只读审计入口后核实**；未执行 `sys_role_menu_permission`、用户角色、membership、`perms_version` 或 WarehouseScope 手工回填，fail-closed 不放宽。
+- 用户业务 UAT 仍按 §17.4 清单执行，状态为 **待用户执行**。
