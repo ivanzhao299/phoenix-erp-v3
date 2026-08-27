@@ -3,6 +3,7 @@ import {
   buildChanjetProductUpdatePayload,
   chanjetProductInvariant,
   extractChanjetProductRows,
+  projectChanjetProductBusinessFields,
 } from './chanjet-product-name-canary.service';
 
 const mappingId = '307052';
@@ -133,6 +134,22 @@ describe('ChanjetProductNameCanaryService', () => {
     )));
   });
 
+  it('projects only recovery-safe product identity and business fields', () => {
+    expect(projectChanjetProductBusinessFields(product(originalName, {
+      internalOnly: 'must-not-leak',
+      baseUomId: { id: 'UOM-1', code: 'BOT', uomName: '瓶' },
+      parentId: { id: 'CAT-1', code: 'VET', name: '兽药' },
+    }))).toEqual({
+      id: '3557635884849011',
+      code: productCode,
+      name: originalName,
+      specNo: '100g/瓶',
+      status: 'A',
+      category: { id: 'CAT-1', code: 'VET', name: '兽药' },
+      baseUom: { id: 'UOM-1', code: 'BOT', name: '瓶' },
+    });
+  });
+
   it('updates exactly one product name and verifies provider plus ERP mirror readback', async () => {
     const before = product(originalName);
     const after = product(proposedName);
@@ -192,6 +209,16 @@ describe('ChanjetProductNameCanaryService', () => {
       decision: 'READY_FOR_EXPLICIT_APPROVAL',
       currentName: originalName,
       proposedName,
+      providerState: 'ORIGINAL',
+      businessFields: {
+        id: '3557635884849011',
+        code: productCode,
+        name: originalName,
+        specNo: '100g/瓶',
+        status: 'A',
+        category: { id: '', code: 'VET', name: '兽药' },
+        baseUom: { id: 'UOM-1', code: '', name: '瓶' },
+      },
       providerCalls: 1,
       writeChanjet: false,
       writeErpBusinessTables: false,

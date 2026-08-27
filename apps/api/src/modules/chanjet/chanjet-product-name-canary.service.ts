@@ -88,6 +88,34 @@ export function chanjetProductInvariant(product: Record<string, unknown>): strin
 }
 
 /**
+ * A deliberately small, non-sensitive view of the provider row used during
+ * manual recovery. It exposes only the identity and business fields that the
+ * name-only update contract is required to preserve.
+ */
+export function projectChanjetProductBusinessFields(product: Record<string, unknown>): Record<string, unknown> {
+  const category = record(product.parentId);
+  const baseUom = record(product.baseUomId);
+  const status = record(product.statusEnum);
+  return {
+    id: String(product.id || ''),
+    code: String(product.code || ''),
+    name: String(product.name || ''),
+    specNo: String(product.specNo || ''),
+    status: String(status.value || status.code || product.statusEnum || ''),
+    category: {
+      id: String(category.id || ''),
+      code: String(category.code || ''),
+      name: String(category.name || ''),
+    },
+    baseUom: {
+      id: String(baseUom.id || ''),
+      code: String(baseUom.code || baseUom.uomCode || ''),
+      name: String(baseUom.name || baseUom.uomName || ''),
+    },
+  };
+}
+
+/**
  * Chanjet's product list and update endpoints use different DTOs. Build the
  * update DTO from the exact provider row so category, base UOM, specification
  * and status remain explicit and unchanged while only productName is replaced.
@@ -152,6 +180,9 @@ export class ChanjetProductNameCanaryService {
     currentName: string;
     proposedName: string;
     providerRowHash: string;
+    providerInvariantHash: string;
+    providerState: 'ORIGINAL' | 'PROPOSED';
+    businessFields: Record<string, unknown>;
     updatePayloadHash: string;
     updatePayloadFields: string[];
     providerCalls: 1;
@@ -189,6 +220,9 @@ export class ChanjetProductNameCanaryService {
       currentName: providerName,
       proposedName: proposal.proposedValue,
       providerRowHash: sha256(JSON.stringify(canonicalize(providerProduct))),
+      providerInvariantHash: sha256(chanjetProductInvariant(providerProduct)),
+      providerState: providerName === proposal.currentValue ? 'ORIGINAL' : 'PROPOSED',
+      businessFields: projectChanjetProductBusinessFields(providerProduct),
       updatePayloadHash: sha256(JSON.stringify(canonicalize(updatePayload))),
       updatePayloadFields: Object.keys(updatePayload).sort(),
       providerCalls: 1,
