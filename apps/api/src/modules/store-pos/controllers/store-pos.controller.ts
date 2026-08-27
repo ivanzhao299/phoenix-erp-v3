@@ -169,15 +169,18 @@ export class StorePosController {
   @RequireMenu('MENU_STORE_POS', 'E')
   completeCashSale(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: { cashAccountId: number; paidAmount: number; paymentMethod?: string },
+    @Body() dto: { cashAccountId: number; paidAmount: number; paymentMethod?: string; idempotencyKey: string },
   ) {
     return this.posService.completeCashSale(id, dto);
   }
 
   @Post(':id/pay-credit')
   @RequireMenu('MENU_STORE_POS', 'E')
-  completeCreditSale(@Param('id', ParseIntPipe) id: number) {
-    return this.posService.completeCreditSale(id);
+  completeCreditSale(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: { idempotencyKey: string },
+  ) {
+    return this.posService.completeCreditSale(id, dto);
   }
 
   @Post(':id/pay-mixed')
@@ -188,6 +191,7 @@ export class StorePosController {
       cashAccountId:  number;
       paidAmount:     number;
       paymentMethod?: string;
+      idempotencyKey: string;
     },
   ) {
     return this.posService.completeMixedSale(id, dto);

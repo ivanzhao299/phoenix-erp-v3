@@ -575,3 +575,28 @@ flowchart TB
 - 生产 runtime smoke run `33033489531` 结论 GO；部署后 `/store-pos` HTTP 200、未认证 `/api/v2/store-sales/contexts` HTTP 401、`phoenix_up=1`。新指标初值：legacy shadow match=0、mismatch=0、旧 daily_close 当日写入=0。
 - 本轮未运行盘点 SQL、未写 canonical store/membership/binding 业务数据，保持零业务 DML。
 - 验证缺口：authenticated smoke run `33033521877` 的 workflow job 表面 success，但 `PHOENIX_SMOKE_USER/PASS` secret 为空，脚本实际输出 `authenticated-business-smoke: FAIL`；现有 workflow 也没有 Store POS membership 专项 probe 或通用 `sys_error_logs` 只读窗口查询。因此本轮**不能声称**生产“无 membership 已返回 403”及 `sys_error_logs` 窗口扫描完成。两项在配置有效 smoke 凭据/只读审计入口后补验；在此之前 V1-1 仍不具备生产开售结论。
+
+### 15.6 V1-1 生产回填盘点附录（只读，待用户授权回填）
+
+GitHub production environment 只读 workflow run `33035061172` 成功；生产 checkout 为 `41d17c4338c7e8772220704d3a48c02e927f610d`，窗口 `2026-08-27 00:00:00Z..2026-08-28 00:00:00Z`。数据库同时启用 `PGOPTIONS default_transaction_read_only=on` 与 `BEGIN TRANSACTION READ ONLY`，输出 `transaction_read_only=on`，最终明确 `ROLLBACK`。首次 run `33034952246` 因生产仓表没有可选旧列 `store_code` 安全终止；第二次 run `33035004963` 因错误日志实列名为 `request_path` 安全终止；两次均在只读事务中，无 DDL/DML。适配后的第三次成功。
+
+以下均为**候选，不是授权事实，不得自动回填**：
+
+1. legacy Store → canonical Store/SITE：共 10 店，全部 `SITE_REVIEW_REQUIRED`，因为 `mapped_site_code` 均为空：`STORE-BKX-001` 波利坎赛省直营店、`STORE-LPB-001` 琅勃拉邦直营店、`STORE-MX-001` 孟赛直营店、`STORE-PSL-001` 丰沙里省直营店、`STORE-VTE-001` 万象直营店、`STORE-VTE-WH-001` 万象仓储中心店、`STORE-DP-001` 东鹏直营店、`STORE-HS-001` 会晒直营店、`STORE-XB-001` 沙耶武里直营店、`STORE-XC-001` 金三角特区直营店。
+2. membership：共 7 条候选，均 `MEMBERSHIP_CANDIDATE`：`user_id=8 amei / ROLE_CASHIER / STORE-HS-001`、`8 amei / ROLE_STORE_MGR / STORE-HS-001`、`98 cashier / ROLE_CASHIER / STORE-VTE-001`、`150 chenling / ROLE_STORE_MGR / STORE-MX-001`、`151 alue / ROLE_STORE_MGR / STORE-VTE-001`、`152 bouavanh / ROLE_STORE_MGR / STORE-BKX-001`、`154 xiaolan / ROLE_STORE_MGR / STORE-XB-001`。角色来自 `sys_user_role/sys_role`，组织/公司依据来自 legacy store 与 `mst_stores`；仍须负责人确认职责和生效期。
+3. StoreWarehouseBinding：共 58 条 `COMPANY_POOL_REVIEW` 候选，生产仓没有 store/site 直连列，故不能自动判定。`COMP-LAO-AGRI` 的 6 店（BKX/LPB/MX/PSL/VTE/VTE-WH）各自对应同一 7 仓候选池：`LPH_MS_EGG_FARM`、`LPH_MS_EGG_SALES`、`LPH_MS_FEED`、`LPH_MS_FINISHED`、`LPH_MS_MEDICINE`、`LPH_MS_PURCHASE`、`LPH_MS_RAW`，合计 42 条；`COMP-LAO-XINGCHI` 的 4 店（DP/HS/XB/XC）各自对应 `LPH_DP_EGG_FARM`、`LPH_DP_EGG_SALES`、`LPH_DP_FEED`、`LPH_DP_MEDICINE`，合计 16 条。所有仓均为 `ACTIVE + OPERATIONAL`，但 SALES/RETURNS purpose、priority、隔离区和仓权限交集仍须人工确认。
+
+同一窗口的 `sys_error_logs` 扫描覆盖 `/store-sales`、`store_master`、`store_membership`、`store_warehouse_bindings`，结果 **0 行**。这补齐了 V1-1 部署窗口错误扫描缺口；不替代有凭据的五象限业务 smoke。
+
+**状态：待用户授权回填。本轮未执行 canonical store、alias、membership 或 binding 的任何回填 DML。**
+
+### 15.7 V1-2 执行记录（门店仓原子性、支付幂等、FIFO 阻断）
+
+- 迁移 `1787878800000-EnforceStorePosAtomicSettlement.ts` 为销售单增加 `idempotency_key/warehouse_code`，以 partial unique index 硬控支付 key；新增完整 `store_sale_allocations` 与已关班退货追加式 `store_sale_adjustments`；以 partial unique index 保证每店最多一个 OPEN 班次。迁移具完整 `down()`，无业务数据 DML。
+- 三种支付统一在同一 TypeORM transaction manager 内：先按 idempotency advisory lock 串行，再查既有结果，锁 sale 行并事务内重读 items，锁 OPEN shift，随后仅从 `binding ∩ WarehouseScope` 的仓锁定 AVAILABLE 批次。最终以 `WHERE id=? AND status='OPEN'` 条件更新；同 key 重试返回既有 sale，不重复扣库存或写 Cash/AR。
+- FIFO 删除“warning 后继续”和 catch 吞错路径。库存不足、批次条件更新失败、现金账户缺失或财务写入异常均抛错并回滚整笔事务；每个批次分配都写 allocation，销售明细 `batch_no` 仅保留兼容首批展示，不再承担追溯权威。
+- 整单退货只接受存在 allocation 的新单，按 `allocated_qty-returned_qty` 精确反向至 RETURNS binding 下的 ACTIVE QUARANTINE zone/location，并逐 allocation 标记 returned；历史无 allocation 的旧单 fail-closed 转人工异常。原单关联 CLOSED shift 时只追加 `CLOSED_SHIFT_RETURN` adjustment，不重开、不改写历史班次。
+- 开班使用门店 advisory transaction lock + 行锁检查 + 数据库 partial unique 双保险；并发开班只允许一个 OPEN。
+- 范围保持：未新增 tender 行、settlement、价格全序或财务过账；未做 Terminal 收银 UI；未关闭旧写入口。
+
+回归新增 `store-pos-atomicity.service.spec.ts` 与 `store-pos-v1-2.contract.spec.ts`，覆盖库存不足拒绝、多批 allocation、同 key 返回既有结果、allocation 精确退回隔离库位、数据库硬约束及旧 warn 路径消失。V1-1 五象限、legacy shadow、跨入口 scope contract 保持通过。部署、迁移日志、revision 与生产只读 smoke 证据在本节后续追加。

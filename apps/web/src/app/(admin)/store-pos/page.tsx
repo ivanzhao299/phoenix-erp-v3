@@ -595,22 +595,25 @@ export default function StorePosPage() {
         }))
       });
 
-      // 2. 收款
+      // 2. 收款。一次确认共用同一 key，服务端/数据库负责重试幂等。
+      const idempotencyKey = crypto.randomUUID();
       if (payType === 'CASH') {
         await api('POST', `/api/v2/store-sales/${sale.id}/pay-cash`, {
           cashAccountId,
           paidAmount: paid,
-          paymentMethod: payMethod
+          paymentMethod: payMethod,
+          idempotencyKey
         });
       } else if (payType === 'CREDIT') {
-        await api('POST', `/api/v2/store-sales/${sale.id}/pay-credit`);
+        await api('POST', `/api/v2/store-sales/${sale.id}/pay-credit`, { idempotencyKey });
       } else {
         await api('POST', `/api/v2/store-sales/${sale.id}/pay-mixed`, {
           cashAccountId,
           paidAmount: paid,
           paymentMethod: payMethod,
           customerCode: customerCode || undefined,
-          customerName: customerName || undefined
+          customerName: customerName || undefined,
+          idempotencyKey
         });
       }
       showToast(`${t('ui.销售单','销售单')} ${sale.sale_no} ${t('ui.开立成功','开立成功')}`, 'success');

@@ -68,7 +68,7 @@ export class StoreScopePolicy {
        ORDER BY b.priority,b.id`, [store.storeId, purpose]);
     const allowed = new Set<string>(scope.isGlobal ? bindings.map(b => b.warehouseCode) : (scope.allowedWarehouseCodes ?? []));
     const warehouseCodes = bindings.map(b => b.warehouseCode).filter(code => allowed.has(code));
-    if (!warehouseCodes.length) throw new ForbiddenException(`门店无有效 ${purpose} 仓权限交集`);
+    if (!warehouseCodes.length) throw new ForbiddenException(`请先配置门店仓绑定：无有效 ${purpose} 仓权限交集`);
     this.shadowCompare(storeCode, stores.map(s => s.storeCode));
     return { ...store, warehouseCodes };
   }
