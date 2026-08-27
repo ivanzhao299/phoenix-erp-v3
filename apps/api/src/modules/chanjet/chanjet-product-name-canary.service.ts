@@ -128,11 +128,13 @@ export function buildChanjetProductUpdatePayload(
   const productCode = String(product.code || '').trim();
   const category = record(product.parentId);
   const baseUom = record(product.baseUomId);
+  const status = record(product.statusEnum);
+  const statusValue = String(status.value || status.code || product.statusEnum || '').trim();
   const payload: Record<string, unknown> = { productCode, productName };
 
   if (!productCode || !productName.trim()) throw new Error('provider product update identity is incomplete');
   if (typeof product.specNo === 'string') payload.specNo = product.specNo;
-  if (typeof product.statusEnum === 'string' && product.statusEnum) payload.statusEnum = product.statusEnum;
+  if (statusValue) payload.statusEnum = statusValue;
   if (String(category.code || '') || String(category.name || '')) {
     payload.productCategory = {
       ...(String(category.code || '') ? { code: String(category.code) } : {}),

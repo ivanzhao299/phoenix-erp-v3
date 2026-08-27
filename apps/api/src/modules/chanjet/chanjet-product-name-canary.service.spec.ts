@@ -125,6 +125,12 @@ describe('ChanjetProductNameCanaryService', () => {
     });
   });
 
+  it('normalizes the provider enum object into the official statusEnum string', () => {
+    expect(buildChanjetProductUpdatePayload(product(originalName, {
+      statusEnum: { label: '启用', value: 'A' },
+    }), proposedName)).toMatchObject({ statusEnum: 'A' });
+  });
+
   it('unwraps the official product list envelope and locks nested business names', () => {
     expect(extractChanjetProductRows({ data: { rows: [product(originalName)] } })).toHaveLength(1);
     expect(chanjetProductInvariant(product(originalName))).toBe(chanjetProductInvariant(product(proposedName)));
