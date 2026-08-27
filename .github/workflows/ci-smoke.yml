@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, role-business-production, chanjet-readonly-production, chanjet-readonly-adapter-production, chanjet-house-alignment-readonly'
+        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, role-business-production, store-pos-amei-readonly, chanjet-readonly-production, chanjet-readonly-adapter-production, chanjet-house-alignment-readonly'
         required: false
         default: documented-only
   pull_request:
@@ -111,6 +111,72 @@ jobs:
             --api-url=https://erp.eggslao.com \
             --output-dir=docs/ops/runs \
             --strict
+
+      - name: Run amei Store POS readonly acceptance
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'store-pos-amei-readonly'
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          EXPECTED_REVISION: 0cd851012c3cd1dc88e4a79de52ee1f390157713
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,EXPECTED_REVISION
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+
+            CHECKOUT_REVISION="$(git rev-parse HEAD)"
+            API_REVISION="$(docker inspect "$(docker compose ps -q api)" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+            WEB_REVISION="$(docker inspect "$(docker compose ps -q web)" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+            test "$CHECKOUT_REVISION" = "$EXPECTED_REVISION"
+            test "$API_REVISION" = "$EXPECTED_REVISION"
+            test "$WEB_REVISION" = "$EXPECTED_REVISION"
+            echo "REVISION_ASSERTIONS=PASS checkout=$CHECKOUT_REVISION api=$API_REVISION web=$WEB_REVISION"
+
+            TOKEN="$(docker compose exec -T api node - <<'NODE'
+            const { NestFactory } = require('@nestjs/core');
+            const { AppModule } = require('./dist/app.module');
+            const { AuthService } = require('./dist/auth/auth.service');
+            (async () => {
+              const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+              try {
+                const session = await app.get(AuthService).login('amei', '', '127.0.0.1', { bypassPassword: true });
+                process.stdout.write(session.token);
+              } finally {
+                await app.close();
+              }
+            })().catch(error => { console.error(error?.message || error); process.exit(1); });
+            NODE
+            )"
+            test -n "$TOKEN"
+
+            CONTEXTS_JSON="$(curl -fsS -H "Authorization: Bearer $TOKEN" https://erp.eggslao.com/api/v2/store-sales/contexts)"
+            CONTEXTS_JSON="$CONTEXTS_JSON" node - <<'NODE'
+            const body = JSON.parse(process.env.CONTEXTS_JSON || 'null');
+            const rows = Array.isArray(body) ? body : body?.data;
+            if (!Array.isArray(rows) || rows.length !== 1) throw new Error(`contexts length=${rows?.length}`);
+            const row = rows[0];
+            if (row.storeCode !== 'STORE-HS-001') throw new Error(`storeCode=${row.storeCode}`);
+            if (row.role !== 'STORE_MANAGER') throw new Error(`role=${row.role}`);
+            if (JSON.stringify(row.roles) !== JSON.stringify(['CASHIER', 'STORE_MANAGER'])) throw new Error(`roles=${JSON.stringify(row.roles)}`);
+            console.log(`CONTEXT_ASSERTIONS=PASS count=${rows.length} store=${row.storeCode} role=${row.role} roles=${row.roles.join(',')}`);
+            NODE
+
+            SHIFT_STATUS="$(curl -sS -o /tmp/store-pos-amei-shift.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-sales/shift?storeCode=STORE-HS-001')"
+            test "$SHIFT_STATUS" = "200"
+            echo "SHIFT_GET_ASSERTION=PASS status=$SHIFT_STATUS"
+
+            ERROR_COUNT="$(docker compose exec -T db sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM sys_error_logs WHERE created_at >= NOW() - INTERVAL '\''30 minutes'\'' AND (request_path ILIKE '\''%store-sales%'\'' OR error_message ILIKE '\''%store_membership%'\'');"' | tr -d '\r\n')"
+            test "$ERROR_COUNT" = "0"
+            echo "STORE_POS_ERROR_WINDOW=PASS count=$ERROR_COUNT window=30m"
+            echo "PRODUCTION_BUSINESS_WRITES=0"
 
       - name: Run Chanjet readonly production sync
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-production'
