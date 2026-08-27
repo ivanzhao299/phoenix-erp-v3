@@ -12,7 +12,7 @@ WITH RECURSIVE cashier_orgs AS (
 ), cashier_companies AS (
  SELECT DISTINCT COALESCE(company_code,org_code) company_code FROM cashier_orgs WHERE org_type='COMPANY'
 ), cashier_scope AS (
- SELECT w.warehouse_code FROM wms_warehouses w JOIN cashier_companies c USING(company_code)
+ SELECT w.warehouse_code FROM wms_warehouses w JOIN cashier_companies c ON c.company_code=w.company_code
  WHERE w.status='ACTIVE' AND w.domain='OPERATIONAL'
 ), cashier_bindings AS (
  SELECT b.warehouse_code FROM sys_user u JOIN store_memberships m ON m.user_id=u.user_id
@@ -45,18 +45,18 @@ WITH RECURSIVE expected_store(store_code,company_code,site_code,warehouse_code) 
 ), cashier_company AS (
  SELECT DISTINCT COALESCE(company_code,org_code) company_code FROM cashier_orgs WHERE org_type='COMPANY'
 ), cashier_intersection AS (
- SELECT DISTINCT b.warehouse_code FROM sys_user u JOIN store_memberships m ON m.user_id=u.user_id JOIN store_warehouse_bindings b ON b.store_id=m.store_id JOIN wms_warehouses w USING(warehouse_code) JOIN cashier_company c USING(company_code)
+ SELECT DISTINCT b.warehouse_code FROM sys_user u JOIN store_memberships m ON m.user_id=u.user_id JOIN store_warehouse_bindings b ON b.store_id=m.store_id JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code JOIN cashier_company c ON c.company_code=w.company_code
  WHERE u.username='cashier' AND m.status='ACTIVE' AND b.status='ACTIVE' AND w.status='ACTIVE' AND w.domain='OPERATIONAL'
 )
 SELECT current_setting('transaction_read_only')='on'
  AND (SELECT count(*) FROM expected_store e JOIN sys_organizations o ON o.org_code=e.site_code AND o.company_code=e.company_code WHERE o.org_type='SITE' AND o.site_business_type='STORE' AND o.status='ACTIVE')=10
- AND (SELECT count(*) FROM expected_store e JOIN store_master s USING(store_code) WHERE s.company_code=e.company_code AND s.status='ACTIVE')=10
- AND (SELECT count(*) FROM expected_store e JOIN store_master s USING(store_code) JOIN store_aliases a ON a.store_id=s.id AND a.alias_code=e.site_code WHERE a.alias_type='STORE_SITE' AND a.status='ACTIVE')=10
- AND (SELECT count(*) FROM expected_store e JOIN store_master s USING(store_code) JOIN wms_warehouses w USING(warehouse_code) WHERE w.owner_store_id=s.id AND w.company_code=e.company_code AND w.site_code=e.site_code AND w.type='EGG_SALES' AND w.domain='OPERATIONAL' AND w.status='ACTIVE')=10
+ AND (SELECT count(*) FROM expected_store e JOIN store_master s ON s.store_code=e.store_code WHERE s.company_code=e.company_code AND s.status='ACTIVE')=10
+ AND (SELECT count(*) FROM expected_store e JOIN store_master s ON s.store_code=e.store_code JOIN store_aliases a ON a.store_id=s.id AND a.alias_code=e.site_code WHERE a.alias_type='STORE_SITE' AND a.status='ACTIVE')=10
+ AND (SELECT count(*) FROM expected_store e JOIN store_master s ON s.store_code=e.store_code JOIN wms_warehouses w ON w.warehouse_code=e.warehouse_code WHERE w.owner_store_id=s.id AND w.company_code=e.company_code AND w.site_code=e.site_code AND w.type='EGG_SALES' AND w.domain='OPERATIONAL' AND w.status='ACTIVE')=10
  AND (SELECT count(*) FROM target_zones t JOIN wms_zones z USING(zone_code) WHERE z.warehouse_code=t.warehouse_code AND z.zone_type=t.zone_type AND z.store_code=t.store_code AND z.status='ACTIVE')=20
  AND (SELECT count(*) FROM target_zones t JOIN wms_locations l ON l.location_code=t.zone_code||'_NORMAL' WHERE l.warehouse_code=t.warehouse_code AND l.zone_code=t.zone_code AND l.store_code=t.store_code AND l.status='ACTIVE')=20
- AND (SELECT count(*) FROM expected_membership e JOIN sys_user u USING(username) JOIN store_master s USING(store_code) JOIN store_memberships m ON m.user_id=u.user_id AND m.store_id=s.id AND m.role=e.role WHERE m.status='ACTIVE' AND m.effective_to IS NULL)=7
- AND (SELECT count(*) FROM store_warehouse_bindings b JOIN store_master s ON s.id=b.store_id JOIN expected_store e USING(store_code) WHERE b.warehouse_code=e.warehouse_code AND b.purpose IN ('SALES','RETURNS') AND b.priority=1 AND b.status='ACTIVE' AND b.effective_to IS NULL)=20
+ AND (SELECT count(*) FROM expected_membership e JOIN sys_user u ON u.username=e.username JOIN store_master s ON s.store_code=e.store_code JOIN store_memberships m ON m.user_id=u.user_id AND m.store_id=s.id AND m.role=e.role WHERE m.status='ACTIVE' AND m.effective_to IS NULL)=7
+ AND (SELECT count(*) FROM store_warehouse_bindings b JOIN store_master s ON s.id=b.store_id JOIN expected_store e ON e.store_code=s.store_code WHERE b.warehouse_code=e.warehouse_code AND b.purpose IN ('SALES','RETURNS') AND b.priority=1 AND b.status='ACTIVE' AND b.effective_to IS NULL)=20
  AND (SELECT count(*) FROM cashier_intersection)>0
  AND NOT EXISTS (SELECT 1 FROM sys_error_logs WHERE created_at >= TIMESTAMPTZ '2026-08-27 00:00:00+00' AND (request_path ILIKE '%inbound%' OR request_path ILIKE '%outbound%' OR request_path ILIKE '%transfer%' OR request_path ILIKE '%store-sales%' OR error_message ILIKE '%store_master%' OR error_message ILIKE '%store_membership%' OR error_message ILIKE '%store_warehouse_bindings%')) AS assertions_ok
 \gset

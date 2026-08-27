@@ -8,7 +8,7 @@ WITH expected(username,role,store_code) AS (VALUES
  ('bouavanh','STORE_MANAGER','STORE-BKX-001'),('xiaolan','STORE_MANAGER','STORE-XB-001')
 ), inserted AS (
  INSERT INTO store_memberships(user_id,store_id,role,effective_from,status)
- SELECT u.user_id,s.id,e.role,CURRENT_DATE,'ACTIVE' FROM expected e JOIN sys_user u USING(username) JOIN store_master s USING(store_code)
+ SELECT u.user_id,s.id,e.role,CURRENT_DATE,'ACTIVE' FROM expected e JOIN sys_user u ON u.username=e.username JOIN store_master s ON s.store_code=e.store_code
  ORDER BY e.username,e.role RETURNING id,user_id,store_id,role,effective_from,effective_to,status
 )
 SELECT 'MEMBERSHIP_INSERT_RETURNING' section,* FROM inserted ORDER BY id;
@@ -16,7 +16,7 @@ WITH expected(store_code,warehouse_code) AS (VALUES
  ('STORE-BKX-001','ST_LAO_AGRI_BKX_001_SALES'),('STORE-LPB-001','ST_LAO_AGRI_LPB_001_SALES'),('STORE-MX-001','ST_LAO_AGRI_MX_001_SALES'),('STORE-PSL-001','ST_LAO_AGRI_PSL_001_SALES'),('STORE-VTE-001','ST_LAO_AGRI_VTE_001_SALES'),('STORE-VTE-WH-001','ST_LAO_AGRI_VTE_WH_001_SALES'),('STORE-DP-001','ST_LAO_XINGCHI_DP_001_SALES'),('STORE-HS-001','ST_LAO_XINGCHI_HS_001_SALES'),('STORE-XB-001','ST_LAO_XINGCHI_XB_001_SALES'),('STORE-XC-001','ST_LAO_XINGCHI_XC_001_SALES')
 ), inserted AS (
  INSERT INTO store_warehouse_bindings(store_id,warehouse_code,purpose,priority,status,effective_from)
- SELECT s.id,e.warehouse_code,p.purpose,1,'ACTIVE',CURRENT_DATE FROM expected e JOIN store_master s USING(store_code) CROSS JOIN (VALUES('SALES'),('RETURNS')) p(purpose)
+ SELECT s.id,e.warehouse_code,p.purpose,1,'ACTIVE',CURRENT_DATE FROM expected e JOIN store_master s ON s.store_code=e.store_code CROSS JOIN (VALUES('SALES'),('RETURNS')) p(purpose)
  ORDER BY e.store_code,p.purpose RETURNING id,store_id,warehouse_code,purpose,priority,status,effective_from,effective_to
 )
 SELECT 'BINDING_INSERT_RETURNING' section,* FROM inserted ORDER BY id;
