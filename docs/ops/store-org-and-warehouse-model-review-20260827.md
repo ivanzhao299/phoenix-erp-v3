@@ -540,4 +540,8 @@ V1 scope 已形成：
 
 ### 14.6 验证、合入与生产证据
 
-待本分支验证、PR、full 部署完成后补录：双端类型检查、API/Web 全量测试、迁移门禁、只读盘点 run、PR/main CI、部署 run、迁移日志、三方 revision、runtime smoke 与 `sys_error_logs` 窗口。
+- 本地：API/Web `tsc --noEmit` 通过；API Jest 71 suites / 621 tests、Web Vitest 82 files / 447 tests 全绿。新增定向回归覆盖 alias subtype/company、owner_store 同公司/仓码、PENDING 无库存写、IN_TRANSIT 源扣减挂账、RECEIVED 差异、差异处理链接。
+- 治理门禁：TS migration down、migration no-business-DML（alias enum 兼容转换有显式豁免）、nullable-in-unique、constraint drift、entity drift、WMS DataScope write gate 全部通过；调拨 4 个写端点均保持 `MENU_INV_BATCH:E + DataScopeGuard`。
+- 生产只读预检 run `33039619568` 成功，`READONLY_GUARD=on` 并最终 `ROLLBACK`。生产 checkout `3deab5ac...`；现有 `wms_transfer` 只有 `COMPLETED=3`，可直接通过新 CHECK，`store_aliases` 为空，无 alias 转换冲突。
+- 同一 run 重证：10 条 STORE SITE 全部 `STORE_SITE_REVIEW_REQUIRED`；7 条 membership 与预期完全一致；10 条逐店建仓清单为 9 个自有仓候选 + 万象仓储中心店配送中心候选；修正版 binding 候选 0；窗口 `sys_error_logs` 0 行。未执行任何业务 DML。
+- PR：`#111`。待 main CI、full 部署完成后补录合入 SHA、部署 run、迁移日志、三方 revision、runtime smoke 与部署后错误窗口。

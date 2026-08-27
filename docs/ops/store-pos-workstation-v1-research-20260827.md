@@ -625,3 +625,5 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - 普通 Sales V2 FIFO 收紧至明确 warehouse scope 已登记为独立治理项，本轮不实施；完整补货编排 UI 仍属于 V1-3。
 
 修正版只读清单入口为 `scripts/store-v1-1-readonly-inventory.sql`：输出 10 店公司/SITE 建议、10 店逐店建仓裁定、7 条 membership 候选，并仅从明确 `owner_store_id` 的仓生成 binding 候选（本轮预期 0）。业务回填继续保持待另行授权。
+
+生产只读预检 run `33039619568` 已重跑成功：连接/事务双只读且最终 ROLLBACK；现有调拨仅 3 条 COMPLETED，alias 表为空；10 条 STORE SITE 均待创建确认、7 条 membership 不变、10 条建仓裁定为 9 个自有仓候选加 1 个配送中心候选、binding 候选 0、同窗 `sys_error_logs` 0 行。本次 run 未创建 SITE/仓，也未回填 membership/binding。
