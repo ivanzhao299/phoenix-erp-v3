@@ -227,6 +227,21 @@ flowchart LR
 
 ## 7. 门店工作台 V1 目标方案
 
+> **复核修正 v1.1（2026-08-27，定稿）**：12 项建议均已采纳。本节以下内容已按 R1–R8 攻击面补齐；凡与前文“建议/待批准”措辞冲突，以本节、§8、§11–§14 的定稿口径为准。本轮仅修订方案与执行生产只读聚合，没有实施任何 V1 业务代码、DDL 或部署。
+
+### 7.0 批判性复核结论
+
+| 攻击面 | 结论 | 依据与修正 |
+|---|---|---|
+| R1 两入口 scope | **方案有洞，已修正** | `DataScopeGuard` 明确只写 CLS、始终放行；Controller 又把客户端 `storeCode/companyCode/id` 原样交给 service（[data-scope.guard.ts](../../apps/api/src/modules/org/guards/data-scope.guard.ts) 1–5、22–51 行；[store-pos.controller.ts](../../apps/api/src/modules/store-pos/controllers/store-pos.controller.ts) 102–210 行）。`getSale(id)` 只按 ID，列表也只使用可选客户端过滤（[store-pos.service.ts](../../apps/api/src/modules/store-pos/services/store-pos.service.ts) 207–223、560–603 行）。修正为：`/store-pos` 与 Terminal **只能调用同一组 scoped Application API**；所有读、写、详情、支付、退货、班次、商品目录均在 service/application 层解析 membership，入口/路由不得各写一套授权。兼容入口未迁移完成前不得开放 Terminal 试点。 |
+| R2 支付/FIFO/退货原子性 | **需补充，已修正** | 当前支付在事务外读 OPEN，事务内无 sale 行锁/条件更新；FIFO 虽锁批次，但库存不足和异常会继续成交（[store-pos.service.ts](../../apps/api/src/modules/store-pos/services/store-pos.service.ts) 307–341、687–793 行）。退货虽锁 sale，却按整行数量新建 QUARANTINE 批（同文件 480–539、912–939 行）。修正为同一 transaction manager/QueryRunner 内依次锁 sale、shift/register、候选批次；幂等唯一键 + `status='OPEN'` 条件终态更新双保险；任何库存、现金、AR、tender 异常抛出并回滚。原单是否已关班/日结不改变原 allocation：库存仍精确反向，财务生成当前营业日的 reversal/adjustment，并引用原 settlement；已 POSTED settlement 不回开、不改写。 |
+| R3 门店仓与仓权限 | **需补充，已修正** | 当前只落地 `domain`，`facility_class/usage_type/capability` 仍未落地（[AddWarehouseDomain.ts](../../apps/api/src/database/migrations/1787724000000-AddWarehouseDomain.ts) 3–18 行；[warehouse research](warehouse-type-and-permission-research-20260825.md) 188–209 行）。过渡期只要求绑定 ACTIVE、`domain=OPERATIONAL` 的已核验仓，并以 binding purpose 标记 SALES/RETURNS；不得把旧 `type` 临时写成 STORE。有效仓严格为 `StoreMembership→StoreWarehouseBinding ∩ dataScope.allowedWarehouseCodes`，不是并集，空集 fail-closed。现有仓权限集合来源见 [data-scope.service.ts](../../apps/api/src/modules/org/services/data-scope.service.ts) 184–196、267–327 行。 |
+| R4 价格权威 | **方案有洞，已修正** | 当前价格本没有 store scope/version，POS 目录没用 `storeCode`、漏 `pi.status='ACTIVE'`，且无确定排序（[sales baseline](../../apps/api/migrations/20260527_sales_v2_phase0_baseline.sql) 106–163 行；[store-pos.service.ts](../../apps/api/src/modules/store-pos/services/store-pos.service.ts) 633–666 行）。落定优先级：**门店本 > 客户本 > 渠道本 > 公司默认本**；同层依次按 item specificity、`priority ASC`、`effective_from DESC`、`publish_version DESC`、`id DESC` 形成全序。相同 company/scope/item/currency/priority 且生效期或数量区间重叠时禁止发布；不同 priority 可重叠但必须预览遮蔽。目录与结算复用同一解析器，结算事务内重算并保存 price item 与快照。 |
+| R5 settlement | **方案有洞，已修正** | 旧日结仍聚合 `pos_sales` 并写旧财务链，新班次聚合 `sal_store_sales`（[store.service.ts](../../apps/api/src/modules/store/store.service.ts) 110–239 行；[store-pos-shift.service.ts](../../apps/api/src/modules/store-pos/services/store-pos-shift.service.ts) 84–146 行）。Store Payment 只有自由文本 sale/order no，无匹配状态（[CreateStorePaymentTables.ts](../../apps/api/src/database/migrations/1782041418112-CreateStorePaymentTables.ts) 38–70 行）。修正为：V1-1 即冻结旧链新增消费者；V1-5 在新链 UAT/观察通过时关闭旧写入口。新增门店时区、日切时刻与不可变 `business_date`；夜班按**开班时确定的营业日**归属，关班不因跨零点拆班。自动匹配失败进入 EXCEPTION，财务/店长按 scope 人工选候选单或暂不匹配，必须填写原因/凭证/审计；未匹配不得过账。 |
+| R6 阶段依赖 | **需补充，已修正** | 仓 A 已完成，但双维度仓类型尚未排期；原 V1-2 暗含依赖。修正为 V1-1 可先绑定 OPERATIONAL 仓，不依赖 `facility_class` schema；V1-2 的库存成交只依赖可信绑定与 WMS command。`facility_class=STORE` 作为已批准的并行仓治理项，在落地后替换过渡校验，不阻塞 P0。Tender 契约提前在 V1-2 冻结，避免 Terminal 按单值支付返工。 |
+| R7 生产量级 | **原方案仅有口径，已执行补齐** | workflow 在 `default_transaction_read_only=on` + `BEGIN TRANSACTION READ ONLY` 下完成五类聚合，见 §10。91 天销售/退货/支付均为 0，仅 4 次关闭班次，因此不以全量推广为当前最高优先；但跨店、重复支付、库存失败仍成交属于任何重新启用前的硬门。量级规则见 §10.2。 |
+| R8 自找风险 | **方案有洞，已修正** | Terminal context 使用未按用户/门店/register 隔离的全局 localStorage key（[useTerminalContext.ts](../../apps/web/src/hooks/useTerminalContext.ts) 12–22、71–124 行）；旧 `/store/daily` 仍可 CRUD，现代班次又缺 OPEN 唯一约束（[daily/page.tsx](<../../apps/web/src/app/(admin)/store/daily/page.tsx>) 21–64 行；[store-pos-shift.service.ts](../../apps/api/src/modules/store-pos/services/store-pos-shift.service.ts) 42–69 行）。修正为草稿 key 必须包含 user/store/register/schemaVersion，登录/切店/关班清理并校验服务端身份；单浏览器多操作员不得共享 register session；新旧 POS 不允许同店同营业日双写；Cashier 培训/UAT 签收是试点运营 Gate，虽不做运行时权限替代。 |
+
 ### 7.1 架构选择
 
 ```mermaid
@@ -247,6 +262,7 @@ flowchart TB
 - Admin 保留商品/价格、账户、班次历史、日结审核、退货审核、对账和门店库存只读视图。
 - Mobile 不复制完整 POS，只做需要离开柜台的店长动作。
 - 现有 `/store-pos` 可先作为兼容入口，逐步把页面逻辑抽到共享 Store POS UI/domain hooks；不要求首阶段改路由。
+- **复核修正 v1.1**：兼容仅限 UI/路由，不能兼容旧的信任边界。Admin `/store-pos` 与 Terminal 从 V1-1 起必须共用同一个 `StoreContextResolver + StoreScopePolicy` 和 scoped API；任何入口若仍可直接提交并信任 `storeCode/companyCode`，则两入口均不得进入试点。
 
 ### 7.2 正式门店与门店仓模型
 
@@ -261,7 +277,7 @@ Store (正式门店身份，canonical store_id/store_code)
 
 wms_warehouses
   domain = OPERATIONAL
-  facility_class = STORE          # 待双维度治理批准
+  facility_class = STORE          # 已批准进入后续仓治理，当前尚未落地
   usage_type = EGG_SALES/GENERAL  # 按业务用途
   capability 可包含 RETAIL_FULFILLMENT / RETURNS_QUARANTINE
 ```
@@ -269,6 +285,8 @@ wms_warehouses
 选择 **WMS 门店仓**，不建设平行权威 `store_stock`：
 
 - 每家直营店至少绑定一个销售可用 OPERATIONAL 仓；退货可进同仓 QUARANTINE zone，必要时绑定独立退货仓。
+- **复核修正 v1.1（过渡合同）**：双维度字段落地前，binding 只接受 ACTIVE + OPERATIONAL 仓，`purpose=SALES/RETURNS`；QUARANTINE 是绑定仓内的 zone/status 能力要求，不把旧 `wms_warehouses.type` 改写成 STORE。双维度治理落地后再追加 `facility_class=STORE`/capability 校验。
+- **复核修正 v1.1（集合语义）**：`effectiveWarehouseCodes = binding(store_id,purpose) ∩ allowedWarehouseCodes`。StoreWarehouseBinding 只做业务上下文裁剪，绝不扩张 DataScope；Admin/GROUP 的 global scope 也仍须受 binding 和 OPERATIONAL 限制。
 - `store_code` 只表达门店业务归属；库存定位始终由 `warehouse_code + zone/location + batch` 表达。
 - POS 不直接改余额表，调用统一 WMS inventory command，在同一数据库事务中锁销售单、锁批次、扣减、写 allocation 和 ledger。
 - FIFO 顺序维持到期日优先、创建时间次之；库存不足或库存服务异常必须回滚成交，若业务要“先卖后补”必须另建明确 Backorder 单据，不能 warn 后静默完成。
@@ -306,11 +324,17 @@ sequenceDiagram
 
 任何库存、tender 或财务子账失败都回滚；重试依赖 idempotency key 返回同一结果。
 
+**复核修正 v1.1（PostgreSQL 18 / 当前 TypeORM 合同）**：支付方法不得在进入事务前调用普通 `getSale()` 作为权威判断；必须使用同一个 transaction manager 完成 `SELECT sale ... FOR UPDATE`、事务内重读 items/status、锁定 OPEN register/shift、按有效门店仓锁批次、写 allocation/ledger/tender/现金或 AR，最后用 `WHERE id=? AND status='OPEN'`（或 version）条件更新。`idempotency_key` 建数据库唯一约束，重复请求读取既有结果。advisory lock 可作为同仓 SKU 的串行优化，不能替代 sale/batch 行锁与数据库唯一约束。
+
+退货无论原班次 OPEN/CLOSED、原 settlement REVIEWED/POSTED，都按原 allocation 的“已售 - 已退”余额反向至 RETURNS/QUARANTINE；已日结只追加当前营业日的 tender reversal、库存 reversal 与 settlement adjustment，引用原 sale/allocation/tender/settlement。禁止重开或改写历史 settlement，也禁止因缺 allocation 猜测回库；历史无 allocation 的旧单走人工异常单。
+
 ### 7.4 价格体系
 
 - 继续使用 `sal_price_books / sal_price_items`，但建立确定的适用规则：company 必选，可选 store/channel/customer group；ACTIVE + 生效期 + currency + priority + version。
 - 商品目录与提交结算均由服务端重新解析 price item；销售行保存 `price_item_id` 和不可变价格快照。
 - 明确处理同一 SKU 多个有效价格：priority、scope specificity、effective_from、version/id 形成全序；冲突配置在发布价格本时阻断。
+- **复核修正 v1.1（权威全序）**：先过滤 company/currency/ACTIVE/生效期/数量区间；再按 SKU 精确优先于 product+grade+spec，scope 固定为 `store > customer > channel > company-default`，随后 `priority ASC > effective_from DESC（NULL 最早）> publish_version DESC > id DESC`。最后的 id 只作稳定兜底。
+- **复核修正 v1.1（冲突 Gate）**：同 company、同 scope key、同 item identity、同 currency、同 priority 的明细，只要日期区间或数量区间相交即拒绝发布；不同 priority 可重叠但发布预览必须显示被遮蔽规则。生效期与数量区间均按闭区间判断。
 - 改价必须记录原价、改后价、原因和授权人；floor/ceiling 都由策略决定，不让客户端凭菜单码自报授权。
 - 首个修复即补 `pi.status='ACTIVE'`，但应和完整价格解析一起验收，避免只补一行后仍随机取价。
 
@@ -360,18 +384,22 @@ flowchart LR
 - CONFIRMED 仅表示业务凭证确认，不直接等于 GL posted；日结结算审核后生成幂等 posting batch。
 - 对账至少三方：POS tender 合计、收款账户/Store Payment 证据、Cash/AR/GL；差异进入异常队列，不靠修改已确认记录抹平。
 - 延续“好业财只读单向”铁律；不得把门店聚合或 Store Payment 塞进 `fin_ar_invoices`。赊销发票仍由 ERP 业务流生成，支付结算走现金/收款/总账链。
+- **复核修正 v1.1（营业日）**：Store 配置 IANA timezone 与 `business_day_cutoff`；开班时计算并固化 `business_date`，销售继承 shift 的营业日。跨零点夜班不拆分，摘要、匹配、settlement 一律按 `business_date`，不得再用 `CURRENT_DATE` 或字符串截取 `created_at`。
+- **复核修正 v1.1（人工兜底）**：Store Payment 自动匹配须同时满足 company/store/currency/amount/reference/business_date；失败则为 `EXCEPTION`。有授权的店长/财务可在 scope 内选择候选 sale/tender、部分匹配或暂不匹配，必须记录 reason、evidence、operator/time 和解除匹配审计。`CONFIRMED` 只代表凭证审核，未匹配或有差异不得进入 GL posting。
+- **复核修正 v1.1（双轨收敛）**：V1-1 冻结旧 POS/日结新功能和新消费者；V1-3 试点店按“门店 + business_date”选择唯一写引擎，禁止新旧双写；V1-5 在新链 UAT、对账与回滚演练通过后关闭 `pos_*`、`daily-close-v2`、`/store/daily`、`store_inventory` 写入口，历史仅通过只读 adapter 查询。
 
 ## 8. 增量迁移路径
 
-| 阶段 | 目标与主要产物 | 前置条件 | 退出标准 |
+> **复核修正 v1.1**：V1-0 已于本轮完成生产聚合，结论见 §10；正式交付仍按 **6 个实施阶段 V1-1…V1-6**。仓 A 已闭环，`facility_class=STORE` 的双维度治理可并行，不再作为 V1-1/V1-2 的隐性阻塞。
+
+| 阶段 | 目标与主要产物 | 硬前置 / 可并行 | 退出标准 |
 |---|---|---|---|
-| V1-0 证据与冻结 | 生产只读取证；两套 POS/日结数据量；门店/收银员/班次清单；冻结旁路新增 | 受控只读 workflow | 运营优先级、真实门店码、日结口径、活跃用户均有实值 |
-| V1-1 身份与权限 | StoreMembership、StoreWarehouseBinding；POS 服务端 scope；固定门店常量移除 | 门店 canonical 身份、人事授权确认；仓 A 阶段规则 | 五象限权限测试；跨店构造请求 403；零授权 fail-closed |
-| V1-2 价格与成交安全 | ACTIVE/确定性定价；服务端价格快照；销售锁/idempotency；库存失败回滚；allocation | 价格本冲突清理；门店仓绑定 | 并发双击只成交一次；不足不成交；每批可追溯 |
-| V1-3 Terminal 工作台 | Terminal POS、扫码/键盘、挂单、班次；Admin 保留管理 | V1-1/2 API 稳定；终端硬件/网络基线 | 真实门店 UAT 完成开班→销售→退款→关班 |
-| V1-4 Tender / 日结 / 财务 | tender 行、Store Payment 匹配、settlement、差异处理、GL posting | 财务科目/账户映射与审批职责确认 | POS/凭证/现金AR/总账可逐笔或按批勾稽 |
-| V1-5 旁路收口 | 旧 `pos_sales`/旧 daily close 只读归档；`/store/*` 库存/日结 CRUD 退役；legacy 双读 | 历史数据映射与回滚演练 | 新写入口唯一；旧数据可查；无双写 |
-| V1-6 store_code 退役准备 | 停写、告警观察、移除 JWT 消费；是否 DROP 另案 | X-B 消费矩阵清零 | 无 runtime 读取后再提独立 schema 决策 |
+| V1-1 身份、scope 与过渡门店仓 | canonical Store/映射、StoreMembership、StoreWarehouseBinding；统一 `StoreContextResolver/StoreScopePolicy`；Admin/Terminal API 全链强制 scope；移除固定常量 | 本轮聚合完成；门店与人事授权确认；仓 A 已具备。双维度仓治理、X-B 消费矩阵可并行 | 两入口所有读写共享一套 scope；跨店/跨公司/猜 ID 均 403；有效仓=binding∩allowedWarehouseCodes；空集 fail-closed；legacy 仅影子比较 |
+| V1-2 价格与成交安全 | 确定性 price resolver/发布冲突 Gate/价格快照；sale+shift+batch 锁、idempotency、allocation、失败回滚；冻结 tender/营业日接口契约 | V1-1 的可信 store/warehouse context；价格冲突清单；WMS command 边界。价格与库存子流可并行开发、共同验收 | 双击/重试仅一个结果；不足/库存或财务异常零成交；每批可追溯；目录/结算同价；同级重叠价格不能发布 |
+| V1-3 Terminal 与单店试点 | Terminal POS、扫码/键盘/挂单/班次；版本化且按 user/store/register 隔离草稿；Admin 兼容入口保留 | V1-1/2 API 稳定；终端网络/硬件基线；试点店 Cashier 培训签收；同店旧写引擎关闭 | 单店 UAT 完成开班→销售→支付→退货→关班；网络重试不重复；两入口结果和权限一致；同营业日无双 POS 写入 |
+| V1-4 Tender、营业日日结与财务 | tender 行；Store Payment 自动/人工匹配；business_date；settlement/异常/审核/幂等 posting | V1-2 已冻结 tender/营业日契约；账户/科目/审批职责确认 | POS/tender/凭证/Cash/AR/GL 可勾稽；EXCEPTION 可人工闭环；POSTED settlement 不可改；跨午夜口径一致 |
+| V1-5 旁路收口 | 旧 `pos_*`、`daily-close-v2`、`/store/daily`、`store_inventory` 写入口关闭；历史只读 adapter | V1-3/4 UAT 与稳定观察通过；历史映射和回滚演练 | 新写入口唯一；旧写入连续观察为 0；旧数据可查；新 settlement 不读旧表；无双写/双日切 |
+| V1-6 `store_code` 退役准备 | 停写 legacy；双读差异清零；移除 JWT/runtime 消费；DROP 另案 | V1-5；X-B 静态消费矩阵、runtime 告警和 JWT 兼容观察均清零 | 观察窗无读取/写入/漂移后才提交独立 schema 删除决策；V1 不直接 DROP |
 
 该顺序不推倒重来：保留 `sal_store_sales`、现有页面和 Store Payment 表，优先补权威身份、原子性和对账；旧表先只读，不删除。
 
@@ -387,38 +415,125 @@ flowchart LR
 | Store Payment 孤岛 | tender/account/settlement 匹配，确认与过账分层 | 是 |
 | 多批次追溯缺失 | allocation 表 | 是 |
 | 真实离线能力缺失 | V1 明确只离线草稿；全离线另立高风险项目 | 否，主动限界 |
+| 两入口 scope 旁路 | 共用 StoreContextResolver/StoreScopePolicy；所有 ID 详情与动作复核 scope | 是，V1-1 P0 |
+| 跨午夜口径漂移 | store timezone/cutoff + shift/sale/settlement 固化 business_date | 是 |
+| OPEN 班次并发 | register 维度 partial unique + 行锁/条件状态更新 | 是 |
+| Terminal 草稿串身份 | localStorage key 按 user/store/register/schemaVersion 分区并做服务端恢复校验 | 是 |
+| 老 cashier 培训缺口 | 试点前培训/UAT 签收 Gate；不把培训记录冒充 RBAC | 运营清偿 |
 
-## 10. 生产只读取证建议（本轮未执行）
+## 10. 生产只读取证（复核修正 v1.1：本轮已执行）
 
-项目已有安全模式：GitHub production environment → SSH → `PGOPTIONS='-c default_transaction_read_only=on'` → `BEGIN TRANSACTION READ ONLY`。本轮没有专门门店运营 workflow，也未获需要外发/触发生产动作的新增授权，因此未连接生产。
+### 10.1 Workflow 与实值
 
-V1-0 建议只输出聚合，不输出个人敏感数据：
+在 [.github/workflows/flock-refresh-readonly-audit.yml](../../.github/workflows/flock-refresh-readonly-audit.yml) 增加 `store-pos-v1` 目标，经 GitHub production environment → SSH → `PGOPTIONS='-c default_transaction_read_only=on'` → `BEGIN TRANSACTION READ ONLY` 执行。审计窗口为 **2026-05-29 00:00:00Z（新 POS 引入日）至 2026-08-28 00:00:00Z**，只输出门店级聚合，不输出人员明细。
 
-1. `sal_store_sales` 按门店、月、状态的单量/金额；旧 `pos_sales` 单独列示，禁止简单相加。
-2. 配置活跃 Cashier（ACTIVE user + ROLE_CASHIER）、交易活跃操作者（新旧表分列）、班次活跃操作者三种口径。
-3. `sal_store_shift_closings` 每店每日 CLOSED 数、关班时长、sale_count、差异金额；旧 `daily_close` 单列。
-4. 每店近 90 天 SKU 销售与 `inv_ledger` FIFO_OUT 的可匹配率、无 allocation 的多批次风险规模。
-5. 当前门店码分布：`STORE-* / ST-* / SITE-*-STORE / 其他`，以及用户 legacy 与 canonical 门店映射差异。
+证据：首次运行 `33030598823` 在只读状态确认后因生产 `created_at` 为 text、与 timestamp 比较失败而安全终止；适配显式 cast 后运行 `33030653177` 成功，production checkout `132cde1b`，事务内 `transaction_read_only=on`，最终 COMMIT（只读事务）。
 
-没有这些实值前，不能断言 V1 是“最高优先级”或给出门店推广数量；但静态 P0（范围绕过、重复支付、库存失败仍成交）与单据量无关，任何新增生产推广前都应先修。
+| 五类聚合 | 91 天生产实值 | 判断 |
+|---|---|---|
+| 门店单据量 | 新 `sal_store_sales` 0；旧 `pos_sales` 0 | 当前无可证明的真实 POS 交易量，两轨不得相加且均为零 |
+| 活跃 cashier | 交易活跃 0；在册 `ROLE_CASHIER` 2：`STORE-HS-001` 1、`STORE-VTE-001` 1 | 有配置、无交易；不能按在册人数推断使用率 |
+| 班次频率 | `STORE-BKX-001` 1 次 CLOSED（均长约 0.01h）；`STORE-DP-001` 2 次（均长约 16.01h）；`STORE-MX-001` 1 次（均长约 0.02h）；合计 4 次、OPEN 0 | 只有极低频演练/试班信号；东鹏班次形态最接近真实长班，但没有销售，不能直接定为业务量试点 |
+| 退货率 | settled sale 0、return 0；分母为 0，不报 0% | 无法据此评估退货流程，必须用 UAT 注入场景验证 |
+| 支付方式分布 | 新 POS completed 0；Store Payment confirmed 0 | 无真实渠道偏好证据；首发渠道按已采纳范围配置，不按空数据删减设计 |
 
-## 11. 待用户拍板决策项
+### 10.2 “量级 → 试点店 → 推广优先级”规则
 
-1. **终端形态**：是否同意“Terminal 主收银 + Admin 管理 + Mobile 审批/摘要”，并保留 `/store-pos` 作为过渡入口？（建议同意）
-2. **门店身份权威**：新建正式 Store/StoreMembership，还是将组织 `SITE-*-STORE` 直接作为 store_id？建议 Store 为业务主档、SITE 为组织归属，建立明确映射，避免把组织码继续当业务码。
-3. **门店仓**：每店一个 OPERATIONAL 销售仓 + QUARANTINE zone，还是区域共享仓但按 reservation/ownership 分店？建议真实有店存即一店一仓；无店存的展示店才共享配送仓。
-4. **仓类型双维度**：是否批准 `facility_class=STORE` 及所需 capability 进入仓库治理下一阶段？未批准前只做绑定表，不篡改现有 `type`。
-5. **库存不足策略**：强制阻断（建议）还是正式 Backorder？禁止维持 warn 后完成。
-6. **V1 支付范围**：现金、QR/转账、赊销是否足够；是否首发银行卡、双币种与找零？建议首发 tender 多行，但渠道按真实账户配置逐个开放。
-7. **日结粒度**：每 register 班次 + 每门店营业日日结（建议），还是只做门店班次？
-8. **财务过账 Gate**：由店长关班、财务审核 settlement 后过账，还是差异为零自动过账？建议首期财务审核，稳定后再考虑自动。
-9. **退货范围**：首发整单 + 数据模型支持部分退货，还是首发即做部分退货？建议先整单但必须按原 allocation/tender 反向。
-10. **离线边界**：是否接受 V1 只支持离线草稿、不支持离线成交？若不接受，需单独预算和风险评审。
-11. **旧链处置**：是否批准旧 `/store/daily`、`store_inventory` 等写入口在新链稳定后转只读，而不是继续双写？（建议批准）
-12. **生产只读取证**：是否授权新增一次性只读 workflow 获取 V1-0 五类聚合，以确定试点店、真实频率和推广优先级？
+以最近连续 90 天、按 canonical store 的 COMPLETED/RETURNED 销售为准，旧新表分列：
+
+| 量级 | 判定 | 策略与试点 |
+|---|---|---|
+| **L0：0 单** | 无真实成交；本次生产属于 L0 | 只做 V1-1/P0 安全与可观测性，不启动全量 Terminal/财务推广。试点店由运营确认“未来 30 天会真实开售”且完成仓/账户/人员映射后选择；若尚无承诺店，先用隔离 UAT 店。东鹏仅作为班次核查第一候选，不因 2 次班次自动当选 |
+| **L1：1–99 单/90 天** | 低频 | 选 1 店受控试点；先验证全链与人工 settlement，不做多店并发扩张 |
+| **L2：100–999 单/90 天** | 中频 | 选交易量最高且退款/差异可控的 1 店，加 1 个不同支付结构的备选店；V1-2/3/4 提升为近期交付 |
+| **L3：≥1000 单/90 天或 ≥20 单/营业日** | 高频 | P0 立即阻断推广，V1-1/2 最高优先；完成 7–14 个营业日试点、对账率达标后分批推广 |
+
+所有量级下，静态 P0（跨店、重复支付、库存失败仍成交）都是重新启用/新增推广前硬门；低量级只降低产品推广优先级，不降低安全修复级别。
+
+## 11. 12 项决策落定状态（用户已全部采纳）
+
+1. **已落定**：Terminal 主收银 + Admin 管理 + Mobile 审批/摘要；`/store-pos` 仅作共享 API 下的过渡 UI。
+2. **已落定**：Store 为业务主档，SITE 为组织归属，显式映射；StoreMembership 为授权权威。
+3. **已落定**：真实有店存则一店一 OPERATIONAL 销售仓 + QUARANTINE zone；展示店可共享配送仓但须 binding/ownership。
+4. **已落定**：批准 `facility_class=STORE` 与 capability 进入下一阶段仓治理；落地前使用 §7.2 过渡合同，不改旧 `type`。
+5. **已落定**：库存不足强制阻断；Backorder 若需要另立正式单据。
+6. **已落定**：数据模型首发多 tender；现金、QR/转账、赊销按真实账户配置开放，银行卡/双币种/找零以门店配置和 UAT 为 Gate。
+7. **已落定**：每 register 班次 + 每门店 business_date 日结。
+8. **已落定**：首期店长关班、财务审核 settlement 后过账；稳定后再评估零差异自动过账。
+9. **已落定**：首发整单退货、模型支持部分退货；必须按原 allocation/tender 反向，已日结走 adjustment。
+10. **已落定**：V1 只允许离线草稿，不允许离线成交。
+11. **已落定**：新链稳定后旧 `/store/daily`、`store_inventory`、旧 POS 写入口转只读/退役，禁止双写。
+12. **已执行**：生产只读五类聚合已完成，结果与优先级规则见 §10。
 
 ## 12. 最终回答用户三个问题
 
 - **历史上有几种设计？** 按业务设计/运行形态去重为 4 种：旧门店工作台/V2 POS，新 Sales V2 POS，独立 Store Payment，未落地的分账库存设置。若只数“可独立成交的 POS 引擎”，则是 2 代（旧 `pos_sales` 与新 `sal_store_sales`）。
 - **当前采用哪种？** Sales V2 Store POS 是唯一活跃收银入口；旧 `/store/*` 与日结残留仍在；Store Payment 是并行人工收款凭证，不是当前 POS 支付引擎。
 - **是否存在更完善 V1？** 仓库里不存在已完成的更完善 V1；存在足够基建可以增量形成。本文 V1 方案以现有 StorePosModule 为底座，正式引入门店身份/门店仓、多 tender、原子库存、统一 settlement 与三方对账，并给出不推倒重来的迁移路线。
+
+## 13. V1 最终形态一页纸（定稿 v1.1）
+
+```mermaid
+flowchart TB
+  T[Terminal POS<br/>Cashier 高频操作] --> API[Store Workstation Application API<br/>统一 scope / price / sale / shift / settlement]
+  A[Admin Console<br/>配置、审核、对账、历史] --> API
+  M[Mobile Manager<br/>授权、异常、摘要] --> API
+  API --> ID[Store + Membership + Register]
+  API --> PR[Deterministic Pricing]
+  API --> SO[Sale + Item + Tender + Return]
+  API --> WH[Binding ∩ WarehouseScope<br/>WMS allocation / ledger]
+  API --> ST[Shift + Business Date + Settlement]
+  ST --> FI[Cash / AR / GL<br/>Store Payment matching]
+  LEG[旧 pos_sales / daily_close] -. V1-5 只读 adapter .-> A
+```
+
+核心实体：canonical `Store`（以正式门店主档承载，SITE 仅映射）、`StoreMembership`、`StoreWarehouseBinding`、`StoreRegister`、`StoreShift`；沿用并演进 `sal_store_sales/items`，新增 `store_sale_tenders`、`store_sale_allocations`、`store_returns/items/tender_reversals`、`store_daily_settlements`、Store Payment match/audit。库存权威仍是 WMS；价格权威仍是 `sal_price_books/items` 的统一解析器；历史 settlement immutable。
+
+| 6 阶段 | 最终边界 | 状态 |
+|---|---|---|
+| V1-1 | 身份、membership、仓 binding、两入口全链 scope | **下轮起步；本轮未实施** |
+| V1-2 | 确定性价格、sale/shift/batch 原子性、idempotency、allocation，提前冻结 tender/business-date 契约 | 待 V1-1 |
+| V1-3 | Terminal、隔离草稿、单店 UAT；Admin 过渡入口共用 API | 待 V1-2 |
+| V1-4 | 多 tender、营业日日结、Store Payment 匹配、财务审核/过账 | 待 V1-3（接口契约在 V1-2） |
+| V1-5 | 旧 POS/日结/库存 CRUD 写入口收口，历史只读 | 待稳定观察 |
+| V1-6 | legacy `store_code` 停写、移除消费；DROP 另案 | 待消费矩阵清零 |
+
+12 项决策状态：**12/12 已采纳**；其中 #12 已执行并取得 L0 量级证据，其余 11 项已冻结为上述工程合同，不再作为实施阶段的开放选择题。当前推广裁定：**不做多店全面 V1；先完成 V1-1/P0，再由运营确认未来 30 天真实开售店。东鹏仅为班次核查第一候选，若无开售承诺则使用隔离 UAT 店。**
+
+## 14. V1-1 起步任务精确范围（供下轮直接执行）
+
+### 14.1 目标与必须交付
+
+1. **canonical Store**：以正式门店主档作为 `store_id/store_code/company_code/status/timezone/business_day_cutoff` 权威，建立 SITE/legacy alias 映射；本阶段不删除或停写 `sys_user.store_code`，只影子比对并记录差异。
+2. **StoreMembership**：`user_id + store_id + role + effective_from/effective_to + status`；同一用户可多店。有效 membership 是 `allowedStoreIds` 唯一业务来源，legacy 仅 shadow，不参与放行。
+3. **StoreWarehouseBinding**：`store_id + warehouse_code + purpose(SALES/RETURNS) + priority + status + effective period`；只绑定 ACTIVE/OPERATIONAL 仓。运行时有效仓严格等于 binding 与 `allowedWarehouseCodes` 的交集，空集拒绝。
+4. **统一应用层门禁**：新增 `StoreContextResolver/StoreScopePolicy`（名称可按现有模块风格调整），由 StorePos sale/详情/list/products/daily-summary/pay/void/return 与 Shift open/current/close/history 全部调用。按 ID 的动作必须先 scoped lookup，不能先无范围 `getSale(id)`。
+5. **两入口一致**：Admin `/store-pos` 移除固定试点常量，门店 selector 只展示 membership 门店；Terminal V1-1 只补入口壳/导航和共享 scoped client，**不实现购物车、支付、库存或正式 Terminal POS 页面**。若 Terminal 页面留到 V1-3，则必须至少用契约测试证明未来入口无法绕开 API scope。
+6. **过渡与可观测性**：feature flag 只允许“membership 权威 + legacy shadow”或 fail-closed，不允许 legacy 回退放行；记录不含敏感明细的 mismatch 指标/审计。冻结旧 POS/日结新增消费者，但本阶段不关闭历史入口。
+
+### 14.2 数据与迁移边界
+
+- schema 变更只允许 TypeORM TS migration，含 `down()`；entity 字段与迁移末态三对齐。唯一约束中的 effective nullable 字段不得直接进入普通 UNIQUE；使用合适的 partial/exclusion 约束或非空占位，并遵守 nullable-in-unique 铁律。
+- migration `up()` 不做业务用户/门店/仓绑定 seed；历史映射与 membership/binding 回填生成独立只读盘点 + 经确认的运维脚本。本阶段不得在生产运行 DDL/DML，除非下一轮另获执行授权。
+- 不新增 `facility_class/usage_type/capability` 字段，不修改旧 `wms_warehouses.type`；只消费现有 `domain=OPERATIONAL`。仓双维度治理独立并行。
+
+### 14.3 明确不在 V1-1
+
+- 不修/重写 FIFO，不建 allocation/tender/settlement，不实现 payment idempotency、价格全序或退货 reversal（这些属于 V1-2/V1-4）。
+- 不实现完整 Terminal 收银 UI，不做离线成交，不改财务过账，不部署、不迁生产数据。
+- 不关闭旧 `/store/daily`、`store_inventory` 或 `pos_*` 写入口；只加冻结声明/监控，真正收口在 V1-5。
+- 不删除 JWT/`sys_user.store_code`，不做 schema DROP。
+
+### 14.4 验收矩阵与完成定义
+
+| 象限/场景 | 必须结果 |
+|---|---|
+| Cashier：有 membership + 有仓交集 | 仅能读写本店；自己的 register/shift 约束预留 |
+| Cashier：有 membership + 无仓交集 | 商品/销售/班次写操作 fail-closed；不得退回公司级库存池 |
+| 多店 Store Manager | 可切换其有效 membership 门店；每次请求单一 store context；不可越界猜 ID |
+| Finance | 只获得配置/对账所需视图，不因财务角色自动获得 POS 操作权；账户维护高权旁路须显式审计 |
+| Admin/GROUP global | 可配置全局，但 POS 业务请求仍需显式 store 和有效 binding；不能绕过 OPERATIONAL/binding 约束 |
+| 两入口/直接 HTTP | `/store-pos`、Terminal client、直接构造 API 对同一越权请求均为 403；list/detail/pay/return/shift/products/summary 全覆盖 |
+| legacy shadow | legacy 与 membership 一致时不告警；不一致只记指标、不改变 membership 权威结果；零 membership 必须拒绝 |
+
+完成定义：API/Web `tsc --noEmit` 均 0 errors；新增 service/controller 单测与 HTTP/e2e scope 测试通过；五象限和跨入口矩阵全绿；`node scripts/check-nullable-in-unique.js`、`node scripts/check-constraint-drift.js`、entity drift gate 不回退；真 scope-audit 覆盖所有 StorePos/Shift 端点；报告列出 migration、实体、接口、测试、遗留风险与回滚开关。V1-1 完成不等于可生产开售，仍须 V1-2 原子性硬门。
