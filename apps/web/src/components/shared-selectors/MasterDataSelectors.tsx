@@ -346,10 +346,10 @@ export function StoreSelector(p: BaseProps & { companyCode?: string }) {
 /** POS 专用门店：只展示当前用户有效 membership，legacy store_code 不参与。 */
 export function StoreMembershipSelector(p: BaseProps) {
   const { t } = useLanguage();
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择授权门店','请选择授权门店')}
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择门店','请选择门店')}
     loader={async () => (await loadStorePosContexts()).map(st => ({
       value: st.storeCode,
-      label: `${st.storeName}（${st.storeCode}）${st.hasSalesWarehouse ? '' : ' · 无可用销售仓'}`,
+      label: `${st.storeName}（${st.storeCode}）${st.hasSalesWarehouse ? '' : ` · ${t('ui.无可用销售仓','无可用销售仓')}`}`,
       raw: st,
     }))} />;
 }
