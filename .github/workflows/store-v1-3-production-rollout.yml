@@ -8,7 +8,7 @@ on:
         required: true
         default: preflight
         type: choice
-        options: [preflight, site]
+        options: [preflight, site, store_baseline, warehouse_audit, warehouse, access, ready_verify]
       approve_production:
         description: Type APPROVE-STORE-V1-3-20260827
         required: true
@@ -51,13 +51,55 @@ jobs:
             git cat-file -e "$TARGET_SHA^{commit}"
             echo "AUDIT_SOURCE_SHA=$TARGET_SHA"
             echo "DEPLOY_CHECKOUT_SHA=$(git rev-parse HEAD)"
-            git show "$TARGET_SHA:scripts/store-v1-3-production-preflight.sql" \
-              | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
-                  sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            if [[ "${{ inputs.phase }}" != access && "${{ inputs.phase }}" != ready_verify ]]; then
+              git show "$TARGET_SHA:scripts/store-v1-3-production-preflight.sql" \
+                | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            fi
             if [[ "${{ inputs.phase }}" == site ]]; then
               git show "$TARGET_SHA:scripts/store-v1-3-production-site.sql" \
                 | docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
               git show "$TARGET_SHA:scripts/store-v1-3-production-site-verify.sql" \
+                | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            fi
+            if [[ "${{ inputs.phase }}" == store_baseline ]]; then
+              git show "$TARGET_SHA:scripts/store-v1-3-production-store-baseline-preflight.sql" \
+                | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+              git show "$TARGET_SHA:scripts/store-v1-3-production-store-baseline.sql" \
+                | docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+              git show "$TARGET_SHA:scripts/store-v1-3-production-store-baseline-verify.sql" \
+                | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            fi
+            if [[ "${{ inputs.phase }}" == warehouse ]]; then
+              git show "$TARGET_SHA:scripts/store-v1-3-production-warehouse-preflight.sql" \
+                | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+              git show "$TARGET_SHA:scripts/store-v1-3-production-warehouse.sql" \
+                | docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+              git show "$TARGET_SHA:scripts/store-v1-3-production-warehouse-verify.sql" \
+                | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            fi
+            if [[ "${{ inputs.phase }}" == warehouse_audit ]]; then
+              git show "$TARGET_SHA:scripts/store-v1-3-production-warehouse-preflight.sql" \
+                | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            fi
+            if [[ "${{ inputs.phase }}" == access ]]; then
+              git show "$TARGET_SHA:scripts/store-v1-3-production-access-preflight.sql" \
+                | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+              git show "$TARGET_SHA:scripts/store-v1-3-production-access.sql" \
+                | docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+              git show "$TARGET_SHA:scripts/store-v1-3-production-access-verify.sql" \
+                | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+                    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            fi
+            if [[ "${{ inputs.phase }}" == ready_verify ]]; then
+              git show "$TARGET_SHA:scripts/store-v1-3-production-ready-verify.sql" \
                 | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
                     sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
             fi

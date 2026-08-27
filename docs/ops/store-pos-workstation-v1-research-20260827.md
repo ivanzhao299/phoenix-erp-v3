@@ -629,3 +629,110 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 生产只读预检 run `33039619568` 已重跑成功：连接/事务双只读且最终 ROLLBACK；现有调拨仅 3 条 COMPLETED，alias 表为空；10 条 STORE SITE 均待创建确认、7 条 membership 不变、10 条建仓裁定为 9 个自有仓候选加 1 个配送中心候选、binding 候选 0、同窗 `sys_error_logs` 0 行。本次 run 未创建 SITE/仓，也未回填 membership/binding。
 
 定稿实施已通过 PR `#111` 合入 main（`f50063afc584a511c84c26604b488df8a72b6146`）并由 full run `33040272925` 部署。两条 TypeORM 迁移均成功，三方 revision run `33040636403` 一致；runtime smoke `33040638231` 为 27/0/0，部署后只读清单/错误窗口 run `33040640135` 成功且 0 条相关错误。本轮仍未创建 SITE/仓、未回填 membership/binding；下一 Gate 是用户逐店确认第 14.2 节建仓裁定清单。
+
+## 16. V1-3 验收问题调查（2026-08-27，只查不改）
+
+> 边界：本节只调查源码与既有生产只读/部署日志；未改业务代码、未部署、未执行生产写入。生产证据时间均为 2026-08-27。修复方案须与主 agent 商定后另轮实施。
+
+### 16.1 结论
+
+1. **重复“会晒直营店”已确证是同店双 membership 被逐行返回，假设 A 成立。** `amei` 在 `STORE-HS-001` 同时有 `CASHIER` 与 `STORE_MANAGER` 两条 ACTIVE membership；contexts SQL 无 `DISTINCT/GROUP BY`，前端又逐项映射且不去重，因此稳定产生两个相同门店选项。
+2. **双门店表不是本次重复来源，假设 B 推翻。** POS contexts 只联 `store_memberships + store_master`；普通 `StoreSelector` 才走 `/lookup/stores`（`mst_stores`），而 `/store-pos` 明确使用 `StoreMembershipSelector`。
+3. **amei 无“开班”按钮的直接根因是前端调用了错误的权限检查 API，不是角色缺权，假设 C 的“角色缺码”部分推翻。** 页面先 `usePermission('MENU_STORE_POS')`，却用兼容旧接口 `hasPerm('C')`。普通 JWT 权限格式是 `MENU_STORE_POS:V,C,E`，不会含裸字符串 `C`；`hasPerm` 因而返回 false。admin 因 `ROLE_ADMIN/permissions=['*']` 短路为 true，所以恰好形成 admin 可见、amei 不可见。
+4. **store context/current-shift 不是“按钮只对 amei 隐藏”的主因，假设 D 推翻。** 顶部区域确实要求 `storeCode`；但 amei 已成功得到两个 contexts，选择门店后该条件成立。current-shift 请求失败会被静默吞掉并保留 `null`，其结果反而进入“未开班”分支；真正继续挡住按钮的仍是错误的 `hasPerm('C')`。
+5. **perms_version/JWT 过期不是本次差异因素。** 生产 V1-3 access preflight 显示 amei `perms_version=1`，而 membership 写入不改变菜单授权；后端每次鉴权会比较 DB/JWT `perms_version`，旧 token 会收到 `PERMS_CHANGED` 401，而不会只隐藏开班按钮。即使角色实际持有 `C`，当前前端裸码检查仍然失败。
+
+### 16.2 问题 1：重复门店证据链
+
+前端链路：
+
+- `/store-pos` 设置门店使用 `StoreMembershipSelector`（`apps/web/src/app/(admin)/store-pos/page.tsx:2012-2026`）。
+- selector 请求 `GET /api/v2/store-sales/contexts`，并对返回数组直接 `.map()` 为 `{ value: storeCode, label, raw }`，没有按 `storeCode` 去重（`apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:346-354`；`apps/web/src/lib/store-pos-api.ts:9-18`）。`ScopedSelect` 还以重复的 `storeCode` 作为 React key（`MasterDataSelectors.tsx:77-82`）。
+- 页面初始化同样直接从 contexts 找缓存门店或取 `contexts[0]`（`page.tsx:324-337`），没有去重层。
+
+后端链路：
+
+- `GET /contexts` 只要求 `MENU_STORE_POS:V`，直接调用 `listMembershipStores()`（`apps/api/src/modules/store-pos/controllers/store-pos.controller.ts:37-48`）。
+- SQL 从 `store_memberships m JOIN store_master s` 按 membership 行查询，选择 `m.role`，仅按 `s.store_code` 排序；无 `DISTINCT`、`GROUP BY` 或返回前 JS 去重（`apps/api/src/modules/store-pos/services/store-scope-policy.service.ts:33-50`）。
+- schema 唯一索引是 `(user_id, store_id, role)`，因此同用户同店不同角色是合法数据，不是脏重复（`apps/api/src/database/migrations/1787875200000-CreateStoreWorkstationIdentity.ts:26-38`）。`resolve()` 对重复行用 `.find(storeCode)` 取第一条，意味着角色字段还存在非确定业务语义（`store-scope-policy.service.ts:52-73`）。
+
+生产实况：
+
+- production rollout run `33045122217` 在 access preflight 的只读保护后执行经批准的 V1-3 回填，并由只读 verify 确认：`user_id=8 / amei / STORE-HS-001` 有 `CASHIER` 与 `STORE_MANAGER` 两行，均 `ACTIVE`，`effective_from=2026-08-27 00:00:00+00`、`effective_to=NULL`；`ACCESS_VERIFY_ASSERTIONS=PASS`。同 run 的输入行显示 amei `status=1`、`perms_version=1`、`store_master.id=3`。
+- `STORE-HS-001` 在 `store_master` 只有一行：`id=3 / 会晒直营店 / COMP-LAO-XINGCHI / ACTIVE`，生产 warehouse run `33044970951` 的只读/verify 输出可证。故不是 `mst_stores + store_master` 两表各出一行。
+- 由生产两行 membership 代入当前 contexts SQL，amei 的响应必为两行同 `storeCode/storeName/companyCode/hasSalesWarehouse`、仅 `role` 不同；这与用户看到的两个相同 label 完全一致。admin 走同一 SQL且仍按 `m.user_id` 过滤，若无 membership 则 contexts 为空；admin 的按钮可见来自权限通配，不能拿来证明 admin contexts 比 amei 更宽。
+
+修复选项：
+
+1. **推荐：后端按 store 聚合为一条 context，并显式返回 `roles: string[]`。** SQL/服务层按 store identity 去重，`roles` 排序聚合；保留多角色信息，同时让所有消费者得到唯一门店。需同步 `StoreContext` 契约及测试，改动略大但语义最完整。
+2. 后端只按 store 去重并定义单一 `role` 优先级（如 `STORE_MANAGER > CASHIER`）。改动较小，但把多角色压成一个角色，未来若有人把 context.role 当授权依据会埋隐患。
+3. 仅前端 selector 按 `storeCode` 去重。止血最快，但 contexts API、Terminal 或未来消费者仍会看到重复，且后端 `resolve().find()` 的角色歧义不消失，不推荐作为最终修复。
+
+建议验收：amei contexts 恰好一行 `STORE-HS-001`、`roles=['CASHIER','STORE_MANAGER']`；selector 恰好一个“会晒直营店”；多店用户每店一行；重复角色数据约束仍保持；Admin/global 的 membership 策略另立契约，不借本 bug 偷改授权边界。
+
+### 16.3 问题 2：开班按钮证据链
+
+权限与 render：
+
+- 页面调用 `usePermission('MENU_STORE_POS')`，却只解构 `hasPerm`（`apps/web/src/app/(admin)/store-pos/page.tsx:251-255`）。
+- `usePermission` 的菜单感知 API 是 `check('C')`/`canCreate`；其内部使用 `hasMenuPerm(perms, menuCode, codes)`（`apps/web/src/hooks/usePermission.ts:65-72,106-119`）。相反，兼容接口 `hasPerm(key)` 仅做 `perms.includes(key)`；只有 admin 会提前返回 true（同文件 `:74-92`）。
+- JWT 权限的正式格式是 `['MENU_CODE:V,C,E', ...]` 或 admin `['*']`，解析器按菜单前缀拆权限码（`apps/web/src/contexts/AuthContext.tsx:90-119`）。因此 `hasPerm('C')` 对任何普通角色均为 false，而 admin 为 true。这是用户现象的逐行解释。
+- 顶部“开班”条件为 `storeCode && !currentShift && hasPerm('C')`（`page.tsx:739-800`）；班次管理页条件为 `!currentShift && hasPerm('C')`（`:1579-1592`）。交班同样错误使用 `hasPerm('C')`（`:758-772,1593-1606`）；退货/作废同样错误使用 `hasPerm('D')`（`:1494-1511`）。
+- 后端与正确的菜单语义一致：开班、关班均为 `MENU_STORE_POS:C`（`apps/api/src/modules/store-pos/controllers/store-pos.controller.ts:77-92`）；退货/作废均为 `MENU_STORE_POS:D`（`:200-220`）。
+
+状态链与旁支排除：
+
+- 顶部班次区只有 `storeCode` 非空才显示；amei contexts 已返回且选店后会设置 store/company（`page.tsx:324-337,739-745,2012-2026`）。
+- current-shift 成功则显示交班，null 则显示开班；请求异常被空 catch 吞掉，没有 `shiftError` 状态（`page.tsx:355-362`）。所以 403/失败不会专门隐藏开班，而会落入 null 分支。
+- 开班 handler 只再次检查 `storeCode` 后调用 `POST /shift/open`（`page.tsx:630-649`）；弹窗确认按钮没有额外权限判断（`:1775-1840`）。
+
+生产授权与缓存证据的边界：
+
+- 已部署角色种子定义 `ROLE_CASHIER → MENU_STORE_POS:V,C,E`，`ROLE_STORE_MGR` 至少 `V,C,E`（`apps/api/migrations/20260531_role_runtime_phase_a.sql:200-223`；`20260606_rbac_orphan_menus_backfill.sql:88-94`）。生产 V1-3 preflight/verify 已确认 amei 同时绑定这两个系统角色且 `perms_version=1`（run `33045122217`）。
+- 本轮仓库没有可复用的 amei scoped token mint/任意 SQL 只读 workflow；既有 workflow 也不输出 `sys_role_menu_permission` 当前行。因此本节**不伪造**“本轮重新 SELECT 到的生产角色授权实值”。但这不影响根因确证：即便生产当前值是 `V,C,E`，页面仍会用裸 `C` 判 false；若确实缺 `C`，后端开班还会 403，但不会解释 admin/普通用户前端通用差异。
+- JWT 版本探针每次请求查询 `sys_user.perms_version`，DB 版本高于 token 即 401 `PERMS_CHANGED`（`apps/api/src/auth/jwt.strategy.ts:102-115`）；登录把当前版本写入 token（`apps/api/src/auth/auth.service.ts:96-115,287-308`）。这类失效表现是重登，不是只隐藏一个按钮。
+
+修复选项：
+
+1. **推荐：页面改用 `canCreate/canDelete`（或 `check('C')/check('D')`），并加普通角色组件测试。** 语义与后端装饰器一致，改动最小；同时覆盖 admin、Cashier、Manager、无权角色，防止 admin 通配掩盖回归。
+2. 直接调用 AuthContext 的 `hasPermission('MENU_STORE_POS','C')`。正确但会绕开页面已经建立的 `usePermission` 抽象，风格不一致。
+3. 扩展 `hasPerm` 使其在传入 menuCode 时理解裸动作码。兼容面广但会改变全站旧调用语义，风险最大；除非先完成全仓调用审计，否则不推荐。
+
+建议在修复前再做一次受保护的生产只读 probe，输出 amei 两角色 `sys_role_menu_permission` 当前 `perm_codes`、DB `perms_version`，并用真实 amei token记录 `/contexts` 与 `/shift` HTTP 状态；该 probe 只补运行态证据，不改变上述代码根因。
+
+### 16.4 同类扫描：POS 四类动作
+
+| 动作 | 当前前端 | 当前后端 | 结论 |
+|---|---|---|---|
+| 开班 | `hasPerm('C') && !currentShift` | `MENU_STORE_POS:C` | 普通用户按钮被误隐藏；推荐 `canCreate && !currentShift` |
+| 关班/交班 | `hasPerm('C') && currentShift` | `MENU_STORE_POS:C` | 同一 bug；当前模型允许持 C 的 Cashier 关班，是否应改为 Manager/A 是业务裁定，不应夹带修复 |
+| 日结 | 无独立动作；“交班 / 日结”实际调用 shift close | 同 shift close 的 C | 不存在独立日结权限；若需要店长审核，应另设状态/权限契约，而非只改文案 |
+| 退货/作废 | `hasPerm('D') && status` | `MENU_STORE_POS:D` | 同一前端 bug；修正检查后，只有生产真实持 D 的用户可见且后端放行 |
+
+额外发现：结账按钮未做 C/E 前端权限门控，只按 `processing/cart.length` 控制（`page.tsx:1349-1369`），后端则建单要求 C、收款要求 E（`store-pos.controller.ts:127-198`）。这不会越权，但会让只读用户看到最终必然 403 的操作，应纳入同一 UI 权限一致性修复范围或单列 P1。
+
+全仓排除测试后，仅 `StoreScopePolicy.listMembershipStores()` 返回 store membership 列表；`assertSaleScoped()` 只是存在性联查，不返回列表。因此目前没有第二个已确认会重复的 production endpoint；但 Terminal 复用 `/contexts`，修复应落后端契约，避免第二入口继承重复。
+
+### 16.5 建议商定的最小修复包（未执行）
+
+推荐组合为：**问题 1 选项 1 + 问题 2 选项 1**。
+
+- contexts 每店一行、返回排序后的 `roles[]`，前端仍可做防御性去重但不把它当权威修复；补同店双角色、多店、inactive/过期 membership、无仓标记测试。
+- `/store-pos` 的开班/关班改用 `canCreate/check('C')`，退货/作废改用 `canDelete/check('D')`；补普通角色 JWT 格式测试，不能只测 admin。
+- 单独商定 Cashier 是否应有“关班/日结”、Manager 是否应有 D/A；这属于权限矩阵产品决策，不在缺陷修复中偷偷改授权。
+- 修复轮生产验证必须使用 amei 真实 scoped token：contexts 单店一行、开班按钮可见、`GET /shift` 成功；若不实际开班则保持生产零写。任何 `POST /shift/open` UAT 需另获明确写入授权。
+
+### 16.6 方案对齐记录（Q1-Q5 结论）
+
+1. **Q1 接受兼容迁移。** `context.role` 的仓内消费者只有 API/前端类型与测试 fixture；Admin POS、Terminal、selector、`resolve()` 调用者均不读取它。契约保留 `role`，新增权威 `roles[]`；同店角色稳定聚合，兼容 `role` 按 `ADMIN > STORE_MANAGER > CASHIER` 取最高项。`ADMIN` 置顶仅覆盖 schema 已允许的历史值，不改变菜单授权；业务要求的核心优先级仍是 `STORE_MANAGER > CASHIER`。不删除 `role`，避免破坏潜在旧客户端。
+2. **Q2 接受存在性 + scope 语义。** `resolve()` 的全部调用者只消费 `storeCode/companyCode/warehouseCodes` 或依赖其 fail-closed 异常，没有角色授权分支。本轮让它消费每店唯一的聚合 context，从而消除 `.find()` 的偶然首行角色；不新增角色判断，不改变授权边界。
+3. **Q3 接受纳入同轮。** 结账 handler 必经建单 C 与收款 E，按钮同时以 `canCreate && canEdit` 门控；只读用户不再看到必然失败的操作。
+4. **Q4 接受维持权限矩阵。** 开班/关班继续对应 C，退货/作废继续对应 D，结账继续对应 C+E；只把裸码检查改为菜单感知检查。Cashier 是否可关班、是否另设日结 A 保留为待业务拍板项。
+5. **Q5 接受只读生产边界。** 生产仅验证 amei 的 contexts 单店一行、`GET /shift` 200、revision 与错误窗口；不调用 `POST /shift/open`，不开真实班次，不产生业务写入。
+
+### 16.7 修复执行记录
+
+- 后端 contexts 已按 store identity 聚合：返回每店一行、稳定 `roles[]` 与兼容 `role`；`resolve()` 继续执行 membership 存在性、DataScope 与仓权限交集校验，fail-closed 未放宽。
+- 前端 `/store-pos` 已将开班/交班切为 `canCreate`，退货/作废切为 `canDelete`，结账切为 `canCreate && canEdit`；`StoreMembershipSelector` 增加按 `storeCode` 的防御性去重，Terminal 同步受益。
+- 定向回归新增并通过：后端 11/11（含双角色单店、多店、ACTIVE/有效期 SQL 契约、无仓标记、零 membership）；前端 selector/门控 5/5，普通非 admin amei 风格 JWT 1/1。
+- 双端 tsc、全量 Jest/Vitest、PR/main CI、full 部署、三方 revision、amei 生产只读 HTTP 与错误窗口结果在本节后续以实际 run/SHA 补记；生产验证坚持不开班。

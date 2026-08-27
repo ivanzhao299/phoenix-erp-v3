@@ -251,7 +251,7 @@ function Toast({
 export default function StorePosPage() {
   const { t } = useLanguage();
   const {
-    hasPerm
+    canCreate, canEdit, canDelete
   } = usePermission('MENU_STORE_POS');
 
   // ── 门店上下文 ──────────────────────────────────────────────────────────────
@@ -755,7 +755,7 @@ export default function StorePosPage() {
             fontSize: 12,
             color: 'var(--status-success)'
           }}>{t('ui.班次进行中 · 开班','班次进行中 · 开班')} {fmtDate(currentShift.opened_at)}</span>
-                {hasPerm('C') && <button onClick={() => setShowShiftModal('close')} style={{
+                {canCreate && <button onClick={() => setShowShiftModal('close')} style={{
             marginLeft: 4,
             padding: '2px 10px',
             borderRadius: 4,
@@ -782,7 +782,7 @@ export default function StorePosPage() {
             fontSize: 12,
             color: 'var(--status-danger)'
           }}>{t('ui.未开班','未开班')}</span>
-                {hasPerm('C') && <button onClick={() => setShowShiftModal('open')} style={{
+                {canCreate && <button onClick={() => setShowShiftModal('open')} style={{
             marginLeft: 4,
             padding: '2px 10px',
             borderRadius: 4,
@@ -1347,7 +1347,7 @@ export default function StorePosPage() {
               </div>}
 
             {/* 结账按钮 */}
-            <button onClick={handleCheckout} disabled={processing || !cart.length} style={{
+            {canCreate && canEdit && <button onClick={handleCheckout} disabled={processing || !cart.length} style={{
           width: '100%',
           padding: '14px 0',
           borderRadius: 8,
@@ -1366,7 +1366,7 @@ export default function StorePosPage() {
                 <CheckCircle size={16} />
                 {t('ui.结账','结账')} {cart.length > 0 ? `· ¥${fmt(totalAmount)}` : ''}
               </>}
-            </button>
+            </button>}
           </div>
         </div>}
 
@@ -1491,7 +1491,7 @@ export default function StorePosPage() {
                     cursor: 'pointer',
                     fontSize: 12
                   }}>{t('ui.详情','详情')}</button>
-                          {hasPerm('D') && s.status === 'OPEN' && <button onClick={() => { setVoidTarget(s); setVoidReason(''); }} style={{
+                          {canDelete && s.status === 'OPEN' && <button onClick={() => { setVoidTarget(s); setVoidReason(''); }} style={{
                     padding: '3px 10px',
                     borderRadius: 5,
                     border: '1px solid var(--status-danger)',
@@ -1500,7 +1500,7 @@ export default function StorePosPage() {
                     cursor: 'pointer',
                     fontSize: 12
                   }}>{t('ui.作废','作废')}</button>}
-                          {hasPerm('D') && s.status === 'COMPLETED' && <button onClick={() => { setReturnTarget(s); setReturnReason(''); }} style={{
+                          {canDelete && s.status === 'COMPLETED' && <button onClick={() => { setReturnTarget(s); setReturnReason(''); }} style={{
                     padding: '3px 10px',
                     borderRadius: 5,
                     border: '1px solid var(--status-warning)',
@@ -1576,7 +1576,7 @@ export default function StorePosPage() {
           display: 'flex',
           gap: 8
         }}>
-              {hasPerm('C') && !currentShift && <button onClick={() => setShowShiftModal('open')} style={{
+              {canCreate && !currentShift && <button onClick={() => setShowShiftModal('open')} style={{
             padding: '5px 14px',
             borderRadius: 6,
             border: 'none',
@@ -1590,7 +1590,7 @@ export default function StorePosPage() {
           }}>
                   <LogIn size={13} />{t('ui.开班','开班')}
                 </button>}
-              {hasPerm('C') && currentShift && <button onClick={() => setShowShiftModal('close')} style={{
+              {canCreate && currentShift && <button onClick={() => setShowShiftModal('close')} style={{
             padding: '5px 14px',
             borderRadius: 6,
             border: 'none',

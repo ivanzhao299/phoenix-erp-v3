@@ -578,7 +578,7 @@ V1 scope 已形成：
 - 回滚 SQL 已在 run 日志留档，精确限定上述 10 个 org_code，并额外限定
   `org_type='SITE' AND site_business_type='STORE'`；未执行回滚。
 
-### 15.3 第二、三段停闸
+### 15.3 第二、三段首次停闸
 
 - 第二段没有执行。原因：批准清单要求仓插入时写 `owner_store_id=对应 store_master.id`，
   现行 FK 与 `trg_warehouse_owner_store` 又要求 owner 为同公司 ACTIVE store；但生产
@@ -589,8 +589,89 @@ V1 scope 已形成：
   trigger、没有绑定场站仓。需要业务负责人明确批准将 `store_master` 基线 INSERT 前移到第二段
   之前（形成独立 1.5 段），或批准交换第二、三段顺序，才可继续。
 
-### 15.4 V1-3 就绪结论
+### 15.4 段序修正与 1.5 段：`store_master` 基线 + `STORE_SITE` alias
 
-当前结论：**NOT READY / FAIL-CLOSED**。SITE 10/10 已完成；仓 0/10、区 0/20、位 0/20、
-membership 0/7、binding 0/20、STORE_SITE alias 0/10。由于门店仓与 binding 尚未建立，
-不执行补货/POS 开售 smoke，不声明试点店进入 V1-3；历史功能与库存事实未被改写。
+- 业务负责人确认将原第三段内、已授权的 10 行 `store_master` 基线 INSERT 前移为独立
+  1.5 段；这是纯段序修正，没有扩大数据清单或改写历史事实。
+- production run `33044129965`（审计源码 `c5c4868756458afd92fe99511758e1fb77a131e3`）
+  先重跑原完整只读预检，再执行 1.5 段专用只读预检：`store_master` 目标 0 行，
+  10 个目标 SITE 均为同公司 `SITE/STORE/ACTIVE`，目标 `STORE_SITE` alias 0 行；断言通过。
+- 单事务逐行 `INSERT RETURNING`：`store_master` 10 行、`store_aliases` 10 行；两组 id
+  均为 1–10。门店名称沿用 `mst_stores.store_name`，状态为 `ACTIVE`。时区取老挝法定
+  时区 `Asia/Vientiane`；`business_day_cutoff='00:00:00'` 沿用建表默认及 POS 当前日界惯例。
+- 独立只读事务复核 10+10：每个 alias 都唯一指向对应门店、目标组织为同公司
+  `SITE/STORE/ACTIVE`，ACTIVE STORE_SITE 的 store/site 两侧均为 1:1；输出
+  `STORE_BASELINE_VERIFY_ASSERTIONS=PASS` 后 `ROLLBACK`。
+- run 日志已预留精确逆序回滚 SQL：先按 10 个 SITE code 删除 alias，再按 10 个
+  store code 删除 `store_master`；未执行回滚。
+
+### 15.5 第二段续行尝试与再次停闸
+
+- production run `33044283652`（审计源码 `38061663...`）重跑原只读预检通过；第二段
+  专用预检逐行确认目标仓/区/位均无编码碰撞，但汇总断言失败。旧 workflow 对
+  `psql \\quit` 的退出码未可靠阻断后续管道，写脚本曾进入事务并逐行 RETURNING 10 个仓；
+  随后生产 `wms_zones.zone_code varchar(30)` 拒绝过长 zone code，事务连接失败并整体回滚，
+  没有 COMMIT，也没有留下仓/区/位半成品。
+- 随即将 fail-closed 改为数据库错误式硬停，并新增 audit-only 路径。只读 production run
+  `33044402522`（审计源码 `274e492e...`）独立证明目标仓/区/位仍为 `0/0/0`；同时输出
+  生产仓口径：`domain='OPERATIONAL'` 共 11，且 ACTIVE OPERATIONAL 也是 11。
+- 第二段专用预检原按“admin 视角 21→31”写成 ACTIVE OPERATIONAL 基线 21，该断言与
+  生产实值 11 不符，因此 run 明确输出 `WAREHOUSE_PREFLIGHT_ASSERTIONS=FAIL` 并以数据库
+  异常终止。不能擅自把 21 改成全表口径或删除该断言来继续；按用户红线在本段停闸。
+- 已将拟用 zone code 缩短到不超过生产 `varchar(30)`，并保留仓→区→位逐层 RETURNING、
+  逆序回滚 SQL 和独立复核脚本，但本次停闸后没有重跑写段。第三段 membership/binding、
+  第四段回归与 `sys_error_logs` 全窗口扫描均未执行，避免跳段或降级。
+
+### 15.6 数字勘误与第二段续行
+
+- 用户侧任务书确认原“admin 视角仓库列表 21→31”混淆了全域总数与
+  `domain='OPERATIONAL'` 口径。run `33044402522` 已独立证明建仓前 OPERATIONAL 为 11；
+  全域同时为 21（11 OPERATIONAL + 9 财务映射 + 1 测试）。因此预检修正为 OPERATIONAL=11，
+  建仓后复核为 OPERATIONAL=21，并另设全域=31 硬断言。该改动是口径数字勘误，没有删除断言或
+  降低强度。
+- production run `33044970951`（审计源码 `5304789490697dcb716c070be75e803f7b0de4ed`）
+  先重跑总预检，再输出生产真实列宽：`wms_zones.zone_code varchar(30)`、
+  `wms_locations.location_code varchar(64)`。缩短后的 zone code 最长 27，派生 location code 最长
+  35，均由 information_schema 列宽与目标清单最大长度双重断言，预检为 11/11/0/0/0 并 PASS。
+- 同一 run 单事务逐层 `INSERT RETURNING` 仓 10、区 20、位 20：仓均为
+  `EGG_SALES/ACTIVE/OPERATIONAL` 且 `owner_store_id` 逐店命中；SALES 区为 NORMAL，RETURNS 区为
+  QUARANTINE；zone/location 均写对应 `store_code`。事务提交后，独立只读复核逐行及
+  OPERATIONAL=21、全域=31 全部通过，最终 `WAREHOUSE_VERIFY_ASSERTIONS=PASS`。
+- 精确逆序回滚 SQL（位→区→仓）已在 run 日志留档，未执行回滚。
+
+### 15.7 第三段：membership 与 binding
+
+- 首次 run `33045013884` 在只读预检中因新增 SQL 的 `USING(store_code)` 左侧同名列歧义而停止；
+  日志只出现 `READONLY_GUARD=on` 与解析错误，未调用写脚本，membership/binding 仍为 0/0。
+  修订仅把 JOIN 改为显式列条件，未修改输入或断言。
+- production run `33045122217`（审计源码 `1b8b2d61e7628ed8280f27f87d3169a84f8e078c`）
+  的只读预检确认全表基线 membership=0、binding=0、7 条账号/角色/legacy store 输入逐行命中，
+  且 10 个目标仓均为对应 ACTIVE store 自有的 OPERATIONAL 仓。
+- 单事务 `INSERT RETURNING` membership 7 条：amei×2（会晒 CASHIER/STORE_MANAGER）、cashier
+  （万象 CASHIER）、chenling（孟赛）、alue（万象）、bouavanh（波利坎赛）、xiaolan（沙耶武里）
+  各按批准角色写入；生效起点均为执行日 2026-08-27，开放结束期，状态 ACTIVE。
+- 同事务写 binding 20 条：10 店各 SALES+RETURNS 均绑定自己的门店仓，priority=1、ACTIVE、
+  生效起点 2026-08-27。独立只读复核逐行验证 membership 7/7、binding 20/20、owner 与 store
+  一致，最终 `ACCESS_VERIFY_ASSERTIONS=PASS`。精确逆序回滚 SQL 已留档，未执行。
+
+### 15.8 第四段：V1-3 就绪验证
+
+- 首次只读 run `33045163667` 的 cashier binding∩WarehouseScope 已输出两条 `in_scope=true`；
+  但错误扫描错误地从当日 00:00 UTC 起算，命中 01:09 UTC 三条历史
+  `/api/inventory/transfer/confirm`“源 batch 1 不存在”，故 fail-closed。三条历史事实保留，
+  其时间早于本次续行起点 06:11:18 UTC，不归因于本次二/三段。
+- 扫描窗口按第二段 run `33044970951.startedAt=2026-08-27T06:11:18Z` 精确定义后，最终纯只读
+  run `33045253813`（审计源码 `f0ffdc65434a5e27fd4ea0414efad464c232f3b3`）确认：SITE 10、
+  store_master 10、STORE_SITE alias 10、门店仓 10、区 20、位 20、membership 7、binding 20；
+  cashier 的万象 SALES/RETURNS binding 均落入公司展开后的 ACTIVE OPERATIONAL WarehouseScope；
+  本次续行全窗口 inbound/outbound/transfer/store 相关 `sys_error_logs` 为 0。
+- 本地 API 定向回归 `wms.service.spec.ts` 为 1 suite / 24 tests 全绿，覆盖入库、出库、调拨的
+  校验、原子性、幂等及生命周期；生产未运行会写测试数据的 `wms-regression.sh`，符合“生产写入
+  仅限二/三段 DML”红线。最终输出 `STORE_V1_3_READY_ASSERTIONS=PASS`。
+
+### 15.9 V1-3 就绪结论
+
+当前结论：**READY / PASS**。全表目标末态为 SITE 10/10、`store_master` 10/10、STORE_SITE alias
+10/10、仓 10/10、区 20/20、位 20/20、membership 7/7、binding 20/20；binding 与
+WarehouseScope 有有效交集，本次续行窗口无相关运行时异常。V1-3 门店组织、门店仓与工作站授权
+基础已就绪；历史库存与既有调拨事实未改写。

@@ -11,7 +11,7 @@ vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: (_key: string, fallback: string) => fallback }),
 }));
 
-import { LocationSelector, ZoneSelector } from './MasterDataSelectors';
+import { LocationSelector, StoreMembershipSelector, ZoneSelector } from './MasterDataSelectors';
 
 // React 19 uses this flag to suppress false-positive act environment warnings.
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -83,5 +83,21 @@ describe('WMS status-vocabulary selectors', () => {
     ] } });
     await flush();
     expect([...host.querySelectorAll('option')].map(option => option.value)).toEqual(['', 'NEW']);
+  });
+
+  it('deduplicates an amei-style dual-role store context defensively', async () => {
+    requestMock.mockResolvedValue({ data: [
+      { storeCode: 'STORE-HS-001', storeName: '会晒直营店', companyCode: 'COMP-LAO-XINGCHI', role: 'CASHIER', roles: ['CASHIER'], hasSalesWarehouse: true },
+      { storeCode: 'STORE-HS-001', storeName: '会晒直营店', companyCode: 'COMP-LAO-XINGCHI', role: 'STORE_MANAGER', roles: ['STORE_MANAGER'], hasSalesWarehouse: true },
+    ] });
+
+    await act(async () => root.render(createElement(StoreMembershipSelector, {
+      value: '', onChange: () => undefined,
+    })));
+    await flush();
+
+    expect([...host.querySelectorAll('option')].map(option => option.value))
+      .toEqual(['', 'STORE-HS-001']);
+    expect(host.textContent?.match(/会晒直营店/g)).toHaveLength(1);
   });
 });

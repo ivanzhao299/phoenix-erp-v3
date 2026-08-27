@@ -1,7 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { StoreScopePolicy } from './store-scope-policy.service';
 
-const membership = { storeId: '1', storeCode: 'STORE-A', storeName: 'A', companyCode: 'COMP-A', timezone: 'Asia/Shanghai', businessDayCutoff: '00:00:00', role: 'CASHIER', hasSalesWarehouse: true };
+const membership = { storeId: '1', storeCode: 'STORE-A', storeName: 'A', companyCode: 'COMP-A', timezone: 'Asia/Shanghai', businessDayCutoff: '00:00:00', role: 'CASHIER', roles: ['CASHIER'], hasSalesWarehouse: true };
 
 function subject(opts: { memberships?: any[]; bindings?: string[]; scope?: any; legacy?: string } = {}) {
   const memberships = opts.memberships ?? [membership];
@@ -19,6 +19,40 @@ function subject(opts: { memberships?: any[]; bindings?: string[]; scope?: any; 
 }
 
 describe('StoreScopePolicy V1-1 quadrants', () => {
+  it('aggregates same-store memberships into one deterministic context', async () => {
+    const manager = { ...membership, role: 'STORE_MANAGER', roles: ['STORE_MANAGER'] };
+    const contexts = await subject({ memberships: [membership, manager] }).listMembershipStores();
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]).toMatchObject({
+      storeCode: 'STORE-A', role: 'STORE_MANAGER', roles: ['CASHIER', 'STORE_MANAGER'],
+    });
+  });
+
+  it('returns one context per store for a multi-store user', async () => {
+    const b = { ...membership, storeId: '2', storeCode: 'STORE-B', storeName: 'B' };
+    await expect(subject({ memberships: [membership, b] }).listMembershipStores())
+      .resolves.toEqual(expect.arrayContaining([
+        expect.objectContaining({ storeCode: 'STORE-A' }),
+        expect.objectContaining({ storeCode: 'STORE-B' }),
+      ]));
+  });
+
+  it('keeps membership/store status and validity filters in the contexts contract', async () => {
+    const policy = subject();
+    await policy.listMembershipStores();
+    const sql = (policy as any).ds.query.mock.calls[0][0] as string;
+    expect(sql).toContain("m.status='ACTIVE'");
+    expect(sql).toContain("s.status='ACTIVE'");
+    expect(sql).toContain('m.effective_from<=NOW()');
+    expect(sql).toContain('m.effective_to>=NOW()');
+  });
+
+  it('reports a membership context without a sales warehouse', async () => {
+    const noWarehouse = { ...membership, hasSalesWarehouse: false };
+    await expect(subject({ memberships: [noWarehouse] }).listMembershipStores())
+      .resolves.toEqual([expect.objectContaining({ storeCode: 'STORE-A', hasSalesWarehouse: false })]);
+  });
+
   it('cashier with membership and warehouse intersection is limited to that store', async () => {
     await expect(subject().resolve('STORE-A')).resolves.toMatchObject({ storeCode: 'STORE-A', warehouseCodes: ['WH-A'] });
     await expect(subject().resolve('STORE-B')).rejects.toBeInstanceOf(ForbiddenException);
