@@ -1,0 +1,116 @@
+name: Store POS Inventory Shortage Readonly Audit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Readonly production evidence
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "PRODUCTION_CHECKOUT=$(git rev-parse HEAD)"
+            docker inspect --format 'API_IMAGE_REVISION={{ index .Config.Labels "org.opencontainers.image.revision" }}' phoenix-v3-api
+            docker inspect --format 'WEB_IMAGE_REVISION={{ index .Config.Labels "org.opencontainers.image.revision" }}' phoenix-v3-web
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'READ_ONLY' AS section, current_setting('transaction_read_only') AS value;
+
+            SELECT 'TARGET_BATCH' AS section, to_jsonb(b) AS record
+              FROM inv_batches b
+             WHERE b.batch_no='IBN-20260828-VW1SSC'
+                OR (b.sku_code='CJ-EGG-8E82312ECAD7'
+                    AND b.warehouse_code='ST_LAO_XINGCHI_HS_001_SALES')
+             ORDER BY b.created_at, b.batch_no;
+
+            SELECT 'TARGET_LEDGER' AS section, to_jsonb(l) AS record
+              FROM inv_ledger l
+             WHERE l.batch_no='IBN-20260828-VW1SSC'
+                OR (l.sku_code='CJ-EGG-8E82312ECAD7'
+                    AND l.warehouse_code='ST_LAO_XINGCHI_HS_001_SALES')
+                OR l.ref_no IN (
+                  SELECT task_no FROM wms_inbound
+                   WHERE to_jsonb(wms_inbound)::text ILIKE '%IBN-20260828-VW1SSC%'
+                )
+             ORDER BY l.created_at DESC LIMIT 200;
+
+            SELECT 'TARGET_INBOUND' AS section, to_jsonb(i) AS record
+              FROM wms_inbound i
+             WHERE to_jsonb(i)::text ILIKE '%IBN-20260828-VW1SSC%'
+                OR EXISTS (
+                  SELECT 1 FROM wms_inbound_items ii
+                   WHERE ii.task_no=i.task_no
+                     AND to_jsonb(ii)::text ILIKE '%IBN-20260828-VW1SSC%'
+                )
+             ORDER BY i.created_at DESC;
+            SELECT 'TARGET_INBOUND_ITEM' AS section, to_jsonb(ii) AS record
+              FROM wms_inbound_items ii
+             WHERE to_jsonb(ii)::text ILIKE '%IBN-20260828-VW1SSC%'
+                OR ii.task_no IN (
+                  SELECT ref_no FROM inv_ledger WHERE batch_no='IBN-20260828-VW1SSC'
+                );
+
+            SELECT 'AMEI_RECENT_SALE' AS section, to_jsonb(s) AS record
+              FROM sal_store_sales s
+             WHERE s.created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
+               AND s.created_at <  TIMESTAMPTZ '2026-08-29 00:00:00+08'
+               AND (to_jsonb(s)->>'created_by'='amei'
+                    OR to_jsonb(s)->>'operator'='amei'
+                    OR to_jsonb(s)->>'username'='amei')
+             ORDER BY s.created_at DESC LIMIT 100;
+            SELECT 'TARGET_SALE_ITEM' AS section, to_jsonb(si) AS record
+              FROM sal_store_sale_items si
+              JOIN sal_store_sales s ON s.id=si.sale_id
+             WHERE s.created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
+               AND s.created_at <  TIMESTAMPTZ '2026-08-29 00:00:00+08'
+               AND si.sku_code='CJ-EGG-8E82312ECAD7'
+             ORDER BY s.created_at DESC;
+
+            SELECT 'AMEI_USER_SCOPE' AS section, to_jsonb(u) AS record
+              FROM sys_user u
+             WHERE u.username='amei';
+            SELECT 'AMEI_ORG_SCOPE' AS section, to_jsonb(uo) AS record
+              FROM sys_user_orgs uo
+             WHERE to_jsonb(uo)::text ILIKE '%amei%'
+                OR to_jsonb(uo)->>'user_id' IN (SELECT user_id::text FROM sys_user WHERE username='amei');
+            SELECT 'AMEI_WAREHOUSE_SCOPE' AS section, to_jsonb(ws) AS record
+              FROM sys_user_warehouse_scopes ws
+             WHERE to_jsonb(ws)->>'user_id' IN (SELECT user_id::text FROM sys_user WHERE username='amei');
+            SELECT 'STORE_BINDING' AS section, to_jsonb(b) AS record
+              FROM store_warehouse_bindings b
+             WHERE b.store_code IN (
+               SELECT DISTINCT store_code FROM sal_store_sales
+                WHERE created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
+                  AND to_jsonb(sal_store_sales)::text ILIKE '%amei%'
+             ) OR b.warehouse_code='ST_LAO_XINGCHI_HS_001_SALES';
+
+            SELECT 'POS_SHORTAGE_ERRORS' AS section, to_jsonb(e) AS record
+              FROM sys_error_logs e
+             WHERE e.created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
+               AND (e.error_message ILIKE '%库存不足%'
+                    OR to_jsonb(e)::text ILIKE '%CJ-EGG-8E82312ECAD7%')
+             ORDER BY e.created_at DESC LIMIT 200;
+            COMMIT;
+            SQL
+            echo 'POS_SHORTAGE_CONTAINER_LOGS_BEGIN'
+            docker logs --since 36h phoenix-v3-api 2>&1 \
+              | grep -E '库存不足|CJ-EGG-8E82312ECAD7|IBN-20260828-VW1SSC|amei' \
+              | tail -n 400 || true
+            echo 'POS_SHORTAGE_CONTAINER_LOGS_END'
