@@ -4,7 +4,7 @@
 
 生产批次 `IBN-20260828-VW1SSC` 的 SKU、仓库、状态、可用量、有效期和 legacy 标记均满足 POS FIFO；唯一不满足的是公司条件。通用入库确认没有写 `company_code`，数据库默认成 `ALL`，而销售单公司为 `COMP-LAO-XINGCHI`，因此 POS 的 `company_code = $2` 精确条件将 1000 枚真实库存全部排除。
 
-本次不放宽 POS 可售条件、不改变库存台账语义。修复在统一入库入口从目标仓权威带出公司，同时写入正常/破损批次及台账；已有目标批次使用带严格前后置断言的单批修正脚本，须另行批准后才可在生产执行。
+本次不放宽 POS 可售条件、不改变库存台账语义。修复在统一入库入口从目标仓权威带出公司，同时写入正常/破损批次及台账；已有目标批次已按批准范围通过带严格前后置断言的单批修正脚本完成生产修正。
 
 ## 生产只读取证
 
@@ -53,7 +53,7 @@ POS SKU FIFO 位于 `apps/api/src/modules/store-pos/services/store-pos.service.t
 
 生产扩大审计共发现 9 条 `IBN-*` 批次公司与仓公司不一致，其中 6 条为养殖场入库、1 条为本次门店入库、2 条为历史 `ALL` 源批次派生的调拨目标批次。本次不批量修正其余 8 条；需按各自业务状态、SKU 身份与流水逐条建立前置断言后另批处理。
 
-## 生产数据修正三段式（待批准）
+## 生产数据修正三段式（已执行）
 
 脚本：`scripts/ops/fix-pos-batch-company-ibn-20260828-vw1ssc.sql`。
 
@@ -61,4 +61,15 @@ POS SKU FIFO 位于 `apps/api/src/modules/store-pos/services/store-pos.service.t
 2. 原子变更：仅把目标 `inv_batches` 与对应入库 `inv_ledger` 的 `company_code` 从 `ALL` 改为 `COMP-LAO-XINGCHI`。
 3. 后置断言：批次可用量和状态未变，批次公司与仓公司一致；任何断言失败都会终止并回滚。
 
-未经用户明确批准不执行该生产写入。部署后先用 `amei` 语义做只读复验；真实成交仍需另授权。
+## 修正执行记录
+
+- 执行通道：GitHub Actions `Fix POS Batch Company IBN-20260828-VW1SSC`，production environment，run `33141550147`，结论 `success`；执行工件来自 commit `766dd270d9c8ff29406b3222eb9c56c31a13bf90`。远端应用 checkout 仍为 `df91dc9f169e005581e8844a65e10ee47bce3739`，本次由 workflow checkout 后编码传入经审查 SQL，不依赖远端代码部署。
+- 前置断言：目标批次唯一且 `sku=CJ-EGG-8E82312ECAD7`、仓 `ST_LAO_XINGCHI_HS_001_SALES`、公司 `ALL`、状态 `AVAILABLE`、可用量 `1000.000`；目标仓公司 `COMP-LAO-XINGCHI`；对应 `INB-20260828-9JPE`、公司 `ALL`、数量变化 `1000.000` 的台账恰好一条。断言块返回 `DO`，全部通过。
+- 原子变更：单事务内两条窄谓词 `UPDATE ... RETURNING` 各返回 1 行后 `COMMIT`。批次返回 `IBN-20260828-VW1SSC / CJ-EGG-8E82312ECAD7 / ST_LAO_XINGCHI_HS_001_SALES / COMP-LAO-XINGCHI / AVAILABLE / 1000.000`；台账返回 `IBN-20260828-VW1SSC / INB-20260828-9JPE / COMP-LAO-XINGCHI / PRODUCTION_INBOUND / PRODUCTION / 1000.000`。脚本只对两行的 `company_code` 赋值，没有改数量、状态或其他字段。
+- 后置断言：两张临时 `RETURNING` 结果表计数均为 1；批次仍为 `AVAILABLE / 1000.000`，公司与仓公司一致；对应台账仍为 `PRODUCTION_INBOUND / PRODUCTION / 1000.000`。全部通过后才提交。
+- 独立只读复核：同一 run 在提交后另开 `transaction_read_only=on` 事务。目标批次的 SKU、公司、仓库、AVAILABLE、正可用量、未过期、非 legacy 七项 FIFO 条件全部为 `true`；`amei` 为有效用户，门店 `STORE-HS-001` 的目标 SALES 绑定与目标仓均 ACTIVE。运行时只读验收 run `33141585252` 进一步确认 `amei` 的 8 个授权仓包含目标仓，门店上下文唯一且 `salesWarehouse=true / warehouseScopeIntersection=true`。
+- 待支付销售单：`POS-20260828-00003/00004/00005` 均保持 `status=OPEN`、`payment_status=UNPAID`、`paid_amount=0.00`，未执行支付或成交。
+- 漂移清单：`IBN-20260828-VW1SSC` 已不在 `GENERIC_INBOUND_COMPANY_DRIFT`；独立查询返回其余 8 行，断言 `drift_count=8 / target_drift_count=0` 通过，其余批次未修正。
+- 回滚留档：`scripts/ops/rollback-pos-batch-company-ibn-20260828-vw1ssc.sql`。该脚本只用于本案补偿，执行前同样要求批次和台账各精确命中一行；本次未执行回滚。
+
+真实成交或支付不在本次授权范围内，未执行。
