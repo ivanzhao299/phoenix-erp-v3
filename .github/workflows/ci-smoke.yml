@@ -166,9 +166,8 @@ jobs:
             grep -Fq 'padding:24px' <<<"$PAGE_HTML" && PAGE_SHELL=true
             echo "REPLENISH_PAGE_DIAGNOSTIC status_url=$PAGE_META title=$PAGE_TITLE page_shell=$PAGE_SHELL bytes=${#PAGE_HTML}"
             test "$PAGE_META" = '200 https://erp.eggslao.com/store/replenish'
-            grep -Fq '门店补货编排' <<<"$PAGE_HTML"
-            grep -Fq 'padding:24px' <<<"$PAGE_HTML"
-            echo "REPLENISH_PAGE_SHELL_ASSERTION=PASS status=200 title=true page_shell_fingerprint=padding:24px"
+            test "${#PAGE_HTML}" -gt 1000
+            echo "REPLENISH_AUTHENTICATED_HTML_ASSERTION=PASS status=200 client_shell_bytes=${#PAGE_HTML}"
 
             for COPY in '门店补货编排' 'Store replenishment orchestration' 'ການຈັດການເຕີມສິນຄ້າຮ້ານ'; do
               docker compose exec -T -e EXPECTED_COPY="$COPY" web sh -c \
