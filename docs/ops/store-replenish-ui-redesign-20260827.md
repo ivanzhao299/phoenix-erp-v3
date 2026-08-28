@@ -528,4 +528,4 @@ cd apps/web && npx playwright test e2e/store-replenishment.spec.ts
 - selector 数据源：contexts 恰好 1 行 `STORE-HS-001`，`roles=CASHIER,STORE_MANAGER`，销售仓与 WarehouseScope 交集均为 true；amei WarehouseScope 8 仓。
 - 补货 API：列表 GET 200、会晒门店源仓 GET 200、`MENU_STORE_REPLENISH:V,C,E`；无权限 cashier GET 403。
 - 错误窗口：Store POS/补货相关 30 分钟窗口 0 条。
-- 三语与页面骨架：源码契约确认页面所有引用键三语齐全、无翻译语言包中文回退；专项 smoke 增补生产 Web bundle 的 zh/en/lo 标题存在性，以及 cookie 鉴权 HTML 的标题与 `PageShell` `max-width:1680px` 指纹断言。
+- 三语与页面骨架：源码契约确认页面所有引用键三语齐全、无翻译语言包中文回退；专项 smoke 增补生产 Web bundle 的 zh/en/lo 标题存在性，以及 cookie 鉴权 HTML 的标题与 `PageShell` `padding:24px` 根节点指纹断言。
