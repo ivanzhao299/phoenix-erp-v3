@@ -1,4 +1,29 @@
+import { ConflictException } from '@nestjs/common';
 import { EggInventoryService } from './egg-inventory.service';
+
+describe('EggInventoryService conditional inventory updates', () => {
+  it('fails closed when FIFO candidate no longer matches the guarded update', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('SELECT * FROM inv_batches')) return [{
+        batch_no: 'B-1', company_code: 'COMP-A', warehouse_code: 'WH-A',
+        status: 'AVAILABLE', qty_available: 5, sku_code: 'SKU-1', legacy_source: null,
+      }];
+      if (sql.includes('SELECT batch_no FROM changed')) return [];
+      return [];
+    });
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+
+    await expect(service.allocateByFIFO({
+      productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 2,
+      refNo: 'SO-1', note: 'test',
+    })).rejects.toBeInstanceOf(ConflictException);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("AND warehouse_code=$4"),
+      [2, 'B-1', 'COMP-A', 'WH-A'],
+    );
+  });
+});
 
 describe('EggInventoryService getExpiringBatches DataScope', () => {
   it('filters a normal user to allowed companies', async () => {

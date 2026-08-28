@@ -57,6 +57,71 @@ jobs:
                AND b.company_code IS DISTINCT FROM w.company_code
              ORDER BY b.created_at,b.batch_no;
 
+            SELECT 'GENERIC_INBOUND_DRIFT_BATCH_FULL' AS section,to_jsonb(b) AS record
+              FROM inv_batches b
+              JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+             WHERE b.batch_no LIKE 'IBN-%'
+               AND b.company_code IS DISTINCT FROM w.company_code
+             ORDER BY b.created_at,b.batch_no;
+            SELECT 'GENERIC_INBOUND_DRIFT_LEDGER_FULL' AS section,to_jsonb(l) AS record
+              FROM inv_ledger l
+             WHERE l.batch_no IN (
+               SELECT b.batch_no FROM inv_batches b
+               JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+               WHERE b.batch_no LIKE 'IBN-%'
+                 AND b.company_code IS DISTINCT FROM w.company_code
+             )
+             ORDER BY l.batch_no,l.created_at,l.id;
+            SELECT 'GENERIC_INBOUND_DRIFT_TRANSFER' AS section,to_jsonb(t) AS transfer,to_jsonb(ti) AS item
+              FROM wms_transfer_items ti
+              JOIN wms_transfer t ON t.transfer_no=ti.transfer_no
+             WHERE ti.source_batch_no IN (
+                     SELECT b.batch_no FROM inv_batches b
+                     JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+                     WHERE b.batch_no LIKE 'IBN-%'
+                       AND b.company_code IS DISTINCT FROM w.company_code
+                   )
+                OR ti.target_batch_no IN (
+                     SELECT b.batch_no FROM inv_batches b
+                     JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+                     WHERE b.batch_no LIKE 'IBN-%'
+                       AND b.company_code IS DISTINCT FROM w.company_code
+                   )
+             ORDER BY t.created_at,t.transfer_no,ti.id;
+
+            SELECT 'AMEI_RETURN_WAREHOUSES' AS section,to_jsonb(w) AS warehouse
+              FROM store_warehouse_bindings b
+              JOIN store_master sm ON sm.id=b.store_id
+              JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+             WHERE sm.store_code='STORE-HS-001' AND b.purpose='RETURNS'
+             ORDER BY b.priority,b.id;
+            SELECT 'AMEI_RETURN_ZONES' AS section,to_jsonb(z) AS zone
+              FROM wms_zones z
+             WHERE z.warehouse_code IN (
+               SELECT b.warehouse_code FROM store_warehouse_bindings b
+               JOIN store_master sm ON sm.id=b.store_id
+               WHERE sm.store_code='STORE-HS-001' AND b.purpose='RETURNS'
+             ) ORDER BY z.zone_code;
+            SELECT 'AMEI_RETURN_LOCATIONS' AS section,to_jsonb(l) AS location,
+                   to_jsonb(z) AS joined_zone
+              FROM wms_locations l
+              LEFT JOIN wms_zones z
+                ON z.zone_code=l.zone_code AND z.warehouse_code=l.warehouse_code
+             WHERE l.warehouse_code IN (
+               SELECT b.warehouse_code FROM store_warehouse_bindings b
+               JOIN store_master sm ON sm.id=b.store_id
+               WHERE sm.store_code='STORE-HS-001' AND b.purpose='RETURNS'
+             ) ORDER BY l.warehouse_code,l.location_code;
+
+            SELECT 'STORE_OWNED_TRANSFER_BATCH_STORE_DRIFT' AS section,to_jsonb(b) AS batch,
+                   sm.store_code AS owner_store_code
+              FROM inv_batches b
+              JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+              JOIN store_master sm ON sm.id=w.owner_store_id
+             WHERE b.location_code='TRANSFER-IN'
+               AND b.store_code IS DISTINCT FROM sm.store_code
+             ORDER BY b.created_at,b.batch_no;
+
             SELECT 'TARGET_LEDGER' AS section, to_jsonb(l) AS record
               FROM inv_ledger l
              WHERE l.batch_no='IBN-20260828-VW1SSC'

@@ -94,6 +94,31 @@ export class WmsService {
     }
   }
 
+  private async resolveTransferTargetIdentity(
+    manager: EntityManager,
+    warehouseCode: string,
+    sourceStoreCode: string | null | undefined,
+  ): Promise<{ companyCode: string; storeCode: string }> {
+    const [target] = await manager.query(
+      `SELECT w.company_code,sm.store_code,sm.status AS store_status
+         FROM wms_warehouses w
+         LEFT JOIN store_master sm ON sm.id=w.owner_store_id
+        WHERE w.warehouse_code=$1
+        LIMIT 1`,
+      [warehouseCode],
+    );
+    if (!target?.company_code || target.company_code === 'ALL') {
+      throw new BadRequestException(`调拨目标仓 ${warehouseCode} 缺少有效公司归属`);
+    }
+    if (target.store_code && target.store_status !== 'ACTIVE') {
+      throw new BadRequestException(`调拨目标仓 ${warehouseCode} 的 owner store 非 ACTIVE`);
+    }
+    return {
+      companyCode: target.company_code,
+      storeCode: target.store_code || sourceStoreCode || 'ALL',
+    };
+  }
+
   async assertPurchaseReceiptWarehouseUsage(
     manager: Pick<EntityManager, 'query'>,
     warehouseCode: string | null | undefined,
@@ -1049,7 +1074,7 @@ export class WmsService {
     }
     const batches = await manager.query(
       `SELECT batch_no, product_code, sku_code, material_code, item_type,
-              material_type, unit, qty, qty_available, warehouse_code, store_code
+              material_type, unit, qty, qty_available, warehouse_code, store_code, company_code
          FROM inv_batches
         WHERE (sku_code = $1 OR product_code = $1 OR material_code = $1)
           ${warehouseSql}
@@ -1095,7 +1120,7 @@ export class WmsService {
     const label = `${column}=${value}`;
     const batches = await manager.query(
       `SELECT batch_no, product_code, sku_code, material_code, item_type,
-              material_type, unit, qty, qty_available, warehouse_code, store_code
+              material_type, unit, qty, qty_available, warehouse_code, store_code, company_code
          FROM inv_batches
         WHERE ${column} = $1
           AND COALESCE(qty_available, qty, 0) > 0
@@ -1143,17 +1168,26 @@ export class WmsService {
       throw new BadRequestException(`不支持的出库类型：${order.type || '(空)'}`);
     }
 
-    await manager.query(
-      `UPDATE inv_batches
+    const changed = await manager.query(
+      `WITH changed AS (
+       UPDATE inv_batches
           SET qty = GREATEST(COALESCE(qty, 0) - $1::numeric, 0),
               qty_available = CASE
                 WHEN qty_available IS NULL THEN NULL
                 ELSE GREATEST(qty_available - $1::numeric, 0)
               END,
               updated_at = now()
-        WHERE batch_no = $2`,
-      [qty, batchNo],
+        WHERE batch_no = $2
+          AND warehouse_code = $3
+          AND company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$3)
+          AND ($4::varchar IS NULL OR company_code=$4)
+          AND COALESCE(status,'AVAILABLE') = 'AVAILABLE'
+          AND COALESCE(qty_available,qty,0) >= $1::numeric
+        RETURNING batch_no
+       ) SELECT batch_no FROM changed`,
+      [qty, batchNo, batch.warehouse_code, this.nonEmptyString(order.company_code)],
     );
+    if (changed.length !== 1) throw new BadRequestException(`出库批次 ${batchNo} 状态、归属或数量已变化`);
     await manager.query(
       `INSERT INTO inv_ledger (
          batch_no, change_type, qty_change, operator, store_code, ref_no, note,
@@ -1472,7 +1506,7 @@ export class WmsService {
 
         const [src] = await manager.query(
           `SELECT batch_no, product_code, sku_code, material_code, item_type, material_type,
-                  unit, qty, qty_available, status, expire_date, store_code, warehouse_code
+                  unit, qty, qty_available, status, expire_date, store_code, warehouse_code, company_code
              FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
           [it.batch_no],
         );
@@ -1490,17 +1524,25 @@ export class WmsService {
         if (available < qty) throw new Error(`源 batch ${it.batch_no} 可用量 ${available} 不足 ${qty}`);
 
         // 源 -
-        await manager.query(
-          `UPDATE inv_batches
+        const changed = await manager.query(
+          `WITH changed AS (
+           UPDATE inv_batches
               SET qty = GREATEST(COALESCE(qty, 0) - $1::numeric, 0),
                   qty_available = CASE
                     WHEN qty_available IS NULL THEN NULL
                     ELSE GREATEST(qty_available - $1::numeric, 0)
                   END,
                   updated_at = now()
-            WHERE batch_no = $2`,
-          [qty, it.batch_no],
+            WHERE batch_no = $2
+              AND warehouse_code = $3
+              AND company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$3)
+              AND COALESCE(status,'AVAILABLE') = 'AVAILABLE'
+              AND COALESCE(qty_available,qty,0) >= $1::numeric
+            RETURNING batch_no
+           ) SELECT batch_no FROM changed`,
+          [qty, it.batch_no, from_warehouse],
         );
+        if (changed.length !== 1) throw new BadRequestException(`源 batch ${it.batch_no} 状态、归属或数量已变化`);
         await manager.query(
           `INSERT INTO inv_ledger (
              batch_no, change_type, qty_change, operator, store_code, ref_no, note,
@@ -1516,30 +1558,31 @@ export class WmsService {
         );
 
         // 目标 + （新建一条目标 batch，追溯链保留）
+        const targetIdentity = await this.resolveTransferTargetIdentity(manager, to_warehouse, src.store_code);
         const dstBatchNo = `${it.batch_no}-T-${Math.random().toString(36).slice(2,5).toUpperCase()}`;
         await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, warehouse_code, location_code, expire_date, store_code
+             unit, qty, qty_available, status, warehouse_code, location_code, expire_date, store_code, company_code
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13)`,
           [
             dstBatchNo, src.product_code || null, src.sku_code || null, src.material_code || null,
             src.item_type || null, src.material_type || null, src.unit || null, qty,
-            to_warehouse, 'TRANSFER-IN', src.expire_date, src.store_code || 'ALL',
+            to_warehouse, 'TRANSFER-IN', src.expire_date, targetIdentity.storeCode, targetIdentity.companyCode,
           ],
         );
         await manager.query(
           `INSERT INTO inv_ledger (
              batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-             sku_code, material_code, warehouse_code, business_type, unit
+             sku_code, material_code, warehouse_code, business_type, unit, company_code
            )
-           VALUES ($1, $7, $2::numeric, $3, $4, $5, $6, $8, $9, $10, $11, $12)`,
+           VALUES ($1, $7, $2::numeric, $3, $4, $5, $6, $8, $9, $10, $11, $12, $13)`,
           [
-            dstBatchNo, qty, opName, src.store_code || 'ALL', transferNo,
+            dstBatchNo, qty, opName, targetIdentity.storeCode, transferNo,
             `调拨入 ← ${from_warehouse} 源 batch=${it.batch_no}`, transferInPolicy.ledgerType,
             src.sku_code || null, src.material_code || null, to_warehouse,
-            transferInPolicy.businessType, src.unit || null,
+            transferInPolicy.businessType, src.unit || null, targetIdentity.companyCode,
           ],
         );
         await manager.query(
@@ -1632,18 +1675,28 @@ export class WmsService {
         const qty = Number(item.expected_qty);
         const [src] = await manager.query(
           `SELECT batch_no,product_code,sku_code,material_code,item_type,material_type,unit,qty,
-                  qty_available,status,expire_date,store_code,warehouse_code
+                  qty_available,status,expire_date,store_code,warehouse_code,company_code
              FROM inv_batches WHERE batch_no=$1 FOR UPDATE`, [item.source_batch_no],
         );
         if (!src || src.warehouse_code !== transfer.from_warehouse) throw new BadRequestException(`源 batch ${item.source_batch_no} 不属于源仓库`);
         if (String(src.status).toUpperCase() !== 'AVAILABLE') throw new BadRequestException(`源 batch ${item.source_batch_no} 状态不允许调拨`);
         const available = Number(src.qty_available ?? src.qty) || 0;
         if (available < qty) throw new BadRequestException(`源 batch ${item.source_batch_no} 可用量 ${available} 不足 ${qty}`);
-        await manager.query(
-          `UPDATE inv_batches SET qty=qty-$1::numeric,
+        const changed = await manager.query(
+          `WITH changed AS (
+           UPDATE inv_batches SET qty=qty-$1::numeric,
             qty_available=CASE WHEN qty_available IS NULL THEN NULL ELSE qty_available-$1::numeric END,
-            updated_at=now() WHERE batch_no=$2`, [qty, item.source_batch_no],
+            updated_at=now()
+           WHERE batch_no=$2
+             AND warehouse_code=$3
+             AND company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$3)
+             AND status='AVAILABLE'
+             AND COALESCE(qty_available,qty,0) >= $1::numeric
+           RETURNING batch_no
+          ) SELECT batch_no FROM changed`,
+          [qty, item.source_batch_no, transfer.from_warehouse],
         );
+        if (changed.length !== 1) throw new BadRequestException(`源 batch ${item.source_batch_no} 状态、归属或数量已变化`);
         await manager.query(
           `UPDATE wms_transfer_items SET source_snapshot=$2::jsonb,updated_at=now() WHERE id=$1`,
           [item.id, JSON.stringify(src)],
@@ -1693,24 +1746,29 @@ export class WmsService {
         const snapshot = typeof item.source_snapshot === 'string' ? JSON.parse(item.source_snapshot) : item.source_snapshot;
         let targetBatchNo: string | null = null;
         if (received > 0) {
+          const targetIdentity = await this.resolveTransferTargetIdentity(
+            manager,
+            transfer.to_warehouse,
+            snapshot.store_code,
+          );
           targetBatchNo = `${item.source_batch_no}-T-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
           await manager.query(
             `INSERT INTO inv_batches (batch_no,product_code,sku_code,material_code,item_type,material_type,
-              unit,qty,qty_available,status,warehouse_code,location_code,expire_date,store_code)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12)`,
+              unit,qty,qty_available,status,warehouse_code,location_code,expire_date,store_code,company_code)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12,$13)`,
             [targetBatchNo, snapshot.product_code || null, snapshot.sku_code || null, snapshot.material_code || null,
               snapshot.item_type || null, snapshot.material_type || null, snapshot.unit || null, received,
               transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',
-              snapshot.expire_date || null, snapshot.store_code || 'ALL'],
+              snapshot.expire_date || null, targetIdentity.storeCode, targetIdentity.companyCode],
           );
           await manager.query(
             `INSERT INTO inv_ledger (batch_no,change_type,qty_change,operator,store_code,ref_no,note,
-              sku_code,material_code,warehouse_code,business_type,unit)
-             VALUES ($1,$2,$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+              sku_code,material_code,warehouse_code,business_type,unit,company_code)
+             VALUES ($1,$2,$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
             [targetBatchNo, inboundPolicy.ledgerType, received, String(user?.username || 'SYS'),
-              snapshot.store_code || 'ALL', transferNo, `调拨签收 ← ${transfer.from_warehouse} 源 batch=${item.source_batch_no}`,
+              targetIdentity.storeCode, transferNo, `调拨签收 ← ${transfer.from_warehouse} 源 batch=${item.source_batch_no}`,
               snapshot.sku_code || null, snapshot.material_code || null, transfer.to_warehouse,
-              inboundPolicy.businessType, snapshot.unit || null],
+              inboundPolicy.businessType, snapshot.unit || null, targetIdentity.companyCode],
           );
         }
         await manager.query(

@@ -469,10 +469,24 @@ export class EggInventoryService {
       remaining -= canTake;
 
       // 扣减 qty_available（预留）
-      await q(
-        `UPDATE inv_batches SET qty_available = qty_available - $1, updated_at=NOW() WHERE batch_no=$2`,
-        [canTake, batch.batch_no],
+      const changed = await q(
+        `WITH changed AS (
+           UPDATE inv_batches
+              SET qty_available = qty_available - $1, updated_at=NOW()
+            WHERE batch_no=$2
+              AND company_code=$3
+              AND warehouse_code=$4
+              AND status='AVAILABLE'
+              AND qty_available >= $1
+              AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
+              AND legacy_source IS NULL
+            RETURNING batch_no
+         ) SELECT batch_no FROM changed`,
+        [canTake, batch.batch_no, params.companyCode, batch.warehouse_code],
       );
+      if (changed.length !== 1) {
+        throw new ConflictException(`批次 ${batch.batch_no} 状态、归属或可用量已变化`);
+      }
 
       // 写 inv_ledger RESERVED（Phase H4: 传递 sku_code）
       await this.writeLedger({
@@ -529,8 +543,7 @@ export class EggInventoryService {
       const qty = Number(item.qty);
       if (qty <= 0) continue;
 
-      try {
-        const allocations = await this.allocateByFIFO({
+      const allocations = await this.allocateByFIFO({
           productCode: item.product_code,
           gradeCode:   item.grade_code ?? undefined,
           companyCode,
@@ -538,23 +551,18 @@ export class EggInventoryService {
           refNo:   orderNo,
           note:    `销售订单 ${orderNo} 明细 ${item.id}`,
           skuCode: item.sku_code ?? undefined,   // Phase H5: SKU PATH A 优先
-        }, mgr);
+      }, mgr);
 
         // 记录分配的批次（取首批次作为主批次，多批次逗号分隔）
         const batchNos     = allocations.map(a => a.batchNo).join(',');
         const allocatedQty = allocations.reduce((s, a) => s + a.allocatedQty, 0);
 
-        await q(
-          `UPDATE sal_order_items
+      await q(
+        `UPDATE sal_order_items
            SET allocated_batch_no=$1, allocated_qty=$2
            WHERE id=$3`,
           [batchNos, allocatedQty, item.id],
-        );
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        this.logger.warn(`[EggInv] reserveInventory 明细 ${item.id} 库存不足（不阻断审批）: ${msg}`);
-        // 鸡蛋业务：库存预占失败不阻断订单审批，记录告警即可
-      }
+      );
     }
 
     this.logger.log(`[EggInv] 库存预占完成: order=${orderNo}`);
@@ -588,15 +596,27 @@ export class EggInventoryService {
 
         // Phase H4: 释放时查一下批次 sku_code 用于 ledger 传递
         const [batchRow] = await q(
-          `SELECT sku_code FROM inv_batches WHERE batch_no=$1`, [batchNo.trim()],
+          `SELECT sku_code,warehouse_code,status,qty,qty_available
+             FROM inv_batches
+            WHERE batch_no=$1 AND company_code=$2
+            FOR UPDATE`, [batchNo.trim(), companyCode],
         );
+        if (!batchRow) throw new ConflictException(`释放批次 ${batchNo.trim()} 不存在或公司归属不匹配`);
 
-        await q(
-          `UPDATE inv_batches
-           SET qty_available = LEAST(qty, qty_available + $1), updated_at=NOW()
-           WHERE batch_no=$2`,
-          [releaseQty, batchNo.trim()],
+        const changed = await q(
+          `WITH changed AS (
+             UPDATE inv_batches
+                SET qty_available = qty_available + $1, updated_at=NOW()
+              WHERE batch_no=$2
+                AND company_code=$3
+                AND warehouse_code=$4
+                AND status='AVAILABLE'
+                AND qty_available + $1 <= qty
+              RETURNING batch_no
+           ) SELECT batch_no FROM changed`,
+          [releaseQty, batchNo.trim(), companyCode, batchRow.warehouse_code],
         );
+        if (changed.length !== 1) throw new ConflictException(`释放批次 ${batchNo.trim()} 状态、归属或数量已变化`);
 
         await this.writeLedger({
           batchNo:     batchNo.trim(),
@@ -647,17 +667,29 @@ export class EggInventoryService {
 
         // 查当前批次信息（Phase H4: 同时取 sku_code）
         const [batch] = await q(
-          `SELECT qty, expire_date, quality_grade, sku_code FROM inv_batches WHERE batch_no=$1`,
-          [batchNo.trim()],
+          `SELECT qty,expire_date,quality_grade,sku_code,warehouse_code,status
+             FROM inv_batches
+            WHERE batch_no=$1 AND company_code=$2
+            FOR UPDATE`,
+          [batchNo.trim(), companyCode],
         );
+        if (!batch) throw new ConflictException(`出库批次 ${batchNo.trim()} 不存在或公司归属不匹配`);
 
         // 正式扣减物理库存（qty）
-        await q(
-          `UPDATE inv_batches
-           SET qty = GREATEST(0, qty - $1), updated_at=NOW()
-           WHERE batch_no=$2`,
-          [outQty, batchNo.trim()],
+        const changed = await q(
+          `WITH changed AS (
+             UPDATE inv_batches
+                SET qty = qty - $1, updated_at=NOW()
+              WHERE batch_no=$2
+                AND company_code=$3
+                AND warehouse_code=$4
+                AND status='AVAILABLE'
+                AND qty >= $1
+              RETURNING batch_no
+           ) SELECT batch_no FROM changed`,
+          [outQty, batchNo.trim(), companyCode, batch.warehouse_code],
         );
+        if (changed.length !== 1) throw new ConflictException(`出库批次 ${batchNo.trim()} 状态、归属或数量已变化`);
 
         // 写 inv_ledger FIFO_OUT（Phase H4: 传递 sku_code）
         await this.writeLedger({

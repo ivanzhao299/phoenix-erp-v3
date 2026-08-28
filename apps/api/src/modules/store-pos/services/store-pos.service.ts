@@ -1014,11 +1014,12 @@ export class StorePosService {
     const [quarantine] = await mgr.query(
       `SELECT l.warehouse_code,l.location_code,l.zone_code
          FROM wms_locations l
-         LEFT JOIN wms_zones z ON z.zone_code=l.zone_code
+         JOIN wms_zones z
+           ON z.zone_code=l.zone_code
+          AND z.warehouse_code=l.warehouse_code
         WHERE l.warehouse_code=ANY($1::varchar[]) AND l.status='ACTIVE'
-          AND (upper(COALESCE(l.zone_code,'')) LIKE '%QUARANTINE%'
-               OR upper(COALESCE(z.zone_name,'')) LIKE '%QUARANTINE%'
-               OR z.zone_name LIKE '%隔离%')
+          AND z.status='ACTIVE'
+          AND z.zone_type='QUARANTINE'
         ORDER BY array_position($1::varchar[],l.warehouse_code),l.location_code
         LIMIT 1 FOR UPDATE OF l`,
       [warehouseCodes],
