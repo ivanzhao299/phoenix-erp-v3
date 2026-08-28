@@ -31,7 +31,7 @@ jobs:
 
       - name: Encode the reviewed correction script
         shell: bash
-        run: echo "CORRECTION_SQL_B64=$(base64 -w0 scripts/ops/fix-generic-inbound-company-drift-remaining-8.sql)" >> "$GITHUB_ENV"
+        run: echo "CORRECTION_SQL_B64=$(base64 -w0 scripts/ops/fix-pos-batch-company-ibn-20260828-vw1ssc.sql)" >> "$GITHUB_ENV"
 
       - name: Atomic correction and independent readonly verification
         uses: appleboy/ssh-action@v1
@@ -146,7 +146,7 @@ jobs:
                 INTO drift_count,target_drift_count
                 FROM inv_batches b JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
                WHERE b.batch_no LIKE 'IBN-%' AND b.company_code IS DISTINCT FROM w.company_code;
-              IF fifo_count<>1 OR ledger_count<>1 OR open_sale_count<>3 OR active_binding_count<>1 OR drift_count<>0 OR target_drift_count<>0 THEN
+              IF fifo_count<>1 OR ledger_count<>1 OR open_sale_count<>3 OR active_binding_count<>1 OR drift_count<>8 OR target_drift_count<>0 THEN
                 RAISE EXCEPTION 'readonly verification failed: fifo=%, ledger=%, open_sales=%, amei_binding=%, drift=%, target_drift=%',
                   fifo_count,ledger_count,open_sale_count,active_binding_count,drift_count,target_drift_count;
               END IF;

@@ -113,6 +113,15 @@ jobs:
                WHERE sm.store_code='STORE-HS-001' AND b.purpose='RETURNS'
              ) ORDER BY l.warehouse_code,l.location_code;
 
+            SELECT 'STORE_OWNED_TRANSFER_BATCH_STORE_DRIFT' AS section,to_jsonb(b) AS batch,
+                   sm.store_code AS owner_store_code
+              FROM inv_batches b
+              JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+              JOIN store_master sm ON sm.id=w.owner_store_id
+             WHERE b.location_code='TRANSFER-IN'
+               AND b.store_code IS DISTINCT FROM sm.store_code
+             ORDER BY b.created_at,b.batch_no;
+
             SELECT 'TARGET_LEDGER' AS section, to_jsonb(l) AS record
               FROM inv_ledger l
              WHERE l.batch_no='IBN-20260828-VW1SSC'

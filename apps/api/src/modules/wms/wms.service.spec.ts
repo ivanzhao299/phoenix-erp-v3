@@ -736,6 +736,7 @@ describe('WmsService inventory read queries', () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-MAT-1' }];
+        if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-B', store_code: 'STORE-B', store_status: 'ACTIVE' }];
         if (sql.includes('FROM inv_batches WHERE batch_no = $1 FOR UPDATE')) {
           return [{
             batch_no: 'B-MAT-1',
@@ -778,7 +779,7 @@ describe('WmsService inventory read queries', () => {
 
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('qty_available = CASE'),
-      [2.5, 'B-MAT-1', 'WH-A', null],
+      [2.5, 'B-MAT-1', 'WH-A'],
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_batches'),

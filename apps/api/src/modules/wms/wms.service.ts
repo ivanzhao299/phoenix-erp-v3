@@ -1179,12 +1179,13 @@ export class WmsService {
               updated_at = now()
         WHERE batch_no = $2
           AND warehouse_code = $3
-          AND company_code IS NOT DISTINCT FROM $4
+          AND company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$3)
+          AND ($4::varchar IS NULL OR company_code=$4)
           AND COALESCE(status,'AVAILABLE') = 'AVAILABLE'
           AND COALESCE(qty_available,qty,0) >= $1::numeric
         RETURNING batch_no
        ) SELECT batch_no FROM changed`,
-      [qty, batchNo, batch.warehouse_code, batch.company_code ?? null],
+      [qty, batchNo, batch.warehouse_code, this.nonEmptyString(order.company_code)],
     );
     if (changed.length !== 1) throw new BadRequestException(`出库批次 ${batchNo} 状态、归属或数量已变化`);
     await manager.query(
@@ -1534,12 +1535,12 @@ export class WmsService {
                   updated_at = now()
             WHERE batch_no = $2
               AND warehouse_code = $3
-              AND company_code IS NOT DISTINCT FROM $4
+              AND company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$3)
               AND COALESCE(status,'AVAILABLE') = 'AVAILABLE'
               AND COALESCE(qty_available,qty,0) >= $1::numeric
             RETURNING batch_no
            ) SELECT batch_no FROM changed`,
-          [qty, it.batch_no, from_warehouse, src.company_code ?? null],
+          [qty, it.batch_no, from_warehouse],
         );
         if (changed.length !== 1) throw new BadRequestException(`源 batch ${it.batch_no} 状态、归属或数量已变化`);
         await manager.query(
@@ -1557,30 +1558,31 @@ export class WmsService {
         );
 
         // 目标 + （新建一条目标 batch，追溯链保留）
+        const targetIdentity = await this.resolveTransferTargetIdentity(manager, to_warehouse, src.store_code);
         const dstBatchNo = `${it.batch_no}-T-${Math.random().toString(36).slice(2,5).toUpperCase()}`;
         await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, warehouse_code, location_code, expire_date, store_code
+             unit, qty, qty_available, status, warehouse_code, location_code, expire_date, store_code, company_code
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13)`,
           [
             dstBatchNo, src.product_code || null, src.sku_code || null, src.material_code || null,
             src.item_type || null, src.material_type || null, src.unit || null, qty,
-            to_warehouse, 'TRANSFER-IN', src.expire_date, src.store_code || 'ALL',
+            to_warehouse, 'TRANSFER-IN', src.expire_date, targetIdentity.storeCode, targetIdentity.companyCode,
           ],
         );
         await manager.query(
           `INSERT INTO inv_ledger (
              batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-             sku_code, material_code, warehouse_code, business_type, unit
+             sku_code, material_code, warehouse_code, business_type, unit, company_code
            )
-           VALUES ($1, $7, $2::numeric, $3, $4, $5, $6, $8, $9, $10, $11, $12)`,
+           VALUES ($1, $7, $2::numeric, $3, $4, $5, $6, $8, $9, $10, $11, $12, $13)`,
           [
-            dstBatchNo, qty, opName, src.store_code || 'ALL', transferNo,
+            dstBatchNo, qty, opName, targetIdentity.storeCode, transferNo,
             `调拨入 ← ${from_warehouse} 源 batch=${it.batch_no}`, transferInPolicy.ledgerType,
             src.sku_code || null, src.material_code || null, to_warehouse,
-            transferInPolicy.businessType, src.unit || null,
+            transferInPolicy.businessType, src.unit || null, targetIdentity.companyCode,
           ],
         );
         await manager.query(
@@ -1687,12 +1689,12 @@ export class WmsService {
             updated_at=now()
            WHERE batch_no=$2
              AND warehouse_code=$3
-             AND company_code IS NOT DISTINCT FROM $4
+             AND company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$3)
              AND status='AVAILABLE'
              AND COALESCE(qty_available,qty,0) >= $1::numeric
            RETURNING batch_no
           ) SELECT batch_no FROM changed`,
-          [qty, item.source_batch_no, transfer.from_warehouse, src.company_code ?? null],
+          [qty, item.source_batch_no, transfer.from_warehouse],
         );
         if (changed.length !== 1) throw new BadRequestException(`源 batch ${item.source_batch_no} 状态、归属或数量已变化`);
         await manager.query(
