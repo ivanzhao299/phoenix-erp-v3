@@ -73,3 +73,26 @@ POS SKU FIFO 位于 `apps/api/src/modules/store-pos/services/store-pos.service.t
 - 回滚留档：`scripts/ops/rollback-pos-batch-company-ibn-20260828-vw1ssc.sql`。该脚本只用于本案补偿，执行前同样要求批次和台账各精确命中一行；本次未执行回滚。
 
 真实成交或支付不在本次授权范围内，未执行。
+
+## 后续 409“批次可用量已变化”闭环
+
+### 根因与生产取证
+
+公司修正后的只读审计 run `33142029536` 确认目标批次仍为唯一一行、`qty_available=1000.000`，公司已是 `COMP-LAO-XINGCHI`，`store_code=ALL` 未变；三笔旧单 `POS-20260828-00003/00004/00005` 仍为 OPEN/UNPAID。用户随后实际创建了新的销售明细（sale/item id 6–13），说明本次报错不是只重试旧三单。所有新旧明细的 `batch_no` 都是 NULL，且没有 allocation、预留、version 或创建时批次快照；批次数量始终为 1000，符合支付事务在 409 后完整回滚。
+
+确切抛出点是 `StorePosService.fifoDeductItems()` 的条件扣减守卫。它不含 `store_code` 条件：候选批次已按 SKU、公司、授权仓、AVAILABLE、正可用量、有效期及非 legacy 选出并 `FOR UPDATE`，再按 `batch_no + warehouse_code + qty_available >= canTake` 更新。因此 `store_code=ALL` 不是这次 409 的触发字段。
+
+真正缺陷是 TypeORM 0.3 PostgreSQL raw UPDATE 的返回契约：`EntityManager.query('UPDATE ... RETURNING')` 返回 `[[returningRows], affectedCount]`。成功更新一行时外层数组长度是 2；旧代码却用 `changed.length !== 1` 判断，因而每次成功扣减都误报“批次可用量已变化”，随后事务回滚。现金、赊销、混合支付完成以及退货状态更新的四个同类守卫也有相同误判。
+
+### 修复与回归
+
+- 五个条件 UPDATE 均改为原子 CTE：`WITH changed AS (UPDATE ... RETURNING ...) SELECT ... FROM changed`。数据库最终命令为 SELECT，TypeORM 返回纯行数组，现有 `length === 1` fail-closed 守卫语义不变。
+- 红测先用真实 PostgreSQL raw UPDATE 形态 `[[{ batch_no }], 1]` 复现成功扣减仍抛 409；修复后以 CTE 纯行结果通过。
+- 增加旧 OPEN 单专项 fixture：即使明细带修正前批次值，支付时仍只使用当前 FIFO 候选批次，不读取旧快照。
+- `store-pos-atomicity` 与 `store-pos-v1-2.contract` 合计 9 项通过；完整验证与部署 revision 记录在下方部署段落。
+
+### store_code 与同类路径结论
+
+门店 POS 当前以 `store_warehouse_bindings` 的 SALES 仓交集隔离库存，不按 `inv_batches.store_code` 过滤；因此本案无需、也不应为通过支付而修正目标批次的 `store_code=ALL`。不过 WMS 调拨签收会复制源批次 `store_code`，门店补货也没有把目标门店传入调拨；这会延续 `ALL`，属于独立的批次归属治理问题。
+
+调拨、WMS 出库、Sales V2 预占/释放/出库存在另一类风险：多处条件 UPDATE 只按 `batch_no` 且不检查影响行数。它们不会触发本次 TypeORM 长度误判（因为根本没有同款守卫），但需要后续统一补齐公司/仓/数量条件与受影响行数契约；本次未放宽或改动库存台账语义。

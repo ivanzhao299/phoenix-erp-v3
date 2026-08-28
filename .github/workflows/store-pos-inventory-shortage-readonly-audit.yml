@@ -40,6 +40,14 @@ jobs:
                     AND b.warehouse_code='ST_LAO_XINGCHI_HS_001_SALES')
              ORDER BY b.created_at, b.batch_no;
 
+            SELECT 'TARGET_BATCH_KEY_CARDINALITY' AS section,
+                   batch_no,warehouse_code,count(*) AS matching_rows,
+                   array_agg(id ORDER BY id) AS ids
+              FROM inv_batches
+             WHERE batch_no='IBN-20260828-VW1SSC'
+               AND warehouse_code='ST_LAO_XINGCHI_HS_001_SALES'
+             GROUP BY batch_no,warehouse_code;
+
             SELECT 'GENERIC_INBOUND_COMPANY_DRIFT' AS section,
                    b.batch_no,b.sku_code,b.warehouse_code,b.company_code AS batch_company,
                    w.company_code AS warehouse_company,b.status,b.qty_available,b.created_at
@@ -81,7 +89,7 @@ jobs:
              WHERE s.created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
                AND s.created_at <  TIMESTAMPTZ '2026-08-29 00:00:00+08'
                AND (s.id IN (3,4,5)
-                    OR to_jsonb(s)->>'created_by'='amei'
+                    OR s.created_by IN (SELECT user_id FROM sys_user WHERE username='amei')
                     OR to_jsonb(s)->>'operator'='amei'
                     OR to_jsonb(s)->>'username'='amei')
              ORDER BY s.created_at DESC LIMIT 100;
@@ -92,6 +100,30 @@ jobs:
                AND s.created_at <  TIMESTAMPTZ '2026-08-29 00:00:00+08'
                AND si.sku_code='CJ-EGG-8E82312ECAD7'
              ORDER BY s.created_at DESC;
+
+            SELECT 'TARGET_SALE_ALLOCATION' AS section, to_jsonb(a) AS record
+              FROM store_sale_allocations a
+              JOIN sal_store_sales s ON s.id=a.sale_id
+             WHERE s.created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
+               AND s.created_by IN (SELECT user_id FROM sys_user WHERE username='amei')
+             ORDER BY a.created_at DESC,a.id DESC;
+            SELECT 'TARGET_CASH_TRANSACTION' AS section, to_jsonb(t) AS record
+              FROM fin_cash_transactions t
+             WHERE t.source_type='STORE_SALE'
+               AND t.source_no IN (
+                 SELECT sale_no FROM sal_store_sales
+                  WHERE created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
+                    AND created_by IN (SELECT user_id FROM sys_user WHERE username='amei')
+               )
+             ORDER BY t.created_at DESC,t.id DESC;
+            SELECT 'TARGET_PAYMENT_RECORD' AS section, to_jsonb(p) AS record
+              FROM store_payment_records p
+             WHERE p.sale_no IN (
+                 SELECT sale_no FROM sal_store_sales
+                  WHERE created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
+                    AND created_by IN (SELECT user_id FROM sys_user WHERE username='amei')
+               )
+             ORDER BY p.created_at DESC,p.id DESC;
 
             SELECT 'AMEI_USER_SCOPE' AS section,
                    jsonb_build_object('user_id',u.user_id,'username',u.username,'real_name',u.real_name,
@@ -118,12 +150,13 @@ jobs:
               FROM sys_error_logs e
              WHERE e.created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
                AND (e.error_message ILIKE '%库存不足%'
+                    OR e.error_message ILIKE '%批次%可用量已变化%'
                     OR to_jsonb(e)::text ILIKE '%CJ-EGG-8E82312ECAD7%')
              ORDER BY e.created_at DESC LIMIT 200;
             COMMIT;
             SQL
             echo 'POS_SHORTAGE_CONTAINER_LOGS_BEGIN'
             docker logs --since 36h phoenix-v3-api 2>&1 \
-              | grep -E '库存不足|CJ-EGG-8E82312ECAD7|IBN-20260828-VW1SSC|amei' \
+              | grep -E '库存不足|可用量已变化|CJ-EGG-8E82312ECAD7|IBN-20260828-VW1SSC|amei' \
               | tail -n 400 || true
             echo 'POS_SHORTAGE_CONTAINER_LOGS_END'
