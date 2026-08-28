@@ -103,3 +103,75 @@ POS SKU FIFO 位于 `apps/api/src/modules/store-pos/services/store-pos.service.t
 - 手动 `full` 生产部署 run `33142591770` 成功；API/Web 镜像均重新构建，迁移、容器健康检查和 Web smoke 全部通过。
 - 部署后只读复核 run `33143220504`：生产 checkout、API image revision、Web image revision 三者均为 `be14a770d89acf43a43c96fd874eaf9734bb66c1`。
 - amei 语义只读复核保持不变：`POS-20260828-00003` 至 `00013` 均为 OPEN/UNPAID，目标批次仍唯一、AVAILABLE、`qty_available=1000.000`；未代用户执行真实支付，未产生 allocation/现金流水/payment record，也未做任何额外生产数据修正。
+
+## 门店退货 409 与近期库存技术债闭环（2026-08-28）
+
+### 退货 409 根因
+
+精确抛出点为 `StorePosService.reverseInventory()`。旧查询没有读取规范字段
+`wms_zones.zone_type`，而是要求 `zone_code/zone_name` 文本包含 `QUARANTINE` 或“隔离”。
+生产只读取证 run `33148506142` 证明会晒数据完整且合规：RETURNS 绑定仓
+`ST_LAO_XINGCHI_HS_001_SALES` ACTIVE；区 `ZN_XINGCHI_HS001_RETURNS` 为
+`zone_type=QUARANTINE/status=ACTIVE`；位 `ZN_XINGCHI_HS001_RETURNS_NORMAL`
+为 ACTIVE。因为编码只有 `RETURNS`、中文名为“退货区”，旧字符串猜测必然返回空。
+
+修复改为 `location.warehouse_code + zone.warehouse_code + zone_code` 精确关联，并严格要求
+location、zone 都为 ACTIVE、`zone_type='QUARANTINE'`。同类检索确认 POS 整单退货是唯一显式
+查找 QUARANTINE 区位的消费路径；Sales V2 退货使用独立 `RETURNED` 语义，本轮不改台账状态语义。
+契约测试同时禁止退回到名称/编码 LIKE 猜测。
+
+用户真实成交单已出现：独立只读 run `33148846524` 记录
+`POS-20260828-00014` 为 COMPLETED/PAID，allocation `id=1` 从
+`IBN-20260828-VW1SSC` 分配 2，目标批次 `qty_available=998`。该单正是本次 409 的真实 fixture；
+修复部署前未再次代用户触发退货，避免产生额外退款和库存副作用。
+
+### 其余 8 条公司漂移修正
+
+执行脚本 `scripts/ops/fix-generic-inbound-company-drift-remaining-8.sql`，补偿脚本
+`scripts/ops/rollback-generic-inbound-company-drift-remaining-8.sql`。每个批次使用独立
+`BEGIN/COMMIT`，前置锁定批次 ID、编码、SKU/物料、仓、公司、状态、数量及完整关联台账集合；
+批次和台账分别 `UPDATE ... RETURNING`，随后逐条后置断言数量/状态不变、公司与仓公司一致。
+后续单条失败会停止 psql，但不会回滚前面已提交批次。
+
+| 批次 | 仓公司 | 修正台账 ID | 数量末态 |
+|---|---|---:|---:|
+| `IBN-20260713-KVN57H` | `COMP-LAO-AGRI` | 36 | 1 |
+| `IBN-20260715-PYVE48` | `COMP-LAO-AGRI` | 39 | 99 |
+| `IBN-20260716-RV0SUA` | `COMP-LAO-AGRI` | 45 | 10 |
+| `IBN-20260724-HY1Y6S` | `COMP-LAO-AGRI` | 77, 80 | 99 |
+| `IBN-20260826-8WUHPK` | `COMP-LAO-XINGCHI` | 172, 176, 177 | 7.999 |
+| `IBN-20260827-P6XOFM` | `COMP-LAO-AGRI` | 174, 178, 180（175 原已正确） | 6 |
+| `IBN-20260827-P6XOFM-T-1LR` | `COMP-LAO-AGRI` | 179 | 2 |
+| `IBN-20260827-P6XOFM-T-CR8` | `COMP-LAO-AGRI` | 181, 182 | 1 |
+
+生产执行 run `33148794402` 中 8 个独立事务及最终 `GENERIC_INBOUND_COMPANY_DRIFT=0`
+断言全部通过。job 最终标红是复用了旧单批 workflow 的历史验收条件，仍要求目标 POS 批次
+`qty_available=1000`；真实成交已经把它变成 998，故旧验收 `fifo_count=0`。这发生在 8 个事务
+全部提交且 drift=0 之后。独立只读 run `33148846524` 和 `33148944720` 再次确认漂移清单为 0，
+8 个批次均 AVAILABLE、正可用量且公司与仓公司一致，可被各自同公司消费链看见。
+
+### 调拨签收 store_code 与公司归属
+
+生命周期调拨原来把 `source_snapshot.store_code` 原样复制到目标批次，门店补货进入目标门店仓时
+会延续 `ALL`。现在签收按目标仓权威解析
+`wms_warehouses.owner_store_id -> store_master.store_code`：门店自有仓覆盖为 owner store；
+非门店仓保留源 `store_code`，源值为空才维持历史 `ALL` 兜底。同时目标批次和 TRANSFER_IN
+台账显式写目标仓 `company_code`。一阶段 `confirmTransfer()` 的目标入库也使用同一解析，封堵
+历史两条调拨派生公司漂移的原入口。
+
+只读 run `33148944720` 的 `STORE_OWNED_TRANSFER_BATCH_STORE_DRIFT` 返回 0 行，当前没有
+`location_code='TRANSFER-IN'` 且 `store_code` 不等于 owner store 的历史门店签收批次，因此无需、
+也未执行历史 `store_code` 数据修正。
+
+### 条件 UPDATE 行数契约
+
+WMS 通用出库、一阶段调拨、生命周期调拨发运，以及 Sales V2 预占/释放/正式出库均改为
+`WITH changed AS (UPDATE ... RETURNING batch_no) SELECT batch_no FROM changed`，严格要求一行。
+守卫覆盖批次、权威公司、仓、AVAILABLE 状态和数量；Sales V2 预占继续检查未过期和非 legacy。
+正式出库移除 `GREATEST(0, ...)` 静默截断，0 行命中抛明确冲突并由事务回滚。Sales V2 预占
+不再吞掉库存冲突后继续审批，保持 fail-closed。
+
+### 本轮边界
+
+未建设 Playwright 真实凭据 fixture；未处理 VTE 场站归置、32 幽灵批次、东鹏老挝语名等
+待业务决策项。退货仍写 QUARANTINE 批次和 SALE_RETURN 台账，库存台账语义未放宽或改写。
