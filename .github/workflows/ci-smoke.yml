@@ -159,6 +159,17 @@ jobs:
             unset TOKEN_RAW
             test -n "$TOKEN"
 
+            PAGE_HTML="$(curl -fsS --cookie "phoenix_access_token=$TOKEN" 'https://erp.eggslao.com/store/replenish')"
+            printf '%s' "$PAGE_HTML" | grep -Fq '门店补货编排'
+            printf '%s' "$PAGE_HTML" | grep -Fq 'max-width:1680px'
+            echo "REPLENISH_PAGE_SHELL_ASSERTION=PASS status=200 title=true page_shell_fingerprint=max-width:1680px"
+
+            for COPY in '门店补货编排' 'Store replenishment orchestration' 'ການຈັດການເຕີມສິນຄ້າຮ້ານ'; do
+              docker compose exec -T -e EXPECTED_COPY="$COPY" web sh -c \
+                'grep -R -Fq "$EXPECTED_COPY" /app/apps/web/.next/server /app/apps/web/.next/static'
+            done
+            echo "REPLENISH_I18N_BUNDLE_ASSERTION=PASS locales=zh,en,lo"
+
             docker compose exec -T api node - <<'NODE'
             const { NestFactory } = require('@nestjs/core');
             const { AppModule } = require('./dist/app.module');

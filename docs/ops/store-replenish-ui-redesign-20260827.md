@@ -497,3 +497,35 @@ cd apps/web && npx playwright test e2e/store-replenishment.spec.ts
 5. `approve()` 当前未先经 `assertVisibleRequest()`，只检查所选源仓 DataScope；是否在 UI 重设计实施前作为后端授权缺陷单独修复。
 
 主 agent 审核通过后，下一轮才进入代码实施。
+
+## 11. 实施与交付记录
+
+### 11.1 代码与评审
+
+- 设计提交：`345f9811`、`66925594`；实施提交：`fdcc1122`。
+- PR：[#127](https://github.com/ivanzhao299/phoenix-erp-v3/pull/127)，2026-08-28 合入；merge revision：`11ea8ba7ad36fde5b59cf65ae06de2d0e8c4c31c`。
+- PR 最新一轮门禁全部通过：CI/CD Type-check & Regression、AI Delivery Build、V3 Regression、Web Vitest、Runtime Smoke、Static Security And Freeze Gates。冻结应用路径经 `reviewed-frozen-boundary` 显式复核；本地 `ALLOW_FREEZE_TOUCH=true` 的 W5 closeout 20/20 通过。
+
+### 11.2 本地验证
+
+- Web Vitest：87 files / 464 tests，通过；新增补货纯函数与源码契约共 8 项断言。
+- API Jest：72 suites / 630 tests，通过。
+- Web/API `tsc --noEmit`：均 0 error。
+- i18n：三语各 14,195 键平齐，7,749 个代码引用全部命中；hardcoded-literals `uncovered=0`、`locale_quality=0`。
+- nullable-in-unique、constraint drift、diff check 与页面主数据裸输入审计通过。
+- Playwright 命令已真实执行，但当前仓库、本机环境及 Actions secrets 均未提供 `REPLENISH_E2E_FIXTURE`、店长/WMS 两组凭据，spec 在配置前置处 fail-fast；不将此项记为通过。替代门禁为已进入 CI 的 Vitest 契约/纯函数测试，加部署后的 amei 真实只读 acceptance。完整写链路 E2E 仍待受保护 fixture 基建落地。
+
+### 11.3 部署与迁移
+
+- `workflow_dispatch` full 部署 run：[`33134878236`](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33134878236)，`approve_production=true`，成功。
+- 部署 revision：`11ea8ba7ad36fde5b59cf65ae06de2d0e8c4c31c`。API/Web 镜像均以该 OCI revision 构建；部署后专项验收再次确认 checkout/API/Web 三方一致。
+- full 部署在迁移前生成并校验备份 `phoenix_erp_pre_11ea8ba7ad36.dump`；裸 SQL 迁移完成；TypeORM 返回 `No migrations are pending`；Web smoke 通过。
+- CI 测试库确认 `CreateStoreReplenishmentOrchestration1788134400000` 可成功执行；生产无待执行迁移，未重复写入历史迁移。
+
+### 11.4 生产只读复验
+
+- amei 专项 run：[`33135623725`](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33135623725)，成功，`PRODUCTION_BUSINESS_WRITES=0`。
+- selector 数据源：contexts 恰好 1 行 `STORE-HS-001`，`roles=CASHIER,STORE_MANAGER`，销售仓与 WarehouseScope 交集均为 true；amei WarehouseScope 8 仓。
+- 补货 API：列表 GET 200、会晒门店源仓 GET 200、`MENU_STORE_REPLENISH:V,C,E`；无权限 cashier GET 403。
+- 错误窗口：Store POS/补货相关 30 分钟窗口 0 条。
+- 三语与页面骨架：源码契约确认页面所有引用键三语齐全、无翻译语言包中文回退；专项 smoke 增补生产 Web bundle 的 zh/en/lo 标题存在性，以及 cookie 鉴权 HTML 的标题与 `PageShell` `max-width:1680px` 指纹断言。
