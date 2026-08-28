@@ -1,0 +1,156 @@
+name: Fix POS Batch Company IBN-20260828-VW1SSC
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type FIX_IBN_20260828_VW1SSC_COMPANY"
+        required: true
+        type: string
+      approve_production:
+        description: "Approve exactly one batch row and its one inbound ledger row"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fix-pos-batch-company-ibn-20260828-vw1ssc-production
+  cancel-in-progress: false
+
+jobs:
+  fix-and-verify:
+    if: ${{ inputs.approve_production == true && inputs.confirmation == 'FIX_IBN_20260828_VW1SSC_COMPANY' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Encode the reviewed correction script
+        shell: bash
+        run: echo "CORRECTION_SQL_B64=$(base64 -w0 scripts/ops/fix-pos-batch-company-ibn-20260828-vw1ssc.sql)" >> "$GITHUB_ENV"
+
+      - name: Atomic correction and independent readonly verification
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,CORRECTION_SQL_B64
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "PRODUCTION_CHECKOUT=$(git rev-parse HEAD)"
+
+            printf '%s' "$CORRECTION_SQL_B64" | base64 -d | docker compose exec -T db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off'
+
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'READ_ONLY' AS section, current_setting('transaction_read_only') AS value;
+
+            SELECT 'POS_FIFO_CONDITIONS' AS section,
+                   b.batch_no,
+                   b.sku_code='CJ-EGG-8E82312ECAD7' AS sku_match,
+                   b.company_code='COMP-LAO-XINGCHI' AS company_match,
+                   b.warehouse_code='ST_LAO_XINGCHI_HS_001_SALES' AS warehouse_match,
+                   b.status='AVAILABLE' AS status_available,
+                   b.qty_available>0 AS positive_available,
+                   (b.expire_date IS NULL OR b.expire_date>=CURRENT_DATE) AS not_expired,
+                   b.legacy_source IS NULL AS not_legacy,
+                   b.qty_available,
+                   b.status,
+                   b.company_code,
+                   b.warehouse_code
+              FROM inv_batches b
+             WHERE b.batch_no='IBN-20260828-VW1SSC';
+
+            SELECT 'TARGET_LEDGER_AFTER' AS section,
+                   batch_no,ref_no,company_code,change_type,business_type,qty_change
+              FROM inv_ledger
+             WHERE batch_no='IBN-20260828-VW1SSC'
+               AND ref_no='INB-20260828-9JPE';
+
+            SELECT 'AMEI_SCOPE_AND_BINDING' AS section,
+                   u.username,u.status,u.store_code,b.warehouse_code,b.purpose,b.status AS binding_status,
+                   b.effective_from,b.effective_to,
+                   w.company_code AS warehouse_company,w.status AS warehouse_status
+              FROM sys_user u
+              JOIN store_master sm ON sm.store_code=u.store_code
+              JOIN store_warehouse_bindings b ON b.store_id=sm.id AND b.warehouse_code='ST_LAO_XINGCHI_HS_001_SALES'
+              JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+             WHERE u.username='amei';
+
+            SELECT 'OPEN_SALES' AS section,to_jsonb(s) AS record
+              FROM sal_store_sales s
+             WHERE to_jsonb(s)->>'sale_no' IN ('POS-20260828-00003','POS-20260828-00004','POS-20260828-00005')
+             ORDER BY to_jsonb(s)->>'sale_no';
+
+            SELECT 'GENERIC_INBOUND_COMPANY_DRIFT' AS section,
+                   b.batch_no,b.sku_code,b.warehouse_code,b.company_code AS batch_company,
+                   w.company_code AS warehouse_company,b.status,b.qty_available,b.created_at
+              FROM inv_batches b
+              JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+             WHERE b.batch_no LIKE 'IBN-%'
+               AND b.company_code IS DISTINCT FROM w.company_code
+             ORDER BY b.created_at,b.batch_no;
+
+            DO $assert$
+            DECLARE
+              fifo_count integer;
+              ledger_count integer;
+              open_sale_count integer;
+              active_binding_count integer;
+              drift_count integer;
+              target_drift_count integer;
+            BEGIN
+              SELECT count(*) INTO fifo_count
+                FROM inv_batches b
+               WHERE b.batch_no='IBN-20260828-VW1SSC'
+                 AND b.sku_code='CJ-EGG-8E82312ECAD7'
+                 AND b.company_code='COMP-LAO-XINGCHI'
+                 AND b.warehouse_code='ST_LAO_XINGCHI_HS_001_SALES'
+                 AND b.status='AVAILABLE' AND b.qty_available=1000.000
+                 AND (b.expire_date IS NULL OR b.expire_date>=CURRENT_DATE)
+                 AND b.legacy_source IS NULL;
+              SELECT count(*) INTO ledger_count FROM inv_ledger
+               WHERE batch_no='IBN-20260828-VW1SSC' AND ref_no='INB-20260828-9JPE'
+                 AND company_code='COMP-LAO-XINGCHI' AND qty_change=1000.000;
+              SELECT count(*) INTO open_sale_count FROM sal_store_sales s
+               WHERE to_jsonb(s)->>'sale_no' IN ('POS-20260828-00003','POS-20260828-00004','POS-20260828-00005')
+                 AND to_jsonb(s)->>'status'='OPEN'
+                 AND to_jsonb(s)->>'payment_status'='UNPAID';
+              SELECT count(*) INTO active_binding_count
+                FROM sys_user u
+                JOIN store_master sm ON sm.store_code=u.store_code
+                JOIN store_warehouse_bindings b ON b.store_id=sm.id
+                JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+               WHERE u.username='amei' AND u.status=1
+                 AND b.warehouse_code='ST_LAO_XINGCHI_HS_001_SALES'
+                 AND b.purpose='SALES' AND b.status='ACTIVE'
+                 AND (b.effective_from IS NULL OR b.effective_from<=NOW())
+                 AND (b.effective_to IS NULL OR b.effective_to>=NOW())
+                 AND w.status='ACTIVE' AND w.domain='OPERATIONAL';
+              SELECT count(*),count(*) FILTER (WHERE b.batch_no='IBN-20260828-VW1SSC')
+                INTO drift_count,target_drift_count
+                FROM inv_batches b JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+               WHERE b.batch_no LIKE 'IBN-%' AND b.company_code IS DISTINCT FROM w.company_code;
+              IF fifo_count<>1 OR ledger_count<>1 OR open_sale_count<>3 OR active_binding_count<>1 OR drift_count<>8 OR target_drift_count<>0 THEN
+                RAISE EXCEPTION 'readonly verification failed: fifo=%, ledger=%, open_sales=%, amei_binding=%, drift=%, target_drift=%',
+                  fifo_count,ledger_count,open_sale_count,active_binding_count,drift_count,target_drift_count;
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
