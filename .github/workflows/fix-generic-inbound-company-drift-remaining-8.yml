@@ -1,0 +1,87 @@
+name: Fix Generic Inbound Company Drift Remaining 8
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type FIX_GENERIC_INBOUND_COMPANY_DRIFT_REMAINING_8"
+        required: true
+        type: string
+      approve_production:
+        description: "Approve exactly 8 batch company corrections and their reviewed ledger rows"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fix-generic-inbound-company-drift-remaining-8-production
+  cancel-in-progress: false
+
+jobs:
+  fix-and-verify:
+    if: ${{ inputs.approve_production == true && inputs.confirmation == 'FIX_GENERIC_INBOUND_COMPANY_DRIFT_REMAINING_8' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Encode the reviewed correction script
+        shell: bash
+        run: echo "CORRECTION_SQL_B64=$(base64 -w0 scripts/ops/fix-generic-inbound-company-drift-remaining-8.sql)" >> "$GITHUB_ENV"
+
+      - name: Correct eight batches and verify independently
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,CORRECTION_SQL_B64
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "PRODUCTION_CHECKOUT=$(git rev-parse HEAD)"
+            printf '%s' "$CORRECTION_SQL_B64" | base64 -d | docker compose exec -T db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off'
+
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'READ_ONLY' AS section,current_setting('transaction_read_only') AS value;
+            SELECT 'CORRECTED_BATCH' AS section,b.batch_no,b.sku_code,b.material_code,b.warehouse_code,
+                   b.company_code,w.company_code AS warehouse_company,b.status,b.qty,b.qty_available,
+                   (b.company_code=w.company_code AND b.status='AVAILABLE' AND b.qty_available>0) AS consumption_visible
+              FROM inv_batches b JOIN wms_warehouses w USING (warehouse_code)
+             WHERE b.id IN (2847,2848,2850,2860,2888,2889,2890,2891)
+             ORDER BY b.id;
+            SELECT 'CORRECTED_LEDGER' AS section,id,batch_no,ref_no,company_code,change_type,qty_change
+              FROM inv_ledger WHERE id IN (36,39,45,77,80,172,174,175,176,177,178,179,180,181,182)
+             ORDER BY id;
+            SELECT 'GENERIC_INBOUND_COMPANY_DRIFT_AFTER' AS section,b.batch_no
+              FROM inv_batches b JOIN wms_warehouses w USING (warehouse_code)
+             WHERE b.batch_no LIKE 'IBN-%' AND b.company_code IS DISTINCT FROM w.company_code;
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM inv_batches b JOIN wms_warehouses w USING (warehouse_code)
+                  WHERE b.id IN (2847,2848,2850,2860,2888,2889,2890,2891)
+                    AND b.company_code=w.company_code AND b.status='AVAILABLE' AND b.qty_available>0) <> 8 THEN
+                RAISE EXCEPTION 'corrected batch visibility assertion failed';
+              END IF;
+              IF EXISTS (SELECT 1 FROM inv_batches b JOIN wms_warehouses w USING (warehouse_code)
+                         WHERE b.batch_no LIKE 'IBN-%' AND b.company_code IS DISTINCT FROM w.company_code) THEN
+                RAISE EXCEPTION 'GENERIC_INBOUND_COMPANY_DRIFT remains';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
