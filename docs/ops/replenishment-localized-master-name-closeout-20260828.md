@@ -56,3 +56,12 @@
 - amei 只读 run `33156168695` 已证明补货页面 HTTP 200、zh/en/lo bundle 齐全、membership 与 WarehouseScope 正常；在补货列表 GET 处失败。
 - 根因：列表是 `json_agg` 聚合查询，首次增强把仓库名称列直接加入 SELECT，仅按 `warehouse_code` GROUP BY；该列不是表主键，生产 PostgreSQL 不接受该函数依赖。
 - 修正：名称列使用 `MAX(...)` 聚合，GROUP BY 恢复申请与门店键。名称 join 为一对一，聚合不改变业务结果。
+
+## 最终生产闭环
+
+- 修正版 PR `#132` 全绿合并，full 部署 run `33156731149` 成功。
+- 最终 revision：checkout/API/Web 均为 `e5abdeb86374c33066da0a611ca1ba0bc6b91f6b`。
+- amei 只读 run `33157612572`：补货页面 200；三语 bundle PASS；补货列表 GET 200；源仓 GET 200；无权限账号 403。
+- WarehouseScope、membership、补货创建权限与 RBAC 只读断言均 PASS。
+- `sys_error_logs` Store POS 30 分钟错误窗口为 0。
+- workflow 明确输出 `PRODUCTION_BUSINESS_WRITES=0`。
