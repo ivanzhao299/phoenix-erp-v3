@@ -389,14 +389,16 @@ export class StorePosService {
 
       // C. 更新销售单（FIFO 写回 batch_no）
       const updated = await mgr.query(
-        `UPDATE sal_store_sales
+        `WITH changed AS (
+         UPDATE sal_store_sales
          SET status = 'COMPLETED', payment_status = 'PAID',
              paid_amount = $2, receivable_amount = 0,
              cash_account_id = $3,
              completed_at = NOW(), idempotency_key=$4, warehouse_code=$5,
              shift_closing_id=$6
          WHERE id = $1 AND status='OPEN'
-         RETURNING id`,
+         RETURNING id
+         ) SELECT id FROM changed`,
         [id, paidAmount, dto.cashAccountId, dto.idempotencyKey, sale.warehouseCodes[0], sale.shift_id],
       );
       if (updated.length !== 1) throw new ConflictException('销售单状态已变化，请刷新后重试');
@@ -434,12 +436,14 @@ export class StorePosService {
 
       // C. 更新销售单
       const updated = await mgr.query(
-        `UPDATE sal_store_sales
+        `WITH changed AS (
+         UPDATE sal_store_sales
          SET status = 'COMPLETED', payment_status = 'UNPAID',
              paid_amount = 0, receivable_amount = $2,
              ar_invoice_id = $3, completed_at = NOW(), idempotency_key=$4,
              warehouse_code=$5, shift_closing_id=$6
-         WHERE id = $1 AND status='OPEN' RETURNING id`,
+         WHERE id = $1 AND status='OPEN' RETURNING id
+         ) SELECT id FROM changed`,
         [id, sale.total_amount, arId, dto.idempotencyKey, sale.warehouseCodes[0], sale.shift_id],
       );
       if (updated.length !== 1) throw new ConflictException('销售单状态已变化，请刷新后重试');
@@ -491,13 +495,15 @@ export class StorePosService {
 
       // D. 更新销售单
       const updated = await mgr.query(
-        `UPDATE sal_store_sales
+        `WITH changed AS (
+         UPDATE sal_store_sales
          SET status = 'COMPLETED', payment_status = 'PARTIAL',
              paid_amount = $2, receivable_amount = $3,
              cash_account_id = $4, ar_invoice_id = $5,
              completed_at = NOW(), idempotency_key=$6, warehouse_code=$7,
              shift_closing_id=$8
-         WHERE id = $1 AND status='OPEN' RETURNING id`,
+         WHERE id = $1 AND status='OPEN' RETURNING id
+         ) SELECT id FROM changed`,
         [id, paid, receivable, dto.cashAccountId, arId, dto.idempotencyKey, sale.warehouseCodes[0], sale.shift_id],
       );
       if (updated.length !== 1) throw new ConflictException('销售单状态已变化，请刷新后重试');
@@ -624,9 +630,11 @@ export class StorePosService {
       }
 
       const updated = await mgr.query(
-        `UPDATE sal_store_sales
+        `WITH changed AS (
+         UPDATE sal_store_sales
          SET status = 'RETURNED', returned_at = NOW(), return_reason = $2
-         WHERE id = $1 AND status='COMPLETED' RETURNING id`,
+         WHERE id = $1 AND status='COMPLETED' RETURNING id
+         ) SELECT id FROM changed`,
         [id, rsn],
       );
       if (updated.length !== 1) throw new ConflictException('销售单状态已变化，退货已回滚');
@@ -828,9 +836,14 @@ export class StorePosService {
           if (remaining <= 0) break;
           const canTake = Math.min(remaining, Number(batch.qty_available));
           remaining -= canTake;
+          // TypeORM/Postgres 的裸 UPDATE 返回 [[rows], rowCount]；包成 SELECT CTE 后
+          // 返回稳定的纯行数组，下面的精确一行守卫才能保持 fail-closed。
           const changed = await mgr.query(
-            `UPDATE inv_batches SET qty_available = qty_available - $1, updated_at=NOW()
-              WHERE batch_no=$2 AND warehouse_code=$3 AND qty_available >= $1 RETURNING batch_no`,
+            `WITH changed AS (
+               UPDATE inv_batches SET qty_available = qty_available - $1, updated_at=NOW()
+                WHERE batch_no=$2 AND warehouse_code=$3 AND qty_available >= $1
+                RETURNING batch_no
+             ) SELECT batch_no FROM changed`,
             [canTake, batch.batch_no, batch.warehouse_code],
           );
           if (changed.length !== 1) throw new ConflictException(`批次 ${batch.batch_no} 可用量已变化`);

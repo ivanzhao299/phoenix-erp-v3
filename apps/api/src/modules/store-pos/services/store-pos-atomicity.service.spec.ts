@@ -44,6 +44,40 @@ describe('StorePosService V1-2 atomic settlement', () => {
     expect(mgr.query.mock.calls.filter(([sql]) => sql.includes('INSERT INTO store_sale_allocations'))).toHaveLength(2);
   });
 
+  it('normalizes the PostgreSQL UPDATE result through a SELECT CTE before checking one changed row', async () => {
+    const mgr = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM inv_batches')) return [
+        { batch_no: 'B1', warehouse_code: 'WH-A', qty_available: 3 },
+      ];
+      if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B1' }];
+      if (sql.includes('UPDATE inv_batches')) return [[{ batch_no: 'B1' }], 1];
+      return [];
+    }) };
+
+    await expect((subject() as any).fifoDeductItems(sale, mgr)).resolves.toEqual([
+      { itemId: 71, batchNo: 'B1', warehouseCode: 'WH-A', qty: 3 },
+    ]);
+    expect(mgr.query.mock.calls.some(([sql]) => sql.includes('WITH changed AS ('))).toBe(true);
+  });
+
+  it('settles a pre-fix OPEN sale from current FIFO inventory instead of a stale item batch value', async () => {
+    const oldOpenSale = {
+      ...sale,
+      items: [{ ...sale.items[0], batch_no: 'PRE-FIX-BATCH' }],
+    };
+    const mgr = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM inv_batches')) return [
+        { batch_no: 'CURRENT-BATCH', warehouse_code: 'WH-A', qty_available: 3 },
+      ];
+      if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'CURRENT-BATCH' }];
+      return [];
+    }) };
+
+    await expect((subject() as any).fifoDeductItems(oldOpenSale, mgr)).resolves.toEqual([
+      { itemId: 71, batchNo: 'CURRENT-BATCH', warehouseCode: 'WH-A', qty: 3 },
+    ]);
+  });
+
   it('returns the existing result for the same payment idempotency key', async () => {
     const mgr = { query: jest.fn()
       .mockResolvedValueOnce([])

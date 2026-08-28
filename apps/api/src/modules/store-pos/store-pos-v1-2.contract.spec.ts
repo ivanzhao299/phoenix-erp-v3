@@ -17,4 +17,10 @@ describe('Store POS V1-2 database contract', () => {
     expect(service).not.toContain('FIFO deduct warn');
     expect(service).not.toContain('允许继续');
   });
+
+  it('checks guarded UPDATE row counts through SELECT CTE results, not TypeORM raw UPDATE tuples', () => {
+    expect(service.match(/WITH changed AS \(/g)).toHaveLength(5);
+    expect(service).toContain(') SELECT batch_no FROM changed');
+    expect(service.match(/\) SELECT id FROM changed/g)).toHaveLength(4);
+  });
 });
