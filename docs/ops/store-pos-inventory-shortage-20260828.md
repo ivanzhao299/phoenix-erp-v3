@@ -78,7 +78,7 @@ POS SKU FIFO 位于 `apps/api/src/modules/store-pos/services/store-pos.service.t
 
 ### 根因与生产取证
 
-公司修正后的只读审计 run `33142029536` 确认目标批次仍为唯一一行、`qty_available=1000.000`，公司已是 `COMP-LAO-XINGCHI`，`store_code=ALL` 未变；三笔旧单 `POS-20260828-00003/00004/00005` 仍为 OPEN/UNPAID。用户随后实际创建了新的销售明细（sale/item id 6–13），说明本次报错不是只重试旧三单。所有新旧明细的 `batch_no` 都是 NULL，且没有 allocation、预留、version 或创建时批次快照；批次数量始终为 1000，符合支付事务在 409 后完整回滚。
+公司修正后的只读审计 run `33142029536` 及扩展复核 run `33142232826` 确认目标批次键 `(IBN-20260828-VW1SSC, ST_LAO_XINGCHI_HS_001_SALES)` 恰好一行（id 2893）、`qty_available=1000.000`，公司已是 `COMP-LAO-XINGCHI`，`store_code=ALL` 未变；三笔旧单 `POS-20260828-00003/00004/00005` 仍为 OPEN/UNPAID。用户随后新建了 `POS-20260828-00006` 至 `00013` 八张 OPEN/UNPAID 单，说明本次报错不是只重试旧三单。所有新旧明细的 `batch_no` 都是 NULL，allocation、现金流水、门店 payment record 均为 0 行；schema 也没有预留、version 或创建时批次快照字段。批次数量始终为 1000，符合支付事务在 409 后完整回滚。
 
 确切抛出点是 `StorePosService.fifoDeductItems()` 的条件扣减守卫。它不含 `store_code` 条件：候选批次已按 SKU、公司、授权仓、AVAILABLE、正可用量、有效期及非 legacy 选出并 `FOR UPDATE`，再按 `batch_no + warehouse_code + qty_available >= canTake` 更新。因此 `store_code=ALL` 不是这次 409 的触发字段。
 
