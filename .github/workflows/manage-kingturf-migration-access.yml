@@ -1,0 +1,76 @@
+name: Manage KingTurf Migration Access
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Install or remove the dedicated KingTurf migration key
+        required: true
+        type: choice
+        options: [install, remove]
+      public_key:
+        description: Dedicated SSH ed25519 public key
+        required: true
+        type: string
+      approve_production:
+        description: Confirm the production access change
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phoenix-production-access-management
+  cancel-in-progress: false
+
+jobs:
+  manage:
+    if: inputs.approve_production == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Manage dedicated KingTurf deployment key
+        uses: appleboy/ssh-action@v1
+        env:
+          ACCESS_ACTION: ${{ inputs.action }}
+          PUBLIC_KEY: ${{ inputs.public_key }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: ACCESS_ACTION,PUBLIC_KEY
+          script: |
+            set -Eeuo pipefail
+            case "$PUBLIC_KEY" in
+              ssh-ed25519*kingturf-singapore-production*) ;;
+              *) echo "::error::Unexpected migration public key format or marker"; exit 20 ;;
+            esac
+            install -d -m 700 "$HOME/.ssh"
+            touch "$HOME/.ssh/authorized_keys"
+            chmod 600 "$HOME/.ssh/authorized_keys"
+            temporary_file="$(mktemp)"
+            grep -v 'kingturf-singapore-production' "$HOME/.ssh/authorized_keys" > "$temporary_file" || true
+            if [ "$ACCESS_ACTION" = install ]; then
+              printf '%s\n' "$PUBLIC_KEY" >> "$temporary_file"
+            elif [ "$ACCESS_ACTION" != remove ]; then
+              echo "::error::Unsupported access action"
+              rm -f "$temporary_file"
+              exit 21
+            fi
+            cat "$temporary_file" > "$HOME/.ssh/authorized_keys"
+            rm -f "$temporary_file"
+            if [ "$ACCESS_ACTION" = install ]; then
+              grep -q 'kingturf-singapore-production' "$HOME/.ssh/authorized_keys"
+              echo "Dedicated KingTurf migration key installed"
+            else
+              ! grep -q 'kingturf-singapore-production' "$HOME/.ssh/authorized_keys"
+              echo "Dedicated KingTurf migration key removed"
+            fi
