@@ -52,13 +52,13 @@ $PSQL $DB -q -c "DELETE FROM wms_transfer WHERE transfer_no LIKE 'WT-REGR-%' OR 
 $PSQL $DB -q -c "DELETE FROM wms_stocktake WHERE stocktake_no LIKE 'REGR-%' OR stocktake_no LIKE 'DC-%REGR%';" >/dev/null
 
 # Seed: 仓库。PURCHASE 回归必须使用采购允许的 usage，避免测试夹具绕过生产规则。
-$PSQL $DB -q -c "INSERT INTO wms_warehouses (warehouse_code, warehouse_name_zh, type, domain, status) VALUES ('$WH_A','回归测试仓A','PURCHASE_RECV','OPERATIONAL','ACTIVE'),('$WH_B','回归测试仓B','PURCHASE_RECV','OPERATIONAL','ACTIVE') ON CONFLICT (warehouse_code) DO UPDATE SET type=EXCLUDED.type, domain=EXCLUDED.domain, status=EXCLUDED.status;" >/dev/null
+$PSQL $DB -q -c "INSERT INTO wms_warehouses (warehouse_code, warehouse_name_zh, company_code, type, domain, status) VALUES ('$WH_A','回归测试仓A','COMP-REGR','PURCHASE_RECV','OPERATIONAL','ACTIVE'),('$WH_B','回归测试仓B','COMP-REGR','PURCHASE_RECV','OPERATIONAL','ACTIVE') ON CONFLICT (warehouse_code) DO UPDATE SET company_code=EXCLUDED.company_code, type=EXCLUDED.type, domain=EXCLUDED.domain, status=EXCLUDED.status;" >/dev/null
 
 # Seed: 真实 ACTIVE 物料主数据。入库治理禁止虚构 product_code 绕过主数据。
 $PSQL $DB -q -c "INSERT INTO mst_materials (material_code, material_name, material_type, unit, status, created_by) VALUES ('$MATERIAL_CODE','WMS回归测试物料','OTHER','件','ACTIVE','CI') ON CONFLICT (material_code) DO UPDATE SET status='ACTIVE', material_name=EXCLUDED.material_name, material_type=EXCLUDED.material_type, unit=EXCLUDED.unit;" >/dev/null
 
 # Seed: 一个 inv_batches 作为调拨/出库源
-$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, material_code, item_type, material_type, unit, qty, warehouse_code, location_code, store_code) VALUES ('$BATCH_NO','$MATERIAL_CODE','MATERIAL','OTHER','件',1000,'$WH_A','LOC-01','ALL');" >/dev/null
+$PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, material_code, item_type, material_type, unit, qty, warehouse_code, location_code, store_code, company_code) VALUES ('$BATCH_NO','$MATERIAL_CODE','MATERIAL','OTHER','件',1000,'$WH_A','LOC-01','ALL','COMP-REGR');" >/dev/null
 
 # Seed: 一个 wms_inbound task 用于 A3 测试
 $PSQL $DB -q -c "INSERT INTO wms_inbound (task_no, status, warehouse_code, type, item, qty) VALUES ('$TASK_NO','PENDING','$WH_A','PURCHASE','REGR测试品',500);" >/dev/null

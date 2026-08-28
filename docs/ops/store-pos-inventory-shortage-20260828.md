@@ -51,6 +51,8 @@ POS SKU FIFO 位于 `apps/api/src/modules/store-pos/services/store-pos.service.t
 - WMS 自动出库/补货的过滤比 POS 宽，部分路径缺公司、过期和 legacy 条件；显式批次出库还缺完整可售状态检查。这是既有独立风险，不应通过放宽 POS 解决，需另阶段统一库存消费策略。
 - 标准调拨复制源批次公司字段；若源头是历史 `ALL`，目标也可能延续漂移。只读审计工作流新增 `GENERIC_INBOUND_COMPANY_DRIFT` 清单用于界定存量范围。
 
+生产扩大审计共发现 9 条 `IBN-*` 批次公司与仓公司不一致，其中 6 条为养殖场入库、1 条为本次门店入库、2 条为历史 `ALL` 源批次派生的调拨目标批次。本次不批量修正其余 8 条；需按各自业务状态、SKU 身份与流水逐条建立前置断言后另批处理。
+
 ## 生产数据修正三段式（待批准）
 
 脚本：`scripts/ops/fix-pos-batch-company-ibn-20260828-vw1ssc.sql`。
