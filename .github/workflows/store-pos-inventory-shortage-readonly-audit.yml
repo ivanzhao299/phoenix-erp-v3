@@ -71,7 +71,8 @@ jobs:
               FROM sal_store_sales s
              WHERE s.created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
                AND s.created_at <  TIMESTAMPTZ '2026-08-29 00:00:00+08'
-               AND (to_jsonb(s)->>'created_by'='amei'
+               AND (s.id IN (3,4,5)
+                    OR to_jsonb(s)->>'created_by'='amei'
                     OR to_jsonb(s)->>'operator'='amei'
                     OR to_jsonb(s)->>'username'='amei')
              ORDER BY s.created_at DESC LIMIT 100;
@@ -83,7 +84,9 @@ jobs:
                AND si.sku_code='CJ-EGG-8E82312ECAD7'
              ORDER BY s.created_at DESC;
 
-            SELECT 'AMEI_USER_SCOPE' AS section, to_jsonb(u) AS record
+            SELECT 'AMEI_USER_SCOPE' AS section,
+                   jsonb_build_object('user_id',u.user_id,'username',u.username,'real_name',u.real_name,
+                                      'status',u.status,'store_code',u.store_code,'perms_version',u.perms_version) AS record
               FROM sys_user u
              WHERE u.username='amei';
             SELECT 'AMEI_ORG_SCOPE' AS section, to_jsonb(uo) AS record
@@ -95,10 +98,11 @@ jobs:
              WHERE to_jsonb(ws)->>'user_id' IN (SELECT user_id::text FROM sys_user WHERE username='amei');
             SELECT 'STORE_BINDING' AS section, to_jsonb(b) AS record
               FROM store_warehouse_bindings b
-             WHERE b.store_code IN (
-               SELECT DISTINCT store_code FROM sal_store_sales
+              JOIN store_master sm ON sm.id=b.store_id
+             WHERE sm.store_code IN (
+               SELECT DISTINCT s.store_code FROM sal_store_sales s
                 WHERE created_at >= TIMESTAMPTZ '2026-08-28 00:00:00+08'
-                  AND to_jsonb(sal_store_sales)::text ILIKE '%amei%'
+                  AND (s.id IN (3,4,5) OR to_jsonb(s)::text ILIKE '%amei%')
              ) OR b.warehouse_code='ST_LAO_XINGCHI_HS_001_SALES';
 
             SELECT 'POS_SHORTAGE_ERRORS' AS section, to_jsonb(e) AS record
