@@ -28,17 +28,27 @@ export class StoreReplenishmentService {
     if (!scope.isGlobal && !membershipCodes.length && !(isWarehouseOperator && warehouses.length)) return [];
     const rows = await this.ds.query<any[]>(`
       SELECT r.*,s.store_code,s.store_name,
+        source_w.warehouse_name AS source_warehouse_name,
+        source_w.warehouse_name_zh AS source_warehouse_name_zh,
+        source_w.warehouse_name_en AS source_warehouse_name_en,
+        source_w.warehouse_name_lo AS source_warehouse_name_lo,
+        target_w.warehouse_name AS target_warehouse_name,
+        target_w.warehouse_name_zh AS target_warehouse_name_zh,
+        target_w.warehouse_name_en AS target_warehouse_name_en,
+        target_w.warehouse_name_lo AS target_warehouse_name_lo,
         COALESCE(json_agg(json_build_object('id',l.id,'skuCode',l.sku_code,'skuName',l.sku_name,
           'requestedQty',l.requested_qty,'approvedQty',l.approved_qty,'receivedQty',l.received_qty,'remark',l.remark)
           ORDER BY l.id) FILTER (WHERE l.id IS NOT NULL),'[]') AS lines
       FROM store_replenishment_requests r
       JOIN store_master s ON s.id=r.store_id
+      LEFT JOIN wms_warehouses source_w ON source_w.warehouse_code=r.source_warehouse_code
+      LEFT JOIN wms_warehouses target_w ON target_w.warehouse_code=r.target_warehouse_code
       LEFT JOIN store_replenishment_request_lines l ON l.request_id=r.id
       WHERE ($1::text IS NULL OR s.store_code=$1)
         AND ($2::text IS NULL OR r.status=$2)
         AND ($3::boolean OR s.store_code=ANY($4::text[]) OR ($6::boolean AND r.company_code=ANY($7::text[])
           AND (r.source_warehouse_code IS NULL OR r.source_warehouse_code=ANY($5::text[]))))
-      GROUP BY r.id,s.store_code,s.store_name ORDER BY r.created_at DESC`,
+      GROUP BY r.id,s.store_code,s.store_name,source_w.warehouse_code,target_w.warehouse_code ORDER BY r.created_at DESC`,
       [filters.storeCode || null, filters.status || null, !!scope.isGlobal, membershipCodes, warehouses ?? [],
         isWarehouseOperator, scope.allowedCompanyCodes ?? []]);
     return rows;
@@ -47,7 +57,8 @@ export class StoreReplenishmentService {
   async sourceWarehouses(storeCode: string) {
     const context = await this.storeScope.resolve(storeCode, 'SALES');
     const scope = this.scope;
-    return this.ds.query(`SELECT warehouse_code AS "warehouseCode",warehouse_name AS "warehouseName"
+    return this.ds.query(`SELECT warehouse_code AS "warehouseCode",warehouse_name AS "warehouseName",
+        warehouse_name_zh AS "warehouseNameZh",warehouse_name_en AS "warehouseNameEn",warehouse_name_lo AS "warehouseNameLo"
       FROM wms_warehouses WHERE company_code=$1 AND status='ACTIVE' AND domain='OPERATIONAL'
        AND NOT (warehouse_code=ANY($2::text[]))
        AND ($3::boolean OR warehouse_code=ANY($4::text[])) ORDER BY warehouse_code`,
@@ -141,9 +152,21 @@ export class StoreReplenishmentService {
   async transferDetail(id: number) {
     const request = await this.assertVisibleRequest(id);
     if (!request.transfer_no) return null;
-    const [transfer] = await this.ds.query<any[]>(`SELECT * FROM wms_transfer WHERE transfer_no=$1`, [request.transfer_no]);
+    const [transfer] = await this.ds.query<any[]>(`SELECT t.*,
+      fw.warehouse_name AS from_warehouse_name,fw.warehouse_name_zh AS from_warehouse_name_zh,
+      fw.warehouse_name_en AS from_warehouse_name_en,fw.warehouse_name_lo AS from_warehouse_name_lo,
+      tw.warehouse_name AS to_warehouse_name,tw.warehouse_name_zh AS to_warehouse_name_zh,
+      tw.warehouse_name_en AS to_warehouse_name_en,tw.warehouse_name_lo AS to_warehouse_name_lo
+      FROM wms_transfer t
+      LEFT JOIN wms_warehouses fw ON fw.warehouse_code=t.from_warehouse
+      LEFT JOIN wms_warehouses tw ON tw.warehouse_code=t.to_warehouse
+      WHERE t.transfer_no=$1`, [request.transfer_no]);
     if (!transfer) return null;
-    transfer.items = await this.ds.query(`SELECT * FROM wms_transfer_items WHERE transfer_no=$1 ORDER BY id`, [request.transfer_no]);
+    transfer.items = await this.ds.query(`SELECT i.*,b.sku_code,s.sku_name,s.sku_name_en,s.sku_name_lo
+      FROM wms_transfer_items i
+      LEFT JOIN inv_batches b ON b.batch_no=i.source_batch_no
+      LEFT JOIN product_skus s ON s.sku_code=b.sku_code
+      WHERE i.transfer_no=$1 ORDER BY i.id`, [request.transfer_no]);
     transfer.discrepancies = await this.ds.query(`SELECT * FROM wms_transfer_discrepancies WHERE transfer_no=$1 ORDER BY id`, [request.transfer_no]);
     return transfer;
   }

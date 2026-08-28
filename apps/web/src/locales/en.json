@@ -14174,5 +14174,11 @@
   "store.replenish.validation.store": "Select a target store.",
   "store.replenish.warehouse.empty": "No source warehouse is available for this store. Save a draft for warehouse staff to handle during approval.",
   "store.replenish.warehouse.error": "Failed to load source warehouses. Try again.",
-  "store.replenish.warehouse.loading": "Loading available source warehouses…"
+  "store.replenish.warehouse.loading": "Loading available source warehouses…",
+  "store.replenish.status.unknown": "Unknown status",
+  "store.replenish.discrepancy.shortage": "Shortage",
+  "store.replenish.discrepancy.damage": "Damaged",
+  "store.replenish.discrepancy.unknown": "Unknown discrepancy",
+  "store.replenish.resolution.loss": "Loss report",
+  "store.replenish.resolution.adjustment": "Inventory adjustment"
 }

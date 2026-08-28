@@ -14174,5 +14174,11 @@
   "store.replenish.validation.store": "请选择目标门店",
   "store.replenish.warehouse.empty": "当前门店没有可选源仓，可保存草稿并由仓管审批时处理。",
   "store.replenish.warehouse.error": "源仓加载失败，请重试。",
-  "store.replenish.warehouse.loading": "正在加载可用源仓…"
+  "store.replenish.warehouse.loading": "正在加载可用源仓…",
+  "store.replenish.status.unknown": "未知状态",
+  "store.replenish.discrepancy.shortage": "短收",
+  "store.replenish.discrepancy.damage": "破损",
+  "store.replenish.discrepancy.unknown": "未知差异",
+  "store.replenish.resolution.loss": "报损",
+  "store.replenish.resolution.adjustment": "库存调整"
 }
