@@ -219,6 +219,34 @@ jobs:
             test "$SOURCE_WAREHOUSE_STATUS" = "200"
             echo "REPLENISH_SOURCE_WAREHOUSE_ASSERTION=PASS status=$SOURCE_WAREHOUSE_STATUS target_scope_intersection=true"
 
+            WMS_TOKEN_RAW="$(docker compose exec -T api node - <<'NODE'
+            const { NestFactory } = require('@nestjs/core');
+            const { AppModule } = require('./dist/app.module');
+            const { AuthService } = require('./dist/auth/auth.service');
+            (async () => {
+              const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+              try {
+                const session = await app.get(AuthService).login('liushanjun', '', '127.0.0.1', { bypassPassword: true });
+                process.stdout.write(session.token);
+              } finally { await app.close(); }
+            })().catch(error => { console.error(error?.message || error); process.exit(1); });
+            NODE
+            )"
+            WMS_TOKEN="$(printf '%s' "$WMS_TOKEN_RAW" | grep -Eo 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' | tail -1)"
+            unset WMS_TOKEN_RAW
+            test -n "$WMS_TOKEN"
+            WMS_SOURCE_STATUS="$(curl -sS -o /tmp/store-pos-wms-source-warehouses.json -w '%{http_code}' -H "Authorization: Bearer $WMS_TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments/source-warehouses?storeCode=STORE-HS-001')"
+            test "$WMS_SOURCE_STATUS" = "200"
+            WMS_SOURCE_JSON="$(cat /tmp/store-pos-wms-source-warehouses.json)" docker compose exec -T -e WMS_SOURCE_JSON api node - <<'NODE'
+            const body = JSON.parse(process.env.WMS_SOURCE_JSON || 'null');
+            const rows = Array.isArray(body) ? body : body?.data;
+            if (!Array.isArray(rows) || rows.length !== 4) throw new Error(`liushanjun source warehouses length=${rows?.length}`);
+            if (rows.some(row => row.warehouseCode === 'ST_LAO_XINGCHI_HS_001_SALES')) throw new Error('target store SALES warehouse leaked into source options');
+            console.log(`REPLENISH_WMS_APPROVER_SOURCE_ASSERTION=PASS username=liushanjun membership=none count=${rows.length} codes=${rows.map(row => row.warehouseCode).join(',')}`);
+            NODE
+            WMS_MEMBERSHIP_COUNT="$(docker compose exec -T db sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM store_memberships m JOIN sys_user u ON u.user_id=m.user_id JOIN store_master s ON s.id=m.store_id WHERE u.username='\''liushanjun'\'' AND s.store_code='\''STORE-HS-001'\'' AND m.status='\''ACTIVE'\'' AND (m.effective_from IS NULL OR m.effective_from<=NOW()) AND (m.effective_to IS NULL OR m.effective_to>=NOW());"' | tr -d '\r\n')"
+            test "$WMS_MEMBERSHIP_COUNT" = "0"
+
             TOKEN="$TOKEN" node - <<'NODE'
             const payload = JSON.parse(Buffer.from(process.env.TOKEN.split('.')[1], 'base64url').toString('utf8'));
             const permissions = Array.isArray(payload.permissions) ? payload.permissions : [];
@@ -282,7 +310,9 @@ jobs:
             test -n "$ZERO_TOKEN"
             ZERO_STATUS="$(curl -sS -o /tmp/store-pos-zero-replenishments.json -w '%{http_code}' -H "Authorization: Bearer $ZERO_TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments')"
             test "$ZERO_STATUS" = "403"
-            echo "REPLENISH_ZERO_PERMISSION_ASSERTION=PASS username=$ZERO_USER status=$ZERO_STATUS"
+            ZERO_SOURCE_STATUS="$(curl -sS -o /tmp/store-pos-zero-source-warehouses.json -w '%{http_code}' -H "Authorization: Bearer $ZERO_TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments/source-warehouses?storeCode=STORE-HS-001')"
+            test "$ZERO_SOURCE_STATUS" = "403"
+            echo "REPLENISH_ZERO_PERMISSION_ASSERTION=PASS username=$ZERO_USER list_status=$ZERO_STATUS source_status=$ZERO_SOURCE_STATUS"
 
             docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
               sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
