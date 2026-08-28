@@ -452,6 +452,8 @@ export default function Page() {
         void storePosRequest<Warehouse[]>(
           "GET",
           `/api/v2/store-replenishments/source-warehouses?storeCode=${encodeURIComponent(r.store_code)}`,
+          undefined,
+          { silent: true },
         )
           .then((x) => setWarehouses(x || []))
           .catch((e: any) => {
@@ -459,7 +461,6 @@ export default function Page() {
               e?.message ||
               tr("store.replenish.warehouse.error", "源仓加载失败，请重试。");
             setApproveWhError(message);
-            toast.error(message);
           })
           .finally(() => setApproveWhBusy(false));
       }
@@ -468,18 +469,16 @@ export default function Page() {
   };
   const act = async () => {
     if (!selected || !confirm || busy) return;
+    if (confirm === "approve" && !approveSource) return;
     setBusy(true);
     try {
-      if (confirm === "approve" && !approveSource)
-        throw new Error(
-          tr("store.replenish.validation.source", "审批必须选择调出仓库"),
-        );
       await storePosRequest(
         "POST",
         `/api/v2/store-replenishments/${selected.id}/${confirm}`,
         confirm === "approve"
           ? { sourceWarehouseCode: approveSource }
           : undefined,
+        { silent: true },
       );
       toast.success(
         confirm === "submit"

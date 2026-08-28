@@ -1,8 +1,17 @@
 import request from '@/lib/api-client';
 
-export async function storePosRequest<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+export async function storePosRequest<T = unknown>(
+  method: string,
+  path: string,
+  body?: unknown,
+  options: { silent?: boolean } = {},
+): Promise<T> {
   const normalized = path.replace(/^\/api/, '');
-  const response: any = await request<any>(normalized, { method, body: body == null ? undefined : JSON.stringify(body) });
+  const response: any = await request<any>(normalized, {
+    method,
+    body: body == null ? undefined : JSON.stringify(body),
+    silent: options.silent,
+  });
   return (response?.data ?? response) as T;
 }
 

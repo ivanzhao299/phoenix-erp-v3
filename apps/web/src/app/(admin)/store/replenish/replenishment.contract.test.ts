@@ -41,5 +41,7 @@ describe('replenishment UI source contract', () => {
     expect(page).toContain('store.replenish.warehouse.loading');
     expect(page).toContain('store.replenish.warehouse.empty');
     expect(page).toContain('error={');
+    expect(page).toContain('{ silent: true }');
+    expect(page).not.toMatch(/setApproveWhError\(message\);\s*toast\.error\(message\)/);
   });
 });

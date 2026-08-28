@@ -1630,6 +1630,36 @@ export class WmsService {
     const { fromWarehouse, toWarehouse, items } = this.validateTransferInput(body);
     await this.assertWritableWarehouse(fromWarehouse, '库存调拨源仓库');
     await this.assertWritableWarehouse(toWarehouse, '库存调拨目标仓库');
+    return this.persistPendingTransfer(body, user, fromWarehouse, toWarehouse, items);
+  }
+
+  /**
+   * Server-internal orchestration entry point for store replenishment.
+   * The source remains actor-scoped; the target authority comes exclusively from
+   * StoreScopePolicy.resolveStoreContext(storeCode, 'SALES'). Controllers never
+   * accept or forward this context.
+   */
+  async createStoreReplenishmentTransfer(
+    body: any,
+    user: any,
+    storeContext: { storeCode: string; warehouseCodes: string[] },
+  ) {
+    const { fromWarehouse, toWarehouse, items } = this.validateTransferInput(body);
+    await this.assertWritableWarehouse(fromWarehouse, '库存调拨源仓库');
+    const bindings = Array.isArray(storeContext?.warehouseCodes) ? storeContext.warehouseCodes : [];
+    if (!storeContext?.storeCode || !bindings.includes(toWarehouse)) {
+      throw new ForbiddenException('补货调拨目标仓不是该门店有效 SALES 绑定仓');
+    }
+    return this.persistPendingTransfer(body, user, fromWarehouse, toWarehouse, items);
+  }
+
+  private async persistPendingTransfer(
+    body: any,
+    user: any,
+    fromWarehouse: string,
+    toWarehouse: string,
+    items: any[],
+  ) {
     const transferNo = body.transfer_no ||
       `TR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     return this.em.transaction(async manager => {
@@ -1663,7 +1693,6 @@ export class WmsService {
       if (!transfer) throw new BadRequestException('调拨单不存在');
       if (transfer.status !== 'PENDING') throw new BadRequestException(`调拨单状态 ${transfer.status} 不允许发运`);
       await this.assertWritableWarehouse(transfer.from_warehouse, '库存调拨源仓库');
-      await this.assertWritableWarehouse(transfer.to_warehouse, '库存调拨目标仓库');
       const items = await manager.query(
         `SELECT * FROM wms_transfer_items WHERE transfer_no=$1 ORDER BY id FOR UPDATE`, [transferNo],
       );
@@ -1804,6 +1833,7 @@ export class WmsService {
     return this.em.transaction(async manager => {
       const [transfer] = await manager.query(`SELECT * FROM wms_transfer WHERE transfer_no=$1 FOR UPDATE`, [transferNo]);
       if (!transfer || transfer.status !== 'RECEIVED') throw new BadRequestException('仅差异待处理的 RECEIVED 调拨可完成');
+      await this.assertWritableWarehouse(transfer.to_warehouse, '库存调拨目标仓库');
       const open = await manager.query(
         `SELECT id FROM wms_transfer_discrepancies WHERE transfer_no=$1 AND resolved_at IS NULL ORDER BY id FOR UPDATE`, [transferNo],
       );

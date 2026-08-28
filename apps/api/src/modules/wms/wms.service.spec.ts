@@ -859,6 +859,33 @@ describe('WmsService inventory read queries', () => {
     expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE inv_batches'), expect.anything());
   });
 
+  it('keeps direct createTransfer fail-closed for an out-of-scope target warehouse', async () => {
+    const em = { transaction: jest.fn() };
+    const cls = { get: jest.fn(() => ({ isGlobal: false, allowedWarehouseCodes: ['WH-A'] })) };
+    const service = new WmsService(em as any, cls as any);
+    await expect(service.createTransfer({
+      from_warehouse: 'WH-A', to_warehouse: 'WH-B', items: [{ batch_no: 'B-1', qty: 1 }],
+    }, { username: 'keeper' })).rejects.toThrow('库存调拨目标仓库（仓库范围不匹配）');
+    expect(em.transaction).not.toHaveBeenCalled();
+  });
+
+  it('allows an orchestrated replenishment target only when it is in the resolved SALES bindings', async () => {
+    const manager = { query: jest.fn().mockResolvedValue([]) };
+    const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
+    const cls = { get: jest.fn(() => ({ isGlobal: false, allowedWarehouseCodes: ['WH-A'] })) };
+    const service = new WmsService(em as any, cls as any);
+    await expect(service.createStoreReplenishmentTransfer({
+      transfer_no: 'TR-STORE-1', from_warehouse: 'WH-A', to_warehouse: 'WH-STORE',
+      items: [{ batch_no: 'B-1', qty: 1 }],
+    }, { username: 'keeper' }, { storeCode: 'STORE-1', warehouseCodes: ['WH-STORE'] }))
+      .resolves.toMatchObject({ status: 'PENDING' });
+    await expect(service.createStoreReplenishmentTransfer({
+      transfer_no: 'TR-FORGED', from_warehouse: 'WH-A', to_warehouse: 'WH-FORGED',
+      items: [{ batch_no: 'B-1', qty: 1 }],
+    }, { username: 'keeper' }, { storeCode: 'STORE-1', warehouseCodes: ['WH-STORE'] }))
+      .rejects.toThrow('目标仓不是该门店有效 SALES 绑定仓');
+  });
+
   it('dispatches PENDING stock into auditable in-transit ownership', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
@@ -873,6 +900,34 @@ describe('WmsService inventory read queries', () => {
     await expect(service.dispatchTransfer('TR-2', { username: 'keeper' })).resolves.toMatchObject({ status: 'IN_TRANSIT', in_transit_qty: 3 });
     expect(manager.query).toHaveBeenCalledWith(expect.stringContaining("status='IN_TRANSIT'"), ['TR-2', 3, 'keeper']);
     expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_batches'), expect.anything());
+  });
+
+  it('dispatch requires only source warehouse scope', async () => {
+    const manager = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
+      if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-SOURCE', status: 'PENDING', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
+      if (sql.includes('FROM wms_transfer_items')) return [{ id: 1, source_batch_no: 'B-1', expected_qty: 1 }];
+      if (sql.includes('FROM inv_batches WHERE')) return [{ batch_no: 'B-1', qty: 1, qty_available: 1, status: 'AVAILABLE', warehouse_code: 'WH-A' }];
+      return [];
+    }) };
+    const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
+    const service = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: false, allowedWarehouseCodes: ['WH-A'] })) } as any);
+    await expect(service.dispatchTransfer('TR-SOURCE', { username: 'keeper' })).resolves.toMatchObject({ status: 'IN_TRANSIT' });
+  });
+
+  it('receive requires target warehouse scope, not source warehouse scope', async () => {
+    const manager = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-TARGET', status: 'IN_TRANSIT', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
+      if (sql.includes('FROM wms_transfer_items')) return [];
+      return [];
+    }) };
+    const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
+    const targetService = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: false, allowedWarehouseCodes: ['WH-B'] })) } as any);
+    await expect(targetService.receiveTransfer('TR-TARGET', { receive_all: true }, { username: 'manager' }))
+      .resolves.toMatchObject({ status: 'COMPLETED' });
+    const sourceService = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: false, allowedWarehouseCodes: ['WH-A'] })) } as any);
+    await expect(sourceService.receiveTransfer('TR-TARGET', { receive_all: true }, { username: 'keeper' }))
+      .rejects.toThrow('库存调拨目标仓库（仓库范围不匹配）');
   });
 
   it('records signing shortage/damage and keeps the transfer RECEIVED until linked resolution', async () => {
@@ -903,13 +958,25 @@ describe('WmsService inventory read queries', () => {
 
   it('requires every received discrepancy to link a loss or adjustment document', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
-      if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-4', status: 'RECEIVED' }];
+      if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-4', status: 'RECEIVED', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_discrepancies')) return [{ id: 21 }];
       return [];
     }) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
-    const service = new WmsService(em as any, { get: jest.fn() } as any);
+    const service = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) } as any);
     await expect(service.completeTransfer('TR-4', { resolutions: [] }, { username: 'manager' }))
       .rejects.toThrow('必须关联报损或调整单号');
+  });
+
+  it('complete requires target warehouse scope', async () => {
+    const manager = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-4', status: 'RECEIVED', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
+      if (sql.includes('FROM wms_transfer_discrepancies')) return [];
+      return [];
+    }) };
+    const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
+    const service = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: false, allowedWarehouseCodes: ['WH-A'] })) } as any);
+    await expect(service.completeTransfer('TR-4', { resolutions: [] }, { username: 'keeper' }))
+      .rejects.toThrow('库存调拨目标仓库（仓库范围不匹配）');
   });
 });
