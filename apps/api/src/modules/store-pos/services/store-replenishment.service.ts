@@ -98,6 +98,10 @@ export class StoreReplenishmentService {
     if (!source) throw new BadRequestException('审批时必须指定源仓');
     const scope = this.scope;
     if (!scope?.isGlobal && !(scope?.allowedWarehouseCodes ?? []).includes(source)) throw new ForbiddenException('源仓不在仓库 DataScope');
+    const storeContext = await this.storeScope.resolveStoreContext(request.store_code, 'SALES');
+    if (!storeContext.warehouseCodes.includes(request.target_warehouse_code)) {
+      throw new ForbiddenException('补货调拨目标仓不是该门店有效 SALES 绑定仓');
+    }
     const lines = await this.ds.query<any[]>(`SELECT * FROM store_replenishment_request_lines WHERE request_id=$1 ORDER BY id`, [id]);
     const transferItems: Array<{ batch_no: string; qty: number }> = [];
     for (const line of lines) {
@@ -112,8 +116,12 @@ export class StoreReplenishmentService {
       }
       if (needed > 0) throw new BadRequestException(`SKU ${line.sku_code} 源仓可用库存不足`);
     }
-    const transfer = await this.wms.createTransfer({ from_warehouse: source, to_warehouse: request.target_warehouse_code,
-      reason: `门店补货 ${request.request_no}`, items: transferItems }, user);
+    const transfer = await this.wms.createStoreReplenishmentTransfer({
+      from_warehouse: source,
+      to_warehouse: request.target_warehouse_code,
+      reason: `门店补货 ${request.request_no}`,
+      items: transferItems,
+    }, user, storeContext);
     const [updated] = await this.ds.query(`UPDATE store_replenishment_requests SET status='APPROVED',source_warehouse_code=$2,
       transfer_no=$3,approved_by=$4,approved_at=now(),updated_at=now() WHERE id=$1 AND status='SUBMITTED' RETURNING *`,
       [id, source, transfer.transfer_no, String(user?.username || 'SYS')]);

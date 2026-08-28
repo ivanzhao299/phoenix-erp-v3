@@ -7,7 +7,7 @@ describe('V1-3 store replenishment orchestration contract', () => {
 
   it('enforces the full request to WMS transfer lifecycle', () => {
     for (const state of ['DRAFT','SUBMITTED','APPROVED','DISPATCHED','RECEIVED','CLOSED']) expect(service).toContain(state);
-    expect(service).toContain('this.wms.createTransfer');
+    expect(service).toContain('this.wms.createStoreReplenishmentTransfer');
     expect(service).toContain('this.wms.dispatchTransfer');
     expect(service).toContain('this.wms.receiveTransfer');
     expect(service).toContain('this.wms.completeTransfer');
@@ -17,6 +17,8 @@ describe('V1-3 store replenishment orchestration contract', () => {
     expect(service).toContain("this.storeScope.resolve(dto.storeCode, 'SALES')");
     expect(service).toContain("this.storeScope.resolve(request.store_code, 'SALES')");
     expect(service).toContain("this.storeScope.resolveStoreContext(storeCode, 'SALES')");
+    expect(service).toContain("this.storeScope.resolveStoreContext(request.store_code, 'SALES')");
+    expect(service).toContain('storeContext.warehouseCodes.includes(request.target_warehouse_code)');
     expect(service).toContain('const request = await this.assertVisibleRequest(id);');
     expect(service).toContain("throw new ForbiddenException('源仓不在仓库 DataScope')");
     expect(controller).toContain("@RequireMenu('MENU_STORE_REPLENISH', 'A')");

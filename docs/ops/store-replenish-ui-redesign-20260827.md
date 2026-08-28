@@ -542,3 +542,14 @@ cd apps/web && npx playwright test e2e/store-replenishment.spec.ts
 - 交付：实现提交 `69f5aec3`，冻结边界复核触发提交 `d9958b6b`；PR [#134](https://github.com/ivanzhao299/phoenix-erp-v3/pull/134) 经 `reviewed-frozen-boundary` 显式复核后 7 项 CI 成功、0 失败，merge revision `677efea7daf405264a25b65504993a88c8576e6d`。
 - full 部署：[run 33158844711](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33158844711) 成功；checkout/API/Web 最终 revision 均为 `677efea7daf405264a25b65504993a88c8576e6d`。
 - 生产只读复验：[run 33159798077](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33159798077) 成功。amei contexts 与会晒 source-warehouses 继续 200；`liushanjun` 使用短期 JWT，在会晒有效 membership=0 的前提下 source-warehouses 返回 200，恰好四仓 `LPH_DP_EGG_FARM / LPH_DP_EGG_SALES / LPH_DP_FEED / LPH_DP_MEDICINE`，且排除 `ST_LAO_XINGCHI_HS_001_SALES`；无 V 权限账号 `cashier` 的列表和 source-warehouses 均为 403；30 分钟错误窗口 0。全程 `PRODUCTION_BUSINESS_WRITES=0`。
+
+### 11.6 补货编排调拨目标仓语义修复（2026-08-28）
+
+- 根因：补货审批复用了公开 `createTransfer()`，导致审批人除源仓外还必须拥有目标门店仓的个人 WarehouseScope。刘善军仅有东鹏四仓，合法目标 `ST_LAO_XINGCHI_HS_001_SALES` 因而被错误拒绝。
+- 修复：公开 `/api/inventory/transfer` 继续调用 `createTransfer()` 并保留源、目标双边个人 scope；新增仅由服务端补货编排调用的 `createStoreReplenishmentTransfer()`。编排入口对源仓继续执行审批人 `assertWritableWarehouse()`，目标仓只能命中 `resolveStoreContext(request.store_code, 'SALES')` 返回的 ACTIVE、OPERATIONAL、有效期内 ACTIVE binding，否则 fail-closed。Controller 不接收也不透传编排上下文。
+- 生命周期语义：`dispatchTransfer()` 只断言源仓；`receiveTransfer()` 只断言目标仓；`completeTransfer()` 补齐目标仓断言。库存数量、状态、批次归属和差异关联校验均保持不变。
+- 前端错误：补货操作请求改用 `silent` 抑制全局 `api-error` toast，由页面 catch 只显示一次 toast；源仓加载失败只保留弹窗 inline error；未选择源仓时只保留 inline 校验，不再经 catch 生成第二条 toast。
+- 红灯证据：定向 Jest 首跑因 `createStoreReplenishmentTransfer` 尚不存在及旧审批路径返回空 transfer 失败；实现后定向 34/34 通过。完整 API Jest 发现旧 contract 仍锁定 `createTransfer`，更新为编排入口及 SALES binding 契约后 73 suites / 648 tests 全绿。
+- 本地验证：API/Web `tsc --noEmit` 均 0 error；Web Vitest 88 files / 470 tests；nullable-in-unique 0 违规（1 白名单）；constraint drift 0 new drift（1 白名单）；i18n hardcoded `uncovered=0, locale_quality=0`；`git diff --check` 通过。变更差异未新增任何主数据裸 `<input>` 或裸 `onChange(...e.target.value)` 写入路径。
+- 回归覆盖：刘善军 scope 内源仓审批到会晒 SALES binding 目标成功；源仓越权拒绝；伪造非 binding 目标拒绝；公开 createTransfer 范围外目标拒绝；dispatch/receive/complete 单侧仓权限语义均有测试。
+- CI、PR、full 部署 revision、`liushanjun` 生产只读语义断言与错误窗口将在交付闭环后追加；生产复验保持 `PRODUCTION_BUSINESS_WRITES=0`。

@@ -14,4 +14,11 @@ describe('shared Store POS scoped client', () => {
     await storePosRequest('POST', '/api/v2/store-sales/1/return', { reason: 'x' });
     expect(request).toHaveBeenLastCalledWith('/v2/store-sales/1/return', { method: 'POST', body: JSON.stringify({ reason: 'x' }) });
   });
+
+  it('forwards silent error handling for dialogs that own their feedback', async () => {
+    await storePosRequest('POST', '/api/v2/store-replenishments/7/approve', { sourceWarehouseCode: 'WH-A' }, { silent: true });
+    expect(request).toHaveBeenLastCalledWith('/v2/store-replenishments/7/approve', {
+      method: 'POST', body: JSON.stringify({ sourceWarehouseCode: 'WH-A' }), silent: true,
+    });
+  });
 });
