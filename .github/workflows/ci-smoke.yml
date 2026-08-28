@@ -160,8 +160,8 @@ jobs:
             test -n "$TOKEN"
 
             PAGE_HTML="$(curl -fsS --cookie "phoenix_access_token=$TOKEN" 'https://erp.eggslao.com/store/replenish')"
-            printf '%s' "$PAGE_HTML" | grep -Fq '门店补货编排'
-            printf '%s' "$PAGE_HTML" | grep -Fq 'padding:24px'
+            grep -Fq '门店补货编排' <<<"$PAGE_HTML"
+            grep -Fq 'padding:24px' <<<"$PAGE_HTML"
             echo "REPLENISH_PAGE_SHELL_ASSERTION=PASS status=200 title=true page_shell_fingerprint=padding:24px"
 
             for COPY in '门店补货编排' 'Store replenishment orchestration' 'ການຈັດການເຕີມສິນຄ້າຮ້ານ'; do
