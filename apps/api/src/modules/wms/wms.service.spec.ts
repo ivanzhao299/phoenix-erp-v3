@@ -397,13 +397,14 @@ describe('WmsService inventory read queries', () => {
   it('ships outbound inventory by SKU across available batches', async () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'changed' }];
         if (sql.includes('SELECT order_no, status, store_code FROM ord_orders')) {
           return [{ order_no: 'SO-SKU-1', status: 'ALLOCATED', store_code: 'ALL' }];
         }
         if (sql.includes('WHERE sku_code = $1')) {
           return [
-            { batch_no: 'B-SKU-1', product_code: null, sku_code: 'SKU-EGG-A-30', qty: 5, qty_available: 5, warehouse_code: 'LPH_MS_EGG_SALES', store_code: 'ALL' },
-            { batch_no: 'B-SKU-2', product_code: null, sku_code: 'SKU-EGG-A-30', qty: 10, qty_available: 10, warehouse_code: 'LPH_MS_EGG_SALES', store_code: 'ALL' },
+            { batch_no: 'B-SKU-1', product_code: null, sku_code: 'SKU-EGG-A-30', qty: 5, qty_available: 5, warehouse_code: 'LPH_MS_EGG_SALES', store_code: 'ALL', company_code: null },
+            { batch_no: 'B-SKU-2', product_code: null, sku_code: 'SKU-EGG-A-30', qty: 10, qty_available: 10, warehouse_code: 'LPH_MS_EGG_SALES', store_code: 'ALL', company_code: null },
           ];
         }
         return [];
@@ -427,8 +428,8 @@ describe('WmsService inventory read queries', () => {
 
     const updateCalls = manager.query.mock.calls.filter(([sql]) => String(sql).includes('UPDATE inv_batches'));
     expect(updateCalls).toHaveLength(2);
-    expect(updateCalls[0][1]).toEqual([5, 'B-SKU-1']);
-    expect(updateCalls[1][1]).toEqual([7, 'B-SKU-2']);
+    expect(updateCalls[0][1]).toEqual([5, 'B-SKU-1', 'LPH_MS_EGG_SALES', null]);
+    expect(updateCalls[1][1]).toEqual([7, 'B-SKU-2', 'LPH_MS_EGG_SALES', null]);
 
     const ledgerCalls = manager.query.mock.calls.filter(([sql]) =>
       String(sql).includes('INSERT INTO inv_ledger'),
@@ -477,6 +478,7 @@ describe('WmsService inventory read queries', () => {
   it('confirms a standalone outbound only after deducting its batch and writing the ledger', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
+        if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-EGG-A-1' }];
         if (sql.includes('FROM wms_outbound')) {
           return [{
             id: '31',
@@ -507,6 +509,7 @@ describe('WmsService inventory read queries', () => {
             qty_available: 20,
             warehouse_code: 'LPH_MS_EGG_SALES',
             store_code: 'ALL',
+            company_code: 'COMP-LAO-AGRI',
           }];
         }
         return [];
@@ -529,7 +532,7 @@ describe('WmsService inventory read queries', () => {
 
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE inv_batches'),
-      [12, 'B-EGG-A-1'],
+      [12, 'B-EGG-A-1', 'LPH_MS_EGG_SALES', 'COMP-LAO-AGRI'],
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_ledger'),
@@ -732,6 +735,7 @@ describe('WmsService inventory read queries', () => {
   it('keeps transfer identity and available quantity in one atomic transaction', async () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-MAT-1' }];
         if (sql.includes('FROM inv_batches WHERE batch_no = $1 FOR UPDATE')) {
           return [{
             batch_no: 'B-MAT-1',
@@ -747,6 +751,7 @@ describe('WmsService inventory read queries', () => {
             expire_date: null,
             store_code: 'ALL',
             warehouse_code: 'WH-A',
+            company_code: null,
           }];
         }
         return [];
@@ -773,7 +778,7 @@ describe('WmsService inventory read queries', () => {
 
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('qty_available = CASE'),
-      [2.5, 'B-MAT-1'],
+      [2.5, 'B-MAT-1', 'WH-A', null],
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_batches'),
@@ -855,9 +860,10 @@ describe('WmsService inventory read queries', () => {
 
   it('dispatches PENDING stock into auditable in-transit ownership', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-2', status: 'PENDING', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [{ id: 1, source_batch_no: 'B-1', expected_qty: 3 }];
-      if (sql.includes('FROM inv_batches WHERE')) return [{ batch_no: 'B-1', qty: 4, qty_available: 4, status: 'AVAILABLE', warehouse_code: 'WH-A', store_code: 'ALL' }];
+      if (sql.includes('FROM inv_batches WHERE')) return [{ batch_no: 'B-1', qty: 4, qty_available: 4, status: 'AVAILABLE', warehouse_code: 'WH-A', store_code: 'ALL', company_code: null }];
       return [];
     }) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
@@ -872,6 +878,7 @@ describe('WmsService inventory read queries', () => {
     const manager = { query: jest.fn(async (sql: string) => {
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-3', status: 'IN_TRANSIT', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [{ id: 11, source_batch_no: 'B-1', expected_qty: 5, source_snapshot: {} }];
+      if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-A', store_code: 'STORE-B', store_status: 'ACTIVE' }];
       return [];
     }) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
@@ -882,6 +889,14 @@ describe('WmsService inventory read queries', () => {
     }, { username: 'manager' })).resolves.toMatchObject({ status: 'RECEIVED', received_qty: 3, difference_qty: 2 });
     const discrepancyCalls = manager.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO wms_transfer_discrepancies'));
     expect(discrepancyCalls).toHaveLength(2);
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('expire_date,store_code,company_code'),
+      expect.arrayContaining(['WH-B', 'STORE-B', 'COMP-A']),
+    );
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('business_type,unit,company_code'),
+      expect.arrayContaining(['STORE-B', 'WH-B', 'COMP-A']),
+    );
     expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining("SET status='COMPLETED'"), expect.anything());
   });
 
