@@ -172,6 +172,9 @@ describe('WmsService inventory read queries', () => {
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
           return [{ type: 'PURCHASE_RECV', domain: 'OPERATIONAL' }];
         }
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) {
+          return [{ company_code: 'COMP-LAO-XINGCHI' }];
+        }
         if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
           return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
         }
@@ -232,6 +235,7 @@ describe('WmsService inventory read queries', () => {
       'LPH_MS_EGG_SALES',
       'INBOUND-DOCK',
       'ALL',
+      'COMP-LAO-XINGCHI',
     ]);
 
     const insertLedgerCall = manager.query.mock.calls.find(([sql]) =>
@@ -251,6 +255,7 @@ describe('WmsService inventory read queries', () => {
       '枚',
       'PURCHASE_INBOUND',
       'PURCHASE',
+      'COMP-LAO-XINGCHI',
     ]);
   });
 
@@ -259,6 +264,9 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string, params?: unknown[]) => {
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
           return [{ type: 'PURCHASE_RECV', domain: 'OPERATIONAL' }];
+        }
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) {
+          return [{ company_code: 'COMP-LAO-XINGCHI' }];
         }
         if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
           return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
@@ -306,6 +314,7 @@ describe('WmsService inventory read queries', () => {
         'LPH_MS_EGG_SALES',
         'INBOUND-DOCK',
         'ALL',
+        'COMP-LAO-XINGCHI',
       ],
     );
     expect(manager.query).toHaveBeenCalledWith(
@@ -323,6 +332,7 @@ describe('WmsService inventory read queries', () => {
         '枚',
         'PURCHASE_INBOUND',
         'PURCHASE',
+        'COMP-LAO-XINGCHI',
       ],
     );
   });
@@ -332,6 +342,9 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
           return [{ type: 'FEED', domain: 'OPERATIONAL' }];
+        }
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) {
+          return [{ company_code: 'COMP-LAO-XINGCHI' }];
         }
         if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
           return [{ warehouse_code: 'WH-A', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
@@ -377,7 +390,7 @@ describe('WmsService inventory read queries', () => {
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_batches'),
-      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL'],
+      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL', 'COMP-LAO-XINGCHI'],
     );
   });
 

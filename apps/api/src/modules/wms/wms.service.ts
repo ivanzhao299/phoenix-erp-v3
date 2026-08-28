@@ -386,18 +386,30 @@ export class WmsService {
           `IBN-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
         const warehouseCode = item.warehouse_code || item.warehouse || defaultWarehouse;
         await this.assertWritableWarehouse(warehouseCode, `入库明细 ${baseBatchNo}`);
+        const [warehouseIdentity] = await manager.query(
+          `SELECT company_code FROM wms_warehouses WHERE warehouse_code = $1 LIMIT 1`,
+          [warehouseCode],
+        );
+        const companyCode = this.nonEmptyString(warehouseIdentity?.company_code);
+        if (!companyCode || companyCode === 'ALL') {
+          throw new BadRequestException(`入库仓 ${warehouseCode} 缺少有效公司归属`);
+        }
         const locationCode  = item.location_code || 'INBOUND-DOCK';
 
         // V2 fidelity: 拦截 EXPIRED / LOCKED / QUARANTINE 已存在批次的累加
         if (item.batch_no) {
           const existRows = await manager.query(
-            `SELECT batch_no, status FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
+            `SELECT batch_no, status, company_code FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
             [item.batch_no],
           );
           if (existRows.length > 0) {
             const exStatus = (existRows[0].status || 'AVAILABLE').toUpperCase();
             if (['EXPIRED', 'LOCKED', 'QUARANTINE'].includes(exStatus)) {
               throw new Error(`批次 ${item.batch_no} 当前状态 ${exStatus}，不可继续入库`);
+            }
+            const existingCompany = this.nonEmptyString(existRows[0].company_code);
+            if (existingCompany && existingCompany !== 'ALL' && existingCompany !== companyCode) {
+              throw new BadRequestException(`批次 ${item.batch_no} 公司归属 ${existingCompany} 与入库仓 ${companyCode} 不一致`);
             }
           }
         }
@@ -407,9 +419,9 @@ export class WmsService {
           await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, warehouse_code, location_code, store_code
+             unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code
            )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -417,22 +429,24 @@ export class WmsService {
                item_type = COALESCE(inv_batches.item_type, EXCLUDED.item_type),
                material_type = COALESCE(inv_batches.material_type, EXCLUDED.material_type),
                unit = COALESCE(inv_batches.unit, EXCLUDED.unit),
+               company_code = CASE WHEN inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL'
+                                   THEN EXCLUDED.company_code ELSE inv_batches.company_code END,
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
                updated_at = now()`,
-            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode],
+            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode],
           );
           await manager.query(
             `INSERT INTO inv_ledger (
                batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-               sku_code, material_code, warehouse_code, business_type, unit
+               sku_code, material_code, warehouse_code, business_type, unit, company_code
              )
-             VALUES ($1, $11, $2::numeric, $3, $4, $5, $6, $7, $8, $9, $12, $10)`,
+             VALUES ($1, $11, $2::numeric, $3, $4, $5, $6, $7, $8, $9, $12, $10, $13)`,
             [
               baseBatchNo, actualQty, operator, storeCode, task_no,
               `入库确认 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} actual=${actualQty} warehouse=${warehouseCode}`,
               skuCode, materialCode, warehouseCode, unit,
-              inboundPolicy.ledgerType, inboundPolicy.businessType,
+              inboundPolicy.ledgerType, inboundPolicy.businessType, companyCode,
             ],
           );
         }
@@ -443,9 +457,9 @@ export class WmsService {
           await manager.query(
             `INSERT INTO inv_batches (
                batch_no, product_code, sku_code, material_code, item_type, material_type,
-               unit, qty, qty_available, status, warehouse_code, location_code, store_code
+               unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code
              )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, 0, 'QUARANTINE', $9, $10, $11)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, 0, 'QUARANTINE', $9, $10, $11, $12)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -453,23 +467,25 @@ export class WmsService {
                item_type = COALESCE(inv_batches.item_type, EXCLUDED.item_type),
                material_type = COALESCE(inv_batches.material_type, EXCLUDED.material_type),
                unit = COALESCE(inv_batches.unit, EXCLUDED.unit),
+               company_code = CASE WHEN inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL'
+                                   THEN EXCLUDED.company_code ELSE inv_batches.company_code END,
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = 0,
                status = 'QUARANTINE',
                updated_at = now()`,
-            [brokenBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode],
+            [brokenBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode, companyCode],
           );
           await manager.query(
             `INSERT INTO inv_ledger (
                batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-               sku_code, material_code, warehouse_code, business_type, unit
+               sku_code, material_code, warehouse_code, business_type, unit, company_code
              )
-             VALUES ($1, 'INBOUND_BROKEN', $2::numeric, $3, $4, $5, $6, $7, $8, $9, $11, $10)`,
+             VALUES ($1, 'INBOUND_BROKEN', $2::numeric, $3, $4, $5, $6, $7, $8, $9, $11, $10, $12)`,
             [
               brokenBatchNo, brokenQty, operator, storeCode, task_no,
               `破损入隔离 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} broken=${brokenQty}`,
               skuCode, materialCode, warehouseCode, unit,
-              `${inboundPolicy.businessType}_BROKEN`,
+              `${inboundPolicy.businessType}_BROKEN`, companyCode,
             ],
           );
         }

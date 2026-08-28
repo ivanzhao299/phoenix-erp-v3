@@ -40,6 +40,15 @@ jobs:
                     AND b.warehouse_code='ST_LAO_XINGCHI_HS_001_SALES')
              ORDER BY b.created_at, b.batch_no;
 
+            SELECT 'GENERIC_INBOUND_COMPANY_DRIFT' AS section,
+                   b.batch_no,b.sku_code,b.warehouse_code,b.company_code AS batch_company,
+                   w.company_code AS warehouse_company,b.status,b.qty_available,b.created_at
+              FROM inv_batches b
+              JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+             WHERE b.batch_no LIKE 'IBN-%'
+               AND b.company_code IS DISTINCT FROM w.company_code
+             ORDER BY b.created_at,b.batch_no;
+
             SELECT 'TARGET_LEDGER' AS section, to_jsonb(l) AS record
               FROM inv_ledger l
              WHERE l.batch_no='IBN-20260828-VW1SSC'
