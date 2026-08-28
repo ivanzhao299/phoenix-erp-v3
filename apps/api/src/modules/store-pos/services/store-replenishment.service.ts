@@ -28,14 +28,14 @@ export class StoreReplenishmentService {
     if (!scope.isGlobal && !membershipCodes.length && !(isWarehouseOperator && warehouses.length)) return [];
     const rows = await this.ds.query<any[]>(`
       SELECT r.*,s.store_code,s.store_name,
-        source_w.warehouse_name AS source_warehouse_name,
-        source_w.warehouse_name_zh AS source_warehouse_name_zh,
-        source_w.warehouse_name_en AS source_warehouse_name_en,
-        source_w.warehouse_name_lo AS source_warehouse_name_lo,
-        target_w.warehouse_name AS target_warehouse_name,
-        target_w.warehouse_name_zh AS target_warehouse_name_zh,
-        target_w.warehouse_name_en AS target_warehouse_name_en,
-        target_w.warehouse_name_lo AS target_warehouse_name_lo,
+        MAX(source_w.warehouse_name) AS source_warehouse_name,
+        MAX(source_w.warehouse_name_zh) AS source_warehouse_name_zh,
+        MAX(source_w.warehouse_name_en) AS source_warehouse_name_en,
+        MAX(source_w.warehouse_name_lo) AS source_warehouse_name_lo,
+        MAX(target_w.warehouse_name) AS target_warehouse_name,
+        MAX(target_w.warehouse_name_zh) AS target_warehouse_name_zh,
+        MAX(target_w.warehouse_name_en) AS target_warehouse_name_en,
+        MAX(target_w.warehouse_name_lo) AS target_warehouse_name_lo,
         COALESCE(json_agg(json_build_object('id',l.id,'skuCode',l.sku_code,'skuName',l.sku_name,
           'requestedQty',l.requested_qty,'approvedQty',l.approved_qty,'receivedQty',l.received_qty,'remark',l.remark)
           ORDER BY l.id) FILTER (WHERE l.id IS NOT NULL),'[]') AS lines
@@ -48,7 +48,7 @@ export class StoreReplenishmentService {
         AND ($2::text IS NULL OR r.status=$2)
         AND ($3::boolean OR s.store_code=ANY($4::text[]) OR ($6::boolean AND r.company_code=ANY($7::text[])
           AND (r.source_warehouse_code IS NULL OR r.source_warehouse_code=ANY($5::text[]))))
-      GROUP BY r.id,s.store_code,s.store_name,source_w.warehouse_code,target_w.warehouse_code ORDER BY r.created_at DESC`,
+      GROUP BY r.id,s.store_code,s.store_name ORDER BY r.created_at DESC`,
       [filters.storeCode || null, filters.status || null, !!scope.isGlobal, membershipCodes, warehouses ?? [],
         isWarehouseOperator, scope.allowedCompanyCodes ?? []]);
     return rows;

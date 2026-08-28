@@ -49,3 +49,10 @@
 - API：`tsc --noEmit` 0 error。
 - 约束门禁：`check-constraint-drift` 0 new drift（1 条既有 allowlist）。
 - 生产只读直连：当前执行环境 `ssh erp` DNS 解析失败；必须以部署 workflow 的 amei GET、错误窗口与 revision 三方一致性作为最终证据。
+
+## 首轮生产回归与修正
+
+- full 部署 run `33155311408` 成功，checkout/API/Web revision 均为 `8a6da16e5fdb6a19c72a4be1590215ac2238aa2c`。
+- amei 只读 run `33156168695` 已证明补货页面 HTTP 200、zh/en/lo bundle 齐全、membership 与 WarehouseScope 正常；在补货列表 GET 处失败。
+- 根因：列表是 `json_agg` 聚合查询，首次增强把仓库名称列直接加入 SELECT，仅按 `warehouse_code` GROUP BY；该列不是表主键，生产 PostgreSQL 不接受该函数依赖。
+- 修正：名称列使用 `MAX(...)` 聚合，GROUP BY 恢复申请与门店键。名称 join 为一对一，聚合不改变业务结果。
