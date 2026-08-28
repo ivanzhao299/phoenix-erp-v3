@@ -31,7 +31,7 @@ describe('replenishment UI source contract', () => {
   });
   it('retains partial-success and controlled discrepancy contracts', () => {
     expect(page).toContain('create.partial');
-    expect(page).toContain("type:'LOSS'|'ADJUSTMENT'");
+    expect(page).toMatch(/type:\s*["']LOSS["']\s*\|\s*["']ADJUSTMENT["']/);
     expect(page).toContain('resolution_ref');
     expect(page).toContain('validateReceive');
   });

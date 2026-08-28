@@ -4,14 +4,14 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { requestMock } = vi.hoisted(() => ({ requestMock: vi.fn() }));
+const { requestMock, language } = vi.hoisted(() => ({ requestMock: vi.fn(), language: { current: 'zh' } }));
 
 vi.mock('@/lib/api-client', () => ({ default: requestMock }));
 vi.mock('@/contexts/LanguageContext', () => ({
-  useLanguage: () => ({ t: (_key: string, fallback: string) => fallback }),
+  useLanguage: () => ({ t: (_key: string, fallback: string) => fallback, lang: language.current }),
 }));
 
-import { LocationSelector, StoreMembershipSelector, ZoneSelector } from './MasterDataSelectors';
+import { LocationSelector, StoreMembershipSelector, WarehouseSelector, ZoneSelector } from './MasterDataSelectors';
 
 // React 19 uses this flag to suppress false-positive act environment warnings.
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -26,6 +26,7 @@ describe('WMS status-vocabulary selectors', () => {
 
   beforeEach(() => {
     requestMock.mockReset();
+    language.current = 'zh';
     host = document.createElement('div');
     document.body.appendChild(host);
     root = createRoot(host);
@@ -83,6 +84,22 @@ describe('WMS status-vocabulary selectors', () => {
     ] } });
     await flush();
     expect([...host.querySelectorAll('option')].map(option => option.value)).toEqual(['', 'NEW']);
+  });
+
+  it('renders warehouse names for the active locale and falls back safely', async () => {
+    requestMock.mockResolvedValue({ data: [{
+      warehouseCode: 'WH-1', warehouseName: 'Legacy', warehouseNameZh: '中文仓',
+      warehouseNameEn: 'English warehouse', warehouseNameLo: '',
+    }] });
+    language.current = 'en';
+    await act(async () => root.render(createElement(WarehouseSelector, { value: '', onChange: () => undefined })));
+    await flush();
+    expect(host.textContent).toContain('English warehouse（WH-1）');
+
+    language.current = 'lo';
+    await act(async () => root.render(createElement(WarehouseSelector, { value: '', onChange: () => undefined })));
+    await flush();
+    expect(host.textContent).toContain('中文仓（WH-1）');
   });
 
   it('deduplicates an amei-style dual-role store context defensively', async () => {

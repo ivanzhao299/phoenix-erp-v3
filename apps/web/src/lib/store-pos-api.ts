@@ -10,6 +10,9 @@ export interface StorePosContextOption {
   storeId: string;
   storeCode: string;
   storeName: string;
+  storeNameZh?: string;
+  storeNameEn?: string;
+  storeNameLo?: string;
   companyCode: string;
   role: string;
   roles: string[];

@@ -14174,5 +14174,11 @@
   "store.replenish.validation.store": "Validation",
   "store.replenish.warehouse.empty": "Warehouse",
   "store.replenish.warehouse.error": "Warehouse",
-  "store.replenish.warehouse.loading": "Warehouse"
+  "store.replenish.warehouse.loading": "ກຳລັງໂຫຼດສາງຕົ້ນທາງ…",
+  "store.replenish.status.unknown": "ສະຖານະບໍ່ຮູ້ຈັກ",
+  "store.replenish.discrepancy.shortage": "ຂາດຮັບ",
+  "store.replenish.discrepancy.damage": "ເສຍຫາຍ",
+  "store.replenish.discrepancy.unknown": "ສ່ວນຕ່າງບໍ່ຮູ້ຈັກ",
+  "store.replenish.resolution.loss": "ລາຍງານສູນເສຍ",
+  "store.replenish.resolution.adjustment": "ປັບປຸງສິນຄ້າຄົງຄັງ"
 }

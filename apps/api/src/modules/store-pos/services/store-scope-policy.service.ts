@@ -39,6 +39,8 @@ export class StoreScopePolicy {
     if (!userId || !this.membershipEnabled) return [];
     const rows = await this.ds.query<any[]>(`
       SELECT s.id::text AS "storeId", s.store_code AS "storeCode", s.store_name AS "storeName",
+             COALESCE(ms.store_name, s.store_name) AS "storeNameZh",
+             ms.store_name_en AS "storeNameEn", ms.store_name_lo AS "storeNameLo",
              s.company_code AS "companyCode", s.timezone, s.business_day_cutoff::text AS "businessDayCutoff",
              m.role, EXISTS (
                SELECT 1 FROM store_warehouse_bindings b JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
@@ -53,6 +55,7 @@ export class StoreScopePolicy {
                  AND ($2::boolean OR b.warehouse_code=ANY($3::text[]))
              ) AS "hasWarehouseScopeIntersection"
         FROM store_memberships m JOIN store_master s ON s.id=m.store_id
+        LEFT JOIN mst_stores ms ON ms.store_code=s.store_code
        WHERE m.user_id=$1 AND m.status='ACTIVE' AND s.status='ACTIVE'
          AND (m.effective_from IS NULL OR m.effective_from<=NOW()) AND (m.effective_to IS NULL OR m.effective_to>=NOW())
        ORDER BY s.store_code`, [userId, Boolean(this.scope?.isGlobal), this.scope?.allowedWarehouseCodes ?? []]);

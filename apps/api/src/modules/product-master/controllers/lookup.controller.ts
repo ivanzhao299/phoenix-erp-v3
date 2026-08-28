@@ -559,6 +559,9 @@ export class LookupController {
     const rows = await this.em.query(
       `SELECT warehouse_code AS "warehouseCode",
               COALESCE(warehouse_name_zh, warehouse_name) AS "warehouseName",
+              warehouse_name_zh AS "warehouseNameZh",
+              warehouse_name_en AS "warehouseNameEn",
+              warehouse_name_lo AS "warehouseNameLo",
               company_code AS "companyCode", site_code AS "siteCode",
               type AS "warehouseType", domain, status
          FROM wms_warehouses
@@ -580,6 +583,7 @@ export class LookupController {
     if (!scope.isGlobal) { params.push(scope.companyCodes); where += ` AND company_code = ANY($${params.length})`; }
     const rows = await this.em.query(
       `SELECT store_code AS "storeCode", store_name AS "storeName",
+              store_name AS "storeNameZh", store_name_en AS "storeNameEn", store_name_lo AS "storeNameLo",
               company_code AS "companyCode", status
          FROM mst_stores
          WHERE ${where}

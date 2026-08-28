@@ -5,6 +5,7 @@ import request from '@/lib/api-client';
 import { cachedGet, TTL } from '@/lib/request-cache'; // G89-P1 主数据下拉缓存+去重
 import { fetchDictMap } from '@/lib/dict-cache'; // G25-A 字典异步缓存
 import { loadStorePosContexts } from '@/lib/store-pos-api';
+import { localizedMasterName, masterNameWithCode } from '@/lib/localized-master-data';
 
 /**
  * 统一主数据选择器（G4-A 财务单据主数据驱动 + G5-B Lookup 范式化 + G7 收口）
@@ -257,9 +258,9 @@ export function UserSelector(p: BaseProps & {
 // ── 仓库（wms_warehouses，G5-B 切 /api/lookup，G15 支持 type 过滤）─────────────
 // type 枚举：EGG_FARM / EGG_SALES / MEDICINE / FEED / RAW_MATERIAL / PURCHASE_RECV / FINISHED
 export function WarehouseSelector(p: BaseProps & { companyCode?: string; siteCode?: string; type?: string }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { companyCode, siteCode, type, ...rest } = p;
-  return <ScopedSelect {...rest} reloadDeps={[companyCode, siteCode, type]} placeholder={p.placeholder ?? t('ui.请选择仓库','请选择仓库')}
+  return <ScopedSelect {...rest} reloadDeps={[companyCode, siteCode, type, lang]} placeholder={p.placeholder ?? t('ui.请选择仓库','请选择仓库')}
     loader={async () => {
       const qs = new URLSearchParams();
       if (companyCode) qs.set('companyCode', companyCode);
@@ -270,7 +271,7 @@ export function WarehouseSelector(p: BaseProps & { companyCode?: string; siteCod
       return (Array.isArray(list) ? list : [])
         .map(w => ({
           value: w.warehouseCode,
-          label: `${w.warehouseName ?? w.warehouseCode}（${w.warehouseCode}）`,
+          label: masterNameWithCode(localizedMasterName(w, 'warehouseName', lang), w.warehouseCode),
           raw: w,
         }));
     }} />;
@@ -337,9 +338,9 @@ export function ChannelSelector(p: BaseProps) {
 
 // ── 门店（mst_stores，G5-B 切 /api/lookup）────────────────────────────────────
 export function StoreSelector(p: BaseProps & { companyCode?: string }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { companyCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择门店','请选择门店')}
+  return <ScopedSelect {...rest} reloadDeps={[companyCode, lang]} placeholder={p.placeholder ?? t('ui.请选择门店','请选择门店')}
     emptyMessage={t('ui.当前数据范围内无可用门店','当前数据范围内无可用门店')}
     errorMessage={t('ui.门店服务加载失败，请刷新重试','门店服务加载失败，请刷新重试')}
     loader={async () => {
@@ -348,7 +349,7 @@ export function StoreSelector(p: BaseProps & { companyCode?: string }) {
       return (Array.isArray(list) ? list : [])
         .map(st => ({
           value: st.storeCode,
-          label: `${st.storeName ?? st.storeCode}（${st.storeCode}）`,
+          label: masterNameWithCode(localizedMasterName(st, 'storeName', lang), st.storeCode),
           raw: st,
         }));
     }} />;
@@ -356,8 +357,8 @@ export function StoreSelector(p: BaseProps & { companyCode?: string }) {
 
 /** POS 专用门店：只展示当前用户有效 membership，legacy store_code 不参与。 */
 export function StoreMembershipSelector(p: BaseProps) {
-  const { t } = useLanguage();
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择门店','请选择门店')}
+  const { t, lang } = useLanguage();
+  return <ScopedSelect {...p} reloadDeps={[lang]} placeholder={p.placeholder ?? t('ui.请选择门店','请选择门店')}
     emptyMessage={t('ui.当前账号无门店授权，请使用店长/收银账号或联系管理员配置 membership','当前账号无门店授权，请使用店长/收银账号或联系管理员配置 membership')}
     errorMessage={t('ui.门店授权服务加载失败，请刷新重试','门店授权服务加载失败，请刷新重试')}
     loader={async () => {
@@ -365,7 +366,7 @@ export function StoreMembershipSelector(p: BaseProps) {
       const unique = [...new Map(contexts.map(st => [st.storeCode, st])).values()];
       return unique.map(st => ({
         value: st.storeCode,
-        label: `${st.storeName}（${st.storeCode}）${!st.hasSalesWarehouse
+        label: `${masterNameWithCode(localizedMasterName(st as any, 'storeName', lang), st.storeCode)}${!st.hasSalesWarehouse
           ? ` · ${t('ui.未绑定有效销售仓，请联系管理员配置门店仓','未绑定有效销售仓，请联系管理员配置门店仓')}`
           : st.hasWarehouseScopeIntersection === false
             ? ` · ${t('ui.无门店仓权限交集，请联系管理员配置 WarehouseScope','无门店仓权限交集，请联系管理员配置 WarehouseScope')}`
@@ -555,9 +556,9 @@ export function ShiftSelector(p: BaseProps) {
 // ── SKU（物料主数据，仅 ACTIVE）──────────────────────────────────────────────
 /** value = sku_code；onPick 回传 raw（包含 product_code/product_name/grade_code/spec_code/sku_name） */
 export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: string }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { productCode, gradeCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
+  return <ScopedSelect {...rest} reloadDeps={[productCode, gradeCode, lang]} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
     loader={async () => {
       const params = new URLSearchParams({ status: 'ACTIVE' });
       if (productCode) params.set('product_code', productCode);
@@ -568,7 +569,7 @@ export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: s
         .filter(s => (s.status ?? 'ACTIVE') === 'ACTIVE')
         .map(s => ({
           value: s.sku_code,
-          label: `${s.sku_name ?? s.product_name ?? s.sku_code}（${s.sku_code}${s.spec_code ? ' · ' + s.spec_code : ''}${s.grade_code ? ' · ' + s.grade_code : ''}）`,
+          label: `${localizedMasterName(s, 'sku_name', lang) || s.product_name || s.sku_code}（${s.sku_code}${s.spec_code ? ' · ' + s.spec_code : ''}${s.grade_code ? ' · ' + s.grade_code : ''}）`,
           raw: s,
         }));
     }} />;
