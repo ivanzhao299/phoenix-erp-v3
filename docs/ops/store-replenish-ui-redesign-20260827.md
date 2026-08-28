@@ -524,7 +524,7 @@ cd apps/web && npx playwright test e2e/store-replenishment.spec.ts
 
 ### 11.4 生产只读复验
 
-- amei 专项 run：[`33135623725`](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33135623725)，成功，`PRODUCTION_BUSINESS_WRITES=0`。
+- amei 基础专项 run：[`33135623725`](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33135623725)；补充 HTML/三语 bundle 证据后的最终 run：[`33136079239`](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33136079239)。两次均成功，`PRODUCTION_BUSINESS_WRITES=0`。
 - selector 数据源：contexts 恰好 1 行 `STORE-HS-001`，`roles=CASHIER,STORE_MANAGER`，销售仓与 WarehouseScope 交集均为 true；amei WarehouseScope 8 仓。
 - 补货 API：列表 GET 200、会晒门店源仓 GET 200、`MENU_STORE_REPLENISH:V,C,E`；无权限 cashier GET 403。
 - 错误窗口：Store POS/补货相关 30 分钟窗口 0 条。
