@@ -175,3 +175,14 @@ WMS 通用出库、一阶段调拨、生命周期调拨发运，以及 Sales V2 
 
 未建设 Playwright 真实凭据 fixture；未处理 VTE 场站归置、32 幽灵批次、东鹏老挝语名等
 待业务决策项。退货仍写 QUARANTINE 批次和 SALE_RETURN 台账，库存台账语义未放宽或改写。
+
+### CI、部署与上线后只读复核
+
+- PR [#129](https://github.com/ivanzhao299/phoenix-erp-v3/pull/129) 在
+  `reviewed-frozen-boundary` 与 `reviewed-security-touch` 显式复核后全绿，merge revision
+  `cbdd9239b09329f3af16e218139f94f2dccf3b4d`。
+- `full` 生产部署 run `33149547891` 成功；API/Web 镜像重建、迁移、健康检查及 Web smoke 全部通过。
+- 部署后只读 run `33150346928`：生产 checkout、API image、Web image 三者均为上述 merge revision；
+  `GENERIC_INBOUND_COMPANY_DRIFT` 与历史门店调拨 `store_code` 漂移均为 0 行；会晒 QUARANTINE
+  zone/location 仍为 ACTIVE；真实 fixture `POS-20260828-00014` 保持 COMPLETED/PAID、allocation
+  仍为 2、`returned_qty=0`。未代用户发起退货，等待用户自行复验真实退款/回库动作。
