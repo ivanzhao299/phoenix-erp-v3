@@ -157,7 +157,7 @@ export const KPI_GRID: React.CSSProperties = {
 export type StatusType =
   | 'SUCCESS' | 'WARNING' | 'DANGER' | 'INFO'
   | 'DISABLED' | 'NEUTRAL' | 'PENDING' | 'RUNNING'
-  | 'ACTIVE' | 'FROZEN' | 'CANCELLED' | 'COMPLETED';
+  | 'ACTIVE' | 'FROZEN' | 'CANCELLED' | 'COMPLETED' | 'DISPATCHED';
 
 /** 状态 → Tailwind 类名（前景 + 背景） */
 export const STATUS_CLASS: Record<string, string> = {
@@ -189,6 +189,7 @@ export const STATUS_CLASS: Record<string, string> = {
   APPROVED:       'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
   REJECTED:       'text-red-700    bg-red-50    dark:text-red-300    dark:bg-red-950/40',
   SUBMITTED:      'text-blue-700   bg-blue-50   dark:text-blue-300   dark:bg-blue-950/40',
+  DISPATCHED:     'text-indigo-700 bg-indigo-50 dark:text-indigo-300 dark:bg-indigo-950/40',
   CONFIRMED:      'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
   EXECUTED:       'text-violet-700 bg-violet-50  dark:text-violet-300 dark:bg-violet-950/40',
   REIMBURSED:     'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
@@ -212,6 +213,7 @@ export const STATUS_LABEL: Record<string, string> = {
   ACTIVE:    '启用',
   FROZEN:    '冻结',
   CANCELLED: '已取消',
+  DISPATCHED: '在途',
   COMPLETED: '已完成',
   // 通用业务扩展
   DRAFT:             '草稿',
