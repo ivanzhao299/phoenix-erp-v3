@@ -159,7 +159,13 @@ jobs:
             unset TOKEN_RAW
             test -n "$TOKEN"
 
-            PAGE_HTML="$(curl -fsSL --cookie "phoenix_access_token=$TOKEN" 'https://erp.eggslao.com/store/replenish')"
+            PAGE_META="$(curl -sSL --cookie "phoenix_access_token=$TOKEN" -o /tmp/store-replenish-page.html -w '%{http_code} %{url_effective}' 'https://erp.eggslao.com/store/replenish')"
+            PAGE_HTML="$(cat /tmp/store-replenish-page.html)"
+            PAGE_TITLE=false; PAGE_SHELL=false
+            grep -Fq '门店补货编排' <<<"$PAGE_HTML" && PAGE_TITLE=true
+            grep -Fq 'padding:24px' <<<"$PAGE_HTML" && PAGE_SHELL=true
+            echo "REPLENISH_PAGE_DIAGNOSTIC status_url=$PAGE_META title=$PAGE_TITLE page_shell=$PAGE_SHELL bytes=${#PAGE_HTML}"
+            test "$PAGE_META" = '200 https://erp.eggslao.com/store/replenish'
             grep -Fq '门店补货编排' <<<"$PAGE_HTML"
             grep -Fq 'padding:24px' <<<"$PAGE_HTML"
             echo "REPLENISH_PAGE_SHELL_ASSERTION=PASS status=200 title=true page_shell_fingerprint=padding:24px"
