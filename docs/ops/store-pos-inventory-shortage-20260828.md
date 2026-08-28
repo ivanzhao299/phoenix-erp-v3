@@ -96,3 +96,10 @@ POS SKU FIFO 位于 `apps/api/src/modules/store-pos/services/store-pos.service.t
 门店 POS 当前以 `store_warehouse_bindings` 的 SALES 仓交集隔离库存，不按 `inv_batches.store_code` 过滤；因此本案无需、也不应为通过支付而修正目标批次的 `store_code=ALL`。不过 WMS 调拨签收会复制源批次 `store_code`，门店补货也没有把目标门店传入调拨；这会延续 `ALL`，属于独立的批次归属治理问题。
 
 调拨、WMS 出库、Sales V2 预占/释放/出库存在另一类风险：多处条件 UPDATE 只按 `batch_no` 且不检查影响行数。它们不会触发本次 TypeORM 长度误判（因为根本没有同款守卫），但需要后续统一补齐公司/仓/数量条件与受影响行数契约；本次未放宽或改动库存台账语义。
+
+### CI、部署与上线后只读复核
+
+- PR [#128](https://github.com/ivanzhao299/phoenix-erp-v3/pull/128) 在 `reviewed-frozen-boundary` 显式复核后全部通过：类型/构建、两套 regression、Web Vitest、runtime smoke 与静态安全/冻结门禁均为绿；合并 commit 为 `be14a770d89acf43a43c96fd874eaf9734bb66c1`。
+- 手动 `full` 生产部署 run `33142591770` 成功；API/Web 镜像均重新构建，迁移、容器健康检查和 Web smoke 全部通过。
+- 部署后只读复核 run `33143220504`：生产 checkout、API image revision、Web image revision 三者均为 `be14a770d89acf43a43c96fd874eaf9734bb66c1`。
+- amei 语义只读复核保持不变：`POS-20260828-00003` 至 `00013` 均为 OPEN/UNPAID，目标批次仍唯一、AVAILABLE、`qty_available=1000.000`；未代用户执行真实支付，未产生 allocation/现金流水/payment record，也未做任何额外生产数据修正。
