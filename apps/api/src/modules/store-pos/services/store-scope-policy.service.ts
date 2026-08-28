@@ -88,6 +88,37 @@ export class StoreScopePolicy {
     const store = stores.find(s => s.storeCode === storeCode);
     if (!store) throw new ForbiddenException('无此门店的有效 membership');
 
+    const storeContext = await this.loadStoreContext(storeCode, purpose, false);
+    const bindings = storeContext.warehouseCodes.map(warehouseCode => ({ warehouseCode }));
+    const allowed = new Set<string>(scope.isGlobal ? bindings.map(b => b.warehouseCode) : (scope.allowedWarehouseCodes ?? []));
+    const warehouseCodes = bindings.map(b => b.warehouseCode).filter(code => allowed.has(code));
+    if (!warehouseCodes.length) throw new ForbiddenException(`请先配置门店仓绑定：无有效 ${purpose} 仓权限交集`);
+    this.shadowCompare(storeCode, stores.map(s => s.storeCode));
+    return { ...store, warehouseCodes };
+  }
+
+  /** Resolve the active store and its active warehouse bindings without requiring store membership. */
+  async resolveStoreContext(storeCode: string | undefined, purpose: StoreWarehousePurpose = 'SALES'): Promise<StoreContext> {
+    return this.loadStoreContext(storeCode, purpose, true);
+  }
+
+  private async loadStoreContext(
+    storeCode: string | undefined,
+    purpose: StoreWarehousePurpose,
+    requireBinding: boolean,
+  ): Promise<StoreContext> {
+    if (!storeCode) throw new ForbiddenException('请求必须显式指定门店');
+    const scope = this.scope;
+    if (!scope) throw new ForbiddenException('缺少数据范围上下文');
+    const [store] = await this.ds.query<any[]>(`
+      SELECT s.id::text AS "storeId",s.store_code AS "storeCode",s.store_name AS "storeName",
+             s.company_code AS "companyCode",s.timezone,s.business_day_cutoff::text AS "businessDayCutoff"
+        FROM store_master s
+       WHERE s.store_code=$1 AND s.status='ACTIVE'`, [storeCode]);
+    if (!store) throw new ForbiddenException('门店不存在或已停用');
+    if (!scope.isGlobal && !(scope.allowedCompanyCodes ?? []).includes(store.companyCode)) {
+      throw new ForbiddenException('门店公司不在 DataScope');
+    }
     const bindings = await this.ds.query<Array<{ warehouseCode: string }>>(`
       SELECT b.warehouse_code AS "warehouseCode"
         FROM store_warehouse_bindings b JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
@@ -95,11 +126,8 @@ export class StoreScopePolicy {
          AND (b.effective_from IS NULL OR b.effective_from<=NOW()) AND (b.effective_to IS NULL OR b.effective_to>=NOW())
          AND w.status='ACTIVE' AND w.domain='OPERATIONAL'
        ORDER BY b.priority,b.id`, [store.storeId, purpose]);
-    const allowed = new Set<string>(scope.isGlobal ? bindings.map(b => b.warehouseCode) : (scope.allowedWarehouseCodes ?? []));
-    const warehouseCodes = bindings.map(b => b.warehouseCode).filter(code => allowed.has(code));
-    if (!warehouseCodes.length) throw new ForbiddenException(`请先配置门店仓绑定：无有效 ${purpose} 仓权限交集`);
-    this.shadowCompare(storeCode, stores.map(s => s.storeCode));
-    return { ...store, warehouseCodes };
+    if (requireBinding && !bindings.length) throw new ForbiddenException(`请先配置门店仓绑定：无有效 ${purpose} 仓`);
+    return { ...store, role: '', roles: [], warehouseCodes: bindings.map(b => b.warehouseCode) };
   }
 
   async assertSaleScoped(id: number, purpose: StoreWarehousePurpose = 'SALES'): Promise<{ sale: any; context: StoreContext }> {

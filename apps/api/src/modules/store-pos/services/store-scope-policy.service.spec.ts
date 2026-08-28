@@ -8,6 +8,10 @@ function subject(opts: { memberships?: any[]; bindings?: string[]; scope?: any; 
   const bindings = opts.bindings ?? ['WH-A'];
   const ds = { query: jest.fn(async (sql: string) => {
     if (sql.includes('FROM store_memberships m')) return memberships;
+    if (sql.includes('FROM store_master s')) return [{
+      storeId: '1', storeCode: 'STORE-A', storeName: 'A', companyCode: 'COMP-A',
+      timezone: 'Asia/Shanghai', businessDayCutoff: '00:00:00',
+    }];
     if (sql.includes('FROM store_warehouse_bindings b')) return bindings.map(warehouseCode => ({ warehouseCode }));
     return [];
   }) } as any;
@@ -78,6 +82,17 @@ describe('StoreScopePolicy V1-1 quadrants', () => {
 
   it('does not grant Finance POS access without explicit membership', async () => {
     await expect(subject({ memberships: [] }).resolve('STORE-A')).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('resolves store identity and bindings for a warehouse approver without membership', async () => {
+    await expect(subject({ memberships: [], bindings: ['STORE-WH', 'WH-A'] }).resolveStoreContext('STORE-A'))
+      .resolves.toMatchObject({ storeCode: 'STORE-A', companyCode: 'COMP-A', warehouseCodes: ['STORE-WH', 'WH-A'] });
+  });
+
+  it('keeps store-context lookup fail-closed outside the approver company scope', async () => {
+    await expect(subject({ memberships: [], scope: {
+      isGlobal: false, allowedCompanyCodes: ['COMP-X'], allowedWarehouseCodes: ['WH-A'],
+    } }).resolveStoreContext('STORE-A')).rejects.toThrow('门店公司不在 DataScope');
   });
 
   it('requires binding even for Admin/GROUP global scope', async () => {

@@ -55,7 +55,7 @@ export class StoreReplenishmentService {
   }
 
   async sourceWarehouses(storeCode: string) {
-    const context = await this.storeScope.resolve(storeCode, 'SALES');
+    const context = await this.storeScope.resolveStoreContext(storeCode, 'SALES');
     const scope = this.scope;
     return this.ds.query(`SELECT warehouse_code AS "warehouseCode",warehouse_name AS "warehouseName",
         warehouse_name_zh AS "warehouseNameZh",warehouse_name_en AS "warehouseNameEn",warehouse_name_lo AS "warehouseNameLo"
@@ -92,8 +92,7 @@ export class StoreReplenishmentService {
   }
 
   async approve(id: number, dto: any, user: any) {
-    const [request] = await this.ds.query<any[]>(`SELECT r.*,s.store_code FROM store_replenishment_requests r JOIN store_master s ON s.id=r.store_id WHERE r.id=$1`, [id]);
-    if (!request) throw new BadRequestException('补货申请不存在');
+    const request = await this.assertVisibleRequest(id);
     if (request.status !== 'SUBMITTED') throw new BadRequestException('仅已提交申请可审批');
     const source = dto.sourceWarehouseCode || request.source_warehouse_code;
     if (!source) throw new BadRequestException('审批时必须指定源仓');

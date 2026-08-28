@@ -15,6 +15,9 @@ describe('V1-3 store replenishment orchestration contract', () => {
 
   it('uses membership and warehouse scope fail-closed gates', () => {
     expect(service).toContain("this.storeScope.resolve(dto.storeCode, 'SALES')");
+    expect(service).toContain("this.storeScope.resolve(request.store_code, 'SALES')");
+    expect(service).toContain("this.storeScope.resolveStoreContext(storeCode, 'SALES')");
+    expect(service).toContain('const request = await this.assertVisibleRequest(id);');
     expect(service).toContain("throw new ForbiddenException('源仓不在仓库 DataScope')");
     expect(controller).toContain("@RequireMenu('MENU_STORE_REPLENISH', 'A')");
     expect(controller).toContain("@RequireMenu('MENU_STORE_REPLENISH', 'E')");

@@ -35,4 +35,11 @@ describe('replenishment UI source contract', () => {
     expect(page).toContain('resolution_ref');
     expect(page).toContain('validateReceive');
   });
+  it('surfaces approver source-warehouse loading, empty and request-error states', () => {
+    expect(page).toContain('setApproveWhBusy(true)');
+    expect(page).toContain('setApproveWhError(message)');
+    expect(page).toContain('store.replenish.warehouse.loading');
+    expect(page).toContain('store.replenish.warehouse.empty');
+    expect(page).toContain('error={');
+  });
 });

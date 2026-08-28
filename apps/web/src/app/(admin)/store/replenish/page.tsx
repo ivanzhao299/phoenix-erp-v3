@@ -151,6 +151,8 @@ export default function Page() {
   const [busy, setBusy] = useState(false),
     [confirm, setConfirm] = useState<Action | null>(null),
     [approveSource, setApproveSource] = useState(""),
+    [approveWhBusy, setApproveWhBusy] = useState(false),
+    [approveWhError, setApproveWhError] = useState(""),
     [notice, setNotice] = useState(""),
     [highlight, setHighlight] = useState<number | null>(null);
   const [receiveMode, setReceiveMode] = useState<"all" | "batches">("all"),
@@ -445,17 +447,21 @@ export default function Page() {
       setApproveSource(r.source_warehouse_code || "");
       if (a === "approve") {
         setWarehouses([]);
+        setApproveWhError("");
+        setApproveWhBusy(true);
         void storePosRequest<Warehouse[]>(
           "GET",
           `/api/v2/store-replenishments/source-warehouses?storeCode=${encodeURIComponent(r.store_code)}`,
         )
           .then((x) => setWarehouses(x || []))
-          .catch((e: any) =>
-            toast.error(
+          .catch((e: any) => {
+            const message =
               e?.message ||
-                tr("store.replenish.warehouse.error", "源仓加载失败，请重试。"),
-            ),
-          );
+              tr("store.replenish.warehouse.error", "源仓加载失败，请重试。");
+            setApproveWhError(message);
+            toast.error(message);
+          })
+          .finally(() => setApproveWhBusy(false));
       }
       setConfirm(a as Action);
     }
@@ -1005,21 +1011,26 @@ export default function Page() {
             label={tr("store.replenish.field.source", "调出仓库")}
             required
             error={
-              !approveSource
+              approveWhError || (!approveSource
                 ? tr(
                     "store.replenish.validation.source",
                     "审批必须选择调出仓库",
                   )
-                : undefined
+                : undefined)
             }
           >
             <select
               className={styles.fieldInput}
               value={approveSource}
+              disabled={approveWhBusy}
               onChange={(e) => setApproveSource(e.target.value)}
             >
               <option value="">
-                {tr("store.replenish.placeholder.source", "请选择调出仓库")}
+                {approveWhBusy
+                  ? tr("store.replenish.warehouse.loading", "正在加载可用源仓…")
+                  : !approveWhError && warehouses.length === 0
+                    ? tr("store.replenish.warehouse.empty", "当前门店没有可选源仓")
+                    : tr("store.replenish.placeholder.source", "请选择调出仓库")}
               </option>
               {warehouses.map((w) => (
                 <option key={w.warehouseCode} value={w.warehouseCode}>

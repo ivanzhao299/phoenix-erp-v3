@@ -529,3 +529,13 @@ cd apps/web && npx playwright test e2e/store-replenishment.spec.ts
 - 补货 API：列表 GET 200、会晒门店源仓 GET 200、`MENU_STORE_REPLENISH:V,C,E`；无权限 cashier GET 403。
 - 错误窗口：Store POS/补货相关 30 分钟窗口 0 条。
 - 三语与页面骨架：源码契约确认页面所有引用键三语齐全、无翻译语言包中文回退；生产专项 smoke 校验 Web bundle 的 zh/en/lo 标题存在性。amei cookie 鉴权 `/store/replenish` 得到最终 URL 正确的 200 HTML（15,858 bytes），但原始 HTML 不含业务标题或 PageShell style；当前路由为客户端 hydration，且 `PageShell` 组件自身没有 className，因此“原始 HTML 含 PageShell 类名”无法成立。该项明确记为架构限制，不伪造通过；替代证据为生产 Web OCI revision、鉴权 HTML 200、三语 bundle 与源码 PageShell 契约四者组合。
+
+### 11.5 审批人源仓 membership 误拦修复（2026-08-28）
+
+- 决策点 5 已执行：`approve()` 先调用 `assertVisibleRequest()`。可见性定义沿用列表的 fail-closed 规则：已有源仓的申请必须命中审批人 WarehouseScope；尚未指定源仓的申请仅允许同公司且审批人至少有一个有效 WarehouseScope 的 `ROLE_WMS_OP/ROLE_WMS_MGR` 查看，审批提交时再校验所选源仓必须属于审批人 WarehouseScope。跨 scope 申请拒绝。
+- 新增 `StoreScopePolicy.resolveStoreContext(storeCode, purpose)`：只解析 ACTIVE 门店身份、公司和有效 SALES/RETURNS 绑定仓，不要求门店 membership；非 global 用户仍必须命中门店公司 DataScope。`sourceWarehouses()` 使用该上下文排除目标店自有仓，再以审批人 WarehouseScope 与门店公司求交集。
+- 店员链路不放宽：`create()`、`submit()`、`receive()`、`close()` 仍经 `resolve()` / `assertStoreRequest()` 要求有效 membership 与门店绑定仓权限交集。POS 销售、商品、班次等端点也保持原门禁。
+- 同类端点排查：`dispatch()` 与 transfer detail 已走仓管可见性 + WarehouseScope，不受 membership 误拦；`receive()` / `close()` 是门店签收与差异确认路径，按设计保留 membership；未发现第二个需要改为审批人免 membership 的店相关读取端点。
+- 审批弹窗新增独立 loading/error/empty 状态；后端 403 原文进入 `FormField` inline error 并保留 toast。zh/en/lo 三语键复用既有 `store.replenish.warehouse.loading|error|empty`，同时修正老挝语两项历史占位文案。
+- 自动化回归覆盖：无 membership 的仓管可解析门店上下文；跨公司 DataScope 拒绝；审批源仓返回四个 scope 仓且排除会晒店自有仓；不可见申请审批拒绝；源码契约继续断言 `create/submit/receive/close` 的 membership 门禁。生产专项 smoke 增加 `liushanjun` 短期 JWT、会晒 membership=0、source-warehouses=200/四仓/排除会晒自有仓，以及无 V 权限账号 source-warehouses=403。
+- 验证、PR、部署 revision 与生产复验结果在本次交付完成后追加；生产复验保持 `PRODUCTION_BUSINESS_WRITES=0`。
