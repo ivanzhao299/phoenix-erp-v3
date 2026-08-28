@@ -836,6 +836,8 @@ export class StorePosService {
           if (remaining <= 0) break;
           const canTake = Math.min(remaining, Number(batch.qty_available));
           remaining -= canTake;
+          // TypeORM/Postgres 的裸 UPDATE 返回 [[rows], rowCount]；包成 SELECT CTE 后
+          // 返回稳定的纯行数组，下面的精确一行守卫才能保持 fail-closed。
           const changed = await mgr.query(
             `WITH changed AS (
                UPDATE inv_batches SET qty_available = qty_available - $1, updated_at=NOW()
