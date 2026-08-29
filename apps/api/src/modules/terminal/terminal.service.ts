@@ -57,7 +57,7 @@ export class TerminalService {
   async pdaSyncInventory(warehouseCode: string) {
     try {
       const data = await this.em.query(
-        `SELECT batch_no, product_code, qty, warehouse_code, location_code, created_at
+        `SELECT batch_no, product_code, qty, status, warehouse_code, location_code, created_at
          FROM inv_batches
          WHERE warehouse_code = $1 AND qty > 0
          ORDER BY created_at DESC`,

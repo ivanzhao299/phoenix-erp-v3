@@ -1,70 +1,31 @@
-"use client";
-import { useState, useCallback } from "react";
-import { crudApi } from "@/lib/api-client";
-import { DataTable } from "@/components/data-table/DataTable";
-import { RightDrawer } from "@/components/ui/RightDrawer";
-import { CrudForm, type FormField } from "@/components/ui/CrudForm";
-import PageHeader from "@/components/PageHeader";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import s from "@/components/ui/admin-ui.module.css";
-import { useLanguage } from "@/contexts/LanguageContext";
+'use client';
+import { useCallback,useEffect,useMemo,useState } from 'react';
+import { DataTableV3,ErrorState,PageShell,Panel,StatusBadge } from '@/components/design-system';
+import { StoreMembershipSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { loadStorePosContexts,storePosRequest } from '@/lib/store-pos-api';
+import styles from './inventory.module.css';
 
-const STATUS_CLS: Record<string,string> = {"normal":s.badgeSuccess, "low":s.badgeWarning, "out":s.badgeDanger};
-
-// B3: store_inventory 真实列 — product_code / sku / qty_on_hand / qty_reserved / qty_available / min_stock / reorder_qty / unit
-//     旧版引用的 sku_code / qty 不存在 → 表恒空
-const TABLE="store_inventory";
+type Tab='ALL'|'AVAILABLE'|'QUARANTINE';
+type Row={batch_no:string;sku_code?:string;product_code:string;quality_grade?:string;packaging_spec?:string;qty:number;qty_available:number;status:string;warehouse_code:string;location_code?:string;zone_code?:string;zone_type?:string;source_type?:string;source_no?:string;created_at:string;ledger_id?:number;ledger_change_type?:string;ledger_qty_change?:number;ledger_created_at?:string};
+type Response={store:{code:string;name:string};summary:{onHand:number;available:number;quarantine:number;reserved:number};rows:Row[];pagination:{total:number}};
+const empty:Response={store:{code:'',name:''},summary:{onHand:0,available:0,quarantine:0,reserved:0},rows:[],pagination:{total:0}};
 export default function Page(){
-  const { t } = useLanguage();
-  const COLUMNS=[{ key: "store_code", title: t('ui.门店', '门店'), width: 100 },
-      { key: "product_code", title: t('ui.产品编码', '产品编码'), width: 130 },
-      { key: "sku", title: "SKU", width: 120 },
-      { key: "product_name", title: t('ui.产品名称', '产品名称'), width: 140 },
-      { key: "batch_no", title: t('ui.批次号', '批次号'), width: 140 },
-      { key: "qty_on_hand", title: t('ui.在库', '在库'), width: 90 },
-      { key: "qty_reserved", title: t('ui.锁定', '锁定'), width: 90 },
-      { key: "qty_available", title: t('ui.可用', '可用'), width: 90 },
-      { key: "min_stock", title: t('ui.最低库存', '最低库存'), width: 90 },
-      { key: "unit", title: t('ui.单位', '单位'), width: 60 }];
-  const FIELDS:FormField[]=[  { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "text", required: true },
-    { key: "product_code", label: t('ui.产品编码', '产品编码'), type: "text", required: true },
-    { key: "sku", label: "SKU", type: "text" },
-    { key: "product_name", label: t('ui.产品名称', '产品名称'), type: "text" },
-    { key: "batch_no", label: t('ui.批次号', '批次号'), type: "text" },
-    { key: "qty_on_hand", label: t('ui.在库数量', '在库数量'), type: "number" },
-    { key: "qty_reserved", label: t('ui.锁定数量', '锁定数量'), type: "number" },
-    { key: "qty_available", label: t('ui.可用数量', '可用数量'), type: "number" },
-    { key: "min_stock", label: t('ui.最低库存', '最低库存'), type: "number" },
-    { key: "reorder_qty", label: t('ui.补货量', '补货量'), type: "number" },
-    { key: "unit", label: t('ui.单位', '单位'), type: "text" },];
-  const [o,sO]=useState(false);const [e,sE]=useState<Record<string,unknown>|null>(null);
-  const [sv,sSv]=useState(false);const [rk,sRk]=useState(0);
-  const [co,sCo]=useState(false);const [dt,sDt]=useState<Record<string,unknown>|null>(null);
-  const rf=useCallback(()=>sRk(k=>k+1),[]);
-  const oN=useCallback(()=>{sE(null);sO(true);},[]);
-  const oE=useCallback((r:Record<string,unknown>)=>{sE(r);sO(true);},[]);
-  const cl=useCallback(()=>sO(false),[]);
-  const save=useCallback(async(v:Record<string,unknown>)=>{sSv(true);try{e?.id?await crudApi.update(TABLE,e.id as number,v):await crudApi.create(TABLE,v);sO(false);rf();}finally{sSv(false);}},[e,rf]);
-  const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
-  const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
-  return(<div><PageHeader
-        breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.门店库存', '门店库存')]} title={t('ui.门店库存', '门店库存')} subtitle={t('ui.管理门店当前库存', '管理门店当前库存')} />
-    <div style={{
-      margin: "0 20px 12px",
-      padding: "10px 12px",
-      border: "1px solid #bfdbfe",
-      borderRadius: 8,
-      background: "#eff6ff",
-      color: "#1e3a8a",
-      fontSize: 12,
-      lineHeight: 1.6,
-    }}>
-      {t("ui.门店库存来源说明", "当前页面展示 ERP 门店业务库存。外部财务库存只作为对账参考；当前接口未提供差异证据时，状态保持“待核验”，不会静默覆盖门店库存。")}
-    </div>
-    <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
-    <RightDrawer open={o} title={e?t('ui.编辑门店库存', '编辑门店库存'):t('ui.新增门店库存', '新增门店库存')} onClose={cl}>
-      <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
-    </RightDrawer>
-    <ConfirmDialog open={co} title={t('common.confirm', '确认删除')} message={t('ui.删除后不可恢复', '删除后不可恢复？')} onConfirm={cDel} onCancel={()=>sCo(false)} />
-  </div>);
+ const {t}=useLanguage();const[store,setStore]=useState(''),[tab,setTab]=useState<Tab>('ALL'),[sku,setSku]=useState(''),[data,setData]=useState<Response>(empty),[loading,setLoading]=useState(true),[error,setError]=useState('');
+ useEffect(()=>{void loadStorePosContexts().then(c=>{if(c[0])setStore(c[0].storeCode);else{setLoading(false);setError(t('store.inventory.no_store','当前账号无有效门店 membership'))}}).catch(e=>{setLoading(false);setError(e.message||t('store.inventory.context_error','门店授权加载失败'))})},[t]);
+ const load=useCallback(async()=>{if(!store)return;setLoading(true);setError('');try{const q=new URLSearchParams({storeCode:store,limit:'200'});if(tab!=='ALL')q.set('status',tab);if(sku.trim())q.set('sku',sku.trim());setData(await storePosRequest<Response>('GET',`/api/v2/store-sales/inventory?${q}`))}catch(e:any){setError(e.message||t('store.inventory.load_error','库存加载失败'))}finally{setLoading(false)}},[store,tab,sku,t]);
+ useEffect(()=>{void load()},[load]);
+ const columns=useMemo(()=>[
+  {key:'status',title:t('ui.状态','状态'),render:(r:Row)=><StatusBadge status={r.status} label={r.status==='QUARANTINE'?t('store.inventory.pending_inspection','待质检'):r.status}/>},
+  {key:'batch_no',title:t('ui.批次号','批次号')},{key:'sku_code',title:'SKU',render:(r:Row)=><span>{r.sku_code||r.product_code}</span>},{key:'qty',title:t('store.inventory.on_hand','在库'),type:'number' as const},{key:'qty_available',title:t('store.inventory.available','可售'),type:'number' as const},
+  {key:'warehouse_code',title:t('ui.仓库','仓库')},{key:'zone_code',title:t('ui.库区','库区')},{key:'location_code',title:t('ui.货位','货位')},
+  {key:'source_no',title:t('store.inventory.source_sale','来源销售单'),render:(r:Row)=><span>{r.source_no||'—'}{r.ledger_id&&<small className={styles.ledger}>ledger #{r.ledger_id} · {r.ledger_change_type}</small>}</span>},
+  {key:'created_at',title:t('store.inventory.return_time','入库/退货时间'),render:(r:Row)=><span>{new Date(r.created_at).toLocaleString()}</span>},
+ ],[t]);
+ return <PageShell title={t('store.inventory.title','门店库存')} subtitle={t('store.inventory.subtitle','只读事实查询 · inv_batches 唯一库存台账')} actions={<button onClick={()=>void load()} disabled={loading}>{t('ui.刷新','刷新')}</button>}>
+  <Panel><div className={styles.filters}><StoreMembershipSelector value={store} onChange={setStore}/><input aria-label={t('store.inventory.search','搜索 SKU / 产品 / 批次')} value={sku} onChange={e=>setSku(e.target.value)} placeholder={t('store.inventory.search','搜索 SKU / 产品 / 批次')}/></div></Panel>
+  {error?<ErrorState message={error} onRetry={()=>void load()}/>:<><div className={styles.kpis}>{([['onHand','store.inventory.on_hand','全部在库'],['available','store.inventory.available','可售'],['quarantine','store.inventory.quarantine','隔离'],['reserved','store.inventory.reserved','预留']] as const).map(([key,k,label])=><Panel key={key}><small>{t(k,label)}</small><strong>{data.summary[key].toLocaleString()}</strong></Panel>)}</div>
+  <div className={styles.tabs} role="tablist">{([['ALL','store.inventory.all','全部在库'],['AVAILABLE','store.inventory.available','可售'],['QUARANTINE','store.inventory.quarantine_tab','隔离 / 待质检']] as const).map(([value,key,label])=><button key={value} role="tab" aria-selected={tab===value} className={tab===value?styles.active:''} onClick={()=>setTab(value)}>{t(key,label)}</button>)}</div>
+  <Panel><div className={styles.desktop}><DataTableV3<Row> rows={data.rows} columns={columns} loading={loading} rowKey={r=>r.batch_no} pageSize={20} emptyText={tab==='QUARANTINE'?t('store.inventory.no_quarantine','暂无待质检批次'):t('store.inventory.empty','暂无在库批次')}/></div><div className={styles.mobile}>{loading?<div>{t('ui.加载中','加载中…')}</div>:data.rows.length===0?<div>{t('store.inventory.empty','暂无在库批次')}</div>:data.rows.map(r=><article key={r.batch_no} className={r.status==='QUARANTINE'?styles.quarantine:''}><header><b>{r.sku_code||r.product_code}</b><StatusBadge status={r.status} label={r.status==='QUARANTINE'?t('store.inventory.pending_inspection','待质检'):r.status}/></header><p>{r.batch_no}</p><strong>{t('store.inventory.on_hand','在库')} {Number(r.qty).toLocaleString()}</strong><p>{r.warehouse_code} / {r.zone_code||'—'} / {r.location_code||'—'}</p>{r.source_no&&<p>{t('store.inventory.source_sale','来源销售单')}：{r.source_no}</p>}{r.ledger_id&&<p>ledger #{r.ledger_id} · {r.ledger_change_type}</p>}<time>{new Date(r.created_at).toLocaleString()}</time></article>)}</div></Panel></>}
+ </PageShell>;
 }

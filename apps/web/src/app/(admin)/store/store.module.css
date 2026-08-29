@@ -93,3 +93,6 @@
 [data-theme="dark"] .quickIcon { color: #94a3b8; }
 [data-theme="dark"] .quickLabel { color: #f1f5f9; }
 [data-theme="dark"] .skeleton { background: #334155; }
+.workbenchGrid{display:grid;grid-template-columns:1fr 280px;gap:20px}.actionGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:768px){.workbenchGrid{grid-template-columns:1fr!important}.actionGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:420px){.actionGrid{grid-template-columns:1fr!important}}

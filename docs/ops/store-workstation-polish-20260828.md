@@ -347,3 +347,30 @@ DataTable 已有加载、错误、空态与横向滚动。`/store` 刷新按钮�
 - 未确认用户当时具体停留的库存 route，因此按三个候选页面分别给出可证伪结论；实施前 D0 必做。
 - 未修改 toast、库存查询、样式、迁移、测试或配置。
 - 未改变 `QUARANTINE` 不可售语义，也未建议直接更新状态绕过质检。
+
+## G. 2026-08-29 实施记录
+
+### G1. 已实施
+
+- 创建销售响应统一为共享 `CreateStoreSaleResult { id, saleNo, totalAmount }`；Admin 与 Terminal 成功提示均读取 `saleNo`，契约测试用真实 `POS-20260829-00007` 断言无 `undefined`。
+- 新增 `GET /api/v2/store-sales/inventory` 只读查询。门店必须来自有效 membership；仓库集合为该门店 ACTIVE `SALES + RETURNS` binding 与当前 `WarehouseScope` 的交集，任一上下文缺失均 fail-closed。查询事实源为 `inv_batches`，正实物口径为 `qty > 0`；可按状态、仓、区、位、SKU/产品/批次筛选，并返回 `onHand/available/quarantine/reserved` 明细指标。
+- `/store/inventory` 已移除 `store_inventory` Generic CRUD 新增、编辑、删除入口，默认“全部在库”，另有“可售”“隔离/待质检”Tab；隔离行展示来源销售单、RETURNS 仓/区/位、退货时间及关联 `SALE_RETURN` ledger。
+- Terminal 整单退货由 `prompt()` 改为 `ModalV2`：原因必填、确认摘要、busy 防重复、失败可重试，成功反馈包含销售单号及“已入隔离区待质检”；入口与动作均要求删除/退货权限。未增加质检转可售按钮，未改变 QUARANTINE 的 `qty_available` 语义。
+- Terminal 根布局触控允许 `pan-y`；POS 在桌面双栏、900px 单列、520px 紧凑布局三档响应，包装开班在 760px 改单列且低高度可滚动，交班确认框增加窄屏上限。POS 增加 loading/empty/error/retry、语义化 alert/status 与数量按钮 aria-label。
+- Admin `/store` 加入 `ErrorState + retry`，加载失败时不再显示误导性 0 KPI；工作台及快捷入口增加 768/420px 断点。daily/losses/receiving 的门店、SKU、操作员改用 Store/SKU/User Selector，损耗原因改用 `INV_LOSS_REASON`，保存/删除增加成功及失败 toast。
+- PDA inventory pull 响应增加 `status`；Terminal 盘点批次及盘点清单显示状态、仓库和货位。
+
+### G2. `store_inventory` 消费者审计
+
+只读检索范围为 `apps/api/src`、`apps/web/src`、`apps/api/scripts`：
+
+- Web 表级消费者原为 1 个：旧 `/store/inventory` Generic CRUD 页面；本次已移除，因此现行 Web 业务消费者为 0。
+- API 业务 service 权威读写链为 0。仅剩 Generic CRUD allowlist/初始化兼容代码 4 处，不构成库存业务写链。
+- 运维回归脚本 2 处（清理/历史说明），不是生产写入权威链。
+- 结论：表保留，不删 schema、不迁移数据；建议冻结新增消费者与人工写入，另案核验生产 SQL 引用后退役。
+
+### G3. 验证与待完成外部步骤
+
+- API 专项覆盖：库存三 Tab/统计/ledger 关联/fail-closed；退货成功、重复、并发锁复检、库存异常回滚；既有 AVAILABLE FIFO/QUARANTINE 区位契约继续执行。
+- Web 专项覆盖：两入口真实单号 toast、退货 ModalV2、权限与 busy、三档响应式、移动库存卡、三语键、触摸滚动。
+- CI、PR、full 部署、revision 与生产 amei 只读复验须在 commit/push 后记录最终结果；不得以本地 mock 代替生产 SQL 等价断言。

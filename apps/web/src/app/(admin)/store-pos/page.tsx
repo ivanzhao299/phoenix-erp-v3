@@ -12,7 +12,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CustomerSelector, StoreMembershipSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { useLanguage } from "@/contexts/LanguageContext";
-import { loadStorePosContexts, storePosRequest } from '@/lib/store-pos-api';
+import { CreateStoreSaleResult, createStoreSaleSuccessMessage, loadStorePosContexts, storePosRequest } from '@/lib/store-pos-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -444,7 +444,7 @@ export default function StorePosPage() {
     setReturning(true);
     try {
       await api('POST', `/api/v2/store-sales/${returnTarget.id}/return`, { reason });
-      showToast(`${t('ui.已退货','已退货')} ${returnTarget.sale_no}`, 'success');
+      showToast(`${t('ui.已退货','已退货')} ${returnTarget.sale_no} · ${t('terminal.pos_quarantine_notice','已入隔离区待质检')}`, 'success');
       setReturnTarget(null);
       setReturnReason('');
       loadSales(salesPage);
@@ -568,10 +568,7 @@ export default function StorePosPage() {
     setProcessing(true);
     try {
       // 1. 建单
-      const sale = await api<{
-        id: number;
-        sale_no: string;
-      }>('POST', '/api/v2/store-sales', {
+      const sale = await api<CreateStoreSaleResult>('POST', '/api/v2/store-sales', {
         storeCode,
         storeName,
         companyCode,
@@ -616,7 +613,9 @@ export default function StorePosPage() {
           idempotencyKey
         });
       }
-      showToast(`${t('ui.销售单','销售单')} ${sale.sale_no} ${t('ui.开立成功','开立成功')}`, 'success');
+      showToast(createStoreSaleSuccessMessage(sale, {
+        prefix: t('ui.销售单','销售单'), suffix: t('ui.开立成功','开立成功'),
+      }), 'success');
       clearCart();
       loadSummary();
       loadCurrentShift();

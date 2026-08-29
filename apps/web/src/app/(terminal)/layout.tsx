@@ -131,7 +131,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
       background: 'var(--slate-900)',
       color: 'var(--slate-100)',
       fontFamily: '"Noto Sans SC", "Inter", sans-serif',
-      touchAction: 'none',          // kiosk: block ALL browser touch gestures
+      touchAction: 'pan-y',         // content may scroll vertically on touch devices
       userSelect: 'none',
       WebkitUserSelect: 'none',
     }}>

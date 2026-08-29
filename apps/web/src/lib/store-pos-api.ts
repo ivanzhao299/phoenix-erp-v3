@@ -29,4 +29,17 @@ export interface StorePosContextOption {
   hasWarehouseScopeIntersection: boolean;
 }
 
+export interface CreateStoreSaleResult {
+  id: number;
+  saleNo: string;
+  totalAmount: number;
+}
+
+export function createStoreSaleSuccessMessage(
+  sale: CreateStoreSaleResult,
+  labels: { prefix: string; suffix: string },
+) {
+  return `${labels.prefix} ${sale.saleNo} ${labels.suffix}`.trim();
+}
+
 export const loadStorePosContexts = () => storePosRequest<StorePosContextOption[]>('GET', '/api/v2/store-sales/contexts');

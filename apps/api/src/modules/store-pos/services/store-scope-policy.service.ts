@@ -16,6 +16,10 @@ export interface StoreContext {
   businessDayCutoff: string;
 }
 
+export interface StoreInventoryContext extends StoreContext {
+  warehousePurposes: Record<string, Array<'SALES' | 'RETURNS'>>;
+}
+
 @Injectable()
 export class StoreScopePolicy {
   private readonly logger = new Logger(StoreScopePolicy.name);
@@ -95,6 +99,38 @@ export class StoreScopePolicy {
     if (!warehouseCodes.length) throw new ForbiddenException(`请先配置门店仓绑定：无有效 ${purpose} 仓权限交集`);
     this.shadowCompare(storeCode, stores.map(s => s.storeCode));
     return { ...store, warehouseCodes };
+  }
+
+  /** Read-only inventory spans SALES and RETURNS bindings, still intersected with WarehouseScope. */
+  async resolveInventory(storeCode: string | undefined): Promise<StoreInventoryContext> {
+    if (!storeCode) throw new ForbiddenException('库存查询必须显式指定门店');
+    if (!this.membershipEnabled) throw new ForbiddenException('门店授权处于 fail-closed 模式');
+    const scope = this.scope;
+    if (!this.user?.userId && !this.user?.id) throw new ForbiddenException('缺少门店用户上下文');
+    if (!scope) throw new ForbiddenException('缺少数据范围上下文');
+    const stores = await this.listMembershipStores();
+    const store = stores.find(item => item.storeCode === storeCode);
+    if (!store) throw new ForbiddenException('无此门店的有效 membership');
+
+    const rows = await this.ds.query<Array<{ warehouseCode: string; purpose: 'SALES' | 'RETURNS' }>>(`
+      SELECT b.warehouse_code AS "warehouseCode",b.purpose
+        FROM store_warehouse_bindings b
+        JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
+       WHERE b.store_id=$1 AND b.purpose=ANY($2::varchar[]) AND b.status='ACTIVE'
+         AND (b.effective_from IS NULL OR b.effective_from<=NOW())
+         AND (b.effective_to IS NULL OR b.effective_to>=NOW())
+         AND w.status='ACTIVE' AND w.domain='OPERATIONAL'
+       ORDER BY b.priority,b.id`, [store.storeId, ['SALES', 'RETURNS']]);
+    const allowed = new Set<string>(scope.isGlobal ? rows.map(row => row.warehouseCode) : (scope.allowedWarehouseCodes ?? []));
+    const scoped = rows.filter(row => allowed.has(row.warehouseCode));
+    if (!scoped.length) throw new ForbiddenException('请先配置门店仓绑定：无有效库存仓权限交集');
+    const warehousePurposes: StoreInventoryContext['warehousePurposes'] = {};
+    for (const row of scoped) {
+      const purposes = warehousePurposes[row.warehouseCode] ?? [];
+      if (!purposes.includes(row.purpose)) purposes.push(row.purpose);
+      warehousePurposes[row.warehouseCode] = purposes;
+    }
+    return { ...store, warehouseCodes: Object.keys(warehousePurposes), warehousePurposes };
   }
 
   /** Resolve the active store and its active warehouse bindings without requiring store membership. */

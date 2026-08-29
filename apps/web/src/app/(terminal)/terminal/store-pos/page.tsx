@@ -1,75 +1,43 @@
 'use client';
-
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CashAccountSelector, StoreMembershipSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { useCallback,useEffect,useMemo,useState } from 'react';
+import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
+import { CashAccountSelector,StoreMembershipSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useToast } from '@/contexts/ToastContext';
 import { usePermission } from '@/hooks/usePermission';
-import { loadStorePosContexts, storePosRequest } from '@/lib/store-pos-api';
+import { CreateStoreSaleResult,createStoreSaleSuccessMessage,loadStorePosContexts,storePosRequest } from '@/lib/store-pos-api';
+import { addTerminalCartLine,canTerminalSettle,changeTerminalCartQty,terminalPosDraftKey } from '@/lib/terminal-store-pos-state';
 import { T } from '@/styles/terminal-theme';
-import { addTerminalCartLine, canTerminalSettle, changeTerminalCartQty, terminalPosDraftKey } from '@/lib/terminal-store-pos-state';
-
-type PayType = 'CASH' | 'CREDIT' | 'MIXED';
-type Product = { product_code:string; product_name:string; sku_code?:string; unit_price:number; currency_code?:string; grade_code?:string; packaging_spec?:string };
-type CartLine = Product & { qty:number };
-
-export default function TerminalStorePosPage() {
-  const { user } = useAuth();
-  const { canCreate, canEdit, canDelete } = usePermission('MENU_STORE_POS');
-  const [storeCode,setStoreCode] = useState(''); const [storeName,setStoreName] = useState(''); const [companyCode,setCompanyCode] = useState('');
-  const [products,setProducts] = useState<Product[]>([]); const [cart,setCart] = useState<CartLine[]>([]);
-  const [shift,setShift] = useState<any>(null); const [payType,setPayType] = useState<PayType>('CASH');
-  const [cashAccountId,setCashAccountId] = useState(0); const [paidAmount,setPaidAmount] = useState('');
-  const [busy,setBusy] = useState(false); const [message,setMessage] = useState(''); const [online,setOnline] = useState(true);
-  const [sales,setSales] = useState<any[]>([]); const [showReturns,setShowReturns] = useState(false);
-  const total = useMemo(() => cart.reduce((sum,line)=>sum+Number(line.unit_price)*line.qty,0),[cart]);
-  const currency = cart[0]?.currency_code || '';
-  const registerId = typeof window === 'undefined' ? 'unknown' : (localStorage.getItem('phoenix_terminal_id') || 'unregistered');
-  const userId = String((user as any)?.userId || (user as any)?.id || (user as any)?.username || 'anonymous');
-  const draftKey = terminalPosDraftKey(userId, storeCode, registerId);
-
-  useEffect(()=>{ const sync=()=>setOnline(navigator.onLine); sync(); addEventListener('online',sync); addEventListener('offline',sync); return()=>{removeEventListener('online',sync);removeEventListener('offline',sync)}; },[]);
-  useEffect(()=>{ void loadStorePosContexts().then(cs=>{ const c=cs[0]; if(c){setStoreCode(c.storeCode);setStoreName(c.storeName);setCompanyCode(c.companyCode);} else setMessage('当前账号无门店授权，请使用店长/收银账号或联系管理员配置 membership'); }).catch(()=>setMessage('门店授权服务加载失败，请刷新重试')); },[]);
-  const refresh = useCallback(async()=>{ if(!storeCode||!companyCode)return; try { const [p,s,h]:any = await Promise.all([
-    storePosRequest('GET',`/api/v2/store-sales/products?storeCode=${encodeURIComponent(storeCode)}&companyCode=${encodeURIComponent(companyCode)}`),
-    storePosRequest('GET',`/api/v2/store-sales/shift?storeCode=${encodeURIComponent(storeCode)}`),
-    storePosRequest('GET',`/api/v2/store-sales?storeCode=${encodeURIComponent(storeCode)}&status=COMPLETED&page=1&limit=8`)]);
-    setProducts(Array.isArray(p)?p:[]); setShift(s); setSales(Array.isArray(h)?h:(h?.data||[]));
-  } catch(e:any){setMessage(e.message||'加载失败')} },[storeCode,companyCode]);
-  useEffect(()=>{void refresh()},[refresh]);
-  useEffect(()=>{ if(!storeCode)return; try { const saved=JSON.parse(localStorage.getItem(draftKey)||'null'); if(saved?.storeCode===storeCode&&Array.isArray(saved.cart)) setCart(saved.cart); } catch{} },[draftKey,storeCode]);
-  useEffect(()=>{ if(!storeCode)return; if(cart.length)localStorage.setItem(draftKey,JSON.stringify({schemaVersion:1,storeCode,registerId,userId,cart,updatedAt:new Date().toISOString()})); else localStorage.removeItem(draftKey); },[cart,draftKey,registerId,storeCode,userId]);
-
-  const chooseStore = async(code:string)=>{ const cs=await loadStorePosContexts(); const c=cs.find(x=>x.storeCode===code); setStoreCode(code);setStoreName(c?.storeName||code);setCompanyCode(c?.companyCode||'');setCart([]); };
-  const add=(p:Product)=>setCart(prev=>addTerminalCartLine(prev,p));
-  const qty=(i:number,d:number)=>setCart(prev=>changeTerminalCartQty(prev,i,d));
-  const checkout=async()=>{ if(!online){setMessage('离线状态仅保存草稿，禁止成交');return} if(!shift){setMessage('请先开班');return} if(!cart.length)return;
-    if(payType!=='CREDIT'&&!cashAccountId){setMessage('请选择收款账户');return} setBusy(true); try { const sale:any=await storePosRequest('POST','/api/v2/store-sales',{storeCode,storeName,companyCode,saleType:payType,paymentMethod:payType==='CREDIT'?undefined:'CASH',items:cart.map((x,i)=>({productCode:x.product_code,productName:x.product_name,skuCode:x.sku_code,gradeCode:x.grade_code,packagingSpec:x.packaging_spec,qty:x.qty,unitPrice:Number(x.unit_price),amount:Number(x.unit_price)*x.qty,sortOrder:i}))});
-      const key=crypto.randomUUID(); const paid=Number(paidAmount)||total;
-      if(payType==='CASH')await storePosRequest('POST',`/api/v2/store-sales/${sale.id}/pay-cash`,{cashAccountId,paidAmount:paid,paymentMethod:'CASH',idempotencyKey:key});
-      else if(payType==='CREDIT')await storePosRequest('POST',`/api/v2/store-sales/${sale.id}/pay-credit`,{idempotencyKey:key});
-      else await storePosRequest('POST',`/api/v2/store-sales/${sale.id}/pay-mixed`,{cashAccountId,paidAmount:paid,paymentMethod:'CASH',idempotencyKey:key});
-      setCart([]);setPaidAmount('');setMessage(`成交成功 ${sale.sale_no}`);await refresh();
-    }catch(e:any){setMessage(e.message||'结账失败')}finally{setBusy(false)} };
-  const openShift=async()=>{if(!online)return setMessage('离线禁止开班');await storePosRequest('POST','/api/v2/store-sales/shift/open',{storeCode,companyCode,openingCash:0});await refresh()};
-  const closeShift=async()=>{if(!online)return setMessage('离线禁止交班');await storePosRequest('POST',`/api/v2/store-sales/shift/close?storeCode=${encodeURIComponent(storeCode)}`,{closingCash:0});setCart([]);await refresh()};
-  const returnSale=async(id:number)=>{const reason=prompt('整单退货原因');if(!reason)return;await storePosRequest('POST',`/api/v2/store-sales/${id}/return`,{reason});setMessage('整单退货完成，库存按原 allocation 反向处理');await refresh()};
-
-  const btn:React.CSSProperties={minHeight:52,border:0,borderRadius:10,padding:'10px 16px',fontWeight:800,fontSize:16,cursor:'pointer'};
-  return <main style={{height:'100%',padding:18,color:T.TXT,background:T.BG,overflow:'auto'}}>
-    <header style={{display:'flex',gap:14,alignItems:'center',padding:'12px 16px',background:T.CARD,borderRadius:14,marginBottom:14}}>
-      <b style={{fontSize:22}}>门店触屏收银</b><div style={{width:320}}><StoreMembershipSelector value={storeCode} onChange={chooseStore}/></div>
-      <span>{storeName} · {shift?`班次 OPEN ${shift.closing_no||''}`:'未开班'}</span><span style={{color:online?T.GRN:T.RED}}>{online?'在线':'离线草稿'}</span>
-      <div style={{marginLeft:'auto',display:'flex',gap:8}}>{!shift?<button style={{...btn,background:T.GRN,color:'#06150d'}} onClick={openShift}>开班</button>:<button style={{...btn,background:T.ACC,color:'#241500'}} onClick={closeShift}>交班</button>}<button style={{...btn,background:T.CARD,color:T.TXT}} onClick={()=>setShowReturns(!showReturns)}>整单退货</button></div>
-    </header>
-    {message&&<div style={{padding:10,background:T.CARD,borderRadius:8,marginBottom:10}} onClick={()=>setMessage('')}>{message}</div>}
-    {showReturns&&<section style={{background:T.CARD,padding:12,borderRadius:12,marginBottom:12}}><b>最近已完成销售</b>{sales.map(s=><div key={s.id} style={{display:'flex',gap:12,padding:8,borderBottom:`1px solid ${T.BOR}`}}><span>{s.sale_no}</span><span>{Number(s.total_amount).toFixed(2)}</span>{canDelete&&<button onClick={()=>returnSale(s.id)}>整单退货</button>}</div>)}</section>}
-    <div style={{display:'grid',gridTemplateColumns:'minmax(0,2fr) minmax(360px,1fr)',gap:14}}>
-      <section style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,alignContent:'start'}}>{products.map(p=><button key={p.sku_code||p.product_code} onClick={()=>add(p)} style={{...btn,minHeight:112,background:T.CARD,color:T.TXT,textAlign:'left',border:`1px solid ${T.BOR}`}}><div style={{fontSize:18}}>{p.product_name}</div><small>{p.sku_code||p.product_code}</small><div style={{fontSize:22,color:T.ACC,marginTop:8}}>{Number(p.unit_price).toFixed(2)}</div></button>)}</section>
-      <aside style={{background:T.CARD,borderRadius:14,padding:14,position:'sticky',top:0,height:'fit-content'}}><h2 style={{marginTop:0}}>购物车</h2>{cart.map((x,i)=><div key={x.sku_code||x.product_code} style={{padding:'10px 0',borderBottom:`1px solid ${T.BOR}`}}><div>{x.product_name}</div><div style={{display:'flex',alignItems:'center',gap:9,marginTop:6}}><button style={btn} onClick={()=>qty(i,-1)}>−</button><b style={{fontSize:22}}>{x.qty}</b><button style={btn} onClick={()=>qty(i,1)}>＋</button><span style={{marginLeft:'auto'}}>{(x.qty*Number(x.unit_price)).toFixed(2)}</span></div></div>)}
-        <div style={{fontSize:36,fontWeight:900,textAlign:'right',padding:'16px 0'}}>{currency} {total.toFixed(2)}</div><div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>{(['CASH','CREDIT','MIXED'] as PayType[]).map(x=><button key={x} style={{...btn,background:payType===x?T.ACC:T.BOR,color:payType===x?'#07131c':T.TXT}} onClick={()=>setPayType(x)}>{x}</button>)}</div>
-        {payType!=='CREDIT'&&<><div style={{marginTop:10}}><CashAccountSelector valueField="id" companyCode={companyCode} currencyCode={currency||undefined} value={cashAccountId?String(cashAccountId):''} onChange={v=>setCashAccountId(Number(v)||0)}/></div><input aria-label="实收金额" value={paidAmount} onChange={e=>setPaidAmount(e.target.value)} placeholder={`实收 ${total.toFixed(2)}`} inputMode="decimal" style={{width:'100%',boxSizing:'border-box',fontSize:28,padding:12,marginTop:10,borderRadius:8}}/></>}
-        <button disabled={busy||!canTerminalSettle({online,shiftOpen:!!shift,cartSize:cart.length,canCreate,canEdit})} onClick={checkout} style={{...btn,width:'100%',marginTop:12,minHeight:70,fontSize:24,background:T.GRN,color:'#07150d',opacity:busy||!canTerminalSettle({online,shiftOpen:!!shift,cartSize:cart.length,canCreate,canEdit})?.45:1}}>{online?'结账':'离线：仅保存草稿'}</button>
-      </aside>
-    </div>
-  </main>;
+import styles from './store-pos.module.css';
+type PayType='CASH'|'CREDIT'|'MIXED';
+type Product={product_code:string;product_name:string;sku_code?:string;unit_price:number;currency_code?:string;grade_code?:string;packaging_spec?:string};
+type CartLine=Product&{qty:number}; type SaleRow={id:number;sale_no:string;total_amount:number};
+export default function TerminalStorePosPage(){
+ const {user}=useAuth(),{t}=useLanguage(),toast=useToast(),{canCreate,canEdit,canDelete}=usePermission('MENU_STORE_POS');
+ const [storeCode,setStoreCode]=useState(''),[storeName,setStoreName]=useState(''),[companyCode,setCompanyCode]=useState('');
+ const [products,setProducts]=useState<Product[]>([]),[cart,setCart]=useState<CartLine[]>([]),[shift,setShift]=useState<any>(null),[sales,setSales]=useState<SaleRow[]>([]);
+ const [payType,setPayType]=useState<PayType>('CASH'),[cashAccountId,setCashAccountId]=useState(0),[paidAmount,setPaidAmount]=useState('');
+ const [busy,setBusy]=useState(false),[loading,setLoading]=useState(false),[loadError,setLoadError]=useState(''),[online,setOnline]=useState(true),[showReturns,setShowReturns]=useState(false);
+ const [returnTarget,setReturnTarget]=useState<SaleRow|null>(null),[returnReason,setReturnReason]=useState(''),[returning,setReturning]=useState(false);
+ const total=useMemo(()=>cart.reduce((sum,x)=>sum+Number(x.unit_price)*x.qty,0),[cart]),currency=cart[0]?.currency_code||'';
+ const registerId=typeof window==='undefined'?'unknown':(localStorage.getItem('phoenix_terminal_id')||'unregistered');
+ const userId=String((user as any)?.userId||(user as any)?.id||(user as any)?.username||'anonymous'),draftKey=terminalPosDraftKey(userId,storeCode,registerId);
+ const btn:React.CSSProperties={minHeight:52,border:0,borderRadius:10,padding:'10px 16px',fontWeight:800,fontSize:16,cursor:'pointer'};
+ useEffect(()=>{const sync=()=>setOnline(navigator.onLine);sync();addEventListener('online',sync);addEventListener('offline',sync);return()=>{removeEventListener('online',sync);removeEventListener('offline',sync)}},[]);
+ useEffect(()=>{void loadStorePosContexts().then(cs=>{const c=cs[0];if(c){setStoreCode(c.storeCode);setStoreName(c.storeName);setCompanyCode(c.companyCode)}else setLoadError(t('terminal.pos_no_store','当前账号无门店授权'))}).catch(()=>setLoadError(t('terminal.pos_context_error','门店授权服务加载失败，请刷新重试')))},[t]);
+ const refresh=useCallback(async()=>{if(!storeCode||!companyCode)return;setLoading(true);setLoadError('');try{const[p,s,h]=await Promise.all([storePosRequest<Product[]>('GET',`/api/v2/store-sales/products?storeCode=${encodeURIComponent(storeCode)}&companyCode=${encodeURIComponent(companyCode)}`),storePosRequest<any>('GET',`/api/v2/store-sales/shift?storeCode=${encodeURIComponent(storeCode)}`),storePosRequest<any>('GET',`/api/v2/store-sales?storeCode=${encodeURIComponent(storeCode)}&status=COMPLETED&page=1&limit=8`)]);setProducts(Array.isArray(p)?p:[]);setShift(s);setSales(Array.isArray(h)?h:(h?.data||[]))}catch(e:any){setLoadError(e.message||t('terminal.pos_load_error','加载失败'))}finally{setLoading(false)}},[storeCode,companyCode,t]);
+ useEffect(()=>{void refresh()},[refresh]);useEffect(()=>{if(!storeCode)return;try{const saved=JSON.parse(localStorage.getItem(draftKey)||'null');if(saved?.storeCode===storeCode&&Array.isArray(saved.cart))setCart(saved.cart)}catch{}},[draftKey,storeCode]);
+ useEffect(()=>{if(!storeCode)return;if(cart.length)localStorage.setItem(draftKey,JSON.stringify({schemaVersion:1,storeCode,registerId,userId,cart,updatedAt:new Date().toISOString()}));else localStorage.removeItem(draftKey)},[cart,draftKey,registerId,storeCode,userId]);
+ const chooseStore=async(code:string)=>{const c=(await loadStorePosContexts()).find(x=>x.storeCode===code);setStoreCode(code);setStoreName(c?.storeName||code);setCompanyCode(c?.companyCode||'');setCart([])};
+ const checkout=async()=>{if(!online)return toast.warning(t('terminal.pos_offline_sale','离线状态仅保存草稿，禁止成交'));if(!shift)return toast.warning(t('terminal.pos_open_first','请先开班'));if(!cart.length)return;if(payType!=='CREDIT'&&!cashAccountId)return toast.warning(t('terminal.pos_choose_account','请选择收款账户'));setBusy(true);try{const sale=await storePosRequest<CreateStoreSaleResult>('POST','/api/v2/store-sales',{storeCode,storeName,companyCode,saleType:payType,paymentMethod:payType==='CREDIT'?undefined:'CASH',items:cart.map((x,i)=>({productCode:x.product_code,productName:x.product_name,skuCode:x.sku_code,gradeCode:x.grade_code,packagingSpec:x.packaging_spec,qty:x.qty,unitPrice:Number(x.unit_price),amount:Number(x.unit_price)*x.qty,sortOrder:i}))});const key=crypto.randomUUID(),paid=Number(paidAmount)||total;if(payType==='CASH')await storePosRequest('POST',`/api/v2/store-sales/${sale.id}/pay-cash`,{cashAccountId,paidAmount:paid,paymentMethod:'CASH',idempotencyKey:key});else if(payType==='CREDIT')await storePosRequest('POST',`/api/v2/store-sales/${sale.id}/pay-credit`,{idempotencyKey:key});else await storePosRequest('POST',`/api/v2/store-sales/${sale.id}/pay-mixed`,{cashAccountId,paidAmount:paid,paymentMethod:'CASH',idempotencyKey:key});setCart([]);setPaidAmount('');toast.success(createStoreSaleSuccessMessage(sale,{prefix:t('terminal.pos_sale_success','成交成功'),suffix:''}));await refresh()}catch(e:any){toast.error(e.message||t('terminal.pos_checkout_error','结账失败'))}finally{setBusy(false)}};
+ const openShift=async()=>{if(!canCreate)return;if(!online)return toast.warning(t('terminal.pos_offline_open','离线禁止开班'));try{await storePosRequest('POST','/api/v2/store-sales/shift/open',{storeCode,companyCode,openingCash:0});toast.success(t('terminal.pos_shift_opened','开班成功'));await refresh()}catch(e:any){toast.error(e.message||t('terminal.pos_shift_error','开班失败'))}};
+ const closeShift=async()=>{if(!canCreate)return;if(!online)return toast.warning(t('terminal.pos_offline_close','离线禁止交班'));try{await storePosRequest('POST',`/api/v2/store-sales/shift/close?storeCode=${encodeURIComponent(storeCode)}`,{closingCash:0});setCart([]);toast.success(t('terminal.pos_shift_closed','交班成功'));await refresh()}catch(e:any){toast.error(e.message||t('terminal.pos_shift_error','交班失败'))}};
+ const submitReturn=async()=>{if(!returnTarget||!canDelete||returning)return;const reason=returnReason.trim();if(!reason)return toast.warning(t('terminal.pos_return_reason_required','请填写退货原因'));setReturning(true);try{await storePosRequest('POST',`/api/v2/store-sales/${returnTarget.id}/return`,{reason});toast.success(`${t('terminal.pos_returned','退货完成')} ${returnTarget.sale_no} · ${t('terminal.pos_quarantine_notice','已入隔离区待质检')}`);setReturnTarget(null);setReturnReason('');await refresh()}catch(e:any){toast.error(e.message||t('terminal.pos_return_error','退货失败，请重试'))}finally{setReturning(false)}};
+ return <main className={styles.page} style={{color:T.TXT,background:T.BG}}><header className={styles.header} style={{background:T.CARD}}><b className={styles.title}>{t('terminal.pos_title','门店触屏收银')}</b><div className={styles.store}><StoreMembershipSelector value={storeCode} onChange={chooseStore}/></div><span>{storeName} · {shift?t('terminal.pos_shift_open','班次 OPEN'):t('terminal.pos_shift_closed_state','未开班')}</span><span style={{color:online?T.GRN:T.RED}}>{online?t('terminal.pos_online','在线'):t('terminal.pos_offline_draft','离线草稿')}</span><div className={styles.headerActions}>{canCreate&&(!shift?<button style={{...btn,background:T.GRN}} onClick={openShift}>{t('terminal.shift_open','开班')}</button>:<button style={{...btn,background:T.ACC}} onClick={closeShift}>{t('terminal.shift_close','交班')}</button>)}{canDelete&&<button style={{...btn,background:T.BOR,color:T.TXT}} onClick={()=>setShowReturns(v=>!v)}>{t('terminal.pos_full_return','整单退货')}</button>}</div></header>
+ {loadError&&<div className={styles.alert} role="alert">{loadError}<button onClick={()=>void refresh()}>{t('ui.重试','重试')}</button></div>}{loading&&<div className={styles.state} role="status">{t('ui.加载中','加载中…')}</div>}
+ {showReturns&&<section className={styles.returns} style={{background:T.CARD}}><b>{t('terminal.pos_recent_sales','最近已完成销售')}</b>{sales.length? sales.map(s=><div key={s.id} className={styles.returnRow}><span>{s.sale_no}</span><span>{Number(s.total_amount).toFixed(2)}</span><button onClick={()=>setReturnTarget(s)}>{t('terminal.pos_full_return','整单退货')}</button></div>):<div className={styles.state}>{t('terminal.pos_no_sales','暂无可退销售')}</div>}</section>}
+ <div className={styles.workspace}><section className={styles.products}>{products.length?products.map(p=><button key={p.sku_code||p.product_code} onClick={()=>setCart(prev=>addTerminalCartLine(prev,p))} style={{...btn,minHeight:112,background:T.CARD,color:T.TXT,textAlign:'left'}}><div>{p.product_name}</div><small>{p.sku_code||p.product_code}</small><strong>{Number(p.unit_price).toFixed(2)}</strong></button>):!loading&&<div className={styles.state}>{t('terminal.pos_no_products','暂无可售商品')}</div>}</section>
+ <aside className={styles.cart} style={{background:T.CARD}}><h2>{t('terminal.pos_cart','购物车')}</h2>{cart.length?cart.map((x,i)=><div key={x.sku_code||x.product_code} className={styles.cartLine}><div>{x.product_name}</div><div className={styles.qty}><button aria-label={t('terminal.pos_decrease','减少数量')} style={btn} onClick={()=>setCart(prev=>changeTerminalCartQty(prev,i,-1))}>−</button><b>{x.qty}</b><button aria-label={t('terminal.pos_increase','增加数量')} style={btn} onClick={()=>setCart(prev=>changeTerminalCartQty(prev,i,1))}>＋</button><span>{(x.qty*Number(x.unit_price)).toFixed(2)}</span></div></div>):<div className={styles.state}>{t('terminal.pos_cart_empty','购物车为空')}</div>}<div className={styles.total}>{currency} {total.toFixed(2)}</div><div className={styles.payTypes}>{(['CASH','CREDIT','MIXED'] as PayType[]).map(x=><button key={x} style={{...btn,background:payType===x?T.ACC:T.BOR}} onClick={()=>setPayType(x)}>{x}</button>)}</div>{payType!=='CREDIT'&&<><CashAccountSelector valueField="id" companyCode={companyCode} currencyCode={currency||undefined} value={cashAccountId?String(cashAccountId):''} onChange={v=>setCashAccountId(Number(v)||0)}/><input aria-label={t('terminal.pos_paid','实收金额')} value={paidAmount} onChange={e=>setPaidAmount(e.target.value)} inputMode="decimal" className={styles.paid}/></>}<button disabled={busy||!canTerminalSettle({online,shiftOpen:!!shift,cartSize:cart.length,canCreate,canEdit})||(payType!=='CREDIT'&&!cashAccountId)} onClick={checkout} className={styles.checkout} style={{...btn,background:T.GRN}}>{busy?t('ui.处理中','处理中…'):(online?t('terminal.pos_checkout','结账'):t('terminal.pos_offline_only','离线：仅保存草稿'))}</button></aside></div>
+ <ModalV2 open={!!returnTarget} title={t('terminal.pos_return_confirm','确认整单退货')} onClose={()=>{if(!returning){setReturnTarget(null);setReturnReason('')}}} closeOnBackdrop={!returning} footer={<><button disabled={returning} onClick={()=>setReturnTarget(null)}>{t('ui.取消','取消')}</button><button disabled={returning||!returnReason.trim()} onClick={()=>void submitReturn()}>{returning?t('ui.处理中','处理中…'):t('terminal.pos_confirm_return','确认退货')}</button></>}><p>{t('terminal.pos_return_summary','销售单')}：<b>{returnTarget?.sale_no}</b></p><p>{t('terminal.pos_quarantine_notice','已入隔离区待质检')}</p><label>{t('terminal.pos_return_reason','退货原因')}<textarea autoFocus required value={returnReason} onChange={e=>setReturnReason(e.target.value)} rows={4}/></label></ModalV2></main>
 }

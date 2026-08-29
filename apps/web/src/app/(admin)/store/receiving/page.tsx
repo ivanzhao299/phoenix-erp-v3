@@ -8,6 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { actionPill } from "@/components/design-system/cockpit-styles";
+import { useToast } from '@/contexts/ToastContext';
 
 // B4: store_receiving 真实列 — order_no (PK) / wave_no / store_code / status / operator / confirmed_at
 //     旧版 receive_no / batch_no / qty 全部 DB 不存在
@@ -23,6 +24,7 @@ const STATUS_CFG: Record<string, { tone: Tone; label: string }> = {
 const TABLE="store_receiving";
 export default function Page(){
   const { t } = useLanguage();
+  const toast = useToast();
   const COLUMNS=[{ key: "order_no", title: t('ui.收货单号', '收货单号'), width: 160 },
       { key: "wave_no", title: t('ui.波次', '波次'), width: 110 },
       { key: "store_code", title: t('ui.门店', '门店'), width: 100 },
@@ -34,8 +36,8 @@ export default function Page(){
       }}];
   const FIELDS:FormField[]=[  { key: "order_no", label: t('ui.收货单号', '收货单号'), type: "text", required: true, placeholder: t('ui.留空自动生成SR', '留空自动生成 SR-XXXXXX') },
     { key: "wave_no", label: t('ui.波次号', '波次号'), type: "text" },
-    { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "text", required: true },
-    { key: "operator", label: t('ui.收货员', '收货员'), type: "text" },
+    { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "store", required: true },
+    { key: "operator", label: t('ui.收货员', '收货员'), type: "user" },
     { key: "status", label: t('common.status', '状态'), type: "select", options: [{ label: t('ui.待验收', '待验收'), value: "PENDING"}, { label: t('ui.已验收', '已验收'), value: "ACCEPTED" }, { label: t('ui.已拒收', '已拒收'), value: "REJECTED" }] },];
   const [o,sO]=useState(false);const [e,sE]=useState<Record<string,unknown>|null>(null);
   const [sv,sSv]=useState(false);const [rk,sRk]=useState(0);
@@ -49,9 +51,9 @@ export default function Page(){
     e?.order_no
       ? await crudApi.update(TABLE, e.order_no as never, payload as never)
       : await crudApi.create(TABLE, payload);
-    sO(false);rf();}finally{sSv(false);}},[e,rf]);
+    toast.success(t('ui.保存成功','保存成功'));sO(false);rf();}catch(x:any){toast.error(x.message||t('ui.保存失败','保存失败'));}finally{sSv(false);}},[e,rf,t,toast]);
   const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
-  const cDel=useCallback(async()=>{if(!dt?.order_no)return;await crudApi.delete(TABLE,dt.order_no as never);sCo(false);rf();},[dt,rf]);
+  const cDel=useCallback(async()=>{if(!dt?.order_no)return;try{await crudApi.delete(TABLE,dt.order_no as never);toast.success(t('ui.删除成功','删除成功'));sCo(false);rf();}catch(x:any){toast.error(x.message||t('ui.删除失败','删除失败'));}},[dt,rf,t,toast]);
   return(<div><PageHeader
         breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.门店收货', '门店收货')]} title={t('ui.收货验收', '收货验收')} subtitle={t('ui.管理门店收货记录', '管理门店收货记录')} />
     <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />

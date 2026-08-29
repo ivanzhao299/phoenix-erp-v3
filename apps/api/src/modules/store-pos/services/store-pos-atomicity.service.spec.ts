@@ -104,4 +104,47 @@ describe('StorePosService V1-2 atomic settlement', () => {
     expect(locationLookup).toContain('z.warehouse_code=l.warehouse_code');
     expect(locationLookup).not.toContain("LIKE '%QUARANTINE%'");
   });
+
+  it('returns a completed sale once and rechecks status under the row lock', async () => {
+    const service = subject();
+    const completed = { ...sale, status: 'COMPLETED', paid_amount: 0, receivable_amount: 0 };
+    service.storeScope = { assertSaleScoped: jest.fn(async () => ({ sale: completed, context: { warehouseCodes: ['WH-R'] } })) };
+    service.getSale = jest.fn(async () => ({ ...completed, status: 'RETURNED' }));
+    service.reverseInventory = jest.fn(async () => undefined);
+    const mgr = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM sal_store_sales')) return [completed];
+      if (sql.includes('FROM store_sale_allocations')) return [{ id: 9, allocated_qty: 3, returned_qty: 0 }];
+      if (sql.includes('SELECT id FROM changed')) return [{ id: 7 }];
+      return [];
+    }) };
+    service.ds = { transaction: jest.fn(async (run: any) => run(mgr)) };
+    await expect(service.returnSale(7, 'customer return')).resolves.toMatchObject({ status: 'RETURNED' });
+    expect(service.reverseInventory).toHaveBeenCalledWith(mgr, completed, expect.any(Array), ['WH-R']);
+    expect(String(mgr.query.mock.calls[0][0])).toContain('FOR UPDATE');
+  });
+
+  it('rejects repeated and concurrent returns before producing a second side effect', async () => {
+    const service = subject();
+    service.storeScope = { assertSaleScoped: jest.fn(async () => ({ sale: { ...sale, status: 'RETURNED' }, context: { warehouseCodes: ['WH-R'] } })) };
+    service.ds = { transaction: jest.fn() };
+    await expect(service.returnSale(7, 'again')).rejects.toThrow('不可重复');
+    expect(service.ds.transaction).not.toHaveBeenCalled();
+
+    service.storeScope.assertSaleScoped.mockResolvedValueOnce({ sale: { ...sale, status: 'COMPLETED' }, context: { warehouseCodes: ['WH-R'] } });
+    const mgr = { query: jest.fn(async () => [{ ...sale, status: 'RETURNED' }]) };
+    service.ds.transaction.mockImplementationOnce(async (run: any) => run(mgr));
+    await expect(service.returnSale(7, 'racing request')).rejects.toThrow('不可重复');
+    expect(mgr.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates a reverse-inventory failure so the enclosing transaction rolls back', async () => {
+    const service = subject();
+    const completed = { ...sale, status: 'COMPLETED', paid_amount: 0, receivable_amount: 0 };
+    service.storeScope = { assertSaleScoped: jest.fn(async () => ({ sale: completed, context: { warehouseCodes: ['WH-R'] } })) };
+    service.reverseInventory = jest.fn(async () => { throw new ConflictException('inventory failed'); });
+    const mgr = { query: jest.fn(async (sql: string) => sql.includes('store_sale_allocations') ? [{ id: 9 }] : [completed]) };
+    service.ds = { transaction: jest.fn(async (run: any) => run(mgr)) };
+    await expect(service.returnSale(7, 'rollback')).rejects.toThrow('inventory failed');
+    expect(mgr.query.mock.calls.some(([sql]: [string]) => sql.includes("SET status = 'RETURNED'"))).toBe(false);
+  });
 });

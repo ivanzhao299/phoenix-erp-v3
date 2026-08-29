@@ -480,6 +480,7 @@ export default function ShiftClosePage() {
         borderRadius: 16,
         padding: 32,
         width: 360,
+        maxWidth: 'calc(100vw - 32px)',
         border: `1px solid ${T.BOR}`,
         textAlign: 'center'
       }}>
