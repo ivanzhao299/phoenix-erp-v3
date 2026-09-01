@@ -396,6 +396,21 @@ UI 在订单详情增加：
 
 部署 revision 确认后只读核验：旧订单均有且仅有一个 `MIGRATED_SNAPSHOT`；新订单按真实动作产生 `CREATED/SUBMITTED/...` 事件；事件 UPDATE/DELETE 被触发器拒绝；`RECEIVED` 订单存在唯一 Sales source AR 且回写一致；process-log 不跨公司并正确展示 Workflow、配送、签收、库存、AR 和退货。
 
+#### 10.3.1 生产数据级只读验收（2026-09-01）
+
+本轮为零实施、零生产写入的证据复核。参考的受控通道为 `AI Delivery CI Smoke` run `33482388165`：该 run 曾在远端部署机内签发 20 分钟短期 token，并以 `PGOPTIONS='-c default_transaction_read_only=on'` 和 `BEGIN TRANSACTION READ ONLY` 执行生产查询。此次复核时该短期 token 已失效，且当前 `.github/workflows/ci-smoke.yml` 已不再包含该历史专用 target；现有 workflow 也没有可参数化提交本次 SQL/HTTP 断言的只读入口。为保持本次最终提交纯文档，未新增或恢复 workflow，未从本地绕过受控通道直连生产，也未伪造订单样本。因此本节引用既有 run `33482388165` 与部署 run `33492095257` 的可复核日志；**没有产生新的生产审计 run 号**。
+
+| # | 断言 | 只读证据/输出 | 结果 |
+|---|---|---|---|
+| 1 | 旧订单均有且仅有一个 `MIGRATED_SNAPSHOT`，事件数=旧订单数 | run `33492095257` 明确输出迁移 SQL 已执行、`AddSalesOrderLifecycleEvents1788253200000 has been executed successfully`、随后 `COMMIT`；但日志没有输出 `旧订单数 / MIGRATED_SNAPSHOT 数 / 每单 min=max=1` 三个生产计数。 | **受限，未完成数据计数断言**；不可把迁移成功等同于存量计数 PASS。 |
+| 2 | 部署后新订单按真实动作产生 `CREATED/SUBMITTED/...` | 既有 run 未查询迁移时间后的订单及事件。本轮不创建订单、不制造动作。 | **无可核实样本**；按验收口径不判失败，但也不宣称事件链数据级 PASS。 |
+| 3 | 事件 UPDATE/DELETE 被拒绝 | run `33492095257` 的已提交迁移日志包含 append-only 函数、`BEFORE UPDATE OR DELETE` 触发器及 `REVOKE UPDATE, DELETE` 的执行；迁移最终 COMMIT。受只读事务约束，未实际发出 UPDATE/DELETE。 | **PASS（定义级）**；限制：未做生产变更语句行为测试，符合本项允许的触发器存在性/定义替代口径。 |
+| 4 | `RECEIVED` 有唯一 Sales source AR 且 `ar_invoice_id` 回写一致 | 既有 run 未输出 `RECEIVED` 订单、`fin_ar_invoices(source_type='SALES_ORDER', source_id)` 聚合、缺失/重复/回写不一致计数。 | **受限，未完成存量一致性断言**。 |
+| 5 | process-log 真实订单结构完整；跨公司越权语义 | 部署后匿名 `GET /api/v2/sales/orders/1/process-log` 为 401，只证明未认证门禁；历史短期 token 已失效，既有 run 未请求该端点，未输出 `timeline/documents/warnings`，也没有第二个异公司受限身份可构造越权样本。 | **受限**：认证结构与跨公司语义均未完成生产数据级实测；不以匿名 401 代替。 |
+| 6 | revision 三方一致 + 错误窗口 | run `33492095257` 的 checkout 与 API/Web 镜像构建 revision 均为 `da4920c4185258d6da7b14383bfc24b16610d558`，full deploy 成功；但该 run 未输出部署机 checkout/API/Web 容器三方运行态的同屏断言，也未查询生命周期/process-log 相关错误窗口。run `33482388165` 曾输出三方 revision 一致及最近一小时目标错误为 0，但发生在本生命周期部署之前，不能替代本次部署后断言。 | **受限**：构建/部署 revision 证据 PASS；部署后运行态三方一致与错误窗口未完成。 |
+
+本轮结论：**非全 PASS，且不是产品失败结论**。已确认迁移及 append-only 定义进入生产提交；其余数据级项因当前不存在可复用的受控只读执行入口而保留为未验。重新验收时必须在受控 runner 内恢复等价的短期 token + `default_transaction_read_only=on` + `BEGIN READ ONLY` 通道，逐项打印计数、真实 process-log envelope、DataScope 403/404 语义、三方运行态 revision 和明确时间窗的错误计数；仍不得为验收制造订单。
+
 ### 10.4 合并、部署与生产只读证据
 
 - 实现 PR `#155` 已合并，main merge revision 为 `da4920c4185258d6da7b14383bfc24b16610d558`。
