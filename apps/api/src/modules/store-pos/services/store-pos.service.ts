@@ -24,6 +24,7 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { hasPerm } from '../../../auth/permissions.util';
 import { StoreScopePolicy, StoreWarehousePurpose } from './store-scope-policy.service';
+import { PriceRuntimeService, ResolvedPrice } from '../../sales-v2/services/price-runtime.service';
 
 export interface SaleItemDto {
   productCode:    string;
@@ -57,6 +58,7 @@ export interface CompleteCashSaleDto {
   paidAmount?:     number;   // 默认全额
   paymentMethod?:  string;
   idempotencyKey:  string;
+  externalReference?: string;
 }
 
 export interface CompleteMixedSaleDto {
@@ -76,7 +78,22 @@ export class StorePosService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
     private readonly storeScope: StoreScopePolicy,
+    private readonly priceRuntime: PriceRuntimeService,
   ) {}
+
+  private resolveItemPrice(dto: CreateSaleDto, item: SaleItemDto, queryable: Pick<DataSource, 'query'> = this.ds) {
+    return this.priceRuntime.resolvePrice({
+      companyCode: dto.companyCode,
+      storeCode: dto.storeCode,
+      customerCode: dto.customerCode,
+      productCode: item.productCode,
+      gradeCode: item.gradeCode,
+      packagingSpec: item.packagingSpec,
+      skuCode: item.skuCode,
+      qty: item.qty,
+      currencyCode: dto.currencyCode,
+    }, queryable);
+  }
 
   // ── 工具 ───────────────────────────────────────────────────────────────────
 
@@ -240,35 +257,31 @@ export class StorePosService {
     const saleNo  = await this.genSaleNo();
     const discount = dto.discountAmount ?? 0;
 
-    // 计算金额
-    const subtotal = dto.items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
-    const total    = Math.max(0, subtotal - discount);
-
-    // POS-P1 改价:手改单价低于最低价 → 需店长授权(MENU_STORE_POS:A),否则拦截
-    await this.validateCartPrices(dto.companyCode, dto.items);
-
-    // POS-P0-6:销售单币种以公司价格本为权威,所有金额腿统一以此币种为准。
-    // 客户端可传 currencyCode 作提示,但价格本可判定时(definite)以价格本为准,
-    // 传入若与之冲突则拒绝 —— 防伪造币种绕过资金账户币种校验(账实漂移)。
-    const { currency: derivedCurrency, definite } = await this.resolveSaleCurrency(dto.companyCode);
-    if (dto.currencyCode && definite && dto.currencyCode !== derivedCurrency) {
-      throw new BadRequestException(
-        `销售币种 ${dto.currencyCode} 与公司 ${dto.companyCode} 价格本币种 ${derivedCurrency} 不一致`,
-      );
-    }
-    const currencyCode = definite ? derivedCurrency : (dto.currencyCode ?? derivedCurrency);
-
     // 事务：插入主表 + 明细行
     return this.ds.transaction(async mgr => {
+      const resolvedItems = await Promise.all(dto.items.map(async item => ({
+        item,
+        price: await this.resolveItemPrice(dto, item, mgr),
+      })));
+      // D6: POS 首期不开放改价，客户端 unitPrice 仅兼容接收，不参与权威金额。
+      const subtotal = resolvedItems.reduce((s, x) => s + x.item.qty * x.price.unitPrice, 0);
+      const total = Math.max(0, subtotal - discount);
+      const currencies = [...new Set(resolvedItems.map(x => x.price.currencyCode))];
+      if (currencies.length !== 1) throw new BadRequestException('首期 POS 不开放双币种销售');
+      const currencyCode = currencies[0];
+      const [shift] = await mgr.query(`SELECT id,business_date FROM sal_store_shift_closings
+        WHERE store_code=$1 AND company_code=$2 AND status='OPEN' ORDER BY opened_at DESC LIMIT 1 FOR UPDATE`,
+        [dto.storeCode, dto.companyCode]);
+      if (!shift) throw new BadRequestException(`门店 ${dto.storeCode} 当前无开放班次，请先开班`);
       const [saleRow] = await mgr.query(
         `INSERT INTO sal_store_sales
           (sale_no, store_code, store_name, company_code, company_name,
            customer_code, customer_name, customer_id,
            sale_type, payment_method, currency_code,
            subtotal, discount_amount, total_amount, paid_amount, receivable_amount,
-           payment_status, status,
+           payment_status, status, shift_closing_id, business_date,
            created_by, created_by_name)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,$14,'UNPAID','OPEN',$15,$16)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,$14,'UNPAID','OPEN',$15,$16,$17,$18)
          RETURNING id, sale_no`,
         [
           saleNo,
@@ -285,6 +298,8 @@ export class StorePosService {
           subtotal,
           discount,
           total,
+          shift.id,
+          shift.business_date,
           user?.userId ?? user?.id ?? null,
           user?.name ?? user?.username ?? null,
         ],
@@ -294,17 +309,19 @@ export class StorePosService {
 
       // 插入明细行
       for (let idx = 0; idx < dto.items.length; idx++) {
-        const item = dto.items[idx];
-        const amount = Math.round(item.qty * item.unitPrice * 100) / 100;
+        const { item, price } = resolvedItems[idx];
+        const amount = Math.round(item.qty * price.unitPrice * 100) / 100;
         await mgr.query(
           `INSERT INTO sal_store_sale_items
             (sale_id, product_code, product_name, grade_code, packaging_spec,
-             qty, unit_price, amount, sort_order, sku_code)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+             qty, unit_price, amount, sort_order, sku_code,
+             price_book_id, price_item_id, price_publish_version, price_scope, price_snapshot)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)`,
           [saleId, item.productCode, item.productName,
            item.gradeCode ?? null, item.packagingSpec ?? null,
-           item.qty, item.unitPrice, amount, (idx + 1) * 10,
-           item.skuCode ?? null],  // Phase H5
+           item.qty, price.unitPrice, amount, (idx + 1) * 10,
+           item.skuCode ?? null, price.priceBookId, price.priceItemId, price.publishVersion,
+           price.sourceType, JSON.stringify(price)],
         );
       }
 
@@ -361,6 +378,46 @@ export class StorePosService {
     return { ...sale, items, shift_id: shift.id, warehouseCodes, idempotentReplay: false };
   }
 
+  private async auditPriceDrift(mgr: any, sale: any): Promise<void> {
+    let drifted = false;
+    for (const item of sale.items) {
+      let current: ResolvedPrice | null = null;
+      try {
+        current = await this.priceRuntime.resolvePrice({
+          companyCode: sale.company_code, storeCode: sale.store_code,
+          customerCode: sale.customer_code ?? undefined, productCode: item.product_code,
+          gradeCode: item.grade_code ?? undefined, packagingSpec: item.packaging_spec ?? undefined,
+          skuCode: item.sku_code ?? undefined, qty: Number(item.qty), currencyCode: sale.currency_code,
+        }, mgr);
+      } catch { /* D5: 当前价格已失效也只留痕，不阻断收银。 */ }
+      if (!current || String(current.priceItemId) !== String(item.price_item_id) ||
+          current.publishVersion !== Number(item.price_publish_version) ||
+          current.unitPrice !== Number(item.unit_price)) {
+        drifted = true;
+        await mgr.query(`INSERT INTO sal_store_price_drift_events
+          (sale_id,sale_item_id,snapshot_price_item_id,current_price_item_id,snapshot_unit_price,current_unit_price,
+           snapshot_publish_version,current_publish_version,event_type)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PRICE_VERSION_DRIFT') ON CONFLICT (sale_id,sale_item_id) DO NOTHING`,
+          [sale.id,item.id,item.price_item_id,current?.priceItemId ?? null,item.unit_price,current?.unitPrice ?? null,
+           item.price_publish_version,current?.publishVersion ?? null]);
+      }
+    }
+    if (drifted) await mgr.query(`UPDATE sal_store_sales SET price_drift_status='DRIFT' WHERE id=$1`, [sale.id]);
+  }
+
+  private async writeTender(mgr: any, input: {
+    saleId: number; type: 'CASH'|'QR'|'TRANSFER'|'CREDIT'; currency: string; amount: number;
+    externalReference?: string; cashAccountId?: number; arInvoiceId?: number;
+  }) {
+    if (['QR','TRANSFER'].includes(input.type) && !input.externalReference?.trim()) {
+      throw new BadRequestException(`${input.type} tender 必须提供外部参考号`);
+    }
+    await mgr.query(`INSERT INTO sal_store_sale_tenders
+      (sale_id,tender_type,currency_code,amount,external_reference,cash_account_id,ar_invoice_id)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)`, [input.saleId,input.type,input.currency,input.amount,
+      input.externalReference?.trim() || null,input.cashAccountId ?? null,input.arInvoiceId ?? null]);
+  }
+
   // ── 2. 现金收款（完整收款）────────────────────────────────────────────────
 
   async completeCashSale(id: number, dto: CompleteCashSaleDto) {
@@ -368,10 +425,9 @@ export class StorePosService {
     await this.ds.transaction(async mgr => {
       const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
       if (sale.idempotentReplay) return;
+      await this.auditPriceDrift(mgr, sale);
       const paidAmount = dto.paidAmount ?? Number(sale.total_amount);
-      if (paidAmount < Number(sale.total_amount)) {
-        throw new BadRequestException('现金收款金额不足，请使用"部分收款"');
-      }
+      if (paidAmount !== Number(sale.total_amount)) throw new BadRequestException('首期 POS 不开放找零，实收必须等于应收');
       // A. FIFO 扣减库存
       const allocs = await this.fifoDeductItems(sale, mgr);
 
@@ -386,6 +442,10 @@ export class StorePosService {
         sourceNo:     sale.sale_no,
         remark:       `门店收银 ${sale.sale_no}（${sale.store_name}）`,
       });
+      const tenderType = ['QR','TRANSFER'].includes(dto.paymentMethod ?? '') ? dto.paymentMethod as 'QR'|'TRANSFER' : 'CASH';
+      await this.writeTender(mgr, { saleId: sale.id, type: tenderType, currency: sale.currency_code,
+        amount: Number(sale.total_amount), externalReference: dto.externalReference,
+        cashAccountId: dto.cashAccountId });
 
       // C. 更新销售单（FIFO 写回 batch_no）
       const updated = await mgr.query(
@@ -417,6 +477,7 @@ export class StorePosService {
     await this.ds.transaction(async mgr => {
       const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
       if (sale.idempotentReplay) return;
+      await this.auditPriceDrift(mgr, sale);
       if (!sale.customer_code && !sale.customer_name) {
         throw new BadRequestException('赊销必须填写客户信息');
       }
@@ -433,6 +494,8 @@ export class StorePosService {
         sourceId:     sale.id,
         sourceNo:     sale.sale_no,
       });
+      await this.writeTender(mgr, { saleId: sale.id, type: 'CREDIT', currency: sale.currency_code,
+        amount: Number(sale.total_amount), arInvoiceId: arId });
 
       // C. 更新销售单
       const updated = await mgr.query(
@@ -461,6 +524,7 @@ export class StorePosService {
     await this.ds.transaction(async mgr => {
       const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
       if (sale.idempotentReplay) return;
+      await this.auditPriceDrift(mgr, sale);
       const total = Number(sale.total_amount);
       const paid = dto.paidAmount;
       const receivable = Math.round((total - paid) * 100) / 100;
@@ -492,6 +556,10 @@ export class StorePosService {
         sourceId:     sale.id,
         sourceNo:     sale.sale_no,
       });
+      await this.writeTender(mgr, { saleId: sale.id, type: 'CASH', currency: sale.currency_code,
+        amount: paid, cashAccountId: dto.cashAccountId });
+      await this.writeTender(mgr, { saleId: sale.id, type: 'CREDIT', currency: sale.currency_code,
+        amount: receivable, arInvoiceId: arId });
 
       // D. 更新销售单
       const updated = await mgr.query(
@@ -612,6 +680,16 @@ export class StorePosService {
         });
       }
 
+      const tenders = await mgr.query(`SELECT * FROM sal_store_sale_tenders
+        WHERE sale_id=$1 AND reversal_of_tender_id IS NULL AND status='CAPTURED' FOR UPDATE`, [id]);
+      for (const tender of tenders) {
+        await mgr.query(`INSERT INTO sal_store_sale_tenders
+          (sale_id,tender_type,currency_code,amount,cash_account_id,ar_invoice_id,reversal_of_tender_id,status)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,'REVERSED')`, [id,tender.tender_type,tender.currency_code,
+          tender.amount,tender.cash_account_id,tender.ar_invoice_id,tender.id]);
+        await mgr.query(`UPDATE sal_store_sale_tenders SET status='REVERSED' WHERE id=$1`, [tender.id]);
+      }
+
       // 已关班原单只追加 adjustment，不修改历史班次。
       if (locked.shift_closing_id) {
         const [closedShift] = await mgr.query(
@@ -621,8 +699,9 @@ export class StorePosService {
         if (closedShift?.status === 'CLOSED') {
           await mgr.query(
             `INSERT INTO store_sale_adjustments
-               (sale_id,shift_closing_id,adjustment_type,reason,created_by)
-             VALUES ($1,$2,'CLOSED_SHIFT_RETURN',$3,$4)
+               (sale_id,shift_closing_id,settlement_id,adjustment_type,reason,created_by)
+             VALUES ($1,$2,(SELECT settlement_id FROM sal_store_settlement_shifts WHERE shift_id=$2),
+               'CLOSED_SHIFT_RETURN',$3,$4)
              ON CONFLICT (sale_id,adjustment_type) DO NOTHING`,
             [id, closedShift.id, rsn, user?.username ?? 'pos'],
           );
@@ -706,7 +785,10 @@ export class StorePosService {
   async getDailySummary(storeCode: string) {
     const context = await this.storeScope.resolve(storeCode, 'SALES');
     const rows = await this.ds.query<any[]>(
-      `SELECT
+      `WITH current_business_day AS (
+         SELECT business_date FROM sal_store_shift_closings
+          WHERE store_code=$1 AND company_code=$2 ORDER BY opened_at DESC LIMIT 1
+       ) SELECT
          COUNT(*) FILTER (WHERE status='COMPLETED')           AS sale_count,
          COALESCE(SUM(total_amount) FILTER (WHERE status='COMPLETED'),0) AS total_sales,
          COALESCE(SUM(paid_amount)  FILTER (WHERE status='COMPLETED'),0) AS cash_collected,
@@ -716,9 +798,9 @@ export class StorePosService {
          COALESCE(SUM(total_amount) FILTER (WHERE sale_type='MIXED' AND status='COMPLETED'),0) AS mixed_sales
        FROM sal_store_sales
        WHERE store_code = $1
-         AND created_at >= CURRENT_DATE
-         AND created_at < CURRENT_DATE + INTERVAL '1 day'`,
-      [context.storeCode],
+         AND company_code = $2
+         AND business_date = (SELECT business_date FROM current_business_day)`,
+      [context.storeCode, context.companyCode],
     );
     return rows[0];
   }
@@ -731,7 +813,7 @@ export class StorePosService {
     if (companyCode && companyCode !== context.companyCode) throw new BadRequestException('门店与公司不匹配');
     // 从 sal_price_items 获取有效的价格本商品
     const rows = await this.ds.query<any[]>(
-      `SELECT pi.product_code,
+      `SELECT DISTINCT ON (COALESCE(pi.sku_code,''),pi.product_code,COALESCE(pi.grade_code,''),COALESCE(pi.packaging_spec,'')) pi.product_code,
               -- POS-P0-4 修:sal_price_items 无 product_name 列(原 SELECT pi.product_name → 42703 → 商品接口恒 400)。
               -- 改 JOIN 取真品名:SKU 名优先,回退产品主数据名,再回退编码。
               COALESCE(ps.sku_name, mp.product_name, pi.product_code) AS product_name,
@@ -747,12 +829,16 @@ export class StorePosService {
        LEFT JOIN product_skus ps ON ps.sku_code = pi.sku_code
        WHERE pb.status = 'ACTIVE'
          AND pb.company_code = $1
+         AND (pb.store_code = $2 OR (pb.store_code IS NULL AND pb.customer_code IS NULL AND pb.channel_code IS NULL))
          -- POS-P0-4 修:列名是 effective_from/effective_to(原误写 valid_from/valid_to → 生产 42703 → 商品接口 400)
          AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
          AND (pb.effective_to IS NULL OR pb.effective_to >= CURRENT_DATE)
+         AND pi.status = 'ACTIVE'
          AND pi.unit_price > 0
-       ORDER BY pi.sku_code NULLS LAST, pi.product_code, pi.grade_code`,
-      [context.companyCode],
+       ORDER BY COALESCE(pi.sku_code,''),pi.product_code,COALESCE(pi.grade_code,''),COALESCE(pi.packaging_spec,''),
+         CASE WHEN pb.store_code=$2 THEN 0 ELSE 1 END,
+         pb.priority ASC,pb.effective_from DESC NULLS LAST,pb.publish_version DESC,pb.id DESC`,
+      [context.companyCode, context.storeCode],
     );
     // 去重（SKU 路径：同 sku_code 取最新价格；旧路径：同 product+grade）
     const seen = new Set<string>();

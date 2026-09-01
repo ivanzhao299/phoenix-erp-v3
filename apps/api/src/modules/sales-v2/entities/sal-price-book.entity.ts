@@ -43,6 +43,9 @@ export class SalPriceBookEntity {
   @Column({ name: 'company_name', type: 'varchar', length: 256, nullable: true })
   companyName: string | null;
 
+  @Column({ name: 'store_code', type: 'varchar', length: 64, nullable: true })
+  storeCode: string | null;
+
   @Column({ name: 'channel_code', type: 'varchar', length: 64, nullable: true })
   channelCode: string | null;
 
@@ -51,6 +54,9 @@ export class SalPriceBookEntity {
 
   @Column({ name: 'priority', type: 'integer', default: 100 })
   priority: number;
+
+  @Column({ name: 'publish_version', type: 'integer', default: 0 })
+  publishVersion: number;
 
   @Column({ name: 'effective_from', type: 'date', nullable: true })
   effectiveFrom: string | null;

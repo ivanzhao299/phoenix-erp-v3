@@ -58,10 +58,13 @@ export class StorePosShiftService {
         const closingNo = await this.genClosingNo(mgr);
         const [row] = await mgr.query(
           `INSERT INTO sal_store_shift_closings
-            (closing_no, store_code, company_code, opening_cash, status, operator_id, operator_name)
-           VALUES ($1,$2,$3,$4,'OPEN',$5,$6) RETURNING id, closing_no`,
+            (closing_no, store_code, company_code, opening_cash, status, operator_id, operator_name, business_date)
+           VALUES ($1,$2,$3,$4,'OPEN',$5,$6,
+             ((NOW() AT TIME ZONE $7::text) - ($8::time - time '00:00'))::date)
+           RETURNING id, closing_no, business_date`,
           [closingNo,dto.storeCode,dto.companyCode,dto.openingCash,
-           user?.userId ?? user?.id ?? null,user?.name ?? user?.username ?? null],
+           user?.userId ?? user?.id ?? null,user?.name ?? user?.username ?? null,
+           context.timezone, context.businessDayCutoff],
         );
         return row;
       });
@@ -98,9 +101,9 @@ export class StorePosShiftService {
          COALESCE(SUM(total_amount) FILTER (WHERE status='COMPLETED' AND sale_type='CREDIT'),0) AS credit_sales
        FROM sal_store_sales
        WHERE store_code=$1
-         AND created_at >= $2
+         AND business_date = $2
          AND status != 'VOID'`,
-      [context.storeCode, shift.opened_at],
+      [context.storeCode, shift.business_date],
     );
 
     const systemCash = Number(shift.opening_cash) + Number(stats.cash_sales);
@@ -136,8 +139,8 @@ export class StorePosShiftService {
     await this.ds.query(
       `UPDATE sal_store_sales
        SET shift_closing_id = $1
-       WHERE store_code=$2 AND created_at >= $3 AND status != 'VOID'`,
-      [shift.id, context.storeCode, shift.opened_at],
+       WHERE store_code=$2 AND business_date=$3 AND shift_closing_id=$1 AND status != 'VOID'`,
+      [shift.id, context.storeCode, shift.business_date],
     );
 
     const [closed] = await this.ds.query<any[]>(

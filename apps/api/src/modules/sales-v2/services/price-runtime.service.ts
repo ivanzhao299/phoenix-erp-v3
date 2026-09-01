@@ -13,7 +13,8 @@ export interface ResolvedPrice {
   floorPrice:    number | null;
   ceilingPrice:  number | null;
   currencyCode:  string;
-  sourceType:    'CUSTOMER' | 'CHANNEL' | 'DEFAULT';
+  sourceType:    'STORE' | 'CUSTOMER' | 'CHANNEL' | 'DEFAULT';
+  publishVersion: number;
   matchedRule:   string;
   /** Phase H3: 匹配的 SKU 编码（如果是 sku_code 精确匹配）*/
   skuCode?:      string | null;
@@ -60,11 +61,11 @@ export class PriceRuntimeService {
    *   - dto.skuCode 为空时，按旧逻辑 product_code + grade_code + packaging_spec 匹配
    *   - dto.skuCode 非空时，同时尝试 sku_code 精确路径和旧路径，sku_code 路径优先
    */
-  async resolvePrice(dto: ResolvePriceDto): Promise<ResolvedPrice> {
+  async resolvePrice(dto: ResolvePriceDto, queryable: Pick<DataSource, 'query'> = this.ds): Promise<ResolvedPrice> {
     const qty     = dto.qty ?? null;
     const skuCode = dto.skuCode ?? null;
 
-    const rows = await this.ds.query(`
+    const rows = await queryable.query(`
       SELECT
         pi.id              AS item_id,
         pi.unit_price,
@@ -77,12 +78,16 @@ export class PriceRuntimeService {
         pb.id              AS book_id,
         pb.price_book_no,
         pb.priority,
+        pb.store_code,
+        pb.publish_version,
+        pb.effective_from,
         pb.customer_code,
         pb.channel_code,
         CASE
-          WHEN pb.customer_code IS NOT NULL THEN 0
-          WHEN pb.channel_code  IS NOT NULL THEN 1
-          ELSE 2
+          WHEN pb.store_code    IS NOT NULL THEN 0
+          WHEN pb.customer_code IS NOT NULL THEN 1
+          WHEN pb.channel_code  IS NOT NULL THEN 2
+          ELSE 3
         END AS tier
       FROM sal_price_items pi
       JOIN sal_price_books pb ON pb.id = pi.price_book_id
@@ -105,16 +110,21 @@ export class PriceRuntimeService {
         )
         AND ($6::numeric IS NULL OR pi.min_qty IS NULL OR pi.min_qty <= $6::numeric)
         AND ($6::numeric IS NULL OR pi.max_qty IS NULL OR pi.max_qty >= $6::numeric)
+        AND ($9::varchar IS NULL OR pi.currency_code = $9::varchar)
         AND (
-              pb.customer_code = $7
+              pb.store_code    = $10
+           OR pb.customer_code = $7
            OR pb.channel_code  = $8
-           OR (pb.customer_code IS NULL AND pb.channel_code IS NULL)
+           OR (pb.store_code IS NULL AND pb.customer_code IS NULL AND pb.channel_code IS NULL)
         )
       ORDER BY
         -- Phase H3: sku_code 精确匹配优先于 product+grade+spec 匹配
         CASE WHEN $2::varchar IS NOT NULL AND pi.sku_code = $2::varchar THEN 0 ELSE 1 END ASC,
         tier ASC,
-        pb.priority ASC
+        pb.priority ASC,
+        pb.effective_from DESC NULLS LAST,
+        pb.publish_version DESC,
+        pb.id DESC
       LIMIT 1
     `, [
       dto.companyCode,
@@ -125,6 +135,8 @@ export class PriceRuntimeService {
       qty,
       dto.customerCode ?? null,
       dto.channelCode  ?? null,
+      dto.currencyCode ?? null,
+      dto.storeCode ?? null,
     ]);
 
     if (!rows?.length) {
@@ -140,10 +152,11 @@ export class PriceRuntimeService {
 
     const r = rows[0];
     const tier = Number(r.tier);
-    const sourceType: 'CUSTOMER' | 'CHANNEL' | 'DEFAULT' =
-      tier === 0 ? 'CUSTOMER' : tier === 1 ? 'CHANNEL' : 'DEFAULT';
+    const sourceType: 'STORE' | 'CUSTOMER' | 'CHANNEL' | 'DEFAULT' =
+      tier === 0 ? 'STORE' : tier === 1 ? 'CUSTOMER' : tier === 2 ? 'CHANNEL' : 'DEFAULT';
 
     const matchedRule =
+      sourceType === 'STORE'    ? `门店价格册 (store=${r.store_code})` :
       sourceType === 'CUSTOMER' ? `客户专属价格册 (customer=${r.customer_code})` :
       sourceType === 'CHANNEL'  ? `渠道价格册 (channel=${r.channel_code})` :
                                   `默认价格册`;
@@ -157,6 +170,7 @@ export class PriceRuntimeService {
       ceilingPrice: r.ceiling_price != null ? Number(r.ceiling_price) : null,
       currencyCode: r.currency_code,
       sourceType,
+      publishVersion: Number(r.publish_version),
       matchedRule,
       skuCode:      r.sku_code      ?? null,
       gradeCodeStd: r.grade_code_std ?? null,
@@ -173,6 +187,7 @@ export class PriceRuntimeService {
     try {
       resolved = await this.resolvePrice({
         companyCode:   dto.companyCode,
+        storeCode:     dto.storeCode,
         customerCode:  dto.customerCode,
         channelCode:   dto.channelCode,
         productCode:   dto.productCode,

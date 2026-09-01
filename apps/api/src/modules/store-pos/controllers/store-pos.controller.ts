@@ -157,6 +157,7 @@ export class StorePosController {
       saleType:       'CASH' | 'CREDIT' | 'MIXED';
       paymentMethod?: string;
       discountAmount?: number;
+      currencyCode?: string;
       items: Array<{
         productCode:    string;
         productName:    string;
@@ -164,6 +165,7 @@ export class StorePosController {
         packagingSpec?: string;
         qty:            number;
         unitPrice:      number;
+        skuCode?:       string;
         amount:         number;
         sortOrder?:     number;
       }>;
@@ -186,7 +188,7 @@ export class StorePosController {
   @RequireMenu('MENU_STORE_POS', 'E')
   completeCashSale(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: { cashAccountId: number; paidAmount: number; paymentMethod?: string; idempotencyKey: string },
+    @Body() dto: { cashAccountId: number; paidAmount: number; paymentMethod?: string; externalReference?: string; idempotencyKey: string },
   ) {
     return this.posService.completeCashSale(id, dto);
   }

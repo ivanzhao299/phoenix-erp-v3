@@ -514,15 +514,6 @@ export default function StorePosPage() {
       return next;
     });
   };
-  // POS-P1 改价:手改单价(回车/失焦提交),重算小计;低于最低价仅前端飘红提示,后端最终拦
-  const updatePrice = (idx: number, raw: string) => {
-    const price = Math.max(0, Number(raw) || 0);
-    setCart(prev => {
-      const next = [...prev];
-      next[idx] = { ...next[idx], unit_price: price, amount: next[idx].qty * price };
-      return next;
-    });
-  };
   const removeFromCart = (idx: number) => setCart(prev => prev.filter((_, i) => i !== idx));
   const clearCart = () => {
     setCart([]);
@@ -551,7 +542,7 @@ export default function StorePosPage() {
       showToast(t('ui.请先设置门店信息','请先设置门店信息'), 'error');
       return;
     }
-    const paid = payType === 'CREDIT' ? 0 : Number(paidAmount) || totalAmount;
+    const paid = payType === 'CREDIT' ? 0 : payType === 'CASH' ? totalAmount : Number(paidAmount);
     if (payType !== 'CREDIT' && paid <= 0) {
       showToast(t('ui.请输入收款金额','请输入收款金额'), 'error');
       return;
@@ -1050,28 +1041,10 @@ export default function StorePosPage() {
                 fontSize: 11,
                 color: 'var(--text-disabled)'
               }}>{item.grade_code}</div>}
-                      {/* POS-P1 改价:单价可手改;低于最低价飘红提示(后端最终拦) */}
-                      {(() => {
-                        const floor = item.floor_price != null ? Number(item.floor_price) : null;
-                        const belowFloor = floor != null && Number(item.unit_price) < floor;
-                        return <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                          <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>¥</span>
-                          <input
-                            type="number" min="0" step="0.01"
-                            value={item.unit_price}
-                            onChange={e => updatePrice(idx, e.target.value)}
-                            title={floor != null ? `最低价 ${fmt(floor)}` : undefined}
-                            style={{
-                              width: 76, padding: '1px 4px', fontSize: 12,
-                              borderRadius: 4,
-                              border: `1px solid ${belowFloor ? 'var(--status-danger)' : 'var(--border-dark)'}`,
-                              background: 'var(--surface-dark)',
-                              color: belowFloor ? 'var(--status-danger)' : 'var(--text-on-dark)',
-                            }} />
-                          <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>× {item.qty}</span>
-                          {belowFloor && <span style={{ fontSize: 10, color: 'var(--status-danger)' }}>{t('ui.低于最低价','低于最低价')} {fmt(floor)}</span>}
-                        </div>;
-                      })()}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>¥ {fmt(item.unit_price)} × {item.qty}</span>
+                        <span style={{ fontSize: 10, color: 'var(--text-disabled)' }}>{t('ui.价格本锁价','价格本锁价')}</span>
+                      </div>
                     </div>
                     <div style={{
               fontSize: 14,

@@ -398,6 +398,12 @@ function PriceBooksTab() {
     label: t('ui.公司名称（自动带出）','公司名称（自动带出）'),
     type: "readonly"
   }, {
+    key: "storeCode",
+    label: t('ui.门店（门店价）','门店（门店价）'),
+    type: "store",
+    placeholder: t('ui.留空=非门店专属','留空=非门店专属'),
+    filterBy: { companyField: "companyCode" }
+  }, {
     key: "channelCode",
     label: t('ui.渠道（渠道价）','渠道（渠道价）'),
     type: "channel",
@@ -659,6 +665,7 @@ function PriceBooksTab() {
         priceBookName: editing.price_book_name,
         companyCode: editing.company_code,
         companyName: editing.company_name,
+        storeCode: editing.store_code,
         channelCode: editing.channel_code,
         customerCode: editing.customer_code,
         priority: editing.priority,

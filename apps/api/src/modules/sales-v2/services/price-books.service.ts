@@ -72,6 +72,7 @@ export class PriceBooksService {
       }
     }
     if (q.companyCode)  { params.push(q.companyCode);  where.push(`company_code = $${params.length}`); }
+    if (q.storeCode)    { params.push(q.storeCode);    where.push(`store_code = $${params.length}`); }
     if (q.status)       { params.push(q.status);       where.push(`status = $${params.length}`); }
     if (q.channelCode)  { params.push(q.channelCode);  where.push(`channel_code = $${params.length}`); }
     if (q.customerCode) { params.push(q.customerCode); where.push(`customer_code = $${params.length}`); }
@@ -115,13 +116,13 @@ export class PriceBooksService {
     const result = await this.ds.query(`
       INSERT INTO sal_price_books
         (price_book_no, price_book_name, company_code, company_name,
-         channel_code, customer_code, priority, effective_from, effective_to,
+         store_code, channel_code, customer_code, priority, effective_from, effective_to,
          status, remark, created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'DRAFT',$10,$11)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'DRAFT',$11,$12)
       RETURNING *
     `, [
       bookNo, dto.priceBookName, dto.companyCode, dto.companyName ?? null,
-      dto.channelCode ?? null, dto.customerCode ?? null,
+      dto.storeCode ?? null, dto.channelCode ?? null, dto.customerCode ?? null,
       dto.priority ?? 100, dto.effectiveFrom ?? null, dto.effectiveTo ?? null,
       dto.remark ?? null, user.userName || user.userId,
     ]);
@@ -145,6 +146,7 @@ export class PriceBooksService {
     };
     add('price_book_name', dto.priceBookName);
     add('company_name',    dto.companyName);
+    add('store_code',      dto.storeCode);
     add('channel_code',    dto.channelCode);
     add('customer_code',   dto.customerCode);
     add('priority',        dto.priority);
@@ -214,11 +216,35 @@ export class PriceBooksService {
     if (rec.status !== 'APPROVED') {
       throw new BadRequestException(`只有 APPROVED 状态的价格册可激活，当前状态：${rec.status}`);
     }
-    const result = await this.ds.query(
-      `UPDATE sal_price_books SET status = 'ACTIVE', updated_at = NOW() WHERE id = $1 RETURNING *`,
-      [id],
-    );
-    return result[0];
+    return this.ds.transaction(async mgr => {
+      await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`price-book:${rec.company_code}`]);
+      const conflicts = await mgr.query(`
+        SELECT pi.id
+          FROM sal_price_items pi
+          JOIN sal_price_items other ON other.price_book_id=$1 AND other.status='ACTIVE'
+          JOIN sal_price_books pb ON pb.id=pi.price_book_id
+         WHERE pb.id<>$1 AND pb.status='ACTIVE' AND pb.company_code=$2
+           AND COALESCE(pb.store_code,'')=COALESCE($3,'')
+           AND COALESCE(pb.customer_code,'')=COALESCE($4,'')
+           AND COALESCE(pb.channel_code,'')=COALESCE($5,'')
+           AND pb.priority=$6 AND pi.status='ACTIVE'
+           AND COALESCE(pi.sku_code,'')=COALESCE(other.sku_code,'')
+           AND COALESCE(pi.product_code,'')=COALESCE(other.product_code,'')
+           AND COALESCE(pi.grade_code,'')=COALESCE(other.grade_code,'')
+           AND COALESCE(pi.packaging_spec,'')=COALESCE(other.packaging_spec,'')
+           AND pi.currency_code=other.currency_code
+           AND daterange(COALESCE(pb.effective_from,'-infinity'::date), COALESCE(pb.effective_to,'infinity'::date),'[]')
+               && daterange(COALESCE($7::date,'-infinity'::date), COALESCE($8::date,'infinity'::date),'[]')
+           AND numrange(COALESCE(pi.min_qty,'-infinity'::numeric), COALESCE(pi.max_qty,'infinity'::numeric),'[]')
+               && numrange(COALESCE(other.min_qty,'-infinity'::numeric), COALESCE(other.max_qty,'infinity'::numeric),'[]')
+         LIMIT 1`, [id, rec.company_code, rec.store_code, rec.customer_code, rec.channel_code,
+          rec.priority, rec.effective_from, rec.effective_to]);
+      if (conflicts.length) throw new BadRequestException('同 scope、商品、币种、优先级的生效期或数量区间重叠，禁止发布');
+      const [row] = await mgr.query(
+        `UPDATE sal_price_books SET status='ACTIVE', publish_version=publish_version+1, updated_at=NOW()
+          WHERE id=$1 RETURNING *`, [id]);
+      return row;
+    });
   }
 
   async expireBook(id: string) {
