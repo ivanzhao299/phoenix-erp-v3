@@ -864,6 +864,7 @@
   "ui.分发批次核验与到店入库": "Distribution batch verification and store arrival",
   "ui.待签收": "Awaiting signature",
   "ui.门店工作台": "Store workbench",
+  "ui.门店工作台加载失败": "Failed to load store workbench",
   "ui.今日销售额": "Today's sales",
   "ui.今日客单数": "Today’s customer orders",
   "ui.当前库存": "Current inventory",
