@@ -275,3 +275,13 @@
 - API 与 Web `tsc --noEmit`：0 errors。
 - `check-constraint-drift.js`：0 new drift；`check-nullable-in-unique.js`：0 violations。
 - P4 本地执行计划未伪造：当前工作区没有运行中的生产等量数据库或生产凭据，且 `docker compose` 因必填 `JWT_SECRET` 未配置而无法解析。按红线不创建猜测性索引；部署后必须以生产只读事务补充 EXPLAIN、revision、amei/权限裁剪与错误窗口证据，再决定是否独立建索引迁移。
+
+### F4. CI、部署与生产只读复验
+
+- P0 commit：`527ac7c3`；P1–P3 commit：`5f854c81`；i18n 门禁修复：`0aced49a`。三者均已 push 到 `origin/main`。
+- push CI `33475422129` 与最终 revision CI `33476498393` 全通过；Web unit、AI Delivery Build、Security/Freeze 均通过。Security 首轮准确发现 8 个 locale key 与 3 个 hardcoded bridge 缺口，`0aced49a` 补齐中/英/老三语后复跑为 0 uncovered。
+- full production deploy `33476547530` 成功；生产 checkout revision 为 `0aced49a8a91247556e606c8ca2e89395e6b457f`。当前镜像未写入 OCI revision label，因而只读审计输出的 API/Web image revision label 为空；部署链自身已按 immutable SHA image tag 与 checkout SHA 完成一致性校验，但不能把空 label 伪报为三方 label 一致。
+- 最终 revision 的 amei Store POS readonly smoke `33477434044` 通过：`CONTEXT_ASSERTIONS=PASS count=1 store=STORE-HS-001 role=STORE_MANAGER roles=CASHIER,STORE_MANAGER salesWarehouse=true warehouseScopeIntersection=true`；`STORE_POS_ERROR_WINDOW=PASS count=0 window=30m`；`PRODUCTION_BUSINESS_WRITES=0`。
+- 最终 revision 的 production readonly audit `33477437674` 通过：数据库 `transaction_read_only=on`；1 小时错误窗口 `total=6/serverErrors=0/permissionOrClientErrors=6/affectedPaths=4`，无服务端错误。
+- 上述既有生产 smoke 验证了 amei membership/binding/WarehouseScope 底层前提、零业务写入、revision 与错误窗口；新 facade 自身的 ORDER/POS/ALL/直构 URL 断言由部署前 contract tests 覆盖。仓库当前没有可直接参数化执行新 facade API 与该查询 EXPLAIN 的生产只读 workflow，本轮没有临时读取或外泄 production secrets，也没有伪造该两项生产证据。
+- P4 结论维持“暂不建索引迁移”：既有 schema 已有 `idx_store_sale_store(store_code)`、`idx_store_sale_created(created_at DESC)` 和状态/支付单列索引，但 facade 使用 `COALESCE(completed_at,created_at)` 排序，是否需要表达式/复合索引必须由专用生产只读 EXPLAIN 决定。该专用 EXPLAIN 仍是明确未完成项，不能用 schema 静态观察替代。
