@@ -1,0 +1,110 @@
+name: Store Price Book 500 Readonly Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      window_start:
+        description: 'UTC audit start timestamp, e.g. 2026-09-01 03:13:00'
+        required: true
+      window_end:
+        description: 'UTC audit end timestamp, e.g. 2026-09-01 06:00:00'
+        required: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Validate audit window
+        shell: bash
+        env:
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        run: |
+          set -euo pipefail
+          timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+          for value in "$WINDOW_START" "$WINDOW_END"; do
+            [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+            date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+          done
+          [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+            || { echo "window_start must be before window_end" >&2; exit 1; }
+
+      - name: Readonly production price book audit
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          WINDOW_START: ${{ inputs.window_start }}
+          WINDOW_END: ${{ inputs.window_end }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,WINDOW_START,WINDOW_END
+          script: |
+            set -euo pipefail
+            timestamp_pattern='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+            for value in "$WINDOW_START" "$WINDOW_END"; do
+              [[ "$value" =~ $timestamp_pattern ]] || { echo "Invalid UTC timestamp format" >&2; exit 1; }
+              date -u -d "$value" '+%Y-%m-%d %H:%M:%S' >/dev/null
+            done
+            [[ $(date -u -d "$WINDOW_START" +%s) -lt $(date -u -d "$WINDOW_END" +%s) ]] \
+              || { echo "window_start must be before window_end" >&2; exit 1; }
+
+            cd "$DEPLOY_PATH"
+            echo '=== CONTAINER REVISION ==='
+            docker compose ps api
+            docker inspect phoenix-v3-api \
+              --format 'image={{.Config.Image}} created={{.Created}} started={{.State.StartedAt}} status={{.State.Status}}' \
+              2>/dev/null || true
+
+            echo '=== READONLY DATABASE EVIDENCE ==='
+            docker compose exec -T \
+              -e AUDIT_WINDOW_START="$WINDOW_START" \
+              -e AUDIT_WINDOW_END="$WINDOW_END" \
+              -e PGOPTIONS='-c default_transaction_read_only=on' \
+              db sh -c 'psql -X -v ON_ERROR_STOP=1 -v window_start="$AUDIT_WINDOW_START" -v window_end="$AUDIT_WINDOW_END" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+
+            SELECT id, created_at, error_type, http_status, request_method, request_path,
+                   error_message, pg_error_code, username
+              FROM sys_error_logs
+             WHERE created_at BETWEEN :'window_start'::timestamptz AND :'window_end'::timestamptz
+               AND request_method = 'POST'
+               AND request_path LIKE '%/api/v2/sales/pricing/books%'
+             ORDER BY created_at DESC;
+
+            SELECT column_name, data_type, is_nullable, column_default
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'sal_price_books'
+               AND column_name IN ('store_code', 'publish_version')
+             ORDER BY column_name;
+
+            SELECT id, "timestamp", name
+              FROM migrations
+             WHERE "timestamp" = 1788220800000
+                OR name = 'ImplementStorePosV14TenderSettlement1788220800000';
+
+            SELECT indexname, indexdef
+              FROM pg_indexes
+             WHERE schemaname = 'public'
+               AND tablename = 'sal_price_books'
+               AND indexname = 'idx_sal_price_books_store';
+
+            ROLLBACK;
+            SQL
+
+            echo '=== API LOG EVIDENCE (UNTRUNCATED WORKFLOW STEP OUTPUT) ==='
+            log_since=$(date -u -d "$WINDOW_START" '+%Y-%m-%dT%H:%M:%SZ')
+            log_until=$(date -u -d "$WINDOW_END" '+%Y-%m-%dT%H:%M:%SZ')
+            docker logs --timestamps --since "$log_since" --until "$log_until" phoenix-v3-api 2>&1 \
+              | grep -E -B 30 -A 30 'POST /api/v2/sales/pricing/books|\[Unhandled\]|\[DB\]|QueryFailedError' \
+              || true
