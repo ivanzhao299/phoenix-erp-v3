@@ -1,0 +1,15 @@
+[
+  {
+    "name": "process-log-real-order-envelope",
+    "pathSql": "SELECT '/api/v2/sales/orders/'||id||'/process-log' FROM sal_sales_orders ORDER BY updated_at DESC NULLS LAST,id DESC LIMIT 1;",
+    "expectedStatus": 200,
+    "requiredArrays": ["timeline", "documents", "warnings"]
+  },
+  {
+    "name": "process-log-cross-company-denied",
+    "usernameSql": "SELECT DISTINCT u.username FROM sys_user u JOIN sys_user_role ur ON ur.user_id=u.user_id JOIN sys_role r ON r.role_id=ur.role_id JOIN sys_role_menu_permission p ON p.role_id=r.role_id JOIN sys_menu m ON m.menu_id=p.menu_id AND m.menu_code='MENU_SALES2_ORDER' WHERE u.status=1 AND u.username<>'admin' AND coalesce(ur.is_visible,true) AND position('V' in p.perm_codes)>0 AND r.role_code<>'ROLE_ADMIN' ORDER BY u.username LIMIT 1;",
+    "scopeForeignOrder": true,
+    "path": "/resolved/from/data-scope",
+    "expectedStatus": [403, 404]
+  }
+]

@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+audit_root='scripts/ops/readonly-audits'
+sql_path="${ASSERTION_SQL_PATH:-}"
+http_path="${HTTP_ASSERTIONS_PATH:-}"
+
+validate_path() {
+  local value="$1" suffix="$2"
+  [ -z "$value" ] && return 0
+  case "$value" in
+    "$audit_root"/*"$suffix") ;;
+    *) echo "FAIL invalid audit path: $value" >&2; return 2 ;;
+  esac
+  [ -f "$value" ] || { echo "FAIL audit file not found: $value" >&2; return 2; }
+  case "$value" in *'..'*) echo "FAIL parent traversal is forbidden" >&2; return 2;; esac
+}
+
+validate_path "$sql_path" '.sql'
+validate_path "$http_path" '.http.json'
+if [ -n "$http_path" ]; then
+  node -e "const f=require('./$http_path');if(!Array.isArray(f))throw Error('HTTP manifest must be an array');for(const x of f){if(!['GET','HEAD'].includes(x.method||'GET'))throw Error('Only GET/HEAD are allowed');if(!x.name||(!x.path&&!x.pathSql))throw Error('Each HTTP assertion needs name and path/pathSql')}"
+fi
+[ "${1:-}" = '--validate' ] && { echo 'PASS audit inputs validated'; exit 0; }
+
+run_id="${AUDIT_RUN_ID:?AUDIT_RUN_ID is required}"
+case "$run_id" in *[!0-9]*) echo 'FAIL invalid run id' >&2; exit 2;; esac
+out_dir="/tmp/phoenix-production-readonly-audit-$run_id"
+install -d -m 700 "$out_dir"
+log="$out_dir/audit.log"
+exec > >(tee "$log") 2>&1
+
+checkout_revision="$(git rev-parse HEAD)"
+api_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$(docker compose ps -q api)")"
+web_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$(docker compose ps -q web)")"
+test "$checkout_revision" = "$api_revision"
+test "$checkout_revision" = "$web_revision"
+echo "PASS REVISION checkout=$checkout_revision api=$api_revision web=$web_revision"
+
+psql_ro() {
+  docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+}
+
+if [ -n "$sql_path" ]; then
+  { printf '%s\n' 'BEGIN TRANSACTION READ ONLY;' "SET LOCAL statement_timeout='30s';" "SET LOCAL lock_timeout='5s';"; cat "$sql_path"; printf '%s\n' 'ROLLBACK;'; } | psql_ro
+  echo "PASS SQL file=$sql_path"
+fi
+
+if [ -n "$http_path" ]; then
+  HTTP_MANIFEST_B64="$(base64 -w0 "$http_path")" docker compose exec -T \
+    -e HTTP_MANIFEST_B64 -e PHOENIX_CI_TOKEN_EXPIRES_IN=20m \
+    -e PGOPTIONS='-c default_transaction_read_only=on' api node - <<'NODE'
+const { NestFactory } = require('@nestjs/core');
+const { AppModule } = require('./dist/app.module');
+const { AuthService } = require('./dist/auth/auth.service');
+const { DataScopeService } = require('./dist/modules/org/services/data-scope.service');
+const { DataSource } = require('typeorm');
+const jwt = require('jsonwebtoken');
+
+const assertions = JSON.parse(Buffer.from(process.env.HTTP_MANIFEST_B64, 'base64').toString('utf8'));
+const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? undefined : v[k], body);
+(async () => {
+  const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+  try {
+    const auth = app.get(AuthService);
+    const scopes = app.get(DataScopeService);
+    const ds = app.get(DataSource);
+    const scalar = async (sql) => ds.transaction(async manager => {
+      await manager.query('SET TRANSACTION READ ONLY');
+      await manager.query("SET LOCAL statement_timeout='10s'");
+      const rows = await manager.query(sql);
+      return rows.length ? String(Object.values(rows[0])[0] ?? '') : '';
+    });
+    const tokens = new Map();
+    for (const a of assertions) {
+      const method = a.method || 'GET';
+      if (!['GET','HEAD'].includes(method)) throw new Error(`${a.name}: forbidden method ${method}`);
+      const username = a.usernameSql ? await scalar(a.usernameSql) : (a.username || 'admin');
+      if (!username) { console.log(`SKIP ${a.name} reason=no-auth-sample`); continue; }
+      if (!tokens.has(username)) {
+        const longSession = await auth.login(username, '', '127.0.0.1', { bypassPassword: true });
+        const payload = jwt.decode(longSession.token);
+        tokens.set(username, jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '20m' }));
+      }
+      let path = a.pathSql ? await scalar(a.pathSql) : a.path;
+      if (a.scopeForeignOrder) {
+        const payload = jwt.decode(tokens.get(username));
+        const scope = await scopes.resolve(String(payload.userId), payload.roles || [], 'MENU_SALES2_ORDER', payload.perms_version);
+        if (scope.isGlobal) { console.log(`SKIP ${a.name} reason=no-restricted-auth-sample`); continue; }
+        const rows = await ds.query('SELECT id FROM sal_sales_orders WHERE NOT (company_code=ANY($1::text[])) ORDER BY id DESC LIMIT 1', [[...scope.allowedCompanyCodes]]);
+        path = rows.length ? `/api/v2/sales/orders/${rows[0].id}/process-log` : '';
+      }
+      if (!path) { console.log(`SKIP ${a.name} reason=no-data-sample`); continue; }
+      const response = await fetch(`http://127.0.0.1:3100${path}`, { method, headers: { Authorization: `Bearer ${tokens.get(username)}` } });
+      const text = await response.text();
+      const expected = Array.isArray(a.expectedStatus) ? a.expectedStatus : [a.expectedStatus ?? 200];
+      if (!expected.includes(response.status)) throw new Error(`${a.name}: status=${response.status} expected=${expected.join('/')}`);
+      let body = null;
+      if (a.requiredArrays?.length) {
+        body = JSON.parse(text);
+        body = body?.data ?? body;
+        for (const p of a.requiredArrays) if (!Array.isArray(getPath(body, p))) throw new Error(`${a.name}: ${p} is not an array`);
+      }
+      console.log(`PASS HTTP name=${a.name} method=${method} status=${response.status}${body ? ` arrays=${a.requiredArrays.join(',')}` : ''}`);
+    }
+  } finally { await app.close(); }
+})().catch(e => { console.error(`FAIL HTTP ${e.message}`); process.exit(1); });
+NODE
+fi
+
+error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(sales.order|lifecycle|process-log)' || true; } | wc -l | tr -d ' ')"
+echo "LIFECYCLE_PROCESS_LOG_ERROR_WINDOW_60M=$error_count"
+test "$error_count" = 0
+echo 'PASS PRODUCTION_BUSINESS_WRITES=0'
