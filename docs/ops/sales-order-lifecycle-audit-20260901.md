@@ -395,3 +395,12 @@ UI 在订单详情增加：
 ### 10.3 部署后只读复验口径
 
 部署 revision 确认后只读核验：旧订单均有且仅有一个 `MIGRATED_SNAPSHOT`；新订单按真实动作产生 `CREATED/SUBMITTED/...` 事件；事件 UPDATE/DELETE 被触发器拒绝；`RECEIVED` 订单存在唯一 Sales source AR 且回写一致；process-log 不跨公司并正确展示 Workflow、配送、签收、库存、AR 和退货。
+
+### 10.4 合并、部署与生产只读证据
+
+- 实现 PR `#155` 已合并，main merge revision 为 `da4920c4185258d6da7b14383bfc24b16610d558`。
+- 显式批准的 full production workflow run `33492095257` 成功；部署日志确认 checkout target 为该 revision，API/Web 容器重建完成，Web smoke PASS。
+- 部署前数据库备份已生成；TypeORM 在单个事务内执行 `AddSalesOrderLifecycleEvents1788253200000`，写入 migrations 记录并 COMMIT。日志明确显示 `MIGRATED_SNAPSHOT` 基线 INSERT、append-only trigger、索引和权限 SQL 均已进入已提交迁移。
+- 2026-09-01 17:34（Asia/Singapore）公网 `GET https://erp.eggslao.com/api/health` 返回 `status=OK`、`env=production`、`db.connected=true`、`jwt_fallback_in_use=false`；`boot_at=2026-09-01T09:31:40.295Z` 位于本次部署窗口。
+- 未认证请求 `GET /api/v2/sales/orders/1/process-log` 返回 401，未暴露订单链路数据。
+- 当前执行环境没有生产只读业务 JWT/数据库只读凭据，因此未伪造旧订单事件计数、新订单全流程样本或 DataScope 跨公司实测结果；且按生产写入红线未为验收制造订单。10.3 中的数据级验收项保留为待具备受控只读身份后执行，现阶段结论限定为：revision/迁移提交/运行健康/匿名访问门禁已通过。
