@@ -960,4 +960,5 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - API 契约覆盖旧专用端点 410、四张旧表 Generic CRUD 拒写、GET 历史只读保留。
 - Web 契约覆盖旧页 redirect、菜单摘除、工作台改链。
 - 本地验证：API/Web `tsc --noEmit` 均 0 errors；API Jest 78 suites / 682 tests、Web Vitest 94 files / 497 tests 全绿；migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift、窄正则 scope-audit 与 `git diff --check` 全绿。
+- 冻结边界逐文件复核后以 `reviewed-frozen-boundary` 显式登记；本地 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 的 W5 closeout 20/20 PASS。
 - 生产部署与部署后 revision、旧端点 410、新链 amei 冒烟、错误窗口将在本节完成 full deployment 后补录；完成前不提前记生产 PASS。
