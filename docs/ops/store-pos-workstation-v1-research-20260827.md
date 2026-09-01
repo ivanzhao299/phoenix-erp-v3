@@ -920,4 +920,8 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - 红灯：`store-pos-v1-4.contract.spec.ts` 首跑 1 failed（缺 `pb.store_code` 完整全序）；实现后 2/2 green。
 - 本地：API/Web `tsc --noEmit` 0 errors；API Jest 75 suites / 659 tests；Web Vitest 90 files / 478 tests；migration down、migration DML、nullable unique、constraint drift、entity drift 均通过。
 - scope-audit 使用窄正则真实扫描；命中 6 处均为既存页面，本轮 V1-4 新增/修改页面未新增裸填主数据 code。
-- CI、PR、full deployment、revision、生产只读复验与 `pilot_wms=0` 在执行完成后回填，不以 push 或 workflow 启动代替成功证据。
+- PR [#140](https://github.com/ivanzhao299/phoenix-erp-v3/pull/140) 已合并；CI 的 scope detection、runtime smoke、静态安全/冻结门禁、Web Vitest、regression、双端 type-check/build 全部 green。业务合并 revision 为 `45e5728d54107b787b0196e152dbb166f9133f14`。
+- full deployment workflow run `33465428513` 成功；迁移链成功，生产 checkout、API、Web 三处 revision 均为 `45e5728d54107b787b0196e152dbb166f9133f14`。
+- production closeout workflow 由 PR [#141](https://github.com/ivanzhao299/phoenix-erp-v3/pull/141) 纳入仓库，run `33466628116` 成功：先执行独立只读前置断言，再以单事务最窄 `DELETE ... RETURNING` 清除停用账号 `pilot_wms` 的角色绑定，最后重新建立只读连接复验。
+- 生产复验结果：`pilot_wms` 保持 `INACTIVE`，角色绑定由 `1` 归零，`perms_version=17`；`MENU_STORE_SETTLEMENT` 与 `MENU_FIN2_AR_LEDGER` 的当前生产授权角色集合及各角色 `perm_codes/deny_codes` 逐项一致；未写 WarehouseScope、membership 或业务流水。
+- PR #141 及本节证据补录只含 workflow/docs，不改变已部署业务制品；因此生产应用 revision 有意保持上述已验证的 `45e5728d...`，未用非业务提交制造一次无意义重部署。
