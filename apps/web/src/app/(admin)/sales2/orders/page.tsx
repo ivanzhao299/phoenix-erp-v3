@@ -347,7 +347,7 @@ export default function SalesV2OrdersPage() {
       if (requestedStatus) params.set('status', requestedStatus);
       if (requestedKeyword) params.set('keyword', requestedKeyword);
       const res = await apiEnvelope<unknown>(`/api/v2/sales/activity?${params}`);
-      if (!isSalesActivityResponse(res)) throw new Error('联合列表响应契约无效');
+      if (!isSalesActivityResponse(res)) throw new Error(t('ui.联合列表响应契约无效','联合列表响应契约无效'));
       setOrders(res.data);
       setAvailableSources(res.availableSources);
       setHasMore(res.hasMore);
@@ -366,12 +366,12 @@ export default function SalesV2OrdersPage() {
           setAvailableSources(['ORDER']);
           setHasMore(normalized.total > (query?.page ?? page) * 20);
           setDegraded(true);
-          setError('联合列表不可用，当前展示客户订单');
+          setError(t('ui.联合列表不可用当前展示客户订单','联合列表不可用，当前展示客户订单'));
         } catch (fallbackError: any) {
-          setError(`${e.message || '联合列表加载失败'}；客户订单降级也失败：${fallbackError.message}`);
+          setError(`${e.message || t('ui.联合列表加载失败','联合列表加载失败')}；${t('ui.客户订单降级也失败','客户订单降级也失败')}：${fallbackError.message}`);
         }
       } else {
-        setError(e.message || '联合列表加载失败');
+        setError(e.message || t('ui.联合列表加载失败','联合列表加载失败'));
       }
     } finally {
       setLoading(false);
