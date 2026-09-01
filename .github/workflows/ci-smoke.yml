@@ -533,11 +533,11 @@ jobs:
           set -euo pipefail
           TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
           echo "::add-mask::$TOKEN"
-          corepack enable
-          corepack prepare pnpm@11.7.0 --activate
-          pnpm install --frozen-lockfile
-          cd apps/web
-          pnpm exec playwright install chromium
+          AUDIT_DIR="$(mktemp -d)"
+          cd "$AUDIT_DIR"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund @playwright/test@1.62.1 >/dev/null
+          npx playwright install chromium
           PHOENIX_AUDIT_TOKEN="$TOKEN" node - <<'NODE'
           const { chromium } = require('@playwright/test');
           (async () => {
