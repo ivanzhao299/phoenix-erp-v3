@@ -259,3 +259,20 @@ H1 schema 漂移被生产末态证据排除。确切根因是浏览器日期控�
 部署后使用相同的空日期 payload 语义做不落业务数据的合同/只读等价验证，并再次运行本专用
 workflow：确认实例 revision、该 endpoint 观察窗口无新增 `UNHANDLED/500`。生产写入仍仅限
 标准部署迁移链；本修复本身无迁移、不会代用户创建价格册。
+
+### 10.5 部署与生产复验（已完成）
+
+- PR #144 全部 7 项检查成功后合入，merge revision
+  `ca35d044aad089f0872e5a4644a54dffd3e440ab`。
+- production full deploy run
+  [`33469457969`](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33469457969)
+  成功：`mode=full`，目标 SHA 与上述 merge revision 一致；API/Web 镜像构建、生产代码同步、
+  API/Web 健康检查全部成功；TypeORM 输出 `No migrations are pending`。部署只执行标准链，
+  未手工操作生产 DDL/DML。
+- 部署后 production 只读 run
+  [`33470275533`](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33470275533)
+  成功：新 `phoenix-v3-api` 容器创建于 `04:32:21 UTC`、状态 healthy；
+  `04:30:00`–`04:40:00 UTC` 窗口该 endpoint 的 `sys_error_logs` 为 0 行，容器日志无匹配
+  `Unhandled/QueryFailedError`；两列、迁移登记、门店索引仍通过四项只读检查。
+- 未向生产重放创建请求，避免代用户写价格册。等价验证由部署 revision 与已通过的真实空日期
+  合同回归绑定完成；生产侧只做 revision/健康/schema/error-window 只读断言。
