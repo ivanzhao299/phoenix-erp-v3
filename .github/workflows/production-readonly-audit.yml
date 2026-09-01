@@ -45,13 +45,8 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v5
-      - name: Execute protected production readonly assertions
-        uses: appleboy/ssh-action@v1
-        env:
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
-          ASSERTION_SQL_PATH: ${{ inputs.assertion_sql_path }}
-          HTTP_ASSERTIONS_PATH: ${{ inputs.http_assertions_path }}
-          AUDIT_RUN_ID: ${{ github.run_id }}
+      - name: Stage reviewed audit bundle on the controlled runner
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -61,11 +56,30 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID
+          source: scripts/ops/run-production-readonly-audit.sh,scripts/ops/readonly-audits
+          target: /tmp/phoenix-production-readonly-audit-${{ github.run_id }}/bundle
+      - name: Execute protected production readonly assertions
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          ASSERTION_SQL_PATH: ${{ inputs.assertion_sql_path }}
+          HTTP_ASSERTIONS_PATH: ${{ inputs.http_assertions_path }}
+          AUDIT_RUN_ID: ${{ github.run_id }}
+          AUDIT_BUNDLE_DIR: /tmp/phoenix-production-readonly-audit-${{ github.run_id }}/bundle
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID,AUDIT_BUNDLE_DIR
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
-            bash scripts/ops/run-production-readonly-audit.sh
+            bash "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh"
       - name: Download sanitized audit output
         uses: appleboy/scp-action@v1
         with:
