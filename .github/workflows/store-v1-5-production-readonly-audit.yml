@@ -1,0 +1,134 @@
+name: Store V1-5 Production Readonly Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_production:
+        description: Type APPROVE-STORE-V1-5-READONLY-20260901
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-v1-5-production-readonly-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: inputs.approve_production == 'APPROVE-STORE-V1-5-READONLY-20260901'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit legacy Store writes and POS activity query without mutation
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            checkout_revision="$(git rev-parse HEAD)"
+            api_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$(docker compose ps -q api)")"
+            web_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$(docker compose ps -q web)")"
+            echo "CHECKOUT_REVISION=$checkout_revision"
+            echo "API_REVISION=$api_revision"
+            echo "WEB_REVISION=$web_revision"
+
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SET LOCAL statement_timeout='30s';
+            SET LOCAL lock_timeout='5s';
+            SELECT current_database(),current_user,current_setting('transaction_read_only') AS read_only,
+                   current_setting('server_version') AS server_version,pg_postmaster_start_time();
+
+            SELECT 'LEGACY_TABLE_COLUMNS' AS section,table_name,column_name,data_type
+              FROM information_schema.columns
+             WHERE table_schema='public'
+               AND table_name IN ('pos_sales','pos_sale_items','daily_close','biz_store_daily_close','store_inventory','acc_ledger','fin_transactions')
+               AND column_name IN ('created_at','updated_at','submitted_at','operator','created_by','updated_by','store_code','sale_no','close_no')
+             ORDER BY table_name,ordinal_position;
+
+            SELECT 'LEGACY_TABLE_RECENT_ROWS' AS section,'pos_sales' AS table_name,count(*)::bigint AS rows_30d,
+                   min(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text AS first_seen,
+                   max(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text AS last_seen,
+                   COALESCE(string_agg(DISTINCT NULLIF(to_jsonb(p)->>'operator',''),','),'') AS actors
+              FROM pos_sales p WHERE NULLIF(to_jsonb(p)->>'created_at','')::timestamptz >= now()-interval '30 days'
+            UNION ALL
+            SELECT 'LEGACY_TABLE_RECENT_ROWS','pos_sale_items',count(*)::bigint,
+                   min(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,
+                   max(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,''
+              FROM pos_sale_items p WHERE NULLIF(to_jsonb(p)->>'created_at','')::timestamptz >= now()-interval '30 days'
+            UNION ALL
+            SELECT 'LEGACY_TABLE_RECENT_ROWS','daily_close',count(*)::bigint,
+                   min(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,
+                   max(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,
+                   COALESCE(string_agg(DISTINCT NULLIF(to_jsonb(p)->>'operator',''),','),'')
+              FROM daily_close p WHERE NULLIF(to_jsonb(p)->>'created_at','')::timestamptz >= now()-interval '30 days'
+            UNION ALL
+            SELECT 'LEGACY_TABLE_RECENT_ROWS','biz_store_daily_close',count(*)::bigint,
+                   min(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,
+                   max(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,
+                   COALESCE(string_agg(DISTINCT NULLIF(to_jsonb(p)->>'operator',''),','),'')
+              FROM biz_store_daily_close p WHERE NULLIF(to_jsonb(p)->>'created_at','')::timestamptz >= now()-interval '30 days'
+            UNION ALL
+            SELECT 'LEGACY_TABLE_RECENT_ROWS','store_inventory',count(*)::bigint,
+                   min(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,
+                   max(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,''
+              FROM store_inventory p WHERE NULLIF(to_jsonb(p)->>'created_at','')::timestamptz >= now()-interval '30 days';
+
+            SELECT 'LEGACY_DAILY_CLOSE_DETAIL' AS section,close_no,store_code,close_date,status,operator,created_at,submitted_at
+              FROM daily_close
+             WHERE created_at::timestamptz >= now()-interval '30 days'
+             ORDER BY created_at DESC LIMIT 100;
+
+            SELECT 'PG_STAT_STATEMENTS_STATUS' AS section,
+                   EXISTS(SELECT 1 FROM pg_extension WHERE extname='pg_stat_statements') AS installed,
+                   current_setting('shared_preload_libraries',true) AS shared_preload_libraries;
+
+            DO $audit$
+            BEGIN
+              IF EXISTS(SELECT 1 FROM pg_extension WHERE extname='pg_stat_statements') THEN
+                CREATE TEMP TABLE legacy_write_stats AS
+                SELECT r.rolname AS query_user,s.calls,s.total_exec_time,s.mean_exec_time,
+                       regexp_replace(s.query,E'\\s+',' ','g') AS query
+                  FROM pg_stat_statements s LEFT JOIN pg_roles r ON r.oid=s.userid
+                 WHERE s.query ~* '(^|[^a-z])(insert|update|delete|merge|truncate)([^a-z]|$)'
+                   AND s.query ~* '(pos_sales|pos_sale_items|daily_close|biz_store_daily_close|store_inventory|acc_ledger|fin_transactions)';
+              ELSE
+                CREATE TEMP TABLE legacy_write_stats(query_user name,calls bigint,total_exec_time double precision,mean_exec_time double precision,query text);
+              END IF;
+            END $audit$;
+            SELECT 'LEGACY_WRITE_STATEMENTS' AS section,query_user,calls,
+                   round(total_exec_time::numeric,1) AS total_ms,round(mean_exec_time::numeric,1) AS mean_ms,left(query,1500) AS query
+              FROM legacy_write_stats ORDER BY total_exec_time DESC;
+
+            SELECT 'POS_ACTIVITY_INDEXES' AS section,indexname,indexdef
+              FROM pg_indexes WHERE schemaname='public' AND tablename='sal_store_sales' ORDER BY indexname;
+
+            EXPLAIN (ANALYZE,BUFFERS,VERBOSE,FORMAT JSON)
+            SELECT id::text
+              FROM sal_store_sales
+             WHERE store_code=ANY(ARRAY['STORE-HS-001']::text[])
+             ORDER BY COALESCE(completed_at,created_at) DESC,id::text ASC
+             LIMIT 21;
+            ROLLBACK;
+            SQL
+
+            echo '=== API LEGACY WRITE ROUTE LOG WINDOW (available retention only) ==='
+            docker logs --since 720h phoenix-v3-api 2>&1 \
+              | grep -E '(/api/v3/store/daily-close|/api/crud/(pos_sales|pos_sale_items|daily_close|store_inventory))' \
+              | tail -n 500 || true
