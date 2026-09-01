@@ -211,6 +211,51 @@ jobs:
             console.log(`CONTEXT_ASSERTIONS=PASS count=${rows.length} store=${row.storeCode} role=${row.role} roles=${row.roles.join(',')} salesWarehouse=true warehouseScopeIntersection=true`);
             NODE
 
+            INVENTORY_PAGE_META="$(curl -sSL --cookie "phoenix_access_token=$TOKEN" -o /tmp/store-inventory-page.html -w '%{http_code} %{url_effective}' 'https://erp.eggslao.com/store/inventory')"
+            test "$INVENTORY_PAGE_META" = '200 https://erp.eggslao.com/store/inventory'
+            test "$(wc -c </tmp/store-inventory-page.html | tr -d ' ')" -gt 1000
+            echo "STORE_INVENTORY_PAGE_SMOKE=PASS status=200"
+
+            INVENTORY_ALL_JSON="$(curl -fsS -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-sales/inventory?storeCode=STORE-HS-001&limit=200')"
+            INVENTORY_AVAILABLE_JSON="$(curl -fsS -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-sales/inventory?storeCode=STORE-HS-001&status=AVAILABLE&limit=200')"
+            INVENTORY_QUARANTINE_JSON="$(curl -fsS -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-sales/inventory?storeCode=STORE-HS-001&status=QUARANTINE&limit=200')"
+            INVENTORY_ALL_JSON="$INVENTORY_ALL_JSON" INVENTORY_AVAILABLE_JSON="$INVENTORY_AVAILABLE_JSON" INVENTORY_QUARANTINE_JSON="$INVENTORY_QUARANTINE_JSON" node - <<'NODE'
+            const unwrap = raw => {
+              const body = JSON.parse(raw || 'null');
+              return body?.data && !body?.rows ? body.data : body;
+            };
+            const all = unwrap(process.env.INVENTORY_ALL_JSON);
+            const available = unwrap(process.env.INVENTORY_AVAILABLE_JSON);
+            const quarantine = unwrap(process.env.INVENTORY_QUARANTINE_JSON);
+            for (const [name, body] of Object.entries({ all, available, quarantine })) {
+              if (!Array.isArray(body?.rows) || !body?.summary || !body?.pagination) throw new Error(`${name} response contract invalid`);
+              if (body.store?.code !== 'STORE-HS-001') throw new Error(`${name} store=${body.store?.code}`);
+            }
+            if (all.rows.some(row => Number(row.qty) <= 0)) throw new Error('ALL returned non-positive inventory');
+            if (available.rows.some(row => row.status !== 'AVAILABLE')) throw new Error('AVAILABLE tab leaked non-AVAILABLE inventory');
+            if (quarantine.rows.some(row => row.status !== 'QUARANTINE')) throw new Error('QUARANTINE tab leaked non-QUARANTINE inventory');
+            if (quarantine.rows.some(row => Number(row.qty_available) !== 0)) throw new Error('QUARANTINE inventory became sellable');
+            if (JSON.stringify(all.summary) !== JSON.stringify(available.summary) || JSON.stringify(all.summary) !== JSON.stringify(quarantine.summary)) {
+              throw new Error('three-tab summary semantics diverged');
+            }
+            console.log(`STORE_INVENTORY_THREE_TAB_ASSERTIONS=PASS all=${all.pagination.total} available=${available.pagination.total} quarantine=${quarantine.pagination.total} onHand=${all.summary.onHand} sellable=${all.summary.available}`);
+            NODE
+
+            RET_ROW="$(docker compose exec -T db sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -AtF "|" -c "SELECT b.batch_no,b.warehouse_code,b.status,b.source_no,b.qty,il.change_type FROM inv_batches b JOIN store_warehouse_bindings swb ON swb.warehouse_code=b.warehouse_code JOIN store_master s ON s.id=swb.store_id LEFT JOIN LATERAL (SELECT l.change_type FROM inv_ledger l WHERE l.batch_no=b.batch_no AND l.warehouse_code=b.warehouse_code ORDER BY l.created_at DESC,l.id DESC LIMIT 1) il ON TRUE WHERE s.store_code='\''STORE-HS-001'\'' AND swb.purpose='\''RETURNS'\'' AND swb.status='\''ACTIVE'\'' AND b.batch_no LIKE '\''RET-%'\'' AND b.source_type='\''STORE_RETURN'\'' AND b.status='\''QUARANTINE'\'' AND COALESCE(b.qty,0)>0 AND il.change_type='\''SALE_RETURN'\'' ORDER BY b.created_at DESC,b.batch_no DESC LIMIT 1;"' | tr -d '\r\n')"
+            test -n "$RET_ROW"
+            IFS='|' read -r RET_BATCH RET_WAREHOUSE RET_STATUS RET_SALE RET_QTY RET_LEDGER_TYPE <<<"$RET_ROW"
+            RET_API_JSON="$(curl -fsS -G -H "Authorization: Bearer $TOKEN" --data-urlencode 'storeCode=STORE-HS-001' --data-urlencode "sku=$RET_BATCH" --data-urlencode 'limit=10' 'https://erp.eggslao.com/api/v2/store-sales/inventory')"
+            RET_API_JSON="$RET_API_JSON" RET_BATCH="$RET_BATCH" RET_WAREHOUSE="$RET_WAREHOUSE" RET_SALE="$RET_SALE" node - <<'NODE'
+            const raw = JSON.parse(process.env.RET_API_JSON || 'null');
+            const body = raw?.data && !raw?.rows ? raw.data : raw;
+            const row = body?.rows?.find(item => item.batch_no === process.env.RET_BATCH && item.warehouse_code === process.env.RET_WAREHOUSE);
+            if (!row) throw new Error(`RET batch not visible through inventory API: ${process.env.RET_BATCH}`);
+            if (row.status !== 'QUARANTINE' || Number(row.qty_available) !== 0) throw new Error(`RET semantics relaxed: status=${row.status} qty_available=${row.qty_available}`);
+            if (row.source_no !== process.env.RET_SALE || row.ledger_change_type !== 'SALE_RETURN') throw new Error(`RET provenance mismatch: source=${row.source_no} ledger=${row.ledger_change_type}`);
+            console.log(`STORE_INVENTORY_D0_RET_VISIBILITY=PASS batch=${row.batch_no} sale=${row.source_no} warehouse=${row.warehouse_code} status=${row.status} ledger=${row.ledger_change_type}`);
+            NODE
+            echo "STORE_INVENTORY_SQL_EQUIVALENT=PASS batch=$RET_BATCH sale=$RET_SALE warehouse=$RET_WAREHOUSE status=$RET_STATUS qty=$RET_QTY ledger=$RET_LEDGER_TYPE readonly=true"
+
             REPLENISH_STATUS="$(curl -sS -o /tmp/store-pos-amei-replenishments.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/store-replenishments')"
             test "$REPLENISH_STATUS" = "200"
             echo "REPLENISH_GET_ASSERTION=PASS status=$REPLENISH_STATUS"
