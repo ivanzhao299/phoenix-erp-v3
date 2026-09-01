@@ -398,18 +398,18 @@ UI 在订单详情增加：
 
 #### 10.3.1 生产数据级只读验收（2026-09-01）
 
-本轮为零实施、零生产写入的证据复核。参考的受控通道为 `AI Delivery CI Smoke` run `33482388165`：该 run 曾在远端部署机内签发 20 分钟短期 token，并以 `PGOPTIONS='-c default_transaction_read_only=on'` 和 `BEGIN TRANSACTION READ ONLY` 执行生产查询。此次复核时该短期 token 已失效，且当前 `.github/workflows/ci-smoke.yml` 已不再包含该历史专用 target；现有 workflow 也没有可参数化提交本次 SQL/HTTP 断言的只读入口。为保持本次最终提交纯文档，未新增或恢复 workflow，未从本地绕过受控通道直连生产，也未伪造订单样本。因此本节引用既有 run `33482388165` 与部署 run `33492095257` 的可复核日志；**没有产生新的生产审计 run 号**。
+已通过 PR `#157`–`#160` 建立可复用的 `Production Readonly Audit`：仅接受仓库 `scripts/ops/readonly-audits/` 下经审查的 SQL/HTTP 清单，job 绑定 `production` environment，HTTP 仅允许 `GET/HEAD`，生产 JWT 在 API 容器内重签且有效期固定 20 分钟，不打印 token。SQL 连接设置 `PGOPTIONS='-c default_transaction_read_only=on'`，runner 再自动包裹 `BEGIN TRANSACTION READ ONLY`、超时限制与 `ROLLBACK`。最终成功 run `33498297181`（head `485bdb9c12376d8753a79e282c5bf35ab5a5d8d6`）完成逐项输出并上传脱敏 artifact；全程 `PRODUCTION_BUSINESS_WRITES=0`。
 
 | # | 断言 | 只读证据/输出 | 结果 |
 |---|---|---|---|
-| 1 | 旧订单均有且仅有一个 `MIGRATED_SNAPSHOT`，事件数=旧订单数 | run `33492095257` 明确输出迁移 SQL 已执行、`AddSalesOrderLifecycleEvents1788253200000 has been executed successfully`、随后 `COMMIT`；但日志没有输出 `旧订单数 / MIGRATED_SNAPSHOT 数 / 每单 min=max=1` 三个生产计数。 | **受限，未完成数据计数断言**；不可把迁移成功等同于存量计数 PASS。 |
-| 2 | 部署后新订单按真实动作产生 `CREATED/SUBMITTED/...` | 既有 run 未查询迁移时间后的订单及事件。本轮不创建订单、不制造动作。 | **无可核实样本**；按验收口径不判失败，但也不宣称事件链数据级 PASS。 |
-| 3 | 事件 UPDATE/DELETE 被拒绝 | run `33492095257` 的已提交迁移日志包含 append-only 函数、`BEFORE UPDATE OR DELETE` 触发器及 `REVOKE UPDATE, DELETE` 的执行；迁移最终 COMMIT。受只读事务约束，未实际发出 UPDATE/DELETE。 | **PASS（定义级）**；限制：未做生产变更语句行为测试，符合本项允许的触发器存在性/定义替代口径。 |
-| 4 | `RECEIVED` 有唯一 Sales source AR 且 `ar_invoice_id` 回写一致 | 既有 run 未输出 `RECEIVED` 订单、`fin_ar_invoices(source_type='SALES_ORDER', source_id)` 聚合、缺失/重复/回写不一致计数。 | **受限，未完成存量一致性断言**。 |
-| 5 | process-log 真实订单结构完整；跨公司越权语义 | 部署后匿名 `GET /api/v2/sales/orders/1/process-log` 为 401，只证明未认证门禁；历史短期 token 已失效，既有 run 未请求该端点，未输出 `timeline/documents/warnings`，也没有第二个异公司受限身份可构造越权样本。 | **受限**：认证结构与跨公司语义均未完成生产数据级实测；不以匿名 401 代替。 |
-| 6 | revision 三方一致 + 错误窗口 | run `33492095257` 的 checkout 与 API/Web 镜像构建 revision 均为 `da4920c4185258d6da7b14383bfc24b16610d558`，full deploy 成功；但该 run 未输出部署机 checkout/API/Web 容器三方运行态的同屏断言，也未查询生命周期/process-log 相关错误窗口。run `33482388165` 曾输出三方 revision 一致及最近一小时目标错误为 0，但发生在本生命周期部署之前，不能替代本次部署后断言。 | **受限**：构建/部署 revision 证据 PASS；部署后运行态三方一致与错误窗口未完成。 |
+| 1 | 旧订单均有且仅有一个 `MIGRATED_SNAPSHOT`，事件数=旧订单数 | `MIGRATED_SNAPSHOT old_orders=26 snapshot_events=26 min_per_order=1 max_per_order=1`。 | **PASS（数据级）**。 |
+| 2 | 部署后新订单按真实动作产生 `CREATED/SUBMITTED/...` | `NEW_ORDER_REAL_EVENTS new_orders=0 orders_with_real_events=0 result=NO_SAMPLE`。未创建订单、未制造动作。 | **NO_SAMPLE**；如实记录，不判失败，也不宣称新订单真实动作链已有生产样本。 |
+| 3 | 事件 UPDATE/DELETE 被拒绝 | `APPEND_ONLY_DEFINITION trigger_count=1 public_update=false public_delete=false result=PASS`；零写入红线下未实际发出 UPDATE/DELETE。 | **PASS（生产定义级）**。 |
+| 4 | `RECEIVED` 有唯一 Sales source AR 且 `ar_invoice_id` 回写一致 | `RECEIVED_SALES_AR received_orders=12 non_unique_ar=0 backlink_mismatch=0 result=PASS`。 | **PASS（数据级）**。 |
+| 5 | process-log 真实订单结构完整；跨公司越权语义 | 真实订单 `GET process-log` 返回 200，`timeline/documents/warnings` 均为数组；跨公司探针输出 `SKIP ... reason=no-data-sample`，即生产没有同时满足“受限销售查看账号 + 其范围外订单”的组合样本。 | **结构 PASS；跨公司 NO_SAMPLE**。不以菜单 403 或伪造身份替代 DataScope 证据。 |
+| 6 | revision 三方一致 + 错误窗口 | 同屏输出 checkout/API/Web 均为 `da4920c4185258d6da7b14383bfc24b16610d558`；`LIFECYCLE_PROCESS_LOG_ERROR_WINDOW_60M=0`。 | **PASS**。 |
 
-本轮结论：**非全 PASS，且不是产品失败结论**。已确认迁移及 append-only 定义进入生产提交；其余数据级项因当前不存在可复用的受控只读执行入口而保留为未验。重新验收时必须在受控 runner 内恢复等价的短期 token + `default_transaction_read_only=on` + `BEGIN READ ONLY` 通道，逐项打印计数、真实 process-log envelope、DataScope 403/404 语义、三方运行态 revision 和明确时间窗的错误计数；仍不得为验收制造订单。
+本轮结论：旧订单基线、append-only 定义、RECEIVED→Sales AR 一致性、真实 process-log 结构、三方运行态 revision 与 60 分钟错误窗口均完成生产只读验收。新订单真实动作与跨公司越权两项因生产无自然样本保持 `NO_SAMPLE`，不是失败，也不伪造样本补齐；后续自然出现样本时复用同一 workflow 重跑即可。
 
 ### 10.4 合并、部署与生产只读证据
 
@@ -418,4 +418,4 @@ UI 在订单详情增加：
 - 部署前数据库备份已生成；TypeORM 在单个事务内执行 `AddSalesOrderLifecycleEvents1788253200000`，写入 migrations 记录并 COMMIT。日志明确显示 `MIGRATED_SNAPSHOT` 基线 INSERT、append-only trigger、索引和权限 SQL 均已进入已提交迁移。
 - 2026-09-01 17:34（Asia/Singapore）公网 `GET https://erp.eggslao.com/api/health` 返回 `status=OK`、`env=production`、`db.connected=true`、`jwt_fallback_in_use=false`；`boot_at=2026-09-01T09:31:40.295Z` 位于本次部署窗口。
 - 未认证请求 `GET /api/v2/sales/orders/1/process-log` 返回 401，未暴露订单链路数据。
-- 当前执行环境没有生产只读业务 JWT/数据库只读凭据，因此未伪造旧订单事件计数、新订单全流程样本或 DataScope 跨公司实测结果；且按生产写入红线未为验收制造订单。10.3 中的数据级验收项保留为待具备受控只读身份后执行，现阶段结论限定为：revision/迁移提交/运行健康/匿名访问门禁已通过。
+- 可复用生产只读 workflow 经 PR `#157`–`#160` 审查合入；最终 run `33498297181` 成功，artifact 保存逐项输出。数据库双层只读保护、20 分钟 JWT、GET/HEAD 方法白名单与 `PRODUCTION_BUSINESS_WRITES=0` 均留痕；未为新订单或跨公司测试制造生产样本。
