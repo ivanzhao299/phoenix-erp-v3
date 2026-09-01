@@ -57,7 +57,7 @@ export default function StorePage() {
   const QUICK: { path: string; Icon: typeof Package; label: string; desc: string; tone: Tone }[] = [
     { path: "/store/receiving", Icon: PackageOpen,    label: t("ui.门店收货", "门店收货"),   desc: t("ui.核收来自仓库的补货", "核收来自仓库的补货"),     tone: "info"    },
     { path: "/store/inventory", Icon: Archive,        label: t("ui.门店库存", "门店库存"),   desc: t("ui.本店当前库存状态",   "本店当前库存状态"),       tone: "success" },
-    { path: "/store/daily",     Icon: ClipboardList,  label: t("ui.日结作业", "日结作业"),   desc: t("ui.当日营业汇总结账",   "当日营业汇总结账"),       tone: "warning" },
+    { path: "/store-settlement", Icon: ClipboardList, label: t("ui.日结审核", "日结审核"),   desc: t("ui.营业日勾稽与审核",   "营业日勾稽与审核"),       tone: "warning" },
     { path: "/store/replenish", Icon: RefreshCcw,     label: t("ui.补货申请", "补货申请"),   desc: t("ui.向仓库发起补货请求", "向仓库发起补货请求"),     tone: "brand"   },
     { path: "/store/losses",    Icon: AlertTriangle,  label: t("ui.损耗上报", "损耗上报"),   desc: t("ui.破损临期损耗记录",   "破损·临期损耗记录"),       tone: "danger"  },
   ];

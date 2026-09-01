@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { StoreController } from './store.controller';
+import { RetiredPosController, StoreController } from './store.controller';
 import { StoreService } from './store.service';
 import { StoreDailyCloseEntity } from './entities/store-daily-close.entity';
 import { StorePosModule } from '../store-pos/store-pos.module';
@@ -11,7 +11,7 @@ import { StorePosModule } from '../store-pos/store-pos.module';
 //   pos.controller.ts / pos.service.ts 文件保留但已从模块注销 → api/v3/pos 不再可访问；createSale 另加冻结防御。
 @Module({
   imports: [TypeOrmModule.forFeature([StoreDailyCloseEntity]), StorePosModule],
-  controllers: [StoreController],
+  controllers: [StoreController, RetiredPosController],
   providers: [StoreService],
   exports: [StoreService],
 })

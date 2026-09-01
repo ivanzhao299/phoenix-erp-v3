@@ -925,3 +925,39 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - production closeout workflow 由 PR [#141](https://github.com/ivanzhao299/phoenix-erp-v3/pull/141) 纳入仓库，run `33466628116` 成功：先执行独立只读前置断言，再以单事务最窄 `DELETE ... RETURNING` 清除停用账号 `pilot_wms` 的角色绑定，最后重新建立只读连接复验。
 - 生产复验结果：`pilot_wms` 保持 `INACTIVE`，角色绑定由 `1` 归零，`perms_version=17`；`MENU_STORE_SETTLEMENT` 与 `MENU_FIN2_AR_LEDGER` 的当前生产授权角色集合及各角色 `perm_codes/deny_codes` 逐项一致；未写 WarehouseScope、membership 或业务流水。
 - PR #141 及本节证据补录只含 workflow/docs，不改变已部署业务制品；因此生产应用 revision 有意保持上述已验证的 `45e5728d...`，未用非业务提交制造一次无意义重部署。
+
+## 19. V1-5 旧链退役收官与 P4 生产 EXPLAIN（2026-09-01）
+
+### 19.1 退役前双重取证
+
+- 源码写入口：旧 `/api/v3/store/daily-close*` 仍注册；V2 submit 聚合 `pos_sales/pos_sale_items` 并写 `daily_close/acc_ledger/fin_transactions`。Generic CRUD 仍允许对 `pos_sales/pos_sale_items/daily_close/store_inventory` 执行 POST/PUT/DELETE；旧 `/store/daily` 直接调用该 CRUD。
+- 旧 `/api/v3/pos` 专用 controller 已在 R4.1 注销，但缺少明确退役契约，客户端只得到 404；历史回归脚本仍把它当写链。
+- 生产只读 workflow run `33485596261` 在 `default_transaction_read_only=on + BEGIN READ ONLY + ROLLBACK` 下成功。生产 checkout/API/Web 均为 `6d0fedcbd482b809b495c98f5aab8ee172f96437`，PostgreSQL 16.14。
+- 近 30 天 `pos_sales=0`、`pos_sale_items=0`、`daily_close=0`、`store_inventory=0`，日结明细 0；可用容器日志仅命中 Nest 启动时的旧路由注册，没有业务请求记录。生产未安装 `pg_stat_statements`，Docker json-file 轮转也不能证明完整 30 天端点调用责任人，因此“无活跃写入”由表内时间戳窗口直接证明，不能扩张为无限历史结论。
+- `biz_store_daily_close` entity 对应生产实表不存在；旧 ORM 日结写端点本身存在 entity/DB 漂移风险，退役后不再触发该路径。历史数据零迁移、零改写。
+
+结论：未发现活跃旧链写入者，V1 §7 R5 的关闭 gate 满足，可实施退役。
+
+### 19.2 退役末态
+
+- `/api/v3/store/daily-close` POST/PUT/close 与 `/daily-close-v2/submit` 固定返回 HTTP 410，文案指向 Store POS V2 与 Store Settlement；旧 preview/list GET 保留历史只读适配。
+- `/api/v3/pos` 已知历史写路由（销售、退款、班次、损耗审批、收货确认、补货审批）固定返回 HTTP 410。
+- Generic CRUD 对 `pos_sales/pos_sale_items/daily_close/store_inventory` 的 POST/PUT/DELETE 固定返回 HTTP 410；GET 继续保留，报表与追溯读不受影响。
+- Sidebar 摘除 `/store/daily`；旧 URL 服务端重定向 `/store-settlement`；门店工作台快捷卡改指新 settlement。新 `/api/v2/store-sales`、补货、退货、tender、settlement 与 activity facade 未改业务语义。
+
+### 19.3 P4 EXPLAIN 裁定
+
+生产 run `33485596261` 执行 activity facade POS 主排序形态：`store_code=ANY(...) ORDER BY COALESCE(completed_at,created_at) DESC,id::text ASC LIMIT 21`。
+
+- 目标门店 27 行，计划为 `Seq Scan → quicksort → Limit`；filter 移除 0 行。
+- Planning `0.654 ms`，Execution `0.082 ms`；shared read 1 block、无 temp block。
+- 当前索引已有单列 `store_code`、`created_at DESC` 与 `(store_code,business_date)`，没有表达式排序索引。
+
+裁定：当前生产量级下顺序扫描成本极低，新增表达式/复合索引会带来不必要写放大；P4 以证据关闭，不新增 TypeORM 迁移。后续仅在数据量或该查询 p95 明显增长时重开。
+
+### 19.4 契约与交付
+
+- API 契约覆盖旧专用端点 410、四张旧表 Generic CRUD 拒写、GET 历史只读保留。
+- Web 契约覆盖旧页 redirect、菜单摘除、工作台改链。
+- 本地验证：API/Web `tsc --noEmit` 均 0 errors；API Jest 78 suites / 682 tests、Web Vitest 94 files / 497 tests 全绿；migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift、窄正则 scope-audit 与 `git diff --check` 全绿。
+- 生产部署与部署后 revision、旧端点 410、新链 amei 冒烟、错误窗口将在本节完成 full deployment 后补录；完成前不提前记生产 PASS。

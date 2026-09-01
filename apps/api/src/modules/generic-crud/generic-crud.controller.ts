@@ -12,6 +12,7 @@ import {
   ForbiddenException,
   BadRequestException,
   Header,
+  GoneException,
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { GenericCrudService } from './generic-crud.service';
@@ -59,8 +60,19 @@ export class GenericCrudController {
     'fin_exchange_rates',  // Finance V2 汇率表
     'fin_transactions',    // [Phase 2D] 旧总账流水表 — 已废弃，禁止新增写入
   ]);
+  private static readonly RETIRED_STORE_WRITE_TABLES = new Set([
+    'pos_sales',
+    'pos_sale_items',
+    'daily_close',
+    'store_inventory',
+  ]);
 
   private checkTableAccess(table: string, req: any, method: string) {
+    if (method !== 'GET' && GenericCrudController.RETIRED_STORE_WRITE_TABLES.has(table)) {
+      throw new GoneException(
+        `旧门店表 [${table}] 写入口已退役；历史查询保持只读，请使用 Store POS V2 专用 API`,
+      );
+    }
     // ─── V2 Runtime 表强制拦截（优先于 ALLOWED_TABLES 检查）──────────────────
     const isRuntimeTable =
       GenericCrudController.RUNTIME_V2_PREFIXES.some(p => table.startsWith(p)) ||
