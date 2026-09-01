@@ -250,6 +250,9 @@ H1 schema 漂移被生产末态证据排除。确切根因是浏览器日期控�
 - Web Vitest：90 files / 478 tests 全绿；
 - `check-nullable-in-unique`、`check-constraint-drift`、
   `check-entity-drift-baseline` 全绿（既有 1 条 constraint allowlist 未变化）。
+- Sales/POS 冻结边界逐文件复核后，PR #144 登记
+  `reviewed-frozen-boundary`；本地显式 `ALLOW_FREEZE_TOUCH=true` 的 freeze gate 为预期 WARN、
+  W5 closeout 20/20 PASS，未登记 `reviewed-security-touch`（本次未触碰安全敏感路径）。
 
 ### 10.4 待部署后验收
 
