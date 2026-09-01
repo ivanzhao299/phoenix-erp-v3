@@ -105,6 +105,48 @@ jobs:
             ROLLBACK;
             SQL
 
+            TOKEN_RAW="$(docker compose exec -T api node - <<'NODE'
+            const { NestFactory } = require('@nestjs/core');
+            const { AppModule } = require('./dist/app.module');
+            const { AuthService } = require('./dist/auth/auth.service');
+            (async () => {
+              const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+              try {
+                const session = await app.get(AuthService).login('amei', '', '127.0.0.1', { bypassPassword: true });
+                process.stdout.write(session.token);
+              } finally { await app.close(); }
+            })().catch(error => { console.error(error?.message || error); process.exit(1); });
+            NODE
+            )"
+            TOKEN="$(printf '%s' "$TOKEN_RAW" | grep -Eo 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' | tail -1)"
+            unset TOKEN_RAW
+            test -n "$TOKEN"
+
+            assert_code() {
+              expected="$1"; method="$2"; path="$3"
+              actual="$(curl -sS -o /tmp/store-v15-response.json -w '%{http_code}' -X "$method" \
+                -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}' \
+                "http://127.0.0.1:3100$path")"
+              echo "LEGACY_ENDPOINT_ASSERTION path=$path expected=$expected actual=$actual body=$(tr '\n' ' ' </tmp/store-v15-response.json)"
+              case "$expected" in
+                410_OR_403) test "$actual" = 410 || test "$actual" = 403 ;;
+                *) test "$actual" = "$expected" ;;
+              esac
+            }
+            assert_code 410 POST /api/v3/pos/sales
+            assert_code 410_OR_403 POST /api/v3/store/daily-close
+            assert_code 410_OR_403 POST /api/v3/store/daily-close-v2/submit
+            assert_code 410 POST /api/crud/pos_sales
+            assert_code 410 POST /api/crud/pos_sale_items
+            assert_code 410 POST /api/crud/daily_close
+            assert_code 410 POST /api/crud/store_inventory
+
+            STORE_ERROR_COUNT="$(docker logs --since 30m phoenix-v3-api 2>&1 \
+              | grep -Ei '(ERROR|exception).*(store-pos|store-sales|store-settlement|daily-close|pos_sales)' \
+              | grep -Ev 'GoneException|旧门店.*已退役' | wc -l | tr -d ' ')"
+            echo "STORE_ERROR_WINDOW_30M=$STORE_ERROR_COUNT"
+            test "$STORE_ERROR_COUNT" = 0
+
             echo '=== API LEGACY WRITE ROUTE LOG WINDOW (available retention only) ==='
             docker logs --since 720h phoenix-v3-api 2>&1 \
               | grep -E '(/api/v3/store/daily-close|/api/crud/(pos_sales|pos_sale_items|daily_close|store_inventory))' \
