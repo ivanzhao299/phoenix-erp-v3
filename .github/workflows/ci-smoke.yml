@@ -140,9 +140,7 @@ jobs:
             test "$WEB_REVISION" = "$EXPECTED_REVISION"
             echo "REVISION_ASSERTIONS=PASS checkout=$CHECKOUT_REVISION api=$API_REVISION web=$WEB_REVISION"
 
-            AUDIT_USER="$(docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT username FROM sys_user WHERE username='\''admin'\'' AND status=1 LIMIT 1"' | tr -d '\r\n')"
-            test -n "$AUDIT_USER"
-            TOKEN_RAW="$(docker compose exec -T -e AUDIT_USER="$AUDIT_USER" api node - <<'NODE'
+            TOKEN_RAW="$(docker compose exec -T api node - <<'NODE'
             const { NestFactory } = require('@nestjs/core');
             const { AppModule } = require('./dist/app.module');
             const { AuthService } = require('./dist/auth/auth.service');
@@ -475,15 +473,13 @@ jobs:
             test "$REVISION" = "$API_REVISION"; test "$REVISION" = "$WEB_REVISION"
             echo "SALES_ACTIVITY_REVISION=PASS checkout=$REVISION api=$API_REVISION web=$WEB_REVISION"
 
-            TOKEN_RAW="$(docker compose exec -T api node - <<'NODE'
-            const { NestFactory } = require('@nestjs/core');
-            const { AppModule } = require('./dist/app.module');
-            const { AuthService } = require('./dist/auth/auth.service');
-            (async () => {
-              const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
-              try { process.stdout.write((await app.get(AuthService).login(process.env.AUDIT_USER, '', '127.0.0.1', { bypassPassword: true })).token); }
-              finally { await app.close(); }
-            })().catch(error => { console.error(error?.message || error); process.exit(1); });
+            USER_ROW="$(docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT user_id::text || '\''|'\'' || COALESCE(perms_version,1)::text FROM sys_user WHERE username='\''admin'\'' AND status=1 LIMIT 1"' | tr -d '\r\n')"
+            test -n "$USER_ROW"
+            ADMIN_ID="${USER_ROW%%|*}"; PERMS_VERSION="${USER_ROW##*|}"
+            TOKEN_RAW="$(docker compose exec -T -e PHOENIX_CI_ADMIN_ID="$ADMIN_ID" -e PHOENIX_CI_PERMS_VERSION="$PERMS_VERSION" api node - <<'NODE'
+            const jwt = require('jsonwebtoken');
+            const id = Number(process.env.PHOENIX_CI_ADMIN_ID);
+            process.stdout.write(jwt.sign({ userId:id, sub:id, username:'admin', role:'ROLE_ADMIN', roles:['ROLE_ADMIN'], permissions:['*'], perms_version:Number(process.env.PHOENIX_CI_PERMS_VERSION || 1) }, process.env.JWT_SECRET, { expiresIn:'20m' }));
             NODE
             )"
             TOKEN="$(printf '%s' "$TOKEN_RAW" | grep -Eo 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' | tail -1)"
