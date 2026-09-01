@@ -2,7 +2,7 @@ import {
   Injectable, NotFoundException, ForbiddenException, BadRequestException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 import { ApprovalEngineService } from '../../approval-engine/approval-engine.service';
@@ -45,14 +45,37 @@ export class PriceBooksService {
     return rec;
   }
 
-  private async genPriceBookNo(companyCode: string): Promise<string> {
+  private async genPriceBookNo(mgr: EntityManager): Promise<string> {
     const today  = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const prefix = `PB-${today}-`;
-    const row = await this.ds.query(
-      `SELECT COUNT(*) AS cnt FROM sal_price_books WHERE price_book_no LIKE $1`,
+    await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`price-book-no:${today}`]);
+    const row = await mgr.query(
+      `SELECT COALESCE(MAX(RIGHT(price_book_no, 5)::integer), 0) AS max_no
+         FROM sal_price_books
+        WHERE price_book_no LIKE $1`,
       [`${prefix}%`],
     );
-    return `${prefix}${String(Number(row[0].cnt) + 1).padStart(5, '0')}`;
+    return `${prefix}${String(Number(row[0].max_no) + 1).padStart(5, '0')}`;
+  }
+
+  private async assertActiveStore(
+    queryable: Pick<EntityManager, 'query'>,
+    companyCode: string,
+    storeCode?: string | null,
+  ): Promise<string | null> {
+    const normalized = storeCode?.trim() || null;
+    if (!normalized) return null;
+    const rows = await queryable.query(
+      `SELECT 1
+         FROM mst_stores
+        WHERE store_code = $1 AND company_code = $2 AND status = 'ACTIVE'
+        LIMIT 1`,
+      [normalized, companyCode],
+    );
+    if (!rows?.length) {
+      throw new BadRequestException('所选门店不存在、已停用或不属于所选公司');
+    }
+    return normalized;
   }
 
   async listBooks(q: QueryPriceBookDto) {
@@ -112,21 +135,24 @@ export class PriceBooksService {
         throw new ForbiddenException(`无权在公司 ${dto.companyCode} 下创建价格册`);
       }
     }
-    const bookNo = await this.genPriceBookNo(dto.companyCode);
-    const result = await this.ds.query(`
-      INSERT INTO sal_price_books
-        (price_book_no, price_book_name, company_code, company_name,
-         store_code, channel_code, customer_code, priority, effective_from, effective_to,
-         status, remark, created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'DRAFT',$11,$12)
-      RETURNING *
-    `, [
-      bookNo, dto.priceBookName, dto.companyCode, dto.companyName ?? null,
-      dto.storeCode ?? null, dto.channelCode ?? null, dto.customerCode ?? null,
-      dto.priority ?? 100, dto.effectiveFrom ?? null, dto.effectiveTo ?? null,
-      dto.remark ?? null, user.userName || user.userId,
-    ]);
-    return result[0];
+    return this.ds.transaction(async mgr => {
+      const storeCode = await this.assertActiveStore(mgr, dto.companyCode, dto.storeCode);
+      const bookNo = await this.genPriceBookNo(mgr);
+      const result = await mgr.query(`
+        INSERT INTO sal_price_books
+          (price_book_no, price_book_name, company_code, company_name,
+           store_code, channel_code, customer_code, priority, effective_from, effective_to,
+           status, remark, created_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'DRAFT',$11,$12)
+        RETURNING *
+      `, [
+        bookNo, dto.priceBookName, dto.companyCode, dto.companyName ?? null,
+        storeCode, dto.channelCode?.trim() || null, dto.customerCode?.trim() || null,
+        dto.priority ?? 100, dto.effectiveFrom?.trim() || null, dto.effectiveTo?.trim() || null,
+        dto.remark ?? null, user.userName || user.userId,
+      ]);
+      return result[0];
+    });
   }
 
   async updateBook(id: string, dto: UpdatePriceBookDto) {
@@ -146,7 +172,9 @@ export class PriceBooksService {
     };
     add('price_book_name', dto.priceBookName);
     add('company_name',    dto.companyName);
-    add('store_code',      dto.storeCode);
+    if (dto.storeCode !== undefined) {
+      add('store_code', await this.assertActiveStore(this.ds.manager, rec.company_code, dto.storeCode));
+    }
     add('channel_code',    dto.channelCode);
     add('customer_code',   dto.customerCode);
     add('priority',        dto.priority);

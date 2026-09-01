@@ -354,7 +354,7 @@ function PriceBooksTab() {
       await apiFetch(`${API}/books/${submitTarget.id}/submit`, {
         method: "POST",
         body: JSON.stringify({
-          comment: submitComment.trim() || undefined,
+          remark: submitComment.trim() || undefined,
           approverUserId: approverUserId || undefined
         })
       });

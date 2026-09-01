@@ -1,7 +1,7 @@
 import {
-  IsString, IsOptional, IsNumber, IsIn, IsNotEmpty, MaxLength, Min,
+  IsString, IsOptional, IsNumber, IsIn, IsNotEmpty, IsDateString, MaxLength, Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 const STATUSES = ['DRAFT','PENDING_APPROVAL','APPROVED','ACTIVE','EXPIRED','CANCELLED'] as const;
 
@@ -27,11 +27,13 @@ export class CreatePriceBookDto {
   @Type(() => Number) @IsNumber() @IsOptional() @Min(1)
   priority?: number;
 
-  @IsString() @IsOptional()
-  effectiveFrom?: string;
+  @Transform(({ value }) => typeof value === 'string' && value.trim() === '' ? null : value)
+  @IsDateString() @IsOptional()
+  effectiveFrom?: string | null;
 
-  @IsString() @IsOptional()
-  effectiveTo?: string;
+  @Transform(({ value }) => typeof value === 'string' && value.trim() === '' ? null : value)
+  @IsDateString() @IsOptional()
+  effectiveTo?: string | null;
 
   @IsString() @IsOptional()
   remark?: string;
@@ -56,11 +58,13 @@ export class UpdatePriceBookDto {
   @Type(() => Number) @IsNumber() @IsOptional() @Min(1)
   priority?: number;
 
-  @IsString() @IsOptional()
-  effectiveFrom?: string;
+  @Transform(({ value }) => typeof value === 'string' && value.trim() === '' ? null : value)
+  @IsDateString() @IsOptional()
+  effectiveFrom?: string | null;
 
-  @IsString() @IsOptional()
-  effectiveTo?: string;
+  @Transform(({ value }) => typeof value === 'string' && value.trim() === '' ? null : value)
+  @IsDateString() @IsOptional()
+  effectiveTo?: string | null;
 
   @IsString() @IsOptional()
   remark?: string;

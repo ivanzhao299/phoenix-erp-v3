@@ -20,9 +20,10 @@ describe("BUG-20260723-0007 sales pricing approval submit", () => {
     expect(pageSource).toContain("/api/approval/eligible-approvers?");
   });
 
-  it("submits the selected approver and optional comment", () => {
+  it("submits the selected approver and optional remark using the API DTO field", () => {
     expect(pageSource).toContain("approverUserId: approverUserId || undefined");
-    expect(pageSource).toContain("comment: submitComment.trim() || undefined");
+    expect(pageSource).toContain("remark: submitComment.trim() || undefined");
+    expect(pageSource).not.toContain("comment: submitComment.trim() || undefined");
     expect(pageSource).toContain("提交给所选审批人");
   });
 
