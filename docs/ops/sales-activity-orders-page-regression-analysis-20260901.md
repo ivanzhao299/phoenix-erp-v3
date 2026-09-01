@@ -149,6 +149,21 @@ P3 调用方却把 helper 的返回值继续当完整 facade 对象读取：
 - API Jest：77 suites / 676 tests passed。
 - Playwright 定向流程：2 passed（本机缺少 Chromium 的 NSS/NSPR/ALSA 动态库，验证时仅在项目临时目录解包依赖并通过 `LD_LIBRARY_PATH` 运行；临时文件已清理，未修改系统）。
 
-### E4. 待部署后补证
+### E4. CI、PR 与 full 部署
 
-CI、PR、full 部署、revision 对齐，以及生产 `sys_error_logs` 只读 SQL、带 token 的 activity ORDER/ALL 与旧 orders 响应、真实页面 Tab/订单行可见性，需在本提交 push 后执行并将结果继续追加于此；不得以源码字符串断言替代。
+- 修复分支提交并 push，PR [#146](https://github.com/ivanzhao299/phoenix-erp-v3/pull/146)；冻结销售/POS 边界经 `reviewed-frozen-boundary` 标签复核。
+- PR 当前 revision `189d3786` 的 Runtime Smoke、Security/Freeze、Web Vitest、Regression、Build、Deploy test-only 全部通过；PR 于 2026-09-01 07:06 UTC 合并。
+- merge commit：`6d0fedcbd482b809b495c98f5aab8ee172f96437`。
+- full production workflow：run `33480565028`，API/Web 镜像构建、迁移链、服务更新全部成功；随后 amei 只读验收 run `33481426480` 再次确认 checkout/API/Web revision 三者均为 `6d0fedcb`。
+
+### E5. 生产只读补证
+
+专用只读 audit run `33482388165` 于 2026-09-01 07:29–07:30 UTC 完成，全程使用 20 分钟短期 admin/global token；数据库连接同时设置 `PGOPTIONS='-c default_transaction_read_only=on'` 并显式 `BEGIN TRANSACTION READ ONLY`，业务写入为 0。
+
+- revision：checkout/API/Web 均为 `6d0fedcbd482b809b495c98f5aab8ee172f96437`。
+- `GET /api/v2/sales/activity?page=1&limit=20&source=ALL`：契约字段类型通过，20 行，`availableSources=['ORDER']`。
+- `GET /api/v2/sales/activity?page=1&limit=20&source=ORDER`：契约字段类型通过，20 条真实 ORDER 行；样本 `SO-20260901-00002`。
+- `GET /api/v2/sales/orders?page=1&limit=20`：20 条旧接口订单行；样本同为 `SO-20260901-00002`。
+- `sys_error_logs` 只读 SQL：最近 1 小时 `request_path` 命中 activity/orders 的记录数为 0。
+- 生产 Chromium 真实访问 `/sales2/orders`：`客户订单` role=tab 可见，首行真实订单 `SO-20260901-00002` 可见；不是源码字符串断言。
+- 当前 admin/global 生产结果只返回 ORDER 来源，故本次生产页不声称 POS Tab 可见；ORDER+POS 组合及 POS 深链已由本轮 jsdom 与 Playwright route-mock 渲染流程冻结，POS 是否对具体生产账号开放仍以服务端 membership/WarehouseScope 返回为准。
