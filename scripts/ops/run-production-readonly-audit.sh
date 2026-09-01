@@ -82,6 +82,8 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
       if (!tokens.has(username)) {
         const longSession = await auth.login(username, '', '127.0.0.1', { bypassPassword: true });
         const payload = jwt.decode(longSession.token);
+        delete payload.iat;
+        delete payload.exp;
         tokens.set(username, jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '20m' }));
       }
       let path = a.pathSql ? await scalar(a.pathSql) : a.path;

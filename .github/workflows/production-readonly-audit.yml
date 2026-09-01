@@ -81,6 +81,7 @@ jobs:
             cd "$DEPLOY_PATH"
             bash "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh"
       - name: Download sanitized audit output
+        if: always()
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -95,8 +96,9 @@ jobs:
           target: docs/ops/runs/
           strip_components: 2
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: production-readonly-audit-${{ github.run_id }}
           path: docs/ops/runs/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
