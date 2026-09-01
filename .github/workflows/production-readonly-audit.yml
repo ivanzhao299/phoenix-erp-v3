@@ -59,6 +59,7 @@ jobs:
           source: scripts/ops/run-production-readonly-audit.sh,scripts/ops/readonly-audits
           target: /tmp/phoenix-production-readonly-audit-${{ github.run_id }}/bundle
       - name: Execute protected production readonly assertions
+        id: execute
         uses: appleboy/ssh-action@v1
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
@@ -75,26 +76,19 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
+          capture_stdout: true
           envs: DEPLOY_PATH,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID,AUDIT_BUNDLE_DIR
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
             bash "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh"
-      - name: Download sanitized audit output
+      - name: Persist sanitized audit output
         if: always()
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
-          proxy_port: 22
-          source: /tmp/phoenix-production-readonly-audit-${{ github.run_id }}/audit.log
-          target: docs/ops/runs/
-          strip_components: 2
+        env:
+          AUDIT_OUTPUT: ${{ steps.execute.outputs.stdout }}
+        run: |
+          install -d -m 700 docs/ops/runs
+          printf '%s\n' "$AUDIT_OUTPUT" > "docs/ops/runs/production-readonly-audit-${GITHUB_RUN_ID}.log"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
