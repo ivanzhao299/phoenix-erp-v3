@@ -93,6 +93,6 @@ jobs:
         if: always()
         with:
           name: production-readonly-audit-${{ github.run_id }}
-          path: docs/ops/runs/
+          path: docs/ops/runs/production-readonly-audit-${{ github.run_id }}.log
           if-no-files-found: warn
           retention-days: 30
