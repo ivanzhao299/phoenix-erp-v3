@@ -536,7 +536,7 @@ jobs:
           corepack enable
           pnpm install --frozen-lockfile
           cd apps/web
-          pnpm exec playwright install --with-deps chromium >/dev/null
+          pnpm exec playwright install chromium
           PHOENIX_AUDIT_TOKEN="$TOKEN" node - <<'NODE'
           const { chromium } = require('@playwright/test');
           (async () => {
