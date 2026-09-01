@@ -12,6 +12,7 @@ import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
+import { normalizeSalesOrdersPage } from '@/lib/sales-orders-response';
 import styles from './orders.module.css';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -36,6 +37,18 @@ async function api<T = any>(method: string, path: string, body?: unknown): Promi
   }
   const d = await res.json();
   return d.data ?? d;
+}
+
+async function apiEnvelope<T>(path: string): Promise<T> {
+  const res = await fetch(BASE + path, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<T>;
 }
 
 // ── 状态配置 ──────────────────────────────────────────────────────────────────
@@ -186,6 +199,40 @@ interface SalesActivityRow {
   occurredAt: string;
   detailHref: string;
 }
+interface SalesActivityResponse {
+  data: SalesActivityRow[];
+  availableSources: Array<'ORDER' | 'POS'>;
+  hasMore: boolean;
+  page: number;
+  limit: number;
+}
+
+function isSalesActivityResponse(value: unknown): value is SalesActivityResponse {
+  if (!value || typeof value !== 'object') return false;
+  const response = value as Record<string, unknown>;
+  return Array.isArray(response.data)
+    && response.data.every(row => !!row && typeof row === 'object'
+      && ((row as SalesActivityRow).sourceType === 'ORDER' || (row as SalesActivityRow).sourceType === 'POS')
+      && typeof (row as SalesActivityRow).sourceId === 'string'
+      && typeof (row as SalesActivityRow).documentNo === 'string')
+    && Array.isArray(response.availableSources)
+    && response.availableSources.every(source => source === 'ORDER' || source === 'POS')
+    && typeof response.hasMore === 'boolean'
+    && typeof response.page === 'number'
+    && typeof response.limit === 'number';
+}
+
+function orderToActivity(order: Order): SalesActivityRow {
+  return {
+    sourceType: 'ORDER', sourceId: order.id, documentNo: order.order_no,
+    companyCode: order.company_code, storeCode: null,
+    customerCode: order.customer_code, customerName: order.customer_name,
+    status: order.status, displayCategory: `${order.status}_ORDER`,
+    amount: Number(order.total_amount), currency: order.currency_code,
+    businessDate: order.created_at?.slice(0, 10) ?? '', occurredAt: order.created_at,
+    detailHref: `/sales2/orders?orderId=${order.id}`
+  };
+}
 interface Customer {
   id: string;
   customer_code: string;
@@ -234,17 +281,18 @@ function SkuBadge({
 export default function SalesV2OrdersPage() {
   const { t } = useLanguage();
   // G24-A：PBAC 收口（销售订单域 MENU_SALES2_ORDER）
-  const { canCreate, canApprove, canEdit: canTransit } = usePermission('MENU_SALES2_ORDER');
+  const { canView: canViewOrders, canCreate, canApprove, canEdit: canTransit } = usePermission('MENU_SALES2_ORDER');
   const { canView: canViewStorePos } = usePermission('MENU_STORE_POS');
 
   // 列表状态
   const [orders, setOrders] = useState<SalesActivityRow[]>([]);
   const [source, setSource] = useState<ActivitySource>('ALL');
-  const [availableSources, setAvailableSources] = useState<Array<'ORDER' | 'POS'>>(['ORDER']);
+  const [availableSources, setAvailableSources] = useState<Array<'ORDER' | 'POS'>>([]);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [degraded, setDegraded] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
   const [keyword, setKeyword] = useState('');
 
@@ -298,16 +346,37 @@ export default function SalesV2OrdersPage() {
       });
       if (requestedStatus) params.set('status', requestedStatus);
       if (requestedKeyword) params.set('keyword', requestedKeyword);
-      const res = await api<any>('GET', `/api/v2/sales/activity?${params}`);
-      setOrders(Array.isArray(res.data) ? res.data : []);
-      setAvailableSources(Array.isArray(res.availableSources) ? res.availableSources : []);
-      setHasMore(Boolean(res.hasMore));
+      const res = await apiEnvelope<unknown>(`/api/v2/sales/activity?${params}`);
+      if (!isSalesActivityResponse(res)) throw new Error('联合列表响应契约无效');
+      setOrders(res.data);
+      setAvailableSources(res.availableSources);
+      setHasMore(res.hasMore);
+      setDegraded(false);
     } catch (e: any) {
-      setError(e.message);
+      if (canViewOrders) {
+        try {
+          const fallbackParams = new URLSearchParams({ page: String(query?.page ?? page), limit: '20' });
+          const requestedStatus = query?.status ?? filterStatus;
+          const requestedKeyword = query?.keyword ?? keyword;
+          if (requestedStatus) fallbackParams.set('status', requestedStatus);
+          if (requestedKeyword) fallbackParams.set('keyword', requestedKeyword);
+          const fallback = await api<unknown>('GET', `/api/v2/sales/orders?${fallbackParams}`);
+          const normalized = normalizeSalesOrdersPage<Order>(fallback);
+          setOrders(normalized.rows.map(orderToActivity));
+          setAvailableSources(['ORDER']);
+          setHasMore(normalized.total > (query?.page ?? page) * 20);
+          setDegraded(true);
+          setError('联合列表不可用，当前展示客户订单');
+        } catch (fallbackError: any) {
+          setError(`${e.message || '联合列表加载失败'}；客户订单降级也失败：${fallbackError.message}`);
+        }
+      } else {
+        setError(e.message || '联合列表加载失败');
+      }
     } finally {
       setLoading(false);
     }
-  }, [page, filterStatus, keyword, source]);
+  }, [page, filterStatus, keyword, source, canViewOrders]);
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
@@ -568,7 +637,7 @@ export default function SalesV2OrdersPage() {
       </div>
 
       {/* P1-1: 错误提示使用 CSS 变量 token */}
-      {error && <div style={{
+      {error && <div role="alert" style={{
       marginBottom: 12,
       padding: '10px 14px',
       borderRadius: 8,
@@ -577,7 +646,7 @@ export default function SalesV2OrdersPage() {
       color: 'var(--status-danger)',
       fontSize: 13
     }}>
-          {error}
+          {error}{orders.length > 0 && !degraded ? ` · ${t('ui.数据可能为旧值','数据可能为旧值')}` : ''}
         </div>}
 
       {actionError && !detailOrder && !showCreate && <div role="alert" style={{
@@ -600,15 +669,15 @@ export default function SalesV2OrdersPage() {
       overflow: 'hidden'
     }}>
         {/* P1-1: Loading Skeleton — 表头立即显示，数据区骨架屏替代白屏 */}
-        {loading ? <div style={{
+        {loading && orders.length === 0 ? <div style={{
         padding: '12px 0 8px'
       }}>
             <LoadingSkeleton variant="table" rows={8} />
-          </div> : orders.length === 0 ? <div style={{
+          </div> : orders.length === 0 && !error ? <div style={{
         padding: '32px 0'
       }}>
             <EmptyState title={t('ui.暂无销售数据','暂无销售数据')} description={t('ui.当前筛选条件下没有可见的客户订单或POS成交','当前筛选条件下没有可见的客户订单或 POS 成交')} compact />
-          </div> : <div className={styles.tableScroll}><table className={`${s.table} ${styles.ordersTable}`} style={{ tableLayout: "fixed", width: "100%" }}>
+          </div> : orders.length > 0 ? <div className={styles.tableScroll} aria-busy={loading}><table className={`${s.table} ${styles.ordersTable}`} style={{ tableLayout: "fixed", width: "100%" }}>
           <thead>
             <tr>
               {[t('ui.来源','来源'), t('ui.单据号','单据号'), t('ui.客户门店','客户 / 门店'), t('ui.金额','金额'), t('ui.状态','状态'), t('ui.业务日期','业务日期'), t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
@@ -673,7 +742,7 @@ export default function SalesV2OrdersPage() {
                 </tr>;
           })}
           </tbody>
-        </table></div>}
+        </table></div> : null}
       </div>
 
       {/* 分页 */}
