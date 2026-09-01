@@ -186,3 +186,73 @@ docker logs --timestamps --since '<start-ISO>' --until '<end-ISO>' phoenix-v3-ap
 5. 仅实现命中分支的最小修复；
 6. 跑同类矩阵与全门禁；
 7. 独立提交业务修复，禁止与本轮纯文档 commit 混合。
+
+## 10. 执行闭环记录（2026-09-01）
+
+### 10.1 生产只读取证
+
+通过 production environment 专用只读 workflow run
+[`33468581309`](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33468581309)，
+查询窗口为 `2026-09-01 03:13:00` 至 `05:00:00 UTC`。数据库连接设置
+`PGOPTIONS='-c default_transaction_read_only=on'`，事务显式为 `BEGIN TRANSACTION READ ONLY`，
+最终 `ROLLBACK`；容器日志只读取同一时间窗。
+
+原始证据：
+
+- `sys_error_logs` 返回 6 行（id `51625`–`51630`），均为
+  `UNHANDLED / HTTP 500 / POST /api/v2/sales/pricing/books`；时间为
+  `03:47:43`–`03:47:56 UTC`，用户 `admin`，错误均为
+  `invalid input syntax for type date: ""`。
+- 容器 stdout 保留了 6 份一致的完整 stack：`QueryFailedError` 从
+  `PostgresQueryRunner.query`、`DataSource.query` 到
+  `PriceBooksService.createBook (/app/dist/.../price-books.service.js:119:24)`。
+- PostgreSQL code 由错误语义确定为 `22P02`。生产错误表的 `pg_error_code` 为空，说明
+  `AllExceptionsFilter` 仅从 `exception.code` 取值的采集路径存在空档；本次以容器原始 stack
+  与数据库原始错误文案交叉确认，不虚构错误表未保存的字段。
+- schema 末态正常：`store_code varchar NULL`；
+  `publish_version integer NOT NULL DEFAULT 0`。
+- migrations 表存在 id `263`、timestamp `1788220800000`、name
+  `ImplementStorePosV14TenderSettlement1788220800000`；门店 partial index
+  `idx_sal_price_books_store(company_code, store_code) WHERE store_code IS NOT NULL` 存在。
+- 故障实例为 `phoenix-v3-api`，镜像 `api:latest`，创建/启动时间
+  `03:26:20 UTC`，取证时 healthy；与 V1-4 full deploy 的实例时间一致。
+
+### 10.2 根因与所选分支
+
+H1 schema 漂移被生产末态证据排除。确切根因是浏览器日期控件将未填写的
+`effectiveFrom/effectiveTo` 作为空字符串发送；DTO 仅做 `IsString`，service 的
+`?? null` 不会把 `""` 转成 NULL，导致 raw INSERT 把空字符串绑定到 PostgreSQL date 列，
+触发未映射的 `22P02` 并按设计返回 500。
+
+因此选择 §5“其他真实 PG code”分支：在输入边界修复真实日期语义，不扩大 PG code 映射，
+不把未知 500 粗暴降级成 400，也不新增或改写迁移。
+
+### 10.3 修复与回归
+
+500 核心修复（commit `a4d3bdb3`）：
+
+- DTO 将空白日期转换为 `null`，非空日期使用 `IsDateString` 校验；
+- service 入库前再次把空白日期归一为 SQL NULL；
+- 真实输入 `effectiveFrom/effectiveTo: ""` 的回归先红（SQL 参数仍为 `""`）后绿
+  （SQL 参数为 `null`）；畸形非空日期断言安全 HTTP 400 响应契约；未知异常映射未改。
+
+独立加固（commit `b2eb5e0e`）：
+
+- 创建/编辑均验证 `storeCode` 对应 ACTIVE 门店且属于价格册公司；
+- 编号分配和 INSERT 纳入同一事务，以日期级 `pg_advisory_xact_lock` 串行化，并以
+  `MAX(RIGHT(price_book_no, 5)) + 1` 取号，避免并发 `COUNT(*)+1` 与删除缺口冲突；
+- 前端审批字段从会被 whitelist 剥离的 `comment` 改为 DTO 接受的 `remark`。
+
+验证结果：
+
+- API/Web `tsc --noEmit`：0 errors；
+- API Jest：75 suites / 665 tests 全绿；
+- Web Vitest：90 files / 478 tests 全绿；
+- `check-nullable-in-unique`、`check-constraint-drift`、
+  `check-entity-drift-baseline` 全绿（既有 1 条 constraint allowlist 未变化）。
+
+### 10.4 待部署后验收
+
+部署后使用相同的空日期 payload 语义做不落业务数据的合同/只读等价验证，并再次运行本专用
+workflow：确认实例 revision、该 endpoint 观察窗口无新增 `UNHANDLED/500`。生产写入仍仅限
+标准部署迁移链；本修复本身无迁移、不会代用户创建价格册。
