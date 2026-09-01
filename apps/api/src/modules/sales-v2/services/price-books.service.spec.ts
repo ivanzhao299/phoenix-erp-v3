@@ -20,10 +20,10 @@ describe('PriceBooksService lifecycle recovery', () => {
   function makeService(rows: any[], approvalEngine: any = {}) {
     const query = jest.fn(async () => rows.shift());
     const mgrQuery = jest.fn(async (): Promise<any> => undefined);
-    const transaction = jest.fn(async (cb: (mgr: { query: typeof mgrQuery }) => Promise<void>) => {
-      await cb({ query: mgrQuery });
+    const transaction = jest.fn(async (cb: (mgr: { query: typeof mgrQuery }) => Promise<unknown>) => {
+      return cb({ query: mgrQuery });
     });
-    const ds = { query, transaction } as unknown as DataSource;
+    const ds = { query, transaction, manager: { query: mgrQuery } } as unknown as DataSource;
     const cls = {
       get: jest.fn((key: string) => {
         if (key === 'dataScope') return { isGlobal: true, allowedCompanyCodes: [] };
@@ -37,7 +37,11 @@ describe('PriceBooksService lifecycle recovery', () => {
 
   it('normalizes blank optional dates to SQL NULL when creating a price book', async () => {
     const created = { id: '367', price_book_no: 'PB-20260901-00001', status: 'DRAFT' };
-    const { service, query } = makeService([[{ cnt: '0' }], [created]]);
+    const { service, mgrQuery, transaction } = makeService([]);
+    mgrQuery
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([{ max_no: '0' }])
+      .mockResolvedValueOnce([created]);
 
     await expect(service.createBook({
       priceBookName: '门店零售价',
@@ -46,14 +50,78 @@ describe('PriceBooksService lifecycle recovery', () => {
       effectiveTo: '',
     })).resolves.toEqual(created);
 
-    expect(query).toHaveBeenNthCalledWith(
-      2,
+    expect(mgrQuery).toHaveBeenNthCalledWith(
+      3,
       expect.stringContaining('INSERT INTO sal_price_books'),
       expect.arrayContaining([null, null]),
     );
-    const insertParams = (query.mock.calls as unknown as Array<[string, unknown[]]>)[1][1];
+    const insertParams = (mgrQuery.mock.calls as unknown as Array<[string, unknown[]]>)[2][1];
     expect(insertParams[8]).toBeNull();
     expect(insertParams[9]).toBeNull();
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates a store price book only when the store is ACTIVE and belongs to the company', async () => {
+    const created = { id: '368', store_code: 'STORE-01', status: 'DRAFT' };
+    const { service, mgrQuery } = makeService([]);
+    mgrQuery
+      .mockResolvedValueOnce([{ '?column?': 1 }])
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([{ max_no: '7' }])
+      .mockResolvedValueOnce([created]);
+
+    await expect(service.createBook({
+      priceBookName: '一号店零售价',
+      companyCode: 'COMP-MENGSE',
+      storeCode: ' STORE-01 ',
+    })).resolves.toEqual(created);
+
+    expect(mgrQuery).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining(`status = 'ACTIVE'`),
+      ['STORE-01', 'COMP-MENGSE'],
+    );
+    expect(mgrQuery).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('pg_advisory_xact_lock'),
+      [expect.stringMatching(/^price-book-no:/)],
+    );
+    expect(mgrQuery).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('MAX(RIGHT(price_book_no, 5)::integer)'),
+      [expect.stringMatching(/^PB-\d{8}-%$/)],
+    );
+    const insertParams = (mgrQuery.mock.calls as unknown as Array<[string, unknown[]]>)[3][1];
+    expect(insertParams[0]).toMatch(/^PB-\d{8}-00008$/);
+    expect(insertParams[4]).toBe('STORE-01');
+  });
+
+  it('rejects a missing, inactive, or cross-company store before allocating a number', async () => {
+    const { service, mgrQuery } = makeService([]);
+    mgrQuery.mockResolvedValueOnce([]);
+
+    await expect(service.createBook({
+      priceBookName: '非法门店价',
+      companyCode: 'COMP-MENGSE',
+      storeCode: 'STORE-OTHER',
+    })).rejects.toThrow('所选门店不存在、已停用或不属于所选公司');
+
+    expect(mgrQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects changing an existing price book to an inactive or cross-company store', async () => {
+    const draftBook = { ...activeBook, status: 'DRAFT' };
+    const { service, query, mgrQuery } = makeService([[draftBook]]);
+    mgrQuery.mockResolvedValueOnce([]);
+
+    await expect(service.updateBook('362', { storeCode: 'STORE-OTHER' }))
+      .rejects.toThrow('所选门店不存在、已停用或不属于所选公司');
+
+    expect(mgrQuery).toHaveBeenCalledWith(
+      expect.stringContaining(`status = 'ACTIVE'`),
+      ['STORE-OTHER', 'COMP-MENGSE'],
+    );
+    expect(query).toHaveBeenCalledTimes(1);
   });
 
   it('restores a cancelled price book with active items directly to ACTIVE', async () => {
