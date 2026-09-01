@@ -1,0 +1,3 @@
+.content{touch-action:pan-y}.infoColumn{width:280px}
+@media(max-width:760px){.content{flex-direction:column;overflow-y:auto!important;padding:14px!important;gap:14px!important}.infoColumn{width:100%!important;flex-shrink:1!important}}
+@media(max-height:640px){.content{overflow-y:auto!important}}

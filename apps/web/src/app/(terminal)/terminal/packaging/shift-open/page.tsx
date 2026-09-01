@@ -8,6 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { packagingApi } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
+import styles from './shift-open.module.css';
 const CHECK_ITEMS = [{
   key: 'scanner',
   label: '扫码枪在线',
@@ -214,7 +215,7 @@ export default function ShiftOpenPage() {
     background: T.BG,
     gap: 16
   }}>
-      <div style={{
+      <div className={styles.content} style={{
       fontSize: 64
     }}>✅</div>
       <div style={{
@@ -266,7 +267,7 @@ export default function ShiftOpenPage() {
       gap: 24
     }}>
         {/* 左：班次信息 */}
-        <div style={{
+        <div className={styles.infoColumn} style={{
         width: 280,
         flexShrink: 0
       }}>

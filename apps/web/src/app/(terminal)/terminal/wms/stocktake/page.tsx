@@ -31,8 +31,9 @@ interface Batch {
   qty?: number | null;
   warehouse_code?: string | null;
   location_code?: string | null;
+  status?: string | null;
 }
-interface CountRow { batch_no: string; product_code: string; sys_qty: number; counted: string }
+interface CountRow { batch_no: string; product_code: string; sys_qty: number; counted: string; warehouse_code?: string|null; location_code?: string|null; status?: string|null }
 
 const POLL_MS = 0; // 盘点期间不轮询，避免 sys 基数跳动
 
@@ -67,7 +68,7 @@ export default function WmsStocktakeTerminalPage() {
     const b = batches.find(x => x.batch_no === bn);
     setCart(prev => {
       if (prev.some(r => r.batch_no === bn)) return prev;  // 已在清单
-      return [...prev, { batch_no: bn, product_code: b?.product_code || '', sys_qty: Math.trunc(Number(b?.qty) || 0), counted: '' }];
+      return [...prev, { batch_no: bn, product_code: b?.product_code || '', sys_qty: Math.trunc(Number(b?.qty) || 0), counted: '', warehouse_code:b?.warehouse_code, location_code:b?.location_code, status:b?.status }];
     });
     setActiveBatch(bn);
     setNumKey(k => k + 1);
@@ -168,6 +169,7 @@ export default function WmsStocktakeTerminalPage() {
                 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: inCart ? T.GRN : T.TXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.batch_no}</div>
                   <div style={{ fontSize: 11, color: T.MUT }}>{b.product_code || '—'} · {t('terminal.wms_sys', '账面')} {Math.trunc(Number(b.qty) || 0)}{inCart ? ` · ${t('terminal.wms_in_list', '已加入')}` : ''}</div>
+                  <div style={{ fontSize: 11, color: b.status === 'QUARANTINE' ? T.RED : T.MUT }}>{b.status || '—'} · {b.warehouse_code || '—'} / {b.location_code || '—'}</div>
                 </button>
               );
             })}
@@ -198,6 +200,7 @@ export default function WmsStocktakeTerminalPage() {
                       <div style={{ fontSize: 11, color: T.MUT }}>{r.product_code || '—'} · {t('terminal.wms_sys', '账面')} {r.sys_qty}
                         {diff != null && <span style={{ color: diffColor, marginLeft: 8, fontWeight: 700 }}>{t('terminal.wms_diff', '差')} {diff > 0 ? `+${diff}` : diff}</span>}
                       </div>
+                      <div style={{ fontSize: 11, color: r.status === 'QUARANTINE' ? T.RED : T.MUT }}>{r.status || '—'} · {r.warehouse_code || '—'} / {r.location_code || '—'}</div>
                     </div>
                     <button type="button" onClick={() => { setActiveBatch(r.batch_no); setNumKey(k => k + 1); }} style={{
                       width: 120, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, padding: '8px 12px',

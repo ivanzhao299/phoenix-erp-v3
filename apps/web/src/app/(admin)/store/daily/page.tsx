@@ -8,6 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { actionPill } from "@/components/design-system/cockpit-styles";
+import { useToast } from '@/contexts/ToastContext';
 
 type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 /* g200k(2026-06-20):状态 tone + 中文 label,DB enum 不直接渲染英文,按
@@ -23,6 +24,7 @@ const STATUS_CFG: Record<string, { tone: Tone; label: string }> = {
 const TABLE="daily_close";
 export default function Page(){
   const { t } = useLanguage();
+  const toast = useToast();
   const COLUMNS=[{ key: "store_code", title: t('ui.门店', '门店'), width: 100 },
       { key: "close_date", title: t('ui.结算日期', '结算日期'), width: 110 },
       { key: "total_sales", title: t('ui.总销售', '总销售'), width: 100 },
@@ -35,14 +37,14 @@ export default function Page(){
         const cfg = STATUS_CFG[String(v)] ?? { tone: "default" as Tone, label: String(v ?? "—") };
         return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
       }}];
-  const FIELDS:FormField[]=[  { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "text", required: true },
+  const FIELDS:FormField[]=[  { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "store", required: true },
     { key: "close_date", label: t('ui.结算日期', '结算日期'), type: "date", required: true },
     { key: "total_sales", label: t('ui.总销售额', '总销售额'), type: "number" },
     { key: "cash_sales", label: t('ui.现金金额', '现金金额'), type: "number" },
     { key: "qr_sales", label: t('ui.扫码线上金额', '扫码/线上金额'), type: "number" },
     { key: "discount_total", label: t('ui.总折扣', '总折扣'), type: "number" },
     { key: "cash_actual", label: t('ui.实收现金', '实收现金'), type: "number" },
-    { key: "operator", label: t('ui.操作员', '操作员'), type: "text" },
+    { key: "operator", label: t('ui.操作员', '操作员'), type: "user" },
     { key: "note", label: t('common.remark', '备注'), type: "textarea" },
     { key: "status", label: t('common.status', '状态'), type: "select", options: [{ label: t('ui.草稿', '草稿'), value: "DRAFT"}, { label: t('ui.已结算', '已结算'), value: "CLOSED" }, { label: t('status.approved', '已审核'), value: "APPROVED" }] },];
   const [o,sO]=useState(false);const [e,sE]=useState<Record<string,unknown>|null>(null);
@@ -52,9 +54,9 @@ export default function Page(){
   const oN=useCallback(()=>{sE(null);sO(true);},[]);
   const oE=useCallback((r:Record<string,unknown>)=>{sE(r);sO(true);},[]);
   const cl=useCallback(()=>sO(false),[]);
-  const save=useCallback(async(v:Record<string,unknown>)=>{sSv(true);try{e?.id?await crudApi.update(TABLE,e.id as number,v):await crudApi.create(TABLE,v);sO(false);rf();}finally{sSv(false);}},[e,rf]);
+  const save=useCallback(async(v:Record<string,unknown>)=>{sSv(true);try{e?.id?await crudApi.update(TABLE,e.id as number,v):await crudApi.create(TABLE,v);toast.success(t('ui.保存成功','保存成功'));sO(false);rf();}catch(x:any){toast.error(x.message||t('ui.保存失败','保存失败'));}finally{sSv(false);}},[e,rf,t,toast]);
   const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
-  const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
+  const cDel=useCallback(async()=>{if(!dt?.id)return;try{await crudApi.delete(TABLE,dt.id as number);toast.success(t('ui.删除成功','删除成功'));sCo(false);rf();}catch(x:any){toast.error(x.message||t('ui.删除失败','删除失败'));}},[dt,rf,t,toast]);
   return(<div><PageHeader
         breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.日结作业', '日结作业')]} title={t('ui.门店日结', '门店日结')} subtitle={t('ui.管理门店每日结算', '管理门店每日结算')} />
     <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />

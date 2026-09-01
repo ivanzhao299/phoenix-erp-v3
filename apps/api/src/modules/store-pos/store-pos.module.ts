@@ -20,11 +20,12 @@ import { StoreIdentityGovernanceService } from './services/store-identity-govern
 import { WmsModule } from '../wms/wms.module';
 import { StoreReplenishmentController } from './controllers/store-replenishment.controller';
 import { StoreReplenishmentService } from './services/store-replenishment.service';
+import { StoreInventoryQueryService } from './services/store-inventory-query.service';
 
 @Module({
   imports: [WmsModule, TypeOrmModule.forFeature([StoreEntity, StoreAliasEntity, StoreMembershipEntity, StoreWarehouseBindingEntity])],
   controllers: [StorePosController, StoreReplenishmentController],
-  providers:   [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreIdentityGovernanceService, StoreReplenishmentService, { provide: StoreContextResolver, useExisting: StoreScopePolicy }],
+  providers:   [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreIdentityGovernanceService, StoreReplenishmentService, StoreInventoryQueryService, { provide: StoreContextResolver, useExisting: StoreScopePolicy }],
   exports:     [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreContextResolver, StoreIdentityGovernanceService],
 })
 export class StorePosModule {}

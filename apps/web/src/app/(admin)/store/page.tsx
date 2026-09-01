@@ -15,6 +15,8 @@ import {
   secondaryActionButton, actionPill,
   kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
 } from "@/components/design-system/cockpit-styles";
+import { ErrorState } from '@/components/design-system';
+import styles from './store.module.css';
 
 type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 
@@ -48,6 +50,7 @@ export default function StorePage() {
   const [receiving, setReceiving] = useState<StoreRecv[]>([]);
   const [batches, setBatches] = useState<InvBatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   /* g200k(2026-06-20):emoji 📦🗃️📋🔄⚠️ → lucide 图标(PackageOpen/Archive/
      ClipboardList/RefreshCcw/AlertTriangle),按 [feedback_avoid_emoji_color_card]
      消灭 emoji-color anti-pattern */
@@ -60,6 +63,7 @@ export default function StorePage() {
   ];
   const load = useCallback(() => {
     setLoading(true);
+    setLoadError('');
     Promise.all([crudApi.list<PosSale>("pos_sales", {
       limit: 200
     }), crudApi.list<StoreRecv>("store_receiving", {
@@ -70,8 +74,8 @@ export default function StorePage() {
       setSales(s.data || []);
       setReceiving(r.data || []);
       setBatches(b.data || []);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    }).catch((error: any) => setLoadError(error?.message || t('ui.门店工作台加载失败', '门店工作台加载失败'))).finally(() => setLoading(false));
+  }, [t]);
   useEffect(() => {
     load();
   }, [load]);
@@ -102,6 +106,8 @@ export default function StorePage() {
         }
       />
 
+      {loadError && <ErrorState message={loadError} onRetry={load} />}
+      {!loadError && <>
       {/* g200k KPI 4 卡 — kpiCardCompact(tone) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 24 }}>
         {kpis.map(k => {
@@ -118,7 +124,7 @@ export default function StorePage() {
         })}
       </div>
 
-      <div style={{
+      <div className={styles.workbenchGrid} style={{
       display: "grid",
       gridTemplateColumns: "1fr 280px",
       gap: 20
@@ -131,7 +137,7 @@ export default function StorePage() {
           marginBottom: 12,
           color: "var(--color-primary)"
         }}>{t("ui.门店功能入口", "门店功能入口")}</h3>
-          <div style={{
+          <div className={styles.actionGrid} style={{
           display: "grid",
           gridTemplateColumns: "repeat(3,1fr)",
           gap: 10
@@ -214,6 +220,6 @@ export default function StorePage() {
           })}
           </div>
         </div>
-      </div>
+      </div></>}
     </div>;
 }

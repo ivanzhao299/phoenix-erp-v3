@@ -33,6 +33,7 @@ import { DataScopeGuard }            from '../../org/guards/data-scope.guard';
 import { StorePosService }           from '../services/store-pos.service';
 import { StorePosShiftService }      from '../services/store-pos-shift.service';
 import { StoreScopePolicy }          from '../services/store-scope-policy.service';
+import { StoreInventoryQueryService } from '../services/store-inventory-query.service';
 
 @Controller('api/v2/store-sales')
 @UseGuards(MenuGuard, DataScopeGuard)
@@ -41,11 +42,27 @@ export class StorePosController {
     private readonly posService:   StorePosService,
     private readonly shiftService: StorePosShiftService,
     private readonly storeScope: StoreScopePolicy,
+    private readonly inventoryQuery: StoreInventoryQueryService,
   ) {}
 
   @Get('contexts')
-  @RequireMenu('MENU_STORE_POS', 'V')
+  @RequireMenu('MENU_STORE_POS', 'V', ['MENU_STORE_MGR'])
   listContexts() { return this.storeScope.listMembershipStores(); }
+
+  @Get('inventory')
+  @RequireMenu('MENU_STORE_MGR', 'V')
+  getInventory(
+    @Query('storeCode') storeCode: string,
+    @Query('status') status?: any,
+    @Query('warehouseCode') warehouseCode?: string,
+    @Query('zoneCode') zoneCode?: string,
+    @Query('locationCode') locationCode?: string,
+    @Query('sku') sku?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
+  ) {
+    return this.inventoryQuery.query({ storeCode, status, warehouseCode, zoneCode, locationCode, sku, page, limit });
+  }
 
   // ─── 商品目录 ─────────────────────────────────────────────────────────────
 

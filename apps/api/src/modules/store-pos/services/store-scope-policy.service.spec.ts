@@ -12,7 +12,9 @@ function subject(opts: { memberships?: any[]; bindings?: string[]; scope?: any; 
       storeId: '1', storeCode: 'STORE-A', storeName: 'A', companyCode: 'COMP-A',
       timezone: 'Asia/Shanghai', businessDayCutoff: '00:00:00',
     }];
-    if (sql.includes('FROM store_warehouse_bindings b')) return bindings.map(warehouseCode => ({ warehouseCode }));
+    if (sql.includes('FROM store_warehouse_bindings b')) return bindings.map((warehouseCode, index) => ({
+      warehouseCode, purpose: sql.includes('b.purpose=ANY') ? (index === 0 ? 'SALES' : 'RETURNS') : undefined,
+    }));
     return [];
   }) } as any;
   const values: any = {
@@ -108,5 +110,15 @@ describe('StoreScopePolicy V1-1 quadrants', () => {
 
   it('zero membership rejects even if legacy matches', async () => {
     await expect(subject({ memberships: [], legacy: 'STORE-A' }).resolve('STORE-A')).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('inventory scope unions SALES and RETURNS bindings then intersects WarehouseScope', async () => {
+    const policy = subject({ bindings: ['WH-A', 'WH-RET'], scope: {
+      isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: ['WH-A'],
+    } });
+    const result = await policy.resolveInventory('STORE-A');
+    expect(result.warehouseCodes).toEqual(['WH-A']);
+    const bindingCall = (policy as any).ds.query.mock.calls.find((call: any[]) => call[0].includes("b.purpose=ANY"));
+    expect(bindingCall[1]).toEqual(['1', ['SALES', 'RETURNS']]);
   });
 });
