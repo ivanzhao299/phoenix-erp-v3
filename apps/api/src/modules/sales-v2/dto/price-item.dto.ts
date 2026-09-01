@@ -114,6 +114,9 @@ export class ResolvePriceDto {
   companyCode: string;
 
   @IsString() @IsOptional()
+  storeCode?: string;
+
+  @IsString() @IsOptional()
   customerCode?: string;
 
   @IsString() @IsOptional()
@@ -142,6 +145,9 @@ export class ResolvePriceDto {
 export class ValidatePriceDto {
   @IsString() @IsNotEmpty()
   companyCode: string;
+
+  @IsString() @IsOptional()
+  storeCode?: string;
 
   @IsString() @IsOptional()
   customerCode?: string;

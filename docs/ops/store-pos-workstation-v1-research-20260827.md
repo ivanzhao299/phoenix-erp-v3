@@ -862,3 +862,62 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
   - `amei` 8 仓：`LPH_DP_EGG_FARM`、`LPH_DP_EGG_SALES`、`LPH_DP_FEED`、`LPH_DP_MEDICINE`、`ST_LAO_XINGCHI_DP_001_SALES`、`ST_LAO_XINGCHI_HS_001_SALES`、`ST_LAO_XINGCHI_XB_001_SALES`、`ST_LAO_XINGCHI_XC_001_SALES`；明确包含会晒门店仓。
   - `cashier` 13 仓：`LPH_MS_EGG_FARM`、`LPH_MS_EGG_SALES`、`LPH_MS_FEED`、`LPH_MS_FINISHED`、`LPH_MS_MEDICINE`、`LPH_MS_PURCHASE`、`LPH_MS_RAW`、`ST_LAO_AGRI_BKX_001_SALES`、`ST_LAO_AGRI_LPB_001_SALES`、`ST_LAO_AGRI_MX_001_SALES`、`ST_LAO_AGRI_PSL_001_SALES`、`ST_LAO_AGRI_VTE_001_SALES`、`ST_LAO_AGRI_VTE_WH_001_SALES`；明确包含万象门店仓。
   - 同一 run 再次确认三方 production revision 为 `4190a7fe55d8f77e1c7b75fd17e81290cdde2e56`、amei contexts 单行、目标仓交集 true、错误窗口 0、生产业务写入 0。H2 由完整运行时仓集合与 endpoint 两层证据共同推翻。
+
+## 18. V1-4 实施前决策 Gate（2026-09-01，已停止实施）
+
+> 本节是按任务红线触发的预实施审计记录。§7 的 R4/R5 与 §11 的 12 项裁定继续有效；以下问题会改变 schema、运行时价格结果或财务过账语义，但未被定稿覆盖，因此本轮不自行补设计。当前未创建 V1-4 迁移、未修改业务代码、未部署，也未执行 `pilot_wms` 生产 DML。
+
+### 18.1 已确认的现状缺口
+
+- `sal_price_books/items` 尚无 `store_code` 与 `publish_version`；POS 目录仍自查价格表，`storeCode` 不参与价格 scope，且漏 `pi.status='ACTIVE'`。建单与事务内结算未调用统一 resolver，销售行也没有 `price_item_id` 或不可变快照。
+- V1-2 只落地支付幂等、门店仓 FIFO、allocation 与 closed-shift adjustment；`sal_store_sale_tenders`、tender reversal、`business_date`、settlement 与 Store Payment match/audit 均未落地。
+- Store 已有 IANA `timezone` 与 `business_day_cutoff` 配置，但班次/销售仍按 `opened_at/created_at/CURRENT_DATE` 聚合。
+- POS 现金与赊销目前直接写 `fin_cash_transactions` / `fin_ar_invoices`；仓库没有本地 GL journal/posting runtime。好业财仍是只读链，不能当作未裁定的 GL 写入目标。
+
+### 18.2 必须裁定后才能实施
+
+| 编号 | 未覆盖决策点 | 为什么不能由实施自行决定 |
+|---|---|---|
+| D1 | 门店价格 scope 使用 canonical `store_id` 还是 `store_code`；一本价格本是否允许覆盖多店 | 决定 FK、唯一/重叠 Gate key 与历史编码迁移方式 |
+| D2 | R4 的“客户本”沿用单客户 `customer_code`，还是引入文中另一次出现的 customer group | 当前没有 customer-group 权威字段/主数据，不能擅自扩模型 |
+| D3 | `publish_version` 是公司级序列、价格本级序列还是每次发布快照版本；失效后重新发布是否递增 | 直接决定全序结果、并发发布锁与追溯语义 |
+| D4 | POS 从何取得 customer/channel 上下文；匿名散客是否只能命中门店本/公司默认本 | 当前 Terminal 只有 store/company，若不裁定则客户本/渠道本无法在 POS 生效 |
+| D5 | 建单后、结算事务重算发现已切换价格版本时：按新价阻断、沿用建单快照，还是要求店长授权差额 | 三种选择都会产生不同的收款金额、审计与顾客体验；“重算并保存快照”未定义换版冲突处理 |
+| D6 | 高于 `ceiling` 的改价是否阻断；授权改价的原因字典、授权角色和记录载体 | 现实现高价放行，定稿只说由策略决定，权限语义不能自行放宽 |
+| D7 | Store Payment `reference` 的权威字段及匹配基数：tender 外部流水、`sale_no`、`order_no`；一对一/多对一/部分匹配的金额与舍入规则 | 决定 match 表唯一约束、EXCEPTION 状态机与未匹配硬门 |
+| D8 | settlement 唯一粒度：每店+营业日，还是 register/shift settlement 再汇总为门店日结 | 定稿同时要求每 register 班次与每门店 business_date 日结，但未定义持久化层级与唯一键 |
+| D9 | 财务“过账”的最终目标与借贷模板 | 现有可写链只有 Cash/AR，没有本地 GL；新增 GL 表违反“不发明新账表”，写外部好业财又违反只读铁律 |
+| D10 | POS 成交时已写 Cash/AR 后，settlement 过账是只做审核锁定/勾稽，还是再写汇总流水；如何避免重复入账 | 若再次写 Cash/AR 会双记，若不写则“过账”需明确现有账链中的状态载体 |
+| D11 | `MENU_STORE_SETTLEMENT` 授予哪些现存财务角色 | 项目同时存在 `ROLE_FIN_ACCT/FIN_CFO/GROUP_FINANCE/HQ_FINANCE` 与 `ROLE_FINANCE_REVIEW_MANAGER/ANALYST`，不能用“ROLE_FINANCE 系”自行推定授权集合 |
+
+银行卡、双币种与找零仍按 §11 决策 #6 作为门店配置/UAT Gate，不在本轮擅自开放。`pilot_wms` 角色清除本身规格完整，但因本 Gate 要求“停下来”，保留为同一 V1-4 续轮中通过 production approved workflow 执行：只读前置断言 → 单事务 `DELETE ... RETURNING` → 独立只读后置断言，并归档可执行回滚 SQL。
+
+### 18.3 D1–D11 裁定记录（2026-09-01）
+
+| 决策 | 裁定 | 执行结果 |
+|---|---|---|
+| D1 | `store_code` 单店价格本；多店共用公司默认本 | `sal_price_books.store_code`；解析及发布冲突 key 均纳入门店 code |
+| D2 | 单客户 `customer_code`，不建客户组 | 未新增客户组字段/主数据 |
+| D3 | 价格本级 `publish_version`，每次发布 +1 | 激活事务加公司 advisory lock 并原子递增；全序纳入 version |
+| D4 | Terminal 匿名；Admin POS 可带 customer；channel 仅 Sales V2 | POS resolver 不传渠道；目录只取门店本/公司默认本 |
+| D5 | 建单快照为顾客承诺价；重算仅校验，漂移不阻断 | 行保存 price item/book/version/snapshot；收款事务写 `PRICE_VERSION_DRIFT` 事件后仍按快照成交 |
+| D6 | POS 首期不改价；ceiling 保留不生效 | 服务端忽略客户端 `unitPrice`，Admin 改价输入移除；快照保留 ceiling |
+| D7 | tender 外部参考号；一对一/多对一；同币种精确金额 | tender/match schema、自动匹配和有原因/凭证的人工匹配已落地；不支持部分金额 |
+| D8 | settlement 唯一 `(store_code,business_date)`；shift 为构成明细 | `sal_store_settlements` 唯一键 + `sal_store_settlement_shifts` |
+| D9 | 不建本地 GL；POSTED=审核锁定+勾稽引用 | reconciliation 保存 Store Payment/Cash/AR 引用；posting 只改状态与审计人/时间 |
+| D10 | 过账零新流水 | posting 路径无 `fin_cash_transactions`/`fin_ar_invoices` INSERT；避免双记 |
+| D11 | 平移生产 `MENU_FIN2_AR_LEDGER` 当前授权集合 | migration 使用 `INSERT ... SELECT` 平移同一角色的 `perm_codes/deny_codes`；权限 trigger 自动 bump `perms_version` |
+
+### 18.4 Phase A–D 实施结果
+
+- **Phase A｜价格全序**：新增门店 scope、价格本级发布版本、完整确定排序和同 scope/item/currency/priority 的日期/数量闭区间重叠发布 Gate；价格册 UI 可选单店。
+- **Phase B｜成交快照与 Tender**：建单事务使用统一 resolver，固化价格快照；现金/QR/转账/赊销落 tender，退货按原 tender 建 reversal；银行卡、双币种、找零仍关闭，现金实收必须精确等于应收。
+- **Phase C｜营业日与 Settlement**：开班按 Store IANA timezone + cutoff 固化 `business_date`，销售继承班次；日结按门店+营业日聚合 closed shift；Store Payment 失败进入 EXCEPTION，可人工精确匹配；POSTED 有 service 与 DB trigger 双锁。
+- **Phase D｜财务/RBAC/清理**：settlement 只勾稽既有 Cash/AR，不建 GL、不二次入账；新增财务审核页与 `MENU_STORE_SETTLEMENT`；提供 `pilot_wms` 只读断言、最窄角色删除和可执行回滚 SQL。
+
+### 18.5 验证与部署证据
+
+- 红灯：`store-pos-v1-4.contract.spec.ts` 首跑 1 failed（缺 `pb.store_code` 完整全序）；实现后 2/2 green。
+- 本地：API/Web `tsc --noEmit` 0 errors；API Jest 75 suites / 659 tests；Web Vitest 90 files / 478 tests；migration down、migration DML、nullable unique、constraint drift、entity drift 均通过。
+- scope-audit 使用窄正则真实扫描；命中 6 处均为既存页面，本轮 V1-4 新增/修改页面未新增裸填主数据 code。
+- CI、PR、full deployment、revision、生产只读复验与 `pilot_wms=0` 在执行完成后回填，不以 push 或 workflow 启动代替成功证据。

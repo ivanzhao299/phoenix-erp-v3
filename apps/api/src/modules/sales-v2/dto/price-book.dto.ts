@@ -16,6 +16,9 @@ export class CreatePriceBookDto {
   companyName?: string;
 
   @IsString() @IsOptional() @MaxLength(64)
+  storeCode?: string;
+
+  @IsString() @IsOptional() @MaxLength(64)
   channelCode?: string;
 
   @IsString() @IsOptional() @MaxLength(64)
@@ -40,6 +43,9 @@ export class UpdatePriceBookDto {
 
   @IsString() @IsOptional() @MaxLength(256)
   companyName?: string;
+
+  @IsString() @IsOptional() @MaxLength(64)
+  storeCode?: string;
 
   @IsString() @IsOptional() @MaxLength(64)
   channelCode?: string;
@@ -69,6 +75,9 @@ export class QueryPriceBookDto {
 
   @IsString() @IsOptional()
   companyCode?: string;
+
+  @IsString() @IsOptional()
+  storeCode?: string;
 
   @IsString() @IsOptional()
   channelCode?: string;
