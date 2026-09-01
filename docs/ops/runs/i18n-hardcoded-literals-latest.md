@@ -1,10 +1,10 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-08-27T08:09:32.366Z
+Generated: 2026-09-01T06:10:32.911Z
 
-Scanned hardcoded literals: 3378
-Covered by validated runtime bridge: 3347
-Release-blocking uncovered literals: 31
+Scanned hardcoded literals: 3348
+Covered by validated runtime bridge: 3348
+Release-blocking uncovered literals: 0
 Locale quality issues: 0
 Affected files: 184
 
@@ -25,9 +25,8 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 | `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 52 | 311:待同步好业财镜像<br>340:应收待收<br>341:应付待付<br>342:现金 / 银行余额<br>343:今日收款<br>344:今日付款<br>345:科目余额<br>346:资产负债表 |
 | `apps/web/src/lib/shareholder-api.ts` | 48 | 119:蛋鸡养殖场<br>119:肉鸡养殖场<br>119:屠宰加工厂<br>120:食品厂<br>120:有机肥生产厂<br>120:孵化场<br>121:饲料厂<br>121:其他 |
 | `apps/web/src/app/(admin)/system/alerts/page.tsx` | 47 | 74:API 500 / PG 错误<br>75:定时任务失败<br>75:Cron 失败写入 CRON_FAILURE 告警<br>76:IoT 同步异常<br>77:数据质量风险<br>222:手动处理<br>315:当前值班待办<br>322:严重告警 |
-| `apps/web/src/app/(admin)/store/replenish/page.tsx` | 42 | 12:草稿<br>12:待审批<br>12:待发运<br>12:在途<br>12:差异待确认<br>12:已关闭<br>12:已驳回<br>12:已取消 |
 | `apps/web/src/app/(admin)/finance2/page.tsx` | 41 | 162:来源待确认<br>163:好业财应收汇总<br>164:好业财应付汇总<br>165:好业财资金账户<br>166:好业财收款镜像<br>167:好业财付款镜像<br>168:好业财科目余额<br>169:好业财资产负债表 |
-| `apps/web/src/lib/design-tokens.ts` | 39 | 204:成功<br>205:警告<br>206:危险<br>207:信息<br>208:禁用<br>209:正常<br>210:待处理<br>211:运行中 |
+| `apps/web/src/lib/design-tokens.ts` | 40 | 205:成功<br>206:警告<br>207:危险<br>208:信息<br>209:禁用<br>210:正常<br>211:待处理<br>212:运行中 |
 | `apps/web/src/app/(admin)/master-data/bank-accounts/_fields.ts` | 38 | 5:开户行(中文)<br>5:基本信息<br>6:基本信息<br>7:支行<br>7:基本信息<br>8:所属公司编码<br>8:基本信息<br>9:账号 |
 | `apps/web/src/app/(admin)/settings/approval-rules/page.tsx` | 38 | 68:采购申请<br>71:采购订单<br>74:付款申请<br>77:股东资金<br>80:费用申请<br>83:报销付款<br>86:销售订单<br>89:销售退货 |
 | `apps/web/src/app/(mobile)/mobile/home/page.tsx` | 35 | 31:每日看板<br>34:生产·包装·品质·销售<br>42:饲料台账<br>45:出入库登记·库存预警<br>53:死淘快录<br>56:各栋死淘数量快速录入<br>64:包装统计<br>67:班次产出、等级分布 |
@@ -57,7 +56,8 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 | `apps/web/src/app/(admin)/workflow/forms/page.tsx` | 23 | 21:财务<br>21:采购<br>21:合同<br>21:人事<br>21:仓储<br>21:品控<br>21:门店<br>21:养殖 |
 | `apps/web/src/app/(admin)/uat/page.tsx` | 22 | 62:未命名维度<br>76:未命名验收项<br>108:采购管理<br>109:财务管理<br>110:销售管理<br>111:配送管理<br>112:库存管理<br>113:审批流程 |
 | `apps/web/src/app/(admin)/workflow/page.tsx` | 22 | 13:采购申请<br>13:采购<br>14:费用报销<br>14:财务<br>15:库存调整<br>15:仓储<br>16:门店折扣<br>16:门店 |
-| `apps/web/src/app/(terminal)/terminal/store-pos/page.tsx` | 21 | 31:门店上下文加载失败<br>37:加载失败<br>45:请先开班<br>46:请选择收款账户<br>52:结账失败<br>53:离线禁止开班<br>54:离线禁止交班<br>55:整单退货原因 |
+| `apps/web/src/app/(admin)/sales2/orders/page.tsx` | 21 | 49:草稿<br>54:审批中<br>59:已批准<br>64:已分配<br>69:已拣货<br>74:已装车<br>79:已发货<br>84:已送达 |
+| `apps/web/src/app/(admin)/store/replenish/page.tsx` | 21 | 648:提交<br>649:审批<br>650:发运<br>651:签收<br>652:关闭<br>787:提交<br>788:审批<br>789:发运 |
 | `apps/web/src/app/(admin)/breeding/med-stock/page.tsx` | 20 | 55:2号舍<br>55:3号舍<br>55:4号舍<br>55:5号舍<br>55:6号舍<br>55:全场<br>261:药品名称<br>261:规格 |
 | `apps/web/src/app/(admin)/bug-reports/page.tsx` | 20 | 210:已批准待执行<br>211:Agent 执行中<br>212:HOLD 待处理<br>213:待批准入队<br>214:待生成计划<br>293:刷新结果<br>304:已通过<br>304:未通过 |
 | `apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx` | 20 | 103:股权投资<br>104:借款<br>105:垫资<br>106:担保金<br>107:代付<br>117:草稿<br>118:待确认<br>119:已确认 |
