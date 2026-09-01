@@ -123,7 +123,7 @@ export class PriceBooksService {
     `, [
       bookNo, dto.priceBookName, dto.companyCode, dto.companyName ?? null,
       dto.storeCode ?? null, dto.channelCode ?? null, dto.customerCode ?? null,
-      dto.priority ?? 100, dto.effectiveFrom ?? null, dto.effectiveTo ?? null,
+      dto.priority ?? 100, dto.effectiveFrom?.trim() || null, dto.effectiveTo?.trim() || null,
       dto.remark ?? null, user.userName || user.userId,
     ]);
     return result[0];

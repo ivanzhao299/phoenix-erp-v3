@@ -1,10 +1,11 @@
 import 'reflect-metadata';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import type { DataSource } from 'typeorm';
 import type { ClsService } from 'nestjs-cls';
 import { REQUIRE_MENU_KEY } from '../../../common/guards/menu.guard';
 import type { MenuRequirement } from '../../../common/guards/menu.guard';
 import { SalesPriceBooksController } from '../controllers/sales-price-books.controller';
+import { CreatePriceBookDto } from '../dto/price-book.dto';
 import { PriceBooksService } from './price-books.service';
 
 describe('PriceBooksService lifecycle recovery', () => {
@@ -33,6 +34,27 @@ describe('PriceBooksService lifecycle recovery', () => {
     const service = new PriceBooksService(ds, cls, approvalEngine);
     return { service, query, mgrQuery, transaction };
   }
+
+  it('normalizes blank optional dates to SQL NULL when creating a price book', async () => {
+    const created = { id: '367', price_book_no: 'PB-20260901-00001', status: 'DRAFT' };
+    const { service, query } = makeService([[{ cnt: '0' }], [created]]);
+
+    await expect(service.createBook({
+      priceBookName: '门店零售价',
+      companyCode: 'COMP-MENGSE',
+      effectiveFrom: '',
+      effectiveTo: '',
+    })).resolves.toEqual(created);
+
+    expect(query).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('INSERT INTO sal_price_books'),
+      expect.arrayContaining([null, null]),
+    );
+    const insertParams = (query.mock.calls as unknown as Array<[string, unknown[]]>)[1][1];
+    expect(insertParams[8]).toBeNull();
+    expect(insertParams[9]).toBeNull();
+  });
 
   it('restores a cancelled price book with active items directly to ACTIVE', async () => {
     const restored = { ...activeBook, status: 'ACTIVE' };
@@ -158,6 +180,37 @@ describe('PriceBooksService lifecycle recovery', () => {
       expect.stringContaining(`SET status = 'PENDING_APPROVAL', wf_instance_id = $1`),
       ['wf-1', '365'],
     );
+  });
+});
+
+describe('CreatePriceBookDto date contract', () => {
+  const pipe = new ValidationPipe({ transform: true, whitelist: true });
+  const metadata = { type: 'body' as const, metatype: CreatePriceBookDto, data: '' };
+
+  it('accepts browser blank dates and transforms them to null before SQL', async () => {
+    const dto = await pipe.transform({
+      priceBookName: '门店零售价',
+      companyCode: 'COMP-MENGSE',
+      effectiveFrom: '',
+      effectiveTo: '',
+    }, metadata);
+
+    expect(dto.effectiveFrom).toBeNull();
+    expect(dto.effectiveTo).toBeNull();
+  });
+
+  it('returns a safe HTTP 400 validation response for a malformed nonblank date', async () => {
+    await expect(pipe.transform({
+      priceBookName: '门店零售价',
+      companyCode: 'COMP-MENGSE',
+      effectiveFrom: 'not-a-date',
+    }, metadata)).rejects.toMatchObject({
+      status: 400,
+      response: expect.objectContaining({
+        statusCode: 400,
+        message: expect.arrayContaining([expect.stringContaining('effectiveFrom')]),
+      }),
+    });
   });
 });
 
