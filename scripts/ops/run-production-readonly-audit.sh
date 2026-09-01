@@ -2,6 +2,7 @@
 set -euo pipefail
 
 audit_root='scripts/ops/readonly-audits'
+bundle_dir="${AUDIT_BUNDLE_DIR:-.}"
 sql_path="${ASSERTION_SQL_PATH:-}"
 http_path="${HTTP_ASSERTIONS_PATH:-}"
 
@@ -12,14 +13,14 @@ validate_path() {
     "$audit_root"/*"$suffix") ;;
     *) echo "FAIL invalid audit path: $value" >&2; return 2 ;;
   esac
-  [ -f "$value" ] || { echo "FAIL audit file not found: $value" >&2; return 2; }
+  [ -f "$bundle_dir/$value" ] || { echo "FAIL audit file not found: $value" >&2; return 2; }
   case "$value" in *'..'*) echo "FAIL parent traversal is forbidden" >&2; return 2;; esac
 }
 
 validate_path "$sql_path" '.sql'
 validate_path "$http_path" '.http.json'
 if [ -n "$http_path" ]; then
-  node -e "const f=require('./$http_path');if(!Array.isArray(f))throw Error('HTTP manifest must be an array');for(const x of f){if(!['GET','HEAD'].includes(x.method||'GET'))throw Error('Only GET/HEAD are allowed');if(!x.name||(!x.path&&!x.pathSql))throw Error('Each HTTP assertion needs name and path/pathSql')}"
+  HTTP_VALIDATE_PATH="$bundle_dir/$http_path" node -e "const f=require(process.env.HTTP_VALIDATE_PATH);if(!Array.isArray(f))throw Error('HTTP manifest must be an array');for(const x of f){if(!['GET','HEAD'].includes(x.method||'GET'))throw Error('Only GET/HEAD are allowed');if(!x.name||(!x.path&&!x.pathSql))throw Error('Each HTTP assertion needs name and path/pathSql')}"
 fi
 [ "${1:-}" = '--validate' ] && { echo 'PASS audit inputs validated'; exit 0; }
 
@@ -43,12 +44,12 @@ psql_ro() {
 }
 
 if [ -n "$sql_path" ]; then
-  { printf '%s\n' 'BEGIN TRANSACTION READ ONLY;' "SET LOCAL statement_timeout='30s';" "SET LOCAL lock_timeout='5s';"; cat "$sql_path"; printf '%s\n' 'ROLLBACK;'; } | psql_ro
+  { printf '%s\n' 'BEGIN TRANSACTION READ ONLY;' "SET LOCAL statement_timeout='30s';" "SET LOCAL lock_timeout='5s';"; cat "$bundle_dir/$sql_path"; printf '%s\n' 'ROLLBACK;'; } | psql_ro
   echo "PASS SQL file=$sql_path"
 fi
 
 if [ -n "$http_path" ]; then
-  HTTP_MANIFEST_B64="$(base64 -w0 "$http_path")" docker compose exec -T \
+  HTTP_MANIFEST_B64="$(base64 -w0 "$bundle_dir/$http_path")" docker compose exec -T \
     -e HTTP_MANIFEST_B64 -e PHOENIX_CI_TOKEN_EXPIRES_IN=20m \
     -e PGOPTIONS='-c default_transaction_read_only=on' api node - <<'NODE'
 const { NestFactory } = require('@nestjs/core');
