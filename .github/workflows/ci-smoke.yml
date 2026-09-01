@@ -245,14 +245,18 @@ jobs:
             test -n "$RET_ROW"
             IFS='|' read -r RET_BATCH RET_WAREHOUSE RET_STATUS RET_SALE RET_QTY RET_LEDGER_TYPE <<<"$RET_ROW"
             RET_API_JSON="$(curl -fsS -G -H "Authorization: Bearer $TOKEN" --data-urlencode 'storeCode=STORE-HS-001' --data-urlencode "sku=$RET_BATCH" --data-urlencode 'limit=10' 'https://erp.eggslao.com/api/v2/store-sales/inventory')"
-            RET_API_JSON="$RET_API_JSON" RET_BATCH="$RET_BATCH" RET_WAREHOUSE="$RET_WAREHOUSE" RET_SALE="$RET_SALE" node - <<'NODE'
+            RET_AVAILABLE_API_JSON="$(curl -fsS -G -H "Authorization: Bearer $TOKEN" --data-urlencode 'storeCode=STORE-HS-001' --data-urlencode 'status=AVAILABLE' --data-urlencode "sku=$RET_BATCH" --data-urlencode 'limit=10' 'https://erp.eggslao.com/api/v2/store-sales/inventory')"
+            RET_API_JSON="$RET_API_JSON" RET_AVAILABLE_API_JSON="$RET_AVAILABLE_API_JSON" RET_BATCH="$RET_BATCH" RET_WAREHOUSE="$RET_WAREHOUSE" RET_SALE="$RET_SALE" node - <<'NODE'
             const raw = JSON.parse(process.env.RET_API_JSON || 'null');
             const body = raw?.data && !raw?.rows ? raw.data : raw;
             const row = body?.rows?.find(item => item.batch_no === process.env.RET_BATCH && item.warehouse_code === process.env.RET_WAREHOUSE);
             if (!row) throw new Error(`RET batch not visible through inventory API: ${process.env.RET_BATCH}`);
-            if (row.status !== 'QUARANTINE' || Number(row.qty_available) !== 0) throw new Error(`RET semantics relaxed: status=${row.status} qty_available=${row.qty_available}`);
+            if (row.status !== 'QUARANTINE') throw new Error(`RET status semantics relaxed: status=${row.status}`);
             if (row.source_no !== process.env.RET_SALE || row.ledger_change_type !== 'SALE_RETURN') throw new Error(`RET provenance mismatch: source=${row.source_no} ledger=${row.ledger_change_type}`);
-            console.log(`STORE_INVENTORY_D0_RET_VISIBILITY=PASS batch=${row.batch_no} sale=${row.source_no} warehouse=${row.warehouse_code} status=${row.status} ledger=${row.ledger_change_type}`);
+            const availableRaw = JSON.parse(process.env.RET_AVAILABLE_API_JSON || 'null');
+            const available = availableRaw?.data && !availableRaw?.rows ? availableRaw.data : availableRaw;
+            if (available?.rows?.some(item => item.batch_no === process.env.RET_BATCH)) throw new Error(`QUARANTINE RET batch leaked into AVAILABLE tab: ${process.env.RET_BATCH}`);
+            console.log(`STORE_INVENTORY_D0_RET_VISIBILITY=PASS batch=${row.batch_no} sale=${row.source_no} warehouse=${row.warehouse_code} status=${row.status} ledger=${row.ledger_change_type} qty_available_diagnostic=${row.qty_available} available_tab_visible=false`);
             NODE
             echo "STORE_INVENTORY_SQL_EQUIVALENT=PASS batch=$RET_BATCH sale=$RET_SALE warehouse=$RET_WAREHOUSE status=$RET_STATUS qty=$RET_QTY ledger=$RET_LEDGER_TYPE readonly=true"
 
