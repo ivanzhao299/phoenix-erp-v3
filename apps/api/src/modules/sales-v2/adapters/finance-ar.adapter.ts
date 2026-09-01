@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 
 /**
  * FinanceArAdapter — Sales V2 Phase 3
@@ -43,10 +43,10 @@ export class FinanceArAdapter {
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
-  private async genArNo(): Promise<string> {
+  private async genArNo(manager: EntityManager): Promise<string> {
     const today  = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const prefix = `AR-${today}-`;
-    const row = await this.ds.query(
+    const row = await manager.query(
       `SELECT COUNT(*) AS cnt FROM fin_ar_invoices WHERE ar_no LIKE $1`,
       [`${prefix}%`],
     );
@@ -55,10 +55,10 @@ export class FinanceArAdapter {
 
   /**
    * 为已签收的销售订单创建 AR Invoice。
-   * 在调用方的事务外调用（独立事务），成功后返回 ar_invoice_id。
+   * 接受调用方 EntityManager，确保 RECEIVED、事件、AR 与回写原子提交。
    */
-  async createArForOrder(params: CreateOrderArParams): Promise<string> {
-    const arNo = await this.genArNo();
+  async createArForOrder(params: CreateOrderArParams, manager: EntityManager = this.ds.manager): Promise<string> {
+    const arNo = await this.genArNo(manager);
     const days = params.paymentTermsDays ?? 30;
     const dueDate = new Date(params.receivedAt);
     dueDate.setDate(dueDate.getDate() + days);
@@ -66,7 +66,7 @@ export class FinanceArAdapter {
 
     // source_type 'SALES_ORDER' 已在 Finance V2 DTO IsIn 白名单内
     // 不写 fin_transactions（旧 AR 路径，已冻结）
-    const result = await this.ds.query(
+    const result = await manager.query(
       `INSERT INTO fin_ar_invoices (
          ar_no, source_type, source_id, source_no,
          company_code, company_name,

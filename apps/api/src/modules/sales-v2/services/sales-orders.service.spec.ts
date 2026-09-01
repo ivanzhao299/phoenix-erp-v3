@@ -5,7 +5,8 @@ import { SalesOrdersService } from './sales-orders.service';
 
 describe('SalesOrdersService draft creation', () => {
   function makeService(query: jest.Mock) {
-    const ds = { query } as unknown as DataSource;
+    const manager = { query };
+    const ds = { query, manager, transaction: jest.fn((fn: any) => fn(manager)) } as unknown as DataSource;
     const cls = {
       get: jest.fn((key: string) => {
         if (key === 'dataScope') return { isGlobal: true, allowedCompanyCodes: [] };
@@ -33,6 +34,8 @@ describe('SalesOrdersService draft creation', () => {
       {} as any,
       {} as any,
       {} as any,
+      { appendEvent: jest.fn() } as any,
+      { get: jest.fn(() => ({})), register: jest.fn() } as any,
     );
 
     return { service, priceRuntime };

@@ -362,3 +362,35 @@ UI 在订单详情增加：
 4. 管理端异常签收是否与移动端一致自动建退货；本报告建议统一领域服务、按同一规则执行。
 
 在上述复核完成前，本轮不创建迁移、不改 service/UI、不执行生产写入。
+
+## 10. 实施执行记录（2026-09-01）
+
+本轮按主 agent 复核结论实施：保留单个 `SALES_ORDER` Workflow 实例并记录多触发原因；签收到 AR 采用同库强事务；订单页移除裸履约推进；人工纠偏使用独立 `MENU_SALES2_ORDER_OVERRIDE:A`。
+
+### 10.1 已完成
+
+- 新增 TypeORM 迁移 `1788253200000-AddSalesOrderLifecycleEvents.ts`：创建 `sal_order_lifecycle_events`、唯一键/索引/FK/actor CHECK、数据库级 UPDATE/DELETE 拒绝触发器、AR Sales source 幂等唯一索引，以及旧订单 `MIGRATED_SNAPSHOT` 基线事件。
+- 新增 `SalesOrderLifecycleService`，统一追加事件、带 `WHERE id/status` 的乐观状态更新和 process-log 聚合。
+- 建单、提交、无规则自动批准、Workflow 批准/拒绝、取消、人工纠偏、直接签收、配送创建/发车/到达/取消、签收、库存出库和退货创建均写关联事件。
+- Workflow `SALES_ORDER` 在 application bootstrap 确定注册真实 approve/reject callback；库存预留失败回滚审批事务，不再 warning 后继续。
+- `RECEIVED + lifecycle event + AR insert + ar_invoice_id` 使用同一 `EntityManager`；AR 失败整笔回滚。配送签收复用同一入口，删除原先的第二套非原子实现。
+- 普通 `/transition` 正式禁用履约伪动作；新增 `/manual-override`，独立 A 权限、必填原因、前后状态事件。
+- 配送完成要求每条明细同时具备终态状态和 `receipt_id`；人工例外闭合需配送 A 权限、必填原因并写 `DELIVERY_COMPLETED_OVERRIDE`。
+- OperationLog 路由已对齐 `transition/mark-received/manual-override`、真实配送签收、价格和库存路由，并在动作前读取订单 status/AR，写入 `before_data`；伪落库 `AuditLogInterceptor` 已从全局注册正式移除，领域事件 + `sys_operation_logs` 为支持的双日志层。
+- 新增 DataScope 安全的 `GET /api/v2/sales/orders/:id/process-log`，聚合事件、Workflow、配送、签收、库存流水、AR、退货；关联 Finance/Delivery/Return 再校验同公司。
+- 订单详情新增链路健康、RECEIVED 无 AR 红色告警、可点击关联单据、来源标签、跨单据时间轴、WorkflowTimeline 审批段和取消原因二次确认；裸分配/拣货/装车/发货/送达按钮已移除。
+
+### 10.2 验证结果
+
+- API `tsc --noEmit`：PASS。
+- Web `tsc --noEmit`：PASS。
+- API Jest 全量：79 suites / 690 tests PASS。
+- Web Vitest 全量：94 files / 498 tests PASS；其中订单详情采用 jsdom + React `createRoot` 真实渲染和真实 DOM 交互断言，不以源码字符串代替渲染验收。
+- 生命周期红线定向测试：append-only trigger、事件写入、乐观并发冲突、Workflow 回调注册、AR 失败事务回滚、process-log 越权拒绝、MANUAL_OVERRIDE A 权限、强制完成缺签收拒绝全部 PASS。
+- 治理门禁：nullable unique、constraint drift、entity drift、TS migration down、migration no-data-DML 均 PASS。
+- 真 scope-audit：销售订单页主数据输入仅命中 `CompanySelector/CustomerSelector/ChannelSelector/SkuSelector`；`productCode/gradeCode` 裸 input 均为 readOnly；可写 `e.target.value` 仅搜索词、数量/价格和危险动作原因。
+- 本机迁移重放未执行：`scripts/local-migration-check.sh` 在创建隔离测试库前因环境缺少 `createdb` 命令停止，未触碰任何现有数据库。CI 的 PostgreSQL migration job 作为真实 up/down/up 门禁。
+
+### 10.3 部署后只读复验口径
+
+部署 revision 确认后只读核验：旧订单均有且仅有一个 `MIGRATED_SNAPSHOT`；新订单按真实动作产生 `CREATED/SUBMITTED/...` 事件；事件 UPDATE/DELETE 被触发器拒绝；`RECEIVED` 订单存在唯一 Sales source AR 且回写一致；process-log 不跨公司并正确展示 Workflow、配送、签收、库存、AR 和退货。

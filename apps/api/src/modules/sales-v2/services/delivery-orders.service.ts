@@ -7,6 +7,7 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 import { EggInventoryService } from './egg-inventory.service';      // Phase 7
+import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import {
   CreateDeliveryOrderDto, UpdateDeliveryOrderDto, QueryDeliveryOrderDto,
   LoadDeliveryDto, DepartDeliveryDto, ArriveDeliveryDto,
@@ -40,6 +41,7 @@ export class DeliveryOrdersService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
     private readonly eggInventory: EggInventoryService,             // Phase 7
+    private readonly lifecycle: SalesOrderLifecycleService,
   ) {}
 
   // ── 当前用户 ─────────────────────────────────────────────────────────────
@@ -268,6 +270,16 @@ export class DeliveryOrdersService {
          WHERE id = ANY($1::bigint[]) AND status IN ('APPROVED')`,
         [resolvedOrderIds],
       );
+      for (const so of orders) {
+        await this.lifecycle.appendEvent(mgr, {
+          salesOrderId: String(so.id), orderNo: so.order_no, eventType: 'DELIVERY_CREATED',
+          fromStatus: so.status === 'APPROVED' ? 'APPROVED' : null,
+          toStatus: so.status === 'APPROVED' ? 'ALLOCATED' : null,
+          actorType: 'USER', actorUserId: user.userId, actorName: user.userName,
+          sourceModule: 'DELIVERY', sourceRefType: 'DELIVERY', sourceRefId: String(doRow.id),
+          sourceRefNo: deliveryNo, comment: dto.remark ?? null,
+        });
+      }
 
       this.logger.log(`配送单 ${deliveryNo} 已创建，关联 ${totalOrders} 张销售订单`);
       return String(doRow.id);
@@ -344,32 +356,33 @@ export class DeliveryOrdersService {
     const rec = await this.assertOwnership(id);
     if (rec.status !== 'LOADING') throw new BadRequestException(`当前状态 ${rec.status} 不可完成装车`);
 
-    await this.ds.query(
-      `UPDATE sal_delivery_orders SET status='LOADED', loading_end_at=NOW(), updated_at=NOW() WHERE id=$1`,
-      [id],
-    );
-    this.logger.log(`配送单 ${rec.delivery_no} 装车完成`);
-
-    // Phase 7 — FIFO 正式扣减（LOADED 时物理出库）
-    const soItems = await this.ds.query(
-      `SELECT doi.sales_order_id, so.order_no, so.company_code
+    await this.ds.transaction(async (mgr) => {
+      await mgr.query(
+        `UPDATE sal_delivery_orders SET status='LOADED', loading_end_at=NOW(), updated_at=NOW() WHERE id=$1 AND status='LOADING'`,
+        [id],
+      );
+      const soItems = await mgr.query(
+      `SELECT doi.sales_order_id, so.order_no, so.company_code, so.status
        FROM sal_delivery_order_items doi
        JOIN sal_sales_orders so ON so.id = doi.sales_order_id
        WHERE doi.delivery_order_id=$1`, [id],
-    );
-    for (const item of soItems) {
-      try {
+      );
+      for (const item of soItems) {
         await this.eggInventory.confirmOutbound(
           String(item.sales_order_id),
           String(item.order_no),
           String(item.company_code ?? 'ALL'),
           String(rec.delivery_no),
+          mgr,
         );
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        this.logger.warn(`[Delivery] FIFO confirmOutbound 失败 soId=${item.sales_order_id}: ${msg}`);
+        await this.lifecycle.appendEvent(mgr, {
+          salesOrderId: String(item.sales_order_id), orderNo: item.order_no,
+          eventType: 'OUTBOUND_CONFIRMED', actorType: 'SYSTEM', sourceModule: 'WMS',
+          sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: rec.delivery_no,
+        });
       }
-    }
+    });
+    this.logger.log(`配送单 ${rec.delivery_no} 装车完成`);
 
     return this.findById(id);
   }
@@ -384,9 +397,11 @@ export class DeliveryOrdersService {
 
     // 获取关联销售订单 ID
     const items = await this.ds.query(
-      `SELECT sales_order_id FROM sal_delivery_order_items WHERE delivery_order_id=$1`, [id],
+      `SELECT i.sales_order_id,so.order_no,so.status FROM sal_delivery_order_items i JOIN sal_sales_orders so ON so.id=i.sales_order_id WHERE i.delivery_order_id=$1`, [id],
     );
     const soIds = items.map((i: any) => Number(i.sales_order_id));
+    const invalid = items.filter((i: any) => i.status !== 'ALLOCATED');
+    if (invalid.length) throw new BadRequestException(`关联订单状态必须为 ALLOCATED：${invalid.map((i: any) => i.order_no).join(',')}`);
 
     await this.ds.transaction(async (mgr) => {
       await mgr.query(
@@ -402,9 +417,17 @@ export class DeliveryOrdersService {
       if (soIds.length) {
         await mgr.query(
           `UPDATE sal_sales_orders SET status='SHIPPED', updated_at=NOW()
-           WHERE id = ANY($1) AND status IN ('APPROVED','ALLOCATED','PICKED','LOADED')`,
+           WHERE id = ANY($1) AND status='ALLOCATED'`,
           [soIds],
         );
+      }
+      for (const item of items) {
+        await this.lifecycle.appendEvent(mgr, {
+          salesOrderId: String(item.sales_order_id), orderNo: item.order_no,
+          eventType: 'DELIVERY_DEPARTED', fromStatus: item.status, toStatus: 'SHIPPED',
+          actorType: 'USER', actorUserId: this.currentUser().userId, actorName: this.currentUser().userName,
+          sourceModule: 'DELIVERY', sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: rec.delivery_no,
+        });
       }
     });
 
@@ -421,9 +444,11 @@ export class DeliveryOrdersService {
     if (rec.status !== 'DEPARTED') throw new BadRequestException(`当前状态 ${rec.status} 不可标记到达`);
 
     const items = await this.ds.query(
-      `SELECT sales_order_id FROM sal_delivery_order_items WHERE delivery_order_id=$1`, [id],
+      `SELECT i.sales_order_id,so.order_no,so.status FROM sal_delivery_order_items i JOIN sal_sales_orders so ON so.id=i.sales_order_id WHERE i.delivery_order_id=$1`, [id],
     );
     const soIds = items.map((i: any) => Number(i.sales_order_id));
+    const invalid = items.filter((i: any) => i.status !== 'SHIPPED');
+    if (invalid.length) throw new BadRequestException(`关联订单状态必须为 SHIPPED：${invalid.map((i: any) => i.order_no).join(',')}`);
 
     await this.ds.transaction(async (mgr) => {
       await mgr.query(
@@ -434,9 +459,17 @@ export class DeliveryOrdersService {
       if (soIds.length) {
         await mgr.query(
           `UPDATE sal_sales_orders SET status='DELIVERED', delivered_at=NOW(), updated_at=NOW()
-           WHERE id = ANY($1) AND status IN ('APPROVED','ALLOCATED','PICKED','LOADED','SHIPPED')`,
+           WHERE id = ANY($1) AND status='SHIPPED'`,
           [soIds],
         );
+      }
+      for (const item of items) {
+        await this.lifecycle.appendEvent(mgr, {
+          salesOrderId: String(item.sales_order_id), orderNo: item.order_no,
+          eventType: 'DELIVERY_ARRIVED', fromStatus: item.status, toStatus: 'DELIVERED',
+          actorType: 'USER', actorUserId: this.currentUser().userId, actorName: this.currentUser().userName,
+          sourceModule: 'DELIVERY', sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: rec.delivery_no,
+        });
       }
     });
 
@@ -448,7 +481,7 @@ export class DeliveryOrdersService {
   // 9. 完成  ARRIVED/PARTIALLY_SIGNED → COMPLETED（全部签收后内部调用）
   // ─────────────────────────────────────────────────────────────────────────
 
-  async complete(id: string, _dto?: CompleteDeliveryDto) {
+  async complete(id: string, dto: CompleteDeliveryDto) {
     const rec = await this.assertOwnership(id);
     if (!['ARRIVED', 'PARTIALLY_SIGNED'].includes(rec.status)) {
       throw new BadRequestException(`状态 ${rec.status} 不可完成配送单`);
@@ -457,17 +490,33 @@ export class DeliveryOrdersService {
     // 检查是否所有明细已签收
     const [unsignedRow] = await this.ds.query(
       `SELECT COUNT(*) AS cnt FROM sal_delivery_order_items
-       WHERE delivery_order_id=$1 AND status NOT IN ('SIGNED','EXCEPTION','RETURNED')`,
+       WHERE delivery_order_id=$1
+         AND (status NOT IN ('SIGNED','EXCEPTION','RETURNED') OR receipt_id IS NULL)`,
       [id],
     );
     if (Number(unsignedRow.cnt) > 0) {
-      throw new BadRequestException(`仍有 ${unsignedRow.cnt} 条明细未签收，不可完成`);
+      throw new BadRequestException(`仍有 ${unsignedRow.cnt} 条明细缺少终态签收记录，不可完成`);
     }
 
-    await this.ds.query(
-      `UPDATE sal_delivery_orders SET status='COMPLETED', completed_at=NOW(), updated_at=NOW() WHERE id=$1`,
-      [id],
-    );
+    const user = this.currentUser();
+    await this.ds.transaction(async (mgr) => {
+      await mgr.query(
+        `UPDATE sal_delivery_orders SET status='COMPLETED', completed_at=NOW(), updated_at=NOW()
+         WHERE id=$1 AND status IN ('ARRIVED','PARTIALLY_SIGNED')`, [id],
+      );
+      const orders = await mgr.query(
+        `SELECT so.id,so.order_no FROM sal_sales_orders so JOIN sal_delivery_order_items i ON i.sales_order_id=so.id WHERE i.delivery_order_id=$1`, [id],
+      );
+      for (const order of orders) {
+        await this.lifecycle.appendEvent(mgr, {
+          salesOrderId: String(order.id), orderNo: order.order_no,
+          eventType: 'DELIVERY_COMPLETED_OVERRIDE', actorType: 'USER',
+          actorUserId: user.userId, actorName: user.userName,
+          reasonCode: 'DELIVERY_FORCE_COMPLETE', comment: dto.remark,
+          sourceModule: 'DELIVERY', sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: rec.delivery_no,
+        });
+      }
+    });
     this.logger.log(`配送单 ${rec.delivery_no} 已完成`);
     return this.findById(id);
   }
@@ -484,7 +533,9 @@ export class DeliveryOrdersService {
 
     // 恢复销售订单状态
     const items = await this.ds.query(
-      `SELECT sales_order_id FROM sal_delivery_order_items WHERE delivery_order_id=$1`, [id],
+      `SELECT i.sales_order_id,so.order_no,so.status
+       FROM sal_delivery_order_items i JOIN sal_sales_orders so ON so.id=i.sales_order_id
+       WHERE i.delivery_order_id=$1`, [id],
     );
     const soIds = items.map((i: any) => Number(i.sales_order_id));
 
@@ -504,6 +555,16 @@ export class DeliveryOrdersService {
            WHERE id = ANY($1) AND status = 'ALLOCATED'`,
           [soIds],
         );
+      }
+      const user = this.currentUser();
+      for (const item of items.filter((x: any) => x.status === 'ALLOCATED')) {
+        await this.lifecycle.appendEvent(mgr, {
+          salesOrderId: String(item.sales_order_id), orderNo: item.order_no,
+          eventType: 'DELIVERY_CANCELLED', fromStatus: 'ALLOCATED', toStatus: 'APPROVED',
+          actorType: 'USER', actorUserId: user.userId, actorName: user.userName,
+          comment: dto.remark ?? null, sourceModule: 'DELIVERY',
+          sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: rec.delivery_no,
+        });
       }
     });
 

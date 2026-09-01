@@ -17,7 +17,7 @@ describe('sales activity UI contract', () => {
     expect(ordersPage).toContain('key={`${o.sourceType}:${o.sourceId}`}');
     expect(ordersPage).toContain("const isOrder = o.sourceType === 'ORDER'");
     expect(ordersPage).toMatch(/isOrder && o\.status === 'DRAFT'[\s\S]*doAction\(o\.sourceId, 'submit'\)/);
-    expect(ordersPage).toMatch(/isOrder && \['DRAFT'[\s\S]*doAction\(o\.sourceId, 'cancel'\)/);
+    expect(ordersPage).toMatch(/isOrder && \['DRAFT'[\s\S]*setDangerAction\(\{ id: o\.sourceId, action: 'cancel' \}\)/);
   });
 
   it('opens POS rows through the scoped store POS detail deep link', () => {

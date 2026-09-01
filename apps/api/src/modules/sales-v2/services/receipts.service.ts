@@ -2,9 +2,10 @@ import {
   Injectable, NotFoundException, BadRequestException, Logger,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
-import { FinanceArAdapter } from '../adapters/finance-ar.adapter';
+import { SalesOrdersService } from './sales-orders.service';
+import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { CreateReceiptDto, ExceptionReceiptDto } from '../dto/delivery.dto';
 
 /**
@@ -24,7 +25,8 @@ export class ReceiptsService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
-    private readonly financeAr: FinanceArAdapter,
+    private readonly salesOrders: SalesOrdersService,
+    private readonly lifecycle: SalesOrderLifecycleService,
   ) {}
 
   private currentUser() {
@@ -35,10 +37,10 @@ export class ReceiptsService {
     };
   }
 
-  private async genReceiptNo(): Promise<string> {
+  private async genReceiptNo(mgr: EntityManager): Promise<string> {
     const today  = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const prefix = `RC-${today}-`;
-    const [row]  = await this.ds.query(
+    const [row]  = await mgr.query(
       `SELECT COUNT(*) AS cnt FROM sal_receipts WHERE receipt_no LIKE $1`, [`${prefix}%`],
     );
     return `${prefix}${String(Number(row.cnt) + 1).padStart(4, '0')}`;
@@ -49,16 +51,17 @@ export class ReceiptsService {
   // ─────────────────────────────────────────────────────────────────────────
 
   async createSigned(deliveryOrderId: string, dto: CreateReceiptDto) {
-    const item = await this.getItem(dto.deliveryItemId, deliveryOrderId);
+    return this.ds.transaction(async (mgr) => {
+    const item = await this.getItem(dto.deliveryItemId, deliveryOrderId, mgr);
 
     if (!['DELIVERED', 'LOADED', 'PENDING'].includes(item.status)) {
       throw new BadRequestException(`明细状态 ${item.status} 不可签收`);
     }
 
-    const receiptNo = await this.genReceiptNo();
+    const receiptNo = await this.genReceiptNo(mgr);
     const user = this.currentUser();
 
-    const [receipt] = await this.ds.query(
+    const [receipt] = await mgr.query(
       `INSERT INTO sal_receipts (
         receipt_no, delivery_order_id, delivery_item_id,
         sales_order_id, sales_order_no,
@@ -78,7 +81,7 @@ export class ReceiptsService {
     );
 
     // 更新明细状态
-    await this.ds.query(
+    await mgr.query(
       `UPDATE sal_delivery_order_items
        SET status='SIGNED', received_qty=$1, receipt_id=$2, updated_at=NOW()
        WHERE id=$3`,
@@ -88,9 +91,18 @@ export class ReceiptsService {
     this.logger.log(`签收记录 ${receiptNo} 已创建（正常签收）`);
 
     // 检查是否全部签收 → 触发完成链
-    await this.checkAndCompleteDelivery(deliveryOrderId);
+    await this.lifecycle.appendEvent(mgr, {
+      salesOrderId: String(item.sales_order_id), orderNo: item.sales_order_no,
+      eventType: 'RECEIPT_SIGNED', actorType: 'USER', actorUserId: user.userId,
+      actorName: user.userName, comment: dto.remark ?? null, sourceModule: 'DELIVERY',
+      sourceRefType: 'RECEIPT', sourceRefId: String(receipt.id), sourceRefNo: receiptNo,
+      sourceEndpoint: '/api/v2/sales/delivery/:id/receipts',
+      metadata: { receivedQty: dto.receivedQty },
+    });
+    await this.checkAndCompleteDelivery(deliveryOrderId, mgr);
 
     return receipt;
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -98,20 +110,21 @@ export class ReceiptsService {
   // ─────────────────────────────────────────────────────────────────────────
 
   async createException(deliveryOrderId: string, dto: ExceptionReceiptDto) {
-    const item = await this.getItem(dto.deliveryItemId, deliveryOrderId);
+    return this.ds.transaction(async (mgr) => {
+    const item = await this.getItem(dto.deliveryItemId, deliveryOrderId, mgr);
 
     if (!['DELIVERED', 'LOADED', 'PENDING'].includes(item.status)) {
       throw new BadRequestException(`明细状态 ${item.status} 不可签收`);
     }
 
-    const receiptNo = await this.genReceiptNo();
+    const receiptNo = await this.genReceiptNo(mgr);
     const user = this.currentUser();
 
     // 部分签收 or 全部异常
     const receiptStatus = dto.receivedQty > 0 ? 'PARTIAL' : 'EXCEPTION';
     const itemStatus    = dto.receivedQty > 0 ? 'SIGNED'  : 'EXCEPTION';
 
-    const [receipt] = await this.ds.query(
+    const [receipt] = await mgr.query(
       `INSERT INTO sal_receipts (
         receipt_no, delivery_order_id, delivery_item_id,
         sales_order_id, sales_order_no,
@@ -134,7 +147,7 @@ export class ReceiptsService {
       ],
     );
 
-    await this.ds.query(
+    await mgr.query(
       `UPDATE sal_delivery_order_items
        SET status=$1, received_qty=$2, receipt_id=$3, updated_at=NOW()
        WHERE id=$4`,
@@ -143,23 +156,32 @@ export class ReceiptsService {
 
     this.logger.log(`签收记录 ${receiptNo} 已创建（异常：${dto.exceptionType}）`);
 
-    await this.checkAndCompleteDelivery(deliveryOrderId);
+    await this.lifecycle.appendEvent(mgr, {
+      salesOrderId: String(item.sales_order_id), orderNo: item.sales_order_no,
+      eventType: 'RECEIPT_EXCEPTION', actorType: 'USER', actorUserId: user.userId,
+      actorName: user.userName, reasonCode: dto.exceptionType, comment: dto.remark ?? null,
+      sourceModule: 'DELIVERY', sourceRefType: 'RECEIPT', sourceRefId: String(receipt.id),
+      sourceRefNo: receiptNo, sourceEndpoint: '/api/v2/sales/delivery/:id/receipts/exception',
+      metadata: { receivedQty: dto.receivedQty, exceptionQty: dto.exceptionQty },
+    });
+    await this.checkAndCompleteDelivery(deliveryOrderId, mgr);
 
     return receipt;
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   // 3. 检查全部签收 → 完成配送单 → 触发销售订单 RECEIVED → AR
   // ─────────────────────────────────────────────────────────────────────────
 
-  private async checkAndCompleteDelivery(deliveryOrderId: string): Promise<void> {
-    const [delivery] = await this.ds.query(
+  private async checkAndCompleteDelivery(deliveryOrderId: string, mgr: EntityManager): Promise<void> {
+    const [delivery] = await mgr.query(
       `SELECT * FROM sal_delivery_orders WHERE id=$1`, [deliveryOrderId],
     );
     if (!delivery) return;
     if (['COMPLETED', 'CANCELLED'].includes(delivery.status)) return;
 
-    const items = await this.ds.query(
+    const items = await mgr.query(
       `SELECT status, sales_order_id FROM sal_delivery_order_items WHERE delivery_order_id=$1`,
       [deliveryOrderId],
     );
@@ -170,14 +192,14 @@ export class ReceiptsService {
     const someDone = signed > 0 && signed < total;
 
     if (someDone && delivery.status === 'ARRIVED') {
-      await this.ds.query(
+      await mgr.query(
         `UPDATE sal_delivery_orders SET status='PARTIALLY_SIGNED', updated_at=NOW() WHERE id=$1`,
         [deliveryOrderId],
       );
     }
 
     if (allDone) {
-      await this.ds.query(
+      await mgr.query(
         `UPDATE sal_delivery_orders SET status='COMPLETED', completed_at=NOW(), updated_at=NOW() WHERE id=$1`,
         [deliveryOrderId],
       );
@@ -185,71 +207,17 @@ export class ReceiptsService {
 
       // 触发每个销售订单 RECEIVED → Finance AR
       for (const item of items) {
-        await this.markOrderReceived(String(item.sales_order_id), delivery.delivery_no);
+        const [so] = await mgr.query(`SELECT * FROM sal_sales_orders WHERE id=$1 FOR UPDATE`, [item.sales_order_id]);
+        if (!so || so.ar_invoice_id) continue;
+        if (!['SHIPPED', 'DELIVERED'].includes(so.status)) {
+          throw new BadRequestException(`销售订单 ${so.order_no} 状态 ${so.status} 与签收不一致`);
+        }
+        await this.salesOrders.receiveWithAr(mgr, so, {
+          actorType: 'SYSTEM', actorName: `delivery:${delivery.delivery_no}`,
+          sourceEndpoint: '/api/v2/sales/delivery/:id/receipts', sourceModule: 'DELIVERY',
+          sourceRefType: 'DELIVERY', sourceRefId: String(delivery.id), sourceRefNo: delivery.delivery_no,
+        });
       }
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 4. 核心：触发销售订单 RECEIVED → 生成 AR
-  // ─────────────────────────────────────────────────────────────────────────
-
-  private async markOrderReceived(salesOrderId: string, deliveryNo: string): Promise<void> {
-    const [so] = await this.ds.query(
-      `SELECT * FROM sal_sales_orders WHERE id=$1`, [salesOrderId],
-    );
-    if (!so) return;
-    if (!['SHIPPED', 'DELIVERED', 'ALLOCATED', 'PICKED', 'LOADED', 'APPROVED'].includes(so.status)) {
-      this.logger.warn(`销售订单 ${so.order_no} 状态 ${so.status}，跳过 RECEIVED 触发`);
-      return;
-    }
-    if (so.ar_invoice_id) {
-      this.logger.warn(`销售订单 ${so.order_no} 已有 AR，跳过`);
-      return;
-    }
-
-    // 取客户账期
-    const [cust] = await this.ds.query(
-      `SELECT payment_terms AS payment_terms_days FROM sal_customers
-       WHERE customer_no = $1 OR legacy_customer_code = $1
-       LIMIT 1`,
-      [so.customer_code],
-    );
-    const paymentTermsDays = Number(cust?.payment_terms_days ?? 30);
-
-    // 更新状态 → RECEIVED
-    await this.ds.query(
-      `UPDATE sal_sales_orders
-       SET status='RECEIVED', received_at=NOW(), updated_at=NOW()
-       WHERE id=$1`,
-      [salesOrderId],
-    );
-
-    // 生成 Finance V2 AR（严禁写 fin_transactions）
-    try {
-      const arId = await this.financeAr.createArForOrder({
-        orderId:           String(so.id),
-        orderNo:           so.order_no,
-        companyCode:       so.company_code,
-        companyName:       so.company_name ?? undefined,
-        customerId:        so.customer_id ? String(so.customer_id) : undefined,
-        customerCode:      so.customer_code ?? undefined,
-        customerName:      so.customer_name ?? '未知客户',
-        currencyCode:      so.currency_code ?? 'LAK',
-        totalAmount:       Number(so.total_amount),
-        paymentTermsDays,
-        receivedAt:        new Date(),
-        createdBy:         `delivery:${deliveryNo}`,
-      });
-
-      await this.ds.query(
-        `UPDATE sal_sales_orders SET ar_invoice_id=$1, updated_at=NOW() WHERE id=$2`,
-        [arId, salesOrderId],
-      );
-
-      this.logger.log(`销售订单 ${so.order_no} RECEIVED，AR ${arId} 已生成`);
-    } catch (err: any) {
-      this.logger.error(`销售订单 ${so.order_no} AR 生成失败：${err?.message}`);
     }
   }
 
@@ -257,8 +225,8 @@ export class ReceiptsService {
   // 辅助
   // ─────────────────────────────────────────────────────────────────────────
 
-  private async getItem(itemId: string, deliveryOrderId: string) {
-    const [item] = await this.ds.query(
+  private async getItem(itemId: string, deliveryOrderId: string, mgr: EntityManager = this.ds.manager) {
+    const [item] = await mgr.query(
       `SELECT * FROM sal_delivery_order_items WHERE id=$1 AND delivery_order_id=$2`,
       [itemId, deliveryOrderId],
     );

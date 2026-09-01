@@ -54,7 +54,7 @@ describe('DeliveryOrdersService creation', () => {
         return undefined;
       }),
     } as unknown as ClsService;
-    const service = new DeliveryOrdersService(ds, cls, {} as any);
+    const service = new DeliveryOrdersService(ds, cls, {} as any, { appendEvent: jest.fn() } as any);
 
     await expect(service.create({
       companyCode: 'COMP-1',
@@ -76,5 +76,20 @@ describe('DeliveryOrdersService creation', () => {
       expect.stringContaining("SET status='ALLOCATED'"),
       [['101']],
     );
+  });
+
+  it('does not force-close a delivery item without a terminal receipt record', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('SELECT * FROM sal_delivery_orders WHERE id = $1')) {
+        return [{ id: '201', delivery_no: 'DV-1', company_code: 'COMP-1', status: 'ARRIVED' }];
+      }
+      if (sql.includes('COUNT(*) AS cnt FROM sal_delivery_order_items')) return [{ cnt: '1' }];
+      return [];
+    });
+    const ds = { query } as unknown as DataSource;
+    const cls = { get: jest.fn((key: string) => key === 'dataScope' ? { isGlobal: true, allowedCompanyCodes: [] } : { userId: '1' }) } as unknown as ClsService;
+    const service = new DeliveryOrdersService(ds, cls, {} as any, { appendEvent: jest.fn() } as any);
+    await expect(service.complete('201', { remark: '主管例外闭合' })).rejects.toThrow('缺少终态签收记录');
+    expect(query).not.toHaveBeenCalledWith(expect.stringContaining("SET status='COMPLETED'"), expect.anything());
   });
 });

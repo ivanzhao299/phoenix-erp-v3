@@ -1,5 +1,5 @@
 import {
-  Injectable, NotFoundException, ForbiddenException,
+  Injectable, NotFoundException, ForbiddenException, OnApplicationBootstrap,
   BadRequestException, Logger,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -12,29 +12,19 @@ import { CustomersService } from './customers.service';
 import { CustomerCreditService } from './customer-credit.service';
 import { FinanceArAdapter } from '../adapters/finance-ar.adapter';
 import { EggInventoryService } from './egg-inventory.service';      // Phase 7
+import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
+import { WorkflowBizRegistryService } from '../../approval-engine/workflow-biz-registry.service';
 import {
   CreateSalesOrderDto, UpdateSalesOrderDto, QuerySalesOrderDto,
   SubmitSalesOrderDto, CancelSalesOrderDto, TransitionSalesOrderDto,
+  ManualOverrideSalesOrderDto,
 } from '../dto/sales-order.dto';
-
-// ── 状态机白名单 ──────────────────────────────────────────────────────────────
-const ALLOWED_TRANSITIONS: Record<string, string> = {
-  APPROVED:   'ALLOCATED',
-  ALLOCATED:  'PICKED',
-  PICKED:     'LOADED',
-  LOADED:     'SHIPPED',
-  SHIPPED:    'DELIVERED',
-  DELIVERED:  'RECEIVED',
-  RECEIVED:   'RECONCILED',
-};
-
-const TERMINAL_STATUSES = new Set(['RECONCILED', 'CANCELLED', 'REJECTED']);
 
 // ── 不可取消的状态（已发货后不可取消）────────────────────────────────────────
 const NO_CANCEL_STATUSES = new Set(['SHIPPED', 'DELIVERED', 'RECEIVED', 'RECONCILED', 'CANCELLED']);
 
 @Injectable()
-export class SalesOrdersService {
+export class SalesOrdersService implements OnApplicationBootstrap {
   private readonly logger = new Logger(SalesOrdersService.name);
 
   constructor(
@@ -46,7 +36,19 @@ export class SalesOrdersService {
     private readonly customerCredit: CustomerCreditService,
     private readonly financeAr: FinanceArAdapter,
     private readonly eggInventory: EggInventoryService,             // Phase 7
+    private readonly lifecycle: SalesOrderLifecycleService,
+    private readonly workflowRegistry: WorkflowBizRegistryService,
   ) {}
+
+  onApplicationBootstrap() {
+    const existing = this.workflowRegistry.get('SALES_ORDER');
+    if (!existing) throw new Error('SALES_ORDER workflow registry is not initialized');
+    this.workflowRegistry.register('SALES_ORDER', {
+      ...existing,
+      onApproved: (bizId, mgr) => this.approveCallback(bizId, mgr),
+      onRejected: (bizId, mgr) => this.rejectCallback(bizId, mgr),
+    });
+  }
 
   // ── 当前用户 ──────────────────────────────────────────────────────────────
 
@@ -114,7 +116,7 @@ export class SalesOrdersService {
     priceBookNo: string | null;
     belowFloor: boolean;
     skuCode: string | null;
-  }) {
+  }, manager: EntityManager = this.ds.manager) {
     const values = [
       params.salesOrderId,
       params.productCode, params.productName,
@@ -126,7 +128,7 @@ export class SalesOrdersService {
     ];
 
     try {
-      await this.ds.query(
+      await manager.query(
         `INSERT INTO sal_order_items (
            sales_order_id, product_code, product_name,
            grade_code, packaging_spec, qty,
@@ -141,7 +143,7 @@ export class SalesOrdersService {
       if (!this.isMissingOrderItemSkuColumn(err)) throw err;
 
       this.logger.warn('[SalesOrder] sal_order_items.sku_code 缺失，明细写入降级为旧 schema 兼容路径');
-      await this.ds.query(
+      await manager.query(
         `INSERT INTO sal_order_items (
            sales_order_id, product_code, product_name,
            grade_code, packaging_spec, qty,
@@ -218,6 +220,11 @@ export class SalesOrdersService {
       arInvoice = ar[0] ?? null;
     }
     return { ...rec, items, arInvoice };
+  }
+
+  async getProcessLog(id: string) {
+    const rec = await this.assertOwnership(id);
+    return this.lifecycle.getProcessLog(rec);
   }
 
   // ── 3. 创建草稿 ───────────────────────────────────────────────────────────
@@ -348,8 +355,8 @@ export class SalesOrdersService {
     const orderNo      = await this.genOrderNo();
     const currencyCode = dto.currencyCode ?? 'LAK';
 
-    // 主表
-    const orderResult = await this.ds.query(
+    return this.ds.transaction(async (mgr) => {
+    const orderResult = await mgr.query(
       `INSERT INTO sal_sales_orders (
          order_no, customer_id, customer_code, customer_name,
          company_code, company_name, channel_code,
@@ -389,14 +396,23 @@ export class SalesOrdersService {
 
     // 明细行
     for (const item of resolvedItems) {
-      await this.insertOrderItem({ salesOrderId: String(order.id), ...item });
+      await this.insertOrderItem({ salesOrderId: String(order.id), ...item }, mgr);
     }
 
-    const items = await this.ds.query(
+    await this.lifecycle.appendEvent(mgr, {
+      salesOrderId: String(order.id), orderNo: order.order_no,
+      eventType: 'CREATED', fromStatus: null, toStatus: 'DRAFT',
+      actorUserId: user.userId, actorName: user.userName, actorType: 'USER',
+      comment: dto.remark ?? null, sourceEndpoint: '/api/v2/sales/orders',
+      sourceModule: 'SALES_ORDER',
+    });
+
+    const items = await mgr.query(
       `SELECT * FROM sal_order_items WHERE sales_order_id = $1 ORDER BY id ASC`,
       [String(order.id)],
     );
     return { ...order, items };
+    });
   }
 
   // ── 4. 更新草稿 ───────────────────────────────────────────────────────────
@@ -513,7 +529,7 @@ export class SalesOrdersService {
 
   // ── 5. 提交审批（Phase 5 增强：信用控制 Runtime）────────────────────────
 
-  async submit(id: string, _dto: SubmitSalesOrderDto) {
+  async submit(id: string, dto: SubmitSalesOrderDto) {
     const rec = await this.assertOwnership(id);
     if (rec.status !== 'DRAFT') {
       throw new BadRequestException(`仅 DRAFT 状态可提交，当前：${rec.status}`);
@@ -569,6 +585,7 @@ export class SalesOrdersService {
     const belowFloor        = !!rec.below_floor_price;
     const needPriceApproval = belowFloor;
     const needApproval      = needPriceApproval || needCreditApproval;
+    const user = this.currentUser();
 
     let finalRec: any = null;
 
@@ -585,6 +602,14 @@ export class SalesOrdersService {
           id,
         ],
       );
+
+      await this.lifecycle.appendEvent(mgr, {
+        salesOrderId: id, orderNo: rec.order_no, eventType: 'SUBMITTED',
+        fromStatus: 'DRAFT', toStatus: needApproval ? 'PENDING_APPROVAL' : 'APPROVED',
+        actorUserId: user.userId, actorName: user.userName, actorType: 'USER',
+        comment: dto.remark ?? null, sourceEndpoint: '/api/v2/sales/orders/:id/submit',
+        sourceModule: 'SALES_ORDER', metadata: { belowFloorPrice: belowFloor, overCredit },
+      });
 
       if (needApproval) {
         const snap = creditSnapshot ?? {};
@@ -614,26 +639,32 @@ export class SalesOrdersService {
         }, mgr);
 
         if (!wf) {
-          const rows = await mgr.query(
-            `UPDATE sal_sales_orders SET status='APPROVED', updated_at=NOW() WHERE id=$1 RETURNING *`,
-            [id],
-          );
-          finalRec = { ...rows[0], _note: '无审批规则，已自动批准' };
+          const updated = await this.lifecycle.transitionStatus(mgr, id, 'DRAFT', 'APPROVED');
+          await this.lifecycle.appendEvent(mgr, {
+            salesOrderId: id, orderNo: rec.order_no, eventType: 'AUTO_APPROVED_NO_RULE',
+            fromStatus: 'DRAFT', toStatus: 'APPROVED', actorType: 'SYSTEM',
+            sourceModule: 'WORKFLOW', metadata: { belowFloorPrice: belowFloor, overCredit },
+          });
+          finalRec = { ...updated, _note: '无审批规则，已自动批准' };
         } else {
-          const rows = await mgr.query(
-            `UPDATE sal_sales_orders
-             SET status='PENDING_APPROVAL', wf_instance_id=$1, updated_at=NOW()
-             WHERE id=$2 RETURNING *`,
-            [String(wf.id), id],
+          finalRec = await this.lifecycle.transitionStatus(
+            mgr, id, 'DRAFT', 'PENDING_APPROVAL', ', wf_instance_id=$4', [String(wf.id)],
           );
-          finalRec = rows[0];
+          await this.lifecycle.appendEvent(mgr, {
+            salesOrderId: id, orderNo: rec.order_no, eventType: 'APPROVAL_STARTED',
+            fromStatus: 'DRAFT', toStatus: 'PENDING_APPROVAL', actorType: 'SYSTEM',
+            sourceModule: 'WORKFLOW', sourceRefType: 'WORKFLOW_INSTANCE',
+            sourceRefId: String(wf.id), metadata: { belowFloorPrice: belowFloor, overCredit },
+          });
         }
       } else {
-        const rows = await mgr.query(
-          `UPDATE sal_sales_orders SET status='APPROVED', updated_at=NOW() WHERE id=$1 RETURNING *`,
-          [id],
-        );
-        finalRec = { ...rows[0], _note: creditWarning ? '信用预警（WARNING），已批准但需关注' : '无审批要求，已自动批准' };
+        const updated = await this.lifecycle.transitionStatus(mgr, id, 'DRAFT', 'APPROVED');
+        await this.lifecycle.appendEvent(mgr, {
+          salesOrderId: id, orderNo: rec.order_no, eventType: 'AUTO_APPROVED_NO_RULE',
+          fromStatus: 'DRAFT', toStatus: 'APPROVED', actorType: 'SYSTEM',
+          sourceModule: 'WORKFLOW', metadata: { creditWarning },
+        });
+        finalRec = { ...updated, _note: creditWarning ? '信用预警（WARNING），已批准但需关注' : '无审批要求，已自动批准' };
       }
     });
 
@@ -643,93 +674,93 @@ export class SalesOrdersService {
   // ── 6. 审批通过回调（WorkflowBizRegistry onApproved）────────────────────
 
   async approveCallback(bizId: string, mgr: EntityManager): Promise<void> {
-    await mgr.query(
-      `UPDATE sal_sales_orders SET status='APPROVED', updated_at=NOW() WHERE id=$1`,
-      [bizId],
+    const [order] = await mgr.query(
+      `SELECT id,order_no,company_code,wf_instance_id,status FROM sal_sales_orders WHERE id=$1`, [bizId],
     );
+    if (!order) throw new NotFoundException(`销售订单 ${bizId} 不存在`);
+    await this.lifecycle.appendEvent(mgr, {
+      salesOrderId: bizId, orderNo: order.order_no, eventType: 'APPROVED',
+      fromStatus: 'PENDING_APPROVAL', toStatus: 'APPROVED', actorType: 'WORKFLOW',
+      sourceModule: 'WORKFLOW', sourceRefType: 'WORKFLOW_INSTANCE',
+      sourceRefId: order.wf_instance_id ? String(order.wf_instance_id) : null,
+    });
     this.logger.log(`[SalesOrder] 审批通过: orderId=${bizId} → APPROVED`);
 
-    // Phase 7 — FIFO 库存预留（非阻断：失败只记日志）
-    try {
-      const [order] = await mgr.query(
-        `SELECT order_no, company_code FROM sal_sales_orders WHERE id=$1`, [bizId],
-      );
-      if (order) {
-        await this.eggInventory.reserveInventory(bizId, order.order_no, order.company_code);
-      }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.logger.warn(`[SalesOrder] FIFO 预留失败（不阻断审批）orderId=${bizId}: ${msg}`);
-    }
+    await this.eggInventory.reserveInventory(bizId, order.order_no, order.company_code, mgr);
+    await this.lifecycle.appendEvent(mgr, {
+      salesOrderId: bizId, orderNo: order.order_no, eventType: 'INVENTORY_RESERVED',
+      actorType: 'SYSTEM', sourceModule: 'WMS', sourceRefType: 'SALES_ORDER',
+      sourceRefId: bizId, sourceRefNo: order.order_no,
+    });
   }
 
   // ── 7. 审批拒绝回调（WorkflowBizRegistry onRejected）────────────────────
 
   async rejectCallback(bizId: string, mgr: EntityManager): Promise<void> {
-    await mgr.query(
-      `UPDATE sal_sales_orders SET status='REJECTED', updated_at=NOW() WHERE id=$1`,
-      [bizId],
+    const [order] = await mgr.query(
+      `SELECT order_no,wf_instance_id FROM sal_sales_orders WHERE id=$1`, [bizId],
     );
+    if (!order) throw new NotFoundException(`销售订单 ${bizId} 不存在`);
+    await this.lifecycle.appendEvent(mgr, {
+      salesOrderId: bizId, orderNo: order.order_no, eventType: 'REJECTED',
+      fromStatus: 'PENDING_APPROVAL', toStatus: 'REJECTED', actorType: 'WORKFLOW',
+      reasonCode: 'WORKFLOW_REJECTED', comment: '审批拒绝（意见见 Workflow 步骤）',
+      sourceModule: 'WORKFLOW', sourceRefType: 'WORKFLOW_INSTANCE',
+      sourceRefId: order.wf_instance_id ? String(order.wf_instance_id) : null,
+    });
     this.logger.log(`[SalesOrder] 审批拒绝: orderId=${bizId} → REJECTED`);
   }
 
   // ── 8. 取消 ───────────────────────────────────────────────────────────────
 
-  async cancel(id: string, _dto: CancelSalesOrderDto) {
+  async cancel(id: string, dto: CancelSalesOrderDto) {
     const rec = await this.assertOwnership(id);
     if (NO_CANCEL_STATUSES.has(rec.status)) {
       throw new BadRequestException(`状态 ${rec.status} 的订单不可取消（已发货后禁止取消）`);
     }
     if (rec.status === 'CANCELLED') return rec;
 
-    const result = await this.ds.query(
-      `UPDATE sal_sales_orders SET status='CANCELLED', updated_at=NOW() WHERE id=$1 RETURNING *`,
-      [id],
-    );
-
-    // Phase 7 — 释放 FIFO 预留库存（仅 APPROVED 后才有预留）
-    if (rec.status === 'APPROVED' || rec.status === 'ALLOCATED') {
-      try {
-        await this.eggInventory.releaseInventory(id, rec.order_no, rec.company_code);
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        this.logger.warn(`[SalesOrder] FIFO 释放失败 orderId=${id}: ${msg}`);
+    const user = this.currentUser();
+    return this.ds.transaction(async (mgr) => {
+      if (rec.status === 'APPROVED' || rec.status === 'ALLOCATED') {
+        await this.eggInventory.releaseInventory(id, rec.order_no, rec.company_code, mgr);
       }
-    }
-
-    return result[0];
+      const updated = await this.lifecycle.transitionStatus(mgr, id, rec.status, 'CANCELLED');
+      await this.lifecycle.appendEvent(mgr, {
+        salesOrderId: id, orderNo: rec.order_no, eventType: 'CANCELLED',
+        fromStatus: rec.status, toStatus: 'CANCELLED', actorType: 'USER',
+        actorUserId: user.userId, actorName: user.userName,
+        reasonCode: 'USER_CANCELLED', comment: dto.remark,
+        sourceEndpoint: '/api/v2/sales/orders/:id/cancel', sourceModule: 'SALES_ORDER',
+      });
+      return updated;
+    });
   }
 
   // ── 9. 状态流转（白名单控制）──────────────────────────────────────────────
 
   async transition(id: string, dto: TransitionSalesOrderDto) {
-    const rec    = await this.assertOwnership(id);
-    const target = dto.targetStatus;
-
-    if (TERMINAL_STATUSES.has(rec.status)) {
-      throw new BadRequestException(`订单已处于终态 ${rec.status}，不可流转`);
-    }
-
-    const allowed = ALLOWED_TRANSITIONS[rec.status];
-    if (!allowed || allowed !== target) {
-      throw new BadRequestException(
-        `不允许从 ${rec.status} 流转到 ${target}，合法下一步：${allowed ?? '无'}`,
-      );
-    }
-
-    const sets: string[] = ['status=$1', 'updated_at=NOW()'];
-    const params: any[]  = [target];
-
-    if (target === 'DELIVERED') {
-      sets.push(`delivered_at=NOW()`);
-    }
-
-    params.push(id);
-    const result = await this.ds.query(
-      `UPDATE sal_sales_orders SET ${sets.join(',')} WHERE id=$${params.length} RETURNING *`,
-      params,
+    await this.assertOwnership(id);
+    throw new ForbiddenException(
+      `禁止通过订单 transition 执行 ${dto.targetStatus}；请使用配送/WMS 履约入口，人工纠偏使用 manual-override`,
     );
-    return result[0];
+  }
+
+  async manualOverride(id: string, dto: ManualOverrideSalesOrderDto) {
+    const rec = await this.assertOwnership(id);
+    if (rec.status === dto.targetStatus) throw new BadRequestException('目标状态与当前状态相同');
+    const user = this.currentUser();
+    return this.ds.transaction(async (mgr) => {
+      const updated = await this.lifecycle.transitionStatus(mgr, id, rec.status, dto.targetStatus);
+      await this.lifecycle.appendEvent(mgr, {
+        salesOrderId: id, orderNo: rec.order_no, eventType: 'MANUAL_OVERRIDE',
+        fromStatus: rec.status, toStatus: dto.targetStatus, actorType: 'USER',
+        actorUserId: user.userId, actorName: user.userName,
+        reasonCode: 'MANUAL_OVERRIDE', comment: dto.reason,
+        sourceEndpoint: '/api/v2/sales/orders/:id/manual-override', sourceModule: 'SALES_ORDER',
+      });
+      return updated;
+    });
   }
 
   // ── 10. 标记签收 + 生成 Finance V2 AR ────────────────────────────────────
@@ -745,17 +776,24 @@ export class SalesOrdersService {
     }
 
     const user = this.currentUser();
+    return this.ds.transaction((mgr) => this.receiveWithAr(mgr, rec, {
+      actorType: 'USER', actorUserId: user.userId, actorName: user.userName,
+      sourceEndpoint: '/api/v2/sales/orders/:id/mark-received', sourceModule: 'SALES_ORDER',
+    }));
+  }
 
-    // 更新状态 → RECEIVED
-    await this.ds.query(
-      `UPDATE sal_sales_orders SET status='RECEIVED', received_at=NOW(), updated_at=NOW() WHERE id=$1`,
-      [id],
-    );
-
-    // 获取客户 payment_terms
+  async receiveWithAr(
+    mgr: EntityManager,
+    rec: any,
+    context: {
+      actorType: 'USER' | 'SYSTEM' | 'MOBILE' | 'INTEGRATION';
+      actorUserId?: string; actorName?: string; sourceEndpoint?: string;
+      sourceModule: string; sourceRefType?: string; sourceRefId?: string; sourceRefNo?: string;
+    },
+  ) {
     let paymentTermsDays = 30;
     if (rec.customer_code) {
-      const cRows = await this.ds.query(
+      const cRows = await mgr.query(
         `SELECT payment_terms FROM sal_customers
          WHERE (customer_no = $1 OR legacy_customer_code = $1)
            AND company_code = $2
@@ -768,6 +806,14 @@ export class SalesOrdersService {
     }
 
     // 创建 AR Invoice（Finance V2 AR Runtime，严禁写 fin_transactions）
+    const updated = await this.lifecycle.transitionStatus(
+      mgr, String(rec.id), rec.status, 'RECEIVED', ', received_at=NOW()',
+    );
+    await this.lifecycle.appendEvent(mgr, {
+      salesOrderId: String(rec.id), orderNo: rec.order_no, eventType: 'RECEIPT_COMPLETED',
+      fromStatus: rec.status, toStatus: 'RECEIVED', ...context,
+    });
+
     const arId = await this.financeAr.createArForOrder({
       orderId:         String(rec.id),
       orderNo:         rec.order_no,
@@ -780,19 +826,21 @@ export class SalesOrdersService {
       totalAmount:     Number(rec.total_amount),
       paymentTermsDays,
       receivedAt:      new Date(),
-      createdBy:       user.userName || user.userId,
-    });
+      createdBy:       context.actorName || context.actorUserId || context.actorType,
+    }, mgr);
 
     // 回写 ar_invoice_id
-    await this.ds.query(
-      `UPDATE sal_sales_orders SET ar_invoice_id=$1, updated_at=NOW() WHERE id=$2`,
-      [arId, id],
+    await mgr.query(
+      `UPDATE sal_sales_orders SET ar_invoice_id=$1, updated_at=NOW() WHERE id=$2 AND status='RECEIVED' AND ar_invoice_id IS NULL`,
+      [arId, String(rec.id)],
     );
+    await this.lifecycle.appendEvent(mgr, {
+      salesOrderId: String(rec.id), orderNo: rec.order_no, eventType: 'AR_CREATED',
+      actorType: 'SYSTEM', sourceModule: 'FINANCE_AR', sourceRefType: 'AR_INVOICE',
+      sourceRefId: arId, metadata: { sourceType: 'SALES_ORDER' },
+    });
 
-    const updated = await this.ds.query(
-      `SELECT * FROM sal_sales_orders WHERE id=$1`, [id],
-    );
-    return updated[0];
+    return { ...updated, ar_invoice_id: arId };
   }
 
   // ── 11. Dashboard 统计 ────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import { SalesOrdersService } from '../services/sales-orders.service';
 import {
   CreateSalesOrderDto, UpdateSalesOrderDto, QuerySalesOrderDto,
   SubmitSalesOrderDto, CancelSalesOrderDto, TransitionSalesOrderDto,
+  ManualOverrideSalesOrderDto,
 } from '../dto/sales-order.dto';
 
 /**
@@ -42,20 +43,28 @@ export class SalesOrdersController {
     return this.svc.findById(id);
   }
 
+  @Get(':id/process-log')
+  processLog(@Param('id') id: string) {
+    return this.svc.getProcessLog(id);
+  }
+
   /** POST /api/v2/sales/orders — 新建草稿 */
   @Post()
+  @RequireMenu('MENU_SALES2_ORDER', 'E')
   create(@Body() dto: CreateSalesOrderDto) {
     return this.svc.createDraft(dto);
   }
 
   /** PATCH /api/v2/sales/orders/:id — 更新草稿（仅 DRAFT） */
   @Patch(':id')
+  @RequireMenu('MENU_SALES2_ORDER', 'E')
   update(@Param('id') id: string, @Body() dto: UpdateSalesOrderDto) {
     return this.svc.updateDraft(id, dto);
   }
 
   /** POST /api/v2/sales/orders/:id/submit — 提交审批 */
   @Post(':id/submit')
+  @RequireMenu('MENU_SALES2_ORDER', 'E')
   @HttpCode(HttpStatus.OK)
   submit(@Param('id') id: string, @Body() dto: SubmitSalesOrderDto) {
     return this.svc.submit(id, dto);
@@ -63,6 +72,7 @@ export class SalesOrdersController {
 
   /** POST /api/v2/sales/orders/:id/cancel — 取消订单 */
   @Post(':id/cancel')
+  @RequireMenu('MENU_SALES2_ORDER', 'E')
   @HttpCode(HttpStatus.OK)
   cancel(@Param('id') id: string, @Body() dto: CancelSalesOrderDto) {
     return this.svc.cancel(id, dto);
@@ -70,13 +80,23 @@ export class SalesOrdersController {
 
   /** POST /api/v2/sales/orders/:id/transition — 状态流转 */
   @Post(':id/transition')
+  @RequireMenu('MENU_SALES2_ORDER', 'E')
   @HttpCode(HttpStatus.OK)
   transition(@Param('id') id: string, @Body() dto: TransitionSalesOrderDto) {
     return this.svc.transition(id, dto);
   }
 
+
+  @Post(':id/manual-override')
+  @RequireMenu('MENU_SALES2_ORDER_OVERRIDE', 'A')
+  @HttpCode(HttpStatus.OK)
+  manualOverride(@Param('id') id: string, @Body() dto: ManualOverrideSalesOrderDto) {
+    return this.svc.manualOverride(id, dto);
+  }
+
   /** POST /api/v2/sales/orders/:id/mark-received — 标记签收 + 生成 AR */
   @Post(':id/mark-received')
+  @RequireMenu('MENU_SALES2_ORDER', 'E')
   @HttpCode(HttpStatus.OK)
   markReceived(@Param('id') id: string) {
     return this.svc.markReceived(id);

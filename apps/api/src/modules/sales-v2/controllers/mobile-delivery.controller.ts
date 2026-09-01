@@ -182,6 +182,8 @@ export class MobileDeliveryController {
       try {
         returnOrder = await this.returnsSvc.create({
           deliveryOrderId: id,
+          salesOrderId: receipt.sales_order_id ? String(receipt.sales_order_id) : undefined,
+          salesOrderNo: receipt.sales_order_no ?? undefined,
           customerCode:    body.customerCode,
           customerName:    body.customerName,
           companyCode:     body.companyCode,
@@ -198,7 +200,8 @@ export class MobileDeliveryController {
         });
         this.logger.log(`[MobileDelivery] 异常签收 → Return Order ${returnOrder?.return_no ?? returnOrder?.id}`);
       } catch (err: any) {
-        this.logger.warn(`[MobileDelivery] Return Order 创建失败（不阻断签收）: ${err.message}`);
+        this.logger.error(`[MobileDelivery] Return Order 创建失败: ${err.message}`);
+        throw err;
       }
     }
 

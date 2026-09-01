@@ -148,8 +148,8 @@ export class SubmitSalesOrderDto {
 // ── 取消 ──────────────────────────────────────────────────────────────────────
 
 export class CancelSalesOrderDto {
-  @IsOptional() @IsString()
-  remark?: string;
+  @IsString() @IsNotEmpty()
+  remark: string;
 }
 
 // ── 状态流转 ──────────────────────────────────────────────────────────────────
@@ -161,4 +161,13 @@ export class TransitionSalesOrderDto {
 
   @IsOptional() @IsString()
   remark?: string;
+}
+
+export class ManualOverrideSalesOrderDto {
+  @IsString() @IsNotEmpty()
+  @IsIn(['DRAFT','PENDING_APPROVAL','APPROVED','ALLOCATED','PICKED','LOADED','SHIPPED','DELIVERED','RECEIVED','RECONCILED','CANCELLED','REJECTED'])
+  targetStatus: string;
+
+  @IsString() @IsNotEmpty()
+  reason: string;
 }
