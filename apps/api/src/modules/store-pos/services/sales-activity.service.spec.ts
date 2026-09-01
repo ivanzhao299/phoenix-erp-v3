@@ -106,4 +106,43 @@ describe('sales activity facade contract', () => {
     expect(ds.query.mock.calls[0][0]).toContain('store_code=ANY($1::text[])');
     expect(ds.query.mock.calls[0][1][0]).toEqual(['S1', 'S2']);
   });
+
+  it('returns the POS-only and empty available-source states without widening access', async () => {
+    const posDs = { query: jest.fn().mockResolvedValue([]) } as any;
+    const posUser = { userId: 'U1', permissions: ['MENU_STORE_POS:V'] };
+    const posSvc = new SalesActivityService(
+      posDs,
+      { get: jest.fn((key: string) => key === 'user' ? posUser : null) } as any,
+      { listMembershipStores: jest.fn().mockResolvedValue([{ storeCode: 'S1', hasSalesWarehouse: true, hasWarehouseScopeIntersection: true }]) } as any,
+      { resolve: jest.fn().mockResolvedValue({ isGlobal: false, allowedCompanyCodes: ['C1'], allowedWarehouseCodes: ['W1'] }) } as any,
+    );
+    await expect(posSvc.list({ source: 'ALL' })).resolves.toMatchObject({ availableSources: ['POS'] });
+
+    const emptyDs = { query: jest.fn() } as any;
+    const emptySvc = new SalesActivityService(
+      emptyDs,
+      { get: jest.fn((key: string) => key === 'user' ? { permissions: [] } : null) } as any,
+      { listMembershipStores: jest.fn() } as any,
+      { resolve: jest.fn() } as any,
+    );
+    await expect(emptySvc.list({ source: 'ALL' })).resolves.toMatchObject({ availableSources: [], data: [] });
+    expect(emptyDs.query).not.toHaveBeenCalled();
+  });
+
+  it('always includes and queries ORDER for a global admin', async () => {
+    const ds = { query: jest.fn().mockResolvedValue([]) } as any;
+    const svc = new SalesActivityService(
+      ds,
+      { get: jest.fn((key: string) => key === 'user'
+        ? { userId: 'A1', roles: ['ROLE_ADMIN'], permissions: ['*'] }
+        : { isGlobal: true, allowedCompanyCodes: [] }) } as any,
+      { listMembershipStores: jest.fn().mockResolvedValue([]) } as any,
+      { resolve: jest.fn().mockResolvedValue({ isGlobal: true, allowedCompanyCodes: [], allowedWarehouseCodes: [] }) } as any,
+    );
+    const result = await svc.list({ source: 'ALL' });
+    expect(result.availableSources).toContain('ORDER');
+    expect(ds.query).toHaveBeenCalledTimes(1);
+    expect(ds.query.mock.calls[0][0]).toContain('FROM sal_sales_orders');
+    expect(ds.query.mock.calls[0][0]).not.toContain('company_code=ANY');
+  });
 });

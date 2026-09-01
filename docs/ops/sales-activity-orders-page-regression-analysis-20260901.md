@@ -124,3 +124,31 @@ P3 调用方却把 helper 的返回值继续当完整 facade 对象读取：
 ## 结论
 
 根因不是 POS 权限设计或 admin DataScope，而是 `5f854c81` 中前端 facade 响应消费与既有 `api()` 自动解包约定冲突。它在正常 200 下确定性地产生空订单数组和空来源数组，精准解释“客户订单/POS Tab 不见 + 原订单列表空白”。生产最近一小时目标日志仍是明确证据缺口；该缺口不得阻塞修复已证实的代码缺陷，但执行轮上线前后应补齐只读取证和真实页面回归。
+
+## E. 执行记录（2026-09-01）
+
+### E1. C1 修复
+
+- activity 改用显式保留 envelope 的 `apiEnvelope()`；运行时严格校验 `data`、`availableSources`、`hasMore`、`page`、`limit` 及行来源/标识字段，不接受裸数组猜形状。
+- 合法契约原样写入列表、来源与分页；畸形 200 进入错误/降级路径，不再显示“暂无销售数据”。来源初值为空，成功后以服务端 `availableSources` 为唯一依据。
+- 刷新保留旧表并设置 `aria-busy`；失败提示使用 `role="alert"`，保留旧值时明确“数据可能为旧值”。
+- facade 网络错误、403、5xx 或契约错误时，仅 `MENU_SALES2_ORDER:V` 用户调用旧 `/api/v2/sales/orders`，映射为 ORDER 行并持续显示“联合列表不可用，当前展示客户订单”；POS-only 不调用旧 API。
+
+### E2. C2 回归防线
+
+- Web jsdom 真实渲染：ORDER+POS Tab、真实订单号、Tab 请求 `source=ORDER`、服务端来源三态，以及 403/500/fetch reject/畸形 200 × ORDER 降级/POS-only 禁止降级，共 12 个用例。
+- API：补 POS-only/无来源/admin-global ORDER 来源矩阵；admin-global 断言执行订单 SQL 且不追加公司范围条件。
+- API HTTP：用 Nest 测试应用 + Supertest 发真实 GET，冻结直出 envelope 的字段和值类型，防止 controller/传输层二次包装。
+- Playwright：真实浏览器渲染验证两个 Tab、订单行、ORDER 详情请求与明细、POS scoped 深链，以及 facade 500 后的旧订单降级和持续横幅。
+
+### E3. 本地验证结果
+
+- Web tsc：0 errors。
+- API tsc：0 errors。
+- Web Vitest：93 files / 495 tests passed。
+- API Jest：77 suites / 676 tests passed。
+- Playwright 定向流程：2 passed（本机缺少 Chromium 的 NSS/NSPR/ALSA 动态库，验证时仅在项目临时目录解包依赖并通过 `LD_LIBRARY_PATH` 运行；临时文件已清理，未修改系统）。
+
+### E4. 待部署后补证
+
+CI、PR、full 部署、revision 对齐，以及生产 `sys_error_logs` 只读 SQL、带 token 的 activity ORDER/ALL 与旧 orders 响应、真实页面 Tab/订单行可见性，需在本提交 push 后执行并将结果继续追加于此；不得以源码字符串断言替代。
