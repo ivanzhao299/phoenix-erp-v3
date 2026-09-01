@@ -141,9 +141,9 @@ jobs:
             assert_code 410 POST /api/crud/daily_close
             assert_code 410 POST /api/crud/store_inventory
 
-            STORE_ERROR_COUNT="$(docker logs --since 30m phoenix-v3-api 2>&1 \
+            STORE_ERROR_COUNT="$({ docker logs --since 30m phoenix-v3-api 2>&1 \
               | grep -Ei '(ERROR|exception).*(store-pos|store-sales|store-settlement|daily-close|pos_sales)' \
-              | grep -Ev 'GoneException|旧门店.*已退役' | wc -l | tr -d ' ')"
+              | grep -Ev 'GoneException|旧门店.*已退役' || true; } | wc -l | tr -d ' ')"
             echo "STORE_ERROR_WINDOW_30M=$STORE_ERROR_COUNT"
             test "$STORE_ERROR_COUNT" = 0
 
