@@ -7,7 +7,6 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
 import { MenuGuard } from './common/guards/menu.guard';
 import { StoreCodeInterceptor } from './common/interceptors/store-code.interceptor';
-import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 import { OperationLogInterceptor } from './common/interceptors/operation-log.interceptor';
 import { ApprovalHintInterceptor } from './common/interceptors/approval-hint.interceptor';
 import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
@@ -156,10 +155,9 @@ import { BugIntakeModule } from './modules/bug-intake/bug-intake.module';
     JwtStrategy,
     // ThrottlerGuard 不全局挂载——仅在 auth.controller login 端点单独 @UseGuards
     // 全局挂载拦截器
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: AuditLogInterceptor,
-    },
+    // AuditLogInterceptor was formally retired: it only printed a fabricated
+    // audit record and never persisted it. Domain lifecycle events plus
+    // OperationLogInterceptor are the two supported audit layers.
     // 高敏感操作日志（RBAC-1）
     {
       provide: APP_INTERCEPTOR,

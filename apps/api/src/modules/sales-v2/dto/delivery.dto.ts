@@ -105,7 +105,7 @@ export class ArriveDeliveryDto {
   @IsOptional() @IsString() remark?: string;
 }
 export class CompleteDeliveryDto {
-  @IsOptional() @IsString() remark?: string;
+  @IsString() @IsNotEmpty() remark: string;
 }
 export class CancelDeliveryDto {
   @IsOptional() @IsString() remark?: string;

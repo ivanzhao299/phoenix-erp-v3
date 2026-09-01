@@ -20,6 +20,7 @@ import { PriceBooksService }                 from './services/price-books.servic
 import { PriceItemsService }                 from './services/price-items.service';
 import { PriceRuntimeService }               from './services/price-runtime.service';
 import { SalesOrdersService }                from './services/sales-orders.service';
+import { SalesOrderLifecycleService }        from './services/sales-order-lifecycle.service';
 import { DeliveryOrdersService }             from './services/delivery-orders.service';
 import { ReceiptsService }                   from './services/receipts.service';
 import { CustomerCreditService }             from './services/customer-credit.service';            // Phase 5
@@ -118,6 +119,7 @@ import {
     PriceItemsService,
     PriceRuntimeService,
     SalesOrdersService,
+    SalesOrderLifecycleService,
     DeliveryOrdersService,                // Phase 4
     ReceiptsService,                      // Phase 4
     CustomerCreditService,                // Phase 5
@@ -140,6 +142,7 @@ import {
     PriceItemsService,
     PriceRuntimeService,
     SalesOrdersService,
+    SalesOrderLifecycleService,
     DeliveryOrdersService,                // Phase 4
     ReceiptsService,                      // Phase 4
     CustomerCreditService,                // Phase 5

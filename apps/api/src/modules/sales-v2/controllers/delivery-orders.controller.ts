@@ -128,6 +128,7 @@ export class DeliveryOrdersController {
 
   /** POST /api/v2/sales/delivery/:id/complete — 强制完成（管理员） */
   @Post(':id/complete')
+  @RequireMenu('MENU_SALES2_DELIVERY', 'A')
   @HttpCode(HttpStatus.OK)
   complete(@Param('id') id: string, @Body() dto: CompleteDeliveryDto) {
     return this.svc.complete(id, dto);

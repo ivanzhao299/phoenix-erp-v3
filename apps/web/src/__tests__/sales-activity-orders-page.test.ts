@@ -67,6 +67,51 @@ afterEach(async () => {
 });
 
 describe('sales activity orders page', () => {
+  it('renders the lifecycle health, linked documents, workflow timeline and reason-gated cancellation', async () => {
+    state.permissions = ['MENU_SALES2_ORDER:V', 'MENU_SALES2_ORDER:C', 'MENU_SALES2_ORDER:E'];
+    const row = { ...activityRow('ORDER', 'SO-LIFE-001'), sourceId: '42', status: 'APPROVED' };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/api/v2/sales/activity')) return jsonResponse({ data: [row], availableSources: ['ORDER'], page: 1, limit: 20, hasMore: false });
+      if (url.endsWith('/api/v2/sales/orders/42/process-log')) return jsonResponse({
+        data: { orderNo: 'SO-LIFE-001', currentStatus: 'APPROVED', warnings: ['RECEIVED_WITHOUT_AR'],
+          documents: [{ type: 'DELIVERY', id: '9', no: 'DV-9', status: 'ARRIVED', href: '/sales2/delivery?deliveryId=9' }],
+          timeline: [
+            { id: 'e1', time: '2026-09-01T01:00:00Z', docType: 'SALES_ORDER', docNo: 'SO-LIFE-001', action: 'CREATED', source: 'SALES_ORDER', fromStatus: null, toStatus: 'DRAFT' },
+            { id: 'w1', time: '2026-09-01T02:00:00Z', docType: 'WORKFLOW', docNo: 'WF-1', action: 'APPROVE', source: 'WORKFLOW', operator: '审批人', comment: '同意' },
+          ] },
+      });
+      if (url.endsWith('/api/v2/sales/orders/42') && (!init?.method || init.method === 'GET')) return jsonResponse({ data: {
+        id: '42', order_no: 'SO-LIFE-001', company_code: 'C1', customer_code: 'CU1', customer_name: '测试客户', channel_code: null,
+        status: 'APPROVED', total_amount: 100, currency_code: 'CNY', below_floor_price: false, over_credit: false,
+        credit_warning: false, need_price_approval: false, need_credit_approval: false, credit_snapshot: null,
+        ar_invoice_id: null, created_at: '2026-09-01T00:00:00Z', items: [],
+      } });
+      if (url.endsWith('/api/v2/sales/orders/42/cancel')) return jsonResponse({ data: { id: '42', status: 'CANCELLED' } });
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await renderPage();
+
+    await act(async () => { (Array.from(container.querySelectorAll('tr')).find(tr => tr.textContent?.includes('SO-LIFE-001')) as HTMLElement).click(); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(container.textContent).toContain('已签收但未生成应收');
+    expect(container.textContent).toContain('DV-9');
+    expect(container.textContent).toContain('审批人');
+    expect(container.querySelector('a[href="/sales2/delivery?deliveryId=9"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('分配库存');
+
+    await act(async () => { (Array.from(container.querySelectorAll('button')).find(b => b.textContent === '取消订单') as HTMLButtonElement).click(); });
+    const confirm = Array.from(container.querySelectorAll('button')).find(b => b.textContent === '确认取消') as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    const textarea = container.querySelector('textarea[aria-label="操作原因"]') as HTMLTextAreaElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set?.call(textarea, '客户撤单');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect((Array.from(container.querySelectorAll('button')).find(b => b.textContent === '确认取消') as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('renders ORDER and POS tabs and reloads ORDER from a valid facade envelope', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);

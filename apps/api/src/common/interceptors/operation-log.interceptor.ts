@@ -19,8 +19,8 @@ import {
   ExecutionContext,
   CallHandler,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { from, Observable } from 'rxjs';
+import { mergeMap, tap } from 'rxjs/operators';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -117,24 +117,23 @@ const LOG_RULES: LogRule[] = [
     bizType: 'SAL_CREDIT',
     actionFn: () => 'TRIGGER_CREDIT_REFRESH',
   },
-  // Sales V2 销售订单状态变更（submit / approve / reject / ship / receive）
+  // Sales V2 销售订单真实状态入口
   {
-    pathPattern: /^\/api\/v2\/sales\/orders\/\d+\/(submit|approve|reject|ship|receive|cancel)/,
+    pathPattern: /^\/api\/v2\/sales\/orders\/[^/]+\/(submit|cancel|transition|mark-received|manual-override)/,
     methods: ['POST', 'PATCH'],
     bizType: 'SAL_ORDER',
     actionFn: (_method, path) => {
       if (path.endsWith('/submit'))  return 'SUBMIT';
-      if (path.endsWith('/approve')) return 'APPROVE';
-      if (path.endsWith('/reject'))  return 'REJECT';
-      if (path.endsWith('/ship'))    return 'SHIP';
-      if (path.endsWith('/receive')) return 'RECEIVE';
+      if (path.endsWith('/transition')) return 'TRANSITION';
+      if (path.endsWith('/mark-received')) return 'MARK_RECEIVED';
+      if (path.endsWith('/manual-override')) return 'MANUAL_OVERRIDE';
       if (path.endsWith('/cancel'))  return 'CANCEL';
       return 'ORDER_ACTION';
     },
   },
   // Sales V2 配送单签收
   {
-    pathPattern: /^\/api\/v2\/sales\/receipts/,
+    pathPattern: /^\/api\/v2\/sales\/delivery\/[^/]+\/receipts(?:\/exception)?$/,
     methods: ['POST'],
     bizType: 'SAL_DELIVERY',
     actionFn: () => 'SIGN_RECEIPT',
@@ -154,7 +153,7 @@ const LOG_RULES: LogRule[] = [
   },
   // Sales V2 价格手动调价（高危：低价审批相关）
   {
-    pathPattern: /^\/api\/v2\/sales\/price-books/,
+    pathPattern: /^\/api\/v2\/sales\/pricing\/(books|items)/,
     methods: ['POST', 'PATCH', 'PUT', 'DELETE'],
     bizType: 'SAL_PRICE',
     actionFn: (method) => {
@@ -165,7 +164,7 @@ const LOG_RULES: LogRule[] = [
   },
   // Sales V2 库存调整（FIFO 库存 Batch 手动操作）
   {
-    pathPattern: /^\/api\/v2\/sales\/inventory/,
+    pathPattern: /^\/api\/v2\/inventory/,
     methods: ['POST', 'PATCH'],
     bizType: 'SAL_INVENTORY',
     actionFn: (_method, path) => {
@@ -231,7 +230,12 @@ export class OperationLogInterceptor implements NestInterceptor {
       ? rule.actionFn(method, path)
       : defaultAction(method);
 
-    return next.handle().pipe(
+    const orderId = path.match(/^\/api\/v2\/sales\/orders\/([^/]+)\//)?.[1];
+    const before$ = orderId
+      ? from(this.ds.query(`SELECT id,order_no,status,ar_invoice_id FROM sal_sales_orders WHERE id=$1`, [orderId]).catch(() => []))
+      : from(Promise.resolve([]));
+
+    return before$.pipe(mergeMap((beforeRows: any[]) => next.handle().pipe(
       tap({
         next: (responseBody: any) => {
           // 异步写日志，不等待，不影响响应
@@ -248,6 +252,7 @@ export class OperationLogInterceptor implements NestInterceptor {
             requestPath:   path,
             ipAddress:     ip,
             userAgent,
+            beforeData: beforeRows[0] ? { status: beforeRows[0].status, arInvoiceId: beforeRows[0].ar_invoice_id } : null,
             afterData:  safeSlice(responseBody),
             resultStatus: 'SUCCESS',
           }).catch(err =>
@@ -268,12 +273,13 @@ export class OperationLogInterceptor implements NestInterceptor {
             requestPath:   path,
             ipAddress:     ip,
             userAgent,
+            beforeData: beforeRows[0] ? { status: beforeRows[0].status, arInvoiceId: beforeRows[0].ar_invoice_id } : null,
             afterData:     { error: err?.message ?? String(err) },
             resultStatus: 'FAIL',
           }).catch(() => {});
         },
       }),
-    );
+    )));
   }
 
   private async writeLog(data: {
@@ -282,6 +288,7 @@ export class OperationLogInterceptor implements NestInterceptor {
     bizId: string | null; bizNo: string | null;
     requestMethod: string; requestPath: string;
     ipAddress: string; userAgent: string;
+    beforeData: Record<string, any> | null;
     afterData: Record<string, any> | null;
     resultStatus: string;
   }) {
@@ -289,8 +296,8 @@ export class OperationLogInterceptor implements NestInterceptor {
       `INSERT INTO sys_operation_logs
         (user_id, username, role_code, module_code, action_code, biz_type,
          biz_id, biz_no, request_method, request_path, ip_address, user_agent,
-         after_data, result_status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+         before_data, after_data, result_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
         data.userId   || null,
         data.username || null,
@@ -304,6 +311,7 @@ export class OperationLogInterceptor implements NestInterceptor {
         data.requestPath,
         data.ipAddress || null,
         data.userAgent || null,
+        data.beforeData ? JSON.stringify(data.beforeData) : null,
         data.afterData ? JSON.stringify(data.afterData) : null,
         data.resultStatus,
       ],

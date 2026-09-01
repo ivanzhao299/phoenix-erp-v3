@@ -8,6 +8,7 @@ import { ClsService } from 'nestjs-cls';
 import { ApprovalEngineService } from '../../approval-engine/approval-engine.service';
 import { FinanceCreditNoteAdapter } from '../adapters/finance-credit-note.adapter';
 import { EggInventoryService } from './egg-inventory.service';      // Phase 7
+import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 
 /**
  * ReturnOrdersService — Sales V2 Phase 6
@@ -43,6 +44,7 @@ export class ReturnOrdersService {
     private readonly approvalEngine: ApprovalEngineService,
     private readonly creditNoteAdapter: FinanceCreditNoteAdapter,
     private readonly eggInventory: EggInventoryService,             // Phase 7
+    private readonly lifecycle: SalesOrderLifecycleService,
   ) {}
 
   // ── 内部工具 ─────────────────────────────────────────────────────────────────
@@ -271,6 +273,14 @@ export class ReturnOrdersService {
     }
 
     this.logger.log(`[Return] 创建退货单: ${returnNo} (id=${ret.id})`);
+    if (ret.sales_order_id && ret.sales_order_no) {
+      await this.ds.transaction((mgr) => this.lifecycle.appendEvent(mgr, {
+        salesOrderId: String(ret.sales_order_id), orderNo: String(ret.sales_order_no),
+        eventType: 'RETURN_CREATED', actorType: 'USER', actorName: operator,
+        sourceModule: 'RETURN', sourceRefType: 'RETURN', sourceRefId: String(ret.id),
+        sourceRefNo: returnNo, reasonCode: body.reasonCode ?? null, comment: body.remark ?? null,
+      }));
+    }
     return this.findById(String(ret.id));
   }
 

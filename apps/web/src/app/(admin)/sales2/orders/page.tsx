@@ -9,6 +9,7 @@ import { Plus, RefreshCw, Search, ChevronRight, X, AlertTriangle, CheckCircle, C
 import s from '@/components/ui/admin-ui.module.css';
 import { LoadingSkeleton, EmptyState } from '@/components/design-system'; // P1-1 性能快修
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
+import { WorkflowTimeline } from '@/components/workflow/WorkflowTimeline';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -131,21 +132,6 @@ const STATUS_MAP: Record<string, {
     label: '已退货', color: 'var(--status-danger)', bg: 'var(--status-danger-bg-light)'
   }
 };
-const TRANSITION_LABELS: Record<string, string> = {
-  APPROVED: '分配库存',
-  ALLOCATED: '开始拣货',
-  PICKED: '装车',
-  LOADED: '发货',
-  SHIPPED: '标记送达'
-};
-const TRANSITION_TARGETS: Record<string, string> = {
-  APPROVED: 'ALLOCATED',
-  ALLOCATED: 'PICKED',
-  PICKED: 'LOADED',
-  LOADED: 'SHIPPED',
-  SHIPPED: 'DELIVERED'
-};
-
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
 interface OrderItem {
@@ -181,6 +167,16 @@ interface Order {
   created_at: string;
   items?: OrderItem[];
   arInvoice?: any;
+}
+interface ProcessDocument { type: string; id: string; no: string; status: string; href?: string }
+interface ProcessTimelineItem {
+  id: string; time: string; docType: string; docNo: string; action: string;
+  operator?: string | null; fromStatus?: string | null; toStatus?: string | null;
+  comment?: string | null; source: string; reasonCode?: string | null;
+}
+interface OrderProcessLog {
+  orderNo: string; currentStatus: string; documents: ProcessDocument[];
+  timeline: ProcessTimelineItem[]; warnings: string[];
 }
 type ActivitySource = 'ALL' | 'ORDER' | 'POS';
 interface SalesActivityRow {
@@ -301,6 +297,10 @@ export default function SalesV2OrdersPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [processLog, setProcessLog] = useState<OrderProcessLog | null>(null);
+  const [processLoading, setProcessLoading] = useState(false);
+  const [dangerAction, setDangerAction] = useState<{ id: string; action: 'cancel' } | null>(null);
+  const [dangerReason, setDangerReason] = useState('');
 
   // 新建表单状态
   const [newForm, setNewForm] = useState({
@@ -427,11 +427,18 @@ export default function SalesV2OrdersPage() {
   // ── 加载详情 ────────────────────────────────────────────────────────────────
 
   const openDetail = async (id: string) => {
+    setProcessLoading(true);
     try {
-      const d = await api<Order>('GET', `/api/v2/sales/orders/${id}`);
+      const [d, log] = await Promise.all([
+        api<Order>('GET', `/api/v2/sales/orders/${id}`),
+        api<OrderProcessLog>('GET', `/api/v2/sales/orders/${id}/process-log`),
+      ]);
       setDetailOrder(d);
+      setProcessLog(log);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setProcessLoading(false);
     }
   };
 
@@ -534,8 +541,7 @@ export default function SalesV2OrdersPage() {
       // reflect the server-authoritative workflow state without a manual refresh.
       await loadOrders();
       if (detailOrder?.id === id) {
-        const d = await api<Order>('GET', `/api/v2/sales/orders/${id}`);
-        setDetailOrder(d);
+        await openDetail(id);
       }
     } catch (e: any) {
       setActionError(e.message);
@@ -686,7 +692,6 @@ export default function SalesV2OrdersPage() {
           <tbody>
             {orders.map(o => {
             const sc = statusConf(o.status);
-            const nextTarget = TRANSITION_TARGETS[o.status];
             const isOrder = o.sourceType === 'ORDER';
             const openActivity = () => isOrder ? openDetail(o.sourceId) : window.location.assign(o.detailHref);
             return <tr key={`${o.sourceType}:${o.sourceId}`} className={u.pointer} onClick={openActivity}>
@@ -720,14 +725,6 @@ export default function SalesV2OrdersPage() {
                     padding: '3px 8px',
                     fontSize: 11
                   }} disabled={actionLoading} onClick={() => doAction(o.sourceId, 'submit')}>{t('ui.提交','提交')}</button>}
-                      {isOrder && nextTarget && canTransit && <button className={s.btnSecondary} style={{
-                    padding: '3px 8px',
-                    fontSize: 11
-                  }} disabled={actionLoading} onClick={() => doAction(o.sourceId, 'transition', {
-                    targetStatus: nextTarget
-                  })}>
-                          {TRANSITION_LABELS[o.status]}
-                        </button>}
                       {isOrder && o.status === 'DELIVERED' && canTransit && <button className={s.btnPrimary} style={{
                     padding: '3px 8px',
                     fontSize: 11
@@ -735,7 +732,7 @@ export default function SalesV2OrdersPage() {
                       {isOrder && ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(o.status) && canCreate && <button className={s.btnDanger} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} disabled={actionLoading} onClick={() => doAction(o.sourceId, 'cancel')}>{t('ui.取消','取消')}</button>}
+                  }} disabled={actionLoading} onClick={() => { setDangerReason(''); setDangerAction({ id: o.sourceId, action: 'cancel' }); }}>{t('ui.取消','取消')}</button>}
                       {!isOrder && <button className={s.btnSecondary} style={{ padding: '3px 8px', fontSize: 11 }} onClick={openActivity}>{t('ui.查看详情','查看详情')}</button>}
                     </div>
                   </td>
@@ -1146,7 +1143,7 @@ export default function SalesV2OrdersPage() {
       </ModalV2>
 
       {/* ── 订单详情弹窗 ── */}
-      <ModalV2 open={!!detailOrder} title={detailOrder ? `${detailOrder.order_no} · ${detailOrder.company_code}` : ''} onClose={() => setDetailOrder(null)} width={600}>
+      <ModalV2 open={!!detailOrder} title={detailOrder ? `${detailOrder.order_no} · ${detailOrder.company_code}` : ''} onClose={() => { setDetailOrder(null); setProcessLog(null); }} width={760}>
         {detailOrder && <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
             {actionError && <div style={{
@@ -1198,6 +1195,41 @@ export default function SalesV2OrdersPage() {
             background: 'var(--status-warning-bg-light)',
             color: 'var(--status-warning)'
           }}>{t('ui.⚠ 信用预警','⚠ 信用预警')}</span>}
+            </div>
+
+            {/* 链路健康 */}
+            <div style={{ padding: '10px 14px', borderRadius: 8,
+              border: `1px solid ${processLog?.warnings.length ? 'var(--status-danger)' : 'var(--status-success)'}`,
+              background: processLog?.warnings.length ? 'var(--status-danger-bg-faint)' : 'var(--status-success-bg-faint)', fontSize: 12 }}>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>{t('ui.链路健康','链路健康')}</div>
+              {processLoading ? t('ui.加载中','加载中') : processLog?.warnings.length
+                ? processLog.warnings.map(w => <div key={w} style={{ color: 'var(--status-danger)' }}>⚠ {w === 'RECEIVED_WITHOUT_AR' ? t('ui.已签收但未生成应收','已签收但未生成应收') : w}</div>)
+                : <span style={{ color: 'var(--status-success)' }}>✓ {t('ui.订单链路未发现异常','订单链路未发现异常')}</span>}
+            </div>
+
+            {/* 关联单据 */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('ui.关联单据','关联单据')}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {processLog?.documents.map(doc => doc.href
+                  ? <Link key={`${doc.type}-${doc.id}`} href={doc.href} style={{ padding: '6px 9px', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--color-primary)' }}>{doc.type} · {doc.no} · {doc.status}</Link>
+                  : <span key={`${doc.type}-${doc.id}`} style={{ padding: '6px 9px', border: '1px solid var(--border)', borderRadius: 6 }}>{doc.type} · {doc.no} · {doc.status}</span>)}
+                {!processLoading && !processLog?.documents.length && <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{t('ui.暂无关联单据','暂无关联单据')}</span>}
+              </div>
+            </div>
+
+            {/* 全流程时间轴；Workflow 段复用统一组件 */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('ui.全流程时间轴','全流程时间轴')}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                {processLog?.timeline.filter(item => item.source !== 'WORKFLOW').map(item => <div key={item.id} style={{ borderLeft: '3px solid var(--color-primary)', paddingLeft: 10 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{item.action} <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>[{item.source}]</span></div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.operator || t('ui.系统','系统')} · {item.time ? new Date(item.time).toLocaleString() : '—'}</div>
+                  {(item.fromStatus || item.toStatus) && <div style={{ fontSize: 12 }}>{item.fromStatus || '—'} → {item.toStatus || '—'}</div>}
+                  {item.comment && <div style={{ fontSize: 12 }}>{item.comment}</div>}
+                </div>)}
+                {!!processLog?.timeline.some(item => item.source === 'WORKFLOW') && <WorkflowTimeline actions={processLog.timeline.filter(item => item.source === 'WORKFLOW').map(item => ({ action: item.action, actor_name: item.operator, created_at: item.time, comment: item.comment }))} />}
+              </div>
             </div>
 
             {/* 基本信息 */}
@@ -1269,7 +1301,7 @@ export default function SalesV2OrdersPage() {
             gap: 16,
             flexWrap: 'wrap'
           }}>
-                  <span>{t('ui.应收单号：','应收单号：')}{detailOrder.arInvoice.ar_no}</span>
+                  <Link href={`/finance2/ar?invoiceId=${detailOrder.arInvoice.id}`} style={{ color: 'var(--color-primary)' }}>{t('ui.应收单号：','应收单号：')}{detailOrder.arInvoice.ar_no}</Link>
                   <span>{t('ui.金额：','金额：')}{Number(detailOrder.arInvoice.amount_original).toLocaleString()}</span>
                   <span>{t('ui.到期：','到期：')}{detailOrder.arInvoice.due_date?.slice(0, 10)}</span>
                   <span>{t('ui.状态：','状态：')}{detailOrder.arInvoice.status}</span>
@@ -1335,17 +1367,27 @@ export default function SalesV2OrdersPage() {
           borderTop: '1px solid var(--border)'
         }}>
               {detailOrder.status === 'DRAFT' && canCreate && <button className={s.btnPrimary} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'submit')}>{t('ui.提交审批','提交审批')}</button>}
-              {TRANSITION_TARGETS[detailOrder.status] && canTransit && <button className={s.btnSecondary} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'transition', {
-            targetStatus: TRANSITION_TARGETS[detailOrder.status]
-          })}>
-                  {TRANSITION_LABELS[detailOrder.status]}
-                </button>}
               {detailOrder.status === 'DELIVERED' && canTransit && <button className={s.btnPrimary} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'receive')}>
                   {t('ui.确认签收','确认签收')}
                 </button>}
-              {['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(detailOrder.status) && canCreate && <button className={s.btnDanger} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'cancel')}>{t('ui.取消订单','取消订单')}</button>}
+              {['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(detailOrder.status) && canCreate && <button className={s.btnDanger} disabled={actionLoading} onClick={() => { setDangerReason(''); setDangerAction({ id: detailOrder.id, action: 'cancel' }); }}>{t('ui.取消订单','取消订单')}</button>}
             </div>
         </div>}
+      </ModalV2>
+
+      <ModalV2 open={!!dangerAction} title={t('ui.危险操作确认','危险操作确认')} onClose={() => setDangerAction(null)} width={460}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ color: 'var(--status-danger)', fontSize: 13 }}>{t('ui.取消订单会释放库存并终止流程，请填写原因。','取消订单会释放库存并终止流程，请填写原因。')}</div>
+          <textarea aria-label={t('ui.操作原因','操作原因')} className={s.input} rows={4} value={dangerReason} onChange={e => setDangerReason(e.target.value)} placeholder={t('ui.必填：操作原因','必填：操作原因')} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button className={s.btnSecondary} onClick={() => setDangerAction(null)}>{t('ui.返回','返回')}</button>
+            <button className={s.btnDanger} disabled={actionLoading || !dangerReason.trim()} onClick={async () => {
+              if (!dangerAction) return;
+              await doAction(dangerAction.id, dangerAction.action, { remark: dangerReason.trim() });
+              setDangerAction(null);
+            }}>{t('ui.确认取消','确认取消')}</button>
+          </div>
+        </div>
       </ModalV2>
     </div>;
 }
