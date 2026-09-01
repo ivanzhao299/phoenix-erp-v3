@@ -518,6 +518,54 @@ jobs:
             rm -f /tmp/sales-activity-all.json /tmp/sales-activity-order.json /tmp/sales-orders-legacy.json
             echo "PRODUCTION_BUSINESS_WRITES=0"
 
+      - name: Render sales activity production page readonly
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'sales-activity-amei-readonly'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          echo "::add-mask::$TOKEN"
+          corepack enable
+          pnpm install --frozen-lockfile
+          cd apps/web
+          pnpm exec playwright install --with-deps chromium >/dev/null
+          PHOENIX_AUDIT_TOKEN="$TOKEN" node - <<'NODE'
+          const { chromium } = require('@playwright/test');
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            try {
+              const context = await browser.newContext();
+              await context.addCookies([{ name:'phoenix_access_token', value:process.env.PHOENIX_AUDIT_TOKEN, url:'https://erp.eggslao.com' }]);
+              const page = await context.newPage();
+              await page.addInitScript(token => {
+                const user = { username:'admin', role:'ROLE_ADMIN', roles:['ROLE_ADMIN'], permissions:['*'] };
+                sessionStorage.setItem('phoenix_session_version','v6');
+                sessionStorage.setItem('phoenix_token',token);
+                sessionStorage.setItem('phoenix_user',JSON.stringify(user));
+                localStorage.setItem('phoenix_token',token);
+                localStorage.setItem('phoenix_user',JSON.stringify(user));
+                localStorage.setItem('phoenix_lang','zh');
+              }, process.env.PHOENIX_AUDIT_TOKEN);
+              await page.goto('https://erp.eggslao.com/sales2/orders', { waitUntil:'domcontentloaded' });
+              await page.getByRole('tab', { name:'客户订单' }).waitFor({ state:'visible', timeout:30000 });
+              const row = page.locator('tbody tr').first();
+              await row.waitFor({ state:'visible', timeout:30000 });
+              const text = (await row.textContent()) || '';
+              if (!/SO-[A-Z0-9-]+/.test(text)) throw new Error(`visible ORDER row missing: ${text}`);
+              console.log(`SALES_ACTIVITY_BROWSER=PASS customer_order_tab=true visible_order=${text.match(/SO-[A-Z0-9-]+/)[0]}`);
+            } finally { await browser.close(); }
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+          unset TOKEN
+
       - name: Run Chanjet readonly production sync
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'chanjet-readonly-production'
         uses: appleboy/ssh-action@v1
