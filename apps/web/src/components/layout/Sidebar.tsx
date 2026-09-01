@@ -168,7 +168,6 @@ export const MENU: MenuItem[] = [
     { id: "s2-store-inv",   path: "/store/inventory",    Icon: Archive,         label: "门店库存",   perm: "MENU_STORE_MGR"        },
     { id: "s2-store-rep",   path: "/store/replenish",    Icon: ShoppingBag,     label: "补货申请",   perm: "MENU_STORE_REPLENISH"  },
     { id: "s2-store-loss",  path: "/store/losses",       Icon: Minus,           label: "损耗记录",   perm: "MENU_STORE_MGR"        },
-    { id: "s2-store-daily", path: "/store/daily",        Icon: Receipt,         label: "门店日结",   perm: "MENU_STORE_MGR"        },
     { id: "s2-inventory",   path: "/sales2/inventory",   Icon: Archive,         label: "鸡蛋库存",   perm: "MENU_SALES2_INVENTORY" },
     { id: "s2-reports",     path: "/sales2/reports",     Icon: BarChart2,       label: "销售分析",   perm: "MENU_SALES2_REPORT"    },
   ]},

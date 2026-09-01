@@ -38,8 +38,8 @@ green "  ✓ token=${TOKEN:0:30}..."
 #     避免对已删功能的死测试长期红灯掩盖真实回归信号。
 PROBE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/api/v3/pos/sales" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}')
-if [ "$PROBE" = "404" ]; then
-  yellow "⏭️  SKIP pos-store 回归：api/v3/pos 旁路已于 R4.1 删除（探测 POST /api/v3/pos/sales → 404）。"
+if [ "$PROBE" = "410" ] || [ "$PROBE" = "404" ]; then
+  yellow "⏭️  SKIP pos-store 回归：api/v3/pos 旁路已退役（探测 POST /api/v3/pos/sales → $PROBE）。"
   yellow "    本套件整体针对该旧旁路，待按现架构重写："
   yellow "      · 销售/退款/作废 → api/v2/store-sales (StorePosController)"
   yellow "      · 损耗/收货审批 → WMS inventory.controller (approveLoss / confirmReceivingOrder)"
