@@ -97,6 +97,8 @@ describe('StorePosService V1-2 atomic settlement', () => {
     }], ['WH-R']);
     const batchInsert = (mgr.query.mock.calls as any[]).find(([sql]) => sql.includes('INSERT INTO inv_batches'));
     expect(batchInsert?.[1]).toEqual(expect.arrayContaining([2, 'WH-R', 'RET-Q']));
+    expect(String(batchInsert?.[0])).toContain("VALUES ($1,$2,$3,$4,0,$5,$6,'STORE_RETURN',$7,'QUARANTINE'");
+    expect(String(batchInsert?.[0])).toContain('qty_available = 0');
     expect(mgr.query.mock.calls.some(([sql]) => sql.includes('returned_qty=allocated_qty'))).toBe(true);
     const locationLookup = String(mgr.query.mock.calls[0]?.[0]);
     expect(locationLookup).toContain("z.zone_type='QUARANTINE'");
