@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
@@ -209,6 +210,7 @@ export default function SalesV2OrdersPage() {
   } = usePermission();
   // G24-A：PBAC 收口（销售订单域 MENU_SALES2_ORDER）
   const { canCreate, canApprove, canEdit: canTransit } = usePermission('MENU_SALES2_ORDER');
+  const { canView: canViewStorePos } = usePermission('MENU_STORE_POS');
 
   // 列表状态
   const [orders, setOrders] = useState<Order[]>([]);
@@ -452,6 +454,23 @@ export default function SalesV2OrdersPage() {
   };
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.销售订单','销售订单')} subtitle={t('ui.统一销售订单 · 定价引擎 · 信用控制 · 审批流程 · 应收联动','统一销售订单 · 定价引擎 · 信用控制 · 审批流程 · 应收联动')} breadcrumb={[t('ui.销售系统','销售系统'), t('ui.销售订单','销售订单')]} />
+
+      <div style={{
+      marginBottom: 16,
+      padding: '12px 14px',
+      borderRadius: 8,
+      border: '1px solid var(--status-info-border)',
+      background: 'var(--status-info-bg)',
+      color: 'var(--text-secondary)',
+      fontSize: 13
+    }}>
+        {t('ui.客户订单与门店POS成交采用不同业务链路。本页展示客户订单；门店即时成交请前往门店POS成交查看。','客户订单与门店 POS 成交采用不同业务链路。本页展示客户订单；门店即时成交请前往“门店 POS 成交”查看。')}
+        {canViewStorePos && <Link href="/store-pos" style={{
+        marginLeft: 8,
+        color: 'var(--status-info)',
+        fontWeight: 700
+      }}>{t('ui.查看门店POS成交','查看门店 POS 成交')} →</Link>}
+      </div>
 
       {/* 操作栏 */}
       <div style={{
