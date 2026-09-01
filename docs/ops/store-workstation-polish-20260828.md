@@ -373,4 +373,14 @@ DataTable 已有加载、错误、空态与横向滚动。`/store` 刷新按钮�
 
 - API 专项覆盖：库存三 Tab/统计/ledger 关联/fail-closed；退货成功、重复、并发锁复检、库存异常回滚；既有 AVAILABLE FIFO/QUARANTINE 区位契约继续执行。
 - Web 专项覆盖：两入口真实单号 toast、退货 ModalV2、权限与 busy、三档响应式、移动库存卡、三语键、触摸滚动。
-- CI、PR、full 部署、revision 与生产 amei 只读复验须在 commit/push 后记录最终结果；不得以本地 mock 代替生产 SQL 等价断言。
+- i18n 门禁真实修复：补齐 `ui.门店工作台加载失败` 的 zh/en/lo 三语值，未删除任何键；`node scripts/check-i18n-keys.js` 结果为三语各 14,256 键、7,795 个引用全部命中，hardcoded coverage 为 3,344/3,344。
+- 冻结/安全触碰已逐文件复核并在 PR 登记 `reviewed-frozen-boundary`、`reviewed-security-touch`。改动未涉及 migration、entity、schema、TypeORM/database 或部署链；安全扫描唯一 finding 是事务测试 mock，权限与 DataScope 交集另行人工复核。`ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true node scripts/ci/check-w5-closeout-gate.mjs` 为 20/20 PASS。
+- PR [#139](https://github.com/ivanzhao299/phoenix-erp-v3/pull/139) 在 head `dabbb137` 达到 7 success、0 failure、0 pending（3 项条件跳过），于 2026-09-01 合并，merge SHA `4866ce07329543732497d0e881af8f686db95603`。
+- 首次 full 生产部署 [run 33459106042](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33459106042) 成功。生产只读复验随后发现退货 SQL 将 QUARANTINE 批次的 `qty_available` 错写为退货数量；未绕过门禁，代码改为插入与冲突更新均写 `qty_available=0`，并补专项回归（9/9 PASS）。修复提交 `1f91fef512be035f9455141b7b8d621feff740e2` 的 main CI [run 33460266027](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33460266027) 成功。
+- 修复后的 full 生产部署 [run 33460884007](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33460884007) 成功。生产三方 revision 核实：checkout/API image/Web image 均为 `1f91fef512be035f9455141b7b8d621feff740e2`。
+- 生产只读 G3 验收 [run 33461334860](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33461334860) 成功，且输出 `PRODUCTION_BUSINESS_WRITES=0`：
+  - amei 上下文唯一命中 `STORE-HS-001`，角色 `CASHIER,STORE_MANAGER`，Sales binding 与 WarehouseScope 交集均为 true；`/store/inventory` 鉴权页面 HTTP 200。
+  - 三 Tab：ALL=8、AVAILABLE=4、QUARANTINE=4；`onHand=2117`、可售口径 `status='AVAILABLE'` 合计 2103；AVAILABLE 返回无非 AVAILABLE 行，QUARANTINE 返回无非 QUARANTINE 行，三个响应 summary 一致。
+  - D0 真实退货定位：`RET-POS-20260830-00028-4` / 销售单 `POS-20260830-00028` / 仓 `ST_LAO_XINGCHI_HS_001_SALES` / `status=QUARANTINE` / `SALE_RETURN` / `qty=2.000`。只读 SQL 与库存 API 等价命中；该批次在 ALL/QUARANTINE 口径可见，在 AVAILABLE 口径不可见。
+  - 30 分钟 `store-sales` / membership 相关错误窗口计数为 0。
+- 生产现存 4 条 QUARANTINE 行（含上述历史退货批）带有非零 `qty_available`，属于修复部署前遗留数据；本任务未执行生产数据修复。不可售仍由 `status='AVAILABLE'` 硬过滤保证，新退货写路径已固定为 0。遗留行应另立受控数据治理任务，在只读盘点、审批与可回滚脚本齐备后处理，不能直接放宽 QUARANTINE 状态。
