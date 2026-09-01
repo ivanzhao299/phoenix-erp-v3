@@ -35,11 +35,13 @@ export class StoreScopePolicy {
     return mode === 'membership_shadow';
   }
 
-  async listMembershipStores(): Promise<Array<Omit<StoreContext, 'warehouseCodes'> & {
+  async listMembershipStores(userOverride?: any, scopeOverride?: any): Promise<Array<Omit<StoreContext, 'warehouseCodes'> & {
     hasSalesWarehouse: boolean;
     hasWarehouseScopeIntersection: boolean;
   }>> {
-    const userId = this.user?.userId ?? this.user?.id;
+    const user = userOverride ?? this.user;
+    const scope = scopeOverride ?? this.scope;
+    const userId = user?.userId ?? user?.id;
     if (!userId || !this.membershipEnabled) return [];
     const rows = await this.ds.query<any[]>(`
       SELECT s.id::text AS "storeId", s.store_code AS "storeCode", s.store_name AS "storeName",
@@ -62,8 +64,8 @@ export class StoreScopePolicy {
         LEFT JOIN mst_stores ms ON ms.store_code=s.store_code
        WHERE m.user_id=$1 AND m.status='ACTIVE' AND s.status='ACTIVE'
          AND (m.effective_from IS NULL OR m.effective_from<=NOW()) AND (m.effective_to IS NULL OR m.effective_to>=NOW())
-       ORDER BY s.store_code`, [userId, Boolean(this.scope?.isGlobal), this.scope?.allowedWarehouseCodes ?? []]);
-    const scoped = rows.filter(r => this.scope?.isGlobal || this.scope?.allowedCompanyCodes?.includes(r.companyCode));
+       ORDER BY s.store_code`, [userId, Boolean(scope?.isGlobal), scope?.allowedWarehouseCodes ?? []]);
+    const scoped = rows.filter(r => scope?.isGlobal || scope?.allowedCompanyCodes?.includes(r.companyCode));
     const rolePriority = ['ADMIN', 'STORE_MANAGER', 'CASHIER'];
     const byStore = new Map<string, any>();
     for (const row of scoped) {

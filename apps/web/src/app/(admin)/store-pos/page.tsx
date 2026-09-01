@@ -5,6 +5,7 @@
  * Sales V2 Phase 9: 3 列布局：[商品目录] | [购物车] | [收款结账]
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import u from "@/styles/uix-utils.module.css";
 import s from '@/components/ui/admin-ui.module.css'; // G29-B: 表格全局样式
 import { ShoppingCart, Banknote, CreditCard, Wallet, X, Plus, Minus, Search, RefreshCw, CheckCircle, AlertTriangle, Clock, History, LogIn, LogOut, FileText, BarChart2, Loader2, ChevronDown } from 'lucide-react';
@@ -250,6 +251,7 @@ function Toast({
 
 export default function StorePosPage() {
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
   const {
     canCreate, canEdit, canDelete
   } = usePermission('MENU_STORE_POS');
@@ -328,7 +330,10 @@ export default function StorePosPage() {
       if (!alive) return;
       let saved: any = null;
       try { saved = JSON.parse(sessionStorage.getItem('phoenix_store_info') || 'null'); } catch { /* ignore corrupt legacy context */ }
-      const selected = contexts.find(c => c.storeCode === saved?.storeCode) ?? contexts[0];
+      const linkedStoreCode = searchParams.get('storeCode');
+      const selected = contexts.find(c => c.storeCode === linkedStoreCode)
+        ?? contexts.find(c => c.storeCode === saved?.storeCode)
+        ?? contexts[0];
       if (!selected) return;
       setStoreCode(selected.storeCode);
       setStoreName(selected.storeName);
@@ -336,7 +341,7 @@ export default function StorePosPage() {
       setCompanyName(selected.companyCode);
     }).catch(() => { /* API fail-closed; keep context empty */ });
     return () => { alive = false; };
-  }, []);
+  }, [searchParams]);
 
   // ── 加载商品 ──────────────────────────────────────────────────────────────
   const loadProducts = useCallback(async () => {
@@ -409,6 +414,17 @@ export default function StorePosPage() {
       setLoadingDetail(false);
     }
   }, []);
+
+  // Read-only sales activity facade deep link. The detail API repeats the full
+  // membership + SALES binding ∩ WarehouseScope check, so the URL is never an
+  // authorization shortcut.
+  useEffect(() => {
+    const saleId = Number(searchParams.get('saleId'));
+    const linkedStoreCode = searchParams.get('storeCode');
+    if (!Number.isInteger(saleId) || saleId <= 0 || !linkedStoreCode || linkedStoreCode !== storeCode) return;
+    setView('history');
+    void openDetail(saleId);
+  }, [openDetail, searchParams, storeCode]);
 
   // ── 作废销售单 ───────────────────────────────────────────────────────────
   const submitVoid = useCallback(async () => {

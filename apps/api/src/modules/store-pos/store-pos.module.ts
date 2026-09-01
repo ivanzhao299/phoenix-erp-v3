@@ -24,11 +24,13 @@ import { StoreInventoryQueryService } from './services/store-inventory-query.ser
 import { SalesV2Module } from '../sales-v2/sales-v2.module';
 import { StoreSettlementController } from './controllers/store-settlement.controller';
 import { StoreSettlementService } from './services/store-settlement.service';
+import { SalesActivityController } from './controllers/sales-activity.controller';
+import { SalesActivityService } from './services/sales-activity.service';
 
 @Module({
   imports: [WmsModule, SalesV2Module, TypeOrmModule.forFeature([StoreEntity, StoreAliasEntity, StoreMembershipEntity, StoreWarehouseBindingEntity])],
-  controllers: [StorePosController, StoreReplenishmentController, StoreSettlementController],
-  providers:   [StorePosService, StorePosShiftService, StoreSettlementService, SalesEngineService, StoreScopePolicy, StoreIdentityGovernanceService, StoreReplenishmentService, StoreInventoryQueryService, { provide: StoreContextResolver, useExisting: StoreScopePolicy }],
+  controllers: [StorePosController, StoreReplenishmentController, StoreSettlementController, SalesActivityController],
+  providers:   [StorePosService, StorePosShiftService, StoreSettlementService, SalesActivityService, SalesEngineService, StoreScopePolicy, StoreIdentityGovernanceService, StoreReplenishmentService, StoreInventoryQueryService, { provide: StoreContextResolver, useExisting: StoreScopePolicy }],
   exports:     [StorePosService, StorePosShiftService, SalesEngineService, StoreScopePolicy, StoreContextResolver, StoreIdentityGovernanceService],
 })
 export class StorePosModule {}

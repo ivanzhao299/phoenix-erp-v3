@@ -250,3 +250,28 @@
 5. 实施另轮先做 contract / scope tests，再改 API 和 UI；本轮不实施。
 
 本轮没有修改业务代码、数据库、权限、导航或生产数据，也没有执行生产查询。
+
+## F. 实施记录（2026-09-01）
+
+### F1. P0
+
+- commit `527ac7c3`：销售管理导航将既有 POS 入口明确命名为“门店 POS 成交”；销售订单页增加两条业务链分离说明和 `MENU_STORE_POS:V` 门禁链接。
+- 定向 Web 契约 2/2 通过，Web TypeScript 0 errors。
+
+### F2. P1–P3
+
+- 新增只读 `GET /api/v2/sales/activity`。DTO 冻结为 `sourceType/sourceId/documentNo/companyCode/storeCode/customerCode/customerName/status/displayCategory/amount/currency/businessDate/occurredAt/detailHref`；行身份固定为 `(sourceType, sourceId)`。
+- 排序固定为 `(occurredAt DESC, sourceType ASC, sourceId ASC)`；两个来源分别过取 `page * limit + 1`，服务层 merge 后截断；响应返回 `hasMore`，不返回伪精确 `total`。
+- ORDER 分支只读 `sal_sales_orders`，复用请求的 company DataScope。POS 分支显式按 `MENU_STORE_POS` 重新解析 DataScope，再以 StoreScopePolicy 的有效 membership、有效 SALES binding 与 WarehouseScope 交集取得一次性 store code 数组，使用参数化 `ANY($1::text[])` 查询；global/admin 不绕过 membership/binding。
+- `source=ORDER|POS` 无对应实际可用来源时 API 403；`ALL` 只合并实际可用来源，`availableSources` 驱动前端隐藏 Tab。来源专属状态只命中其真实来源，直接请求不适用状态返回 400，不做 `COMPLETED → RECEIVED` 映射。
+- `/sales2/orders` 已接 facade，提供“全部 / 客户订单 / POS 成交”Tab、来源徽章、POS 只读行与 `/store-pos?saleId=<id>&storeCode=<code>` 深链；所有提交/取消/流转/签收动作均以 `sourceType === 'ORDER'` 门禁。POS 详情仍调用原 `/api/v2/store-sales/:id`，重复执行完整 scope 校验。
+- facade 源码契约禁止 DML，并禁止依赖 settlement、Cash/AR adapter 或库存 ledger；未修改任何业务表写链、settlement build SQL、Dashboard 统计口径或 schema。
+
+### F3. 验证（部署前）
+
+- API Jest 全量：76 suites / 672 tests 全通过。
+- Web Vitest 全量：92 files / 483 tests 全通过。
+- 新增/相关定向：SalesActivity facade 8/8；StoreScopePolicy 与 facade 合计 23/23；Web 联合列表/权限/订单动作 11/11。
+- API 与 Web `tsc --noEmit`：0 errors。
+- `check-constraint-drift.js`：0 new drift；`check-nullable-in-unique.js`：0 violations。
+- P4 本地执行计划未伪造：当前工作区没有运行中的生产等量数据库或生产凭据，且 `docker compose` 因必填 `JWT_SECRET` 未配置而无法解析。按红线不创建猜测性索引；部署后必须以生产只读事务补充 EXPLAIN、revision、amei/权限裁剪与错误窗口证据，再决定是否独立建索引迁移。

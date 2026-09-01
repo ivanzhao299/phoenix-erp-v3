@@ -21,6 +21,6 @@ describe('sales orders POS discoverability', () => {
 
   it('explains that customer orders and POS sales are separate chains', () => {
     expect(ordersPage).toContain('客户订单与门店 POS 成交采用不同业务链路');
-    expect(ordersPage).toContain('本页展示客户订单');
+    expect(ordersPage).toContain('联合列表仅供发现与查看');
   });
 });

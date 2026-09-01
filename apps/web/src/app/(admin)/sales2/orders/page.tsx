@@ -12,7 +12,6 @@ import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
-import { normalizeSalesOrdersPage } from '@/lib/sales-orders-response';
 import styles from './orders.module.css';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -105,6 +104,18 @@ const STATUS_MAP: Record<string, {
     label: '已取消',
     color: 'var(--slate-500)',
     bg: 'var(--status-neutral-bg-light)'
+  },
+  OPEN: {
+    label: '待结算', color: 'var(--status-warning)', bg: 'var(--status-warning-bg-light)'
+  },
+  COMPLETED: {
+    label: '已成交', color: 'var(--status-success)', bg: 'var(--status-success-bg-light)'
+  },
+  VOID: {
+    label: '已作废', color: 'var(--slate-500)', bg: 'var(--status-neutral-bg-light)'
+  },
+  RETURNED: {
+    label: '已退货', color: 'var(--status-danger)', bg: 'var(--status-danger-bg-light)'
   }
 };
 const TRANSITION_LABELS: Record<string, string> = {
@@ -158,6 +169,23 @@ interface Order {
   items?: OrderItem[];
   arInvoice?: any;
 }
+type ActivitySource = 'ALL' | 'ORDER' | 'POS';
+interface SalesActivityRow {
+  sourceType: 'ORDER' | 'POS';
+  sourceId: string;
+  documentNo: string;
+  companyCode: string;
+  storeCode: string | null;
+  customerCode: string | null;
+  customerName: string | null;
+  status: string;
+  displayCategory: string;
+  amount: number;
+  currency: string;
+  businessDate: string;
+  occurredAt: string;
+  detailHref: string;
+}
 interface Customer {
   id: string;
   customer_code: string;
@@ -205,16 +233,15 @@ function SkuBadge({
 
 export default function SalesV2OrdersPage() {
   const { t } = useLanguage();
-  const {
-    can
-  } = usePermission();
   // G24-A：PBAC 收口（销售订单域 MENU_SALES2_ORDER）
   const { canCreate, canApprove, canEdit: canTransit } = usePermission('MENU_SALES2_ORDER');
   const { canView: canViewStorePos } = usePermission('MENU_STORE_POS');
 
   // 列表状态
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [total, setTotal] = useState(0);
+  const [orders, setOrders] = useState<SalesActivityRow[]>([]);
+  const [source, setSource] = useState<ActivitySource>('ALL');
+  const [availableSources, setAvailableSources] = useState<Array<'ORDER' | 'POS'>>(['ORDER']);
+  const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -256,29 +283,31 @@ export default function SalesV2OrdersPage() {
 
   // ── 数据加载 ────────────────────────────────────────────────────────────────
 
-  const loadOrders = useCallback(async (query?: { page?: number; status?: string; keyword?: string }) => {
+  const loadOrders = useCallback(async (query?: { page?: number; status?: string; keyword?: string; source?: ActivitySource }) => {
     setLoading(true);
     setError('');
     try {
       const requestedPage = query?.page ?? page;
       const requestedStatus = query?.status ?? filterStatus;
       const requestedKeyword = query?.keyword ?? keyword;
+      const requestedSource = query?.source ?? source;
       const params = new URLSearchParams({
         page: String(requestedPage),
-        limit: '20'
+        limit: '20',
+        source: requestedSource
       });
       if (requestedStatus) params.set('status', requestedStatus);
       if (requestedKeyword) params.set('keyword', requestedKeyword);
-      const res = await api<any>('GET', `/api/v2/sales/orders?${params}`);
-      const normalized = normalizeSalesOrdersPage<Order>(res);
-      setOrders(normalized.rows);
-      setTotal(normalized.total);
+      const res = await api<any>('GET', `/api/v2/sales/activity?${params}`);
+      setOrders(Array.isArray(res.data) ? res.data : []);
+      setAvailableSources(Array.isArray(res.availableSources) ? res.availableSources : []);
+      setHasMore(Boolean(res.hasMore));
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [page, filterStatus, keyword]);
+  }, [page, filterStatus, keyword, source]);
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
@@ -412,9 +441,10 @@ export default function SalesV2OrdersPage() {
       // A draft must be discoverable immediately even when the user created it
       // from a later page or while a status/keyword filter was active.
       setPage(1);
+      setSource('ORDER');
       setFilterStatus('');
       setKeyword('');
-      await loadOrders({ page: 1, status: '', keyword: '' });
+      await loadOrders({ page: 1, status: '', keyword: '', source: 'ORDER' });
     } catch (e: any) {
       setActionError(e.message);
     } finally {
@@ -464,7 +494,7 @@ export default function SalesV2OrdersPage() {
       color: 'var(--text-secondary)',
       fontSize: 13
     }}>
-        {t('ui.客户订单与门店POS成交采用不同业务链路。本页展示客户订单；门店即时成交请前往门店POS成交查看。','客户订单与门店 POS 成交采用不同业务链路。本页展示客户订单；门店即时成交请前往“门店 POS 成交”查看。')}
+        {t('ui.客户订单与门店POS成交采用不同业务链路；联合列表仅供发现与查看，不作为结算、资金、应收或过账输入。','客户订单与门店 POS 成交采用不同业务链路；联合列表仅供发现与查看，不作为结算、资金、应收或过账输入。')}
         {canViewStorePos && <Link href="/store-pos" style={{
         marginLeft: 8,
         color: 'var(--status-info)',
@@ -473,6 +503,18 @@ export default function SalesV2OrdersPage() {
       </div>
 
       {/* 操作栏 */}
+      <div role="tablist" aria-label={t('ui.销售来源','销售来源')} style={{
+      display: 'flex', gap: 8, marginBottom: 12
+    }}>
+        {([['ALL', t('ui.全部','全部')], ['ORDER', t('ui.客户订单','客户订单')], ['POS', t('ui.POS成交','POS 成交')]] as const)
+          .filter(([value]) => value === 'ALL' || availableSources.includes(value))
+          .map(([value, label]) => <button key={value} role="tab" aria-selected={source === value}
+            className={source === value ? s.btnPrimary : s.btnSecondary}
+            onClick={() => { setSource(value); setPage(1); setFilterStatus(''); }}>
+              {label}
+            </button>)}
+      </div>
+
       <div style={{
       display: 'flex',
       gap: 10,
@@ -565,23 +607,30 @@ export default function SalesV2OrdersPage() {
           </div> : orders.length === 0 ? <div style={{
         padding: '32px 0'
       }}>
-            <EmptyState title={t('ui.暂无订单数据','暂无订单数据')} description={t('ui.当前筛选条件下没有销售订单','当前筛选条件下没有销售订单')} compact />
+            <EmptyState title={t('ui.暂无销售数据','暂无销售数据')} description={t('ui.当前筛选条件下没有可见的客户订单或POS成交','当前筛选条件下没有可见的客户订单或 POS 成交')} compact />
           </div> : <div className={styles.tableScroll}><table className={`${s.table} ${styles.ordersTable}`} style={{ tableLayout: "fixed", width: "100%" }}>
           <thead>
             <tr>
-              {[t('ui.订单号','订单号'), t('ui.客户','客户'), t('ui.金额','金额'), t('ui.状态','状态'), t('ui.价格','价格'), t('ui.信用','信用'), t('ui.应收','应收'), t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+              {[t('ui.来源','来源'), t('ui.单据号','单据号'), t('ui.客户门店','客户 / 门店'), t('ui.金额','金额'), t('ui.状态','状态'), t('ui.业务日期','业务日期'), t('ui.操作','操作')].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
             {orders.map(o => {
             const sc = statusConf(o.status);
             const nextTarget = TRANSITION_TARGETS[o.status];
-            return <tr key={o.id} className={u.pointer} onClick={() => openDetail(o.id)}>
+            const isOrder = o.sourceType === 'ORDER';
+            const openActivity = () => isOrder ? openDetail(o.sourceId) : window.location.assign(o.detailHref);
+            return <tr key={`${o.sourceType}:${o.sourceId}`} className={u.pointer} onClick={openActivity}>
+                  <td><span style={{
+                padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                background: isOrder ? 'var(--status-info-bg)' : 'var(--status-special-bg)',
+                color: isOrder ? 'var(--status-info)' : 'var(--color-purple-500)'
+              }}>{isOrder ? t('ui.销售订单','销售订单') : 'POS'}</span></td>
                   <td style={{
                 color: 'var(--color-primary)'
-              }}>{o.order_no}</td>
-                  <td>{o.customer_name ?? o.customer_code ?? '—'}</td>
-                  <td>{Number(o.total_amount).toLocaleString()} {o.currency_code}</td>
+              }}>{o.documentNo}</td>
+                  <td>{o.customerName ?? o.customerCode ?? '—'}{o.storeCode ? ` · ${o.storeCode}` : ''}</td>
+                  <td>{Number(o.amount).toLocaleString()} {o.currency}</td>
                   <td>
                     <span style={{
                   padding: '3px 8px',
@@ -592,58 +641,33 @@ export default function SalesV2OrdersPage() {
                   color: sc.color
                 }}>{sc.label}</span>
                   </td>
-                  <td>
-                    {o.below_floor_price && <span style={{
-                  fontSize: 11,
-                  color: 'var(--status-danger)',
-                  fontWeight: 700
-                }}>{t('ui.⚠ 低价','⚠ 低价')}</span>}
-                  </td>
-                  <td>
-                    {o.over_credit && <span style={{
-                  fontSize: 11,
-                  color: 'var(--status-warning)',
-                  fontWeight: 700
-                }}>{t('ui.⚠ 超信用','⚠ 超信用')}</span>}
-                  </td>
-                  <td>
-                    {o.ar_invoice_id ? <span style={{
-                  fontSize: 11,
-                  color: 'var(--status-success)',
-                  fontWeight: 700
-                }}>{t('ui.✓ 已生成','✓ 已生成')}</span> : o.status === 'RECEIVED' ? <span style={{
-                  fontSize: 11,
-                  color: 'var(--status-warning)'
-                }}>{t('ui.待生成','待生成')}</span> : <span style={{
-                  fontSize: 11,
-                  color: 'var(--text-secondary)'
-                }}>—</span>}
-                  </td>
+                  <td>{o.businessDate}</td>
                   <td onClick={e => e.stopPropagation()}>
                     <div style={{
                   display: 'flex',
                   gap: 4
                 }}>
-                      {o.status === 'DRAFT' && canCreate && <button className={s.btnPrimary} style={{
+                      {isOrder && o.status === 'DRAFT' && canCreate && <button className={s.btnPrimary} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} disabled={actionLoading} onClick={() => doAction(o.id, 'submit')}>{t('ui.提交','提交')}</button>}
-                      {nextTarget && canTransit && <button className={s.btnSecondary} style={{
+                  }} disabled={actionLoading} onClick={() => doAction(o.sourceId, 'submit')}>{t('ui.提交','提交')}</button>}
+                      {isOrder && nextTarget && canTransit && <button className={s.btnSecondary} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} disabled={actionLoading} onClick={() => doAction(o.id, 'transition', {
+                  }} disabled={actionLoading} onClick={() => doAction(o.sourceId, 'transition', {
                     targetStatus: nextTarget
                   })}>
                           {TRANSITION_LABELS[o.status]}
                         </button>}
-                      {o.status === 'DELIVERED' && canTransit && <button className={s.btnPrimary} style={{
+                      {isOrder && o.status === 'DELIVERED' && canTransit && <button className={s.btnPrimary} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} disabled={actionLoading} onClick={() => doAction(o.id, 'receive')}>{t('ui.确认签收','确认签收')}</button>}
-                      {['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(o.status) && canCreate && <button className={s.btnDanger} style={{
+                  }} disabled={actionLoading} onClick={() => doAction(o.sourceId, 'receive')}>{t('ui.确认签收','确认签收')}</button>}
+                      {isOrder && ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(o.status) && canCreate && <button className={s.btnDanger} style={{
                     padding: '3px 8px',
                     fontSize: 11
-                  }} disabled={actionLoading} onClick={() => doAction(o.id, 'cancel')}>{t('ui.取消','取消')}</button>}
+                  }} disabled={actionLoading} onClick={() => doAction(o.sourceId, 'cancel')}>{t('ui.取消','取消')}</button>}
+                      {!isOrder && <button className={s.btnSecondary} style={{ padding: '3px 8px', fontSize: 11 }} onClick={openActivity}>{t('ui.查看详情','查看详情')}</button>}
                     </div>
                   </td>
                 </tr>;
@@ -653,7 +677,7 @@ export default function SalesV2OrdersPage() {
       </div>
 
       {/* 分页 */}
-      {total > 20 && <div style={{
+      {(page > 1 || hasMore) && <div style={{
       display: 'flex',
       gap: 8,
       justifyContent: 'center',
@@ -666,8 +690,8 @@ export default function SalesV2OrdersPage() {
         padding: '4px 12px',
         fontSize: 13,
         color: 'var(--text-secondary)'
-      }}>{t('ui.第','第')} {page} {t('ui.页 / 共','页 / 共')} {Math.ceil(total / 20)} {t('ui.页','页')}</span>
-          <button className={s.btnSecondary} disabled={page * 20 >= total} onClick={() => setPage(p => p + 1)} style={{
+      }}>{t('ui.第','第')} {page} {t('ui.页','页')}</span>
+          <button className={s.btnSecondary} disabled={!hasMore} onClick={() => setPage(p => p + 1)} style={{
         padding: '4px 12px'
       }}>{t('ui.下一页','下一页')}</button>
         </div>}

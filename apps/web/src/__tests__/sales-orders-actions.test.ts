@@ -21,6 +21,6 @@ describe('sales orders workflow action contract', () => {
   it('shows list action failures and prevents duplicate action requests', () => {
     expect(pageSource).toContain('role="alert"');
     expect(pageSource).toContain('{actionError && !detailOrder && !showCreate');
-    expect(pageSource).toMatch(/disabled=\{actionLoading\} onClick=\{\(\) => doAction\(o\.id/);
+    expect(pageSource).toMatch(/disabled=\{actionLoading\} onClick=\{\(\) => doAction\(o\.sourceId/);
   });
 });
