@@ -963,4 +963,4 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - 冻结边界逐文件复核后以 `reviewed-frozen-boundary` 显式登记；本地 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 的 W5 closeout 20/20 PASS。
 - PR #150 合入退役实现，PR #151 补齐既有三语 settlement key；业务末态 merge revision `fb241b0cb2125ec111602723b18417f22b2c94cd`。full deployment run `33486803418` 成功，明确 `mode=full`，双端镜像构建、迁移/回归、SSH 发布与健康检查全绿。
 - 部署后 amei 新链只读 smoke run `33487928837` 成功，覆盖三方 revision、contexts、门店仓 scope、shift/补货只读与错误窗口；未执行开班、销售、退货、补货或 settlement 写入。
-- 公网无 token 复验 `/api/v3/pos/sales`、`/sessions`、`/losses/:id/approve` 均为 410 且返回明确退役文案。专用只读 postflight 再以 amei 短期 token 断言旧日结为 410/403、四张旧表 Generic CRUD POST 为 410，并核对 30 分钟 Store 错误窗口为 0；该 run 成功后 V1 收官。
+- 公网无 token 复验 `/api/v3/pos/sales`、`/sessions`、`/losses/:id/approve` 均为 410 且返回明确退役文案。首轮专用只读 postflight `33488339871` 已以 amei 短期 token 证明旧日结为 410、四张旧表 Generic CRUD POST 为 410，并取得部署后 P4 Execution `0.062 ms`；随后错误窗口零匹配时 `grep` 在 `pipefail` 下返回 1，导致 workflow 误报失败，未代表发现生产错误。修复零匹配计数后重跑成功记录在下方最终收官条目。
