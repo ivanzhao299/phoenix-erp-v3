@@ -388,6 +388,7 @@ UI 在订单详情增加：
 - Web Vitest 全量：94 files / 498 tests PASS；其中订单详情采用 jsdom + React `createRoot` 真实渲染和真实 DOM 交互断言，不以源码字符串代替渲染验收。
 - 生命周期红线定向测试：append-only trigger、事件写入、乐观并发冲突、Workflow 回调注册、AR 失败事务回滚、process-log 越权拒绝、MANUAL_OVERRIDE A 权限、强制完成缺签收拒绝全部 PASS。
 - 治理门禁：nullable unique、constraint drift、entity drift、TS migration down、migration no-data-DML 均 PASS。
+- 冻结/安全边界逐文件复核后，显式 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 的 W5 closeout 20/20 PASS；PR 登记 `reviewed-frozen-boundary` 与 `reviewed-security-touch` 触发受控复验。
 - 真 scope-audit：销售订单页主数据输入仅命中 `CompanySelector/CustomerSelector/ChannelSelector/SkuSelector`；`productCode/gradeCode` 裸 input 均为 readOnly；可写 `e.target.value` 仅搜索词、数量/价格和危险动作原因。
 - 本机迁移重放未执行：`scripts/local-migration-check.sh` 在创建隔离测试库前因环境缺少 `createdb` 命令停止，未触碰任何现有数据库。CI 的 PostgreSQL migration job 作为真实 up/down/up 门禁。
 
