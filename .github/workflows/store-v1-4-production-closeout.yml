@@ -1,0 +1,102 @@
+name: Store V1-4 Production Closeout
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_production:
+        description: Type APPROVE-STORE-V1-4-20260901
+        required: true
+        type: string
+      deployed_revision:
+        description: Expected deployed checkout/API/Web revision
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-v1-4-production-closeout
+  cancel-in-progress: false
+
+jobs:
+  closeout:
+    if: inputs.approve_production == 'APPROVE-STORE-V1-4-20260901'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Revision, readonly preflight, conditional cleanup and readonly postflight
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          EXPECTED_REVISION: ${{ inputs.deployed_revision }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,EXPECTED_REVISION
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            checkout_revision="$(git rev-parse HEAD)"
+            api_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$(docker compose ps -q api)")"
+            web_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$(docker compose ps -q web)")"
+            echo "CHECKOUT_REVISION=$checkout_revision"
+            echo "API_REVISION=$api_revision"
+            echo "WEB_REVISION=$web_revision"
+            test "$checkout_revision" = "$EXPECTED_REVISION"
+            test "$api_revision" = "$EXPECTED_REVISION"
+            test "$web_revision" = "$EXPECTED_REVISION"
+
+            echo '=== READONLY PREFLIGHT ==='
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT current_setting('transaction_read_only') AS read_only;
+            DO $$ BEGIN
+              IF (SELECT count(*) FROM sys_user WHERE username='pilot_wms' AND status=0) <> 1 THEN RAISE EXCEPTION 'pilot_wms inactive precondition failed'; END IF;
+              IF to_regclass('public.sal_store_sale_tenders') IS NULL OR to_regclass('public.sal_store_settlements') IS NULL OR to_regclass('public.sal_store_price_drift_events') IS NULL THEN RAISE EXCEPTION 'V1-4 schema missing'; END IF;
+              IF (SELECT count(*) FROM sys_menu WHERE menu_code='MENU_STORE_SETTLEMENT') <> 1 THEN RAISE EXCEPTION 'settlement menu missing'; END IF;
+              IF EXISTS (SELECT 1 FROM sal_store_settlements WHERE status='POSTED' AND difference_amount<>0) THEN RAISE EXCEPTION 'posted settlement difference found'; END IF;
+            END $$;
+            SELECT 'BEFORE_PILOT_ROLE' section,count(*) count
+              FROM sys_user_role ur JOIN sys_user u ON u.user_id=ur.user_id JOIN sys_role r ON r.role_id=ur.role_id
+             WHERE u.username='pilot_wms' AND r.role_code='ROLE_WMS_MGR';
+            SELECT r.role_code,src.perm_codes source_perms,dst.perm_codes settlement_perms
+              FROM sys_role r
+              JOIN sys_role_menu_permission src ON src.role_id=r.role_id AND src.menu_id=(SELECT menu_id FROM sys_menu WHERE menu_code='MENU_FIN2_AR_LEDGER')
+              LEFT JOIN sys_role_menu_permission dst ON dst.role_id=r.role_id AND dst.menu_id=(SELECT menu_id FROM sys_menu WHERE menu_code='MENU_STORE_SETTLEMENT')
+             ORDER BY r.role_code;
+            COMMIT;
+            SQL
+
+            echo '=== SINGLE TRANSACTION ROLE CLEANUP ==='
+            docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN;
+            SET LOCAL lock_timeout='5s';
+            SET LOCAL statement_timeout='30s';
+            DELETE FROM sys_user_role ur USING sys_user u,sys_role r
+             WHERE ur.user_id=u.user_id AND ur.role_id=r.role_id AND u.username='pilot_wms' AND u.status=0 AND r.role_code='ROLE_WMS_MGR'
+             RETURNING ur.user_id,ur.role_id;
+            COMMIT;
+            SQL
+
+            echo '=== INDEPENDENT READONLY POSTFLIGHT ==='
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            DO $$ BEGIN
+              IF EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_user u ON u.user_id=ur.user_id JOIN sys_role r ON r.role_id=ur.role_id WHERE u.username='pilot_wms' AND r.role_code='ROLE_WMS_MGR') THEN RAISE EXCEPTION 'pilot_wms WMS role remains'; END IF;
+              IF EXISTS (SELECT 1 FROM sys_role_menu_permission src JOIN sys_role_menu_permission dst ON dst.role_id=src.role_id WHERE src.menu_id=(SELECT menu_id FROM sys_menu WHERE menu_code='MENU_FIN2_AR_LEDGER') AND dst.menu_id=(SELECT menu_id FROM sys_menu WHERE menu_code='MENU_STORE_SETTLEMENT') AND (src.perm_codes IS DISTINCT FROM dst.perm_codes OR src.deny_codes IS DISTINCT FROM dst.deny_codes)) THEN RAISE EXCEPTION 'settlement grants differ from AR ledger grants'; END IF;
+            END $$;
+            SELECT 'PILOT_WMS_ROLE_COUNT=0' result;
+            SELECT u.username,u.status,u.perms_version FROM sys_user u WHERE u.username='pilot_wms';
+            COMMIT;
+            SQL
