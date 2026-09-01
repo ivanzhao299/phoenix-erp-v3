@@ -79,12 +79,6 @@ jobs:
                    COALESCE(string_agg(DISTINCT NULLIF(to_jsonb(p)->>'operator',''),','),'')
               FROM daily_close p WHERE NULLIF(to_jsonb(p)->>'created_at','')::timestamptz >= now()-interval '30 days'
             UNION ALL
-            SELECT 'LEGACY_TABLE_RECENT_ROWS','biz_store_daily_close',count(*)::bigint,
-                   min(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,
-                   max(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,
-                   COALESCE(string_agg(DISTINCT NULLIF(to_jsonb(p)->>'operator',''),','),'')
-              FROM biz_store_daily_close p WHERE NULLIF(to_jsonb(p)->>'created_at','')::timestamptz >= now()-interval '30 days'
-            UNION ALL
             SELECT 'LEGACY_TABLE_RECENT_ROWS','store_inventory',count(*)::bigint,
                    min(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,
                    max(NULLIF(to_jsonb(p)->>'created_at','')::timestamptz)::text,''
