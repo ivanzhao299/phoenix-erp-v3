@@ -960,4 +960,7 @@ PR `#109` 已按本任务的冻结边界与安全收紧范围登记 `reviewed-fr
 - API 契约覆盖旧专用端点 410、四张旧表 Generic CRUD 拒写、GET 历史只读保留。
 - Web 契约覆盖旧页 redirect、菜单摘除、工作台改链。
 - 本地验证：API/Web `tsc --noEmit` 均 0 errors；API Jest 78 suites / 682 tests、Web Vitest 94 files / 497 tests 全绿；migration down、migration no-business-DML、nullable-in-unique、constraint drift、entity drift、窄正则 scope-audit 与 `git diff --check` 全绿。
-- 生产部署与部署后 revision、旧端点 410、新链 amei 冒烟、错误窗口将在本节完成 full deployment 后补录；完成前不提前记生产 PASS。
+- 冻结边界逐文件复核后以 `reviewed-frozen-boundary` 显式登记；本地 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 的 W5 closeout 20/20 PASS。
+- PR #150 合入退役实现，PR #151 补齐既有三语 settlement key；业务末态 merge revision `fb241b0cb2125ec111602723b18417f22b2c94cd`。full deployment run `33486803418` 成功，明确 `mode=full`，双端镜像构建、迁移/回归、SSH 发布与健康检查全绿。
+- 部署后 amei 新链只读 smoke run `33487928837` 成功，覆盖三方 revision、contexts、门店仓 scope、shift/补货只读与错误窗口；未执行开班、销售、退货、补货或 settlement 写入。
+- 公网无 token 复验 `/api/v3/pos/sales`、`/sessions`、`/losses/:id/approve` 均为 410 且返回明确退役文案。专用只读 postflight 再以 amei 短期 token 断言旧日结为 410/403、四张旧表 Generic CRUD POST 为 410，并核对 30 分钟 Store 错误窗口为 0；该 run 成功后 V1 收官。
