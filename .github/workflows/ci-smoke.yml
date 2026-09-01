@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, role-business-production, store-pos-amei-readonly, chanjet-readonly-production, chanjet-readonly-adapter-production, chanjet-house-alignment-readonly'
+        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, role-business-production, store-pos-amei-readonly, sales-activity-amei-readonly, chanjet-readonly-production, chanjet-readonly-adapter-production, chanjet-house-alignment-readonly'
         required: false
         default: documented-only
   pull_request:
@@ -447,6 +447,77 @@ jobs:
             ERROR_COUNT="$(docker compose exec -T db sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM sys_error_logs WHERE created_at >= NOW() - INTERVAL '\''30 minutes'\'' AND (request_path ILIKE '\''%store-sales%'\'' OR error_message ILIKE '\''%store_membership%'\'');"' | tr -d '\r\n')"
             test "$ERROR_COUNT" = "0"
             echo "STORE_POS_ERROR_WINDOW=PASS count=$ERROR_COUNT window=30m"
+            echo "PRODUCTION_BUSINESS_WRITES=0"
+
+      - name: Run sales activity amei readonly audit
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'sales-activity-amei-readonly'
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            REVISION="$(git rev-parse HEAD)"
+            API_REVISION="$(docker inspect "$(docker compose ps -q api)" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+            WEB_REVISION="$(docker inspect "$(docker compose ps -q web)" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+            test "$REVISION" = "$API_REVISION"; test "$REVISION" = "$WEB_REVISION"
+            echo "SALES_ACTIVITY_REVISION=PASS checkout=$REVISION api=$API_REVISION web=$WEB_REVISION"
+
+            TOKEN_RAW="$(docker compose exec -T api node - <<'NODE'
+            const { NestFactory } = require('@nestjs/core');
+            const { AppModule } = require('./dist/app.module');
+            const { AuthService } = require('./dist/auth/auth.service');
+            (async () => {
+              const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+              try { process.stdout.write((await app.get(AuthService).login('amei', '', '127.0.0.1', { bypassPassword: true })).token); }
+              finally { await app.close(); }
+            })().catch(error => { console.error(error?.message || error); process.exit(1); });
+            NODE
+            )"
+            TOKEN="$(printf '%s' "$TOKEN_RAW" | grep -Eo 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' | tail -1)"
+            unset TOKEN_RAW
+            test -n "$TOKEN"
+
+            curl -fsS -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/sales/activity?page=1&limit=20&source=ALL' > /tmp/sales-activity-all.json
+            curl -fsS -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/sales/activity?page=1&limit=20&source=ORDER' > /tmp/sales-activity-order.json
+            curl -fsS -H "Authorization: Bearer $TOKEN" 'https://erp.eggslao.com/api/v2/sales/orders?page=1&limit=20' > /tmp/sales-orders-legacy.json
+            unset TOKEN
+            node - <<'NODE'
+            const fs = require('fs');
+            const all = JSON.parse(fs.readFileSync('/tmp/sales-activity-all.json'));
+            const order = JSON.parse(fs.readFileSync('/tmp/sales-activity-order.json'));
+            const legacy = JSON.parse(fs.readFileSync('/tmp/sales-orders-legacy.json'));
+            const valid = x => x && Array.isArray(x.data) && Array.isArray(x.availableSources)
+              && typeof x.hasMore === 'boolean' && typeof x.page === 'number' && typeof x.limit === 'number';
+            if (!valid(all) || !valid(order)) throw new Error('activity envelope invalid');
+            if (!all.availableSources.includes('ORDER') || !order.availableSources.includes('ORDER')) throw new Error('ORDER source missing');
+            if (!order.data.length || !order.data.every(row => row.sourceType === 'ORDER' && row.documentNo)) throw new Error('ORDER rows missing');
+            const legacyRows = Array.isArray(legacy) ? legacy : Array.isArray(legacy.data) ? legacy.data : legacy.data?.items || legacy.items || legacy.rows || [];
+            if (!legacyRows.length) throw new Error('legacy orders rows missing');
+            console.log(`SALES_ACTIVITY_HTTP=PASS all_rows=${all.data.length} order_rows=${order.data.length} sources=${all.availableSources.join(',')} sample=${order.data[0].documentNo}`);
+            console.log(`SALES_ORDERS_LEGACY_HTTP=PASS rows=${legacyRows.length} sample=${legacyRows[0].order_no}`);
+            NODE
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c \
+              'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -AtF "|"' <<'SQL'
+            BEGIN TRANSACTION READ ONLY;
+            SELECT count(*)
+              FROM sys_error_logs
+             WHERE created_at >= NOW() - INTERVAL '1 hour'
+               AND (request_path LIKE '%/api/v2/sales/activity%' OR request_path LIKE '%/api/v2/sales/orders%');
+            COMMIT;
+            SQL
+            echo "SALES_ACTIVITY_SYS_ERROR_LOGS_READONLY=PASS window=1h"
+            rm -f /tmp/sales-activity-all.json /tmp/sales-activity-order.json /tmp/sales-orders-legacy.json
             echo "PRODUCTION_BUSINESS_WRITES=0"
 
       - name: Run Chanjet readonly production sync
