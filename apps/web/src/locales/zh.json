@@ -14223,5 +14223,6 @@
   "ui.门店（门店价）": "门店（门店价）", "ui.留空=非门店专属": "留空=非门店专属", "ui.价格本锁价": "价格本锁价",
   "store.settlement.forbidden": "无权查看门店日结", "store.settlement.title": "门店营业日日结", "store.settlement.subtitle": "Tender / Store Payment / Cash / AR 勾稽；过账只锁定，不重复入账", "store.settlement.store": "门店", "store.settlement.business_date": "营业日", "store.settlement.build": "生成/重算日结", "store.settlement.evidence": "凭证", "store.settlement.difference": "差异", "store.settlement.post": "财务审核过账（锁定）", "store.settlement.reference": "参考号", "store.settlement.matched_amount": "匹配金额", "store.settlement.status": "状态", "store.settlement.reason": "原因",
   "ui.当前账号无可用客户，请联系管理员检查数据范围": "当前账号无可用客户，请联系管理员检查数据范围", "ui.客户数据加载失败，请重试": "客户数据加载失败，请重试", "ui.当前账号无可用公司，请联系管理员检查数据范围": "当前账号无可用公司，请联系管理员检查数据范围", "ui.公司数据加载失败，请重试": "公司数据加载失败，请重试",
-  "ui.已预留": "已预留", "ui.已出发": "已出发", "ui.超限": "超限", "auto.literal.未结清": "未结清", "auto.literal.已回库": "已回库"
+  "ui.已预留": "已预留", "ui.已出发": "已出发", "ui.超限": "超限", "auto.literal.未结清": "未结清", "auto.literal.已回库": "已回库",
+  "ui.销售订单审批上下文": "销售订单审批上下文", "ui.触发原因": "触发原因", "ui.订单总额": "订单总额", "ui.信用快照": "信用快照", "ui.成交价": "成交价", "ui.打开销售订单": "打开销售订单"
 }
