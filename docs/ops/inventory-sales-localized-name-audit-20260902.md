@@ -176,3 +176,5 @@
 - 静态迁移末态已核对；当前执行环境无 `psql`，真实数据库 `\\d` 与运行中响应仍待具备连接条件后只读复验。
 - `/warehouse/query` 的品目列也已接入共享 locale formatter；名称缺失时保留原 SKU/产品/物料 code。
 - 本地验证：API `tsc --noEmit` 0 错、Web `tsc --noEmit` 0 错；A 组 API 契约 2/2、Web 定向测试 17/17 通过。CI 结果与合入记录见后续交付记录。
+- 冻结/安全边界已逐文件复核：改动限定为授权的库存名称只读 JOIN、展示与契约测试；安全扫描对 `generic-crud.service.ts` / `wms.service.ts` 的 Chanjet/DDL 命中来自未修改的既有全文件文本。显式 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 的 W5 closeout 20/20 PASS，PR 登记 `reviewed-frozen-boundary` 与 `reviewed-security-touch`。
+- i18n hardcoded literal gate：`3378/3378` 已覆盖、`uncovered=0`、locale quality issue `0`。
