@@ -13,7 +13,6 @@
     "username": "admin",
     "path": "/api/v2/sales/activity?source=ORDER&page=1&limit=20",
     "expectedStatus": 200,
-    "rowPath": "data",
     "minDataLength": 1,
     "reportDataLength": true,
     "requiredNonEmptyFields": ["documentNo", "customerName", "companyName"]
@@ -23,7 +22,6 @@
     "username": "admin",
     "path": "/api/v2/sales/returns?page=1&limit=20",
     "expectedStatus": 200,
-    "rowPath": "data",
     "minDataLength": 1,
     "reportDataLength": true,
     "requiredNonEmptyFields": ["return_no", "customer_name_master", "company_name_display"]

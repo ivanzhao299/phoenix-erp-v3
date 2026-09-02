@@ -211,3 +211,4 @@
 
 - PR [#167](https://github.com/ivanzhao299/phoenix-erp-v3/pull/167) 全部 checks 终态为 7 success、0 failure、3 条条件跳过；已以 merge commit 合入 `main`，merge revision `ca6651bd3abd7b7b3765018bc8cc626da7308d68`。
 - 新增 `localized-sales-inventory-names` 生产只读审计清单：校验库存批次、销售订单列表、退货列表、analytics 公司聚合的名称列存在且样本非空，并检查相关 API 60 分钟错误窗口。审计执行结果在 full 部署后回填。
+- 首次 full 部署 run `33595977828` 成功，生产 checkout/API/Web 均为 `ba6fc519b6192fa048b33ec5449b94aab74f24a3`。首轮只读审计 run `33596925581` 已证实错误窗口为 0、库存批次名称样本 193 行通过；后续因 activity/return 清单对 `data` 二次解包而中止，属审计配置问题，未发生业务写入。已移除多余 `rowPath`，最终复验见下一条。
