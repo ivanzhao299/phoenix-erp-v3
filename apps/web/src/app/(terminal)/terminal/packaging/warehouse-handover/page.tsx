@@ -13,6 +13,7 @@ import {
 } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
 import styles from './warehouse-handover.module.css';
+import { LocationSelector } from '@/components/shared-selectors/MasterDataSelectors';
 export default function WarehouseHandoverPage() {
   const router = useRouter();
   const {
@@ -405,12 +406,6 @@ export default function WarehouseHandoverPage() {
               label: t('ui.托盘码', '托盘码'),
               ph: t('ui.扫码或输入', '扫码或输入')
               }, {
-              key: 'location',
-              state: location,
-              set: setLocation,
-              label: t('ui.库位', '库位'),
-              ph: t('ui.如A0103', '如 A-01-03')
-            }, {
               key: 'receiver',
               state: receiver,
               set: setReceiver,
@@ -433,6 +428,15 @@ export default function WarehouseHandoverPage() {
                 boxSizing: 'border-box'
                 }} />
                 </div>)}
+              <div>
+                <div style={{ fontSize: 11, color: T.MUT, marginBottom: 4 }}>{t('ui.库位', '库位')}</div>
+                <LocationSelector
+                  value={location}
+                  onChange={setLocation}
+                  placeholder={t('ui.请选择货位', '请选择货位')}
+                  style={{ background: 'var(--overlay-white-05)', border: `1px solid ${T.BOR}`, borderRadius: 8, padding: '12px 14px', color: T.TXT, fontSize: 14 }}
+                />
+              </div>
             </div>
           </div>
         </div>

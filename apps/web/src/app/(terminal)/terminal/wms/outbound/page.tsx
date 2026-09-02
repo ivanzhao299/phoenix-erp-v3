@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
 import { PackageMinus, ScanLine, RefreshCw } from 'lucide-react';
+import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 
 const tok = () => {
   if (typeof window === 'undefined') return '';
@@ -32,6 +33,8 @@ interface OutOrder {
   customer_name?: string | null;
   customer_code?: string | null;
   warehouse_code?: string | null;
+  customer_name_en?: string | null;
+  customer_name_lo?: string | null;
 }
 interface OutItem {
   line_no: number;
@@ -41,6 +44,9 @@ interface OutItem {
   qty?: number | null;
   unit?: string | null;
   batch_no?: string | null;
+  product_name_zh?: string | null;
+  product_name_en?: string | null;
+  product_name_lo?: string | null;
 }
 interface LineEdit { batch: string; qty: string }
 
@@ -48,7 +54,7 @@ const POLL_MS = 8000;
 
 export default function WmsOutboundTerminalPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [orders, setOrders] = useState<OutOrder[]>([]);
   const [selected, setSelected] = useState<(OutOrder & { items: OutItem[] }) | null>(null);
@@ -197,7 +203,7 @@ export default function WmsOutboundTerminalPage() {
                   cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent',
                 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: active ? T.ACC : T.TXT }}>{o.order_no}</div>
-                  <div style={{ fontSize: 11, color: T.MUT }}>{o.customer_name || o.customer_code || '—'}{o.status ? ` · ${o.status}` : ''}</div>
+                  <div style={{ fontSize: 11, color: T.MUT }}>{formatMasterData(o as unknown as Record<string, unknown>, 'customer_name', o.customer_code, lang)}{o.status ? ` · ${formatBusinessEnum('salesOrder', o.status, lang)}` : ''}</div>
                 </button>
               );
             })}
@@ -227,7 +233,7 @@ export default function WmsOutboundTerminalPage() {
                   return (
                     <div key={it.line_no} style={{ background: T.CARD, borderRadius: 12, border: `1px solid ${needBatch ? T.RED : T.BOR}`, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: T.TXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.product_name || it.product_code}{it.spec_code ? ` · ${it.spec_code}` : ''}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: T.TXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatMasterData(it as unknown as Record<string, unknown>, 'product_name', it.product_code, lang)}{it.spec_code ? ` · ${it.spec_code}` : ''}</div>
                         <div style={{ fontSize: 11, color: T.MUT }}>{t('terminal.wms_ordered', '订单')} {it.qty ?? 0} {it.unit || ''}</div>
                         {/* 批次扫码输入 */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, background: T.BG, border: `1px solid ${needBatch ? T.RED : T.BOR}`, borderRadius: 8, padding: '5px 9px', maxWidth: 260 }}>

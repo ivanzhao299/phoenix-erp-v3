@@ -63,6 +63,20 @@ export interface EggBatch {
   grade_code_std: string | null;
   /** Phase H4: 标准规格编码（packaging_specs.spec_code，与旧 packaging_spec 并存） */
   spec_code: string | null;
+  sku_name?: string | null;
+  sku_name_en?: string | null;
+  sku_name_lo?: string | null;
+  product_name?: string | null;
+  product_name_zh?: string | null;
+  product_name_en?: string | null;
+  product_name_lo?: string | null;
+  company_name?: string | null;
+  company_name_zh?: string | null;
+  warehouse_name?: string | null;
+  warehouse_name_zh?: string | null;
+  warehouse_name_en?: string | null;
+  warehouse_name_lo?: string | null;
+  location_name?: string | null;
 }
 
 export interface FifoAllocation {
@@ -352,34 +366,50 @@ export class EggInventoryService {
     /** Phase H4: 按 SKU 精确过滤（优先于 productCode + gradeCode） */
     skuCode?:           string;
   }): Promise<EggBatch[]> {
-    const conds: string[] = [`status = 'AVAILABLE'`, `qty_available > 0`];
+    const conds: string[] = [`b.status = 'AVAILABLE'`, `b.qty_available > 0`];
     const args: unknown[] = [];
     let pi = 1;
 
     if (params.skuCode) {
       // Phase H4 PATH A: SKU 精确匹配
-      conds.push(`sku_code = $${pi++}`);
+      conds.push(`b.sku_code = $${pi++}`);
       args.push(params.skuCode);
     } else {
       // PATH B: 旧逻辑（product+grade 匹配，向后兼容）
-      if (params.productCode) { conds.push(`product_code = $${pi++}`); args.push(params.productCode); }
-      if (params.gradeCode)   { conds.push(`quality_grade = $${pi++}`); args.push(params.gradeCode); }
+      if (params.productCode) { conds.push(`b.product_code = $${pi++}`); args.push(params.productCode); }
+      if (params.gradeCode)   { conds.push(`b.quality_grade = $${pi++}`); args.push(params.gradeCode); }
     }
 
-    if (params.companyCode) { conds.push(`company_code = $${pi++}`); args.push(params.companyCode); }
+    if (params.companyCode) { conds.push(`b.company_code = $${pi++}`); args.push(params.companyCode); }
 
     // 过期禁售
     if (!params.includingExpiring) {
-      conds.push(`(expire_date IS NULL OR expire_date >= CURRENT_DATE)`);
+      conds.push(`(b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE)`);
     }
 
     const rows = await this.ds.query(
-      `SELECT *,
-         CASE WHEN expire_date IS NULL THEN NULL
-              ELSE (expire_date::date - CURRENT_DATE::date) END AS days_remaining
-       FROM inv_batches
+      `SELECT b.*,
+              sku.sku_name, sku.sku_name_en, sku.sku_name_lo,
+              p.product_name_zh AS product_name, p.product_name_zh,
+              p.product_name_en, p.product_name_lo,
+              company.company_name, company.company_name_zh,
+              wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo,
+              loc.location_name,
+         CASE WHEN b.expire_date IS NULL THEN NULL
+              ELSE (b.expire_date::date - CURRENT_DATE::date) END AS days_remaining
+       FROM inv_batches b
+       LEFT JOIN product_skus sku ON sku.sku_code = b.sku_code
+       LEFT JOIN mst_products p ON p.product_code = b.product_code
+       LEFT JOIN wms_warehouses wh ON wh.warehouse_code = b.warehouse_code
+       LEFT JOIN wms_locations loc ON loc.location_code = b.location_code AND loc.warehouse_code = b.warehouse_code
+       LEFT JOIN LATERAL (
+         SELECT o.org_name AS company_name, o.org_name_cn AS company_name_zh
+           FROM sys_organizations o
+          WHERE o.org_type = 'COMPANY' AND COALESCE(o.company_code, o.org_code) = b.company_code
+          ORDER BY o.org_code LIMIT 1
+       ) company ON TRUE
        WHERE ${conds.join(' AND ')}
-       ORDER BY expire_date ASC NULLS LAST, created_at ASC`,
+       ORDER BY b.expire_date ASC NULLS LAST, b.created_at ASC`,
       args,
     );
     return rows;
@@ -855,20 +885,36 @@ export class EggInventoryService {
     if (!scope?.isGlobal && requested && scope && !scope.allowedCompanyCodes.includes(requested)) return [];
     const companyCodes = requested ? [requested] : (!scope || scope.isGlobal ? null : scope.allowedCompanyCodes);
     const values: unknown[] = [days];
-    const cond = companyCodes ? `AND company_code = ANY($2)` : '';
+    const cond = companyCodes ? `AND b.company_code = ANY($2)` : '';
     if (companyCodes) values.push(companyCodes);
 
     return this.ds.query(
-      `SELECT *,
-         (expire_date::date - CURRENT_DATE::date) AS days_remaining
-       FROM inv_batches
-       WHERE status IN ('AVAILABLE','RETURNED')
-         AND qty_available > 0
-         AND expire_date IS NOT NULL
-         AND expire_date >= CURRENT_DATE
-         AND expire_date <= CURRENT_DATE + ($1 * INTERVAL '1 day')
+      `SELECT b.*,
+              sku.sku_name, sku.sku_name_en, sku.sku_name_lo,
+              p.product_name_zh AS product_name, p.product_name_zh,
+              p.product_name_en, p.product_name_lo,
+              company.company_name, company.company_name_zh,
+              wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo,
+              loc.location_name,
+              (b.expire_date::date - CURRENT_DATE::date) AS days_remaining
+       FROM inv_batches b
+       LEFT JOIN product_skus sku ON sku.sku_code = b.sku_code
+       LEFT JOIN mst_products p ON p.product_code = b.product_code
+       LEFT JOIN wms_warehouses wh ON wh.warehouse_code = b.warehouse_code
+       LEFT JOIN wms_locations loc ON loc.location_code = b.location_code AND loc.warehouse_code = b.warehouse_code
+       LEFT JOIN LATERAL (
+         SELECT o.org_name AS company_name, o.org_name_cn AS company_name_zh
+           FROM sys_organizations o
+          WHERE o.org_type = 'COMPANY' AND COALESCE(o.company_code, o.org_code) = b.company_code
+          ORDER BY o.org_code LIMIT 1
+       ) company ON TRUE
+       WHERE b.status IN ('AVAILABLE','RETURNED')
+         AND b.qty_available > 0
+         AND b.expire_date IS NOT NULL
+         AND b.expire_date >= CURRENT_DATE
+         AND b.expire_date <= CURRENT_DATE + ($1 * INTERVAL '1 day')
          ${cond}
-       ORDER BY expire_date ASC`, values,
+       ORDER BY b.expire_date ASC`, values,
     );
   }
 

@@ -209,9 +209,14 @@ export class WmsService {
 
   async getPendingInbound() {
     try {
-      const scope = this.warehouseScope('warehouse_code', 0);
+      const scope = this.warehouseScope('wi.warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM wms_inbound WHERE status IN ('PENDING', 'PROCESSING') AND ${scope.sql} ORDER BY created_at DESC`,
+        `SELECT wi.*,
+                wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo
+           FROM wms_inbound wi
+           LEFT JOIN wms_warehouses wh ON wh.warehouse_code = wi.warehouse_code
+          WHERE wi.status IN ('PENDING', 'PROCESSING') AND ${scope.sql}
+          ORDER BY wi.created_at DESC`,
         scope.params,
       );
       return { code: 200, data };
@@ -222,14 +227,24 @@ export class WmsService {
 
   async getInboundTask(taskNo: string) {
     try {
-      const scope = this.warehouseScope('warehouse_code', 1);
+      const scope = this.warehouseScope('wi.warehouse_code', 1);
       const tasks = await this.em.query(
-        `SELECT * FROM wms_inbound WHERE task_no = $1 AND ${scope.sql}`,
+        `SELECT wi.*,
+                wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo
+           FROM wms_inbound wi
+           LEFT JOIN wms_warehouses wh ON wh.warehouse_code = wi.warehouse_code
+          WHERE wi.task_no = $1 AND ${scope.sql}`,
         [taskNo, ...scope.params],
       );
       if (!tasks.length) return { code: 404, msg: '任务不存在' };
       const items = await this.em.query(
-        `SELECT * FROM wms_inbound_items WHERE task_no = $1`,
+        `SELECT ii.*, ii.id AS line_no, COALESCE(ii.expected_qty, ii.qty) AS planned_qty,
+                p.product_name_zh AS product_name, p.product_name_zh,
+                p.product_name_en, p.product_name_lo, p.unit
+           FROM wms_inbound_items ii
+           LEFT JOIN mst_products p ON p.product_code = ii.product_code
+          WHERE ii.task_no = $1
+          ORDER BY ii.id`,
         [taskNo],
       );
       return { code: 200, data: { ...tasks[0], items } };
@@ -638,9 +653,15 @@ export class WmsService {
 
   async getPendingOutbound() {
     try {
-      const scope = this.orderStoreScope('store_code', 0);
+      const scope = this.orderStoreScope('o.store_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM ord_orders WHERE status IN ('approved', 'locked', 'allocated') AND ${scope.sql} ORDER BY created_at DESC`,
+        `SELECT o.*,
+                COALESCE(c.customer_name, o.customer_name, o.customer_code) AS customer_name,
+                c.customer_name_en, c.customer_name_lo
+           FROM ord_orders o
+           LEFT JOIN sal_customers c ON c.customer_no = o.customer_code
+          WHERE o.status IN ('approved', 'locked', 'allocated') AND ${scope.sql}
+          ORDER BY o.created_at DESC`,
         scope.params,
       );
       return { code: 200, data };
@@ -651,14 +672,25 @@ export class WmsService {
 
   async getOutboundOrder(orderNo: string) {
     try {
-      const scope = this.orderStoreScope('store_code', 1);
+      const scope = this.orderStoreScope('o.store_code', 1);
       const orders = await this.em.query(
-        `SELECT * FROM ord_orders WHERE order_no = $1 AND ${scope.sql}`,
+        `SELECT o.*,
+                COALESCE(c.customer_name, o.customer_name, o.customer_code) AS customer_name,
+                c.customer_name_en, c.customer_name_lo
+           FROM ord_orders o
+           LEFT JOIN sal_customers c ON c.customer_no = o.customer_code
+          WHERE o.order_no = $1 AND ${scope.sql}`,
         [orderNo, ...scope.params],
       );
       if (!orders.length) return { code: 404, msg: '订单不存在' };
       const items = await this.em.query(
-        `SELECT * FROM ord_order_items WHERE order_no = $1`,
+        `SELECT oi.*, oi.id AS line_no,
+                COALESCE(p.product_name_zh, oi.product_name_zh) AS product_name,
+                p.product_name_zh, p.product_name_en, p.product_name_lo
+           FROM ord_order_items oi
+           LEFT JOIN mst_products p ON p.product_code = oi.product_code
+          WHERE oi.order_no = $1
+          ORDER BY oi.id`,
         [orderNo],
       );
       return { code: 200, data: { ...orders[0], items } };

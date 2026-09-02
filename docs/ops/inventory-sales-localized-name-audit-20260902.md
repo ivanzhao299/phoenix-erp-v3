@@ -178,3 +178,18 @@
 - 本地验证：API `tsc --noEmit` 0 错、Web `tsc --noEmit` 0 错；A 组 API 契约 2/2、Web 定向测试 17/17 通过。CI 结果与合入记录见后续交付记录。
 - 冻结/安全边界已逐文件复核：改动限定为授权的库存名称只读 JOIN、展示与契约测试；安全扫描对 `generic-crud.service.ts` / `wms.service.ts` 的 Chanjet/DDL 命中来自未修改的既有全文件文本。显式 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 的 W5 closeout 20/20 PASS，PR 登记 `reviewed-frozen-boundary` 与 `reviewed-security-touch`。
 - i18n hardcoded literal gate：`3378/3378` 已覆盖、`uncovered=0`、locale quality issue `0`。
+
+### 2026-09-02 · A 组交付
+
+- PR [#165](https://github.com/ivanzhao299/phoenix-erp-v3/pull/165) 全部 checks 终态为 7 success、0 failure、3 条条件跳过；未以本机噪声替代 GitHub 结果。
+- 已以 merge commit 合入 `main`，merge revision `d24886f59736e05745dc700ba3d41b94e51b188e`。
+
+### 2026-09-02 · B 组实施与本地验证
+
+- Terminal WMS 入库/出库接口由 `SELECT *` 收口为保留原业务列的表别名查询，并分别窄 JOIN 仓库、产品、客户真实名称；入库/出库页面使用共享 locale formatter，筛选和提交 payload 继续使用原 code。
+- Terminal WMS 盘点直接复用 `/api/inventory/batches` 的仓库、SKU、库位名称列；状态统一走共享 formatter，批次号与盘点提交字段不变。
+- 包装交接库位输入改用 `LocationSelector`，显示真实 `location_name（location_code）`，`confirmHandover.location` 仍提交 `location_code`。
+- 销售库存批次与临期查询兼容追加 SKU、产品、公司、仓库、库位名称；库位 JOIN 同时约束 `location_code + warehouse_code`，公司使用单行 lateral lookup，避免放大批次数。页面 SKU/产品/公司改为 locale 名称（code）。
+- 新增 API 契约 4/4、Web B 组契约 3/3；API WMS/Egg Inventory 相关测试合计 39/39；API 与 Web `tsc --noEmit` 均 0 错；i18n hardcoded literal gate `3381/3381`、`uncovered=0`。
+- 本机 `MasterDataSelectors.test.ts` 复现 12 项同源 `act is not a function`（均在 render/unmount 入口失败，未进入 selector 断言），按任务书作为 React/jsdom 环境噪声记录，最终以 GitHub CI 为准。
+- B 组冻结/安全边界逐文件复核后，显式授权 W5 closeout 20/20 PASS；PR [#166](https://github.com/ivanzhao299/phoenix-erp-v3/pull/166) 已登记 `reviewed-frozen-boundary` 与 `reviewed-security-touch`，CI 与 merge revision 待交付后回填。
