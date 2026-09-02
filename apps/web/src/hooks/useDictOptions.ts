@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useCrud } from './useCrud';
 import { cachedGet, TTL } from '@/lib/request-cache'; // G89-P1 全表拉取去重+缓存
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type DictPair = { value: string; label: string };
 type DictEntry = Record<string, unknown>;
@@ -15,9 +16,10 @@ const _cache: Record<string, DictCacheEntry | DictPair[]> = {};
  * @returns { options: string[], loading: boolean }
  */
 export const useDictOptions = (dictCode: string | string[]) => {
+  const { lang } = useLanguage();
   const codes    = Array.isArray(dictCode) ? dictCode : [dictCode];
   // 排序后拼接，保证 ['A','B'] 和 ['B','A'] 命中同一缓存
-  const cacheKey = codes.slice().sort().join(',');
+  const cacheKey = `${codes.slice().sort().join(',')}:${lang}`;
 
   const cached = _cache[cacheKey] as DictCacheEntry | undefined;
   const [options,     setOptions]     = useState<string[]>(cached?.options     || []);
@@ -47,7 +49,7 @@ export const useDictOptions = (dictCode: string | string[]) => {
             .filter(d => d.dict_type === code && d.status === 'ACTIVE')
             .sort((a, b) => (Number(a.sort_no) || 0) - (Number(b.sort_no) || 0));
           matches.forEach(entry => {
-            const label = entry.dict_label_zh as string | undefined;
+            const label = String(entry[`dict_label_${lang}`] || entry.dict_label_zh || entry.dict_label_en || entry.dict_label_lo || '');
             const dc    = entry.dict_code    as string | undefined;
             if (label && !labelSet.has(label)) {
               labelSet.add(label);

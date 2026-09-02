@@ -11,7 +11,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { CompanySelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 数据字典统一组件
 import { StatStripV2 } from "@/components/design-system"; // G160：统计条全局化
-import { formatBusinessEnum } from '@/lib/business-display';
+import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 import { useDictOptions } from '@/hooks/useDictOptions';
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────────
@@ -20,6 +20,7 @@ interface Supplier {
   supplierCode: string;
   supplierName: string;
   supplierNameEn?: string;
+  supplierNameLo?: string;
   countryCode: string;
   supplierType?: string;
   defaultCurrency: string;
@@ -175,7 +176,8 @@ const DEF: FormState = {
 export default function SuppliersPage() {
   const toast = useToast();
   const { t, lang } = useLanguage();
-  const { optionPairs: countryOptions } = useDictOptions('SYS_COUNTRY');
+  const { optionPairs: countryOptions, codeMap: countryMap } = useDictOptions('SYS_COUNTRY');
+  const { codeMap: currencyMap } = useDictOptions('SYS_CURRENCY');
   const scopeLabel = (code: string) => formatBusinessEnum('procurementSupplierScope', code, lang);
   const statusLabel = (code: string) => formatBusinessEnum('procurementSupplierStatus', code, lang);
   const typeLabel = (code: string) => formatBusinessEnum('procurementSupplierType', code, lang);
@@ -520,7 +522,7 @@ export default function SuppliersPage() {
                   fontSize: 13,
                   padding: 0
                 }}>
-                      {row.supplierName}
+                      {formatMasterData(row, 'supplierName', row.supplierCode, lang)}
                     </button>
                     {row.supplierNameEn && <div style={{
                   fontSize: 10,
@@ -542,11 +544,11 @@ export default function SuppliersPage() {
               }}>
                     {row.sharedScope === "GROUP" ? t('ui.全集团','全集团') : row.sharedScope === "COMPANY" ? row.ownerCompanyCode ?? "—" : row.ownerProjectCode ?? "—"}
                   </td>
-                  <td className={u.fs12}>{row.countryCode}</td>
+                  <td className={u.fs12}>{formatMasterData({ name: countryMap[row.countryCode] }, 'name', row.countryCode, lang)}</td>
                   <td style={{
                 fontSize: 12,
                 fontWeight: 600
-              }}>{row.defaultCurrency}</td>
+              }}>{formatMasterData({ name: currencyMap[row.defaultCurrency] }, 'name', row.defaultCurrency, lang)}</td>
                   <td>
                     <span className={`${s.badge} ${s[statusCls(row.status)]}`}>
                       {statusLabel(row.status)}

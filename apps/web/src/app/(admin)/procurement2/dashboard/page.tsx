@@ -7,7 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { KpiCardV2, Panel } from "@/components/design-system"; // G153：统一全局卡片/容器(边界感)
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from '@/contexts/LanguageContext';
-import { formatBusinessEnum } from '@/lib/business-display';
+import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 import request from "@/lib/api-client";
 import { currencySymbol } from "@/lib/currency";
 import s from "@/components/ui/admin-ui.module.css";
@@ -72,6 +72,9 @@ interface ShipmentStatusRow {
 interface SupplierRow {
   supplierCode: string;
   supplierName: string;
+  supplierSnapshotName?: string;
+  supplierNameEn?: string;
+  supplierNameLo?: string;
   currencyCode: string;
   poCount: number;
   poAmount: number;
@@ -401,7 +404,7 @@ export default function ProcurementDashboardPage() {
                 <tbody>
                   {supplier.map((r, i) => <tr key={i}>
                       <td>
-                        <div className={u.fw500}>{r.supplierName || r.supplierCode}</div>
+                        <div className={u.fw500}>{formatMasterData(r, 'supplierName', r.supplierCode, lang)}</div>
                         <div style={{
                     fontSize: 11,
                     color: "var(--color-text-3)"

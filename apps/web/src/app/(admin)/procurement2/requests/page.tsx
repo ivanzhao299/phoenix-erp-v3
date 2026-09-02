@@ -13,6 +13,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import s from "@/components/ui/admin-ui.module.css";
 import { SupplierSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器（转单弹窗用）
 import { useDictOptions } from '@/hooks/useDictOptions';
+import { formatMasterData } from '@/lib/business-display';
 
 type TFn = (key: string, fallback: string) => string;
 
@@ -21,6 +22,7 @@ interface ReqItem {
   id?: string;
   itemCode?: string;
   itemName: string;
+  material_name?: string; material_name_en?: string; material_name_lo?: string;
   spec?: string;
   qty: number | string;
   unit?: string;
@@ -192,7 +194,7 @@ const inlineSelect: React.CSSProperties = {
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function PurchaseRequestsPage() {
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const STATUS_MAP = buildStatusMap(t);
   const URGENCY_MAP = buildUrgencyMap(t);
   const { optionPairs: dictPurchaseTypes } = useDictOptions('PRC_PURCHASE_TYPE');
@@ -688,7 +690,7 @@ export default function PurchaseRequestsPage() {
                     </thead>
                     <tbody>
                       {detailData.items.map((it, i) => <tr key={i}>
-                          <td>{it.itemName}</td>
+                          <td>{formatMasterData({ ...it, material_name: it.material_name || it.itemName }, 'material_name', it.itemCode, lang)}</td>
                           <td>{it.spec ?? "—"}</td>
                           <td style={{
                     textAlign: "right",

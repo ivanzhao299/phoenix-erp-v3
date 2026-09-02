@@ -17,6 +17,7 @@ import {
   receiptScopeFromPurchaseOrder,
   type ReceiptPurchaseOrderScope,
 } from "@/lib/procurement-receipt-submit";
+import { formatMasterData } from '@/lib/business-display';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ interface ReceiptItem {
   poItemId?: string;
   itemCode?: string;
   itemName: string;
+  sku_name?: string; sku_name_en?: string; sku_name_lo?: string;
   spec?: string;
   expectedQty: number;
   actualQty: number;
@@ -45,6 +47,7 @@ interface Receipt {
   projectCode?: string;
   projectName?: string;
   warehouseCode?: string;
+  warehouse_name?: string; warehouse_name_zh?: string; warehouse_name_en?: string; warehouse_name_lo?: string;
   receiverName?: string;
   receiptDate?: string;
   status: string;
@@ -124,7 +127,7 @@ const emptyItem = (): ReceiptItem => ({
 
 export default function ReceiptsPage() {
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const STATUS_LABELS = buildStatusLabels(t);
   const QUALITY_LABELS = buildQualityLabels(t);
 
@@ -473,7 +476,7 @@ export default function ReceiptsPage() {
               fontFamily: "monospace",
               fontSize: 12
             }}>{row.shipmentNo || "—"}</td>
-                <td className={u.fs12}>{row.warehouseCode || "—"}</td>
+                <td className={u.fs12}>{formatMasterData(row, 'warehouse_name', row.warehouseCode, lang)}</td>
                 <td className={u.fs12}>{row.receiverName || "—"}</td>
                 <td className={u.fs12}>{row.receiptDate || "—"}</td>
                 <td><span className={`${s.badge} ${STATUS_COLOR[row.status] ?? s.badgeNeutral}`}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
@@ -778,7 +781,7 @@ export default function ReceiptsPage() {
             <DRow label={t('prc2.receipt_no', "收货单号")} value={detail.receiptNo} mono />
             <DRow label={t('prc2.po_no_related', "关联PO")} value={detail.poNo} mono />
             <DRow label={t('prc2.related_shipment', "关联运单")} value={detail.shipmentNo || "—"} mono />
-            <DRow label={t('prc2.warehouse', "仓库")} value={detail.warehouseCode || "—"} />
+            <DRow label={t('prc2.warehouse', "仓库")} value={formatMasterData(detail, 'warehouse_name', detail.warehouseCode, lang)} />
             <DRow label={t('prc2.receiver', "收货人")} value={detail.receiverName || "—"} />
             <DRow label={t('prc2.receipt_date', "收货日期")} value={detail.receiptDate || "—"} />
             {detail.confirmedAt && <DRow label={t('prc2.confirmed_at', "确认时间")} value={new Date(detail.confirmedAt).toLocaleString("zh-CN")} />}
@@ -828,7 +831,7 @@ export default function ReceiptsPage() {
                   </thead>
                   <tbody>
                     {detail.items!.map((item, idx) => <tr key={idx}>
-                        <td>{item.itemName}</td>
+                        <td>{formatMasterData({ ...item, sku_name: item.sku_name || item.itemName }, 'sku_name', item.itemCode, lang)}</td>
                         <td className={u.tar}>{item.expectedQty}</td>
                         <td style={{
                   textAlign: "right",

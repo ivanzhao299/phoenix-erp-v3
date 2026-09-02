@@ -15,12 +15,14 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { usePermission } from "@/hooks/usePermission";
 import { normalizeProcurementOrdersPage } from "@/lib/procurement-orders-response";
 import { useDictOptions } from '@/hooks/useDictOptions';
+import { formatMasterData } from '@/lib/business-display';
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface OrderItem {
   id?: string;
   itemCode?: string;
   itemName: string;
+  material_name?: string; material_name_en?: string; material_name_lo?: string;
   spec?: string;
   productCode?: string;   // G85-C SKU 带出（成本按产品归集）
   gradeCode?: string;     // G85-C SKU 带出（成本按等级归集）
@@ -63,6 +65,7 @@ interface PurchaseOrder {
   projectName?: string;
   supplierCode: string;
   supplierName?: string;
+  supplierMasterName?: string; supplierMasterNameEn?: string; supplierMasterNameLo?: string;
   purchaseType?: string;
   crossBorderFlag?: boolean;
   currencyCode?: string;
@@ -244,7 +247,7 @@ function shipmentCreateHref(row: PurchaseOrder) {
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function PurchaseOrdersPage() {
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const shipmentPerm = usePermission("MENU_PRC2_SHIPMENT");
   const STATUS_MAP = buildStatusMap(t);
   const { optionPairs: dictPurchaseTypes } = useDictOptions('PRC_PURCHASE_TYPE');
@@ -604,7 +607,7 @@ export default function PurchaseOrdersPage() {
                   <td style={{ wordBreak: "break-word" }}>{row.subject}</td>
                   {/* G154：公司显示中文名（无名称才回退编码）；G164：按列宽自动换行 */}
                   <td style={{ wordBreak: "break-word" }}>{row.companyName || row.companyCode}</td>
-                  <td style={{ wordBreak: "break-word" }}>{row.supplierName ?? row.supplierCode}</td>
+                  <td style={{ wordBreak: "break-word" }}>{formatMasterData({ ...row, supplierMasterName: row.supplierMasterName || row.supplierName }, 'supplierMasterName', row.supplierCode, lang)}</td>
                   <td>{typeLabel}</td>
                   <td className={u.tac}>
                     {row.crossBorderFlag ? <span className={`${s.badge} ${s.badgeInfo}`}>{t('prc2.cross_border', '跨境')}</span> : <span className={`${s.badge} ${s.badgeNeutral}`}>{t('prc2.local', '本地')}</span>}
@@ -690,7 +693,7 @@ export default function PurchaseOrdersPage() {
           value: `${detailData.companyCode}  ${detailData.companyName ?? ""}`
         }, {
           label: t('prc2.supplier', '供应商'),
-          value: `${detailData.supplierCode}  ${detailData.supplierName ?? ""}`
+          value: formatMasterData({ ...detailData, supplierMasterName: detailData.supplierMasterName || detailData.supplierName }, 'supplierMasterName', detailData.supplierCode, lang)
         }, {
           label: t('prc2.project', '项目'),
           value: detailData.projectCode ? `${detailData.projectCode} ${detailData.projectName ?? ""}` : "—"
@@ -768,7 +771,7 @@ export default function PurchaseOrdersPage() {
                     </thead>
                     <tbody>
                       {detailData.items.map((it, i) => <tr key={i}>
-                          <td>{it.itemName}</td>
+                          <td>{formatMasterData({ ...it, material_name: it.material_name || it.itemName }, 'material_name', it.itemCode, lang)}</td>
                           <td>{it.spec ?? "—"}</td>
                           <td style={{
                     textAlign: "right",
