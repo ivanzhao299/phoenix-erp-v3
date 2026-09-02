@@ -186,13 +186,6 @@ interface OrderProcessLog {
   orderNo: string; currentStatus: string; documents: ProcessDocument[];
   timeline: ProcessTimelineItem[]; warnings: string[];
 }
-const PROCESS_WARNING_LABELS: Record<string, string> = {
-  RECEIVED_WITHOUT_AR: '已签收但未生成应收',
-  DELIVERY_COMPLETED_WITHOUT_RECEIPT: '配送已完成但缺少签收记录',
-  APPROVAL_OVERDUE: '审批已超过处理时限',
-  DELIVERY_DEPARTED_OVERDUE: '配送发车超过 48 小时仍未到达',
-  RETURN_FLOW_STALLED: '退货流程超过 72 小时未推进',
-};
 type ActivitySource = 'ALL' | 'ORDER' | 'POS';
 interface SalesActivityRow {
   sourceType: 'ORDER' | 'POS';
@@ -298,6 +291,16 @@ function SkuBadge({
 
 export default function SalesV2OrdersPage() {
   const { t, lang } = useLanguage();
+  const processWarningLabel = (code: string) => {
+    switch (code) {
+      case 'RECEIVED_WITHOUT_AR': return t('ui.已签收但未生成应收','已签收但未生成应收');
+      case 'DELIVERY_COMPLETED_WITHOUT_RECEIPT': return t('ui.配送已完成但缺少签收记录','配送已完成但缺少签收记录');
+      case 'APPROVAL_OVERDUE': return t('ui.审批已超过处理时限','审批已超过处理时限');
+      case 'DELIVERY_DEPARTED_OVERDUE': return t('ui.配送发车超过 48 小时仍未到达','配送发车超过 48 小时仍未到达');
+      case 'RETURN_FLOW_STALLED': return t('ui.退货流程超过 72 小时未推进','退货流程超过 72 小时未推进');
+      default: return code;
+    }
+  };
   // G24-A：PBAC 收口（销售订单域 MENU_SALES2_ORDER）
   const { canView: canViewOrders, canCreate, canApprove, canEdit: canTransit } = usePermission('MENU_SALES2_ORDER');
   const { canApprove: canOverride } = usePermission('MENU_SALES2_ORDER_OVERRIDE');
@@ -1230,7 +1233,7 @@ export default function SalesV2OrdersPage() {
               background: processLog?.warnings.length ? 'var(--status-danger-bg-faint)' : 'var(--status-success-bg-faint)', fontSize: 12 }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>{t('ui.链路健康','链路健康')}</div>
               {processLoading ? t('ui.加载中','加载中') : processLog?.warnings.length
-                ? processLog.warnings.map(w => <div key={w} style={{ color: 'var(--status-danger)' }}>⚠ {t(`ui.${PROCESS_WARNING_LABELS[w] ?? w}`, PROCESS_WARNING_LABELS[w] ?? w)}</div>)
+                ? processLog.warnings.map(w => <div key={w} style={{ color: 'var(--status-danger)' }}>⚠ {processWarningLabel(w)}</div>)
                 : <span style={{ color: 'var(--status-success)' }}>✓ {t('ui.订单链路未发现异常','订单链路未发现异常')}</span>}
             </div>
 
