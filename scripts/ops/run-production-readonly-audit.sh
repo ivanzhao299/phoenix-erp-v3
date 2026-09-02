@@ -105,16 +105,23 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
       const expected = Array.isArray(a.expectedStatus) ? a.expectedStatus : [a.expectedStatus ?? 200];
       if (!expected.includes(response.status)) throw new Error(`${a.name}: status=${response.status} expected=${expected.join('/')}`);
       let body = null;
-      if (a.requiredArrays?.length || a.reportDataLength || a.minDataLength != null) {
+      if (a.requiredArrays?.length || a.reportDataLength || a.minDataLength != null || a.rowPath || a.requiredNonEmptyFields?.length) {
         body = JSON.parse(text);
         body = body?.data ?? body;
         for (const p of (a.requiredArrays || [])) if (!Array.isArray(getPath(body, p))) throw new Error(`${a.name}: ${p} is not an array`);
       }
-      const dataRows = Array.isArray(body) ? body : (Array.isArray(body?.items) ? body.items : null);
+      const dataRows = a.rowPath ? getPath(body, a.rowPath) : (Array.isArray(body) ? body : (Array.isArray(body?.items) ? body.items : null));
       if (a.minDataLength != null && (!dataRows || dataRows.length < a.minDataLength)) {
         throw new Error(`${a.name}: data.length=${dataRows?.length ?? 'not-array'} expected>=${a.minDataLength}`);
       }
-      console.log(`PASS HTTP name=${a.name} username=${username} method=${method} status=${response.status}${a.requiredArrays?.length ? ` arrays=${a.requiredArrays.join(',')}` : ''}${a.reportDataLength ? ` data.length=${dataRows?.length ?? 'not-array'}` : ''}`);
+      if (a.requiredNonEmptyFields?.length) {
+        if (!Array.isArray(dataRows) || dataRows.length === 0) throw new Error(`${a.name}: no rows available for non-empty field assertions`);
+        for (const field of a.requiredNonEmptyFields) {
+          const present = dataRows.some(row => String(getPath(row, field) ?? '').trim().length > 0);
+          if (!present) throw new Error(`${a.name}: no row has non-empty field ${field}`);
+        }
+      }
+      console.log(`PASS HTTP name=${a.name} username=${username} method=${method} status=${response.status}${a.requiredArrays?.length ? ` arrays=${a.requiredArrays.join(',')}` : ''}${a.reportDataLength ? ` data.length=${dataRows?.length ?? 'not-array'}` : ''}${a.requiredNonEmptyFields?.length ? ` nonempty=${a.requiredNonEmptyFields.join(',')}` : ''}`);
     }
   } finally { await app.close(); }
 })().catch(e => { console.error(`FAIL HTTP ${e.message}`); process.exit(1); });
@@ -128,5 +135,10 @@ if [ "$http_path" = 'scripts/ops/readonly-audits/company-customer-lookup.http.js
   lookup_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(/api/lookup/(companies|customers)|lookup.*(companies|customers))' || true; } | wc -l | tr -d ' ')"
   echo "LOOKUP_COMPANY_CUSTOMER_ERROR_WINDOW_60M=$lookup_error_count"
   test "$lookup_error_count" = 0
+fi
+if [ "$http_path" = 'scripts/ops/readonly-audits/localized-sales-inventory-names.http.json' ]; then
+  localized_name_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(inventory/batches|sales/(activity|returns|analytics))' || true; } | wc -l | tr -d ' ')"
+  echo "LOCALIZED_NAME_ERROR_WINDOW_60M=$localized_name_error_count"
+  test "$localized_name_error_count" = 0
 fi
 echo 'PASS PRODUCTION_BUSINESS_WRITES=0'

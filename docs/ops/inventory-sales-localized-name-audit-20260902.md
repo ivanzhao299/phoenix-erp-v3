@@ -206,3 +206,8 @@
 - 配送列表/详情窄投影公司与司机多语名称，配送 workflow 走共享 formatter；渠道、客户、信用、价格册/价格项补真实名称投影和前端双显。
 - analytics 公司/渠道聚合保持 code group key，名称用 `MAX()`；销售首页的全量指标已从“今日配送/损耗”更正为“累计配送/损耗”。
 - 新增 API/Web 防回潮契约；API 定向 6 suites / 33 tests、Web 定向 5 tests 全绿，API 与 Web `tsc --noEmit` 均 0 错，i18n `3402/3402`、`uncovered=0`，显式授权 W5 closeout 20/20 PASS。CI、merge revision、部署与生产只读复验见后续交付记录。
+
+### 2026-09-02 · C 组交付
+
+- PR [#167](https://github.com/ivanzhao299/phoenix-erp-v3/pull/167) 全部 checks 终态为 7 success、0 failure、3 条条件跳过；已以 merge commit 合入 `main`，merge revision `ca6651bd3abd7b7b3765018bc8cc626da7308d68`。
+- 新增 `localized-sales-inventory-names` 生产只读审计清单：校验库存批次、销售订单列表、退货列表、analytics 公司聚合的名称列存在且样本非空，并检查相关 API 60 分钟错误窗口。审计执行结果在 full 部署后回填。

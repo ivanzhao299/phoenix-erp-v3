@@ -1,0 +1,41 @@
+[
+  {
+    "name": "inventory-batch-names",
+    "username": "admin",
+    "path": "/api/inventory/batches",
+    "expectedStatus": 200,
+    "minDataLength": 1,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["batch_no", "warehouse_name"]
+  },
+  {
+    "name": "sales-order-list-names",
+    "username": "admin",
+    "path": "/api/v2/sales/activity?source=ORDER&page=1&limit=20",
+    "expectedStatus": 200,
+    "rowPath": "data",
+    "minDataLength": 1,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["documentNo", "customerName", "companyName"]
+  },
+  {
+    "name": "sales-return-list-names",
+    "username": "admin",
+    "path": "/api/v2/sales/returns?page=1&limit=20",
+    "expectedStatus": 200,
+    "rowPath": "data",
+    "minDataLength": 1,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["return_no", "customer_name_master", "company_name_display"]
+  },
+  {
+    "name": "sales-analytics-company-names",
+    "username": "admin",
+    "path": "/api/v2/sales/analytics/overview",
+    "expectedStatus": 200,
+    "rowPath": "byCompany",
+    "minDataLength": 1,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["company_code", "company_name"]
+  }
+]
