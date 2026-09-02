@@ -6,7 +6,7 @@ on:
       action:
         description: Read-only audit or guarded cleanup
         type: choice
-        options: [audit, cleanup, repair-generated-worktree]
+        options: [audit, cleanup, emergency-recover, repair-generated-worktree]
         default: audit
       approve_production:
         description: Confirm the production maintenance gate
@@ -72,6 +72,53 @@ jobs:
 
             echo "action=$ACTION"
             report_disk
+            if [ "$ACTION" = emergency-recover ]; then
+              echo "=== incident container state before recovery ==="
+              docker ps -a --filter 'name=phoenix-v3-' --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+              for container in phoenix-v3-db phoenix-v3-api; do
+                docker inspect --format '{{.Name}} restart={{.RestartCount}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" || true
+                docker logs --tail 120 "$container" 2>&1 || true
+              done
+
+              # Incident policy: deployment backups are immutable individually;
+              # retain the newest three complete directories and remove older ones.
+              mapfile -t obsolete_backups < <(
+                find /opt/phoenix-erp-backups -mindepth 1 -maxdepth 1 -type d \
+                  -name 'deploy-pre-migration-*' -printf '%T@ %p\n' 2>/dev/null \
+                  | sort -nr | awk 'NR > 3 { sub(/^[^ ]+ /, ""); print }'
+              )
+              for backup_dir in "${obsolete_backups[@]}"; do
+                case "$backup_dir" in
+                  /opt/phoenix-erp-backups/deploy-pre-migration-*) ;;
+                  *) echo "::error::Refusing unexpected backup path: $backup_dir"; exit 40 ;;
+                esac
+                rm -rf --one-file-system -- "$backup_dir"
+                echo "removed old deploy backup: $backup_dir"
+              done
+              docker image prune -a -f || true
+              docker buildx prune -a -f --keep-storage=1GB 2>/dev/null \
+                || docker builder prune -a -f 2>/dev/null \
+                || true
+              journalctl --vacuum-size=256M || true
+
+              echo "=== restart database and API ==="
+              cd "$DEPLOY_PATH"
+              docker compose restart db
+              docker compose up -d --wait db
+              docker compose restart api
+              docker compose up -d --wait api
+
+              echo "=== migration state (read only) ==="
+              docker compose exec -T db sh -lc \
+                'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT timestamp || chr(9) || name FROM migrations WHERE timestamp = 1788337017420;"'
+              echo "=== recovery verification ==="
+              docker ps -a --filter 'name=phoenix-v3-' --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+              docker inspect --format '{{.Name}} restart={{.RestartCount}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' phoenix-v3-db phoenix-v3-api
+              curl -fsS --max-time 20 http://127.0.0.1:3100/api/health
+              echo
+              report_disk
+              exit 0
+            fi
             if [ "$ACTION" = repair-generated-worktree ]; then
               cd "$DEPLOY_PATH"
               allowed_files=(
