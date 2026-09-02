@@ -14,6 +14,7 @@ import { ModalV2 } from "@/components/design-system"; // G155 全局模态
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePermission } from "@/hooks/usePermission";
 import { normalizeProcurementOrdersPage } from "@/lib/procurement-orders-response";
+import { useDictOptions } from '@/hooks/useDictOptions';
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface OrderItem {
@@ -246,7 +247,8 @@ export default function PurchaseOrdersPage() {
   const { t } = useLanguage();
   const shipmentPerm = usePermission("MENU_PRC2_SHIPMENT");
   const STATUS_MAP = buildStatusMap(t);
-  const PURCHASE_TYPE_OPTS = buildPurchaseTypeOpts(t);
+  const { optionPairs: dictPurchaseTypes } = useDictOptions('PRC_PURCHASE_TYPE');
+  const PURCHASE_TYPE_OPTS = dictPurchaseTypes.length ? dictPurchaseTypes : buildPurchaseTypeOpts(t);
   const [data, setData] = useState<PageResult>({
     items: [],
     total: 0,

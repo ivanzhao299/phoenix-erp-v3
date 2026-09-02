@@ -11,6 +11,8 @@ import s from "@/components/ui/admin-ui.module.css";
 import { CompanySelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 数据字典统一组件
 import { StatStripV2 } from "@/components/design-system"; // G160：统计条全局化
+import { formatBusinessEnum } from '@/lib/business-display';
+import { useDictOptions } from '@/hooks/useDictOptions';
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────────
 interface Supplier {
@@ -172,9 +174,11 @@ const DEF: FormState = {
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function SuppliersPage() {
   const toast = useToast();
-  const {
-    t
-  } = useLanguage();
+  const { t, lang } = useLanguage();
+  const { optionPairs: countryOptions } = useDictOptions('SYS_COUNTRY');
+  const scopeLabel = (code: string) => formatBusinessEnum('procurementSupplierScope', code, lang);
+  const statusLabel = (code: string) => formatBusinessEnum('procurementSupplierStatus', code, lang);
+  const typeLabel = (code: string) => formatBusinessEnum('procurementSupplierType', code, lang);
   const [data, setData] = useState<PageResult>({
     items: [],
     total: 0,
@@ -415,7 +419,7 @@ export default function SuppliersPage() {
         value: String(data.total),
         accent: true
       }, ...SCOPE_OPTS.map(o => ({
-        label: o.label,
+        label: scopeLabel(o.value),
         value: String(data.items.filter(i => i.sharedScope === o.value).length)
       }))]} />
 
@@ -446,7 +450,7 @@ export default function SuppliersPage() {
         outline: "none"
       }}>
           <option value="">{t('ui.全部范围','全部范围')}</option>
-          {SCOPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {SCOPE_OPTS.map(o => <option key={o.value} value={o.value}>{scopeLabel(o.value)}</option>)}
         </select>
         <select value={fCountry} onChange={e => setFCountry(e.target.value)} style={{
         padding: "8px 12px",
@@ -458,7 +462,7 @@ export default function SuppliersPage() {
         outline: "none"
       }}>
           <option value="">{t('ui.全部国家','全部国家')}</option>
-          {COUNTRY_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {(countryOptions.length ? countryOptions : COUNTRY_OPTS).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select value={fStatus} onChange={e => setFStatus(e.target.value)} style={{
         padding: "8px 12px",
@@ -470,7 +474,7 @@ export default function SuppliersPage() {
         outline: "none"
       }}>
           <option value="">{t('ui.全部状态','全部状态')}</option>
-          {STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{statusLabel(o.value)}</option>)}
         </select>
       </div>
 
@@ -529,7 +533,7 @@ export default function SuppliersPage() {
                   alignItems: "center",
                   gap: 4
                 }}>
-                      {si.icon}{si.label}
+                      {si.icon}{scopeLabel(row.sharedScope)}
                     </span>
                   </td>
                   <td style={{
@@ -545,7 +549,7 @@ export default function SuppliersPage() {
               }}>{row.defaultCurrency}</td>
                   <td>
                     <span className={`${s.badge} ${s[statusCls(row.status)]}`}>
-                      {STATUS_OPTS.find(o => o.value === row.status)?.label ?? row.status}
+                      {statusLabel(row.status)}
                     </span>
                   </td>
                   <td style={{
@@ -650,7 +654,7 @@ export default function SuppliersPage() {
               fontSize: 13,
               outline: "none"
             }}>
-                {SCOPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {SCOPE_OPTS.map(o => <option key={o.value} value={o.value}>{scopeLabel(o.value)}</option>)}
               </select>
             </div>
           </div>
@@ -724,7 +728,7 @@ export default function SuppliersPage() {
               fontSize: 13,
               outline: "none"
             }}>
-                {TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{typeLabel(o.value)}</option>)}
               </select>
             </div>
             <div>

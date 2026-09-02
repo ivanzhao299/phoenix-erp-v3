@@ -6,9 +6,14 @@ import { Type } from 'class-transformer';
 import { PurchaseRequestItemDto } from './purchase-request-item.dto';
 
 export enum PurchaseType {
+  STANDARD   = 'STANDARD',
+  URGENT     = 'URGENT',
+  STRATEGIC  = 'STRATEGIC',
   MATERIAL   = 'MATERIAL',
   EQUIPMENT  = 'EQUIPMENT',
   SERVICE    = 'SERVICE',
+  CONSTRUCTION = 'CONSTRUCTION',
+  CROSS_BORDER = 'CROSS_BORDER',
   FIXED_ASSET= 'FIXED_ASSET',
   OTHER      = 'OTHER',
 }

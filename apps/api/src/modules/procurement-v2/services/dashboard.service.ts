@@ -70,7 +70,7 @@ export class DashboardService {
       this.ds.query(`
         SELECT
           COUNT(*) AS total_count,
-          SUM(CASE WHEN status NOT IN ('DELIVERED','CANCELLED') THEN 1 ELSE 0 END) AS in_transit_count,
+          SUM(CASE WHEN status NOT IN ('ARRIVED','CANCELLED') THEN 1 ELSE 0 END) AS in_transit_count,
           SUM(CASE WHEN customs_required = true THEN 1 ELSE 0 END) AS cross_border_count
         FROM prc2_shipments
         WHERE ($1::varchar IS NULL OR company_code = $1)
@@ -272,7 +272,7 @@ export class DashboardService {
         status,
         COUNT(*)                                                                  AS cnt,
         SUM(CASE WHEN customs_required = true THEN 1 ELSE 0 END)                 AS cross_border_cnt,
-        SUM(CASE WHEN status NOT IN ('DELIVERED','CANCELLED') THEN 1 ELSE 0 END) AS active_cnt
+        SUM(CASE WHEN status NOT IN ('ARRIVED','CANCELLED') THEN 1 ELSE 0 END) AS active_cnt
       FROM prc2_shipments
       WHERE ($1::varchar IS NULL OR company_code = $1)
         AND ($2::date IS NULL OR created_at::date >= $2::date)
@@ -282,20 +282,9 @@ export class DashboardService {
       ORDER BY status
     `, [q.companyCode ?? null, q.dateFrom ?? null, q.dateTo ?? null, ...scope.params]);
 
-    const STATUS_LABELS: Record<string, string> = {
-      DRAFT:             '草稿',
-      CONFIRMED:         '已确认',
-      SHIPPED:           '已发货',
-      IN_TRANSIT:        '运输中',
-      CUSTOMS_CLEARANCE: '报关中',
-      ARRIVED:           '已到港',
-      DELIVERED:         '已交付',
-      CANCELLED:         '已取消',
-    };
-
     return rows.map((r: Record<string, string>) => ({
       status:          r.status,
-      statusLabel:     STATUS_LABELS[r.status] ?? r.status,
+      statusLabel:     r.status,
       count:           Number(r.cnt),
       crossBorderCount: Number(r.cross_border_cnt),
       activeCount:     Number(r.active_cnt),

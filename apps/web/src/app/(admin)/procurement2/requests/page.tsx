@@ -12,6 +12,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from '@/contexts/LanguageContext';
 import s from "@/components/ui/admin-ui.module.css";
 import { SupplierSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器（转单弹窗用）
+import { useDictOptions } from '@/hooks/useDictOptions';
 
 type TFn = (key: string, fallback: string) => string;
 
@@ -131,6 +132,9 @@ function buildPurchaseTypeOpts(t: TFn) {
     value: "MATERIAL",
     label: t('prc2.ptype_material', "原料/物料")
   }, {
+    value: "CONSTRUCTION",
+    label: t('prc2.ptype_construction', "装修/工程")
+  }, {
     value: "EQUIPMENT",
     label: t('prc2.ptype_equipment', "设备/机械")
   }, {
@@ -191,7 +195,8 @@ export default function PurchaseRequestsPage() {
   const { t } = useLanguage();
   const STATUS_MAP = buildStatusMap(t);
   const URGENCY_MAP = buildUrgencyMap(t);
-  const PURCHASE_TYPE_OPTS = buildPurchaseTypeOpts(t);
+  const { optionPairs: dictPurchaseTypes } = useDictOptions('PRC_PURCHASE_TYPE');
+  const PURCHASE_TYPE_OPTS = dictPurchaseTypes.length ? dictPurchaseTypes : buildPurchaseTypeOpts(t);
   const URGENCY_OPTS = buildUrgencyOpts(t);
   const [data, setData] = useState<PageResult>({
     items: [],

@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { KpiCardV2, Panel } from "@/components/design-system"; // G153：统一全局卡片/容器(边界感)
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatBusinessEnum } from '@/lib/business-display';
 import request from "@/lib/api-client";
 import { currencySymbol } from "@/lib/currency";
 import s from "@/components/ui/admin-ui.module.css";
@@ -102,7 +103,7 @@ const AGING_COLOR: Record<string, string> = {
 };
 export default function ProcurementDashboardPage() {
   const toast = useToast();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [filter, setFilter] = useState({
     companyCode: "",
     dateFrom: "",
@@ -206,8 +207,8 @@ export default function ProcurementDashboardPage() {
       gap: 14
     }}>
           <KpiCardV2 title={t('prc2.kpi_po_count', '采购订单数')} value={fmt(summary.poCount)} subValue={`${t('prc2.contract_amount', '合同金额')} ${fmt(summary.poAmount, 2)}`} icon={Package} accentColor="blue" />
-          <KpiCardV2 title={t('prc2.kpi_ap_balance', '应付余额 (CNY)')} value={fmt(summary.apOpenAmount, 2)} subValue={t('prc2.ap_pending', '待付账款')} icon={AlertTriangle} accentColor="red" />
-          <KpiCardV2 title={t('prc2.kpi_paid_amount', '已付金额 (CNY)')} value={fmt(summary.paymentAmount, 2)} subValue={t('prc2.payment_total', '付款合计')} icon={DollarSign} accentColor="green" />
+          <KpiCardV2 title={t('prc2.kpi_ap_balance_original', '应付余额（原币合计）')} value={fmt(summary.apOpenAmount, 2)} subValue={t('prc2.ap_pending', '待付账款')} icon={AlertTriangle} accentColor="red" />
+          <KpiCardV2 title={t('prc2.kpi_paid_amount_base', '已付金额（本位币）')} value={fmt(summary.paymentAmount, 2)} subValue={t('prc2.payment_total', '付款合计')} icon={DollarSign} accentColor="green" />
           <KpiCardV2 title={t('prc2.kpi_shareholder_fund', '股东资金')} value={fmt(summary.shareholderFundAmount, 2)} subValue={`${t('prc2.total_label', '共')} ${summary.shareholderFundCount} ${t('prc2.records_unit', '笔')}`} icon={Users} accentColor="violet" />
           <KpiCardV2 title={t('prc2.kpi_in_transit', '在途运单')} value={fmt(summary.shipmentInTransitCount)} subValue={`${t('prc2.shipment_total', '运单总数')} ${summary.shipmentTotalCount}`} icon={Truck} accentColor="amber" />
           <KpiCardV2 title={t('prc2.kpi_pending_approval', '待审批')} value={fmt(summary.pendingPoApprovalCount)} subValue={`${t('prc2.pending_pr', '待审采购申请')} ${summary.pendingPrCount}`} icon={Clock} accentColor="cyan" />
@@ -266,7 +267,7 @@ export default function ProcurementDashboardPage() {
               </tr></thead>
               <tbody>
                 {shipment.map((r, i) => <tr key={i}>
-                    <td>{r.statusLabel}</td>
+                    <td>{formatBusinessEnum('procurementShipmentStatus', r.status, lang)}</td>
                     <td className={u.tar}>{fmt(r.count)}</td>
                     <td className={u.tar}>{r.crossBorderCount > 0 ? fmt(r.crossBorderCount) : "—"}</td>
                   </tr>)}

@@ -13,6 +13,7 @@ import DictSelect from "@/components/shared-selectors/DictSelect";
 import { Search, RefreshCw, Plus, Eye, CheckCircle, Send, Truck, Package, X, AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
+import { formatBusinessEnum } from "@/lib/business-display";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -51,15 +52,7 @@ type ShipmentPrefill = Pick<Partial<Shipment>, "poId" | "poNo" | "shipmentType">
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "草稿",
-  READY: "备货中",
-  IN_TRANSIT: "运输中",
-  CUSTOMS_CLEARING: "报关中",
-  ARRIVED: "已到货",
-  DELIVERED: "已完收",
-  CANCELLED: "已取消"
-};
+const SHIPMENT_STATUSES = ["DRAFT", "READY", "IN_TRANSIT", "CUSTOMS_CLEARING", "ARRIVED", "CANCELLED"];
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: s.badgeNeutral,
   READY: s.badgeInfo,
@@ -69,15 +62,8 @@ const STATUS_COLOR: Record<string, string> = {
   DELIVERED: s.badgeSuccess,
   CANCELLED: s.badgeDanger
 };
-const TYPE_LABELS: Record<string, string> = {
-  DOMESTIC: "国内",
-  CROSS_BORDER: "跨境",
-  LOCAL: "本地"
-};
-const CUSTOMS_LABELS: Record<string, string> = {
-  CLEARING: "报关中",
-  CLEARED: "已清关"
-};
+// DOMESTIC is retained as a legacy read value; new PO-linked shipments use LOCAL/CROSS_BORDER.
+const SHIPMENT_TYPES = ["LOCAL", "CROSS_BORDER", "DOMESTIC"];
 function getToken() {
   return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
 }
@@ -91,7 +77,10 @@ function hdr() {
 // ── Shipments Page ────────────────────────────────────────────────────────────
 
 export default function ShipmentsPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const shipmentStatusLabel = (code: string) => formatBusinessEnum('procurementShipmentStatus', code, lang);
+  const shipmentTypeLabel = (code: string) => formatBusinessEnum('procurementShipmentType', code, lang);
+  const customsStatusLabel = (code: string) => formatBusinessEnum('procurementCustomsStatus', code, lang);
   const toast = useToast();
   const shipmentPerm = usePermission("MENU_PRC2_SHIPMENT");
 
@@ -334,7 +323,7 @@ export default function ShipmentsPage() {
         color: "var(--text-primary)"
       }}>
           <option value="">{t('ui.全部状态','全部状态')}</option>
-          {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          {SHIPMENT_STATUSES.map(v => <option key={v} value={v}>{shipmentStatusLabel(v)}</option>)}
         </select>
         <select value={shipType} onChange={e => setShipType(e.target.value)} style={{
         padding: "6px 10px",
@@ -345,7 +334,7 @@ export default function ShipmentsPage() {
         color: "var(--text-primary)"
       }}>
           <option value="">{t('ui.全部类型','全部类型')}</option>
-          {Object.entries(TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          {SHIPMENT_TYPES.map(v => <option key={v} value={v}>{shipmentTypeLabel(v)}</option>)}
         </select>
         <button className={s.btnPrimary} onClick={handleSearch} style={{
         display: "flex",
@@ -406,14 +395,14 @@ export default function ShipmentsPage() {
               fontFamily: "monospace",
               fontSize: 12
             }}>{row.poNo}</td>
-                <td>{TYPE_LABELS[row.shipmentType] ?? row.shipmentType}</td>
+                <td>{shipmentTypeLabel(row.shipmentType)}</td>
                 <td>{row.carrierName || "—"}</td>
                 <td className={u.fs12}>{row.trackingNo || "—"}</td>
                 <td className={u.fs12}>{row.originCountry || "—"} → {row.destinationCountry || "—"}</td>
                 <td className={u.fs12}>{row.departureDate || "—"}</td>
                 <td className={u.fs12}>{row.arrivalDate || "—"}</td>
-                <td className={u.fs12}>{row.customsRequired ? (CUSTOMS_LABELS[row.customsStatus] ?? row.customsStatus ?? t('ui.待报关','待报关')) || t('ui.待报关','待报关') : t('ui.不需要','不需要')}</td>
-                <td><span className={`${s.badge} ${STATUS_COLOR[row.status] ?? s.badgeNeutral}`}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
+                <td className={u.fs12}>{row.customsRequired ? (row.customsStatus ? customsStatusLabel(row.customsStatus) : t('ui.待报关','待报关')) : t('ui.不需要','不需要')}</td>
+                <td><span className={`${s.badge} ${STATUS_COLOR[row.status] ?? s.badgeNeutral}`}>{shipmentStatusLabel(row.status)}</span></td>
                 <td style={{
               display: "flex",
               gap: 4,
@@ -601,19 +590,19 @@ export default function ShipmentsPage() {
           gap: 8,
           marginBottom: 16
         }}>
-              <span className={`${s.badge} ${STATUS_COLOR[detail.status] ?? s.badgeNeutral}`}>{STATUS_LABELS[detail.status] ?? detail.status}</span>
+              <span className={`${s.badge} ${STATUS_COLOR[detail.status] ?? s.badgeNeutral}`}>{shipmentStatusLabel(detail.status)}</span>
               {detail.customsRequired && <span className={`${s.badge} ${s.badgeInfo}`}>{t('ui.需报关','需报关')}</span>}
             </div>
             <DetailRow label={t('ui.运单号','运单号')} value={detail.shipmentNo} mono />
             <DetailRow label={t('ui.关联PO','关联PO')} value={detail.poNo} mono />
-            <DetailRow label={t('ui.运输类型','运输类型')} value={TYPE_LABELS[detail.shipmentType] ?? detail.shipmentType ?? "—"} />
+            <DetailRow label={t('ui.运输类型','运输类型')} value={shipmentTypeLabel(detail.shipmentType)} />
             <DetailRow label={t('ui.承运商','承运商')} value={detail.carrierName || "—"} />
             <DetailRow label={t('ui.跟踪号','跟踪号')} value={detail.trackingNo || "—"} />
             <DetailRow label={t('ui.发货国→目的','发货国→目的')} value={`${detail.originCountry || "—"} → ${detail.destinationCountry || "—"}`} />
             <DetailRow label={t('ui.发货日期','发货日期')} value={detail.departureDate || "—"} />
             <DetailRow label={t('ui.到货日期','到货日期')} value={detail.arrivalDate || "—"} />
             <DetailRow label={t('ui.报关单号','报关单号')} value={detail.customsDeclNo || "—"} />
-            <DetailRow label={t('ui.报关状态','报关状态')} value={detail.customsRequired ? (CUSTOMS_LABELS[detail.customsStatus] ?? detail.customsStatus ?? t('ui.待报关','待报关')) || t('ui.待报关','待报关') : t('ui.不需要','不需要')} />
+            <DetailRow label={t('ui.报关状态','报关状态')} value={detail.customsRequired ? (detail.customsStatus ? customsStatusLabel(detail.customsStatus) : t('ui.待报关','待报关')) : t('ui.不需要','不需要')} />
             {(detail.receipts ?? []).length > 0 && <div style={{
           marginTop: 16
         }}>
