@@ -173,4 +173,12 @@ Playwright `apps/web/e2e/sales-activity-orders.spec.ts:36-80` 只覆盖来源 Ta
 
 本地验证记录：API tsc 与 Web tsc 均 0 errors；Web Vitest 全量 98 files / 515 tests 通过（包括外部 `NODE_ENV=production` 场景）；API lifecycle 定向 Jest 7/7 通过；readonly-audit manifest 校验通过。API 全量为 83/84 suites、702/704 tests，失败仅为既有 `chanjet-callback.controller.spec.ts` 两个 5 秒超时，单文件重跑仍复现。Playwright 2 个 spec 已启动，但本机 Chromium 缺少系统动态库 `libnspr4.so`，在浏览器启动前失败。两项均留待 CI 标准环境复核，不将其记作验收通过。
 
-生产复验必须在部署后由 GitHub `Production Readonly Audit` 使用上述两份清单执行；执行前不对生产写入，执行结果（PASS/NO_SAMPLE、revision）应回填本节。
+生产复验已在 full 部署后执行（GitHub run `33603103980`）：
+
+- revision：checkout / API / Web 均为 `9e374df206ef5b04572bb6195c3ab739477dd91a`。
+- 完整配送 + 签收 + AR 样本：2 笔，SQL 选样 PASS；认证 GET process-log HTTP 200，timeline/documents/warnings 数组、逐项字段与 DELIVERY/RECEIPT/AR 深链断言 PASS。
+- `RECEIVED_WITHOUT_AR`：生产 0 笔，`NO_SAMPLE`。
+- `DELIVERY_COMPLETED_WITHOUT_RECEIPT`：生产 0 笔，`NO_SAMPLE`。
+- `PRODUCTION_BUSINESS_WRITES=0`，全程只读。
+
+full 部署 run `33602535757` 成功，`Deploy via SSH`、迁移与健康检查全部通过。两类 warning 没有伪造生产样本，后续出现真实异常时可复用同一清单复验。
