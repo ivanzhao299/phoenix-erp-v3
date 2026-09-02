@@ -94,7 +94,7 @@ export interface PackagingDailyReport {
     total_tasks:  number | string;
     total_packed: number | string;
   };
-  by_grade: { grade: string; qty: number | string; tasks: number | string }[];
+  by_grade: { grade: string; grade_name?: string; grade_name_en?: string; grade_name_lo?: string; qty: number | string; tasks: number | string }[];
 }
 
 export interface QcInspection {

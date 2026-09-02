@@ -11,6 +11,7 @@ import {
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatMasterData } from '@/lib/business-display';
 
 // ── 日期工具函数 ──────────────────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ function SkeletonGrid({ count = 2, cols = 2 }: { count?: number; cols?: number }
 export default function MobilePackagingPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
-  const { t: tt } = useLanguage();
+  const { t: tt, lang } = useLanguage();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('packaging');
   const today = fmtDate(new Date());
 
@@ -410,7 +411,7 @@ export default function MobilePackagingPage() {
                     }}
                   >
                     <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 4 }}>
-                      {g.grade}
+                      {formatMasterData(g, 'grade_name', g.grade, lang)}
                     </div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: t.text, lineHeight: 1.1 }}>
                       {fmt(g.qty)}

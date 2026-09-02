@@ -5,15 +5,19 @@ import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import u from '@/styles/uix-utils.module.css';
-import { formatBusinessEnum } from '@/lib/business-display';
+import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 
 interface LedgerRow {
   id: number;
   log_date: string;
   change_type: string;
   grade: string;
+  grade_name?: string;
+  grade_name_en?: string;
+  grade_name_lo?: string;
   qty_change: number;
   house_code: string | null;
+  house_name?: string | null;
   operator: string;
   note: string | null;
   created_at: string;
@@ -78,9 +82,9 @@ export default function DailyInboundLedgerPage() {
           {rows.map(row => <tr key={row.id}>
             <td style={{ padding: 10, borderBottom: '1px solid var(--border)' }}>{row.log_date}</td>
             <td style={{ padding: 10, borderBottom: '1px solid var(--border)' }}>{formatBusinessEnum('productionInbound', row.change_type, lang)}</td>
-            <td style={{ padding: 10, borderBottom: '1px solid var(--border)' }}>{row.grade || '—'}</td>
+            <td style={{ padding: 10, borderBottom: '1px solid var(--border)' }}>{formatMasterData(row, 'grade_name', row.grade, lang)}</td>
             <td style={{ padding: 10, borderBottom: '1px solid var(--border)', fontWeight: 700, color: row.qty_change >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>{row.qty_change > 0 ? '+' : ''}{Number(row.qty_change).toLocaleString()}</td>
-            <td style={{ padding: 10, borderBottom: '1px solid var(--border)' }}>{row.house_code || '—'}</td>
+            <td style={{ padding: 10, borderBottom: '1px solid var(--border)' }}>{formatMasterData(row, 'house_name', row.house_code, lang)}</td>
             <td style={{ padding: 10, borderBottom: '1px solid var(--border)' }}>{row.operator || '—'}</td>
             <td style={{ padding: 10, borderBottom: '1px solid var(--border)' }}>{new Date(row.created_at).toLocaleString(locale)}</td>
             <td style={{ padding: 10, borderBottom: '1px solid var(--border)', maxWidth: 360 }}>{row.note || '—'}</td>

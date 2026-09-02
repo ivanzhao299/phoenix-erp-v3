@@ -12,6 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { MobilePageSkeleton } from '@/components/mobile/MobileSkeleton';
+import { formatMasterData } from '@/lib/business-display';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -844,7 +845,7 @@ export default function MobileDashboardPage() {
                 fontSize: 12,
                 fontWeight: 700,
                 color: GRADE_COLORS[g.grade] || 'var(--gray-400)'
-              }}>{g.grade}</div>
+              }}>{formatMasterData(g, 'grade_name', g.grade, lang)}</div>
                       <div style={{
                 fontSize: 16,
                 fontWeight: 800,

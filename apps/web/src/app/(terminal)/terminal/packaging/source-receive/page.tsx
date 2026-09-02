@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatMasterData } from '@/lib/business-display';
 import { crudApi } from '@/lib/api-client';
 import { packagingApi } from '@/lib/packaging-api';
 import { getOpenShiftId } from '@/lib/source-receive-submit';
@@ -59,9 +60,7 @@ const FIELDS: {
 }];
 export default function EggCollectionPage() {
   const router = useRouter();
-  const {
-    t
-  } = useLanguage();
+  const { t, lang } = useLanguage();
   const {
     ctx
   } = useTerminalContext();
@@ -379,7 +378,7 @@ export default function EggCollectionPage() {
                     textOverflow: 'ellipsis',
                     flex: 1
                   }}>
-                          {h.house_name}
+                          {formatMasterData(h, 'house_name', h.house_code, lang)}
                         </div>
                       </div>
                       {/* 主数字 */}
