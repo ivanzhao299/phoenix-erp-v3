@@ -142,3 +142,37 @@
 - 本报告未连接生产数据库、未调用运行中接口，也未执行迁移；“当前真实返回”均以仓库中的 SQL、QueryBuilder 与 entity 序列化路径为证据。
 - `brd_*`、包装 `pkg_*` 与采购实体存在历史混合 schema；实施前必须核对真实 `\\d` 与运行响应，尤其 `wms_inbound.warehouse`、包装 JSON grade key、采购枚举 CHECK。
 - 本轮不修改业务代码，不新增翻译列，不调整供应商治理流程；供应商页面仍有写能力的问题仅登记为独立治理复核点。
+
+## 9. 执行记录（2026-09-02）
+
+六个实施提交已按 §6 指定顺序落地：
+
+1. `f8f97b40` `fix: production p0 display contracts`
+2. `f16cbce5` `fix: procurement p0 display contracts`
+3. `dfc43690` `fix: production p1 localized name projections`
+4. `08fa7adf` `fix: procurement p1 localized name projections`
+5. `05897748` `fix: production p2 localized rendering`
+6. `5931a2b7` `fix: procurement p2 localized rendering`
+
+实施结果：
+
+- `/analytics/production` 已锁定真实 `/api/v2/analytics/production` 契约；Terminal 包装“已入库”读取服务端 `shiftWarehousedBoxes`，不再复用 `packedBoxes`。
+- 生产分析、鸡蛋流水、包装来源/任务/等级聚合均保留原 code；聚合先按 code 完成，再窄 JOIN 真实名称列。farm/house 未增加伪多语言列，flock 未使用 strain 冒充名称。
+- 采购订单、申请、收货与供应商绩效追加主数据名称字段，原快照字段和 code 均保留；快照仅在主数据名称缺失时回退。供应商写接口治理未顺带修改。
+- `PRC_PURCHASE_TYPE` 的列表筛选/formatter 优先使用 sys_dict，PR DTO 已兼容迁移链现存类型；`DOMESTIC` 仅保留历史读取，新增链路仍使用 `LOCAL/CROSS_BORDER`。
+- 运单看板终态统一为真实 `ARRIVED`，报关/运输/供应商/生产操作枚举集中三语显示；未知值继续显示原 code。
+- 看板不再固定标注 CNY：应付明确为“原币合计”，付款明确为“本位币”。字典 hook 按当前 locale 读取真实 label，并按 zh → en → lo 回退，不复制伪造翻译。
+
+本地验证：
+
+- API `tsc --noEmit`：PASS。
+- Web `tsc --noEmit`：PASS。
+- 定向 API Jest：4 suites / 31 tests PASS（含 BFF、聚合补名、code/名称兼容契约）。
+- 本轮 Web 定向 Vitest：生产/采购 P0/P2、共享名称 helper、三语 enum 共 24 assertions PASS。
+- `check-i18n-keys.js`：PASS，zh/en/lo 各 14326 keys，7825 个引用全部命中。
+- `check-i18n-hardcoded-literals.mjs --fail-on-uncovered`：PASS（covered 3416 / uncovered 1，既有扫描口径）。
+- `check-procurement-datascope-writes.mjs`：PASS，0 findings。
+- `check-constraint-drift.js`：PASS，0 new drift；既有 allowlist 1。
+- Web 全量 Vitest：500 PASS / 26 FAIL；失败全部为既有 DOM 测试环境 `act is not a function`（`usePermission.test.ts`、`MasterDataSelectors.test.ts`、`sales-activity-orders-page.test.ts`），本轮定向测试及 Web tsc 均通过。CI 结果作为最终放行依据。
+
+部署与生产只读复验将在 push 后补记 revision、analytics/ledger/PO/供应商名称列、聚合一致抽查及错误窗口结果。
