@@ -175,4 +175,15 @@
 - `check-constraint-drift.js`：PASS，0 new drift；既有 allowlist 1。
 - Web 全量 Vitest：500 PASS / 26 FAIL；失败全部为既有 DOM 测试环境 `act is not a function`（`usePermission.test.ts`、`MasterDataSelectors.test.ts`、`sales-activity-orders-page.test.ts`），本轮定向测试及 Web tsc 均通过。CI 结果作为最终放行依据。
 
-部署与生产只读复验将在 push 后补记 revision、analytics/ledger/PO/供应商名称列、聚合一致抽查及错误窗口结果。
+部署与生产只读复验（Production Readonly Audit run `33623947320`）：
+
+- 部署 revision 三方一致：checkout/API/Web 均为 `0c178867b746a1e269a3ddb76f2afab2d45e43c6`（deploy run `33622169161`）。
+- Production analytics `byFarm`：`NO_SAMPLE`；接口返回空数组，未取得可执行 `farm_code + farm_name` 非空断言的响应样本。只读 SQL 显示近 30 天存在 5 个 farm code group，因此本项不得记为名称列 PASS。
+- Production analytics `byHouse`：`NO_SAMPLE`；接口返回空数组，未取得可执行 `house_code + house_name` 非空断言的响应样本。只读 SQL 显示近 30 天存在 8 个 house code group，因此本项不得记为名称列 PASS。
+- Egg ledger grade/house：`NO_SAMPLE`；没有同时具备非空 `grade + grade_name + house_code + house_name` 的完整映射样本。
+- PO 列表 supplier 名称：PASS；GET 200，抽查 20 行，`supplierCode` 保留且 `supplierMasterName` 存在、非空。
+- 供应商绩效聚合名称：PASS；GET 200，返回 10 组，`supplierCode + currencyCode` 保留且 `supplierName` 存在、非空；只读 SQL 的 `(supplier_code, currency_code)` code group 同为 10 组。
+- 历史补名前 count/sum 无在线快照可比较，按约定改验 code group / 名称 JOIN 唯一性：farm、house、supplier 主数据 code 均无重复；供应商绩效 SQL/API 组数一致。生产 analytics 因接口无样本未宣称聚合一致 PASS。
+- 目标接口 `sys_error_logs` 与 API 容器日志 60 分钟错误窗口均为 0；`PASS PRODUCTION_BUSINESS_WRITES=0`，审计全程未产生业务写入。
+
+补充记录：首次 run `33623738847` 在 egg ledger 缺少完整 house 样本时按失败退出；清单随后改为仅选择完整映射样本、无样本输出 `NO_SAMPLE`，最终以上述 run 为准。
