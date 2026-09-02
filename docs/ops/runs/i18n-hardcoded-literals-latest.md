@@ -1,10 +1,10 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-09-01T06:10:32.911Z
+Generated: 2026-09-02T05:34:26.921Z
 
-Scanned hardcoded literals: 3348
-Covered by validated runtime bridge: 3348
-Release-blocking uncovered literals: 0
+Scanned hardcoded literals: 3402
+Covered by validated runtime bridge: 3400
+Release-blocking uncovered literals: 2
 Locale quality issues: 0
 Affected files: 184
 
@@ -16,11 +16,12 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 |---|---:|---|
 | `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 446 | 305:精确候选冲突<br>306:已有精确主档待确认<br>307:仓库主档待补齐<br>308:鸡舍库存归属待桥接<br>309:仓储实体类型待核准<br>310:蛋品 SKU 待对齐<br>311:物料主档待补齐<br>313:商品实体类型待核准 |
 | `apps/web/src/components/master-data/detail-configs.tsx` | 200 | 88:客户中心<br>92:订单<br>93:应收<br>97:订单数<br>98:单 (近期)<br>101:近期销售额<br>105:应收余额<br>112:逾期单据 |
-| `apps/web/src/components/layout/Sidebar.tsx` | 162 | 74:运营工作台<br>76:每日工作台<br>83:经营仪表盘<br>86:生产管理<br>88:养殖总览<br>89:鸡舍管理<br>90:鸡群档案<br>91:日生产日报 |
+| `apps/web/src/components/layout/Sidebar.tsx` | 161 | 74:运营工作台<br>76:每日工作台<br>83:经营仪表盘<br>86:生产管理<br>88:养殖总览<br>89:鸡舍管理<br>90:鸡群档案<br>91:日生产日报 |
 | `apps/web/src/lib/workflow-templates.ts` | 124 | 35:费用报销审批<br>36:财务<br>40:费用报销单<br>43:申请金额<br>44:费用类型<br>44:差旅费<br>44:招待费<br>44:办公费 |
 | `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx` | 97 | 67:发起申请<br>73:一级审批<br>83:流程完成<br>95:财务会计<br>98:财务负责人<br>101:采购员<br>104:仓储负责人<br>107:品控负责人 |
 | `apps/web/src/lib/dict-type-labels.ts` | 88 | 9:审批模块类型<br>10:品种<br>10:品种类型<br>10:淘汰原因<br>11:鸡群状态<br>11:鸡舍类型<br>11:死亡原因<br>12:养殖班次 |
 | `apps/web/src/app/(admin)/traceability/page.tsx` | 73 | 19:库存批次<br>24:包装批次<br>29:标签码<br>30:标签号 label_no<br>34:销售单<br>35:SO / 订单号<br>39:客户<br>40:客户编码 |
+| `apps/web/src/lib/business-display.ts` | 68 | 8:可用<br>8:已预留<br>8:隔离<br>8:损坏<br>8:冻结<br>8:锁定<br>8:退货待检<br>8:已过期 |
 | `apps/web/src/lib/workflow-data-catalog.ts` | 56 | 23:系统用户<br>24:用户<br>35:用户ID<br>35:作为提交值<br>36:用户姓名<br>36:作为页面显示<br>41:系统角色<br>42:角色 |
 | `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 52 | 311:待同步好业财镜像<br>340:应收待收<br>341:应付待付<br>342:现金 / 银行余额<br>343:今日收款<br>344:今日付款<br>345:科目余额<br>346:资产负债表 |
 | `apps/web/src/lib/shareholder-api.ts` | 48 | 119:蛋鸡养殖场<br>119:肉鸡养殖场<br>119:屠宰加工厂<br>120:食品厂<br>120:有机肥生产厂<br>120:孵化场<br>121:饲料厂<br>121:其他 |
@@ -44,7 +45,7 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 | `apps/web/src/app/(admin)/data-quality/page.tsx` | 27 | 45:优秀<br>46:良好<br>47:及格<br>48:需整改<br>62:主数据<br>63:主数据<br>64:主数据<br>65:主数据 |
 | `apps/web/src/app/(admin)/master-data/page.tsx` | 27 | 80:组织中心<br>81:集团 / 公司 / 项目 / 用户授权<br>86:组织架构<br>91:公司档案<br>96:项目档案<br>102:商业主体中心<br>103:客户 / 供应商 / 门店<br>108:客户档案 |
 | `apps/web/src/app/(admin)/workflow/definitions/page.tsx` | 26 | 14:财务<br>14:采购<br>14:合同<br>14:人事<br>14:仓储<br>14:品控<br>14:门店<br>14:养殖 |
-| `apps/web/src/app/(admin)/sales2/customers/page.tsx` | 25 | 17:直营店<br>20:经销商<br>23:代理商<br>26:大客户<br>29:散客零售<br>33:正常<br>36:观察<br>39:黑名单 |
+| `apps/web/src/app/(admin)/sales2/customers/page.tsx` | 25 | 18:直营店<br>21:经销商<br>24:代理商<br>27:大客户<br>30:散客零售<br>34:正常<br>37:观察<br>40:黑名单 |
 | `apps/web/src/app/(admin)/workflow/start/page.tsx` | 25 | 49:全部<br>63:全部<br>68:全部<br>75:无必填项<br>397:财务<br>398:采购<br>399:合同<br>400:人事 |
 | `apps/web/src/components/settings/UserOrgBindingPanel.tsx` | 25 | 43:个人<br>43:仅本人数据<br>44:项目<br>44:所属项目数据<br>45:公司<br>45:所属公司数据<br>46:区域<br>46:区域汇总数据 |
 | `apps/web/src/components/workflow/WorkflowDataView.tsx` | 25 | 63:数据源匹配中或暂无名称<br>76:金额<br>77:费用类型<br>78:门店<br>79:申请原因<br>80:物料/商品<br>81:数量<br>82:预算金额 |
@@ -52,11 +53,10 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 | `apps/web/src/app/(admin)/shareholders/capital/import/page.tsx` | 24 | 93:项目<br>93:项目名称<br>94:股东<br>94:股东姓名<br>95:金额<br>95:出资金额<br>96:日期<br>96:出资日期 |
 | `apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx` | 24 | 131:待分配<br>139:暂无待处理节点<br>140:无待处理人<br>141:流程当前无需人工处理<br>143:从发起到当前的运行时长<br>149:等待审批处理<br>150:等待系统流转<br>151:流程已完成 |
 | `apps/web/src/lib/warehouse-ledger-change-type.ts` | 24 | 4:库存调整<br>5:蛋品入库<br>6:蛋品冲销<br>7:养殖入库<br>8:养殖用药出库<br>9:养殖冲销<br>10:药品入库<br>11:药品出库 |
-| `apps/web/src/app/(admin)/sales2/pricing/page.tsx` | 23 | 25:草稿<br>29:审批中<br>33:已批准<br>37:生效中<br>41:已失效<br>45:已取消<br>52:0号蛋<br>53:1号蛋 |
+| `apps/web/src/app/(admin)/sales2/pricing/page.tsx` | 23 | 26:草稿<br>30:审批中<br>34:已批准<br>38:生效中<br>42:已失效<br>46:已取消<br>53:0号蛋<br>54:1号蛋 |
 | `apps/web/src/app/(admin)/workflow/forms/page.tsx` | 23 | 21:财务<br>21:采购<br>21:合同<br>21:人事<br>21:仓储<br>21:品控<br>21:门店<br>21:养殖 |
 | `apps/web/src/app/(admin)/uat/page.tsx` | 22 | 62:未命名维度<br>76:未命名验收项<br>108:采购管理<br>109:财务管理<br>110:销售管理<br>111:配送管理<br>112:库存管理<br>113:审批流程 |
 | `apps/web/src/app/(admin)/workflow/page.tsx` | 22 | 13:采购申请<br>13:采购<br>14:费用报销<br>14:财务<br>15:库存调整<br>15:仓储<br>16:门店折扣<br>16:门店 |
-| `apps/web/src/app/(admin)/sales2/orders/page.tsx` | 21 | 49:草稿<br>54:审批中<br>59:已批准<br>64:已分配<br>69:已拣货<br>74:已装车<br>79:已发货<br>84:已送达 |
 | `apps/web/src/app/(admin)/store/replenish/page.tsx` | 21 | 648:提交<br>649:审批<br>650:发运<br>651:签收<br>652:关闭<br>787:提交<br>788:审批<br>789:发运 |
 | `apps/web/src/app/(admin)/breeding/med-stock/page.tsx` | 20 | 55:2号舍<br>55:3号舍<br>55:4号舍<br>55:5号舍<br>55:6号舍<br>55:全场<br>261:药品名称<br>261:规格 |
 | `apps/web/src/app/(admin)/bug-reports/page.tsx` | 20 | 210:已批准待执行<br>211:Agent 执行中<br>212:HOLD 待处理<br>213:待批准入队<br>214:待生成计划<br>293:刷新结果<br>304:已通过<br>304:未通过 |

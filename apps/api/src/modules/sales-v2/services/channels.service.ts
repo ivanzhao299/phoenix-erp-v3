@@ -70,7 +70,11 @@ export class ChannelsService {
     const [countRow, rows] = await Promise.all([
       this.ds.query(`SELECT COUNT(*) AS total FROM sal_channels WHERE ${whereClause}`, params),
       this.ds.query(
-        `SELECT * FROM sal_channels WHERE ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        `SELECT c.*,
+                (SELECT COALESCE(o.org_name_cn, o.org_name) FROM sys_organizations o
+                 WHERE COALESCE(o.company_code, o.org_code) = c.company_code
+                   AND o.org_type = 'COMPANY' LIMIT 1) AS company_name_display
+         FROM sal_channels c WHERE ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, limit, offset],
       ),
     ]);

@@ -12,6 +12,7 @@ import { hexToAccent, KPI_GRID } from '@/lib/design-tokens';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, DriverSelector, VehicleSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
+import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 import {
   resolveDeliveryStatus,
   unwrapDeliveryActionOrder,
@@ -178,7 +179,11 @@ interface DeliveryOrder {
   delivery_no: string;
   status: string;
   company_code: string;
+  company_name_display?: string | null;
   driver_name: string | null;
+  driver_name_master?: string | null;
+  driver_name_en?: string | null;
+  driver_name_lo?: string | null;
   vehicle_no: string | null;
   route_name: string | null;
   wave_date: string | null;
@@ -235,9 +240,10 @@ interface Vehicle {
 // ── 子组件 ────────────────────────────────────────────────────────────────────
 
 function StatusBadge({
-  status
+  status, lang = 'zh'
 }: {
   status: string;
+  lang?: string;
 }) {
   const cfg = STATUS_MAP[status] ?? {
     label: status,
@@ -258,7 +264,7 @@ function StatusBadge({
     background: cfg.bg
   }}>
       <Icon size={10} />
-      {cfg.label}
+      {formatBusinessEnum('delivery', status, lang)}
     </span>;
 }
 
@@ -266,7 +272,7 @@ function StatusBadge({
 
 type Tab = 'orders' | 'drivers' | 'vehicles';
 export default function DeliveryPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [tab, setTab] = useState<Tab>('orders');
 
   // ── 配送单列表 ──
@@ -809,7 +815,7 @@ export default function DeliveryPage() {
                 fontSize: 13,
                 fontFamily: 'monospace'
               }}>{o.delivery_no}</div>
-                    <StatusBadge status={o.status} />
+                    <StatusBadge status={o.status} lang={lang} />
                   </div>
                   <div style={{
               display: 'flex',
@@ -821,7 +827,7 @@ export default function DeliveryPage() {
                     {o.driver_name && <span><Users size={10} style={{
                   display: 'inline',
                   marginRight: 3
-                }} />{o.driver_name}</span>}
+                }} />{formatMasterData(o, 'driver_name', o.driver_name, lang)}</span>}
                     {o.vehicle_no && <span><Car size={10} style={{
                   display: 'inline',
                   marginRight: 3
@@ -914,7 +920,7 @@ export default function DeliveryPage() {
             }}>
                     {selected.delivery_no}
                   </div>
-                  <StatusBadge status={selected.status} />
+                  <StatusBadge status={selected.status} lang={lang} />
                 </div>
                 <button onClick={() => setSelected(null)} style={{
             background: 'none',
@@ -933,7 +939,7 @@ export default function DeliveryPage() {
           gap: 8,
           marginBottom: 16
         }}>
-                {[[t('ui.公司','公司'), selected.company_code], [t('ui.司机','司机'), selected.driver_name ?? '—'], [t('ui.车辆','车辆'), selected.vehicle_no ?? '—'], [t('ui.路线','路线'), selected.route_name ?? '—'], [t('ui.波次日期','波次日期'), selected.wave_date ?? '—'], [t('ui.预计到达','预计到达'), selected.expected_arrival_at ? new Date(selected.expected_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.实际到达','实际到达'), selected.actual_arrival_at ? new Date(selected.actual_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.完成时间','完成时间'), selected.completed_at ? new Date(selected.completed_at).toLocaleString('zh-CN') : '—']].map(([k, v]) => <div key={k} className={u.fs12}>
+                {[[t('ui.公司','公司'), formatMasterData(selected, 'company_name', selected.company_code, lang)], [t('ui.司机','司机'), formatMasterData(selected, 'driver_name', selected.driver_name, lang)], [t('ui.车辆','车辆'), selected.vehicle_no ?? '—'], [t('ui.路线','路线'), selected.route_name ?? '—'], [t('ui.波次日期','波次日期'), selected.wave_date ?? '—'], [t('ui.预计到达','预计到达'), selected.expected_arrival_at ? new Date(selected.expected_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.实际到达','实际到达'), selected.actual_arrival_at ? new Date(selected.actual_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.完成时间','完成时间'), selected.completed_at ? new Date(selected.completed_at).toLocaleString('zh-CN') : '—']].map(([k, v]) => <div key={k} className={u.fs12}>
                     <span style={{
               color: 'var(--text-secondary)',
               marginRight: 6

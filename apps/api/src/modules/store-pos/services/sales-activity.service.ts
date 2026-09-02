@@ -167,7 +167,11 @@ export class SalesActivityService {
     const rows = await this.ds.query<any[]>(`
       SELECT 'ORDER' AS "sourceType",id::text AS "sourceId",order_no AS "documentNo",
              company_code AS "companyCode",NULL::text AS "storeCode",customer_code AS "customerCode",
-             customer_name AS "customerName",status,
+             customer_name AS "customerName",
+             (SELECT c.customer_name_en FROM sal_customers c WHERE c.customer_no=sal_sales_orders.customer_code ORDER BY c.id LIMIT 1) AS "customerNameEn",
+             (SELECT c.customer_name_lo FROM sal_customers c WHERE c.customer_no=sal_sales_orders.customer_code ORDER BY c.id LIMIT 1) AS "customerNameLo",
+             (SELECT COALESCE(o.org_name_cn,o.org_name) FROM sys_organizations o WHERE o.org_type='COMPANY' AND COALESCE(o.company_code,o.org_code)=sal_sales_orders.company_code ORDER BY o.org_code LIMIT 1) AS "companyName",
+             (SELECT ch.channel_name FROM sal_channels ch WHERE ch.channel_code=sal_sales_orders.channel_code ORDER BY ch.id LIMIT 1) AS "channelName",status,
              CASE WHEN status='RECEIVED' THEN 'RECEIVED_ORDER' ELSE 'ORDER_' || status END AS "displayCategory",
              total_amount::float8 AS amount,currency_code AS currency,created_at::date::text AS "businessDate",
              created_at AS "occurredAt",'/sales2/orders?orderId=' || id::text AS "detailHref"
@@ -184,7 +188,11 @@ export class SalesActivityService {
     const rows = await this.ds.query<any[]>(`
       SELECT 'POS' AS "sourceType",id::text AS "sourceId",sale_no AS "documentNo",
              company_code AS "companyCode",store_code AS "storeCode",customer_code AS "customerCode",
-             COALESCE(customer_name,'散客') AS "customerName",status,
+             COALESCE(customer_name,'散客') AS "customerName",
+             NULL::text AS "customerNameEn",NULL::text AS "customerNameLo",
+             (SELECT s.store_name FROM mst_stores s WHERE s.store_code=sal_store_sales.store_code LIMIT 1) AS "storeName",
+             (SELECT s.store_name_en FROM mst_stores s WHERE s.store_code=sal_store_sales.store_code LIMIT 1) AS "storeNameEn",
+             (SELECT s.store_name_lo FROM mst_stores s WHERE s.store_code=sal_store_sales.store_code LIMIT 1) AS "storeNameLo",status,
              CASE WHEN status='COMPLETED' THEN 'COMPLETED_SALE' ELSE 'POS_' || status END AS "displayCategory",
              total_amount::float8 AS amount,COALESCE(currency_code,'CNY') AS currency,
              COALESCE(business_date,created_at::date)::text AS "businessDate",

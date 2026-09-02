@@ -82,7 +82,14 @@ export class CustomersService {
     const [countRow, rows] = await Promise.all([
       this.ds.query(`SELECT COUNT(*) AS total FROM sal_customers WHERE ${whereClause}`, params),
       this.ds.query(
-        `SELECT * FROM sal_customers WHERE ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        `SELECT c.*,
+                (SELECT ch.channel_name FROM sal_channels ch
+                 WHERE ch.channel_code = c.channel_code AND ch.company_code = c.company_code
+                 ORDER BY ch.id LIMIT 1) AS channel_name,
+                (SELECT COALESCE(o.org_name_cn, o.org_name) FROM sys_organizations o
+                 WHERE COALESCE(o.company_code, o.org_code) = c.company_code
+                   AND o.org_type = 'COMPANY' LIMIT 1) AS company_name_display
+         FROM sal_customers c WHERE ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, limit, offset],
       ),
     ]);

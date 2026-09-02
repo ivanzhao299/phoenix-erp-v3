@@ -108,9 +108,22 @@ export class ReturnOrdersService {
     );
 
     const rows = await this.ds.query(
-      `SELECT r.*, (
-         SELECT json_agg(i ORDER BY i.id)
-         FROM sal_return_items i WHERE i.return_order_id = r.id
+      `SELECT r.*,
+       (SELECT c.customer_name FROM sal_customers c WHERE c.customer_no=r.customer_code ORDER BY c.id LIMIT 1) AS customer_name_master,
+       (SELECT c.customer_name_en FROM sal_customers c WHERE c.customer_no=r.customer_code ORDER BY c.id LIMIT 1) AS customer_name_en,
+       (SELECT c.customer_name_lo FROM sal_customers c WHERE c.customer_no=r.customer_code ORDER BY c.id LIMIT 1) AS customer_name_lo,
+       (SELECT COALESCE(o.org_name_cn,o.org_name) FROM sys_organizations o WHERE o.org_type='COMPANY' AND COALESCE(o.company_code,o.org_code)=r.company_code ORDER BY o.org_code LIMIT 1) AS company_name_display,
+       (
+         SELECT json_agg(x ORDER BY x.id) FROM (
+           SELECT i.*,
+             (SELECT ps.sku_name FROM product_skus ps WHERE ps.sku_code=i.sku_code LIMIT 1) AS sku_name,
+             (SELECT ps.sku_name_en FROM product_skus ps WHERE ps.sku_code=i.sku_code LIMIT 1) AS sku_name_en,
+             (SELECT ps.sku_name_lo FROM product_skus ps WHERE ps.sku_code=i.sku_code LIMIT 1) AS sku_name_lo,
+             (SELECT p.product_name_zh FROM mst_products p WHERE p.product_code=i.product_code LIMIT 1) AS product_name_zh,
+             (SELECT p.product_name_en FROM mst_products p WHERE p.product_code=i.product_code LIMIT 1) AS product_name_en,
+             (SELECT p.product_name_lo FROM mst_products p WHERE p.product_code=i.product_code LIMIT 1) AS product_name_lo
+           FROM sal_return_items i WHERE i.return_order_id = r.id
+         ) x
        ) AS items
        FROM sal_return_orders r
        WHERE ${where}
@@ -131,9 +144,22 @@ export class ReturnOrdersService {
 
   async findById(id: string) {
     const [row] = await this.ds.query(
-      `SELECT r.*, (
-         SELECT json_agg(i ORDER BY i.id)
-         FROM sal_return_items i WHERE i.return_order_id = r.id
+      `SELECT r.*,
+       (SELECT c.customer_name FROM sal_customers c WHERE c.customer_no=r.customer_code ORDER BY c.id LIMIT 1) AS customer_name_master,
+       (SELECT c.customer_name_en FROM sal_customers c WHERE c.customer_no=r.customer_code ORDER BY c.id LIMIT 1) AS customer_name_en,
+       (SELECT c.customer_name_lo FROM sal_customers c WHERE c.customer_no=r.customer_code ORDER BY c.id LIMIT 1) AS customer_name_lo,
+       (SELECT COALESCE(o.org_name_cn,o.org_name) FROM sys_organizations o WHERE o.org_type='COMPANY' AND COALESCE(o.company_code,o.org_code)=r.company_code ORDER BY o.org_code LIMIT 1) AS company_name_display,
+       (
+         SELECT json_agg(x ORDER BY x.id) FROM (
+           SELECT i.*,
+             (SELECT ps.sku_name FROM product_skus ps WHERE ps.sku_code=i.sku_code LIMIT 1) AS sku_name,
+             (SELECT ps.sku_name_en FROM product_skus ps WHERE ps.sku_code=i.sku_code LIMIT 1) AS sku_name_en,
+             (SELECT ps.sku_name_lo FROM product_skus ps WHERE ps.sku_code=i.sku_code LIMIT 1) AS sku_name_lo,
+             (SELECT p.product_name_zh FROM mst_products p WHERE p.product_code=i.product_code LIMIT 1) AS product_name_zh,
+             (SELECT p.product_name_en FROM mst_products p WHERE p.product_code=i.product_code LIMIT 1) AS product_name_en,
+             (SELECT p.product_name_lo FROM mst_products p WHERE p.product_code=i.product_code LIMIT 1) AS product_name_lo
+           FROM sal_return_items i WHERE i.return_order_id = r.id
+         ) x
        ) AS items
        FROM sal_return_orders r WHERE r.id = $1`,
       [id],
@@ -582,25 +608,25 @@ export class ReturnOrdersService {
     const cond = companyCode ? `AND company_code = '${companyCode}'` : '';
 
     const topCustomers = await this.ds.query(`
-      SELECT customer_code, customer_name,
+      SELECT customer_code, MAX(customer_name) AS customer_name,
              COUNT(*) AS return_count,
              COALESCE(SUM(subtotal),0) AS total_amount
       FROM sal_return_orders
       WHERE status = 'COMPLETED' ${cond}
-      GROUP BY customer_code, customer_name
+      GROUP BY customer_code
       ORDER BY return_count DESC
       LIMIT 10
     `);
 
     const topProducts = await this.ds.query(`
-      SELECT i.product_code, i.product_name,
+      SELECT i.product_code, MAX(i.product_name) AS product_name,
              COUNT(*) AS return_count,
              COALESCE(SUM(i.returned_qty),0) AS total_qty,
              COALESCE(SUM(i.damaged_qty),0) AS damaged_qty
       FROM sal_return_items i
       JOIN sal_return_orders r ON r.id = i.return_order_id
       WHERE r.status = 'COMPLETED' ${cond}
-      GROUP BY i.product_code, i.product_name
+      GROUP BY i.product_code
       ORDER BY return_count DESC
       LIMIT 10
     `);

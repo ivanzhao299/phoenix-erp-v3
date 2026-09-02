@@ -101,7 +101,15 @@ export class PriceItemsService {
       ),
       this.ds.query(
         `SELECT pi.*,
-                pb.price_book_no, pb.company_code, pb.status AS book_status
+                pb.price_book_no, pb.company_code, pb.status AS book_status,
+                (SELECT ps.sku_name FROM product_skus ps WHERE ps.sku_code = pi.sku_code LIMIT 1) AS sku_name,
+                (SELECT ps.sku_name_en FROM product_skus ps WHERE ps.sku_code = pi.sku_code LIMIT 1) AS sku_name_en,
+                (SELECT ps.sku_name_lo FROM product_skus ps WHERE ps.sku_code = pi.sku_code LIMIT 1) AS sku_name_lo,
+                (SELECT p.product_name_zh FROM mst_products p WHERE p.product_code = pi.product_code LIMIT 1) AS product_name_zh,
+                (SELECT p.product_name_en FROM mst_products p WHERE p.product_code = pi.product_code LIMIT 1) AS product_name_en,
+                (SELECT p.product_name_lo FROM mst_products p WHERE p.product_code = pi.product_code LIMIT 1) AS product_name_lo,
+                (SELECT g.grade_name FROM product_grades g WHERE g.grade_code = COALESCE(pi.grade_code_std, pi.grade_code) LIMIT 1) AS grade_name,
+                (SELECT sp.spec_name FROM packaging_specs sp WHERE sp.spec_code = COALESCE(pi.spec_code, pi.packaging_spec) LIMIT 1) AS spec_name
          FROM sal_price_items pi
          JOIN sal_price_books pb ON pb.id = pi.price_book_id
          WHERE ${wc}

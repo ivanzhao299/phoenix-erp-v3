@@ -13,6 +13,7 @@ import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字
 import { usePermission } from '@/hooks/usePermission'; // H1 修:退货页按钮按 MENU_SALES2_RETURN 权限门控
 import { CompanySelector, CustomerSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
+import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,10 @@ interface ReturnOrder {
   customer_code: string | null;
   customer_name: string | null;
   company_code: string;
+  company_name_display?: string | null;
+  customer_name_master?: string | null;
+  customer_name_en?: string | null;
+  customer_name_lo?: string | null;
   return_type: string;
   reason_code: string | null;
   currency_code: string;
@@ -53,6 +58,8 @@ interface ReturnItem {
   restock_status: string;
   remark: string | null;
   sku_code?: string | null; // Phase H5
+  sku_name?: string | null; sku_name_en?: string | null; sku_name_lo?: string | null;
+  product_name_zh?: string | null; product_name_en?: string | null; product_name_lo?: string | null;
 }
 interface DashboardStats {
   todayTotal: number;
@@ -216,6 +223,7 @@ function Badge({
   }>;
   code: string;
 }) {
+  const { lang } = useLanguage();
   const c = cfg[code] ?? {
     label: code,
     color: 'var(--text-secondary)'
@@ -228,7 +236,7 @@ function Badge({
     padding: '2px 10px',
     fontSize: 12,
     fontWeight: 600
-  }}>{c.label}</span>;
+  }}>{formatBusinessEnum(cfg === STATUS_CFG ? 'salesReturn' : cfg === RETURN_TYPE_CFG ? 'returnType' : 'inspection', code, lang)}</span>;
 }
 
 // ── 创建退货抽屉 ──────────────────────────────────────────────────────────────
@@ -715,7 +723,7 @@ function InspectionDrawer({
 // ── 退货单列表标签 ────────────────────────────────────────────────────────────
 
 function ReturnOrdersTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   // H1:对齐后端 sales-returns.controller 守卫——创建/提交 :C,审批/驳回/完成 :A,质检/入库 :E
   const { canCreate, canEdit, canApprove } = usePermission('MENU_SALES2_RETURN');
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
@@ -863,7 +871,7 @@ function ReturnOrdersTab() {
                 </td>
                 <td><Badge cfg={RETURN_TYPE_CFG} code={o.return_type} /></td>
                 <td>
-                  <div className={u.fw500}>{o.customer_name ?? o.customer_code ?? '—'}</div>
+                  <div className={u.fw500}>{formatMasterData(o, 'customer_name', o.customer_code, lang)}</div>
                   {o.customer_code && o.customer_name && <div style={{
                 fontSize: 11,
                 color: 'var(--text-disabled)'
@@ -1000,13 +1008,13 @@ function ReturnOrdersTab() {
         }}>
               {[{
             label: t('ui.客户','客户'),
-            value: `${detail.customer_name ?? ''} ${detail.customer_code ? `(${detail.customer_code})` : ''}`
+            value: formatMasterData(detail, 'customer_name', detail.customer_code, lang)
           }, {
             label: t('ui.销售订单号','销售订单号'),
             value: detail.sales_order_no ?? '—'
           }, {
             label: t('ui.公司','公司'),
-            value: detail.company_code
+            value: formatMasterData(detail, 'company_name', detail.company_code, lang)
           }, {
             label: t('ui.金额','金额'),
             value: `${fmt(detail.subtotal)} ${detail.currency_code}`
@@ -1083,7 +1091,7 @@ function ReturnOrdersTab() {
             marginBottom: 8
           }}>
                   <span className={u.fw600}>
-                    {item.product_code} {item.product_name && `— ${item.product_name}`}
+                    {formatMasterData(item, item.sku_code ? 'sku_name' : 'product_name', item.sku_code ?? item.product_code, lang)}
                     {/* Phase H5: SKU 徽章 */}
                     {item.sku_code && <span style={{
                 marginLeft: 6,
@@ -1104,6 +1112,7 @@ function ReturnOrdersTab() {
               gap: 6
             }}>
                     <Badge cfg={INSPECTION_CFG} code={item.inspection_result} />
+                    <span className={u.muted}>{formatBusinessEnum('restock', item.restock_status, lang)}</span>
                   </div>
                 </div>
                 <div style={{
@@ -1142,7 +1151,7 @@ function ReturnOrdersTab() {
 // ── 质检标签 ──────────────────────────────────────────────────────────────────
 
 function InspectionTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { canEdit } = usePermission('MENU_SALES2_RETURN'); // H1:质检 = complete-inspection :E
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1204,7 +1213,7 @@ function InspectionTab() {
           fontSize: 14,
           color: 'var(--text-secondary)'
         }}>
-                  <span>{t('ui.客户：','客户：')}{o.customer_name ?? o.customer_code ?? '—'}</span>
+                  <span>{t('ui.客户：','客户：')}{formatMasterData(o, 'customer_name', o.customer_code, lang)}</span>
                   <span>{t('ui.金额：','金额：')}{fmt(o.subtotal)} {o.currency_code}</span>
                   <span>{t('ui.明细：','明细：')}{(o.items || []).length} {t('ui.项','项')}</span>
                 </div>
@@ -1220,7 +1229,7 @@ function InspectionTab() {
             padding: '4px 0',
             fontSize: 13
           }}>
-                      <span>{item.product_code} {item.product_name && `— ${item.product_name}`}</span>
+                      <span>{formatMasterData(item, item.sku_code ? 'sku_name' : 'product_name', item.sku_code ?? item.product_code, lang)}</span>
                       <span>{t('ui.申请退货：','申请退货：')}{item.returned_qty} {t('ui.件','件')}</span>
                     </div>)}
                 </div>
@@ -1247,7 +1256,7 @@ function InspectionTab() {
 // ── 回库标签 ──────────────────────────────────────────────────────────────────
 
 function RestockTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { canEdit } = usePermission('MENU_SALES2_RETURN'); // H1:完成回库 = complete-restock :E
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1311,7 +1320,7 @@ function RestockTab() {
           color: 'var(--text-secondary)',
           marginBottom: 12
         }}>
-                  {t('ui.客户：','客户：')}{o.customer_name ?? '—'} | {t('ui.金额：','金额：')}{fmt(o.subtotal)} {o.currency_code}
+                  {t('ui.客户：','客户：')}{formatMasterData(o, 'customer_name', o.customer_code, lang)} | {t('ui.金额：','金额：')}{fmt(o.subtotal)} {o.currency_code}
                 </div>
                 {/* 明细：展示质检结果 */}
                 <div style={{
@@ -1331,7 +1340,7 @@ function RestockTab() {
             padding: '4px 0',
             fontSize: 13
           }}>
-                      <span>{item.product_code}</span>
+                      <span>{formatMasterData(item, item.sku_code ? 'sku_name' : 'product_name', item.sku_code ?? item.product_code, lang)}</span>
                       <span style={{
               color: 'var(--status-success)'
             }}>{t('ui.合格回库：','合格回库：')}{item.accepted_qty}</span>
@@ -1339,6 +1348,7 @@ function RestockTab() {
               color: 'var(--status-danger)'
             }}>{t('ui.破损损耗：','破损损耗：')}{item.damaged_qty}</span>
                       <Badge cfg={INSPECTION_CFG} code={item.inspection_result} />
+                      <span className={u.muted}>{formatBusinessEnum('restock', item.restock_status, lang)}</span>
                     </div>)}
                 </div>
                 <div style={{

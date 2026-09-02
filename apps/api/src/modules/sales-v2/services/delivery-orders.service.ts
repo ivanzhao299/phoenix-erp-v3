@@ -136,6 +136,14 @@ export class DeliveryOrdersService {
     const [rows, totalRow] = await Promise.all([
       this.ds.query(
         `SELECT d.*,
+                MAX((SELECT COALESCE(o.org_name_cn, o.org_name)
+                     FROM sys_organizations o
+                     WHERE COALESCE(o.company_code, o.org_code) = d.company_code
+                       AND o.org_type = 'COMPANY')) AS company_name_display,
+                MAX((SELECT sd.driver_name FROM sal_drivers sd WHERE sd.id = d.driver_id)) AS driver_name_master,
+                MAX((SELECT sd.driver_name_en FROM sal_drivers sd WHERE sd.id = d.driver_id)) AS driver_name_en,
+                MAX((SELECT sd.driver_name_lo FROM sal_drivers sd WHERE sd.id = d.driver_id)) AS driver_name_lo,
+                MAX((SELECT sv.vehicle_type FROM sal_vehicles sv WHERE sv.id = d.vehicle_id)) AS vehicle_type_master,
                 COUNT(i.id) AS item_count
          FROM sal_delivery_orders d
          LEFT JOIN sal_delivery_order_items i ON i.delivery_order_id = d.id
@@ -162,7 +170,19 @@ export class DeliveryOrdersService {
 
   async findById(id: string) {
     const order = await this.assertOwnership(id);
-    const [items, receipts] = await Promise.all([
+    const [enrichedRows, items, receipts] = await Promise.all([
+      this.ds.query(
+        `SELECT d.*,
+                (SELECT COALESCE(o.org_name_cn, o.org_name)
+                 FROM sys_organizations o
+                 WHERE COALESCE(o.company_code, o.org_code) = d.company_code
+                   AND o.org_type = 'COMPANY' LIMIT 1) AS company_name_display,
+                (SELECT sd.driver_name FROM sal_drivers sd WHERE sd.id = d.driver_id) AS driver_name_master,
+                (SELECT sd.driver_name_en FROM sal_drivers sd WHERE sd.id = d.driver_id) AS driver_name_en,
+                (SELECT sd.driver_name_lo FROM sal_drivers sd WHERE sd.id = d.driver_id) AS driver_name_lo,
+                (SELECT sv.vehicle_type FROM sal_vehicles sv WHERE sv.id = d.vehicle_id) AS vehicle_type_master
+         FROM sal_delivery_orders d WHERE d.id = $1`, [id],
+      ),
       this.ds.query(
         `SELECT * FROM sal_delivery_order_items WHERE delivery_order_id = $1 ORDER BY id`, [id],
       ),
@@ -170,7 +190,7 @@ export class DeliveryOrdersService {
         `SELECT * FROM sal_receipts WHERE delivery_order_id = $1 ORDER BY created_at DESC`, [id],
       ),
     ]);
-    return { ...order, items, receipts };
+    return { ...order, ...(enrichedRows[0] ?? {}), items, receipts };
   }
 
   // ─────────────────────────────────────────────────────────────────────────
