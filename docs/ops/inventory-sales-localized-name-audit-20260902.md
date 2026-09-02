@@ -192,3 +192,4 @@
 - 销售库存批次与临期查询兼容追加 SKU、产品、公司、仓库、库位名称；库位 JOIN 同时约束 `location_code + warehouse_code`，公司使用单行 lateral lookup，避免放大批次数。页面 SKU/产品/公司改为 locale 名称（code）。
 - 新增 API 契约 4/4、Web B 组契约 3/3；API WMS/Egg Inventory 相关测试合计 39/39；API 与 Web `tsc --noEmit` 均 0 错；i18n hardcoded literal gate `3381/3381`、`uncovered=0`。
 - 本机 `MasterDataSelectors.test.ts` 复现 12 项同源 `act is not a function`（均在 render/unmount 入口失败，未进入 selector 断言），按任务书作为 React/jsdom 环境噪声记录，最终以 GitHub CI 为准。
+- B 组冻结/安全边界逐文件复核后，显式授权 W5 closeout 20/20 PASS；PR [#166](https://github.com/ivanzhao299/phoenix-erp-v3/pull/166) 已登记 `reviewed-frozen-boundary` 与 `reviewed-security-touch`，CI 与 merge revision 待交付后回填。
