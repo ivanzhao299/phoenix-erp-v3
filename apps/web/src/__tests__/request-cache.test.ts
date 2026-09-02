@@ -90,4 +90,18 @@ describe('invalidateCache — prefix matching', () => {
     expect(TTL.dict).toBe(5 * 60_000);
     expect(TTL.brand).toBe(10 * 60_000);
   });
+
+  it('does not let an invalidated in-flight request repopulate a new session cache', async () => {
+    let resolveOld!: (value: string) => void;
+    const oldLoader = vi.fn(() => new Promise<string>(resolve => { resolveOld = resolve; }));
+    const oldRequest = cachedGet('lookup:/lookup/companies', 10_000, oldLoader);
+
+    invalidateCache();
+    resolveOld('old-account');
+    await expect(oldRequest).resolves.toBe('old-account');
+
+    const newLoader = vi.fn().mockResolvedValue('new-account');
+    await expect(cachedGet('lookup:/lookup/companies', 10_000, newLoader)).resolves.toBe('new-account');
+    expect(newLoader).toHaveBeenCalledTimes(1);
+  });
 });

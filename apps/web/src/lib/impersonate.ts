@@ -1,3 +1,5 @@
+import { invalidateCache } from "./request-cache";
+
 /**
  * 影子登录（impersonate）客户端助手 —— 仅超管可用。
  * 进入：备份当前(超管)会话 → 调 /api/auth/impersonate 取目标用户真实会话 → 切换 → 跳转。
@@ -7,6 +9,7 @@
 const ORIGIN_KEY = "phoenix_imp_origin";
 
 function applySession(token: string, userInfo: any, cookieToken?: string) {
+  invalidateCache();
   const ck = cookieToken || token;
   // 与 login/page.tsx:302 对齐 — 后端 user_info payload 没 name 字段,
   // 桌面登录页手动加 name = realNameZh || username,sidebar/顶栏头像按 name 首字渲染。

@@ -1,0 +1,54 @@
+[
+  {
+    "name": "admin-lookup-companies",
+    "username": "admin",
+    "path": "/api/lookup/companies",
+    "scopeMenu": "MENU_MD_COMPANY",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 1
+  },
+  {
+    "name": "admin-lookup-customers",
+    "username": "admin",
+    "path": "/api/lookup/customers",
+    "scopeMenu": "MENU_MD_CUSTOMER",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 1
+  },
+  {
+    "name": "admin-org-organizations-control",
+    "username": "admin",
+    "path": "/api/org/organizations?type=COMPANY",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 1
+  },
+  {
+    "name": "guodapeng-lookup-companies",
+    "username": "guodapeng",
+    "path": "/api/lookup/companies",
+    "scopeMenu": "MENU_MD_COMPANY",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 1
+  },
+  {
+    "name": "guodapeng-lookup-customers",
+    "username": "guodapeng",
+    "path": "/api/lookup/customers",
+    "scopeMenu": "MENU_MD_CUSTOMER",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 1
+  },
+  {
+    "name": "guodapeng-org-organizations-control",
+    "username": "guodapeng",
+    "path": "/api/org/organizations?type=COMPANY",
+    "expectedStatus": 200,
+    "reportDataLength": true,
+    "minDataLength": 1
+  }
+]

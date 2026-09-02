@@ -86,6 +86,11 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
         delete payload.exp;
         tokens.set(username, jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '20m' }));
       }
+      if (a.scopeMenu) {
+        const payload = jwt.decode(tokens.get(username));
+        const scope = await scopes.resolve(String(payload.userId), payload.roles || [], a.scopeMenu, payload.perms_version);
+        console.log(`SCOPE name=${a.name} username=${username} isGlobal=${Boolean(scope.isGlobal)} companies=${(scope.allowedCompanyCodes || []).length}`);
+      }
       let path = a.pathSql ? await scalar(a.pathSql) : a.path;
       if (a.scopeForeignOrder) {
         const payload = jwt.decode(tokens.get(username));
@@ -100,12 +105,16 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
       const expected = Array.isArray(a.expectedStatus) ? a.expectedStatus : [a.expectedStatus ?? 200];
       if (!expected.includes(response.status)) throw new Error(`${a.name}: status=${response.status} expected=${expected.join('/')}`);
       let body = null;
-      if (a.requiredArrays?.length) {
+      if (a.requiredArrays?.length || a.reportDataLength || a.minDataLength != null) {
         body = JSON.parse(text);
         body = body?.data ?? body;
-        for (const p of a.requiredArrays) if (!Array.isArray(getPath(body, p))) throw new Error(`${a.name}: ${p} is not an array`);
+        for (const p of (a.requiredArrays || [])) if (!Array.isArray(getPath(body, p))) throw new Error(`${a.name}: ${p} is not an array`);
       }
-      console.log(`PASS HTTP name=${a.name} method=${method} status=${response.status}${body ? ` arrays=${a.requiredArrays.join(',')}` : ''}`);
+      const dataRows = Array.isArray(body) ? body : (Array.isArray(body?.items) ? body.items : null);
+      if (a.minDataLength != null && (!dataRows || dataRows.length < a.minDataLength)) {
+        throw new Error(`${a.name}: data.length=${dataRows?.length ?? 'not-array'} expected>=${a.minDataLength}`);
+      }
+      console.log(`PASS HTTP name=${a.name} username=${username} method=${method} status=${response.status}${a.requiredArrays?.length ? ` arrays=${a.requiredArrays.join(',')}` : ''}${a.reportDataLength ? ` data.length=${dataRows?.length ?? 'not-array'}` : ''}`);
     }
   } finally { await app.close(); }
 })().catch(e => { console.error(`FAIL HTTP ${e.message}`); process.exit(1); });
@@ -115,4 +124,9 @@ fi
 error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(sales.order|lifecycle|process-log)' || true; } | wc -l | tr -d ' ')"
 echo "LIFECYCLE_PROCESS_LOG_ERROR_WINDOW_60M=$error_count"
 test "$error_count" = 0
+if [ "$http_path" = 'scripts/ops/readonly-audits/company-customer-lookup.http.json' ]; then
+  lookup_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(/api/lookup/(companies|customers)|lookup.*(companies|customers))' || true; } | wc -l | tr -d ' ')"
+  echo "LOOKUP_COMPANY_CUSTOMER_ERROR_WINDOW_60M=$lookup_error_count"
+  test "$lookup_error_count" = 0
+fi
 echo 'PASS PRODUCTION_BUSINESS_WRITES=0'

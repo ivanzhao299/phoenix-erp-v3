@@ -1,7 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { AuthGuard } from '@nestjs/passport';
 import { ClsService } from 'nestjs-cls';
 import { ProductMasterService } from '../services/product-master.service';
 import { DataScopeService } from '../../org/services/data-scope.service';
@@ -13,7 +12,8 @@ import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
  * LookupController — /api/lookup/*
  *
  * 业务录入页面（生产端 / 移动端）所需的"基础查找"端点。
- * 不绑 MenuGuard：等级、规格等是全局只读主数据，任何已登录用户都应能查询；
+ * 类级 MenuGuard 不声明 @RequireMenu：等级、规格等是全局只读主数据，
+ * 任何已登录用户都应能查询，同时 guard 将 JWT user 写入 CLS；
  * 写操作仍走 ProductGradesController / PackagingSpecsController（MENU_MASTER_* 守护）。
  *
  * 设立动机：原 /api/product-master/* 全部绑 MENU_MASTER_*，导致宋明光等业务录入用户
@@ -22,7 +22,7 @@ import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
  * 收口方案：所有"业务录入"前端走 /api/lookup，权威源唯一 = product_grades。
  */
 @Controller('api/lookup')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
 export class LookupController {
   constructor(
     private readonly svc: ProductMasterService,
@@ -34,8 +34,8 @@ export class LookupController {
 
   /**
    * 解析当前登录用户的公司 DataScope。
-   * user 由全局 AuditLogInterceptor 在 handler 前写入 CLS；本路由只挂 AuthGuard，
-   * 不经 DataScopeGuard，故此处主动调 DataScopeService.resolve 取 allowedCompanyCodes。
+   * user 由类级 MenuGuard 在 JWT 通过后写入 CLS。本路由不经 DataScopeGuard，
+   * 故此处主动调 DataScopeService.resolve 取 allowedCompanyCodes。
    * 解析失败 → fail-closed（空范围），避免异常态把业务下拉扩成全局可见。
    */
   private async resolveCompanyScope(scopeMenu = 'MENU_MD_CENTER'): Promise<{
