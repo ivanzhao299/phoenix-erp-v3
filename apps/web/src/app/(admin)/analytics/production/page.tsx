@@ -7,25 +7,18 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
-interface DailyReport {
-  id: number;
-  report_date?: string;
-  log_date?: string;
-  flock_no?: string;
-  house_code?: string;
-  total_eggs_produced?: number;
-  eggs_produced?: number;
-  dead_count?: number;
-  culled_count?: number;
-  mortality_rate?: number;
-  [key: string]: unknown;
+interface ProductionTrendRow {
+  day: string;
+  eggs: number;
+  dirty: number;
+  broken: number;
+  deaths: number;
+  elimination: number;
 }
 
-interface ReportResponse {
-  data?: DailyReport[];
-  items?: DailyReport[];
-  list?: DailyReport[];
-  total?: number;
+interface ProductionAnalyticsResponse {
+  trend30Day: ProductionTrendRow[];
+  totalEggs30Day: number;
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -58,20 +51,6 @@ function fmtDate(d: string | null | undefined) {
 function fmtNum(n: number | null | undefined, dec = 0) {
   if (n === null || n === undefined) return "0";
   return Number(n).toLocaleString("zh-CN", { maximumFractionDigits: dec });
-}
-
-function getEggs(r: DailyReport): number {
-  return Number(r.total_eggs_produced ?? r.eggs_produced ?? 0);
-}
-
-function getDate(r: DailyReport): string {
-  return r.report_date ?? r.log_date ?? "";
-}
-
-function getMortality(r: DailyReport): number {
-  if (r.mortality_rate != null) return Number(r.mortality_rate);
-  const dead = Number(r.dead_count ?? 0) + Number(r.culled_count ?? 0);
-  return dead;
 }
 
 // ── 统计卡片 ──────────────────────────────────────────────────────────────────
@@ -109,27 +88,25 @@ function StatCard({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function ProductionAnalyticsPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-US' : lang === 'lo' ? 'lo-LA' : 'zh-CN';
 
   // useAbortableLoad：快速切页/刷新自动取消旧请求（防旧覆盖新 + 省带宽）
-  const { data, loading, error, reload } = useAbortableLoad<DailyReport[]>(
-    (signal) =>
-      apiFetch<ReportResponse | DailyReport[]>("/api/breeding/daily-reports?limit=30", signal).then((raw) =>
-        Array.isArray(raw) ? raw : raw.data ?? raw.items ?? raw.list ?? [],
-      ),
+  const { data, loading, error, reload } = useAbortableLoad<ProductionAnalyticsResponse | null>(
+    (signal) => apiFetch<ProductionAnalyticsResponse>("/api/v2/analytics/production", signal),
     [],
-    { initial: [] },
+    { initial: null },
   );
-  const reports = data ?? [];
+  const reports = data?.trend30Day ?? [];
 
   // 统计：仅在 reports 变化时重算（不再每次渲染全量 reduce/sort）
   const { totalEggs, avgDailyEggs, avgMortality, recent } = useMemo(() => {
-    const total = reports.reduce((s, r) => s + getEggs(r), 0);
+    const total = Number(data?.totalEggs30Day ?? reports.reduce((s, r) => s + Number(r.eggs || 0), 0));
     const avgDaily = reports.length > 0 ? total / reports.length : 0;
-    const avgMort = reports.length > 0 ? reports.reduce((s, r) => s + getMortality(r), 0) / reports.length : 0;
-    const recentList = [...reports].sort((a, b) => (getDate(b) > getDate(a) ? 1 : -1)).slice(0, 10);
+    const avgMort = reports.length > 0 ? reports.reduce((s, r) => s + Number(r.deaths || 0) + Number(r.elimination || 0), 0) / reports.length : 0;
+    const recentList = [...reports].sort((a, b) => (b.day > a.day ? 1 : -1)).slice(0, 10);
     return { totalEggs: total, avgDailyEggs: avgDaily, avgMortality: avgMort, recent: recentList };
-  }, [reports]);
+  }, [data?.totalEggs30Day, reports]);
 
   return (
     <div>
@@ -206,32 +183,28 @@ export default function ProductionAnalyticsPage() {
                   <thead>
                     <tr className="text-xs text-text-muted border-b border-border">
                       <th className="text-left px-5 py-3 font-medium">{t("analytics.col_date", "日期")}</th>
-                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_house", "鸡舍")}</th>
-                      <th className="text-left px-5 py-3 font-medium">{t("analytics.col_flock", "鸡群")}</th>
                       <th className="text-right px-5 py-3 font-medium">{t("analytics.col_eggs_produced", "产蛋数（枚）")}</th>
+                      <th className="text-right px-5 py-3 font-medium">{t("analytics.col_broken", "破损数")}</th>
                       <th className="text-right px-5 py-3 font-medium">{t("analytics.col_mortality_count", "死淘数（只）")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recent.map((r) => (
                       <tr
-                        key={r.id}
+                        key={r.day}
                         className="border-b border-border/50 hover:bg-bg-muted/30 transition-colors"
                       >
                         <td className="px-5 py-3 text-text-muted">
-                          {fmtDate(getDate(r))}
-                        </td>
-                        <td className="px-5 py-3 text-text-muted">
-                          {r.house_code ?? "—"}
-                        </td>
-                        <td className="px-5 py-3 text-text-muted">
-                          {r.flock_no ?? "—"}
+                          {new Date(r.day).toLocaleDateString(locale)}
                         </td>
                         <td className="px-5 py-3 text-right font-semibold text-text-muted">
-                          {fmtNum(getEggs(r))}
+                          {fmtNum(r.eggs)}
                         </td>
                         <td className="px-5 py-3 text-right text-text-muted">
-                          {fmtNum(Number(r.dead_count ?? 0) + Number(r.culled_count ?? 0))}
+                          {fmtNum(r.broken)}
+                        </td>
+                        <td className="px-5 py-3 text-right text-text-muted">
+                          {fmtNum(Number(r.deaths || 0) + Number(r.elimination || 0))}
                         </td>
                       </tr>
                     ))}

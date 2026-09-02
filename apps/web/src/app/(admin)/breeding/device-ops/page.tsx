@@ -8,6 +8,7 @@ import { RefreshCw, Link2, Settings, ClipboardList, Wifi, WifiOff } from "lucide
 import s from "@/components/ui/admin-ui.module.css";
 import { primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { formatBusinessEnum } from "@/lib/business-display";
 import { useDialog } from "@/contexts/DialogContext";
 import { useToast } from "@/contexts/ToastContext";
 const API = "/api/farm-device";
@@ -142,9 +143,11 @@ function StatusPill({
   }}>{label}</span>;
 }
 function JobStatusPill({
-  status
+  status,
+  lang
 }: {
   status: string;
+  lang: string;
 }) {
   const map: Record<string, [string, string]> = {
     SUCCESS: ["color-mix(in srgb, var(--status-success) 14%, transparent)", "var(--status-success)"],
@@ -161,7 +164,7 @@ function JobStatusPill({
     fontWeight: 700,
     background: bg,
     color
-  }}>{status}</span>;
+  }}>{formatBusinessEnum('deviceOperation', status, lang)}</span>;
 }
 function fmtDt(v?: string | null) {
   return v ? new Date(v).toLocaleString("zh-CN") : "—";
@@ -227,9 +230,7 @@ function Label({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function DeviceOpsPage() {
-  const {
-    t
-  } = useLanguage();
+  const { t, lang } = useLanguage();
   const { showConfirm } = useDialog();
   const toast = useToast();
   const [tab, setTab] = useState<TabId>("mapping");
@@ -642,7 +643,7 @@ export default function DeviceOpsPage() {
                 fontWeight: 600
               }}>{row.fail_count ?? "—"}</td>
                     <td>{row.record_count ?? "—"}</td>
-                    <td><JobStatusPill status={row.status} /></td>
+                    <td><JobStatusPill status={row.status} lang={lang} /></td>
                   </tr>)}
               </tbody>
             </table>

@@ -16,6 +16,9 @@ export const BUSINESS_ENUMS = {
   restock: { PENDING:l('待回库','Pending restock','ລໍຖ້າຄືນສາງ'), RESTOCKED:l('已回库','Restocked','ຄືນສາງແລ້ວ'), WRITTEN_OFF:l('已核销','Written off','ຕັດອອກແລ້ວ') },
   delivery: { PLANNED:l('已计划','Planned','ວາງແຜນແລ້ວ'), LOADING:l('装车中','Loading','ກຳລັງຂຶ້ນລົດ'), LOADED:l('已装车','Loaded','ຂຶ້ນລົດແລ້ວ'), DEPARTED:l('已出发','Departed','ອອກເດີນທາງ'), ARRIVED:l('已到达','Arrived','ຮອດແລ້ວ'), PARTIALLY_SIGNED:l('部分签收','Partially signed','ຮັບບາງສ່ວນ'), COMPLETED:l('已完成','Completed','ສຳເລັດ'), CANCELLED:l('已取消','Cancelled','ຍົກເລີກ') },
   credit: { NORMAL:l('正常','Normal','ປົກກະຕິ'), WARNING:l('预警','Warning','ເຕືອນ'), OVER_LIMIT:l('超限','Over limit','ເກີນວົງເງິນ'), OVERDUE:l('逾期','Overdue','ກາຍກຳນົດ'), FROZEN:l('冻结','Frozen','ລະງັບ') },
+  productionInbound: { PACKAGING_INBOUND:l('包装入库','Packaging inbound','ຮັບເຂົ້າຈາກການບັນຈຸ'), TEMP_PRODUCTION_INBOUND:l('日产蛋入库','Daily production inbound','ຮັບເຂົ້າໄຂ່ປະຈຳວັນ') },
+  medicationLedger: { MED_INBOUND:l('入库','Inbound','ຮັບເຂົ້າ'), MED_OUTBOUND:l('出库','Outbound','ຈ່າຍອອກ') },
+  deviceOperation: { ACTIVE:l('启用','Active','ເປີດໃຊ້'), INACTIVE:l('停用','Inactive','ປິດໃຊ້'), SUCCESS:l('成功','Success','ສຳເລັດ'), RUNNING:l('运行中','Running','ກຳລັງເຮັດວຽກ'), FAILED:l('失败','Failed','ລົ້ມເຫຼວ'), PARTIAL:l('部分成功','Partial','ສຳເລັດບາງສ່ວນ') },
 } as const;
 
 export type BusinessEnumDomain = keyof typeof BUSINESS_ENUMS;

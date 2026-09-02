@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatBusinessEnum } from '@/lib/business-display';
 import { RefreshCw, Search } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
@@ -69,9 +70,7 @@ export default function MedStockPage() {
   const {
     can
   } = usePermission();
-  const {
-    t
-  } = useLanguage();
+  const { t, lang } = useLanguage();
   // G24-A：PBAC 收口 — 药品库存归 MENU_FARM_VET 域
   const { canEdit } = usePermission('MENU_FARM_VET');
   const [tab, setTab] = useState<Tab>('stock');
@@ -161,10 +160,6 @@ export default function MedStockPage() {
     }
   };
   const filteredStock = stock.filter(m => !search || m.medication_name.includes(search) || m.medication_code.includes(search));
-  const CHANGE_LABELS: Record<string, string> = {
-    MED_INBOUND: t('ui.入库', '入库'),
-    MED_OUTBOUND: t('ui.出库', '出库')
-  };
   const TABS: {
     key: Tab;
     label: string;
@@ -432,7 +427,7 @@ export default function MedStockPage() {
                   background: e.change_type === 'MED_INBOUND' ? 'var(--status-success-bg-medium)' : 'var(--status-danger-bg-light)',
                   color: e.change_type === 'MED_INBOUND' ? 'var(--status-success)' : 'var(--status-danger)'
                 }}>
-                          {CHANGE_LABELS[e.change_type] ?? e.change_type}
+                          {formatBusinessEnum('medicationLedger', e.change_type, lang)}
                         </span>
                       </td>
                       <td style={{

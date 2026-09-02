@@ -17,10 +17,13 @@ export default function TerminalDashboard() {
     openExceptionCount,
     ctx
   } = useTerminalContext();
-  const [receivedQty, setReceivedQty] = useState(0);
+  const [summary, setSummary] = useState({ receivedQty: 0, warehousedBoxes: 0 });
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    packagingApi.getShiftSummary().then(data => setReceivedQty(data?.receivedQty || 0)).catch(() => {}).finally(() => setLoading(false));
+    packagingApi.getShiftSummary().then(data => setSummary({
+      receivedQty: Number(data?.receivedQty || 0),
+      warehousedBoxes: Number(data?.shiftWarehousedBoxes || 0)
+    })).catch(() => {}).finally(() => setLoading(false));
   }, []);
   const {
     dicts
@@ -38,7 +41,7 @@ export default function TerminalDashboard() {
   const packedUnitLabel = Object.keys(unitTotals).length > 0 ? Object.entries(unitTotals).map(([unit, n]) => `${n}${unit}`).join(' · ') : t('ui.箱', '箱');
   const PIPELINE = [{
     label: t('ui.已接收', '已接收'),
-    value: receivedQty,
+    value: summary.receivedQty,
     unit: t('ui.枚', '枚'),
     color: 'var(--color-accent)'
   }, {
@@ -53,8 +56,8 @@ export default function TerminalDashboard() {
     color: 'var(--status-warning)'
   }, {
     label: t('ui.已入库', '已入库'),
-    value: packedBoxes,
-    unit: packedUnitLabel,
+    value: summary.warehousedBoxes,
+    unit: t('ui.箱', '箱'),
     color: 'var(--status-success)'
   }];
   const ACTIONS = [{
