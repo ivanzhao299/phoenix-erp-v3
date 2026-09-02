@@ -126,7 +126,7 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
       const dataRows = a.rowPath ? getPath(body, a.rowPath) : (Array.isArray(body) ? body : (Array.isArray(body?.items) ? body.items : null));
       if (a.minDataLength != null && (!dataRows || dataRows.length < a.minDataLength)) {
         if (a.allowNoData && Array.isArray(dataRows) && dataRows.length === 0) {
-          console.log(`SKIP ${a.name} reason=no-data-sample`);
+          console.log(`NO_SAMPLE name=${a.name} reason=no-data-sample`);
           continue;
         }
         throw new Error(`${a.name}: data.length=${dataRows?.length ?? 'not-array'} expected>=${a.minDataLength}`);
@@ -157,5 +157,10 @@ if [ "$http_path" = 'scripts/ops/readonly-audits/localized-sales-inventory-names
   localized_name_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(inventory/batches|sales/(activity|returns|analytics))' || true; } | wc -l | tr -d ' ')"
   echo "LOCALIZED_NAME_ERROR_WINDOW_60M=$localized_name_error_count"
   test "$localized_name_error_count" = 0
+fi
+if [ "$http_path" = 'scripts/ops/readonly-audits/production-procurement-localized-names.http.json' ]; then
+  localized_production_procurement_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(analytics/production|farm/egg/ledger|procurement/orders|supplier-performance)' || true; } | wc -l | tr -d ' ')"
+  echo "PRODUCTION_PROCUREMENT_LOCALIZED_NAME_ERROR_WINDOW_60M=$localized_production_procurement_error_count"
+  test "$localized_production_procurement_error_count" = 0
 fi
 echo 'PASS PRODUCTION_BUSINESS_WRITES=0'

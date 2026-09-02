@@ -1,0 +1,55 @@
+[
+  {
+    "name": "production-analytics-by-farm-names",
+    "username": "admin",
+    "path": "/api/v2/analytics/production",
+    "expectedStatus": 200,
+    "rowPath": "byFarm",
+    "minDataLength": 1,
+    "allowNoData": true,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["farm_code", "farm_name"]
+  },
+  {
+    "name": "production-analytics-by-house-names",
+    "username": "admin",
+    "path": "/api/v2/analytics/production",
+    "expectedStatus": 200,
+    "rowPath": "byHouse",
+    "minDataLength": 1,
+    "allowNoData": true,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["house_code", "house_name"]
+  },
+  {
+    "name": "egg-ledger-grade-house-names",
+    "username": "admin",
+    "path": "/api/farm/egg/ledger?start=2025-01-01&end=2026-12-31",
+    "expectedStatus": 200,
+    "minDataLength": 1,
+    "allowNoData": true,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["grade", "grade_name", "house_code", "house_name"]
+  },
+  {
+    "name": "procurement-order-supplier-names",
+    "username": "admin",
+    "path": "/api/v2/procurement/orders?page=1&pageSize=100",
+    "expectedStatus": 200,
+    "rowPath": "items",
+    "minDataLength": 1,
+    "allowNoData": true,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["supplierCode", "supplierMasterName"]
+  },
+  {
+    "name": "supplier-performance-aggregated-names",
+    "username": "admin",
+    "path": "/api/v2/procurement/dashboard/supplier-performance",
+    "expectedStatus": 200,
+    "minDataLength": 1,
+    "allowNoData": true,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["supplierCode", "supplierName", "currencyCode"]
+  }
+]
