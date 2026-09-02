@@ -11,7 +11,8 @@ vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: (_key: string, fallback: string) => fallback, lang: language.current }),
 }));
 
-import { LocationSelector, StoreMembershipSelector, WarehouseSelector, ZoneSelector } from './MasterDataSelectors';
+import { CompanySelector, CustomerSelector, LocationSelector, StoreMembershipSelector, WarehouseSelector, ZoneSelector } from './MasterDataSelectors';
+import { invalidateCache } from '@/lib/request-cache';
 
 // React 19 uses this flag to suppress false-positive act environment warnings.
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -26,6 +27,7 @@ describe('WMS status-vocabulary selectors', () => {
 
   beforeEach(() => {
     requestMock.mockReset();
+    invalidateCache();
     language.current = 'zh';
     host = document.createElement('div');
     document.body.appendChild(host);
@@ -35,6 +37,7 @@ describe('WMS status-vocabulary selectors', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     host.remove();
+    vi.restoreAllMocks();
   });
 
   it.each([
@@ -130,6 +133,7 @@ describe('WMS status-vocabulary selectors', () => {
   });
 
   it('distinguishes a context service failure from missing membership', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     requestMock.mockRejectedValue(new Error('network down'));
 
     await act(async () => root.render(createElement(StoreMembershipSelector, {
@@ -139,6 +143,30 @@ describe('WMS status-vocabulary selectors', () => {
 
     expect(host.textContent).toContain('门店授权服务加载失败，请刷新重试');
     expect(host.textContent).not.toContain('当前账号无门店授权');
+    expect(consoleError).toHaveBeenCalledWith('[ScopedSelect] option loading failed', 'network down');
+  });
+
+  it.each([
+    [CompanySelector, '当前账号无可用公司，请联系管理员检查数据范围'],
+    [CustomerSelector, '当前账号无可用客户，请联系管理员检查数据范围'],
+  ] as const)('explains an empty scoped lookup', async (Selector, expected) => {
+    requestMock.mockResolvedValue({ data: [] });
+    await act(async () => root.render(createElement(Selector, { value: '', onChange: () => undefined })));
+    await flush();
+    expect(host.textContent).toContain(expected);
+  });
+
+  it.each([
+    [CompanySelector, '公司数据加载失败，请重试'],
+    [CustomerSelector, '客户数据加载失败，请重试'],
+  ] as const)('distinguishes a scoped lookup failure from empty data', async (Selector, expected) => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    requestMock.mockRejectedValue(new Error('request failed'));
+    await act(async () => root.render(createElement(Selector, { value: '', onChange: () => undefined })));
+    await flush();
+    expect(host.textContent).toContain(expected);
+    expect(host.textContent).not.toContain('当前账号无可用');
+    expect(consoleError).toHaveBeenCalledWith('[ScopedSelect] option loading failed', 'request failed');
   });
 
   it('labels a membership whose store warehouse has no WarehouseScope intersection', async () => {

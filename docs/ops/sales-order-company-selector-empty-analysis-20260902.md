@@ -183,3 +183,36 @@ admin 与普通销售经理使用同一模型都会空。修复后才分别进�
 ## 8. 实施边界
 
 下一轮只需改 guard、补测试和空态可观测性；不改公司数据、不改用户权限、不改 DataScope 算法、不恢复 AuditLogInterceptor、不把 CompanySelector 回退到旧 org 管理端点。生产迁移不需要 schema 或数据写入。
+
+## 9. 执行记录（2026-09-02）
+
+### 9.1 P0 修复与符号级覆盖
+
+- `LookupController` 类级 guard 已由 `AuthGuard('jwt')` 改为 `MenuGuard`。无 `@RequireMenu` 的 lookup 仍只要求登录；`materials/quick` 原有方法级 `@RequireMenu` 保持不变。未恢复 `AuditLogInterceptor`。
+- `resolveCompanyScope()` 全部 15 个消费方法均由同一类级 guard 覆盖：`companies` / `projects` / `sites` / `customers` / `suppliers` / `departments` / `shareholders` / `users` / `warehouses` / `stores` / `farms` / `houses` / `flocks` / `cashAccounts` / `batches`。未发现绕过该 controller 类级 guard 的消费点。
+- 新增 guard 级 HTTP 集成测试，真实经过 `Passport JWT -> MenuGuard -> CLS middleware -> controller -> DataScopeService`，覆盖 admin 公司/客户非空、company-scoped 仅授权公司、无额外菜单权限不 403、无 JWT 401、scope 异常 fail-closed 空范围。
+
+### 9.2 P1 空态、错误与缓存隔离
+
+- `CompanySelector` 区分 `200 + []` 与请求失败，分别显示“当前账号无可用公司，请联系管理员检查数据范围”和“公司数据加载失败，请重试”；`CustomerSelector` 同步覆盖对应链路。`ScopedSelect` catch 保留不含 token/响应体的受控 `console.error`。
+- 登录、登出、进入/退出影子账号均清理 request cache。`request-cache` 新增 generation 栅栏并清理 in-flight map，阻止旧账号在途请求于切换后回填新会话。
+
+### 9.3 生产只读探针
+
+- 新增 `company-customer-lookup.sql` 与 `company-customer-lookup.http.json`，继续使用受控 `production-readonly-audit` 通道。
+- HTTP 矩阵包含 admin / guodapeng 的 `/api/lookup/companies`、`/api/lookup/customers`、`/api/org/organizations?type=COMPANY` 旁路对照；输出 status、`data.length`、DataScope `isGlobal` 和 company count，且 lookup 数组必须非空。
+- SQL `sys_error_logs` 与 API 容器日志各检查近 60 分钟 companies/customers 错误窗口，必须为 0；通道仍保留 revision 三方一致硬检查与 `PRODUCTION_BUSINESS_WRITES=0`。
+
+### 9.4 本地验证
+
+| 门禁 | 结果 |
+|---|---|
+| API `tsc --noEmit` | PASS，0 errors |
+| Web `tsc --noEmit` | PASS，0 errors |
+| API 全量 Jest | PASS，80 suites / 695 tests |
+| Web 全量 Vitest | PASS，94 files / 503 tests |
+| Lookup guard HTTP 集成测试 | PASS，5/5 |
+| 生产只读清单 `--validate` | PASS |
+| `apps/api/test/scope-audit.sh` | 已真实执行；本地 API 未启动，HTTP 均为 `000`，0 pass / 30 fail / 1 skip，不冒充 PASS |
+
+生产部署 revision、readonly audit run 及两账号实测数量在合并部署后追记。

@@ -75,7 +75,11 @@ function ScopedSelect({
     let alive = true;
     setLoading(true);
     setFailed(false);
-    loader().then(list => { if (alive) setOpts(list); }).catch(() => { if (alive) { setOpts([]); setFailed(true); } })
+    loader().then(list => { if (alive) setOpts(list); }).catch((error) => {
+      // 只记录受控错误对象，不记录 token/响应体等敏感数据。
+      console.error('[ScopedSelect] option loading failed', error instanceof Error ? error.message : 'unknown error');
+      if (alive) { setOpts([]); setFailed(true); }
+    })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [reloadKey]); // eslint-disable-line
@@ -97,6 +101,8 @@ function ScopedSelect({
 export function CustomerSelector(p: BaseProps) {
   const { t } = useLanguage();
   return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择客户','请选择客户')}
+    emptyMessage={t('ui.当前账号无可用客户，请联系管理员检查数据范围', '当前账号无可用客户，请联系管理员检查数据范围')}
+    errorMessage={t('ui.客户数据加载失败，请重试', '客户数据加载失败，请重试')}
     loader={async () => (await lookupArr('/lookup/customers')).map((r: any) => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
 }
 
@@ -141,6 +147,8 @@ export function ProjectSelector(p: ProjectSelectorProps) {
 export function CompanySelector(p: BaseProps) {
   const { t } = useLanguage();
   return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择公司','请选择公司')}
+    emptyMessage={t('ui.当前账号无可用公司，请联系管理员检查数据范围', '当前账号无可用公司，请联系管理员检查数据范围')}
+    errorMessage={t('ui.公司数据加载失败，请重试', '公司数据加载失败，请重试')}
     loader={async () => {
       // 2026-06-06：改用 /api/lookup/companies（无 MENU_SYS_ORG 限制），
       // 业务录入用户（如孟赛生产数据主管）也能拉到公司下拉。

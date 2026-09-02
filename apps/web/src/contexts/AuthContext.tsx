@@ -1,6 +1,7 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { buildAccessTokenCookie, refreshAndPersistSession } from '@/lib/auth-session';
+import { invalidateCache } from '@/lib/request-cache';
 
 type AuthUser = {
   id?: string | number;
@@ -177,6 +178,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const login = useCallback((tokenStr: string, userInfo: Record<string, unknown>, cookieToken?: string) => {
+    invalidateCache();
     // 同时写 sessionStorage + localStorage，保证刷新/路由切换/包装台标签页都能读到
     sessionStorage.setItem('phoenix_token', tokenStr);
     sessionStorage.setItem('phoenix_user', JSON.stringify(userInfo));
@@ -197,6 +199,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const logout = useCallback((reason?: 'expired' | 'perms_changed' | 'logout') => {
+    invalidateCache();
     sessionStorage.removeItem('phoenix_token');
     sessionStorage.removeItem('phoenix_user');
     sessionStorage.removeItem('phoenix_cookie_token');

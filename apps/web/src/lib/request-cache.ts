@@ -14,6 +14,7 @@ interface Entry<T> { value: T; expireAt: number }
 
 const store = new Map<string, Entry<unknown>>();
 const inflight = new Map<string, Promise<unknown>>();
+let generation = 0;
 
 export async function cachedGet<T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<T> {
   const now = Date.now();
@@ -23,14 +24,18 @@ export async function cachedGet<T>(key: string, ttlMs: number, loader: () => Pro
   const flying = inflight.get(key) as Promise<T> | undefined;
   if (flying) return flying;
 
+  const startedAtGeneration = generation;
   const p = loader()
     .then((value) => {
-      store.set(key, { value, expireAt: Date.now() + ttlMs });
-      inflight.delete(key);
+      // 身份切换/失效后，旧账号在途请求不得回填新会话缓存。
+      if (startedAtGeneration === generation) {
+        store.set(key, { value, expireAt: Date.now() + ttlMs });
+        inflight.delete(key);
+      }
       return value;
     })
     .catch((err) => {
-      inflight.delete(key);   // 失败不缓存
+      if (startedAtGeneration === generation) inflight.delete(key); // 失败不缓存
       throw err;
     });
   inflight.set(key, p);
@@ -39,6 +44,10 @@ export async function cachedGet<T>(key: string, ttlMs: number, loader: () => Pro
 
 /** 主数据写后主动失效（前缀匹配；不传则清空全部缓存） */
 export function invalidateCache(prefix?: string): void {
+  generation++;
+  // generation 是全局会话栅栏；所有在途请求都必须一并释放，
+  // 否则非 prefix key 会因旧 generation 永久滞留在 inflight。
+  inflight.clear();
   if (!prefix) { store.clear(); return; }
   for (const k of store.keys()) {
     if (k.startsWith(prefix)) store.delete(k);
