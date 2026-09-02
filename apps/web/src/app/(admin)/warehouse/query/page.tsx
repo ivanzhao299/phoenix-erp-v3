@@ -9,15 +9,15 @@ import { moneyCell } from "@/components/design-system/cockpit-styles";
 import {
   filterWarehouseBatchRows,
   formatWarehouseBatchDate,
-  formatWarehouseDisplay,
   getWarehouseBatchQuantity,
   groupWarehouseQuantitiesByUnit,
   normalizeWarehouseBatchRows,
   type WarehouseQueryBatch,
 } from "@/lib/warehouse-query";
+import { formatBusinessEnum, formatMasterData } from "@/lib/business-display";
 
 export default function StockQueryPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [rows, setRows] = useState<WarehouseQueryBatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -159,19 +159,26 @@ export default function StockQueryPage() {
                   <tr key={`${row.id ?? row.batch_no ?? index}`} style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={tdStrongStyle}>{row.batch_no || "—"}</td>
                     <td style={tdStyle}>
-                      <div style={{ fontWeight: 700 }}>{row.material_code || row.sku_code || row.product_code || "—"}</div>
+                      <div style={{ fontWeight: 700 }}>
+                        {formatMasterData(
+                          row as Record<string, unknown>,
+                          row.sku_code ? "sku_name" : "product_name",
+                          row.material_code || row.sku_code || row.product_code,
+                          lang,
+                        )}
+                      </div>
                       <div style={{ color: "var(--text-secondary)", fontSize: 11, marginTop: 2 }}>
                         {[row.item_type, row.material_type, row.unit].filter(Boolean).join(" · ") || "—"}
                       </div>
                     </td>
-                    <td style={tdStyle}>{formatWarehouseDisplay(row)}</td>
-                    <td style={tdStyle}>{row.location_code || "—"}</td>
+                    <td style={tdStyle}>{formatMasterData(row as Record<string, unknown>, "warehouse_name", row.warehouse_code, lang)}</td>
+                    <td style={tdStyle}>{formatMasterData(row as Record<string, unknown>, "location_name", row.location_code, lang)}</td>
                     <td style={{ ...tdRightStyle, ...moneyCell(qty > 0 ? "success" : "warning", "md") }}>
                       {qty.toLocaleString()} {row.unit || ""}
                     </td>
-                    <td style={tdStyle}><span style={statusPillStyle}>{row.status || "AVAILABLE"}</span></td>
+                    <td style={tdStyle}><span style={statusPillStyle}>{formatBusinessEnum("inventory", row.status || "AVAILABLE", lang)}</span></td>
                     <td style={tdStyle}>{formatWarehouseBatchDate(row.expire_date || row.expiry_date)}</td>
-                    <td style={tdStyle}>{row.store_code || "—"}</td>
+                    <td style={tdStyle}>{formatMasterData(row as Record<string, unknown>, "store_name", row.store_code, lang)}</td>
                   </tr>
                 );
               })}

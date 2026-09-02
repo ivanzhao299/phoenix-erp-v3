@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { crudApi } from "@/lib/api-client";
+import request, { crudApi } from "@/lib/api-client";
+import { formatMasterData } from "@/lib/business-display";
+import { normalizeWarehouseBatchRows } from "@/lib/warehouse-query";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LoadingSkeleton } from "@/components/design-system";
@@ -27,7 +29,9 @@ interface AlertItem {
   id: number;
   batchNo: string;
   skuCode: string;
-  warehouse: string;
+  skuLabel: string;
+  warehouseLabel: string;
+  locationLabel: string;
   qty: number;
   expDate: string;
   daysLeft: number;
@@ -43,7 +47,7 @@ const SEV_CONFIG: Record<"critical" | "high" | "medium" | "low", { tone: Tone; I
 };
 export default function ExpiryAlertPage() {
   const {
-    t
+    t, lang
   } = useLanguage();
   const SEV_LABEL = {
     critical: t("ui.3天内", "≤3天"),
@@ -65,12 +69,7 @@ export default function ExpiryAlertPage() {
   const loadAlerts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await crudApi.list("inv_batches", {
-        limit: 500
-      } as any);
-      const batches: Record<string, unknown>[] = (res as {
-        data?: Record<string, unknown>[];
-      }).data ?? [];
+      const batches = normalizeWarehouseBatchRows(await request("/inventory/batches", { silent: true })) as Record<string, unknown>[];
       const today = new Date();
       const todayStr = today.toISOString().slice(0, 10);
       const in14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
@@ -81,7 +80,9 @@ export default function ExpiryAlertPage() {
           id: Number(b.id),
           batchNo: String(b.batch_no || `#${b.id}`),
           skuCode: String(b.sku_code || b.product_code || '—'),
-          warehouse: String(b.warehouse_code || b.location_code || '—'),
+          skuLabel: formatMasterData(b, 'sku_name', b.sku_code || b.product_code, lang),
+          warehouseLabel: formatMasterData(b, 'warehouse_name', b.warehouse_code, lang),
+          locationLabel: formatMasterData(b, 'location_name', b.location_code, lang),
           qty: Number(b.qty_available ?? b.qty ?? 0),
           expDate: String(b.expire_date).slice(0, 10),
           daysLeft,
@@ -92,7 +93,7 @@ export default function ExpiryAlertPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [lang]);
   useEffect(() => {
     loadAlerts();
   }, [loadAlerts]);
@@ -197,9 +198,9 @@ export default function ExpiryAlertPage() {
                     <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>{a.batchNo}</span>
                     <span style={actionPill(cfg.tone)}>{sevLabel}</span>
                   </div>
-                  <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{a.skuCode}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{a.skuLabel}</div>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
-                    <Clock size={11} /> {a.warehouse} · {t("ui.库存", "库存")} {a.qty} {t("ui.枚", "枚")} · {t("ui.到期", "到期")} {a.expDate}
+                    <Clock size={11} /> {t("ui.仓库", "仓库")}: {a.warehouseLabel} · {t("ui.库位", "库位")}: {a.locationLabel} · {t("ui.库存", "库存")} {a.qty} {t("ui.枚", "枚")} · {t("ui.到期", "到期")} {a.expDate}
                   </div>
                 </div>
                 <div style={{ textAlign: "center", flexShrink: 0, minWidth: 64 }}>

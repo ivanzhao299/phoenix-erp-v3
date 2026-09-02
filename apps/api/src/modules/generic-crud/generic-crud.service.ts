@@ -2475,7 +2475,27 @@ export class GenericCrudService implements OnModuleInit {
     queryValues.push(...extraValues);
     paramIndex += extraValues.length;
 
-    let sql = `SELECT * FROM "${table}"`;
+    // Read-only name expansion is deliberately table-scoped.  Never infer JOINs
+    // from a column suffix: unrelated CRUD tables frequently reuse *_code.
+    const localizedReadSource: Record<string, string> = {
+      wms_locations: `(SELECT base.*,
+        wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo,
+        zone.zone_name, store.store_name, store.store_name_en, store.store_name_lo
+        FROM wms_locations base
+        LEFT JOIN wms_warehouses wh ON wh.warehouse_code = base.warehouse_code
+        LEFT JOIN wms_zones zone ON zone.zone_code = base.zone_code AND zone.warehouse_code = base.warehouse_code
+        LEFT JOIN mst_stores store ON store.store_code = base.store_code) AS "wms_locations"`,
+      inv_batches: `(SELECT base.*,
+        wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo,
+        loc.location_name, store.store_name, store.store_name_en, store.store_name_lo,
+        sku.sku_name, sku.sku_name_en, sku.sku_name_lo
+        FROM inv_batches base
+        LEFT JOIN wms_warehouses wh ON wh.warehouse_code = base.warehouse_code
+        LEFT JOIN wms_locations loc ON loc.location_code = base.location_code
+        LEFT JOIN mst_stores store ON store.store_code = base.store_code
+        LEFT JOIN product_skus sku ON sku.sku_code = base.sku_code) AS "inv_batches"`,
+    };
+    let sql = `SELECT * FROM ${localizedReadSource[table] ?? `"${table}"`}`;
     if (whereClauses.length > 0) {
       sql += ` WHERE ${whereClauses.join(' AND ')}`;
     }

@@ -1268,9 +1268,14 @@ export class WmsService {
       const data = await this.em.query(
         `SELECT b.*,
                 COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name,
-                COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name_zh
+                w.warehouse_name_zh, w.warehouse_name_en, w.warehouse_name_lo,
+                sku.sku_name, sku.sku_name_en, sku.sku_name_lo,
+                loc.location_name, store.store_name, store.store_name_en, store.store_name_lo
            FROM inv_batches b
            LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code
+           LEFT JOIN product_skus sku ON sku.sku_code = b.sku_code
+           LEFT JOIN wms_locations loc ON loc.location_code = b.location_code
+           LEFT JOIN mst_stores store ON store.store_code = b.store_code
           WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${scope.sql}
           ORDER BY b.created_at DESC LIMIT 200`,
         scope.params,
@@ -1294,9 +1299,14 @@ export class WmsService {
       const rows: any[] = await this.em.query(
         `SELECT b.*,
                 COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name,
-                COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name_zh
+                w.warehouse_name_zh, w.warehouse_name_en, w.warehouse_name_lo,
+                sku.sku_name, sku.sku_name_en, sku.sku_name_lo,
+                loc.location_name, store.store_name, store.store_name_en, store.store_name_lo
            FROM inv_batches b
            LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code
+           LEFT JOIN product_skus sku ON sku.sku_code = b.sku_code
+           LEFT JOIN wms_locations loc ON loc.location_code = b.location_code
+           LEFT JOIN mst_stores store ON store.store_code = b.store_code
           WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${scope.sql}`,
         scope.params,
       );
