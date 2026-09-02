@@ -154,6 +154,11 @@ export class SalesAnalyticsService {
     const { clause: bcc, params: bcp } = this.buildScope('so2', [], companyCode);
     const byCompany = await this.ds.query(
       `SELECT so2.company_code,
+         MAX((SELECT COALESCE(o.org_name_cn, o.org_name)
+                FROM sys_organizations o
+               WHERE o.org_type = 'COMPANY'
+                 AND COALESCE(o.company_code, o.org_code) = so2.company_code
+               ORDER BY o.org_code LIMIT 1)) AS company_name,
          COUNT(*)                                                                        AS order_count,
          COALESCE(SUM(total_amount) FILTER (WHERE status NOT IN ('DRAFT','CANCELLED','REJECTED')), 0) AS sales_amount
        FROM sal_sales_orders so2
@@ -168,11 +173,14 @@ export class SalesAnalyticsService {
     const { clause: chc, params: chp } = this.buildScope('so3', [], companyCode);
     const byChannel = await this.ds.query(
       `SELECT COALESCE(so3.channel_code,'DIRECT') AS channel_code,
+         MAX((SELECT ch.channel_name FROM sal_channels ch
+               WHERE ch.channel_code = so3.channel_code
+               ORDER BY ch.id LIMIT 1)) AS channel_name,
          COUNT(*)                                                                        AS order_count,
          COALESCE(SUM(total_amount) FILTER (WHERE status NOT IN ('DRAFT','CANCELLED','REJECTED')), 0) AS sales_amount
        FROM sal_sales_orders so3
        WHERE 1=1 ${chc}
-       GROUP BY so3.channel_code
+       GROUP BY COALESCE(so3.channel_code,'DIRECT')
        ORDER BY sales_amount DESC
        LIMIT 10`,
       chp,

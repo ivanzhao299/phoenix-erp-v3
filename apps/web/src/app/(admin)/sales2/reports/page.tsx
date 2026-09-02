@@ -8,6 +8,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
 import type { AccentColor } from "@/lib/design-tokens";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { formatMasterData } from '@/lib/business-display';
 import { LoadingSkeleton } from "@/components/design-system";
 
 // 旧硬编码色 → 全局语义强调色，复用全局 KpiCard 样式
@@ -116,7 +117,7 @@ function Table({
 // Tab 1: 总览
 // ══════════════════════════════════════════════════════════════════════════════
 function OverviewTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -151,16 +152,16 @@ function OverviewTab() {
           <KpiCard label={t('ui.平均配送时长','平均配送时长')} value={`${fmt(data.averageDeliveryHours, 1)}h`} color="var(--gray-700)" />
           <KpiCard label={t('ui.准时配送率','准时配送率')} value={`${fmt(data.onTimeDeliveryRate, 1)}%`} color="var(--status-success)" />
           <KpiCard label={t('ui.退货率','退货率')} value={`${fmt(data.returnRate, 2)}%`} color="var(--color-purple-600)" />
-          <KpiCard label={t('ui.今日损耗（枚）','今日损耗（枚）')} value={fmt(data.totalLoss)} color="var(--status-danger)" />
+          <KpiCard label={t('ui.累计损耗（枚）','累计损耗（枚）')} value={fmt(data.totalLoss)} color="var(--status-danger)" />
         </div>
       </Section>
 
       <div className={u.grid2_20}>
         <Section title={t('ui.按公司销量 TOP 10','按公司销量 TOP 10')}>
-          <Table cols={[t('ui.公司代码','公司代码'), t('ui.订单数','订单数'), t('ui.销售金额','销售金额')]} rows={(data.byCompany ?? []).map((r: any) => [r.company_code, fmt(r.order_count), fmt(r.sales_amount)])} />
+          <Table cols={[t('ui.公司','公司'), t('ui.订单数','订单数'), t('ui.销售金额','销售金额')]} rows={(data.byCompany ?? []).map((r: any) => [formatMasterData(r, 'company_name', r.company_code, lang), fmt(r.order_count), fmt(r.sales_amount)])} />
         </Section>
         <Section title={t('ui.按渠道销量 TOP 10','按渠道销量 TOP 10')}>
-          <Table cols={[t('ui.渠道代码','渠道代码'), t('ui.订单数','订单数'), t('ui.销售金额','销售金额')]} rows={(data.byChannel ?? []).map((r: any) => [r.channel_code, fmt(r.order_count), fmt(r.sales_amount)])} />
+          <Table cols={[t('ui.渠道','渠道'), t('ui.订单数','订单数'), t('ui.销售金额','销售金额')]} rows={(data.byChannel ?? []).map((r: any) => [formatMasterData(r, 'channel_name', r.channel_code, lang), fmt(r.order_count), fmt(r.sales_amount)])} />
         </Section>
       </div>
     </div>;

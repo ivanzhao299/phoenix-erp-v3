@@ -13,6 +13,7 @@ import { inputField } from "@/components/design-system/cockpit-styles"; // G94 �
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
 import apiRequest from "@/lib/api-client";
+import { formatMasterData } from "@/lib/business-display";
 const API = "/api/v2/sales/pricing";
 const MASTER_API = "/api/product-master";
 
@@ -757,7 +758,7 @@ const EMPTY_FORM: ItemFormState = {
   currencyCode: "LAK"
 };
 function PriceItemsTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const master = useMasterData();
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -1023,17 +1024,17 @@ function PriceItemsTab() {
               fontSize: 11
             }}>{row.price_book_no}</td>
                 <td>
-                  {row.sku_code ? <span style={{
+                  <span style={{
                 fontFamily: "monospace",
                 fontSize: 11,
                 background: "var(--status-special-bg-medium)",
                 color: "var(--color-purple-400)",
                 borderRadius: 4,
                 padding: "2px 6px"
-              }}>{row.sku_code}</span> : row.product_code}
+              }}>{formatMasterData(row, row.sku_code ? "sku_name" : "product_name", row.sku_code ?? row.product_code, lang)}</span>
                 </td>
-                <td className={u.fs12}>{gradeLabel(row.grade_code_std ?? row.grade_code, master.grades)}</td>
-                <td className={u.fs11}>{row.spec_code ?? row.packaging_spec ?? "—"}</td>
+                <td className={u.fs12}>{row.grade_name ? `${row.grade_name} (${row.grade_code_std ?? row.grade_code})` : gradeLabel(row.grade_code_std ?? row.grade_code, master.grades)}</td>
+                <td className={u.fs11}>{row.spec_name ? `${row.spec_name} (${row.spec_code ?? row.packaging_spec})` : row.spec_code ?? row.packaging_spec ?? "—"}</td>
                 <td style={{
               textAlign: "right",
               fontWeight: 700

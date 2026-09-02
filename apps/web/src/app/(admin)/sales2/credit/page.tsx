@@ -12,12 +12,14 @@ import {
 } from "@/components/design-system/cockpit-styles";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LoadingSkeleton } from "@/components/design-system";
+import { formatMasterData } from "@/lib/business-display";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
 interface Customer {
   id: number;
   customer_name?: string;
+  customer_no?: string;
   name?: string;
   credit_limit?: number;
   credit_used?: number;
@@ -128,7 +130,7 @@ function CreditBar({ rate }: { rate: number }) {
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function CustomerCreditPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { canView } = usePermission("MENU_SALES2_CREDIT");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -240,7 +242,7 @@ export default function CustomerCreditPage() {
                       return (
                         <tr key={c.id}>
                           <td style={{ ...tableBodyCell, fontWeight: 500 }}>
-                            {c.customer_name ?? c.name ?? `${t('ui.客户','客户')}${c.id}`}
+                            {formatMasterData(c, 'customer_name', c.customer_no ?? c.id, lang)}
                           </td>
                           <td style={{ ...tableBodyCell, textAlign: 'right', fontFamily: MONO_FONT, color: 'var(--text-secondary)' }}>
                             {fmtMoney(c.credit_limit)}

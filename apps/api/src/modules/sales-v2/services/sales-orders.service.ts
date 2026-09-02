@@ -205,8 +205,29 @@ export class SalesOrdersService implements OnApplicationBootstrap {
 
   async findById(id: string) {
     const rec = await this.assertOwnership(id);
+    const enriched = await this.ds.query(
+      `SELECT so.*,
+              (SELECT COALESCE(o.org_name_cn, o.org_name) FROM sys_organizations o
+                WHERE o.org_type='COMPANY' AND COALESCE(o.company_code,o.org_code)=so.company_code
+                ORDER BY o.org_code LIMIT 1) AS company_name_display,
+              (SELECT c.customer_name FROM sal_customers c WHERE c.customer_no=so.customer_code ORDER BY c.id LIMIT 1) AS customer_name_master,
+              (SELECT c.customer_name_en FROM sal_customers c WHERE c.customer_no=so.customer_code ORDER BY c.id LIMIT 1) AS customer_name_en,
+              (SELECT c.customer_name_lo FROM sal_customers c WHERE c.customer_no=so.customer_code ORDER BY c.id LIMIT 1) AS customer_name_lo,
+              (SELECT ch.channel_name FROM sal_channels ch WHERE ch.channel_code=so.channel_code ORDER BY ch.id LIMIT 1) AS channel_name
+         FROM sal_sales_orders so WHERE so.id = $1`,
+      [id],
+    );
     const items = await this.ds.query(
-      `SELECT * FROM sal_order_items WHERE sales_order_id = $1 ORDER BY id ASC`,
+      `SELECT oi.*,
+              (SELECT ps.sku_name FROM product_skus ps WHERE ps.sku_code=oi.sku_code LIMIT 1) AS sku_name,
+              (SELECT ps.sku_name_en FROM product_skus ps WHERE ps.sku_code=oi.sku_code LIMIT 1) AS sku_name_en,
+              (SELECT ps.sku_name_lo FROM product_skus ps WHERE ps.sku_code=oi.sku_code LIMIT 1) AS sku_name_lo,
+              (SELECT p.product_name_zh FROM mst_products p WHERE p.product_code=oi.product_code LIMIT 1) AS product_name_zh,
+              (SELECT p.product_name_en FROM mst_products p WHERE p.product_code=oi.product_code LIMIT 1) AS product_name_en,
+              (SELECT p.product_name_lo FROM mst_products p WHERE p.product_code=oi.product_code LIMIT 1) AS product_name_lo,
+              (SELECT g.grade_name FROM product_grades g WHERE g.grade_code=oi.grade_code LIMIT 1) AS grade_name,
+              (SELECT s.spec_name FROM packaging_specs s WHERE s.spec_code=oi.packaging_spec LIMIT 1) AS spec_name
+         FROM sal_order_items oi WHERE oi.sales_order_id = $1 ORDER BY oi.id ASC`,
       [id],
     );
     // AR 关联
@@ -219,7 +240,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       ).catch(() => []);
       arInvoice = ar[0] ?? null;
     }
-    return { ...rec, items, arInvoice };
+    return { ...(enriched[0] ?? rec), items, arInvoice };
   }
 
   async getProcessLog(id: string) {

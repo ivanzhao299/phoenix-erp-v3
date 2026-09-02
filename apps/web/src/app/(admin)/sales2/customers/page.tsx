@@ -9,6 +9,7 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { formatMasterData } from "@/lib/business-display";
 const API = "/api/v2/sales";
 
 // ── 枚举常量 ──────────────────────────────────────────────────────────────────
@@ -182,7 +183,7 @@ export default function SalesV2CustomersPage() {
 // ══════════════════════════════════════════════════════════════════════════════
 function CustomersTab() {
   const {
-    t
+    t, lang
   } = useLanguage();
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -533,14 +534,14 @@ function CustomersTab() {
               }}>{row.customer_no}</td>
                   <td style={{
                 padding: "9px 12px"
-              }}>{row.customer_name}</td>
+              }}>{formatMasterData(row, 'customer_name', row.customer_no, lang)}</td>
                   <td style={{
                 padding: "9px 12px"
               }}><span className={`${s.badge} ${s.badgeInfo}`}>{type?.label ?? row.customer_type}</span></td>
                   <td style={{
                 padding: "9px 12px",
                 color: "var(--text-secondary)"
-              }}>{row.channel_code ?? "—"}</td>
+              }}>{formatMasterData(row, 'channel_name', row.channel_code, lang)}</td>
                   <td style={{
                 padding: "9px 12px",
                 textAlign: "right"
@@ -662,7 +663,7 @@ function CustomersTab() {
 // ══════════════════════════════════════════════════════════════════════════════
 function ChannelsTab() {
   const {
-    t
+    t, lang
   } = useLanguage();
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -844,14 +845,14 @@ function ChannelsTab() {
                   <td style={{
                 padding: "9px 12px",
                 fontWeight: 600
-              }}>{row.channel_name}</td>
+              }}>{formatMasterData(row, 'channel_name', row.channel_code, lang)}</td>
                   <td style={{
                 padding: "9px 12px"
               }}><span className={`${s.badge} ${s.badgeInfo}`}>{ct?.label ?? row.channel_type}</span></td>
                   <td style={{
                 padding: "9px 12px",
                 color: "var(--text-secondary)"
-              }}>{row.company_code}</td>
+              }}>{formatMasterData(row, 'company_name', row.company_code, lang)}</td>
                   <td style={{
                 padding: "9px 12px"
               }}><span className={`${s.badge} ${st.cls}`}>{st.label}</span></td>

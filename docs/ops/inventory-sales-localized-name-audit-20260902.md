@@ -193,3 +193,16 @@
 - 新增 API 契约 4/4、Web B 组契约 3/3；API WMS/Egg Inventory 相关测试合计 39/39；API 与 Web `tsc --noEmit` 均 0 错；i18n hardcoded literal gate `3381/3381`、`uncovered=0`。
 - 本机 `MasterDataSelectors.test.ts` 复现 12 项同源 `act is not a function`（均在 render/unmount 入口失败，未进入 selector 断言），按任务书作为 React/jsdom 环境噪声记录，最终以 GitHub CI 为准。
 - B 组冻结/安全边界逐文件复核后，显式授权 W5 closeout 20/20 PASS；PR [#166](https://github.com/ivanzhao299/phoenix-erp-v3/pull/166) 已登记 `reviewed-frozen-boundary` 与 `reviewed-security-touch`，CI 与 merge revision 待交付后回填。
+
+### 2026-09-02 · B 组交付
+
+- PR [#166](https://github.com/ivanzhao299/phoenix-erp-v3/pull/166) 全部 checks 终态为 7 success、0 failure、3 条条件跳过；本机 React/jsdom 噪声未作为放行依据。
+- 已以 merge commit 合入 `main`，merge revision `bf099a07b56370aa086e1f396cc1812bb436c304`。
+
+### 2026-09-02 · C 组实施与本地验证
+
+- 订单 activity/详情兼容追加公司、客户、渠道、门店、SKU/产品/品级/规格真实名称；原 code 和历史快照不删，列表、关联单据、时间轴、AR/信用状态收口到共享 formatter。
+- 退货列表/详情/质检/回库统一显示客户、公司、SKU/产品名称（code）及回库状态；分析聚合仅按 customer/product code 分组，名称用 `MAX()` 投影。
+- 配送列表/详情窄投影公司与司机多语名称，配送 workflow 走共享 formatter；渠道、客户、信用、价格册/价格项补真实名称投影和前端双显。
+- analytics 公司/渠道聚合保持 code group key，名称用 `MAX()`；销售首页的全量指标已从“今日配送/损耗”更正为“累计配送/损耗”。
+- 新增 API/Web 防回潮契约；API 定向 6 suites / 33 tests、Web 定向 5 tests 全绿，API 与 Web `tsc --noEmit` 均 0 错，i18n `3402/3402`、`uncovered=0`，显式授权 W5 closeout 20/20 PASS。CI、merge revision、部署与生产只读复验见后续交付记录。

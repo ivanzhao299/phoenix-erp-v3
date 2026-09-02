@@ -109,7 +109,11 @@ export class PriceBooksService {
     const [countRow, rows] = await Promise.all([
       this.ds.query(`SELECT COUNT(*) AS total FROM sal_price_books WHERE ${wc}`, params),
       this.ds.query(
-        `SELECT * FROM sal_price_books WHERE ${wc} ORDER BY priority ASC, created_at DESC
+        `SELECT pb.*,
+                (SELECT s.store_name FROM mst_stores s WHERE s.store_code = pb.store_code AND s.company_code = pb.company_code LIMIT 1) AS store_name,
+                (SELECT ch.channel_name FROM sal_channels ch WHERE ch.channel_code = pb.channel_code AND ch.company_code = pb.company_code LIMIT 1) AS channel_name,
+                (SELECT c.customer_name FROM sal_customers c WHERE c.customer_no = pb.customer_code AND c.company_code = pb.company_code LIMIT 1) AS customer_name
+         FROM sal_price_books pb WHERE ${wc} ORDER BY priority ASC, created_at DESC
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, limit, offset],
       ),

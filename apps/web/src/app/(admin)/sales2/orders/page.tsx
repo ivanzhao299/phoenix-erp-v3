@@ -15,6 +15,7 @@ import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector } from 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizeSalesOrdersPage } from '@/lib/sales-orders-response';
 import styles from './orders.module.css';
+import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -146,6 +147,9 @@ interface OrderItem {
   amount: number;
   below_floor_price: boolean;
   sku_code?: string | null; // Phase H5
+  sku_name?: string | null; sku_name_en?: string | null; sku_name_lo?: string | null;
+  product_name_zh?: string | null; product_name_en?: string | null; product_name_lo?: string | null;
+  grade_name?: string | null; spec_name?: string | null; packaging_spec?: string | null;
 }
 interface Order {
   id: string;
@@ -165,6 +169,11 @@ interface Order {
   credit_snapshot: Record<string, any> | null;
   ar_invoice_id: string | null;
   created_at: string;
+  company_name_display?: string | null;
+  customer_name_master?: string | null;
+  customer_name_en?: string | null;
+  customer_name_lo?: string | null;
+  channel_name?: string | null;
   items?: OrderItem[];
   arInvoice?: any;
 }
@@ -187,6 +196,13 @@ interface SalesActivityRow {
   storeCode: string | null;
   customerCode: string | null;
   customerName: string | null;
+  customerNameEn?: string | null;
+  customerNameLo?: string | null;
+  companyName?: string | null;
+  channelName?: string | null;
+  storeName?: string | null;
+  storeNameEn?: string | null;
+  storeNameLo?: string | null;
   status: string;
   displayCategory: string;
   amount: number;
@@ -275,7 +291,7 @@ function SkuBadge({
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 
 export default function SalesV2OrdersPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   // G24-A：PBAC 收口（销售订单域 MENU_SALES2_ORDER）
   const { canView: canViewOrders, canCreate, canApprove, canEdit: canTransit } = usePermission('MENU_SALES2_ORDER');
   const { canView: canViewStorePos } = usePermission('MENU_STORE_POS');
@@ -552,11 +568,10 @@ export default function SalesV2OrdersPage() {
 
   // ── 渲染 ──────────────────────────────────────────────────────────────────
 
-  const statusConf = (st: string) => STATUS_MAP[st] ?? {
-    label: st,
+  const statusConf = (st: string, sourceType: 'ORDER' | 'POS' = 'ORDER') => ({ ...(STATUS_MAP[st] ?? {
     color: 'var(--slate-400)',
     bg: 'var(--status-neutral-bg-light)'
-  };
+  }), label: formatBusinessEnum(sourceType === 'POS' ? 'posSale' : 'salesOrder', st, lang) });
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.销售订单','销售订单')} subtitle={t('ui.统一销售订单 · 定价引擎 · 信用控制 · 审批流程 · 应收联动','统一销售订单 · 定价引擎 · 信用控制 · 审批流程 · 应收联动')} breadcrumb={[t('ui.销售系统','销售系统'), t('ui.销售订单','销售订单')]} />
 
@@ -691,7 +706,7 @@ export default function SalesV2OrdersPage() {
           </thead>
           <tbody>
             {orders.map(o => {
-            const sc = statusConf(o.status);
+            const sc = statusConf(o.status, o.sourceType);
             const isOrder = o.sourceType === 'ORDER';
             const openActivity = () => isOrder ? openDetail(o.sourceId) : window.location.assign(o.detailHref);
             return <tr key={`${o.sourceType}:${o.sourceId}`} className={u.pointer} onClick={openActivity}>
@@ -703,7 +718,7 @@ export default function SalesV2OrdersPage() {
                   <td style={{
                 color: 'var(--color-primary)'
               }}>{o.documentNo}</td>
-                  <td>{o.customerName ?? o.customerCode ?? '—'}{o.storeCode ? ` · ${o.storeCode}` : ''}</td>
+                  <td>{formatMasterData({ customer_name: o.customerName, customer_name_en: o.customerNameEn, customer_name_lo: o.customerNameLo }, 'customer_name', o.customerCode, lang)}{o.storeCode ? ` · ${formatMasterData({ store_name: o.storeName, store_name_en: o.storeNameEn, store_name_lo: o.storeNameLo }, 'store_name', o.storeCode, lang)}` : ''}</td>
                   <td>{Number(o.amount).toLocaleString()} {o.currency}</td>
                   <td>
                     <span style={{
@@ -1143,7 +1158,7 @@ export default function SalesV2OrdersPage() {
       </ModalV2>
 
       {/* ── 订单详情弹窗 ── */}
-      <ModalV2 open={!!detailOrder} title={detailOrder ? `${detailOrder.order_no} · ${detailOrder.company_code}` : ''} onClose={() => { setDetailOrder(null); setProcessLog(null); }} width={760}>
+      <ModalV2 open={!!detailOrder} title={detailOrder ? `${detailOrder.order_no} · ${formatMasterData({ company_name: detailOrder.company_name_display }, 'company_name', detailOrder.company_code, lang)}` : ''} onClose={() => { setDetailOrder(null); setProcessLog(null); }} width={760}>
         {detailOrder && <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
             {actionError && <div style={{
@@ -1212,8 +1227,8 @@ export default function SalesV2OrdersPage() {
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('ui.关联单据','关联单据')}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {processLog?.documents.map(doc => doc.href
-                  ? <Link key={`${doc.type}-${doc.id}`} href={doc.href} style={{ padding: '6px 9px', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--color-primary)' }}>{doc.type} · {doc.no} · {doc.status}</Link>
-                  : <span key={`${doc.type}-${doc.id}`} style={{ padding: '6px 9px', border: '1px solid var(--border)', borderRadius: 6 }}>{doc.type} · {doc.no} · {doc.status}</span>)}
+                  ? <Link key={`${doc.type}-${doc.id}`} href={doc.href} style={{ padding: '6px 9px', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--color-primary)' }}>{doc.type} · {doc.no} · {formatBusinessEnum('salesOrder', doc.status, lang)}</Link>
+                  : <span key={`${doc.type}-${doc.id}`} style={{ padding: '6px 9px', border: '1px solid var(--border)', borderRadius: 6 }}>{doc.type} · {doc.no} · {formatBusinessEnum('salesOrder', doc.status, lang)}</span>)}
                 {!processLoading && !processLog?.documents.length && <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{t('ui.暂无关联单据','暂无关联单据')}</span>}
               </div>
             </div>
@@ -1225,7 +1240,7 @@ export default function SalesV2OrdersPage() {
                 {processLog?.timeline.filter(item => item.source !== 'WORKFLOW').map(item => <div key={item.id} style={{ borderLeft: '3px solid var(--color-primary)', paddingLeft: 10 }}>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>{item.action} <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>[{item.source}]</span></div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.operator || t('ui.系统','系统')} · {item.time ? new Date(item.time).toLocaleString() : '—'}</div>
-                  {(item.fromStatus || item.toStatus) && <div style={{ fontSize: 12 }}>{item.fromStatus || '—'} → {item.toStatus || '—'}</div>}
+                  {(item.fromStatus || item.toStatus) && <div style={{ fontSize: 12 }}>{formatBusinessEnum('salesOrder', item.fromStatus, lang)} → {formatBusinessEnum('salesOrder', item.toStatus, lang)}</div>}
                   {item.comment && <div style={{ fontSize: 12 }}>{item.comment}</div>}
                 </div>)}
                 {!!processLog?.timeline.some(item => item.source === 'WORKFLOW') && <WorkflowTimeline actions={processLog.timeline.filter(item => item.source === 'WORKFLOW').map(item => ({ action: item.action, actor_name: item.operator, created_at: item.time, comment: item.comment }))} />}
@@ -1239,7 +1254,7 @@ export default function SalesV2OrdersPage() {
           gap: 8,
           fontSize: 13
         }}>
-              {[[t('ui.客户','客户'), detailOrder.customer_name ?? detailOrder.customer_code ?? '—'], [t('ui.渠道','渠道'), detailOrder.channel_code ?? '—'], [t('ui.总金额','总金额'), `${Number(detailOrder.total_amount).toLocaleString()} ${detailOrder.currency_code}`], [t('ui.应收状态','应收状态'), detailOrder.ar_invoice_id ? t('ui.✓ 已生成应收账款','✓ 已生成应收账款') : t('ui.未生成','未生成')]].map(([k, v]) => <div key={k as string}>
+              {[[t('ui.客户','客户'), formatMasterData({ customer_name: detailOrder.customer_name_master ?? detailOrder.customer_name, customer_name_en: detailOrder.customer_name_en, customer_name_lo: detailOrder.customer_name_lo }, 'customer_name', detailOrder.customer_code, lang)], [t('ui.渠道','渠道'), formatMasterData({ channel_name: detailOrder.channel_name }, 'channel_name', detailOrder.channel_code, lang)], [t('ui.总金额','总金额'), `${Number(detailOrder.total_amount).toLocaleString()} ${detailOrder.currency_code}`], [t('ui.应收状态','应收状态'), detailOrder.ar_invoice_id ? t('ui.✓ 已生成应收账款','✓ 已生成应收账款') : t('ui.未生成','未生成')]].map(([k, v]) => <div key={k as string}>
                   <div style={{
               fontSize: 11,
               color: 'var(--text-secondary)',
@@ -1268,7 +1283,7 @@ export default function SalesV2OrdersPage() {
             gap: 14,
             flexWrap: 'wrap'
           }}>
-                  <span>{t('ui.状态：','状态：')}<strong>{detailOrder.credit_snapshot.creditStatus ?? '—'}</strong></span>
+                  <span>{t('ui.状态：','状态：')}<strong>{formatBusinessEnum('credit', detailOrder.credit_snapshot.creditStatus, lang)}</strong></span>
                   <span>{t('ui.实时欠款：','实时欠款：')}<strong>{Number(detailOrder.credit_snapshot.totalReceivable ?? 0).toLocaleString()}</strong></span>
                   <span>{t('ui.逾期：','逾期：')}<strong style={{
                 color: Number(detailOrder.credit_snapshot.overdueReceivable) > 0 ? 'var(--status-danger)' : undefined
@@ -1304,7 +1319,7 @@ export default function SalesV2OrdersPage() {
                   <Link href={`/finance2/ar?invoiceId=${detailOrder.arInvoice.id}`} style={{ color: 'var(--color-primary)' }}>{t('ui.应收单号：','应收单号：')}{detailOrder.arInvoice.ar_no}</Link>
                   <span>{t('ui.金额：','金额：')}{Number(detailOrder.arInvoice.amount_original).toLocaleString()}</span>
                   <span>{t('ui.到期：','到期：')}{detailOrder.arInvoice.due_date?.slice(0, 10)}</span>
-                  <span>{t('ui.状态：','状态：')}{detailOrder.arInvoice.status}</span>
+                  <span>{t('ui.状态：','状态：')}{formatBusinessEnum('ar', detailOrder.arInvoice.status, lang)}</span>
                 </div>
               </div>}
 
@@ -1328,10 +1343,10 @@ export default function SalesV2OrdersPage() {
                 background: item.below_floor_price ? 'var(--status-danger-bg-page)' : undefined
               }}>
                         <td>
-                          {item.product_name || item.product_code}
+                          {formatMasterData(item as unknown as Record<string, unknown>, item.sku_code ? 'sku_name' : 'product_name', item.sku_code || item.product_code, lang)}
                           <SkuBadge code={item.sku_code} />
                         </td>
-                        <td>{item.grade_code || '—'}</td>
+                        <td>{formatMasterData({ spec_name: item.spec_name }, 'spec_name', item.packaging_spec, lang)} · {formatMasterData({ grade_name: item.grade_name }, 'grade_name', item.grade_code, lang)}</td>
                         <td className={u.tar}>{Number(item.qty).toLocaleString()}</td>
                         <td style={{
                   textAlign: 'right',

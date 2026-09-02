@@ -136,13 +136,13 @@ export default function SalesV2Page() {
         <div className="mb-6">
           <SectionLabel>{t('ui.经营概览','经营概览')}</SectionLabel>
           <StatStrip items={[
-            { label: t('ui.今日配送','今日配送'),       value: overview.totalDelivered ?? "—" },
+            { label: t('ui.累计配送','累计配送'),       value: overview.totalDelivered ?? "—" },
             { label: t('ui.应收款','应收款'),         value: `¥${(overview.totalReceivable ?? 0).toLocaleString("zh-CN")}` },
             { label: t('ui.逾期应收','逾期应收'),       value: `¥${(overview.overdueReceivable ?? 0).toLocaleString("zh-CN")}`, accentColor: "red" },
             { label: t('ui.退货总数','退货总数'),       value: overview.totalReturns ?? "—" },
             { label: t('ui.库存可用（枚）','库存可用（枚）'), value: (overview.inventoryBalance ?? 0).toLocaleString("zh-CN") },
             { label: t('ui.临期库存（批）','临期库存（批）'), value: overview.inventoryExpiring ?? "—" },
-            { label: t('ui.今日损耗（枚）','今日损耗（枚）'), value: (overview.totalLoss ?? 0).toLocaleString("zh-CN"), accentColor: "red" },
+            { label: t('ui.累计损耗（枚）','累计损耗（枚）'), value: (overview.totalLoss ?? 0).toLocaleString("zh-CN"), accentColor: "red" },
             { label: t('ui.准时配送率','准时配送率'),     value: `${overview.onTimeDeliveryRate ?? 0}%`, accentColor: "green" },
           ]} />
         </div>
