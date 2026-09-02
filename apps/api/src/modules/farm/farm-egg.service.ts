@@ -74,10 +74,15 @@ export class FarmEggService {
     return this.ds.query<EggLedgerEntry[]>(
       `SELECT l.id, COALESCE(l.log_date, l.created_at::date)::text AS log_date,
               l.change_type, COALESCE(b.grade_code_std, b.quality_grade, l.quality_grade) AS grade,
-              l.qty_change, l.house_code, l.customer_no, l.note, l.operator,
+              l.qty_change, l.house_code, h.house_name,
+              g.grade_name, g.grade_name_en, g.grade_name_lo,
+              l.customer_no, l.note, l.operator,
               l.created_at::text
        FROM inv_ledger l
        JOIN inv_batches b ON b.batch_no = l.batch_no
+       LEFT JOIN brd_houses h ON h.house_code = l.house_code
+       LEFT JOIN product_grades g
+         ON g.grade_code = COALESCE(b.grade_code_std, b.quality_grade, l.quality_grade)
        WHERE b.product_code LIKE 'PRD-EGG-%'
          AND COALESCE(l.log_date, b.egg_date, l.created_at::date) BETWEEN $1 AND $2
          AND ($3::boolean OR b.company_code = ANY($4::text[]))

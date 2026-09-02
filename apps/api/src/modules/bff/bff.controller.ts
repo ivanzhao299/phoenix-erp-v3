@@ -1486,11 +1486,12 @@ export class PackagingTerminalBffController {
     const fromWms = await this.safe(
       this.em.query(
         `SELECT wi.id::text, wi.inbound_no AS batch_code, wi.inbound_no AS code,
-                wi.house_code, wi.shift_no,
+                wi.house_code, bh.house_name, wi.shift_no,
                 wi.collect_date AS lay_date, wi.qty AS expected_qty,
                 wi.weight_kg AS expected_weight,
                 'PENDING_RECEIVE' AS batch_status
          FROM wms_inbound wi
+         LEFT JOIN brd_houses bh ON bh.house_code = wi.house_code
          WHERE wi.status = 'COMPLETED'
            AND NOT EXISTS (
              SELECT 1 FROM pkg_source_batches psb WHERE psb.source_inbound_no = wi.inbound_no
@@ -1502,13 +1503,14 @@ export class PackagingTerminalBffController {
     // 来源 B：pkg_source_batches 中状态为 PENDING_RECEIVE 的批次（测试/手工录入）
     const fromPkg = await this.safe(
       this.em.query(
-        `SELECT id::text, batch_code, batch_code AS code,
-                house_code, flock_code, lay_date,
+        `SELECT psb.id::text, psb.batch_code, psb.batch_code AS code,
+                psb.house_code, bh.house_name, psb.flock_code, psb.lay_date,
                 expected_qty, expected_weight, container_count,
                 batch_status
-         FROM pkg_source_batches
-         WHERE batch_status = 'PENDING_RECEIVE'
-         ORDER BY created_at DESC LIMIT 20`,
+         FROM pkg_source_batches psb
+         LEFT JOIN brd_houses bh ON bh.house_code = psb.house_code
+         WHERE psb.batch_status = 'PENDING_RECEIVE'
+         ORDER BY psb.created_at DESC LIMIT 20`,
       ),
       [],
     );

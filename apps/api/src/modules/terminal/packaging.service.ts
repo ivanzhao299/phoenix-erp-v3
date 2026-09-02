@@ -429,9 +429,10 @@ export class PackagingService {
       const where = `WHERE ${conditions.join(' AND ')}`;
       // P0-4: ORDER BY 按业务状态优先级 — 进行中 → 待分级 → 已完成；同组内 updated_at 倒序
       const rows = await this.em.query(
-        `SELECT t.*, s.house_code AS src_house, s.shift_type, s.shift_date
+        `SELECT t.*, s.house_code AS src_house, h.house_name, s.shift_type, s.shift_date
          FROM pkg_tasks t
          LEFT JOIN pkg_shifts s ON s.id = t.shift_id
+         LEFT JOIN brd_houses h ON h.house_code = s.house_code
          ${where}
          ORDER BY
            CASE
@@ -448,7 +449,8 @@ export class PackagingService {
       let anomalyReasons: any[] = [];
       try {
         anomalyReasons = await this.em.query(
-          `SELECT dict_code AS code, dict_label_zh AS label
+          `SELECT dict_code AS code, dict_label_zh AS label,
+                  dict_label_zh AS label_zh, dict_label_en AS label_en, dict_label_lo AS label_lo
            FROM sys_dict WHERE dict_type = 'PKG_ANOMALY_REASON' AND status = 'ACTIVE'
            ORDER BY sort_no`,
         );
@@ -616,9 +618,10 @@ export class PackagingService {
   async getPackagingTasks(query: Record<string, string>) {
     try {
       const rows = await this.em.query(
-        `SELECT t.*, s.house_code AS src_house, s.shift_date
+        `SELECT t.*, s.house_code AS src_house, h.house_name, s.shift_date
          FROM pkg_tasks t
          LEFT JOIN pkg_shifts s ON s.id = t.shift_id
+         LEFT JOIN brd_houses h ON h.house_code = s.house_code
          WHERE t.task_type = 'PACKING' AND t.status IN ('PENDING','IN_PROGRESS')
          ORDER BY t.created_at ASC
          LIMIT 100`,
@@ -858,23 +861,27 @@ export class PackagingService {
       //          {"AAA":50,"AA":30} 与 {"AAA":40,"AA":10} 不会聚合到 AAA/AA 而是两条独立行。
       //          现在用 jsonb_each_text 展开后按真实等级 code 聚合。
       const byGrade = await this.em.query(
-        `SELECT
-           gr.key                       AS grade,
-           COALESCE(SUM((gr.value)::int),0) AS qty,
-           COUNT(DISTINCT t.id)         AS tasks
-         FROM pkg_tasks t
-         CROSS JOIN LATERAL jsonb_each_text(
-           CASE
-             WHEN t.grade_results IS NULL OR t.grade_results = '' THEN '{}'::jsonb
-             ELSE t.grade_results::jsonb
-           END
-         ) AS gr
-         WHERE t.task_type = 'PACKING'
-           AND DATE(t.completed_at) = $1
-           AND gr.key IS NOT NULL
-           AND (gr.value)::int > 0
-         GROUP BY gr.key
-         ORDER BY qty DESC`,
+        `WITH aggregate_by_grade AS (
+           SELECT gr.key AS grade,
+                  COALESCE(SUM((gr.value)::int),0) AS qty,
+                  COUNT(DISTINCT t.id) AS tasks
+             FROM pkg_tasks t
+             CROSS JOIN LATERAL jsonb_each_text(
+               CASE
+                 WHEN t.grade_results IS NULL OR t.grade_results = '' THEN '{}'::jsonb
+                 ELSE t.grade_results::jsonb
+               END
+             ) AS gr
+            WHERE t.task_type = 'PACKING'
+              AND DATE(t.completed_at) = $1
+              AND gr.key IS NOT NULL
+              AND (gr.value)::int > 0
+            GROUP BY gr.key
+         )
+         SELECT a.*, g.grade_name, g.grade_name_en, g.grade_name_lo
+           FROM aggregate_by_grade a
+           LEFT JOIN product_grades g ON g.grade_code = a.grade
+          ORDER BY a.qty DESC`,
         [d],
       );
       return {

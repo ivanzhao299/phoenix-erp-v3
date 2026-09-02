@@ -62,22 +62,34 @@ export class ProductionAnalyticsService {
 
     // 场站对比
     const byFarm = await this.safe<any>(
-      `SELECT farm_code,
-              COALESCE(SUM(eggs),0)::int AS eggs,
-              COALESCE(SUM(broken_eggs),0)::int AS broken
-         FROM brd_daily_logs
-         WHERE log_date > CURRENT_DATE - 30
-         GROUP BY farm_code ORDER BY SUM(eggs) DESC LIMIT 10`,
+      `WITH aggregate_by_farm AS (
+         SELECT farm_code,
+                COALESCE(SUM(eggs),0)::int AS eggs,
+                COALESCE(SUM(broken_eggs),0)::int AS broken
+           FROM brd_daily_logs
+          WHERE log_date > CURRENT_DATE - 30
+          GROUP BY farm_code
+       )
+       SELECT a.*, f.farm_name
+         FROM aggregate_by_farm a
+         LEFT JOIN brd_farms f ON f.farm_code = a.farm_code
+        ORDER BY a.eggs DESC LIMIT 10`,
     );
 
     // 鸡舍对比
     const byHouse = await this.safe<any>(
-      `SELECT house_code,
-              COALESCE(SUM(eggs),0)::int AS eggs,
-              COALESCE(AVG(current_lay_rate),0)::numeric(5,2) AS avgLayRate
-         FROM brd_daily_logs
-         WHERE log_date > CURRENT_DATE - 30 ${fFilter}
-         GROUP BY house_code ORDER BY SUM(eggs) DESC LIMIT 20`,
+      `WITH aggregate_by_house AS (
+         SELECT house_code,
+                COALESCE(SUM(eggs),0)::int AS eggs,
+                COALESCE(AVG(current_lay_rate),0)::numeric(5,2) AS "avgLayRate"
+           FROM brd_daily_logs
+          WHERE log_date > CURRENT_DATE - 30 ${fFilter}
+          GROUP BY house_code
+       )
+       SELECT a.*, h.house_name
+         FROM aggregate_by_house a
+         LEFT JOIN brd_houses h ON h.house_code = a.house_code
+        ORDER BY a.eggs DESC LIMIT 20`,
     );
 
     return {
