@@ -218,3 +218,11 @@ admin 与普通销售经理使用同一模型都会空。修复后才分别进�
 本轮对 guard、认证会话缓存及受控错误日志的变更已完成安全与冻结边界复核；PR 使用 `reviewed-frozen-boundary` 与 `reviewed-security-touch` 标签记录审批语义。
 
 生产部署 revision、readonly audit run 及两账号实测数量在合并部署后追记。
+
+### 9.5 合并、部署与首轮生产复验
+
+- PR `#162` 全门禁通过并合入 main，merge revision `4850d3e24fb559e126047666848e745c92d40ecb`。
+- full 生产部署 run `33588576425` 成功；测试、API/Web 镜像构建、SSH 部署与 smoke 均通过。
+- readonly audit run `33589461285` 输出 checkout/API/Web revision 均为 `4850d3e2...`，`sys_error_logs` 近 60 分钟 lookup 错误为 0。
+- admin：`isGlobal=true`，companies `200 / 3` 行，customers `200 / 87` 行，org 旁路 `200 / 60` 行。
+- guodapeng：`isGlobal=true`，companies `200 / 3` 行，customers `200 / 87` 行。org 管理旁路返回 403，符合其无主数据管理菜单权限的既有语义，且反证 lookup 不依赖该管理权限。首轮清单将该旁路误写为必须 200，因此 run 最终标记 failure；已修正为允许旁路 `200/403`，核心 lookup 非空断言不放宽。

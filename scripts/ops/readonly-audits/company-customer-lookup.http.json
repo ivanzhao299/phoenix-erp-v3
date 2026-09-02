@@ -47,8 +47,6 @@
     "name": "guodapeng-org-organizations-control",
     "username": "guodapeng",
     "path": "/api/org/organizations?type=COMPANY",
-    "expectedStatus": 200,
-    "reportDataLength": true,
-    "minDataLength": 1
+    "expectedStatus": [200, 403]
   }
 ]
