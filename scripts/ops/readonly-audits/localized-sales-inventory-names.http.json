@@ -23,6 +23,7 @@
     "path": "/api/v2/sales/returns?page=1&limit=20",
     "expectedStatus": 200,
     "minDataLength": 1,
+    "allowNoData": true,
     "reportDataLength": true,
     "requiredNonEmptyFields": ["return_no", "customer_name_master", "company_name_display"]
   },

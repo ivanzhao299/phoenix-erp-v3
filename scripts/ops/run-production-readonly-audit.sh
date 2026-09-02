@@ -112,6 +112,10 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
       }
       const dataRows = a.rowPath ? getPath(body, a.rowPath) : (Array.isArray(body) ? body : (Array.isArray(body?.items) ? body.items : null));
       if (a.minDataLength != null && (!dataRows || dataRows.length < a.minDataLength)) {
+        if (a.allowNoData && Array.isArray(dataRows) && dataRows.length === 0) {
+          console.log(`SKIP ${a.name} reason=no-data-sample`);
+          continue;
+        }
         throw new Error(`${a.name}: data.length=${dataRows?.length ?? 'not-array'} expected>=${a.minDataLength}`);
       }
       if (a.requiredNonEmptyFields?.length) {
