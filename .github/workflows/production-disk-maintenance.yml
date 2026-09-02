@@ -6,7 +6,7 @@ on:
       action:
         description: Read-only audit or guarded cleanup
         type: choice
-        options: [audit, cleanup, emergency-recover, repair-generated-worktree]
+        options: [audit, cleanup, emergency-recover, incident-verify, repair-generated-worktree]
         default: audit
       approve_production:
         description: Confirm the production maintenance gate
@@ -72,6 +72,23 @@ jobs:
 
             echo "action=$ACTION"
             report_disk
+            if [ "$ACTION" = incident-verify ]; then
+              cd "$DEPLOY_PATH"
+              echo "=== incident container state ==="
+              docker ps -a --filter 'name=phoenix-v3-' --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+              docker inspect --format '{{.Name}} restart={{.RestartCount}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' phoenix-v3-db phoenix-v3-api
+              echo "=== recent database log ==="
+              docker logs --since 10m --tail 120 phoenix-v3-db 2>&1 || true
+              echo "=== recent API errors ==="
+              docker logs --since 10m --tail 200 phoenix-v3-api 2>&1 | grep -E 'ERROR|FATAL|ECONN|Internal Server Error' || true
+              echo "=== migration state (read only) ==="
+              docker compose exec -T db sh -lc \
+                'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "BEGIN TRANSACTION READ ONLY; SELECT timestamp || chr(9) || name FROM migrations WHERE timestamp = 1788337017420; COMMIT;"'
+              echo "=== health ==="
+              curl -fsS --max-time 20 http://127.0.0.1:3100/api/health
+              echo
+              exit 0
+            fi
             if [ "$ACTION" = emergency-recover ]; then
               echo "=== incident container state before recovery ==="
               docker ps -a --filter 'name=phoenix-v3-' --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
