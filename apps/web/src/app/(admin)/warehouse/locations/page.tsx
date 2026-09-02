@@ -12,6 +12,7 @@ import { MapPin, Plus, Edit2, Trash2, RefreshCw, Search, X, Check, BarChart2 } f
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { WarehouseSelector, ZoneSelector } from "@/components/shared-selectors/MasterDataSelectors";
+import { formatMasterData } from "@/lib/business-display";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, secondaryActionButton, actionPill, inputField, formLabel,
@@ -100,7 +101,7 @@ function UsageBar({
 }
 export default function LocationsPage() {
   const {
-    t
+    t, lang
   } = useLanguage();
   const STATUS_LABEL: Record<Status, string> = {
     EMPTY: t("ui.空闲", "空闲"),
@@ -406,12 +407,12 @@ export default function LocationsPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              {[t("ui.库位编码", "库位编码"), t("ui.库位名称", "库位名称"), t("ui.仓库", "仓库"), t("ui.库区", "库区"), t("ui.站点", "站点"), t("ui.容量枚", "容量(枚)"), t("ui.使用率", "使用率"), t("common.status", "状态"), t("ui.站点编码", "站点编码"), t("common.operation", "操作")].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+              {[t("ui.库位编码", "库位编码"), t("ui.库位名称", "库位名称"), t("ui.仓库", "仓库"), t("ui.库区", "库区"), t("ui.站点", "站点"), t("ui.容量枚", "容量(枚)"), t("ui.使用率", "使用率"), t("common.status", "状态"), t("common.operation", "操作")].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={10} style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={10} cols={10} /></td></tr>}
-            {!loading && filtered.length === 0 && <tr><td colSpan={10} style={{
+            {loading && <tr><td colSpan={9} style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={10} cols={9} /></td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={9} style={{
               padding: 40,
               textAlign: "center",
               color: "var(--text-secondary)",
@@ -430,13 +431,13 @@ export default function LocationsPage() {
               }}>
                     <div className={u.flexRow}><MapPin size={12} />{String(row.location_code ?? "")}</div>
                   </td>
-                  <td className={u.fs13}>{String(row.location_name ?? "—")}</td>
-                  <td className={u.muted12}>{String(row.warehouse_code ?? "")}</td>
+                  <td className={u.fs13}>{formatMasterData(row, "location_name", row.location_code, lang)}</td>
+                  <td className={u.muted12}>{formatMasterData(row, "warehouse_name", row.warehouse_code, lang)}</td>
                   <td style={{
                 fontSize: 13,
                 fontWeight: 700
-              }}>{String(row.zone_code ?? "—")}</td>
-                  <td className={u.muted12}>{String(row.store_code ?? "—")}</td>
+              }}>{formatMasterData(row, "zone_name", row.zone_code, lang)}</td>
+                  <td className={u.muted12}>{formatMasterData(row, "store_name", row.store_code, lang)}</td>
                   <td className={u.fs13}>{row.capacity_qty ? Number(row.capacity_qty).toLocaleString() : "—"}</td>
                   <td style={{
                 minWidth: 110
@@ -460,16 +461,6 @@ export default function LocationsPage() {
                     )}>
                       {STATUS_LABEL[row.status as Status] ?? String(row.status ?? "")}
                     </span>
-                  </td>
-                  <td style={{
-                fontSize: 12,
-                color: "var(--text-secondary)",
-                maxWidth: 140,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
-              }}>
-                    {String(row.store_code ?? "—")}
                   </td>
                   <td>
                     <div style={{ display: "flex", gap: 6 }}>

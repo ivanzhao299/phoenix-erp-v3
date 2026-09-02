@@ -209,13 +209,22 @@ export default function LossReportPage() {
     title: t("ui.报损单号", "报损单号"),
     width: 160
   }, {
-    key: "zone_code",
-    title: t("ui.报损品目", "报损品目"),
+    key: "warehouse_code",
+    title: t("ui.报损仓库", "报损仓库"),
     width: 120
   }, {
-    key: "warehouse_code",
-    title: t("ui.批次库区", "批次/库区"),
+    key: "zone_code",
+    title: t("ui.报损库区", "报损库区"),
     width: 130
+  }, {
+    key: "batch_no",
+    title: t("ui.报损批次", "报损批次"),
+    width: 130
+  }, {
+    key: "item",
+    title: t("ui.报损品目", "报损品目"),
+    width: 150,
+    render: (value, row) => String(row.item_name || value || "—") + (row.item_name && value && row.item_name !== value ? `（${String(value)}）` : "")
   }, {
     key: "diff_qty",
     title: t("ui.报损数量", "报损数量"),

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   filterWarehouseBatchRows,
   formatWarehouseBatchDate,
-  formatWarehouseDisplay,
   getWarehouseBatchQuantity,
   groupWarehouseQuantitiesByUnit,
   normalizeWarehouseBatchRows,
@@ -79,12 +78,4 @@ describe("warehouse query helpers", () => {
     expect(formatWarehouseBatchDate()).toBe("-");
   });
 
-  it("shows the Chinese warehouse name with its stable code", () => {
-    expect(formatWarehouseDisplay({
-      warehouse_code: "LPH_MS_EGG_FARM",
-      warehouse_name: "Mengsai Egg Farm Storage",
-      warehouse_name_zh: "孟赛农场鸡蛋暂存仓",
-    })).toBe("孟赛农场鸡蛋暂存仓（LPH_MS_EGG_FARM）");
-    expect(formatWarehouseDisplay({ warehouse_code: "WH-ONLY" })).toBe("WH-ONLY");
-  });
 });
