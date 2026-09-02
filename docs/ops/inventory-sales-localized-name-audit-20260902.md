@@ -205,4 +205,4 @@
 - 退货列表/详情/质检/回库统一显示客户、公司、SKU/产品名称（code）及回库状态；分析聚合仅按 customer/product code 分组，名称用 `MAX()` 投影。
 - 配送列表/详情窄投影公司与司机多语名称，配送 workflow 走共享 formatter；渠道、客户、信用、价格册/价格项补真实名称投影和前端双显。
 - analytics 公司/渠道聚合保持 code group key，名称用 `MAX()`；销售首页的全量指标已从“今日配送/损耗”更正为“累计配送/损耗”。
-- 新增 API/Web 防回潮契约；API 与 Web `tsc --noEmit` 均 0 错。完整定向测试、CI、merge revision、部署与生产只读复验见后续交付记录。
+- 新增 API/Web 防回潮契约；API 定向 6 suites / 33 tests、Web 定向 5 tests 全绿，API 与 Web `tsc --noEmit` 均 0 错，i18n `3402/3402`、`uncovered=0`，显式授权 W5 closeout 20/20 PASS。CI、merge revision、部署与生产只读复验见后续交付记录。
