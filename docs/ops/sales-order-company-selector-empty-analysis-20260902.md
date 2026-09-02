@@ -215,4 +215,6 @@ admin 与普通销售经理使用同一模型都会空。修复后才分别进�
 | 生产只读清单 `--validate` | PASS |
 | `apps/api/test/scope-audit.sh` | 已真实执行；本地 API 未启动，HTTP 均为 `000`，0 pass / 30 fail / 1 skip，不冒充 PASS |
 
+本轮对 guard、认证会话缓存及受控错误日志的变更已完成安全与冻结边界复核；PR 使用 `reviewed-frozen-boundary` 与 `reviewed-security-touch` 标签记录审批语义。
+
 生产部署 revision、readonly audit run 及两账号实测数量在合并部署后追记。
