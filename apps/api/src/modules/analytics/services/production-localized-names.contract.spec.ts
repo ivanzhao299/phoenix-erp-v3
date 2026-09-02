@@ -8,7 +8,7 @@ describe('production localized-name API contracts', () => {
     const source = read('src/modules/analytics/services/production-analytics.service.ts');
     expect(source).toContain('WITH aggregate_by_farm AS');
     expect(source).toContain('GROUP BY farm_code');
-    expect(source).toContain('LEFT JOIN brd_farms f ON f.farm_code = a.farm_code');
+    expect(source).toContain('LEFT JOIN sys_organizations o ON o.org_code = a.farm_code');
     expect(source).toContain('WITH aggregate_by_house AS');
     expect(source).toContain('GROUP BY house_code');
     expect(source).toContain('LEFT JOIN brd_houses h ON h.house_code = a.house_code');

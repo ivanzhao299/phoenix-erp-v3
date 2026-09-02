@@ -70,9 +70,9 @@ export class ProductionAnalyticsService {
           WHERE log_date > CURRENT_DATE - 30
           GROUP BY farm_code
        )
-       SELECT a.*, f.farm_name
+       SELECT a.*, o.org_name AS farm_name
          FROM aggregate_by_farm a
-         LEFT JOIN brd_farms f ON f.farm_code = a.farm_code
+         LEFT JOIN sys_organizations o ON o.org_code = a.farm_code
         ORDER BY a.eggs DESC LIMIT 10`,
     );
 

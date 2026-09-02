@@ -20,7 +20,7 @@ export const BUSINESS_ENUMS = {
   medicationLedger: { MED_INBOUND:l('入库','Inbound','ຮັບເຂົ້າ'), MED_OUTBOUND:l('出库','Outbound','ຈ່າຍອອກ') },
   deviceOperation: { ACTIVE:l('启用','Active','ເປີດໃຊ້'), INACTIVE:l('停用','Inactive','ປິດໃຊ້'), SUCCESS:l('成功','Success','ສຳເລັດ'), RUNNING:l('运行中','Running','ກຳລັງເຮັດວຽກ'), FAILED:l('失败','Failed','ລົ້ມເຫຼວ'), PARTIAL:l('部分成功','Partial','ສຳເລັດບາງສ່ວນ') },
   procurementShipmentStatus: { DRAFT:l('草稿','Draft','ຮ່າງ'), READY:l('备货中','Ready','ກຳລັງກຽມສິນຄ້າ'), IN_TRANSIT:l('运输中','In transit','ກຳລັງຂົນສົ່ງ'), CUSTOMS_CLEARING:l('报关中','Customs clearing','ກຳລັງຜ່ານພາສີ'), ARRIVED:l('已到货','Arrived','ຮອດແລ້ວ'), CANCELLED:l('已取消','Cancelled','ຍົກເລີກ') },
-  procurementShipmentType: { DOMESTIC:l('国内（历史）','Domestic (legacy)','ພາຍໃນປະເທດ (ເກົ່າ)'), LOCAL:l('本地','Local','ທ້ອງຖິ່ນ'), CROSS_BORDER:l('跨境','Cross-border','ຂ້າມແດນ') },
+  procurementShipmentType: { DOMESTIC:l('国内','Domestic','ພາຍໃນປະເທດ'), LOCAL:l('本地','Local','ທ້ອງຖິ່ນ'), CROSS_BORDER:l('跨境','Cross-border','ຂ້າມແດນ') },
   procurementCustomsStatus: { CLEARING:l('报关中','Clearing','ກຳລັງຜ່ານພາສີ'), CLEARED:l('已清关','Cleared','ຜ່ານພາສີແລ້ວ') },
   procurementSupplierStatus: { ACTIVE:l('启用','Active','ເປີດໃຊ້'), INACTIVE:l('停用','Inactive','ປິດໃຊ້'), BLACKLISTED:l('黑名单','Blacklisted','ບັນຊີດຳ') },
   procurementSupplierType: { FEED:l('饲料','Feed','ອາຫານສັດ'), EQUIPMENT:l('设备','Equipment','ອຸປະກອນ'), MEDICINE:l('兽药','Veterinary medicine','ຢາສັດ'), PACKAGING:l('包装','Packaging','ບັນຈຸພັນ'), OTHER:l('其他','Other','ອື່ນໆ') },
