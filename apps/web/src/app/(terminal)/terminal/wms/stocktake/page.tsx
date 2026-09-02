@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
 import { ClipboardCheck, ScanLine, RefreshCw, X } from 'lucide-react';
+import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 
 const tok = () => {
   if (typeof window === 'undefined') return '';
@@ -32,14 +33,23 @@ interface Batch {
   warehouse_code?: string | null;
   location_code?: string | null;
   status?: string | null;
+  sku_code?: string | null;
+  sku_name?: string | null;
+  sku_name_en?: string | null;
+  sku_name_lo?: string | null;
+  warehouse_name?: string | null;
+  warehouse_name_zh?: string | null;
+  warehouse_name_en?: string | null;
+  warehouse_name_lo?: string | null;
+  location_name?: string | null;
 }
-interface CountRow { batch_no: string; product_code: string; sys_qty: number; counted: string; warehouse_code?: string|null; location_code?: string|null; status?: string|null }
+interface CountRow extends Batch { product_code: string; sys_qty: number; counted: string }
 
 const POLL_MS = 0; // 盘点期间不轮询，避免 sys 基数跳动
 
 export default function WmsStocktakeTerminalPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [batches, setBatches] = useState<Batch[]>([]);
   const [cart, setCart] = useState<CountRow[]>([]);
@@ -68,7 +78,7 @@ export default function WmsStocktakeTerminalPage() {
     const b = batches.find(x => x.batch_no === bn);
     setCart(prev => {
       if (prev.some(r => r.batch_no === bn)) return prev;  // 已在清单
-      return [...prev, { batch_no: bn, product_code: b?.product_code || '', sys_qty: Math.trunc(Number(b?.qty) || 0), counted: '', warehouse_code:b?.warehouse_code, location_code:b?.location_code, status:b?.status }];
+      return [...prev, { ...(b ?? { batch_no: bn }), batch_no: bn, product_code: b?.product_code || '', sys_qty: Math.trunc(Number(b?.qty) || 0), counted: '' }];
     });
     setActiveBatch(bn);
     setNumKey(k => k + 1);
@@ -168,8 +178,8 @@ export default function WmsStocktakeTerminalPage() {
                   cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent',
                 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: inCart ? T.GRN : T.TXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.batch_no}</div>
-                  <div style={{ fontSize: 11, color: T.MUT }}>{b.product_code || '—'} · {t('terminal.wms_sys', '账面')} {Math.trunc(Number(b.qty) || 0)}{inCart ? ` · ${t('terminal.wms_in_list', '已加入')}` : ''}</div>
-                  <div style={{ fontSize: 11, color: b.status === 'QUARANTINE' ? T.RED : T.MUT }}>{b.status || '—'} · {b.warehouse_code || '—'} / {b.location_code || '—'}</div>
+                  <div style={{ fontSize: 11, color: T.MUT }}>{formatMasterData(b as unknown as Record<string, unknown>, b.sku_code ? 'sku_name' : 'product_name', b.sku_code || b.product_code, lang)} · {t('terminal.wms_sys', '账面')} {Math.trunc(Number(b.qty) || 0)}{inCart ? ` · ${t('terminal.wms_in_list', '已加入')}` : ''}</div>
+                  <div style={{ fontSize: 11, color: b.status === 'QUARANTINE' ? T.RED : T.MUT }}>{formatBusinessEnum('inventory', b.status, lang)} · {formatMasterData(b as unknown as Record<string, unknown>, 'warehouse_name', b.warehouse_code, lang)} / {formatMasterData(b as unknown as Record<string, unknown>, 'location_name', b.location_code, lang)}</div>
                 </button>
               );
             })}
@@ -197,10 +207,10 @@ export default function WmsStocktakeTerminalPage() {
                   <div key={r.batch_no} style={{ background: T.CARD, borderRadius: 12, border: `1px solid ${active ? T.ACC : T.BOR}`, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 15, fontWeight: 700, color: T.TXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.batch_no}</div>
-                      <div style={{ fontSize: 11, color: T.MUT }}>{r.product_code || '—'} · {t('terminal.wms_sys', '账面')} {r.sys_qty}
+                      <div style={{ fontSize: 11, color: T.MUT }}>{formatMasterData(r as unknown as Record<string, unknown>, r.sku_code ? 'sku_name' : 'product_name', r.sku_code || r.product_code, lang)} · {t('terminal.wms_sys', '账面')} {r.sys_qty}
                         {diff != null && <span style={{ color: diffColor, marginLeft: 8, fontWeight: 700 }}>{t('terminal.wms_diff', '差')} {diff > 0 ? `+${diff}` : diff}</span>}
                       </div>
-                      <div style={{ fontSize: 11, color: r.status === 'QUARANTINE' ? T.RED : T.MUT }}>{r.status || '—'} · {r.warehouse_code || '—'} / {r.location_code || '—'}</div>
+                      <div style={{ fontSize: 11, color: r.status === 'QUARANTINE' ? T.RED : T.MUT }}>{formatBusinessEnum('inventory', r.status, lang)} · {formatMasterData(r as unknown as Record<string, unknown>, 'warehouse_name', r.warehouse_code, lang)} / {formatMasterData(r as unknown as Record<string, unknown>, 'location_name', r.location_code, lang)}</div>
                     </div>
                     <button type="button" onClick={() => { setActiveBatch(r.batch_no); setNumKey(k => k + 1); }} style={{
                       width: 120, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, padding: '8px 12px',

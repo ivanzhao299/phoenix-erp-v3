@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
 import { PackagePlus, ScanLine, RefreshCw } from 'lucide-react';
+import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 
 // ── token（与 mobile-api 一致的取值链）────────────────────────────────────────
 const tok = () => {
@@ -34,6 +35,10 @@ interface InboundTask {
   supplier_code?: string | null;
   status?: string;
   store_code?: string | null;
+  warehouse_name?: string | null;
+  warehouse_name_zh?: string | null;
+  warehouse_name_en?: string | null;
+  warehouse_name_lo?: string | null;
 }
 interface InboundItem {
   line_no: number;
@@ -43,6 +48,10 @@ interface InboundItem {
   planned_qty?: number | null;
   unit?: string | null;
   location_code?: string | null;
+  product_name?: string | null;
+  product_name_zh?: string | null;
+  product_name_en?: string | null;
+  product_name_lo?: string | null;
 }
 interface ItemEdit { actual: string; broken: string }
 type Field = 'actual' | 'broken';
@@ -51,7 +60,7 @@ const POLL_MS = 8000;
 
 export default function WmsInboundTerminalPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [tasks, setTasks] = useState<InboundTask[]>([]);
   const [selected, setSelected] = useState<(InboundTask & { items: InboundItem[] }) | null>(null);
@@ -204,8 +213,8 @@ export default function WmsInboundTerminalPage() {
                 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: active ? T.ACC : T.TXT }}>{task.task_no}</div>
                   <div style={{ fontSize: 11, color: T.MUT }}>
-                    {task.source_po_no ? `PO ${task.source_po_no} · ` : ''}{task.warehouse_code || '—'}
-                    {task.status === 'PROCESSING' && <span style={{ color: 'var(--status-warning)', marginLeft: 6 }}>● {t('terminal.wms_processing', '处理中')}</span>}
+                    {task.source_po_no ? `PO ${task.source_po_no} · ` : ''}{formatMasterData(task as unknown as Record<string, unknown>, 'warehouse_name', task.warehouse_code, lang)}
+                    {task.status === 'PROCESSING' && <span style={{ color: 'var(--status-warning)', marginLeft: 6 }}>● {formatBusinessEnum('wmsWorkflow', task.status, lang)}</span>}
                   </div>
                 </button>
               );
@@ -223,7 +232,7 @@ export default function WmsInboundTerminalPage() {
           ) : (
             <>
               <div style={{ fontSize: 13, color: T.MUT, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>
-                {t('terminal.wms_receiving', '核收')} — {selected.task_no} · {selected.warehouse_code || '—'}（{selected.items.length} {t('terminal.wms_lines', '项')}）
+                {t('terminal.wms_receiving', '核收')} — {selected.task_no} · {formatMasterData(selected as unknown as Record<string, unknown>, 'warehouse_name', selected.warehouse_code, lang)}（{selected.items.length} {t('terminal.wms_lines', '项')}）
               </div>
               <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {selected.items.length === 0 ? (
@@ -249,7 +258,7 @@ export default function WmsInboundTerminalPage() {
                   return (
                     <div key={it.line_no} style={{ background: T.CARD, borderRadius: 12, border: `1px solid ${T.BOR}`, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: T.TXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.product_code}{it.spec_code ? ` · ${it.spec_code}` : ''}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: T.TXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatMasterData(it as unknown as Record<string, unknown>, 'product_name', it.product_code, lang)}{it.spec_code ? ` · ${it.spec_code}` : ''}</div>
                         <div style={{ fontSize: 11, color: T.MUT }}>
                           {t('terminal.wms_planned', '计划')} {it.planned_qty ?? 0} {it.unit || ''}{it.batch_no ? ` · ${t('terminal.wms_batch', '批')} ${it.batch_no}` : ''}
                         </div>

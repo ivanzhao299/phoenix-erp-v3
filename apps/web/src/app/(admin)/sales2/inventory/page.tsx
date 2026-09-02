@@ -7,6 +7,8 @@ import PageHeader from '@/components/PageHeader';
 import { useProductGrades } from "@/hooks/useProductGrades"; // G20-1 等级走 product_grades
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LoadingSkeleton } from "@/components/design-system";
+import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
+import type { AppLanguage } from '@/lib/localized-master-data';
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -29,6 +31,15 @@ interface InvBatch {
   sku_code?: string | null;
   grade_code_std?: string | null;
   spec_code?: string | null;
+  sku_name?: string | null;
+  sku_name_en?: string | null;
+  sku_name_lo?: string | null;
+  product_name?: string | null;
+  product_name_zh?: string | null;
+  product_name_en?: string | null;
+  product_name_lo?: string | null;
+  company_name?: string | null;
+  company_name_zh?: string | null;
 }
 interface DashboardStats {
   activeBatches: number;
@@ -144,34 +155,27 @@ function gradeColor(grade: string | null): string {
   };
   return map[grade ?? ''] ?? 'var(--gray-500)';
 }
-function statusBadge(status: string): React.ReactNode {
+function statusBadge(status: string, lang: AppLanguage): React.ReactNode {
   const cfg: Record<string, {
-    label: string;
     color: string;
   }> = {
     AVAILABLE: {
-      label: '可用',
       color: 'var(--status-success)'
     },
     LOCKED: {
-      label: '锁定',
       color: 'var(--status-warning)'
     },
     RETURNED: {
-      label: '退货待检',
       color: 'var(--color-purple-600)'
     },
     EXPIRED: {
-      label: '已过期',
       color: 'var(--status-danger)'
     },
     WRITTEN_OFF: {
-      label: '已核销',
       color: 'var(--gray-500)'
     }
   };
   const c = cfg[status] ?? {
-    label: status,
     color: 'var(--gray-500)'
   };
   return <span style={{
@@ -183,14 +187,18 @@ function statusBadge(status: string): React.ReactNode {
     background: c.color + '22',
     color: c.color,
     border: `1px solid ${c.color}55`
-  }}>{c.label}</span>;
+  }}>{formatBusinessEnum('inventory', status, lang)}</span>;
 }
 
 /** Phase H4: SKU 徽章 */
 function SkuBadge({
-  skuCode
+  skuCode,
+  row,
+  lang,
 }: {
   skuCode?: string | null;
+  row?: Record<string, unknown>;
+  lang?: AppLanguage;
 }) {
   const { t } = useLanguage();
   if (!skuCode) return <span style={{
@@ -206,7 +214,7 @@ function SkuBadge({
     borderRadius: 4,
     padding: '2px 6px',
     border: '1px solid var(--status-special-border)'
-  }}>{skuCode}</span>;
+  }}>{row ? formatMasterData(row, 'sku_name', skuCode, lang) : skuCode}</span>;
 }
 
 function InventorySourceTrace({ batch }: { batch: InvBatch }) {
@@ -317,7 +325,7 @@ function StatCard({
 // ── Tab: 批次库存 ─────────────────────────────────────────────────────────────
 
 function BatchesTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [batches, setBatches] = useState<InvBatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -625,8 +633,8 @@ function BatchesTab() {
             }}>{t('ui.暂无数据','暂无数据')}</td></tr>}
               {batches.map(b => <tr key={b.batch_no}>
                   <td><code style={batchCodeCellStyle}>{b.batch_no}</code></td>
-                  <td><SkuBadge skuCode={b.sku_code} /></td>
-                  <td style={compactCellStyle}>{b.product_code}</td>
+                  <td><SkuBadge skuCode={b.sku_code} row={b as unknown as Record<string, unknown>} lang={lang} /></td>
+                  <td style={compactCellStyle}>{formatMasterData(b as unknown as Record<string, unknown>, 'product_name', b.product_code, lang)}</td>
                   <td style={compactCellStyle}>
                     <span style={{
                 color: gradeColor(b.quality_grade),
@@ -635,14 +643,14 @@ function BatchesTab() {
                       {b.quality_grade ?? '—'}
                     </span>
                   </td>
-                  <td style={compactCellStyle}>{b.company_code}</td>
+                  <td style={compactCellStyle}>{formatMasterData(b as unknown as Record<string, unknown>, 'company_name', b.company_code, lang)}</td>
                   <td style={{
               fontWeight: 700,
               color: 'var(--color-accent)',
               whiteSpace: 'nowrap'
             }}>{fmt(b.qty_available)}</td>
                   <td style={compactCellStyle}>{fmt(b.qty)}</td>
-                  <td style={compactCellStyle}>{statusBadge(b.status)}</td>
+                  <td style={compactCellStyle}>{statusBadge(b.status, lang)}</td>
                   <td style={compactCellStyle}>{fmtDate(b.egg_date)}</td>
                   <td style={{
               color: b.expire_date && new Date(b.expire_date) < new Date() ? 'var(--status-danger)' : undefined,
@@ -660,7 +668,7 @@ function BatchesTab() {
 // ── Tab: 临期库存 ─────────────────────────────────────────────────────────────
 
 function ExpiringTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [batches, setBatches] = useState<InvBatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -729,8 +737,8 @@ function ExpiringTab() {
               background: urgent ? 'var(--status-danger-bg-page)' : 'var(--status-warning-bg-page)'
             }}>
                     <td><code className={u.fs11}>{b.batch_no}</code></td>
-                    <td><SkuBadge skuCode={b.sku_code} /></td>
-                    <td>{b.product_code}</td>
+                    <td><SkuBadge skuCode={b.sku_code} row={b as unknown as Record<string, unknown>} lang={lang} /></td>
+                    <td>{formatMasterData(b as unknown as Record<string, unknown>, 'product_name', b.product_code, lang)}</td>
                     <td>
                       <span style={{
                   color: gradeColor(b.quality_grade),
@@ -739,7 +747,7 @@ function ExpiringTab() {
                         {b.quality_grade ?? '—'}
                       </span>
                     </td>
-                    <td>{b.company_code}</td>
+                    <td>{formatMasterData(b as unknown as Record<string, unknown>, 'company_name', b.company_code, lang)}</td>
                     <td className={u.fw700}>{fmt(b.qty_available)}</td>
                     <td>{b.expire_date ?? '—'}</td>
                     <td style={{
@@ -748,7 +756,7 @@ function ExpiringTab() {
               }}>
                       {daysLeft} {t('ui.天','天')} {urgent && t('ui.⚠ 紧急','⚠ 紧急')}
                     </td>
-                    <td>{statusBadge(b.status)}</td>
+                    <td>{statusBadge(b.status, lang)}</td>
                   </tr>;
           })}
             </tbody>
