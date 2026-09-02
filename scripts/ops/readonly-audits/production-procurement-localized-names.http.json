@@ -24,7 +24,7 @@
   {
     "name": "egg-ledger-grade-house-names",
     "username": "admin",
-    "path": "/api/farm/egg/ledger?start=2025-01-01&end=2026-12-31",
+    "pathSql": "SELECT CASE WHEN COUNT(*) = 0 THEN '' ELSE '/api/farm/egg/ledger?start=' || MIN(COALESCE(l.log_date, b.egg_date, l.created_at::date))::text || '&end=' || MAX(COALESCE(l.log_date, b.egg_date, l.created_at::date))::text END FROM inv_ledger l JOIN inv_batches b ON b.batch_no = l.batch_no JOIN brd_houses h ON h.house_code = l.house_code JOIN product_grades g ON g.grade_code = COALESCE(b.grade_code_std, b.quality_grade, l.quality_grade) WHERE b.product_code LIKE 'PRD-EGG-%' AND NULLIF(BTRIM(l.house_code), '') IS NOT NULL AND NULLIF(BTRIM(h.house_name), '') IS NOT NULL AND NULLIF(BTRIM(COALESCE(b.grade_code_std, b.quality_grade, l.quality_grade)), '') IS NOT NULL AND NULLIF(BTRIM(g.grade_name), '') IS NOT NULL",
     "expectedStatus": 200,
     "minDataLength": 1,
     "allowNoData": true,
