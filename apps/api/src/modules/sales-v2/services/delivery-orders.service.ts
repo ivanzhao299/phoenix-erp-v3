@@ -397,7 +397,10 @@ export class DeliveryOrdersService {
         );
         await this.lifecycle.appendEvent(mgr, {
           salesOrderId: String(item.sales_order_id), orderNo: item.order_no,
-          eventType: 'OUTBOUND_CONFIRMED', actorType: 'SYSTEM', sourceModule: 'WMS',
+          eventType: 'OUTBOUND_CONFIRMED', fromStatus: item.status, toStatus: item.status,
+          actorType: 'USER', actorUserId: this.currentUser().userId,
+          actorName: this.currentUser().userName, sourceModule: 'WMS',
+          sourceEndpoint: '/api/v2/sales/delivery/:id/finish-loading',
           sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: rec.delivery_no,
         });
       }

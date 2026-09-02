@@ -375,11 +375,12 @@ export default function DeliveryPage() {
     setDetailLoading(true);
     setActionErr('');
     try {
-      const [its, recs] = await Promise.all([api('GET', `/api/v2/sales/delivery/${order.id}/receipts`).then(() => api('GET', `/api/v2/sales/delivery?page=1&limit=1`).then(() => [] as DeliveryItem[])).catch(() => [] as DeliveryItem[]), api('GET', `/api/v2/sales/delivery/${order.id}/receipts`).catch(() => [] as Receipt[])]);
-      // Items come from detail call
-      const detail = await api('GET', `/api/v2/sales/delivery/${order.id}`);
+      const [detail, recs] = await Promise.all([api('GET', `/api/v2/sales/delivery/${order.id}`), api('GET', `/api/v2/sales/delivery/${order.id}/receipts`).catch(() => [] as Receipt[])]);
+      setSelected({ ...order, ...detail });
       setItems(detail.items ?? []);
       setReceipts(recs);
+      const receiptId = new URLSearchParams(window.location.search).get('receiptId');
+      if (receiptId) requestAnimationFrame(() => document.getElementById(`receipt-${receiptId}`)?.scrollIntoView({ block: 'center' }));
     } catch {
       setItems([]);
       setReceipts([]);
@@ -387,6 +388,10 @@ export default function DeliveryPage() {
       setDetailLoading(false);
     }
   }, []);
+  useEffect(() => {
+    const deliveryId = new URLSearchParams(window.location.search).get('deliveryId');
+    if (deliveryId) queueMicrotask(() => void loadDetail({ id: deliveryId } as DeliveryOrder));
+  }, [loadDetail]);
   const refreshDetail = useCallback(async () => {
     if (!selected) return;
     setDetailLoading(true);
@@ -1165,7 +1170,7 @@ export default function DeliveryPage() {
             flexDirection: 'column',
             gap: 6
           }}>
-                    {receipts.map(r => <div key={r.id} style={{
+                    {receipts.map(r => <div key={r.id} id={`receipt-${r.id}`} style={{
               padding: '8px 12px',
               borderRadius: 6,
               background: 'var(--bg-muted)',

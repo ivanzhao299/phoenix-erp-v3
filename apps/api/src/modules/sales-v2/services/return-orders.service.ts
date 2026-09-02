@@ -77,6 +77,21 @@ export class ReturnOrdersService {
     return row;
   }
 
+  private async appendOrderEvent(
+    rec: Record<string, any>, eventType: string, fromStatus: string | null,
+    toStatus: string | null, comment?: string | null, metadata?: Record<string, unknown>,
+  ) {
+    if (!rec.sales_order_id || !rec.sales_order_no) return;
+    await this.ds.transaction((mgr) => this.lifecycle.appendEvent(mgr, {
+      salesOrderId: String(rec.sales_order_id), orderNo: String(rec.sales_order_no),
+      eventType, fromStatus, toStatus, actorType: 'USER', actorName: this.currentUser,
+      reasonCode: rec.reason_code ?? null, comment: comment ?? null,
+      sourceEndpoint: `/api/v2/sales/returns/${rec.id}`,
+      sourceModule: 'RETURN', sourceRefType: 'RETURN', sourceRefId: String(rec.id),
+      sourceRefNo: String(rec.return_no), metadata,
+    }));
+  }
+
   // ── 1. 列表 ─────────────────────────────────────────────────────────────────
 
   async list(query: {
@@ -303,6 +318,7 @@ export class ReturnOrdersService {
       await this.ds.transaction((mgr) => this.lifecycle.appendEvent(mgr, {
         salesOrderId: String(ret.sales_order_id), orderNo: String(ret.sales_order_no),
         eventType: 'RETURN_CREATED', actorType: 'USER', actorName: operator,
+        fromStatus: null, toStatus: 'DRAFT', sourceEndpoint: '/api/v2/sales/returns',
         sourceModule: 'RETURN', sourceRefType: 'RETURN', sourceRefId: String(ret.id),
         sourceRefNo: returnNo, reasonCode: body.reasonCode ?? null, comment: body.remark ?? null,
       }));
@@ -361,6 +377,8 @@ export class ReturnOrdersService {
       }
     });
 
+    await this.appendOrderEvent(rec, 'RETURN_SUBMITTED', 'DRAFT', nextStatus, rec.remark);
+
     this.logger.log(`[Return] 提交退货单: ${rec.return_no} → ${nextStatus}`);
     return this.findById(id);
   }
@@ -376,6 +394,7 @@ export class ReturnOrdersService {
       `UPDATE sal_return_orders SET status='INSPECTING', updated_at=NOW() WHERE id=$1`,
       [id],
     );
+    await this.appendOrderEvent(rec, 'RETURN_APPROVED', 'PENDING_APPROVAL', 'INSPECTING');
     this.logger.log(`[Return] 审批通过: ${rec.return_no} → INSPECTING`);
     return this.findById(id);
   }
@@ -393,6 +412,7 @@ export class ReturnOrdersService {
        WHERE id=$2`,
       [reason ? `[拒绝原因] ${reason}` : null, id],
     );
+    await this.appendOrderEvent(rec, 'RETURN_REJECTED', 'PENDING_APPROVAL', 'REJECTED', reason);
     this.logger.log(`[Return] 审批拒绝: ${rec.return_no} → REJECTED`);
     return this.findById(id);
   }
@@ -405,6 +425,7 @@ export class ReturnOrdersService {
       throw new BadRequestException(`退货单当前状态 ${rec.status}，不在质检状态`);
     }
     // 幂等：已在 INSPECTING，返回当前详情即可
+    await this.appendOrderEvent(rec, 'RETURN_INSPECTION_STARTED', 'INSPECTING', 'INSPECTING');
     this.logger.log(`[Return] 质检进行中: ${rec.return_no}`);
     return this.findById(id);
   }
@@ -478,6 +499,9 @@ export class ReturnOrdersService {
        WHERE id=$3`,
       [nextStatus, newSubtotal, id],
     );
+    await this.appendOrderEvent(rec, 'RETURN_INSPECTION_COMPLETED', 'INSPECTING', nextStatus,
+      inspectionResults.map((x) => x.remark).filter(Boolean).join('；') || null,
+      { acceptedQty: totalAccepted, resultCount: inspectionResults.length });
 
     // 全部破损→直接 COMPLETED 但也需要生成 Credit Note（金额为 0）
     if (nextStatus === 'COMPLETED') {
@@ -509,6 +533,7 @@ export class ReturnOrdersService {
        WHERE id=$1`,
       [id],
     );
+    await this.appendOrderEvent(rec, 'RETURN_RESTOCKED', 'RESTOCKING', 'RESTOCKING');
 
     // 生成 Credit Note + 最终 COMPLETED
     await this.completeFinal(id, rec);
@@ -560,6 +585,8 @@ export class ReturnOrdersService {
        WHERE id=$2`,
       [creditNoteId, id],
     );
+    await this.appendOrderEvent(rec, 'RETURN_COMPLETED', String(rec.status), 'COMPLETED', null,
+      { creditNoteId });
   }
 
   // ── 11. 取消 ─────────────────────────────────────────────────────────────────

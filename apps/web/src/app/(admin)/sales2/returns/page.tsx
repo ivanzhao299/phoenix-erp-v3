@@ -781,6 +781,10 @@ function ReturnOrdersTab() {
       toast.error(e instanceof Error ? e.message : t('ui.加载失败','加载失败'));
     }
   };
+  useEffect(() => {
+    const returnId = new URLSearchParams(window.location.search).get('returnId');
+    if (returnId) queueMicrotask(() => void openDetail(returnId));
+  }, []);
   return <div>
       {/* 工具栏 */}
       <div style={{

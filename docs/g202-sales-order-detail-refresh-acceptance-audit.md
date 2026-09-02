@@ -151,3 +151,26 @@ Playwright `apps/web/e2e/sales-activity-orders.spec.ts:36-80` 只覆盖来源 Ta
 ## 7. 验收判定
 
 当前状态不是“订单详情焕新完整交付”。代码已有可见骨架和部分留痕闭环，但审批真实性、退货完整性、签收深链、纠偏 UI、有效渲染测试及生产样本证据均未达到四项目标的完整验收标准。建议主 agent 先复核上述缺口和补救范围，再另轮实施。
+
+## 8. 缺口补救执行记录（2026-09-02）
+
+本轮已按 §6 完成代码补救：
+
+1. process-log 改为按 `wf_approval_instances.biz_type='SALES_ORDER' + biz_id=order.id` 聚合 `wf_approval_instance_steps`，输出真实步骤动作、actor、`acted_at`、comment 和 `PENDING → 步骤状态`；销售订单不再误查旧 `wf_task_action`，旧表继续保留给 legacy Workflow Engine。
+2. AR 创建事件补齐操作人、状态前后态、comment 和 endpoint；WMS 出库事件补齐操作人及状态；退货创建、提交、审批通过/拒绝、质检开始/完成、回库、完成均追加销售订单 lifecycle 事件。事件表和 append-only 触发器未改动。
+3. 前端严格按后端 timeline 数组逐项渲染，Workflow 仅使用紫色边线区分，不再抽离为独立段落。
+4. 配送、签收、AR、退货均生成可点击深链；四个目标页消费 `deliveryId/receiptId/invoiceId/returnId` 并打开或滚动定位记录，订单页也消费 `orderId`。
+5. 订单详情新增 `MENU_SALES2_ORDER_OVERRIDE:A` 独立门禁的人工纠偏弹窗，目标状态与原因均必填，调用既有 `/manual-override`；取消仍保持原因必填。
+6. 健康摘要补齐“配送已完成但缺少签收记录”中文文案，新增审批逾期、发车 48 小时未到达、退货 72 小时未推进三条规则，并保留无告警绿色正常态。
+7. Web test/watch 固定 `NODE_ENV=test`，消除宿主 `NODE_ENV=production` 导致 React 19 production bundle 不导出 `act` 的噪声；jsdom 覆盖两条告警、四类深链、全局时间轴及取消/纠偏请求体，Playwright spec 覆盖四项目标。
+
+新增生产只读清单：
+
+- `scripts/ops/readonly-audits/sales-order-detail.sql`
+- `scripts/ops/readonly-audits/sales-order-detail.http.json`
+
+清单先筛配送 + 签收 + AR 完整链路订单，再认证 GET process-log 并断言 timeline/document 字段及四类 href；另筛两条既有 warning 的生产实例。无真实样本统一输出 `NO_SAMPLE`，不创建或伪造数据。执行器仍只允许 GET/HEAD，SQL 仍强制只读事务并最终回滚。
+
+本地验证记录：API tsc 与 Web tsc 均 0 errors；Web Vitest 全量 98 files / 515 tests 通过（包括外部 `NODE_ENV=production` 场景）；API lifecycle 定向 Jest 7/7 通过；readonly-audit manifest 校验通过。API 全量为 83/84 suites、702/704 tests，失败仅为既有 `chanjet-callback.controller.spec.ts` 两个 5 秒超时，单文件重跑仍复现。Playwright 2 个 spec 已启动，但本机 Chromium 缺少系统动态库 `libnspr4.so`，在浏览器启动前失败。两项均留待 CI 标准环境复核，不将其记作验收通过。
+
+生产复验必须在部署后由 GitHub `Production Readonly Audit` 使用上述两份清单执行；执行前不对生产写入，执行结果（PASS/NO_SAMPLE、revision）应回填本节。

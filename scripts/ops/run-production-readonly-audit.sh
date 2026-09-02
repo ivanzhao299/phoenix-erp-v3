@@ -99,16 +99,29 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
         const rows = await ds.query('SELECT id FROM sal_sales_orders WHERE NOT (company_code=ANY($1::text[])) ORDER BY id DESC LIMIT 1', [[...scope.allowedCompanyCodes]]);
         path = rows.length ? `/api/v2/sales/orders/${rows[0].id}/process-log` : '';
       }
-      if (!path) { console.log(`SKIP ${a.name} reason=no-data-sample`); continue; }
+      if (!path) { console.log(`NO_SAMPLE name=${a.name} reason=no-data-sample`); continue; }
       const response = await fetch(`http://127.0.0.1:3100${path}`, { method, headers: { Authorization: `Bearer ${tokens.get(username)}` } });
       const text = await response.text();
       const expected = Array.isArray(a.expectedStatus) ? a.expectedStatus : [a.expectedStatus ?? 200];
       if (!expected.includes(response.status)) throw new Error(`${a.name}: status=${response.status} expected=${expected.join('/')}`);
       let body = null;
-      if (a.requiredArrays?.length || a.reportDataLength || a.minDataLength != null || a.rowPath || a.requiredNonEmptyFields?.length) {
+      if (a.requiredArrays?.length || a.requiredArrayItems?.length || a.requiredWarnings?.length || a.reportDataLength || a.minDataLength != null || a.rowPath || a.requiredNonEmptyFields?.length) {
         body = JSON.parse(text);
         body = body?.data ?? body;
         for (const p of (a.requiredArrays || [])) if (!Array.isArray(getPath(body, p))) throw new Error(`${a.name}: ${p} is not an array`);
+      }
+      for (const rule of (a.requiredArrayItems || [])) {
+        const rows = getPath(body, rule.path);
+        if (!Array.isArray(rows)) throw new Error(`${a.name}: ${rule.path} is not an array`);
+        const matches = rule.where ? rows.filter(row => Object.entries(rule.where).every(([k,v]) => getPath(row, k) === v)) : rows;
+        if ((rule.minMatches ?? 1) > matches.length) throw new Error(`${a.name}: ${rule.path} matching rows=${matches.length} expected>=${rule.minMatches ?? 1}`);
+        for (const [index, row] of matches.entries()) {
+          for (const field of (rule.fields || [])) if (!(field in row)) throw new Error(`${a.name}: ${rule.path}[${index}] missing field ${field}`);
+          for (const field of (rule.nonEmptyFields || [])) if (!String(getPath(row, field) ?? '').trim()) throw new Error(`${a.name}: ${rule.path}[${index}] empty field ${field}`);
+        }
+      }
+      for (const warning of (a.requiredWarnings || [])) {
+        if (!Array.isArray(body?.warnings) || !body.warnings.includes(warning)) throw new Error(`${a.name}: warning ${warning} not found`);
       }
       const dataRows = a.rowPath ? getPath(body, a.rowPath) : (Array.isArray(body) ? body : (Array.isArray(body?.items) ? body.items : null));
       if (a.minDataLength != null && (!dataRows || dataRows.length < a.minDataLength)) {

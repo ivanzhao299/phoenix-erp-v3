@@ -862,7 +862,7 @@ export default function Finance2ArPage() {
   // 模态框
   const [showCreate, setShowCreate] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
-  const [selectedInvId, setSelectedInvId] = useState<string | null>(null);
+  const [selectedInvId, setSelectedInvId] = useState<string | null>(() => typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('invoiceId'));
   const PAGE_SIZE = 20;
 
   // ── 数据加载 ────────────────────────────────────────────────────────────────

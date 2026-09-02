@@ -857,7 +857,9 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     );
     await this.lifecycle.appendEvent(mgr, {
       salesOrderId: String(rec.id), orderNo: rec.order_no, eventType: 'AR_CREATED',
-      actorType: 'SYSTEM', sourceModule: 'FINANCE_AR', sourceRefType: 'AR_INVOICE',
+      fromStatus: 'RECEIVED', toStatus: 'RECEIVED', ...context,
+      comment: `应收单由签收自动生成`, sourceEndpoint: '/api/v2/sales/orders/:id/mark-received',
+      sourceModule: 'FINANCE_AR', sourceRefType: 'AR_INVOICE',
       sourceRefId: arId, metadata: { sourceType: 'SALES_ORDER' },
     });
 

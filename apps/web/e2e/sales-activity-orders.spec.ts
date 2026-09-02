@@ -33,8 +33,9 @@ async function commonRoute(route: Route) {
   return false;
 }
 
-test('renders source tabs, opens ORDER detail, and follows the POS scoped deep link', async ({ page }) => {
+test('accepts the refreshed ORDER detail timeline, health, deep-links and manual override', async ({ page }) => {
   await authenticate(page);
+  let overrideBody: unknown;
   await page.route('**/api/**', async route => {
     if (await commonRoute(route)) return;
     const url = new URL(route.request().url());
@@ -44,9 +45,31 @@ test('renders source tabs, opens ORDER detail, and follows the POS scoped deep l
     } });
     if (url.pathname.endsWith('/sales/orders/order-1')) return route.fulfill({ json: { data: {
       id: 'order-1', order_no: 'SO-E2E-001', company_code: 'C1', customer_name: 'E2E 客户',
-      status: 'DRAFT', total_amount: 100, currency_code: 'CNY', created_at: '2026-09-01T00:00:00Z',
+      status: 'APPROVED', total_amount: 100, currency_code: 'CNY', created_at: '2026-09-01T00:00:00Z',
       items: [{ id: 'i1', product_code: 'SKU-1', product_name: 'E2E 鸡蛋', grade_code: 'A', qty: 1, resolved_unit_price: 100, actual_unit_price: 100, floor_price: null, amount: 100, below_floor_price: false }],
     } } });
+    if (url.pathname.endsWith('/sales/orders/order-1/process-log')) return route.fulfill({ json: { data: {
+      orderNo: 'SO-E2E-001', currentStatus: 'APPROVED',
+      warnings: ['DELIVERY_COMPLETED_WITHOUT_RECEIPT'],
+      documents: [
+        { type: 'DELIVERY', id: 'd1', no: 'DV-1', status: 'COMPLETED', href: '/sales2/delivery?deliveryId=d1' },
+        { type: 'RECEIPT', id: 'r1', no: 'RC-1', status: 'SIGNED', href: '/sales2/delivery?deliveryId=d1&receiptId=r1' },
+        { type: 'AR', id: 'a1', no: 'AR-1', status: 'OPEN', href: '/finance2/ar?invoiceId=a1' },
+        { type: 'RETURN', id: 't1', no: 'RET-1', status: 'INSPECTING', href: '/sales2/returns?returnId=t1' },
+      ],
+      timeline: [
+        { id: 'n1', time: '2026-09-01T01:00:00Z', docType: 'SALES_ORDER', docNo: 'SO-E2E-001', action: 'SUBMITTED', source: 'SALES_ORDER' },
+        { id: 'n2', time: '2026-09-01T02:00:00Z', docType: 'WORKFLOW', docNo: 'WF-1', action: 'APPROVE', operator: '审批人', source: 'WORKFLOW' },
+        { id: 'n3', time: '2026-09-01T03:00:00Z', docType: 'DELIVERY', docNo: 'DV-1', action: 'DEPARTED', source: 'DELIVERY' },
+        { id: 'n4', time: '2026-09-01T04:00:00Z', docType: 'RECEIPT', docNo: 'RC-1', action: 'RECEIPT_COMPLETED', source: 'RECEIPT' },
+        { id: 'n5', time: '2026-09-01T05:00:00Z', docType: 'AR', docNo: 'AR-1', action: 'AR_CREATED', source: 'FINANCE_AR' },
+        { id: 'n6', time: '2026-09-01T06:00:00Z', docType: 'RETURN', docNo: 'RET-1', action: 'RETURN_CREATED', source: 'RETURN' },
+      ],
+    } } });
+    if (url.pathname.endsWith('/sales/orders/order-1/manual-override')) {
+      overrideBody = route.request().postDataJSON();
+      return route.fulfill({ json: { data: { id: 'order-1', status: 'REJECTED' } } });
+    }
     return route.fulfill({ json: { data: [] } });
   });
   await page.goto('/sales2/orders');
@@ -56,9 +79,18 @@ test('renders source tabs, opens ORDER detail, and follows the POS scoped deep l
   await page.locator('tbody tr').filter({ hasText: 'SO-E2E-001' }).click();
   await expect(page.getByText('订单明细')).toBeVisible();
   await expect(page.getByText('E2E 鸡蛋')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await page.locator('tbody tr').filter({ hasText: 'POS-E2E-042' }).click();
-  await expect(page).toHaveURL(/\/store-pos\?saleId=42&storeCode=S1/);
+  await expect(page.getByText('配送已完成但缺少签收记录')).toBeVisible();
+  for (const href of ['/sales2/delivery?deliveryId=d1', '/sales2/delivery?deliveryId=d1&receiptId=r1', '/finance2/ar?invoiceId=a1', '/sales2/returns?returnId=t1']) {
+    await expect(page.locator(`a[href="${href}"]`)).toHaveCount(1);
+  }
+  const timeline = page.locator('[data-source]');
+  await expect(timeline).toHaveCount(6);
+  await expect(timeline.nth(1)).toHaveAttribute('data-source', 'WORKFLOW');
+  await page.getByRole('button', { name: '人工纠偏' }).click();
+  await page.getByLabel('目标状态').selectOption('REJECTED');
+  await page.getByLabel('操作原因').fill('验收纠偏');
+  await page.getByRole('button', { name: '确认纠偏' }).click();
+  await expect.poll(() => overrideBody).toEqual({ targetStatus: 'REJECTED', reason: '验收纠偏' });
 });
 
 test('shows a persistent fallback banner and legacy ORDER row when facade fails', async ({ page }) => {

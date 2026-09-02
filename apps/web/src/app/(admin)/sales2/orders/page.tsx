@@ -9,7 +9,6 @@ import { Plus, RefreshCw, Search, ChevronRight, X, AlertTriangle, CheckCircle, C
 import s from '@/components/ui/admin-ui.module.css';
 import { LoadingSkeleton, EmptyState } from '@/components/design-system'; // P1-1 性能快修
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
-import { WorkflowTimeline } from '@/components/workflow/WorkflowTimeline';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -187,6 +186,13 @@ interface OrderProcessLog {
   orderNo: string; currentStatus: string; documents: ProcessDocument[];
   timeline: ProcessTimelineItem[]; warnings: string[];
 }
+const PROCESS_WARNING_LABELS: Record<string, string> = {
+  RECEIVED_WITHOUT_AR: '已签收但未生成应收',
+  DELIVERY_COMPLETED_WITHOUT_RECEIPT: '配送已完成但缺少签收记录',
+  APPROVAL_OVERDUE: '审批已超过处理时限',
+  DELIVERY_DEPARTED_OVERDUE: '配送发车超过 48 小时仍未到达',
+  RETURN_FLOW_STALLED: '退货流程超过 72 小时未推进',
+};
 type ActivitySource = 'ALL' | 'ORDER' | 'POS';
 interface SalesActivityRow {
   sourceType: 'ORDER' | 'POS';
@@ -294,6 +300,7 @@ export default function SalesV2OrdersPage() {
   const { t, lang } = useLanguage();
   // G24-A：PBAC 收口（销售订单域 MENU_SALES2_ORDER）
   const { canView: canViewOrders, canCreate, canApprove, canEdit: canTransit } = usePermission('MENU_SALES2_ORDER');
+  const { canApprove: canOverride } = usePermission('MENU_SALES2_ORDER_OVERRIDE');
   const { canView: canViewStorePos } = usePermission('MENU_STORE_POS');
 
   // 列表状态
@@ -315,8 +322,9 @@ export default function SalesV2OrdersPage() {
   const [actionError, setActionError] = useState('');
   const [processLog, setProcessLog] = useState<OrderProcessLog | null>(null);
   const [processLoading, setProcessLoading] = useState(false);
-  const [dangerAction, setDangerAction] = useState<{ id: string; action: 'cancel' } | null>(null);
+  const [dangerAction, setDangerAction] = useState<{ id: string; action: 'cancel' | 'manual-override' } | null>(null);
   const [dangerReason, setDangerReason] = useState('');
+  const [overrideTarget, setOverrideTarget] = useState('');
 
   // 新建表单状态
   const [newForm, setNewForm] = useState({
@@ -457,6 +465,10 @@ export default function SalesV2OrdersPage() {
       setProcessLoading(false);
     }
   };
+  useEffect(() => {
+    const orderId = new URLSearchParams(window.location.search).get('orderId');
+    if (orderId) queueMicrotask(() => void openDetail(orderId));
+  }, []); // URL deep-link is consumed once on page entry.
 
   // ── 价格 resolve ────────────────────────────────────────────────────────────
 
@@ -550,7 +562,7 @@ export default function SalesV2OrdersPage() {
     setActionLoading(true);
     setActionError('');
     try {
-      if (action === 'submit') await api('POST', `/api/v2/sales/orders/${id}/submit`, body ?? {});else if (action === 'cancel') await api('POST', `/api/v2/sales/orders/${id}/cancel`, body ?? {});else if (action === 'receive') await api('POST', `/api/v2/sales/orders/${id}/mark-received`);else await api('POST', `/api/v2/sales/orders/${id}/transition`, body);
+      if (action === 'submit') await api('POST', `/api/v2/sales/orders/${id}/submit`, body ?? {});else if (action === 'cancel') await api('POST', `/api/v2/sales/orders/${id}/cancel`, body ?? {});else if (action === 'receive') await api('POST', `/api/v2/sales/orders/${id}/mark-received`);else if (action === 'manual-override') await api('POST', `/api/v2/sales/orders/${id}/manual-override`, body);else await api('POST', `/api/v2/sales/orders/${id}/transition`, body);
 
       // Mutation responses are not guaranteed to contain the complete order.
       // Re-query the current page so its status and available actions always
@@ -1218,7 +1230,7 @@ export default function SalesV2OrdersPage() {
               background: processLog?.warnings.length ? 'var(--status-danger-bg-faint)' : 'var(--status-success-bg-faint)', fontSize: 12 }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>{t('ui.链路健康','链路健康')}</div>
               {processLoading ? t('ui.加载中','加载中') : processLog?.warnings.length
-                ? processLog.warnings.map(w => <div key={w} style={{ color: 'var(--status-danger)' }}>⚠ {w === 'RECEIVED_WITHOUT_AR' ? t('ui.已签收但未生成应收','已签收但未生成应收') : w}</div>)
+                ? processLog.warnings.map(w => <div key={w} style={{ color: 'var(--status-danger)' }}>⚠ {t(`ui.${PROCESS_WARNING_LABELS[w] ?? w}`, PROCESS_WARNING_LABELS[w] ?? w)}</div>)
                 : <span style={{ color: 'var(--status-success)' }}>✓ {t('ui.订单链路未发现异常','订单链路未发现异常')}</span>}
             </div>
 
@@ -1237,13 +1249,12 @@ export default function SalesV2OrdersPage() {
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('ui.全流程时间轴','全流程时间轴')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {processLog?.timeline.filter(item => item.source !== 'WORKFLOW').map(item => <div key={item.id} style={{ borderLeft: '3px solid var(--color-primary)', paddingLeft: 10 }}>
+                {processLog?.timeline.map(item => <div key={item.id} data-source={item.source} style={{ borderLeft: `3px solid ${item.source === 'WORKFLOW' ? 'var(--color-purple-500)' : 'var(--color-primary)'}`, paddingLeft: 10 }}>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>{item.action} <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>[{item.source}]</span></div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.operator || t('ui.系统','系统')} · {item.time ? new Date(item.time).toLocaleString() : '—'}</div>
                   {(item.fromStatus || item.toStatus) && <div style={{ fontSize: 12 }}>{formatBusinessEnum('salesOrder', item.fromStatus, lang)} → {formatBusinessEnum('salesOrder', item.toStatus, lang)}</div>}
                   {item.comment && <div style={{ fontSize: 12 }}>{item.comment}</div>}
                 </div>)}
-                {!!processLog?.timeline.some(item => item.source === 'WORKFLOW') && <WorkflowTimeline actions={processLog.timeline.filter(item => item.source === 'WORKFLOW').map(item => ({ action: item.action, actor_name: item.operator, created_at: item.time, comment: item.comment }))} />}
               </div>
             </div>
 
@@ -1386,21 +1397,26 @@ export default function SalesV2OrdersPage() {
                   {t('ui.确认签收','确认签收')}
                 </button>}
               {['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(detailOrder.status) && canCreate && <button className={s.btnDanger} disabled={actionLoading} onClick={() => { setDangerReason(''); setDangerAction({ id: detailOrder.id, action: 'cancel' }); }}>{t('ui.取消订单','取消订单')}</button>}
+              {canOverride && <button className={s.btnDanger} disabled={actionLoading} onClick={() => { setDangerReason(''); setOverrideTarget(''); setDangerAction({ id: detailOrder.id, action: 'manual-override' }); }}>{t('ui.人工纠偏','人工纠偏')}</button>}
             </div>
         </div>}
       </ModalV2>
 
       <ModalV2 open={!!dangerAction} title={t('ui.危险操作确认','危险操作确认')} onClose={() => setDangerAction(null)} width={460}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ color: 'var(--status-danger)', fontSize: 13 }}>{t('ui.取消订单会释放库存并终止流程，请填写原因。','取消订单会释放库存并终止流程，请填写原因。')}</div>
+          <div style={{ color: 'var(--status-danger)', fontSize: 13 }}>{dangerAction?.action === 'manual-override' ? t('ui.人工纠偏将直接改变订单状态，请填写目标状态和原因。','人工纠偏将直接改变订单状态，请填写目标状态和原因。') : t('ui.取消订单会释放库存并终止流程，请填写原因。','取消订单会释放库存并终止流程，请填写原因。')}</div>
+          {dangerAction?.action === 'manual-override' && <select aria-label={t('ui.目标状态','目标状态')} className={s.input} value={overrideTarget} onChange={e => setOverrideTarget(e.target.value)}>
+            <option value="">{t('ui.请选择目标状态','请选择目标状态')}</option>
+            {['DRAFT','PENDING_APPROVAL','APPROVED','ALLOCATED','PICKED','LOADED','SHIPPED','DELIVERED','RECEIVED','RECONCILED','CANCELLED','REJECTED'].filter(x => x !== detailOrder?.status).map(x => <option key={x} value={x}>{formatBusinessEnum('salesOrder', x, lang)}</option>)}
+          </select>}
           <textarea aria-label={t('ui.操作原因','操作原因')} className={s.input} rows={4} value={dangerReason} onChange={e => setDangerReason(e.target.value)} placeholder={t('ui.必填：操作原因','必填：操作原因')} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button className={s.btnSecondary} onClick={() => setDangerAction(null)}>{t('ui.返回','返回')}</button>
-            <button className={s.btnDanger} disabled={actionLoading || !dangerReason.trim()} onClick={async () => {
+            <button className={s.btnDanger} disabled={actionLoading || !dangerReason.trim() || (dangerAction?.action === 'manual-override' && !overrideTarget)} onClick={async () => {
               if (!dangerAction) return;
-              await doAction(dangerAction.id, dangerAction.action, { remark: dangerReason.trim() });
+              await doAction(dangerAction.id, dangerAction.action, dangerAction.action === 'manual-override' ? { targetStatus: overrideTarget, reason: dangerReason.trim() } : { remark: dangerReason.trim() });
               setDangerAction(null);
-            }}>{t('ui.确认取消','确认取消')}</button>
+            }}>{dangerAction?.action === 'manual-override' ? t('ui.确认纠偏','确认纠偏') : t('ui.确认取消','确认取消')}</button>
           </div>
         </div>
       </ModalV2>
