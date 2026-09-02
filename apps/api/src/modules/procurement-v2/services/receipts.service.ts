@@ -113,7 +113,13 @@ export class ReceiptsService {
     // ────────────────────────────────────────────────────────────────────────
 
     const [items, total] = await qb.skip((page - 1) * pageSize).take(pageSize).getManyAndCount();
-    return { items, total, page, pageSize };
+    const warehouseCodes = [...new Set(items.map(r => r.warehouseCode).filter(Boolean))];
+    const warehouses: any[] = warehouseCodes.length ? await this.ds.query(
+      `SELECT warehouse_code, warehouse_name, warehouse_name_zh, warehouse_name_en, warehouse_name_lo
+         FROM wms_warehouses WHERE warehouse_code = ANY($1::text[])`, [warehouseCodes],
+    ) : [];
+    const warehouseMap = new Map(warehouses.map(r => [r.warehouse_code, r]));
+    return { items: items.map(r => ({ ...r, ...warehouseMap.get(r.warehouseCode) })), total, page, pageSize };
   }
 
   // ── 详情 ──────────────────────────────────────────────────────────────────
@@ -138,7 +144,17 @@ export class ReceiptsService {
       shipment = await this.shpRepo.findOne({ where: { id: rcp.shipmentId } });
     }
     const po = await this.poRepo.findOne({ where: { id: rcp.poId } });
-    return { ...rcp, items, approvals, shipment, po };
+    const [warehouse] = rcp.warehouseCode ? await this.ds.query(
+      `SELECT warehouse_name, warehouse_name_zh, warehouse_name_en, warehouse_name_lo
+         FROM wms_warehouses WHERE warehouse_code=$1 LIMIT 1`, [rcp.warehouseCode],
+    ) : [];
+    const itemCodes = [...new Set(items.map(i => i.itemCode).filter(Boolean))];
+    const names: any[] = itemCodes.length ? await this.ds.query(
+      `SELECT sku_code AS item_code, sku_name, sku_name_en, sku_name_lo
+         FROM product_skus WHERE sku_code = ANY($1::text[])`, [itemCodes],
+    ) : [];
+    const nameMap = new Map(names.map(r => [r.item_code, r]));
+    return { ...rcp, ...warehouse, items: items.map(i => ({ ...i, ...nameMap.get(i.itemCode) })), approvals, shipment, po };
   }
 
   // ── 创建 ──────────────────────────────────────────────────────────────────

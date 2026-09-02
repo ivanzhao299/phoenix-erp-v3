@@ -233,9 +233,19 @@ export class OrdersService {
         .getRawMany<{ poId: string; cnt: string }>();
       countMap = Object.fromEntries(rows.map(r => [r.poId, parseInt(r.cnt, 10)]));
     }
+    const supplierCodes = [...new Set(items.map(p => p.supplierCode).filter(Boolean))];
+    const supplierRows: any[] = supplierCodes.length ? await this.ds.query(
+      `SELECT supplier_code, supplier_name, supplier_name_en, supplier_name_lo
+         FROM prc2_suppliers WHERE supplier_code = ANY($1::text[])`, [supplierCodes],
+    ) : [];
+    const supplierMap = new Map(supplierRows.map(r => [r.supplier_code, r]));
 
     return {
-      items: items.map(p => ({ ...p, itemCount: countMap[p.id] ?? 0 })),
+      items: items.map(p => ({ ...p, itemCount: countMap[p.id] ?? 0,
+        supplierMasterName: supplierMap.get(p.supplierCode)?.supplier_name ?? null,
+        supplierMasterNameEn: supplierMap.get(p.supplierCode)?.supplier_name_en ?? null,
+        supplierMasterNameLo: supplierMap.get(p.supplierCode)?.supplier_name_lo ?? null,
+      })),
       total,
       page,
       pageSize,
@@ -260,7 +270,21 @@ export class OrdersService {
       this.apRepo.findOne({ where: { poId: id } }),
     ]);
 
-    return { ...po, items, approvals, apLedger: ap ?? null };
+    const [supplier] = po.supplierCode ? await this.ds.query(
+      `SELECT supplier_name, supplier_name_en, supplier_name_lo FROM prc2_suppliers WHERE supplier_code=$1 LIMIT 1`,
+      [po.supplierCode],
+    ) : [];
+    const itemCodes = [...new Set(items.map(i => i.itemCode).filter(Boolean))];
+    const names: any[] = itemCodes.length ? await this.ds.query(
+      `SELECT m.material_code AS item_code, m.material_name, m.material_name_en, m.material_name_lo
+         FROM mst_materials m WHERE m.material_code = ANY($1::text[])`, [itemCodes],
+    ) : [];
+    const nameMap = new Map(names.map(r => [r.item_code, r]));
+    return { ...po,
+      supplierMasterName: supplier?.supplier_name ?? null,
+      supplierMasterNameEn: supplier?.supplier_name_en ?? null,
+      supplierMasterNameLo: supplier?.supplier_name_lo ?? null,
+      items: items.map(i => ({ ...i, ...nameMap.get(i.itemCode) })), approvals, apLedger: ap ?? null };
   }
 
   /**

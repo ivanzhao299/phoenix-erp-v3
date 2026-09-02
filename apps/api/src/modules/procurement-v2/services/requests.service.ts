@@ -222,7 +222,13 @@ export class RequestsService {
       this.approvalRepo.find({ where: { bizType: 'PR', bizId: id }, order: { createdAt: 'ASC' } }),
     ]);
 
-    return { ...req, items, approvals };
+    const itemCodes = [...new Set(items.map(i => i.itemCode).filter(Boolean))];
+    const names: any[] = itemCodes.length ? await this.ds.query(
+      `SELECT material_code AS item_code, material_name, material_name_en, material_name_lo
+         FROM mst_materials WHERE material_code = ANY($1::text[])`, [itemCodes],
+    ) : [];
+    const nameMap = new Map(names.map(r => [r.item_code, r]));
+    return { ...req, items: items.map(i => ({ ...i, ...nameMap.get(i.itemCode) })), approvals };
   }
 
   /** 新建（DRAFT） */

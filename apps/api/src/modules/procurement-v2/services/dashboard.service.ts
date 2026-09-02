@@ -295,31 +295,38 @@ export class DashboardService {
   async getSupplierPerformance(q: QueryDashboardDto) {
     const scope = this.scopeHelper.buildRawCondition({ companyAlias: 'po.company_code' }, 4);
     const rows = await this.ds.query(`
-      SELECT
-        po.supplier_code,
-        po.supplier_name,
-        po.currency_code,
-        COUNT(DISTINCT po.id)                              AS po_count,
-        COALESCE(SUM(po.total_amount), 0)                 AS po_amount,
-        COALESCE(SUM(po.received_qty), 0)                 AS received_qty,
-        COALESCE(SUM(po.paid_amount), 0)                  AS paid_amount,
-        COALESCE(SUM(ap.balance_amount_original), 0)      AS open_ap_amount
-      FROM prc2_purchase_orders po
-      LEFT JOIN prc2_ap_ledger ap ON ap.po_id = po.id AND ap.status IN ('OPEN','PARTIAL')
-      WHERE po.status NOT IN ('CANCELLED')
+      WITH aggregate_by_supplier AS (
+        SELECT po.supplier_code,
+          po.currency_code,
+          MAX(po.supplier_name)                            AS supplier_snapshot_name,
+          COUNT(DISTINCT po.id)                            AS po_count,
+          COALESCE(SUM(po.total_amount), 0)                AS po_amount,
+          COALESCE(SUM(po.received_qty), 0)                AS received_qty,
+          COALESCE(SUM(po.paid_amount), 0)                 AS paid_amount,
+          COALESCE(SUM(ap.balance_amount_original), 0)     AS open_ap_amount
+        FROM prc2_purchase_orders po
+        LEFT JOIN prc2_ap_ledger ap ON ap.po_id = po.id AND ap.status IN ('OPEN','PARTIAL')
+        WHERE po.status NOT IN ('CANCELLED')
         AND ($1::varchar IS NULL OR po.company_code = $1)
         AND ($2::varchar IS NULL OR po.supplier_code = $2)
         AND ($3::date IS NULL OR po.created_at::date >= $3::date)
         AND ($4::date IS NULL OR po.created_at::date <= $4::date)
         AND (${scope.sql})
-      GROUP BY po.supplier_code, po.supplier_name, po.currency_code
-      ORDER BY po_amount DESC NULLS LAST
+        GROUP BY po.supplier_code, po.currency_code
+      )
+      SELECT a.*, s.supplier_name, s.supplier_name_en, s.supplier_name_lo
+      FROM aggregate_by_supplier a
+      LEFT JOIN prc2_suppliers s ON s.supplier_code = a.supplier_code
+      ORDER BY a.po_amount DESC NULLS LAST
       LIMIT 20
     `, [q.companyCode ?? null, q.supplierCode ?? null, q.dateFrom ?? null, q.dateTo ?? null, ...scope.params]);
 
     return rows.map((r: Record<string, string>) => ({
       supplierCode:  r.supplier_code ?? '',
-      supplierName:  r.supplier_name ?? '',
+      supplierName:  r.supplier_name ?? r.supplier_snapshot_name ?? '',
+      supplierSnapshotName: r.supplier_snapshot_name ?? '',
+      supplierNameEn: r.supplier_name_en ?? '',
+      supplierNameLo: r.supplier_name_lo ?? '',
       currencyCode:  r.currency_code ?? '',
       poCount:       Number(r.po_count),
       poAmount:      Number(r.po_amount),
