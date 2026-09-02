@@ -780,6 +780,15 @@ jobs:
 
             # ── DB 迁移(仅 api/full)─────────────────────────────────
             if [ "$RUN_MIG" = "true" ]; then
+              # PostgreSQL must have room for both the custom dump and migration
+              # index/WAL writes. Fail before creating another backup when the
+              # root filesystem has less than 2 GiB available.
+              AVAILABLE_KB="$(df -Pk / | awk 'NR == 2 { print $4 }')"
+              if [ "${AVAILABLE_KB:-0}" -lt 2097152 ]; then
+                echo "::error::Insufficient production disk space before migration: ${AVAILABLE_KB:-0} KiB available (minimum 2097152 KiB)"
+                df -h /
+                exit 28
+              fi
               BACKUP_DIR="/opt/phoenix-erp-backups/deploy-pre-migration-${DEPLOY_RUN_ID}"
               BACKUP_FILE="${BACKUP_DIR}/phoenix_erp_pre_${TARGET_SHA:0:12}.dump"
               mkdir -p "$BACKUP_DIR"
@@ -795,6 +804,22 @@ jobs:
               sha256sum "$BACKUP_FILE" | tee "${BACKUP_FILE}.sha256"
               chmod 600 "${BACKUP_FILE}.sha256"
               echo "✅ 迁移前备份可读: ${TOC_ENTRIES} objects"
+
+              # Keep exactly the newest three verified deploy backups. The
+              # individual retained dumps remain untouched and recoverable.
+              mapfile -t OBSOLETE_BACKUPS < <(
+                find /opt/phoenix-erp-backups -mindepth 1 -maxdepth 1 -type d \
+                  -name 'deploy-pre-migration-*' -printf '%T@ %p\n' \
+                  | sort -nr | awk 'NR > 3 { sub(/^[^ ]+ /, ""); print }'
+              )
+              for OLD_BACKUP_DIR in "${OBSOLETE_BACKUPS[@]}"; do
+                case "$OLD_BACKUP_DIR" in
+                  /opt/phoenix-erp-backups/deploy-pre-migration-*) ;;
+                  *) echo "::error::Refusing unexpected backup path: $OLD_BACKUP_DIR"; exit 29 ;;
+                esac
+                rm -rf --one-file-system -- "$OLD_BACKUP_DIR"
+                echo "♻ removed old deploy backup: $OLD_BACKUP_DIR"
+              done
 
               MIG_MODE=prod MIG_DIR=apps/api bash scripts/db-migrate.sh
 
