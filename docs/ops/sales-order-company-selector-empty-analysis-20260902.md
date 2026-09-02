@@ -226,3 +226,22 @@ admin 与普通销售经理使用同一模型都会空。修复后才分别进�
 - readonly audit run `33589461285` 输出 checkout/API/Web revision 均为 `4850d3e2...`，`sys_error_logs` 近 60 分钟 lookup 错误为 0。
 - admin：`isGlobal=true`，companies `200 / 3` 行，customers `200 / 87` 行，org 旁路 `200 / 60` 行。
 - guodapeng：`isGlobal=true`，companies `200 / 3` 行，customers `200 / 87` 行。org 管理旁路返回 403，符合其无主数据管理菜单权限的既有语义，且反证 lookup 不依赖该管理权限。首轮清单将该旁路误写为必须 200，因此 run 最终标记 failure；已修正为允许旁路 `200/403`，核心 lookup 非空断言不放宽。
+
+### 9.6 最终生产只读验收
+
+PR `#163` 将 org 管理旁路的既有 403 权限语义对齐后合入 main，随后 readonly audit run `33589884796` 全绿：
+
+| 探针 | 生产结果 |
+|---|---|
+| revision | checkout/API/Web = `4850d3e24fb559e126047666848e745c92d40ecb` |
+| admin DataScope | companies/customers 均 `isGlobal=true` |
+| admin lookups | companies `200 / 3`，customers `200 / 87` |
+| admin org 旁路 | `200 / 60` |
+| guodapeng DataScope | companies/customers 均 `isGlobal=true` |
+| guodapeng lookups | companies `200 / 3`，customers `200 / 87` |
+| guodapeng org 旁路 | `403`（无管理菜单权限，lookup 仍正常） |
+| `sys_error_logs` 60m | companies/customers = `0` |
+| API 容器日志 60m | companies/customers = `0` |
+| 写入护栏 | `PRODUCTION_BUSINESS_WRITES=0` |
+
+结论：P0/P1 修复、缓存隔离、全量 CI、full 部署、revision 三方一致及两账号生产只读复验已全部闭环。
