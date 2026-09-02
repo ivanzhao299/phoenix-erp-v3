@@ -1,6 +1,6 @@
 import {
   IsString, IsNumber, IsBoolean, IsOptional, IsArray,
-  ValidateNested, Min, IsIn,
+  ValidateNested, Min, IsIn, IsObject,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
@@ -147,6 +147,10 @@ export class CreateApprovalRuleDto {
   maxAmount?: number;
 
   @IsOptional()
+  @IsObject()
+  conditionJson?: Record<string, unknown>;
+
+  @IsOptional()
   @IsString()
   @IsIn(['SEQUENTIAL', 'PARALLEL', 'ANY_ONE'])
   approvalMode?: string;
@@ -178,6 +182,10 @@ export class UpdateApprovalRuleDto {
   @IsOptional()
   @IsString()
   moduleCode?: string;
+
+  @IsOptional()
+  @IsObject()
+  conditionJson?: Record<string, unknown>;
 
   @IsOptional()
   @IsString()

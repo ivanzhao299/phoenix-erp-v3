@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import type { DataSource } from 'typeorm';
 import type { ClsService } from 'nestjs-cls';
 import { SalesOrdersService } from './sales-orders.service';
+import { ServiceUnavailableException } from '@nestjs/common';
 
 describe('SalesOrdersService draft creation', () => {
   function makeService(query: jest.Mock) {
@@ -118,5 +119,21 @@ describe('SalesOrdersService draft creation', () => {
       customerCode: 'CUS-LEGACY',
       items: [{ productCode: 'PRD-EGG-1', qty: 1, actualUnitPrice: 12 }],
     })).resolves.toMatchObject({ id: '102' });
+  });
+
+  it('fails closed when the authoritative credit service is unavailable', async () => {
+    const order = { id: '103', order_no: 'SO-CREDIT-FAIL', status: 'DRAFT', customer_code: 'CUS-1', company_code: 'COMP-1' };
+    const query = jest.fn().mockResolvedValue([order]);
+    const ds = { query, manager: { query }, transaction: jest.fn() } as any;
+    const cls = { get: jest.fn((key: string) => key === 'dataScope'
+      ? { isGlobal: true, allowedCompanyCodes: [] }
+      : { userId: '1', username: 'risk-user' }) } as any;
+    const service = new SalesOrdersService(
+      ds, cls, {} as any, {} as any, {} as any,
+      { evaluateCreditStatus: jest.fn().mockRejectedValue(new Error('credit database unavailable')) } as any,
+      {} as any, {} as any, {} as any, { get: jest.fn(), register: jest.fn() } as any,
+    );
+    await expect(service.submit('103', {} as any)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(ds.transaction).not.toHaveBeenCalled();
   });
 });

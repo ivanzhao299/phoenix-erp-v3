@@ -84,7 +84,7 @@ export class SalesOrderLifecycleService {
       this.ds.query(`SELECT DISTINCT d.* FROM sal_delivery_orders d JOIN sal_delivery_order_items i ON i.delivery_order_id=d.id WHERE i.sales_order_id=$1 AND d.company_code=$2 ORDER BY d.created_at`, [id, order.company_code]),
       this.ds.query(`SELECT * FROM sal_receipts WHERE sales_order_id=$1 ORDER BY COALESCE(signed_at,created_at),id`, [id]),
       this.ds.query(
-        `SELECT s.*, i.instance_no
+        `SELECT s.*, i.instance_no, i.status AS instance_status, i.current_step_no
          FROM wf_approval_instance_steps s
          JOIN wf_approval_instances i ON i.id=s.instance_id
          WHERE i.biz_type='SALES_ORDER' AND i.biz_id=$1
@@ -122,7 +122,9 @@ export class SalesOrderLifecycleService {
     const warnings: string[] = [];
     if (order.status === 'RECEIVED' && !order.ar_invoice_id && arInvoices.length === 0) warnings.push('RECEIVED_WITHOUT_AR');
     if (deliveries.some((x: any) => x.status === 'COMPLETED') && receipts.length === 0) warnings.push('DELIVERY_COMPLETED_WITHOUT_RECEIPT');
-    if (workflow.some((x: any) => x.status === 'PENDING' && x.due_at && new Date(x.due_at).getTime() < Date.now())) warnings.push('APPROVAL_OVERDUE');
+    if (workflow.some((x: any) => x.instance_status === 'PENDING'
+      && x.status === 'PENDING' && Number(x.step_no) === Number(x.current_step_no)
+      && x.due_at && new Date(x.due_at).getTime() < Date.now())) warnings.push('APPROVAL_OVERDUE');
     if (deliveries.some((x: any) => ['DEPARTED', 'IN_TRANSIT'].includes(x.status) && x.departure_at && Date.now() - new Date(x.departure_at).getTime() > 48 * 60 * 60 * 1000)) warnings.push('DELIVERY_DEPARTED_OVERDUE');
     if (returns.some((x: any) => !['COMPLETED', 'REJECTED', 'CANCELLED'].includes(x.status) && Date.now() - new Date(x.updated_at ?? x.created_at).getTime() > 72 * 60 * 60 * 1000)) warnings.push('RETURN_FLOW_STALLED');
     return { orderNo: order.order_no, currentStatus: order.status, documents, timeline, warnings };

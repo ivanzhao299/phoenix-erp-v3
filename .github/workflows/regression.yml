@@ -88,6 +88,12 @@ jobs:
         working-directory: apps/api
         run: MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
 
+      - name: SALES_ORDER approval — Nest + PostgreSQL integration
+        working-directory: apps/api
+        env:
+          RUN_PG_INTEGRATION: "1"
+        run: pnpm exec jest src/modules/approval-engine/sales-order-approval.pg.integration.spec.ts --runInBand
+
       - name: Start API (background)
         working-directory: apps/api
         env:

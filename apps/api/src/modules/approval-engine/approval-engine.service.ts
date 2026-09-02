@@ -28,6 +28,10 @@ export interface StartApprovalParams {
   projectName?: string;
   subject?: string;
   conditionOverrides?: Record<string, any>;
+  /** 业务域计算出的受控触发码；实例创建后不可变。 */
+  triggerCodes?: string[];
+  /** 供审批人查看的业务白名单快照；禁止传入任意请求体。 */
+  contextSnapshot?: Record<string, unknown>;
   /** 未固化流程：发起人提交时指定的审批人 userId（开放式选人）。设置后走单步动态实例，不需预配规则。 */
   pickedApproverId?: string;
 }
@@ -138,7 +142,8 @@ export class ApprovalEngineService {
     amount: number,
     companyCode?: string,
     projectCode?: string,
-    _currencyCode?: string,
+    currencyCode?: string,
+    conditions: Record<string, unknown> = {},
   ): Promise<WfApprovalRuleEntity | null> {
     const rules = await this.ruleRepo.find({
       where: { bizType, enabled: true },
@@ -149,15 +154,32 @@ export class ApprovalEngineService {
       // 公司/项目过滤：规则未指定时匹配所有
       if (rule.companyCode && rule.companyCode !== companyCode) continue;
       if (rule.projectCode && rule.projectCode !== projectCode) continue;
+      if (rule.currencyCode && rule.currencyCode !== currencyCode) continue;
 
       const min = Number(rule.minAmount);
       const max = rule.maxAmount !== null ? Number(rule.maxAmount) : null;
 
-      if (amount >= min && (max === null || amount <= max)) {
+      if (amount >= min && (max === null || amount <= max) && this.matchesCondition(rule.conditionJson, conditions)) {
         return rule;
       }
     }
     return null;
+  }
+
+  /**
+   * condition_json 的本轮最小、封闭语义。未知键 fail-closed，避免管理员误以为配置已生效。
+   * triggerCodes/triggerCodesAny：任一命中；triggerCodesAll：全部命中。
+   */
+  private matchesCondition(condition: Record<string, any> | null, context: Record<string, unknown>): boolean {
+    if (!condition || Object.keys(condition).length === 0) return true;
+    const allowed = new Set(['triggerCodes', 'triggerCodesAny', 'triggerCodesAll']);
+    if (Object.keys(condition).some(key => !allowed.has(key))) return false;
+    const actual = new Set(Array.isArray(context.triggerCodes) ? context.triggerCodes.map(String) : []);
+    const any = condition.triggerCodesAny ?? condition.triggerCodes;
+    if (any !== undefined && (!Array.isArray(any) || any.length === 0 || !any.some((x: unknown) => actual.has(String(x))))) return false;
+    const all = condition.triggerCodesAll;
+    if (all !== undefined && (!Array.isArray(all) || all.length === 0 || !all.every((x: unknown) => actual.has(String(x))))) return false;
+    return true;
   }
 
   // ── 启动审批 ─────────────────────────────────────────────────────────────
@@ -285,6 +307,7 @@ export class ApprovalEngineService {
       params.companyCode,
       params.projectCode,
       params.currencyCode,
+      { ...(params.conditionOverrides ?? {}), triggerCodes: params.triggerCodes ?? [] },
     );
 
     if (!rule) {
@@ -295,7 +318,10 @@ export class ApprovalEngineService {
       }
       // ⚠ fail-open 危险开关已显式开启：保留旧的无规则自动通过行为
       const autoStatus = this.bizRegistry.getApprovedStatus(params.bizType);
-      await this.updateBizStatus(params.bizType, params.bizId, autoStatus, mgr);
+      await this.updateBizStatus(
+        params.bizType, params.bizId, autoStatus, mgr,
+        params.bizType === 'SALES_ORDER' ? 'DRAFT' : undefined,
+      );
       const cfg0 = this.bizRegistry.get(params.bizType);
       if (cfg0?.onApproved) await cfg0.onApproved(params.bizId, mgr);
       return null;
@@ -313,7 +339,10 @@ export class ApprovalEngineService {
       }
       // ⚠ fail-open 危险开关已显式开启：保留旧的无步骤自动通过行为
       const autoStatus = this.bizRegistry.getApprovedStatus(params.bizType);
-      await this.updateBizStatus(params.bizType, params.bizId, autoStatus, mgr);
+      await this.updateBizStatus(
+        params.bizType, params.bizId, autoStatus, mgr,
+        params.bizType === 'SALES_ORDER' ? 'DRAFT' : undefined,
+      );
       const cfg0 = this.bizRegistry.get(params.bizType);
       if (cfg0?.onApproved) await cfg0.onApproved(params.bizId, mgr);
       return null;
@@ -349,6 +378,8 @@ export class ApprovalEngineService {
       projectCode:  params.projectCode ?? null,
       projectName:  params.projectName ?? null,
       subject:      params.subject ?? null,
+      triggerCodes: [...new Set(params.triggerCodes ?? [])],
+      contextSnapshot: params.contextSnapshot ?? {},
     });
     const savedInstance = await mgr.save(WfApprovalInstanceEntity, instance);
 
@@ -630,7 +661,10 @@ export class ApprovalEngineService {
         instance.finishedAt = new Date();
         await mgr.save(WfApprovalInstanceEntity, instance);
         const bizStatus = this.bizRegistry.getApprovedStatus(instance.bizType);
-        await this.updateBizStatus(instance.bizType, instance.bizId, bizStatus, mgr);
+        await this.updateBizStatus(
+          instance.bizType, instance.bizId, bizStatus, mgr,
+          instance.bizType === 'SALES_ORDER' ? 'PENDING_APPROVAL' : undefined,
+        );
 
         // onApproved 回调（同一事务）
         const approvedCfg = this.bizRegistry.get(instance.bizType);
@@ -725,7 +759,11 @@ export class ApprovalEngineService {
       await mgr.save(WfApprovalInstanceEntity, instance);
 
       // 更新业务状态
-      await this.updateBizStatus(instance.bizType, instance.bizId, 'REJECTED', mgr);
+      const rejectedStatus = this.bizRegistry.getRejectedStatus(instance.bizType);
+      await this.updateBizStatus(
+        instance.bizType, instance.bizId, rejectedStatus, mgr,
+        instance.bizType === 'SALES_ORDER' ? 'PENDING_APPROVAL' : undefined,
+      );
 
       // onRejected 回调（同一事务）
       const rejectedCfg = this.bizRegistry.get(instance.bizType);
@@ -750,15 +788,32 @@ export class ApprovalEngineService {
 
   // ── 取消实例 ─────────────────────────────────────────────────────────────
 
-  async cancelInstance(instanceId: string, mgr?: EntityManager): Promise<void> {
+  async cancelInstance(instanceId: string, mgr?: EntityManager, syncBusiness = true): Promise<void> {
     const exec = async (em: EntityManager) => {
-      const instance = await em.findOne(WfApprovalInstanceEntity, { where: { id: instanceId } });
+      const instance = await em.findOne(WfApprovalInstanceEntity, {
+        where: { id: instanceId }, lock: { mode: 'pessimistic_write' },
+      });
       if (!instance) return;
       if (instance.status !== 'PENDING') return; // 已结束，忽略
 
+      const cancelledStatus = this.bizRegistry.getCancelledStatus(instance.bizType);
+      if (syncBusiness && cancelledStatus) {
+        await this.updateBizStatus(
+          instance.bizType, instance.bizId, cancelledStatus, em,
+          instance.bizType === 'SALES_ORDER' ? 'PENDING_APPROVAL' : undefined,
+        );
+      }
+      await em.query(
+        `UPDATE wf_approval_instance_steps
+         SET status='CANCELLED', action='CANCEL', acted_at=COALESCE(acted_at,NOW())
+         WHERE instance_id=$1 AND status='PENDING'`,
+        [instance.id],
+      );
       instance.status     = 'CANCELLED';
       instance.finishedAt = new Date();
       await em.save(WfApprovalInstanceEntity, instance);
+      const cfg = this.bizRegistry.get(instance.bizType);
+      if (syncBusiness && cfg?.onCancelled) await cfg.onCancelled(instance.bizId, em);
     };
     if (mgr) {
       await exec(mgr);
@@ -1008,13 +1063,19 @@ export class ApprovalEngineService {
     bizId: string,
     status: string,
     mgr: EntityManager,
+    expectedStatus?: string,
   ): Promise<void> {
     const table = this.bizRegistry.getTableName(bizType);
     if (!table) return;
-    await mgr.query(
-      `UPDATE ${table} SET status = $1, updated_at = NOW() WHERE id = $2`,
-      [status, bizId],
+    const rows = await mgr.query(
+      `UPDATE ${table} SET status = $1, updated_at = NOW()
+       WHERE id = $2${expectedStatus ? ' AND status = $3' : ''}
+       RETURNING id`,
+      expectedStatus ? [status, bizId, expectedStatus] : [status, bizId],
     );
+    if (expectedStatus && rows.length === 0) {
+      throw new ConflictException(`业务单据状态已变化，预期 ${expectedStatus}，审批动作已拒绝`);
+    }
   }
 
   /** 查询待办数量（用于 badge 展示） */

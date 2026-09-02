@@ -139,6 +139,7 @@ export class ApprovalRulesService {
         currencyCode: dto.currencyCode  ?? null,
         minAmount:    dto.minAmount     ?? 0,
         maxAmount:    dto.maxAmount     ?? null,
+        conditionJson: dto.conditionJson ?? null,
         approvalMode: dto.approvalMode  ?? 'SEQUENTIAL',
         priority:     dto.priority      ?? 100,
         enabled:      dto.enabled       ?? true,
@@ -204,6 +205,7 @@ export class ApprovalRulesService {
       if (dto.currencyCode !== undefined) rule.currencyCode = dto.currencyCode;
       if (dto.minAmount    !== undefined) rule.minAmount    = dto.minAmount;
       if (dto.maxAmount    !== undefined) rule.maxAmount    = dto.maxAmount;
+      if (dto.conditionJson !== undefined) rule.conditionJson = dto.conditionJson;
       if (dto.approvalMode !== undefined) rule.approvalMode = dto.approvalMode;
       if (dto.priority     !== undefined) rule.priority     = dto.priority;
       if (dto.remark       !== undefined) rule.remark       = dto.remark;

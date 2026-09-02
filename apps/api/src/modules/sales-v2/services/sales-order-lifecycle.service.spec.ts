@@ -5,6 +5,7 @@ import { SalesOrdersController } from '../controllers/sales-orders.controller';
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { SalesOrdersService } from './sales-orders.service';
 import { AddSalesOrderLifecycleEvents1788253200000 } from '../../../database/migrations/1788253200000-AddSalesOrderLifecycleEvents';
+import { AddSalesOrderApprovalContext1788337017420 } from '../../../database/migrations/1788337017420-AddSalesOrderApprovalContext';
 
 describe('sales order lifecycle red lines', () => {
   it('installs a database trigger that rejects UPDATE and DELETE on events', async () => {
@@ -47,8 +48,33 @@ describe('sales order lifecycle red lines', () => {
     );
     service.onApplicationBootstrap();
     expect(register).toHaveBeenCalledWith('SALES_ORDER', expect.objectContaining({
-      onApproved: expect.any(Function), onRejected: expect.any(Function),
+      onApproved: expect.any(Function), onRejected: expect.any(Function), onCancelled: expect.any(Function),
     }));
+  });
+
+  it('ships immutable trigger/context columns and disabled dual-trigger example rules', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    await new AddSalesOrderApprovalContext1788337017420().up({ query } as any);
+    const sql = query.mock.calls.map(([statement]) => statement).join('\n');
+    expect(sql).toContain('trigger_codes TEXT[] NOT NULL');
+    expect(sql).toContain('context_snapshot JSONB NOT NULL');
+    expect(sql).toContain('BELOW_FLOOR_PRICE');
+    expect(sql).toContain('CREDIT_OVER_LIMIT');
+    expect(sql).toContain("'SEQUENTIAL',FALSE");
+  });
+
+  it('uses the unified pending instance/current-step timeout predicate', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('wf_approval_instance_steps')) return [{
+        id: 1, status: 'PENDING', instance_status: 'CANCELLED', step_no: 1,
+        current_step_no: 1, due_at: new Date(0), created_at: new Date(0),
+      }];
+      return [];
+    });
+    const svc = new SalesOrderLifecycleService({ query } as any);
+    const result = await svc.getProcessLog({ id: '7', order_no: 'SO-7', status: 'PENDING_APPROVAL', company_code: 'C1' });
+    expect(result.warnings).not.toContain('APPROVAL_OVERDUE');
+    expect(query.mock.calls.map(([sql]) => sql).join('\n')).toContain('i.current_step_no');
   });
 
   it('rolls back mark-received when AR creation fails', async () => {
@@ -88,5 +114,24 @@ describe('sales order lifecycle red lines', () => {
   it('gates MANUAL_OVERRIDE behind the independent A permission', () => {
     const metadata = Reflect.getMetadata(REQUIRE_MENU_KEY, SalesOrdersController.prototype.manualOverride);
     expect(metadata).toEqual({ menu: 'MENU_SALES2_ORDER_OVERRIDE', perm: 'A', altMenus: undefined, denialMessage: undefined });
+  });
+
+  it('cancels the pending workflow before CAS-cancelling the order', async () => {
+    const order = { id: '7', order_no: 'SO-7', company_code: 'C1', status: 'PENDING_APPROVAL', wf_instance_id: '11' };
+    const manager = { query: jest.fn().mockResolvedValue([order]) };
+    const approval = { cancelInstance: jest.fn().mockResolvedValue(undefined) };
+    const lifecycle = {
+      transitionStatus: jest.fn().mockResolvedValue({ ...order, status: 'CANCELLED' }),
+      appendEvent: jest.fn().mockResolvedValue('event'),
+    };
+    const service = new SalesOrdersService(
+      { query: jest.fn().mockResolvedValue([order]), transaction: jest.fn((fn: any) => fn(manager)) } as any,
+      { get: jest.fn((key: string) => key === 'dataScope' ? { isGlobal: true, allowedCompanyCodes: [] } : { userId: 'u1' }) } as any,
+      approval as any, {} as any, {} as any, {} as any, {} as any, {} as any,
+      lifecycle as any, { get: jest.fn(), register: jest.fn() } as any,
+    );
+    await service.cancel('7', { remark: '撤单' });
+    expect(approval.cancelInstance).toHaveBeenCalledWith('11', manager, false);
+    expect(lifecycle.transitionStatus).toHaveBeenCalledWith(manager, '7', 'PENDING_APPROVAL', 'CANCELLED');
   });
 });

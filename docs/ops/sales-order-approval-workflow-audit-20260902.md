@@ -194,3 +194,29 @@ PASS audit inputs validated
 5. 通用 Engine 的 PARALLEL/ANY_ONE/计数语义是实现，还是从配置层收缩为 SEQUENTIAL？
 
 在上述复核前，本报告不包含业务代码、迁移或生产变更。
+
+## 11. 修复执行记录（2026-09-02）
+
+主 agent 已按复核裁定完成实施：
+
+- P0：SALES_ORDER approve/reject 终态回写增加 `PENDING_APPROVAL` CAS；订单取消和实例取消统一按“实例锁 → 订单锁”顺序，关闭所有未完成步骤，并由 registry `onCancelled` 回写订单及追加生命周期事件；晚到审批在事务内冲突回滚，不改变实例、步骤或库存。超时摘要统一为实例 PENDING、当前步骤 PENDING 且 `step_no=current_step_no`。
+- P1：实例新增不可变 `trigger_codes text[]` 与 `context_snapshot jsonb`；受控码为 `BELOW_FLOOR_PRICE`、`CREDIT_OVER_LIMIT`。快照仅保存客户、总额、低价行价格/底价/差额和信用评估最小字段。生命周期各关键事件携带 trigger codes；正常免审改为 `AUTO_APPROVED_NOT_REQUIRED`，危险开关无规则放行保留 `AUTO_APPROVED_NO_RULE` 并记录规则查找和开关审计。信用服务异常改为 503 fail-closed。免审批准同时补齐库存预留。
+- P2：`condition_json` 落地封闭语义 `triggerCodes`/`triggerCodesAny`/`triggerCodesAll`；未知键 fail-closed。迁移 `1788337017420-AddSalesOrderApprovalContext.ts` 提供两条 `enabled=false` 的低价/信用示例链和真实 `down()`，部署不自动激活。PARALLEL/ANY_ONE 未改执行语义。
+- UI：审批中心补 SALES_ORDER 筛选和标签，详情展示白名单业务卡、触发码、低价明细、信用摘要及 `/sales2/orders?orderId=` 深链。
+- 可证明性：新增普通红线测试，以及由 `RUN_PG_INTEGRATION=1` 开启的真实 Nest TestingModule + PostgreSQL 集成套件；CI regression 在完成 schema/migration 后执行。生产只读 SQL 新增 trigger 分布、终态一致性和无分叉断言；零实例明确输出 `NO_SAMPLE`。
+
+本地验证记录：
+
+| 验证 | 结果 |
+|---|---|
+| API / Web `tsc --noEmit` | PASS / PASS |
+| API / Web production build | PASS / PASS |
+| 定向 Jest | PASS，2 suites / 12 tests |
+| Nest + PostgreSQL 集成 | PASS，approve / reject / cancel+late approve，3 tests；所有夹具位于外层事务并 rollback |
+| 迁移真实执行 | PASS，本地 PostgreSQL 执行 72 条 TypeORM migration，本迁移成功 |
+| migration DML / nullable unique / constraint drift 门禁 | PASS / PASS / PASS |
+| readonly-audit manifest validate | PASS |
+| API 全量 Jest | 84 suites / 708 tests PASS；既有 `chanjet-callback.controller.spec.ts` 2 项固定 5s timeout FAIL，定向复跑仍失败 |
+| Web 全量 Vitest | 95 files / 489 tests PASS；既有 3 files / 26 tests 因 `act is not a function` FAIL，与本改动无调用栈关联 |
+
+生产只读复验必须在包含新列的 revision 部署后执行；无自然 SALES_ORDER 审批实例时按清单输出 `NO_SAMPLE`，不得制造生产样本。

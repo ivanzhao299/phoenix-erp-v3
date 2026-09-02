@@ -67,3 +67,37 @@ BEGIN
   ) x;
   IF bad<>0 THEN RAISE EXCEPTION 'FAIL RECEIVED_SALES_AR bad_orders=%',bad; END IF;
 END $$;
+
+\echo '--- SALES_ORDER_APPROVAL_TRIGGER_DISTRIBUTION ---'
+SELECT code AS trigger_code, COUNT(*) AS instance_count
+FROM wf_approval_instances i
+CROSS JOIN LATERAL unnest(i.trigger_codes) AS code
+WHERE i.biz_type='SALES_ORDER'
+GROUP BY code ORDER BY code;
+
+\echo '--- SALES_ORDER_APPROVAL_TERMINAL_CONSISTENCY (0 rows = PASS; no instances = NO_SAMPLE) ---'
+WITH wf AS (
+  SELECT biz_id::bigint AS sales_order_id, COUNT(*) AS instance_count,
+         COUNT(*) FILTER (WHERE status='PENDING') AS pending_instances,
+         COUNT(*) FILTER (WHERE status='APPROVED') AS approved_instances,
+         COUNT(*) FILTER (WHERE status='REJECTED') AS rejected_instances,
+         COUNT(*) FILTER (WHERE status='CANCELLED') AS cancelled_instances
+  FROM wf_approval_instances WHERE biz_type='SALES_ORDER' GROUP BY biz_id
+)
+SELECT so.id,so.order_no,so.status,wf.*
+FROM sal_sales_orders so JOIN wf ON wf.sales_order_id=so.id
+WHERE (so.status='PENDING_APPROVAL' AND (wf.pending_instances<>1 OR wf.instance_count<>1))
+   OR (so.status IN ('APPROVED','ALLOCATED','PICKED','LOADED','SHIPPED','DELIVERED','RECEIVED','RECONCILED')
+       AND (wf.approved_instances<>1 OR wf.pending_instances<>0))
+   OR (so.status='REJECTED' AND (wf.rejected_instances<>1 OR wf.pending_instances<>0))
+   OR (so.status='CANCELLED' AND (wf.cancelled_instances<>1 OR wf.pending_instances<>0));
+
+\echo '--- SALES_ORDER_APPROVAL_NO_FORK ---'
+SELECT COUNT(*) FILTER (WHERE instance_count>1) AS forked_orders,
+       COALESCE(MAX(instance_count),0) AS max_instances_per_order,
+       CASE WHEN COUNT(*)=0 THEN 'NO_SAMPLE'
+            WHEN COUNT(*) FILTER (WHERE instance_count>1)=0 THEN 'PASS' ELSE 'FAIL' END AS result
+FROM (
+  SELECT biz_id,COUNT(*) AS instance_count
+  FROM wf_approval_instances WHERE biz_type='SALES_ORDER' GROUP BY biz_id
+) x;

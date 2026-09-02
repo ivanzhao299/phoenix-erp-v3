@@ -36,6 +36,14 @@ interface UnifiedTask {
   bizId: string;
   bizNo: string | null;
   subject: string | null;
+  triggerCodes?: string[];
+  contextSnapshot?: {
+    customerCode?: string;
+    customerName?: string;
+    totalAmount?: number;
+    lowPriceItems?: Array<{ skuCode?: string; productCode?: string; productName?: string; actualUnitPrice: number; floorPrice: number; priceDifference: number }>;
+    credit?: { totalReceivable?: number; overdueReceivable?: number; overdueDays?: number; creditLimit?: number; availableCredit?: number; status?: string; reason?: string; snapshotAt?: string | null };
+  };
   amount: number | null;
   currencyCode: string | null;
   companyCode: string | null;
@@ -84,6 +92,14 @@ interface InstanceDetail {
   projectCode: string | null;
   projectName: string | null;
   subject: string | null;
+  triggerCodes: string[];
+  contextSnapshot: {
+    customerCode?: string;
+    customerName?: string;
+    totalAmount?: number;
+    lowPriceItems?: Array<{ skuCode?: string; productCode?: string; productName?: string; actualUnitPrice: number; floorPrice: number; priceDifference: number }>;
+    credit?: { totalReceivable?: number; overdueReceivable?: number; overdueDays?: number; creditLimit?: number; availableCredit?: number; status?: string; reason?: string; snapshotAt?: string | null };
+  };
   formSubmission: FormSubmissionSnapshot | null; // Phase I
   steps: {
     id: string;
@@ -106,13 +122,15 @@ const BIZ_TYPE_LABEL: Record<string, string> = {
   PR: "采购申请",
   PO: "采购订单",
   PAYMENT: "付款申请",
-  FUND: "股东资金"
+  FUND: "股东资金",
+  SALES_ORDER: "销售订单"
 };
 const BIZ_TYPE_ICON: Record<string, React.ReactNode> = {
   PR: <FileText size={14} />,
   PO: <ShoppingBag size={14} />,
   PAYMENT: <Banknote size={14} />,
-  FUND: <Banknote size={14} />
+  FUND: <Banknote size={14} />,
+  SALES_ORDER: <ShoppingBag size={14} />
 };
 function fmtDate(s: string) {
   if (!s) return "-";
@@ -527,6 +545,7 @@ export default function ApprovalTodosPage() {
             <option value="PO">{t('ui.采购订单','采购订单')}</option>
             <option value="PAYMENT">{t('ui.付款申请','付款申请')}</option>
             <option value="FUND">{t('ui.股东资金','股东资金')}</option>
+            <option value="SALES_ORDER">{t('ui.销售订单','销售订单')}</option>
           </select>
 
           <div style={{
@@ -767,6 +786,28 @@ export default function ApprovalTodosPage() {
                 <span>{t('ui.步骤','步骤')} {detail.currentStepNo}/{detail.totalSteps}</span>
               </div>
             </div>
+
+            {detail.bizType === "SALES_ORDER" && <div className={`${s.detailSection} ${u.mb16}`}>
+              <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px" }}>{t('ui.销售订单审批上下文','销售订单审批上下文')}</h4>
+              <div className={s.detailGrid}>
+                <span className={s.detailLabel}>{t('ui.触发原因','触发原因')}</span>
+                <span>{(detail.triggerCodes ?? []).join(" / ") || "-"}</span>
+                <span className={s.detailLabel}>{t('ui.客户','客户')}</span>
+                <span>{detail.contextSnapshot?.customerName ?? detail.contextSnapshot?.customerCode ?? "-"}</span>
+                <span className={s.detailLabel}>{t('ui.订单总额','订单总额')}</span>
+                <span>{fmtAmount(detail.contextSnapshot?.totalAmount ?? detail.amount, detail.currencyCode)}</span>
+                {detail.contextSnapshot?.credit && <>
+                  <span className={s.detailLabel}>{t('ui.信用快照','信用快照')}</span>
+                  <span>{detail.contextSnapshot.credit.status ?? "-"} · {t('ui.可用额度','可用额度')} {fmtAmount(detail.contextSnapshot.credit.availableCredit ?? null, detail.currencyCode)} · {t('ui.逾期','逾期')} {detail.contextSnapshot.credit.overdueDays ?? 0}d</span>
+                </>}
+              </div>
+              {(detail.contextSnapshot?.lowPriceItems ?? []).map((item, index) => <div key={`${item.skuCode ?? item.productCode}-${index}`} style={{ marginTop: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 6, fontSize: 12 }}>
+                {item.productName ?? item.skuCode ?? item.productCode} · {t('ui.成交价','成交价')} {item.actualUnitPrice} · {t('ui.底价','底价')} {item.floorPrice} · {t('ui.差额','差额')} {item.priceDifference}
+              </div>)}
+              <a href={`/sales2/orders?orderId=${encodeURIComponent(detail.bizId)}`} style={{ display: "inline-block", marginTop: 12 }}>
+                {t('ui.打开销售订单','打开销售订单')} →
+              </a>
+            </div>}
 
             <h4 style={{
           fontSize: 14,

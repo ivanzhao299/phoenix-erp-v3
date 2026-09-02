@@ -70,6 +70,12 @@ export class WfApprovalInstanceEntity {
   @Column({ name: 'subject', type: 'varchar', length: 256, nullable: true })
   subject: string | null;
 
+  @Column({ name: 'trigger_codes', type: 'text', array: true, default: () => "'{}'::text[]" })
+  triggerCodes: string[];
+
+  @Column({ name: 'context_snapshot', type: 'jsonb', default: () => "'{}'::jsonb" })
+  contextSnapshot: Record<string, unknown>;
+
   // ── Phase I: 表单提交关联 ──────────────────────────────────────────────────
   @Column({ name: 'form_submission_id', type: 'bigint', nullable: true })
   formSubmissionId: string | null;

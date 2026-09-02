@@ -1,6 +1,6 @@
 import {
   Injectable, NotFoundException, ForbiddenException, OnApplicationBootstrap,
-  BadRequestException, Logger,
+  BadRequestException, Logger, ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -47,6 +47,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       ...existing,
       onApproved: (bizId, mgr) => this.approveCallback(bizId, mgr),
       onRejected: (bizId, mgr) => this.rejectCallback(bizId, mgr),
+      onCancelled: (bizId, mgr) => this.cancelCallback(bizId, mgr),
     });
   }
 
@@ -598,14 +599,18 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       } catch (err: any) {
         // ForbiddenException 直接抛出
         if (err?.status === 403) throw err;
-        // 其他错误（如网络/数据问题）记录后不阻断
-        this.logger.warn(`[submit] 信用评估失败，不阻断提交: ${err?.message}`);
+        this.logger.error(`[submit] 信用评估失败，已阻断提交: ${err?.message}`);
+        throw new ServiceUnavailableException('信用评估服务暂时不可用，订单未提交，请稍后重试');
       }
     }
 
     const belowFloor        = !!rec.below_floor_price;
     const needPriceApproval = belowFloor;
     const needApproval      = needPriceApproval || needCreditApproval;
+    const triggerCodes = [
+      ...(needPriceApproval ? ['BELOW_FLOOR_PRICE'] : []),
+      ...(needCreditApproval ? ['CREDIT_OVER_LIMIT'] : []),
+    ];
     const user = this.currentUser();
 
     let finalRec: any = null;
@@ -629,11 +634,36 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         fromStatus: 'DRAFT', toStatus: needApproval ? 'PENDING_APPROVAL' : 'APPROVED',
         actorUserId: user.userId, actorName: user.userName, actorType: 'USER',
         comment: dto.remark ?? null, sourceEndpoint: '/api/v2/sales/orders/:id/submit',
-        sourceModule: 'SALES_ORDER', metadata: { belowFloorPrice: belowFloor, overCredit },
+        sourceModule: 'SALES_ORDER', metadata: { triggerCodes },
       });
 
       if (needApproval) {
         const snap = creditSnapshot ?? {};
+        const lowPriceItems = await mgr.query(
+          `SELECT sku_code AS "skuCode", product_code AS "productCode", product_name AS "productName",
+                  actual_unit_price AS "actualUnitPrice", floor_price AS "floorPrice",
+                  ROUND((floor_price-actual_unit_price)*qty,2) AS "priceDifference"
+           FROM sal_order_items
+           WHERE sales_order_id=$1 AND below_floor_price=TRUE
+           ORDER BY id`,
+          [id],
+        );
+        const contextSnapshot = {
+          customerCode: rec.customer_code,
+          customerName: rec.customer_name,
+          totalAmount: Number(rec.total_amount),
+          lowPriceItems,
+          credit: {
+            totalReceivable: snap.totalReceivable ?? 0,
+            overdueReceivable: snap.overdueReceivable ?? 0,
+            overdueDays: snap.overdueDays ?? 0,
+            creditLimit: snap.creditLimit ?? 0,
+            availableCredit: snap.creditAvailable ?? 0,
+            status: snap.creditStatus ?? 'NORMAL',
+            reason: snap.reason ?? '',
+            snapshotAt: snap.snapshotAt ?? null,
+          },
+        };
         const wf = await this.approvalEngine.startApproval({
           bizType:     'SALES_ORDER',
           bizId:       id,
@@ -642,6 +672,8 @@ export class SalesOrdersService implements OnApplicationBootstrap {
           companyCode: rec.company_code,
           companyName: rec.company_name ?? undefined,
           subject:     `销售订单审批：${rec.order_no}`,
+          triggerCodes,
+          contextSnapshot,
           conditionOverrides: {
             customerCode:      rec.customer_code,
             customerName:      rec.customer_name,
@@ -660,11 +692,14 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         }, mgr);
 
         if (!wf) {
-          const updated = await this.lifecycle.transitionStatus(mgr, id, 'DRAFT', 'APPROVED');
+          const [updated] = await mgr.query(`SELECT * FROM sal_sales_orders WHERE id=$1 AND status='APPROVED'`, [id]);
+          if (!updated) throw new BadRequestException('无规则自动批准回写失败');
           await this.lifecycle.appendEvent(mgr, {
             salesOrderId: id, orderNo: rec.order_no, eventType: 'AUTO_APPROVED_NO_RULE',
             fromStatus: 'DRAFT', toStatus: 'APPROVED', actorType: 'SYSTEM',
-            sourceModule: 'WORKFLOW', metadata: { belowFloorPrice: belowFloor, overCredit },
+            sourceModule: 'WORKFLOW', metadata: {
+              triggerCodes, ruleLookup: 'NO_MATCH_OR_NO_STEPS', failOpenEnabled: true,
+            },
           });
           finalRec = { ...updated, _note: '无审批规则，已自动批准' };
         } else {
@@ -675,15 +710,21 @@ export class SalesOrdersService implements OnApplicationBootstrap {
             salesOrderId: id, orderNo: rec.order_no, eventType: 'APPROVAL_STARTED',
             fromStatus: 'DRAFT', toStatus: 'PENDING_APPROVAL', actorType: 'SYSTEM',
             sourceModule: 'WORKFLOW', sourceRefType: 'WORKFLOW_INSTANCE',
-            sourceRefId: String(wf.id), metadata: { belowFloorPrice: belowFloor, overCredit },
+            sourceRefId: String(wf.id), metadata: { triggerCodes },
           });
         }
       } else {
         const updated = await this.lifecycle.transitionStatus(mgr, id, 'DRAFT', 'APPROVED');
         await this.lifecycle.appendEvent(mgr, {
-          salesOrderId: id, orderNo: rec.order_no, eventType: 'AUTO_APPROVED_NO_RULE',
+          salesOrderId: id, orderNo: rec.order_no, eventType: 'AUTO_APPROVED_NOT_REQUIRED',
           fromStatus: 'DRAFT', toStatus: 'APPROVED', actorType: 'SYSTEM',
-          sourceModule: 'WORKFLOW', metadata: { creditWarning },
+          sourceModule: 'WORKFLOW', metadata: { triggerCodes, creditWarning },
+        });
+        await this.eggInventory.reserveInventory(id, rec.order_no, rec.company_code, mgr);
+        await this.lifecycle.appendEvent(mgr, {
+          salesOrderId: id, orderNo: rec.order_no, eventType: 'INVENTORY_RESERVED',
+          actorType: 'SYSTEM', sourceModule: 'WMS', sourceRefType: 'SALES_ORDER',
+          sourceRefId: id, sourceRefNo: rec.order_no,
         });
         finalRec = { ...updated, _note: creditWarning ? '信用预警（WARNING），已批准但需关注' : '无审批要求，已自动批准' };
       }
@@ -696,7 +737,10 @@ export class SalesOrdersService implements OnApplicationBootstrap {
 
   async approveCallback(bizId: string, mgr: EntityManager): Promise<void> {
     const [order] = await mgr.query(
-      `SELECT id,order_no,company_code,wf_instance_id,status FROM sal_sales_orders WHERE id=$1`, [bizId],
+      `SELECT so.id,so.order_no,so.company_code,so.wf_instance_id,so.status,
+              COALESCE(i.trigger_codes,'{}'::text[]) AS trigger_codes
+       FROM sal_sales_orders so LEFT JOIN wf_approval_instances i ON i.id=so.wf_instance_id
+       WHERE so.id=$1`, [bizId],
     );
     if (!order) throw new NotFoundException(`销售订单 ${bizId} 不存在`);
     await this.lifecycle.appendEvent(mgr, {
@@ -704,6 +748,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       fromStatus: 'PENDING_APPROVAL', toStatus: 'APPROVED', actorType: 'WORKFLOW',
       sourceModule: 'WORKFLOW', sourceRefType: 'WORKFLOW_INSTANCE',
       sourceRefId: order.wf_instance_id ? String(order.wf_instance_id) : null,
+      metadata: { triggerCodes: order.trigger_codes ?? [] },
     });
     this.logger.log(`[SalesOrder] 审批通过: orderId=${bizId} → APPROVED`);
 
@@ -719,7 +764,8 @@ export class SalesOrdersService implements OnApplicationBootstrap {
 
   async rejectCallback(bizId: string, mgr: EntityManager): Promise<void> {
     const [order] = await mgr.query(
-      `SELECT order_no,wf_instance_id FROM sal_sales_orders WHERE id=$1`, [bizId],
+      `SELECT so.order_no,so.wf_instance_id,COALESCE(i.trigger_codes,'{}'::text[]) AS trigger_codes
+       FROM sal_sales_orders so LEFT JOIN wf_approval_instances i ON i.id=so.wf_instance_id WHERE so.id=$1`, [bizId],
     );
     if (!order) throw new NotFoundException(`销售订单 ${bizId} 不存在`);
     await this.lifecycle.appendEvent(mgr, {
@@ -728,8 +774,25 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       reasonCode: 'WORKFLOW_REJECTED', comment: '审批拒绝（意见见 Workflow 步骤）',
       sourceModule: 'WORKFLOW', sourceRefType: 'WORKFLOW_INSTANCE',
       sourceRefId: order.wf_instance_id ? String(order.wf_instance_id) : null,
+      metadata: { triggerCodes: order.trigger_codes ?? [] },
     });
     this.logger.log(`[SalesOrder] 审批拒绝: orderId=${bizId} → REJECTED`);
+  }
+
+  async cancelCallback(bizId: string, mgr: EntityManager): Promise<void> {
+    const [order] = await mgr.query(
+      `SELECT so.order_no,so.wf_instance_id,COALESCE(i.trigger_codes,'{}'::text[]) AS trigger_codes
+       FROM sal_sales_orders so LEFT JOIN wf_approval_instances i ON i.id=so.wf_instance_id WHERE so.id=$1`, [bizId],
+    );
+    if (!order) throw new NotFoundException(`销售订单 ${bizId} 不存在`);
+    await this.lifecycle.appendEvent(mgr, {
+      salesOrderId: bizId, orderNo: order.order_no, eventType: 'CANCELLED',
+      fromStatus: 'PENDING_APPROVAL', toStatus: 'CANCELLED', actorType: 'WORKFLOW',
+      reasonCode: 'WORKFLOW_CANCELLED', comment: '审批实例取消并回写订单',
+      sourceModule: 'WORKFLOW', sourceRefType: 'WORKFLOW_INSTANCE',
+      sourceRefId: order.wf_instance_id ? String(order.wf_instance_id) : null,
+      metadata: { triggerCodes: order.trigger_codes ?? [] },
+    });
   }
 
   // ── 8. 取消 ───────────────────────────────────────────────────────────────
@@ -743,13 +806,23 @@ export class SalesOrdersService implements OnApplicationBootstrap {
 
     const user = this.currentUser();
     return this.ds.transaction(async (mgr) => {
-      if (rec.status === 'APPROVED' || rec.status === 'ALLOCATED') {
+      const [current] = await mgr.query(`SELECT * FROM sal_sales_orders WHERE id=$1`, [id]);
+      if (!current) throw new NotFoundException(`销售订单 ${id} 不存在`);
+      if (NO_CANCEL_STATUSES.has(current.status)) throw new BadRequestException(`状态 ${current.status} 的订单不可取消`);
+      // 与 approve/reject 保持一致的锁顺序：实例 → 业务单据，规避双向联动死锁。
+      if (current.status === 'PENDING_APPROVAL') {
+        if (!current.wf_instance_id) throw new BadRequestException('待审批订单缺少审批实例，已拒绝取消');
+        await this.approvalEngine.cancelInstance(String(current.wf_instance_id), mgr, false);
+      }
+      const [locked] = await mgr.query(`SELECT * FROM sal_sales_orders WHERE id=$1 FOR UPDATE`, [id]);
+      if (NO_CANCEL_STATUSES.has(locked.status)) throw new BadRequestException(`状态 ${locked.status} 的订单不可取消`);
+      if (locked.status === 'APPROVED' || locked.status === 'ALLOCATED') {
         await this.eggInventory.releaseInventory(id, rec.order_no, rec.company_code, mgr);
       }
-      const updated = await this.lifecycle.transitionStatus(mgr, id, rec.status, 'CANCELLED');
+      const updated = await this.lifecycle.transitionStatus(mgr, id, locked.status, 'CANCELLED');
       await this.lifecycle.appendEvent(mgr, {
         salesOrderId: id, orderNo: rec.order_no, eventType: 'CANCELLED',
-        fromStatus: rec.status, toStatus: 'CANCELLED', actorType: 'USER',
+        fromStatus: locked.status, toStatus: 'CANCELLED', actorType: 'USER',
         actorUserId: user.userId, actorName: user.userName,
         reasonCode: 'USER_CANCELLED', comment: dto.remark,
         sourceEndpoint: '/api/v2/sales/orders/:id/cancel', sourceModule: 'SALES_ORDER',
