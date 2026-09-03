@@ -225,5 +225,19 @@ PR #165 的 merge commit 为 `d24886f59736e05745dc700ba3d41b94e51b188e`，实际
 生产只读审计输入校验 PASS。当前工作机没有可启动本地 compose 所需的 `JWT_SECRET`
 和测试服务，真实 scope-audit 留给 CI/受控环境执行，不将连接失败记作 PASS。
 
-部署、revision、生产状态分布、页面冒烟和 60 分钟错误窗口结果将在对应 Actions
-运行完成后回填。
+交付与生产复验：
+
+- PR [#176](https://github.com/ivanzhao299/phoenix-erp-v3/pull/176) required checks 全绿，
+  merge revision `157d2c4cca0a307db2d5429f1a36efe3680dd51a`。
+- full 部署 run `33735580485` 成功，生产备份、迁移、API/Web 镜像切换与 smoke
+  全部通过。
+- production readonly audit run `33736959896` 成功；checkout/API/Web revision
+  均为 `157d2c4cca0a307db2d5429f1a36efe3680dd51a`。
+- `SELECT status, COUNT(*) FROM wms_transfer GROUP BY status` 的生产结果仅有
+  `COMPLETED=5`；未发现 `PENDING/IN_TRANSIT/RECEIVED/CANCELLED` 或其它历史异常值，
+  因此无需数据处置。
+- `/api/crud/wms_transfer` 以 admin 只读请求返回 HTTP 200、5 行，名称 projection
+  非空；`/warehouse/transfer` 路由 smoke 为 HTTP 200，未命中 Application/React/500
+  错误标记。
+- 近 60 分钟 `sys_error_logs` 目标路径计数 0，容器 inventory/WMS 错误匹配 0；
+  审计最终输出 `PASS PRODUCTION_BUSINESS_WRITES=0`。
