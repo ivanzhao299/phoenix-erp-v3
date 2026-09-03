@@ -3,6 +3,7 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../org/services/data-scope.service';
+import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import {
   isIssueOutboundType,
@@ -169,8 +170,8 @@ export class WmsService {
     const farms = scope?.allowedFarmCodes ?? [];
     const sites = scope?.allowedSiteCodes ?? [];
     const lookups: Record<string, { sql: string; params: unknown[] }> = {
-      HOUSE: { sql: `SELECT 1 FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code
-        WHERE h.house_code=$1 AND h.status='ACTIVE' AND ($2::boolean OR h.farm_code=ANY($3) OR f.company_code=ANY($4) OR NULLIF(to_jsonb(f)->>'mapped_site_code','')=ANY($5)) LIMIT 1`, params: [code, global, farms, companies, sites] },
+      HOUSE: { sql: `SELECT 1 FROM brd_houses h ${OrgOwnershipService.ACTIVE_FARM_JOIN}
+        WHERE h.house_code=$1 AND h.status='ACTIVE' AND ($2::boolean OR h.farm_code=ANY($3) OR f.company_code=ANY($4) OR ${OrgOwnershipService.FARM_SITE_SQL}=ANY($5)) LIMIT 1`, params: [code, global, farms, companies, sites] },
       CUSTOMER: { sql: `SELECT 1 FROM sal_customers WHERE customer_no=$1 AND status='ACTIVE' AND ($2::boolean OR company_code=ANY($3)) LIMIT 1`, params: [code, global, companies] },
       WAREHOUSE: { sql: `SELECT 1 FROM wms_warehouses WHERE warehouse_code=$1 AND status='ACTIVE' AND domain='OPERATIONAL' AND ($2::boolean OR warehouse_code=ANY($3)) LIMIT 1`, params: [code, global, warehouses] },
       STORE: { sql: `SELECT 1 FROM mst_stores WHERE store_code=$1 AND status='ACTIVE' AND ($2::boolean OR company_code=ANY($3)) LIMIT 1`, params: [code, global, companies] },
