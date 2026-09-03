@@ -45,6 +45,7 @@ describe('SalesOrdersService draft creation', () => {
 
   it('retries order item insert without sku_code when production schema lacks the optional column', async () => {
     const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM wms_warehouses')) return [{ warehouse_code: 'WH-MENGSE' }];
       if (sql.includes('COUNT(*) AS cnt FROM sal_sales_orders')) {
         return [{ cnt: '0' }];
       }
@@ -68,6 +69,7 @@ describe('SalesOrdersService draft creation', () => {
 
     await expect(service.createDraft({
       companyCode: 'COMP-MENGSE',
+      fulfillmentWarehouseCode: 'WH-MENGSE',
       currencyCode: 'LAK',
       items: [{
         skuCode: 'SKU-1-30',
@@ -91,6 +93,7 @@ describe('SalesOrdersService draft creation', () => {
 
   it('resolves a legacy customer code through the canonical sal_customers columns', async () => {
     const query = jest.fn(async (sql: string, params?: unknown[]) => {
+      if (sql.includes('FROM wms_warehouses')) return [{ warehouse_code: 'WH-LAO-AGRI' }];
       if (sql.includes('FROM sal_customers')) {
         expect(sql).toContain('customer_no = $1 OR legacy_customer_code = $1');
         expect(sql).not.toMatch(/\bcustomer_code\s*=\s*\$1/);
@@ -117,6 +120,7 @@ describe('SalesOrdersService draft creation', () => {
 
     await expect(service.createDraft({
       companyCode: 'COMP-LAO-AGRI',
+      fulfillmentWarehouseCode: 'WH-LAO-AGRI',
       customerCode: 'CUS-LEGACY',
       items: [{ productCode: 'PRD-EGG-1', qty: 1, actualUnitPrice: 12 }],
     })).resolves.toMatchObject({ id: '102' });
@@ -217,7 +221,7 @@ describe('SalesOrdersService APPROVED inventory boundary', () => {
     await expect(f.service.submit('201', {} as any)).resolves.toMatchObject({ status: 'APPROVED' });
     expect(f.inventory.reserveInventory).toHaveBeenCalledTimes(1);
     expect(f.inventory.reserveInventory).toHaveBeenCalledWith(
-      '201', 'SO-APPROVAL-1', 'COMP-A', f.manager,
+      '201', 'SO-APPROVAL-1', 'COMP-A', f.manager, undefined,
     );
   });
 
@@ -254,7 +258,7 @@ describe('SalesOrdersService APPROVED inventory boundary', () => {
     await f.service.approveCallback('201', f.manager as any);
     expect(f.inventory.reserveInventory).toHaveBeenCalledTimes(1);
     expect(f.inventory.reserveInventory).toHaveBeenCalledWith(
-      '201', 'SO-APPROVAL-1', 'COMP-A', f.manager,
+      '201', 'SO-APPROVAL-1', 'COMP-A', f.manager, undefined,
     );
   });
 

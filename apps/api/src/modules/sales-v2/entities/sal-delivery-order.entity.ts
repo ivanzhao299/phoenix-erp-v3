@@ -21,6 +21,7 @@ export class SalDeliveryOrderEntity {
   @Column({ name: 'delivery_no', type: 'varchar', length: 64, unique: true }) deliveryNo: string;
   @Column({ name: 'company_code', type: 'varchar', length: 64 }) companyCode: string;
   @Column({ name: 'company_name', type: 'varchar', length: 256, nullable: true }) companyName: string | null;
+  @Column({ name: 'fulfillment_warehouse_code', type: 'varchar', length: 64, nullable: true }) fulfillmentWarehouseCode: string | null;
   @Column({ name: 'route_code', type: 'varchar', length: 64, nullable: true }) routeCode: string | null;
   @Column({ name: 'route_name', type: 'varchar', length: 256, nullable: true }) routeName: string | null;
   @Column({ name: 'vehicle_id', type: 'bigint', nullable: true }) vehicleId: string | null;

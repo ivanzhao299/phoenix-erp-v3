@@ -179,6 +179,7 @@ interface DeliveryOrder {
   delivery_no: string;
   status: string;
   company_code: string;
+  fulfillment_warehouse_code?: string | null;
   company_name_display?: string | null;
   driver_name: string | null;
   driver_name_master?: string | null;
@@ -204,6 +205,7 @@ interface DeliveryItem {
   planned_qty: number;
   loaded_qty: number | null;
   received_qty: number | null;
+  outbound_qty?: number | null;
   status: string;
   receipt_id: string | null;
 }
@@ -944,7 +946,7 @@ export default function DeliveryPage() {
           gap: 8,
           marginBottom: 16
         }}>
-                {[[t('ui.公司','公司'), formatMasterData(selected, 'company_name', selected.company_code, lang)], [t('ui.司机','司机'), formatMasterData(selected, 'driver_name', selected.driver_name, lang)], [t('ui.车辆','车辆'), selected.vehicle_no ?? '—'], [t('ui.路线','路线'), selected.route_name ?? '—'], [t('ui.波次日期','波次日期'), selected.wave_date ?? '—'], [t('ui.预计到达','预计到达'), selected.expected_arrival_at ? new Date(selected.expected_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.实际到达','实际到达'), selected.actual_arrival_at ? new Date(selected.actual_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.完成时间','完成时间'), selected.completed_at ? new Date(selected.completed_at).toLocaleString('zh-CN') : '—']].map(([k, v]) => <div key={k} className={u.fs12}>
+                {[[t('ui.公司','公司'), formatMasterData(selected, 'company_name', selected.company_code, lang)], [t('ui.履约仓','履约仓'), selected.fulfillment_warehouse_code ?? t('ui.待治理（历史单）','待治理（历史单）')], [t('ui.司机','司机'), formatMasterData(selected, 'driver_name', selected.driver_name, lang)], [t('ui.车辆','车辆'), selected.vehicle_no ?? '—'], [t('ui.路线','路线'), selected.route_name ?? '—'], [t('ui.波次日期','波次日期'), selected.wave_date ?? '—'], [t('ui.预计到达','预计到达'), selected.expected_arrival_at ? new Date(selected.expected_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.实际到达','实际到达'), selected.actual_arrival_at ? new Date(selected.actual_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.完成时间','完成时间'), selected.completed_at ? new Date(selected.completed_at).toLocaleString('zh-CN') : '—']].map(([k, v]) => <div key={k} className={u.fs12}>
                     <span style={{
               color: 'var(--text-secondary)',
               marginRight: 6

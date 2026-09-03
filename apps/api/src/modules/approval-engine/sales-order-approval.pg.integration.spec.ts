@@ -246,11 +246,11 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     );
     const [delivery] = await ds.query(
       `INSERT INTO sal_delivery_orders(delivery_no,company_code,status,total_orders,total_qty)
-       VALUES($1,'PG-IT','LOADING',1,4) RETURNING id`, [deliveryNo],
+       VALUES($1,'PG-IT','LOADING',1,2) RETURNING id`, [deliveryNo],
     );
     await ds.query(
       `INSERT INTO sal_delivery_order_items(delivery_order_id,sales_order_id,sales_order_no,planned_qty,status)
-       VALUES($1,$2,$3,4,'LOADED')`, [delivery.id, order.id, orderNo],
+       VALUES($1,$2,$3,2,'LOADED')`, [delivery.id, order.id, orderNo],
     );
     const scopedCls = { get: jest.fn((key: string) => key === 'user'
       ? { userId: '1', username: 'pg-approver' }
@@ -271,7 +271,7 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
            FROM sal_delivery_orders d,inv_batches b,sal_order_item_batch_allocations a
           WHERE d.id=$1 AND b.batch_no=$2 AND a.id=$3`, [delivery.id, batchNo, allocation.id, deliveryNo],
       );
-      expect(state).toMatchObject({ status: 'LOADED', qty: '6.000', outbound_qty: '4.00', ledger_rows: '1', action_rows: '1' });
+      expect(state).toMatchObject({ status: 'LOADED', qty: '8.000', outbound_qty: '2.00', ledger_rows: '1', action_rows: '1' });
     } finally {
       await ds.query(`DELETE FROM sal_order_item_batch_allocation_actions WHERE allocation_id=$1`, [allocation.id]);
       await ds.query(`DELETE FROM sal_delivery_order_items WHERE delivery_order_id=$1`, [delivery.id]);

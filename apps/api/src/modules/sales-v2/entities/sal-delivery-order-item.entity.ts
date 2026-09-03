@@ -21,6 +21,7 @@ export class SalDeliveryOrderItemEntity {
   @Column({ name: 'planned_qty', type: 'numeric', precision: 18, scale: 2, default: 0 }) plannedQty: number;
   @Column({ name: 'loaded_qty', type: 'numeric', precision: 18, scale: 2, default: 0 }) loadedQty: number;
   @Column({ name: 'received_qty', type: 'numeric', precision: 18, scale: 2, default: 0 }) receivedQty: number;
+  @Column({ name: 'outbound_qty', type: 'numeric', precision: 18, scale: 2, default: 0 }) outboundQty: number;
   @Column({ name: 'status', type: 'varchar', length: 32, default: 'PENDING' }) status: string;
   @Column({ name: 'receipt_id', type: 'bigint', nullable: true }) receiptId: string | null;
   @Column({ name: 'remark', type: 'text', nullable: true }) remark: string | null;

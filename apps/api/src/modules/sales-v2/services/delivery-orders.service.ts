@@ -54,6 +54,7 @@ export class DeliveryOrdersService {
       userName:     String(u?.name ?? u?.username ?? ''),
       roles:        (u?.roles ?? (u?.role ? [u.role] : [])) as string[],
       companyCodes: scope ? scope.allowedCompanyCodes : [] as string[],
+      warehouseCodes: scope ? scope.allowedWarehouseCodes : [] as string[],
       scopeAll:     scope ? scope.isGlobal : false,
     };
   }
@@ -208,18 +209,54 @@ export class DeliveryOrdersService {
     const orderNos = orderRefs.filter((ref) => !/^\d+$/.test(ref));
     const orders = await this.ds.query(
       `SELECT so.id, so.order_no, so.customer_code, so.customer_name, so.delivery_address,
-              so.status, so.company_code, COALESCE(items.planned_qty, 0) AS planned_qty
+              so.status, so.company_code, so.fulfillment_warehouse_code,
+              COALESCE(items.order_qty, 0) AS order_qty,
+              COALESCE(outbound.outbound_qty, 0) AS outbound_qty
        FROM sal_sales_orders so
        LEFT JOIN (
-         SELECT sales_order_id, SUM(qty) AS planned_qty
+         SELECT sales_order_id, SUM(qty) AS order_qty
          FROM sal_order_items
          GROUP BY sales_order_id
        ) items ON items.sales_order_id = so.id
+       LEFT JOIN (
+         SELECT oi.sales_order_id,SUM(a.outbound_qty) AS outbound_qty
+         FROM sal_order_items oi JOIN sal_order_item_batch_allocations a ON a.sales_order_item_id=oi.id
+         GROUP BY oi.sales_order_id
+       ) outbound ON outbound.sales_order_id=so.id
        WHERE so.id = ANY($1::bigint[]) OR so.order_no = ANY($2::text[])`,
       [soIds, orderNos],
     );
 
     if (!orders.length) throw new BadRequestException('未找到有效的销售订单');
+    if (orders.some((o: any) => o.company_code !== dto.companyCode)) {
+      throw new BadRequestException('配送公司必须与全部销售订单公司一致');
+    }
+    const warehouses = [...new Set(orders.map((o: any) => o.fulfillment_warehouse_code).filter(Boolean))];
+    if (warehouses.length > 1) throw new BadRequestException('一个配送单只能继承一个履约仓');
+    const fulfillmentWarehouseCode = warehouses[0] ?? null;
+    if (fulfillmentWarehouseCode && !user.scopeAll && !user.warehouseCodes.includes(String(fulfillmentWarehouseCode))) {
+      throw new ForbiddenException(`无权使用履约仓 ${fulfillmentWarehouseCode}`);
+    }
+
+    const requestedItems = dto.items ?? [];
+    const requestedKeys = requestedItems.map((x) => String(x.salesOrderId));
+    if (new Set(requestedKeys).size !== requestedKeys.length) {
+      throw new BadRequestException('本次配送计划不允许重复销售订单');
+    }
+    const validOrderKeys = new Set(orders.flatMap((o: any) => [String(o.id), String(o.order_no)]));
+    const unknownKeys = requestedKeys.filter((key) => !validOrderKeys.has(key));
+    if (unknownKeys.length) {
+      throw new BadRequestException(`配送计划包含未关联的销售订单：${unknownKeys.join(', ')}`);
+    }
+    const requested = new Map(requestedItems.map((x) => [String(x.salesOrderId), Number(x.qty)]));
+    for (const order of orders) {
+      const remaining = Number(order.order_qty) - Number(order.outbound_qty);
+      const qty = requested.get(String(order.id)) ?? requested.get(String(order.order_no)) ?? remaining;
+      if (!(qty > 0) || qty > remaining) {
+        throw new ConflictException(`订单 ${order.order_no} 本次配送 ${qty} 超过剩余可配送 ${remaining}`);
+      }
+      order.planned_qty = qty;
+    }
 
     const invalidStatuses = orders.filter((o: any) =>
       !['APPROVED', 'ALLOCATED', 'PICKED', 'LOADED'].includes(o.status),
@@ -248,15 +285,15 @@ export class DeliveryOrdersService {
       // 写配送单主表
       const [doRow] = await mgr.query(
         `INSERT INTO sal_delivery_orders (
-          delivery_no, company_code, company_name,
+          delivery_no, company_code, company_name, fulfillment_warehouse_code,
           route_code, route_name,
           vehicle_id, vehicle_no, driver_id, driver_name,
           wave_date, expected_arrival_at,
           total_orders, total_qty, remark, created_by, status
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'PLANNED')
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'PLANNED')
         RETURNING *`,
         [
-          deliveryNo, dto.companyCode, dto.companyName ?? null,
+          deliveryNo, dto.companyCode, dto.companyName ?? null, fulfillmentWarehouseCode,
           dto.routeCode ?? null, dto.routeName ?? null,
           dto.vehicleId ?? null, dto.vehicleNo ?? null,
           dto.driverId ?? null, dto.driverName ?? null,
@@ -268,6 +305,7 @@ export class DeliveryOrdersService {
 
       // 写配送明细
       for (const so of orders) {
+        await mgr.query(`SELECT id FROM sal_sales_orders WHERE id=$1 FOR UPDATE`, [so.id]);
         await mgr.query(
           `INSERT INTO sal_delivery_order_items (
             delivery_order_id, sales_order_id, sales_order_no,
@@ -392,19 +430,24 @@ export class DeliveryOrdersService {
       );
       if (changed.length !== 1) throw new ConflictException(`配送单 ${locked.delivery_no} 装车状态冲突`);
       const soItems = await mgr.query(
-      `SELECT doi.sales_order_id, so.order_no, so.company_code, so.status
+      `SELECT doi.id AS delivery_item_id,doi.sales_order_id,doi.planned_qty,so.order_no,so.company_code,so.status
        FROM sal_delivery_order_items doi
        JOIN sal_sales_orders so ON so.id = doi.sales_order_id
        WHERE doi.delivery_order_id=$1`, [id],
       );
       for (const item of soItems) {
-        await this.eggInventory.confirmOutbound(
+        const outboundQty = await this.eggInventory.confirmOutbound(
           String(item.sales_order_id),
           String(item.order_no),
           String(item.company_code ?? 'ALL'),
           String(locked.delivery_no),
           id,
+          Number(item.planned_qty),
           mgr,
+        );
+        await mgr.query(
+          `UPDATE sal_delivery_order_items SET loaded_qty=$1,outbound_qty=$1,updated_at=NOW() WHERE id=$2`,
+          [outboundQty, item.delivery_item_id],
         );
         await this.lifecycle.appendEvent(mgr, {
           salesOrderId: String(item.sales_order_id), orderNo: item.order_no,
@@ -431,7 +474,14 @@ export class DeliveryOrdersService {
 
     // 获取关联销售订单 ID
     const items = await this.ds.query(
-      `SELECT i.sales_order_id,so.order_no,so.status FROM sal_delivery_order_items i JOIN sal_sales_orders so ON so.id=i.sales_order_id WHERE i.delivery_order_id=$1`, [id],
+      `SELECT i.sales_order_id,so.order_no,so.status,
+              (SELECT COALESCE(SUM(a.outbound_qty),0) FROM sal_order_items oi
+               JOIN sal_order_item_batch_allocations a ON a.sales_order_item_id=oi.id
+               WHERE oi.sales_order_id=so.id)
+              >= (SELECT COALESCE(SUM(oi.qty),0) FROM sal_order_items oi WHERE oi.sales_order_id=so.id)
+                AS fully_outbound
+       FROM sal_delivery_order_items i JOIN sal_sales_orders so ON so.id=i.sales_order_id
+       WHERE i.delivery_order_id=$1`, [id],
     );
     const soIds = items.map((i: any) => Number(i.sales_order_id));
     const invalid = items.filter((i: any) => i.status !== 'ALLOCATED');
@@ -447,18 +497,22 @@ export class DeliveryOrdersService {
         `UPDATE sal_delivery_order_items SET status='DELIVERED', updated_at=NOW() WHERE delivery_order_id=$1`,
         [id],
       );
-      // 销售订单 → SHIPPED
+      // 只有累计出库达到订单总量才进入 SHIPPED；部分配送保持 ALLOCATED。
       if (soIds.length) {
         await mgr.query(
           `UPDATE sal_sales_orders SET status='SHIPPED', updated_at=NOW()
-           WHERE id = ANY($1) AND status='ALLOCATED'`,
+           WHERE id = ANY($1) AND status='ALLOCATED'
+             AND (SELECT COALESCE(SUM(a.outbound_qty),0) FROM sal_order_items oi
+                  JOIN sal_order_item_batch_allocations a ON a.sales_order_item_id=oi.id WHERE oi.sales_order_id=sal_sales_orders.id)
+                 >= (SELECT COALESCE(SUM(oi.qty),0) FROM sal_order_items oi WHERE oi.sales_order_id=sal_sales_orders.id)`,
           [soIds],
         );
       }
       for (const item of items) {
         await this.lifecycle.appendEvent(mgr, {
           salesOrderId: String(item.sales_order_id), orderNo: item.order_no,
-          eventType: 'DELIVERY_DEPARTED', fromStatus: item.status, toStatus: 'SHIPPED',
+          eventType: 'DELIVERY_DEPARTED', fromStatus: item.status,
+          toStatus: item.fully_outbound ? 'SHIPPED' : item.status,
           actorType: 'USER', actorUserId: this.currentUser().userId, actorName: this.currentUser().userName,
           sourceModule: 'DELIVERY', sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: rec.delivery_no,
         });
@@ -481,15 +535,15 @@ export class DeliveryOrdersService {
       `SELECT i.sales_order_id,so.order_no,so.status FROM sal_delivery_order_items i JOIN sal_sales_orders so ON so.id=i.sales_order_id WHERE i.delivery_order_id=$1`, [id],
     );
     const soIds = items.map((i: any) => Number(i.sales_order_id));
-    const invalid = items.filter((i: any) => i.status !== 'SHIPPED');
-    if (invalid.length) throw new BadRequestException(`关联订单状态必须为 SHIPPED：${invalid.map((i: any) => i.order_no).join(',')}`);
+    const invalid = items.filter((i: any) => !['SHIPPED','ALLOCATED'].includes(i.status));
+    if (invalid.length) throw new BadRequestException(`关联订单状态必须为 SHIPPED/ALLOCATED：${invalid.map((i: any) => i.order_no).join(',')}`);
 
     await this.ds.transaction(async (mgr) => {
       await mgr.query(
         `UPDATE sal_delivery_orders SET status='ARRIVED', actual_arrival_at=NOW(), updated_at=NOW() WHERE id=$1`,
         [id],
       );
-      // 销售订单 → DELIVERED
+      // 部分配送订单保持 ALLOCATED；全量已发货订单才进入 DELIVERED。
       if (soIds.length) {
         await mgr.query(
           `UPDATE sal_sales_orders SET status='DELIVERED', delivered_at=NOW(), updated_at=NOW()
@@ -500,7 +554,8 @@ export class DeliveryOrdersService {
       for (const item of items) {
         await this.lifecycle.appendEvent(mgr, {
           salesOrderId: String(item.sales_order_id), orderNo: item.order_no,
-          eventType: 'DELIVERY_ARRIVED', fromStatus: item.status, toStatus: 'DELIVERED',
+          eventType: 'DELIVERY_ARRIVED', fromStatus: item.status,
+          toStatus: item.status === 'SHIPPED' ? 'DELIVERED' : item.status,
           actorType: 'USER', actorUserId: this.currentUser().userId, actorName: this.currentUser().userName,
           sourceModule: 'DELIVERY', sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: rec.delivery_no,
         });

@@ -11,7 +11,7 @@ import { LoadingSkeleton, EmptyState } from '@/components/design-system'; // P1-
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { ConfirmDialogV2 } from '@/components/design-system/dialogs/ConfirmDialogV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
-import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
+import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector, WarehouseSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizeSalesOrdersPage } from '@/lib/sales-orders-response';
 import styles from './orders.module.css';
@@ -163,6 +163,8 @@ interface Order {
   customer_code: string | null;
   customer_name: string | null;
   company_code: string;
+  fulfillment_warehouse_code?: string | null;
+  warehouse_governance_pending?: boolean;
   channel_code: string | null;
   status: string;
   total_amount: number;
@@ -341,6 +343,7 @@ export default function SalesV2OrdersPage() {
   // 新建表单状态
   const [newForm, setNewForm] = useState({
     companyCode: '',
+    fulfillmentWarehouseCode: '',
     customerCode: '',
     channelCode: '',
     remark: '',
@@ -515,6 +518,10 @@ export default function SalesV2OrdersPage() {
       setActionError(t('ui.请填写公司代码','请填写公司代码'));
       return;
     }
+    if (!newForm.fulfillmentWarehouseCode) {
+      setActionError(t('ui.请选择履约仓','请选择履约仓'));
+      return;
+    }
     const validItems = newItems.filter(i => i.productCode && Number(i.qty) > 0);
     if (!validItems.length) {
       setActionError(t('ui.请至少添加一行有效明细','请至少添加一行有效明细'));
@@ -526,6 +533,7 @@ export default function SalesV2OrdersPage() {
     try {
       await api('POST', '/api/v2/sales/orders', {
         companyCode: newForm.companyCode,
+        fulfillmentWarehouseCode: newForm.fulfillmentWarehouseCode,
         customerCode: newForm.customerCode || undefined,
         channelCode: newForm.channelCode || undefined,
         remark: newForm.remark || undefined,
@@ -543,6 +551,7 @@ export default function SalesV2OrdersPage() {
       setShowCreate(false);
       setNewForm({
         companyCode: '',
+        fulfillmentWarehouseCode: '',
         customerCode: '',
         channelCode: '',
         remark: '',
@@ -846,6 +855,16 @@ export default function SalesV2OrdersPage() {
               ...p,
               companyCode: v
             }))} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
+                  {t('ui.履约仓 *','履约仓 *')}
+                </label>
+                <WarehouseSelector
+                  value={newForm.fulfillmentWarehouseCode}
+                  companyCode={newForm.companyCode}
+                  onChange={v => setNewForm(p => ({ ...p, fulfillmentWarehouseCode: v }))}
+                />
               </div>
               <div>
                 <label style={{
@@ -1295,7 +1314,7 @@ export default function SalesV2OrdersPage() {
           gap: 8,
           fontSize: 13
         }}>
-              {[[t('ui.客户','客户'), formatMasterData({ customer_name: detailOrder.customer_name_master ?? detailOrder.customer_name, customer_name_en: detailOrder.customer_name_en, customer_name_lo: detailOrder.customer_name_lo }, 'customer_name', detailOrder.customer_code, lang)], [t('ui.渠道','渠道'), formatMasterData({ channel_name: detailOrder.channel_name }, 'channel_name', detailOrder.channel_code, lang)], [t('ui.总金额','总金额'), `${Number(detailOrder.total_amount).toLocaleString()} ${detailOrder.currency_code}`], [t('ui.应收状态','应收状态'), detailOrder.ar_invoice_id ? t('ui.✓ 已生成应收账款','✓ 已生成应收账款') : t('ui.未生成','未生成')]].map(([k, v]) => <div key={k as string}>
+              {[[t('ui.客户','客户'), formatMasterData({ customer_name: detailOrder.customer_name_master ?? detailOrder.customer_name, customer_name_en: detailOrder.customer_name_en, customer_name_lo: detailOrder.customer_name_lo }, 'customer_name', detailOrder.customer_code, lang)], [t('ui.渠道','渠道'), formatMasterData({ channel_name: detailOrder.channel_name }, 'channel_name', detailOrder.channel_code, lang)], [t('ui.履约仓','履约仓'), detailOrder.fulfillment_warehouse_code ?? t('ui.待治理（历史单）','待治理（历史单）')], [t('ui.总金额','总金额'), `${Number(detailOrder.total_amount).toLocaleString()} ${detailOrder.currency_code}`], [t('ui.应收状态','应收状态'), detailOrder.ar_invoice_id ? t('ui.✓ 已生成应收账款','✓ 已生成应收账款') : t('ui.未生成','未生成')]].map(([k, v]) => <div key={k as string}>
                   <div style={{
               fontSize: 11,
               color: 'var(--text-secondary)',
