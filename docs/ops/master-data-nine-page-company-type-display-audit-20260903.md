@@ -260,9 +260,11 @@ cd apps/web && npx playwright test e2e/display-defects-i18n.spec.ts
 
 ### 13.3 验证与部署
 
-待 CI、full 部署和部署后只读复验完成后补录 run、revision、Runtime 字段抽查及错误窗口。
-
-请用户确认以下两点后再实施：
-
-1. 是否批准先提交并运行受控 production read-only manifest，再按上述 P0 拆分修复？
-2. 是否同意将司机 `codeKey` 错配作为本轮伴随 P0 修复；车辆类型/日期漂移只审计、暂不改数据语义？
+- 本地验证：API/Web `tsc --noEmit`、全量 build、Web Vitest（104 files / 561 tests）、API Jest 串行全量（90 suites passed、1 skipped；757 tests passed、6 skipped）、i18n key/硬编码门禁全部通过。新增 9 页三语/未知值/真实回退、8 表 JOIN 行数、司机主键及 9 页防回潮契约测试。
+- 本地 Playwright 用例已编写，但当前 runner 缺少 Chromium 系统库 `libnspr4.so`，浏览器未能启动，故不将其记为通过；该环境限制不影响双端编译、单测、构建或生产 API 只读复验。
+- push CI：run `33741589500`，结论 `success`；双端类型检查、迁移/约束/entity drift 门禁、API build、系统/养殖/包装/WMS/财务回归及 API/Web 镜像构建推送全部通过。
+- full 部署：workflow_dispatch run `33742343372`，结论 `success`；部署目标 commit `4f7eb821e2c8b557c669b03972aa85c400f21a22`。
+- 部署后受控只读复验：run `33742947769`，结论 `success`；checkout/API/Web revision 均为 `4f7eb821e2c8b557c669b03972aa85c400f21a22`，`PRODUCTION_BUSINESS_WRITES=0`。
+- 8 表 JOIN 复验与预检行数一致，全部 `company_missing=0 / join_miss=0 / join_duplicate=0`；类型分布未改变，车辆历史中文自由文本仍为 `厢式货车 1`。
+- 9 个 Runtime GET 均为 HTTP 200：项目 13、客户 87、供应商 34、仓库 31、门店 10、司机 6、车辆 1、资金账户 77、银行账户 1。8 个公司页均保留 `company_code`，且 `company_display_name/company_display_name_zh` 非空抽查通过；供应商仅验证既有 `supplier_code`，未虚构 `company_code`。
+- 错误窗口：`MASTER_DATA_NINE_PAGE_ERROR_WINDOW_60M=0`，`LIFECYCLE_PROCESS_LOG_ERROR_WINDOW_60M=0`。
