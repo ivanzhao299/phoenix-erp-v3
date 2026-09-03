@@ -12,6 +12,8 @@ import { WfApprovalInstanceEntity } from './entities/wf-approval-instance.entity
 import { WfApprovalInstanceStepEntity } from './entities/wf-approval-instance-step.entity';
 import { WorkflowNotificationService } from '../workflow/workflow-notification.service';
 import { AssignmentResolverService } from '../workflow/assignment-resolver.service';
+import { EggInventoryService } from '../sales-v2/services/egg-inventory.service';
+import { DeliveryOrdersService } from '../sales-v2/services/delivery-orders.service';
 
 const describePg = process.env.RUN_PG_INTEGRATION === '1' ? describe : describe.skip;
 
@@ -83,14 +85,37 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     return { order, instance };
   }
 
-  it('approve commits instance + order + lifecycle + inventory callback atomically', async () => {
+  it('approve reserves two FIFO batches atomically, then finishLoading writes FIFO_OUT', async () => {
     const { order, instance } = await fixture();
-    const batchNo = `B-PG-${randomUUID().slice(0, 8)}`;
-    await runner.manager.query(`INSERT INTO inv_batches(batch_no,company_code,product_code,qty,qty_available,status) VALUES($1,'PG-IT','PG-SKU',10,10,'AVAILABLE')`, [batchNo]);
+    const suffix = randomUUID().slice(0, 8);
+    const skuCode = `SKU-PG-${suffix}`;
+    const firstBatch = `B-PG-1-${suffix}`;
+    const secondBatch = `B-PG-2-${suffix}`;
+    const deliveryNo = `DV-PG-${suffix}`;
+    await runner.manager.query(
+      `INSERT INTO sal_order_items(sales_order_id,product_code,sku_code,qty,unit_price,amount,resolved_unit_price,actual_unit_price)
+       VALUES($1,'PG-PRODUCT',$2,4,25,100,25,25)`, [order.id, skuCode],
+    );
+    await runner.manager.query(
+      `INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,qty,qty_available,status,expire_date,legacy_source)
+       VALUES($1,'PG-IT','PG-WH','PG-PRODUCT',$3,2,2,'AVAILABLE',CURRENT_DATE + 1,NULL),
+             ($2,'PG-IT','PG-WH','PG-PRODUCT',$3,6,6,'AVAILABLE',CURRENT_DATE + 2,NULL)`,
+      [firstBatch, secondBatch, skuCode],
+    );
+    const scopedCls = {
+      get: jest.fn((key: string) => key === 'user'
+        ? { userId: '1', username: 'pg-approver' }
+        : key === 'dataScope' ? { isGlobal: true, allowedCompanyCodes: [] } : undefined),
+    };
+    const txDataSource = {
+      query: (...args: any[]) => runner.manager.query(args[0], args[1]),
+      transaction: (fn: any) => fn(runner.manager),
+    } as DataSource;
+    const inventory = new EggInventoryService(txDataSource, scopedCls as any);
     registry.register('SALES_ORDER', {
       ...registry.get('SALES_ORDER')!,
       onApproved: async (bizId, mgr) => {
-        await mgr.query(`UPDATE inv_batches SET qty_available=qty_available-1 WHERE batch_no=$1`, [batchNo]);
+        await inventory.reserveInventory(String(bizId), order.order_no, 'PG-IT', mgr);
         await mgr.query(
           `INSERT INTO sal_order_lifecycle_events(event_id,sales_order_id,order_no,event_type,actor_type,source_module)
            VALUES($1,$2,$3,'APPROVED','WORKFLOW','WORKFLOW')`, [randomUUID(), bizId, order.order_no],
@@ -99,13 +124,40 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     });
     await expect(engine.approveStep(String(instance.id), 'pg integration')).resolves.toMatchObject({ finished: true, approved: true });
     const [state] = await runner.manager.query(
-      `SELECT so.status order_status,i.status instance_status,s.status step_status,b.qty_available,
+      `SELECT so.status order_status,i.status instance_status,s.status step_status,
+              oi.allocated_qty,oi.allocated_batch_no,
+              (SELECT SUM(qty_available) FROM inv_batches WHERE batch_no IN ($2,$3)) qty_available,
+              (SELECT COALESCE(SUM(-qty_change),0) FROM inv_ledger WHERE ref_no=so.order_no AND change_type='RESERVED') reserved_qty,
               (SELECT count(*) FROM sal_order_lifecycle_events e WHERE e.sales_order_id=so.id AND e.event_type='APPROVED') event_count
        FROM sal_sales_orders so JOIN wf_approval_instances i ON i.id=so.wf_instance_id
-       JOIN wf_approval_instance_steps s ON s.instance_id=i.id JOIN inv_batches b ON b.batch_no=$2 WHERE so.id=$1`,
-      [order.id, batchNo],
+       JOIN wf_approval_instance_steps s ON s.instance_id=i.id
+       JOIN sal_order_items oi ON oi.sales_order_id=so.id WHERE so.id=$1`,
+      [order.id, firstBatch, secondBatch],
     );
-    expect(state).toMatchObject({ order_status: 'APPROVED', instance_status: 'APPROVED', step_status: 'APPROVED', qty_available: '9.000', event_count: '1' });
+    expect(state).toMatchObject({
+      order_status: 'APPROVED', instance_status: 'APPROVED', step_status: 'APPROVED',
+      allocated_qty: '4.00', allocated_batch_no: `${firstBatch},${secondBatch}`,
+      qty_available: '4.000', reserved_qty: '4.000', event_count: '1',
+    });
+
+    const [delivery] = await runner.manager.query(
+      `INSERT INTO sal_delivery_orders(delivery_no,company_code,status,total_orders,total_qty)
+       VALUES($1,'PG-IT','LOADING',1,4) RETURNING id`, [deliveryNo],
+    );
+    await runner.manager.query(
+      `INSERT INTO sal_delivery_order_items(delivery_order_id,sales_order_id,sales_order_no,planned_qty,status)
+       VALUES($1,$2,$3,4,'LOADED')`, [delivery.id, order.id, order.order_no],
+    );
+    const deliveryService = new DeliveryOrdersService(
+      txDataSource, scopedCls as any, inventory, { appendEvent: jest.fn().mockResolvedValue(undefined) } as any,
+    );
+    await deliveryService.finishLoading(String(delivery.id), {} as any);
+    const [outbound] = await runner.manager.query(
+      `SELECT (SELECT SUM(qty) FROM inv_batches WHERE batch_no IN ($1,$2)) qty,
+              (SELECT COALESCE(SUM(-qty_change),0) FROM inv_ledger WHERE ref_no=$3 AND change_type='FIFO_OUT') fifo_out_qty`,
+      [firstBatch, secondBatch, deliveryNo],
+    );
+    expect(outbound).toMatchObject({ qty: '4.000', fifo_out_qty: '4.000' });
   });
 
   it('instance cancellation closes the order and pending steps; late approval is rejected', async () => {

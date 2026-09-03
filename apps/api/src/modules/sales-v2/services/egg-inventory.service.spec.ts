@@ -23,6 +23,59 @@ describe('EggInventoryService conditional inventory updates', () => {
       [2, 'B-1', 'COMP-A', 'WH-A'],
     );
   });
+
+  it('reports company, SKU, requested qty and company-allocatable qty without warehouse details', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('SELECT * FROM inv_batches')) return [{
+        batch_no: 'B-1', company_code: 'COMP-A', warehouse_code: 'WH-SECRET',
+        status: 'AVAILABLE', qty_available: 3, sku_code: 'SKU-1', legacy_source: null,
+      }];
+      if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
+      return [];
+    });
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+
+    await expect(service.allocateByFIFO({
+      productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 5,
+      refNo: 'SO-1', note: 'test',
+    })).rejects.toThrow('库存不足：订单公司=COMP-A sku=SKU-1 需求量=5 该公司可分配量=3');
+
+    try {
+      await service.allocateByFIFO({
+        productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 5,
+        refNo: 'SO-1', note: 'test',
+      });
+    } catch (error) {
+      expect(String((error as Error).message)).not.toContain('WH-SECRET');
+      expect(String((error as Error).message)).not.toContain('batch');
+    }
+  });
+
+  it('keeps the complete FIFO company/status/expiry/legacy matrix and SKU path in SQL', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('SELECT * FROM inv_batches')) return [{
+        batch_no: 'B-1', warehouse_code: 'WH-A', qty_available: 1, sku_code: 'SKU-1',
+      }];
+      if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
+      return [];
+    });
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    await service.allocateByFIFO({
+      productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 1,
+      refNo: 'SO-1', note: 'test',
+    });
+    const candidateSql = String(query.mock.calls.find(([sql]) => String(sql).includes('SELECT * FROM inv_batches'))?.[0]);
+    expect(candidateSql).toContain('company_code = $1');
+    expect(candidateSql).toContain("status = 'AVAILABLE'");
+    expect(candidateSql).toContain('qty_available > 0');
+    expect(candidateSql).toContain('expire_date >= CURRENT_DATE');
+    expect(candidateSql).toContain('legacy_source IS NULL');
+    expect(candidateSql).toContain('sku_code = $2');
+    expect(candidateSql).toContain('ORDER BY expire_date ASC NULLS LAST, created_at ASC');
+    expect(candidateSql).toContain('FOR UPDATE');
+  });
 });
 
 describe('EggInventoryService getExpiringBatches DataScope', () => {

@@ -137,3 +137,72 @@ describe('SalesOrdersService draft creation', () => {
     expect(ds.transaction).not.toHaveBeenCalled();
   });
 });
+
+describe('SalesOrdersService APPROVED inventory boundary', () => {
+  function submitFixture(orderOverrides: Record<string, unknown> = {}) {
+    const order = {
+      id: '201', order_no: 'SO-APPROVAL-1', status: 'DRAFT', customer_code: null,
+      company_code: 'COMP-A', company_name: 'A Company', below_floor_price: false,
+      total_amount: 100, ...orderOverrides,
+    };
+    const manager = { query: jest.fn().mockResolvedValue([]) };
+    const ds = {
+      query: jest.fn().mockResolvedValue([order]), manager,
+      transaction: jest.fn((fn: any) => fn(manager)),
+    } as any;
+    const approvalEngine = { startApproval: jest.fn() };
+    const inventory = { reserveInventory: jest.fn().mockResolvedValue(undefined) };
+    const lifecycle = {
+      appendEvent: jest.fn().mockResolvedValue(undefined),
+      transitionStatus: jest.fn().mockResolvedValue({ ...order, status: 'APPROVED' }),
+    };
+    const cls = { get: jest.fn((key: string) => key === 'dataScope'
+      ? { isGlobal: true, allowedCompanyCodes: [] }
+      : { userId: '1', username: 'sales-user' }) };
+    const service = new SalesOrdersService(
+      ds, cls as any, approvalEngine as any, {} as any, {} as any, {} as any,
+      {} as any, inventory as any, lifecycle as any, { get: jest.fn(), register: jest.fn() } as any,
+    );
+    return { service, ds, manager, approvalEngine, inventory, lifecycle, order };
+  }
+
+  it('reserves inventory in the same transaction when submission needs no approval', async () => {
+    const f = submitFixture();
+    await expect(f.service.submit('201', {} as any)).resolves.toMatchObject({ status: 'APPROVED' });
+    expect(f.inventory.reserveInventory).toHaveBeenCalledTimes(1);
+    expect(f.inventory.reserveInventory).toHaveBeenCalledWith(
+      '201', 'SO-APPROVAL-1', 'COMP-A', f.manager,
+    );
+  });
+
+  it('does not reserve when submission starts a required approval workflow', async () => {
+    const f = submitFixture({ below_floor_price: true });
+    f.approvalEngine.startApproval.mockResolvedValue({ id: 'WF-1' });
+    f.lifecycle.transitionStatus.mockResolvedValue({ ...f.order, status: 'PENDING_APPROVAL' });
+    await expect(f.service.submit('201', {} as any)).resolves.toMatchObject({ status: 'PENDING_APPROVAL' });
+    expect(f.inventory.reserveInventory).not.toHaveBeenCalled();
+  });
+
+  it('reserves only when the workflow final-approval callback runs', async () => {
+    const f = submitFixture();
+    f.manager.query.mockResolvedValueOnce([{
+      id: '201', order_no: 'SO-APPROVAL-1', company_code: 'COMP-A',
+      status: 'APPROVED', wf_instance_id: 'WF-1', trigger_codes: ['BELOW_FLOOR_PRICE'],
+    }]);
+    await f.service.approveCallback('201', f.manager as any);
+    expect(f.inventory.reserveInventory).toHaveBeenCalledTimes(1);
+    expect(f.inventory.reserveInventory).toHaveBeenCalledWith(
+      '201', 'SO-APPROVAL-1', 'COMP-A', f.manager,
+    );
+  });
+
+  it('propagates reservation failure so the submission transaction cannot commit', async () => {
+    const f = submitFixture();
+    f.inventory.reserveInventory.mockRejectedValue(new Error('inventory shortage'));
+    await expect(f.service.submit('201', {} as any)).rejects.toThrow('inventory shortage');
+    expect(f.ds.transaction).toHaveBeenCalledTimes(1);
+    expect(f.lifecycle.appendEvent).not.toHaveBeenCalledWith(
+      f.manager, expect.objectContaining({ eventType: 'INVENTORY_RESERVED' }),
+    );
+  });
+});

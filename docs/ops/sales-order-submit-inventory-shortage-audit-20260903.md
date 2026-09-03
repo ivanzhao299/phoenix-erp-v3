@@ -148,3 +148,26 @@ FOR UPDATE;
 - 未重放用户提交，未执行生产写操作。
 - 未获知第二个 SKU，报告不虚构其库存。
 - 在取得失败订单标识并完成精确只读复验前，本报告不授权任何修复。
+
+## E. 修复执行记录（2026-09-03）
+
+用户已补充失败订单锚点 `SO-20260903-00004`，订单公司为 `COMP-LAO-AGRI`，并确认保持 `APPROVED` 硬预留语义。
+
+本轮实施：
+
+1. FIFO 公司隔离、状态、效期、legacy 与 SKU 条件均未放宽；预留时点仍为订单进入 `APPROVED` 的事务内。
+2. 库存不足响应新增订单公司、SKU（或旧 product/grade）、需求量和该公司可分配量；不返回批次号或仓库明细。
+3. 订单提交增加确认框，明确“免审提交会自动批准并锁定库存；需审批订单在最终批准时锁定库存”。
+4. 新增订单锚点只读清单 `scripts/ops/readonly-audits/sales-order-shortage-so-20260903-00004.sql`，覆盖订单快照、明细、公司×仓×状态分布、完整 FIFO WHERE、逐个去掉 company/status/expiry/legacy 的变化，以及 XINGCHI 998 枚候选断言。
+5. 草稿软库存提示未实施：现有批次查询属于库存菜单权限，销售订单用户未必可访问；在没有订单域聚合接口的前提下接入会造成越权或逐行 lookup。
+
+本地验证与生产执行结果见后续提交记录。生产定案必须以受控 `production-readonly-audit` 输出为准；在清单运行前，不把 AGRI 候选量为 0 或 XINGCHI 998 为唯一大宗写成已证实事实。
+
+本地执行结果：
+
+- API TypeScript：0 errors。
+- Web TypeScript：0 errors；Vitest 全量 102 files / 526 tests PASS。
+- 销售订单 + FIFO 定向 Jest：2 suites / 15 tests PASS。
+- 真实 PostgreSQL 审批/FIFO/装车集成：3 tests PASS；双批次预留与 `finishLoading()` 的 `RESERVED` / `FIFO_OUT` 数量断言通过。
+- API Jest 全量：87 suites / 722 tests PASS，1 suite / 2 tests FAIL；失败为既有 `chanjet-callback.controller.spec.ts` 两个镜像收敛测试固定 5 秒超时，隔离重跑仍复现，与本次销售改动无关。
+- 生产只读清单输入校验：PASS；实际生产结果待部署后受控通道回填。
