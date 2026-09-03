@@ -706,6 +706,8 @@ export class SalesOrdersService implements OnApplicationBootstrap {
           },
         }, mgr);
 
+        // startApproval contract: null means the engine already performed the
+        // fail-open DRAFT→APPROVED CAS and invoked this module's onApproved hook.
         if (!wf) {
           const [updated] = await mgr.query(`SELECT * FROM sal_sales_orders WHERE id=$1 AND status='APPROVED'`, [id]);
           if (!updated) throw new BadRequestException('无规则自动批准回写失败');
