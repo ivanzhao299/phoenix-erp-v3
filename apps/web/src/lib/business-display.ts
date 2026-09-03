@@ -5,6 +5,19 @@ type Labels = Record<Lang, string>;
 const l = (zh: string, en: string, lo: string): Labels => ({ zh, en, lo });
 
 export const BUSINESS_ENUMS = {
+  projectType: { INVESTMENT:l('投资项目','Investment','ໂຄງການລົງທຶນ'), OPERATION:l('经营项目','Operation','ໂຄງການດຳເນີນງານ'), COST_CENTER:l('成本中心','Cost center','ສູນຕົ້ນທຶນ'), PROFIT_CENTER:l('利润中心','Profit center','ສູນກຳໄລ') },
+  supplierType: {
+    LOCAL:l('本地','Local','ທ້ອງຖິ່ນ'), OVERSEAS:l('海外','Overseas','ຕ່າງປະເທດ'), AGENT:l('代理','Agent','ຕົວແທນ'),
+    RAW_MATERIAL:l('原材料','Raw material','ວັດຖຸດິບ'), PACKAGING:l('包装','Packaging','ບັນຈຸພັນ'), FEED:l('饲料','Feed','ອາຫານສັດ'),
+    MEDICINE:l('兽药','Veterinary medicine','ຢາສັດ'), EQUIPMENT:l('设备','Equipment','ອຸປະກອນ'), CHICK:l('鸡苗','Chick','ລູກໄກ່'),
+    VACCINE:l('疫苗','Vaccine','ວັກຊີນ'), VETERINARY:l('兽医用品','Veterinary supplies','ອຸປະກອນສັດຕະວະແພດ'), OTHER:l('其他','Other','ອື່ນໆ')
+  },
+  warehouseType: {
+    FACTORY:l('工厂仓','Factory','ສາງໂຮງງານ'), DISTRIBUTION:l('配送仓','Distribution','ສາງແຈກຢາຍ'), RETAIL:l('门店仓','Retail','ສາງຮ້ານ'), TRANSIT:l('中转仓','Transit','ສາງຂົນສົ່ງ'), COLD:l('冷库','Cold storage','ສາງເຢັນ'), QUARANTINE:l('隔离仓','Quarantine','ສາງກັກກັນ'),
+    GENERAL:l('综合仓','General','ສາງທົ່ວໄປ'), COLD_STORAGE:l('冷藏仓','Cold storage','ສາງເຢັນ'), EGG_FARM:l('蛋场仓','Egg farm','ສາງຟາມໄຂ່'), EGG_SALES:l('蛋品销售仓','Egg sales','ສາງຂາຍໄຂ່'), FEED:l('饲料仓','Feed','ສາງອາຫານສັດ'), FINISHED:l('成品仓','Finished goods','ສາງສິນຄ້າສຳເລັດ'), MEDICINE:l('兽药仓','Medicine','ສາງຢາ'), PURCHASE_RECV:l('采购收货仓','Purchase receiving','ສາງຮັບສິນຄ້າ'), RAW_MATERIAL:l('原料仓','Raw material','ສາງວັດຖຸດິບ')
+  },
+  cashAccountType: { BANK:l('银行账户','Bank','ບັນຊີທະນາຄານ'), CASH:l('现金账户','Cash','ບັນຊີເງິນສົດ'), VIRTUAL:l('虚拟账户','Virtual','ບັນຊີເສມືນ'), SHAREHOLDER:l('股东账户','Shareholder','ບັນຊີຜູ້ຖືຫຸ້ນ'), INTERNAL:l('内部账户','Internal','ບັນຊີພາຍໃນ'), EWALLET:l('电子钱包','E-wallet','ກະເປົາເງິນເອເລັກໂຕຣນິກ'), PERSONAL_AGENT:l('个人代收付','Personal agent','ຕົວແທນສ່ວນບຸກຄົນ') },
+  vehicleType: { TRUCK:l('卡车','Truck','ລົດບັນທຸກ'), VAN:l('面包车','Van','ລົດຕູ້'), PICKUP:l('皮卡','Pickup','ລົດກະບະ'), REFRIGERATED:l('冷藏车','Refrigerated truck','ລົດຫ້ອງເຢັນ') },
   inventory: { AVAILABLE:l('可用','Available','ພ້ອມໃຊ້'), RESERVED:l('已预留','Reserved','ຈອງແລ້ວ'), QUARANTINE:l('隔离','Quarantine','ກັກກັນ'), DAMAGED:l('损坏','Damaged','ເສຍຫາຍ'), FROZEN:l('冻结','Frozen','ລະງັບ'), LOCKED:l('锁定','Locked','ລັອກ'), RETURNED:l('退货待检','Returned for inspection','ສົ່ງຄືນລໍຖ້າກວດ'), EXPIRED:l('已过期','Expired','ໝົດອາຍຸ'), WRITTEN_OFF:l('已核销','Written off','ຕັດອອກແລ້ວ') },
   wmsWorkflow: { PENDING:l('待处理','Pending','ລໍຖ້າດຳເນີນການ'), PROCESSING:l('处理中','Processing','ກຳລັງດຳເນີນການ'), COMPLETED:l('已完成','Completed','ສຳເລັດ') },
   salesOrder: { DRAFT:l('草稿','Draft','ຮ່າງ'), PENDING_APPROVAL:l('待审批','Pending approval','ລໍຖ້າອະນຸມັດ'), APPROVED:l('已批准','Approved','ອະນຸມັດແລ້ວ'), LOCKED:l('已锁定','Locked','ລັອກແລ້ວ'), ALLOCATED:l('已分配','Allocated','ຈັດສັນແລ້ວ'), PICKED:l('已拣货','Picked','ເກັບແລ້ວ'), LOADED:l('已装车','Loaded','ຂຶ້ນລົດແລ້ວ'), SHIPPED:l('已发货','Shipped','ສົ່ງແລ້ວ'), PARTIAL_SHIPPED:l('部分发货','Partially shipped','ສົ່ງບາງສ່ວນ'), DELIVERED:l('已送达','Delivered','ສົ່ງເຖິງແລ້ວ'), RECEIVED:l('已签收','Received','ຮັບແລ້ວ'), RECONCILED:l('已对账','Reconciled','ກວດສອບແລ້ວ'), REJECTED:l('已拒绝','Rejected','ປະຕິເສດ'), CANCELLED:l('已取消','Cancelled','ຍົກເລີກ') },
@@ -38,4 +51,8 @@ export function formatBusinessEnum(domain: BusinessEnumDomain, value: unknown, l
 
 export function formatMasterData(row: object | null | undefined, nameBase: string, code: unknown, lang: AppLanguage = 'zh'): string {
   return masterNameWithCode(localizedMasterName(row as Record<string, unknown> | null | undefined, nameBase, lang), String(code ?? '')) || '—';
+}
+
+export function formatCompany(row: object | null | undefined, companyCode: unknown, lang: AppLanguage = 'zh'): string {
+  return formatMasterData(row, 'company_display_name', companyCode, lang);
 }

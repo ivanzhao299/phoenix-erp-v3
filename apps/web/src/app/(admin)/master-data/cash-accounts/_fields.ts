@@ -6,11 +6,12 @@ export const CASH_ACCOUNT_FIELDS: MdField[] = [
   { key: "company_code",   label: "所属公司", required: true, type: "company", onPickKeys: { company_name: "org_name" }, group: "基本信息" },
   { key: "company_name",   label: "所属公司名称(自动带出)", type: "readonly", group: "基本信息" },
   { key: "currency_code",  label: "币种", required: true, dictType: "SYS_CURRENCY", group: "基本信息" },
-  { key: "account_type",   label: "账户类型", required: true, type: "select", group: "基本信息",
+  { key: "account_type",   label: "账户类型", required: true, type: "select", displayKind: "cashAccountType", group: "基本信息",
     options: [
       { value: "BANK", label: "银行账户" }, { value: "CASH", label: "现金账户" },
       { value: "VIRTUAL", label: "虚拟账户" }, { value: "SHAREHOLDER", label: "股东账户" },
       { value: "INTERNAL", label: "内部账户" },
+      { value: "EWALLET", label: "电子钱包" }, { value: "PERSONAL_AGENT", label: "个人代收付" },
     ] },
   { key: "bank_name",       label: "开户行",     group: "银行信息" },
   { key: "bank_account_no", label: "银行账号",   group: "银行信息" },

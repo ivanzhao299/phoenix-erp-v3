@@ -14287,5 +14287,6 @@
   "ui.录入员": "ຜູ້ບັນທຶກ", "ui.其他去向": "ປາຍທາງອື່ນ",
   "analytics.col_broken": "ໄຂ່ແຕກ", "prc2.kpi_ap_balance_original": "ຍອດໜີ້ຕາມສະກຸນເງິນເດີມ", "prc2.kpi_paid_amount_base": "ຈຳນວນຈ່າຍຕາມສະກຸນເງິນຫຼັກ",
   "warehouse.transfer.status.pending": "ລໍຖ້າຈັດສົ່ງ", "warehouse.transfer.status.in_transit": "ກຳລັງຂົນສົ່ງ", "warehouse.transfer.status.received": "ຮັບແລ້ວ ລໍຖ້າດຳເນີນການ", "warehouse.transfer.status.completed": "ສຳເລັດແລ້ວ", "warehouse.transfer.status.cancelled": "ຍົກເລີກ (ຂໍ້ມູນເກົ່າ)",
-  "warehouse.transfer.action.dispatch": "ຈັດສົ່ງ", "warehouse.transfer.action.receive": "ຮັບສິນຄ້າ", "warehouse.transfer.filter.status": "ກັ່ນຕອງຕາມສະຖານະ", "warehouse.transfer.filter.all": "ທຸກສະຖານະ"
+  "warehouse.transfer.action.dispatch": "ຈັດສົ່ງ", "warehouse.transfer.action.receive": "ຮັບສິນຄ້າ", "warehouse.transfer.filter.status": "ກັ່ນຕອງຕາມສະຖານະ", "warehouse.transfer.filter.all": "ທຸກສະຖານະ",
+  "md.type.rawMaterial": "ວັດຖຸດິບ", "md.type.chick": "ລູກໄກ່", "md.type.veterinary": "ອຸປະກອນສັດຕະວະແພດ", "md.type.generalWarehouse": "ສາງທົ່ວໄປ", "md.type.coldStorage": "ສາງເຢັນ", "md.type.eggFarmWarehouse": "ສາງຟາມໄຂ່", "md.type.eggSalesWarehouse": "ສາງຂາຍໄຂ່", "md.type.feedWarehouse": "ສາງອາຫານສັດ", "md.type.finishedWarehouse": "ສາງສິນຄ້າສຳເລັດ", "md.type.medicineWarehouse": "ສາງຢາ", "md.type.purchaseReceivingWarehouse": "ສາງຮັບສິນຄ້າ", "md.type.personalAgent": "ຕົວແທນສ່ວນບຸກຄົນ"
 }

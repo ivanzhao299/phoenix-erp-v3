@@ -154,7 +154,10 @@ export function CompanySelector(p: BaseProps) {
       // 业务录入用户（如孟赛生产数据主管）也能拉到公司下拉。
       const list = await lookupArr<any>('/lookup/companies');
       return (Array.isArray(list) ? list : [])
-        .map(o => ({ value: o.companyCode || o.orgCode, label: o.orgNameCn || o.orgName, raw: o }));
+        .map(o => {
+          const value = o.companyCode || o.orgCode;
+          return { value, label: masterNameWithCode(o.orgNameCn || o.orgName, value), raw: o };
+        });
     }} />;
 }
 

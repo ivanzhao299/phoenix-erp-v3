@@ -21,6 +21,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
 import { User, ShoppingCart, Receipt, Link2, FileText } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { formatCompany } from "@/lib/business-display";
+import { useDictOptions } from "@/hooks/useDictOptions";
 
 // ── 工具：从各种响应 shape 里取数组 ───────────────────────────────────
 const toArr = (v: any): any[] =>
@@ -41,7 +43,8 @@ const STATUS_META: Record<string, { labelKey: string; label: string; tone: "defa
 interface RefItem { refTable: string; refDocType: string; refCount: number; }
 
 export default function CustomerDetailPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const { codeMap: customerTypeLabels } = useDictOptions('SAL_CUSTOMER_TYPE');
   const params = useParams();
   const router = useRouter();
   const customerPerm = usePermission("MENU_MD_CUSTOMER");
@@ -173,8 +176,8 @@ export default function CustomerDetailPage() {
   const fields: Array<{ label: string; value: React.ReactNode }> = [
     { label: t('md.customer_code','客户编码'), value: <code style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>{code}</code> },
     { label: t('md.customer_name','客户名称'), value: info?.customer_name || "—" },
-    { label: t('md.customer_type','客户类型'), value: info?.customer_type || "—" },
-    { label: t('md.company','所属公司'), value: info?.company_code || "—" },
+    { label: t('md.customer_type','客户类型'), value: customerTypeLabels[String(info?.customer_type ?? '')] || info?.customer_type || "—" },
+    { label: t('md.company','所属公司'), value: formatCompany(info, info?.company_code, lang) },
     { label: t('md.contact_name','联系人'), value: info?.contact_name || "—" },
     { label: t('md.contact_phone','联系电话'), value: info?.contact_phone || "—" },
     { label: t('md.region_code','区域编码'), value: info?.region_code || "—" },
@@ -303,7 +306,7 @@ export default function CustomerDetailPage() {
         subtitle={
           <span>
             <code style={{ fontFamily: "monospace" }}>{code}</code>
-            {info?.customer_type ? ` · ${info.customer_type}` : ""}
+            {info?.customer_type ? ` · ${customerTypeLabels[String(info.customer_type)] || info.customer_type}` : ""}
           </span>
         }
         status={statusBadge}

@@ -15,17 +15,20 @@ import {
   Warehouse, FolderOpen, Banknote, BookOpen, Snowflake,
   Network, Truck, MapPin, Coins, Wallet, Tag, Box, Users, Globe,
 } from 'lucide-react';
+import type { MasterDataDisplayKind } from './MasterDataRuntimePanel';
 
 export interface KpiSpec {
   label: string;
   icon: ReactNode;
   value: (info: any, extra: Record<string, any>) => { display: ReactNode; suffix?: string; tone?: 'default' | 'warning' | 'danger' | 'success' } | null;
+  displayKind?: MasterDataDisplayKind;
 }
 
 export interface BasicField {
   key: string;
   label: string;
   format?: (v: any, info: any) => string;
+  displayKind?: MasterDataDisplayKind;
 }
 
 export interface SectionSpec {
@@ -119,7 +122,7 @@ export const customerConfig: MasterDataConfig = {
   basicFields: [
     { key: 'contact_name',  label: '联系人' },
     { key: 'contact_phone', label: '联系电话' },
-    { key: 'company_code',  label: '所属公司' },
+    { key: 'company_code',  label: '所属公司', displayKind: 'company' },
     { key: 'customer_type', label: '客户类型' },
     { key: 'effective_date', label: '生效日期', format: dateStr },
     { key: 'expire_date',    label: '失效日期', format: (v) => v ? dateStr(v) : '永久' },
@@ -180,7 +183,7 @@ export const supplierConfig: MasterDataConfig = {
     { key: 'contact_name',  label: '联系人' },
     { key: 'contact_phone', label: '联系电话' },
     { key: 'country_code',  label: '国家' },
-    { key: 'supplier_type', label: '类型' },
+    { key: 'supplier_type', label: '类型', displayKind: 'supplierType' },
     { key: 'default_currency', label: '默认币种' },
     { key: 'payment_terms', label: '账期', format: (v) => v ? `${v} 天` : '—' },
   ],
@@ -299,8 +302,8 @@ export const warehouseConfig: MasterDataConfig = {
   ],
   basicFields: [
     { key: 'warehouse_name_zh', label: '中文名' },
-    { key: 'type',              label: '类型' },
-    { key: 'company_code',      label: '公司' },
+    { key: 'type',              label: '类型', displayKind: 'warehouseType' },
+    { key: 'company_code',      label: '公司', displayKind: 'company' },
     { key: 'manager',           label: '负责人' },
     { key: 'effective_date',    label: '生效日期', format: dateStr },
   ],
@@ -330,9 +333,9 @@ export const projectConfig: MasterDataConfig = {
   nameKey: 'project_name',
   referenceObjectType: 'PROJECT',
   basicFields: [
-    { key: 'company_code',     label: '公司' },
+    { key: 'company_code',     label: '公司', displayKind: 'company' },
     { key: 'site_code',        label: '场站' },
-    { key: 'project_type',     label: '项目类型' },
+    { key: 'project_type',     label: '项目类型', displayKind: 'projectType' },
     { key: 'effective_date',   label: '生效日期', format: dateStr },
     { key: 'expire_date',      label: '失效日期', format: (v) => v ? dateStr(v) : '长期' },
     { key: 'remark',           label: '备注' },
@@ -343,7 +346,7 @@ export const projectConfig: MasterDataConfig = {
       value: (info) => ({ display: info?.status || '—' }),
     },
     {
-      label: '公司归属', icon: <Building2 size={16} />,
+      label: '公司归属', icon: <Building2 size={16} />, displayKind: 'company',
       value: (info) => ({ display: info?.company_code || '—' }),
     },
   ],
@@ -404,17 +407,17 @@ export const cashAccountConfig: MasterDataConfig = {
   ],
   kpis: [
     { label: '币种', icon: <Coins size={16} />, value: (info) => ({ display: info?.currency_code || '—' }) },
-    { label: '账户类型', icon: <Wallet size={16} />, value: (info) => ({ display: info?.account_type || '—' }) },
-    { label: '所属公司', icon: <Building2 size={16} />, value: (info) => ({ display: info?.company_code || '—' }) },
+    { label: '账户类型', icon: <Wallet size={16} />, displayKind: 'cashAccountType', value: (info) => ({ display: info?.account_type || '—' }) },
+    { label: '所属公司', icon: <Building2 size={16} />, displayKind: 'company', value: (info) => ({ display: info?.company_code || '—' }) },
     {
       label: '近期流水', icon: <Activity size={16} />,
       value: (_i, extra) => { const list = arr(extra.txns); return { display: list.length, suffix: '笔 (近期)' }; },
     },
   ],
   basicFields: [
-    { key: 'company_code',    label: '所属公司' },
+    { key: 'company_code',    label: '所属公司', displayKind: 'company' },
     { key: 'currency_code',   label: '币种' },
-    { key: 'account_type',    label: '账户类型' },
+    { key: 'account_type',    label: '账户类型', displayKind: 'cashAccountType' },
     { key: 'bank_name',       label: '开户行' },
     { key: 'bank_account_no', label: '银行账号' },
     { key: 'bank_acc_code',   label: '绑定银行账户' },
@@ -458,7 +461,7 @@ export const bankAccountConfig: MasterDataConfig = {
       label: '绑定账户', icon: <Wallet size={16} />,
       value: (_i, extra) => { const list = arr(extra.linked); return { display: list.length, suffix: '个' }; },
     },
-    { label: '所属公司', icon: <Building2 size={16} />, value: (info) => ({ display: info?.company_code || '—' }) },
+    { label: '所属公司', icon: <Building2 size={16} />, displayKind: 'company', value: (info) => ({ display: info?.company_code || '—' }) },
   ],
   basicFields: [
     { key: 'bank_name_en',    label: 'Bank Name' },
@@ -468,7 +471,7 @@ export const bankAccountConfig: MasterDataConfig = {
     { key: 'currency_code',   label: '币种' },
     { key: 'country_code',    label: '国家' },
     { key: 'swift_code',      label: 'SWIFT' },
-    { key: 'company_code',    label: '所属公司' },
+    { key: 'company_code',    label: '所属公司', displayKind: 'company' },
   ],
   sections: [
     {
@@ -515,7 +518,7 @@ export const storeConfig: MasterDataConfig = {
     },
   ],
   basicFields: [
-    { key: 'company_code',   label: '所属公司' },
+    { key: 'company_code',   label: '所属公司', displayKind: 'company' },
     { key: 'manager',        label: '店长' },
     { key: 'phone',          label: '联系电话' },
     { key: 'address',        label: '地址' },
@@ -553,7 +556,7 @@ export const driverConfig: MasterDataConfig = {
   nameKey: 'driver_name',
   referenceObjectType: 'DRIVER',
   extraApis: [
-    { key: 'deliveries', label: '配送单', path: '/crud/sal_delivery_orders?driver_name=:code&limit=10' },
+    { key: 'deliveries', label: '配送单', path: '/crud/sal_delivery_orders?driver_id=:id&limit=10' },
   ],
   kpis: [
     { label: '电话',   icon: <Phone size={16} />, value: (info) => ({ display: info?.phone || '—' }) },
@@ -562,14 +565,12 @@ export const driverConfig: MasterDataConfig = {
       label: '配送次数', icon: <Truck size={16} />,
       value: (_i, extra) => { const list = arr(extra.deliveries); return { display: list.length, suffix: '单 (近期)' }; },
     },
-    { label: '所属公司', icon: <Building2 size={16} />, value: (info) => ({ display: info?.company_code || '—' }) },
+    { label: '所属公司', icon: <Building2 size={16} />, displayKind: 'company', value: (info) => ({ display: info?.company_code || '—' }) },
   ],
   basicFields: [
     { key: 'phone',          label: '联系电话' },
     { key: 'license_no',     label: '驾照号' },
-    { key: 'company_code',   label: '所属公司' },
-    { key: 'effective_date', label: '生效日期', format: dateStr },
-    { key: 'expire_date',    label: '失效日期', format: (v) => v ? dateStr(v) : '长期' },
+    { key: 'company_code',   label: '所属公司', displayKind: 'company' },
   ],
   sections: [
     {
@@ -601,7 +602,7 @@ export const vehicleConfig: MasterDataConfig = {
   ],
   kpis: [
     { label: '车牌',   icon: <Truck size={16} />, value: (info) => ({ display: info?.plate_no || '—' }) },
-    { label: '类型',   icon: <Layers size={16} />, value: (info) => ({ display: info?.vehicle_type || '—' }) },
+    { label: '类型',   icon: <Layers size={16} />, displayKind: 'vehicleType', value: (info) => ({ display: info?.vehicle_type || '—' }) },
     { label: '载重',   icon: <Box size={16} />, value: (info) => ({ display: info?.capacity ? `${info.capacity} kg` : '—' }) },
     {
       label: '配送次数', icon: <Activity size={16} />,
@@ -610,11 +611,9 @@ export const vehicleConfig: MasterDataConfig = {
   ],
   basicFields: [
     { key: 'plate_no',       label: '车牌号' },
-    { key: 'vehicle_type',   label: '车辆类型' },
+    { key: 'vehicle_type',   label: '车辆类型', displayKind: 'vehicleType' },
     { key: 'capacity',       label: '载重(kg)' },
-    { key: 'company_code',   label: '所属公司' },
-    { key: 'effective_date', label: '生效日期', format: dateStr },
-    { key: 'expire_date',    label: '失效日期', format: (v) => v ? dateStr(v) : '长期' },
+    { key: 'company_code',   label: '所属公司', displayKind: 'company' },
   ],
   sections: [
     {

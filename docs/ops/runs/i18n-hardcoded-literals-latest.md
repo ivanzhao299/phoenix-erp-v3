@@ -1,12 +1,12 @@
 # i18n Hardcoded Literals Audit
 
-Generated: 2026-09-02T05:34:26.921Z
+Generated: 2026-09-03T09:48:47.765Z
 
-Scanned hardcoded literals: 3402
-Covered by validated runtime bridge: 3400
-Release-blocking uncovered literals: 2
+Scanned hardcoded literals: 3470
+Covered by validated runtime bridge: 3470
+Release-blocking uncovered literals: 0
 Locale quality issues: 0
-Affected files: 184
+Affected files: 183
 
 A scanned literal is not automatically debt: the runtime bridge is accepted only when the same source text has real English and Lao translations. Release blocking is based on uncovered literals and locale quality issues.
 
@@ -15,31 +15,31 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 | File | Count | Samples |
 |---|---:|---|
 | `apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx` | 446 | 305:精确候选冲突<br>306:已有精确主档待确认<br>307:仓库主档待补齐<br>308:鸡舍库存归属待桥接<br>309:仓储实体类型待核准<br>310:蛋品 SKU 待对齐<br>311:物料主档待补齐<br>313:商品实体类型待核准 |
-| `apps/web/src/components/master-data/detail-configs.tsx` | 200 | 88:客户中心<br>92:订单<br>93:应收<br>97:订单数<br>98:单 (近期)<br>101:近期销售额<br>105:应收余额<br>112:逾期单据 |
+| `apps/web/src/components/master-data/detail-configs.tsx` | 200 | 91:客户中心<br>95:订单<br>96:应收<br>100:订单数<br>101:单 (近期)<br>104:近期销售额<br>108:应收余额<br>115:逾期单据 |
 | `apps/web/src/components/layout/Sidebar.tsx` | 161 | 74:运营工作台<br>76:每日工作台<br>83:经营仪表盘<br>86:生产管理<br>88:养殖总览<br>89:鸡舍管理<br>90:鸡群档案<br>91:日生产日报 |
+| `apps/web/src/lib/business-display.ts` | 142 | 8:投资项目<br>8:经营项目<br>8:成本中心<br>8:利润中心<br>10:本地<br>10:海外<br>10:代理<br>11:原材料 |
 | `apps/web/src/lib/workflow-templates.ts` | 124 | 35:费用报销审批<br>36:财务<br>40:费用报销单<br>43:申请金额<br>44:费用类型<br>44:差旅费<br>44:招待费<br>44:办公费 |
 | `apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx` | 97 | 67:发起申请<br>73:一级审批<br>83:流程完成<br>95:财务会计<br>98:财务负责人<br>101:采购员<br>104:仓储负责人<br>107:品控负责人 |
 | `apps/web/src/lib/dict-type-labels.ts` | 88 | 9:审批模块类型<br>10:品种<br>10:品种类型<br>10:淘汰原因<br>11:鸡群状态<br>11:鸡舍类型<br>11:死亡原因<br>12:养殖班次 |
 | `apps/web/src/app/(admin)/traceability/page.tsx` | 73 | 19:库存批次<br>24:包装批次<br>29:标签码<br>30:标签号 label_no<br>34:销售单<br>35:SO / 订单号<br>39:客户<br>40:客户编码 |
-| `apps/web/src/lib/business-display.ts` | 68 | 8:可用<br>8:已预留<br>8:隔离<br>8:损坏<br>8:冻结<br>8:锁定<br>8:退货待检<br>8:已过期 |
 | `apps/web/src/lib/workflow-data-catalog.ts` | 56 | 23:系统用户<br>24:用户<br>35:用户ID<br>35:作为提交值<br>36:用户姓名<br>36:作为页面显示<br>41:系统角色<br>42:角色 |
 | `apps/web/src/app/(admin)/finance2/reports/page.tsx` | 52 | 311:待同步好业财镜像<br>340:应收待收<br>341:应付待付<br>342:现金 / 银行余额<br>343:今日收款<br>344:今日付款<br>345:科目余额<br>346:资产负债表 |
 | `apps/web/src/lib/shareholder-api.ts` | 48 | 119:蛋鸡养殖场<br>119:肉鸡养殖场<br>119:屠宰加工厂<br>120:食品厂<br>120:有机肥生产厂<br>120:孵化场<br>121:饲料厂<br>121:其他 |
 | `apps/web/src/app/(admin)/system/alerts/page.tsx` | 47 | 74:API 500 / PG 错误<br>75:定时任务失败<br>75:Cron 失败写入 CRON_FAILURE 告警<br>76:IoT 同步异常<br>77:数据质量风险<br>222:手动处理<br>315:当前值班待办<br>322:严重告警 |
 | `apps/web/src/app/(admin)/finance2/page.tsx` | 41 | 162:来源待确认<br>163:好业财应收汇总<br>164:好业财应付汇总<br>165:好业财资金账户<br>166:好业财收款镜像<br>167:好业财付款镜像<br>168:好业财科目余额<br>169:好业财资产负债表 |
+| `apps/web/src/app/(admin)/master-data/suppliers/_fields.ts` | 40 | 5:供应商名称<br>5:基本信息<br>6:英文名称<br>6:基本信息<br>7:供应商类型<br>7:基本信息<br>9:本地<br>9:海外 |
 | `apps/web/src/lib/design-tokens.ts` | 40 | 205:成功<br>206:警告<br>207:危险<br>208:信息<br>209:禁用<br>210:正常<br>211:待处理<br>212:运行中 |
-| `apps/web/src/app/(admin)/master-data/bank-accounts/_fields.ts` | 38 | 5:开户行(中文)<br>5:基本信息<br>6:基本信息<br>7:支行<br>7:基本信息<br>8:所属公司编码<br>8:基本信息<br>9:账号 |
+| `apps/web/src/app/(admin)/master-data/bank-accounts/_fields.ts` | 38 | 5:开户行(中文)<br>5:基本信息<br>6:基本信息<br>7:支行<br>7:基本信息<br>8:所属公司<br>8:基本信息<br>9:账号 |
 | `apps/web/src/app/(admin)/settings/approval-rules/page.tsx` | 38 | 68:采购申请<br>71:采购订单<br>74:付款申请<br>77:股东资金<br>80:费用申请<br>83:报销付款<br>86:销售订单<br>89:销售退货 |
 | `apps/web/src/app/(mobile)/mobile/home/page.tsx` | 35 | 31:每日看板<br>34:生产·包装·品质·销售<br>42:饲料台账<br>45:出入库登记·库存预警<br>53:死淘快录<br>56:各栋死淘数量快速录入<br>64:包装统计<br>67:班次产出、等级分布 |
 | `apps/web/src/app/login/page.tsx` | 35 | 17:集团管理层<br>26:🔑 系统超管<br>31:👑 集团总裁<br>36:🕵 审计专员<br>41:🖥 运维管理员<br>45:养殖品控线<br>54:🏡 养殖场长<br>59:💉 驻场兽医 |
 | `apps/web/src/app/(admin)/finance2/ar/page.tsx` | 34 | 149:未到期<br>153:逾期≤30天<br>157:逾期31-60<br>161:逾期61-90<br>165:逾期>90天<br>174:手工<br>178:销售订单<br>182:合同 |
 | `apps/web/src/app/(admin)/master-data/products/_fields.ts` | 33 | 5:产品名称<br>5:基本信息<br>6:产品名称(中文)<br>6:基本信息<br>7:产品名称(老挝语)<br>7:基本信息<br>8:品类<br>8:基本信息 |
 | `apps/web/src/app/(admin)/master-data/organizations/page.tsx` | 32 | 97:集团<br>98:事业群<br>99:公司<br>100:场区<br>101:工厂<br>102:项目<br>103:仓库<br>104:门店 |
-| `apps/web/src/app/(admin)/master-data/suppliers/_fields.ts` | 31 | 5:供应商名称<br>5:基本信息<br>6:英文名称<br>6:基本信息<br>7:供应商类型<br>7:基本信息<br>9:本地<br>9:海外 |
+| `apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts` | 31 | 5:账户名称<br>5:基本信息<br>6:所属公司<br>6:基本信息<br>7:所属公司名称(自动带出)<br>7:基本信息<br>8:币种<br>8:基本信息 |
 | `apps/web/src/app/(admin)/workflow/builder/page.tsx` | 31 | 24:财务会计<br>27:财务负责人<br>30:采购员<br>33:仓储负责人<br>36:品控负责人<br>43:负责人审批<br>49:申请金额<br>54:申请原因 |
 | `apps/web/src/hooks/usePackagingDicts.ts` | 31 | 14:1号蛋<br>15:2号蛋<br>16:3号蛋<br>17:4号蛋<br>18:5号蛋<br>22:脏蛋<br>23:裂缝蛋<br>24:破损蛋 |
 | `apps/web/src/app/(admin)/daily-work/page.tsx` | 30 | 43:生产日报录入<br>43:存栏 / 死亡 / 淘汰 / 产蛋 / 产蛋率<br>45:鸡群档案<br>47:死淘快速登记<br>47:紧急死亡 / 淘汰登记 · 含原因<br>49:饲料消耗登记<br>51:兽药使用记录<br>51:日常用药 / 治疗记录 |
-| `apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts` | 29 | 5:账户名称<br>5:基本信息<br>6:所属公司<br>6:基本信息<br>7:所属公司名称(自动带出)<br>7:基本信息<br>8:币种<br>8:基本信息 |
 | `apps/web/src/app/(admin)/settings/roles/page.tsx` | 28 | 98:查看<br>100:查看（View）<br>103:新增<br>105:新增（Create）<br>108:编辑<br>110:编辑（Edit）<br>113:删除<br>115:删除（Delete） |
 | `apps/web/src/app/trace/[batchNo]/page.tsx` | 28 | 52:加载中…<br>65:未找到该批次<br>68:未找到批次「<br>80:🥚 凤凰鲜鸡蛋 · 追溯<br>81:📦 批次信息<br>82:批次号<br>83:产品<br>84:规格 / 等级 |
 | `apps/web/src/app/(admin)/data-quality/page.tsx` | 27 | 45:优秀<br>46:良好<br>47:及格<br>48:需整改<br>62:主数据<br>63:主数据<br>64:主数据<br>65:主数据 |
@@ -57,8 +57,8 @@ A scanned literal is not automatically debt: the runtime bridge is accepted only
 | `apps/web/src/app/(admin)/workflow/forms/page.tsx` | 23 | 21:财务<br>21:采购<br>21:合同<br>21:人事<br>21:仓储<br>21:品控<br>21:门店<br>21:养殖 |
 | `apps/web/src/app/(admin)/uat/page.tsx` | 22 | 62:未命名维度<br>76:未命名验收项<br>108:采购管理<br>109:财务管理<br>110:销售管理<br>111:配送管理<br>112:库存管理<br>113:审批流程 |
 | `apps/web/src/app/(admin)/workflow/page.tsx` | 22 | 13:采购申请<br>13:采购<br>14:费用报销<br>14:财务<br>15:库存调整<br>15:仓储<br>16:门店折扣<br>16:门店 |
-| `apps/web/src/app/(admin)/store/replenish/page.tsx` | 21 | 648:提交<br>649:审批<br>650:发运<br>651:签收<br>652:关闭<br>787:提交<br>788:审批<br>789:发运 |
-| `apps/web/src/app/(admin)/breeding/med-stock/page.tsx` | 20 | 55:2号舍<br>55:3号舍<br>55:4号舍<br>55:5号舍<br>55:6号舍<br>55:全场<br>261:药品名称<br>261:规格 |
+| `apps/web/src/app/(admin)/store/replenish/page.tsx` | 21 | 649:提交<br>650:审批<br>651:发运<br>652:签收<br>653:关闭<br>788:提交<br>789:审批<br>790:发运 |
+| `apps/web/src/app/(admin)/breeding/med-stock/page.tsx` | 20 | 56:2号舍<br>56:3号舍<br>56:4号舍<br>56:5号舍<br>56:6号舍<br>56:全场<br>256:药品名称<br>256:规格 |
 | `apps/web/src/app/(admin)/bug-reports/page.tsx` | 20 | 210:已批准待执行<br>211:Agent 执行中<br>212:HOLD 待处理<br>213:待批准入队<br>214:待生成计划<br>293:刷新结果<br>304:已通过<br>304:未通过 |
 | `apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx` | 20 | 103:股权投资<br>104:借款<br>105:垫资<br>106:担保金<br>107:代付<br>117:草稿<br>118:待确认<br>119:已确认 |
 | `apps/web/src/app/(admin)/store-payment/page.tsx` | 20 | 24:万象直营店<br>162:附件预览待安全授权开通。<br>163:当前文件不可预览或下载。<br>164:权限不足，无法访问附件。<br>166:安全策略禁止裸链接访问。<br>168:当前仅显示受控附件状态。<br>214:文件元数据未配置<br>225:安全策略禁止裸链接访问 |

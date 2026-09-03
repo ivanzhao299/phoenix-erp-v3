@@ -95,7 +95,7 @@ const REFERENCE_MAP: Record<string, Array<{
     { refTable: 'product_skus', refDocType: 'SKU', fkColumn: 'spec_code', noField: 'sku_code', linkPattern: '/master-data/product-skus?keyword=:code' },
   ],
   DRIVER: [
-    { refTable: 'sal_delivery_orders', refDocType: '配送单', fkColumn: 'driver_name', noField: 'delivery_no', linkPattern: '/sales2/delivery?keyword=:code' },
+    { refTable: 'sal_delivery_orders', refDocType: '配送单', fkColumn: 'driver_id', noField: 'delivery_no', linkPattern: '/sales2/delivery?keyword=:code' },
   ],
   VEHICLE: [
     { refTable: 'sal_delivery_orders', refDocType: '配送单', fkColumn: 'vehicle_no', noField: 'delivery_no', linkPattern: '/sales2/delivery?keyword=:code' },
@@ -122,20 +122,26 @@ export class MasterDataReferencesService {
   }
 
   async compute(objectType: string, objectCode: string): Promise<ReferenceReport> {
-    const mappings = REFERENCE_MAP[objectType.toUpperCase()] ?? [];
+    const normalizedType = objectType.toUpperCase();
+    const mappings = REFERENCE_MAP[normalizedType] ?? [];
     const references: ReferenceItem[] = [];
     let total = 0;
+    let referenceValue = objectCode;
+    if (normalizedType === 'DRIVER') {
+      const drivers = await this.safe<{ id: string }>('SELECT id::text AS id FROM sal_drivers WHERE driver_code = $1 LIMIT 1', [objectCode]);
+      referenceValue = drivers[0]?.id ?? '__NO_DRIVER__';
+    }
 
     for (const m of mappings) {
       const cntRows = await this.safe<{ c: string }>(
         `SELECT COUNT(*)::text AS c FROM ${m.refTable} WHERE ${m.fkColumn} = $1`,
-        [objectCode],
+        [referenceValue],
       );
       const count = parseInt(cntRows[0]?.c ?? '0', 10);
       if (count > 0) {
         const exRows = await this.safe<{ no: string }>(
           `SELECT ${m.noField} AS no FROM ${m.refTable} WHERE ${m.fkColumn} = $1 ORDER BY created_at DESC NULLS LAST LIMIT 5`,
-          [objectCode],
+          [referenceValue],
         );
         references.push({
           refTable: m.refTable,

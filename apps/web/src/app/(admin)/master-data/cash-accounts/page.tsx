@@ -32,9 +32,9 @@ export default function CashAccountRuntimePage() {
         fields={CASH_ACCOUNT_FIELDS}
         columns={[
           { key: "account_name", label: t('md.accountName', '账户名称') },
-          { key: "company_code", label: t('md.company', '公司') },
+          { key: "company_code", label: t('md.company', '公司'), displayKind: "company" },
           { key: "currency_code", label: t('md.currency', '币种') },
-          { key: "account_type", label: t('md.type', '类型') },
+          { key: "account_type", label: t('md.type', '类型'), displayKind: "cashAccountType" },
           { key: "bank_name", label: t('md.bankName', '开户行') },
         ]}
       />

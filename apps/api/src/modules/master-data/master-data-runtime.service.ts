@@ -535,6 +535,20 @@ export class MasterDataRuntimeService {
     }
   }
 
+  /** Canonical company names are read-only projections; the business row remains authoritative for company_code. */
+  private runtimeReadFrom(c: MdTypeConfig): string {
+    if (!c.companyCol) return `${c.table} base`;
+    return `${c.table} base LEFT JOIN sys_organizations company_org
+      ON company_org.org_type = 'COMPANY'
+     AND COALESCE(company_org.company_code, company_org.org_code) = base.${c.companyCol}`;
+  }
+
+  private runtimeReadSelect(c: MdTypeConfig): string {
+    if (!c.companyCol) return 'base.*';
+    return `base.*, company_org.org_name AS company_display_name,
+      company_org.org_name_cn AS company_display_name_zh`;
+  }
+
   /** 列表（管理用，可按状态/关键词筛选） */
   async list(type: string, opts: { status?: string; keyword?: string; limit?: number } = {}): Promise<any[]> {
     const c = this.cfg(type);
@@ -542,10 +556,10 @@ export class MasterDataRuntimeService {
     // G71：公司数据隔离（有 company 维度的实体按 DataScope 过滤）
     const allowed = await this.allowedCompanies(c);
     if (allowed === 'DENY') return [];
-    if (allowed !== 'ALL') { params.push(allowed); where.push(`${c.companyCol} = ANY($${params.length})`); }
-    if (opts.status) { params.push(opts.status); where.push(`status = $${params.length}`); }
-    if (opts.keyword) { params.push(`%${opts.keyword}%`); where.push(`(${c.codeCol} ILIKE $${params.length} OR ${c.nameCol} ILIKE $${params.length})`); }
-    const sql = `SELECT * FROM ${c.table} ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY updated_at DESC NULLS LAST LIMIT ${Math.min(opts.limit ?? 200, 1000)}`;
+    if (allowed !== 'ALL') { params.push(allowed); where.push(`base.${c.companyCol} = ANY($${params.length})`); }
+    if (opts.status) { params.push(opts.status); where.push(`base.status = $${params.length}`); }
+    if (opts.keyword) { params.push(`%${opts.keyword}%`); where.push(`(base.${c.codeCol} ILIKE $${params.length} OR base.${c.nameCol} ILIKE $${params.length})`); }
+    const sql = `SELECT ${this.runtimeReadSelect(c)} FROM ${this.runtimeReadFrom(c)} ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY base.updated_at DESC NULLS LAST LIMIT ${Math.min(opts.limit ?? 200, 1000)}`;
     return this.ds.query(sql, params);
   }
 
@@ -574,7 +588,10 @@ export class MasterDataRuntimeService {
 
   async get(type: string, code: string): Promise<any> {
     const c = this.cfg(type);
-    const [row] = await this.ds.query(`SELECT * FROM ${c.table} WHERE ${c.codeCol} = $1 LIMIT 1`, [code]);
+    const [row] = await this.ds.query(
+      `SELECT ${this.runtimeReadSelect(c)} FROM ${this.runtimeReadFrom(c)} WHERE base.${c.codeCol} = $1 LIMIT 1`,
+      [code],
+    );
     if (!row) throw new NotFoundException(`主数据不存在：${type}/${code}`);
     // G71：公司越权读保护（同时护住 update/transition——二者内部调 get）。
     //   他公司记录(company 已设且不在可见范围) → 视同不存在，防止按 code 读/改他公司主数据。

@@ -26,10 +26,15 @@ export default function WarehouseRuntimePage() {
         fields={[
           { key: "warehouse_name", label: t('md.warehouseNameEn', '仓库名称（英）'), required: true },
           { key: "warehouse_name_zh", label: t('md.warehouseNameZh', '仓库名称（中文）') },
-          { key: "type", label: t('md.warehouseType', '仓库类型'), type: "select", options: [
+          { key: "type", label: t('md.warehouseType', '仓库类型'), type: "select", displayKind: "warehouseType", options: [
             { value: "FACTORY", label: t('md.whFactory', '工厂仓') }, { value: "DISTRIBUTION", label: t('md.whDistribution', '配送仓') },
             { value: "RETAIL", label: t('md.whRetail', '门店仓') }, { value: "TRANSIT", label: t('md.whTransit', '中转仓') },
             { value: "COLD", label: t('md.whCold', '冷库') }, { value: "QUARANTINE", label: t('md.whQuarantine', '隔离仓') },
+            { value: "GENERAL", label: "GENERAL" }, { value: "COLD_STORAGE", label: "COLD_STORAGE" },
+            { value: "EGG_FARM", label: "EGG_FARM" }, { value: "EGG_SALES", label: "EGG_SALES" },
+            { value: "FEED", label: "FEED" }, { value: "FINISHED", label: "FINISHED" },
+            { value: "MEDICINE", label: "MEDICINE" }, { value: "PURCHASE_RECV", label: "PURCHASE_RECV" },
+            { value: "RAW_MATERIAL", label: "RAW_MATERIAL" },
           ] },
           { key: "company_code", label: t('md.belongCompany', '所属公司'), type: "company", onPickKeys: { company_name: "org_name" } },
           { key: "manager", label: t('md.warehouseManager', '仓库经理'), type: "user" },
@@ -40,8 +45,8 @@ export default function WarehouseRuntimePage() {
         columns={[
           { key: "warehouse_name", label: t('md.warehouseNameEn', '仓库名称（英）') },
           { key: "warehouse_name_zh", label: t('md.nameZh', '中文名') },
-          { key: "type", label: t('md.type', '类型') },
-          { key: "company_code", label: t('md.company', '公司') },
+          { key: "type", label: t('md.type', '类型'), displayKind: "warehouseType" },
+          { key: "company_code", label: t('md.company', '公司'), displayKind: "company" },
         ]}
       />
       <MasterDataDetailDrawer

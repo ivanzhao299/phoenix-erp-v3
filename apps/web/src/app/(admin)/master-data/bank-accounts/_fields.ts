@@ -5,7 +5,7 @@ export const BANK_ACCOUNT_FIELDS: MdField[] = [
   { key: "bank_name",      label: "开户行(中文)",    required: true, group: "基本信息" },
   { key: "bank_name_en",   label: "Bank Name (EN)",   group: "基本信息" },
   { key: "branch_name",    label: "支行",             group: "基本信息" },
-  { key: "company_code",   label: "所属公司编码",     group: "基本信息" },
+  { key: "company_code",   label: "所属公司", type: "company", group: "基本信息" },
   { key: "account_no",     label: "账号",             required: true, group: "账户信息" },
   { key: "account_holder", label: "开户名",           required: true, group: "账户信息" },
   { key: "currency_code",  label: "币种",             required: true, type: "select", group: "账户信息",

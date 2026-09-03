@@ -34,7 +34,7 @@ export default function BankAccountRuntimePage() {
           { key: "account_no", label: t('md.accountNo', '账号') },
           { key: "currency_code", label: t('md.currency', '币种') },
           { key: "country_code", label: t('md.country', '国家') },
-          { key: "company_code", label: t('md.company', '公司') },
+          { key: "company_code", label: t('md.company', '公司'), displayKind: "company" },
         ]}
       />
       <MasterDataDetailDrawer

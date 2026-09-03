@@ -156,6 +156,13 @@ describe('WMS status-vocabulary selectors', () => {
     expect(host.textContent).toContain(expected);
   });
 
+  it('shows company name with code while keeping the code as the selected value', async () => {
+    requestMock.mockResolvedValue({ data: [{ companyCode: 'COMP-LA', orgName: 'Golden Phoenix Laos', orgNameCn: '金凤凰老挝' }] });
+    await act(async () => root.render(createElement(CompanySelector, { value: '', onChange: () => undefined })));
+    await flush();
+    expect(host.textContent).toContain('金凤凰老挝（COMP-LA）');
+  });
+
   it.each([
     [CompanySelector, '公司数据加载失败，请重试'],
     [CustomerSelector, '客户数据加载失败，请重试'],

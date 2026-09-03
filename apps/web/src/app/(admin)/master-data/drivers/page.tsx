@@ -20,21 +20,19 @@ export default function DriverRuntimePage() {
       <MasterDataRuntimePanel
         type="driver"
         title={t('md.driver', '司机')}
-        codeKey="driver_name"
+        codeKey="driver_code"
         nameKey="driver_name"
         onCodeClick={(code) => setDetailCode(code)}
         fields={[
-          { key: "driver_name", label: t('md.driverName', '司机姓名'), required: true, readOnlyOnEdit: true },
+          { key: "driver_name", label: t('md.driverName', '司机姓名'), required: true },
           { key: "phone", label: t('md.contactPhone', '联系电话') },
           { key: "license_no", label: t('md.licenseNo', '驾照号') },
-          { key: "company_code", label: t('md.belongCompanyCode', '所属公司编码') },
-          { key: "effective_date", label: t('md.effectiveDate', '生效日期'), type: "date" },
-          { key: "expire_date", label: t('md.expireDate', '失效日期'), type: "date" },
+          { key: "company_code", label: t('md.belongCompany', '所属公司'), type: "company" },
         ]}
         columns={[
           { key: "phone", label: t('md.phone', '电话') },
           { key: "license_no", label: t('md.license', '驾照') },
-          { key: "company_code", label: t('md.company', '公司') },
+          { key: "company_code", label: t('md.company', '公司'), displayKind: "company" },
         ]}
       />
       <MasterDataDetailDrawer

@@ -22,6 +22,7 @@ import request from '@/lib/api-client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { MasterDataConfig } from './detail-configs';
 import { drawerMask, drawerCloseButton } from '@/components/design-system/cockpit-styles';
+import { formatBusinessEnum, formatCompany } from '@/lib/business-display';
 
 interface ReferenceItem { refTable: string; refDocType: string; refCount: number; }
 interface AuditItem { action: string; operator?: string; reason?: string; created_at: string; }
@@ -43,7 +44,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
-  const { t, translateLiteral } = useLanguage();
+  const { t, translateLiteral, lang } = useLanguage();
   const [info, setInfo] = useState<any>(null);
   const [extra, setExtra] = useState<Record<string, any>>({});
   const [refs, setRefs] = useState<{ totalReferences: number; references: ReferenceItem[]; canArchive: boolean }>({ totalReferences: 0, references: [], canArchive: true });
@@ -60,19 +61,17 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
       catch (e) { errs.push(`${label}: ${e instanceof Error ? e.message : t('ui.失败','失败')}`); return null; }
     };
 
-    const extraCalls = (config.extraApis || []).map(api =>
-      safe<any>(api.path.replace(':code', encodeURIComponent(code)), translateLiteral(api.label))
-    );
-
-    Promise.all([
-      safe<any>(`/master-data/runtime/${config.type}/${encodeURIComponent(code)}`, t('ui.基础','基础')),
-      safe<{ totalReferences: number; references: ReferenceItem[]; canArchive: boolean }>(
+    void (async () => {
+      const infoR = await safe<any>(`/master-data/runtime/${config.type}/${encodeURIComponent(code)}`, t('ui.基础','基础'));
+      const resolvePath = (path: string) => path.replace(/:([A-Za-z_]+)/g, (_match, key: string) =>
+        encodeURIComponent(String(key === 'code' ? code : (infoR?.[key] ?? ''))));
+      const [refsR, auditR, ...extras] = await Promise.all([
+        safe<{ totalReferences: number; references: ReferenceItem[]; canArchive: boolean }>(
         `/master-data/references/${config.referenceObjectType}/${encodeURIComponent(code)}`, t('ui.引用','引用')),
-      safe<{ items: AuditItem[] }>(
+        safe<{ items: AuditItem[] }>(
         `/master-data/audit/${config.referenceObjectType}/${encodeURIComponent(code)}`, t('ui.审计','审计')),
-      ...extraCalls,
-    ]).then(results => {
-      const [infoR, refsR, auditR, ...extras] = results;
+        ...(config.extraApis || []).map(api => safe<any>(resolvePath(api.path), translateLiteral(api.label))),
+      ]);
       setInfo(infoR);
       setRefs(refsR || { totalReferences: 0, references: [], canArchive: true });
       const auditItems = Array.isArray(auditR) ? auditR : (auditR?.items ?? []);
@@ -81,8 +80,9 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
       (config.extraApis || []).forEach((api, i) => { extraMap[api.key] = extras[i]; });
       setExtra(extraMap);
       setErrors(errs);
-    }).finally(() => setLoading(false));
-  }, [open, code, config]);
+      setLoading(false);
+    })();
+  }, [open, code, config, t, translateLiteral]);
 
   if (!open) return null;
 
@@ -135,7 +135,9 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(4, config.kpis.length)}, 1fr)`, gap: 12 }}>
                 {config.kpis.map((k, i) => {
                   const v = k.value(info, extra);
-                  const display = typeof v?.display === 'string' ? translateLiteral(v.display) : v?.display;
+                  const display = k.displayKind === 'company' ? formatCompany(info, v?.display, lang)
+                    : k.displayKind ? formatBusinessEnum(k.displayKind, v?.display, lang)
+                    : typeof v?.display === 'string' ? translateLiteral(v.display) : v?.display;
                   return (
                     <KpiTile
                       key={i}
@@ -160,7 +162,9 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
                   <InfoRow
                     key={f.key}
                     label={translateLiteral(f.label)}
-                    value={f.format ? translateLiteral(f.format(info[f.key], info)) : (info[f.key] || '—')}
+                    value={f.displayKind === 'company' ? formatCompany(info, info[f.key], lang)
+                      : f.displayKind ? formatBusinessEnum(f.displayKind, info[f.key], lang)
+                      : f.format ? translateLiteral(f.format(info[f.key], info)) : (info[f.key] || '—')}
                   />
                 ))}
               </div>

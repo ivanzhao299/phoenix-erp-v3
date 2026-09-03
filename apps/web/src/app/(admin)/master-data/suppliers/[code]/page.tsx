@@ -21,6 +21,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import request from "@/lib/api-client";
 import { Building2, ShoppingCart, Receipt, Link2, FileText } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { formatBusinessEnum } from "@/lib/business-display";
 
 // ── 工具：从各种响应 shape 里取数组 ───────────────────────────────────
 const toArr = (v: any): any[] =>
@@ -41,7 +42,7 @@ const STATUS_META: Record<string, { labelKey: string; label: string; tone: "defa
 interface RefItem { refTable: string; refDocType: string; refCount: number; }
 
 export default function SupplierDetailPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const params = useParams();
   const router = useRouter();
   const supplierPerm = usePermission("MENU_MD_SUPPLIER");
@@ -173,7 +174,7 @@ export default function SupplierDetailPage() {
   const fields: Array<{ label: string; value: React.ReactNode }> = [
     { label: t('md.supplier_code','供应商编码'), value: <code style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>{code}</code> },
     { label: t('md.supplier_name','供应商名称'), value: info?.supplier_name || "—" },
-    { label: t('md.supplier_type','供应商类型'), value: info?.supplier_type || "—" },
+    { label: t('md.supplier_type','供应商类型'), value: formatBusinessEnum('supplierType', info?.supplier_type, lang) },
     { label: t('md.country','国家'), value: info?.country_code || "—" },
     { label: t('md.default_currency','默认币种'), value: info?.default_currency || "—" },
     { label: t('md.contact_name','联系人'), value: info?.contact_name || "—" },
@@ -304,7 +305,7 @@ export default function SupplierDetailPage() {
         subtitle={
           <span>
             <code style={{ fontFamily: "monospace" }}>{code}</code>
-            {info?.supplier_type ? ` · ${info.supplier_type}` : ""}
+            {info?.supplier_type ? ` · ${formatBusinessEnum('supplierType', info.supplier_type, lang)}` : ""}
           </span>
         }
         status={statusBadge}

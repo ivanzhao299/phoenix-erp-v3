@@ -36,7 +36,7 @@ export default function CustomerRuntimePage() {
         columns={[
           { key: "customer_name", label: t('md.customerName', '客户名称') },
           { key: "customer_type", label: t('md.type', '类型') },
-          { key: "company_code", label: t('md.company', '公司') },
+          { key: "company_code", label: t('md.company', '公司'), displayKind: "company" },
           { key: "contact_name", label: t('md.contactName', '联系人') },
           { key: "contact_phone", label: t('md.phone', '电话') },
         ]}

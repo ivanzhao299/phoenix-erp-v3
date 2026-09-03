@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-09-02T05:34:26.921Z",
+  "generated_at": "2026-09-03T09:48:47.765Z",
   "scope": "apps/web/src app/components/lib/hooks",
-  "total_findings": 3402,
-  "auto_translatable_findings": 3400,
-  "manual_componentization_findings": 2,
+  "total_findings": 3470,
+  "auto_translatable_findings": 3470,
+  "manual_componentization_findings": 0,
   "locale_quality_issue_count": 0,
   "locale_quality_issues": [],
-  "affected_files": 184,
+  "affected_files": 183,
   "top_files": [
     {
       "file": "apps/web/src/app/(admin)/finance2/chanjet-integration/page.tsx",
@@ -76,56 +76,56 @@
       "samples": [
         {
           "file": "apps/web/src/components/master-data/detail-configs.tsx",
-          "line": 88,
+          "line": 91,
           "kind": "string-literal",
           "text": "客户中心",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/master-data/detail-configs.tsx",
-          "line": 92,
+          "line": 95,
           "kind": "string-literal",
           "text": "订单",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/master-data/detail-configs.tsx",
-          "line": 93,
+          "line": 96,
           "kind": "string-literal",
           "text": "应收",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/master-data/detail-configs.tsx",
-          "line": 97,
+          "line": 100,
           "kind": "string-literal",
           "text": "订单数",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/master-data/detail-configs.tsx",
-          "line": 98,
+          "line": 101,
           "kind": "string-literal",
           "text": "单 (近期)",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/master-data/detail-configs.tsx",
-          "line": 101,
+          "line": 104,
           "kind": "string-literal",
           "text": "近期销售额",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/master-data/detail-configs.tsx",
-          "line": 105,
+          "line": 108,
           "kind": "string-literal",
           "text": "应收余额",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/components/master-data/detail-configs.tsx",
-          "line": 112,
+          "line": 115,
           "kind": "string-literal",
           "text": "逾期单据",
           "auto_translatable": true
@@ -190,6 +190,68 @@
           "line": 91,
           "kind": "string-literal",
           "text": "日生产日报",
+          "auto_translatable": true
+        }
+      ]
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "count": 142,
+      "samples": [
+        {
+          "file": "apps/web/src/lib/business-display.ts",
+          "line": 8,
+          "kind": "string-literal",
+          "text": "投资项目",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/lib/business-display.ts",
+          "line": 8,
+          "kind": "string-literal",
+          "text": "经营项目",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/lib/business-display.ts",
+          "line": 8,
+          "kind": "string-literal",
+          "text": "成本中心",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/lib/business-display.ts",
+          "line": 8,
+          "kind": "string-literal",
+          "text": "利润中心",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/lib/business-display.ts",
+          "line": 10,
+          "kind": "string-literal",
+          "text": "本地",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/lib/business-display.ts",
+          "line": 10,
+          "kind": "string-literal",
+          "text": "海外",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/lib/business-display.ts",
+          "line": 10,
+          "kind": "string-literal",
+          "text": "代理",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/lib/business-display.ts",
+          "line": 11,
+          "kind": "string-literal",
+          "text": "原材料",
           "auto_translatable": true
         }
       ]
@@ -438,68 +500,6 @@
           "line": 40,
           "kind": "string-literal",
           "text": "客户编码",
-          "auto_translatable": true
-        }
-      ]
-    },
-    {
-      "file": "apps/web/src/lib/business-display.ts",
-      "count": 68,
-      "samples": [
-        {
-          "file": "apps/web/src/lib/business-display.ts",
-          "line": 8,
-          "kind": "string-literal",
-          "text": "可用",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/lib/business-display.ts",
-          "line": 8,
-          "kind": "string-literal",
-          "text": "已预留",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/lib/business-display.ts",
-          "line": 8,
-          "kind": "string-literal",
-          "text": "隔离",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/lib/business-display.ts",
-          "line": 8,
-          "kind": "string-literal",
-          "text": "损坏",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/lib/business-display.ts",
-          "line": 8,
-          "kind": "string-literal",
-          "text": "冻结",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/lib/business-display.ts",
-          "line": 8,
-          "kind": "string-literal",
-          "text": "锁定",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/lib/business-display.ts",
-          "line": 8,
-          "kind": "string-literal",
-          "text": "退货待检",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/lib/business-display.ts",
-          "line": 8,
-          "kind": "string-literal",
-          "text": "已过期",
           "auto_translatable": true
         }
       ]
@@ -815,6 +815,68 @@
       ]
     },
     {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "count": 40,
+      "samples": [
+        {
+          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "line": 5,
+          "kind": "string-literal",
+          "text": "供应商名称",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "line": 5,
+          "kind": "string-literal",
+          "text": "基本信息",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "line": 6,
+          "kind": "string-literal",
+          "text": "英文名称",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "line": 6,
+          "kind": "string-literal",
+          "text": "基本信息",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "line": 7,
+          "kind": "string-literal",
+          "text": "供应商类型",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "line": 7,
+          "kind": "string-literal",
+          "text": "基本信息",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "line": 9,
+          "kind": "string-literal",
+          "text": "本地",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "line": 9,
+          "kind": "string-literal",
+          "text": "海外",
+          "auto_translatable": true
+        }
+      ]
+    },
+    {
       "file": "apps/web/src/lib/design-tokens.ts",
       "count": 40,
       "samples": [
@@ -919,7 +981,7 @@
           "file": "apps/web/src/app/(admin)/master-data/bank-accounts/_fields.ts",
           "line": 8,
           "kind": "string-literal",
-          "text": "所属公司编码",
+          "text": "所属公司",
           "auto_translatable": true
         },
         {
@@ -1311,63 +1373,63 @@
       ]
     },
     {
-      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
       "count": 31,
       "samples": [
         {
-          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
           "line": 5,
           "kind": "string-literal",
-          "text": "供应商名称",
+          "text": "账户名称",
           "auto_translatable": true
         },
         {
-          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
           "line": 5,
           "kind": "string-literal",
           "text": "基本信息",
           "auto_translatable": true
         },
         {
-          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
           "line": 6,
           "kind": "string-literal",
-          "text": "英文名称",
+          "text": "所属公司",
           "auto_translatable": true
         },
         {
-          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
           "line": 6,
           "kind": "string-literal",
           "text": "基本信息",
           "auto_translatable": true
         },
         {
-          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
           "line": 7,
           "kind": "string-literal",
-          "text": "供应商类型",
+          "text": "所属公司名称(自动带出)",
           "auto_translatable": true
         },
         {
-          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
           "line": 7,
           "kind": "string-literal",
           "text": "基本信息",
           "auto_translatable": true
         },
         {
-          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-          "line": 9,
+          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
+          "line": 8,
           "kind": "string-literal",
-          "text": "本地",
+          "text": "币种",
           "auto_translatable": true
         },
         {
-          "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-          "line": 9,
+          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
+          "line": 8,
           "kind": "string-literal",
-          "text": "海外",
+          "text": "基本信息",
           "auto_translatable": true
         }
       ]
@@ -1554,68 +1616,6 @@
           "line": 51,
           "kind": "string-literal",
           "text": "日常用药 / 治疗记录",
-          "auto_translatable": true
-        }
-      ]
-    },
-    {
-      "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "count": 29,
-      "samples": [
-        {
-          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-          "line": 5,
-          "kind": "string-literal",
-          "text": "账户名称",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-          "line": 5,
-          "kind": "string-literal",
-          "text": "基本信息",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-          "line": 6,
-          "kind": "string-literal",
-          "text": "所属公司",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-          "line": 6,
-          "kind": "string-literal",
-          "text": "基本信息",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-          "line": 7,
-          "kind": "string-literal",
-          "text": "所属公司名称(自动带出)",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-          "line": 7,
-          "kind": "string-literal",
-          "text": "基本信息",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-          "line": 8,
-          "kind": "string-literal",
-          "text": "币种",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-          "line": 8,
-          "kind": "string-literal",
-          "text": "基本信息",
           "auto_translatable": true
         }
       ]
@@ -2680,56 +2680,56 @@
       "samples": [
         {
           "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
-          "line": 648,
-          "kind": "string-literal",
-          "text": "提交",
-          "auto_translatable": true
-        },
-        {
-          "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
           "line": 649,
           "kind": "string-literal",
-          "text": "审批",
+          "text": "提交",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
           "line": 650,
           "kind": "string-literal",
-          "text": "发运",
+          "text": "审批",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
           "line": 651,
           "kind": "string-literal",
-          "text": "签收",
+          "text": "发运",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
           "line": 652,
           "kind": "string-literal",
-          "text": "关闭",
+          "text": "签收",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
-          "line": 787,
+          "line": 653,
           "kind": "string-literal",
-          "text": "提交",
+          "text": "关闭",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
           "line": 788,
           "kind": "string-literal",
-          "text": "审批",
+          "text": "提交",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
           "line": 789,
+          "kind": "string-literal",
+          "text": "审批",
+          "auto_translatable": true
+        },
+        {
+          "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
+          "line": 790,
           "kind": "string-literal",
           "text": "发运",
           "auto_translatable": true
@@ -2742,56 +2742,56 @@
       "samples": [
         {
           "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-          "line": 55,
+          "line": 56,
           "kind": "string-literal",
           "text": "2号舍",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-          "line": 55,
+          "line": 56,
           "kind": "string-literal",
           "text": "3号舍",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-          "line": 55,
+          "line": 56,
           "kind": "string-literal",
           "text": "4号舍",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-          "line": 55,
+          "line": 56,
           "kind": "string-literal",
           "text": "5号舍",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-          "line": 55,
+          "line": 56,
           "kind": "string-literal",
           "text": "6号舍",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-          "line": 55,
+          "line": 56,
           "kind": "string-literal",
           "text": "全场",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-          "line": 261,
+          "line": 256,
           "kind": "string-literal",
           "text": "药品名称",
           "auto_translatable": true
         },
         {
           "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-          "line": 261,
+          "line": 256,
           "kind": "string-literal",
           "text": "规格",
           "auto_translatable": true
@@ -3217,114 +3217,72 @@
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 46,
+      "line": 52,
       "kind": "string-literal",
       "text": "加载失败",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 49,
+      "line": 55,
       "kind": "string-literal",
       "text": "加载失败",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 66,
-      "kind": "jsx-text",
-      "text": "开始日期",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 67,
-      "kind": "jsx-text",
-      "text": "结束日期",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 68,
-      "kind": "string-literal",
-      "text": "查询",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 73,
+      "line": 79,
       "kind": "string-literal",
       "text": "日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 73,
+      "line": 79,
       "kind": "string-literal",
       "text": "入库类型",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 73,
+      "line": 79,
       "kind": "string-literal",
       "text": "等级",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 73,
+      "line": 79,
       "kind": "string-literal",
       "text": "数量（枚）",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 73,
+      "line": 79,
       "kind": "string-literal",
       "text": "鸡舍",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 73,
+      "line": 79,
       "kind": "string-literal",
       "text": "操作人",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 73,
+      "line": 79,
       "kind": "string-literal",
       "text": "时间",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 73,
+      "line": 79,
       "kind": "string-literal",
       "text": "备注",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 75,
-      "kind": "jsx-text",
-      "text": "暂无入库记录",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 78,
-      "kind": "string-literal",
-      "text": "包装入库",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
-      "line": 78,
-      "kind": "string-literal",
-      "text": "日产蛋入库",
       "auto_translatable": true
     },
     {
@@ -3595,7 +3553,7 @@
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/device-ops/page.tsx",
-      "line": 276,
+      "line": 277,
       "kind": "string-literal",
       "text": "认证状态接口暂不可用",
       "auto_translatable": true
@@ -3623,140 +3581,140 @@
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 55,
+      "line": 56,
       "kind": "string-literal",
       "text": "2号舍",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 55,
+      "line": 56,
       "kind": "string-literal",
       "text": "3号舍",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 55,
+      "line": 56,
       "kind": "string-literal",
       "text": "4号舍",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 55,
+      "line": 56,
       "kind": "string-literal",
       "text": "5号舍",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 55,
+      "line": 56,
       "kind": "string-literal",
       "text": "6号舍",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 55,
+      "line": 56,
       "kind": "string-literal",
       "text": "全场",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 261,
+      "line": 256,
       "kind": "string-literal",
       "text": "药品名称",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 261,
+      "line": 256,
       "kind": "string-literal",
       "text": "规格",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 261,
+      "line": 256,
       "kind": "string-literal",
       "text": "库存量",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 261,
+      "line": 256,
       "kind": "string-literal",
       "text": "单位",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 261,
+      "line": 256,
       "kind": "string-literal",
       "text": "状态",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 262,
+      "line": 257,
       "kind": "string-literal",
       "text": "库存量",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 417,
+      "line": 412,
       "kind": "string-literal",
       "text": "日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 417,
+      "line": 412,
       "kind": "string-literal",
       "text": "药品名称",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 417,
+      "line": 412,
       "kind": "string-literal",
       "text": "类型",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 417,
+      "line": 412,
       "kind": "string-literal",
       "text": "数量变动",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 417,
+      "line": 412,
       "kind": "string-literal",
       "text": "栋舍",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 417,
+      "line": 412,
       "kind": "string-literal",
       "text": "备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 417,
+      "line": 412,
       "kind": "string-literal",
       "text": "操作人",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
-      "line": 418,
+      "line": 413,
       "kind": "string-literal",
       "text": "数量变动",
       "auto_translatable": true
@@ -9113,7 +9071,7 @@
       "file": "apps/web/src/app/(admin)/master-data/bank-accounts/_fields.ts",
       "line": 8,
       "kind": "string-literal",
-      "text": "所属公司编码",
+      "text": "所属公司",
       "auto_translatable": true
     },
     {
@@ -9447,98 +9405,112 @@
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 15,
+      "line": 14,
+      "kind": "string-literal",
+      "text": "电子钱包",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
+      "line": 14,
+      "kind": "string-literal",
+      "text": "个人代收付",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
+      "line": 16,
       "kind": "string-literal",
       "text": "开户行",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 15,
+      "line": 16,
       "kind": "string-literal",
       "text": "银行信息",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 16,
+      "line": 17,
       "kind": "string-literal",
       "text": "银行账号",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 16,
+      "line": 17,
       "kind": "string-literal",
       "text": "银行信息",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 17,
+      "line": 18,
       "kind": "string-literal",
       "text": "绑定银行账户编码(BANK-XXXXX)",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 17,
+      "line": 18,
       "kind": "string-literal",
       "text": "银行信息",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 18,
+      "line": 19,
       "kind": "string-literal",
       "text": "持有人编码",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 18,
+      "line": 19,
       "kind": "string-literal",
       "text": "银行信息",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 19,
+      "line": 20,
       "kind": "string-literal",
       "text": "生效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 19,
+      "line": 20,
       "kind": "string-literal",
       "text": "有效期与备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 20,
+      "line": 21,
       "kind": "string-literal",
       "text": "失效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 20,
+      "line": 21,
       "kind": "string-literal",
       "text": "有效期与备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 21,
+      "line": 22,
       "kind": "string-literal",
       "text": "备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/cash-accounts/_fields.ts",
-      "line": 21,
+      "line": 22,
       "kind": "string-literal",
       "text": "有效期与备注",
       "auto_translatable": true
@@ -9552,42 +9524,42 @@
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx",
-      "line": 33,
+      "line": 35,
       "kind": "string-literal",
       "text": "在用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx",
-      "line": 34,
+      "line": 36,
       "kind": "string-literal",
       "text": "待审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx",
-      "line": 35,
+      "line": 37,
       "kind": "string-literal",
       "text": "草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx",
-      "line": 36,
+      "line": 38,
       "kind": "string-literal",
       "text": "冻结",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx",
-      "line": 37,
+      "line": 39,
       "kind": "string-literal",
       "text": "归档",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx",
-      "line": 38,
+      "line": 40,
       "kind": "string-literal",
       "text": "已驳回",
       "auto_translatable": true
@@ -10770,42 +10742,42 @@
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx",
-      "line": 33,
+      "line": 34,
       "kind": "string-literal",
       "text": "在用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx",
-      "line": 34,
+      "line": 35,
       "kind": "string-literal",
       "text": "待审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx",
-      "line": 35,
+      "line": 36,
       "kind": "string-literal",
       "text": "草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx",
-      "line": 36,
+      "line": 37,
       "kind": "string-literal",
       "text": "冻结",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx",
-      "line": 37,
+      "line": 38,
       "kind": "string-literal",
       "text": "归档",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx",
-      "line": 38,
+      "line": 39,
       "kind": "string-literal",
       "text": "已驳回",
       "auto_translatable": true
@@ -10875,154 +10847,217 @@
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "line": 10,
+      "kind": "string-literal",
+      "text": "原材料",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "line": 10,
+      "kind": "string-literal",
+      "text": "包装",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "line": 10,
+      "kind": "string-literal",
+      "text": "饲料",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
       "line": 11,
+      "kind": "string-literal",
+      "text": "兽药",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "line": 11,
+      "kind": "string-literal",
+      "text": "设备",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "line": 11,
+      "kind": "string-literal",
+      "text": "鸡苗",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "line": 12,
+      "kind": "string-literal",
+      "text": "疫苗",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "line": 12,
+      "kind": "string-literal",
+      "text": "兽医用品",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "line": 12,
+      "kind": "string-literal",
+      "text": "其他",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
+      "line": 14,
       "kind": "string-literal",
       "text": "国家",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 11,
+      "line": 14,
       "kind": "string-literal",
       "text": "基本信息",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 12,
+      "line": 15,
       "kind": "string-literal",
       "text": "联系人",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 12,
+      "line": 15,
       "kind": "string-literal",
       "text": "联系方式",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 13,
+      "line": 16,
       "kind": "string-literal",
       "text": "联系电话",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 13,
+      "line": 16,
       "kind": "string-literal",
       "text": "联系方式",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 14,
+      "line": 17,
       "kind": "string-literal",
       "text": "邮箱",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 14,
+      "line": 17,
       "kind": "string-literal",
       "text": "联系方式",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 15,
+      "line": 18,
       "kind": "string-literal",
       "text": "地址",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 15,
+      "line": 18,
       "kind": "string-literal",
       "text": "联系方式",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 16,
+      "line": 19,
       "kind": "string-literal",
       "text": "税号",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 16,
+      "line": 19,
       "kind": "string-literal",
       "text": "财务设置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 17,
+      "line": 20,
       "kind": "string-literal",
       "text": "默认币种",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 17,
+      "line": 20,
       "kind": "string-literal",
       "text": "财务设置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 18,
+      "line": 21,
       "kind": "string-literal",
       "text": "结算账期(天)",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 18,
+      "line": 21,
       "kind": "string-literal",
       "text": "财务设置",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 19,
+      "line": 22,
       "kind": "string-literal",
       "text": "生效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 19,
+      "line": 22,
       "kind": "string-literal",
       "text": "有效期与备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 20,
+      "line": 23,
       "kind": "string-literal",
       "text": "失效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 20,
+      "line": 23,
       "kind": "string-literal",
       "text": "有效期与备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 21,
+      "line": 24,
       "kind": "string-literal",
       "text": "备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/master-data/suppliers/_fields.ts",
-      "line": 21,
+      "line": 24,
       "kind": "string-literal",
       "text": "有效期与备注",
       "auto_translatable": true
@@ -11245,204 +11280,120 @@
       "auto_translatable": true
     },
     {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 55,
-      "kind": "string-literal",
-      "text": "草稿",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 56,
-      "kind": "string-literal",
-      "text": "备货中",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 57,
-      "kind": "string-literal",
-      "text": "运输中",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 58,
-      "kind": "string-literal",
-      "text": "报关中",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 59,
-      "kind": "string-literal",
-      "text": "已到货",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 60,
-      "kind": "string-literal",
-      "text": "已完收",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 61,
-      "kind": "string-literal",
-      "text": "已取消",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 73,
-      "kind": "string-literal",
-      "text": "国内",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 74,
-      "kind": "string-literal",
-      "text": "跨境",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 75,
-      "kind": "string-literal",
-      "text": "本地",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 78,
-      "kind": "string-literal",
-      "text": "报关中",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
-      "line": 79,
-      "kind": "string-literal",
-      "text": "已清关",
-      "auto_translatable": true
-    },
-    {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 52,
+      "line": 55,
       "kind": "string-literal",
       "text": "集团共享",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 58,
+      "line": 61,
       "kind": "string-literal",
       "text": "公司专用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 64,
+      "line": 67,
       "kind": "string-literal",
       "text": "项目专用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 72,
+      "line": 75,
       "kind": "string-literal",
       "text": "老挝 LA",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 75,
+      "line": 78,
       "kind": "string-literal",
       "text": "中国 CN",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 78,
+      "line": 81,
       "kind": "string-literal",
       "text": "泰国 TH",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 81,
+      "line": 84,
       "kind": "string-literal",
       "text": "越南 VN",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 84,
+      "line": 87,
       "kind": "string-literal",
       "text": "美国 US",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 87,
+      "line": 90,
       "kind": "string-literal",
       "text": "其他",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 91,
+      "line": 94,
       "kind": "string-literal",
       "text": "启用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 95,
+      "line": 98,
       "kind": "string-literal",
       "text": "停用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 99,
+      "line": 102,
       "kind": "string-literal",
       "text": "黑名单",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 104,
+      "line": 107,
       "kind": "string-literal",
       "text": "饲料",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 107,
+      "line": 110,
       "kind": "string-literal",
       "text": "设备",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 110,
+      "line": 113,
       "kind": "string-literal",
       "text": "兽药",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 113,
+      "line": 116,
       "kind": "string-literal",
       "text": "包装",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
-      "line": 116,
+      "line": 119,
       "kind": "string-literal",
       "text": "其他",
       "auto_translatable": true
@@ -12065,112 +12016,112 @@
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 64,
+      "line": 70,
       "kind": "string-literal",
       "text": "草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 69,
+      "line": 75,
       "kind": "string-literal",
       "text": "审批中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 74,
+      "line": 80,
       "kind": "string-literal",
       "text": "已批准",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 79,
+      "line": 85,
       "kind": "string-literal",
       "text": "已分配",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 84,
+      "line": 90,
       "kind": "string-literal",
       "text": "已拣货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 89,
+      "line": 95,
       "kind": "string-literal",
       "text": "已装车",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 94,
+      "line": 100,
       "kind": "string-literal",
       "text": "已发货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 99,
+      "line": 105,
       "kind": "string-literal",
       "text": "已送达",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 104,
+      "line": 110,
       "kind": "string-literal",
       "text": "已签收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 109,
+      "line": 115,
       "kind": "string-literal",
       "text": "已对账",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 114,
+      "line": 120,
       "kind": "string-literal",
       "text": "已拒绝",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 119,
+      "line": 125,
       "kind": "string-literal",
       "text": "已取消",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 124,
+      "line": 130,
       "kind": "string-literal",
       "text": "待结算",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 127,
+      "line": 133,
       "kind": "string-literal",
       "text": "已成交",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 130,
+      "line": 136,
       "kind": "string-literal",
       "text": "已作废",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
-      "line": 133,
+      "line": 139,
       "kind": "string-literal",
       "text": "已退货",
       "auto_translatable": true
@@ -12464,126 +12415,126 @@
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 101,
+      "line": 104,
       "kind": "string-literal",
       "text": "草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 105,
+      "line": 108,
       "kind": "string-literal",
       "text": "已提交",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 109,
+      "line": 112,
       "kind": "string-literal",
       "text": "待审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 113,
+      "line": 116,
       "kind": "string-literal",
       "text": "质检中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 117,
+      "line": 120,
       "kind": "string-literal",
       "text": "回库中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 121,
+      "line": 124,
       "kind": "string-literal",
       "text": "已完成",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 125,
+      "line": 128,
       "kind": "string-literal",
       "text": "已拒绝",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 129,
+      "line": 132,
       "kind": "string-literal",
       "text": "已取消",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 138,
+      "line": 141,
       "kind": "string-literal",
       "text": "客户退货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 142,
+      "line": 145,
       "kind": "string-literal",
       "text": "配送拒收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 146,
+      "line": 149,
       "kind": "string-literal",
       "text": "质量退货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 150,
+      "line": 153,
       "kind": "string-literal",
       "text": "破损退货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 159,
+      "line": 162,
       "kind": "string-literal",
       "text": "待检",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 163,
+      "line": 166,
       "kind": "string-literal",
       "text": "合格",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 167,
+      "line": 170,
       "kind": "string-literal",
       "text": "部分",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 171,
+      "line": 174,
       "kind": "string-literal",
       "text": "不合格",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 175,
+      "line": 178,
       "kind": "string-literal",
       "text": "破损",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
-      "line": 913,
+      "line": 920,
       "kind": "string-literal",
       "text": "审批拒绝",
       "auto_translatable": true
@@ -13955,147 +13906,147 @@
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
-      "line": 648,
-      "kind": "string-literal",
-      "text": "提交",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 649,
       "kind": "string-literal",
-      "text": "审批",
+      "text": "提交",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 650,
       "kind": "string-literal",
-      "text": "发运",
+      "text": "审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 651,
       "kind": "string-literal",
-      "text": "签收",
+      "text": "发运",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 652,
       "kind": "string-literal",
-      "text": "关闭",
+      "text": "签收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
-      "line": 787,
+      "line": 653,
       "kind": "string-literal",
-      "text": "提交",
+      "text": "关闭",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 788,
       "kind": "string-literal",
-      "text": "审批",
+      "text": "提交",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 789,
       "kind": "string-literal",
-      "text": "发运",
+      "text": "审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 790,
       "kind": "string-literal",
-      "text": "签收",
+      "text": "发运",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 791,
       "kind": "string-literal",
-      "text": "关闭",
+      "text": "签收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
-      "line": 908,
+      "line": 792,
       "kind": "string-literal",
-      "text": "提交",
+      "text": "关闭",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 909,
       "kind": "string-literal",
-      "text": "审批",
+      "text": "提交",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 910,
       "kind": "string-literal",
-      "text": "发运",
+      "text": "审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 911,
       "kind": "string-literal",
-      "text": "签收",
+      "text": "发运",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 912,
       "kind": "string-literal",
-      "text": "关闭",
+      "text": "签收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
-      "line": 979,
+      "line": 913,
       "kind": "string-literal",
-      "text": "确认提交申请",
+      "text": "关闭",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 980,
       "kind": "string-literal",
-      "text": "确认审批并创建调拨",
+      "text": "确认提交申请",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 981,
       "kind": "string-literal",
-      "text": "确认发运",
+      "text": "确认审批并创建调拨",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
-      "line": 1073,
+      "line": 982,
       "kind": "string-literal",
-      "text": "门店编码",
+      "text": "确认发运",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 1074,
       "kind": "string-literal",
-      "text": "源仓编码",
+      "text": "门店编码",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
       "line": 1075,
+      "kind": "string-literal",
+      "text": "源仓编码",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
+      "line": 1076,
       "kind": "string-literal",
       "text": "申请号",
       "auto_translatable": true
@@ -17917,175 +17868,182 @@
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 106,
+      "line": 122,
       "kind": "string-literal",
       "text": "采购申请",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 107,
+      "line": 123,
       "kind": "string-literal",
       "text": "采购订单",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 108,
+      "line": 124,
       "kind": "string-literal",
       "text": "付款申请",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 109,
+      "line": 125,
       "kind": "string-literal",
       "text": "股东资金",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 144,
+      "line": 126,
+      "kind": "string-literal",
+      "text": "销售订单",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
+      "line": 162,
       "kind": "string-literal",
       "text": "待审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 148,
+      "line": 166,
       "kind": "string-literal",
       "text": "已通过",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 152,
+      "line": 170,
       "kind": "string-literal",
       "text": "已拒绝",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 156,
+      "line": 174,
       "kind": "string-literal",
       "text": "已跳过",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 160,
+      "line": 178,
       "kind": "string-literal",
       "text": "待处理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 191,
+      "line": 209,
       "kind": "string-literal",
       "text": "审批引擎",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(admin)/workflow/todos/page.tsx",
-      "line": 191,
+      "line": 209,
       "kind": "string-literal",
       "text": "通用流程",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 50,
+      "line": 51,
       "kind": "string-literal",
       "text": "温度过高",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 51,
+      "line": 52,
       "kind": "string-literal",
       "text": "温度过低",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 52,
+      "line": 53,
       "kind": "string-literal",
       "text": "湿度过高",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 53,
+      "line": 54,
       "kind": "string-literal",
       "text": "湿度过低",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 54,
+      "line": 55,
       "kind": "string-literal",
       "text": "CO₂浓度高",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 55,
+      "line": 56,
       "kind": "string-literal",
       "text": "设备离线",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 56,
+      "line": 57,
       "kind": "string-literal",
       "text": "电源故障",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 57,
+      "line": 58,
       "kind": "string-literal",
       "text": "传感器异常",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 58,
+      "line": 59,
       "kind": "string-literal",
       "text": "数值超上限",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 59,
+      "line": 60,
       "kind": "string-literal",
       "text": "数值超下限",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 60,
+      "line": 61,
       "kind": "string-literal",
       "text": "氨气浓度高",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 61,
+      "line": 62,
       "kind": "string-literal",
       "text": "风机故障",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 62,
+      "line": 63,
       "kind": "string-literal",
       "text": "漏水告警",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
-      "line": 63,
+      "line": 64,
       "kind": "string-literal",
       "text": "饲料不足",
       "auto_translatable": true
@@ -18841,56 +18799,56 @@
     },
     {
       "file": "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-      "line": 15,
+      "line": 16,
       "kind": "string-literal",
       "text": "数字输入错误（手误）",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-      "line": 15,
+      "line": 16,
       "kind": "string-literal",
       "text": "设备故障重新计数",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-      "line": 15,
+      "line": 16,
       "kind": "string-literal",
       "text": "漏记补录",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-      "line": 15,
+      "line": 16,
       "kind": "string-literal",
       "text": "重复提交需更正",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-      "line": 15,
+      "line": 16,
       "kind": "string-literal",
       "text": "其他原因",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-      "line": 47,
+      "line": 48,
       "kind": "string-literal",
       "text": "总采集数（枚）",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-      "line": 52,
+      "line": 53,
       "kind": "string-literal",
       "text": "脏蛋数（枚）",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
-      "line": 57,
+      "line": 58,
       "kind": "string-literal",
       "text": "裂纹蛋数（枚）",
       "auto_translatable": true
@@ -20766,42 +20724,42 @@
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataDetailDrawer.tsx",
-      "line": 37,
+      "line": 38,
       "kind": "string-literal",
       "text": "草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataDetailDrawer.tsx",
-      "line": 38,
+      "line": 39,
       "kind": "string-literal",
       "text": "待审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataDetailDrawer.tsx",
-      "line": 39,
+      "line": 40,
       "kind": "string-literal",
       "text": "已生效",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataDetailDrawer.tsx",
-      "line": 40,
+      "line": 41,
       "kind": "string-literal",
       "text": "已冻结",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataDetailDrawer.tsx",
-      "line": 41,
+      "line": 42,
       "kind": "string-literal",
       "text": "已归档",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataDetailDrawer.tsx",
-      "line": 42,
+      "line": 43,
       "kind": "string-literal",
       "text": "已驳回",
       "auto_translatable": true
@@ -20850,77 +20808,77 @@
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 62,
+      "line": 66,
       "kind": "string-literal",
       "text": "草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 63,
+      "line": 67,
       "kind": "string-literal",
       "text": "待审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 64,
+      "line": 68,
       "kind": "string-literal",
       "text": "已生效",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 65,
+      "line": 69,
       "kind": "string-literal",
       "text": "已冻结",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 66,
+      "line": 70,
       "kind": "string-literal",
       "text": "已归档",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 67,
+      "line": 71,
       "kind": "string-literal",
       "text": "已驳回",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 78,
+      "line": 82,
       "kind": "string-literal",
       "text": "加载失败",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 152,
+      "line": 158,
       "kind": "string-literal",
       "text": "名称（English）",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 152,
+      "line": 158,
       "kind": "string-literal",
       "text": "多语言名称",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 153,
+      "line": 159,
       "kind": "string-literal",
       "text": "名称（ລາວ 老挝文）",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
-      "line": 153,
+      "line": 159,
       "kind": "string-literal",
       "text": "多语言名称",
       "auto_translatable": true
@@ -21039,994 +20997,973 @@
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 88,
+      "line": 91,
       "kind": "string-literal",
       "text": "客户中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 92,
+      "line": 95,
       "kind": "string-literal",
       "text": "订单",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 93,
+      "line": 96,
       "kind": "string-literal",
       "text": "应收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 97,
+      "line": 100,
       "kind": "string-literal",
       "text": "订单数",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 98,
-      "kind": "string-literal",
-      "text": "单 (近期)",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 101,
       "kind": "string-literal",
+      "text": "单 (近期)",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 104,
+      "kind": "string-literal",
       "text": "近期销售额",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 105,
+      "line": 108,
       "kind": "string-literal",
       "text": "应收余额",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 112,
+      "line": 115,
       "kind": "string-literal",
       "text": "逾期单据",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 120,
-      "kind": "string-literal",
-      "text": "联系人",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 121,
-      "kind": "string-literal",
-      "text": "联系电话",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 122,
-      "kind": "string-literal",
-      "text": "所属公司",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 123,
       "kind": "string-literal",
-      "text": "客户类型",
+      "text": "联系人",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 124,
       "kind": "string-literal",
-      "text": "生效日期",
+      "text": "联系电话",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 125,
       "kind": "string-literal",
+      "text": "所属公司",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 126,
+      "kind": "string-literal",
+      "text": "客户类型",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 127,
+      "kind": "string-literal",
+      "text": "生效日期",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 128,
+      "kind": "string-literal",
       "text": "失效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 125,
+      "line": 128,
       "kind": "string-literal",
       "text": "永久",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 129,
+      "line": 132,
       "kind": "string-literal",
       "text": "最近订单",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 154,
+      "line": 157,
       "kind": "string-literal",
       "text": "供应商中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 158,
+      "line": 161,
       "kind": "string-literal",
       "text": "采购单",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 163,
+      "line": 166,
       "kind": "string-literal",
       "text": "采购单数",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 164,
+      "line": 167,
       "kind": "string-literal",
       "text": "单 (近期)",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 167,
+      "line": 170,
       "kind": "string-literal",
       "text": "近期采购额",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 171,
+      "line": 174,
       "kind": "string-literal",
       "text": "应付余额",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 175,
+      "line": 178,
       "kind": "string-literal",
       "text": "逾期单据",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 180,
+      "line": 183,
       "kind": "string-literal",
       "text": "联系人",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 181,
-      "kind": "string-literal",
-      "text": "联系电话",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 182,
-      "kind": "string-literal",
-      "text": "国家",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 183,
-      "kind": "string-literal",
-      "text": "类型",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 184,
       "kind": "string-literal",
-      "text": "默认币种",
+      "text": "联系电话",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 185,
       "kind": "string-literal",
+      "text": "国家",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 186,
+      "kind": "string-literal",
+      "text": "类型",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 187,
+      "kind": "string-literal",
+      "text": "默认币种",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 188,
+      "kind": "string-literal",
       "text": "账期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 189,
+      "line": 192,
       "kind": "string-literal",
       "text": "最近采购",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 214,
+      "line": 217,
       "kind": "string-literal",
       "text": "产品中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 218,
+      "line": 221,
       "kind": "string-literal",
       "text": "SKU 列表",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 222,
+      "line": 225,
       "kind": "string-literal",
       "text": "关联 SKU",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 226,
+      "line": 229,
       "kind": "string-literal",
       "text": "保质期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 230,
+      "line": 233,
       "kind": "string-literal",
       "text": "计量单位",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 234,
+      "line": 237,
       "kind": "string-literal",
       "text": "类目",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 239,
-      "kind": "string-literal",
-      "text": "中文名",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 240,
-      "kind": "string-literal",
-      "text": "老挝语名",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 241,
-      "kind": "string-literal",
-      "text": "品类",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 242,
       "kind": "string-literal",
-      "text": "计量单位",
+      "text": "中文名",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 243,
       "kind": "string-literal",
-      "text": "保质期(天)",
+      "text": "老挝语名",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 244,
       "kind": "string-literal",
+      "text": "品类",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 245,
+      "kind": "string-literal",
+      "text": "计量单位",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 246,
+      "kind": "string-literal",
+      "text": "保质期(天)",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 247,
+      "kind": "string-literal",
       "text": "零售价",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 248,
+      "line": 251,
       "kind": "string-literal",
       "text": "关联 SKU",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 268,
+      "line": 271,
       "kind": "string-literal",
       "text": "仓库中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 272,
+      "line": 275,
       "kind": "string-literal",
       "text": "批次",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 276,
+      "line": 279,
       "kind": "string-literal",
       "text": "批次数",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 277,
+      "line": 280,
       "kind": "string-literal",
       "text": "批 (取样)",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 280,
+      "line": 283,
       "kind": "string-literal",
       "text": "总量",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 284,
+      "line": 287,
       "kind": "string-literal",
       "text": "冻结/不可用",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 291,
+      "line": 294,
       "kind": "string-literal",
       "text": "可用比例",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 301,
+      "line": 304,
       "kind": "string-literal",
       "text": "中文名",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 302,
+      "line": 305,
       "kind": "string-literal",
       "text": "类型",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 303,
+      "line": 306,
       "kind": "string-literal",
       "text": "公司",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 304,
+      "line": 307,
       "kind": "string-literal",
       "text": "负责人",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 305,
+      "line": 308,
       "kind": "string-literal",
       "text": "生效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 309,
+      "line": 312,
       "kind": "string-literal",
       "text": "最近批次",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 329,
+      "line": 332,
       "kind": "string-literal",
       "text": "项目中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 333,
+      "line": 336,
       "kind": "string-literal",
       "text": "公司",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 334,
+      "line": 337,
       "kind": "string-literal",
       "text": "场站",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 335,
+      "line": 338,
       "kind": "string-literal",
       "text": "项目类型",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 336,
+      "line": 339,
       "kind": "string-literal",
       "text": "生效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 337,
+      "line": 340,
       "kind": "string-literal",
       "text": "失效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 337,
+      "line": 340,
       "kind": "string-literal",
       "text": "长期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 338,
+      "line": 341,
       "kind": "string-literal",
       "text": "备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 342,
+      "line": 345,
       "kind": "string-literal",
       "text": "状态",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 346,
+      "line": 349,
       "kind": "string-literal",
       "text": "公司归属",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 355,
+      "line": 358,
       "kind": "string-literal",
       "text": "组织中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 359,
+      "line": 362,
       "kind": "string-literal",
       "text": "组织类型",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 360,
+      "line": 363,
       "kind": "string-literal",
       "text": "层级",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 361,
+      "line": 364,
       "kind": "string-literal",
       "text": "上级",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 361,
+      "line": 364,
       "kind": "string-literal",
       "text": "顶级",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 362,
-      "kind": "string-literal",
-      "text": "负责人",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 365,
       "kind": "string-literal",
-      "text": "简称",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 366,
-      "kind": "string-literal",
-      "text": "类型",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 367,
-      "kind": "string-literal",
-      "text": "上级组织",
+      "text": "负责人",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 368,
       "kind": "string-literal",
-      "text": "关联公司",
+      "text": "简称",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 369,
       "kind": "string-literal",
-      "text": "排序权重",
+      "text": "类型",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 370,
       "kind": "string-literal",
-      "text": "备注",
+      "text": "上级组织",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 377,
+      "line": 371,
       "kind": "string-literal",
-      "text": "公司中心",
+      "text": "关联公司",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 381,
-      "kind": "string-literal",
-      "text": "公司编码",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 382,
-      "kind": "string-literal",
-      "text": "负责人",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 383,
-      "kind": "string-literal",
-      "text": "层级",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 384,
-      "kind": "string-literal",
-      "text": "状态",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 387,
-      "kind": "string-literal",
-      "text": "简称",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 388,
-      "kind": "string-literal",
-      "text": "上级集团",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 389,
-      "kind": "string-literal",
-      "text": "公司编码",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 390,
-      "kind": "string-literal",
-      "text": "负责人",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 391,
+      "line": 372,
       "kind": "string-literal",
       "text": "排序权重",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 392,
+      "line": 373,
       "kind": "string-literal",
       "text": "备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 399,
+      "line": 380,
       "kind": "string-literal",
-      "text": "资金账户中心",
+      "text": "公司中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 403,
+      "line": 384,
       "kind": "string-literal",
-      "text": "资金流水",
+      "text": "公司编码",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 406,
-      "kind": "string-literal",
-      "text": "币种",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 407,
-      "kind": "string-literal",
-      "text": "账户类型",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 408,
-      "kind": "string-literal",
-      "text": "所属公司",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 410,
-      "kind": "string-literal",
-      "text": "近期流水",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 411,
-      "kind": "string-literal",
-      "text": "笔 (近期)",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 415,
-      "kind": "string-literal",
-      "text": "所属公司",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 416,
-      "kind": "string-literal",
-      "text": "币种",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 417,
-      "kind": "string-literal",
-      "text": "账户类型",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 418,
-      "kind": "string-literal",
-      "text": "开户行",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 419,
-      "kind": "string-literal",
-      "text": "银行账号",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 420,
-      "kind": "string-literal",
-      "text": "绑定银行账户",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 424,
-      "kind": "string-literal",
-      "text": "最近流水",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 448,
-      "kind": "string-literal",
-      "text": "银行账户中心",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 452,
-      "kind": "string-literal",
-      "text": "绑定 ERP 账户",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 455,
-      "kind": "string-literal",
-      "text": "币种",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 456,
-      "kind": "string-literal",
-      "text": "国家",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 458,
-      "kind": "string-literal",
-      "text": "绑定账户",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 461,
-      "kind": "string-literal",
-      "text": "所属公司",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 465,
-      "kind": "string-literal",
-      "text": "支行",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 466,
-      "kind": "string-literal",
-      "text": "账号",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 467,
-      "kind": "string-literal",
-      "text": "开户名",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 468,
-      "kind": "string-literal",
-      "text": "币种",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 469,
-      "kind": "string-literal",
-      "text": "国家",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 471,
-      "kind": "string-literal",
-      "text": "所属公司",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 475,
-      "kind": "string-literal",
-      "text": "绑定 ERP 资金账户",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 495,
-      "kind": "string-literal",
-      "text": "门店中心",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 499,
-      "kind": "string-literal",
-      "text": "销售订单",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 500,
-      "kind": "string-literal",
-      "text": "POS 销售",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 503,
+      "line": 385,
       "kind": "string-literal",
       "text": "负责人",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 504,
+      "line": 386,
       "kind": "string-literal",
-      "text": "电话",
+      "text": "层级",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 387,
+      "kind": "string-literal",
+      "text": "状态",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 390,
+      "kind": "string-literal",
+      "text": "简称",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 391,
+      "kind": "string-literal",
+      "text": "上级集团",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 392,
+      "kind": "string-literal",
+      "text": "公司编码",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 393,
+      "kind": "string-literal",
+      "text": "负责人",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 394,
+      "kind": "string-literal",
+      "text": "排序权重",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 395,
+      "kind": "string-literal",
+      "text": "备注",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 402,
+      "kind": "string-literal",
+      "text": "资金账户中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 406,
+      "kind": "string-literal",
+      "text": "资金流水",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 409,
+      "kind": "string-literal",
+      "text": "币种",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 410,
+      "kind": "string-literal",
+      "text": "账户类型",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 411,
+      "kind": "string-literal",
+      "text": "所属公司",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 413,
+      "kind": "string-literal",
+      "text": "近期流水",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 414,
+      "kind": "string-literal",
+      "text": "笔 (近期)",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 418,
+      "kind": "string-literal",
+      "text": "所属公司",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 419,
+      "kind": "string-literal",
+      "text": "币种",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 420,
+      "kind": "string-literal",
+      "text": "账户类型",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 421,
+      "kind": "string-literal",
+      "text": "开户行",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 422,
+      "kind": "string-literal",
+      "text": "银行账号",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 423,
+      "kind": "string-literal",
+      "text": "绑定银行账户",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 427,
+      "kind": "string-literal",
+      "text": "最近流水",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 451,
+      "kind": "string-literal",
+      "text": "银行账户中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 455,
+      "kind": "string-literal",
+      "text": "绑定 ERP 账户",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 458,
+      "kind": "string-literal",
+      "text": "币种",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 459,
+      "kind": "string-literal",
+      "text": "国家",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 461,
+      "kind": "string-literal",
+      "text": "绑定账户",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 464,
+      "kind": "string-literal",
+      "text": "所属公司",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 468,
+      "kind": "string-literal",
+      "text": "支行",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 469,
+      "kind": "string-literal",
+      "text": "账号",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 470,
+      "kind": "string-literal",
+      "text": "开户名",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 471,
+      "kind": "string-literal",
+      "text": "币种",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 472,
+      "kind": "string-literal",
+      "text": "国家",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 474,
+      "kind": "string-literal",
+      "text": "所属公司",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 478,
+      "kind": "string-literal",
+      "text": "绑定 ERP 资金账户",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 498,
+      "kind": "string-literal",
+      "text": "门店中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 502,
+      "kind": "string-literal",
+      "text": "销售订单",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 503,
+      "kind": "string-literal",
+      "text": "POS 销售",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 506,
       "kind": "string-literal",
-      "text": "订单数",
+      "text": "负责人",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 507,
       "kind": "string-literal",
-      "text": "单 (近期)",
+      "text": "电话",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 509,
+      "kind": "string-literal",
+      "text": "订单数",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 510,
       "kind": "string-literal",
+      "text": "单 (近期)",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 513,
+      "kind": "string-literal",
       "text": "销售额",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 518,
-      "kind": "string-literal",
-      "text": "所属公司",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 519,
-      "kind": "string-literal",
-      "text": "店长",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 520,
-      "kind": "string-literal",
-      "text": "联系电话",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 521,
       "kind": "string-literal",
-      "text": "地址",
+      "text": "所属公司",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 522,
       "kind": "string-literal",
-      "text": "生效日期",
+      "text": "店长",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 523,
-      "kind": "string-literal",
-      "text": "失效日期",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 523,
-      "kind": "string-literal",
-      "text": "长期",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 527,
-      "kind": "string-literal",
-      "text": "最近订单",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 552,
-      "kind": "string-literal",
-      "text": "司机中心",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 556,
-      "kind": "string-literal",
-      "text": "配送单",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 559,
-      "kind": "string-literal",
-      "text": "电话",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 560,
-      "kind": "string-literal",
-      "text": "驾照",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 562,
-      "kind": "string-literal",
-      "text": "配送次数",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 563,
-      "kind": "string-literal",
-      "text": "单 (近期)",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 565,
-      "kind": "string-literal",
-      "text": "所属公司",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 568,
       "kind": "string-literal",
       "text": "联系电话",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 569,
+      "line": 524,
       "kind": "string-literal",
-      "text": "驾照号",
+      "text": "地址",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 570,
+      "line": 525,
+      "kind": "string-literal",
+      "text": "生效日期",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 526,
+      "kind": "string-literal",
+      "text": "失效日期",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 526,
+      "kind": "string-literal",
+      "text": "长期",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 530,
+      "kind": "string-literal",
+      "text": "最近订单",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 555,
+      "kind": "string-literal",
+      "text": "司机中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 559,
+      "kind": "string-literal",
+      "text": "配送单",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 562,
+      "kind": "string-literal",
+      "text": "电话",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 563,
+      "kind": "string-literal",
+      "text": "驾照",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 565,
+      "kind": "string-literal",
+      "text": "配送次数",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 566,
+      "kind": "string-literal",
+      "text": "单 (近期)",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 568,
       "kind": "string-literal",
       "text": "所属公司",
       "auto_translatable": true
@@ -22035,152 +21972,166 @@
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 571,
       "kind": "string-literal",
-      "text": "生效日期",
+      "text": "联系电话",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 572,
       "kind": "string-literal",
-      "text": "失效日期",
+      "text": "驾照号",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 572,
-      "kind": "string-literal",
-      "text": "长期",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 576,
-      "kind": "string-literal",
-      "text": "最近配送",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 596,
-      "kind": "string-literal",
-      "text": "车辆中心",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 600,
-      "kind": "string-literal",
-      "text": "配送单",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 603,
-      "kind": "string-literal",
-      "text": "车牌",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 604,
-      "kind": "string-literal",
-      "text": "类型",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 605,
-      "kind": "string-literal",
-      "text": "载重",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 607,
-      "kind": "string-literal",
-      "text": "配送次数",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 608,
-      "kind": "string-literal",
-      "text": "单 (近期)",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 612,
-      "kind": "string-literal",
-      "text": "车牌号",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 613,
-      "kind": "string-literal",
-      "text": "车辆类型",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 614,
-      "kind": "string-literal",
-      "text": "载重(kg)",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 615,
+      "line": 573,
       "kind": "string-literal",
       "text": "所属公司",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 616,
+      "line": 574,
       "kind": "string-literal",
       "text": "生效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 617,
+      "line": 575,
       "kind": "string-literal",
       "text": "失效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 617,
+      "line": 575,
       "kind": "string-literal",
       "text": "长期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 621,
+      "line": 579,
       "kind": "string-literal",
       "text": "最近配送",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 641,
+      "line": 599,
+      "kind": "string-literal",
+      "text": "车辆中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 603,
+      "kind": "string-literal",
+      "text": "配送单",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 606,
+      "kind": "string-literal",
+      "text": "车牌",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 607,
+      "kind": "string-literal",
+      "text": "类型",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 608,
+      "kind": "string-literal",
+      "text": "载重",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 610,
+      "kind": "string-literal",
+      "text": "配送次数",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 611,
+      "kind": "string-literal",
+      "text": "单 (近期)",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 615,
+      "kind": "string-literal",
+      "text": "车牌号",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 616,
+      "kind": "string-literal",
+      "text": "车辆类型",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 617,
+      "kind": "string-literal",
+      "text": "载重(kg)",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 618,
+      "kind": "string-literal",
+      "text": "所属公司",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 619,
+      "kind": "string-literal",
+      "text": "生效日期",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 620,
+      "kind": "string-literal",
+      "text": "失效日期",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 620,
+      "kind": "string-literal",
+      "text": "长期",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 624,
+      "kind": "string-literal",
+      "text": "最近配送",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 644,
       "kind": "string-literal",
       "text": "等级中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 645,
-      "kind": "string-literal",
-      "text": "关联 SKU",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 649,
+      "line": 648,
       "kind": "string-literal",
       "text": "关联 SKU",
       "auto_translatable": true
@@ -22189,82 +22140,82 @@
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 652,
       "kind": "string-literal",
+      "text": "关联 SKU",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 655,
+      "kind": "string-literal",
       "text": "排序",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 653,
+      "line": 656,
       "kind": "string-literal",
       "text": "可销售",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 654,
-      "kind": "string-literal",
-      "text": "可入库",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 657,
       "kind": "string-literal",
-      "text": "等级名称",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 658,
-      "kind": "string-literal",
-      "text": "排序",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 659,
-      "kind": "string-literal",
-      "text": "可销售",
+      "text": "可入库",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 660,
       "kind": "string-literal",
-      "text": "可入库",
+      "text": "等级名称",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 661,
       "kind": "string-literal",
+      "text": "排序",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 662,
+      "kind": "string-literal",
+      "text": "可销售",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 663,
+      "kind": "string-literal",
+      "text": "可入库",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 664,
+      "kind": "string-literal",
       "text": "备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 665,
+      "line": 668,
       "kind": "string-literal",
       "text": "关联 SKU",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 685,
+      "line": 688,
       "kind": "string-literal",
       "text": "规格中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 689,
-      "kind": "string-literal",
-      "text": "关联 SKU",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 693,
+      "line": 692,
       "kind": "string-literal",
       "text": "关联 SKU",
       "auto_translatable": true
@@ -22273,166 +22224,173 @@
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 696,
       "kind": "string-literal",
+      "text": "关联 SKU",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 699,
+      "kind": "string-literal",
       "text": "单位数量",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 697,
+      "line": 700,
       "kind": "string-literal",
       "text": "基本单位",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 698,
-      "kind": "string-literal",
-      "text": "排序",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 701,
       "kind": "string-literal",
-      "text": "规格名称",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 702,
-      "kind": "string-literal",
-      "text": "单位数量",
-      "auto_translatable": true
-    },
-    {
-      "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 703,
-      "kind": "string-literal",
-      "text": "基本单位",
+      "text": "排序",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 704,
       "kind": "string-literal",
-      "text": "展示单位",
+      "text": "规格名称",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 705,
       "kind": "string-literal",
-      "text": "排序",
+      "text": "单位数量",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
       "line": 706,
       "kind": "string-literal",
+      "text": "基本单位",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 707,
+      "kind": "string-literal",
+      "text": "展示单位",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 708,
+      "kind": "string-literal",
+      "text": "排序",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "line": 709,
+      "kind": "string-literal",
       "text": "备注",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 710,
+      "line": 713,
       "kind": "string-literal",
       "text": "关联 SKU",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 730,
+      "line": 733,
       "kind": "string-literal",
       "text": "SKU 中心",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 734,
+      "line": 737,
       "kind": "string-literal",
       "text": "批次",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 738,
+      "line": 741,
       "kind": "string-literal",
       "text": "关联产品",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 742,
+      "line": 745,
       "kind": "string-literal",
       "text": "等级",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 746,
+      "line": 749,
       "kind": "string-literal",
       "text": "规格",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 750,
+      "line": 753,
       "kind": "string-literal",
       "text": "在库批次",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 755,
+      "line": 758,
       "kind": "string-literal",
       "text": "产品编码",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 756,
+      "line": 759,
       "kind": "string-literal",
       "text": "产品名称",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 757,
+      "line": 760,
       "kind": "string-literal",
       "text": "等级",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 758,
+      "line": 761,
       "kind": "string-literal",
       "text": "规格",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 759,
+      "line": 762,
       "kind": "string-literal",
       "text": "条码",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 760,
+      "line": 763,
       "kind": "string-literal",
       "text": "生效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 761,
+      "line": 764,
       "kind": "string-literal",
       "text": "失效日期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/components/master-data/detail-configs.tsx",
-      "line": 765,
+      "line": 768,
       "kind": "string-literal",
       "text": "在库批次",
       "auto_translatable": true
@@ -23099,476 +23057,994 @@
       "file": "apps/web/src/lib/business-display.ts",
       "line": 8,
       "kind": "string-literal",
-      "text": "可用",
+      "text": "投资项目",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
       "line": 8,
+      "kind": "string-literal",
+      "text": "经营项目",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 8,
+      "kind": "string-literal",
+      "text": "成本中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 8,
+      "kind": "string-literal",
+      "text": "利润中心",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 10,
+      "kind": "string-literal",
+      "text": "本地",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 10,
+      "kind": "string-literal",
+      "text": "海外",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 10,
+      "kind": "string-literal",
+      "text": "代理",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 11,
+      "kind": "string-literal",
+      "text": "原材料",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 11,
+      "kind": "string-literal",
+      "text": "包装",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 11,
+      "kind": "string-literal",
+      "text": "饲料",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 12,
+      "kind": "string-literal",
+      "text": "兽药",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 12,
+      "kind": "string-literal",
+      "text": "设备",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 12,
+      "kind": "string-literal",
+      "text": "鸡苗",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 13,
+      "kind": "string-literal",
+      "text": "疫苗",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 13,
+      "kind": "string-literal",
+      "text": "兽医用品",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 13,
+      "kind": "string-literal",
+      "text": "其他",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 16,
+      "kind": "string-literal",
+      "text": "工厂仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 16,
+      "kind": "string-literal",
+      "text": "配送仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 16,
+      "kind": "string-literal",
+      "text": "门店仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 16,
+      "kind": "string-literal",
+      "text": "中转仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 16,
+      "kind": "string-literal",
+      "text": "冷库",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 16,
+      "kind": "string-literal",
+      "text": "隔离仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 17,
+      "kind": "string-literal",
+      "text": "综合仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 17,
+      "kind": "string-literal",
+      "text": "冷藏仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 17,
+      "kind": "string-literal",
+      "text": "蛋场仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 17,
+      "kind": "string-literal",
+      "text": "蛋品销售仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 17,
+      "kind": "string-literal",
+      "text": "饲料仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 17,
+      "kind": "string-literal",
+      "text": "成品仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 17,
+      "kind": "string-literal",
+      "text": "兽药仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 17,
+      "kind": "string-literal",
+      "text": "采购收货仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 17,
+      "kind": "string-literal",
+      "text": "原料仓",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 19,
+      "kind": "string-literal",
+      "text": "银行账户",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 19,
+      "kind": "string-literal",
+      "text": "现金账户",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 19,
+      "kind": "string-literal",
+      "text": "虚拟账户",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 19,
+      "kind": "string-literal",
+      "text": "股东账户",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 19,
+      "kind": "string-literal",
+      "text": "内部账户",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 19,
+      "kind": "string-literal",
+      "text": "电子钱包",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 19,
+      "kind": "string-literal",
+      "text": "个人代收付",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 20,
+      "kind": "string-literal",
+      "text": "卡车",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 20,
+      "kind": "string-literal",
+      "text": "面包车",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 20,
+      "kind": "string-literal",
+      "text": "皮卡",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 20,
+      "kind": "string-literal",
+      "text": "冷藏车",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 21,
+      "kind": "string-literal",
+      "text": "可用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 21,
       "kind": "string-literal",
       "text": "已预留",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 8,
+      "line": 21,
       "kind": "string-literal",
       "text": "隔离",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 8,
+      "line": 21,
       "kind": "string-literal",
       "text": "损坏",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 8,
+      "line": 21,
       "kind": "string-literal",
       "text": "冻结",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 8,
+      "line": 21,
       "kind": "string-literal",
       "text": "锁定",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 8,
+      "line": 21,
       "kind": "string-literal",
       "text": "退货待检",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 8,
+      "line": 21,
       "kind": "string-literal",
       "text": "已过期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 8,
+      "line": 21,
       "kind": "string-literal",
       "text": "已核销",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 9,
+      "line": 22,
       "kind": "string-literal",
       "text": "待处理",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 9,
+      "line": 22,
       "kind": "string-literal",
       "text": "处理中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 9,
+      "line": 22,
       "kind": "string-literal",
       "text": "已完成",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "待审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已批准",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已锁定",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已分配",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已拣货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已装车",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已发货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "部分发货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已送达",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已签收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已对账",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已拒绝",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 10,
+      "line": 23,
       "kind": "string-literal",
       "text": "已取消",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 11,
+      "line": 24,
       "kind": "string-literal",
       "text": "待结算",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 11,
+      "line": 24,
       "kind": "string-literal",
       "text": "已成交",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 11,
+      "line": 24,
       "kind": "string-literal",
       "text": "已作废",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 11,
+      "line": 24,
       "kind": "string-literal",
       "text": "已退货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 12,
+      "line": 25,
       "kind": "string-literal",
       "text": "未结清",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 12,
+      "line": 25,
       "kind": "string-literal",
       "text": "部分收款",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 12,
+      "line": 25,
       "kind": "string-literal",
       "text": "已收款",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 12,
+      "line": 25,
       "kind": "string-literal",
       "text": "已逾期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 12,
+      "line": 25,
       "kind": "string-literal",
       "text": "已取消",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 13,
+      "line": 26,
       "kind": "string-literal",
       "text": "草稿",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 13,
+      "line": 26,
       "kind": "string-literal",
       "text": "已提交",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 13,
+      "line": 26,
       "kind": "string-literal",
       "text": "待审批",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 13,
+      "line": 26,
       "kind": "string-literal",
       "text": "质检中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 13,
+      "line": 26,
       "kind": "string-literal",
       "text": "回库中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 13,
+      "line": 26,
       "kind": "string-literal",
       "text": "已完成",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 13,
+      "line": 26,
       "kind": "string-literal",
       "text": "已拒绝",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 13,
+      "line": 26,
       "kind": "string-literal",
       "text": "已取消",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 14,
+      "line": 27,
       "kind": "string-literal",
       "text": "客户退货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 14,
+      "line": 27,
       "kind": "string-literal",
       "text": "配送拒收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 14,
+      "line": 27,
       "kind": "string-literal",
       "text": "质量退货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 14,
+      "line": 27,
       "kind": "string-literal",
       "text": "破损退货",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 15,
+      "line": 28,
       "kind": "string-literal",
       "text": "待检",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 15,
+      "line": 28,
       "kind": "string-literal",
       "text": "合格",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 15,
+      "line": 28,
       "kind": "string-literal",
       "text": "部分合格",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 15,
+      "line": 28,
       "kind": "string-literal",
       "text": "不合格",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 15,
+      "line": 28,
       "kind": "string-literal",
       "text": "破损",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 16,
+      "line": 29,
       "kind": "string-literal",
       "text": "待回库",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 16,
+      "line": 29,
       "kind": "string-literal",
       "text": "已回库",
-      "auto_translatable": false
+      "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 16,
+      "line": 29,
       "kind": "string-literal",
       "text": "已核销",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 17,
+      "line": 30,
       "kind": "string-literal",
       "text": "已计划",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 17,
+      "line": 30,
       "kind": "string-literal",
       "text": "装车中",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 17,
+      "line": 30,
       "kind": "string-literal",
       "text": "已装车",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 17,
+      "line": 30,
       "kind": "string-literal",
       "text": "已出发",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 17,
+      "line": 30,
       "kind": "string-literal",
       "text": "已到达",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 17,
+      "line": 30,
       "kind": "string-literal",
       "text": "部分签收",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 17,
+      "line": 30,
       "kind": "string-literal",
       "text": "已完成",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 17,
+      "line": 30,
       "kind": "string-literal",
       "text": "已取消",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 18,
+      "line": 31,
       "kind": "string-literal",
       "text": "正常",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 18,
+      "line": 31,
       "kind": "string-literal",
       "text": "预警",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 18,
+      "line": 31,
       "kind": "string-literal",
       "text": "超限",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 18,
+      "line": 31,
       "kind": "string-literal",
       "text": "逾期",
       "auto_translatable": true
     },
     {
       "file": "apps/web/src/lib/business-display.ts",
-      "line": 18,
+      "line": 31,
       "kind": "string-literal",
       "text": "冻结",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 32,
+      "kind": "string-literal",
+      "text": "包装入库",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 32,
+      "kind": "string-literal",
+      "text": "日产蛋入库",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 33,
+      "kind": "string-literal",
+      "text": "入库",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 33,
+      "kind": "string-literal",
+      "text": "出库",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 34,
+      "kind": "string-literal",
+      "text": "启用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 34,
+      "kind": "string-literal",
+      "text": "停用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 34,
+      "kind": "string-literal",
+      "text": "成功",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 34,
+      "kind": "string-literal",
+      "text": "运行中",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 34,
+      "kind": "string-literal",
+      "text": "失败",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 34,
+      "kind": "string-literal",
+      "text": "部分成功",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 35,
+      "kind": "string-literal",
+      "text": "草稿",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 35,
+      "kind": "string-literal",
+      "text": "备货中",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 35,
+      "kind": "string-literal",
+      "text": "运输中",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 35,
+      "kind": "string-literal",
+      "text": "报关中",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 35,
+      "kind": "string-literal",
+      "text": "已到货",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 35,
+      "kind": "string-literal",
+      "text": "已取消",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 36,
+      "kind": "string-literal",
+      "text": "国内",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 36,
+      "kind": "string-literal",
+      "text": "本地",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 36,
+      "kind": "string-literal",
+      "text": "跨境",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 37,
+      "kind": "string-literal",
+      "text": "报关中",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 37,
+      "kind": "string-literal",
+      "text": "已清关",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 38,
+      "kind": "string-literal",
+      "text": "启用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 38,
+      "kind": "string-literal",
+      "text": "停用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 38,
+      "kind": "string-literal",
+      "text": "黑名单",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 39,
+      "kind": "string-literal",
+      "text": "饲料",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 39,
+      "kind": "string-literal",
+      "text": "设备",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 39,
+      "kind": "string-literal",
+      "text": "兽药",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 39,
+      "kind": "string-literal",
+      "text": "包装",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 39,
+      "kind": "string-literal",
+      "text": "其他",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 40,
+      "kind": "string-literal",
+      "text": "集团共享",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 40,
+      "kind": "string-literal",
+      "text": "公司专用",
+      "auto_translatable": true
+    },
+    {
+      "file": "apps/web/src/lib/business-display.ts",
+      "line": 40,
+      "kind": "string-literal",
+      "text": "项目专用",
       "auto_translatable": true
     },
     {
@@ -25225,7 +25701,7 @@
     },
     {
       "file": "apps/web/src/lib/warehouse-query.ts",
-      "line": 71,
+      "line": 83,
       "kind": "string-literal",
       "text": "未标单位",
       "auto_translatable": true

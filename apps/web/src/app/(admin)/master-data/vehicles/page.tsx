@@ -26,20 +26,18 @@ export default function VehicleRuntimePage() {
         fields={[
           { key: "vehicle_no", label: t('md.vehicleNo', '车辆编号'), required: true, readOnlyOnEdit: true },
           { key: "plate_no", label: t('md.plateNo', '车牌号') },
-          { key: "vehicle_type", label: t('md.vehicleType', '车辆类型'), type: "select", options: [
+          { key: "vehicle_type", label: t('md.vehicleType', '车辆类型'), type: "select", displayKind: "vehicleType", options: [
             { value: "TRUCK", label: t('md.vehTruck', '卡车') }, { value: "VAN", label: t('md.vehVan', '面包车') },
             { value: "PICKUP", label: t('md.vehPickup', '皮卡') }, { value: "REFRIGERATED", label: t('md.vehRefrigerated', '冷藏车') },
           ] },
           { key: "capacity", label: t('md.capacityKg', '载重（kg）'), type: "number" },
-          { key: "company_code", label: t('md.belongCompanyCode', '所属公司编码') },
-          { key: "effective_date", label: t('md.effectiveDate', '生效日期'), type: "date" },
-          { key: "expire_date", label: t('md.expireDate', '失效日期'), type: "date" },
+          { key: "company_code", label: t('md.belongCompany', '所属公司'), type: "company" },
         ]}
         columns={[
           { key: "plate_no", label: t('md.plate', '车牌') },
-          { key: "vehicle_type", label: t('md.type', '类型') },
+          { key: "vehicle_type", label: t('md.type', '类型'), displayKind: "vehicleType" },
           { key: "capacity", label: t('md.capacity', '载重') },
-          { key: "company_code", label: t('md.company', '公司') },
+          { key: "company_code", label: t('md.company', '公司'), displayKind: "company" },
         ]}
       />
       <MasterDataDetailDrawer

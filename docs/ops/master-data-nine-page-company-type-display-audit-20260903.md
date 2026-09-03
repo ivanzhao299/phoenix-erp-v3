@@ -238,6 +238,30 @@ cd apps/web && npx playwright test e2e/display-defects-i18n.spec.ts
 
 建议下一轮按 **P0-A → P0-B → P0-C → P0-D → P0-E** 执行，P1 类型模型治理继续独立冻结。
 
+## 13. 执行记录（2026-09-03）
+
+用户已确认 9 页方案、司机主键同批修复，并裁定车辆类型仅做显示层兼容。本轮据此进入实施。
+
+### 13.1 生产只读预检
+
+- 受控 workflow：`Production Readonly Audit` run `33739806864`，结论 `success`；连接级只读、事务只读、最终 `ROLLBACK`，`PRODUCTION_BUSINESS_WRITES=0`。
+- revision：checkout/API/Web 均为 `157d2c4cca0a307db2d5429f1a36efe3680dd51a`（预检时生产 revision）。
+- `sys_organizations`：公司 3 行，`org_name` 与 `org_name_cn` 均无空值；`COALESCE(company_code,org_code)` 重复 0。
+- 8 表 JOIN：`biz_projects 13/13`、`sal_customers 87/87`、`wms_warehouses 31/31`、`mst_stores 10/10`、`sal_drivers 6/6`、`sal_vehicles 1/1`、`fin_cash_accounts 77/77`、`fin_bank_accounts 1/1`；全部无空公司、未命中和重复命中。
+- 当前类型分布：项目 `INVESTMENT 1 / OPERATION 12`；供应商 `CHICK 2 / FEED 14 / LOCAL 4 / OTHER 1 / OVERSEAS 1 / PACKAGING 2 / RAW_MATERIAL 2 / VACCINE 1 / VETERINARY 7`；仓库 `NULL 1 / COLD_STORAGE 1 / EGG_FARM 2 / EGG_SALES 12 / FEED 2 / FINISHED 1 / GENERAL 6 / MEDICINE 2 / PURCHASE_RECV 1 / RAW_MATERIAL 3`；资金账户 `BANK 48 / CASH 20 / EWALLET 2 / PERSONAL_AGENT 3 / VIRTUAL 4`；车辆为历史中文自由文本 `厢式货车 1`。
+- 首次 run `33739671806` 在预检脚本的常量折叠断言处失败；重复查询实际为 0。修正为运行期断言后重跑成功，不涉及生产写入。
+
+### 13.2 实施内容
+
+- 后端 Runtime list/get 对 8 个公司维度类型统一返回原 `company_code` 与 canonical `company_display_name/company_display_name_zh`，供应商维持原模型。
+- 前端增加显式 `displayKind` 与薄 `formatCompany` adapter；8 个公司页和各详情/KPI 统一双显，CompanySelector 写值仍为编码。
+- 项目、供应商、仓库、资金账户、车辆类型使用同源三语显示表；未知码和历史中文自由文本保留原值，不新增字典、不迁移存量。
+- 司机页主键恢复为 `driver_code`，并加入 API/页面防回潮契约。
+
+### 13.3 验证与部署
+
+待 CI、full 部署和部署后只读复验完成后补录 run、revision、Runtime 字段抽查及错误窗口。
+
 请用户确认以下两点后再实施：
 
 1. 是否批准先提交并运行受控 production read-only manifest，再按上述 P0 拆分修复？

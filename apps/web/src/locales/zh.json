@@ -14232,5 +14232,6 @@
   "ui.录入员": "录入员", "ui.其他去向": "其他去向",
   "analytics.col_broken": "破损数", "prc2.kpi_ap_balance_original": "应付余额（原币合计）", "prc2.kpi_paid_amount_base": "已付金额（本位币）",
   "warehouse.transfer.status.pending": "待发运", "warehouse.transfer.status.in_transit": "在途", "warehouse.transfer.status.received": "已签收待处理", "warehouse.transfer.status.completed": "已完成", "warehouse.transfer.status.cancelled": "已取消（历史）",
-  "warehouse.transfer.action.dispatch": "发运", "warehouse.transfer.action.receive": "签收", "warehouse.transfer.filter.status": "按状态筛选", "warehouse.transfer.filter.all": "全部状态"
+  "warehouse.transfer.action.dispatch": "发运", "warehouse.transfer.action.receive": "签收", "warehouse.transfer.filter.status": "按状态筛选", "warehouse.transfer.filter.all": "全部状态",
+  "md.type.rawMaterial": "原材料", "md.type.chick": "鸡苗", "md.type.veterinary": "兽医用品", "md.type.generalWarehouse": "综合仓", "md.type.coldStorage": "冷藏仓", "md.type.eggFarmWarehouse": "蛋场仓", "md.type.eggSalesWarehouse": "蛋品销售仓", "md.type.feedWarehouse": "饲料仓", "md.type.finishedWarehouse": "成品仓", "md.type.medicineWarehouse": "兽药仓", "md.type.purchaseReceivingWarehouse": "采购收货仓", "md.type.personalAgent": "个人代收付"
 }

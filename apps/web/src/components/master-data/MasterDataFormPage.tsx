@@ -37,7 +37,7 @@ export interface MasterDataFormPageProps {
 
 export function MasterDataFormPage(props: MasterDataFormPageProps) {
   const { type, title, codeKey, nameKey, fields, listRoute, mode, initialRow } = props;
-  const { t, translateLiteral } = useLanguage();
+  const { t, translateLiteral, lang } = useLanguage();
   const router = useRouter();
   const [form, setForm] = useState<Record<string, any>>(initialRow ?? {});
   const [saving, setSaving] = useState(false);
@@ -139,7 +139,7 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
                   <label style={{ ...formLabel, marginBottom: 4 }}>
                     {translateLiteral(f.label)}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                   </label>
-                  {renderMdFieldInput(f, form, setForm, t, translateLiteral)}
+                  {renderMdFieldInput(f, form, setForm, t, translateLiteral, lang)}
                 </div>
               ))}
             </div>

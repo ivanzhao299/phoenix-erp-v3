@@ -14287,5 +14287,6 @@
   "ui.录入员": "Data entry operator", "ui.其他去向": "Other destination",
   "analytics.col_broken": "Broken eggs", "prc2.kpi_ap_balance_original": "AP balance (original currencies)", "prc2.kpi_paid_amount_base": "Paid amount (base currency)",
   "warehouse.transfer.status.pending": "Pending dispatch", "warehouse.transfer.status.in_transit": "In transit", "warehouse.transfer.status.received": "Received, action required", "warehouse.transfer.status.completed": "Completed", "warehouse.transfer.status.cancelled": "Cancelled (legacy)",
-  "warehouse.transfer.action.dispatch": "Dispatch", "warehouse.transfer.action.receive": "Receive", "warehouse.transfer.filter.status": "Filter by status", "warehouse.transfer.filter.all": "All statuses"
+  "warehouse.transfer.action.dispatch": "Dispatch", "warehouse.transfer.action.receive": "Receive", "warehouse.transfer.filter.status": "Filter by status", "warehouse.transfer.filter.all": "All statuses",
+  "md.type.rawMaterial": "Raw material", "md.type.chick": "Chick", "md.type.veterinary": "Veterinary supplies", "md.type.generalWarehouse": "General warehouse", "md.type.coldStorage": "Cold storage", "md.type.eggFarmWarehouse": "Egg farm warehouse", "md.type.eggSalesWarehouse": "Egg sales warehouse", "md.type.feedWarehouse": "Feed warehouse", "md.type.finishedWarehouse": "Finished goods warehouse", "md.type.medicineWarehouse": "Medicine warehouse", "md.type.purchaseReceivingWarehouse": "Purchase receiving warehouse", "md.type.personalAgent": "Personal agent"
 }

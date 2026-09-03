@@ -25,7 +25,7 @@ export default function ProjectRuntimePage() {
           { key: "project_name", label: t('md.projectName', '项目名称'), required: true },
           { key: "project_short_name", label: t('md.projectShortName', '项目简称') },
           { key: "company_code", label: t('md.belongCompany', '所属公司'), type: "company", onPickKeys: { company_name: "org_name" } },
-          { key: "project_type", label: t('md.projectType', '项目类型'), type: "select", options: [
+          { key: "project_type", label: t('md.projectType', '项目类型'), type: "select", displayKind: "projectType", options: [
             { value: "INVESTMENT", label: t('md.projTypeInvestment', '投资项目') },
             { value: "OPERATION", label: t('md.projTypeOperation', '经营项目') },
             { value: "COST_CENTER", label: t('md.projTypeCostCenter', '成本中心') },
@@ -40,8 +40,8 @@ export default function ProjectRuntimePage() {
         ]}
         columns={[
           { key: "project_name", label: t('md.projectName', '项目名称') },
-          { key: "company_code", label: t('md.company', '公司') },
-          { key: "project_type", label: t('md.type', '类型') },
+          { key: "company_code", label: t('md.company', '公司'), displayKind: "company" },
+          { key: "project_type", label: t('md.type', '类型'), displayKind: "projectType" },
           { key: "budget_amount", label: t('md.budgetAmount', '预算金额') },
           { key: "budget_currency", label: t('md.currency', '币种') },
         ]}

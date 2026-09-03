@@ -25,7 +25,7 @@ export default function StoreRuntimePage() {
         onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "store_name", label: t('md.storeName', '门店名称'), required: true },
-          { key: "company_code", label: t('md.belongCompanyCode', '所属公司编码') },
+          { key: "company_code", label: t('md.belongCompany', '所属公司'), type: "company" },
           // G113：经营类型走字典 STORE_OP_TYPE（厂家直营/代理商自营店/代理商合作店/加盟店/合作仓）
           { key: "operation_type", label: t('md.operationType', '经营类型'), type: "select", dictType: "STORE_OP_TYPE" },
           { key: "manager", label: t('md.mainManager', '主要负责人') },
@@ -38,7 +38,7 @@ export default function StoreRuntimePage() {
         ]}
         columns={[
           { key: "store_name", label: t('md.storeName', '门店名称') },
-          { key: "company_code", label: t('md.company', '公司') },
+          { key: "company_code", label: t('md.company', '公司'), displayKind: "company" },
           { key: "operation_type", label: t('md.operationType', '经营类型') },
           { key: "manager", label: t('md.manager', '负责人') },
           { key: "contact", label: t('md.contactName', '联系人') },
