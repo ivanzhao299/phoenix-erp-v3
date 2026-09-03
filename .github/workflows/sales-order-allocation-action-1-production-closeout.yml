@@ -1,0 +1,64 @@
+name: Sales Order Allocation Action 1 Production Closeout
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_production:
+        description: Type APPROVE-SALES-ALLOCATION-ACTION-1-20260903
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sales-order-allocation-action-1-production-closeout
+  cancel-in-progress: false
+
+jobs:
+  closeout:
+    if: inputs.approve_production == 'APPROVE-SALES-ALLOCATION-ACTION-1-20260903'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Encode reviewed three-phase SQL bundle
+        shell: bash
+        run: |
+          echo "PREFLIGHT_SQL_B64=$(base64 -w0 scripts/ops/readonly-audits/sales-order-allocation-action-1-preflight.sql)" >> "$GITHUB_ENV"
+          echo "APPLY_SQL_B64=$(base64 -w0 scripts/ops/fix-sales-order-allocation-action-1.sql)" >> "$GITHUB_ENV"
+          echo "VERIFY_SQL_B64=$(base64 -w0 scripts/ops/readonly-audits/sales-order-allocation-action-1-verify.sql)" >> "$GITHUB_ENV"
+      - name: Preflight, atomic relation insert, and independent read-only closeout
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,PREFLIGHT_SQL_B64,APPLY_SQL_B64,VERIFY_SQL_B64
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            echo "PRODUCTION_CHECKOUT=$(git rev-parse HEAD)"
+
+            echo '=== PHASE 1: READ-ONLY UNIQUE FIFO_OUT PREFLIGHT ==='
+            printf '%s' "$PREFLIGHT_SQL_B64" | base64 -d | docker compose exec -T \
+              -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+
+            echo '=== PHASE 2: ATOMIC ACTION RELATION INSERT ONLY ==='
+            printf '%s' "$APPLY_SQL_B64" | base64 -d | docker compose exec -T db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+
+            echo '=== PHASE 3: INDEPENDENT READ-ONLY CLOSEOUT ==='
+            printf '%s' "$VERIFY_SQL_B64" | base64 -d | docker compose exec -T \
+              -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            echo 'PASS PRODUCTION_WRITE=ONE_ALLOCATION_ACTION_RELATION INVENTORY_QUANTITY_WRITES=0'
