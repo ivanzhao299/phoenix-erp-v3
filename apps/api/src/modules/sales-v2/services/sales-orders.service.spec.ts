@@ -197,7 +197,7 @@ describe('SalesOrdersService APPROVED inventory boundary', () => {
       transaction: jest.fn((fn: any) => fn(manager)),
     } as any;
     const approvalEngine = { startApproval: jest.fn() };
-    const inventory = { reserveInventory: jest.fn().mockResolvedValue(undefined) };
+    const inventory = { reserveInventory: jest.fn().mockResolvedValue(true) };
     const lifecycle = {
       appendEvent: jest.fn().mockResolvedValue(undefined),
       transitionStatus: jest.fn().mockResolvedValue({ ...order, status: 'APPROVED' }),
@@ -229,6 +229,22 @@ describe('SalesOrdersService APPROVED inventory boundary', () => {
     expect(f.inventory.reserveInventory).not.toHaveBeenCalled();
   });
 
+  it('uses the approval callback contract when fail-open startApproval returns null', async () => {
+    const f = submitFixture({ below_floor_price: true });
+    f.approvalEngine.startApproval.mockImplementation(async (_params: any, mgr: any) => {
+      await f.service.approveCallback('201', mgr);
+      return null;
+    });
+    f.manager.query.mockResolvedValue([{
+      ...f.order, status: 'APPROVED', wf_instance_id: null, trigger_codes: ['BELOW_FLOOR_PRICE'],
+    }]);
+    await expect(f.service.submit('201', {} as any)).resolves.toMatchObject({ status: 'APPROVED' });
+    expect(f.inventory.reserveInventory).toHaveBeenCalledTimes(1);
+    expect(f.lifecycle.appendEvent).toHaveBeenCalledWith(
+      f.manager, expect.objectContaining({ eventType: 'AUTO_APPROVED_NO_RULE' }),
+    );
+  });
+
   it('reserves only when the workflow final-approval callback runs', async () => {
     const f = submitFixture();
     f.manager.query.mockResolvedValueOnce([{
@@ -240,6 +256,16 @@ describe('SalesOrdersService APPROVED inventory boundary', () => {
     expect(f.inventory.reserveInventory).toHaveBeenCalledWith(
       '201', 'SO-APPROVAL-1', 'COMP-A', f.manager,
     );
+  });
+
+  it('rejects an approval side-effect callback unless the order is already APPROVED', async () => {
+    const f = submitFixture();
+    f.manager.query.mockResolvedValueOnce([{
+      id: '201', order_no: 'SO-APPROVAL-1', company_code: 'COMP-A',
+      status: 'CANCELLED', wf_instance_id: 'WF-1', trigger_codes: [],
+    }]);
+    await expect(f.service.approveCallback('201', f.manager as any)).rejects.toThrow('拒绝执行批准副作用');
+    expect(f.inventory.reserveInventory).not.toHaveBeenCalled();
   });
 
   it('propagates reservation failure so the submission transaction cannot commit', async () => {

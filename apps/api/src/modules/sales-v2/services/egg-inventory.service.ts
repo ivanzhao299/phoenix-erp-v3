@@ -87,6 +87,7 @@ export interface FifoAllocation {
   remaining:     number;   // 未满足的数量（正常为 0）
   /** Phase H4 */
   skuCode:       string | null;
+  reservationLedgerId: number;
 }
 
 /** 默认保质期：30 天 */
@@ -177,12 +178,13 @@ export class EggInventoryService {
     mgr?: EntityManager,
   ) {
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
-    await q(
+    const [ledger] = await q(
       `INSERT INTO inv_ledger
          (batch_no, change_type, qty_change, operator, store_code, ref_no, note,
           batch_expire_date, quality_grade, company_code, sku_code,
           log_date, warehouse_code, location_code)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       RETURNING id`,
       [
         params.batchNo,
         params.changeType,
@@ -200,6 +202,9 @@ export class EggInventoryService {
         params.locationCode ?? null,
       ],
     );
+    // Query mocks used by SQL-contract unit tests return no row; PostgreSQL always
+    // returns the persisted id and the allocation FK makes a missing real id fail closed.
+    return Number(ledger?.id ?? 0);
   }
 
   /**
@@ -519,7 +524,7 @@ export class EggInventoryService {
       }
 
       // 写 inv_ledger RESERVED（Phase H4: 传递 sku_code）
-      await this.writeLedger({
+      const reservationLedgerId = await this.writeLedger({
         batchNo:         batch.batch_no,
         changeType:      'RESERVED',
         qtyChange:       -canTake,
@@ -539,6 +544,7 @@ export class EggInventoryService {
         qualityGrade: batch.quality_grade,
         remaining:    0,
         skuCode:      batch.sku_code ?? null,
+        reservationLedgerId,
       });
     }
 
@@ -564,8 +570,10 @@ export class EggInventoryService {
     orderNo: string,
     companyCode: string,
     mgr?: EntityManager,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
+    let createdAny = false;
+    await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`sales-order-reservation:${orderId}`]);
 
     const items = await q(
       `SELECT * FROM sal_order_items WHERE sales_order_id = $1`, [orderId],
@@ -574,6 +582,21 @@ export class EggInventoryService {
     for (const item of items) {
       const qty = Number(item.qty);
       if (qty <= 0) continue;
+
+      const existing = await q(
+        `SELECT id,batch_no,reserved_qty,outbound_qty,released_qty
+           FROM sal_order_item_batch_allocations
+          WHERE sales_order_item_id=$1
+          ORDER BY id FOR UPDATE`,
+        [item.id],
+      );
+      if (existing.length) {
+        const reserved = existing.reduce((sum: number, row: any) => sum + Number(row.reserved_qty), 0);
+        if (reserved !== qty) {
+          throw new ConflictException(`订单明细 ${item.id} 已有分配 ${reserved}，与需求 ${qty} 不一致`);
+        }
+        continue;
+      }
 
       const allocations = await this.allocateByFIFO({
           productCode: item.product_code,
@@ -587,7 +610,17 @@ export class EggInventoryService {
 
         // 记录分配的批次（取首批次作为主批次，多批次逗号分隔）
         const batchNos     = allocations.map(a => a.batchNo).join(',');
-        const allocatedQty = allocations.reduce((s, a) => s + a.allocatedQty, 0);
+      const allocatedQty = allocations.reduce((s, a) => s + a.allocatedQty, 0);
+
+      for (const allocation of allocations) {
+        await q(
+          `INSERT INTO sal_order_item_batch_allocations
+             (sales_order_item_id,batch_no,reserved_qty,reservation_ledger_id,created_by)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [item.id, allocation.batchNo, allocation.allocatedQty, allocation.reservationLedgerId, this.operator],
+        );
+        createdAny = true;
+      }
 
       await q(
         `UPDATE sal_order_items
@@ -598,6 +631,7 @@ export class EggInventoryService {
     }
 
     this.logger.log(`[EggInv] 库存预占完成: order=${orderNo}`);
+    return createdAny;
   }
 
   // ── 5. 释放库存（Sales Order CANCELLED → 还回 qty_available） ───────────────
@@ -610,30 +644,19 @@ export class EggInventoryService {
   ): Promise<void> {
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
 
-    const items = await q(
-      `SELECT * FROM sal_order_items WHERE sales_order_id=$1 AND allocated_batch_no IS NOT NULL`,
+    const allocations = await q(
+      `SELECT a.*,oi.sales_order_id,b.sku_code,b.warehouse_code,b.status,b.qty,b.qty_available
+         FROM sal_order_item_batch_allocations a
+         JOIN sal_order_items oi ON oi.id=a.sales_order_item_id
+         JOIN inv_batches b ON b.batch_no=a.batch_no
+        WHERE oi.sales_order_id=$1
+        ORDER BY a.id FOR UPDATE OF a,b`,
       [orderId],
     );
 
-    for (const item of items) {
-      const batchNos = String(item.allocated_batch_no).split(',');
-      const totalQty = Number(item.allocated_qty);
-      if (!totalQty || !batchNos.length) continue;
-
-      // 简化：均分归还（精确版本需要记录每个批次分配量）
-      const qtyPerBatch = totalQty / batchNos.length;
-      for (const batchNo of batchNos) {
-        const releaseQty = Math.round(qtyPerBatch);
-        if (releaseQty <= 0) continue;
-
-        // Phase H4: 释放时查一下批次 sku_code 用于 ledger 传递
-        const [batchRow] = await q(
-          `SELECT sku_code,warehouse_code,status,qty,qty_available
-             FROM inv_batches
-            WHERE batch_no=$1 AND company_code=$2
-            FOR UPDATE`, [batchNo.trim(), companyCode],
-        );
-        if (!batchRow) throw new ConflictException(`释放批次 ${batchNo.trim()} 不存在或公司归属不匹配`);
+    for (const allocation of allocations) {
+      const releaseQty = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
+      if (releaseQty <= 0) continue;
 
         const changed = await q(
           `WITH changed AS (
@@ -646,27 +669,41 @@ export class EggInventoryService {
                 AND qty_available + $1 <= qty
               RETURNING batch_no
            ) SELECT batch_no FROM changed`,
-          [releaseQty, batchNo.trim(), companyCode, batchRow.warehouse_code],
+          [releaseQty, allocation.batch_no, companyCode, allocation.warehouse_code],
         );
-        if (changed.length !== 1) throw new ConflictException(`释放批次 ${batchNo.trim()} 状态、归属或数量已变化`);
+      if (changed.length !== 1) throw new ConflictException(`释放批次 ${allocation.batch_no} 状态、归属或数量已变化`);
 
-        await this.writeLedger({
-          batchNo:     batchNo.trim(),
+      const ledgerId = await this.writeLedger({
+          batchNo:     allocation.batch_no,
           changeType:  'RELEASED',
           qtyChange:   releaseQty,
           operator:    this.operator,
           companyCode,
           refNo:       orderNo,
-          note:        `订单取消释放预占 order=${orderNo} batch=${batchNo}`,
-          skuCode:     batchRow?.sku_code ?? null,
+          note:        `订单取消释放预占 order=${orderNo} allocation=${allocation.id} batch=${allocation.batch_no}`,
+          skuCode:     allocation.sku_code ?? null,
         }, mgr);
-      }
 
       await q(
-        `UPDATE sal_order_items SET allocated_batch_no=NULL, allocated_qty=0 WHERE id=$1`,
-        [item.id],
+        `INSERT INTO sal_order_item_batch_allocation_actions
+           (allocation_id,sales_order_id,action_type,action_key,qty,ledger_id,created_by)
+         VALUES ($1,$2,'RELEASED',$3,$4,$5,$6)
+        `,
+        [allocation.id, orderId, `order-cancel:${orderId}`, releaseQty, ledgerId, this.operator],
       );
+      const updated = await q(
+        `WITH changed AS (
+           UPDATE sal_order_item_batch_allocations
+              SET released_qty=released_qty+$1,updated_at=NOW()
+            WHERE id=$2 AND outbound_qty+released_qty+$1<=reserved_qty
+            RETURNING id
+         ) SELECT id FROM changed`,
+        [releaseQty, allocation.id],
+      );
+      if (updated.length !== 1) throw new ConflictException(`释放 allocation ${allocation.id} 数量已变化`);
     }
+
+    await q(`UPDATE sal_order_items SET allocated_batch_no=NULL,allocated_qty=0 WHERE sales_order_id=$1`, [orderId]);
 
     this.logger.log(`[EggInv] 库存释放完成: order=${orderNo}`);
   }
@@ -678,34 +715,24 @@ export class EggInventoryService {
     orderNo: string,
     companyCode: string,
     deliveryNo: string,
+    deliveryId: string,
     mgr?: EntityManager,
   ): Promise<void> {
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
 
-    const items = await q(
-      `SELECT * FROM sal_order_items WHERE sales_order_id=$1 AND allocated_batch_no IS NOT NULL`,
+    const allocations = await q(
+      `SELECT a.*,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.status
+         FROM sal_order_item_batch_allocations a
+         JOIN sal_order_items oi ON oi.id=a.sales_order_item_id
+         JOIN inv_batches b ON b.batch_no=a.batch_no
+        WHERE oi.sales_order_id=$1
+        ORDER BY a.id FOR UPDATE OF a,b`,
       [orderId],
     );
 
-    for (const item of items) {
-      const batchNos = String(item.allocated_batch_no).split(',');
-      const totalQty = Number(item.allocated_qty ?? item.qty);
-      if (!totalQty || !batchNos.length) continue;
-
-      const qtyPerBatch = totalQty / batchNos.length;
-      for (const batchNo of batchNos) {
-        const outQty = Math.round(qtyPerBatch);
-        if (outQty <= 0) continue;
-
-        // 查当前批次信息（Phase H4: 同时取 sku_code）
-        const [batch] = await q(
-          `SELECT qty,expire_date,quality_grade,sku_code,warehouse_code,status
-             FROM inv_batches
-            WHERE batch_no=$1 AND company_code=$2
-            FOR UPDATE`,
-          [batchNo.trim(), companyCode],
-        );
-        if (!batch) throw new ConflictException(`出库批次 ${batchNo.trim()} 不存在或公司归属不匹配`);
+    for (const allocation of allocations) {
+      const outQty = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
+      if (outQty <= 0) continue;
 
         // 正式扣减物理库存（qty）
         const changed = await q(
@@ -719,24 +746,39 @@ export class EggInventoryService {
                 AND qty >= $1
               RETURNING batch_no
            ) SELECT batch_no FROM changed`,
-          [outQty, batchNo.trim(), companyCode, batch.warehouse_code],
+          [outQty, allocation.batch_no, companyCode, allocation.warehouse_code],
         );
-        if (changed.length !== 1) throw new ConflictException(`出库批次 ${batchNo.trim()} 状态、归属或数量已变化`);
+      if (changed.length !== 1) throw new ConflictException(`出库批次 ${allocation.batch_no} 状态、归属或数量已变化`);
 
-        // 写 inv_ledger FIFO_OUT（Phase H4: 传递 sku_code）
-        await this.writeLedger({
-          batchNo:         batchNo.trim(),
+      const ledgerId = await this.writeLedger({
+          batchNo:         allocation.batch_no,
           changeType:      'FIFO_OUT',
           qtyChange:       -outQty,
           operator:        this.operator,
           companyCode,
           refNo:           deliveryNo,
-          note:            `装车出库 delivery=${deliveryNo} order=${orderNo} batch=${batchNo}`,
-          batchExpireDate: batch?.expire_date ?? null,
-          qualityGrade:    batch?.quality_grade ?? null,
-          skuCode:         batch?.sku_code ?? null,
+          note:            `装车出库 delivery=${deliveryNo} order=${orderNo} allocation=${allocation.id} batch=${allocation.batch_no}`,
+          batchExpireDate: allocation.expire_date ?? null,
+          qualityGrade:    allocation.quality_grade ?? null,
+          skuCode:         allocation.sku_code ?? null,
         }, mgr);
-      }
+
+      await q(
+        `INSERT INTO sal_order_item_batch_allocation_actions
+           (allocation_id,sales_order_id,delivery_order_id,action_type,action_key,qty,ledger_id,created_by)
+         VALUES ($1,$2,$3,'OUTBOUND',$4,$5,$6,$7)`,
+        [allocation.id, orderId, deliveryId, `delivery:${deliveryId}`, outQty, ledgerId, this.operator],
+      );
+      const updated = await q(
+        `WITH changed AS (
+           UPDATE sal_order_item_batch_allocations
+              SET outbound_qty=outbound_qty+$1,updated_at=NOW()
+            WHERE id=$2 AND outbound_qty+released_qty+$1<=reserved_qty
+            RETURNING id
+         ) SELECT id FROM changed`,
+        [outQty, allocation.id],
+      );
+      if (updated.length !== 1) throw new ConflictException(`出库 allocation ${allocation.id} 数量已变化`);
     }
 
     this.logger.log(`[EggInv] 出库确认: delivery=${deliveryNo} order=${orderNo}`);
