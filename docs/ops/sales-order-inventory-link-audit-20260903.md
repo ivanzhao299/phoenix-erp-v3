@@ -342,3 +342,37 @@ HAVING COUNT(*) > 1;
 
 因此，本轮代码链路、部署后新增数据和库存数量断言均通过；“全历史对账零差异”尚受上述 1 条迁移前审计来源缺口阻挡，
 需要单独生产数据修复批准后才能归零。
+
+### 两项历史遗留治理执行记录（2026-09-03）
+
+用户已批准两项治理，执行边界与结果如下：
+
+1. `SO-20260903-00006` 的 1 枚门店仓履约按“维持既成履约”归档。历史事实固定为 RESERVED ledger `221`、
+   批次 `IBN-20260828-VW1SSC`、仓库 `ST_LAO_XINGCHI_HS_001_SALES`、数量 `1`；原因标记为
+   `APPROVED_KEEP_HISTORICAL_STORE_FULFILLMENT_20260903`。该项采用纯文档治理标记，没有修改库存、ledger、仓归属，
+   也没有跨仓转移。
+2. allocation `id=1` 的历史 OUTBOUND action 来源关系已补齐。production readonly preflight run
+   `33720040896` 以 `ref_no=DV-20260903-0001`、`created_at=2026-09-03 02:51:23.183384+00`、
+   `qty_change=-1.000` 三键唯一定位原 FIFO_OUT，候选恰好 `1` 行；当时 allocation 仍为
+   `reserved_qty=1 / outbound_qty=1 / released_qty=0`，且既有 OUTBOUND action 为 `0`。
+
+production workflow run `33720260864` 随后再次执行同一只读前置断言，通过后在单事务内仅插入一行
+`sal_order_item_batch_allocation_actions`：`action_type=OUTBOUND`、
+`action_key=historical-fifo-out:DV-20260903-0001`、`qty=1`、`created_by=governance-approved-20260903`，
+并关联原 FIFO_OUT ledger。事务内断言全表 ledger 行数与 `qty_change` 汇总不变；后置独立只读断言确认 allocation 数量仍为
+`1 / 1 / 0`、action 数量 `1` 与原 ledger `-1` 归一，输出
+`PASS PRODUCTION_WRITE=ONE_ALLOCATION_ACTION_RELATION INVENTORY_QUANTITY_WRITES=0`。
+
+原收口清单已通过 production readonly run `33720304549` 复跑：
+
+| 断言 | 治理后结果 | 判定 |
+|---|---:|---|
+| allocation action ↔ ledger 来源差异 | 0 行 | PASS |
+| allocation 超额出库/释放 | 0 行 | PASS |
+| 差异明细 | 0 行 | PASS |
+| 部署后新增 Sales V2 门店 SALES 仓命中 | 0 行 | PASS |
+| 复跑期间生产业务写入 | 0 | PASS |
+
+回滚文件为 `scripts/ops/rollback-sales-order-allocation-action-1.sql`：仅在 allocation 数量、action 幂等键、治理创建人及
+原 ledger 三键全部精确匹配时删除该一行审计关系，不修改任何 allocation、`inv_batches` 或 `inv_ledger` 数量。
+至此原“1 条历史缺口”归零；门店仓 ledger `221` 作为经批准维持的既成履约事实继续保留。
