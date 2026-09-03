@@ -171,3 +171,16 @@ FOR UPDATE;
 - 真实 PostgreSQL 审批/FIFO/装车集成：3 tests PASS；双批次预留与 `finishLoading()` 的 `RESERVED` / `FIFO_OUT` 数量断言通过。
 - API Jest 全量：87 suites / 722 tests PASS，1 suite / 2 tests FAIL；失败为既有 `chanjet-callback.controller.spec.ts` 两个镜像收敛测试固定 5 秒超时，隔离重跑仍复现，与本次销售改动无关。
 - 生产只读清单输入校验：PASS；实际生产结果待部署后受控通道回填。
+
+### E1. 部署后生产只读定案
+
+- PR：`#168`；merge revision：`50f720c5bad80fa03ecc78780b9756b0a7239d47`。
+- full 部署：GitHub Actions run `33702924205`，成功。
+- 生产只读审计：run `33703823528`；checkout / API / Web revision 均为 `50f720c5bad80fa03ecc78780b9756b0a7239d47`；SQL 在 `READ ONLY` 事务内执行并 `ROLLBACK`，`PRODUCTION_BUSINESS_WRITES=0`。
+- 订单快照：`SO-20260903-00004`，`company_code=COMP-LAO-AGRI`，`status=DRAFT`；单条明细 `sku_code=CJ-EGG-8E82312ECAD7`、`product_code=EGG`、`grade_code=CJ_G1`、需求量 `1.00`、已分配量 `0.00`。
+- 完整 FIFO WHERE：AGRI 候选批次数 `0`、可分配量 `0`。
+- 逐条件变化：仅去掉 `company_code` 后变为 `1` 批、`998.000` 可分配；分别去掉 status / expiry / legacy 后仍为 `0`。
+- 全域批次分布仅返回 XINGCHI 会晒销售仓两批：`AVAILABLE 998.000` 与 `QUARANTINE 2.000`；其中 `IBN-20260828-VW1SSC` 的 998 枚是唯一满足静态 FIFO 条件的大宗。
+- 错误窗口：生命周期 process-log 近 60 分钟错误数 `0`。审计 application context 启动时仍有既有初始化代码尝试 DDL/DML，但均被只读事务拒绝，没有生产业务写入。
+
+最终定案：库存检查行为正确。失败源于订单公司 AGRI 与现存合格库存公司 XINGCHI 不同，不是 AGRI 批次被 legacy、过期或状态条件误排。本轮保持公司隔离和 `APPROVED` 硬预留，不新增跨公司调拨；若 AGRI 确需销售 XINGCHI 库存，应另立跨公司交易/调拨流程。
