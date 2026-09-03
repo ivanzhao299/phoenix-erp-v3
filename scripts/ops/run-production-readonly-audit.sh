@@ -163,4 +163,14 @@ if [ "$http_path" = 'scripts/ops/readonly-audits/production-procurement-localize
   echo "PRODUCTION_PROCUREMENT_LOCALIZED_NAME_ERROR_WINDOW_60M=$localized_production_procurement_error_count"
   test "$localized_production_procurement_error_count" = 0
 fi
+if [ "$sql_path" = 'scripts/ops/readonly-audits/credit-evaluation-so-20260903-00005.sql' ]; then
+  credit_log_matches="$({ docker logs --timestamps phoenix-v3-api 2>&1 | grep -E -B 30 -A 30 'SO-20260903-00005|信用评估失败|QueryFailedError|客户 .* 不存在' || true; })"
+  credit_log_line_count="$(printf '%s' "$credit_log_matches" | awk 'NF { count++ } END { print count + 0 }')"
+  echo "CREDIT_EVALUATION_RETAINED_LOG_LINES=$credit_log_line_count"
+  if [ "$credit_log_line_count" -gt 0 ]; then
+    printf '%s\n' "$credit_log_matches"
+  else
+    echo 'NO_RETAINED_CREDIT_EVALUATION_LOG_EVIDENCE (container log window may have rotated)'
+  fi
+fi
 echo 'PASS PRODUCTION_BUSINESS_WRITES=0'
