@@ -1,14 +1,15 @@
 import {
   Injectable, Logger, NotFoundException,
-  BadRequestException, ForbiddenException,
+  BadRequestException, ForbiddenException, ConflictException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { ApprovalEngineService } from '../../approval-engine/approval-engine.service';
 import { FinanceCreditNoteAdapter } from '../adapters/finance-credit-note.adapter';
 import { EggInventoryService } from './egg-inventory.service';      // Phase 7
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 
 /**
  * ReturnOrdersService — Sales V2 Phase 6
@@ -80,16 +81,38 @@ export class ReturnOrdersService {
   private async appendOrderEvent(
     rec: Record<string, any>, eventType: string, fromStatus: string | null,
     toStatus: string | null, comment?: string | null, metadata?: Record<string, unknown>,
+    mgr?: EntityManager,
   ) {
     if (!rec.sales_order_id || !rec.sales_order_no) return;
-    await this.ds.transaction((mgr) => this.lifecycle.appendEvent(mgr, {
+    const append = (manager: EntityManager) => this.lifecycle.appendEvent(manager, {
       salesOrderId: String(rec.sales_order_id), orderNo: String(rec.sales_order_no),
       eventType, fromStatus, toStatus, actorType: 'USER', actorName: this.currentUser,
       reasonCode: rec.reason_code ?? null, comment: comment ?? null,
       sourceEndpoint: `/api/v2/sales/returns/${rec.id}`,
       sourceModule: 'RETURN', sourceRefType: 'RETURN', sourceRefId: String(rec.id),
       sourceRefNo: String(rec.return_no), metadata,
-    }));
+    });
+    if (mgr) await append(mgr); else await this.ds.transaction(append);
+  }
+
+  private async assertRestockTarget(
+    companyCode: string, warehouseCode: string, zoneCode: string, locationCode: string,
+    mgr: EntityManager,
+  ) {
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    if (!scope?.isGlobal && !scope?.allowedWarehouseCodes.includes(warehouseCode)) {
+      throw new ForbiddenException(`无权使用回库仓 ${warehouseCode}`);
+    }
+    const [target] = await mgr.query(
+      `SELECT w.warehouse_code
+       FROM wms_warehouses w
+       JOIN wms_zones z ON z.zone_code=$2 AND z.warehouse_code=w.warehouse_code
+       JOIN wms_locations l ON l.location_code=$3 AND l.warehouse_code=w.warehouse_code AND l.zone_code=z.zone_code
+       WHERE w.warehouse_code=$1 AND w.company_code=$4 AND w.status='ACTIVE' AND w.domain='OPERATIONAL'
+         AND w.owner_store_id IS NULL AND z.status IN ('ACTIVE','NORMAL') AND l.status IN ('ACTIVE','NORMAL')`,
+      [warehouseCode, zoneCode, locationCode, companyCode],
+    );
+    if (!target) throw new BadRequestException('回库目标必须是本公司 ACTIVE/OPERATIONAL 仓内的有效隔离库区及货位');
   }
 
   // ── 1. 列表 ─────────────────────────────────────────────────────────────────
@@ -197,6 +220,9 @@ export class ReturnOrdersService {
     reasonCode?:     string;
     currencyCode?:   string;
     remark?:         string;
+    targetWarehouseCode?: string;
+    targetZoneCode?: string;
+    targetLocationCode?: string;
     items: Array<{
       salesOrderItemId?: string;
       productCode:       string;
@@ -225,10 +251,11 @@ export class ReturnOrdersService {
     let companyCode  = body.companyCode;
     let companyName  = body.companyName;
     let currencyCode = body.currencyCode ?? 'LAK';
+    let targetWarehouseCode = body.targetWarehouseCode;
 
     if (body.salesOrderId) {
       const [order] = await this.ds.query(
-        `SELECT customer_code, customer_name, company_code, company_name, currency_code
+        `SELECT customer_code, customer_name, company_code, company_name, currency_code, fulfillment_warehouse_code
          FROM sal_sales_orders WHERE id = $1`,
         [body.salesOrderId],
       );
@@ -238,6 +265,7 @@ export class ReturnOrdersService {
         companyCode  = companyCode  ?? order.company_code;
         companyName  = companyName  ?? order.company_name;
         currencyCode = currencyCode ?? order.currency_code ?? 'LAK';
+        targetWarehouseCode = targetWarehouseCode ?? order.fulfillment_warehouse_code ?? undefined;
       }
     }
 
@@ -250,10 +278,11 @@ export class ReturnOrdersService {
          return_no, sales_order_id, sales_order_no, delivery_order_id,
          customer_code, customer_name, company_code, company_name,
          return_type, reason_code, currency_code, subtotal,
+         target_warehouse_code, target_zone_code, target_location_code,
          status, need_approval, created_by, created_at, updated_at
        ) VALUES (
          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
-         'DRAFT',false,$13,NOW(),NOW()
+         $13,$14,$15,'DRAFT',false,$16,NOW(),NOW()
        ) RETURNING *`,
       [
         returnNo,
@@ -268,6 +297,9 @@ export class ReturnOrdersService {
         body.reasonCode ?? null,
         currencyCode,
         subtotal,
+        targetWarehouseCode ?? null,
+        body.targetZoneCode ?? null,
+        body.targetLocationCode ?? null,
         operator,
       ],
     );
@@ -424,6 +456,7 @@ export class ReturnOrdersService {
     if (rec.status !== 'INSPECTING') {
       throw new BadRequestException(`退货单当前状态 ${rec.status}，不在质检状态`);
     }
+
     // 幂等：已在 INSPECTING，返回当前详情即可
     await this.appendOrderEvent(rec, 'RETURN_INSPECTION_STARTED', 'INSPECTING', 'INSPECTING');
     this.logger.log(`[Return] 质检进行中: ${rec.return_no}`);
@@ -445,10 +478,30 @@ export class ReturnOrdersService {
 
     let totalAccepted = 0;
     let newSubtotal   = 0;
-
-    // 校验并更新每条明细
+    const allItems = await this.ds.query(
+      `SELECT * FROM sal_return_items WHERE return_order_id=$1 ORDER BY id`, [id],
+    );
+    const resultIds = new Set(inspectionResults.map((x) => String(x.itemId)));
+    if (allItems.length === 0 || resultIds.size !== allItems.length
+      || allItems.some((item: any) => !resultIds.has(String(item.id)))) {
+      throw new BadRequestException('质检结果必须且只能覆盖退货单全部明细');
+    }
     for (const result of inspectionResults) {
-      const [item] = await this.ds.query(
+      const item = allItems.find((x: any) => String(x.id) === String(result.itemId));
+      if (Number(result.acceptedQty ?? 0) + Number(result.damagedQty ?? 0) !== Number(item.returned_qty)) {
+        throw new BadRequestException(`明细 ${result.itemId}：accepted_qty + damaged_qty 必须等于 returned_qty`);
+      }
+    }
+    const nextStatus = inspectionResults.some((x) => Number(x.acceptedQty ?? 0) > 0)
+      ? 'RESTOCKING' : 'COMPLETED';
+
+    await this.ds.transaction(async (mgr) => {
+      const [locked] = await mgr.query(`SELECT * FROM sal_return_orders WHERE id=$1 FOR UPDATE`, [id]);
+      if (!locked || locked.status !== 'INSPECTING') {
+        throw new ConflictException('退货单质检状态已变化，请刷新后重试');
+      }
+      for (const result of inspectionResults) {
+      const [item] = await mgr.query(
         `SELECT * FROM sal_return_items WHERE id=$1 AND return_order_id=$2`,
         [result.itemId, id],
       );
@@ -458,10 +511,9 @@ export class ReturnOrdersService {
       const damagedQty  = Math.max(0, result.damagedQty  ?? 0);
       const returnedQty = Number(item.returned_qty);
 
-      // 安全约束：accepted + damaged <= returned
-      if (acceptedQty + damagedQty > returnedQty) {
+      if (acceptedQty + damagedQty !== returnedQty) {
         throw new BadRequestException(
-          `明细 ${result.itemId}：accepted_qty(${acceptedQty}) + damaged_qty(${damagedQty}) > returned_qty(${returnedQty})`,
+          `明细 ${result.itemId}：accepted_qty + damaged_qty 必须等于 returned_qty(${returnedQty})`,
         );
       }
 
@@ -481,32 +533,28 @@ export class ReturnOrdersService {
       totalAccepted += acceptedQty;
       newSubtotal   += itemAmount;
 
-      await this.ds.query(
+      await mgr.query(
         `UPDATE sal_return_items
          SET accepted_qty=$1, damaged_qty=$2, amount=$3,
              inspection_result=$4, remark=COALESCE($5, remark)
          WHERE id=$6`,
         [acceptedQty, damagedQty, itemAmount, inspectionResult, result.remark ?? null, result.itemId],
       );
-    }
+      }
 
-    // 下一状态
-    const nextStatus = totalAccepted > 0 ? 'RESTOCKING' : 'COMPLETED';
-
-    await this.ds.query(
+    await mgr.query(
       `UPDATE sal_return_orders
        SET status=$1, subtotal=$2, inspected_at=NOW(), updated_at=NOW()
        WHERE id=$3`,
       [nextStatus, newSubtotal, id],
     );
-    await this.appendOrderEvent(rec, 'RETURN_INSPECTION_COMPLETED', 'INSPECTING', nextStatus,
-      inspectionResults.map((x) => x.remark).filter(Boolean).join('；') || null,
-      { acceptedQty: totalAccepted, resultCount: inspectionResults.length });
-
-    // 全部破损→直接 COMPLETED 但也需要生成 Credit Note（金额为 0）
-    if (nextStatus === 'COMPLETED') {
-      await this.completeFinal(id, rec);
-    }
+      await this.appendOrderEvent(locked, 'RETURN_INSPECTION_COMPLETED', 'INSPECTING', nextStatus,
+        inspectionResults.map((x) => x.remark).filter(Boolean).join('；') || null,
+        { acceptedQty: totalAccepted, resultCount: inspectionResults.length }, mgr);
+      if (nextStatus === 'COMPLETED') {
+        await this.completeFinal(id, { ...locked, subtotal: newSubtotal }, mgr);
+      }
+    });
 
     this.logger.log(`[Return] 质检完成: ${rec.return_no} → ${nextStatus} (accepted=${totalAccepted})`);
     return this.findById(id);
@@ -514,30 +562,37 @@ export class ReturnOrdersService {
 
   // ── 9. 完成回库 ──────────────────────────────────────────────────────────────
 
-  async completeRestock(id: string) {
+  async completeRestock(id: string, target: {
+    targetWarehouseCode: string; targetZoneCode: string; targetLocationCode: string;
+  }) {
+    await this.ds.transaction(async (mgr) => {
+      const [rec] = await mgr.query(`SELECT * FROM sal_return_orders WHERE id=$1 FOR UPDATE`, [id]);
+      if (!rec) throw new NotFoundException(`退货单 ${id} 不存在`);
+      if (rec.status !== 'RESTOCKING' || rec.restocked_at) {
+        throw new ConflictException(`退货单当前状态 ${rec.status}，不可重复回库`);
+      }
+      if (!target.targetWarehouseCode || !target.targetZoneCode || !target.targetLocationCode) {
+        throw new BadRequestException('回库仓、隔离库区、隔离货位均为必填');
+      }
+      await this.assertRestockTarget(
+        String(rec.company_code), target.targetWarehouseCode, target.targetZoneCode,
+        target.targetLocationCode, mgr,
+      );
+      await mgr.query(
+        `UPDATE sal_return_orders SET target_warehouse_code=$1,target_zone_code=$2,target_location_code=$3,updated_at=NOW() WHERE id=$4`,
+        [target.targetWarehouseCode, target.targetZoneCode, target.targetLocationCode, id],
+      );
+      await this.eggInventory.processReturnInventory(
+        id, String(rec.return_no), String(rec.company_code ?? 'ALL'),
+        target.targetWarehouseCode, target.targetZoneCode, target.targetLocationCode, mgr,
+      );
+      await mgr.query(`UPDATE sal_return_orders SET restocked_at=NOW(),updated_at=NOW() WHERE id=$1`, [id]);
+      await this.appendOrderEvent(rec, 'RETURN_RESTOCKED', 'RESTOCKING', 'RESTOCKING', null,
+        { ...target }, mgr);
+      await this.completeFinal(id, rec, mgr);
+    });
+
     const rec = await this.findRaw(id);
-    if (rec.status !== 'RESTOCKING') {
-      throw new BadRequestException(`退货单当前状态 ${rec.status}，不在回库状态`);
-    }
-
-    // Phase 7 — 委托 EggInventoryService 处理 FIFO 回库（含等级降级、损耗流水）
-    await this.eggInventory.processReturnInventory(
-      id,
-      String(rec.return_no),
-      String(rec.company_code ?? 'ALL'),
-    );
-
-    await this.ds.query(
-      `UPDATE sal_return_orders
-       SET restocked_at=NOW(), updated_at=NOW()
-       WHERE id=$1`,
-      [id],
-    );
-    await this.appendOrderEvent(rec, 'RETURN_RESTOCKED', 'RESTOCKING', 'RESTOCKING');
-
-    // 生成 Credit Note + 最终 COMPLETED
-    await this.completeFinal(id, rec);
-
     this.logger.log(`[Return] 回库完成: ${rec.return_no} → COMPLETED`);
     return this.findById(id);
   }
@@ -547,20 +602,18 @@ export class ReturnOrdersService {
   async complete(id: string) {
     const rec = await this.findRaw(id);
     this.assertNotCompleted(rec.status, 'complete');
-    await this.completeFinal(id, rec);
-    return this.findById(id);
+    throw new ForbiddenException(`退货单状态 ${rec.status} 不可跨越质检/回库直接完成`);
   }
 
   // ── 内部：生成 Credit Note + 最终 COMPLETED ─────────────────────────────────
 
-  private async completeFinal(id: string, rec: Record<string, unknown>) {
+  private async completeFinal(id: string, rec: Record<string, unknown>, mgr: EntityManager) {
     const subtotal  = Number(rec.subtotal ?? 0);
     const operator  = this.currentUser;
     let creditNoteId: string | null = null;
 
     // 退货金额 > 0 才生成 Credit Note（全部破损则 subtotal=0 跳过）
     if (subtotal > 0) {
-      try {
         creditNoteId = await this.creditNoteAdapter.createCreditNote({
           returnId:     String(rec.id),
           returnNo:     String(rec.return_no),
@@ -571,22 +624,17 @@ export class ReturnOrdersService {
           currencyCode: (rec.currency_code ?? 'LAK') as string,
           returnAmount: subtotal,
           createdBy:    operator,
-        });
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        this.logger.error(`[Return] Credit Note 生成失败: ${msg}`);
-        // Credit Note 失败不阻断 COMPLETED（记录告警，财务可手动处理）
-      }
+        }, mgr);
     }
 
-    await this.ds.query(
+    await mgr.query(
       `UPDATE sal_return_orders
        SET status='COMPLETED', credit_note_id=$1, completed_at=NOW(), updated_at=NOW()
        WHERE id=$2`,
       [creditNoteId, id],
     );
     await this.appendOrderEvent(rec, 'RETURN_COMPLETED', String(rec.status), 'COMPLETED', null,
-      { creditNoteId });
+      { creditNoteId }, mgr);
   }
 
   // ── 11. 取消 ─────────────────────────────────────────────────────────────────

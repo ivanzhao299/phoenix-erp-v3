@@ -805,6 +805,9 @@ export class EggInventoryService {
     returnId:    string,
     returnNo:    string,
     companyCode: string,
+    targetWarehouseCode: string,
+    targetZoneCode: string,
+    targetLocationCode: string,
     mgr?:        EntityManager,
   ): Promise<void> {
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
@@ -814,9 +817,12 @@ export class EggInventoryService {
     );
 
     for (const item of items) {
+      if (item.restock_status !== 'PENDING') {
+        throw new ConflictException(`退货明细 ${item.id} 已处理，拒绝重复回库`);
+      }
       const accepted = Number(item.accepted_qty);
       const damaged  = Number(item.damaged_qty);
-      const batchNo  = `RET-${returnNo}-${item.product_code}`;
+      const batchNo  = `RET-${returnNo}-${item.id}`;
 
       // Phase H5: sal_return_items 已有 sku_code（从原销售明细继承）
       const returnSkuCode: string | null = item.sku_code ?? null;
@@ -830,37 +836,36 @@ export class EggInventoryService {
           `INSERT INTO inv_batches
              (batch_no, product_code, company_code, qty, qty_available,
               quality_grade, source_type, source_no, status,
-              sku_code, grade_code_std, spec_code,
+              sku_code, grade_code_std, spec_code, warehouse_code, location_code,
               created_at, updated_at)
-           VALUES ($1,$2,$3,$4,$4,$5,'RETURN',$6,'RETURNED',$7,$8,$9,NOW(),NOW())
-           ON CONFLICT (batch_no)
-           DO UPDATE SET qty          = inv_batches.qty          + EXCLUDED.qty,
-                         qty_available = inv_batches.qty_available + EXCLUDED.qty_available,
-                         updated_at   = NOW()`,
+           VALUES ($1,$2,$3,$4,$4,$5,'RETURN',$6,'RETURNED',$7,$8,$9,$10,$11,NOW(),NOW())`,
           [
-            batchNo, item.product_code, companyCode, Math.round(accepted), returnGrade, returnNo,
+            batchNo, item.product_code, companyCode, accepted, returnGrade, returnNo,
             returnSkuCode,
             // Phase H5: returnSkuCode 已从 sal_return_items.sku_code 读取
             returnSkuCode ? returnGrade : null,
             returnSkuCode ? item.spec_code ?? null : null,
+            targetWarehouseCode, targetLocationCode,
           ],
         );
 
         await this.writeLedger({
           batchNo,
           changeType:  'SALE_RETURN',
-          qtyChange:   Math.round(accepted),
+          qtyChange:   accepted,
           operator:    this.operator,
           companyCode,
           refNo:       returnNo,
-          note:        `退货回库 return=${returnNo} product=${item.product_code} accepted=${accepted} grade=${returnGrade}`,
           qualityGrade: returnGrade,
           skuCode:      returnSkuCode,
+          warehouseCode: targetWarehouseCode,
+          locationCode: targetLocationCode,
+          note:        `退货回库 return=${returnNo} product=${item.product_code} accepted=${accepted} grade=${returnGrade} zone=${targetZoneCode}`,
         }, mgr);
 
-        await q(
-          `UPDATE sal_return_items SET restock_status='RESTOCKED' WHERE id=$1`, [item.id],
-        );
+        if (damaged === 0) {
+          await q(`UPDATE sal_return_items SET restock_status='RESTOCKED' WHERE id=$1`, [item.id]);
+        }
       }
 
       // ── damaged_qty：损耗（仅写 inv_ledger，不回库） ─────────────────────────
@@ -869,7 +874,7 @@ export class EggInventoryService {
         await this.writeLedger({
           batchNo:     damageBatch,
           changeType:  'DAMAGE_WRITEOFF',
-          qtyChange:   Math.round(damaged),
+          qtyChange:   damaged,
           operator:    this.operator,
           companyCode,
           refNo:       returnNo,
@@ -878,7 +883,8 @@ export class EggInventoryService {
         }, mgr);
 
         await q(
-          `UPDATE sal_return_items SET restock_status='WRITTEN_OFF' WHERE id=$1`, [item.id],
+          `UPDATE sal_return_items SET restock_status=$1 WHERE id=$2`,
+          [accepted > 0 ? 'RESTOCKED_WITH_WRITEOFF' : 'WRITTEN_OFF', item.id],
         );
       }
     }

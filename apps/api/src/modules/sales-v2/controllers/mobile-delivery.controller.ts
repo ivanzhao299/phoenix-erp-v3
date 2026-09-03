@@ -198,6 +198,7 @@ export class MobileDeliveryController {
             remark:       body.exceptionType,
           }],
         });
+        await this.receiptsSvc.linkExceptionReturn(String(receipt.id), String(returnOrder.id));
         this.logger.log(`[MobileDelivery] 异常签收 → Return Order ${returnOrder?.return_no ?? returnOrder?.id}`);
       } catch (err: any) {
         this.logger.error(`[MobileDelivery] Return Order 创建失败: ${err.message}`);

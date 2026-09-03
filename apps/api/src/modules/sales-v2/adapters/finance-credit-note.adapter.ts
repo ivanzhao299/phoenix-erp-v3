@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 
 /**
  * FinanceCreditNoteAdapter — Sales V2 Phase 6
@@ -39,10 +39,10 @@ export class FinanceCreditNoteAdapter {
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
-  private async genCrNo(): Promise<string> {
+  private async genCrNo(mgr?: EntityManager): Promise<string> {
     const today  = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const prefix = `CR-${today}-`;
-    const row = await this.ds.query(
+    const row = await (mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds))(
       `SELECT COUNT(*) AS cnt FROM fin_ar_invoices WHERE ar_no LIKE $1`,
       [`${prefix}%`],
     );
@@ -51,19 +51,20 @@ export class FinanceCreditNoteAdapter {
 
   /**
    * 为已完成的退货单创建 AR Credit Note（负数 AR Invoice）。
-   * 在调用方的事务外调用（独立事务），成功后返回 fin_ar_invoices.id。
+   * 可加入调用方事务，成功后返回 fin_ar_invoices.id。
    *
    * 安全约束：
    *   · amount_original 必须为负数（returnAmount 的负值）
    *   · balance_amount_original 也为负数（未被核销前）
    *   · status = 'OPEN'（等待与正向 AR 核销）
    */
-  async createCreditNote(params: CreateCreditNoteParams): Promise<string> {
-    const crNo = await this.genCrNo();
+  async createCreditNote(params: CreateCreditNoteParams, mgr?: EntityManager): Promise<string> {
+    const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
+    const crNo = await this.genCrNo(mgr);
     const negAmount = -Math.abs(params.returnAmount);   // 强制负数
 
     // source_type = 'SALES_RETURN' 直接插入（Adapter 绕过 DTO 验证，使用 raw SQL）
-    const result = await this.ds.query(
+    const result = await q(
       `INSERT INTO fin_ar_invoices (
          ar_no, source_type, source_id, source_no,
          company_code, company_name,

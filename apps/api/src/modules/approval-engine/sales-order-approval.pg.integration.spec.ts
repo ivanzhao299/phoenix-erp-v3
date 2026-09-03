@@ -14,6 +14,9 @@ import { WorkflowNotificationService } from '../workflow/workflow-notification.s
 import { AssignmentResolverService } from '../workflow/assignment-resolver.service';
 import { EggInventoryService } from '../sales-v2/services/egg-inventory.service';
 import { DeliveryOrdersService } from '../sales-v2/services/delivery-orders.service';
+import { ReturnOrdersService } from '../sales-v2/services/return-orders.service';
+import { FinanceCreditNoteAdapter } from '../sales-v2/adapters/finance-credit-note.adapter';
+import { SalesOrderLifecycleService } from '../sales-v2/services/sales-order-lifecycle.service';
 
 const describePg = process.env.RUN_PG_INTEGRATION === '1' ? describe : describe.skip;
 
@@ -294,6 +297,72 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     );
     expect(state).toMatchObject({ order_status: 'CANCELLED', instance_status: 'CANCELLED', step_status: 'CANCELLED' });
     await expect(engine.approveStep(String(instance.id))).rejects.toThrow('审批实例已结束');
+  });
+
+  it('restocks every inspected return item into the explicit quarantine target atomically and rejects retries', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const warehouse = `PG-RET-WH-${suffix}`;
+    const zone = `PG-RET-Z-${suffix}`;
+    const location = `PG-RET-L-${suffix}`;
+    const returnNo = `RET-PG-${suffix}`;
+    // Frozen CI baseline does not materialize these runtime CRUD tables.
+    await runner.manager.query(`CREATE TABLE IF NOT EXISTS wms_zones (
+      id SERIAL PRIMARY KEY,zone_code VARCHAR(64) UNIQUE,zone_name VARCHAR(128),
+      warehouse VARCHAR(64),warehouse_code VARCHAR(64),status VARCHAR(32)
+    )`);
+    await runner.manager.query(`CREATE TABLE IF NOT EXISTS wms_locations (
+      location_code VARCHAR(64) PRIMARY KEY,warehouse_code VARCHAR(64) NOT NULL,
+      zone_code VARCHAR(64),location_name VARCHAR(128),status VARCHAR(32)
+    )`);
+    await runner.manager.query(
+      `INSERT INTO wms_warehouses(warehouse_code,warehouse_name,company_code,status,domain) VALUES($1,$1,'PG-IT','ACTIVE','OPERATIONAL')`,
+      [warehouse],
+    );
+    await runner.manager.query(
+      `INSERT INTO wms_zones(zone_code,zone_name,warehouse_code,status) VALUES($1,'QUARANTINE',$2,'ACTIVE')`,
+      [zone, warehouse],
+    );
+    await runner.manager.query(
+      `INSERT INTO wms_locations(location_code,warehouse_code,zone_code,location_name,status) VALUES($1,$2,$3,'QUARANTINE','ACTIVE')`,
+      [location, warehouse, zone],
+    );
+    const [ret] = await runner.manager.query(
+      `INSERT INTO sal_return_orders(return_no,company_code,return_type,currency_code,subtotal,status,need_approval,created_by)
+       VALUES($1,'PG-IT','CUSTOMER_RETURN','LAK',0,'RESTOCKING',false,'PG-TEST') RETURNING id`, [returnNo],
+    );
+    const [item] = await runner.manager.query(
+      `INSERT INTO sal_return_items(return_order_id,product_code,returned_qty,accepted_qty,damaged_qty,unit_price,amount,inspection_result,restock_status)
+       VALUES($1,'PG-RETURN-PRODUCT',3,2,1,0,0,'PARTIAL','PENDING') RETURNING id`, [ret.id],
+    );
+    const txDataSource = {
+      query: (...args: any[]) => runner.manager.query(args[0], args[1]),
+      transaction: (fn: any) => fn(runner.manager),
+    } as DataSource;
+    const scopedCls = { get: jest.fn((key: string) => key === 'user'
+      ? { userId: '1', username: 'pg-approver' }
+      : key === 'dataScope' ? { isGlobal: true, allowedWarehouseCodes: [], allowedCompanyCodes: [] } : undefined) };
+    const inventory = new EggInventoryService(txDataSource, scopedCls as any);
+    const service = new ReturnOrdersService(
+      txDataSource, scopedCls as any, {} as any, new FinanceCreditNoteAdapter(txDataSource),
+      inventory, new SalesOrderLifecycleService(txDataSource),
+    );
+    const target = { targetWarehouseCode: warehouse, targetZoneCode: zone, targetLocationCode: location };
+    await service.completeRestock(String(ret.id), target);
+    const [state] = await runner.manager.query(
+      `SELECT r.status,r.target_warehouse_code,r.target_zone_code,r.target_location_code,i.restock_status,
+              b.qty,b.warehouse_code,b.location_code,
+              (SELECT COUNT(*) FROM inv_ledger WHERE ref_no=$2 AND change_type='SALE_RETURN') return_ledger,
+              (SELECT COUNT(*) FROM inv_ledger WHERE ref_no=$2 AND change_type='DAMAGE_WRITEOFF') damage_ledger
+       FROM sal_return_orders r JOIN sal_return_items i ON i.return_order_id=r.id
+       JOIN inv_batches b ON b.batch_no=$3 WHERE r.id=$1`,
+      [ret.id, returnNo, `RET-${returnNo}-${item.id}`],
+    );
+    expect(state).toMatchObject({
+      status: 'COMPLETED', target_warehouse_code: warehouse, target_zone_code: zone,
+      target_location_code: location, restock_status: 'RESTOCKED_WITH_WRITEOFF', qty: '2.000',
+      warehouse_code: warehouse, location_code: location, return_ledger: '1', damage_ledger: '1',
+    });
+    await expect(service.completeRestock(String(ret.id), target)).rejects.toThrow('不可重复回库');
   });
 
   it('reject commits the SALES_ORDER CAS and append-only lifecycle event', async () => {
