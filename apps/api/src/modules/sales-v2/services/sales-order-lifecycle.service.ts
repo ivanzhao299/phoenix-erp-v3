@@ -120,6 +120,7 @@ export class SalesOrderLifecycleService {
     ].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime() || a.id.localeCompare(b.id));
 
     const warnings: string[] = [];
+    if (!order.fulfillment_warehouse_code || order.warehouse_governance_pending) warnings.push('FULFILLMENT_WAREHOUSE_PENDING');
     if (order.status === 'RECEIVED' && !order.ar_invoice_id && arInvoices.length === 0) warnings.push('RECEIVED_WITHOUT_AR');
     if (deliveries.some((x: any) => x.status === 'COMPLETED') && receipts.length === 0) warnings.push('DELIVERY_COMPLETED_WITHOUT_RECEIPT');
     if (workflow.some((x: any) => x.instance_status === 'PENDING'
@@ -127,6 +128,12 @@ export class SalesOrderLifecycleService {
       && x.due_at && new Date(x.due_at).getTime() < Date.now())) warnings.push('APPROVAL_OVERDUE');
     if (deliveries.some((x: any) => ['DEPARTED', 'IN_TRANSIT'].includes(x.status) && x.departure_at && Date.now() - new Date(x.departure_at).getTime() > 48 * 60 * 60 * 1000)) warnings.push('DELIVERY_DEPARTED_OVERDUE');
     if (returns.some((x: any) => !['COMPLETED', 'REJECTED', 'CANCELLED'].includes(x.status) && Date.now() - new Date(x.updated_at ?? x.created_at).getTime() > 72 * 60 * 60 * 1000)) warnings.push('RETURN_FLOW_STALLED');
-    return { orderNo: order.order_no, currentStatus: order.status, documents, timeline, warnings };
+    return {
+      orderNo: order.order_no,
+      currentStatus: order.status,
+      fulfillmentWarehouseCode: order.fulfillment_warehouse_code ?? null,
+      warehouseGovernancePending: Boolean(order.warehouse_governance_pending),
+      documents, timeline, warnings,
+    };
   }
 }

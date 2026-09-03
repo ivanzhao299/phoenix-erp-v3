@@ -54,6 +54,9 @@ export class CreateDeliveryOrderDto {
   /** 关联的销售订单 ID 列表（至少 1 条） */
   @IsArray() @ArrayNotEmpty() salesOrderIds: string[];
 
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => DeliveryPlanItemDto)
+  items?: DeliveryPlanItemDto[];
+
   @IsOptional() @IsString() routeCode?: string;
   @IsOptional() @IsString() routeName?: string;
 
@@ -67,6 +70,11 @@ export class CreateDeliveryOrderDto {
   @IsOptional() @IsDateString() expectedArrivalAt?: string;
 
   @IsOptional() @IsString() remark?: string;
+}
+
+export class DeliveryPlanItemDto {
+  @IsString() @IsNotEmpty() salesOrderId: string;
+  @Type(() => Number) @IsNumber() @Min(0.01) qty: number;
 }
 
 export class UpdateDeliveryOrderDto {

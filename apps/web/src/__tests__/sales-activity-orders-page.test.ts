@@ -23,7 +23,8 @@ vi.mock('@/components/design-system', () => ({
 vi.mock('@/components/design-system/dialogs/ModalV2', () => ({ ModalV2: ({ open, children }: any) => open ? React.createElement('div', null, children) : null }));
 vi.mock('@/components/shared-selectors/DictSelect', () => ({ DictSelect: () => null }));
 vi.mock('@/components/shared-selectors/MasterDataSelectors', () => ({
-  CompanySelector: () => null, CustomerSelector: () => null, ChannelSelector: () => null, SkuSelector: () => null,
+  CompanySelector: () => null, CustomerSelector: () => null, ChannelSelector: () => null,
+  WarehouseSelector: () => null, SkuSelector: () => null,
 }));
 
 import SalesV2OrdersPage from '@/app/(admin)/sales2/orders/page';

@@ -47,6 +47,12 @@ export class SalSalesOrderEntity {
   @Column({ name: 'company_name', type: 'varchar', length: 256, nullable: true })
   companyName: string | null;
 
+  @Column({ name: 'fulfillment_warehouse_code', type: 'varchar', length: 64, nullable: true })
+  fulfillmentWarehouseCode: string | null;
+
+  @Column({ name: 'warehouse_governance_pending', type: 'boolean', default: false })
+  warehouseGovernancePending: boolean;
+
   @Column({ name: 'channel_code', type: 'varchar', length: 64, nullable: true })
   channelCode: string | null;
 

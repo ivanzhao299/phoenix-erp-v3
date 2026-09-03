@@ -46,6 +46,9 @@ export class CreateSalesOrderDto {
   @IsString() @IsNotEmpty()
   companyCode: string;
 
+  @IsString() @IsNotEmpty()
+  fulfillmentWarehouseCode: string;
+
   @IsOptional() @IsString()
   companyName?: string;
 

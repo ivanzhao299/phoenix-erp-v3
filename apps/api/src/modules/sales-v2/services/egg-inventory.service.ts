@@ -445,6 +445,7 @@ export class EggInventoryService {
       note:         string;
       /** Phase H4: SKU 优先分配路径 */
       skuCode?:     string;
+      fulfillmentWarehouseCode?: string;
     },
     mgr?: EntityManager,
   ): Promise<FifoAllocation[]> {
@@ -485,6 +486,10 @@ export class EggInventoryService {
         conds.push(`quality_grade = $${pi++}`);
         args.push(params.gradeCode);
       }
+    }
+    if (params.fulfillmentWarehouseCode) {
+      conds.push(`warehouse_code = $${pi++}`);
+      args.push(params.fulfillmentWarehouseCode);
     }
 
     const batches = await q(
@@ -570,6 +575,7 @@ export class EggInventoryService {
     orderNo: string,
     companyCode: string,
     mgr?: EntityManager,
+    fulfillmentWarehouseCode?: string,
   ): Promise<boolean> {
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
     let createdAny = false;
@@ -606,6 +612,7 @@ export class EggInventoryService {
           refNo:   orderNo,
           note:    `销售订单 ${orderNo} 明细 ${item.id}`,
           skuCode: item.sku_code ?? undefined,   // Phase H5: SKU PATH A 优先
+          fulfillmentWarehouseCode,
       }, mgr);
 
         // 记录分配的批次（取首批次作为主批次，多批次逗号分隔）
@@ -716,8 +723,9 @@ export class EggInventoryService {
     companyCode: string,
     deliveryNo: string,
     deliveryId: string,
+    requestedQty: number,
     mgr?: EntityManager,
-  ): Promise<void> {
+  ): Promise<number> {
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
 
     const allocations = await q(
@@ -730,8 +738,11 @@ export class EggInventoryService {
       [orderId],
     );
 
+    let remaining = requestedQty;
     for (const allocation of allocations) {
-      const outQty = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
+      if (remaining <= 0) break;
+      const available = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
+      const outQty = Math.min(available, remaining);
       if (outQty <= 0) continue;
 
         // 正式扣减物理库存（qty）
@@ -779,9 +790,13 @@ export class EggInventoryService {
         [outQty, allocation.id],
       );
       if (updated.length !== 1) throw new ConflictException(`出库 allocation ${allocation.id} 数量已变化`);
+      remaining -= outQty;
     }
 
+    if (remaining > 0) throw new ConflictException(`订单 ${orderNo} 剩余预留不足，本次需出库 ${requestedQty}`);
+
     this.logger.log(`[EggInv] 出库确认: delivery=${deliveryNo} order=${orderNo}`);
+    return requestedQty;
   }
 
   // ── 7. 退货回库（Return Runtime 联动） ───────────────────────────────────────

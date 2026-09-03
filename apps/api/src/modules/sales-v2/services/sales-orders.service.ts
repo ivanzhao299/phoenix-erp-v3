@@ -62,8 +62,25 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       userName:     String(u?.name ?? u?.username ?? ''),
       roles:        (u?.roles ?? (u?.role ? [u.role] : [])) as string[],
       companyCodes: scope ? scope.allowedCompanyCodes : [] as string[],
+      warehouseCodes: scope ? scope.allowedWarehouseCodes : [] as string[],
       scopeAll:     scope ? scope.isGlobal : false,
     };
+  }
+
+  private async assertFulfillmentWarehouse(companyCode: string, warehouseCode: string): Promise<void> {
+    const rows = await this.ds.query(
+      `SELECT warehouse_code FROM wms_warehouses w
+        WHERE warehouse_code=$1 AND company_code=$2 AND status='ACTIVE' AND domain='OPERATIONAL'
+          AND owner_store_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM store_warehouse_bindings b WHERE b.warehouse_code=w.warehouse_code
+            AND b.purpose='SALES' AND b.status='ACTIVE' AND b.effective_to IS NULL)`,
+      [warehouseCode, companyCode],
+    );
+    if (!rows.length) throw new BadRequestException(`履约仓 ${warehouseCode} 不存在、不可用、公司不匹配或属于门店 SALES 仓`);
+    const user = this.currentUser();
+    if (!user.scopeAll && !user.warehouseCodes.includes(warehouseCode)) {
+      throw new ForbiddenException(`无权使用履约仓 ${warehouseCode}`);
+    }
   }
 
   // ── DataScope 断言 ────────────────────────────────────────────────────────
@@ -262,6 +279,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     if (!dto.items?.length) {
       throw new BadRequestException('订单必须包含至少一条明细');
     }
+    await this.assertFulfillmentWarehouse(dto.companyCode, dto.fulfillmentWarehouseCode);
 
     // 读取客户信息
     let customer: any = null;
@@ -382,7 +400,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     const orderResult = await mgr.query(
       `INSERT INTO sal_sales_orders (
          order_no, customer_id, customer_code, customer_name,
-         company_code, company_name, channel_code,
+         company_code, company_name, fulfillment_warehouse_code, warehouse_governance_pending, channel_code,
          price_book_id, price_book_no, currency_code,
          subtotal, discount, total_amount,
          status, need_price_approval, need_credit_approval,
@@ -390,19 +408,19 @@ export class SalesOrdersService implements OnApplicationBootstrap {
          expected_delivery_date, delivery_address, remark, created_by
        ) VALUES (
          $1,$2,$3,$4,
-         $5,$6,$7,
-         $8,$9,$10,
-         $11,0,$12,
+         $5,$6,$7,FALSE,$8,
+         $9,$10,$11,
+         $12,0,$13,
          'DRAFT',FALSE,FALSE,
-         FALSE,$13,
-         $14,$15,$16,$17
+         FALSE,$14,
+         $15,$16,$17,$18
        ) RETURNING *`,
       [
         orderNo,
         customer ? String(customer.id) : null,
         customer?.customer_no ?? dto.customerCode ?? null,
         customer?.customer_name ?? null,
-        dto.companyCode, dto.companyName ?? null,
+        dto.companyCode, dto.companyName ?? null, dto.fulfillmentWarehouseCode,
         channelCode,
         resolvedItems[0]?.priceBookId ?? null,
         resolvedItems[0]?.priceBookNo ?? null,
@@ -737,7 +755,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
           fromStatus: 'DRAFT', toStatus: 'APPROVED', actorType: 'SYSTEM',
           sourceModule: 'WORKFLOW', metadata: { triggerCodes, creditWarning },
         });
-        await this.applyApprovedInventory(id, rec.order_no, rec.company_code, mgr);
+        await this.applyApprovedInventory(id, rec.order_no, rec.company_code, rec.fulfillment_warehouse_code, mgr);
         finalRec = { ...updated, _note: creditWarning ? '信用预警（WARNING），已批准但需关注' : '无审批要求，已自动批准' };
       }
     });
@@ -751,9 +769,17 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     orderId: string,
     orderNo: string,
     companyCode: string,
+    fulfillmentWarehouseCode: string | null,
     mgr: EntityManager,
   ): Promise<void> {
-    const created = await this.eggInventory.reserveInventory(orderId, orderNo, companyCode, mgr);
+    if (fulfillmentWarehouseCode) {
+      await this.assertFulfillmentWarehouse(companyCode, fulfillmentWarehouseCode);
+    } else {
+      await mgr.query(`UPDATE sal_sales_orders SET warehouse_governance_pending=TRUE WHERE id=$1`, [orderId]);
+    }
+    const created = await this.eggInventory.reserveInventory(
+      orderId, orderNo, companyCode, mgr, fulfillmentWarehouseCode ?? undefined,
+    );
     if (!created) return;
     await this.lifecycle.appendEvent(mgr, {
       salesOrderId: orderId, orderNo, eventType: 'INVENTORY_RESERVED',
@@ -764,7 +790,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
 
   async approveCallback(bizId: string, mgr: EntityManager): Promise<void> {
     const [order] = await mgr.query(
-      `SELECT so.id,so.order_no,so.company_code,so.wf_instance_id,so.status,
+      `SELECT so.id,so.order_no,so.company_code,so.fulfillment_warehouse_code,so.wf_instance_id,so.status,
               COALESCE(i.trigger_codes,'{}'::text[]) AS trigger_codes
        FROM sal_sales_orders so LEFT JOIN wf_approval_instances i ON i.id=so.wf_instance_id
        WHERE so.id=$1`, [bizId],
@@ -782,7 +808,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     });
     this.logger.log(`[SalesOrder] 审批通过: orderId=${bizId} → APPROVED`);
 
-    await this.applyApprovedInventory(bizId, order.order_no, order.company_code, mgr);
+    await this.applyApprovedInventory(bizId, order.order_no, order.company_code, order.fulfillment_warehouse_code, mgr);
   }
 
   // ── 7. 审批拒绝回调（WorkflowBizRegistry onRejected）────────────────────
