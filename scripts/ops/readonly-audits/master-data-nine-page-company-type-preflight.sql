@@ -53,14 +53,14 @@ SELECT 'TYPE_DISTRIBUTION' AS section, source, value, row_count
   ) distributions
  ORDER BY source, value;
 
-SELECT CASE WHEN EXISTS (
+SELECT 1 / (1 - (EXISTS (
   SELECT 1
     FROM sys_organizations
    WHERE org_type = 'COMPANY'
      AND NULLIF(BTRIM(COALESCE(company_code, org_code)), '') IS NOT NULL
    GROUP BY COALESCE(company_code, org_code)
   HAVING COUNT(*) > 1
-) THEN 1 / 0 ELSE 1 END AS company_join_key_unique_assertion;
+))::int) AS company_join_key_unique_assertion;
 
 SELECT 'MASTER_DATA_NINE_PAGE_ERROR_WINDOW_60M' AS section, COUNT(*)::int AS error_count
   FROM sys_error_logs
