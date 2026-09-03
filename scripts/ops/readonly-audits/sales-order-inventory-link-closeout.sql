@@ -13,7 +13,7 @@ WITH facts AS (
          COALESCE(SUM(l.qty_change) FILTER (WHERE l.change_type='RELEASED'),0) AS ledger_released
   FROM sal_order_item_batch_allocations a
   LEFT JOIN sal_order_item_batch_allocation_actions x ON x.allocation_id=a.id
-  LEFT JOIN inv_ledger l ON l.id=x.inventory_ledger_id
+  LEFT JOIN inv_ledger l ON l.id=x.ledger_id
   GROUP BY a.id
 )
 SELECT COUNT(*) FILTER (WHERE outbound_qty<>ledger_outbound OR released_qty<>ledger_released) AS mismatch_rows,
