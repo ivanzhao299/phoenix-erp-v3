@@ -86,6 +86,9 @@ export class SalesReturnsController {
     reasonCode?:      string;
     currencyCode?:    string;
     remark?:          string;
+    targetWarehouseCode?: string;
+    targetZoneCode?: string;
+    targetLocationCode?: string;
     items: Array<{
       salesOrderItemId?: string;
       productCode:       string;
@@ -155,8 +158,11 @@ export class SalesReturnsController {
 
   @Post(':id/complete-restock')
   @RequireMenu('MENU_SALES2_RETURN', 'E')
-  completeRestock(@Param('id') id: string) {
-    return this.returnOrders.completeRestock(id);
+  completeRestock(
+    @Param('id') id: string,
+    @Body() body: { targetWarehouseCode: string; targetZoneCode: string; targetLocationCode: string },
+  ) {
+    return this.returnOrders.completeRestock(id, body);
   }
 
   // ── POST /api/v2/sales/returns/:id/complete ───────────────────────────────

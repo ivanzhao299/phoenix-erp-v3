@@ -1,5 +1,5 @@
 import {
-  Injectable, NotFoundException, BadRequestException, Logger,
+  Injectable, NotFoundException, BadRequestException, Logger, ConflictException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -56,6 +56,9 @@ export class ReceiptsService {
 
     if (!['DELIVERED', 'LOADED', 'PENDING'].includes(item.status)) {
       throw new BadRequestException(`明细状态 ${item.status} 不可签收`);
+    }
+    if (Number(dto.receivedQty) !== Number(item.planned_qty)) {
+      throw new BadRequestException(`正常签收数量必须等于计划数量 ${item.planned_qty}`);
     }
 
     const receiptNo = await this.genReceiptNo(mgr);
@@ -116,6 +119,10 @@ export class ReceiptsService {
     if (!['DELIVERED', 'LOADED', 'PENDING'].includes(item.status)) {
       throw new BadRequestException(`明细状态 ${item.status} 不可签收`);
     }
+    if (Number(dto.receivedQty) + Number(dto.exceptionQty) !== Number(item.planned_qty)) {
+      throw new BadRequestException(`签收数量 + 异常数量必须等于计划数量 ${item.planned_qty}`);
+    }
+    if (Number(dto.exceptionQty) <= 0) throw new BadRequestException('异常签收的异常数量必须大于 0');
 
     const receiptNo = await this.genReceiptNo(mgr);
     const user = this.currentUser();
@@ -145,6 +152,14 @@ export class ReceiptsService {
         dto.photoUrls ? JSON.stringify(dto.photoUrls) : null,
         dto.remark ?? null,
       ],
+    );
+
+    await mgr.query(
+      `INSERT INTO sal_delivery_exceptions
+         (receipt_id,delivery_order_id,delivery_item_id,sales_order_id,exception_type,exception_qty,resolution_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [receipt.id, deliveryOrderId, item.id, item.sales_order_id, dto.exceptionType, dto.exceptionQty,
+       ['DAMAGED','REJECTED'].includes(dto.exceptionType) ? 'RETURN_PENDING' : 'IN_TRANSIT_REVIEW'],
     );
 
     await mgr.query(
@@ -209,6 +224,7 @@ export class ReceiptsService {
       for (const item of items) {
         const [so] = await mgr.query(`SELECT * FROM sal_sales_orders WHERE id=$1 FOR UPDATE`, [item.sales_order_id]);
         if (!so || so.ar_invoice_id) continue;
+        if (so.status === 'ALLOCATED') continue;
         if (!['SHIPPED', 'DELIVERED'].includes(so.status)) {
           throw new BadRequestException(`销售订单 ${so.order_no} 状态 ${so.status} 与签收不一致`);
         }
@@ -240,5 +256,16 @@ export class ReceiptsService {
       `SELECT * FROM sal_receipts WHERE delivery_order_id=$1 ORDER BY created_at DESC`,
       [deliveryOrderId],
     );
+  }
+
+  async linkExceptionReturn(receiptId: string, returnOrderId: string) {
+    const rows = await this.ds.query(
+      `UPDATE sal_delivery_exceptions
+       SET return_order_id=$1,resolution_status='RETURN_CREATED'
+       WHERE receipt_id=$2 AND resolution_status='RETURN_PENDING'
+       RETURNING id`,
+      [returnOrderId, receiptId],
+    );
+    if (rows.length !== 1) throw new ConflictException('异常签收记录状态已变化，无法关联退货单');
   }
 }

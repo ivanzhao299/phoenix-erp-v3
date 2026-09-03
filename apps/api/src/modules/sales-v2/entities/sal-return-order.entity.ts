@@ -94,6 +94,13 @@ export class SalReturnOrderEntity {
   @Column({ name: 'credit_note_id', type: 'bigint', nullable: true })
   creditNoteId: string | null;
 
+  @Column({ name: 'target_warehouse_code', type: 'varchar', length: 64, nullable: true })
+  targetWarehouseCode: string | null;
+  @Column({ name: 'target_zone_code', type: 'varchar', length: 64, nullable: true })
+  targetZoneCode: string | null;
+  @Column({ name: 'target_location_code', type: 'varchar', length: 64, nullable: true })
+  targetLocationCode: string | null;
+
   @Column({ name: 'requested_at', type: 'timestamptz', nullable: true })
   requestedAt: Date | null;
 

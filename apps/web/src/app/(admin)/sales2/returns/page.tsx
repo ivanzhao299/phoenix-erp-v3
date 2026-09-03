@@ -11,7 +11,7 @@ import { EmptyState, LoadingSkeleton } from '@/components/design-system'; // F4-
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { usePermission } from '@/hooks/usePermission'; // H1 修:退货页按钮按 MENU_SALES2_RETURN 权限门控
-import { CompanySelector, CustomerSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
+import { CompanySelector, CustomerSelector, SkuSelector, WarehouseSelector, ZoneSelector, LocationSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 
@@ -39,6 +39,9 @@ interface ReturnOrder {
   inspected_at: string | null;
   restocked_at: string | null;
   completed_at: string | null;
+  target_warehouse_code?: string | null;
+  target_zone_code?: string | null;
+  target_location_code?: string | null;
   remark: string | null;
   created_at: string;
   items: ReturnItem[];
@@ -1265,6 +1268,7 @@ function RestockTab() {
   const [orders, setOrders] = useState<ReturnOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
+  const [targets, setTargets] = useState<Record<string, { warehouse: string; zone: string; location: string }>>({});
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -1280,9 +1284,21 @@ function RestockTab() {
     load();
   }, [load]);
   const doRestock = async (id: string) => {
+    const order = orders.find((x) => x.id === id);
+    const target = targets[id] ?? {
+      warehouse: order?.target_warehouse_code ?? '', zone: order?.target_zone_code ?? '', location: order?.target_location_code ?? '',
+    };
+    if (!target?.warehouse || !target.zone || !target.location) {
+      toast.error(t('ui.请选择回库仓、隔离库区和隔离货位','请选择回库仓、隔离库区和隔离货位'));
+      return;
+    }
     setActionLoading(id);
     try {
-      await api('POST', `/api/v2/sales/returns/${id}/complete-restock`);
+      await api('POST', `/api/v2/sales/returns/${id}/complete-restock`, {
+        targetWarehouseCode: target.warehouse,
+        targetZoneCode: target.zone,
+        targetLocationCode: target.location,
+      });
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : t('ui.操作失败','操作失败'));
@@ -1318,6 +1334,23 @@ function RestockTab() {
             fontSize: 16
           }}>{o.return_no}</span>
                   <Badge cfg={RETURN_TYPE_CFG} code={o.return_type} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 12 }}>
+                  <WarehouseSelector companyCode={o.company_code}
+                    value={targets[o.id]?.warehouse ?? o.target_warehouse_code ?? ''}
+                    onChange={warehouse => setTargets(prev => ({ ...prev, [o.id]: { warehouse, zone: '', location: '' } }))} />
+                  <ZoneSelector warehouseCode={targets[o.id]?.warehouse ?? o.target_warehouse_code ?? ''}
+                    value={targets[o.id]?.zone ?? o.target_zone_code ?? ''}
+                    onChange={zone => setTargets(prev => ({ ...prev, [o.id]: {
+                      warehouse: prev[o.id]?.warehouse ?? o.target_warehouse_code ?? '', zone, location: '',
+                    } }))} />
+                  <LocationSelector warehouseCode={targets[o.id]?.warehouse ?? o.target_warehouse_code ?? ''}
+                    zoneCode={targets[o.id]?.zone ?? o.target_zone_code ?? ''}
+                    value={targets[o.id]?.location ?? o.target_location_code ?? ''}
+                    onChange={location => setTargets(prev => ({ ...prev, [o.id]: {
+                      warehouse: prev[o.id]?.warehouse ?? o.target_warehouse_code ?? '',
+                      zone: prev[o.id]?.zone ?? o.target_zone_code ?? '', location,
+                    } }))} />
                 </div>
                 <div style={{
           fontSize: 14,
