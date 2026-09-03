@@ -1,6 +1,6 @@
 import {
   Injectable, NotFoundException, ForbiddenException, OnApplicationBootstrap,
-  BadRequestException, Logger, ServiceUnavailableException,
+  BadRequestException, ConflictException, Logger, ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -735,12 +735,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
           fromStatus: 'DRAFT', toStatus: 'APPROVED', actorType: 'SYSTEM',
           sourceModule: 'WORKFLOW', metadata: { triggerCodes, creditWarning },
         });
-        await this.eggInventory.reserveInventory(id, rec.order_no, rec.company_code, mgr);
-        await this.lifecycle.appendEvent(mgr, {
-          salesOrderId: id, orderNo: rec.order_no, eventType: 'INVENTORY_RESERVED',
-          actorType: 'SYSTEM', sourceModule: 'WMS', sourceRefType: 'SALES_ORDER',
-          sourceRefId: id, sourceRefNo: rec.order_no,
-        });
+        await this.applyApprovedInventory(id, rec.order_no, rec.company_code, mgr);
         finalRec = { ...updated, _note: creditWarning ? '信用预警（WARNING），已批准但需关注' : '无审批要求，已自动批准' };
       }
     });
@@ -750,6 +745,21 @@ export class SalesOrdersService implements OnApplicationBootstrap {
 
   // ── 6. 审批通过回调（WorkflowBizRegistry onApproved）────────────────────
 
+  private async applyApprovedInventory(
+    orderId: string,
+    orderNo: string,
+    companyCode: string,
+    mgr: EntityManager,
+  ): Promise<void> {
+    const created = await this.eggInventory.reserveInventory(orderId, orderNo, companyCode, mgr);
+    if (!created) return;
+    await this.lifecycle.appendEvent(mgr, {
+      salesOrderId: orderId, orderNo, eventType: 'INVENTORY_RESERVED',
+      actorType: 'SYSTEM', sourceModule: 'WMS', sourceRefType: 'SALES_ORDER',
+      sourceRefId: orderId, sourceRefNo: orderNo,
+    });
+  }
+
   async approveCallback(bizId: string, mgr: EntityManager): Promise<void> {
     const [order] = await mgr.query(
       `SELECT so.id,so.order_no,so.company_code,so.wf_instance_id,so.status,
@@ -758,6 +768,9 @@ export class SalesOrdersService implements OnApplicationBootstrap {
        WHERE so.id=$1`, [bizId],
     );
     if (!order) throw new NotFoundException(`销售订单 ${bizId} 不存在`);
+    if (order.status !== 'APPROVED') {
+      throw new ConflictException(`销售订单 ${order.order_no} 当前状态 ${order.status}，拒绝执行批准副作用`);
+    }
     await this.lifecycle.appendEvent(mgr, {
       salesOrderId: bizId, orderNo: order.order_no, eventType: 'APPROVED',
       fromStatus: 'PENDING_APPROVAL', toStatus: 'APPROVED', actorType: 'WORKFLOW',
@@ -767,12 +780,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     });
     this.logger.log(`[SalesOrder] 审批通过: orderId=${bizId} → APPROVED`);
 
-    await this.eggInventory.reserveInventory(bizId, order.order_no, order.company_code, mgr);
-    await this.lifecycle.appendEvent(mgr, {
-      salesOrderId: bizId, orderNo: order.order_no, eventType: 'INVENTORY_RESERVED',
-      actorType: 'SYSTEM', sourceModule: 'WMS', sourceRefType: 'SALES_ORDER',
-      sourceRefId: bizId, sourceRefNo: order.order_no,
-    });
+    await this.applyApprovedInventory(bizId, order.order_no, order.company_code, mgr);
   }
 
   // ── 7. 审批拒绝回调（WorkflowBizRegistry onRejected）────────────────────
@@ -858,6 +866,9 @@ export class SalesOrdersService implements OnApplicationBootstrap {
   async manualOverride(id: string, dto: ManualOverrideSalesOrderDto) {
     const rec = await this.assertOwnership(id);
     if (rec.status === dto.targetStatus) throw new BadRequestException('目标状态与当前状态相同');
+    if (dto.targetStatus === 'APPROVED') {
+      throw new BadRequestException('人工纠偏不可进入 APPROVED；批准必须通过订单提交/审批唯一入口');
+    }
     const user = this.currentUser();
     return this.ds.transaction(async (mgr) => {
       const updated = await this.lifecycle.transitionStatus(mgr, id, rec.status, dto.targetStatus);

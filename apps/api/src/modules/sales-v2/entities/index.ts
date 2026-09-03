@@ -4,6 +4,8 @@ export { SalPriceBookEntity }         from './sal-price-book.entity';
 export { SalPriceItemEntity }         from './sal-price-item.entity';
 export { SalSalesOrderEntity }        from './sal-sales-order.entity';
 export { SalOrderItemEntity }         from './sal-order-item.entity';
+export { SalOrderItemBatchAllocationEntity } from './sal-order-item-batch-allocation.entity';
+export { SalOrderItemBatchAllocationActionEntity } from './sal-order-item-batch-allocation-action.entity';
 // Phase 4 — Delivery Runtime
 export { SalDriverEntity }            from './sal-driver.entity';
 export { SalVehicleEntity }           from './sal-vehicle.entity';

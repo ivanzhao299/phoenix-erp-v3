@@ -1,6 +1,6 @@
 import {
   Injectable, NotFoundException, ForbiddenException,
-  BadRequestException, Logger,
+  BadRequestException, ConflictException, Logger,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -374,13 +374,23 @@ export class DeliveryOrdersService {
 
   async finishLoading(id: string, _dto: LoadDeliveryDto) {
     const rec = await this.assertOwnership(id);
-    if (rec.status !== 'LOADING') throw new BadRequestException(`当前状态 ${rec.status} 不可完成装车`);
 
     await this.ds.transaction(async (mgr) => {
-      await mgr.query(
-        `UPDATE sal_delivery_orders SET status='LOADED', loading_end_at=NOW(), updated_at=NOW() WHERE id=$1 AND status='LOADING'`,
+      const [locked] = await mgr.query(
+        `SELECT id,delivery_no,status FROM sal_delivery_orders WHERE id=$1 FOR UPDATE`, [id],
+      );
+      if (!locked) throw new NotFoundException(`配送单 ${id} 不存在`);
+      if (locked.status !== 'LOADING') {
+        throw new ConflictException(`配送单 ${locked.delivery_no} 状态已变为 ${locked.status}，不可重复完成装车`);
+      }
+      const changed = await mgr.query(
+        `WITH changed AS (
+           UPDATE sal_delivery_orders SET status='LOADED',loading_end_at=NOW(),updated_at=NOW()
+            WHERE id=$1 AND status='LOADING' RETURNING id
+         ) SELECT id FROM changed`,
         [id],
       );
+      if (changed.length !== 1) throw new ConflictException(`配送单 ${locked.delivery_no} 装车状态冲突`);
       const soItems = await mgr.query(
       `SELECT doi.sales_order_id, so.order_no, so.company_code, so.status
        FROM sal_delivery_order_items doi
@@ -392,7 +402,8 @@ export class DeliveryOrdersService {
           String(item.sales_order_id),
           String(item.order_no),
           String(item.company_code ?? 'ALL'),
-          String(rec.delivery_no),
+          String(locked.delivery_no),
+          id,
           mgr,
         );
         await this.lifecycle.appendEvent(mgr, {
@@ -401,7 +412,7 @@ export class DeliveryOrdersService {
           actorType: 'USER', actorUserId: this.currentUser().userId,
           actorName: this.currentUser().userName, sourceModule: 'WMS',
           sourceEndpoint: '/api/v2/sales/delivery/:id/finish-loading',
-          sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: rec.delivery_no,
+          sourceRefType: 'DELIVERY', sourceRefId: id, sourceRefNo: locked.delivery_no,
         });
       }
     });

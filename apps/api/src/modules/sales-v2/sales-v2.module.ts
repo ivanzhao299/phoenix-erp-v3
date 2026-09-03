@@ -41,6 +41,8 @@ import {
   SalPriceItemEntity,
   SalSalesOrderEntity,
   SalOrderItemEntity,
+  SalOrderItemBatchAllocationEntity,
+  SalOrderItemBatchAllocationActionEntity,
   // Phase 4 — Delivery Runtime
   SalDriverEntity,
   SalVehicleEntity,
@@ -85,6 +87,8 @@ import {
       SalPriceItemEntity,
       SalSalesOrderEntity,
       SalOrderItemEntity,
+      SalOrderItemBatchAllocationEntity,
+      SalOrderItemBatchAllocationActionEntity,
       // Phase 4 — Delivery Runtime
       SalDriverEntity,
       SalVehicleEntity,
