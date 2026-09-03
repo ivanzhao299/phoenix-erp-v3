@@ -1,11 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   filterWarehouseBatchRows,
   formatWarehouseBatchDate,
   getWarehouseBatchQuantity,
   groupWarehouseQuantitiesByUnit,
+  loadWarehouseBatchRows,
   normalizeWarehouseBatchRows,
 } from "./warehouse-query";
+
+describe("loadWarehouseBatchRows fallback contract", () => {
+  it("does not call fallback when the dedicated endpoint succeeds", async () => {
+    const fallback = vi.fn();
+    await expect(loadWarehouseBatchRows(async () => ({ data: [{ batch_no: "B1" }] }), fallback)).resolves.toEqual([{ batch_no: "B1" }]);
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it("falls back for 404 but preserves every other error", async () => {
+    const fallback = vi.fn().mockResolvedValue({ data: [{ batch_no: "OLD" }] });
+    await expect(loadWarehouseBatchRows(async () => { throw Object.assign(new Error("missing"), { status: 404 }); }, fallback)).resolves.toEqual([{ batch_no: "OLD" }]);
+    expect(fallback).toHaveBeenCalledOnce();
+    await expect(loadWarehouseBatchRows(async () => { throw Object.assign(new Error("forbidden"), { status: 403 }); }, fallback)).rejects.toThrow("forbidden");
+    expect(fallback).toHaveBeenCalledOnce();
+  });
+});
 
 describe("warehouse query helpers", () => {
   it("normalizes dedicated inventory endpoint row envelopes", () => {

@@ -53,6 +53,18 @@ export function normalizeWarehouseBatchRows(payload: unknown): WarehouseQueryBat
   return rows ? rows as WarehouseQueryBatch[] : [];
 }
 
+export async function loadWarehouseBatchRows(
+  primary: () => Promise<unknown>,
+  fallback: () => Promise<unknown>,
+): Promise<WarehouseQueryBatch[]> {
+  try {
+    return normalizeWarehouseBatchRows(await primary());
+  } catch (error) {
+    if ((error as { status?: number })?.status !== 404) throw error;
+    return normalizeWarehouseBatchRows(await fallback());
+  }
+}
+
 export function getWarehouseBatchQuantity(row: WarehouseQueryBatch): number {
   const raw = row.qty_available ?? row.qty ?? row.quantity_kg ?? 0;
   const qty = Number(raw);

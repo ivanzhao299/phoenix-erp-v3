@@ -15,6 +15,8 @@ import {
   buildWarehouseInboundSavePayload,
   getWarehouseInboundConfirmKeyword,
 } from "@/lib/warehouse-inbound";
+import { formatMasterData } from "@/lib/business-display";
+import { masterNameWithCode } from "@/lib/localized-master-data";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
@@ -31,8 +33,9 @@ type Row = Record<string, unknown>;
 type InboundConfirmResponse = { code?: number; msg?: string; message?: string };
 
 export default function InboundPage() {
-  const { t } = useLanguage();
-  const { canCreate, canEdit, canDelete, canApprove, hasPermission } = useAuth();
+  const { t, lang } = useLanguage();
+  const { user, canCreate, canEdit, canDelete, canApprove, hasPermission } = useAuth();
+  const currentOperator = masterNameWithCode(String(user?.name || ""), String(user?.username || ""));
   const canCreateInout = canCreate("MENU_WMS_INOUT");
   const canEditInout = canEdit("MENU_WMS_INOUT");
   const canDeleteInout = canDelete("MENU_WMS_INOUT");
@@ -89,8 +92,7 @@ export default function InboundPage() {
     { key: "item_name",      label: t("ui.品目名称", "品目名称"), type: "readonly" },
     { key: "unit",           label: t("ui.计量单位", "计量单位"), type: "readonly" },
     { key: "qty",            label: t("ui.入库数量", "入库数量"),  type: "number", required: true },
-    // G31: 默认自动取当前登录用户（generic-crud 后端注入），手动选可代录入
-    { key: "operator",       label: t("ui.操作员",   "操作员（留空=当前用户）"),    type: "user"   },
+    { key: "operator",       label: t("ui.操作员",   "操作员"), type: "readonly", defaultValue: currentOperator },
     { key: "attachment_url", label: t("ui.入库附件", "入库附件"),  type: "attachment" },
     { key: "remark",         label: t("common.remark","备注"),     type: "textarea" },
   ];
@@ -163,9 +165,10 @@ export default function InboundPage() {
     { key: "date",           title: t("ui.入库日期", "入库日期"),  width: 110 },
     { key: "type",           title: t("ui.入库类型", "入库类型"),  width: 100,
       render: v => <span style={{ fontSize: 12, fontWeight: 600 }}>{SOURCE_LABEL[String(v)] ?? String(v ?? "—")}</span> },
-    { key: "warehouse_code", title: t("ui.仓库",     "仓库"),      width: 120 },
-    { key: "item",           title: t("ui.品目编码", "品目编码"), width: 130 },
-    { key: "item_name",      title: t("ui.品目名称", "品目名称"), width: 160 },
+    { key: "warehouse_code", title: t("ui.仓库", "仓库"), width: 160,
+      render: (v, row) => formatMasterData(row, "warehouse_name", v, lang) },
+    { key: "item", title: t("ui.品目", "品目"), width: 190,
+      render: (v, row) => formatMasterData(row, "item_name", v, lang) },
     { key: "qty",            title: t("ui.入库数量", "入库数量"),  width: 90, align: "right",
       render: v => { const n = Number(v ?? 0); return <span style={moneyCell(n > 0 ? "success" : "default", "md")}>{n}</span>; } },
     { key: "status",         title: t("common.status", "状态"),    width: 90, align: "center",
@@ -173,7 +176,8 @@ export default function InboundPage() {
         const cfg = STATUS_BADGE[String(v)] ?? { tone: "default" as BadgeTone, label: String(v ?? "—") };
         return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
       }},
-    { key: "operator",       title: t("ui.操作员",   "操作员"),    width: 90  },
+    { key: "operator", title: t("ui.操作员", "操作员"), width: 140,
+      render: (v, row) => masterNameWithCode(String(row.operator_name || ""), String(v || "")) || "—" },
     { key: "_actions",       title: t("common.operation", "操作"), width: 240, align: "center",
       render: (_, row) => (
         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
@@ -232,7 +236,7 @@ export default function InboundPage() {
       />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑入库单", "编辑入库单") : t("ui.新建入库单", "新建入库单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+        <CrudForm fields={FIELDS} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("ui.确认删除", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}

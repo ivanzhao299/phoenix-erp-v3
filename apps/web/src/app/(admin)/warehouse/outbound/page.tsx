@@ -12,6 +12,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Plus } from "lucide-react";
 import apiRequest from "@/lib/api-client";
 import { OUTBOUND_DESTINATIONS, validateOutboundItem, validateOutboundQuantity } from "@/lib/warehouse-outbound";
+import { formatMasterData } from "@/lib/business-display";
+import { masterNameWithCode } from "@/lib/localized-master-data";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
@@ -59,10 +61,11 @@ const ISSUE_TYPES = new Set([
 type Row = Record<string, unknown>;
 
 export default function OutboundPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const pathname = usePathname();
   const issueOnly = pathname === "/warehouse/issues";
-  const { canCreate, canEdit, canDelete, hasPermission } = useAuth();
+  const { user, canCreate, canEdit, canDelete, hasPermission } = useAuth();
+  const currentOperator = masterNameWithCode(String(user?.name || ""), String(user?.username || ""));
   const canCreateInout = canCreate("MENU_WMS_INOUT");
   const canEditInout = canEdit("MENU_WMS_INOUT");
   const canDeleteInout = canDelete("MENU_WMS_INOUT");
@@ -171,14 +174,16 @@ export default function OutboundPage() {
     { key: "receiver_username", label: t("ui.领用人", "领用人"), type: "user",
       required: true,
       visibleWhen: { field: "destination_type", values: ["EMPLOYEE"] } },
-    { key: "destination_code", label: t("ui.供应商/其他去向", "供应商/其他去向"), type: "text",
+    { key: "destination_code", label: t("ui.供应商", "供应商"), type: "supplier",
+      required: true, visibleWhen: { field: "destination_type", values: ["SUPPLIER"] } },
+    { key: "destination_code", label: t("ui.其他去向", "其他去向"), type: "text",
       required: true,
-      visibleWhen: { field: "destination_type", values: ["SUPPLIER", "OTHER"] } },
+      visibleWhen: { field: "destination_type", values: ["OTHER"] } },
     { key: "company_code", label: t("ui.归属公司", "归属公司"), type: "company" },
     { key: "purpose_code", label: t("ui.用途/工单", "用途/工单"), type: "text",
       placeholder: t("ui.填写用途工单设备或维修事项", "填写用途、工单、设备或维修事项") },
     { key: "picker",         label: t("ui.拣货员",   "拣货员"),   type: "user" },
-    { key: "operator",       label: t("ui.操作员",   "操作员"),   type: "user" },
+    { key: "operator",       label: t("ui.操作员",   "操作员"), type: "readonly", defaultValue: currentOperator },
     { key: "ref_no",         label: t("ui.关联单据", "关联单据(可选)"), type: "text" },
     { key: "order_no",       label: t("ui.关联订单", "关联订单(可选)"), type: "text" },
     { key: "remark",         label: t("common.remark", "备注"), type: "textarea" },
@@ -261,12 +266,16 @@ export default function OutboundPage() {
         const cfg = TYPE_LABEL[String(v)];
         return cfg ? <span style={actionPill(cfg.tone)}>{cfg.label}</span> : <span>{String(v ?? "—")}</span>;
       }},
-    { key: "warehouse_code",  title: t("ui.出库仓库", "出库仓库"), width: 130 },
-    { key: "item",            title: t("ui.物料",     "物料"),     width: 110 },
+    { key: "warehouse_code", title: t("ui.出库仓库", "出库仓库"), width: 170,
+      render: (v, row) => formatMasterData(row, "warehouse_name", v, lang) },
+    { key: "item", title: t("ui.物料", "物料"), width: 190,
+      render: (v, row) => formatMasterData(row, "item_name", v, lang) },
     { key: "qty",             title: t("ui.数量",     "数量"),     width: 80, align: "right",
       render: v => <span style={moneyCell("default", "md")}>{String(v ?? 0)}</span> },
-    { key: "destination_house_code", title: t("ui.去向鸡舍", "去向鸡舍"), width: 110 },
-    { key: "operator",        title: t("ui.操作员",   "操作员"),   width: 90 },
+    { key: "destination_display_code", title: t("ui.去向", "去向"), width: 190,
+      render: (v, row) => formatMasterData(row, "destination_name", v, lang) },
+    { key: "operator", title: t("ui.操作员", "操作员"), width: 140,
+      render: (v, row) => masterNameWithCode(String(row.operator_name || ""), String(v || "")) || "—" },
     { key: "status",          title: t("common.status", "状态"), width: 90, align: "center",
       render: v => {
         const cfg = STATUS_BADGE[String(v)] ?? { tone: "default" as ActionTone, label: String(v ?? "—") };
@@ -330,7 +339,7 @@ export default function OutboundPage() {
       />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑出库单", "编辑出库单") : t("ui.新建出库单", "新建出库单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+        <CrudForm fields={FIELDS} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("ui.确认删除", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}

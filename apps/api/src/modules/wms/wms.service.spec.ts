@@ -20,6 +20,27 @@ describe('WmsService inventory read queries', () => {
     return { service: new WmsService(em as any, cls as any), em };
   };
 
+  it.each([
+    ['HOUSE', 'H-1', 'brd_houses'], ['CUSTOMER', 'C-1', 'sal_customers'],
+    ['WAREHOUSE', 'WH-1', 'wms_warehouses'], ['STORE', 'S-1', 'mst_stores'],
+    ['DEPARTMENT', 'D-1', 'sys_organizations'], ['PROJECT', 'P-1', 'biz_projects'],
+    ['EMPLOYEE', 'u1', 'sys_user u'], ['SUPPLIER', 'SUP-1', 'prc2_suppliers'],
+  ])('validates %s destinations against its explicit ACTIVE/scope lookup', async (type, code, table) => {
+    const em = { query: jest.fn().mockResolvedValue([{ ok: 1 }]) };
+    const cls = { get: jest.fn(() => ({ isGlobal: false, allowedCompanyCodes: ['COMP-1'], allowedWarehouseCodes: ['WH-1'], allowedProjectCodes: ['P-1'], allowedFarmCodes: ['F-1'], allowedSiteCodes: ['SITE-1'] })) };
+    const service = new WmsService(em as any, cls as any);
+    await expect((service as any).assertActiveScopedDestination({ destination_type: type, destination_code: code })).resolves.toBeUndefined();
+    expect(em.query.mock.calls[0][0]).toContain(`FROM ${table}`);
+    expect(em.query.mock.calls[0][0]).toMatch(/ACTIVE|status=1/);
+  });
+
+  it('preserves OTHER verbatim without a fabricated master-data lookup', async () => {
+    const em = { query: jest.fn() };
+    const service = new WmsService(em as any, { get: jest.fn() } as any);
+    await expect((service as any).assertActiveScopedDestination({ destination_type: 'OTHER', destination_code: '临时工地 A' })).resolves.toBeUndefined();
+    expect(em.query).not.toHaveBeenCalled();
+  });
+
   it('accepts only the company-qualified canonical code for a store-owned warehouse', async () => {
     const em = { query: jest.fn().mockResolvedValue([{
       id: 10, store_code: 'STORE-VTE-001', company_code: 'COMP-LAO-AGRI', status: 'ACTIVE',

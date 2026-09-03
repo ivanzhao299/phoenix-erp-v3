@@ -22,7 +22,8 @@ export default function Page() {
     { key: "warehouse_name_lo", title: t("ui.仓库名称老", "仓库名称(老)"), width: 160 },
     { key: "address",           title: t("ui.地址", "地址") },
     { key: "manager",           title: t("ui.负责人", "负责人"),   width: 100 },
-    { key: "status",            title: t("common.status", "状态"),     width: 80  },
+    { key: "status", title: t("common.status", "状态"), width: 80,
+      render: (v: unknown) => v === "ACTIVE" ? t("status.active", "启用") : v === "INACTIVE" ? t("status.inactive", "停用") : String(v ?? "—") },
   ];
   const FIELDS: FormField[] = [
     { key: "warehouse_code",    label: t("ui.仓库编码", "仓库编码"),     type: "text", required: true, placeholder: t("ui.如WH001", "如：WH-001") },
