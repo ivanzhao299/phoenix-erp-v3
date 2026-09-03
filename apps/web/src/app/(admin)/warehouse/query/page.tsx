@@ -11,6 +11,7 @@ import {
   formatWarehouseBatchDate,
   getWarehouseBatchQuantity,
   groupWarehouseQuantitiesByUnit,
+  loadWarehouseBatchRows,
   normalizeWarehouseBatchRows,
   type WarehouseQueryBatch,
 } from "@/lib/warehouse-query";
@@ -31,15 +32,10 @@ export default function StockQueryPage() {
     setLoading(true);
     setError("");
     try {
-      let data: WarehouseQueryBatch[] = [];
-      try {
-        data = normalizeWarehouseBatchRows(await request("/inventory/batches", { silent: true }));
-      } catch (e) {
-        const err = e as ApiError;
-        if (err.status !== 404) throw e;
-        const fallback = await crudApi.list<WarehouseQueryBatch>("inv_batches", { limit: 1000, offset: 0 });
-        data = normalizeWarehouseBatchRows(fallback);
-      }
+      const data = await loadWarehouseBatchRows(
+        () => request("/inventory/batches", { silent: true }),
+        () => crudApi.list<WarehouseQueryBatch>("inv_batches", { limit: 1000, offset: 0 }),
+      );
       setRows(data);
     } catch (e) {
       const err = e as ApiError;
@@ -162,7 +158,7 @@ export default function StockQueryPage() {
                       <div style={{ fontWeight: 700 }}>
                         {formatMasterData(
                           row as Record<string, unknown>,
-                          row.sku_code ? "sku_name" : "product_name",
+                          row.material_code ? "material_name" : row.sku_code ? "sku_name" : "product_name",
                           row.material_code || row.sku_code || row.product_code,
                           lang,
                         )}

@@ -14284,5 +14284,6 @@
   "ui.销售订单审批上下文": "Sales order approval context", "ui.触发原因": "Trigger reasons", "ui.订单总额": "Order total", "ui.信用快照": "Credit snapshot", "ui.成交价": "Actual price", "ui.打开销售订单": "Open sales order",
   "ui.请返回订单重选当前公司的有效客户，或前往客户主数据中心维护。": "Return to the order and select an active customer for this company, or maintain it in Customer Master Data.", "ui.请重选当前公司的有效客户，或前往客户主数据中心维护。": "Select an active customer for this company, or maintain it in Customer Master Data.", "ui.客户主数据中心": "Customer Master Data",
   "ui.履约仓": "Fulfillment warehouse", "ui.待治理（历史单）": "Governance pending (legacy order)", "ui.请选择履约仓": "Select a fulfillment warehouse", "ui.履约仓 *": "Fulfillment warehouse *", "ui.请选择回库仓、隔离库区和隔离货位": "Select a return warehouse, quarantine zone, and quarantine location",
+  "ui.录入员": "Data entry operator", "ui.其他去向": "Other destination",
   "analytics.col_broken": "Broken eggs", "prc2.kpi_ap_balance_original": "AP balance (original currencies)", "prc2.kpi_paid_amount_base": "Paid amount (base currency)"
 }

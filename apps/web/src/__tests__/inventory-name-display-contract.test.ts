@@ -22,7 +22,41 @@ describe('inventory name-display source contracts', () => {
 
   it('formats the inventory-query item through the shared localized-name helper', () => {
     const query = read('query/page.tsx');
-    expect(query).toContain('row.sku_code ? "sku_name" : "product_name"');
+    expect(query).toContain('row.material_code ? "material_name" : row.sku_code ? "sku_name" : "product_name"');
     expect(query).not.toContain('{row.material_code || row.sku_code || row.product_code || "—"}');
+  });
+
+  it.each([
+    ['inbound/page.tsx', 'operator_name'],
+    ['outbound/page.tsx', 'destination_name'],
+    ['transfer/page.tsx', 'from_warehouse_name'],
+    ['stocktake/page.tsx', 'auditor_name'],
+    ['ledger/page.tsx', 'store_name'],
+  ])('formats projected names on %s', (file, projectedName) => {
+    const source = read(file);
+    expect(source).toContain(projectedName);
+    expect(source).toContain('masterNameWithCode');
+  });
+
+  it('keeps operator read-only and stocktake operator/auditor as distinct list columns', () => {
+    for (const file of ['inbound/page.tsx', 'outbound/page.tsx', 'transfer/page.tsx', 'stocktake/page.tsx']) {
+      const source = read(file);
+      expect(source).toMatch(/key: "operator"[\s\S]{0,180}type: "readonly"/);
+    }
+    const stocktake = read('stocktake/page.tsx');
+    expect(stocktake).toContain('title: t("ui.录入员"');
+    expect(stocktake).toContain('title: t("ui.盘点员"');
+  });
+
+  it('uses SupplierSelector semantics only for SUPPLIER and preserves OTHER text', () => {
+    const source = read('outbound/page.tsx');
+    expect(source).toMatch(/type: "supplier"[\s\S]{0,140}values: \["SUPPLIER"\]/);
+    expect(source).toMatch(/type: "text"[\s\S]{0,140}values: \["OTHER"\]/);
+  });
+
+  it('localizes warehouse master status while preserving unknown codes', () => {
+    const source = read('warehouses/page.tsx');
+    expect(source).toContain('v === "ACTIVE" ? t("status.active"');
+    expect(source).toContain('String(v ?? "—")');
   });
 });

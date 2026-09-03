@@ -3,6 +3,7 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../org/services/data-scope.service';
+import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import {
   isIssueOutboundType,
@@ -154,6 +155,37 @@ export class WmsService {
     const errors = validateOutboundPolicy(body);
     if (errors.length > 0) {
       throw new BadRequestException({ code: 400, msg: '出库业务校验失败', errors });
+    }
+  }
+
+  private async assertActiveScopedDestination(body: any): Promise<void> {
+    const type = String(body?.destination_type || '').trim().toUpperCase();
+    const code = resolveOutboundDestinationCode(body);
+    if (type === 'OTHER') return;
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    const global = Boolean(scope?.isGlobal);
+    const companies = scope?.allowedCompanyCodes ?? [];
+    const warehouses = scope?.allowedWarehouseCodes ?? [];
+    const projects = scope?.allowedProjectCodes ?? [];
+    const farms = scope?.allowedFarmCodes ?? [];
+    const sites = scope?.allowedSiteCodes ?? [];
+    const lookups: Record<string, { sql: string; params: unknown[] }> = {
+      HOUSE: { sql: `SELECT 1 FROM brd_houses h ${OrgOwnershipService.ACTIVE_FARM_JOIN}
+        WHERE h.house_code=$1 AND h.status='ACTIVE' AND ($2::boolean OR h.farm_code=ANY($3) OR f.company_code=ANY($4) OR ${OrgOwnershipService.FARM_SITE_SQL}=ANY($5)) LIMIT 1`, params: [code, global, farms, companies, sites] },
+      CUSTOMER: { sql: `SELECT 1 FROM sal_customers WHERE customer_no=$1 AND status='ACTIVE' AND ($2::boolean OR company_code=ANY($3)) LIMIT 1`, params: [code, global, companies] },
+      WAREHOUSE: { sql: `SELECT 1 FROM wms_warehouses WHERE warehouse_code=$1 AND status='ACTIVE' AND domain='OPERATIONAL' AND ($2::boolean OR warehouse_code=ANY($3)) LIMIT 1`, params: [code, global, warehouses] },
+      STORE: { sql: `SELECT 1 FROM mst_stores WHERE store_code=$1 AND status='ACTIVE' AND ($2::boolean OR company_code=ANY($3)) LIMIT 1`, params: [code, global, companies] },
+      DEPARTMENT: { sql: `SELECT 1 FROM sys_organizations WHERE org_code=$1 AND org_type='DEPARTMENT' AND status='ACTIVE' AND ($2::boolean OR company_code=ANY($3)) LIMIT 1`, params: [code, global, companies] },
+      PROJECT: { sql: `SELECT 1 FROM biz_projects WHERE project_code=$1 AND status='ACTIVE' AND ($2::boolean OR project_code=ANY($3) OR company_code=ANY($4)) LIMIT 1`, params: [code, global, projects, companies] },
+      EMPLOYEE: { sql: `SELECT 1 FROM sys_user u WHERE u.username=$1 AND u.status=1 AND ($2::boolean OR EXISTS (
+        SELECT 1 FROM sys_user_orgs uo JOIN sys_organizations o ON o.id=uo.org_id WHERE uo.user_id=u.user_id
+        AND (o.company_code=ANY($3) OR o.org_code=ANY($4) OR o.site_code=ANY($4)))) LIMIT 1`, params: [code, global, companies, sites] },
+      SUPPLIER: { sql: `SELECT 1 FROM prc2_suppliers WHERE supplier_code=$1 AND status='ACTIVE' AND is_active=true
+        AND ($2::boolean OR shared_scope='GROUP' OR owner_company_code=ANY($3)) LIMIT 1`, params: [code, global, companies] },
+    };
+    const lookup = lookups[type];
+    if (!lookup || !(await this.em.query(lookup.sql, lookup.params)).length) {
+      throw new BadRequestException(`去向 ${type || '(空)'}:${code || '(空)'} 不存在、未启用或不在数据范围内`);
     }
   }
 
@@ -773,6 +805,7 @@ export class WmsService {
     this.validateStandaloneOutbound(body);
     const warehouseCode = this.nonEmptyString(body?.warehouse_code);
     await this.assertWritableWarehouse(warehouseCode, '出库单');
+    await this.assertActiveScopedDestination(body);
 
     return this.em.transaction(async manager => {
       const identity = await this.resolveInventoryItem(
@@ -863,6 +896,7 @@ export class WmsService {
       this.validateStandaloneOutbound(merged);
       const warehouseCode = this.nonEmptyString(merged.warehouse_code);
       await this.assertWritableWarehouse(warehouseCode, `出库单 ${normalizedNo}`);
+      await this.assertActiveScopedDestination(merged);
       const identity = await this.resolveInventoryItem(
         manager,
         this.nonEmptyString(merged.item),
@@ -1302,10 +1336,14 @@ export class WmsService {
                 COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name,
                 w.warehouse_name_zh, w.warehouse_name_en, w.warehouse_name_lo,
                 sku.sku_name, sku.sku_name_en, sku.sku_name_lo,
+                mat.material_name, mat.material_name_en, mat.material_name_lo,
+                prod.product_name, prod.product_name_zh, prod.product_name_en, prod.product_name_lo,
                 loc.location_name, store.store_name, store.store_name_en, store.store_name_lo
            FROM inv_batches b
            LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code
            LEFT JOIN product_skus sku ON sku.sku_code = b.sku_code
+           LEFT JOIN mst_materials mat ON b.material_code IS NOT NULL AND mat.material_code = b.material_code
+           LEFT JOIN mst_products prod ON b.product_code IS NOT NULL AND prod.product_code = b.product_code
            LEFT JOIN wms_locations loc ON loc.location_code = b.location_code
            LEFT JOIN mst_stores store ON store.store_code = b.store_code
           WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${scope.sql}

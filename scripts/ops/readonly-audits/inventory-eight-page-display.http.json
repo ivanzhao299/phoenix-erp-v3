@@ -1,0 +1,9 @@
+[
+  { "name": "inventory-query-projection", "username": "admin", "path": "/api/inventory/batches", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["batch_no", "warehouse_name"] },
+  { "name": "inbound-display-projection", "username": "admin", "path": "/api/crud/wms_inbound?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["warehouse_name_zh", "item_name", "operator"] },
+  { "name": "outbound-display-projection", "username": "admin", "path": "/api/crud/wms_outbound?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["warehouse_name_zh", "item_name", "operator", "destination_display_code"] },
+  { "name": "transfer-display-projection", "username": "admin", "path": "/api/crud/wms_transfer?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["from_warehouse_name_zh", "to_warehouse_name_zh", "operator"] },
+  { "name": "stocktake-display-projection", "username": "admin", "path": "/api/crud/wms_stocktake?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["warehouse_name_zh", "item_name", "operator", "auditor"] },
+  { "name": "ledger-display-projection", "username": "admin", "path": "/api/crud/inv_ledger?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["batch_no", "operator"] },
+  { "name": "warehouse-master-status", "username": "admin", "path": "/api/crud/wms_warehouses?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["warehouse_code", "status"] }
+]

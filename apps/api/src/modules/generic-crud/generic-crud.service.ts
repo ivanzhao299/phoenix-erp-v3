@@ -2488,12 +2488,90 @@ export class GenericCrudService implements OnModuleInit {
       inv_batches: `(SELECT base.*,
         wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo,
         loc.location_name, store.store_name, store.store_name_en, store.store_name_lo,
-        sku.sku_name, sku.sku_name_en, sku.sku_name_lo
+        sku.sku_name, sku.sku_name_en, sku.sku_name_lo,
+        mat.material_name, mat.material_name_en, mat.material_name_lo,
+        prod.product_name, prod.product_name_zh, prod.product_name_en, prod.product_name_lo
         FROM inv_batches base
         LEFT JOIN wms_warehouses wh ON wh.warehouse_code = base.warehouse_code
         LEFT JOIN wms_locations loc ON loc.location_code = base.location_code
         LEFT JOIN mst_stores store ON store.store_code = base.store_code
-        LEFT JOIN product_skus sku ON sku.sku_code = base.sku_code) AS "inv_batches"`,
+        LEFT JOIN product_skus sku ON sku.sku_code = base.sku_code
+        LEFT JOIN mst_materials mat ON base.material_code IS NOT NULL AND mat.material_code = base.material_code
+        LEFT JOIN mst_products prod ON base.product_code IS NOT NULL AND prod.product_code = base.product_code) AS "inv_batches"`,
+      wms_inbound: `(SELECT base.*,
+        wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo,
+        COALESCE(mat.material_name, sku.sku_name, prod.product_name_zh, prod.product_name, to_jsonb(base)->>'item_name') AS item_name,
+        COALESCE(mat.material_name_en, sku.sku_name_en, prod.product_name_en) AS item_name_en,
+        COALESCE(mat.material_name_lo, sku.sku_name_lo, prod.product_name_lo) AS item_name_lo,
+        op.real_name AS operator_name
+        FROM wms_inbound base
+        LEFT JOIN wms_warehouses wh ON wh.warehouse_code = base.warehouse_code
+        LEFT JOIN mst_materials mat ON to_jsonb(base)->>'item_type' = 'MATERIAL' AND mat.material_code = COALESCE(to_jsonb(base)->>'material_code', base.item)
+        LEFT JOIN product_skus sku ON to_jsonb(base)->>'item_type' = 'SKU' AND sku.sku_code = COALESCE(to_jsonb(base)->>'sku_code', base.item)
+        LEFT JOIN mst_products prod ON prod.product_code = to_jsonb(base)->>'product_code'
+        LEFT JOIN sys_user op ON op.username = base.operator) AS "wms_inbound"`,
+      wms_outbound: `(SELECT base.*,
+        wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo,
+        COALESCE(mat.material_name, sku.sku_name, prod.product_name_zh, prod.product_name, to_jsonb(base)->>'item_name') AS item_name,
+        COALESCE(mat.material_name_en, sku.sku_name_en, prod.product_name_en) AS item_name_en,
+        COALESCE(mat.material_name_lo, sku.sku_name_lo, prod.product_name_lo) AS item_name_lo,
+        op.real_name AS operator_name, pick.real_name AS picker_name,
+        COALESCE(base.destination_code, base.destination_house_code, base.destination_customer_code,
+          base.destination_warehouse_code, base.destination_store_code, base.department_code,
+          base.project_code, base.receiver_username) AS destination_display_code,
+        CASE base.destination_type
+          WHEN 'HOUSE' THEN house.house_name WHEN 'CUSTOMER' THEN customer.customer_name
+          WHEN 'WAREHOUSE' THEN dwh.warehouse_name_zh WHEN 'STORE' THEN dest_store.store_name
+          WHEN 'DEPARTMENT' THEN dept.org_name WHEN 'PROJECT' THEN project.project_name
+          WHEN 'EMPLOYEE' THEN receiver.real_name WHEN 'SUPPLIER' THEN supplier.supplier_name
+          WHEN 'OTHER' THEN base.destination_code END AS destination_name,
+        CASE WHEN base.destination_type = 'WAREHOUSE' THEN dwh.warehouse_name_en
+             WHEN base.destination_type = 'STORE' THEN dest_store.store_name_en END AS destination_name_en,
+        CASE WHEN base.destination_type = 'WAREHOUSE' THEN dwh.warehouse_name_lo
+             WHEN base.destination_type = 'STORE' THEN dest_store.store_name_lo END AS destination_name_lo
+        FROM wms_outbound base
+        LEFT JOIN wms_warehouses wh ON wh.warehouse_code = base.warehouse_code
+        LEFT JOIN mst_materials mat ON to_jsonb(base)->>'item_type' = 'MATERIAL' AND mat.material_code = COALESCE(to_jsonb(base)->>'material_code', base.item)
+        LEFT JOIN product_skus sku ON to_jsonb(base)->>'item_type' = 'SKU' AND sku.sku_code = COALESCE(to_jsonb(base)->>'sku_code', base.item)
+        LEFT JOIN mst_products prod ON prod.product_code = to_jsonb(base)->>'product_code'
+        LEFT JOIN sys_user op ON op.username = base.operator
+        LEFT JOIN sys_user pick ON pick.username = base.picker
+        LEFT JOIN brd_houses house ON base.destination_type = 'HOUSE' AND house.house_code = COALESCE(base.destination_code, base.destination_house_code)
+        LEFT JOIN sal_customers customer ON base.destination_type = 'CUSTOMER' AND customer.customer_no = COALESCE(base.destination_code, base.destination_customer_code)
+        LEFT JOIN wms_warehouses dwh ON base.destination_type = 'WAREHOUSE' AND dwh.warehouse_code = COALESCE(base.destination_code, base.destination_warehouse_code)
+        LEFT JOIN mst_stores dest_store ON base.destination_type = 'STORE' AND dest_store.store_code = COALESCE(base.destination_code, base.destination_store_code)
+        LEFT JOIN sys_organizations dept ON base.destination_type = 'DEPARTMENT' AND dept.org_type = 'DEPARTMENT' AND dept.org_code = COALESCE(base.destination_code, base.department_code)
+        LEFT JOIN biz_projects project ON base.destination_type = 'PROJECT' AND project.project_code = COALESCE(base.destination_code, base.project_code)
+        LEFT JOIN sys_user receiver ON base.destination_type = 'EMPLOYEE' AND receiver.username = COALESCE(base.destination_code, base.receiver_username)
+        LEFT JOIN prc2_suppliers supplier ON base.destination_type = 'SUPPLIER' AND supplier.supplier_code = base.destination_code) AS "wms_outbound"`,
+      wms_transfer: `(SELECT base.*,
+        fw.warehouse_name AS from_warehouse_name, fw.warehouse_name_zh AS from_warehouse_name_zh,
+        fw.warehouse_name_en AS from_warehouse_name_en, fw.warehouse_name_lo AS from_warehouse_name_lo,
+        tw.warehouse_name AS to_warehouse_name, tw.warehouse_name_zh AS to_warehouse_name_zh,
+        tw.warehouse_name_en AS to_warehouse_name_en, tw.warehouse_name_lo AS to_warehouse_name_lo,
+        op.real_name AS operator_name
+        FROM wms_transfer base
+        LEFT JOIN wms_warehouses fw ON fw.warehouse_code = base.from_warehouse
+        LEFT JOIN wms_warehouses tw ON tw.warehouse_code = base.to_warehouse
+        LEFT JOIN sys_user op ON op.username = base.operator) AS "wms_transfer"`,
+      wms_stocktake: `(SELECT base.*,
+        wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo,
+        COALESCE(mat.material_name, sku.sku_name, prod.product_name_zh, prod.product_name) AS item_name,
+        COALESCE(mat.material_name_en, sku.sku_name_en, prod.product_name_en) AS item_name_en,
+        COALESCE(mat.material_name_lo, sku.sku_name_lo, prod.product_name_lo) AS item_name_lo,
+        op.real_name AS operator_name, auditor.real_name AS auditor_name
+        FROM wms_stocktake base
+        LEFT JOIN wms_warehouses wh ON wh.warehouse_code = base.warehouse_code
+        LEFT JOIN mst_materials mat ON mat.material_code = base.item
+        LEFT JOIN product_skus sku ON sku.sku_code = base.item
+        LEFT JOIN mst_products prod ON prod.product_code = base.item
+        LEFT JOIN sys_user op ON op.username = base.operator
+        LEFT JOIN sys_user auditor ON auditor.username = base.auditor) AS "wms_stocktake"`,
+      inv_ledger: `(SELECT base.*, op.real_name AS operator_name,
+        store.store_name, store.store_name_en, store.store_name_lo
+        FROM inv_ledger base
+        LEFT JOIN sys_user op ON op.username = base.operator
+        LEFT JOIN mst_stores store ON store.store_code = base.store_code) AS "inv_ledger"`,
     };
     let sql = `SELECT * FROM ${localizedReadSource[table] ?? `"${table}"`}`;
     if (whereClauses.length > 0) {

@@ -162,3 +162,25 @@ PR #165 的 merge commit 为 `d24886f59736e05745dc700ba3d41b94e51b188e`，实际
 2. 盘点页“盘点员”应指录入人 `operator`，还是审核人 `auditor`，或需分两列？
 3. 出库/领用“操作员”是否必须是当前登录人（只读自动带出），还是允许有权限的人代指定？
 4. 是否批准下一轮先运行受控 production read-only audit，再按上述 P0/P1 拆分实施？
+
+## 执行记录（2026-09-03，三项裁定确认后）
+
+本轮已按用户裁定实施，未修改调拨状态模型：
+
+- 批次查询按明确身份字段分别 JOIN `mst_materials`、`product_skus`、`mst_products`，保留专用接口 404 才回退 Generic CRUD 的契约。
+- `wms_inbound`、`wms_outbound`、`wms_transfer`、`wms_stocktake`、`inv_ledger` 增加表级白名单只读 projection，返回原编码与独立名称字段；没有按任意 `*_code` 推断主数据表。
+- 出库/领用去向按 `HOUSE/CUSTOMER/WAREHOUSE/STORE/DEPARTMENT/PROJECT/EMPLOYEE/SUPPLIER` 固定分支解析；`OTHER` 原文返回。写入增加目标主数据 ACTIVE 与 DataScope 校验，供应商表单改用 `SupplierSelector`。
+- 入库、出库、调拨、盘点的操作员表单改为只读当前登录人；后端创建强制以 `req.user.username` 覆盖，更新时只要请求携带 operator 同样覆盖。列表统一显示 `姓名（账号）`，原账号继续作为存储、筛选和审计值。
+- 盘点列表拆为录入员 `operator` 与盘点员 `auditor` 两列，分别 JOIN `sys_user.username` 返回姓名。
+- 仓库、品目、去向、门店统一使用 locale 名称与编码双显；调拨原因读取 `INV_TRANSFER_REASON` 运行时 label；仓库主档 status 使用界面语言，未知值保留原码。
+- 调拨页前后端状态模型不一致仍作为独立待办，本轮没有静默修改。
+
+验证记录：
+
+- API `tsc --noEmit`：PASS；Web `tsc --noEmit`：PASS。
+- API 目标测试：51/51 PASS；新增多态去向固定表、ACTIVE/scope 与 OTHER 原文契约后再次执行。
+- Web 全量（`pnpm test`，显式 `NODE_ENV=test`）：102 files、537 tests PASS。
+- 首次直接执行 vitest binary 继承工作机 `NODE_ENV=production`，导致 React 19 的测试版 `act` 不导出而出现 26 个环境性失败；按项目 package script 重跑全绿，未为此混入业务代码修改。
+- 真实 `apps/api/test/scope-audit.sh` 已执行，但本地 API 未启动，30 项均为 HTTP `000`/无法登录，另 1 项因无样本跳过；该结果不是权限逻辑 PASS，需在可用环境重跑。
+- 新增受控生产只读审计 `inventory-eight-page-display.sql/.http.json`，输入校验 PASS；待部署后由 production workflow 核对 checkout/API/Web revision、7 个读取面名称字段、operator 映射及 60 分钟错误窗口。
+- PR #175 已由独立 diff 审查确认未发现确定的 SQL 列引用或 DataScope 绕过问题，并据此登记 `reviewed-frozen-boundary`、`reviewed-security-touch`；首轮门禁在标签登记前触发，后续 push 以带审查标签的新事件重跑。

@@ -158,6 +158,11 @@ if [ "$http_path" = 'scripts/ops/readonly-audits/localized-sales-inventory-names
   echo "LOCALIZED_NAME_ERROR_WINDOW_60M=$localized_name_error_count"
   test "$localized_name_error_count" = 0
 fi
+if [ "$http_path" = 'scripts/ops/readonly-audits/inventory-eight-page-display.http.json' ]; then
+  inventory_display_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(inventory/batches|crud/(wms_(inbound|outbound|transfer|stocktake)|inv_ledger|wms_warehouses))' || true; } | wc -l | tr -d ' ')"
+  echo "INVENTORY_DISPLAY_ERROR_WINDOW_60M=$inventory_display_error_count"
+  test "$inventory_display_error_count" = 0
+fi
 if [ "$http_path" = 'scripts/ops/readonly-audits/production-procurement-localized-names.http.json' ]; then
   localized_production_procurement_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(analytics/production|farm/egg/ledger|procurement/orders|supplier-performance)' || true; } | wc -l | tr -d ' ')"
   echo "PRODUCTION_PROCUREMENT_LOCALIZED_NAME_ERROR_WINDOW_60M=$localized_production_procurement_error_count"

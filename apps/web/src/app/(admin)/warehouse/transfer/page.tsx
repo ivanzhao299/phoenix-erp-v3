@@ -11,6 +11,9 @@ import { Plus, ScanLine } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDictOptions } from "@/hooks/useDictOptions";
+import { formatMasterData } from "@/lib/business-display";
+import { masterNameWithCode } from "@/lib/localized-master-data";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, moneyCell, inputField,
@@ -27,10 +30,10 @@ import u from "@/styles/uix-utils.module.css";
 const TABLE = "wms_transfer";
 type Row = Record<string, unknown>;
 export default function TransferPage() {
-  const {
-    t
-  } = useLanguage();
-  const { canCreate, canEdit, canDelete } = useAuth();
+  const { t, lang } = useLanguage();
+  const { user, canCreate, canEdit, canDelete } = useAuth();
+  const currentOperator = masterNameWithCode(String(user?.name || ""), String(user?.username || ""));
+  const { codeMap: reasonLabels } = useDictOptions("INV_TRANSFER_REASON");
   const canCreateInout = canCreate("MENU_WMS_INOUT");
   const canEditInout = canEdit("MENU_WMS_INOUT");
   const canDeleteInout = canDelete("MENU_WMS_INOUT");
@@ -106,7 +109,8 @@ export default function TransferPage() {
   }, {
     key: "operator",
     label: t("ui.经办人", "经办人"),
-    type: "user"
+    type: "readonly",
+    defaultValue: currentOperator
   }, {
     key: "attachment_url",
     label: t("ui.调拨交接附件", "调拨交接附件"),
@@ -133,11 +137,13 @@ export default function TransferPage() {
   }, {
     key: "from_warehouse",
     title: t("ui.调出仓库", "调出仓库"),
-    width: 130
+    width: 170,
+    render: (v, row) => formatMasterData(row, "from_warehouse_name", v, lang)
   }, {
     key: "to_warehouse",
     title: t("ui.调入仓库", "调入仓库"),
-    width: 130
+    width: 170,
+    render: (v, row) => formatMasterData(row, "to_warehouse_name", v, lang)
   }, {
     key: "batch_no",
     title: t("ui.批次号", "批次号"),
@@ -151,11 +157,13 @@ export default function TransferPage() {
   }, {
     key: "reason",
     title: t("ui.调拨原因", "调拨原因"),
-    width: 130
+    width: 130,
+    render: v => reasonLabels[String(v)] ?? String(v ?? "—")
   }, {
     key: "operator",
     title: t("ui.经办人", "经办人"),
-    width: 90
+    width: 140,
+    render: (v, row) => masterNameWithCode(String(row.operator_name || ""), String(v || "")) || "—"
   }, {
     key: "status",
     title: t("common.status", "状态"),
@@ -288,7 +296,7 @@ export default function TransferPage() {
       <DataTable table={TABLE} columns={COLUMNS} onNew={canCreateInout ? openNew : undefined} onEdit={canEditInout ? openEdit : undefined} onDelete={canDeleteInout ? handleDelete : undefined} showActions refreshKey={refreshKey} emptyText={t("ui.暂无调拨记录", "暂无调拨记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑调拨单", "编辑调拨单") : t("ui.新建调拨单", "新建调拨单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+        <CrudForm fields={FIELDS} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")} onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />

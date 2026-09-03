@@ -527,7 +527,7 @@ export class GenericCrudController {
     };
     if (currentUser && TABLES_WITH_OPERATOR[table]) {
       for (const f of TABLES_WITH_OPERATOR[table]) {
-        if (body[f] === undefined || body[f] === null || body[f] === '') {
+        if (f === 'operator' || body[f] === undefined || body[f] === null || body[f] === '') {
           body[f] = currentUser;
         }
       }
@@ -564,6 +564,10 @@ export class GenericCrudController {
     }
     this.assertWarehouseRowScope(table, existing, tableScope);
     const safeBody = this.filterBlockedFields(table, body);
+    if (req.user?.username && Object.prototype.hasOwnProperty.call(body, 'operator')
+      && ['wms_inbound', 'wms_transfer', 'wms_stocktake', 'wms_loss'].includes(table)) {
+      safeBody.operator = req.user.username;
+    }
     this.assertNoHouseOwnershipWrite(table, safeBody);
     await this.assertWarehouseWriteScope(table, safeBody, tableScope, false);
     if (table === 'wms_warehouses') {

@@ -11,6 +11,8 @@ import { Plus, Download, CheckCircle, RefreshCw, AlertTriangle } from "lucide-re
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatMasterData } from "@/lib/business-display";
+import { masterNameWithCode } from "@/lib/localized-master-data";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, secondaryActionButton, actionPill, moneyCell,
@@ -26,15 +28,14 @@ import u from "@/styles/uix-utils.module.css";
 const TABLE = "wms_stocktake";
 type Row = Record<string, unknown>;
 export default function StocktakePage() {
-  const { canCreate, canEdit, canDelete, canApprove, canExport } = useAuth();
+  const { user, canCreate, canEdit, canDelete, canApprove, canExport } = useAuth();
   const canCreateInout = canCreate("MENU_WMS_INOUT");
   const canEditInout = canEdit("MENU_WMS_INOUT");
   const canDeleteInout = canDelete("MENU_WMS_INOUT");
   const canApproveInout = canApprove("MENU_WMS_INOUT");
   const canExportInout = canExport("MENU_WMS_INOUT");
-  const {
-    t
-  } = useLanguage();
+  const { t, lang } = useLanguage();
+  const currentOperator = masterNameWithCode(String(user?.name || ""), String(user?.username || ""));
 
   // g200e:状态 tone → actionPill(tone)
   const STATUS_BADGE: Record<string, { tone: Tone; label: string }> = {
@@ -102,6 +103,11 @@ export default function StocktakePage() {
     key: "diff_qty",
     label: t("ui.差异数量", "差异数量"),
     type: "number"
+  }, {
+    key: "operator",
+    label: t("ui.录入员", "录入员"),
+    type: "readonly",
+    defaultValue: currentOperator
   }, {
     key: "auditor",
     label: t("ui.盘点员", "盘点员"),
@@ -245,11 +251,13 @@ export default function StocktakePage() {
   }, {
     key: "warehouse_code",
     title: t("ui.仓库", "仓库"),
-    width: 110
+    width: 170,
+    render: (v, row) => formatMasterData(row, "warehouse_name", v, lang)
   }, {
     key: "item",
     title: t("ui.品目", "品目"),
-    width: 100
+    width: 180,
+    render: (v, row) => formatMasterData(row, "item_name", v, lang)
   }, {
     key: "sys_qty",
     title: t("ui.账面量", "账面量"),
@@ -298,8 +306,14 @@ export default function StocktakePage() {
     }
   }, {
     key: "operator",
+    title: t("ui.录入员", "录入员"),
+    width: 140,
+    render: (v, row) => masterNameWithCode(String(row.operator_name || ""), String(v || "")) || "—"
+  }, {
+    key: "auditor",
     title: t("ui.盘点员", "盘点员"),
-    width: 90
+    width: 140,
+    render: (v, row) => masterNameWithCode(String(row.auditor_name || ""), String(v || "")) || "—"
   }, {
     key: "_actions",
     title: t("common.operation", "操作"),
@@ -360,7 +374,7 @@ export default function StocktakePage() {
       <DataTable table={TABLE} columns={COLUMNS} onNew={canCreateInout ? openNew : undefined} onEdit={canEditInout ? openEdit : undefined} onDelete={canDeleteInout ? handleDelete : undefined} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无盘点记录", "暂无盘点记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑盘点单", "编辑盘点单") : t("ui.新建盘点单", "新建盘点单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+        <CrudForm fields={FIELDS} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")} onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />
