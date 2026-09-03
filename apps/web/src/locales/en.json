@@ -14282,5 +14282,6 @@
   "ui.当前账号无可用客户，请联系管理员检查数据范围": "No customers are available for this account. Contact an administrator to check its data scope.", "ui.客户数据加载失败，请重试": "Failed to load customer data. Retry.", "ui.当前账号无可用公司，请联系管理员检查数据范围": "No companies are available for this account. Contact an administrator to check its data scope.", "ui.公司数据加载失败，请重试": "Failed to load company data. Retry.",
   "ui.已预留": "Reserved", "ui.已出发": "Departed", "ui.超限": "Over limit", "auto.literal.未结清": "Open", "auto.literal.已回库": "Restocked",
   "ui.销售订单审批上下文": "Sales order approval context", "ui.触发原因": "Trigger reasons", "ui.订单总额": "Order total", "ui.信用快照": "Credit snapshot", "ui.成交价": "Actual price", "ui.打开销售订单": "Open sales order",
+  "ui.请返回订单重选当前公司的有效客户，或前往客户主数据中心维护。": "Return to the order and select an active customer for this company, or maintain it in Customer Master Data.", "ui.请重选当前公司的有效客户，或前往客户主数据中心维护。": "Select an active customer for this company, or maintain it in Customer Master Data.", "ui.客户主数据中心": "Customer Master Data",
   "analytics.col_broken": "Broken eggs", "prc2.kpi_ap_balance_original": "AP balance (original currencies)", "prc2.kpi_paid_amount_base": "Paid amount (base currency)"
 }

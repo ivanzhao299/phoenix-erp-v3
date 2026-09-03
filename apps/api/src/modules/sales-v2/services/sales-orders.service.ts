@@ -14,6 +14,7 @@ import { FinanceArAdapter } from '../adapters/finance-ar.adapter';
 import { EggInventoryService } from './egg-inventory.service';      // Phase 7
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { WorkflowBizRegistryService } from '../../approval-engine/workflow-biz-registry.service';
+import { CreditCustomerMasterNotFoundException } from './credit-domain.errors';
 import {
   CreateSalesOrderDto, UpdateSalesOrderDto, QuerySalesOrderDto,
   SubmitSalesOrderDto, CancelSalesOrderDto, TransitionSalesOrderDto,
@@ -571,6 +572,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         const snap = eval_.snapshot;
         creditSnapshot = {
           creditStatus:      eval_.creditStatus,
+          policyMode:        eval_.policyMode,
           totalReceivable:   snap.totalReceivable,
           overdueReceivable: snap.overdueReceivable,
           overdueDays:       snap.overdueDays,
@@ -597,9 +599,22 @@ export class SalesOrdersService implements OnApplicationBootstrap {
           creditWarning = true;
         }
       } catch (err: any) {
-        // ForbiddenException 直接抛出
-        if (err?.status === 403) throw err;
-        this.logger.error(`[submit] 信用评估失败，已阻断提交: ${err?.message}`);
+        // 仅透传明确列入白名单的信用域错误；基础设施及未知执行错误继续 fail-closed 为 503。
+        if (err instanceof ForbiddenException || err instanceof CreditCustomerMasterNotFoundException) {
+          throw err;
+        }
+        const errorName = String(err?.name ?? err?.constructor?.name ?? 'UnknownError');
+        const errorCode = String(err?.code ?? 'UNKNOWN_EXECUTION_ERROR');
+        this.logger.error(
+          `[submit] 信用评估失败，已阻断提交 ${JSON.stringify({
+            orderNo: rec.order_no,
+            customerCode: rec.customer_code,
+            companyCode: rec.company_code,
+            errorName,
+            errorCode,
+          })}`,
+          err?.stack,
+        );
         throw new ServiceUnavailableException('信用评估服务暂时不可用，订单未提交，请稍后重试');
       }
     }

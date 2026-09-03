@@ -23,4 +23,12 @@ describe('sales orders workflow action contract', () => {
     expect(pageSource).toContain('{actionError && !detailOrder && !showCreate');
     expect(pageSource).toMatch(/disabled=\{actionLoading\} onClick=\{\(\) => doAction\(o\.sourceId/);
   });
+
+  it('renders missing customer master guidance without creating master data', () => {
+    expect(pageSource).toContain("err.errorCode");
+    expect(pageSource).toContain("actionErrorCode === 'CREDIT_CUSTOMER_MASTER_NOT_FOUND'");
+    expect(pageSource).toContain('请重选当前公司的有效客户');
+    expect(pageSource).toContain('href="/master-data/customers"');
+    expect(pageSource).not.toMatch(/api\(['"]POST['"],\s*['"]\/api\/master-data/);
+  });
 });
