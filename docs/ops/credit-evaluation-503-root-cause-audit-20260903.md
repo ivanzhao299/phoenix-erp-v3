@@ -4,7 +4,7 @@
 >
 > 范围：只读核查；未修改业务代码、数据库、配置或生产数据
 >
-> 结论状态：**代码根因边界已收窄，事故实例的底层错误尚未取得，不能把候选原因写成已证实根因**
+> 结论状态：**已完成生产只读定案、修复、PR 合并、full 部署及部署后只读复验**
 
 ## 结论摘要
 
@@ -181,6 +181,48 @@ POS 赊销没有调用 `evaluateCreditStatus`：只要客户编码和名称不�
 
 最后执行 API tsc、相关 Jest、销售订单 PG integration、Web tsc，并重新跑生产只读 smoke。POS 信用旁路另开治理任务，不作为本修复通过条件。
 
-## 待用户确认
+## 原待确认项状态
 
-本轮仅交付核查报告。建议下一步先确认执行一次受控生产只读取证，取得订单客户/公司匹配结果及尚存容器日志；随后再根据 C3 分支确认是否实施 C1。未经用户确认，不修改业务代码、迁移、生产数据或部署配置。
+用户已于 2026-09-03 确认执行 §C 方案；生产只读取证、实现、部署与复验结果见下文 §E。
+
+## E. 执行记录（2026-09-03）
+
+### E1. 生产只读定案（实施前）
+
+- 受控 workflow：`Production Readonly Audit` run `33704782370`，结论 `success`。
+- 当时生产 revision：checkout/API/Web 均为 `50f720c5bad80fa03ecc78780b9756b0a7239d47`。
+- 锚点订单：`SO-20260903-00005`，`id=34`、`status=DRAFT`、`company_code=COMP-LAO-XINGCHI`、`customer_code=CUS-00002`。
+- 同公司客户主档匹配：标准 `customer_no` 为 0，`legacy_customer_code` 为 0，匹配明细 0 行。由此确认事故实例属于 C3 的“客户主档无匹配”分支，不是零额度/零账期客户。
+- 容器保留日志匹配 0 行；按 `10m × 3` 轮转策略记录为事故窗口证据已不可恢复，不冒称恢复事故时刻堆栈。
+- SQL 在 `BEGIN TRANSACTION READ ONLY` 内执行并 `ROLLBACK`；workflow 输出 `PASS PRODUCTION_BUSINESS_WRITES=0`。
+
+### E2. 实施内容
+
+1. 新增稳定信用域异常 `CreditCustomerMasterNotFoundException`：HTTP 409、`errorCode=CREDIT_CUSTOMER_MASTER_NOT_FOUND`、固定文案“订单客户不属于当前公司或主档已失效，请重新选择客户”。标准/legacy 两查均无时抛出，仍阻断提交。
+2. 订单提交层采用明确类型白名单，仅透传 `ForbiddenException` 与上述信用域异常；数据库、超时及未知执行错误继续包装为既有 503，fail-closed 未回退。
+3. `CreditEvaluation` 增加 `policyMode`：额度和账期均为 0 时为 `UNLIMITED_DEFAULT`，否则为 `LIMITED`；零门槛现行政策不变，未新增审批政策。
+4. 503 路径日志增加 `orderNo/customerCode/companyCode/errorName/errorCode` 结构化关联并传入 `err.stack`；HTTP 响应继续使用脱敏固定文案，不返回堆栈。
+5. 销售订单 UI 识别稳定错误码，提示重选当前公司有效客户，并链接 `/master-data/customers`；没有自动创建主数据。
+6. 新增锚点只读 SQL 与受控日志保留窗口取证，未新增 schema 或数据迁移。
+
+### E3. 测试与 CI
+
+- API/Web `tsc --noEmit`：通过。
+- 聚焦 API Jest：2 suites、19 tests 通过，覆盖零额度/零账期 NORMAL 与 WARNING、legacy 命中、主档缺失 409、查询故障上抛、信用状态优先级、提交白名单矩阵、结构化日志和客户端无堆栈。
+- 聚焦 Web Vitest：3 tests 通过，覆盖稳定错误码解析、重选提示、主数据中心链接及无自动创建调用。
+- 本地 schema 门禁：nullable-in-unique、constraint drift、entity drift 均通过。
+- 本地全量初跑存在与本改动无关的环境基线故障：2 个 Chanjet 定时收敛测试超过 5 秒，26 个 DOM 测试因本机已安装依赖返回 `act is not a function`；隔离复跑一致。干净 GitHub runner 未复现。
+- PR `#169`（merge revision `9d805e9af441b49af0b7ceea8504fc7d1ea0a153`）全部 required checks 通过：全量 API Jest、Web Vitest、双端 typecheck/build、五组回归、runtime smoke、静态安全与冻结边界门禁。
+
+### E4. full 部署与部署后只读复验
+
+- full 部署：`CI/CD — Build & Deploy` run `33705837660`，结论 `success`；验证、API/Web 镜像构建推送、受控 SSH 部署、迁移链与 Web smoke 全部完成。
+- 部署后只读复验：run `33707083530`，结论 `success`。
+- revision：checkout/API/Web 三端均为 `9d805e9af441b49af0b7ceea8504fc7d1ea0a153`。
+- 数据复验：订单仍为 `DRAFT`，`CUS-00002 + COMP-LAO-XINGCHI` 标准/legacy 匹配仍为 `0/0`；本修复没有改写事故订单或客户主档。
+- 错误窗口：`LIFECYCLE_PROCESS_LOG_ERROR_WINDOW_60M=0`；旧事故日志匹配仍为 0 行，维持“已轮转不可恢复”结论。
+- 安全断言：SQL read-only + rollback，`PASS PRODUCTION_BUSINESS_WRITES=0`。
+
+### E5. 定案
+
+事故实例根因已定为订单保存的客户编码在订单所属公司内无法命中有效正式客户主档，而该明确域状态被旧提交层误包装为 503。修复已将其稳定分类为 409 并保留阻断；真正基础设施/未知信用评估故障继续 503，冻结/黑名单继续 403。生产数据修复不在本次范围内，后续须由业务人员重选 `COMP-LAO-XINGCHI` 下的有效客户，或在客户主数据中心按既有治理流程维护主档。
