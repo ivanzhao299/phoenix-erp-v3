@@ -184,3 +184,12 @@ PR #165 的 merge commit 为 `d24886f59736e05745dc700ba3d41b94e51b188e`，实际
 - 真实 `apps/api/test/scope-audit.sh` 已执行，但本地 API 未启动，30 项均为 HTTP `000`/无法登录，另 1 项因无样本跳过；该结果不是权限逻辑 PASS，需在可用环境重跑。
 - 新增受控生产只读审计 `inventory-eight-page-display.sql/.http.json`，输入校验 PASS；待部署后由 production workflow 核对 checkout/API/Web revision、7 个读取面名称字段、operator 映射及 60 分钟错误窗口。
 - PR #175 已由独立 diff 审查确认未发现确定的 SQL 列引用或 DataScope 绕过问题，并据此登记 `reviewed-frozen-boundary`、`reviewed-security-touch`；首轮门禁在标签登记前触发，后续 push 以带审查标签的新事件重跑。
+
+### 合并、部署与生产只读复验
+
+- PR：[#175](https://github.com/ivanzhao299/phoenix-erp-v3/pull/175)，全部 required checks 通过；merge revision `7f4a93bc71711e371f077e09e5a7a0b5b2cca2eb`。
+- full 部署：GitHub Actions run `33731833247` 成功；CI 临时库迁移、entity drift、五模块回归、API/Web SHA 镜像构建、生产备份/迁移/容器切换及 smoke 均通过。
+- production readonly audit：run `33733075481` 成功；checkout/API/Web revision 均为 `7f4a93bc71711e371f077e09e5a7a0b5b2cca2eb`。
+- 生产抽查：库存批次 194 行；出库 12 行；调拨 5 行；盘点 2 行；台账抽样 50 行；仓库 21 行。7 个读取面均 HTTP 200，要求的 projection 名称列与原编码列均存在且至少一条非空。
+- 操作员映射：260 条含 operator 的跨表样本中，111 条命中 `sys_user.username`，命中的 111 条均有 `real_name`；其余历史 `SYS`、已删除用户或旧身份按约定回退原账号/原码，不伪造姓名。
+- 错误窗口：目标接口近 60 分钟 `sys_error_logs=0`，容器目标错误匹配数 0；审计结束输出 `PASS PRODUCTION_BUSINESS_WRITES=0`。
