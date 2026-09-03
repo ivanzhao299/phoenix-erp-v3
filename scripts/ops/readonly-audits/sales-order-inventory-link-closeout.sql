@@ -22,6 +22,18 @@ SELECT COUNT(*) FILTER (WHERE outbound_qty<>ledger_outbound OR released_qty<>led
                                   OR outbound_qty+released_qty>reserved_qty)=0 THEN 'PASS' ELSE 'REVIEW_REQUIRED' END AS result
 FROM facts;
 
+WITH facts AS (
+  SELECT a.id,a.sales_order_item_id,a.batch_no,a.reserved_qty,a.outbound_qty,a.released_qty,
+         COALESCE(SUM(-l.qty_change) FILTER (WHERE l.change_type='FIFO_OUT'),0) AS ledger_outbound,
+         COALESCE(SUM(l.qty_change) FILTER (WHERE l.change_type='RELEASED'),0) AS ledger_released
+  FROM sal_order_item_batch_allocations a
+  LEFT JOIN sal_order_item_batch_allocation_actions x ON x.allocation_id=a.id
+  LEFT JOIN inv_ledger l ON l.id=x.ledger_id GROUP BY a.id
+)
+SELECT * FROM facts
+WHERE outbound_qty<>ledger_outbound OR released_qty<>ledger_released OR outbound_qty+released_qty>reserved_qty
+ORDER BY id LIMIT 100;
+
 \echo '--- POST_DEPLOY_STORE_WAREHOUSE_HITS ---'
 WITH store_sales_warehouses AS (
   SELECT DISTINCT w.warehouse_code,w.company_code
