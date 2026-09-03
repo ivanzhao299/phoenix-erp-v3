@@ -1,0 +1,11 @@
+[
+  { "name": "project-runtime-preflight", "username": "admin", "path": "/api/master-data/runtime/project?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["project_code"] },
+  { "name": "customer-runtime-preflight", "username": "admin", "path": "/api/master-data/runtime/customer?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["customer_no"] },
+  { "name": "supplier-runtime-preflight", "username": "admin", "path": "/api/master-data/runtime/supplier?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["supplier_code"] },
+  { "name": "warehouse-runtime-preflight", "username": "admin", "path": "/api/master-data/runtime/warehouse?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["warehouse_code"] },
+  { "name": "store-runtime-preflight", "username": "admin", "path": "/api/master-data/runtime/store?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["store_code"] },
+  { "name": "driver-runtime-preflight", "username": "admin", "path": "/api/master-data/runtime/driver?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["driver_code"] },
+  { "name": "vehicle-runtime-preflight", "username": "admin", "path": "/api/master-data/runtime/vehicle?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["vehicle_no"] },
+  { "name": "cash-account-runtime-preflight", "username": "admin", "path": "/api/master-data/runtime/cash-account?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["account_code"] },
+  { "name": "bank-account-runtime-preflight", "username": "admin", "path": "/api/master-data/runtime/bank-account?limit=50", "expectedStatus": 200, "minDataLength": 1, "allowNoData": true, "reportDataLength": true, "requiredNonEmptyFields": ["bank_account_code"] }
+]
