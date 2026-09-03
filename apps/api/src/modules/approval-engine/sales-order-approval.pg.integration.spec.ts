@@ -305,6 +305,15 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     const zone = `PG-RET-Z-${suffix}`;
     const location = `PG-RET-L-${suffix}`;
     const returnNo = `RET-PG-${suffix}`;
+    // Frozen CI baseline does not materialize these runtime CRUD tables.
+    await runner.manager.query(`CREATE TABLE IF NOT EXISTS wms_zones (
+      id SERIAL PRIMARY KEY,zone_code VARCHAR(64) UNIQUE,zone_name VARCHAR(128),
+      warehouse VARCHAR(64),warehouse_code VARCHAR(64),status VARCHAR(32)
+    )`);
+    await runner.manager.query(`CREATE TABLE IF NOT EXISTS wms_locations (
+      location_code VARCHAR(64) PRIMARY KEY,warehouse_code VARCHAR(64) NOT NULL,
+      zone_code VARCHAR(64),location_name VARCHAR(128),status VARCHAR(32)
+    )`);
     await runner.manager.query(
       `INSERT INTO wms_warehouses(warehouse_code,warehouse_name,company_code,status,domain) VALUES($1,$1,'PG-IT','ACTIVE','OPERATIONAL')`,
       [warehouse],
