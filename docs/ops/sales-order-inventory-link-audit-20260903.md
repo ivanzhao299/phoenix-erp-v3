@@ -281,3 +281,15 @@ HAVING COUNT(*) > 1;
 ### 第 1 批迁移前置核验
 
 生产只读 run `33712740190` 已按迁移同口径检查历史未结单：重复 RESERVED 事实 0 组、逐批回填数量差异 0 条、既有 FIFO_OUT 无法唯一映射 0 组，且输出 `PASS PRODUCTION_BUSINESS_WRITES=0`。因此逐批 allocation 迁移可按原 ledger 精确回填，无需为当前生产数据制定猜测性分摊规则。
+
+### 第 1–2 批执行记录
+
+- 第 1 批 PR `#172` 已通过全部 CI 并合入：逐批 allocation、精确预留/释放/出库、装车并发互斥、审批入口收敛及真实 PG 非整除/取消/并发用例。
+- 第 2 批 PR `#173` 已通过全部 CI 并合入：订单履约仓、FIFO 单仓约束、历史在途单待治理标记、部分配送数量账、活跃配送唯一约束及详情/process-log 展示。
+- 第 2 批本地验证：API/Web tsc 通过，定向 Jest 13/13，真实 PG 5/5，CI 的 Web Vitest、regression、build/typecheck、security/freeze gates 全部通过。
+
+### 第 3 批提交前记录
+
+第 3 批 PR `#174` 实现签收数量守恒、异常记录及移动端退货关联、全明细质检、显式回库仓/隔离库区/货位，以及库存、损耗、Credit Note、终态和生命周期事件的单事务提交。回库以订单行锁、`restocked_at` 和明细处理状态防重复。
+
+提交前验证：API/Web tsc 通过，Web 全量 527/527，真实 PG 6/6，i18n/constraint/nullable/entity-drift 门禁通过；API 全量 736 通过，仍有 2 个与本链路无关的既有 Chanjet 5 秒超时。生产部署与最终只读复验结果将在 PR 合入后追加。
