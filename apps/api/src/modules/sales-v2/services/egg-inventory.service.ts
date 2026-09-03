@@ -547,8 +547,10 @@ export class EggInventoryService {
       const target = params.skuCode
         ? `sku=${params.skuCode}`
         : `product=${params.productCode} grade=${params.gradeCode ?? 'ALL'}`;
+      const allocatableQty = params.qty - remaining;
       throw new ConflictException(
-        `库存不足：${target} 缺少 ${remaining} 个单位`,
+        `库存不足：订单公司=${params.companyCode} ${target} `
+        + `需求量=${params.qty} 该公司可分配量=${allocatableQty}`,
       );
     }
 

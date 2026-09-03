@@ -9,6 +9,7 @@ import { Plus, RefreshCw, Search, ChevronRight, X, AlertTriangle, CheckCircle, C
 import s from '@/components/ui/admin-ui.module.css';
 import { LoadingSkeleton, EmptyState } from '@/components/design-system'; // P1-1 性能快修
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
+import { ConfirmDialogV2 } from '@/components/design-system/dialogs/ConfirmDialogV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, CustomerSelector, ChannelSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -328,6 +329,7 @@ export default function SalesV2OrdersPage() {
   const [dangerAction, setDangerAction] = useState<{ id: string; action: 'cancel' | 'manual-override' } | null>(null);
   const [dangerReason, setDangerReason] = useState('');
   const [overrideTarget, setOverrideTarget] = useState('');
+  const [submitConfirmId, setSubmitConfirmId] = useState<string | null>(null);
 
   // 新建表单状态
   const [newForm, setNewForm] = useState({
@@ -1395,7 +1397,7 @@ export default function SalesV2OrdersPage() {
           paddingTop: 8,
           borderTop: '1px solid var(--border)'
         }}>
-              {detailOrder.status === 'DRAFT' && canCreate && <button className={s.btnPrimary} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'submit')}>{t('ui.提交审批','提交审批')}</button>}
+              {detailOrder.status === 'DRAFT' && canCreate && <button className={s.btnPrimary} disabled={actionLoading} onClick={() => setSubmitConfirmId(detailOrder.id)}>{t('ui.提交审批','提交审批')}</button>}
               {detailOrder.status === 'DELIVERED' && canTransit && <button className={s.btnPrimary} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'receive')}>
                   {t('ui.确认签收','确认签收')}
                 </button>}
@@ -1404,6 +1406,24 @@ export default function SalesV2OrdersPage() {
             </div>
         </div>}
       </ModalV2>
+
+      <ConfirmDialogV2
+        open={!!submitConfirmId}
+        title={t('ui.提交销售订单','提交销售订单')}
+        message={t(
+          'ui.若该订单无需审批，提交将自动批准并锁定库存；需审批订单将在最终批准时锁定库存。',
+          '若该订单无需审批，提交将自动批准并锁定库存；需审批订单将在最终批准时锁定库存。',
+        )}
+        confirmLabel={t('ui.确认提交','确认提交')}
+        loading={actionLoading}
+        onCancel={() => setSubmitConfirmId(null)}
+        onConfirm={async () => {
+          if (!submitConfirmId) return;
+          const id = submitConfirmId;
+          await doAction(id, 'submit');
+          setSubmitConfirmId(null);
+        }}
+      />
 
       <ModalV2 open={!!dangerAction} title={t('ui.危险操作确认','危险操作确认')} onClose={() => setDangerAction(null)} width={460}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
