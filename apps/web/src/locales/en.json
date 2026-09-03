@@ -14285,5 +14285,7 @@
   "ui.请返回订单重选当前公司的有效客户，或前往客户主数据中心维护。": "Return to the order and select an active customer for this company, or maintain it in Customer Master Data.", "ui.请重选当前公司的有效客户，或前往客户主数据中心维护。": "Select an active customer for this company, or maintain it in Customer Master Data.", "ui.客户主数据中心": "Customer Master Data",
   "ui.履约仓": "Fulfillment warehouse", "ui.待治理（历史单）": "Governance pending (legacy order)", "ui.请选择履约仓": "Select a fulfillment warehouse", "ui.履约仓 *": "Fulfillment warehouse *", "ui.请选择回库仓、隔离库区和隔离货位": "Select a return warehouse, quarantine zone, and quarantine location",
   "ui.录入员": "Data entry operator", "ui.其他去向": "Other destination",
-  "analytics.col_broken": "Broken eggs", "prc2.kpi_ap_balance_original": "AP balance (original currencies)", "prc2.kpi_paid_amount_base": "Paid amount (base currency)"
+  "analytics.col_broken": "Broken eggs", "prc2.kpi_ap_balance_original": "AP balance (original currencies)", "prc2.kpi_paid_amount_base": "Paid amount (base currency)",
+  "warehouse.transfer.status.pending": "Pending dispatch", "warehouse.transfer.status.in_transit": "In transit", "warehouse.transfer.status.received": "Received, action required", "warehouse.transfer.status.completed": "Completed", "warehouse.transfer.status.cancelled": "Cancelled (legacy)",
+  "warehouse.transfer.action.dispatch": "Dispatch", "warehouse.transfer.action.receive": "Receive", "warehouse.transfer.filter.status": "Filter by status", "warehouse.transfer.filter.all": "All statuses"
 }

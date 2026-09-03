@@ -193,3 +193,37 @@ PR #165 的 merge commit 为 `d24886f59736e05745dc700ba3d41b94e51b188e`，实际
 - 生产抽查：库存批次 194 行；出库 12 行；调拨 5 行；盘点 2 行；台账抽样 50 行；仓库 21 行。7 个读取面均 HTTP 200，要求的 projection 名称列与原编码列均存在且至少一条非空。
 - 操作员映射：260 条含 operator 的跨表样本中，111 条命中 `sys_user.username`，命中的 111 条均有 `real_name`；其余历史 `SYS`、已删除用户或旧身份按约定回退原账号/原码，不伪造姓名。
 - 错误窗口：目标接口近 60 分钟 `sys_error_logs=0`，容器目标错误匹配数 0；审计结束输出 `PASS PRODUCTION_BUSINESS_WRITES=0`。
+
+## 调拨状态模型对齐（2026-09-03）
+
+源码与迁移末态复核确认：`wms_transfer` 当前合法生命周期为
+`PENDING → IN_TRANSIT → RECEIVED → COMPLETED`。其中无差异签收会从
+`RECEIVED` 自动进入 `COMPLETED`；有差异时停在 `RECEIVED`，必须关联
+`LOSS/ADJUSTMENT` 单号后完成。数据库 `chk_wms_transfer_status` 只允许上述四值，
+当前没有 `CANCELLED` 转换接口；因此 `CANCELLED` 仅作为历史数据只读兼容展示，
+不纳入可写状态机。
+
+本轮前端修复：
+
+- 新增共享状态契约，徽章和筛选统一覆盖四个生命周期状态及历史兼容
+  `CANCELLED`；三语 locale 均使用稳定 key，未知值保持原码。
+- 新建调拨改用分阶段 `/api/inventory/transfer`，创建结果为 `PENDING`；不再调用
+  会直接完成库存事务的旧 `/confirm` 兼容端点。
+- 动作门禁与后端一致：仅 `PENDING` 显示发运，仅 `IN_TRANSIT` 显示签收；
+  `RECEIVED/COMPLETED/CANCELLED/未知值` 均不显示这两个动作。
+- 移除状态编辑、通用编辑和删除入口。后端本就禁止 Generic CRUD 修改调拨状态
+  或删除调拨审计事实，页面不再暴露必失败操作。
+- 专用接口权限与 Controller 对齐为 `MENU_INV_BATCH:E`；补货详情也复用同一调拨
+  状态 formatter，修复 `IN_TRANSIT/COMPLETED` 裸码。
+- 生产只读 SQL 增加 `WMS_TRANSFER_STATUS_DISTRIBUTION`，部署后按状态输出真实
+  `DISTINCT status + count`；发现四态外历史值时只记录处置口径，不修改数据。
+
+防回潮测试直接解析 `UpgradeWmsTransferLifecycle` 的 CHECK 状态集合，并断言页面共享
+状态集完全覆盖迁移末态；另覆盖五个展示值、未知原码、筛选同源、动作门禁与 zh/en/lo。
+
+本地验证：API/Web `tsc --noEmit` PASS；Web 全量 103 files、544 tests PASS；
+生产只读审计输入校验 PASS。当前工作机没有可启动本地 compose 所需的 `JWT_SECRET`
+和测试服务，真实 scope-audit 留给 CI/受控环境执行，不将连接失败记作 PASS。
+
+部署、revision、生产状态分布、页面冒烟和 60 分钟错误窗口结果将在对应 Actions
+运行完成后回填。

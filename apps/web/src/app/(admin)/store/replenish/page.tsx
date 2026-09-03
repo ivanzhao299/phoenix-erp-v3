@@ -34,6 +34,7 @@ import {
   ReceiveInput,
   validateReceive,
 } from "./replenishment";
+import { transferStatusLabel } from "../../warehouse/transfer/transfer-status";
 import styles from "./replenish.module.css";
 
 type Warehouse = {
@@ -1428,7 +1429,7 @@ function Details({ row, detail, busy, error, labels, retry, tr, lang }: any) {
             <p>
               {namedWarehouse(detail, "from_warehouse_name", detail.from_warehouse)} →{" "}
               {namedWarehouse(detail, "to_warehouse_name", detail.to_warehouse)} ·{" "}
-              {labels[detail.status] || detail.status}
+              {transferStatusLabel(detail.status, tr)}
             </p>
             {detail.items.map((x: Item) => (
               <p key={x.id}>

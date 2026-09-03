@@ -17,6 +17,13 @@ SELECT 'INVENTORY_DISPLAY_OPERATOR_MAPPING' AS section,
   ) x
   LEFT JOIN sys_user u ON u.username=x.operator;
 
+SELECT 'WMS_TRANSFER_STATUS_DISTRIBUTION' AS section,
+       COALESCE(status, '<NULL>') AS status,
+       COUNT(*)::int AS row_count
+  FROM wms_transfer
+ GROUP BY status
+ ORDER BY status NULLS FIRST;
+
 SELECT 'INVENTORY_DISPLAY_ERROR_WINDOW_60M' AS section, COUNT(*)::int AS error_count
   FROM sys_error_logs
  WHERE created_at >= NOW() - INTERVAL '60 minutes'
