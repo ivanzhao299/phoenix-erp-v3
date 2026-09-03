@@ -183,3 +183,4 @@ PR #165 的 merge commit 为 `d24886f59736e05745dc700ba3d41b94e51b188e`，实际
 - 首次直接执行 vitest binary 继承工作机 `NODE_ENV=production`，导致 React 19 的测试版 `act` 不导出而出现 26 个环境性失败；按项目 package script 重跑全绿，未为此混入业务代码修改。
 - 真实 `apps/api/test/scope-audit.sh` 已执行，但本地 API 未启动，30 项均为 HTTP `000`/无法登录，另 1 项因无样本跳过；该结果不是权限逻辑 PASS，需在可用环境重跑。
 - 新增受控生产只读审计 `inventory-eight-page-display.sql/.http.json`，输入校验 PASS；待部署后由 production workflow 核对 checkout/API/Web revision、7 个读取面名称字段、operator 映射及 60 分钟错误窗口。
+- PR #175 已由独立 diff 审查确认未发现确定的 SQL 列引用或 DataScope 绕过问题，并据此登记 `reviewed-frozen-boundary`、`reviewed-security-touch`；首轮门禁在标签登记前触发，后续 push 以带审查标签的新事件重跑。
