@@ -24,6 +24,12 @@ function tok() {
   return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
 }
 const BASE = process.env.NEXT_PUBLIC_API_BASE || '';
+class ApiError extends Error {
+  constructor(message: string, readonly errorCode?: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
 async function api<T = any>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(BASE + path, {
     method,
@@ -35,7 +41,7 @@ async function api<T = any>(method: string, path: string, body?: unknown): Promi
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    throw new ApiError(err.message || `HTTP ${res.status}`, err.errorCode);
   }
   const d = await res.json();
   return d.data ?? d;
@@ -324,6 +330,7 @@ export default function SalesV2OrdersPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [actionErrorCode, setActionErrorCode] = useState('');
   const [processLog, setProcessLog] = useState<OrderProcessLog | null>(null);
   const [processLoading, setProcessLoading] = useState(false);
   const [dangerAction, setDangerAction] = useState<{ id: string; action: 'cancel' | 'manual-override' } | null>(null);
@@ -515,6 +522,7 @@ export default function SalesV2OrdersPage() {
     }
     setActionLoading(true);
     setActionError('');
+    setActionErrorCode('');
     try {
       await api('POST', '/api/v2/sales/orders', {
         companyCode: newForm.companyCode,
@@ -556,6 +564,7 @@ export default function SalesV2OrdersPage() {
       await loadOrders({ page: 1, status: '', keyword: '', source: 'ORDER' });
     } catch (e: any) {
       setActionError(e.message);
+      setActionErrorCode(e instanceof ApiError ? e.errorCode ?? '' : '');
     } finally {
       setActionLoading(false);
     }
@@ -566,6 +575,7 @@ export default function SalesV2OrdersPage() {
   const doAction = async (id: string, action: string, body?: any) => {
     setActionLoading(true);
     setActionError('');
+    setActionErrorCode('');
     try {
       if (action === 'submit') await api('POST', `/api/v2/sales/orders/${id}/submit`, body ?? {});else if (action === 'cancel') await api('POST', `/api/v2/sales/orders/${id}/cancel`, body ?? {});else if (action === 'receive') await api('POST', `/api/v2/sales/orders/${id}/mark-received`);else if (action === 'manual-override') await api('POST', `/api/v2/sales/orders/${id}/manual-override`, body);else await api('POST', `/api/v2/sales/orders/${id}/transition`, body);
 
@@ -578,6 +588,7 @@ export default function SalesV2OrdersPage() {
       }
     } catch (e: any) {
       setActionError(e.message);
+      setActionErrorCode(e instanceof ApiError ? e.errorCode ?? '' : '');
     } finally {
       setActionLoading(false);
     }
@@ -697,6 +708,10 @@ export default function SalesV2OrdersPage() {
       fontSize: 13
     }}>
           {actionError}
+          {actionErrorCode === 'CREDIT_CUSTOMER_MASTER_NOT_FOUND' && <span>
+            {' · '}{t('ui.请返回订单重选当前公司的有效客户，或前往客户主数据中心维护。','请返回订单重选当前公司的有效客户，或前往客户主数据中心维护。')}
+            {' '}<Link href="/master-data/customers">{t('ui.客户主数据中心','客户主数据中心')} →</Link>
+          </span>}
         </div>}
 
       {/* 订单列表 */}
@@ -810,7 +825,12 @@ export default function SalesV2OrdersPage() {
           background: 'var(--status-danger-bg-faint)',
           color: 'var(--status-danger)',
           fontSize: 13
-        }}>{actionError}</div>}
+        }}>{actionError}
+              {actionErrorCode === 'CREDIT_CUSTOMER_MASTER_NOT_FOUND' && <span>
+                {' · '}{t('ui.请重选当前公司的有效客户，或前往客户主数据中心维护。','请重选当前公司的有效客户，或前往客户主数据中心维护。')}
+                {' '}<Link href="/master-data/customers">{t('ui.客户主数据中心','客户主数据中心')} →</Link>
+              </span>}
+            </div>}
 
             {/* 基本信息 */}
             <div className={styles.formGrid}>
@@ -1184,7 +1204,12 @@ export default function SalesV2OrdersPage() {
           background: 'var(--status-danger-bg-faint)',
           color: 'var(--status-danger)',
           fontSize: 13
-        }}>{actionError}</div>}
+        }}>{actionError}
+              {actionErrorCode === 'CREDIT_CUSTOMER_MASTER_NOT_FOUND' && <span>
+                {' · '}{t('ui.请重选当前公司的有效客户，或前往客户主数据中心维护。','请重选当前公司的有效客户，或前往客户主数据中心维护。')}
+                {' '}<Link href="/master-data/customers">{t('ui.客户主数据中心','客户主数据中心')} →</Link>
+              </span>}
+            </div>}
 
             {/* 状态 + 预警 */}
             <div style={{

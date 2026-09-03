@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../../org/services/data-scope.service';
+import { CreditCustomerMasterNotFoundException } from './credit-domain.errors';
 
 /**
  * 客户信用分析快照
@@ -40,6 +41,7 @@ export interface CreditEvaluation {
   creditWarning:     boolean;   // 是否标记 credit_warning
   snapshot:          CustomerArSnapshot;
   reason:            string;
+  policyMode:        'UNLIMITED_DEFAULT' | 'LIMITED';
 }
 
 @Injectable()
@@ -102,7 +104,7 @@ export class CustomerCreditService {
       );
       cust = byCode[0] ?? null;
     }
-    if (!cust) throw new NotFoundException(`客户 ${customerCode} 不存在`);
+    if (!cust) throw new CreditCustomerMasterNotFoundException();
 
     // 查 fin_ar_invoices
     const arKey = cust.customer_no ?? customerCode;
@@ -253,7 +255,10 @@ export class CustomerCreditService {
       reason = `客户存在逾期未收款 ${snap.overdueReceivable.toFixed(2)}，请关注`;
     }
 
-    return { creditStatus, allowOrder, requireApproval, creditWarning, snapshot: snap, reason };
+    const policyMode: CreditEvaluation['policyMode'] =
+      snap.creditLimit === 0 && snap.paymentTerms === 0 ? 'UNLIMITED_DEFAULT' : 'LIMITED';
+
+    return { creditStatus, allowOrder, requireApproval, creditWarning, snapshot: snap, reason, policyMode };
   }
 
   // ── 4. refreshCustomerCredit ──────────────────────────────────────────────

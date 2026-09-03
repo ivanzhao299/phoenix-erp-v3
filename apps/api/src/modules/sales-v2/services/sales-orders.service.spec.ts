@@ -2,7 +2,8 @@ import 'reflect-metadata';
 import type { DataSource } from 'typeorm';
 import type { ClsService } from 'nestjs-cls';
 import { SalesOrdersService } from './sales-orders.service';
-import { ServiceUnavailableException } from '@nestjs/common';
+import { ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
+import { CreditCustomerMasterNotFoundException } from './credit-domain.errors';
 
 describe('SalesOrdersService draft creation', () => {
   function makeService(query: jest.Mock) {
@@ -133,7 +134,52 @@ describe('SalesOrdersService draft creation', () => {
       { evaluateCreditStatus: jest.fn().mockRejectedValue(new Error('credit database unavailable')) } as any,
       {} as any, {} as any, {} as any, { get: jest.fn(), register: jest.fn() } as any,
     );
-    await expect(service.submit('103', {} as any)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    const loggerError = jest.fn();
+    (service as any).logger = { error: loggerError };
+    const rejection = service.submit('103', {} as any);
+    await expect(rejection).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(rejection).rejects.toMatchObject({
+      response: expect.not.objectContaining({ stack: expect.anything() }),
+    });
+    expect(ds.transaction).not.toHaveBeenCalled();
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.stringContaining('"orderNo":"SO-CREDIT-FAIL"'),
+      expect.stringContaining('Error: credit database unavailable'),
+    );
+    expect(loggerError.mock.calls[0][0]).toContain('"customerCode":"CUS-1"');
+    expect(loggerError.mock.calls[0][0]).toContain('"companyCode":"COMP-1"');
+    expect(loggerError.mock.calls[0][0]).toContain('"errorName":"Error"');
+    expect(loggerError.mock.calls[0][0]).toContain('"errorCode":"UNKNOWN_EXECUTION_ERROR"');
+  });
+
+  it('passes the explicit missing-customer credit domain error through as 409', async () => {
+    const order = { id: '104', order_no: 'SO-CREDIT-MISSING', status: 'DRAFT', customer_code: 'CUS-X', company_code: 'COMP-1' };
+    const query = jest.fn().mockResolvedValue([order]);
+    const ds = { query, manager: { query }, transaction: jest.fn() } as any;
+    const service = new SalesOrdersService(
+      ds, { get: jest.fn(() => ({ isGlobal: true, allowedCompanyCodes: [] })) } as any,
+      {} as any, {} as any, {} as any,
+      { evaluateCreditStatus: jest.fn().mockRejectedValue(new CreditCustomerMasterNotFoundException()) } as any,
+      {} as any, {} as any, {} as any, { get: jest.fn(), register: jest.fn() } as any,
+    );
+    await expect(service.submit('104', {} as any)).rejects.toMatchObject({ status: 409 });
+    expect(ds.transaction).not.toHaveBeenCalled();
+  });
+
+  it('keeps frozen and blacklist evaluations as 403', async () => {
+    const order = { id: '105', order_no: 'SO-CREDIT-FROZEN', status: 'DRAFT', customer_code: 'CUS-F', company_code: 'COMP-1' };
+    const query = jest.fn().mockResolvedValue([order]);
+    const ds = { query, manager: { query }, transaction: jest.fn() } as any;
+    const service = new SalesOrdersService(
+      ds, { get: jest.fn(() => ({ isGlobal: true, allowedCompanyCodes: [] })) } as any,
+      {} as any, {} as any, {} as any,
+      { evaluateCreditStatus: jest.fn().mockResolvedValue({
+        allowOrder: false, requireApproval: false, creditWarning: false, reason: '客户账户已冻结，禁止下单',
+        creditStatus: 'FROZEN', policyMode: 'LIMITED', snapshot: {},
+      }) } as any,
+      {} as any, {} as any, {} as any, { get: jest.fn(), register: jest.fn() } as any,
+    );
+    await expect(service.submit('105', {} as any)).rejects.toBeInstanceOf(ForbiddenException);
     expect(ds.transaction).not.toHaveBeenCalled();
   });
 });
