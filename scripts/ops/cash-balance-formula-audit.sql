@@ -48,6 +48,16 @@ WITH chain AS (
 )
 SELECT count(*) fh_10207_chain_discontinuities FROM chain WHERE balance_after<>expected;
 
+WITH chain AS (
+  SELECT x.account_code,x.balance_after,
+    a.opening_balance + sum(CASE WHEN x.source_type='OPENING' THEN 0 WHEN x.direction='IN' THEN x.amount ELSE -x.amount END)
+      OVER (PARTITION BY x.account_code ORDER BY x.txn_date,x.id ROWS UNBOUNDED PRECEDING) expected
+  FROM fin_cash_transactions x JOIN fin_cash_accounts a ON a.account_code=x.account_code
+  WHERE a.status='ACTIVE'
+)
+SELECT account_code,count(*) chain_discontinuities
+FROM chain WHERE balance_after<>expected GROUP BY account_code ORDER BY account_code;
+
 DO $$
 DECLARE bad text;
 BEGIN
