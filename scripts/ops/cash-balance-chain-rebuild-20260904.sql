@@ -125,7 +125,10 @@ BEGIN
   SELECT count(*) INTO v_account_drift FROM accounts_before b JOIN fin_cash_accounts a USING(id) WHERE b.row_md5<>md5(row_to_json(a)::text);
   SELECT count(*) INTO v_immutable_drift FROM target_tail_before b JOIN fin_cash_transactions x USING(id)
    WHERE b.immutable_md5<>md5((row_to_json(x)::jsonb-'balance_after')::text);
-  SELECT count(*) INTO v_other_drift FROM other_transactions_before b FULL JOIN fin_cash_transactions x USING(id)
+  SELECT count(*) INTO v_other_drift FROM other_transactions_before b FULL JOIN (
+    SELECT x.* FROM fin_cash_transactions x
+    WHERE NOT EXISTS (SELECT 1 FROM target_tail_before t WHERE t.id=x.id)
+  ) x USING(id)
    WHERE b.id IS NULL OR x.id IS NULL OR b.row_md5<>md5(row_to_json(x)::text);
   IF v_updated<>29 OR v_target_breaks<>0 OR v_active_breaks<>0 OR v_nan<>0 OR v_formula<>0 OR
      v_account_drift<>0 OR v_immutable_drift<>0 OR v_other_drift<>0 THEN
