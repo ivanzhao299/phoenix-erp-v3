@@ -309,3 +309,14 @@ OPENING 的 `txn_date` 应固定为各目标首笔业务流水之前，并保留
 1. **前置取证与硬断言**：开启单事务并锁定 6 个账户及其流水集合；导出账户行、23 个断点、首断点后 29 行完整尾链并计算 SHA-256；断言账户/币种/期初/当前余额、首断点 ID、完整链行数、尾链行数、`21` 个 NaN + `2` 个有限偏差、ACTIVE 期末公式差异 0 均与 run `33854376154` 一致。任一变化立即 ROLLBACK。
 2. **确定性重建**：使用同一事务内的窗口累计公式，从六个首断点分别重算至链尾；UPDATE 目标由“六账户 + 首断点位置”确定，不用手列 23 个 ID。硬断言仅 `balance_after` 可变，预期 UPDATE 命中 29 行、`IS DISTINCT FROM` 的实质变化为 23 行；账户表和其他流水列不得写入。
 3. **后置验证与可逆回滚**：断言六账户全链断点 0、全部目标 `balance_after` 非 NaN、全 ACTIVE 期末公式差异仍为 0、六账户期初/当前余额逐分不变、29 行除 `balance_after` 外完整行哈希不变、其他流水全集哈希不变。COMMIT 前生成按主键恢复 29 行原 `balance_after` 的回滚脚本及校验摘要；任一断言失败整单 ROLLBACK。
+
+## 11. `balance_after` 三阶段执行记录
+
+### 11.1 阶段 1：代码止血
+
+- 实现 commit：`8d3c1981`；PR：[#187](https://github.com/ivanzhao299/phoenix-erp-v3/pull/187)。
+- 修复 `CashAccountsService.applyBalance`、`StorePosService.writeCashTransaction`、`writeCashRefund` 的 TypeORM raw DML `RETURNING` 解包，统一兼容 `rows[]` 与 `[rows,rowCount]`，空返回受控拒绝。
+- 现金账户、流水写入口及 `rebuildChain` 增加有限数断言；`createManual` 的账户读取移入同一事务并使用 `FOR UPDATE`，事务内原子计算快照与更新余额。
+- 定向 Jest：7 suites / 34 tests PASS，覆盖 AR_RECEIPT、TRANSFER、POS `STORE_SALE/STORE_SALE_RETURN`、手工流水并发、真实 raw tuple 与 NaN fail-closed。
+- 全量 API Jest（`NODE_ENV=test`）：96 suites / 780 tests PASS，1 suite / 6 tests 按既有配置 skipped。API/Web TypeScript 均 0 errors；constraint drift、entity drift、nullable-in-unique 均 PASS；显式批准冻结/安全边界后的 W5 closeout 20/20 PASS。
+- PR CI、merge commit、full deploy run 与生产 revision：执行完成后补录。阶段 1 生产 revision 未确认前，阶段 2 保持禁止执行。
