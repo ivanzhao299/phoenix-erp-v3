@@ -74,11 +74,20 @@ BEGIN
   END IF;
 END $$;
 
-\copy (SELECT * FROM accounts_before ORDER BY account_code) TO :'accounts_csv' CSV HEADER
-\copy (SELECT * FROM breakpoints_before ORDER BY account_code,txn_date,id) TO :'breakpoints_csv' CSV HEADER
-\copy (SELECT * FROM target_tail_before ORDER BY account_code,txn_date,id) TO :'tail_before_csv' CSV HEADER
-\copy (SELECT x.* FROM fin_cash_transactions x JOIN other_transactions_before b USING(id) ORDER BY x.id) TO :'other_before_csv' CSV HEADER
-\copy (SELECT format('UPDATE fin_cash_transactions SET balance_after=%L::numeric WHERE id=%L;',balance_after::text,id::text) FROM target_tail_before ORDER BY id) TO :'rollback_body'
+SELECT set_config('bal.accounts_csv', :'accounts_csv', true),
+       set_config('bal.breakpoints_csv', :'breakpoints_csv', true),
+       set_config('bal.tail_before_csv', :'tail_before_csv', true),
+       set_config('bal.other_before_csv', :'other_before_csv', true),
+       set_config('bal.rollback_body', :'rollback_body', true),
+       set_config('bal.tail_after_csv', :'tail_after_csv', true),
+       set_config('bal.other_after_csv', :'other_after_csv', true);
+DO $$ BEGIN
+  EXECUTE format('COPY (SELECT * FROM accounts_before ORDER BY account_code) TO %L CSV HEADER',current_setting('bal.accounts_csv'));
+  EXECUTE format('COPY (SELECT * FROM breakpoints_before ORDER BY account_code,txn_date,id) TO %L CSV HEADER',current_setting('bal.breakpoints_csv'));
+  EXECUTE format('COPY (SELECT * FROM target_tail_before ORDER BY account_code,txn_date,id) TO %L CSV HEADER',current_setting('bal.tail_before_csv'));
+  EXECUTE format('COPY (SELECT x.* FROM fin_cash_transactions x JOIN other_transactions_before b USING(id) ORDER BY x.id) TO %L CSV HEADER',current_setting('bal.other_before_csv'));
+  EXECUTE format($copy$COPY (SELECT format('UPDATE fin_cash_transactions SET balance_after=%%L::numeric WHERE id=%%L;',balance_after::text,id::text) FROM target_tail_before ORDER BY id) TO %L$copy$,current_setting('bal.rollback_body'));
+END $$;
 
 DO $$ DECLARE v_changed integer; v_unchanged integer; BEGIN
   SELECT count(*) FILTER (WHERE balance_after IS DISTINCT FROM expected_balance_after),
@@ -125,8 +134,10 @@ BEGIN
   END IF;
 END $$;
 
-\copy (SELECT x.* FROM fin_cash_transactions x JOIN target_tail_before t USING(id) ORDER BY x.account_code,x.txn_date,x.id) TO :'tail_after_csv' CSV HEADER
-\copy (SELECT x.* FROM fin_cash_transactions x WHERE NOT EXISTS(SELECT 1 FROM target_tail_before t WHERE t.id=x.id) ORDER BY x.id) TO :'other_after_csv' CSV HEADER
+DO $$ BEGIN
+  EXECUTE format('COPY (SELECT x.* FROM fin_cash_transactions x JOIN target_tail_before t USING(id) ORDER BY x.account_code,x.txn_date,x.id) TO %L CSV HEADER',current_setting('bal.tail_after_csv'));
+  EXECUTE format('COPY (SELECT x.* FROM fin_cash_transactions x WHERE NOT EXISTS(SELECT 1 FROM target_tail_before t WHERE t.id=x.id) ORDER BY x.id) TO %L CSV HEADER',current_setting('bal.other_after_csv'));
+END $$;
 
 \if :BAL_CHAIN_COMMIT
 COMMIT;
