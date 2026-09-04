@@ -2,6 +2,7 @@ import {
   IsString, IsOptional, IsEnum, IsNumber, MaxLength, ValidateIf, IsEmail, IsInt, Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { SupplierSourcingType, SupplierSupplyCategory } from '../constants/supplier-domain.constants';
 
 export enum SharedScope {
   GROUP   = 'GROUP',
@@ -27,9 +28,11 @@ export class CreateSupplierDto {
   @MaxLength(8)
   countryCode: string;
 
-  @IsOptional()
-  @IsString()
-  supplierType?: string;
+  @IsEnum(SupplierSupplyCategory)
+  supplyCategory: SupplierSupplyCategory;
+
+  @IsEnum(SupplierSourcingType)
+  sourcingType: SupplierSourcingType;
 
   @IsString()
   @MaxLength(8)

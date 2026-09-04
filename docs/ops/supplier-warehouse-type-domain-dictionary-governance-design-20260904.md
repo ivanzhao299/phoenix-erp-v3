@@ -323,3 +323,31 @@ CHECK (facility_class IN ('FACTORY','DISTRIBUTION','STORE','TRANSIT','GENERAL'))
 - 本轮只新增本文档；没有生成迁移、脚本或 workflow，没有修改表单/DTO/约束，没有触碰生产。
 - 现有聚合计数足以设计影响半径，不足以批准逐行映射。下一步必须先由用户回复 §B4 的决策，再执行新的生产只读逐行导出。
 - 推荐决策组合：`S-A + W-A`；供应商品类缺失与来源缺失显式保留“待补”，仓库把 `type` 收敛为用途并新增 `facility_class`。这与 20260825 仓库研究及已批准 `facility_class=STORE` 完全一致。
+
+## F. 阶段 2–5 执行记录（2026-09-04）
+
+### F1. 已批准 manifest
+
+- 供应商：29 行按原品类 identity + `sourcing_type=UNSPECIFIED`；5 行按用户给定 code、名称、旧地域值、目标品类逐行锁定。由于批准消息未逐个列出 29 个 identity `supplier_code`，生产 preflight 对该集合采用“七个允许旧品类 + 精确 29 行 + 总表 34 行 + 5 特殊主键/名称/旧值”的闭合集合断言；集合外任何行会停止 apply。
+- 仓库：31 个 `warehouse_code`、旧 `type`、目标用途、目标 facility、capability 全部固定在 apply 脚本；10 个门店仓只写 `facility_class=STORE`，用途保持 `EGG_SALES`。
+- 特殊身份：`CJ-WH-XINGCHI-07` 保持 `FINANCE_MAPPING`，清洗为 `GENERAL + GENERAL + COLD_CHAIN`；`WH-0001` 保持 `TEST`，补为 `GENERAL + GENERAL`。
+
+### F2. 阶段 2：兼容层
+
+- TypeORM TS migration `1788501600000-GovernSupplierWarehouseTypeDomains.ts` 新增供应商双字段、仓库 facility/capability，seed 五个三语字典，并以 `NOT VALID` 建立五条值域 CHECK；业务数据不在 migration 内回填。
+- Runtime 与采购 API 对旧 `supplier_type` 只读兼容；新写入口使用 `supply_category/sourcing_type`。仓库 lookup 新增独立 `facilityClass` 参数，未改变 `type` 的用途过滤语义。
+- 主数据供应商、采购供应商和主数据仓库均改用 `DictSelect`；未知/归档值保留原码并标记“历史值—待治理”，`UNSPECIFIED` 三语显示为待补录。
+
+### F3. 阶段 3–5：受控生产执行包
+
+- Workflow：`.github/workflows/supplier-warehouse-domain-production-rollout.yml`，只允许固定 `preflight/apply/verify`，批准令牌为 `APPROVE-SUPPLIER-WAREHOUSE-DOMAIN-20260904`，并锁定运行 SHA=部署 checkout SHA。
+- Preflight：只读事务核对 34+31 总数、29 identity 闭合集合、5 特殊供应商、31 仓旧值、两条特殊 domain，以及零部分执行。
+- Apply：单事务、旧值条件更新、逐行 `RETURNING`；任何断言失败整事务回滚；数据零 NULL/零 unknown 后才 `VALIDATE CONSTRAINT`。
+- Verify：独立只读连接复核总数、值域、分布、10 个 STORE、冷库/测试仓身份及采购/日产蛋关键用途集合。
+- Rollback：`rollback-supplier-warehouse-domain-production.sql` 仅在当前值仍等于本次目标值时恢复；不删除列或字典。
+
+### F4. 业务逻辑保全与验证
+
+- 采购收货允许集合保持 `FEED/MEDICINE/PURCHASE_RECV/RAW_MATERIAL`；日产蛋仍固定 `ACTIVE + OPERATIONAL + EGG_FARM`。facility/capability 未进入两条业务分支。
+- 本地验证：API/Web TypeScript 0 error；专项 API 46/46；Web 全量 560/560；API 全量在 `NODE_ENV=test` 下 763/763（另 6 skipped）；constraint/null-unique/down/DML/WMS DataScope 门禁和治理字段真 scope-audit 全部通过。首次继承 shell 的 `NODE_ENV=production` 运行曾令 React `act` 测试环境失效、Chanjet 两项 5 秒超时；均以正确 test 环境复跑通过，未掩盖失败。
+- 生产 deployment、apply、revision、只读复验和错误窗口将在对应 GitHub Actions run 完成后追加 run ID 与最终判定；在此之前不得把本节标记为生产完成。

@@ -1,0 +1,60 @@
+name: Supplier Warehouse Domain Production Rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Approved rollout phase
+        required: true
+        type: choice
+        options: [preflight, apply, verify]
+      approve_production:
+        description: Type APPROVE-SUPPLIER-WAREHOUSE-DOMAIN-20260904
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supplier-warehouse-domain-production-rollout
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: inputs.approve_production == 'APPROVE-SUPPLIER-WAREHOUSE-DOMAIN-20260904'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Execute fixed approved manifest
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          TARGET_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,TARGET_SHA
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            git fetch --quiet origin "$TARGET_SHA"
+            git cat-file -e "$TARGET_SHA^{commit}"
+            test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+            if [[ "${{ inputs.phase }}" == preflight ]]; then
+              git show "$TARGET_SHA:scripts/ops/readonly-audits/supplier-warehouse-domain-production-preflight.sql" | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            elif [[ "${{ inputs.phase }}" == apply ]]; then
+              git show "$TARGET_SHA:scripts/ops/readonly-audits/supplier-warehouse-domain-production-preflight.sql" | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+              git show "$TARGET_SHA:scripts/ops/supplier-warehouse-domain-production-apply.sql" | docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+              git show "$TARGET_SHA:scripts/ops/readonly-audits/supplier-warehouse-domain-production-verify.sql" | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            else
+              git show "$TARGET_SHA:scripts/ops/readonly-audits/supplier-warehouse-domain-production-verify.sql" | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            fi

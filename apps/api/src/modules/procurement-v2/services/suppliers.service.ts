@@ -21,6 +21,14 @@ export class SuppliersService {
     private readonly scopeHelper: DataScopeHelper,
   ) {}
 
+  private withCompatibility(item: Prc2SupplierEntity): Prc2SupplierEntity {
+    const categoryValues = new Set(['CHICK','FEED','RAW_MATERIAL','PACKAGING','VACCINE','VETERINARY','EQUIPMENT','MEDICINE','SERVICE','OTHER']);
+    const sourcingValues = new Set(['LOCAL','OVERSEAS','AGENT']);
+    if (!item.supplyCategory && categoryValues.has(item.supplierType)) item.supplyCategory = item.supplierType;
+    if (!item.sourcingType) item.sourcingType = sourcingValues.has(item.supplierType) ? item.supplierType : 'UNSPECIFIED';
+    return item;
+  }
+
   /** 分页列表
    *  共享范围过滤规则：
    *  - sharedScope=GROUP → 所有公司可见
@@ -37,6 +45,8 @@ export class SuppliersService {
     if (query.sharedScope)      qb.andWhere('s.sharedScope = :scope', { scope: query.sharedScope });
     if (query.supplierCode)     qb.andWhere('s.supplierCode = :sc',   { sc: query.supplierCode });
     if (query.supplierType)     qb.andWhere('s.supplierType = :st',   { st: query.supplierType });
+    if (query.supplyCategory)   qb.andWhere('s.supplyCategory = :category', { category: query.supplyCategory });
+    if (query.sourcingType)     qb.andWhere('s.sourcingType = :sourcing', { sourcing: query.sourcingType });
     if (query.countryCode)      qb.andWhere('s.countryCode = :coc',   { coc: query.countryCode });
     if (query.defaultCurrency)  qb.andWhere('s.defaultCurrency = :dc',{ dc: query.defaultCurrency });
     if (query.status)           qb.andWhere('s.status = :status',     { status: query.status });
@@ -67,7 +77,7 @@ export class SuppliersService {
       .take(pageSize)
       .getManyAndCount();
 
-    return { items, total, page, pageSize };
+    return { items: items.map((item) => this.withCompatibility(item)), total, page, pageSize };
   }
 
   /** 详情 */
@@ -82,7 +92,7 @@ export class SuppliersService {
     );
     // ─────────────────────────────────────────────────────────────────────────
 
-    return item;
+    return this.withCompatibility(item);
   }
 
   /** 新建 */
@@ -106,7 +116,8 @@ export class SuppliersService {
       supplierName:     dto.supplierName,
       supplierNameEn:   dto.supplierNameEn,
       countryCode:      dto.countryCode,
-      supplierType:     dto.supplierType,
+      supplyCategory:   dto.supplyCategory,
+      sourcingType:     dto.sourcingType,
       defaultCurrency:  dto.defaultCurrency,
       sharedScope:      dto.sharedScope,
       ownerCompanyId:   dto.ownerCompanyId,
@@ -139,7 +150,8 @@ export class SuppliersService {
     const item = await this.findById(id);
     if (dto.supplierName    !== undefined) item.supplierName    = dto.supplierName;
     if (dto.countryCode     !== undefined) item.countryCode     = dto.countryCode;
-    if (dto.supplierType    !== undefined) item.supplierType    = dto.supplierType;
+    if (dto.supplyCategory  !== undefined) item.supplyCategory  = dto.supplyCategory;
+    if (dto.sourcingType    !== undefined) item.sourcingType    = dto.sourcingType;
     if (dto.defaultCurrency !== undefined) item.defaultCurrency = dto.defaultCurrency;
     if (dto.contactName     !== undefined) item.contactName     = dto.contactName;
     if (dto.contactPhone    !== undefined) item.contactPhone    = dto.contactPhone;

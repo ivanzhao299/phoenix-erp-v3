@@ -12,12 +12,18 @@ describe('nine-page master-data display contract', () => {
 
   it.each([
     ['projects', 'projectType'],
-    ['suppliers', 'supplierType'],
-    ['warehouses', 'warehouseType'],
     ['cash-accounts', 'cashAccountType'],
     ['vehicles', 'vehicleType'],
   ])('%s explicitly declares its locale type domain', (name, domain) => {
     expect(page(name)).toContain(`displayKind: "${domain}"`);
+  });
+
+  it('uses independent governed dictionaries for supplier and warehouse domains', () => {
+    const supplierFields = readFileSync(resolve(process.cwd(), 'src/app/(admin)/master-data/suppliers/_fields.ts'), 'utf8');
+    expect(supplierFields).toContain('dictType: "SUPPLIER_SUPPLY_CATEGORY"');
+    expect(supplierFields).toContain('dictType: "SUPPLIER_SOURCING_TYPE"');
+    expect(page('warehouses')).toContain('dictType: "WMS_WAREHOUSE_USAGE_TYPE"');
+    expect(page('warehouses')).toContain('dictType: "WMS_WAREHOUSE_FACILITY_CLASS"');
   });
 
   it('locks the driver runtime page to driver_code', () => {

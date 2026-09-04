@@ -44,6 +44,9 @@ export function DictSelect({
       onChange={(e) => onChange(e.target.value)}
     >
       {allowEmpty && <option value="">{loading ? t('ui.加载中…','加载中…') : resolvedPlaceholder}</option>}
+      {value && !optionPairs.some(opt => String(opt.value) === value) && (
+        <option value={value}>{value} · {t('ui.历史值—待治理','历史值—待治理')}</option>
+      )}
       {optionPairs.filter(opt => !allowedValues || allowedValues.includes(String(opt.value))).map((opt) => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
       ))}
