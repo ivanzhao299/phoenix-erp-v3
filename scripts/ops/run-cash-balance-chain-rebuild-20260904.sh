@@ -23,7 +23,7 @@ test "$actual_revision" = "$expected_revision" || { echo "FAIL revision=$actual_
 container="$(docker compose ps -q db)"
 test -n "$container"
 db_tmp="/tmp/bal-chain-$run_id"
-docker exec "$container" sh -c 'mkdir -p "$1" && chmod 700 "$1"' sh "$db_tmp"
+docker exec "$container" sh -c 'mkdir -p "$1" && chown postgres:postgres "$1" && chmod 700 "$1"' sh "$db_tmp"
 
 psql_args=(-X -v ON_ERROR_STOP=1 -P pager=off -U "$(docker exec "$container" printenv POSTGRES_USER)" -d "$(docker exec "$container" printenv POSTGRES_DB)")
 vars=(

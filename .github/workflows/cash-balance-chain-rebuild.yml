@@ -80,7 +80,7 @@ jobs:
             echo
             echo EVIDENCE_B64_END
       - name: Persist evidence archive
-        if: always()
+        if: steps.execute.outcome == 'success'
         env:
           OUTPUT: ${{ steps.execute.outputs.stdout }}
         run: |
@@ -88,7 +88,7 @@ jobs:
           printf '%s\n' "$OUTPUT" | awk '/EVIDENCE_B64_BEGIN/{on=1;next}/EVIDENCE_B64_END/{on=0}on' | tr -d '\n' | base64 -d > "docs/ops/runs/cash-balance-chain-${GITHUB_RUN_ID}.tgz"
           tar -tzf "docs/ops/runs/cash-balance-chain-${GITHUB_RUN_ID}.tgz" >/dev/null
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: steps.execute.outcome == 'success'
         with:
           name: cash-balance-chain-${{ github.run_id }}
           path: docs/ops/runs/cash-balance-chain-${{ github.run_id }}.tgz
