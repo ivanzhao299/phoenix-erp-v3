@@ -1,0 +1,96 @@
+name: Cash Balance Chain Rebuild
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Verify/rehearse roll back; execute commits
+        required: true
+        default: verify
+        type: choice
+        options: [verify, rehearse, execute]
+      approve_production:
+        description: Type APPROVE-BAL-CHAIN-REBUILD-20260904
+        required: true
+        type: string
+
+permissions:
+  contents: read
+concurrency:
+  group: cash-balance-chain-rebuild
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: node --test scripts/ops/cash-balance-chain-rebuild-policy.test.mjs
+      - run: bash scripts/ops/run-cash-balance-chain-rebuild-20260904.sh --validate
+
+  govern:
+    needs: validate
+    if: inputs.approve_production == 'APPROVE-BAL-CHAIN-REBUILD-20260904'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage reviewed bundle
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          source: scripts/ops/cash-balance-chain-rebuild-20260904.sql,scripts/ops/cash-balance-chain-verify-20260904.sql,scripts/ops/run-cash-balance-chain-rebuild-20260904.sh
+          target: /tmp/phoenix-cash-balance-chain-${{ github.run_id }}/bundle
+      - name: Run protected chain governance
+        id: execute
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          BAL_CHAIN_RUN_ID: ${{ github.run_id }}
+          BAL_CHAIN_BUNDLE_DIR: /tmp/phoenix-cash-balance-chain-${{ github.run_id }}/bundle
+          BAL_CHAIN_OUTPUT_DIR: /tmp/phoenix-cash-balance-chain-${{ github.run_id }}/evidence
+          BAL_CHAIN_MODE: ${{ inputs.mode }}
+          BAL_CHAIN_APPROVAL_REF: BAL-CHAIN-REBUILD-20260904
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          capture_stdout: true
+          envs: DEPLOY_PATH,BAL_CHAIN_RUN_ID,BAL_CHAIN_BUNDLE_DIR,BAL_CHAIN_OUTPUT_DIR,BAL_CHAIN_MODE,BAL_CHAIN_APPROVAL_REF
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            bash "$BAL_CHAIN_BUNDLE_DIR/scripts/ops/run-cash-balance-chain-rebuild-20260904.sh" "--$BAL_CHAIN_MODE"
+            tar -C "$BAL_CHAIN_OUTPUT_DIR" -czf "/tmp/phoenix-cash-balance-chain-$BAL_CHAIN_RUN_ID/evidence.tgz" .
+            echo EVIDENCE_B64_BEGIN
+            base64 -w0 "/tmp/phoenix-cash-balance-chain-$BAL_CHAIN_RUN_ID/evidence.tgz"
+            echo
+            echo EVIDENCE_B64_END
+      - name: Persist evidence archive
+        if: always()
+        env:
+          OUTPUT: ${{ steps.execute.outputs.stdout }}
+        run: |
+          install -d -m 700 docs/ops/runs
+          printf '%s\n' "$OUTPUT" | awk '/EVIDENCE_B64_BEGIN/{on=1;next}/EVIDENCE_B64_END/{on=0}on' | tr -d '\n' | base64 -d > "docs/ops/runs/cash-balance-chain-${GITHUB_RUN_ID}.tgz"
+          tar -tzf "docs/ops/runs/cash-balance-chain-${GITHUB_RUN_ID}.tgz" >/dev/null
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cash-balance-chain-${{ github.run_id }}
+          path: docs/ops/runs/cash-balance-chain-${{ github.run_id }}.tgz
+          if-no-files-found: error
+          retention-days: 90
