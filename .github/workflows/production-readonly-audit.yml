@@ -15,7 +15,7 @@ on:
       http_assertions_path:
         description: HTTP assertion JSON under scripts/ops/readonly-audits (blank to skip)
         required: false
-        default: scripts/ops/readonly-audits/sales-order-lifecycle.http.json
+        default: ''
         type: string
 
 permissions:
