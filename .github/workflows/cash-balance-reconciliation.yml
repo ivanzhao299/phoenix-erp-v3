@@ -1,0 +1,93 @@
+name: Cash Balance Reconciliation
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Rehearse rolls back; execute commits the approved repair
+        required: true
+        default: rehearse
+        type: choice
+        options: [rehearse, execute]
+      approve_production:
+        description: Type APPROVE-BAL-RECON-20260904
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cash-balance-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: node --test scripts/ops/cash-balance-reconciliation-policy.test.mjs
+      - run: bash scripts/ops/run-cash-balance-reconciliation.sh --validate
+
+  reconcile:
+    needs: validate
+    if: inputs.approve_production == 'APPROVE-BAL-RECON-20260904'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage reviewed bundle
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          source: scripts/ops/cash-balance-reconciliation.sql,scripts/ops/cash-balance-formula-audit.sql,scripts/ops/run-cash-balance-reconciliation.sh
+          target: /tmp/phoenix-cash-balance-reconciliation-${{ github.run_id }}/bundle
+      - name: Run protected reconciliation
+        id: execute
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          RECON_RUN_ID: ${{ github.run_id }}
+          RECON_BUNDLE_DIR: /tmp/phoenix-cash-balance-reconciliation-${{ github.run_id }}/bundle
+          RECON_OUTPUT_DIR: /tmp/phoenix-cash-balance-reconciliation-${{ github.run_id }}/evidence
+          RECON_MODE: ${{ inputs.mode }}
+          RECON_APPROVAL_REF: BAL-RECON-20260904
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          capture_stdout: true
+          envs: DEPLOY_PATH,RECON_RUN_ID,RECON_BUNDLE_DIR,RECON_OUTPUT_DIR,RECON_MODE,RECON_APPROVAL_REF
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            bash "$RECON_BUNDLE_DIR/scripts/ops/run-cash-balance-reconciliation.sh" "--$RECON_MODE"
+            tar -C "$RECON_OUTPUT_DIR" -czf "/tmp/phoenix-cash-balance-reconciliation-$RECON_RUN_ID/evidence.tgz" .
+            base64 -w0 "/tmp/phoenix-cash-balance-reconciliation-$RECON_RUN_ID/evidence.tgz"
+      - name: Persist evidence archive
+        if: always()
+        env:
+          OUTPUT: ${{ steps.execute.outputs.stdout }}
+        run: |
+          install -d -m 700 docs/ops/runs
+          printf '%s' "$OUTPUT" | tail -n 1 | base64 -d > "docs/ops/runs/cash-balance-reconciliation-${GITHUB_RUN_ID}.tgz"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cash-balance-reconciliation-${{ github.run_id }}
+          path: docs/ops/runs/cash-balance-reconciliation-${{ github.run_id }}.tgz
+          if-no-files-found: error
+          retention-days: 90
