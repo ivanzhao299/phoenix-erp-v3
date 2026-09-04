@@ -168,6 +168,11 @@ if [ "$http_path" = 'scripts/ops/readonly-audits/production-procurement-localize
   echo "PRODUCTION_PROCUREMENT_LOCALIZED_NAME_ERROR_WINDOW_60M=$localized_production_procurement_error_count"
   test "$localized_production_procurement_error_count" = 0
 fi
+if [ "$http_path" = 'scripts/ops/readonly-audits/three-page-display-defects.http.json' ]; then
+  three_page_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(procurement/requests|store-sales/inventory)' || true; } | wc -l | tr -d ' ')"
+  echo "THREE_PAGE_DISPLAY_ERROR_WINDOW_60M=$three_page_error_count"
+  test "$three_page_error_count" = 0
+fi
 if [ "$sql_path" = 'scripts/ops/readonly-audits/credit-evaluation-so-20260903-00005.sql' ]; then
   credit_log_matches="$({ docker logs --timestamps phoenix-v3-api 2>&1 | grep -E -B 30 -A 30 'SO-20260903-00005|信用评估失败|QueryFailedError|客户 .* 不存在' || true; })"
   credit_log_line_count="$(printf '%s' "$credit_log_matches" | awk 'NF { count++ } END { print count + 0 }')"

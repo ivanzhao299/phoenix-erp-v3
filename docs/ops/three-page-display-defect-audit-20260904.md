@@ -171,4 +171,4 @@ canonical 依据：公司来自 `sys_organizations` 且 `org_type='COMPANY'`；�
 
 ### 7.2 远端与生产验证
 
-待本提交推送后补记 PR/CI、full 部署 revision、认证生产只读名称非空抽查、错误窗口与鸡蛋库存页面 200 冒烟。没有只读凭据或受控 workflow 结果前，生产业务验证保持 **NOT VERIFIED**。
+交付使用 `scripts/ops/readonly-audits/three-page-display-defects.{sql,http.json}` 做认证只读名称抽查，并由 runner 强制校验三端 revision、只读事务和近 60 分钟接口错误窗口；鸡蛋库存页面另做公开 200 冒烟。workflow artifact 与交付回执记录最终运行结论；没有受控 workflow 结果前，生产业务验证保持 **NOT VERIFIED**。

@@ -1,0 +1,24 @@
+[
+  {
+    "name": "purchase-request-display-projection",
+    "username": "admin",
+    "path": "/api/v2/procurement/requests?page=1&pageSize=100",
+    "expectedStatus": 200,
+    "rowPath": "items",
+    "minDataLength": 1,
+    "allowNoData": true,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["companyDisplayName", "requesterUsername"]
+  },
+  {
+    "name": "store-inventory-display-projection",
+    "usernameSql": "SELECT u.username FROM store_memberships m JOIN sys_user u ON u.user_id=m.user_id JOIN store_master s ON s.id=m.store_id WHERE m.status='ACTIVE' AND s.status='ACTIVE' AND (m.effective_from IS NULL OR m.effective_from<=NOW()) AND (m.effective_to IS NULL OR m.effective_to>=NOW()) ORDER BY m.id LIMIT 1",
+    "pathSql": "SELECT '/api/v2/store-sales/inventory?storeCode=' || s.store_code || '&limit=100' FROM store_memberships m JOIN store_master s ON s.id=m.store_id WHERE m.status='ACTIVE' AND s.status='ACTIVE' AND (m.effective_from IS NULL OR m.effective_from<=NOW()) AND (m.effective_to IS NULL OR m.effective_to>=NOW()) ORDER BY m.id LIMIT 1",
+    "expectedStatus": 200,
+    "rowPath": "rows",
+    "minDataLength": 1,
+    "allowNoData": true,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["sku_name", "warehouse_name"]
+  }
+]
