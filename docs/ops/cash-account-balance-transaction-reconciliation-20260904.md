@@ -261,3 +261,51 @@ OPENING 的 `txn_date` 应固定为各目标首笔业务流水之前，并保留
 - 独立只读复验 run `33851545661`：ACTIVE 54 / 公式差异 0，G45 retired duplicate 17，其他 INACTIVE 差异 0；目标 OPENING 11、本批 OPENING 11、业务流水 426；FH-10207 链断点 0。lookup/current 余额由 execute 的账户完整行前后哈希硬断言证明逐分未变。
 - “派生链全连续”需区分本次获批范围与既有遗留：FH-10207 已连续；首次 execute 的只读前置另发现 DP-10 有 12 行、FH-101 有 2 行历史 `balance_after` 不连续。本次红线要求 426 笔业务流水哈希不变且仅新增 OPENING，故不能同时改写这 14 行。最终只读审计增加全 ACTIVE 账户链断点清单，作为下一治理项，不把它误报为本批已修复。
 - 最终独立只读 run `33851704339`（commit `fc190151`）全绿，复验结果仍为 ACTIVE 54 / 公式差异 0、OPENING 11 / 本批 11、业务流水 426、FH-10207 断点 0。全 ACTIVE 派生链扫描同时确认共有 6 个既有账户不连续：`CA-202608-00001` 1 行、`CA-202608-00002` 3 行、`CASH_CNY` 3 行、`DP-04` 2 行、`DP-10` 12 行、`FH-101` 2 行。它们不影响账户期末公式零差异，但“全账户派生链全连续”这一附加目标当前客观未满足；受本批“只新增 11 笔 OPENING、426 笔业务事实哈希不变”红线约束，未擅自改写。
+
+## 10. 6 个账户派生链生产只读取证（2026-09-04）
+
+### 10.1 受控执行与零写入证明
+
+本轮使用临时分支 `audit/cash-balance-chain-evidence-20260904`，分支最终 head `6e738c36`；专用 SQL 位于该分支的 `scripts/ops/readonly-audits/cash-balance-chain-breakpoints-20260904.sql`。权威生产只读 run 为 `33854376154`，artifact 为 `production-readonly-audit-33854376154`（日志 SHA-256 `657544f93b9fca032fe297f83ee4ce4e9bbef73e071e72bea68bc289191b5bf6`），run URL：`https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/33854376154`。生产 checkout/API/Web revision 三方均为 `f68947d64b8b27d827392bded6279d3fb7d904f3`。
+
+该 run 只执行 SQL，没有启动 HTTP/API 探针：连接级 `default_transaction_read_only=on`、事务级 `transaction_read_only=on`，SQL 尾部显式 `ROLLBACK`；日志无 `cannot execute`、HTTP bootstrap 或被拒绝的写尝试，最终输出 `PASS AUDIT_SQL_DML_DDL=0` 与 `PASS PRODUCTION_BUSINESS_WRITES=0`。因此本次取证既是零业务写入，也是零 DML/DDL 尝试。
+
+前两个 run `33853898320`、`33854255676` 因通用 workflow 的 HTTP 可选输入带默认值而额外启动默认 GET 探针；连接级 READ ONLY 拒绝了应用启动期写尝试，实际写入仍为 0，但不采用它们作为本轮“零 DML/DDL 尝试”的权威证据。临时分支随后仅把 workflow 的 HTTP 默认值改为空并重跑；该临时改动与审计 SQL均不进入 `main`。远端临时分支按红线保留，不删除。
+
+公式仍为：按 `(txn_date,id)` 升序，`expected_balance_after = opening_balance + 累计非 OPENING 签名金额`，其中 `IN` 为正、`OUT` 为负，`OPENING` 不重复计入。run 硬断言：异常账户 `6`、断点 `23`、ACTIVE 账户期末公式差异 `0`；从各账户首断点起完整导出 `29` 行，交易号仅保留 16 位哈希，备注仅输出分类，未输出 `source_no/source_id/created_by`。
+
+### 10.2 逐账户证据与定因
+
+|账户|完整链|断点|首断点 ID / UTC|首断点后完整链|期末公式差异|定因|
+|---|---:|---:|---|---:|---:|---|
+|CA-202608-00001|2|1|505 / 2026-08-27 06:12:40|1|0.00|该笔 `AR_RECEIPT` 金额 500.00、预期余额 1,500.00，但记录为 numeric `NaN`。正常写入链可解释 NaN 如何产生，具体触发人/请求来源无字段级日志，记为“代码缺陷确定、触发来源未知”。|
+|CA-202608-00002|4|3|507 / 2026-08-27 06:59:37|3|0.00|首笔 `AR_RECEIPT` 后为 NaN，后两笔同类流水继续传播 NaN；金额和期末账户余额均为有限数。代码缺陷确定，触发来源未知。|
+|CASH_CNY|3|3|460 / 2026-07-11 02:31:32|3|0.00|三笔 `TRANSFER` 的 `balance_after` 全为 NaN；金额及账户公式有限并收敛。代码缺陷确定，触发来源未知。|
+|DP-04|2|2|512 / 2026-08-29 06:34:08|2|0.00|`STORE_SALE` 15.00 与随后 `STORE_SALE_RETURN` 15.00 的 `balance_after` 均为 NaN，期末回到 0。代码缺陷确定，具体销售请求未知。|
+|DP-10|69|12|508 / 2026-08-28 05:51:23|12|0.00|前 57 行连续；首断点以后 12 笔 `STORE_SALE/STORE_SALE_RETURN` 全为 NaN。账户期末为有限值 238,947,375.06 且公式差异 0。代码缺陷确定，具体销售请求未知。|
+|FH-101|33|2|218 / 2026-06-10 00:00:00|8|0.00|ID 218/219 两笔等额反向 `MANUAL` 均固定偏高 7,900.00；ID 234 起自行回到权威链，后 6 行完全正确。现行 `createManual` 在事务外读余额且没有 `FOR UPDATE`，存在竞争风险，但仅凭现有字段不能证明本次就是并发；精确成因记为未知。|
+
+前五个账户的 21 个断点不是普通金额偏差，而是 PostgreSQL `numeric NaN`。当前 schema 仅给 `balance_after NUMERIC(18,2) NOT NULL`，没有有限值 CHECK；PostgreSQL numeric 允许 NaN。更直接的代码根因是 TypeORM PostgreSQL 驱动对 `UPDATE ... RETURNING` 的 raw 返回值为 `[rows,rowCount]`，但三处代码按普通行数组读取：
+
+- `CashAccountsService.applyBalance` 使用 `res[0].current_balance`；实际 `res[0]` 是 rows 数组。`Number(undefined)` 得到 NaN，影响 AR 收款和资金转账等公共调用方。
+- `StorePosService.writeCashTransaction` 与 `writeCashRefund` 使用 `const [upd] = await mgr.query(UPDATE ... RETURNING)` 后读取 `upd.current_balance`；`upd` 同样是 rows 数组，影响门店销售与退款。
+- `CashTransactionsService.writeTransaction`、上述调用方及 `CashAccountsService.rebuildChain` 均没有 `Number.isFinite` 防线，DB 也没有拒绝 numeric NaN 的约束，所以 NaN 能落库并沿后续流水传播。
+
+这解释了 source_type 与时间边界，也解释了“账户 `current_balance` 的 SQL 运算正确且最终收敛、插入流水的 JS `balance_after` 却为 NaN”的组合。对具体操作者、请求参数和 FH-101 的 7,900.00 来源，现有脱敏行证据不足，均不作无证推断。
+
+### 10.3 修复边界裁决
+
+不能把脚本写成只按当前 `23` 个异常 ID 打补丁。正确执行范围是**从每个账户首断点起重算全部后续派生链，共 29 行**：前五个账户的 21 行都会实质变化；FH-101 从 ID 218 起共 8 行，其中前 2 行变化、后 6 行按公式重算后应逐分不变。换言之，预期实际变化仍是 23 行，但锁定、计算、备份、哈希和后置验证必须覆盖 29 行完整尾链。这样既不会遗漏传播行，也能证明 FH-101 的自然收敛段没有被误改。
+
+待用户另行批准的精确修复清单：
+
+1. 先修三处 `UPDATE ... RETURNING` 解包，并在所有现金余额/流水入口及 `rebuildChain` 增加 finite 断言；补 AR、TRANSFER、POS sale/return 的 NaN 回归测试。
+2. 新增 TypeORM TS schema 迁移，为 `fin_cash_transactions.amount/balance_after` 与 `fin_cash_accounts.opening_balance/current_balance` 增加拒绝 NaN 的 CHECK；迁移加约束前必须由下述数据脚本先清除既有 21 个 NaN。
+3. 数据修复只处理 6 个账户、首断点后的 29 行；不改账户期初、当前余额、流水金额、方向、日期、归属、source 字段或任何其他账户。预期 23 行 `balance_after` 改值、6 行值保持不变。
+4. 本轮仅报告，不创建或执行生产修复脚本；生产 DML、维护窗口与审批引用须另行明确批准。
+
+### 10.4 三段式数据脚本设计（未创建、未执行）
+
+1. **前置取证与硬断言**：开启单事务并锁定 6 个账户及其流水集合；导出账户行、23 个断点、首断点后 29 行完整尾链并计算 SHA-256；断言账户/币种/期初/当前余额、首断点 ID、完整链行数、尾链行数、`21` 个 NaN + `2` 个有限偏差、ACTIVE 期末公式差异 0 均与 run `33854376154` 一致。任一变化立即 ROLLBACK。
+2. **确定性重建**：使用同一事务内的窗口累计公式，从六个首断点分别重算至链尾；UPDATE 目标由“六账户 + 首断点位置”确定，不用手列 23 个 ID。硬断言仅 `balance_after` 可变，预期 UPDATE 命中 29 行、`IS DISTINCT FROM` 的实质变化为 23 行；账户表和其他流水列不得写入。
+3. **后置验证与可逆回滚**：断言六账户全链断点 0、全部目标 `balance_after` 非 NaN、全 ACTIVE 期末公式差异仍为 0、六账户期初/当前余额逐分不变、29 行除 `balance_after` 外完整行哈希不变、其他流水全集哈希不变。COMMIT 前生成按主键恢复 29 行原 `balance_after` 的回滚脚本及校验摘要；任一断言失败整单 ROLLBACK。
