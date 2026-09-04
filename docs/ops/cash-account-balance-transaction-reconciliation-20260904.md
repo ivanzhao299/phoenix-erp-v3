@@ -238,3 +238,4 @@ OPENING 的 `txn_date` 应固定为各目标首笔业务流水之前，并保留
 
 - 首次生产执行 run `33849353358` 在前置断言阶段拒绝执行：生产 11 个目标账户 `opening_balance` 已非零，且业务流水已由报告快照的 93 笔增长为 426 笔。失败发生在任何 INSERT/UPDATE 之前，事务回滚，无需执行恢复 SQL。该结果证明生产状态已变化，禁止依据旧快照盲写或把 6 月期末余额硬编码为 lookup 基线。
 - 通用只读 workflow run `33849458808` 因 SQL 不在其 `readonly-audits/` 路径白名单而在本地 validate 阶段拒绝，未连接生产。后续改用本治理 workflow 的显式 `verify` 只读模式。
+- 专用只读 verify run `33850014213` 的生产只读事务通过：全库 77 个账户，其中 ACTIVE 54 个、公式差异 0；17 个带精确 G45 remark 证据的 retired duplicate 排除；其他 INACTIVE 非零差异 0。run 的远端验证步骤成功，后续 artifact 解码因 SSH action 尾部状态行污染而失败；已据此改为 BEGIN/END 标记截取并增加 tar 完整性校验。

@@ -76,14 +76,18 @@ jobs:
             cd "$DEPLOY_PATH"
             bash "$RECON_BUNDLE_DIR/scripts/ops/run-cash-balance-reconciliation.sh" "--$RECON_MODE"
             tar -C "$RECON_OUTPUT_DIR" -czf "/tmp/phoenix-cash-balance-reconciliation-$RECON_RUN_ID/evidence.tgz" .
+            echo EVIDENCE_B64_BEGIN
             base64 -w0 "/tmp/phoenix-cash-balance-reconciliation-$RECON_RUN_ID/evidence.tgz"
+            echo
+            echo EVIDENCE_B64_END
       - name: Persist evidence archive
         if: always()
         env:
           OUTPUT: ${{ steps.execute.outputs.stdout }}
         run: |
           install -d -m 700 docs/ops/runs
-          printf '%s' "$OUTPUT" | tail -n 1 | base64 -d > "docs/ops/runs/cash-balance-reconciliation-${GITHUB_RUN_ID}.tgz"
+          printf '%s\n' "$OUTPUT" | awk '/EVIDENCE_B64_BEGIN/{on=1;next}/EVIDENCE_B64_END/{on=0}on' | tr -d '\n' | base64 -d > "docs/ops/runs/cash-balance-reconciliation-${GITHUB_RUN_ID}.tgz"
+          tar -tzf "docs/ops/runs/cash-balance-reconciliation-${GITHUB_RUN_ID}.tgz" >/dev/null
       - uses: actions/upload-artifact@v4
         if: always()
         with:
