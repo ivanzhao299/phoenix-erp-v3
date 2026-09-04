@@ -152,3 +152,23 @@ canonical 依据：公司来自 `sys_organizations` 且 `org_type='COMPANY'`；�
 2. 门店库存 SKU 与仓库使用三语名称；库区/库位按现有单名显示“名称（编码）”，本轮不扩 schema 做三语治理。
 3. 鸡蛋库存采用桌面表格 + 手机卡片方案，而不是仅用横向滚动作为手机端最终体验。
 4. 授权通过现有 production readonly workflow 补跑认证 GET/SELECT，结果作为实施验收证据。
+
+## 7. 实施记录（2026-09-04）
+
+用户已确认三项一起修复，并将门店库存名称搜索纳入范围。本轮完成：
+
+- 采购申请：列表与详情均 LEFT JOIN `sys_organizations`、`biz_projects`、`sys_user`，返回 `companyDisplayName`、`projectDisplayName`、`requesterRealName`、`requesterUsername`；公司 canonical → 快照 → 编码、项目 canonical → 快照 → 编码。前端列表与详情共用显示函数，申请人 `real_name` 为空且 canonical 账号存在时只显示账号。
+- 门店库存：查询仍以 `inv_batches` 为唯一事实源，新增 `product_skus` LEFT JOIN；投影 SKU `sku_name/_en/_lo`、仓库 `_zh/_en/_lo`、库区和库位真实单名。`sku` 参数同时覆盖编码、产品、批次及三语 SKU 名称；编码仍是筛选提交值。桌面表和移动卡片均调用 `formatMasterData`。
+- 鸡蛋库存：新增页面级 `inventory.module.css`，去除页面重复 padding；建立 `769–1199`、`<=768`、`<=390` 响应式规则。批次/临期在手机使用卡片，超宽桌面表仅在局部容器滚动；临期及两张损耗表均有显式 `min-width`，Tab 可局部横滚，筛选和表单在手机单列，小屏 KPI 单列。
+
+### 7.1 测试与本地验证
+
+- API 定向 Jest：2 suites / 9 tests，全通过；覆盖采购三组 JOIN/别名/fallback 契约、门店名称投影与 `sku_name/_en/_lo` 搜索。
+- Web 定向 Vitest：3 files / 12 tests，全通过；覆盖 zh/en/lo 名称（编码）、申请人姓名（账号）与空姓名、快照/编码 fallback、两页防回潮和鸡蛋库存布局契约。
+- Web 全量 Vitest：105 files / 564 tests，全通过。
+- API / Web `tsc --noEmit`：均 0 errors。
+- API 全量 Jest：92 suites / 763 tests 通过，1 suite 中 2 tests 失败；失败位于未改动的 `chanjet-callback.controller.spec.ts`，原因均为 5000ms timeout。相关专项仍全绿，未将全量结果标记为 PASS。
+
+### 7.2 远端与生产验证
+
+待本提交推送后补记 PR/CI、full 部署 revision、认证生产只读名称非空抽查、错误窗口与鸡蛋库存页面 200 冒烟。没有只读凭据或受控 workflow 结果前，生产业务验证保持 **NOT VERIFIED**。

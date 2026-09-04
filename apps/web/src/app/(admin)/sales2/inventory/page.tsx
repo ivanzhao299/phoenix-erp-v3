@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { LoadingSkeleton } from "@/components/design-system";
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 import type { AppLanguage } from '@/lib/localized-master-data';
+import styles from './inventory.module.css';
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -435,13 +436,7 @@ function BatchesTab() {
   };
   return <div>
       {/* 搜索栏 */}
-      <div style={{
-      display: 'flex',
-      gap: 8,
-      marginBottom: 16,
-      flexWrap: 'wrap',
-      alignItems: 'center'
-    }}>
+      <div className={styles.filters}>
         {/* G20-1：SKU 过滤器加 sku_name 显示；等级走 product_grades 9 档而非硬编码枚举 */}
         <select value={skuCodeFilter} onChange={e => {
         setSkuCodeFilter(e.target.value);
@@ -538,11 +533,7 @@ function BatchesTab() {
               </select>}
           </div>
 
-          <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3,1fr)',
-        gap: 10
-      }}>
+          <div className={styles.createGrid}>
             {([[t('ui.公司代码','公司代码'), 'companyCode', 'text'], [t('ui.产品代码','产品代码'), 'productCode', 'text'], [t('ui.生产日期','生产日期'), 'eggDate', 'date'], [t('ui.数量（枚）','数量（枚）'), 'qty', 'number'], [t('ui.保质天数','保质天数'), 'shelfDays', 'number'], [t('ui.来源单号','来源单号'), 'sourceNo', 'text'], [t('ui.包装规格','包装规格'), 'packagingSpec', 'text']] as const).map(([label, key, type]) => <label key={key} style={{
           display: 'flex',
           flexDirection: 'column',
@@ -605,8 +596,8 @@ function BatchesTab() {
         </div>}
 
       {/* 批次表格 */}
-      {loading ? <LoadingSkeleton variant="table" rows={10} cols={11} /> : <div className={u.scrollX}>
-          <table className={s.table} style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
+      {loading ? <LoadingSkeleton variant="table" rows={10} cols={11} /> : <><div className={`${styles.tableScroll} ${styles.desktopTable}`}>
+          <table className={`${s.table} ${styles.batchTable}`}>
             <colgroup>
               <col style={{ width: 180 }} />
               <col style={{ width: 120 }} />
@@ -661,7 +652,7 @@ function BatchesTab() {
                 </tr>)}
             </tbody>
           </table>
-        </div>}
+        </div><div className={styles.mobileCards}>{batches.length === 0 ? <div className={styles.emptyCard}>{t('ui.暂无数据','暂无数据')}</div> : batches.map(b => <article key={b.batch_no} className={styles.mobileCard}><header><SkuBadge skuCode={b.sku_code} row={b as unknown as Record<string, unknown>} lang={lang}/>{statusBadge(b.status,lang)}</header><code>{b.batch_no}</code><strong>{fmt(b.qty_available)} / {fmt(b.qty)}</strong><p>{formatMasterData(b as unknown as Record<string, unknown>,'product_name',b.product_code,lang)} · {b.quality_grade ?? '—'}</p><p>{formatMasterData(b as unknown as Record<string, unknown>,'company_name',b.company_code,lang)}</p><small>{fmtDate(b.egg_date)} → {fmtDate(b.expire_date)}</small><InventorySourceTrace batch={b}/></article>)}</div></>}
     </div>;
 }
 
@@ -694,12 +685,7 @@ function ExpiringTab() {
     load();
   }, [load]);
   return <div>
-      <div style={{
-      display: 'flex',
-      gap: 8,
-      marginBottom: 16,
-      alignItems: 'center'
-    }}>
+      <div className={styles.filters}>
         <label className={u.fs13}>
           {t('ui.预警天数：','预警天数：')}
           <select value={days} onChange={e => setDays(Number(e.target.value))} style={{
@@ -717,8 +703,8 @@ function ExpiringTab() {
       marginBottom: 8
     }}>{error}</div>}
 
-      {loading ? <LoadingSkeleton variant="table" rows={10} cols={9} /> : <div className={u.scrollX}>
-          <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
+      {loading ? <LoadingSkeleton variant="table" rows={10} cols={9} /> : <><div className={`${styles.tableScroll} ${styles.desktopTable}`}>
+          <table className={`${s.table} ${styles.expiringTable}`}>
             <thead>
               <tr>
                 {[t('ui.批次号','批次号'), t('ui.商品组合','商品组合'), t('ui.产品','产品'), t('ui.等级','等级'), t('ui.公司','公司'), t('ui.可用量','可用量'), t('ui.到期日','到期日'), t('ui.剩余天数','剩余天数'), t('ui.状态','状态')].map(h => <th key={h}>{h}</th>)}
@@ -761,7 +747,7 @@ function ExpiringTab() {
           })}
             </tbody>
           </table>
-        </div>}
+        </div><div className={styles.mobileCards}>{batches.length === 0 ? <div className={styles.emptyCard}>{t('ui.无临期库存','无临期库存')}</div> : batches.map(b => <article key={b.batch_no} className={styles.mobileCard}><header><SkuBadge skuCode={b.sku_code} row={b as unknown as Record<string,unknown>} lang={lang}/>{statusBadge(b.status,lang)}</header><code>{b.batch_no}</code><strong>{fmt(b.qty_available)}</strong><p>{formatMasterData(b as unknown as Record<string,unknown>,'product_name',b.product_code,lang)} · {b.quality_grade ?? '—'}</p><p>{formatMasterData(b as unknown as Record<string,unknown>,'company_name',b.company_code,lang)}</p><small>{b.expire_date ?? '—'} · {(b.days_remaining ?? 0)} {t('ui.天','天')}</small></article>)}</div></>}
     </div>;
 }
 
@@ -868,11 +854,7 @@ function FifoTab() {
           </select>
         </div>}
 
-      <div style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      gap: 12
-    }}>
+      <div className={styles.fifoGrid}>
         {([[t('ui.产品代码','产品代码'), 'productCode', 'text'], [t('ui.公司代码','公司代码'), 'companyCode', 'text'], [t('ui.分配数量','分配数量'), 'qty', 'number'], [t('ui.参考单号','参考单号'), 'refNo', 'text'], [t('ui.备注','备注'), 'note', 'text']] as const).map(([label, key, type]) => <label key={key} style={{
         display: 'flex',
         flexDirection: 'column',
@@ -969,12 +951,7 @@ function LossTab() {
     WRITE_OFF: t('ui.手动核销','手动核销')
   };
   return <div>
-      <div style={{
-      display: 'flex',
-      gap: 8,
-      marginBottom: 20,
-      alignItems: 'center'
-    }}>
+      <div className={styles.filters}>
         <input value={companyCode} onChange={e => setCompanyCode(e.target.value)} placeholder={t('ui.公司代码（可选）','公司代码（可选）')} style={inputStyle} />
         <button onClick={load} style={btnStyle('var(--color-purple-600)')}>{t('ui.刷新','刷新')}</button>
       </div>
@@ -984,12 +961,7 @@ function LossTab() {
     }}>{error}</div>}
 
       {loading ? <LoadingSkeleton variant="table" rows={10} cols={5} /> : data && <div>
-          <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 14,
-        marginBottom: 24,
-      }}>
+          <div className={styles.lossKpis}>
             <StatCard label={t('ui.30日过期损耗（枚）','30日过期损耗（枚）')} value={fmt(data.summary.total_expire_loss)} tone="red" />
             <StatCard label={t('ui.30日破损损耗（枚）','30日破损损耗（枚）')} value={fmt(data.summary.total_damage_loss)} tone="amber" />
             <StatCard label={t('ui.30日合计损耗（枚）','30日合计损耗（枚）')} value={fmt(data.summary.total_loss)} tone="purple" />
@@ -999,7 +971,7 @@ function LossTab() {
         color: 'var(--gray-700)',
         marginBottom: 8
       }}>{t('ui.按损耗类型（近30天）','按损耗类型（近30天）')}</h4>
-          <table className={`${s.table} ${u.mb24}`} style={{ tableLayout: "fixed", width: "100%" }}>
+          <div className={`${styles.tableScroll} ${u.mb24}`}><table className={`${s.table} ${styles.lossTypeTable}`}>
             <thead>
               <tr>
                 {[t('ui.损耗类型','损耗类型'), t('ui.批次数','批次数'), t('ui.合计损耗（枚）','合计损耗（枚）')].map(h => <th key={h}>{h}</th>)}
@@ -1020,13 +992,13 @@ function LossTab() {
               padding: 24
             }}>{t('ui.近30天无损耗记录','近30天无损耗记录')}</td></tr>}
             </tbody>
-          </table>
+          </table></div>
 
           <h4 style={{
         color: 'var(--gray-700)',
         marginBottom: 8
       }}>{t('ui.按批次损耗排名（近30天）','按批次损耗排名（近30天）')}</h4>
-          <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
+          <div className={styles.tableScroll}><table className={`${s.table} ${styles.lossBatchTable}`}>
             <thead>
               <tr>
                 {[t('ui.批次号','批次号'), t('ui.商品组合','商品组合'), t('ui.产品代码','产品代码'), t('ui.合计损耗','合计损耗'), t('ui.最后事件时间','最后事件时间')].map(h => <th key={h}>{h}</th>)}
@@ -1049,7 +1021,7 @@ function LossTab() {
               padding: 24
             }}>{t('ui.暂无数据','暂无数据')}</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </div>}
     </div>;
 }
@@ -1111,21 +1083,11 @@ export default function InventoryPage() {
   useEffect(() => {
     api<DashboardStats>('GET', '/stats').then(setStats).catch(() => {});
   }, []);
-  return <div style={{
-    padding: 24,
-    background: 'var(--gray-50)',
-    minHeight: '100vh'
-  }}>
+  return <div className={styles.page}>
       <PageHeader title={t('ui.库存管理','库存管理')} subtitle={t('ui.先进先出 · SKU 精确分配 · 到期预警 · 损耗分析','先进先出 · SKU 精确分配 · 到期预警 · 损耗分析')} breadcrumb={[t('ui.销售系统','销售系统'), t('ui.库存管理','库存管理')]} />
 
       {/* 仪表盘统计 */}
-      {stats && <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-      gap: 12,
-      marginBottom: 24,
-      alignItems: 'stretch'
-    }}>
+      {stats && <div className={styles.kpis}>
           <StatCard label={t('ui.活跃批次','活跃批次')} value={stats.activeBatches} tone="blue" />
           <StatCard label={t('ui.总可用库存（枚）','总可用库存（枚）')} value={fmt(stats.totalAvailable)} tone="green" />
           <StatCard label={t('ui.临期批次（≤7天）','临期批次（≤7天）')} value={stats.expiringBatches} tone="amber" sub={`${fmt(stats.expiringQty)} ${t('ui.枚','枚')}`} />
@@ -1137,12 +1099,7 @@ export default function InventoryPage() {
         </div>}
 
       {/* 标签页 */}
-      <div style={{
-      display: 'flex',
-      gap: 4,
-      marginBottom: 20,
-      borderBottom: '2px solid var(--gray-200)'
-    }}>
+      <div className={styles.tabs}>
         {TABS.map(t => <button key={t.key} onClick={() => setTab(t.key)} style={{
         padding: '8px 18px',
         border: 'none',
@@ -1160,12 +1117,7 @@ export default function InventoryPage() {
       </div>
 
       {/* 内容区 */}
-      <div style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--gray-200)',
-      borderRadius: 10,
-      padding: 20
-    }}>
+      <div className={styles.content}>
         {tab === 'batches' && <BatchesTab />}
         {tab === 'expiring' && <ExpiringTab />}
         {tab === 'fifo' && <FifoTab />}

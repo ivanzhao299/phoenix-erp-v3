@@ -159,7 +159,24 @@ export class RequestsService {
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
     const skip     = (page - 1) * pageSize;
 
-    const qb = this.reqRepo.createQueryBuilder('r');
+    const qb = this.reqRepo.createQueryBuilder('r')
+      .leftJoin(
+        'sys_organizations',
+        'company_org',
+        `company_org.org_type = 'COMPANY'
+         AND COALESCE(company_org.company_code, company_org.org_code) = r.company_code`,
+      )
+      .leftJoin(
+        'biz_projects',
+        'project',
+        `project.project_code = r.project_code
+         AND (project.company_code = r.company_code OR project.company_code IS NULL)`,
+      )
+      .leftJoin('sys_user', 'requester', 'requester.user_id = r.requester_id')
+      .addSelect('COALESCE(company_org.org_name_cn, company_org.org_name, r.company_name, r.company_code)', 'companyDisplayName')
+      .addSelect('COALESCE(project.project_name, r.project_name, r.project_code)', 'projectDisplayName')
+      .addSelect('requester.real_name', 'requesterRealName')
+      .addSelect('requester.username', 'requesterUsername');
 
     if (query.companyCode)    qb.andWhere('r.companyCode = :cc',     { cc: query.companyCode });
     if (query.projectCode)    qb.andWhere('r.projectCode = :pc',     { pc: query.projectCode });
@@ -181,11 +198,12 @@ export class RequestsService {
     this.scopeHelper.applyToQb(qb, { alias: 'r' });
     // ────────────────────────────────────────────────────────────────────────
 
-    const [items, total] = await qb
+    const { entities: items, raw } = await qb
       .orderBy('r.createdAt', 'DESC')
       .skip(skip)
       .take(pageSize)
-      .getManyAndCount();
+      .getRawAndEntities();
+    const total = await qb.getCount();
 
     // 附带每条 PR 的明细行数
     const ids = items.map(r => r.id);
@@ -201,13 +219,44 @@ export class RequestsService {
       itemCountMap = Object.fromEntries(counts.map(c => [c.reqId, parseInt(c.cnt, 10)]));
     }
 
-    const result = items.map(r => ({ ...r, itemCount: itemCountMap[r.id] ?? 0 }));
+    const displayById = new Map(raw.map(row => [String(row.r_id), row]));
+    const result = items.map(r => {
+      const display = displayById.get(r.id) ?? {};
+      return {
+        ...r,
+        companyDisplayName: display.companyDisplayName ?? r.companyName ?? r.companyCode,
+        projectDisplayName: display.projectDisplayName ?? r.projectName ?? r.projectCode,
+        requesterRealName: display.requesterRealName ?? null,
+        requesterUsername: display.requesterUsername ?? null,
+        itemCount: itemCountMap[r.id] ?? 0,
+      };
+    });
     return { items: result, total, page, pageSize };
   }
 
   /** 详情（含明细行 + 审批日志） */
   async findById(id: string) {
-    const req = await this.reqRepo.findOne({ where: { id } });
+    const detailQb = this.reqRepo.createQueryBuilder('r')
+      .leftJoin(
+        'sys_organizations',
+        'company_org',
+        `company_org.org_type = 'COMPANY'
+         AND COALESCE(company_org.company_code, company_org.org_code) = r.company_code`,
+      )
+      .leftJoin(
+        'biz_projects',
+        'project',
+        `project.project_code = r.project_code
+         AND (project.company_code = r.company_code OR project.company_code IS NULL)`,
+      )
+      .leftJoin('sys_user', 'requester', 'requester.user_id = r.requester_id')
+      .addSelect('COALESCE(company_org.org_name_cn, company_org.org_name, r.company_name, r.company_code)', 'companyDisplayName')
+      .addSelect('COALESCE(project.project_name, r.project_name, r.project_code)', 'projectDisplayName')
+      .addSelect('requester.real_name', 'requesterRealName')
+      .addSelect('requester.username', 'requesterUsername')
+      .where('r.id = :id', { id });
+    const { entities: detailEntities, raw: detailRaw } = await detailQb.getRawAndEntities();
+    const req = detailEntities[0];
     if (!req) throw new NotFoundException(`采购申请 ID=${id} 不存在`);
 
     // ── RBAC-2.5 详情归属校验 ────────────────────────────────────────────────
@@ -228,7 +277,16 @@ export class RequestsService {
          FROM mst_materials WHERE material_code = ANY($1::text[])`, [itemCodes],
     ) : [];
     const nameMap = new Map(names.map(r => [r.item_code, r]));
-    return { ...req, items: items.map(i => ({ ...i, ...nameMap.get(i.itemCode) })), approvals };
+    const display = detailRaw[0] ?? {};
+    return {
+      ...req,
+      companyDisplayName: display.companyDisplayName ?? req.companyName ?? req.companyCode,
+      projectDisplayName: display.projectDisplayName ?? req.projectName ?? req.projectCode,
+      requesterRealName: display.requesterRealName ?? null,
+      requesterUsername: display.requesterUsername ?? null,
+      items: items.map(i => ({ ...i, ...nameMap.get(i.itemCode) })),
+      approvals,
+    };
   }
 
   /** 新建（DRAFT） */

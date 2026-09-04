@@ -1,0 +1,49 @@
+.page { min-width: 0; max-width: 100%; background: var(--gray-50); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 12px; margin-bottom: 24px; align-items: stretch; }
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--gray-200); overflow-x: auto; scrollbar-width: thin; }
+.tabs > button { flex: 0 0 auto; }
+.content { min-width: 0; background: var(--bg-card); border: 1px solid var(--gray-200); border-radius: 10px; padding: 20px; }
+.filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.createGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.fifoGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.lossKpis { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-bottom: 24px; }
+.tableScroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.batchTable { table-layout: fixed; width: 100%; min-width: 1180px; }
+.expiringTable { table-layout: fixed; width: 100%; min-width: 960px; }
+.expiringTable th:nth-child(1) { width: 170px; }
+.expiringTable th:nth-child(2),.expiringTable th:nth-child(3),.expiringTable th:nth-child(5) { width: 130px; }
+.expiringTable th:nth-child(4),.expiringTable th:nth-child(6),.expiringTable th:nth-child(8),.expiringTable th:nth-child(9) { width: 90px; }
+.expiringTable th:nth-child(7) { width: 110px; }
+.lossTypeTable { table-layout: fixed; width: 100%; min-width: 520px; }
+.lossBatchTable { table-layout: fixed; width: 100%; min-width: 760px; }
+.lossBatchTable th:first-child { width: 180px; }
+.lossBatchTable th:last-child { width: 190px; }
+.mobileCards { display: none; }
+
+@media (min-width: 769px) and (max-width: 1199px) {
+  .kpis { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .createGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .lossKpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+
+@media (max-width: 768px) {
+  .kpis { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-bottom: 16px; }
+  .content { padding: 12px; }
+  .filters { display: grid; grid-template-columns: minmax(0,1fr); align-items: stretch; }
+  .filters > * { width: 100% !important; min-width: 0 !important; margin-left: 0 !important; }
+  .createGrid,.fifoGrid,.lossKpis { grid-template-columns: minmax(0,1fr); }
+  .desktopTable { display: none; }
+  .mobileCards { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; }
+  .mobileCard,.emptyCard { min-width: 0; overflow-wrap: anywhere; border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px; background: var(--bg-card); }
+  .mobileCard header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  .mobileCard code,.mobileCard strong,.mobileCard p,.mobileCard small { display: block; margin-top: 7px; max-width: 100%; overflow-wrap: anywhere; }
+  .tabs { margin-inline: -12px; padding-inline: 12px; }
+}
+
+@media (max-width: 390px) {
+  .kpis { grid-template-columns: minmax(0,1fr); }
+  .content { padding: 8px; }
+  .mobileCard,.emptyCard { padding: 10px; }
+  .tabs { margin-inline: -8px; padding-inline: 8px; }
+  .page button,.page input,.page select { max-width: 100%; }
+}

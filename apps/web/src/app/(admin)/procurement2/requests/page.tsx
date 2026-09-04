@@ -14,6 +14,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { SupplierSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器（转单弹窗用）
 import { useDictOptions } from '@/hooks/useDictOptions';
 import { formatMasterData } from '@/lib/business-display';
+import { formatPurchaseRequestCompany, formatPurchaseRequestProject, formatPurchaseRequester } from './purchase-request-display';
 
 type TFn = (key: string, fallback: string) => string;
 
@@ -50,11 +51,15 @@ interface PurchaseRequest {
   purchaseType?: string;
   companyCode: string;
   companyName?: string;
+  companyDisplayName?: string;
   projectCode?: string;
   projectName?: string;
+  projectDisplayName?: string;
   currencyCode?: string;
   estimatedAmount?: number | string;
   requesterName?: string;
+  requesterRealName?: string;
+  requesterUsername?: string;
   deptCode?: string;
   expectedDate?: string;
   reason?: string;
@@ -535,18 +540,18 @@ export default function PurchaseRequestsPage() {
               }}>
                     {row.subject}
                   </td>
-                  <td>{row.companyCode}</td>
+                  <td>{formatPurchaseRequestCompany(row, lang)}</td>
                   <td style={{
                 maxWidth: 100,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap"
               }}>
-                    {row.projectCode ?? "—"}
+                    {formatPurchaseRequestProject(row, lang)}
                   </td>
                   <td>{typeLabel}</td>
                   <td><span className={`${s.badge} ${s[ug.cls]}`}>{ug.label}</span></td>
-                  <td>{row.requesterName ?? "—"}</td>
+                  <td>{formatPurchaseRequester(row)}</td>
                   <td style={{
                 whiteSpace: "nowrap",
                 fontVariantNumeric: "tabular-nums"
@@ -615,16 +620,16 @@ export default function PurchaseRequestsPage() {
           value: detailData.subject
         }, {
           label: t('prc2.company', "公司"),
-          value: `${detailData.companyCode}  ${detailData.companyName ?? ""}`
+          value: formatPurchaseRequestCompany(detailData, lang)
         }, {
           label: t('prc2.project', "项目"),
-          value: detailData.projectCode ? `${detailData.projectCode} ${detailData.projectName ?? ""}` : "—"
+          value: formatPurchaseRequestProject(detailData, lang)
         }, {
           label: t('prc2.estimated_amount', "预估金额"),
           value: fmtAmt(detailData.estimatedAmount, detailData.currencyCode ?? "LAK")
         }, {
           label: t('prc2.requester', "申请人"),
-          value: detailData.requesterName ?? "—"
+          value: formatPurchaseRequester(detailData)
         }, {
           label: t('prc2.expected_arrival', "期望到货"),
           value: fmtDate(detailData.expectedDate)

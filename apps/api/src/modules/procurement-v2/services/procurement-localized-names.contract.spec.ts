@@ -23,4 +23,17 @@ describe('procurement localized-name API contracts', () => {
     expect(receipts).toContain('sku_name_lo');
     expect(receipts).toContain('...rcp');
   });
+
+  it('projects canonical purchase-request company, project, and requester in list and detail', () => {
+    const requests = read('requests.service.ts');
+    expect((requests.match(/company_org\.org_type = 'COMPANY'/g) ?? [])).toHaveLength(2);
+    expect((requests.match(/COALESCE\(company_org\.company_code, company_org\.org_code\) = r\.company_code/g) ?? [])).toHaveLength(2);
+    expect((requests.match(/project\.project_code = r\.project_code/g) ?? [])).toHaveLength(2);
+    expect((requests.match(/requester\.user_id = r\.requester_id/g) ?? [])).toHaveLength(2);
+    for (const alias of ['companyDisplayName', 'projectDisplayName', 'requesterRealName', 'requesterUsername']) {
+      expect(requests).toContain(alias);
+    }
+    expect(requests).toContain('r.companyName ?? r.companyCode');
+    expect(requests).toContain('r.projectName ?? r.projectCode');
+  });
 });

@@ -43,6 +43,20 @@ describe('StoreInventoryQueryService', () => {
     expect(rowsSql).toContain('ledger.change_type AS ledger_change_type');
   });
 
+  it('projects localized names and searches all three SKU name fields without dropping code search', async () => {
+    const { service, ds } = setup();
+    await service.query({ storeCode: 'STORE-A', sku: 'ໄຂ່' });
+    const countSql = String(ds.query.mock.calls.find((call: any[]) => call[0].includes('COUNT(*)'))?.[0]);
+    const rowsSql = String(ds.query.mock.calls.find((call: any[]) => call[0].includes('LEFT JOIN LATERAL'))?.[0]);
+    expect(countSql).toContain('LEFT JOIN product_skus sku ON sku.sku_code=b.sku_code');
+    for (const field of ['sku.sku_name ILIKE', 'sku.sku_name_en ILIKE', 'sku.sku_name_lo ILIKE', 'b.sku_code ILIKE', 'b.batch_no ILIKE']) {
+      expect(countSql).toContain(field);
+    }
+    for (const projection of ['sku.sku_name_en', 'sku.sku_name_lo', 'w.warehouse_name_en', 'w.warehouse_name_lo', 'z.zone_name', 'l.location_name']) {
+      expect(rowsSql).toContain(projection);
+    }
+  });
+
   it('rejects invalid status and warehouses outside the resolved intersection', async () => {
     const { service } = setup();
     await expect(service.query({ storeCode: 'STORE-A', status: 'UNKNOWN' as any })).rejects.toBeInstanceOf(BadRequestException);

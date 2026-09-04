@@ -50,11 +50,13 @@ export class StoreInventoryQueryService {
     if (input.locationCode) add('b.location_code=?', input.locationCode);
     if (input.sku) {
       params.push(`%${input.sku.trim()}%`);
-      where.push(`(b.sku_code ILIKE $${params.length} OR b.product_code ILIKE $${params.length} OR b.batch_no ILIKE $${params.length})`);
+      where.push(`(b.sku_code ILIKE $${params.length} OR b.product_code ILIKE $${params.length} OR b.batch_no ILIKE $${params.length}
+        OR sku.sku_name ILIKE $${params.length} OR sku.sku_name_en ILIKE $${params.length} OR sku.sku_name_lo ILIKE $${params.length})`);
     }
     const whereSql = where.join(' AND ');
     const [{ total }] = await this.ds.query<Array<{ total: string }>>(`
       SELECT COUNT(*)::text AS total FROM inv_batches b
+        LEFT JOIN product_skus sku ON sku.sku_code=b.sku_code
         LEFT JOIN wms_locations l ON l.warehouse_code=b.warehouse_code AND l.location_code=b.location_code
         LEFT JOIN wms_zones z ON z.warehouse_code=l.warehouse_code AND z.zone_code=l.zone_code
        WHERE ${whereSql}`, params);
@@ -62,11 +64,13 @@ export class StoreInventoryQueryService {
     const rows = await this.ds.query<any[]>(`
       SELECT b.batch_no,b.sku_code,b.product_code,b.quality_grade,b.packaging_spec,
              b.qty,b.qty_available,b.status,b.warehouse_code,b.location_code,
-             z.zone_code,z.zone_type,b.source_type,b.source_no,b.created_at,
-             w.warehouse_name,w.warehouse_name_zh,
+             sku.sku_name,sku.sku_name_en,sku.sku_name_lo,
+             z.zone_code,z.zone_name,z.zone_type,l.location_name,b.source_type,b.source_no,b.created_at,
+             w.warehouse_name,w.warehouse_name_zh,w.warehouse_name_en,w.warehouse_name_lo,
              ledger.id AS ledger_id,ledger.change_type AS ledger_change_type,
              ledger.qty_change AS ledger_qty_change,ledger.created_at AS ledger_created_at
         FROM inv_batches b
+        LEFT JOIN product_skus sku ON sku.sku_code=b.sku_code
         LEFT JOIN wms_warehouses w ON w.warehouse_code=b.warehouse_code
         LEFT JOIN wms_locations l ON l.warehouse_code=b.warehouse_code AND l.location_code=b.location_code
         LEFT JOIN wms_zones z ON z.warehouse_code=l.warehouse_code AND z.zone_code=l.zone_code
