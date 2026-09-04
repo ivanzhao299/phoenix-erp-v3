@@ -241,3 +241,16 @@ OPENING 的 `txn_date` 应固定为各目标首笔业务流水之前，并保留
 - 专用只读 verify run `33850014213` 的生产只读事务通过：全库 77 个账户，其中 ACTIVE 54 个、公式差异 0；17 个带精确 G45 remark 证据的 retired duplicate 排除；其他 INACTIVE 非零差异 0。run 的远端验证步骤成功，后续 artifact 解码因 SSH action 尾部状态行污染而失败；已据此改为 BEGIN/END 标记截取并增加 tar 完整性校验。
 - 修正后的独立只读 verify run `33850187212` 全绿，artifact `cash-balance-reconciliation-33850187212`（1,806 bytes，90 天保留）完整上传。证据为：ACTIVE `54`、ACTIVE 公式差异 `0`、G45 retired duplicate `17`、其他 INACTIVE 差异 `0`；11 个目标业务流水 `426`，`source_type='OPENING'` 为 `0`，本治理批次 OPENING 亦为 `0`；`FH-10207` 全链断点 `0`。
 - 结论：生产已经处于“11 个目标期初非零且公式/派生链一致，但没有 OPENING 凭证”的部分修复状态。本次批准的硬前置（目标期初为 0、目标业务流水合计 93）已不成立；在重新批准将前置改为“期初等于已证值、动态锁定当前业务流水全集”之前，不执行剩余 11 笔 OPENING 补证，避免绕过已批门禁。
+
+### 9.3 A 续批适配与期初写入溯源（BAL-RECON-20260904B）
+
+用户已重新批准 A，并把执行前置改为“11 个目标期初精确等于已证值 + 动态锁定当前 426 笔业务流水全集”。续批脚本据此收窄为只新增 11 笔 OPENING：不再 UPDATE `opening_balance`，不 UPDATE `current_balance`，也不重写既有 `balance_after`。事务以表级 `SHARE ROW EXCLUSIVE` 锁阻止流水集合出现并发幻行，在锁内计算 426 笔完整行 JSON 指纹，后置逐项比对账户完整行、业务流水数量和指纹；任一不符即 ROLLBACK。凭证日期为各账户首笔业务流水的老挝当地自然日前一日 00:00，批次、审批引用均为 `BAL-RECON-20260904B`。
+
+只读溯源的仓库证据边界如下：
+
+- G42（commit `9edbc10d`，2026-06-08 22:06:09）明确因余额 Excel 无数据，将这些 FH/DP 目标主档的期初和当前余额 seed 为 0；G45（commit `7bb65418`，2026-06-08 22:30:56）只改挂流水、按末笔回填 `current_balance`，没有迁移 `opening_balance`。
+- G57（commit `476f9c8c`，2026-06-09 05:59:58）因王玮华反馈期初错误而开放期初编辑及重算能力；G189（commit `d17b9fc8`，2026-06-17 16:38:40）再次记录她反馈两个现金账户期初不准/重复。这只能证明需求来源和可写入口，不能证明她执行了本次 11 个账户的具体写入。
+- Git 历史未发现 G45 后有迁移批量回填这 11 个目标期初。首次生产 execute run `33849353358` 在任何 DML 前拒绝，故也不是该 run 写入；其前后部署/治理时间线以 GitHub Actions run ID 留档。
+- `fin_cash_accounts` 有 `updated_at/updated_by`，但这是整行最后更新元数据，不是字段级审计；`sys_operation_logs` 也只覆盖被拦截器列入规则的高敏操作。生产只读 trace 将同时导出两者。若日志没有包含 `opening_balance` 的 before/after 事件，则具体写入者和写入时刻只能记为“来源不可考”，不能从最后更新时间或权限授权反推操作者。
+
+生产只读 trace、续批 execute、独立只读复验的 run ID、账户元数据、日志命中、426 笔 SHA-256、错误窗口与 artifact 地址在受保护 workflow 完成后补录。

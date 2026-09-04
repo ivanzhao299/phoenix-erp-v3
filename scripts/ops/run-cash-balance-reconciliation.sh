@@ -6,7 +6,8 @@ case "$mode" in --validate|--verify|--rehearse|--execute) ;; *) echo "usage: $0 
 root="${RECON_BUNDLE_DIR:-.}"
 sql="$root/scripts/ops/cash-balance-reconciliation.sql"
 audit_sql="$root/scripts/ops/cash-balance-formula-audit.sql"
-test -f "$sql" && test -f "$audit_sql"
+trace_sql="$root/scripts/ops/cash-opening-write-trace.sql"
+test -f "$sql" && test -f "$audit_sql" && test -f "$trace_sql"
 grep -q 'BAL_RECON_PREFLIGHT=PASS' "$sql"
 grep -q 'BAL_RECON_POSTCHECK=PASS' "$sql"
 grep -q 'EXCLUDED_RETIRED_G45_DUPLICATE' "$audit_sql"
@@ -31,7 +32,7 @@ started_at="$(date -u +%FT%TZ)"
 echo "RUN_ID=$run_id MODE=$mode STARTED_AT=$started_at"
 
 if [ "$mode" = --verify ]; then
-  { printf '%s\n' 'BEGIN TRANSACTION READ ONLY;' "SET LOCAL statement_timeout='30s';"; cat "$audit_sql"; printf '%s\n' 'ROLLBACK;'; } |
+  { printf '%s\n' 'BEGIN TRANSACTION READ ONLY;' "SET LOCAL statement_timeout='30s';"; cat "$trace_sql"; cat "$audit_sql"; printf '%s\n' 'ROLLBACK;'; } |
     PGOPTIONS='-c default_transaction_read_only=on' psql_db
   echo "RUN_ID=$run_id READONLY_VERIFY=PASS COMPLETED_AT=$(date -u +%FT%TZ)"
   exit 0
@@ -40,17 +41,15 @@ fi
 # Backups are exported before any writable psql session starts.
 accounts="'FH-101','FH-102','FH-10206','FH-10207','FH-10209','FH-10210','FH-10211','FH-10212','DP-01','DP-10','DP-11'"
 psql_db -c "COPY (SELECT * FROM fin_cash_accounts WHERE account_code IN ($accounts) ORDER BY id) TO STDOUT WITH (FORMAT csv, HEADER true)" > "$out_dir/target-accounts-before.csv"
-psql_db -c "COPY (SELECT x.* FROM fin_cash_transactions x WHERE account_code IN ($accounts) ORDER BY id) TO STDOUT WITH (FORMAT csv, HEADER true)" > "$out_dir/target-transactions-before.csv"
-sha256sum "$out_dir/target-accounts-before.csv" "$out_dir/target-transactions-before.csv" > "$out_dir/SHA256SUMS"
+psql_db -c "COPY (SELECT x.* FROM fin_cash_transactions x WHERE account_code IN ($accounts) AND source_type IS DISTINCT FROM 'OPENING' ORDER BY id) TO STDOUT WITH (FORMAT csv, HEADER true)" > "$out_dir/target-business-transactions-before.csv"
+sha256sum "$out_dir/target-accounts-before.csv" "$out_dir/target-business-transactions-before.csv" > "$out_dir/SHA256SUMS"
 sha256sum -c "$out_dir/SHA256SUMS"
 
 # The rollback archive is deliberately narrow: remove this batch's OPENING rows,
-# restore the only account fields changed, and restore all original balance_after values.
+# This continuation inserts OPENING evidence only; rollback deletes that exact batch.
 {
   printf '%s\n' '\set ON_ERROR_STOP on' 'BEGIN;'
-  printf "DELETE FROM fin_cash_transactions WHERE txn_no LIKE 'OPENING-BAL-RECON-20260904-%%';\n"
-  psql_db -tA -c "SELECT format('UPDATE fin_cash_accounts SET opening_balance=%L,current_balance=%L,updated_by=%L,updated_at=%L WHERE id=%L;',opening_balance,current_balance,updated_by,updated_at,id) FROM fin_cash_accounts WHERE account_code IN ($accounts) ORDER BY id"
-  psql_db -tA -c "SELECT format('UPDATE fin_cash_transactions SET balance_after=%L WHERE id=%L;',balance_after,id) FROM fin_cash_transactions WHERE account_code IN ($accounts) ORDER BY id"
+  printf "%s\n" "DO \$\$ DECLARE n integer; BEGIN DELETE FROM fin_cash_transactions WHERE txn_no LIKE 'OPENING-BAL-RECON-20260904B-%'; GET DIAGNOSTICS n=ROW_COUNT; IF n<>11 THEN RAISE EXCEPTION 'rollback expected 11 OPENING rows, deleted %',n; END IF; END \$\$;"
   printf '%s\n' 'COMMIT;' '-- Re-run cash-balance-formula-audit.sql and verify the archived SHA256SUMS after restore.'
 } > "$out_dir/rollback.sql"
 sha256sum "$out_dir/rollback.sql" >> "$out_dir/SHA256SUMS"
@@ -58,7 +57,7 @@ sha256sum -c "$out_dir/SHA256SUMS"
 echo "BACKUP_DIR=$out_dir BACKUP_STATUS=PASS"
 
 if [ "$mode" = --execute ]; then
-  test "${RECON_APPROVAL_REF:-}" = 'BAL-RECON-20260904' || { echo 'FAIL exact RECON_APPROVAL_REF required' >&2; exit 2; }
+  test "${RECON_APPROVAL_REF:-}" = 'BAL-RECON-20260904B' || { echo 'FAIL exact RECON_APPROVAL_REF required' >&2; exit 2; }
   psql_db -v BAL_RECON_COMMIT=true < "$sql"
 else
   psql_db -v BAL_RECON_COMMIT=false < "$sql"

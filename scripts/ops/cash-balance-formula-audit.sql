@@ -35,7 +35,7 @@ WITH targets(code) AS (VALUES
  ('FH-10211'),('FH-10212'),('DP-01'),('DP-10'),('DP-11')
 )
 SELECT count(*) FILTER (WHERE x.source_type='OPENING') target_opening_rows,
-       count(*) FILTER (WHERE x.txn_no LIKE 'OPENING-BAL-RECON-20260904-%') governance_batch_opening_rows,
+       count(*) FILTER (WHERE x.txn_no LIKE 'OPENING-BAL-RECON-20260904B-%') governance_batch_opening_rows,
        count(*) FILTER (WHERE x.source_type IS DISTINCT FROM 'OPENING') target_business_rows
 FROM targets t LEFT JOIN fin_cash_transactions x ON x.account_code=t.code;
 

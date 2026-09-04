@@ -10,7 +10,7 @@ on:
         type: choice
         options: [verify, rehearse, execute]
       approve_production:
-        description: Type APPROVE-BAL-RECON-20260904
+        description: Type APPROVE-BAL-RECON-20260904B
         required: true
         type: string
 
@@ -31,7 +31,7 @@ jobs:
 
   reconcile:
     needs: validate
-    if: inputs.approve_production == 'APPROVE-BAL-RECON-20260904'
+    if: inputs.approve_production == 'APPROVE-BAL-RECON-20260904B'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -48,7 +48,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          source: scripts/ops/cash-balance-reconciliation.sql,scripts/ops/cash-balance-formula-audit.sql,scripts/ops/run-cash-balance-reconciliation.sh
+          source: scripts/ops/cash-balance-reconciliation.sql,scripts/ops/cash-balance-formula-audit.sql,scripts/ops/cash-opening-write-trace.sql,scripts/ops/run-cash-balance-reconciliation.sh
           target: /tmp/phoenix-cash-balance-reconciliation-${{ github.run_id }}/bundle
       - name: Run protected reconciliation
         id: execute
@@ -59,7 +59,7 @@ jobs:
           RECON_BUNDLE_DIR: /tmp/phoenix-cash-balance-reconciliation-${{ github.run_id }}/bundle
           RECON_OUTPUT_DIR: /tmp/phoenix-cash-balance-reconciliation-${{ github.run_id }}/evidence
           RECON_MODE: ${{ inputs.mode }}
-          RECON_APPROVAL_REF: BAL-RECON-20260904
+          RECON_APPROVAL_REF: BAL-RECON-20260904B
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
