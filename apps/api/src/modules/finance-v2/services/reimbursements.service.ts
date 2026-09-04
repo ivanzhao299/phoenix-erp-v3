@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { finiteCashNumber, returningRow } from './cash-balance.guard';
 import { ClsService } from 'nestjs-cls';
 
 import { FinReimbursementEntity } from '../entities/fin-reimbursement.entity';
@@ -258,26 +259,28 @@ export class ReimbursementsService {
         );
       }
 
-      const payAmount = Number(reimb.reimb_amount_original);
-      if (Number(acct.current_balance) < payAmount) {
+      const payAmount = finiteCashNumber(reimb.reimb_amount_original, 'reimbursement amount');
+      const currentBalance = finiteCashNumber(acct.current_balance, 'current_balance');
+      if (currentBalance < payAmount) {
         throw new BadRequestException(
-          `账户余额不足：当前 ${Number(acct.current_balance).toFixed(2)} ${acct.currency_code}，需要 ${payAmount.toFixed(2)} ${reimb.currency_code}`,
+          `账户余额不足：当前 ${currentBalance.toFixed(2)} ${acct.currency_code}，需要 ${payAmount.toFixed(2)} ${reimb.currency_code}`,
         );
       }
 
       // 4. 扣减余额
-      const [updatedAcct] = await mgr.query(
+      const rawUpdatedAcct = await mgr.query(
         `UPDATE fin_cash_accounts
             SET current_balance = current_balance - $1, updated_at = now()
           WHERE id = $2
           RETURNING current_balance`,
         [payAmount, dto.cashAccountId],
       );
-      const balanceAfter = Number(updatedAcct.current_balance);
+      const updatedAcct = returningRow<{ current_balance: unknown }>(rawUpdatedAcct, '报销账户余额更新');
+      const balanceAfter = finiteCashNumber(updatedAcct.current_balance, 'balance_after');
 
       // 5. 写流水（OUT）
       const txnNo = await this.genTxnNo(mgr);
-      const [txn] = await mgr.query(`
+      const rawTxn = await mgr.query(`
         INSERT INTO fin_cash_transactions (
           txn_no, account_id, account_code, account_name,
           company_code, company_name,
@@ -296,6 +299,7 @@ export class ReimbursementsService {
         dto.remark ?? `报销付款 ${reimb.reimb_no}`,
         this.username(),
       ]);
+      const txn = returningRow<{ id: string }>(rawTxn, '报销资金流水写入');
 
       // 6. 更新报销记录
       await mgr.query(`

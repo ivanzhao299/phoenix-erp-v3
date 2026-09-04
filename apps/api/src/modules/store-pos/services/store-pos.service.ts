@@ -25,6 +25,7 @@ import { ClsService } from 'nestjs-cls';
 import { hasPerm } from '../../../auth/permissions.util';
 import { StoreScopePolicy, StoreWarehousePurpose } from './store-scope-policy.service';
 import { PriceRuntimeService, ResolvedPrice } from '../../sales-v2/services/price-runtime.service';
+import { finiteCashNumber, returningRow } from '../../finance-v2/services/cash-balance.guard';
 
 export interface SaleItemDto {
   productCode:    string;
@@ -409,12 +410,13 @@ export class StorePosService {
     saleId: number; type: 'CASH'|'QR'|'TRANSFER'|'CREDIT'; currency: string; amount: number;
     externalReference?: string; cashAccountId?: number; arInvoiceId?: number;
   }) {
+    const amount = finiteCashNumber(input.amount, 'tender amount');
     if (['QR','TRANSFER'].includes(input.type) && !input.externalReference?.trim()) {
       throw new BadRequestException(`${input.type} tender 必须提供外部参考号`);
     }
     await mgr.query(`INSERT INTO sal_store_sale_tenders
       (sale_id,tender_type,currency_code,amount,external_reference,cash_account_id,ar_invoice_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)`, [input.saleId,input.type,input.currency,input.amount,
+      VALUES ($1,$2,$3,$4,$5,$6,$7)`, [input.saleId,input.type,input.currency,amount,
       input.externalReference?.trim() || null,input.cashAccountId ?? null,input.arInvoiceId ?? null]);
   }
 
@@ -992,6 +994,7 @@ export class StorePosService {
     sourceNo:     string;
     remark:       string;
   }) {
+    const amount = finiteCashNumber(params.amount, 'amount');
     // L1:FOR UPDATE 锁账户行,杜绝并发现金写的余额 read-modify-write 丢更新
     const [acct] = await mgr.query(
       `SELECT id, account_code, account_name, current_balance, currency_code
@@ -1015,12 +1018,13 @@ export class StorePosService {
     const txnNo      = `CASH-POS-${dateStr}-${String(seq.n).padStart(6, '0')}`;
 
     // L1:原子增量 + RETURNING 取准 balance_after(不再 read-then-write)
-    const [upd] = await mgr.query(
+    const rawUpdate = await mgr.query(
       `UPDATE fin_cash_accounts SET current_balance = current_balance + $2, updated_at=NOW()
        WHERE id=$1 RETURNING current_balance`,
-      [params.accountId, params.amount],
+      [params.accountId, amount],
     );
-    const newBalance = Number(upd.current_balance);
+    const updated = returningRow<{ current_balance: unknown }>(rawUpdate, 'POS 现金账户余额更新');
+    const newBalance = finiteCashNumber(updated.current_balance, 'balance_after');
 
     // 写流水（币种取销售单币种,已校验=账户币种）
     await mgr.query(
@@ -1039,7 +1043,7 @@ export class StorePosService {
         params.sourceId,
         params.sourceNo,
         params.currencyCode,
-        params.amount,
+        amount,
         newBalance,
         params.remark,
         this.currentUser?.username ?? 'pos',
@@ -1155,6 +1159,7 @@ export class StorePosService {
     sourceNo:     string;
     remark:       string;
   }) {
+    const amount = finiteCashNumber(params.amount, 'amount');
     // L1:FOR UPDATE 锁账户行,杜绝并发余额丢更新
     const [acct] = await mgr.query(
       `SELECT id, account_code, account_name, current_balance, currency_code
@@ -1175,12 +1180,13 @@ export class StorePosService {
     const txnNo      = `CASH-POSRET-${dateStr}-${String(seq.n).padStart(6, '0')}`;
 
     // L1:原子减量 + RETURNING 取准 balance_after
-    const [upd] = await mgr.query(
+    const rawUpdate = await mgr.query(
       `UPDATE fin_cash_accounts SET current_balance = current_balance - $2, updated_at = NOW()
        WHERE id = $1 RETURNING current_balance`,
-      [params.accountId, params.amount],
+      [params.accountId, amount],
     );
-    const newBalance = Number(upd.current_balance);
+    const updated = returningRow<{ current_balance: unknown }>(rawUpdate, 'POS 退款账户余额更新');
+    const newBalance = finiteCashNumber(updated.current_balance, 'balance_after');
     await mgr.query(
       `INSERT INTO fin_cash_transactions
         (txn_no, account_id, account_code, account_name, company_code,
@@ -1190,7 +1196,7 @@ export class StorePosService {
       [
         txnNo, acct.id, acct.account_code, acct.account_name, params.companyCode,
         params.sourceId, params.sourceNo, params.currencyCode,
-        params.amount, newBalance, params.remark, this.currentUser?.username ?? 'pos',
+        amount, newBalance, params.remark, this.currentUser?.username ?? 'pos',
       ],
     );
   }
