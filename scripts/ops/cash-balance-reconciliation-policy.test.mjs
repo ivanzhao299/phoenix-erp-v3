@@ -49,4 +49,6 @@ test('production workflow is manually approved and retains artifacts', () => {
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /APPROVE-BAL-RECON-20260904/);
   assert.match(workflow, /upload-artifact@v4/);
+  assert.match(workflow, /EVIDENCE_B64_BEGIN/);
+  assert.match(workflow, /tar -tzf/);
 });

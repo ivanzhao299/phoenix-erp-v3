@@ -30,6 +30,24 @@ SELECT count(*) FILTER (WHERE status='ACTIVE') active_accounts,
        count(*) FILTER (WHERE status<>'ACTIVE' AND NOT retired_g45_duplicate AND diff<>0) unexplained_inactive_differences
 FROM classified;
 
+WITH targets(code) AS (VALUES
+ ('FH-101'),('FH-102'),('FH-10206'),('FH-10207'),('FH-10209'),('FH-10210'),
+ ('FH-10211'),('FH-10212'),('DP-01'),('DP-10'),('DP-11')
+)
+SELECT count(*) FILTER (WHERE x.source_type='OPENING') target_opening_rows,
+       count(*) FILTER (WHERE x.txn_no LIKE 'OPENING-BAL-RECON-20260904-%') governance_batch_opening_rows,
+       count(*) FILTER (WHERE x.source_type IS DISTINCT FROM 'OPENING') target_business_rows
+FROM targets t LEFT JOIN fin_cash_transactions x ON x.account_code=t.code;
+
+WITH chain AS (
+  SELECT x.id,x.balance_after,
+    a.opening_balance + sum(CASE WHEN x.source_type='OPENING' THEN 0 WHEN x.direction='IN' THEN x.amount ELSE -x.amount END)
+      OVER (ORDER BY x.txn_date,x.id ROWS UNBOUNDED PRECEDING) expected
+  FROM fin_cash_transactions x JOIN fin_cash_accounts a ON a.account_code=x.account_code
+  WHERE x.account_code='FH-10207'
+)
+SELECT count(*) fh_10207_chain_discontinuities FROM chain WHERE balance_after<>expected;
+
 DO $$
 DECLARE bad text;
 BEGIN
