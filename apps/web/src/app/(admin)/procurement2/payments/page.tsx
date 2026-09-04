@@ -11,6 +11,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from '@/contexts/LanguageContext';
 import s from "@/components/ui/admin-ui.module.css";
+import { invalidateCashAccountLookups } from "@/lib/request-cache";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface Allocation {
@@ -249,6 +250,7 @@ export default function PaymentsPage() {
         throw new Error(e.message ?? t('prc2.action_failed', "操作失败"));
       }
       toast.success(msg);
+      if (endpoint === "pay") invalidateCashAccountLookups();
       setPayOpen(false);
       setCancelOpen(false);
       load(page);

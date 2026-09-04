@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { ArrowLeftRight, Plus, Search, RefreshCw, X, CheckCircle, Clock, AlertCircle, Send, Play } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { invalidateCashAccountLookups } from '@/lib/request-cache';
 import { usePermission } from '@/hooks/usePermission';
 import { currencySymbol } from '@/lib/currency';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -324,6 +325,7 @@ export default function FundTransfersPage() {
         alert(d.message ?? t('fin2.common.op_failed','操作失败'));
         return;
       }
+      if (action === 'execute') invalidateCashAccountLookups();
       await load();
     } finally {
       setActionLoading(null);

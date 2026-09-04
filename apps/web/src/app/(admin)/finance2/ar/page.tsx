@@ -9,6 +9,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, CustomerSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { invalidateCashAccountLookups } from '@/lib/request-cache';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -432,11 +433,13 @@ function CreateArModal({
 function CreateReceiptModal({
   selectedAr,
   onClose,
-  onCreated
+  onCreated,
+  refreshKey
 }: {
   selectedAr?: ArInvoice | null;
   onClose: () => void;
   onCreated: () => void;
+  refreshKey?: number;
 }) {
   const { t } = useLanguage();
   const [form, setForm] = useState({
@@ -512,6 +515,7 @@ function CreateReceiptModal({
           })
         });
       }
+      invalidateCashAccountLookups();
       onCreated();
       onClose();
     } catch (e: any) {
@@ -595,7 +599,7 @@ function CreateReceiptModal({
             <div>
               <label style={formLabel}>{t('fin2.ar.receipt_account', '收款账户')}</label>
               {/* G4-A：从资金账户主数据(仅ACTIVE)选择，value=account_code */}
-              <CashAccountSelector value={form.receivedAccountCode} onChange={v => set('receivedAccountCode', v)} currencyCode={form.currencyCode} />
+              <CashAccountSelector value={form.receivedAccountCode} onChange={v => set('receivedAccountCode', v)} currencyCode={form.currencyCode} refreshKey={refreshKey} />
             </div>
           </div>
           <div>
@@ -649,6 +653,7 @@ function ArDetailDrawer({
   const [showCancel, setShowCancel] = useState(false);
   const [cancelErr, setCancelErr] = useState('');
   const [showReceipt, setShowReceipt] = useState(false);
+  const [cashRefreshKey, setCashRefreshKey] = useState(0);
   const load = () => {
     setLoading(true);
     apiFetch<ArInvoiceDetail>(`/api/v2/finance/ar/invoices/${invoiceId}`).then(setDetail).catch(() => {}).finally(() => setLoading(false));
@@ -771,8 +776,8 @@ function ArDetailDrawer({
                   </button>
                 ) : (
                   <div style={actionGroupBox}>
-                    <CreateReceiptModal selectedAr={detail} onClose={() => setShowReceipt(false)} onCreated={() => {
-                      setShowReceipt(false); load(); onChanged();
+                    <CreateReceiptModal refreshKey={cashRefreshKey} selectedAr={detail} onClose={() => setShowReceipt(false)} onCreated={() => {
+                      setCashRefreshKey(k => k + 1); setShowReceipt(false); load(); onChanged();
                     }} />
                   </div>
                 )}
@@ -810,7 +815,8 @@ function ArDetailDrawer({
       </div>
 
       {/* 收款 Modal 浮在抽屉外层 */}
-      {showReceipt && detail && <CreateReceiptModal selectedAr={detail} onClose={() => setShowReceipt(false)} onCreated={() => {
+      {showReceipt && detail && <CreateReceiptModal refreshKey={cashRefreshKey} selectedAr={detail} onClose={() => setShowReceipt(false)} onCreated={() => {
+      setCashRefreshKey(k => k + 1);
       setShowReceipt(false);
       load();
       onChanged();
@@ -863,6 +869,7 @@ export default function Finance2ArPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [selectedInvId, setSelectedInvId] = useState<string | null>(() => typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('invoiceId'));
+  const [cashRefreshKey, setCashRefreshKey] = useState(0);
   const PAGE_SIZE = 20;
 
   // ── 数据加载 ────────────────────────────────────────────────────────────────
@@ -1290,7 +1297,8 @@ export default function Finance2ArPage() {
       loadInvoices(1);
       loadSummary();
     }} />}
-      {showReceipt && <CreateReceiptModal onClose={() => setShowReceipt(false)} onCreated={() => {
+      {showReceipt && <CreateReceiptModal refreshKey={cashRefreshKey} onClose={() => setShowReceipt(false)} onCreated={() => {
+      setCashRefreshKey(k => k + 1);
       loadReceipts(1);
       loadSummary();
       setTab('receipts');

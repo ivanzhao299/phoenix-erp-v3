@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { cachedGet, invalidateCache, TTL } from '@/lib/request-cache';
+import { cachedGet, invalidateBatchLookups, invalidateCache, invalidateCashAccountLookups, TTL } from '@/lib/request-cache';
 
 /**
  * 通用取数缓存：并发去重 + TTL 命中 + 失败不缓存 + 前缀失效。
@@ -70,6 +70,35 @@ describe('cachedGet — failure not cached', () => {
 });
 
 describe('invalidateCache — prefix matching', () => {
+  it('invalidates every cash-account query and no unrelated lookup', async () => {
+    const cashCny = vi.fn().mockResolvedValue('cny');
+    const cashUsd = vi.fn().mockResolvedValue('usd');
+    const customer = vi.fn().mockResolvedValue('customer');
+    await cachedGet('lookup:/lookup/cash-accounts?currency=CNY', 10_000, cashCny);
+    await cachedGet('lookup:/lookup/cash-accounts?currency=USD&company=C1', 10_000, cashUsd);
+    await cachedGet('lookup:/lookup/customers', 10_000, customer);
+
+    invalidateCashAccountLookups();
+    await cachedGet('lookup:/lookup/cash-accounts?currency=CNY', 10_000, cashCny);
+    await cachedGet('lookup:/lookup/cash-accounts?currency=USD&company=C1', 10_000, cashUsd);
+    await cachedGet('lookup:/lookup/customers', 10_000, customer);
+
+    expect(cashCny).toHaveBeenCalledTimes(2);
+    expect(cashUsd).toHaveBeenCalledTimes(2);
+    expect(customer).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalidates batch lookups without evicting other lookups', async () => {
+    const batches = vi.fn().mockResolvedValue('batches');
+    const warehouses = vi.fn().mockResolvedValue('warehouses');
+    await cachedGet('lookup:/lookup/batches', 10_000, batches);
+    await cachedGet('lookup:/lookup/warehouses', 10_000, warehouses);
+    invalidateBatchLookups();
+    await cachedGet('lookup:/lookup/batches', 10_000, batches);
+    await cachedGet('lookup:/lookup/warehouses', 10_000, warehouses);
+    expect(batches).toHaveBeenCalledTimes(2);
+    expect(warehouses).toHaveBeenCalledTimes(1);
+  });
   it('invalidates only keys matching the prefix', async () => {
     const dictLoader = vi.fn().mockResolvedValue('dict');
     const lookupLoader = vi.fn().mockResolvedValue('lookup');

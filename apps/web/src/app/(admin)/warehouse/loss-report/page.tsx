@@ -11,6 +11,7 @@ import { Plus, CheckCircle } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { invalidateBatchLookups } from "@/lib/request-cache";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, moneyCell,
@@ -196,6 +197,7 @@ export default function LossReportPage() {
         reason: approveTarget.reason,
       }),
     });
+    invalidateBatchLookups();
     setApproveOpen(false);
     refresh();
   }, [approveTarget, refresh]);
@@ -304,7 +306,7 @@ export default function LossReportPage() {
     }} onNew={canCreateInout ? openNew : undefined} onEdit={canEditInout ? openEdit : undefined} onDelete={canDeleteInout ? handleDelete : undefined} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无报损记录点击新建报损单开始记录", "暂无报损记录，点击「新建报损单」开始记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑报损单", "编辑报损单") : t("ui.新建报损单", "新建报损单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+        <CrudForm fields={FIELDS} batchRefreshKey={refreshKey} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")} onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />

@@ -14,6 +14,7 @@ import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字
 import { CustomerSelector, StoreMembershipSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CreateStoreSaleResult, createStoreSaleSuccessMessage, loadStorePosContexts, storePosRequest } from '@/lib/store-pos-api';
+import { invalidateCashAccountLookups } from '@/lib/request-cache';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -282,6 +283,7 @@ export default function StorePosPage() {
   const [paidAmount, setPaidAmount] = useState('');
   const [payMethod, setPayMethod] = useState('CASH');
   const [processing, setProcessing] = useState(false);
+  const [cashRefreshKey, setCashRefreshKey] = useState(0);
 
   // ── 销售记录 ──────────────────────────────────────────────────────────────
   const [sales, setSales] = useState<SaleRecord[]>([]);
@@ -460,6 +462,8 @@ export default function StorePosPage() {
     setReturning(true);
     try {
       await api('POST', `/api/v2/store-sales/${returnTarget.id}/return`, { reason });
+      invalidateCashAccountLookups();
+      setCashRefreshKey(k => k + 1);
       showToast(`${t('ui.已退货','已退货')} ${returnTarget.sale_no} · ${t('terminal.pos_quarantine_notice','已入隔离区待质检')}`, 'success');
       setReturnTarget(null);
       setReturnReason('');
@@ -623,6 +627,10 @@ export default function StorePosPage() {
       showToast(createStoreSaleSuccessMessage(sale, {
         prefix: t('ui.销售单','销售单'), suffix: t('ui.开立成功','开立成功'),
       }), 'success');
+      if (payType !== 'CREDIT') {
+        invalidateCashAccountLookups();
+        setCashRefreshKey(k => k + 1);
+      }
       clearCart();
       loadSummary();
       loadCurrentShift();
@@ -1236,6 +1244,7 @@ export default function StorePosPage() {
             {payType !== 'CREDIT' && <div style={{ marginBottom: 10 }}>
                 <label style={{ fontSize: 12, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>{t('ui.收款账户 *','收款账户 *')}</label>
                 <CashAccountSelector
+                  refreshKey={cashRefreshKey}
                   valueField="id"
                   companyCode={companyCode || undefined}
                   currencyCode={cartCurrency || undefined}

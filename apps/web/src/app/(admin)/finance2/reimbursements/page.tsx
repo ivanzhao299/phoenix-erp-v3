@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { invalidateCashAccountLookups } from '@/lib/request-cache';
 import { currencySymbol } from '@/lib/currency';
 import {
   hasSufficientReimbursementBalance,
@@ -453,6 +454,7 @@ export default function ReimbursementsPage() {
 
       {/* 付款弹窗 */}
       {payTarget && <PayModal reimb={payTarget} onClose={() => setPayTarget(null)} onPaid={() => {
+      invalidateCashAccountLookups();
       setPayTarget(null);
       void load();
     }} />}

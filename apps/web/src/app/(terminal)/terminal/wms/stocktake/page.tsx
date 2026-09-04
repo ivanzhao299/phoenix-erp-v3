@@ -7,6 +7,7 @@ import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
 import { ClipboardCheck, ScanLine, RefreshCw, X } from 'lucide-react';
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
+import { invalidateBatchLookups } from '@/lib/request-cache';
 
 const tok = () => {
   if (typeof window === 'undefined') return '';
@@ -109,6 +110,7 @@ export default function WmsStocktakeTerminalPage() {
       const { ok, json } = await api('/api/inventory/stocktake/pda-count', { method: 'POST', body: JSON.stringify({ lines }) });
       if (!ok || (json?.code && json.code >= 400)) { setError(json?.msg || t('terminal.wms_count_fail', '盘点提交失败')); return; }
       const applied = json?.applied ?? lines.length;
+      invalidateBatchLookups();
       setToast(`${t('terminal.wms_count_done', '盘点已入账')}：${applied} ${t('terminal.wms_lines', '项')}`);
       setCart([]);
       setActiveBatch(null);

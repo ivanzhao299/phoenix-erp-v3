@@ -152,3 +152,36 @@
 ## 6. 执行门槛
 
 本报告为核查轮结论，**尚未实施修复**。推荐方案须经主 agent 复核并通知用户确认后，才进入代码实施。
+
+## 7. 修复执行记录（2026-09-04）
+
+用户已确认“双层方案 + 批次同族一并修”，本节取代第 6 节的未实施状态。
+
+### 7.1 已实施
+
+- 公共层新增 `invalidateCashAccountLookups()` 与 `invalidateBatchLookups()`，分别按
+  `lookup:/lookup/cash-accounts`、`lookup:/lookup/batches` 前缀精确失效；保留原有
+  generation 栅栏与 in-flight 去重。
+- `ScopedSelect`、`CashAccountSelector`、`BatchSelector` 支持显式 `refreshKey`；值不变不重取，
+  值变化才重新运行 loader。`CrudForm` 通过 `batchRefreshKey` 将页面令牌传至批次选择器。
+- 资金余额成功路径已接入：AR 确认收款、采购付款执行、报销付款、资金调拨 execute、
+  股东返还结算 execute、Admin/Terminal POS CASH/MIXED 与整单退款、资金账户流水增改删/
+  批删/改挂，以及账户新建/编辑/冻结/恢复/关闭/余额重算。草稿、提交审批、驳回等未接入。
+- 批次余量成功路径已接入：管理端入库确认、出库确认、调拨 dispatch/receive、扫码签收、
+  盘点审批入账、报损审批、销售退货完成回库，以及 Terminal 入库、出库、盘点入账。
+  质检 CRUD 与调拨草稿创建未接入。
+
+### 7.2 已执行验证
+
+- Web TypeScript：PASS（0 errors）。
+- API TypeScript：PASS（0 errors）。
+- Web Vitest 全量：PASS，105 files / 567 tests。
+- 专项缓存与选择器：PASS，23 tests；覆盖两类 prefix 精确失效、非目标 lookup 不受影响、
+  generation 竞态、相同 refreshKey 不请求、refreshKey 变化后新 GET 与余额 label 更新。
+- WMS / Procurement DataScope 写门禁：PASS。
+- constraint drift：PASS（0 new drift；1 条既有 allowlist）。
+- `git diff --check`：PASS。
+- UI audit 为存量统计型检查：本次未新增其所列硬编码颜色或原生弹窗问题。
+
+页面真实金额方向、Network 响应/UI label 一致性与生产权威端点一致性属于部署后只读/UAT
+项目，不用 mock 结果替代；CI、PR、full 部署、revision 和生产只读错误窗口结果将在本节继续追加。

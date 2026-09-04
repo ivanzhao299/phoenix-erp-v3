@@ -16,6 +16,7 @@ import {
   getWarehouseInboundConfirmKeyword,
 } from "@/lib/warehouse-inbound";
 import { formatMasterData } from "@/lib/business-display";
+import { invalidateBatchLookups } from "@/lib/request-cache";
 import { masterNameWithCode } from "@/lib/localized-master-data";
 // g200e 模板 token(2026-06-20)
 import {
@@ -151,6 +152,7 @@ export default function InboundPage() {
       }
       setApproveOpen(false);
       setApproveTarget(null);
+      invalidateBatchLookups();
       refresh();
     } catch (e) {
       const err = e as ApiError;
@@ -236,7 +238,7 @@ export default function InboundPage() {
       />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑入库单", "编辑入库单") : t("ui.新建入库单", "新建入库单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+        <CrudForm fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("ui.确认删除", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}

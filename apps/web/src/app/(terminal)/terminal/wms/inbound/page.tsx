@@ -7,6 +7,7 @@ import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
 import { PackagePlus, ScanLine, RefreshCw } from 'lucide-react';
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
+import { invalidateBatchLookups } from '@/lib/request-cache';
 
 // ── token（与 mobile-api 一致的取值链）────────────────────────────────────────
 const tok = () => {
@@ -141,6 +142,7 @@ export default function WmsInboundTerminalPage() {
         return;
       }
       setToast(`${t('terminal.wms_inbound_done', '入库完成')}：${selected.task_no}`);
+      invalidateBatchLookups();
       setSelected(null);
       setEdits({});
       setNumTarget(null);
