@@ -194,3 +194,15 @@
   不含 migration、entity、schema、后端余额/库存语义、RBAC 或部署链变更。
 - 本地以显式授权运行 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 的 W5 closeout：
   20/20 PASS；PR 已登记 `reviewed-frozen-boundary`，由新的 PR 事件重跑冻结门禁。
+
+### 7.4 合并与部署
+
+- PR #180：7 项检查全部通过后合并。
+- main merge revision：`f68947d64b8b27d827392bded6279d3fb7d904f3`。
+- full 部署 run：`33844190077`，TypeScript、约束/迁移、entity drift、system/breeding/
+  packaging/WMS/finance 回归、API/Web 镜像构建、SSH 部署、Nginx reload 与 Web smoke 全部通过。
+- 部署完成时间：2026-09-04 14:30:36（Asia/Singapore）。
+
+部署后只读复验使用专用 SQL + HTTP manifest：校验 checkout/API/Web revision 三方一致、
+资金账户 `current_balance = opening_balance + signed transactions`、资金/批次权威 lookup 字段，
+以及 60 分钟 lookup 错误窗口；执行结果继续追加于下节。
