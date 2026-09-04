@@ -14,6 +14,7 @@ import apiRequest from "@/lib/api-client";
 import { OUTBOUND_DESTINATIONS, validateOutboundItem, validateOutboundQuantity } from "@/lib/warehouse-outbound";
 import { formatMasterData } from "@/lib/business-display";
 import { masterNameWithCode } from "@/lib/localized-master-data";
+import { invalidateBatchLookups } from "@/lib/request-cache";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
@@ -252,6 +253,7 @@ export default function OutboundPage() {
       await apiRequest(`/outbound/standalone/${encodeURIComponent(outboundNo)}/confirm`, {
         method: "POST",
       });
+      invalidateBatchLookups();
       refresh();
     } finally {
       setConfirmingNo("");
@@ -339,7 +341,7 @@ export default function OutboundPage() {
       />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑出库单", "编辑出库单") : t("ui.新建出库单", "新建出库单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+        <CrudForm fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("ui.确认删除", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}

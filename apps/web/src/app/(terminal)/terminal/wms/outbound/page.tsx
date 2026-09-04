@@ -7,6 +7,7 @@ import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
 import { PackageMinus, ScanLine, RefreshCw } from 'lucide-react';
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
+import { invalidateBatchLookups } from '@/lib/request-cache';
 
 const tok = () => {
   if (typeof window === 'undefined') return '';
@@ -135,6 +136,7 @@ export default function WmsOutboundTerminalPage() {
       });
       if (!ok || (json?.code && json.code >= 400)) { setError(json?.msg || t('terminal.wms_ship_fail', '出库失败')); return; }
       setToast(`${t('terminal.wms_shipped', '已出库装车')}：${selected.order_no}`);
+      invalidateBatchLookups();
       setSelected(null);
       setEdits({});
       setNumLine(null);

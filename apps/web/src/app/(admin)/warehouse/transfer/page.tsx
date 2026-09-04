@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDictOptions } from "@/hooks/useDictOptions";
 import { formatMasterData } from "@/lib/business-display";
 import { masterNameWithCode } from "@/lib/localized-master-data";
+import { invalidateBatchLookups } from "@/lib/request-cache";
 // g200e 模板 token(2026-06-20)
 import { StatusBadge } from "@/components/design-system/status/StatusBadge";
 import {
@@ -217,6 +218,7 @@ export default function TransferPage() {
       method: "POST",
       body: JSON.stringify(action === "receive" ? { receive_all: true } : {}),
     });
+    invalidateBatchLookups();
     refresh();
   }
 
@@ -228,6 +230,7 @@ export default function TransferPage() {
       method: "POST",
       body: JSON.stringify({ receive_all: true })
     });
+    invalidateBatchLookups();
     refresh();
     setScanCode("");
   }, [scanCode, refresh, canOperateTransfer]);
@@ -284,7 +287,7 @@ export default function TransferPage() {
       <DataTable table={TABLE} columns={COLUMNS} params={tableParams} refreshKey={refreshKey} emptyText={t("ui.暂无调拨记录", "暂无调拨记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={t("ui.新建调拨单", "新建调拨单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} initialValues={{ operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+        <CrudForm fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
     </div>;
 }

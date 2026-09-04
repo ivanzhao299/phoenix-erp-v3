@@ -45,6 +45,8 @@ interface BaseProps {
   disabled?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  /** 写后刷新令牌；值变化才重新执行 loader。 */
+  refreshKey?: string | number;
 }
 
 const selStyle: React.CSSProperties = {
@@ -55,7 +57,7 @@ const selStyle: React.CSSProperties = {
 /** 通用：从端点加载 {value,label} 选项的下拉 */
 function ScopedSelect({
   value, onChange, onPick, placeholder, disabled, className, style,
-  loader, reloadDeps, emptyMessage, errorMessage,
+  loader, reloadDeps, emptyMessage, errorMessage, refreshKey,
 }: BaseProps & {
   loader: () => Promise<Opt[]>;
   reloadDeps?: any[];
@@ -70,7 +72,7 @@ function ScopedSelect({
 
   // 定长依赖键：序列化 reloadDeps 成单一字符串，避免同一 JSX 槽位在不同 Selector
   // （如付款人=公司↔股东）间复用 fiber 时依赖数组长度变化触发 React 警告。
-  const reloadKey = JSON.stringify(reloadDeps ?? []);
+  const reloadKey = JSON.stringify([...(reloadDeps ?? []), refreshKey]);
   useEffect(() => {
     let alive = true;
     setLoading(true);

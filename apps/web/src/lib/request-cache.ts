@@ -54,6 +54,13 @@ export function invalidateCache(prefix?: string): void {
   }
 }
 
+/** 余额/余量写成功后的精确 lookup 失效入口。 */
+export const invalidateCashAccountLookups = (): void =>
+  invalidateCache('lookup:/lookup/cash-accounts');
+
+export const invalidateBatchLookups = (): void =>
+  invalidateCache('lookup:/lookup/batches');
+
 /** 常用 TTL（毫秒） */
 export const TTL = {
   dict: 5 * 60_000,      // 字典 5min（与后端 lookup 缓存同量级）

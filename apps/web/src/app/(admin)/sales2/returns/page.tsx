@@ -14,6 +14,7 @@ import { usePermission } from '@/hooks/usePermission'; // H1 修:退货页按钮
 import { CompanySelector, CustomerSelector, SkuSelector, WarehouseSelector, ZoneSelector, LocationSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 import { useLanguage } from "@/contexts/LanguageContext";
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
+import { invalidateBatchLookups } from '@/lib/request-cache';
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -769,6 +770,7 @@ function ReturnOrdersTab() {
     setActionLoading(id + action);
     try {
       await api('POST', `/api/v2/sales/returns/${id}/${action}`, body);
+      if (action === 'complete-restock') invalidateBatchLookups();
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : t('ui.操作失败','操作失败'));
@@ -1299,6 +1301,7 @@ function RestockTab() {
         targetZoneCode: target.zone,
         targetLocationCode: target.location,
       });
+      invalidateBatchLookups();
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : t('ui.操作失败','操作失败'));

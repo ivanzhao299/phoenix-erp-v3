@@ -13,6 +13,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatMasterData } from "@/lib/business-display";
 import { masterNameWithCode } from "@/lib/localized-master-data";
+import { invalidateBatchLookups } from "@/lib/request-cache";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, secondaryActionButton, actionPill, moneyCell,
@@ -233,6 +234,7 @@ export default function StocktakePage() {
         item: approveTarget.item,
       }),
     });
+    invalidateBatchLookups();
     setApproveOpen(false);
     refresh();
   }, [approveTarget, refresh]);
@@ -374,7 +376,7 @@ export default function StocktakePage() {
       <DataTable table={TABLE} columns={COLUMNS} onNew={canCreateInout ? openNew : undefined} onEdit={canEditInout ? openEdit : undefined} onDelete={canDeleteInout ? handleDelete : undefined} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无盘点记录", "暂无盘点记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑盘点单", "编辑盘点单") : t("ui.新建盘点单", "新建盘点单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+        <CrudForm fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")} onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />

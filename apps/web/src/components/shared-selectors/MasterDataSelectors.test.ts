@@ -11,7 +11,7 @@ vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: (_key: string, fallback: string) => fallback, lang: language.current }),
 }));
 
-import { CompanySelector, CustomerSelector, LocationSelector, StoreMembershipSelector, WarehouseSelector, ZoneSelector } from './MasterDataSelectors';
+import { CashAccountSelector, CompanySelector, CustomerSelector, LocationSelector, StoreMembershipSelector, WarehouseSelector, ZoneSelector } from './MasterDataSelectors';
 import { invalidateCache } from '@/lib/request-cache';
 
 // React 19 uses this flag to suppress false-positive act environment warnings.
@@ -32,6 +32,25 @@ describe('WMS status-vocabulary selectors', () => {
     host = document.createElement('div');
     document.body.appendChild(host);
     root = createRoot(host);
+  });
+
+  it('reloads a cash-account selector only when refreshKey changes', async () => {
+    requestMock.mockResolvedValue({ data: [{ id: '1', accountCode: 'CASH', accountName: '现金', currencyCode: 'CNY', currentBalance: 1000 }] });
+    const props = { value: '', onChange: () => undefined, companyCode: 'C1', currencyCode: 'CNY', refreshKey: 0 };
+    await act(async () => root.render(createElement(CashAccountSelector, props)));
+    await flush();
+    expect(requestMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => root.render(createElement(CashAccountSelector, { ...props })));
+    await flush();
+    expect(requestMock).toHaveBeenCalledTimes(1);
+
+    invalidateCache('lookup:/lookup/cash-accounts');
+    requestMock.mockResolvedValue({ data: [{ id: '1', accountCode: 'CASH', accountName: '现金', currencyCode: 'CNY', currentBalance: 1500 }] });
+    await act(async () => root.render(createElement(CashAccountSelector, { ...props, refreshKey: 1 })));
+    await flush();
+    expect(requestMock).toHaveBeenCalledTimes(2);
+    expect(host.textContent).toContain('1,500.00');
   });
 
   afterEach(async () => {

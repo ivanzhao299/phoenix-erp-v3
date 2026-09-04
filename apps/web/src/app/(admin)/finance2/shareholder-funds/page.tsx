@@ -11,6 +11,7 @@ import { ManagedAttachmentUploader, ModalV2, DrawerV2, ConfirmDialogV2, LoadingS
 import { usePermission } from '@/hooks/usePermission';
 import { useAuth } from '@/contexts/AuthContext';
 import { currencySymbol } from '@/lib/currency';
+import { invalidateCashAccountLookups } from '@/lib/request-cache';
 
 import {
   primaryActionButton, secondaryActionButton, inputField, inputFieldClass, formLabel,
@@ -550,6 +551,7 @@ function ContributionDrawer({
         setActionErr(d.message ?? t('fin2.common.op_failed','操作失败'));
         return;
       }
+      if (action === 'execute') invalidateCashAccountLookups();
       await loadDetail();
       onRefresh();
     } finally {

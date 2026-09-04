@@ -17,6 +17,7 @@ import {
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { ConfirmDialogV2 } from '@/components/design-system/dialogs/ConfirmDialogV2';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { invalidateCashAccountLookups } from '@/lib/request-cache';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -817,6 +818,7 @@ export default function CashAccountsPage() {
         alert(d.message ?? t('fin2.common.op_failed','操作失败'));
         return;
       }
+      invalidateCashAccountLookups();
       await load();
     } finally {
       setActionLoading(null);
@@ -1056,16 +1058,18 @@ export default function CashAccountsPage() {
         </div>}
 
       {showCreate && <CreateAccountModal onClose={() => setShowCreate(false)} onCreated={() => {
+      invalidateCashAccountLookups();
       setShowCreate(false);
       void load();
     }} />}
 
       {editAccount && <EditAccountModal account={editAccount} onClose={() => setEditAccount(null)} onSaved={() => {
+      invalidateCashAccountLookups();
       setEditAccount(null);
       void load();
     }} />}
 
-      {selectedAccount && <TransactionDrawer account={selectedAccount} accounts={accounts} canEdit={canEditAccount} canEditTxn={canEditTxn} canDeleteTxn={canDeleteTxn} onChanged={() => void load()} onClose={() => setSelectedAccount(null)} />}
+      {selectedAccount && <TransactionDrawer account={selectedAccount} accounts={accounts} canEdit={canEditAccount} canEditTxn={canEditTxn} canDeleteTxn={canDeleteTxn} onChanged={() => { invalidateCashAccountLookups(); void load(); }} onClose={() => setSelectedAccount(null)} />}
 
       {/* 手工录流水模态 — 出纳日常 */}
       {txnModal && <ManualTxnModal direction={txnModal.direction} accounts={accounts} onClose={() => {
@@ -1075,6 +1079,7 @@ export default function CashAccountsPage() {
         url.searchParams.delete('action');
         window.history.replaceState({}, '', url.toString());
       }} onCreated={() => {
+        invalidateCashAccountLookups();
         setTxnModal(null);
         const url = new URL(window.location.href);
         url.searchParams.delete('action');

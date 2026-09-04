@@ -68,6 +68,7 @@ interface CrudFormProps {
   onCancel: () => void;
   loading?: boolean;
   submitLabel?: string;
+  batchRefreshKey?: string | number;
 }
 
 function buildInitValues(
@@ -89,6 +90,7 @@ export const CrudForm = memo(function CrudForm({
   onCancel,
   loading,
   submitLabel: _submitLabel,
+  batchRefreshKey,
 }: CrudFormProps) {
   const { t } = useLanguage();
   const submitLabel = _submitLabel ?? t('common.save', '保存');
@@ -304,6 +306,7 @@ export const CrudForm = memo(function CrudForm({
                 companyCode={field.filterBy?.companyField ? String(values[field.filterBy.companyField] ?? "") : field.filterBy?.companyCode} />
             ) : field.type === "batch" ? (
               <BatchSelector
+                refreshKey={batchRefreshKey}
                 value={String(values[field.key] ?? "")}
                 onChange={v => set(field.key, v)}
                 onPick={o => {
