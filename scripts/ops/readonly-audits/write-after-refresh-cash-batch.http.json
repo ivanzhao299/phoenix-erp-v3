@@ -1,0 +1,22 @@
+[
+  {
+    "name": "admin-cash-account-authoritative-lookup",
+    "username": "admin",
+    "path": "/api/lookup/cash-accounts",
+    "scopeMenu": "MENU_FIN2_CASH_VIEW",
+    "expectedStatus": 200,
+    "allowNoData": true,
+    "minDataLength": 0,
+    "requiredNonEmptyFields": ["accountCode", "accountName", "companyCode", "currencyCode", "currentBalance"]
+  },
+  {
+    "name": "admin-positive-batch-authoritative-lookup",
+    "username": "admin",
+    "path": "/api/lookup/batches",
+    "scopeMenu": "MENU_MD_WAREHOUSE",
+    "expectedStatus": 200,
+    "allowNoData": true,
+    "minDataLength": 0,
+    "requiredNonEmptyFields": ["batch_no", "qty_available", "warehouse_code"]
+  }
+]
