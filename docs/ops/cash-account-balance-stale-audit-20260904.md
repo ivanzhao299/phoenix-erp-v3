@@ -185,3 +185,12 @@
 
 页面真实金额方向、Network 响应/UI label 一致性与生产权威端点一致性属于部署后只读/UAT
 项目，不用 mock 结果替代；CI、PR、full 部署、revision 和生产只读错误窗口结果将在本节继续追加。
+
+### 7.3 CI / 冻结边界复核
+
+- PR #180 已建立。首轮 Runtime Smoke、Web Vitest、V3 regression、Type-check & Regression、
+  Typecheck/Build/Basic Tests 均通过。
+- 首轮冻结探针按设计阻断 `apps/web` 变更；已逐文件确认仅触及本任务授权的前端写后刷新范围，
+  不含 migration、entity、schema、后端余额/库存语义、RBAC 或部署链变更。
+- 本地以显式授权运行 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 的 W5 closeout：
+  20/20 PASS；PR 已登记 `reviewed-frozen-boundary`，由新的 PR 事件重跑冻结门禁。
