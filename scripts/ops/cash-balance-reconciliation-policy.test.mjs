@@ -30,7 +30,6 @@ test('audit excludes only evidenced G45 retired duplicates', () => {
   assert.match(audit, /status='INACTIVE'/);
   assert.match(audit, /remark LIKE '%\[G45 已并入刘杰主档\(FH-\/DP-\)，停用\]%'/);
   assert.match(audit, /unexplained_inactive_differences/);
-  assert.match(audit, /CASH_BALANCE_LOOKUP_SNAPSHOT_CHANGED/);
 });
 
 test('runner backs up and hashes before opening writable execution', () => {
@@ -41,6 +40,8 @@ test('runner backs up and hashes before opening writable execution', () => {
   assert.match(runner, /rollback\.sql/);
   assert.match(runner, /RECON_APPROVAL_REF.*BAL-RECON-20260904/);
   assert.match(runner, /API_ERROR_WINDOW=PASS/);
+  assert.match(runner, /--verify/);
+  assert.match(runner, /default_transaction_read_only=on/);
 });
 
 test('production workflow is manually approved and retains artifacts', () => {

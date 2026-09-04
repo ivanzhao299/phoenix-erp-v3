@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Rehearse rolls back; execute commits the approved repair
+        description: Verify is read-only; rehearse rolls back; execute commits
         required: true
         default: rehearse
         type: choice
-        options: [rehearse, execute]
+        options: [verify, rehearse, execute]
       approve_production:
         description: Type APPROVE-BAL-RECON-20260904
         required: true
