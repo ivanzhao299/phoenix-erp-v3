@@ -26,7 +26,7 @@ BEGIN
   WITH chain AS (
     SELECT t.id, t.account_code, t.balance_after,
            a.opening_balance
-             + SUM(CASE WHEN t.direction = 'IN' THEN t.amount ELSE -t.amount END)
+             + SUM(CASE WHEN t.source_type = 'OPENING' THEN 0 WHEN t.direction = 'IN' THEN t.amount ELSE -t.amount END)
                OVER (PARTITION BY t.account_code ORDER BY t.txn_date, t.id) AS expected_balance
       FROM fin_cash_transactions t
       JOIN fin_cash_accounts a ON a.account_code = t.account_code
@@ -39,7 +39,7 @@ BEGIN
    WHERE a.status = 'ACTIVE'
      AND a.current_balance IS DISTINCT FROM
        a.opening_balance + COALESCE((
-         SELECT SUM(CASE WHEN t.direction = 'IN' THEN t.amount ELSE -t.amount END)
+         SELECT SUM(CASE WHEN t.source_type = 'OPENING' THEN 0 WHEN t.direction = 'IN' THEN t.amount ELSE -t.amount END)
            FROM fin_cash_transactions t WHERE t.account_code = a.account_code
        ), 0);
 
