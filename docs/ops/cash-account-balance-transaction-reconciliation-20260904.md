@@ -222,3 +222,16 @@ OPENING 的 `txn_date` 应固定为各目标首笔业务流水之前，并保留
 - Chanjet 只建零余额主档、不导事实：`apps/api/src/modules/chanjet/chanjet-erp-master-business-review.service.ts:1400-1420,1455-1484`
 - 上轮 21 账户生产只读发现：`docs/ops/cash-account-balance-stale-audit-20260904.md:219-224`
 
+## 9. 执行记录（批准方案落地）
+
+### 9.1 本地工作区库演练与提交
+
+- 治理批次 / APPROVAL-REF：`BAL-RECON-20260904`。
+- 回滚演练 run：`local-20260904T071830Z`。备份 SHA-256 校验、11 对映射、22 个账户锁定、来源/目标状态、公司币种、来源无流水、目标 93 笔业务流水、反推期初、修前快照、无既有 OPENING 均通过；写后 11 个公式零差异、原快照逐分不变、93 笔业务流水关键字段不变、11 笔 OPENING、全链连续均通过，最后 `ROLLBACK`；回滚后 OPENING 和非零目标期初残留均为 0。
+- 本地提交演练 run：`local-commit-20260904-fixed`。备份目录：`/tmp/phoenix-cash-balance-reconciliation-local-commit-20260904-fixed/`；账户 CSV 11 行、原业务流水 CSV 93 行；SHA-256：账户 `12d79e4e...899f2`、流水 `e6ee8046...b159`、回滚 SQL `072134b2...e76d`。
+- 提交后独立只读复验：ACTIVE 账户 `37`、非零差异 `0`；有精确 G45 remark 证据的 retired duplicate `17` 个排除；其他 INACTIVE 非零差异 `0`；11 个 lookup/current 快照逐分不变。
+- FH-10207 与其后续流水已按 `(txn_date,id)` 和签名金额重建；金额、方向、日期、账户归属、币种及期末 `279,843,132.53 LAK` 未改变。
+
+### 9.2 生产执行
+
+生产 workflow、备份归档、回滚 SQL 与独立只读公式门禁已纳入本次变更。生产 run 号、artifact/备份位置、断言输出和错误窗口结果须在受保护 workflow 实际执行后补录；在该 run 完成前不得标记生产修复完成。
