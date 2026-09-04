@@ -254,3 +254,6 @@ OPENING 的 `txn_date` 应固定为各目标首笔业务流水之前，并保留
 - `fin_cash_accounts` 有 `updated_at/updated_by`，但这是整行最后更新元数据，不是字段级审计；`sys_operation_logs` 也只覆盖被拦截器列入规则的高敏操作。生产只读 trace 将同时导出两者。若日志没有包含 `opening_balance` 的 before/after 事件，则具体写入者和写入时刻只能记为“来源不可考”，不能从最后更新时间或权限授权反推操作者。
 
 生产只读 trace、续批 execute、独立只读复验的 run ID、账户元数据、日志命中、426 笔 SHA-256、错误窗口与 artifact 地址在受保护 workflow 完成后补录。
+
+- 续批前只读 trace/verify run `33851173162`：11 个期初均精确命中证值；账户整行 `updated_by` 均为 `wangweihua`，其中 9 个最后更新时间为 2026-06-17 13:04:10 UTC、FH-10207 为 2026-06-18 02:29:27 UTC、DP-10 为 2026-09-04 07:11:23 UTC；`sys_operation_logs` 命中 0 行。由于 `updated_*` 会被任意账户余额刷新覆盖，DP-10 当日时间也直接证明它不是字段级审计，故最终结论为：账号线索指向 `wangweihua`，但 11 个期初的具体写入者/写入时刻来源不可考。证据边界是账户最后更新元数据、零条操作日志、上述 git/run 时间线。
+- 首次续批 execute run `33851277448`：备份及 SHA-256 校验通过，在任何 INSERT 前因脚本额外检查了未获批改写的 DP-10/FH-101 历史派生链而拒绝，事务随 `ON_ERROR_STOP` 连接退出回滚。用户批准的硬边界是 426 笔业务流水哈希不变且只显式要求 FH-10207 链连续，因此该超范围门禁已收窄；DP-10/FH-101 的历史 `balance_after` 缺口独立留档，不在本次只新增 OPENING 的修复范围内。

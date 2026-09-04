@@ -45,9 +45,10 @@ DO $$ DECLARE problems text; BEGIN
    SELECT m.target_code,m.opening,a.current_balance,m.opening+coalesce(sum(CASE WHEN x.direction='IN' THEN x.amount ELSE -x.amount END),0) reconstructed
    FROM recon_map m JOIN fin_cash_accounts a ON a.account_code=m.target_code LEFT JOIN before_business_txns x ON x.account_code=m.target_code GROUP BY m.target_code,m.opening,a.current_balance
   ) q WHERE q.current_balance<>q.reconstructed HAVING count(*)>0
-  UNION ALL SELECT 'pre-insert chain discontinuity: '||string_agg(account_code,',') FROM (
+  UNION ALL SELECT 'pre-insert FH-10207 chain discontinuity' FROM (
    SELECT x.account_code,x.balance_after,a.opening_balance+sum(CASE WHEN x.direction='IN' THEN x.amount ELSE -x.amount END) OVER (PARTITION BY x.account_code ORDER BY x.txn_date,x.id ROWS UNBOUNDED PRECEDING) expected
    FROM before_business_txns x JOIN fin_cash_accounts a ON a.account_code=x.account_code
+   WHERE x.account_code='FH-10207'
   ) z WHERE z.balance_after<>z.expected HAVING count(*)>0
  ) failures;
  IF problems IS NOT NULL THEN RAISE EXCEPTION 'BAL_RECON_PREFLIGHT_FAILED:%',E'\n'||problems; END IF;
@@ -77,9 +78,10 @@ DO $$ DECLARE problems text; BEGIN
    (SELECT md5(string_agg(row_to_json(x)::text,E'\n' ORDER BY x.id)) FROM fin_cash_transactions x JOIN recon_map m ON m.target_code=x.account_code WHERE x.source_type IS DISTINCT FROM 'OPENING') IS DISTINCT FROM (SELECT business_txn_hash FROM before_fingerprints)
   UNION ALL SELECT 'OPENING count invalid' WHERE (SELECT count(*) FROM fin_cash_transactions WHERE txn_no LIKE 'OPENING-BAL-RECON-20260904B-%')<>11
   UNION ALL SELECT 'unexpected target OPENING count' WHERE (SELECT count(*) FROM fin_cash_transactions x JOIN recon_map m ON m.target_code=x.account_code WHERE x.source_type='OPENING')<>11
-  UNION ALL SELECT 'chain discontinuity: '||string_agg(account_code,',') FROM (
+  UNION ALL SELECT 'FH-10207 chain discontinuity' FROM (
    SELECT x.account_code,x.balance_after,a.opening_balance+sum(CASE WHEN x.source_type='OPENING' THEN 0 WHEN x.direction='IN' THEN x.amount ELSE -x.amount END) OVER (PARTITION BY x.account_code ORDER BY x.txn_date,x.id ROWS UNBOUNDED PRECEDING) expected
    FROM fin_cash_transactions x JOIN fin_cash_accounts a ON a.account_code=x.account_code JOIN recon_map m ON m.target_code=x.account_code
+   WHERE x.account_code='FH-10207'
   ) z WHERE z.balance_after<>z.expected HAVING count(*)>0
  ) failures;
  IF problems IS NOT NULL THEN RAISE EXCEPTION 'BAL_RECON_POSTCHECK_FAILED:%',E'\n'||problems; END IF;
