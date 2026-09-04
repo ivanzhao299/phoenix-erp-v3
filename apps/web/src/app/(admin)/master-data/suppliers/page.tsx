@@ -34,7 +34,8 @@ export default function SupplierRuntimePage() {
         fields={SUPPLIER_FIELDS}
         columns={[
           { key: "supplier_name", label: t('md.supplierName', '供应商名称') },
-          { key: "supplier_type", label: t('md.type', '类型'), displayKind: "supplierType" },
+          { key: "supply_category", label: t('md.supplyCategory', '供应品类') },
+          { key: "sourcing_type", label: t('md.sourcingType', '采购地域') },
           { key: "country_code", label: t('md.country', '国家') },
           { key: "contact_name", label: t('md.contactName', '联系人') },
           { key: "default_currency", label: t('md.currency', '币种') },

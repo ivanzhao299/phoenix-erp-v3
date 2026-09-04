@@ -268,15 +268,16 @@ export function UserSelector(p: BaseProps & {
 
 // ── 仓库（wms_warehouses，G5-B 切 /api/lookup，G15 支持 type 过滤）─────────────
 // type 枚举：EGG_FARM / EGG_SALES / MEDICINE / FEED / RAW_MATERIAL / PURCHASE_RECV / FINISHED
-export function WarehouseSelector(p: BaseProps & { companyCode?: string; siteCode?: string; type?: string }) {
+export function WarehouseSelector(p: BaseProps & { companyCode?: string; siteCode?: string; type?: string; facilityClass?: string }) {
   const { t, lang } = useLanguage();
-  const { companyCode, siteCode, type, ...rest } = p;
-  return <ScopedSelect {...rest} reloadDeps={[companyCode, siteCode, type, lang]} placeholder={p.placeholder ?? t('ui.请选择仓库','请选择仓库')}
+  const { companyCode, siteCode, type, facilityClass, ...rest } = p;
+  return <ScopedSelect {...rest} reloadDeps={[companyCode, siteCode, type, facilityClass, lang]} placeholder={p.placeholder ?? t('ui.请选择仓库','请选择仓库')}
     loader={async () => {
       const qs = new URLSearchParams();
       if (companyCode) qs.set('companyCode', companyCode);
       if (siteCode)    qs.set('siteCode',    siteCode);
       if (type)        qs.set('type',        type);
+      if (facilityClass) qs.set('facilityClass', facilityClass);
       const url = qs.toString() ? `/lookup/warehouses?${qs.toString()}` : '/lookup/warehouses';
       const list = await lookupArr<any>(url);
       return (Array.isArray(list) ? list : [])

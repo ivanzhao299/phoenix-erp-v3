@@ -4,13 +4,8 @@ import type { MdField } from "@/components/master-data/MasterDataRuntimePanel";
 export const SUPPLIER_FIELDS: MdField[] = [
   { key: "supplier_name",    label: "供应商名称", required: true, group: "基本信息" },
   { key: "supplier_name_en", label: "英文名称",   group: "基本信息" },
-  { key: "supplier_type",    label: "供应商类型", type: "select", displayKind: "supplierType", group: "基本信息",
-    options: [
-      { value: "LOCAL", label: "本地" }, { value: "OVERSEAS", label: "海外" }, { value: "AGENT", label: "代理" },
-      { value: "RAW_MATERIAL", label: "原材料" }, { value: "PACKAGING", label: "包装" }, { value: "FEED", label: "饲料" },
-      { value: "MEDICINE", label: "兽药" }, { value: "EQUIPMENT", label: "设备" }, { value: "CHICK", label: "鸡苗" },
-      { value: "VACCINE", label: "疫苗" }, { value: "VETERINARY", label: "兽医用品" }, { value: "OTHER", label: "其他" },
-    ] },
+  { key: "supply_category", label: "供应品类", dictType: "SUPPLIER_SUPPLY_CATEGORY", required: true, group: "基本信息" },
+  { key: "sourcing_type", label: "采购地域", dictType: "SUPPLIER_SOURCING_TYPE", required: true, group: "基本信息" },
   { key: "country_code",     label: "国家",       dictType: "SYS_COUNTRY", group: "基本信息" },
   { key: "contact_name",     label: "联系人",     group: "联系方式" },
   { key: "contact_phone",    label: "联系电话",   group: "联系方式" },

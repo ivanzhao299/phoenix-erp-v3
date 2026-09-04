@@ -543,6 +543,7 @@ export class LookupController {
     @Query('companyCode') companyCode?: string,
     @Query('siteCode') siteCode?: string,
     @Query('type') type?: string,
+    @Query('facilityClass') facilityClass?: string,
   ) {
     const scope = await this.resolveCompanyScope('MENU_MD_WAREHOUSE');
     if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: [] };
@@ -551,6 +552,7 @@ export class LookupController {
     if (companyCode) { params.push(companyCode); conds.push(`company_code=$${params.length}`); }
     if (siteCode)    { params.push(siteCode);    conds.push(`site_code=$${params.length}`); }
     if (type)        { params.push(type);        conds.push(`type=$${params.length}`); }
+    if (facilityClass) { params.push(facilityClass); conds.push(`facility_class=$${params.length}`); }
     if (!scope.isGlobal) {
       if (scope.warehouseCodes.length === 0) return { code: 200, data: [] };
       params.push(scope.warehouseCodes);
@@ -563,7 +565,7 @@ export class LookupController {
               warehouse_name_en AS "warehouseNameEn",
               warehouse_name_lo AS "warehouseNameLo",
               company_code AS "companyCode", site_code AS "siteCode",
-              type AS "warehouseType", domain, status
+              type AS "warehouseType", facility_class AS "facilityClass", capability, domain, status
          FROM wms_warehouses
          WHERE ${conds.join(' AND ')}
          ORDER BY warehouse_code`,

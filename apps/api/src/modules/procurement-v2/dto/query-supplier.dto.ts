@@ -7,6 +7,8 @@ export class QuerySupplierDto {
   @IsOptional() @IsString() supplierCode?: string;
   @IsOptional() @IsString() supplierName?: string;
   @IsOptional() @IsString() supplierType?: string;
+  @IsOptional() @IsString() supplyCategory?: string;
+  @IsOptional() @IsString() sourcingType?: string;
   @IsOptional() @IsString() countryCode?: string;
   @IsOptional() @IsString() defaultCurrency?: string;
   @IsOptional() @IsString() sharedScope?: string;

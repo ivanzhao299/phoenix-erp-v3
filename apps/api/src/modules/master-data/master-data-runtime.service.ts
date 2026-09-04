@@ -87,7 +87,7 @@ const TYPES: Record<string, MdTypeConfig> = {
   supplier: {
     table: 'prc2_suppliers', codeCol: 'supplier_code', nameCol: 'supplier_name',
     prefix: 'SUP', objectType: 'SUPPLIER',
-    writableCols: ['supplier_name','supplier_name_en','supplier_name_lo','supplier_type','country_code','contact_name','contact_phone','contact_email','tax_no','default_currency','payment_terms','credit_days','address','remark','effective_date','expire_date'],
+    writableCols: ['supplier_name','supplier_name_en','supplier_name_lo','supply_category','sourcing_type','country_code','contact_name','contact_phone','contact_email','tax_no','default_currency','payment_terms','credit_days','address','remark','effective_date','expire_date'],
     // G92：关键字段=名称/类型/税号/币种/账期/账期天数，扩展=联系人/邮箱/电话/地址/国家/备注
     keyFields: ['supplier_name','supplier_type','tax_no','default_currency','payment_terms','credit_days'],
   },
@@ -149,9 +149,9 @@ const TYPES: Record<string, MdTypeConfig> = {
   warehouse: {
     table: 'wms_warehouses', codeCol: 'warehouse_code', nameCol: 'warehouse_name',
     prefix: 'WH', objectType: 'WAREHOUSE', companyCol: 'company_code',
-    writableCols: ['warehouse_name','warehouse_name_zh','warehouse_name_en','warehouse_name_lo','type','company_code','owner_store_id','manager','effective_date','expire_date','remark'],
+    writableCols: ['warehouse_name','warehouse_name_zh','warehouse_name_en','warehouse_name_lo','type','facility_class','capability','company_code','owner_store_id','manager','effective_date','expire_date','remark'],
     // G92：仓库为基础设施实体 → 审批；关键字段=名称/类型/归属公司/管理员，扩展=中文名/备注
-    keyFields: ['warehouse_name','type','company_code','manager'],
+    keyFields: ['warehouse_name','type','facility_class','company_code','manager'],
   },
   grade: {
     // FIX UAT-1 2026-06-04: 表实际列含 grade_name_lo/is_saleable/is_storable；effective_date 由迁移补
@@ -266,7 +266,7 @@ const VALIDATION: Record<string, ValidationCfg> = {
     unique: [{ fields: ['customer_name'], scopeByCompany: true, label: '客户名称' }],
   },
   supplier: {
-    required: ['supplier_name', 'supplier_type'],
+    required: ['supplier_name', 'supply_category', 'sourcing_type'],
     unique: [
       { fields: ['supplier_name'], label: '供应商名称' },
       { fields: ['tax_no'], skipEmpty: true, label: '税号' },
@@ -331,12 +331,12 @@ const VALIDATION: Record<string, ValidationCfg> = {
 const FIELD_LABELS: Record<string, string> = {
   customer_name: '客户名称', customer_type: '客户类型', company_code: '归属公司', company_name: '公司名称',
   contact_name: '联系人', contact_phone: '联系电话', contact_email: '联系邮箱', credit_limit: '信用额度',
-  payment_terms: '账期', supplier_name: '供应商名称', supplier_type: '供应商类型', tax_no: '税号',
+  payment_terms: '账期', supplier_name: '供应商名称', supply_category: '供应品类', sourcing_type: '采购地域', tax_no: '税号',
   default_currency: '默认币种', currency_code: '币种', budget_currency: '预算币种', credit_days: '账期天数',
   project_name: '项目名称', budget_amount: '预算金额', material_name: '物料名称', material_type: '物料类型',
   account_name: '账户名称', account_type: '账户类型', bank_account_no: '银行账号', account_no: '银行账号',
   holder_code: '持有人', bank_name: '开户行', account_holder: '账户持有人', swift_code: 'SWIFT',
-  product_name: '产品名称', category_code: '类目', store_name: '门店名称', warehouse_name: '仓库名称',
+  product_name: '产品名称', category_code: '类目', store_name: '门店名称', warehouse_name: '仓库名称', facility_class: '设施类别', capability: '仓库能力',
   sku_name: 'SKU 名称', barcode: '条码', grade_name: '等级名称', spec_name: '规格名称',
   driver_name: '司机姓名', phone: '电话', plate_no: '车牌号', org_name: '组织名称', org_type: '组织类型',
   dict_label_zh: '字典名称', manager: '负责人', manager_name: '负责人', manager_user_id: '负责人',
@@ -380,7 +380,7 @@ export class MasterDataRuntimeService {
   private async isDictValue(dictType: string, val: string): Promise<boolean> {
     try {
       const [r] = await this.ds.query(
-        `SELECT 1 FROM sys_dict WHERE dict_type=$1 AND (dict_value=$2 OR dict_code=$2) LIMIT 1`,
+        `SELECT 1 FROM sys_dict WHERE dict_type=$1 AND (dict_value=$2 OR dict_code=$2) AND status='ACTIVE' LIMIT 1`,
         [dictType, val],
       );
       return !!r;
@@ -451,6 +451,17 @@ export class MasterDataRuntimeService {
       if (!inScope(f) || !nonEmpty(record[f])) continue;
       const s = String(record[f]).trim();
       if (!(await this.isDictValue('SYS_CURRENCY', s))) errors.push(`「${zhField(f)}」不在币种字典中：${s}`);
+    }
+
+    const governedDictFields: Record<string, string> = {
+      supply_category: 'SUPPLIER_SUPPLY_CATEGORY', sourcing_type: 'SUPPLIER_SOURCING_TYPE',
+      type: type === 'warehouse' ? 'WMS_WAREHOUSE_USAGE_TYPE' : '',
+      facility_class: 'WMS_WAREHOUSE_FACILITY_CLASS', capability: 'WMS_WAREHOUSE_CAPABILITY',
+    };
+    for (const [f, dictType] of Object.entries(governedDictFields)) {
+      if (!dictType || !inScope(f) || !nonEmpty(record[f])) continue;
+      const s = String(record[f]).trim();
+      if (!(await this.isDictValue(dictType, s))) errors.push(`「${zhField(f)}」不在启用字典中：${s}`);
     }
 
     // ⑤ 引用存在（归属公司必须存在且 ACTIVE；组织/公司自身表跳过避免自指）
@@ -544,8 +555,12 @@ export class MasterDataRuntimeService {
   }
 
   private runtimeReadSelect(c: MdTypeConfig): string {
-    if (!c.companyCol) return 'base.*';
-    return `base.*, company_org.org_name AS company_display_name,
+    const compatibility = c.table === 'prc2_suppliers'
+      ? `, COALESCE(base.supply_category, CASE WHEN base.supplier_type IN ('CHICK','FEED','RAW_MATERIAL','PACKAGING','VACCINE','VETERINARY','EQUIPMENT','MEDICINE','SERVICE','OTHER') THEN base.supplier_type END) AS supply_category,
+          COALESCE(base.sourcing_type, CASE WHEN base.supplier_type IN ('LOCAL','OVERSEAS','AGENT') THEN base.supplier_type ELSE 'UNSPECIFIED' END) AS sourcing_type`
+      : '';
+    if (!c.companyCol) return `base.*${compatibility}`;
+    return `base.*${compatibility}, company_org.org_name AS company_display_name,
       company_org.org_name_cn AS company_display_name_zh`;
   }
 

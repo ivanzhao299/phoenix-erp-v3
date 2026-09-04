@@ -32,6 +32,12 @@ export class Prc2SupplierEntity {
   @Column({ name: 'supplier_type', type: 'varchar', length: 32, nullable: true })
   supplierType: string;
 
+  @Column({ name: 'supply_category', type: 'varchar', length: 32, nullable: true })
+  supplyCategory: string | null;
+
+  @Column({ name: 'sourcing_type', type: 'varchar', length: 32, nullable: true })
+  sourcingType: string | null;
+
   @Column({ name: 'default_currency', type: 'varchar', length: 8, nullable: true })
   defaultCurrency: string;
 

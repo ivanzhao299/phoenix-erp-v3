@@ -23,6 +23,8 @@ interface Supplier {
   supplierNameLo?: string;
   countryCode: string;
   supplierType?: string;
+  supplyCategory?: string;
+  sourcingType?: string;
   defaultCurrency: string;
   sharedScope: string;
   ownerCompanyCode?: string;
@@ -102,22 +104,6 @@ const STATUS_OPTS = [{
   label: "黑名单",
   cls: "badgeDanger"
 }];
-const TYPE_OPTS = [{
-  value: "FEED",
-  label: "饲料"
-}, {
-  value: "EQUIPMENT",
-  label: "设备"
-}, {
-  value: "MEDICINE",
-  label: "兽药"
-}, {
-  value: "PACKAGING",
-  label: "包装"
-}, {
-  value: "OTHER",
-  label: "其他"
-}];
 function scopeInfo(sc: string) {
   return SCOPE_OPTS.find(o => o.value === sc) ?? SCOPE_OPTS[0];
 }
@@ -130,7 +116,8 @@ type FormState = {
   supplierName: string;
   supplierNameEn: string;
   countryCode: string;
-  supplierType: string;
+  supplyCategory: string;
+  sourcingType: string;
   defaultCurrency: string;
   sharedScope: string;
   ownerCompanyCode: string;
@@ -153,7 +140,8 @@ const DEF: FormState = {
   supplierName: "",
   supplierNameEn: "",
   countryCode: "LA",
-  supplierType: "OTHER",
+  supplyCategory: "",
+  sourcingType: "UNSPECIFIED",
   defaultCurrency: "LAK",
   sharedScope: "GROUP",
   ownerCompanyCode: "",
@@ -180,7 +168,8 @@ export default function SuppliersPage() {
   const { codeMap: currencyMap } = useDictOptions('SYS_CURRENCY');
   const scopeLabel = (code: string) => formatBusinessEnum('procurementSupplierScope', code, lang);
   const statusLabel = (code: string) => formatBusinessEnum('procurementSupplierStatus', code, lang);
-  const typeLabel = (code: string) => formatBusinessEnum('procurementSupplierType', code, lang);
+  const { codeMap: categoryMap } = useDictOptions('SUPPLIER_SUPPLY_CATEGORY');
+  const { codeMap: sourcingMap } = useDictOptions('SUPPLIER_SOURCING_TYPE');
   const [data, setData] = useState<PageResult>({
     items: [],
     total: 0,
@@ -199,6 +188,8 @@ export default function SuppliersPage() {
   const [fCountry, setFCountry] = useState("");
   const [fStatus, setFStatus] = useState("");
   const [fKeyword, setFKeyword] = useState("");
+  const [fCategory, setFCategory] = useState("");
+  const [fSourcing, setFSourcing] = useState("");
   const token = typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "" : "";
   const hdr = {
     Authorization: `Bearer ${token}`,
@@ -215,6 +206,8 @@ export default function SuppliersPage() {
       if (fCountry) params.set("countryCode", fCountry);
       if (fStatus) params.set("status", fStatus);
       if (fKeyword) params.set("keyword", fKeyword);
+      if (fCategory) params.set("supplyCategory", fCategory);
+      if (fSourcing) params.set("sourcingType", fSourcing);
       const res = await fetch(`${API_BASE}?${params}`, {
         headers: hdr
       });
@@ -225,12 +218,12 @@ export default function SuppliersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, fScope, fCountry, fStatus, fKeyword, token]); // eslint-disable-line
+  }, [page, fScope, fCountry, fStatus, fKeyword, fCategory, fSourcing, token]); // eslint-disable-line
 
   useEffect(() => {
     load(1);
     setPage(1);
-  }, [fScope, fCountry, fStatus, fKeyword]); // eslint-disable-line
+  }, [fScope, fCountry, fStatus, fKeyword, fCategory, fSourcing]); // eslint-disable-line
   useEffect(() => {
     load(page);
   }, [page]); // eslint-disable-line
@@ -250,7 +243,8 @@ export default function SuppliersPage() {
       supplierName: row.supplierName,
       supplierNameEn: row.supplierNameEn ?? "",
       countryCode: row.countryCode,
-      supplierType: row.supplierType ?? "OTHER",
+      supplyCategory: row.supplyCategory ?? "",
+      sourcingType: row.sourcingType ?? "UNSPECIFIED",
       defaultCurrency: row.defaultCurrency,
       sharedScope: row.sharedScope,
       ownerCompanyCode: row.ownerCompanyCode ?? "",
@@ -287,6 +281,10 @@ export default function SuppliersPage() {
       toast.error(t('ui.默认货币为必填项','默认货币为必填项'));
       return;
     }
+    if (!form.supplyCategory || !form.sourcingType) {
+      toast.error(t('ui.供应品类和采购地域为必填项','供应品类和采购地域为必填项'));
+      return;
+    }
     if (form.sharedScope === "COMPANY" && (!form.ownerCompanyCode.trim() || !form.ownerCompanyName.trim())) {
       toast.error(t('ui.公司专用供应商必须填写归属公司代码和名称','公司专用供应商必须填写归属公司代码和名称'));
       return;
@@ -302,7 +300,8 @@ export default function SuppliersPage() {
         supplierName: form.supplierName.trim(),
         supplierNameEn: form.supplierNameEn || undefined,
         countryCode: form.countryCode,
-        supplierType: form.supplierType || undefined,
+        supplyCategory: form.supplyCategory,
+        sourcingType: form.sourcingType,
         defaultCurrency: form.defaultCurrency,
         sharedScope: form.sharedScope,
         ownerCompanyCode: form.ownerCompanyCode || undefined,
@@ -478,6 +477,8 @@ export default function SuppliersPage() {
           <option value="">{t('ui.全部状态','全部状态')}</option>
           {STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{statusLabel(o.value)}</option>)}
         </select>
+        <DictSelect dictType="SUPPLIER_SUPPLY_CATEGORY" value={fCategory} onChange={setFCategory} placeholder={t('ui.全部供应品类','全部供应品类')} />
+        <DictSelect dictType="SUPPLIER_SOURCING_TYPE" value={fSourcing} onChange={setFSourcing} placeholder={t('ui.全部采购地域','全部采购地域')} />
       </div>
 
       {/* 数据表 */}
@@ -490,16 +491,16 @@ export default function SuppliersPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              {[t('ui.供应商编码','供应商编码'), t('ui.供应商名称','供应商名称'), t('ui.共享范围','共享范围'), t('ui.归属','归属'), t('ui.国家','国家'), t('ui.默认货币','默认货币'), t('ui.状态','状态'), t('ui.操作','操作')].map(h => <th key={h}>{h}</th>)}
+              {[t('ui.供应商编码','供应商编码'), t('ui.供应商名称','供应商名称'), t('ui.供应品类','供应品类'), t('ui.采购地域','采购地域'), t('ui.共享范围','共享范围'), t('ui.归属','归属'), t('ui.国家','国家'), t('ui.默认货币','默认货币'), t('ui.状态','状态'), t('ui.操作','操作')].map(h => <th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={8} style={{
+            {loading && <tr><td colSpan={10} style={{
               padding: 28,
               textAlign: "center",
               color: "var(--text-secondary)"
             }}>{t('ui.加载中…','加载中…')}</td></tr>}
-            {!loading && data.items.length === 0 && <tr><td colSpan={8} style={{
+            {!loading && data.items.length === 0 && <tr><td colSpan={10} style={{
               padding: 28,
               textAlign: "center",
               color: "var(--text-secondary)"
@@ -529,6 +530,8 @@ export default function SuppliersPage() {
                   color: "var(--text-secondary)"
                 }}>{row.supplierNameEn}</div>}
                   </td>
+                  <td>{categoryMap[row.supplyCategory ?? ''] ?? row.supplyCategory ?? '—'}</td>
+                  <td>{sourcingMap[row.sourcingType ?? ''] ?? row.sourcingType ?? '—'}</td>
                   <td>
                     <span className={`${s.badge} ${s[si.cls]}`} style={{
                   display: "inline-flex",
@@ -719,19 +722,8 @@ export default function SuppliersPage() {
               color: "var(--text-secondary)",
               display: "block",
               marginBottom: 4
-            }}>{t('ui.供应商类型','供应商类型')}</label>
-              <select value={form.supplierType} onChange={e => setF("supplierType", e.target.value)} style={{
-              width: "100%",
-              padding: "7px 10px",
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-              outline: "none"
-            }}>
-                {TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{typeLabel(o.value)}</option>)}
-              </select>
+            }}>{t('ui.供应品类','供应品类')}</label>
+              <DictSelect dictType="SUPPLIER_SUPPLY_CATEGORY" value={form.supplyCategory} onChange={v => setF("supplyCategory", v)} allowEmpty />
             </div>
             <div>
               <label style={{
@@ -742,6 +734,10 @@ export default function SuppliersPage() {
             }}>{t('ui.默认货币','默认货币')} <span className={s.textDanger}>*</span></label>
               {/* 字典化：货币枚举来自 sys_dict(SYS_CURRENCY)，替代硬编码 CURRENCY_OPTS */}
               <DictSelect dictType="SYS_CURRENCY" value={form.defaultCurrency} onChange={v => setF("defaultCurrency", v)} allowEmpty />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>{t('ui.采购地域','采购地域')}</label>
+              <DictSelect dictType="SUPPLIER_SOURCING_TYPE" value={form.sourcingType} onChange={v => setF("sourcingType", v)} allowEmpty={false} />
             </div>
           </div>
 
