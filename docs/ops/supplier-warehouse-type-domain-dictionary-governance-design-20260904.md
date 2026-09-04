@@ -350,4 +350,5 @@ CHECK (facility_class IN ('FACTORY','DISTRIBUTION','STORE','TRANSIT','GENERAL'))
 
 - 采购收货允许集合保持 `FEED/MEDICINE/PURCHASE_RECV/RAW_MATERIAL`；日产蛋仍固定 `ACTIVE + OPERATIONAL + EGG_FARM`。facility/capability 未进入两条业务分支。
 - 本地验证：API/Web TypeScript 0 error；专项 API 46/46；Web 全量 560/560；API 全量在 `NODE_ENV=test` 下 763/763（另 6 skipped）；constraint/null-unique/down/DML/WMS DataScope 门禁和治理字段真 scope-audit 全部通过。首次继承 shell 的 `NODE_ENV=production` 运行曾令 React `act` 测试环境失效、Chanjet 两项 5 秒超时；均以正确 test 环境复跑通过，未掩盖失败。
+- PR #178 因本任务按批准方案必然触及 migration/entity/采购核心，已显式应用 `reviewed-frozen-boundary` 与 `reviewed-security-touch` 审核标签；本地用同等开关执行 W5 closeout 全部通过。
 - 生产 deployment、apply、revision、只读复验和错误窗口将在对应 GitHub Actions run 完成后追加 run ID 与最终判定；在此之前不得把本节标记为生产完成。
