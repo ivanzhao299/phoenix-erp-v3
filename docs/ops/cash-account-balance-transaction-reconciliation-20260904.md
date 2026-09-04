@@ -319,4 +319,25 @@ OPENING 的 `txn_date` 应固定为各目标首笔业务流水之前，并保留
 - 现金账户、流水写入口及 `rebuildChain` 增加有限数断言；`createManual` 的账户读取移入同一事务并使用 `FOR UPDATE`，事务内原子计算快照与更新余额。
 - 定向 Jest：7 suites / 34 tests PASS，覆盖 AR_RECEIPT、TRANSFER、POS `STORE_SALE/STORE_SALE_RETURN`、手工流水并发、真实 raw tuple 与 NaN fail-closed。
 - 全量 API Jest（`NODE_ENV=test`）：96 suites / 780 tests PASS，1 suite / 6 tests 按既有配置 skipped。API/Web TypeScript 均 0 errors；constraint drift、entity drift、nullable-in-unique 均 PASS；显式批准冻结/安全边界后的 W5 closeout 20/20 PASS。
-- PR CI、merge commit、full deploy run 与生产 revision：执行完成后补录。阶段 1 生产 revision 未确认前，阶段 2 保持禁止执行。
+- PR CI 全绿：regression `33855911123`、security `33855911134`、build `33855911173`、test-only `33855911200`、smoke `33855911150`、Web Vitest `33855911266`。PR 于 merge commit `7ba93975e4122d75d48a3c27b57e3294ee10f550` 合入。
+- full deploy run `33856555018` 成功；API/Web 生产 revision 均为 `7ba93975e4122d75d48a3c27b57e3294ee10f550`。迁移前备份 `***-backups/deploy-pre-migration-33856555018/phoenix_erp_pre_7ba93975e412.dump`，SHA-256 `ba5542d1fb4038c054dbef36d67c04be47699e1e9e9cbc95b5fe279d2a776e3d`。确认该 revision 后才解锁阶段 2。
+
+### 11.2 阶段 2：29 行受控派生链重建
+
+- 治理批准引用：`BAL-CHAIN-REBUILD-20260904`；正式执行 bundle 最终 merge revision `7d54aa4cb941369706678ecd04f2b44a61577a0c`。相关 PR 为 [#188](https://github.com/ivanzhao299/phoenix-erp-v3/pull/188)、[#189](https://github.com/ivanzhao299/phoenix-erp-v3/pull/189)、[#190](https://github.com/ivanzhao299/phoenix-erp-v3/pull/190)、[#191](https://github.com/ivanzhao299/phoenix-erp-v3/pull/191)，对应治理提交 `be284164`、`e35f7e64`、`ba0d5667`、`8091c350`。
+- 三次 fail-closed 演练分别在任何持久化前/事务内回滚：run `33858451781`（导出命令变量解析，UPDATE 前回滚）、`33859068609`（证据目录权限，UPDATE 前回滚）、`33859855941`（其他流水集合哈希误含目标 29 行，更新后后置断言触发整单回滚）。修正后的完整演练 run `33860469863` 全绿并显式 ROLLBACK。
+- 正式生产 execute run `33860555170` 全绿并 COMMIT：动态基线精确命中 6 账户、23 断点、21 NaN + 2 有限偏差、29 行尾链、ACTIVE 期末公式差异 0 及六个首断点 ID；UPDATE 命中 29 行，实质改变 23 行、6 行逐分不变。后置为目标及全 ACTIVE 链断点 0、NaN 0、公式差异 0、账户完整行不变、29 行除 `balance_after` 外不变、其他流水集合不变、API 错误窗口 0。
+- 证据/回滚 artifact：`cash-balance-chain-33860555170`，artifact ID `9931954916`，上传 ZIP SHA-256 `642f9710c73006d20c08ab2d88cc6a856ce7f907727c2c8eba8e1db2cea6a25a`，90 天保留。包内 `accounts-before.csv` SHA-256 `5390678a9a3cdd0ec8b6eb43e1e84a527e6027939a1dc9472497a6d840049795`，`rollback.sql` SHA-256 `391616ec211b43e9b1b19b741501ee237ded953711681990741329c1eaf2b59e`；受控执行机位置 `/tmp/phoenix-cash-balance-chain-33860555170/evidence`。
+- 独立只读复验 run `33860671646` 全绿：全部 ACTIVE 账户全链断点 0、numeric NaN 0、期末公式差异 0。只有该复验完成后才开始阶段 3。
+
+### 11.3 阶段 3：数据库有限数约束
+
+- 迁移 commit `c7cba985`，约束策略测试 commit `6536eee6`；PR [#192](https://github.com/ivanzhao299/phoenix-erp-v3/pull/192)，merge commit `3d04dbbb6be63e199621faef0cf93a1c37c76142`。新增 TypeORM TS migration `RejectNonFiniteCashBalances1788570000000`，为 `fin_cash_transactions.amount/balance_after`、`fin_cash_accounts.opening_balance/current_balance` 添加并 VALIDATE `CHECK (column <> 'NaN'::numeric)`；`down()` 完整删除四条约束。PostgreSQL `numeric` 无 Infinity，故未加入虚假 Infinity 表达式，也未增加 allowlist。
+- 本地验证：API/Web tsc 0 errors；API 96 suites / 780 tests PASS（1 suite / 6 tests skipped）；资金定向 2 suites / 11 tests PASS；约束策略 2 tests PASS；g201 constraint drift、entity drift、nullable-in-unique、阶段 2 policy 3 tests 及只读 audit 输入门禁均 PASS。
+- PR CI 全绿：security `33861165408`、build `33861165393`、regression `33861165514`、smoke `33861165383`、Web Vitest `33861165401`、CI/CD test `33861165449`。最初 security attempt 使用加标签前的事件快照失败，添加 `reviewed-frozen-boundary` 后的新 revision run 全绿，未以 allowlist 绕过。
+- full deploy run `33861866617` 成功；迁移日志明确记录 `RejectNonFiniteCashBalances1788570000000 has been executed successfully`，API/Web 生产 revision 均为 `3d04dbbb6be63e199621faef0cf93a1c37c76142`。迁移前备份 `***-backups/deploy-pre-migration-33861866617/phoenix_erp_pre_3d04dbbb6be6.dump`，SHA-256 `f70e988a7abb984564f7cc166312945c0cdb87c28f0f04d18aba8683357a6d28`。
+- 首次生产只读 audit run `33862940181` 已证明四约束 VALID、NaN 0、六账户 lookup 差异 0，但 audit 自身遗漏了 `source_type='OPENING'` 不计入签名金额的既有语义，因此报出伪断点并只读失败；未写生产。修复 commit `9d3b7d91` 经 PR [#193](https://github.com/ivanzhao299/phoenix-erp-v3/pull/193) 全 CI 通过，merge commit `504b4f2eb173804ec8d15b3f0828f9247fc66ef8`。run `33863560626` 仅因传入不存在的空 HTTP manifest 在本地 validate 拒绝，未连接生产。
+- 最终独立生产只读 audit run `33863603094` 全绿：生产 checkout/API/Web revision 均为 `3d04dbbb6be63e199621faef0cf93a1c37c76142`；四条 CHECK 均 `convalidated=true`，四列 numeric NaN 合计 0，ACTIVE 全链断点 0，ACTIVE 期末公式差异 0，六账户 opening/current 与阶段 2 前逐分 lookup 差异 0。输出余额依次为 `1000.00/1500.00`、`2000.00/2160.00`、`1.00/0.00`、`0.00/0.00`、`10494389.06/238947375.06`、`10370.00/3512.00`；60 分钟错误窗口 0。
+- 最终 audit artifact：`production-readonly-audit-33863603094`，artifact ID `9933084047`，上传 ZIP SHA-256 `ed343d76e85d64abc268f2195bb9d805316e290a870d6a0e70967567aa0de4bd`，30 天保留。
+
+三阶段最终状态：代码写入层 fail-closed、历史 29 行派生链已受控重建、数据库四列 NaN 约束已 VALID；账户 `opening_balance/current_balance` 在阶段 2 全程未改，业务金额、方向、日期、账户、币种及 source 等事实未改。
