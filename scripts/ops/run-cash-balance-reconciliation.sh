@@ -2,7 +2,7 @@
 set -euo pipefail
 
 mode="${1:---rehearse}"
-case "$mode" in --validate|--rehearse|--execute) ;; *) echo "usage: $0 [--validate|--rehearse|--execute]" >&2; exit 2;; esac
+case "$mode" in --validate|--verify|--rehearse|--execute) ;; *) echo "usage: $0 [--validate|--verify|--rehearse|--execute]" >&2; exit 2;; esac
 root="${RECON_BUNDLE_DIR:-.}"
 sql="$root/scripts/ops/cash-balance-reconciliation.sql"
 audit_sql="$root/scripts/ops/cash-balance-formula-audit.sql"
@@ -29,6 +29,13 @@ psql_db() {
 
 started_at="$(date -u +%FT%TZ)"
 echo "RUN_ID=$run_id MODE=$mode STARTED_AT=$started_at"
+
+if [ "$mode" = --verify ]; then
+  { printf '%s\n' 'BEGIN TRANSACTION READ ONLY;' "SET LOCAL statement_timeout='30s';"; cat "$audit_sql"; printf '%s\n' 'ROLLBACK;'; } |
+    PGOPTIONS='-c default_transaction_read_only=on' psql_db
+  echo "RUN_ID=$run_id READONLY_VERIFY=PASS COMPLETED_AT=$(date -u +%FT%TZ)"
+  exit 0
+fi
 
 # Backups are exported before any writable psql session starts.
 accounts="'FH-101','FH-102','FH-10206','FH-10207','FH-10209','FH-10210','FH-10211','FH-10212','DP-01','DP-10','DP-11'"
