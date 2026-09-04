@@ -206,3 +206,19 @@
 部署后只读复验使用专用 SQL + HTTP manifest：校验 checkout/API/Web revision 三方一致、
 资金账户 `current_balance = opening_balance + signed transactions`、资金/批次权威 lookup 字段，
 以及 60 分钟 lookup 错误窗口；执行结果继续追加于下节。
+
+### 7.5 生产只读复验结果
+
+- 审计 run `33845422094`：PASS；全程 `PRODUCTION_BUSINESS_WRITES=0`。
+- revision：checkout/API/Web 均为 `f68947d64b8b27d827392bded6279d3fb7d904f3`。
+- `/api/lookup/cash-accounts`：HTTP 200，账户编码、名称、公司、币种、`currentBalance`
+  权威字段均有有效样本。
+- `/api/lookup/batches`：HTTP 200，批次号、`qty_available`、仓库字段均有有效样本。
+- 通用 API 错误窗口：`LIFECYCLE_PROCESS_LOG_ERROR_WINDOW_60M=0`。
+
+附加的“账户快照 = 期初 + 全历史签名流水”强化审计 run `33845313588` 发现 21 个存量账户
+不满足该重建公式。该发现不否定本次前端写后刷新修复：lookup 与后端业务写路径都以
+`fin_cash_accounts.current_balance` 为当前权威快照；但它属于新的账务数据一致性问题。
+遵守本任务“不动后端余额权威语义 / 生产只读”红线，本轮未自动重算、未修数据，也未用
+放宽断言掩盖。建议另开数据治理任务，逐账户区分非流水初始化/历史导入与真实漂移后再决定
+是否执行受控重算。
