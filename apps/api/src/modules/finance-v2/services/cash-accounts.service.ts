@@ -8,6 +8,7 @@ import { ClsService } from 'nestjs-cls';
 
 import { FinCashAccountEntity } from '../entities/fin-cash-account.entity';
 import { CreateCashAccountDto, UpdateCashAccountDto, QueryCashAccountDto } from '../dto/cash-account.dto';
+import { finiteCashNumber, returningRow } from './cash-balance.guard';
 
 @Injectable()
 export class CashAccountsService {
@@ -129,6 +130,7 @@ export class CashAccountsService {
     const exists = await this.repo.findOne({ where: { accountCode: code } });
     if (exists) throw new BadRequestException(`账户编号 ${code} 已存在`);
 
+    const openingBalance = finiteCashNumber(dto.openingBalance ?? 0, 'opening_balance');
     const acc = this.repo.create({
       accountCode: code,
       accountName: dto.accountName,
@@ -136,8 +138,8 @@ export class CashAccountsService {
       companyName: dto.companyName ?? null,
       currencyCode: dto.currencyCode,
       accountType: dto.accountType,
-      openingBalance: dto.openingBalance ?? 0,
-      currentBalance: dto.openingBalance ?? 0,
+      openingBalance,
+      currentBalance: openingBalance,
       bankName: dto.bankName ?? null,
       bankAccountNo: dto.bankAccountNo ?? null,
       remark: dto.remark ?? null,
@@ -167,12 +169,12 @@ export class CashAccountsService {
       dto.openingBalance !== undefined &&
       Number(dto.openingBalance) !== Number(acc.openingBalance);
     if (dto.openingBalance !== undefined) {
-      acc.openingBalance = Number(dto.openingBalance);
+      acc.openingBalance = finiteCashNumber(dto.openingBalance, 'opening_balance');
     }
     const saved = await this.repo.save(acc);
 
     if (openingChanged) {
-      const opening = Number(dto.openingBalance);
+      const opening = finiteCashNumber(dto.openingBalance, 'opening_balance');
       await this.ds.transaction(async (mgr) => {
         // 同步 OPENING 期初流水金额(若存在)，保持台账自洽
         await mgr.query(
@@ -210,7 +212,7 @@ export class CashAccountsService {
         FOR UPDATE`,
       [accountCode],
     );
-    let running = Number(openingBalance);
+    let running = finiteCashNumber(openingBalance, 'opening_balance');
     for (const t of txns) {
       if (t.source_type === 'OPENING') {
         await mgr.query(
@@ -219,7 +221,12 @@ export class CashAccountsService {
         );
         continue;
       }
-      running += t.direction === 'IN' ? Number(t.amount) : -Number(t.amount);
+      if (t.direction !== 'IN' && t.direction !== 'OUT') {
+        throw new BadRequestException(`流水 ${t.id} direction 非法`);
+      }
+      const amount = finiteCashNumber(t.amount, `流水 ${t.id} amount`);
+      running += t.direction === 'IN' ? amount : -amount;
+      running = finiteCashNumber(running, `流水 ${t.id} balance_after`);
       await mgr.query(
         `UPDATE fin_cash_transactions SET balance_after = $1 WHERE id = $2`,
         [running, t.id],
@@ -420,6 +427,7 @@ export class CashAccountsService {
   // ── 余额断言（供转账 / AP / AR 调用） ─────────────────────────────────────
 
   async assertSufficientBalance(accountId: string, amount: number): Promise<void> {
+    const required = finiteCashNumber(amount, 'amount');
     const row = await this.ds.query(
       `SELECT current_balance, status FROM fin_cash_accounts WHERE id = $1 FOR UPDATE`,
       [accountId],
@@ -428,7 +436,8 @@ export class CashAccountsService {
     if (row[0].status !== 'ACTIVE') {
       throw new BadRequestException(`账户状态 ${row[0].status}，不允许收付款`);
     }
-    if (Number(row[0].current_balance) < amount) {
+    const currentBalance = finiteCashNumber(row[0].current_balance, 'current_balance');
+    if (currentBalance < required) {
       throw new BadRequestException(
         `账户余额不足：当前 ${row[0].current_balance}，需要 ${amount}`,
       );
@@ -443,6 +452,7 @@ export class CashAccountsService {
     delta: number,           // 正 = 加，负 = 减
     updatedBy: string | null,
   ): Promise<number> {
+    const finiteDelta = finiteCashNumber(delta, 'delta');
     const res = await qr.query(
       `UPDATE fin_cash_accounts
        SET current_balance = current_balance + $1,
@@ -450,9 +460,10 @@ export class CashAccountsService {
            updated_at = now()
        WHERE id = $3
        RETURNING current_balance`,
-      [delta, updatedBy, accountId],
+      [finiteDelta, updatedBy, accountId],
     );
-    return Number(res[0].current_balance);
+    const row = returningRow<{ current_balance: unknown }>(res, '资金账户余额更新');
+    return finiteCashNumber(row.current_balance, 'current_balance');
   }
 
   // ── 汇总统计 ─────────────────────────────────────────────────────────────

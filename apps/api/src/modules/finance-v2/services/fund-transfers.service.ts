@@ -10,6 +10,7 @@ import { FinFundTransferEntity } from '../entities/fin-fund-transfer.entity';
 import { FinCashAccountEntity }  from '../entities/fin-cash-account.entity';
 import { CashAccountsService }    from './cash-accounts.service';
 import { CashTransactionsService } from './cash-transactions.service';
+import { finiteCashNumber } from './cash-balance.guard';
 import {
   CreateFundTransferDto,
   ApproveFundTransferDto,
@@ -239,8 +240,10 @@ export class FundTransfersService {
       if (from.status !== 'ACTIVE') throw new BadRequestException(`转出账户状态 ${from.status}`);
       if (to.status !== 'ACTIVE')   throw new BadRequestException(`转入账户状态 ${to.status}`);
 
-      const amount = Number(transfer.amountOriginal);
-      if (Number(from.current_balance) < amount) {
+      const amount = finiteCashNumber(transfer.amountOriginal, 'transfer amount');
+      const fromBalance = finiteCashNumber(from.current_balance, 'current_balance');
+      finiteCashNumber(to.current_balance, 'current_balance');
+      if (fromBalance < amount) {
         throw new BadRequestException(
           `转出账户余额不足：当前 ${from.current_balance}，需要 ${amount}`,
         );

@@ -4,6 +4,7 @@ import { Repository, DataSource, QueryRunner } from 'typeorm';
 
 import { FinCashTransactionEntity } from '../entities/fin-cash-transaction.entity';
 import { QueryCashTransactionDto } from '../dto/cash-account.dto';
+import { finiteCashNumber, returningRow } from './cash-balance.guard';
 
 interface WriteTransactionParams {
   qr: QueryRunner;
@@ -53,9 +54,11 @@ export class CashTransactionsService {
   // ── 写入流水（必须在事务内） ──────────────────────────────────────────────
 
   async writeTransaction(p: WriteTransactionParams): Promise<FinCashTransactionEntity> {
+    const amount = finiteCashNumber(p.amount, 'amount');
+    const balanceAfter = finiteCashNumber(p.balanceAfter, 'balance_after');
     const txnNo = await this.genTxnNo(p.qr);
 
-    const [inserted] = await p.qr.query(
+    const raw = await p.qr.query(
       `INSERT INTO fin_cash_transactions
          (txn_no, account_id, account_code, account_name,
           company_code, company_name,
@@ -70,12 +73,12 @@ export class CashTransactionsService {
         p.direction, p.sourceType,
         p.sourceId ?? null, p.sourceNo ?? null,
         p.currencyCode,
-        p.amount, p.balanceAfter,
+        amount, balanceAfter,
         p.remark ?? null, p.createdBy ?? null,
       ],
     );
 
-    return inserted as FinCashTransactionEntity;
+    return returningRow<FinCashTransactionEntity>(raw, '资金流水写入');
   }
 
   // ── 期初余额流水（非事务，创建账户后直接调用） ─────────────────────────────
@@ -90,7 +93,8 @@ export class CashTransactionsService {
     amount: number;
     createdBy: string | null;
   }): Promise<void> {
-    if (params.amount <= 0) return;
+    const amount = finiteCashNumber(params.amount, 'amount');
+    if (amount <= 0) return;
 
     const now = new Date();
     const prefix = `TXN-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -113,7 +117,7 @@ export class CashTransactionsService {
         params.accountId, params.accountCode, params.accountName,
         params.companyCode, params.companyName ?? null,
         params.currencyCode,
-        params.amount, params.amount,
+        amount, amount,
         '期初余额',
         params.createdBy,
       ],
@@ -230,30 +234,31 @@ export class CashTransactionsService {
     if (direction !== 'IN' && direction !== 'OUT') {
       throw new BadRequestException('direction 必须为 IN 或 OUT');
     }
-    const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt <= 0) {
+    const amt = finiteCashNumber(amount, 'amount');
+    if (amt <= 0) {
       throw new BadRequestException('amount 必须为正数');
     }
 
-    // 加载账户
-    const accRows = await this.ds.query(
-      `SELECT id, account_code, account_name, company_code, company_name,
-              currency_code, current_balance
-         FROM fin_cash_accounts WHERE account_code=$1 LIMIT 1`,
-      [account_code],
-    );
-    const acc = accRows[0];
-    if (!acc) throw new BadRequestException(`资金账户 ${account_code} 不存在`);
-
-    const before = Number(acc.current_balance || 0);
-    const after = direction === 'IN' ? before + amt : before - amt;
-
     // 生成单号
     const dt = txn_date ? new Date(txn_date) : new Date();
+    if (!Number.isFinite(dt.getTime())) throw new BadRequestException('txn_date 无效');
     const txnNo = `MAN-${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, '0')}${String(dt.getDate()).padStart(2, '0')}-${Date.now().toString().slice(-6)}`;
 
-    // 事务：写流水 + 更新账户余额
-    await this.ds.transaction(async (mgr) => {
+    // 账户读取、行锁、快照和余额更新必须处于同一事务，防止并发丢更新。
+    const after = await this.ds.transaction(async (mgr) => {
+      const accRows = await mgr.query(
+        `SELECT id, account_code, account_name, company_code, company_name,
+                currency_code, current_balance
+           FROM fin_cash_accounts WHERE account_code=$1 LIMIT 1 FOR UPDATE`,
+        [account_code],
+      );
+      const acc = accRows[0];
+      if (!acc) throw new BadRequestException(`资金账户 ${account_code} 不存在`);
+      const before = finiteCashNumber(acc.current_balance, 'current_balance');
+      const nextBalance = finiteCashNumber(
+        direction === 'IN' ? before + amt : before - amt,
+        'balance_after',
+      );
       await mgr.query(
         `INSERT INTO fin_cash_transactions
            (txn_no, account_id, account_code, account_name, company_code, company_name,
@@ -262,15 +267,16 @@ export class CashTransactionsService {
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'MANUAL', $8, $9, $10, $11, $12, $13)`,
         [txnNo, acc.id, acc.account_code, acc.account_name,
          acc.company_code, acc.company_name,
-         direction, acc.currency_code, amt, after,
+         direction, acc.currency_code, amt, nextBalance,
          dt.toISOString(), remark || '手工录入', username],
       );
       await mgr.query(
         `UPDATE fin_cash_accounts
             SET current_balance = $1, updated_at = now(), updated_by = $2
           WHERE id = $3`,
-        [after, username, acc.id],
+        [nextBalance, username, acc.id],
       );
+      return nextBalance;
     });
 
     return {
