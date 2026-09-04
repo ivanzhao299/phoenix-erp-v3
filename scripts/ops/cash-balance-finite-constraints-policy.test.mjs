@@ -34,4 +34,5 @@ test('post-deploy audit preserves the stage 2 invariants', () => {
   assert.match(audit, /active_formula_diffs <> 0/);
   assert.match(audit, /account_lookup_diffs <> 0/);
   assert.match(audit, /numeric_nan_rows/);
+  assert.equal((audit.match(/source_type = 'OPENING' THEN 0/g) || []).length, 2);
 });
