@@ -190,4 +190,4 @@ canonical 依据：公司来自 `sys_organizations` 且 `org_type='COMPANY'`；�
 
 ### 8.3 PR、部署与生产复验
 
-待远端 CI、合并、full deploy 和生产真实浏览器复验完成后回填；在此之前保持 **NOT VERIFIED**。
+修复 PR 为 `#195`；已按冻结边界治理流程加 `reviewed-frozen-boundary` 审核标签。待远端 CI、合并、full deploy 和生产真实浏览器复验完成后回填；在此之前保持 **NOT VERIFIED**。
