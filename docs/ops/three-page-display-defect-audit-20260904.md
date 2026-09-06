@@ -172,3 +172,22 @@ canonical 依据：公司来自 `sys_organizations` 且 `org_type='COMPANY'`；�
 ### 7.2 远端与生产验证
 
 交付使用 `scripts/ops/readonly-audits/three-page-display-defects.{sql,http.json}` 做认证只读名称抽查，并由 runner 强制校验三端 revision、只读事务和近 60 分钟接口错误窗口；鸡蛋库存页面另做公开 200 冒烟。workflow artifact 与交付回执记录最终运行结论；没有受控 workflow 结果前，生产业务验证保持 **NOT VERIFIED**。
+
+## 8. 鸡蛋库存桌面重叠回归（2026-09-06）
+
+### 8.1 根因与修复
+
+- 生产复测发现 `/sales2/inventory` 批次表公司名称侵入可用量列。根因是 11 列 `<colgroup>` 声明合计 1306px，但 `.batchTable` 同时使用 `table-layout: fixed; width: 100%; min-width: 1180px`，浏览器会压缩固定列；132px 公司列又缺少 overflow 裁切。
+- 批次表改为 11 个 CSS 列类，列宽依次为 `180/130/120/80/240/110/110/100/120/120/210`，固定总宽和最小宽均为 1520px。公司显示包入带完整 `title` 的 `.companyCell`，以 ellipsis 截断；数量统一右对齐、等宽数字、不换行且裁切，可用量保留强调色。
+- 临期表移除 `nth-child` 隐式列宽，新增 9 列 `<colgroup>`，列宽依次为 `180/130/130/80/240/110/120/120/100`，固定总宽和最小宽均为 1210px，并复用公司与数量安全样式。
+- `.tableScroll` 增加 `min-width: 0`，宽表只在局部容器横向滚动。FIFO 页没有结果表格；损耗两表已有固定最小宽与局部横滚，未发现本次公司列侵入路径。`<=768px` 仍隐藏桌面表并使用原移动卡片，未改库存数据、接口或后端权威语义。
+
+### 8.2 本地真实几何与门禁
+
+- Playwright Chromium 使用长公司 fixture `老挝凤凰农业发展有限公司（COMP-LAO-AGRI）`、可用量 `54,321`、总量 `98,765`。在 `2784x1511`、`1440x900`、`1024x768` 三个桌面视口逐项读取 `getBoundingClientRect()`，断言公司文字矩形不越出公司单元格、公司/可用量/总量相邻边界互不相交、五位数量完整可见；批次和临期表均通过。在 `390x844` 断言桌面表隐藏、移动卡片显示完整公司和 `54,321 / 98,765`。四个视口均生成全页截图和 `cell-geometry.json` Playwright 附件。
+- 源码契约 Vitest：`three-page-display-defects.test.ts` 5/5 通过，锁定 11/9 个 colgroup、1520/1210 总宽、companyCell/numericCell/numericAccent 与长公司 fixture。
+- Web 全量 Vitest：105 files / 568 tests 全通过（显式 `NODE_ENV=test`；宿主默认非标准 `NODE_ENV` 会令 React production build 的 `act` 不可用）。API/Web `tsc --noEmit` 均 0 errors；根目录 API+Web production build 通过；constraint/null-unique/entity-drift 三项门禁通过。
+
+### 8.3 PR、部署与生产复验
+
+待远端 CI、合并、full deploy 和生产真实浏览器复验完成后回填；在此之前保持 **NOT VERIFIED**。

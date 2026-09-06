@@ -7,13 +7,28 @@
 .createGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .fifoGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .lossKpis { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-bottom: 24px; }
-.tableScroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
-.batchTable { table-layout: fixed; width: 100%; min-width: 1180px; }
-.expiringTable { table-layout: fixed; width: 100%; min-width: 960px; }
-.expiringTable th:nth-child(1) { width: 170px; }
-.expiringTable th:nth-child(2),.expiringTable th:nth-child(3),.expiringTable th:nth-child(5) { width: 130px; }
-.expiringTable th:nth-child(4),.expiringTable th:nth-child(6),.expiringTable th:nth-child(8),.expiringTable th:nth-child(9) { width: 90px; }
-.expiringTable th:nth-child(7) { width: 110px; }
+.tableScroll { min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.batchTable { table-layout: fixed; width: 1520px; min-width: 1520px; }
+.batchNoCol { width: 180px; }
+.skuCol { width: 130px; }
+.productCol { width: 120px; }
+.gradeCol { width: 80px; }
+.companyCol { width: 240px; }
+.availableQtyCol,.totalQtyCol { width: 110px; }
+.statusCol { width: 100px; }
+.productionDateCol,.expiryDateCol { width: 120px; }
+.sourceCol { width: 210px; }
+.companyCell { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.numericCell { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+.numericAccent { font-weight: 700; color: var(--color-accent); }
+.expiringTable { table-layout: fixed; width: 1210px; min-width: 1210px; }
+.expiringBatchNoCol { width: 180px; }
+.expiringSkuCol,.expiringProductCol { width: 130px; }
+.expiringGradeCol { width: 80px; }
+.expiringCompanyCol { width: 240px; }
+.expiringQtyCol { width: 110px; }
+.expiringDateCol,.expiringDaysCol { width: 120px; }
+.expiringStatusCol { width: 100px; }
 .lossTypeTable { table-layout: fixed; width: 100%; min-width: 520px; }
 .lossBatchTable { table-layout: fixed; width: 100%; min-width: 760px; }
 .lossBatchTable th:first-child { width: 180px; }
