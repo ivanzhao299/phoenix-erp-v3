@@ -194,4 +194,6 @@ canonical 依据：公司来自 `sys_organizations` 且 `org_type='COMPANY'`；�
 
 production readonly audit run `34008632741` 通过：checkout/API/Web revision 均为 `f941d50b990d629ba8fa6a7e1fcaa36c07846468`；`/sales2/inventory` 外部请求返回 307 登录重定向（页面可达且认证边界正常）；`THREE_PAGE_DISPLAY_ERROR_WINDOW_60M=0`，`PRODUCTION_BUSINESS_WRITES=0`。SQL 样本为采购申请 15 行、门店正库存 231 批；门店 HTTP 投影无样本，按规范记录为 `NO_SAMPLE`，不冒充 PASS。
 
-首次从本机以伪 JWT 访问生产做 Chromium 几何复验被服务端签名校验拒绝并跳转 `login?reason=expired`，明确记为认证失败而非几何 PASS。为避免使用长期密码，PR `#196` 新增受控 `inventory-geometry-production` smoke：在生产 API 容器内签发短期只读测试 token，在 GitHub Chromium 对生产已部署页面运行四视口测试并上传截图/几何附件；最终 run 结果在该 PR 合入后回填。
+首次从本机以伪 JWT 访问生产做 Chromium 几何复验被服务端签名校验拒绝并跳转 `login?reason=expired`，明确记为认证失败而非几何 PASS。为避免使用长期密码，PR `#196/#197/#198` 建立并校正受控 `inventory-geometry-production` smoke：在生产 API 容器内签发短期测试 token，在 GitHub Chromium 对生产已部署页面运行四视口测试并上传截图/几何附件。
+
+authenticated production geometry run `34010086900` 最终通过（4/4，12.6s）：`2784x1511`、`1440x900`、`1024x768` 的批次/临期公司、可用量、总量矩形互不相交，公司文字矩形受单元格裁切，`54,321`/`98,765` 可见；`390x844` 桌面表隐藏且移动卡片完整显示 fixture。workflow artifact `ci-smoke-inventory-geometry-production-34010086900` 保存四张全页截图、桌面 `cell-geometry.json` 与 trace 配置。至此真实生产浏览器几何验收为 **PASS**。
