@@ -599,17 +599,17 @@ function BatchesTab() {
       {loading ? <LoadingSkeleton variant="table" rows={10} cols={11} /> : <><div className={`${styles.tableScroll} ${styles.desktopTable}`}>
           <table className={`${s.table} ${styles.batchTable}`}>
             <colgroup>
-              <col style={{ width: 180 }} />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 100 }} />
-              <col style={{ width: 76 }} />
-              <col style={{ width: 132 }} />
-              <col style={{ width: 96 }} />
-              <col style={{ width: 96 }} />
-              <col style={{ width: 92 }} />
-              <col style={{ width: 112 }} />
-              <col style={{ width: 112 }} />
-              <col style={{ width: 190 }} />
+              <col className={styles.batchNoCol} />
+              <col className={styles.skuCol} />
+              <col className={styles.productCol} />
+              <col className={styles.gradeCol} />
+              <col className={styles.companyCol} />
+              <col className={styles.availableQtyCol} />
+              <col className={styles.totalQtyCol} />
+              <col className={styles.statusCol} />
+              <col className={styles.productionDateCol} />
+              <col className={styles.expiryDateCol} />
+              <col className={styles.sourceCol} />
             </colgroup>
             <thead>
               <tr>
@@ -634,13 +634,9 @@ function BatchesTab() {
                       {b.quality_grade ?? '—'}
                     </span>
                   </td>
-                  <td style={compactCellStyle}>{formatMasterData(b as unknown as Record<string, unknown>, 'company_name', b.company_code, lang)}</td>
-                  <td style={{
-              fontWeight: 700,
-              color: 'var(--color-accent)',
-              whiteSpace: 'nowrap'
-            }}>{fmt(b.qty_available)}</td>
-                  <td style={compactCellStyle}>{fmt(b.qty)}</td>
+                  <td style={compactCellStyle}><span className={styles.companyCell} title={formatMasterData(b as unknown as Record<string, unknown>, 'company_name', b.company_code, lang)}>{formatMasterData(b as unknown as Record<string, unknown>, 'company_name', b.company_code, lang)}</span></td>
+                  <td className={`${styles.numericCell} ${styles.numericAccent}`}>{fmt(b.qty_available)}</td>
+                  <td className={styles.numericCell}>{fmt(b.qty)}</td>
                   <td style={compactCellStyle}>{statusBadge(b.status, lang)}</td>
                   <td style={compactCellStyle}>{fmtDate(b.egg_date)}</td>
                   <td style={{
@@ -705,6 +701,17 @@ function ExpiringTab() {
 
       {loading ? <LoadingSkeleton variant="table" rows={10} cols={9} /> : <><div className={`${styles.tableScroll} ${styles.desktopTable}`}>
           <table className={`${s.table} ${styles.expiringTable}`}>
+            <colgroup>
+              <col className={styles.expiringBatchNoCol} />
+              <col className={styles.expiringSkuCol} />
+              <col className={styles.expiringProductCol} />
+              <col className={styles.expiringGradeCol} />
+              <col className={styles.expiringCompanyCol} />
+              <col className={styles.expiringQtyCol} />
+              <col className={styles.expiringDateCol} />
+              <col className={styles.expiringDaysCol} />
+              <col className={styles.expiringStatusCol} />
+            </colgroup>
             <thead>
               <tr>
                 {[t('ui.批次号','批次号'), t('ui.商品组合','商品组合'), t('ui.产品','产品'), t('ui.等级','等级'), t('ui.公司','公司'), t('ui.可用量','可用量'), t('ui.到期日','到期日'), t('ui.剩余天数','剩余天数'), t('ui.状态','状态')].map(h => <th key={h}>{h}</th>)}
@@ -733,8 +740,8 @@ function ExpiringTab() {
                         {b.quality_grade ?? '—'}
                       </span>
                     </td>
-                    <td>{formatMasterData(b as unknown as Record<string, unknown>, 'company_name', b.company_code, lang)}</td>
-                    <td className={u.fw700}>{fmt(b.qty_available)}</td>
+                    <td><span className={styles.companyCell} title={formatMasterData(b as unknown as Record<string, unknown>, 'company_name', b.company_code, lang)}>{formatMasterData(b as unknown as Record<string, unknown>, 'company_name', b.company_code, lang)}</span></td>
+                    <td className={`${styles.numericCell} ${styles.numericAccent}`}>{fmt(b.qty_available)}</td>
                     <td>{b.expire_date ?? '—'}</td>
                     <td style={{
                 color: urgent ? 'var(--status-danger)' : 'var(--status-warning)',

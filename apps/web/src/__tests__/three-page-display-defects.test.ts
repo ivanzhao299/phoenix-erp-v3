@@ -50,4 +50,20 @@ describe('three-page display defect regressions', () => {
     expect(css).toContain('overflow-x: auto');
     expect(css).toContain('.mobileCards { display: none; }');
   });
+
+  it('locks egg inventory desktop column geometry and overflow-safe cells', () => {
+    const page = read('src/app/(admin)/sales2/inventory/page.tsx');
+    const css = read('src/app/(admin)/sales2/inventory/inventory.module.css');
+    const fixture = '老挝凤凰农业发展有限公司（COMP-LAO-AGRI）';
+    expect(fixture).toContain('COMP-LAO-AGRI');
+    expect(page.match(/<col className=\{styles\.(?:batchNo|sku|product|grade|company|availableQty|totalQty|status|productionDate|expiryDate|source)Col\} \/>/g)).toHaveLength(11);
+    expect(page.match(/<col className=\{styles\.expiring(?:BatchNo|Sku|Product|Grade|Company|Qty|Date|Days|Status)Col\} \/>/g)).toHaveLength(9);
+    expect(css).toContain('width: 1520px; min-width: 1520px');
+    expect(css).toContain('width: 1210px; min-width: 1210px');
+    expect(css).toContain('.companyCol { width: 240px; }');
+    expect(css).toContain('.expiringCompanyCol { width: 240px; }');
+    expect(page).toContain('className={styles.companyCell}');
+    expect(page).toContain('styles.numericCell');
+    expect(page).toContain('styles.numericAccent');
+  });
 });
