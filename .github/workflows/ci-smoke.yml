@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, alert-human-production, authenticated-production, role-business-production, store-pos-amei-readonly, chanjet-readonly-production, chanjet-readonly-adapter-production, chanjet-house-alignment-readonly'
+        description: 'Smoke target: documented-only, production, product-pages, browser-visual-production, inventory-geometry-production, alert-human-production, authenticated-production, role-business-production, store-pos-amei-readonly, chanjet-readonly-production, chanjet-readonly-adapter-production, chanjet-house-alignment-readonly'
         required: false
         default: documented-only
   pull_request:
@@ -78,6 +78,35 @@ jobs:
             --output-dir=docs/ops/runs \
             --screenshots-dir=output/playwright/product-pages \
             --strict
+
+      - name: Run authenticated production inventory geometry
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'inventory-geometry-production'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$TOKEN"
+          echo "::add-mask::$TOKEN"
+          corepack enable
+          pnpm install --frozen-lockfile
+          cd apps/web
+          pnpm exec playwright install --with-deps chromium
+          PLAYWRIGHT_BASE_URL=https://erp.eggslao.com INVENTORY_E2E_TOKEN="$TOKEN" \
+            pnpm exec playwright test e2e/sales-inventory-table-geometry.spec.ts --project=chromium
+
+      - name: Stage inventory geometry artifacts
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.target == 'inventory-geometry-production'
+        run: |
+          mkdir -p docs/ops/runs/inventory-geometry
+          cp -R apps/web/test-results/. docs/ops/runs/inventory-geometry/
 
       - name: Run production alert human reachability smoke
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'alert-human-production'

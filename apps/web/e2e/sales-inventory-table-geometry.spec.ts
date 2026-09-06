@@ -11,13 +11,14 @@ const batch = {
 };
 
 async function mockInventory(page: Page) {
-  await page.context().addCookies([{ name: 'phoenix_access_token', value: token, url: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000' }]);
+  const authToken = process.env.INVENTORY_E2E_TOKEN || token;
+  await page.context().addCookies([{ name: 'phoenix_access_token', value: authToken, url: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000' }]);
   await page.addInitScript(({ authToken }) => {
     sessionStorage.setItem('phoenix_session_version', 'v6');
     sessionStorage.setItem('phoenix_token', authToken);
     sessionStorage.setItem('phoenix_user', JSON.stringify({ username: 'e2e-admin', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] }));
     localStorage.setItem('phoenix_lang', 'zh');
-  }, { authToken: token });
+  }, { authToken });
   await page.route('**/api/v2/sales/inventory/stats', route => route.fulfill({ json: { activeBatches: 1, totalAvailable: 54321, expiringBatches: 1, expiringQty: 54321, expiredBatches: 0, returnedBatches: 0, todayExpireLoss: 0, todayDamageLoss: 0 } }));
   await page.route('**/api/v2/sales/inventory/batches**', route => route.fulfill({ json: [batch] }));
   await page.route('**/api/v2/sales/inventory/expiring**', route => route.fulfill({ json: [batch] }));
