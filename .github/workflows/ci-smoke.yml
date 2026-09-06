@@ -23,6 +23,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Setup pnpm for inventory geometry
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'inventory-geometry-production'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node for inventory geometry
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'inventory-geometry-production'
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+
       - name: Validate runtime smoke checker
         run: |
           node --check scripts/ops/runtime-smoke-check.mjs
@@ -95,7 +108,6 @@ jobs:
           TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
           test -n "$TOKEN"
           echo "::add-mask::$TOKEN"
-          corepack enable
           pnpm install --frozen-lockfile
           cd apps/web
           pnpm exec playwright install --with-deps chromium
@@ -106,7 +118,9 @@ jobs:
         if: always() && github.event_name == 'workflow_dispatch' && inputs.target == 'inventory-geometry-production'
         run: |
           mkdir -p docs/ops/runs/inventory-geometry
-          cp -R apps/web/test-results/. docs/ops/runs/inventory-geometry/
+          if [ -d apps/web/test-results ]; then
+            cp -R apps/web/test-results/. docs/ops/runs/inventory-geometry/
+          fi
 
       - name: Run production alert human reachability smoke
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'alert-human-production'
