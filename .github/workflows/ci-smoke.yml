@@ -109,10 +109,9 @@ jobs:
           test -n "$TOKEN"
           echo "::add-mask::$TOKEN"
           pnpm install --frozen-lockfile
-          cd apps/web
-          pnpm exec playwright install --with-deps chromium
+          pnpm --filter web exec playwright install --with-deps chromium
           PLAYWRIGHT_BASE_URL=https://erp.eggslao.com INVENTORY_E2E_TOKEN="$TOKEN" \
-            pnpm exec playwright test e2e/sales-inventory-table-geometry.spec.ts --project=chromium
+            pnpm --filter web exec playwright test e2e/sales-inventory-table-geometry.spec.ts --project=chromium
 
       - name: Stage inventory geometry artifacts
         if: always() && github.event_name == 'workflow_dispatch' && inputs.target == 'inventory-geometry-production'
