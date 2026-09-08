@@ -136,7 +136,7 @@ const getPath = (body, path) => path ? path.split('.').reduce((v, k) => v == nul
         throw new Error(`${a.name}: location=${response.headers.get('location')} expected=${a.expectedLocation}`);
       }
       let body = null;
-      if (a.requiredArrays?.length || a.requiredArrayItems?.length || a.requiredWarnings?.length || a.reportDataLength || a.minDataLength != null || a.rowPath || a.requiredNonEmptyFields?.length || a.requiredEveryFields) {
+      if (a.requiredArrays?.length || a.requiredArrayItems?.length || a.requiredWarnings?.length || a.reportDataLength || a.minDataLength != null || a.rowPath || a.requiredNonEmptyFields?.length || a.requiredEveryFields || a.inventoryParityPath) {
         body = JSON.parse(text);
         body = body?.data ?? body;
         for (const p of (a.requiredArrays || [])) if (!Array.isArray(getPath(body, p))) throw new Error(`${a.name}: ${p} is not an array`);
@@ -175,6 +175,19 @@ const getPath = (body, path) => path ? path.split('.').reduce((v, k) => v == nul
           const mismatch = dataRows.find(row => getPath(row, field) !== expectedValue);
           if (mismatch) throw new Error(`${a.name}: row ${field}=${String(getPath(mismatch, field))} expected=${String(expectedValue)}`);
         }
+      }
+      if (a.inventoryParityPath) {
+        const listResponse = await fetch(`${origin}${a.inventoryParityPath}`, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${tokens.get(username)}`, Cookie: `phoenix_access_token=${tokens.get(username)}` },
+        });
+        if (listResponse.status !== 200) throw new Error(`${a.name}: parity list status=${listResponse.status}`);
+        const listBody = await listResponse.json();
+        if (!Array.isArray(listBody)) throw new Error(`${a.name}: parity list is not an array`);
+        const listQty = listBody.reduce((sum, row) => sum + Number(row.qty_available || 0), 0);
+        if (Number(body.activeBatches) !== listBody.length) throw new Error(`${a.name}: activeBatches=${body.activeBatches} list.length=${listBody.length}`);
+        if (Math.abs(Number(body.totalAvailable) - listQty) > 0.0001) throw new Error(`${a.name}: totalAvailable=${body.totalAvailable} listQty=${listQty}`);
+        console.log(`PASS INVENTORY_PARITY name=${a.name} activeBatches=${body.activeBatches} totalAvailable=${body.totalAvailable} list.length=${listBody.length} listQty=${listQty}`);
       }
       console.log(`PASS HTTP name=${a.name} username=${username} method=${method} status=${response.status}${a.requiredArrays?.length ? ` arrays=${a.requiredArrays.join(',')}` : ''}${a.reportDataLength ? ` data.length=${dataRows?.length ?? 'not-array'}` : ''}${a.requiredNonEmptyFields?.length ? ` nonempty=${a.requiredNonEmptyFields.join(',')}` : ''}`);
     }
