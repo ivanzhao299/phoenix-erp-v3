@@ -91,5 +91,10 @@
 
 ## 部署记录
 
-待 CI、PR 合并、full deploy 与生产复验完成后补录最终 commit、PR、deploy run、revision
-及 postdeploy audit run。
+- 实现 commit：`ec4c543a`；冻结/安全复核触发 commit：`f49ca877`。
+- PR：[#206](https://github.com/ivanzhao299/phoenix-erp-v3/pull/206)，全部检查通过后合并。
+- merge / production revision：`489fc2a7a6fc9e8d3b295ba890cabb857a0a44f7`。
+- full deploy：run `34183317094`，类型检查、回归、API/Web 镜像构建、SSH 部署与通知均成功。
+- postdeploy readonly audit：run `34184064157`，checkout/API/Web 三方 revision 一致；
+  wanglejin 请求 project Runtime 返回 200；公司/币种过滤后的 cash-account lookup 返回 200
+  且逐行断言通过；相关错误窗口 `0`；`PASS PRODUCTION_BUSINESS_WRITES=0`。
