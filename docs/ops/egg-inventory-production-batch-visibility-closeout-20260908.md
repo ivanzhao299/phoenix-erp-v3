@@ -16,7 +16,7 @@
 - 旧线上全表 KPI 为 197 批、814,532.949 枚；旧 `product_code='EGG' + 未过期` 明细集合为 135 批、754,605 枚，差 62 批。这个全库差集还包含非鸡蛋或其他历史编码，因此修复后的权威比较改为鸡蛋产品族内同口径断言。
 - 生产存在 SKU 映射缺失的历史日产蛋批次（例如 `EGG-20260825-00001`，产品 `PRD-EGG-GRADE_1`）；它验证了不能用 INNER JOIN 或映射存在性作为展示前提。
 
-审计清单：`scripts/ops/readonly-audits/egg-inventory-batch-visibility-20260908.sql`。
+审计清单：`scripts/ops/readonly-audits/egg-inventory-batch-visibility-20260908.sql` 与 `.http.json`。
 
 ## 代码根因与修复
 
@@ -53,9 +53,10 @@
 - 本机 Web 全量 Vitest：103 files / 544 tests 通过；三个既有 React 测试文件共 29 个 `act is not a function` 环境失败，与本次文件无关。远端 CI 使用干净依赖环境，最终状态以下方 CI 为准。
 - 定向 Playwright 用例已补充无 SKU 映射日产蛋展示断言；本机 Chromium 因系统缺 `libnspr4.so` 无法启动，未虚报执行通过。
 - 冻结/安全边界逐文件复核：只读查询范围被收紧、公司条件改为参数化，未触碰库存写链；PR 登记 `reviewed-frozen-boundary` 与 `reviewed-security-touch`，本地授权 W5 closeout 20/20 PASS。
-- CI/PR：待最终记录。
-- full deploy/revision：待最终记录。
-- 部署后生产只读 HTTP + SQL 一致性 + 60 分钟错误窗口：待最终记录。
+- PR [#212](https://github.com/ivanzhao299/phoenix-erp-v3/pull/212)：7 项有效检查全部通过；merge revision `63f50985dcc830038c13426e444d9cf1f1e8fff7`。
+- full deploy：[run 34204495413](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34204495413) 成功；隔离迁移、双端 typecheck、五组 regression、API/Web 镜像构建与生产部署全部通过。
+- 部署后只读复验：[run 34205686485](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34205686485) 确认真实日产蛋批次在 API 中可见、返回 154 批、库存错误窗口 0、业务写入 0。
+- 强一致性复验：[run 34205942694](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34205942694) 直接交叉比较两个生产 GET：`activeBatches=154 = list.length=154`，`totalAvailable=757590 = listQty=757590`；checkout/API/Web revision 均为 `63f50985dcc830038c13426e444d9cf1f1e8fff7`，库存错误窗口 0，业务写入 0。
 
 ## 不变项
 
