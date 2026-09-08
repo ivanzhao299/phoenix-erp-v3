@@ -79,7 +79,7 @@ export class PackagingService {
       }
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
       const rows = await this.em.query(
-        `SELECT * FROM pkg_shifts ${where} ORDER BY created_at DESC LIMIT 100`,
+        `SELECT * FROM pkg_shifts ${where} ORDER BY created_at DESC, id DESC LIMIT 100`,
         params,
       );
       return { code: 200, data: rows };
@@ -623,14 +623,14 @@ export class PackagingService {
          LEFT JOIN pkg_shifts s ON s.id = t.shift_id
          LEFT JOIN brd_houses h ON h.house_code = s.house_code
          WHERE t.task_type = 'PACKING' AND t.status IN ('PENDING','IN_PROGRESS')
-         ORDER BY t.created_at ASC
+         ORDER BY t.created_at ASC, t.id ASC
          LIMIT 100`,
       );
       // 查尾数任务
       const remainderTasks = await this.em.query(
         `SELECT * FROM pkg_tasks
          WHERE task_type = 'REMAINDER' AND status = 'PENDING'
-         ORDER BY created_at DESC LIMIT 50`,
+         ORDER BY created_at DESC, id DESC LIMIT 50`,
       ).catch(() => []);
       return { code: 200, data: rows, remainderTasks };
     } catch {

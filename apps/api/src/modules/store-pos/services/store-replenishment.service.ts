@@ -48,7 +48,7 @@ export class StoreReplenishmentService {
         AND ($2::text IS NULL OR r.status=$2)
         AND ($3::boolean OR s.store_code=ANY($4::text[]) OR ($6::boolean AND r.company_code=ANY($7::text[])
           AND (r.source_warehouse_code IS NULL OR r.source_warehouse_code=ANY($5::text[]))))
-      GROUP BY r.id,s.store_code,s.store_name ORDER BY r.created_at DESC`,
+      GROUP BY r.id,s.store_code,s.store_name ORDER BY r.created_at DESC, r.id DESC`,
       [filters.storeCode || null, filters.status || null, !!scope.isGlobal, membershipCodes, warehouses ?? [],
         isWarehouseOperator, scope.allowedCompanyCodes ?? []]);
     return rows;

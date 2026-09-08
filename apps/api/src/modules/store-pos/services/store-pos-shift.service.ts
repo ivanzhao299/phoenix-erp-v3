@@ -179,7 +179,7 @@ export class StorePosShiftService {
     const [rows, countRow] = await Promise.all([
       this.ds.query<any[]>(
         `SELECT * FROM sal_store_shift_closings WHERE ${where}
-         ORDER BY opened_at DESC LIMIT $${idx} OFFSET $${idx + 1}`,
+         ORDER BY opened_at DESC, id DESC LIMIT $${idx} OFFSET $${idx + 1}`,
         [...vals, limit, offset],
       ),
       this.ds.query<any[]>(

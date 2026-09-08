@@ -357,7 +357,7 @@ export class ExpenseRequestsService {
 
     const [rows, [{ cnt }]] = await Promise.all([
       this.ds.query(
-        `SELECT * FROM fin_expense_requests ${where} ORDER BY created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        `SELECT * FROM fin_expense_requests ${where} ORDER BY created_at DESC, id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
         params,
       ),
       this.ds.query(

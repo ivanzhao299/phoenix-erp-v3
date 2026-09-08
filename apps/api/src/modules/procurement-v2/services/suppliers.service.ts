@@ -73,6 +73,7 @@ export class SuppliersService {
 
     const [items, total] = await qb
       .orderBy('s.createdAt', 'DESC')
+      .addOrderBy('s.id', 'DESC')
       .skip(skip)
       .take(pageSize)
       .getManyAndCount();

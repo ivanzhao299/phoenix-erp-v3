@@ -15,9 +15,11 @@ describe('sales inventory localized-name read contract', () => {
     expect(source).toContain('p.product_name_en');
   });
 
-  it('keeps filters and FIFO ordering on stable code fields', () => {
+  it('keeps filters and the list/allocator ordering contracts on stable fields', () => {
     expect(source).toContain('b.sku_code = $${pi++}');
     expect(source).toContain('b.product_code = $${pi++}');
-    expect(source).toContain('ORDER BY b.expire_date ASC NULLS LAST, b.created_at ASC');
+    expect(source).toContain('ORDER BY expire_date ASC NULLS LAST, created_at ASC');
+    expect(source).toContain('ORDER BY b.egg_date DESC NULLS LAST, b.batch_no DESC, b.id DESC');
+    expect(source).toContain('ORDER BY b.expire_date ASC, b.batch_no ASC, b.id ASC');
   });
 });

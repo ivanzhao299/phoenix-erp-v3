@@ -211,7 +211,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       this.ds.query(`SELECT COUNT(*) AS total FROM sal_sales_orders WHERE ${wc}`, params),
       this.ds.query(
         `SELECT * FROM sal_sales_orders WHERE ${wc}
-         ORDER BY created_at DESC
+         ORDER BY created_at DESC, id DESC
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, limit, offset],
       ),

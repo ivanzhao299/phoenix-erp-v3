@@ -113,7 +113,7 @@ export class PriceItemsService {
          FROM sal_price_items pi
          JOIN sal_price_books pb ON pb.id = pi.price_book_id
          WHERE ${wc}
-         ORDER BY pi.product_code, pi.grade_code, pi.packaging_spec
+         ORDER BY pi.product_code, pi.grade_code, pi.packaging_spec, pi.id DESC
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, limit, offset],
       ),

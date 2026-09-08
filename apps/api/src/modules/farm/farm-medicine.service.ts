@@ -207,7 +207,7 @@ export class FarmMedicineService {
        LEFT JOIN brd_medications m ON m.medication_code = b.product_code
        WHERE b.warehouse_code = ANY($1)
          AND ${dateFilter}
-       ORDER BY l.created_at DESC`,
+       ORDER BY l.created_at DESC, l.id DESC`,
       [WAREHOUSE_CODES, normalizeDate(startDate), normalizeDate(endDate)],
     );
   }

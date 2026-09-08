@@ -61,7 +61,7 @@ export class LabelsService {
        FROM lbl_records r
        LEFT JOIN sys_user u ON u.user_id = r.printed_by
        WHERE r.batch_no = $1
-       ORDER BY r.created_at DESC
+       ORDER BY r.created_at DESC, r.id DESC
        LIMIT 200`,
       [batchNo],
     );

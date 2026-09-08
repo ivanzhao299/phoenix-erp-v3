@@ -60,7 +60,7 @@ export class TerminalService {
         `SELECT batch_no, product_code, qty, status, warehouse_code, location_code, created_at
          FROM inv_batches
          WHERE warehouse_code = $1 AND qty > 0
-         ORDER BY created_at DESC`,
+         ORDER BY egg_date DESC NULLS LAST, batch_no DESC, id DESC`,
         [warehouseCode],
       );
       return { code: 200, data };
@@ -104,7 +104,7 @@ export class TerminalService {
   async getStocktakeTasks() {
     try {
       const data = await this.em.query(
-        `SELECT * FROM wms_stocktake WHERE status = 'PENDING' ORDER BY created_at DESC`,
+        `SELECT * FROM wms_stocktake WHERE status = 'PENDING' ORDER BY created_at DESC, id DESC`,
       );
       return { code: 200, data };
     } catch {

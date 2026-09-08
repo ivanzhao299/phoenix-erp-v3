@@ -2583,6 +2583,17 @@ export class GenericCrudService implements OnModuleInit {
     if (table === 'brd_daily_logs') {
       sql = `SELECT * FROM (${sql} ORDER BY "log_date" DESC, "created_at" DESC NULLS LAST, "id" DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}) AS "daily_logs_page" ORDER BY "log_date" ASC, "created_at" ASC NULLS FIRST, "id" ASC`;
     } else {
+      const stableDefaultOrder: Record<string, string> = {
+        inv_batches: '"egg_date" DESC NULLS LAST, "batch_no" DESC, "id" DESC',
+        inv_ledger: '"created_at" DESC, "id" DESC',
+        wms_inbound: '"created_at" DESC, "id" DESC',
+        wms_outbound: '"created_at" DESC, "id" DESC',
+        wms_transfer: '"created_at" DESC, "id" DESC',
+        wms_stocktake: '"created_at" DESC, "id" DESC',
+        wms_loss: '"created_at" DESC, "id" DESC',
+      };
+      const orderBy = stableDefaultOrder[table];
+      if (orderBy) sql += ` ORDER BY ${orderBy}`;
       sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     }
     queryValues.push(limit, offset);

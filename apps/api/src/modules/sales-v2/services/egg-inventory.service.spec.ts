@@ -111,6 +111,15 @@ describe('EggInventoryService getExpiringBatches DataScope', () => {
     expect(sql).toContain("b.status = 'AVAILABLE'");
     expect(sql).toContain("b.product_code = 'EGG' OR b.product_code LIKE 'PRD-EGG-%'");
   });
+
+  it('orders expiring batches by expiry date with a stable batch/id tie-breaker', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    await service.getExpiringBatches({ days: 7 });
+    expect(String(query.mock.calls[0][0])).toContain(
+      'ORDER BY b.expire_date ASC, b.batch_no ASC, b.id ASC',
+    );
+  });
 });
 
 describe('EggInventoryService inventory list/dashboard parity', () => {
@@ -132,7 +141,23 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
     expect(sql).toContain('LEFT JOIN product_skus');
     expect(sql).toContain('LEFT JOIN mst_products');
     expect(sql).toContain('COALESCE(p.product_name_zh, sku.sku_name, b.product_code)');
+    expect(sql).toContain('ORDER BY b.egg_date DESC NULLS LAST, b.batch_no DESC, b.id DESC');
     expect(args).toEqual([]);
+  });
+
+  it('keeps same-production-date pagination deterministic and non-overlapping', () => {
+    const rows = [
+      { id: 1, eggDate: '2026-09-08', batchNo: 'EGG-A' },
+      { id: 2, eggDate: '2026-09-08', batchNo: 'EGG-B' },
+      { id: 3, eggDate: '2026-09-08', batchNo: 'EGG-B' },
+      { id: 4, eggDate: '2026-09-07', batchNo: 'EGG-Z' },
+    ].sort((a, b) => b.eggDate.localeCompare(a.eggDate)
+      || b.batchNo.localeCompare(a.batchNo)
+      || b.id - a.id);
+    const page1 = rows.slice(0, 2);
+    const page2 = rows.slice(2, 4);
+    expect(rows.map((row) => row.id)).toEqual([3, 2, 1, 4]);
+    expect(new Set([...page1, ...page2].map((row) => row.id)).size).toBe(4);
   });
 
   it('applies DataScope to batches and fails closed outside the requested company', async () => {

@@ -86,7 +86,7 @@ export class FarmEggService {
        WHERE b.product_code LIKE 'PRD-EGG-%'
          AND COALESCE(l.log_date, b.egg_date, l.created_at::date) BETWEEN $1 AND $2
          AND ($3::boolean OR b.company_code = ANY($4::text[]))
-       ORDER BY l.created_at DESC`,
+       ORDER BY l.created_at DESC, l.id DESC`,
       [startDate, endDate, scope.global, scope.codes],
     );
   }

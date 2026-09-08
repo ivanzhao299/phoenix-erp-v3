@@ -205,7 +205,7 @@ export class QualityService {
     if (start_date){ where.push(`"checkTime" >= $${params.length + 1}`); params.push(start_date); }
     if (end_date)  { where.push(`"checkTime" <= $${params.length + 1}`); params.push(end_date); }
     const rows = await this.em.query(
-      `SELECT * FROM qa_inspections WHERE ${where.join(' AND ')} ORDER BY "checkTime" DESC LIMIT 100`,
+      `SELECT * FROM qa_inspections WHERE ${where.join(' AND ')} ORDER BY "checkTime" DESC, id DESC LIMIT 100`,
       params,
     ).catch(() => []);
     return { code: 200, data: rows, total: rows.length };
@@ -291,7 +291,7 @@ export class QualityService {
     if (status)   { where.push(`status = $${params.length + 1}`); params.push(status); }
     if (severity) { where.push(`severity = $${params.length + 1}`); params.push(severity); }
     const rows = await this.em.query(
-      `SELECT * FROM qa_non_conformance WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 100`,
+      `SELECT * FROM qa_non_conformance WHERE ${where.join(' AND ')} ORDER BY created_at DESC, id DESC LIMIT 100`,
       params,
     ).catch(() => []);
     return { code: 200, data: rows };

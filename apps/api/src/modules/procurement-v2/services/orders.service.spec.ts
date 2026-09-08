@@ -5,6 +5,7 @@ describe('OrdersService list', () => {
     const qb = {
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn(async () => listResult),
@@ -52,6 +53,8 @@ describe('OrdersService list', () => {
     expect(result).toEqual({ items: [], total: 0, page: 1, pageSize: 20 });
     expect(poRepo.createQueryBuilder).toHaveBeenCalledWith('p');
     expect(scopeHelper.applyToQb).toHaveBeenCalledWith(qb, { alias: 'p' });
+    expect(qb.orderBy).toHaveBeenCalledWith('p.createdAt', 'DESC');
+    expect(qb.addOrderBy).toHaveBeenCalledWith('p.id', 'DESC');
     expect(qb.andWhere).toHaveBeenCalledWith(
       expect.stringContaining('CAST(p.id AS TEXT) ILIKE :kw'),
       { kw: '%178409%' },
