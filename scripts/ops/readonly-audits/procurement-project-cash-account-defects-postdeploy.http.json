@@ -13,8 +13,7 @@
     "username": "wanglejin",
     "origin": "web",
     "path": "/procurement2/projects",
-    "expectedStatus": 307,
-    "expectedLocation": "/master-data/projects"
+    "expectedStatus": 200
   },
   {
     "name": "wanglejin-shared-project-page",

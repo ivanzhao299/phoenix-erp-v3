@@ -123,6 +123,10 @@ guard，确认并同批收口三处真实断层：
   随后因审计器按完整字符串比较聚合权限 `MENU_PRC2_PROJECT:V,C,E,D,A,X`，误判缺少
   `MENU_PRC2_PROJECT:V` 而失败；只读事务阻止了启动期遗留 DDL/DML，未产生业务写入。
   审计器已改为按 `menu_code:action-list` 语义解析后重跑。
+- 第二次 postdeploy readonly run `34187969095` 已确认 revision 三方一致、wanglejin 权限
+  来源与 project Runtime 200；旧兼容页在 Next App Router/RSC 请求语义下返回 200 redirect
+  payload，并非传统 307，导致审计器的 307 预期失败。线上断言改为旧路径与最终项目页均
+  200；实际客户端跨路径放行和其他主数据隔离由定向路由守卫测试覆盖。
 
 生产部署后使用
 `scripts/ops/readonly-audits/procurement-project-cash-account-defects-postdeploy.http.json`
