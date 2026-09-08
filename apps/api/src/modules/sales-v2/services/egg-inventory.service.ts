@@ -107,6 +107,20 @@ export class EggInventoryService {
     private readonly cls: ClsService,
   ) {}
 
+  /** 销售鸡蛋库存的产品族；EGG 是页面使用的族别名，不是精确产品码。 */
+  private eggFamilyCondition(alias = 'b'): string {
+    return `(${alias}.product_code = 'EGG' OR ${alias}.product_code LIKE 'PRD-EGG-%')`;
+  }
+
+  /** 统一页面查询的公司范围；null 表示全局，[] 表示拒绝访问。 */
+  private companyScope(requested?: string): string[] | null {
+    const scope = this.cls.get('dataScope');
+    if (!scope || scope.isGlobal) return requested ? [requested] : null;
+    const allowed = scope.allowedCompanyCodes ?? [];
+    if (requested) return allowed.includes(requested) ? [requested] : [];
+    return allowed;
+  }
+
   // ── 内部工具 ─────────────────────────────────────────────────────────────────
 
   /**
@@ -381,11 +395,21 @@ export class EggInventoryService {
       args.push(params.skuCode);
     } else {
       // PATH B: 旧逻辑（product+grade 匹配，向后兼容）
-      if (params.productCode) { conds.push(`b.product_code = $${pi++}`); args.push(params.productCode); }
+      if (params.productCode === 'EGG') {
+        conds.push(this.eggFamilyCondition());
+      } else if (params.productCode) {
+        conds.push(`b.product_code = $${pi++}`);
+        args.push(params.productCode);
+      }
       if (params.gradeCode)   { conds.push(`b.quality_grade = $${pi++}`); args.push(params.gradeCode); }
     }
 
-    if (params.companyCode) { conds.push(`b.company_code = $${pi++}`); args.push(params.companyCode); }
+    const companyCodes = this.companyScope(params.companyCode);
+    if (companyCodes?.length === 0) return [];
+    if (companyCodes) {
+      conds.push(`b.company_code = ANY($${pi++})`);
+      args.push(companyCodes);
+    }
 
     // 过期禁售
     if (!params.includingExpiring) {
@@ -395,8 +419,10 @@ export class EggInventoryService {
     const rows = await this.ds.query(
       `SELECT b.*,
               sku.sku_name, sku.sku_name_en, sku.sku_name_lo,
-              p.product_name_zh AS product_name, p.product_name_zh,
-              p.product_name_en, p.product_name_lo,
+              COALESCE(p.product_name_zh, sku.sku_name, b.product_code) AS product_name,
+              COALESCE(p.product_name_zh, sku.sku_name, b.product_code) AS product_name_zh,
+              COALESCE(p.product_name_en, sku.sku_name_en, p.product_name_zh, sku.sku_name, b.product_code) AS product_name_en,
+              COALESCE(p.product_name_lo, sku.sku_name_lo, p.product_name_zh, sku.sku_name, b.product_code) AS product_name_lo,
               company.company_name, company.company_name_zh,
               wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo,
               loc.location_name,
@@ -944,11 +970,8 @@ export class EggInventoryService {
     days?: number;
   }): Promise<EggBatch[]> {
     const days = params.days ?? EXPIRING_WARN_DAYS;
-    const scope = this.cls.get('dataScope');
-    const requested = params.companyCode;
-    if (!scope?.isGlobal && scope && scope.allowedCompanyCodes.length === 0) return [];
-    if (!scope?.isGlobal && requested && scope && !scope.allowedCompanyCodes.includes(requested)) return [];
-    const companyCodes = requested ? [requested] : (!scope || scope.isGlobal ? null : scope.allowedCompanyCodes);
+    const companyCodes = this.companyScope(params.companyCode);
+    if (companyCodes?.length === 0) return [];
     const values: unknown[] = [days];
     const cond = companyCodes ? `AND b.company_code = ANY($2)` : '';
     if (companyCodes) values.push(companyCodes);
@@ -956,8 +979,10 @@ export class EggInventoryService {
     return this.ds.query(
       `SELECT b.*,
               sku.sku_name, sku.sku_name_en, sku.sku_name_lo,
-              p.product_name_zh AS product_name, p.product_name_zh,
-              p.product_name_en, p.product_name_lo,
+              COALESCE(p.product_name_zh, sku.sku_name, b.product_code) AS product_name,
+              COALESCE(p.product_name_zh, sku.sku_name, b.product_code) AS product_name_zh,
+              COALESCE(p.product_name_en, sku.sku_name_en, p.product_name_zh, sku.sku_name, b.product_code) AS product_name_en,
+              COALESCE(p.product_name_lo, sku.sku_name_lo, p.product_name_zh, sku.sku_name, b.product_code) AS product_name_lo,
               company.company_name, company.company_name_zh,
               wh.warehouse_name, wh.warehouse_name_zh, wh.warehouse_name_en, wh.warehouse_name_lo,
               loc.location_name,
@@ -973,8 +998,9 @@ export class EggInventoryService {
           WHERE o.org_type = 'COMPANY' AND COALESCE(o.company_code, o.org_code) = b.company_code
           ORDER BY o.org_code LIMIT 1
        ) company ON TRUE
-       WHERE b.status IN ('AVAILABLE','RETURNED')
+       WHERE b.status = 'AVAILABLE'
          AND b.qty_available > 0
+         AND ${this.eggFamilyCondition()}
          AND b.expire_date IS NOT NULL
          AND b.expire_date >= CURRENT_DATE
          AND b.expire_date <= CURRENT_DATE + ($1 * INTERVAL '1 day')
@@ -986,33 +1012,52 @@ export class EggInventoryService {
   // ── 10. Dashboard 统计 ───────────────────────────────────────────────────────
 
   async getDashboardStats(companyCode?: string) {
-    const cond = companyCode ? `AND company_code='${companyCode}'` : '';
+    const companyCodes = this.companyScope(companyCode);
+    const empty = {
+      activeBatches: 0, totalAvailable: 0, expiringBatches: 0, expiringQty: 0,
+      expiredBatches: 0, returnedBatches: 0, skuLinkedBatches: 0,
+      todayExpireLoss: 0, todayDamageLoss: 0, todayWriteOff: 0,
+      expiringWarnDays: EXPIRING_WARN_DAYS,
+    };
+    if (companyCodes?.length === 0) return empty;
+    const batchArgs: unknown[] = [];
+    const batchCompanyCond = companyCodes ? `AND b.company_code = ANY($1)` : '';
+    if (companyCodes) batchArgs.push(companyCodes);
 
     // [Phase R2 — Config Governance] 临期预警天数从 sys_configs 读取
     const expiringDays = await this._cfgInt('inventory.expiring_warn_days', EXPIRING_WARN_DAYS);
 
     const [row] = await this.ds.query(`
       SELECT
-        COUNT(*) FILTER (WHERE status='AVAILABLE' AND qty_available > 0)        AS active_batches,
-        COALESCE(SUM(qty_available) FILTER (WHERE status='AVAILABLE'), 0)        AS total_available,
+        COUNT(*) FILTER (WHERE b.status='AVAILABLE' AND b.qty_available > 0
+          AND (b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE))          AS active_batches,
+        COALESCE(SUM(b.qty_available) FILTER (WHERE b.status='AVAILABLE' AND b.qty_available > 0
+          AND (b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE)), 0)       AS total_available,
         COUNT(*) FILTER (
-          WHERE status='AVAILABLE' AND qty_available > 0
-            AND expire_date IS NOT NULL
-            AND expire_date >= CURRENT_DATE
-            AND expire_date <= CURRENT_DATE + INTERVAL '${expiringDays} days'
+          WHERE b.status='AVAILABLE' AND b.qty_available > 0
+            AND b.expire_date IS NOT NULL
+            AND b.expire_date >= CURRENT_DATE
+            AND b.expire_date <= CURRENT_DATE + (${expiringDays} * INTERVAL '1 day')
         )                                                                        AS expiring_batches,
-        COALESCE(SUM(qty_available) FILTER (
-          WHERE status='AVAILABLE' AND qty_available > 0
-            AND expire_date IS NOT NULL
-            AND expire_date >= CURRENT_DATE
-            AND expire_date <= CURRENT_DATE + INTERVAL '${expiringDays} days'
+        COALESCE(SUM(b.qty_available) FILTER (
+          WHERE b.status='AVAILABLE' AND b.qty_available > 0
+            AND b.expire_date IS NOT NULL
+            AND b.expire_date >= CURRENT_DATE
+            AND b.expire_date <= CURRENT_DATE + (${expiringDays} * INTERVAL '1 day')
         ), 0)                                                                    AS expiring_qty,
-        COUNT(*) FILTER (WHERE status='EXPIRED')                                 AS expired_batches,
-        COUNT(*) FILTER (WHERE status='RETURNED')                                AS returned_batches,
+        COUNT(*) FILTER (WHERE b.status='EXPIRED')                               AS expired_batches,
+        COUNT(*) FILTER (WHERE b.status='RETURNED')                              AS returned_batches,
         -- Phase H4: 统计已接入 SKU 的批次数量
-        COUNT(*) FILTER (WHERE sku_code IS NOT NULL AND status='AVAILABLE')      AS sku_linked_batches
-      FROM inv_batches WHERE 1=1 ${cond}
-    `);
+        COUNT(*) FILTER (WHERE b.sku_code IS NOT NULL AND b.status='AVAILABLE'
+          AND b.qty_available > 0
+          AND (b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE))          AS sku_linked_batches
+      FROM inv_batches b
+      WHERE ${this.eggFamilyCondition()} ${batchCompanyCond}
+    `, batchArgs);
+
+    const ledgerArgs: unknown[] = [];
+    const ledgerCompanyCond = companyCodes ? `AND company_code = ANY($1)` : '';
+    if (companyCodes) ledgerArgs.push(companyCodes);
 
     // 今日损耗
     const [lossRow] = await this.ds.query(`
@@ -1021,8 +1066,8 @@ export class EggInventoryService {
         COALESCE(SUM(ABS(qty_change)) FILTER (WHERE change_type='DAMAGE_WRITEOFF'), 0) AS damage_loss,
         COALESCE(SUM(ABS(qty_change)) FILTER (WHERE change_type='WRITE_OFF'), 0)       AS write_off
       FROM inv_ledger
-      WHERE created_at >= CURRENT_DATE ${cond.replace('company_code', 'company_code')}
-    `);
+      WHERE created_at >= CURRENT_DATE ${ledgerCompanyCond}
+    `, ledgerArgs);
 
     return {
       activeBatches:    Number(row.active_batches),
@@ -1036,6 +1081,7 @@ export class EggInventoryService {
       todayExpireLoss:  Number(lossRow.expire_loss),
       todayDamageLoss:  Number(lossRow.damage_loss),
       todayWriteOff:    Number(lossRow.write_off),
+      expiringWarnDays: expiringDays,
     };
   }
 

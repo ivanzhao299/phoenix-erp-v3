@@ -51,6 +51,7 @@ interface DashboardStats {
   returnedBatches: number;
   todayExpireLoss: number;
   todayDamageLoss: number;
+  expiringWarnDays?: number;
   /** Phase H4 */
   skuLinkedBatches?: number;
 }
@@ -1097,7 +1098,7 @@ export default function InventoryPage() {
       {stats && <div className={styles.kpis}>
           <StatCard label={t('ui.活跃批次','活跃批次')} value={stats.activeBatches} tone="blue" />
           <StatCard label={t('ui.总可用库存（枚）','总可用库存（枚）')} value={fmt(stats.totalAvailable)} tone="green" />
-          <StatCard label={t('ui.临期批次（≤7天）','临期批次（≤7天）')} value={stats.expiringBatches} tone="amber" sub={`${fmt(stats.expiringQty)} ${t('ui.枚','枚')}`} />
+          <StatCard label={`${t('ui.临期批次','临期批次')}（≤${stats.expiringWarnDays ?? 7}${t('ui.天','天')}）`} value={stats.expiringBatches} tone="amber" sub={`${fmt(stats.expiringQty)} ${t('ui.枚','枚')}`} />
           <StatCard label={t('ui.已过期批次','已过期批次')} value={stats.expiredBatches} tone="red" />
           <StatCard label={t('ui.退货待检批次','退货待检批次')} value={stats.returnedBatches} tone="purple" />
           {stats.skuLinkedBatches !== undefined && <StatCard label={t('ui.已接入 SKU 批次','已接入 SKU 批次')} value={stats.skuLinkedBatches} tone="blue" sub={t('ui.SKU 批次','SKU 批次')} />}

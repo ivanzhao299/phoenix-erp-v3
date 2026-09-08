@@ -1,0 +1,22 @@
+[
+  {
+    "name": "egg-inventory-production-batches-visible",
+    "path": "/api/v2/sales/inventory/batches?productCode=EGG",
+    "expectedStatus": 200,
+    "minDataLength": 1,
+    "requiredArrayItems": [
+      {
+        "path": "",
+        "where": { "source_type": "TEMP_PRODUCTION" },
+        "minMatches": 1,
+        "nonEmptyFields": ["batch_no", "product_code", "product_name", "company_code", "warehouse_code"]
+      }
+    ],
+    "reportDataLength": true
+  },
+  {
+    "name": "egg-inventory-dashboard-available",
+    "path": "/api/v2/sales/inventory/stats",
+    "expectedStatus": 200
+  }
+]

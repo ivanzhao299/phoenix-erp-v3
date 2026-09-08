@@ -60,7 +60,7 @@ const { DataSource } = require('typeorm');
 const jwt = require('jsonwebtoken');
 
 const assertions = JSON.parse(Buffer.from(process.env.HTTP_MANIFEST_B64, 'base64').toString('utf8'));
-const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? undefined : v[k], body);
+const getPath = (body, path) => path ? path.split('.').reduce((v, k) => v == null ? undefined : v[k], body) : body;
 (async () => {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   try {
@@ -200,6 +200,11 @@ if [ "$http_path" = 'scripts/ops/readonly-audits/inventory-eight-page-display.ht
   inventory_display_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(inventory/batches|crud/(wms_(inbound|outbound|transfer|stocktake)|inv_ledger|wms_warehouses))' || true; } | wc -l | tr -d ' ')"
   echo "INVENTORY_DISPLAY_ERROR_WINDOW_60M=$inventory_display_error_count"
   test "$inventory_display_error_count" = 0
+fi
+if [ "$http_path" = 'scripts/ops/readonly-audits/egg-inventory-batch-visibility-20260908.http.json' ]; then
+  egg_inventory_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(sales/inventory/(batches|stats)|EggInventoryService)' || true; } | wc -l | tr -d ' ')"
+  echo "EGG_INVENTORY_ERROR_WINDOW_60M=$egg_inventory_error_count"
+  test "$egg_inventory_error_count" = 0
 fi
 if [ "$http_path" = 'scripts/ops/readonly-audits/production-procurement-localized-names.http.json' ]; then
   localized_production_procurement_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(analytics/production|farm/egg/ledger|procurement/orders|supplier-performance)' || true; } | wc -l | tr -d ' ')"
