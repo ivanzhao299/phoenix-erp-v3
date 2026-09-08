@@ -67,12 +67,15 @@ const getPath = (body, path) => path ? path.split('.').reduce((v, k) => v == nul
     const auth = app.get(AuthService);
     const scopes = app.get(DataScopeService);
     const ds = app.get(DataSource);
-    const scalar = async (sql) => ds.transaction(async manager => {
+    const readonlyRows = async (sql) => ds.transaction(async manager => {
       await manager.query('SET TRANSACTION READ ONLY');
       await manager.query("SET LOCAL statement_timeout='10s'");
-      const rows = await manager.query(sql);
-      return rows.length ? String(Object.values(rows[0])[0] ?? '') : '';
+      return manager.query(sql);
     });
+    const scalar = async (sql) => {
+      const rows = await readonlyRows(sql);
+      return rows.length ? String(Object.values(rows[0])[0] ?? '') : '';
+    };
     const tokens = new Map();
     for (const a of assertions) {
       const method = a.method || 'GET';
@@ -136,10 +139,11 @@ const getPath = (body, path) => path ? path.split('.').reduce((v, k) => v == nul
         throw new Error(`${a.name}: location=${response.headers.get('location')} expected=${a.expectedLocation}`);
       }
       let body = null;
-      if (a.requiredArrays?.length || a.requiredArrayItems?.length || a.requiredWarnings?.length || a.reportDataLength || a.minDataLength != null || a.rowPath || a.requiredNonEmptyFields?.length || a.requiredEveryFields || a.inventoryParityPath) {
+      if (a.requiredArrays?.length || a.requiredFields?.length || a.requiredArrayItems?.length || a.requiredWarnings?.length || a.reportDataLength || a.minDataLength != null || a.rowPath || a.requiredNonEmptyFields?.length || a.requiredEveryFields || a.inventoryParityPath || a.sqlRowMatch) {
         body = JSON.parse(text);
         body = body?.data ?? body;
         for (const p of (a.requiredArrays || [])) if (!Array.isArray(getPath(body, p))) throw new Error(`${a.name}: ${p} is not an array`);
+        for (const p of (a.requiredFields || [])) if (getPath(body, p) === undefined) throw new Error(`${a.name}: missing field ${p}`);
       }
       for (const rule of (a.requiredArrayItems || [])) {
         const rows = getPath(body, rule.path);
@@ -189,6 +193,22 @@ const getPath = (body, path) => path ? path.split('.').reduce((v, k) => v == nul
         if (Math.abs(Number(body.totalAvailable) - listQty) > 0.0001) throw new Error(`${a.name}: totalAvailable=${body.totalAvailable} listQty=${listQty}`);
         console.log(`PASS INVENTORY_PARITY name=${a.name} activeBatches=${body.activeBatches} totalAvailable=${body.totalAvailable} list.length=${listBody.length} listQty=${listQty}`);
       }
+      if (a.sqlRowMatch) {
+        const expectedRows = await readonlyRows(a.sqlRowMatch.sql);
+        if (expectedRows.length === 0) throw new Error(`${a.name}: SQL comparison returned no row`);
+        const candidates = getPath(body, a.sqlRowMatch.responsePath);
+        if (!Array.isArray(candidates)) throw new Error(`${a.name}: ${a.sqlRowMatch.responsePath} is not an array`);
+        const expectedRow = expectedRows[0];
+        const matcherKey = a.sqlRowMatch.matcherKey;
+        const actualRow = candidates.find(row => String(getPath(row, matcherKey)) === String(expectedRow[matcherKey]));
+        if (!actualRow) throw new Error(`${a.name}: no response row matches ${matcherKey}=${expectedRow[matcherKey]}`);
+        for (const field of (a.sqlRowMatch.numericFields || [])) {
+          if (Math.abs(Number(getPath(actualRow, field)) - Number(expectedRow[field])) > 0.0001) {
+            throw new Error(`${a.name}: ${field}=${getPath(actualRow, field)} SQL=${expectedRow[field]}`);
+          }
+        }
+        console.log(`PASS SQL_ROW_MATCH name=${a.name} ${matcherKey}=${expectedRow[matcherKey]}`);
+      }
       console.log(`PASS HTTP name=${a.name} username=${username} method=${method} status=${response.status}${a.requiredArrays?.length ? ` arrays=${a.requiredArrays.join(',')}` : ''}${a.reportDataLength ? ` data.length=${dataRows?.length ?? 'not-array'}` : ''}${a.requiredNonEmptyFields?.length ? ` nonempty=${a.requiredNonEmptyFields.join(',')}` : ''}`);
     }
   } finally { await app.close(); }
@@ -218,6 +238,11 @@ if [ "$http_path" = 'scripts/ops/readonly-audits/egg-inventory-batch-visibility-
   egg_inventory_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(sales/inventory/(batches|stats)|EggInventoryService)' || true; } | wc -l | tr -d ' ')"
   echo "EGG_INVENTORY_ERROR_WINDOW_60M=$egg_inventory_error_count"
   test "$egg_inventory_error_count" = 0
+fi
+if [ "$http_path" = 'scripts/ops/readonly-audits/egg-inventory-loss-analysis-20260908.http.json' ]; then
+  egg_loss_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(sales/inventory/loss-analysis|EggInventoryService)' || true; } | wc -l | tr -d ' ')"
+  echo "EGG_INVENTORY_LOSS_ERROR_WINDOW_60M=$egg_loss_error_count"
+  test "$egg_loss_error_count" = 0
 fi
 if [ "$http_path" = 'scripts/ops/readonly-audits/production-procurement-localized-names.http.json' ]; then
   localized_production_procurement_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(analytics/production|farm/egg/ledger|procurement/orders|supplier-performance)' || true; } | wc -l | tr -d ' ')"

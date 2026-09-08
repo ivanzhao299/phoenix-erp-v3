@@ -164,6 +164,69 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
   });
 });
 
+describe('EggInventoryService loss analysis contract', () => {
+  it('returns transitional aliases and aggregates multiple ledger rows by batch', async () => {
+    const query = jest.fn()
+      .mockResolvedValueOnce([{
+        change_type: 'EXPIRE_WRITEOFF', record_count: '3', batch_count: '2', total_qty: '15',
+      }])
+      .mockResolvedValueOnce([{
+        batch_no: 'EGG-1', product_code: 'PRD-EGG-1', sku_code: 'SKU-1',
+        record_count: '2', total_loss: '12', last_event: '2026-09-08T08:00:00.000Z',
+      }])
+      .mockResolvedValueOnce([{
+        expire_total: '15', damage_total: '2', write_off_total: '3', total_loss: '24', total_records: '5',
+      }]);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn().mockReturnValue(undefined) } as never);
+
+    await expect(service.getLossAnalysis()).resolves.toEqual({
+      byType: [{
+        change_type: 'EXPIRE_WRITEOFF', record_count: 3, batch_count: 2,
+        total_qty: 15, total_loss: 15,
+      }],
+      byBatch: [{
+        batch_no: 'EGG-1', product_code: 'PRD-EGG-1', sku_code: 'SKU-1',
+        record_count: 2, total_loss: 12, last_event: '2026-09-08T08:00:00.000Z',
+      }],
+      summary: {
+        expire_total: 15, damage_total: 2, write_off_total: 3, total_records: 5,
+        total_expire_loss: 15, total_damage_loss: 2, total_loss: 24,
+      },
+    });
+
+    const batchSql = String(query.mock.calls[1][0]);
+    expect(batchSql).toContain('FROM inv_ledger il');
+    expect(batchSql).toContain('GROUP BY il.company_code, il.batch_no');
+    expect(batchSql).toContain('SUM(ABS(il.qty_change))');
+    expect(batchSql).toContain('MAX(il.created_at) AS last_event');
+    expect(batchSql).not.toContain("b.status IN ('EXPIRED','WRITTEN_OFF')");
+  });
+
+  it('uses the same company DataScope behavior as the other inventory tabs', async () => {
+    const query = jest.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{}]);
+    const cls = { get: jest.fn().mockReturnValue({ isGlobal: false, allowedCompanyCodes: ['COMP-A'] }) };
+    const service = new EggInventoryService({ query } as never, cls as never);
+
+    await service.getLossAnalysis('COMP-A');
+    expect(query).toHaveBeenCalledTimes(3);
+    for (const [sql, args] of query.mock.calls) {
+      expect(String(sql)).toContain('il.company_code = ANY($1)');
+      expect(args).toEqual([['COMP-A']]);
+    }
+  });
+
+  it('fails closed before querying when the requested company is outside DataScope', async () => {
+    const query = jest.fn();
+    const cls = { get: jest.fn().mockReturnValue({ isGlobal: false, allowedCompanyCodes: ['COMP-A'] }) };
+    const service = new EggInventoryService({ query } as never, cls as never);
+
+    await expect(service.getLossAnalysis('COMP-B')).resolves.toMatchObject({
+      byType: [], byBatch: [], summary: { total_expire_loss: 0, total_damage_loss: 0, total_loss: 0 },
+    });
+    expect(query).not.toHaveBeenCalled();
+  });
+});
+
 describe('EggInventoryService createProductionBatch SQL contract', () => {
   it('rejects TEMP_PRODUCTION without a resolved warehouse and location', async () => {
     const service = new EggInventoryService({ query: jest.fn() } as never, { get: jest.fn() } as never);

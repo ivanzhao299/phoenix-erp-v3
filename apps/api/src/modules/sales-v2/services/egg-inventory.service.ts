@@ -1088,43 +1088,103 @@ export class EggInventoryService {
   // ── 11. 损耗分析 ─────────────────────────────────────────────────────────────
 
   async getLossAnalysis(companyCode?: string) {
-    const cond = companyCode ? `AND company_code='${companyCode}'` : '';
+    const companyCodes = this.companyScope(companyCode);
+    const emptyResult = {
+      byType: [],
+      byBatch: [],
+      summary: {
+        expire_total: 0,
+        damage_total: 0,
+        write_off_total: 0,
+        total_records: 0,
+        total_expire_loss: 0,
+        total_damage_loss: 0,
+        total_loss: 0,
+      },
+    };
+    if (companyCodes?.length === 0) return emptyResult;
 
-    const byType = await this.ds.query(`
-      SELECT change_type,
+    const args: unknown[] = [];
+    const companyCond = companyCodes ? 'AND il.company_code = ANY($1)' : '';
+    if (companyCodes) args.push(companyCodes);
+
+    const byTypeRows = await this.ds.query(`
+      SELECT il.change_type,
              COUNT(*) AS record_count,
-             SUM(ABS(qty_change)) AS total_qty
-      FROM inv_ledger
-      WHERE change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF','QC_REJECT')
-        AND created_at >= NOW() - INTERVAL '30 days'
-        ${cond}
-      GROUP BY change_type
+             COUNT(DISTINCT il.batch_no) AS batch_count,
+             COALESCE(SUM(ABS(il.qty_change)), 0) AS total_qty
+      FROM inv_ledger il
+      WHERE il.change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF','QC_REJECT')
+        AND il.created_at >= NOW() - INTERVAL '30 days'
+        ${companyCond}
+      GROUP BY il.change_type
       ORDER BY total_qty DESC
-    `);
+    `, args);
 
-    const byBatch = await this.ds.query(`
-      SELECT b.batch_no, b.egg_date, b.expire_date, b.quality_grade,
-             b.product_code, b.qty AS original_qty, b.status,
-             b.sku_code
-      FROM inv_batches b
-      WHERE b.status IN ('EXPIRED','WRITTEN_OFF')
-        AND b.created_at >= NOW() - INTERVAL '30 days'
-        ${cond}
-      ORDER BY b.created_at DESC
+    const byBatchRows = await this.ds.query(`
+      SELECT il.batch_no,
+             MAX(b.product_code) AS product_code,
+             MAX(COALESCE(il.sku_code, b.sku_code)) AS sku_code,
+             COUNT(*) AS record_count,
+             COALESCE(SUM(ABS(il.qty_change)), 0) AS total_loss,
+             MAX(il.created_at) AS last_event
+      FROM inv_ledger il
+      LEFT JOIN inv_batches b
+        ON b.batch_no = il.batch_no
+       AND b.company_code = il.company_code
+      WHERE il.change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF','QC_REJECT')
+        AND il.created_at >= NOW() - INTERVAL '30 days'
+        ${companyCond}
+      GROUP BY il.company_code, il.batch_no
+      ORDER BY total_loss DESC, last_event DESC
       LIMIT 20
-    `);
+    `, args);
 
-    const [summary] = await this.ds.query(`
+    const [summaryRow] = await this.ds.query(`
       SELECT
-        COALESCE(SUM(ABS(qty_change)) FILTER (WHERE change_type='EXPIRE_WRITEOFF'), 0) AS expire_total,
-        COALESCE(SUM(ABS(qty_change)) FILTER (WHERE change_type='DAMAGE_WRITEOFF'), 0) AS damage_total,
-        COALESCE(SUM(ABS(qty_change)) FILTER (WHERE change_type='WRITE_OFF'), 0)       AS write_off_total,
+        COALESCE(SUM(ABS(il.qty_change)) FILTER (WHERE il.change_type='EXPIRE_WRITEOFF'), 0) AS expire_total,
+        COALESCE(SUM(ABS(il.qty_change)) FILTER (WHERE il.change_type='DAMAGE_WRITEOFF'), 0) AS damage_total,
+        COALESCE(SUM(ABS(il.qty_change)) FILTER (WHERE il.change_type='WRITE_OFF'), 0)       AS write_off_total,
+        COALESCE(SUM(ABS(il.qty_change)), 0) AS total_loss,
         COUNT(*) AS total_records
-      FROM inv_ledger
-      WHERE change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF','QC_REJECT')
-        AND created_at >= NOW() - INTERVAL '30 days'
-        ${cond}
-    `);
+      FROM inv_ledger il
+      WHERE il.change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF','QC_REJECT')
+        AND il.created_at >= NOW() - INTERVAL '30 days'
+        ${companyCond}
+    `, args);
+
+    // Keep the original aliases during the API transition while also returning
+    // the fields consumed by the inventory Loss tab.
+    const byType = byTypeRows.map((row: Record<string, unknown>) => {
+      const recordCount = Number(row.record_count ?? 0);
+      const batchCount = Number(row.batch_count ?? 0);
+      const totalLoss = Number(row.total_qty ?? 0);
+      return {
+        change_type: row.change_type,
+        record_count: recordCount,
+        batch_count: batchCount,
+        total_qty: totalLoss,
+        total_loss: totalLoss,
+      };
+    });
+    const byBatch = byBatchRows.map((row: Record<string, unknown>) => ({
+      ...row,
+      record_count: Number(row.record_count ?? 0),
+      total_loss: Number(row.total_loss ?? 0),
+    }));
+    const expireTotal = Number(summaryRow?.expire_total ?? 0);
+    const damageTotal = Number(summaryRow?.damage_total ?? 0);
+    const writeOffTotal = Number(summaryRow?.write_off_total ?? 0);
+    const totalLoss = Number(summaryRow?.total_loss ?? 0);
+    const summary = {
+      expire_total: expireTotal,
+      damage_total: damageTotal,
+      write_off_total: writeOffTotal,
+      total_records: Number(summaryRow?.total_records ?? 0),
+      total_expire_loss: expireTotal,
+      total_damage_loss: damageTotal,
+      total_loss: totalLoss,
+    };
 
     return { byType, byBatch, summary };
   }
