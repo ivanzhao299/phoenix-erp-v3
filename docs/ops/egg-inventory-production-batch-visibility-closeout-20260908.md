@@ -92,4 +92,6 @@
 - API 全量 Jest：96 suites / 801 tests 通过；既有 `chanjet-callback.controller.spec.ts` 两个 5 秒超时失败，与上轮闭环结果一致，且定向损耗测试单独全绿。
 - Web 全量 Vitest：103 files / 544 tests 通过；三个既有 React 测试文件共 29 个 `act is not a function` 环境失败，与上轮闭环结果一致，本次未改 Web 运行时代码。
 - nullable unique 与 constraint drift 门禁均通过；生产审计 runner/SQL/HTTP manifest 本地校验通过。
-- CI、PR、full deploy、最终 revision、部署后生产只读 API/聚合样本/错误窗口证据在本节发布完成后追加。
+- PR [#214](https://github.com/ivanzhao299/phoenix-erp-v3/pull/214)：所有有效检查通过（双端 typecheck/build、回归、Web Vitest、Runtime Smoke、security/freeze gates）；merge revision `a627b86db352a6d36c0325ff6edb4b4f6e197047`。
+- full deploy：[run 34210623451](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34210623451) 成功；隔离迁移、双端 typecheck、五组 regression、API/Web 镜像构建与生产部署全部通过。
+- 部署后生产只读复验：[run 34211781754](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34211781754) 成功。checkout/API/Web revision 均为 `a627b86db352a6d36c0325ff6edb4b4f6e197047`；API 返回 `byType/byBatch` 及 summary 新旧全套字段；top batch `EGG-20260725-00001` 的 `record_count/total_loss` 与直接只读 SQL 聚合一致；`EGG_INVENTORY_LOSS_ERROR_WINDOW_60M=0`、`PRODUCTION_BUSINESS_WRITES=0`。
