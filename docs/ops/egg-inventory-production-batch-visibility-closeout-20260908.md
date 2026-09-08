@@ -62,3 +62,34 @@
 
 - 未改 `inv_batches` 数据、库存流水、日产蛋入库写入、FIFO 分配或 WMS 权威链路。
 - 无 schema 迁移；生产写入只来自既有部署流程。
+
+## 损耗 Tab 独立缺陷闭环（2026-09-08）
+
+### 字段契约与根因
+
+- 前端 `LossAnalysis` 在 `apps/web/src/app/(admin)/sales2/inventory/page.tsx:58-75` 声明并读取 `byType[].total_loss/batch_count`、`byBatch[].total_loss/last_event`、`summary.total_expire_loss/total_damage_loss/total_loss`；页面消费点为同文件 `:973-1024`。
+- 修复前后端 `EggInventoryService#getLossAnalysis` 只返回 `byType[].total_qty/record_count`、`summary.expire_total/damage_total/write_off_total/total_records`；`byBatch` 更是直接读取 `inv_batches` 的过期/核销状态，没有返回损耗量或最后事件时间。
+- 仓库全量检索确认 `/api/v2/sales/inventory/loss-analysis` 只有该 Tab 消费；`/api/v2/sales/analytics/loss-analysis` 是另一份报表契约，不受本次修改影响。为兼容潜在仓外消费者，修复选择后端双发：保留旧别名，同时增加前端既有字段。
+
+### 生产只读事实与冻结口径
+
+- 修复前通过受控 `Production Readonly Audit` run `34208909531` 导出；checkout/API/Web revision 均为 `15e9fad634c7ed6bf286e09376d89b2d7e62c204`，SQL 在只读事务中执行并最终 `ROLLBACK`，`PRODUCTION_BUSINESS_WRITES=0`。
+- 最近 30 天 `inv_ledger` 的候选损耗实际只有 `EXPIRE_WRITEOFF`：26 条、26 批、绝对数量 330，26 条均为负数。公司分布为 `COMP-LAO-AGRI` 2 批/180、`CSCS` 1 批/1、历史占位 `ALL` 23 批/149；没有 `LOSS`、`WRITE_OFF`、`DAMAGE_WRITEOFF`、`QC_REJECT`、`EGG_WRITE_OFF`、`STOCKTAKE_DOWN` 或 `INBOUND_BROKEN` 的近 30 天样本。
+- 最大样本为 `EGG-20260725-00001`：`EXPIRE_WRITEOFF` 1 条、120 枚、公司 `COMP-LAO-AGRI`；生产当时没有同批次多流水样本，因此多流水合并由定向单测构造防回潮。
+- 口径沿用库存损耗接口原有四类 `EXPIRE_WRITEOFF / DAMAGE_WRITEOFF / WRITE_OFF / QC_REJECT`，统一按 `ABS(qty_change)` 汇总。没有把隔离入库 `INBOUND_BROKEN`、盘亏 `STOCKTAKE_DOWN`、WMS 报损 `LOSS` 或旧链路 `EGG_WRITE_OFF` 擅自并入，未改变 ledger 语义。
+
+### 修复
+
+- `EggInventoryService#getLossAnalysis` 现在从 `inv_ledger` 按 `company_code + batch_no` 聚合，`SUM(ABS(qty_change)) AS total_loss`、`MAX(created_at) AS last_event`，再以 LEFT JOIN 补充产品/SKU；不再拿 `inv_batches.status` 冒充损耗排名。
+- `byType.batch_count` 使用 `COUNT(DISTINCT batch_no)`，旧 `record_count` 仍表示流水条数；`summary.total_loss` 覆盖上述四类，过期与破损分项继续单列。
+- 公司过滤复用批次、Dashboard、临期 Tab 的 `companyScope()`：显式公司参数化为 `ANY($1)`；越权公司或空权限 fail closed；全局范围不加公司条件。历史 `company_code=ALL` 不会绕过普通用户 DataScope。
+- 新增生产复验清单 `scripts/ops/readonly-audits/egg-inventory-loss-analysis-20260908.http.json`：断言新旧字段完整、按批次 API 数量与只读 SQL 聚合样本一致，并检查 60 分钟损耗接口错误窗口。事实 SQL 保存在 `scripts/ops/readonly-audits/egg-inventory-loss-facts-20260908.sql`。
+
+### 测试与发布证据
+
+- 定向 Jest：`egg-inventory.service.spec.ts` 15/15 通过；新增契约双发、多 ledger 同批次合并 SQL、DataScope 与越权 fail-closed 断言。
+- API/Web `tsc --noEmit`：均为 0 error。
+- API 全量 Jest：96 suites / 801 tests 通过；既有 `chanjet-callback.controller.spec.ts` 两个 5 秒超时失败，与上轮闭环结果一致，且定向损耗测试单独全绿。
+- Web 全量 Vitest：103 files / 544 tests 通过；三个既有 React 测试文件共 29 个 `act is not a function` 环境失败，与上轮闭环结果一致，本次未改 Web 运行时代码。
+- nullable unique 与 constraint drift 门禁均通过；生产审计 runner/SQL/HTTP manifest 本地校验通过。
+- CI、PR、full deploy、最终 revision、部署后生产只读 API/聚合样本/错误窗口证据在本节发布完成后追加。

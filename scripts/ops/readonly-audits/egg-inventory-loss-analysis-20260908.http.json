@@ -1,0 +1,35 @@
+[
+  {
+    "name": "egg-inventory-loss-contract-and-batch-aggregation",
+    "path": "/api/v2/sales/inventory/loss-analysis",
+    "expectedStatus": 200,
+    "requiredArrays": ["byType", "byBatch"],
+    "requiredFields": [
+      "summary.expire_total",
+      "summary.damage_total",
+      "summary.write_off_total",
+      "summary.total_records",
+      "summary.total_expire_loss",
+      "summary.total_damage_loss",
+      "summary.total_loss"
+    ],
+    "requiredArrayItems": [
+      {
+        "path": "byType",
+        "minMatches": 1,
+        "fields": ["change_type", "record_count", "batch_count", "total_qty", "total_loss"]
+      },
+      {
+        "path": "byBatch",
+        "minMatches": 1,
+        "fields": ["batch_no", "product_code", "sku_code", "record_count", "total_loss", "last_event"]
+      }
+    ],
+    "sqlRowMatch": {
+      "sql": "SELECT batch_no, COUNT(*) AS record_count, SUM(ABS(qty_change)) AS total_loss FROM inv_ledger WHERE change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF','QC_REJECT') AND created_at >= NOW() - INTERVAL '30 days' GROUP BY company_code, batch_no ORDER BY total_loss DESC, MAX(created_at) DESC LIMIT 1",
+      "responsePath": "byBatch",
+      "matcherKey": "batch_no",
+      "numericFields": ["record_count", "total_loss"]
+    }
+  }
+]
