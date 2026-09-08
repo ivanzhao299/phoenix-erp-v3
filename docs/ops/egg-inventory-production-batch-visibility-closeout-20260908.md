@@ -52,6 +52,7 @@
 - 本机 API 全量 Jest：96 suites / 798 tests 通过；既有 `chanjet-callback.controller.spec.ts` 两个 5 秒超时失败，单独复跑仍同样失败，与本次文件无关。
 - 本机 Web 全量 Vitest：103 files / 544 tests 通过；三个既有 React 测试文件共 29 个 `act is not a function` 环境失败，与本次文件无关。远端 CI 使用干净依赖环境，最终状态以下方 CI 为准。
 - 定向 Playwright 用例已补充无 SKU 映射日产蛋展示断言；本机 Chromium 因系统缺 `libnspr4.so` 无法启动，未虚报执行通过。
+- 冻结/安全边界逐文件复核：只读查询范围被收紧、公司条件改为参数化，未触碰库存写链；PR 登记 `reviewed-frozen-boundary` 与 `reviewed-security-touch`，本地授权 W5 closeout 20/20 PASS。
 - CI/PR：待最终记录。
 - full deploy/revision：待最终记录。
 - 部署后生产只读 HTTP + SQL 一致性 + 60 分钟错误窗口：待最终记录。
