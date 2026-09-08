@@ -1,5 +1,17 @@
 import { ConflictException } from '@nestjs/common';
-import { StorePosService } from './store-pos.service';
+import { collectedTenderType, StorePosService } from './store-pos.service';
+
+describe('collectedTenderType', () => {
+  it.each([
+    ['TRANSFER', 'TRANSFER'],
+    ['QR', 'QR'],
+    ['CASH', 'CASH'],
+    ['OTHER', 'CASH'],
+    [undefined, 'CASH'],
+  ] as const)('maps %s to %s for full and mixed collected legs', (input, expected) => {
+    expect(collectedTenderType(input)).toBe(expected);
+  });
+});
 
 function subject() {
   const service = Object.create(StorePosService.prototype) as any;
@@ -14,6 +26,29 @@ describe('StorePosService V1-2 atomic settlement', () => {
     warehouseCodes: ['WH-A'],
     items: [{ id: 71, product_code: 'EGG', sku_code: 'SKU-EGG', qty: 3 }],
   };
+
+  it.each(['TRANSFER', 'QR', 'CASH'] as const)(
+    'accepts %s tender without an external reference and persists a nullable reference',
+    async (type) => {
+      const mgr = { query: jest.fn().mockResolvedValue([]) };
+      await expect((subject() as any).writeTender(mgr, {
+        saleId: 7, type, currency: 'LAK', amount: 12000,
+      })).resolves.toBeUndefined();
+      expect(mgr.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO sal_store_sale_tenders'),
+        [7, type, 'LAK', 12000, null, null, null],
+      );
+    },
+  );
+
+  it('trims an optional transfer reference before persisting it', async () => {
+    const mgr = { query: jest.fn().mockResolvedValue([]) };
+    await (subject() as any).writeTender(mgr, {
+      saleId: 7, type: 'TRANSFER', currency: 'LAK', amount: 12000,
+      externalReference: '  BANK-7788  ',
+    });
+    expect(mgr.query.mock.calls[0][1][4]).toBe('BANK-7788');
+  });
 
   it('rejects an insufficient FIFO allocation so the enclosing transaction can roll back', async () => {
     const mgr = { query: jest.fn(async (sql: string) => {
