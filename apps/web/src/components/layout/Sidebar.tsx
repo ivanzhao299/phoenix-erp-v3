@@ -122,7 +122,7 @@ export const MENU: MenuItem[] = [
     { id: "wh-in",       path: "/warehouse/inbound",      Icon: PackagePlus,     label: "入库管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-out",      path: "/warehouse/outbound",     Icon: PackageMinus,    label: "出库管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-issue",    path: "/warehouse/issues",       Icon: ClipboardCheck,  label: "领用管理",   perm: "MENU_WMS_ISSUE" },
-    { id: "wh-transfer", path: "/warehouse/transfer",     Icon: RefreshCw,       label: "调拨管理",   perm: "MENU_WMS_INOUT" },
+    { id: "wh-transfer", path: "/warehouse/transfer",     Icon: RefreshCw,       label: "调拨管理",   perm: "MENU_INV_BATCH" },
     { id: "wh-stock",    path: "/warehouse/stocktake",    Icon: ListChecks,      label: "盘点管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-ledger",   path: "/warehouse/ledger",       Icon: ScrollText,      label: "出入库流水", perm: "MENU_WMS_VIEW"  },
     { id: "wh-query",    path: "/warehouse/query",        Icon: Search,          label: "库存查询",   perm: "MENU_WMS_VIEW"  },
@@ -233,7 +233,8 @@ export const MENU: MenuItem[] = [
     { id: "mdc-orgs",       path: "/master-data/organizations",    Icon: Network,         label: "组织架构",     perm: "MENU_MD_ORG" },
     { id: "mdc-bu",         path: "/master-data/business-units",   Icon: Network,         label: "事业群",       perm: "MENU_MD_BUSINESS_UNIT" },
     { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_MD_COMPANY" },
-    { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MD_PROJECT" },
+    // 采购项目兼容入口会重定向到此页；路由守卫必须与 Runtime/API 一样接受双菜单码。
+    { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MD_PROJECT", altPerms: ["MENU_PRC2_PROJECT"] },
     { id: "mdc-farms",      path: "/master/farms",                 Icon: Building2,       label: "养殖场档案",   perm: "MENU_FARM_MASTER" },
     { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER" },
     { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MD_SUPPLIER" },

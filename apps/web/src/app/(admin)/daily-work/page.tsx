@@ -60,7 +60,7 @@ const ALL_CARDS: QuickCard[] = [
 
   // ───── 仓储与库存 ─────
   { key: 'manual_in',   title: '原料入库',          desc: '饲料 / 兽药 / 包材手工入库',
-    icon: PackagePlus,   href: '/warehouse/inbound?action=create&date=today',         accent: '#8B5CF6', perm: 'MENU_INV_MANUAL_INBOUND', permOp: 'E' },
+    icon: PackagePlus,   href: '/warehouse/inbound?action=create&date=today',         accent: '#8B5CF6', perm: 'MENU_WMS_INOUT',          permOp: 'C' },
   { key: 'wms_out',     title: '出库管理',          desc: '原料出库 / 调拨出库',
     icon: PackageMinus,  href: '/warehouse/outbound?action=create&date=today',        accent: '#A855F7', perm: 'MENU_WMS_INOUT',          permOp: 'E' },
   { key: 'inv_query',   title: '库存查询',          desc: '批次 / 临期 / 流水',

@@ -86,6 +86,14 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
         delete payload.exp;
         tokens.set(username, jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '20m' }));
       }
+      const tokenPayload = jwt.decode(tokens.get(username));
+      const tokenPermissions = Array.isArray(tokenPayload?.permissions) ? tokenPayload.permissions : [];
+      for (const permission of (a.requiredTokenPermissions || [])) {
+        if (!tokenPermissions.includes(permission)) throw new Error(`${a.name}: token missing permission ${permission}`);
+      }
+      for (const permission of (a.forbiddenTokenPermissions || [])) {
+        if (tokenPermissions.includes(permission)) throw new Error(`${a.name}: token unexpectedly has permission ${permission}`);
+      }
       if (a.scopeMenu) {
         const payload = jwt.decode(tokens.get(username));
         const scope = await scopes.resolve(String(payload.userId), payload.roles || [], a.scopeMenu, payload.perms_version);
@@ -100,10 +108,21 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
         path = rows.length ? `/api/v2/sales/orders/${rows[0].id}/process-log` : '';
       }
       if (!path) { console.log(`NO_SAMPLE name=${a.name} reason=no-data-sample`); continue; }
-      const response = await fetch(`http://127.0.0.1:3100${path}`, { method, headers: { Authorization: `Bearer ${tokens.get(username)}` } });
+      const origin = a.origin === 'web' ? 'http://web:3000' : 'http://127.0.0.1:3100';
+      const response = await fetch(`${origin}${path}`, {
+        method,
+        redirect: a.expectedLocation ? 'manual' : 'follow',
+        headers: {
+          Authorization: `Bearer ${tokens.get(username)}`,
+          Cookie: `phoenix_access_token=${tokens.get(username)}`,
+        },
+      });
       const text = await response.text();
       const expected = Array.isArray(a.expectedStatus) ? a.expectedStatus : [a.expectedStatus ?? 200];
       if (!expected.includes(response.status)) throw new Error(`${a.name}: status=${response.status} expected=${expected.join('/')}`);
+      if (a.expectedLocation && response.headers.get('location') !== a.expectedLocation) {
+        throw new Error(`${a.name}: location=${response.headers.get('location')} expected=${a.expectedLocation}`);
+      }
       let body = null;
       if (a.requiredArrays?.length || a.requiredArrayItems?.length || a.requiredWarnings?.length || a.reportDataLength || a.minDataLength != null || a.rowPath || a.requiredNonEmptyFields?.length || a.requiredEveryFields) {
         body = JSON.parse(text);
