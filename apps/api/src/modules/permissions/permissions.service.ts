@@ -29,6 +29,20 @@ export interface RoleMenuPermDto {
   perm_codes: string;          // 例 "V,C,E"
 }
 
+type SodRule = Pick<SysRoleConflictEntity, 'menu_a' | 'menu_b' | 'severity'>;
+
+export function newlyIntroducedBlockingConflicts(
+  currentWriteMenus: Iterable<string>,
+  proposedWriteMenus: Iterable<string>,
+  rules: SodRule[],
+): SodRule[] {
+  const current = new Set(currentWriteMenus);
+  const proposed = new Set(proposedWriteMenus);
+  const triggered = (menus: Set<string>, rule: SodRule) =>
+    rule.severity === 'BLOCK' && menus.has(rule.menu_a) && menus.has(rule.menu_b);
+  return rules.filter(rule => triggered(proposed, rule) && !triggered(current, rule));
+}
+
 export interface MatrixCell {
   menu_code: string;
   perm_codes: string;          // 空串=无权限
@@ -215,6 +229,18 @@ export class PermissionsService {
       for (const c of codes) {
         if (!VALID_CODES.has(c)) throw new Error(`perm_codes 非法字符: ${c}（合法: V,C,E,D,A,X,*）`);
       }
+    }
+
+    const isWrite = (codes: string) => codes === '*' || codes.split(',').some(c => ['C', 'E', 'D', 'A'].includes(c.trim()));
+    const currentPerms = await this.getRolePermissions(roleCode);
+    const rules = await this.conflictRepo.find();
+    const addedBlocks = newlyIntroducedBlockingConflicts(
+      currentPerms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code),
+      perms.filter(p => isWrite(p.perm_codes)).map(p => p.menu_code),
+      rules,
+    );
+    if (addedBlocks.length > 0) {
+      throw new Error(`新增 BLOCK 岗位分离冲突，无法保存：${addedBlocks.map(c => `${c.menu_a}↔${c.menu_b}`).join('、')}`);
     }
 
     // 将 menu_code 转 menu_id（一次查询）

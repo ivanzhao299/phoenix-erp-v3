@@ -210,6 +210,7 @@ export class StorePosController {
       cashAccountId:  number;
       paidAmount:     number;
       paymentMethod?: string;
+      externalReference?: string;
       idempotencyKey: string;
     },
   ) {

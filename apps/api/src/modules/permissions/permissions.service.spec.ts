@@ -1,4 +1,32 @@
-import { PermissionsService } from './permissions.service';
+import { newlyIntroducedBlockingConflicts, PermissionsService } from './permissions.service';
+
+describe('newlyIntroducedBlockingConflicts', () => {
+  const rules = [{ menu_a: 'MENU_FIN_CLOSE', menu_b: 'MENU_FIN_AUDIT', severity: 'BLOCK' as const }];
+
+  it('allows an unrelated permission change when the role already has the same legacy conflict', () => {
+    expect(newlyIntroducedBlockingConflicts(
+      ['MENU_FIN_CLOSE', 'MENU_FIN_AUDIT'],
+      ['MENU_FIN_CLOSE', 'MENU_FIN_AUDIT', 'MENU_STORE_PAYMENT'],
+      rules,
+    )).toEqual([]);
+  });
+
+  it('blocks a newly introduced separation-of-duties conflict', () => {
+    expect(newlyIntroducedBlockingConflicts(
+      ['MENU_FIN_AUDIT'],
+      ['MENU_FIN_CLOSE', 'MENU_FIN_AUDIT'],
+      rules,
+    )).toEqual(rules);
+  });
+
+  it('allows remediation that removes one side of an existing conflict', () => {
+    expect(newlyIntroducedBlockingConflicts(
+      ['MENU_FIN_CLOSE', 'MENU_FIN_AUDIT'],
+      ['MENU_FIN_AUDIT'],
+      rules,
+    )).toEqual([]);
+  });
+});
 
 describe('PermissionsService role permission snapshots', () => {
   it('invalidates every active assigned user after replacing role permissions', async () => {
@@ -10,12 +38,14 @@ describe('PermissionsService role permission snapshots', () => {
         { menu_id: 31, menu_code: 'MENU_FARM_MASTER' },
       ]),
     };
+    const conflictRepo = { find: jest.fn().mockResolvedValue([]) };
     const manager = {
       delete: jest.fn().mockResolvedValue(undefined),
       insert: jest.fn().mockResolvedValue(undefined),
       query: jest.fn().mockResolvedValue([{ user_id: 7 }, { user_id: 8 }]),
     };
     const dataSource = {
+      query: jest.fn().mockResolvedValue([]),
       transaction: jest.fn(async (callback: (mgr: typeof manager) => unknown) => callback(manager)),
     };
     const service = new PermissionsService(
@@ -23,7 +53,7 @@ describe('PermissionsService role permission snapshots', () => {
       menuRepo as never,
       {} as never,
       {} as never,
-      {} as never,
+      conflictRepo as never,
       dataSource as never,
     );
 

@@ -67,6 +67,18 @@ JOIN sys_permission_set ps ON ps.set_id = ups.set_id
 WHERE lower(u.username) = 'wangweihua'
 ORDER BY binding_type, owner, set_code;
 
+\echo '=== proposed receipt owner role blast radius and current permission ==='
+SELECT r.role_code, r.role_name_zh,
+       count(DISTINCT ur.user_id) FILTER (WHERE ur.is_visible = true) AS active_bindings,
+       COALESCE(max(rmp.perm_codes) FILTER (WHERE m.menu_code = 'MENU_STORE_PAYMENT'), '<none>') AS store_payment_perms
+FROM sys_role r
+LEFT JOIN sys_user_role ur ON ur.role_id = r.role_id
+LEFT JOIN sys_role_menu_permission rmp ON rmp.role_id = r.role_id
+LEFT JOIN sys_menu m ON m.menu_id = rmp.menu_id
+WHERE r.role_code IN ('ROLE_MENGSAI_DONGPENG_TREASURER', 'ROLE_FIN_ACCT')
+GROUP BY r.role_code, r.role_name_zh
+ORDER BY r.role_code;
+
 \echo '=== active SoD rules ==='
 SELECT menu_a, menu_b, severity, reason_zh
 FROM sys_role_conflict

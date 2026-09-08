@@ -5,7 +5,7 @@
  * 完全沿用列表页 settings/roles/page.tsx 的端点与保存/冲突逻辑：
  *   - 角色信息：sys_role 主表（PUT /api/crud/sys_role/{code}?pk=role_code）
  *   - 权限矩阵：菜单 × V/C/E/D/A/X 三元组（PUT /api/permissions/role/{code}/perms）
- *   - 岗位冲突：基于 sys_role_conflict 的实时 WARN/BLOCK 检测，BLOCK 硬阻止保存
+ *   - 岗位冲突：基于 sys_role_conflict 的实时检测；新增 BLOCK 硬阻止，既存 BLOCK 允许只减不增
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -106,6 +106,7 @@ export default function RoleDetailPage() {
   const [role, setRole] = useState<RoleRow | null>(null);
   const [menuGroups, setMenuGroups] = useState<MenuGroup[]>([]);
   const [conflicts, setConflicts] = useState<ConflictRule[]>([]);
+  const [baselineBlockKeys, setBaselineBlockKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -168,8 +169,15 @@ export default function RoleDetailPage() {
             p[it.menu_code] = new Set(it.perm_codes.split(",").map(x => x.trim()).filter(Boolean));
           }
           setPerms(p);
+          const writeGranted = new Set(Object.keys(p).filter(mc =>
+            Array.from(p[mc] || []).some(code => ["C", "E", "D", "A"].includes(code)),
+          ));
+          setBaselineBlockKeys(new Set((Array.isArray(cf.data) ? cf.data : [])
+            .filter((c: ConflictRule) => c.severity === "BLOCK" && writeGranted.has(c.menu_a) && writeGranted.has(c.menu_b))
+            .map((c: ConflictRule) => `${c.menu_a}|${c.menu_b}`)));
         } catch {
           setPerms({});
+          setBaselineBlockKeys(new Set());
         }
       }
     } catch (e: any) {
@@ -194,7 +202,12 @@ export default function RoleDetailPage() {
     }));
     return conflicts.filter(c => writeGranted.has(c.menu_a) && writeGranted.has(c.menu_b));
   }, [perms, conflicts, WRITE_PERM_CODES]);
-  const hasBlockingConflict = currentConflicts.some(c => c.severity === "BLOCK");
+  const hasBlockingConflict = currentConflicts.some(c =>
+    c.severity === "BLOCK" && !baselineBlockKeys.has(`${c.menu_a}|${c.menu_b}`),
+  );
+  const hasLegacyBlockingConflict = currentConflicts.some(c =>
+    c.severity === "BLOCK" && baselineBlockKeys.has(`${c.menu_a}|${c.menu_b}`),
+  );
 
   // ── 敏感权限计数（仅敏感菜单写权限计入）──────────────────────────────
   const sensitiveCount = useMemo(() => {
@@ -256,10 +269,6 @@ export default function RoleDetailPage() {
     if (!canEdit) { toast.error(t("ui.无编辑权限", "无编辑权限")); return; }
     if (isAdmin) { toast.error(t("ui.超管角色受保护", "超管角色受保护，禁止面板编辑")); return; }
     if (!form.role_name_zh.trim()) { toast.error(t("ui.角色中文名称必填", "角色中文名称必填")); return; }
-    if (hasBlockingConflict) {
-      toast.error(t("ui.存在BLOCK级岗位分离冲突无法保存请先取消冲突菜单的权限", "存在 BLOCK 级岗位分离冲突，无法保存。请先取消冲突菜单的权限。"));
-      return;
-    }
     setSubmitting(true);
     try {
       // 1) 更新 sys_role 主表
@@ -482,7 +491,7 @@ export default function RoleDetailPage() {
         )
       }>
       <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 10, lineHeight: 1.5 }}>
-        💡 {t("ui.仅当两侧菜单同时持有写操作权限CEDA时触发纯查看V不算冲突", "仅当两侧菜单同时持有写操作（C/E/D/A）时触发；纯查看（V）不算冲突。BLOCK 级冲突不允许保存。")}
+        💡 {t("ui.仅当两侧菜单同时持有写操作权限CEDA时触发纯查看V不算冲突", "仅当两侧菜单同时持有写操作（C/E/D/A）时触发；纯查看（V）不算冲突。新增 BLOCK 不允许保存；既存 BLOCK 可在不扩大的前提下逐步修复。")}
       </div>
       {currentConflicts.length === 0 ? (
         <div style={{ padding: "16px 12px", fontSize: 12, color: "var(--status-success)", display: "flex", alignItems: "center", gap: 6 }}>
@@ -507,6 +516,11 @@ export default function RoleDetailPage() {
           {hasBlockingConflict && (
             <div style={{ fontSize: 11, color: "white", padding: "6px 10px", background: "var(--status-danger)", borderRadius: 6 }}>
               ⚠️ {t("ui.请取消其中一侧菜单的写权限CEDABlock级别冲突不允许保存", "请取消其中一侧菜单的写权限（C/E/D/A），BLOCK 级冲突不允许保存。")}
+            </div>
+          )}
+          {!hasBlockingConflict && hasLegacyBlockingConflict && (
+            <div style={{ fontSize: 11, color: "var(--status-warning)", padding: "6px 10px", background: "var(--status-warning-bg)", borderRadius: 6 }}>
+              ⚠️ {t("ui.当前角色含既存BLOCK冲突允许不扩大冲突的修改", "当前角色含既存 BLOCK 冲突；允许不扩大冲突的修改，请逐步取消冲突一侧的写权限。")}
             </div>
           )}
         </div>

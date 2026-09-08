@@ -66,9 +66,14 @@ export interface CompleteMixedSaleDto {
   cashAccountId:  number;
   paidAmount:     number;
   paymentMethod?: string;
+  externalReference?: string;
   customerCode?:  string;
   customerName?:  string;
   idempotencyKey: string;
+}
+
+export function collectedTenderType(paymentMethod?: string): 'CASH' | 'QR' | 'TRANSFER' {
+  return paymentMethod === 'QR' || paymentMethod === 'TRANSFER' ? paymentMethod : 'CASH';
 }
 
 @Injectable()
@@ -411,9 +416,8 @@ export class StorePosService {
     externalReference?: string; cashAccountId?: number; arInvoiceId?: number;
   }) {
     const amount = finiteCashNumber(input.amount, 'tender amount');
-    if (['QR','TRANSFER'].includes(input.type) && !input.externalReference?.trim()) {
-      throw new BadRequestException(`${input.type} tender 必须提供外部参考号`);
-    }
+    // 线下 POS 的转账/扫码凭证号用于优先勾稽，但不是所有门店现场都能取得。
+    // 缺省时结算仍可按 sale_no 匹配，不能阻断成交。
     await mgr.query(`INSERT INTO sal_store_sale_tenders
       (sale_id,tender_type,currency_code,amount,external_reference,cash_account_id,ar_invoice_id)
       VALUES ($1,$2,$3,$4,$5,$6,$7)`, [input.saleId,input.type,input.currency,amount,
@@ -444,7 +448,7 @@ export class StorePosService {
         sourceNo:     sale.sale_no,
         remark:       `门店收银 ${sale.sale_no}（${sale.store_name}）`,
       });
-      const tenderType = ['QR','TRANSFER'].includes(dto.paymentMethod ?? '') ? dto.paymentMethod as 'QR'|'TRANSFER' : 'CASH';
+      const tenderType = collectedTenderType(dto.paymentMethod);
       await this.writeTender(mgr, { saleId: sale.id, type: tenderType, currency: sale.currency_code,
         amount: Number(sale.total_amount), externalReference: dto.externalReference,
         cashAccountId: dto.cashAccountId });
@@ -558,8 +562,9 @@ export class StorePosService {
         sourceId:     sale.id,
         sourceNo:     sale.sale_no,
       });
-      await this.writeTender(mgr, { saleId: sale.id, type: 'CASH', currency: sale.currency_code,
-        amount: paid, cashAccountId: dto.cashAccountId });
+      const tenderType = collectedTenderType(dto.paymentMethod);
+      await this.writeTender(mgr, { saleId: sale.id, type: tenderType, currency: sale.currency_code,
+        amount: paid, externalReference: dto.externalReference, cashAccountId: dto.cashAccountId });
       await this.writeTender(mgr, { saleId: sale.id, type: 'CREDIT', currency: sale.currency_code,
         amount: receivable, arInvoiceId: arId });
 
