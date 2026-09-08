@@ -102,6 +102,66 @@ describe('EggInventoryService getExpiringBatches DataScope', () => {
     await service.getExpiringBatches({ days: 3 });
     expect(query).toHaveBeenCalledWith(expect.not.stringContaining('company_code = ANY'), [3]);
   });
+
+  it('uses the same sellable egg-family scope as the inventory dashboard', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    await service.getExpiringBatches({ days: 7 });
+    const sql = String(query.mock.calls[0][0]);
+    expect(sql).toContain("b.status = 'AVAILABLE'");
+    expect(sql).toContain("b.product_code = 'EGG' OR b.product_code LIKE 'PRD-EGG-%'");
+  });
+});
+
+describe('EggInventoryService inventory list/dashboard parity', () => {
+  it('treats EGG as the legacy-plus-PRD-EGG product family and preserves unmapped rows', async () => {
+    const rows = [{
+      batch_no: 'EGG-20260908-00001', product_code: 'PRD-EGG-1', sku_code: null,
+      product_name: 'PRD-EGG-1', qty_available: 100, status: 'AVAILABLE',
+    }];
+    const query = jest.fn().mockResolvedValue(rows);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+
+    await expect(service.getAvailableBatches({ productCode: 'EGG' })).resolves.toEqual(rows);
+
+    const [sql, args] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("b.product_code = 'EGG' OR b.product_code LIKE 'PRD-EGG-%'");
+    expect(sql).toContain("b.status = 'AVAILABLE'");
+    expect(sql).toContain('b.qty_available > 0');
+    expect(sql).toContain('b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE');
+    expect(sql).toContain('LEFT JOIN product_skus');
+    expect(sql).toContain('LEFT JOIN mst_products');
+    expect(sql).toContain('COALESCE(p.product_name_zh, sku.sku_name, b.product_code)');
+    expect(args).toEqual([]);
+  });
+
+  it('applies DataScope to batches and fails closed outside the requested company', async () => {
+    const query = jest.fn();
+    const cls = { get: jest.fn().mockReturnValue({ isGlobal: false, allowedCompanyCodes: ['COMP-A'] }) };
+    const service = new EggInventoryService({ query } as never, cls as never);
+
+    await expect(service.getAvailableBatches({ productCode: 'EGG', companyCode: 'COMP-B' })).resolves.toEqual([]);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('keeps active batch count and quantity on the exact list status/qty/expiry scope', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes("inventory.expiring_warn_days")) return [];
+      if (sql.includes('FROM inv_batches b')) return [{
+        active_batches: '2', total_available: '150', expiring_batches: '1', expiring_qty: '50',
+        expired_batches: '0', returned_batches: '0', sku_linked_batches: '1',
+      }];
+      return [{ expire_loss: '0', damage_loss: '0', write_off: '0' }];
+    });
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+
+    await expect(service.getDashboardStats()).resolves.toMatchObject({ activeBatches: 2, totalAvailable: 150, expiringWarnDays: 7 });
+
+    const statsSql = String(query.mock.calls.find(([sql]) => String(sql).includes('FROM inv_batches b'))?.[0]);
+    expect(statsSql).toContain("b.product_code = 'EGG' OR b.product_code LIKE 'PRD-EGG-%'");
+    expect(statsSql).toContain("b.status='AVAILABLE' AND b.qty_available > 0");
+    expect(statsSql).toContain('b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE');
+  });
 });
 
 describe('EggInventoryService createProductionBatch SQL contract', () => {
