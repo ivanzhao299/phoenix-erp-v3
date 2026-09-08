@@ -47,7 +47,7 @@ WHERE menu_code IN ('MENU_PRC2_PROJECT', 'MENU_MD_PROJECT')
 ORDER BY menu_code, source;
 
 \echo '=== project menu registration and purchasing specialist grants ==='
-SELECT m.menu_id, m.menu_code, m.menu_name, m.status,
+SELECT m.menu_id, m.menu_code, m.menu_name_zh,
        r.role_code, r.status AS role_status, rmp.perm_codes, COALESCE(rmp.deny_codes, '') AS deny_codes
 FROM sys_menu m
 CROSS JOIN sys_role r
@@ -73,7 +73,7 @@ WHERE lower(u.username) = 'wanglejin'
 ORDER BY binding_type, owner, set_code;
 
 \echo '=== DP-10 canonical ownership ==='
-SELECT account_id, account_code, account_name, company_code, company_name,
+SELECT id, account_code, account_name, company_code, company_name,
        currency_code, status, updated_at
 FROM fin_cash_accounts
 WHERE account_code = 'DP-10';
