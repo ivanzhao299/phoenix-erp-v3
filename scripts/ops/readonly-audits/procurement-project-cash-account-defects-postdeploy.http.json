@@ -4,7 +4,26 @@
     "username": "wanglejin",
     "path": "/api/master-data/runtime/project?status=ACTIVE",
     "expectedStatus": 200,
-    "minDataLength": 0
+    "minDataLength": 0,
+    "requiredTokenPermissions": ["MENU_PRC2_PROJECT:V"],
+    "forbiddenTokenPermissions": ["MENU_MD_PROJECT:V"]
+  },
+  {
+    "name": "wanglejin-procurement-project-legacy-route",
+    "username": "wanglejin",
+    "origin": "web",
+    "path": "/procurement2/projects",
+    "expectedStatus": 307,
+    "expectedLocation": "/master-data/projects"
+  },
+  {
+    "name": "wanglejin-shared-project-page",
+    "username": "wanglejin",
+    "origin": "web",
+    "path": "/master-data/projects",
+    "expectedStatus": 200,
+    "requiredTokenPermissions": ["MENU_PRC2_PROJECT:V"],
+    "forbiddenTokenPermissions": ["MENU_MD_PROJECT:V"]
   },
   {
     "name": "ar-company-cash-account-lookup",

@@ -56,7 +56,7 @@ export default function HenHousePage() {
     hasPerm
   } = usePermission();
   // G23-B：菜单码必须走 PBAC，不再把 MENU_* 当角色传给 can(role[])。
-  const { canEdit: canEditHouse } = usePermission('MENU_FARM_DATA');
+  const { canEdit: canEditHouse } = usePermission('MENU_FARM_MASTER');
   const {
     t
   } = useLanguage();
