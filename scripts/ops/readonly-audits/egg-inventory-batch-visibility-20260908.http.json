@@ -17,6 +17,7 @@
   {
     "name": "egg-inventory-dashboard-available",
     "path": "/api/v2/sales/inventory/stats",
-    "expectedStatus": 200
+    "expectedStatus": 200,
+    "inventoryParityPath": "/api/v2/sales/inventory/batches?productCode=EGG"
   }
 ]
