@@ -55,7 +55,9 @@
 
 预期变更目标：
 
-1. 为 `ROLE_MENGSAI_DONGPENG_TREASURER` 的 `MENU_STORE_PAYMENT` 增加 `E`（保留现有码）。
+补充只读 workflow run `34174664676` 已确认：出纳角色当前没有该菜单权限且仅 1 个有效绑定；会计角色有 6 个有效绑定且只有 `V`。因此 blast radius 最小且职责正确的目标是出纳角色。
+
+1. 为 `ROLE_MENGSAI_DONGPENG_TREASURER` 新增 `MENU_STORE_PAYMENT:V,E`（当前为 `<none>`，影响 1 个有效绑定，即 wangweihua）。
 2. 依赖现有权限变更触发器或服务路径递增所有受影响用户 `perms_version`。
 3. 不修改 `ROLE_FIN_ACCT`，不解除任何 SoD 规则，不触碰库存或资金业务数据。
 
