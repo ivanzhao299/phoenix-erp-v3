@@ -97,26 +97,10 @@ jobs:
               IF (SELECT count(*) FROM sys_role_menu_permission rmp JOIN sys_role r USING(role_id) JOIN sys_menu m USING(menu_id) WHERE r.role_code='ROLE_MENGSAI_DONGPENG_TREASURER' AND m.menu_code='MENU_STORE_PAYMENT' AND string_to_array(replace(rmp.perm_codes,' ',''),',') @> ARRAY['V','E']) <> 1 THEN RAISE EXCEPTION 'treasurer V,E postcondition failed'; END IF;
             END $$;
             SELECT perms_version AS after_perms_version FROM sys_user WHERE user_id=3 AND username='wangweihua' \gset
-            \if :{?after_perms_version}
-            \else
-              \error 'wangweihua postcondition missing'
-            \endif
-            SELECT (:'after_perms_version'::bigint = :'before_perms_version'::bigint + 1) AS perms_version_incremented \gset
-            \if :perms_version_incremented
-            \else
-              \error 'perms_version did not increment exactly once'
-            \endif
-            SELECT (md5(COALESCE(string_agg(concat_ws('|',m.menu_code,rmp.perm_codes,COALESCE(rmp.deny_codes,''),COALESCE(rmp.scope_type,''),COALESCE(rmp.scope_value,'')), E'\n' ORDER BY m.menu_code),'')) = :'before_fin_hash') AS fin_hash_unchanged
-              FROM sys_role r JOIN sys_role_menu_permission rmp USING(role_id) JOIN sys_menu m USING(menu_id) WHERE r.role_code='ROLE_FIN_ACCT' \gset
-            \if :fin_hash_unchanged
-            \else
-              \error 'ROLE_FIN_ACCT hash changed'
-            \endif
-            SELECT (count(*) = :'before_conflict_count'::bigint AND md5(COALESCE(string_agg(concat_ws('|',menu_a,menu_b,COALESCE(reason_zh,''),severity), E'\n' ORDER BY menu_a,menu_b),'')) = :'before_conflict_hash') AS conflicts_unchanged FROM sys_role_conflict \gset
-            \if :conflicts_unchanged
-            \else
-              \error 'sys_role_conflict changed'
-            \endif
+            SELECT 1 / CASE WHEN :'after_perms_version'::bigint = :'before_perms_version'::bigint + 1 THEN 1 ELSE 0 END AS assert_perms_version_incremented;
+            SELECT 1 / CASE WHEN md5(COALESCE(string_agg(concat_ws('|',m.menu_code,rmp.perm_codes,COALESCE(rmp.deny_codes,''),COALESCE(rmp.scope_type,''),COALESCE(rmp.scope_value,'')), E'\n' ORDER BY m.menu_code),'')) = :'before_fin_hash' THEN 1 ELSE 0 END AS assert_fin_hash_unchanged
+              FROM sys_role r JOIN sys_role_menu_permission rmp USING(role_id) JOIN sys_menu m USING(menu_id) WHERE r.role_code='ROLE_FIN_ACCT';
+            SELECT 1 / CASE WHEN count(*) = :'before_conflict_count'::bigint AND md5(COALESCE(string_agg(concat_ws('|',menu_a,menu_b,COALESCE(reason_zh,''),severity), E'\n' ORDER BY menu_a,menu_b),'')) = :'before_conflict_hash' THEN 1 ELSE 0 END AS assert_conflicts_unchanged FROM sys_role_conflict;
             SELECT 'BEFORE_PERMS_VERSION=' || :'before_perms_version' UNION ALL SELECT 'AFTER_PERMS_VERSION=' || :'after_perms_version' UNION ALL SELECT 'FIN_ACCT_MD5=' || :'before_fin_hash' UNION ALL SELECT 'ROLE_CONFLICT_COUNT=' || :'before_conflict_count' UNION ALL SELECT 'ROLE_CONFLICT_MD5=' || :'before_conflict_hash';
             COMMIT;
             SQL
