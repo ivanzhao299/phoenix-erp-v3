@@ -1,0 +1,172 @@
+name: Treasurer Store Payment Approved Production Execution
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_production:
+        description: Type APPROVE-TREASURER-STORE-PAYMENT-20260908
+        required: true
+        type: string
+      deployed_revision:
+        description: Expected deployed checkout/API/Web revision
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: treasurer-store-payment-production-execution
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: inputs.approve_production == 'APPROVE-TREASURER-STORE-PAYMENT-20260908'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Preflight, one approved grant, postflight and re-login proof
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          EXPECTED_REVISION: ${{ inputs.deployed_revision }}
+          EXECUTION_RUN_ID: ${{ github.run_id }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,EXPECTED_REVISION,EXECUTION_RUN_ID
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            checkout_revision="$(git rev-parse HEAD)"
+            api_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$(docker compose ps -q api)")"
+            web_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$(docker compose ps -q web)")"
+            echo "CHECKOUT_REVISION=$checkout_revision"
+            echo "API_REVISION=$api_revision"
+            echo "WEB_REVISION=$web_revision"
+            test "$checkout_revision" = "$EXPECTED_REVISION"
+            test "$api_revision" = "$EXPECTED_REVISION"
+            test "$web_revision" = "$EXPECTED_REVISION"
+
+            evidence_dir="/tmp/phoenix-treasurer-store-payment-$EXECUTION_RUN_ID"
+            install -d -m 700 "$evidence_dir"
+
+            echo '=== GUARDED TRANSACTION ==='
+            docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL' | tee "$evidence_dir/transaction.log"
+            BEGIN;
+            SET LOCAL lock_timeout='5s';
+            SET LOCAL statement_timeout='30s';
+
+            SELECT perms_version AS before_perms_version
+              FROM sys_user WHERE user_id=3 AND username='wangweihua' AND status=1
+              \gset
+            SELECT md5(COALESCE(string_agg(concat_ws('|',m.menu_code,rmp.perm_codes,COALESCE(rmp.deny_codes,''),COALESCE(rmp.scope_type,''),COALESCE(rmp.scope_value,'')), E'\n' ORDER BY m.menu_code),'')) AS before_fin_hash
+              FROM sys_role r JOIN sys_role_menu_permission rmp USING(role_id) JOIN sys_menu m USING(menu_id)
+             WHERE r.role_code='ROLE_FIN_ACCT'
+              \gset
+            SELECT count(*) AS before_conflict_count,
+                   md5(COALESCE(string_agg(concat_ws('|',menu_a,menu_b,COALESCE(reason_zh,''),severity), E'\n' ORDER BY menu_a,menu_b),'')) AS before_conflict_hash
+              FROM sys_role_conflict
+              \gset
+
+            DO $$ BEGIN
+              IF (SELECT count(*) FROM sys_role WHERE role_code='ROLE_MENGSAI_DONGPENG_TREASURER' AND status='ACTIVE') <> 1 THEN RAISE EXCEPTION 'role ACTIVE precondition failed'; END IF;
+              IF (SELECT count(*) FROM sys_menu WHERE menu_code='MENU_STORE_PAYMENT') <> 1 THEN RAISE EXCEPTION 'menu precondition failed'; END IF;
+              IF EXISTS (SELECT 1 FROM sys_role_menu_permission rmp JOIN sys_role r USING(role_id) JOIN sys_menu m USING(menu_id) WHERE r.role_code='ROLE_MENGSAI_DONGPENG_TREASURER' AND m.menu_code='MENU_STORE_PAYMENT') THEN RAISE EXCEPTION 'treasurer permission must be absent'; END IF;
+              IF (SELECT count(*) FROM sys_user_role ur JOIN sys_user u USING(user_id) JOIN sys_role r USING(role_id) WHERE r.role_code='ROLE_MENGSAI_DONGPENG_TREASURER' AND r.status='ACTIVE' AND u.status=1 AND COALESCE(ur.is_visible,true)) <> 1 THEN RAISE EXCEPTION 'effective binding count precondition failed'; END IF;
+              IF NOT EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_user u USING(user_id) JOIN sys_role r USING(role_id) WHERE r.role_code='ROLE_MENGSAI_DONGPENG_TREASURER' AND r.status='ACTIVE' AND u.user_id=3 AND u.username='wangweihua' AND u.status=1 AND COALESCE(ur.is_visible,true)) THEN RAISE EXCEPTION 'wangweihua binding precondition failed'; END IF;
+              IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='sys_role_menu_permission'::regclass AND tgname='trg_bump_perms_role_menu_perm' AND tgenabled<>'D') THEN RAISE EXCEPTION 'perms bump trigger missing'; END IF;
+            END $$;
+
+            INSERT INTO sys_role_menu_permission(role_id,menu_id,perm_codes)
+            SELECT r.role_id,m.menu_id,'V,E'
+              FROM sys_role r CROSS JOIN sys_menu m
+             WHERE r.role_code='ROLE_MENGSAI_DONGPENG_TREASURER' AND m.menu_code='MENU_STORE_PAYMENT'
+            ON CONFLICT (role_id,menu_id) DO NOTHING;
+
+            DO $$ BEGIN
+              IF (SELECT count(*) FROM sys_role_menu_permission rmp JOIN sys_role r USING(role_id) JOIN sys_menu m USING(menu_id) WHERE r.role_code='ROLE_MENGSAI_DONGPENG_TREASURER' AND m.menu_code='MENU_STORE_PAYMENT' AND string_to_array(replace(rmp.perm_codes,' ',''),',') @> ARRAY['V','E']) <> 1 THEN RAISE EXCEPTION 'treasurer V,E postcondition failed'; END IF;
+            END $$;
+            SELECT perms_version AS after_perms_version FROM sys_user WHERE user_id=3 AND username='wangweihua' \gset
+            \if :{?after_perms_version}
+            \else
+              \error 'wangweihua postcondition missing'
+            \endif
+            SELECT (:'after_perms_version'::bigint = :'before_perms_version'::bigint + 1) AS perms_version_incremented \gset
+            \if :perms_version_incremented
+            \else
+              \error 'perms_version did not increment exactly once'
+            \endif
+            SELECT (md5(COALESCE(string_agg(concat_ws('|',m.menu_code,rmp.perm_codes,COALESCE(rmp.deny_codes,''),COALESCE(rmp.scope_type,''),COALESCE(rmp.scope_value,'')), E'\n' ORDER BY m.menu_code),'')) = :'before_fin_hash') AS fin_hash_unchanged
+              FROM sys_role r JOIN sys_role_menu_permission rmp USING(role_id) JOIN sys_menu m USING(menu_id) WHERE r.role_code='ROLE_FIN_ACCT' \gset
+            \if :fin_hash_unchanged
+            \else
+              \error 'ROLE_FIN_ACCT hash changed'
+            \endif
+            SELECT (count(*) = :'before_conflict_count'::bigint AND md5(COALESCE(string_agg(concat_ws('|',menu_a,menu_b,COALESCE(reason_zh,''),severity), E'\n' ORDER BY menu_a,menu_b),'')) = :'before_conflict_hash') AS conflicts_unchanged FROM sys_role_conflict \gset
+            \if :conflicts_unchanged
+            \else
+              \error 'sys_role_conflict changed'
+            \endif
+            SELECT 'BEFORE_PERMS_VERSION=' || :'before_perms_version' UNION ALL SELECT 'AFTER_PERMS_VERSION=' || :'after_perms_version' UNION ALL SELECT 'FIN_ACCT_MD5=' || :'before_fin_hash' UNION ALL SELECT 'ROLE_CONFLICT_COUNT=' || :'before_conflict_count' UNION ALL SELECT 'ROLE_CONFLICT_MD5=' || :'before_conflict_hash';
+            COMMIT;
+            SQL
+
+            echo '=== INDEPENDENT READONLY POSTFLIGHT ==='
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL' | tee "$evidence_dir/postflight.log"
+            BEGIN TRANSACTION READ ONLY;
+            DO $$ BEGIN
+              IF NOT EXISTS (SELECT 1 FROM sys_role_menu_permission rmp JOIN sys_role r USING(role_id) JOIN sys_menu m USING(menu_id) WHERE r.role_code='ROLE_MENGSAI_DONGPENG_TREASURER' AND m.menu_code='MENU_STORE_PAYMENT' AND string_to_array(replace(rmp.perm_codes,' ',''),',') @> ARRAY['V','E']) THEN RAISE EXCEPTION 'independent grant verification failed'; END IF;
+              IF NOT EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r USING(role_id) JOIN sys_role_menu_permission rmp USING(role_id) JOIN sys_menu m USING(menu_id) WHERE ur.user_id=3 AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE' AND m.menu_code='MENU_STORE_PAYMENT' AND 'E'=ANY(string_to_array(replace(rmp.perm_codes,' ',''),','))) THEN RAISE EXCEPTION 'wangweihua effective E verification failed'; END IF;
+            END $$;
+            SELECT 'PASS INDEPENDENT_DB_POSTFLIGHT' result;
+            ROLLBACK;
+            SQL
+
+            echo '=== SHORT TOKEN RE-LOGIN PERMISSION PROOF ==='
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' -e PHOENIX_CI_TOKEN_EXPIRES_IN=5m api node - <<'NODE' | tee "$evidence_dir/token-proof.log"
+            const { NestFactory } = require('@nestjs/core');
+            const { AppModule } = require('./dist/app.module');
+            const { AuthService } = require('./dist/auth/auth.service');
+            const jwt = require('jsonwebtoken');
+            (async () => {
+              const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+              try {
+                const auth = app.get(AuthService);
+                const session = await auth.login('wangweihua', '', '127.0.0.1', { bypassPassword: true });
+                const payload = jwt.decode(session.token);
+                if (!payload.permissions.includes('MENU_STORE_PAYMENT:E')) throw new Error('short re-login token lacks MENU_STORE_PAYMENT:E');
+                console.log(`PASS SHORT_TOKEN_AUTH username=${payload.username} permission=MENU_STORE_PAYMENT:E perms_version=${payload.perms_version}`);
+              } finally { await app.close(); }
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            NODE
+
+            cat >"$evidence_dir/rollback.sql" <<'ROLLBACK_SQL'
+            -- Execute only with separate rollback approval.
+            BEGIN;
+            SET LOCAL lock_timeout='5s';
+            SET LOCAL statement_timeout='30s';
+            DO $$
+            DECLARE deleted_count integer;
+            BEGIN
+              DELETE FROM sys_role_menu_permission rmp USING sys_role r,sys_menu m
+               WHERE rmp.role_id=r.role_id AND rmp.menu_id=m.menu_id
+                 AND r.role_code='ROLE_MENGSAI_DONGPENG_TREASURER'
+                 AND m.menu_code='MENU_STORE_PAYMENT'
+                 AND replace(rmp.perm_codes,' ','')='V,E';
+              GET DIAGNOSTICS deleted_count = ROW_COUNT;
+              IF deleted_count <> 1 THEN RAISE EXCEPTION 'expected one exact rollback target, got %',deleted_count; END IF;
+            END $$;
+            COMMIT;
+            ROLLBACK_SQL
+            chmod 600 "$evidence_dir"/*
+            echo "EVIDENCE_BACKUP=$evidence_dir"
