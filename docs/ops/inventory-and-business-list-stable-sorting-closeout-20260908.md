@@ -86,6 +86,9 @@ ORDER BY b.expire_date ASC NULLS LAST, b.created_at ASC
 | API `tsc --noEmit` | PASS |
 | Web `tsc --noEmit` | PASS |
 | `git diff --check` | PASS |
+| W5 static closeout（显式复核冻结/安全触碰） | PASS，20/20；本次 security 命中来自扫描器读取 `generic-crud.service.ts` / `wms.service.ts` 全文件既有 DDL、时间戳与 callback 文本，实际 diff 仅 ORDER BY |
 | API `pnpm test:regr` | BLOCKED：本地 API 未启动，system regression 登录返回空 token，exit 99；不记 PASS |
+
+PR 已登记 `reviewed-frozen-boundary` 与 `reviewed-security-touch`，用于让 CI 在显式人工复核语义下重跑静态门禁。
 
 生产只读复验标准：revision 必须满足 checkout/API/Web OCI 三方一致；GET `/api/v2/sales/inventory/batches?productCode=EGG` 后逐行验证 `egg_date` 非递增，同日验证 `(batch_no,id)` 非递增；GET 临期接口验证 `(expire_date,batch_no,id)` 非递减；同时检查部署后错误窗口。
