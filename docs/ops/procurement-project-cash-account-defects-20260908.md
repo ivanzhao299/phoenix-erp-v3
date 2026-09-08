@@ -117,6 +117,12 @@ guard，确认并同批收口三处真实断层：
 - 部署后只读 manifest 增加三项 wanglejin 断言：JWT 菜单权限为
   `MENU_PRC2_PROJECT:V` 且无 `MENU_MD_PROJECT:V`、旧路径 307 精确指向共享项目页、共享
   项目页返回 200；原 Runtime 200、revision 三方一致和错误窗口断言继续保留。
+- PR #208 合并 revision `d8c4ed9caf5dee64a06676c2323e82f8c83695ff`；full deploy run
+  `34185942772` 成功（双端镜像、SSH 部署与 smoke 全部完成）。
+- 首次 postdeploy readonly run `34186708818` 已确认 checkout/API/Web revision 三方一致，
+  随后因审计器按完整字符串比较聚合权限 `MENU_PRC2_PROJECT:V,C,E,D,A,X`，误判缺少
+  `MENU_PRC2_PROJECT:V` 而失败；只读事务阻止了启动期遗留 DDL/DML，未产生业务写入。
+  审计器已改为按 `menu_code:action-list` 语义解析后重跑。
 
 生产部署后使用
 `scripts/ops/readonly-audits/procurement-project-cash-account-defects-postdeploy.http.json`

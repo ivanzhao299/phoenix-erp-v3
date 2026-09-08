@@ -88,11 +88,23 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
       }
       const tokenPayload = jwt.decode(tokens.get(username));
       const tokenPermissions = Array.isArray(tokenPayload?.permissions) ? tokenPayload.permissions : [];
+      const hasTokenPermission = (required) => {
+        const separator = required.lastIndexOf(':');
+        if (separator < 1) return tokenPermissions.includes(required);
+        const menu = required.slice(0, separator);
+        const action = required.slice(separator + 1);
+        return tokenPermissions.some(entry => {
+          if (entry === '*') return true;
+          const entrySeparator = entry.lastIndexOf(':');
+          if (entrySeparator < 1 || entry.slice(0, entrySeparator) !== menu) return false;
+          return entry.slice(entrySeparator + 1).split(',').includes(action);
+        });
+      };
       for (const permission of (a.requiredTokenPermissions || [])) {
-        if (!tokenPermissions.includes(permission)) throw new Error(`${a.name}: token missing permission ${permission}`);
+        if (!hasTokenPermission(permission)) throw new Error(`${a.name}: token missing permission ${permission}`);
       }
       for (const permission of (a.forbiddenTokenPermissions || [])) {
-        if (tokenPermissions.includes(permission)) throw new Error(`${a.name}: token unexpectedly has permission ${permission}`);
+        if (hasTokenPermission(permission)) throw new Error(`${a.name}: token unexpectedly has permission ${permission}`);
       }
       if (a.scopeMenu) {
         const payload = jwt.decode(tokens.get(username));
