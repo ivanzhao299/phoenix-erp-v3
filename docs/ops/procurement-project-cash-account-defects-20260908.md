@@ -127,6 +127,11 @@ guard，确认并同批收口三处真实断层：
   来源与 project Runtime 200；旧兼容页在 Next App Router/RSC 请求语义下返回 200 redirect
   payload，并非传统 307，导致审计器的 307 预期失败。线上断言改为旧路径与最终项目页均
   200；实际客户端跨路径放行和其他主数据隔离由定向路由守卫测试覆盖。
+- 最终生产 revision `efda39c89e6fd0dc60685fa1c4faaee427bc5eaf`，full deploy run
+  `34188436400` 成功。最终 postdeploy readonly run `34189232307` 全部通过：checkout/API/Web
+  revision 三方一致；wanglejin project Runtime、`/procurement2/projects` 兼容入口、
+  `/master-data/projects` 共享目标页均为 200；JWT/权限源确认有 `MENU_PRC2_PROJECT:V` 且无
+  `MENU_MD_PROJECT:V`；相关 60 分钟错误窗口为 0；`PASS PRODUCTION_BUSINESS_WRITES=0`。
 
 生产部署后使用
 `scripts/ops/readonly-audits/procurement-project-cash-account-defects-postdeploy.http.json`
