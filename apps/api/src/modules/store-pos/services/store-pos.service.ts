@@ -772,7 +772,7 @@ export class StorePosService {
                 payment_method, total_amount, paid_amount, receivable_amount,
                 payment_status, status, created_by_name, created_at, completed_at
          FROM sal_store_sales WHERE ${where}
-         ORDER BY created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`,
+         ORDER BY created_at DESC, id DESC LIMIT $${idx} OFFSET $${idx + 1}`,
         [...vals, limit, offset],
       ),
       this.ds.query<any[]>(

@@ -248,7 +248,7 @@ export class WmsService {
            FROM wms_inbound wi
            LEFT JOIN wms_warehouses wh ON wh.warehouse_code = wi.warehouse_code
           WHERE wi.status IN ('PENDING', 'PROCESSING') AND ${scope.sql}
-          ORDER BY wi.created_at DESC`,
+          ORDER BY wi.created_at DESC, wi.id DESC`,
         scope.params,
       );
       return { code: 200, data };
@@ -693,7 +693,7 @@ export class WmsService {
            FROM ord_orders o
            LEFT JOIN sal_customers c ON c.customer_no = o.customer_code
           WHERE o.status IN ('approved', 'locked', 'allocated') AND ${scope.sql}
-          ORDER BY o.created_at DESC`,
+          ORDER BY o.created_at DESC, o.id DESC`,
         scope.params,
       );
       return { code: 200, data };
@@ -1347,7 +1347,7 @@ export class WmsService {
            LEFT JOIN wms_locations loc ON loc.location_code = b.location_code
            LEFT JOIN mst_stores store ON store.store_code = b.store_code
           WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${scope.sql}
-          ORDER BY b.created_at DESC LIMIT 200`,
+          ORDER BY b.egg_date DESC NULLS LAST, b.batch_no DESC, b.id DESC LIMIT 200`,
         scope.params,
       );
       return { code: 200, data };
@@ -1400,7 +1400,13 @@ export class WmsService {
         else if (g.includes('C')) gradeBuckets.C++;
       }
       const recent = [...rows]
-        .sort((a, b) => ((b.grading_date ?? '') > (a.grading_date ?? '') ? 1 : -1))
+        .sort((a, b) => {
+          const dateOrder = String(b.egg_date ?? b.grading_date ?? '').localeCompare(String(a.egg_date ?? a.grading_date ?? ''));
+          if (dateOrder !== 0) return dateOrder;
+          const batchOrder = String(b.batch_no ?? '').localeCompare(String(a.batch_no ?? ''));
+          if (batchOrder !== 0) return batchOrder;
+          return String(b.id ?? '').localeCompare(String(a.id ?? ''));
+        })
         .slice(0, 10);
       return { code: 200, data: { totalCount: rows.length, activeCount, totalQtyKg, expiringCount, gradeBuckets, recent } };
     } catch {
@@ -1412,7 +1418,7 @@ export class WmsService {
     try {
       const scope = this.warehouseScope('warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT * FROM wms_inbound WHERE status = 'PENDING' AND ${scope.sql} ORDER BY created_at DESC`,
+        `SELECT * FROM wms_inbound WHERE status = 'PENDING' AND ${scope.sql} ORDER BY created_at DESC, id DESC`,
         scope.params,
       );
       return { code: 200, data };
@@ -1424,7 +1430,7 @@ export class WmsService {
   async getReceivingOrderItems(orderNo: string) {
     try {
       const data = await this.em.query(
-        `SELECT * FROM wms_inbound_items WHERE task_no = $1`,
+        `SELECT * FROM wms_inbound_items WHERE task_no = $1 ORDER BY id ASC`,
         [orderNo],
       );
       return { code: 200, data };

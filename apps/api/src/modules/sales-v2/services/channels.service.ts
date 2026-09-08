@@ -74,7 +74,7 @@ export class ChannelsService {
                 (SELECT COALESCE(o.org_name_cn, o.org_name) FROM sys_organizations o
                  WHERE COALESCE(o.company_code, o.org_code) = c.company_code
                    AND o.org_type = 'COMPANY' LIMIT 1) AS company_name_display
-         FROM sal_channels c WHERE ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+         FROM sal_channels c WHERE ${whereClause} ORDER BY created_at DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, limit, offset],
       ),
     ]);

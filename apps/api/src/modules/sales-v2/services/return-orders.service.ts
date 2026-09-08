@@ -165,7 +165,7 @@ export class ReturnOrdersService {
        ) AS items
        FROM sal_return_orders r
        WHERE ${where}
-       ORDER BY r.created_at DESC
+       ORDER BY r.created_at DESC, r.id DESC
        LIMIT $${pi++} OFFSET $${pi++}`,
       [...params, limit, offset],
     );

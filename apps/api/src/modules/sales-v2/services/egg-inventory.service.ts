@@ -370,7 +370,7 @@ export class EggInventoryService {
     return batch as EggBatch;
   }
 
-  // ── 2. 查询可销售批次（FIFO 排序） ──────────────────────────────────────────
+  // ── 2. 查询可销售批次（展示按生产日期倒序；分配 FIFO 见下方） ────────────────────────────────
 
   /**
    * Phase H4: 新增 skuCode 参数（可选）
@@ -440,7 +440,7 @@ export class EggInventoryService {
           ORDER BY o.org_code LIMIT 1
        ) company ON TRUE
        WHERE ${conds.join(' AND ')}
-       ORDER BY b.expire_date ASC NULLS LAST, b.created_at ASC`,
+       ORDER BY b.egg_date DESC NULLS LAST, b.batch_no DESC, b.id DESC`,
       args,
     );
     return rows;
@@ -1005,7 +1005,7 @@ export class EggInventoryService {
          AND b.expire_date >= CURRENT_DATE
          AND b.expire_date <= CURRENT_DATE + ($1 * INTERVAL '1 day')
          ${cond}
-       ORDER BY b.expire_date ASC`, values,
+       ORDER BY b.expire_date ASC, b.batch_no ASC, b.id ASC`, values,
     );
   }
 

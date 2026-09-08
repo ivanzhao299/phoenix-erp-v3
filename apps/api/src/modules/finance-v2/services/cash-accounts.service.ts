@@ -108,7 +108,7 @@ export class CashAccountsService {
     const [countRes, rows] = await Promise.all([
       this.ds.query(countSql, params),
       this.ds.query(
-        sql + ` ORDER BY created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`,
+        sql + ` ORDER BY created_at DESC, id DESC LIMIT $${idx} OFFSET $${idx + 1}`,
         [...params, pageSize, offset],
       ),
     ]);

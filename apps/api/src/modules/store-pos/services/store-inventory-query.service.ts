@@ -81,7 +81,8 @@ export class StoreInventoryQueryService {
            ORDER BY il.created_at DESC,il.id DESC LIMIT 1
         ) ledger ON TRUE
        WHERE ${whereSql}
-       ORDER BY CASE b.status WHEN 'QUARANTINE' THEN 0 WHEN 'AVAILABLE' THEN 1 ELSE 2 END,b.created_at DESC,b.batch_no
+       ORDER BY CASE b.status WHEN 'QUARANTINE' THEN 0 WHEN 'AVAILABLE' THEN 1 ELSE 2 END,
+                b.egg_date DESC NULLS LAST,b.batch_no DESC,b.id DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, rowParams);
     return {
       store: { code: context.storeCode, name: context.storeName, companyCode: context.companyCode },

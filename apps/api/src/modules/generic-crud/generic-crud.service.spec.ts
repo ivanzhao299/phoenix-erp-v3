@@ -124,6 +124,28 @@ describe('GenericCrudService', () => {
       expect(query.mock.calls[0][1]).toEqual([100, 0]);
     });
 
+    it.each([
+      ['inv_batches', 'ORDER BY "egg_date" DESC NULLS LAST, "batch_no" DESC, "id" DESC'],
+      ['inv_ledger', 'ORDER BY "created_at" DESC, "id" DESC'],
+      ['wms_inbound', 'ORDER BY "created_at" DESC, "id" DESC'],
+      ['wms_outbound', 'ORDER BY "created_at" DESC, "id" DESC'],
+      ['wms_transfer', 'ORDER BY "created_at" DESC, "id" DESC'],
+      ['wms_stocktake', 'ORDER BY "created_at" DESC, "id" DESC'],
+      ['wms_loss', 'ORDER BY "created_at" DESC, "id" DESC'],
+    ])('adds a stable default order before pagination for %s', async (table, order) => {
+      const query = jest.fn().mockResolvedValueOnce([]);
+      const { svc } = buildSvc(query);
+
+      if (table === 'inv_batches' || table === 'inv_ledger') {
+        await svc.findAllInventoryScoped(table as 'inv_batches' | 'inv_ledger', { limit: 2, offset: 2 }, null);
+      } else {
+        await svc.findAll(table, { limit: 2, offset: 2 });
+      }
+
+      expect(query.mock.calls[0][0]).toContain(`${order} LIMIT $1 OFFSET $2`);
+      expect(query.mock.calls[0][1]).toEqual([2, 2]);
+    });
+
     it('keeps daily log reason label enrichment after date normalization', async () => {
       const query = jest
         .fn()

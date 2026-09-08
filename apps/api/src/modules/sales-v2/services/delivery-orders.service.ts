@@ -150,7 +150,7 @@ export class DeliveryOrdersService {
          LEFT JOIN sal_delivery_order_items i ON i.delivery_order_id = d.id
          WHERE ${wc}
          GROUP BY d.id
-         ORDER BY d.created_at DESC
+         ORDER BY d.created_at DESC, d.id DESC
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, limit, offset],
       ),

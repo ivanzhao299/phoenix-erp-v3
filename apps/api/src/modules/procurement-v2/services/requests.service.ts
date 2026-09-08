@@ -200,6 +200,7 @@ export class RequestsService {
 
     const { entities: items, raw } = await qb
       .orderBy('r.createdAt', 'DESC')
+      .addOrderBy('r.id', 'DESC')
       .skip(skip)
       .take(pageSize)
       .getRawAndEntities();

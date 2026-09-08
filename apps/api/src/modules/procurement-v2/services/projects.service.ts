@@ -47,6 +47,7 @@ export class ProjectsService {
 
     const [items, total] = await qb
       .orderBy('p.createdAt', 'DESC')
+      .addOrderBy('p.id', 'DESC')
       .skip(skip)
       .take(pageSize)
       .getManyAndCount();
