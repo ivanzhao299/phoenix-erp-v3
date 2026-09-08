@@ -178,8 +178,10 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
     return m;
   }, [fields]);
   const perType = usePermission(TYPE_TO_MENU[type] ?? "MENU_MD_CENTER");
-  const canCreate = perType.canCreate || perType.isSuper;
-  const canEdit = perType.canEdit || perType.isSuper;
+  // 采购项目入口仍由 MENU_PRC2_PROJECT 授权；页面已统一到 project Runtime。
+  const procurementProject = usePermission(type === "project" ? "MENU_PRC2_PROJECT" : null);
+  const canCreate = perType.canCreate || procurementProject.canCreate || perType.isSuper;
+  const canEdit = perType.canEdit || procurementProject.canEdit || perType.isSuper;
   // G131：支持业务单据页(如采购供应商档案)直达「新增」——?create=1 自动开新增抽屉，
   //   存完后 returnTo 自动回跳来源页（采购员无需手动绕回）。
   //   用 window.location 读 query（避免 useSearchParams 强制 Suspense 边界 / 整页 CSR bailout）。

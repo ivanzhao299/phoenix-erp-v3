@@ -443,7 +443,7 @@ function EditAccountModal({
           </button>
         </div>
         <div className="text-text-muted" style={{ fontSize: 12, marginBottom: 16 }}>
-          {account.account_code} · {account.currency_code}
+          {account.account_code} · {account.currency_code} · {account.company_name ? `${account.company_name}（${account.company_code}）` : account.company_code}
         </div>
 
         {err && <div className={`bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger ${u.mb14}`}>{err}</div>}
@@ -977,6 +977,9 @@ export default function CashAccountsPage() {
                     {acc.account_name}
                   </div>
                   <div className={`text-text-muted ${u.fs11}`}>{acc.account_code}</div>
+                  <div className={`text-text-muted ${u.fs11}`} style={{ marginTop: 2 }}>
+                    {acc.company_name ? `${acc.company_name}（${acc.company_code}）` : acc.company_code}
+                  </div>
                 </div>
                 <div style={{
             display: 'flex',

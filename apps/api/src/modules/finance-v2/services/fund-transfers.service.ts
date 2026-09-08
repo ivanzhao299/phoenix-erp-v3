@@ -143,6 +143,12 @@ export class FundTransfersService {
     if (!toAcc)   throw new NotFoundException(`转入账户 ${dto.toAccountId} 不存在`);
     if (fromAcc.status !== 'ACTIVE') throw new BadRequestException(`转出账户状态 ${fromAcc.status}，不允许转账`);
     if (toAcc.status !== 'ACTIVE')   throw new BadRequestException(`转入账户状态 ${toAcc.status}，不允许转账`);
+    if (fromAcc.companyCode !== toAcc.companyCode) {
+      throw new BadRequestException('转入账户与转出账户必须属于同一公司');
+    }
+    if (fromAcc.currencyCode !== toAcc.currencyCode) {
+      throw new BadRequestException('转入账户与转出账户币种必须一致');
+    }
 
     this.assertOwnership(fromAcc.companyCode, user);
 

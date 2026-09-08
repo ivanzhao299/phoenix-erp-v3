@@ -59,6 +59,7 @@ interface CashAccount {
   id: string;
   accountCode: string;
   accountName: string;
+  companyCode: string;
   currencyCode: string;
   currentBalance: string | number;
   status: string;
@@ -225,7 +226,10 @@ function CreateTransferModal({
             marginBottom: 4
           }}>{t('fin2.transfers.from_account','转出账户')} <span className="text-red-500">*</span></div>
             {/* G4-A：资金账户主数据(仅 ACTIVE)，value=id；onPick 同步带出账户币种/余额 */}
-            <CashAccountSelector value={form.fromAccountId} valueField="id" onChange={v => set('fromAccountId', v)} onPick={o => setFromAcc((o?.raw ?? null) as CashAccount | null)} />
+            <CashAccountSelector value={form.fromAccountId} valueField="id" onChange={v => {
+              set('fromAccountId', v);
+              set('toAccountId', '');
+            }} onPick={o => setFromAcc((o?.raw ?? null) as CashAccount | null)} />
           </div>
 
           {fromAcc && <div className="bg-info/10 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
@@ -239,7 +243,7 @@ function CreateTransferModal({
             marginBottom: 4
           }}>{t('fin2.transfers.to_account','转入账户')} <span className="text-red-500">*</span></div>
             {/* G4-A：资金账户主数据；同币种过滤（避免跨币种调拨） */}
-            <CashAccountSelector value={form.toAccountId} valueField="id" onChange={v => set('toAccountId', v)} currencyCode={fromAcc?.currencyCode} />
+            <CashAccountSelector value={form.toAccountId} valueField="id" onChange={v => set('toAccountId', v)} currencyCode={fromAcc?.currencyCode} companyCode={fromAcc?.companyCode} />
           </div>
 
           <div>

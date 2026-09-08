@@ -58,7 +58,14 @@ export class CashAccountsService {
     const companyCodes = this.userCompanyCodes(user);
 
     let sql = `
-      SELECT id, account_code, account_name, company_code, company_name,
+      SELECT id, account_code, account_name, company_code,
+             COALESCE((
+               SELECT COALESCE(o.org_name_cn, o.org_name)
+               FROM sys_organizations o
+               WHERE o.org_type = 'COMPANY'
+                 AND COALESCE(o.company_code, o.org_code) = fin_cash_accounts.company_code
+               LIMIT 1
+             ), company_name) AS company_name,
              currency_code, account_type, opening_balance, current_balance,
              bank_name, bank_account_no, status, remark,
              created_by, created_at, updated_at
