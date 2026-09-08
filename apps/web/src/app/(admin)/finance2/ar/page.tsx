@@ -560,7 +560,7 @@ function CreateReceiptModal({
             <div>
               <label style={formLabel}>{t('fin2.common.company', '公司')} *</label>
               {/* G4-A：公司主数据，DataScope 自动过滤 */}
-              <CompanySelector value={form.companyCode} onChange={v => set('companyCode', v)} onPick={o => set('companyName', o?.label ?? '')} />
+              <CompanySelector value={form.companyCode} onChange={v => setForm(f => ({ ...f, companyCode: v, receivedAccountCode: '' }))} onPick={o => set('companyName', o?.label ?? '')} />
             </div>
             <div>
               <label style={formLabel}>{t('fin2.ar.currency', '货币')}</label>
@@ -599,7 +599,7 @@ function CreateReceiptModal({
             <div>
               <label style={formLabel}>{t('fin2.ar.receipt_account', '收款账户')}</label>
               {/* G4-A：从资金账户主数据(仅ACTIVE)选择，value=account_code */}
-              <CashAccountSelector value={form.receivedAccountCode} onChange={v => set('receivedAccountCode', v)} currencyCode={form.currencyCode} refreshKey={refreshKey} />
+              <CashAccountSelector value={form.receivedAccountCode} onChange={v => set('receivedAccountCode', v)} currencyCode={form.currencyCode} companyCode={form.companyCode} refreshKey={refreshKey} />
             </div>
           </div>
           <div>

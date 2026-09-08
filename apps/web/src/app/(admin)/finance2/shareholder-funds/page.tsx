@@ -436,7 +436,7 @@ function CreateSettlementModal({
 
         {needsCash && <div className={u.mb12}>
             <div style={formLabel}>{t('fin2.shfunds.cash_account','现金账户')} <span style={{ color: 'var(--status-danger)' }}>*</span>（{t('fin2.shfunds.cash_return_required','现金归还必填')}）</div>
-            <CashAccountSelector value={form.cashAccountId} valueField="id" onChange={v => set('cashAccountId', v)} currencyCode={contribution.currencyCode} />
+            <CashAccountSelector value={form.cashAccountId} valueField="id" onChange={v => set('cashAccountId', v)} currencyCode={contribution.currencyCode} companyCode={contribution.companyCode} />
           </div>}
 
         <div className={u.mb16}>

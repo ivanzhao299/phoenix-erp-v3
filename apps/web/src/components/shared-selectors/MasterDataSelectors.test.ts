@@ -40,6 +40,7 @@ describe('WMS status-vocabulary selectors', () => {
     await act(async () => root.render(createElement(CashAccountSelector, props)));
     await flush();
     expect(requestMock).toHaveBeenCalledTimes(1);
+    expect(requestMock).toHaveBeenLastCalledWith('/lookup/cash-accounts?currency=CNY&company=C1');
 
     await act(async () => root.render(createElement(CashAccountSelector, { ...props })));
     await flush();
@@ -51,6 +52,24 @@ describe('WMS status-vocabulary selectors', () => {
     await flush();
     expect(requestMock).toHaveBeenCalledTimes(2);
     expect(host.textContent).toContain('1,500.00');
+  });
+
+  it('reloads and narrows cash accounts when the document company changes', async () => {
+    requestMock
+      .mockResolvedValueOnce({ data: [{ id: '1', accountCode: 'C1-CASH', accountName: 'C1', currencyCode: 'CNY' }] })
+      .mockResolvedValueOnce({ data: [{ id: '2', accountCode: 'C2-CASH', accountName: 'C2', currencyCode: 'CNY' }] });
+    const base = { value: '', onChange: () => undefined, currencyCode: 'CNY' };
+
+    await act(async () => root.render(createElement(CashAccountSelector, { ...base, companyCode: 'C1' })));
+    await flush();
+    expect(requestMock).toHaveBeenLastCalledWith('/lookup/cash-accounts?currency=CNY&company=C1');
+    expect(host.textContent).toContain('C1-CASH');
+
+    await act(async () => root.render(createElement(CashAccountSelector, { ...base, companyCode: 'C2' })));
+    await flush();
+    expect(requestMock).toHaveBeenLastCalledWith('/lookup/cash-accounts?currency=CNY&company=C2');
+    expect(host.textContent).toContain('C2-CASH');
+    expect(host.textContent).not.toContain('C1-CASH');
   });
 
   afterEach(async () => {

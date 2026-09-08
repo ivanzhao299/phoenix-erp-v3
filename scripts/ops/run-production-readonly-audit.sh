@@ -105,7 +105,7 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
       const expected = Array.isArray(a.expectedStatus) ? a.expectedStatus : [a.expectedStatus ?? 200];
       if (!expected.includes(response.status)) throw new Error(`${a.name}: status=${response.status} expected=${expected.join('/')}`);
       let body = null;
-      if (a.requiredArrays?.length || a.requiredArrayItems?.length || a.requiredWarnings?.length || a.reportDataLength || a.minDataLength != null || a.rowPath || a.requiredNonEmptyFields?.length) {
+      if (a.requiredArrays?.length || a.requiredArrayItems?.length || a.requiredWarnings?.length || a.reportDataLength || a.minDataLength != null || a.rowPath || a.requiredNonEmptyFields?.length || a.requiredEveryFields) {
         body = JSON.parse(text);
         body = body?.data ?? body;
         for (const p of (a.requiredArrays || [])) if (!Array.isArray(getPath(body, p))) throw new Error(`${a.name}: ${p} is not an array`);
@@ -136,6 +136,13 @@ const getPath = (body, path) => path.split('.').reduce((v, k) => v == null ? und
         for (const field of a.requiredNonEmptyFields) {
           const present = dataRows.some(row => String(getPath(row, field) ?? '').trim().length > 0);
           if (!present) throw new Error(`${a.name}: no row has non-empty field ${field}`);
+        }
+      }
+      if (a.requiredEveryFields) {
+        if (!Array.isArray(dataRows)) throw new Error(`${a.name}: rows are not an array`);
+        for (const [field, expectedValue] of Object.entries(a.requiredEveryFields)) {
+          const mismatch = dataRows.find(row => getPath(row, field) !== expectedValue);
+          if (mismatch) throw new Error(`${a.name}: row ${field}=${String(getPath(mismatch, field))} expected=${String(expectedValue)}`);
         }
       }
       console.log(`PASS HTTP name=${a.name} username=${username} method=${method} status=${response.status}${a.requiredArrays?.length ? ` arrays=${a.requiredArrays.join(',')}` : ''}${a.reportDataLength ? ` data.length=${dataRows?.length ?? 'not-array'}` : ''}${a.requiredNonEmptyFields?.length ? ` nonempty=${a.requiredNonEmptyFields.join(',')}` : ''}`);
@@ -172,6 +179,11 @@ if [ "$http_path" = 'scripts/ops/readonly-audits/three-page-display-defects.http
   three_page_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(procurement/requests|store-sales/inventory)' || true; } | wc -l | tr -d ' ')"
   echo "THREE_PAGE_DISPLAY_ERROR_WINDOW_60M=$three_page_error_count"
   test "$three_page_error_count" = 0
+fi
+if [ "$http_path" = 'scripts/ops/readonly-audits/procurement-project-cash-account-defects-postdeploy.http.json' ]; then
+  project_cash_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(master-data/runtime/project|lookup/cash-accounts|finance.*(receipt|transfer|shareholder))' || true; } | wc -l | tr -d ' ')"
+  echo "PROJECT_CASH_DEFECT_ERROR_WINDOW_60M=$project_cash_error_count"
+  test "$project_cash_error_count" = 0
 fi
 if [ "$sql_path" = 'scripts/ops/readonly-audits/credit-evaluation-so-20260903-00005.sql' ]; then
   credit_log_matches="$({ docker logs --timestamps phoenix-v3-api 2>&1 | grep -E -B 30 -A 30 'SO-20260903-00005|信用评估失败|QueryFailedError|客户 .* 不存在' || true; })"

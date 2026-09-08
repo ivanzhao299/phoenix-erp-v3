@@ -50,7 +50,14 @@ const TYPE_TO_MENU: Record<string, string> = {
 
 const TYPE_TO_ALT_MENUS: Record<string, string[]> = {
   company: ['MENU_MD_ORG'],
+  // 采购项目入口沿用采购域权限，但页面已收口到统一 project Runtime。
+  project: ['MENU_PRC2_PROJECT'],
 };
+
+export function masterDataPermissionMenus(type: string): string[] {
+  const primary = TYPE_TO_MENU[type];
+  return primary ? [primary, ...(TYPE_TO_ALT_MENUS[type] ?? [])] : [];
+}
 
 function deriveOp(method: string, urlPath: string): PermCode {
   if (method === 'GET') return 'V';
@@ -82,13 +89,12 @@ export class MasterDataTypeGuard extends AuthGuard('jwt') implements CanActivate
     if (Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')) return true;
     if (user.role === 'ROLE_ADMIN') return true;
 
-    const code = TYPE_TO_MENU[type];
-    if (!code) throw new ForbiddenException('MENU_PERMISSION_DENIED');
+    const codes = masterDataPermissionMenus(type);
+    if (codes.length === 0) throw new ForbiddenException('MENU_PERMISSION_DENIED');
 
-    // 2. 专属码命中
-    if (isMenuRegistered(code) && hasPerm(user.permissions, code, op)) return true;
-    for (const alt of TYPE_TO_ALT_MENUS[type] ?? []) {
-      if (isMenuRegistered(alt) && hasPerm(user.permissions, alt, op)) return true;
+    // 2. 专属码或显式业务域兼容码命中
+    for (const code of codes) {
+      if (isMenuRegistered(code) && hasPerm(user.permissions, code, op)) return true;
     }
     throw new ForbiddenException('MENU_PERMISSION_DENIED');
   }

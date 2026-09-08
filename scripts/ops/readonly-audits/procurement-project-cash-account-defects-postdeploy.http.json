@@ -1,0 +1,20 @@
+[
+  {
+    "name": "wanglejin-procurement-project-runtime",
+    "username": "wanglejin",
+    "path": "/api/master-data/runtime/project?status=ACTIVE",
+    "expectedStatus": 200,
+    "minDataLength": 0
+  },
+  {
+    "name": "ar-company-cash-account-lookup",
+    "username": "admin",
+    "path": "/api/lookup/cash-accounts?company=COMP-LAO-AGRI&currency=LAK",
+    "expectedStatus": 200,
+    "minDataLength": 0,
+    "requiredEveryFields": {
+      "companyCode": "COMP-LAO-AGRI",
+      "currencyCode": "LAK"
+    }
+  }
+]

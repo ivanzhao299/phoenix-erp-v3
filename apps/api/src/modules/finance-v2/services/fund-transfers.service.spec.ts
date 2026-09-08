@@ -37,3 +37,34 @@ describe('FundTransfersService.execute cash chain', () => {
     expect(qr.rollbackTransaction).not.toHaveBeenCalled();
   });
 });
+
+describe('FundTransfersService.create account scope', () => {
+  const dto = { fromAccountId: '1', toAccountId: '2', amountOriginal: 25 } as any;
+
+  function service(from: any, to: any) {
+    const repo = { create: jest.fn((v: any) => v), save: jest.fn() } as any;
+    const accRepo = { findOne: jest.fn().mockResolvedValueOnce(from).mockResolvedValueOnce(to) } as any;
+    const ds = { query: jest.fn().mockResolvedValue([{ cnt: 0 }]) } as any;
+    return { svc: new FundTransfersService(repo, accRepo, ds, {} as any, {} as any, {} as any), repo };
+  }
+
+  it('rejects a cross-company destination account before creating a draft', async () => {
+    const { svc, repo } = service(
+      { id: '1', accountCode: 'FROM', companyCode: 'C1', currencyCode: 'CNY', status: 'ACTIVE' },
+      { id: '2', accountCode: 'TO', companyCode: 'C2', currencyCode: 'CNY', status: 'ACTIVE' },
+    );
+    await expect(svc.create(dto, { dataScope: { scopeAll: true } }))
+      .rejects.toThrow('转入账户与转出账户必须属于同一公司');
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects a cross-currency destination account before creating a draft', async () => {
+    const { svc, repo } = service(
+      { id: '1', accountCode: 'FROM', companyCode: 'C1', currencyCode: 'CNY', status: 'ACTIVE' },
+      { id: '2', accountCode: 'TO', companyCode: 'C1', currencyCode: 'LAK', status: 'ACTIVE' },
+    );
+    await expect(svc.create(dto, { dataScope: { scopeAll: true } }))
+      .rejects.toThrow('转入账户与转出账户币种必须一致');
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+});

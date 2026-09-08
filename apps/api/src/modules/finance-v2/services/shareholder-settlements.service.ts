@@ -357,6 +357,11 @@ export class ShareholderSettlementsService {
         if (acc.status !== 'ACTIVE') {
           throw new BadRequestException(`账户状态 ${acc.status}，不允许收付款`);
         }
+        if (acc.company_code !== contrib.company_code) {
+          throw new BadRequestException(
+            `资金账户 ${acc.account_code} 不属于股东出资公司 ${contrib.company_code}`,
+          );
+        }
         if (Number(acc.current_balance) < amtOrig) {
           throw new BadRequestException(
             `账户余额不足：当前 ${acc.current_balance}，需要 ${amtOrig}`,
