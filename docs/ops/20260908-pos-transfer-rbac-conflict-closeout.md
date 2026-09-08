@@ -79,3 +79,20 @@
 - 生产业务写：`PRODUCTION_BUSINESS_WRITES=0`。
 
 真实 POS TRANSFER 成交会同时写销售、库存、资金台账；在没有指定业务测试单与资金/库存写入批准的情况下，本次仅完成代码回归、部署 revision 与生产只读错误窗口，未把只读检查虚报为成交冒烟。wangweihua 的补权同样保持待批状态。
+
+## 出纳补权生产执行记录
+
+用户于 2026-09-08 批准唯一生产 DML：为 `ROLE_MENGSAI_DONGPENG_TREASURER` 新增 `MENU_STORE_PAYMENT:V,E`。执行未修改 `ROLE_FIN_ACCT`，未修改或解除任何 `sys_role_conflict` 规则，未触碰库存、资金或其他业务数据。
+
+- 执行器与回滚 SQL：PR `#202`（merge `a911155f10e670a021aacebfacc3128d8e10784f`）及修正 PR `#203`（merge `709d8f4fa1d9639a93c988542bdca26d6a035f0a`）。
+- 首次 run `34177421186`：生产 `psql` 不支持 `\error`，在 `INSERT 0 1` 后、`COMMIT` 前退出；连接关闭触发事务回滚，未落库。
+- 正式执行 run `34177814896`：部署 revision checkout/API/Web 均为 `6b01e931ede98094cb6936327ee7155745bb27c7`；前置断言通过后提交 1 行 `sys_role_menu_permission`；触发器把 wangweihua `perms_version` 从 `386` 递增为 `387`。
+- 同事务后置断言：出纳权限包含 `V,E`；`ROLE_FIN_ACCT` 权限 MD5 `cc7356d00faa9edee4dc39b7a768b084` 前后不变；`sys_role_conflict` 保持 6 行且内容哈希前后不变。随后独立只读 DB postflight 为 `PASS`。
+- run `34177814896` 的最终 job 状态为失败：短 token 断言错误地寻找拆分项 `MENU_STORE_PAYMENT:E`，而实际 JWT 权限解析器按菜单聚合为 `MENU_STORE_PAYMENT:V,E`。失败发生在 `COMMIT` 与独立只读 DB postflight 之后，不影响已验证的授权结果；没有因此重跑 DML。
+- 独立只读复验 run `34178023755`：`PASS TREASURER_STORE_PAYMENT_POSTFLIGHT`；确认 `user_id=3 / wangweihua / ACTIVE / perms_version=387 / ROLE_MENGSAI_DONGPENG_TREASURER / ACTIVE / V,E`，并完整列出 `ROLE_FIN_ACCT` 与 6 条 SoD 规则供比对。旧 token 携带版本 `386` 时由 `JwtStrategy` 返回 `PERMS_CHANGED`；重新登录签发版本 `387`，权限串按实现为 `MENU_STORE_PAYMENT:V,E`，其中包含 `E`。
+
+证据与回滚位置：
+
+- GitHub Actions 执行日志：run `34177814896`；远端事务证据 `/tmp/phoenix-treasurer-store-payment-34177814896/transaction.log` 与 `postflight.log`。
+- 独立只读证据 artifact：`production-readonly-audit-34178023755`，artifact ID `10037926632`，ZIP SHA-256 `13454d6a45c4e70ce0bd075d71aa2bae3ff4080995d4f3c407540618ddfb2459`，保留 30 天。
+- 回滚 SQL：`scripts/ops/rollback-treasurer-store-payment.sql`。仅在另行批准回滚后执行；它只删除该角色、该菜单且权限值精确为 `V,E` 的 1 行，并依赖同一触发器再次递增 `perms_version`。
