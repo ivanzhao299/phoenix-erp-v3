@@ -67,3 +67,15 @@
 - POS：生产只读确认接口与错误窗口；真实成交会写库存和资金台账，不在只读审计中伪造 PASS，需使用业务批准的 amei 实单或专用 UAT 数据执行一次 TRANSFER，再核对 tender/现金交易/销售单。
 - RBAC：先验证无关权限编辑不再被既存 BLOCK 冻结、新增 BLOCK 仍返回 400；获批补权后验证 wangweihua 旧 token 收到 `PERMS_CHANGED`，重新登录后具备 `MENU_STORE_PAYMENT:E`。
 - 错误窗口：检查部署后 API 日志中的 `TRANSFER tender`、角色权限保存 400/500 和 `PERMS_CHANGED` 是否符合预期。
+
+## 部署结果
+
+- PR：`#200`，全部 required checks 通过后合并。
+- merge/deploy revision：`6b01e931ede98094cb6936327ee7155745bb27c7`。
+- full deploy workflow：run `34175157453`，Type-check & Regression、API/Web image build、Deploy full 全部成功。
+- 部署后生产只读 workflow：run `34175995120`。
+- revision：checkout/API/Web 三方均为 `6b01e931ede98094cb6936327ee7155745bb27c7`。
+- 60 分钟错误窗口：`LIFECYCLE_PROCESS_LOG_ERROR_WINDOW_60M=0`。
+- 生产业务写：`PRODUCTION_BUSINESS_WRITES=0`。
+
+真实 POS TRANSFER 成交会同时写销售、库存、资金台账；在没有指定业务测试单与资金/库存写入批准的情况下，本次仅完成代码回归、部署 revision 与生产只读错误窗口，未把只读检查虚报为成交冒烟。wangweihua 的补权同样保持待批状态。
