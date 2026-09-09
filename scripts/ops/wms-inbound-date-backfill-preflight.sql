@@ -9,7 +9,6 @@ DO $$ BEGIN
   END IF;
 END $$;
 
-CREATE TEMP TABLE inbound_date_candidates ON COMMIT DROP AS
 WITH evidence AS (
   SELECT DISTINCT l.batch_no, i.date::date AS business_date, 'WMS_INBOUND'::text AS source_kind
     FROM inv_ledger l JOIN wms_inbound i ON i.task_no = l.ref_no
@@ -25,15 +24,45 @@ WITH evidence AS (
     FROM evidence GROUP BY batch_no
 )
 SELECT b.id, b.batch_no, b.inbound_date, r.business_date, r.date_count, r.sources
-  FROM resolved r JOIN inv_batches b ON b.batch_no = r.batch_no;
+  FROM resolved r JOIN inv_batches b ON b.batch_no = r.batch_no
+ ORDER BY r.date_count DESC, b.batch_no;
 
-TABLE inbound_date_candidates ORDER BY date_count DESC, batch_no;
-SELECT count(*) AS eligible_null_rows FROM inbound_date_candidates WHERE inbound_date IS NULL AND date_count = 1;
-SELECT count(*) AS ambiguous_rows FROM inbound_date_candidates WHERE date_count <> 1;
-SELECT count(*) AS preexisting_nonnull_rows FROM inbound_date_candidates WHERE inbound_date IS NOT NULL;
+WITH evidence AS (
+  SELECT DISTINCT l.batch_no, i.date::date AS business_date
+    FROM inv_ledger l JOIN wms_inbound i ON i.task_no = l.ref_no
+   WHERE i.date IS NOT NULL
+  UNION
+  SELECT DISTINCT l.batch_no, r.receipt_date::date
+    FROM inv_ledger l JOIN prc2_receipts r ON r.receipt_no = l.ref_no
+   WHERE r.receipt_date IS NOT NULL
+), resolved AS (
+  SELECT batch_no, count(DISTINCT business_date) AS date_count
+    FROM evidence GROUP BY batch_no
+), candidates AS (
+  SELECT b.inbound_date, r.date_count
+    FROM resolved r JOIN inv_batches b ON b.batch_no = r.batch_no
+)
+SELECT count(*) FILTER (WHERE inbound_date IS NULL AND date_count = 1) AS eligible_null_rows,
+       count(*) FILTER (WHERE date_count <> 1) AS ambiguous_rows,
+       count(*) FILTER (WHERE inbound_date IS NOT NULL) AS preexisting_nonnull_rows
+  FROM candidates;
 
 DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM inbound_date_candidates WHERE inbound_date IS NOT NULL) THEN
+  IF EXISTS (
+    WITH evidence AS (
+      SELECT DISTINCT l.batch_no, i.date::date AS business_date
+        FROM inv_ledger l JOIN wms_inbound i ON i.task_no = l.ref_no
+       WHERE i.date IS NOT NULL
+      UNION
+      SELECT DISTINCT l.batch_no, r.receipt_date::date
+        FROM inv_ledger l JOIN prc2_receipts r ON r.receipt_no = l.ref_no
+       WHERE r.receipt_date IS NOT NULL
+    ), resolved AS (
+      SELECT batch_no FROM evidence GROUP BY batch_no
+    )
+    SELECT 1 FROM resolved r JOIN inv_batches b ON b.batch_no = r.batch_no
+     WHERE b.inbound_date IS NOT NULL
+  ) THEN
     RAISE EXCEPTION 'candidate set is not in the required NULL state';
   END IF;
 END $$;
