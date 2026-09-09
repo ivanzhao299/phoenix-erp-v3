@@ -320,6 +320,7 @@ export class ReceiptsService {
       await this.wms.inboundFromReceipt(mgr, {
         refNo:         rcp.receiptNo,
         warehouseCode: rcp.warehouseCode,
+        inboundDate:   rcp.receiptDate,
         operator:      this.userId(),
         items: items.map(i => ({
           itemCode:    i.itemCode,

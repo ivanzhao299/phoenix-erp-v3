@@ -259,8 +259,8 @@ export class ProcurementService {
       for (const item of items) {
         const batchNo = `B-${Date.now()}${Math.floor(Math.random() * 1000)}`;
         await manager.query(
-          `INSERT INTO inv_batches (batch_no, product_code, qty, warehouse_code, location_code)
-           VALUES ($1, $2, $3, $4, $5)`,
+          `INSERT INTO inv_batches (batch_no, product_code, qty, warehouse_code, location_code, inbound_date)
+           VALUES ($1, $2, $3, $4, $5, NULL)`,
           [batchNo, item.product_code, item.qty, item.warehouse || 'WH-B', 'INBOUND-TMP'],
         );
       }

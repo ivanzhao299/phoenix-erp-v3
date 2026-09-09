@@ -137,15 +137,16 @@ export default function StockQueryPage() {
                 <th style={thStyle}>{t("ui.库位", "库位")}</th>
                 <th style={thRightStyle}>{t("ui.库存数量", "库存数量")}</th>
                 <th style={thStyle}>{t("ui.状态", "状态")}</th>
+                <th style={thStyle}>{t("ui.入库日期", "入库日期")}</th>
                 <th style={thStyle}>{t("ui.保质期至", "保质期至")}</th>
                 <th style={thStyle}>{t("ui.归属门店", "归属门店")}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} style={emptyStyle}>{t("ui.库存数据加载中", "库存数据加载中")}...</td></tr>
+                <tr><td colSpan={9} style={emptyStyle}>{t("ui.库存数据加载中", "库存数据加载中")}...</td></tr>
               ) : filteredRows.length === 0 ? (
-                <tr><td colSpan={8} style={emptyStyle}>
+                <tr><td colSpan={9} style={emptyStyle}>
                   <Warehouse size={24} />
                   {error ? t("ui.请先处理上方提示", "请先处理上方提示") : t("ui.当前权限范围内暂无库存批次", "当前权限范围内暂无库存批次")}
                 </td></tr>
@@ -173,6 +174,7 @@ export default function StockQueryPage() {
                       {qty.toLocaleString()} {row.unit || ""}
                     </td>
                     <td style={tdStyle}><span style={statusPillStyle}>{formatBusinessEnum("inventory", row.status || "AVAILABLE", lang)}</span></td>
+                    <td style={tdStyle}>{formatWarehouseBatchDate(row.inbound_date)}</td>
                     <td style={tdStyle}>{formatWarehouseBatchDate(row.expire_date || row.expiry_date)}</td>
                     <td style={tdStyle}>{formatMasterData(row as Record<string, unknown>, "store_name", row.store_code, lang)}</td>
                   </tr>

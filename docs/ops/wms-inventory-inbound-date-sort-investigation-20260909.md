@@ -137,4 +137,113 @@
 
 ## 授权后的执行门槛
 
-本报告只给出根因、口径和可执行方案。业务代码、迁移、历史回填和生产只读 workflow 均未执行。下一轮需用户明确授权实施，并确认“同一批次多次入库”的日期规则；生产只读覆盖率结果出来后，历史回填范围再定案。
+本节是调查阶段的原始门槛；用户随后已授权实施并定案“同一批次多次入库取最早日期”。实际执行状态以 E 节为准。
+
+## E. 执行记录（2026-09-09）
+
+用户已授权按 §B 全案实施，同批次合并定案为最早非空 `inbound_date`（FEFO 库龄语义）。
+
+### E1. Schema 与查询契约
+
+- 新增 TypeORM 迁移 `1788943471000-AddInventoryInboundDate.ts`：`inv_batches.inbound_date DATE NULL`，并建立与
+  `inbound_date DESC NULLS LAST, batch_no DESC, id DESC` 完全匹配的查询索引；`down()` 先删索引再删列。
+- 主 API 改为显式批次字段投影，明确包含 `inbound_date`，不再以 `b.*` 作为该接口契约。
+- Generic CRUD 404 fallback 同步改为相同排序；排序仍在 `LIMIT/OFFSET` 之前。
+- 前端在“状态”之后、“保质期至”之前增加“入库日期”，空值显示 `-`，loading/empty `colSpan=9`；
+  `ui.入库日期` 的 zh/en/lo 三语资源已存在并复用。
+
+### E2. 写路径决策
+
+| 链路 | `inbound_date` 口径 |
+|---|---|
+| 通用 WMS 入库（正常/破损） | `wms_inbound.date` |
+| 采购 V2 收货 | `prc2_receipts.receipt_date` 显式传给 WMS |
+| 生产临时/统一生产批次 | `eggDate`（该链明确的生产入库业务日） |
+| 集蛋班次 | `pkg_shifts.shift_date` |
+| 分级、包装中间批次 | `NULL`；现有 current time/dateKey 仅用于编号/保质期，不能证明入库业务日 |
+| 调拨直达/签收目标批次 | 调拨完成/签收动作的 `CURRENT_DATE`，不复制源批次日期 |
+| Sales V2 退货回库 | 回库事务当日，显式参数传入 |
+| 门店 POS 退货隔离批 | 退货逆向动作的 `CURRENT_DATE` |
+| 农场药品入库 | 请求的 `logDate` 规范化值 |
+| 采购 V1 旧旁路 | `NULL`；没有可证明的业务日期字段 |
+
+所有存在 `ON CONFLICT(batch_no)` 的本次触及入库链，日期更新均为：旧值空则补新值、新值空则保留旧值、
+双方非空取 `LEAST`。禁止 `COALESCE(inbound_date, created_at::date)`。
+
+### E3. 历史回填资产
+
+回填不放入 schema migration，拆为：
+
+1. `scripts/ops/wms-inbound-date-backfill-preflight.sql`：只读事务，逐批汇总两条唯一许可证据链，输出可证明、
+   多日期歧义及既有非空数量，并断言候选处于 NULL 态。
+2. `scripts/ops/wms-inbound-date-backfill-apply.sql`：单事务、锁定候选、仅更新“唯一业务日期 + 当前仍为 NULL”的行；
+   更新前逐行输出带 `id + batch_no + 写入日期` 守卫的反向 SQL，更新后逐行断言。
+3. `scripts/ops/wms-inbound-date-backfill-verify.sql`：只读事务，断言唯一证据行全部等于证据日期、歧义行继续为 NULL，
+   并输出全表日期分布。
+
+允许的历史证据仅为 `inv_ledger.ref_no = wms_inbound.task_no → wms_inbound.date` 与
+`inv_ledger.ref_no = prc2_receipts.receipt_no → prc2_receipts.receipt_date`。多日期、无关联、日期为空全部保持 NULL。
+截至本地提交前未连接或写入生产数据库，因此没有伪造生产回填数量。
+
+### E4. 验证记录
+
+| 检查 | 实际结果 |
+|---|---|
+| API 定向 Jest（10 suites） | PASS，145 tests |
+| Web 定向 Vitest（2 files） | PASS，9 tests |
+| API `tsc --noEmit` | PASS |
+| Web `tsc --noEmit` | PASS |
+| constraint drift / nullable unique | PASS，0 新违规 |
+| TS migration down / no-data-DML | PASS，78 migrations |
+| entity drift baseline | PASS，0 漂移 |
+| `git diff --check` | PASS |
+| API 全量 Jest | 97 suites / 819 tests PASS；另有 `chanjet-callback.controller.spec.ts` 两个既有收敛等待用例固定 5000ms 超时，单文件复跑同签名（2 failed / 37 passed） |
+| Web 全量 Vitest（`NODE_ENV=test`） | PASS，107 files / 574 tests |
+
+API 的两个超时已按项目既定惯例完成噪声定性：当前 `git diff` / `git status` 均未触及任何 Chanjet 路径；失败测试仍为
+`waits for bounded list convergence before accepting ERP mirror readback` 与
+`caps successful-but-stale mirror reads at three before compensating`，同为固定 5000ms 超时，与此前
+`g202-sales-order-detail-refresh-acceptance-audit.md`、`sales-order-submit-inventory-shortage-audit-20260903.md`、
+`three-page-display-defect-audit-20260904.md` 等多轮记录签名一致。仓库 CI 在干净 `ubuntu-latest` runner 上显式设置
+`NODE_ENV=test`，故如实记为“本机已知噪声，CI 权威”，不将其虚报为本地 PASS，也不再阻断交付。
+
+Web 首次全量运行继承外层 `NODE_ENV=production`，3 files / 29 tests 因 React `act is not a function` 失败；按 CI
+真实环境显式 `NODE_ENV=test` 重跑后 107 files / 574 tests 全部通过。当前尚未记录 CI、PR、full deploy、revision
+三方一致、生产回填或生产只读复验结果；这些步骤执行前均不能记 PASS。
+
+### E5. PR / CI 执行记录与停止点
+
+- 实现提交：`0ae44810`（`fix: 修复库存入库日期与排序`），分支
+  `fix/wms-inbound-date-20260909`，PR `#219`。
+- PR 首轮已通过：Runtime Smoke、Web Vitest、Detect change scope；Web CI 进一步确认干净 runner 全量通过。
+- 冻结/安全门禁默认按设计阻断。人工逐文件复核后，PR 已登记 `reviewed-frozen-boundary` 与
+  `reviewed-security-touch`；本地显式 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 的 W5 closeout
+  20/20 PASS。GitHub 对原 run 的 rerun 仍使用首次事件载荷，环境变量继续为 false，因此该次 rerun 不能记 PASS；
+  需由后续新 PR 事件重新触发标签判定。
+- CI 权威 `V3 Regression Suite` 在干净 `ubuntu-latest`、`NODE_ENV=test` 环境真实失败：WMS 模块
+  23/41 项失败。首个根因信号为 `confirmInbound` 返回 HTTP 400
+  `{"code":400,"msg":"字段不存在，请联系管理员"}`，随后调拨等依赖断言级联失败；这不是既有 Chanjet 超时噪声。
+  当前证据显示 regression job 的测试数据库未获得新增 `inv_batches.inbound_date` 列，命中新写入 SQL 时失败，但尚未
+  完成 CI 初始化链根因修复与权威复跑，故不得宣称结论已闭环。
+
+依用户红线“若 CI 权威环境也失败则真停”，本轮停止在 PR #219，未合入 main、未触发 full deploy、未执行生产
+preflight/apply/verify、未做生产只读查询与三端 revision 复验。生产数据库保持未触及状态。
+
+### E6. CI 回归库迁移链修复与续行记录
+
+- 对 GitHub Actions run `34332644451` 的权威日志复核纠正了 E5 的初步归因：
+  `AddInventoryInboundDate1788943471000` 已被 TypeORM 发现并成功执行，
+  `inv_batches.inbound_date` 的建列 SQL 及迁移记录均出现在日志中；真实首错为
+  `POST /api/inbound/confirm` 查询 `wms_inbound.date` 时触发 PostgreSQL `42703 column "date" does not exist`。
+- 根因是初始化时序：冻结 G17 SQL 在 `wms_inbound` 不存在时通过条件分支静默跳过补列；
+  该表直至 API 启动后才由 Generic CRUD runtime repair 创建，导致迁移记录显示成功而 schema 末态缺列。
+- 修复：尚未发布的 `1788943471000-AddInventoryInboundDate` TS 迁移先幂等建立
+  `wms_inbound` 最小规范表并确保业务日期列 `date` 存在，再建立
+  `inv_batches.inbound_date`；Regression workflow 在启动 API 前新增真实数据库末态断言，
+  同时检查 `public.wms_inbound.date` 与 `public.inv_batches.inbound_date`，任一缺失立即红灯。
+- 本地验证：API tsc 0 errors；Web tsc 0 errors；`check-constraint-drift` 为
+  0 new drift / 1 既有 allowlisted；`check-nullable-in-unique` 0 违规；API 入库日期契约
+  4/4 PASS；Web 查询排序契约 1/1 PASS。尝试以一次性 PostgreSQL 18 空库重放 CI 脚本时，
+  宿主机缺少 `psql` 客户端，脚本在首条 DDL 前真实失败，未记 PASS；临时容器已清理。
+- 本节记录提交前状态；新 PR 事件、CI 权威结果、合入、full deploy、三端 revision、
+  生产回填三段式及只读复验均待后续实际执行后补记，不提前宣称完成。

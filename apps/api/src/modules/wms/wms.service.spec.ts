@@ -120,6 +120,8 @@ describe('WmsService inventory read queries', () => {
     expect(em.query.mock.calls[0][0]).toContain('LEFT JOIN wms_warehouses w ON w.warehouse_code = b.warehouse_code');
     expect(em.query.mock.calls[0][0]).toContain('COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name');
     expect(em.query.mock.calls[0][0]).toContain('(b.warehouse_code = ANY($1) OR b.warehouse_code IS NULL)');
+    expect(em.query.mock.calls[0][0]).toContain('b.inbound_date');
+    expect(em.query.mock.calls[0][0]).toContain('ORDER BY b.inbound_date DESC NULLS LAST, b.batch_no DESC, b.id DESC LIMIT 200');
     expect(em.query.mock.calls[0][0]).not.toContain('WHERE qty > 0');
   });
 
@@ -196,8 +198,8 @@ describe('WmsService inventory read queries', () => {
         if (sql.includes('SELECT company_code FROM wms_warehouses')) {
           return [{ company_code: 'COMP-LAO-XINGCHI' }];
         }
-        if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
-          return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
+        if (sql.includes('SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound')) {
+          return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE', date: '2026-09-09' }];
         }
         if (sql.includes('FROM product_skus')) {
           return [{ sku_code: 'SKU-EGG-A-30', product_code: 'PRD-EGG', sku_name: '鸡蛋SKU' }];
@@ -257,6 +259,7 @@ describe('WmsService inventory read queries', () => {
       'INBOUND-DOCK',
       'ALL',
       'COMP-LAO-XINGCHI',
+      '2026-09-09',
     ]);
 
     const insertLedgerCall = manager.query.mock.calls.find(([sql]) =>
@@ -289,8 +292,8 @@ describe('WmsService inventory read queries', () => {
         if (sql.includes('SELECT company_code FROM wms_warehouses')) {
           return [{ company_code: 'COMP-LAO-XINGCHI' }];
         }
-        if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
-          return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
+        if (sql.includes('SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound')) {
+          return [{ warehouse_code: 'LPH_MS_EGG_SALES', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE', date: '2026-09-09' }];
         }
         if (sql.includes('FROM product_skus')) {
           expect(params).toEqual(['SKU-EGG-A-30']);
@@ -336,6 +339,7 @@ describe('WmsService inventory read queries', () => {
         'INBOUND-DOCK',
         'ALL',
         'COMP-LAO-XINGCHI',
+        '2026-09-09',
       ],
     );
     expect(manager.query).toHaveBeenCalledWith(
@@ -367,8 +371,8 @@ describe('WmsService inventory read queries', () => {
         if (sql.includes('SELECT company_code FROM wms_warehouses')) {
           return [{ company_code: 'COMP-LAO-XINGCHI' }];
         }
-        if (sql.includes('SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound')) {
-          return [{ warehouse_code: 'WH-A', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE' }];
+        if (sql.includes('SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound')) {
+          return [{ warehouse_code: 'WH-A', operator: 'old-op', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE', date: '2026-09-09' }];
         }
         if (sql.includes('FROM mst_materials')) {
           return [{
@@ -411,7 +415,7 @@ describe('WmsService inventory read queries', () => {
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_batches'),
-      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL', 'COMP-LAO-XINGCHI'],
+      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL', 'COMP-LAO-XINGCHI', '2026-09-09'],
     );
   });
 

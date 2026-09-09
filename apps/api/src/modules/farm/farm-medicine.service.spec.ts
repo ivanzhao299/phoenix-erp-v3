@@ -86,6 +86,7 @@ describe('FarmMedicineService', () => {
       'COMP-LAO-AGRI',
       'FARM_MEDICINE',
       'MED_INBOUND',
+      '2026-07-07',
     ]);
     expect(manager.query.mock.calls[1][0]).toContain('INSERT INTO inv_ledger');
     expect(manager.query.mock.calls[1][0]).toContain('log_date');

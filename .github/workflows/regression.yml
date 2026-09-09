@@ -88,6 +88,29 @@ jobs:
         working-directory: apps/api
         run: MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
 
+      - name: Assert WMS migration end state
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $check$
+          BEGIN
+            IF to_regclass('public.wms_inbound') IS NULL
+               OR NOT EXISTS (
+                 SELECT 1 FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'wms_inbound' AND column_name = 'date'
+               ) THEN
+              RAISE EXCEPTION 'migration end state missing public.wms_inbound.date';
+            END IF;
+            IF to_regclass('public.inv_batches') IS NULL
+               OR NOT EXISTS (
+                 SELECT 1 FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'inv_batches' AND column_name = 'inbound_date'
+               ) THEN
+              RAISE EXCEPTION 'migration end state missing public.inv_batches.inbound_date';
+            END IF;
+          END
+          $check$;
+          SQL
+
       - name: SALES_ORDER approval — Nest + PostgreSQL integration
         working-directory: apps/api
         env:

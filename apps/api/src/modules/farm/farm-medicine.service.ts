@@ -230,10 +230,10 @@ export class FarmMedicineService {
         const rows = await manager.query(
           `INSERT INTO inv_batches
              (batch_no, product_code, qty, qty_available, warehouse_code, store_code,
-              company_code, source_type, source_no, status, created_at, updated_at)
+              company_code, source_type, source_no, status, inbound_date, created_at, updated_at)
            SELECT $1::varchar, $2::varchar, $3::numeric, $3::numeric,
                   $4::varchar, $5::varchar, $6::varchar, $7::varchar,
-                  $8::varchar, 'AVAILABLE', NOW(), NOW()
+                  $8::varchar, 'AVAILABLE', $9::date, NOW(), NOW()
            WHERE EXISTS (
              SELECT 1
                FROM brd_medications
@@ -248,10 +248,15 @@ export class FarmMedicineService {
              company_code = EXCLUDED.company_code,
              source_type = EXCLUDED.source_type,
              source_no = EXCLUDED.source_no,
+             inbound_date = CASE
+               WHEN inv_batches.inbound_date IS NULL THEN EXCLUDED.inbound_date
+               WHEN EXCLUDED.inbound_date IS NULL THEN inv_batches.inbound_date
+               ELSE LEAST(inv_batches.inbound_date, EXCLUDED.inbound_date)
+             END,
              status = 'AVAILABLE',
              updated_at = NOW()
            RETURNING batch_no`,
-          [bn, item.medication_code, qty, WAREHOUSE, STORE_CODE, COMPANY_CODE, SOURCE_TYPE, 'MED_INBOUND'],
+          [bn, item.medication_code, qty, WAREHOUSE, STORE_CODE, COMPANY_CODE, SOURCE_TYPE, 'MED_INBOUND', safeDate],
         );
         if (rows.length === 0) {
           throw new BadRequestException(`药品 ${item.medication_code} 不存在或已停用`);

@@ -92,3 +92,10 @@ ORDER BY b.expire_date ASC NULLS LAST, b.created_at ASC
 PR 已登记 `reviewed-frozen-boundary` 与 `reviewed-security-touch`，用于让 CI 在显式人工复核语义下重跑静态门禁。
 
 生产只读复验标准：revision 必须满足 checkout/API/Web OCI 三方一致；GET `/api/v2/sales/inventory/batches?productCode=EGG` 后逐行验证 `egg_date` 非递增，同日验证 `(batch_no,id)` 非递增；GET 临期接口验证 `(expire_date,batch_no,id)` 非递减；同时检查部署后错误窗口。
+
+## 2026-09-09 后继改判
+
+本报告中的 WMS 库存查询 `/api/inventory/batches` 与通用 CRUD `inv_batches` 默认排序，已由
+`docs/ops/wms-inventory-inbound-date-sort-investigation-20260909.md` 的复核与实施覆盖为
+`inbound_date DESC NULLS LAST, batch_no DESC, id DESC`。Sales V2 库存、临期 FEFO、门店库存及其他列表
+仍保持本报告各自原有契约；本次改判只作用于 WMS 库存查询及其 404 fallback。
