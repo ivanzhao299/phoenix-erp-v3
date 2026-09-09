@@ -247,3 +247,53 @@ preflight/apply/verify、未做生产只读查询与三端 revision 复验。生
   宿主机缺少 `psql` 客户端，脚本在首条 DDL 前真实失败，未记 PASS；临时容器已清理。
 - 本节记录提交前状态；新 PR 事件、CI 权威结果、合入、full deploy、三端 revision、
   生产回填三段式及只读复验均待后续实际执行后补记，不提前宣称完成。
+
+### E7. 生产部署、确定性回填与最终复验
+
+#### E7.1 Rollout 环境修复与部署
+
+- 首次 rollout run `34336232797` 在 SQL 执行前失败：workflow 以不存在的硬编码容器名
+  `phoenix_api` / `phoenix_web` 执行 `docker inspect`，原始错误为 `no such object: phoenix_api`。
+  修复为在 `DEPLOY_PATH` 下通过 `docker compose ps -q api/web` 解析当前 Compose project 的容器，
+  并对空容器 ID 与 checkout/API/Web revision 继续执行硬断言。修复提交 `f5cd3e2a`，PR #221 合入为
+  `3e476e4f477cc47654d789ca12be514e18753ea0`；full deploy run `34338960930` 成功。
+- 第二次 preflight run `34340129185` 的三端 revision 门禁通过，但只读事务内的
+  `CREATE TEMP TABLE ... AS` 被 PostgreSQL 拒绝：`cannot execute CREATE TABLE AS in a read-only transaction`。
+  该 run 未进入 apply、未写生产数据。preflight 改为等价纯 CTE 查询，保留候选明细、三类计数与 NULL
+  硬断言；提交 `80b7b34f`，PR #222 合入为 `fafdde5187755aac85273dd58a221358259c6c5a`。
+  full deploy run `34340811335` 成功，完整 regression、生产 SSH 部署及迁移步骤均通过。
+- 最终只读审计资产由 PR #223 合入为 `376429bd17ce96c67274c67d162b4bf4317dcc35`；
+  full deploy run `34342903984` 成功。生产审计 run `34344410748` 再次确认 checkout/API/Web 三端
+  revision 全部为该 SHA，`inv_batches.inbound_date` 与 `wms_inbound.date` 两列末态均存在。
+
+#### E7.2 生产回填三段式
+
+| 阶段 | Workflow run | 结果 |
+|---|---:|---|
+| preflight | `34341954388` | PASS；逐批只读证据 18 行，`eligible_null_rows=18`、`ambiguous_rows=0`、`preexisting_nonnull_rows=0`，事务 `ROLLBACK` |
+| apply | `34342020925` | PASS；先重跑同一 preflight，再在单事务锁定 18 行；输出 18 条带 `id + batch_no + inbound_date` 守卫的逐行反向 SQL，`applied_rows=18`，逐行断言后 `COMMIT` |
+| verify | `34342228065` | PASS；独立只读复验 `proven_rows=18`、`verified_rows=18`、`unexpected_null_rows=0`、`mismatched_rows=0`，歧义保持 NULL 断言通过，事务 `ROLLBACK` |
+
+apply 后全表分布为 `total_batches=297`、`dated_batches=18`、`undated_batches=279`，日期范围
+`2026-07-13` 至 `2026-09-09`。被更新的 18 行仅来自 E3 固定的两条证据链；没有用 `created_at`、
+`egg_date` 或批次号猜测日期，没有更新无关联或多日期行。
+
+#### E7.3 最终生产只读复验
+
+- 新增受控清单 `wms-inbound-date-closeout-20260909.sql/.http.json`。通用审计器增加可选
+  `sqlRowMatch.responseIndex + exactFields`，用于把真实 API 指定位置的行与只读 SQL 精确对账。
+- 首跑 `34344222726` 的 SQL 部分已通过：schema 两列存在；分布 `297/18/279`；未来日期 0；
+  排序窗口最后有日期位置 18、首个 NULL 位置 19；`/api/inventory/batches` 近 60 分钟
+  `sys_error_logs` 为 0。HTTP 首行批次也正确，但审计期望把 PG `DATE` 写成 `YYYY-MM-DD`，而 API
+  返回 UTC ISO 字符串，因此以格式差异失败；该 run 未记 PASS，审计全程只读。
+- 修正期望序列化后，最终 run `34344410748` PASS：`GET /api/inventory/batches` 返回 200、
+  `data.length=200`、存在非空 `inbound_date`；API 第 1 行
+  `IBN-20260909-YB5OED / 2026-09-09T00:00:00.000Z` 与数据库按
+  `inbound_date DESC NULLS LAST, batch_no DESC, id DESC` 查询的第 1 行精确一致。
+- 排序抽查头部依次从 `2026-09-09`、`2026-09-08`、`2026-09-07` 向下递减；18 条有日期行后，
+  第 19 行开始为 NULL，证明 NULL 位于后段。目标 API 60 分钟数据库错误窗口为 0；通用容器日志
+  错误门禁 `LIFECYCLE_PROCESS_LOG_ERROR_WINDOW_60M=0`；审计器最终记录
+  `PRODUCTION_BUSINESS_WRITES=0`。
+
+结论：入库日期 schema、写入/合并口径、生产迁移、18 行唯一证据历史回填、API 投影、默认降序与
+`NULLS LAST` 均已获得生产实证。本节保留所有失败 run 与原因，不将环境/审计清单失败虚报为 PASS。
