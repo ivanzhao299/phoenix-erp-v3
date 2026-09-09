@@ -2227,11 +2227,16 @@ export class PackagingTerminalBffController {
         [normalizedCode],
       ),
       this.em.query(
-        `SELECT COUNT(*)::int AS batch_count,
-                COALESCE(SUM(qty), 0)::int AS total_inbound
-           FROM inv_batches
-          WHERE packaging_batch_ref = $1
-            AND source_type = 'PACKAGING'`,
+        `WITH matched_batches AS (
+           SELECT batch_no, qty FROM inv_batches
+            WHERE packaging_batch_ref = $1 AND source_type = 'PACKAGING'
+         )
+         SELECT COUNT(*)::int AS batch_count,
+                COALESCE(SUM(qty), 0)::int AS total_inbound,
+                COALESCE((SELECT SUM(l.qty_change) FROM inv_ledger l
+                           WHERE l.batch_no IN (SELECT batch_no FROM matched_batches)
+                             AND l.change_type = 'PACKAGING_INBOUND'), 0)::int AS ledger_inbound
+           FROM matched_batches`,
         [normalizedCode],
       ),
       this.pkgInv.getTerminalInventoryMode(normalizedCode),
@@ -2248,9 +2253,17 @@ export class PackagingTerminalBffController {
     const handoverQuantity = Number(packingRows[0]?.total_eggs || 0);
     const batchCount = Number(inventoryRows[0]?.batch_count || 0);
     const totalInbound = Number(inventoryRows[0]?.total_inbound || 0);
+    const ledgerInbound = Number(inventoryRows[0]?.ledger_inbound || 0);
     const tempMode = inventoryMode === 'TEMP_PRODUCTION_INBOUND';
+    const tempEvidence = tempMode
+      ? await this.pkgInv.verifyTerminalTempEvidence(normalizedCode)
+      : null;
+    const inventoryPosted = tempMode
+      ? Boolean(tempEvidence?.ok)
+      : batchCount > 0 && handoverQuantity > 0
+        && totalInbound === handoverQuantity && ledgerInbound === handoverQuantity;
     const committed = Boolean(handover)
-      && ((batchCount > 0 && totalInbound > 0) || tempMode);
+      && inventoryPosted;
     const state = committed
       ? 'COMMITTED'
       : handover
@@ -2270,12 +2283,14 @@ export class PackagingTerminalBffController {
         handoverQuantity,
         inventoryBatchCount: batchCount,
         totalInbound,
+        ledgerInbound,
         inventoryMode,
-        inventoryPosted: batchCount > 0 && totalInbound > 0,
+        inventoryPosted,
+        tempEvidence,
         committedAt: handover?.created_at ?? null,
         message: committed
           ? tempMode
-            ? '交接已完成；TEMP_PRODUCTION_INBOUND 模式不重复生成包装库存'
+            ? '交接完成，库存由日产蛋入口持有，批次与流水数量已对平'
             : '包装交接及库存入账均已完成'
           : state === 'HANDOVER_ONLY'
             ? '交接记录已存在，但库存入账证据缺失，可重试确认'
@@ -2308,7 +2323,7 @@ export class PackagingTerminalBffController {
     const location = String(body.location || '').trim();
     if (!location) throw new BadRequestException('输入的库位编码在系统中不存在，请核实后再试');
     const locationRows = await this.em.query(
-      `SELECT location_code
+      `SELECT location_code, warehouse_code
          FROM wms_locations
         WHERE location_code = $1
           AND COALESCE(status, 'EMPTY') <> 'LOCKED'
@@ -2316,6 +2331,8 @@ export class PackagingTerminalBffController {
       [location],
     );
     if (!locationRows[0]) throw new BadRequestException('输入的库位编码在系统中不存在，请核实后再试');
+    const warehouseCode = String(locationRows[0].warehouse_code || '').trim();
+    if (!warehouseCode) throw new BadRequestException('库位未关联有效仓库，禁止使用默认仓库入账');
 
     // ── P1C 收口 + P1E 失败显性化：成品交接完成 = 唯一库存入口 ──────────────────
     //   调 PackagingInventoryIntegrationService 生成 Sales V2 可售库存（EGG-YYYYMMDD-*,
@@ -2327,51 +2344,55 @@ export class PackagingTerminalBffController {
     let inventoryOk = false;
     let message: string | undefined;
     try {
-      inventory = await this.pkgInv.completeTerminalPacking(packingCode, { companyCode: body.companyCode });
-      inventoryOk =
-        inventory?.idempotent === true
-        || Number(inventory?.totalInbound || 0) > 0
-        || (inventory?.skippedByMode === true
-          && inventory?.mode === 'TEMP_PRODUCTION_INBOUND');
-      if (!inventoryOk) {
-        message = inventory?.note
-          || (inventory?.skippedByMode
-            ? `当前库存来源模式为 ${inventory?.mode || 'UNKNOWN'}，未生成包装入库库存`
-            : '包装批次未生成有效库存，交接保持待处理');
-      }
+      await this.em.transaction(async manager => {
+        inventory = await this.pkgInv.completeTerminalPacking(packingCode, {
+          companyCode: body.companyCode,
+          warehouseCode,
+          locationCode: location,
+          manager,
+        });
+        if (inventory?.skippedByMode === true && inventory?.mode === 'TEMP_PRODUCTION_INBOUND') {
+          const tempEvidence = await this.pkgInv.verifyTerminalTempEvidence(packingCode, manager);
+          inventory = { ...inventory, tempEvidence };
+          inventoryOk = tempEvidence.ok;
+          if (!inventoryOk) {
+            throw new Error(
+              `TEMP_PRODUCTION_INBOUND 上游库存证据未对平 expected=${tempEvidence.expectedQty} ` +
+              `batch=${tempEvidence.batchQty} ledger=${tempEvidence.ledgerQty}`,
+            );
+          }
+        } else {
+          inventoryOk = inventory?.idempotent === true || Number(inventory?.totalInbound || 0) > 0;
+        }
+        if (!inventoryOk) throw new Error(inventory?.note || '包装批次未生成有效库存');
+
+        // PACKAGING 的批次、流水和交接共享 manager；TEMP 也只在上游证据对平后提交交接。
+        if (existing.length === 0) {
+          await manager.query(
+            `INSERT INTO pkg_handover_records
+             (code, shift_id, packing_code, boxes_json, box_count, pallet_code, location, receiver, production_date, created_at)
+             VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,NOW())
+             ON CONFLICT (code) DO NOTHING`,
+            [code, body.shiftId || null, packingCode,
+             JSON.stringify(boxes), boxes.length,
+             body.palletCode || '', location, body.receiver || '', productionDate],
+          );
+        }
+      });
     } catch (e: any) {
-      message = '库存生成失败，交接未完成，请修复后重试。';
+      inventoryOk = false;
+      message = e?.message?.includes('上游库存证据未对平')
+        ? `${e.message}；交接已阻断并生成待处理状态。`
+        : '库存生成失败，交接未完成，请修复后重试。';
       console.error(
         `[warehouse/confirm][ERR] 包装库存生成失败 packingCode=${packingCode}: ${e?.message}`,
         e?.stack,
       );
-      inventory = { ok: false, error: e?.message ?? '库存生成失败', message };
-    }
-
-    // 包装库存已入账，或 TEMP 模式已由日产蛋链路入账时，新增交接记录。
-    // 旧版遗留的 HANDOVER_ONLY 记录会在重试时复用。
-    if (inventoryOk && existing.length === 0) {
-      await this.em.query(
-        `INSERT INTO pkg_handover_records
-         (code, shift_id, packing_code, boxes_json, box_count, pallet_code, location, receiver, production_date, created_at)
-         VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,NOW())
-         ON CONFLICT (code) DO NOTHING`,
-        [code, body.shiftId || null, packingCode,
-         JSON.stringify(boxes), boxes.length,
-         body.palletCode || '', location, body.receiver || '',
-         productionDate],
-      );
+      inventory = { ...(inventory || {}), ok: false, error: e?.message ?? '库存生成失败', message };
     }
 
     const statusResponse = await this.getWarehouseHandoverStatus(packingCode);
     const status = statusResponse.data;
-    if (inventory?.skippedByMode === true
-      && inventory?.mode === 'TEMP_PRODUCTION_INBOUND'
-      && status.handoverCode) {
-      status.state = 'COMMITTED';
-      status.committed = true;
-      status.message = '交接已完成；TEMP_PRODUCTION_INBOUND 模式不重复生成包装库存';
-    }
     inventoryOk = status.committed;
     message = inventoryOk ? undefined : (message || status.message);
 

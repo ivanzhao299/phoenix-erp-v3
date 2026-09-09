@@ -1,7 +1,8 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 
 export type InventorySourceMode = 'TEMP_PRODUCTION_INBOUND' | 'PACKAGING_INBOUND';
 export type ScopeLevel = 'GROUP' | 'COMPANY' | 'SITE';
@@ -34,10 +35,13 @@ export class InventorySourceModeService {
   }
 
   /** 解析当前生效模式：SITE → COMPANY → GROUP → 默认 */
-  async resolveMode(scope: { siteCode?: string | null; companyCode?: string | null }): Promise<InventorySourceMode> {
+  async resolveMode(
+    scope: { siteCode?: string | null; companyCode?: string | null },
+    mgr?: EntityManager,
+  ): Promise<InventorySourceMode> {
     try {
-      const rows = await this.ds.query(
-        `SELECT mode FROM inv_source_mode
+      const rows = await (mgr ?? this.ds).query(
+        `SELECT scope_level, scope_code, mode FROM inv_source_mode
           WHERE (scope_level = 'SITE'    AND scope_code = $1)
              OR (scope_level = 'COMPANY' AND scope_code = $2)
              OR (scope_level = 'GROUP'   AND scope_code = 'ALL')
@@ -46,21 +50,66 @@ export class InventorySourceModeService {
         [scope.siteCode ?? '__none__', scope.companyCode ?? '__none__'],
       );
       const mode = rows[0]?.mode as InventorySourceMode | undefined;
+      if (scope.siteCode && rows[0]?.scope_level !== 'SITE') {
+        this.logger.warn(
+          `[InvSourceMode][CONFIG_FALLBACK] SITE/${scope.siteCode} 无精确模式配置，` +
+          `回落 ${rows[0]?.scope_level ?? 'DEFAULT'}/${rows[0]?.scope_code ?? 'TEMP_PRODUCTION_INBOUND'}`,
+        );
+      }
       return mode && VALID_MODES.includes(mode) ? mode : DEFAULT_MODE;
-    } catch {
+    } catch (error) {
+      this.logger.error(
+        `[InvSourceMode][CONFIG_ERROR] 模式解析失败 site=${scope.siteCode ?? '-'} company=${scope.companyCode ?? '-'}，禁止静默：${(error as Error).message}`,
+      );
       return DEFAULT_MODE;
     }
+  }
+
+  /** ACTIVE 场站/班次与 SITE 配置一致性巡检；返回告警并写结构化日志。 */
+  async auditSiteConfiguration(): Promise<Array<{ code: string; siteCode: string; detail: string }>> {
+    const rows = await this.ds.query(
+      `WITH authoritative AS (
+         SELECT farm_code AS site_code FROM ${OrgOwnershipService.FARM_TABLE} WHERE status = 'ACTIVE'
+       ), active_shift_sites AS (
+         SELECT DISTINCT site_id AS site_code FROM pkg_work_shifts
+          WHERE status IN ('OPEN','ACTIVE') AND site_id IS NOT NULL
+       ), configured AS (
+         SELECT scope_code AS site_code FROM inv_source_mode WHERE scope_level = 'SITE'
+       )
+       SELECT 'ACTIVE_SITE_WITHOUT_CONFIG' AS code, a.site_code,
+              'ACTIVE 场站缺少 SITE 库存来源配置' AS detail
+         FROM authoritative a LEFT JOIN configured c USING (site_code) WHERE c.site_code IS NULL
+       UNION ALL
+       SELECT 'ACTIVE_SHIFT_UNKNOWN_SITE', s.site_code, 'ACTIVE 班次引用非权威场站标识'
+         FROM active_shift_sites s LEFT JOIN authoritative a USING (site_code) WHERE a.site_code IS NULL
+       UNION ALL
+       SELECT 'ACTIVE_SHIFT_WITHOUT_CONFIG', s.site_code, 'ACTIVE 班次场站缺少 SITE 库存来源配置'
+         FROM active_shift_sites s LEFT JOIN configured c USING (site_code) WHERE c.site_code IS NULL
+       UNION ALL
+       SELECT 'ORPHAN_SITE_CONFIG', c.site_code, 'SITE 库存来源配置未命中 ACTIVE 权威场站'
+         FROM configured c LEFT JOIN authoritative a USING (site_code) WHERE a.site_code IS NULL
+       ORDER BY code, site_code`,
+    );
+    for (const row of rows) {
+      this.logger.warn(`[InvSourceMode][${row.code}] site=${row.site_code} ${row.detail}`);
+    }
+    return rows.map((row: any) => ({ code: row.code, siteCode: row.site_code, detail: row.detail }));
   }
 
   /** 列出全部模式配置 */
   async listConfigs(): Promise<any[]> {
     try {
-      return await this.ds.query(
+      const configs = await this.ds.query(
         `SELECT scope_level, scope_code, mode, remark, updated_by, updated_at
            FROM inv_source_mode
           ORDER BY CASE scope_level WHEN 'GROUP' THEN 1 WHEN 'COMPANY' THEN 2 ELSE 3 END, scope_code`,
       );
-    } catch { return []; }
+      await this.auditSiteConfiguration();
+      return configs;
+    } catch (error) {
+      this.logger.error(`[InvSourceMode][CONFIG_AUDIT_ERROR] 配置一致性巡检失败：${(error as Error).message}`);
+      throw error;
+    }
   }
 
   /** 最近切换审计 */

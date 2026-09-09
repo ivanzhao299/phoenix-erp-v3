@@ -8,6 +8,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
         if (sql.includes('FROM sys_dict')) return [];
         if (sql.includes('WHERE packaging_batch_ref')) return [];
         if (sql.includes('FROM sal_customers')) return [{ company_code: 'COMP-1' }];
+        if (sql.includes('SELECT company_code FROM')) return [{ company_code: 'COMP-1' }];
         if (sql.includes('FROM product_grades')) return [{ grade_code: 'L', is_saleable: true }];
         return [];
       }),
@@ -31,7 +32,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
   it('uses shift site and skips packaging inventory when that site is TEMP', async () => {
     const { service, eggInv, modeSvc } = setup('TEMP_PRODUCTION_INBOUND', packing);
 
-    await expect(service.completeTerminalPacking('PKG-1')).resolves.toMatchObject({
+    await expect(service.completeTerminalPacking('PKG-1', { warehouseCode: 'WMS-1', locationCode: 'LOC-1' })).resolves.toMatchObject({
       totalInbound: 0,
       mode: 'TEMP_PRODUCTION_INBOUND',
       skippedByMode: true,
@@ -43,7 +44,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
   it('uses shift site and posts inventory when that site is PACKAGING', async () => {
     const { service, eggInv, modeSvc } = setup('PACKAGING_INBOUND', packing);
 
-    await expect(service.completeTerminalPacking('PKG-1')).resolves.toMatchObject({
+    await expect(service.completeTerminalPacking('PKG-1', { warehouseCode: 'WMS-1', locationCode: 'LOC-1' })).resolves.toMatchObject({
       totalInbound: 300,
       mode: 'PACKAGING_INBOUND',
       skippedByMode: false,
@@ -54,7 +55,20 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
       qty: 300,
       packagingBatchRef: 'PKG-1',
       collectionBatchRef: 'SHIFT-9',
-    }));
+    }), undefined);
+  });
+
+  it('passes the handover warehouse, location and transaction manager to inventory writes', async () => {
+    const { service, eggInv, ds } = setup('PACKAGING_INBOUND', packing);
+    const manager = { query: jest.fn((sql: string, params?: unknown[]) => (ds.query as any)(sql, params)) } as any;
+
+    await service.completeTerminalPacking('PKG-1', {
+      warehouseCode: 'WMS-MS-01', locationCode: 'CS-KW-MS01', manager,
+    });
+
+    expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({
+      warehouseCode: 'WMS-MS-01', locationCode: 'CS-KW-MS01',
+    }), manager);
   });
 
   it('falls back to company/group mode when the packing record has no shift', async () => {
@@ -62,7 +76,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
       ...packing, shift_id: null, site_id: null,
     });
 
-    await service.completeTerminalPacking('PKG-1');
+    await service.completeTerminalPacking('PKG-1', { warehouseCode: 'WMS-1', locationCode: 'LOC-1' });
 
     expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: null, companyCode: 'COMP-1' });
   });
@@ -92,10 +106,11 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
       if (sql.includes('FROM sys_dict')) return [];
       if (sql.includes('WHERE packaging_batch_ref')) return [];
       if (sql.includes('FROM sal_customers')) return [{ company_code: 'COMP-1' }];
+      if (sql.includes('SELECT company_code FROM')) return [{ company_code: 'COMP-1' }];
       return [];
     });
 
-    await expect(service.completeTerminalPacking('PKG-1')).resolves.toMatchObject({ skippedByMode: true });
+    await expect(service.completeTerminalPacking('PKG-1', { warehouseCode: 'WMS-1', locationCode: 'LOC-1' })).resolves.toMatchObject({ skippedByMode: true });
     expect(packingQueries).toBe(2);
     expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: null, companyCode: 'COMP-1' });
   });
