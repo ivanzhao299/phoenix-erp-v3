@@ -281,20 +281,20 @@ run 最终状态为 **FAILURE**。最终 SQL 在等级字典核验处还因生�
 
 既有写入方口径并不完全一致：日产蛋入口会先按 `(grade,spec)` 解析 ACTIVE SKU，再完整传 `skuCode/gradeCodeStd/specCode`（`production-inbound.service.ts:194-234`）；包装统一入口具备同样能力；退货回库会尝试同时写 SKU/规格（`egg-inventory.service.ts:853-875`）。WMS 入库、调拨和 POS 退货主要只写或复制 `sku_code`，不主动写 `spec_code`；Terminal 历史中间态及旧采购路径两列均可为空。因此本节历史影响面只统计 `PACKAGING` 与同源对照 `TEMP_PRODUCTION`，不把全库所有 NULL 一概判为异常。
 
-### 11.3 生产主数据与历史影响面：已证事实及证据缺口
+### 11.3 生产主数据与历史影响面：最终只读证据
 
-已证生产事实只有目标行：
+受控 `Production Readonly Audit` run [34316536104](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34316536104) 与补充 run [34316688161](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34316688161) 均为 `success`。最终受审 SQL revision 为 `c16cc0d8`；生产 checkout/API/Web revision 三方均为 `1cb0ff65`。连接级 `default_transaction_read_only=on`、SQL `BEGIN TRANSACTION READ ONLY`、末尾 `ROLLBACK`，并输出 `PRODUCTION_BUSINESS_WRITES=0`。
 
-| batch_no | packaging_batch_ref | source_type | qty / available | 时间口径 | spec_code | sku_code | 销售消耗 |
-|---|---|---|---:|---|---|---|---|
-| `EGG-20260909-00001` | `PKG-20260909-206420` | `PACKAGING` | 300 / 300 | egg_date `2026-09-09` | `NULL` | `NULL` | 当前仍 available=300，可确定尚未发生数量扣减；尚无 allocation-action 逐笔查询留档 |
+主数据事实：
 
-本轮工作机没有可用生产 `psql`，本地 DB 容器也未运行。仓库既有受控通道要求 SQL 文件先进入受审 revision，再由 GitHub Actions 在连接级 `default_transaction_read_only=on` 和 `BEGIN TRANSACTION READ ONLY` 下执行；为遵守“本 PR 纯文档”和“不虚构生产主数据”边界，本轮没有临时提交审计 SQL，也没有触发新的生产 run。因此下列两项保持 **UNKNOWN / 待只读取证**，不能据此选择主数据补录方案或生成 UPDATE 清单：
+1. 生产 `packaging_specs` 表只有 `spec_code/spec_name/status` 三个相关列，**没有 `product_code` 列**，因此不能虚构该字段。`spec_code='PKG_PACK_SPEC_3'` 查询为 **0 行**。
+2. `sys_dict` 存在 ACTIVE `PKG_PACK_SPEC/PKG_PACK_SPEC_3`，但名称本身不一致：`name='精品礼盒(40枚/盒)'`、`dict_label_zh='精品礼盒(30枚/盒)'`、英文/老挝文均为 40 枚；编码存在不等于规格主数据存在。
+3. `product_skus` 对 `product_code='PRD-EGG-GRADE_1' + grade_code='GRADE_1' + spec_code='PKG_PACK_SPEC_3'` 查询 ACTIVE 与非 ACTIVE 合计 **0 行**。
+4. 最终分类为 **代码断链 + 主数据缺口**：代码丢弃 `specId` 是确定断链；生产同时缺 `PKG_PACK_SPEC_3` 规格主数据及目标 GRADE_1 SKU。名称 30/40 枚冲突必须先由业务拍板，不能直接把字典行复制成规格主数据。
 
-- `packaging_specs` 中 `PKG_PACK_SPEC_3` 的 `spec_code/spec_name/product_code/status` 实际行，以及它与 `sys_dict.PKG_PACK_SPEC` 的编码、名称是否一致；
-- `product_skus` 中 `product_code='PRD-EGG-GRADE_1' + grade_code='GRADE_1' + spec_code='PKG_PACK_SPEC_3'`（或规格表返回的权威编码）的 ACTIVE/非 ACTIVE 行。
+历史影响面为 36 个批次（PACKAGING 4、TEMP_PRODUCTION 32），均为 `spec_code=NULL, sku_code=NULL`。4 个 PACKAGING 批次的不可变源单均明确给出 `specId=PKG_PACK_SPEC_3`、`spec='精品礼盒(30枚/盒)'`；其中 3 个 GRADE_1、1 个 GRADE_2。32 个 TEMP_PRODUCTION 批次没有包装源单或规格来源，不能因产品/等级相同而推断礼盒规格。
 
-同理，全生产 `source_type IN ('PACKAGING','TEMP_PRODUCTION')` 且 `spec_code IS NULL OR sku_code IS NULL` 的存量清单、创建时间分布及销售消耗关联尚未产生受控输出。下一次只读审计须至少导出：批次号、来源、来源单号、产品、等级、数量、可用量、日期、规格/SKU、`FIFO_OUT` 汇总，以及 `sal_order_item_batch_allocation_actions.ledger_id → inv_ledger.id` 的订单级追溯。目标批次之外不得凭代码或样例推断数量。
+销售消耗核验：36 批次的 `FIFO_OUT` 汇总全部为 0；`sal_order_item_batch_allocation_actions.ledger_id → inv_ledger.id` 的订单级结果为 0 行，非 FIFO_OUT 或 allocation batch 不一致的异常结果也为 0 行。`qty_available=0` 的旧行由 EXPIRED/其他历史变化形成，但没有 FIFO_OUT/action 证据；本轮不反推其规格，也不改历史流水。
 
 ### 11.4 分情况修复方案（均待用户授权）
 
@@ -313,11 +313,56 @@ run 最终状态为 **FAILURE**。最终 SQL 在等级字典核验处还因生�
 
 ### 11.5 存量补写方案与待批清单
 
-当前唯一有生产证据的候选是 `EGG-20260909-00001`，但因 SKU 主数据结果仍 UNKNOWN，现阶段**没有可批准执行的具体 `sku_code` 值**：
+先补主数据、再定最终写值；当前不能虚构 SKU code。待业务确认 30/40 枚名称后，主数据补录清单为：
 
-| batch_no | 只允许变更列 | spec_code 候选 | sku_code 候选 | 数量/库位 | 状态 |
-|---|---|---|---|---|---|
-| `EGG-20260909-00001` | `spec_code`, `sku_code`（并核对 legacy `packaging_spec` 是否需同值） | 待规格主数据只读确认 | 待 SKU 主数据只读确认 | `qty/qty_available/warehouse_code/location_code` 严禁修改 | 待批，未执行 |
+| 顺序 | 主数据 | 待补组合 | 待拍板项 |
+|---|---|---|---|
+| 1 | `packaging_specs` | `spec_code=PKG_PACK_SPEC_3`，名称及单位数量按业务确认值创建并走 ACTIVE 工作流 | 中文标签为 30 枚，但 `name`/英文/老挝文为 40 枚，必须先统一 |
+| 2 | `product_skus` | `PRD-EGG-GRADE_1 + GRADE_1 + PKG_PACK_SPEC_3` | `sku_code/sku_name` 由主数据中心生成或批准，禁止本报告命名 |
+| 3 | `product_skus` | `PRD-EGG-GRADE_2 + GRADE_2 + PKG_PACK_SPEC_3` | 为受影响的 GRADE_2 包装批次补齐；同样不得虚构 code |
+
+逐行候选如下；“待 SKU 补录后回填”表示 `spec_code` 有源单编码证据，但只有主数据创建并 ACTIVE 后才能把其实际 `sku_code` 定稿：
+
+| batch_no | source | qty / available | 源规格证据 | spec_code 候选 | sku_code 候选 | 待批结论 |
+|---|---|---:|---|---|---|---|
+| `EGG-20260725-00001` | PACKAGING | 120 / 0 | `PKG_PACK_SPEC_3`, 30枚, GRADE_1 | `PKG_PACK_SPEC_3` | 待 GRADE_1 SKU 补录后回填 | 可补维度，严禁改数量/流水 |
+| `EGG-20260725-00002` | PACKAGING | 60 / 0 | `PKG_PACK_SPEC_3`, 30枚, GRADE_2 | `PKG_PACK_SPEC_3` | 待 GRADE_2 SKU 补录后回填 | 可补维度，严禁改数量/流水 |
+| `EGG-20260817-00001` | PACKAGING | 300 / 300 | `PKG_PACK_SPEC_3`, 30枚, GRADE_1 | `PKG_PACK_SPEC_3` | 待 GRADE_1 SKU 补录后回填 | 可补维度，严禁改数量/流水 |
+| `EGG-20260909-00001` | PACKAGING | 300 / 300 | `PKG_PACK_SPEC_3`, 30枚, GRADE_1 | `PKG_PACK_SPEC_3` | 待 GRADE_1 SKU 补录后回填 | 可补维度，严禁改数量/流水 |
+| `EGG-20260707-00001` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260707-00002` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260707-00003` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260707-00004` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260707-00005` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260707-00006` | TEMP_PRODUCTION | 2 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260707-00007` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260707-00008` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260715-00001` | TEMP_PRODUCTION | 2 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260716-00001` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260716-00002` | TEMP_PRODUCTION | 3 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260717-00001` | TEMP_PRODUCTION | 2 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260718-00001` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260718-00002` | TEMP_PRODUCTION | 2 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260718-00003` | TEMP_PRODUCTION | 3 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260723-00001` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00001` | TEMP_PRODUCTION | 19 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00002` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00003` | TEMP_PRODUCTION | 10 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00004` | TEMP_PRODUCTION | 10 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00005` | TEMP_PRODUCTION | 10 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00006` | TEMP_PRODUCTION | 10 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00007` | TEMP_PRODUCTION | 10 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00008` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00009` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00010` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00011` | TEMP_PRODUCTION | 1 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00012` | TEMP_PRODUCTION | 20 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00013` | TEMP_PRODUCTION | 20 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00014` | TEMP_PRODUCTION | 10 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260727-00015` | TEMP_PRODUCTION | 10 / 0 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+| `EGG-20260825-00001` | TEMP_PRODUCTION | 1 / 1 | 无 | 无安全候选 | 无安全候选 | 不补写 |
+
+因此待批执行范围只有上述 4 个 PACKAGING 批次；32 个 TEMP_PRODUCTION 批次明确排除，除非未来取得逐批权威规格来源并重新报批。`packaging_spec` 当前也全为 NULL；本轮没有证据要求补 legacy 文本列，默认不改。
 
 获批脚本应在单个事务内逐行处理：先锁定精确 `batch_no + packaging_batch_ref + source_type`，断言当前两列仍为空、数量/仓库/库位与留档一致、目标规格及 SKU 唯一且 ACTIVE；只 UPDATE 获批列；回读逐列断言；任何一行不符即 `ROLLBACK`。脚本必须附对应反向 UPDATE（仅在回读值仍等于本次写入值时恢复原 NULL），不得重放包装入账、不得触碰 `qty/qty_available` 或新增/修改 `inv_ledger`。
 
@@ -329,4 +374,4 @@ run 最终状态为 **FAILURE**。最终 SQL 在等级字典核验处还因生�
 
 ### 11.6 下一停止点
 
-本轮到此仅完成代码定因和待批设计：未修改应用代码、schema、主数据、配置或生产台账。下一步应先以受控纯只读 revision 补齐 §11.3 两组生产输出，由主 agent 复核后向用户报出“代码断链 only”或“代码断链 + 主数据缺口”的最终分类及逐行补写值；用户再次授权前不得实施。
+生产只读证据已经补齐，最终分类及逐行候选见 §11.3/§11.5。当前停止在用户授权前：未修改应用代码、schema、主数据、配置或生产台账；未创建规格/SKU，未补写任何批次。下一步必须由用户拍板 30/40 枚权威语义、批准两组 SKU 主数据补录及 4 个 PACKAGING 批次的维度补写后，才能另开实施轮。
