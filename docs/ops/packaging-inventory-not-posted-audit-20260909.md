@@ -212,3 +212,46 @@ Jest 3 suites / 31 tests PASS；Web 定向 Vitest 1 file / 4 tests PASS；W5 显
 2. 若先把 `FARM-MS` 迁回 TEMP/退役，`LPH_MENGSAI` 仍回落 GROUP TEMP，无法形成“先冻结 TEMP、再迁移旧码、最后切权威码”的无窗口原子操作。
 
 因此该步骤不满足获批 SOP 的防双写/防错库位红线，执行已在任何生产配置写入、部署和补账之前停止。尚无 PR、CI run、deploy run、revision 或补账写入可记录，禁止将本节视为全闭环 PASS。
+
+### 10.3 模式切换记录
+
+执行入口：[Packaging Repro Readonly Audit run 34310509439](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34310509439)，执行 revision `f6a19f1d`；生产修复 revision 为已部署的 `1cb0ff65`。受控执行器先只读断言，随后仅通过 `/api/v2/inventory/source/switch` 修改模式并由应用写审计。
+
+切换前只读闸门（UTC）：
+
+| 断言 | 原始证据 | 结论 |
+|---|---|---|
+| 孟赛近期 TEMP 入口无写入 | `2026-09-09 03:49:31.124108..04:19:31.124108`；`TEMP_PRODUCTION_INBOUND ledger_count=0, ledger_qty=0, latest_at=NULL` | PASS |
+| 目标补账前仍为空 | `PKG-20260909-206420: batch_count=0, batch_qty=0, ledger_count=0, ledger_qty=0` | PASS |
+| 源单唯一且口径正确 | `shift_id=54`, `site_id=LPH_MENGSAI`, `total_eggs=300`, `GRADE_1`, `specId=PKG_PACK_SPEC_3`, handover `WH-20260909-MTTHJQB8` | PASS |
+| 目标库位可用 | `CS-KW-MS01 → LPH_MS_EGG_FARM`, `location_status=NORMAL` | PASS |
+| 配置处于获批前态 | `GROUP/ALL=TEMP_PRODUCTION_INBOUND`, `SITE/FARM-MS=PACKAGING_INBOUND`, 无 `SITE/LPH_MENGSAI` | PASS |
+
+风险评估均返回 `canSwitch=true`、未完成包装批次 `0`；同时记录了系统中共有 `4` 笔待上架库存的风险快照，该指标不是孟赛 TEMP 近期在途流水。执行结果：
+
+1. `SITE/FARM-MS`: `PACKAGING_INBOUND → TEMP_PRODUCTION_INBOUND`，以模式迁移语义退役旧孟赛包装来源配置；operator `admin`，审计时间 `2026-09-09 04:19:39.815057Z`。
+2. `SITE/LPH_MENGSAI`: 无精确旧行（解析态 TEMP）→ `PACKAGING_INBOUND`；operator `admin`，审计时间 `2026-09-09 04:19:40.785475Z`。
+3. 切换后 `/source/mode?siteCode=LPH_MENGSAI` 返回 `PACKAGING_INBOUND`；配置表存在精确 `SITE/LPH_MENGSAI` 行，因此解析无需回落 `GROUP/ALL`。切换后只读 SQL 与 `/source/configs`、`/source/audit` 三方一致。
+
+模式切换结论：**PASS**。两条写入均由受控 API 完成并保留风险快照与审计记录。
+
+### 10.4 补账核验与停止点
+
+同一 run 仅重放 `PKG-20260909-206420`。第一次 `warehouse/confirm` 返回 `idempotent=false`, `inventoryOk=true`, `totalInbound=300`；第二次相同请求返回 `idempotent=true`, `inventoryOk=true`, `totalInbound=300`。状态接口返回 `COMMITTED`，`inventoryBatchCount=1`, `totalInbound=300`, `ledgerInbound=300`, `inventoryMode=PACKAGING_INBOUND`。
+
+补账后只读事实：
+
+| 断言 | 原始证据 | 结论 |
+|---|---|---|
+| 批次数量 | `EGG-20260909-00001`, `qty=300`, `qty_available=300`, `source_type=PACKAGING` | PASS |
+| 流水数量 | `id=291`, `PACKAGING_INBOUND`, `qty_change=300`, `ref_no=PKG-20260909-206420` | PASS |
+| 公司 / 仓库 / 库位 | `COMP-LAO-AGRI / LPH_MS_EGG_FARM / CS-KW-MS01`，与库位反查一致 | PASS |
+| FIFO 可见 | `AVAILABLE`, `qty_available=300`, `expire_date=2026-10-09`, `legacy_source=NULL` | PASS |
+| 重复调用不增量 | 第二次返回 `idempotent=true`；最终仍为 1 batch / 1 ledger / 300 枚 | PASS |
+| 鸡蛋库存读取可见 | `/api/packaging/terminal/inventory/by-packing/PKG-20260909-206420` 返回该唯一批次 | PASS |
+| 等级 | `quality_grade=GRADE_1`, `grade_code_std=GRADE_1` | PASS |
+| 礼盒规格 / SKU | `spec_code=NULL`, `sku_code=NULL`，未把源单 `specId=PKG_PACK_SPEC_3` 落入批次 | **FAIL** |
+
+run 最终状态为 **FAILURE**。最终 SQL 在等级字典核验处还因生产 `sys_dict.config_json` 为 text、表达式缺少 `::jsonb` cast 而报错；执行器随后已修正该只读断言，但原始批次输出已独立证明规格/SKU 缺失，不能把本次补账记为全量 PASS。
+
+停止点：按“失败即停”红线，run 结束后没有再次调用补账、没有直接修改 `inv_batches/inv_ledger`、没有尝试回滚或纠偏生产数据。当前生产末态为：模式切换已生效；目标已有 300 枚、正确仓库/库位且可用于 FIFO 的唯一批次与流水，但规格和 SKU 数据债仍待单独审计并走新的获批修复方案。

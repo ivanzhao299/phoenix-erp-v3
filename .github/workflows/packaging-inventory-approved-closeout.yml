@@ -366,8 +366,8 @@ jobs:
                           SELECT d.dict_code FROM sys_dict d
                            WHERE d.dict_type IN ('PKG_EGG_GRADE','PKG_EGG_DEFECT')
                              AND (d.dict_code='GRADE_1'
-                                  OR d.config_json->>'code'='GRADE_1'
-                                  OR d.config_json->>'terminalCode'='GRADE_1')
+                                  OR d.config_json::jsonb->>'code'='GRADE_1'
+                                  OR d.config_json::jsonb->>'terminalCode'='GRADE_1')
                            LIMIT 1
                         ), 'GRADE_1')
                         OR spec_code IS DISTINCT FROM 'PKG_PACK_SPEC_3')
