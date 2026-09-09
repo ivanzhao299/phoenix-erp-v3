@@ -200,6 +200,10 @@ warehouse-handover “确认入库”
 - Web `tsc --noEmit`：PASS。
 - Web Vitest：2 files / 6 tests PASS。
 
+续行提交前复验（commit `18e891ff` 所含代码）：API/Web `tsc` PASS；API 定向
+Jest 3 suites / 31 tests PASS；Web 定向 Vitest 1 file / 4 tests PASS；W5 显式
+冻结/安全审查 20/20 PASS；house ownership、主数据 legacy growth、三语 i18n 门禁 PASS。
+
 ### 10.2 模式切换前停止点
 
 生产写入尚未执行。现网 `/api/v2/inventory/source/switch` 一次只能修改一个 scope，且现网仍运行修复前代码：
