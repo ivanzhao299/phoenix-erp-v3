@@ -1,0 +1,17 @@
+[
+  {
+    "name": "egg-inventory-visible-by-generated-sku",
+    "path": "/api/v2/sales/inventory/batches?skuCode=SKU-0001",
+    "expectedStatus": 200,
+    "minDataLength": 2,
+    "requiredArrayItems": [
+      {
+        "path": "",
+        "where": { "sku_code": "SKU-0001", "spec_code": "PKG_PACK_SPEC_3" },
+        "minMatches": 2,
+        "nonEmptyFields": ["batch_no", "product_code", "product_name", "sku_code", "spec_code"]
+      }
+    ],
+    "reportDataLength": true
+  }
+]
