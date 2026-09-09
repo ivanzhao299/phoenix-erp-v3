@@ -228,3 +228,22 @@ Web 首次全量运行继承外层 `NODE_ENV=production`，3 files / 29 tests �
 
 依用户红线“若 CI 权威环境也失败则真停”，本轮停止在 PR #219，未合入 main、未触发 full deploy、未执行生产
 preflight/apply/verify、未做生产只读查询与三端 revision 复验。生产数据库保持未触及状态。
+
+### E6. CI 回归库迁移链修复与续行记录
+
+- 对 GitHub Actions run `34332644451` 的权威日志复核纠正了 E5 的初步归因：
+  `AddInventoryInboundDate1788943471000` 已被 TypeORM 发现并成功执行，
+  `inv_batches.inbound_date` 的建列 SQL 及迁移记录均出现在日志中；真实首错为
+  `POST /api/inbound/confirm` 查询 `wms_inbound.date` 时触发 PostgreSQL `42703 column "date" does not exist`。
+- 根因是初始化时序：冻结 G17 SQL 在 `wms_inbound` 不存在时通过条件分支静默跳过补列；
+  该表直至 API 启动后才由 Generic CRUD runtime repair 创建，导致迁移记录显示成功而 schema 末态缺列。
+- 修复：尚未发布的 `1788943471000-AddInventoryInboundDate` TS 迁移先幂等建立
+  `wms_inbound` 最小规范表并确保业务日期列 `date` 存在，再建立
+  `inv_batches.inbound_date`；Regression workflow 在启动 API 前新增真实数据库末态断言，
+  同时检查 `public.wms_inbound.date` 与 `public.inv_batches.inbound_date`，任一缺失立即红灯。
+- 本地验证：API tsc 0 errors；Web tsc 0 errors；`check-constraint-drift` 为
+  0 new drift / 1 既有 allowlisted；`check-nullable-in-unique` 0 违规；API 入库日期契约
+  4/4 PASS；Web 查询排序契约 1/1 PASS。尝试以一次性 PostgreSQL 18 空库重放 CI 脚本时，
+  宿主机缺少 `psql` 客户端，脚本在首条 DDL 前真实失败，未记 PASS；临时容器已清理。
+- 本节记录提交前状态；新 PR 事件、CI 权威结果、合入、full deploy、三端 revision、
+  生产回填三段式及只读复验均待后续实际执行后补记，不提前宣称完成。
