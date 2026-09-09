@@ -1,0 +1,133 @@
+name: Spec SKU Backfill Production Rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Approved rollout target
+        required: true
+        type: choice
+        options: [master-data, batches]
+      phase:
+        description: Approved rollout phase
+        required: true
+        type: choice
+        options: [preflight, apply, verify]
+      approve_production:
+        description: Type SPEC-SKU-BACKFILL-20260909
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spec-sku-backfill-production-rollout
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: inputs.approve_production == 'SPEC-SKU-BACKFILL-20260909'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run fixed-revision read-only preflight
+        if: inputs.phase != 'verify'
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          TARGET_SHA: ${{ github.sha }}
+          TARGET: ${{ inputs.target }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,TARGET_SHA,TARGET
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            git fetch --quiet origin "$TARGET_SHA"
+            git cat-file -e "$TARGET_SHA^{commit}"
+            if [[ "$TARGET" == master-data ]]; then
+              SCRIPT='scripts/ops/readonly-audits/spec-sku-backfill-production-preflight.sql'
+            else
+              SCRIPT='scripts/ops/readonly-audits/spec-sku-batch-backfill-production-preflight.sql'
+            fi
+            git show "$TARGET_SHA:$SCRIPT" | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+
+      - name: Apply master data through existing services
+        if: inputs.phase == 'apply' && inputs.target == 'master-data'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$TOKEN"
+          PHOENIX_ADMIN_TOKEN="$TOKEN" node scripts/ops/spec-sku-master-data-production-apply.mjs
+
+      - name: Apply exact four-batch dimension backfill
+        if: inputs.phase == 'apply' && inputs.target == 'batches'
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          TARGET_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,TARGET_SHA
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            git fetch --quiet origin "$TARGET_SHA"
+            git cat-file -e "$TARGET_SHA^{commit}"
+            git show "$TARGET_SHA:scripts/ops/spec-sku-batch-backfill-production-apply.sql" | docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+
+      - name: Run fixed-revision read-only verification
+        if: inputs.phase != 'preflight'
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          TARGET_SHA: ${{ github.sha }}
+          TARGET: ${{ inputs.target }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,TARGET_SHA,TARGET
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            git fetch --quiet origin "$TARGET_SHA"
+            git cat-file -e "$TARGET_SHA^{commit}"
+            if [[ "$TARGET" == master-data ]]; then
+              SCRIPT='scripts/ops/readonly-audits/spec-sku-backfill-production-verify.sql'
+            else
+              SCRIPT='scripts/ops/readonly-audits/spec-sku-batch-backfill-production-verify.sql'
+            fi
+            git show "$TARGET_SHA:$SCRIPT" | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'

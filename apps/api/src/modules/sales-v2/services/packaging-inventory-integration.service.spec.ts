@@ -10,6 +10,8 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
         if (sql.includes('FROM sal_customers')) return [{ company_code: 'COMP-1' }];
         if (sql.includes('SELECT company_code FROM')) return [{ company_code: 'COMP-1' }];
         if (sql.includes('FROM product_grades')) return [{ grade_code: 'L', is_saleable: true }];
+        if (sql.includes('FROM packaging_specs')) return [{ spec_code: 'PKG_PACK_SPEC_3' }];
+        if (sql.includes('FROM product_skus')) return [{ sku_code: 'EGG-L-PKG_PACK_SPEC_3' }];
         return [];
       }),
     };
@@ -56,6 +58,67 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
       packagingBatchRef: 'PKG-1',
       collectionBatchRef: 'SHIFT-9',
     }), undefined);
+  });
+
+  it('preserves specId and resolves the authoritative product-grade-spec SKU', async () => {
+    const { service, eggInv, ds } = setup('PACKAGING_INBOUND', {
+      ...packing,
+      batches_json: [{ grade: 'L', eggs: 30, spec: '精品礼盒(30枚/盒)', specId: 'PKG_PACK_SPEC_3' }],
+    });
+
+    await service.completeTerminalPacking('PKG-1', { warehouseCode: 'WMS-1', locationCode: 'LOC-1' });
+
+    expect(ds.query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE spec_code = $1'),
+      ['PKG_PACK_SPEC_3'],
+    );
+    expect(ds.query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE product_code = $1 AND grade_code = $2 AND spec_code = $3'),
+      ['PRD-EGG-L', 'L', 'PKG_PACK_SPEC_3'],
+    );
+    expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({
+      productCode: 'PRD-EGG-L',
+      gradeCodeStd: 'L',
+      specCode: 'PKG_PACK_SPEC_3',
+      skuCode: 'EGG-L-PKG_PACK_SPEC_3',
+    }), undefined);
+  });
+
+  it('blocks inventory when an explicit specId has no ACTIVE master record', async () => {
+    const withSpec = { ...packing, batches_json: [{ grade: 'L', eggs: 30, specId: 'MISSING-SPEC' }] };
+    const { service, eggInv, ds } = setup('PACKAGING_INBOUND', withSpec);
+    ds.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM pkg_packing_records')) return [withSpec];
+      if (sql.includes('FROM sys_dict')) return [];
+      if (sql.includes('WHERE packaging_batch_ref')) return [];
+      if (sql.includes('SELECT company_code FROM')) return [{ company_code: 'COMP-1' }];
+      if (sql.includes('FROM product_grades')) return [{ grade_code: 'L', is_saleable: true }];
+      if (sql.includes('FROM packaging_specs')) return [];
+      return [];
+    });
+
+    await expect(service.completeTerminalPacking('PKG-1', { warehouseCode: 'WMS-1', locationCode: 'LOC-1' }))
+      .rejects.toThrow('包装规格主数据未唯一生效：MISSING-SPEC');
+    expect(eggInv.createProductionBatch).not.toHaveBeenCalled();
+  });
+
+  it('blocks inventory when the authoritative SKU is missing', async () => {
+    const withSpec = { ...packing, batches_json: [{ grade: 'L', eggs: 30, specId: 'PKG_PACK_SPEC_3' }] };
+    const { service, eggInv, ds } = setup('PACKAGING_INBOUND', withSpec);
+    ds.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM pkg_packing_records')) return [withSpec];
+      if (sql.includes('FROM sys_dict')) return [];
+      if (sql.includes('WHERE packaging_batch_ref')) return [];
+      if (sql.includes('SELECT company_code FROM')) return [{ company_code: 'COMP-1' }];
+      if (sql.includes('FROM product_grades')) return [{ grade_code: 'L', is_saleable: true }];
+      if (sql.includes('FROM packaging_specs')) return [{ spec_code: 'PKG_PACK_SPEC_3' }];
+      if (sql.includes('FROM product_skus')) return [];
+      return [];
+    });
+
+    await expect(service.completeTerminalPacking('PKG-1', { warehouseCode: 'WMS-1', locationCode: 'LOC-1' }))
+      .rejects.toThrow('SKU 主数据未唯一生效：PRD-EGG-L/L/PKG_PACK_SPEC_3');
+    expect(eggInv.createProductionBatch).not.toHaveBeenCalled();
   });
 
   it('passes the handover warehouse, location and transaction manager to inventory writes', async () => {
