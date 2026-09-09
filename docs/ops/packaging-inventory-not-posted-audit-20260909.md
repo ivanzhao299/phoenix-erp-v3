@@ -375,3 +375,51 @@ run 最终状态为 **FAILURE**。最终 SQL 在等级字典核验处还因生�
 ### 11.6 下一停止点
 
 生产只读证据已经补齐，最终分类及逐行候选见 §11.3/§11.5。当前停止在用户授权前：未修改应用代码、schema、主数据、配置或生产台账；未创建规格/SKU，未补写任何批次。下一步必须由用户拍板 30/40 枚权威语义、批准两组 SKU 主数据补录及 4 个 PACKAGING 批次的维度补写后，才能另开实施轮。
+
+## 12. 获批修复执行记录（2026-09-09）
+
+### 12.1 合并、门禁与受控脚本修正
+
+- PR [#218](https://github.com/ivanzhao299/phoenix-erp-v3/pull/218) 在补充 `reviewed-frozen-boundary` 审批标签后，冻结门禁、双端 typecheck/build、回归、Runtime Smoke 与 Web Vitest 全部通过；merge commit 为 `199d22d1b25fe1d91930cb5f336114995be8d2f4`。
+- 首次主数据 preflight run [34320853633](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34320853633) 在断言前失败：只读事务误选 batches 脚本并尝试 `CREATE TEMP TABLE`。未执行 apply，生产零写入。
+- 第二次主数据 preflight run [34321079209](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34321079209) 进入只读事务后失败：SSH 环境覆盖通用 `TARGET` 变量，仍误选 batches 脚本。未执行 apply，生产零写入。
+- 修正提交 `044e74a8` 移除只读 preflight 的临时表；提交 `86e71bc2` 改由 GitHub 表达式固定 SQL 路径并使用专用环境变量。两次均为脚本控制面修正，没有直接连接或写生产库。
+
+### 12.2 主数据创建与字典统一
+
+| 阶段 | Workflow run | 结果 |
+|---|---|---|
+| master-data preflight | [34321218160](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34321218160) | PASS；获批前态只读断言通过 |
+| master-data apply + 内置 verify | [34321264947](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34321264947) | PASS；经生产 API 主数据服务执行 |
+| master-data 独立 verify | [34321347333](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34321347333) | PASS；只读 |
+
+实际生成并留档的编码：
+
+- 规格：`PKG_PACK_SPEC_3`，`精品礼盒(30枚/盒)`，`qty_per_unit=30`，ACTIVE。
+- GRADE_1 SKU：`SKU-0001`，组合 `PRD-EGG-GRADE_1 / GRADE_1 / PKG_PACK_SPEC_3`，ACTIVE。
+- GRADE_2 SKU：`SKU-0002`，组合 `PRD-EGG-GRADE_2 / GRADE_2 / PKG_PACK_SPEC_3`，ACTIVE。
+- `PKG_PACK_SPEC/PKG_PACK_SPEC_3` 字典中、英、老名称统一为 30 枚语义，`capacity/perBox/qty=30`，ACTIVE。
+
+### 12.3 部署与批次补写
+
+- 首次 full deploy run [34321404157](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34321404157) 成功；部署后只读 run [34322467304](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34322467304) 确认 checkout/API/Web 均为 `86e71bc2bf50dc9a8477179de1bb24bc3f9990c0`，60 分钟错误窗口为 0，业务写入为 0。
+- batches preflight run [34322580736](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34322580736) PASS：四批两列仍为 NULL，数量、可用量、公司、仓库、库位、包装源证据、无 FIFO_OUT/分摊动作及唯一 ACTIVE 目标均通过。
+- batches apply run [34322630222](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34322630222) PASS：单事务仅 UPDATE `spec_code/sku_code`，改变恰好 4 行并 COMMIT；逐行保护断言确认 `qty/qty_available/source/company/warehouse/location` 未变，未新增或修改 `inv_ledger`。run 同屏输出四条带回读值保护条件的反向 SQL。
+- 独立基础 verify run [34322744046](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34322744046) PASS。
+
+四批次最终值：
+
+| batch_no | spec_code | sku_code | qty / available |
+|---|---|---|---:|
+| `EGG-20260725-00001` | `PKG_PACK_SPEC_3` | `SKU-0001` | 120 / 0 |
+| `EGG-20260725-00002` | `PKG_PACK_SPEC_3` | `SKU-0002` | 60 / 0 |
+| `EGG-20260817-00001` | `PKG_PACK_SPEC_3` | `SKU-0001` | 300 / 300 |
+| `EGG-20260909-00001` | `PKG_PACK_SPEC_3` | `SKU-0001` | 300 / 300 |
+
+### 12.4 最终只读验收
+
+- 补强 verify 的首次 run [34322999423](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34322999423) 因把“获批排除的 32 个 TEMP 批次”错误写成“全表 TEMP 总数必须永远等于 32”而失败；这是过宽的只读断言，未触发写入或回滚。
+- 收紧为报告中 32 个精确 `batch_no` 后，run [34323171532](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34323171532) PASS：四批维度完整；`SKU-0001` 为 3 批、可用量 600，`SKU-0002` 为 1 批、可用量 0；32 个获批排除的 `TEMP_PRODUCTION` 批次仍全部 `spec_code/sku_code=NULL`。
+- 最终 full deploy run [34324090934](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34324090934) 成功。最终生产只读 run [34324668778](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34324668778) PASS：checkout/API/Web revision 均为 `dad46f92ee4cb261c636adebe5cbdf6cc47a97a2`；真实 GET `/api/v2/sales/inventory/batches?skuCode=SKU-0001` 返回 200、`data.length=2`；60 分钟错误窗口为 0；`PRODUCTION_BUSINESS_WRITES=0`。
+
+最终结论：规格与两组 SKU 已通过主数据服务建立并 ACTIVE，字典已统一为 30 枚；四个获批 PACKAGING 批次仅补齐规格/SKU 维度，数量、可用量和流水未动；32 个无权威规格来源的 TEMP 历史批次未动。
