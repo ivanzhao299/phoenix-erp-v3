@@ -210,3 +210,21 @@ API 的两个超时已按项目既定惯例完成噪声定性：当前 `git diff
 Web 首次全量运行继承外层 `NODE_ENV=production`，3 files / 29 tests 因 React `act is not a function` 失败；按 CI
 真实环境显式 `NODE_ENV=test` 重跑后 107 files / 574 tests 全部通过。当前尚未记录 CI、PR、full deploy、revision
 三方一致、生产回填或生产只读复验结果；这些步骤执行前均不能记 PASS。
+
+### E5. PR / CI 执行记录与停止点
+
+- 实现提交：`0ae44810`（`fix: 修复库存入库日期与排序`），分支
+  `fix/wms-inbound-date-20260909`，PR `#219`。
+- PR 首轮已通过：Runtime Smoke、Web Vitest、Detect change scope；Web CI 进一步确认干净 runner 全量通过。
+- 冻结/安全门禁默认按设计阻断。人工逐文件复核后，PR 已登记 `reviewed-frozen-boundary` 与
+  `reviewed-security-touch`；本地显式 `ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true` 的 W5 closeout
+  20/20 PASS。GitHub 对原 run 的 rerun 仍使用首次事件载荷，环境变量继续为 false，因此该次 rerun 不能记 PASS；
+  需由后续新 PR 事件重新触发标签判定。
+- CI 权威 `V3 Regression Suite` 在干净 `ubuntu-latest`、`NODE_ENV=test` 环境真实失败：WMS 模块
+  23/41 项失败。首个根因信号为 `confirmInbound` 返回 HTTP 400
+  `{"code":400,"msg":"字段不存在，请联系管理员"}`，随后调拨等依赖断言级联失败；这不是既有 Chanjet 超时噪声。
+  当前证据显示 regression job 的测试数据库未获得新增 `inv_batches.inbound_date` 列，命中新写入 SQL 时失败，但尚未
+  完成 CI 初始化链根因修复与权威复跑，故不得宣称结论已闭环。
+
+依用户红线“若 CI 权威环境也失败则真停”，本轮停止在 PR #219，未合入 main、未触发 full deploy、未执行生产
+preflight/apply/verify、未做生产只读查询与三端 revision 复验。生产数据库保持未触及状态。
