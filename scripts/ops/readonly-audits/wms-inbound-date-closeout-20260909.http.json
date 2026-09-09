@@ -1,0 +1,18 @@
+[
+  {
+    "name": "wms-inbound-date-projection-and-sort-head",
+    "username": "admin",
+    "path": "/api/inventory/batches",
+    "expectedStatus": 200,
+    "minDataLength": 1,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["inbound_date"],
+    "sqlRowMatch": {
+      "sql": "SELECT batch_no, inbound_date::text AS inbound_date FROM inv_batches WHERE COALESCE(qty_available, qty, 0) > 0 ORDER BY inbound_date DESC NULLS LAST, batch_no DESC, id DESC LIMIT 1",
+      "responsePath": "",
+      "responseIndex": 0,
+      "matcherKey": "batch_no",
+      "exactFields": ["batch_no", "inbound_date"]
+    }
+  }
+]
