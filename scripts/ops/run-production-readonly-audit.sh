@@ -200,8 +200,15 @@ const getPath = (body, path) => path ? path.split('.').reduce((v, k) => v == nul
         if (!Array.isArray(candidates)) throw new Error(`${a.name}: ${a.sqlRowMatch.responsePath} is not an array`);
         const expectedRow = expectedRows[0];
         const matcherKey = a.sqlRowMatch.matcherKey;
-        const actualRow = candidates.find(row => String(getPath(row, matcherKey)) === String(expectedRow[matcherKey]));
+        const actualRow = a.sqlRowMatch.responseIndex == null
+          ? candidates.find(row => String(getPath(row, matcherKey)) === String(expectedRow[matcherKey]))
+          : candidates[a.sqlRowMatch.responseIndex];
         if (!actualRow) throw new Error(`${a.name}: no response row matches ${matcherKey}=${expectedRow[matcherKey]}`);
+        for (const field of (a.sqlRowMatch.exactFields || [])) {
+          if (String(getPath(actualRow, field) ?? '') !== String(expectedRow[field] ?? '')) {
+            throw new Error(`${a.name}: ${field}=${getPath(actualRow, field)} SQL=${expectedRow[field]}`);
+          }
+        }
         for (const field of (a.sqlRowMatch.numericFields || [])) {
           if (Math.abs(Number(getPath(actualRow, field)) - Number(expectedRow[field])) > 0.0001) {
             throw new Error(`${a.name}: ${field}=${getPath(actualRow, field)} SQL=${expectedRow[field]}`);
