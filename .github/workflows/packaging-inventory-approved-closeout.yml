@@ -12,6 +12,14 @@ on:
         required: true
         default: false
         type: boolean
+  workflow_call:
+    inputs:
+      confirmation:
+        required: true
+        type: string
+      approve_production:
+        required: true
+        type: boolean
 
 permissions:
   contents: read

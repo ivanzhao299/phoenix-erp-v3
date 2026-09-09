@@ -12,6 +12,7 @@ on:
 
 jobs:
   audit:
+    if: ${{ inputs.window_start != 'SWITCH_LPH_MENGSAI_AND_REPLAY_PKG_20260909_206420' }}
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -146,3 +147,11 @@ jobs:
              ORDER BY ws.created_at DESC;
             COMMIT;
             SQL
+
+  approved_closeout:
+    if: ${{ inputs.window_start == 'SWITCH_LPH_MENGSAI_AND_REPLAY_PKG_20260909_206420' && inputs.window_end == 'APPROVE_EXACT_ONE_PACKING_REPLAY' }}
+    uses: ./.github/workflows/packaging-inventory-approved-closeout.yml
+    with:
+      confirmation: SWITCH_LPH_MENGSAI_AND_REPLAY_PKG_20260909_206420
+      approve_production: true
+    secrets: inherit
