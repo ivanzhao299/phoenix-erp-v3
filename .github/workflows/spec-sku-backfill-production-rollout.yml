@@ -40,7 +40,7 @@ jobs:
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
           TARGET_SHA: ${{ github.sha }}
-          TARGET: ${{ inputs.target }}
+          ROLLOUT_SQL_SCRIPT: ${{ inputs.target == 'master-data' && 'scripts/ops/readonly-audits/spec-sku-backfill-production-preflight.sql' || 'scripts/ops/readonly-audits/spec-sku-batch-backfill-production-preflight.sql' }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -50,18 +50,13 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,TARGET_SHA,TARGET
+          envs: DEPLOY_PATH,TARGET_SHA,ROLLOUT_SQL_SCRIPT
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
             git fetch --quiet origin "$TARGET_SHA"
             git cat-file -e "$TARGET_SHA^{commit}"
-            if [ "$TARGET" = master-data ]; then
-              SCRIPT='scripts/ops/readonly-audits/spec-sku-backfill-production-preflight.sql'
-            else
-              SCRIPT='scripts/ops/readonly-audits/spec-sku-batch-backfill-production-preflight.sql'
-            fi
-            git show "$TARGET_SHA:$SCRIPT" | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            git show "$TARGET_SHA:$ROLLOUT_SQL_SCRIPT" | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 
       - name: Apply master data through existing services
         if: inputs.phase == 'apply' && inputs.target == 'master-data'
@@ -109,7 +104,7 @@ jobs:
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
           TARGET_SHA: ${{ github.sha }}
-          TARGET: ${{ inputs.target }}
+          ROLLOUT_SQL_SCRIPT: ${{ inputs.target == 'master-data' && 'scripts/ops/readonly-audits/spec-sku-backfill-production-verify.sql' || 'scripts/ops/readonly-audits/spec-sku-batch-backfill-production-verify.sql' }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -119,15 +114,10 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,TARGET_SHA,TARGET
+          envs: DEPLOY_PATH,TARGET_SHA,ROLLOUT_SQL_SCRIPT
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
             git fetch --quiet origin "$TARGET_SHA"
             git cat-file -e "$TARGET_SHA^{commit}"
-            if [ "$TARGET" = master-data ]; then
-              SCRIPT='scripts/ops/readonly-audits/spec-sku-backfill-production-verify.sql'
-            else
-              SCRIPT='scripts/ops/readonly-audits/spec-sku-batch-backfill-production-verify.sql'
-            fi
-            git show "$TARGET_SHA:$SCRIPT" | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+            git show "$TARGET_SHA:$ROLLOUT_SQL_SCRIPT" | docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
