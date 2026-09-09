@@ -1,0 +1,395 @@
+name: Packaging Inventory Approved Production Closeout
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type SWITCH_LPH_MENGSAI_AND_REPLAY_PKG_20260909_206420'
+        required: true
+        type: string
+      approve_production:
+        description: 'Approve the exact mode migration and one packing replay'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packaging-inventory-closeout-production
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: ${{ inputs.approve_production == true && inputs.confirmation == 'SWITCH_LPH_MENGSAI_AND_REPLAY_PKG_20260909_206420' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Preflight read-only gate
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+
+            SELECT 'CURRENT_CONFIG' AS section, scope_level, scope_code, mode, updated_by, updated_at
+              FROM inv_source_mode
+             WHERE (scope_level, scope_code) IN (('SITE', 'FARM-MS'), ('SITE', 'LPH_MENGSAI'), ('GROUP', 'ALL'))
+             ORDER BY scope_level, scope_code;
+
+            SELECT 'RECENT_TEMP_WINDOW' AS section,
+                   now() AS checked_at,
+                   now() - interval '30 minutes' AS window_start,
+                   count(DISTINCT l.id)::int AS ledger_count,
+                   COALESCE(sum(l.qty_change), 0) AS ledger_qty,
+                   max(l.created_at) AS latest_at
+              FROM inv_ledger l
+              JOIN inv_batches b ON b.batch_no = l.batch_no
+             WHERE l.change_type = 'TEMP_PRODUCTION_INBOUND'
+               AND l.created_at >= now() - interval '30 minutes'
+               AND b.source_type = 'TEMP_PRODUCTION'
+               AND (b.collection_batch_ref = 'SITE-LPH_MENGSAI'
+                    OR b.collection_batch_ref IN (
+                      SELECT 'HOUSE-' || h.house_code FROM brd_houses h
+                       WHERE h.farm_code = 'LPH_MENGSAI' AND h.status = 'ACTIVE'
+                    ));
+
+            SELECT 'TARGET_PRE_REPLAY' AS section,
+                   count(DISTINCT b.batch_no)::int AS batch_count,
+                   COALESCE(sum(DISTINCT b.qty), 0) AS batch_qty,
+                   count(DISTINCT l.id)::int AS ledger_count,
+                   COALESCE(sum(l.qty_change), 0) AS ledger_qty
+              FROM inv_batches b
+              LEFT JOIN inv_ledger l ON l.batch_no = b.batch_no AND l.change_type = 'PACKAGING_INBOUND'
+             WHERE b.packaging_batch_ref = 'PKG-20260909-206420' AND b.source_type = 'PACKAGING';
+
+            SELECT 'TARGET_SOURCE' AS section, p.code, p.production_date, p.shift_id,
+                   s.site_id, p.total_eggs, p.batches_json,
+                   h.code AS handover_code, h.location,
+                   wl.warehouse_code, wl.status AS location_status
+              FROM pkg_packing_records p
+              JOIN pkg_work_shifts s ON s.id = p.shift_id
+              LEFT JOIN LATERAL (
+                SELECT code, location FROM pkg_handover_records
+                 WHERE packing_code = p.code ORDER BY created_at DESC LIMIT 1
+              ) h ON true
+              LEFT JOIN wms_locations wl ON wl.location_code = h.location
+             WHERE p.code = 'PKG-20260909-206420';
+
+            DO $assert$
+            DECLARE
+              recent_temp_count integer;
+              target_batch_count integer;
+              target_ledger_count integer;
+              source_count integer;
+              config_ok integer;
+            BEGIN
+              SELECT count(DISTINCT l.id)::int INTO recent_temp_count
+                FROM inv_ledger l JOIN inv_batches b ON b.batch_no = l.batch_no
+               WHERE l.change_type = 'TEMP_PRODUCTION_INBOUND'
+                 AND l.created_at >= now() - interval '30 minutes'
+                 AND b.source_type = 'TEMP_PRODUCTION'
+                 AND (b.collection_batch_ref = 'SITE-LPH_MENGSAI'
+                      OR b.collection_batch_ref IN (
+                        SELECT 'HOUSE-' || h.house_code FROM brd_houses h
+                         WHERE h.farm_code = 'LPH_MENGSAI' AND h.status = 'ACTIVE'
+                      ));
+              IF recent_temp_count <> 0 THEN
+                RAISE EXCEPTION 'STOP: recent Mengsai TEMP writes exist: %', recent_temp_count;
+              END IF;
+
+              SELECT count(DISTINCT b.batch_no)::int, count(DISTINCT l.id)::int
+                INTO target_batch_count, target_ledger_count
+                FROM inv_batches b
+                LEFT JOIN inv_ledger l ON l.batch_no = b.batch_no AND l.change_type = 'PACKAGING_INBOUND'
+               WHERE b.packaging_batch_ref = 'PKG-20260909-206420' AND b.source_type = 'PACKAGING';
+              IF target_batch_count <> 0 OR target_ledger_count <> 0 THEN
+                RAISE EXCEPTION 'STOP: target already posted batch=% ledger=%', target_batch_count, target_ledger_count;
+              END IF;
+
+              SELECT count(*)::int INTO source_count
+                FROM pkg_packing_records p
+                JOIN pkg_work_shifts s ON s.id = p.shift_id
+                JOIN pkg_handover_records h ON h.packing_code = p.code
+                JOIN wms_locations wl ON wl.location_code = h.location
+               WHERE p.code = 'PKG-20260909-206420'
+                 AND p.shift_id = 54 AND s.site_id = 'LPH_MENGSAI'
+                 AND p.total_eggs = 300
+                 AND h.location = 'CS-KW-MS01'
+                 AND nullif(wl.warehouse_code, '') IS NOT NULL
+                 AND coalesce(wl.status, 'EMPTY') <> 'LOCKED'
+                 AND EXISTS (
+                   SELECT 1 FROM jsonb_array_elements(p.batches_json) x
+                    WHERE x->>'grade' = 'GRADE_1'
+                      AND x->>'specId' = 'PKG_PACK_SPEC_3'
+                      AND (x->>'eggs')::numeric = 300
+                 );
+              IF source_count <> 1 THEN
+                RAISE EXCEPTION 'STOP: exact packing/shift/grade/spec/location source assertion failed: %', source_count;
+              END IF;
+
+              SELECT count(*)::int INTO config_ok FROM inv_source_mode
+               WHERE (scope_level = 'SITE' AND scope_code = 'FARM-MS' AND mode = 'PACKAGING_INBOUND')
+                  OR (scope_level = 'GROUP' AND scope_code = 'ALL' AND mode = 'TEMP_PRODUCTION_INBOUND');
+              IF config_ok <> 2 OR EXISTS (
+                SELECT 1 FROM inv_source_mode WHERE scope_level = 'SITE' AND scope_code = 'LPH_MENGSAI'
+              ) THEN
+                RAISE EXCEPTION 'STOP: source mode configuration drifted from approved pre-state';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
+
+      - name: Mint short-lived production token
+        id: token
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Assess and migrate source modes through controlled API
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          api='https://erp.eggslao.com/api/v2/inventory/source'
+          auth=(-H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json')
+
+          curl --fail-with-body --silent --show-error "${auth[@]}" \
+            -d '{"scopeLevel":"SITE","scopeCode":"FARM-MS","newMode":"TEMP_PRODUCTION_INBOUND"}' \
+            "$api/assess-risk" | tee farm-risk.json
+          curl --fail-with-body --silent --show-error "${auth[@]}" \
+            -d '{"scopeLevel":"SITE","scopeCode":"LPH_MENGSAI","newMode":"PACKAGING_INBOUND"}' \
+            "$api/assess-risk" | tee mengsai-risk.json
+
+          curl --fail-with-body --silent --show-error "${auth[@]}" \
+            -d '{"scopeLevel":"SITE","scopeCode":"FARM-MS","newMode":"TEMP_PRODUCTION_INBOUND","remark":"2026-09-09 孟赛权威场站码迁移：旧 FARM-MS 包装来源退役","confirmRisk":true}' \
+            "$api/switch" | tee farm-switch.json
+          node -e "const x=require('./farm-switch.json'); if(x.ok!==true||x.newMode!=='TEMP_PRODUCTION_INBOUND') process.exit(1)"
+
+          curl --fail-with-body --silent --show-error "${auth[@]}" \
+            -d '{"scopeLevel":"SITE","scopeCode":"LPH_MENGSAI","newMode":"PACKAGING_INBOUND","remark":"2026-09-09 孟赛权威场站切换包装入库；修复 revision 1cb0ff65 已部署","confirmRisk":true}' \
+            "$api/switch" | tee mengsai-switch.json
+          node -e "const x=require('./mengsai-switch.json'); if(x.ok!==true||x.newMode!=='PACKAGING_INBOUND') process.exit(1)"
+
+          curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "$api/mode?siteCode=LPH_MENGSAI" | tee resolved-mode.json
+          node -e "const x=require('./resolved-mode.json'); if(x.mode!=='PACKAGING_INBOUND') process.exit(1)"
+          curl --fail-with-body --silent --show-error "${auth[@]}" "$api/configs" | tee configs.json
+          curl --fail-with-body --silent --show-error "${auth[@]}" "$api/audit?limit=10" | tee mode-audit.json
+
+      - name: Verify mode migration and replay pre-state
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'MIGRATED_CONFIG' AS section, scope_level, scope_code, mode, remark, updated_by, updated_at
+              FROM inv_source_mode
+             WHERE scope_level = 'SITE' AND scope_code IN ('FARM-MS', 'LPH_MENGSAI')
+             ORDER BY scope_code;
+            SELECT 'MIGRATION_AUDIT' AS section, scope_level, scope_code, old_mode, new_mode,
+                   operator, remark, risk_snapshot, created_at
+              FROM inv_source_mode_audit
+             WHERE scope_level = 'SITE' AND scope_code IN ('FARM-MS', 'LPH_MENGSAI')
+             ORDER BY created_at DESC LIMIT 4;
+            DO $assert$
+            BEGIN
+              IF (SELECT count(*) FROM inv_source_mode WHERE scope_level='SITE' AND scope_code='FARM-MS' AND mode='TEMP_PRODUCTION_INBOUND') <> 1
+                 OR (SELECT count(*) FROM inv_source_mode WHERE scope_level='SITE' AND scope_code='LPH_MENGSAI' AND mode='PACKAGING_INBOUND') <> 1 THEN
+                RAISE EXCEPTION 'STOP: post-switch exact SITE config assertion failed';
+              END IF;
+              IF (SELECT count(*) FROM inv_batches WHERE packaging_batch_ref='PKG-20260909-206420' AND source_type='PACKAGING') <> 0
+                 OR (SELECT count(*) FROM inv_ledger WHERE change_type='PACKAGING_INBOUND' AND ref_no='PKG-20260909-206420') <> 0 THEN
+                RAISE EXCEPTION 'STOP: target pre-replay zero assertion failed';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
+
+      - name: Replay exact packing twice and assert API visibility
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          api='https://erp.eggslao.com/api/packaging/terminal'
+          auth=(-H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json')
+          payload='{"shiftId":54,"packingCode":"PKG-20260909-206420","boxes":[],"palletCode":"","location":"CS-KW-MS01","receiver":"宋雷","productionDate":"2026-09-09"}'
+
+          curl --fail-with-body --silent --show-error "${auth[@]}" -d "$payload" \
+            "$api/warehouse/confirm" | tee replay-1.json
+          node -e "const x=require('./replay-1.json'); if(x.code!==200||x.data?.inventoryOk!==true||x.data?.status?.committed!==true) process.exit(1)"
+
+          curl --fail-with-body --silent --show-error "${auth[@]}" -d "$payload" \
+            "$api/warehouse/confirm" | tee replay-2.json
+          node -e "const x=require('./replay-2.json'); if(x.code!==200||x.data?.inventoryOk!==true||x.data?.status?.committed!==true||x.data?.inventory?.idempotent!==true) process.exit(1)"
+
+          curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "$api/warehouse/status?packingCode=PKG-20260909-206420" | tee packing-status.json
+          node -e "const x=require('./packing-status.json'); if(x.data?.committed!==true) process.exit(1)"
+          curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "$api/inventory/by-packing/PKG-20260909-206420" | tee inventory-visible.json
+          node -e "const x=require('./inventory-visible.json'); if(!Array.isArray(x.data?.batches)||x.data.batches.length<1) process.exit(1)"
+
+      - name: Final read-only inventory, ledger, location and FIFO assertions
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+              sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+            \pset pager off
+            BEGIN TRANSACTION READ ONLY;
+            SELECT 'FINAL_BATCH' AS section, b.batch_no, b.product_code, b.sku_code,
+                   b.quality_grade, b.grade_code_std, b.spec_code, b.qty, b.qty_available,
+                   b.status, b.company_code, b.warehouse_code, b.location_code,
+                   b.source_type, b.packaging_batch_ref, b.legacy_source, b.expire_date, b.created_at
+              FROM inv_batches b
+             WHERE b.packaging_batch_ref = 'PKG-20260909-206420' AND b.source_type = 'PACKAGING'
+             ORDER BY b.batch_no;
+            SELECT 'FINAL_LEDGER' AS section, l.id, l.batch_no, l.change_type, l.qty_change,
+                   l.company_code, l.warehouse_code, l.location_code, l.ref_no, l.created_at
+              FROM inv_ledger l
+             WHERE l.change_type = 'PACKAGING_INBOUND'
+               AND l.batch_no IN (
+                 SELECT batch_no FROM inv_batches
+                  WHERE packaging_batch_ref='PKG-20260909-206420' AND source_type='PACKAGING'
+               )
+             ORDER BY l.id;
+            SELECT 'FIFO_VISIBLE' AS section, b.batch_no, b.sku_code, b.product_code,
+                   b.qty_available, b.expire_date, b.created_at
+              FROM inv_batches b
+             WHERE b.packaging_batch_ref='PKG-20260909-206420'
+               AND b.source_type='PACKAGING' AND b.status='AVAILABLE' AND b.qty_available > 0
+               AND (b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE)
+               AND b.legacy_source IS NULL
+             ORDER BY b.expire_date ASC NULLS LAST, b.created_at ASC;
+            DO $assert$
+            DECLARE
+              expected_warehouse text;
+              batch_count integer;
+              batch_qty numeric;
+              ledger_count integer;
+              ledger_qty numeric;
+            BEGIN
+              SELECT warehouse_code INTO expected_warehouse FROM wms_locations
+               WHERE location_code='CS-KW-MS01' AND coalesce(status, 'EMPTY') <> 'LOCKED' LIMIT 1;
+              IF nullif(expected_warehouse, '') IS NULL THEN
+                RAISE EXCEPTION 'FINAL: target location has no valid warehouse';
+              END IF;
+              SELECT count(*)::int, coalesce(sum(qty),0) INTO batch_count, batch_qty
+                FROM inv_batches
+               WHERE packaging_batch_ref='PKG-20260909-206420' AND source_type='PACKAGING';
+              SELECT count(*)::int, coalesce(sum(qty_change),0) INTO ledger_count, ledger_qty
+                FROM inv_ledger
+               WHERE change_type='PACKAGING_INBOUND' AND batch_no IN (
+                 SELECT batch_no FROM inv_batches
+                  WHERE packaging_batch_ref='PKG-20260909-206420' AND source_type='PACKAGING'
+               );
+              IF batch_count <> 1 OR batch_qty <> 300 OR ledger_count <> 1 OR ledger_qty <> 300 THEN
+                RAISE EXCEPTION 'FINAL: count/quantity mismatch batch_count=% batch_qty=% ledger_count=% ledger_qty=%',
+                  batch_count, batch_qty, ledger_count, ledger_qty;
+              END IF;
+              IF EXISTS (
+                SELECT 1 FROM inv_batches
+                 WHERE packaging_batch_ref='PKG-20260909-206420' AND source_type='PACKAGING'
+                   AND (warehouse_code IS DISTINCT FROM expected_warehouse
+                        OR location_code IS DISTINCT FROM 'CS-KW-MS01'
+                        OR quality_grade IS DISTINCT FROM coalesce((
+                          SELECT d.dict_code FROM sys_dict d
+                           WHERE d.dict_type IN ('PKG_EGG_GRADE','PKG_EGG_DEFECT')
+                             AND (d.dict_code='GRADE_1'
+                                  OR d.config_json->>'code'='GRADE_1'
+                                  OR d.config_json->>'terminalCode'='GRADE_1')
+                           LIMIT 1
+                        ), 'GRADE_1')
+                        OR spec_code IS DISTINCT FROM 'PKG_PACK_SPEC_3')
+              ) THEN
+                RAISE EXCEPTION 'FINAL: warehouse/location/grade/spec mismatch';
+              END IF;
+              IF (SELECT count(*) FROM inv_batches
+                   WHERE packaging_batch_ref='PKG-20260909-206420' AND source_type='PACKAGING'
+                     AND status='AVAILABLE' AND qty_available=300
+                     AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
+                     AND legacy_source IS NULL) <> 1 THEN
+                RAISE EXCEPTION 'FINAL: FIFO visibility assertion failed';
+              END IF;
+            END
+            $assert$;
+            COMMIT;
+            SQL
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: packaging-inventory-closeout-${{ github.run_id }}
+          path: |
+            *-risk.json
+            *-switch.json
+            resolved-mode.json
+            configs.json
+            mode-audit.json
+            replay-*.json
+            packing-status.json
+            inventory-visible.json
+          if-no-files-found: warn
+          retention-days: 30
