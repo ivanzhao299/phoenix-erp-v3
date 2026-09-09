@@ -73,6 +73,10 @@ SELECT a.batch_no,
        a.grade_code_std,
        a.qty,
        a.qty_available,
+       a.status,
+       a.company_code,
+       a.warehouse_code,
+       a.location_code,
        a.egg_date,
        a.created_at,
        a.spec_code,
@@ -85,6 +89,49 @@ SELECT a.batch_no,
   FROM affected a
   LEFT JOIN fifo f ON f.batch_no = a.batch_no
  ORDER BY a.created_at, a.batch_no;
+
+\echo '=== affected PACKAGING batches joined to immutable packing source items ==='
+WITH affected AS (
+  SELECT batch_no,
+         source_no,
+         packaging_batch_ref,
+         product_code,
+         quality_grade,
+         grade_code_std,
+         qty,
+         qty_available,
+         spec_code,
+         sku_code
+    FROM inv_batches
+   WHERE source_type = 'PACKAGING'
+     AND (spec_code IS NULL OR sku_code IS NULL)
+)
+SELECT a.batch_no,
+       a.source_no,
+       a.packaging_batch_ref,
+       a.product_code,
+       a.quality_grade,
+       a.grade_code_std,
+       a.qty,
+       a.qty_available,
+       a.spec_code,
+       a.sku_code,
+       pr.id AS packing_record_id,
+       pr.code AS packing_code,
+       pr.shift_id,
+       item.ordinality AS source_item_ordinality,
+       item.value ->> 'grade' AS source_grade,
+       item.value ->> 'specId' AS source_spec_id,
+       item.value ->> 'spec' AS source_spec_name,
+       item.value ->> 'eggs' AS source_eggs,
+       item.value ->> 'boxes' AS source_boxes
+  FROM affected a
+  LEFT JOIN pkg_packing_records pr
+    ON pr.code = COALESCE(a.packaging_batch_ref, a.source_no)
+  LEFT JOIN LATERAL jsonb_array_elements(COALESCE(pr.batches_json, '[]'::jsonb))
+    WITH ORDINALITY AS item(value, ordinality) ON TRUE
+   AND item.value ->> 'grade' = COALESCE(a.grade_code_std, a.quality_grade)
+ ORDER BY a.batch_no, item.ordinality;
 
 \echo '=== affected-batch FIFO_OUT ledger rows and allocation action order trace ==='
 WITH affected AS (
