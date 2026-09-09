@@ -8,7 +8,7 @@
     "reportDataLength": true,
     "requiredNonEmptyFields": ["inbound_date"],
     "sqlRowMatch": {
-      "sql": "SELECT batch_no, inbound_date::text AS inbound_date FROM inv_batches WHERE COALESCE(qty_available, qty, 0) > 0 ORDER BY inbound_date DESC NULLS LAST, batch_no DESC, id DESC LIMIT 1",
+      "sql": "SELECT batch_no, to_char(inbound_date, 'YYYY-MM-DD') || 'T00:00:00.000Z' AS inbound_date FROM inv_batches WHERE COALESCE(qty_available, qty, 0) > 0 ORDER BY inbound_date DESC NULLS LAST, batch_no DESC, id DESC LIMIT 1",
       "responsePath": "",
       "responseIndex": 0,
       "matcherKey": "batch_no",
