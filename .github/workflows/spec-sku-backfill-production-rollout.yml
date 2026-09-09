@@ -56,7 +56,7 @@ jobs:
             cd "$DEPLOY_PATH"
             git fetch --quiet origin "$TARGET_SHA"
             git cat-file -e "$TARGET_SHA^{commit}"
-            if [[ "$TARGET" == master-data ]]; then
+            if [ "$TARGET" = master-data ]; then
               SCRIPT='scripts/ops/readonly-audits/spec-sku-backfill-production-preflight.sql'
             else
               SCRIPT='scripts/ops/readonly-audits/spec-sku-batch-backfill-production-preflight.sql'
@@ -125,7 +125,7 @@ jobs:
             cd "$DEPLOY_PATH"
             git fetch --quiet origin "$TARGET_SHA"
             git cat-file -e "$TARGET_SHA^{commit}"
-            if [[ "$TARGET" == master-data ]]; then
+            if [ "$TARGET" = master-data ]; then
               SCRIPT='scripts/ops/readonly-audits/spec-sku-backfill-production-verify.sql'
             else
               SCRIPT='scripts/ops/readonly-audits/spec-sku-batch-backfill-production-verify.sql'
