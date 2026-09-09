@@ -246,9 +246,9 @@ export class PackagingService {
           // batch_no 带毫秒级时间戳后缀天然唯一；表上无 UNIQUE 约束，不需要 ON CONFLICT
           await mgr.query(
             `INSERT INTO inv_batches
-               (batch_no, product_code, qty, expire_date, store_code, warehouse_code)
-             VALUES ($1, 'PRD-EGG-RAW', $2::int, $3, 'FACTORY', 'WMS-VTE-MAIN')`,
-            [batchNo, goodQty, expireDate],
+               (batch_no, product_code, qty, expire_date, store_code, warehouse_code, inbound_date)
+             VALUES ($1, 'PRD-EGG-RAW', $2::int, $3, 'FACTORY', 'WMS-VTE-MAIN', $4::date)`,
+            [batchNo, goodQty, expireDate, shiftDate],
           );
           await mgr.query('RELEASE SAVEPOINT sp_inv_batches');
         } catch (e: any) {
@@ -571,8 +571,8 @@ export class PackagingService {
           try {
             await mgr.query(
               `INSERT INTO inv_batches
-                 (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code)
-               VALUES ($1, $2, $3::int, $4::int, $5, $6, 'FACTORY', 'WMS-VTE-MAIN')`,
+                 (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code, inbound_date)
+               VALUES ($1, $2, $3::int, $4::int, $5, $6, 'FACTORY', 'WMS-VTE-MAIN', NULL)`,
               [newBatchNo, productCode, qty, qtyAvailable, batchStatus, expireDate],
             );
             await mgr.query(
@@ -694,8 +694,8 @@ export class PackagingService {
             const totalQty = Number(body.packed_qty) || 0;
             // 生产链路收口 Phase 1：PRD-EGG-* 仅为包装中间态，标 legacy_source，FIFO 排除（不作为最终销售库存）
             await this.em.query(
-              `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code, legacy_source, packaging_batch_ref)
-               VALUES ($1, 'PRD-EGG-PACKED', $2::int, $2::int, 'AVAILABLE', $3, 'FACTORY', 'WMS-VTE-MAIN', 'PACKAGING_INTERMEDIATE', $4)`,
+              `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code, legacy_source, packaging_batch_ref, inbound_date)
+               VALUES ($1, 'PRD-EGG-PACKED', $2::int, $2::int, 'AVAILABLE', $3, 'FACTORY', 'WMS-VTE-MAIN', 'PACKAGING_INTERMEDIATE', $4, NULL)`,
               [batchNo, totalQty, expireDate, task[0].task_no || taskId],
             );
             packBatches.push({ batch_no: batchNo, qty: totalQty, status: 'AVAILABLE' });
@@ -715,8 +715,8 @@ export class PackagingService {
                 // 生产链路收口 Phase 1：PRD-EGG-*-PACK 仅为包装中间态，标 legacy_source，FIFO 排除
                 await this.em.query(
                   `INSERT INTO inv_batches
-                     (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code, legacy_source, packaging_batch_ref)
-                   VALUES ($1, $2, $3::int, $4::int, $5, $6, 'FACTORY', 'WMS-VTE-MAIN', 'PACKAGING_INTERMEDIATE', $7)`,
+                     (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code, legacy_source, packaging_batch_ref, inbound_date)
+                   VALUES ($1, $2, $3::int, $4::int, $5, $6, 'FACTORY', 'WMS-VTE-MAIN', 'PACKAGING_INTERMEDIATE', $7, NULL)`,
                   [batchNo, `PRD-EGG-${gradeCode}-PACK`, qty, qtyAvailable, batchStatus, expireDate, task[0].task_no || taskId],
                 );
                 await this.em.query(

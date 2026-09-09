@@ -137,4 +137,76 @@
 
 ## 授权后的执行门槛
 
-本报告只给出根因、口径和可执行方案。业务代码、迁移、历史回填和生产只读 workflow 均未执行。下一轮需用户明确授权实施，并确认“同一批次多次入库”的日期规则；生产只读覆盖率结果出来后，历史回填范围再定案。
+本节是调查阶段的原始门槛；用户随后已授权实施并定案“同一批次多次入库取最早日期”。实际执行状态以 E 节为准。
+
+## E. 执行记录（2026-09-09）
+
+用户已授权按 §B 全案实施，同批次合并定案为最早非空 `inbound_date`（FEFO 库龄语义）。
+
+### E1. Schema 与查询契约
+
+- 新增 TypeORM 迁移 `1788943471000-AddInventoryInboundDate.ts`：`inv_batches.inbound_date DATE NULL`，并建立与
+  `inbound_date DESC NULLS LAST, batch_no DESC, id DESC` 完全匹配的查询索引；`down()` 先删索引再删列。
+- 主 API 改为显式批次字段投影，明确包含 `inbound_date`，不再以 `b.*` 作为该接口契约。
+- Generic CRUD 404 fallback 同步改为相同排序；排序仍在 `LIMIT/OFFSET` 之前。
+- 前端在“状态”之后、“保质期至”之前增加“入库日期”，空值显示 `-`，loading/empty `colSpan=9`；
+  `ui.入库日期` 的 zh/en/lo 三语资源已存在并复用。
+
+### E2. 写路径决策
+
+| 链路 | `inbound_date` 口径 |
+|---|---|
+| 通用 WMS 入库（正常/破损） | `wms_inbound.date` |
+| 采购 V2 收货 | `prc2_receipts.receipt_date` 显式传给 WMS |
+| 生产临时/统一生产批次 | `eggDate`（该链明确的生产入库业务日） |
+| 集蛋班次 | `pkg_shifts.shift_date` |
+| 分级、包装中间批次 | `NULL`；现有 current time/dateKey 仅用于编号/保质期，不能证明入库业务日 |
+| 调拨直达/签收目标批次 | 调拨完成/签收动作的 `CURRENT_DATE`，不复制源批次日期 |
+| Sales V2 退货回库 | 回库事务当日，显式参数传入 |
+| 门店 POS 退货隔离批 | 退货逆向动作的 `CURRENT_DATE` |
+| 农场药品入库 | 请求的 `logDate` 规范化值 |
+| 采购 V1 旧旁路 | `NULL`；没有可证明的业务日期字段 |
+
+所有存在 `ON CONFLICT(batch_no)` 的本次触及入库链，日期更新均为：旧值空则补新值、新值空则保留旧值、
+双方非空取 `LEAST`。禁止 `COALESCE(inbound_date, created_at::date)`。
+
+### E3. 历史回填资产
+
+回填不放入 schema migration，拆为：
+
+1. `scripts/ops/wms-inbound-date-backfill-preflight.sql`：只读事务，逐批汇总两条唯一许可证据链，输出可证明、
+   多日期歧义及既有非空数量，并断言候选处于 NULL 态。
+2. `scripts/ops/wms-inbound-date-backfill-apply.sql`：单事务、锁定候选、仅更新“唯一业务日期 + 当前仍为 NULL”的行；
+   更新前逐行输出带 `id + batch_no + 写入日期` 守卫的反向 SQL，更新后逐行断言。
+3. `scripts/ops/wms-inbound-date-backfill-verify.sql`：只读事务，断言唯一证据行全部等于证据日期、歧义行继续为 NULL，
+   并输出全表日期分布。
+
+允许的历史证据仅为 `inv_ledger.ref_no = wms_inbound.task_no → wms_inbound.date` 与
+`inv_ledger.ref_no = prc2_receipts.receipt_no → prc2_receipts.receipt_date`。多日期、无关联、日期为空全部保持 NULL。
+截至本地提交前未连接或写入生产数据库，因此没有伪造生产回填数量。
+
+### E4. 验证记录
+
+| 检查 | 实际结果 |
+|---|---|
+| API 定向 Jest（10 suites） | PASS，145 tests |
+| Web 定向 Vitest（2 files） | PASS，9 tests |
+| API `tsc --noEmit` | PASS |
+| Web `tsc --noEmit` | PASS |
+| constraint drift / nullable unique | PASS，0 新违规 |
+| TS migration down / no-data-DML | PASS，78 migrations |
+| entity drift baseline | PASS，0 漂移 |
+| `git diff --check` | PASS |
+| API 全量 Jest | 97 suites / 819 tests PASS；另有 `chanjet-callback.controller.spec.ts` 两个既有收敛等待用例固定 5000ms 超时，单文件复跑同签名（2 failed / 37 passed） |
+| Web 全量 Vitest（`NODE_ENV=test`） | PASS，107 files / 574 tests |
+
+API 的两个超时已按项目既定惯例完成噪声定性：当前 `git diff` / `git status` 均未触及任何 Chanjet 路径；失败测试仍为
+`waits for bounded list convergence before accepting ERP mirror readback` 与
+`caps successful-but-stale mirror reads at three before compensating`，同为固定 5000ms 超时，与此前
+`g202-sales-order-detail-refresh-acceptance-audit.md`、`sales-order-submit-inventory-shortage-audit-20260903.md`、
+`three-page-display-defect-audit-20260904.md` 等多轮记录签名一致。仓库 CI 在干净 `ubuntu-latest` runner 上显式设置
+`NODE_ENV=test`，故如实记为“本机已知噪声，CI 权威”，不将其虚报为本地 PASS，也不再阻断交付。
+
+Web 首次全量运行继承外层 `NODE_ENV=production`，3 files / 29 tests 因 React `act is not a function` 失败；按 CI
+真实环境显式 `NODE_ENV=test` 重跑后 107 files / 574 tests 全部通过。当前尚未记录 CI、PR、full deploy、revision
+三方一致、生产回填或生产只读复验结果；这些步骤执行前均不能记 PASS。

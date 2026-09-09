@@ -321,14 +321,14 @@ export class EggInventoryService {
     const [batch] = await (mgr ?? this.ds).query(
       `INSERT INTO inv_batches (
          batch_no, product_code, company_code, warehouse_code, location_code,
-         egg_date, expire_date, quality_grade, packaging_spec,
+         egg_date, inbound_date, expire_date, quality_grade, packaging_spec,
          source_type, source_no,
          qty, qty_available, status,
          sku_code, grade_code_std, spec_code,
          packaging_batch_ref, collection_batch_ref,
          created_at, updated_at
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
+         $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12,
          $12,'AVAILABLE',
          $13,$14,$15,
          $16,$17,
@@ -834,6 +834,7 @@ export class EggInventoryService {
     targetWarehouseCode: string,
     targetZoneCode: string,
     targetLocationCode: string,
+    inboundDate: string,
     mgr?:        EntityManager,
   ): Promise<void> {
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
@@ -862,16 +863,16 @@ export class EggInventoryService {
           `INSERT INTO inv_batches
              (batch_no, product_code, company_code, qty, qty_available,
               quality_grade, source_type, source_no, status,
-              sku_code, grade_code_std, spec_code, warehouse_code, location_code,
+              sku_code, grade_code_std, spec_code, warehouse_code, location_code, inbound_date,
               created_at, updated_at)
-           VALUES ($1,$2,$3,$4,$4,$5,'RETURN',$6,'RETURNED',$7,$8,$9,$10,$11,NOW(),NOW())`,
+           VALUES ($1,$2,$3,$4,$4,$5,'RETURN',$6,'RETURNED',$7,$8,$9,$10,$11,$12::date,NOW(),NOW())`,
           [
             batchNo, item.product_code, companyCode, accepted, returnGrade, returnNo,
             returnSkuCode,
             // Phase H5: returnSkuCode 已从 sal_return_items.sku_code 读取
             returnSkuCode ? returnGrade : null,
             returnSkuCode ? item.spec_code ?? null : null,
-            targetWarehouseCode, targetLocationCode,
+            targetWarehouseCode, targetLocationCode, inboundDate,
           ],
         );
 

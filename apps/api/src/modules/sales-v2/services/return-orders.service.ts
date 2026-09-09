@@ -584,7 +584,8 @@ export class ReturnOrdersService {
       );
       await this.eggInventory.processReturnInventory(
         id, String(rec.return_no), String(rec.company_code ?? 'ALL'),
-        target.targetWarehouseCode, target.targetZoneCode, target.targetLocationCode, mgr,
+        target.targetWarehouseCode, target.targetZoneCode, target.targetLocationCode,
+        new Date().toISOString().slice(0, 10), mgr,
       );
       await mgr.query(`UPDATE sal_return_orders SET restocked_at=NOW(),updated_at=NOW() WHERE id=$1`, [id]);
       await this.appendOrderEvent(rec, 'RETURN_RESTOCKED', 'RESTOCKING', 'RESTOCKING', null,

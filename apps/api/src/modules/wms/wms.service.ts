@@ -346,7 +346,7 @@ export class WmsService {
     return await this.em.transaction(async (manager) => {
       // V2 fidelity: 幂等 — 仅 PENDING/PROCESSING 状态允许确认
       const tasks = await manager.query(
-        `SELECT warehouse_code, operator, store_code, status, type FROM wms_inbound WHERE task_no = $1 FOR UPDATE`,
+        `SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound WHERE task_no = $1 FOR UPDATE`,
         [task_no],
       );
       if (tasks.length === 0) {
@@ -491,9 +491,9 @@ export class WmsService {
           await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code
+             unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code, inbound_date
            )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13::date)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -503,10 +503,15 @@ export class WmsService {
                unit = COALESCE(inv_batches.unit, EXCLUDED.unit),
                company_code = CASE WHEN inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL'
                                    THEN EXCLUDED.company_code ELSE inv_batches.company_code END,
+               inbound_date = CASE
+                 WHEN inv_batches.inbound_date IS NULL THEN EXCLUDED.inbound_date
+                 WHEN EXCLUDED.inbound_date IS NULL THEN inv_batches.inbound_date
+                 ELSE LEAST(inv_batches.inbound_date, EXCLUDED.inbound_date)
+               END,
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
                updated_at = now()`,
-            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode],
+            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode, task.date || null],
           );
           await manager.query(
             `INSERT INTO inv_ledger (
@@ -529,9 +534,9 @@ export class WmsService {
           await manager.query(
             `INSERT INTO inv_batches (
                batch_no, product_code, sku_code, material_code, item_type, material_type,
-               unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code
+               unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code, inbound_date
              )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, 0, 'QUARANTINE', $9, $10, $11, $12)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, 0, 'QUARANTINE', $9, $10, $11, $12, $13::date)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -541,11 +546,16 @@ export class WmsService {
                unit = COALESCE(inv_batches.unit, EXCLUDED.unit),
                company_code = CASE WHEN inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL'
                                    THEN EXCLUDED.company_code ELSE inv_batches.company_code END,
+               inbound_date = CASE
+                 WHEN inv_batches.inbound_date IS NULL THEN EXCLUDED.inbound_date
+                 WHEN EXCLUDED.inbound_date IS NULL THEN inv_batches.inbound_date
+                 ELSE LEAST(inv_batches.inbound_date, EXCLUDED.inbound_date)
+               END,
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = 0,
                status = 'QUARANTINE',
                updated_at = now()`,
-            [brokenBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode, companyCode],
+            [brokenBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode, companyCode, task.date || null],
           );
           await manager.query(
             `INSERT INTO inv_ledger (
@@ -579,6 +589,7 @@ export class WmsService {
       warehouseCode?: string;
       storeCode?: string;
       operator?: string;
+      inboundDate?: string | null;
       items: {
         itemCode?: string;
         itemType?: string;
@@ -628,9 +639,9 @@ export class WmsService {
       await manager.query(
         `INSERT INTO inv_batches (
            batch_no, product_code, sku_code, material_code, item_type, material_type,
-           unit, qty, qty_available, status, warehouse_code, location_code, store_code
+           unit, qty, qty_available, status, warehouse_code, location_code, store_code, inbound_date
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12::date)
          ON CONFLICT (batch_no) DO UPDATE SET
            product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
            sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -638,12 +649,17 @@ export class WmsService {
            item_type = COALESCE(inv_batches.item_type, EXCLUDED.item_type),
            material_type = COALESCE(inv_batches.material_type, EXCLUDED.material_type),
            unit = COALESCE(inv_batches.unit, EXCLUDED.unit),
+           inbound_date = CASE
+             WHEN inv_batches.inbound_date IS NULL THEN EXCLUDED.inbound_date
+             WHEN EXCLUDED.inbound_date IS NULL THEN inv_batches.inbound_date
+             ELSE LEAST(inv_batches.inbound_date, EXCLUDED.inbound_date)
+           END,
            qty = inv_batches.qty + EXCLUDED.qty,
            qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
            updated_at = now()`,
         [
           batchNo, productCode, skuCode, identity.materialCode, identity.itemType,
-          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode,
+          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null,
         ],
       );
       await manager.query(
@@ -1332,7 +1348,13 @@ export class WmsService {
     try {
       const scope = this.warehouseScope('b.warehouse_code', 0);
       const data = await this.em.query(
-        `SELECT b.*,
+        `SELECT b.id, b.batch_no, b.product_code, b.sku_code, b.material_code,
+                b.item_type, b.material_type, b.unit, b.qty, b.qty_available,
+                b.status, b.warehouse_code, b.location_code, b.store_code,
+                b.company_code, b.egg_date, b.inbound_date, b.expire_date,
+                b.quality_grade, b.packaging_spec, b.source_type, b.source_no,
+                b.grade_code_std, b.spec_code, b.packaging_batch_ref,
+                b.collection_batch_ref, b.legacy_source, b.created_at, b.updated_at,
                 COALESCE(w.warehouse_name_zh, w.warehouse_name, b.warehouse_code) AS warehouse_name,
                 w.warehouse_name_zh, w.warehouse_name_en, w.warehouse_name_lo,
                 sku.sku_name, sku.sku_name_en, sku.sku_name_lo,
@@ -1347,7 +1369,7 @@ export class WmsService {
            LEFT JOIN wms_locations loc ON loc.location_code = b.location_code
            LEFT JOIN mst_stores store ON store.store_code = b.store_code
           WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${scope.sql}
-          ORDER BY b.egg_date DESC NULLS LAST, b.batch_no DESC, b.id DESC LIMIT 200`,
+          ORDER BY b.inbound_date DESC NULLS LAST, b.batch_no DESC, b.id DESC LIMIT 200`,
         scope.params,
       );
       return { code: 200, data };
@@ -1649,9 +1671,9 @@ export class WmsService {
         await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, warehouse_code, location_code, expire_date, store_code, company_code
+             unit, qty, qty_available, status, warehouse_code, location_code, expire_date, store_code, company_code, inbound_date
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13, CURRENT_DATE)`,
           [
             dstBatchNo, src.product_code || null, src.sku_code || null, src.material_code || null,
             src.item_type || null, src.material_type || null, src.unit || null, qty,
@@ -1869,8 +1891,8 @@ export class WmsService {
           targetBatchNo = `${item.source_batch_no}-T-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
           await manager.query(
             `INSERT INTO inv_batches (batch_no,product_code,sku_code,material_code,item_type,material_type,
-              unit,qty,qty_available,status,warehouse_code,location_code,expire_date,store_code,company_code)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12,$13)`,
+              unit,qty,qty_available,status,warehouse_code,location_code,expire_date,store_code,company_code,inbound_date)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12,$13,CURRENT_DATE)`,
             [targetBatchNo, snapshot.product_code || null, snapshot.sku_code || null, snapshot.material_code || null,
               snapshot.item_type || null, snapshot.material_type || null, snapshot.unit || null, received,
               transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',

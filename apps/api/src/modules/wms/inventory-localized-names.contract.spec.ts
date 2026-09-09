@@ -6,7 +6,8 @@ describe('inventory localized-name read contract', () => {
   const crud = readFileSync(join(__dirname, '../generic-crud/generic-crud.service.ts'), 'utf8');
 
   it('keeps batch codes and appends exact multilingual master-data columns', () => {
-    expect(wms).toContain('SELECT b.*');
+    expect(wms).toContain('SELECT b.id, b.batch_no, b.product_code, b.sku_code, b.material_code');
+    expect(wms).toContain('b.inbound_date');
     expect(wms).toContain('w.warehouse_name_en');
     expect(wms).toContain('w.warehouse_name_lo');
     expect(wms).toContain('sku.sku_name_en');
@@ -14,6 +15,13 @@ describe('inventory localized-name read contract', () => {
     expect(wms).toContain('sku.sku_code = b.sku_code');
     expect(wms).toContain('mat.material_code = b.material_code');
     expect(wms).toContain('prod.product_code = b.product_code');
+  });
+
+  it('sorts inventory by inbound date with stable null-last tie breakers', () => {
+    const order = 'ORDER BY b.inbound_date DESC NULLS LAST, b.batch_no DESC, b.id DESC LIMIT 200';
+    expect(wms).toContain(order);
+    expect(wms).not.toContain('ORDER BY b.egg_date DESC NULLS LAST');
+    expect(crud).toContain('inv_batches: \'"inbound_date" DESC NULLS LAST, "batch_no" DESC, "id" DESC\'');
   });
 
   it('uses an explicit table allowlist instead of guessing code columns', () => {

@@ -1128,11 +1128,15 @@ export class StorePosService {
       await mgr.query(
         `INSERT INTO inv_batches
            (batch_no, product_code, company_code, qty, qty_available, quality_grade,
-            packaging_spec, source_type, source_no, status, sku_code, warehouse_code, location_code, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,0,$5,$6,'STORE_RETURN',$7,'QUARANTINE',$8,$9,$10,NOW(),NOW())
+            packaging_spec, source_type, source_no, status, sku_code, warehouse_code, location_code, inbound_date, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,0,$5,$6,'STORE_RETURN',$7,'QUARANTINE',$8,$9,$10,CURRENT_DATE,NOW(),NOW())
          ON CONFLICT (batch_no) DO UPDATE SET
            qty           = inv_batches.qty + EXCLUDED.qty,
            qty_available = 0,
+           inbound_date  = CASE
+             WHEN inv_batches.inbound_date IS NULL THEN EXCLUDED.inbound_date
+             ELSE LEAST(inv_batches.inbound_date, EXCLUDED.inbound_date)
+           END,
            updated_at    = NOW()`,
         [batchNo, allocation.product_code, sale.company_code, qty,
          allocation.grade_code ?? null, allocation.packaging_spec ?? null, sale.sale_no,

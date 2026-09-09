@@ -125,7 +125,7 @@ describe('GenericCrudService', () => {
     });
 
     it.each([
-      ['inv_batches', 'ORDER BY "egg_date" DESC NULLS LAST, "batch_no" DESC, "id" DESC'],
+      ['inv_batches', 'ORDER BY "inbound_date" DESC NULLS LAST, "batch_no" DESC, "id" DESC'],
       ['inv_ledger', 'ORDER BY "created_at" DESC, "id" DESC'],
       ['wms_inbound', 'ORDER BY "created_at" DESC, "id" DESC'],
       ['wms_outbound', 'ORDER BY "created_at" DESC, "id" DESC'],

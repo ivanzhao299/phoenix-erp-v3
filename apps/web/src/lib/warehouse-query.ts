@@ -28,6 +28,7 @@ export interface WarehouseQueryBatch {
   sku_name_en?: string;
   sku_name_lo?: string;
   status?: string;
+  inbound_date?: string;
 }
 
 type RowEnvelope = {
