@@ -31,8 +31,16 @@ export interface WarehouseHandoverStatus {
   handoverQuantity: number;
   inventoryBatchCount: number;
   totalInbound: number;
+  ledgerInbound: number;
   inventoryMode: 'TEMP_PRODUCTION_INBOUND' | 'PACKAGING_INBOUND' | string;
   inventoryPosted: boolean;
+  tempEvidence: null | {
+    ok: boolean;
+    expectedQty: number;
+    batchQty: number;
+    ledgerQty: number;
+    batchCount: number;
+  };
   committedAt: string | null;
   message: string;
 }

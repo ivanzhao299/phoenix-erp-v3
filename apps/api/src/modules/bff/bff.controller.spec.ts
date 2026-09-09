@@ -368,8 +368,9 @@ describe('PackagingTerminalBffController', () => {
           }];
         }
         if (sql.includes('COUNT(*)::int AS batch_count')) {
-          return [{ batch_count: 2, total_inbound: 180 }];
+          return [{ batch_count: 2, total_inbound: 180, ledger_inbound: 180 }];
         }
+        if (sql.includes('SELECT total_eggs')) return [{ total_eggs: 180 }];
         return [];
       }),
     };
@@ -395,9 +396,9 @@ describe('PackagingTerminalBffController', () => {
 
   it('creates the handover record only after packaging inventory is posted', async () => {
     let inserted = false;
-    const em = {
+    const em: any = {
       query: jest.fn(async (sql: string) => {
-        if (sql.includes('FROM wms_locations')) return [{ location_code: 'WH-A' }];
+        if (sql.includes('FROM wms_locations')) return [{ location_code: 'WH-A', warehouse_code: 'WAREHOUSE-A' }];
         if (sql.includes('SELECT code, packing_code')) {
           return inserted ? [{
             code: 'WH-20260725-1',
@@ -412,11 +413,13 @@ describe('PackagingTerminalBffController', () => {
           return [];
         }
         if (sql.includes('COUNT(*)::int AS batch_count')) {
-          return [{ batch_count: 1, total_inbound: 90 }];
+          return [{ batch_count: 1, total_inbound: 90, ledger_inbound: 90 }];
         }
+        if (sql.includes('SELECT total_eggs')) return [{ total_eggs: 90 }];
         return [];
       }),
     };
+    em.transaction = jest.fn(async (work: any) => work(em));
     const pkgInv = {
       completeTerminalPacking: jest.fn().mockResolvedValue({
         refNo: 'PKG-20260725-1',
@@ -443,7 +446,7 @@ describe('PackagingTerminalBffController', () => {
 
     expect(pkgInv.completeTerminalPacking).toHaveBeenCalledWith(
       'PKG-20260725-1',
-      { companyCode: undefined },
+      expect.objectContaining({ companyCode: undefined, warehouseCode: 'WAREHOUSE-A', locationCode: 'WH-A', manager: em }),
     );
     expect(em.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO pkg_handover_records'),
@@ -453,9 +456,9 @@ describe('PackagingTerminalBffController', () => {
 
   it('does not report a TEMP-mode handover as successful when inventory evidence is missing', async () => {
     let inserted = false;
-    const em = {
+    const em: any = {
       query: jest.fn(async (sql: string) => {
-        if (sql.includes('FROM wms_locations')) return [{ location_code: 'LOC-1' }];
+        if (sql.includes('FROM wms_locations')) return [{ location_code: 'LOC-1', warehouse_code: 'WAREHOUSE-1' }];
         if (sql.includes('SELECT code, packing_code')) {
           return inserted ? [{
             code: 'WH-20260725-TEMP',
@@ -472,9 +475,11 @@ describe('PackagingTerminalBffController', () => {
         if (sql.includes('COUNT(*)::int AS batch_count')) {
           return [{ batch_count: 0, total_inbound: 0 }];
         }
+        if (sql.includes('SELECT total_eggs')) return [{ total_eggs: 90 }];
         return [];
       }),
     };
+    em.transaction = jest.fn(async (work: any) => work(em));
     const pkgInv = {
       completeTerminalPacking: jest.fn().mockResolvedValue({
         refNo: 'PKG-20260725-NO-STOCK',
@@ -482,6 +487,9 @@ describe('PackagingTerminalBffController', () => {
         totalInbound: 0,
         skippedByMode: false,
         mode: 'TEMP_PRODUCTION_INBOUND',
+      }),
+      verifyTerminalTempEvidence: jest.fn().mockResolvedValue({
+        ok: false, expectedQty: 90, batchQty: 0, ledgerQty: 0, batchCount: 0,
       }),
       getTerminalInventoryMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND'),
     };
@@ -504,16 +512,16 @@ describe('PackagingTerminalBffController', () => {
       },
     });
 
-    expect(em.query.mock.calls.some(([sql]) =>
+    expect(em.query.mock.calls.some(([sql]: any[]) =>
       String(sql).includes('INSERT INTO pkg_handover_records'),
     )).toBe(false);
   });
 
   it('commits a TEMP-mode handover when inventory generation is intentionally skipped', async () => {
     let inserted = false;
-    const em = {
+    const em: any = {
       query: jest.fn(async (sql: string) => {
-        if (sql.includes('FROM wms_locations')) return [{ location_code: 'LOC-1' }];
+        if (sql.includes('FROM wms_locations')) return [{ location_code: 'LOC-1', warehouse_code: 'WAREHOUSE-1' }];
         if (sql.includes('SELECT code, packing_code')) return inserted ? [{
           code: 'WH-20260725-TEMP-OK', packing_code: 'PKG-TEMP-OK', box_count: 1,
           created_at: '2026-07-25T08:00:00.000Z',
@@ -521,13 +529,18 @@ describe('PackagingTerminalBffController', () => {
         if (sql.includes('SELECT code') && sql.includes('FROM pkg_handover_records')) return [];
         if (sql.includes('INSERT INTO pkg_handover_records')) { inserted = true; return []; }
         if (sql.includes('COUNT(*)::int AS batch_count')) return [{ batch_count: 0, total_inbound: 0 }];
+        if (sql.includes('SELECT total_eggs')) return [{ total_eggs: 30 }];
         return [];
       }),
     };
+    em.transaction = jest.fn(async (work: any) => work(em));
     const pkgInv = {
       completeTerminalPacking: jest.fn().mockResolvedValue({
         refNo: 'PKG-TEMP-OK', idempotent: false, totalInbound: 0,
         skippedByMode: true, mode: 'TEMP_PRODUCTION_INBOUND',
+      }),
+      verifyTerminalTempEvidence: jest.fn().mockResolvedValue({
+        ok: true, expectedQty: 30, batchQty: 30, ledgerQty: 30, batchCount: 1,
       }),
       getTerminalInventoryMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND'),
     };
@@ -563,6 +576,9 @@ describe('PackagingTerminalBffController', () => {
     };
     const pkgInv = {
       getTerminalInventoryMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND'),
+      verifyTerminalTempEvidence: jest.fn().mockResolvedValue({
+        ok: false, expectedQty: 540, batchQty: 0, ledgerQty: 0, batchCount: 0,
+      }),
     };
     const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
 
@@ -571,8 +587,8 @@ describe('PackagingTerminalBffController', () => {
     ).resolves.toMatchObject({
       code: 200,
       data: {
-        state: 'COMMITTED',
-        committed: true,
+        state: 'HANDOVER_ONLY',
+        committed: false,
         inventoryMode: 'TEMP_PRODUCTION_INBOUND',
         inventoryBatchCount: 0,
         totalInbound: 0,

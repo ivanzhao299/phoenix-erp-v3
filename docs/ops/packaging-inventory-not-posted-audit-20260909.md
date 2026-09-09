@@ -180,3 +180,31 @@ warehouse-handover “确认入库”
 - 已执行：设计与代码只读核查；生产双重只读审计；新增本报告。
 - 未执行：代码、schema、配置、生产数据修改；补账；部署；模式切换。
 - 尚缺：目标分钟级 API/Docker 日志原文。该缺口不改变由数据库事实与确定性模式解析得到的根因，但实施前建议由主 agent补齐留档。
+
+## 10. 获批后执行记录（2026-09-09）
+
+### 10.1 P0 / P1 本地实施
+
+- 已贯通 `confirmHandover → completeTerminalPacking → generateSaleableFromOutputs → createProductionBatch` 的真实 `warehouseCode/locationCode`；库位从 `wms_locations` 反查仓库，Terminal 链缺少真实仓库或库位时失败关闭。
+- Terminal 公司码改由 ACTIVE `brd_farms.farm_code → company_code` 权威关系解析，不再用销售客户表猜测孟赛公司。
+- PACKAGING 模式的批次、流水、handover 共用同一 `EntityManager.transaction`；幂等重试额外校验仓库、库位和批次/流水数量一致。
+- TEMP 模式新增日产蛋批次/流水勾稽；场站、生产日、数量未完全对平时不落新 handover，状态为阻断待处理。
+- 状态接口在 PACKAGING 模式同时要求包装数量、批次数量、`PACKAGING_INBOUND` 流水数量相等；TEMP 模式只有上游证据对平才返回 `COMMITTED`。
+- 模式解析新增 SITE 回落及解析异常结构化告警；配置列表读取时巡检 ACTIVE 场站、ACTIVE 班次与孤儿 SITE 配置。
+- UI 已区分“库存已入账”和“交接完成，库存由日产蛋入口持有（批次/流水已对平）”；失败不会进入完成页。
+
+本地定向验证：
+
+- API `tsc --noEmit`：PASS。
+- API Jest：3 suites / 47 tests PASS。
+- Web `tsc --noEmit`：PASS。
+- Web Vitest：2 files / 6 tests PASS。
+
+### 10.2 模式切换前停止点
+
+生产写入尚未执行。现网 `/api/v2/inventory/source/switch` 一次只能修改一个 scope，且现网仍运行修复前代码：
+
+1. 若先将 `LPH_MENGSAI` 切为 PACKAGING，旧代码会立即启用包装入账但仍可能写默认 `WMS-VTE-MAIN / INBOUND-DOCK`。
+2. 若先把 `FARM-MS` 迁回 TEMP/退役，`LPH_MENGSAI` 仍回落 GROUP TEMP，无法形成“先冻结 TEMP、再迁移旧码、最后切权威码”的无窗口原子操作。
+
+因此该步骤不满足获批 SOP 的防双写/防错库位红线，执行已在任何生产配置写入、部署和补账之前停止。尚无 PR、CI run、deploy run、revision 或补账写入可记录，禁止将本节视为全闭环 PASS。

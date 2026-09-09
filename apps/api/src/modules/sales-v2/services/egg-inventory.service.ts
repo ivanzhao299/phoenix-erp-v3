@@ -128,13 +128,13 @@ export class EggInventoryService {
    * 兼容历史：若旧批次写入了 0-5 数字蛋档（P1A 临时生产入库遗留），
    * 这些值已不在 product_grades 中 → 新写入会被拦截，旧批次读取不受影响。
    */
-  private async getValidGrades(): Promise<string[]> {
+  private async getValidGrades(mgr?: EntityManager): Promise<string[]> {
     const now = Date.now();
     if (this._gradeCache.codes.length > 0 && this._gradeCache.expireAt > now) {
       return this._gradeCache.codes;
     }
     try {
-      const rows: Array<{ grade_code: string }> = await this.ds.query(
+      const rows: Array<{ grade_code: string }> = await (mgr ?? this.ds).query(
         `SELECT grade_code FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order`,
       );
       const codes = rows.map(r => r.grade_code).filter(Boolean);
@@ -153,10 +153,10 @@ export class EggInventoryService {
     try { return (this.cls.get('user') as any)?.username ?? 'system'; } catch { return 'system'; }
   }
 
-  private async genBatchNo(eggDate: string): Promise<string> {
+  private async genBatchNo(eggDate: string, mgr?: EntityManager): Promise<string> {
     const dateStr = eggDate.replace(/-/g, '');
     const prefix  = `EGG-${dateStr}-`;
-    const [row]   = await this.ds.query(
+    const [row]   = await (mgr ?? this.ds).query(
       `SELECT COUNT(*) AS cnt FROM inv_batches WHERE batch_no LIKE $1`, [`${prefix}%`],
     );
     return `${prefix}${String(Number(row.cnt) + 1).padStart(5, '0')}`;
@@ -225,12 +225,12 @@ export class EggInventoryService {
    * Phase H4: 根据 sku_code 查询 product_skus，返回推导信息
    * 仅在 skuCode 参数存在时调用
    */
-  private async resolveSkuInfo(skuCode: string): Promise<{
+  private async resolveSkuInfo(skuCode: string, mgr?: EntityManager): Promise<{
     productCode: string;
     gradeCode:   string;
     specCode:    string;
   }> {
-    const rows = await this.ds.query(
+    const rows = await (mgr ?? this.ds).query(
       `SELECT product_code, grade_code, spec_code FROM product_skus WHERE sku_code = $1 AND status = 'ACTIVE'`,
       [skuCode],
     );
@@ -276,7 +276,7 @@ export class EggInventoryService {
     packagingBatchRef?:  string;
     /** 生产链路收口 Phase 1：集蛋批次追溯引用 */
     collectionBatchRef?: string;
-  }): Promise<EggBatch> {
+  }, mgr?: EntityManager): Promise<EggBatch> {
     if (params.qty <= 0) throw new BadRequestException('入库数量必须大于 0');
     if (params.sourceType === 'TEMP_PRODUCTION' && (!params.warehouseCode || !params.locationCode)) {
       throw new BadRequestException('日产蛋入库必须解析到真实 ACTIVE 仓库和库位，禁止使用默认占位码');
@@ -289,7 +289,7 @@ export class EggInventoryService {
     let skuCode      = params.skuCode      ?? null;
 
     if (skuCode) {
-      const skuInfo = await this.resolveSkuInfo(skuCode);
+      const skuInfo = await this.resolveSkuInfo(skuCode, mgr);
       productCode  = skuInfo.productCode;
       gradeCodeStd = skuInfo.gradeCode;
       specCode     = skuInfo.specCode;
@@ -304,21 +304,21 @@ export class EggInventoryService {
 
     // 质量等级校验（2026-06-06 收口）：从 product_grades 权威源动态读取，弃用
     // 硬编码 14 档混杂表（含历史遗留 0-5 数字蛋档）。带 5 分钟模块级缓存。
-    const validGrades = await this.getValidGrades();
+    const validGrades = await this.getValidGrades(mgr);
     // 默认 'L'（一号蛋）— 孟赛主流销售档；非孟赛业务建议显式传 qualityGrade
     const grade = params.qualityGrade ?? 'L';
     if (!validGrades.includes(grade)) {
       throw new BadRequestException(`无效的质量等级: ${grade}，有效值：${validGrades.join('/')}`);
     }
 
-    const batchNo    = await this.genBatchNo(params.eggDate);
+    const batchNo    = await this.genBatchNo(params.eggDate, mgr);
     const expireDate = this.calcExpireDate(params.eggDate, params.shelfDays ?? DEFAULT_SHELF_DAYS);
     const qty        = Math.round(params.qty);
 
     // Phase H4: INSERT 增加三个 SKU 字段
     // 生产链路收口 Phase 1: source_type 参数化 + 追溯引用列
     const sourceType = params.sourceType ?? 'PRODUCTION';
-    const [batch] = await this.ds.query(
+    const [batch] = await (mgr ?? this.ds).query(
       `INSERT INTO inv_batches (
          batch_no, product_code, company_code, warehouse_code, location_code,
          egg_date, expire_date, quality_grade, packaging_spec,
@@ -364,7 +364,7 @@ export class EggInventoryService {
       logDate:         params.eggDate,
       warehouseCode:   params.warehouseCode ?? 'WMS-VTE-MAIN',
       locationCode:    params.locationCode ?? 'INBOUND-DOCK',
-    });
+    }, mgr);
 
     this.logger.log(`[EggInv] 生产入库: ${batchNo} qty=${qty} expire=${expireDate}${skuCode ? ` sku=${skuCode}` : ''}`);
     return batch as EggBatch;

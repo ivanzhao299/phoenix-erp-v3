@@ -37,10 +37,10 @@ describe('BUG-20260722-0003 warehouse handover', () => {
     expect(css).toContain('width: 100% !important');
   });
 
-  it('does not describe a TEMP-mode handover as zero inventory posted', () => {
-    expect(page).toContain('activeHandoverStatus.inventoryPosted');
-    expect(page).toContain('activeHandoverStatus.handoverQuantity');
-    expect(page).toContain('枚已完成包装交接');
-    expect(page).toContain('包装交接不重复写库存');
+  it('distinguishes PACKAGING posting from reconciled TEMP ownership', () => {
+    expect(page).toContain("activeHandoverStatus.inventoryMode === 'TEMP_PRODUCTION_INBOUND'");
+    expect(page).toContain('交接完成，库存由日产蛋入口持有');
+    expect(page).toContain('枚日产蛋库存批次/流水已对平');
+    expect(page).toContain('库存已入账');
   });
 });
