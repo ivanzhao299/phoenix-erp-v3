@@ -95,14 +95,14 @@ export class PackagingInventoryIntegrationService {
    * 等级→数量 映射与上下文，本方法负责 幂等 / 互斥门控 / 不可售隔离 / 统一命名。
    *
    * @param refNo        幂等键（包装任务号 task_no 或 BFF 包装记录号 packingCode）→ 写入 packaging_batch_ref
-   * @param items  Array<{grade, specName?, qty}>（grade 已归一化；specName 为规格名，用于解析 spec_code/sku_code）
+   * @param items  grade + 稳定 specCode/specId + 展示名。新链路以编码为权威，名称仅兼容旧记录。
    * @param opts   companyCode / siteCode（模式解析）/ eggDate / collectionRef
    *
    * R3：携带 specName → 解析 spec_code（packaging_specs.spec_name）+ sku_code（product_skus grade+spec）写入库存。
    */
   async generateSaleableFromOutputs(
     refNo: string,
-    items: Array<{ grade: string; specName?: string | null; qty: number }>,
+    items: Array<{ grade: string; specCode?: string | null; specName?: string | null; qty: number }>,
     opts?: {
       companyCode?: string;
       siteCode?: string | null;
@@ -190,26 +190,27 @@ export class PackagingInventoryIntegrationService {
     const collectionRef = opts?.collectionRef ?? null;
     const saleable = await this.loadSaleableGrades(opts?.manager);
 
-    // R3：按 (grade, specName) 聚合，保留规格维度
-    const agg = new Map<string, { grade: string; specName: string | null; qty: number }>();
+    // 按 (grade, specCode, specName) 聚合；specCode 是新链路的权威标识。
+    const agg = new Map<string, { grade: string; specCode: string | null; specName: string | null; qty: number }>();
     for (const it of items || []) {
       const grade = String(it.grade || '').trim();
       const qty = Math.max(0, Math.round(Number(it.qty) || 0));
       if (!grade || qty === 0) continue;
+      const specCode = it.specCode ? String(it.specCode).trim() : null;
       const specName = it.specName ? String(it.specName).trim() : null;
-      const key = `${grade}__${specName ?? ''}`;
+      const key = `${grade}__${specCode ?? ''}__${specName ?? ''}`;
       const cur = agg.get(key);
-      if (cur) cur.qty += qty; else agg.set(key, { grade, specName, qty });
+      if (cur) cur.qty += qty; else agg.set(key, { grade, specCode, specName, qty });
     }
 
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
     const skippedNonSaleable: Array<{ grade: string; qty: number }> = [];
 
-    for (const { grade, specName, qty } of agg.values()) {
+    for (const { grade, specCode: sourceSpecCode, specName, qty } of agg.values()) {
       if (!saleable.has(grade)) { skippedNonSaleable.push({ grade, qty }); continue; }
-      // R3：解析 spec_code（按规格名）+ sku_code（grade+spec），写入库存批次
-      const specCode = await this.resolveSpecCode(specName, opts?.manager);
-      const skuCode  = await this.resolveSku(grade, specCode, opts?.manager);
+      const specCode = await this.resolveSpecCode(sourceSpecCode, specName, opts?.manager);
+      const productCode = `PRD-EGG-${grade}`;
+      const skuCode = await this.resolveSku(productCode, grade, specCode, opts?.manager);
       const b = await this.createSaleableBatch(companyCode, eggDate, grade, qty, refNo, collectionRef, specCode, skuCode, opts);
       batches.push(b);
     }
@@ -322,11 +323,11 @@ export class PackagingInventoryIntegrationService {
       try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return []; }
     })();
     const keyMap = await this.buildGradeKeyMap(opts?.manager);
-    const items: Array<{ grade: string; specName?: string | null; qty: number }> = [];
+    const items: Array<{ grade: string; specCode?: string | null; specName?: string | null; qty: number }> = [];
     for (const b of batchesJson) {
       if (!b?.grade) continue;
       const g = keyMap[b.grade] ?? b.grade;
-      items.push({ grade: g, specName: b.spec ?? null, qty: Number(b.eggs || 0) });
+      items.push({ grade: g, specCode: b.specId ?? null, specName: b.spec ?? null, qty: Number(b.eggs || 0) });
     }
 
     const eggDate = rec.production_date
@@ -435,28 +436,34 @@ export class PackagingInventoryIntegrationService {
     }
   }
 
-  /** R3：按规格名解析 packaging_specs.spec_code（用于写 inv_batches.spec_code / 解析 SKU） */
-  private async resolveSpecCode(specName: string | null, mgr?: EntityManager): Promise<string | null> {
-    if (!specName) return null;
-    try {
-      const rows = await (mgr ?? this.ds).query(
-        `SELECT spec_code FROM packaging_specs WHERE spec_name = $1 LIMIT 1`, [specName],
-      );
-      return rows[0]?.spec_code ?? null;
-    } catch { return null; }
+  /** 稳定编码优先；有规格输入却找不到唯一 ACTIVE 主数据时失败关闭。 */
+  private async resolveSpecCode(specCode: string | null, specName: string | null, mgr?: EntityManager): Promise<string | null> {
+    if (!specCode && !specName) return null;
+    const rows = specCode
+      ? await (mgr ?? this.ds).query(
+          `SELECT spec_code FROM packaging_specs WHERE spec_code = $1 AND status = 'ACTIVE'`, [specCode],
+        )
+      : await (mgr ?? this.ds).query(
+          `SELECT spec_code FROM packaging_specs WHERE spec_name = $1 AND status = 'ACTIVE'`, [specName],
+        );
+    if (rows.length !== 1) {
+      throw new NotFoundException(`包装规格主数据未唯一生效：${specCode ?? specName}`);
+    }
+    return rows[0].spec_code;
   }
 
-  /** R3：按 (grade, spec_code) 解析 product_skus.sku_code（用于 FIFO PATH A 精确匹配） */
-  private async resolveSku(gradeCode: string, specCode: string | null, mgr?: EntityManager): Promise<string | null> {
+  /** 按权威 product + grade + spec 解析唯一 ACTIVE SKU；缺失或重复均阻断入账。 */
+  private async resolveSku(productCode: string, gradeCode: string, specCode: string | null, mgr?: EntityManager): Promise<string | null> {
     if (!specCode) return null;
-    try {
-      const rows = await (mgr ?? this.ds).query(
-        `SELECT sku_code FROM product_skus
-          WHERE grade_code = $1 AND spec_code = $2 AND status = 'ACTIVE' LIMIT 1`,
-        [gradeCode, specCode],
-      );
-      return rows[0]?.sku_code ?? null;
-    } catch { return null; }
+    const rows = await (mgr ?? this.ds).query(
+      `SELECT sku_code FROM product_skus
+        WHERE product_code = $1 AND grade_code = $2 AND spec_code = $3 AND status = 'ACTIVE'`,
+      [productCode, gradeCode, specCode],
+    );
+    if (rows.length !== 1) {
+      throw new NotFoundException(`SKU 主数据未唯一生效：${productCode}/${gradeCode}/${specCode}`);
+    }
+    return rows[0].sku_code;
   }
 
   /** 构建等级归一化映射：PKG_EGG_GRADE 字典 config_json.code/terminalCode → dict_code */
