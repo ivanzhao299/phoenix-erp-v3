@@ -8,7 +8,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
         if (sql.includes('FROM sys_dict')) return [];
         if (sql.includes('WHERE packaging_batch_ref')) return [];
         if (sql.includes('FROM sal_customers')) return [{ company_code: 'COMP-1' }];
-        if (sql.includes('FROM brd_farms')) return [{ company_code: 'COMP-1' }];
+        if (sql.includes('SELECT company_code FROM')) return [{ company_code: 'COMP-1' }];
         if (sql.includes('FROM product_grades')) return [{ grade_code: 'L', is_saleable: true }];
         return [];
       }),
@@ -106,7 +106,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
       if (sql.includes('FROM sys_dict')) return [];
       if (sql.includes('WHERE packaging_batch_ref')) return [];
       if (sql.includes('FROM sal_customers')) return [{ company_code: 'COMP-1' }];
-      if (sql.includes('FROM brd_farms')) return [{ company_code: 'COMP-1' }];
+      if (sql.includes('SELECT company_code FROM')) return [{ company_code: 'COMP-1' }];
       return [];
     });
 

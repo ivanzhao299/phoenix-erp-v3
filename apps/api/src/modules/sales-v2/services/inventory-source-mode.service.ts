@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 
 export type InventorySourceMode = 'TEMP_PRODUCTION_INBOUND' | 'PACKAGING_INBOUND';
 export type ScopeLevel = 'GROUP' | 'COMPANY' | 'SITE';
@@ -68,7 +69,7 @@ export class InventorySourceModeService {
   async auditSiteConfiguration(): Promise<Array<{ code: string; siteCode: string; detail: string }>> {
     const rows = await this.ds.query(
       `WITH authoritative AS (
-         SELECT farm_code AS site_code FROM brd_farms WHERE status = 'ACTIVE'
+         SELECT farm_code AS site_code FROM ${OrgOwnershipService.FARM_TABLE} WHERE status = 'ACTIVE'
        ), active_shift_sites AS (
          SELECT DISTINCT site_id AS site_code FROM pkg_work_shifts
           WHERE status IN ('OPEN','ACTIVE') AND site_id IS NOT NULL

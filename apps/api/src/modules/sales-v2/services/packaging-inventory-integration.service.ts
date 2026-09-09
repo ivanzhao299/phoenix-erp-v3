@@ -4,6 +4,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { EggInventoryService } from './egg-inventory.service';
 import { InventorySourceModeService } from './inventory-source-mode.service'; // P1A 互斥门控
+import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 
 /**
  * PackagingInventoryIntegrationService — 生产链路收口 Phase 1
@@ -62,7 +63,7 @@ export class PackagingInventoryIntegrationService {
     if (explicit) return explicit;
     if (siteCode) {
       const rows = await (mgr ?? this.ds).query(
-        `SELECT company_code FROM brd_farms
+        `SELECT company_code FROM ${OrgOwnershipService.FARM_TABLE}
           WHERE farm_code = $1 AND status = 'ACTIVE' AND company_code IS NOT NULL
           LIMIT 1`,
         [siteCode],
@@ -382,8 +383,9 @@ export class PackagingInventoryIntegrationService {
             AND egg_date = $1::date
             AND (collection_batch_ref = $2
               OR collection_batch_ref IN (
-              SELECT 'HOUSE-' || house_code FROM brd_houses
-               WHERE COALESCE(site_code, farm_code) = $3
+              SELECT 'HOUSE-' || h.house_code FROM brd_houses h
+               ${OrgOwnershipService.ACTIVE_FARM_JOIN}
+               WHERE h.farm_code = $3 AND h.status = 'ACTIVE'
               ))
        )
        SELECT COUNT(*)::int AS batch_count,
