@@ -1,0 +1,24 @@
+[
+  {
+    "name": "grading-pending-open-shift",
+    "username": "admin",
+    "pathSql": "SELECT '/api/packaging/terminal/grading/pending?shiftId=' || id FROM pkg_work_shifts WHERE status='OPEN' ORDER BY id DESC LIMIT 1",
+    "expectedStatus": 200,
+    "minDataLength": 1,
+    "allowNoData": true,
+    "reportDataLength": true,
+    "requiredNonEmptyFields": ["id", "batch_code", "shift_id", "house_code", "gradable_qty"]
+  },
+  {
+    "name": "grading-pending-shift-required",
+    "username": "admin",
+    "path": "/api/packaging/terminal/grading/pending",
+    "expectedStatus": 400
+  },
+  {
+    "name": "grading-pending-closed-shift-rejected",
+    "username": "admin",
+    "pathSql": "SELECT '/api/packaging/terminal/grading/pending?shiftId=' || id FROM pkg_work_shifts WHERE status<>'OPEN' ORDER BY id DESC LIMIT 1",
+    "expectedStatus": 409
+  }
+]
