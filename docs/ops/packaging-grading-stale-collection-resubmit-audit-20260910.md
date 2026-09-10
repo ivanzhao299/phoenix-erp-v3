@@ -207,3 +207,12 @@ Terminal BFF 的 `POST grading/submit` 位于 `apps/api/src/modules/bff/bff.cont
 ### 7.4 后续恢复条件
 
 只有在业务明确裁定新增 `H-DEBUG-A01` 来源是否为合法生产数据、测试污染或另一个待修对象，并重新冻结班次 56 的净集蛋口径后，才能更新 reviewed baseline 并重新从 preflight 开始。不能仅为让脚本通过而把 `196` 改成 `294`。
+
+### 7.5 `H-DEBUG-A01` 来源溯源与分级处置（2026-09-10）
+
+- 受控生产只读审计使用 `scripts/ops/readonly-audits/h-debug-a01-origin-20260910.sql`。首轮 run `34434045970` 已输出主要事实，但末尾因用户表名不匹配失败；事务处于 `default_transaction_read_only=on`，未产生写入。修正后的完整 run `34434161190` 成功，checkout/API/Web revision 均为 `dc2d2aa524444ec3f82a579b7cf5461f01f9acf1`，SQL 末尾 `ROLLBACK`，且运行器确认 `PRODUCTION_BUSINESS_WRITES=0`。
+- 目标来源完整事实：`pkg_source_batches.id=48`，`batch_code/source_inbound_no=SRC-20260910-H-DEBUG--R3VW`，`shift_id=56`，`house_code=H-DEBUG-A01`，`total/dirty/cracked=100/1/1`，净量 `98`，`received_by=NULL`，`batch_status=RECEIVED`，创建/更新时间均为 `2026-09-10 02:28:15.597138 UTC`。该表没有 `created_by` 字段，故来源行本身不能提供创建账号。
+- 鸡舍确已注册：`brd_houses.house_code=H-DEBUG-A01`，名称 `X`，状态 `ACTIVE`，创建于 `2026-06-08`；仓库留档又将其归类为 `TEST_OR_DEBUG / EXCLUDE_TEST_DATA`，并称为遗留测试鸡舍。生产历史还存在同舍来源 `id=16/34/38`（2026-07-30、08-20、08-21），本次并非该鸡舍首次进入包装来源数据。
+- `pkg_grading_records.id=77 / GRD-20260910-306173` 创建于 `2026-09-10 00:31:46.173537 UTC`，比目标来源早约 `1:56:29`；`pkg_grading_source_links` 对目标来源或 id 77 均为 `0` 行。因此 id 77 **不可能是分了该来源的 98 枚**，两者在班次 56 上形成 `294` 仅是数量吻合，不能建立因果关联。
+- `sys_operation_logs` 对目标创建时点前后 15 分钟、目标业务号/id 及 before/after JSON 均为 `0` 行；来源 `received_by` 为空，无法取得创建者账号、IP 或 UA。全仓及 git 历史仅证明 `H-DEBUG-A01` 是既存测试鸡舍，并在 Codex 协作提交的运维报告中被记录；精确来源号只出现于发现异常后的审计报告，没有 fixture、测试脚本或创建命令证据。提交的 Codex co-author 尾注不能反证生产写入者。
+- 三选一结论：**无法定源**。证据支持“测试标识鸡舍产生了异常来源”，但不足以在“Codex 调试污染”与“用户侧测试数据”之间归责。依用户给定分支和失败即停红线，不修改 reviewed baseline，不执行来源/分级软作废，不执行班次 55 修复；`id=73/74/77`、来源 id 48、包装引用、库存和 ledger 均保持原状，等待用户裁定。
