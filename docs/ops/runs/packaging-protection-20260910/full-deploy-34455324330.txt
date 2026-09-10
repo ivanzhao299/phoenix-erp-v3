@@ -14,16 +14,16 @@ Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0235002Z       END IF;
 Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0235304Z     END $$
 Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0235716Z query: CREATE UNIQUE INDEX IF NOT EXISTS uq_packing_idempotency
 Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0236379Z       ON pkg_packing_records(idempotency_key) WHERE idempotency_key IS NOT NULL
-Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1773047Z  Container phoenix-v3-web Recreate 
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1773047Z  Container phoenix-v3-web Recreate
 Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1774812Z query: INSERT INTO "migrations"("timestamp", "name") VALUES ($1, $2) -- PARAMETERS: [1789099201000,"ProtectPackagingVoidAndTestIsolation1789099201000"]
 Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1777164Z Migration ProtectPackagingVoidAndTestIsolation1789099201000 has been executed successfully.
 Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1778601Z query: COMMIT
 Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1779811Z ✅ TS 迁移完成
-Deploy · full	Deploy via SSH	2026-09-10T08:41:17.4054958Z  Container phoenix-v3-web Recreated 
-Deploy · full	Deploy via SSH	2026-09-10T08:41:17.4056324Z  Container phoenix-v3-web Starting 
-Deploy · full	Deploy via SSH	2026-09-10T08:41:17.6337063Z  Container phoenix-v3-web Started 
-Deploy · full	Deploy via SSH	2026-09-10T08:41:17.6337779Z  Container phoenix-v3-web Waiting 
-Deploy · full	Deploy via SSH	2026-09-10T08:41:22.9101988Z  Container phoenix-v3-web Healthy 
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.4054958Z  Container phoenix-v3-web Recreated
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.4056324Z  Container phoenix-v3-web Starting
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.6337063Z  Container phoenix-v3-web Started
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.6337779Z  Container phoenix-v3-web Waiting
+Deploy · full	Deploy via SSH	2026-09-10T08:41:22.9101988Z  Container phoenix-v3-web Healthy
 Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4941949Z Deleted Images:
 Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4943566Z untagged: sha256:3ca14e48bbce371e710396***1f1347d26aaad10c84f1559b6661019ae8599615
 Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4945429Z deleted: sha256:3ca14e48bbce371e710396***1f1347d26aaad10c84f1559b6661019ae8599615
