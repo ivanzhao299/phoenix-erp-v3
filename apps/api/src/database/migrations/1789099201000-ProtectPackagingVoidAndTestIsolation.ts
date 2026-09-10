@@ -3,6 +3,28 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 /** Additive schema only. Historical rows retain their existing business values. */
 export class ProtectPackagingVoidAndTestIsolation1789099201000 implements MigrationInterface {
   async up(q: QueryRunner): Promise<void> {
+    // These canonical base tables historically came from application bootstrap.
+    // Fresh migration-only databases need them before ALTER; production is a no-op.
+    await q.query(`CREATE TABLE IF NOT EXISTS pkg_work_shifts (
+      id serial PRIMARY KEY, shift_code varchar(50) NOT NULL UNIQUE,
+      production_date date NOT NULL, site_id varchar(50) DEFAULT 'site-01',
+      line_id varchar(50) DEFAULT 'line-01', operator_id integer,
+      operator_name varchar(100), supervisor_name varchar(100),
+      status varchar(20) DEFAULT 'OPEN', hygiene_check boolean DEFAULT true,
+      device_check boolean DEFAULT true, variance_reason text,
+      opened_at timestamp DEFAULT now(), closed_at timestamp,
+      created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now(), shift_type varchar(20)
+    )`);
+    await q.query(`CREATE TABLE IF NOT EXISTS pkg_packing_records (
+      id serial PRIMARY KEY, code varchar(80) NOT NULL UNIQUE, grading_code varchar(80),
+      production_date date, batches_json jsonb DEFAULT '[]'::jsonb,
+      total_boxes integer DEFAULT 0, total_eggs integer DEFAULT 0,
+      created_at timestamp DEFAULT now()
+    )`);
+    await q.query(`ALTER TABLE pkg_work_shifts ADD COLUMN IF NOT EXISTS shift_type varchar(20)`);
+    await q.query(`ALTER TABLE pkg_packing_records ADD COLUMN IF NOT EXISTS shift_id integer,
+      ADD COLUMN IF NOT EXISTS grading_codes_json jsonb NOT NULL DEFAULT '[]'::jsonb`);
+
     for (const table of ['pkg_work_shifts', 'pkg_source_batches', 'pkg_grading_records', 'pkg_packing_records']) {
       await q.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false`);
     }
@@ -24,6 +46,7 @@ export class ProtectPackagingVoidAndTestIsolation1789099201000 implements Migrat
   }
 
   async down(q: QueryRunner): Promise<void> {
+    // Retain pre-existing base tables/columns, matching the earlier grading migration.
     // Never silently remove protection from a populated test/VOID chain.
     await q.query(`DO $$ BEGIN
       IF EXISTS (SELECT 1 FROM pkg_work_shifts WHERE is_test)

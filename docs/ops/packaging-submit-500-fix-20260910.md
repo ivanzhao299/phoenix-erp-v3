@@ -102,3 +102,7 @@ CLI stderr os error11 / exit101不是业务验收；独立只读run34450975790�
 补查实际标签调用后，服务端兼容前端现用packingCode字段；打印/重打前重新读取包装状态，VOID显示阻断提示，并补中英老三语。更新后双端tsc、定向36通过及Web577/577；i18n键与AST门禁通过。
 
 实现首提交dc89ebba的Security run34454095914失败：冻结边界需reviewed-frozen-boundary标签，安全探针整文件匹配到既有Chanjet注释需reviewed-security-touch标签。依据现有.github/workflows/ci-security.yml，在独立代码/SQL复核完成后添加正式审查标签，未改门禁实现或放宽规则；新提交须重新获得全绿。该失败保持记录，不能用后续绿覆盖其历史。
+
+### 空库迁移顺序修正
+
+V3 Regression run34454096008真实失败于Seed DB阶段：pkg_work_shifts此前依赖应用启动时创建，TypeORM先运行所以ALTER找不到表。已补充两张终端基础表的幂等CREATE及既有shift_type/shift_id/grading_codes_json列保障；生产真实schema已存在，语句不改原行、不回填。down保留历史基础表，仅撤本次保护列。新增PG集成步骤移至API初始化完成后，避免尚未bootstrap的辅助表不可用。新增真实空schema up/down/up测试后，本轮独立PostgreSQL18为13/13通过；API/Web现有验证仍保留原始记录。失败未跳过、未改成允许失败，等待新head CI完整重跑。

@@ -63,6 +63,26 @@ const dbUrl = process.env.PACKAGING_TEST_DATABASE_URL;
     return { shiftId, gradingCodes: [code], batches: [{ grade: 'GRADE_1', boxes: 1, eggs }], idempotencyKey: key };
   }
 
+  it('builds the terminal base tables before bootstrap and reverts only protection columns', async () => {
+    const q = ds.createQueryRunner();
+    const emptySchema = `${schema}_empty`;
+    await q.connect();
+    try {
+      await q.query(`CREATE SCHEMA ${emptySchema}`);
+      await q.query(`SET search_path=${emptySchema}`);
+      for (const table of ['pkg_source_batches','pkg_grading_records']) {
+        await q.query(`CREATE TABLE ${table} (LIKE public.${table} INCLUDING ALL)`);
+      }
+      await migration.up(q);
+      expect((await q.query(`SELECT count(*)::int AS n FROM information_schema.columns WHERE table_schema=$1 AND table_name='pkg_packing_records' AND column_name='status'`, [emptySchema]))[0].n).toBe(1);
+      await migration.down(q);
+      expect((await q.query(`SELECT count(*)::int AS n FROM information_schema.columns WHERE table_schema=$1 AND table_name='pkg_packing_records' AND column_name='status'`, [emptySchema]))[0].n).toBe(0);
+      await migration.up(q);
+    } finally {
+      await q.query(`SET search_path=${schema},public`);
+      await q.release();
+    }
+  });
   it('opens test and real shifts on the same line while default context sees only the real shift', async () => {
     realShift = (await controller.openShift({ lineId: 'LINE-INTEGRATION', shiftType: 'DAY' }, real)).data.id;
     testShift = (await controller.openShift({ lineId: 'LINE-INTEGRATION', shiftType: 'DAY', reason: 'local integration' }, test)).data.id;
