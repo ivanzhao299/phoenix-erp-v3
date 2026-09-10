@@ -97,34 +97,18 @@ describe('DashboardBffController', () => {
 
 describe('PackagingTerminalBffController', () => {
   const houseScope = { assertActiveHouseOwnership: jest.fn().mockResolvedValue({ company_code: 'COMP-A' }) };
-  it('does not report packing success when the packing record write fails', async () => {
-    const em = {
-      query: jest.fn(async (sql: string) => {
-        if (sql.includes('BOOL_OR')) return [{ code: 'GC-A', shift_id: 1, has_source_in_target_shift: true }];
-        throw new Error('column shift_id does not exist');
-      }),
-    };
-    const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
-
-    const result = controller.submitPacking({
-      productionDate: '2026-08-21',
-      gradingCodes: ['GC-A'],
-      shiftId: 1,
-      batches: [{ grade: 'A', boxes: 2, eggs: 360 }],
-    });
-
-    await expect(result).rejects.toBeInstanceOf(InternalServerErrorException);
-    await expect(result).rejects.toMatchObject({
-      status: 500,
-      response: expect.objectContaining({
-        message: '包装记录写入失败，请稍后重试或联系管理员',
-      }),
-    });
-    await expect(result).rejects.not.toThrow('column shift_id does not exist');
+  it('does not report packing success when the database schema is unavailable', async () => {
+    const em: any = { query: jest.fn().mockRejectedValue(new Error('column shift_id does not exist')) };
+    em.transaction = (work: any) => work(em);
+    const controller = new PackagingTerminalBffController(em, {} as never, houseScope as never);
+    await expect(controller.submitPacking({ shiftId: 1, gradingCodes: ['GC-A'], idempotencyKey: 'packing-test',
+      batches: [{ grade: 'A', boxes: 2, eggs: 360 }] })).rejects.toThrow('column shift_id does not exist');
+    expect(em.query.mock.calls.some(([sql]: any[]) => sql.includes('INSERT INTO pkg_packing_records'))).toBe(false);
   });
 
   it('rejects an empty packing submission before creating a handover candidate', async () => {
     const em = { query: jest.fn() };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
 
     await expect(controller.submitPacking({ batches: [] })).rejects.toBeInstanceOf(BadRequestException);
@@ -138,6 +122,7 @@ describe('PackagingTerminalBffController', () => {
     [{ grade: '', boxes: 2, eggs: 360 }, 'batches[0].grade 必须是非空字符串'],
   ])('rejects malformed packing batches before touching the database', async (batch, message) => {
     const em = { query: jest.fn() };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
 
     await expect(controller.submitPacking({ batches: [batch] })).rejects.toBeInstanceOf(BadRequestException);
@@ -145,28 +130,19 @@ describe('PackagingTerminalBffController', () => {
     expect(em.query).not.toHaveBeenCalled();
   });
 
-  it('inserts a valid packing record with the existing code and conflict semantics', async () => {
-    const em = { query: jest.fn(async (sql: string) => sql.includes('BOOL_OR')
-      ? [{ code: 'GC-A', shift_id: 1, has_source_in_target_shift: true }]
-      : []) };
-    const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
+  it('inserts packing under a transaction after checking source ownership and remaining quantity', async () => {
+    const em: any = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM pkg_work_shifts')) return [{ is_test: false, status: 'OPEN', date_text: '2026-08-21' }];
+      if (sql.includes('SELECT gr.*')) return [{ code: 'GC-A', shift_id: 1, outputs_json: { A: 360 } }];
+      return [];
+    }) };
+    em.transaction = (work: any) => work(em);
+    const controller = new PackagingTerminalBffController(em, {} as never, houseScope as never);
     const batches = [{ grade: 'A', boxes: 2, eggs: 360 }];
-
-    const result = await controller.submitPacking({
-      productionDate: '2026-08-21',
-      gradingCodes: [' GC-A ', 42, ''],
-      shiftId: 1,
-      batches,
-    });
-
-    expect(result).toMatchObject({ code: 200, data: { totalBoxes: 2, totalEggs: 360 } });
-    expect(result.data.code).toMatch(/^PKG-20260821-\d{6}$/);
-    expect(em.query).toHaveBeenCalledTimes(2);
-    expect(em.query).toHaveBeenCalledWith(
-      expect.stringContaining('ON CONFLICT (code) DO NOTHING'),
-      [result.data.code, 'GC-A', JSON.stringify(['GC-A']), '2026-08-21',
-        JSON.stringify(batches), 2, 360, 1],
-    );
+    const result = await controller.submitPacking({ shiftId: 1, gradingCodes: ['GC-A'], batches, idempotencyKey: 'packing-test' });
+    expect(result.data).toMatchObject({ totalBoxes: 2, totalEggs: 360, idempotentReplay: false });
+    expect(em.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO pkg_packing_records'),
+      [result.data.code, 'GC-A', JSON.stringify(['GC-A']), '2026-08-21', JSON.stringify(batches), 2, 360, 1, false, 'packing-test', expect.any(String)]);
   });
 
   it('allows collection editors to open a collection shift', () => {
@@ -199,6 +175,7 @@ describe('PackagingTerminalBffController', () => {
 
   it('rejects inconsistent collection quantities before touching the database', async () => {
     const em = { query: jest.fn() };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, {} as never);
 
     await expect(controller.receiveBatch({
@@ -215,11 +192,13 @@ describe('PackagingTerminalBffController', () => {
   it('accepts the legacy gradable quantity and stores the canonical total received quantity', async () => {
     const em = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('FROM pkg_work_shifts')) return [{ id: 1, is_test: false, status: 'OPEN' }];
         if (sql.includes('FROM brd_houses h')) return [{ farm_code: 'FARM-A', company_code: 'COMP-A', site_code: 'SITE-A' }];
         if (sql.includes('SELECT * FROM pkg_source_batches')) return [{ id: 1, batch_code: 'SRC-LEGACY' }];
         return [];
       }),
     };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
 
     await expect(controller.receiveBatch({
@@ -239,11 +218,13 @@ describe('PackagingTerminalBffController', () => {
   it('persists all source quantity columns for a new received batch', async () => {
     const em = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('FROM pkg_work_shifts')) return [{ id: 1, is_test: false, status: 'OPEN' }];
         if (sql.includes('FROM brd_houses h')) return [{ farm_code: 'FARM-A', company_code: 'COMP-A', site_code: 'SITE-A' }];
         if (sql.includes('SELECT * FROM pkg_source_batches')) return [{ id: 1, batch_code: 'SRC-1' }];
         return [];
       }),
     };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, {} as never, houseScope as never);
 
     await expect(controller.receiveBatch({
@@ -279,6 +260,7 @@ describe('PackagingTerminalBffController', () => {
         return [{ params }];
       }),
     };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, {} as never);
 
     const response = await controller.getShiftSummary('2026-07-22', '42');
@@ -313,6 +295,7 @@ describe('PackagingTerminalBffController', () => {
         if (sql.includes('COUNT(*)::int AS batch_count')) {
           return [{ batch_count: 2, total_inbound: 180, ledger_inbound: 180 }];
         }
+        if (sql.includes('SELECT p.*')) return [{ is_test: false, status: 'ACTIVE', shift_id: 1 }];
         if (sql.includes('SELECT total_eggs')) return [{ total_eggs: 180 }];
         return [];
       }),
@@ -320,6 +303,7 @@ describe('PackagingTerminalBffController', () => {
     const pkgInv = {
       getTerminalInventoryMode: jest.fn().mockResolvedValue('PACKAGING_INVENTORY'),
     };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
 
     await expect(
@@ -358,6 +342,7 @@ describe('PackagingTerminalBffController', () => {
         if (sql.includes('COUNT(*)::int AS batch_count')) {
           return [{ batch_count: 1, total_inbound: 90, ledger_inbound: 90 }];
         }
+        if (sql.includes('SELECT p.*')) return [{ is_test: false, status: 'ACTIVE', shift_id: 1 }];
         if (sql.includes('SELECT total_eggs')) return [{ total_eggs: 90 }];
         return [];
       }),
@@ -371,6 +356,7 @@ describe('PackagingTerminalBffController', () => {
       }),
       getTerminalInventoryMode: jest.fn().mockResolvedValue('PACKAGING_INVENTORY'),
     };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
 
     await expect(controller.confirmHandover({
@@ -418,6 +404,7 @@ describe('PackagingTerminalBffController', () => {
         if (sql.includes('COUNT(*)::int AS batch_count')) {
           return [{ batch_count: 0, total_inbound: 0 }];
         }
+        if (sql.includes('SELECT p.*')) return [{ is_test: false, status: 'ACTIVE', shift_id: 1 }];
         if (sql.includes('SELECT total_eggs')) return [{ total_eggs: 90 }];
         return [];
       }),
@@ -436,6 +423,7 @@ describe('PackagingTerminalBffController', () => {
       }),
       getTerminalInventoryMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND'),
     };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
 
     await expect(controller.confirmHandover({
@@ -472,6 +460,7 @@ describe('PackagingTerminalBffController', () => {
         if (sql.includes('SELECT code') && sql.includes('FROM pkg_handover_records')) return [];
         if (sql.includes('INSERT INTO pkg_handover_records')) { inserted = true; return []; }
         if (sql.includes('COUNT(*)::int AS batch_count')) return [{ batch_count: 0, total_inbound: 0 }];
+        if (sql.includes('SELECT p.*')) return [{ is_test: false, status: 'ACTIVE', shift_id: 1 }];
         if (sql.includes('SELECT total_eggs')) return [{ total_eggs: 30 }];
         return [];
       }),
@@ -487,6 +476,7 @@ describe('PackagingTerminalBffController', () => {
       }),
       getTerminalInventoryMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND'),
     };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
 
     await expect(controller.confirmHandover({ packingCode: 'PKG-TEMP-OK', boxes: ['BOX-1'], location: 'LOC-1' }))
@@ -511,6 +501,7 @@ describe('PackagingTerminalBffController', () => {
         if (sql.includes('COUNT(*)::int AS batch_count')) {
           return [{ batch_count: 0, total_inbound: 0 }];
         }
+        if (sql.includes('SELECT p.*')) return [{ is_test: false, status: 'ACTIVE', shift_id: 1 }];
         if (sql.includes('SELECT total_eggs')) {
           return [{ total_eggs: 540 }];
         }
@@ -523,6 +514,7 @@ describe('PackagingTerminalBffController', () => {
         ok: false, expectedQty: 540, batchQty: 0, ledgerQty: 0, batchCount: 0,
       }),
     };
+    (em as any).transaction ??= async (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em as never, pkgInv as never);
 
     await expect(

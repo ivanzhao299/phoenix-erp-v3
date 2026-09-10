@@ -127,13 +127,22 @@ export default function PackingPage() {
     setSubmitError('');
     try {
       const today = new Date().toISOString().slice(0, 10);
+      const identity = JSON.stringify({ shiftId: ctx.currentShift.id, gradingCodes, items });
+      const storageKey = `packaging-submit:${identity}`;
+      let idempotencyKey = sessionStorage.getItem(storageKey);
+      if (!idempotencyKey) {
+        idempotencyKey = `packing-${crypto.randomUUID()}`;
+        sessionStorage.setItem(storageKey, idempotencyKey);
+      }
       const res = await packagingApi.submitPacking({
+        idempotencyKey,
         gradingCodes: gradingCodes,
         gradingCode: gradingCodes[0] ?? null,
         productionDate: today,
         batches: items,
         shiftId: ctx.currentShift?.id ?? null
       });
+      sessionStorage.removeItem(storageKey);
       setPackingResult(res.code, items);
       void fetchSnap();
       setDone(true);

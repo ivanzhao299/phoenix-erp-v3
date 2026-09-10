@@ -115,3 +115,42 @@ UNAPPROVED_PACKING_DEPENDENCIES,PACKING_VOID_SCHEMA_NOT_DEPLOYED
 这是实际生产门禁失败，**不是清理成功**。连接为 read-only，错误导致事务结束回滚；没有业务 DML。库存/ledger 行数与哈希再次与 07:14:45 及前次治理一致。失败时 ssh-action 没有返回 capture_stdout，上传 artifact 只有空日志；已从 Actions step 原日志提取脱敏证据至 `runs/h-debug-resume-20260910/preflight-34449200039.txt`，不把空 artifact 当成未执行。GitHub 日志对某条清单外 grading code 尾部作了 `***` 掩码，保留原样，不据此认定数据漂移；目标全字段基线仍以 34448940336 artifact 为准。
 
 另直接下载前项 execute `34434992200` 的 artifact，确认 `UPDATE 1 + UPDATE 3 + UPDATE 1`、`INSERT 1 + INSERT 3 + INSERT 1` 与最终 **COMMIT**：前项实际更新 5 个业务行并追加 5 个审计行，绝非“从未写入”。本次新写入仍为 0，未执行旧包。
+
+## 7. VOID 保护与测试隔离续行（2026-09-10，部署前）
+
+恢复 HEAD `6d375afc`；CLI stderr `os error 11` / exit 101 是 CLI 故障，不能替代业务验收。另核实 readonly run `34450975790` 的生产 SQL 已成功、业务写入 0，但保存 stdout 环境变量超过进程参数上限，`Persist sanitized audit output` 报 `Argument list too long`，故 workflow failure / 无 artifact。原始日志保存在本地文件；只提取结构摘要，未重放写包。
+
+新只读 run [34452868722](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34452868722) 成功，bundle `c73e27e986f980990bdc35cb0e2033ec239d7ebb`，生产三端仍为 `6792efcf...`。连接与事务均只读。证据：[dependency-34452868722.log](runs/packaging-protection-20260910/dependency-34452868722.log)。
+
+### 7.1 逐行待批清单
+
+| 对象 | 直接证据 | 判断与待批动作 |
+|---|---|---|
+| 交接 17 | 关联包装 21；10 箱；CS-KW-006 | 既有交接事实。需确认实际交付与逆向处置；本轮不作废、不修改 |
+| 交接 20 | 关联包装 25；10 箱；CS-KW-006 | 同上 |
+| 包装 26 | 300 枚/10 箱；直接引用分级 53/54，同时引用其他分级；交接 **21** | 不能仅因引用53/54整单定为污染；须核实实际用量、来源及整单处置 |
+| 包装 27 | 300 枚/10 箱；同样混合引用；交接 **22** | 同上 |
+| 包装 28 | 300 枚/10 箱；同样混合引用；交接 **23** | 同上 |
+| 交接 21 | 包装26；WH-20260821-MT2PEHE5；10箱；CS-KW-006 | 新核实清单外依赖，待独立审批 |
+| 交接 22 | 包装27；WH-20260821-MT2PJN1Z；10箱；KWMS01 | 新核实清单外依赖，待独立审批 |
+| 交接 23 | 包装28；WH-20260821-MT2RH6OG；10箱；CS-KW-004 | 新核实清单外依赖，待独立审批 |
+
+五张包装逐单查直接 inv_batches、inv_ledger、销售分配/动作、旧订单 allocated_batch_no、门店销售明细，均明确 count=0；同班次和同站点日期候选库存也是0。来源 links 未提供逐分级用量，因此引用是直接追溯关联，实际消耗归属仍不能证明。不能将候选推断等同直接依赖，也不能用“库存0”否认交接。POS `store_sale_allocations` 补充查询纳入末次验收包，最终结果以后续 run 为准。首次紧凑查询 hash 算法与旧报告不同，不能直接比较；已改回旧算法（逐行 row_to_json MD5 后拼接）。
+
+原12行仍全部 HOLD：来源16/34/38；分级13/42/43/44/45/53/54；包装21/25。未生成或执行清理 apply，不执行部分安全子集。新增对象无处置审批。
+
+### 7.2 已实现的代码保护
+
+- 四表 `is_test boolean NOT NULL DEFAULT false`；包装 `status ACTIVE/VOID` 与 void_reason/voided_at/voided_by、部分唯一幂等索引。迁移 `1789099201000-ProtectPackagingVoidAndTestIsolation.ts` 只有 schema DDL；没有历史业务 DML。down 在有测试/VOID残留时拒绝撤掉保护。
+- 包装 submit 在事务中锁定、核验来源模式/权限、分级余量并写审计；幂等同载荷重放不增量，异载荷或VOID重放409。客户端稳定key跨失败/刷新保留。历史混合引用没有逐分级分配表：保守扣除全部重叠包装数量，可能拒绝部分无法证明的跨班次余量，禁止猜测归属或删除引用制造余额。
+- VOID 有强制原因和操作者审计；交接、库存、ledger或直接销售引用存在时拒绝，要求逆向业务，不新增自动逆向/库存调整。交接与库存幂等入口共用事务锁；缺schema不再legacy回落继续入库。
+- 来源VOID不再出现在有效context/汇总或被QC覆盖；包装VOID不参与有效汇总、剩余量与库存消费。历史追溯保留状态。通用CRUD封锁包装链写入，真实查询排除测试链。
+- 显式 `x-packaging-mode: test` + 服务端 ROLE_ADMIN 校验；名称、body flag无权限效力。real/test查询和来源消费双向隔离，测试不接真实WMS来源、不交接/写库存。测试班次通过 `test/shifts/:id/end` 原子关闭并审计；保留原记录，不物理清理。同舍同班多次采集仍为独立批次。
+
+### 7.3 验证与当前交付状态
+
+所有测试显式 NODE_ENV=test。API/Web tsc exit0；API全量833通过，13条件性跳过（包含本轮7项PG集成用例及既有6项），本轮PG suite已在独立PostgreSQL18实际执行12/12；Web全量577/577、108文件。scope-audit两模式0命中；nullable/constraint门禁0新增违规；81条迁移down与DML门禁通过。原始验证文件见 [runs/packaging-protection-20260910](runs/packaging-protection-20260910)。新增PG集成步骤已加入V3 Regression，CI必须真跑。
+
+代码与SQL已由独立探子复核；补充了直接销售引用作废阻断、操作人userId、通用交接查询过滤。锁固定real用于库存入口是有意为之：测试链在服务本身也强制拒绝，不能把持real锁误认为允许测试库存。
+
+此节记录部署前状态：运行时代码尚待本次PR CI全绿/合并/full deploy及三端验收。生产业务DML=0、POST=0、测试残留=0。原12行清理与成功POST验收均未完成，不能PASS。后续实际部署结果追加在下一节。

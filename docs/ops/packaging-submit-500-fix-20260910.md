@@ -84,3 +84,15 @@ UNAPPROVED_PACKING_DEPENDENCIES,PACKING_VOID_SCHEMA_NOT_DEPLOYED
 这是实际生产门禁失败，**不是清理成功**。连接为 read-only，错误导致事务结束回滚；没有业务 DML。库存/ledger 行数与哈希再次与 07:14:45 及前次治理一致。失败时 ssh-action 没有返回 capture_stdout，上传 artifact 只有空日志；已从 Actions step 原日志提取脱敏证据至 `runs/h-debug-resume-20260910/preflight-34449200039.txt`，不把空 artifact 当成未执行。GitHub 日志对某条清单外 grading code 尾部作了 `***` 掩码，保留原样，不据此认定数据漂移；目标全字段基线仍以 34448940336 artifact 为准。
 
 另直接下载前项 execute `34434992200` 的 artifact，确认 `UPDATE 1 + UPDATE 3 + UPDATE 1`、`INSERT 1 + INSERT 3 + INSERT 1` 与最终 **COMMIT**：前项实际更新 5 个业务行并追加 5 个审计行，绝非“从未写入”。本次新写入仍为 0，未执行旧包。
+
+## 6. VOID 与测试隔离实施续行（2026-09-10，部署前）
+
+CLI stderr os error11 / exit101不是业务验收；独立只读run34450975790的SQL已成功，仅artifact留档因stdout环境变量过长失败。新只读依赖run34452868722成功，未重复业务写入。包装26/27/28另有交接21/22/23；与既有交接17/20一起列入待批清单，不能仅凭引用53/54整单认定污染。完整逐行清单、事实/推断边界见[H-DEBUG报告第7节](h-debug-a01-history-chain-audit-20260910.md#71-逐行待批清单)。
+
+已实现：包装ACTIVE/VOID审计、幂等与事务余量保护、交接/库存/直接销售依赖拒绝直接VOID、消费过滤；四表默认false的is_test；ROLE_ADMIN显式测试模式、双向来源/查询隔离、禁止测试交接库存、可审计关闭测试班次。仅schema迁移，无历史业务DML。普通同舍同班多次采集不合并。历史混合引用余量保守扣减，不能推算每个分级实际消耗。
+
+本地NODE_ENV=test：双端tsc通过；API833通过/13条件性跳过；其中本轮PG suite另行在独立PG18真实执行12/12；Web577/577；scope/约束/81条迁移门禁通过。独立代码和SQL审查已完成。新增PG集成纳入CI。本节尚未声明CI/部署完成，以后续实际run为准。
+
+生产POST计划已由主agent复核，**本轮不执行**：只允许管理员显式测试模式，独立测试班次/来源30枚，不引用真实入库单；稳定分级/包装key；按每步已存在末态决定是否执行；验证pending30→0、同key重放不增量；禁止交接/库存/销售；审计结束保留测试记录。计划必须在部署后只读隔离验收通过且后续用户允许执行的轮次中使用；不把本轮GET或本地PG通过写成生产POST成功。
+
+原12行清理、新依赖处置、真实成功POST验收继续暂缓；本轮截至部署前业务DML0、生产测试记录0。

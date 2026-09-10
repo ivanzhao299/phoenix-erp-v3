@@ -88,6 +88,12 @@ jobs:
         working-directory: apps/api
         run: MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
 
+      - name: Packaging VOID and test isolation — PostgreSQL concurrency
+        working-directory: apps/api
+        env:
+          PACKAGING_TEST_DATABASE_URL: postgres://phoenix_v3:phoenix_v3_pass@127.0.0.1:5432/phoenix_erp
+        run: pnpm exec jest --runInBand src/modules/bff/packaging-protection.spec.ts
+
       - name: Assert WMS migration end state
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'

@@ -1,0 +1,23 @@
+{
+  "startHead": "6d375afcb2e877c97885924ed7beaf3f840cb73d",
+  "cliFailure": "failed printing to stderr: Resource temporarily unavailable (os error 11), exit 101; not business acceptance",
+  "readonlyRun34450975790": {
+    "sql": "success; PRODUCTION_BUSINESS_WRITES=0",
+    "workflow": "failure",
+    "cause": "Persist sanitized audit output: Argument list too long; stdout env exceeded exec limit",
+    "artifactCount": 0
+  },
+  "dependencyRun": 34452868722,
+  "productionBusinessDml": 0,
+  "productionPostExecuted": false,
+  "productionSchemaChangesBeforeDeploy": 0,
+  "review": [
+    "void_consumers",
+    "isolation_entries",
+    "run_evidence",
+    "review_code",
+    "review_sql",
+    "final_protection_review"
+  ],
+  "localPg": "PostgreSQL 18, dedicated localhost container, isolated schemas, 12/12 passed"
+}

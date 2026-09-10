@@ -123,11 +123,13 @@ const getPath = (body, path) => path ? path.split('.').reduce((v, k) => v == nul
         path = rows.length ? `/api/v2/sales/orders/${rows[0].id}/process-log` : '';
       }
       if (!path) { console.log(`NO_SAMPLE name=${a.name} reason=no-data-sample`); continue; }
+      if (a.packagingMode && (a.packagingMode !== 'test' || !path.startsWith('/api/packaging/terminal/'))) throw new Error('Invalid packaging readonly test mode assertion');
       const origin = a.origin === 'web' ? 'http://web:3000' : 'http://127.0.0.1:3100';
       const response = await fetch(`${origin}${path}`, {
         method,
         redirect: a.expectedLocation ? 'manual' : 'follow',
         headers: {
+          ...(a.packagingMode === 'test' ? { 'x-packaging-mode': 'test' } : {}),
           Authorization: `Bearer ${tokens.get(username)}`,
           Cookie: `phoenix_access_token=${tokens.get(username)}`,
         },

@@ -2,7 +2,7 @@ import { PackagingInventoryIntegrationService } from './packaging-inventory-inte
 
 describe('PackagingInventoryIntegrationService terminal handover', () => {
   function setup(mode: 'TEMP_PRODUCTION_INBOUND' | 'PACKAGING_INBOUND', packing: Record<string, any>) {
-    const ds = {
+    const ds: any = {
       query: jest.fn(async (sql: string) => {
         if (sql.includes('FROM pkg_packing_records')) return [packing];
         if (sql.includes('FROM sys_dict')) return [];
@@ -15,6 +15,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
         return [];
       }),
     };
+    ds.transaction = (work: any) => work(ds);
     const eggInv = {
       createProductionBatch: jest.fn().mockResolvedValue({ batch_no: 'EGG-20260806-00001' }),
     };
@@ -27,7 +28,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
   }
 
   const packing = {
-    code: 'PKG-1', production_date: '2026-08-06', shift_id: 9, site_id: 'FARM-MS',
+    is_test: false, status: 'ACTIVE', code: 'PKG-1', production_date: '2026-08-06', shift_id: 9, site_id: 'FARM-MS',
     batches_json: [{ grade: 'L', eggs: 300, spec: null }],
   };
 
@@ -39,7 +40,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
       mode: 'TEMP_PRODUCTION_INBOUND',
       skippedByMode: true,
     });
-    expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: 'FARM-MS', companyCode: 'COMP-1' });
+    expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: 'FARM-MS', companyCode: 'COMP-1' }, expect.anything());
     expect(eggInv.createProductionBatch).not.toHaveBeenCalled();
   });
 
@@ -51,13 +52,13 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
       mode: 'PACKAGING_INBOUND',
       skippedByMode: false,
     });
-    expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: 'FARM-MS', companyCode: 'COMP-1' });
+    expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: 'FARM-MS', companyCode: 'COMP-1' }, expect.anything());
     expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({
       companyCode: 'COMP-1',
       qty: 300,
       packagingBatchRef: 'PKG-1',
       collectionBatchRef: 'SHIFT-9',
-    }), undefined);
+    }), expect.anything());
   });
 
   it('preserves specId and resolves the authoritative product-grade-spec SKU', async () => {
@@ -81,7 +82,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
       gradeCodeStd: 'L',
       specCode: 'PKG_PACK_SPEC_3',
       skuCode: 'EGG-L-PKG_PACK_SPEC_3',
-    }), undefined);
+    }), expect.anything());
   });
 
   it('blocks inventory when an explicit specId has no ACTIVE master record', async () => {
@@ -141,7 +142,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
 
     await service.completeTerminalPacking('PKG-1', { warehouseCode: 'WMS-1', locationCode: 'LOC-1' });
 
-    expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: null, companyCode: 'COMP-1' });
+    expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: null, companyCode: 'COMP-1' }, expect.anything());
   });
 
   it('uses the same shift site when refreshing terminal inventory mode', async () => {
@@ -151,9 +152,9 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
     expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: 'FARM-MS', companyCode: 'COMP-1' });
   });
 
-  it('supports legacy packing tables without shift_id', async () => {
+  it('fails closed when protection schema is missing', async () => {
     const { service, ds, modeSvc } = setup('TEMP_PRODUCTION_INBOUND', {
-      code: 'PKG-1', production_date: '2026-08-06',
+      is_test: false, status: 'ACTIVE', code: 'PKG-1', production_date: '2026-08-06',
       batches_json: [{ grade: 'L', eggs: 300, spec: null }],
     });
     let packingQueries = 0;
@@ -162,7 +163,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
         packingQueries += 1;
         if (sql.includes('p.shift_id')) throw Object.assign(new Error('column does not exist'), { code: '42703' });
         return [{
-          code: 'PKG-1', production_date: '2026-08-06',
+          is_test: false, status: 'ACTIVE', code: 'PKG-1', production_date: '2026-08-06',
           batches_json: [{ grade: 'L', eggs: 300, spec: null }],
         }];
       }
@@ -173,8 +174,8 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
       return [];
     });
 
-    await expect(service.completeTerminalPacking('PKG-1', { warehouseCode: 'WMS-1', locationCode: 'LOC-1' })).resolves.toMatchObject({ skippedByMode: true });
-    expect(packingQueries).toBe(2);
-    expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: null, companyCode: 'COMP-1' });
+    await expect(service.completeTerminalPacking('PKG-1', { warehouseCode: 'WMS-1', locationCode: 'LOC-1' })).rejects.toMatchObject({ code: '42703' });
+    expect(packingQueries).toBe(1);
+    expect(modeSvc.resolveMode).not.toHaveBeenCalled();
   });
 });
