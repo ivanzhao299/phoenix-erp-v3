@@ -56,7 +56,7 @@ export class TraceabilityService {
       batches.map((b: any) => this.traceByBatch(b.batch_no, companyScope))
     );
     const [pkg] = await this.q(
-      `SELECT code, production_date, total_boxes, total_eggs, shift_id FROM pkg_packing_records WHERE code = $1 LIMIT 1`,
+      `SELECT code, production_date, total_boxes, total_eggs, shift_id, status, void_reason FROM pkg_packing_records WHERE is_test = false AND code = $1 LIMIT 1`,
       [packingCode],
     );
     return { found: !!pkg || traces.length > 0, entry: 'packaging', key: packingCode, packaging: pkg ?? null, traces };
@@ -133,8 +133,8 @@ export class TraceabilityService {
     if (packingCode) {
       const [pkg] = await this.q(
         `SELECT code, production_date, grading_code, grading_codes_json, batches_json,
-                total_boxes, total_eggs, shift_id
-           FROM pkg_packing_records WHERE code = $1 LIMIT 1`,
+                total_boxes, total_eggs, shift_id, status, void_reason
+           FROM pkg_packing_records WHERE is_test = false AND code = $1 LIMIT 1`,
         [packingCode],
       );
       packaging = pkg ?? null;
@@ -146,7 +146,7 @@ export class TraceabilityService {
     if (shiftId) {
       const [ws] = await this.q(
         `SELECT id, shift_code, site_id, line_id, operator_name, supervisor_name, production_date
-           FROM pkg_work_shifts WHERE id = $1 LIMIT 1`,
+           FROM pkg_work_shifts WHERE is_test = false AND id = $1 LIMIT 1`,
         [shiftId],
       );
       shift = ws ?? null;
@@ -155,8 +155,8 @@ export class TraceabilityService {
     // 分级段（按生产日期）
     const grading = packaging?.production_date
       ? await this.q(
-          `SELECT code, source_batch_code, production_date, outputs_json, total_output
-             FROM pkg_grading_records WHERE production_date = $1 ORDER BY created_at ASC LIMIT 20`,
+          `SELECT code, source_batch_code, production_date, outputs_json, total_output, status
+             FROM pkg_grading_records WHERE is_test = false AND production_date = $1 ORDER BY created_at ASC LIMIT 20`,
           [packaging.production_date],
         )
       : [];
@@ -164,8 +164,8 @@ export class TraceabilityService {
     // 集蛋/原蛋来源 + 鸡舍
     const source = packaging?.production_date
       ? await this.q(
-          `SELECT batch_code, house_code, flock_code, lay_date, production_date, received_qty
-             FROM pkg_source_batches WHERE production_date = $1 ORDER BY created_at ASC LIMIT 20`,
+          `SELECT batch_code, house_code, flock_code, lay_date, production_date, received_qty, batch_status
+             FROM pkg_source_batches WHERE is_test = false AND production_date = $1 ORDER BY created_at ASC LIMIT 20`,
           [packaging.production_date],
         )
       : [];

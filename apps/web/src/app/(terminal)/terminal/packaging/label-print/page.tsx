@@ -147,6 +147,13 @@ export default function LabelPrintPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx.packingBatches]);
   const [trace, setTrace] = useState<TraceData | null>(null);
+  const [printError, setPrintError] = useState('');
+  const assertPrintable = async () => {
+    if (!ctx.packingCode) throw new Error(t('terminal.select_packing_record', '请选择包装单'));
+    const current = await packagingApi.getPackingTrace(ctx.packingCode);
+    setTrace(current);
+    if (current?.status !== 'ACTIVE') throw new Error(t('terminal.void_packing_print_blocked', '包装单已作废或不可用，禁止打印'));
+  };
   const [printing, setPrinting] = useState<string | null>(null);
   const [reprintTarget, setReprintTarget] = useState<string | null>(null);
   const [reprintReason, setReprintReason] = useState('');
@@ -177,7 +184,9 @@ export default function LabelPrintPage() {
     const box = boxes.find(b => b.code === code);
     if (!box) return;
     setPrinting(code);
+    setPrintError('');
     try {
+      await assertPrintable();
       await printLabel({
         singleLabelHtml: buildLabelHtml(code, box.grade, box.spec),
         css: buildLabelCss(cfg.labelW, cfg.labelH),
@@ -192,7 +201,9 @@ export default function LabelPrintPage() {
         boxCode: code,
         packingCode: ctx.packingCode,
         printType: 'NORMAL'
-      }).catch(console.error);
+      });
+    } catch (e) {
+      setPrintError(e instanceof Error ? e.message : t('auto.literal.453e73eab259', '打印失败'));
     } finally {
       setPrinting(null);
     }
@@ -211,7 +222,9 @@ export default function LabelPrintPage() {
     const box = boxes.find(b => b.code === reprintTarget);
     if (!box) return;
     setPrinting(reprintTarget);
+    setPrintError('');
     try {
+      await assertPrintable();
       await printLabel({
         singleLabelHtml: buildLabelHtml(reprintTarget, box.grade, box.spec),
         css: buildLabelCss(cfg.labelW, cfg.labelH),
@@ -223,7 +236,9 @@ export default function LabelPrintPage() {
         packingCode: ctx.packingCode,
         printType: 'REPRINT',
         reprintReason
-      }).catch(console.error);
+      });
+    } catch (e) {
+      setPrintError(e instanceof Error ? e.message : t('auto.literal.453e73eab259', '打印失败'));
     } finally {
       setPrinting(null);
     }
@@ -912,6 +927,7 @@ export default function LabelPrintPage() {
     background: T.BG,
     overflow: 'hidden'
   }}>
+      {(printError || trace?.status === 'VOID') && <div role="alert" style={{ padding: 12, color: 'var(--status-danger)' }}>{printError || t('terminal.void_packing_print_blocked', '包装单已作废或不可用，禁止打印')}</div>}
       {showSettings && <SettingsDrawer />}
 
       <div style={{

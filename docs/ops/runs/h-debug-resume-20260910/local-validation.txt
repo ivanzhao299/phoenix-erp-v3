@@ -1,0 +1,18 @@
+All local verification explicitly NODE_ENV=test.
+API tsc --noEmit: exit 0, no errors.
+Web tsc --noEmit: exit 0, no errors.
+API BFF + grading-governance Jest: 2 suites / 31 tests PASS, exit 0.
+Web full Vitest: 108 files / 577 tests PASS, exit 0.
+Nullable unique guard: 0 violations (1 allowlisted).
+Constraint drift guard: 0 new drift, 1 allowlisted, 0 warnings.
+Scope audit: terminal packaging pages, two narrow patterns, 0 matches each; see scope-audit.json.
+Input validation: readonly resume and preflight SQL path validation exit 0.
+
+Prior act failure investigation:
+Inherited shell NODE_ENV is production (only this environment variable was printed).
+react/index.js selects cjs/react.production.js when NODE_ENV is production.
+react.development.js:806 exports act; react.production.js has no exports.act.
+react-dom-test-utils.production.js:20 calls React.act(callback).
+With explicit NODE_ENV=test, all formerly failing Web tests pass without source changes.
+Old bash session and its exact environment cannot be recovered; this establishes the
+current environment failure mechanism, not a recovered historical process trace.

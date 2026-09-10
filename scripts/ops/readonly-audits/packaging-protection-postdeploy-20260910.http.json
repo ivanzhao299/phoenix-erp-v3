@@ -1,0 +1,55 @@
+[
+  {
+    "name": "packaging-real-context",
+    "path": "/api/packaging/terminal/context",
+    "requiredFields": [
+      "currentShift",
+      "currentSourceBatch"
+    ]
+  },
+  {
+    "name": "packaging-real-shifts",
+    "path": "/api/packaging/terminal/shifts/today",
+    "requiredEveryFields": {
+      "is_test": false
+    }
+  },
+  {
+    "name": "packaging-test-shifts",
+    "path": "/api/packaging/terminal/shifts/today",
+    "packagingMode": "test",
+    "requiredEveryFields": {
+      "is_test": true
+    }
+  },
+  {
+    "name": "packaging-real-sources",
+    "path": "/api/packaging/terminal/source-batches/today",
+    "requiredEveryFields": {
+      "is_test": false
+    }
+  },
+  {
+    "name": "packaging-test-sources",
+    "path": "/api/packaging/terminal/source-batches/today",
+    "packagingMode": "test",
+    "requiredEveryFields": {
+      "is_test": true
+    }
+  },
+  {
+    "name": "packaging-test-context",
+    "path": "/api/packaging/terminal/context",
+    "packagingMode": "test",
+    "requiredFields": [
+      "currentShift",
+      "currentSourceBatch"
+    ]
+  },
+  {
+    "name": "packaging-test-inventory-denied",
+    "path": "/api/packaging/terminal/warehouse/status?packingCode=PKG-20260821-872761",
+    "packagingMode": "test",
+    "expectedStatus": 409
+  }
+]

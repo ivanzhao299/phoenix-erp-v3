@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectEntityManager } from '@nestjs/typeorm';
@@ -10,6 +10,7 @@ import {
   normalizeUserRoleAssignments,
   UserRoleAssignmentValidationError,
 } from './user-role-assignment';
+import { packagingTestMode, assertPackagingMode, lockPacking, assertNoPackingDownstream, assertPackingCanEnterInventory } from './packaging-protection';
 import { SubmitGradingDto } from './dto/grading.dto';
 
 // ═══════════════════════════════════════════════════════════════
@@ -1334,12 +1335,13 @@ export class PackagingTerminalBffController {
   // ── Terminal 全局上下文 ────────────────────────────────────────────────────
   @Get('context')
   async getContext(@Req() req: any) {
-    const userId = req.user?.id || req.user?.user_id;
+    const isTest = packagingTestMode(req);
+    const userId = req.user?.userId || req.user?.id || req.user?.user_id;
     const today = this.today;
 
     const [shift] = await this.safe(
       this.em.query(
-        `SELECT * FROM pkg_work_shifts WHERE production_date = $1 AND status = 'OPEN' ORDER BY opened_at DESC LIMIT 1`,
+        `SELECT * FROM pkg_work_shifts WHERE production_date = $1 AND status = 'OPEN' AND is_test = ${isTest} ORDER BY opened_at DESC LIMIT 1`,
         [today],
       ),
       [],
@@ -1347,7 +1349,7 @@ export class PackagingTerminalBffController {
 
     const [sourceBatch] = await this.safe(
       this.em.query(
-        `SELECT * FROM pkg_source_batches WHERE production_date = $1 AND batch_status NOT IN ('WAREHOUSED','SCRAPPED','CANCELLED')
+        `SELECT * FROM pkg_source_batches WHERE production_date = $1 AND batch_status NOT IN ('WAREHOUSED','SCRAPPED','CANCELLED','VOID') AND is_test = ${isTest}
          ORDER BY created_at DESC LIMIT 1`,
         [today],
       ),
@@ -1356,7 +1358,7 @@ export class PackagingTerminalBffController {
 
     const openExceptions = await this.safe(
       this.em.query(
-        `SELECT COUNT(*)::int AS cnt FROM pkg_exceptions WHERE status NOT IN ('CLOSED','CANCELLED') AND DATE(created_at) = $1`,
+        `SELECT COUNT(*)::int AS cnt FROM pkg_exceptions WHERE status NOT IN ('CLOSED','CANCELLED') AND DATE(created_at) = $1 AND ${!isTest}`,
         [today],
       ),
       [{ cnt: 0 }],
@@ -1381,10 +1383,11 @@ export class PackagingTerminalBffController {
 
   // ── 班次管理 ───────────────────────────────────────────────────────────────
   @Get('shifts/today')
-  async getTodayShifts() {
+  async getTodayShifts(@Req() req?: any) {
+    const isTest = packagingTestMode(req);
     const rows = await this.safe(
       this.em.query(
-        `SELECT * FROM pkg_work_shifts WHERE production_date = $1 ORDER BY opened_at DESC`,
+        `SELECT * FROM pkg_work_shifts WHERE production_date = $1 AND is_test = ${isTest} ORDER BY opened_at DESC`,
         [this.today],
       ),
       [],
@@ -1395,28 +1398,29 @@ export class PackagingTerminalBffController {
   @Post('shifts/open')
   @RequireMenu('MENU_PKG_OP', 'E', ['MENU_PROD_COLLECTION'])
   async openShift(@Body() body: any, @Req() req: any) {
+    const isTest = packagingTestMode(req);
     const today = this.today;
+    if (isTest && !String(body.reason || '').trim()) throw new BadRequestException('测试开班必须填写审计原因');
     const lineId = body.lineId || body.line_id || 'line-01';
     const shiftType = body.shiftType || body.shift_type || '';
-    const shiftCode = `SH-${today.replace(/-/g, '')}-${Date.now().toString().slice(-4)}`;
-    const operatorId = req.user?.id || req.user?.user_id;
+    const shiftCode = `SH-${today.replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const operatorId = req.user?.userId || req.user?.id || req.user?.user_id;
     const operatorName = req.user?.name || req.user?.username || '';
 
+    return this.em.transaction(async manager => {
+    await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packaging-chain:${isTest}`]);
     // 弹性排班：同一产线同一班次类型不能同时有两个 OPEN 班次
-    const [existing] = await this.safe(
-      this.em.query(
-        `SELECT id FROM pkg_work_shifts WHERE line_id = $1 AND shift_type = $2 AND production_date = $3 AND status = 'OPEN' LIMIT 1`,
+    const [existing] = await manager.query(
+        `SELECT id FROM pkg_work_shifts WHERE line_id = $1 AND shift_type = $2 AND production_date = $3 AND status = 'OPEN' AND is_test = ${isTest} LIMIT 1`,
         [lineId, shiftType, today],
-      ),
-      [],
     );
     if (existing) return { code: 400, msg: `该产线 ${shiftType} 班次已有开放记录，请先交班` };
 
-    await this.em.query(
+    await manager.query(
       `INSERT INTO pkg_work_shifts
        (shift_code, shift_type, production_date, site_id, line_id, operator_id, operator_name,
-        supervisor_name, status, hygiene_check, device_check, opened_at, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'OPEN',$9,$10,NOW(),NOW())`,
+        supervisor_name, status, hygiene_check, device_check, opened_at, created_at, is_test)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'OPEN',$9,$10,NOW(),NOW(),${isTest})`,
       [
         shiftCode, shiftType, today,
         // R3：不再默认 'site-01'；记录真实场站（前端开班必选）。未传则 NULL（模式回落 COMPANY/GROUP）。
@@ -1430,38 +1434,43 @@ export class PackagingTerminalBffController {
       ],
     ).catch((e: any) => { throw new Error(e.message); });
 
-    const [shift] = await this.em.query(
+    const [shift] = await manager.query(
       `SELECT * FROM pkg_work_shifts WHERE shift_code = $1`, [shiftCode],
     );
+    if (isTest) await manager.query(`INSERT INTO pkg_audit_logs (entity_type, entity_id, action, after_data, reason, operator_id) VALUES ('WORK_SHIFT',$1,'TEST_OPEN',$2,$3,$4)`, [shiftCode, JSON.stringify(shift), String(body.reason), operatorId]);
     return { code: 200, msg: '开班成功', data: shift };
+    });
   }
 
   @Post('shifts/:id/close')
   @RequireMenu('MENU_PKG_OP', 'E', ['MENU_PROD_COLLECTION'])
   async closeShift(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    const [existing] = await this.safe(
-      this.em.query(`SELECT id, status FROM pkg_work_shifts WHERE id=$1`, [id]),
-      [],
-    );
+    const isTest = packagingTestMode(req);
+    if (isTest) throw new BadRequestException('测试班次必须使用 test/shifts/:id/end 受控结束');
+    return this.em.transaction(async manager => {
+    await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
+    const [existing] = await manager.query(`SELECT id, status FROM pkg_work_shifts WHERE id=$1 AND is_test = ${isTest} FOR UPDATE`, [id]);
     if (!existing) return { code: 404, msg: '班次不存在' };
     if (existing.status === 'CLOSED') return { code: 200, msg: '该班次已交班' };
-    await this.em.query(
+    await manager.query(
       `UPDATE pkg_work_shifts SET status='CLOSED', closed_at=NOW(), variance_reason=$1, updated_at=NOW()
        WHERE id=$2`,
       [body.varianceReason || '', id],
     ).catch((e: any) => { throw new Error(e.message); });
     return { code: 200, msg: '交班成功' };
+    });
   }
 
   // ── 来源批次 ───────────────────────────────────────────────────────────────
   @Get('source-batches/today')
-  async getTodaySourceBatches() {
+  async getTodaySourceBatches(@Req() req?: any) {
+    const isTest = packagingTestMode(req);
     const rows = await this.safe(
       this.em.query(
         `WITH graded_sum AS (
            SELECT COALESCE(SUM(total_output), 0)::int AS total_graded
            FROM pkg_grading_records
-           WHERE production_date = $1 AND status = 'ACTIVE'
+           WHERE production_date = $1 AND status = 'ACTIVE' AND is_test = ${isTest}
          )
          SELECT psb.*,
                 COALESCE(bh.house_name, psb.house_code) AS house_name,
@@ -1473,7 +1482,7 @@ export class PackagingTerminalBffController {
                 (SELECT total_graded FROM graded_sum) AS total_graded_today
          FROM pkg_source_batches psb
          LEFT JOIN brd_houses bh ON bh.house_code = psb.house_code
-         WHERE psb.production_date = $1
+         WHERE psb.production_date = $1 AND psb.is_test = ${isTest} AND psb.batch_status <> 'VOID'
          ORDER BY psb.created_at DESC`,
         [this.today],
       ),
@@ -1483,9 +1492,10 @@ export class PackagingTerminalBffController {
   }
 
   @Get('source-batches/pending')
-  async getPendingSourceBatches() {
+  async getPendingSourceBatches(@Req() req?: any) {
+    const isTest = packagingTestMode(req);
     // 来源 A：wms_inbound 已完成、尚未被 pkg_source_batches 引用的批次
-    const fromWms = await this.safe(
+    const fromWms = isTest ? [] : await this.safe(
       this.em.query(
         `SELECT wi.id::text, wi.inbound_no AS batch_code, wi.inbound_no AS code,
                 wi.house_code, bh.house_name, wi.shift_no,
@@ -1511,7 +1521,7 @@ export class PackagingTerminalBffController {
                 batch_status
          FROM pkg_source_batches psb
          LEFT JOIN brd_houses bh ON bh.house_code = psb.house_code
-         WHERE psb.batch_status = 'PENDING_RECEIVE'
+         WHERE psb.batch_status = 'PENDING_RECEIVE' AND psb.is_test = ${isTest}
          ORDER BY psb.created_at DESC LIMIT 20`,
       ),
       [],
@@ -1520,13 +1530,14 @@ export class PackagingTerminalBffController {
   }
 
   @Get('grading/pending')
-  async getPendingGradingSourceBatches(@Query('shiftId') shiftId: string) {
+  async getPendingGradingSourceBatches(@Query('shiftId') shiftId: string, @Req() req?: any) {
+    const isTest = packagingTestMode(req);
     const shiftIdNum = Number(shiftId);
     if (!Number.isInteger(shiftIdNum) || shiftIdNum <= 0) {
       throw new BadRequestException('shiftId 必须是正整数');
     }
     const [shift] = await this.em.query<any[]>(
-      `SELECT id, status FROM pkg_work_shifts WHERE id = $1`,
+      `SELECT id, status FROM pkg_work_shifts WHERE id = $1 AND is_test = ${isTest}`,
       [shiftIdNum],
     );
     if (!shift || shift.status !== 'OPEN') {
@@ -1548,11 +1559,11 @@ export class PackagingTerminalBffController {
          LEFT JOIN (
            SELECT gsl.source_batch_id, SUM(gsl.input_qty)::int AS input_qty
              FROM pkg_grading_source_links gsl
-             JOIN pkg_grading_records gr ON gr.id = gsl.grading_id AND gr.status = 'ACTIVE'
+             JOIN pkg_grading_records gr ON gr.id = gsl.grading_id AND gr.status = 'ACTIVE' AND gr.is_test = ${isTest}
             GROUP BY gsl.source_batch_id
          ) linked ON linked.source_batch_id = psb.id
         WHERE psb.shift_id = $1
-          AND psb.batch_status = 'RECEIVED'
+          AND psb.batch_status = 'RECEIVED' AND psb.is_test = ${isTest}
           AND GREATEST(
             COALESCE(NULLIF(psb.total_qty, 0), NULLIF(psb.received_qty, 0), 0)
             - COALESCE(psb.dirty_qty, 0) - COALESCE(psb.cracked_qty, 0)
@@ -1568,6 +1579,7 @@ export class PackagingTerminalBffController {
   @Post('source-batches/receive')
   @RequireMenu('MENU_PKG_OP', 'E')
   async receiveBatch(@Body() body: any, @Req() req: any) {
+    const isTest = packagingTestMode(req);
     const today = this.today;
     const houseCode = String(body.houseCode || body.house_code || '').trim();
     const totalQty = Number(body.totalQty ?? body.total_qty ?? 0);
@@ -1592,29 +1604,30 @@ export class PackagingTerminalBffController {
     const houseSlug = houseCode.replace(/\s+/g, '').toUpperCase().slice(0, 8);
     const autoCode = `SRC-${today.replace(/-/g, '')}-${houseSlug}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
     const batchCode = body.batchCode || body.code || autoCode;
-    const operatorId = req.user?.id || req.user?.user_id;
+    const operatorId = req.user?.userId || req.user?.id || req.user?.user_id;
 
+    return this.em.transaction(async manager => {
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packaging-chain:${isTest}`]);
+    const [shift] = await manager.query(`SELECT * FROM pkg_work_shifts WHERE id=$1 FOR UPDATE`, [body.shiftId || null]);
+    assertPackagingMode(shift, isTest);
+    if (shift.status !== 'OPEN') throw new ConflictException('当前班次已关闭');
+    if (isTest && (body.sourceInboundNo || body.source_inbound_no)) throw new BadRequestException('测试来源不能引用真实入库单');
     // 检查是否已接收（仅检查 status != PENDING_RECEIVE 的记录，避免误判种子数据）
-    const [existing] = await this.safe(
-      this.em.query(
-        `SELECT id FROM pkg_source_batches WHERE batch_code = $1 AND batch_status != 'PENDING_RECEIVE'`,
+    const [existing] = await manager.query(
+        `SELECT id, is_test FROM pkg_source_batches WHERE batch_code = $1 AND batch_status != 'PENDING_RECEIVE'`,
         [batchCode],
-      ),
-      [],
     );
     if (existing) throw new Error(`批次 ${batchCode} 已接收，不可重复接收`);
 
     // 如果已有 PENDING_RECEIVE 记录（种子/手工），直接 UPDATE；否则 INSERT
-    const [pendingRow] = await this.safe(
-      this.em.query(
-        `SELECT id FROM pkg_source_batches WHERE batch_code = $1 AND batch_status = 'PENDING_RECEIVE'`,
+    const [pendingRow] = await manager.query(
+        `SELECT id, is_test FROM pkg_source_batches WHERE batch_code = $1 AND batch_status = 'PENDING_RECEIVE'`,
         [batchCode],
-      ),
-      [],
     );
 
     if (pendingRow) {
-      await this.em.query(
+      assertPackagingMode(pendingRow, isTest);
+      await manager.query(
         `UPDATE pkg_source_batches
          SET batch_status='RECEIVED', total_qty=$1, dirty_qty=$2, cracked_qty=$3,
              expected_qty=$1, received_qty=$4, received_weight=$5,
@@ -1634,13 +1647,13 @@ export class PackagingTerminalBffController {
         ],
       );
     } else {
-      await this.em.query(
+      await manager.query(
         `INSERT INTO pkg_source_batches
          (batch_code, source_inbound_no, production_date, house_code, flock_code,
           lay_date, total_qty, dirty_qty, cracked_qty,
           expected_qty, received_qty, expected_weight, received_weight,
-          container_count, variance_reason, received_by, shift_id, batch_status, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'RECEIVED',NOW(),NOW())`,
+          container_count, variance_reason, received_by, shift_id, batch_status, created_at, updated_at, is_test)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'RECEIVED',NOW(),NOW(),${isTest})`,
         [
           batchCode,
           body.sourceInboundNo || batchCode,
@@ -1663,25 +1676,27 @@ export class PackagingTerminalBffController {
       );
     } // end else (INSERT branch)
 
-    const [batch] = await this.em.query(
+    const [batch] = await manager.query(
       `SELECT * FROM pkg_source_batches WHERE batch_code = $1`, [batchCode],
     );
 
     // 写审计日志
-    await this.safe(this.em.query(
+    await manager.query(
       `INSERT INTO pkg_audit_logs (entity_type, entity_id, action, after_data, operator_id, created_at)
        VALUES ('SOURCE_BATCH', $1, 'RECEIVE', $2, $3, NOW())`,
       [batchCode, JSON.stringify(batch), operatorId],
-    ), null);
+    );
 
     return { code: 200, msg: '接收成功', data: batch };
+    });
   }
 
   // ── 来源批次数量更正 ─────────────────────────────────────────────────────────
   @Patch('source-batches/correct')
   @RequireMenu('MENU_PKG_OP', 'E')
   async correctBatch(@Body() body: any, @Req() req: any) {
-    const operatorId = req.user?.id || req.user?.user_id;
+    const isTest = packagingTestMode(req);
+    const operatorId = req.user?.userId || req.user?.id || req.user?.user_id;
     const date = body.productionDate || this.today;
     const houseCode = body.houseCode || body.house_code;
     const sourceBatchId = Number(body.sourceBatchId ?? body.source_batch_id);
@@ -1695,31 +1710,36 @@ export class PackagingTerminalBffController {
     const newReceived = newTotal;
     const reason = String(body.reason || '');
 
+    if (![newTotal,newDirty,newCracked].every(Number.isFinite) || newDirty+newCracked>newTotal) throw new BadRequestException('更正数量无效');
+    return this.em.transaction(async manager => {
+    await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packaging-chain:${isTest}`]);
     // 同舍允许多次采集；更正必须精确落到来源批次，禁止合并或清零同舍其他批次。
-    const rows: any[] = await this.em.query(
+    const rows: any[] = await manager.query(
       `SELECT id, batch_code, total_qty, dirty_qty, cracked_qty, received_qty
        FROM pkg_source_batches
        WHERE id = $1 AND house_code = $2 AND production_date = $3
-         AND batch_status NOT IN ('WAREHOUSED','SCRAPPED','CANCELLED')
-       LIMIT 1`,
+         AND batch_status NOT IN ('WAREHOUSED','SCRAPPED','CANCELLED','VOID') AND is_test = ${isTest}
+       LIMIT 1 FOR UPDATE`,
       [sourceBatchId, houseCode, date],
     );
     if (rows.length === 0) throw new BadRequestException('未找到该来源批次');
 
+    const [used] = await manager.query(`SELECT 1 FROM pkg_grading_source_links l JOIN pkg_grading_records g ON g.id=l.grading_id WHERE l.source_batch_id=$1 AND g.status='ACTIVE' AND g.is_test=${isTest} LIMIT 1`, [sourceBatchId]);
+    if (used) throw new ConflictException('已分级来源不能直接更正，请先走逆向业务');
     const beforeTotal    = rows.reduce((s, r) => s + Number(r.total_qty    || 0), 0);
     const beforeDirty    = rows.reduce((s, r) => s + Number(r.dirty_qty    || 0), 0);
     const beforeCracked  = rows.reduce((s, r) => s + Number(r.cracked_qty  || 0), 0);
     const beforeReceived = rows.reduce((s, r) => s + Number(r.received_qty || 0), 0);
 
     // 主记录更新为更正后数值
-    await this.em.query(
+    await manager.query(
       `UPDATE pkg_source_batches
        SET total_qty=$1, dirty_qty=$2, cracked_qty=$3, received_qty=$4, updated_at=NOW()
        WHERE id=$5`,
       [newTotal, newDirty, newCracked, newReceived, rows[0].id],
     );
     // 审计日志
-    await this.safe(this.em.query(
+    await manager.query(
       `INSERT INTO pkg_audit_logs
        (entity_type, entity_id, action, before_data, after_data, reason, operator_id, created_at)
        VALUES ('SOURCE_BATCH', $1, 'CORRECT', $2, $3, $4, $5, NOW())`,
@@ -1730,19 +1750,27 @@ export class PackagingTerminalBffController {
         reason,
         operatorId,
       ],
-    ), null);
+    );
 
     return { code: 200, msg: '更正成功' };
+    });
   }
 
   // ── 首检 ───────────────────────────────────────────────────────────────────
   @Post('qc/first-inspection')
   @RequireMenu('MENU_PKG_OP', 'E')
   async submitQCInspection(@Body() body: any, @Req() req: any) {
-    const inspectorId = req.user?.id || req.user?.user_id;
+    const isTest = packagingTestMode(req);
+    if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
+    const inspectorId = req.user?.userId || req.user?.id || req.user?.user_id;
     const inspectorName = req.user?.name || req.user?.username || '';
 
-    await this.em.query(
+    return this.em.transaction(async manager => {
+    await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
+    const [source] = await manager.query(`SELECT * FROM pkg_source_batches WHERE (batch_code=$1 OR id::text=$1) FOR UPDATE`, [String(body.sourceBatchId || body.source_batch_id)]);
+    assertPackagingMode(source, false);
+    if (source.batch_status === 'VOID') throw new ConflictException('作废来源禁止首检');
+    await manager.query(
       `INSERT INTO pkg_qc_inspections
        (source_batch_id, sample_qty, broken_qty, dirty_qty, leaking_qty,
         abnormal_shape_qty, floor_egg_qty, average_weight,
@@ -1775,21 +1803,23 @@ export class PackagingTerminalBffController {
     else if (qcResult === 'ON_HOLD') newStatus = 'QC_ON_HOLD';
     else if (qcResult === 'REJECTED' || qcResult === 'SCRAPPED') newStatus = 'SCRAPPED';
 
-    await this.safe(this.em.query(
+    await manager.query(
       `UPDATE pkg_source_batches SET batch_status=$1, qc_result=$2, updated_at=NOW()
-       WHERE batch_code=$3 OR id::text=$3`,
+       WHERE (batch_code=$3 OR id::text=$3) AND batch_status <> 'VOID' AND is_test=false`,
       [newStatus, qcResult, body.sourceBatchId || body.source_batch_id],
-    ), null);
+    );
 
     return { code: 200, msg: '首检结论已提交', data: { qcResult, newStatus } };
+    });
   }
 
   // ── 异常 ────────────────────────────────────────────────────────────────────
   @Get('exceptions/today')
-  async getTodayExceptions() {
+  async getTodayExceptions(@Req() req?: any) {
+    const isTest = packagingTestMode(req);
     const rows = await this.safe(
       this.em.query(
-        `SELECT * FROM pkg_exceptions WHERE DATE(created_at) = $1 ORDER BY created_at DESC`,
+        `SELECT * FROM pkg_exceptions WHERE DATE(created_at) = $1 AND ${!isTest} ORDER BY created_at DESC`,
         [this.today],
       ),
       [],
@@ -1800,8 +1830,13 @@ export class PackagingTerminalBffController {
   @Post('exceptions')
   @RequireMenu('MENU_PKG_OP', 'E')
   async reportException(@Body() body: any, @Req() req: any) {
+    const isTest = packagingTestMode(req);
+    if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
+    const related = String(body.relatedBatchId || body.related_batch_id || body.batchId || '');
+    const testReferences = await this.em.query(`SELECT id FROM pkg_source_batches WHERE (batch_code=$1 OR id::text=$1) AND is_test=true UNION ALL SELECT id FROM pkg_packing_records WHERE (code=$1 OR id::text=$1) AND is_test=true`, [related]);
+    if (testReferences.length) throw new ConflictException('测试链不能写入真实异常记录');
     const reportedBy = req.user?.name || req.user?.username || '';
-    const reporterId = req.user?.id || req.user?.user_id;
+    const reporterId = req.user?.userId || req.user?.id || req.user?.user_id;
 
     await this.em.query(
       `INSERT INTO pkg_exceptions
@@ -1825,6 +1860,9 @@ export class PackagingTerminalBffController {
   @Post('labels/print-log')
   @RequireMenu('MENU_PKG_OP', 'E')
   async recordPrintLog(@Body() body: any, @Req() req: any) {
+    const isTest = packagingTestMode(req);
+    if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
+    await assertPackingCanEnterInventory(this.em, String(body.packagingBatchId || body.packaging_batch_id || body.packingCode || ''));
     const printedBy = req.user?.name || req.user?.username || '';
 
     await this.em.query(
@@ -1834,7 +1872,7 @@ export class PackagingTerminalBffController {
        VALUES ($1,$2,$3,$4,$5,$6,'PRINTED',NOW(),NOW())`,
       [
         body.boxCode || body.box_code || '',
-        body.packagingBatchId || body.packaging_batch_id || '',
+        body.packagingBatchId || body.packaging_batch_id || body.packingCode || '',
         body.printType || body.print_type || 'NORMAL',
         body.printerId || body.printer_id || 'printer-01',
         printedBy,
@@ -1851,7 +1889,9 @@ export class PackagingTerminalBffController {
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
     @Query('type') type: string,
+    @Req() req?: any,
   ) {
+    if (packagingTestMode(req)) return { data: [] };
     const start = startDate || this.today;
     const end   = endDate   || this.today;
     const params: unknown[] = [start, end];
@@ -1878,7 +1918,8 @@ export class PackagingTerminalBffController {
 
   // ── 交班日报汇总 ────────────────────────────────────────────────────────────
   @Get('reports/shift-summary')
-  async getShiftSummary(@Query('date') date: string, @Query('shiftId') shiftId: string) {
+  async getShiftSummary(@Query('date') date: string, @Query('shiftId') shiftId: string, @Req() req?: any) {
+    const isTest = packagingTestMode(req);
     const targetDate = date || this.today;
     const parsedShiftId = shiftId ? Number(shiftId) : null;
     const requestedShiftId = parsedShiftId !== null && Number.isInteger(parsedShiftId) && parsedShiftId > 0
@@ -1888,11 +1929,11 @@ export class PackagingTerminalBffController {
     const [shiftRow] = await this.safe(
       requestedShiftId
         ? this.em.query(
-            `SELECT * FROM pkg_work_shifts WHERE id = $1 AND production_date = $2 LIMIT 1`,
+            `SELECT * FROM pkg_work_shifts WHERE id = $1 AND production_date = $2 AND is_test = ${isTest} LIMIT 1`,
             [requestedShiftId, targetDate],
           )
         : this.em.query(
-            `SELECT * FROM pkg_work_shifts WHERE production_date = $1 ORDER BY opened_at DESC LIMIT 1`,
+            `SELECT * FROM pkg_work_shifts WHERE production_date = $1 AND is_test = ${isTest} ORDER BY opened_at DESC LIMIT 1`,
             [targetDate],
           ),
       [],
@@ -1905,7 +1946,7 @@ export class PackagingTerminalBffController {
     const [recvRow] = await this.safe(
       this.em.query(
         `SELECT COALESCE(SUM(received_qty),0)::int AS qty, COALESCE(SUM(received_weight),0)::float AS weight
-         FROM pkg_source_batches WHERE production_date=$1${shiftFilter}`,
+         FROM pkg_source_batches WHERE production_date=$1 AND is_test = ${isTest} AND batch_status <> 'VOID'${shiftFilter}`,
         summaryParams,
       ),
       [{ qty: 0, weight: 0 }],
@@ -1916,7 +1957,7 @@ export class PackagingTerminalBffController {
         `SELECT
            COUNT(*) FILTER (WHERE status NOT IN ('CLOSED','CANCELLED'))::int AS open_count,
            COUNT(*) FILTER (WHERE status IN ('CLOSED','CANCELLED'))::int AS closed_count
-         FROM pkg_exceptions WHERE DATE(created_at) = $1`,
+         FROM pkg_exceptions WHERE DATE(created_at) = $1 AND ${!isTest}`,
         [targetDate],
       ),
       [{ open_count: 0, closed_count: 0 }],
@@ -1924,7 +1965,7 @@ export class PackagingTerminalBffController {
 
     const gradingRows = await this.safe(
       this.em.query(
-        `SELECT outputs_json FROM pkg_grading_records WHERE production_date = $1 AND status = 'ACTIVE'${shiftFilter}`,
+        `SELECT outputs_json FROM pkg_grading_records WHERE production_date = $1 AND status = 'ACTIVE' AND is_test = ${isTest}${shiftFilter}`,
         summaryParams,
       ),
       [],
@@ -1946,7 +1987,7 @@ export class PackagingTerminalBffController {
       ? await this.safe(
           this.em.query(
             `SELECT COALESCE(SUM(total_boxes),0)::int AS boxes, COALESCE(SUM(total_eggs),0)::int AS eggs
-             FROM pkg_packing_records WHERE shift_id = $1`,
+             FROM pkg_packing_records WHERE shift_id = $1 AND status = 'ACTIVE' AND is_test = ${isTest}`,
             [shiftIdNum],
           ),
           [{ boxes: 0, eggs: 0 }],
@@ -1957,10 +1998,10 @@ export class PackagingTerminalBffController {
       this.em.query(
         `SELECT COUNT(*)::int AS count
          FROM pkg_label_print_logs l
-         WHERE DATE(l.printed_at) = $1
+         WHERE DATE(l.printed_at) = $1 AND ${!isTest}
            AND ($2::int IS NULL OR EXISTS (
              SELECT 1 FROM pkg_packing_records p
-             WHERE p.code = l.packaging_batch_id AND p.shift_id = $2
+             WHERE p.code = l.packaging_batch_id AND p.shift_id = $2 AND p.status='ACTIVE' AND p.is_test=${isTest}
            ))`,
         [targetDate, shiftIdNum],
       ),
@@ -1971,7 +2012,7 @@ export class PackagingTerminalBffController {
       this.em.query(
         `SELECT COALESCE(SUM(box_count),0)::int AS boxes,
                 COUNT(DISTINCT NULLIF(pallet_code, ''))::int AS pallets
-         FROM pkg_handover_records WHERE production_date = $1${shiftFilter}`,
+         FROM pkg_handover_records WHERE production_date = $1 AND ${!isTest}${shiftFilter}`,
         summaryParams,
       ),
       [{ boxes: 0, pallets: 0 }],
@@ -1998,7 +2039,8 @@ export class PackagingTerminalBffController {
 
   @Post('grading/submit')
   @RequireMenu('MENU_PKG_OP', 'E')
-  async submitGrading(@Body() body: SubmitGradingDto) {
+  async submitGrading(@Body() body: SubmitGradingDto, @Req() req?: any) {
+    const isTest = packagingTestMode(req);
     const rawOutputs = body.outputs as Record<string, unknown> || {};
     const outputs: Record<string, number> = {};
 
@@ -2022,12 +2064,15 @@ export class PackagingTerminalBffController {
     const payloadHash = createHash('sha256').update(canonicalPayload).digest('hex');
 
     return this.em.transaction(async manager => {
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packaging-chain:${isTest}`]);
       await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [body.idempotencyKey]);
       const [existing] = await manager.query<any[]>(
-        `SELECT code, total_output, payload_hash FROM pkg_grading_records WHERE idempotency_key = $1`,
+        `SELECT code, total_output, payload_hash, status, is_test FROM pkg_grading_records WHERE idempotency_key = $1 FOR UPDATE`,
         [body.idempotencyKey],
       );
       if (existing) {
+        assertPackagingMode(existing, isTest);
+        if (existing.status !== 'ACTIVE') throw new ConflictException('作废分级不能幂等重放');
         if (existing.payload_hash !== payloadHash) {
           throw new ConflictException('幂等键已用于不同分级载荷');
         }
@@ -2035,10 +2080,11 @@ export class PackagingTerminalBffController {
       }
 
       const [shift] = await manager.query<any[]>(
-        `SELECT id, production_date::text AS production_date, status
+        `SELECT id, production_date::text AS production_date, status, is_test
            FROM pkg_work_shifts WHERE id = $1 FOR UPDATE`,
         [body.shiftId],
       );
+      assertPackagingMode(shift, isTest);
       if (!shift || shift.status !== 'OPEN') {
         throw new ConflictException('当前班次不存在或已关闭，禁止分级');
       }
@@ -2048,7 +2094,7 @@ export class PackagingTerminalBffController {
                   - COALESCE(dirty_qty, 0) - COALESCE(cracked_qty, 0), 0)::int AS net_qty
            FROM pkg_source_batches
           WHERE id = ANY($1::int[])
-            AND batch_status = 'RECEIVED'
+            AND batch_status = 'RECEIVED' AND is_test = ${isTest}
           ORDER BY id FOR UPDATE`,
         [sourceBatchIds],
       );
@@ -2059,7 +2105,7 @@ export class PackagingTerminalBffController {
       const usedRows = await manager.query<any[]>(
         `SELECT gsl.source_batch_id, COALESCE(SUM(gsl.input_qty), 0)::int AS used_qty
            FROM pkg_grading_source_links gsl
-           JOIN pkg_grading_records gr ON gr.id = gsl.grading_id AND gr.status = 'ACTIVE'
+           JOIN pkg_grading_records gr ON gr.id = gsl.grading_id AND gr.status = 'ACTIVE' AND gr.is_test = ${isTest}
           WHERE gsl.source_batch_id = ANY($1::int[])
           GROUP BY gsl.source_batch_id`,
         [sourceBatchIds],
@@ -2088,8 +2134,8 @@ export class PackagingTerminalBffController {
       const [grading] = await manager.query<any[]>(
         `INSERT INTO pkg_grading_records
          (code, shift_id, source_batch_code, production_date, outputs_json, total_output,
-          idempotency_key, payload_hash, created_at)
-         VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,NOW())
+          idempotency_key, payload_hash, created_at, is_test)
+         VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,NOW(),${isTest})
          RETURNING id, code`,
         [code, body.shiftId, sourceRows[0].batch_code, productionDate,
          JSON.stringify(outputs), totalOutput, body.idempotencyKey, payloadHash],
@@ -2116,10 +2162,13 @@ export class PackagingTerminalBffController {
    * 返回各等级实时剩余（key = dict_code，多终端并发安全）。
    */
   @Get('grading/active')
-  async getActiveGrading(@Query('shiftId') shiftId: string) {
+  async getActiveGrading(@Query('shiftId') shiftId: string, @Req() req?: any) {
+    const isTest = packagingTestMode(req);
     const shiftIdNum = Number(shiftId);
     if (!Number.isInteger(shiftIdNum) || shiftIdNum <= 0) throw new BadRequestException('shiftId 必须是正整数');
 
+    const [currentShift] = await this.em.query(`SELECT * FROM pkg_work_shifts WHERE id=$1`, [shiftIdNum]);
+    assertPackagingMode(currentShift, isTest);
     // ── key 标准化映射：config_json.code / terminalCode → dict_code ────────────
     const dictRows = await this.safe(
       this.em.query<any[]>(
@@ -2146,7 +2195,7 @@ export class PackagingTerminalBffController {
            FROM pkg_grading_records gr
            JOIN pkg_grading_source_links gsl ON gsl.grading_id = gr.id
            JOIN pkg_source_batches psb ON psb.id = gsl.source_batch_id
-          WHERE gr.shift_id = $1 AND psb.shift_id = $1 AND gr.status = 'ACTIVE'
+          WHERE gr.shift_id = $1 AND psb.shift_id = $1 AND gr.status = 'ACTIVE' AND gr.is_test = ${isTest} AND psb.is_test = ${isTest} AND psb.batch_status <> 'VOID'
           ORDER BY gr.code`,
         [shiftIdNum],
       ),
@@ -2169,8 +2218,9 @@ export class PackagingTerminalBffController {
     const packed: Record<string, number> = {};
     const packingRows = await this.safe(
       this.em.query<any[]>(
-        `SELECT batches_json FROM pkg_packing_records WHERE shift_id = $1`,
-        [shiftIdNum],
+        `SELECT batches_json FROM pkg_packing_records WHERE status = 'ACTIVE' AND is_test = ${isTest}
+          AND (grading_code=ANY($1::varchar[]) OR grading_codes_json ?| $1::text[])`,
+        [gradingCodes],
       ),
       [] as any[],
     );
@@ -2196,93 +2246,152 @@ export class PackagingTerminalBffController {
 
   @Post('packing/submit')
   @RequireMenu('MENU_PKG_OP', 'E')
-  async submitPacking(@Body() body: Record<string, any>) {
-    const today = new Date().toISOString().slice(0, 10);
-    const productionDate = body.productionDate || today;
-    const code = `PKG-${productionDate.replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
-    if (!Array.isArray(body.batches) || body.batches.length === 0) {
-      throw new BadRequestException('batches 必须是非空数组');
-    }
-    const batches = body.batches as Array<Record<string, unknown>>;
-    batches.forEach((batch, index) => {
-      if (typeof batch?.grade !== 'string' || batch.grade.trim() === '') {
-        throw new BadRequestException(`batches[${index}].grade 必须是非空字符串`);
-      }
-      if (typeof batch.boxes !== 'number' || !Number.isFinite(batch.boxes) || batch.boxes <= 0) {
-        throw new BadRequestException(`batches[${index}].boxes 必须是有限正数`);
-      }
-      if (typeof batch.eggs !== 'number' || !Number.isFinite(batch.eggs) || batch.eggs <= 0) {
-        throw new BadRequestException(`batches[${index}].eggs 必须是有限正数`);
-      }
+  async submitPacking(@Body() body: Record<string, any>, @Req() req?: any) {
+    const isTest = packagingTestMode(req);
+    if (!Array.isArray(body.batches) || body.batches.length === 0) throw new BadRequestException('batches 必须是非空数组');
+    const batches = body.batches as Array<Record<string, any>>;
+    batches.forEach((b, i) => {
+      if (typeof b?.grade !== 'string' || !b.grade.trim()) throw new BadRequestException(`batches[${i}].grade 必须是非空字符串`);
+      if (typeof b.boxes !== 'number' || !Number.isInteger(b.boxes) || b.boxes <= 0) throw new BadRequestException(`batches[${i}].boxes 必须是有限正数`);
+      if (typeof b.eggs !== 'number' || !Number.isInteger(b.eggs) || b.eggs <= 0) throw new BadRequestException(`batches[${i}].eggs 必须是有限正数`);
     });
-    const totalBoxes = batches.reduce((a, b) => a + (b.boxes as number), 0);
-    const totalEggs = batches.reduce((a, b) => a + (b.eggs as number), 0);
-    const gradingCodes: string[] = Array.isArray(body.gradingCodes)
-      ? body.gradingCodes
-        .filter((c: unknown): c is string => typeof c === 'string')
-        .map((c: string) => c.trim())
-        .filter(Boolean)
-      : (typeof body.gradingCode === 'string' && body.gradingCode.trim()
-        ? [body.gradingCode.trim()] : []);
     const shiftId = Number(body.shiftId);
     if (!Number.isInteger(shiftId) || shiftId <= 0) throw new BadRequestException('shiftId 必须是正整数');
-    if (gradingCodes.length === 0) throw new BadRequestException('gradingCodes 必须是非空数组');
-    const gradingOwners = await this.em.query<any[]>(
-      `SELECT gr.code, gr.shift_id,
-              BOOL_OR(psb.shift_id = $2) AS has_source_in_target_shift
-         FROM pkg_grading_records gr
-         JOIN pkg_grading_source_links gsl ON gsl.grading_id = gr.id
-         JOIN pkg_source_batches psb ON psb.id = gsl.source_batch_id
-        WHERE gr.code = ANY($1::varchar[]) AND gr.status = 'ACTIVE'
-        GROUP BY gr.code, gr.shift_id`,
-      [gradingCodes, shiftId],
-    );
-    if (gradingOwners.length !== new Set(gradingCodes).size) {
-      throw new ConflictException('存在无有效来源关联的分级记录，禁止包装');
-    }
-    const crossShiftCodes = gradingOwners
-      .filter(row => Number(row.shift_id) !== shiftId || row.has_source_in_target_shift !== true)
-      .map(row => String(row.code));
-    const crossShiftReason = String(body.crossShiftReason || '').trim();
-    if (crossShiftCodes.length > 0 && !crossShiftReason) {
-      throw new ConflictException('跨班次包装必须填写 crossShiftReason 以生成审计记录');
-    }
-    try {
-      await this.em.query(
-        `INSERT INTO pkg_packing_records
-         (code, grading_code, grading_codes_json, production_date, batches_json, total_boxes, total_eggs, shift_id, created_at)
-         VALUES ($1,$2,$3::jsonb,$4,$5::jsonb,$6,$7,$8,NOW())
-         ON CONFLICT (code) DO NOTHING`,
-        [code, gradingCodes[0] ?? null, JSON.stringify(gradingCodes),
-         productionDate, JSON.stringify(batches), totalBoxes, totalEggs,
-         shiftId],
-      );
-      if (crossShiftCodes.length > 0) {
-        await this.em.query(
-          `INSERT INTO pkg_audit_logs
-           (entity_type, entity_id, action, before_data, after_data, reason, created_at)
-           VALUES ('PACKING_RECORD', $1, 'CROSS_SHIFT_GRADING_CONSUME', $2::jsonb, $3::jsonb, $4, NOW())`,
-          [code, JSON.stringify({ gradingCodes: crossShiftCodes }),
-           JSON.stringify({ targetShiftId: shiftId }), crossShiftReason],
-        );
+    const gradingCodes = [...new Set<string>((Array.isArray(body.gradingCodes) ? body.gradingCodes : [body.gradingCode])
+      .filter((c: unknown): c is string => typeof c === 'string' && !!c.trim()).map((c: string) => c.trim()))].sort();
+    if (!gradingCodes.length) throw new BadRequestException('gradingCodes 必须是非空数组');
+    const key = String(body.idempotencyKey || '').trim();
+    if (!key || key.length > 160) throw new BadRequestException('idempotencyKey 必填且不能超过160字符');
+    const reason = String(body.crossShiftReason || '').trim();
+    const hash = createHash('sha256').update(JSON.stringify({ shiftId, gradingCodes, batches, reason, isTest })).digest('hex');
+    const totalBoxes = batches.reduce((sum, b) => sum + b.boxes, 0);
+    const totalEggs = batches.reduce((sum, b) => sum + b.eggs, 0);
+    return this.em.transaction(async manager => {
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packaging-chain:${isTest}`]);
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packing-idempotency:${key}`]);
+      const [existing] = await manager.query(`SELECT * FROM pkg_packing_records WHERE idempotency_key=$1 FOR UPDATE`, [key]);
+      if (existing) {
+        assertPackagingMode(existing, isTest);
+        if (existing.status !== 'ACTIVE') throw new ConflictException('作废包装不能幂等重放');
+        if (existing.payload_hash !== hash) throw new ConflictException('幂等键已用于不同包装载荷');
+        return { code: 200, data: { code: existing.code, totalBoxes: Number(existing.total_boxes), totalEggs: Number(existing.total_eggs), idempotentReplay: true } };
       }
-    } catch (error: any) {
-      console.error(`[packing/submit][ERR] 包装记录写入失败 code=${code}: ${error?.message}`, error?.stack);
-      throw new InternalServerErrorException('包装记录写入失败，请稍后重试或联系管理员');
-    }
-    return { code: 200, data: { code, totalBoxes, totalEggs } };
+      const [shift] = await manager.query(`SELECT *, production_date::text AS date_text FROM pkg_work_shifts WHERE id=$1 FOR UPDATE`, [shiftId]);
+      assertPackagingMode(shift, isTest);
+      if (shift.status !== 'OPEN') throw new ConflictException('当前班次已关闭，禁止包装');
+      const owners = await manager.query(`SELECT gr.* FROM pkg_grading_records gr
+        WHERE gr.code=ANY($1::varchar[]) AND gr.status='ACTIVE' AND gr.is_test=$2
+        AND EXISTS (SELECT 1 FROM pkg_grading_source_links l WHERE l.grading_id=gr.id)
+        AND NOT EXISTS (SELECT 1 FROM pkg_grading_source_links l JOIN pkg_source_batches s ON s.id=l.source_batch_id
+          WHERE l.grading_id=gr.id AND (s.batch_status='VOID' OR s.is_test<>$2))
+        ORDER BY gr.id FOR UPDATE`, [gradingCodes, isTest]);
+      if (owners.length !== gradingCodes.length) throw new ConflictException('存在无有效来源关联的分级记录，禁止包装');
+      const sourceHouses = await manager.query(`SELECT DISTINCT s.house_code FROM pkg_grading_source_links l JOIN pkg_source_batches s ON s.id=l.source_batch_id JOIN pkg_grading_records g ON g.id=l.grading_id WHERE g.code=ANY($1::varchar[])`, [gradingCodes]);
+      for (const row of sourceHouses) await this.assertActiveHouseScope(String(row.house_code));
+      const cross = owners.filter((r: any) => Number(r.shift_id) !== shiftId);
+      if (cross.length && !reason) throw new ConflictException('跨班次包装必须填写 crossShiftReason 以生成审计记录');
+      const dict = await manager.query(`SELECT dict_code, config_json FROM sys_dict WHERE dict_type IN ('PKG_EGG_GRADE','PKG_EGG_DEFECT')`);
+      const aliases: Record<string, string> = {};
+      for (const d of dict) {
+        const cfg = typeof d.config_json === 'string' ? JSON.parse(d.config_json) : d.config_json || {};
+        aliases[d.dict_code] = d.dict_code;
+        if (cfg.code) aliases[cfg.code] = d.dict_code;
+        if (cfg.terminalCode) aliases[cfg.terminalCode] = d.dict_code;
+      }
+      const available: Record<string, number> = {};
+      const add = (grade: string, qty: number) => { const k = aliases[grade] || grade; available[k] = (available[k] || 0) + qty; };
+      for (const g of owners) {
+        const outputs = typeof g.outputs_json === 'string' ? JSON.parse(g.outputs_json) : g.outputs_json;
+        for (const [grade, qty] of Object.entries(outputs || {})) add(grade, Number(qty));
+      }
+      // Historical arrays record references, not per-grading allocation. Charge the entire
+      // overlapping packing conservatively; never manufacture available eggs by removing a reference.
+      const consumed = await manager.query(`SELECT batches_json FROM pkg_packing_records
+        WHERE status='ACTIVE' AND is_test=$2 AND (grading_code=ANY($1::varchar[]) OR grading_codes_json ?| $1::text[])`, [gradingCodes, isTest]);
+      for (const p of consumed) {
+        const items = typeof p.batches_json === 'string' ? JSON.parse(p.batches_json) : p.batches_json;
+        for (const b of items || []) add(b.grade, -Number(b.eggs));
+      }
+      for (const b of batches) {
+        add(b.grade, -b.eggs);
+        if (!Number.isFinite(available[aliases[b.grade] || b.grade]) || available[aliases[b.grade] || b.grade] < 0) {
+          throw new ConflictException('包装数量超过所选分级剩余量，请刷新后重试');
+        }
+      }
+      const code = `PKG-${shift.date_text.replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
+      await manager.query(`INSERT INTO pkg_packing_records
+        (code,grading_code,grading_codes_json,production_date,batches_json,total_boxes,total_eggs,shift_id,is_test,idempotency_key,payload_hash)
+        VALUES ($1,$2,$3::jsonb,$4,$5::jsonb,$6,$7,$8,$9,$10,$11)`,
+        [code, gradingCodes[0], JSON.stringify(gradingCodes), shift.date_text, JSON.stringify(batches), totalBoxes, totalEggs, shiftId, isTest, key, hash]);
+      await manager.query(`INSERT INTO pkg_audit_logs (entity_type,entity_id,action,after_data,reason,operator_id)
+        VALUES ('PACKING_RECORD',$1,$2,$3,$4,$5)`,
+        [code, cross.length ? 'CROSS_SHIFT_GRADING_CONSUME' : 'PACK', JSON.stringify({ shiftId, gradingCodes, isTest, totalEggs }), reason, req?.user?.userId || req?.user?.id || req?.user?.user_id || null]);
+      return { code: 200, data: { code, totalBoxes, totalEggs, idempotentReplay: false } };
+    });
+  }
+
+  @Post('packing/:code/void')
+  @RequireMenu('MENU_PKG_OP', 'E')
+  async voidPacking(@Param('code') code: string, @Body() body: any, @Req() req?: any) {
+    const isTest = packagingTestMode(req);
+    const reason = String(body.reason || '').trim();
+    if (!reason) throw new BadRequestException('作废原因必填');
+    return this.em.transaction(async manager => {
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packaging-chain:${isTest}`]);
+      await lockPacking(manager, code);
+      const [p] = await manager.query(`SELECT * FROM pkg_packing_records WHERE code=$1 FOR UPDATE`, [code]);
+      assertPackagingMode(p, isTest);
+      const houses = await manager.query(`SELECT DISTINCT s.house_code FROM pkg_source_batches s
+        JOIN pkg_grading_source_links l ON l.source_batch_id=s.id JOIN pkg_grading_records g ON g.id=l.grading_id
+        WHERE g.code=$1 OR $2::jsonb ? g.code`, [p.grading_code, JSON.stringify(p.grading_codes_json || [])]);
+      if (!houses.length && req?.user?.role !== 'ROLE_ADMIN' && !req?.user?.roles?.includes('ROLE_ADMIN')) throw new ForbiddenException('旧包装缺少可核验来源，作废需管理员处理');
+      for (const row of houses) await this.assertActiveHouseScope(String(row.house_code));
+      await assertNoPackingDownstream(manager, code);
+      if (p.status === 'VOID') return { code: 200, data: { code, status: 'VOID', idempotentReplay: true } };
+      await manager.query(`UPDATE pkg_packing_records SET status='VOID',void_reason=$2,voided_at=NOW(),voided_by=$3 WHERE code=$1`, [code, reason, req?.user?.userId || req?.user?.id || req?.user?.user_id || null]);
+      await manager.query(`INSERT INTO pkg_audit_logs (entity_type,entity_id,action,before_data,after_data,reason,operator_id)
+        VALUES ('PACKING_RECORD',$1,'VOID',$2,$3,$4,$5)`, [code, JSON.stringify(p), JSON.stringify({ status: 'VOID', isTest }), reason, req?.user?.userId || req?.user?.id || req?.user?.user_id || null]);
+      return { code: 200, data: { code, status: 'VOID', idempotentReplay: false } };
+    });
+  }
+
+  @Post('test/shifts/:id/end')
+  @RequireMenu('MENU_PKG_OP', 'E')
+  async endTestShift(@Param('id') id: string, @Body() body: any, @Req() req?: any) {
+    if (!packagingTestMode(req)) throw new BadRequestException('仅支持显式测试模式');
+    const reason = String(body.reason || '').trim();
+    if (!reason) throw new BadRequestException('测试结束原因必填');
+    return this.em.transaction(async manager => {
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:true']);
+      const [shift] = await manager.query(`SELECT * FROM pkg_work_shifts WHERE id=$1 FOR UPDATE`, [id]);
+      assertPackagingMode(shift, true);
+      const packing = await manager.query(`SELECT * FROM pkg_packing_records WHERE shift_id=$1 ORDER BY id FOR UPDATE`, [id]);
+      for (const p of packing) {
+        assertPackagingMode(p, true);
+        await lockPacking(manager, p.code);
+        await assertNoPackingDownstream(manager, p.code);
+      }
+      // Closing retains all test artifacts and their flags. They can never enter real contexts
+      // or inventory; no business row is deleted or disguised as a real/VOID historical record.
+      if (shift.status === 'CLOSED') return { code: 200, data: { shiftId: id, idempotentReplay: true } };
+      await manager.query(`UPDATE pkg_work_shifts SET status='CLOSED',closed_at=NOW(),updated_at=NOW(),variance_reason=$2 WHERE id=$1`, [id, reason]);
+      await manager.query(`INSERT INTO pkg_audit_logs(entity_type,entity_id,action,before_data,after_data,reason,operator_id)
+        VALUES ('WORK_SHIFT',$1,'TEST_END',$2,$3,$4,$5)`, [shift.shift_code, JSON.stringify(shift), JSON.stringify({ status: 'CLOSED', packingCodes: packing.map((p: any) => p.code) }), reason, req?.user?.userId || req?.user?.id || req?.user?.user_id || null]);
+      return { code: 200, data: { shiftId: id, idempotentReplay: false } };
+    });
   }
 
   @Get('labels/trace')
-  async getPackingTrace(@Query('packingCode') packingCode: string) {
+  async getPackingTrace(@Query('packingCode') packingCode: string, @Req() req?: any) {
+    const isTest = packagingTestMode(req);
     if (!packingCode) throw new BadRequestException('packingCode is required');
 
     const [pr] = await this.em.query<any[]>(
-      `SELECT pr.code, pr.production_date, pr.batches_json, pr.shift_id,
+      `SELECT pr.status, pr.void_reason, pr.code, pr.production_date, pr.batches_json, pr.shift_id,
               ws.shift_code, ws.operator_name, ws.supervisor_name
        FROM pkg_packing_records pr
        LEFT JOIN pkg_work_shifts ws ON ws.id = pr.shift_id
-       WHERE pr.code = $1`,
+       WHERE pr.code = $1 AND pr.is_test = ${isTest}`,
       [packingCode],
     );
     if (!pr) return { code: 200, data: null };
@@ -2292,7 +2401,7 @@ export class PackagingTerminalBffController {
       `SELECT sb.house_code, bh.house_name, SUM(sb.total_qty)::int AS total_qty
        FROM pkg_source_batches sb
        LEFT JOIN brd_houses bh ON bh.house_code = sb.house_code
-       WHERE sb.production_date = $1 AND sb.batch_status != 'PENDING_RECEIVE'
+       WHERE sb.production_date = $1 AND sb.batch_status NOT IN ('PENDING_RECEIVE','VOID') AND sb.is_test = ${isTest}
        GROUP BY sb.house_code, bh.house_name
        ORDER BY bh.house_name`,
       [pr.production_date],
@@ -2310,6 +2419,8 @@ export class PackagingTerminalBffController {
       code: 200,
       data: {
         packingCode,
+        status: pr.status,
+        voidReason: pr.void_reason,
         productionDate: pr.production_date,
         shift: pr.shift_id ? {
           id: pr.shift_id,
@@ -2329,7 +2440,10 @@ export class PackagingTerminalBffController {
 
   @Get('warehouse/status')
   @RequireMenu('MENU_PKG_OP', 'V')
-  async getWarehouseHandoverStatus(@Query('packingCode') packingCode: string) {
+  async getWarehouseHandoverStatus(@Query('packingCode') packingCode: string, @Req() req?: any) {
+    const isTest = packagingTestMode(req);
+    if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
+    await assertPackingCanEnterInventory(this.em, packingCode);
     const normalizedCode = String(packingCode || '').trim();
     if (!normalizedCode) throw new BadRequestException('packingCode 必填');
 
@@ -2420,22 +2534,15 @@ export class PackagingTerminalBffController {
 
   @Post('warehouse/confirm')
   @RequireMenu('MENU_PKG_OP', 'E')
-  async confirmHandover(@Body() body: Record<string, any>) {
+  async confirmHandover(@Body() body: Record<string, any>, @Req() req?: any) {
+    const isTest = packagingTestMode(req);
+    if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
     const packingCode = String(body.packingCode || '').trim();
     if (!packingCode) throw new BadRequestException('packingCode 必填');
 
     const today = new Date().toISOString().slice(0, 10);
     const productionDate = body.productionDate || today;
-    const existing = await this.em.query(
-      `SELECT code
-         FROM pkg_handover_records
-        WHERE packing_code = $1
-        ORDER BY created_at DESC
-        LIMIT 1`,
-      [packingCode],
-    );
-    const code = existing[0]?.code
-      || `WH-${productionDate.replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}`;
+    let code = '';
     const boxes = (body.boxes as string[]) || [];
     const location = String(body.location || '').trim();
     if (!location) throw new BadRequestException('输入的库位编码在系统中不存在，请核实后再试');
@@ -2462,6 +2569,11 @@ export class PackagingTerminalBffController {
     let message: string | undefined;
     try {
       await this.em.transaction(async manager => {
+        await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
+        await lockPacking(manager, packingCode);
+        const packing = await assertPackingCanEnterInventory(manager, packingCode);
+        const existing = await manager.query(`SELECT code FROM pkg_handover_records WHERE packing_code=$1 ORDER BY id LIMIT 1`, [packingCode]);
+        code = existing[0]?.code || `WH-${randomUUID()}`;
         inventory = await this.pkgInv.completeTerminalPacking(packingCode, {
           companyCode: body.companyCode,
           warehouseCode,
@@ -2490,7 +2602,7 @@ export class PackagingTerminalBffController {
              (code, shift_id, packing_code, boxes_json, box_count, pallet_code, location, receiver, production_date, created_at)
              VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,NOW())
              ON CONFLICT (code) DO NOTHING`,
-            [code, body.shiftId || null, packingCode,
+            [code, packing.shift_id, packingCode,
              JSON.stringify(boxes), boxes.length,
              body.palletCode || '', location, body.receiver || '', productionDate],
           );
@@ -2533,7 +2645,10 @@ export class PackagingTerminalBffController {
   // ── R3：扫码标签(PKG-*)→ 定位库存批次(EGG-*)──────────────────────────────────
   // GET /api/packaging/terminal/inventory/by-packing/:packingCode
   @Get('inventory/by-packing/:packingCode')
-  async getInventoryByPacking(@Param('packingCode') packingCode: string) {
+  async getInventoryByPacking(@Param('packingCode') packingCode: string, @Req() req?: any) {
+    const isTest = packagingTestMode(req);
+    if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
+    await assertPackingCanEnterInventory(this.em, packingCode);
     const rows = await this.safe(
       this.em.query(
         `SELECT batch_no, product_code, sku_code, grade_code_std, spec_code,

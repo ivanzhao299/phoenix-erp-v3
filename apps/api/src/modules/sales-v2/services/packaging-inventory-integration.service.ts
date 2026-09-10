@@ -1,3 +1,4 @@
+import { assertPackingCanEnterInventory, lockPacking } from '../../bff/packaging-protection';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -126,6 +127,11 @@ export class PackagingInventoryIntegrationService {
     mode?: string;
     skippedByMode?: boolean;
   }> {
+    if (!opts?.manager) return this.ds.transaction(manager => this.generateSaleableFromOutputs(refNo, items, { ...opts, manager }));
+    await opts.manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
+    await lockPacking(opts.manager, refNo);
+    const terminalRows = await opts.manager.query(`SELECT code FROM pkg_packing_records WHERE code=$1`, [refNo]);
+    if (terminalRows.length || refNo.startsWith('PKG-')) await assertPackingCanEnterInventory(opts.manager, refNo);
     // ── 幂等键：该包装批次是否已生成过可售批次 ──────────────────────────────
     const db = opts?.manager ?? this.ds;
     const existing = await db.query(
@@ -302,6 +308,9 @@ export class PackagingInventoryIntegrationService {
     skippedByMode?: boolean;
     note?: string;
   }> {
+    if (!opts?.manager) return this.ds.transaction(manager => this.completeTerminalPacking(packingCode, { ...opts, manager }));
+    await opts.manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
+    await lockPacking(opts.manager, packingCode);
     if (!packingCode) {
       return { refNo: '', idempotent: false, companyCode: 'ALL', batches: [], skippedNonSaleable: [], totalInbound: 0, note: '无 packingCode，跳过库存生成' };
     }
@@ -410,30 +419,10 @@ export class PackagingInventoryIntegrationService {
    */
   private async loadTerminalPackingContext(packingCode: string, mgr?: EntityManager): Promise<any | null> {
     const db = mgr ?? this.ds;
-    try {
-      const rows = await db.query(
-        `SELECT p.code, p.production_date, p.batches_json, p.shift_id, ws.site_id
-           FROM pkg_packing_records p
-           LEFT JOIN pkg_work_shifts ws ON ws.id = p.shift_id
-          WHERE p.code = $1
-          LIMIT 1`,
-        [packingCode],
-      );
-      return rows[0] ?? null;
-    } catch (error: any) {
-      if (error?.code !== '42703') throw error;
-      this.logger.warn(
-        `[PkgInv] legacy pkg_packing_records 缺 shift_id，包装批次 ${packingCode} 回落 company/group 模式`,
-      );
-      const rows = await db.query(
-        `SELECT code, production_date, batches_json
-           FROM pkg_packing_records
-          WHERE code = $1
-          LIMIT 1`,
-        [packingCode],
-      );
-      return rows[0] ?? null;
-    }
+    await assertPackingCanEnterInventory(db, packingCode);
+    const rows = await db.query(`SELECT p.*, ws.site_id FROM pkg_packing_records p
+      LEFT JOIN pkg_work_shifts ws ON ws.id=p.shift_id WHERE p.code=$1`, [packingCode]);
+    return rows[0] ?? null;
   }
 
   /** 稳定编码优先；有规格输入却找不到唯一 ACTIVE 主数据时失败关闭。 */

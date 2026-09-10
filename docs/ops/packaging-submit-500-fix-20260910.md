@@ -37,5 +37,72 @@
 
 ## 5. CI、部署与生产复验
 
-本节在 PR、full deploy 和生产真实复验完成后追加；未完成前不得写 PASS。
+- PR `#227` 全部门禁通过后合并，merge revision `6792efcf10ab28db4fc2fdc644848c79fe7f5d16`。
+- PR runner：Static Security/Freeze、Runtime Smoke、Web Vitest、API Build、V3 Regression、deploy PR regression 全绿；V3 packaging regression 在干净数据库真实执行通过。
+- 显式 full deploy run `34441348164` 成功：双镜像构建、迁移链、API/Web 健康检查和部署 smoke 全部通过。
+- 部署后只读 run `34442294824`：生产 checkout/API/Web revision 三对齐为 `6792efcf...`；48 小时窗口最新包装域 500 仍仅为部署前的 `51927/51928`（02:28 UTC），部署后截至 05:45 UTC 新增包装域 500 为 0。
 
+### 5.1 已获批冒烟：恢复核查后停在隔离门禁
+
+用户已批准一次最小真实分级+包装成功 POST，本轮无需重新请求原审批；但要求独立受控来源、明确测试标识、无库存影响、不重复创建、保留链路 ID 与请求响应，且测试残留清理不得扩大历史 12 行清单。原方案“物理删除五类测试行”已失效，**禁止执行**。
+
+- 恢复只读 run [34448940336](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34448940336)，07:14:45 UTC，checkout/API/Web 均为 `6792efcf10ab28db4fc2fdc644848c79fe7f5d16`。
+- 查全部 source links 为 **0 行**，05:00 UTC 后无新增来源、分级、包装或班次；所有 SMOKE 标识查询无记录。前轮没有可复用的成功链路实证，也没有发现遗留的受控测试数据。
+- **具体隔离障碍**：`PackagingTerminalBffController.getContext`（当前约 1340 行）选择当天最新 OPEN 班次，不按测试标识、产线或操作者隔离；`getTodayShifts`/`getTodaySourceBatches` 同样不排除测试记录。因此创建 OPEN 的 SMOKE 班次会进入真实操作员全局上下文，单纯名称前缀不能保证隔离。真实 schema 的包装表无 status/void 字段，`loadTerminalPackingContext` 也不拒绝测试/作废包装，留下测试包装仍有被交接入库风险。
+- 按已授权范围中的“若无法隔离或保证库存零影响，先停报具体原因”，**不执行任何 smoke POST 或 SQL seed**。不使用真实 OPEN 班次，不盗用/消耗用户来源，不交接/入库/销售，不创建主数据，不通过改历史行或物理删除隐去残留。
+- 本次 smoke 写入 **0 行，ID 无，残留 0**；source→grading→packing ID、请求/响应、source_links=30、pending 30→0、同 key replay 不增量等证据 **未产生**。先前 GET 200、零新 500 和 CI 包装回归均不替代这项生产验收。状态 **BLOCKED_ISOLATION / NOT PASS**。
+
+后续需先实现并部署隔离方案：受控测试班次/来源在真实上下文和有效汇总中不可见、所有库存入口拒绝测试链、测试链有可追溯保留状态；只允许专属测试调用访问。然后冻结独立班次+来源的身份与稳定幂等键，创建最小 30 枚来源、一次分级及一次包装，不交接；每步先查末态，重复请求只用于验证已有幂等契约，不盲重放。保留隔离残留清单与方案，未经额外明确授权不清理或扩展历史清单。当前未实现该配套隔离，也未触发 full deploy。
+
+### 5.2 中断原因、历史写入及新阻断证据
+
+- 旧 bash-50 输出不可追回，无法还原进程中断原因。最后可验证动作 [schema run 34444253090](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34444253090) **成功**；artifact 为 0 个，schema 在 base64 日志，已成功还原读取。不能称为 schema dump 或 apply 失败。
+- 本次 H-DEBUG 审批为 **12 行**：source 16/34/38；grading 13/42/43/44/45/53/54；packing 21/25。生产仍为原态，无该审批执行审计。
+- 先前其他审批已实际更新来源 48、分级 73/74/77、包装 31（5 业务行，execute `34434992200`、verify `34435059608`），恢复核查确认其末态，本轮没有重放。
+- 新依赖：包装 21/25 对应交接 17/20；分级 53/54 被清单外包装 26/27/28 引用。遵守新依赖即停与单事务限制，当前 12 行未执行，也不改上述清单外对象。明细见 [H-DEBUG 报告](h-debug-a01-history-chain-audit-20260910.md)。
+- 全量库存 297 行/哈希 `3cf89cb78648b6a0be73ee05c5a6586a`，ledger 252 行/哈希 `8bf9bb0111ac503e85eec8bf53e517df`，均与前次治理一致。
+
+### 5.3 本次真实本地验证及旧失败复核
+
+所有本地测试显式 `NODE_ENV=test`：API tsc、Web tsc 均 0 errors；API BFF+grading-governance 两 suite **31/31 PASS**；Web 全量 **577/577 PASS（108 文件）**；nullable unique、constraint drift、终端包装 scope-audit 均完成。没有运行生产写入测试。
+
+对前次 29 个 `act is not a function`，当前继承的 `NODE_ENV=production` 已实查；React index.js 在 production 分支加载不导出 act 的模块，而 react-dom-test-utils.production.js 调用 React.act。无需改代码，显式 test 后 29 个及其余 Web 测试全部通过。这是已核实的当前环境机制；旧 bash 精确环境不可追回，不能用“未改前端”替代根因证据。详细命令和机制记录见 [local-validation.txt](runs/h-debug-resume-20260910/local-validation.txt)。
+
+### 5.4 交付边界
+
+恢复工作只新增受控只读 SQL 与证据文档；没有运行时代码或迁移变更，没有新部署。生产仍运行已部署的日期 500 修复 revision `6792efcf...`。两项生产任务仍未完成：H-DEBUG 12 行清理被依赖/schema 门禁阻断；成功 POST 冒烟被隔离门禁阻断。PR #228 持续记录当前结果，不把尚未完成的任务写成 closeout PASS。
+
+### 生产 preflight 实际拒绝记录
+
+[run 34449200039](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34449200039)，bundle `9cc70494ee593c18c4f6cfb620f5cb3ffad6fc5c`，07:18:00 UTC，三端 revision 仍为 `6792efcf...`。12 行完整原态比较通过后，SQL 以 exit 3 拒绝：
+
+```
+H_DEBUG_PURGE_BLOCKED: UNAPPROVED_HANDOVER_DEPENDENCIES,
+UNAPPROVED_PACKING_DEPENDENCIES,PACKING_VOID_SCHEMA_NOT_DEPLOYED
+```
+
+这是实际生产门禁失败，**不是清理成功**。连接为 read-only，错误导致事务结束回滚；没有业务 DML。库存/ledger 行数与哈希再次与 07:14:45 及前次治理一致。失败时 ssh-action 没有返回 capture_stdout，上传 artifact 只有空日志；已从 Actions step 原日志提取脱敏证据至 `runs/h-debug-resume-20260910/preflight-34449200039.txt`，不把空 artifact 当成未执行。GitHub 日志对某条清单外 grading code 尾部作了 `***` 掩码，保留原样，不据此认定数据漂移；目标全字段基线仍以 34448940336 artifact 为准。
+
+另直接下载前项 execute `34434992200` 的 artifact，确认 `UPDATE 1 + UPDATE 3 + UPDATE 1`、`INSERT 1 + INSERT 3 + INSERT 1` 与最终 **COMMIT**：前项实际更新 5 个业务行并追加 5 个审计行，绝非“从未写入”。本次新写入仍为 0，未执行旧包。
+
+## 6. VOID 与测试隔离实施续行（2026-09-10，部署前）
+
+CLI stderr os error11 / exit101不是业务验收；独立只读run34450975790的SQL已成功，仅artifact留档因stdout环境变量过长失败。新只读依赖run34452868722成功，未重复业务写入。包装26/27/28另有交接21/22/23；与既有交接17/20一起列入待批清单，不能仅凭引用53/54整单认定污染。完整逐行清单、事实/推断边界见[H-DEBUG报告第7节](h-debug-a01-history-chain-audit-20260910.md#71-逐行待批清单)。
+
+已实现：包装ACTIVE/VOID审计、幂等与事务余量保护、交接/库存/直接销售依赖拒绝直接VOID、消费过滤；四表默认false的is_test；ROLE_ADMIN显式测试模式、双向来源/查询隔离、禁止测试交接库存、可审计关闭测试班次。仅schema迁移，无历史业务DML。普通同舍同班多次采集不合并。历史混合引用余量保守扣减，不能推算每个分级实际消耗。
+
+本地NODE_ENV=test：双端tsc通过；API833通过/13条件性跳过；其中本轮PG suite另行在独立PG18真实执行12/12；Web577/577；scope/约束/81条迁移门禁通过。独立代码和SQL审查已完成。新增PG集成纳入CI。本节尚未声明CI/部署完成，以后续实际run为准。
+
+生产POST计划已由主agent复核，**本轮不执行**：只允许管理员显式测试模式，独立测试班次/来源30枚，不引用真实入库单；稳定分级/包装key；按每步已存在末态决定是否执行；验证pending30→0、同key重放不增量；禁止交接/库存/销售；审计结束保留测试记录。计划必须在部署后只读隔离验收通过且后续用户允许执行的轮次中使用；不把本轮GET或本地PG通过写成生产POST成功。
+
+原12行清理、新依赖处置、真实成功POST验收继续暂缓；本轮截至部署前业务DML0、生产测试记录0。
+
+### 标签调用与首次CI门禁修正
+
+补查实际标签调用后，服务端兼容前端现用packingCode字段；打印/重打前重新读取包装状态，VOID显示阻断提示，并补中英老三语。更新后双端tsc、定向36通过及Web577/577；i18n键与AST门禁通过。
+
+实现首提交dc89ebba的Security run34454095914失败：冻结边界需reviewed-frozen-boundary标签，安全探针整文件匹配到既有Chanjet注释需reviewed-security-touch标签。依据现有.github/workflows/ci-security.yml，在独立代码/SQL复核完成后添加正式审查标签，未改门禁实现或放宽规则；新提交须重新获得全绿。该失败保持记录，不能用后续绿覆盖其历史。
+
+### 空库迁移顺序修正
+
+V3 Regression run34454096008真实失败于Seed DB阶段：pkg_work_shifts此前依赖应用启动时创建，TypeORM先运行所以ALTER找不到表。已补充两张终端基础表的幂等CREATE及既有shift_type/shift_id/grading_codes_json列保障；生产真实schema已存在，语句不改原行、不回填。down保留历史基础表，仅撤本次保护列。新增PG集成步骤移至API初始化完成后，避免尚未bootstrap的辅助表不可用。新增真实空schema up/down/up测试后，本轮独立PostgreSQL18为13/13通过；API/Web现有验证仍保留原始记录。失败未跳过、未改成允许失败，等待新head CI完整重跑。

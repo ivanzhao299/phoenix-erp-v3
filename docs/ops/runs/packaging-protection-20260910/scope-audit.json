@@ -1,0 +1,14 @@
+[
+  {
+    "pattern": "<input[^>]*(?:company_code|warehouse_code|house_code|sku_code|grade_code)",
+    "matches": [],
+    "count": 0,
+    "exit": 1
+  },
+  {
+    "pattern": "onChange.*e\\.target\\.value.*(?:company_code|warehouse_code|house_code|sku_code|grade_code)",
+    "matches": [],
+    "count": 0,
+    "exit": 1
+  }
+]

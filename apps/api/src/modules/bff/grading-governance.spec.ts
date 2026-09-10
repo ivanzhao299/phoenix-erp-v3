@@ -10,14 +10,14 @@ const payload = {
 };
 
 function buildController(options: { netQty?: number; sourceShiftId?: number; productionDate?: unknown } = {}) {
-  let stored: { code: string; total_output: number; payload_hash: string } | null = null;
+  let stored: { code: string; total_output: number; payload_hash: string; status: string; is_test: boolean } | null = null;
   const links: unknown[][] = [];
   const manager: any = {
     query: jest.fn(async (sql: string, params: unknown[] = []) => {
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('WHERE idempotency_key = $1')) return stored ? [stored] : [];
       if (sql.includes('FROM pkg_work_shifts') && sql.includes('FOR UPDATE')) {
-        return [{ id: 55, production_date: options.productionDate ?? '2026-09-09', status: 'OPEN' }];
+        return [{ id: 55, production_date: options.productionDate ?? '2026-09-09', status: 'OPEN', is_test: false }];
       }
       if (sql.includes('FROM pkg_source_batches') && sql.includes('FOR UPDATE')) {
         return [{ id: 45, batch_code: 'SRC-45', shift_id: options.sourceShiftId ?? 55,
@@ -25,7 +25,7 @@ function buildController(options: { netQty?: number; sourceShiftId?: number; pro
       }
       if (sql.includes('FROM pkg_grading_source_links') && sql.includes('GROUP BY')) return [];
       if (sql.includes('INSERT INTO pkg_grading_records')) {
-        stored = { code: 'GRD-TEST', total_output: Number(params[5]), payload_hash: String(params[7]) };
+        stored = { status: 'ACTIVE', is_test: false, code: 'GRD-TEST', total_output: Number(params[5]), payload_hash: String(params[7]) };
         return [{ id: 71, code: 'GRD-TEST' }];
       }
       if (sql.includes('INSERT INTO pkg_grading_source_links')) { links.push(params); return []; }
@@ -52,7 +52,7 @@ function buildController(options: { netQty?: number; sourceShiftId?: number; pro
 describe('PackagingTerminal grading governance', () => {
   it('returns only positive remaining batches for the requested open shift', async () => {
     const em: any = { query: jest.fn(async (sql: string) => {
-      if (sql.includes('FROM pkg_work_shifts')) return [{ id: 55, status: 'OPEN' }];
+      if (sql.includes('FROM pkg_work_shifts')) return [{ id: 55, status: 'OPEN', is_test: false }];
       return [{ id: 45, shift_id: 55, house_code: 'HOUSE-1', gradable_qty: 20 }];
     }) };
     const scope = { assertActiveHouseOwnership: jest.fn().mockResolvedValue(undefined) };
@@ -101,11 +101,12 @@ describe('PackagingTerminal grading governance', () => {
   });
 
   it('rejects legacy grading without source links as a conflict instead of a 500', async () => {
-    const em: any = { query: jest.fn().mockResolvedValue([]) };
+    const em: any = { query: jest.fn(async (sql: string) => sql.includes('FROM pkg_work_shifts') ? [{ status: 'OPEN', is_test: false }] : []) };
+    em.transaction = (work: any) => work(em);
     const scope = { assertActiveHouseOwnership: jest.fn().mockResolvedValue(undefined) };
     const controller = new PackagingTerminalBffController(em, {} as never, scope as never);
     await expect(controller.submitPacking({
-      gradingCodes: ['GRD-LEGACY'], productionDate: '2026-09-10', shiftId: 55,
+      idempotencyKey: 'legacy-packing', gradingCodes: ['GRD-LEGACY'], productionDate: '2026-09-10', shiftId: 55,
       batches: [{ grade: 'GRADE_1', boxes: 1, eggs: 30 }],
     })).rejects.toThrow('存在无有效来源关联的分级记录，禁止包装');
   });
