@@ -144,5 +144,32 @@ jobs:
              WHERE ws.created_at >= :'window_start'::timestamp
                AND ws.created_at <  :'window_end'::timestamp
              ORDER BY ws.created_at DESC;
+            SELECT 'PACKING_SUBMIT_ERRORS' AS section,
+                   id, created_at, error_type, http_status, request_method,
+                   request_path, error_message, pg_error_code, username
+              FROM sys_error_logs
+             WHERE created_at >= :'window_start'::timestamp
+               AND created_at <  :'window_end'::timestamp
+               AND request_method = 'POST'
+               AND request_path LIKE '%/api/packaging/terminal/packing/submit%'
+             ORDER BY created_at DESC;
+            SELECT 'PACKAGING_GOVERNANCE_SCHEMA' AS section,
+                   to_regclass('pkg_grading_source_links') IS NOT NULL AS links_table_exists,
+                   EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema=current_schema() AND table_name='pkg_grading_records'
+                              AND column_name='status') AS grading_status_exists,
+                   EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema=current_schema() AND table_name='pkg_packing_records'
+                              AND column_name='grading_codes_json') AS grading_codes_exists;
+            SELECT 'GRADING_WITHOUT_LINKS' AS section, gr.id, gr.code, gr.shift_id,
+                   gr.status, gr.outputs_json, gr.total_output, gr.created_at
+              FROM pkg_grading_records gr
+             WHERE NOT EXISTS (SELECT 1 FROM pkg_grading_source_links gsl WHERE gsl.grading_id=gr.id)
+             ORDER BY gr.created_at DESC LIMIT 100;
             COMMIT;
             SQL
+            echo 'API_LOG_PACKING_SUBMIT_BEGIN'
+            docker logs --timestamps --since "${WINDOW_START}Z" --until "${WINDOW_END}Z" phoenix-v3-api 2>&1 \
+              | grep -E -B 30 -A 30 'packing/submit|\[Unhandled\]|QueryFailedError|column .* does not exist|violates not-null constraint' \
+              || true
+            echo 'API_LOG_PACKING_SUBMIT_END'
