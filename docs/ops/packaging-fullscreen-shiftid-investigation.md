@@ -185,3 +185,7 @@ GET /api/packaging/terminal/grading/active?shiftId=42
 ## 2026-09-10 授权实施后续
 
 用户已授权实施，与确认入库SKU修复联合推进。最新代码、DOM/PG测试、CI/发布及剩余验收见 [统一实施报告](packaging-sku-shift-implementation-20260910.md)。上文“未授权/未实施”为原只读调查截止状态，不代表本次授权后的进展。
+
+### 本轮实施收尾索引
+
+代码已交付草稿PR #229（d4ce392f），本地双端tsc、API833、Web614、PG18专项47通过；独立复核补齐目标班次DataScope。收尾只读run 34466357760确认33号单30枚1盒且batch/ledger/handover均0。未做生产业务POST、主数据写入、合并或full deploy。产品身份未决、其他等级孤立产品影响和全仓scope审计失败仍为残留条件。完整run/revision、复核取舍及下一待批事项见 [统一实施报告](packaging-sku-shift-implementation-20260910.md)。

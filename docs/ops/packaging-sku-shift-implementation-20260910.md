@@ -1,6 +1,6 @@
 # 包装 SKU 就绪与终端班次修复（2026-09-10）
 
-状态：授权实施中；未合并、未部署、未做生产主数据写入或业务 POST。原单 33 未入库，不能宣称业务闭环。
+状态：代码已提交至草稿PR，发布暂停；未合并、未部署、未做生产主数据写入或业务 POST。原单 33 未入库，不能宣称业务闭环。
 
 ## 授权与基线
 
@@ -71,3 +71,25 @@ PR [#229](https://github.com/ivanzhao299/phoenix-erp-v3/pull/229) 为草稿；�
 - **全仓运行时scope-audit仍失败**：固定身份fixture缺失、旧finance接口404。本轮没有修造该脚本的历史业务fixture或把失败降级成噪声，不能声称完整scope-audit通过。此项与生产主数据影响一起列为未满足的发布条件。
 
 日志保存在本机 `docs/ops/runs/packaging-sku-shift-20260910/`；只提交报告与相关代码，不提交大日志、凭据或无关生成报告。生产主数据写入前后差异仍为0；包装33仍以最近只读run为准，无任何业务POST。
+
+## 收尾只读现态与交付边界
+
+代码修订 `d4ce392ff5a9fa19645933e5ebfc046110dec7dd`：
+
+| 验证 | run / 结果 |
+|---|---|
+| 静态安全/冻结 | [34466318247](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34466318247) 通过 |
+| Web Vitest | [34466318189](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34466318189) 通过 |
+| PG及模块回归 | [34466318179](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34466318179) 通过 |
+| CI/CD类型与回归 | [34466318258](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34466318258) 通过；build/push/deploy均跳过，不是部署 |
+| Runtime smoke | [34466318267](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34466318267) 通过 |
+| 构建 | [34466318203](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34466318203) 记录时仍在执行Web build；收尾文档提交后的检查见PR实时检查页 |
+| 生产收尾只读 | [34466357760](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34466357760) 通过 |
+
+收尾只读双层保护均on，HTTP manifest空，不启动应用、不登录或调用业务POST。主数据计数与前次完全一致；未新增/修改产品或SKU，精确写入ID=无。包装33 `PKG-20260910-163616` 仍ACTIVE/real/shift56、30枚1盒，库存batch=0、ledger=0、handover=0。
+
+三端revision一致断言通过，仍对应原main `492ba3c3a67b477e2240b7b5a8762164a80bfd7e`（Actions日志中段自动掩码）；没有新full-deploy run，因此不能将本轮代码称为线上版本。
+
+未完成条件：①5号蛋归属EGG还是独立产品需要业务定权；②GRADE_1/2孤立产品SKU在新权威门禁下不可用，不能越过本轮“仅GRADE_5”授权补录，发布前需处理/明确接受影响；③旧全仓scope运行审计实际2通过/28失败/1跳过，固定fixture及退休路由需使审计重新有效，不能用当前任务专项通过替代。未满足条件前保留草稿、不合并、不执行full deploy。
+
+下一待批业务动作仍为原单33实物/接收人/库位核实后的独立入库授权；本轮没有请求、模拟或重放该动作。没有真实浏览器上下文，不宣称生产DOM已验收。主数据恢复与业务闭环均未完成。
