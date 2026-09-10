@@ -72,5 +72,5 @@ WITH source_actor AS (
   SELECT received_by FROM source_actor WHERE received_by IS NOT NULL
 )
 SELECT row_to_json(u) AS user_row
-  FROM sys_users u
- WHERE u.id::text IN (SELECT actor_id FROM actor_ids);
+  FROM sys_user u
+ WHERE u.user_id::text IN (SELECT actor_id FROM actor_ids);
