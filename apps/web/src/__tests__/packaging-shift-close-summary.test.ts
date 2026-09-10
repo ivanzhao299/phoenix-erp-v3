@@ -18,7 +18,7 @@ const adminReportPage = fs.readFileSync(
 describe('BUG-20260722-0004 交班汇总', () => {
   it('按当前班次生产日期查询服务端汇总与分级记录', () => {
     expect(page).toContain('getShiftSummary(productionDate, shiftId)');
-    expect(page).toContain('getActiveGrading(productionDate)');
+    expect(page).toContain('getActiveGrading(Number(shift?.id))');
     expect(page).toContain('Object.values(gradingOutputs).reduce');
   });
 

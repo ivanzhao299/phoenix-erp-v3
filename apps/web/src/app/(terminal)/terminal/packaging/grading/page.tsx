@@ -10,12 +10,12 @@ import { usePackagingDicts, buildGradeMap, FALLBACK_DICTS, getDictLabel } from '
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
 import { normalizeGradingSourceBatch, type GradingSourceBatch } from '@/lib/grading-source';
-const GRADING_WIP_DATE = new Date().toISOString().slice(0, 10);
-const GRADING_WIP_KEY = `phoenix_grading_wip3_${GRADING_WIP_DATE}`;
 const SALEABLE_PALETTE = ['var(--status-special)', 'var(--color-accent)', 'var(--status-success)', 'var(--status-warning)', 'var(--status-warning)', 'var(--status-special)', 'var(--status-success)'];
 const TOAST_MS = 2500;
-// One row per chicken house, aggregating all its batches
+// One row per source batch. A house may legitimately have multiple collections.
 type HouseGroup = {
+  batch_key: string;
+  batch_code: string;
   house_code: string;
   house_name: string;
   received_qty: number;
@@ -35,6 +35,9 @@ export default function GradingPage() {
     setGradingResult,
     ctx
   } = useTerminalContext();
+  const shiftId = Number(ctx.currentShift?.id);
+  const hasOpenShift = Number.isInteger(shiftId) && shiftId > 0 && ctx.currentShift?.status === 'OPEN';
+  const gradingWipKey = `phoenix_grading_wip3_${hasOpenShift ? shiftId : 'no-open-shift'}`;
   const {
     dicts
   } = usePackagingDicts(['PKG_EGG_GRADE', 'PKG_EGG_DEFECT']);
@@ -50,57 +53,47 @@ export default function GradingPage() {
   const [batches, setBatches] = useState<GradingSourceBatch[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const sourcePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const fetchSource = useRef(async () => {
+  const fetchSource = useRef(async () => undefined);
+  fetchSource.current = async () => {
+    if (!hasOpenShift) {
+      setBatches([]);
+      setSummaryLoading(false);
+      return;
+    }
     try {
-      const data = await packagingApi.getTodaySourceBatches();
+      const data = await packagingApi.getPendingGradingSourceBatches(shiftId);
       const list = Array.isArray(data) ? data : [];
       const parsed = list.map(normalizeGradingSourceBatch);
       setBatches(parsed);
     } catch {/* 保留上次 */} finally {
       setSummaryLoading(false);
     }
-  });
+  };
   useEffect(() => {
     void fetchSource.current();
     sourcePollRef.current = setInterval(() => void fetchSource.current(), 5000);
     return () => {
       if (sourcePollRef.current) clearInterval(sourcePollRef.current);
     };
-  }, []);
+  }, [shiftId, hasOpenShift]);
 
-  // ── 按鸡舍聚合（与集蛋页同步，每舍一行）──────────────────────────────────
+  // ── 来源批次是最小处理单元；同舍多次采集分别展示 ─────────────────────────
   const houses = useMemo<HouseGroup[]>(() => {
-    const map = new Map<string, HouseGroup>();
-    for (const b of batches) {
-      if (!map.has(b.house_code)) {
-        map.set(b.house_code, {
-          house_code: b.house_code,
-          house_name: b.house_name,
-          received_qty: 0,
-          dirty_qty: 0,
-          cracked_qty: 0,
-          available: 0,
-          batch_ids: []
-        });
-      }
-      const h = map.get(b.house_code)!;
-      h.received_qty += b.received_qty;
-      h.dirty_qty += b.dirty_qty;
-      h.cracked_qty += b.cracked_qty;
-      h.available += b.available;
-      h.batch_ids.push(b.id);
-    }
-    return Array.from(map.values());
+    return batches.map(b => ({
+      batch_key: String(b.id),
+      batch_code: b.batch_code,
+      house_code: b.house_code,
+      house_name: b.house_name,
+      received_qty: b.received_qty,
+      dirty_qty: b.dirty_qty,
+      cracked_qty: b.cracked_qty,
+      available: b.available,
+      batch_ids: [b.id],
+    }));
   }, [batches]);
 
   // ── Per-house grade outputs ────────────────────────────────────────────────
-  const [houseOutputsMap, setHouseOutputsMap] = useState<Record<string, Record<string, number>>>(() => {
-    try {
-      const raw = localStorage.getItem(GRADING_WIP_KEY);
-      if (raw) return JSON.parse(raw) as Record<string, Record<string, number>>;
-    } catch {/* ignore */}
-    return {};
-  });
+  const [houseOutputsMap, setHouseOutputsMap] = useState<Record<string, Record<string, number>>>({});
   const [activeHouseCode, setActiveHouseCode] = useState<string | null>(null);
   const [submittedHouses, setSubmittedHouses] = useState<Set<string>>(new Set());
   const [editKey, setEditKey] = useState<string | null>(null);
@@ -112,12 +105,22 @@ export default function GradingPage() {
     houseName: string;
   } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idempotencyKeys = useRef(new Map<string, string>());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(gradingWipKey);
+      setHouseOutputsMap(raw ? JSON.parse(raw) as Record<string, Record<string, number>> : {});
+    } catch { setHouseOutputsMap({}); }
+    setSubmittedHouses(new Set());
+    setActiveHouseCode(null);
+  }, [gradingWipKey]);
 
   // Auto-select first pending house
   useEffect(() => {
     if (houses.length > 0 && activeHouseCode === null) {
-      const first = houses.find(h => !submittedHouses.has(h.house_code) && h.available > 0);
-      if (first) setActiveHouseCode(first.house_code);
+      const first = houses.find(h => !submittedHouses.has(h.batch_key) && h.available > 0);
+      if (first) setActiveHouseCode(first.batch_key);
     }
   }, [houses]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -147,22 +150,23 @@ export default function GradingPage() {
   // Persist WIP
   useEffect(() => {
     try {
-      localStorage.setItem(GRADING_WIP_KEY, JSON.stringify(houseOutputsMap));
+      localStorage.setItem(gradingWipKey, JSON.stringify(houseOutputsMap));
     } catch {/* ignore */}
-  }, [houseOutputsMap]);
+  }, [gradingWipKey, houseOutputsMap]);
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
   }, []);
 
   // ── Derived values ──────────────────────────────────────────────────────────
-  const activeHouse = houses.find(h => h.house_code === activeHouseCode) ?? null;
+  const activeHouse = houses.find(h => h.batch_key === activeHouseCode) ?? null;
   const outputs = activeHouseCode !== null ? houseOutputsMap[activeHouseCode] ?? emptyOutputs : emptyOutputs;
   const houseAvailable = activeHouse?.available ?? 0;
   const totalOutput = Object.values(outputs).reduce((a, b) => a + b, 0);
   const balanceOk = totalOutput <= houseAvailable;
-  const canSubmit = !submitting && activeHouse !== null && totalOutput > 0 && balanceOk;
+  const canSubmit = hasOpenShift && !submitting && activeHouse !== null && totalOutput > 0 && balanceOk;
   const totalAvailable = houses.reduce((s, h) => s + h.available, 0);
-  const allDone = houses.length > 0 && houses.filter(h => h.available > 0).every(h => submittedHouses.has(h.house_code));
+  const allDone = submittedHouses.size > 0
+    && (houses.length === 0 || houses.filter(h => h.available > 0).every(h => submittedHouses.has(h.batch_key)));
   const selectedInfo = editKey ? gradeMap[editKey] : null;
   const selectedColor = selectedInfo?.color as string ?? T.ACC;
   const numpadInitial = editKey && outputs[editKey] > 0 ? String(outputs[editKey]) : '';
@@ -173,15 +177,20 @@ export default function GradingPage() {
     setSubmitting(true);
     setSubmitError('');
     try {
+      const payloadIdentity = `${shiftId}:${activeHouse.batch_key}:${JSON.stringify(outputs)}`;
+      let idempotencyKey = idempotencyKeys.current.get(payloadIdentity);
+      if (!idempotencyKey) {
+        idempotencyKey = `grading-${shiftId}-${activeHouse.batch_key}-${crypto.randomUUID()}`;
+        idempotencyKeys.current.set(payloadIdentity, idempotencyKey);
+      }
       const res = await packagingApi.submitGrading({
-        productionDate: new Date().toISOString().slice(0, 10),
         outputs,
-        totalInput: houseAvailable,
-        houseCode: activeHouse.house_code,
         sourceBatchIds: activeHouse.batch_ids,
-        shiftId: ctx.currentShift?.id ?? null
+        shiftId,
+        idempotencyKey,
       });
-      const newSubmittedHouses = new Set([...submittedHouses, activeHouse.house_code]);
+      idempotencyKeys.current.delete(payloadIdentity);
+      const newSubmittedHouses = new Set([...submittedHouses, activeHouse.batch_key]);
       setSubmittedHouses(newSubmittedHouses);
 
       // Cumulative outputs across all submitted houses → packing context
@@ -196,11 +205,18 @@ export default function GradingPage() {
         total: totalOutput,
         houseName: activeHouse.house_name
       });
+      setHouseOutputsMap(prev => {
+        const next = { ...prev };
+        delete next[activeHouse.batch_key];
+        return next;
+      });
+      await fetchSource.current();
+      setActiveHouseCode(null);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       toastTimer.current = setTimeout(() => {
         setToast(null);
-        const next = houses.find(h => h.house_code !== activeHouse.house_code && !newSubmittedHouses.has(h.house_code) && h.available > 0);
-        if (next) setActiveHouseCode(next.house_code);
+        const next = houses.find(h => h.batch_key !== activeHouse.batch_key && !newSubmittedHouses.has(h.batch_key) && h.available > 0);
+        if (next) setActiveHouseCode(next.batch_key);
       }, TOAST_MS);
     } catch (e) {
       setSubmitError((e as {
@@ -352,7 +368,7 @@ export default function GradingPage() {
       minHeight: 0
     }}>
 
-        {/* ① 左栏：鸡舍列表（每舍一行，与集蛋页同步） */}
+        {/* ① 左栏：来源批次列表；同舍多次采集保持独立 */}
         <div style={{
         width: 280,
         flexShrink: 0,
@@ -370,7 +386,7 @@ export default function GradingPage() {
           textTransform: 'uppercase',
           flexShrink: 0
         }}>
-            {t('ui.今日投入', '今日投入')} {houses.length > 0 && `— ${houses.length} ${t('ui.舍', '舍')}`}
+            {t('ui.今日投入', '本班待分级')} {houses.length > 0 && `— ${houses.length} ${t('ui.批', '批')}`}
           </div>
 
           <div style={{
@@ -388,17 +404,19 @@ export default function GradingPage() {
             padding: '16px 6px',
             lineHeight: 1.6
           }}>
-                {t('ui.今日尚未录入集蛋数据', '今日尚未录入集蛋数据')}<br />
+                {hasOpenShift
+                  ? t('ui.今日尚未录入集蛋数据', '本班暂无待分级来源批次')
+                  : t('ui.请先开班再提交集蛋记录', '无开放班次，禁止分级')}<br />
                 <span className={u.fs11}>{t('ui.可先录入集蛋再返回分级', '可先录入集蛋再返回')}</span>
               </div> : houses.map(h => {
-            const isActive = h.house_code === activeHouseCode;
-            const isDone = submittedHouses.has(h.house_code);
-            const ho = houseOutputsMap[h.house_code] ?? {};
+            const isActive = h.batch_key === activeHouseCode;
+            const isDone = submittedHouses.has(h.batch_key);
+            const ho = houseOutputsMap[h.batch_key] ?? {};
             const hoTotal = Object.values(ho).reduce((s, v) => s + v, 0);
             const remaining = h.available - hoTotal;
             const statusColor = isDone ? T.GRN : isActive ? T.ACC : T.MUT;
-            return <button type="button" key={h.house_code} onPointerDown={() => {
-              if (!isDone) setActiveHouseCode(h.house_code);
+            return <button type="button" key={h.batch_key} onPointerDown={() => {
+              if (!isDone) setActiveHouseCode(h.batch_key);
             }} style={{
               width: '100%',
               display: 'flex',
@@ -953,7 +971,7 @@ export default function GradingPage() {
         transition: 'background 0.15s, opacity 0.15s',
         flexShrink: 0
       }}>
-            {submitting ? t('ui.提交中', '提交中...') : `✓ ${t('ui.提交此批次', '提交此鸡舍')}`}
+            {submitting ? t('ui.提交中', '提交中...') : `✓ ${t('ui.提交此批次', '提交此批次')}`}
           </button>}
       </div>
     </div>;

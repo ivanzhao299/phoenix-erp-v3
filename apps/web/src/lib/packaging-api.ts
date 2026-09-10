@@ -22,6 +22,13 @@ export interface WarehouseHandoverResult {
   status?: WarehouseHandoverStatus;
 }
 
+export interface SubmitGradingRequest {
+  shiftId: number;
+  sourceBatchIds: number[];
+  outputs: Record<string, number>;
+  idempotencyKey: string;
+}
+
 export interface WarehouseHandoverStatus {
   packingCode: string;
   state: 'PENDING' | 'HANDOVER_ONLY' | 'INVENTORY_ONLY' | 'COMMITTED';
@@ -136,6 +143,8 @@ export const packagingApi = {
   // ── 来源批次 ────────────────────────────────────────────────────────────────
   getTodaySourceBatches: () => request<any[]>('GET', '/api/packaging/terminal/source-batches/today'),
   getPendingSourceBatches: () => request<any[]>('GET', '/api/packaging/terminal/source-batches/pending'),
+  getPendingGradingSourceBatches: (shiftId: number) =>
+    request<any[]>('GET', `/api/packaging/terminal/grading/pending?shiftId=${shiftId}`),
   receiveBatch: (body: Record<string, unknown>) => request<any>('POST', '/api/packaging/terminal/source-batches/receive', body),
   correctBatch: (body: Record<string, unknown>) => request<void>('PATCH', '/api/packaging/terminal/source-batches/correct', body),
 
@@ -173,17 +182,17 @@ export const packagingApi = {
   },
 
   // ── 分级 ─────────────────────────────────────────────────────────────────────
-  submitGrading: (body: Record<string, unknown>) =>
-    request<{ code: string }>('POST', '/api/packaging/terminal/grading/submit', body),
+  submitGrading: (body: SubmitGradingRequest) =>
+    request<{ code: string; totalOutput: number; idempotentReplay: boolean }>('POST', '/api/packaging/terminal/grading/submit', body),
 
   /** 按等级汇总当日所有分级批次产出及已包装量，返回各等级实时剩余（多终端并发安全） */
-  getActiveGrading: (date?: string) =>
+  getActiveGrading: (shiftId: number) =>
     request<{
       gradingCodes: string[];
       outputs:      Record<string, number>;
       packed:       Record<string, number>;
       remaining:    Record<string, number>;
-    }>('GET', `/api/packaging/terminal/grading/active${date ? `?date=${date}` : ''}`),
+    }>('GET', `/api/packaging/terminal/grading/active?shiftId=${shiftId}`),
 
   // ── 包装 ─────────────────────────────────────────────────────────────────────
   submitPacking: (body: Record<string, unknown>) =>

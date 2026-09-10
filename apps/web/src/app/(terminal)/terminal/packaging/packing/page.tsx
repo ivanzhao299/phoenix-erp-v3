@@ -60,8 +60,14 @@ export default function PackingPage() {
   const [snapLoading, setLoading] = useState(true);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fetchSnap = async () => {
+    const shiftId = Number(ctx.currentShift?.id);
+    if (!Number.isInteger(shiftId) || shiftId <= 0) {
+      setSnap(null);
+      setLoading(false);
+      return;
+    }
     try {
-      const data = await packagingApi.getActiveGrading();
+      const data = await packagingApi.getActiveGrading(shiftId);
       setSnap(data ?? null);
     } catch {/* 保留上次快照，短暂断网不清空 */} finally {
       setLoading(false);
@@ -73,7 +79,7 @@ export default function PackingPage() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, []);
+  }, [ctx.currentShift?.id]);
 
   // ── 服务端剩余（snap.remaining 已减去所有终端已包装量） ───────────────────
   const serverRemaining = snap?.remaining ?? {};
