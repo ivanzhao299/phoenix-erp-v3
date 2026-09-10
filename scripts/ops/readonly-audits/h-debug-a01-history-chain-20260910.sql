@@ -131,4 +131,39 @@ SELECT 'SHIFT_RECONCILIATION' AS section, t.shift_id,
   LEFT JOIN inventory_totals i USING (shift_id)
  ORDER BY t.shift_id;
 
+WITH target_shifts AS (
+  SELECT DISTINCT shift_id FROM pkg_source_batches WHERE id IN (16, 34, 38)
+)
+SELECT 'SHIFT_SOURCE_TIMELINE' AS section, s.id, s.batch_code, s.shift_id,
+       s.house_code, s.total_qty, s.received_qty, s.dirty_qty, s.cracked_qty,
+       GREATEST(COALESCE(NULLIF(s.total_qty, 0), NULLIF(s.received_qty, 0), 0)
+         - COALESCE(s.dirty_qty, 0) - COALESCE(s.cracked_qty, 0), 0)::int AS net_qty,
+       s.batch_status, s.created_at
+  FROM pkg_source_batches s JOIN target_shifts t ON t.shift_id=s.shift_id
+ ORDER BY s.shift_id, s.created_at, s.id;
+
+WITH target_shifts AS (
+  SELECT DISTINCT shift_id FROM pkg_source_batches WHERE id IN (16, 34, 38)
+)
+SELECT 'SHIFT_GRADING_TIMELINE' AS section, g.id, g.code, g.shift_id,
+       g.source_batch_code, g.outputs_json, g.total_output, g.status, g.created_at,
+       COALESCE(jsonb_agg(jsonb_build_object('source_batch_id', gsl.source_batch_id,
+                                             'input_qty', gsl.input_qty))
+                FILTER (WHERE gsl.source_batch_id IS NOT NULL), '[]'::jsonb) AS source_links
+  FROM pkg_grading_records g
+  JOIN target_shifts t ON t.shift_id=g.shift_id
+  LEFT JOIN pkg_grading_source_links gsl ON gsl.grading_id=g.id
+ GROUP BY g.id, g.code, g.shift_id, g.source_batch_code, g.outputs_json,
+          g.total_output, g.status, g.created_at
+ ORDER BY g.shift_id, g.created_at, g.id;
+
+WITH target_shifts AS (
+  SELECT DISTINCT shift_id FROM pkg_source_batches WHERE id IN (16, 34, 38)
+)
+SELECT 'SHIFT_PACKING_TIMELINE' AS section, p.id, p.code, p.shift_id,
+       p.grading_code, p.grading_codes_json, p.batches_json,
+       p.total_boxes, p.total_eggs, p.created_at
+  FROM pkg_packing_records p JOIN target_shifts t ON t.shift_id=p.shift_id
+ ORDER BY p.shift_id, p.created_at, p.id;
+
 ROLLBACK;

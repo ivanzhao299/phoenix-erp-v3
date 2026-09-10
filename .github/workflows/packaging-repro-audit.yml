@@ -173,3 +173,8 @@ jobs:
               | grep -E -B 30 -A 30 'packing/submit|\[Unhandled\]|QueryFailedError|column .* does not exist|violates not-null constraint' \
               || true
             echo 'API_LOG_PACKING_SUBMIT_END'
+            echo 'API_LOG_PACKAGING_TAIL_BEGIN'
+            docker logs --timestamps --tail 20000 phoenix-v3-api 2>&1 \
+              | grep -E -B 40 -A 40 'packing/submit|packaging/terminal|\[Unhandled\]|QueryFailedError|InternalServerError|服务器内部错误|包装记录写入失败' \
+              || true
+            echo 'API_LOG_PACKAGING_TAIL_END'
