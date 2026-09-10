@@ -1,0 +1,12 @@
+[
+  {
+    "check": "bare_master_input",
+    "matches": [],
+    "count": 0
+  },
+  {
+    "check": "change_master_value",
+    "matches": [],
+    "count": 0
+  }
+]
