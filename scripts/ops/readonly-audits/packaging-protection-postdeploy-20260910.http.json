@@ -54,7 +54,7 @@
   },
   {
     "name": "packaging-operator-real-context",
-    "usernameSql": "SELECT u.username FROM sys_user u WHERE u.status='ACTIVE' AND u.username<>'admin' AND NOT EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.role_code='ROLE_ADMIN') AND EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role_menu_permission p ON p.role_id=ur.role_id JOIN sys_menu m ON m.menu_id=p.menu_id WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND m.menu_code='MENU_PKG_OP' AND p.perm_codes::text LIKE '%V%') ORDER BY u.user_id LIMIT 1",
+    "usernameSql": "SELECT u.username FROM sys_user u WHERE u.status=1 AND u.username<>'admin' AND NOT EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.role_code='ROLE_ADMIN') AND EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role_menu_permission p ON p.role_id=ur.role_id JOIN sys_menu m ON m.menu_id=p.menu_id WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND m.menu_code='MENU_PKG_OP' AND p.perm_codes::text LIKE '%V%') ORDER BY u.user_id LIMIT 1",
     "path": "/api/packaging/terminal/context",
     "expectedStatus": 200,
     "requiredTokenPermissions": [
@@ -66,7 +66,7 @@
   },
   {
     "name": "packaging-operator-test-denied",
-    "usernameSql": "SELECT u.username FROM sys_user u WHERE u.status='ACTIVE' AND u.username<>'admin' AND NOT EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.role_code='ROLE_ADMIN') AND EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role_menu_permission p ON p.role_id=ur.role_id JOIN sys_menu m ON m.menu_id=p.menu_id WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND m.menu_code='MENU_PKG_OP' AND p.perm_codes::text LIKE '%V%') ORDER BY u.user_id LIMIT 1",
+    "usernameSql": "SELECT u.username FROM sys_user u WHERE u.status=1 AND u.username<>'admin' AND NOT EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND r.role_code='ROLE_ADMIN') AND EXISTS (SELECT 1 FROM sys_user_role ur JOIN sys_role_menu_permission p ON p.role_id=ur.role_id JOIN sys_menu m ON m.menu_id=p.menu_id WHERE ur.user_id=u.user_id AND COALESCE(ur.is_visible,true) AND m.menu_code='MENU_PKG_OP' AND p.perm_codes::text LIKE '%V%') ORDER BY u.user_id LIMIT 1",
     "path": "/api/packaging/terminal/context",
     "expectedStatus": 403,
     "requiredTokenPermissions": [
