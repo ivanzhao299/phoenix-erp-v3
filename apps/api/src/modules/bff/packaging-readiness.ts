@@ -19,15 +19,15 @@ function one(rows: any[], kind: string, label: string) {
 
 /** One resolver for options, submit and confirm. Never infer a product from a code template. */
 export async function resolvePackagingIdentity(db: Db, input: PackagingIdentity) {
-  const grade = one(await db.query('SELECT * FROM product_grades WHERE grade_code=$1', [input.grade]), 'GRADE', `等级 ${input.grade} `);
+  const grade = one(await db.query('SELECT * FROM product_grades WHERE grade_code=$1 FOR SHARE', [input.grade]), 'GRADE', `等级 ${input.grade} `);
   if (!grade.is_saleable || !grade.is_storable) fail('GRADE_NOT_STORABLE', `等级 ${input.grade} 不可售或不可库存`);
   if (!input.specCode && !input.specName) fail('SPEC_MISSING', '包装规格缺失');
-  const spec = one(await db.query(`SELECT * FROM packaging_specs WHERE ${input.specCode ? 'spec_code' : 'spec_name'}=$1`, [input.specCode || input.specName]), 'SPEC', `规格 ${input.specCode || input.specName} `);
+  const spec = one(await db.query(`SELECT * FROM packaging_specs WHERE ${input.specCode ? 'spec_code' : 'spec_name'}=$1 FOR SHARE`, [input.specCode || input.specName]), 'SPEC', `规格 ${input.specCode || input.specName} `);
   const candidates = await db.query(`SELECT * FROM product_skus WHERE grade_code=$1 AND spec_code=$2
-    AND ($3::text IS NULL OR product_code=$3)`, [input.grade, spec.spec_code, input.productCode || null]);
+    AND ($3::text IS NULL OR product_code=$3) FOR SHARE`, [input.grade, spec.spec_code, input.productCode || null]);
   const sku = one(candidates, 'SKU', `${input.grade}/${spec.spec_code} SKU `);
   if (input.skuCode && sku.sku_code !== input.skuCode) fail('SKU_MISMATCH', 'SKU 与产品、等级、规格不匹配');
-  const product = one(await db.query('SELECT * FROM mst_products WHERE product_code=$1', [sku.product_code]), 'PRODUCT', `产品 ${sku.product_code} `);
+  const product = one(await db.query('SELECT * FROM mst_products WHERE product_code=$1 FOR SHARE', [sku.product_code]), 'PRODUCT', `产品 ${sku.product_code} `);
   if (!(Number(spec.qty_per_unit) > 0)) fail('SPEC_INVALID', '包装规格单位数量无效');
   return { grade: input.grade, productCode: product.product_code as string, skuCode: sku.sku_code as string,
     specCode: spec.spec_code as string, specName: spec.spec_name as string, qtyPerUnit: Number(spec.qty_per_unit) };

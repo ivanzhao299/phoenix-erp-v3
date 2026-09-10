@@ -41,7 +41,7 @@ function buildController(options: { netQty?: number; sourceShiftId?: number; pro
     }),
     query: manager.query,
   };
-  const scope = { assertActiveHouseOwnership: jest.fn().mockResolvedValue(undefined) };
+  const scope = { resolve: jest.fn().mockResolvedValue({isGlobal:true}), assertActiveHouseOwnership: jest.fn().mockResolvedValue(undefined) };
   return {
     controller: new PackagingTerminalBffController(em, {} as never, scope as never),
     manager,
@@ -55,7 +55,7 @@ describe('PackagingTerminal grading governance', () => {
       if (sql.includes('FROM pkg_work_shifts')) return [{ id: 55, status: 'OPEN', is_test: false }];
       return [{ id: 45, shift_id: 55, house_code: 'HOUSE-1', gradable_qty: 20 }];
     }) };
-    const scope = { assertActiveHouseOwnership: jest.fn().mockResolvedValue(undefined) };
+    const scope = { resolve: jest.fn().mockResolvedValue({isGlobal:true}), assertActiveHouseOwnership: jest.fn().mockResolvedValue(undefined) };
     const controller = new PackagingTerminalBffController(em, {} as never, scope as never);
     await expect(controller.getPendingGradingSourceBatches('55')).resolves.toMatchObject({
       data: [{ id: 45, gradable_qty: 20 }],
@@ -101,14 +101,14 @@ describe('PackagingTerminal grading governance', () => {
   });
 
   it('rejects legacy grading without source links as a conflict instead of a 500', async () => {
-    const em: any = { query: jest.fn(async (sql: string) => sql.includes('FROM pkg_work_shifts') ? [{ status: 'OPEN', is_test: false }] : []) };
+    const em: any = { query: jest.fn(async (sql: string) => sql.includes('FROM pkg_work_shifts') ? [{ id:55, status: 'OPEN', is_test: false, site_id:'F' }] : sql.includes('FROM brd_farms') ? [{farm_code:'F',company_code:'C'}] : []) };
     em.transaction = (work: any) => work(em);
-    const scope = { assertActiveHouseOwnership: jest.fn().mockResolvedValue(undefined) };
+    const scope = { resolve: jest.fn().mockResolvedValue({isGlobal:true}), assertActiveHouseOwnership: jest.fn().mockResolvedValue(undefined) };
     const controller = new PackagingTerminalBffController(em, {} as never, scope as never);
     await expect(controller.submitPacking({
       idempotencyKey: 'legacy-packing', gradingCodes: ['GRD-LEGACY'], productionDate: '2026-09-10', shiftId: 55,
       batches: [{ grade: 'GRADE_1', boxes: 1, eggs: 30 }],
-    })).rejects.toThrow('存在无有效来源关联的分级记录，禁止包装');
+    }, {user:{id:1}})).rejects.toThrow('存在无有效来源关联的分级记录，禁止包装');
   });
 
   it('replays the same key and payload without a second grading/link insert', async () => {

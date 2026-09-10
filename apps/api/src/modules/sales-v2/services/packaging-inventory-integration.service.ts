@@ -116,6 +116,7 @@ export class PackagingInventoryIntegrationService {
     mode?: string;
     skippedByMode?: boolean;
   }> {
+    if (!opts?.eggDate || !/^\d{4}-\d{2}-\d{2}$/.test(opts.eggDate)) throw new ConflictException('包装权威生产日期缺失或无效');
     if (!opts?.manager) return this.ds.transaction(manager => this.generateSaleableFromOutputs(refNo, items, { ...opts, manager }));
     await opts.manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
     await lockPacking(opts.manager, refNo);
@@ -144,7 +145,7 @@ export class PackagingInventoryIntegrationService {
         const item = expected.get(key);
         const entries = ledger.filter((l: any) => l.batch_no === b.batch_no);
         if (!item || b.source_type !== 'PACKAGING' || b.packaging_batch_ref !== refNo
-          || (opts.eggDate && (b.egg_date_text !== opts.eggDate || b.inbound_date_text !== opts.eggDate))
+          || (b.egg_date_text !== opts.eggDate || b.inbound_date_text !== opts.eggDate)
           || b.product_code !== item.productCode || b.grade_code_std !== item.grade || Number(b.qty) !== item.qty
           || b.company_code !== companyCode || b.warehouse_code !== opts.warehouseCode || b.location_code !== opts.locationCode
           || entries.length !== 1 || entries.some((l: any) => l.ref_no !== refNo || Number(l.qty_change) !== item.qty
@@ -176,7 +177,7 @@ export class PackagingInventoryIntegrationService {
     }
     if (mode !== 'PACKAGING_INBOUND') throw new ConflictException('当前来源模式禁止包装生成库存');
 
-    const eggDate = opts?.eggDate || new Date().toISOString().slice(0, 10);
+    const eggDate = opts.eggDate;
     const collectionRef = opts?.collectionRef ?? null;
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
     const skippedNonSaleable: Array<{ grade: string; qty: number }> = [];

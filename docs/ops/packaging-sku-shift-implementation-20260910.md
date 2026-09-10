@@ -54,6 +54,20 @@ EGG是可分级的鸡蛋主产品，但历史SKU按独立“5号蛋”产品字�
 
 ## 发布与验收
 
-PR/run/revision待最终验证补齐。尚未声称CI全绿、合并或full deploy。生产仅允许GET/schema/主数据校验；无真实浏览器上下文，不声称浏览器已验收。
+PR [#229](https://github.com/ivanzhao299/phoenix-erp-v3/pull/229) 为草稿；初轮 commit 5ea95f60 的 regression 34465286042、Web 34465286178、CI/CD 类型回归 34465286056 通过。security 34465286063 失败原因已核实：冻结/安全复核标签缺失，以及两个翻译键前缀不属于运行时桥接范围；已完成独立复核、加标签并修复翻译前缀，待后续commit的全部CI结果。尚未合并或full deploy。生产仅允许GET/schema/主数据校验；无真实浏览器上下文，不声称浏览器已验收。
 
 下一待批：确定5号蛋权威产品身份；原单33实物30枚、接收人和库位及一次入库动作另批。旧污染链、新依赖、其他GRADE补录均不在本轮。
+
+## 复核修正与最终本地验证（18:29 SGT）
+
+- 独立 SQL 复核发现 submit 目标班次 DataScope 缺口，已在同事务锁班次后调用 exactShift，首次写入及幂等响应均先核权。真实PG用例验证拒绝跨场及撤销权限后的重放。
+- 统一库存入口缺权威日期现在明确拒绝；不再以当天兜底、不跳过幂等日期比较。主数据行使用 FOR SHARE，防事务中既有身份被并发停用/改写。
+- 复核提出 active 扣减应仅限本班的建议不采纳：现有跨班消费带审计原因，必须按 grading 引用扣减。新增真实PG测试证明后班已消费30枚后，原班60枚仅余30；加本班筛选会虚增。
+- 部署脚本独立复核确认 preserve_artifacts=true 绕过 reset、备份删除和镜像清理。未运行该部署。
+- 双端 `NODE_ENV=test tsc --noEmit` 通过；API全量100套833项通过（2套PG集成默认不接DB跳过，已另跑），Web全量109套614项通过。
+- React DOM/effect共37项，真实挂载10页面+layout+导航全部12个context消费方，验证hydration前不挂业务页、换账号清状态；并覆盖精确核验不匹配、StrictMode、旧响应不覆盖新失败。不是仅源码字符串断言，也不是生产浏览器验收。
+- PG18专项47项通过（原保护13+新34），含多输出第二组失败回滚、并发/幂等、CLOSED原单日期、SKU和逐项冲突、受限公司/场/仓、VOID/test、summary精确ID/日期/mode/SQL失败传播、dashboard无参兼容。
+- 约束门禁0新漂移，nullable唯一、W5静态门禁均通过。窄正则实际扫描 terminal/packaging 全目录：裸主数据input 0、主数据onChange 0，rg退出1表示无匹配、stderr空；12个context引用文件均列入DOM覆盖。
+- **全仓运行时scope-audit仍失败**：固定身份fixture缺失、旧finance接口404。本轮没有修造该脚本的历史业务fixture或把失败降级成噪声，不能声称完整scope-audit通过。此项与生产主数据影响一起列为未满足的发布条件。
+
+日志保存在本机 `docs/ops/runs/packaging-sku-shift-20260910/`；只提交报告与相关代码，不提交大日志、凭据或无关生成报告。生产主数据写入前后差异仍为0；包装33仍以最近只读run为准，无任何业务POST。

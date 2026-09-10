@@ -2308,6 +2308,9 @@ export class PackagingTerminalBffController {
     return this.em.transaction(async manager => {
       await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packaging-chain:${isTest}`]);
       await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`packing-idempotency:${key}`]);
+      // Authorize the target before both creation and an idempotent response.
+      await manager.query('SELECT id FROM pkg_work_shifts WHERE id=$1 FOR UPDATE', [shiftId]);
+      const shift = await this.exactShift(shiftId, req, undefined, manager);
       const [existing] = await manager.query(`SELECT * FROM pkg_packing_records WHERE idempotency_key=$1 FOR UPDATE`, [key]);
       if (existing) {
         assertPackagingMode(existing, isTest);
@@ -2315,8 +2318,6 @@ export class PackagingTerminalBffController {
         if (existing.payload_hash !== hash) throw new ConflictException('幂等键已用于不同包装载荷');
         return { code: 200, data: { code: existing.code, totalBoxes: Number(existing.total_boxes), totalEggs: Number(existing.total_eggs), idempotentReplay: true } };
       }
-      const [shift] = await manager.query(`SELECT *, production_date::text AS date_text FROM pkg_work_shifts WHERE id=$1 FOR UPDATE`, [shiftId]);
-      assertPackagingMode(shift, isTest);
       if (shift.status !== 'OPEN') throw new ConflictException('当前班次已关闭，禁止包装');
       const owners = await manager.query(`SELECT gr.* FROM pkg_grading_records gr
         WHERE gr.code=ANY($1::varchar[]) AND gr.status='ACTIVE' AND gr.is_test=$2
