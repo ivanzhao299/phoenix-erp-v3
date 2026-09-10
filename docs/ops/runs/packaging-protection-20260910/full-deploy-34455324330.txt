@@ -1,0 +1,34 @@
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0235716Z query: CREATE UNIQUE INDEX IF NOT EXISTS uq_packing_idempotency
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1774812Z query: INSERT INTO "migrations"("timestamp", "name") VALUES ($1, $2) -- PARAMETERS: [1789099201000,"ProtectPackagingVoidAndTestIsolation1789099201000"]
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1777164Z Migration ProtectPackagingVoidAndTestIsolation1789099201000 has been executed successfully.
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1779811Z ✅ TS 迁移完成
+Deploy · full	Deploy via SSH	2026-09-10T08:41:26.5622269Z ✅ Web smoke test passed
+
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0228155Z       ADD COLUMN IF NOT EXISTS voided_by integer,
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0229502Z       ADD COLUMN IF NOT EXISTS idempotency_key varchar(160),
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0230334Z       ADD COLUMN IF NOT EXISTS payload_hash varchar(64)
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0231037Z query: DO $$ BEGIN
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0232199Z       IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_packing_record_status' AND conrelid='pkg_packing_records'::regclass) THEN
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0233937Z         ALTER TABLE pkg_packing_records ADD CONSTRAINT ck_packing_record_status CHECK (status IN ('ACTIVE','VOID'));
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0235002Z       END IF;
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0235304Z     END $$
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0235716Z query: CREATE UNIQUE INDEX IF NOT EXISTS uq_packing_idempotency
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.0236379Z       ON pkg_packing_records(idempotency_key) WHERE idempotency_key IS NOT NULL
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1773047Z  Container phoenix-v3-web Recreate 
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1774812Z query: INSERT INTO "migrations"("timestamp", "name") VALUES ($1, $2) -- PARAMETERS: [1789099201000,"ProtectPackagingVoidAndTestIsolation1789099201000"]
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1777164Z Migration ProtectPackagingVoidAndTestIsolation1789099201000 has been executed successfully.
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1778601Z query: COMMIT
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.1779811Z ✅ TS 迁移完成
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.4054958Z  Container phoenix-v3-web Recreated 
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.4056324Z  Container phoenix-v3-web Starting 
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.6337063Z  Container phoenix-v3-web Started 
+Deploy · full	Deploy via SSH	2026-09-10T08:41:17.6337779Z  Container phoenix-v3-web Waiting 
+Deploy · full	Deploy via SSH	2026-09-10T08:41:22.9101988Z  Container phoenix-v3-web Healthy 
+Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4941949Z Deleted Images:
+Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4943566Z untagged: sha256:3ca14e48bbce371e710396***1f1347d26aaad10c84f1559b6661019ae8599615
+Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4945429Z deleted: sha256:3ca14e48bbce371e710396***1f1347d26aaad10c84f1559b6661019ae8599615
+Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4947248Z deleted: sha256:013c1fb48954e73012b6f8fb3231206174b844ac0dad4cbac69cd3177c77ecba
+Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4949123Z deleted: sha256:cb986758c39946d8c603c53e311b468ff7798536be52b294be19d38696e59dd0
+Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4950455Z untagged: sha256:7487995358fc43d98d1b9dd33c3059b1e3c961bc76fdcd12ec79fbd1ac760672
+Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4951287Z deleted: sha256:7487995358fc43d98d1b9dd33c3059b1e3c961bc76fdcd12ec79fbd1ac760672
+Deploy · full	Deploy via SSH	2026-09-10T08:41:23.4952057Z deleted: sha256:0be1fb46eda178cfbd1ff2fe712cea39896ea1c1a8372b03f7f45f3fa6cf64f9
