@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
-import { packagingApi } from '@/lib/packaging-api';
+import { packagingApi, validShiftId } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
 import styles from './shift-close.module.css';
 import { useProductGrades } from '@/hooks/useProductGrades';
@@ -15,7 +15,7 @@ export default function ShiftClosePage() {
     t
   } = useLanguage();
   const {
-    ctx,
+    ctx, hydrated, identityKey, contextError,
     clearWorkflowState,
     setShift
   } = useTerminalContext();
@@ -43,7 +43,18 @@ export default function ShiftClosePage() {
     variance: 0,
     variancePct: 0
   });
+  const generation = useRef(0);
+  const [loadedKey, setLoadedKey] = useState('');
+  const selectionKey = `${identityKey}:${shift?.id}:${shift?.productionDate}`;
   useEffect(() => {
+    const current = ++generation.current;
+    let alive = true;
+    const active = () => alive && current === generation.current;
+    setLoadedKey(''); setShowConfirm(false); setVarianceReason(''); setSubmitError(''); setDone(false);
+    if (!hydrated || !validShiftId(shift?.id) || shift?.status !== 'OPEN') {
+      setLoading(false);
+      return () => { alive = false; ++generation.current; };
+    }
     const shiftId = shift?.id ? String(shift.id) : undefined;
     const productionDate = shift?.productionDate;
     setLoading(true);
@@ -52,14 +63,14 @@ export default function ShiftClosePage() {
       packagingApi.getShiftSummary(productionDate, shiftId),
       packagingApi.getActiveGrading(Number(shift?.id)),
     ]).then(([data, grading]) => {
-      // 服务端记录是交班权威来源；本地 context 只用于离线兼容，避免刷新/换终端后归零。
-      const gradingOutputs = grading?.outputs && Object.keys(grading.outputs).length > 0
-        ? grading.outputs
-        : (ctx.gradingOutputs || {});
+      if (!active()) return;
+      if (String(data.shift?.id) !== shiftId || data.shift?.status !== 'OPEN'
+        || data.shift?.date_text !== productionDate || String(grading.shiftId) !== shiftId
+        || grading.productionDate !== productionDate) throw new Error('班次已关闭或读取结果不匹配，请重新选择');
+      const gradingOutputs = grading.outputs;
       const gradedQty = Object.values(gradingOutputs).reduce((sum, qty) => sum + Number(qty || 0), 0);
-      // 本班实际包装量：优先使用后端按 shift_id 精确统计的数据
-      const totalPacked = data.shiftPackedBoxes ?? (ctx.packingBatches || []).reduce((a, b) => a + b.boxes, 0);
-      const totalEggs = data.shiftPackedEggs ?? (ctx.packingBatches || []).reduce((a, b) => a + b.eggs, 0);
+      const totalPacked = data.shiftPackedBoxes;
+      const totalEggs = data.shiftPackedEggs;
       const received = data.receivedQty || 0;
       const variance = received - totalEggs;
       const variancePct = received > 0 ? Math.round(Math.abs(variance) / received * 1000) / 10 : 0;
@@ -70,25 +81,29 @@ export default function ShiftClosePage() {
         gradingOutputs,
         packedBoxes: totalPacked,
         packedEggs: totalEggs,
-        warehousedBoxes: totalPacked,
-        warehousedPallets: Math.ceil(totalPacked / 25),
+        warehousedBoxes: data.shiftWarehousedBoxes,
+        warehousedPallets: data.shiftWarehousedPallets,
         openExceptions: data.openExceptionCount || 0,
         closedExceptions: data.closedExceptionCount || 0,
         variance,
         variancePct
       });
+      setLoadedKey(selectionKey); setLoadError('');
     }).catch((error: unknown) => {
+      if (!active()) return;
       setLoadError(error instanceof Error ? error.message : t('ui.交班数据加载失败', '交班数据加载失败'));
-    }).finally(() => setLoading(false));
-  }, [ctx.gradingOutputs, ctx.packingBatches, reloadKey, shift?.id, shift?.productionDate, t]);
+    }).finally(() => { if (active()) setLoading(false); });
+    return () => { alive = false; ++generation.current; };
+  }, [hydrated, identityKey, selectionKey, reloadKey, shift?.id, shift?.productionDate, shift?.status, t]);
   const hasVariance = summary.variancePct > 1;
   const hasOpenException = summary.openExceptions > 0;
-  const canClose = !hasOpenException;
+  const canClose = hydrated && validShiftId(shift?.id) && shift?.status === 'OPEN' && loadedKey === selectionKey && !loading && !loadError && !hasOpenException;
   const handleClose = async () => {
-    if (!shift?.id) {
+    if (!canClose || !shift) {
       setSubmitError(t('ui.当前无开放班次无法交班', '当前无开放班次，无法交班'));
       return;
     }
+    const requestGeneration = generation.current;
     setSubmitting(true);
     setSubmitError('');
     try {
@@ -96,6 +111,7 @@ export default function ShiftClosePage() {
         varianceReason,
         summary
       });
+      if (requestGeneration !== generation.current) return;
       // 更新 context：清工作流数据 + 将班次状态置为 CLOSED
       clearWorkflowState();
       setShift({
@@ -106,14 +122,15 @@ export default function ShiftClosePage() {
       setDone(true);
       setTimeout(() => router.push('/terminal/packaging/dashboard'), 2500);
     } catch (e: any) {
+      if (requestGeneration !== generation.current) return;
       setSubmitError(e?.message || t('ui.交班失败请重试', '交班失败，请重试'));
     } finally {
-      setSubmitting(false);
+      if (requestGeneration === generation.current) setSubmitting(false);
     }
   };
 
   // 无班次或已交班 — 提前拦截
-  if (!loading && (!shift || shift.status === 'CLOSED')) return <div style={{
+  if (hydrated && !loading && (!validShiftId(shift?.id) || !shift || shift.status === 'CLOSED')) return <div style={{
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
@@ -130,7 +147,7 @@ export default function ShiftClosePage() {
       fontWeight: 700,
       color: T.MUT
     }}>
-        {shift?.status === 'CLOSED' ? t('ui.该班次已交班', '该班次已交班') : t('ui.当前无开放班次', '当前无开放班次')}
+        {contextError || (shift?.status === 'CLOSED' ? t('ui.该班次已交班', '该班次已交班') : t('ui.当前无开放班次', '当前无开放班次'))}
       </div>
       <button type="button" onClick={() => router.push('/terminal/packaging/dashboard')} style={{
       padding: '12px 32px',
@@ -144,7 +161,7 @@ export default function ShiftClosePage() {
         {t('ui.返回作业台', '返回作业台')}
       </button>
     </div>;
-  if (loading) return <div style={{
+  if (!hydrated || loading) return <div style={{
     height: '100%',
     display: 'flex',
     alignItems: 'center',
@@ -517,7 +534,7 @@ export default function ShiftClosePage() {
             fontSize: 15,
             cursor: 'pointer'
           }}>{t('common.cancel', '取消')}</button>
-              <button type="button" onClick={() => {
+              <button type="button" disabled={!canClose || submitting} onClick={() => {
             setShowConfirm(false);
             handleClose();
           }} style={{

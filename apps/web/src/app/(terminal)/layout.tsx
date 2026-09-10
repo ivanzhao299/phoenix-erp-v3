@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'next/navigation';
 import TerminalNavRail from '@/components/terminal/TerminalNavRail';
-import { useTerminalContext } from '@/hooks/useTerminalContext';
+import { TerminalContextProvider, useTerminalContext } from '@/hooks/useTerminalContext';
 import { ADMIN_HOME_PATH, canReturnToAdmin } from '@/lib/terminal-navigation';
 import styles from './terminal-layout.module.css';
 
@@ -42,13 +42,16 @@ const LANG_ORDER = ['zh', 'en', 'lo'];
 const SHIFT_LABELS: Record<string, string> = { MORNING: '早班', AFTERNOON: '下午班', NIGHT: '夜班' };
 
 export default function TerminalLayout({ children }: { children: React.ReactNode }) {
+  return <TerminalContextProvider><TerminalLayoutContent>{children}</TerminalLayoutContent></TerminalContextProvider>;
+}
+function TerminalLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading, logout, hasPermission } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
   const [isFullscreen, setIsFullscreen] = useState(false);
   // [优化] now 状态已移入独立的 TerminalClock 组件，消除每秒全局 re-render
   const { lang, setAppLanguage } = useLanguage();
-  const { ctx } = useTerminalContext();
+  const { ctx, hydrated, contextError, identityKey } = useTerminalContext();
   const showAdminReturn = canReturnToAdmin(hasPermission);
 
   const handleLogout = () => {
@@ -228,7 +231,9 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
           </button>
         </div>
 
-        {children}
+        {contextError && <div role="alert">{contextError}</div>}
+        {hydrated ? <div key={`${identityKey}:${ctx.currentShift?.id || 'none'}`} style={{ display: 'contents' }}>{children}</div>
+          : <div role="status">{t('ui.核验班次', '正在核验班次…')}</div>}
       </main>
     </div>
   );

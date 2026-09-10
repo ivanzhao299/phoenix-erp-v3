@@ -1,4 +1,4 @@
-export interface PackingFlowItem { grade:string; spec:string; specId:string; boxes:number; eggs:number }
+export interface PackingFlowItem { grade:string; productCode?:string; skuCode?:string; spec:string; specId:string; boxes:number; eggs:number }
 export function packedByGrade(items: PackingFlowItem[]): Record<string, number> {
   return items.reduce<Record<string, number>>((out, item) => { out[item.grade] = (out[item.grade] || 0) + item.eggs; return out; }, {});
 }
@@ -8,7 +8,7 @@ export function remainingByGrade(codes: string[], server: Record<string, number>
 }
 export function addPackingItem(items: PackingFlowItem[], next: PackingFlowItem): PackingFlowItem[] {
   if (next.boxes <= 0 || next.eggs <= 0) return items;
-  const index = items.findIndex(item => item.grade === next.grade && item.specId === next.specId);
+  const index = items.findIndex(item => item.grade === next.grade && item.specId === next.specId && item.skuCode === next.skuCode);
   return index < 0 ? [...items, next] : items.map((item, i) => i === index ? { ...item, boxes:item.boxes + next.boxes, eggs:item.eggs + next.eggs } : item);
 }
 export function canAddPacking(input: { grade?:string|null; specQty?:number|null; boxes:number; available:number }): boolean {
