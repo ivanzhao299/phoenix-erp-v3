@@ -180,3 +180,30 @@ Terminal BFF 的 `POST grading/submit` 位于 `apps/api/src/modules/bff/bff.cont
 - 部署后受控只读复验：run `34427569522`，结论 `success`；checkout/API/Web revision 均为 `f7664fad`。SQL 确认迁移记录、关联表、幂等 NOT NULL 列与唯一索引存在；关联表为 `0` 行，符合本轮不回填、不改历史业务数据的红线。当前 6 个 OPEN 班次各有正余量来源，班次 56 返回 2 条。
 - HTTP 只读断言：OPEN 班次 `pending` 返回 200 且班次 56 为 2 个独立来源批次；缺少 `shiftId` 返回 400；CLOSED 班次返回 409。生产 API 最近 60 分钟包装分级错误窗口为 `0`，`PRODUCTION_BUSINESS_WRITES=0`。只读启动期间出现的 Generic CRUD/字典建表与插入失败均是连接级 read-only 保护主动拒绝，未落库。
 - 部署后复验 bundle：`scripts/ops/readonly-audits/packaging-grading-governance-postdeploy-20260910.sql` 与 `.http.json`；bundle commit `59d1e4de`。历史数据修复仍为 **HOLD**，修复脚本完成后另行逐项报批，本轮未动生产历史数据。
+
+## 7. 分级重复历史修复受控执行（2026-09-10）
+
+### 7.1 用户裁定与逐笔结论
+
+- 班次 55：保留首笔 `id=72 / GRD-20260909-265670`（300 / GRADE_2）；`id=73 / 267637` 与 `id=74 / 269652` 为约 2 秒间隔的技术重复候选，计划软作废。
+- 班次 56：`id=75 / GRD-20260910-180875` 与 `id=76 / 278853` 分别紧随两个独立来源批次产生，均为 98 / GRADE_1 合法首笔；`id=77 / 306173` 在 `278853` 后 27.32 秒、载荷完全相同，计划软作废。按最初证据，合法和为 `98+98=196`。
+- `GRD-20260909-136133` 归属班次 54。班次 55 包装 `PKG-20260909-293183` 的计划修正是仅保留 `265670` 引用，同时移除 `136133` 和两条 VOID 引用；包装 `10 箱 / 300 枚`、库存和 ledger 均不得改变。
+
+### 7.2 已交付的安全机制
+
+- migration `1789099200000-AddGradingVoidAudit.ts` 为分级记录增加 `ACTIVE/VOID`、作废原因、时间与执行者；不删除历史行。
+- 所有分级待处理量、汇总、活动分级和包装所有权查询只计 `ACTIVE`；VOID 行的来源关联不会继续占用可分级量。
+- 三段 SQL 固化逐行数量、等级、完整 `outputs_json`、时间、包装引用及来源净量；apply 使用单个 SERIALIZABLE 事务，输出 guarded 反向 SQL，并断言包装物流字段、全量 `inv_batches` 与 `inv_ledger` 哈希不变。
+- 本地验证：API/Web tsc 0 errors；BFF 定向 Jest 28/28；nullable-in-unique、constraint drift、TS migration down()/no-data-DML 门禁通过。
+- 首次交付 revision `dc2d2aa524444ec3f82a579b7cf5461f01f9acf1` 已 push；push CI `34430085691 / 34430085697 / 34430085719 / 34430085706` 全绿。显式 full deploy `34430506560` 成功，checkout/API/Web revision 一致，VOID schema 已上线。
+
+### 7.3 Preflight 失败与强制停止
+
+- 修复前初始只读证据 run `34429503414`（02:27 UTC）确认班次 56 仅有来源 `id=46/47`，净集蛋 `196`；当时班次仍为 OPEN。
+- 生产 preflight run `34430945517` 在任何业务 UPDATE 前失败，数据库异常为 `source net baseline mismatch`。事务为只读，未进入 apply；`pkg_grading_records`、包装引用、库存与 ledger 均未被本轮修复修改。
+- 随后只读差异复核 run `34431039492` 查明：02:28:15 UTC 新增了班次 56 来源 `id=48 / SRC-20260910-H-DEBUG--R3VW / H-DEBUG-A01 / total=100 / dirty=1 / cracked=1`，使班次 56 来源从 2 行/净 `196` 变为 3 行/净 `294`。分级仍为 3 行/`294`，因此当前生产态已不再满足用户指定的“班次 56 净 196”审计基线。
+- 依照“逐行基线不一致即停、失败即停”红线，**未触发 execute，也未触发 post-apply verify**。计划中的 `id=73/74/77` 仍为 ACTIVE，包装引用仍保持原状；不得把本轮记为修复 PASS。
+
+### 7.4 后续恢复条件
+
+只有在业务明确裁定新增 `H-DEBUG-A01` 来源是否为合法生产数据、测试污染或另一个待修对象，并重新冻结班次 56 的净集蛋口径后，才能更新 reviewed baseline 并重新从 preflight 开始。不能仅为让脚本通过而把 `196` 改成 `294`。
