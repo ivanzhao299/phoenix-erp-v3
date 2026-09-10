@@ -153,7 +153,7 @@ Terminal BFF 的 `POST grading/submit` 位于 `apps/api/src/modules/bff/bff.cont
 - `grading/active` 改为按 shift 与有效来源关联汇总；包装跨班次默认拒绝，只有显式 `crossShiftReason` 才允许并写 `CROSS_SHIFT_GRADING_CONSUME` 审计。
 - 分级页不再读取 today：无开放班次禁用；来源批次为最小处理单元；WIP key 含 shiftId；成功后清该来源 WIP 并重拉服务端 pending。`submittedHouses` 仅保留为瞬时交互态。
 - 集蛋页按业务暂定口径保留同舍多次采集，每条来源批次独立展示；更正从“按舍清零其他行”收紧为按 `sourceBatchId` 精确更正。最终“每舍每班一次/允许多次”仍为待业务确认项。
-- TypeORM 迁移：`1789012800000-GovernPackagingGradingSubmissions.ts`，包含 `down()`；未运行生产迁移、未执行历史数据修复。
+- TypeORM 迁移：`1789012800000-GovernPackagingGradingSubmissions.ts`，包含 `down()`；已随 full deploy 在生产成功执行。迁移只新增治理结构并为旧记录补技术幂等占位，未修改旧记录数量/班次/业务归属，也未执行历史数据修复。
 
 ### 6.3 验证流水
 
@@ -162,7 +162,7 @@ Terminal BFF 的 `POST grading/submit` 位于 `apps/api/src/modules/bff/bff.cont
 | API tsc | PASS，0 errors |
 | Web tsc | PASS，0 errors |
 | API 定向 Jest | PASS，28/28（含 pending、超量、同/异载荷幂等、并发重放、跨班次隔离、旧 BFF 回归） |
-| Web 定向 Vitest | PASS，8/8（字段契约、WIP 清态、来源批次展示、交班汇总） |
+| Web 定向 Vitest | PASS，15/15（字段契约、WIP 清态、来源批次展示、交班汇总） |
 | g198 nullable-in-unique | PASS，0 新违规 |
 | g201 constraint drift | PASS，0 新 drift；1 个既有 allowlist |
 | TS migration down() / DML gate | PASS，79/79；本迁移的历史技术占位 DML 有明确豁免理由 |
@@ -174,4 +174,9 @@ Terminal BFF 的 `POST grading/submit` 位于 `apps/api/src/modules/bff/bff.cont
 
 - PR：`#225`（`fix/grading-idempotency-governance-20260910`）。首轮静态门禁因新增 i18n key 与审核标签生效时序失败，随后复用已注册 locale key，并补 `reviewed-frozen-boundary` / `reviewed-security-touch` 后重跑通过。
 - 干净 runner regression 首轮在迁移链发现历史结构问题：空库在 TypeORM migration 前尚无 `pkg_grading_records`（过去依赖应用运行时 Generic CRUD 建表），新迁移的 `ALTER TABLE` 因此失败。已将两张 canonical 包装基表的 `CREATE TABLE IF NOT EXISTS` 前置到 TS 迁移，生产已有表时为 no-op；该轮失败已阻断部署，没有生产变更。
-- CI、full deploy、revision 与部署后 pending/error-window 只读复验待修正提交的 runner 结果回填。历史数据修复脚本继续单独报批。
+- PR 最终干净 runner 全绿：CI Build run `34425987125`、V3 regression run `34425987218`、deploy workflow PR regression run `34425987286`，另含 Runtime Smoke、Static Security/Freeze、Vitest 全部通过。
+- PR 于 2026-09-10 合并；merge revision：`f7664fad643d991b8cac8aeb50aecf03567df198`。合并 push run `34426408925` 完成类型检查、回归和双镜像构建，但按工作流安全规则未执行 SSH deploy；没有把这次绿色误记为发布成功。
+- 显式批准的 full deploy：run `34426961764`，结论 `success`。生产 checkout 从 `376429bd` 前进到 `f7664fad`；部署前备份成功，`GovernPackagingGradingSubmissions1789012800000` 在生产事务中执行并提交，API/Web 容器健康、Nginx 配置检查和 Web smoke 均通过。
+- 部署后受控只读复验：run `34427569522`，结论 `success`；checkout/API/Web revision 均为 `f7664fad`。SQL 确认迁移记录、关联表、幂等 NOT NULL 列与唯一索引存在；关联表为 `0` 行，符合本轮不回填、不改历史业务数据的红线。当前 6 个 OPEN 班次各有正余量来源，班次 56 返回 2 条。
+- HTTP 只读断言：OPEN 班次 `pending` 返回 200 且班次 56 为 2 个独立来源批次；缺少 `shiftId` 返回 400；CLOSED 班次返回 409。生产 API 最近 60 分钟包装分级错误窗口为 `0`，`PRODUCTION_BUSINESS_WRITES=0`。只读启动期间出现的 Generic CRUD/字典建表与插入失败均是连接级 read-only 保护主动拒绝，未落库。
+- 部署后复验 bundle：`scripts/ops/readonly-audits/packaging-grading-governance-postdeploy-20260910.sql` 与 `.http.json`；bundle commit `59d1e4de`。历史数据修复仍为 **HOLD**，修复脚本完成后另行逐项报批，本轮未动生产历史数据。

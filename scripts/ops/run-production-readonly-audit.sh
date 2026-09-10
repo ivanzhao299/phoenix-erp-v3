@@ -226,6 +226,11 @@ fi
 error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(sales.order|lifecycle|process-log)' || true; } | wc -l | tr -d ' ')"
 echo "LIFECYCLE_PROCESS_LOG_ERROR_WINDOW_60M=$error_count"
 test "$error_count" = 0
+if [ "$http_path" = 'scripts/ops/readonly-audits/packaging-grading-governance-postdeploy-20260910.http.json' ]; then
+  grading_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(grading/pending|packaging.*grading|grading.*packaging)' || true; } | wc -l | tr -d ' ')"
+  echo "PACKAGING_GRADING_ERROR_WINDOW_60M=$grading_error_count"
+  test "$grading_error_count" = 0
+fi
 if [ "$http_path" = 'scripts/ops/readonly-audits/company-customer-lookup.http.json' ]; then
   lookup_error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(/api/lookup/(companies|customers)|lookup.*(companies|customers))' || true; } | wc -l | tr -d ' ')"
   echo "LOOKUP_COMPANY_CUSTOMER_ERROR_WINDOW_60M=$lookup_error_count"
