@@ -1461,7 +1461,7 @@ export class PackagingTerminalBffController {
         `WITH graded_sum AS (
            SELECT COALESCE(SUM(total_output), 0)::int AS total_graded
            FROM pkg_grading_records
-           WHERE production_date = $1
+           WHERE production_date = $1 AND status = 'ACTIVE'
          )
          SELECT psb.*,
                 COALESCE(bh.house_name, psb.house_code) AS house_name,
@@ -1546,8 +1546,10 @@ export class PackagingTerminalBffController {
          FROM pkg_source_batches psb
          LEFT JOIN brd_houses bh ON bh.house_code = psb.house_code
          LEFT JOIN (
-           SELECT source_batch_id, SUM(input_qty)::int AS input_qty
-             FROM pkg_grading_source_links GROUP BY source_batch_id
+           SELECT gsl.source_batch_id, SUM(gsl.input_qty)::int AS input_qty
+             FROM pkg_grading_source_links gsl
+             JOIN pkg_grading_records gr ON gr.id = gsl.grading_id AND gr.status = 'ACTIVE'
+            GROUP BY gsl.source_batch_id
          ) linked ON linked.source_batch_id = psb.id
         WHERE psb.shift_id = $1
           AND GREATEST(
@@ -1921,7 +1923,7 @@ export class PackagingTerminalBffController {
 
     const gradingRows = await this.safe(
       this.em.query(
-        `SELECT outputs_json FROM pkg_grading_records WHERE production_date = $1${shiftFilter}`,
+        `SELECT outputs_json FROM pkg_grading_records WHERE production_date = $1 AND status = 'ACTIVE'${shiftFilter}`,
         summaryParams,
       ),
       [],
@@ -2052,10 +2054,11 @@ export class PackagingTerminalBffController {
       }
       for (const row of sourceRows) await this.assertActiveHouseScope(String(row.house_code));
       const usedRows = await manager.query<any[]>(
-        `SELECT source_batch_id, COALESCE(SUM(input_qty), 0)::int AS used_qty
-           FROM pkg_grading_source_links
-          WHERE source_batch_id = ANY($1::int[])
-          GROUP BY source_batch_id`,
+        `SELECT gsl.source_batch_id, COALESCE(SUM(gsl.input_qty), 0)::int AS used_qty
+           FROM pkg_grading_source_links gsl
+           JOIN pkg_grading_records gr ON gr.id = gsl.grading_id AND gr.status = 'ACTIVE'
+          WHERE gsl.source_batch_id = ANY($1::int[])
+          GROUP BY gsl.source_batch_id`,
         [sourceBatchIds],
       );
       const usedBySource = new Map(usedRows.map(row => [Number(row.source_batch_id), Number(row.used_qty)]));
@@ -2131,7 +2134,7 @@ export class PackagingTerminalBffController {
            FROM pkg_grading_records gr
            JOIN pkg_grading_source_links gsl ON gsl.grading_id = gr.id
            JOIN pkg_source_batches psb ON psb.id = gsl.source_batch_id
-          WHERE gr.shift_id = $1 AND psb.shift_id = $1
+          WHERE gr.shift_id = $1 AND psb.shift_id = $1 AND gr.status = 'ACTIVE'
           ORDER BY gr.code`,
         [shiftIdNum],
       ),
@@ -2218,7 +2221,7 @@ export class PackagingTerminalBffController {
          FROM pkg_grading_records gr
          JOIN pkg_grading_source_links gsl ON gsl.grading_id = gr.id
          JOIN pkg_source_batches psb ON psb.id = gsl.source_batch_id
-        WHERE gr.code = ANY($1::varchar[])
+        WHERE gr.code = ANY($1::varchar[]) AND gr.status = 'ACTIVE'
         GROUP BY gr.code, gr.shift_id`,
       [gradingCodes, shiftId],
     );

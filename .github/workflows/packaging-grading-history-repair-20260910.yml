@@ -1,0 +1,80 @@
+name: Packaging Grading History Repair 20260910
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Controlled stage
+        required: true
+        type: choice
+        options: [preflight, execute, verify]
+      confirmation:
+        description: Type APPROVE-PACKAGING-GRADING-HISTORY-REPAIR-20260910 for execute
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packaging-grading-history-repair-20260910
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: inputs.mode != 'execute' || inputs.confirmation == 'APPROVE-PACKAGING-GRADING-HISTORY-REPAIR-20260910'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage reviewed repair bundle
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          source: scripts/ops/run-packaging-grading-history-repair-20260910.sh,scripts/ops/packaging-grading-history-repair-20260910-preflight.sql,scripts/ops/packaging-grading-history-repair-20260910-apply.sql,scripts/ops/packaging-grading-history-repair-20260910-verify.sql
+          target: /tmp/phoenix-packaging-grading-repair-${{ github.run_id }}/bundle
+      - name: Run controlled stage
+        id: execute
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          REPAIR_MODE: ${{ inputs.mode }}
+          REPAIR_APPROVAL: ${{ inputs.confirmation }}
+          REPAIR_BUNDLE_DIR: /tmp/phoenix-packaging-grading-repair-${{ github.run_id }}/bundle
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          capture_stdout: true
+          envs: DEPLOY_PATH,REPAIR_MODE,REPAIR_APPROVAL,REPAIR_BUNDLE_DIR
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            bash "$REPAIR_BUNDLE_DIR/scripts/ops/run-packaging-grading-history-repair-20260910.sh" "--$REPAIR_MODE"
+      - name: Persist evidence
+        if: always()
+        env:
+          REPAIR_OUTPUT: ${{ steps.execute.outputs.stdout }}
+        run: |
+          install -d -m 700 docs/ops/runs
+          printf '%s\n' "$REPAIR_OUTPUT" > "docs/ops/runs/packaging-grading-history-repair-${GITHUB_RUN_ID}-${{ inputs.mode }}.log"
+          sha256sum "docs/ops/runs/packaging-grading-history-repair-${GITHUB_RUN_ID}-${{ inputs.mode }}.log" > "docs/ops/runs/packaging-grading-history-repair-${GITHUB_RUN_ID}-${{ inputs.mode }}.sha256"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: packaging-grading-history-repair-${{ github.run_id }}-${{ inputs.mode }}
+          path: docs/ops/runs/packaging-grading-history-repair-${{ github.run_id }}-*
+          retention-days: 90
