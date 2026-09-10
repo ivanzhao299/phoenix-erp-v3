@@ -61,6 +61,7 @@ describe('PackagingTerminal grading governance', () => {
       data: [{ id: 45, gradable_qty: 20 }],
     });
     expect(em.query).toHaveBeenCalledWith(expect.stringContaining('COALESCE(linked.input_qty, 0)'), [55]);
+    expect(em.query).toHaveBeenCalledWith(expect.stringContaining("psb.batch_status = 'RECEIVED'"), [55]);
   });
 
   it('validates the shared shiftId/sourceBatchIds contract', async () => {
