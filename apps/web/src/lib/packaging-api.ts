@@ -167,6 +167,8 @@ export const packagingApi = {
   getPackingTrace: (packingCode: string) =>
     request<{
       packingCode: string;
+      status: 'ACTIVE' | 'VOID';
+      voidReason?: string | null;
       productionDate: string;
       shift: { id: number; shiftCode: string; shiftLabel: string; operatorName: string; supervisorName: string } | null;
       sources: { houseCode: string; houseName: string; totalQty: number }[];

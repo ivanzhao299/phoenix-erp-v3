@@ -1862,7 +1862,7 @@ export class PackagingTerminalBffController {
   async recordPrintLog(@Body() body: any, @Req() req: any) {
     const isTest = packagingTestMode(req);
     if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
-    await assertPackingCanEnterInventory(this.em, String(body.packagingBatchId || body.packaging_batch_id || ''));
+    await assertPackingCanEnterInventory(this.em, String(body.packagingBatchId || body.packaging_batch_id || body.packingCode || ''));
     const printedBy = req.user?.name || req.user?.username || '';
 
     await this.em.query(
@@ -1872,7 +1872,7 @@ export class PackagingTerminalBffController {
        VALUES ($1,$2,$3,$4,$5,$6,'PRINTED',NOW(),NOW())`,
       [
         body.boxCode || body.box_code || '',
-        body.packagingBatchId || body.packaging_batch_id || '',
+        body.packagingBatchId || body.packaging_batch_id || body.packingCode || '',
         body.printType || body.print_type || 'NORMAL',
         body.printerId || body.printer_id || 'printer-01',
         printedBy,

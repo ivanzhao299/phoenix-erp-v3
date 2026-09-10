@@ -154,3 +154,9 @@ UNAPPROVED_PACKING_DEPENDENCIES,PACKING_VOID_SCHEMA_NOT_DEPLOYED
 代码与SQL已由独立探子复核；补充了直接销售引用作废阻断、操作人userId、通用交接查询过滤。锁固定real用于库存入口是有意为之：测试链在服务本身也强制拒绝，不能把持real锁误认为允许测试库存。
 
 此节记录部署前状态：运行时代码尚待本次PR CI全绿/合并/full deploy及三端验收。生产业务DML=0、POST=0、测试残留=0。原12行清理与成功POST验收均未完成，不能PASS。后续实际部署结果追加在下一节。
+
+### 标签调用与首次CI门禁修正
+
+补查实际标签调用后，服务端兼容前端现用packingCode字段；打印/重打前重新读取包装状态，VOID显示阻断提示，并补中英老三语。更新后双端tsc、定向36通过及Web577/577；i18n键与AST门禁通过。
+
+实现首提交dc89ebba的Security run34454095914失败：冻结边界需reviewed-frozen-boundary标签，安全探针整文件匹配到既有Chanjet注释需reviewed-security-touch标签。依据现有.github/workflows/ci-security.yml，在独立代码/SQL复核完成后添加正式审查标签，未改门禁实现或放宽规则；新提交须重新获得全绿。该失败保持记录，不能用后续绿覆盖其历史。
