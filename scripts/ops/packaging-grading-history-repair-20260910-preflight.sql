@@ -30,13 +30,26 @@ BEGIN
     RAISE EXCEPTION 'historical source links appeared; stop for review';
   END IF;
   IF NOT EXISTS (
+    SELECT 1 FROM pkg_source_batches
+     WHERE id=48 AND batch_code='SRC-20260910-H-DEBUG--R3VW' AND shift_id=56
+       AND house_code='H-DEBUG-A01' AND total_qty=100 AND dirty_qty=1 AND cracked_qty=1
+       AND batch_status='RECEIVED' AND created_at='2026-09-10 02:28:15.597138'::timestamp
+  ) THEN RAISE EXCEPTION 'source row 48 baseline mismatch'; END IF;
+  IF NOT EXISTS (
     SELECT 1 FROM pkg_packing_records WHERE id=31 AND code='PKG-20260909-293183' AND shift_id=55
       AND grading_code='GRD-20260909-136133'
       AND grading_codes_json='["GRD-20260909-136133","GRD-20260909-265670","GRD-20260909-267637","GRD-20260909-269652"]'::jsonb
       AND total_boxes=10 AND total_eggs=300 AND created_at='2026-09-09 08:58:13.183594'::timestamp
   ) THEN RAISE EXCEPTION 'packing row 31 baseline mismatch'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pkg_grading_records WHERE id=71 AND code='GRD-20260909-136133'
+       AND shift_id=54 AND total_output=300 AND status='ACTIVE')
+     OR NOT EXISTS (SELECT 1 FROM pkg_packing_records WHERE code='PKG-20260909-206420'
+       AND shift_id=54 AND total_boxes=10 AND total_eggs=300) THEN
+    RAISE EXCEPTION 'shift 54 baseline mismatch';
+  END IF;
   IF (SELECT SUM(total_qty-dirty_qty-cracked_qty) FROM pkg_source_batches WHERE shift_id=55) <> 300
-     OR (SELECT SUM(total_qty-dirty_qty-cracked_qty) FROM pkg_source_batches WHERE shift_id=56) <> 196 THEN
+     OR (SELECT SUM(total_qty-dirty_qty-cracked_qty) FROM pkg_source_batches WHERE shift_id=56 AND id<>48) <> 196
+     OR (SELECT SUM(total_qty-dirty_qty-cracked_qty) FROM pkg_source_batches WHERE shift_id=56) <> 294 THEN
     RAISE EXCEPTION 'source net baseline mismatch';
   END IF;
 END $$;

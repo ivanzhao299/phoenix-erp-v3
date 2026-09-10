@@ -1552,6 +1552,7 @@ export class PackagingTerminalBffController {
             GROUP BY gsl.source_batch_id
          ) linked ON linked.source_batch_id = psb.id
         WHERE psb.shift_id = $1
+          AND psb.batch_status = 'RECEIVED'
           AND GREATEST(
             COALESCE(NULLIF(psb.total_qty, 0), NULLIF(psb.received_qty, 0), 0)
             - COALESCE(psb.dirty_qty, 0) - COALESCE(psb.cracked_qty, 0)
@@ -2034,7 +2035,8 @@ export class PackagingTerminalBffController {
       }
 
       const [shift] = await manager.query<any[]>(
-        `SELECT id, production_date, status FROM pkg_work_shifts WHERE id = $1 FOR UPDATE`,
+        `SELECT id, production_date::text AS production_date, status
+           FROM pkg_work_shifts WHERE id = $1 FOR UPDATE`,
         [body.shiftId],
       );
       if (!shift || shift.status !== 'OPEN') {
@@ -2046,6 +2048,7 @@ export class PackagingTerminalBffController {
                   - COALESCE(dirty_qty, 0) - COALESCE(cracked_qty, 0), 0)::int AS net_qty
            FROM pkg_source_batches
           WHERE id = ANY($1::int[])
+            AND batch_status = 'RECEIVED'
           ORDER BY id FOR UPDATE`,
         [sourceBatchIds],
       );
@@ -2071,7 +2074,16 @@ export class PackagingTerminalBffController {
         throw new ConflictException(`分级数量 ${totalOutput} 超过所选来源剩余量 ${available}`);
       }
 
-      const productionDate = String(shift.production_date).slice(0, 10);
+      const productionDate = typeof shift.production_date === 'string'
+        ? shift.production_date.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+        : shift.production_date instanceof Date && !Number.isNaN(shift.production_date.getTime())
+          ? [shift.production_date.getFullYear(),
+             String(shift.production_date.getMonth() + 1).padStart(2, '0'),
+             String(shift.production_date.getDate()).padStart(2, '0')].join('-')
+          : undefined;
+      if (!productionDate) {
+        throw new InternalServerErrorException('班次生产日期格式异常，无法提交分级');
+      }
       const code = `GRD-${productionDate.replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
       const [grading] = await manager.query<any[]>(
         `INSERT INTO pkg_grading_records
