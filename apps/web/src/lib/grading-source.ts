@@ -1,5 +1,7 @@
 export type GradingSourceBatch = {
   id: number;
+  batch_code: string;
+  shift_id: number;
   house_code: string;
   house_name: string;
   received_qty: number;
@@ -34,6 +36,8 @@ export function normalizeGradingSourceBatch(batch: SourceBatchPayload, index: nu
 
   return {
     id: quantity(batch.id ?? batch.batch_id) || index + 1,
+    batch_code: String(batch.batch_code ?? batch.batchCode ?? ''),
+    shift_id: quantity(batch.shift_id ?? batch.shiftId),
     house_code: String(batch.house_code ?? batch.houseCode ?? ''),
     house_name: String(batch.house_name ?? batch.houseName ?? batch.house_code ?? `#${index + 1}`),
     received_qty: grossReceived,

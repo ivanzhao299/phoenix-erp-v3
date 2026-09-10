@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException } from '@nestjs/common';
+import { createHash, randomUUID } from 'crypto';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -9,6 +10,7 @@ import {
   normalizeUserRoleAssignments,
   UserRoleAssignmentValidationError,
 } from './user-role-assignment';
+import { SubmitGradingDto } from './dto/grading.dto';
 
 // ═══════════════════════════════════════════════════════════════
 //  Phoenix ERP V3 — BFF Controller
@@ -1517,6 +1519,49 @@ export class PackagingTerminalBffController {
     return { code: 200, data: [...fromPkg, ...fromWms] };
   }
 
+  @Get('grading/pending')
+  async getPendingGradingSourceBatches(@Query('shiftId') shiftId: string) {
+    const shiftIdNum = Number(shiftId);
+    if (!Number.isInteger(shiftIdNum) || shiftIdNum <= 0) {
+      throw new BadRequestException('shiftId 必须是正整数');
+    }
+    const [shift] = await this.em.query<any[]>(
+      `SELECT id, status FROM pkg_work_shifts WHERE id = $1`,
+      [shiftIdNum],
+    );
+    if (!shift || shift.status !== 'OPEN') {
+      throw new ConflictException('当前班次不存在或已关闭，禁止分级');
+    }
+    const rows = await this.em.query<any[]>(
+      `SELECT psb.id, psb.batch_code, psb.shift_id, psb.house_code,
+              COALESCE(bh.house_name, psb.house_code) AS house_name,
+              COALESCE(NULLIF(psb.total_qty, 0), NULLIF(psb.received_qty, 0), 0)::int AS received_qty,
+              COALESCE(psb.dirty_qty, 0)::int AS dirty_qty,
+              COALESCE(psb.cracked_qty, 0)::int AS cracked_qty,
+              GREATEST(
+                COALESCE(NULLIF(psb.total_qty, 0), NULLIF(psb.received_qty, 0), 0)
+                - COALESCE(psb.dirty_qty, 0) - COALESCE(psb.cracked_qty, 0)
+                - COALESCE(linked.input_qty, 0), 0
+              )::int AS gradable_qty
+         FROM pkg_source_batches psb
+         LEFT JOIN brd_houses bh ON bh.house_code = psb.house_code
+         LEFT JOIN (
+           SELECT source_batch_id, SUM(input_qty)::int AS input_qty
+             FROM pkg_grading_source_links GROUP BY source_batch_id
+         ) linked ON linked.source_batch_id = psb.id
+        WHERE psb.shift_id = $1
+          AND GREATEST(
+            COALESCE(NULLIF(psb.total_qty, 0), NULLIF(psb.received_qty, 0), 0)
+            - COALESCE(psb.dirty_qty, 0) - COALESCE(psb.cracked_qty, 0)
+            - COALESCE(linked.input_qty, 0), 0
+          ) > 0
+        ORDER BY psb.created_at, psb.id`,
+      [shiftIdNum],
+    );
+    for (const row of rows) await this.assertActiveHouseScope(String(row.house_code));
+    return { code: 200, data: rows };
+  }
+
   @Post('source-batches/receive')
   @RequireMenu('MENU_PKG_OP', 'E')
   async receiveBatch(@Body() body: any, @Req() req: any) {
@@ -1636,7 +1681,10 @@ export class PackagingTerminalBffController {
     const operatorId = req.user?.id || req.user?.user_id;
     const date = body.productionDate || this.today;
     const houseCode = body.houseCode || body.house_code;
+    const sourceBatchId = Number(body.sourceBatchId ?? body.source_batch_id);
     if (!houseCode) throw new BadRequestException('houseCode 必填');
+    if (!Number.isInteger(sourceBatchId) || sourceBatchId <= 0) throw new BadRequestException('sourceBatchId 必填');
+    await this.assertActiveHouseScope(String(houseCode));
 
     const newTotal   = Math.max(0, Number(body.totalQty   ?? 0));
     const newDirty   = Math.max(0, Number(body.dirtyQty   ?? 0));
@@ -1644,16 +1692,16 @@ export class PackagingTerminalBffController {
     const newReceived = newTotal;
     const reason = String(body.reason || '');
 
-    // 取当日该鸡舍所有 RECEIVED 记录，按时间升序
+    // 同舍允许多次采集；更正必须精确落到来源批次，禁止合并或清零同舍其他批次。
     const rows: any[] = await this.em.query(
       `SELECT id, batch_code, total_qty, dirty_qty, cracked_qty, received_qty
        FROM pkg_source_batches
-       WHERE house_code = $1 AND production_date = $2
+       WHERE id = $1 AND house_code = $2 AND production_date = $3
          AND batch_status NOT IN ('WAREHOUSED','SCRAPPED','CANCELLED')
-       ORDER BY created_at ASC`,
-      [houseCode, date],
+       LIMIT 1`,
+      [sourceBatchId, houseCode, date],
     );
-    if (rows.length === 0) throw new BadRequestException('未找到该鸡舍当日记录');
+    if (rows.length === 0) throw new BadRequestException('未找到该来源批次');
 
     const beforeTotal    = rows.reduce((s, r) => s + Number(r.total_qty    || 0), 0);
     const beforeDirty    = rows.reduce((s, r) => s + Number(r.dirty_qty    || 0), 0);
@@ -1667,16 +1715,6 @@ export class PackagingTerminalBffController {
        WHERE id=$5`,
       [newTotal, newDirty, newCracked, newReceived, rows[0].id],
     );
-    // 同鸡舍额外记录清零（保留行以维持完整性）
-    if (rows.length > 1) {
-      await this.em.query(
-        `UPDATE pkg_source_batches
-         SET total_qty=0, dirty_qty=0, cracked_qty=0, received_qty=0, updated_at=NOW()
-         WHERE id = ANY($1::int[])`,
-        [rows.slice(1).map((r: any) => r.id)],
-      );
-    }
-
     // 审计日志
     await this.safe(this.em.query(
       `INSERT INTO pkg_audit_logs
@@ -1957,78 +1995,104 @@ export class PackagingTerminalBffController {
 
   @Post('grading/submit')
   @RequireMenu('MENU_PKG_OP', 'E')
-  async submitGrading(@Body() body: Record<string, any>) {
-    const today = new Date().toISOString().slice(0, 10);
-    const productionDate = body.productionDate || today;
+  async submitGrading(@Body() body: SubmitGradingDto) {
     const rawOutputs = body.outputs as Record<string, unknown> || {};
     const outputs: Record<string, number> = {};
 
     // 兼容旧终端把数字序列化为字符串；服务端统一转成有限非负数。
     for (const [k, raw] of Object.entries(rawOutputs)) {
       const v = typeof raw === 'number' || typeof raw === 'string' ? Number(raw) : NaN;
-      if (!Number.isFinite(v) || v < 0) {
+      if (!Number.isInteger(v) || v < 0) {
         throw new BadRequestException(`等级 ${k} 的数量无效`);
       }
       outputs[k] = v;
     }
 
     const totalOutput = Object.values(outputs).reduce((a: number, b: number) => a + b, 0);
-
-    // 服务端校验：总产出不得超过当日净可分级量（已收 − 已分级）
-    const [recvRow] = await this.em.query<{ total_received: number; total_gradable: number }[]>(
-      `SELECT COALESCE(SUM(
-                CASE WHEN batch_status IN ('RECEIVED', 'COMPLETED', 'CLOSED')
-                          OR COALESCE(total_qty, 0) > 0
-                          OR COALESCE(received_qty, 0) > 0
-                  THEN COALESCE(NULLIF(total_qty, 0), NULLIF(received_qty, 0), 0)
-                  ELSE 0 END
-              ), 0)::int AS total_received,
-              COALESCE(SUM(
-                CASE WHEN batch_status IN ('RECEIVED', 'COMPLETED', 'CLOSED')
-                          OR COALESCE(total_qty, 0) > 0
-                          OR COALESCE(received_qty, 0) > 0
-                  THEN GREATEST(
-                    COALESCE(NULLIF(total_qty, 0), NULLIF(received_qty, 0), 0)
-                    - COALESCE(dirty_qty, 0) - COALESCE(cracked_qty, 0), 0
-                  )
-                  ELSE 0 END
-              ), 0)::int AS total_gradable
-       FROM pkg_source_batches WHERE production_date = $1`,
-      [productionDate],
-    );
-    const [gradedRow] = await this.em.query<{ total_graded: number }[]>(
-      `SELECT COALESCE(SUM(total_output), 0)::int AS total_graded
-       FROM pkg_grading_records WHERE production_date = $1`,
-      [productionDate],
-    );
-    const totalReceived = Number(recvRow?.total_received) || 0;
-    const totalGradable = Number(recvRow?.total_gradable) || 0;
-    const totalGraded   = Number(gradedRow?.total_graded)  || 0;
-    const netAvailable  = totalGradable - totalGraded;
-    const warnings: string[] = [];
-
-    if (totalReceived === 0) {
-      warnings.push('未读取到今日已接收来源批次，已记录分级结果，请核对来源批次状态');
+    if (totalOutput <= 0) throw new BadRequestException('分级总数必须大于 0');
+    const sourceBatchIds = [...new Set(body.sourceBatchIds)].sort((a, b) => a - b);
+    if (sourceBatchIds.length !== body.sourceBatchIds.length) {
+      throw new BadRequestException('sourceBatchIds 不得重复');
     }
-    if (totalOutput > netAvailable) {
-      warnings.push(
-        `产出 ${totalOutput} 超过服务端计算的今日可分级余量 ${netAvailable}（可分级 ${totalGradable} − 已分级 ${totalGraded}），已记录结果，请复核台账`,
+    const canonicalOutputs = Object.fromEntries(Object.entries(outputs).sort(([a], [b]) => a.localeCompare(b)));
+    const canonicalPayload = JSON.stringify({ shiftId: body.shiftId, sourceBatchIds, outputs: canonicalOutputs });
+    const payloadHash = createHash('sha256').update(canonicalPayload).digest('hex');
+
+    return this.em.transaction(async manager => {
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [body.idempotencyKey]);
+      const [existing] = await manager.query<any[]>(
+        `SELECT code, total_output, payload_hash FROM pkg_grading_records WHERE idempotency_key = $1`,
+        [body.idempotencyKey],
       );
-    }
+      if (existing) {
+        if (existing.payload_hash !== payloadHash) {
+          throw new ConflictException('幂等键已用于不同分级载荷');
+        }
+        return { code: 200, data: { code: existing.code, totalOutput: Number(existing.total_output), idempotentReplay: true } };
+      }
 
-    const code = `GRD-${productionDate.replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
-    await this.safe(
-      this.em.query(
+      const [shift] = await manager.query<any[]>(
+        `SELECT id, production_date, status FROM pkg_work_shifts WHERE id = $1 FOR UPDATE`,
+        [body.shiftId],
+      );
+      if (!shift || shift.status !== 'OPEN') {
+        throw new ConflictException('当前班次不存在或已关闭，禁止分级');
+      }
+      const sourceRows = await manager.query<any[]>(
+        `SELECT id, batch_code, shift_id, house_code,
+                GREATEST(COALESCE(NULLIF(total_qty, 0), NULLIF(received_qty, 0), 0)
+                  - COALESCE(dirty_qty, 0) - COALESCE(cracked_qty, 0), 0)::int AS net_qty
+           FROM pkg_source_batches
+          WHERE id = ANY($1::int[])
+          ORDER BY id FOR UPDATE`,
+        [sourceBatchIds],
+      );
+      if (sourceRows.length !== sourceBatchIds.length || sourceRows.some(row => Number(row.shift_id) !== body.shiftId)) {
+        throw new ConflictException('来源批次不存在或不属于当前班次');
+      }
+      for (const row of sourceRows) await this.assertActiveHouseScope(String(row.house_code));
+      const usedRows = await manager.query<any[]>(
+        `SELECT source_batch_id, COALESCE(SUM(input_qty), 0)::int AS used_qty
+           FROM pkg_grading_source_links
+          WHERE source_batch_id = ANY($1::int[])
+          GROUP BY source_batch_id`,
+        [sourceBatchIds],
+      );
+      const usedBySource = new Map(usedRows.map(row => [Number(row.source_batch_id), Number(row.used_qty)]));
+      const remainingBySource = sourceRows.map(row => ({
+        ...row,
+        remaining: Math.max(0, Number(row.net_qty) - (usedBySource.get(Number(row.id)) || 0)),
+      }));
+      const available = remainingBySource.reduce((sum, row) => sum + row.remaining, 0);
+      if (totalOutput > available) {
+        throw new ConflictException(`分级数量 ${totalOutput} 超过所选来源剩余量 ${available}`);
+      }
+
+      const productionDate = String(shift.production_date).slice(0, 10);
+      const code = `GRD-${productionDate.replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const [grading] = await manager.query<any[]>(
         `INSERT INTO pkg_grading_records
-         (code, shift_id, source_batch_code, production_date, outputs_json, total_output, created_at)
-         VALUES ($1,$2,$3,$4,$5::jsonb,$6,NOW())
-         ON CONFLICT (code) DO NOTHING`,
-        [code, body.shiftId || null, body.sourceBatchCode || null, productionDate,
-         JSON.stringify(outputs), totalOutput],
-      ),
-      null,
-    );
-    return { code: 200, data: { code, totalOutput, warnings } };
+         (code, shift_id, source_batch_code, production_date, outputs_json, total_output,
+          idempotency_key, payload_hash, created_at)
+         VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,NOW())
+         RETURNING id, code`,
+        [code, body.shiftId, sourceRows[0].batch_code, productionDate,
+         JSON.stringify(outputs), totalOutput, body.idempotencyKey, payloadHash],
+      );
+      let unallocated = totalOutput;
+      for (const source of remainingBySource) {
+        const inputQty = Math.min(source.remaining, unallocated);
+        if (inputQty > 0) {
+          await manager.query(
+            `INSERT INTO pkg_grading_source_links (grading_id, source_batch_id, input_qty)
+             VALUES ($1,$2,$3)`,
+            [grading.id, source.id, inputQty],
+          );
+          unallocated -= inputQty;
+        }
+      }
+      return { code: 200, data: { code: grading.code, totalOutput, idempotentReplay: false } };
+    });
   }
 
   /**
@@ -2037,8 +2101,9 @@ export class PackagingTerminalBffController {
    * 返回各等级实时剩余（key = dict_code，多终端并发安全）。
    */
   @Get('grading/active')
-  async getActiveGrading(@Query('date') dateParam?: string) {
-    const date = dateParam || new Date().toISOString().slice(0, 10);
+  async getActiveGrading(@Query('shiftId') shiftId: string) {
+    const shiftIdNum = Number(shiftId);
+    if (!Number.isInteger(shiftIdNum) || shiftIdNum <= 0) throw new BadRequestException('shiftId 必须是正整数');
 
     // ── key 标准化映射：config_json.code / terminalCode → dict_code ────────────
     const dictRows = await this.safe(
@@ -2062,8 +2127,13 @@ export class PackagingTerminalBffController {
     // ── 合并当日所有分级批次产出（按等级累加） ──────────────────────────────────
     const gradingRows = await this.safe(
       this.em.query<any[]>(
-        `SELECT code, outputs_json FROM pkg_grading_records WHERE production_date = $1 ORDER BY created_at ASC`,
-        [date],
+        `SELECT DISTINCT gr.code, gr.outputs_json
+           FROM pkg_grading_records gr
+           JOIN pkg_grading_source_links gsl ON gsl.grading_id = gr.id
+           JOIN pkg_source_batches psb ON psb.id = gsl.source_batch_id
+          WHERE gr.shift_id = $1 AND psb.shift_id = $1
+          ORDER BY gr.code`,
+        [shiftIdNum],
       ),
       [] as any[],
     );
@@ -2084,8 +2154,8 @@ export class PackagingTerminalBffController {
     const packed: Record<string, number> = {};
     const packingRows = await this.safe(
       this.em.query<any[]>(
-        `SELECT batches_json FROM pkg_packing_records WHERE production_date = $1`,
-        [date],
+        `SELECT batches_json FROM pkg_packing_records WHERE shift_id = $1`,
+        [shiftIdNum],
       ),
       [] as any[],
     );
@@ -2139,6 +2209,29 @@ export class PackagingTerminalBffController {
         .filter(Boolean)
       : (typeof body.gradingCode === 'string' && body.gradingCode.trim()
         ? [body.gradingCode.trim()] : []);
+    const shiftId = Number(body.shiftId);
+    if (!Number.isInteger(shiftId) || shiftId <= 0) throw new BadRequestException('shiftId 必须是正整数');
+    if (gradingCodes.length === 0) throw new BadRequestException('gradingCodes 必须是非空数组');
+    const gradingOwners = await this.em.query<any[]>(
+      `SELECT gr.code, gr.shift_id,
+              BOOL_OR(psb.shift_id = $2) AS has_source_in_target_shift
+         FROM pkg_grading_records gr
+         JOIN pkg_grading_source_links gsl ON gsl.grading_id = gr.id
+         JOIN pkg_source_batches psb ON psb.id = gsl.source_batch_id
+        WHERE gr.code = ANY($1::varchar[])
+        GROUP BY gr.code, gr.shift_id`,
+      [gradingCodes, shiftId],
+    );
+    if (gradingOwners.length !== new Set(gradingCodes).size) {
+      throw new ConflictException('存在无有效来源关联的分级记录，禁止包装');
+    }
+    const crossShiftCodes = gradingOwners
+      .filter(row => Number(row.shift_id) !== shiftId || row.has_source_in_target_shift !== true)
+      .map(row => String(row.code));
+    const crossShiftReason = String(body.crossShiftReason || '').trim();
+    if (crossShiftCodes.length > 0 && !crossShiftReason) {
+      throw new ConflictException('跨班次包装必须填写 crossShiftReason 以生成审计记录');
+    }
     try {
       await this.em.query(
         `INSERT INTO pkg_packing_records
@@ -2147,8 +2240,17 @@ export class PackagingTerminalBffController {
          ON CONFLICT (code) DO NOTHING`,
         [code, gradingCodes[0] ?? null, JSON.stringify(gradingCodes),
          productionDate, JSON.stringify(batches), totalBoxes, totalEggs,
-         body.shiftId || null],
+         shiftId],
       );
+      if (crossShiftCodes.length > 0) {
+        await this.em.query(
+          `INSERT INTO pkg_audit_logs
+           (entity_type, entity_id, action, before_data, after_data, reason, created_at)
+           VALUES ('PACKING_RECORD', $1, 'CROSS_SHIFT_GRADING_CONSUME', $2::jsonb, $3::jsonb, $4, NOW())`,
+          [code, JSON.stringify({ gradingCodes: crossShiftCodes }),
+           JSON.stringify({ targetShiftId: shiftId }), crossShiftReason],
+        );
+      }
     } catch (error: any) {
       console.error(`[packing/submit][ERR] 包装记录写入失败 code=${code}: ${error?.message}`, error?.stack);
       throw new InternalServerErrorException('包装记录写入失败，请稍后重试或联系管理员');

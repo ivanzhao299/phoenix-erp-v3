@@ -50,7 +50,7 @@ export default function ShiftClosePage() {
     setLoadError('');
     Promise.all([
       packagingApi.getShiftSummary(productionDate, shiftId),
-      packagingApi.getActiveGrading(productionDate),
+      packagingApi.getActiveGrading(Number(shift?.id)),
     ]).then(([data, grading]) => {
       // 服务端记录是交班权威来源；本地 context 只用于离线兼容，避免刷新/换终端后归零。
       const gradingOutputs = grading?.outputs && Object.keys(grading.outputs).length > 0

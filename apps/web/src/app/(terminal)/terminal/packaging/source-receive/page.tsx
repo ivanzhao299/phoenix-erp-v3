@@ -28,6 +28,8 @@ interface House {
   capacity?: number;
 }
 interface CollectionRecord {
+  batchId: number;
+  batchCode: string;
   houseCode: string;
   houseName: string;
   totalQty: number;
@@ -114,6 +116,7 @@ export default function EggCollectionPage() {
     setCorrError('');
     try {
       await packagingApi.correctBatch({
+        sourceBatchId: corrTarget.batchId,
         houseCode: corrTarget.houseCode,
         productionDate: new Date().toISOString().slice(0, 10),
         totalQty: parseInt(corrTotal) || 0,
@@ -135,32 +138,24 @@ export default function EggCollectionPage() {
       if (!Array.isArray(rows)) return;
       const graded = Number((rows[0] as Record<string, unknown>)?.total_graded_today ?? 0);
       setTotalGradedToday(graded);
-      const grouped = new Map<string, CollectionRecord>();
-      for (const r of rows as Record<string, unknown>[]) {
+      const sourceRows = (rows as Record<string, unknown>[]).map((r): CollectionRecord => {
         const houseCode = String(r.house_code ?? '');
-        const entry: CollectionRecord = {
+        return {
+          batchId: Number(r.id),
+          batchCode: String(r.batch_code ?? ''),
           houseCode,
           houseName: String(r.house_name ?? r.house_code ?? ''),
           totalQty: Number(r.total_qty ?? r.expected_qty ?? 0),
           dirtyQty: Number(r.dirty_qty ?? 0),
           crackedQty: Number(r.cracked_qty ?? 0),
-          availableQty: Number(r.received_qty ?? 0),
+          availableQty: Number(r.gradable_qty ?? 0),
           submittedAt: r.created_at ? new Date(String(r.created_at)).toLocaleTimeString('zh-CN', {
             hour: '2-digit',
             minute: '2-digit'
           }) : ''
         };
-        const existing = grouped.get(houseCode);
-        if (existing) {
-          existing.totalQty += entry.totalQty;
-          existing.dirtyQty += entry.dirtyQty;
-          existing.crackedQty += entry.crackedQty;
-          existing.availableQty += entry.availableQty;
-        } else {
-          grouped.set(houseCode, entry);
-        }
-      }
-      setRecords(Array.from(grouped.values()));
+      });
+      setRecords(sourceRows);
     } catch {/* 断网时保留上次数据 */}
   }, []);
   useEffect(() => {
@@ -181,6 +176,12 @@ export default function EggCollectionPage() {
   const totalReceived = records.reduce((s, r) => s + r.availableQty, 0);
   const totalAvailable = Math.max(0, totalReceived - totalGradedToday);
   const alreadyRecorded = selectedHouse ? records.some(r => r.houseCode === selectedHouse.house_code) : false;
+  const collectionRows = houses.reduce<Array<{ h: House; record: CollectionRecord | null }>>((rows, h) => {
+    const matches = records.filter(r => r.houseCode === h.house_code);
+    if (matches.length > 0) rows.push(...matches.map(record => ({ h, record })));
+    else rows.push({ h, record: null });
+    return rows;
+  }, []);
   const defectExceedsTotal = total > 0 && dirty + cracked > total;
   const hasPendingEntry = !!selectedHouse && total > 0 && !defectExceedsTotal;
   const openShiftId = getOpenShiftId(ctx.currentShift);
@@ -311,7 +312,7 @@ export default function EggCollectionPage() {
           textTransform: 'uppercase',
           flexShrink: 0
         }}>
-            {t('ui.今日已录', '今日已录')} {records.length > 0 && `— ${records.length} / ${houses.length} ${t('ui.栋', '栋')}`}
+            {t('ui.今日来源批次', '今日来源批次')} {records.length > 0 && `— ${records.length} ${t('ui.批', '批')}`}
           </div>
 
           <div style={{
@@ -328,14 +329,13 @@ export default function EggCollectionPage() {
             gridTemplateColumns: '1fr 1fr',
             gap: 7
           }}>
-                {houses.map(h => {
-              const record = records.find(r => r.houseCode === h.house_code);
+                {collectionRows.map(({ h, record }, rowIndex) => {
               const isSelected = selectedHouse?.house_code === h.house_code;
               const isDone = !!record;
               const borderColor = isSelected ? T.ACC : isDone ? 'var(--status-success)' : T.BOR;
               const bg = isSelected ? `${T.ACC}18` : isDone ? 'var(--status-success-bg-faint)' : T.CARD;
               const nameColor = isSelected ? T.ACC : isDone ? T.GRN : T.TXT;
-              return <button type="button" key={h.id} onPointerDown={() => {
+              return <button type="button" key={record ? `batch-${record.batchId}` : `house-${h.id}-${rowIndex}`} onPointerDown={() => {
                 if (isDone && record) startLongPress(record);
                 selectHouse(h);
               }} onPointerUp={cancelLongPress} onPointerLeave={cancelLongPress} onPointerCancel={cancelLongPress} style={{
@@ -381,6 +381,9 @@ export default function EggCollectionPage() {
                           {formatMasterData(h, 'house_name', h.house_code, lang)}
                         </div>
                       </div>
+                      {record?.batchCode && <div style={{ fontSize: 9, color: T.MUT }}>
+                        {record.batchCode}
+                      </div>}
                       {/* 主数字 */}
                       {isDone ? <>
                           <div style={{

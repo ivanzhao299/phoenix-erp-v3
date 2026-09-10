@@ -113,4 +113,63 @@ Terminal BFF 的 `POST grading/submit` 位于 `apps/api/src/modules/bff/bff.cont
 1. **定向生产只读复核**：补齐来源批次、分级明细、班次三段对账，形成最终受影响记录清单。此步不写生产。
 2. **代码修复**：前端 pending/清态、后端 DTO/事务/幂等/强拒绝、schema 关联与唯一约束、回归测试。代码和迁移完成后另报历史数据修复脚本；生产执行再次单独授权。
 
-本报告停止于根因与方案，未实施任何修复。
+以上为首次报批时的停止点；获批后的实际执行结果续记于第 6 节。
+
+## 6. 获批执行记录（2026-09-10）
+
+### 6.1 门禁①：定向生产只读复核
+
+- GitHub Actions：`Production Readonly Audit` run `34424086235`，head `a338442f0a288535fa1a8e68ddf9b21e7803fa91`，结论 `success`。
+- 生产运行 revision 三对齐：checkout/API/Web 均为 `376429bd17ce96c67274c67d162b4bf4317dcc35`。
+- SQL 在连接级 `default_transaction_read_only=on` 与 `BEGIN TRANSACTION READ ONLY` 双保护内执行，末尾 `ROLLBACK`；`PRODUCTION_BUSINESS_WRITES=0`。
+- 只读 bundle：`scripts/ops/readonly-audits/packaging-grading-duplicate-submit-20260910.sql`。
+
+三段对账：
+
+| shift_id | 来源批次 | 净集蛋 | 分级记录 | 分级合计 | 包装记录 | 包装合计 | 净集蛋-分级 | 分级-包装 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 54 | 1 | 300 | 1 | 300 | 1 | 300 | 0 | 0 |
+| 55 | 1 | 300 | 3 | 900 | 1 | 300 | -600 | 600 |
+| 56 | 2 | 196 | 3 | 294 | 1 | 90 | -98 | 204 |
+
+班次 55 指定四条分级记录：
+
+| id | code | 记录归属班次 | 数量/等级 | created_at | 包装消费班次 | 定性 |
+|---:|---|---:|---|---|---|---|
+| 71 | `GRD-20260909-136133` | 54 | 300 / GRADE_1 | 2026-09-09 02:32:16.133894 | 54、55 | 已确认跨班次重复引用；历史处置 HOLD |
+| 72 | `GRD-20260909-265670` | 55 | 300 / GRADE_2 | 2026-09-09 08:57:45.670324 | 55 | 班次 55 净量只有 300，三笔合计 900；具体保留/冲销项 HOLD |
+| 73 | `GRD-20260909-267637` | 55 | 300 / GRADE_2 | 2026-09-09 08:57:47.638061 | 55 | 同上；与前笔相隔约 2 秒，HOLD |
+| 74 | `GRD-20260909-269652` | 55 | 300 / GRADE_1 | 2026-09-09 08:57:49.652964 | 55 | 同上；与前笔相隔约 2 秒，HOLD |
+
+四条记录的 `source_batch_code` 均为空。现有证据足以确认班次级超量和跨班次引用，但不足以在不引入业务判断的情况下指定 72/73/74 中哪一笔是合法首笔；因此全部历史修复动作继续 HOLD，本轮没有生产数据修改。
+
+### 6.2 门禁②：代码与 schema 修复
+
+- 新增班次级 `GET /api/packaging/terminal/grading/pending?shiftId=`；只接受 OPEN 班次，按来源批次返回 `净集蛋-已关联输入` 的正余量。
+- 分级 DTO 固定为 `shiftId:number + sourceBatchIds:number[] + outputs + idempotencyKey:string`；事务内 advisory lock 幂等键、锁班次、锁来源批次，并校验来源班次与鸡舍 DataScope。
+- 超量与跨班次来源以 HTTP 409 硬拒绝；相同幂等键同载荷返回原结果，异载荷 409。
+- 新增 `pkg_grading_source_links(grading_id, source_batch_id, input_qty)`；主键与列均 NOT NULL，`input_qty > 0`。
+- `pkg_grading_records` 新增 NOT NULL `idempotency_key/payload_hash`，并建立库级唯一索引；历史行只补技术占位，不改变业务数量或归属。
+- `grading/active` 改为按 shift 与有效来源关联汇总；包装跨班次默认拒绝，只有显式 `crossShiftReason` 才允许并写 `CROSS_SHIFT_GRADING_CONSUME` 审计。
+- 分级页不再读取 today：无开放班次禁用；来源批次为最小处理单元；WIP key 含 shiftId；成功后清该来源 WIP 并重拉服务端 pending。`submittedHouses` 仅保留为瞬时交互态。
+- 集蛋页按业务暂定口径保留同舍多次采集，每条来源批次独立展示；更正从“按舍清零其他行”收紧为按 `sourceBatchId` 精确更正。最终“每舍每班一次/允许多次”仍为待业务确认项。
+- TypeORM 迁移：`1789012800000-GovernPackagingGradingSubmissions.ts`，包含 `down()`；未运行生产迁移、未执行历史数据修复。
+
+### 6.3 验证流水
+
+| 验证 | 结果 |
+|---|---|
+| API tsc | PASS，0 errors |
+| Web tsc | PASS，0 errors |
+| API 定向 Jest | PASS，28/28（含 pending、超量、同/异载荷幂等、并发重放、跨班次隔离、旧 BFF 回归） |
+| Web 定向 Vitest | PASS，8/8（字段契约、WIP 清态、来源批次展示、交班汇总） |
+| g198 nullable-in-unique | PASS，0 新违规 |
+| g201 constraint drift | PASS，0 新 drift；1 个既有 allowlist |
+| TS migration down() / DML gate | PASS，79/79；本迁移的历史技术占位 DML 有明确豁免理由 |
+| API 全量 Jest | 823 passed / 2 failed / 6 skipped；2 个失败均为既有 `chanjet-callback.controller.spec.ts` 5 秒 timeout，本次未改该文件 |
+| Web 全量 Vitest | 548 passed / 29 failed；29 个失败均为 3 个既有 React 测试文件的 `act is not a function` 环境噪声，本次定向测试全绿 |
+| 本机包装真实回归 | 未运行：本机 3100 API 未启动；由干净 runner CI 执行 |
+
+### 6.4 PR、CI、部署与生产复验
+
+待本提交推送并创建 PR 后回填 run/PR/revision。只有干净 runner CI 通过才触发 full deploy；部署后仅做新 pending 行为与错误窗口的生产只读复验。历史数据修复脚本继续单独报批。
