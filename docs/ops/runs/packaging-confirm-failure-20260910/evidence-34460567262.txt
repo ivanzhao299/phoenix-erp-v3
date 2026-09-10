@@ -1,0 +1,32 @@
+PASS REVISION checkout=492ba3c3a67b477e***40b7b5a8762164a80bfd7e api=492ba3c3a67b477e***40b7b5a8762164a80bfd7e web=492ba3c3a67b477e***40b7b5a8762164a80bfd7e
+BEGIN
+SET
+SET
+{"at": "2026-09-10T09:26:26.662333+00:00", "section": "clock", "timezone": "UTC", "connection_ro": "on", "transaction_ro": "on"}
+{"count": 0, "section": "http_operation_audit_count"}
+{"farm": "LPH_MENGSAI", "house": "HOUSE_CS_02", "company": "COMP-LAO-AGRI", "section": "house_ownership", "farm_status": "ACTIVE", "house_status": "ACTIVE"}
+{"farm": "LPH_MENGSAI", "house": "HOUSE_MS_01", "company": "COMP-LAO-AGRI", "section": "house_ownership", "farm_status": "ACTIVE", "house_status": "ACTIVE"}
+{"farm": "LPH_MENGSAI", "house": "HOUSE_CS_MS", "company": "COMP-LAO-AGRI", "section": "house_ownership", "farm_status": "ACTIVE", "house_status": "ACTIVE"}
+{"farm": "LPH_MENGSAI", "house": "H-DEBUG-A01", "company": "COMP-LAO-AGRI", "section": "house_ownership", "farm_status": "ACTIVE", "house_status": "ACTIVE"}
+{"code": "PKG_DEFECT_BROKEN", "config": "{\"icon\": \"💔\", \"color\": \"#ef4444\", \"isDefect\": true, \"terminalCode\": \"BROKEN\", \"isTerminalGrade\": true}", "status": "ACTIVE", "section": "grade_dictionary"}
+{"code": "PKG_DEFECT_DIRTY", "config": "{\"icon\": \"💧\", \"color\": \"#f97316\", \"isDefect\": true, \"terminalCode\": \"DIRTY\", \"isTerminalGrade\": true}", "status": "ACTIVE", "section": "grade_dictionary"}
+{"code": "PKG_DEFECT_RECHECK", "config": "{\"icon\": \"🔄\", \"color\": \"#0891b2\", \"isDefect\": true, \"terminalCode\": \"RECHECK\", \"isTerminalGrade\": true}", "status": "ACTIVE", "section": "grade_dictionary"}
+{"code": "PKG_DEFECT_REJECTED", "config": "{\"icon\": \"🚫\", \"color\": \"#6b7280\", \"isDefect\": true, \"terminalCode\": \"REJECTED\", \"isTerminalGrade\": true}", "status": "ACTIVE", "section": "grade_dictionary"}
+{"table": "product_master", "columns": ["id", "product_code", "product_name", "product_name_en", "category", "uom", "default_grade", "shelf_life_days", "status", "effective_date", "expire_date", "remark", "created_at", "updated_at"], "section": "candidate_products"}
+{"rows": [], "count": 0, "section": "wms_direct_reference", "packing_id": 33}
+{"rows": [], "count": 0, "section": "wms_direct_reference", "packing_id": 34}
+{"count": 0, "section": "wms_observed_window"}
+{"status": "ACTIVE", "is_test": false, "section": "existing_handover_idempotency", "batch_qty": 300.000, "ledger_qty": 300.000, "packing_id": 30, "batch_count": 1, "expected_qty": 300, "packing_code": "PKG-20260909-206420", "handover_count": 1}
+{"status": "ACTIVE", "is_test": false, "section": "existing_handover_idempotency", "batch_qty": 0, "ledger_qty": 0, "packing_id": 33, "batch_count": 0, "expected_qty": 30, "packing_code": "PKG-20260910-163616", "handover_count": 0}
+{"status": "ACTIVE", "is_test": false, "section": "existing_handover_idempotency", "batch_qty": 90.000, "ledger_qty": 90.000, "packing_id": 34, "batch_count": 1, "expected_qty": 90, "packing_code": "PKG-20260910-7A55DFFA", "handover_count": 1}
+{"name": "pkg_handover_records_code_key", "section": "handover_unique_constraints", "definition": "UNIQUE (code)"}
+{"name": "pkg_handover_records_pkey", "section": "handover_unique_constraints", "definition": "PRIMARY KEY (id)"}
+{"ledger": 253, "batches": 298, "section": "inventory_totals"}
+{"grade": "GRADE_1", "section": "gift_sku_coverage", "runtime_product": "PRD-EGG-GRADE_1", "active_exact_count": 1, "all_product_candidates": [{"code": "SKU-0001", "status": "ACTIVE", "product": "PRD-EGG-GRADE_1"}]}
+{"grade": "GRADE_2", "section": "gift_sku_coverage", "runtime_product": "PRD-EGG-GRADE_2", "active_exact_count": 1, "all_product_candidates": [{"code": "SKU-0002", "status": "ACTIVE", "product": "PRD-EGG-GRADE_2"}]}
+{"grade": "GRADE_3", "section": "gift_sku_coverage", "runtime_product": "PRD-EGG-GRADE_3", "active_exact_count": 0, "all_product_candidates": []}
+{"grade": "GRADE_4", "section": "gift_sku_coverage", "runtime_product": "PRD-EGG-GRADE_4", "active_exact_count": 0, "all_product_candidates": []}
+{"grade": "GRADE_5", "section": "gift_sku_coverage", "runtime_product": "PRD-EGG-GRADE_5", "active_exact_count": 0, "all_product_candidates": []}
+ROLLBACK
+PASS SQL file=scripts/ops/readonly-audits/packaging-confirm-final-evidence-20260910.sql
+PASS PRODUCTION_BUSINESS_WRITES=0

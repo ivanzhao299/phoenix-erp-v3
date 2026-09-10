@@ -1,0 +1,28 @@
+{
+  "runtime_diff_against_production_merge": [],
+  "scope_audit": [
+    {
+      "pattern": "<input[^>]*field",
+      "exit": 1,
+      "matches": [],
+      "count": 0
+    },
+    {
+      "pattern": "onChange.*e\\.target\\.value",
+      "exit": 0,
+      "matches": [
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx:1087:                      <input value={verifyInput} onChange={e => setVerifyInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleVerify(box.code)} placeholder={t('ui.扫码校验', '扫码校验...')} style={{",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/apps/web/src/app/(terminal)/terminal/packaging/qc-inspection/page.tsx:199:                  <input type=\"number\" value={(form as any)[f.key]} onChange={e => setNum(f.key, e.target.value)} style={{",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/apps/web/src/app/(terminal)/terminal/packaging/shift-open/page.tsx:361:              <select value={siteId} onChange={e => setSiteId(e.target.value)} style={{",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/apps/web/src/app/(terminal)/terminal/packaging/shift-open/page.tsx:380:              <select value={line} onChange={e => setLine(e.target.value)} style={{",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/apps/web/src/app/(terminal)/terminal/packaging/shift-open/page.tsx:398:              {supervisors.length > 0 ? <select value={supervisor} onChange={e => setSupervisor(e.target.value)} style={{",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/apps/web/src/app/(terminal)/terminal/packaging/shift-open/page.tsx:408:                </select> : <input value={supervisor} onChange={e => setSupervisor(e.target.value)} style={{",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/apps/web/src/app/(terminal)/terminal/packaging/shift-open/page.tsx:494:              <textarea value={offlineReason} onChange={e => setOfflineReason(e.target.value)} placeholder={t('ui.设备离线原因示例', '例：电子秤故障，已联系维修，本班手工称重...')} rows={3} style={{",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx:287:              <input value={scanInput} onChange={e => setScanInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleScan()} placeholder={t('ui.扫描箱码如BOX', '扫描箱码（如 BOX-20260516-001）')} autoFocus style={{",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx:408:                  <input value={f.state} onChange={e => f.set(e.target.value)} placeholder={f.ph} style={{"
+      ],
+      "count": 9
+    }
+  ],
+  "note": "Actual narrow scans of terminal packaging; no runtime changes; not a full DataScope authorization proof."
+}

@@ -1,0 +1,23 @@
+{
+  "NODE_ENV": "test",
+  "api_tsc": {
+    "command": "./node_modules/.bin/tsc --noEmit --incremental false",
+    "exit": 0
+  },
+  "web_tsc": {
+    "command": "./node_modules/.bin/tsc --noEmit --incremental false",
+    "exit": 0
+  },
+  "jest": {
+    "suites": 2,
+    "tests_passed": 30,
+    "exit": 0
+  },
+  "local_reproduction": {
+    "exit": 0,
+    "kind": "in-memory actual-source diagnostic; no database or HTTP"
+  },
+  "scope_audit": "scope-audit.json",
+  "production_post_count": 0,
+  "runtime_changes": 0
+}
