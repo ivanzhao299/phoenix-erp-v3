@@ -1,0 +1,11 @@
+\pset tuples_only on
+\pset format unaligned
+-- Executed only by run-production-readonly-audit.sh: connection + transaction READ ONLY.
+SELECT jsonb_build_object('section','clock','at',clock_timestamp(),'timezone',current_setting('TimeZone'),'connection_ro',current_setting('default_transaction_read_only'),'transaction_ro',current_setting('transaction_read_only'));
+SELECT jsonb_build_object('section','confirm_error_retention','count',count(*),'first',min(created_at),'last',max(created_at)) FROM sys_error_logs WHERE request_path LIKE '%/packaging/terminal/warehouse/confirm%';
+SELECT jsonb_build_object('section','confirm_error','id',id,'at',created_at,'type',error_type,'status',http_status,'message',error_message,'sqlstate',pg_error_code,'stack',stack_trace,'user_id',user_id,'username',username,'method',request_method,'path',request_path,'packing_code',request_body::jsonb->>'packingCode','location',request_body::jsonb->>'locationCode','shift_id',request_body::jsonb->>'shiftId') FROM sys_error_logs WHERE request_path LIKE '%/packaging/terminal/warehouse/confirm%' ORDER BY id DESC LIMIT 20;
+SELECT jsonb_build_object('section','latest_packing','row',to_jsonb(p)-'payload_hash'-'idempotency_key') FROM (SELECT * FROM pkg_packing_records ORDER BY id DESC LIMIT 6) p;
+SELECT jsonb_build_object('section','latest_migrations','row',to_jsonb(m)) FROM (SELECT * FROM migrations ORDER BY id DESC LIMIT 5) m;
+SELECT jsonb_build_object('section','protection_columns','table',table_name,'column',column_name,'type',data_type,'nullable',is_nullable,'default',column_default) FROM information_schema.columns WHERE table_schema='public' AND ((table_name IN ('pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records') AND column_name='is_test') OR (table_name='pkg_packing_records' AND column_name IN ('status','void_reason','voided_at','voided_by','idempotency_key','payload_hash')));
+SELECT jsonb_build_object('section','protection_constraint','name',conname,'definition',pg_get_constraintdef(oid)) FROM pg_constraint WHERE conrelid='pkg_packing_records'::regclass AND conname='ck_packing_record_status';
+SELECT jsonb_build_object('section','protection_index','definition',indexdef) FROM pg_indexes WHERE tablename='pkg_packing_records' AND indexname='uq_packing_idempotency';
