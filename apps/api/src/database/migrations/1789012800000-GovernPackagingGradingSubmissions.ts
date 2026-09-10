@@ -7,6 +7,47 @@ export class GovernPackagingGradingSubmissions1789012800000 implements Migration
   name = 'GovernPackagingGradingSubmissions1789012800000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Fresh CI databases do not start the GenericCrud bootstrap before TypeORM
+    // migrations. Define the canonical base tables here; production already has
+    // them, so these statements are no-ops there.
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS pkg_source_batches (
+        id serial PRIMARY KEY,
+        batch_code varchar(80) NOT NULL UNIQUE,
+        source_inbound_no varchar(80),
+        production_date date,
+        house_code varchar(80),
+        flock_code varchar(80),
+        lay_date date,
+        expected_qty integer DEFAULT 0,
+        received_qty integer DEFAULT 0,
+        expected_weight numeric(12,3) DEFAULT 0,
+        received_weight numeric(12,3) DEFAULT 0,
+        container_count integer DEFAULT 0,
+        variance_reason text,
+        received_by integer,
+        batch_status varchar(30) DEFAULT 'PENDING_RECEIVE',
+        qc_result varchar(30),
+        created_at timestamp without time zone DEFAULT NOW(),
+        updated_at timestamp without time zone DEFAULT NOW(),
+        shift_id integer,
+        total_qty integer NOT NULL DEFAULT 0,
+        dirty_qty integer NOT NULL DEFAULT 0,
+        cracked_qty integer NOT NULL DEFAULT 0
+      )
+    `);
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS pkg_grading_records (
+        id serial PRIMARY KEY,
+        code varchar(80) NOT NULL UNIQUE,
+        shift_id integer,
+        source_batch_code varchar(80),
+        production_date date,
+        outputs_json jsonb DEFAULT '{}'::jsonb,
+        total_output integer DEFAULT 0,
+        created_at timestamp without time zone DEFAULT NOW()
+      )
+    `);
     await queryRunner.query(`
       ALTER TABLE pkg_grading_records
         ADD COLUMN IF NOT EXISTS idempotency_key varchar(120),
@@ -56,5 +97,7 @@ export class GovernPackagingGradingSubmissions1789012800000 implements Migration
         DROP COLUMN IF EXISTS payload_hash,
         DROP COLUMN IF EXISTS idempotency_key
     `);
+    // The base tables predate this migration in production and may contain
+    // business data; down() intentionally removes only objects owned here.
   }
 }

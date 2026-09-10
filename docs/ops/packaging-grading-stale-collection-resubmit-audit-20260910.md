@@ -172,4 +172,6 @@ Terminal BFF 的 `POST grading/submit` 位于 `apps/api/src/modules/bff/bff.cont
 
 ### 6.4 PR、CI、部署与生产复验
 
-待本提交推送并创建 PR 后回填 run/PR/revision。只有干净 runner CI 通过才触发 full deploy；部署后仅做新 pending 行为与错误窗口的生产只读复验。历史数据修复脚本继续单独报批。
+- PR：`#225`（`fix/grading-idempotency-governance-20260910`）。首轮静态门禁因新增 i18n key 与审核标签生效时序失败，随后复用已注册 locale key，并补 `reviewed-frozen-boundary` / `reviewed-security-touch` 后重跑通过。
+- 干净 runner regression 首轮在迁移链发现历史结构问题：空库在 TypeORM migration 前尚无 `pkg_grading_records`（过去依赖应用运行时 Generic CRUD 建表），新迁移的 `ALTER TABLE` 因此失败。已将两张 canonical 包装基表的 `CREATE TABLE IF NOT EXISTS` 前置到 TS 迁移，生产已有表时为 no-op；该轮失败已阻断部署，没有生产变更。
+- CI、full deploy、revision 与部署后 pending/error-window 只读复验待修正提交的 runner 结果回填。历史数据修复脚本继续单独报批。
