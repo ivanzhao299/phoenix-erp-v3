@@ -312,7 +312,7 @@ export default function EggCollectionPage() {
           textTransform: 'uppercase',
           flexShrink: 0
         }}>
-            {t('ui.今日来源批次', '今日来源批次')} {records.length > 0 && `— ${records.length} ${t('ui.批', '批')}`}
+            {t('ui.今日已录', '今日来源批次')} {records.length > 0 && `— ${records.length} ${t('ui.批', '批')}`}
           </div>
 
           <div style={{

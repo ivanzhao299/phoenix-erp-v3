@@ -386,7 +386,7 @@ export default function GradingPage() {
           textTransform: 'uppercase',
           flexShrink: 0
         }}>
-            {t('ui.本班待分级', '本班待分级')} {houses.length > 0 && `— ${houses.length} ${t('ui.批', '批')}`}
+            {t('ui.今日投入', '本班待分级')} {houses.length > 0 && `— ${houses.length} ${t('ui.批', '批')}`}
           </div>
 
           <div style={{
@@ -405,8 +405,8 @@ export default function GradingPage() {
             lineHeight: 1.6
           }}>
                 {hasOpenShift
-                  ? t('ui.本班暂无待分级来源批次', '本班暂无待分级来源批次')
-                  : t('ui.请先开放班次', '无开放班次，禁止分级')}<br />
+                  ? t('ui.今日尚未录入集蛋数据', '本班暂无待分级来源批次')
+                  : t('ui.请先开班再提交集蛋记录', '无开放班次，禁止分级')}<br />
                 <span className={u.fs11}>{t('ui.可先录入集蛋再返回分级', '可先录入集蛋再返回')}</span>
               </div> : houses.map(h => {
             const isActive = h.batch_key === activeHouseCode;
