@@ -129,4 +129,41 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
   it('does not accept an explicitly different SKU from the same grade/spec',async()=>{
     await expect(resolvePackagingIdentity(ds.manager,{grade:'GRADE_5',specCode:'SPEC30',skuCode:'SKU1'})).rejects.toThrow('不匹配');
   });
+  it('authorizes the target shift before submit and before replay',async()=>{
+    const input={shiftId:1,gradingCodes:['GR'],batches:[item],idempotencyKey:'scope-packing'};
+    scope.allowedFarmCodes=[];
+    await expect(controller.submitPacking(input,req)).rejects.toThrow('无权');
+    expect((await ds.query('SELECT count(*)::int n FROM pkg_packing_records'))[0].n).toBe(1);
+    scope.allowedFarmCodes=['FARM'];await controller.submitPacking(input,req);
+    scope.allowedCompanyCodes=[];
+    await expect(controller.submitPacking(input,req)).rejects.toThrow('无权');
+  });
+  it('rejects a missing authoritative date at the shared inventory entry',async()=>{
+    await expect(service.generateSaleableFromOutputs('PKG-LOCAL',[{grade:'GRADE_5',specCode:'SPEC30',qty:30}])).rejects.toThrow('日期');
+    expect(await counts()).toEqual(zero);
+  });
+
+  it('summary uses the exact scoped date/mode and propagates SQL failures instead of zero fallback',async()=>{
+    await ds.query(`ALTER TABLE pkg_source_batches ADD COLUMN batch_code text;
+      ALTER TABLE pkg_work_shifts ADD COLUMN opened_at timestamp DEFAULT now();
+      CREATE TABLE pkg_exceptions(status text,created_at timestamp,related_batch_id text,batch_no text);
+      CREATE TABLE pkg_label_print_logs(printed_at timestamp,packaging_batch_id text);`);
+    const result=await controller.getShiftSummary('2026-09-09','1',req);
+    expect(result.data).toMatchObject({receivedQty:120,shiftPackedBoxes:1,shiftPackedEggs:30,shiftWarehousedBoxes:0});
+    for(const id of ['NaN','0','', '9007199254740992','999'])await expect(controller.getShiftSummary('2026-09-09',id,req)).rejects.toThrow();
+    await expect(controller.getShiftSummary('2026-09-10','1',req)).rejects.toThrow('日期');
+    scope.allowedFarmCodes=[];await expect(controller.getShiftSummary('2026-09-09','1',req)).rejects.toThrow('无权');scope.allowedFarmCodes=['FARM'];
+    expect((await controller.getShiftSummary('2026-09-09',undefined as any,req)).data.receivedQty).toBe(120);
+    await ds.query('UPDATE pkg_work_shifts SET is_test=true');await expect(controller.getShiftSummary('2026-09-09','1',req)).rejects.toThrow();
+    await ds.query('UPDATE pkg_work_shifts SET is_test=false; ALTER TABLE pkg_exceptions RENAME COLUMN status TO unavailable_status');
+    await expect(controller.getShiftSummary('2026-09-09','1',req)).rejects.toThrow();
+  });
+  it('deducts an authorized later-shift consumption from the original grading remainder',async()=>{
+    await ds.query(`INSERT INTO pkg_work_shifts VALUES(2,'LATER','FARM','2026-09-10','OPEN',false);
+      UPDATE pkg_packing_records SET shift_id=2,production_date='2026-09-10';`);
+    const result=await controller.getActiveGrading('1',req);
+    expect(result.data.remaining.GRADE_5).toBe(30);
+    expect(result.data.productionDate).toBe('2026-09-09');
+  });
+
 });

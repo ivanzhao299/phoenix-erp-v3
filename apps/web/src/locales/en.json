@@ -14296,6 +14296,6 @@
   "terminal.void_packing_print_blocked": "The packing record is void or unavailable. Printing is blocked.",
   "ui.核验班次": "Verifying selected shift…",
   "ui.包装组合未就绪": "No ready product/SKU packaging combination for this grade. Maintain it in Master Data.",
-  "terminal.safe_shift_id": "shiftId must be a safe positive integer",
-  "terminal.shift_verification_failed": "Shift verification failed. Select a shift again."
+  "ui.safe_shift_id": "shiftId must be a safe positive integer",
+  "ui.shift_verification_failed": "Shift verification failed. Select a shift again."
 }

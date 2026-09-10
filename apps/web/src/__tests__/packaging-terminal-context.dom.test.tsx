@@ -5,10 +5,11 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' } as any, loading: false }, exact: vi.fn(), summary: vi.fn(), active: vi.fn(), close: vi.fn(), t: (_key: string, text: string) => text }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ ...mocks.auth, hasPermission: () => true, logout: vi.fn() }) }));
 vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: mocks.t, lang: 'zh', setAppLanguage: vi.fn() }) }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
-vi.mock('@/components/terminal/TerminalNavRail', () => ({ default: () => null }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/terminal/packaging/shift-close', useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+vi.mock('@/contexts/BrandContext', () => ({ useBrand: () => ({ brand: {} }) }));
+vi.mock('@/hooks/usePackagingDicts', async original => ({ ...await original<any>(), usePackagingDicts: () => ({dicts:{}}) }));
 vi.mock('@/hooks/useProductGrades', () => ({ useProductGrades: () => ({ grades: [{ grade_code:'GRADE_5', grade_name:'5号蛋' }] }) }));
-vi.mock('@/lib/packaging-api', async original => ({ ...await original<any>(), packagingApi: { getExactShift: mocks.exact, getShiftSummary:mocks.summary, getActiveGrading:mocks.active, closeShift:mocks.close } }));
+vi.mock('@/lib/packaging-api', async original => ({ ...await original<any>(), packagingApi: { getExactShift: mocks.exact, getShiftSummary:mocks.summary, getActiveGrading:mocks.active, closeShift:mocks.close, getDicts:vi.fn(async()=>({})), getSites:vi.fn(async()=>[]), getSupervisors:vi.fn(async()=>[]), getReadyCombinations:vi.fn(async()=>[]), getPendingGradingSourceBatches:vi.fn(async()=>[]), getTodaySourceBatches:vi.fn(async()=>[]), getTodayExceptions:vi.fn(async()=>[]) } }));
 import Layout from '@/app/(terminal)/layout';
 import Page from '@/app/(terminal)/terminal/packaging/shift-close/page';
 import { TerminalContextProvider, useTerminalContext } from '@/hooks/useTerminalContext';
@@ -73,4 +74,34 @@ it('uses authoritative empty grading and actual warehouse fields, without inferr
 it('unmounted request completion cannot pollute a new fullscreen page',async()=>{
   save();const old=deferred();mocks.active.mockReturnValueOnce(old.promise);await render();await fullscreen(true);await fullscreen(false);await fullscreen(true);
   await act(async()=>old.reject(new Error('unmounted failure')));expect(host.textContent).not.toContain('unmounted failure');
+});
+
+it('has no business request with no saved selection',async()=>{await render();await fullscreen(true);expect(mocks.summary).not.toHaveBeenCalled();expect(mocks.active).not.toHaveBeenCalled();expect(host.textContent).toContain('当前无开放班次');});
+it.each([{id:'999'}, {date_text:'2026-09-08'}, {is_test:true}])('rejects an authority mismatch %j',async(patch)=>{save();mocks.exact.mockResolvedValue({...raw(),...patch});await render();await fullscreen(true);expect(mocks.active).not.toHaveBeenCalled();expect(host.textContent).toContain('不匹配');});
+it('StrictMode effect replay never emits undefined/NaN requests',async()=>{save();await act(async()=>root.render(<React.StrictMode><Layout><Probe/><Page/></Layout></React.StrictMode>));await fullscreen(true);expect(mocks.active.mock.calls.every(([id])=>id===56)).toBe(true);expect(host.textContent).not.toContain('失败');});
+it('late failed grading request cannot hide a current failed summary',async()=>{save();const old=deferred();mocks.active.mockReturnValueOnce(old.promise);await render();await fullscreen(true);mocks.summary.mockRejectedValueOnce(new Error('CURRENT failure'));await fullscreen(false);await fullscreen(true);await act(async()=>old.resolve({shiftId:56,productionDate:'2026-09-10',outputs:{GRADE_5:999}}));expect(host.textContent).toContain('CURRENT failure');expect(host.textContent).not.toContain('999');});
+
+const consumers: Record<string, () => Promise<any>> = {
+  'dashboard': () => import('@/app/(terminal)/terminal/packaging/dashboard/page'),
+  'exceptions': () => import('@/app/(terminal)/terminal/packaging/exceptions/page'),
+  'grading': () => import('@/app/(terminal)/terminal/packaging/grading/page'),
+  'label-print': () => import('@/app/(terminal)/terminal/packaging/label-print/page'),
+  'packing': () => import('@/app/(terminal)/terminal/packaging/packing/page'),
+  'qc-inspection': () => import('@/app/(terminal)/terminal/packaging/qc-inspection/page'),
+  'shift-close': () => import('@/app/(terminal)/terminal/packaging/shift-close/page'),
+  'shift-open': () => import('@/app/(terminal)/terminal/packaging/shift-open/page'),
+  'source-receive': () => import('@/app/(terminal)/terminal/packaging/source-receive/page'),
+  'warehouse-handover': () => import('@/app/(terminal)/terminal/packaging/warehouse-handover/page'),
+};
+it.each(Object.keys(consumers))('mounts context consumer %s only after hydration, then clears state on account change',async(path)=>{
+  const Consumer = (await consumers[path]() as any).default;
+  save();const check=deferred();mocks.exact.mockReturnValueOnce(check.promise);
+  const paint=()=>root.render(<Layout><Probe/><Consumer/></Layout>);
+  await act(async()=>paint());await fullscreen(true);
+  expect(mocks.summary).not.toHaveBeenCalled();expect(mocks.active).not.toHaveBeenCalled();
+  await act(async()=>check.resolve(raw()));expect(context.ctx.currentShift?.id).toBe('56');
+  await act(async()=>context.setGradingResult('OLD',{GRADE_5:999}));
+  mocks.auth.user={id:'8'};await act(async()=>paint());
+  expect(context.ctx.currentShift).toBeNull();expect(context.ctx.gradingOutputs).toBeNull();
+  expect(host.textContent).not.toContain('999');
 });

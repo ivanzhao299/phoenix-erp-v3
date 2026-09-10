@@ -133,6 +133,7 @@ describe('PackagingTerminalBffController', () => {
   it('inserts packing under a transaction after checking source ownership and remaining quantity', async () => {
     const em: any = { query: jest.fn(async (sql: string) => {
       if (sql.includes('FROM pkg_work_shifts')) return [{ is_test: false, status: 'OPEN', date_text: '2026-08-21' }];
+      if (sql.includes('FROM brd_farms')) return [{farm_code:'F',company_code:'C'}];
       if (sql.includes('SELECT gr.*')) return [{ code: 'GC-A', shift_id: 1, outputs_json: { A: 360 } }];
       if (sql.includes('FROM product_grades')) return [{ status:'ACTIVE', is_saleable:true, is_storable:true }];
       if (sql.includes('FROM packaging_specs')) return [{ status:'ACTIVE', spec_code:'SPEC', qty_per_unit:180 }];
@@ -143,7 +144,7 @@ describe('PackagingTerminalBffController', () => {
     em.transaction = (work: any) => work(em);
     const controller = new PackagingTerminalBffController(em, {} as never, houseScope as never);
     const batches = [{ grade: 'A', boxes: 2, eggs: 360, specId: 'SPEC', productCode: 'P', skuCode: 'SKU' }];
-    const result = await controller.submitPacking({ shiftId: 1, gradingCodes: ['GC-A'], batches, idempotencyKey: 'packing-test' });
+    const result = await controller.submitPacking({ shiftId: 1, gradingCodes: ['GC-A'], batches, idempotencyKey: 'packing-test' }, {user:{id:1}});
     expect(result.data).toMatchObject({ totalBoxes: 2, totalEggs: 360, idempotentReplay: false });
     expect(em.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO pkg_packing_records'),
       [result.data.code, 'GC-A', JSON.stringify(['GC-A']), '2026-08-21', JSON.stringify(batches), 2, 360, 1, false, 'packing-test', expect.any(String)]);
