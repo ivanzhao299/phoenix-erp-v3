@@ -216,3 +216,14 @@ Terminal BFF 的 `POST grading/submit` 位于 `apps/api/src/modules/bff/bff.cont
 - `pkg_grading_records.id=77 / GRD-20260910-306173` 创建于 `2026-09-10 00:31:46.173537 UTC`，比目标来源早约 `1:56:29`；`pkg_grading_source_links` 对目标来源或 id 77 均为 `0` 行。因此 id 77 **不可能是分了该来源的 98 枚**，两者在班次 56 上形成 `294` 仅是数量吻合，不能建立因果关联。
 - `sys_operation_logs` 对目标创建时点前后 15 分钟、目标业务号/id 及 before/after JSON 均为 `0` 行；来源 `received_by` 为空，无法取得创建者账号、IP 或 UA。全仓及 git 历史仅证明 `H-DEBUG-A01` 是既存测试鸡舍，并在 Codex 协作提交的运维报告中被记录；精确来源号只出现于发现异常后的审计报告，没有 fixture、测试脚本或创建命令证据。提交的 Codex co-author 尾注不能反证生产写入者。
 - 三选一结论：**无法定源**。证据支持“测试标识鸡舍产生了异常来源”，但不足以在“Codex 调试污染”与“用户侧测试数据”之间归责。依用户给定分支和失败即停红线，不修改 reviewed baseline，不执行来源/分级软作废，不执行班次 55 修复；`id=73/74/77`、来源 id 48、包装引用、库存和 ledger 均保持原状，等待用户裁定。
+
+### 7.6 用户批复 A：分级历史修复最终执行（2026-09-10）
+
+- 用户裁定 `H-DEBUG-A01` 为测试鸡舍污染后，reviewed baseline 更新为：班次 55 有效来源净量 `300`、ACTIVE 分级 `300`；班次 56 排除待作废来源 id 48 后有效来源净量 `196`、ACTIVE 分级 `196`。来源 id 48 仍作为历史行保留，仅将 `batch_status` 从 `RECEIVED` 软作废为 `VOID`，未物理删除。
+- bundle revision `e225548816569f30fe82ecac121081e0ea870d96` 已 push。生产运行 revision 保持 checkout/API/Web 三对齐为 `dc2d2aa524444ec3f82a579b7cf5461f01f9acf1`；workflow 从该生产 revision 的受控容器执行随 run 单独上传的 reviewed bundle。
+- 三段执行全部成功：preflight run `34434919666`；SERIALIZABLE apply run `34434992200`；只读 verify run `34435059608`。preflight 逐行确认来源 id 48 为 `RECEIVED`、分级 id 73/74/77 为 `ACTIVE`、包装 id 31 原始四条引用、id 71/班次 54 原状及班次 55/56 reviewed baseline 后才放行。
+- apply 在单个 SERIALIZABLE 事务内完成：来源 id 48 → `VOID`，审计原因 `test-house-pollution`；分级 id 73/74/77 → `VOID`，审计原因 `duplicate-submit-first-valid`；操作者为 `controlled-repair-20260910`，审批引用为 `GRADING-REPAIR-20260910`。合法 id 71/72/75/76 保持 `ACTIVE`。
+- 包装 `PKG-20260909-293183` 的 `grading_code/grading_codes_json` 修正为仅引用 `GRD-20260909-265670`；`10 箱 / 300 枚`及其他包装物流字段不变。apply 内部还对班次 54 来源、分级、包装整组行做前后哈希断言，确认班次 54 未改变。
+- execute 输出并由 workflow artifact 留存 5 条 guarded 反向 SQL：id 73、74、77 三条状态恢复，来源 id 48 状态恢复并追加反向审计，以及包装引用恢复。没有执行任何反向 SQL。
+- verify 结果为 `VERIFY_PASS`：班次 55 ACTIVE 分级 `300`，班次 56 ACTIVE 分级 `196`，均与排除 VOID 后来源净量对平；来源/分级审计记录存在；包装引用及物流字段符合裁定；班次 54 保持原状。
+- 全量 `inv_batches` 哈希在 preflight/verify 均为 `3cf89cb78648b6a0be73ee05c5a6586a`；全量 `inv_ledger` 哈希均为 `8bf9bb0111ac503e85eec8bf53e517df`。库存和 ledger 未变化。本地 API/Web `tsc --noEmit` 均为 0 errors；本次只修改受控 SQL 与执行记录，不涉及 DataScope/UI 字段，scope-audit 无新增命中面。
