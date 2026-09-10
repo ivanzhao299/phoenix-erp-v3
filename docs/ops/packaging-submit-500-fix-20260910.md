@@ -37,5 +37,19 @@
 
 ## 5. CI、部署与生产复验
 
-本节在 PR、full deploy 和生产真实复验完成后追加；未完成前不得写 PASS。
+- PR `#227` 全部门禁通过后合并，merge revision `6792efcf10ab28db4fc2fdc644848c79fe7f5d16`。
+- PR runner：Static Security/Freeze、Runtime Smoke、Web Vitest、API Build、V3 Regression、deploy PR regression 全绿；V3 packaging regression 在干净数据库真实执行通过。
+- 显式 full deploy run `34441348164` 成功：双镜像构建、迁移链、API/Web 健康检查和部署 smoke 全部通过。
+- 部署后只读 run `34442294824`：生产 checkout/API/Web revision 三对齐为 `6792efcf...`；48 小时窗口最新包装域 500 仍仅为部署前的 `51927/51928`（02:28 UTC），部署后截至 05:45 UTC 新增包装域 500 为 0。
 
+### 5.1 真实成功型提交冒烟待批
+
+要完成“生产真实分级提交 → 包装提交”的成功型冒烟，必须创建并随后清理隔离测试数据；现有真实 OPEN 班次/来源不能拿来消耗，否则会改变业务数量。按“若需生产数据配合先报批”红线，本轮停在以下精确范围：
+
+1. 创建 1 个 `SMOKE-PKG-DATE-20260910-*` OPEN 班次与 1 个同前缀来源批次，净量 30；使用明确测试 site/house 标识。
+2. 以稳定幂等键提交 1 条分级（`GRADE_1=30`），断言 HTTP 200、`production_date=2026-09-10`、source link=30；重放同 key 断言 replay 且不增行。
+3. 提交 1 条包装（1 箱/30 枚），断言 HTTP 200；不执行交接/入库，因此不触碰 `inv_batches/inv_ledger`。
+4. 冻结创建 id/code 后，按依赖顺序仅删除这次 smoke 的 packing → source link → grading → source → shift 五类测试行；前后断言非 smoke 行哈希不变。
+5. 查询 smoke 窗口 `sys_error_logs` 和 API Docker 日志，要求 grading/packing submit 500 均为 0。
+
+在获得该生产测试数据写入与清理批准前，不把成功型生产提交冒烟记为 PASS。
