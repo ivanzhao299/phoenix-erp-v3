@@ -9,7 +9,7 @@ const payload = {
   idempotencyKey: 'grading-55-45-test-key',
 };
 
-function buildController(options: { netQty?: number; sourceShiftId?: number } = {}) {
+function buildController(options: { netQty?: number; sourceShiftId?: number; productionDate?: unknown } = {}) {
   let stored: { code: string; total_output: number; payload_hash: string } | null = null;
   const links: unknown[][] = [];
   const manager: any = {
@@ -17,7 +17,7 @@ function buildController(options: { netQty?: number; sourceShiftId?: number } = 
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('WHERE idempotency_key = $1')) return stored ? [stored] : [];
       if (sql.includes('FROM pkg_work_shifts') && sql.includes('FOR UPDATE')) {
-        return [{ id: 55, production_date: '2026-09-09', status: 'OPEN' }];
+        return [{ id: 55, production_date: options.productionDate ?? '2026-09-09', status: 'OPEN' }];
       }
       if (sql.includes('FROM pkg_source_batches') && sql.includes('FOR UPDATE')) {
         return [{ id: 45, batch_code: 'SRC-45', shift_id: options.sourceShiftId ?? 55,
@@ -69,6 +69,16 @@ describe('PackagingTerminal grading governance', () => {
       .resolves.toMatchObject({ shiftId: 55, sourceBatchIds: [45] });
     await expect(pipe.transform({ ...payload, sourceBatchIds: [] }, { type: 'body', metatype: SubmitGradingDto }))
       .rejects.toMatchObject({ status: 400 });
+    const { idempotencyKey: _removed, ...missingKey } = payload;
+    await expect(pipe.transform(missingKey, { type: 'body', metatype: SubmitGradingDto }))
+      .rejects.toMatchObject({ status: 400 });
+  });
+
+  it('formats a database Date value as an ISO production date before insert', async () => {
+    const { controller, manager } = buildController({ productionDate: new Date(2026, 8, 10) });
+    await expect(controller.submitGrading(payload)).resolves.toMatchObject({ data: { code: 'GRD-TEST' } });
+    const insert = manager.query.mock.calls.find(([sql]: [string]) => sql.includes('INSERT INTO pkg_grading_records'));
+    expect(insert?.[1]?.[3]).toBe('2026-09-10');
   });
 
   it('hard-rejects output above the locked source remainder', async () => {
@@ -80,6 +90,23 @@ describe('PackagingTerminal grading governance', () => {
   it('isolates sources from another shift', async () => {
     const { controller } = buildController({ sourceShiftId: 54 });
     await expect(controller.submitGrading(payload)).rejects.toThrow('来源批次不存在或不属于当前班次');
+  });
+
+  it('filters VOID sources from pending and locked grading submission queries', async () => {
+    const { controller, manager } = buildController();
+    await controller.submitGrading(payload);
+    expect(manager.query.mock.calls.some(([sql]: [string]) =>
+      sql.includes('FROM pkg_source_batches') && sql.includes("batch_status = 'RECEIVED'"))).toBe(true);
+  });
+
+  it('rejects legacy grading without source links as a conflict instead of a 500', async () => {
+    const em: any = { query: jest.fn().mockResolvedValue([]) };
+    const scope = { assertActiveHouseOwnership: jest.fn().mockResolvedValue(undefined) };
+    const controller = new PackagingTerminalBffController(em, {} as never, scope as never);
+    await expect(controller.submitPacking({
+      gradingCodes: ['GRD-LEGACY'], productionDate: '2026-09-10', shiftId: 55,
+      batches: [{ grade: 'GRADE_1', boxes: 1, eggs: 30 }],
+    })).rejects.toThrow('存在无有效来源关联的分级记录，禁止包装');
   });
 
   it('replays the same key and payload without a second grading/link insert', async () => {
