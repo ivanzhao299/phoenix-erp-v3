@@ -19,6 +19,12 @@ validate_path() {
 
 validate_path "$sql_path" '.sql'
 validate_path "$http_path" '.http.json'
+# Defense in depth: readonly bundles may never contain schema or business writes.
+if [ -n "$sql_path" ]; then
+  if grep -Eiq '(^|[^[:alnum:]_])(INSERT|UPDATE|DELETE|MERGE|TRUNCATE|CREATE|ALTER|DROP|GRANT|REVOKE|VACUUM|ANALYZE)([^[:alnum:]_]|$)' "$bundle_dir/$sql_path"; then
+    echo 'FAIL readonly SQL contains forbidden DDL/DML' >&2; exit 2
+  fi
+fi
 if [ -n "$http_path" ]; then
   HTTP_VALIDATE_PATH="$bundle_dir/$http_path" node -e "const f=require(process.env.HTTP_VALIDATE_PATH);if(!Array.isArray(f))throw Error('HTTP manifest must be an array');for(const x of f){if(!['GET','HEAD'].includes(x.method||'GET'))throw Error('Only GET/HEAD are allowed');if(!x.name||(!x.path&&!x.pathSql))throw Error('Each HTTP assertion needs name and path/pathSql')}"
 fi
@@ -284,3 +290,8 @@ if [ "$sql_path" = 'scripts/ops/readonly-audits/credit-evaluation-so-20260903-00
   fi
 fi
 echo 'PASS PRODUCTION_BUSINESS_WRITES=0'
+artifact_path="${AUDIT_ARTIFACT_PATH:-$bundle_dir/readonly-audit-artifact-$run_id.tgz}"
+mkdir -p "$(dirname "$artifact_path")"
+tar -czf "$artifact_path" -C "$out_dir" audit.log
+[ -s "$artifact_path" ] || { echo 'FAIL artifact is empty' >&2; exit 1; }
+echo "PASS ARTIFACT path=$artifact_path sha256=$(sha256sum "$artifact_path" | awk '{print $1}')"
