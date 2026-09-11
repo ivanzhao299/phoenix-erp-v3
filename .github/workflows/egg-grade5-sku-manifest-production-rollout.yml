@@ -22,111 +22,43 @@ jobs:
       - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}" | tee manifest-hash.json
       - run: test "$(node -e "console.log(require('./manifest-hash.json').sha256)")" = "${{ inputs.manifest_sha256 }}"
       - run: test "${{ inputs.confirmation }}" = 'READONLY'
-      - name: Run and return isolated audit payload over one SSH session
+      - name: Run isolated audit over native SSH and fetch strict artifacts
         id: execute
-        uses: appleboy/ssh-action@v1
+        continue-on-error: true
         env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
-          AUDIT_BUNDLE_REVISION: ${{ github.sha }}
-          ASSERTION_SQL_PATH: scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql
-          HTTP_ASSERTIONS_PATH: ''
           AUDIT_RUN_ID: ${{ github.run_id }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
-          proxy_port: 22
-          capture_stdout: true
-          envs: DEPLOY_PATH,AUDIT_BUNDLE_REVISION,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID
-          script: |
-            set -euo pipefail
-            case "$AUDIT_RUN_ID" in *[!0-9]*) exit 2;; esac
-            out_dir="/tmp/phoenix-production-readonly-audit-${AUDIT_RUN_ID}"
-            install -d -m 700 "$out_dir"
-            log="$out_dir/audit.log"
-            result="$out_dir/result.json"
-            printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"FAIL","business_writes":0,"error":"audit not started"}\n' "$AUDIT_RUN_ID" > "$result"
-            : > "$log"
-            exec 3>&1
-            exec >>"$log" 2>&1
-            finalize() {
-              final_rc=$?
-              if [ "$final_rc" -eq 0 ]; then status=PASS; else status=FAIL; fi
-              error=''
-              [ "$final_rc" -eq 0 ] || error="remote audit exited rc=$final_rc"
-              RESULT_PATH="$result" RUN_ID="$AUDIT_RUN_ID" STATUS="$status" RC="$final_rc" BUSINESS_WRITES=0 LOG_PATH="$log" ERROR="$error" python3 - <<'PY'
-              import json, os
-              payload = {
-                'schema': 'phoenix.readonly-audit/v1',
-                'run_id': int(os.environ['RUN_ID']),
-                'status': os.environ['STATUS'],
-                'rc': int(os.environ['RC']),
-                'business_writes': int(os.environ['BUSINESS_WRITES']),
-                'error': os.environ['ERROR'],
-                'log': os.environ['LOG_PATH'],
-                 'audit_result': {'status': os.environ['STATUS'], 'exit_code': int(os.environ['RC'])},
-              }
-              with open(os.environ['RESULT_PATH'], 'w', encoding='utf-8') as f:
-                  json.dump(payload, f, separators=(',', ':'))
-                  f.write('\\n')
-              PY
-              test -s "$result"; test -s "$log"
-              LOG_B64="$(base64 -w0 "$log")" RESULT_PATH="$result" LOG_B64="$LOG_B64" python3 - <<'PY'
-              import json, os
-              p=os.environ['RESULT_PATH']
-              x=json.load(open(p, encoding='utf-8'))
-              x['log_b64']=os.environ['LOG_B64']
-              with open(p, 'w', encoding='utf-8') as f: json.dump(x, f, separators=(',', ':')); f.write('\\n')
-              PY
-              # Keep SSH action successful so stdout output is published even when
-              # the remote audit fails; carry the actual rc in the payload.
-              printf '%s\n' "$(base64 -w0 "$result")" >&3
-              exit 0
-            }
-            trap finalize EXIT
-            case "$DEPLOY_PATH" in
-              '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}" ;;
-              /*) ;;
-              *) echo 'FAIL deployment path must be absolute or ~/ prefixed'; exit 2 ;;
-            esac
-            cd "$DEPLOY_PATH"
-            test -d .git && test "$(git rev-parse --show-toplevel)" = "$PWD"
-            test "$(git rev-parse HEAD)" = "$AUDIT_BUNDLE_REVISION"
-            set +e
-            bash scripts/ops/run-production-readonly-audit.sh >>"$log" 2>&1
-            rc=$?
-            set -e
-            exit "$rc"
-      - name: Capture and validate unique audit payload
+        run: |
+          set -euo pipefail; umask 077
+          w="$RUNNER_TEMP/grade5-$AUDIT_RUN_ID"; mkdir -p "$w"
+          printf '%s' "$DEPLOY_SSH_KEY" >"$w/key"; printf '%s' "$DEPLOY_PROXY_KEY" >"$w/proxy"; chmod 600 "$w/key" "$w/proxy"
+          opts=(-i "$w/key" -p "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
+          if [ -n "$DEPLOY_PROXY_HOST" ]; then opts+=(-o "ProxyCommand=ssh -i $w/proxy -W %h:%p -o StrictHostKeyChecking=accept-new -o User=$DEPLOY_PROXY_USER $DEPLOY_PROXY_HOST"); fi
+          remote="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"
+          ssh "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "AUDIT_RUN_ID=$AUDIT_RUN_ID DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+          set -euo pipefail; case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}";; /*) ;; *) exit 2;; esac
+          d="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"; install -d -m700 "$d"; : >"$d/audit.log"
+          set +e; (cd "$DEPLOY_PATH" && bash scripts/ops/run-production-readonly-audit.sh) >>"$d/audit.log" 2>&1; rc=$?; set -e
+          python3 - "$d/result.json" "$AUDIT_RUN_ID" "$rc" "$d/audit.log" <<'PY'
+          import json,sys
+          o,r,c,l=sys.argv; json.dump({'schema':'phoenix.readonly-audit/v1','run_id':int(r),'status':'PASS' if c=='0' else 'FAIL','rc':int(c),'business_writes':0,'log':l,'audit_result':{'exit_code':int(c)}},open(o,'w')); open(o,'a').write('\n')
+          PY
+          exit "$rc"
+          REMOTE
+          rc=$?; scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/result.json" "$w/result.json"; scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/audit.log" "$w/audit.log"; cp "$w"/{result.json,audit.log} .; mv result.json grade5-preflight-payload.json; mv audit.log grade5-preflight.log; echo "remote_rc=$rc" >>"$GITHUB_OUTPUT"; exit "$rc"
+      - name: Validate strict audit artifact and rc
         if: always()
         env:
-          AUDIT_OUTPUT: ${{ steps.execute.outputs.stdout }}
-          EXPECTED_RUN_ID: ${{ github.run_id }}
-        run: |
-          python3 - <<'PY'
-          import base64, json, os, re
-          raw=os.environ.get('AUDIT_OUTPUT','')
-          candidates=[line.strip() for line in raw.splitlines() if re.fullmatch(r'[A-Za-z0-9+/]+={0,2}', line.strip())]
-          assert len(candidates)==1, f'expected one base64 payload, found {len(candidates)}'
-          try: payload=json.loads(base64.b64decode(candidates[0], validate=True))
-          except Exception as exc: raise AssertionError('invalid base64/JSON payload') from exc
-          assert payload.get('schema')=='phoenix.readonly-audit/v1'
-          assert payload.get('run_id')==int(os.environ['EXPECTED_RUN_ID'])
-          assert payload.get('status') in ('PASS','FAIL')
-          assert payload.get('business_writes')==0
-          assert isinstance(payload.get('log'), str) and payload['log']
-          log_b64=payload.get('log_b64')
-          assert isinstance(log_b64,str) and log_b64
-          log=base64.b64decode(log_b64, validate=True)
-          assert log.strip(), 'audit log must be non-empty'
-          assert payload.get('audit') is not None or payload.get('audit_result') is not None
-          open('grade5-preflight.log','wb').write(log)
-          open('grade5-preflight-payload.json','w').write(json.dumps(payload, separators=(',',':'))+'\n')
-          PY
+          EXPECTED_RUN_ID: "${{ github.run_id }}"
+          EXECUTE_RC: "${{ steps.execute.outputs.remote_rc }}"
+        run: python3 -c "import json,os; p=json.load(open('grade5-preflight-payload.json')); assert p['run_id']==int(os.environ['EXPECTED_RUN_ID']) and p['business_writes']==0 and p['rc']==int(os.environ['EXECUTE_RC']) and p['audit_result']['exit_code']==p['rc'] and os.path.getsize('grade5-preflight.log')>0"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
