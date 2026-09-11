@@ -42,7 +42,12 @@ jobs:
           opts=(-i "$w/key" -p "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
           if [ -n "$DEPLOY_PROXY_HOST" ]; then opts+=(-o "ProxyCommand=ssh -i $w/proxy -W %h:%p -o StrictHostKeyChecking=accept-new -o User=$DEPLOY_PROXY_USER $DEPLOY_PROXY_HOST"); fi
           remote="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"
-           ssh "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "AUDIT_RUN_ID=$AUDIT_RUN_ID DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+           # Fail closed before transport: this preflight must execute the reviewed SQL bundle.
+           test -n "${ASSERTION_SQL_PATH:-scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql}"
+           ASSERTION_SQL_PATH='scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql'
+           EXPECTED_REVISION='${{ inputs.revision }}'
+           ssh_rc=0
+           ssh "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "AUDIT_RUN_ID=$AUDIT_RUN_ID DEPLOY_PATH='$DEPLOY_PATH' ASSERTION_SQL_PATH='$ASSERTION_SQL_PATH' AUDIT_BUNDLE_REVISION='$EXPECTED_REVISION' HTTP_ASSERTIONS_PATH='' bash -s" <<'REMOTE' || ssh_rc=$?
           set -euo pipefail; case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}";; /*) ;; *) exit 2;; esac
           d="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"; install -d -m700 "$d"; : >"$d/audit.log"
           set +e; (cd "$DEPLOY_PATH" && bash scripts/ops/run-production-readonly-audit.sh) >>"$d/audit.log" 2>&1; rc=$?; set -e
@@ -52,13 +57,15 @@ jobs:
           PY
           exit "$rc"
           REMOTE
-          rc=$?; scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/result.json" "$w/result.json"; scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/audit.log" "$w/audit.log"; cp "$w"/{result.json,audit.log} .; mv result.json grade5-preflight-payload.json; mv audit.log grade5-preflight.log; echo "remote_rc=$rc" >>"$GITHUB_OUTPUT"; exit "$rc"
+          rc=$?; ssh_rc=$rc; result_rc=0; log_rc=0; scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/result.json" "$w/result.json" || result_rc=$?; scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/audit.log" "$w/audit.log" || log_rc=$?; [ "$result_rc" -eq 0 ] && cp "$w/result.json" grade5-preflight-payload.json; [ "$log_rc" -eq 0 ] && cp "$w/audit.log" grade5-preflight.log; printf "ssh_rc=%s\nresult_rc=%s\nlog_rc=%s\n" "$ssh_rc" "$result_rc" "$log_rc" >>"$GITHUB_OUTPUT"; exit "$((ssh_rc || result_rc || log_rc))"
       - name: Validate strict audit artifact and rc
         if: always()
         env:
           EXPECTED_RUN_ID: "${{ github.run_id }}"
-          EXECUTE_RC: "${{ steps.execute.outputs.remote_rc }}"
-        run: python3 -c "import json,os; p=json.load(open('grade5-preflight-payload.json')); assert p['run_id']==int(os.environ['EXPECTED_RUN_ID']) and p['business_writes']==0 and p['rc']==int(os.environ['EXECUTE_RC']) and p['audit_result']['exit_code']==p['rc'] and os.path.getsize('grade5-preflight.log')>0"
+          EXECUTE_SSH_RC: "${{ steps.execute.outputs.ssh_rc }}"
+          EXECUTE_RESULT_RC: "${{ steps.execute.outputs.result_rc }}"
+          EXECUTE_LOG_RC: "${{ steps.execute.outputs.log_rc }}"
+        run: python3 -c "import json,os; p=json.load(open('grade5-preflight-payload.json')); assert p['run_id']==int(os.environ['EXPECTED_RUN_ID']) and p['business_writes']==0 and p['rc']==0 and p['audit_result']['exit_code']==p['rc'] and os.path.getsize('grade5-preflight.log')>0"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
