@@ -93,3 +93,29 @@ PR [#229](https://github.com/ivanzhao299/phoenix-erp-v3/pull/229) 为草稿；�
 未完成条件：①5号蛋归属EGG还是独立产品需要业务定权；②GRADE_1/2孤立产品SKU在新权威门禁下不可用，不能越过本轮“仅GRADE_5”授权补录，发布前需处理/明确接受影响；③旧全仓scope运行审计实际2通过/28失败/1跳过，固定fixture及退休路由需使审计重新有效，不能用当前任务专项通过替代。未满足条件前保留草稿、不合并、不执行full deploy。
 
 下一待批业务动作仍为原单33实物/接收人/库位核实后的独立入库授权；本轮没有请求、模拟或重放该动作。没有真实浏览器上下文，不宣称生产DOM已验收。主数据恢复与业务闭环均未完成。
+
+## 2026-09-11 双阶段裁定执行记录
+
+用户已裁定 1—5 号蛋统一权威产品为 `mst_products.id=10 / EGG`（ACTIVE、`has_grade=true`）；历史 `PRD-EGG-*` 字符串不再作为产品身份。该裁定更新此前“产品身份未决”的停止项。
+
+### PR 与审计拆分现状
+
+原草稿 [PR #229](https://github.com/ivanzhao299/phoenix-erp-v3/pull/229) 仍保持 Draft，当前 head `a21d05203e60a4e260f534105806fc5f16c8d27b`。本轮没有改写历史、rebase、amend、force push 或删除分支。全屏/班次与 SKU 就绪代码仍共存于该草稿，**尚未达到用户要求的两个独立可回滚 PR**，因此没有合并或部署；SKU 门禁仍是发布阻断。
+
+已补审计脚本：`apps/api/test/scope-audit.sh` 现在要求显式 `SCOPE_AUDIT_PASSWORD`/`UAT_TEST_PASSWORD`，支持 persona 环境变量，不再硬编码 `Test@123`；退休财务路由已改为当前 V2 overview/ar-aging/cash accounts；缺少 PHX shipment fixture 时由 FAIL 取代 SKIP。提交 `a21d0520` 已推送到 PR #229 分支。仍需补齐六个 scope persona 的幂等 fixture（账号、角色、公司/项目范围及 PHX shipment），在 API/数据库可运行环境执行全仓审计；本地未将 HTTP 000 误报为通过。
+
+### 2026-09-11 只读复验
+
+生产只读 workflow [34547162274](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34547162274) 成功完成 SQL/HTTP 审计，checkout/API/Web 三端仍精确为 `492ba3c3a67b477e2240b7b5a8762164a80bfd7e`。读到 EGG id10、10/10 ACTIVE 产品、GRADE_5 id2277 ACTIVE、规格 id2612 `PKG_PACK_SPEC_3` ACTIVE 30枚；GRADE_5 历史孤立 SKU 7行（3953、3958、3963、3968、3973、3978、3983），礼盒精确组合仍0行；包装33仍 id33、30枚/1盒，batch/ledger/handover 均0。
+
+该 run 的 SQL 外壳在只读事务中仍尝试应用 onboarding DDL/DML，日志明确显示 `cannot execute ... in a read-only transaction`；因此它证明了只读保护和上述 SELECT 结果，不能作为“完整 scope-audit 全绿”或浏览器验收。没有生产业务 POST、SKU 创建、产品/SKU UPDATE、包装确认或历史链写入。
+
+### SKU 兼容方案（待批准）
+
+目标关系已明确为 `EGG + GRADE_5 + PKG_PACK_SPEC_3`。路径甲：受控数据修复，将历史 egg SKU 的 `product_code` 统一 UPDATE 为 `EGG`，先逐行 preflight 现态/引用，再单事务 apply、guarded reverse SQL、verify；`sku_code` 不变时，inv_batches/inv_ledger/pkg_packing_records 的引用理论上保持兼容，但必须逐行实证销售匹配、幂等比较及已消耗/未使用分布。路径乙：解析器保留已登记孤立别名到 EGG 的 legacy 映射，零生产数据写入但永久保留别名技术债，并要求所有新写入使用 EGG。推荐路径甲，理由是裁定已给出唯一权威身份且可保留稳定 `sku_code`；在用户批准前两路径均不执行。
+
+生产盘点尚未完成逐表全量引用分布（仅完成上述只读预检）；因此不能声称路径甲风险已闭合。GRADE_3/4 礼盒缺口只列建议，不补录、不批量创建、不删除历史。
+
+### 授权内最小 SKU 写入
+
+本轮尚未执行授权的唯一 SKU 创建：`EGG + GRADE_5 + PKG_PACK_SPEC_3` 的 preflight/create/readback 尚未跑；生产写入精确清单仍为 **空**。包装33确认、任何业务 POST、历史污染链修复、产品/SKU 删除均为0。下一步必须在既有主数据服务上先确认该三元组不存在且三者 ACTIVE，再只创建一条唯一 ACTIVE SKU并留存精确 ID；除此之外禁止生产写。
