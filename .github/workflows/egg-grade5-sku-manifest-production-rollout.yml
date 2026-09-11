@@ -29,7 +29,7 @@ jobs:
       - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}"
       - run: test "${{ inputs.confirmation }}" = 'APPLY-EGG-GRADE5-MANIFEST-20260911'
       - run: test "${{ inputs.manifest_path }}" = 'scripts/ops/manifests/egg-grade5-candidate.json'
-      - run: echo 'FAIL-CLOSED: canonical EGG/GRADE_5/spec tuple is not production-registered; apply implementation is intentionally not invoked.' && exit 1
+      - run: "echo 'FAIL-CLOSED: canonical EGG/GRADE_5/spec tuple is not production-registered; apply implementation is intentionally not invoked.' && exit 1"
   verify:
     if: inputs.phase == 'verify'
     environment: production-readonly
