@@ -36,16 +36,23 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
           AUDIT_RUN_ID: ${{ github.run_id }}
         run: |
-          set -euo pipefail; umask 077
+          set -uo pipefail; umask 077
+          # Transport is diagnostic plumbing: always create outputs and capture rc.
           w="$RUNNER_TEMP/grade5-$AUDIT_RUN_ID"; mkdir -p "$w"
-           trap 'rm -rf "$w"' EXIT
+          trap 'rm -rf "$w"' EXIT
+          ssh_rc=125; result_rc=125; log_rc=125; transport_rc=125; keyscan_rc=125; key_rc=125; proxy_key_rc=125; known_hosts_rc=125
+          printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"FAIL","rc":125,"business_writes":0,"audit_result":{"exit_code":125},"transport_rc":125,"keyscan_rc":125,"key_rc":125,"proxy_key_rc":125,"known_hosts_rc":125,"ssh_rc":125,"result_rc":125,"log_rc":125}\n' "$AUDIT_RUN_ID" > grade5-preflight-payload.json
+          printf 'transport not started\n' > grade5-preflight.log
+          : > grade5-transport.log
+          : "${DEPLOY_SSH_KEY:=}"; : "${DEPLOY_PROXY_KEY:=}"; : "${DEPLOY_PROXY_HOST:=}"; : "${DEPLOY_PROXY_USER:=}"; : "${GITHUB_OUTPUT:=/dev/null}"
           normalize_key() { tr -d '\r' <&0 >"$1"; printf '\n' >>"$1"; chmod 600 "$1"; }
-           printf '%s' "$DEPLOY_SSH_KEY" | normalize_key "$w/key"
-           printf '%s' "$DEPLOY_PROXY_KEY" | normalize_key "$w/proxy"
-          known_hosts="$w/known_hosts"; : >"$known_hosts"; chmod 600 "$known_hosts"
-           ssh-keyscan -T 10 -p "$DEPLOY_PORT" "$DEPLOY_HOST" >>"$known_hosts" 2>/dev/null
-           if [ -n "$DEPLOY_PROXY_HOST" ]; then ssh-keyscan -T 10 -p 22 "$DEPLOY_PROXY_HOST" >>"$known_hosts" 2>/dev/null; fi
-           test -s "$known_hosts"
+          printf '%s' "$DEPLOY_SSH_KEY" | normalize_key "$w/key" || key_rc=$?
+          printf '%s' "$DEPLOY_PROXY_KEY" | normalize_key "$w/proxy" || proxy_key_rc=$?
+          known_hosts="$w/known_hosts"; : >"$known_hosts"; chmod 600 "$known_hosts" || known_hosts_rc=$?
+           ssh-keyscan -T 10 -p "$DEPLOY_PORT" "$DEPLOY_HOST" >>"$known_hosts" 2>/dev/null || keyscan_rc=$?
+           if [ -n "$DEPLOY_PROXY_HOST" ]; then ssh-keyscan -T 10 -p 22 "$DEPLOY_PROXY_HOST" >>"$known_hosts" 2>/dev/null || keyscan_rc=$?; fi
+           if [ "$keyscan_rc" -eq 125 ] && [ -s "$known_hosts" ]; then keyscan_rc=0; fi
+           test -s "$known_hosts" || keyscan_rc=$?
            opts=(-i "$w/key" -p "$DEPLOY_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
           if [ -n "$DEPLOY_PROXY_HOST" ]; then opts+=(-o "ProxyCommand=ssh -i $w/proxy -p 22 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts -o User=$DEPLOY_PROXY_USER -W %h:%p $DEPLOY_PROXY_HOST"); fi
           remote="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"
@@ -70,15 +77,15 @@ jobs:
           scp "${scp_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/audit.log" "$w/audit.log" || log_rc=$?
           if [ "$result_rc" -eq 0 ]; then cp "$w/result.json" grade5-preflight-payload.json || result_rc=$?; fi
           if [ "$log_rc" -eq 0 ]; then cp "$w/audit.log" grade5-preflight.log || log_rc=$?; fi
-          transport_rc=$((ssh_rc || result_rc || log_rc))
-          printf 'transport_rc=%s ssh_rc=%s result_rc=%s log_rc=%s\n' "$transport_rc" "$ssh_rc" "$result_rc" "$log_rc" >grade5-transport.log
-          printf 'transport_rc=%s\nssh_rc=%s\nresult_rc=%s\nlog_rc=%s\n' "$transport_rc" "$ssh_rc" "$result_rc" "$log_rc" >>"$GITHUB_OUTPUT"
+          transport_rc=$((keyscan_rc || ssh_rc || result_rc || log_rc))
+          printf 'transport_rc=%s keyscan_rc=%s ssh_rc=%s result_rc=%s log_rc=%s\n' "$transport_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" >grade5-transport.log
+          printf 'transport_rc=%s\nkeyscan_rc=%s\nssh_rc=%s\nresult_rc=%s\nlog_rc=%s\n' "$transport_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" >>"$GITHUB_OUTPUT"
           if [ "$result_rc" -eq 0 ]; then
-            python3 - "$transport_rc" "$ssh_rc" "$result_rc" "$log_rc" <<'PY'
+            python3 - "$transport_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" <<'PY'
           import json,sys
           path='grade5-preflight-payload.json'
           p=json.load(open(path))
-          p.update(zip(('transport_rc','ssh_rc','result_rc','log_rc'),map(int,sys.argv[1:])))
+          p.update(zip(('transport_rc','keyscan_rc','ssh_rc','result_rc','log_rc'),map(int,sys.argv[1:])))
           with open(path,'w') as f: json.dump(p,f); f.write('\n')
           PY
           fi
@@ -88,6 +95,7 @@ jobs:
         env:
           EXPECTED_RUN_ID: "${{ github.run_id }}"
           EXECUTE_TRANSPORT_RC: "${{ steps.execute.outputs.transport_rc }}"
+          EXECUTE_KEYSCAN_RC: "${{ steps.execute.outputs.keyscan_rc }}"
           EXECUTE_SSH_RC: "${{ steps.execute.outputs.ssh_rc }}"
           EXECUTE_RESULT_RC: "${{ steps.execute.outputs.result_rc }}"
           EXECUTE_LOG_RC: "${{ steps.execute.outputs.log_rc }}"
@@ -95,7 +103,7 @@ jobs:
           python3 - <<'PY'
           import json,os
           p=json.load(open('grade5-preflight-payload.json'))
-          for key in ('transport_rc','ssh_rc','result_rc','log_rc'):
+          for key in ('transport_rc','keyscan_rc','ssh_rc','result_rc','log_rc'):
               assert p[key] == int(os.environ['EXECUTE_'+key.upper()]), key
           assert p['transport_rc'] == int(any(p[k] for k in ('ssh_rc','result_rc','log_rc')))
           assert p['run_id'] == int(os.environ['EXPECTED_RUN_ID'])
