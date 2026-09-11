@@ -7,6 +7,9 @@ on:
       manifest_sha256: {required: true, type: string}
       confirmation: {required: true, type: string}
       revision: {required: true, type: string}
+defaults:
+  run:
+    shell: bash
 jobs:
   preflight:
     if: inputs.phase == 'preflight'
@@ -14,11 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PRODUCTION_BUSINESS_WRITES: '0'
-      PGHOST: ${{ secrets.READONLY_DB_HOST }}
-      PGPORT: ${{ secrets.READONLY_DB_PORT }}
-      PGUSER: ${{ secrets.READONLY_DB_USER }}
-      PGDATABASE: ${{ secrets.READONLY_DB_NAME }}
-      PGPASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
+      READONLY_DB_REQUIRED: '1'
+      READONLY_DB_HOST: ${{ secrets.READONLY_DB_HOST }}
+      READONLY_DB_PORT: ${{ secrets.READONLY_DB_PORT }}
+      READONLY_DB_USER: ${{ secrets.READONLY_DB_USER }}
+      READONLY_DB_NAME: ${{ secrets.READONLY_DB_NAME }}
+      READONLY_DB_PASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}" | tee manifest-hash.json
@@ -50,11 +54,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PRODUCTION_BUSINESS_WRITES: '0'
-      PGHOST: ${{ secrets.READONLY_DB_HOST }}
-      PGPORT: ${{ secrets.READONLY_DB_PORT }}
-      PGUSER: ${{ secrets.READONLY_DB_USER }}
-      PGDATABASE: ${{ secrets.READONLY_DB_NAME }}
-      PGPASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
+      READONLY_DB_REQUIRED: '1'
+      READONLY_DB_HOST: ${{ secrets.READONLY_DB_HOST }}
+      READONLY_DB_PORT: ${{ secrets.READONLY_DB_PORT }}
+      READONLY_DB_USER: ${{ secrets.READONLY_DB_USER }}
+      READONLY_DB_NAME: ${{ secrets.READONLY_DB_NAME }}
+      READONLY_DB_PASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - run: ASSERTION_SQL_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql HTTP_ASSERTIONS_PATH= AUDIT_RUN_ID="${{ github.run_id }}" AUDIT_BUNDLE_DIR=. NODE_ENV=test bash scripts/ops/run-production-readonly-audit.sh

@@ -50,16 +50,31 @@ else
   echo "PASS REVISION checkout=$checkout_revision api/web=not-required(sql-only)"
 fi
 
-# Resolve the deployed database service rather than assuming a compose container name.
-# Operators may provide a verified container/service via READONLY_DB_CONTAINER; otherwise
-# discover the compose service container id without starting or mutating services.
-readonly_db_container="${READONLY_DB_CONTAINER:-}"
-if [ -z "$readonly_db_container" ] && [ -f docker-compose.yml -o -f compose.yml ]; then
-  readonly_db_container="$(docker compose ps -q db 2>/dev/null || true)"
+# Dedicated readonly runners must never inherit ordinary DB/libpq credentials.
+if [ "${READONLY_DB_REQUIRED:-0}" = 1 ] && [ -n "$sql_path" ]; then
+  missing=()
+  for key in READONLY_DB_HOST READONLY_DB_PORT READONLY_DB_USER READONLY_DB_NAME READONLY_DB_PASSWORD; do
+    [ -n "${!key:-}" ] || missing+=("$key")
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    echo "FAIL READONLY_DB_* missing: ${missing[*]}" >&2
+    exit 2
+  fi
+  export PGHOST="$READONLY_DB_HOST" PGPORT="$READONLY_DB_PORT" PGUSER="$READONLY_DB_USER"
+  export PGDATABASE="$READONLY_DB_NAME" PGPASSWORD="$READONLY_DB_PASSWORD"
+  unset PGSERVICE PGSERVICEFILE
 fi
-if [ -n "$sql_path" ] && [ -z "$readonly_db_container" ]; then
-  echo 'FAIL SQL audit requires a discovered readonly database container (READONLY_DB_CONTAINER or compose db service)' >&2
-  exit 2
+
+# PGHOST has priority: SQL-only hosted runners do not need Docker/compose.
+readonly_db_container="${READONLY_DB_CONTAINER:-}"
+if [ -n "$sql_path" ] && [ -z "${PGHOST:-}" ]; then
+  if [ -z "$readonly_db_container" ] && [ -f docker-compose.yml -o -f compose.yml ]; then
+    readonly_db_container="$(docker compose ps -q db 2>/dev/null || true)"
+  fi
+  if [ -z "$readonly_db_container" ]; then
+    echo 'FAIL SQL audit requires PGHOST or a discovered readonly database container' >&2
+    exit 2
+  fi
 fi
 psql_ro() {
   # Never interpret an operator-provided shell string.  READONLY_PSQL_COMMAND is
@@ -84,7 +99,7 @@ psql_ro() {
 }
 
 if [ -n "$sql_path" ]; then
-  { printf '%s\n' 'BEGIN TRANSACTION READ ONLY;' "SET LOCAL statement_timeout='30s';" "SET LOCAL lock_timeout='5s';"; cat "$bundle_dir/$sql_path"; printf '%s\n' 'ROLLBACK;'; } | psql_ro
+  { printf '%s\n' 'BEGIN TRANSACTION READ ONLY;' "SET LOCAL statement_timeout='30s';" "SET LOCAL lock_timeout='5s';" "SELECT current_setting('default_transaction_read_only') = 'on' AND current_setting('transaction_read_only') = 'on' AS readonly_ok \\gset" '\if :readonly_ok' "\\echo PASS READONLY_SESSION_AND_TRANSACTION=on" '\else' '\quit 3' '\endif'; cat "$bundle_dir/$sql_path"; printf '%s\n' 'ROLLBACK;'; } | psql_ro
   echo "PASS SQL file=$sql_path"
 fi
 
