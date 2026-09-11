@@ -35,9 +35,20 @@ case "$run_id" in *[!0-9]*) echo 'FAIL invalid run id' >&2; exit 2;; esac
 out_dir="/tmp/phoenix-production-readonly-audit-$run_id"
 install -d -m 700 "$out_dir"
 log="$out_dir/audit.log"
+result_json="$out_dir/result.json"
+write_result() {
+  local rc="$?" status=FAIL
+  [ "$rc" -eq 0 ] && status=PASS
+  printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"%s","business_writes":0,"log":"%s"}\n' "$run_id" "$status" "$log" > "$result_json"
+  return "$rc"
+}
+trap write_result EXIT
 exec > >(tee "$log") 2>&1
 
 checkout_revision="$(git rev-parse HEAD)"
+if [ -n "${AUDIT_BUNDLE_REVISION:-}" ]; then
+  test "$checkout_revision" = "$AUDIT_BUNDLE_REVISION" || { echo "FAIL revision mismatch checkout=$checkout_revision expected=$AUDIT_BUNDLE_REVISION" >&2; exit 3; }
+fi
 # SQL-only audits must not parse docker-compose.yml: compose requires JWT_SECRET even
 # though neither PostgreSQL nor the read-only SQL path needs the API container.
 if [ -n "$http_path" ]; then
