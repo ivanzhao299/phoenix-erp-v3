@@ -14238,5 +14238,9 @@
   "md.supply_category": "供应品类", "md.sourcing_type": "采购地域", "md.pending_completion": "待补录", "md.supplyCategory": "供应品类", "md.sourcingType": "采购地域", "md.warehouseUsageType": "库存用途", "md.warehouseFacilityClass": "设施类别", "md.warehouseCapability": "仓库能力", "md.warehouseDomain": "领域身份", "ui.供应品类和采购地域为必填项": "供应品类和采购地域为必填项", "ui.全部供应品类": "全部供应品类", "ui.全部采购地域": "全部采购地域", "ui.供应品类": "供应品类", "ui.采购地域": "采购地域", "ui.历史值—待治理": "历史值—待治理",
   "ui.交接完成库存由日产蛋入口持有": "交接完成，库存由日产蛋入口持有", "ui.库存已入账": "库存已入账", "ui.枚日产蛋库存批次流水已对平": "枚日产蛋库存批次/流水已对平",
   "terminal.select_packing_record": "请选择包装单",
-  "terminal.void_packing_print_blocked": "包装单已作废或不可用，禁止打印"
+  "terminal.void_packing_print_blocked": "包装单已作废或不可用，禁止打印",
+  "ui.核验班次": "正在核验班次…",
+  "ui.包装组合未就绪": "该等级没有就绪的产品/SKU规格组合，请到主数据中心维护",
+  "ui.safe_shift_id": "shiftId 必须是安全正整数",
+  "ui.shift_verification_failed": "班次核验失败，请重新选择"
 }

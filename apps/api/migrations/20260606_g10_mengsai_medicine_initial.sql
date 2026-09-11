@@ -340,7 +340,7 @@ BEGIN
   END IF;
   -- CI 测试库 inv_ledger 简化版无 log_date 列，跳过整段（生产端有）
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                  WHERE table_name='inv_ledger' AND column_name='log_date') THEN
+                  WHERE table_schema='public' AND table_name='inv_ledger' AND column_name='log_date') THEN
     RAISE NOTICE '[g10] inv_ledger.log_date 不存在（CI 测试库），跳过 § 4';
     RETURN;
   END IF;
@@ -367,12 +367,12 @@ COMMIT;
 -- ─── 验证 SQL ─────────────────────────────────────────
 -- SELECT count(*) FROM brd_medications WHERE store_code='SITE-MENGSAI-LAYER';  -- 期望 45
 -- SELECT count(*) FROM inv_batches WHERE warehouse_code='MEDICINE' AND store_code='SITE-MENGSAI-LAYER';  -- 期望 45
--- SELECT count(*) FROM inv_ledger WHERE change_type='FARM_OUT_MEDICATION';  -- 期望 4
+-- SELECT count(*) FROM inv_ledger WHERE change_type='FARM_OUT_MEDICATION';  -- 期望 5
 
 -- ─── 回滚 ─────────────────────────────────────────────
 -- DELETE FROM inv_ledger  WHERE change_type='FARM_OUT_MEDICATION' AND operator='ETL_INITIAL';
 -- DELETE FROM inv_batches WHERE source_no='ETL_G10';
--- DELETE FROM brd_medications WHERE medication_code LIKE 'MED-0__' AND store_code='SITE-MENGSAI-LAYER';
+-- DELETE FROM brd_medications WHERE medication_code LIKE 'LPH-MED-%' AND store_code='SITE-MENGSAI-LAYER';
 -- DELETE FROM sys_role_menu_permission p USING sys_role r, sys_menu m
 --   WHERE p.role_id=r.role_id AND p.menu_id=m.menu_id
 --     AND r.role_code='ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR' AND m.menu_code='MENU_FARM_VET';

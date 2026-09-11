@@ -5,7 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
-import { packagingApi } from '@/lib/packaging-api';
+import { packagingApi, validShiftId } from '@/lib/packaging-api';
 import { addPackingItem, canAddPacking, remainingByGrade } from '@/lib/packing-flow-logic';
 import { usePackagingDicts, buildGradeMap, FALLBACK_DICTS, getDictLabel } from '@/hooks/usePackagingDicts';
 import { T } from '@/styles/terminal-theme';
@@ -20,6 +20,8 @@ type GradingSnapshot = {
   remaining: Record<string, number>;
 };
 type PackingItem = {
+  productCode?: string;
+  skuCode?: string;
   grade: string;
   spec: string;
   specId: string;
@@ -46,40 +48,38 @@ export default function PackingPage() {
   const allGradeItems = [...saleableItems, ...defectItems];
   const gradeMap = buildGradeMap(allGradeItems);
   const gradeColorMap = Object.fromEntries([...saleableItems.map((d, i) => [d.code, d.color as string || SALEABLE_PALETTE[i % SALEABLE_PALETTE.length]]), ...defectItems.map((d, i) => [d.code, d.color as string || DEFECT_PALETTE[i % DEFECT_PALETTE.length]])]);
-  const SPECS = (dicts.PKG_PACK_SPEC ?? FALLBACK_DICTS.PKG_PACK_SPEC).map(d => ({
-    id: d.code,
-    name: getDictLabel(d, lang),
-    qty: d.qty as number ?? 0,
-    unit: d.unit as string ?? t('ui.枚', '枚'),
-    icon: d.icon as string ?? '📦',
-    color: d.color as string ?? 'var(--status-special)'
+  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
+  const [combinations, setCombinations] = useState<Awaited<ReturnType<typeof packagingApi.getReadyCombinations>>>([]);
+  const SPECS = combinations.filter(row => row.grade === selectedGrade).map(row => ({
+    id: row.specCode, skuCode: row.skuCode, productCode: row.productCode,
+    name: row.specName, qty: row.qtyPerUnit, unit: t('ui.枚', '枚'), icon: '📦', color: 'var(--status-special)'
   }));
 
   // ── 服务端实时快照（5 s 心跳） ────────────────────────────────────────────
   const [snap, setSnap] = useState<GradingSnapshot | null>(null);
   const [snapLoading, setLoading] = useState(true);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const fetchSnap = async () => {
+  const [snapError, setSnapError] = useState('');
+  const generation = useRef(0);
+  const fetchSnap = async (current = generation.current) => {
     const shiftId = Number(ctx.currentShift?.id);
-    if (!Number.isInteger(shiftId) || shiftId <= 0) {
-      setSnap(null);
-      setLoading(false);
-      return;
+    if (!validShiftId(ctx.currentShift?.id) || ctx.currentShift?.status !== 'OPEN') {
+      setSnap(null); setLoading(false); return;
     }
     try {
-      const data = await packagingApi.getActiveGrading(shiftId);
-      setSnap(data ?? null);
-    } catch {/* 保留上次快照，短暂断网不清空 */} finally {
-      setLoading(false);
-    }
+      const [data, ready] = await Promise.all([packagingApi.getActiveGrading(shiftId), packagingApi.getReadyCombinations()]);
+      if (current !== generation.current) return;
+      setSnap(data); setCombinations(ready); setSnapError('');
+    } catch (error) {
+      if (current !== generation.current) return;
+      setSnap(null); setCombinations([]); setSnapError(error instanceof Error ? error.message : '读取失败');
+    } finally { if (current === generation.current) setLoading(false); }
   };
   useEffect(() => {
-    fetchSnap();
-    pollRef.current = setInterval(fetchSnap, POLL_MS);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [ctx.currentShift?.id]);
+    const current = ++generation.current;
+    void fetchSnap(current);
+    const timer = setInterval(() => { void fetchSnap(current); }, POLL_MS);
+    return () => { ++generation.current; clearInterval(timer); };
+  }, [ctx.currentShift?.id, ctx.currentShift?.status]);
 
   // ── 服务端剩余（snap.remaining 已减去所有终端已包装量） ───────────────────
   const serverRemaining = snap?.remaining ?? {};
@@ -87,7 +87,6 @@ export default function PackingPage() {
 
   // ── 本端临时扣减（已添加但未提交的箱次） ─────────────────────────────────
   const [items, setItems] = useState<PackingItem[]>([]);
-  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedSpec, setSelectedSpec] = useState<typeof SPECS[0] | null>(null);
   const [boxCount, setBoxCount] = useState('');
   const [numpadKey, setNumpadKey] = useState(0);
@@ -99,15 +98,18 @@ export default function PackingPage() {
   const boxes = parseInt(boxCount) || 0;
   const eggs = boxes * (selectedSpec?.qty || 0);
   const eggsAvailable = selectedGrade ? remaining[selectedGrade] ?? 0 : 0;
-  const canAdd = canAddPacking({ grade: selectedGrade, specQty: selectedSpec?.qty, boxes, available: eggsAvailable });
+  const canAdd = !snapError && !!selectedSpec && SPECS.some(s => s.skuCode === selectedSpec.skuCode) && canAddPacking({ grade: selectedGrade, specQty: selectedSpec?.qty, boxes, available: eggsAvailable });
   const handleSelectGrade = (code: string) => {
     setSelectedGrade(code);
+    setSelectedSpec(null);
     setBoxCount('');
     setNumpadKey(k => k + 1);
   };
   const handleAdd = () => {
     if (!canAdd || !selectedGrade || !selectedSpec) return;
     setItems(prev => addPackingItem(prev, {
+        productCode: selectedSpec.productCode,
+        skuCode: selectedSpec.skuCode,
         grade: selectedGrade,
         spec: selectedSpec.name,
         specId: selectedSpec.id,
@@ -118,7 +120,7 @@ export default function PackingPage() {
     setNumpadKey(k => k + 1);
   };
   const handleFinish = async () => {
-    if (items.length === 0) return;
+    if (items.length === 0 || snapError || !snap) return;
     if (!ctx.currentShift || ctx.currentShift.status !== 'OPEN') {
       setSubmitError(t('ui.请先开班再提交包装记录', '请先开班再提交包装记录'));
       return;
@@ -508,12 +510,14 @@ export default function PackingPage() {
           }}>
               ① {t('ui.选择包装规格', '选择包装规格')}
             </div>
+            {snapError && <div role="alert">{snapError}</div>}
+            {selectedGrade && !SPECS.length && <div role="status">{t('ui.包装组合未就绪', '该等级没有就绪的产品/SKU规格组合，请到主数据中心维护')} <a href="/master-data/sku">{t('ui.主数据中心', '主数据中心')}</a></div>}
             <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: 6
           }}>
-              {SPECS.map(spec => <button type="button" key={spec.id} onPointerDown={() => {
+              {SPECS.map(spec => <button type="button" key={spec.skuCode} onPointerDown={() => {
               setSelectedSpec(spec);
               setBoxCount('');
               setNumpadKey(k => k + 1);
@@ -842,7 +846,7 @@ export default function PackingPage() {
           color: T.RED
         }}>⚠ {submitError}</span>}
         </div>
-        <button type="button" onClick={handleFinish} disabled={items.length === 0 || submitting || !ctx.currentShift || ctx.currentShift.status !== 'OPEN'} style={{
+        <button type="button" onClick={handleFinish} disabled={!!snapError || !snap || items.length === 0 || submitting || !ctx.currentShift || ctx.currentShift.status !== 'OPEN'} style={{
         padding: '9px 40px',
         borderRadius: 10,
         border: 'none',

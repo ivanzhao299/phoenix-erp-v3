@@ -206,6 +206,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.removeItem('phoenix_token');
     localStorage.removeItem('phoenix_user');
     localStorage.removeItem('phoenix_cookie_token');
+    // Only terminal interaction caches; persisted production records are server-side.
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('phoenix_terminal_context') || key.startsWith('phoenix_grading_wip')) localStorage.removeItem(key);
+    }
     // 清除中间件 cookie
     document.cookie = 'phoenix_access_token=; path=/; max-age=0; SameSite=Lax';
     setToken(null);

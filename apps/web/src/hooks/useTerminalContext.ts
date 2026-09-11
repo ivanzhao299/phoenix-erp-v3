@@ -3,7 +3,9 @@
  * 管理当前班次、当前批次、设备状态、操作人信息
  */
 'use client';
-import { useState, useCallback, useEffect } from 'react';
+import { createContext, createElement, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { validShiftId } from '@/lib/packaging-api';
 import type {
   WorkShift, SourceBatch, GradingBatch, DeviceStatus, ExceptionTicket
 } from '@/types/packaging-terminal';
@@ -23,6 +25,8 @@ function getOrCreateTerminalId(): string {
 }
 
 export interface PackingBatchItem {
+  productCode?: string;
+  skuCode?: string;
   grade: string;
   spec: string;
   specId: string;
@@ -68,65 +72,75 @@ const INITIAL: TerminalState = {
   packingBatches: null,
 };
 
-function loadFromStorage(): Partial<TerminalState> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(CONTEXT_STORAGE_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as Partial<TerminalState>;
-  } catch {
-    return {};
-  }
-}
+const SharedTerminalContext = createContext<ReturnType<typeof useTerminalState> | null>(null);
+const VERSION = 2;
 
-function saveToStorage(state: TerminalState) {
-  if (typeof window === 'undefined') return;
-  try {
-    const { terminalId, currentShift, currentSourceBatch, currentGradingBatch,
-      gradingCode, gradingOutputs, packingCode, packingBatches } = state;
-    localStorage.setItem(CONTEXT_STORAGE_KEY, JSON.stringify({
-      terminalId, currentShift, currentSourceBatch, currentGradingBatch,
-      gradingCode, gradingOutputs, packingCode, packingBatches,
-    }));
-  } catch {
-    // ignore storage errors
-  }
-}
-
-export function useTerminalContext() {
+function useTerminalState() {
+  const { user, loading: authLoading } = useAuth();
+  const identity = user ? String(user.userId ?? user.id ?? '') : '';
+  const storageKey = `${CONTEXT_STORAGE_KEY}:v${VERSION}:${identity}:real`;
   const [state, setState] = useState<TerminalState>(INITIAL);
+  const [hydrated, setHydrated] = useState(false);
+  const [contextError, setContextError] = useState('');
+  const generation = useRef(0);
+  const [verifiedIdentity, setVerifiedIdentity] = useState('');
+
+  const verifyShift = useCallback(async (candidate: WorkShift | null, generationId: number) => {
+    if (!candidate) { setHydrated(true); return; }
+    if (!validShiftId(candidate.id) || !/^\d{4}-\d{2}-\d{2}$/.test(candidate.productionDate || '')) {
+      setContextError('班次缓存无效，请重新选择班次'); setHydrated(true); return;
+    }
+    try {
+      const raw = await packagingApi.getExactShift(String(candidate.id), candidate.productionDate);
+      if (generation.current !== generationId) return;
+      if (String(raw.id) !== String(candidate.id) || raw.date_text !== candidate.productionDate || raw.is_test !== false
+        || !['OPEN','CLOSED'].includes(raw.status)) throw new Error('班次身份或日期不匹配，请重新选择');
+      const shift = { ...candidate, id: String(raw.id), code: raw.shift_code, status: raw.status,
+        productionDate: raw.date_text, lineId: raw.line_id };
+      setState(prev => ({ ...prev, currentShift: shift }));
+      localStorage.setItem(storageKey, JSON.stringify({ version: VERSION, userId: identity, mode: 'real', currentShift: shift }));
+    } catch (error) {
+      if (generation.current !== generationId) return;
+      setContextError(error instanceof Error ? error.message : '班次核验失败，请重新选择');
+    } finally { if (generation.current === generationId) setHydrated(true); }
+  }, [identity, storageKey]);
 
   useEffect(() => {
-    const stored = loadFromStorage();
-    setState(prev => ({
-      ...prev,
-      ...stored,
-      terminalId: getOrCreateTerminalId(),
-      // always reset devices to default on mount
-      devices: DEFAULT_DEVICES,
-      openExceptions: stored.openExceptions ?? [],
-    }));
-    // 从服务端同步今日异常（仅在有 token 时，避免新标签页触发 401 跳转）
-    if (typeof window !== 'undefined' && sessionStorage.getItem('phoenix_token')) {
-      packagingApi.getTodayExceptions().then((list) => {
-        if (Array.isArray(list)) {
-          setState(prev => ({ ...prev, openExceptions: list as ExceptionTicket[] }));
-        }
-      }).catch(() => { /* 离线时保留本地缓存 */ });
-    }
-  }, []);
+    const id = ++generation.current;
+    setState({ ...INITIAL, terminalId: getOrCreateTerminalId() });
+    setContextError(''); setHydrated(false); setVerifiedIdentity(identity);
+    if (authLoading || !identity) return;
+    let candidate = null;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved.version !== VERSION || saved.userId !== identity || saved.mode !== 'real') throw new Error('cache identity');
+        candidate = saved.currentShift;
+      } else if (localStorage.getItem(CONTEXT_STORAGE_KEY)) {
+        setContextError('旧班次缓存没有身份信息，请重新选择班次');
+      }
+    } catch { setContextError('班次缓存无效，请重新选择班次'); }
+    void verifyShift(candidate, id);
+    return () => { ++generation.current; };
+  }, [identity, authLoading, storageKey, verifyShift]);
 
+  const renderedGeneration = generation.current;
   const updateState = useCallback((updater: (prev: TerminalState) => TerminalState) => {
-    setState(prev => {
-      const next = updater(prev);
-      saveToStorage(next);
-      return next;
-    });
-  }, []);
+    if (generation.current === renderedGeneration) setState(updater);
+  }, [renderedGeneration]);
 
   const setShift = useCallback((shift: WorkShift | null) => {
-    updateState(prev => ({ ...prev, currentShift: shift }));
-  }, [updateState]);
+    if (generation.current !== renderedGeneration) return;
+    const id = ++generation.current;
+    setState(prev => ({ ...INITIAL, terminalId: prev.terminalId }));
+    setContextError(''); setHydrated(false);
+    localStorage.removeItem(storageKey);
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(`phoenix_grading_wip4_${identity}:real:`)) localStorage.removeItem(key);
+    }
+    void verifyShift(shift, id);
+  }, [storageKey, identity, verifyShift, renderedGeneration]);
 
   const setSourceBatch = useCallback((batch: SourceBatch | null) => {
     updateState(prev => ({ ...prev, currentSourceBatch: batch }));
@@ -166,7 +180,10 @@ export function useTerminalContext() {
   }, [updateState]);
 
   return {
-    ctx: state,
+    hydrated: hydrated && verifiedIdentity === identity && !authLoading,
+    contextError,
+    identityKey: `${identity}:real`,
+    ctx: verifiedIdentity === identity ? state : INITIAL,
     // also spread for backward compat
     ...state,
     openExceptionCount: state.openExceptions.filter(e => !['CLOSED', 'CANCELLED'].includes(e.status)).length,
@@ -179,4 +196,14 @@ export function useTerminalContext() {
     setPackingResult,
     clearWorkflowState,
   };
+}
+
+export function TerminalContextProvider({ children }: { children: ReactNode }) {
+  const value = useTerminalState();
+  return createElement(SharedTerminalContext.Provider, { value }, children);
+}
+export function useTerminalContext() {
+  const context = useContext(SharedTerminalContext);
+  if (!context) throw new Error('TerminalContextProvider is required');
+  return context;
 }

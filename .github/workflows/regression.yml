@@ -84,9 +84,9 @@ jobs:
 
       # P3(评分补强)：此前直接起 API 打空库 → sys_user/sys_dict 等基线表不存在，9 套回归全挂。
       #   补播种：镜像 deploy.yml 的 ci 模式（ddl/*.sql + v3_schema_complete + 基线 SQL + TS 迁移）。
-      - name: Seed DB schema (ddl + baseline + TS migrations)
+      - name: Seed DB schema (isolated bootstrap + full migrations)
         working-directory: apps/api
-        run: MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
+        run: MIG_MODE=ci MIG_DIR=. NODE_ENV=test bash ../../scripts/test-db-bootstrap.sh
 
       - name: Assert WMS migration end state
         run: |
@@ -139,7 +139,7 @@ jobs:
         working-directory: apps/api
         env:
           PACKAGING_TEST_DATABASE_URL: postgres://phoenix_v3:phoenix_v3_pass@127.0.0.1:5432/phoenix_erp
-        run: pnpm exec jest --runInBand src/modules/bff/packaging-protection.spec.ts
+        run: pnpm exec jest --runInBand src/modules/bff/packaging-protection.spec.ts src/modules/bff/packaging-readiness.pg.spec.ts
 
       - name: Module regression — system
         working-directory: apps/api

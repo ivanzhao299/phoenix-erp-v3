@@ -23,7 +23,7 @@ export async function lockPacking(manager: EntityManager, code: string): Promise
 }
 
 export async function assertPackingCanEnterInventory(manager: Pick<EntityManager, 'query'>, code: string): Promise<any> {
-  const [row] = await manager.query(`SELECT p.*, ws.is_test AS shift_is_test
+  const [row] = await manager.query(`SELECT p.*, p.production_date::text AS production_date_text, ws.is_test AS shift_is_test
     FROM pkg_packing_records p LEFT JOIN pkg_work_shifts ws ON ws.id=p.shift_id WHERE p.code=$1`, [code]);
   if (!row || row.status !== 'ACTIVE' || row.is_test !== false || row.shift_is_test === true) {
     throw new ConflictException('测试或作废包装禁止交接及库存消费');

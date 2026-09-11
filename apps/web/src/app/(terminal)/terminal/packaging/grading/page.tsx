@@ -5,7 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
-import { packagingApi } from '@/lib/packaging-api';
+import { packagingApi, validShiftId } from '@/lib/packaging-api';
 import { usePackagingDicts, buildGradeMap, FALLBACK_DICTS, getDictLabel } from '@/hooks/usePackagingDicts';
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
@@ -33,11 +33,12 @@ export default function GradingPage() {
   } = useLanguage();
   const {
     setGradingResult,
+    identityKey,
     ctx
   } = useTerminalContext();
   const shiftId = Number(ctx.currentShift?.id);
-  const hasOpenShift = Number.isInteger(shiftId) && shiftId > 0 && ctx.currentShift?.status === 'OPEN';
-  const gradingWipKey = `phoenix_grading_wip3_${hasOpenShift ? shiftId : 'no-open-shift'}`;
+  const hasOpenShift = validShiftId(ctx.currentShift?.id) && ctx.currentShift?.status === 'OPEN';
+  const gradingWipKey = `phoenix_grading_wip4_${identityKey}:${hasOpenShift ? shiftId : 'no-open-shift'}`;
   const {
     dicts
   } = usePackagingDicts(['PKG_EGG_GRADE', 'PKG_EGG_DEFECT']);
@@ -53,8 +54,10 @@ export default function GradingPage() {
   const [batches, setBatches] = useState<GradingSourceBatch[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const sourcePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const requestGeneration = useRef(0);
   const fetchSource = useRef(async () => undefined);
   fetchSource.current = async () => {
+    const generation = ++requestGeneration.current;
     if (!hasOpenShift) {
       setBatches([]);
       setSummaryLoading(false);
@@ -62,17 +65,21 @@ export default function GradingPage() {
     }
     try {
       const data = await packagingApi.getPendingGradingSourceBatches(shiftId);
+      if (generation !== requestGeneration.current) return;
       const list = Array.isArray(data) ? data : [];
       const parsed = list.map(normalizeGradingSourceBatch);
       setBatches(parsed);
-    } catch {/* 保留上次 */} finally {
-      setSummaryLoading(false);
+    } catch {
+      if (generation === requestGeneration.current) setBatches([]);
+    } finally {
+      if (generation === requestGeneration.current) setSummaryLoading(false);
     }
   };
   useEffect(() => {
     void fetchSource.current();
     sourcePollRef.current = setInterval(() => void fetchSource.current(), 5000);
     return () => {
+      ++requestGeneration.current;
       if (sourcePollRef.current) clearInterval(sourcePollRef.current);
     };
   }, [shiftId, hasOpenShift]);

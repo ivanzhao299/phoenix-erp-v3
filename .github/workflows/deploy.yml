@@ -35,6 +35,10 @@ on:
         description: "跳过部署步骤(仅构建)"
         type: boolean
         default: false
+      preserve_artifacts:
+        description: "保留备份/镜像，失败时只切换只读旧版本而不 reset 历史"
+        type: boolean
+        default: false
       approve_production:
         description: "批准部署到生产环境（必选）"
         type: boolean
@@ -635,6 +639,7 @@ jobs:
           NGINX_CONF:  ${{ steps.nginx.outputs.conf }}
           DEPLOY_RUN_ID: ${{ github.run_id }}
           TARGET_SHA: ${{ github.sha }}
+          PRESERVE_ARTIFACTS: ${{ inputs.preserve_artifacts }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -644,7 +649,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,TARGET_SHA
+          envs: DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,TARGET_SHA,PRESERVE_ARTIFACTS
           script: |
             set -Eeuo pipefail
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
@@ -675,7 +680,11 @@ jobs:
                 docker tag "$PREV_WEB_IMAGE_ID" "ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/web:${ROLLBACK_TAG}"
               fi
 
-              git reset --hard "$PREV_SHA"
+              if [ "$PRESERVE_ARTIFACTS" = "true" ]; then
+                git switch --detach "$PREV_SHA"
+              else
+                git reset --hard "$PREV_SHA"
+              fi
 
               if [ -n "$PREV_API_IMAGE_ID" ] && [ "$BUILD_API" = "true" ]; then
                 API_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:${ROLLBACK_TAG}" \
@@ -713,6 +722,7 @@ jobs:
             trap rollback_deploy ERR
 
             # ── 同步代码(必须先 pull,否则下面 cp 仓库新文件会找不到)──
+            if ! git symbolic-ref -q HEAD >/dev/null; then git switch main; fi
             git pull --ff-only origin main
             if [ "$(git rev-parse HEAD)" != "$TARGET_SHA" ]; then
               echo "::error::服务器代码版本与目标 SHA 不一致"
@@ -757,11 +767,13 @@ jobs:
 
             # ── 拉新镜像前清理(温和):只删未被任何容器引用的旧镜像 ──
             # ⚠️ 不再 docker builder prune -af(冷构建永远慢),改为保留 24h/5GB
-            docker image prune -a -f 2>/dev/null || true
+            if [ "$PRESERVE_ARTIFACTS" != "true" ]; then docker image prune -a -f 2>/dev/null || true; fi
             # builder cache 只清 24h 前的,且保留至少 5GB
+            if [ "$PRESERVE_ARTIFACTS" != "true" ]; then
             docker buildx prune -f --filter "until=24h" --keep-storage=5GB 2>/dev/null \
               || docker builder prune -f --filter "until=24h" 2>/dev/null \
               || true
+            fi
 
             echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
@@ -812,6 +824,7 @@ jobs:
                   -name 'deploy-pre-migration-*' -printf '%T@ %p\n' \
                   | sort -nr | awk 'NR > 3 { sub(/^[^ ]+ /, ""); print }'
               )
+              if [ "$PRESERVE_ARTIFACTS" != "true" ]; then
               for OLD_BACKUP_DIR in "${OBSOLETE_BACKUPS[@]}"; do
                 case "$OLD_BACKUP_DIR" in
                   /opt/phoenix-erp-backups/deploy-pre-migration-*) ;;
@@ -820,6 +833,8 @@ jobs:
                 rm -rf --one-file-system -- "$OLD_BACKUP_DIR"
                 echo "♻ removed old deploy backup: $OLD_BACKUP_DIR"
               done
+
+              fi
 
               MIG_MODE=prod MIG_DIR=apps/api bash scripts/db-migrate.sh
 
@@ -856,7 +871,7 @@ jobs:
             fi
 
             # ── 部署后温和清理(不动 builder cache) ─────────────────────
-            docker image prune -a -f 2>/dev/null || true
+            if [ "$PRESERVE_ARTIFACTS" != "true" ]; then docker image prune -a -f 2>/dev/null || true; fi
 
             # ── Nginx(仅 full mode)──────────────────────────────────
             if [ "$DEPLOY_MODE" = "full" ] && [ -n "$NGINX_CONF" ]; then

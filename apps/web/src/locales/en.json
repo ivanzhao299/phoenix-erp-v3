@@ -14293,5 +14293,9 @@
   "md.supply_category": "Supply category", "md.sourcing_type": "Sourcing region", "md.pending_completion": "Pending completion", "md.supplyCategory": "Supply category", "md.sourcingType": "Sourcing region", "md.warehouseUsageType": "Inventory usage", "md.warehouseFacilityClass": "Facility class", "md.warehouseCapability": "Warehouse capability", "md.warehouseDomain": "Domain", "ui.供应品类和采购地域为必填项": "Supply category and sourcing region are required", "ui.全部供应品类": "All supply categories", "ui.全部采购地域": "All sourcing regions", "ui.供应品类": "Supply category", "ui.采购地域": "Sourcing region", "ui.历史值—待治理": "Legacy value — governance pending",
   "ui.交接完成库存由日产蛋入口持有": "Handover complete; inventory is held by daily egg production", "ui.库存已入账": "Inventory posted", "ui.枚日产蛋库存批次流水已对平": "eggs reconciled between daily-production batches and ledger",
   "terminal.select_packing_record": "Select a packing record",
-  "terminal.void_packing_print_blocked": "The packing record is void or unavailable. Printing is blocked."
+  "terminal.void_packing_print_blocked": "The packing record is void or unavailable. Printing is blocked.",
+  "ui.核验班次": "Verifying selected shift…",
+  "ui.包装组合未就绪": "No ready product/SKU packaging combination for this grade. Maintain it in Master Data.",
+  "ui.safe_shift_id": "shiftId must be a safe positive integer",
+  "ui.shift_verification_failed": "Shift verification failed. Select a shift again."
 }
