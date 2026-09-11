@@ -38,9 +38,16 @@ jobs:
         run: |
           set -euo pipefail; umask 077
           w="$RUNNER_TEMP/grade5-$AUDIT_RUN_ID"; mkdir -p "$w"
-          printf '%s' "$DEPLOY_SSH_KEY" >"$w/key"; printf '%s' "$DEPLOY_PROXY_KEY" >"$w/proxy"; chmod 600 "$w/key" "$w/proxy"
-          opts=(-i "$w/key" -p "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
-          if [ -n "$DEPLOY_PROXY_HOST" ]; then opts+=(-o "ProxyCommand=ssh -i $w/proxy -W %h:%p -o StrictHostKeyChecking=accept-new -o User=$DEPLOY_PROXY_USER $DEPLOY_PROXY_HOST"); fi
+           trap 'rm -rf "$w"' EXIT
+          normalize_key() { tr -d '\r' <&0 >"$1"; printf '\n' >>"$1"; chmod 600 "$1"; }
+           printf '%s' "$DEPLOY_SSH_KEY" | normalize_key "$w/key"
+           printf '%s' "$DEPLOY_PROXY_KEY" | normalize_key "$w/proxy"
+          known_hosts="$w/known_hosts"; : >"$known_hosts"; chmod 600 "$known_hosts"
+           ssh-keyscan -T 10 -p "$DEPLOY_PORT" "$DEPLOY_HOST" >>"$known_hosts" 2>/dev/null
+           if [ -n "$DEPLOY_PROXY_HOST" ]; then ssh-keyscan -T 10 -p 22 "$DEPLOY_PROXY_HOST" >>"$known_hosts" 2>/dev/null; fi
+           test -s "$known_hosts"
+           opts=(-i "$w/key" -p "$DEPLOY_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
+          if [ -n "$DEPLOY_PROXY_HOST" ]; then opts+=(-o "ProxyCommand=ssh -i $w/proxy -p 22 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts -o User=$DEPLOY_PROXY_USER -W %h:%p $DEPLOY_PROXY_HOST"); fi
           remote="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"
            # Fail closed before transport: this preflight must execute the reviewed SQL bundle.
            test -n "${ASSERTION_SQL_PATH:-scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql}"
