@@ -22,41 +22,7 @@ jobs:
       - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}" | tee manifest-hash.json
       - run: test "$(node -e "console.log(require('./manifest-hash.json').sha256)")" = "${{ inputs.manifest_sha256 }}"
       - run: test "${{ inputs.confirmation }}" = 'READONLY'
-      - name: Stage reviewed audit bundle on controlled runner
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
-          proxy_port: 22
-          source: scripts/ops/run-production-readonly-audit.sh,scripts/ops/readonly-audits
-          target: /tmp/phoenix-production-readonly-audit-${{ github.run_id }}/bundle
-      - name: Bootstrap isolated remote diagnostics before audit
-        uses: appleboy/ssh-action@v1
-        env:
-          AUDIT_RUN_ID: ${{ github.run_id }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
-          proxy_port: 22
-          envs: AUDIT_RUN_ID
-          script: |
-            set -euo pipefail
-            case "$AUDIT_RUN_ID" in *[!0-9]*) exit 2;; esac
-            out_dir="/tmp/phoenix-production-readonly-audit-${AUDIT_RUN_ID}"
-            install -d -m 700 "$out_dir"
-            printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"FAIL","business_writes":0,"error":"audit not started"}\n' "$AUDIT_RUN_ID" > "$out_dir/result.json"
-            : > "$out_dir/audit.log"
-      - name: Run read-only preflight through protected SSH/proxy entry
+      - name: Run and return isolated audit payload over one SSH session
         id: execute
         uses: appleboy/ssh-action@v1
         env:
@@ -65,7 +31,6 @@ jobs:
           ASSERTION_SQL_PATH: scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql
           HTTP_ASSERTIONS_PATH: ''
           AUDIT_RUN_ID: ${{ github.run_id }}
-          AUDIT_BUNDLE_DIR: /tmp/phoenix-production-readonly-audit-${{ github.run_id }}/bundle
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -75,9 +40,8 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          # stdout is intentionally hidden; the isolated remote audit.log is authoritative.
-          capture_stdout: false
-          envs: DEPLOY_PATH,AUDIT_BUNDLE_REVISION,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID,AUDIT_BUNDLE_DIR
+          capture_stdout: true
+          envs: DEPLOY_PATH,AUDIT_BUNDLE_REVISION,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID
           script: |
             set -euo pipefail
             case "$AUDIT_RUN_ID" in *[!0-9]*) exit 2;; esac
@@ -87,6 +51,7 @@ jobs:
             result="$out_dir/result.json"
             printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"FAIL","business_writes":0,"error":"audit not started"}\n' "$AUDIT_RUN_ID" > "$result"
             : > "$log"
+            exec 3>&1
             exec >>"$log" 2>&1
             finalize() {
               final_rc=$?
@@ -112,10 +77,6 @@ jobs:
               exit "$final_rc"
             }
             trap finalize EXIT
-            case "$AUDIT_BUNDLE_DIR" in
-              /tmp/phoenix-production-readonly-audit-[0-9]*/bundle) ;;
-              *) echo 'FAIL invalid isolated audit bundle path' >&2; exit 2 ;;
-            esac
             case "$DEPLOY_PATH" in
               '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}" ;;
               /*) ;;
@@ -124,25 +85,21 @@ jobs:
             cd "$DEPLOY_PATH"
             test -d .git && test "$(git rev-parse --show-toplevel)" = "$PWD"
             test "$(git rev-parse HEAD)" = "$AUDIT_BUNDLE_REVISION"
-            test -f "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh"
             set +e
-            bash "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh" >>"$log" 2>&1
+            bash scripts/ops/run-production-readonly-audit.sh >>"$log" 2>&1
             rc=$?
             set -e
             exit "$rc"
-      - name: Retrieve structured audit evidence
+      - name: Capture non-empty audit payload
         if: always()
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          source: /tmp/phoenix-production-readonly-audit-${{ github.run_id }}/result.json,/tmp/phoenix-production-readonly-audit-${{ github.run_id }}/audit.log
-          target: ${{ runner.temp }}/phoenix-production-readonly-audit-${{ github.run_id }}/
+        run: |
+          printf '%s\n' '${{ steps.execute.outputs.stdout }}' > grade5-preflight.log
+          test -s grade5-preflight.log
       - name: Validate structured audit evidence
         if: always()
         run: |
+          test -s grade5-preflight.log
+          python3 -c 'import json,sys; x=json.load(open("grade5-preflight.log")); assert x["status"] in ("PASS","FAIL") and x["business_writes"]==0 and x["run_id"]==${{ github.run_id }}'
           test -s "${{ runner.temp }}/phoenix-production-readonly-audit-${{ github.run_id }}/result.json"
           test -s "${{ runner.temp }}/phoenix-production-readonly-audit-${{ github.run_id }}/audit.log"
           python3 - <<'PY'
