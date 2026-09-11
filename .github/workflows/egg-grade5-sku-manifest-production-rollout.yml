@@ -53,19 +53,50 @@ jobs:
           set +e; (cd "$DEPLOY_PATH" && bash scripts/ops/run-production-readonly-audit.sh) >>"$d/audit.log" 2>&1; rc=$?; set -e
           python3 - "$d/result.json" "$AUDIT_RUN_ID" "$rc" "$d/audit.log" <<'PY'
           import json,sys
-          o,r,c,l=sys.argv; json.dump({'schema':'phoenix.readonly-audit/v1','run_id':int(r),'status':'PASS' if c=='0' else 'FAIL','rc':int(c),'business_writes':0,'log':l,'audit_result':{'exit_code':int(c)}},open(o,'w')); open(o,'a').write('\n')
+          o,r,c,l=sys.argv[1:]; json.dump({'schema':'phoenix.readonly-audit/v1','run_id':int(r),'status':'PASS' if c=='0' else 'FAIL','rc':int(c),'business_writes':0,'log':l,'audit_result':{'exit_code':int(c)}},open(o,'w')); open(o,'a').write('\n')
           PY
           exit "$rc"
           REMOTE
-          rc=$?; ssh_rc=$rc; result_rc=0; log_rc=0; scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/result.json" "$w/result.json" || result_rc=$?; scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/audit.log" "$w/audit.log" || log_rc=$?; [ "$result_rc" -eq 0 ] && cp "$w/result.json" grade5-preflight-payload.json; [ "$log_rc" -eq 0 ] && cp "$w/audit.log" grade5-preflight.log; printf "ssh_rc=%s\nresult_rc=%s\nlog_rc=%s\n" "$ssh_rc" "$result_rc" "$log_rc" >>"$GITHUB_OUTPUT"; exit "$((ssh_rc || result_rc || log_rc))"
+          scp_opts=("${opts[@]}"); scp_opts[2]=-P
+          result_rc=0; log_rc=0
+          scp "${scp_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/result.json" "$w/result.json" || result_rc=$?
+          scp "${scp_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/audit.log" "$w/audit.log" || log_rc=$?
+          if [ "$result_rc" -eq 0 ]; then cp "$w/result.json" grade5-preflight-payload.json || result_rc=$?; fi
+          if [ "$log_rc" -eq 0 ]; then cp "$w/audit.log" grade5-preflight.log || log_rc=$?; fi
+          transport_rc=$((ssh_rc || result_rc || log_rc))
+          printf 'transport_rc=%s ssh_rc=%s result_rc=%s log_rc=%s\n' "$transport_rc" "$ssh_rc" "$result_rc" "$log_rc" >grade5-transport.log
+          printf 'transport_rc=%s\nssh_rc=%s\nresult_rc=%s\nlog_rc=%s\n' "$transport_rc" "$ssh_rc" "$result_rc" "$log_rc" >>"$GITHUB_OUTPUT"
+          if [ "$result_rc" -eq 0 ]; then
+            python3 - "$transport_rc" "$ssh_rc" "$result_rc" "$log_rc" <<'PY'
+          import json,sys
+          path='grade5-preflight-payload.json'
+          p=json.load(open(path))
+          p.update(zip(('transport_rc','ssh_rc','result_rc','log_rc'),map(int,sys.argv[1:])))
+          with open(path,'w') as f: json.dump(p,f); f.write('\n')
+          PY
+          fi
+          exit "$transport_rc"
       - name: Validate strict audit artifact and rc
         if: always()
         env:
           EXPECTED_RUN_ID: "${{ github.run_id }}"
+          EXECUTE_TRANSPORT_RC: "${{ steps.execute.outputs.transport_rc }}"
           EXECUTE_SSH_RC: "${{ steps.execute.outputs.ssh_rc }}"
           EXECUTE_RESULT_RC: "${{ steps.execute.outputs.result_rc }}"
           EXECUTE_LOG_RC: "${{ steps.execute.outputs.log_rc }}"
-        run: python3 -c "import json,os; p=json.load(open('grade5-preflight-payload.json')); assert p['run_id']==int(os.environ['EXPECTED_RUN_ID']) and p['business_writes']==0 and p['rc']==0 and p['audit_result']['exit_code']==p['rc'] and os.path.getsize('grade5-preflight.log')>0"
+        run: |
+          python3 - <<'PY'
+          import json,os
+          p=json.load(open('grade5-preflight-payload.json'))
+          for key in ('transport_rc','ssh_rc','result_rc','log_rc'):
+              assert p[key] == int(os.environ['EXECUTE_'+key.upper()]), key
+          assert p['transport_rc'] == int(any(p[k] for k in ('ssh_rc','result_rc','log_rc')))
+          assert p['run_id'] == int(os.environ['EXPECTED_RUN_ID'])
+          assert p['business_writes'] == 0
+          assert p['rc'] == p['ssh_rc'] == p['audit_result']['exit_code']
+          assert p['status'] == ('PASS' if p['rc'] == 0 else 'FAIL')
+          assert os.path.getsize('grade5-preflight.log') > 0
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -73,6 +104,7 @@ jobs:
           path: |
             grade5-preflight.log
             grade5-preflight-payload.json
+            grade5-transport.log
           if-no-files-found: error
           retention-days: 30
       - name: Fail after preserving diagnostic artifact
@@ -84,6 +116,7 @@ jobs:
           p=json.load(open('grade5-preflight-payload.json', encoding='utf-8'))
           assert p.get('status') == 'PASS', f"audit status={p.get('status')}"
           assert p.get('rc') == 0, f"audit rc={p.get('rc')}"
+          assert all(p.get(k) == 0 for k in ('transport_rc','ssh_rc','result_rc','log_rc')), 'transport failed'
           PY
   apply:
     if: inputs.phase == 'apply'
