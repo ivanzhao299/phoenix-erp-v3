@@ -38,10 +38,10 @@ jobs:
         run: |
           set -uo pipefail; umask 077
           # Transport is diagnostic plumbing: always create outputs and capture rc.
-          w="$RUNNER_TEMP/grade5-$AUDIT_RUN_ID"; mkdir -p "$w"
+          w="$RUNNER_TEMP/grade5-$AUDIT_RUN_ID"; mkdir -p "$w"; mkdir_rc=$?
           trap 'rm -rf "$w"' EXIT
-          ssh_rc=125; result_rc=125; log_rc=125; transport_rc=125; keyscan_rc=125; key_rc=125; proxy_key_rc=125; known_hosts_rc=125
-          printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"FAIL","rc":125,"business_writes":0,"audit_result":{"exit_code":125},"transport_rc":125,"keyscan_rc":125,"key_rc":125,"proxy_key_rc":125,"known_hosts_rc":125,"ssh_rc":125,"result_rc":125,"log_rc":125}\n' "$AUDIT_RUN_ID" > grade5-preflight-payload.json
+          ssh_rc=125; result_rc=125; log_rc=125; transport_rc=125; keyscan_rc=125; key_rc=125; proxy_key_rc=125; known_hosts_rc=125; mkdir_rc=${mkdir_rc:-125}
+          printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"FAIL","rc":125,"business_writes":0,"audit_result":{"exit_code":125},"transport_rc":125,"mkdir_rc":125,"keyscan_rc":125,"key_rc":125,"proxy_key_rc":125,"known_hosts_rc":125,"ssh_rc":125,"result_rc":125,"log_rc":125}\n' "$AUDIT_RUN_ID" > grade5-preflight-payload.json
           printf 'transport not started\n' > grade5-preflight.log
           : > grade5-transport.log
           : "${DEPLOY_SSH_KEY:=}"; : "${DEPLOY_PROXY_KEY:=}"; : "${DEPLOY_PROXY_HOST:=}"; : "${DEPLOY_PROXY_USER:=}"; : "${GITHUB_OUTPUT:=/dev/null}"
@@ -77,9 +77,9 @@ jobs:
           scp "${scp_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/audit.log" "$w/audit.log" || log_rc=$?
           if [ "$result_rc" -eq 0 ]; then cp "$w/result.json" grade5-preflight-payload.json || result_rc=$?; fi
           if [ "$log_rc" -eq 0 ]; then cp "$w/audit.log" grade5-preflight.log || log_rc=$?; fi
-          transport_rc=$((keyscan_rc || ssh_rc || result_rc || log_rc))
-          printf 'transport_rc=%s keyscan_rc=%s ssh_rc=%s result_rc=%s log_rc=%s\n' "$transport_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" >grade5-transport.log
-          printf 'transport_rc=%s\nkeyscan_rc=%s\nssh_rc=%s\nresult_rc=%s\nlog_rc=%s\n' "$transport_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" >>"$GITHUB_OUTPUT"
+          transport_rc=$((mkdir_rc || key_rc || proxy_key_rc || known_hosts_rc || keyscan_rc || ssh_rc || result_rc || log_rc))
+          printf 'transport_rc=%s mkdir_rc=%s key_rc=%s proxy_key_rc=%s known_hosts_rc=%s keyscan_rc=%s ssh_rc=%s result_rc=%s log_rc=%s\n' "$transport_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" >grade5-transport.log
+          printf 'transport_rc=%s\nmkdir_rc=%s\nkey_rc=%s\nproxy_key_rc=%s\nknown_hosts_rc=%s\nkeyscan_rc=%s\nssh_rc=%s\nresult_rc=%s\nlog_rc=%s\n' "$transport_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" >>"$GITHUB_OUTPUT"
           if [ "$result_rc" -eq 0 ]; then
             python3 - "$transport_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" <<'PY'
           import json,sys
@@ -95,6 +95,10 @@ jobs:
         env:
           EXPECTED_RUN_ID: "${{ github.run_id }}"
           EXECUTE_TRANSPORT_RC: "${{ steps.execute.outputs.transport_rc }}"
+          EXECUTE_MKDIR_RC: "${{ steps.execute.outputs.mkdir_rc }}"
+          EXECUTE_KEY_RC: "${{ steps.execute.outputs.key_rc }}"
+          EXECUTE_PROXY_KEY_RC: "${{ steps.execute.outputs.proxy_key_rc }}"
+          EXECUTE_KNOWN_HOSTS_RC: "${{ steps.execute.outputs.known_hosts_rc }}"
           EXECUTE_KEYSCAN_RC: "${{ steps.execute.outputs.keyscan_rc }}"
           EXECUTE_SSH_RC: "${{ steps.execute.outputs.ssh_rc }}"
           EXECUTE_RESULT_RC: "${{ steps.execute.outputs.result_rc }}"
@@ -103,9 +107,9 @@ jobs:
           python3 - <<'PY'
           import json,os
           p=json.load(open('grade5-preflight-payload.json'))
-          for key in ('transport_rc','keyscan_rc','ssh_rc','result_rc','log_rc'):
+          for key in ('transport_rc','mkdir_rc','key_rc','proxy_key_rc','known_hosts_rc','keyscan_rc','ssh_rc','result_rc','log_rc'):
               assert p[key] == int(os.environ['EXECUTE_'+key.upper()]), key
-          assert p['transport_rc'] == int(any(p[k] for k in ('ssh_rc','result_rc','log_rc')))
+          assert p['transport_rc'] == next((p[k] for k in ('mkdir_rc','key_rc','proxy_key_rc','known_hosts_rc','keyscan_rc','ssh_rc','result_rc','log_rc') if p[k]), 0)
           assert p['run_id'] == int(os.environ['EXPECTED_RUN_ID'])
           assert p['business_writes'] == 0
           assert p['rc'] == p['ssh_rc'] == p['audit_result']['exit_code']
