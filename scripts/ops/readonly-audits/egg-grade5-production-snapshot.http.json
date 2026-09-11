@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "name": "grade5-sku-runtime-readonly",
+    "method": "GET",
+    "path": "/api/product-master/skus?product_code=EGG&grade_code=GRADE_5&spec_code=PKG_PACK_SPEC_3&status=ACTIVE",
+    "username": "admin",
+    "expectedStatus": [200],
+    "minDataLength": 0,
+    "allowNoData": true
+  }
+]
