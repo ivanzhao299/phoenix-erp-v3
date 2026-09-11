@@ -42,7 +42,7 @@ jobs:
           opts=(-i "$w/key" -p "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
           if [ -n "$DEPLOY_PROXY_HOST" ]; then opts+=(-o "ProxyCommand=ssh -i $w/proxy -W %h:%p -o StrictHostKeyChecking=accept-new -o User=$DEPLOY_PROXY_USER $DEPLOY_PROXY_HOST"); fi
           remote="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"
-          ssh "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "AUDIT_RUN_ID=$AUDIT_RUN_ID DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+           ssh "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "AUDIT_RUN_ID=$AUDIT_RUN_ID DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
           set -euo pipefail; case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}";; /*) ;; *) exit 2;; esac
           d="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"; install -d -m700 "$d"; : >"$d/audit.log"
           set +e; (cd "$DEPLOY_PATH" && bash scripts/ops/run-production-readonly-audit.sh) >>"$d/audit.log" 2>&1; rc=$?; set -e
