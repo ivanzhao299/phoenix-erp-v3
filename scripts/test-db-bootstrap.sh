@@ -5,7 +5,7 @@ set -euo pipefail
 : "${MIG_MODE:=ci}"
 : "${MIG_DIR:=apps/api}"
 
-if [[ "${NODE_ENV:-test}" != "test" ]]; then
+if [[ "${NODE_ENV:-}" != "test" ]]; then
   echo "test-db-bootstrap requires NODE_ENV=test" >&2
   exit 1
 fi
