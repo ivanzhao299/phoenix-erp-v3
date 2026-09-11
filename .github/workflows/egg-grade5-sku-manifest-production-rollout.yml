@@ -82,8 +82,10 @@ jobs:
               x['log_b64']=os.environ['LOG_B64']
               with open(p, 'w', encoding='utf-8') as f: json.dump(x, f, separators=(',', ':')); f.write('\\n')
               PY
-              printf '%s' "$(base64 -w0 "$result")" >&3
-              exit "$final_rc"
+              # Keep SSH action successful so stdout output is published even when
+              # the remote audit fails; carry the actual rc in the payload.
+              printf '%s\n' "$(base64 -w0 "$result")" >&3
+              exit 0
             }
             trap finalize EXIT
             case "$DEPLOY_PATH" in
@@ -129,9 +131,21 @@ jobs:
         if: always()
         with:
           name: grade5-preflight-${{ github.run_id }}
-          path: grade5-preflight.log
+          path: |
+            grade5-preflight.log
+            grade5-preflight-payload.json
           if-no-files-found: error
           retention-days: 30
+      - name: Fail after preserving diagnostic artifact
+        if: always()
+        run: |
+          test -s grade5-preflight-payload.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('grade5-preflight-payload.json', encoding='utf-8'))
+          assert p.get('status') == 'PASS', f"audit status={p.get('status')}"
+          assert p.get('rc') == 0, f"audit rc={p.get('rc')}"
+          PY
   apply:
     if: inputs.phase == 'apply'
     environment: production-business-write
