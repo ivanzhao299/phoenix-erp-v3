@@ -86,6 +86,9 @@ echo "✅ 裸 SQL 迁移完成 (schema_migrations 记录：只跑新增；基础
 echo ""
 echo "── P3: TypeORM TS 迁移 ──"
 if [ "$MODE" = "ci" ]; then
+  # 先桥接裸 SQL 执行记录，避免 TypeORM 在孤立测试库重复执行历史迁移。
+  # 这些 TS 迁移依赖既有业务基线表；桥接后仅运行真正新增的 TS 迁移。
+  MIG_MODE=ci bash "$(dirname "$0")/bridge-schema-migrations-to-typeorm.sh" --apply
   # CI runner: cwd=apps/api(MIG_DIR=.), pnpm build 已跑过, typeorm CLI + dist 都在
   if [ -f "$DIR/dist/database/data-source.js" ] && [ -x "$DIR/node_modules/.bin/typeorm" ]; then
     # .bin/typeorm 是 shell wrapper(pnpm 模式),直接执行(不要加 node 前缀)
