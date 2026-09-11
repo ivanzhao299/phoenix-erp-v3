@@ -1,0 +1,40 @@
+name: Egg GRADE5 SKU manifest production rollout
+on:
+  workflow_dispatch:
+    inputs:
+      phase: {required: true, type: choice, options: [preflight, apply, verify]}
+      manifest_path: {required: true, type: string}
+      manifest_sha256: {required: true, type: string}
+      confirmation: {required: true, type: string}
+      revision: {required: true, type: string}
+jobs:
+  preflight:
+    if: inputs.phase == 'preflight'
+    environment: production-readonly
+    runs-on: ubuntu-latest
+    env: {PRODUCTION_BUSINESS_WRITES: '0'}
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}" | tee manifest-hash.json
+      - run: test "$(node -e "console.log(require('./manifest-hash.json').sha256)")" = "${{ inputs.manifest_sha256 }}"
+      - run: test "${{ inputs.confirmation }}" = 'APPLY-EGG-GRADE5-MANIFEST-20260911'
+      - run: ASSERTION_SQL_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql HTTP_ASSERTIONS_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.http.json bash scripts/ops/run-production-readonly-audit.sh --validate
+  apply:
+    if: inputs.phase == 'apply'
+    environment: production-business-write
+    runs-on: ubuntu-latest
+    env: {PRODUCTION_BUSINESS_WRITES: '1'}
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}"
+      - run: test "${{ inputs.confirmation }}" = 'APPLY-EGG-GRADE5-MANIFEST-20260911'
+      - run: test "${{ inputs.manifest_path }}" = 'scripts/ops/manifests/egg-grade5-candidate.json'
+      - run: echo 'FAIL-CLOSED: canonical EGG/GRADE_5/spec tuple is not production-registered; apply implementation is intentionally not invoked.' && exit 1
+  verify:
+    if: inputs.phase == 'verify'
+    environment: production-readonly
+    runs-on: ubuntu-latest
+    env: {PRODUCTION_BUSINESS_WRITES: '0'}
+    steps:
+      - uses: actions/checkout@v4
+      - run: ASSERTION_SQL_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql HTTP_ASSERTIONS_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.http.json bash scripts/ops/run-production-readonly-audit.sh --validate
