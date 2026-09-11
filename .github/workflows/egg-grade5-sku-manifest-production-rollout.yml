@@ -54,7 +54,8 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          capture_stdout: true
+          # Do not capture stdout: ssh-action fails GITHUB_OUTPUT parsing on empty output.
+          capture_stdout: false
           envs: DEPLOY_PATH,AUDIT_BUNDLE_REVISION,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID,AUDIT_BUNDLE_DIR
           script: |
             set -euo pipefail
@@ -75,7 +76,13 @@ jobs:
             bash "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh" 2>&1
             rc=$?
             set -e
-            test -s "/tmp/phoenix-production-readonly-audit-${AUDIT_RUN_ID}/result.json" || true
+            out_dir="/tmp/phoenix-production-readonly-audit-${AUDIT_RUN_ID}"
+            install -d -m 700 "$out_dir"
+            diagnostic_result="$out_dir/result.json"
+            if [ ! -s "$diagnostic_result" ]; then
+              printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"FAIL","business_writes":0,"error":"audit script did not produce result.json"}\n' "$AUDIT_RUN_ID" > "$diagnostic_result"
+            fi
+            test -s "$diagnostic_result"
             exit "$rc"
       - name: Retrieve structured audit evidence
         if: always()
@@ -90,10 +97,10 @@ jobs:
       - name: Validate structured audit evidence
         if: always()
         run: |
-          test -s "tmp/phoenix-production-readonly-audit-${{ github.run_id }}/result.json"
+          test -s "${{ runner.temp }}/phoenix-production-readonly-audit-${{ github.run_id }}/result.json"
           python3 - <<'PY'
           import json
-          p='tmp/phoenix-production-readonly-audit-${{ github.run_id }}/result.json'
+          p='${{ runner.temp }}/phoenix-production-readonly-audit-${{ github.run_id }}/result.json'
           x=json.load(open(p)); assert x['schema']=='phoenix.readonly-audit/v1'; assert x['business_writes']==0
           assert x['status']=='PASS'
           PY
