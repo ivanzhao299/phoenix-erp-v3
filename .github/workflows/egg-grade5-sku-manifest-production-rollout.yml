@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}" | tee manifest-hash.json
       - run: test "$(node -e "console.log(require('./manifest-hash.json').sha256)")" = "${{ inputs.manifest_sha256 }}"
-      - run: test "${{ inputs.confirmation }}" = 'APPLY-EGG-GRADE5-MANIFEST-20260911'
+      - run: test "${{ inputs.confirmation }}" = 'READONLY'
       - run: ASSERTION_SQL_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql HTTP_ASSERTIONS_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.http.json AUDIT_RUN_ID="${{ github.run_id }}" AUDIT_BUNDLE_DIR=. NODE_ENV=test bash scripts/ops/run-production-readonly-audit.sh
   apply:
     if: inputs.phase == 'apply'

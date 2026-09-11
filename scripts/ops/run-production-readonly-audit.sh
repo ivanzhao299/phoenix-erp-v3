@@ -50,9 +50,37 @@ else
   echo "PASS REVISION checkout=$checkout_revision api/web=not-required(sql-only)"
 fi
 
+# Resolve the deployed database service rather than assuming a compose container name.
+# Operators may provide a verified container/service via READONLY_DB_CONTAINER; otherwise
+# discover the compose service container id without starting or mutating services.
+readonly_db_container="${READONLY_DB_CONTAINER:-}"
+if [ -z "$readonly_db_container" ] && [ -f docker-compose.yml -o -f compose.yml ]; then
+  readonly_db_container="$(docker compose ps -q db 2>/dev/null || true)"
+fi
+if [ -n "$sql_path" ] && [ -z "$readonly_db_container" ]; then
+  echo 'FAIL SQL audit requires a discovered readonly database container (READONLY_DB_CONTAINER or compose db service)' >&2
+  exit 2
+fi
 psql_ro() {
-  docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' phoenix-v3-db \
-    sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+  # Never interpret an operator-provided shell string.  READONLY_PSQL_COMMAND is
+  # intentionally rejected; use the explicit libpq environment variables instead.
+  if [ -n "${READONLY_PSQL_COMMAND:-}" ]; then
+    echo 'FAIL READONLY_PSQL_COMMAND is unsupported; use PGHOST/PGPORT/PGUSER/PGDATABASE/PGPASSWORD' >&2
+    return 2
+  fi
+  if [ -n "${PGHOST:-}" ]; then
+    command -v psql >/dev/null || { echo 'FAIL psql executable not found' >&2; return 2; }
+    PGOPTIONS='-c default_transaction_read_only=on' \
+      psql -X -v ON_ERROR_STOP=1 -P pager=off
+    return
+  fi
+  [ -n "$readonly_db_container" ] || { echo 'FAIL readonly database container is missing' >&2; return 2; }
+  # Validate the id/name before passing it as one docker exec argument.
+  docker inspect --format '{{.Id}}' "$readonly_db_container" >/dev/null 2>&1 || {
+    echo 'FAIL readonly database container was not found' >&2; return 2;
+  }
+  docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' "$readonly_db_container" \
+    psql -X -v ON_ERROR_STOP=1 -P pager=off
 }
 
 if [ -n "$sql_path" ]; then
