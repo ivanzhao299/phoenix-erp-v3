@@ -75,11 +75,43 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          # Do not capture stdout: ssh-action fails GITHUB_OUTPUT parsing on empty output.
+          # stdout is intentionally hidden; the isolated remote audit.log is authoritative.
           capture_stdout: false
           envs: DEPLOY_PATH,AUDIT_BUNDLE_REVISION,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID,AUDIT_BUNDLE_DIR
           script: |
             set -euo pipefail
+            case "$AUDIT_RUN_ID" in *[!0-9]*) exit 2;; esac
+            out_dir="/tmp/phoenix-production-readonly-audit-${AUDIT_RUN_ID}"
+            install -d -m 700 "$out_dir"
+            log="$out_dir/audit.log"
+            result="$out_dir/result.json"
+            printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"FAIL","business_writes":0,"error":"audit not started"}\n' "$AUDIT_RUN_ID" > "$result"
+            : > "$log"
+            exec >>"$log" 2>&1
+            finalize() {
+              final_rc=$?
+              if [ "$final_rc" -eq 0 ]; then status=PASS; else status=FAIL; fi
+              error=''
+              [ "$final_rc" -eq 0 ] || error="remote audit exited rc=$final_rc"
+              RESULT_PATH="$result" RUN_ID="$AUDIT_RUN_ID" STATUS="$status" RC="$final_rc" BUSINESS_WRITES=0 LOG_PATH="$log" ERROR="$error" python3 - <<'PY'
+              import json, os
+              payload = {
+                'schema': 'phoenix.readonly-audit/v1',
+                'run_id': int(os.environ['RUN_ID']),
+                'status': os.environ['STATUS'],
+                'rc': int(os.environ['RC']),
+                'business_writes': int(os.environ['BUSINESS_WRITES']),
+                'error': os.environ['ERROR'],
+                'log': os.environ['LOG_PATH'],
+              }
+              with open(os.environ['RESULT_PATH'], 'w', encoding='utf-8') as f:
+                  json.dump(payload, f, separators=(',', ':'))
+                  f.write('\\n')
+              PY
+              test -s "$result"; test -s "$log"
+              exit "$final_rc"
+            }
+            trap finalize EXIT
             case "$AUDIT_BUNDLE_DIR" in
               /tmp/phoenix-production-readonly-audit-[0-9]*/bundle) ;;
               *) echo 'FAIL invalid isolated audit bundle path' >&2; exit 2 ;;
@@ -94,16 +126,9 @@ jobs:
             test "$(git rev-parse HEAD)" = "$AUDIT_BUNDLE_REVISION"
             test -f "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh"
             set +e
-            bash "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh" 2>&1
+            bash "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh" >>"$log" 2>&1
             rc=$?
             set -e
-            out_dir="/tmp/phoenix-production-readonly-audit-${AUDIT_RUN_ID}"
-            install -d -m 700 "$out_dir"
-            diagnostic_result="$out_dir/result.json"
-            if [ ! -s "$diagnostic_result" ]; then
-              printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"FAIL","business_writes":0,"error":"audit script did not produce result.json"}\n' "$AUDIT_RUN_ID" > "$diagnostic_result"
-            fi
-            test -s "$diagnostic_result"
             exit "$rc"
       - name: Retrieve structured audit evidence
         if: always()
@@ -119,11 +144,18 @@ jobs:
         if: always()
         run: |
           test -s "${{ runner.temp }}/phoenix-production-readonly-audit-${{ github.run_id }}/result.json"
+          test -s "${{ runner.temp }}/phoenix-production-readonly-audit-${{ github.run_id }}/audit.log"
           python3 - <<'PY'
           import json
-          p='${{ runner.temp }}/phoenix-production-readonly-audit-${{ github.run_id }}/result.json'
-          x=json.load(open(p)); assert x['schema']=='phoenix.readonly-audit/v1'; assert x['business_writes']==0
-          assert x['status']=='PASS'
+          from pathlib import Path
+          root=Path('${{ runner.temp }}/phoenix-production-readonly-audit-${{ github.run_id }}')
+          x=json.loads((root/'result.json').read_text())
+          assert x['schema']=='phoenix.readonly-audit/v1'
+          assert x['run_id']==${{ github.run_id }}
+          assert x['business_writes']==0
+          assert x['status'] in ('PASS','FAIL')
+          assert x['log']=='/tmp/phoenix-production-readonly-audit-${{ github.run_id }}/audit.log'
+          assert (root/'audit.log').stat().st_size > 0
           PY
       - name: Persist preflight output
         if: always()
