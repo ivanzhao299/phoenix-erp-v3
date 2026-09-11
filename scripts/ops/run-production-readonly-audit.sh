@@ -38,14 +38,20 @@ log="$out_dir/audit.log"
 exec > >(tee "$log") 2>&1
 
 checkout_revision="$(git rev-parse HEAD)"
-api_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$(docker compose ps -q api)")"
-web_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$(docker compose ps -q web)")"
-test "$checkout_revision" = "$api_revision"
-test "$checkout_revision" = "$web_revision"
-echo "PASS REVISION checkout=$checkout_revision api=$api_revision web=$web_revision"
+# SQL-only audits must not parse docker-compose.yml: compose requires JWT_SECRET even
+# though neither PostgreSQL nor the read-only SQL path needs the API container.
+if [ -n "$http_path" ]; then
+  api_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' phoenix-v3-api)"
+  web_revision="$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' phoenix-v3-web)"
+  test "$checkout_revision" = "$api_revision"
+  test "$checkout_revision" = "$web_revision"
+  echo "PASS REVISION checkout=$checkout_revision api=$api_revision web=$web_revision"
+else
+  echo "PASS REVISION checkout=$checkout_revision api/web=not-required(sql-only)"
+fi
 
 psql_ro() {
-  docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db \
+  docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' phoenix-v3-db \
     sh -c 'psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 }
 
@@ -55,9 +61,9 @@ if [ -n "$sql_path" ]; then
 fi
 
 if [ -n "$http_path" ]; then
-  HTTP_MANIFEST_B64="$(base64 -w0 "$bundle_dir/$http_path")" docker compose exec -T \
+  HTTP_MANIFEST_B64="$(base64 -w0 "$bundle_dir/$http_path")" docker exec -i \
     -e HTTP_MANIFEST_B64 -e PHOENIX_CI_TOKEN_EXPIRES_IN=20m \
-    -e PGOPTIONS='-c default_transaction_read_only=on' api node - <<'NODE'
+    -e PGOPTIONS='-c default_transaction_read_only=on' phoenix-v3-api node - <<'NODE'
 const { NestFactory } = require('@nestjs/core');
 const { AppModule } = require('./dist/app.module');
 const { AuthService } = require('./dist/auth/auth.service');
