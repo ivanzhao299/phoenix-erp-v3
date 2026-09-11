@@ -36,13 +36,14 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
           AUDIT_RUN_ID: ${{ github.run_id }}
         run: |
-          set -euo pipefail; umask 077
+          set -uo pipefail; umask 077
           w="$RUNNER_TEMP/grade5-$AUDIT_RUN_ID"; mkdir -p "$w"
           printf '%s' "$DEPLOY_SSH_KEY" >"$w/key"; printf '%s' "$DEPLOY_PROXY_KEY" >"$w/proxy"; chmod 600 "$w/key" "$w/proxy"
           opts=(-i "$w/key" -p "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
           if [ -n "$DEPLOY_PROXY_HOST" ]; then opts+=(-o "ProxyCommand=ssh -i $w/proxy -W %h:%p -o StrictHostKeyChecking=accept-new -o User=$DEPLOY_PROXY_USER $DEPLOY_PROXY_HOST"); fi
           remote="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"
-          ssh "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "AUDIT_RUN_ID=$AUDIT_RUN_ID DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+          set +e
+           ssh "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "AUDIT_RUN_ID=$AUDIT_RUN_ID DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
           set -euo pipefail; case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}";; /*) ;; *) exit 2;; esac
           d="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"; install -d -m700 "$d"; : >"$d/audit.log"
           set +e; (cd "$DEPLOY_PATH" && bash scripts/ops/run-production-readonly-audit.sh) >>"$d/audit.log" 2>&1; rc=$?; set -e
@@ -52,7 +53,17 @@ jobs:
           PY
           exit "$rc"
           REMOTE
-          rc=$?; scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/result.json" "$w/result.json"; scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/audit.log" "$w/audit.log"; cp "$w"/{result.json,audit.log} .; mv result.json grade5-preflight-payload.json; mv audit.log grade5-preflight.log; echo "remote_rc=$rc" >>"$GITHUB_OUTPUT"; exit "$rc"
+          rc=$?
+           set +e
+           scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/result.json" "$w/result.json"; sr=$?
+           scp "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/audit.log" "$w/audit.log"; sl=$?
+           transport_rc=$rc; [ "$sr" -eq 0 ] || transport_rc=$sr; [ "$sl" -eq 0 ] || transport_rc=$sl
+           if [ "$transport_rc" -eq 0 ] && [ -s "$w/result.json" ] && [ -s "$w/audit.log" ]; then cp "$w/result.json" grade5-preflight-payload.json; cp "$w/audit.log" grade5-preflight.log; else transport_rc=${transport_rc:-1}; printf 'transport failure ssh=%s scp_result=%s scp_log=%s\n' "$rc" "$sr" "$sl" > grade5-preflight.log; python3 - "$AUDIT_RUN_ID" "$transport_rc" > grade5-preflight-payload.json <<'PY'
+           import json,sys
+           r,c=sys.argv[1:]; print(json.dumps({'schema':'phoenix.readonly-audit/v1','run_id':int(r),'status':'FAIL','rc':int(c),'business_writes':0,'phase':'preflight','transport_rc':int(c),'error':'SSH/SCP transport or artifact failure','audit_result':{'exit_code':int(c)}}))
+           PY
+           fi
+           echo "remote_rc=$transport_rc" >>"$GITHUB_OUTPUT"; exit "$transport_rc"
       - name: Validate strict audit artifact and rc
         if: always()
         env:
