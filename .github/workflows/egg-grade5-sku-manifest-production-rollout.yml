@@ -17,19 +17,57 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PRODUCTION_BUSINESS_WRITES: '0'
-      READONLY_DB_REQUIRED: '1'
-      READONLY_DB_HOST: ${{ secrets.READONLY_DB_HOST }}
-      READONLY_DB_PORT: ${{ secrets.READONLY_DB_PORT }}
-      READONLY_DB_USER: ${{ secrets.READONLY_DB_USER }}
-      READONLY_DB_NAME: ${{ secrets.READONLY_DB_NAME }}
-      READONLY_DB_PASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}" | tee manifest-hash.json
       - run: test "$(node -e "console.log(require('./manifest-hash.json').sha256)")" = "${{ inputs.manifest_sha256 }}"
       - run: test "${{ inputs.confirmation }}" = 'READONLY'
-      - name: Run read-only preflight
-        run: ASSERTION_SQL_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql HTTP_ASSERTIONS_PATH= AUDIT_RUN_ID="${{ github.run_id }}" AUDIT_BUNDLE_DIR=. NODE_ENV=test bash scripts/ops/run-production-readonly-audit.sh | tee grade5-preflight.log
+      - name: Stage reviewed audit bundle on controlled runner
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          source: scripts/ops/run-production-readonly-audit.sh,scripts/ops/readonly-audits
+          target: /tmp/phoenix-production-readonly-audit-${{ github.run_id }}/bundle
+      - name: Run read-only preflight through protected SSH/proxy entry
+        id: execute
+        uses: appleboy/ssh-action@v1
+        env:
+          ASSERTION_SQL_PATH: scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql
+          HTTP_ASSERTIONS_PATH: ''
+          AUDIT_RUN_ID: ${{ github.run_id }}
+          AUDIT_BUNDLE_DIR: /tmp/phoenix-production-readonly-audit-${{ github.run_id }}/bundle
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          capture_stdout: true
+          envs: ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID,AUDIT_BUNDLE_DIR
+          script: |
+            set -euo pipefail
+            case "$AUDIT_BUNDLE_DIR" in
+              /tmp/phoenix-production-readonly-audit-[0-9]*/bundle) ;;
+              *) echo 'FAIL invalid isolated audit bundle path' >&2; exit 2 ;;
+            esac
+            trap 'rm -rf -- "$AUDIT_BUNDLE_DIR" /tmp/grade5-preflight.log' EXIT
+            test -f "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh"
+            bash "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh" | tee /tmp/grade5-preflight.log
+      - name: Persist preflight output
+        if: always()
+        env:
+          AUDIT_OUTPUT: ${{ steps.execute.outputs.stdout }}
+        run: printf '%s\n' "$AUDIT_OUTPUT" > grade5-preflight.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
