@@ -340,7 +340,7 @@ BEGIN
   END IF;
   -- CI 测试库 inv_ledger 简化版无 log_date 列，跳过整段（生产端有）
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                  WHERE table_name='inv_ledger' AND column_name='log_date') THEN
+                  WHERE table_schema='public' AND table_name='inv_ledger' AND column_name='log_date') THEN
     RAISE NOTICE '[g10] inv_ledger.log_date 不存在（CI 测试库），跳过 § 4';
     RETURN;
   END IF;
