@@ -6,6 +6,17 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 BASE="http://localhost:3100"
+SCOPE_PASSWORD="${SCOPE_AUDIT_PASSWORD:-${UAT_TEST_PASSWORD:-}}"
+SCOPE_ADMIN_USER="${SCOPE_AUDIT_ADMIN_USER:-group_admin}"
+SCOPE_CEO_USER="${SCOPE_AUDIT_CEO_USER:-ceo_user}"
+SCOPE_BUYER_USER="${SCOPE_AUDIT_BUYER_USER:-mengsai_buyer}"
+SCOPE_PROJECT_USER="${SCOPE_AUDIT_PROJECT_USER:-vte_project_mgr}"
+SCOPE_FACTORY_USER="${SCOPE_AUDIT_FACTORY_USER:-factory_acct}"
+SCOPE_SHAREHOLDER_USER="${SCOPE_AUDIT_SHAREHOLDER_USER:-shareholder_view}"
+if [ -z "$SCOPE_PASSWORD" ]; then
+  echo "SCOPE_AUDIT_PASSWORD or UAT_TEST_PASSWORD is required" >&2
+  exit 2
+fi
 PASS=0; FAIL=0; SKIP=0
 
 # ── 颜色输出 ──────────────────────────────────────────────────────────────────
@@ -31,12 +42,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 # ── 获取各角色 token ──────────────────────────────────────────────────────────
 header "Token 获取"
-T_ADMIN=$(get_token "group_admin" "Test@123")
-T_CEO=$(get_token "ceo_user" "Test@123")
-T_BUYER=$(get_token "mengsai_buyer" "Test@123")
-T_PROJ_MGR=$(get_token "vte_project_mgr" "Test@123")
-T_FACTORY=$(get_token "factory_acct" "Test@123")
-T_SHAREHOLDER=$(get_token "shareholder_view" "Test@123")
+T_ADMIN=$(get_token "$SCOPE_ADMIN_USER" "$SCOPE_PASSWORD")
+T_CEO=$(get_token "$SCOPE_CEO_USER" "$SCOPE_PASSWORD")
+T_BUYER=$(get_token "$SCOPE_BUYER_USER" "$SCOPE_PASSWORD")
+T_PROJ_MGR=$(get_token "$SCOPE_PROJECT_USER" "$SCOPE_PASSWORD")
+T_FACTORY=$(get_token "$SCOPE_FACTORY_USER" "$SCOPE_PASSWORD")
+T_SHAREHOLDER=$(get_token "$SCOPE_SHAREHOLDER_USER" "$SCOPE_PASSWORD")
 
 [ -n "$T_ADMIN" ] && pass "group_admin token" || fail "group_admin token" "无法登录"
 [ -n "$T_CEO" ] && pass "ceo_user token" || fail "ceo_user token" "无法登录"
@@ -328,7 +339,7 @@ if [ -n "$PHX_SHP_ID" ]; then
     fail "buyer 访问 PHX Shipment" "期望 403，实际 HTTP=$HTTP code=$CODE"
   fi
 else
-  skip "T15: buyer Shipment 403" "无 PHX company_code Shipment 测试数据"
+  fail "T15: buyer Shipment 403" "缺少 PHX company_code Shipment scope fixture"
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -348,17 +359,17 @@ fi
 # RBAC-3.1 Finance Scope 专项测试
 # ══════════════════════════════════════════════════════════════════════════════
 
-header "F01: 无 Token 访问 /finance/summary → 401"
-RES=$(curl -s -w "\n__HTTP_STATUS__%{http_code}" "http://localhost:3100/api/finance/summary")
+header "F01: 无 Token 访问 finance overview → 401"
+RES=$(curl -s -w "\n__HTTP_STATUS__%{http_code}" "$BASE/api/v2/finance/reports/overview")
 HTTP=$(extract_http "$RES"); CODE=$(extract_code "$RES")
 if [[ "$HTTP" == "401" || "$CODE" == "401" ]]; then
-  pass "无 Token 访问 /finance/summary 返回 401"
+  pass "无 Token 访问 finance overview 返回 401"
 else
-  fail "无 Token 访问 /finance/summary" "期望 401，实际 HTTP=$HTTP code=$CODE"
+  fail "无 Token 访问 finance overview" "期望 401，实际 HTTP=$HTTP code=$CODE"
 fi
 
-header "F02: ROLE_PRC_BUYER 访问 /finance/summary → 403"
-RES=$(api_get "$T_BUYER" "/api/finance/summary")
+header "F02: ROLE_PRC_BUYER 访问 finance overview → 403"
+RES=$(api_get "$T_BUYER" "/api/v2/finance/reports/overview")
 HTTP=$(extract_http "$RES"); CODE=$(extract_code "$RES")
 if [[ "$HTTP" == "403" || "$CODE" == "403" ]]; then
   pass "buyer 访问 /finance/summary 返回 403（MENU_FINANCE 不含 ROLE_PRC_BUYER）"
@@ -366,8 +377,8 @@ else
   fail "buyer 访问 /finance/summary" "期望 403，实际 HTTP=$HTTP code=$CODE"
 fi
 
-header "F03: ROLE_ADMIN 访问 /finance/summary → 200"
-RES=$(api_get "$T_ADMIN" "/api/finance/summary")
+header "F03: ROLE_ADMIN 访问 finance overview → 200"
+RES=$(api_get "$T_ADMIN" "/api/v2/finance/reports/overview")
 CODE=$(extract_code "$RES")
 if [ "$CODE" = "200" ]; then
   pass "admin 访问 /finance/summary 返回 200"
@@ -375,8 +386,8 @@ else
   fail "admin 访问 /finance/summary" "期望 200，实际 code=$CODE"
 fi
 
-header "F04: ROLE_PRC_BUYER 访问 /finance/ar-aging → 403"
-RES=$(api_get "$T_BUYER" "/api/finance/ar-aging")
+header "F04: ROLE_PRC_BUYER 访问 finance ar-aging → 403"
+RES=$(api_get "$T_BUYER" "/api/v2/finance/reports/ar-aging")
 HTTP=$(extract_http "$RES"); CODE=$(extract_code "$RES")
 if [[ "$HTTP" == "403" || "$CODE" == "403" ]]; then
   pass "buyer 访问 /finance/ar-aging 返回 403"
@@ -410,8 +421,8 @@ else
   fail "buyer AP Ledger 含 PHX 数据" "PHX_count=$PHX_COUNT（跨公司泄露）"
 fi
 
-header "F07: ROLE_FACTORY_ACCT 访问 /finance/accounts → 403"
-RES=$(api_get "$T_FACTORY" "/api/finance/accounts")
+header "F07: ROLE_FACTORY_ACCT 访问 cash accounts → 403"
+RES=$(api_get "$T_FACTORY" "/api/v2/finance/cash/accounts")
 HTTP=$(extract_http "$RES"); CODE=$(extract_code "$RES")
 if [[ "$HTTP" == "403" || "$CODE" == "403" ]]; then
   pass "factory_acct 访问 /finance/accounts 返回 403（MENU_FIN_CLOSE 无该角色）"
@@ -419,8 +430,8 @@ else
   fail "factory_acct 访问 /finance/accounts" "期望 403，实际 HTTP=$HTTP code=$CODE"
 fi
 
-header "F08: ROLE_ADMIN 访问 /finance/accounts → 200（全量）"
-RES=$(api_get "$T_ADMIN" "/api/finance/accounts")
+header "F08: ROLE_ADMIN 访问 cash accounts → 200（全量）"
+RES=$(api_get "$T_ADMIN" "/api/v2/finance/cash/accounts")
 CODE=$(extract_code "$RES")
 if [ "$CODE" = "200" ]; then
   pass "admin 访问 /finance/accounts 返回 200"

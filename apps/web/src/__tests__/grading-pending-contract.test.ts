@@ -21,8 +21,8 @@ describe('班次级分级 pending 契约', () => {
     expect(api).toContain('idempotencyKey: string;');
   });
 
-  it('WIP 按班次隔离，成功清理来源输入并重拉服务端 pending', () => {
-    expect(gradingPage).toContain("phoenix_grading_wip3_${hasOpenShift ? shiftId : 'no-open-shift'}");
+  it('WIP 按用户、模式、班次隔离，成功清理来源输入并重拉服务端 pending', () => {
+    expect(gradingPage).toContain("phoenix_grading_wip4_${identityKey}:${hasOpenShift ? shiftId : 'no-open-shift'}");
     expect(gradingPage).toContain('delete next[activeHouse.batch_key]');
     expect(gradingPage).toContain('await fetchSource.current()');
   });

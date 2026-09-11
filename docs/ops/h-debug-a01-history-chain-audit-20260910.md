@@ -1,5 +1,8 @@
 # H-DEBUG-A01 历史渗入全链清查（H-DEBUG-A01，2026-09-10）
 
+> 最新状态：VOID保护与测试隔离已部署（PR #228，revision `492ba3c3`），最终只读run `34457134691` 通过；12行清理、新依赖处置、生产POST仍未执行。详见文末交付末态。
+
+
 ## 1. 边界与证据
 
 - 本报告记录两轮生产只读核查；本次 H-DEBUG-PURGE 清理未执行。其他审批下已完成的生产修复见第 6 节，不能据此报告旧文字推断生产从未写入。
@@ -164,3 +167,22 @@ UNAPPROVED_PACKING_DEPENDENCIES,PACKING_VOID_SCHEMA_NOT_DEPLOYED
 ### 空库迁移顺序修正
 
 V3 Regression run34454096008真实失败于Seed DB阶段：pkg_work_shifts此前依赖应用启动时创建，TypeORM先运行所以ALTER找不到表。已补充两张终端基础表的幂等CREATE及既有shift_type/shift_id/grading_codes_json列保障；生产真实schema已存在，语句不改原行、不回填。down保留历史基础表，仅撤本次保护列。新增PG集成步骤移至API初始化完成后，避免尚未bootstrap的辅助表不可用。新增真实空schema up/down/up测试后，本轮独立PostgreSQL18为13/13通过；API/Web现有验证仍保留原始记录。失败未跳过、未改成允许失败，等待新head CI完整重跑。
+
+
+## 8. 本轮交付末态（2026-09-10 08:49 UTC）
+
+**VOID保护与测试隔离已合并、已full deploy、已完成只读验收；原12行清理、新依赖处置和生产成功POST验收仍未执行。** 前文“部署前”“尚无schema”“BLOCKED_ISOLATION”等为当时快照，本节是最新状态。隔离能力已就位，但没有以生产POST验证成功链路。
+
+- [PR #228](https://github.com/ivanzhao299/phoenix-erp-v3/pull/228) 在 reviewed head `b668b8b30476d3197a9246b34577e8186e32d011` 全部适用CI通过后合并。merge revision：`492ba3c3a67b477e2240b7b5a8762164a80bfd7e`。
+- [API Build 34454692044](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692044)、[V3 Regression 34454692079](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692079)、Security、Runtime Smoke、Web及deploy PR regression均通过；PR场景镜像发布/部署job按既有条件跳过。完整检查列表见[release-evidence.json](runs/packaging-protection-20260910/release-evidence.json)。最终API全量 **833通过/14条件性跳过**（8个本轮PG用例、6个既有条件用例）；本轮PG18独立实际执行 **13/13通过**，并在CI Regression实际执行。Web **577/577**。NODE_ENV=test双端tsc、scope-audit、约束/81条迁移门禁通过。前述12/12和13 skips属于增加空库回归之前的快照。
+- 显式 `mode=full, skip_deploy=false, approve_production=true` 的 [deploy 34455324330](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34455324330) 成功；main push build `34455319826` 也成功，但不把自动构建称为部署。08:41:17 UTC迁移执行并COMMIT，08:41:26 Web GET健康检查通过。
+- 生产实际新增四表is_test共4列及包装status/void_reason/voided_at/voided_by/idempotency_key/payload_hash共6列，合计 **10列、1 CHECK、1部分唯一索引**。包装status为NOT NULL默认ACTIVE，四表is_test为NOT NULL默认false。CHECK为ACTIVE/VOID，幂等索引仅覆盖非NULL key。迁移记录 `ProtectPackagingVoidAndTestIsolation1789099201000`（id370）已存在；基础表/兼容列原先已在生产存在，CREATE/ADD IF NOT EXISTS未重建历史表。部署执行片段见[full-deploy-34455324330.txt](runs/packaging-protection-20260910/full-deploy-34455324330.txt)。本次迁移没有历史业务DML；只插入迁移元数据。
+- [最终依赖复核 34456716213](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34456716213) 成功；[最终隔离复验 34457134691](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34457134691) 成功。checkout/API/Web三端同为上述merge revision。日志中revision子串与交接22数字被GitHub掩码，保留原样；完整revision依据merge/deploy元数据，不能将掩码视为漂移或自行猜回数字。
+- 9项生产GET断言全部通过：管理员real/test context、班次、来源；测试库存入口409；普通操作员 `zhuzhaocun` 真实context200、显式测试模式403，非缺样本跳过。四表测试行均0、包装VOID行0，所以生产空测试列表的字段断言不能替代“存在测试OPEN班次”的验收；该场景及并发/VOID消费/双向隔离在实际PG集成测试覆盖。生产POST本轮0次。
+- 首次复验 `34456675847` 失败：新增操作员取样SQL错用 `u.status='ACTIVE'`，生产列为smallint。7项管理员GET和schema已通过后该取样报错。已改为 `u.status=1`，只读包commit `af7e63cb`，上述最终run重跑9项通过；没有修改业务实现、重放写包或放宽断言。失败日志的EOF输出错误为失败后的capture_stdout问题，原始step证据已保留。只读认证上下文初始化时既有建表/seed尝试被数据库只读设置拒绝，不是成功写入；最终run明确 `PRODUCTION_BUSINESS_WRITES=0`。
+
+逐单复核再次确认包装21/25/26/27/28分别有交接17/20/21/22/23，每单300枚/10箱。所有目标的直接库存、ledger、销售分配/动作、POS分配、旧CSV订单及门店明细均0；同班次/站点日期候选库存也0。混合分级引用只是直接引用关系，不能证明53/54实际分摊用量，不能将26/27/28整单认定污染。逐行待批清单仍有效。末次结构证据：[dependency-postdeploy-34456716213.json](runs/packaging-protection-20260910/dependency-postdeploy-34456716213.json)；掩码数字以 `__MASKED__` 保存，交接22身份由前次证据与未掩码code对应。
+
+库存 **297行 / `3cf89cb78648b6a0be73ee05c5a6586a`**，ledger **252行 / `8bf9bb0111ac503e85eec8bf53e517df`**，已恢复同一旧算法比较，均未变化。来源16/34/38仍RECEIVED；分级13/42/43/44/45/53/54仍ACTIVE；包装21/25/26/27/28为默认ACTIVE、is_test=false。新增列令旧全行JSON基线结构改变，后续若获批清理须重新只读冻结schema后的基线；禁止直接放宽旧preflight或执行旧写包。
+
+本轮业务DML **0**、业务作废 **0**、生产冒烟数据 **0**；未执行原12行清理、未改新增依赖、未物理删除业务记录。之前其他审批的5行更新与5行审计仍按历史章节如实记录。剩余事项：原12行及清单外交接/包装须先裁定逆向业务和审批范围；生产成功POST验收须在后续允许执行的轮次按已复核计划完成。GET、健康检查和本地PG通过均不代替生产POST结果。

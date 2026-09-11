@@ -130,11 +130,21 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data.data ?? data;
 }
 
+export function validShiftId(value: unknown): boolean {
+  return /^[1-9][0-9]*$/.test(String(value)) && Number.isSafeInteger(Number(value));
+}
+function requireShiftId(value: unknown): string {
+  if (!validShiftId(value)) throw new Error('shiftId 必须是安全正整数');
+  return String(value);
+}
+
 export const packagingApi = {
   // ── Terminal 上下文 ─────────────────────────────────────────────────────────
   getContext: () => request<any>('GET', '/api/packaging/terminal/context'),
 
   // ── 班次 ────────────────────────────────────────────────────────────────────
+  getExactShift: (id: string, date: string) => request<any>('GET', `/api/packaging/terminal/shifts/${requireShiftId(id)}/context?date=${encodeURIComponent(date)}`),
+  getReadyCombinations: () => request<Array<{grade: string; productCode: string; skuCode: string; specCode: string; specName: string; qtyPerUnit: number}>>('GET', '/api/packaging/terminal/packing/ready-combinations'),
   getTodayShifts: () => request<any[]>('GET', '/api/packaging/terminal/shifts/today'),
   getSites: () => request<{ site_id: string; site_name: string }[]>('GET', '/api/packaging/terminal/sites'),
   openShift: (body: Record<string, unknown>) => request<any>('POST', '/api/packaging/terminal/shifts/open', body),
@@ -144,7 +154,7 @@ export const packagingApi = {
   getTodaySourceBatches: () => request<any[]>('GET', '/api/packaging/terminal/source-batches/today'),
   getPendingSourceBatches: () => request<any[]>('GET', '/api/packaging/terminal/source-batches/pending'),
   getPendingGradingSourceBatches: (shiftId: number) =>
-    request<any[]>('GET', `/api/packaging/terminal/grading/pending?shiftId=${shiftId}`),
+    request<any[]>('GET', `/api/packaging/terminal/grading/pending?shiftId=${requireShiftId(shiftId)}`),
   receiveBatch: (body: Record<string, unknown>) => request<any>('POST', '/api/packaging/terminal/source-batches/receive', body),
   correctBatch: (body: Record<string, unknown>) => request<void>('PATCH', '/api/packaging/terminal/source-batches/correct', body),
 
@@ -178,7 +188,7 @@ export const packagingApi = {
   getShiftSummary: (date?: string, shiftId?: string) => {
     const params = new URLSearchParams();
     if (date) params.set('date', date);
-    if (shiftId) params.set('shiftId', shiftId);
+    if (shiftId !== undefined) params.set('shiftId', requireShiftId(shiftId));
     const qs = params.toString();
     return request<any>('GET', `/api/packaging/terminal/reports/shift-summary${qs ? `?${qs}` : ''}`);
   },
@@ -190,11 +200,13 @@ export const packagingApi = {
   /** 按等级汇总当日所有分级批次产出及已包装量，返回各等级实时剩余（多终端并发安全） */
   getActiveGrading: (shiftId: number) =>
     request<{
+      shiftId: number;
+      productionDate: string;
       gradingCodes: string[];
       outputs:      Record<string, number>;
       packed:       Record<string, number>;
       remaining:    Record<string, number>;
-    }>('GET', `/api/packaging/terminal/grading/active?shiftId=${shiftId}`),
+    }>('GET', `/api/packaging/terminal/grading/active?shiftId=${requireShiftId(shiftId)}`),
 
   // ── 包装 ─────────────────────────────────────────────────────────────────────
   submitPacking: (body: Record<string, unknown>) =>

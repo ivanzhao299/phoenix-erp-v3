@@ -43,16 +43,22 @@ const dbUrl = process.env.PACKAGING_TEST_DATABASE_URL;
     await ds.query(`CREATE SCHEMA ${schema}`);
     for (const table of ['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_grading_source_links',
       'pkg_packing_records','pkg_handover_records','pkg_audit_logs','pkg_exceptions','pkg_label_print_logs',
-      'pkg_qc_inspections','inv_batches','inv_ledger','sal_order_item_batch_allocations','store_sale_allocations','sal_store_sale_items','sal_order_items','sys_dict','brd_houses','wms_inbound']) {
+      'pkg_qc_inspections','inv_batches','inv_ledger','sal_order_item_batch_allocations','store_sale_allocations','sal_store_sale_items','sal_order_items','sys_dict','brd_houses','wms_inbound','brd_farms','mst_products','product_skus','product_grades','packaging_specs']) {
       await ds.query(`CREATE TABLE ${schema}.${table} (LIKE public.${table} INCLUDING ALL)`);
     }
+    await ds.query("INSERT INTO brd_farms(farm_code,farm_name,company_code,status) VALUES ('FARM-INTEGRATION','Local farm','COMP-INTEGRATION','ACTIVE')");
+    await ds.query("INSERT INTO brd_houses(house_code,house_name,farm_code,status) VALUES ('HOUSE-INTEGRATION','Local house','FARM-INTEGRATION','ACTIVE')");
+    await ds.query("INSERT INTO mst_products(product_code,product_name,status) VALUES ('P-INTEGRATION','Local product','ACTIVE')");
+    await ds.query("INSERT INTO product_grades(grade_code,grade_name,status,is_saleable,is_storable) VALUES ('GRADE_1','Local grade','ACTIVE',true,true)");
+    await ds.query("INSERT INTO packaging_specs(spec_code,spec_name,qty_per_unit,status) VALUES ('SPEC-INTEGRATION','Local spec',30,'ACTIVE')");
+    await ds.query("INSERT INTO product_skus(sku_code,sku_name,product_code,grade_code,spec_code,status) VALUES ('SKU-INTEGRATION','Local SKU','P-INTEGRATION','GRADE_1','SPEC-INTEGRATION','ACTIVE')");
     // A legacy row created before this migration keeps all business values.
     const [legacy] = await ds.query(`INSERT INTO pkg_packing_records(code,total_eggs,total_boxes) VALUES ('PKG-LEGACY',30,1) RETURNING id,code,total_eggs,total_boxes`);
     const q = ds.createQueryRunner();
     try { await migration.up(q); } finally { await q.release(); }
     const [after] = await ds.query(`SELECT id,code,total_eggs,total_boxes,status,is_test FROM pkg_packing_records WHERE id=$1`, [legacy.id]);
     expect(after).toEqual({ ...legacy, status: 'ACTIVE', is_test: false });
-    controller = new PackagingTerminalBffController(ds.manager, {} as never, { assertActiveHouseOwnership: async () => undefined } as never);
+    controller = new PackagingTerminalBffController(ds.manager, {} as never, { resolve: async () => ({isGlobal:true}), assertActiveHouseOwnership: async () => undefined } as never);
   }, 30000);
   afterAll(async () => { if (ds?.isInitialized) await ds.destroy(); });
 
@@ -60,7 +66,7 @@ const dbUrl = process.env.PACKAGING_TEST_DATABASE_URL;
     return (await controller.receiveBatch({ shiftId, batchCode: `SRC-INTEGRATION-${++fixture}`, houseCode: 'HOUSE-INTEGRATION', totalQty: qty, receivedQty: qty }, req)).data;
   }
   function packing(code: string, shiftId: number, key: string, eggs = 30) {
-    return { shiftId, gradingCodes: [code], batches: [{ grade: 'GRADE_1', boxes: 1, eggs }], idempotencyKey: key };
+    return { shiftId, gradingCodes: [code], batches: [{ grade: 'GRADE_1', boxes: eggs / 30, eggs, specId: 'SPEC-INTEGRATION' }], idempotencyKey: key };
   }
 
   it('builds the terminal base tables before bootstrap and reverts only protection columns', async () => {
@@ -84,8 +90,8 @@ const dbUrl = process.env.PACKAGING_TEST_DATABASE_URL;
     }
   });
   it('opens test and real shifts on the same line while default context sees only the real shift', async () => {
-    realShift = (await controller.openShift({ lineId: 'LINE-INTEGRATION', shiftType: 'DAY' }, real)).data.id;
-    testShift = (await controller.openShift({ lineId: 'LINE-INTEGRATION', shiftType: 'DAY', reason: 'local integration' }, test)).data.id;
+    realShift = (await controller.openShift({ siteId: 'FARM-INTEGRATION', lineId: 'LINE-INTEGRATION', shiftType: 'DAY' }, real)).data.id;
+    testShift = (await controller.openShift({ siteId: 'FARM-INTEGRATION', lineId: 'LINE-INTEGRATION', shiftType: 'DAY', reason: 'local integration' }, test)).data.id;
     expect((await controller.getContext(real)).data.currentShift.id).toBe(realShift);
     expect((await controller.getContext(test)).data.currentShift.id).toBe(testShift);
     expect((await controller.getTodayShifts(real)).data.every((s: any) => s.is_test === false)).toBe(true);

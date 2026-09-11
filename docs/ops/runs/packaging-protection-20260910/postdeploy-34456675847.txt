@@ -1,0 +1,16 @@
+PASS REVISION checkout=492ba3c3a67b477e***40b7b5a8762164a80bfd7e api=492ba3c3a67b477e***40b7b5a8762164a80bfd7e web=492ba3c3a67b477e***40b7b5a8762164a80bfd7e
+{"at": "2026-09-10T08:44:01.544849+00:00", "section": "protection", "connection": "on", "transaction": "on"}
+{"grading": [{"id": 13, "status": "ACTIVE"}, {"id": 42, "status": "ACTIVE"}, {"id": 43, "status": "ACTIVE"}, {"id": 44, "status": "ACTIVE"}, {"id": 45, "status": "ACTIVE"}, {"id": 53, "status": "ACTIVE"}, {"id": 54, "status": "ACTIVE"}], "packing": [{"id": 21, "status": "ACTIVE", "is_test": false}, {"id": 25, "status": "ACTIVE", "is_test": false}, {"id": 26, "status": "ACTIVE", "is_test": false}, {"id": 27, "status": "ACTIVE", "is_test": false}, {"id": 28, "status": "ACTIVE", "is_test": false}], "section": "retained_targets", "sources": [{"id": 16, "status": "RECEIVED"}, {"id": 34, "status": "RECEIVED"}, {"id": 38, "status": "RECEIVED"}]}
+{"shifts": 0, "grading": 0, "packing": 0, "section": "test_counts", "sources": 0, "packing_void": 0}
+{"row": {"id": 370, "name": "ProtectPackagingVoidAndTestIsolation1789099201000", "timestamp": 1789099201000}, "section": "migration"}
+{"hash": "3cf89cb78648b6a0be73ee05c5a6586a", "count": 297, "section": "inventory_hash"}
+{"hash": "8bf9bb0111ac503e85eec8bf53e517df", "count": 252, "section": "ledger_hash"}
+PASS SQL file=scripts/ops/readonly-audits/packaging-protection-postdeploy-20260910.sql
+PASS HTTP name=packaging-real-context username=admin method=GET status=200
+PASS HTTP name=packaging-real-shifts username=admin method=GET status=200
+PASS HTTP name=packaging-test-shifts username=admin method=GET status=200
+PASS HTTP name=packaging-real-sources username=admin method=GET status=200
+PASS HTTP name=packaging-test-sources username=admin method=GET status=200
+PASS HTTP name=packaging-test-context username=admin method=GET status=200
+PASS HTTP name=packaging-test-inventory-denied username=admin method=GET status=409
+FAIL HTTP invalid input syntax for type smallint: "ACTIVE"

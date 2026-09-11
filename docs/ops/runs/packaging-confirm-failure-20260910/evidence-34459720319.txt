@@ -1,0 +1,44 @@
+PASS REVISION checkout=492ba3c3a67b477e***40b7b5a8762164a80bfd7e api=492ba3c3a67b477e***40b7b5a8762164a80bfd7e web=492ba3c3a67b477e***40b7b5a8762164a80bfd7e
+BEGIN
+SET
+SET
+{"at": "2026-09-10T09:17:21.241798+00:00", "section": "clock", "timezone": "UTC", "connection_ro": "on", "transaction_ro": "on"}
+{"last": null, "count": 0, "first": null, "section": "confirm_error_retention"}
+{"row": {"id": 34, "code": "PKG-20260910-7A55DFFA", "status": "ACTIVE", "is_test": false, "shift_id": 57, "voided_at": null, "voided_by": null, "created_at": "2026-09-10T09:11:18.712938", "total_eggs": 90, "total_boxes": 3, "void_reason": null, "batches_json": [{"eggs": 90, "spec": "精品礼盒(30枚/盒)", "boxes": 3, "grade": "GRADE_1", "specId": "PKG_PACK_SPEC_3"}], "grading_code": "GRD-20260910-3EA10B8B", "production_date": "2026-09-10", "grading_codes_json": ["GRD-20260910-3EA10B8B"]}, "section": "latest_packing"}
+{"row": {"id": 33, "code": "PKG-20260910-163616", "status": "ACTIVE", "is_test": false, "shift_id": 56, "voided_at": null, "voided_by": null, "created_at": "2026-09-10T07:42:43.617312", "total_eggs": 30, "total_boxes": 1, "void_reason": null, "batches_json": [{"eggs": 30, "spec": "精品礼盒(30枚/盒)", "boxes": 1, "grade": "GRADE_5", "specId": "PKG_PACK_SPEC_3"}], "grading_code": "GRD-20260910-0A3531C5", "production_date": "2026-09-10", "grading_codes_json": ["GRD-20260910-0A3531C5", "GRD-20260910-159E8CAF", "GRD-20260910-D1C991FA"]}, "section": "latest_packing"}
+{"row": {"id": 32, "code": "PKG-20260910-203573", "status": "ACTIVE", "is_test": false, "shift_id": 56, "voided_at": null, "voided_by": null, "created_at": "2026-09-10T00:30:03.574121", "total_eggs": 90, "total_boxes": 3, "void_reason": null, "batches_json": [{"eggs": 90, "spec": "精品礼盒(30枚/盒)", "boxes": 3, "grade": "GRADE_1", "specId": "PKG_PACK_SPEC_3"}], "grading_code": "GRD-20260910-180875", "production_date": "2026-09-10", "grading_codes_json": ["GRD-20260910-180875"]}, "section": "latest_packing"}
+{"row": {"id": 31, "code": "PKG-20260909-293183", "status": "ACTIVE", "is_test": false, "shift_id": 55, "voided_at": null, "voided_by": null, "created_at": "2026-09-09T08:58:13.183594", "total_eggs": 300, "total_boxes": 10, "void_reason": null, "batches_json": [{"eggs": 300, "spec": "精品礼盒(30枚/盒)", "boxes": 10, "grade": "GRADE_2", "specId": "PKG_PACK_SPEC_3"}], "grading_code": "GRD-20260909-265670", "production_date": "2026-09-09", "grading_codes_json": ["GRD-20260909-265670"]}, "section": "latest_packing"}
+{"row": {"id": 30, "code": "PKG-20260909-206420", "status": "ACTIVE", "is_test": false, "shift_id": 54, "voided_at": null, "voided_by": null, "created_at": "2026-09-09T02:33:26.420502", "total_eggs": 300, "total_boxes": 10, "void_reason": null, "batches_json": [{"eggs": 300, "spec": "精品礼盒(30枚/盒)", "boxes": 10, "grade": "GRADE_1", "specId": "PKG_PACK_SPEC_3"}], "grading_code": "GRD-20260909-136133", "production_date": "2026-09-09", "grading_codes_json": ["GRD-20260909-136133"]}, "section": "latest_packing"}
+{"row": {"id": 29, "code": "PKG-20260826-681779", "status": "ACTIVE", "is_test": false, "shift_id": 53, "voided_at": null, "voided_by": null, "created_at": "2026-08-26T07:18:01.779364", "total_eggs": 300, "total_boxes": 10, "void_reason": null, "batches_json": [{"eggs": 300, "spec": "精品礼盒(30枚/盒)", "boxes": 10, "grade": "GRADE_1", "specId": "PKG_PACK_SPEC_3"}], "grading_code": "GRD-20260826-674435", "production_date": "2026-08-26", "grading_codes_json": ["GRD-20260826-674435"]}, "section": "latest_packing"}
+{"row": {"id": 370, "name": "ProtectPackagingVoidAndTestIsolation1789099201000", "timestamp": 1789099201000}, "section": "latest_migrations"}
+{"row": {"id": 337, "name": "AddGradingVoidAudit1789099200000", "timestamp": 1789099200000}, "section": "latest_migrations"}
+{"row": {"id": 304, "name": "GovernPackagingGradingSubmissions1789012800000", "timestamp": 1789012800000}, "section": "latest_migrations"}
+{"row": {"id": 303, "name": "AddInventoryInboundDate1788943471000", "timestamp": 1788943471000}, "section": "latest_migrations"}
+{"row": {"id": 302, "name": "RejectNonFiniteCashBalances1788570000000", "timestamp": 1788570000000}, "section": "latest_migrations"}
+{"type": "boolean", "table": "pkg_work_shifts", "column": "is_test", "default": "false", "section": "protection_columns", "nullable": "NO"}
+{"type": "boolean", "table": "pkg_source_batches", "column": "is_test", "default": "false", "section": "protection_columns", "nullable": "NO"}
+{"type": "boolean", "table": "pkg_grading_records", "column": "is_test", "default": "false", "section": "protection_columns", "nullable": "NO"}
+{"type": "boolean", "table": "pkg_packing_records", "column": "is_test", "default": "false", "section": "protection_columns", "nullable": "NO"}
+{"type": "character varying", "table": "pkg_packing_records", "column": "status", "default": "'ACTIVE'::character varying", "section": "protection_columns", "nullable": "NO"}
+{"type": "text", "table": "pkg_packing_records", "column": "void_reason", "default": null, "section": "protection_columns", "nullable": "YES"}
+{"type": "timestamp with time zone", "table": "pkg_packing_records", "column": "voided_at", "default": null, "section": "protection_columns", "nullable": "YES"}
+{"type": "integer", "table": "pkg_packing_records", "column": "voided_by", "default": null, "section": "protection_columns", "nullable": "YES"}
+{"type": "character varying", "table": "pkg_packing_records", "column": "idempotency_key", "default": null, "section": "protection_columns", "nullable": "YES"}
+{"type": "character varying", "table": "pkg_packing_records", "column": "payload_hash", "default": null, "section": "protection_columns", "nullable": "YES"}
+{"name": "ck_packing_record_status", "section": "protection_constraint", "definition": "CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'VOID'::character varying])::text[])))"}
+{"section": "protection_index", "definition": "CREATE UNIQUE INDEX uq_packing_idempotency ON public.pkg_packing_records USING btree (idempotency_key) WHERE (idempotency_key IS NOT NULL)"}
+ROLLBACK
+PASS SQL file=scripts/ops/readonly-audits/packaging-confirm-failure-20260910.sql
+PACKAGING_CONFIRM_RETAINED_CONTAINER_LOGS (Docker UTC timestamps; last 240 matching/context lines, no assumed time window)
+API_CONTAINER_CREATED=2026-09-10T08:41:10.344549692Z STARTED=2026-09-10T08:41:10.543838479Z LOG_DRIVER=json-file
+2026-09-10T09:10:01.36604***42Z [warehouse/confirm][ERR] 包装库存生成失败 packingCode=PKG-20260910-163616: SKU 主数据未唯一生效：PRD-EGG-GRADE_5/GRADE_5/PKG_PACK_SPEC_3 NotFoundException: SKU 主数据未唯一生效：PRD-EGG-GRADE_5/GRADE_5/PKG_PACK_SPEC_3
+2026-09-10T09:10:01.366053905Z     at PackagingInventoryIntegrationService.resolveSku (/app/dist/modules/sales-v2/services/packaging-inventory-integration.service.js:334:19)
+2026-09-10T09:10:01.366055876Z     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-09-10T09:10:01.366057217Z     at async PackagingInventoryIntegrationService.generateSaleableFromOutputs (/app/dist/modules/sales-v2/services/packaging-inventory-integration.service.js:166:29)
+2026-09-10T09:10:01.366058550Z     at async PackagingInventoryIntegrationService.completeTerminalPacking (/app/dist/modules/sales-v2/services/packaging-inventory-integration.service.js:253:19)
+2026-09-10T09:10:01.3660599***Z     at async /app/dist/modules/bff/bff.controller.js:***48:29
+2026-09-10T09:10:01.366061147Z     at async EntityManager.transaction (/app/node_modules/.pnpm/typeorm@0.3.29_pg@8.20.0/node_modules/typeorm/entity-manager/EntityManager.js:75:28)
+2026-09-10T09:10:01.366062467Z     at async PackagingTerminalBffController.confirmHandover (/app/dist/modules/bff/bff.controller.js:***42:13)
+2026-09-10T09:11:32.898663362Z [Nest] 7  - 09/10/2026, 9:11:32 AM     LOG [EggInventoryService] [EggInv] 生产入库: EGG-20260910-00001 qty=90 expire=2026-10-10 sku=SKU-0001
+2026-09-10T09:11:32.898684605Z [Nest] 7  - 09/10/2026, 9:11:32 AM     LOG [PackagingInventoryIntegrationService] [PkgInv] 包装批次 PKG-20260910-7A55DFFA 入库完成 company=COMP-LAO-AGRI 可售批次=1 入库=90 隔离等级=0
+PASS PRODUCTION_BUSINESS_WRITES=0

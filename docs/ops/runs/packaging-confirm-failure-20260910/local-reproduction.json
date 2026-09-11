@@ -1,0 +1,16 @@
+{
+  "result": "PASS",
+  "exception": "NotFoundException",
+  "message": "SKU 主数据未唯一生效：PRD-EGG-GRADE_5/GRADE_5/PKG_PACK_SPEC_3",
+  "skuParameters": [
+    "PRD-EGG-GRADE_5",
+    "GRADE_5",
+    "PKG_PACK_SPEC_3"
+  ],
+  "inventoryCalls": 0,
+  "selectCalls": 14,
+  "productionConnections": 0,
+  "productionWrites": 0,
+  "proves": "current source rejects observed missing combination before inventory call",
+  "doesNotProve": "PostgreSQL rollback, production POST success, failed request location or operator"
+}

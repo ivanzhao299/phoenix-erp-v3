@@ -1,5 +1,6 @@
+import { resolvePackagingIdentity, PackagingIdentity } from '../../bff/packaging-readiness';
 import { assertPackingCanEnterInventory, lockPacking } from '../../bff/packaging-protection';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -61,7 +62,6 @@ export class PackagingInventoryIntegrationService {
   }
 
   private async resolveTerminalCompanyCode(siteCode: string | null, explicit?: string, mgr?: EntityManager): Promise<string> {
-    if (explicit) return explicit;
     if (siteCode) {
       const rows = await (mgr ?? this.ds).query(
         `SELECT company_code FROM ${OrgOwnershipService.FARM_TABLE}
@@ -69,24 +69,13 @@ export class PackagingInventoryIntegrationService {
           LIMIT 1`,
         [siteCode],
       );
-      if (rows[0]?.company_code) return rows[0].company_code;
+      if (rows[0]?.company_code) {
+        if (explicit && explicit !== rows[0].company_code) throw new ConflictException('公司与权威场站不匹配');
+        return rows[0].company_code;
+      }
       throw new NotFoundException(`权威场站 ${siteCode} 未关联有效公司，禁止猜测公司码入账`);
     }
-    return this.resolveCompanyCode(undefined, mgr);
-  }
-
-  /** 读取可售等级集合（product_grades.is_saleable=true） */
-  private async loadSaleableGrades(mgr?: EntityManager): Promise<Set<string>> {
-    const set = new Set<string>();
-    try {
-      const rows: Array<{ grade_code: string; is_saleable: boolean }> = await (mgr ?? this.ds).query(
-        `SELECT grade_code, is_saleable FROM product_grades WHERE status = 'ACTIVE'`,
-      );
-      for (const r of rows) if (r.is_saleable) set.add(r.grade_code);
-    } catch { /* product_grades 不可用 → 视为全部可售 */ }
-    // 无主数据时的安全默认：常见可售等级
-    if (set.size === 0) { ['AA', 'A', 'B', 'C', '0', '1', '2', '3'].forEach(g => set.add(g)); }
-    return set;
+    throw new ConflictException('包装班次缺权威场站，禁止猜测公司');
   }
 
   /**
@@ -103,7 +92,7 @@ export class PackagingInventoryIntegrationService {
    */
   async generateSaleableFromOutputs(
     refNo: string,
-    items: Array<{ grade: string; specCode?: string | null; specName?: string | null; qty: number }>,
+    items: Array<PackagingIdentity & { qty: number; boxes?: number }>,
     opts?: {
       companyCode?: string;
       siteCode?: string | null;
@@ -127,49 +116,50 @@ export class PackagingInventoryIntegrationService {
     mode?: string;
     skippedByMode?: boolean;
   }> {
+    if (!opts?.eggDate || !/^\d{4}-\d{2}-\d{2}$/.test(opts.eggDate)) throw new ConflictException('包装权威生产日期缺失或无效');
     if (!opts?.manager) return this.ds.transaction(manager => this.generateSaleableFromOutputs(refNo, items, { ...opts, manager }));
     await opts.manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
     await lockPacking(opts.manager, refNo);
     const terminalRows = await opts.manager.query(`SELECT code FROM pkg_packing_records WHERE code=$1`, [refNo]);
     if (terminalRows.length || refNo.startsWith('PKG-')) await assertPackingCanEnterInventory(opts.manager, refNo);
-    // ── 幂等键：该包装批次是否已生成过可售批次 ──────────────────────────────
-    const db = opts?.manager ?? this.ds;
-    const existing = await db.query(
-      `SELECT b.batch_no, b.product_code, b.quality_grade, b.qty, b.company_code,
-              b.warehouse_code, b.location_code,
-              COALESCE((SELECT SUM(l.qty_change) FROM inv_ledger l
-                         WHERE l.batch_no IN (SELECT batch_no FROM inv_batches
-                                               WHERE packaging_batch_ref = $1 AND source_type = 'PACKAGING')
-                           AND l.change_type = 'PACKAGING_INBOUND'), 0)::int AS ledger_qty
-         FROM inv_batches b
-        WHERE b.packaging_batch_ref = $1 AND b.source_type = 'PACKAGING'`,
-      [refNo],
-    );
-    if (existing.length > 0) {
-      const mismatchedLocation = existing.some((b: any) =>
-        (opts?.warehouseCode && b.warehouse_code !== opts.warehouseCode)
-        || (opts?.locationCode && b.location_code !== opts.locationCode));
-      if (mismatchedLocation) {
-        throw new Error(`包装批次 ${refNo} 已入账，但仓库/库位与本次交接不一致，禁止按幂等成功处理`);
-      }
-      const existingQty = existing.reduce((sum: number, b: any) => sum + Number(b.qty), 0);
-      if (Number(existing[0]?.ledger_qty || 0) !== existingQty) {
-        throw new Error(`包装批次 ${refNo} 的批次与流水数量不一致，禁止按幂等成功处理`);
-      }
-      this.logger.log(`[PkgInv] 包装批次 ${refNo} 已入库（幂等跳过），批次数=${existing.length}`);
-      return {
-        refNo,
-        idempotent: true,
-        companyCode: existing[0]?.company_code ?? 'ALL',
-        batches: existing.map((b: any) => ({
-          batchNo: b.batch_no, grade: b.quality_grade, qty: Number(b.qty), productCode: b.product_code,
-        })),
-        skippedNonSaleable: [],
-        totalInbound: existing.reduce((s: number, b: any) => s + Number(b.qty), 0),
-      };
+    const db = opts.manager;
+    const companyCode = await this.resolveCompanyCode(opts.companyCode, db);
+    // Resolve every output before the first inventory write, including historical JSON without identities.
+    const resolved = new Map<string, Awaited<ReturnType<typeof resolvePackagingIdentity>> & { qty: number }>();
+    for (const item of items) {
+      if (!Number.isSafeInteger(item.qty) || item.qty <= 0) throw new ConflictException('包装产出数量必须为正整数');
+      const identity = await resolvePackagingIdentity(db, item);
+      if (item.boxes !== undefined && item.qty !== item.boxes * identity.qtyPerUnit) throw new ConflictException('包装枚数与规格箱数不一致');
+      const key = `${identity.skuCode}/${identity.specCode}`;
+      const previous = resolved.get(key);
+      resolved.set(key, { ...identity, qty: (previous?.qty || 0) + item.qty });
     }
-
-    const companyCode = await this.resolveCompanyCode(opts?.companyCode, opts?.manager);
+    if (!resolved.size) throw new ConflictException('包装缺有效产出');
+    const existing = await db.query(`SELECT b.*, b.egg_date::text AS egg_date_text, b.inbound_date::text AS inbound_date_text FROM inv_batches b WHERE b.packaging_batch_ref=$1 OR b.source_no=$1`, [refNo]);
+    const ledger = await db.query(`SELECT l.* FROM inv_ledger l WHERE l.change_type='PACKAGING_INBOUND'
+      AND (l.ref_no=$1 OR l.batch_no=ANY($2::text[]))`, [refNo, existing.map((b: any) => b.batch_no)]);
+    if (existing.length || ledger.length) {
+      const expected = new Map(resolved);
+      for (const b of existing) {
+        const key = `${b.sku_code}/${b.spec_code}`;
+        const item = expected.get(key);
+        const entries = ledger.filter((l: any) => l.batch_no === b.batch_no);
+        if (!item || b.source_type !== 'PACKAGING' || b.packaging_batch_ref !== refNo
+          || (b.egg_date_text !== opts.eggDate || b.inbound_date_text !== opts.eggDate)
+          || b.product_code !== item.productCode || b.grade_code_std !== item.grade || Number(b.qty) !== item.qty
+          || b.company_code !== companyCode || b.warehouse_code !== opts.warehouseCode || b.location_code !== opts.locationCode
+          || entries.length !== 1 || entries.some((l: any) => l.ref_no !== refNo || Number(l.qty_change) !== item.qty
+            || l.sku_code !== item.skuCode || l.company_code !== companyCode
+            || l.warehouse_code !== opts.warehouseCode || l.location_code !== opts.locationCode)) {
+          throw new ConflictException('既有库存或流水与预期逐SKU数量/归属不一致，禁止补余或重建');
+        }
+        expected.delete(key);
+      }
+      if (expected.size || ledger.length !== existing.length) throw new ConflictException('既有入库证据不完整，禁止补余或重建');
+      return { refNo, idempotent: true, companyCode,
+        batches: existing.map((b: any) => ({ batchNo: b.batch_no, grade: b.grade_code_std, qty: Number(b.qty), productCode: b.product_code })),
+        skippedNonSaleable: [], totalInbound: existing.reduce((sum: number, b: any) => sum + Number(b.qty), 0) };
+    }
 
     // 包装完成遵守库存来源模式互斥：TEMP 模式由日产蛋入库负责库存，
     // 成品交接只落交接记录；PACKAGING 模式才由本链路生成可售库存。
@@ -185,40 +175,15 @@ export class PackagingInventoryIntegrationService {
         mode, skippedByMode: true,
       };
     }
-    if (mode !== 'PACKAGING_INBOUND') {
-      this.logger.warn(
-        `[PkgInv] 包装批次 ${refNo} 来自成品交接，覆盖 ${mode} 模式并生成统一库存；` +
-        '该交接以 packaging_batch_ref 保证幂等',
-      );
-    }
+    if (mode !== 'PACKAGING_INBOUND') throw new ConflictException('当前来源模式禁止包装生成库存');
 
-    const eggDate = opts?.eggDate || new Date().toISOString().slice(0, 10);
+    const eggDate = opts.eggDate;
     const collectionRef = opts?.collectionRef ?? null;
-    const saleable = await this.loadSaleableGrades(opts?.manager);
-
-    // 按 (grade, specCode, specName) 聚合；specCode 是新链路的权威标识。
-    const agg = new Map<string, { grade: string; specCode: string | null; specName: string | null; qty: number }>();
-    for (const it of items || []) {
-      const grade = String(it.grade || '').trim();
-      const qty = Math.max(0, Math.round(Number(it.qty) || 0));
-      if (!grade || qty === 0) continue;
-      const specCode = it.specCode ? String(it.specCode).trim() : null;
-      const specName = it.specName ? String(it.specName).trim() : null;
-      const key = `${grade}__${specCode ?? ''}__${specName ?? ''}`;
-      const cur = agg.get(key);
-      if (cur) cur.qty += qty; else agg.set(key, { grade, specCode, specName, qty });
-    }
-
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
     const skippedNonSaleable: Array<{ grade: string; qty: number }> = [];
-
-    for (const { grade, specCode: sourceSpecCode, specName, qty } of agg.values()) {
-      if (!saleable.has(grade)) { skippedNonSaleable.push({ grade, qty }); continue; }
-      const specCode = await this.resolveSpecCode(sourceSpecCode, specName, opts?.manager);
-      const productCode = `PRD-EGG-${grade}`;
-      const skuCode = await this.resolveSku(productCode, grade, specCode, opts?.manager);
-      const b = await this.createSaleableBatch(companyCode, eggDate, grade, qty, refNo, collectionRef, specCode, skuCode, opts);
-      batches.push(b);
+    for (const item of resolved.values()) {
+      batches.push(await this.createSaleableBatch(companyCode, eggDate, item.grade, item.qty, refNo,
+        collectionRef, item.specCode, item.skuCode, item.productCode, opts));
     }
 
     const totalInbound = batches.reduce((s, b) => s + b.qty, 0);
@@ -326,22 +291,21 @@ export class PackagingInventoryIntegrationService {
     }
 
     // R3：完整解析 batches_json（保留 spec），归一化等级码，按 (grade, spec) 形成 items
-    const batchesJson: Array<{ grade?: string; eggs?: number; spec?: string; specId?: string }> = (() => {
+    const batchesJson: Array<{ grade?: string; boxes?: number; eggs?: number; spec?: string; specId?: string; productCode?: string; skuCode?: string }> = (() => {
       const v = rec.batches_json;
       if (!v) return [];
       try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return []; }
     })();
     const keyMap = await this.buildGradeKeyMap(opts?.manager);
-    const items: Array<{ grade: string; specCode?: string | null; specName?: string | null; qty: number }> = [];
+    const items: Array<PackagingIdentity & { qty: number; boxes?: number }> = [];
     for (const b of batchesJson) {
       if (!b?.grade) continue;
       const g = keyMap[b.grade] ?? b.grade;
-      items.push({ grade: g, specCode: b.specId ?? null, specName: b.spec ?? null, qty: Number(b.eggs || 0) });
+      items.push({ boxes: b.boxes, productCode: b.productCode, skuCode: b.skuCode, grade: g, specCode: b.specId ?? null, specName: b.spec ?? null, qty: Number(b.eggs || 0) });
     }
 
-    const eggDate = rec.production_date
-      ? new Date(rec.production_date).toISOString().slice(0, 10)
-      : undefined;
+    const eggDate = rec.production_date_text ?? (typeof rec.production_date === 'string' ? rec.production_date.slice(0,10) : undefined);
+    if (!eggDate || !/^\d{4}-\d{2}-\d{2}$/.test(eggDate)) throw new ConflictException('包装业务日期无效');
     const collectionRef = rec.shift_id ? `SHIFT-${rec.shift_id}` : null;
     const companyCode = await this.resolveTerminalCompanyCode(rec.site_id ?? null, opts.companyCode, opts.manager);
 
@@ -404,7 +368,7 @@ export class PackagingInventoryIntegrationService {
                          WHERE l.batch_no IN (SELECT batch_no FROM matched_batches)
                            AND l.change_type = 'TEMP_PRODUCTION_INBOUND'), 0)::int AS ledger_qty
          FROM matched_batches m`,
-      [new Date(rec.production_date).toISOString().slice(0, 10), `SITE-${rec.site_id}`, rec.site_id],
+      [rec.production_date_text ?? rec.production_date, `SITE-${rec.site_id}`, rec.site_id],
     );
     const batchQty = Number(row?.batch_qty || 0);
     const ledgerQty = Number(row?.ledger_qty || 0);
@@ -420,39 +384,9 @@ export class PackagingInventoryIntegrationService {
   private async loadTerminalPackingContext(packingCode: string, mgr?: EntityManager): Promise<any | null> {
     const db = mgr ?? this.ds;
     await assertPackingCanEnterInventory(db, packingCode);
-    const rows = await db.query(`SELECT p.*, ws.site_id FROM pkg_packing_records p
+    const rows = await db.query(`SELECT p.*, p.production_date::text AS production_date_text, ws.site_id FROM pkg_packing_records p
       LEFT JOIN pkg_work_shifts ws ON ws.id=p.shift_id WHERE p.code=$1`, [packingCode]);
     return rows[0] ?? null;
-  }
-
-  /** 稳定编码优先；有规格输入却找不到唯一 ACTIVE 主数据时失败关闭。 */
-  private async resolveSpecCode(specCode: string | null, specName: string | null, mgr?: EntityManager): Promise<string | null> {
-    if (!specCode && !specName) return null;
-    const rows = specCode
-      ? await (mgr ?? this.ds).query(
-          `SELECT spec_code FROM packaging_specs WHERE spec_code = $1 AND status = 'ACTIVE'`, [specCode],
-        )
-      : await (mgr ?? this.ds).query(
-          `SELECT spec_code FROM packaging_specs WHERE spec_name = $1 AND status = 'ACTIVE'`, [specName],
-        );
-    if (rows.length !== 1) {
-      throw new NotFoundException(`包装规格主数据未唯一生效：${specCode ?? specName}`);
-    }
-    return rows[0].spec_code;
-  }
-
-  /** 按权威 product + grade + spec 解析唯一 ACTIVE SKU；缺失或重复均阻断入账。 */
-  private async resolveSku(productCode: string, gradeCode: string, specCode: string | null, mgr?: EntityManager): Promise<string | null> {
-    if (!specCode) return null;
-    const rows = await (mgr ?? this.ds).query(
-      `SELECT sku_code FROM product_skus
-        WHERE product_code = $1 AND grade_code = $2 AND spec_code = $3 AND status = 'ACTIVE'`,
-      [productCode, gradeCode, specCode],
-    );
-    if (rows.length !== 1) {
-      throw new NotFoundException(`SKU 主数据未唯一生效：${productCode}/${gradeCode}/${specCode}`);
-    }
-    return rows[0].sku_code;
   }
 
   /** 构建等级归一化映射：PKG_EGG_GRADE 字典 config_json.code/terminalCode → dict_code */
@@ -485,12 +419,9 @@ export class PackagingInventoryIntegrationService {
     collectionRef: string | null,
     specCode: string | null,
     skuCode: string | null,
+    productCode: string,
     opts?: { warehouseCode?: string; locationCode?: string; manager?: EntityManager },
   ): Promise<{ batchNo: string; grade: string; qty: number; productCode: string }> {
-    const productCode = `PRD-EGG-${gradeCode}`;
-    // R3：写入 spec_code（按规格）+ sku_code（grade+spec 解析）。
-    //   product_skus.product_code 已对齐 PRD-EGG-{grade}，故即使 createProductionBatch 以 SKU 反解
-    //   product_code，也与 PATH B(product+grade) 一致；sku_code 为空时回退 PATH B。
     const batch = await this.eggInv.createProductionBatch({
       companyCode,
       warehouseCode: opts?.warehouseCode,

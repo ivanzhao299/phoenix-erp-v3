@@ -1,0 +1,11 @@
+[Nest] 2492163  - 09/10/2026, 5:24:02 PM     LOG [PackagingInventoryIntegrationService] [PkgInv] 包装批次 PKG-1 当前为 TEMP_PRODUCTION_INBOUND 模式，跳过包装可售入库（互斥，防双写）
+[Nest] 2492163  - 09/10/2026, 5:24:02 PM     LOG [PackagingInventoryIntegrationService] [PkgInv] 包装批次 PKG-1 入库完成 company=COMP-1 可售批次=1 入库=300 隔离等级=0
+[Nest] 2492163  - 09/10/2026, 5:24:02 PM     LOG [PackagingInventoryIntegrationService] [PkgInv] 包装批次 PKG-1 入库完成 company=COMP-1 可售批次=1 入库=30 隔离等级=0
+[Nest] 2492163  - 09/10/2026, 5:24:02 PM     LOG [PackagingInventoryIntegrationService] [PkgInv] 包装批次 PKG-1 入库完成 company=COMP-1 可售批次=1 入库=300 隔离等级=0
+[Nest] 2492163  - 09/10/2026, 5:24:02 PM     LOG [PackagingInventoryIntegrationService] [PkgInv] 包装批次 PKG-1 当前为 TEMP_PRODUCTION_INBOUND 模式，跳过包装可售入库（互斥，防双写）
+
+Test Suites: 2 passed, 2 total
+Tests:       30 passed, 30 total
+Snapshots:   0 total
+Time:        3.265 s, estimated 6 s
+Ran all test suites matching src/modules/sales-v2/services/packaging-inventory-integration.service.spec.ts|src/modules/bff/bff.controller.spec.ts.

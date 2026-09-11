@@ -283,4 +283,12 @@ if [ "$sql_path" = 'scripts/ops/readonly-audits/credit-evaluation-so-20260903-00
     echo 'NO_RETAINED_CREDIT_EVALUATION_LOG_EVIDENCE (container log window may have rotated)'
   fi
 fi
+if [ "$sql_path" = 'scripts/ops/readonly-audits/packaging-confirm-failure-20260910.sql' ]; then
+  echo 'PACKAGING_CONFIRM_RETAINED_CONTAINER_LOGS (Docker UTC timestamps; last 240 matching/context lines, no assumed time window)'
+  docker inspect -f 'API_CONTAINER_CREATED={{.Created}} STARTED={{.State.StartedAt}} LOG_DRIVER={{.HostConfig.LogConfig.Type}}' phoenix-v3-api
+  docker logs --timestamps phoenix-v3-api 2>&1 | awk '
+    /warehouse\/confirm|包装库存生成失败|库存生成失败|QueryFailedError|deadlock detected|lock timeout/ { remaining=18 }
+    remaining > 0 { print; remaining-- }
+  ' | tail -n 240
+fi
 echo 'PASS PRODUCTION_BUSINESS_WRITES=0'

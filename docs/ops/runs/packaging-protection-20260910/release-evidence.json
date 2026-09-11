@@ -1,0 +1,148 @@
+{
+  "pr": 228,
+  "mergeRevision": "492ba3c3a67b477e2240b7b5a8762164a80bfd7e",
+  "reviewedHead": "b668b8b30476d3197a9246b34577e8186e32d011",
+  "ciChecks": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-10T08:27:03Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692044/job/102798326832",
+      "name": "Typecheck, Build, Basic Tests",
+      "startedAt": "2026-09-10T08:21:33Z",
+      "status": "COMPLETED",
+      "workflowName": "AI Delivery CI Build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-10T08:21:40Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692070/job/102798248776",
+      "name": "Static Security And Freeze Gates",
+      "startedAt": "2026-09-10T08:21:16Z",
+      "status": "COMPLETED",
+      "workflowName": "AI Delivery CI Security"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-10T08:21:31Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692050/job/102798248318",
+      "name": "Runtime Smoke",
+      "startedAt": "2026-09-10T08:21:17Z",
+      "status": "COMPLETED",
+      "workflowName": "AI Delivery CI Smoke"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-10T08:22:17Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692030/job/102798248571",
+      "name": "Vitest (apps/web)",
+      "startedAt": "2026-09-10T08:21:16Z",
+      "status": "COMPLETED",
+      "workflowName": "CI Web Unit Tests"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-10T08:21:33Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692019/job/102798285183",
+      "name": "Detect change scope",
+      "startedAt": "2026-09-10T08:21:24Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD — Build & Deploy"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-10T08:24:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692079/job/102798248440",
+      "name": "regression",
+      "startedAt": "2026-09-10T08:21:16Z",
+      "status": "COMPLETED",
+      "workflowName": "V3 Regression Suite"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-10T08:24:55Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692019/job/102798335396",
+      "name": "Type-check & Regression",
+      "startedAt": "2026-09-10T08:21:35Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD — Build & Deploy"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-10T08:21:33Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692019/job/102798337046",
+      "name": "Deploy · fast-css (CSS hot patch)",
+      "startedAt": "2026-09-10T08:21:33Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD — Build & Deploy"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-10T08:24:55Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692019/job/102799308794",
+      "name": "Build & Push ${{ matrix.target }}",
+      "startedAt": "2026-09-10T08:24:55Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD — Build & Deploy"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-10T08:24:56Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/34454692019/job/102799311420",
+      "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+      "startedAt": "2026-09-10T08:24:56Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD — Build & Deploy"
+    }
+  ],
+  "mainBuildRun": 34455319826,
+  "fullDeployRun": 34455324330,
+  "dependencyAuditRun": 34452868722,
+  "schemaLogRun": 34450975790,
+  "localAndCiVerification": {
+    "NODE_ENV": "test",
+    "apiJestPassed": 833,
+    "apiConditionalSkipped": 14,
+    "webVitestPassed": 577,
+    "postgres18SuitePassed": 13,
+    "apiTscExit": 0,
+    "webTscExit": 0,
+    "scopeAuditMatches": [
+      0,
+      0
+    ],
+    "migrationGateCount": 81
+  },
+  "productionPostExecuted": false,
+  "historicalCleanupExecuted": false,
+  "additionalDependencyDispositionExecuted": false,
+  "fullDeployConclusion": "success",
+  "postdeployAuditRun": 34457134691,
+  "postdeployAuditConclusion": "success",
+  "finalDependencyAuditRun": 34456716213,
+  "finalDependencyAuditConclusion": "success",
+  "failedPostdeployAuditRun": 34456675847,
+  "failedPostdeployReason": "readonly sample query used ACTIVE against smallint sys_user.status; fixed to 1, nine HTTP assertions passed on rerun",
+  "productionBusinessDml": 0,
+  "productionTestRows": 0,
+  "productionPackingVoidRows": 0,
+  "readonlyBundleRevision": "af7e63cb",
+  "logMasking": "GitHub masks substring in revision and handover 22 numeric id; preserved, not treated as drift. Full revision from merge/deploy metadata.",
+  "inventory": {
+    "count": 297,
+    "hash": "3cf89cb78648b6a0be73ee05c5a6586a"
+  },
+  "ledger": {
+    "count": 252,
+    "hash": "8bf9bb0111ac503e85eec8bf53e517df"
+  }
+}
