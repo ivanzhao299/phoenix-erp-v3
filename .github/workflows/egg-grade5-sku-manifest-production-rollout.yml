@@ -12,13 +12,27 @@ jobs:
     if: inputs.phase == 'preflight'
     environment: production-readonly
     runs-on: ubuntu-latest
-    env: {PRODUCTION_BUSINESS_WRITES: '0'}
+    env:
+      PRODUCTION_BUSINESS_WRITES: '0'
+      PGHOST: ${{ secrets.READONLY_DB_HOST }}
+      PGPORT: ${{ secrets.READONLY_DB_PORT }}
+      PGUSER: ${{ secrets.READONLY_DB_USER }}
+      PGDATABASE: ${{ secrets.READONLY_DB_NAME }}
+      PGPASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}" | tee manifest-hash.json
       - run: test "$(node -e "console.log(require('./manifest-hash.json').sha256)")" = "${{ inputs.manifest_sha256 }}"
       - run: test "${{ inputs.confirmation }}" = 'READONLY'
-      - run: ASSERTION_SQL_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql HTTP_ASSERTIONS_PATH= AUDIT_RUN_ID="${{ github.run_id }}" AUDIT_BUNDLE_DIR=. NODE_ENV=test bash scripts/ops/run-production-readonly-audit.sh
+      - name: Run read-only preflight
+        run: ASSERTION_SQL_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql HTTP_ASSERTIONS_PATH= AUDIT_RUN_ID="${{ github.run_id }}" AUDIT_BUNDLE_DIR=. NODE_ENV=test bash scripts/ops/run-production-readonly-audit.sh | tee grade5-preflight.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: grade5-preflight-${{ github.run_id }}
+          path: grade5-preflight.log
+          if-no-files-found: error
+          retention-days: 30
   apply:
     if: inputs.phase == 'apply'
     environment: production-business-write
@@ -34,7 +48,13 @@ jobs:
     if: inputs.phase == 'verify'
     environment: production-readonly
     runs-on: ubuntu-latest
-    env: {PRODUCTION_BUSINESS_WRITES: '0'}
+    env:
+      PRODUCTION_BUSINESS_WRITES: '0'
+      PGHOST: ${{ secrets.READONLY_DB_HOST }}
+      PGPORT: ${{ secrets.READONLY_DB_PORT }}
+      PGUSER: ${{ secrets.READONLY_DB_USER }}
+      PGDATABASE: ${{ secrets.READONLY_DB_NAME }}
+      PGPASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - run: ASSERTION_SQL_PATH=scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql HTTP_ASSERTIONS_PATH= AUDIT_RUN_ID="${{ github.run_id }}" AUDIT_BUNDLE_DIR=. NODE_ENV=test bash scripts/ops/run-production-readonly-audit.sh
