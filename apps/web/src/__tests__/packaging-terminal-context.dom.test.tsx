@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
-import React, { act } from 'react';
+import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
+import { act } from 'react-dom/test-utils';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' } as any, loading: false }, exact: vi.fn(), summary: vi.fn(), active: vi.fn(), close: vi.fn(), t: (_key: string, text: string) => text }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ ...mocks.auth, hasPermission: () => true, logout: vi.fn() }) }));
