@@ -21,7 +21,7 @@ validate_path "$sql_path" '.sql'
 validate_path "$http_path" '.http.json'
 # Defense in depth: readonly bundles may never contain schema or business writes.
 if [ -n "$sql_path" ]; then
-  if grep -Eiq '(^|[^[:alnum:]_])(INSERT|UPDATE|DELETE|MERGE|TRUNCATE|CREATE|ALTER|DROP|GRANT|REVOKE|VACUUM|ANALYZE)([^[:alnum:]_]|$)' "$bundle_dir/$sql_path"; then
+  if perl -0pe "s/'(?:''|[^'])*'//g" "$bundle_dir/$sql_path" | grep -Eiq '(^|[^[:alnum:]_])(INSERT|UPDATE|DELETE|MERGE|TRUNCATE|CREATE|ALTER|DROP|GRANT|REVOKE|VACUUM|ANALYZE)([[:space:]]|;|$)'; then
     echo 'FAIL readonly SQL contains forbidden DDL/DML' >&2; exit 2
   fi
 fi
