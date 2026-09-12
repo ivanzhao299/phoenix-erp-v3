@@ -105,8 +105,11 @@ psql_ro() {
   docker inspect --format '{{.Id}}' "$readonly_db_container" >/dev/null 2>&1 || {
     echo 'FAIL readonly database container was not found' >&2; return 2;
   }
+  # Match the sanctioned container pattern (deploy.yml / ci-smoke.yml / packaging audits):
+  # authenticate as the container's POSTGRES_USER instead of the exec user (os root), which
+  # otherwise yields `FATAL: role "root" does not exist` on the production db container.
   docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' "$readonly_db_container" \
-    psql -X -v ON_ERROR_STOP=1 -P pager=off
+    sh -c 'exec psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "${POSTGRES_DB:-$POSTGRES_USER}"'
 }
 
 if [ -n "$sql_path" ]; then
