@@ -185,6 +185,7 @@ jobs:
         run: |
           PHASE='${{ inputs.phase }}' INPUT='${{ inputs.confirmation }}' bash -euo pipefail -c '
           case "$PHASE" in
+            preflight)     EXPECTED="READONLY" ;;
             apply)         EXPECTED="APPLY-EGG-GRADE5-MANIFEST-20260911" ;;
             dry-run)       EXPECTED="DRYRUN-EGG-GRADE5-MANIFEST-20260911" ;;
             rollback-soft) EXPECTED="ROLLBACK-SOFT-EGG-GRADE5-MANIFEST-20260911" ;;
