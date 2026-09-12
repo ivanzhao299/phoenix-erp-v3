@@ -22,7 +22,7 @@ BEGIN
        AND status='ACTIVE') <> 7 THEN
     RAISE EXCEPTION 'SR-G3 legacy 7 rows not intact — ABORT';
   END IF;
-  IF (SELECT count(*) FROM product_skus) <> 27 THEN
+  IF (SELECT count(*) FROM product_skus) <> 85 THEN
     RAISE EXCEPTION 'SR-G4 unexpected table total (expected 27)';
   END IF;
 END
@@ -45,7 +45,7 @@ BEGIN
        AND status='ACTIVE') <> 7 THEN
     RAISE EXCEPTION 'SR-P2 legacy rows changed';
   END IF;
-  IF (SELECT count(*) FROM product_skus) <> 27 THEN
+  IF (SELECT count(*) FROM product_skus) <> 85 THEN
     RAISE EXCEPTION 'SR-P3 total changed (soft rollback must not delete)';
   END IF;
 END

@@ -11,7 +11,7 @@
 #   EXPECTED_REVISION   full git SHA the checkout must be fast-forwarded to
 #   APPLY_KIND          apply | dry-run | rollback-soft | rollback-hard
 #   MANIFEST_SHA256     64-hex manifest hash (remark audit chain)
-#   EXPECTED_COUNTS     JSON: {"canonical_before":0,"legacy_g5":7,"total_skus":26,
+#   EXPECTED_COUNTS     JSON: {"canonical_before":0,"legacy_g5":7,"total_skus":84,
 #                        "mst_egg_active":1,"grade5_active":1,"spec3_active":1}
 set -euo pipefail
 
@@ -131,8 +131,8 @@ BEGIN
   IF (SELECT count(*) FROM product_skus WHERE product_code='EGG' AND grade_code='GRADE_5' AND spec_code='PKG_PACK_SPEC_3') <> 0 THEN
     RAISE EXCEPTION 'DRYRUN canonical row visible after ROLLBACK — leak!';
   END IF;
-  IF (SELECT count(*) FROM product_skus) <> 26 THEN
-    RAISE EXCEPTION 'DRYRUN total != 26 after ROLLBACK';
+  IF (SELECT count(*) FROM product_skus) <> 84 THEN
+    RAISE EXCEPTION 'DRYRUN total != 84 after ROLLBACK';
   END IF;
   IF (SELECT count(*) FROM product_skus WHERE product_code='PRD-EGG-5' AND grade_code='GRADE_5') <> 7 THEN
     RAISE EXCEPTION 'DRYRUN legacy drifted';
@@ -141,7 +141,7 @@ END
 $assert$;
 ROLLBACK;
 SQL
-    echo 'PASS POST_VERIFY dry-run zero-commit (canonical=0, total=26, legacy=7)'
+    echo 'PASS POST_VERIFY dry-run zero-commit (canonical=0, total=84, legacy=7)'
     # evidence dump: production snapshot (canonical still 0 rows — V5 would rightly fail here)
     psql_read < 'scripts/ops/readonly-audits/egg-grade5-production-snapshot.sql'
     echo 'PASS POST_VERIFY dry-run snapshot evidence captured'
@@ -156,8 +156,8 @@ BEGIN
   IF (SELECT count(*) FROM product_skus WHERE sku_code='EGG-GRADE_5-PKG_PACK_SPEC_3' AND status='DISABLED') <> 1 THEN
     RAISE EXCEPTION 'SOFT canonical not DISABLED';
   END IF;
-  IF (SELECT count(*) FROM product_skus) <> 27 THEN
-    RAISE EXCEPTION 'SOFT total != 27';
+  IF (SELECT count(*) FROM product_skus) <> 85 THEN
+    RAISE EXCEPTION 'SOFT total != 85';
   END IF;
   IF (SELECT count(*) FROM product_skus WHERE product_code='PRD-EGG-5' AND grade_code='GRADE_5' AND status='ACTIVE') <> 7 THEN
     RAISE EXCEPTION 'SOFT legacy drifted';
@@ -166,7 +166,7 @@ END
 $assert$;
 ROLLBACK;
 SQL
-    echo 'PASS POST_VERIFY soft rollback (canonical DISABLED, total=27, legacy=7)'
+    echo 'PASS POST_VERIFY soft rollback (canonical DISABLED, total=85, legacy=7)'
     ;;
   rollback-hard)
     docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' "$db_container" \
@@ -178,8 +178,8 @@ BEGIN
   IF (SELECT count(*) FROM product_skus WHERE sku_code='EGG-GRADE_5-PKG_PACK_SPEC_3') <> 0 THEN
     RAISE EXCEPTION 'HARD canonical still present';
   END IF;
-  IF (SELECT count(*) FROM product_skus) <> 26 THEN
-    RAISE EXCEPTION 'HARD total != 26';
+  IF (SELECT count(*) FROM product_skus) <> 84 THEN
+    RAISE EXCEPTION 'HARD total != 84';
   END IF;
   IF (SELECT count(*) FROM product_skus WHERE product_code='PRD-EGG-5' AND grade_code='GRADE_5') <> 7 THEN
     RAISE EXCEPTION 'HARD legacy drifted';
@@ -188,7 +188,7 @@ END
 $assert$;
 ROLLBACK;
 SQL
-    echo 'PASS POST_VERIFY hard rollback (canonical gone, total=26, legacy=7)'
+    echo 'PASS POST_VERIFY hard rollback (canonical gone, total=84, legacy=7)'
     ;;
 esac
 

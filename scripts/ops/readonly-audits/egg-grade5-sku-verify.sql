@@ -55,7 +55,7 @@ BEGIN
     RAISE EXCEPTION 'V6 legacy GRADE_5 row count != 7';
   END IF;
   -- V7 total = baseline(26) + 1
-  IF (SELECT count(*) FROM product_skus) <> 27 THEN
+  IF (SELECT count(*) FROM product_skus) <> 85 THEN
     RAISE EXCEPTION 'V7 product_skus total != 27';
   END IF;
   -- V8/V9 uniqueness intact

@@ -1,0 +1,14 @@
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL statement_timeout='30s';
+SET LOCAL lock_timeout='5s';
+SELECT 'identity' AS section, current_database() AS database_name, current_user AS db_user, inet_server_addr() AS server_addr, inet_server_port() AS server_port, current_setting('search_path') AS search_path, clock_timestamp() AS transaction_timestamp;
+SELECT 'sku_total' AS section, count(*) AS total FROM product_skus;
+SELECT 'distribution' AS section, product_code, grade_code, spec_code, status, count(*) AS count FROM product_skus GROUP BY 1,2,3,4,5 ORDER BY 2,3,4,5;
+SELECT 'canonical' AS section, count(*) AS count FROM product_skus WHERE product_code='EGG' AND grade_code='GRADE_5' AND spec_code='PKG_PACK_SPEC_3';
+SELECT 'prd_egg_grade5_rows' AS section, to_jsonb(s) FROM product_skus s WHERE product_code='PRD-EGG-5' AND grade_code='GRADE_5' ORDER BY sku_code;
+SELECT 'other_skus' AS section, product_code, grade_code, spec_code, status, count(*) AS count, string_agg(sku_code, ', ' ORDER BY sku_code) AS sku_codes FROM product_skus WHERE NOT (product_code='EGG' AND grade_code='GRADE_5' AND spec_code='PKG_PACK_SPEC_3') GROUP BY 2,3,4,5 ORDER BY 2,3,4,5;
+SELECT 'constraints' AS section, tc.constraint_name, tc.constraint_type, kcu.column_name FROM information_schema.table_constraints tc LEFT JOIN information_schema.key_column_usage kcu USING (constraint_catalog,constraint_schema,constraint_name,table_name) WHERE tc.table_schema=current_schema() AND tc.table_name='product_skus' ORDER BY 2,3,4;
+SELECT 'indexes' AS section, indexname,indexdef FROM pg_indexes WHERE schemaname=current_schema() AND tablename='product_skus' ORDER BY indexname;
+SELECT 'table_stats' AS section, s.schemaname,s.relname,s.n_live_tup,s.n_dead_tup,s.last_analyze,s.last_autoanalyze,s.last_vacuum,s.last_autovacuum FROM pg_stat_user_tables s WHERE s.relname='product_skus';
+SELECT 'activity' AS section, pid, usename, application_name, client_addr, state, query_start, xact_start, wait_event_type, wait_event FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() ORDER BY query_start;
+ROLLBACK;

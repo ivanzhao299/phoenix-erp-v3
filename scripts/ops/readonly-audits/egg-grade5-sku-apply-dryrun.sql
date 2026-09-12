@@ -39,8 +39,8 @@ BEGIN
     RAISE EXCEPTION 'A5 legacy GRADE_5 SKU baseline drifted (expected 7)';
   END IF;
   -- A6 whole-table baseline frozen (guards concurrent writes)
-  IF (SELECT count(*) FROM product_skus) <> 26 THEN
-    RAISE EXCEPTION 'A6 product_skus total baseline drifted (expected 26)';
+  IF (SELECT count(*) FROM product_skus) <> 84 THEN
+    RAISE EXCEPTION 'A6 product_skus total baseline drifted (expected 84)';
   END IF;
 END
 $assert$;
@@ -87,8 +87,8 @@ BEGIN
        AND status='ACTIVE') <> 7 THEN
     RAISE EXCEPTION 'P2 legacy 7 rows changed';
   END IF;
-  IF (SELECT count(*) FROM product_skus) <> 27 THEN
-    RAISE EXCEPTION 'P3 product_skus total after != 27';
+  IF (SELECT count(*) FROM product_skus) <> 85 THEN
+    RAISE EXCEPTION 'P3 product_skus total after != 85';
   END IF;
   IF (SELECT count(*) FROM (SELECT 1 FROM product_skus
        GROUP BY product_code, grade_code, spec_code HAVING count(*) > 1) d) <> 0 THEN

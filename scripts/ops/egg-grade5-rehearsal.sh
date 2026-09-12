@@ -32,7 +32,7 @@ step "fixture before-image"
 psqlx < scripts/ops/egg-grade5-rehearsal-fixture.sql 2>&1 | tee "$OUT/00-fixture.log"
 psqlx -tA <<< "SELECT 'fixture: total='||count(*)||' legacy_g5='||count(*) FILTER (WHERE product_code='PRD-EGG-5' AND grade_code='GRADE_5')||' canonical='||count(*) FILTER (WHERE product_code='EGG' AND grade_code='GRADE_5' AND spec_code='PKG_PACK_SPEC_3') FROM product_skus;" | tee -a "$SUMMARY"
 
-step "baseline assertion (canonical=0, legacy=7, total=26)"
+step "baseline assertion (canonical=0, legacy=7, total=84)"
 psqlx 2>&1 <<'SQL' | tee "$OUT/01-baseline.log"
 DO $assert$ BEGIN
   IF (SELECT count(*) FROM product_skus WHERE product_code='EGG' AND grade_code='GRADE_5' AND spec_code='PKG_PACK_SPEC_3') <> 0 THEN RAISE EXCEPTION 'baseline canonical != 0'; END IF;
@@ -72,7 +72,7 @@ docker exec -i -e RUN_ID="$RUN_ID" "$CNAME" \
   sh -c 'exec psql -X -v ON_ERROR_STOP=1 -P pager=off -U postgres -d phoenix_erp -v run_id="$RUN_ID"' \
   < scripts/ops/readonly-audits/egg-grade5-sku-rollback-soft.sql 2>&1 | tee "$OUT/06-rollback-soft.log"
 
-step "post-soft state (DISABLED=1, total=27, legacy=7)"
+step "post-soft state (DISABLED=1, total=85, legacy=7)"
 psqlx 2>&1 <<'SQL' | tee "$OUT/07-post-soft.log"
 DO $assert$ BEGIN
   IF (SELECT count(*) FROM product_skus WHERE sku_code='EGG-GRADE_5-PKG_PACK_SPEC_3' AND status='DISABLED') <> 1 THEN RAISE EXCEPTION 'soft: not DISABLED'; END IF;
@@ -87,7 +87,7 @@ docker exec -i -e RUN_ID="$RUN_ID" "$CNAME" \
   sh -c 'exec psql -X -v ON_ERROR_STOP=1 -P pager=off -U postgres -d phoenix_erp -v run_id="$RUN_ID"' \
   < scripts/ops/readonly-audits/egg-grade5-sku-rollback-hard.sql 2>&1 | tee "$OUT/08-rollback-hard.log"
 
-step "post-hard baseline (canonical=0, total=26, legacy=7)"
+step "post-hard baseline (canonical=0, total=84, legacy=7)"
 psqlx 2>&1 <<'SQL' | tee "$OUT/09-post-hard.log"
 DO $assert$ BEGIN
   IF (SELECT count(*) FROM product_skus WHERE sku_code='EGG-GRADE_5-PKG_PACK_SPEC_3') <> 0 THEN RAISE EXCEPTION 'hard: canonical still present'; END IF;
