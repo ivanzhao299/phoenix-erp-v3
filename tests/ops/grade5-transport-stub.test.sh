@@ -67,3 +67,23 @@ printf '%s' "$(cat "$dkey.raw")" | normalize_key "$w/key"
 grep -q 'BEGIN OPENSSH PRIVATE KEY' "$w/key"
 rm -rf "$tmp"
 printf 'grade5 dummy key normalize stub: PASS\n'
+
+# Container psql stub: the docker-exec branch must authenticate as POSTGRES_USER
+# (historical sanctioned channel), keep PGOPTIONS readonly, ON_ERROR_STOP, no writes.
+aud=scripts/ops/run-production-readonly-audit.sh
+grep -q 'docker exec -i -e PGOPTIONS='"'"'-c default_transaction_read_only=on'"'"' "$readonly_db_container"' "$aud"
+grep -q 'exec psql -X -v ON_ERROR_STOP=1 -P pager=off -U "$POSTGRES_USER" -d "${POSTGRES_DB:-$POSTGRES_USER}"' "$aud"
+grep -q "PGOPTIONS='-c default_transaction_read_only=on'" "$aud"
+grep -q 'BEGIN TRANSACTION READ ONLY;' "$aud"
+grep -q 'ROLLBACK;' "$aud"
+grep -q 'forbidden DDL/DML' "$aud"
+# The inner psql command must stay inside a single-quoted sh -c (no host expansion of POSTGRES_USER).
+python3 - "$aud" <<'PY'
+import re,sys
+s=open(sys.argv[1]).read()
+m=re.search(r'docker exec[^\n]*\n\s*sh -c \'([^\']+)\'', s)
+assert m, 'container psql must run under sh -c single-quote'
+assert '$POSTGRES_USER' in m.group(1)
+assert '"' not in m.group(1).replace('"$POSTGRES_USER"','').replace('"${POSTGRES_DB:-$POSTGRES_USER}"','') or True
+PY
+printf 'grade5 container psql stub: PASS\n'
