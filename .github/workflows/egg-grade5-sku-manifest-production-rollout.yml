@@ -26,10 +26,13 @@ jobs:
       - run: test "$(node -e "console.log(require('./manifest-hash.json').sha256)")" = "${{ inputs.manifest_sha256 }}"
       - name: Require full revision
         run: |
-          case '${{ inputs.revision }}' in
-            [0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]) ;;
-            *) echo 'FAIL revision must be full 40-char SHA' >&2; exit 1;;
-          esac
+          REVISION='${{ inputs.revision }}'
+          if [[ "$REVISION" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            :
+          else
+            echo 'FAIL revision must be full 40-char SHA' >&2
+            exit 1
+          fi
       - run: test "${{ inputs.confirmation }}" = 'READONLY'
       - name: Run isolated audit over native SSH and fetch strict artifacts
         id: execute
