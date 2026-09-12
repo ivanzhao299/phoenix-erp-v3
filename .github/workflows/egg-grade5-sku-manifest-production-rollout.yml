@@ -52,6 +52,8 @@ jobs:
           : "${DEPLOY_SSH_KEY:=}"; : "${DEPLOY_PROXY_KEY:=}"; : "${DEPLOY_PROXY_HOST:=}"; : "${DEPLOY_PROXY_USER:=}"; : "${GITHUB_OUTPUT:=/dev/null}"
           normalize_key() { tr -d '\r' <&0 >"$1"; printf '\n' >>"$1"; chmod 600 "$1"; }
           valid_pem_key() { test -s "$1" && grep -q 'BEGIN .*PRIVATE KEY' "$1" && grep -q 'END .*PRIVATE KEY' "$1"; }
+           printf '%s' "$DEPLOY_SSH_KEY" | normalize_key "$w/key" || key_rc=$?
+           printf '%s' "$DEPLOY_PROXY_KEY" | normalize_key "$w/proxy" || proxy_key_rc=$?
           if ! valid_pem_key "$w/key" || { [ -n "$DEPLOY_PROXY_HOST" ] && ! valid_pem_key "$w/proxy"; }; then
             key_rc=2; [ -n "$DEPLOY_PROXY_HOST" ] && proxy_key_rc=2; ssh_rc=2; result_rc=125; log_rc=125; keyscan_rc=125; transport_rc=2
             printf 'FAIL invalid SSH private-key PEM; network transport skipped\n' > grade5-preflight.log
@@ -288,6 +290,8 @@ jobs:
           : "${DEPLOY_SSH_KEY:=}"; : "${DEPLOY_PROXY_KEY:=}"; : "${DEPLOY_PROXY_HOST:=}"; : "${DEPLOY_PROXY_USER:=}"; : "${GITHUB_OUTPUT:=/dev/null}"
           normalize_key() { tr -d '\r' <&0 >"$1"; printf '\n' >>"$1"; chmod 600 "$1"; }
           valid_pem_key() { test -s "$1" && grep -q 'BEGIN .*PRIVATE KEY' "$1" && grep -q 'END .*PRIVATE KEY' "$1"; }
+           printf '%s' "$DEPLOY_SSH_KEY" | normalize_key "$w/key" || key_rc=$?
+           printf '%s' "$DEPLOY_PROXY_KEY" | normalize_key "$w/proxy" || proxy_key_rc=$?
           if ! valid_pem_key "$w/key" || { [ -n "$DEPLOY_PROXY_HOST" ] && ! valid_pem_key "$w/proxy"; }; then
             key_rc=2; [ -n "$DEPLOY_PROXY_HOST" ] && proxy_key_rc=2; ssh_rc=2; result_rc=125; log_rc=125; keyscan_rc=125; transport_rc=2
             printf 'FAIL invalid SSH private-key PEM; network transport skipped\n' > grade5-preflight.log
