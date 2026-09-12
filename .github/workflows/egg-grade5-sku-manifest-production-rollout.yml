@@ -223,9 +223,10 @@ jobs:
           case "$RUN_ID" in *[!0-9]*) echo 'FAIL preflight_run_id not numeric' >&2; exit 1;; esac
           case "$ART_SHA" in *[!0-9a-f]*|'') echo 'FAIL preflight_artifact_sha256 not hex' >&2; exit 1;; esac
           test "${#ART_SHA}" -eq 64 || { echo 'FAIL preflight_artifact_sha256 must be 64 hex' >&2; exit 1; }
-          THIS_WF_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" --jq ".workflows[] | select(.path == \"${GITHUB_WORKFLOW_REF%%@*}\" | ltrimstr(\"${GITHUB_REPOSITORY}/\")) | .id" | head -1)"
+          # Resolve current workflow by immutable filename; do not parse GITHUB_WORKFLOW_REF.
+           THIS_WF_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" --jq '.workflows[] | select(.path == ".github/workflows/egg-grade5-sku-manifest-production-rollout.yml") | .id' | head -1)"
           RUN_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/$RUN_ID")"
-          RUN_WF_ID="$(printf '%s' "$RUN_JSON" | jq -r '.workflow_id')"
+          RUN_WF_ID="$(printf '%s' "$RUN_JSON" | jq -er '.workflow_id | numbers')"
           RUN_CONCLUSION="$(printf '%s' "$RUN_JSON" | jq -r '.conclusion')"
           RUN_EVENT="$(printf '%s' "$RUN_JSON" | jq -r '.event')"
           echo "preflight run=$RUN_ID workflow_id=$RUN_WF_ID conclusion=$RUN_CONCLUSION event=$RUN_EVENT this_workflow_id=$THIS_WF_ID"
