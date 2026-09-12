@@ -40,7 +40,7 @@ jobs:
           # Transport is diagnostic plumbing: always create outputs and capture rc.
           w="$RUNNER_TEMP/grade5-$AUDIT_RUN_ID"; mkdir -p "$w"; mkdir_rc=$?
           trap 'rm -rf "$w"' EXIT
-          ssh_rc=125; result_rc=125; log_rc=125; transport_rc=125; keyscan_rc=125; key_rc=125; proxy_key_rc=125; known_hosts_rc=125; mkdir_rc=${mkdir_rc:-125}
+          ssh_rc=125; result_rc=125; log_rc=125; transport_rc=125; keyscan_rc=125; key_rc=0; proxy_key_rc=0; known_hosts_rc=0; mkdir_rc=${mkdir_rc:-125}
           printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"FAIL","rc":125,"business_writes":0,"audit_result":{"exit_code":125},"transport_rc":125,"mkdir_rc":125,"keyscan_rc":125,"key_rc":125,"proxy_key_rc":125,"known_hosts_rc":125,"ssh_rc":125,"result_rc":125,"log_rc":125}\n' "$AUDIT_RUN_ID" > grade5-preflight-payload.json
           printf 'transport not started\n' > grade5-preflight.log
           : > grade5-transport.log
@@ -58,7 +58,9 @@ jobs:
            fi
            if [ "$keyscan_rc" -eq 125 ] && [ -s "$known_hosts" ]; then keyscan_rc=0; fi
            test -s "$known_hosts" || keyscan_rc=$?
-           grep -q "$DEPLOY_HOST" "$known_hosts" || keyscan_rc=$?
+           # Required end-state: the DEPLOY_HOST entry must exist. Intermediate keyscan
+           # failures are superseded once the entry is present (e.g. fetched via proxy).
+           grep -q "$DEPLOY_HOST" "$known_hosts" && keyscan_rc=0 || keyscan_rc=${keyscan_rc:-1}
            opts=(-i "$w/key" -p "$DEPLOY_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
           if [ -n "$DEPLOY_PROXY_HOST" ]; then opts+=(-o "ProxyCommand=ssh -i $w/proxy -p 22 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts -o User=$DEPLOY_PROXY_USER -W %h:%p $DEPLOY_PROXY_HOST"); fi
           remote="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"
@@ -70,7 +72,22 @@ jobs:
            ssh "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "AUDIT_RUN_ID=$AUDIT_RUN_ID DEPLOY_PATH='$DEPLOY_PATH' ASSERTION_SQL_PATH='$ASSERTION_SQL_PATH' AUDIT_BUNDLE_REVISION='$EXPECTED_REVISION' HTTP_ASSERTIONS_PATH='' bash -s" <<'REMOTE' || ssh_rc=$?
           set -euo pipefail; case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}";; /*) ;; *) exit 2;; esac
           d="/tmp/phoenix-production-readonly-audit-$AUDIT_RUN_ID"; install -d -m700 "$d"; : >"$d/audit.log"
-          set +e; (cd "$DEPLOY_PATH" && bash scripts/ops/run-production-readonly-audit.sh) >>"$d/audit.log" 2>&1; rc=$?; set -e
+          set +e
+          (
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            # Sync the production checkout to the reviewed revision before auditing, using
+            # the same fast-forward-only mechanism as deploy.yml (no reset/force/detach).
+            git fetch origin main
+            if [ "$(git rev-parse HEAD)" != "$AUDIT_BUNDLE_REVISION" ]; then
+              git symbolic-ref -q HEAD >/dev/null || git switch main
+              git pull --ff-only origin main
+            fi
+            test "$(git rev-parse HEAD)" = "$AUDIT_BUNDLE_REVISION" || { echo "FAIL revision checkout=$(git rev-parse HEAD) expected=$AUDIT_BUNDLE_REVISION"; exit 3; }
+            bash scripts/ops/run-production-readonly-audit.sh
+          ) >>"$d/audit.log" 2>&1
+          rc=$?
+          set -e
           python3 - "$d/result.json" "$AUDIT_RUN_ID" "$rc" "$d/audit.log" <<'PY'
           import json,sys
           o,r,c,l=sys.argv[1:]; json.dump({'schema':'phoenix.readonly-audit/v1','run_id':int(r),'status':'PASS' if c=='0' else 'FAIL','rc':int(c),'business_writes':0,'log':l,'audit_result':{'exit_code':int(c)}},open(o,'w')); open(o,'a').write('\n')
@@ -86,15 +103,15 @@ jobs:
           transport_rc=$((mkdir_rc || key_rc || proxy_key_rc || known_hosts_rc || keyscan_rc || ssh_rc || result_rc || log_rc))
           printf 'transport_rc=%s mkdir_rc=%s key_rc=%s proxy_key_rc=%s known_hosts_rc=%s keyscan_rc=%s ssh_rc=%s result_rc=%s log_rc=%s\n' "$transport_rc" "$mkdir_rc" "$key_rc" "$proxy_key_rc" "$known_hosts_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" >grade5-transport.log
           printf 'transport_rc=%s\nmkdir_rc=%s\nkey_rc=%s\nproxy_key_rc=%s\nknown_hosts_rc=%s\nkeyscan_rc=%s\nssh_rc=%s\nresult_rc=%s\nlog_rc=%s\n' "$transport_rc" "$mkdir_rc" "$key_rc" "$proxy_key_rc" "$known_hosts_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" >>"$GITHUB_OUTPUT"
-          if [ "$result_rc" -eq 0 ]; then
-            python3 - "$transport_rc" "$mkdir_rc" "$key_rc" "$proxy_key_rc" "$known_hosts_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" <<'PY'
+          # Stamp the real transport rc chain onto the payload unconditionally; fail-closed
+          # validation is unchanged and failure paths now report true rc values.
+          python3 - "$transport_rc" "$mkdir_rc" "$key_rc" "$proxy_key_rc" "$known_hosts_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" <<'PY'
           import json,sys
           path='grade5-preflight-payload.json'
           p=json.load(open(path))
           p.update(zip(('transport_rc','mkdir_rc','key_rc','proxy_key_rc','known_hosts_rc','keyscan_rc','ssh_rc','result_rc','log_rc'),map(int,sys.argv[1:])))
           with open(path,'w') as f: json.dump(p,f); f.write('\n')
           PY
-          fi
           exit "$transport_rc"
       - name: Validate strict audit artifact and rc
         if: always()

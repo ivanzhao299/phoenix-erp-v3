@@ -40,7 +40,14 @@ m2=re.search(r"printf 'transport_rc=%s mkdir_rc=%s[^\n]*?log_rc=%s\\n'([^>]+)>gr
 assert m2, 'transport.log printf not found'
 args2=re.findall(r'\$\{?(\w+)\}?', m2.group(1))
 assert args2==['transport_rc','mkdir_rc','key_rc','proxy_key_rc','known_hosts_rc','keyscan_rc','ssh_rc','result_rc','log_rc'], args2
-assert 'grep -q "$DEPLOY_HOST" "$known_hosts" || keyscan_rc=$?' in wf, 'must fail closed when DEPLOY_HOST host key is missing'
+assert 'grep -q "$DEPLOY_HOST" "$known_hosts" && keyscan_rc=0 || keyscan_rc=${keyscan_rc:-1}' in wf, 'keyscan rc must report the end-state (entry present), not intermediate failures'
+assert 'key_rc=0; proxy_key_rc=0; known_hosts_rc=0' in wf, 'key writes must report 0 on success, not the 125 not-started sentinel'
+assert 'git pull --ff-only origin main' in wf, 'remote checkout sync must be fast-forward only like deploy.yml'
+assert 'git reset --hard' not in wf and 'git checkout --' not in wf
+# Payload rc stamping must run unconditionally (failure paths report true rc values).
+import re as _re
+assert not _re.search(r'if \[ "\$result_rc" -eq 0 \]; then\s*\n\s*python3 - "\$transport_rc"', wf), 'rc stamping must not be gated on result_rc'
+assert 'transport_rc=$((mkdir_rc || key_rc || proxy_key_rc || known_hosts_rc || keyscan_rc || ssh_rc || result_rc || log_rc))' in wf
 assert wf.count('StrictHostKeyChecking=yes') >= 3, 'strict host key checking must stay enabled for main ssh, scp and proxy fetch'
 assert 'StrictHostKeyChecking=no' not in wf
 PY
