@@ -7,7 +7,7 @@ on:
       manifest_sha256: {required: true, type: string}
       confirmation: {required: true, type: string}
       revision: {required: true, type: string}
-      expected_counts: {required: false, type: string, description: 'JSON pre-state gate: {"canonical_before":0,"legacy_g5":7,"total_skus":26,"mst_egg_active":1,"grade5_active":1,"spec3_active":1}'}
+      expected_counts: {required: false, type: string, description: 'JSON pre-state gate: {"canonical_before":0,"legacy_g5":7,"total_skus":84,"mst_egg_active":1,"grade5_active":1,"spec3_active":1}'}
       preflight_run_id: {required: false, type: string, description: 'github run id of a PASS preflight (required for apply/dry-run)'}
       preflight_artifact_sha256: {required: false, type: string, description: 'sha256 of grade5-preflight-payload.json inside that run artifact'}
 defaults:
@@ -225,8 +225,8 @@ jobs:
           PHASE='${{ inputs.phase }}' INPUT='${{ inputs.expected_counts }}' python3 - <<'PY'
           import json, os, sys
           expected_design = {
-              'apply':     {"canonical_before":0,"legacy_g5":7,"total_skus":26,"mst_egg_active":1,"grade5_active":1,"spec3_active":1},
-              'dry-run':   {"canonical_before":0,"legacy_g5":7,"total_skus":26,"mst_egg_active":1,"grade5_active":1,"spec3_active":1},
+              'apply':     {"canonical_before":0,"legacy_g5":7,"total_skus":84,"mst_egg_active":1,"grade5_active":1,"spec3_active":1},
+              'dry-run':   {"canonical_before":0,"legacy_g5":7,"total_skus":84,"mst_egg_active":1,"grade5_active":1,"spec3_active":1},
               'rollback-soft': {"canonical_before":1,"legacy_g5":7,"total_skus":27,"mst_egg_active":1,"grade5_active":1,"spec3_active":1},
               'rollback-hard': {"canonical_before":1,"legacy_g5":7,"total_skus":27,"mst_egg_active":1,"grade5_active":1,"spec3_active":1},
           }[os.environ['PHASE']]
