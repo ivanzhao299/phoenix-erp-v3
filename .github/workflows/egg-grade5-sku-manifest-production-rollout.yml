@@ -2,11 +2,14 @@ name: Egg GRADE5 SKU manifest production rollout
 on:
   workflow_dispatch:
     inputs:
-      phase: {required: true, type: choice, options: [preflight, apply, verify]}
+      phase: {required: true, type: choice, options: [preflight, apply, dry-run, verify, rollback-soft, rollback-hard]}
       manifest_path: {required: true, type: string}
       manifest_sha256: {required: true, type: string}
       confirmation: {required: true, type: string}
       revision: {required: true, type: string}
+      expected_counts: {required: false, type: string, description: 'JSON pre-state gate: {"canonical_before":0,"legacy_g5":7,"total_skus":26,"mst_egg_active":1,"grade5_active":1,"spec3_active":1}'}
+      preflight_run_id: {required: false, type: string, description: 'github run id of a PASS preflight (required for apply/dry-run)'}
+      preflight_artifact_sha256: {required: false, type: string, description: 'sha256 of grade5-preflight-payload.json inside that run artifact'}
 defaults:
   run:
     shell: bash
@@ -161,16 +164,197 @@ jobs:
           assert all(p.get(k) == 0 for k in ('transport_rc','ssh_rc','result_rc','log_rc')), 'transport failed'
           PY
   apply:
-    if: inputs.phase == 'apply'
+    # Controlled apply / production dry-run / gated rollback for the single canonical
+    # EGG+GRADE_5+PKG_PACK_SPEC_3 SKU (docs/ops/egg-grade5-sku-apply-design-review-20260911.md).
+    if: inputs.phase == 'apply' || inputs.phase == 'dry-run' || inputs.phase == 'rollback-soft' || inputs.phase == 'rollback-hard'
     environment: production-business-write
     runs-on: ubuntu-latest
-    env: {PRODUCTION_BUSINESS_WRITES: '1'}
+    env:
+      PRODUCTION_BUSINESS_WRITES: '1'
+      GH_TOKEN: ${{ github.token }}
+    permissions:
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v4
-      - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}"
-      - run: test "${{ inputs.confirmation }}" = 'APPLY-EGG-GRADE5-MANIFEST-20260911'
+      # gate 1: recompute manifest hash from the checked-out manifest and compare with input
+      - run: node scripts/ops/egg-grade5-manifest.mjs "${{ inputs.manifest_path }}" | tee manifest-hash.json
+      - run: test "$(node -e "console.log(require('./manifest-hash.json').sha256)")" = "${{ inputs.manifest_sha256 }}"
+      # gate 2: per-phase confirmation token (prevents accidental cross-phase dispatch)
+      - name: Validate phase-specific confirmation token
+        run: |
+          PHASE='${{ inputs.phase }}' INPUT='${{ inputs.confirmation }}' bash -euo pipefail -c '
+          case "$PHASE" in
+            apply)         EXPECTED="APPLY-EGG-GRADE5-MANIFEST-20260911" ;;
+            dry-run)       EXPECTED="DRYRUN-EGG-GRADE5-MANIFEST-20260911" ;;
+            rollback-soft) EXPECTED="ROLLBACK-SOFT-EGG-GRADE5-MANIFEST-20260911" ;;
+            rollback-hard) EXPECTED="ROLLBACK-HARD-EGG-GRADE5-MANIFEST-20260911" ;;
+            *) echo "FAIL unexpected phase $PHASE" >&2; exit 1 ;;
+          esac
+          test "$INPUT" = "$EXPECTED" || { echo "FAIL confirmation mismatch for phase=$PHASE" >&2; exit 1; }
+          echo "PASS confirmation for phase=$PHASE"'
+      # gate 3: manifest path whitelist
       - run: test "${{ inputs.manifest_path }}" = 'scripts/ops/manifests/egg-grade5-candidate.json'
-      - run: "echo 'FAIL-CLOSED: canonical EGG/GRADE_5/spec tuple is not production-registered; apply implementation is intentionally not invoked.' && exit 1"
+      - name: Validate expected_counts against frozen design values
+        run: |
+          PHASE='${{ inputs.phase }}' INPUT='${{ inputs.expected_counts }}' python3 - <<'PY'
+          import json, os, sys
+          expected_design = {
+              'apply':     {"canonical_before":0,"legacy_g5":7,"total_skus":26,"mst_egg_active":1,"grade5_active":1,"spec3_active":1},
+              'dry-run':   {"canonical_before":0,"legacy_g5":7,"total_skus":26,"mst_egg_active":1,"grade5_active":1,"spec3_active":1},
+              'rollback-soft': {"canonical_before":1,"legacy_g5":7,"total_skus":27,"mst_egg_active":1,"grade5_active":1,"spec3_active":1},
+              'rollback-hard': {"canonical_before":1,"legacy_g5":7,"total_skus":27,"mst_egg_active":1,"grade5_active":1,"spec3_active":1},
+          }[os.environ['PHASE']]
+          got = json.loads(os.environ['INPUT'] or 'null')
+          if got != expected_design:
+              print(f'FAIL expected_counts mismatch: got={got} expected={expected_design}', file=sys.stderr); sys.exit(1)
+          print('PASS expected_counts frozen-design match')
+          PY
+      # gate 4: preflight_run_id must be a SUCCESS run of THIS workflow with a matching
+      # artifact payload sha256 (Q7 ruling: fail-closed unless all three hold).
+      - name: Validate bound preflight run (apply/dry-run only)
+        if: inputs.phase == 'apply' || inputs.phase == 'dry-run'
+        run: |
+          set -euo pipefail
+          RUN_ID='${{ inputs.preflight_run_id }}'
+          ART_SHA='${{ inputs.preflight_artifact_sha256 }}'
+          test -n "$RUN_ID" && test -n "$ART_SHA"
+          case "$RUN_ID" in *[!0-9]*) echo 'FAIL preflight_run_id not numeric' >&2; exit 1;; esac
+          case "$ART_SHA" in *[!0-9a-f]*|'') echo 'FAIL preflight_artifact_sha256 not hex' >&2; exit 1;; esac
+          test "${#ART_SHA}" -eq 64 || { echo 'FAIL preflight_artifact_sha256 must be 64 hex' >&2; exit 1; }
+          THIS_WF_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" --jq ".workflows[] | select(.path == \"${GITHUB_WORKFLOW_REF%%@*}\" | ltrimstr(\"${GITHUB_REPOSITORY}/\")) | .id" | head -1)"
+          RUN_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/$RUN_ID")"
+          RUN_WF_ID="$(printf '%s' "$RUN_JSON" | jq -r '.workflow_id')"
+          RUN_CONCLUSION="$(printf '%s' "$RUN_JSON" | jq -r '.conclusion')"
+          RUN_EVENT="$(printf '%s' "$RUN_JSON" | jq -r '.event')"
+          echo "preflight run=$RUN_ID workflow_id=$RUN_WF_ID conclusion=$RUN_CONCLUSION event=$RUN_EVENT this_workflow_id=$THIS_WF_ID"
+          test "$RUN_WF_ID" = "$THIS_WF_ID" || { echo 'FAIL preflight run belongs to another workflow' >&2; exit 1; }
+          test "$RUN_CONCLUSION" = 'success' || { echo 'FAIL preflight run not success' >&2; exit 1; }
+          test "$RUN_EVENT" = 'workflow_dispatch' || { echo 'FAIL preflight run not workflow_dispatch' >&2; exit 1; }
+          mkdir -p preflight-artifact && cd preflight-artifact
+          gh run download "$RUN_ID" -n "grade5-preflight-$RUN_ID" -D .
+          test -s grade5-preflight-payload.json
+          ACTUAL_SHA="$(sha256sum grade5-preflight-payload.json | awk '{print $1}')"
+          test "$ACTUAL_SHA" = "$ART_SHA" || { echo "FAIL artifact sha256 mismatch actual=$ACTUAL_SHA input=$ART_SHA" >&2; exit 1; }
+          jq -e '.status == "PASS" and .business_writes == 0 and .rc == 0' grade5-preflight-payload.json >/dev/null
+          cd .. && echo 'PASS bound preflight run validated (workflow+conclusion+artifact sha256)'
+      # gate 5: bundle integrity record (sha256 captured into the apply artifact)
+      - name: Record bundle sha256
+        run: |
+          sha256sum scripts/ops/readonly-audits/egg-grade5-sku-apply.sql \
+                    scripts/ops/readonly-audits/egg-grade5-sku-apply-dryrun.sql \
+                    scripts/ops/readonly-audits/egg-grade5-sku-verify.sql \
+                    scripts/ops/readonly-audits/egg-grade5-sku-rollback-soft.sql \
+                    scripts/ops/readonly-audits/egg-grade5-sku-rollback-hard.sql \
+                    scripts/ops/egg-grade5-sku-apply-remote.sh > bundle-sha256.txt
+          cat bundle-sha256.txt
+      - name: Execute gated remote apply/dry-run/rollback over native SSH
+        id: execute
+        continue-on-error: true
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          AUDIT_RUN_ID: ${{ github.run_id }}
+          APPLY_KIND: ${{ inputs.phase }}
+          MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+          EXPECTED_COUNTS: ${{ inputs.expected_counts }}
+          EXPECTED_REVISION: ${{ inputs.revision }}
+        run: |
+          set -uo pipefail; umask 077
+          w="$RUNNER_TEMP/grade5-apply-$AUDIT_RUN_ID"; mkdir -p "$w"; mkdir_rc=$?
+          trap 'rm -rf "$w"' EXIT
+          ssh_rc=125; result_rc=125; log_rc=125; transport_rc=125; keyscan_rc=125; key_rc=0; proxy_key_rc=0; known_hosts_rc=0; mkdir_rc=${mkdir_rc:-125}
+          printf '{"schema":"phoenix.egg5-apply/v1","run_id":%s,"kind":"%s","status":"FAIL","rc":125,"business_writes":1,"transport_rc":125}\n' "$AUDIT_RUN_ID" "$APPLY_KIND" > grade5-apply-payload.json
+          printf 'transport not started\n' > grade5-apply.log
+          : > grade5-apply-transport.log
+          : "${DEPLOY_SSH_KEY:=}"; : "${DEPLOY_PROXY_KEY:=}"; : "${DEPLOY_PROXY_HOST:=}"; : "${DEPLOY_PROXY_USER:=}"; : "${GITHUB_OUTPUT:=/dev/null}"
+          normalize_key() { tr -d '\r' <&0 >"$1"; printf '\n' >>"$1"; chmod 600 "$1"; }
+          printf '%s' "$DEPLOY_SSH_KEY" | normalize_key "$w/key" || key_rc=$?
+          printf '%s' "$DEPLOY_PROXY_KEY" | normalize_key "$w/proxy" || proxy_key_rc=$?
+          known_hosts="$w/known_hosts"; : >"$known_hosts"; chmod 600 "$known_hosts" || known_hosts_rc=$?
+          case "$DEPLOY_PORT" in ''|*[!0-9]*) keyscan_rc=3;; *) ssh-keyscan -T 10 -p "$DEPLOY_PORT" "$DEPLOY_HOST" >>"$known_hosts" 2>/dev/null || keyscan_rc=$?;; esac
+          if [ -n "$DEPLOY_PROXY_HOST" ]; then ssh-keyscan -T 10 -p 22 "$DEPLOY_PROXY_HOST" >>"$known_hosts" 2>/dev/null || keyscan_rc=$?; fi
+          # DEPLOY_HOST is reachable only through the proxy channel (see preflight notes).
+          if [ "${keyscan_rc:-0}" -ne 3 ] && [ -n "$DEPLOY_PROXY_HOST" ] && ! grep -q "$DEPLOY_HOST" "$known_hosts" 2>/dev/null; then
+            case "$DEPLOY_HOST" in ''|*[!A-Za-z0-9.-]*) keyscan_rc=4;; *)
+              ssh -i "$w/proxy" -p 22 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" -o User="$DEPLOY_PROXY_USER" "$DEPLOY_PROXY_HOST" "ssh-keyscan -T 10 -p '$DEPLOY_PORT' '$DEPLOY_HOST'" >>"$known_hosts" 2>/dev/null || keyscan_rc=$?;; esac
+          fi
+          if [ "$keyscan_rc" -eq 125 ] && [ -s "$known_hosts" ]; then keyscan_rc=0; fi
+          test -s "$known_hosts" || keyscan_rc=$?
+          grep -q "$DEPLOY_HOST" "$known_hosts" && keyscan_rc=0 || keyscan_rc=${keyscan_rc:-1}
+          opts=(-i "$w/key" -p "$DEPLOY_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
+          if [ -n "$DEPLOY_PROXY_HOST" ]; then opts+=(-o "ProxyCommand=ssh -i $w/proxy -p 22 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts -o User=$DEPLOY_PROXY_USER -W %h:%p $DEPLOY_PROXY_HOST"); fi
+          remote="/tmp/phoenix-egg5-apply-$AUDIT_RUN_ID"
+          ssh_rc=0
+          ssh "${opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "AUDIT_RUN_ID=$AUDIT_RUN_ID DEPLOY_PATH='$DEPLOY_PATH' EXPECTED_REVISION='$EXPECTED_REVISION' APPLY_KIND='$APPLY_KIND' MANIFEST_SHA256='$MANIFEST_SHA256' EXPECTED_COUNTS='$EXPECTED_COUNTS' bash -s" < scripts/ops/egg-grade5-sku-apply-remote.sh || ssh_rc=$?
+          scp_opts=("${opts[@]}"); scp_opts[2]=-P
+          result_rc=0; log_rc=0
+          scp "${scp_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/result.json" "$w/result.json" || result_rc=$?
+          scp "${scp_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$remote/apply.log" "$w/apply.log" || log_rc=$?
+          if [ "$result_rc" -eq 0 ]; then cp "$w/result.json" grade5-apply-payload.json || result_rc=$?; fi
+          if [ "$log_rc" -eq 0 ]; then cp "$w/apply.log" grade5-apply.log || log_rc=$?; fi
+          transport_rc=$((mkdir_rc || key_rc || proxy_key_rc || known_hosts_rc || keyscan_rc || ssh_rc || result_rc || log_rc))
+          printf 'transport_rc=%s mkdir_rc=%s key_rc=%s proxy_key_rc=%s known_hosts_rc=%s keyscan_rc=%s ssh_rc=%s result_rc=%s log_rc=%s\n' "$transport_rc" "$mkdir_rc" "$key_rc" "$proxy_key_rc" "$known_hosts_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" > grade5-apply-transport.log
+          printf 'transport_rc=%s\nmkdir_rc=%s\nkey_rc=%s\nproxy_key_rc=%s\nknown_hosts_rc=%s\nkeyscan_rc=%s\nssh_rc=%s\nresult_rc=%s\nlog_rc=%s\n' "$transport_rc" "$mkdir_rc" "$key_rc" "$proxy_key_rc" "$known_hosts_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" >>"$GITHUB_OUTPUT"
+          python3 - "$transport_rc" "$mkdir_rc" "$key_rc" "$proxy_key_rc" "$known_hosts_rc" "$keyscan_rc" "$ssh_rc" "$result_rc" "$log_rc" <<'PY'
+          import json,sys
+          path='grade5-apply-payload.json'
+          p=json.load(open(path))
+          p.update(zip(('transport_rc','mkdir_rc','key_rc','proxy_key_rc','known_hosts_rc','keyscan_rc','ssh_rc','result_rc','log_rc'),map(int,sys.argv[1:])))
+          with open(path,'w') as f: json.dump(p,f); f.write('\n')
+          PY
+          exit "$transport_rc"
+      - name: Validate strict apply artifact and rc
+        if: always()
+        env:
+          EXPECTED_RUN_ID: "${{ github.run_id }}"
+          EXECUTE_TRANSPORT_RC: "${{ steps.execute.outputs.transport_rc }}"
+          EXECUTE_SSH_RC: "${{ steps.execute.outputs.ssh_rc }}"
+          EXECUTE_RESULT_RC: "${{ steps.execute.outputs.result_rc }}"
+          EXECUTE_LOG_RC: "${{ steps.execute.outputs.log_rc }}"
+        run: |
+          python3 - <<'PY'
+          import json,os
+          p=json.load(open('grade5-apply-payload.json'))
+          assert p['transport_rc'] == int(os.environ['EXECUTE_TRANSPORT_RC']), 'transport_rc drift'
+          assert p['ssh_rc'] == int(os.environ['EXECUTE_SSH_RC']), 'ssh_rc drift'
+          assert p['result_rc'] == int(os.environ['EXECUTE_RESULT_RC']), 'result_rc drift'
+          assert p['log_rc'] == int(os.environ['EXECUTE_LOG_RC']), 'log_rc drift'
+          assert p['run_id'] == int(os.environ['EXPECTED_RUN_ID'])
+          assert p['rc'] == p['ssh_rc'] == p['transport_rc']
+          assert p['status'] == ('PASS' if p['rc'] == 0 else 'FAIL')
+          assert os.path.getsize('grade5-apply.log') > 0
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: grade5-apply-${{ github.run_id }}
+          path: |
+            grade5-apply.log
+            grade5-apply-payload.json
+            grade5-apply-transport.log
+            bundle-sha256.txt
+            manifest-hash.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Fail after preserving diagnostic artifact
+        if: always()
+        run: |
+          test -s grade5-apply-payload.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('grade5-apply-payload.json', encoding='utf-8'))
+          assert p.get('status') == 'PASS', f"apply status={p.get('status')}"
+          assert p.get('rc') == 0, f"apply rc={p.get('rc')}"
+          assert all(p.get(k) == 0 for k in ('transport_rc','ssh_rc','result_rc','log_rc')), 'transport failed'
+          PY
   verify:
     if: inputs.phase == 'verify'
     environment: production-readonly

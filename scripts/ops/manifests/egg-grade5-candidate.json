@@ -5,6 +5,14 @@
   "product_code": "EGG",
   "grade_code": "GRADE_5",
   "spec_code": "PKG_PACK_SPEC_3",
-  "targets": [{"sku_code":"SKU-G5-CANDIDATE","source_no":"EGG-G5-CANDIDATE","product_code":"EGG","grade_code":"GRADE_5","spec_code":"PKG_PACK_SPEC_3"}],
+  "targets": [
+    {
+      "sku_code": "EGG-GRADE_5-PKG_PACK_SPEC_3",
+      "source_no": "EGG-G5-CANDIDATE",
+      "product_code": "EGG",
+      "grade_code": "GRADE_5",
+      "spec_code": "PKG_PACK_SPEC_3"
+    }
+  ],
   "production_registered": false
 }
