@@ -41,6 +41,8 @@ jobs:
         run: |
           set -uo pipefail; umask 077
           # Transport is diagnostic plumbing: always create outputs and capture rc.
+           : "${GITHUB_OUTPUT:=/dev/null}"
+           for output in transport_rc mkdir_rc key_rc proxy_key_rc known_hosts_rc keyscan_rc ssh_rc result_rc log_rc; do printf '%s=0\n' "$output" >>"$GITHUB_OUTPUT"; done
           w="$RUNNER_TEMP/grade5-$AUDIT_RUN_ID"; mkdir -p "$w"; mkdir_rc=$?
           trap 'rm -rf "$w"' EXIT
           ssh_rc=125; result_rc=125; log_rc=125; transport_rc=125; keyscan_rc=125; key_rc=0; proxy_key_rc=0; known_hosts_rc=0; mkdir_rc=${mkdir_rc:-125}
