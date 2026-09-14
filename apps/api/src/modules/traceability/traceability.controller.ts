@@ -32,7 +32,7 @@ export class TraceabilityController {
   @Get('packaging/:packingCode')
   @RequireMenu('MENU_TRACEABILITY_VIEW', 'V')
   byPackaging(@Param('packingCode') packingCode: string, @Req() req: any) {
-    return this.trace.traceByPackaging(packingCode, this.scope(req));
+    return this.trace.traceByPackaging(packingCode, this.scope(req), req.dataScope ?? req.user?.dataScope);
   }
 
   @Get('label/:labelCode')

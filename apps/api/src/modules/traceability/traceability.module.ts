@@ -1,3 +1,4 @@
+import { PackagingHistoryService } from '../bff/packaging-history.service';
 import { Module } from '@nestjs/common';
 import { TraceabilityController } from './traceability.controller';
 import { TraceabilityService } from './traceability.service';
@@ -9,7 +10,7 @@ import { TraceabilityService } from './traceability.service';
  */
 @Module({
   controllers: [TraceabilityController],
-  providers: [TraceabilityService],
+  providers: [TraceabilityService, PackagingHistoryService],
   exports: [TraceabilityService],
 })
 export class TraceabilityModule {}

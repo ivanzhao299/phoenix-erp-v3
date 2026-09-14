@@ -1,3 +1,4 @@
+import { PackagingHandoverService } from './packaging-handover.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { listPackagingReadyCombinations, resolvePackagingIdentity } from './packaging-readiness';
 import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException, ForbiddenException, HttpException } from '@nestjs/common';
@@ -1321,6 +1322,7 @@ export class PackagingTerminalBffController {
     // P1C 收口：真实车间流 成品交接 → 生成 Sales V2 可售库存（唯一库存入口）
     private readonly pkgInv: PackagingInventoryIntegrationService,
     private readonly dataScopeService?: DataScopeService,
+    private readonly historyWorkflow?: PackagingHandoverService,
   ) {}
 
   private get today() { return new Date().toISOString().slice(0, 10); }
@@ -1903,13 +1905,18 @@ export class PackagingTerminalBffController {
     const isTest = packagingTestMode(req);
     if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
     await assertPackingCanEnterInventory(this.em, String(body.packagingBatchId || body.packaging_batch_id || body.packingCode || ''));
+    if(this.historyWorkflow){
+      const d=await this.historyWorkflow.detail(String(body.packagingBatchId || body.packaging_batch_id || body.packingCode || ''),req);
+      await this.historyWorkflow.boxes.resolve(this.em,d.record.id,body.boxCode||body.box_code);
+    }
+
     const printedBy = req.user?.name || req.user?.username || '';
 
     await this.em.query(
       `INSERT INTO pkg_label_print_logs
        (box_code, packaging_batch_id, print_type, printer_id,
         printed_by, reprint_reason, print_status, printed_at, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,'PRINTED',NOW(),NOW())`,
+       VALUES ($1,$2,$3,$4,$5,$6,'UNKNOWN',NOW(),NOW())`,
       [
         body.boxCode || body.box_code || '',
         body.packagingBatchId || body.packaging_batch_id || body.packingCode || '',
@@ -1932,6 +1939,15 @@ export class PackagingTerminalBffController {
     @Req() req?: any,
   ) {
     if (packagingTestMode(req)) return { data: [] };
+    if(this.historyWorkflow){
+      const history=this.historyWorkflow.history;
+      const visible=await history.rows(await history.scope(req));
+      const rows=await this.em.query(`SELECT id,box_code,packaging_batch_id,print_type,reprint_reason,printed_by,printed_at,print_status
+        FROM pkg_label_print_logs WHERE packaging_batch_id=ANY($1::text[]) AND DATE(printed_at) BETWEEN $2 AND $3
+        AND ($4::text IS NULL OR print_type=$4) ORDER BY printed_at DESC`,[visible.map(r=>r.code),startDate||this.today,endDate||this.today,type&&type!=='ALL'?type:null]);
+      return {data:rows};
+    }
+
     const start = startDate || this.today;
     const end   = endDate   || this.today;
     const params: unknown[] = [start, end];
@@ -2431,6 +2447,13 @@ export class PackagingTerminalBffController {
 
   @Get('labels/trace')
   async getPackingTrace(@Query('packingCode') packingCode: string, @Req() req?: any) {
+    if (this.historyWorkflow) {
+      const d=await this.historyWorkflow.detail(packingCode,req);
+      return {code:200,data:{packingCode,status:d.record.recordStatus,voidReason:d.record.voidReason,productionDate:d.record.productionDate,
+        shift:{id:d.shift.id,shiftCode:d.shift.code,shiftLabel:d.shift.code,operatorName:'',supervisorName:''},
+        sources:d.sources.map((s:any)=>({houseCode:s.houseCode,houseName:s.houseCode,totalQty:s.sourceOriginalQty,allocationQty:null,precision:'RELATED_ONLY'}))}};
+    }
+
     const isTest = packagingTestMode(req);
     if (!packingCode) throw new BadRequestException('packingCode is required');
 
@@ -2489,6 +2512,17 @@ export class PackagingTerminalBffController {
   @Get('warehouse/status')
   @RequireMenu('MENU_PKG_OP', 'V')
   async getWarehouseHandoverStatus(@Query('packingCode') packingCode: string, @Req() req?: any) {
+    if (this.historyWorkflow) {
+      const d = await this.historyWorkflow.detail(packingCode, req);
+      return { code: 200, data: { packingCode, state: d.handover.state, committed: d.handover.state === 'COMMITTED',
+        handoverCode: d.handover.records[0]?.code ?? null, boxCount: d.record.totalBoxes, handoverQuantity: d.record.totalEggs,
+        inventoryBatchCount: d.inventory.batches.length, totalInbound: d.inventory.batches.reduce((n:number,b:any)=>n+Number(b.qty),0),
+        ledgerInbound: d.inventory.ledger.filter((l:any)=>l.change_type==='PACKAGING_INBOUND').reduce((n:number,l:any)=>n+Number(l.qty_change),0),
+        inventoryMode: await this.pkgInv.getTerminalInventoryMode(packingCode,{companyCode:d.ownership.companyCode}),
+        inventoryPosted:d.handover.state==='COMMITTED',tempEvidence:null,committedAt:d.handover.records[0]?.created_at??null,
+        message:d.handover.issues.join('；') || (d.handover.state==='COMMITTED'?'原交接入账证据已核实':'尚未完成入库交接') } };
+    }
+
     const isTest = packagingTestMode(req);
     if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
     await assertPackingCanEnterInventory(this.em, packingCode);
@@ -2583,6 +2617,12 @@ export class PackagingTerminalBffController {
   @Post('warehouse/confirm')
   @RequireMenu('MENU_PKG_OP', 'E')
   async confirmHandover(@Body() body: Record<string, any>, @Req() req?: any) {
+    if (body.contractVersion === 2 && this.historyWorkflow) return { code: 200, data: await this.historyWorkflow.command('CONFIRM', body.packingCode, req.headers['idempotency-key'], body, req) };
+    if (this.historyWorkflow) {
+      const d = await this.historyWorkflow.detail(String(body.packingCode || ''), req);
+      if (d.identityStatus !== 'REGISTERED') throw new ConflictException('BOX_IDENTITY_UNRESOLVED');
+      return { code: 200, data: await this.historyWorkflow.compatConfirm(body, req) };
+    }
     const isTest = packagingTestMode(req);
     if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
     const packingCode = String(body.packingCode || '').trim();

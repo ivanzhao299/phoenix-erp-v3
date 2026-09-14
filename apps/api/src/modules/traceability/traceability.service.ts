@@ -1,3 +1,6 @@
+import { PackagingHistoryService } from '../bff/packaging-history.service';
+import { DataScopeContext } from '../org/services/data-scope.service';
+import { NotFoundException } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -19,7 +22,7 @@ import { DataSource } from 'typeorm';
 export class TraceabilityService {
   private readonly logger = new Logger(TraceabilityService.name);
 
-  constructor(@InjectDataSource() private readonly ds: DataSource) {}
+  constructor(@InjectDataSource() private readonly ds: DataSource, private readonly history: PackagingHistoryService) {}
 
   /** 防御式查询：异常返回 [] */
   private async q<T = any>(sql: string, args: unknown[] = []): Promise<T[]> {
@@ -46,20 +49,19 @@ export class TraceabilityService {
   }
 
   // ── 入口 2：按包装批次（PKG-YYYYMMDD-XXXX）──────────────────────────────────
-  async traceByPackaging(packingCode: string, companyScope?: string[]): Promise<any> {
-    const batches = await this.q(
-      `SELECT batch_no FROM inv_batches WHERE packaging_batch_ref = $1 ORDER BY batch_no`,
-      [packingCode],
-    );
-    // P1-3 性能快修：N+1 串行 → Promise.all 并行（批次数量越多提速越明显）
-    const traces = await Promise.all(
-      batches.map((b: any) => this.traceByBatch(b.batch_no, companyScope))
-    );
-    const [pkg] = await this.q(
-      `SELECT code, production_date, total_boxes, total_eggs, shift_id, status, void_reason FROM pkg_packing_records WHERE is_test = false AND code = $1 LIMIT 1`,
-      [packingCode],
-    );
-    return { found: !!pkg || traces.length > 0, entry: 'packaging', key: packingCode, packaging: pkg ?? null, traces };
+  async traceByPackaging(packingCode: string, companyScope?: string[], dataScope?: DataScopeContext): Promise<any> {
+    if(!dataScope)throw new NotFoundException('RECORD_NOT_ACCESSIBLE');
+    const [record]=await this.history.rows(dataScope,this.ds.manager,packingCode);
+    if(!record)throw new NotFoundException('RECORD_NOT_ACCESSIBLE');
+    // Only the already scoped original chain; unrelated downstream sales/finance need their own scoped queries.
+    const traces=record.inventory.map((b:any)=>({found:true,entry:'batch',key:b.batch_no,
+      production:{site:record.site_id,source:record.sources,productionDate:record.production_date},
+      packaging:{packingCode:record.code,totalBoxes:record.total_boxes,totalEggs:record.total_eggs,grading:record.sources},
+      inventory:{batchNo:b.batch_no,skuCode:b.sku_code,qty:b.qty,qtyAvailable:b.qty_available,companyCode:b.company_code,
+        ledger:record.ledger.filter((l:any)=>l.batch_no===b.batch_no)},
+      downstream:{state:'NOT_INCLUDED',reason:'销售财务需独立范围查询'}}));
+    return {found:true,entry:'packaging',key:packingCode,packaging:{code:record.code,production_date:record.production_date,
+      total_boxes:record.total_boxes,total_eggs:record.total_eggs,shift_id:record.shift_id,status:record.status,void_reason:record.void_reason},sources:record.sources,traces};
   }
 
   // ── 入口 3：按标签/箱码（label_no）──────────────────────────────────────────
@@ -152,12 +154,12 @@ export class TraceabilityService {
       shift = ws ?? null;
     }
 
-    // 分级段（按生产日期）
+    // 分级段（仅原包装显式关联）
     const grading = packaging?.production_date
       ? await this.q(
           `SELECT code, source_batch_code, production_date, outputs_json, total_output, status
-             FROM pkg_grading_records WHERE is_test = false AND production_date = $1 ORDER BY created_at ASC LIMIT 20`,
-          [packaging.production_date],
+             FROM pkg_grading_records WHERE is_test = false AND code IN (SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(grading_codes_json)='array' AND jsonb_array_length(grading_codes_json)>0 THEN grading_codes_json ELSE jsonb_build_array(grading_code) END) FROM pkg_packing_records WHERE code=$1) ORDER BY created_at ASC`,
+          [packingCode],
         )
       : [];
 
@@ -165,8 +167,8 @@ export class TraceabilityService {
     const source = packaging?.production_date
       ? await this.q(
           `SELECT batch_code, house_code, flock_code, lay_date, production_date, received_qty, batch_status
-             FROM pkg_source_batches WHERE is_test = false AND production_date = $1 ORDER BY created_at ASC LIMIT 20`,
-          [packaging.production_date],
+             FROM pkg_source_batches WHERE is_test = false AND id IN (SELECT sl.source_batch_id FROM pkg_grading_source_links sl JOIN pkg_grading_records g ON g.id=sl.grading_id WHERE NOT g.is_test AND g.code IN (SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(grading_codes_json)='array' AND jsonb_array_length(grading_codes_json)>0 THEN grading_codes_json ELSE jsonb_build_array(grading_code) END) FROM pkg_packing_records WHERE code=$1)) ORDER BY created_at ASC`,
+          [packingCode],
         )
       : [];
 

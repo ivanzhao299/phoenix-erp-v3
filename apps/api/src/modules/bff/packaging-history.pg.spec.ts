@@ -1,0 +1,137 @@
+import {TraceabilityService} from '../traceability/traceability.service';
+import {DataSource} from 'typeorm';
+import {randomUUID} from 'crypto';
+import {PackagingHistoryService,historyDate} from './packaging-history.service';
+import {PackagingHandoverService} from './packaging-handover.service';
+import {PackagingBoxService} from './packaging-box.service';
+import {PackagingWorkflowPolicy} from './packaging-workflow-policy';
+import {PackagingInventoryIntegrationService} from '../sales-v2/services/packaging-inventory-integration.service';
+import {EggInventoryService} from '../sales-v2/services/egg-inventory.service';
+import {packingHistoryFixture} from './packaging-history.fixture';
+import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migrations/1789353300496-PackagingHistoryD1cEvidence';
+
+(process.env.PACKAGING_HISTORY_PG==='1'?describe:describe.skip)('D1-C isolated full-schema PG18',()=>{
+ let ds:DataSource,f:Awaited<ReturnType<typeof packingHistoryFixture>>,history:PackagingHistoryService,workflow:PackagingHandoverService,policy:PackagingWorkflowPolicy;
+ beforeAll(async()=>{ds=new DataSource({type:'postgres',host:'127.0.0.1',port:55432,username:'postgres',database:'packaging_history_test',entities:[],logging:false});await ds.initialize();
+ expect(Number((await ds.query('SHOW server_version_num'))[0].server_version_num)).toBeGreaterThanOrEqual(180000);
+ expect((await ds.query('SELECT count(*)::int n FROM migrations'))[0].n).toBeGreaterThanOrEqual(82);});
+ afterAll(async()=>{await ds?.destroy();});
+ beforeEach(async()=>{
+ f=await packingHistoryFixture(ds);
+ const scopes={resolve:async()=>f.scope};history=new PackagingHistoryService(ds.manager,scopes as any);
+ policy=new PackagingWorkflowPolicy();policy.get=()=>({version:'TEST',R:true,B:true,P:true,V:true,H:true,Q:true,encodingVersion:'TEST-NON-BUSINESS-v1',receiptMode:'C'});
+ const cls={get:()=>({username:'TEST'})};
+ const inv=new PackagingInventoryIntegrationService(ds,cls as any,new EggInventoryService(ds,cls as any),{resolveMode:async()=> 'PACKAGING_INBOUND'} as any);
+ workflow=new PackagingHandoverService(history,new PackagingBoxService(),policy,inv);
+ });
+ async function command(action:string,body:any,key=randomUUID()){const d=await workflow.detail(f.prefix,f.req);return workflow.command(action,f.prefix,key,{expectedRevision:d.revision,...body},f.req);}
+ async function register(){return command('REGISTER',{registrationKind:'FIRST_LABEL_CONFIRMED',reason:'TEST fixture never labelled',items:f.outputs.map((_,outputOrdinal)=>({outputOrdinal,boxOrdinal:1,declaration:'TEST fixture only'}))});}
+ async function prepare(){await register();const d=await workflow.detail(f.prefix,f.req);let handoverScans:string[]=[];
+ for(const purpose of ['LABEL_CHECK','HANDOVER']){
+ const session=await command('SESSION',{purpose});
+ for(const box of d.boxes){const label=box.labels.find((l:any)=>l.kind==='CANONICAL').code;
+ if(purpose==='LABEL_CHECK')await command('PRINT',{boxId:box.boxId,labelCode:label,printType:'NORMAL',copies:1,templateVersion:'TEST'});
+ const scan=await command('SCAN',{boxId:box.boxId,labelCode:label,purpose,method:'MANUAL',sessionId:session.eventId});
+ if(purpose==='HANDOVER')handoverScans.push(scan.eventId);
+ }}
+ return {expectedRevision:d.revision,productionDate:'2026-01-02',shiftId:f.shiftId,boxIds:d.boxes.map((b:any)=>b.boxId).sort(),verificationIds:handoverScans.sort(),warehouseCode:f.warehouse,locationCode:f.location,receiverUserId:f.actor};}
+ async function counts(){return (await ds.query(`SELECT (SELECT count(*)::int FROM inv_batches WHERE packaging_batch_ref=$1) batches,
+ (SELECT count(*)::int FROM inv_ledger WHERE ref_no=$1) ledger,(SELECT count(*)::int FROM pkg_handover_records WHERE packing_code=$1) handovers`,[f.prefix]))[0];}
+ it('reads CLOSED original record and only its linked sources without writing identities',async()=>{const d=await workflow.detail(f.prefix,f.req);expect(d.record).toMatchObject({productionDate:'2026-01-02',totalEggs:50,totalBoxes:2});expect(d.shift.status).toBe('CLOSED');expect(d.sources).toHaveLength(1);expect(d.boxes).toEqual([]);expect(d.handover.state).toBe('PENDING');});
+ it('denies empty company/farm scope without leaking totalMatching',async()=>{f.scope.allowedCompanyCodes=[];expect((await history.list({},f.req)).totalMatching).toBe(0);await expect(workflow.detail(f.prefix,f.req)).rejects.toThrow('RECORD_NOT_ACCESSIBLE');});
+ it('rejects invalid calendar date and altered cursor',async()=>{expect(()=>historyDate('2026-02-30')).toThrow();await expect(history.list({cursor:'garbage'},f.req)).rejects.toThrow();});
+ it('registers every original box and replays exactly the same identity',async()=>{const body={registrationKind:'FIRST_LABEL_CONFIRMED',reason:'TEST',items:f.outputs.map((_,outputOrdinal)=>({outputOrdinal,boxOrdinal:1,declaration:'TEST'}))};const d=await workflow.detail(f.prefix,f.req),key=randomUUID();
+ const results=await Promise.all([1,2].map(()=>workflow.command('REGISTER',f.prefix,key,{...body,expectedRevision:d.revision},f.req)));expect(results[0]).toEqual(results[1]);expect((await workflow.detail(f.prefix,f.req)).boxes).toHaveLength(2);});
+ it('Q gate rejects registration with no business changes',async()=>{const old=await policy.get(f.company,f.farm);policy.get=()=>({...old,Q:false,H:false});await expect(register()).rejects.toThrow('WORKFLOW_NOT_READY');expect((await workflow.detail(f.prefix,f.req)).boxes).toHaveLength(0);});
+ it('commits original CLOSED date and all groups exactly once under concurrent retry',async()=>{const body=await prepare(),key=randomUUID();const r=await Promise.all([1,2].map(()=>workflow.command('CONFIRM',f.prefix,key,body,f.req)));expect(r[0]).toEqual(r[1]);expect(r[0].receiptState).toBe('RECORDED');expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});
+ await ds.query('UPDATE inv_batches SET qty_available=0 WHERE packaging_batch_ref=$1',[f.prefix]);expect((await workflow.detail(f.prefix,f.req)).handover.state).toBe('COMMITTED');expect(await workflow.command('CONFIRM',f.prefix,key,body,f.req)).toEqual(r[0]);});
+ it('same operation key cannot change receiver',async()=>{const body=await prepare(),key=randomUUID();await workflow.command('CONFIRM',f.prefix,key,body,f.req);await expect(workflow.command('CONFIRM',f.prefix,key,{...body,receiverUserId:'999'},f.req)).rejects.toThrow('IDEMPOTENCY_CONFLICT');expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});});
+ it('rejects missing HANDOVER scans, wrong date and receiver without inventory',async()=>{const body=await prepare();for(const changed of [{verificationIds:[]},{productionDate:'2026-01-03'},{receiverUserId:'99999999'}])await expect(workflow.command('CONFIRM',f.prefix,randomUUID(),{...body,...changed},f.req)).rejects.toThrow();expect(await counts()).toEqual({batches:0,ledger:0,handovers:0});});
+ it('keeps events append-only at database level',async()=>{await register();await expect(ds.query("UPDATE pkg_packing_events SET payload='{}' WHERE packing_id=$1",[f.packingId])).rejects.toThrow('PACKING_EVENTS_APPEND_ONLY');});
+ it('preserves conflicting cross-record alias claims and refuses scan',async()=>{await register();const other=await packingHistoryFixture(ds);const [box]=await ds.query(`INSERT INTO pkg_packing_boxes(id,packing_id,output_ordinal,box_ordinal,original_qty) VALUES($1,$2,0,1,30) RETURNING id`,[randomUUID(),other.packingId]);const d=await workflow.detail(f.prefix,f.req),eventId=d.events[0].id,code='TEST-ALIAS-'+randomUUID();
+ await Promise.all([d.boxes[0].boxId,box.id].map(boxId=>ds.transaction(async db=>{await db.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,['packaging-chain:false']);await new PackagingBoxService().claim(db,[{code,boxId,kind:'ALIAS',eventId}]);})));
+ expect((await ds.query('SELECT state,owner_box_id FROM pkg_packing_code_registry WHERE normalized_code=$1',[code]))[0]).toEqual({state:'AMBIGUOUS',owner_box_id:null});await expect(workflow.boxes.resolve(ds.manager,f.packingId,code)).rejects.toThrow('LABEL_UNRESOLVABLE');});
+ it('reports exact original day quantities independently of current inventory',async()=>{const report=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'SHIFT',shiftId:f.shiftId},f.req);expect(report).toMatchObject({totalEggs:50,totalBoxes:2,basis:'TERMINAL_RECORDS'});});
+ it('SQL list, detail and summary retain the same committed snapshot after current quantity evolution',async()=>{
+   const body=await prepare();await workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req);
+   await ds.query('UPDATE inv_batches SET qty=qty-1,qty_available=qty_available-1 WHERE packaging_batch_ref=$1',[f.prefix]);
+   const list=await history.list({packingCode:f.prefix,handoverState:'COMMITTED'},f.req),d=await workflow.detail(f.prefix,f.req);
+   expect(list.totalMatching).toBe(1);expect(list.items[0].handover).toEqual(d.handover);
+   expect(d.handover).toMatchObject({state:'COMMITTED',currentInventoryQuality:'UNKNOWN'});
+   const summary=await history.summary({dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'DAY'},f.req);
+   expect(summary.records[0].handover).toEqual(d.handover);
+ });
+ it('rejects missing, VOID, test and wrong-shift exact grading sources',async()=>{
+   const mutations=[`status='VOID'`,`is_test=true`,`shift_id=NULL`];
+   for(const mutation of mutations){const runner=ds.createQueryRunner();await runner.connect();await runner.startTransaction();
+     try{await runner.query(`UPDATE pkg_grading_records SET ${mutation} WHERE code=$1`,[f.prefix]);const [r]=await history.rows(f.scope,runner.manager,f.prefix);expect(history.view(r).actions.registerBoxes.reasons).toContain('来源关联缺失');}
+     finally{await runner.rollbackTransaction();await runner.release();}}
+ });
+ it('does not fill remaining boxes after a partial legacy handover',async()=>{
+   await ds.query(`INSERT INTO pkg_handover_records(code,packing_code,box_count,location,production_date) VALUES($1,$1,1,$2,'2026-01-02')`,[f.prefix,f.location]);
+   await expect(register()).rejects.toThrow('EVIDENCE_PARTIAL');expect(await counts()).toEqual({batches:0,ledger:0,handovers:1});
+ });
+ it('different concurrent keys still post only once',async()=>{const body=await prepare();const results=await Promise.allSettled([1,2].map(()=>workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req)));expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});});
+ it.each(['inv_ledger','pkg_handover_records'])('rolls back every inventory group and operation when %s insert fails',async table=>{
+   const body=await prepare(),name='test_fail_'+randomUUID().replace(/-/g,'');
+   await ds.query(`CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.${table==='inv_ledger'?'ref_no':'packing_code'}='${f.prefix}' THEN RAISE EXCEPTION 'TEST_INJECTED_FAILURE'; END IF; RETURN NEW; END $$`);
+   await ds.query(`CREATE TRIGGER ${name} BEFORE INSERT ON ${table} FOR EACH ROW EXECUTE FUNCTION ${name}()`);
+   try{await expect(workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req)).rejects.toThrow('TEST_INJECTED_FAILURE');expect(await counts()).toEqual({batches:0,ledger:0,handovers:0});expect((await ds.query(`SELECT count(*)::int n FROM pkg_packing_operations WHERE packing_id=$1 AND action='CONFIRM'`,[f.packingId]))[0].n).toBe(0);}
+   finally{await ds.query(`DROP TRIGGER ${name} ON ${table}`);await ds.query(`DROP FUNCTION ${name}()`);}
+ });
+ it('rejects labels that became ambiguous after scan but before confirm',async()=>{
+   const body=await prepare(),d=await workflow.detail(f.prefix,f.req),other=await packingHistoryFixture(ds),boxId=randomUUID();
+   await ds.query(`INSERT INTO pkg_packing_boxes(id,packing_id,output_ordinal,box_ordinal,original_qty) VALUES($1,$2,0,1,30)`,[boxId,other.packingId]);
+   await ds.transaction(db=>workflow.boxes.claim(db,[{code:d.boxes[0].labels[0].code,boxId,kind:'ALIAS',eventId:d.events[0].id}]));
+   await expect(workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req)).rejects.toThrow('LABEL_UNRESOLVABLE');expect(await counts()).toEqual({batches:0,ledger:0,handovers:0});
+ });
+ it('retires old namespace permanently when relabelling and preserves the box identity',async()=>{
+   await register();const d=await workflow.detail(f.prefix,f.req),old=d.boxes[0].labels[0].code;
+   await command('VOID',{labelCode:old,reason:'TEST damaged label',dispositionDeclaration:'TEST removed old physical label'});
+   const next=await workflow.detail(f.prefix,f.req);expect(next.boxes.map((b:any)=>b.boxId)).toEqual(d.boxes.map((b:any)=>b.boxId));
+   await expect(workflow.boxes.resolve(ds.manager,f.packingId,old)).rejects.toThrow('LABEL_UNRESOLVABLE');
+   await expect(ds.transaction(db=>workflow.boxes.claim(db,[{code:old,boxId:d.boxes[1].boxId,kind:'CANONICAL',eventId:d.events[0].id}]))).rejects.toThrow();
+ });
+ it('new schema really supports empty up/down/up and blocks down with registry-only evidence',async()=>{
+   const runner=ds.createQueryRunner(),schema='test_migration_'+randomUUID().replace(/-/g,'');await runner.connect();await runner.startTransaction();
+   try{await runner.query(`CREATE SCHEMA ${schema}`);await runner.query(`SET LOCAL search_path TO ${schema},public`);
+     await runner.query('CREATE TABLE sys_user(user_id bigint PRIMARY KEY)');await runner.query('CREATE TABLE pkg_packing_records(id integer PRIMARY KEY)');
+     const migration=new PackagingHistoryD1cEvidence1789353300496();await migration.up(runner);await migration.down(runner);await migration.up(runner);
+     await runner.query(`INSERT INTO pkg_packing_code_registry(normalized_code,state) VALUES('TEST-RETIRED','RETIRED')`);
+     await expect(migration.down(runner)).rejects.toThrow('EVIDENCE_EXISTS');
+   }finally{await runner.rollbackTransaction();await runner.release();}
+ });
+ it('typed JSON database checks reject null session purpose',async()=>{
+   const op=randomUUID();await ds.query(`INSERT INTO pkg_packing_operations(id,actor_id,action,idempotency_key,packing_id,payload_hash,state) VALUES($1,$2,'SESSION',$3,$4,'TEST','PENDING')`,[op,f.actor,randomUUID(),f.packingId]);
+   await expect(ds.query(`INSERT INTO pkg_packing_events(id,packing_id,event_type,actor_id,event_key,operation_id,payload,payload_hash) VALUES($1::uuid,$2,'VERIFICATION_SESSION',$3,$1::text,$4,$5,'TEST')`,[randomUUID(),f.packingId,f.actor,op,JSON.stringify({purpose:null,expiresAt:'2026-01-02',targetRevision:'a'.repeat(64)})])).rejects.toMatchObject({driverError:{code:'23514'}});
+ });
+ it('strict print whitelist and calendar/filter validation return client errors',async()=>{
+   const d=await workflow.detail(f.prefix,f.req);await expect(workflow.command('PRINT',f.prefix,randomUUID(),{expectedRevision:d.revision,boxId:randomUUID(),copies:1,printType:'NORMAL',labelCode:'TEST',templateVersion:'TEST',devicePrinted:true},f.req)).rejects.toMatchObject({status:400});
+   for(const q of [{packingCode:' '},{shiftStatus:'RANDOM'},{pageSize:'20'}])await expect(history.list(q as any,f.req)).rejects.toMatchObject({status:400});
+   const report=await history.summary({dateFrom:'2026-01-01',dateTo:'2026-01-07',aggregation:'DAY'},f.req);expect(report.days).toHaveLength(7);expect(report.days[0].totalEggs).toBe(0);
+   await expect(history.summary({dateFrom:'2026-01-03',dateTo:'2026-01-03',aggregation:'SHIFT',shiftId:f.shiftId},f.req)).rejects.toThrow('SHIFT_DATE_MISMATCH');
+ });
+
+ it('SQL keyset preserves exact count, bound filters and stable tie ordering',async()=>{
+   await ds.query(`INSERT INTO pkg_packing_records(code,shift_id,production_date,batches_json,grading_codes_json,total_eggs,total_boxes) SELECT $1||'-'||n,$2,'2026-01-02',$3::jsonb,$4::jsonb,50,2 FROM generate_series(1,31) n`,[f.prefix,f.shiftId,JSON.stringify(f.outputs),JSON.stringify([f.prefix])]);
+   const first=await history.list({pageSize:'25'},f.req);expect(first.totalMatching).toBe(32);expect(first.items).toHaveLength(25);expect(first.hasMore).toBe(true);
+   const next=await history.list({pageSize:'25',cursor:first.nextCursor!},f.req);expect(next.items).toHaveLength(7);expect(next.totalMatching).toBe(32);expect(new Set([...first.items,...next.items].map(x=>x.record.id)).size).toBe(32);
+   await expect(history.list({pageSize:'50',cursor:first.nextCursor!},f.req)).rejects.toThrow('INVALID_FILTER');
+   const cursor=JSON.parse(Buffer.from(first.nextCursor!,'base64url').toString());cursor.lastId='1';await expect(history.list({cursor:Buffer.from(JSON.stringify(cursor)).toString('base64url')},f.req)).rejects.toThrow('INVALID_FILTER');
+ });
+
+ it('legacy packaging trace returns only exact authorized source links even before inventory exists',async()=>{
+   const other=await packingHistoryFixture(ds),trace=new TraceabilityService(ds,history);
+   const result=await trace.traceByPackaging(f.prefix,[f.company],f.scope);expect(result.sources).toHaveLength(1);expect(result.sources[0].sourceBatchCode).toBe(f.prefix);
+   await expect(trace.traceByPackaging(other.prefix,[f.company],f.scope)).rejects.toThrow('RECORD_NOT_ACCESSIBLE');
+ });
+
+ it('legacy adapter requires real existing scans and replays safely after flags close',async()=>{
+   await prepare();const d=await workflow.detail(f.prefix,f.req),key=randomUUID(),req={...f.req,headers:{'idempotency-key':key}};
+   const body={packingCode:f.prefix,boxes:d.boxes.map((b:any)=>b.labels.find((l:any)=>l.kind==='CANONICAL').code),location:f.location,receiver:f.prefix};
+   const first=await workflow.compatConfirm(body,req);expect(first.receiptState).toBe('RECORDED');
+   policy.get=()=>({version:'CLOSED',R:false,B:false,P:false,V:false,H:false,Q:false,encodingVersion:null,receiptMode:'C'});
+   expect(await workflow.compatConfirm(body,req)).toEqual(first);expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});
+ });
+
+});

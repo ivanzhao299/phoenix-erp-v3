@@ -2180,6 +2180,7 @@ export class GenericCrudService implements OnModuleInit {
 
 
   async findAll(table: string, query: any) {
+    if (['pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装证据必须使用专用范围查询');
     const { sql, queryValues } = this.buildFindAllSql(table, query);
 
     try {
@@ -2604,7 +2605,7 @@ export class GenericCrudService implements OnModuleInit {
   }
 
   async create(table: string, body: any) {
-    if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
+    if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
     if (table === BREEDING_FARMS_TABLE) await this.validateFarmSiteMapping(body);
     const fields = Object.keys(body);
     const values = Object.values(body);
@@ -2640,6 +2641,7 @@ export class GenericCrudService implements OnModuleInit {
       throw new BadRequestException('Security Violation: Invalid primary key column');
     }
     this.assertColumnsAllowed(table, [pkName]);
+    if (['pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装证据必须使用专用范围查询');
     const packagingFilter = table === 'pkg_handover_records' ? ' AND NOT EXISTS (SELECT 1 FROM pkg_packing_records p WHERE p.code=pkg_handover_records.packing_code AND p.is_test)' : ['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records'].includes(table) ? ' AND is_test = false' : '';
     const sql = `SELECT * FROM "${table}" WHERE "${pkName}" = $1${packagingFilter} LIMIT 1`;
     try {
@@ -2651,7 +2653,7 @@ export class GenericCrudService implements OnModuleInit {
   }
 
   async update(table: string, pkName: string, id: any, body: any) {
-    if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
+    if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
     console.log(`[SVC Update START] table=${table} pk=${pkName} id=${id} body=${JSON.stringify(body)}`);
     if (table === BREEDING_FARMS_TABLE) {
       const current = await this.findOneByColumn(table, pkName, id);
@@ -2709,7 +2711,7 @@ export class GenericCrudService implements OnModuleInit {
   }
 
   async remove(table: string, pkName: string, id: any) {
-    if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
+    if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
     this.assertColumnsAllowed(table, [pkName]);
     if (table === 'brd_farms') {
       const houses = await this.entityManager.query(`SELECT 1 FROM "brd_houses" WHERE farm_code = $1 LIMIT 1`, [id]);
