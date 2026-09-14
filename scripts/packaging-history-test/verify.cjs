@@ -16,6 +16,8 @@ const tests=[
  ['pg-http','apps/api','./node_modules/.bin/jest',['--runInBand','packaging-history.pg.spec.ts','packaging-history.http.spec.ts']],
  ['web-dom','apps/web','./node_modules/.bin/vitest',['run','src/__tests__/packing-history-client.test.ts','src/__tests__/packing-history.dom.test.tsx','src/__tests__/packing-history-ui.dom.test.tsx','src/__tests__/packaging-terminal-context.dom.test.tsx','src/__tests__/bug-20260722-0003-warehouse-handover.test.ts']],
  ['nullable','.','node',['scripts/check-nullable-in-unique.js']],
+ ['constraint-parser','.','node',['scripts/entity-alignment/constraint-test.cjs']],
+ ['constraint-self-test','.','node',['scripts/check-constraint-drift.js','--self-test']],
  ['constraint','.','node',['scripts/check-constraint-drift.js']],
  ['migration-down','.','bash',['scripts/check-ts-migration-down.sh']],
  ['migration-dml','.','bash',['scripts/check-ts-migration-no-data-dml.sh']],

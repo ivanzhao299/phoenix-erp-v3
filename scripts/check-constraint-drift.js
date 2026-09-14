@@ -20,7 +20,7 @@ const path = require('path');
 
 const REPO = path.resolve(__dirname, '..');
 const ALLOWLIST = path.join(REPO, '.github', 'constraint-drift-allowlist.txt');
-const BASELINE_DIRS = [path.join(REPO, 'migrations'), path.join(REPO, 'apps/api/migrations')];
+const BASELINE_ROOT = path.join(REPO, 'apps/api');
 const TS_MIGRATIONS = path.join(REPO, 'apps/api/src/database/migrations');
 const API_SRC = path.join(REPO, 'apps/api/src');
 
@@ -104,7 +104,14 @@ function enumValues(expression) {
 }
 
 function addCheck(model, tableName, name, expression, baselineIntent) {
-  const tName = stripIdent(tableName), cName = stripIdent(name || `anon_${table(model, tName).checks.size}`);
+  const tName = stripIdent(tableName);
+  // PostgreSQL names an unnamed single-column CHECK <table>_<column>_check.
+  // Keep complex/unresolved predicates explicitly synthetic instead of guessing.
+  const col = checkColumn(expression);
+  const base = col && `${tName}_${col}_check`;
+  let inferred = base && base.length <= 63 ? base : `anon_${table(model, tName).checks.size}`;
+  for (let n = 1; !name && table(model, tName).checks.has(inferred); n++) inferred = `${base || 'anon'}${n}`;
+  const cName = stripIdent(name || inferred);
   const info = { name: cName, expression: expression.trim(), column: checkColumn(expression), values: enumValues(expression) };
   table(model, tName).checks.set(cName, info);
   if (baselineIntent && info.column) model.baselineChecks.set(`${tName}.${info.column}`, { table: tName, column: info.column });
@@ -139,7 +146,7 @@ function parseCreateTables(sql, model, baselineIntent) {
 }
 
 function parseSql(sql, model, baselineIntent = false) {
-  const clean = sql.replace(/--[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const clean = sql.replace(/--[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ') + ';'; // driver query strings need no trailing semicolon
   const eventRe = /(CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?((?:"[^"]+"\.)?"?[a-zA-Z_]\w*"?)\s*\()|(DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?"?([a-zA-Z_]\w*)"?[^;]*;)|(ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?"?([a-zA-Z_]\w*)"?\s+[\s\S]*?;)/ig;
   let event;
   while ((event = eventRe.exec(clean))) {
@@ -162,6 +169,10 @@ function parseSql(sql, model, baselineIntent = false) {
     for (const action of splitTopLevel(match[2])) {
       let m = action.match(/^ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?"?([a-zA-Z_]\w*)"?\s+([\s\S]+)$/i);
       if (m && !/^CONSTRAINT$/i.test(m[1])) {
+        // PostgreSQL skips the entire ADD, including nullable/default/CHECK,
+        // when IF NOT EXISTS names a column that already exists.
+        if (/^ADD\s+(?:COLUMN\s+)?IF\s+NOT\s+EXISTS\b/i.test(action)
+          && table(model, tableName).columns.has(stripIdent(m[1]))) continue;
         const state = column(model, tableName, m[1]);
         state.notNull = /\bNOT\s+NULL\b/i.test(m[2]); state.hasDefault = /\bDEFAULT\b/i.test(m[2]);
         const inline = m[2].match(/\bCHECK\s*\((.*)\)/is);
@@ -212,10 +223,18 @@ function extractTsSql(text, model) {
   }
 }
 
+// Match scripts/db-migrate.sh execution order. Archived/root duplicate SQL is
+// historical evidence, not executable terminal state. Never recursively replay it.
+function baselineFilesInOrder(root = BASELINE_ROOT) {
+  const direct = (dir, accept) => fs.readdirSync(dir, { withFileTypes: true })
+    .filter(e => e.isFile() && accept(e.name)).map(e => path.join(dir, e.name)).sort();
+  return [...direct(path.join(root, 'ddl'), n => n.endsWith('.sql')),
+    path.join(root, 'migrations/v3_schema_complete.sql'),
+    ...direct(path.join(root, 'migrations'), n => /^2026.*\.sql$/.test(n))];
+}
 function buildMigrationModel() {
   const model = emptyModel();
-  const baselineFiles = BASELINE_DIRS.flatMap((dir) => walk(dir, (f) => f.endsWith('.sql')))
-    .sort((a, b) => path.basename(a).localeCompare(path.basename(b)) || a.localeCompare(b));
+  const baselineFiles = baselineFilesInOrder();
   for (const file of baselineFiles) { parseSql(fs.readFileSync(file, 'utf8'), model, true); model.stats.sqlFiles++; }
   const tsFiles = walk(TS_MIGRATIONS, (f) => f.endsWith('.ts')).sort((a, b) => path.basename(a).localeCompare(path.basename(b)));
   for (const file of tsFiles) { extractTsSql(fs.readFileSync(file, 'utf8'), model); model.stats.tsFiles++; }
@@ -381,6 +400,13 @@ function selfTest() {
     ['R3 / P0-4b code value outside CHECK', fixture(`CREATE TABLE fin_ar_invoices (source_type text, CHECK (source_type IN ('MANUAL')));`, `db.query(\`INSERT INTO fin_ar_invoices (source_type) VALUES ('STORE_SALE')\`)`), 'R3', true],
     ['R4 / entity nullable vs NOT NULL', entityFixture(`CREATE TABLE demo (value text NOT NULL);`, `@Entity('demo') class Demo { @Column({ nullable: true }) value: string | null; }`), 'R4', true],
     ['R4 / aligned entity', entityFixture(`CREATE TABLE demo (value text NOT NULL);`, `@Entity('demo') class Demo { @Column({}) value: string; }`), null, false],
+    ['existing NOT NULL + ADD IF NOT EXISTS nullable preserves constraint', entityFixture(`CREATE TABLE demo (value text NOT NULL); ALTER TABLE demo ADD COLUMN IF NOT EXISTS value text;`, `@Entity('demo') class Demo { @Column({}) value: string; }`), null, false],
+    ['missing nullable ADD remains nullable', entityFixture(`CREATE TABLE demo (id int); ALTER TABLE demo ADD COLUMN IF NOT EXISTS value text;`, `@Entity('demo') class Demo { @Column({}) value: string; }`), 'R4', true],
+    ['explicit DROP NOT NULL remains effective', entityFixture(`CREATE TABLE demo (value text NOT NULL); ALTER TABLE demo ADD COLUMN IF NOT EXISTS value text; ALTER TABLE demo ALTER COLUMN value DROP NOT NULL;`, `@Entity('demo') class Demo { @Column({}) value: string; }`), 'R4', true],
+    ['explicit SET NOT NULL remains effective', entityFixture(`CREATE TABLE demo (value text); ALTER TABLE demo ALTER COLUMN value SET NOT NULL; ALTER TABLE demo ADD COLUMN IF NOT EXISTS value text;`, `@Entity('demo') class Demo { @Column({ nullable: true }) value: string; }`), 'R4', true],
+    ['ignored ADD default cannot mask a real null-write error', fixture(`CREATE TABLE demo (value text NOT NULL); ALTER TABLE demo ADD COLUMN IF NOT EXISTS value text DEFAULT '';`, `db.query(\`INSERT INTO demo (value) VALUES ($1)\`, [null])`), 'R1', true],
+    ['driver literal without semicolon updates NOT NULL', entityFixture(`CREATE TABLE demo (value text NOT NULL); ALTER TABLE demo ALTER COLUMN value DROP NOT NULL`, `@Entity('demo') class Demo { @Column({ nullable: true }) value: string; }`), null, false],
+    ['unnamed column CHECK replaced by real PostgreSQL name', fixture(`CREATE TABLE demo (value text CHECK(value IN ('A'))); ALTER TABLE demo DROP CONSTRAINT demo_value_check; ALTER TABLE demo ADD CONSTRAINT new_check CHECK(value IN ('A','B'));`, `db.query(\`INSERT INTO demo (value) VALUES ('B')\`)`), null, false],
     ['clean fixture', fixture(`CREATE TABLE fin_ar_invoices (source_type text, CHECK (source_type IN ('MANUAL','STORE_SALE')));`, `db.query(\`INSERT INTO fin_ar_invoices (source_type) VALUES ('STORE_SALE')\`)`), null, false],
   ];
   let failed = false;
@@ -409,4 +435,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { emptyModel, parseSql, extractTsSql, extractWrites, extractEntities, extractDtoEnums, buildMigrationModel, detect, evaluate };
+module.exports = { baselineFilesInOrder, emptyModel, parseSql, extractTsSql, extractWrites, extractEntities, extractDtoEnums, buildMigrationModel, detect, evaluate };
