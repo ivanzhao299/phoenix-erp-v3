@@ -569,3 +569,9 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 - Local commit/bundle `ae1b7319`, expected SHA a53d91f...46922; metadata and legacy observability tests exit0.
 - validate/SCP/SSH wrapper exit0; helper result preserved with no EOF delimiter error.
 - Fixed helper class: `DB/MISSING_ROLE/exit=2`; Enforce marker step fail-closed. No image/PG/migration/flags summary and no production writes. DB role availability remains the blocking condition.
+
+## GO/NO-GO 结论（2026-09-14，只读角色阻断）
+
+- **NO-GO**：生产 `phoenix_metadata_readonly` 当前不可用；run `34830667068` 的真实结果为 `DB/MISSING_ROLE/exit=2`，后续元数据阶段未执行。
+- 仓库和正式运维材料只证明 helper 固定使用该角色、`phoenix-v3-db` 容器及 `phoenix_erp` 数据库；未发现该生产角色的合法创建、授权或连接配置证据。不能据此猜测是变量命名错误或其他环境原因。
+- 在正式运维提供非敏感的角色存在、最小只读授权及无交互连接契约证据前，不得重新审计、建角色、改权限或修改生产认证。不得读取 secret、env 或 auth artifact。

@@ -745,3 +745,11 @@ SSH metadata 分支现在捕获 helper 输出并打印固定 `AUDIT_METADATA_RES
 本地 metadata/observability/syntax/YAML/diff 均 exit0。唯一 dispatch 使用 audit branch `ae1b73198a5612f0555e049a5a97441799c29be5` bundle 和 expected SHA `a53d91f33ff733bf28e19ca11d7491f1bfd46922`：run `34830667068` 的 validate、SCP、SSH wrapper 均成功；helper 真实终态为 `DB/MISSING_ROLE/exit=2`，Enforce step 以 `METADATA_RESULT/HELPER_FAILED/exit=2` 停止。日志显示 helper checkout SHA 匹配 expected，SSH 输出不再有 EOF delimiter 错误。
 
 由于只读角色缺失，未执行 image IDs、PG major、migration pending、dirty、容量、flags 汇总；未修改生产目录或数据库。DB 阻断证据保留，不能把本次 run 称为 metadata audit PASS。
+
+## 当前 GO/NO-GO（角色契约阻断）
+
+结论为 **NO-GO**。生产 `phoenix_metadata_readonly` 不可用：受控只读 run `34830667068` 在 DB 阶段真实返回 `MISSING_ROLE/exit=2`，因此没有取得后续 image、PG、迁移、容量或 flags 元数据。
+
+仓库 helper、workflow 和正式运维文档仅固定并引用 `phoenix_metadata_readonly`、`phoenix-v3-db`、`phoenix_erp`；没有找到生产角色创建、授权或无交互连接的合法非敏感配置证据。当前不能把结果解释为角色变量拼写错误，也不能猜测缺失原因。
+
+只有在正式运维提供非敏感的只读角色存在性、最小授权范围和连接契约证据后，才可重新进行 metadata-only 审计。在此之前不得创建角色、修改权限/认证、执行生产 DDL 或业务写入，也不得读取 secret、env 或 auth artifact。
