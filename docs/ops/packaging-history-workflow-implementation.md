@@ -1,6 +1,6 @@
 # 包装历史工作流本地实施与验收
 
-> 最新交付见文末“A/B及父级追加27–29”与“最终测试映射”：应用cdb49bb1、候选runner补丁d1537fe4，entity267/300与constraint通过；原scope-audit仍28FAIL/1skip，未发布。此前各轮记录仅作历史证据。
+> 最新追加：生产只读audit34818687355失败；隔离scope真实30检查28PASS/2FAIL，活跃股东资金summary泄露，发布阻断。见文末只读/scope阶段及独立报告。此前应用交付见文末“A/B及父级追加27–29”与“最终测试映射”：应用cdb49bb1、候选runner补丁d1537fe4，entity267/300与constraint通过；原scope-audit仍28FAIL/1skip，未发布。此前各轮记录仅作历史证据。
 
 ## 授权与交付边界
 
@@ -563,3 +563,11 @@ JwtStrategy原Number(sub)会将超安全整数舍入；现接受正十进制PG b
 未push证据范围：main及本地origin/main仍69d89dd44b8e1461d7eaf5193e60c994255aed2c，当前HEAD无remote-tracking分支包含，未执行push/dispatch/生产动作；这是本地缓存与操作记录，不伪称已联网验证远端当前状态。最终文档提交只归档报告/证据，测试仍按以上revision映射。
 
 最终停止记录：`artifacts/entity-ab-stop-receipt.json`验证本次容器运行数0，localhost3000/3100/55432/55434/55437/55438均无监听；最后API进程已SIGTERM，本项目浏览器runtime无活动进程。保留所有PG fixture/容器/卷、构建副本、失败日志，无down/清理；其他项目服务未动。`artifacts/entity-ab-remaining-267.json`保留剩余只读diff，不执行。
+
+## 19101533之后：受控只读预检与旧scope有效性
+
+完整报告：[packaging-history-readonly-scope-preflight.md](packaging-history-readonly-scope-preflight.md)，机器摘要 `artifacts/packaging-history-scope-preflight-delivery.json`。授权仅必要受控audit dispatch/SCP和本地测试，不发布。run34818687355 validate/SCP成功、protected执行exit1，终态failure，sanitized stdout仅换行；生产部署SHA/镜像/PG/迁移/dirty/容量/flags均未取得，不能把GitHub main69d89dd4当生产身份。未重试、未push。
+
+同源码隔离真实scope30检查28PASS/2FAIL/0skip；6普通TEST账号实际登录，T01–16及F01–08逐项映射。旧2printedPASS/28FAIL/1SKIP原证据和F06假PASS保留，原脚本未改/本轮未重跑，不称原全绿。退役finance明确404只算退役契约。新增真实缺陷：SELF账户GET股东资金列表items=[]/total0，但同/异公司summary各泄露TEST300。调用PaymentsController→PaymentsService.listShareholderFunds中summary漏复用范围谓词。当前未修应用，最小修复及真实HTTP验证范围交父级审，发布保持阻断。review6/24的scope仍partial/FAIL，不能据旧专项绿关闭。
+
+新增harness实测HEAD19101533+dirty，前后指纹c3901c5780c830825f38f8cfee295602bb43deebb6452b79fa9a2880d4142897相同；API/Web tsc各exit0，syntax/diff检查0。应用/迁移/workflow无修改，原cdb49bb1的25组映射保留，不追认在本次提交重跑。最终停止本次PG/API，保留fixture；无push/deploy/生产DDL/业务写/secret变更。

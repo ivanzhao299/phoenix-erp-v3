@@ -1,0 +1,326 @@
+{
+  "command": [
+    "node",
+    "scripts/packaging-history-test/scope-validity.cjs"
+  ],
+  "startedAt": "2026-09-14T07:43:28.503Z",
+  "finishedAt": "2026-09-14T07:43:33.561Z",
+  "identity": {
+    "db": "packaging_history_test",
+    "version": "180006"
+  },
+  "fixture": {
+    "tag": "TEST-SCOPE-0ce1dd4138",
+    "companies": [
+      "TEST-SCOPE-0ce1dd4138-A",
+      "TEST-SCOPE-0ce1dd4138-B"
+    ],
+    "rows": {
+      "companies": [
+        "TEST-SCOPE-0ce1dd4138-A",
+        "TEST-SCOPE-0ce1dd4138-B"
+      ],
+      "orders": [
+        "13",
+        "14",
+        "15"
+      ],
+      "payments": [
+        "13",
+        "14",
+        "15"
+      ],
+      "aps": [
+        "13",
+        "14",
+        "15"
+      ],
+      "funds": [
+        "13",
+        "14",
+        "15"
+      ],
+      "shipments": [
+        "13",
+        "14",
+        "15"
+      ],
+      "requests": [
+        "13",
+        "14",
+        "15"
+      ]
+    },
+    "users": {
+      "admin": {
+        "id": "10218",
+        "username": "TEST-SCOPE-0ce1dd4138-admin"
+      },
+      "ceo": {
+        "id": "10219",
+        "username": "TEST-SCOPE-0ce1dd4138-ceo"
+      },
+      "buyer": {
+        "id": "10220",
+        "username": "TEST-SCOPE-0ce1dd4138-buyer"
+      },
+      "project": {
+        "id": "10221",
+        "username": "TEST-SCOPE-0ce1dd4138-project"
+      },
+      "factory": {
+        "id": "10222",
+        "username": "TEST-SCOPE-0ce1dd4138-factory"
+      },
+      "shareholder": {
+        "id": "10223",
+        "username": "TEST-SCOPE-0ce1dd4138-shareholder"
+      }
+    }
+  },
+  "checks": [
+    {
+      "name": "LOGIN admin",
+      "status": "PASS"
+    },
+    {
+      "name": "LOGIN ceo",
+      "status": "PASS"
+    },
+    {
+      "name": "LOGIN buyer",
+      "status": "PASS"
+    },
+    {
+      "name": "LOGIN project",
+      "status": "PASS"
+    },
+    {
+      "name": "LOGIN factory",
+      "status": "PASS"
+    },
+    {
+      "name": "LOGIN shareholder",
+      "status": "PASS"
+    },
+    {
+      "name": "T01 buyer exact company nonempty PO",
+      "status": "PASS"
+    },
+    {
+      "name": "T02 foreign PO forbidden",
+      "status": "PASS"
+    },
+    {
+      "name": "T03 own PO",
+      "status": "PASS"
+    },
+    {
+      "name": "T04 factory fund menu denied",
+      "status": "PASS"
+    },
+    {
+      "name": "T05 global ordinary role fund exact company filter",
+      "status": "PASS"
+    },
+    {
+      "name": "T06 buyer dashboard exact company count",
+      "status": "PASS"
+    },
+    {
+      "name": "T07 global dashboard compares DB count",
+      "status": "PASS"
+    },
+    {
+      "name": "T08 payment exact company membership",
+      "status": "PASS"
+    },
+    {
+      "name": "T09 F05 SELF funds zero against other-owner sentinel",
+      "status": "FAIL",
+      "error": "ERR_ASSERTION",
+      "message": "SELF summary leaks other owner amounts"
+    },
+    {
+      "name": "F05 foreign company summary must also be empty",
+      "status": "FAIL",
+      "error": "ERR_ASSERTION",
+      "message": "foreign company summary leak"
+    },
+    {
+      "name": "T10 global init",
+      "status": "PASS"
+    },
+    {
+      "name": "T10 T16 buyer init denied",
+      "status": "PASS"
+    },
+    {
+      "name": "T11 unauthenticated rejection",
+      "status": "PASS"
+    },
+    {
+      "name": "T12 exact PROJECT excludes same-company foreign project",
+      "status": "PASS"
+    },
+    {
+      "name": "T13 PR nonempty company membership",
+      "status": "PASS"
+    },
+    {
+      "name": "T14 GROUP exact both companies",
+      "status": "PASS"
+    },
+    {
+      "name": "T15 foreign TEST shipment denied (no platform psql)",
+      "status": "PASS"
+    },
+    {
+      "name": "F06 AP requires 200 and exact nonempty membership",
+      "status": "PASS"
+    },
+    {
+      "name": "F01 retired route explicit404 (not old functionality)",
+      "status": "PASS"
+    },
+    {
+      "name": "F02 retired route explicit404 (not old functionality)",
+      "status": "PASS"
+    },
+    {
+      "name": "F03 retired route explicit404 (not old functionality)",
+      "status": "PASS"
+    },
+    {
+      "name": "F04 retired route explicit404 (not old functionality)",
+      "status": "PASS"
+    },
+    {
+      "name": "F07 retired route explicit404 (not old functionality)",
+      "status": "PASS"
+    },
+    {
+      "name": "F08 retired route explicit404 (not old functionality)",
+      "status": "PASS"
+    }
+  ],
+  "selfEvidence": {
+    "items": 0,
+    "total": 0,
+    "summaryPresent": true,
+    "summaryOriginal": 300,
+    "expected": 0
+  },
+  "foreignEvidence": {
+    "items": 0,
+    "total": 0,
+    "summaryOriginal": 300,
+    "expected": 0
+  },
+  "exit": 1,
+  "sourceUnchanged": true,
+  "harnessBefore": "dbea793db2107155b1a64e686974e1963cf7d4affda393dbbc89ba4a1c57526c",
+  "harnessAfter": "dbea793db2107155b1a64e686974e1963cf7d4affda393dbbc89ba4a1c57526c",
+  "head": "1910153376f59f10f5f285d806cb77e6aca4ea4c",
+  "sourceFingerprint": "c3901c5780c830825f38f8cfee295602bb43deebb6452b79fa9a2880d4142897",
+  "fullEvidence": "artifacts/scope-validity-1789371808502/results.json",
+  "fullEvidenceSha256": "4c3cc65850177edc6a3be844c23e0594a74b5460686a04c9914e2afe85317492",
+  "originalScopeEvidence": {
+    "path": "artifacts/packaging-history-local/verified-runtime-scope-audit-r7.log",
+    "printedPass": 2,
+    "fail": 28,
+    "skip": 1,
+    "validPass": 1,
+    "F06": "false positive, 401 was treated as empty data",
+    "rerunThisStage": false
+  },
+  "productionAudit": {
+    "runId": 34818687355,
+    "status": "completed",
+    "conclusion": "failure",
+    "dispatchExit": 0,
+    "protectedExecutionExit": 1,
+    "ref": "main",
+    "headSha": "69d89dd44b8e1461d7eaf5193e60c994255aed2c",
+    "inputs": {
+      "approve_production": "APPROVE-PRODUCTION-READONLY-AUDIT",
+      "assertion_sql_path": "",
+      "http_assertions_path": ""
+    },
+    "command": [
+      "gh",
+      "workflow",
+      "run",
+      "production-readonly-audit.yml",
+      "--ref",
+      "main",
+      "-f",
+      "approve_production=APPROVE-PRODUCTION-READONLY-AUDIT",
+      "-f",
+      "assertion_sql_path=",
+      "-f",
+      "http_assertions_path="
+    ],
+    "runEvidence": "artifacts/production-readonly-audit-34818687355/run.json",
+    "sanitizedStdoutBytes": 1,
+    "actualDeploySha": null,
+    "dbMajor": null,
+    "imageIds": null,
+    "pendingMigrations": null,
+    "worktreeClean": null,
+    "diskBackupCapacity": null,
+    "writeFlags": null,
+    "reason": "Existing safe blank-input route failed without diagnostic stdout. Remaining checks unavailable in reviewed remote interface. No retry/push."
+  },
+  "applicationDiffFrom19101533": "",
+  "interpretation": "RELEASE_BLOCKED: live SELF/foreign-company summary leak. Test/report changes only, no application fix; no production preflight PASS.",
+  "typeChecks": [
+    {
+      "revision": "artifacts/packaging-history-local/verified-api-tsc-r32.revision.json",
+      "head": "1910153376f59f10f5f285d806cb77e6aca4ea4c",
+      "sourceFingerprint": "c3901c5780c830825f38f8cfee295602bb43deebb6452b79fa9a2880d4142897",
+      "sourceUnchanged": true,
+      "name": "api-tsc",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/tsc",
+        "--noEmit"
+      ],
+      "started": "2026-09-14T07:43:38.651Z",
+      "finished": "2026-09-14T07:43:40.112Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-api-tsc-r32.log"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-web-tsc-r21.revision.json",
+      "head": "1910153376f59f10f5f285d806cb77e6aca4ea4c",
+      "sourceFingerprint": "c3901c5780c830825f38f8cfee295602bb43deebb6452b79fa9a2880d4142897",
+      "sourceUnchanged": true,
+      "name": "web-tsc",
+      "cwd": "apps/web",
+      "command": [
+        "./node_modules/.bin/tsc",
+        "--noEmit"
+      ],
+      "started": "2026-09-14T07:43:40.114Z",
+      "finished": "2026-09-14T07:43:42.362Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-web-tsc-r21.log"
+    }
+  ],
+  "stop": {
+    "container": "packaging-history-test-pg18-review29-final",
+    "status": "exited",
+    "stopExit": 0,
+    "portsListening": {
+      "3100": false,
+      "55432": false
+    },
+    "fixture": "preserved",
+    "api": "app.close in finally; own runner processes exited"
+  }
+}

@@ -5569,5 +5569,41 @@
     "signal": null,
     "error": null,
     "log": "artifacts/packaging-history-local/verified-performance-r16.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r32.revision.json",
+    "head": "1910153376f59f10f5f285d806cb77e6aca4ea4c",
+    "sourceFingerprint": "c3901c5780c830825f38f8cfee295602bb43deebb6452b79fa9a2880d4142897",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T07:43:38.651Z",
+    "finished": "2026-09-14T07:43:40.112Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r32.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-tsc-r21.revision.json",
+    "head": "1910153376f59f10f5f285d806cb77e6aca4ea4c",
+    "sourceFingerprint": "c3901c5780c830825f38f8cfee295602bb43deebb6452b79fa9a2880d4142897",
+    "sourceUnchanged": true,
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T07:43:40.114Z",
+    "finished": "2026-09-14T07:43:42.362Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r21.log"
   }
 ]
