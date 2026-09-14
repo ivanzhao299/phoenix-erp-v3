@@ -710,3 +710,11 @@ run `34823735277`（head `cba29befd93e372b3651d7f2c05ffc04f3c4822f`）进入 pro
 run `34825204038`（head `fa02924da3e8501d44d5eb84a62e9e916ea5bd66`）使用固定 approve token、metadata mode、expected SHA、`deploy-backups` 和空 assertion 路径。validate exit0，SCP 成功，SSH helper 的 checkout SHA 与 expected 完全匹配，说明本次不是 SHA mismatch。随后固定备份目录 stat 在遇到不支持的条目时返回 `BACKUP / UNSUPPORTED_ENTRY / exit=2` 并停止；没有最终 metadata 汇总，因此不记录或猜测 image IDs、PG major、pending migration、dirty、flags。该失败未重试，也未绕过条目检查。SSH action 仍在失败后报告 `Invalid value. Matching delimiter not found 'EOF'`，属于输出采集故障。
 
 本次 metadata helper 只读阶段未执行业务 SQL、DDL、migration、flag/secret 修改；SCP 仅写入受控临时 bundle 目录，无删除清理步骤。生产审计仍未完成，须维护者先处理备份目录的真实条目契约后再另行批准执行。
+
+## Review31 backup layout correction and dispatch 34826067560
+
+run `34826067560` validate/SCP 成功，SHA 与确认值 `a53d91f33ff733bf28e19ca11d7491f1bfd46922` 匹配。helper 输出了真实 failure：`type=directory, relativePath=bug-intake-runner, depth=1, class=UNKNOWN_DIRECTORY`。仓库 `provision-bug-intake-runner.yml` 证明该目录是独立 runner 预配备份（`pre-provision-<UTC timestamp>.dump[.sha256]`），不是 deploy migration backup；`production-disk-maintenance.yml` 同样只把 `deploy-pre-migration-*` 当迁移备份。没有读生产文件内容。
+
+因此 helper 已修为只递归审计固定 `deploy-pre-migration-<数字>` 目录；其他顶层目录仅 lstat 后以脱敏相对路径/type/depth 作为 `unrelatedTopLevel` 报告，不递归或忽略其存在。deploy 目录内部仍严格拒绝未知命名、partial、symlink、特殊文件和嵌套目录。原 run 失败证据保留，不把 `bug-intake-runner` 放入 deploy 白名单。
+
+本地 fixture 新增合法配对布局、独立顶层含 symlink 不递归、root 文件、unknown tmp/lock/partial/hidden、nested、partial pair、FIFO、symlink；metadata 测试 exit0，legacy 15 cases exit0。更新后的 bundle hash 和专用分支 push 后，需再按确认 SHA dispatch；若真实 deploy 目录仍有待审条目，继续 fail-closed。

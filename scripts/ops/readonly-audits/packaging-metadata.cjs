@@ -55,13 +55,19 @@ function flags(rows,ready=true){
  return {state:Object.values(raw).some(Boolean)?'any_true':'valid_all_off',raw,effective};
 }
 function backupMetadata(dir){
- const root=path.resolve(dir);regular(root,true);let count=0,bytes=0,maxMtime=0,partial=[];
+ const root=path.resolve(dir);regular(root,true);let count=0,bytes=0,maxMtime=0,partial=[],unrelatedTopLevel=[];
  const dirs=fs.readdirSync(root);
  for(const name of dirs){
   const p=path.join(root,name),s=fs.lstatSync(p),depth=1;
   if(s.isSymbolicLink())backupFail(root,p,s,'SYMLINK',depth);
   if(!s.isDirectory())backupFail(root,p,s,'UNSUPPORTED_TYPE',depth);
-  if(!/^deploy-pre-migration-[0-9]+$/.test(name))backupFail(root,p,s,'UNKNOWN_DIRECTORY',depth);
+  if(!/^deploy-pre-migration-[0-9]+$/.test(name)){
+   // Independent backup/artifact directories (for example bug-intake-runner) are
+   // reported by metadata only. Never recurse into them or treat their contents
+   // as migration backups; their own audit has a separate contract.
+   unrelatedTopLevel.push({type:lstatType(s),relativePath:safeRelative(root,p),depth});
+   continue;
+  }
   const files=fs.readdirSync(p),seen=new Map();
   for(const file of files){
    const fp=path.join(p,file),fsx=fs.lstatSync(fp),fd=2;
@@ -75,7 +81,7 @@ function backupMetadata(dir){
   for(const [key,parts] of seen){if(parts.length!==2){partial.push({type:'file',relativePath:safeRelative(root,path.join(p,`phoenix_erp_pre_${key}.dump`)),depth:2});}}
  }
  if(partial.length)fail('BACKUP','PARTIAL_BACKUP',2,partial[0]);
- return {state:count?'METADATA_ONLY':'NO_BACKUP',count,bytes,maxMtime,layout:'deploy-pre-migration/<numeric-run>/phoenix_erp_pre_<12hex>.dump[.sha256]'};
+ return {state:count?'METADATA_ONLY':'NO_BACKUP',count,bytes,maxMtime,layout:'deploy-pre-migration/<numeric-run>/phoenix_erp_pre_<12hex>.dump[.sha256]',unrelatedTopLevel};
 }
 function validate(env){
  const expectedHashes=['BUNDLE_HELPER_SHA256','BUNDLE_SQL_SHA256','BUNDLE_MANIFEST_SHA256'];
