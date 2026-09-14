@@ -100,8 +100,9 @@ export const MENU: MenuItem[] = [
     { id: "prod-inbound-ledger", path: "/breeding/daily-inbound-ledger", Icon: ScrollText, label: "日产蛋入库台账", perm: "MENU_PROD_INBOUND" },
     // 分级包装（包装作业中心：包装完成 = 唯一库存入口）
     { id: "pkg-op",         path: "/packaging",               Icon: Egg,            label: "包装作业",     perm: "MENU_PKG_OP"  },
-    { id: "pkg-batch",      path: "/packaging/batch",         Icon: Layers,         label: "包装批次",     perm: "MENU_PKG_MGR" },
-    { id: "pkg-report",     path: "/packaging/daily-report",  Icon: BarChart2,      label: "包装日报",     perm: "MENU_PKG_MGR" },
+    { id: "pkg-history", path: "/packaging/history", Icon: Layers, label: "包装历史", perm: "MENU_PKG_OP", altPerms: ["MENU_PKG_MGR"] },
+    { id: "pkg-batch",      path: "/packaging/batch",         Icon: Layers,         label: "分级记录查询",     perm: "MENU_PKG_MGR" },
+    { id: "pkg-report",     path: "/packaging/daily-report",  Icon: BarChart2,      label: "包装日报",     perm: "MENU_PKG_OP", altPerms: ["MENU_PKG_MGR"] },
     { id: "pkg-except",     path: "/packaging/exceptions",    Icon: FileWarning,    label: "异常处理",     perm: "MENU_PKG_MGR" },
     { id: "pkg-printlogs",  path: "/packaging/print-logs",    Icon: ScrollText,     label: "补打日志",     perm: "MENU_PKG_MGR" },
     // 品质追溯

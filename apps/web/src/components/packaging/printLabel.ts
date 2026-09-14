@@ -30,7 +30,7 @@ export function printLabel({ singleLabelHtml, css, copies, title }: PrintLabelAr
   const body = Array(safeCopies).fill(singleLabelHtml).join('\n');
   const fullHtml = `<!doctype html><html><head><meta charset="utf-8"><title>${title || 'Label'} ×${safeCopies}</title><style>${css}</style></head><body>${body}</body></html>`;
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const iframe = document.createElement('iframe');
     iframe.style.cssText =
       'position:fixed;left:-9999px;top:0;width:1px;height:1px;border:none;visibility:hidden';
@@ -45,9 +45,12 @@ export function printLabel({ singleLabelHtml, css, copies, title }: PrintLabelAr
     // 延迟一帧让浏览器排版资源；350ms 足够热敏打印机 SVG 模式渲染完成
     setTimeout(() => {
       try {
-        iframe.contentWindow?.print();
+        if (!iframe.contentWindow) throw new Error('打印窗口不可用');
+        iframe.contentWindow.print();
       } catch {
-        // 弹错不影响主流程
+        iframe.remove();
+        reject(new Error('浏览器打印调用失败，未确认出纸'));
+        return;
       }
       // 2 秒后回收 iframe
       setTimeout(() => {

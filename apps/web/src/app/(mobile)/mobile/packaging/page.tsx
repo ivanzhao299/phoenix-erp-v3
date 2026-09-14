@@ -1,4 +1,5 @@
 'use client';
+import PackingProductionReport from '@/components/packaging/PackingProductionReport';
 import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
@@ -137,7 +138,7 @@ function SkeletonGrid({ count = 2, cols = 2 }: { count?: number; cols?: number }
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
-export default function MobilePackagingPage() {
+function LegacyMobilePackagingPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
   const { t: tt, lang } = useLanguage();
@@ -498,3 +499,5 @@ export default function MobilePackagingPage() {
     </div>
   );
 }
+
+export default function ProductionReportRoute(){return <PackingProductionReport/>;}

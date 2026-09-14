@@ -99,7 +99,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   });
 
   // 401 → 尝试静默刷新一次，成功则重试原请求（与 api-client.ts 行为一致）
-  if (res.status === 401) {
+  if (res.status === 401 && method === 'GET') {
     const refreshed = await tryRefresh();
     if (refreshed) {
       res = await fetch(`${API_BASE}${path}`, {
@@ -112,7 +112,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     if (res.status === 401) {
       if (typeof window !== 'undefined') {
         const returnParam = !window.location.pathname.includes('/login')
-          ? `?return=${encodeURIComponent(window.location.pathname)}`
+          ? `?return=${encodeURIComponent(window.location.pathname + window.location.search)}`
           : '';
         window.location.href = `/login${returnParam}`;
       }

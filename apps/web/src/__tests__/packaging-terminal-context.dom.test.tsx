@@ -3,10 +3,11 @@ import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' } as any, loading: false }, exact: vi.fn(), summary: vi.fn(), active: vi.fn(), close: vi.fn(), t: (_key: string, text: string) => text }));
+const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' } as any, loading: false }, exact: vi.fn(), summary: vi.fn(), report: vi.fn(), active: vi.fn(), close: vi.fn(), t: (_key: string, text: string) => text }));
+vi.mock('@/lib/packing-history-api',async original=>({...await original<object>(),packingHistoryRequest:mocks.report}));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ ...mocks.auth, hasPermission: () => true, logout: vi.fn() }) }));
 vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: mocks.t, lang: 'zh', setAppLanguage: vi.fn() }) }));
-vi.mock('next/navigation', () => ({ usePathname: () => '/terminal/packaging/shift-close', useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => '/terminal/packaging/shift-close', useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock('@/contexts/BrandContext', () => ({ useBrand: () => ({ brand: {} }) }));
 vi.mock('@/hooks/usePackagingDicts', async original => ({ ...await original<any>(), usePackagingDicts: () => ({dicts:{}}) }));
 vi.mock('@/hooks/useProductGrades', () => ({ useProductGrades: () => ({ grades: [{ grade_code:'GRADE_5', grade_name:'5号蛋' }] }) }));
@@ -26,6 +27,7 @@ async function fullscreen(on:boolean) { await act(async()=>{ Object.defineProper
 beforeEach(()=>{ localStorage.clear(); sessionStorage.clear(); vi.clearAllMocks(); mocks.auth.user={id:'7'}; mocks.auth.loading=false;
   mocks.exact.mockImplementation(async id=>raw(id));
   mocks.summary.mockImplementation(async (_d,id)=>({shift:raw(id),receivedQty:30,receivedWeight:1,shiftPackedBoxes:1,shiftPackedEggs:30,shiftWarehousedBoxes:0,shiftWarehousedPallets:0,openExceptionCount:0,closedExceptionCount:0}));
+  mocks.report.mockImplementation(async path=>path.startsWith('history?')?{items:[],totalMatching:0,hasMore:false}:({gradingEggs:0,shiftId:new URLSearchParams(path.split('?')[1]).get('shiftId'),dateFrom:'2026-09-10',totalBoxes:1,totalEggs:30,committedBoxes:0}));
   mocks.active.mockImplementation(async id=>({shiftId:Number(id),productionDate:'2026-09-10',outputs:{},remaining:{},packed:{},gradingCodes:[]}));
   Object.defineProperty(document,'fullscreenElement',{configurable:true,value:null});
   host=document.createElement('div');document.body.append(host);root=createRoot(host);
@@ -70,7 +72,7 @@ it.each(['network','403','500'])('shows %s failure, no cached output fallback or
 });
 it('uses authoritative empty grading and actual warehouse fields, without inferred pallets',async()=>{
   save();await render();await fullscreen(true);await act(async()=>context.setGradingResult('OLD',{GRADE_5:999}));
-  expect(host.textContent).not.toContain('999');expect(host.textContent).toContain('0 托');expect(host.textContent).toContain('已入库0 箱');
+  expect(host.textContent).not.toContain('999');expect(host.textContent).toContain('0 托');expect(host.textContent).toContain('核实入账0 箱');
 });
 it('unmounted request completion cannot pollute a new fullscreen page',async()=>{
   save();const old=deferred();mocks.active.mockReturnValueOnce(old.promise);await render();await fullscreen(true);await fullscreen(false);await fullscreen(true);

@@ -1,4 +1,8 @@
 'use client';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import PackingRecordDetail from '@/components/packaging/PackingRecordDetail';
+import PackingHistoryList from '@/components/packaging/PackingHistoryList';
 
 import { useEffect, useState } from 'react';
 import u from "@/styles/uix-utils.module.css";
@@ -14,7 +18,7 @@ import {
 import { T } from '@/styles/terminal-theme';
 import styles from './warehouse-handover.module.css';
 import { LocationSelector } from '@/components/shared-selectors/MasterDataSelectors';
-export default function WarehouseHandoverPage() {
+function LegacyWarehouseHandoverPage() {
   const router = useRouter();
   const {
     t,
@@ -580,3 +584,6 @@ export default function WarehouseHandoverPage() {
         </div>}
     </div>;
 }
+
+function HistoryTarget(){const params=useSearchParams();const code=params.get("packingCode");return code?<PackingRecordDetail packingCode={code}/>:<PackingHistoryList terminal/>;}
+export default function HistoryRoute(){return <Suspense fallback={<p role="status">读取原单</p>}><HistoryTarget/></Suspense>;}

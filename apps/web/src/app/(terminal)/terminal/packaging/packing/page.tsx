@@ -148,7 +148,7 @@ export default function PackingPage() {
       setPackingResult(res.code, items);
       void fetchSnap();
       setDone(true);
-      setTimeout(() => router.push('/terminal/packaging/label-print'), 1500);
+      setTimeout(() => router.push(`/terminal/packaging/label-print?packingCode=${encodeURIComponent(res.code)}`), 1500);
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : t('ui.提交失败请重试', '提交失败，请重试'));
     } finally {

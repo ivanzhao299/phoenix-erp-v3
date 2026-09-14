@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { packingHistoryRequest } from '@/lib/packing-history-api';
 import { packagingApi } from '@/lib/packaging-api';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { usePackagingDicts } from '@/hooks/usePackagingDicts';
@@ -15,21 +16,27 @@ export default function TerminalDashboard() {
   const router = useRouter();
   const {
     openExceptionCount,
-    ctx
+    ctx, hydrated, identityKey
   } = useTerminalContext();
-  const [summary, setSummary] = useState({ receivedQty: 0, warehousedBoxes: 0 });
+  const [summary, setSummary] = useState({ receivedQty: 0, warehousedBoxes: 0,packedBoxes:0,gradingEggs:0 });
   const [loading, setLoading] = useState(true);
+  const [loadError,setLoadError]=useState(''),[loadedKey,setLoadedKey]=useState('');
+  const shift=ctx.currentShift,selectionKey=`${identityKey}:${shift?.id}:${shift?.productionDate}`;
   useEffect(() => {
-    packagingApi.getShiftSummary().then(data => setSummary({
-      receivedQty: Number(data?.receivedQty || 0),
-      warehousedBoxes: Number(data?.shiftWarehousedBoxes || 0)
-    })).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    let active=true;setLoadedKey('');setLoadError('');
+    if(!hydrated||!shift?.id||!shift.productionDate){setLoading(false);return()=>{active=false;};}
+    setLoading(true);
+    const q=new URLSearchParams({dateFrom:shift.productionDate,dateTo:shift.productionDate,aggregation:'SHIFT',shiftId:String(shift.id)});
+    Promise.all([packagingApi.getShiftSummary(shift.productionDate,String(shift.id)),packingHistoryRequest(`reports/production-summary?${q}`)]).then(([data,report])=>{
+      if(active){setSummary({receivedQty:Number(data.receivedQty||0),warehousedBoxes:report.committedBoxes,packedBoxes:report.totalBoxes,gradingEggs:report.gradingEggs});setLoadedKey(selectionKey);}
+    }).catch(e=>{if(active)setLoadError(e.message);}).finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  }, [hydrated,selectionKey,shift?.id,shift?.productionDate]);
   const {
     dicts
   } = usePackagingDicts(['PKG_PACK_SPEC']);
-  const gradedTotal = Object.values(ctx.gradingOutputs ?? {}).reduce((a, b) => a + b, 0);
-  const packedBoxes = (ctx.packingBatches ?? []).reduce((s, b) => s + (b.boxes || 0), 0);
+  const gradedTotal = summary.gradingEggs;
+  const packedBoxes = summary.packedBoxes;
 
   // 按规格单位汇总包装数量，生成"3箱 · 2盒"格式
   const specUnitMap = Object.fromEntries((dicts.PKG_PACK_SPEC ?? []).map(d => [d.code, d.unit as string ?? t('ui.箱', '箱')]));
@@ -97,6 +104,7 @@ export default function TerminalDashboard() {
     path: '/terminal/packaging/exceptions',
     desc: openExceptionCount > 0 ? `${openExceptionCount} ${t('ui.条未处理', '条未处理')}` : t('ui.快速上报', '快速上报')
   }];
+  if(loadedKey!==selectionKey)return <main><p role={loadError?'alert':'status'}>{loadError||(loading?'正在读取指定班次':'请选择班次')}</p><a href="/terminal/packaging/history">查询包装历史</a></main>;
   return <div style={{
     height: '100%',
     display: 'flex',

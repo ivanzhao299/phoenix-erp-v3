@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
+import { packingHistoryRequest } from '@/lib/packing-history-api';
 import { packagingApi, validShiftId } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
 import styles from './shift-close.module.css';
@@ -37,6 +38,7 @@ export default function ShiftClosePage() {
     packedBoxes: 0,
     packedEggs: 0,
     warehousedBoxes: 0,
+    legacyHandoverBoxes:0,
     warehousedPallets: 0,
     openExceptions: 0,
     closedExceptions: 0,
@@ -62,15 +64,16 @@ export default function ShiftClosePage() {
     Promise.all([
       packagingApi.getShiftSummary(productionDate, shiftId),
       packagingApi.getActiveGrading(Number(shift?.id)),
-    ]).then(([data, grading]) => {
+      packingHistoryRequest(`reports/production-summary?${new URLSearchParams({dateFrom:productionDate!,dateTo:productionDate!,aggregation:'SHIFT',shiftId:shiftId!})}`),
+    ]).then(([data, grading, report]) => {
       if (!active()) return;
       if (String(data.shift?.id) !== shiftId || data.shift?.status !== 'OPEN'
         || data.shift?.date_text !== productionDate || String(grading.shiftId) !== shiftId
-        || grading.productionDate !== productionDate) throw new Error('班次已关闭或读取结果不匹配，请重新选择');
+        || grading.productionDate !== productionDate||String(report.shiftId)!==shiftId||report.dateFrom!==productionDate) throw new Error('班次已关闭或读取结果不匹配，请重新选择');
       const gradingOutputs = grading.outputs;
       const gradedQty = Object.values(gradingOutputs).reduce((sum, qty) => sum + Number(qty || 0), 0);
-      const totalPacked = data.shiftPackedBoxes;
-      const totalEggs = data.shiftPackedEggs;
+      const totalPacked = report.totalBoxes;
+      const totalEggs = report.totalEggs;
       const received = data.receivedQty || 0;
       const variance = received - totalEggs;
       const variancePct = received > 0 ? Math.round(Math.abs(variance) / received * 1000) / 10 : 0;
@@ -81,7 +84,8 @@ export default function ShiftClosePage() {
         gradingOutputs,
         packedBoxes: totalPacked,
         packedEggs: totalEggs,
-        warehousedBoxes: data.shiftWarehousedBoxes,
+        warehousedBoxes: report.committedBoxes,
+        legacyHandoverBoxes:data.shiftWarehousedBoxes,
         warehousedPallets: data.shiftWarehousedPallets,
         openExceptions: data.openExceptionCount || 0,
         closedExceptions: data.closedExceptionCount || 0,
@@ -241,7 +245,7 @@ export default function ShiftClosePage() {
       minHeight: 0,
       padding: 24
     }}>
-        <div className={styles.summaryGrid}>
+        <p>旧交接记录 {summary.legacyHandoverBoxes} 箱；包装和核实入账数量使用原单统一口径。<a href="/terminal/packaging/history">查看原单统一交接与库存证据</a></p><div className={styles.summaryGrid}>
           {/* 接收 */}
           <div style={{
           background: T.CARD,
@@ -318,7 +322,7 @@ export default function ShiftClosePage() {
             marginBottom: 10,
             fontWeight: 600
           }}>📦 {t('ui.包装入库', '包装 & 入库')}</div>
-            {[[t('ui.已包装', '已包装'), `${summary.packedBoxes} ${t('ui.箱', '箱')}`], [t('ui.包装枚数', '包装枚数'), `${summary.packedEggs.toLocaleString()} ${t('ui.枚', '枚')}`], [t('ui.已入库', '已入库'), `${summary.warehousedBoxes} ${t('ui.箱', '箱')}`], [t('ui.托盘数', '托盘数'), `${summary.warehousedPallets} ${t('ui.托', '托')}`]].map(([k, v]) => <div key={k} style={{
+            {[[t('ui.已包装', '已包装'), `${summary.packedBoxes} ${t('ui.箱', '箱')}`], [t('ui.包装枚数', '包装枚数'), `${summary.packedEggs.toLocaleString()} ${t('ui.枚', '枚')}`], ['核实入账', `${summary.warehousedBoxes} ${t('ui.箱', '箱')}`], [t('ui.托盘数', '托盘数'), `${summary.warehousedPallets} ${t('ui.托', '托')}`]].map(([k, v]) => <div key={k} style={{
             display: 'flex',
             justifyContent: 'space-between',
             padding: '6px 0',

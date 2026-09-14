@@ -1,4 +1,8 @@
 'use client';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import PackingRecordDetail from '@/components/packaging/PackingRecordDetail';
+import PackingHistoryList from '@/components/packaging/PackingHistoryList';
 
 import { useState, useEffect } from 'react';
 import u from "@/styles/uix-utils.module.css";
@@ -74,7 +78,7 @@ const SecLabel = ({
 }}>
     {children}
   </div>;
-export default function LabelPrintPage() {
+function LegacyLabelPrintPage() {
   const router = useRouter();
   const {
     t
@@ -1259,3 +1263,6 @@ export default function LabelPrintPage() {
       </div>
     </div>;
 }
+
+function HistoryTarget(){const params=useSearchParams();const code=params.get("packingCode");return code?<PackingRecordDetail packingCode={code}/>:<PackingHistoryList terminal/>;}
+export default function HistoryRoute(){return <Suspense fallback={<p role="status">读取原单</p>}><HistoryTarget/></Suspense>;}

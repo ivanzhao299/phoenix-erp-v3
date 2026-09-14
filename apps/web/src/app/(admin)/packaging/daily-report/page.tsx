@@ -1,4 +1,5 @@
 "use client";
+import PackingProductionReport from '@/components/packaging/PackingProductionReport';
 /**
  * Phoenix ERP V3 — 包装日报页
  * 数据源：GET /api/packaging/terminal/reports/shift-summary?date=YYYY-MM-DD
@@ -43,7 +44,7 @@ interface DailySummary {
 interface GradeRow { grade: string; qty: number | string; tasks: number | string; }
 interface ReportData { date: string; summary: DailySummary; by_grade: GradeRow[]; }
 
-export default function DailyReportPage() {
+function LegacyDailyReportPage() {
   const { t } = useLanguage();
   const { grades: productGrades } = useProductGrades();
 
@@ -193,3 +194,5 @@ export default function DailyReportPage() {
   );
 }
 
+
+export default function ProductionReportRoute(){return <PackingProductionReport/>;}

@@ -32,6 +32,7 @@ interface NavStep {
 
 // 包装作业线（原有，保持不变）
 const PACKAGING_STEPS: NavStep[] = [
+  { id: 'history', path: '/terminal/packaging/history', icon: Package2, labelKey: 'terminal.history', labelFb: '历史' },
   { id: 'dashboard',          path: '/terminal/packaging/dashboard',          icon: LayoutDashboard, labelKey: 'terminal.dashboard',          labelFb: '概览' },
   { id: 'source-receive',     path: '/terminal/packaging/source-receive',     icon: Egg,             labelKey: 'terminal.source_receive',     labelFb: '集蛋' },
   { id: 'grading',            path: '/terminal/packaging/grading',            icon: BarChart2,       labelKey: 'terminal.grading',            labelFb: '分级' },

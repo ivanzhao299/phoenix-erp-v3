@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useToast } from '@/contexts/ToastContext'; // G29-A: sonner → useToast
 import u from "@/styles/uix-utils.module.css";
 /**
@@ -128,6 +129,7 @@ function BatchGenerationPage() {
     <div>
       <PageHeader breadcrumb={[t("ui.包装中心","包装中心"), t("ui.批次生成","批次生成")]} title={t("ui.分级记录查询","分级记录查询")} subtitle={t("ui.分级只读提示","只读查询分级记录；本页不执行包装入库或打印")} />
 
+      <Link href="/packaging/history">查询包装历史原单</Link>
       {/* Step Wizard */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 24 }}>
         {STEP_LABELS.map((label, i) => (

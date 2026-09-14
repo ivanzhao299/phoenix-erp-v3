@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import TerminalNavRail from '@/components/terminal/TerminalNavRail';
 import { TerminalContextProvider, useTerminalContext } from '@/hooks/useTerminalContext';
 import { ADMIN_HOME_PATH, canReturnToAdmin } from '@/lib/terminal-navigation';
@@ -48,6 +48,8 @@ function TerminalLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading, logout, hasPermission } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
+  const pathname=usePathname();
+  const historyPage=pathname.startsWith('/terminal/packaging/history')||pathname==='/terminal/packaging/label-print'||pathname==='/terminal/packaging/warehouse-handover';
   const [isFullscreen, setIsFullscreen] = useState(false);
   // [优化] now 状态已移入独立的 TerminalClock 组件，消除每秒全局 re-render
   const { lang, setAppLanguage } = useLanguage();
@@ -69,7 +71,7 @@ function TerminalLayoutContent({ children }: { children: React.ReactNode }) {
   // 未登录跳回登录页（附带 return URL，登录后可直接回来）
   useEffect(() => {
     if (!loading && !user) {
-      const returnPath = typeof window !== 'undefined' ? window.location.pathname : '/terminal/packaging/dashboard';
+      const returnPath = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/terminal/packaging/dashboard';
       router.replace(`/login?return=${encodeURIComponent(returnPath)}`);
     }
   }, [user, loading, router]);
@@ -232,7 +234,7 @@ function TerminalLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
 
         {contextError && <div role="alert">{contextError}</div>}
-        {hydrated ? <div key={`${identityKey}:${ctx.currentShift?.id || 'none'}`} style={{ display: 'contents' }}>{children}</div>
+        {(historyPage || hydrated) ? <div key={`${identityKey}:${historyPage ? 'original-record' : ctx.currentShift?.id || 'none'}`} style={{ display: 'contents' }}>{children}</div>
           : <div role="status">{t('ui.核验班次', '正在核验班次…')}</div>}
       </main>
     </div>
