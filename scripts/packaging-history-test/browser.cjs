@@ -31,8 +31,56 @@ let activeDs;
  await check('hard refresh and new tab recover same original date',async()=>{await page.reload();await expect(page.getByRole('heading',{name:fixture.prefix,exact:true})).toBeVisible();const second=await context.newPage();await second.goto(page.url());await expect(second.getByText(/原生产日 2026-01-02/)).toBeVisible();await second.close();});
  await check('TEST box identity registration',async()=>{await page.getByLabel('登记事实 / 补打原因').fill('TEST fixture physically unlabelled in software simulation');await page.getByRole('button',{name:'确认未贴标事实并登记'}).click();await expect(page.getByRole('button',{name:'请求打印 / 同码补打'})).toHaveCount(2);});
  await check('print request dispatch is distinct from physical evidence',async()=>{for(let i=0;i<2;i++){await page.getByRole('button',{name:'请求打印 / 同码补打'}).nth(i).click();await expect(page.getByRole('button',{name:'请求打印 / 同码补打'}).nth(i)).toBeEnabled();}const d=await getDetail();expect(d.events.filter(e=>e.event_type==='PRINT_REQUEST').length).toBe(2);expect(d.events.some(e=>e.event_type==='DEVICE_PRINTED')).toBe(false);});
- await check('receiver and location from restricted master candidates',async()=>{await page.getByRole('group',{name:'仓库',exact:true}).getByRole('radio').check();await page.getByRole('group',{name:'库位',exact:true}).getByRole('radio').check();await page.getByRole('group',{name:'接收人',exact:true}).getByRole('radio',{name:new RegExp(fixture.prefix)}).check();});
- await check('separate LABEL_CHECK and HANDOVER per-box evidence',async()=>{const d=await getDetail();for(const purpose of ['开始标签核验','开始交接核验']){await page.getByRole('button',{name:purpose,exact:true}).click();await expect(page.getByRole('button',{name:purpose,exact:true})).toBeEnabled();for(const box of d.boxes){await page.getByLabel('逐箱输入标签码（手工采集）').fill(box.labels.find(l=>l.kind==='CANONICAL').code);await page.getByRole('button',{name:'核验本箱',exact:true}).click();await expect(page.getByLabel('逐箱输入标签码（手工采集）')).toHaveValue('');}}});
+ const post=async(route,body,token=session.token)=>{const r=await fetch('http://127.0.0.1:3100/api/packaging/terminal/'+route,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID(),...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});return {status:r.status,body:await r.json()};};
+ const commandCases=d=>{const box=d.boxes[0],label=box.labels.find(l=>l.kind==='CANONICAL'&&l.status==='ACTIVE').code,id=crypto.randomUUID(),revision=d.revision;return [
+  ['REGISTER',`history/${fixture.prefix}/box-registration`,{expectedRevision:revision,registrationKind:'FIRST_LABEL_CONFIRMED',reason:'TEST',items:[{outputOrdinal:0,boxOrdinal:1,declaration:'TEST'}]}],
+  ['SESSION',`history/${fixture.prefix}/verification-sessions`,{expectedRevision:revision,purpose:'LABEL_CHECK'}],
+  ['SCAN',`history/${fixture.prefix}/box-verifications`,{expectedRevision:revision,boxId:box.boxId,labelCode:label,purpose:'LABEL_CHECK',method:'MANUAL',sessionId:id}],
+  ['PRINT','labels/print-requests',{expectedRevision:revision,packingCode:fixture.prefix,boxId:box.boxId,labelCode:label,printType:'REPRINT',reason:'TEST',copies:1,templateVersion:'TEST'}],
+  ['PRINT_RESULT',`labels/print-requests/${d.events.find(e=>e.event_type==='PRINT_REQUEST').id}/events`,{packingCode:fixture.prefix,type:'DISPATCHED'}],
+  ['VOID',`history/${fixture.prefix}/labels/${label}/void`,{expectedRevision:revision,reason:'TEST',dispositionDeclaration:'TEST destroyed'}],
+  ['CONFIRM','warehouse/confirm',{contractVersion:2,packingCode:fixture.prefix,expectedRevision:revision,productionDate:d.record.productionDate,shiftId:d.shift.id,boxIds:d.boxes.map(b=>b.boxId),verificationIds:[id],warehouseCode:fixture.warehouse,locationCode:fixture.location,receiverUserId:fixture.actor}]
+ ];};
+ const matrixAccounts=[];
+ for(const [name,menu,perms,owned] of [['OP_V','MENU_PKG_OP','V',true],['MGR_V','MENU_PKG_MGR','V',true],['MGR_E','MENU_PKG_MGR','E',true],['NO_SCOPE_E','MENU_PKG_OP','V,E',false],['FOREIGN_E','MENU_PKG_OP','V,E','FOREIGN']]){
+  const username=fixture.prefix+'-'+name,pw=crypto.randomBytes(18).toString('hex');
+  const [u]=await ds.query(`INSERT INTO sys_user(username,real_name,password_hash,status) VALUES($1,$1,$2,1) RETURNING user_id`,[username,await bcrypt.hash(pw,4)]);
+  const [r]=await ds.query(`INSERT INTO sys_role(role_code,role_name_zh,role_type) VALUES($1,$1,'BUSINESS') RETURNING role_id`,[username]);
+  await ds.query('INSERT INTO sys_user_role(user_id,role_id,is_primary) VALUES($1,$2,true)',[u.user_id,r.role_id]);
+  await ds.query(`INSERT INTO sys_role_menu_permission(role_id,menu_id,perm_codes) SELECT $1,menu_id,$2 FROM sys_menu WHERE menu_code=$3`,[r.role_id,perms,menu]);
+  if(owned){let ownerOrg=org.id,farm=fixture.farm;if(owned==='FOREIGN'){const other=await require(root+'/apps/api/src/modules/bff/packaging-history.fixture.ts').packingHistoryFixture(ds);const [o]=await ds.query(`INSERT INTO sys_organizations(org_code,org_name,org_type,company_code) VALUES($1,$1,'COMPANY',$1) RETURNING id`,[other.company]);ownerOrg=o.id;farm=other.farm;}await ds.query('INSERT INTO sys_user_orgs(user_id,org_id) VALUES($1,$2)',[u.user_id,ownerOrg]);await ds.query('INSERT INTO sys_user_farm_scopes(user_id,farm_code) VALUES($1,$2)',[u.user_id,farm]);}
+  const response=await fetch('http://127.0.0.1:3100/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password:pw})});const auth=await response.json();if(!auth.token)throw Error('MATRIX_LOGIN_FAILED');matrixAccounts.push({name,id:String(u.user_id),token:auth.token,status:owned===false||owned==='FOREIGN'?404:403});
+ }
+ matrixAccounts.push({name:'UNAUTHENTICATED',token:'',status:401});
+ for(const [action,route,body] of commandCases(await getDetail()))await check('real HTTP '+action+' ordinary role/scope matrix',async()=>{for(const account of matrixAccounts){const r=await post(route,body,account.token);expect(r.status,account.name+' '+action).toBe(account.status);}});
+ await check('all write policy gates closed; existing PRINT_RESULT still recordable',async()=>{
+  await ds.query(`INSERT INTO sys_dict(dict_type,dict_code,config_json) VALUES('PKG_HISTORY_TEST_POLICY',$1,'{}')`,[fixture.company+':'+fixture.farm]);
+  try{for(const [action,route,body] of commandCases(await getDetail())){const r=await post(route,body);expect(r.status,action).toBe(action==='PRINT_RESULT'?201:409);}}
+  finally{await ds.query(`DELETE FROM sys_dict WHERE dict_type='PKG_HISTORY_TEST_POLICY' AND dict_code=$1`,[fixture.company+':'+fixture.farm]);}
+ });
+ await check('UNKNOWN result blocks real HTTP reprint and browser after refresh',async()=>{
+  const d=await getDetail(),request=d.events.find(e=>e.event_type==='PRINT_REQUEST');
+  expect((await post(`labels/print-requests/${request.id}/events`,{packingCode:fixture.prefix,type:'UNKNOWN'})).status).toBe(201);
+  await page.reload();await expect(page.getByRole('button',{name:'请求打印 / 同码补打'}).nth(0)).toBeDisabled();
+  const [,route,body]=commandCases(await getDetail()).find(x=>x[0]==='PRINT');expect((await post(route,body)).status).toBe(409);
+  expect((await post(`labels/print-requests/${request.id}/events`,{packingCode:fixture.prefix,type:'FAILED'})).status).toBe(201);
+  await page.reload();await expect(page.getByRole('button',{name:'请求打印 / 同码补打'}).nth(0)).toBeEnabled();
+ });
+ await check('real HTTP VOID retires alias and preserves box before fresh printing',async()=>{
+  const d=await getDetail(),[,route,body]=commandCases(d).find(x=>x[0]==='VOID');expect((await post(route,body)).status).toBe(201);
+  const next=await getDetail();expect(next.boxes[0].boxId).toBe(d.boxes[0].boxId);await page.reload();await page.getByLabel('登记事实 / 补打原因').fill('TEST replacement after retirement');await page.getByRole('button',{name:'请求打印 / 同码补打'}).nth(0).click();await expect(page.getByRole('button',{name:'请求打印 / 同码补打'}).nth(0)).toBeEnabled();
+ });
+ await check('receiver and location from restricted master candidates',async()=>{await page.getByLabel('选择仓库',{exact:true}).selectOption(fixture.warehouse);await page.getByLabel('选择库位',{exact:true}).selectOption(fixture.location);await page.getByLabel('搜索接收人',{exact:true}).fill(fixture.prefix);await page.getByLabel('选择接收人',{exact:true}).selectOption(fixture.actor);});
+ await check('separate LABEL_CHECK and HANDOVER per-box evidence',async()=>{const d=await getDetail();for(const purpose of ['开始标签核验','开始交接核验']){await page.getByRole('button',{name:purpose,exact:true}).click();await expect(page.getByRole('button',{name:purpose,exact:true})).toBeEnabled();for(const box of d.boxes){await page.getByLabel('逐箱输入标签码（手工采集）').fill(box.labels.find(l=>l.kind==='CANONICAL'&&l.status==='ACTIVE').code);await page.getByRole('button',{name:'核验本箱',exact:true}).click();await expect(page.getByLabel('逐箱输入标签码（手工采集）')).toHaveValue('');}}});
+ await check('same-role receiver revocation bypasses no stale scope cache',async()=>{
+  const receiver=matrixAccounts.find(a=>a.name==='OP_V');
+  const warm=await fetch('http://127.0.0.1:3100/api/packaging/terminal/history/'+fixture.prefix,{headers:{Authorization:'Bearer '+receiver.token}});expect(warm.status).toBe(200);
+  await ds.query('DELETE FROM sys_user_orgs WHERE user_id=$1 AND org_id=$2',[receiver.id,org.id]);await ds.query('UPDATE sys_user SET perms_version=perms_version+1 WHERE user_id=$1',[receiver.id]);
+  try{const d=await getDetail(),[,route,body]=commandCases(d).find(x=>x[0]==='CONFIRM');body.receiverUserId=receiver.id;body.verificationIds=d.events.filter(e=>e.event_type==='BOX_VERIFIED'&&e.payload.purpose==='HANDOVER').map(e=>e.id);
+   const r=await post(route,body);expect(r.status).toBe(409);expect(r.body.message).toBe('RECEIVER_INELIGIBLE');
+   expect((await getDetail()).events.filter(e=>e.event_type==='COMMIT_RECEIPT')).toHaveLength(0);
+  }finally{await ds.query('INSERT INTO sys_user_orgs(user_id,org_id) VALUES($1,$2)',[receiver.id,org.id]);await ds.query('UPDATE sys_user SET perms_version=perms_version+1 WHERE user_id=$1',[receiver.id]);}
+ });
  await check('D1-C unknown commit survives refresh and resolves without replay',async()=>{
    let completed;const committedResponse=new Promise(resolve=>{completed=resolve;});
    await page.route('**/warehouse/confirm',async route=>{const response=await route.fetch();const body=await response.json();await route.abort('failed');completed({status:response.status(),code:body.code,message:body.message});});

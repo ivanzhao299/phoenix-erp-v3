@@ -1,6 +1,7 @@
 // Dedicated local test process: no inherited application credentials, no outbound network.
 const path=require('node:path'),fs=require('node:fs'),crypto=require('node:crypto'),net=require('node:net');
 const root=path.resolve(__dirname,'../..');
+fs.writeFileSync(path.join(root,'artifacts/packaging-history-local/api-start-revision-'+Date.now()+'.json'),JSON.stringify(require('./revision.cjs').capture(),null,2));
 for(const key of Object.keys(process.env))if(!['PATH','LANG','LC_ALL','TZ'].includes(key))delete process.env[key];
 Object.assign(process.env,{NODE_ENV:'test',DB_HOST:'127.0.0.1',DB_PORT:'55432',DB_USER:'postgres',DB_NAME:'packaging_history_test',DB_PASSWORD:'',JWT_SECRET:crypto.randomBytes(32).toString('hex'),ENABLE_DEV_LOGIN:'false'});
 const connect=net.Socket.prototype.connect;
@@ -24,6 +25,10 @@ require(root+'/apps/api/node_modules/reflect-metadata');
  await require(root+'/apps/api/src/common/guards/menu-registry.service.ts').hydrateMenuRegistry(ds.manager);
  const {PackagingWorkflowPolicy}=require(root+'/apps/api/src/modules/bff/packaging-workflow-policy.ts');
  const policy=app.get(PackagingWorkflowPolicy);const disabled=policy.get.bind(policy);
- policy.get=(company,site)=>company.startsWith('TEST-')&&site.startsWith('TEST-')?{version:'ISOLATED-TEST',R:true,B:true,P:true,V:true,H:true,Q:true,encodingVersion:'TEST-NON-BUSINESS-v1',receiptMode:'C'}:disabled(company,site);
+ policy.get=async(company,site)=>{
+  if(!company.startsWith('TEST-')||!site.startsWith('TEST-'))return disabled(company,site);
+  const [row]=await ds.query("SELECT config_json FROM sys_dict WHERE dict_type='PKG_HISTORY_TEST_POLICY' AND dict_code=$1",[company+':'+site]);
+  return {version:row?'ISOLATED-TEST-DISABLED':'ISOLATED-TEST',R:!row,B:!row,P:!row,V:!row,H:!row,Q:!row,encodingVersion:'TEST-NON-BUSINESS-v1',receiptMode:'C'};
+ };
  await app.listen(3100,'127.0.0.1');output('ISOLATED_FULL_API_READY 127.0.0.1:3100 PG18 '+r.db);
 })().catch(e=>{output('ISOLATED_API_FAILED '+e.name+' '+String(e.message).replace(/password|token|secret|credential/gi,'[REDACTED]').slice(0,400));process.exitCode=1;});
