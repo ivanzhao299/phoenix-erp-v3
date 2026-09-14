@@ -680,30 +680,24 @@ export class PaymentsService {
       if (q.currencyCode)  qb.andWhere('f.currencyCode  = :cur', { cur: q.currencyCode });
       if (q.dateFrom)      qb.andWhere('f.occurredDate >= :df',  { df:  q.dateFrom });
       if (q.dateTo)        qb.andWhere('f.occurredDate <= :dt',  { dt:  q.dateTo });
+
+      const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+      if (scope && !scope.isGlobal && scope.scopeLevel === 'SELF') {
+        // 按 shareholderId = 当前用户 id 隔离（避免泄露他人资金记录）
+        qb.andWhere('f.shareholderId = :selfUserId', { selfUserId: scope.userId });
+      } else {
+        this.scopeHelper.applyToQb(qb, { alias: 'f' });
+      }
       return qb;
     };
 
-    const fundQb = applyFilters(
-      this.fundRepo.createQueryBuilder('f').orderBy('f.id', 'DESC'),
-    );
-
-    // ── RBAC-3.1 数据范围过滤 ────────────────────────────────────────────────
-    // SELF scope（ROLE_SHAREHOLDER_VIEW）：只能查看自己名下的股东资金
-    // 其余 scope：按公司/项目范围过滤
-    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
-    if (scope && !scope.isGlobal && scope.scopeLevel === 'SELF') {
-      // 按 shareholderId = 当前用户 id 隔离（避免泄露他人资金记录）
-      fundQb.andWhere('f.shareholderId = :selfUserId', { selfUserId: scope.userId });
-    } else {
-      this.scopeHelper.applyToQb(fundQb, { alias: 'f' });
-    }
-    // ────────────────────────────────────────────────────────────────────────
+    // Both pagination/count and unpaged currency totals derive from this visibility set.
+    const visibleFunds = applyFilters(this.fundRepo.createQueryBuilder('f'));
+    const fundQb = visibleFunds.clone().orderBy('f.id', 'DESC');
 
     const [items, total] = await fundQb.skip((page - 1) * pageSize).take(pageSize).getManyAndCount();
 
-    const summary = await applyFilters(
-      this.fundRepo.createQueryBuilder('f'),
-    )
+    const summary = await visibleFunds.clone()
       .select('f.fundNature', 'fundNature')
       .addSelect('f.currencyCode', 'currencyCode')
       .addSelect('SUM(f.amountOriginal)', 'totalOriginal')
