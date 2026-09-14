@@ -1,0 +1,28 @@
+{
+  "head": "c6d3b9d2c26479cb9df7fd8c6c95033057e4ae2e",
+  "tree": "4ed2d8f10726d89e08a085b3dabfa1e19716b3b7",
+  "node": "v24.19.0",
+  "archiveSha256": "5d38d5213b4e706db0e5f2486d30c7485fa269eddcaa8717d4738369d85ad22f",
+  "harnessBefore": "1ed4d803a1f8f3d5d59fef3527c217f66487943f9cb185b724737414d74e93f8",
+  "scope": "tracked apps/api, apps/web, packages and root package/build inputs; excluded dotenv; existing installed dependencies",
+  "runs": [
+    {
+      "app": "api",
+      "command": "pnpm build",
+      "started": "2026-09-14T05:57:11.380Z",
+      "finished": "2026-09-14T05:57:12.185Z",
+      "code": 1,
+      "signal": null
+    },
+    {
+      "app": "web",
+      "command": "pnpm build",
+      "started": "2026-09-14T05:57:12.185Z",
+      "finished": "2026-09-14T05:57:12.953Z",
+      "code": 1,
+      "signal": null
+    }
+  ],
+  "harnessAfter": "1ed4d803a1f8f3d5d59fef3527c217f66487943f9cb185b724737414d74e93f8",
+  "headAfter": "c6d3b9d2c26479cb9df7fd8c6c95033057e4ae2e"
+}

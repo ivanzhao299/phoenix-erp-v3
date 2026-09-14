@@ -1,0 +1,2198 @@
+{
+  "_backup_sys_role_menu_permission_pre_g5a": {
+    "count": "613",
+    "digest": "1f3ff4896d905370b86a39409fda5a1d"
+  },
+  "acc_ledger": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "b2b_customers": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "b2b_order_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "b2b_orders": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "biz_bu_membership": {
+    "count": "3",
+    "digest": "0cdbd9ad48423d02711ad2878f5e9203"
+  },
+  "biz_business_units": {
+    "count": "2",
+    "digest": "f84f58ab91bef7ac5bdfe2c413ac78c0"
+  },
+  "biz_cash_flow": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "biz_projects": {
+    "count": "6",
+    "digest": "de9b977e411f5d413a6488a8ebb51541"
+  },
+  "biz_purchase_order": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "biz_sales_order": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "biz_site_aliases": {
+    "count": "9",
+    "digest": "7fc8020ddd92eb48978952303d184bae"
+  },
+  "brd_daily_logs": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "brd_farms": {
+    "count": "611",
+    "digest": "deeff6a5a61a2221c2222ac41bd6d9af"
+  },
+  "brd_flocks": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "brd_houses": {
+    "count": "611",
+    "digest": "0621af161319c068d5508568b4b5c000"
+  },
+  "brd_immune_plans": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "brd_medication_records": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "brd_medications": {
+    "count": "45",
+    "digest": "a7b1920ae4f58a38a3c6e5e6829c3583"
+  },
+  "brd_vaccinations": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "brd_withdrawal_alerts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "bug_reports": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_account_books": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_api_field_catalog": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_ar_snapshot": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_book_company_map": {
+    "count": "3",
+    "digest": "4db95580bf4ef317ef633bbe5cab5a22"
+  },
+  "chanjet_entity_snapshots": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_erp_field_mapping": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_erp_inbound_sync_runs": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_master_mapping": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_master_mapping_dedup_archive": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_read_snapshots": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_reconciliation_results": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_shareholder_accounting_balances": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_shareholder_close_periods": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_shareholder_voucher_links": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_sync_jobs": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_voucher_drafts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_wms_house_location_policies": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_wms_promotion_candidates": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_wms_uom_conversion_policies": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_wms_writeback_outbox": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chanjet_writeback_outbox": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "chn_distributor_grading": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "crm_activities": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "crm_coupons": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "crm_levels": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "crm_members": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "crm_points_ledger": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "crm_points_log": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "crm_points_rules": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "cst_credit_warnings": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "daily_close": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "file_metadata": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_accounts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_ap_invoices": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_approvals": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_ar_invoices": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_ar_ledger": {
+    "count": "50",
+    "digest": "dbed859644327eafc2ae17dee692de39"
+  },
+  "fin_ar_receipt_allocations": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_ar_receipts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_bank_accounts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_cash_accounts": {
+    "count": "54",
+    "digest": "6922c5e5c4feadf435ebd99544ad80cb"
+  },
+  "fin_cash_transactions": {
+    "count": "93",
+    "digest": "c1b8584089bdd5871db47549230967ea"
+  },
+  "fin_exchange_rates": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_expense_requests": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_fund_transfers": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_invoices": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_pay_records": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_payments": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_reimbursements": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_shareholder_contributions": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_shareholder_settlements": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_store_settlements": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "fin_transactions": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "inv_batches": {
+    "count": "20239",
+    "digest": "aa655f43615be4c5a5529572c497b0bf"
+  },
+  "inv_ledger": {
+    "count": "20244",
+    "digest": "844b2550c95f97a0c7fb7d5e62099b99"
+  },
+  "inv_source_mode": {
+    "count": "614",
+    "digest": "57dbf7c4affb07b4a2beb979073468e6"
+  },
+  "inv_source_mode_audit": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "lbl_records": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "log_dispatch": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "log_drivers": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "log_exceptions": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "log_receipts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "log_routes": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "log_vehicles": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "md_change_requests": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "migrations": {
+    "count": "83",
+    "digest": "933b224f2d448ec57692980312f64080"
+  },
+  "mon_device_alert_event": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "mon_device_property_daily_agg": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "mon_device_property_dict": {
+    "count": "163",
+    "digest": "f7d8ff3a95f1df1b72ff644c1fe8b184"
+  },
+  "mon_device_property_history": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "mon_device_realtime_snapshot": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "mon_house_device_mapping": {
+    "count": "7",
+    "digest": "f38f9aeb8410ac76393ba0e22a758668"
+  },
+  "mst_account_holders": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "mst_audit_trail": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "mst_bank_accounts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "mst_code_seq": {
+    "count": "16",
+    "digest": "64284596e2d9f8c55afd9e0ee67a3bd6"
+  },
+  "mst_materials": {
+    "count": "28",
+    "digest": "f13618c0a4d94f4aeb08c1454f2d4cb1"
+  },
+  "mst_merge_log": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "mst_products": {
+    "count": "611",
+    "digest": "51a0ff4963c2c81106a56d129d55e804"
+  },
+  "mst_stores": {
+    "count": "2",
+    "digest": "b0ca0614025bbf79e95f944e99c2cd67"
+  },
+  "ord_approval_log": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "ord_credit_usage": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "ord_customers": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "ord_order_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "ord_orders": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "ord_prices": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "packaging_specs": {
+    "count": "1229",
+    "digest": "d7fa288bc84af5d5af5f38a9efb9acea"
+  },
+  "pda_app_info": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pda_sync_log": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pda_system_config": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pda_terminals": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pilot_daily_reports": {
+    "count": "1",
+    "digest": "b71466dda3a812cc5257876307e53203"
+  },
+  "pkg_audit_logs": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pkg_exceptions": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pkg_grading_records": {
+    "count": "5611",
+    "digest": "5d05dec83b6ddf449da402c43d136573"
+  },
+  "pkg_grading_source_links": {
+    "count": "5611",
+    "digest": "adec451bcb04c968b73048f998699d6c"
+  },
+  "pkg_handover_records": {
+    "count": "2102",
+    "digest": "2303c0b13d148625eb30cc50358ddd3b"
+  },
+  "pkg_label_print_logs": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pkg_packing_boxes": {
+    "count": "1548",
+    "digest": "7300950981e9e6542e3055f7d2ea22d8"
+  },
+  "pkg_packing_code_claims": {
+    "count": "1568",
+    "digest": "2a1cdcdda7b9fe4d37af0ccacc78ff49"
+  },
+  "pkg_packing_code_registry": {
+    "count": "1550",
+    "digest": "36913ab912bf425ff3059360a5618a86"
+  },
+  "pkg_packing_events": {
+    "count": "1536",
+    "digest": "8cff63e2e0cc41a5959b32c6adf31236"
+  },
+  "pkg_packing_operations": {
+    "count": "1548",
+    "digest": "31cf03ab601489837898285c89f66f22"
+  },
+  "pkg_packing_records": {
+    "count": "11914",
+    "digest": "b35b35fd71f391f8533d7ee8c5c8ab20"
+  },
+  "pkg_qc_inspections": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pkg_shifts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pkg_source_batches": {
+    "count": "5613",
+    "digest": "efcd74684d073a003e079339bd68f8a3"
+  },
+  "pkg_tasks": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pkg_work_shifts": {
+    "count": "611",
+    "digest": "ff6becb44cf2efcd45c474e701e8a54a"
+  },
+  "pos_refunds": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pos_sale_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pos_sales": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "pos_sessions": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_ap_ledger": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_approvals": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_init_batch_rows": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_init_batches": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_order_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_payment_allocations": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_payments": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_projects": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_purchase_orders": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_purchase_requests": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_receipt_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_receipts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_request_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_shareholder_funds": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_shipments": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc2_suppliers": {
+    "count": "22",
+    "digest": "5f08195b96c2b0490049686becaa6d68"
+  },
+  "prc_price_books": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc_price_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc_purchase_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc_purchase_orders": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc_purchase_payments": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc_purchase_requests": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc_receipts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc_returns": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc_supplier_returns": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "prc_suppliers": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "product_grades": {
+    "count": "1240",
+    "digest": "a218d80dc007b9d17f04d833a3c8392c"
+  },
+  "product_master": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "product_skus": {
+    "count": "1285",
+    "digest": "10a86962c48da89b2bbb1c0e050420de"
+  },
+  "qa_inspection_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "qa_inspections": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "qa_non_conformance": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "qa_product_inspections": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "qa_standards": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "qa_standards_history": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_channels": {
+    "count": "2",
+    "digest": "f36ae270cd699c7bce0bb6e284fec689"
+  },
+  "sal_customers": {
+    "count": "75",
+    "digest": "e8a0065acfcc0782849f805582816927"
+  },
+  "sal_delivery_exceptions": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_delivery_order_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_delivery_orders": {
+    "count": "10",
+    "digest": "aa4b2ceaeee1cd47c19e42afc73a2d97"
+  },
+  "sal_drivers": {
+    "count": "5",
+    "digest": "e75a7893af328bf6b33a7b6490955d58"
+  },
+  "sal_order_item_batch_allocation_actions": {
+    "count": "20",
+    "digest": "38aabc1a9109c33c23759b4ede44a4e5"
+  },
+  "sal_order_item_batch_allocations": {
+    "count": "20",
+    "digest": "8de72e005baa7de707e6fecc0e47157d"
+  },
+  "sal_order_items": {
+    "count": "20",
+    "digest": "15bda49deeea4560580c626d226dba9b"
+  },
+  "sal_order_lifecycle_events": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_price_books": {
+    "count": "1",
+    "digest": "c44ab297f39ff8d7a88c8cc40c665529"
+  },
+  "sal_price_items": {
+    "count": "12",
+    "digest": "c1c4591a723ae264a3cfb50d177966b7"
+  },
+  "sal_receipts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_return_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_return_orders": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_sales_orders": {
+    "count": "10",
+    "digest": "6c8cff9cec80f54c7bb87faa8f3084c8"
+  },
+  "sal_store_price_drift_events": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_store_sale_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_store_sale_tenders": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_store_sales": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_store_settlement_reconciliations": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_store_settlement_shifts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_store_settlements": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_store_shift_closings": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sal_vehicles": {
+    "count": "1",
+    "digest": "d6096064ca46910754521b978a554903"
+  },
+  "shr_beneficial_equity": {
+    "count": "2",
+    "digest": "50de18811458d9d7839f4087c6c2aece"
+  },
+  "shr_capital_contributions": {
+    "count": "74",
+    "digest": "a6a6be8935581985a15a3862c57078fd"
+  },
+  "shr_project_equity": {
+    "count": "12",
+    "digest": "428652d66af77d17a7d9d7689a2ff372"
+  },
+  "shr_projects": {
+    "count": "3",
+    "digest": "85c44334a67ed77fea54f4fa004ad380"
+  },
+  "shr_shareholder_scopes": {
+    "count": "9",
+    "digest": "df82dbf6ef1782c0692b53aa16699c61"
+  },
+  "shr_shareholders": {
+    "count": "7",
+    "digest": "9859f7722e872ffd2e8550a8cec84edf"
+  },
+  "store_aliases": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_inventory": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_losses": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_master": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_memberships": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_payment_accounts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_payment_records": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_receiving": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_receiving_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_replenish_req": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_replenishment_request_lines": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_replenishment_requests": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_sale_adjustments": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_sale_allocations": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_transfers": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "store_warehouse_bindings": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_alerts": {
+    "count": "12",
+    "digest": "5b5e236310a5809949623e27a3dc62fd"
+  },
+  "sys_approval_flows": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_approval_log": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_approval_rule": {
+    "count": "8",
+    "digest": "d85acfecbfaa3999ff8bfc5d6e5338a9"
+  },
+  "sys_audit_log": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_backup_config": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_backup_records": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_chanjet_api_budget": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_chanjet_state": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_configs": {
+    "count": "33",
+    "digest": "97e865f63de7fcb9f48688e2e07d4851"
+  },
+  "sys_cron_heartbeat": {
+    "count": "3",
+    "digest": "c4e26873e33985cc7d8557af2339da7e"
+  },
+  "sys_data_scopes": {
+    "count": "36",
+    "digest": "9a91fdbb7e402282a0a5b9cb4ea00dd5"
+  },
+  "sys_dict": {
+    "count": "305",
+    "digest": "3eb71476f46b291f51d4900d87cdc1ae"
+  },
+  "sys_doc_state_lock": {
+    "count": "8",
+    "digest": "ed97687fbd4df79324a5b856f21472b7"
+  },
+  "sys_error_logs": {
+    "count": "127",
+    "digest": "ca995e16be824df549936c47ef3efd57"
+  },
+  "sys_exchange_rates": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_menu": {
+    "count": "189",
+    "digest": "56ebb22bf10af5d8760e996c39972d80"
+  },
+  "sys_notification_channels": {
+    "count": "8",
+    "digest": "20be39ca9da4e8731d0c4878a0ffaab4"
+  },
+  "sys_notification_log": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_notification_rules": {
+    "count": "4",
+    "digest": "a70c3d26b03f196a41bbb38340289bce"
+  },
+  "sys_notification_templates": {
+    "count": "8",
+    "digest": "22fc0c2eb038e558ab8be67692010a7c"
+  },
+  "sys_notifications": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_operation_logs": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_organization_type_rules": {
+    "count": "9",
+    "digest": "1d9afac27dca5989862673b355a21cf8"
+  },
+  "sys_organizations": {
+    "count": "168",
+    "digest": "d9e3103d2debdea05daf1931f09e0ff5"
+  },
+  "sys_permission_set": {
+    "count": "2",
+    "digest": "d16eb032da6d2e50878330bb2f4e837d"
+  },
+  "sys_permission_set_item": {
+    "count": "10",
+    "digest": "18496db00401779b4335f0ba119cf83d"
+  },
+  "sys_permissions": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_role": {
+    "count": "132",
+    "digest": "205154c573d6f61f57eab014b1e2554b"
+  },
+  "sys_role_conflict": {
+    "count": "6",
+    "digest": "a7c78866a06b2ccbcc4fef7a52b24f03"
+  },
+  "sys_role_menu_permission": {
+    "count": "1439",
+    "digest": "c97171a2508fed61f77ca124e666ca79"
+  },
+  "sys_role_permission_set": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_settings": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_store": {
+    "count": "11",
+    "digest": "415e6f70540993cacecb72b27dd41c3b"
+  },
+  "sys_user": {
+    "count": "6222",
+    "digest": "897d1bca9147793ae1bea52d42d3335c"
+  },
+  "sys_user_farm_scopes": {
+    "count": "67",
+    "digest": "6e71be7de10aac0c19e5983c03e72c03"
+  },
+  "sys_user_notification_prefs": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_user_orgs": {
+    "count": "5617",
+    "digest": "a06bdece4bb1f5fd3a09eecaedcd9103"
+  },
+  "sys_user_permission_set": {
+    "count": "3",
+    "digest": "6ac001733ec6ec3960f7c57285a0581b"
+  },
+  "sys_user_project_scopes": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "sys_user_role": {
+    "count": "126",
+    "digest": "28edac3595f867a5ca11328c20422b03"
+  },
+  "sys_user_warehouse_scopes": {
+    "count": "5",
+    "digest": "439b2fc2c262cfa26574bb1d4136a765"
+  },
+  "typeorm_metadata": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "uat_checklists": {
+    "count": "102",
+    "digest": "3f1c10537e498fd531b50bdec600b2a5"
+  },
+  "uat_feedbacks": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "uat_pilot_runs": {
+    "count": "1",
+    "digest": "61343ae9ffbfc0f1d0683b9477427a39"
+  },
+  "uat_training_records": {
+    "count": "6",
+    "digest": "d1185310dfc97f1f84925f4b3a3e8252"
+  },
+  "wf_approval_instance_steps": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wf_approval_instances": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wf_approval_rule_steps": {
+    "count": "25",
+    "digest": "4a99c1bb48e9e2f9884a19eb21446466"
+  },
+  "wf_approval_rules": {
+    "count": "17",
+    "digest": "f04d566783e564121b2cec9ba9d0776e"
+  },
+  "wms_inbound": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wms_inbound_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wms_locations": {
+    "count": "621",
+    "digest": "daa951feb08674750077bb7932cdd6b8"
+  },
+  "wms_outbound": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wms_outbound_items": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wms_stock_balance": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wms_stock_ledger": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wms_stock_transfers": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wms_stocktake": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wms_suppliers": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wms_transfer": {
+    "count": "10",
+    "digest": "31ae1649811a6f81ab874fa2d16f4019"
+  },
+  "wms_transfer_discrepancies": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "wms_transfer_items": {
+    "count": "10",
+    "digest": "f8fc22c785adfe8d61ae6dc662cf0ec3"
+  },
+  "wms_warehouses": {
+    "count": "628",
+    "digest": "438258d8bbc956636285e78f0fd48741"
+  },
+  "wms_zones": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "ws_contracts": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "ws_shipments": {
+    "count": "0",
+    "digest": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "SEQUENCE:acc_ledger_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:b2b_customers_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:b2b_order_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:b2b_orders_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:biz_bu_membership_id_seq": {
+    "last_value": "3",
+    "is_called": true
+  },
+  "SEQUENCE:biz_cash_flow_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:biz_projects_id_seq": {
+    "last_value": "6",
+    "is_called": true
+  },
+  "SEQUENCE:biz_purchase_order_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:biz_sales_order_order_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:biz_site_aliases_id_seq": {
+    "last_value": "9",
+    "is_called": true
+  },
+  "SEQUENCE:brd_daily_logs_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:brd_immune_plans_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:brd_medication_records_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:brd_medications_id_seq": {
+    "last_value": "46",
+    "is_called": false
+  },
+  "SEQUENCE:brd_vaccinations_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:brd_withdrawal_alerts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:bug_reports_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_api_field_catalog_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_ar_snapshot_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_entity_snapshots_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_erp_field_mapping_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_master_mapping_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_read_snapshots_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_reconciliation_results_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_shareholder_accounting_balances_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_shareholder_close_periods_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_shareholder_voucher_links_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_sync_jobs_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_voucher_drafts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_wms_house_location_policies_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_wms_promotion_candidates_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_wms_uom_conversion_policies_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_wms_writeback_outbox_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chanjet_writeback_outbox_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:chn_distributor_grading_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:crm_activities_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:crm_coupons_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:crm_levels_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:crm_members_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:crm_points_ledger_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:crm_points_log_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:crm_points_rules_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:cst_credit_warnings_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:daily_close_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:file_metadata_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_accounts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_ap_invoices_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_approvals_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:fin_ar_invoices_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_ar_ledger_id_seq": {
+    "last_value": "50",
+    "is_called": true
+  },
+  "SEQUENCE:fin_ar_receipt_allocations_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_ar_receipts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_bank_accounts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_cash_accounts_id_seq": {
+    "last_value": "54",
+    "is_called": true
+  },
+  "SEQUENCE:fin_cash_transactions_id_seq": {
+    "last_value": "93",
+    "is_called": true
+  },
+  "SEQUENCE:fin_exchange_rates_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_expense_requests_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_fund_transfers_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_invoices_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_pay_records_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_payments_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_reimbursements_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_shareholder_contributions_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_shareholder_settlements_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_store_settlements_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:fin_transactions_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:inv_batches_id_seq": {
+    "last_value": "20287",
+    "is_called": true
+  },
+  "SEQUENCE:inv_ledger_id_seq": {
+    "last_value": "20284",
+    "is_called": true
+  },
+  "SEQUENCE:inv_source_mode_audit_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:inv_source_mode_id_seq": {
+    "last_value": "614",
+    "is_called": true
+  },
+  "SEQUENCE:lbl_records_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:log_dispatch_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:log_drivers_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:log_exceptions_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:log_receipts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:log_routes_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:log_vehicles_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:md_change_requests_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:migrations_id_seq": {
+    "last_value": "83",
+    "is_called": true
+  },
+  "SEQUENCE:mst_account_holders_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:mst_audit_trail_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:mst_bank_accounts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:mst_materials_id_seq": {
+    "last_value": "28",
+    "is_called": true
+  },
+  "SEQUENCE:mst_merge_log_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:mst_products_id_seq": {
+    "last_value": "611",
+    "is_called": true
+  },
+  "SEQUENCE:mst_stores_id_seq": {
+    "last_value": "3",
+    "is_called": false
+  },
+  "SEQUENCE:ord_approval_log_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:ord_credit_usage_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:ord_customers_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:ord_order_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:ord_orders_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:ord_prices_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:packaging_specs_id_seq": {
+    "last_value": "1229",
+    "is_called": true
+  },
+  "SEQUENCE:pda_app_info_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pda_sync_log_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pda_system_config_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pda_terminals_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:pilot_daily_reports_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:pkg_audit_logs_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pkg_exceptions_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pkg_grading_records_id_seq": {
+    "last_value": "5611",
+    "is_called": true
+  },
+  "SEQUENCE:pkg_handover_records_id_seq": {
+    "last_value": "10112",
+    "is_called": true
+  },
+  "SEQUENCE:pkg_label_print_logs_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pkg_packing_records_id_seq": {
+    "last_value": "11914",
+    "is_called": true
+  },
+  "SEQUENCE:pkg_qc_inspections_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pkg_shifts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pkg_source_batches_id_seq": {
+    "last_value": "5619",
+    "is_called": true
+  },
+  "SEQUENCE:pkg_tasks_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pkg_work_shifts_id_seq": {
+    "last_value": "611",
+    "is_called": true
+  },
+  "SEQUENCE:pos_refunds_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pos_sale_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pos_sales_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:pos_sessions_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:prc2_ap_ledger_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_approvals_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_init_batch_rows_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_init_batches_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_order_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_payment_allocations_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_payments_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_projects_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_purchase_orders_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_purchase_requests_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_receipt_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_receipts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_request_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_shareholder_funds_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_shipments_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc2_suppliers_id_seq": {
+    "last_value": "22",
+    "is_called": true
+  },
+  "SEQUENCE:prc_contract_no_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_price_books_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_price_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_purchase_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_purchase_orders_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_purchase_payments_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_purchase_requests_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_receipts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_returns_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_supplier_returns_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_suppliers_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:prc_suppliers_id_seq1": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:product_grades_id_seq": {
+    "last_value": "1240",
+    "is_called": true
+  },
+  "SEQUENCE:product_master_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:product_skus_id_seq": {
+    "last_value": "1285",
+    "is_called": true
+  },
+  "SEQUENCE:qa_inspection_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:qa_inspections_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:qa_non_conformance_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:qa_product_inspections_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:qa_standards_history_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:qa_standards_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_channels_id_seq": {
+    "last_value": "2",
+    "is_called": true
+  },
+  "SEQUENCE:sal_customers_id_seq": {
+    "last_value": "75",
+    "is_called": true
+  },
+  "SEQUENCE:sal_delivery_exceptions_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_delivery_order_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_delivery_orders_id_seq": {
+    "last_value": "10",
+    "is_called": true
+  },
+  "SEQUENCE:sal_drivers_id_seq": {
+    "last_value": "5",
+    "is_called": true
+  },
+  "SEQUENCE:sal_order_item_batch_allocation_actions_id_seq": {
+    "last_value": "20",
+    "is_called": true
+  },
+  "SEQUENCE:sal_order_item_batch_allocations_id_seq": {
+    "last_value": "20",
+    "is_called": true
+  },
+  "SEQUENCE:sal_order_items_id_seq": {
+    "last_value": "20",
+    "is_called": true
+  },
+  "SEQUENCE:sal_order_lifecycle_events_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_price_books_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:sal_price_items_id_seq": {
+    "last_value": "12",
+    "is_called": true
+  },
+  "SEQUENCE:sal_receipts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_return_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_return_orders_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_sales_orders_id_seq": {
+    "last_value": "10",
+    "is_called": true
+  },
+  "SEQUENCE:sal_store_price_drift_events_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_store_sale_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_store_sale_tenders_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_store_sales_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_store_settlement_reconciliations_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_store_settlements_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_store_shift_closings_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sal_vehicles_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:seq_backup_no": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:seq_store_closing_no": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:seq_store_sale_no": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:seq_uat_feedback_no": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:seq_uat_pilot_no": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:seq_uat_training_no": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:shr_beneficial_equity_id_seq": {
+    "last_value": "2",
+    "is_called": true
+  },
+  "SEQUENCE:shr_capital_contributions_id_seq": {
+    "last_value": "74",
+    "is_called": true
+  },
+  "SEQUENCE:shr_project_equity_id_seq": {
+    "last_value": "12",
+    "is_called": true
+  },
+  "SEQUENCE:shr_projects_id_seq": {
+    "last_value": "3",
+    "is_called": true
+  },
+  "SEQUENCE:shr_shareholder_scopes_id_seq": {
+    "last_value": "9",
+    "is_called": true
+  },
+  "SEQUENCE:shr_shareholders_id_seq": {
+    "last_value": "8",
+    "is_called": true
+  },
+  "SEQUENCE:store_aliases_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_inventory_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_losses_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:store_master_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_memberships_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_payment_accounts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_payment_records_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_receiving_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_receiving_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_replenish_req_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:store_replenishment_request_lines_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_replenishment_requests_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_sale_adjustments_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_sale_allocations_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_transfers_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:store_warehouse_bindings_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_alerts_id_seq": {
+    "last_value": "12",
+    "is_called": true
+  },
+  "SEQUENCE:sys_approval_flows_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_approval_flows_id_seq1": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_approval_log_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_approval_logs_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_approval_rule_rule_id_seq": {
+    "last_value": "8",
+    "is_called": true
+  },
+  "SEQUENCE:sys_audit_log_log_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_backup_records_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_configs_id_seq": {
+    "last_value": "34",
+    "is_called": true
+  },
+  "SEQUENCE:sys_data_scopes_id_seq": {
+    "last_value": "36",
+    "is_called": true
+  },
+  "SEQUENCE:sys_dict_id_seq": {
+    "last_value": "311",
+    "is_called": true
+  },
+  "SEQUENCE:sys_doc_state_lock_lock_id_seq": {
+    "last_value": "8",
+    "is_called": true
+  },
+  "SEQUENCE:sys_error_logs_id_seq": {
+    "last_value": "127",
+    "is_called": true
+  },
+  "SEQUENCE:sys_exchange_rates_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_menu_menu_id_seq": {
+    "last_value": "223",
+    "is_called": true
+  },
+  "SEQUENCE:sys_notification_log_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_notification_rules_id_seq": {
+    "last_value": "4",
+    "is_called": true
+  },
+  "SEQUENCE:sys_notification_templates_id_seq": {
+    "last_value": "8",
+    "is_called": true
+  },
+  "SEQUENCE:sys_notifications_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_operation_logs_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_organizations_id_seq": {
+    "last_value": "210",
+    "is_called": true
+  },
+  "SEQUENCE:sys_permission_set_item_item_id_seq": {
+    "last_value": "10",
+    "is_called": true
+  },
+  "SEQUENCE:sys_permission_set_set_id_seq": {
+    "last_value": "2",
+    "is_called": true
+  },
+  "SEQUENCE:sys_permissions_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_permissions_id_seq1": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_role_conflict_id_seq": {
+    "last_value": "6",
+    "is_called": true
+  },
+  "SEQUENCE:sys_role_menu_permission_perm_id_seq": {
+    "last_value": "1936",
+    "is_called": true
+  },
+  "SEQUENCE:sys_role_role_id_seq": {
+    "last_value": "146",
+    "is_called": true
+  },
+  "SEQUENCE:sys_store_store_id_seq": {
+    "last_value": "11",
+    "is_called": true
+  },
+  "SEQUENCE:sys_user_farm_scopes_id_seq": {
+    "last_value": "72",
+    "is_called": true
+  },
+  "SEQUENCE:sys_user_orgs_id_seq": {
+    "last_value": "30660",
+    "is_called": true
+  },
+  "SEQUENCE:sys_user_project_scopes_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:sys_user_user_id_seq": {
+    "last_value": "31249",
+    "is_called": true
+  },
+  "SEQUENCE:sys_user_warehouse_scopes_id_seq": {
+    "last_value": "5",
+    "is_called": true
+  },
+  "SEQUENCE:uat_checklists_id_seq": {
+    "last_value": "102",
+    "is_called": true
+  },
+  "SEQUENCE:uat_feedbacks_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:uat_pilot_runs_id_seq": {
+    "last_value": "1",
+    "is_called": true
+  },
+  "SEQUENCE:uat_training_records_id_seq": {
+    "last_value": "6",
+    "is_called": true
+  },
+  "SEQUENCE:wf_approval_instance_steps_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wf_approval_instances_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wf_approval_rule_steps_id_seq": {
+    "last_value": "35",
+    "is_called": true
+  },
+  "SEQUENCE:wf_approval_rules_id_seq": {
+    "last_value": "17",
+    "is_called": true
+  },
+  "SEQUENCE:wms_inbound_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_inbound_id_seq1": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_inbound_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_inbound_items_id_seq1": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_locations_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_outbound_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_outbound_items_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_stock_balance_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_stock_ledger_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_stock_transfers_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_stocktake_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_suppliers_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_suppliers_id_seq1": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_transfer_discrepancies_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:wms_transfer_id_seq": {
+    "last_value": "10",
+    "is_called": true
+  },
+  "SEQUENCE:wms_transfer_items_id_seq": {
+    "last_value": "10",
+    "is_called": true
+  },
+  "SEQUENCE:wms_warehouses_id_seq": {
+    "last_value": "628",
+    "is_called": true
+  },
+  "SEQUENCE:wms_zones_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:ws_contracts_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  },
+  "SEQUENCE:ws_shipments_id_seq": {
+    "last_value": "1",
+    "is_called": false
+  }
+}

@@ -1,0 +1,3528 @@
+{
+  "started": "2026-09-14T05:50:36.738Z",
+  "head": "c6d3b9d2c26479cb9df7fd8c6c95033057e4ae2e",
+  "runs": [
+    {
+      "command": "docker",
+      "args": [
+        "run",
+        "--pull=never",
+        "-d",
+        "--name",
+        "packaging-history-test-pg18-restore-r18-1789365036521",
+        "--label",
+        "purpose=packaging-history-compatibility",
+        "-e",
+        "POSTGRES_HOST_AUTH_METHOD=trust",
+        "-e",
+        "POSTGRES_DB=packaging_history_test",
+        "-p",
+        "127.0.0.1:55435:5432",
+        "postgres:18-alpine"
+      ],
+      "exit": 0,
+      "signal": null,
+      "log": "artifacts/packaging-history-compatibility-1789365036521/command-0.log"
+    },
+    {
+      "command": "docker",
+      "args": [
+        "run",
+        "--pull=never",
+        "-d",
+        "--name",
+        "packaging-history-test-pg18-window-r18-1789365036521",
+        "--label",
+        "purpose=packaging-history-compatibility",
+        "-e",
+        "POSTGRES_HOST_AUTH_METHOD=trust",
+        "-e",
+        "POSTGRES_DB=packaging_history_test",
+        "-p",
+        "127.0.0.1:55436:5432",
+        "postgres:18-alpine"
+      ],
+      "exit": 0,
+      "signal": null,
+      "log": "artifacts/packaging-history-compatibility-1789365036521/command-1.log"
+    },
+    {
+      "command": "docker exec pg_dump",
+      "container": "packaging-history-test-pg18-rebuild5",
+      "format": "custom",
+      "exit": 0,
+      "file": "artifacts/packaging-history-compatibility-1789365036521/full-83.dump"
+    },
+    {
+      "command": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "packaging-history-test-pg18-rebuild5",
+        "pg_restore",
+        "--list"
+      ],
+      "exit": 0,
+      "signal": null,
+      "log": "artifacts/packaging-history-compatibility-1789365036521/command-3.log"
+    },
+    {
+      "command": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "packaging-history-test-pg18-restore-r18-1789365036521",
+        "pg_restore",
+        "-U",
+        "postgres",
+        "-d",
+        "packaging_history_test",
+        "--exit-on-error",
+        "--single-transaction",
+        "--no-owner",
+        "--no-privileges"
+      ],
+      "exit": 0,
+      "signal": null,
+      "log": "artifacts/packaging-history-compatibility-1789365036521/command-4.log"
+    },
+    {
+      "command": "docker exec pg_dump",
+      "container": "packaging-history-test-pg18-baseline",
+      "format": "custom",
+      "exit": 0,
+      "file": "artifacts/packaging-history-compatibility-1789365036521/baseline-81.dump"
+    },
+    {
+      "command": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "packaging-history-test-pg18-baseline",
+        "pg_restore",
+        "--list"
+      ],
+      "exit": 0,
+      "signal": null,
+      "log": "artifacts/packaging-history-compatibility-1789365036521/command-6.log"
+    },
+    {
+      "command": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "packaging-history-test-pg18-window-r18-1789365036521",
+        "pg_restore",
+        "-U",
+        "postgres",
+        "-d",
+        "packaging_history_test",
+        "--exit-on-error",
+        "--single-transaction",
+        "--no-owner",
+        "--no-privileges"
+      ],
+      "exit": 0,
+      "signal": null,
+      "log": "artifacts/packaging-history-compatibility-1789365036521/command-7.log"
+    },
+    {
+      "command": "tar",
+      "args": [
+        "-xf",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-history-compatibility-1789365036521/current-source.tar",
+        "-C",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-history-compatibility-1789365036521/current-source"
+      ],
+      "exit": 0,
+      "signal": null,
+      "log": "artifacts/packaging-history-compatibility-1789365036521/command-8.log"
+    },
+    {
+      "command": "tar",
+      "args": [
+        "-xf",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-history-compatibility-1789365036521/old-source.tar",
+        "-C",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-history-compatibility-1789365036521/old-source"
+      ],
+      "exit": 0,
+      "signal": null,
+      "log": "artifacts/packaging-history-compatibility-1789365036521/command-9.log"
+    }
+  ],
+  "checks": [
+    {
+      "name": "identities",
+      "current": {
+        "migrations": 83,
+        "db": "packaging_history_test",
+        "version": "180006"
+      },
+      "baseline": {
+        "migrations": 81,
+        "db": "packaging_history_test",
+        "version": "180006"
+      }
+    },
+    {
+      "name": "backup_restore",
+      "passed": true,
+      "tablesAndSequences": 549,
+      "eventCount": 1536,
+      "bytes": 2867941,
+      "sha256": "862764a2c82c40f01267d736b8c02cf6f85abc0ebbf4cda95075a207c92381f9",
+      "migrationCount": 83
+    },
+    {
+      "name": "new_api_old81",
+      "httpStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        500,
+        200,
+        500,
+        500,
+        500
+      ],
+      "unchanged": true
+    },
+    {
+      "name": "old69_api_new83",
+      "httpStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        404,
+        404
+      ],
+      "unchanged": true
+    },
+    {
+      "name": "ddl_lock_rollback",
+      "passed": true,
+      "sqlstate": "55P03",
+      "elapsedMs": 252,
+      "precedingDDLReverted": true,
+      "unlockedRetrySucceededThenRolledBack": true,
+      "eventsAndAllPublicDataUnchanged": true,
+      "downExecuted": false
+    },
+    {
+      "name": "migration_first",
+      "applied": [
+        "PackagingHistoryD1cEvidence1789353300496",
+        "PackagingHistoryReadIndexes1789362000000"
+      ],
+      "count": 83
+    },
+    {
+      "name": "new_api_after_schema_first",
+      "httpStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "unchanged": true
+    }
+  ],
+  "resources": [
+    {
+      "name": "packaging-history-test-pg18-restore-r18-1789365036521",
+      "port": 55435
+    },
+    {
+      "name": "packaging-history-test-pg18-window-r18-1789365036521",
+      "port": 55436
+    }
+  ],
+  "harnessSha": {
+    "run.cjs": "e72374fd37a514adcaa10d5b544ec658eb74289223c816035062fad777da1a17",
+    "runtime.cjs": "2f772c5b6d9ffacd97c2a008e53a2d4db83a20e0f7666af0869200cf34a96aa9"
+  },
+  "current-source": {
+    "revision": "c6d3b9d2c26479cb9df7fd8c6c95033057e4ae2e",
+    "archiveSha": "9ce6e90ecf8e968aaccdfb79794e563fee271d66e51a2a3131f27704f201d02e",
+    "scope": "apps/api/src + package/tsconfigs only; no dotenv/auth artifacts; existing installed dependencies shared"
+  },
+  "old-source": {
+    "revision": "69d89dd44b8e1461d7eaf5193e60c994255aed2c",
+    "archiveSha": "df6f9bfda0ef0fe16cc7efc4f62d927c04145e26e1a71055d0def7e5e451b73e",
+    "scope": "apps/api/src + package/tsconfigs only; no dotenv/auth artifacts; existing installed dependencies shared"
+  },
+  "new_api_old81": {
+    "identity": {
+      "db": "packaging_history_test",
+      "db_user": "packaging_compat_readonly",
+      "version": "180006",
+      "read_only": "on"
+    },
+    "rows": [
+      {
+        "route": "/api/health",
+        "http": 200,
+        "code": null,
+        "message": null,
+        "health": "OK",
+        "dbConnected": true,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/readiness",
+        "http": 200,
+        "code": null,
+        "message": null,
+        "health": "READY",
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/shifts/TEST-SHIFT/context",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "id",
+          "shift_code",
+          "production_date",
+          "site_id",
+          "line_id",
+          "operator_id",
+          "operator_name",
+          "supervisor_name",
+          "status",
+          "hygiene_check",
+          "device_check",
+          "variance_reason",
+          "opened_at",
+          "closed_at",
+          "created_at",
+          "updated_at",
+          "shift_type",
+          "is_test",
+          "date_text"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/shifts/today?date=2026-01-02",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/dicts?types=PKG_EGG_GRADE",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "PKG_EGG_GRADE"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/reports/shift-summary?date=2026-01-02&shiftId=TEST-SHIFT",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "shift",
+          "receivedQty",
+          "receivedWeight",
+          "openExceptionCount",
+          "closedExceptionCount",
+          "gradingOutputs",
+          "gradedQty",
+          "shiftPackedBoxes",
+          "shiftPackedEggs",
+          "shiftLabelCount",
+          "shiftWarehousedBoxes",
+          "shiftWarehousedPallets"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/warehouse/status?packingCode=TEST-ORIGINAL",
+        "http": 500,
+        "code": 500,
+        "message": "服务器内部错误，请联系管理员",
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/inventory/by-packing/TEST-ORIGINAL",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "packingCode",
+          "batches"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/traceability/packaging/TEST-ORIGINAL",
+        "http": 500,
+        "code": 500,
+        "message": "服务器内部错误，请联系管理员",
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/history?packingCode=TEST-ORIGINAL",
+        "http": 500,
+        "code": 500,
+        "message": "服务器内部错误，请联系管理员",
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/history/TEST-ORIGINAL",
+        "http": 500,
+        "code": 500,
+        "message": "服务器内部错误，请联系管理员",
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      }
+    ],
+    "sqlErrors": [
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence sys_dict_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence sys_approval_flows_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42P01",
+        "verb": "SELECT",
+        "message": "relation \"sys_approval_logs\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence sys_permissions_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence mst_stores_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence mst_products_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence inv_batches_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence inv_ledger_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_warehouses_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42703",
+        "verb": "SELECT",
+        "message": "column \"id\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_inbound_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_inbound_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_outbound_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_outbound_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_stocktake_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_suppliers_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_suppliers_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_orders_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_requests_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_payments_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_returns_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_accounts_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_transactions_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_invoices_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_payments_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pos_sales_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pos_sale_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence daily_close_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence acc_ledger_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence brd_daily_logs_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence brd_medications_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence biz_cash_flow_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence cst_credit_warnings_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pkg_shifts_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pkg_tasks_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_dispatch_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_receipts_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42703",
+        "verb": "SELECT",
+        "message": "column \"id\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_exceptions_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_vehicles_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42703",
+        "verb": "SELECT",
+        "message": "column \"id\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "42P01",
+        "verb": "SELECT",
+        "message": "relation \"pkg_packing_events\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "42P01",
+        "verb": "SELECT",
+        "message": "relation \"pkg_packing_events\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "42P01",
+        "verb": "WITH",
+        "message": "relation \"pkg_packing_events\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "42P01",
+        "verb": "SELECT",
+        "message": "relation \"pkg_packing_events\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      }
+    ],
+    "allPublicTablesAndSequencesUnchanged": true
+  },
+  "old69_api_new83": {
+    "identity": {
+      "db": "packaging_history_test",
+      "db_user": "packaging_compat_readonly",
+      "version": "180006",
+      "read_only": "on"
+    },
+    "rows": [
+      {
+        "route": "/api/health",
+        "http": 200,
+        "code": null,
+        "message": null,
+        "health": "OK",
+        "dbConnected": true,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/readiness",
+        "http": 200,
+        "code": null,
+        "message": null,
+        "health": "READY",
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/shifts/TEST-SHIFT/context",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "id",
+          "shift_code",
+          "production_date",
+          "site_id",
+          "line_id",
+          "operator_id",
+          "operator_name",
+          "supervisor_name",
+          "status",
+          "hygiene_check",
+          "device_check",
+          "variance_reason",
+          "opened_at",
+          "closed_at",
+          "created_at",
+          "updated_at",
+          "shift_type",
+          "is_test",
+          "date_text"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/shifts/today?date=2026-01-02",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/dicts?types=PKG_EGG_GRADE",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "PKG_EGG_GRADE"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/reports/shift-summary?date=2026-01-02&shiftId=TEST-SHIFT",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "shift",
+          "receivedQty",
+          "receivedWeight",
+          "openExceptionCount",
+          "closedExceptionCount",
+          "gradingOutputs",
+          "gradedQty",
+          "shiftPackedBoxes",
+          "shiftPackedEggs",
+          "shiftLabelCount",
+          "shiftWarehousedBoxes",
+          "shiftWarehousedPallets"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/warehouse/status?packingCode=TEST-ORIGINAL",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "packingCode",
+          "state",
+          "committed",
+          "handoverCode",
+          "boxCount",
+          "handoverQuantity",
+          "inventoryBatchCount",
+          "totalInbound",
+          "ledgerInbound",
+          "inventoryMode",
+          "inventoryPosted",
+          "tempEvidence",
+          "committedAt",
+          "message"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/inventory/by-packing/TEST-ORIGINAL",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "packingCode",
+          "batches"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/traceability/packaging/TEST-ORIGINAL",
+        "http": 200,
+        "code": null,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/history?packingCode=TEST-ORIGINAL",
+        "http": 404,
+        "code": 404,
+        "message": "Cannot GET /api/packaging/terminal/history?packingCode=TEST-732af5",
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/history/TEST-ORIGINAL",
+        "http": 404,
+        "code": 404,
+        "message": "Cannot GET /api/packaging/terminal/history/TEST-732af5",
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      }
+    ],
+    "sqlErrors": [
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence sys_dict_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence sys_approval_flows_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42P01",
+        "verb": "SELECT",
+        "message": "relation \"sys_approval_logs\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence sys_permissions_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence mst_stores_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence mst_products_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence inv_batches_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence inv_ledger_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_warehouses_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42703",
+        "verb": "SELECT",
+        "message": "column \"id\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_inbound_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_inbound_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_outbound_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_outbound_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_stocktake_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_suppliers_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_suppliers_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_orders_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_requests_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_payments_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_returns_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_accounts_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_transactions_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_invoices_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_payments_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pos_sales_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pos_sale_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence daily_close_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence acc_ledger_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence brd_daily_logs_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence brd_medications_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence biz_cash_flow_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence cst_credit_warnings_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pkg_shifts_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pkg_tasks_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_dispatch_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_receipts_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42703",
+        "verb": "SELECT",
+        "message": "column \"id\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_exceptions_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_vehicles_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42703",
+        "verb": "SELECT",
+        "message": "column \"id\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      }
+    ],
+    "allPublicTablesAndSequencesUnchanged": true
+  },
+  "new_api_after_schema_first": {
+    "identity": {
+      "db": "packaging_history_test",
+      "db_user": "packaging_compat_readonly",
+      "version": "180006",
+      "read_only": "on"
+    },
+    "rows": [
+      {
+        "route": "/api/health",
+        "http": 200,
+        "code": null,
+        "message": null,
+        "health": "OK",
+        "dbConnected": true,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/readiness",
+        "http": 200,
+        "code": null,
+        "message": null,
+        "health": "READY",
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/shifts/TEST-SHIFT/context",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "id",
+          "shift_code",
+          "production_date",
+          "site_id",
+          "line_id",
+          "operator_id",
+          "operator_name",
+          "supervisor_name",
+          "status",
+          "hygiene_check",
+          "device_check",
+          "variance_reason",
+          "opened_at",
+          "closed_at",
+          "created_at",
+          "updated_at",
+          "shift_type",
+          "is_test",
+          "date_text"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/shifts/today?date=2026-01-02",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/dicts?types=PKG_EGG_GRADE",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "PKG_EGG_GRADE"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/reports/shift-summary?date=2026-01-02&shiftId=TEST-SHIFT",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "shift",
+          "receivedQty",
+          "receivedWeight",
+          "openExceptionCount",
+          "closedExceptionCount",
+          "gradingOutputs",
+          "gradedQty",
+          "shiftPackedBoxes",
+          "shiftPackedEggs",
+          "shiftLabelCount",
+          "shiftWarehousedBoxes",
+          "shiftWarehousedPallets"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/warehouse/status?packingCode=TEST-ORIGINAL",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "packingCode",
+          "state",
+          "committed",
+          "handoverCode",
+          "boxCount",
+          "handoverQuantity",
+          "inventoryBatchCount",
+          "totalInbound",
+          "ledgerInbound",
+          "inventoryMode",
+          "inventoryPosted",
+          "tempEvidence",
+          "committedAt",
+          "message"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/inventory/by-packing/TEST-ORIGINAL",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "packingCode",
+          "batches"
+        ],
+        "recordCount": null
+      },
+      {
+        "route": "/api/traceability/packaging/TEST-ORIGINAL",
+        "http": 200,
+        "code": null,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [],
+        "recordCount": null
+      },
+      {
+        "route": "/api/packaging/terminal/history?packingCode=TEST-ORIGINAL",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "items",
+          "totalMatching",
+          "hasMore",
+          "asOfId",
+          "filters",
+          "snapshotAt",
+          "nextCursor"
+        ],
+        "recordCount": 1
+      },
+      {
+        "route": "/api/packaging/terminal/history/TEST-ORIGINAL",
+        "http": 200,
+        "code": 200,
+        "message": null,
+        "health": null,
+        "dbConnected": null,
+        "dataKeys": [
+          "record",
+          "shift",
+          "ownership",
+          "outputs",
+          "sources",
+          "inventory",
+          "handover",
+          "receipt",
+          "boxes",
+          "identityStatus",
+          "expectedBoxCount",
+          "revision",
+          "actions",
+          "sectionsComplete",
+          "snapshotAt",
+          "events",
+          "policy"
+        ],
+        "recordCount": null
+      }
+    ],
+    "sqlErrors": [
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence sys_dict_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence sys_approval_flows_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42P01",
+        "verb": "SELECT",
+        "message": "relation \"sys_approval_logs\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence sys_permissions_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence mst_stores_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence mst_products_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence inv_batches_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence inv_ledger_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_warehouses_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42703",
+        "verb": "SELECT",
+        "message": "column \"id\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_inbound_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_inbound_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_outbound_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_outbound_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_stocktake_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence wms_suppliers_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_suppliers_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_orders_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_requests_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_purchase_payments_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence prc_returns_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_accounts_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_transactions_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_invoices_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence fin_payments_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pos_sales_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pos_sale_items_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence daily_close_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence acc_ledger_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence brd_daily_logs_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence brd_medications_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence biz_cash_flow_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence cst_credit_warnings_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pkg_shifts_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence pkg_tasks_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_dispatch_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_receipts_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42703",
+        "verb": "SELECT",
+        "message": "column \"id\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_exceptions_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42501",
+        "verb": "SELECT",
+        "message": "permission denied for sequence log_vehicles_id_seq"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE SEQUENCE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "42703",
+        "verb": "SELECT",
+        "message": "column \"id\" does not exist"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "INSERT",
+        "message": "cannot execute INSERT in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "UPDATE",
+        "message": "cannot execute UPDATE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "ALTER",
+        "message": "cannot execute ALTER TABLE in a read-only transaction"
+      },
+      {
+        "code": "25006",
+        "verb": "CREATE",
+        "message": "cannot execute CREATE TABLE in a read-only transaction"
+      }
+    ],
+    "allPublicTablesAndSequencesUnchanged": true
+  },
+  "completed": true,
+  "finished": "2026-09-14T05:51:07.400Z"
+}

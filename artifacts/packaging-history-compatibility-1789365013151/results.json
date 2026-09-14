@@ -1,0 +1,54 @@
+{
+  "started": "2026-09-14T05:50:13.379Z",
+  "head": "c6d3b9d2c26479cb9df7fd8c6c95033057e4ae2e",
+  "runs": [
+    {
+      "command": "docker",
+      "args": [
+        "run",
+        "--pull=never",
+        "-d",
+        "--name",
+        "packaging-history-test-pg18-restore-r18-1789365013151",
+        "--label",
+        "purpose=packaging-history-compatibility",
+        "-e",
+        "POSTGRES_HOST_AUTH_METHOD=trust",
+        "-e",
+        "POSTGRES_DB=packaging_history_test",
+        "-p",
+        "127.0.0.1:55435:5432",
+        "postgres:18-alpine"
+      ],
+      "exit": 125,
+      "signal": null,
+      "log": "artifacts/packaging-history-compatibility-1789365013151/command-0.log"
+    }
+  ],
+  "checks": [
+    {
+      "name": "identities",
+      "current": {
+        "migrations": 83,
+        "db": "packaging_history_test",
+        "version": "180006"
+      },
+      "baseline": {
+        "migrations": 81,
+        "db": "packaging_history_test",
+        "version": "180006"
+      }
+    }
+  ],
+  "resources": [],
+  "harnessSha": {
+    "run.cjs": "e72374fd37a514adcaa10d5b544ec658eb74289223c816035062fad777da1a17",
+    "runtime.cjs": "2f772c5b6d9ffacd97c2a008e53a2d4db83a20e0f7666af0869200cf34a96aa9"
+  },
+  "completed": false,
+  "error": {
+    "name": "Error",
+    "message": "COMMAND_FAILED docker 125"
+  },
+  "finished": "2026-09-14T05:50:13.865Z"
+}
