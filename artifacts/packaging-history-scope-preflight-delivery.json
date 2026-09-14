@@ -322,5 +322,7 @@
     },
     "fixture": "preserved",
     "api": "app.close in finally; own runner processes exited"
-  }
+  },
+  "localCommit": "139d108271d79d60350409f5c061ce3f8210bf4f",
+  "committedHarnessMatchesActualTest": true
 }

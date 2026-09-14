@@ -70,3 +70,5 @@ runID **34818687355**，2026-09-14T07:37:02Z创建，立即写进展文件。[Gi
 实际 `node --check .../scope-validity.cjs` exit0、`node .../verify.cjs api-tsc web-tsc` exit0，两组分别`verified-api-tsc-r32.log` / `verified-web-tsc-r21.log`；`git diff --check` exit0。原25组应用suite仍对应cdb49bb1及原指纹，此次应用未改，**没有重新跑/追认unit/DOM/PG业务全suite/browser/P95/候选镜像**。本轮新增PG fixture+真实scope HTTP检验证据与此前业务suite分开。
 
 本轮只启动既有专用PG容器packaging-history-test-pg18-review29-final；harness每次finally关闭完整API与连接。完成后docker stop该容器exit0，保留全部fixture与证据。没有触碰其他项目进程/容器。提交仅本次harness/报告/脱敏摘要，不git add-A、不amend/reset、不绕hook、不push。最终本地commit见交付答复及receipt，不预填未来SHA。
+
+本轮测试/报告本地提交 `139d108271d79d60350409f5c061ce3f8210bf4f`；已逐字节SHA256确认提交中的harness等于最终真实测试文件，测试仍发生于19101533+当时dirty，不追认为新SHA执行。此后仅报告/映射追加；没有push。
