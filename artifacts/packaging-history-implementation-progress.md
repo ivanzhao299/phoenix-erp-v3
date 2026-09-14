@@ -564,3 +564,8 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 - `run(stage=DB)` now classifies only fixed safe classes: MISSING_CONTAINER, MISSING_PSQL, MISSING_ROLE, MISSING_DATABASE, PERMISSION_DENIED, READONLY_SQL_FAILURE; stderr remains in memory only.
 - Added shell fixtures for all six classes, secret-sentinel non-leakage, and metadata SSH wrapper marker/no-EOF contract. Metadata wrapper returns 0 after printing fixed PASS/FAIL marker; later workflow step enforces marker fail-closed.
 - metadata runner and legacy observability exit0 locally; no production dispatch/retry. Existing production DB COMMAND_FAILED evidence remains blocked.
+
+## Final DB observability dispatch 34830667068
+- Local commit/bundle `ae1b7319`, expected SHA a53d91f...46922; metadata and legacy observability tests exit0.
+- validate/SCP/SSH wrapper exit0; helper result preserved with no EOF delimiter error.
+- Fixed helper class: `DB/MISSING_ROLE/exit=2`; Enforce marker step fail-closed. No image/PG/migration/flags summary and no production writes. DB role availability remains the blocking condition.

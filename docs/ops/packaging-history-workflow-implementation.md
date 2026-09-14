@@ -735,3 +735,13 @@ run `34826843478`：validate exit0、SCP exit0、SSH进入 helper；checkout SHA
 SSH metadata wrapper 改为捕获 helper 输出后固定打印 `AUDIT_METADATA_RESULT=PASS|FAIL stage=... exit=...`，wrapper 自身返回0；后续 `Enforce metadata helper result` step 根据固定 marker fail-closed。这样 `capture_stdout` 不再在远端受控失败时用非零退出触发 EOF delimiter 错误；transport/missing marker 仍失败。legacy 分支不变。
 
 本地 `readonly-metadata.cjs` exit0（新增 DB 六类与 wrapper contract fixtures；实际命名 cases 仍如 runner 输出记录），`readonly-observability.cjs` exit0、Node/YAML/diff 检查 exit0。生产 DB 阻断证据 `34826843478` 保留；未重试生产。
+
+## DB observability contract and final single dispatch 34830667068
+
+本轮仅修复 DB observability 与 SSH output contract，无生产写入/DDL/migration/flags/secret。`run(stage=DB)` 现在只输出固定 class：`MISSING_CONTAINER`、`MISSING_PSQL`、`MISSING_ROLE`、`MISSING_DATABASE`、`PERMISSION_DENIED`、`READONLY_SQL_FAILURE`；内部 stderr 永不进入输出。隔离 fixture 覆盖六类、secret sentinel、wrapper marker。
+
+SSH metadata 分支现在捕获 helper 输出并打印固定 `AUDIT_METADATA_RESULT=PASS|FAIL stage=... exit=...`，wrapper 自身返回0；独立 Enforce step 再依据 marker fail-closed。这样 controlled helper failure 不再触发 appleboy capture_stdout 的 EOF delimiter 错误，也不吞掉 helper JSON/class。
+
+本地 metadata/observability/syntax/YAML/diff 均 exit0。唯一 dispatch 使用 audit branch `ae1b73198a5612f0555e049a5a97441799c29be5` bundle 和 expected SHA `a53d91f33ff733bf28e19ca11d7491f1bfd46922`：run `34830667068` 的 validate、SCP、SSH wrapper 均成功；helper 真实终态为 `DB/MISSING_ROLE/exit=2`，Enforce step 以 `METADATA_RESULT/HELPER_FAILED/exit=2` 停止。日志显示 helper checkout SHA 匹配 expected，SSH 输出不再有 EOF delimiter 错误。
+
+由于只读角色缺失，未执行 image IDs、PG major、migration pending、dirty、容量、flags 汇总；未修改生产目录或数据库。DB 阻断证据保留，不能把本次 run 称为 metadata audit PASS。
