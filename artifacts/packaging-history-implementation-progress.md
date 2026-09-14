@@ -535,3 +535,9 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 - Legacy `readonly-observability.cjs` exit 0, 15 existing cases and old failure classifications preserved.
 - Node20 official API image `sha256:bb03034a91e8d2df2a7c581953e8f6ec60dab4b70809f502ad48933a3fe8c5c2`, actual `v20.20.2`, bind-only helper smoke exit 0. This is helper runtime smoke, not production/candidate deployment.
 - Current source fingerprint after commit: collect with `node scripts/packaging-history-test/revision.cjs` at handoff; generated local TEST artifacts remain untracked and are not staged. Production metadata remains UNKNOWN until separately approved dispatch.
+
+## Review31受控 dispatch 终态
+- 本地 metadata 47 assertions、legacy15、YAML/diff 通过后，专用 `audit/packaging-history-metadata` 分支已推送并 dispatch；未触发 deploy/main。
+- run `34823735277`, head `cba29befd93e372b3651d7f2c05ffc04f3c4822f`, workflow validate exit0。
+- production SSH helper 仅执行 baseline gate：实际远端 SHA 前缀 `a53d91f33ff733bf28e19ca11d7491f1bfd469…` 与 expected `69d89dd44b8e1461d7eaf5193e60c994255aed2c` 不符，固定 `SHA_MISMATCH`，未运行 Docker/DB/flags/backup/migration。尾部被平台脱敏，不猜完整值。
+- run conclusion failure（安全阻断）；SSH output delimiter 错误在失败后出现，保留原始失败分类，不重试。SCP 仅临时 bundle 目录，无清理步骤。生产对象仍未审计，候选 SHA 不得混入报告。

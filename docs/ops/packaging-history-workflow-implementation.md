@@ -694,3 +694,11 @@ Review30资金泄露最小软件修复与指定HTTP/完整适用回归关闭；�
 - `node --check scripts/ops/readonly-audits/packaging-metadata.cjs`、YAML parse、`git diff --check` → exit 0。
 
 本阶段测试指纹以提交 `4d66bb96` 后重新采集；不得追认更早 SHA 的结果。production actual SHA/image ID/label、PG major、只读角色、容量/备份、pending migrations/flags 仍未获得，因未 dispatch；Node20 smoke 不代表正式候选 API/Web 全镜像重建。旧 review30 应用测试仍精确映射其 `f8624273`/source fingerprint，应用未改，不称为本阶段新 SHA 重跑。
+
+## Review31受控 dispatch 记录（baseline-only）
+
+本地三文件契约测试后，专用分支 `audit/packaging-history-metadata` 推送了 `cba29befd93e372b3651d7f2c05ffc04f3c4822f`，并以固定 metadata inputs dispatch。workflow validate 成功，证明 approve token、baseline 字符串、bundle hashes 和 metadata 空 assertion 分支均通过。
+
+run `34823735277`（head `cba29befd93e372b3651d7f2c05ffc04f3c4822f`）进入 production environment 的 SSH 步骤。helper 第一阶段输出实际远端 SHA 前缀 `a53d91f33ff733bf28e19ca11d7491f1bfd469…`，与要求的生产对象 `69d89dd44b8e1461d7eaf5193e60c994255aed2c` 不同，返回 `SHA_MISMATCH` 并停止；GitHub 日志脱敏了实际 SHA 尾部，不能猜测或恢复。由于 baseline gate 在 checkout 后即失败，未执行 docker inspect、PG、flags、backup stat、migration 查询或任何生产业务操作。远端 SCP 仅写入 `/tmp/phoenix-production-readonly-audit-34823735277/bundle`，本流程没有删除步骤。
+
+该 run 最终 `failure` 是预期的安全阻断，不是生产审计通过。SSH action 同时报告 output delimiter 错误（`Invalid value. Matching delimiter not found 'EOF'`），属于失败后的输出采集问题；不改变 SHA gate 已先停止的事实，也不重试该 run。后续若要取得 baseline 审计，维护者必须先确认并提供合法的远端部署 ref/SHA，不得以候选 `cba29bef`、`2e9def8e` 或被脱敏的 `a53d…` 代替。
