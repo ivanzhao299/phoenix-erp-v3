@@ -58,6 +58,7 @@ jobs:
           HTTP_ASSERTIONS_PATH: ${{ inputs.audit_mode == 'packaging-metadata' && '' || inputs.http_assertions_path }}
         run: |
           if [ "$AUDIT_MODE" = packaging-metadata ]; then
+            unset ASSERTION_SQL_PATH HTTP_ASSERTIONS_PATH
             node scripts/ops/readonly-audits/packaging-metadata.cjs --validate
           elif [ "$AUDIT_MODE" = legacy ]; then
             bash scripts/ops/run-production-readonly-audit.sh --validate
@@ -118,6 +119,7 @@ jobs:
             set -euo pipefail
             # Metadata is isolated before legacy stderr merging/logging/bootstrap.
             if [ "${AUDIT_MODE:-legacy}" = packaging-metadata ]; then
+              unset ASSERTION_SQL_PATH HTTP_ASSERTIONS_PATH
               exec 2>/dev/null
               metadata_deploy_path="$DEPLOY_PATH"
               case "$metadata_deploy_path" in
