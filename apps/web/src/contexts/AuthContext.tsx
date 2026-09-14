@@ -236,7 +236,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       document.cookie = 'phoenix_access_token=; path=/; max-age=0; SameSite=Lax';
       const isMobile = path.startsWith('/mobile');
       const base = isMobile ? '/mobile/login' : '/login';
-      const returnParam = path !== '/' ? `&return=${encodeURIComponent(path)}` : '';
+      const returnParam = path !== '/' ? `&return=${encodeURIComponent(path + window.location.search)}` : '';
       window.location.href = `${base}?reason=${reason}${returnParam}`;
     };
     window.addEventListener('api:auth-expired', onExpired);

@@ -11,6 +11,7 @@ export interface Option { value: string; label: string; }
  * SelectField — 统一下拉选择基座。CompanySelector/ProjectSelector/StatusSelector 均基于它。
  */
 export interface SelectFieldProps {
+  id?: string;
   value: string;
   onChange: (v: string) => void;
   options: Option[];
@@ -28,11 +29,12 @@ const filterSelectStyle: React.CSSProperties = {
   color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box',
 };
 
-export function SelectField({ value, onChange, options, placeholder, disabled, allowEmpty = true, emptyLabel, filter }: SelectFieldProps) {
+export function SelectField({ id, value, onChange, options, placeholder, disabled, allowEmpty = true, emptyLabel, filter }: SelectFieldProps) {
   const { t } = useLanguage();
   const resolvedPlaceholder = placeholder ?? t('ui.请选择', '请选择');
   return (
     <select
+      id={id}
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}

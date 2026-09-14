@@ -153,7 +153,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // 必须等 loading=false 后再判断，防止硬刷新时 sessionStorage 还未恢复就跳登录
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (!loading && !user) router.replace(`/login?return=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }, [loading, user, router]);
 
   // 菜单级前端门禁：如果 URL 命中已登记菜单但当前用户无该叶子权限，
