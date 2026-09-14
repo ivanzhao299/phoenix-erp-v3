@@ -20,7 +20,7 @@ const dir=path.join(root,'artifacts/scope-validity-'+Date.now());fs.mkdirSync(di
 const ownHash=()=>crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex');
 const result={command:['node','scripts/packaging-history-test/scope-validity.cjs'],startedAt:new Date().toISOString(),before:require('./revision.cjs').capture(),harnessBefore:ownHash(),checks:[],fixture:{},original:'2 printed PASS / 28 FAIL / 1 SKIP; F06 invalid'};
 const assert=require('node:assert/strict');
-// Native HTTP avoids the CLI runtime's preconfigured fetch dispatcher. Destination is fixed.
+// Explicit local HTTP socket arguments are compatible with the isolation guard.
 const fetch=(url,options={})=>new Promise((resolve,reject)=>{
  const u=new URL(url);if(u.origin!=='http://127.0.0.1:3100')return reject(Error('LOCAL_HTTP_ONLY'));
  const req=require('node:http').request({hostname:'127.0.0.1',port:3100,path:u.pathname+u.search,method:options.method||'GET',headers:options.headers,agent:false},res=>{let text='';res.on('data',d=>text+=d);res.on('end',()=>resolve({status:res.statusCode,json:async()=>JSON.parse(text)}));});
@@ -44,12 +44,12 @@ try{
  const org=await insert('sys_organizations',{org_code:a,org_name:a,org_type:'COMPANY',company_code:a});await insert('sys_organizations',{org_code:b,org_name:b,org_type:'COMPANY',company_code:b});
  const menus=['ORDER','PAYMENT','FUND','DASHBOARD','INIT','REQUEST','SHIPMENT'].map(x=>'MENU_PRC2_'+x);
  const users={};
- for(const [name,scope,allowed] of [['admin','GROUP',menus],['ceo','GROUP',menus],['buyer','COMPANY',menus.filter(x=>!['MENU_PRC2_FUND','MENU_PRC2_INIT'].includes(x))],['project','PROJECT',['MENU_PRC2_ORDER']],['factory','COMPANY',['MENU_PRC2_ORDER']],['shareholder','SELF',['MENU_PRC2_FUND']]]){
+ for(const [name,scope,allowed] of [['admin','GROUP',menus],['ceo','GROUP',menus],['buyer','COMPANY',menus.filter(x=>!['MENU_PRC2_FUND','MENU_PRC2_INIT'].includes(x))],['project','PROJECT',['MENU_PRC2_ORDER']],['factory','COMPANY',['MENU_PRC2_ORDER']],['shareholder','SELF',['MENU_PRC2_FUND']],['fundCompany','COMPANY',['MENU_PRC2_FUND']],['fundProject','PROJECT',['MENU_PRC2_FUND']],['empty','COMPANY',['MENU_PRC2_FUND']]]){
   const username=tag+'-'+name,password=crypto.randomBytes(20).toString('hex');
   const u=await insert('sys_user',{username,real_name:username,password_hash:await require(root+'/apps/api/node_modules/bcrypt').hash(password,4)});
   const role=await insert('sys_role',{role_code:username,role_name_zh:username,role_type:'BUSINESS'});
   await insert('sys_user_role',{user_id:u.user_id,role_id:role.role_id});
-  await insert('sys_user_orgs',{user_id:u.user_id,org_id:org.id,data_scope_level:scope});
+  if(name!=='empty')await insert('sys_user_orgs',{user_id:u.user_id,org_id:org.id,data_scope_level:scope});
   for(const menu of allowed){const rows=await ds.query("INSERT INTO sys_role_menu_permission(role_id,menu_id,perm_codes) SELECT $1,menu_id,'V' FROM sys_menu WHERE menu_code=$2 RETURNING menu_id",[role.role_id,menu]);assert.equal(rows.length,1,'fixture menu missing '+menu);await insert('sys_data_scopes',{role_code:username,module_code:menu,scope_type:scope});}
   if(scope==='PROJECT')await insert('sys_user_project_scopes',{user_id:u.user_id,project_code:p});
   users[name]={id:u.user_id,username,password};
@@ -89,6 +89,30 @@ try{
  await record('T15 foreign TEST shipment denied (no platform psql)',()=>get('buyer','/api/v2/procurement/shipments/'+fixture.shipments[2].id,403));
  await record('F06 AP requires 200 and exact nonempty membership',async()=>same(await get('buyer','/api/v2/procurement/ap-ledger/open?keyword='+tag),fixture.aps.slice(0,2)));
  for(const [id,name,url] of [['F01',null,'summary'],['F02','buyer','summary'],['F03','admin','summary'],['F04','buyer','ar-aging'],['F07','factory','accounts'],['F08','admin','accounts']])await record(id+' retired route explicit404 (not old functionality)',()=>get(name,'/api/finance/'+url,404));
+ // Additional review30 rows are inserted AFTER the unchanged original30 assertions.
+ const own=[];
+ for(const [n,pc,cur,amount,day,status] of [[1,p,'CNY',11,'2026-09-01','CONFIRMED'],[2,p,'LAK',7,'2026-09-02','CONFIRMED'],[3,q,'CNY',19,'2026-09-03','CANCELLED']])own.push(await insert('prc2_shareholder_funds',{fund_no:tag+'-OWN'+n,shareholder_name:tag,shareholder_id:users.shareholder.id,company_code:a,project_code:pc,currency_code:cur,fund_nature:'TEST',occurred_date:day,status,amount_original:amount,amount_base:amount*2}));
+ result.fixture.review30OwnIds=own.map(x=>x.id);
+ const normalized=rows=>rows.map(x=>({fundNature:x.fundNature,currencyCode:x.currencyCode,totalOriginal:Number(x.totalOriginal),totalBase:Number(x.totalBase)})).sort((x,y)=>JSON.stringify(x).localeCompare(JSON.stringify(y)));
+ const expectedSummary=rows=>{const groups=new Map();for(const row of rows){const key=JSON.stringify([row.fund_nature,row.currency_code]);const x=groups.get(key)||{fundNature:row.fund_nature,currencyCode:row.currency_code,totalOriginal:0,totalBase:0};x.totalOriginal+=Number(row.amount_original);x.totalBase+=Number(row.amount_base);groups.set(key,x);}return normalized([...groups.values()]);};
+ const checkFunds=async(user,params,expected,pageRows=expected)=>{const r=await get(user,'/api/v2/procurement/shareholder-funds?'+new URLSearchParams(params));same(r.items,pageRows);assert.equal(r.total,expected.length);assert.ok(Array.isArray(r.summary));assert.deepEqual(normalized(r.summary),expectedSummary(expected));return r;};
+ const companyRows=[...fixture.funds.slice(0,2),...own],projectRows=[fixture.funds[0],...own.slice(0,2)];
+ await record('R30 SELF authorized nonempty exact mixed currency/base sums',()=>checkFunds('shareholder',{companyCode:a},own));
+ await record('R30 SELF foreign company after owned positive fixture',()=>checkFunds('shareholder',{companyCode:b},[]));
+ await record('R30 SELF cannot choose another shareholder',()=>checkFunds('shareholder',{shareholderId:users.admin.id},[]));
+ await record('R30 company exact visible rows and sums',()=>checkFunds('fundCompany',{},companyRows));
+ await record('R30 company query cannot enlarge to foreign',()=>checkFunds('fundCompany',{companyCode:b},[]));
+ await record('R30 PROJECT excludes same-company other project',()=>checkFunds('fundProject',{},projectRows));
+ await record('R30 PROJECT explicit foreign project cannot enlarge',()=>checkFunds('fundProject',{projectCode:q},[]));
+ await record('R30 GROUP both companies by explicit owner query',()=>checkFunds('admin',{shareholderId:users.admin.id},fixture.funds));
+ await record('R30 no company scope empty rows count summary',()=>checkFunds('empty',{},[]));
+ await record('R30 no permission rejects funds',()=>get('factory',funds,403));
+ await record('R30 no session rejects funds',()=>get(null,funds,401));
+ await record('R30 page1 count and summary cover all visible rows',()=>checkFunds('fundCompany',{page:'1',pageSize:'2'},companyRows,companyRows.slice(-2).reverse()));
+ await record('R30 page2 same count and unpaged summary',()=>checkFunds('fundCompany',{page:'2',pageSize:'2'},companyRows,[own[0],fixture.funds[1]]));
+ await record('R30 empty page retains visible count and sums',()=>checkFunds('fundCompany',{page:'10',pageSize:'2'},companyRows,[]));
+ await record('R30 date currency nature owner filters same for all outputs',()=>checkFunds('fundCompany',{shareholderId:users.shareholder.id,dateFrom:'2026-09-02',dateTo:'2026-09-03',currencyCode:'CNY',fundNature:'TEST'},own.slice(2)));
+ await record('R30 existing status semantics include cancelled (no status filter DTO)',()=>checkFunds('shareholder',{status:'CONFIRMED'},own));
 }catch(e){result.setupError={code:e.code||e.name,message:String(e.message).slice(0,250),cause:e.cause?.code||e.cause?.message};output('SETUP_FAIL '+result.setupError.code);}
 finally{if(app)await app.close();result.finishedAt=new Date().toISOString();result.after=require('./revision.cjs').capture();result.harnessAfter=ownHash();result.exit=result.setupError||result.checks.some(x=>x.status==='FAIL')?1:0;result.sourceUnchanged=result.before.sourceFingerprint===result.after.sourceFingerprint&&result.harnessBefore===result.harnessAfter;fs.writeFileSync(path.join(dir,'results.json'),JSON.stringify(result,null,2));output('RESULT '+path.relative(root,dir)+'/results.json exit='+result.exit);process.exitCode=result.exit;}
 })();

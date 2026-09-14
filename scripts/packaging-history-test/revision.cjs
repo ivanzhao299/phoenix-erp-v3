@@ -1,7 +1,7 @@
 // Capture only source/config paths, never environment files or authentication artifacts.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'../..');
-const targets=['.github/workflows','scripts/check-constraint-drift.js','scripts/check-nullable-in-unique.js','scripts/check-entity-drift-baseline.sh','scripts/check-ts-migration-down.sh','scripts/check-ts-migration-no-data-dml.sh','apps/api/jest.config.js','apps/web/vitest.config.ts','Dockerfile','docker-compose.yml','apps/api/Dockerfile','apps/web/Dockerfile','apps/api/src','apps/web/src','scripts/packaging-history-test','scripts/entity-alignment','apps/api/test/scope-audit.sh','apps/api/migrations','migrations','package.json','pnpm-lock.yaml','apps/api/package.json','apps/web/package.json','apps/api/tsconfig.json','apps/web/tsconfig.json'];
+const targets=['scripts/ops/run-production-readonly-audit.sh','.github/workflows','scripts/check-constraint-drift.js','scripts/check-nullable-in-unique.js','scripts/check-entity-drift-baseline.sh','scripts/check-ts-migration-down.sh','scripts/check-ts-migration-no-data-dml.sh','apps/api/jest.config.js','apps/web/vitest.config.ts','Dockerfile','docker-compose.yml','apps/api/Dockerfile','apps/web/Dockerfile','apps/api/src','apps/web/src','scripts/packaging-history-test','scripts/entity-alignment','apps/api/test/scope-audit.sh','apps/api/migrations','migrations','package.json','pnpm-lock.yaml','apps/api/package.json','apps/web/package.json','apps/api/tsconfig.json','apps/web/tsconfig.json'];
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 function capture(){
  const git=args=>{

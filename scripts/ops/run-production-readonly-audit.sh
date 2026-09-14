@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Diagnose even pre-log failures without printing commands, environment or credentials.
+audit_stage=INPUT_VALIDATION
+audit_finish() {
+  local rc="$1"
+  if [ "$rc" -ne 0 ]; then
+    printf 'FAIL AUDIT_STAGE=%s exit=%s\n' "$audit_stage" "$rc" >&2
+  fi
+  return "$rc"
+}
+trap 'audit_finish "$?"' EXIT
+echo 'AUDIT_STAGE=INPUT_VALIDATION' 
+
 audit_root='scripts/ops/readonly-audits'
 bundle_dir="${AUDIT_BUNDLE_DIR:-.}"
 sql_path="${ASSERTION_SQL_PATH:-}"
@@ -26,13 +38,15 @@ if [ -n "$sql_path" ]; then
   fi
 fi
 if [ -n "$http_path" ]; then
-  HTTP_VALIDATE_PATH="$bundle_dir/$http_path" node -e "const f=require(process.env.HTTP_VALIDATE_PATH);if(!Array.isArray(f))throw Error('HTTP manifest must be an array');for(const x of f){if(!['GET','HEAD'].includes(x.method||'GET'))throw Error('Only GET/HEAD are allowed');if(!x.name||(!x.path&&!x.pathSql))throw Error('Each HTTP assertion needs name and path/pathSql')}"
+  HTTP_VALIDATE_PATH="$bundle_dir/$http_path" node -e "const f=require(require('node:path').resolve(process.env.HTTP_VALIDATE_PATH));if(!Array.isArray(f))throw Error('HTTP manifest must be an array');for(const x of f){if(!['GET','HEAD'].includes(x.method||'GET'))throw Error('Only GET/HEAD are allowed');if(!x.name||(!x.path&&!x.pathSql))throw Error('Each HTTP assertion needs name and path/pathSql')}"
 fi
 [ "${1:-}" = '--validate' ] && { echo 'PASS audit inputs validated'; exit 0; }
 
+audit_stage=RUN_ID
 run_id="${AUDIT_RUN_ID:?AUDIT_RUN_ID is required}"
 case "$run_id" in *[!0-9]*) echo 'FAIL invalid run id' >&2; exit 2;; esac
 out_dir="/tmp/phoenix-production-readonly-audit-$run_id"
+audit_stage=EVIDENCE_DIRECTORY
 install -d -m 700 "$out_dir"
 log="$out_dir/audit.log"
 result_json="$out_dir/result.json"
@@ -40,11 +54,12 @@ write_result() {
   local rc="$?" status=FAIL
   [ "$rc" -eq 0 ] && status=PASS
   printf '{"schema":"phoenix.readonly-audit/v1","run_id":%s,"status":"%s","business_writes":0,"log":"%s"}\n' "$run_id" "$status" "$log" > "$result_json"
-  return "$rc"
+  audit_finish "$rc"
 }
 trap write_result EXIT
 exec > >(tee "$log") 2>&1
 
+audit_stage=CHECKOUT_REVISION
 checkout_revision="$(git rev-parse HEAD)"
 if [ -n "${AUDIT_BUNDLE_REVISION:-}" ]; then
   test "$checkout_revision" = "$AUDIT_BUNDLE_REVISION" || { echo "FAIL revision mismatch checkout=$checkout_revision expected=$AUDIT_BUNDLE_REVISION" >&2; exit 3; }
@@ -61,6 +76,7 @@ else
   echo "PASS REVISION checkout=$checkout_revision api/web=not-required(sql-only)"
 fi
 
+audit_stage=READONLY_DATABASE_SETUP
 # Dedicated readonly runners must never inherit ordinary DB/libpq credentials.
 if [ "${READONLY_DB_REQUIRED:-0}" = 1 ] && [ -n "$sql_path" ]; then
   missing=()
@@ -113,11 +129,13 @@ psql_ro() {
 }
 
 if [ -n "$sql_path" ]; then
+  audit_stage=READONLY_SQL
   { printf '%s\n' 'BEGIN TRANSACTION READ ONLY;' "SET LOCAL statement_timeout='30s';" "SET LOCAL lock_timeout='5s';" "SELECT current_setting('default_transaction_read_only') = 'on' AND current_setting('transaction_read_only') = 'on' AS readonly_ok \\gset" '\if :readonly_ok' "\\echo PASS READONLY_SESSION_AND_TRANSACTION=on" '\else' '\quit 3' '\endif'; cat "$bundle_dir/$sql_path"; printf '%s\n' 'ROLLBACK;'; } | psql_ro
   echo "PASS SQL file=$sql_path"
 fi
 
 if [ -n "$http_path" ]; then
+  audit_stage=HTTP_ASSERTIONS
   HTTP_MANIFEST_B64="$(base64 -w0 "$bundle_dir/$http_path")" docker exec -i \
     -e HTTP_MANIFEST_B64 -e PHOENIX_CI_TOKEN_EXPIRES_IN=20m \
     -e PGOPTIONS='-c default_transaction_read_only=on' phoenix-v3-api node - <<'NODE'
@@ -294,7 +312,11 @@ const getPath = (body, path) => path ? path.split('.').reduce((v, k) => v == nul
 NODE
 fi
 
-error_count="$({ docker logs --since 60m phoenix-v3-api 2>&1 | grep -Ei '(ERROR|exception).*(sales.order|lifecycle|process-log)' || true; } | wc -l | tr -d ' ')"
+audit_stage=LOG_COUNTER
+# Keep log text in memory only; a failed Docker read is not an empty healthy log.
+log_text="$(docker logs --since 60m phoenix-v3-api 2>&1)"
+error_count="$(printf '%s\n' "$log_text" | awk 'tolower($0) ~ /(error|exception).*(sales.order|lifecycle|process-log)/ { n++ } END { print n+0 }')"
+unset log_text
 echo "LIFECYCLE_PROCESS_LOG_ERROR_WINDOW_60M=$error_count"
 test "$error_count" = 0
 if [ "$http_path" = 'scripts/ops/readonly-audits/packaging-grading-governance-postdeploy-20260910.http.json' ]; then
@@ -353,6 +375,7 @@ if [ "$sql_path" = 'scripts/ops/readonly-audits/credit-evaluation-so-20260903-00
   fi
 fi
 echo 'PASS PRODUCTION_BUSINESS_WRITES=0'
+audit_stage=ARTIFACT
 artifact_path="${AUDIT_ARTIFACT_PATH:-$bundle_dir/readonly-audit-artifact-$run_id.tgz}"
 mkdir -p "$(dirname "$artifact_path")"
 tar -czf "$artifact_path" -C "$out_dir" audit.log

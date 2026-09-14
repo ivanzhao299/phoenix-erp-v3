@@ -2,6 +2,8 @@
 const {spawnSync}=require('node:child_process'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../..'),dir=path.join(root,'artifacts/packaging-history-local');
 const tests=[
+ ['scope-validity','.','node',['scripts/packaging-history-test/scope-validity.cjs']],
+ ['payments','apps/api','./node_modules/.bin/jest',['--runInBand','src/modules/procurement-v2/services/payments.service.spec.ts']],
  ['rebuild-sql','.','node',['scripts/packaging-history-test/migrate.cjs']],
  ['rebuild-bootstrap','.','node',['scripts/packaging-history-test/bootstrap.cjs']],
  ['rebuild-ts','.','node',['scripts/packaging-history-test/migrate-ts.cjs']],

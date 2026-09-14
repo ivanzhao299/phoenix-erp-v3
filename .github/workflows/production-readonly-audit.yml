@@ -80,7 +80,16 @@ jobs:
           envs: DEPLOY_PATH,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID,AUDIT_BUNDLE_DIR
           script: |
             set -euo pipefail
-            cd "$DEPLOY_PATH"
+            exec 2>&1
+            echo 'AUDIT_STAGE=DEPLOY_DIRECTORY'
+            if ! cd "$DEPLOY_PATH" 2>/dev/null; then
+              echo 'FAIL AUDIT_STAGE=DEPLOY_DIRECTORY exit=2'
+              exit 2
+            fi
+            if [ ! -r "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh" ]; then
+              echo 'FAIL AUDIT_STAGE=BUNDLE_RUNNER exit=2'
+              exit 2
+            fi
             bash "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh"
       - name: Persist sanitized audit output
         if: always()
