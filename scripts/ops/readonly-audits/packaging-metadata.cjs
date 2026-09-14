@@ -1,7 +1,7 @@
 'use strict';
 // Standalone Node >=20, builtins only. Never import application code or credentials.
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),crypto=require('node:crypto');
-const BASELINE='69d89dd44b8e1461d7eaf5193e60c994255aed2c';
+const BASELINE='a53d91f33ff733bf28e19ca11d7491f1bfd46922';
 const KEYS=['R','B','P','V','H','Q'];
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 function fail(stage,klass='FAILED',exit=2){const e=new Error('metadata failure');Object.assign(e,{stage,klass,exit});throw e;}
