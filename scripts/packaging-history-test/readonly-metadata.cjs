@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_pro
 const root=path.resolve(__dirname,'../..'),dir=path.join(root,'artifacts','readonly-metadata-'+Date.now());fs.mkdirSync(dir);
 const revision=require('./revision.cjs'),helper=require('../ops/readonly-audits/packaging-metadata.cjs');
 const results={before:revision.capture(),command:'node scripts/packaging-history-test/readonly-metadata.cjs',cases:[]};
-const env={AUDIT_MODE:'packaging-metadata',EXPECTED_DEPLOY_SHA:helper.BASELINE,BACKUP_DIRECTORY:'deploy-backups',ASSERTION_SQL_PATH:'',HTTP_ASSERTIONS_PATH:''};
+const hash=b=>require('node:crypto').createHash('sha256').update(b).digest('hex'); const bundleDir=path.join(root,'scripts/ops/readonly-audits'); const env={AUDIT_MODE:'packaging-metadata',EXPECTED_DEPLOY_SHA:helper.BASELINE,BACKUP_DIRECTORY:'deploy-backups',ASSERTION_SQL_PATH:'',HTTP_ASSERTIONS_PATH:'',BUNDLE_SOURCE_COMMIT:'a'.repeat(40),BUNDLE_HELPER_SHA256:hash(fs.readFileSync(path.join(bundleDir,'packaging-metadata.cjs'))),BUNDLE_SQL_SHA256:hash(fs.readFileSync(path.join(bundleDir,'packaging-metadata.sql'))),BUNDLE_MANIFEST_SHA256:hash(fs.readFileSync(path.join(bundleDir,'packaging-metadata-manifest.json')))};
 const config={companyCode:'TEST',siteCode:'TEST',version:'TEST',receiptMode:'C',R:false,B:false,P:false,V:false,H:false,Q:false};
 const rows=p=>[{dict_code:'TEST:TEST',config_json:p}];
 function test(name,kind,fn){fn();results.cases.push({name,kind,status:'PASS'});console.log(kind+': '+name);}

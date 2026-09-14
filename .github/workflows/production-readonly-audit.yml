@@ -50,6 +50,10 @@ jobs:
           AUDIT_MODE: ${{ inputs.audit_mode }}
           EXPECTED_DEPLOY_SHA: ${{ inputs.expected_deploy_sha }}
           BACKUP_DIRECTORY: ${{ inputs.backup_directory }}
+          BUNDLE_SOURCE_COMMIT: ${{ github.sha }}
+          BUNDLE_HELPER_SHA256: 4bd547c02b5ecbb0927405fe668761fdadf9824f88dd46ce811957f4419222f9
+          BUNDLE_SQL_SHA256: 8c0167efaa5b04e2018b950bfd38a7e179b87e3847e27b60cd5637528c3f729a
+          BUNDLE_MANIFEST_SHA256: ba3fc5d21d62c37c09205b3421f7bf04a44f6cb5185e3da8fa09840e86c505ce
           ASSERTION_SQL_PATH: ${{ inputs.assertion_sql_path }}
           HTTP_ASSERTIONS_PATH: ${{ inputs.http_assertions_path }}
         run: |
@@ -91,6 +95,10 @@ jobs:
           AUDIT_MODE: ${{ inputs.audit_mode }}
           EXPECTED_DEPLOY_SHA: ${{ inputs.expected_deploy_sha }}
           BACKUP_DIRECTORY: ${{ inputs.backup_directory }}
+          BUNDLE_SOURCE_COMMIT: ${{ github.sha }}
+          BUNDLE_HELPER_SHA256: 4bd547c02b5ecbb0927405fe668761fdadf9824f88dd46ce811957f4419222f9
+          BUNDLE_SQL_SHA256: 8c0167efaa5b04e2018b950bfd38a7e179b87e3847e27b60cd5637528c3f729a
+          BUNDLE_MANIFEST_SHA256: ba3fc5d21d62c37c09205b3421f7bf04a44f6cb5185e3da8fa09840e86c505ce
           ASSERTION_SQL_PATH: ${{ inputs.assertion_sql_path }}
           HTTP_ASSERTIONS_PATH: ${{ inputs.http_assertions_path }}
           AUDIT_RUN_ID: ${{ github.run_id }}
@@ -105,7 +113,7 @@ jobs:
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           capture_stdout: true
-          envs: AUDIT_MODE,EXPECTED_DEPLOY_SHA,BACKUP_DIRECTORY,DEPLOY_PATH,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID,AUDIT_BUNDLE_DIR
+          envs: AUDIT_MODE,EXPECTED_DEPLOY_SHA,BACKUP_DIRECTORY,BUNDLE_SOURCE_COMMIT,BUNDLE_HELPER_SHA256,BUNDLE_SQL_SHA256,BUNDLE_MANIFEST_SHA256,DEPLOY_PATH,ASSERTION_SQL_PATH,HTTP_ASSERTIONS_PATH,AUDIT_RUN_ID,AUDIT_BUNDLE_DIR
           script: |
             set -euo pipefail
             # Metadata is isolated before legacy stderr merging/logging/bootstrap.

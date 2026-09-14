@@ -62,6 +62,11 @@ function backupMetadata(dir){
  }}scan(dir,0);return {state:count?'METADATA_ONLY':'NO_BACKUP',count,bytes,maxMtime};
 }
 function validate(env){
+ const expectedHashes=['BUNDLE_HELPER_SHA256','BUNDLE_SQL_SHA256','BUNDLE_MANIFEST_SHA256'];
+ if(!/^[a-f0-9]{40}$/.test(env.BUNDLE_SOURCE_COMMIT||''))fail('INPUT','BUNDLE_SOURCE_COMMIT');
+ for(const key of expectedHashes)if(!/^[a-f0-9]{64}$/.test(env[key]||''))fail('INPUT',key);
+ const bundleFiles={BUNDLE_HELPER_SHA256:__filename,BUNDLE_SQL_SHA256:path.join(__dirname,'packaging-metadata.sql'),BUNDLE_MANIFEST_SHA256:path.join(__dirname,'packaging-metadata-manifest.json')};
+ for(const [key,file] of Object.entries(bundleFiles)){if(hash(fs.readFileSync(file))!==env[key])fail('BUNDLE','HASH_MISMATCH');}
  if(env.AUDIT_MODE!=='packaging-metadata'||env.ASSERTION_SQL_PATH||env.HTTP_ASSERTIONS_PATH)fail('INPUT','MODE_OR_PATH');
  if(env.EXPECTED_DEPLOY_SHA!==BASELINE)fail('INPUT','BASELINE');
  if(env.BACKUP_DIRECTORY!=='deploy-backups')fail('INPUT','BACKUP_NAME');
@@ -109,7 +114,7 @@ function main(env=process.env,io={}){
  const applied=query('SELECT to_json(name) FROM public.migrations ORDER BY name;');
  if(applied.some(n=>typeof n!=='string'||!/^\w+$/.test(n)))fail('MIGRATIONS','INVALID_NAME');
  const pending=candidate.filter(e=>!applied.includes(e.name)).map(e=>e.name);
- return {state:'METADATA_COLLECTED',actualSHA:actual,dirty:Boolean(dirty),dirtyCount:dirty?dirty.split('\n').length:0,
+ return {state:'METADATA_COLLECTED',auditObject:'deployed-baseline-only',expectedDeploySHA:BASELINE,sourceBundleCommit:env.BUNDLE_SOURCE_COMMIT,actualSHA:actual,dirty:Boolean(dirty),dirtyCount:dirty?dirty.split('\n').length:0,
   images,pgMajor:18,backup,capacity,policy,pending,checkoutPending:checkout.filter(e=>!applied.includes(e.name)).map(e=>e.name),
   appliedOutsideCandidate:applied.filter(n=>!candidate.some(e=>e.name===n)),candidateManifestSHA256:hash(JSON.stringify(candidate))};
 }

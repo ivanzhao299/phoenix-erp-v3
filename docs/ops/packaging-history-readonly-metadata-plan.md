@@ -1,10 +1,11 @@
-# Review31：metadata-only bundle 实现与待审执行输入
+# Review31：metadata-only bundle 实现与 baseline-only 受控执行输入
 
 本地实现，**未 push、dispatch 或访问生产**。父级 review31 已覆盖 review30 的“仅计划”限制；使用远端通道仍待父级审定代码/ref。审计34818687355仍只有 protected exit1/空日志证据，原因未知；没有重试，也不将本地复现当远端根因。
 
 ## 固定输入（交父级审，不是已执行命令）
 
 ```text
+audit_object = deployed-baseline-only (SHA must equal 69d89dd44b8e1461d7eaf5193e60c994255aed2c)
 workflow = production-readonly-audit.yml
 ref = audit/packaging-history-metadata  # 尚未 push；须父级先审定实际提交
 approve_production = APPROVE-PRODUCTION-READONLY-AUDIT
@@ -14,6 +15,8 @@ backup_directory = deploy-backups
 assertion_sql_path = ""
 http_assertions_path = ""
 ```
+
+三文件 bundle 由来源 commit checkout 固定；workflow 传入 github.sha 作为 BUNDLE_SOURCE_COMMIT，并传 helper/SQL/manifest 的 SHA256，helper 逐文件校验后才运行。三文件不能 require/eval 任意 TS。
 
 两项 path 必须显式为空（legacy 默认路径不适用于 metadata）。expected SHA 固定为上述审定 baseline；不接受其他 SHA 或 shell 文本。读得合法 actual SHA 时先输出真实值，不匹配立即停止，无 Docker/DB 后续探测。没有发布或修改生产工作树的步骤。
 
