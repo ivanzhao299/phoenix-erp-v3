@@ -1,0 +1,22 @@
+name: Packaging33 Official Auth Readonly
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Official login and business GET evidence
+        env:
+          RUNNER_PASS: ${{ secrets.BUG_INTAKE_RUNNER_PASSWORD }}
+        run: node scripts/ops/packaging33-authenticated-readonly.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: packaging33-authenticated-readonly-${{ github.run_id }}
+          path: artifacts/packaging33-authenticated-readonly.json
+          retention-days: 30
