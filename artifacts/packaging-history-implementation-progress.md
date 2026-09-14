@@ -531,7 +531,7 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 
 ## Review31 implementation complete (local only)
 - Commit `4d66bb96a1d7e00fb05244623639beee8fec4324`; no push/dispatch/production access. New metadata helper/SQL/manifest/workflow branch and tests only; app source/migrations unchanged.
-- `readonly-metadata.cjs` exit 0 after commit (48 assertions): actual PackagingWorkflowPolicy parity 13 cases, malformed/nested flags, schema/RLS/no_config, symlink/path and SHA/error/stderr injection, static 83 manifest, real isolated PG18 role/transaction permission failures, data+catalog digest unchanged, manifest bridge-name comparison. Container stopped; TEST fixture retained.
+- `readonly-metadata.cjs` exit 0 after commit (47 assertions): actual PackagingWorkflowPolicy parity 13 cases, malformed/nested flags, schema/RLS/no_config, symlink/path and SHA/error/stderr injection, static 83 manifest, real isolated PG18 role/transaction permission failures, data+catalog digest unchanged, manifest bridge-name comparison. Container stopped; TEST fixture retained.
 - Legacy `readonly-observability.cjs` exit 0, 15 existing cases and old failure classifications preserved.
 - Node20 official API image `sha256:bb03034a91e8d2df2a7c581953e8f6ec60dab4b70809f502ad48933a3fe8c5c2`, actual `v20.20.2`, bind-only helper smoke exit 0. This is helper runtime smoke, not production/candidate deployment.
 - Current source fingerprint after commit: collect with `node scripts/packaging-history-test/revision.cjs` at handoff; generated local TEST artifacts remain untracked and are not staged. Production metadata remains UNKNOWN until separately approved dispatch.

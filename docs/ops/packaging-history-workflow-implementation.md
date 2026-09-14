@@ -688,7 +688,7 @@ Review30资金泄露最小软件修复与指定HTTP/完整适用回归关闭；�
 
 真实测试命令及 exit：
 
-- `node scripts/packaging-history-test/readonly-metadata.cjs` → exit 0（本阶段 48 个 unit/filesystem/shell/PG/helper assertions；network=none PG fixture，容器已 stop，fixture数据保留）。
+- `node scripts/packaging-history-test/readonly-metadata.cjs` → exit 0（本阶段 47 个 unit/filesystem/shell/PG/helper assertions；network=none PG fixture，容器已 stop，fixture数据保留）。
 - `node scripts/packaging-history-test/readonly-observability.cjs` → exit 0（15 legacy/new shell cases；原失败分类保留）。
 - Node20 Docker helper smoke（tracked helper bind-only、network none）→ exit 0，v20.20.2。
 - `node --check scripts/ops/readonly-audits/packaging-metadata.cjs`、YAML parse、`git diff --check` → exit 0。
