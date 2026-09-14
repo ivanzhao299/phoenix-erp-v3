@@ -1,0 +1,334 @@
+{
+  "identity": {
+    "db": "packaging_history_test",
+    "version": "180006"
+  },
+  "fixture": {
+    "records": 5001,
+    "inventory": 10000,
+    "ledger": 10000,
+    "distribution": "single worst-case day, same authorized site, two output groups, inventory-only evidence; no physical facts"
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700KF",
+    "logicalCpus": 20,
+    "memoryBytes": 33569796096,
+    "concurrency": 1
+  },
+  "cache": "first service read after seed/ANALYZE; OS/PG caches not evicted, NOT a physical cold-disk claim",
+  "measurements": {
+    "list": {
+      "firstReadMs": 1064.3498260000001,
+      "warmSamples": 20,
+      "p95Ms": 1005.2975179999994,
+      "samplesMs": [
+        1064.3498260000001,
+        995.493305,
+        1005.6925940000001,
+        984.37268,
+        1005.2975179999994,
+        991.9812950000005,
+        974.2624149999992,
+        985.9339319999999,
+        977.2247690000004,
+        1005.106765999999,
+        987.5183340000003,
+        970.9797060000001,
+        970.9520979999998,
+        969.3589699999993,
+        963.5066490000008,
+        976.0680549999997,
+        995.9174979999989,
+        946.5584759999983,
+        948.0348470000026,
+        946.877504,
+        988.2946579999989
+      ]
+    },
+    "detail": {
+      "firstReadMs": 6.77442499999961,
+      "warmSamples": 20,
+      "p95Ms": 6.977174999999988,
+      "samplesMs": [
+        6.77442499999961,
+        6.820555000002059,
+        6.102942999998049,
+        6.1115480000007665,
+        6.854746000000887,
+        5.819712000000436,
+        6.973509999999806,
+        5.84570199999871,
+        5.794324999998935,
+        6.953870999997889,
+        5.916934000000765,
+        6.444941000001563,
+        6.6633550000005926,
+        6.176175999997213,
+        7.2752590000018245,
+        5.89573499999824,
+        6.349544000000606,
+        6.977174999999988,
+        6.170689999999013,
+        6.315742999999202,
+        6.073398000000452
+      ]
+    },
+    "report": {
+      "firstReadMs": 827.7670070000022,
+      "warmSamples": 20,
+      "p95Ms": 798.8508720000027,
+      "samplesMs": [
+        827.7670070000022,
+        792.1378140000015,
+        767.1896009999982,
+        775.9673880000009,
+        779.0963179999999,
+        778.1946840000019,
+        765.916365000001,
+        777.2690789999979,
+        775.9662659999995,
+        772.2556660000009,
+        755.4910929999969,
+        765.2124049999984,
+        785.0163429999993,
+        782.3638529999989,
+        763.2551219999987,
+        831.6475260000007,
+        758.5751430000018,
+        778.0270930000042,
+        780.4450760000036,
+        798.8508720000027,
+        778.050725000001
+      ]
+    }
+  },
+  "indexes": [
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_collection_ref",
+      "indexdef": "CREATE INDEX idx_inv_batches_collection_ref ON public.inv_batches USING btree (collection_batch_ref) WHERE (collection_batch_ref IS NOT NULL)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_collection_ref2",
+      "indexdef": "CREATE INDEX idx_inv_batches_collection_ref2 ON public.inv_batches USING btree (collection_batch_ref) WHERE (collection_batch_ref IS NOT NULL)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_company",
+      "indexdef": "CREATE INDEX idx_inv_batches_company ON public.inv_batches USING btree (company_code)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_egg_date",
+      "indexdef": "CREATE INDEX idx_inv_batches_egg_date ON public.inv_batches USING btree (egg_date)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_expire",
+      "indexdef": "CREATE INDEX idx_inv_batches_expire ON public.inv_batches USING btree (expire_date)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_grade",
+      "indexdef": "CREATE INDEX idx_inv_batches_grade ON public.inv_batches USING btree (quality_grade)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_grade_code_std",
+      "indexdef": "CREATE INDEX idx_inv_batches_grade_code_std ON public.inv_batches USING btree (grade_code_std) WHERE (grade_code_std IS NOT NULL)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_inbound_date_stable",
+      "indexdef": "CREATE INDEX idx_inv_batches_inbound_date_stable ON public.inv_batches USING btree (inbound_date DESC NULLS LAST, batch_no DESC, id DESC)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_legacy_source",
+      "indexdef": "CREATE INDEX idx_inv_batches_legacy_source ON public.inv_batches USING btree (legacy_source) WHERE (legacy_source IS NOT NULL)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_material_code",
+      "indexdef": "CREATE INDEX idx_inv_batches_material_code ON public.inv_batches USING btree (material_code)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_pkg_ref",
+      "indexdef": "CREATE INDEX idx_inv_batches_pkg_ref ON public.inv_batches USING btree (packaging_batch_ref) WHERE (packaging_batch_ref IS NOT NULL)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_pkg_ref2",
+      "indexdef": "CREATE INDEX idx_inv_batches_pkg_ref2 ON public.inv_batches USING btree (packaging_batch_ref) WHERE (packaging_batch_ref IS NOT NULL)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_product",
+      "indexdef": "CREATE INDEX idx_inv_batches_product ON public.inv_batches USING btree (product_code)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_saleable",
+      "indexdef": "CREATE INDEX idx_inv_batches_saleable ON public.inv_batches USING btree (company_code, product_code, expire_date) WHERE ((legacy_source IS NULL) AND ((status)::text = 'AVAILABLE'::text))"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_sku_code",
+      "indexdef": "CREATE INDEX idx_inv_batches_sku_code ON public.inv_batches USING btree (sku_code) WHERE (sku_code IS NOT NULL)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_spec_code",
+      "indexdef": "CREATE INDEX idx_inv_batches_spec_code ON public.inv_batches USING btree (spec_code) WHERE (spec_code IS NOT NULL)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_status",
+      "indexdef": "CREATE INDEX idx_inv_batches_status ON public.inv_batches USING btree (status)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_status_exp",
+      "indexdef": "CREATE INDEX idx_inv_batches_status_exp ON public.inv_batches USING btree (status, expire_date)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "idx_inv_batches_wh",
+      "indexdef": "CREATE INDEX idx_inv_batches_wh ON public.inv_batches USING btree (warehouse_code)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "inv_batches_batch_no_key",
+      "indexdef": "CREATE UNIQUE INDEX inv_batches_batch_no_key ON public.inv_batches USING btree (batch_no)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "inv_batches_pkey",
+      "indexdef": "CREATE UNIQUE INDEX inv_batches_pkey ON public.inv_batches USING btree (id)"
+    },
+    {
+      "tablename": "inv_batches",
+      "indexname": "ix_packing_history_source_no",
+      "indexdef": "CREATE INDEX ix_packing_history_source_no ON public.inv_batches USING btree (source_no)"
+    },
+    {
+      "tablename": "inv_ledger",
+      "indexname": "idx_inv_ledger_batch",
+      "indexdef": "CREATE INDEX idx_inv_ledger_batch ON public.inv_ledger USING btree (batch_no)"
+    },
+    {
+      "tablename": "inv_ledger",
+      "indexname": "idx_inv_ledger_batch_trace",
+      "indexdef": "CREATE INDEX idx_inv_ledger_batch_trace ON public.inv_ledger USING btree (batch_no)"
+    },
+    {
+      "tablename": "inv_ledger",
+      "indexname": "idx_inv_ledger_business_type",
+      "indexdef": "CREATE INDEX idx_inv_ledger_business_type ON public.inv_ledger USING btree (business_type, created_at)"
+    },
+    {
+      "tablename": "inv_ledger",
+      "indexname": "idx_inv_ledger_change",
+      "indexdef": "CREATE INDEX idx_inv_ledger_change ON public.inv_ledger USING btree (change_type)"
+    },
+    {
+      "tablename": "inv_ledger",
+      "indexname": "idx_inv_ledger_company",
+      "indexdef": "CREATE INDEX idx_inv_ledger_company ON public.inv_ledger USING btree (company_code)"
+    },
+    {
+      "tablename": "inv_ledger",
+      "indexname": "idx_inv_ledger_log_date",
+      "indexdef": "CREATE INDEX idx_inv_ledger_log_date ON public.inv_ledger USING btree (log_date)"
+    },
+    {
+      "tablename": "inv_ledger",
+      "indexname": "idx_inv_ledger_ref",
+      "indexdef": "CREATE INDEX idx_inv_ledger_ref ON public.inv_ledger USING btree (ref_no)"
+    },
+    {
+      "tablename": "inv_ledger",
+      "indexname": "idx_inv_ledger_sku_code",
+      "indexdef": "CREATE INDEX idx_inv_ledger_sku_code ON public.inv_ledger USING btree (sku_code) WHERE (sku_code IS NOT NULL)"
+    },
+    {
+      "tablename": "inv_ledger",
+      "indexname": "inv_ledger_pkey",
+      "indexdef": "CREATE UNIQUE INDEX inv_ledger_pkey ON public.inv_ledger USING btree (id)"
+    },
+    {
+      "tablename": "pkg_grading_source_links",
+      "indexname": "idx_pkg_grading_source_links_source_batch",
+      "indexdef": "CREATE INDEX idx_pkg_grading_source_links_source_batch ON public.pkg_grading_source_links USING btree (source_batch_id)"
+    },
+    {
+      "tablename": "pkg_grading_source_links",
+      "indexname": "pk_pkg_grading_source_links",
+      "indexdef": "CREATE UNIQUE INDEX pk_pkg_grading_source_links ON public.pkg_grading_source_links USING btree (grading_id, source_batch_id)"
+    },
+    {
+      "tablename": "pkg_handover_records",
+      "indexname": "ix_packing_history_handover",
+      "indexdef": "CREATE INDEX ix_packing_history_handover ON public.pkg_handover_records USING btree (packing_code)"
+    },
+    {
+      "tablename": "pkg_handover_records",
+      "indexname": "pkg_handover_records_code_key",
+      "indexdef": "CREATE UNIQUE INDEX pkg_handover_records_code_key ON public.pkg_handover_records USING btree (code)"
+    },
+    {
+      "tablename": "pkg_handover_records",
+      "indexname": "pkg_handover_records_pkey",
+      "indexdef": "CREATE UNIQUE INDEX pkg_handover_records_pkey ON public.pkg_handover_records USING btree (id)"
+    },
+    {
+      "tablename": "pkg_packing_events",
+      "indexname": "ix_packing_event_record",
+      "indexdef": "CREATE INDEX ix_packing_event_record ON public.pkg_packing_events USING btree (packing_id, server_at, id)"
+    },
+    {
+      "tablename": "pkg_packing_events",
+      "indexname": "pkg_packing_events_event_key_key",
+      "indexdef": "CREATE UNIQUE INDEX pkg_packing_events_event_key_key ON public.pkg_packing_events USING btree (event_key)"
+    },
+    {
+      "tablename": "pkg_packing_events",
+      "indexname": "pkg_packing_events_pkey",
+      "indexdef": "CREATE UNIQUE INDEX pkg_packing_events_pkey ON public.pkg_packing_events USING btree (id)"
+    },
+    {
+      "tablename": "pkg_packing_events",
+      "indexname": "uq_packing_commit_receipt",
+      "indexdef": "CREATE UNIQUE INDEX uq_packing_commit_receipt ON public.pkg_packing_events USING btree (packing_id) WHERE (event_type = 'COMMIT_RECEIPT'::text)"
+    },
+    {
+      "tablename": "pkg_packing_events",
+      "indexname": "uq_packing_session_box",
+      "indexdef": "CREATE UNIQUE INDEX uq_packing_session_box ON public.pkg_packing_events USING btree (session_id, box_id, ((payload ->> 'purpose'::text))) WHERE (event_type = 'BOX_VERIFIED'::text)"
+    },
+    {
+      "tablename": "pkg_packing_records",
+      "indexname": "ix_packing_history_date_id",
+      "indexdef": "CREATE INDEX ix_packing_history_date_id ON public.pkg_packing_records USING btree (production_date DESC, id DESC) WHERE (NOT is_test)"
+    },
+    {
+      "tablename": "pkg_packing_records",
+      "indexname": "pkg_packing_records_code_key",
+      "indexdef": "CREATE UNIQUE INDEX pkg_packing_records_code_key ON public.pkg_packing_records USING btree (code)"
+    },
+    {
+      "tablename": "pkg_packing_records",
+      "indexname": "pkg_packing_records_pkey",
+      "indexdef": "CREATE UNIQUE INDEX pkg_packing_records_pkey ON public.pkg_packing_records USING btree (id)"
+    },
+    {
+      "tablename": "pkg_packing_records",
+      "indexname": "uq_packing_idempotency",
+      "indexdef": "CREATE UNIQUE INDEX uq_packing_idempotency ON public.pkg_packing_records USING btree (idempotency_key) WHERE (idempotency_key IS NOT NULL)"
+    }
+  ],
+  "passed": false
+}

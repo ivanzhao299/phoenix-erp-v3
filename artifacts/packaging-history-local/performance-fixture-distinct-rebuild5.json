@@ -1,0 +1,60 @@
+{
+  "prefix": "TEST-2f5bda",
+  "company": "TEST-2f5bda-C",
+  "farm": "TEST-2f5bda-F",
+  "house": "TEST-2f5bda-H",
+  "warehouse": "TEST-2f5bda-W",
+  "location": "TEST-2f5bda-L",
+  "actor": "154",
+  "shiftId": "59",
+  "packingId": "5189",
+  "outputs": [
+    {
+      "grade": "TEST-2f5bda-G30",
+      "specId": "TEST-2f5bda-S30",
+      "spec": "TEST-2f5bda-S30",
+      "skuCode": "TEST-2f5bda-SKU30",
+      "productCode": "TEST-2f5bda",
+      "eggs": 30,
+      "boxes": 1
+    },
+    {
+      "grade": "TEST-2f5bda-G20",
+      "specId": "TEST-2f5bda-S20",
+      "spec": "TEST-2f5bda-S20",
+      "skuCode": "TEST-2f5bda-SKU20",
+      "productCode": "TEST-2f5bda",
+      "eggs": 20,
+      "boxes": 1
+    }
+  ],
+  "scope": {
+    "isGlobal": false,
+    "scopeLevel": "SELF",
+    "userId": "154",
+    "allowedCompanyCodes": [
+      "TEST-2f5bda-C"
+    ],
+    "allowedFarmCodes": [
+      "TEST-2f5bda-F"
+    ],
+    "allowedWarehouseCodes": [
+      "TEST-2f5bda-W"
+    ],
+    "allowedProjectCodes": [],
+    "allowedSiteCodes": []
+  },
+  "req": {
+    "user": {
+      "userId": "154",
+      "roles": [
+        "TEST_OPERATOR"
+      ],
+      "permissions": [
+        "MENU_PKG_OP:V,E"
+      ],
+      "perms_version": 1
+    }
+  },
+  "size": 5000
+}

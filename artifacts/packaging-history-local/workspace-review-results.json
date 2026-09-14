@@ -1,0 +1,210 @@
+{
+  "recordedAt": "2026-09-14T04:26:17.329572+00:00",
+  "status": "PARTIAL",
+  "results": [
+    {
+      "revision": "artifacts/packaging-history-local/verified-api-tsc-r11.revision.json",
+      "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+      "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+      "sourceUnchanged": true,
+      "name": "api-tsc",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/tsc",
+        "--noEmit"
+      ],
+      "started": "2026-09-14T04:23:33.586Z",
+      "finished": "2026-09-14T04:23:35.035Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-api-tsc-r11.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "revisionSha256": "141a0a926bb737d3bcab31faba9998bbfb209874882032ab1fe1a3f9027aff20"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-web-tsc-r9.revision.json",
+      "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+      "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+      "sourceUnchanged": true,
+      "name": "web-tsc",
+      "cwd": "apps/web",
+      "command": [
+        "./node_modules/.bin/tsc",
+        "--noEmit"
+      ],
+      "started": "2026-09-14T04:23:35.036Z",
+      "finished": "2026-09-14T04:23:37.576Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-web-tsc-r9.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "revisionSha256": "350c22b4237049bdc719def2b3e3a66d5e565a6496dc01fcf8a6cc042abcb782"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-api-unit-r7.revision.json",
+      "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+      "sourceFingerprint": "c45a4acfb43c3577fcfd6d995e2d98eefebfb6dc4a7efc3d0e374cb42c6d5fc0",
+      "sourceUnchanged": true,
+      "name": "api-unit",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/jest",
+        "--runInBand",
+        "bff.controller.spec.ts",
+        "grading-governance.spec.ts",
+        "packaging-protection.spec.ts",
+        "packaging-workflow-policy.spec.ts",
+        "packaging-review.spec.ts"
+      ],
+      "started": "2026-09-14T04:25:25.539Z",
+      "finished": "2026-09-14T04:25:29.927Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-api-unit-r7.log",
+      "logSha256": "fd878bd901841624b5f8d044786fb62ea894f0699b023d5adefea3b0eb2c9cbf",
+      "revisionSha256": "706290f67f308b516ff59ec1f38de1ad409fb672d555565b7d275f49d3fe6643"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-web-dom-r8.revision.json",
+      "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+      "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+      "sourceUnchanged": true,
+      "name": "web-dom",
+      "cwd": "apps/web",
+      "command": [
+        "./node_modules/.bin/vitest",
+        "run",
+        "src/__tests__/packing-history-client.test.ts",
+        "src/__tests__/packing-history.dom.test.tsx",
+        "src/__tests__/packing-history-ui.dom.test.tsx",
+        "src/__tests__/packaging-terminal-context.dom.test.tsx",
+        "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+      ],
+      "started": "2026-09-14T04:23:41.667Z",
+      "finished": "2026-09-14T04:23:43.838Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-web-dom-r8.log",
+      "logSha256": "40f8404f51cb781ec98afdcb05c04980620661095243e823b864880b647fed66",
+      "revisionSha256": "cd7ca08bfbe45cdaf0ce605743209e1dd4b5f783d4490a133dd9fb1131bae948"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-nullable-r6.revision.json",
+      "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+      "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+      "sourceUnchanged": true,
+      "name": "nullable",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/check-nullable-in-unique.js"
+      ],
+      "started": "2026-09-14T04:23:43.838Z",
+      "finished": "2026-09-14T04:23:43.976Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-nullable-r6.log",
+      "logSha256": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
+      "revisionSha256": "b189a79747c2128f6ed006fe423112b6babb0f9b6b02eb63a6f344bba019b587"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-constraint-r5.revision.json",
+      "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+      "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+      "sourceUnchanged": true,
+      "name": "constraint",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/check-constraint-drift.js"
+      ],
+      "started": "2026-09-14T04:23:43.977Z",
+      "finished": "2026-09-14T04:23:44.200Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-constraint-r5.log",
+      "logSha256": "ba53e2609dbf23af23ee8effbcdd76a607d48661c514a3cb7c08961a4f4c9821",
+      "revisionSha256": "2047a3a52a775bd80502342abbeec2a9ee92483473e16022cc1ef04b1d662185"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-migration-down-r5.revision.json",
+      "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+      "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+      "sourceUnchanged": true,
+      "name": "migration-down",
+      "cwd": ".",
+      "command": [
+        "bash",
+        "scripts/check-ts-migration-down.sh"
+      ],
+      "started": "2026-09-14T04:23:44.201Z",
+      "finished": "2026-09-14T04:23:44.526Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-migration-down-r5.log",
+      "logSha256": "015b6fdaab6d40ff6a3901631febabc02dcd9fc26e2dd083efe8c79b32fe7c6b",
+      "revisionSha256": "159c201bf2045e977b5b99000395440b80713b97e0fffb5e46739821c705fc79"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-migration-dml-r5.revision.json",
+      "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+      "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+      "sourceUnchanged": true,
+      "name": "migration-dml",
+      "cwd": ".",
+      "command": [
+        "bash",
+        "scripts/check-ts-migration-no-data-dml.sh"
+      ],
+      "started": "2026-09-14T04:23:44.526Z",
+      "finished": "2026-09-14T04:23:45.026Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-migration-dml-r5.log",
+      "logSha256": "2c26fd3440692db803854fc76681a5089ba006050b89eaa0cd66e08cdc33bc13",
+      "revisionSha256": "c5b878739da680e714de2213d689299b19d568b100a1c6ab5ba6d25eec897355"
+    }
+  ],
+  "counts": {
+    "api": {
+      "unit": 86,
+      "staticSql": 1,
+      "pass": 87,
+      "skip": 8,
+      "fail": 0
+    },
+    "web": {
+      "DOM": 48,
+      "client": 5,
+      "static": 4,
+      "pass": 57,
+      "skip": 0,
+      "fail": 0
+    }
+  },
+  "notExecuted": [
+    "PG fresh full migration rebuild",
+    "PG SQL/JS parity and UNKNOWN transaction tests",
+    "HTTP per-command matrix",
+    "browser E2E",
+    "P95 read load",
+    "official WMS transfer/split/sale chain",
+    "runtime scope-audit rerun",
+    "entity DB drift rerun"
+  ],
+  "newPgCasesWritten": 10,
+  "newHttpCasesWritten": 6,
+  "migrationApplied": false,
+  "commitAttempted": false,
+  "dockerAttempted": false,
+  "servicesStarted": [],
+  "revisionNote": "Final api-unit has later fingerprint due only to added mock transaction tests; all source fingerprints are contemporaneous, not backfilled."
+}

@@ -721,5 +721,2656 @@
     "signal": null,
     "error": null,
     "log": "artifacts/packaging-history-local/verified-nullable-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r9.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7cf10095de92d3e4a081395913e844c1ccfb8c5e7d620947d51512c08df97eb4",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T04:15:36.237Z",
+    "finished": "2026-09-14T04:15:37.636Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r9.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-tsc-r7.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7cf10095de92d3e4a081395913e844c1ccfb8c5e7d620947d51512c08df97eb4",
+    "sourceUnchanged": true,
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T04:15:37.641Z",
+    "finished": "2026-09-14T04:15:39.746Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r7.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7cf10095de92d3e4a081395913e844c1ccfb8c5e7d620947d51512c08df97eb4",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts"
+    ],
+    "started": "2026-09-14T04:15:39.750Z",
+    "finished": "2026-09-14T04:15:45.108Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-dom-r6.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7cf10095de92d3e4a081395913e844c1ccfb8c5e7d620947d51512c08df97eb4",
+    "sourceUnchanged": true,
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T04:15:45.108Z",
+    "finished": "2026-09-14T04:15:48.002Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r6.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-nullable-r4.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7cf10095de92d3e4a081395913e844c1ccfb8c5e7d620947d51512c08df97eb4",
+    "sourceUnchanged": true,
+    "name": "nullable",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-nullable-in-unique.js"
+    ],
+    "started": "2026-09-14T04:15:48.003Z",
+    "finished": "2026-09-14T04:15:48.131Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-nullable-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-constraint-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7cf10095de92d3e4a081395913e844c1ccfb8c5e7d620947d51512c08df97eb4",
+    "sourceUnchanged": true,
+    "name": "constraint",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-constraint-drift.js"
+    ],
+    "started": "2026-09-14T04:15:48.132Z",
+    "finished": "2026-09-14T04:15:48.349Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-constraint-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-down-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7cf10095de92d3e4a081395913e844c1ccfb8c5e7d620947d51512c08df97eb4",
+    "sourceUnchanged": true,
+    "name": "migration-down",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-down.sh"
+    ],
+    "started": "2026-09-14T04:15:48.349Z",
+    "finished": "2026-09-14T04:15:48.675Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-down-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-dml-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7cf10095de92d3e4a081395913e844c1ccfb8c5e7d620947d51512c08df97eb4",
+    "sourceUnchanged": true,
+    "name": "migration-dml",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-no-data-dml.sh"
+    ],
+    "started": "2026-09-14T04:15:48.675Z",
+    "finished": "2026-09-14T04:15:49.182Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-dml-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r10.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "88e7181d08d36e1485fe4e3bb3540145fe295bc9ccb9284ad32741868352acc0",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T04:22:02.457Z",
+    "finished": "2026-09-14T04:22:04.253Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r10.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-tsc-r8.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "88e7181d08d36e1485fe4e3bb3540145fe295bc9ccb9284ad32741868352acc0",
+    "sourceUnchanged": true,
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T04:22:04.254Z",
+    "finished": "2026-09-14T04:22:07.351Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r8.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r4.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "88e7181d08d36e1485fe4e3bb3540145fe295bc9ccb9284ad32741868352acc0",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T04:22:07.351Z",
+    "finished": "2026-09-14T04:22:13.040Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-dom-r7.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "88e7181d08d36e1485fe4e3bb3540145fe295bc9ccb9284ad32741868352acc0",
+    "sourceUnchanged": true,
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T04:22:13.041Z",
+    "finished": "2026-09-14T04:22:15.189Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r7.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-nullable-r5.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "88e7181d08d36e1485fe4e3bb3540145fe295bc9ccb9284ad32741868352acc0",
+    "sourceUnchanged": true,
+    "name": "nullable",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-nullable-in-unique.js"
+    ],
+    "started": "2026-09-14T04:22:15.190Z",
+    "finished": "2026-09-14T04:22:15.324Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-nullable-r5.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-constraint-r4.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "88e7181d08d36e1485fe4e3bb3540145fe295bc9ccb9284ad32741868352acc0",
+    "sourceUnchanged": true,
+    "name": "constraint",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-constraint-drift.js"
+    ],
+    "started": "2026-09-14T04:22:15.324Z",
+    "finished": "2026-09-14T04:22:15.538Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-constraint-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-down-r4.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "88e7181d08d36e1485fe4e3bb3540145fe295bc9ccb9284ad32741868352acc0",
+    "sourceUnchanged": true,
+    "name": "migration-down",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-down.sh"
+    ],
+    "started": "2026-09-14T04:22:15.539Z",
+    "finished": "2026-09-14T04:22:15.865Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-down-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-dml-r4.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "88e7181d08d36e1485fe4e3bb3540145fe295bc9ccb9284ad32741868352acc0",
+    "sourceUnchanged": true,
+    "name": "migration-dml",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-no-data-dml.sh"
+    ],
+    "started": "2026-09-14T04:22:15.866Z",
+    "finished": "2026-09-14T04:22:16.360Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-dml-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r11.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T04:23:33.586Z",
+    "finished": "2026-09-14T04:23:35.035Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r11.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-tsc-r9.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+    "sourceUnchanged": true,
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T04:23:35.036Z",
+    "finished": "2026-09-14T04:23:37.576Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r9.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r5.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T04:23:37.576Z",
+    "finished": "2026-09-14T04:23:41.667Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r5.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-dom-r8.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+    "sourceUnchanged": true,
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T04:23:41.667Z",
+    "finished": "2026-09-14T04:23:43.838Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r8.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-nullable-r6.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+    "sourceUnchanged": true,
+    "name": "nullable",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-nullable-in-unique.js"
+    ],
+    "started": "2026-09-14T04:23:43.838Z",
+    "finished": "2026-09-14T04:23:43.976Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-nullable-r6.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-constraint-r5.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+    "sourceUnchanged": true,
+    "name": "constraint",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-constraint-drift.js"
+    ],
+    "started": "2026-09-14T04:23:43.977Z",
+    "finished": "2026-09-14T04:23:44.200Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-constraint-r5.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-down-r5.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+    "sourceUnchanged": true,
+    "name": "migration-down",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-down.sh"
+    ],
+    "started": "2026-09-14T04:23:44.201Z",
+    "finished": "2026-09-14T04:23:44.526Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-down-r5.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-dml-r5.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "117b540e223cb8fad082a5eebd0f7df8c15bfbea847314cd8c95c1adf4c328df",
+    "sourceUnchanged": true,
+    "name": "migration-dml",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-no-data-dml.sh"
+    ],
+    "started": "2026-09-14T04:23:44.526Z",
+    "finished": "2026-09-14T04:23:45.026Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-dml-r5.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r6.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "ab980ed777f0eb2472a1fb904de0adb6fa67f54644343a3dbcfb501e21e06950",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T04:25:08.078Z",
+    "finished": "2026-09-14T04:25:12.501Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r6.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r7.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "c45a4acfb43c3577fcfd6d995e2d98eefebfb6dc4a7efc3d0e374cb42c6d5fc0",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T04:25:25.539Z",
+    "finished": "2026-09-14T04:25:29.927Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r7.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-rebuild-sql.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "f7dee79332b660ae2b620fd14ebb59b5f03260ef9fbab78cf26bc4dc85dcf256",
+    "sourceUnchanged": true,
+    "name": "rebuild-sql",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/migrate.cjs"
+    ],
+    "started": "2026-09-14T04:45:49.262Z",
+    "finished": "2026-09-14T04:45:51.013Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-rebuild-sql.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-rebuild-bootstrap.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "f7dee79332b660ae2b620fd14ebb59b5f03260ef9fbab78cf26bc4dc85dcf256",
+    "sourceUnchanged": true,
+    "name": "rebuild-bootstrap",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/bootstrap.cjs"
+    ],
+    "started": "2026-09-14T04:45:51.014Z",
+    "finished": "2026-09-14T04:45:52.701Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-rebuild-bootstrap.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-rebuild-ts.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "f7dee79332b660ae2b620fd14ebb59b5f03260ef9fbab78cf26bc4dc85dcf256",
+    "sourceUnchanged": true,
+    "name": "rebuild-ts",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/migrate-ts.cjs"
+    ],
+    "started": "2026-09-14T04:45:52.702Z",
+    "finished": "2026-09-14T04:45:54.114Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-rebuild-ts.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r12.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "86140447f03b63b211c55a628ba9bc10c32c2fcd9d4df4d3f0f1285acc207518",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T04:46:03.144Z",
+    "finished": "2026-09-14T04:46:05.331Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r12.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r8.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "86140447f03b63b211c55a628ba9bc10c32c2fcd9d4df4d3f0f1285acc207518",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T04:46:05.332Z",
+    "finished": "2026-09-14T04:46:11.687Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r8.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r8.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "86140447f03b63b211c55a628ba9bc10c32c2fcd9d4df4d3f0f1285acc207518",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T04:46:11.688Z",
+    "finished": "2026-09-14T04:46:25.190Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r8.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r9.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "6871ccb79b14d0fffca5cd633b999bbc4f41ea34a343e660a5b6448538e6fef1",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T04:47:42.260Z",
+    "finished": "2026-09-14T04:47:55.039Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r9.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "5b81d7b1b5df6db1efb6e75fbdc7cd15c4f4c7847bccaa277983823de8c85bcd",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T04:48:35.608Z",
+    "finished": "2026-09-14T04:49:45.010Z",
+    "exit": null,
+    "signal": "SIGTERM",
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-rebuild-sql-r2.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "bc9382b306cd6a88c7fc8f9539224a038ebc594e8d8ca526c01d188abb9e96ca",
+    "sourceUnchanged": true,
+    "name": "rebuild-sql",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/migrate.cjs"
+    ],
+    "started": "2026-09-14T04:50:20.234Z",
+    "finished": "2026-09-14T04:50:22.088Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-rebuild-sql-r2.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-rebuild-bootstrap-r2.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "bc9382b306cd6a88c7fc8f9539224a038ebc594e8d8ca526c01d188abb9e96ca",
+    "sourceUnchanged": true,
+    "name": "rebuild-bootstrap",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/bootstrap.cjs"
+    ],
+    "started": "2026-09-14T04:50:22.089Z",
+    "finished": "2026-09-14T04:50:23.805Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-rebuild-bootstrap-r2.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-rebuild-ts-r2.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "bc9382b306cd6a88c7fc8f9539224a038ebc594e8d8ca526c01d188abb9e96ca",
+    "sourceUnchanged": true,
+    "name": "rebuild-ts",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/migrate-ts.cjs"
+    ],
+    "started": "2026-09-14T04:50:23.805Z",
+    "finished": "2026-09-14T04:50:25.194Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-rebuild-ts-r2.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r2.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "bc9382b306cd6a88c7fc8f9539224a038ebc594e8d8ca526c01d188abb9e96ca",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T04:50:53.512Z",
+    "finished": "2026-09-14T04:51:40.915Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r2.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r10.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "bc9382b306cd6a88c7fc8f9539224a038ebc594e8d8ca526c01d188abb9e96ca",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T04:51:40.917Z",
+    "finished": "2026-09-14T04:52:15.344Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r10.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "e281a3ebfe9e6f1b234a92c52b084ebc837828069e41feebf641a3509a6fc40a",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T04:53:06.376Z",
+    "finished": "2026-09-14T04:53:40.067Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r11.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "e281a3ebfe9e6f1b234a92c52b084ebc837828069e41feebf641a3509a6fc40a",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T04:53:40.068Z",
+    "finished": "2026-09-14T04:53:56.309Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r11.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r4.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "663e6f2141aa26da0e9ebc5ac016ceb1818952a3f400b51c59a3fdeb73fad6fc",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T04:54:02.921Z",
+    "finished": "2026-09-14T04:54:40.800Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r13.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "93921540eeeb41e0874a1415239ac33d36b319a6bf39e874f2b73e0cdaa6e274",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T04:56:10.332Z",
+    "finished": "2026-09-14T04:56:14.454Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r13.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-tsc-r10.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "93921540eeeb41e0874a1415239ac33d36b319a6bf39e874f2b73e0cdaa6e274",
+    "sourceUnchanged": true,
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T04:56:14.455Z",
+    "finished": "2026-09-14T04:56:17.707Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r10.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r9.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "93921540eeeb41e0874a1415239ac33d36b319a6bf39e874f2b73e0cdaa6e274",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T04:56:17.707Z",
+    "finished": "2026-09-14T04:56:23.575Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r9.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r12.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "93921540eeeb41e0874a1415239ac33d36b319a6bf39e874f2b73e0cdaa6e274",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T04:56:23.576Z",
+    "finished": "2026-09-14T04:56:39.498Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r12.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-dom-r9.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "93921540eeeb41e0874a1415239ac33d36b319a6bf39e874f2b73e0cdaa6e274",
+    "sourceUnchanged": true,
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T04:56:39.498Z",
+    "finished": "2026-09-14T04:56:41.838Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r9.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r13.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "50d3470652d1b1af0450dad30f846a1be9de70910516573e07433e2369096f62",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T04:58:05.892Z",
+    "finished": "2026-09-14T04:59:19.819Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r13.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r5.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7ddaad09117b8352f8d65a14ecd078096cd1189f945a6f6c806d1e082c19a63d",
+    "sourceUnchanged": false,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T05:00:05.764Z",
+    "finished": "2026-09-14T05:02:00.940Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r5.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r14.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "db0698212c91ccb23edda6d100d1c449caac6d8e1899f2148c862ea53ce040e0",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:02:00.942Z",
+    "finished": "2026-09-14T05:02:57.317Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r14.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-perf-plan.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "581a77aca4576c15904451246beeb6fff4e7ba663146a7bdb81ce47715779c72",
+    "sourceUnchanged": true,
+    "name": "perf-plan",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs",
+      "--plan"
+    ],
+    "started": "2026-09-14T05:03:03.364Z",
+    "finished": "2026-09-14T05:03:04.131Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-perf-plan.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-perf-plan-r2.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7734afc55d5b79f952b93f096ef41eae9c30ac8c2753d4016cfb408c2171f098",
+    "sourceUnchanged": true,
+    "name": "perf-plan",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs",
+      "--plan"
+    ],
+    "started": "2026-09-14T05:03:39.899Z",
+    "finished": "2026-09-14T05:03:55.605Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-perf-plan-r2.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r6.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7734afc55d5b79f952b93f096ef41eae9c30ac8c2753d4016cfb408c2171f098",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T05:03:55.606Z",
+    "finished": "2026-09-14T05:04:11.309Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r6.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-perf-plan-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "9949ae4b9d485e9b7ee59c916ca08cbc7bc743806fab1069b50bd875fd8786e5",
+    "sourceUnchanged": true,
+    "name": "perf-plan",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs",
+      "--plan"
+    ],
+    "started": "2026-09-14T05:05:14.983Z",
+    "finished": "2026-09-14T05:05:18.233Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-perf-plan-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r7.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "9949ae4b9d485e9b7ee59c916ca08cbc7bc743806fab1069b50bd875fd8786e5",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T05:05:18.235Z",
+    "finished": "2026-09-14T05:06:33.710Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r7.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-rebuild-sql-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "rebuild-sql",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/migrate.cjs"
+    ],
+    "started": "2026-09-14T05:08:46.782Z",
+    "finished": "2026-09-14T05:08:48.438Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-rebuild-sql-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-rebuild-bootstrap-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "rebuild-bootstrap",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/bootstrap.cjs"
+    ],
+    "started": "2026-09-14T05:08:48.439Z",
+    "finished": "2026-09-14T05:08:50.195Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-rebuild-bootstrap-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-rebuild-ts-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "rebuild-ts",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/migrate-ts.cjs"
+    ],
+    "started": "2026-09-14T05:08:50.196Z",
+    "finished": "2026-09-14T05:08:51.634Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-rebuild-ts-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-perf-plan-r4.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "perf-plan",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs",
+      "--plan"
+    ],
+    "started": "2026-09-14T05:09:14.100Z",
+    "finished": "2026-09-14T05:09:16.275Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-perf-plan-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r8.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T05:09:16.276Z",
+    "finished": "2026-09-14T05:09:34.790Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r8.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r14.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:09:34.790Z",
+    "finished": "2026-09-14T05:09:37.038Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r14.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-tsc-r11.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:09:37.041Z",
+    "finished": "2026-09-14T05:09:39.376Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r11.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r10.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T05:09:39.377Z",
+    "finished": "2026-09-14T05:09:45.193Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r10.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r15.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:09:45.194Z",
+    "finished": "2026-09-14T05:09:59.592Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r15.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-dom-r10.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T05:09:59.593Z",
+    "finished": "2026-09-14T05:10:01.970Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r10.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-nullable-r7.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "nullable",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-nullable-in-unique.js"
+    ],
+    "started": "2026-09-14T05:10:01.970Z",
+    "finished": "2026-09-14T05:10:02.138Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-nullable-r7.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-constraint-r6.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "constraint",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-constraint-drift.js"
+    ],
+    "started": "2026-09-14T05:10:02.139Z",
+    "finished": "2026-09-14T05:10:02.395Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-constraint-r6.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-down-r6.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "migration-down",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-down.sh"
+    ],
+    "started": "2026-09-14T05:10:02.396Z",
+    "finished": "2026-09-14T05:10:02.784Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-down-r6.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-dml-r6.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "720d83b2961a2890859e88910f0eae1ee2b7e952cb370f98ee0b6feee3a4c15f",
+    "sourceUnchanged": true,
+    "name": "migration-dml",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-no-data-dml.sh"
+    ],
+    "started": "2026-09-14T05:10:02.785Z",
+    "finished": "2026-09-14T05:10:03.367Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-dml-r6.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-perf-plan-r5.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "3eb4af88ec185cd6c49e910655b67f8af64dc40fa168c2fc8494455f0132610a",
+    "sourceUnchanged": true,
+    "name": "perf-plan",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs",
+      "--plan"
+    ],
+    "started": "2026-09-14T05:10:41.917Z",
+    "finished": "2026-09-14T05:10:44.375Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-perf-plan-r5.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r9.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "3eb4af88ec185cd6c49e910655b67f8af64dc40fa168c2fc8494455f0132610a",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T05:10:44.377Z",
+    "finished": "2026-09-14T05:11:10.698Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r9.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r16.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "3eb4af88ec185cd6c49e910655b67f8af64dc40fa168c2fc8494455f0132610a",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:11:10.699Z",
+    "finished": "2026-09-14T05:11:25.245Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r16.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r15.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "b53c8c41eb8f4ccda11c4daf112c592509f336035e9d61325570cac70a80d4da",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:13:44.365Z",
+    "finished": "2026-09-14T05:13:46.053Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r15.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-tsc-r12.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "b53c8c41eb8f4ccda11c4daf112c592509f336035e9d61325570cac70a80d4da",
+    "sourceUnchanged": true,
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:13:46.054Z",
+    "finished": "2026-09-14T05:13:48.948Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r12.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r11.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "b53c8c41eb8f4ccda11c4daf112c592509f336035e9d61325570cac70a80d4da",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T05:13:48.949Z",
+    "finished": "2026-09-14T05:13:52.233Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r11.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r17.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "b53c8c41eb8f4ccda11c4daf112c592509f336035e9d61325570cac70a80d4da",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:13:52.236Z",
+    "finished": "2026-09-14T05:14:07.204Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r17.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-dom-r11.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "b53c8c41eb8f4ccda11c4daf112c592509f336035e9d61325570cac70a80d4da",
+    "sourceUnchanged": true,
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T05:14:07.204Z",
+    "finished": "2026-09-14T05:14:09.619Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r11.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-nullable-r8.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "b53c8c41eb8f4ccda11c4daf112c592509f336035e9d61325570cac70a80d4da",
+    "sourceUnchanged": true,
+    "name": "nullable",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-nullable-in-unique.js"
+    ],
+    "started": "2026-09-14T05:14:09.620Z",
+    "finished": "2026-09-14T05:14:09.788Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-nullable-r8.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-constraint-r7.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "b53c8c41eb8f4ccda11c4daf112c592509f336035e9d61325570cac70a80d4da",
+    "sourceUnchanged": true,
+    "name": "constraint",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-constraint-drift.js"
+    ],
+    "started": "2026-09-14T05:14:09.789Z",
+    "finished": "2026-09-14T05:14:10.046Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-constraint-r7.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-down-r7.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "b53c8c41eb8f4ccda11c4daf112c592509f336035e9d61325570cac70a80d4da",
+    "sourceUnchanged": true,
+    "name": "migration-down",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-down.sh"
+    ],
+    "started": "2026-09-14T05:14:10.049Z",
+    "finished": "2026-09-14T05:14:10.462Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-down-r7.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-dml-r7.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "b53c8c41eb8f4ccda11c4daf112c592509f336035e9d61325570cac70a80d4da",
+    "sourceUnchanged": true,
+    "name": "migration-dml",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-no-data-dml.sh"
+    ],
+    "started": "2026-09-14T05:14:10.463Z",
+    "finished": "2026-09-14T05:14:11.065Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-dml-r7.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-regression.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "22ddea01035e4a2a58dddece4fb72fb54c84196300a6e01f994cd9b57c3bd428",
+    "sourceUnchanged": true,
+    "name": "api-regression",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "data-scope.service.spec.ts",
+      "data-scope-row-equivalence.spec.ts",
+      "egg-inventory.service.spec.ts",
+      "packaging-inventory-integration.service.spec.ts"
+    ],
+    "started": "2026-09-14T05:15:12.748Z",
+    "finished": "2026-09-14T05:15:17.412Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-regression.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-auth.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "22ddea01035e4a2a58dddece4fb72fb54c84196300a6e01f994cd9b57c3bd428",
+    "sourceUnchanged": true,
+    "name": "web-auth",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/lib/auth-navigation.test.ts",
+      "src/lib/auth-session.test.ts",
+      "src/lib/auth-dispatch.test.ts"
+    ],
+    "started": "2026-09-14T05:15:17.413Z",
+    "finished": "2026-09-14T05:15:18.168Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-auth.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-dom-r12.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "22ddea01035e4a2a58dddece4fb72fb54c84196300a6e01f994cd9b57c3bd428",
+    "sourceUnchanged": true,
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T05:15:18.169Z",
+    "finished": "2026-09-14T05:15:20.552Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r12.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-entity-diff-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "22ddea01035e4a2a58dddece4fb72fb54c84196300a6e01f994cd9b57c3bd428",
+    "sourceUnchanged": true,
+    "name": "entity-diff",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/entity-diff.cjs"
+    ],
+    "started": "2026-09-14T05:15:48.212Z",
+    "finished": "2026-09-14T05:15:49.494Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-entity-diff-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-entity-baseline.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "22ddea01035e4a2a58dddece4fb72fb54c84196300a6e01f994cd9b57c3bd428",
+    "sourceUnchanged": true,
+    "name": "entity-baseline",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/entity-diff.cjs",
+      "--baseline"
+    ],
+    "started": "2026-09-14T05:15:49.496Z",
+    "finished": "2026-09-14T05:15:50.967Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-entity-baseline.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-entity-gate-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "22ddea01035e4a2a58dddece4fb72fb54c84196300a6e01f994cd9b57c3bd428",
+    "sourceUnchanged": true,
+    "name": "entity-gate",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/entity-gate.cjs"
+    ],
+    "started": "2026-09-14T05:15:50.968Z",
+    "finished": "2026-09-14T05:15:51.135Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-entity-gate-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-runtime-scope-audit-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "22ddea01035e4a2a58dddece4fb72fb54c84196300a6e01f994cd9b57c3bd428",
+    "sourceUnchanged": true,
+    "name": "runtime-scope-audit",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "apps/api/test/scope-audit.sh"
+    ],
+    "started": "2026-09-14T05:15:51.136Z",
+    "finished": "2026-09-14T05:15:52.067Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-runtime-scope-audit-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-browser-r6.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "22ddea01035e4a2a58dddece4fb72fb54c84196300a6e01f994cd9b57c3bd428",
+    "sourceUnchanged": true,
+    "name": "browser",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/browser.cjs"
+    ],
+    "started": "2026-09-14T05:15:52.068Z",
+    "finished": "2026-09-14T05:16:44.990Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-browser-r6.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-browser-r7.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "293d665799a116c4feeab294db647872a27f0a93f9431e34b407152468fbc641",
+    "sourceUnchanged": true,
+    "name": "browser",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/browser.cjs"
+    ],
+    "started": "2026-09-14T05:19:53.636Z",
+    "finished": "2026-09-14T05:20:39.895Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-browser-r7.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r10.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "015cd360d27df13e46027d2e4edd7e9aaf6855db7d3813768fdb46f9d0715c7e",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T05:22:39.445Z",
+    "finished": "2026-09-14T05:23:12.491Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r10.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r16.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "015cd360d27df13e46027d2e4edd7e9aaf6855db7d3813768fdb46f9d0715c7e",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:23:12.492Z",
+    "finished": "2026-09-14T05:23:14.159Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r16.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-tsc-r13.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "015cd360d27df13e46027d2e4edd7e9aaf6855db7d3813768fdb46f9d0715c7e",
+    "sourceUnchanged": true,
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:23:14.160Z",
+    "finished": "2026-09-14T05:23:24.273Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r13.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-regression-r2.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "015cd360d27df13e46027d2e4edd7e9aaf6855db7d3813768fdb46f9d0715c7e",
+    "sourceUnchanged": true,
+    "name": "api-regression",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "data-scope.service.spec.ts",
+      "data-scope-row-equivalence.spec.ts",
+      "egg-inventory.service.spec.ts",
+      "wms.service.spec.ts",
+      "packaging-inventory-integration.service.spec.ts"
+    ],
+    "started": "2026-09-14T05:23:24.274Z",
+    "finished": "2026-09-14T05:23:28.441Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-regression-r2.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-dom-r13.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "015cd360d27df13e46027d2e4edd7e9aaf6855db7d3813768fdb46f9d0715c7e",
+    "sourceUnchanged": false,
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T05:23:28.442Z",
+    "finished": "2026-09-14T05:23:30.766Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r13.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r18.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7bcf5efd45212ea7bfeda9dd756bd1db67ad608fee37bd36226b6a63030765ad",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:23:59.223Z",
+    "finished": "2026-09-14T05:24:13.675Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r18.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-browser-r8.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "7bcf5efd45212ea7bfeda9dd756bd1db67ad608fee37bd36226b6a63030765ad",
+    "sourceUnchanged": true,
+    "name": "browser",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/browser.cjs"
+    ],
+    "started": "2026-09-14T05:24:13.677Z",
+    "finished": "2026-09-14T05:24:26.318Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-browser-r8.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r17.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "6821b1efeb6df08b3822cef3787d35b0c23372c54a85522d99fce39e3ef9ec38",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:25:12.746Z",
+    "finished": "2026-09-14T05:25:14.214Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r17.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r12.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "6821b1efeb6df08b3822cef3787d35b0c23372c54a85522d99fce39e3ef9ec38",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T05:25:14.215Z",
+    "finished": "2026-09-14T05:25:19.750Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r12.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r19.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "6821b1efeb6df08b3822cef3787d35b0c23372c54a85522d99fce39e3ef9ec38",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:25:19.751Z",
+    "finished": "2026-09-14T05:25:34.220Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r19.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r11.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "f20f56db27e61f7895cb8405d2a96d80de60baac142b6c692126903559d944d5",
+    "sourceUnchanged": false,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T05:26:13.364Z",
+    "finished": "2026-09-14T05:27:08.115Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r11.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r20.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "857597a65f77f6079c4ab45a4bb9e6efc5d0061ebc41eb565c0c39ddf7397b72",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:27:08.117Z",
+    "finished": "2026-09-14T05:27:22.920Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r20.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-perf-plan-r6.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "05884e619545002adfb44485c496b19b7bf9c4f98e38ece9424ca4f7fb70be6a",
+    "sourceUnchanged": true,
+    "name": "perf-plan",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs",
+      "--plan"
+    ],
+    "started": "2026-09-14T05:28:13.970Z",
+    "finished": "2026-09-14T05:28:17.397Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-perf-plan-r6.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r12.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "05884e619545002adfb44485c496b19b7bf9c4f98e38ece9424ca4f7fb70be6a",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T05:28:17.398Z",
+    "finished": "2026-09-14T05:28:59.476Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r12.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r18.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "05884e619545002adfb44485c496b19b7bf9c4f98e38ece9424ca4f7fb70be6a",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:28:59.477Z",
+    "finished": "2026-09-14T05:29:01.494Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r18.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r13.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "05884e619545002adfb44485c496b19b7bf9c4f98e38ece9424ca4f7fb70be6a",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T05:29:01.495Z",
+    "finished": "2026-09-14T05:29:06.323Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r13.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r21.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "05884e619545002adfb44485c496b19b7bf9c4f98e38ece9424ca4f7fb70be6a",
+    "sourceUnchanged": false,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:29:06.324Z",
+    "finished": "2026-09-14T05:29:21.812Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r21.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-tsc-r14.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "725b789972e3a27fdf04ce0c3ffe199ef0afc239e8af73ab5eec489757b2d2bb",
+    "sourceUnchanged": true,
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:30:01.738Z",
+    "finished": "2026-09-14T05:30:05.081Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r14.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-regression-r3.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "725b789972e3a27fdf04ce0c3ffe199ef0afc239e8af73ab5eec489757b2d2bb",
+    "sourceUnchanged": true,
+    "name": "api-regression",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "data-scope.service.spec.ts",
+      "data-scope-row-equivalence.spec.ts",
+      "egg-inventory.service.spec.ts",
+      "wms.service.spec.ts",
+      "packaging-inventory-integration.service.spec.ts"
+    ],
+    "started": "2026-09-14T05:30:05.082Z",
+    "finished": "2026-09-14T05:30:08.020Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-regression-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-auth-r2.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "725b789972e3a27fdf04ce0c3ffe199ef0afc239e8af73ab5eec489757b2d2bb",
+    "sourceUnchanged": true,
+    "name": "web-auth",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/lib/auth-navigation.test.ts",
+      "src/lib/auth-session.test.ts",
+      "src/lib/auth-dispatch.test.ts"
+    ],
+    "started": "2026-09-14T05:30:08.020Z",
+    "finished": "2026-09-14T05:30:08.792Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-auth-r2.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-dom-r14.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "725b789972e3a27fdf04ce0c3ffe199ef0afc239e8af73ab5eec489757b2d2bb",
+    "sourceUnchanged": true,
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T05:30:08.793Z",
+    "finished": "2026-09-14T05:30:11.176Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r14.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-nullable-r9.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "725b789972e3a27fdf04ce0c3ffe199ef0afc239e8af73ab5eec489757b2d2bb",
+    "sourceUnchanged": true,
+    "name": "nullable",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-nullable-in-unique.js"
+    ],
+    "started": "2026-09-14T05:30:11.177Z",
+    "finished": "2026-09-14T05:30:11.353Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-nullable-r9.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-constraint-r8.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "725b789972e3a27fdf04ce0c3ffe199ef0afc239e8af73ab5eec489757b2d2bb",
+    "sourceUnchanged": true,
+    "name": "constraint",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-constraint-drift.js"
+    ],
+    "started": "2026-09-14T05:30:11.354Z",
+    "finished": "2026-09-14T05:30:11.631Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-constraint-r8.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-down-r8.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "725b789972e3a27fdf04ce0c3ffe199ef0afc239e8af73ab5eec489757b2d2bb",
+    "sourceUnchanged": true,
+    "name": "migration-down",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-down.sh"
+    ],
+    "started": "2026-09-14T05:30:11.631Z",
+    "finished": "2026-09-14T05:30:12.012Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-down-r8.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-dml-r8.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "725b789972e3a27fdf04ce0c3ffe199ef0afc239e8af73ab5eec489757b2d2bb",
+    "sourceUnchanged": true,
+    "name": "migration-dml",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-no-data-dml.sh"
+    ],
+    "started": "2026-09-14T05:30:12.013Z",
+    "finished": "2026-09-14T05:30:12.590Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-dml-r8.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r22.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "875fd268cef4fa50673a33c1cbcaaecf87bce89ac29254314d8bf7caabc0a570",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:30:55.262Z",
+    "finished": "2026-09-14T05:31:09.398Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r22.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r19.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:31:48.502Z",
+    "finished": "2026-09-14T05:31:50.229Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r19.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r14.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T05:31:50.230Z",
+    "finished": "2026-09-14T05:31:55.184Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r14.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r23.revision.json",
+    "head": "6bbda479b33b7f4178d64d426878f57881e764b3",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:31:55.185Z",
+    "finished": "2026-09-14T05:32:11.083Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r23.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-perf-plan-r7.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "perf-plan",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs",
+      "--plan"
+    ],
+    "started": "2026-09-14T05:33:14.956Z",
+    "finished": "2026-09-14T05:33:18.067Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-perf-plan-r7.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-performance-r13.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "performance",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/performance.cjs"
+    ],
+    "started": "2026-09-14T05:33:18.069Z",
+    "finished": "2026-09-14T05:33:53.191Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-performance-r13.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-tsc-r20.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:33:53.192Z",
+    "finished": "2026-09-14T05:33:54.661Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r20.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-tsc-r15.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T05:33:54.662Z",
+    "finished": "2026-09-14T05:33:56.956Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r15.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-regression-r4.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "api-regression",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "data-scope.service.spec.ts",
+      "data-scope-row-equivalence.spec.ts",
+      "egg-inventory.service.spec.ts",
+      "wms.service.spec.ts",
+      "packaging-inventory-integration.service.spec.ts"
+    ],
+    "started": "2026-09-14T05:33:56.959Z",
+    "finished": "2026-09-14T05:33:59.891Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-regression-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-auth-r3.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "web-auth",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/lib/auth-navigation.test.ts",
+      "src/lib/auth-session.test.ts",
+      "src/lib/auth-dispatch.test.ts"
+    ],
+    "started": "2026-09-14T05:33:59.894Z",
+    "finished": "2026-09-14T05:34:00.650Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-auth-r3.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-api-unit-r15.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts",
+      "packaging-review.spec.ts"
+    ],
+    "started": "2026-09-14T05:34:00.653Z",
+    "finished": "2026-09-14T05:34:03.855Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r15.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-pg-http-r24.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T05:34:03.856Z",
+    "finished": "2026-09-14T05:34:16.729Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r24.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-web-dom-r15.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T05:34:16.730Z",
+    "finished": "2026-09-14T05:34:19.030Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r15.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-nullable-r10.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "nullable",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-nullable-in-unique.js"
+    ],
+    "started": "2026-09-14T05:34:19.033Z",
+    "finished": "2026-09-14T05:34:19.194Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-nullable-r10.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-constraint-r9.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "constraint",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-constraint-drift.js"
+    ],
+    "started": "2026-09-14T05:34:19.195Z",
+    "finished": "2026-09-14T05:34:19.449Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-constraint-r9.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-down-r9.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "migration-down",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-down.sh"
+    ],
+    "started": "2026-09-14T05:34:19.450Z",
+    "finished": "2026-09-14T05:34:19.810Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-down-r9.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-migration-dml-r9.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "migration-dml",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-no-data-dml.sh"
+    ],
+    "started": "2026-09-14T05:34:19.810Z",
+    "finished": "2026-09-14T05:34:20.361Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-dml-r9.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-entity-diff-r4.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "entity-diff",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/entity-diff.cjs"
+    ],
+    "started": "2026-09-14T05:34:20.361Z",
+    "finished": "2026-09-14T05:34:21.612Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-entity-diff-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-entity-baseline-r2.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "entity-baseline",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/entity-diff.cjs",
+      "--baseline"
+    ],
+    "started": "2026-09-14T05:34:21.615Z",
+    "finished": "2026-09-14T05:34:22.872Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-entity-baseline-r2.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-entity-gate-r4.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "entity-gate",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/entity-gate.cjs"
+    ],
+    "started": "2026-09-14T05:34:22.873Z",
+    "finished": "2026-09-14T05:34:23.034Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-entity-gate-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-runtime-scope-audit-r4.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "runtime-scope-audit",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "apps/api/test/scope-audit.sh"
+    ],
+    "started": "2026-09-14T05:34:23.035Z",
+    "finished": "2026-09-14T05:34:23.918Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-runtime-scope-audit-r4.log"
+  },
+  {
+    "revision": "artifacts/packaging-history-local/verified-browser-r9.revision.json",
+    "head": "8e1ea6a07759670fb304ab4d09e39e3a27663d57",
+    "sourceFingerprint": "efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1",
+    "sourceUnchanged": true,
+    "name": "browser",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/browser.cjs"
+    ],
+    "started": "2026-09-14T05:34:23.919Z",
+    "finished": "2026-09-14T05:34:36.438Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-browser-r9.log"
   }
 ]

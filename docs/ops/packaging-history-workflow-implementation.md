@@ -1,5 +1,7 @@
 # 包装历史工作流本地实施与验收
 
+> 本轮最新结论见文末“恢复后的同源码交付”。此前各轮报告与失败保留为历史记录，不作为当前源码的验收结论。
+
 ## 授权与交付边界
 
 2026-09-14，唯一执行者为当前 Codex CLI，无子代理。用户明确授权 D1-C、P0–P4（排除 P3-E/P5），仅本地源码、TypeORM TS 迁移、隔离 fixture、实际测试及 local commit。方案顶部已标注本轮授权覆盖旧 design-only 文字；11.2 本人登录条件只适用 A/B，C 不需要独立接收员会话。
@@ -86,11 +88,11 @@ L0=代码/方案，L1=本地测试，L3=隔离真实浏览器。下表“软件�
 
 ## 发布待审与实物待验收
 
-发布必须另批。候选评审需看本地提交、兼容影响、schema先行次序、公司/场policy整组版本、回退保留事件策略，并独立处理原runtime scope-audit和entity基线门禁。没有授权时不做push、部署或生产试点开旗。
+用户已追加授权后续 push 与 schema/API/Web 发布，但父级要求本 turn 先复核最终本地证据，因此本轮绝不发布；父级确认发布前证据后再推进，不重复索取用户授权。候选评审需看本地提交、兼容影响、schema先行次序、公司/场policy整组版本、回退保留事件策略，并独立处理原runtime scope-audit和entity基线门禁。没有授权时不做push、部署或生产试点开旗。
 
 L4需要现场确认箱事实、旧标签逐箱映射、真实库位/接收人、设备/纸张/DPI/扫码容量及实际交付；C仅记录接收人，不补造本人登录签收。跨时区测试证明DATE字符串保持，不证明未知公司业务时区已配置；ownership.businessTimezone仍明确UNKNOWN。数据库schema保留遗留bootstrap依赖，报告不把TS迁移通过等同完整生产环境一致。
 
-目前不是生产发布批准书。近生产规模的P95≤1秒压测、所有合法移库/拆批组合和物理设备矩阵未执行；这些限制保留在发布评审清单，不用“有代码”冒充完成。
+旧轮当时结论（不代表恢复后的执行情况）：不是生产发布批准书。近生产规模的P95≤1秒压测、所有合法移库/拆批组合和物理设备矩阵未执行；这些限制保留在发布评审清单，不用“有代码”冒充完成。
 
 ## 本地提交与未push证据
 
@@ -107,3 +109,206 @@ L4需要现场确认箱事实、旧标签逐箱映射、真实库位/接收人�
 任务收尾停止了本次API/Web进程及两个本次活动测试容器，保留所有fixture卷与日志；没有触碰其他进程。Next自动更改的tsconfig经内容对照后仅还原本轮自动格式/include变化，真实Web tsc再次exit0。
 
 仓库忽略 `.log`，原始脱敏日志按规则留在本地，不使用force-add。随提交保存JSON执行账本与日志SHA256（`acceptance-summary.json`）、重建脚本和复跑说明；浏览器runtime不提交。
+
+## 同 session 父级复核 1–17（2026-09-14 追加，优先于前述验收措辞）
+
+本次完整读取父级 review 1–17，对照 HEAD `6bbda479b33b7f4178d64d426878f57881e764b3` 及本次工作区修订。结论为 **PARTIAL，软件验收未全部关闭**。历史测试不是当前工作区回归证明；本节不追认旧测试运行时 revision。下面“已有”均指源码与历史窄用例，未充分覆盖的项目保留 partial/fail。
+
+| review | 状态 | 已有证据／本次复核与未完成 |
+|---|---|---|
+| 1 | partial | hook/UI 已按身份及 code 隔离；历史 DOM 包括乱序与卸载。旧兼容流程、POST 与后续 GET 全部交错组合未逐一证明；4 条静态检查不计 DOM。 |
+| 2 | partial | history service 有 SQL 筛选/keyset、签名游标和范围绑定；历史 131 条遍历通过。SQL 状态函数与 JS 不完全同义（见4/11），P95未测。 |
+| 3 | partial | completePackingSources 核对精确 grading 集合、真实来源、ACTIVE、原班次/日期和场公司；未有覆盖所有来源节点生命周期的真实 HTTP 反例。 |
+| 4 | fail | receipt 校验唯一 batch/ledger/group 和总量、原 hash；原产出各组与 receipt 组的逐组等价尚不完整。SQL receipt qty 缺 JS 的正安全整数条件，legacy 空字符串条件亦不一致。直接改 qty 不等于合法移库拆批销售链。 |
+| 5 | partial | 五表、typed JSON、IS TRUE、namespace deferred trigger、非空 down 拒绝已有实现。claim DELETE/旧 normalized_code 更新后的占位有效性未完整约束；trigger 存在检查仅 tgname，跨 schema 重建证明不足；result event 引用与嵌套 JSON 完整性仍需反例。真实 PG 复核本轮阻断。 |
+| 6 | partial | 历史真实 195 SQL +82 TS、31 PG +16 HTTP 与 finally/exit 证据保留；旧 runtime 红灯及 finance404/fixture/平台分类不变。本轮专用容器启动 exit1，无法再跑真实 API/PG。 |
+| 7 | partial | policy 精确 company/site 配置，默认全关，Q要求 profile/物理证据，TEST限制在隔离启动；本轮纯策略测试通过。实际 HTTP 每命令组合及生产配置切换未执行，生产仍未启用。 |
+| 8 | fail | prior 操作检查 COMMITTED/eventId/payload/hash；PRINT字段白名单已存在。UNKNOWN/未回报后的重打仍未阻断，operation 查询结果完整性也未全面约束。 |
+| 9 | partial | 接收人解析实际有效角色与 DataScope/GROUP；历史权限专项不等于所有命令普通账号矩阵。候选列表全量用户逐个解析，缺搜索分页，性能未测。 |
+| 10 | partial | namespace退役、VOID不复活与confirm重新解析已有代码及历史反例；底层claim完整性缺口见5，不能宣称整个DB状态空间安全。 |
+| 11 | fail | list/detail/report共用原证据思想但SQL/JS数量与空字符串校验有差异；新snapshot保留COMMITTED、当前库存UNKNOWN已有窄测试；全链演进与逐组反例未完成。 |
+| 12 | partial | history显式投影，包装trace用已核实原链且下游NOT_INCLUDED；历史子资源/count/alias范围专项存在。不扩大结论为其他legacy trace入口已全部核实。 |
+| 13 | partial | 本次修复缺失/空/超长code在查库前拒绝，controller空body不直接解引用；命令白名单提前检查，非法自然日及超长pallet拒绝，打印回报时间必须字符串。新增11个纯校验反例/正例通过；真实HTTP 400及全部命令权限仍待PG恢复后验证。 |
+| 14 | partial | client body.code、非JSON/超时UNKNOWN、无自动重放，原key持久化与人工查询已有代码/历史浏览器覆盖。管理员登录回跳完整query及所有401身份切换组合未覆盖。 |
+| 15 | fail | TEST标签、逐箱旧码声明、原key恢复、扫码去重已有实现。UNKNOWN重打门禁缺失；仓库/库位/接收人是radio列表，未达到可搜索选择器要求。 |
+| 16 | partial | 列表身份/query guard、无身份不取数、URL过滤分页、终端原code恢复已有实现和历史浏览器用例；完整无OPEN/失败上下文重载矩阵未逐格证明。 |
+| 17 | partial / blocked | 本次开始保留实际HEAD、源文件SHA256、dirty diff及指纹。旧日志没有当时指纹，不倒推到最终commit。P95与合法移库/拆批/销售耗尽为授权软件工作，未完成原因是本轮Docker socket拒绝，不归为L4。git index只读导致本轮不能local commit。 |
+
+### 测试 revision、分类及真实阻断
+
+历史统计严格分开：PG/HTTP 47 = **31 PG +16 HTTP**；Web54 = **45 DOM +5 client +4 static**（不是54 DOM）；浏览器16；API unit47 pass/8 skip。旧8 skip没有被新专项替代；旧runtime 2 pass/28 fail/1 skip（含F06假阳性风险）和entity393>300仍保留。
+
+历史最后提交 `6bbda479` 是报告/harness/evidence提交，并不证明此前每次测试运行在该HEAD。旧账本缺 contemporaneous revision，标为 **历史测试版本无法严格追溯**。本次新增 `revision.cjs` 和runner前后快照：精确HEAD、目标路径、逐文件hash、sourceFingerprint、完整代码dirty diff及hash，记录sourceUnchanged；不读取认证artifact或.env。每次测试独立的 `.revision.json` 与账本关联。报告本身不纳入源码指纹，以免进度追加制造源码变化。
+
+本轮初次runner因 Node `spawnSync git EPERM` 在执行测试前失败（exit1），不是测试FAIL或PASS；随后将git标准输出写到本次唯一临时目录文件，避免大输出pipe，并重跑。直接调用根目录tsc路径不存在exit127亦保留；之后在实际API/Web工作目录分别执行tsc。手工测试前快照为 `review17-before.json` / `review17-before.diff`，只适用于该批手工命令，不补记旧轮次。
+
+阻断命令：`docker start packaging-history-test-pg18-rebuild2` exit1，Docker socket permission denied；`git add scripts/packaging-history-test/revision.cjs` exit128，`.git/index.lock: Read-only file system`。当前工具approval=never，没有提权通道，未绕过。源码修改保留工作区，**本轮无新commit**。未启动任何本次临时API/Web/PG服务，因此没有本轮新增服务需要停止，保留原fixture。
+
+### 未完成的软件验收（不是实物L4）
+
+- P95：列表、详情、日报 **0个新压测样本**，无冷暖读测量，无EXPLAIN实测，不能声称≤1秒。原131条分页fixture不足近真实规模。需在独立PG恢复后建立明确TEST数据规模、冷/暖样本与环境索引计划再测，慢则优化后重测。
+- 合法演进：已定位官方 `WmsService.confirmTransfer` / dispatchTransfer / receiveTransfer / completeTransfer，以及正式出库扣减接口；本轮未调用，**0条新增真实移库/拆批/销售耗尽链**。需分别证明新receipt原COMMITTED保留、当前状态降级与旧证据保守UNKNOWN，不能用UPDATE qty代替。
+- SQL/JS等价、claim完整性、UNKNOWN重打、搜索候选、每写命令权限矩阵及上述partial项目仍为软件缺口，不得以生产发布另批或设备L4未做关闭。
+
+本轮只读再次确认main与本地origin/main仍为 `69d89dd44b8e1461d7eaf5193e60c994255aed2c`，实现分支仍为上述五个local commits；没有push或远端操作。这仅是本地ref证据。发布仍另批，当前软件状态不满足全部验收。
+
+本轮新验证结果（全部关联实际运行前后源码指纹）：API tsc exit0；Web tsc exit0；API unit **58 pass /8 skip /0 fail**（新增11项）；Web **45 DOM +5 client +4 static =54 pass /0 skip /0 fail**；nullable、constraint、migration-down、migration-dml各exit0。8组sourceUnchanged均为true。命令/时间/HEAD/文件hash/diff映射见 `review17-results.json`、`verification-results.json` 与对应 `.revision.json`。本轮新PG/HTTP/browser/P95/官方演进链执行数均0，不能沿用历史通过数充当重验。`git diff --check` exit0。新增文件与相关修订留在工作区，未能提交。
+
+## workspace-write 允许修复续轮（同 session，禁止重试已拒权限）
+
+父级明确 Docker/git index 拒绝为最终。本轮没有再次调用 Docker、git add/commit、换 socket、提权或修改配置；只编辑源码、运行纯测试/类型与静态约束检查。继承的dirty、失败日志和fixture均保留。以下状态更新优先于上一节对应缺陷描述；整体仍 **PARTIAL**。
+
+实际源码修订：
+
+- PRINT：服务端在原单事务锁内检查该箱每个PRINT_REQUEST的最后一条服务端顺序PRINT_RESULT；无回报、UNKNOWN或非法结果阻止NORMAL和有原因REPRINT。只有明确DISPATCHED/FAILED才能进入原有同码/原因检查；它们仍不代表实物出纸。详情逐箱返回禁用原因。页面请求发出即保守禁用该箱，断响应不允许原页面再发新请求，提示刷新查询；服务端已有UNKNOWN跨刷新仍禁用。回报接口仍只允许原请求操作者追加，未新增审批或第二人会话。
+- 受限候选：包装仓库/库位/接收人复用设计系统SelectField，由PackingCandidateSelect加名称/编码搜索；只筛选原单候选接口返回的授权集合，搜索文字不能写成业务code。上游仓库切换清空下游值和搜索。候选接口的全量/N+1性能尚未优化或实测，不能称大规模候选验收完成。
+- 证据核验：JS与迁移中的SQL函数补齐数量正安全整数、receipt必需身份字段非空字符串；原产出SKU/规格/产品全部保存时，按不可混淆的tuple分组逐组核对数量，拒绝同总量调换组量。JS不再用斜线拼接身份键。缺原SKU但有不可变receipt的兼容行为保留，不用当前主数据回填历史；该情形的完整逐原产出身份映射仍未证明。
+- 真实测试代码准备：新增9个PG JSON反例的SQL/JS对照、1个PG UNKNOWN重打用例、6个HTTP只读角色写命令矩阵（每个遍历OP_V/MGR_V/MGR_E/NO_SCOPE/GLOBAL_OP/无登录）。原HTTP登记默认关旗用例改传合法DTO，以免新前置校验把预期409变成400。**以上全部本轮未执行**；confirm所在完整BFF路由与E写成功/跨范围矩阵还未补全。
+
+### 迁移与验证边界
+
+已修改 `1789353300496-PackagingHistoryD1cEvidence.ts` 中SQL函数，**没有执行迁移、没有重新创建PG库、没有证明SQL可执行或与JS全面等价**。恢复允许的独立测试环境后必须新隔离空库全迁移重建，再跑PG对照与事务/并发；不能复用旧82 APPLIED声称本修订已生效，也不能把静态query收集测试当PG测试。
+
+本轮纯测试包含：打印无回报/UNKNOWN/非法类型/其他请求回报不能解锁/最后结果恢复、数量空/零/负/小数/字符串/越界、null组、空身份字段、同总量调组、无现存库存保留原COMMITTED、旧原单无SKU兼容，以及静态SQL守卫检查。页面DOM新增服务器UNKNOWN禁用、请求断响应禁重复、授权候选搜索三个用例。静态SQL断言只证明迁移源码包含相应守卫，不能证明PG语法或行为。
+
+### review 1–17 最新状态
+
+| 项 | 最新状态与关闭边界 |
+|---|---|
+| 1 | partial；既有身份/乱序DOM通过，本轮补打印断响应就地禁用；旧兼容全交错矩阵仍未完成。 |
+| 2 | partial；筛选/游标实现保留，P95未执行。 |
+| 3 | partial；来源生命周期完整反例矩阵仍缺。 |
+| 4 | partial；已修已知数量/空字段/完整原身份逐组反例，纯JS验证；SQL真实执行与官方演进链仍缺。 |
+| 5 | partial；本轮未关闭claim DELETE/旧码状态、嵌套JSON及trigger跨schema等DB缺口。 |
+| 6 | partial；旧真实PG/HTTP/原runtime证据保留，本轮未重跑。 |
+| 7 | partial；默认全关策略纯测试保留，实际每命令策略矩阵未执行。 |
+| 8 | partial；UNKNOWN/无回报重打门禁源码及纯/DOM子项已关闭；操作结果完整性和真实事务/HTTP门禁待验证。 |
+| 9 | partial；候选可搜索子项完成，实际接收人矩阵与N+1性能未完成。 |
+| 10 | partial；退役/confirm解析已有实现，DB claim完整性仍缺。 |
+| 11 | partial；已知SQL/JS差异修订并补真实PG对照测试代码，未实测等价；旧原单无SKU兼容保留，完整演进未证明。 |
+| 12 | partial；原安全投影保持，其他legacy入口不扩大验收。 |
+| 13 | partial；DTO纯测试及类型检查，新增HTTP矩阵代码未运行，完整confirm权限矩阵仍缺。 |
+| 14 | partial；原key恢复保留，打印断响应补禁用；全部401回跳组合仍缺。 |
+| 15 | partial；UNKNOWN重打与可搜索受限组件纯软件子项完成；真实API/浏览器与设备Q仍未验收。 |
+| 16 | partial；本轮共用组件未触碰列表/终端语义；原未完成场景矩阵仍保留。 |
+| 17 | partial；本轮每组before/after源码指纹持续记录；P95/PG/HTTP/官方WMS链仍0次，本轮禁止commit。 |
+
+已知失败保留：本轮第一轮新增Jest参数表写法导致TS2345/TS2488，API unit exit1（58 pass/8 skip，新suite未运行），已修后再测；不得删旧失败。其他旧runtime/finance404/fixture/平台/实体基线红灯不变。PG/HTTP/P95/合法演进未执行属于软件验收缺口，不划入物理L4。
+
+### 本轮结束证据与dirty交付
+
+最终可运行结果：API/Web tsc exit0；API **87 pass（86 unit含模拟事务，1 static SQL）/8 skip/0 fail**；Web **57 pass（48 DOM+5 client+4 static）/0 skip/0 fail**；nullable/constraint/migration-down/migration-dml各exit0；git diff --check exit0。PRINT命令模拟事务NORMAL/REPRINT两例确认在解析标签和插入事件前拒绝UNKNOWN；这不是PG回滚或HTTP证明。第二次新增测试mock参数类型TS2493失败亦保留在api-unit-r6，修后r7通过。
+
+当前HEAD仍 `6bbda479`。结果与命令、exit、逐组实际HEAD/源码文件hash/dirty diff关联见 `artifacts/packaging-history-local/workspace-review-results.json` 和对应 `.revision.json`。每组before/after一致；最后仅新增两个模拟事务测试后重跑api-unit，因此其指纹晚于其他7组，不能说其他测试都在同一个最终tree执行。应用代码和迁移在该次仅测试文件修改期间未变化。
+
+本轮及继承相关dirty：迁移 `1789353300496-PackagingHistoryD1cEvidence.ts`；bff下DTO、evidence/handover/controller、policy.spec、history.pg/http.spec；Web详情组件及UI DOM测试；verify.cjs、报告、进度、JSON账本。新源码文件：`packaging-print-state.ts`、`packaging-review.fixture.ts`、`packaging-review.spec.ts`、`PackingCandidateSelect.tsx`，以及继承的新 `revision.cjs`；新增各轮指纹JSON和最终workspace-review-results.json。完整既有无关untracked保持原状，未清理或纳入任何提交。
+
+本轮严格未重试Docker/git写，未commit，未push，无生产动作，无新增服务需停止。迁移修订未生效；必须新隔离重建。实际PG/HTTP/browser/P95/官方库存演进全部未执行；旧runtime失败继续保留。review的partial不能因本轮纯测试通过改称全部验收。
+
+
+## 恢复后的同源码交付（2026-09-14；覆盖前述 workspace-only 状态）
+
+实际启动策略为 `danger-full-access / approval never`。专用 Docker 与 `.git` 写已合法恢复；旧拒绝和唯一探针保留，没有换 socket、提权或改 CLI。仅本地完成实施、测试、分批正常提交，未创建代理。D1-C P0–P4、排除 P3-E/P5 不变。用户后续发布授权已收到，但本 turn 按父级要求不 push、不 deploy、不访问生产、不启用生产策略。
+
+### 本轮修订与真实软件验收
+
+- namespace：禁止删除 registry/claim、改旧 normalized_code、改变 claim 身份/证据和 VOID 复活；区分本事务新占位与早先 RETIRED。延迟约束只查受影响码，验证 BOUND 有效 owner/claim、跨原单事件借用；trigger 存在检查含 relation/schema。operation COMMITTED 必须指向本操作、同原单/actor/事件类型，查询不把空或错误类型 result 当成功。
+- 原证据：逐原产出登记时捕获身份，并在 confirm 校验注册 boxId 唯一且集合完全等于原箱，保存 ordinal/qty/boxes/sku/spec/product 的不可变 `outputBindings`。原 JSON 无 SKU 不用当前 master 假回填历史；映射来源明确 `REGISTRATION_RESOLUTION`。后续 master 禁用不抹掉原 COMMITTED；无充分旧证据仍 UNKNOWN。JS/SQL 数量、安全整数、空字段和逐组校验补齐并实际 PG 反例对照。
+- PRINT：事务内无结果/UNKNOWN 禁止 NORMAL 与有原因 REPRINT；原请求操作者可追加明确结果，不称出纸。真实 PG、HTTP 和浏览器跨刷新验证。前端断响应立即禁重复请求；旧实物标签登记按钮明确“登记逐箱旧标签实测事实”。
+- 接收人：候选复用 SelectField、后端关键词/keyset分页，每页上限100，五次批量范围读取代替逐用户 role/resolve。无总数伪称；权限过滤后的空页可用 nextCursor 继续，不遗漏后页。普通/GROUP、SITE显式授权/无授权、部门祖先、REGION同级、隔层公司与权威 resolve 真 PG 对照。confirm 查当前 `perms_version`，真实 HTTP 同 roles 撤组织范围并 bump 版本后拒绝接收人，不能复用旧 scope 缓存。
+- P95：保持精确范围，原查询先公司/场粗筛后完整链核验，索引支持来源/交接关联；keyset仅排序小型id集合再取页内详情。日报不重复执行未使用 SQL 状态函数及两次完整 JS view；共享 packingEvidence 保持输出口径。正式阈值没有放宽。
+- 官方库存链发现并修复两处历史缺陷：WMS transfer source ledger 漏 company、sales reserve/outbound ledger 漏 warehouse/location，会使合法演进后历史链因缺范围字段不可见。现在官方 create→dispatch→receive（部分10枚拆出目标批次）与 FIFO reserve→delivery confirmOutbound（50枚耗尽）均真实执行，未用 UPDATE qty 冒充官方链。另修既有 WMS 表创建/补列不一致漏掉的 `reason` 列。
+- 页面：GET null/空结构/错 code 不再无限等待；partial/空箱禁提交，confirm A→B/换账号迟到回包不能污染新原单，仓库/库位/接收人/扫描草稿清空；登录回跳保留 query。历史原产出响应也显式白名单，隐藏未知成本和内部备注字段。
+
+### 新空库迁移与环境
+
+`packaging-history-test-pg18-rebuild5` 真正从空库执行 **195 SQL + bootstrap diagnostics=0 +83 TS**。其中81为既有链，2为本功能：`1789353300496-PackagingHistoryD1cEvidence` 与 `1789362000000-PackagingHistoryReadIndexes`。从82增加到83是本轮实际索引与 WMS reason 补列修复，不是重复算迁移。两处冻结 SQL 未改。
+
+`verified-rebuild-sql-r3`、`verified-rebuild-bootstrap-r3`、`verified-rebuild-ts-r3` 均 exit0；其当时 before/after 指纹已经记录。两条迁移的当前文件 SHA 与该次重建捕获值逐一相等，因此不以 runMigrations=0 假称改后生效。另在真实 PG 独立 schema 做空 up/down/up、非空拒绝 down，实际检查本 schema triggers。索引迁移 down 只删自身索引，保留既有环境可能早有数据的 legacy `reason` 列；不以 down 删业务列/事件回滚。
+
+PG18.6 (`180006`)，仅 localhost55432、固定库 `packaging_history_test`；baseline 旧81链仅 localhost55434。本次 API 清除继承应用变量、随机进程内 JWT、localhost3100，Web localhost3000，浏览器独立 TEST 会话；不读生产凭证/旧 auth artifacts，不输出 token/password。其他 UAT 容器未动。
+
+### 最终源码—提交—测试对应
+
+本轮 local commits：`801fc8c6` 后端/迁移/范围/官方库存修复，`a9caa6cf` 前端与 DOM，`8e1ea6a0` 隔离 harness/性能/指纹。没有 amend/reset/force；逐文件 stage，没有 add -A。实际检查没有启用 pre/post-commit/push hook，未绕 hook。
+
+18组最终检查均在 **HEAD `8e1ea6a07759670fb304ab4d09e39e3a27663d57`**，tree `dceb1a09cf0369359dab605ed2a534008be5e313`，source/config fingerprint **`efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1`** 执行；每组 before/after 完全一致、源码 dirty diff 为空。API在该指纹重新启动，启动指纹另存。文档/证据随后单独提交，不改变源码；最终报告提交→该测试 revision 以这项内容指纹及最终交付元数据关联，不声称测试发生在未来报告 commit。源码指纹是明确目标范围，不等于整个工作区 tree：涵盖 API/Web 源码、TS/冻结迁移、测试 harness、package/lock/tsconfig、列明的 Jest/Vitest/Docker/compose/workflow/门禁配置；实际存在文件列表和 SHA 全在 revision JSON。另记录 HEAD tree、staged diff hash，排除 `.env` 和认证 artifacts。
+
+证据总表：`artifacts/packaging-history-local/restored-final-acceptance.json`；精确 argv/cwd/时间/exit/log SHA256/对应 revision 都在其中及 verification-results.json。历史47 PG/HTTP为31 PG+16 HTTP；历史54 Web为45 DOM+5 client+4 static；历史16为浏览器 harness场景，不能当当前通过数。早期未捕获 revision 的测试不追认到某个提交。
+
+| 最终命令组 | exit | 实际用例/边界 | 日志 |
+|---|---:|---|---|
+| perf-plan | 0 | 真实list/report EXPLAIN ANALYZE/BUFFERS | `verified-perf-plan-r7.log` |
+| performance | 0 | 5操作，各首读+20暖+5冷会话，实测阈值通过 | `verified-performance-r13.log` |
+| api-tsc | 0 | 实际执行完成；无用例数声明 | `verified-api-tsc-r20.log` |
+| web-tsc | 0 | 实际执行完成；无用例数声明 | `verified-web-tsc-r15.log` |
+| api-regression | 0 | 85 unit pass /0 skip /0 fail（含WMS、sales、DataScope） | `verified-api-regression-r4.log` |
+| web-auth | 0 | 16 client/auth unit pass /0 skip /0 fail | `verified-web-auth-r3.log` |
+| api-unit | 0 | 91 pass =90 unit +1 static SQL；8 skip；0 fail | `verified-api-unit-r15.log` |
+| pg-http | 0 | 80 pass =51 PG suite +29 HTTP suite；按执行类型57 direct PG +23 real HTTP；0 skip/fail | `verified-pg-http-r24.log` |
+| web-dom | 0 | 65 pass =56 DOM +5 client +4 static；0 skip/fail | `verified-web-dom-r15.log` |
+| nullable | 0 | 实际执行完成；无用例数声明 | `verified-nullable-r10.log` |
+| constraint | 0 | 实际执行完成；无用例数声明 | `verified-constraint-r9.log` |
+| migration-down | 0 | 实际执行完成；无用例数声明 | `verified-migration-down-r9.log` |
+| migration-dml | 0 | 实际执行完成；无用例数声明 | `verified-migration-dml-r9.log` |
+| entity-diff | 0 | 真实393差异 | `verified-entity-diff-r4.log` |
+| entity-baseline | 0 | 旧81链真实393差异 | `verified-entity-baseline-r2.log` |
+| entity-gate | 1 | 393>300，增量0；原门禁FAIL | `verified-entity-gate-r4.log` |
+| runtime-scope-audit | 1 | 原打印2 pass /28 fail /1 skip；不接受F06假阳性 | `verified-runtime-scope-audit-r4.log` |
+| browser | 0 | 27场景 =18浏览器/混合 +9 HTTP-only（7路由矩阵+关旗+撤权）；0 skip/fail | `verified-browser-r9.log` |
+
+全部适用组完成后 runner 总 exit1，原因就是原 entity/runtime 两项红灯。API条件8 skip仍未执行，不拿本专项代替它们。原 runtime 仍打印2PASS/28FAIL/1SKIP；六个旧fixture账号缺失401、finance summary/ar-aging/accounts旧路由404、Shipment样例缺失、macOS psql平台问题分别保留。F06以401空响应判PASS是旧脚本假阳性，不能当范围证据。entity只读diff新83链与旧81链均393，阈值300，增量0；未降门槛、未改allowlist。
+
+历史新增失败保留：真实 WMS 缺 reason/source company、销售 ledger 缺 warehouse 已修；PG scope fixture 错用 DEPT（实际枚举 DEPARTMENT）修正；浏览器先暴露选择器 label 可访问名称，修正时一次 JSX 闭合错误导致500也保留，修后DOM/Web tsc/browser通过；WMS目标仓无权时不返回目标信息但仍保留有权原凭据，原“整单必须404”断言改为检查不泄露目标仓/批次及 current UNKNOWN。探索性并行 runner 曾复用日志名/覆盖账本片段，不能据此倒推历史证据；现改 exclusive `wx` 日志创建和每次追加重读账本，最终全组串行，旧现场文件未清理。
+
+### 实测性能（不是物理冷盘）
+
+每轮先核对 manifest与DB：5001原单、5000条独立grading/source链（加原fixture1条）、10000库存、10000流水、2000 legacy交接、5000候选用户；授权单一密集日含1 registered PENDING、1000 legacy COMMITTED、1000 partial HANDOVER_ONLY、3000 INVENTORY_ONLY，其他TEST公司作为不可见背景。实际结果总数/状态数/详情code和箱事件断言通过，不会重建后空读假PASS。日汇总包含该范围所有班次；独立PG还覆盖同日多班和SHIFT精确ID。
+
+使用真实 DataScopeService、workflow.detail（registered详情2箱/登记事件及legacy COMMITTED详情）、list、summary、candidate controller。单并发；每操作首读1+暖读20+新DataSource/service冷会话5，共130次计时。冷会话清scope缓存，连接建立不计时；PG shared/OS缓存未清，绝不称物理冷盘。设备与索引全量定义、原始样本和 EXPLAIN ANALYZE/BUFFERS 的 list/report 计划保存于 performance JSON。没有削减规模或放宽≤1000ms阈值；旧1.71s/1.03s/1.005s等失败，以及混合状态日报1.29s失败均保留，优化后再验。
+
+| 操作 | 首读ms | 暖P95ms | 冷会话P95ms |
+|---|---:|---:|---:|
+| list | 522.55 | 535.91 | 513.55 |
+| detail | 9.01 | 8.28 | 36.74 |
+| committedDetail | 8.69 | 10.11 | 39.09 |
+| report | 540.06 | 578.03 | 622.60 |
+| recipients | 20.25 | 24.64 | 40.84 |
+
+这是该明确fixture/单并发环境的只读性能证明；未覆盖生产峰值并发、超大量箱事件或所有库存演进排列，不扩大为通用容量承诺。synthetic压测seed不是官方WMS业务链，官方链由独立PG测试证明。
+
+### review逐项最终状态（1–17与最新追加18–23）
+
+“关闭”指本条明确缺陷及列明软件场景，非穷举数据库任意恶意状态或现场认证。整体交付仍 **PARTIAL（原全仓门禁及发布兼容演练未闭）**，不宣称全部验收。
+
+| review | 状态 | 关闭证据／保留边界 |
+|---|---|---|
+| 1 | 软件关闭 | 56 DOM中含GET拒绝/null/错单、partial/空箱、A/B/A、账号切换、迟到PRINT与CONFIRM、草稿清空；旧四项readFileSync单独标static。未穷举每种旧页面交错排列。 |
+| 2 | 软件关闭 | SQL范围+keyset/count；131单含NULL日，插入新单后asOf稳定、空页total0、签名/过滤/边界400；近规模P95实测。 |
+| 3 | 软件关闭（代表反例） | 真PG缺失/VOID/test/错班来源拒绝；普通HTTP跨来源公司/仓库整链范围及总数不泄露。不宣称所有来源节点生命周期排列均穷举。 |
+| 4 | 软件关闭（代表链） | JS/SQL真实反例、唯一原组/ledger/量；官方移库部分拆批与销售耗尽后原receipt完全相等，原COMMITTED/current UNKNOWN。不是仅改qty。 |
+| 5 | 主要缺陷关闭，partial | 新空83迁移、null purpose、claim DELETE/RENAME/OWNER/VOID_REVIVE、跨原单证据、operation错误引用、跨schema trigger/非空down真PG通过。嵌套JSON的任意直接SQL恶意状态不宣称穷尽；API严格DTO+confirm映射保护，未知证据只读降级。 |
+| 6 | partial / 原门禁FAIL | 新真实PG/HTTP与finally/exit已验；原scope/entity真实执行仍红灯，旧fixture/finance404/平台与8skip保留，不能用专项覆盖。 |
+| 7 | 软件关闭，生产未开 | 可信精确company/site配置、全false默认、Q/profile策略unit；完整API七命令关旗矩阵，PRINT_RESULT可留原请求结果。生产配置/物理Q未做。 |
+| 8 | 软件关闭 | prior同key同payload结果全等、partial拒绝；PRINT白名单与UNKNOWN真实事务/HTTP/browser；operationDB引用与非法结果纯controller反例。 |
+| 9 | 软件关闭 | 有效roles/GROUP实际解析；scope批量与权威resolve六类真PG、5000用户搜索分页性能；确认当前权限版本、撤权真实HTTP拒绝。 |
+| 10 | 软件关闭 | 旧code不可变/退役不可复活，跨单并发alias保留歧义，scan后再歧义→confirm拒绝；VOID仍稳定boxId。 |
+| 11 | 软件关闭（代表旧单） | 原无SKU→注册不可变ordinal映射→C→master变化→list/detail/report一致；未解释库存演进UNKNOWN且不重入。 |
+| 12 | 软件关闭（本入口） | 库存/ledger/handover/原产出白名单；隐藏成本/内部备注；旧包装trace精确原链；普通HTTP子资源/count/alias/operations侧信道检查。其他业务trace无本轮扩大认证。 |
+| 13 | 软件关闭 | 严格DTO/缺code提前400、同key重放与UNKNOWN查询、候选完整接线；七写命令普通角色/无scope/异公司/未登录真实HTTP，E成功由浏览器与PG覆盖。 |
+| 14 | 软件关闭（列明场景） | client body.code/非JSON/timeout、无自动POST重放；登录return保留query，身份隔离；真实断confirm响应后刷新查询原key，16 auth回归。 |
+| 15 | 软件关闭，L4未执行 | 可配正式profile默认关闭、TEST Code128；逐箱旧码真实声明UI；受限搜索选择器；UNKNOWN重打真实验证，原key持久化与去重，不代表已出纸/本人签收。 |
+| 16 | 软件关闭（列明矩阵） | URL过滤/分页、未登录无请求、identity即时隔离；terminal DOM无OPEN/失败/切班/换身份/重挂，browser CLOSED原code恢复。 |
+| 17 | 软件证据关闭，整体partial | 最终18组同HEAD+before/after指纹；真实用例分类；P95与官方演进已做，local提交及源码树对应。原全仓门禁未绿，不能称全部验收。 |
+| 18 | 未执行 / 发布前阻断 | 尚未做新API+旧schema真实HTTP和旧API+新schema回退演练。默认关旗不解决读取新表/列的窗口；现deploy.yml先起API后迁移不作为本功能安全发布证据。需迁移先行或可靠维护门禁，DDL锁超时可退且事件保留；本轮未擅改部署链。 |
+| 19 | 发布待审 | 回退是镜像回退，不是数据库自动恢复；不得down删events。后续需保留artifacts的发布模式，不执行默认hard reset/清理；备份可读/恢复演练及dirty门禁需审，当前未生产执行。 |
+| 20 | 软件关闭（代表链） | 注册boxId唯一且集合等于原箱；当前perms_version撤权实测；WMS两批qty守恒、两仓±10成对ledger、同ref/company、原receipt不变、旧key再confirm零增量。目标仓无权时不返回目标仓/批次，仅有权原链/current UNKNOWN。 |
+| 21 | 软件关闭（明确规模） | 实际workflow详情含箱/事件、真实DataScope；5000候选用户server分页；混合状态、多公司背景、每轮DB/result校验、真实EXPLAIN，P95≤1秒。新C超大事件历史/高并发不在本次容量证明中。 |
+| 22 | 软件关闭 | 同roles撤组织范围+bump版本→接收人409；保留旧性能失败，未放宽阈值；asOf/NULL日/空页/state filter与日报回归实际通过。 |
+| 23 | 证据关闭（限定范围） | source/config targets、逐文件hash、当时HEAD tree、staged/dirty diff均记录；最终代码tree与后续报告-only commit明确区分；不读.env/auth。 |
+
+### 发布与实物剩余项
+
+原runtime/entity红灯需要父级审定明确差异，不能伪PASS；review18兼容演练/迁移先行、review19保留事件回退/备份可恢复证据尚缺，这些是软件/发布前事项，不推给L4。物理Q/L4仅指设备出纸、标签实贴扫码、实际交付/接收事实；未执行且不阻塞本轮独立源码开发，正式生产编码仍不得发行。没有新增双人审批/receipt队列/TEMP分配。
+
+收尾服务状态、最终本地refs与未push证据见 `artifacts/packaging-history-local/restored-delivery-state.json`；只停止本次API/Web及rebuild5/baseline，保留fixture与所有旧证据。报告/证据最后提交的hash以本轮最终答复与本地git log为准，不在文件中自引用伪造未来commit。

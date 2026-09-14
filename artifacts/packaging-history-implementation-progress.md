@@ -90,3 +90,183 @@ P1/P2/P3-M 后端收口：最新 api-tsc exit0；PG18+HTTP 39 pass/0 skip/0 fail
 最终验证 2026-09-14T04:03:28.707Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r6.log。
 最终验证 2026-09-14T04:04:23.339Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r3.log。
 交付汇总：代码本地提交8d6515af、4825b0db、736af4cc、7b099b9d。实施报告已写，测试/脱敏日志将独立local commit。TODO勾选表示本轮工作已执行，不表示原scope/entity门禁或L4通过。生产发布仍须另批。
+
+最终验证 2026-09-14T04:15:37.636Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r9.log。
+最终验证 2026-09-14T04:15:39.746Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r7.log。
+最终验证 2026-09-14T04:15:45.108Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r3.log。
+最终验证 2026-09-14T04:15:48.002Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r6.log。
+最终验证 2026-09-14T04:15:48.131Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r4.log。
+最终验证 2026-09-14T04:15:48.349Z：constraint exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-r3.log。
+最终验证 2026-09-14T04:15:48.675Z：migration-down exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-down-r3.log。
+最终验证 2026-09-14T04:15:49.182Z：migration-dml exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-dml-r3.log。
+## 2026-09-14 同session review 1–17 追加
+- [x] 完整读取父级1–17，对照HEAD6bbda479，报告逐项明确partial/fail。
+- [x] 修复code/空body/自然日/pallet长度/时间类型边界，新增纯测试11项。
+- [x] 新测试前后源码指纹及dirty diff；历史revision不倒推。
+- [ ] SQL/JS一致、PRINT UNKNOWN、claim完整性等软件缺口未关闭。
+- [ ] 近真实规模P95、官方移库拆批销售链、真实HTTP逐命令矩阵：Docker启动exit1 permission denied阻断。
+- [ ] 本轮local commit：git add exit128 index.lock只读阻断；无push，无生产操作，无本轮新服务。
+
+本轮最终结果：8组新验证均exit0且前后sourceFingerprint一致；API58pass/8skip，Web45DOM+5client+4static。新PG/HTTP/browser/P95/官方演进均未执行。见artifacts/packaging-history-local/review17-results.json。真实工具阻断：Docker socket拒绝，git index只读；本轮无新commit/服务/push。
+
+最终验证 2026-09-14T04:22:04.253Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r10.log。
+最终验证 2026-09-14T04:22:07.351Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r8.log。
+最终验证 2026-09-14T04:22:13.040Z：api-unit exit=1, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r4.log。
+最终验证 2026-09-14T04:22:15.189Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r7.log。
+最终验证 2026-09-14T04:22:15.324Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r5.log。
+最终验证 2026-09-14T04:22:15.538Z：constraint exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-r4.log。
+最终验证 2026-09-14T04:22:15.865Z：migration-down exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-down-r4.log。
+最终验证 2026-09-14T04:22:16.360Z：migration-dml exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-dml-r4.log。
+最终验证 2026-09-14T04:23:35.035Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r11.log。
+最终验证 2026-09-14T04:23:37.576Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r9.log。
+最终验证 2026-09-14T04:23:41.667Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r5.log。
+最终验证 2026-09-14T04:23:43.838Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r8.log。
+最终验证 2026-09-14T04:23:43.976Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r6.log。
+最终验证 2026-09-14T04:23:44.200Z：constraint exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-r5.log。
+最终验证 2026-09-14T04:23:44.526Z：migration-down exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-down-r5.log。
+最终验证 2026-09-14T04:23:45.026Z：migration-dml exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-dml-r5.log。
+最终验证 2026-09-14T04:25:12.501Z：api-unit exit=1, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r6.log。
+最终验证 2026-09-14T04:25:29.927Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r7.log。
+## workspace-write允许修复续轮结束
+- [x] PRINT无回报/UNKNOWN服务端逐箱门禁、详情禁用、页面断响应阻止立即重发；8个状态纯测试+2个模拟事务+DOM。
+- [x] 受限候选复用SelectField，名称/编码搜索，不能把输入当业务编码；DOM验证授权过滤。
+- [x] JS/SQL补数量/字符串/完整原身份逐组守卫；静态SQL只查源码，迁移尚未执行。
+- [x] 新增9个PG对照+1个PG打印、6个HTTP只读权限矩阵代码；未运行。
+- [x] 实测API87pass(86unit+1static)/8skip；Web57pass(48DOM+5client+4static)；两端tsc、4门禁exit0。每组前后指纹一致，详细映射workspace-review-results.json。
+- [ ] PG新库全迁移、HTTP、P95、WMS合法链、浏览器未执行；其他review partial仍未关闭。
+- [ ] 不允许commit，未重试git/Docker写；dirty保留，无新服务，无push/生产。
+新增测试两次类型错误的失败日志保留(r4/r6)，修后r7通过；历史红灯不变。
+
+## danger-full-access恢复后的本地验收
+授权与隔离：本turn不push/deploy/生产访问/开旗，无子代理，保留既有dirty及probe。
+- [ ] A 证据模型：claim历史保护/跨schema trigger、旧产出不可变映射，真实PG反例。
+- [ ] B HTTP所有写命令普通角色/范围/策略、PRINT UNKNOWN浏览器。
+- [ ] C 候选搜索分页及P95近真实规模、官方WMS移库拆批销售链。
+- [ ] D 全部最终同源码指纹验证、旧红灯分类、分阶段local commits、停止本次服务。
+开始A：namespace历史禁止DELETE/改码/复活VOID，registry退役保护与trigger表限定已修改，待新隔离重建。
+
+最终验证 2026-09-14T04:45:51.013Z：rebuild-sql exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-sql.log。
+最终验证 2026-09-14T04:45:52.701Z：rebuild-bootstrap exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-bootstrap.log。
+最终验证 2026-09-14T04:45:54.114Z：rebuild-ts exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-ts.log。
+最终验证 2026-09-14T04:46:05.331Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r12.log。
+最终验证 2026-09-14T04:46:11.687Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r8.log。
+最终验证 2026-09-14T04:46:25.190Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r8.log。
+最终验证 2026-09-14T04:47:55.039Z：pg-http exit=1, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r9.log。
+最终验证 2026-09-14T04:49:45.010Z：performance exit=null, signal=SIGTERM；日志 artifacts/packaging-history-local/verified-performance.log。
+最终验证 2026-09-14T04:50:22.088Z：rebuild-sql exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-sql-r2.log。
+最终验证 2026-09-14T04:50:23.805Z：rebuild-bootstrap exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-bootstrap-r2.log。
+最终验证 2026-09-14T04:50:25.194Z：rebuild-ts exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-ts-r2.log。
+最终验证 2026-09-14T04:51:40.915Z：performance exit=1, signal=none；日志 artifacts/packaging-history-local/verified-performance-r2.log。
+最终验证 2026-09-14T04:52:15.344Z：pg-http exit=1, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r10.log。
+最终验证 2026-09-14T04:53:40.067Z：performance exit=1, signal=none；日志 artifacts/packaging-history-local/verified-performance-r3.log。
+最终验证 2026-09-14T04:53:56.309Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r11.log。
+最终验证 2026-09-14T04:54:40.800Z：performance exit=1, signal=none；日志 artifacts/packaging-history-local/verified-performance-r4.log。
+最终验证 2026-09-14T04:56:14.454Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r13.log。
+最终验证 2026-09-14T04:56:17.707Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r10.log。
+最终验证 2026-09-14T04:56:23.575Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r9.log。
+最终验证 2026-09-14T04:56:39.498Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r12.log。
+最终验证 2026-09-14T04:56:41.838Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r9.log。
+最终验证 2026-09-14T04:58:51.066Z：performance exit=1, signal=none；日志 artifacts/packaging-history-local/verified-performance-r5.log。
+最终验证 2026-09-14T04:59:19.819Z：pg-http exit=1, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r13.log。
+最终验证 2026-09-14T05:02:00.940Z：performance exit=1, signal=none；日志 artifacts/packaging-history-local/verified-performance-r5.log。
+最终验证 2026-09-14T05:02:57.317Z：pg-http exit=1, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r14.log。
+最终验证 2026-09-14T05:03:04.131Z：perf-plan exit=0, signal=none；日志 artifacts/packaging-history-local/verified-perf-plan.log。
+最终验证 2026-09-14T05:03:55.605Z：perf-plan exit=1, signal=none；日志 artifacts/packaging-history-local/verified-perf-plan-r2.log。
+最终验证 2026-09-14T05:04:11.309Z：performance exit=1, signal=none；日志 artifacts/packaging-history-local/verified-performance-r6.log。
+最终验证 2026-09-14T05:05:18.233Z：perf-plan exit=0, signal=none；日志 artifacts/packaging-history-local/verified-perf-plan-r3.log。
+最终验证 2026-09-14T05:06:33.710Z：performance exit=1, signal=none；日志 artifacts/packaging-history-local/verified-performance-r7.log。
+最终验证 2026-09-14T05:08:48.438Z：rebuild-sql exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-sql-r3.log。
+最终验证 2026-09-14T05:08:50.195Z：rebuild-bootstrap exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-bootstrap-r3.log。
+最终验证 2026-09-14T05:08:51.634Z：rebuild-ts exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-ts-r3.log。
+最终验证 2026-09-14T05:09:16.275Z：perf-plan exit=0, signal=none；日志 artifacts/packaging-history-local/verified-perf-plan-r4.log。
+最终验证 2026-09-14T05:09:34.790Z：performance exit=0, signal=none；日志 artifacts/packaging-history-local/verified-performance-r8.log。
+最终验证 2026-09-14T05:09:37.038Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r14.log。
+最终验证 2026-09-14T05:09:39.376Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r11.log。
+最终验证 2026-09-14T05:09:45.193Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r10.log。
+最终验证 2026-09-14T05:09:59.592Z：pg-http exit=1, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r15.log。
+最终验证 2026-09-14T05:10:01.970Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r10.log。
+最终验证 2026-09-14T05:10:02.138Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r7.log。
+最终验证 2026-09-14T05:10:02.395Z：constraint exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-r6.log。
+最终验证 2026-09-14T05:10:02.784Z：migration-down exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-down-r6.log。
+最终验证 2026-09-14T05:10:03.367Z：migration-dml exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-dml-r6.log。
+最终验证 2026-09-14T05:10:44.375Z：perf-plan exit=0, signal=none；日志 artifacts/packaging-history-local/verified-perf-plan-r5.log。
+最终验证 2026-09-14T05:11:10.698Z：performance exit=0, signal=none；日志 artifacts/packaging-history-local/verified-performance-r9.log。
+最终验证 2026-09-14T05:11:25.245Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r16.log。
+最终验证 2026-09-14T05:13:46.053Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r15.log。
+最终验证 2026-09-14T05:13:48.948Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r12.log。
+最终验证 2026-09-14T05:13:52.233Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r11.log。
+最终验证 2026-09-14T05:14:07.204Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r17.log。
+最终验证 2026-09-14T05:14:09.619Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r11.log。
+最终验证 2026-09-14T05:14:09.788Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r8.log。
+最终验证 2026-09-14T05:14:10.046Z：constraint exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-r7.log。
+最终验证 2026-09-14T05:14:10.462Z：migration-down exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-down-r7.log。
+最终验证 2026-09-14T05:14:11.065Z：migration-dml exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-dml-r7.log。
+最终验证 2026-09-14T05:15:17.412Z：api-regression exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-regression.log。
+最终验证 2026-09-14T05:15:18.168Z：web-auth exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-auth.log。
+最终验证 2026-09-14T05:15:20.552Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r12.log。
+最终验证 2026-09-14T05:15:49.494Z：entity-diff exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-diff-r3.log。
+最终验证 2026-09-14T05:15:50.967Z：entity-baseline exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-baseline.log。
+最终验证 2026-09-14T05:15:51.135Z：entity-gate exit=1, signal=none；日志 artifacts/packaging-history-local/verified-entity-gate-r3.log。
+最终验证 2026-09-14T05:15:52.067Z：runtime-scope-audit exit=1, signal=none；日志 artifacts/packaging-history-local/verified-runtime-scope-audit-r3.log。
+最终验证 2026-09-14T05:16:44.990Z：browser exit=1, signal=none；日志 artifacts/packaging-history-local/verified-browser-r6.log。
+最终验证 2026-09-14T05:20:39.895Z：browser exit=1, signal=none；日志 artifacts/packaging-history-local/verified-browser-r7.log。
+最终验证 2026-09-14T05:23:12.491Z：performance exit=0, signal=none；日志 artifacts/packaging-history-local/verified-performance-r10.log。
+最终验证 2026-09-14T05:23:14.159Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r16.log。
+最终验证 2026-09-14T05:23:24.273Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r13.log。
+最终验证 2026-09-14T05:23:28.441Z：api-regression exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-regression-r2.log。
+最终验证 2026-09-14T05:23:30.766Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r13.log。
+最终验证 2026-09-14T05:24:13.675Z：pg-http exit=1, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r18.log。
+最终验证 2026-09-14T05:24:26.318Z：browser exit=0, signal=none；日志 artifacts/packaging-history-local/verified-browser-r8.log。
+最终验证 2026-09-14T05:25:14.214Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r17.log。
+最终验证 2026-09-14T05:25:19.750Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r12.log。
+最终验证 2026-09-14T05:25:34.220Z：pg-http exit=1, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r19.log。
+最终验证 2026-09-14T05:27:08.115Z：performance exit=1, signal=none；日志 artifacts/packaging-history-local/verified-performance-r11.log。
+最终验证 2026-09-14T05:27:22.920Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r20.log。
+最终验证 2026-09-14T05:28:17.397Z：perf-plan exit=0, signal=none；日志 artifacts/packaging-history-local/verified-perf-plan-r6.log。
+最终验证 2026-09-14T05:28:59.476Z：performance exit=0, signal=none；日志 artifacts/packaging-history-local/verified-performance-r12.log。
+最终验证 2026-09-14T05:29:01.494Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r18.log。
+最终验证 2026-09-14T05:29:06.323Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r13.log。
+最终验证 2026-09-14T05:29:21.812Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r21.log。
+最终验证 2026-09-14T05:30:05.081Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r14.log。
+最终验证 2026-09-14T05:30:08.020Z：api-regression exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-regression-r3.log。
+最终验证 2026-09-14T05:30:08.792Z：web-auth exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-auth-r2.log。
+最终验证 2026-09-14T05:30:11.176Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r14.log。
+最终验证 2026-09-14T05:30:11.353Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r9.log。
+最终验证 2026-09-14T05:30:11.631Z：constraint exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-r8.log。
+最终验证 2026-09-14T05:30:12.012Z：migration-down exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-down-r8.log。
+最终验证 2026-09-14T05:30:12.590Z：migration-dml exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-dml-r8.log。
+最终验证 2026-09-14T05:31:09.398Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r22.log。
+最终验证 2026-09-14T05:31:50.229Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r19.log。
+最终验证 2026-09-14T05:31:55.184Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r14.log。
+最终验证 2026-09-14T05:32:11.083Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r23.log。
+最终验证 2026-09-14T05:33:18.067Z：perf-plan exit=0, signal=none；日志 artifacts/packaging-history-local/verified-perf-plan-r7.log。
+最终验证 2026-09-14T05:33:53.191Z：performance exit=0, signal=none；日志 artifacts/packaging-history-local/verified-performance-r13.log。
+最终验证 2026-09-14T05:33:54.661Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r20.log。
+最终验证 2026-09-14T05:33:56.956Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r15.log。
+最终验证 2026-09-14T05:33:59.891Z：api-regression exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-regression-r4.log。
+最终验证 2026-09-14T05:34:00.650Z：web-auth exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-auth-r3.log。
+最终验证 2026-09-14T05:34:03.855Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r15.log。
+最终验证 2026-09-14T05:34:16.729Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r24.log。
+最终验证 2026-09-14T05:34:19.030Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r15.log。
+最终验证 2026-09-14T05:34:19.194Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r10.log。
+最终验证 2026-09-14T05:34:19.449Z：constraint exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-r9.log。
+最终验证 2026-09-14T05:34:19.810Z：migration-down exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-down-r9.log。
+最终验证 2026-09-14T05:34:20.361Z：migration-dml exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-dml-r9.log。
+最终验证 2026-09-14T05:34:21.612Z：entity-diff exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-diff-r4.log。
+最终验证 2026-09-14T05:34:22.872Z：entity-baseline exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-baseline-r2.log。
+最终验证 2026-09-14T05:34:23.034Z：entity-gate exit=1, signal=none；日志 artifacts/packaging-history-local/verified-entity-gate-r4.log。
+最终验证 2026-09-14T05:34:23.918Z：runtime-scope-audit exit=1, signal=none；日志 artifacts/packaging-history-local/verified-runtime-scope-audit-r4.log。
+最终验证 2026-09-14T05:34:36.438Z：browser exit=0, signal=none；日志 artifacts/packaging-history-local/verified-browser-r9.log。
+
+## 恢复轮阶段收敛
+- [x] 修namespace DELETE/旧码/跨schema；新空195SQL+bootstrap0+83TS。
+- [x] 不可变逐产出映射、SQL/JS真实反例、PRINT UNKNOWN真实PG/HTTP/browser。
+- [x] 普通角色七写矩阵、接收员撤权版本、批量搜索分页与5000用户实测。
+- [x] 官方WMS部分移库拆批守恒/配对ledger与销售耗尽；原receipt不变。
+- [x] 混合5001单P95优化后通过；保留首次失败。
+- [x] 本地提交801fc8c6/a9caa6cf/8e1ea6a0，无push/生产。
+- [x] HEAD 8e1ea6a07759670fb304ab4d09e39e3a27663d57 最终18组同指纹 efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1，80 PG/HTTP、91 unit+8skip、85相关unit、65Web、16auth、27browser/mixed。
+- [ ] 原scope/entity红灯保留；review18/19发布兼容与回退证据未执行。
+- [ ] 停本次服务并提交本地报告/证据；fixture/旧dirty证据保留。
+
+- [x] 本次API/Web及PG rebuild5/baseline已停止；localhost3000/3100/55432/55434均关闭，fixture保留。最后整理报告-only证据提交，不改已测源码。
