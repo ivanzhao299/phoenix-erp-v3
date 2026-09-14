@@ -584,3 +584,15 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 - 未执行：该 run 未取得 image IDs、PG major、pending migrations、dirty、容量或 flags；没有生产 DDL、业务写、迁移、权限/认证修改。
 - 仅计划/fixture：`scripts/packaging-history-test/readonly-metadata.cjs` 的 DB 六类错误、只读事务、备份路径和 wrapper 测试均为隔离 fixture；不能作为生产角色存在证明。此前 `34823735277` 的 SHA mismatch、`34825204038` 的备份条目阻断、`34826843478` 的 DB command failure 均保留为历史失败，未被追认为成功。
 - 合法只读范围：仓库契约只允许固定容器/数据库/角色、只读 SQL、受控 metadata 字段和安全分类；当前没有可证明的生产角色存在/授权/无交互连接证据。结论仍为 NO-GO，等待正式运维提供非敏感契约证据后再审计。
+
+## 历史 production-readonly 时间线（仅既有证据，2026-09-14）
+
+1. **首次记录的授权与范围**：本仓库进展记录在 `artifacts/packaging-history-implementation-progress.md:445-448` 记载本阶段实际使用 `danger-full-access/approval never`，输入为 `approve_production=APPROVE-PRODUCTION-READONLY-AUDIT`、`ref=main`、SQL/HTTP 空路径；范围仅为受控只读审计，不含 push/deploy/schema/business write。该处是仓库能找到的最早本阶段授权记录，不推断更早会话。
+2. **最初 workflow 路径**：`docs/ops/packaging-history-readonly-scope-preflight.md:11-16` 记录已有 `environment=production`、SCP/SSH actions 和既有 runner；HTTP 分支及整行 SQL 因副作用/敏感范围被排除。`.github/workflows/production-readonly-audit.yml:43-68` 为无生产访问的 validate，`:70-117` 为受控 bundle SCP/SSH；实际 secret 值未读取。
+3. **首次实际 production 读取**：run `34818687355`，时间、head SHA、URL 与输入见 progress `:448` 及 scope-preflight `:16-19`。事实是 validate 成功、SCP 成功、protected execution exit=1、证据上传成功；下载 sanitized stdout 仅换行（scope-preflight `:19-30`）。未取得远端部署身份、image、PG、migration、dirty、磁盘、flags；不能把该 run 说成完整 metadata 读取。
+4. **最初失败与后续 baseline 变更**：progress `:541-543` 记录早期 metadata run `34823735277` 在 checkout gate 发现实际远端 SHA 前缀 `a53d91f...` 与当时 expected `69d89dd4...` 不符，固定 `SHA_MISMATCH`，未运行 Docker/DB/flags/backup/migration；脱敏尾部不猜。其后父级确认生产对象后，baseline 改为完整 `a53d91f33ff733bf28e19ca11d7491f1bfd46922`，见 progress `:547` 与报告 `:708`。
+5. **后续实际 stages**：`34825204038` validate/SCP 成功、SHA 匹配，backup `UNSUPPORTED_ENTRY/exit=2`（progress `:547-549`）；`34826067560` validate/SCP/SHA 匹配，backup `UNKNOWN_DIRECTORY`（progress `:557` 及报告 `:716`）；`34826843478` validate/SCP/SHA 匹配，backup 通过后 DB `COMMAND_FAILED/exit=2`（progress `:560` 及报告 `:728`）。这些均是部分 production 读取，未取得完整汇总，未重试绕过。
+6. **最终既有 production 读取证据**：run `34830667068`，workflow validate/SCP/SSH wrapper exit 0，checkout SHA 匹配；helper DB 阶段实际 `MISSING_ROLE/exit=2`，Enforce `METADATA_RESULT/HELPER_FAILED/exit=2`（progress `:568-571`；报告 `:739-747`）。未执行后续 image/PG/migration/dirty/capacity/flags 查询，未生产写入/DDL/权限变更。
+7. **fixture/计划边界**：`scripts/packaging-history-test/readonly-metadata.cjs` 的六类 DB 分类、只读权限反例、路径与 wrapper 测试是隔离 fixture；progress `:564-565` 记录其用途。它们不能证明生产角色存在或替代任何 run stage。
+
+当前 GO/NO-GO 仍为 **NO-GO**：已有路径证明了受控只读范围和 fail-closed stages，但没有证明生产 `phoenix_metadata_readonly` 可用；不得猜测原因或重新接触生产。

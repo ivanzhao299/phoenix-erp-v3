@@ -768,3 +768,15 @@ SSH metadata 分支现在捕获 helper 输出并打印固定 `AUDIT_METADATA_RES
 | 历史失败 | runs `34823735277`、`34825204038`、`34826843478` | SHA mismatch、备份条目阻断、DB command failure，均保留且未追认成功 |
 
 当前合法只读范围仅能由仓库契约证明，不能证明生产可连接。由于没有非敏感的生产角色存在、授权范围及连接契约证据，GO/NO-GO 仍为 **NO-GO**。不得猜测 `MISSING_ROLE` 的成因；需正式运维提供上述非敏感证据后才能重新审计。
+
+## production-readonly 历史时间线（既有仓库证据）
+
+- **授权与范围**：progress `:445-448` 首次记录本阶段授权输入：`APPROVE-PRODUCTION-READONLY-AUDIT`、`ref=main`、SQL/HTTP 为空；范围是受控只读审计。更早授权时间在仓库中没有可核实记录，不作推断。
+- **初始路径**：scope-preflight `:11-16` 说明使用既有 production environment、SCP/SSH actions；workflow `production-readonly-audit.yml:43-68,70-117` 分离 validate 与 bundle/SSH。HTTP 和整行 SQL 因副作用/敏感输出被排除。
+- **首次实际 production 读取**：run `34818687355`（scope-preflight `:16-30`，progress `:448-450`）：validate 成功、SCP 成功、protected execution exit1、证据上传成功；sanitized stdout 只有换行。远端部署身份及后续 metadata 未取得。
+- **baseline 变化**：run `34823735277` 以 `69d89dd4...` 为 expected，checkout gate 返回实际远端 `a53d91f...` 前缀并 `SHA_MISMATCH`，未执行 Docker/DB 等（progress `:541-543`）。父级确认后 baseline 改为完整 `a53d91f33ff733bf28e19ca11d7491f1bfd46922`（progress `:547`，报告 `:708`）。
+- **后续阶段事实**：`34825204038` 在 backup `UNSUPPORTED_ENTRY` 停止；`34826067560` 在 backup `UNKNOWN_DIRECTORY` 停止；`34826843478` 在 DB `COMMAND_FAILED/exit2` 停止（progress `:547-560`，报告 `:710-728`）。
+- **最后实际读取**：`34830667068` validate/SCP/SSH wrapper exit0、SHA通过，DB 返回 `MISSING_ROLE/exit2`，Enforce fail-closed；没有 image/PG/migration/dirty/capacity/flags 结果（progress `:568-571`，报告 `:739-747`）。
+- **fixture 与未执行项**：本地 helper/PG18/路径/错误分类测试均为 fixture（progress `:564-565`），不能替代生产证据。生产角色、授权与连接契约仍未证明。
+
+结论保持 **NO-GO**。上述记录仅复述已有事实；本轮没有生产操作、dispatch、secret/auth/env 读取或原因推断。
