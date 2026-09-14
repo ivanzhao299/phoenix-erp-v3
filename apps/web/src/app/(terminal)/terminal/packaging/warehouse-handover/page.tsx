@@ -55,6 +55,10 @@ export default function WarehouseHandoverPage() {
   useEffect(() => {
     let cancelled = false;
     const packingCode = ctx.packingCode;
+    setHandoverStatus(null);
+    setScanned([]);
+    setSubmitError('');
+    setDone(false);
     if (!packingCode) return;
     packagingApi.getHandoverStatus(packingCode)
       .then((status) => {
@@ -89,17 +93,14 @@ export default function WarehouseHandoverPage() {
     setScanInput('');
     setError('');
   };
-  const handleConfirmAll = () => {
-    setScanned(pendingBoxes.map(b => b.code));
-    setError('');
-  };
   const totalQty = scanned.reduce((a, c) => {
     const b = pendingBoxes.find(b => b.code === c);
     return a + (b?.qty || 0);
   }, 0);
-  const allScanned = pendingBoxes.every(b => scanned.includes(b.code));
-  const canSubmit = allScanned && receiver && location && !statusLoading && !activeHandoverStatus?.committed;
+  const allScanned = pendingBoxes.length > 0 && pendingBoxes.every(b => scanned.includes(b.code));
+  const canSubmit = allScanned && receiver.trim() && location.trim() && !statusLoading && activeHandoverStatus?.state === 'PENDING';
   const handleSubmit = async () => {
+    if (!canSubmit || submitting) return;
     setSubmitting(true);
     setSubmitError('');
     try {
@@ -115,9 +116,7 @@ export default function WarehouseHandoverPage() {
       assertWarehouseHandoverCommitted(result);
       if (result.status) setHandoverStatus(result.status);
       setDone(true);
-      setTimeout(() => router.push('/terminal/packaging/shift-close'), 2000);
     } catch (e) {
-      console.error('入库确认失败', e);
       setSubmitError(e instanceof Error && e.message
         ? e.message
         : t('ui.入库确认失败请重试', '入库确认失败，请重试'));
@@ -248,7 +247,7 @@ export default function WarehouseHandoverPage() {
           <div style={{
           fontSize: 11,
           color: T.MUT
-        }}>{t('ui.已入库总箱数', '已入库/总箱数')}</div>
+        }}>{t('ui.已核验总箱数', '已核验/总箱数')}</div>
         </div>
       </div>
 
@@ -303,18 +302,7 @@ export default function WarehouseHandoverPage() {
               fontWeight: 700,
               cursor: 'pointer'
             }}>{t('ui.扫入', '扫入')}</button>
-              <button type="button" onClick={handleConfirmAll} style={{
-              padding: '14px 20px',
-              background: 'var(--status-success-bg-medium)',
-              color: T.GRN,
-              border: `1px solid var(--status-success-bg-strong)`,
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              visibility: allScanned ? 'hidden' : 'visible'
-            }}>{t('ui.全部确认', '全部确认')}</button>
+
             </div>
             <div style={{
             color: T.RED,

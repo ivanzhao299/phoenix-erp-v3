@@ -2572,9 +2572,9 @@ export class PackagingTerminalBffController {
             ? '交接完成，库存由日产蛋入口持有，批次与流水数量已对平'
             : '包装交接及库存入账均已完成'
           : state === 'HANDOVER_ONLY'
-            ? '交接记录已存在，但库存入账证据缺失，可重试确认'
+            ? '证据不完整，已停止操作，请联系负责人核实'
             : state === 'INVENTORY_ONLY'
-              ? '库存已生成，但交接记录缺失，可重试确认'
+              ? '证据不完整，已停止操作，请联系负责人核实'
               : '尚未完成入库交接',
       },
     };
@@ -2624,6 +2624,7 @@ export class PackagingTerminalBffController {
           (SELECT count(*)::int FROM inv_batches WHERE packaging_batch_ref=$1 OR source_no=$1) AS batches,
           (SELECT count(*)::int FROM inv_ledger WHERE ref_no=$1) AS ledgers`, [packingCode]);
         if (!prior && (evidence.batches || evidence.ledgers)) throw new ConflictException('已有库存但缺交接，禁止自动补余');
+        if (prior && (!evidence.batches || !evidence.ledgers)) throw new ConflictException('证据不完整，已停止操作，请联系负责人核实');
         if (!prior) {
           const codes = Array.isArray(packing.grading_codes_json) && packing.grading_codes_json.length ? packing.grading_codes_json : [packing.grading_code];
           const sources = await manager.query(`SELECT g.code, s.house_code, g.status, g.is_test, s.batch_status, s.is_test AS source_is_test

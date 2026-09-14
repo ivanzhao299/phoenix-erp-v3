@@ -5,13 +5,11 @@ import u from "@/styles/uix-utils.module.css";
  * 成品批次生成 — V3 复刻 V2 phoenix-frontend BatchGeneration.jsx 三步向导
  */
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { CheckCircle, Package, Printer, RefreshCw } from 'lucide-react';
+import { CheckCircle, RefreshCw } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import s from '@/components/ui/admin-ui.module.css';
 import { EmptyState, LoadingSkeleton } from '@/components/design-system';
-import { actionPill, MONO_FONT } from '@/components/design-system/cockpit-styles';
 
 const tok = () => (typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : '');
 const hdr = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok() });
@@ -36,9 +34,8 @@ export default function BatchGenerationRoute() {
 
 function BatchGenerationPage() {
   const toast = useToast();
-  const router = useRouter();
   const { t } = useLanguage();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [tasks, setTasks] = useState<GradedTask[]>([]);
   const [selectedTaskNo, setSelectedTaskNo] = useState<string | null>(null);
   const [gradeNameMap, setGradeNameMap] = useState<Record<string, string>>({});
@@ -122,36 +119,14 @@ function BatchGenerationPage() {
     setStep(2);
   };
 
-  const confirmAndShowResult = () => setStep(3);
-
-  const printLabel = (row: GradeRow) => {
-    const tx = tasks.find((x) => x.task_no === selectedTaskNo);
-    if (!tx) return;
-    const q = new URLSearchParams({
-      task_no: tx.task_no,
-      grade: row.code,
-      batch_no: row.batchNo || tx.batch_no,
-      qty: String(row.qty),
-    });
-    router.push(`/packaging/label-print?${q.toString()}`);
-  };
-
-  const reset = () => {
-    setStep(1);
-    setSelectedTaskNo(null);
-    setGradeRows([]);
-    loadTasks();
-  };
-
   const STEP_LABELS = useMemo(() => [
     t("ui.锁定分级任务","锁定分级任务"),
     t("ui.校准等级清单","校准等级清单"),
-    t("ui.落账并下发标签","落账并下发标签"),
   ], [t]);
 
   return (
     <div>
-      <PageHeader breadcrumb={[t("ui.包装中心","包装中心"), t("ui.批次生成","批次生成")]} title={t("ui.成品批次生成","成品批次生成")} subtitle={t("ui.成品批次生成副标题","分级完成的鸡蛋按等级生成成品批次并下发标签")} />
+      <PageHeader breadcrumb={[t("ui.包装中心","包装中心"), t("ui.批次生成","批次生成")]} title={t("ui.分级记录查询","分级记录查询")} subtitle={t("ui.分级只读提示","只读查询分级记录；本页不执行包装入库或打印")} />
 
       {/* Step Wizard */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 24 }}>
@@ -170,7 +145,7 @@ function BatchGenerationPage() {
                 {label}
               </span>
             </div>
-            {i < 2 && <div style={{ height: 2, flex: 1, background: step > i + 1 ? 'var(--status-success)' : 'var(--border)', marginBottom: 18 }} />}
+            {i < 1 && <div style={{ height: 2, flex: 1, background: step > i + 1 ? 'var(--status-success)' : 'var(--border)', marginBottom: 18 }} />}
           </div>
         ))}
       </div>
@@ -265,56 +240,11 @@ function BatchGenerationPage() {
               style={{ padding: '10px 24px', border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: 10, cursor: 'pointer' }}>
               ← {t("common.back","返回")}
             </button>
-            <button type="button" onClick={confirmAndShowResult}
-              style={{ padding: '10px 24px', border: 'none', background: 'var(--color-primary)', color: 'white', borderRadius: 10, cursor: 'pointer', fontWeight: 700 }}>
-              {t("ui.确认入账并进入打印环节","确认入账并进入打印环节")}
-            </button>
+
           </div>
         </div>
       )}
 
-      {/* Step 3: 完成 + 标签打印入口 */}
-      {step === 3 && (
-        <div>
-          <div style={{
-            background: 'color-mix(in srgb, var(--status-success, var(--status-success)) 12%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--status-success, var(--status-success)) 40%, transparent)',
-            borderRadius: 10, padding: '14px 16px', marginBottom: 16,
-            color: 'var(--status-success, var(--status-success))', fontWeight: 600, fontSize: 13,
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <CheckCircle size={18} /> {t("ui.成品入仓动作已完成","成品入仓动作已完成")}。{t("ui.共","共")} {gradeRows.length} {t("ui.个等级批次落账","个等级批次落账")}，{t("ui.可点击下方按钮下发标签打印","可点击下方按钮下发标签打印")}。
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-            {gradeRows.map((g) => (
-              <div key={g.code} className={s.card} style={{ borderLeft: 'var(--card-accent-width) solid var(--color-primary)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 2 }}>{g.name}</div>
-                    <div style={{ fontSize: 15, fontWeight: 800 }}>{g.qty.toLocaleString()} {t("ui.枚","枚")}</div>
-                  </div>
-                  <span style={actionPill("success")}>{t("ui.已入仓","已入仓")}</span>
-                </div>
-                {g.batchNo && <div style={{ fontSize: 11, fontFamily: MONO_FONT, color: 'var(--text-secondary)', wordBreak: 'break-all', marginBottom: 10 }}>{g.batchNo}</div>}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={() => printLabel(g)}
-                    style={{ flex: 1, padding: 8, fontSize: 12, border: '1px solid var(--color-primary)', color: 'var(--color-primary)',
-                      background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', borderRadius: 8, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontWeight: 700 }}>
-                    <Printer size={12} /> {t("ui.下发打印","下发打印")}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-            <button type="button" onClick={reset}
-              style={{ padding: '10px 24px', border: '1px solid var(--color-primary)', background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)', borderRadius: 10, cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Package size={14} /> {t("ui.处理下一批","处理下一批")}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
