@@ -4,7 +4,10 @@ const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_pro
 const BASELINE='a53d91f33ff733bf28e19ca11d7491f1bfd46922';
 const KEYS=['R','B','P','V','H','Q'];
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
-function fail(stage,klass='FAILED',exit=2){const e=new Error('metadata failure');Object.assign(e,{stage,klass,exit});throw e;}
+function fail(stage,klass='FAILED',exit=2,detail){const e=new Error('metadata failure');Object.assign(e,{stage,klass,exit,detail});throw e;}
+function safeRelative(root,p){const rel=path.relative(root,p).replaceAll('\\','/');return rel.replace(/[^A-Za-z0-9._\/-]/g,'_').slice(0,160)||'.';}
+function lstatType(s){if(s.isSymbolicLink())return 'symlink';if(s.isFile())return 'file';if(s.isDirectory())return 'directory';if(s.isFIFO())return 'fifo';if(s.isSocket())return 'socket';if(s.isCharacterDevice())return 'character-device';if(s.isBlockDevice())return 'block-device';return 'other';}
+function backupFail(root,p,s,klass,depth){fail('BACKUP',klass,2,{type:lstatType(s),relativePath:safeRelative(root,p),depth});}
 function run(stage,cmd,args,input){
  const r=cp.spawnSync(cmd,args,{input,encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024,
    env:{PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C',LC_ALL:'C'}});
@@ -52,14 +55,27 @@ function flags(rows,ready=true){
  return {state:Object.values(raw).some(Boolean)?'any_true':'valid_all_off',raw,effective};
 }
 function backupMetadata(dir){
- regular(dir,true);let count=0,bytes=0,maxMtime=0;
- // Only one level of deployment backup directories; reject links anywhere inspected.
- function scan(d,depth){for(const name of fs.readdirSync(d)){
-  const p=path.join(d,name),s=fs.lstatSync(p);if(s.isSymbolicLink())fail('BACKUP','SYMLINK');
-  if(s.isFile()){count++;bytes+=s.size;maxMtime=Math.max(maxMtime,Math.floor(s.mtimeMs));}
-  else if(s.isDirectory()&&depth===0)scan(p,1);
-  else fail('BACKUP','UNSUPPORTED_ENTRY');
- }}scan(dir,0);return {state:count?'METADATA_ONLY':'NO_BACKUP',count,bytes,maxMtime};
+ const root=path.resolve(dir);regular(root,true);let count=0,bytes=0,maxMtime=0,partial=[];
+ const dirs=fs.readdirSync(root);
+ for(const name of dirs){
+  const p=path.join(root,name),s=fs.lstatSync(p),depth=1;
+  if(s.isSymbolicLink())backupFail(root,p,s,'SYMLINK',depth);
+  if(!s.isDirectory())backupFail(root,p,s,'UNSUPPORTED_TYPE',depth);
+  if(!/^deploy-pre-migration-[0-9]+$/.test(name))backupFail(root,p,s,'UNKNOWN_DIRECTORY',depth);
+  const files=fs.readdirSync(p),seen=new Map();
+  for(const file of files){
+   const fp=path.join(p,file),fsx=fs.lstatSync(fp),fd=2;
+   if(fsx.isSymbolicLink())backupFail(root,fp,fsx,'SYMLINK',fd);
+   if(!fsx.isFile())backupFail(root,fp,fsx,'UNSUPPORTED_TYPE',fd);
+   const m=file.match(/^phoenix_erp_pre_([a-f0-9]{12})\.(dump|dump\.sha256)$/);
+   if(!m)backupFail(root,fp,fsx,'UNKNOWN_NAME',fd);
+   const key=m[1];seen.set(key,(seen.get(key)||[]).concat(m[2]));
+   count++;bytes+=fsx.size;maxMtime=Math.max(maxMtime,Math.floor(fsx.mtimeMs));
+  }
+  for(const [key,parts] of seen){if(parts.length!==2){partial.push({type:'file',relativePath:safeRelative(root,path.join(p,`phoenix_erp_pre_${key}.dump`)),depth:2});}}
+ }
+ if(partial.length)fail('BACKUP','PARTIAL_BACKUP',2,partial[0]);
+ return {state:count?'METADATA_ONLY':'NO_BACKUP',count,bytes,maxMtime,layout:'deploy-pre-migration/<numeric-run>/phoenix_erp_pre_<12hex>.dump[.sha256]'};
 }
 function validate(env){
  const expectedHashes=['BUNDLE_HELPER_SHA256','BUNDLE_SQL_SHA256','BUNDLE_MANIFEST_SHA256'];
@@ -122,4 +138,4 @@ module.exports={BASELINE,flags,manifest,backupMetadata,regular,validate,main};
 if(require.main===module){try{
  if(process.argv[2]==='--manifest')console.log(JSON.stringify(manifest(process.argv[3]),null,2));
  else console.log(JSON.stringify(main()));
-}catch(e){console.log(JSON.stringify({state:'FAIL',stage:e.stage||'METADATA',class:e.klass||'UNAVAILABLE',exit:e.exit||2}));process.exitCode=e.exit||2;}}
+}catch(e){console.log(JSON.stringify({state:'FAIL',stage:e.stage||'METADATA',class:e.klass||'UNAVAILABLE',exit:e.exit||2,...(e.detail?{detail:e.detail}:{})}));process.exitCode=e.exit||2;}}

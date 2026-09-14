@@ -31,7 +31,7 @@ http_assertions_path = ""
 - metadata SCP source 精确限定 helper、SQL、manifest 三文件；不发送 legacy HTTP assertions。SSH/SCP 仅引用原有配置的 secret 名称，本轮未读取其值。
 - `git rev-parse HEAD`、`git status --porcelain --untracked-files=all`：输出 SHA、dirty 布尔及数量，不输出文件路径或内容。
 - `docker inspect --format` 仅固定 `phoenix-v3-api/web` 的 `.Image` 和 OCI revision label；imageID须sha256格式，label缺失/格式不符为UNKNOWN。不会 dump Config/Env；PG major 通过只读SQL `server_version_num` 取得，非18拒绝。镜像label与源码SHA的关系由审阅者判定；METADATA_COLLECTED不是“可发布”结论。
-- `deploy-backups` 固定映射 `/opt/phoenix-erp-backups`，依据现有 deploy.yml 路径；不接受任意目录。逐级 lstat 拒绝父目录及条目 symlink，只 stat 根目录普通文件及一层子目录普通文件，超深或特殊文件拒绝。仅输出数量/bytes/maxmtime；不 mkdir、不读dump、不做恢复。无文件明确NO_BACKUP。df仅size/used/avail数字；容量不等于备份可恢复证明。
+- `deploy-backups` 固定映射 `/opt/phoenix-erp-backups`，依据现有 deploy.yml 路径；只允许 `deploy-pre-migration-<数字>/phoenix_erp_pre_<12位hex>.dump` 及配对 `.dump.sha256`，根文件、未知目录/命名、嵌套目录、tmp/lock/partial/hidden、symlink 和特殊文件全部 fail-closed。失败只输出脱敏 lstat type、相对路径和深度；不输出绝对路径或内容。不 mkdir、不读dump、不做恢复；单边配对明确为 PARTIAL_BACKUP。无文件明确 NO_BACKUP。df仅size/used/avail数字；容量不等于备份可恢复证明。
 - 固定 DB 容器 `phoenix-v3-db`、DB `phoenix_erp`、角色 `phoenix_metadata_readonly`。通过 `docker exec ... psql -X -w` 使用现有本地连接能力，不读密码；角色/认证不存在即固定DB失败。**该角色在生产是否存在及能否无交互连接尚未知；本实现不创建角色、不改认证。**
 - 每次查询均由 `packaging-metadata.sql` 开始 `BEGIN READ ONLY`、PGOPTIONS default_transaction_read_only=on、15s statement/2s lock timeout，最后ROLLBACK。先独立查询确认两个只读设置、PG18和role_safe，之后每个事务再次核验。role_safe排除超级/建库/建角色/复制/BYPASSRLS及危险文件执行角色成员、DB CREATE/TEMP、用户schema CREATE、表写/序列写和可执行用户 SECURITY DEFINER 函数；任何其他角色成员关系也拒绝，防止 NOINHERIT 隐藏 SET ROLE 写能力。有这些能力就拒绝，即使当前事务只读。
 - 不执行任何生产权限反例写SQL；写权限反例只在本轮 network=none 的独立 TEST PG18 实测。
