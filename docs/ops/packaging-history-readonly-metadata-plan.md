@@ -1,60 +1,62 @@
-# Review30：只读审计诊断修复与 metadata bundle 待审计划
+# Review31：metadata-only bundle 实现与待审执行输入
 
-本地方案，不是 dispatch 指令或生产执行记录。34818687355 仅 known protected exit1/空stdout，原因未知；本轮未重试。现本地代码增加输入/目录/revision/SQL/日志/归档阶段失败码，workflow显式捕获stderr并给cd/runner缺失固定诊断；不打印BASH_COMMAND、环境或secret。15本地shell fixture覆盖原空日志复现、修后阶段、早期install/runID、输入文件/HTTP方法、日志读取失败、wrapper路径和stderr。另用cd函数fixture验证默认路径~/phoenix-erp的引号不会触发tilde展开；现只展开开头~/为既有HOME，不eval、不猜host。静默git失败是可重复反例，**不是远端根因结论**。
+本地实现，**未 push、dispatch 或访问生产**。父级 review31 已覆盖 review30 的“仅计划”限制；使用远端通道仍待父级审定代码/ref。审计34818687355仍只有 protected exit1/空日志证据，原因未知；没有重试，也不将本地复现当远端根因。
 
-另核实既有HTTP validation在相对bundle='.'时用require('scripts/...')不能按文件加载，现path.resolve后校验真实文件；原Docker logs失败曾被`|| true`当零，主通用计数现保留原退出码、仅内存计数不输出日志payload。其他legacy HTTP bundle仍需要各自独立安全审查，不能把本轮诊断修复当全库审计安全认证。
+## 固定输入（交父级审，不是已执行命令）
 
-## 新 metadata-only 入口拟议契约（未实现/未执行）
-
-父级审完整shell/SQL内容与ref后方可实施/使用新入口。现已存在的远端main没有这些能力；不得为了启用它提前push main触发部署。当前本地诊断workflow变更也未上传。若将来需新增远端审计ref，应先确认分支push是否触发其他workflow，父级明确批准该ref/bundle后才能推进。
-
-拟新增workflow输入：`audit_mode` choice=`legacy|packaging-metadata`（默认legacy保持兼容），metadata模式强制SQL/HTTP path inputs为空；`expected_deploy_sha`要求40hex，`backup_directory`只能从维护者预先登记白名单选一个逻辑名称，不能输入任意shell。runner固定调用审定metadata helper；HTTP/AppModule/login/TypeORM migration:run禁止执行。SCP只传审定helper及SQL文件，不上传auth/env/业务payload。
-
-固定输出契约：
-
-| 阶段 | 只读命令/精确字段 | 失败行为 |
-|---|---|---|
-| CHECKOUT | `git rev-parse HEAD`，与expected_deploy_sha精确比较；`git status --porcelain --untracked-files=all`仅在内存计数，输出dirty:boolean、count；不输出文件内容/路径 | 非0或SHA不符终止，不自动切分支/reset/清理 |
-| IMAGES | `docker inspect --format '{{.Image}} {{index .Config.Labels "org.opencontainers.image.revision"}}' phoenix-v3-api`及web；仅image ID、revision；另以固定image ID做image inspect仅RepoDigests | 缺容器/label未知明确UNKNOWN，不dump .Config/.Env |
-| CAPACITY | `df -B1 --output=size,used,avail`对已审部署目录和backup目录，仅3个数字；备份目录只stat经登记普通文件的size/mtime和计数，总bytes/maxmtime，不读dump内容、不跟随任意symlink | 无目录/无备份单列FAIL/NO_BACKUP；不得据free bytes自动宣称可恢复 |
-| DB_IDENTITY | 通过现有DB容器内POSTGRES_USER/DB运行`psql -X -v ON_ERROR_STOP=1`，PGOPTIONS default_transaction_read_only=on，BEGIN READ ONLY，timeout30s/lock5s | 两个read-only设置必须on，否则fail；不打印凭据 |
-| MIGRATIONS | DB只SELECT migrations.name ORDER BY name；宿主仅读取`apps/api/src/database/migrations`文件名清单，API固定容器仅`dist/database/migrations`文件名；用审定候选manifest的TypeORM类名与DB名字集合做差 | TS文件名不直接等于类名，不拿目录数相等当零pending；不加载AppModule或执行migration命令；manifest未知则partial |
-| FLAGS | 只查`sys_dict`中`dict_type='PKG_HISTORY_POLICY' AND status='ACTIVE'`的count、每个R/B/P/V/H/Q的any-true及非boolean/重复key计数；不输出config_json、qualification、evidenceRef、company/site文本或其他字典 | 缺配置输出configured=0且effective_default_all_off=true；任一true/类型未知/重复记录均阻断，不开旗 |
-
-审定SQL模板仅输出metadata（具体helper和参数化路径必须实现后再审，不可直接拿本页执行）：
-
-```sql
-BEGIN TRANSACTION READ ONLY;
-SET LOCAL statement_timeout='30s';
-SET LOCAL lock_timeout='5s';
-SELECT current_setting('transaction_read_only') AS transaction_read_only,
-       current_setting('default_transaction_read_only') AS default_read_only,
-       current_setting('server_version_num') AS server_version_num;
-SELECT name FROM public.migrations ORDER BY name;
-SELECT count(*) AS configured_rows,
-       count(*) FILTER (WHERE jsonb_typeof(config_json->'R') IS DISTINCT FROM 'boolean'
-         OR jsonb_typeof(config_json->'B') IS DISTINCT FROM 'boolean'
-         OR jsonb_typeof(config_json->'P') IS DISTINCT FROM 'boolean'
-         OR jsonb_typeof(config_json->'V') IS DISTINCT FROM 'boolean'
-         OR jsonb_typeof(config_json->'H') IS DISTINCT FROM 'boolean'
-         OR jsonb_typeof(config_json->'Q') IS DISTINCT FROM 'boolean') AS malformed_flags,
-       COALESCE(bool_or(config_json->'R' = 'true'::jsonb), false) AS any_r,
-       COALESCE(bool_or(config_json->'B' = 'true'::jsonb), false) AS any_b,
-       COALESCE(bool_or(config_json->'P' = 'true'::jsonb), false) AS any_p,
-       COALESCE(bool_or(config_json->'V' = 'true'::jsonb), false) AS any_v,
-       COALESCE(bool_or(config_json->'H' = 'true'::jsonb), false) AS any_h,
-       COALESCE(bool_or(config_json->'Q' = 'true'::jsonb), false) AS any_q
-FROM public.sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND status='ACTIVE';
-SELECT count(*) AS duplicate_policy_keys FROM (
-  SELECT dict_code FROM public.sys_dict
-  WHERE dict_type='PKG_HISTORY_POLICY' AND status='ACTIVE'
-  GROUP BY dict_code HAVING count(*)>1
-) d;
-ROLLBACK;
+```text
+workflow = production-readonly-audit.yml
+ref = audit/packaging-history-metadata  # 尚未 push；须父级先审定实际提交
+approve_production = APPROVE-PRODUCTION-READONLY-AUDIT
+audit_mode = packaging-metadata
+expected_deploy_sha = 69d89dd44b8e1461d7eaf5193e60c994255aed2c
+backup_directory = deploy-backups
+assertion_sql_path = ""
+http_assertions_path = ""
 ```
 
-Flags结果仅证明“无已存true新写开关”的保守门禁，不推导所有config合法或物理Q合格。类型/公司场匹配/版本等完整策略仍按现应用解析；不得输出原JSON来诊断。未配置默认全关依据已验应用逻辑，不凭缺行虚构生产代码版本。
+两项 path 必须显式为空（legacy 默认路径不适用于 metadata）。expected SHA 固定为上述审定 baseline；不接受其他 SHA 或 shell 文本。读得合法 actual SHA 时先输出真实值，不匹配立即停止，无 Docker/DB 后续探测。没有发布或修改生产工作树的步骤。
 
-候选迁移manifest应由被审构建的tracked TS类名/时间戳静态导出，记录文件hash；DB已有类名与manifest逐项比对，多余/缺失分别输出名字，既有冻结SQL桥接项不能直接与文件数量比较。PG major不是18时停止评审，不随功能升级DB。
+## 全 workflow 触发条件
 
-本页不含任何现有host/key/token/password值，不读取旧认证artifact。下一阶段只有在父级审定helper源码、输入、remote可用ref之后才能dispatch；本轮仅本地诊断测试和方案交付。
+`artifacts/review31-workflow-triggers.json` 列出全部60个 workflow 的完整 `on` 和 job `if`（基于本地源树，不声称远端已更新）。push 只有：deploy/main；ci-build、ci-security、ci-web-tests/main或w5/**；regression/v3-admin。其余没有 push。没有 tag、workflow_run 或 schedule 触发。专用 `audit/packaging-history-metadata` 分支 push 不匹配这些条件；PR 到 main 会触发相关 CI 和 deploy workflow（各 job 条件仍适用），不能把 PR 当无副作用动作。本轮未 push/开 PR/dispatch；是否允许上传工具分支由父级审定。
+
+## 实际实现与安全边界
+
+- `scripts/ops/readonly-audits/packaging-metadata.cjs`：独立 Node >=20、仅内置模块；不 import AppModule、不登录、不读 .env/auth/secret、不执行迁移。宿主 Node 是否已可用未知；缺失时固定错误退出，不安装或借用其他通道。
+- workflow 在 legacy `exec 2>&1` **之前**进入独立 metadata 分支，stderr 指向 `/dev/null`；helper 子命令 stdout/stderr 只在内存，失败只输出固定 stage/class/exit。未知路径、运行时或 Node 语法错误也不能把原始 stderr 写进 artifact。legacy 行为单独保留，不能据此认定 legacy 全部 bundle 安全。
+- metadata SCP source 精确限定 helper、SQL、manifest 三文件；不发送 legacy HTTP assertions。SSH/SCP 仅引用原有配置的 secret 名称，本轮未读取其值。
+- `git rev-parse HEAD`、`git status --porcelain --untracked-files=all`：输出 SHA、dirty 布尔及数量，不输出文件路径或内容。
+- `docker inspect --format` 仅固定 `phoenix-v3-api/web` 的 `.Image` 和 OCI revision label；imageID须sha256格式，label缺失/格式不符为UNKNOWN。不会 dump Config/Env；PG major 通过只读SQL `server_version_num` 取得，非18拒绝。镜像label与源码SHA的关系由审阅者判定；METADATA_COLLECTED不是“可发布”结论。
+- `deploy-backups` 固定映射 `/opt/phoenix-erp-backups`，依据现有 deploy.yml 路径；不接受任意目录。逐级 lstat 拒绝父目录及条目 symlink，只 stat 根目录普通文件及一层子目录普通文件，超深或特殊文件拒绝。仅输出数量/bytes/maxmtime；不 mkdir、不读dump、不做恢复。无文件明确NO_BACKUP。df仅size/used/avail数字；容量不等于备份可恢复证明。
+- 固定 DB 容器 `phoenix-v3-db`、DB `phoenix_erp`、角色 `phoenix_metadata_readonly`。通过 `docker exec ... psql -X -w` 使用现有本地连接能力，不读密码；角色/认证不存在即固定DB失败。**该角色在生产是否存在及能否无交互连接尚未知；本实现不创建角色、不改认证。**
+- 每次查询均由 `packaging-metadata.sql` 开始 `BEGIN READ ONLY`、PGOPTIONS default_transaction_read_only=on、15s statement/2s lock timeout，最后ROLLBACK。先独立查询确认两个只读设置、PG18和role_safe，之后每个事务再次核验。role_safe排除超级/建库/建角色/复制/BYPASSRLS及危险文件执行角色成员、DB CREATE/TEMP、用户schema CREATE、表写/序列写和可执行用户 SECURITY DEFINER 函数；任何其他角色成员关系也拒绝，防止 NOINHERIT 隐藏 SET ROLE 写能力。有这些能力就拒绝，即使当前事务只读。
+- 不执行任何生产权限反例写SQL；写权限反例只在本轮 network=none 的独立 TEST PG18 实测。
+
+## Flags 与正式 parser 的精确关系
+
+已读正式 `apps/api/ddl/19_seed_sys_dict.sql`，config_json 是 TEXT；全 `*.entity.ts` 搜索没有 sys_dict entity，不能凭空声称其为JSONB。实际 `PackagingWorkflowPolicy.get` 直接读取 pg 返回值，未 JSON.parse TEXT。
+
+helper 通过 information_schema 验证四列存在且为普通无RLS表；缺表/列或RLS隐藏风险为 **schema_not_ready**，不会当全关。只读取 ACTIVE PKG_HISTORY_POLICY 的 dict_code/config_json 到内存，输出不含公司/场/原JSON/qualification/evidenceRef。
+
+| 状态 | 含义/动作 |
+|---|---|
+| schema_not_ready | 无法证明配置全集可读，停止 |
+| no_config | 表/列可读、零配置，effective_default_all_off=true |
+| malformed | TEXT、字段类型/范围/版本/模式不符、H依赖失败或重复key，停止 |
+| valid_all_off | 每条配置符合实际parser且R/B/P/V/H/Q均false |
+| any_true | 原配置任一旗标true，停止；仅输出raw/effective布尔 |
+
+Q有效值按真实嵌套 qualification.accepted/evidenceRef/acceptedAt（JS Date.parse）、PBX-v1、deviceProfile共同核验。原Q=true但资格无效仍以any_true阻断，不将其伪称全关。重复key在应用会返回disabled；metadata更保守拒绝重复，不将重复记录包装成有效配置。TEXT即便字符串内容看似JSON也malformed，与实际驱动/parser一致；本轮不改业务parser/schema。
+
+## 迁移 manifest
+
+`node scripts/ops/readonly-audits/packaging-metadata.cjs --manifest apps/api/src/database/migrations` 静态提取83个TS export class、显式name（若有）、timestamp及源文件sha256。禁止 require/eval TS；类名/显式name/文件timestamp不一致、空或重复均拒绝。此命令仅本地导出，不运行业务迁移。
+
+固定候选manifest随三文件bundle传输；运行时也静态读取实际checkout TS目录，分别逐名对比 public.migrations.name：candidate pending、checkout pending、appliedOutsideCandidate（含历史SQL桥接）。不以数量相同当无pending，不调用migration:run，不推断镜像内未检查目录已经一致。
+
+## 验收与仍待远端证据
+
+实时测试结果/前后源码指纹及失败历史见实施报告 review31。测试覆盖实际parser、独立PG18只读设置/42501权限拒绝/25006事务拒绝、配置缺schema/类型/RLS/嵌套策略、名称对账、数据/catalog不变、注入/路径/symlink、错误SHA、UNKNOWN label和stderr隔离。Docker/image/df外部查询在组合测试中使用受控fixture，DB SQL真实执行；不得称生产容器/路径实测。
+
+应用源码、迁移和官方Dockerfiles未改；review30的f8624273测试及Node20候选映射仍仅证明其原revision，不追認发生在本轮新SHA。生产 actualSHA、imageIDs、PGmajor、角色、目录容量、迁移与旗标仍UNKNOWN，须审定工具ref/bundle后通过合法通道取得；本轮不会dispatch。
