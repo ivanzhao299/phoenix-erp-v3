@@ -27,4 +27,5 @@ SELECT jsonb_build_object('section','shift_summary','shift_id',w.id,'date',w.pro
  'warehoused_pallets',(SELECT count(DISTINCT NULLIF(pallet_code,'')) FROM pkg_handover_records WHERE shift_id=w.id AND production_date=w.production_date),
  'label_count',(SELECT count(*) FROM pkg_label_print_logs l JOIN pkg_packing_records p ON p.code=l.packaging_batch_id WHERE p.shift_id=w.id AND p.status='ACTIVE' AND p.is_test=w.is_test AND DATE(l.printed_at)=w.production_date))
 FROM pkg_work_shifts w WHERE id=(SELECT shift_id FROM pkg_packing_records WHERE id=33);
+SELECT jsonb_build_object('section','related_wms_inbound','row',jsonb_build_object('id',id,'task_no',task_no,'inbound_no',inbound_no,'status',status,'warehouse_code',warehouse_code,'company_code',company_code,'qty',qty,'sku_code',sku_code,'source_order_no',source_order_no,'date',date,'operator_name',operator_name)) FROM wms_inbound WHERE source_order_no=(SELECT code FROM pkg_packing_records WHERE id=33) OR inbound_no=(SELECT code FROM pkg_packing_records WHERE id=33) OR task_no=(SELECT code FROM pkg_packing_records WHERE id=33);
 SELECT jsonb_build_object('section','end','at',clock_timestamp());
