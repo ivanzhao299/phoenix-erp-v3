@@ -191,7 +191,7 @@ export class PackagingHistoryService {
     for(let date=from;date<=to;date=new Date(Date.parse(date)+86400000).toISOString().slice(0,10)){
       const records=active.filter(r=>r.production_date===date);days.push({date,totalEggs:records.reduce((n,r)=>n+Number(r.total_eggs),0),totalBoxes:records.reduce((n,r)=>n+Number(r.total_boxes),0)});
     }
-    return {basis:'TERMINAL_RECORDS',aggregation:q.aggregation,dateFrom:from,dateTo:to,shiftIds:[...new Set(selected.map(r=>r.shift_id))],
+    return {basis:'TERMINAL_RECORDS',aggregation:q.aggregation,shiftId:q.aggregation==='SHIFT'?q.shiftId:null,dateFrom:from,dateTo:to,shiftIds:[...new Set(selected.map(r=>r.shift_id))],
       totalEggs:active.reduce((n,r)=>n+Number(r.total_eggs),0),totalBoxes:active.reduce((n,r)=>n+Number(r.total_boxes),0),voidCount:selected.length-active.length,
       gradingEggs:Number(grading.qty),unassigned:{state:'NOT_ATTRIBUTABLE',count:null,message:'无班次或权威场归属的历史异常单不计入；本范围无法安全归属，不推断为零'},
       committedBoxes:active.filter(r=>this.view(r).handover.state==='COMMITTED').reduce((n,r)=>n+Number(r.total_boxes),0),days,records:active.map(r=>({code:r.code,shiftId:r.shift_id,productionDate:r.production_date,totalEggs:Number(r.total_eggs),totalBoxes:Number(r.total_boxes),handover:this.view(r).handover,inventoryMode:r.inventory_mode}))};

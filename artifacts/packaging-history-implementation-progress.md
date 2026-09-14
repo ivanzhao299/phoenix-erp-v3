@@ -55,3 +55,34 @@ P1/P2/P3-M 在途：新历史服务/事件核验器、读写控制器、五表 T
 最终验证 2026-09-14T03:48:15.905Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r4.log。
 最终验证 2026-09-14T03:48:25.806Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r3.log。
 P1/P2/P3-M 后端收口：最新 api-tsc exit0；PG18+HTTP 39 pass/0 skip/0 fail（25 PG +14 HTTP）。新增精确只读 trace、不生成假证据的旧字段适配器及关旗重放回归。前端DOM断言随“旧交接记录≠核实入账”文案修改，真实重跑54/54。准备本地后端阶段提交，未push。
+
+最终验证 2026-09-14T03:50:38.873Z：browser exit=0, signal=none；日志 artifacts/packaging-history-local/verified-browser-r2.log。
+最终验证 2026-09-14T03:52:41.887Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r5.log。
+最终验证 2026-09-14T03:52:44.327Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r2.log。
+最终验证 2026-09-14T03:52:55.048Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r4.log。
+最终验证 2026-09-14T03:53:06.889Z：browser exit=1, signal=none；日志 artifacts/packaging-history-local/verified-browser-r3.log。
+第二次最终空库重建：发现孤立commitReceipt被全空旧证据误判PENDING的边界，已将JS与SQL状态同时改为UNKNOWN/INVENTORY_ONLY并加反例。修改过迁移后停止并保留rebuild1容器，rebuild2全新PG18再跑冻结SQL+bootstrap+82 TS，全部exit0，bootstrap diagnostics0；未用0 migrations掩盖修改。第二组流水故障测试已精确改为SKU20时失败，确保首组曾写入但最终一起回滚。软件验收仍在收尾，生产始终未访问。
+
+最终验证 2026-09-14T03:56:02.849Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r6.log。
+最终验证 2026-09-14T03:56:05.401Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r3.log。
+最终验证 2026-09-14T03:56:10.680Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r2.log。
+最终验证 2026-09-14T03:56:20.809Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r5.log。
+最终验证 2026-09-14T03:56:22.878Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r3.log。
+最终验证 2026-09-14T03:56:22.921Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r2.log。
+最终验证 2026-09-14T03:56:23.057Z：constraint exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-r2.log。
+最终验证 2026-09-14T03:56:23.291Z：migration-down exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-down-r2.log。
+最终验证 2026-09-14T03:56:23.689Z：migration-dml exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-dml-r2.log。
+最终验证 2026-09-14T03:56:24.813Z：entity-diff exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-diff-r2.log。
+最终验证 2026-09-14T03:56:24.819Z：entity-gate exit=1, signal=none；日志 artifacts/packaging-history-local/verified-entity-gate-r2.log。
+最终验证 2026-09-14T03:56:25.569Z：runtime-scope-audit exit=1, signal=none；日志 artifacts/packaging-history-local/verified-runtime-scope-audit-r2.log。
+最终验证 2026-09-14T03:56:30.835Z：browser exit=1, signal=none；日志 artifacts/packaging-history-local/verified-browser-r4.log。
+最终验证 2026-09-14T03:57:53.640Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r7.log。
+最终验证 2026-09-14T03:57:56.252Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r4.log。
+最终验证 2026-09-14T03:58:06.544Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r6.log。
+最终验证 2026-09-14T03:58:08.644Z：web-dom exit=1, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r4.log。
+最终验证 2026-09-14T03:58:48.380Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r8.log。
+最终验证 2026-09-14T03:58:50.745Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r5.log。
+最终验证 2026-09-14T03:59:01.219Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r7.log。
+最终验证 2026-09-14T03:59:03.338Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r5.log。
+最终验证 2026-09-14T04:01:37.371Z：browser exit=0, signal=none；日志 artifacts/packaging-history-local/verified-browser-r5.log。
+最终扩展：PG/HTTP47/47（31 PG、16真实HTTP），DOM54/54，浏览器16/16（断响应后原key恢复、无班次历史、旧URL、四时区）。API/Web tsc exit0。修复报告对齐的旧mock契约后重跑，不绕测试。原runtime 2/28/1 exit1；entity393>300 exit1（同环境旧81迁移也393），这两项仍是发布待审红灯。L4未执行且生产Q未启用。

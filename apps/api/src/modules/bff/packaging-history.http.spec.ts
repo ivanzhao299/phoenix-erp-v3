@@ -30,13 +30,13 @@ import {resolve} from 'path';
  app=module.createNestApplication({logger:false});await app.init();ds=app.get(DataSource);await hydrateMenuRegistry(ds.manager);
  f=await packingHistoryFixture(ds);hidden=await packingHistoryFixture(ds);
  const [org]=await ds.query(`INSERT INTO sys_organizations(org_code,org_name,org_type,company_code) VALUES($1,$1,'COMPANY',$1) RETURNING id`,[f.company]);
- for(const [name,menu,perms,scope] of [['OP_V','MENU_PKG_OP','V',true],['OP_E','MENU_PKG_OP','V,E',true],['MGR_V','MENU_PKG_MGR','V',true],['MGR_E','MENU_PKG_MGR','E',true],['NO_SCOPE','MENU_PKG_OP','V',false]]){
+ for(const [name,menu,perms,scope] of [['OP_V','MENU_PKG_OP','V',true],['OP_E','MENU_PKG_OP','V,E',true],['MGR_V','MENU_PKG_MGR','V',true],['MGR_E','MENU_PKG_MGR','E',true],['NO_SCOPE','MENU_PKG_OP','V',false],['GLOBAL_OP','MENU_PKG_OP','V','GLOBAL']]){
   const username='TEST-'+name+'-'+randomUUID().slice(0,6),password=randomBytes(18).toString('hex');
   const [u]=await ds.query(`INSERT INTO sys_user(username,real_name,password_hash,status) VALUES($1,$1,$2,1) RETURNING user_id::text`,[username,await bcrypt.hash(password,4)]);
   const [role]=await ds.query(`INSERT INTO sys_role(role_code,role_name_zh,role_type) VALUES($1,$1,'BUSINESS') RETURNING role_id`,[username]);
   await ds.query('INSERT INTO sys_user_role(user_id,role_id,is_primary) VALUES($1,$2,true)',[u.user_id,role.role_id]);
   await ds.query(`INSERT INTO sys_role_menu_permission(role_id,menu_id,perm_codes) SELECT $1,menu_id,$2 FROM sys_menu WHERE menu_code=$3`,[role.role_id,perms,menu]);
-  if(scope){await ds.query('INSERT INTO sys_user_orgs(user_id,org_id) VALUES($1,$2)',[u.user_id,org.id]);await ds.query('INSERT INTO sys_user_farm_scopes(user_id,farm_code) VALUES($1,$2)',[u.user_id,f.farm]);}
+  if(scope){await ds.query('INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) VALUES($1,$2,$3)',[u.user_id,org.id,scope==='GLOBAL'?'GROUP':'COMPANY']);await ds.query('INSERT INTO sys_user_farm_scopes(user_id,farm_code) VALUES($1,$2)',[u.user_id,f.farm]);}
   if(!base){await app.listen(0,'127.0.0.1');base=await app.getUrl();}
   const response=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
   const result:any=await response.json();if(!result.token)throw Error('ISOLATED_LOGIN_FAILED:'+response.status+':'+String(result.msg||result.message));
@@ -67,6 +67,14 @@ import {resolve} from 'path';
  });
  it('real HTTP malformed dates and cursor get 400, not 500',async()=>{
    for(const q of ['dateFrom=2026-02-30','cursor=garbage','shiftStatus=bogus','packingCode=%20'])expect((await get('history?'+q)).status).toBe(400);
+ });
+ it('explicit GROUP scope is honored for an ordinary non-admin OP role',async()=>{
+   const r=await get('history','GLOBAL_OP');expect(r.status).toBe(200);expect((await get('history/'+f.prefix,'GLOBAL_OP')).status).toBe(200);expect((await get('history/'+hidden.prefix,'GLOBAL_OP')).status).toBe(200);
+ });
+ it('foreign warehouse inventory evidence hides the full chain and total',async()=>{
+   const batch=f.prefix+'-FOREIGN-WH';
+   await ds.query(`INSERT INTO inv_batches(batch_no,product_code,company_code,warehouse_code,qty,qty_available,packaging_batch_ref) VALUES($1,$2,$3,$4,30,30,$2)`,[batch,f.prefix,f.company,hidden.warehouse]);
+   try{expect((await get('history/'+f.prefix)).status).toBe(404);expect((await get('history')).body.data.totalMatching).toBe(0);}finally{await ds.query('DELETE FROM inv_batches WHERE batch_no=$1',[batch]);}
  });
  it('permission version revocation invalidates existing authentication',async()=>{await ds.query('UPDATE sys_user SET perms_version=perms_version+1 WHERE user_id=$1',[accounts.get('OP_V')!.id]);expect((await get('history')).status).toBe(401);});
 });

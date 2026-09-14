@@ -19,10 +19,16 @@ export class PackagingHistoryD1cEvidence1789353300496 implements MigrationInterf
     await q.query(`CREATE OR REPLACE FUNCTION packing_posting_state(rec jsonb,batches jsonb,ledger jsonb,handovers jsonb,receipt jsonb) RETURNS text LANGUAGE plpgsql IMMUTABLE AS $fn$
       DECLARE fallback text; groups jsonb; inbound jsonb; outputs jsonb; expected jsonb;
       BEGIN
-        fallback:=CASE WHEN jsonb_array_length(handovers)>0 THEN 'HANDOVER_ONLY' WHEN jsonb_array_length(batches)>0 OR jsonb_array_length(ledger)>0 THEN 'INVENTORY_ONLY' ELSE 'PENDING' END;
+        fallback:=CASE WHEN jsonb_array_length(handovers)>0 THEN 'HANDOVER_ONLY' WHEN jsonb_array_length(batches)>0 OR jsonb_array_length(ledger)>0 OR receipt IS NOT NULL THEN 'INVENTORY_ONLY' ELSE 'PENDING' END;
         IF jsonb_array_length(handovers)<>1 THEN RETURN fallback; END IF;
         outputs:=rec->'batches_json';
         IF jsonb_typeof(outputs) IS DISTINCT FROM 'array' THEN RETURN fallback; END IF;
+        IF jsonb_array_length(outputs)=0 OR EXISTS(SELECT 1 FROM jsonb_array_elements(outputs) o WHERE
+          jsonb_typeof(o->'eggs') IS DISTINCT FROM 'number' OR jsonb_typeof(o->'boxes') IS DISTINCT FROM 'number'
+          OR (o->>'eggs')::numeric<=0 OR (o->>'boxes')::numeric<=0 OR trunc((o->>'eggs')::numeric)<>(o->>'eggs')::numeric
+          OR trunc((o->>'boxes')::numeric)<>(o->>'boxes')::numeric OR mod((o->>'eggs')::numeric,NULLIF((o->>'boxes')::numeric,0))<>0)
+          OR (SELECT sum((o->>'eggs')::numeric) FROM jsonb_array_elements(outputs) o) IS DISTINCT FROM (rec->>'total_eggs')::numeric
+          OR (SELECT sum((o->>'boxes')::numeric) FROM jsonb_array_elements(outputs) o) IS DISTINCT FROM (rec->>'total_boxes')::numeric THEN RETURN fallback; END IF;
         SELECT COALESCE(jsonb_agg(x),'[]') INTO inbound FROM jsonb_array_elements(ledger) x WHERE x->>'change_type'='PACKAGING_INBOUND';
         IF receipt IS NOT NULL THEN
           groups:=receipt->'groups';

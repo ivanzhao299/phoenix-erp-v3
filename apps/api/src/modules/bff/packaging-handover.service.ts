@@ -120,6 +120,7 @@ export class PackagingHandoverService {
         if(box.id!==body.boxId||!['SCANNER','MANUAL'].includes(body.method))throw new BadRequestException('INVALID_BOX_SET');
         const [session]=await db.query(`SELECT * FROM pkg_packing_events WHERE id=$1 AND packing_id=$2 AND event_type='VERIFICATION_SESSION' AND actor_id=$3`,[uuid(body.sessionId),r.id,actor]);
         if(!session||session.payload.targetRevision!==d.revision||session.payload.purpose!==body.purpose||Date.parse(session.payload.expiresAt)<=Date.now())throw new ConflictException('VERIFICATION_EXPIRED');
+        if((await db.query(`SELECT 1 FROM pkg_packing_events WHERE session_id=$1 AND box_id=$2 AND event_type='BOX_VERIFIED' AND payload->>'purpose'=$3`,[session.id,box.id,body.purpose])).length)throw new ConflictException('BOX_ALREADY_VERIFIED');
         eventId=await emit('BOX_VERIFIED',{purpose:body.purpose,method:body.method,labelCode:body.labelCode,targetRevision:d.revision},box.id,session.id);
       }else if(action==='PRINT'){
         const box=await this.boxes.resolve(db,r.id,body.labelCode);

@@ -25,7 +25,7 @@ export function completePackingSources(record:any):boolean {
 /** Original posting and current availability are independent. This never repairs evidence. */
 export function packingEvidence(record: any, batches: any[], ledger: any[], handovers: any[], receipt?: any) {
   const outputs = originalOutputs(record);
-  const pending = !batches.length && !ledger.length && !handovers.length;
+  const pending = !batches.length && !ledger.length && !handovers.length && !receipt;
   const state = pending ? 'PENDING' : handovers.length ? 'HANDOVER_ONLY' : 'INVENTORY_ONLY';
   const invalid = (issue: string) => ({ state, quality: 'UNKNOWN', postingQuality: 'UNKNOWN', currentInventoryQuality: 'UNKNOWN', issues: [issue] });
   if (!outputs) return invalid('原产出数量或结构无法核实');

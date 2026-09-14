@@ -1,3 +1,4 @@
+import {packingEvidence} from './packaging-evidence.service';
 import {TraceabilityService} from '../traceability/traceability.service';
 import {DataSource} from 'typeorm';
 import {randomUUID} from 'crypto';
@@ -74,7 +75,7 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
  it('different concurrent keys still post only once',async()=>{const body=await prepare();const results=await Promise.allSettled([1,2].map(()=>workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req)));expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});});
  it.each(['inv_ledger','pkg_handover_records'])('rolls back every inventory group and operation when %s insert fails',async table=>{
    const body=await prepare(),name='test_fail_'+randomUUID().replace(/-/g,'');
-   await ds.query(`CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.${table==='inv_ledger'?'ref_no':'packing_code'}='${f.prefix}' THEN RAISE EXCEPTION 'TEST_INJECTED_FAILURE'; END IF; RETURN NEW; END $$`);
+   await ds.query(`CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.${table==='inv_ledger'?'ref_no':'packing_code'}='${f.prefix}' ${table==='inv_ledger'?"AND NEW.sku_code='"+f.prefix+"-SKU20'":''} THEN RAISE EXCEPTION 'TEST_INJECTED_FAILURE'; END IF; RETURN NEW; END $$`);
    await ds.query(`CREATE TRIGGER ${name} BEFORE INSERT ON ${table} FOR EACH ROW EXECUTE FUNCTION ${name}()`);
    try{await expect(workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req)).rejects.toThrow('TEST_INJECTED_FAILURE');expect(await counts()).toEqual({batches:0,ledger:0,handovers:0});expect((await ds.query(`SELECT count(*)::int n FROM pkg_packing_operations WHERE packing_id=$1 AND action='CONFIRM'`,[f.packingId]))[0].n).toBe(0);}
    finally{await ds.query(`DROP TRIGGER ${name} ON ${table}`);await ds.query(`DROP FUNCTION ${name}()`);}
@@ -113,9 +114,9 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
  });
 
  it('SQL keyset preserves exact count, bound filters and stable tie ordering',async()=>{
-   await ds.query(`INSERT INTO pkg_packing_records(code,shift_id,production_date,batches_json,grading_codes_json,total_eggs,total_boxes) SELECT $1||'-'||n,$2,'2026-01-02',$3::jsonb,$4::jsonb,50,2 FROM generate_series(1,31) n`,[f.prefix,f.shiftId,JSON.stringify(f.outputs),JSON.stringify([f.prefix])]);
-   const first=await history.list({pageSize:'25'},f.req);expect(first.totalMatching).toBe(32);expect(first.items).toHaveLength(25);expect(first.hasMore).toBe(true);
-   const next=await history.list({pageSize:'25',cursor:first.nextCursor!},f.req);expect(next.items).toHaveLength(7);expect(next.totalMatching).toBe(32);expect(new Set([...first.items,...next.items].map(x=>x.record.id)).size).toBe(32);
+   await ds.query(`INSERT INTO pkg_packing_records(code,shift_id,production_date,batches_json,grading_codes_json,total_eggs,total_boxes) SELECT $1||'-'||n,$2,'2026-01-02',$3::jsonb,$4::jsonb,50,2 FROM generate_series(1,130) n`,[f.prefix,f.shiftId,JSON.stringify(f.outputs),JSON.stringify([f.prefix])]);
+   const first=await history.list({pageSize:'25'},f.req);expect(first.totalMatching).toBe(131);expect(first.items).toHaveLength(25);expect(first.hasMore).toBe(true);
+   const all=[...first.items];let page=first;while(page.hasMore){page=await history.list({pageSize:'25',cursor:page.nextCursor!},f.req);expect(page.totalMatching).toBe(131);all.push(...page.items);}expect(new Set(all.map(x=>x.record.id)).size).toBe(131);
    await expect(history.list({pageSize:'50',cursor:first.nextCursor!},f.req)).rejects.toThrow('INVALID_FILTER');
    const cursor=JSON.parse(Buffer.from(first.nextCursor!,'base64url').toString());cursor.lastId='1';await expect(history.list({cursor:Buffer.from(JSON.stringify(cursor)).toString('base64url')},f.req)).rejects.toThrow('INVALID_FILTER');
  });
@@ -132,6 +133,42 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
    const first=await workflow.compatConfirm(body,req);expect(first.receiptState).toBe('RECORDED');
    policy.get=()=>({version:'CLOSED',R:false,B:false,P:false,V:false,H:false,Q:false,encodingVersion:null,receiptMode:'C'});
    expect(await workflow.compatConfirm(body,req)).toEqual(first);expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});
+ });
+
+ it('duplicate box scanning through a different key gives 409 instead of counting twice',async()=>{
+   await register();const d=await workflow.detail(f.prefix,f.req),session=await command('SESSION',{purpose:'HANDOVER'}),box=d.boxes[0];
+   const body={boxId:box.boxId,labelCode:box.labels[0].code,purpose:'HANDOVER',method:'SCANNER',sessionId:session.eventId};
+   await command('SCAN',body);await expect(command('SCAN',body)).rejects.toMatchObject({status:409});
+ });
+
+ it('DAY sums two authorized shifts while SHIFT stays exact and VOID is separate',async()=>{
+   const other=await packingHistoryFixture(ds);await ds.query('UPDATE pkg_work_shifts SET site_id=$2 WHERE id=$1',[other.shiftId,f.farm]);await ds.query('UPDATE brd_houses SET farm_code=$2 WHERE house_code=$1',[other.house,f.farm]);
+   const q={dateFrom:'2026-01-02',dateTo:'2026-01-02',aggregation:'DAY'};
+   expect(await history.summary(q,f.req)).toMatchObject({totalEggs:100,totalBoxes:4,gradingEggs:100});
+   expect(await history.summary({...q,aggregation:'SHIFT',shiftId:f.shiftId},f.req)).toMatchObject({totalEggs:50,totalBoxes:2});
+   await ds.query(`UPDATE pkg_packing_records SET status='VOID' WHERE id=$1`,[other.packingId]);expect(await history.summary(q,f.req)).toMatchObject({totalEggs:50,totalBoxes:2,voidCount:1});
+ });
+ it('registers 101 boxes with distinct stable canonical identities',async()=>{
+   const output={...f.outputs[0],boxes:101,eggs:3030};await ds.query('UPDATE pkg_packing_records SET batches_json=$2,total_boxes=101,total_eggs=3030 WHERE id=$1',[f.packingId,JSON.stringify([output])]);
+   await ds.query('UPDATE pkg_source_batches SET received_qty=3030 WHERE batch_code=$1',[f.prefix]);await ds.query('UPDATE pkg_grading_records SET total_output=3030 WHERE code=$1',[f.prefix]);
+   await command('REGISTER',{registrationKind:'FIRST_LABEL_CONFIRMED',reason:'TEST 101 boxes',items:Array.from({length:101},(_,i)=>({outputOrdinal:0,boxOrdinal:i+1,declaration:'TEST'}))});
+   const d=await workflow.detail(f.prefix,f.req);expect(d.boxes).toHaveLength(101);expect(new Set(d.boxes.flatMap((b:any)=>b.labels.map((l:any)=>l.code))).size).toBe(101);
+ });
+
+ it('an orphaned immutable receipt never makes an empty record writable PENDING',async()=>{
+   const [r]=await history.rows(f.scope,ds.manager,f.prefix),receipt={originalHash:'TEST'};
+   expect(packingEvidence(r,[],[],[],receipt)).toMatchObject({state:'INVENTORY_ONLY',quality:'UNKNOWN'});
+   const [sql]=await ds.query(`SELECT packing_posting_state($1::jsonb,'[]','[]','[]',$2::jsonb) state`,[JSON.stringify(r),JSON.stringify(receipt)]);expect(sql.state).toBe('INVENTORY_ONLY');
+ });
+
+ it('equal totals with a wrong original ledger SKU are partial, never a new posting',async()=>{
+   const body=await prepare();await workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req);await ds.query('UPDATE inv_ledger SET sku_code=$2 WHERE ref_no=$1 AND qty_change=30',[f.prefix,f.outputs[1].skuCode]);
+   expect((await workflow.detail(f.prefix,f.req)).handover).toMatchObject({state:'HANDOVER_ONLY',quality:'UNKNOWN'});
+   await expect(workflow.command('CONFIRM',f.prefix,randomUUID(),body,f.req)).rejects.toThrow('EVIDENCE_PARTIAL');expect(await counts()).toEqual({batches:2,ledger:2,handovers:1});
+ });
+ it('TEMP aggregate mode is explicitly read-only and does not allocate or fill',async()=>{
+   await ds.query(`UPDATE inv_source_mode SET mode='TEMP_PRODUCTION_INBOUND' WHERE scope_level='SITE' AND scope_code=$1`,[f.farm]);
+   const d=await workflow.detail(f.prefix,f.req);expect(d.actions.confirm.allowed).toBe(false);expect(d.inventory.mode).toBe('TEMP_PRODUCTION_INBOUND');await expect(register()).rejects.toThrow('EVIDENCE_PARTIAL');expect(await counts()).toEqual({batches:0,ledger:0,handovers:0});
  });
 
 });
