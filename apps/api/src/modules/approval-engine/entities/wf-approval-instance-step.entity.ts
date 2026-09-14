@@ -18,19 +18,19 @@ export class WfApprovalInstanceStepEntity {
   @Column({ name: 'step_no' })
   stepNo: number;
 
-  @Column({ name: 'approver_role', nullable: true })
+  @Column({ name: 'approver_role', type: 'varchar', length: 255, nullable: true })
   approverRole: string;
 
   @Column({ name: 'approver_user_id', type: 'bigint', nullable: true })
   approverUserId: string | null;
 
-  @Column({ name: 'approver_name', nullable: true })
+  @Column({ name: 'approver_name', type: 'varchar', length: 255, nullable: true })
   approverName: string;
 
-  @Column({ default: 'PENDING' })
+  @Column({ type: 'varchar', length: 255, default: 'PENDING' })
   status: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   action: string;
 
   @Column({ type: 'text', nullable: true })

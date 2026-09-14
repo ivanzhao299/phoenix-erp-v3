@@ -13,16 +13,16 @@ export class WfApprovalRuleStepEntity {
   @Column({ name: 'step_no' })
   stepNo: number;
 
-  @Column({ name: 'approver_type', default: 'ROLE' })
+  @Column({ name: 'approver_type', type: 'varchar', length: 255, default: 'ROLE' })
   approverType: string;
 
-  @Column({ name: 'approver_role', nullable: true })
+  @Column({ name: 'approver_role', type: 'varchar', length: 255, nullable: true })
   approverRole: string;
 
   @Column({ name: 'approver_user_id', type: 'bigint', nullable: true })
   approverUserId: string | null;
 
-  @Column({ name: 'org_scope', nullable: true })
+  @Column({ name: 'org_scope', type: 'varchar', length: 255, nullable: true })
   orgScope: string;
 
   @Column({ name: 'required_approval_count', default: 1 })

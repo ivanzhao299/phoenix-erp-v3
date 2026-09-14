@@ -1,6 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, Unique, Check } from 'typeorm';
 
 @Entity('wf_approval_instances')
+@Check('ck_wf_inst_sales_trigger_codes', `biz_type <> 'SALES_ORDER' OR trigger_codes <@ ARRAY['BELOW_FLOOR_PRICE','CREDIT_OVER_LIMIT']::text[]`)
+// Native GIN is owned by AddSalesOrderApprovalContext; retain it, never replace it with a btree.
+@Index('idx_wf_inst_trigger_codes', { synchronize: false })
+@Unique('wf_approval_instances_instance_no_key', ['instanceNo'])
 @Index('idx_wf_inst_biz', ['bizType', 'bizId'])
 @Index('idx_wf_inst_status', ['status'])
 @Index('idx_wf_inst_module', ['moduleCode'])
@@ -12,19 +16,19 @@ export class WfApprovalInstanceEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
 
-  @Column({ name: 'instance_no', unique: true })
+  @Column({ name: 'instance_no', type: 'varchar', length: 255 })
   instanceNo: string;
 
-  @Column({ name: 'module_code' })
+  @Column({ name: 'module_code', type: 'varchar', length: 255 })
   moduleCode: string;
 
-  @Column({ name: 'biz_type' })
+  @Column({ name: 'biz_type', type: 'varchar', length: 255 })
   bizType: string;
 
   @Column({ name: 'biz_id', type: 'bigint' })
   bizId: string;
 
-  @Column({ name: 'biz_no', nullable: true })
+  @Column({ name: 'biz_no', type: 'varchar', length: 255, nullable: true })
   bizNo: string;
 
   @Column({ name: 'rule_id', type: 'bigint', nullable: true })
@@ -36,7 +40,7 @@ export class WfApprovalInstanceEntity {
   @Column({ name: 'current_step_no', default: 1 })
   currentStepNo: number;
 
-  @Column({ default: 'PENDING' })
+  @Column({ type: 'varchar', length: 255, default: 'PENDING' })
   status: string;
 
   @Column({ name: 'started_by', type: 'bigint', nullable: true })
