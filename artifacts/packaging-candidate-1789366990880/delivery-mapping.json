@@ -1,0 +1,66 @@
+{
+  "capturedAt": "2026-09-14T06:25:14.806560+00:00",
+  "codeCommit": "fffbc0bd6fe2c968f1d4620a1aa4bb42549cf6df",
+  "testedHEAD": "64c92f389ba923c5a6954ceb603303d2c55f539c",
+  "finalCommitFilesMatchTestedDirtyFiles": {
+    ".github/workflows/deploy.yml": true,
+    "scripts/check-entity-drift-baseline.sh": true,
+    "scripts/check-entity-schema.sh": true,
+    "scripts/deploy-schema-first.sh": true,
+    "scripts/packaging-history-compatibility/deploy-test.cjs": true,
+    "scripts/packaging-history-compatibility/candidate-test.cjs": true
+  },
+  "shell": {
+    "evidence": "artifacts/packaging-deploy-gates-1789366990119/results.json",
+    "exit": 0,
+    "cases": 20
+  },
+  "candidate": {
+    "evidence": "artifacts/packaging-candidate-1789366990880/results.json",
+    "exit": 0
+  },
+  "applicationDiffFromB7": "",
+  "baselineDiff": "",
+  "main": "69d89dd44b8e1461d7eaf5193e60c994255aed2c",
+  "originMainLocalTrackingOnly": "69d89dd44b8e1461d7eaf5193e60c994255aed2c",
+  "portsListening": {
+    "55437": false,
+    "55438": false
+  },
+  "retainedContainers": [
+    "packaging-history-candidate-pg-55438-1789366990880\tExited (0) About a minute ago",
+    "packaging-history-candidate-pg-55437-1789366990880\tExited (0) About a minute ago",
+    "packaging-history-candidate-pg-55438-1789366801706\tExited (0) 5 minutes ago",
+    "packaging-history-candidate-pg-55437-1789366801706\tExited (0) 5 minutes ago",
+    "packaging-history-candidate-pg-55438-1789366708746\tExited (0) 6 minutes ago",
+    "packaging-history-candidate-pg-55437-1789366708746\tExited (0) 6 minutes ago",
+    "packaging-history-candidate-pg-55438-1789366629586\tExited (0) 7 minutes ago",
+    "packaging-history-candidate-pg-55437-1789366629586\tExited (0) 7 minutes ago",
+    "packaging-history-candidate-pg-55437-1789366529544\tExited (0) 9 minutes ago",
+    "packaging-entity-candidate-1789366990880\tExited (1) About a minute ago",
+    "packaging-entity-candidate-1789366801706\tExited (1) 5 minutes ago",
+    "packaging-entity-candidate-1789366708746\tExited (1) 6 minutes ago",
+    "packaging-entity-candidate-1789366629586\tExited (1) 7 minutes ago",
+    "phoenix-migrate-schema-first-o98pdfcu-show\tExited (0) About a minute ago",
+    "phoenix-migrate-schema-first-o98pdfcu\tExited (0) About a minute ago",
+    "phoenix-migrate-schema-first-qppjaztt-show\tExited (0) About a minute ago",
+    "phoenix-migrate-schema-first-qppjaztt\tExited (0) About a minute ago",
+    "phoenix-migrate-schema-first-sp5jhdcc-show\tExited (0) 5 minutes ago",
+    "phoenix-migrate-schema-first-sp5jhdcc\tExited (0) 5 minutes ago",
+    "phoenix-migrate-schema-first-zdg3vczc-show\tExited (0) 5 minutes ago",
+    "phoenix-migrate-schema-first-zdg3vczc\tExited (0) 5 minutes ago",
+    "phoenix-migrate-schema-first-rhw68b1q-show\tExited (0) 6 minutes ago",
+    "phoenix-migrate-schema-first-rhw68b1q\tExited (0) 6 minutes ago",
+    "phoenix-migrate-schema-first-xnxdjkw9-show\tExited (0) 6 minutes ago",
+    "phoenix-migrate-schema-first-xnxdjkw9\tExited (0) 6 minutes ago",
+    "phoenix-migrate-schema-first-mg4f6cgm-show\tExited (0) 7 minutes ago",
+    "phoenix-migrate-schema-first-mg4f6cgm\tExited (0) 7 minutes ago",
+    "phoenix-migrate-schema-first-uktyfsw3-show\tExited (0) 7 minutes ago",
+    "phoenix-migrate-schema-first-uktyfsw3\tExited (0) 8 minutes ago",
+    "phoenix-migrate-schema-first-8uctbgdu\tExited (1) 9 minutes ago",
+    "packaging-candidate-path-probe-26\tExited (0) 8 minutes ago"
+  ],
+  "activeTaskProcesses": [],
+  "pushExecuted": false,
+  "productionAccessed": false
+}

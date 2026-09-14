@@ -66,3 +66,13 @@ WEB_IMAGE="$CANDIDATE_WEB_IMAGE" docker compose up -d --no-deps --wait web
 迁移失败且事务all回滚：保持旧API、写维护门禁和备份，不切新API，不自动无限重试。排查后才能重新执行候选迁移。若迁移已成功、后续API/Web失败：回退固定旧镜像并**保留83 schema与所有事件**。deploy.yml662–714自身也是镜像/代码回退，不自动恢复DB；保留模式使用switch而非默认hard reset，但仍需审定目录与镜像，不执行破坏性历史操作。
 
 严禁对已有events/boxes/claims/operations的库执行down。旧镜像读兼容只覆盖本次9个GET，启动初始化写均被只读角色拒绝；业务写回退仍需维护门禁。数据库灾难恢复是人工独立流程：保留事故库、备份之后新增事件及外部实物事实，另库restore、校验表/序列/事件及增量归并，审定切换；不能自动把在线DB覆盖到备份时间点而丢掉签收事件。
+
+## review24–26 后发授权下的本地部署修复（覆盖此前“仅计划、未改workflow”限制）
+
+用户本轮明确要求最小实际修复；现已修改workflow及可测试辅助脚本，仍未push/deploy/生产访问。正常API发布强制 `export PRESERVE_ARTIFACTS=true`，保留dirty门禁与原备份链；拉取本次 `sha-${TARGET_SHA}` API镜像，不依赖可变latest。`scripts/deploy-schema-first.sh <专属证据父目录> <明确候选镜像引用>` 将候选固定为本地镜像ID，使用同ID执行独立migration:run（transaction all、lock_timeout5s、statement_timeout120s）及migration:show。
+
+runner不启动AppModule、不发布端口、不启动依赖、覆盖chown入口、使用phoenix用户；退出容器及日志均保留。show必须存在已执行标记且没有待执行标记，否则失败。成功输出固定镜像ID供随后API up使用；迁移或核验失败则不切新API/Web。`API_SWITCH_STARTED`只有成功核验后才置true，提前失败时旧API不因rollback被重启；捕获候选输出的子shell取消继承ERR trap，使失败只交给外层原rollback一次，退出码仍传播。已有DB/events不down、备份非自动DB覆盖恢复的原则不变。
+
+CI现调用 `scripts/check-entity-schema.sh`，使用新建唯一目录、固定本次timestamp文件名，没有/tmp旧glob，也不删除diff后再计数。普通TypeORM generate模式：exit0+准确成功行+实际文件才进入300门禁；exit1+准确no-changes全文+无artifact+空stderr才允许合法0；异常、缺文件、空artifact、误导日志或部分文件加错误退出均fail closed。stdout/stderr独立保留，PG弃用警告不能冒充成功或零变化。workflow在失败后仍上传本次CI证据（此上传步骤仅代码，未执行）。300未改，真实393仍应阻断正常发布；本地通过的是门禁行为测试，不是把实际schema门禁改绿。
+
+此次真实容器演练使用本地既有Node22 bookworm构建的专属候选测试镜像与前轮已编译dist，证明命令路径/非root执行/PG18迁移/验证流程；**不是正式Node20 Alpine Dockerfile构建或发布验证**。前轮本地API/Web正式build0仍有效，但不将两种镜像环境混称。上线前仍需正常CI成功、审定正式候选镜像、维护写门禁和父级证据复核；原393漂移未在本轮大范围治理，不得绕过硬门禁。

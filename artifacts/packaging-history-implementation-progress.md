@@ -295,3 +295,17 @@ P1/P2/P3-M 后端收口：最新 api-tsc exit0；PG18+HTTP 39 pass/0 skip/0 fail
 ### 构建追加纠正 2026-09-14T06:08Z
 
 公开字体通过现有正常网络环境curl HTTP200，证明早先网络失败源于harness删代理环境，不能当不可恢复外部限制。只继承标准现有代理/CA环境（不输出值、不改配置）后，用ff9d6422固定源码新副本重跑：API Nest build0、stamp0、Web默认Turbopack next build0。证据artifacts/packaging-history-build-1789366018190/results.json及output-inspection.json；应用与c6无差异、harness前后相同。API dist/main/两迁移、Web BUILD_ID/manifests/standalone均实存。旧失败保留，当前Web正式build缺口关闭；原entity/scope仍红灯，不宣称发布获准。构建进程已正常退出，未重新启动API/DB/Web服务。
+
+### review26 实际本地修复开始
+
+新增授权覆盖仅计划限制。本轮最小修改deploy.yml+两个可测试脚本：明确本次entity生成文件/正常无变化/异常分支，缺文件fail closed且300不动；候选镜像ID固定、一次性migration run/show先行，失败不up API/Web，API模式强制保留证据。16项真实shell行为测试已通过，包括真实393输入仍exit1、299/300、known-zero、missing、异常、旧artifact与迁移失败/验证失败/待执行项拒绝。准备本地现有Node22镜像candidate迁移验证；无Node20本地基础镜像，不称Node20正式镜像验证。
+
+### review24–26 收尾
+
+- [x] 最小实际CI/schema-first修复，local64c92f38；fffbc0bd补外层ERR只处理一次，提前失败不重启旧API。
+- [x] 最新20项shell行为exit0（12 gate +5顺序/失败 +2 rollback条件 +1保留模式），实际执行workflow相关片段，Docker调用为明确模拟。
+- [x] 候选镜像真实PG18.6：81→83，另83重跑1536事件count/digest不变；真实generator exit0生成393，新gate exit1（仍阻断发布），集成断言runner exit0。
+- [x] 最新证据packaging-deploy-gates-1789366990119、packaging-candidate-1789366990880；共同workflow/scripts前后指纹一致，fffbc0bd Git对象与测试HEAD64c92f38+dirty逐文件一致。应用不变，原测试/前轮build0不追认新SHA。
+- [x] Bash/YAML/diff检查3命令exit0，单独实时fingerprint；无阈值/allowlist/entity大治理。
+- [x] 所有本轮专属PG/one-off/generator/probe退出、55437/55438无监听、活动测试进程0；容器/镜像/fixture/失败保留，不清理。
+- 发布仍待父级复核；真实393>300、旧scope红灯未解除；Node22专属candidate不是正式Node20 Alpine镜像验证。未push/deploy/生产访问/开flag。

@@ -408,3 +408,31 @@ PG实际18.6（180006），仅127.0.0.1:55432/55434的本任务原83/81库与554
 此轮archive的应用源码与c6完全一致；harness before/after相同、HEAD before/after均ff9d6422，具体archive SHA见results。原18组测试仍原映射；这次新增的是**API/Web正式构建完成证据**，不意味着重跑了全部unit/PG/browser或验证了Node20候选Docker镜像。review24的本地正式构建项现关闭；当前整体partial只保留原entity/scope红灯、实际CI/发布前复核与物理L4边界，**Web构建不再是缺口**。
 
 本轮local commits：defce427（兼容/恢复harness与证据）、ff9d6422（发布计划/报告）、随后构建网络harness修正与本节证据提交（具体SHA见最终交付），均未push。没有应用/迁移/workflow变更，因此不触发新的空库迁移重建；既有全链/事务证据仍绑定原源码。
+
+## review24–26：已授权最小部署/CI修复实交付
+
+本轮后发授权明确覆盖此前“只写计划”。起点b7d1a6d0，tracked clean；唯一CLI、无代理；仅workflow/门禁/迁移辅助脚本、隔离测试及证据文档。没有修改应用源码、TS迁移、entity、300阈值、allowlist、secret、全局配置或hook；无push/deploy/生产访问。
+
+### 实际改动
+
+- deploy.yml的API镜像使用本次 `sha-${TARGET_SHA}` 标签拉取，解析成固定镜像ID后先由专属one-off容器执行TypeORM迁移及show核验，再用同ID up API，随后Web。旧API在此之前不切换、不重启。
+- API模式强制export PRESERVE_ARTIFACTS=true；现有dirty拒绝门禁保留，不清旧证据/备份。迁移失败或show异常/空清单/仍有pending均失败；旧API未切换时rollback不重新up旧API。命令替换内去除继承的ERR trap，仅外层处理一次失败，未吞退出码。
+- `scripts/deploy-schema-first.sh` 只执行候选迁移与核验；不启动Nest、cron、生产写接口或依赖；不down、不清理退出容器，事件库不回滚到旧schema。Compose `config --images api`实测会包括db依赖，已避免以这种多镜像输出选候选，改为调用方明确传入候选引用。
+- `scripts/check-entity-schema.sh` 按实际安装TypeORM0.3.29普通generate语义判定：正常生成exit0，精确本次文件及成功行匹配后计数；no-changes是exit1，仅明确全文、无文件、stderr空可合法0。真正异常、缺文件、空文件、部分artifact伴随exit1、误导no-changes文本都拒绝。独立stdout/stderr日志保留，不使用 `|| true`，不使用旧/tmp glob。
+- `scripts/check-entity-drift-baseline.sh`要求明确现存非软链artifact、合法up/down结构、非空query数及有效baseline；直接缺文件不能返回0。workflow已去掉gate前删除diff漏洞，并保留/上传当前run的CI证据（本地未运行上传）。
+
+### 实测和数量口径
+
+`node scripts/packaging-history-compatibility/deploy-test.cjs` 实际exit0，**20项shell行为测试**：12项gate行为（393拒绝、299/300接受、明确合法0、missing、异常、误导日志、partial artifact错误、stale无污染、直接missing、空artifact、原真实393文件）+5项实际workflow切换片段的Docker命令模拟（成功/迁移失败/show失败/pending/空show）+2项实际rollback API条件片段+1项preserve拒绝。失败路径外层ERR trap恰好一次；这20项不是20个真实Docker/HTTP业务测试。
+
+另实际执行本地Docker候选集成：恢复81基线到专属PG18.6库，one-off候选迁移两条至83并show通过；独立恢复83库1536事件，重跑迁移/show后事件count及聚合摘要完全不变。固定候选镜像ID `sha256:7fd44301b76236acfa60e1274415f2ffbb565e1ef6f056ddaa5ecd37b1af9605`；仅localhost55437/55438、packaging_history_test。真实TypeORM generator exit0产生当前393条artifact，新门禁实际exit1，300保持不变。整体集成runner把这个**预期拒绝**作为断言，不将真实CI门禁称PASS。
+
+Bash语法检查、workflow YAML解析、git diff --check均exit0。最新shell与candidate结果各记录当时HEAD、workflow/全部本次门禁脚本逐文件SHA256及dirty diff、before/after；两组共同脚本指纹一致。原应用80 PG/HTTP、65 Web/27浏览器harness及其余18组仍绑定原测试revision；本轮应用未变，未重跑/追认。前轮API/Web正式build0保持，现候选仅Node22 bookworm测试镜像，并非正式Node20 Alpine镜像构建；未假称已验证生产镜像。
+
+失败/修正保留：首候选镜像dist归属root且子目录700，phoenix用户读不到data-source，迁移exit1；专属镜像COPY归属修正后重跑（未改正式Dockerfile）。随后真实pg驱动弃用warning与成功stdout混流使严格门禁拒绝，改为分存stdout/stderr后重测，异常退出仍失败。早期16/17项行为测试及中间有效候选结果全部保留，以最新20项及同workflow指纹的candidate结果作为交付，不追认旧测试在新SHA发生。
+
+review24：前轮正式本地build0与85unit精确套件继续有效；Node20正式候选镜像未验证。review25：schema-first现已实际本地实现并经shell/候选容器验证，事件保全及提前失败不切API。review26：CI漏洞实际修复、missing fail closed、生成器分流、stale隔离及393真实拒绝均验。**原entity393>300与旧scope红灯仍未解除，整体发布前待审，不是发布获准。**
+
+本轮提交映射：`64c92f38`为schema-first/CI真门禁及候选测试；`fffbc0bd6fe2c968f1d4620a1aa4bb42549cf6df`补单次外层失败回滚及重验。最新20项shell证据 `artifacts/packaging-deploy-gates-1789366990119/results.json`，最新真实候选证据 `artifacts/packaging-candidate-1789366990880/results.json`，均exit0；当时HEAD64c92f38加记录的dirty文件是实际被测源码，不称测试发生在fffbc0bd。随后逐文件比对fffbc0bd的Git对象与两份测试before SHA完全相等，记录于同目录 `delivery-mapping.json`；workflow/脚本共同部分也完全同指纹。
+
+`syntax-checks.json`另记录fffbc0bd上Bash语法/YAML解析/diff检查3命令exit0与实时前后指纹，不计入20项行为测试。应用/迁移相对b7d1a6d0无diff，baseline文件无diff；main及本地origin/main仍69d89dd4，无联网查远端/无push。所有本轮PG、候选one-off、generator、路径探针容器均已退出，55437/55438无监听、专属artifact目录活动进程0；容器/镜像/fixture/失败日志均保留。最终文档提交仅更新报告/映射，不重写代码提交历史。

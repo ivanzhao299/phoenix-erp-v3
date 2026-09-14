@@ -1,0 +1,48 @@
+{
+  "before": {
+    "head": "fffbc0bd6fe2c968f1d4620a1aa4bb42549cf6df",
+    "sha256": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549"
+    }
+  },
+  "runs": [
+    {
+      "command": [
+        "bash",
+        "-n",
+        "scripts/check-entity-schema.sh",
+        "scripts/check-entity-drift-baseline.sh",
+        "scripts/deploy-schema-first.sh"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "python3",
+        "-c",
+        "import yaml; assert 'jobs' in yaml.safe_load(open('.github/workflows/deploy.yml'))"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0
+    }
+  ],
+  "after": {
+    "head": "fffbc0bd6fe2c968f1d4620a1aa4bb42549cf6df",
+    "sha256": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549"
+    }
+  }
+}
