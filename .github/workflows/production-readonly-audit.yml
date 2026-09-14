@@ -82,7 +82,11 @@ jobs:
             set -euo pipefail
             exec 2>&1
             echo 'AUDIT_STAGE=DEPLOY_DIRECTORY'
-            if ! cd "$DEPLOY_PATH" 2>/dev/null; then
+            audit_deploy_path="$DEPLOY_PATH"
+            case "$audit_deploy_path" in
+              '~/'*) audit_deploy_path="$HOME/${audit_deploy_path#\~/}" ;;
+            esac
+            if ! cd "$audit_deploy_path" 2>/dev/null; then
               echo 'FAIL AUDIT_STAGE=DEPLOY_DIRECTORY exit=2'
               exit 2
             fi
