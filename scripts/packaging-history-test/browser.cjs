@@ -3,6 +3,11 @@ const root=path.resolve(__dirname,'../..');process.env.NODE_ENV='test';
 const ts=require(root+'/apps/api/node_modules/typescript');
 require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,experimentalDecorators:true,emitDecoratorMetadata:true}}).outputText,f);
 const {DataSource}=require(root+'/apps/api/node_modules/typeorm');
+// Optional local transport adapter for Docker daemon and CLI in separate network namespaces.
+// It forwards real requests to the real isolated API, never fabricates a response.
+function localFetchOptions(route){const u=new URL(route.request().url());if(process.env.PACKAGING_BROWSER_API_PROXY==='1'&&u.port==='3000'&&u.pathname.startsWith('/api/')){u.port='3100';return {url:u.href};}return {};}
+async function localRoute(route){const u=new URL(route.request().url());try{if(!['127.0.0.1','localhost'].includes(u.hostname))return await route.abort();const options=localFetchOptions(route);if(options.url){if(u.pathname==='/api/notifications/stream')return await route.abort();return await route.fulfill({response:await route.fetch(options)});}return await route.continue();}catch(e){console.log('LOCAL_TRANSPORT_FAILED',u.pathname,e.name);try{await route.abort();}catch{}}}
+
 const {chromium,expect}=require(root+'/apps/web/node_modules/@playwright/test');
 const bcrypt=require(root+'/apps/api/node_modules/bcrypt');
 let activeDs;
@@ -19,13 +24,14 @@ let activeDs;
  const session=await login.json();if(!session.token)throw Error('ISOLATED_LOGIN_FAILED '+login.status);
  const browser=await chromium.launch({executablePath:path.join(root,'artifacts/packaging-history-local/browser-runtime/chrome-headless-shell-linux64/chrome-headless-shell'),headless:true,args:['--no-sandbox']});
  let passed=0,currentPage;const checks=[];
- const check=async(name,fn)=>{try{await fn();}catch(e){console.log('FAILED_CHECK',name,'PAGE',currentPage?.url(),'ALERTS',currentPage?await currentPage.locator('[role=alert]').allTextContents():[]);throw e;}passed++;checks.push(name);console.log('PASS',name);};
+ const check=async(name,fn)=>{try{await fn();}catch(e){let alerts=[];try{if(currentPage)alerts=await currentPage.locator('[role=alert]').allTextContents();}catch{}console.log('FAILED_CHECK',name,'PAGE',currentPage?.url(),'ALERTS',alerts,'CAUSE',String(e.message).replace(/eyJ[A-Za-z0-9_.-]+/g,'[REDACTED]').slice(0,1000));throw e;}passed++;checks.push(name);console.log('PASS',name);};
  try{
  const context=await browser.newContext({timezoneId:'Asia/Vientiane',viewport:{width:1400,height:1000}});
- await context.route('**/*',route=>{const u=new URL(route.request().url());return ['127.0.0.1','localhost'].includes(u.hostname)?route.continue():route.abort();});
+ await context.route('**/*',localRoute);
  await context.addCookies([{name:'phoenix_access_token',value:session.cookie_token,url:'http://127.0.0.1:3000'}]);
  await context.addInitScript(s=>{sessionStorage.setItem('phoenix_session_version','v6');sessionStorage.setItem('phoenix_token',s.token);sessionStorage.setItem('phoenix_user',JSON.stringify(s.user_info));localStorage.setItem('phoenix_token',s.token);localStorage.setItem('phoenix_user',JSON.stringify(s.user_info));window.print=()=>{};},session);
  const page=await context.newPage();currentPage=page;page.setDefaultTimeout(45000);
+ const enterTerminal=async()=>{if(process.env.PACKAGING_BROWSER_API_PROXY!=='1')return;await page.waitForFunction(()=>!!document.fullscreenElement||/点击屏幕继续|点击开始/.test(document.body.innerText));const start=page.getByText(/^(点击屏幕继续|点击开始)$/);if(await start.isVisible())await start.click();};
  const getDetail=async()=>{const r=await fetch('http://127.0.0.1:3100/api/packaging/terminal/history/'+fixture.prefix,{headers:{Authorization:'Bearer '+session.token}});const j=await r.json();if(r.status!==200)throw Error('DETAIL_HTTP_'+r.status);return j.data;};
  await check('history exact original -> CLOSED detail',async()=>{await page.goto('http://127.0.0.1:3000/packaging/history');await page.getByLabel('完整原单号').fill(fixture.prefix);await page.getByRole('button',{name:'查询',exact:true}).click();await page.getByRole('link',{name:fixture.prefix,exact:true}).click();await expect(page.getByRole('heading',{name:fixture.prefix,exact:true})).toBeVisible();await expect(page.getByText('原班次已关闭；此原单可在证据满足时继续标签与交接。')).toBeVisible();});
  await check('hard refresh and new tab recover same original date',async()=>{await page.reload();await expect(page.getByRole('heading',{name:fixture.prefix,exact:true})).toBeVisible();const second=await context.newPage();await second.goto(page.url());await expect(second.getByText(/原生产日 2026-01-02/)).toBeVisible();await second.close();});
@@ -83,7 +89,7 @@ let activeDs;
  });
  await check('D1-C unknown commit survives refresh and resolves without replay',async()=>{
    let completed;const committedResponse=new Promise(resolve=>{completed=resolve;});
-   await page.route('**/warehouse/confirm',async route=>{const response=await route.fetch();const body=await response.json();await route.abort('failed');completed({status:response.status(),code:body.code,message:body.message});});
+   await page.route('**/warehouse/confirm',async route=>{const response=await route.fetch(localFetchOptions(route));const body=await response.json();await route.abort('failed');completed({status:response.status(),code:body.code,message:body.message});});
    page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'确认本单交接入库',exact:true}).click();
    const response=await committedResponse;if(response.status<200||response.status>=300)throw Error('CONFIRM_FAILED '+JSON.stringify(response));
    await expect(page.getByRole('button',{name:'查询未知提交结果'})).toBeVisible();await page.reload();
@@ -94,21 +100,21 @@ let activeDs;
  await check('daily and mobile share original-record summary',async()=>{for(const path of ['/packaging/daily-report','/mobile/packaging']){await page.goto('http://127.0.0.1:3000'+path);await page.getByLabel('原生产日',{exact:true}).fill('2026-01-02');await page.getByRole('button',{name:'查询',exact:true}).click();await expect(page.getByText(/50 枚 \/ 2 盒，作废单 0/)).toBeVisible();}});
  await check('old print URL resolves to truthful selection',async()=>{await page.goto('http://127.0.0.1:3000/packaging/label-print?qty=999');await expect(page.getByText(/旧分级参数不会生成箱码/)).toBeVisible();});
  await check('terminal original detail works without a current shift selection',async()=>{
-   await page.goto('http://127.0.0.1:3000/terminal/packaging/history/'+fixture.prefix);await expect(page.getByRole('heading',{name:fixture.prefix,exact:true})).toBeVisible();
+   await page.goto('http://127.0.0.1:3000/terminal/packaging/history/'+fixture.prefix);await enterTerminal();await expect(page.getByRole('heading',{name:fixture.prefix,exact:true})).toBeVisible();
  });
  await check('legacy terminal print URL recovers original code after CLOSED',async()=>{
-   await page.goto('http://127.0.0.1:3000/terminal/packaging/label-print?packingCode='+fixture.prefix);await expect(page.getByRole('heading',{name:fixture.prefix,exact:true})).toBeVisible();
+   await page.goto('http://127.0.0.1:3000/terminal/packaging/label-print?packingCode='+fixture.prefix);await enterTerminal();await expect(page.getByRole('heading',{name:fixture.prefix,exact:true})).toBeVisible();
  });
  await check('missing original URL leads to history selection without fabricated record',async()=>{
-   await page.goto('http://127.0.0.1:3000/terminal/packaging/warehouse-handover');await expect(page.getByRole('heading',{name:'包装历史',exact:true})).toBeVisible();
+   await page.goto('http://127.0.0.1:3000/terminal/packaging/warehouse-handover');await enterTerminal();await expect(page.getByRole('heading',{name:'包装历史',exact:true})).toBeVisible();
  });
  for(const timezoneId of ['Asia/Vientiane','Asia/Singapore','UTC','America/Los_Angeles'])await check('original DATE invariant in '+timezoneId,async()=>{
-   const zone=await browser.newContext({timezoneId});await zone.route('**/*',route=>['127.0.0.1','localhost'].includes(new URL(route.request().url()).hostname)?route.continue():route.abort());
+   const zone=await browser.newContext({timezoneId});await zone.route('**/*',localRoute);
    await zone.addCookies([{name:'phoenix_access_token',value:session.cookie_token,url:'http://127.0.0.1:3000'}]);
    await zone.addInitScript(s=>{sessionStorage.setItem('phoenix_session_version','v6');sessionStorage.setItem('phoenix_token',s.token);sessionStorage.setItem('phoenix_user',JSON.stringify(s.user_info));},session);
    const tab=await zone.newPage();await tab.goto('http://127.0.0.1:3000/packaging/history/'+fixture.prefix);await expect(tab.getByText(/原生产日 2026-01-02/)).toBeVisible();await zone.close();
  });
  await context.close();
- console.log('BROWSER_RESULT',JSON.stringify({passed,failed:0,skipped:0,checks,physicalDevice:'NOT_EXECUTED',production:'NOT_ACCESSED'}));
+ console.log('BROWSER_RESULT',JSON.stringify({passed,failed:0,skipped:0,checks,transport:process.env.PACKAGING_BROWSER_API_PROXY==='1'?'real HTTP proxy 3000/api to localhost3100 (container namespace adapter)':'normal rewrites',physicalDevice:'NOT_EXECUTED',production:'NOT_ACCESSED'}));
  }finally{await browser.close();await ds.destroy();}
 })().catch(async e=>{if(activeDs?.isInitialized)await activeDs.destroy();console.log('BROWSER_FAILED',e.name,String(e.message).replace(/eyJ[A-Za-z0-9_.-]+/g,'[REDACTED]').slice(0,1500));process.exitCode=1;});

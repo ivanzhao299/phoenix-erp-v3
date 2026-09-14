@@ -1,5 +1,6 @@
 // Official Node20 candidate migration and isolated real HTTP rehearsal; no production access.
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),crypto=require('node:crypto');
+const expectedDiff=Number(process.argv[3]);if(!Number.isSafeInteger(expectedDiff)||expectedDiff<1)throw Error('EXPLICIT_REVIEWED_DIFF_COUNT_REQUIRED');
 const root=path.resolve(__dirname,'../..'),stamp=Date.now(),dir=path.join(root,'artifacts','packaging-candidate-'+stamp);fs.mkdirSync(dir);
 const files=['.github/workflows/deploy.yml','scripts/check-entity-drift-baseline.sh','scripts/check-entity-schema.sh','scripts/deploy-schema-first.sh','scripts/entity-alignment/candidate-test.cjs','scripts/entity-alignment/candidate-http.cjs'];
 const hash=f=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');const snap=()=>({head:cp.execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),hashes:Object.fromEntries(files.map(f=>[f,hash(path.join(root,f))])),diff:cp.execFileSync('git',['diff','HEAD','--',...files],{cwd:root,encoding:'utf8'})});
@@ -26,8 +27,8 @@ const {DataSource}=require(root+'/apps/api/node_modules/typeorm');const sources=
  const generatorName='packaging-entity-node20-'+stamp,artifact='/tmp/'+stamp+'-EntityDrift.ts';
  const r=run('docker',['run','--name',generatorName,'--network','host','-e','DB_HOST=127.0.0.1','-e','DB_PORT=55438','-e','DB_USER=postgres','-e','DB_NAME=packaging_history_test','--entrypoint','./node_modules/.bin/typeorm',result.imageId,'migration:generate','/tmp/EntityDrift','-d','dist/database/data-source.js','--timestamp',String(stamp)]);result.resources.push(generatorName);ok(r);
  const generated=path.join(dir,'EntityDrift.ts');ok(run('docker',['cp',generatorName+':'+artifact,generated]));
- const gate=run('bash',[root+'/scripts/check-entity-drift-baseline.sh',root+'/.github/entity-drift-baseline.txt',generated]);if(gate.status!==0||!gate.stdout.includes('277 / baseline 300'))throw Error('ACTUAL_GATE_NOT_277');
- result.checks.push({actualGenerator:277,gateExit:gate.status,baseline:300});
+ const gate=run('bash',[root+'/scripts/check-entity-drift-baseline.sh',root+'/.github/entity-drift-baseline.txt',generated]);if(gate.status!==0||!gate.stdout.includes(expectedDiff+' / baseline 300'))throw Error('ACTUAL_GATE_COUNT_MISMATCH');
+ result.checks.push({actualGenerator:expectedDiff,gateExit:gate.status,baseline:300});
  const httpName='packaging-node20-http-'+stamp;
  const http=run('docker',['run','-i','--name',httpName,'--network','host','-e','DB_HOST=127.0.0.1','-e','DB_PORT=55438','-e','DB_USER=postgres','-e','DB_NAME=packaging_history_test','--entrypoint','node',result.imageId],{input:fs.readFileSync(root+'/scripts/entity-alignment/candidate-http.cjs')});result.resources.push(httpName);ok(http);result.checks.push({http:JSON.parse(http.stdout.trim())});
  result.exit=0;

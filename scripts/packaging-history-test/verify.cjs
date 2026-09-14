@@ -7,6 +7,7 @@ const tests=[
  ['rebuild-ts','.','node',['scripts/packaging-history-test/migrate-ts.cjs']],
  ['perf-plan','.','node',['scripts/packaging-history-test/performance.cjs','--plan']],
  ['performance','.','node',['scripts/packaging-history-test/performance.cjs']],
+ ['legacy-wms','apps/api','./node_modules/.bin/jest',['--runInBand','src/modules/wms/inventory/inventory.pg.spec.ts','src/modules/wms/inventory/inventory.service.spec.ts']],
  ['auth-approval','apps/api','./node_modules/.bin/jest',['--runInBand','entity-alignment.pg.spec.ts','jwt-rotation.spec.ts','permissions-resolver.spec.ts','permissions.service.spec.ts','approval-action-menu-gate.spec.ts','sales-order-approval-consistency.spec.ts','sales-order-approval.pg.integration.spec.ts']],
  ['api-tsc','apps/api','./node_modules/.bin/tsc',['--noEmit']],
  ['web-tsc','apps/web','./node_modules/.bin/tsc',['--noEmit']],

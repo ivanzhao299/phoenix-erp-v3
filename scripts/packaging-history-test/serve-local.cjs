@@ -17,6 +17,8 @@ require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f
 require(root+'/apps/api/node_modules/reflect-metadata');
 (async()=>{
  const {NestFactory}=require(root+'/apps/api/node_modules/@nestjs/core');
+ const {ConfigModule}=require(root+'/apps/api/node_modules/@nestjs/config'),configRoot=ConfigModule.forRoot;ConfigModule.forRoot=function(options){return configRoot.call(this,{...options,ignoreEnvFile:true});};
+ const {ScheduleModule}=require(root+'/apps/api/node_modules/@nestjs/schedule'),scheduleRoot=ScheduleModule.forRoot;ScheduleModule.forRoot=function(options){return scheduleRoot.call(this,{...options,cronJobs:false,intervals:false,timeouts:false});};
  const {AppModule}=require(root+'/apps/api/src/app.module.ts');
  const {DataSource}=require(root+'/apps/api/node_modules/typeorm');
  const app=await NestFactory.create(AppModule,{logger:false,abortOnError:false});
