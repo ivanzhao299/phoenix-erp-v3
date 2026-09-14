@@ -521,3 +521,17 @@ Review30 code commits ebdeb594 (fund common visibility), c79e0528/e57aaa2b (diag
 最终验证 2026-09-14T08:00:34.894Z：perf-plan exit=0, signal=none；日志 artifacts/packaging-history-local/verified-perf-plan-r11.log。
 最终验证 2026-09-14T08:01:11.446Z：performance exit=0, signal=none；日志 artifacts/packaging-history-local/verified-performance-r17.log。
 Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76 all28groups same before/after. Original25:24exit0 + oldscope exit1 (2printedPASS/28FAIL/1skip); additional49HTTP+15audit shell+2payments unit allpass. New official Node20 API/Web build0, candidate81→83/1536events retained/267gate0/5HTTP; browser27pass; P95all<=1s. All own services stopped ports3000/3100/55432/55434/55437/55438 closed, fixtures retained. Full report/machine index written; no push/dispatch/production this turn. Preparing docs/evidence-only local commit.
+
+## Review31 local metadata implementation — in progress
+- Actual header danger-full-access / approval never; no agents, push, dispatch or production access.
+- Enumerated every workflow trigger in review31-workflow-triggers.json. Only push branches main / w5/** / v3-admin exist; proposed audit/packaging-history-metadata matches none. PR to main still triggers CI/deploy workflow (job conditions separately apply); do not open PR as a substitute for approved execution.
+- Implemented standalone builtin Node helper, fixed readonly SQL preamble, static 83-class manifest and isolated workflow metadata branch. Role fixed phoenix_metadata_readonly; backup logical deploy-backups maps /opt/phoenix-erp-backups. Existing production role/runtime/path availability UNKNOWN; no provisioning or credential reads.
+- Formal sys_dict config_json TEXT: helper preserves actual driver representation, so configured TEXT is malformed rather than silently JSON-parsing it into a policy the app would reject. No application/schema changes.
+- Tests not yet run; this is implementation progress, not acceptance.
+
+## Review31 implementation complete (local only)
+- Commit `4d66bb96a1d7e00fb05244623639beee8fec4324`; no push/dispatch/production access. New metadata helper/SQL/manifest/workflow branch and tests only; app source/migrations unchanged.
+- `readonly-metadata.cjs` exit 0 after commit (48 assertions): actual PackagingWorkflowPolicy parity 13 cases, malformed/nested flags, schema/RLS/no_config, symlink/path and SHA/error/stderr injection, static 83 manifest, real isolated PG18 role/transaction permission failures, data+catalog digest unchanged, manifest bridge-name comparison. Container stopped; TEST fixture retained.
+- Legacy `readonly-observability.cjs` exit 0, 15 existing cases and old failure classifications preserved.
+- Node20 official API image `sha256:bb03034a91e8d2df2a7c581953e8f6ec60dab4b70809f502ad48933a3fe8c5c2`, actual `v20.20.2`, bind-only helper smoke exit 0. This is helper runtime smoke, not production/candidate deployment.
+- Current source fingerprint after commit: collect with `node scripts/packaging-history-test/revision.cjs` at handoff; generated local TEST artifacts remain untracked and are not staged. Production metadata remains UNKNOWN until separately approved dispatch.

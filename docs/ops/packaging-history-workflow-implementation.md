@@ -665,3 +665,32 @@ Review30资金泄露最小软件修复与指定HTTP/完整适用回归关闭；�
 本地代码提交：ebdeb594（独立Payments修复）、c79e0528（范围测试与审计诊断）、e57aaa2b（统一验证入口）、f8624273（无eval的home-relative路径）。main与本地origin/main仍69d89dd4，当前HEAD无remote-tracking ref包含；这是本地缓存/操作证据，本轮未联网查生产或重复audit。
 
 最终停止API PID3143948（核对脚本身份后SIGTERM）、review30 Web、review30-delivery与baseline PG；candidate脚本已停止专属55437/55438库。localhost3000/3100/55432/55434/55437/55438全部无监听；所有fixture/容器/构建副本/失败日志保留，不触其他项目。最终文档/脱敏证据提交后输出最终SHA，不篡改代码提交历史。
+
+## Review31 metadata-only audit implementation (local, no dispatch)
+
+父级已批准从计划进入本地实现。本阶段提交 `4d66bb96a1d7e00fb05244623639beee8fec4324`，只改 metadata helper/SQL/static manifest、production-readonly-audit workflow 的 metadata 分支、测试 harness、revision target 和本计划文档；应用业务源码、迁移链及生产配置未改。workflow metadata 分支在 legacy `exec 2>&1` 之前隔离，固定 helper/SQL/manifest 三文件，拒绝 assertion SQL/HTTP 输入；本阶段没有 push、dispatch、SSH、生产 DB/API/Web 访问。
+
+### Review31 验收逐项
+
+| 项目 | 状态 | 证据 |
+|---|---|---|
+| baseline SHA 精确比较 | PASS（隔离） | wrong SHA fixture 输出实际40hex并以 SHA_MISMATCH 停止；期望值固定 `69d89dd44b8e1461d7eaf5193e60c994255aed2c` |
+| workflow `on` 触发审计 | PASS（本地静态） | `artifacts/review31-workflow-triggers.json`，60 workflows；专用 audit 分支不命中已列 push 分支，未 push |
+| stderr 安全分支 | PASS（隔离） | metadata wrapper secret-sentinel stderr 不进入 stdout/stderr，固定 stage/class/exit；旧 wrapper 15 cases 仍 exit0 |
+| sys_dict/schema 状态 | PASS（真实隔离 PG18） | schema_not_ready、RLS、缺 config 列；TEXT 不 JSON.parse；no_config/valid_all_off/malformed/any_true 分支 |
+| 正式 parser 一致 | PASS（源码+13 cases） | 实际 `PackagingWorkflowPolicy` 通过现有 TS transpile hook 对照 nested Q、Date.parse、H gate；无 AppModule/auth |
+| role/事务只读 | PASS（真实隔离 PG18） | `transaction_read_only=on`、`default_transaction_read_only=on`、PG18；42501 INSERT/CREATE、25006 readonly transaction；超级/写权限/SET ROLE 成员拒绝 |
+| data/catalog 不变 | PASS（真实隔离 PG18） | TEST public rows、columns、constraints、indexes、ACL digest 前后相同 |
+| manifest | PASS（83 TS） | 静态 class/name/timestamp/hash；不 require/eval；missing/extra bridge name 分别可审 |
+| backup/path safety | PASS（fixture） | 固定 `deploy-backups` 映射；父/子 symlink、特殊路径拒绝；只 stat count/bytes/maxmtime，不读内容/不 mkdir |
+| image/PG metadata | PASS（fixture+Node20） | 缺 revision label→UNKNOWN、Docker/DB错误 fail closed；正式 Node20 image `sha256:bb03034a91e8d2df2a7c581953e8f6ec60dab4b70809f502ad48933a3fe8c5c2` 实跑 helper v20.20.2，exit0 |
+| migration/flags 输出 | PASS（隔离） | 仅布尔状态、pending names、imageID/revision/PG major；不输出 JSON、env、secret、业务行 |
+
+真实测试命令及 exit：
+
+- `node scripts/packaging-history-test/readonly-metadata.cjs` → exit 0（本阶段 48 个 unit/filesystem/shell/PG/helper assertions；network=none PG fixture，容器已 stop，fixture数据保留）。
+- `node scripts/packaging-history-test/readonly-observability.cjs` → exit 0（15 legacy/new shell cases；原失败分类保留）。
+- Node20 Docker helper smoke（tracked helper bind-only、network none）→ exit 0，v20.20.2。
+- `node --check scripts/ops/readonly-audits/packaging-metadata.cjs`、YAML parse、`git diff --check` → exit 0。
+
+本阶段测试指纹以提交 `4d66bb96` 后重新采集；不得追认更早 SHA 的结果。production actual SHA/image ID/label、PG major、只读角色、容量/备份、pending migrations/flags 仍未获得，因未 dispatch；Node20 smoke 不代表正式候选 API/Web 全镜像重建。旧 review30 应用测试仍精确映射其 `f8624273`/source fingerprint，应用未改，不称为本阶段新 SHA 重跑。
