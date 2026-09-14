@@ -1,0 +1,147 @@
+{
+  "before": {
+    "head": "64c92f389ba923c5a6954ceb603303d2c55f539c",
+    "files": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549",
+      "scripts/packaging-history-compatibility/deploy-test.cjs": "eab900dbdf70a032099d2b0ea0541720319a486cea59352a5250f20e3f3c5485"
+    },
+    "diff": "diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml\nindex 10016146..313c4263 100644\n--- a/.github/workflows/deploy.yml\n+++ b/.github/workflows/deploy.yml\n@@ -844,7 +844,7 @@ jobs:\n             # ── 滚动重启容器(按 mode 选)──────────────────────────────\n             if [ \"$BUILD_API\" = \"true\" ]; then\n               # Resolve the pulled candidate; migrate and verify while the old API remains running.\n-              CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence \"$API_IMAGE\")\n+              CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence \"$API_IMAGE\")\n               API_SWITCH_STARTED=true\n               API_IMAGE=\"$CANDIDATE_API_IMAGE\" docker compose up -d --no-deps --wait api\n             fi\ndiff --git a/scripts/packaging-history-compatibility/deploy-test.cjs b/scripts/packaging-history-compatibility/deploy-test.cjs\nindex 0644fbc8..4384253c 100644\n--- a/scripts/packaging-history-compatibility/deploy-test.cjs\n+++ b/scripts/packaging-history-compatibility/deploy-test.cjs\n@@ -28,10 +28,10 @@ if(a.includes('migration:show')){if(process.env.MODE==='show-fail')process.exit(\n `,{mode:0o755,flag:'wx'});\n  // Execute the actual workflow API/Web switch block, not a hand-written replacement.\n  const workflow=fs.readFileSync(root+'/.github/workflows/deploy.yml','utf8');const start=workflow.indexOf('            # ── 滚动重启容器');const end=workflow.indexOf('            # ── 部署后温和清理',start);let block=workflow.slice(start,end).replaceAll('/opt/phoenix/backups/migration-evidence',dir+'/migration');\n- if(!block.includes('CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh'))throw Error('workflow wiring missing');\n+ if(!block.includes('CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh'))throw Error('workflow wiring missing');\n  for(const [mode,expected]of [['success',0],['migration-fail',9],['show-fail',8],['pending',1],['empty',1]]){\n-  const order=path.join(dir,mode+'-order.jsonl');run('schema-'+mode,'bash',['-euc',block],{PATH:mockDir+':'+process.env.PATH,API_IMAGE:'TEST/candidate:local',BUILD_API:'true',BUILD_WEB:'true',PRESERVE_ARTIFACTS:'true',MODE:mode,ORDER:order},expected);\n-  const calls=fs.readFileSync(order,'utf8').trim().split('\\n').map(JSON.parse);const switches=calls.filter(c=>c.args.includes('up'));if(mode==='success'){if(switches.length!==2||switches[0].image!=='sha256:'+'a'.repeat(64)||calls.findIndex(c=>c.args.includes('migration:show'))>calls.findIndex(c=>c.args.includes('up')))throw Error('wrong switch order/image');}else if(switches.length)throw Error('failed migration switched application');\n+  const order=path.join(dir,mode+'-order.jsonl');run('schema-'+mode,'bash',['-euc',`set -E; trap 'rc=$?; printf \"rollback\\\\n\" >> \"$ERROR_TRACE\"; exit \"$rc\"' ERR\\n`+block],{ERROR_TRACE:order+'.errors',PATH:mockDir+':'+process.env.PATH,API_IMAGE:'TEST/candidate:local',BUILD_API:'true',BUILD_WEB:'true',PRESERVE_ARTIFACTS:'true',MODE:mode,ORDER:order},expected);\n+  const errors=fs.existsSync(order+'.errors')?fs.readFileSync(order+'.errors','utf8').trim().split('\\n'):[];if(errors.length!==(mode==='success'?0:1))throw Error('rollback invoked more than once');const calls=fs.readFileSync(order,'utf8').trim().split('\\n').map(JSON.parse);const switches=calls.filter(c=>c.args.includes('up'));if(mode==='success'){if(switches.length!==2||switches[0].image!=='sha256:'+'a'.repeat(64)||calls.findIndex(c=>c.args.includes('migration:show'))>calls.findIndex(c=>c.args.includes('up')))throw Error('wrong switch order/image');}else if(switches.length)throw Error('failed migration switched application');\n  }\n  const rollbackStart=workflow.indexOf('              if [ -n \"$PREV_API_IMAGE_ID\" ] && [ \"$API_SWITCH_STARTED\"');\n  const rollbackEnd=workflow.indexOf('              fi',rollbackStart)+'              fi'.length;\n"
+  },
+  "cases": [
+    {
+      "name": "diff393",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "diff299",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "exact300",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "known-zero",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "missing",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "generator-error",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "misleading-zero",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "partial-artifact-error",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "stale-ignored",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "direct-missing",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "empty-artifact",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "actual393",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "schema-success",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "schema-migration-fail",
+      "exit": 9,
+      "expected": 9,
+      "passed": true
+    },
+    {
+      "name": "schema-show-fail",
+      "exit": 8,
+      "expected": 8,
+      "passed": true
+    },
+    {
+      "name": "schema-pending",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "schema-empty",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "rollback-false",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "rollback-true",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "preserve-required",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    }
+  ],
+  "after": {
+    "head": "64c92f389ba923c5a6954ceb603303d2c55f539c",
+    "files": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549",
+      "scripts/packaging-history-compatibility/deploy-test.cjs": "eab900dbdf70a032099d2b0ea0541720319a486cea59352a5250f20e3f3c5485"
+    },
+    "diff": "diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml\nindex 10016146..313c4263 100644\n--- a/.github/workflows/deploy.yml\n+++ b/.github/workflows/deploy.yml\n@@ -844,7 +844,7 @@ jobs:\n             # ── 滚动重启容器(按 mode 选)──────────────────────────────\n             if [ \"$BUILD_API\" = \"true\" ]; then\n               # Resolve the pulled candidate; migrate and verify while the old API remains running.\n-              CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence \"$API_IMAGE\")\n+              CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence \"$API_IMAGE\")\n               API_SWITCH_STARTED=true\n               API_IMAGE=\"$CANDIDATE_API_IMAGE\" docker compose up -d --no-deps --wait api\n             fi\ndiff --git a/scripts/packaging-history-compatibility/deploy-test.cjs b/scripts/packaging-history-compatibility/deploy-test.cjs\nindex 0644fbc8..4384253c 100644\n--- a/scripts/packaging-history-compatibility/deploy-test.cjs\n+++ b/scripts/packaging-history-compatibility/deploy-test.cjs\n@@ -28,10 +28,10 @@ if(a.includes('migration:show')){if(process.env.MODE==='show-fail')process.exit(\n `,{mode:0o755,flag:'wx'});\n  // Execute the actual workflow API/Web switch block, not a hand-written replacement.\n  const workflow=fs.readFileSync(root+'/.github/workflows/deploy.yml','utf8');const start=workflow.indexOf('            # ── 滚动重启容器');const end=workflow.indexOf('            # ── 部署后温和清理',start);let block=workflow.slice(start,end).replaceAll('/opt/phoenix/backups/migration-evidence',dir+'/migration');\n- if(!block.includes('CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh'))throw Error('workflow wiring missing');\n+ if(!block.includes('CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh'))throw Error('workflow wiring missing');\n  for(const [mode,expected]of [['success',0],['migration-fail',9],['show-fail',8],['pending',1],['empty',1]]){\n-  const order=path.join(dir,mode+'-order.jsonl');run('schema-'+mode,'bash',['-euc',block],{PATH:mockDir+':'+process.env.PATH,API_IMAGE:'TEST/candidate:local',BUILD_API:'true',BUILD_WEB:'true',PRESERVE_ARTIFACTS:'true',MODE:mode,ORDER:order},expected);\n-  const calls=fs.readFileSync(order,'utf8').trim().split('\\n').map(JSON.parse);const switches=calls.filter(c=>c.args.includes('up'));if(mode==='success'){if(switches.length!==2||switches[0].image!=='sha256:'+'a'.repeat(64)||calls.findIndex(c=>c.args.includes('migration:show'))>calls.findIndex(c=>c.args.includes('up')))throw Error('wrong switch order/image');}else if(switches.length)throw Error('failed migration switched application');\n+  const order=path.join(dir,mode+'-order.jsonl');run('schema-'+mode,'bash',['-euc',`set -E; trap 'rc=$?; printf \"rollback\\\\n\" >> \"$ERROR_TRACE\"; exit \"$rc\"' ERR\\n`+block],{ERROR_TRACE:order+'.errors',PATH:mockDir+':'+process.env.PATH,API_IMAGE:'TEST/candidate:local',BUILD_API:'true',BUILD_WEB:'true',PRESERVE_ARTIFACTS:'true',MODE:mode,ORDER:order},expected);\n+  const errors=fs.existsSync(order+'.errors')?fs.readFileSync(order+'.errors','utf8').trim().split('\\n'):[];if(errors.length!==(mode==='success'?0:1))throw Error('rollback invoked more than once');const calls=fs.readFileSync(order,'utf8').trim().split('\\n').map(JSON.parse);const switches=calls.filter(c=>c.args.includes('up'));if(mode==='success'){if(switches.length!==2||switches[0].image!=='sha256:'+'a'.repeat(64)||calls.findIndex(c=>c.args.includes('migration:show'))>calls.findIndex(c=>c.args.includes('up')))throw Error('wrong switch order/image');}else if(switches.length)throw Error('failed migration switched application');\n  }\n  const rollbackStart=workflow.indexOf('              if [ -n \"$PREV_API_IMAGE_ID\" ] && [ \"$API_SWITCH_STARTED\"');\n  const rollbackEnd=workflow.indexOf('              fi',rollbackStart)+'              fi'.length;\n"
+  },
+  "exit": 0
+}

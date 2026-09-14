@@ -1,0 +1,233 @@
+{
+  "before": {
+    "head": "64c92f389ba923c5a6954ceb603303d2c55f539c",
+    "hashes": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549",
+      "scripts/packaging-history-compatibility/candidate-test.cjs": "dfb2d5e0968b9f2c8273c19ecb3439bb0ca0129a91db0cfc451b64ef3a6e3c35"
+    },
+    "diff": "diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml\nindex 10016146..313c4263 100644\n--- a/.github/workflows/deploy.yml\n+++ b/.github/workflows/deploy.yml\n@@ -844,7 +844,7 @@ jobs:\n             # ── 滚动重启容器(按 mode 选)──────────────────────────────\n             if [ \"$BUILD_API\" = \"true\" ]; then\n               # Resolve the pulled candidate; migrate and verify while the old API remains running.\n-              CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence \"$API_IMAGE\")\n+              CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence \"$API_IMAGE\")\n               API_SWITCH_STARTED=true\n               API_IMAGE=\"$CANDIDATE_API_IMAGE\" docker compose up -d --no-deps --wait api\n             fi\n"
+  },
+  "imageBuildSourceHead": "ff9d6422a838abc2a5d5dd0f88819177f1823b48",
+  "imageLimitation": "existing node:22-bookworm-slim, compiled application from previous verified build; NOT production Node20 Dockerfile build",
+  "runs": [
+    {
+      "cmd": "docker",
+      "args": [
+        "image",
+        "inspect",
+        "packaging-history-candidate-test:review26r2",
+        "--format",
+        "{{.Id}}"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366990880/command-0.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "run",
+        "--pull=never",
+        "-d",
+        "--name",
+        "packaging-history-candidate-pg-55437-1789366990880",
+        "--label",
+        "purpose=packaging-history-review26",
+        "-e",
+        "POSTGRES_HOST_AUTH_METHOD=trust",
+        "-e",
+        "POSTGRES_DB=packaging_history_test",
+        "-p",
+        "127.0.0.1:55437:5432",
+        "postgres:18-alpine"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366990880/command-1.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "packaging-history-candidate-pg-55437-1789366990880",
+        "pg_restore",
+        "-U",
+        "postgres",
+        "-d",
+        "packaging_history_test",
+        "--exit-on-error",
+        "--single-transaction",
+        "--no-owner",
+        "--no-privileges"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366990880/command-2.log"
+    },
+    {
+      "cmd": "bash",
+      "args": [
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/scripts/deploy-schema-first.sh",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-candidate-1789366990880/evidence-55437",
+        "sha256:7fd44301b76236acfa60e1274415f2ffbb565e1ef6f056ddaa5ecd37b1af9605"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366990880/command-3.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "run",
+        "--pull=never",
+        "-d",
+        "--name",
+        "packaging-history-candidate-pg-55438-1789366990880",
+        "--label",
+        "purpose=packaging-history-review26",
+        "-e",
+        "POSTGRES_HOST_AUTH_METHOD=trust",
+        "-e",
+        "POSTGRES_DB=packaging_history_test",
+        "-p",
+        "127.0.0.1:55438:5432",
+        "postgres:18-alpine"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366990880/command-4.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "packaging-history-candidate-pg-55438-1789366990880",
+        "pg_restore",
+        "-U",
+        "postgres",
+        "-d",
+        "packaging_history_test",
+        "--exit-on-error",
+        "--single-transaction",
+        "--no-owner",
+        "--no-privileges"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366990880/command-5.log"
+    },
+    {
+      "cmd": "bash",
+      "args": [
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/scripts/deploy-schema-first.sh",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-candidate-1789366990880/evidence-55438",
+        "sha256:7fd44301b76236acfa60e1274415f2ffbb565e1ef6f056ddaa5ecd37b1af9605"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366990880/command-6.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "run",
+        "--name",
+        "packaging-entity-candidate-1789366990880",
+        "--network",
+        "host",
+        "-v",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-candidate-1789366990880/gates:/gates:ro",
+        "-e",
+        "DB_HOST=127.0.0.1",
+        "-e",
+        "DB_PORT=55438",
+        "-e",
+        "DB_USER=postgres",
+        "-e",
+        "DB_NAME=packaging_history_test",
+        "--entrypoint",
+        "bash",
+        "sha256:7fd44301b76236acfa60e1274415f2ffbb565e1ef6f056ddaa5ecd37b1af9605",
+        "/gates/check-entity-schema.sh",
+        "/gates/baseline.txt",
+        "/tmp/evidence"
+      ],
+      "exit": 1,
+      "log": "artifacts/packaging-candidate-1789366990880/command-7.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "stop",
+        "packaging-history-candidate-pg-55437-1789366990880"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366990880/command-8.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "stop",
+        "packaging-history-candidate-pg-55438-1789366990880"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366990880/command-9.log"
+    }
+  ],
+  "checks": [
+    {
+      "port": 55437,
+      "identity": {
+        "db": "packaging_history_test",
+        "version": "180006"
+      },
+      "beforeMigrations": 81,
+      "afterMigrations": 83,
+      "beforeEvents": null,
+      "afterEvents": {
+        "n": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "verifiedImage": "sha256:7fd44301b76236acfa60e1274415f2ffbb565e1ef6f056ddaa5ecd37b1af9605"
+    },
+    {
+      "port": 55438,
+      "identity": {
+        "db": "packaging_history_test",
+        "version": "180006"
+      },
+      "beforeMigrations": 83,
+      "afterMigrations": 83,
+      "beforeEvents": {
+        "n": 1536,
+        "digest": "8cff63e2e0cc41a5959b32c6adf31236"
+      },
+      "afterEvents": {
+        "n": 1536,
+        "digest": "8cff63e2e0cc41a5959b32c6adf31236"
+      },
+      "verifiedImage": "sha256:7fd44301b76236acfa60e1274415f2ffbb565e1ef6f056ddaa5ecd37b1af9605"
+    },
+    {
+      "actualGenerator": "393",
+      "gateExit": 1,
+      "baseline": 300
+    }
+  ],
+  "resources": [
+    "packaging-history-candidate-pg-55437-1789366990880",
+    "packaging-history-candidate-pg-55438-1789366990880",
+    "packaging-entity-candidate-1789366990880"
+  ],
+  "imageId": "sha256:7fd44301b76236acfa60e1274415f2ffbb565e1ef6f056ddaa5ecd37b1af9605",
+  "exit": 0,
+  "after": {
+    "head": "64c92f389ba923c5a6954ceb603303d2c55f539c",
+    "hashes": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549",
+      "scripts/packaging-history-compatibility/candidate-test.cjs": "dfb2d5e0968b9f2c8273c19ecb3439bb0ca0129a91db0cfc451b64ef3a6e3c35"
+    },
+    "diff": "diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml\nindex 10016146..313c4263 100644\n--- a/.github/workflows/deploy.yml\n+++ b/.github/workflows/deploy.yml\n@@ -844,7 +844,7 @@ jobs:\n             # ── 滚动重启容器(按 mode 选)──────────────────────────────\n             if [ \"$BUILD_API\" = \"true\" ]; then\n               # Resolve the pulled candidate; migrate and verify while the old API remains running.\n-              CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence \"$API_IMAGE\")\n+              CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence \"$API_IMAGE\")\n               API_SWITCH_STARTED=true\n               API_IMAGE=\"$CANDIDATE_API_IMAGE\" docker compose up -d --no-deps --wait api\n             fi\n"
+  }
+}

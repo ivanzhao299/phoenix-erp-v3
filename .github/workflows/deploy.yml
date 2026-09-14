@@ -844,7 +844,7 @@ jobs:
             # ── 滚动重启容器(按 mode 选)──────────────────────────────
             if [ "$BUILD_API" = "true" ]; then
               # Resolve the pulled candidate; migrate and verify while the old API remains running.
-              CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE")
+              CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE")
               API_SWITCH_STARTED=true
               API_IMAGE="$CANDIDATE_API_IMAGE" docker compose up -d --no-deps --wait api
             fi

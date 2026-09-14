@@ -28,10 +28,10 @@ if(a.includes('migration:show')){if(process.env.MODE==='show-fail')process.exit(
 `,{mode:0o755,flag:'wx'});
  // Execute the actual workflow API/Web switch block, not a hand-written replacement.
  const workflow=fs.readFileSync(root+'/.github/workflows/deploy.yml','utf8');const start=workflow.indexOf('            # ── 滚动重启容器');const end=workflow.indexOf('            # ── 部署后温和清理',start);let block=workflow.slice(start,end).replaceAll('/opt/phoenix/backups/migration-evidence',dir+'/migration');
- if(!block.includes('CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh'))throw Error('workflow wiring missing');
+ if(!block.includes('CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh'))throw Error('workflow wiring missing');
  for(const [mode,expected]of [['success',0],['migration-fail',9],['show-fail',8],['pending',1],['empty',1]]){
-  const order=path.join(dir,mode+'-order.jsonl');run('schema-'+mode,'bash',['-euc',block],{PATH:mockDir+':'+process.env.PATH,API_IMAGE:'TEST/candidate:local',BUILD_API:'true',BUILD_WEB:'true',PRESERVE_ARTIFACTS:'true',MODE:mode,ORDER:order},expected);
-  const calls=fs.readFileSync(order,'utf8').trim().split('\n').map(JSON.parse);const switches=calls.filter(c=>c.args.includes('up'));if(mode==='success'){if(switches.length!==2||switches[0].image!=='sha256:'+'a'.repeat(64)||calls.findIndex(c=>c.args.includes('migration:show'))>calls.findIndex(c=>c.args.includes('up')))throw Error('wrong switch order/image');}else if(switches.length)throw Error('failed migration switched application');
+  const order=path.join(dir,mode+'-order.jsonl');run('schema-'+mode,'bash',['-euc',`set -E; trap 'rc=$?; printf "rollback\\n" >> "$ERROR_TRACE"; exit "$rc"' ERR\n`+block],{ERROR_TRACE:order+'.errors',PATH:mockDir+':'+process.env.PATH,API_IMAGE:'TEST/candidate:local',BUILD_API:'true',BUILD_WEB:'true',PRESERVE_ARTIFACTS:'true',MODE:mode,ORDER:order},expected);
+  const errors=fs.existsSync(order+'.errors')?fs.readFileSync(order+'.errors','utf8').trim().split('\n'):[];if(errors.length!==(mode==='success'?0:1))throw Error('rollback invoked more than once');const calls=fs.readFileSync(order,'utf8').trim().split('\n').map(JSON.parse);const switches=calls.filter(c=>c.args.includes('up'));if(mode==='success'){if(switches.length!==2||switches[0].image!=='sha256:'+'a'.repeat(64)||calls.findIndex(c=>c.args.includes('migration:show'))>calls.findIndex(c=>c.args.includes('up')))throw Error('wrong switch order/image');}else if(switches.length)throw Error('failed migration switched application');
  }
  const rollbackStart=workflow.indexOf('              if [ -n "$PREV_API_IMAGE_ID" ] && [ "$API_SWITCH_STARTED"');
  const rollbackEnd=workflow.indexOf('              fi',rollbackStart)+'              fi'.length;
