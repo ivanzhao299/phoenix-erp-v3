@@ -1,0 +1,34 @@
+{
+  "capturedAt": "2026-09-14T06:08:21.998373+00:00",
+  "kind": "post-build file inspection, not retroactive build-time capture",
+  "testedSourceHead": "ff9d6422a838abc2a5d5dd0f88819177f1823b48",
+  "harnessUnchangedDuringBuild": true,
+  "files": {
+    "apps/api/dist/main.js": {
+      "exists": true,
+      "sha256": "8d0db99cd7710996e6370713288df5fb7dee637b2735c46ef81ecf60eb40f0fb"
+    },
+    "apps/api/dist/database/migrations/1789353300496-PackagingHistoryD1cEvidence.js": {
+      "exists": true,
+      "sha256": "bb07dc589f8c5768f8afd3f0e752f4c4b7b37686c9c2c5a36859a7dd2524e32e"
+    },
+    "apps/api/dist/database/migrations/1789362000000-PackagingHistoryReadIndexes.js": {
+      "exists": true,
+      "sha256": "d360a707e03164a1853b1676201e2062fc1d9deda847f4363e876db489c6d037"
+    },
+    "apps/web/.next/BUILD_ID": {
+      "exists": true,
+      "sha256": "81df8e552f14a1e38416bc800236487586df83cd2c0b637f575d4024f8ce2e5c"
+    },
+    "apps/web/.next/routes-manifest.json": {
+      "exists": true,
+      "sha256": "c073da51533f12280ef4be6fe84d954e28a11a8a1d4e755e4ed602eb0c7aec48"
+    },
+    "apps/web/.next/prerender-manifest.json": {
+      "exists": true,
+      "sha256": "fca900f80492d13c9b9ccd7429def65eb5c20f5356d1d49d7972a56cf682dfa5"
+    }
+  },
+  "standaloneExists": true,
+  "applicationDiffFromC6": ""
+}

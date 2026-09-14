@@ -1,0 +1,47 @@
+{
+  "head": "ff9d6422a838abc2a5d5dd0f88819177f1823b48",
+  "tree": "126117a3695882c8ed64440eaee888dfc55c4011",
+  "node": "v24.19.0",
+  "archiveSha256": "0d60aa64a5307d5d171a0b3015167b013452ec8164000d673350fb6d3f26c136",
+  "harnessBefore": "d1102701c0c7e16db2068229de94e9cc2f61210394c33736ddbe8cad13d33b75",
+  "scope": "tracked apps/api, apps/web, packages and root package/build inputs; excluded dotenv; isolated copies of existing installed dependencies (cp -a --reflink=auto; no install)",
+  "runs": [
+    {
+      "app": "api",
+      "command": [
+        "/home/jinhuit/.nvm/versions/node/v24.19.0/bin/node",
+        "node_modules/@nestjs/cli/bin/nest.js",
+        "build"
+      ],
+      "started": "2026-09-14T06:07:01.634Z",
+      "finished": "2026-09-14T06:07:11.238Z",
+      "code": 0,
+      "signal": null
+    },
+    {
+      "app": "web-stamp",
+      "command": [
+        "/home/jinhuit/.nvm/versions/node/v24.19.0/bin/node",
+        "scripts/stamp-sw.mjs"
+      ],
+      "started": "2026-09-14T06:07:11.239Z",
+      "finished": "2026-09-14T06:07:11.263Z",
+      "code": 0,
+      "signal": null
+    },
+    {
+      "app": "web",
+      "command": [
+        "/home/jinhuit/.nvm/versions/node/v24.19.0/bin/node",
+        "node_modules/next/dist/bin/next",
+        "build"
+      ],
+      "started": "2026-09-14T06:07:11.263Z",
+      "finished": "2026-09-14T06:07:46.592Z",
+      "code": 0,
+      "signal": null
+    }
+  ],
+  "harnessAfter": "d1102701c0c7e16db2068229de94e9cc2f61210394c33736ddbe8cad13d33b75",
+  "headAfter": "ff9d6422a838abc2a5d5dd0f88819177f1823b48"
+}

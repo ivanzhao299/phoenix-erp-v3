@@ -388,7 +388,7 @@ PG实际18.6（180006），仅127.0.0.1:55432/55434的本任务原83/81库与554
 | 1–17、20–23 | 应用源码未变，保留上轮逐项限定证据与partial/原FAIL；23新增本轮固定archive与实时before/after映射，不追认历史。 |
 | 18 | 所要求隔离兼容、81→83迁移先行、DDL锁/事务与事件保全实测完成；已证实默认发布顺序不安全。迁移先行正式操作仍待审、未执行。 |
 | 19 | 本地备份可读/独立恢复与285表264序列对账完成；镜像回退保留DB、禁止事件库down、备份非自动rollback、保留artifacts/dirty门禁均写入独立发布计划。 |
-| 24（最新追加） | API正式build通过；Web实际build因字体网络FAIL。85unit套件已核实；WMS reason/索引窗口已实测。原entity硬门禁及其删输入假绿风险、scope实际归属已审，不称可绕过或已修全仓。 |
+| 24（最新追加） | API正式build通过；Web实际build因字体网络FAIL。85unit套件已核实；WMS reason/索引窗口已实测。原entity硬门禁及其删输入假绿风险、scope实际归属已审，不称可绕过或已修全仓。构建状态以下方网络配置修正后的实测追加为准。 |
 | 25（最新追加） | 已写候选镜像一次性migration先行可执行模板；本轮按直接用户“只写计划”未改deploy.yml、不发布。旧API9GET读兼容边界及549项精确构成已纠正。 |
 
 完整操作计划见 [packaging-history-release-preflight.md](packaging-history-release-preflight.md)。整体仍**PARTIAL / 发布前待审**：Web正式build外部字体阻断、原entity门禁真实FAIL与scope旧审计FAIL尚在；不能凭兼容演练完成宣布发布获准。没有把兼容/备份软件演练留给L4；L4只指物理出纸/实贴/实扫/交付，本轮未做。
@@ -398,3 +398,13 @@ PG实际18.6（180006），仅127.0.0.1:55432/55434的本任务原83/81库与554
 `defce4274c1589362d17f34ce11673a36c3bcfa6` 提交本轮harness与脱敏结果。其应用源码、迁移、workflow与c6d3b9d2完全一致（`git diff c6d3b9d2 -- apps .github/workflows migrations`为空）。最终兼容runner exit0；audit命令exit0；catalog命令exit0；构建各exit如上。兼容runner前后source/config指纹均为 `efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1`，run/runtime SHA前后也相等。新的harness提交对应当时c6固定源码与其archive，**不是在defce427上重新跑应用全套**。后续报告-only提交不改变这份映射，最终hash见本地git log/交付答复，避免自引用未来SHA。
 
 `artifacts/packaging-history-compatibility-1789365718577/delivery-state.json` 在defce427时实际采集：本轮服务全部停止、7个对应端口无监听、临时源码目录进程0、保留所有容器/fixture；main与本地origin/main仍69d89dd4（只读本地ref，没有联网验证远端），本轮没有push。报告最后提交后再看tracked status；大量未跟踪临时副本/dump/log按要求保留，绝不git add-A或清理。
+
+### 构建网络配置修正后追加（替代上节Web FAIL作为当前状态；旧失败保留）
+
+进一步用当前正常网络环境访问同一公开字体URL，curl实际HTTP200/exit0；之前env隔离移除了现有代理配置，不能将其归为无法恢复的外部阻断。build harness现只额外继承现有标准代理/CA环境用于公开构建资源，不打印其值，不加载.env、不读取生产认证artifact、不改任何CLI/生产配置。随后重新从固定 `ff9d6422a838abc2a5d5dd0f88819177f1823b48` archive创建独立副本并复制现有依赖。
+
+`node scripts/packaging-history-compatibility/build.cjs` 实际exit0；`artifacts/packaging-history-build-1789366018190/results.json` 记录：Nest build exit0、stamp-sw exit0、Next16.2.6默认Turbopack `next build` exit0。正常编译、TypeScript、页面数据/生成完成，无字体mock、无跳过检查、无webpack替代、无依赖安装。API dist/main及两条编译后迁移、Web BUILD_ID/routes/prerender manifest及standalone目录真实存在；post-build hash检查独立标记为事后产物检查，见同目录 `output-inspection.json`，没有追认成构建前指纹。
+
+此轮archive的应用源码与c6完全一致；harness before/after相同、HEAD before/after均ff9d6422，具体archive SHA见results。原18组测试仍原映射；这次新增的是**API/Web正式构建完成证据**，不意味着重跑了全部unit/PG/browser或验证了Node20候选Docker镜像。review24的本地正式构建项现关闭；当前整体partial只保留原entity/scope红灯、实际CI/发布前复核与物理L4边界，**Web构建不再是缺口**。
+
+本轮local commits：defce427（兼容/恢复harness与证据）、ff9d6422（发布计划/报告）、随后构建网络harness修正与本节证据提交（具体SHA见最终交付），均未push。没有应用/迁移/workflow变更，因此不触发新的空库迁移重建；既有全链/事务证据仍绑定原源码。

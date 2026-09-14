@@ -291,3 +291,7 @@ P1/P2/P3-M 后端收口：最新 api-tsc exit0；PG18+HTTP 39 pass/0 skip/0 fail
 - [x] 本地证据/harness提交defce4274c1589362d17f34ce11673a36c3bcfa6；发布先迁移模板与真实限制写docs/ops/packaging-history-release-preflight.md，仅计划，未改deploy。
 - [x] 本轮所有API子进程已退出；本轮启动的rebuild5/baseline及恢复/窗口PG均停止，3118/3119/3120/55432/55434/55435/55436无监听，源码副本cwd进程0。容器、dump、fixture、旧失败和源副本保留；没有动其他业务容器。
 - 当前交付仍PARTIAL，等待父级发布前证据复核；Web正式build外部依赖阻断/全仓原门禁红灯真实保留，L4未执行，未发行正式编码、未push/deploy/生产访问。
+
+### 构建追加纠正 2026-09-14T06:08Z
+
+公开字体通过现有正常网络环境curl HTTP200，证明早先网络失败源于harness删代理环境，不能当不可恢复外部限制。只继承标准现有代理/CA环境（不输出值、不改配置）后，用ff9d6422固定源码新副本重跑：API Nest build0、stamp0、Web默认Turbopack next build0。证据artifacts/packaging-history-build-1789366018190/results.json及output-inspection.json；应用与c6无差异、harness前后相同。API dist/main/两迁移、Web BUILD_ID/manifests/standalone均实存。旧失败保留，当前Web正式build缺口关闭；原entity/scope仍红灯，不宣称发布获准。构建进程已正常退出，未重新启动API/DB/Web服务。
