@@ -11,7 +11,7 @@ audit_finish() {
   return "$rc"
 }
 trap 'audit_finish "$?"' EXIT
-echo 'AUDIT_STAGE=INPUT_VALIDATION' 
+echo 'AUDIT_STAGE=INPUT_VALIDATION'
 
 audit_root='scripts/ops/readonly-audits'
 bundle_dir="${AUDIT_BUNDLE_DIR:-.}"
