@@ -14,14 +14,14 @@ export class WmsLocationEntity {
   @Column({ type: 'varchar', length: 128, nullable: true })
   location_name: string;
 
-  @Column({ type: 'int', default: 0 })
-  capacity_qty: number;
+  @Column({ type: 'int', default: 0, nullable: true })
+  capacity_qty: number | null;
 
-  @Column({ type: 'varchar', length: 32, default: 'ACTIVE' })
-  status: string;
+  @Column({ type: 'varchar', length: 32, default: 'ACTIVE', nullable: true })
+  status: string | null;
 
-  @Column({ type: 'varchar', length: 32, default: 'ALL' })
-  store_code: string; // 机构隔离
+  @Column({ type: 'varchar', length: 32, default: 'ALL', nullable: true })
+  store_code: string | null; // 机构隔离
 
   @CreateDateColumn()
   created_at: Date;

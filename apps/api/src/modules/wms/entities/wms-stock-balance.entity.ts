@@ -18,17 +18,17 @@ export class WmsStockBalanceEntity {
   @Column({ type: 'varchar', length: 64 })
   batch_no: string;
 
-  @Column({ type: 'int', default: 0 })
-  qty: number;
+  @Column({ type: 'int', default: 0, nullable: true })
+  qty: number | null;
 
-  @Column({ type: 'int', default: 0 })
-  locked_qty: number;
+  @Column({ type: 'int', default: 0, nullable: true })
+  locked_qty: number | null;
 
-  @Column({ type: 'varchar', length: 32, default: 'ALL' })
-  store_code: string; // 机构隔离
+  @Column({ type: 'varchar', length: 32, default: 'ALL', nullable: true })
+  store_code: string | null; // 机构隔离
 
-  // 乐观锁核心字段：每次实体更新时，TypeORM 会自动自增该字段
-  // 并附加 WHERE version = :version 条件。如果不匹配，抛出 OptimisticLockVersionMismatchError
+  // TypeORM save 自动递增版本，但不会自动附加 CAS 条件。
+  // InventoryService 使用事务行锁保护读改写；保留现有 VersionColumn 语义。
   @VersionColumn()
   version: number;
 

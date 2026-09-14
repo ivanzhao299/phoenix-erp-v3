@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import { OptimisticLockVersionMismatchError } from 'typeorm';
 import { InventoryService } from './inventory.service';
 import { WmsStockBalanceEntity } from '../entities/wms-stock-balance.entity';
 
@@ -16,13 +15,16 @@ describe('InventoryService', () => {
   const buildSvc = () => {
     const manager = {
       findOne: jest.fn(),
+      query: jest.fn(async () => []),
+      create: jest.fn((_entity, value) => value),
       save:    jest.fn(async (_e, x) => x),
     };
     const em = {
       transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
     };
     const cls = { get: jest.fn((k: string) =>
-      k === 'user.storeCode' ? 'S1'
+      k === 'dataScope' ? { isGlobal: false, allowedWarehouseCodes: ['W1'] }
+      : k === 'user.storeCode' ? 'S1'
       : k === 'user.username'  ? 'tester'
       : null) };
     return { manager, em, cls, svc: new InventoryService(em as never, cls as never) };
@@ -42,27 +44,27 @@ describe('InventoryService', () => {
 
   it('atomicDecrement blocks when available qty insufficient', async () => {
     const { manager, svc } = buildSvc();
-    manager.findOne.mockResolvedValue({ qty: 10, locked_qty: 8 });
+    manager.findOne.mockResolvedValue({ qty: 10, locked_qty: 8, store_code: 'S1' });
     await expect(svc.atomicDecrement({ ...baseDto, qty: 5 }))
       .rejects.toThrow(/可用库存不足/);
   });
 
   it('atomicDecrement deducts and writes ledger on success', async () => {
     const { manager, svc } = buildSvc();
-    const balance = { qty: 100, locked_qty: 0 } as WmsStockBalanceEntity;
+    const balance = { qty: 100, locked_qty: 0, store_code: 'S1' } as WmsStockBalanceEntity;
     manager.findOne.mockResolvedValue(balance);
     const result = await svc.atomicDecrement({ ...baseDto, qty: 30 });
     expect((result as WmsStockBalanceEntity).qty).toBe(70);
     expect(manager.save).toHaveBeenCalledTimes(2); // balance + ledger
   });
 
-  it('atomicDecrement converts OptimisticLockVersionMismatchError to BadRequest', async () => {
+  it('atomicDecrement propagates write failure to transaction rollback', async () => {
     const { manager, svc } = buildSvc();
-    manager.findOne.mockResolvedValue({ qty: 100, locked_qty: 0 });
+    manager.findOne.mockResolvedValue({ qty: 100, locked_qty: 0, store_code: 'S1' });
     manager.save.mockImplementationOnce(async () => {
-      throw new OptimisticLockVersionMismatchError('WmsStockBalance', 1, 2);
+      throw new Error('TEST transaction write failure');
     });
     await expect(svc.atomicDecrement({ ...baseDto, qty: 5 }))
-      .rejects.toThrow(/乐观锁拦截/);
+      .rejects.toThrow(/TEST transaction write failure/);
   });
 });
