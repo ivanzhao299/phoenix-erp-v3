@@ -456,3 +456,68 @@ Scope actual isolated HTTP: 6 random TEST logins work, company/project/negative/
 Final scope-validity-1789371808502/results.json: HEAD19101533 + new harness, before/after c3901c5780c830825f38f8cfee295602bb43deebb6452b79fa9a2880d4142897 equal;30checks28PASS/2FAIL/0skip, actual process exit1. API/Web tsc exit0 (r32/r21), syntax0. Both SELF/foreign summary leaks TEST300; no application/schema edits; fix scope handed to parent, release remains blocked. docker stop own review29-final exit0, retained fixture; API3100 and PG55432 ports closed. Preparing local test/report-only commit; no push.
 
 本轮测试/报告本地提交 `139d108271d79d60350409f5c061ce3f8210bf4f`；已逐字节SHA256确认提交中的harness等于最终真实测试文件，测试仍发生于19101533+当时dirty，不追认为新SHA执行。此后仅报告/映射追加；没有push。
+
+## Review30 active authorized implementation
+Actual header danger-full-access/approval never; start a5759bde tracked clean. Review30 read. Fix only PaymentsService.listShareholderFunds: common visible query cloned for paged items/count and unpaged grouped summary. No schema/C/other business changes. TODO: expanded real HTTP including own positive/mixed currency/project/empty scope; runner local failure visibility; final25+additional regressions and new tracked Node20 build/candidate/browser; local commits and stop resources. No dispatch/push/production.
+
+最终验证 2026-09-14T07:50:35.580Z：scope-validity exit=0, signal=none；日志 artifacts/packaging-history-local/verified-scope-validity.log。
+最终验证 2026-09-14T07:50:39.644Z：payments exit=0, signal=none；日志 artifacts/packaging-history-local/verified-payments.log。
+最终验证 2026-09-14T07:50:41.424Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r33.log。
+最终验证 2026-09-14T07:55:09.873Z：rebuild-sql exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-sql-r8.log。
+最终验证 2026-09-14T07:55:11.431Z：rebuild-bootstrap exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-bootstrap-r8.log。
+最终验证 2026-09-14T07:55:12.909Z：rebuild-ts exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-ts-r8.log。
+最终验证 2026-09-14T07:55:29.669Z：readonly-observability exit=0, signal=none；日志 artifacts/packaging-history-local/verified-readonly-observability.log。
+最终验证 2026-09-14T07:55:37.292Z：scope-validity exit=0, signal=none；日志 artifacts/packaging-history-local/verified-scope-validity-r2.log。
+最终验证 2026-09-14T07:55:40.734Z：payments exit=0, signal=none；日志 artifacts/packaging-history-local/verified-payments-r2.log。
+最终验证 2026-09-14T07:55:45.292Z：legacy-wms exit=0, signal=none；日志 artifacts/packaging-history-local/verified-legacy-wms-r4.log。
+最终验证 2026-09-14T07:55:50.081Z：auth-approval exit=0, signal=none；日志 artifacts/packaging-history-local/verified-auth-approval-r8.log。
+最终验证 2026-09-14T07:55:51.726Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r34.log。
+最终验证 2026-09-14T07:55:54.316Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r22.log。
+最终验证 2026-09-14T07:55:57.556Z：api-regression exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-regression-r9.log。
+最终验证 2026-09-14T07:55:58.378Z：web-auth exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-auth-r8.log。
+最终验证 2026-09-14T07:56:02.106Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r20.log。
+最终验证 2026-09-14T07:56:15.113Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r29.log。
+最终验证 2026-09-14T07:56:17.817Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r20.log。
+最终验证 2026-09-14T07:56:17.991Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r15.log。
+最终验证 2026-09-14T07:56:18.326Z：constraint-parser exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-parser-r4.log。
+最终验证 2026-09-14T07:56:18.490Z：constraint-self-test exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-self-test-r4.log。
+最终验证 2026-09-14T07:56:18.749Z：constraint exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-r17.log。
+最终验证 2026-09-14T07:56:19.158Z：migration-down exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-down-r14.log。
+最终验证 2026-09-14T07:56:19.774Z：migration-dml exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-dml-r14.log。
+最终验证 2026-09-14T07:56:21.810Z：entity-diff exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-diff-r10.log。
+最终验证 2026-09-14T07:56:23.768Z：entity-baseline exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-baseline-r7.log。
+最终验证 2026-09-14T07:56:23.946Z：entity-gate exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-gate-r10.log。
+最终验证 2026-09-14T07:57:42.637Z：rebuild-sql exit=1, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-sql-r9.log。
+最终验证 2026-09-14T07:57:43.257Z：rebuild-bootstrap exit=1, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-bootstrap-r9.log。
+最终验证 2026-09-14T07:57:43.650Z：rebuild-ts exit=1, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-ts-r9.log。
+最终验证 2026-09-14T07:58:20.140Z：rebuild-sql exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-sql-r10.log。
+最终验证 2026-09-14T07:58:22.267Z：rebuild-bootstrap exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-bootstrap-r10.log。
+最终验证 2026-09-14T07:58:23.964Z：rebuild-ts exit=0, signal=none；日志 artifacts/packaging-history-local/verified-rebuild-ts-r10.log。
+Review30 code commits ebdeb594 (fund common visibility), c79e0528/e57aaa2b (diagnostics/tests), f8624273 (safe home-relative path). New local15 audit fixtures PASS; old silent git empty capture and quoted tilde reproduced locally, not attributed to remote34818687355. Expanded funds49 HTTP checks passed on prior staged revisions; final replay now f8624273. New PG review30-delivery initial three setup exits1 retained r9; afterwards TCP ready/PG18.6/db exact/public tables0 verified, rerunning empty rebuild (no cleanup/down). New Node20 tracked-only f862 build active; no production operations.
+
+最终验证 2026-09-14T07:58:50.173Z：readonly-observability exit=0, signal=none；日志 artifacts/packaging-history-local/verified-readonly-observability-r2.log。
+最终验证 2026-09-14T07:58:56.501Z：scope-validity exit=0, signal=none；日志 artifacts/packaging-history-local/verified-scope-validity-r3.log。
+最终验证 2026-09-14T07:58:59.358Z：payments exit=0, signal=none；日志 artifacts/packaging-history-local/verified-payments-r3.log。
+最终验证 2026-09-14T07:59:02.795Z：legacy-wms exit=0, signal=none；日志 artifacts/packaging-history-local/verified-legacy-wms-r5.log。
+最终验证 2026-09-14T07:59:07.146Z：auth-approval exit=0, signal=none；日志 artifacts/packaging-history-local/verified-auth-approval-r9.log。
+最终验证 2026-09-14T07:59:08.752Z：api-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-tsc-r35.log。
+最终验证 2026-09-14T07:59:11.204Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r23.log。
+最终验证 2026-09-14T07:59:14.364Z：api-regression exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-regression-r10.log。
+最终验证 2026-09-14T07:59:15.204Z：web-auth exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-auth-r9.log。
+最终验证 2026-09-14T07:59:18.720Z：api-unit exit=0, signal=none；日志 artifacts/packaging-history-local/verified-api-unit-r21.log。
+最终验证 2026-09-14T07:59:31.106Z：pg-http exit=0, signal=none；日志 artifacts/packaging-history-local/verified-pg-http-r30.log。
+最终验证 2026-09-14T07:59:33.545Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r21.log。
+最终验证 2026-09-14T07:59:33.705Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r16.log。
+最终验证 2026-09-14T07:59:34.031Z：constraint-parser exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-parser-r5.log。
+最终验证 2026-09-14T07:59:34.187Z：constraint-self-test exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-self-test-r5.log。
+最终验证 2026-09-14T07:59:34.442Z：constraint exit=0, signal=none；日志 artifacts/packaging-history-local/verified-constraint-r18.log。
+最终验证 2026-09-14T07:59:34.830Z：migration-down exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-down-r15.log。
+最终验证 2026-09-14T07:59:35.424Z：migration-dml exit=0, signal=none；日志 artifacts/packaging-history-local/verified-migration-dml-r15.log。
+最终验证 2026-09-14T07:59:36.823Z：entity-diff exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-diff-r11.log。
+最终验证 2026-09-14T07:59:38.143Z：entity-baseline exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-baseline-r8.log。
+最终验证 2026-09-14T07:59:38.304Z：entity-gate exit=0, signal=none；日志 artifacts/packaging-history-local/verified-entity-gate-r11.log。
+最终验证 2026-09-14T08:00:03.434Z：runtime-scope-audit exit=1, signal=none；日志 artifacts/packaging-history-local/verified-runtime-scope-audit-r8.log。
+最终验证 2026-09-14T08:00:13.841Z：browser exit=0, signal=none；日志 artifacts/packaging-history-local/verified-browser-r18.log。
+最终验证 2026-09-14T08:00:34.894Z：perf-plan exit=0, signal=none；日志 artifacts/packaging-history-local/verified-perf-plan-r11.log。
+最终验证 2026-09-14T08:01:11.446Z：performance exit=0, signal=none；日志 artifacts/packaging-history-local/verified-performance-r17.log。
+Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76 all28groups same before/after. Original25:24exit0 + oldscope exit1 (2printedPASS/28FAIL/1skip); additional49HTTP+15audit shell+2payments unit allpass. New official Node20 API/Web build0, candidate81→83/1536events retained/267gate0/5HTTP; browser27pass; P95all<=1s. All own services stopped ports3000/3100/55432/55434/55437/55438 closed, fixtures retained. Full report/machine index written; no push/dispatch/production this turn. Preparing docs/evidence-only local commit.

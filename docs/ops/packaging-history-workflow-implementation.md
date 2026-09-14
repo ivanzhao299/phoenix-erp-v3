@@ -1,6 +1,6 @@
 # 包装历史工作流本地实施与验收
 
-> 最新追加：生产只读audit34818687355失败；隔离scope真实30检查28PASS/2FAIL，活跃股东资金summary泄露，发布阻断。见文末只读/scope阶段及独立报告。此前应用交付见文末“A/B及父级追加27–29”与“最终测试映射”：应用cdb49bb1、候选runner补丁d1537fe4，entity267/300与constraint通过；原scope-audit仍28FAIL/1skip，未发布。此前各轮记录仅作历史证据。
+> 最新追加见文末Review30：资金summary泄露已按授权修复；f8624273上49真实HTTP通过、原25组重新执行，原raw scope仍FAIL保留；正式Node20/候选/browser/P95重验完成。生产audit34818687355仍原因未知，新metadata通道待审，未发布。此前应用交付见文末“A/B及父级追加27–29”与“最终测试映射”：应用cdb49bb1、候选runner补丁d1537fe4，entity267/300与constraint通过；原scope-audit仍28FAIL/1skip，未发布。此前各轮记录仅作历史证据。
 
 ## 授权与交付边界
 
@@ -571,3 +571,97 @@ JwtStrategy原Number(sub)会将超安全整数舍入；现接受正十进制PG b
 同源码隔离真实scope30检查28PASS/2FAIL/0skip；6普通TEST账号实际登录，T01–16及F01–08逐项映射。旧2printedPASS/28FAIL/1SKIP原证据和F06假PASS保留，原脚本未改/本轮未重跑，不称原全绿。退役finance明确404只算退役契约。新增真实缺陷：SELF账户GET股东资金列表items=[]/total0，但同/异公司summary各泄露TEST300。调用PaymentsController→PaymentsService.listShareholderFunds中summary漏复用范围谓词。当前未修应用，最小修复及真实HTTP验证范围交父级审，发布保持阻断。review6/24的scope仍partial/FAIL，不能据旧专项绿关闭。
 
 新增harness实测HEAD19101533+dirty，前后指纹c3901c5780c830825f38f8cfee295602bb43deebb6452b79fa9a2880d4142897相同；API/Web tsc各exit0，syntax/diff检查0。应用/迁移/workflow无修改，原cdb49bb1的25组映射保留，不追认在本次提交重跑。最终停止本次PG/API，保留fixture；无push/deploy/生产DDL/业务写/secret变更。
+
+## Review30：资金 summary 最小修复及全部适用复验（2026-09-14）
+
+后发review30已授权实际修复，覆盖上节“等待批准”状态。起点a5759bde tracked clean，实际danger-full-access/approval never；唯一CLI，无代理。**本轮没有push/dispatch/生产访问、业务写或secret更改**。旧34818687355的失败不重试、不猜原因；metadata-only新通道仅形成待审计划。
+
+### 已修代码及可见性契约
+
+独立应用提交 `ebdeb594`，仅 `PaymentsService.listShareholderFunds`：业务query条件与原SELF/company/project权限先构成统一visibleFunds，克隆给分页items/count及不分页summary。保留fundNature/currencyCode分组、原币/本位币SUM、既有mask、排序、分页和日期/股东/公司/项目/性质/币种查询语义；companyCode外参只能相交、不能扩权。当前DTO没有status过滤，本轮忠实保持原行为（包括CANCELLED行），不擅自新增财务语义。没有修改controller归属、采购C六列、日结、其他schema/entity/默认/阈值/allowlist。
+
+真实HTTP原30场景全通过；新增3普通账户登录+16资金场景，总**49检查全部PASS/0skip**。原SELF同公司他人/foreign summary=300两处现在均为0；有本人授权数据时精确返回非空，CNY/LAK与本位币总量分别核对。COMPANY、PROJECT（排除同公司另一项目）、GROUP、无菜单、无session、空公司scope、不能指定他人股东、分页1/2/空页total与全可见summary、组合日期/币种/性质/股东条件均真实验证。全程完整AppModule、真实JWT/MenuGuard/DataScope、随机密码登录及TEST库，不mock HTTP。数据为隔离fixture，不声称官方付款业务创建链。
+
+原旧 `scope-audit.sh` 未改，本轮仍真实执行**2 printedPASS/28FAIL/1SKIP exit1**；缺旧账号/旧finance404/macOS psql与F06假PASS保留。49项是逐原场景纠错映射与追加测试，不宣称部署中旧ROLE_*权限配置已认证；使用明确授权的普通TEST角色。退役finance只断言404契约，不替换无关端点、不称旧功能通过。原脚本红灯未通过allowlist/skip/阈值豁免。
+
+### 审计runner本地正确性与待审新通道
+
+`c79e0528`/`e57aaa2b`/`f8624273`仅审计诊断、路径与test harness：日志目录建立前即有阶段输出/EXIT失败码，后续按revision/SQL/log/artifact阶段报告；workflow合并stdout/stderr，cd/缺runner给固定诊断，不打印BASH_COMMAND/env/secret。只展开路径开头~/为既有HOME，不eval。相对HTTP manifest通过path.resolve正确加载；通用Docker日志读取失败保留原exit，不再被当健康0，原日志仅内存计数不输出业务payload。
+
+**15个本地shell fixture真实执行**：原静默git失败可以生成空capture，新版报告stage；目录/缺runID/缺SQL/HTTP非法方法；相对合法manifest；Docker日志失败/命中错误只报数量；workflow目录/runner缺失及stderr捕获；旧quoted-tilde失败与新路径成功。它们是本地行为反例，**不能证明34818687355的远端根因**。没有重复dispatch。其他legacy HTTP启动AppModule的风险不因本修复消失，仍不用于本次只读预检。
+
+精确metadata字段/只读SQL/拟议inputs/迁移manifest比较与路径白名单计划见 [packaging-history-readonly-metadata-plan.md](packaging-history-readonly-metadata-plan.md)。新helper/audit_mode尚未实现、未远端执行；需要父级审源码/输入及可用remote ref后才推进，不能提前push main启用。真实生产deploySHA/image IDs/PG major/pending/dirty/容量/flags仍未取得；34818687355仅protected exit1/空日志保持UNKNOWN。
+
+### 最终同源码验证
+
+最终代码HEAD **`f8624273e45a9d1219f2ffee9e4ac0c3f224f192`**，tree `517d4a71482887647044b51a647fa12b6c6ab2f3`；所有28命令组before/after指纹均为 **`94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76`**、sourceUnchanged=true。原25适用组24 exit0、原runtime-scope-audit exit1；新增scope-validity/readonly-observability/payments三组exit0。这是在最终应用/审计源码上真实再跑，未借旧绿。后续文档提交不改变源码指纹，不能称测试发生于未来报告SHA。
+
+机器索引 `artifacts/packaging-history-review30-final-delivery.json`：每组实际command/cwd/开始结束/exit/日志SHA256/revision；scope原始结果 `artifacts/scope-validity-1789372730480/results.json`；审计15项 `artifacts/readonly-observability-1789372729806/results.json`。代码改动相对a575只涉及一个应用方法，其他测试/审计变更单列。
+
+| 命令组（实际argv在JSON） | exit | 脱敏日志 |
+|---|---:|---|
+| rebuild-sql | 0 | `artifacts/packaging-history-local/verified-rebuild-sql-r10.log` |
+| rebuild-bootstrap | 0 | `artifacts/packaging-history-local/verified-rebuild-bootstrap-r10.log` |
+| rebuild-ts | 0 | `artifacts/packaging-history-local/verified-rebuild-ts-r10.log` |
+| readonly-observability | 0 | `artifacts/packaging-history-local/verified-readonly-observability-r2.log` |
+| scope-validity | 0 | `artifacts/packaging-history-local/verified-scope-validity-r3.log` |
+| payments | 0 | `artifacts/packaging-history-local/verified-payments-r3.log` |
+| legacy-wms | 0 | `artifacts/packaging-history-local/verified-legacy-wms-r5.log` |
+| auth-approval | 0 | `artifacts/packaging-history-local/verified-auth-approval-r9.log` |
+| api-tsc | 0 | `artifacts/packaging-history-local/verified-api-tsc-r35.log` |
+| web-tsc | 0 | `artifacts/packaging-history-local/verified-web-tsc-r23.log` |
+| api-regression | 0 | `artifacts/packaging-history-local/verified-api-regression-r10.log` |
+| web-auth | 0 | `artifacts/packaging-history-local/verified-web-auth-r9.log` |
+| api-unit | 0 | `artifacts/packaging-history-local/verified-api-unit-r21.log` |
+| pg-http | 0 | `artifacts/packaging-history-local/verified-pg-http-r30.log` |
+| web-dom | 0 | `artifacts/packaging-history-local/verified-web-dom-r21.log` |
+| nullable | 0 | `artifacts/packaging-history-local/verified-nullable-r16.log` |
+| constraint-parser | 0 | `artifacts/packaging-history-local/verified-constraint-parser-r5.log` |
+| constraint-self-test | 0 | `artifacts/packaging-history-local/verified-constraint-self-test-r5.log` |
+| constraint | 0 | `artifacts/packaging-history-local/verified-constraint-r18.log` |
+| migration-down | 0 | `artifacts/packaging-history-local/verified-migration-down-r15.log` |
+| migration-dml | 0 | `artifacts/packaging-history-local/verified-migration-dml-r15.log` |
+| entity-diff | 0 | `artifacts/packaging-history-local/verified-entity-diff-r11.log` |
+| entity-baseline | 0 | `artifacts/packaging-history-local/verified-entity-baseline-r8.log` |
+| entity-gate | 0 | `artifacts/packaging-history-local/verified-entity-gate-r11.log` |
+| runtime-scope-audit | 1 | `artifacts/packaging-history-local/verified-runtime-scope-audit-r8.log` |
+| browser | 0 | `artifacts/packaging-history-local/verified-browser-r18.log` |
+| perf-plan | 0 | `artifacts/packaging-history-local/verified-perf-plan-r11.log` |
+| performance | 0 | `artifacts/packaging-history-local/verified-performance-r17.log` |
+
+数量分类：PG/HTTP80=57直接PG+23真实HTTP（suite51+29，后29内含6直接PG）；API91=90unit+1staticSQL且8skip保留；Web65=56DOM+5client+4static；web-auth16客户端unit；api-regression85unit/5suites；auth-approval62=41unit+9PG+12HTTP；legacyWMS18=13PG+5unit；payments2原unit；browser27=18浏览器/混合+9HTTP-only。scope49是新增独立真实HTTP检查，含9登录、6退役契约及34活跃检查，不与其他suite合并夸大。readonly15与deploy20为shell行为测试，不当PG/浏览器用例。constraint13静态反例、8混合检查（5PG+3文件/static）；全仓扫描2条动态SQL解析skip仍明示。
+
+新空PG18.6 `packaging-history-test-pg18-review30-delivery` 仅localhost55432/packaging_history_test，正式195SQL/bootstrap0/83TS完成；没有新增或修改迁移，也没有事件库down。首次刚启动后的3组setup exit1且完成0保留r9；随后实际核对TCPready/PG180006/指定库/public表0，再完整重跑成功r10，未清库。原baseline81库仅localhost55434用于真实diff；新/旧链当前267非零、300门禁通过。未执行generated diff。
+
+性能fixture5001原单/5001grading、10000库存/ledger、5000接收人，混合状态/多公司背景，真实DataScope/Workflow.detail与SQL计划；每操作首读1+暖20+新会话5、单并发，PG/OS缓存未清，不称物理冷盘。结果 `artifacts/packaging-history-local/performance-1789372871354.json`：
+
+| 操作 | 首读ms | 暖P95ms | 冷会话P95ms |
+|---|---:|---:|---:|
+| list | 499.47 | 505.32 | 520.93 |
+| detail | 9.65 | 9.83 | 38.38 |
+| committedDetail | 8.47 | 11.22 | 42.93 |
+| report | 594.04 | 640.09 | 656.14 |
+| recipients | 18.33 | 24.36 | 40.64 |
+
+均≤1000ms；未扩大到生产峰值/所有大事件容量。原慢读与失败历史不删。
+
+### 新正式Node20镜像与候选
+
+tracked-only archive、排除env/artifacts/uploads/node_modules；未拿根workspace作context。未修改正式Dockerfiles，build源为f8624273，before/after同上述指纹，实际API/Web node均v20.20.2：
+
+- API `sha256:bb03034a91e8d2df2a7c581953e8f6ec60dab4b70809f502ad48933a3fe8c5c2`
+- Web `sha256:d26d15f5b71ea4275629ab326fe3463f8a0337c3b9d77448b6a2e0916cd9b4b4`
+
+`node scripts/entity-alignment/node20-build.cjs` exit0，证据 `artifacts/entity-node20-1789372668495/results.json`。`node scripts/entity-alignment/candidate-test.cjs artifacts/entity-node20-1789372668495/results.json 267` exit0，证据 `artifacts/packaging-candidate-1789372786741/results.json`：真实81→83、83→83，1536事件count/digest不变，固定新API镜像TypeORM实际267diff/300 gate0、真实5HTTP（登录/健康/me/history/归档拒绝）。这些5HTTP不冒称新增资金49全部在容器内执行。浏览器实际使用本次新正式Web镜像+同源码完整本地API，27检查通过；window.print为测试替身，物理L4仍未执行。
+
+`node scripts/packaging-history-compatibility/deploy-test.cjs`实际exit0，20/20，证据 `artifacts/packaging-deploy-gates-1789372936877/results.json`；旧393仍拒绝。Bash/Node语法、Python YAML和git diff检查4命令均exit0，实时指纹见 `artifacts/packaging-history-review30-syntax.json`。第一次尝试不存在的apps/api/node_modules/yaml导致MODULE_NOT_FOUND，随后用已安装Python yaml真解析成功；不是跳过校验。
+
+阶段失败保留：审计路径测试首轮缺继承HOME，fixture因nounset exit1，修为只继承现有HOME后15项通过；早期diff检查发现新增行尾空格，后续正常提交修正，未amend；阶段c79/e57构建与测试均保留但最终验收仅上述f862。没有用中间未同指纹结果代替最终回归。
+
+### Review30状态、提交与收尾
+
+Review30资金泄露最小软件修复与指定HTTP/完整适用回归关闭；旧raw scope脚本仍真实FAIL、旧角色配置认证不扩大；生产预检仍partial/UNKNOWN，新metadata通道待审，物理Q/L4未验、生产新写未开。这不是发布批准，未进入push/dispatch/deploy/生产写。
+
+本地代码提交：ebdeb594（独立Payments修复）、c79e0528（范围测试与审计诊断）、e57aaa2b（统一验证入口）、f8624273（无eval的home-relative路径）。main与本地origin/main仍69d89dd4，当前HEAD无remote-tracking ref包含；这是本地缓存/操作证据，本轮未联网查生产或重复audit。
+
+最终停止API PID3143948（核对脚本身份后SIGTERM）、review30 Web、review30-delivery与baseline PG；candidate脚本已停止专属55437/55438库。localhost3000/3100/55432/55434/55437/55438全部无监听；所有fixture/容器/构建副本/失败日志保留，不触其他项目。最终文档/脱敏证据提交后输出最终SHA，不篡改代码提交历史。

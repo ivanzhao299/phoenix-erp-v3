@@ -85,3 +85,7 @@ review24–26历史容器演练使用Node22 bookworm与当时dist，仅证明该
 正式Node20构建基线为cdb49bb1，API/Web镜像实际node均v20.20.2，基础node:20-alpine digest sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293。镜像ID及源码归档SHA见构建results；Node20编译产物的TypeORM生成器只生成diff、不执行diff，267/300是真实门禁结果。A/B/十列WMS只改元数据及旧provider，没有新DB迁移，正式迁移总数仍83。旧provider存在NULL/并发问题已按父级授权真实修复回归；其全局事务锁限制legacy并行吞吐，现包装inv_batches路径不使用它。
 
 原393拒绝shell fixture继续拒绝，阈值/allowlist均未变。原scope-audit仍真实FAIL，L4/Q实物未验，新写默认关；远端DB major/部署ref与受控audit dispatch等待父级下一阶段确认bundle/输入，本turn未执行。备份恢复与旧API只读兼容证据保留原测试revision，不追认为当前所有端点/写操作都兼容。最终源码/测试映射与本次停机记录见实施报告及交付receipt。
+
+## Review30追加（未发布）
+
+资金summary授权漏洞已以ebdeb594最小修复，最终f8624273同指纹25适用组+49真实scope HTTP/15审计shell/2payments回归重跑，正式Node20构建、候选及浏览器/P95通过。原raw scope仍2printedPASS/28FAIL/1SKIP保留；新映射不冒称原生产角色配置认证。生产audit34818687355旧执行exit1、空输出原因未知；本轮未重复dispatch。审计workflow本地已增加安全阶段诊断、stderr捕获和~/显式展开，未push。metadata-only新入口仅待审方案，详见packaging-history-readonly-metadata-plan.md；不得为启用新通道提前push main。最终应用/测试/镜像与源码映射以实施报告Review30和review30-final-delivery.json为准，旧镜像仅历史证据。

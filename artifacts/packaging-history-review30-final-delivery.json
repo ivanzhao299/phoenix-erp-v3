@@ -1,0 +1,716 @@
+{
+  "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+  "tree": "517d4a71482887647044b51a647fa12b6c6ab2f3",
+  "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+  "groups": [
+    {
+      "revision": "artifacts/packaging-history-local/verified-rebuild-sql-r10.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "rebuild-sql",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/migrate.cjs"
+      ],
+      "started": "2026-09-14T07:58:18.017Z",
+      "finished": "2026-09-14T07:58:20.140Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-rebuild-sql-r10.log",
+      "logSha256": "82d1d65f77ca913bf46a796615a752f8c65062970bad392951036cf075aa3676"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-rebuild-bootstrap-r10.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "rebuild-bootstrap",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/bootstrap.cjs"
+      ],
+      "started": "2026-09-14T07:58:20.143Z",
+      "finished": "2026-09-14T07:58:22.267Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-rebuild-bootstrap-r10.log",
+      "logSha256": "75f295e677c18cc3c37cc2c5b7efd718250230303deaa1ada5112f08d860413d"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-rebuild-ts-r10.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "rebuild-ts",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/migrate-ts.cjs"
+      ],
+      "started": "2026-09-14T07:58:22.271Z",
+      "finished": "2026-09-14T07:58:23.964Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-rebuild-ts-r10.log",
+      "logSha256": "0a6cb24d60792901043a75abb3ed84d008a2fa05f38b479d82893f14591b206f"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-readonly-observability-r2.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "readonly-observability",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/readonly-observability.cjs"
+      ],
+      "started": "2026-09-14T07:58:49.705Z",
+      "finished": "2026-09-14T07:58:50.173Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-readonly-observability-r2.log",
+      "logSha256": "3e13b349ba04292ce94ee4261b7705d2799596d6dc9a592e1c6badff01a3a46c"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-scope-validity-r3.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "scope-validity",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/scope-validity.cjs"
+      ],
+      "started": "2026-09-14T07:58:50.176Z",
+      "finished": "2026-09-14T07:58:56.501Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-scope-validity-r3.log",
+      "logSha256": "6873c4dd4036618e90bdab292d286777a21ab6a78ffb5685b9b3eb01895a7d1e"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-payments-r3.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "payments",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/jest",
+        "--runInBand",
+        "src/modules/procurement-v2/services/payments.service.spec.ts"
+      ],
+      "started": "2026-09-14T07:58:56.502Z",
+      "finished": "2026-09-14T07:58:59.358Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-payments-r3.log",
+      "logSha256": "6c4c8cff967293d3e8d1fbf7c1334459aefe45fba7c8ca96828ca5d7e377360a"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-legacy-wms-r5.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "legacy-wms",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/jest",
+        "--runInBand",
+        "src/modules/wms/inventory/inventory.pg.spec.ts",
+        "src/modules/wms/inventory/inventory.service.spec.ts"
+      ],
+      "started": "2026-09-14T07:58:59.360Z",
+      "finished": "2026-09-14T07:59:02.795Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-legacy-wms-r5.log",
+      "logSha256": "7817a0be885d4c98065e49f5c2cb29aec42fe9d9609175582d8c35c2144f49ab"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-auth-approval-r9.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "auth-approval",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/jest",
+        "--runInBand",
+        "entity-alignment.pg.spec.ts",
+        "jwt-rotation.spec.ts",
+        "permissions-resolver.spec.ts",
+        "permissions.service.spec.ts",
+        "approval-action-menu-gate.spec.ts",
+        "sales-order-approval-consistency.spec.ts",
+        "sales-order-approval.pg.integration.spec.ts"
+      ],
+      "started": "2026-09-14T07:59:02.797Z",
+      "finished": "2026-09-14T07:59:07.146Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-auth-approval-r9.log",
+      "logSha256": "0effa597c2a57a63d32cfb912fa469e2ffd73734b9db747123c0cf8781934840"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-api-tsc-r35.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "api-tsc",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/tsc",
+        "--noEmit"
+      ],
+      "started": "2026-09-14T07:59:07.148Z",
+      "finished": "2026-09-14T07:59:08.752Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-api-tsc-r35.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-web-tsc-r23.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "web-tsc",
+      "cwd": "apps/web",
+      "command": [
+        "./node_modules/.bin/tsc",
+        "--noEmit"
+      ],
+      "started": "2026-09-14T07:59:08.753Z",
+      "finished": "2026-09-14T07:59:11.204Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-web-tsc-r23.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-api-regression-r10.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "api-regression",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/jest",
+        "--runInBand",
+        "data-scope.service.spec.ts",
+        "data-scope-row-equivalence.spec.ts",
+        "egg-inventory.service.spec.ts",
+        "wms.service.spec.ts",
+        "packaging-inventory-integration.service.spec.ts"
+      ],
+      "started": "2026-09-14T07:59:11.206Z",
+      "finished": "2026-09-14T07:59:14.364Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-api-regression-r10.log",
+      "logSha256": "043332a508a90425c0979ad05d219b5da9ed5002a84e9b49491ce27becaade6f"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-web-auth-r9.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "web-auth",
+      "cwd": "apps/web",
+      "command": [
+        "./node_modules/.bin/vitest",
+        "run",
+        "src/lib/auth-navigation.test.ts",
+        "src/lib/auth-session.test.ts",
+        "src/lib/auth-dispatch.test.ts"
+      ],
+      "started": "2026-09-14T07:59:14.365Z",
+      "finished": "2026-09-14T07:59:15.204Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-web-auth-r9.log",
+      "logSha256": "3ea0cff39598e6f2d79338fde95f370e75adacce2a489bfc789623279889e3cb"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-api-unit-r21.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "api-unit",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/jest",
+        "--runInBand",
+        "bff.controller.spec.ts",
+        "grading-governance.spec.ts",
+        "packaging-protection.spec.ts",
+        "packaging-workflow-policy.spec.ts",
+        "packaging-review.spec.ts"
+      ],
+      "started": "2026-09-14T07:59:15.206Z",
+      "finished": "2026-09-14T07:59:18.720Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-api-unit-r21.log",
+      "logSha256": "6f725f20a4992e97fde9e7b30936ef04a193e17a4279d874ff8dc1339950a001"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-pg-http-r30.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "pg-http",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/jest",
+        "--runInBand",
+        "packaging-history.pg.spec.ts",
+        "packaging-history.http.spec.ts"
+      ],
+      "started": "2026-09-14T07:59:18.721Z",
+      "finished": "2026-09-14T07:59:31.106Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-pg-http-r30.log",
+      "logSha256": "9bbcedbbac60f02d9e3af3229c7880e3e6372cf8980f3fce9e4853db6d96b4c4"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-web-dom-r21.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "web-dom",
+      "cwd": "apps/web",
+      "command": [
+        "./node_modules/.bin/vitest",
+        "run",
+        "src/__tests__/packing-history-client.test.ts",
+        "src/__tests__/packing-history.dom.test.tsx",
+        "src/__tests__/packing-history-ui.dom.test.tsx",
+        "src/__tests__/packaging-terminal-context.dom.test.tsx",
+        "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+      ],
+      "started": "2026-09-14T07:59:31.107Z",
+      "finished": "2026-09-14T07:59:33.545Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-web-dom-r21.log",
+      "logSha256": "ecd1ce152669e0a59090d98b47aaa3a54a0e162f19334093e2d8807381a80ddc"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-nullable-r16.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "nullable",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/check-nullable-in-unique.js"
+      ],
+      "started": "2026-09-14T07:59:33.546Z",
+      "finished": "2026-09-14T07:59:33.705Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-nullable-r16.log",
+      "logSha256": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-constraint-parser-r5.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "constraint-parser",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/entity-alignment/constraint-test.cjs"
+      ],
+      "started": "2026-09-14T07:59:33.706Z",
+      "finished": "2026-09-14T07:59:34.031Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-constraint-parser-r5.log",
+      "logSha256": "1b16642968a65c9f7b120d0fe8955e399cb07633e4d2c7b35569176049470a99"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-constraint-self-test-r5.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "constraint-self-test",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/check-constraint-drift.js",
+        "--self-test"
+      ],
+      "started": "2026-09-14T07:59:34.033Z",
+      "finished": "2026-09-14T07:59:34.187Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-constraint-self-test-r5.log",
+      "logSha256": "28b30937c4ea674a599f8cfab0d6366f7d67247a54b010a6e58474e743df4a59"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-constraint-r18.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "constraint",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/check-constraint-drift.js"
+      ],
+      "started": "2026-09-14T07:59:34.189Z",
+      "finished": "2026-09-14T07:59:34.442Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-constraint-r18.log",
+      "logSha256": "09df9c675ae8c3d02a806ee7fb34a2d9e263de8495c0608341bc2e3e56a7b0ad"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-migration-down-r15.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "migration-down",
+      "cwd": ".",
+      "command": [
+        "bash",
+        "scripts/check-ts-migration-down.sh"
+      ],
+      "started": "2026-09-14T07:59:34.444Z",
+      "finished": "2026-09-14T07:59:34.830Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-migration-down-r15.log",
+      "logSha256": "7a7ca6c588b431c7e866d7751fe30f9e6d6bae3be4edea2118c938fd8395f496"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-migration-dml-r15.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "migration-dml",
+      "cwd": ".",
+      "command": [
+        "bash",
+        "scripts/check-ts-migration-no-data-dml.sh"
+      ],
+      "started": "2026-09-14T07:59:34.832Z",
+      "finished": "2026-09-14T07:59:35.424Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-migration-dml-r15.log",
+      "logSha256": "84b411dac4cbc63fa2de00ba2b26ec02f48a8866fd1f2d437fac0f5900032b7d"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-entity-diff-r11.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "entity-diff",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/entity-diff.cjs"
+      ],
+      "started": "2026-09-14T07:59:35.426Z",
+      "finished": "2026-09-14T07:59:36.823Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-entity-diff-r11.log",
+      "logSha256": "966bcccfac5dff0efb08ff24be4a1b748bdb6a1a84cfcbc10a2214a7c115aab6"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-entity-baseline-r8.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "entity-baseline",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/entity-diff.cjs",
+        "--baseline"
+      ],
+      "started": "2026-09-14T07:59:36.828Z",
+      "finished": "2026-09-14T07:59:38.143Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-entity-baseline-r8.log",
+      "logSha256": "7b94fd515b903e50d0004ee8c9c422de870b01935098fd4d2bee5797e2f3fe01"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-entity-gate-r11.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "entity-gate",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/entity-gate.cjs"
+      ],
+      "started": "2026-09-14T07:59:38.145Z",
+      "finished": "2026-09-14T07:59:38.304Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-entity-gate-r11.log",
+      "logSha256": "8ff6086e98053f9d1044ef59df583a36b3e4a3757705909cfa8088edce177f4e"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-runtime-scope-audit-r8.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "runtime-scope-audit",
+      "cwd": ".",
+      "command": [
+        "bash",
+        "apps/api/test/scope-audit.sh"
+      ],
+      "started": "2026-09-14T08:00:02.469Z",
+      "finished": "2026-09-14T08:00:03.434Z",
+      "exit": 1,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-runtime-scope-audit-r8.log",
+      "logSha256": "52dfa95a53bb94585ec5d10c9c04dfc8ba16a8eccb4307a821219ffe8c0160e3"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-browser-r18.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "browser",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/browser.cjs"
+      ],
+      "started": "2026-09-14T08:00:03.437Z",
+      "finished": "2026-09-14T08:00:13.841Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-browser-r18.log",
+      "logSha256": "8362b84e4472d1c705c53a9788f0537da793b5ab4447107653a8d95139593684"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-perf-plan-r11.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "perf-plan",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/performance.cjs",
+        "--plan"
+      ],
+      "started": "2026-09-14T08:00:30.291Z",
+      "finished": "2026-09-14T08:00:34.894Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-perf-plan-r11.log",
+      "logSha256": "8131aad40b53c042428f77cb4f489d2fd1366828401ad4669343dbf45f0ab75f"
+    },
+    {
+      "revision": "artifacts/packaging-history-local/verified-performance-r17.revision.json",
+      "head": "f8624273e45a9d1219f2ffee9e4ac0c3f224f192",
+      "sourceFingerprint": "94a0af5b6d0d718a7eda377020eecfe78fba86e6f151831d81b02e154c7a1e76",
+      "sourceUnchanged": true,
+      "name": "performance",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/performance.cjs"
+      ],
+      "started": "2026-09-14T08:00:34.897Z",
+      "finished": "2026-09-14T08:01:11.446Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-performance-r17.log",
+      "logSha256": "e661d491632b7840c3a86ced1a7dfe67aff577b145c57b22c7f673cc95a96a6b"
+    }
+  ],
+  "summary": {
+    "original25": {
+      "exit0": 24,
+      "exit1": 1,
+      "failing": "runtime-scope-audit (original evidence retained)"
+    },
+    "additionalGroups": 3,
+    "scopeHttpChecks": 49,
+    "readonlyShellFixtures": 15,
+    "paymentsUnit": 2
+  },
+  "scopeEvidence": "artifacts/scope-validity-1789372730480/results.json",
+  "scopeSelfEvidence": {
+    "items": 0,
+    "total": 0,
+    "summaryPresent": true,
+    "summaryOriginal": 0,
+    "expected": 0
+  },
+  "scopeForeignEvidence": {
+    "items": 0,
+    "total": 0,
+    "summaryOriginal": 0,
+    "expected": 0
+  },
+  "readonlyEvidence": "artifacts/readonly-observability-1789372729806/results.json",
+  "buildEvidence": "artifacts/entity-node20-1789372668495/results.json",
+  "images": [
+    {
+      "app": "api",
+      "tag": "packaging-history-node20-api:f8624273",
+      "imageId": "sha256:bb03034a91e8d2df2a7c581953e8f6ec60dab4b70809f502ad48933a3fe8c5c2",
+      "node": "v20.20.2"
+    },
+    {
+      "app": "web",
+      "tag": "packaging-history-node20-web:f8624273",
+      "imageId": "sha256:d26d15f5b71ea4275629ab326fe3463f8a0337c3b9d77448b6a2e0916cd9b4b4",
+      "node": "v20.20.2"
+    }
+  ],
+  "candidateEvidence": "artifacts/packaging-candidate-1789372786741/results.json",
+  "candidateChecks": [
+    {
+      "port": 55437,
+      "identity": {
+        "db": "packaging_history_test",
+        "version": "180006"
+      },
+      "beforeMigrations": 81,
+      "afterMigrations": 83,
+      "beforeEvents": null,
+      "afterEvents": {
+        "n": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "verifiedImage": "sha256:bb03034a91e8d2df2a7c581953e8f6ec60dab4b70809f502ad48933a3fe8c5c2"
+    },
+    {
+      "port": 55438,
+      "identity": {
+        "db": "packaging_history_test",
+        "version": "180006"
+      },
+      "beforeMigrations": 83,
+      "afterMigrations": 83,
+      "beforeEvents": {
+        "n": 1536,
+        "digest": "8cff63e2e0cc41a5959b32c6adf31236"
+      },
+      "afterEvents": {
+        "n": 1536,
+        "digest": "8cff63e2e0cc41a5959b32c6adf31236"
+      },
+      "verifiedImage": "sha256:bb03034a91e8d2df2a7c581953e8f6ec60dab4b70809f502ad48933a3fe8c5c2"
+    },
+    {
+      "actualGenerator": 267,
+      "gateExit": 0,
+      "baseline": 300
+    },
+    {
+      "http": {
+        "node": "v20.20.2",
+        "identity": {
+          "db": "packaging_history_test",
+          "version": "180006"
+        },
+        "checks": [
+          {
+            "name": "real ordinary login",
+            "status": 200
+          },
+          {
+            "path": "/api/health",
+            "status": 200
+          },
+          {
+            "path": "/api/auth/me",
+            "status": 200
+          },
+          {
+            "path": "/api/packaging/terminal/history",
+            "status": 200
+          },
+          {
+            "name": "archived guarded session",
+            "status": 401
+          }
+        ],
+        "exit": 0
+      }
+    }
+  ],
+  "deployShell20": "artifacts/packaging-deploy-gates-1789372936877/results.json",
+  "performanceEvidence": "artifacts/packaging-history-local/performance-1789372871354.json",
+  "portsListeningAfterStop": {
+    "3000": false,
+    "3100": false,
+    "55432": false,
+    "55434": false,
+    "55437": false,
+    "55438": false
+  },
+  "retainedFixtures": true,
+  "productionAudit": "No repeat dispatch;34818687355 previous exit1/blank output remains unexplained;metadata bundle plan only",
+  "localCommits": [
+    "f8624273e45a9d1219f2ffee9e4ac0c3f224f192 fix: resolve readonly audit home-relative deployment path without eval",
+    "e57aaa2b8e0bdab97708aef775305a50951cd412 test: include readonly diagnostics in revision-bound verification",
+    "c79e0528458cb1a1e154d8e235c7b6ecf3daa76f test: cover fund scope totals and expose readonly audit failure stages",
+    "ebdeb5943f9cf1fada752dfa73648a0e4b41a393 fix: apply shareholder fund visibility to grouped totals"
+  ],
+  "appChangeScope": " .../procurement-v2/services/payments.service.ts    | 30 +++++++++-------------\n 1 file changed, 12 insertions(+), 18 deletions(-)\n",
+  "main": "69d89dd44b8e1461d7eaf5193e60c994255aed2c",
+  "cachedOriginMain": "69d89dd44b8e1461d7eaf5193e60c994255aed2c",
+  "remoteTrackingContainsHead": "",
+  "network": "No push, dispatch or production contact this review30 turn; refs are local cache only",
+  "node20BaseRepoDigests": [
+    "node@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293"
+  ],
+  "syntaxEvidence": "artifacts/packaging-history-review30-syntax.json",
+  "ownedRunningContainers": [],
+  "metadataPlan": "docs/ops/packaging-history-readonly-metadata-plan.md",
+  "metadataPlanStatus": "PLAN_ONLY; no helper implemented or production execution"
+}
