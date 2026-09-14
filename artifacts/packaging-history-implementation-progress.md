@@ -10,15 +10,15 @@
 ## TODO
 
 - [x] cwd/status/授权边界/专用分支
-- [ ] P0 诚实反馈与 partial 门禁
-- [ ] P1 历史/详情/URL/精确来源/DataScope
-- [ ] P2 五表身份事件/并发幂等/原量原日
-- [ ] P3-M 打印请求/扫描证据/D1-C confirm
-- [ ] P4 日报/移动统一/旧入口
-- [ ] unit/DOM/API+Web tsc/约束检查
-- [ ] 隔离 PG18 全迁移/事务/并发/真实 HTTP 权限矩阵
-- [ ] 原 runtime scope-audit 分类留痕/浏览器 E2E
-- [ ] 实施报告/验收矩阵/local commits/未 push 证据
+- [x] P0 诚实反馈与 partial 门禁
+- [x] P1 历史/详情/URL/精确来源/DataScope
+- [x] P2 五表身份事件/并发幂等/原量原日
+- [x] P3-M 打印请求/扫描证据/D1-C confirm
+- [x] P4 日报/移动统一/旧入口
+- [x] unit/DOM/API+Web tsc/约束检查
+- [x] 隔离 PG18 全迁移/事务/并发/真实 HTTP 权限矩阵
+- [x] 原 runtime scope-audit 分类留痕/浏览器 E2E
+- [x] 实施报告/验收矩阵/local commits/未 push 证据
 
 ## 进度日志
 
@@ -86,3 +86,7 @@ P1/P2/P3-M 后端收口：最新 api-tsc exit0；PG18+HTTP 39 pass/0 skip/0 fail
 最终验证 2026-09-14T03:59:03.338Z：web-dom exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-dom-r5.log。
 最终验证 2026-09-14T04:01:37.371Z：browser exit=0, signal=none；日志 artifacts/packaging-history-local/verified-browser-r5.log。
 最终扩展：PG/HTTP47/47（31 PG、16真实HTTP），DOM54/54，浏览器16/16（断响应后原key恢复、无班次历史、旧URL、四时区）。API/Web tsc exit0。修复报告对齐的旧mock契约后重跑，不绕测试。原runtime 2/28/1 exit1；entity393>300 exit1（同环境旧81迁移也393），这两项仍是发布待审红灯。L4未执行且生产Q未启用。
+
+最终验证 2026-09-14T04:03:28.707Z：web-tsc exit=0, signal=none；日志 artifacts/packaging-history-local/verified-web-tsc-r6.log。
+最终验证 2026-09-14T04:04:23.339Z：nullable exit=0, signal=none；日志 artifacts/packaging-history-local/verified-nullable-r3.log。
+交付汇总：代码本地提交8d6515af、4825b0db、736af4cc、7b099b9d。实施报告已写，测试/脱敏日志将独立local commit。TODO勾选表示本轮工作已执行，不表示原scope/entity门禁或L4通过。生产发布仍须另批。

@@ -1,0 +1,21 @@
+{
+  "at": "2026-09-14T04:06:26.689772+00:00",
+  "branch": "impl/packaging-history-d1c-local",
+  "codeHead": "7b099b9d6f7f214d5893df25a233e32321d43a2c",
+  "main": "69d89dd44b8e1461d7eaf5193e60c994255aed2c",
+  "localOriginMain": "69d89dd44b8e1461d7eaf5193e60c994255aed2c",
+  "remoteContact": false,
+  "push": false,
+  "localCommits": [
+    "7b099b9d6f7f214d5893df25a233e32321d43a2c feat: packaging original-record workflow and unified production reports",
+    "736af4cce8c694c1411bbd3fef8cc1dccffa9c32 fix: preserve packaging snapshots and validate recovery boundaries",
+    "4825b0db9c4e29c11cf2561e7079c0a5c7785271 feat: packaging history scoped evidence and D1-C transactions",
+    "8d6515afceab8c4007283b452d502dec92a6e25f fix: packaging P0 truthful status and partial handover guards"
+  ],
+  "migrationSha256": "8d913a5ff83254375134205ba20457aa7d583541510e8bbe842f00028afce787",
+  "scopeAuditSha256": "463a0263dc94a65c7d9010eab8fcbf1e5cc481666b9333709bc3156c0e754a96",
+  "baselineEntityDiff": 393,
+  "newEntityDiff": 393,
+  "entityIncrement": 0,
+  "productionPolicySeeded": false
+}

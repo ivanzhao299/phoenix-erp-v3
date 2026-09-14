@@ -1,0 +1,725 @@
+[
+  {
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:44:53.743Z",
+    "finished": "2026-09-14T03:44:55.564Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc.log"
+  },
+  {
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:44:55.565Z",
+    "finished": "2026-09-14T03:44:58.415Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc.log"
+  },
+  {
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts"
+    ],
+    "started": "2026-09-14T03:44:58.416Z",
+    "finished": "2026-09-14T03:45:04.000Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit.log"
+  },
+  {
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T03:45:04.001Z",
+    "finished": "2026-09-14T03:45:13.482Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http.log"
+  },
+  {
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T03:45:13.482Z",
+    "finished": "2026-09-14T03:45:15.655Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom.log"
+  },
+  {
+    "name": "nullable",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-nullable-in-unique.js"
+    ],
+    "started": "2026-09-14T03:45:15.656Z",
+    "finished": "2026-09-14T03:45:15.699Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-nullable.log"
+  },
+  {
+    "name": "constraint",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-constraint-drift.js"
+    ],
+    "started": "2026-09-14T03:45:15.700Z",
+    "finished": "2026-09-14T03:45:15.837Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-constraint.log"
+  },
+  {
+    "name": "migration-down",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-down.sh"
+    ],
+    "started": "2026-09-14T03:45:15.837Z",
+    "finished": "2026-09-14T03:45:16.088Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-down.log"
+  },
+  {
+    "name": "migration-dml",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-no-data-dml.sh"
+    ],
+    "started": "2026-09-14T03:45:16.088Z",
+    "finished": "2026-09-14T03:45:16.518Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-dml.log"
+  },
+  {
+    "name": "entity-diff",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/entity-diff.cjs"
+    ],
+    "started": "2026-09-14T03:45:16.518Z",
+    "finished": "2026-09-14T03:45:17.688Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-entity-diff.log"
+  },
+  {
+    "name": "entity-gate",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-entity-drift-baseline.sh",
+      ".github/entity-drift-baseline.txt",
+      "artifacts/packaging-history-local/entity-diff.ts"
+    ],
+    "started": "2026-09-14T03:45:17.688Z",
+    "finished": "2026-09-14T03:45:17.694Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-entity-gate.log"
+  },
+  {
+    "name": "runtime-scope-audit",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "apps/api/test/scope-audit.sh"
+    ],
+    "started": "2026-09-14T03:45:17.694Z",
+    "finished": "2026-09-14T03:45:18.482Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-runtime-scope-audit.log"
+  },
+  {
+    "name": "browser",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/browser.cjs"
+    ],
+    "started": "2026-09-14T03:45:18.482Z",
+    "finished": "2026-09-14T03:45:25.497Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-browser.log"
+  },
+  {
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:46:50.405Z",
+    "finished": "2026-09-14T03:46:51.854Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r2.log"
+  },
+  {
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T03:46:51.855Z",
+    "finished": "2026-09-14T03:46:54.073Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r2.log"
+  },
+  {
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:47:27.883Z",
+    "finished": "2026-09-14T03:47:29.710Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r3.log"
+  },
+  {
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T03:47:29.711Z",
+    "finished": "2026-09-14T03:47:39.347Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r2.log"
+  },
+  {
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:48:14.384Z",
+    "finished": "2026-09-14T03:48:15.905Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r4.log"
+  },
+  {
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T03:48:15.905Z",
+    "finished": "2026-09-14T03:48:25.806Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r3.log"
+  },
+  {
+    "name": "browser",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/browser.cjs"
+    ],
+    "started": "2026-09-14T03:50:27.626Z",
+    "finished": "2026-09-14T03:50:38.873Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-browser-r2.log"
+  },
+  {
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:52:40.373Z",
+    "finished": "2026-09-14T03:52:41.887Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r5.log"
+  },
+  {
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:52:41.888Z",
+    "finished": "2026-09-14T03:52:44.327Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r2.log"
+  },
+  {
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T03:52:44.327Z",
+    "finished": "2026-09-14T03:52:55.048Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r4.log"
+  },
+  {
+    "name": "browser",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/browser.cjs"
+    ],
+    "started": "2026-09-14T03:52:55.048Z",
+    "finished": "2026-09-14T03:53:06.889Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-browser-r3.log"
+  },
+  {
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:56:01.355Z",
+    "finished": "2026-09-14T03:56:02.849Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r6.log"
+  },
+  {
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:56:02.850Z",
+    "finished": "2026-09-14T03:56:05.401Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r3.log"
+  },
+  {
+    "name": "api-unit",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "bff.controller.spec.ts",
+      "grading-governance.spec.ts",
+      "packaging-protection.spec.ts",
+      "packaging-workflow-policy.spec.ts"
+    ],
+    "started": "2026-09-14T03:56:05.401Z",
+    "finished": "2026-09-14T03:56:10.680Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-unit-r2.log"
+  },
+  {
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T03:56:10.680Z",
+    "finished": "2026-09-14T03:56:20.809Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r5.log"
+  },
+  {
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T03:56:20.809Z",
+    "finished": "2026-09-14T03:56:22.878Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r3.log"
+  },
+  {
+    "name": "nullable",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-nullable-in-unique.js"
+    ],
+    "started": "2026-09-14T03:56:22.878Z",
+    "finished": "2026-09-14T03:56:22.921Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-nullable-r2.log"
+  },
+  {
+    "name": "constraint",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-constraint-drift.js"
+    ],
+    "started": "2026-09-14T03:56:22.921Z",
+    "finished": "2026-09-14T03:56:23.057Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-constraint-r2.log"
+  },
+  {
+    "name": "migration-down",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-down.sh"
+    ],
+    "started": "2026-09-14T03:56:23.057Z",
+    "finished": "2026-09-14T03:56:23.291Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-down-r2.log"
+  },
+  {
+    "name": "migration-dml",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-ts-migration-no-data-dml.sh"
+    ],
+    "started": "2026-09-14T03:56:23.291Z",
+    "finished": "2026-09-14T03:56:23.689Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-migration-dml-r2.log"
+  },
+  {
+    "name": "entity-diff",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/entity-diff.cjs"
+    ],
+    "started": "2026-09-14T03:56:23.689Z",
+    "finished": "2026-09-14T03:56:24.813Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-entity-diff-r2.log"
+  },
+  {
+    "name": "entity-gate",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "scripts/check-entity-drift-baseline.sh",
+      ".github/entity-drift-baseline.txt",
+      "artifacts/packaging-history-local/entity-diff.ts"
+    ],
+    "started": "2026-09-14T03:56:24.814Z",
+    "finished": "2026-09-14T03:56:24.819Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-entity-gate-r2.log"
+  },
+  {
+    "name": "runtime-scope-audit",
+    "cwd": ".",
+    "command": [
+      "bash",
+      "apps/api/test/scope-audit.sh"
+    ],
+    "started": "2026-09-14T03:56:24.820Z",
+    "finished": "2026-09-14T03:56:25.569Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-runtime-scope-audit-r2.log"
+  },
+  {
+    "name": "browser",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/browser.cjs"
+    ],
+    "started": "2026-09-14T03:56:25.570Z",
+    "finished": "2026-09-14T03:56:30.835Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-browser-r4.log"
+  },
+  {
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:57:51.840Z",
+    "finished": "2026-09-14T03:57:53.640Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r7.log"
+  },
+  {
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:57:53.641Z",
+    "finished": "2026-09-14T03:57:56.252Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r4.log"
+  },
+  {
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T03:57:56.253Z",
+    "finished": "2026-09-14T03:58:06.544Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r6.log"
+  },
+  {
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T03:58:06.544Z",
+    "finished": "2026-09-14T03:58:08.644Z",
+    "exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r4.log"
+  },
+  {
+    "name": "api-tsc",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:58:47.088Z",
+    "finished": "2026-09-14T03:58:48.380Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-api-tsc-r8.log"
+  },
+  {
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T03:58:48.381Z",
+    "finished": "2026-09-14T03:58:50.745Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r5.log"
+  },
+  {
+    "name": "pg-http",
+    "cwd": "apps/api",
+    "command": [
+      "./node_modules/.bin/jest",
+      "--runInBand",
+      "packaging-history.pg.spec.ts",
+      "packaging-history.http.spec.ts"
+    ],
+    "started": "2026-09-14T03:58:50.745Z",
+    "finished": "2026-09-14T03:59:01.219Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-pg-http-r7.log"
+  },
+  {
+    "name": "web-dom",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/__tests__/packing-history-client.test.ts",
+      "src/__tests__/packing-history.dom.test.tsx",
+      "src/__tests__/packing-history-ui.dom.test.tsx",
+      "src/__tests__/packaging-terminal-context.dom.test.tsx",
+      "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+    ],
+    "started": "2026-09-14T03:59:01.219Z",
+    "finished": "2026-09-14T03:59:03.338Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-dom-r5.log"
+  },
+  {
+    "name": "browser",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/packaging-history-test/browser.cjs"
+    ],
+    "started": "2026-09-14T04:01:27.323Z",
+    "finished": "2026-09-14T04:01:37.371Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-browser-r5.log"
+  },
+  {
+    "name": "web-tsc",
+    "cwd": "apps/web",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "started": "2026-09-14T04:03:26.609Z",
+    "finished": "2026-09-14T04:03:28.707Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-web-tsc-r6.log"
+  },
+  {
+    "name": "nullable",
+    "cwd": ".",
+    "command": [
+      "node",
+      "scripts/check-nullable-in-unique.js"
+    ],
+    "started": "2026-09-14T04:04:23.296Z",
+    "finished": "2026-09-14T04:04:23.339Z",
+    "exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "artifacts/packaging-history-local/verified-nullable-r3.log"
+  }
+]

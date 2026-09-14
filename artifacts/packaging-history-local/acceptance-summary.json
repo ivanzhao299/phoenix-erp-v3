@@ -1,0 +1,254 @@
+{
+  "at": "2026-09-14T04:08:18.443123+00:00",
+  "latest": [
+    {
+      "name": "api-tsc",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/tsc",
+        "--noEmit"
+      ],
+      "started": "2026-09-14T03:58:47.088Z",
+      "finished": "2026-09-14T03:58:48.380Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-api-tsc-r8.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "web-tsc",
+      "cwd": "apps/web",
+      "command": [
+        "./node_modules/.bin/tsc",
+        "--noEmit"
+      ],
+      "started": "2026-09-14T04:03:26.609Z",
+      "finished": "2026-09-14T04:03:28.707Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-web-tsc-r6.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "api-unit",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/jest",
+        "--runInBand",
+        "bff.controller.spec.ts",
+        "grading-governance.spec.ts",
+        "packaging-protection.spec.ts",
+        "packaging-workflow-policy.spec.ts"
+      ],
+      "started": "2026-09-14T03:56:05.401Z",
+      "finished": "2026-09-14T03:56:10.680Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-api-unit-r2.log",
+      "logSha256": "e2275bab1320e88f22f2fcc267d8beb546c9e5212c150e686c2f1f43e15fb26d"
+    },
+    {
+      "name": "pg-http",
+      "cwd": "apps/api",
+      "command": [
+        "./node_modules/.bin/jest",
+        "--runInBand",
+        "packaging-history.pg.spec.ts",
+        "packaging-history.http.spec.ts"
+      ],
+      "started": "2026-09-14T03:58:50.745Z",
+      "finished": "2026-09-14T03:59:01.219Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-pg-http-r7.log",
+      "logSha256": "8263e6949cc59bfd84e654a8e21a164470aae8beacfed89e6031da6cc95df0c0"
+    },
+    {
+      "name": "web-dom",
+      "cwd": "apps/web",
+      "command": [
+        "./node_modules/.bin/vitest",
+        "run",
+        "src/__tests__/packing-history-client.test.ts",
+        "src/__tests__/packing-history.dom.test.tsx",
+        "src/__tests__/packing-history-ui.dom.test.tsx",
+        "src/__tests__/packaging-terminal-context.dom.test.tsx",
+        "src/__tests__/bug-20260722-0003-warehouse-handover.test.ts"
+      ],
+      "started": "2026-09-14T03:59:01.219Z",
+      "finished": "2026-09-14T03:59:03.338Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-web-dom-r5.log",
+      "logSha256": "b2581d2440232830cd885a96503f8416cc5230ce1a12436e77dbdd91fa79013d"
+    },
+    {
+      "name": "nullable",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/check-nullable-in-unique.js"
+      ],
+      "started": "2026-09-14T04:04:23.296Z",
+      "finished": "2026-09-14T04:04:23.339Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-nullable-r3.log",
+      "logSha256": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65"
+    },
+    {
+      "name": "constraint",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/check-constraint-drift.js"
+      ],
+      "started": "2026-09-14T03:56:22.921Z",
+      "finished": "2026-09-14T03:56:23.057Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-constraint-r2.log",
+      "logSha256": "ba53e2609dbf23af23ee8effbcdd76a607d48661c514a3cb7c08961a4f4c9821"
+    },
+    {
+      "name": "migration-down",
+      "cwd": ".",
+      "command": [
+        "bash",
+        "scripts/check-ts-migration-down.sh"
+      ],
+      "started": "2026-09-14T03:56:23.057Z",
+      "finished": "2026-09-14T03:56:23.291Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-migration-down-r2.log",
+      "logSha256": "015b6fdaab6d40ff6a3901631febabc02dcd9fc26e2dd083efe8c79b32fe7c6b"
+    },
+    {
+      "name": "migration-dml",
+      "cwd": ".",
+      "command": [
+        "bash",
+        "scripts/check-ts-migration-no-data-dml.sh"
+      ],
+      "started": "2026-09-14T03:56:23.291Z",
+      "finished": "2026-09-14T03:56:23.689Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-migration-dml-r2.log",
+      "logSha256": "2c26fd3440692db803854fc76681a5089ba006050b89eaa0cd66e08cdc33bc13"
+    },
+    {
+      "name": "entity-diff",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/entity-diff.cjs"
+      ],
+      "started": "2026-09-14T03:56:23.689Z",
+      "finished": "2026-09-14T03:56:24.813Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-entity-diff-r2.log",
+      "logSha256": "701f4ae4de38a1f2d8d9c9b6041e9843e1d417a648465739f5dc2d825b331e70"
+    },
+    {
+      "name": "entity-gate",
+      "cwd": ".",
+      "command": [
+        "bash",
+        "scripts/check-entity-drift-baseline.sh",
+        ".github/entity-drift-baseline.txt",
+        "artifacts/packaging-history-local/entity-diff.ts"
+      ],
+      "started": "2026-09-14T03:56:24.814Z",
+      "finished": "2026-09-14T03:56:24.819Z",
+      "exit": 1,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-entity-gate-r2.log",
+      "logSha256": "7996014e7b3d978f6230c414763924a1550e97c6de434e0b25004040ed8af4e0"
+    },
+    {
+      "name": "runtime-scope-audit",
+      "cwd": ".",
+      "command": [
+        "bash",
+        "apps/api/test/scope-audit.sh"
+      ],
+      "started": "2026-09-14T03:56:24.820Z",
+      "finished": "2026-09-14T03:56:25.569Z",
+      "exit": 1,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-runtime-scope-audit-r2.log",
+      "logSha256": "e9534f4f8ef94421d4221462033c40a63f30ae387905c6fc13171eda7568669e"
+    },
+    {
+      "name": "browser",
+      "cwd": ".",
+      "command": [
+        "node",
+        "scripts/packaging-history-test/browser.cjs"
+      ],
+      "started": "2026-09-14T04:01:27.323Z",
+      "finished": "2026-09-14T04:01:37.371Z",
+      "exit": 0,
+      "signal": null,
+      "error": null,
+      "log": "artifacts/packaging-history-local/verified-browser-r5.log",
+      "logSha256": "21dffb3303dce432ed1683865a9b7b4dcbce2ec4b059f023bf952643aa484716"
+    }
+  ],
+  "counts": {
+    "apiUnit": {
+      "pass": 47,
+      "skip": 8,
+      "fail": 0
+    },
+    "pg": {
+      "pass": 31,
+      "skip": 0,
+      "fail": 0
+    },
+    "http": {
+      "pass": 16,
+      "skip": 0,
+      "fail": 0
+    },
+    "web": {
+      "pass": 54,
+      "skip": 0,
+      "fail": 0,
+      "includesStaticTests": 4
+    },
+    "browser": {
+      "pass": 16,
+      "skip": 0,
+      "fail": 0
+    }
+  },
+  "migrations": {
+    "postgres": 180006,
+    "frozenSqlFiles": 195,
+    "typescriptMigrations": 82,
+    "bootstrapDiagnostics": 0,
+    "newEmptyRebuild": "packaging-history-test-pg18-rebuild2"
+  },
+  "unresolvedOriginalGates": [
+    "entity393>300; old full schema also393",
+    "scope-audit printed2pass/28fail/1skip; F06 empty-response false-positive retained"
+  ],
+  "productionAccess": false,
+  "physicalPrintExecuted": false
+}

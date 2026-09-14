@@ -1,0 +1,6 @@
+{
+  "scriptSha256": "463a0263dc94a65c7d9010eab8fcbf1e5cc481666b9333709bc3156c0e754a96",
+  "exit": 1,
+  "environment": "isolated full Nest API 127.0.0.1:3100 -> PG18 packaging_history_test 127.0.0.1:55432",
+  "originalScriptUnmodified": true
+}

@@ -1,0 +1,5 @@
+{
+  "scannedTaskLogs": 130,
+  "redactedFiles": 0,
+  "scope": "only newly-created packaging-history-local logs; no existing auth artifacts read"
+}
