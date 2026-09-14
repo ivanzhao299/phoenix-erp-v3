@@ -51,7 +51,7 @@ jobs:
           EXPECTED_DEPLOY_SHA: ${{ inputs.expected_deploy_sha }}
           BACKUP_DIRECTORY: ${{ inputs.backup_directory }}
           BUNDLE_SOURCE_COMMIT: ${{ github.sha }}
-          BUNDLE_HELPER_SHA256: 6059c96fda1a5c2abccf9af0fd20cd783b75a1be856771792821c197e64d2359
+          BUNDLE_HELPER_SHA256: 51d3e0c9efc3e2b0d6687c41523111b5ac2891e722958f185157150b8ab05d9b
           BUNDLE_SQL_SHA256: 8c0167efaa5b04e2018b950bfd38a7e179b87e3847e27b60cd5637528c3f729a
           BUNDLE_MANIFEST_SHA256: ba3fc5d21d62c37c09205b3421f7bf04a44f6cb5185e3da8fa09840e86c505ce
           ASSERTION_SQL_PATH: ${{ inputs.audit_mode == 'packaging-metadata' && '' || inputs.assertion_sql_path }}
@@ -97,7 +97,7 @@ jobs:
           EXPECTED_DEPLOY_SHA: ${{ inputs.expected_deploy_sha }}
           BACKUP_DIRECTORY: ${{ inputs.backup_directory }}
           BUNDLE_SOURCE_COMMIT: ${{ github.sha }}
-          BUNDLE_HELPER_SHA256: 6059c96fda1a5c2abccf9af0fd20cd783b75a1be856771792821c197e64d2359
+          BUNDLE_HELPER_SHA256: 51d3e0c9efc3e2b0d6687c41523111b5ac2891e722958f185157150b8ab05d9b
           BUNDLE_SQL_SHA256: 8c0167efaa5b04e2018b950bfd38a7e179b87e3847e27b60cd5637528c3f729a
           BUNDLE_MANIFEST_SHA256: ba3fc5d21d62c37c09205b3421f7bf04a44f6cb5185e3da8fa09840e86c505ce
           ASSERTION_SQL_PATH: ${{ inputs.audit_mode == 'packaging-metadata' && '' || inputs.assertion_sql_path }}
@@ -129,13 +129,19 @@ jobs:
                 echo 'FAIL AUDIT_STAGE=DEPLOY_DIRECTORY class=UNAVAILABLE exit=2'
                 exit 2
               fi
-              if node "$AUDIT_BUNDLE_DIR/scripts/ops/readonly-audits/packaging-metadata.cjs"; then
-                exit 0
+              set +e
+              metadata_output=$(node "$AUDIT_BUNDLE_DIR/scripts/ops/readonly-audits/packaging-metadata.cjs" 2>/dev/null)
+              metadata_exit=$?
+              set -e
+              printf '%s\n' "$metadata_output"
+              if [ "$metadata_exit" -eq 0 ]; then
+                echo 'AUDIT_METADATA_RESULT=PASS'
               else
-                metadata_exit=$?
-                echo "FAIL AUDIT_STAGE=METADATA_RUNNER class=FAILED exit=$metadata_exit"
-                exit "$metadata_exit"
+                echo "AUDIT_METADATA_RESULT=FAIL stage=METADATA_RUNNER exit=$metadata_exit"
               fi
+              # Keep the SSH action itself successful so capture_stdout does not
+              # emit its broken output delimiter on a controlled helper failure.
+              exit 0
             fi
             if [ "${AUDIT_MODE:-legacy}" != legacy ]; then
               echo 'FAIL AUDIT_STAGE=INPUT class=UNKNOWN_MODE exit=2'
@@ -156,6 +162,22 @@ jobs:
               exit 2
             fi
             bash "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh"
+      - name: Enforce metadata helper result
+        if: always() && inputs.audit_mode == 'packaging-metadata'
+        env:
+          AUDIT_OUTPUT: ${{ steps.execute.outputs.stdout }}
+          SSH_OUTCOME: ${{ steps.execute.outcome }}
+        run: |
+          if [ "$SSH_OUTCOME" != success ]; then
+            echo 'FAIL AUDIT_STAGE=SSH class=COMMAND_FAILED exit=2'
+            exit 2
+          fi
+          case "$AUDIT_OUTPUT" in
+            *'AUDIT_METADATA_RESULT=PASS'*) exit 0 ;;
+            *'AUDIT_METADATA_RESULT=FAIL '* ) echo 'FAIL AUDIT_STAGE=METADATA_RESULT class=HELPER_FAILED exit=2'; exit 2 ;;
+            *) echo 'FAIL AUDIT_STAGE=METADATA_RESULT class=MISSING_MARKER exit=2'; exit 2 ;;
+          esac
+
       - name: Persist sanitized audit output
         if: always()
         env:

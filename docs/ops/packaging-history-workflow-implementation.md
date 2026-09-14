@@ -726,3 +726,12 @@ run `34826067560` validate/SCP 成功，SHA 与确认值 `a53d91f33ff733bf28e19c
 新提交 `36745d57521e0a7a562660fe7bfe2565da7a223a` 已推送 audit branch，bundle helper hash 更新。隔离 metadata runner exit0、legacy observability exit0；当前 runner 实际为47个命名 cases，不能称184 cases。
 
 run `34826843478`：validate exit0、SCP exit0、SSH进入 helper；checkout SHA 匹配 `a53d91f33ff733bf28e19ca11d7491f1bfd46922`，backup阶段通过后 DB 阶段返回 `COMMAND_FAILED/exit=2`。由于 stderr 被固定隔离，未猜测连接/角色原因；未执行后续 image/PG/flags/migrations 输出，也未写生产。SSH output delimiter 错误仍出现在失败采集之后。run 保留为失败证据，不重试。
+
+
+## Local DB observability contract repair (no dispatch)
+
+本轮仅本地修复，未访问生产、未 dispatch。`packaging-metadata.cjs` 现在把 DB command 的内部 stderr 映射为固定安全 class：`MISSING_CONTAINER`、`MISSING_PSQL`、`MISSING_ROLE`、`MISSING_DATABASE`、`PERMISSION_DENIED`、`READONLY_SQL_FAILURE`；保留 stage/exit，绝不输出 stderr。隔离 shell fixtures 覆盖六类、secret sentinel 不泄漏。
+
+SSH metadata wrapper 改为捕获 helper 输出后固定打印 `AUDIT_METADATA_RESULT=PASS|FAIL stage=... exit=...`，wrapper 自身返回0；后续 `Enforce metadata helper result` step 根据固定 marker fail-closed。这样 `capture_stdout` 不再在远端受控失败时用非零退出触发 EOF delimiter 错误；transport/missing marker 仍失败。legacy 分支不变。
+
+本地 `readonly-metadata.cjs` exit0（新增 DB 六类与 wrapper contract fixtures；实际命名 cases 仍如 runner 输出记录），`readonly-observability.cjs` exit0、Node/YAML/diff 检查 exit0。生产 DB 阻断证据 `34826843478` 保留；未重试生产。

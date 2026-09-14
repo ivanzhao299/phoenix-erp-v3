@@ -8,10 +8,19 @@ function fail(stage,klass='FAILED',exit=2,detail){const e=new Error('metadata fa
 function safeRelative(root,p){const rel=path.relative(root,p).replaceAll('\\','/');return rel.replace(/[^A-Za-z0-9._\/-]/g,'_').slice(0,160)||'.';}
 function lstatType(s){if(s.isSymbolicLink())return 'symlink';if(s.isFile())return 'file';if(s.isDirectory())return 'directory';if(s.isFIFO())return 'fifo';if(s.isSocket())return 'socket';if(s.isCharacterDevice())return 'character-device';if(s.isBlockDevice())return 'block-device';return 'other';}
 function backupFail(root,p,s,klass,depth){fail('BACKUP',klass,2,{type:lstatType(s),relativePath:safeRelative(root,p),depth});}
+function classifyDbFailure(result){
+ const text=[result.error&&result.error.code,result.stderr].filter(Boolean).join(' ').toLowerCase();
+ if(/no such container|container .*not found|is not running|cannot find container/.test(text))return 'MISSING_CONTAINER';
+ if(/psql(?::|\s).*not found|executable file not found|no such file or directory/.test(text))return 'MISSING_PSQL';
+ if(/database [^\n]* does not exist|unknown database/.test(text))return 'MISSING_DATABASE';
+ if(/role [^\n]* does not exist|unknown user/.test(text))return 'MISSING_ROLE';
+ if(/permission denied|not permitted|authentication failed|password authentication failed/.test(text))return 'PERMISSION_DENIED';
+ return 'READONLY_SQL_FAILURE';
+}
 function run(stage,cmd,args,input){
  const r=cp.spawnSync(cmd,args,{input,encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024,
    env:{PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C',LC_ALL:'C'}});
- if(r.error||r.status!==0)fail(stage,r.error?'EXECUTION_ERROR':'COMMAND_FAILED',Number.isInteger(r.status)&&r.status>0?r.status:2);
+ if(r.error||r.status!==0){const klass=stage==='DB'?classifyDbFailure(r):(r.error?'EXECUTION_ERROR':'COMMAND_FAILED');fail(stage,klass,Number.isInteger(r.status)&&r.status>0?r.status:2);}
  return r.stdout.trim(); // stderr NEVER forwarded, even on errors.
 }
 function regular(p,directory=false){
@@ -140,7 +149,7 @@ function main(env=process.env,io={}){
   images,pgMajor:18,backup,capacity,policy,pending,checkoutPending:checkout.filter(e=>!applied.includes(e.name)).map(e=>e.name),
   appliedOutsideCandidate:applied.filter(n=>!candidate.some(e=>e.name===n)),candidateManifestSHA256:hash(JSON.stringify(candidate))};
 }
-module.exports={BASELINE,flags,manifest,backupMetadata,regular,validate,main};
+module.exports={BASELINE,flags,manifest,backupMetadata,regular,validate,main,run,classifyDbFailure};
 if(require.main===module){try{
  if(process.argv[2]==='--manifest')console.log(JSON.stringify(manifest(process.argv[3]),null,2));
  else console.log(JSON.stringify(main()));
