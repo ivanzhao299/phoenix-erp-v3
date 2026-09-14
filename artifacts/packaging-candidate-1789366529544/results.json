@@ -1,0 +1,105 @@
+{
+  "before": {
+    "head": "b7d1a6d05abb1b06c09cc9166242ca583119fbdf",
+    "hashes": {
+      ".github/workflows/deploy.yml": "20e172177670d58f10e294a06d6180599aab0ad121f2693a7dd49347074351df",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "ac74593b2b7a60b36f84f72f09390c9470fc8992bc7dbf747ed3f6e0c6ad63e7",
+      "scripts/deploy-schema-first.sh": "a0e18e721ada266fcbf3b54d7b84f2e39cdac1c292597c96a2b1bdee6f6a9abe",
+      "scripts/packaging-history-compatibility/candidate-test.cjs": "3c2b16b9486d53cb6830f00ae9b82ba0eb36ed2b4a597adbd71d8a6feee22bd4"
+    },
+    "diff": "diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml\nindex fffc0ad0..93343218 100644\n--- a/.github/workflows/deploy.yml\n+++ b/.github/workflows/deploy.yml\n@@ -359,34 +359,7 @@ jobs:\n         working-directory: apps/api\n         run: |\n           export PGHOST=\"$DB_HOST\" PGPORT=\"$DB_PORT\" PGUSER=\"$DB_USER\" PGPASSWORD=\"$DB_PASSWORD\" PGDATABASE=\"$DB_NAME\"\n-          rm -f /tmp/_p5_entity_diff*.ts 2>/dev/null\n-          out=$(./node_modules/.bin/typeorm migration:generate -d dist/database/data-source.js /tmp/_p5_entity_diff 2>&1) || true\n-          if echo \"$out\" | grep -q \"No changes in database schema\"; then\n-            echo \"✅ entity ↔ DB schema 已同步（零漂移）\"\n-          else\n-            echo \"──── 关键错误行 (grep) ────\"\n-            echo \"$out\" | grep -E 'QueryFailedError|does not exist|MigrationGenerateCommand|column .* does not exist|relation .* does not exist|Cannot find|table .* does not exist' | head -20 || true\n-            echo \"──── 引用堆栈(头 20 行) ────\"\n-            echo \"$out\" | head -20\n-            echo \"──── 输出尾部(失败上下文,后 15 行)────\"\n-            echo \"$out\" | tail -15\n-            for diff_file in /tmp/*_p5_entity_diff*.ts; do\n-              [ -f \"$diff_file\" ] || continue\n-              total=$(wc -l < \"$diff_file\")\n-              echo \">>> $diff_file (total $total 行)\"\n-              up_segment=$(awk '/public async up/,/public async down/' \"$diff_file\")\n-              echo\n-              echo \"── 真业务漂移行 ──\"\n-              echo \"$up_segment\" | grep -E 'await queryRunner' | grep -vE 'DROP INDEX|DROP CONSTRAINT.*_fkey' | head -120\n-            done\n-            rm -f /tmp/*_p5_entity_diff*.ts 2>/dev/null\n-            # G126(评分补强 P9)：warn-only → 真红灯。漂移超 baseline(锁定) 即失败 → 强制补迁移/对齐 entity。\n-            if ! bash ../../scripts/check-entity-drift-baseline.sh ../../.github/entity-drift-baseline.txt; then\n-              echo \"::error::❌ entity↔DB 漂移超过 baseline。请补迁移(apps/api/src/database/migrations/)或对齐 entity 声明；见上「真业务漂移行」。\"\n-              exit 1\n-            fi\n-            echo \"::notice::entity↔DB 有差异但未超已锁定 baseline → 通过（不许新增漂移）。\"\n-          fi\n+          bash ../../scripts/check-entity-schema.sh ../../.github/entity-drift-baseline.txt \"$RUNNER_TEMP/phoenix-entity-evidence\"\n \n       - name: Start API\n         working-directory: apps/api\n@@ -659,6 +632,10 @@ jobs:\n             echo \"  build_web=$BUILD_WEB  build_api=$BUILD_API  run_mig=$RUN_MIG\"\n             echo \"════════════════════════════════════════════════\"\n \n+            # API schema changes must retain evidence/DB and never clean backups.\n+            if [ \"$BUILD_API\" = \"true\" ]; then PRESERVE_ARTIFACTS=true; fi\n+            API_SWITCH_STARTED=false\n+\n             # ── 部署事务状态:失败时回滚代码、镜像与 Nginx ───────────\n             PREV_SHA=\"$(git rev-parse HEAD)\"\n             PREV_API_IMAGE_ID=\"$(docker inspect phoenix-v3-api --format '{{.Image}}' 2>/dev/null || true)\"\n@@ -686,7 +663,7 @@ jobs:\n                 git reset --hard \"$PREV_SHA\"\n               fi\n \n-              if [ -n \"$PREV_API_IMAGE_ID\" ] && [ \"$BUILD_API\" = \"true\" ]; then\n+              if [ -n \"$PREV_API_IMAGE_ID\" ] && [ \"$API_SWITCH_STARTED\" = \"true\" ]; then\n                 API_IMAGE=\"ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:${ROLLBACK_TAG}\" \\\n                   docker compose up -d --no-deps --wait api\n               fi\n@@ -856,13 +833,10 @@ jobs:\n \n             # ── 滚动重启容器(按 mode 选)──────────────────────────────\n             if [ \"$BUILD_API\" = \"true\" ]; then\n-              docker compose up -d --no-deps --wait api\n-\n-              # g195-P3+: TS 迁移 api 容器内执行(api up 后才跑)\n-              echo \"── 执行 TypeORM TS 迁移(api 容器内) ──\"\n-              docker compose exec -T api ./node_modules/.bin/typeorm \\\n-                -d dist/database/data-source.js migration:run\n-              echo \"✅ TS 迁移完成\"\n+              # Resolve the pulled candidate; migrate and verify while the old API remains running.\n+              CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence)\n+              API_SWITCH_STARTED=true\n+              API_IMAGE=\"$CANDIDATE_API_IMAGE\" docker compose up -d --no-deps --wait api\n             fi\n \n             if [ \"$BUILD_WEB\" = \"true\" ]; then\ndiff --git a/scripts/check-entity-drift-baseline.sh b/scripts/check-entity-drift-baseline.sh\nindex 73e729ff..0db7b25c 100755\n--- a/scripts/check-entity-drift-baseline.sh\n+++ b/scripts/check-entity-drift-baseline.sh\n@@ -1,57 +1,11 @@\n #!/usr/bin/env bash\n-# ════════════════════════════════════════════════════════════════════════════\n-#  g197-I CI 门禁:entity↔DB 漂移总行数不得超过 baseline\n-#\n-#  逻辑:\n-#    1. typeorm migration:generate 已生成 /tmp/*_p5_entity_diff.ts(P5 #3 step)\n-#    2. 抽 up() 段所有 `await queryRunner.query(...)` 行数 → 当前漂移\n-#    3. 与 .github/entity-drift-baseline.txt 比较\n-#    4. 当前 > baseline → 红灯\n-#\n-#  目的:防止新 PR 让 entity ↔ DB 漂移恶化。新增 entity 字段必须先确认 DB 实存。\n-#\n-#  人工降 baseline:每次 entity 治理(让 entity 反映 DB)真减少漂移时,手动改\n-#  baseline 文件下调。\n-#\n-#  调用方:.github/workflows/deploy.yml P5 #3 step 末尾。\n-# ════════════════════════════════════════════════════════════════════════════\n-set -u\n-BASELINE_FILE=\"${1:-.github/entity-drift-baseline.txt}\"\n-DIFF_GLOB=\"${2:-/tmp/*_p5_entity_diff*.ts}\"\n-\n-if [ ! -f \"$BASELINE_FILE\" ]; then\n-  echo \"::error::baseline 文件不存在: $BASELINE_FILE\"\n-  exit 1\n-fi\n-baseline=$(cat \"$BASELINE_FILE\" | tr -d '[:space:]')\n-\n-# 累计所有 diff 文件 up 段行数\n-total=0\n-for f in $DIFF_GLOB; do\n-  [ -f \"$f\" ] || continue\n-  n=$(awk '/public async up/,/public async down/' \"$f\" | grep -c 'await queryRunner' || true)\n-  total=$((total + n))\n-done\n-\n-if [ \"$total\" = \"0\" ]; then\n-  echo \"✅ entity ↔ DB schema 已同步(0 漂移)\"\n-  exit 0\n-fi\n-\n-echo \"── entity 漂移 baseline 检查 ──\"\n-echo \"  当前总行数: $total\"\n-echo \"  baseline:   $baseline\"\n-\n-if [ \"$total\" -gt \"$baseline\" ]; then\n-  echo \"::error::❌ entity 漂移 $total > baseline $baseline,本 PR 让漂移恶化\"\n-  echo \"  → 修复:让 entity 字段对齐 DB(用 \\\\d <table> 验证),或回滚增量\"\n-  echo \"  → 不允许新 PR 增加漂移\"\n-  exit 1\n-fi\n-\n-if [ \"$total\" -lt \"$baseline\" ]; then\n-  echo \"🎯 entity 漂移 $total < baseline $baseline,治理有进展!\"\n-  echo \"  → 建议人工下调 baseline 锁定成果\"\n-fi\n-\n-echo \"✅ 漂移未恶化\"\n+# Only an explicit, existing artifact is accepted. Generator no-change is handled separately.\n+set -euo pipefail\n+baseline_file=${1:-.github/entity-drift-baseline.txt}\n+diff_file=${2:?explicit current-run diff file required}\n+[[ -f \"$baseline_file\" && -f \"$diff_file\" && ! -L \"$diff_file\" ]] || { echo '::error::missing baseline/current diff'; exit 1; }\n+baseline=$(tr -d '[:space:]' < \"$baseline_file\")\n+[[ \"$baseline\" =~ ^[0-9]+$ ]] || { echo '::error::invalid baseline'; exit 1; }\n+count=$(awk '/public async up/{up=1; seen=1} /public async down/{up=0; down=1} up && /await queryRunner/{n++} END{if (!seen || !down || !n) exit 1; print n}' \"$diff_file\") || { echo '::error::invalid or empty migration artifact'; exit 1; }\n+echo \"entity drift: $count / baseline $baseline\"\n+if (( count > baseline )); then echo '::error::entity drift exceeds baseline'; exit 1; fi\n"
+  },
+  "imageBuildSourceHead": "ff9d6422a838abc2a5d5dd0f88819177f1823b48",
+  "imageLimitation": "existing node:22-bookworm-slim, compiled application from previous verified build; NOT production Node20 Dockerfile build",
+  "runs": [
+    {
+      "cmd": "docker",
+      "args": [
+        "image",
+        "inspect",
+        "packaging-history-candidate-test:review26",
+        "--format",
+        "{{.Id}}"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366529544/command-0.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "run",
+        "--pull=never",
+        "-d",
+        "--name",
+        "packaging-history-candidate-pg-55437-1789366529544",
+        "--label",
+        "purpose=packaging-history-review26",
+        "-e",
+        "POSTGRES_HOST_AUTH_METHOD=trust",
+        "-e",
+        "POSTGRES_DB=packaging_history_test",
+        "-p",
+        "127.0.0.1:55437:5432",
+        "postgres:18-alpine"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366529544/command-1.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "packaging-history-candidate-pg-55437-1789366529544",
+        "pg_restore",
+        "-U",
+        "postgres",
+        "-d",
+        "packaging_history_test",
+        "--exit-on-error",
+        "--single-transaction",
+        "--no-owner",
+        "--no-privileges"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366529544/command-2.log"
+    },
+    {
+      "cmd": "bash",
+      "args": [
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/scripts/deploy-schema-first.sh",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-candidate-1789366529544/evidence-55437"
+      ],
+      "exit": 1,
+      "log": "artifacts/packaging-candidate-1789366529544/command-3.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "stop",
+        "packaging-history-candidate-pg-55437-1789366529544"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789366529544/command-4.log"
+    }
+  ],
+  "checks": [],
+  "resources": [
+    "packaging-history-candidate-pg-55437-1789366529544"
+  ],
+  "imageId": "sha256:991a7fe57c9ec68273ee94c0837fea167a4edc6f8b414cab598a56f2fd16c590",
+  "exit": 1,
+  "error": "command failed 1",
+  "after": {
+    "head": "b7d1a6d05abb1b06c09cc9166242ca583119fbdf",
+    "hashes": {
+      ".github/workflows/deploy.yml": "20e172177670d58f10e294a06d6180599aab0ad121f2693a7dd49347074351df",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "ac74593b2b7a60b36f84f72f09390c9470fc8992bc7dbf747ed3f6e0c6ad63e7",
+      "scripts/deploy-schema-first.sh": "a0e18e721ada266fcbf3b54d7b84f2e39cdac1c292597c96a2b1bdee6f6a9abe",
+      "scripts/packaging-history-compatibility/candidate-test.cjs": "3c2b16b9486d53cb6830f00ae9b82ba0eb36ed2b4a597adbd71d8a6feee22bd4"
+    },
+    "diff": "diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml\nindex fffc0ad0..93343218 100644\n--- a/.github/workflows/deploy.yml\n+++ b/.github/workflows/deploy.yml\n@@ -359,34 +359,7 @@ jobs:\n         working-directory: apps/api\n         run: |\n           export PGHOST=\"$DB_HOST\" PGPORT=\"$DB_PORT\" PGUSER=\"$DB_USER\" PGPASSWORD=\"$DB_PASSWORD\" PGDATABASE=\"$DB_NAME\"\n-          rm -f /tmp/_p5_entity_diff*.ts 2>/dev/null\n-          out=$(./node_modules/.bin/typeorm migration:generate -d dist/database/data-source.js /tmp/_p5_entity_diff 2>&1) || true\n-          if echo \"$out\" | grep -q \"No changes in database schema\"; then\n-            echo \"✅ entity ↔ DB schema 已同步（零漂移）\"\n-          else\n-            echo \"──── 关键错误行 (grep) ────\"\n-            echo \"$out\" | grep -E 'QueryFailedError|does not exist|MigrationGenerateCommand|column .* does not exist|relation .* does not exist|Cannot find|table .* does not exist' | head -20 || true\n-            echo \"──── 引用堆栈(头 20 行) ────\"\n-            echo \"$out\" | head -20\n-            echo \"──── 输出尾部(失败上下文,后 15 行)────\"\n-            echo \"$out\" | tail -15\n-            for diff_file in /tmp/*_p5_entity_diff*.ts; do\n-              [ -f \"$diff_file\" ] || continue\n-              total=$(wc -l < \"$diff_file\")\n-              echo \">>> $diff_file (total $total 行)\"\n-              up_segment=$(awk '/public async up/,/public async down/' \"$diff_file\")\n-              echo\n-              echo \"── 真业务漂移行 ──\"\n-              echo \"$up_segment\" | grep -E 'await queryRunner' | grep -vE 'DROP INDEX|DROP CONSTRAINT.*_fkey' | head -120\n-            done\n-            rm -f /tmp/*_p5_entity_diff*.ts 2>/dev/null\n-            # G126(评分补强 P9)：warn-only → 真红灯。漂移超 baseline(锁定) 即失败 → 强制补迁移/对齐 entity。\n-            if ! bash ../../scripts/check-entity-drift-baseline.sh ../../.github/entity-drift-baseline.txt; then\n-              echo \"::error::❌ entity↔DB 漂移超过 baseline。请补迁移(apps/api/src/database/migrations/)或对齐 entity 声明；见上「真业务漂移行」。\"\n-              exit 1\n-            fi\n-            echo \"::notice::entity↔DB 有差异但未超已锁定 baseline → 通过（不许新增漂移）。\"\n-          fi\n+          bash ../../scripts/check-entity-schema.sh ../../.github/entity-drift-baseline.txt \"$RUNNER_TEMP/phoenix-entity-evidence\"\n \n       - name: Start API\n         working-directory: apps/api\n@@ -659,6 +632,10 @@ jobs:\n             echo \"  build_web=$BUILD_WEB  build_api=$BUILD_API  run_mig=$RUN_MIG\"\n             echo \"════════════════════════════════════════════════\"\n \n+            # API schema changes must retain evidence/DB and never clean backups.\n+            if [ \"$BUILD_API\" = \"true\" ]; then PRESERVE_ARTIFACTS=true; fi\n+            API_SWITCH_STARTED=false\n+\n             # ── 部署事务状态:失败时回滚代码、镜像与 Nginx ───────────\n             PREV_SHA=\"$(git rev-parse HEAD)\"\n             PREV_API_IMAGE_ID=\"$(docker inspect phoenix-v3-api --format '{{.Image}}' 2>/dev/null || true)\"\n@@ -686,7 +663,7 @@ jobs:\n                 git reset --hard \"$PREV_SHA\"\n               fi\n \n-              if [ -n \"$PREV_API_IMAGE_ID\" ] && [ \"$BUILD_API\" = \"true\" ]; then\n+              if [ -n \"$PREV_API_IMAGE_ID\" ] && [ \"$API_SWITCH_STARTED\" = \"true\" ]; then\n                 API_IMAGE=\"ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:${ROLLBACK_TAG}\" \\\n                   docker compose up -d --no-deps --wait api\n               fi\n@@ -856,13 +833,10 @@ jobs:\n \n             # ── 滚动重启容器(按 mode 选)──────────────────────────────\n             if [ \"$BUILD_API\" = \"true\" ]; then\n-              docker compose up -d --no-deps --wait api\n-\n-              # g195-P3+: TS 迁移 api 容器内执行(api up 后才跑)\n-              echo \"── 执行 TypeORM TS 迁移(api 容器内) ──\"\n-              docker compose exec -T api ./node_modules/.bin/typeorm \\\n-                -d dist/database/data-source.js migration:run\n-              echo \"✅ TS 迁移完成\"\n+              # Resolve the pulled candidate; migrate and verify while the old API remains running.\n+              CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence)\n+              API_SWITCH_STARTED=true\n+              API_IMAGE=\"$CANDIDATE_API_IMAGE\" docker compose up -d --no-deps --wait api\n             fi\n \n             if [ \"$BUILD_WEB\" = \"true\" ]; then\ndiff --git a/scripts/check-entity-drift-baseline.sh b/scripts/check-entity-drift-baseline.sh\nindex 73e729ff..0db7b25c 100755\n--- a/scripts/check-entity-drift-baseline.sh\n+++ b/scripts/check-entity-drift-baseline.sh\n@@ -1,57 +1,11 @@\n #!/usr/bin/env bash\n-# ════════════════════════════════════════════════════════════════════════════\n-#  g197-I CI 门禁:entity↔DB 漂移总行数不得超过 baseline\n-#\n-#  逻辑:\n-#    1. typeorm migration:generate 已生成 /tmp/*_p5_entity_diff.ts(P5 #3 step)\n-#    2. 抽 up() 段所有 `await queryRunner.query(...)` 行数 → 当前漂移\n-#    3. 与 .github/entity-drift-baseline.txt 比较\n-#    4. 当前 > baseline → 红灯\n-#\n-#  目的:防止新 PR 让 entity ↔ DB 漂移恶化。新增 entity 字段必须先确认 DB 实存。\n-#\n-#  人工降 baseline:每次 entity 治理(让 entity 反映 DB)真减少漂移时,手动改\n-#  baseline 文件下调。\n-#\n-#  调用方:.github/workflows/deploy.yml P5 #3 step 末尾。\n-# ════════════════════════════════════════════════════════════════════════════\n-set -u\n-BASELINE_FILE=\"${1:-.github/entity-drift-baseline.txt}\"\n-DIFF_GLOB=\"${2:-/tmp/*_p5_entity_diff*.ts}\"\n-\n-if [ ! -f \"$BASELINE_FILE\" ]; then\n-  echo \"::error::baseline 文件不存在: $BASELINE_FILE\"\n-  exit 1\n-fi\n-baseline=$(cat \"$BASELINE_FILE\" | tr -d '[:space:]')\n-\n-# 累计所有 diff 文件 up 段行数\n-total=0\n-for f in $DIFF_GLOB; do\n-  [ -f \"$f\" ] || continue\n-  n=$(awk '/public async up/,/public async down/' \"$f\" | grep -c 'await queryRunner' || true)\n-  total=$((total + n))\n-done\n-\n-if [ \"$total\" = \"0\" ]; then\n-  echo \"✅ entity ↔ DB schema 已同步(0 漂移)\"\n-  exit 0\n-fi\n-\n-echo \"── entity 漂移 baseline 检查 ──\"\n-echo \"  当前总行数: $total\"\n-echo \"  baseline:   $baseline\"\n-\n-if [ \"$total\" -gt \"$baseline\" ]; then\n-  echo \"::error::❌ entity 漂移 $total > baseline $baseline,本 PR 让漂移恶化\"\n-  echo \"  → 修复:让 entity 字段对齐 DB(用 \\\\d <table> 验证),或回滚增量\"\n-  echo \"  → 不允许新 PR 增加漂移\"\n-  exit 1\n-fi\n-\n-if [ \"$total\" -lt \"$baseline\" ]; then\n-  echo \"🎯 entity 漂移 $total < baseline $baseline,治理有进展!\"\n-  echo \"  → 建议人工下调 baseline 锁定成果\"\n-fi\n-\n-echo \"✅ 漂移未恶化\"\n+# Only an explicit, existing artifact is accepted. Generator no-change is handled separately.\n+set -euo pipefail\n+baseline_file=${1:-.github/entity-drift-baseline.txt}\n+diff_file=${2:?explicit current-run diff file required}\n+[[ -f \"$baseline_file\" && -f \"$diff_file\" && ! -L \"$diff_file\" ]] || { echo '::error::missing baseline/current diff'; exit 1; }\n+baseline=$(tr -d '[:space:]' < \"$baseline_file\")\n+[[ \"$baseline\" =~ ^[0-9]+$ ]] || { echo '::error::invalid baseline'; exit 1; }\n+count=$(awk '/public async up/{up=1; seen=1} /public async down/{up=0; down=1} up && /await queryRunner/{n++} END{if (!seen || !down || !n) exit 1; print n}' \"$diff_file\") || { echo '::error::invalid or empty migration artifact'; exit 1; }\n+echo \"entity drift: $count / baseline $baseline\"\n+if (( count > baseline )); then echo '::error::entity drift exceeds baseline'; exit 1; fi\n"
+  }
+}

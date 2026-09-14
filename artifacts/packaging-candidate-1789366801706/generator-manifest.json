@@ -1,0 +1,22 @@
+[
+  {
+    "path": "artifacts/packaging-candidate-1789366801706/generator-artifacts/entity-gate.XCboimSD/1789366812000-EntityDrift.ts",
+    "sha256": "41b0716ea338ca1bd628d1f3fbb87b1e97e7ce01e6f11ce1881ab5f180d8a597",
+    "bytes": 104182
+  },
+  {
+    "path": "artifacts/packaging-candidate-1789366801706/generator-artifacts/entity-gate.XCboimSD/generator.exit",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "bytes": 2
+  },
+  {
+    "path": "artifacts/packaging-candidate-1789366801706/generator-artifacts/entity-gate.XCboimSD/generator.log",
+    "sha256": "a1ca4a68b4d7e2c30d8b7c5f4543671ae8b4fd4618b1c7dba88963cd8cc13cd2",
+    "bytes": 107
+  },
+  {
+    "path": "artifacts/packaging-candidate-1789366801706/generator-artifacts/entity-gate.XCboimSD/generator.stderr.log",
+    "sha256": "0c215b7835afe57041d32ed847cc144a2858825388146b219b2b0e998a4d2a69",
+    "bytes": 287
+  }
+]

@@ -356,37 +356,19 @@ jobs:
           MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
 
       - name: Check entity ↔ DB schema sync (g195-P6, HARD gate)
+        id: entity_schema
         working-directory: apps/api
         run: |
           export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
-          rm -f /tmp/_p5_entity_diff*.ts 2>/dev/null
-          out=$(./node_modules/.bin/typeorm migration:generate -d dist/database/data-source.js /tmp/_p5_entity_diff 2>&1) || true
-          if echo "$out" | grep -q "No changes in database schema"; then
-            echo "✅ entity ↔ DB schema 已同步（零漂移）"
-          else
-            echo "──── 关键错误行 (grep) ────"
-            echo "$out" | grep -E 'QueryFailedError|does not exist|MigrationGenerateCommand|column .* does not exist|relation .* does not exist|Cannot find|table .* does not exist' | head -20 || true
-            echo "──── 引用堆栈(头 20 行) ────"
-            echo "$out" | head -20
-            echo "──── 输出尾部(失败上下文,后 15 行)────"
-            echo "$out" | tail -15
-            for diff_file in /tmp/*_p5_entity_diff*.ts; do
-              [ -f "$diff_file" ] || continue
-              total=$(wc -l < "$diff_file")
-              echo ">>> $diff_file (total $total 行)"
-              up_segment=$(awk '/public async up/,/public async down/' "$diff_file")
-              echo
-              echo "── 真业务漂移行 ──"
-              echo "$up_segment" | grep -E 'await queryRunner' | grep -vE 'DROP INDEX|DROP CONSTRAINT.*_fkey' | head -120
-            done
-            rm -f /tmp/*_p5_entity_diff*.ts 2>/dev/null
-            # G126(评分补强 P9)：warn-only → 真红灯。漂移超 baseline(锁定) 即失败 → 强制补迁移/对齐 entity。
-            if ! bash ../../scripts/check-entity-drift-baseline.sh ../../.github/entity-drift-baseline.txt; then
-              echo "::error::❌ entity↔DB 漂移超过 baseline。请补迁移(apps/api/src/database/migrations/)或对齐 entity 声明；见上「真业务漂移行」。"
-              exit 1
-            fi
-            echo "::notice::entity↔DB 有差异但未超已锁定 baseline → 通过（不许新增漂移）。"
-          fi
+          bash ../../scripts/check-entity-schema.sh ../../.github/entity-drift-baseline.txt "$RUNNER_TEMP/phoenix-entity-evidence"
+
+      - name: Preserve current entity gate evidence
+        if: always() && steps.entity_schema.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: entity-schema-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/phoenix-entity-evidence/
+          if-no-files-found: error
 
       - name: Start API
         working-directory: apps/api
@@ -659,6 +641,10 @@ jobs:
             echo "  build_web=$BUILD_WEB  build_api=$BUILD_API  run_mig=$RUN_MIG"
             echo "════════════════════════════════════════════════"
 
+            # API schema changes must retain evidence/DB and never clean backups.
+            if [ "$BUILD_API" = "true" ]; then export PRESERVE_ARTIFACTS=true; fi
+            API_SWITCH_STARTED=false
+
             # ── 部署事务状态:失败时回滚代码、镜像与 Nginx ───────────
             PREV_SHA="$(git rev-parse HEAD)"
             PREV_API_IMAGE_ID="$(docker inspect phoenix-v3-api --format '{{.Image}}' 2>/dev/null || true)"
@@ -686,7 +672,7 @@ jobs:
                 git reset --hard "$PREV_SHA"
               fi
 
-              if [ -n "$PREV_API_IMAGE_ID" ] && [ "$BUILD_API" = "true" ]; then
+              if [ -n "$PREV_API_IMAGE_ID" ] && [ "$API_SWITCH_STARTED" = "true" ]; then
                 API_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:${ROLLBACK_TAG}" \
                   docker compose up -d --no-deps --wait api
               fi
@@ -780,6 +766,7 @@ jobs:
 
             # ── 按 mode 决定拉哪些镜像 ────────────────────────────────
             if [ "$BUILD_API" = "true" ]; then
+              export API_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:sha-${TARGET_SHA}"
               docker compose pull api
             fi
             if [ "$BUILD_WEB" = "true" ]; then
@@ -856,13 +843,10 @@ jobs:
 
             # ── 滚动重启容器(按 mode 选)──────────────────────────────
             if [ "$BUILD_API" = "true" ]; then
-              docker compose up -d --no-deps --wait api
-
-              # g195-P3+: TS 迁移 api 容器内执行(api up 后才跑)
-              echo "── 执行 TypeORM TS 迁移(api 容器内) ──"
-              docker compose exec -T api ./node_modules/.bin/typeorm \
-                -d dist/database/data-source.js migration:run
-              echo "✅ TS 迁移完成"
+              # Resolve the pulled candidate; migrate and verify while the old API remains running.
+              CANDIDATE_API_IMAGE=$(bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE")
+              API_SWITCH_STARTED=true
+              API_IMAGE="$CANDIDATE_API_IMAGE" docker compose up -d --no-deps --wait api
             fi
 
             if [ "$BUILD_WEB" = "true" ]; then
