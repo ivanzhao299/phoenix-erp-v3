@@ -6,13 +6,15 @@
 
 见 `artifacts/packaging-history-compatibility-1789365036521/results.json`：新API源码c6d3b9d2配旧81迁移库，health/readiness为200，warehouse/status、包装trace、history列表/详情为500。旧69d89dd4源码配83迁移库的9个旧GET为200，两个新history路由404。独立81恢复库先执行两条正式TypeORM迁移到83，再启动新API，11个GET均200。关新写策略不足以保护新读路径。
 
-`.github/workflows/deploy.yml:857–865` 先 `up --wait api` 后在新API执行TS迁移，869才起Web；`scripts/db-migrate.sh` 的prod分支跳过TS，不会提前补齐这两条。health成功不能放行这个窗口。计划采用**候选镜像一次性迁移进程先行，成功后才切换API/Web**；不直接用现有默认顺序发布本功能。本轮未修改整条部署链。
+旧版deploy.yml曾先up API再迁移，已在本地 `64c92f38` / `fffbc0bd` 修正：当前workflow拉取本次SHA候选，调用 `scripts/deploy-schema-first.sh` 用固定镜像ID迁移、核验成功后才up API/Web；提前失败保持旧API，API发布强制保留artifacts。该代码尚未发布。旧schema的4个500说明迁移先行仍是必要条件。
+
+旧Node22 bookworm候选证据保留。现已从tracked、排除敏感文件的专属副本，使用未修改的正式API/Web Dockerfile完成Node20 Alpine构建，实际node v20.20.2；最新应用提交cdb49bb1，构建证据`artifacts/entity-node20-1789370342086/results.json`。此前Node22与本地build结果只是阶段证据，不冒充本次镜像；本次仍未发布。
 
 ## 执行前硬条件
 
-- 父级先审本地交付及候选镜像/源SHA、原CI结果。entity 393>300是实际硬门禁；不得以“旧基线也393”跳过、改阈值、走fast-css伪装或绕CI。当前不能声称具备通过该门禁的发布条件。
-- 使用正常CI构建出的固定API/Web镜像digest；验证镜像内两条迁移及数据库连接目标。本文本地验证是源码+现有依赖/PG18，不代表候选Docker镜像本身已实测。
-- `PRESERVE_ARTIFACTS=true`，保留deploy.yml715的dirty拒绝门禁。部署目录如有既存未跟踪证据，不清理、不强制覆盖；先由维护者安排独立干净发布目录及保留路径，重新审目标。禁止reset/amend/force/down。
+- 父级先审本地交付及候选镜像/源SHA、原CI结果。原entity393>300失败保留；A/B及父级27–29最小修复后实际267/300通过，仍余267条非零差异。不得改阈值、走fast-css伪装或绕CI；旧scope-audit28fail/1skip仍需父级审，不称全部发布门禁已通过。
+- 使用正常CI构建出的固定API/Web镜像digest；验证镜像内两条迁移及数据库连接目标。Node22旧阶段、本地build及本轮正式Node20镜像证据分别列明；最终镜像应与经审交付指纹一致，不自动复用旧阶段image。
+- `PRESERVE_ARTIFACTS=true`，保留当前deploy.yml的dirty拒绝门禁。部署目录如有既存未跟踪证据，不清理、不强制覆盖；先由维护者安排独立干净发布目录及保留路径，重新审目标。禁止reset/amend/force/down。
 - 维护门禁须覆盖Web与直接API、后台业务写任务及其他写入方；先阻止新业务写并等待在途事务结束。旧API可以维持只读服务；未验证旧业务写与83兼容，不以GET通过推导写兼容。
 - 核验实际DB major=18；本地为18.6，compose文件仍写postgres:16-alpine，CI服务写18。未访问生产核实，不能依据文件注释断言生产版本。不得随功能发布顺带升级DB major或重建db服务。
 - 所有精确公司/场 `PKG_HISTORY_POLICY` 新写仍关闭，无配置则默认全false；不创建启用配置，不发行正式码。Q/L4实物资格仍未验。
@@ -73,6 +75,13 @@ WEB_IMAGE="$CANDIDATE_WEB_IMAGE" docker compose up -d --no-deps --wait web
 
 runner不启动AppModule、不发布端口、不启动依赖、覆盖chown入口、使用phoenix用户；退出容器及日志均保留。show必须存在已执行标记且没有待执行标记，否则失败。成功输出固定镜像ID供随后API up使用；迁移或核验失败则不切新API/Web。`API_SWITCH_STARTED`只有成功核验后才置true，提前失败时旧API不因rollback被重启；捕获候选输出的子shell取消继承ERR trap，使失败只交给外层原rollback一次，退出码仍传播。已有DB/events不down、备份非自动DB覆盖恢复的原则不变。
 
-CI现调用 `scripts/check-entity-schema.sh`，使用新建唯一目录、固定本次timestamp文件名，没有/tmp旧glob，也不删除diff后再计数。普通TypeORM generate模式：exit0+准确成功行+实际文件才进入300门禁；exit1+准确no-changes全文+无artifact+空stderr才允许合法0；异常、缺文件、空artifact、误导日志或部分文件加错误退出均fail closed。stdout/stderr独立保留，PG弃用警告不能冒充成功或零变化。workflow在失败后仍上传本次CI证据（此上传步骤仅代码，未执行）。300未改，真实393仍应阻断正常发布；本地通过的是门禁行为测试，不是把实际schema门禁改绿。
+CI现调用 `scripts/check-entity-schema.sh`，使用新建唯一目录、固定本次timestamp文件名，没有/tmp旧glob，也不删除diff后再计数。普通TypeORM generate模式：exit0+准确成功行+实际文件才进入300门禁；exit1+准确no-changes全文+无artifact+空stderr才允许合法0；异常、缺文件、空artifact、误导日志或部分文件加错误退出均fail closed。stdout/stderr独立保留，PG弃用警告不能冒充成功或零变化。workflow在失败后仍上传本次CI证据（此上传步骤仅代码，未执行）。300未改，旧393反例仍阻断；当前最小修复后真实267/300通过，历史393失败证据保留。
 
-此次真实容器演练使用本地既有Node22 bookworm构建的专属候选测试镜像与前轮已编译dist，证明命令路径/非root执行/PG18迁移/验证流程；**不是正式Node20 Alpine Dockerfile构建或发布验证**。前轮本地API/Web正式build0仍有效，但不将两种镜像环境混称。上线前仍需正常CI成功、审定正式候选镜像、维护写门禁和父级证据复核；原393漂移未在本轮大范围治理，不得绕过硬门禁。
+review24–26历史容器演练使用Node22 bookworm与当时dist，仅证明该阶段迁移/验证流程；当时未验证正式Node20。现阶段已经完成正式Node20构建及候选演练，见下节与实施报告。本次仍未发布，仍需正常CI、固定候选镜像、维护写门禁和父级证据复核，不跳过旧scope红灯裁定。
+
+
+## A/B及review27–29本地补充（仍未发布）
+
+正式Node20构建基线为cdb49bb1，API/Web镜像实际node均v20.20.2，基础node:20-alpine digest sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293。镜像ID及源码归档SHA见构建results；Node20编译产物的TypeORM生成器只生成diff、不执行diff，267/300是真实门禁结果。A/B/十列WMS只改元数据及旧provider，没有新DB迁移，正式迁移总数仍83。旧provider存在NULL/并发问题已按父级授权真实修复回归；其全局事务锁限制legacy并行吞吐，现包装inv_batches路径不使用它。
+
+原393拒绝shell fixture继续拒绝，阈值/allowlist均未变。原scope-audit仍真实FAIL，L4/Q实物未验，新写默认关；远端DB major/部署ref与受控audit dispatch等待父级下一阶段确认bundle/输入，本turn未执行。备份恢复与旧API只读兼容证据保留原测试revision，不追认为当前所有端点/写操作都兼容。最终源码/测试映射与本次停机记录见实施报告及交付receipt。

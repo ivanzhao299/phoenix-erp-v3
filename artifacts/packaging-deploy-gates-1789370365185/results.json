@@ -1,0 +1,147 @@
+{
+  "before": {
+    "head": "cdb49bb1401c5e93b7fe67a71c16ef9b3c0ae34a",
+    "files": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549",
+      "scripts/packaging-history-compatibility/deploy-test.cjs": "eab900dbdf70a032099d2b0ea0541720319a486cea59352a5250f20e3f3c5485"
+    },
+    "diff": ""
+  },
+  "cases": [
+    {
+      "name": "diff393",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "diff299",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "exact300",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "known-zero",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "missing",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "generator-error",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "misleading-zero",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "partial-artifact-error",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "stale-ignored",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "direct-missing",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "empty-artifact",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "actual393",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "schema-success",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "schema-migration-fail",
+      "exit": 9,
+      "expected": 9,
+      "passed": true
+    },
+    {
+      "name": "schema-show-fail",
+      "exit": 8,
+      "expected": 8,
+      "passed": true
+    },
+    {
+      "name": "schema-pending",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "schema-empty",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "rollback-false",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "rollback-true",
+      "exit": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "preserve-required",
+      "exit": 1,
+      "expected": 1,
+      "passed": true
+    }
+  ],
+  "after": {
+    "head": "cdb49bb1401c5e93b7fe67a71c16ef9b3c0ae34a",
+    "files": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549",
+      "scripts/packaging-history-compatibility/deploy-test.cjs": "eab900dbdf70a032099d2b0ea0541720319a486cea59352a5250f20e3f3c5485"
+    },
+    "diff": ""
+  },
+  "exit": 0
+}

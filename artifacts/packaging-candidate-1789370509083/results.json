@@ -1,0 +1,99 @@
+{
+  "before": {
+    "head": "cdb49bb1401c5e93b7fe67a71c16ef9b3c0ae34a",
+    "hashes": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549",
+      "scripts/entity-alignment/candidate-test.cjs": "f8c370bc83532937decb0016d24d6dbf4e38a78fc689af6a83deb65323e4e79f",
+      "scripts/entity-alignment/candidate-http.cjs": "f7fe854a26320e10a1fe7ca24a5d33ed15ba6ed792a9e25143ff024b78d28fb2"
+    },
+    "diff": ""
+  },
+  "imageBuildSourceHead": "cdb49bb1401c5e93b7fe67a71c16ef9b3c0ae34a",
+  "buildEvidence": "artifacts/entity-node20-1789370342086/results.json",
+  "node": "v20.20.2",
+  "runs": [
+    {
+      "cmd": "docker",
+      "args": [
+        "image",
+        "inspect",
+        "sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4",
+        "--format",
+        "{{.Id}}"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370509083/command-0.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "run",
+        "--pull=never",
+        "-d",
+        "--name",
+        "packaging-history-candidate-pg-55437-1789370509083",
+        "--label",
+        "purpose=packaging-history-ab-node20",
+        "-e",
+        "POSTGRES_HOST_AUTH_METHOD=trust",
+        "-e",
+        "POSTGRES_DB=packaging_history_test",
+        "-p",
+        "127.0.0.1:55437:5432",
+        "postgres:18-alpine"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370509083/command-1.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "packaging-history-candidate-pg-55437-1789370509083",
+        "pg_restore",
+        "-U",
+        "postgres",
+        "-d",
+        "packaging_history_test",
+        "--exit-on-error",
+        "--single-transaction",
+        "--no-owner",
+        "--no-privileges"
+      ],
+      "exit": 1,
+      "log": "artifacts/packaging-candidate-1789370509083/command-2.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "stop",
+        "packaging-history-candidate-pg-55437-1789370509083"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370509083/command-3.log"
+    }
+  ],
+  "checks": [],
+  "resources": [
+    "packaging-history-candidate-pg-55437-1789370509083"
+  ],
+  "imageId": "sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4",
+  "exit": 1,
+  "error": "command failed 1",
+  "after": {
+    "head": "cdb49bb1401c5e93b7fe67a71c16ef9b3c0ae34a",
+    "hashes": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549",
+      "scripts/entity-alignment/candidate-test.cjs": "f8c370bc83532937decb0016d24d6dbf4e38a78fc689af6a83deb65323e4e79f",
+      "scripts/entity-alignment/candidate-http.cjs": "f7fe854a26320e10a1fe7ca24a5d33ed15ba6ed792a9e25143ff024b78d28fb2"
+    },
+    "diff": ""
+  }
+}

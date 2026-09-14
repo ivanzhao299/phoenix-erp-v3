@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-14T07:28:14.525983+00:00",
+  "taskRunningContainers": [],
+  "portsListening": {
+    "3000": false,
+    "3100": false,
+    "55432": false,
+    "55434": false,
+    "55437": false,
+    "55438": false
+  },
+  "fixtures": "all containers/volumes, dumps and evidence retained; no down/cleanup",
+  "unrelatedRunningContainersUntouched": 2
+}

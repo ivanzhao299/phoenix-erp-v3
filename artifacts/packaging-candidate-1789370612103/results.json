@@ -1,0 +1,314 @@
+{
+  "before": {
+    "head": "cdb49bb1401c5e93b7fe67a71c16ef9b3c0ae34a",
+    "hashes": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549",
+      "scripts/entity-alignment/candidate-test.cjs": "a0ffb7e77148f6241fa4a831a40d6c52317ca5b300d2b5e2e7e678f599184411",
+      "scripts/entity-alignment/candidate-http.cjs": "f7fe854a26320e10a1fe7ca24a5d33ed15ba6ed792a9e25143ff024b78d28fb2"
+    },
+    "diff": "diff --git a/scripts/entity-alignment/candidate-test.cjs b/scripts/entity-alignment/candidate-test.cjs\nindex 332370b7..f76ca9c1 100644\n--- a/scripts/entity-alignment/candidate-test.cjs\n+++ b/scripts/entity-alignment/candidate-test.cjs\n@@ -13,7 +13,7 @@ const {DataSource}=require(root+'/apps/api/node_modules/typeorm');const sources=\n  result.imageId=ok(run('docker',['image','inspect',api.imageId,'--format','{{.Id}}']));\n  for(const [port,chain,dump] of [[55437,81,'baseline-81.dump'],[55438,83,'full-83.dump']]){\n   const name='packaging-history-candidate-pg-'+port+'-'+stamp;ok(run('docker',['run','--pull=never','-d','--name',name,'--label','purpose=packaging-history-ab-node20','-e','POSTGRES_HOST_AUTH_METHOD=trust','-e','POSTGRES_DB=packaging_history_test','-p','127.0.0.1:'+port+':5432','postgres:18-alpine']));result.resources.push(name);save();\n-  for(let n=0;n<40;n++){const r=cp.spawnSync('docker',['exec',name,'pg_isready','-U','postgres','-d','packaging_history_test'],{stdio:'ignore'});if(r.status===0)break;await new Promise(r=>setTimeout(r,250));}\n+  for(let n=0;n<40;n++){const r=cp.spawnSync('docker',['exec',name,'pg_isready','-h','127.0.0.1','-U','postgres','-d','packaging_history_test'],{stdio:'ignore'});if(r.status===0)break;await new Promise(r=>setTimeout(r,250));}\n   const backup=path.join(root,'artifacts/packaging-history-compatibility-1789365718577',dump);ok(run('docker',['exec','-i',name,'pg_restore','-U','postgres','-d','packaging_history_test','--exit-on-error','--single-transaction','--no-owner','--no-privileges'],{input:fs.readFileSync(backup)}));\n   const ds=new DataSource({type:'postgres',host:'127.0.0.1',port,username:'postgres',database:'packaging_history_test',logging:false,entities:[]});await ds.initialize();sources.push(ds);const identity=(await ds.query(\"SELECT current_database() db,current_setting('server_version_num') version\"))[0];if(identity.db!=='packaging_history_test'||identity.version!=='180006')throw Error('ISOLATION_REQUIRED');\n   const count=async()=>Number((await ds.query('SELECT count(*) n FROM migrations'))[0].n);if(await count()!==chain)throw Error('BAD_CHAIN');\n"
+  },
+  "imageBuildSourceHead": "cdb49bb1401c5e93b7fe67a71c16ef9b3c0ae34a",
+  "buildEvidence": "artifacts/entity-node20-1789370342086/results.json",
+  "node": "v20.20.2",
+  "runs": [
+    {
+      "cmd": "docker",
+      "args": [
+        "image",
+        "inspect",
+        "sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4",
+        "--format",
+        "{{.Id}}"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-0.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "run",
+        "--pull=never",
+        "-d",
+        "--name",
+        "packaging-history-candidate-pg-55437-1789370612103",
+        "--label",
+        "purpose=packaging-history-ab-node20",
+        "-e",
+        "POSTGRES_HOST_AUTH_METHOD=trust",
+        "-e",
+        "POSTGRES_DB=packaging_history_test",
+        "-p",
+        "127.0.0.1:55437:5432",
+        "postgres:18-alpine"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-1.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "packaging-history-candidate-pg-55437-1789370612103",
+        "pg_restore",
+        "-U",
+        "postgres",
+        "-d",
+        "packaging_history_test",
+        "--exit-on-error",
+        "--single-transaction",
+        "--no-owner",
+        "--no-privileges"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-2.log"
+    },
+    {
+      "cmd": "bash",
+      "args": [
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/scripts/deploy-schema-first.sh",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-candidate-1789370612103/evidence-55437",
+        "sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-3.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "run",
+        "--pull=never",
+        "-d",
+        "--name",
+        "packaging-history-candidate-pg-55438-1789370612103",
+        "--label",
+        "purpose=packaging-history-ab-node20",
+        "-e",
+        "POSTGRES_HOST_AUTH_METHOD=trust",
+        "-e",
+        "POSTGRES_DB=packaging_history_test",
+        "-p",
+        "127.0.0.1:55438:5432",
+        "postgres:18-alpine"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-4.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "packaging-history-candidate-pg-55438-1789370612103",
+        "pg_restore",
+        "-U",
+        "postgres",
+        "-d",
+        "packaging_history_test",
+        "--exit-on-error",
+        "--single-transaction",
+        "--no-owner",
+        "--no-privileges"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-5.log"
+    },
+    {
+      "cmd": "bash",
+      "args": [
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/scripts/deploy-schema-first.sh",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-candidate-1789370612103/evidence-55438",
+        "sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-6.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "run",
+        "--name",
+        "packaging-entity-node20-1789370612103",
+        "--network",
+        "host",
+        "-e",
+        "DB_HOST=127.0.0.1",
+        "-e",
+        "DB_PORT=55438",
+        "-e",
+        "DB_USER=postgres",
+        "-e",
+        "DB_NAME=packaging_history_test",
+        "--entrypoint",
+        "./node_modules/.bin/typeorm",
+        "sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4",
+        "migration:generate",
+        "/tmp/EntityDrift",
+        "-d",
+        "dist/database/data-source.js",
+        "--timestamp",
+        "1789370612103"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-7.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "cp",
+        "packaging-entity-node20-1789370612103:/tmp/1789370612103-EntityDrift.ts",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-candidate-1789370612103/EntityDrift.ts"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-8.log"
+    },
+    {
+      "cmd": "bash",
+      "args": [
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/scripts/check-entity-drift-baseline.sh",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.github/entity-drift-baseline.txt",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/artifacts/packaging-candidate-1789370612103/EntityDrift.ts"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-9.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--name",
+        "packaging-node20-http-1789370612103",
+        "--network",
+        "host",
+        "-e",
+        "DB_HOST=127.0.0.1",
+        "-e",
+        "DB_PORT=55438",
+        "-e",
+        "DB_USER=postgres",
+        "-e",
+        "DB_NAME=packaging_history_test",
+        "--entrypoint",
+        "node",
+        "sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-10.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "stop",
+        "packaging-history-candidate-pg-55437-1789370612103"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-11.log"
+    },
+    {
+      "cmd": "docker",
+      "args": [
+        "stop",
+        "packaging-history-candidate-pg-55438-1789370612103"
+      ],
+      "exit": 0,
+      "log": "artifacts/packaging-candidate-1789370612103/command-12.log"
+    }
+  ],
+  "checks": [
+    {
+      "port": 55437,
+      "identity": {
+        "db": "packaging_history_test",
+        "version": "180006"
+      },
+      "beforeMigrations": 81,
+      "afterMigrations": 83,
+      "beforeEvents": null,
+      "afterEvents": {
+        "n": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "verifiedImage": "sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4"
+    },
+    {
+      "port": 55438,
+      "identity": {
+        "db": "packaging_history_test",
+        "version": "180006"
+      },
+      "beforeMigrations": 83,
+      "afterMigrations": 83,
+      "beforeEvents": {
+        "n": 1536,
+        "digest": "8cff63e2e0cc41a5959b32c6adf31236"
+      },
+      "afterEvents": {
+        "n": 1536,
+        "digest": "8cff63e2e0cc41a5959b32c6adf31236"
+      },
+      "verifiedImage": "sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4"
+    },
+    {
+      "actualGenerator": 267,
+      "gateExit": 0,
+      "baseline": 300
+    },
+    {
+      "http": {
+        "node": "v20.20.2",
+        "identity": {
+          "db": "packaging_history_test",
+          "version": "180006"
+        },
+        "checks": [
+          {
+            "name": "real ordinary login",
+            "status": 200
+          },
+          {
+            "path": "/api/health",
+            "status": 200
+          },
+          {
+            "path": "/api/auth/me",
+            "status": 200
+          },
+          {
+            "path": "/api/packaging/terminal/history",
+            "status": 200
+          },
+          {
+            "name": "archived guarded session",
+            "status": 401
+          }
+        ],
+        "exit": 0
+      }
+    }
+  ],
+  "resources": [
+    "packaging-history-candidate-pg-55437-1789370612103",
+    "packaging-history-candidate-pg-55438-1789370612103",
+    "packaging-entity-node20-1789370612103",
+    "packaging-node20-http-1789370612103"
+  ],
+  "imageId": "sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4",
+  "exit": 0,
+  "after": {
+    "head": "cdb49bb1401c5e93b7fe67a71c16ef9b3c0ae34a",
+    "hashes": {
+      ".github/workflows/deploy.yml": "28725e5ad73193080c7eacfadff36deff774421799b08213901e41cdf755f670",
+      "scripts/check-entity-drift-baseline.sh": "6f32a1ed87324d2c7b30495ef5b43f77496b30fdbe8261fc5e787b7f14e46e96",
+      "scripts/check-entity-schema.sh": "276f6adf1ff643013dba59f0e8f8fd227a65885281eb5dfae67415ece58d2940",
+      "scripts/deploy-schema-first.sh": "4b45ecd472e9b928fb96519d9fa908191b03e57591f7d3b89aaa78ffc4644549",
+      "scripts/entity-alignment/candidate-test.cjs": "a0ffb7e77148f6241fa4a831a40d6c52317ca5b300d2b5e2e7e678f599184411",
+      "scripts/entity-alignment/candidate-http.cjs": "f7fe854a26320e10a1fe7ca24a5d33ed15ba6ed792a9e25143ff024b78d28fb2"
+    },
+    "diff": "diff --git a/scripts/entity-alignment/candidate-test.cjs b/scripts/entity-alignment/candidate-test.cjs\nindex 332370b7..f76ca9c1 100644\n--- a/scripts/entity-alignment/candidate-test.cjs\n+++ b/scripts/entity-alignment/candidate-test.cjs\n@@ -13,7 +13,7 @@ const {DataSource}=require(root+'/apps/api/node_modules/typeorm');const sources=\n  result.imageId=ok(run('docker',['image','inspect',api.imageId,'--format','{{.Id}}']));\n  for(const [port,chain,dump] of [[55437,81,'baseline-81.dump'],[55438,83,'full-83.dump']]){\n   const name='packaging-history-candidate-pg-'+port+'-'+stamp;ok(run('docker',['run','--pull=never','-d','--name',name,'--label','purpose=packaging-history-ab-node20','-e','POSTGRES_HOST_AUTH_METHOD=trust','-e','POSTGRES_DB=packaging_history_test','-p','127.0.0.1:'+port+':5432','postgres:18-alpine']));result.resources.push(name);save();\n-  for(let n=0;n<40;n++){const r=cp.spawnSync('docker',['exec',name,'pg_isready','-U','postgres','-d','packaging_history_test'],{stdio:'ignore'});if(r.status===0)break;await new Promise(r=>setTimeout(r,250));}\n+  for(let n=0;n<40;n++){const r=cp.spawnSync('docker',['exec',name,'pg_isready','-h','127.0.0.1','-U','postgres','-d','packaging_history_test'],{stdio:'ignore'});if(r.status===0)break;await new Promise(r=>setTimeout(r,250));}\n   const backup=path.join(root,'artifacts/packaging-history-compatibility-1789365718577',dump);ok(run('docker',['exec','-i',name,'pg_restore','-U','postgres','-d','packaging_history_test','--exit-on-error','--single-transaction','--no-owner','--no-privileges'],{input:fs.readFileSync(backup)}));\n   const ds=new DataSource({type:'postgres',host:'127.0.0.1',port,username:'postgres',database:'packaging_history_test',logging:false,entities:[]});await ds.initialize();sources.push(ds);const identity=(await ds.query(\"SELECT current_database() db,current_setting('server_version_num') version\"))[0];if(identity.db!=='packaging_history_test'||identity.version!=='180006')throw Error('ISOLATION_REQUIRED');\n   const count=async()=>Number((await ds.query('SELECT count(*) n FROM migrations'))[0].n);if(await count()!==chain)throw Error('BAD_CHAIN');\n"
+  }
+}

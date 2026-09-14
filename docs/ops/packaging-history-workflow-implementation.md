@@ -1,6 +1,6 @@
 # 包装历史工作流本地实施与验收
 
-> 本轮最新结论见文末“恢复后的同源码交付”。此前各轮报告与失败保留为历史记录，不作为当前源码的验收结论。
+> 最新交付见文末“A/B及父级追加27–29”与“最终测试映射”：应用cdb49bb1、候选runner补丁d1537fe4，entity267/300与constraint通过；原scope-audit仍28FAIL/1skip，未发布。此前各轮记录仅作历史证据。
 
 ## 授权与交付边界
 
@@ -436,3 +436,130 @@ review24：前轮正式本地build0与85unit精确套件继续有效；Node20正
 本轮提交映射：`64c92f38`为schema-first/CI真门禁及候选测试；`fffbc0bd6fe2c968f1d4620a1aa4bb42549cf6df`补单次外层失败回滚及重验。最新20项shell证据 `artifacts/packaging-deploy-gates-1789366990119/results.json`，最新真实候选证据 `artifacts/packaging-candidate-1789366990880/results.json`，均exit0；当时HEAD64c92f38加记录的dirty文件是实际被测源码，不称测试发生在fffbc0bd。随后逐文件比对fffbc0bd的Git对象与两份测试before SHA完全相等，记录于同目录 `delivery-mapping.json`；workflow/脚本共同部分也完全同指纹。
 
 `syntax-checks.json`另记录fffbc0bd上Bash语法/YAML解析/diff检查3命令exit0与实时前后指纹，不计入20项行为测试。应用/迁移相对b7d1a6d0无diff，baseline文件无diff；main及本地origin/main仍69d89dd4，无联网查远端/无push。所有本轮PG、候选one-off、generator、路径探针容器均已退出，55437/55438无监听、专属artifact目录活动进程0；容器/镜像/fixture/失败日志均保留。最终文档提交仅更新报告/映射，不重写代码提交历史。
+
+## 393闭环调查轮（仅方案，不实施）
+
+按最新授权，在HEAD3a43829e仅调查/修正文档，未修改entity/schema/业务代码/CI，不执行generated diff、不启动数据库、不读取secret/auth artifacts、不生产访问。具体逐表方案见 [entity-drift-393-closure-plan.md](entity-drift-393-closure-plan.md)。建议先审审批四表44条实体表达，再成对修身份表36+关联表15条；95是静态候选行数而非实测改善，不能据此宣布≤300。旧采购archive六列遗漏、活跃ORM/save与错误real_name_zh查询另列真实缺陷闭环；DB额外保护、生成列、nullable语义和旧日结分别保留，不靠删除或移除entity过门槛。
+
+release-preflight首段已改成当前本地schema-first实际代码状态、Node22候选已实测/正式Node20未验；未称已发布。本地Docker catalog无Node20镜像，原Dockerfile正式构建的专属无敏感构建上下文路径已列计划。现有远端受控readonly workflow依赖dispatch/SCP/secrets，不符合本轮执行边界；未调用，实际生产DB major/部署ref保持未知。本轮文档方案交父级先审，HEAD保持3a43829e，不先做广域修改再汇报。
+
+## A/B实际授权轮：A独立记录
+
+A仅改审批四表entity：按正式DDL补varchar255及真实唯一名，保留原nullable/default；SALES_ORDER CHECK补同名元数据，正式迁移管理的GIN用该单一索引`synchronize:false`准确声明保留（不是修改门禁allowlist或删除索引）。真实read-only diff393→335，消除58、无新增；44列/唯一约束、12被牵连的索引重建、2 CHECK/GIN，逐条removed清单在`artifacts/entity-alignment-A-after-1789368000660.json`。同库285表/264序列及catalog摘要与A-before完全相同，未执行generated diff。API tsc exit0。335高于300，保持红灯，后续仅已授权B；静态95预测已由实际阶段数字替代。
+
+### B独立差异与消费者结论
+
+B-before335；首次after278（removed58/added1，唯一新增为删除is_visible物理列注释），忠实补正式迁移注释后**277（removed58/added0）**，证据`artifacts/entity-alignment-B-after-1789368385791.json`。A+B总消除116，剩余277非零，未扩大到C，未执行任何生成diff。285表/264序列及catalog摘要不变。实际元数据减少会同时取消依赖列类型的索引/FK操作，因此95候选行数不是实测差额。
+
+完整读取AuthService/AuthController/JwtStrategy/PermissionsService及SysUser/SysUserRole引用；当前业务消费者使用raw query，HTTP字段由明确projection生成。实体保留id属性但物理映射user_id bigint，real_name_zh访问器映射real_name；旧非物理属性保留非持久化类型声明，note只映射实际text不解释、不回填。user/granter关系仍引用id属性，真实外键列为user_id；onDelete、唯一名、CHECK、nullable/default/可见性注释忠实对齐。is_visible旧注释称“仅显示”、现AuthService实际撤权语义的历史冲突保留可审，未以本轮元数据对齐擅改业务。
+
+JwtStrategy原Number(sub)会将超安全整数舍入；现接受正十进制PG bigint范围，安全范围内保持旧数字DTO，大值保持字符串，拒绝不安全numeric JWT。新增真实HTTP登录/me/refresh及受保护身份接口、冻结/归档、撤权version，ORM user/granter/role，审批四表/唯一/CHECK/GIN等14项（连参数化共14项），连原auth/approval6套件合计61项实测通过。首跑59pass/2fail保留：测试fixture显式generated-id被TypeORM忽略、角色绑定触发器把version增为2；修fixture后真实高ID验证通过。最终新空库全套重验尚待完成，不能据此提前称整体验收。
+
+## A/B及父级追加27–29：交付复核（本地，无发布）
+
+范围记录：用户初始授权A审批四表+B身份两表；父级review27随后明确授权通用constraint解析修复；28授权三张WMS表十列nullable，29在真实丢更新/NULL反例后授权该旧InventoryService最小事务修复。未自行纳入采购六列、旧日结、sys_user_orgs、generated equity或其他表。未执行生成diff，未改DB/default/CHECK/VersionColumn定义/300/allowlist，无push/dispatch/生产访问。
+
+阶段实际数量：A **393→335（-58/+0）**；B **335→277（-58/+0）**；追加WMS **277→267（-10/+0）**。总消除126，剩余267非零，95只是旧静态预测。A、B初始独立证据见前文。WMS第一次before/after仅sys_cron_heartbeat数据摘要改变，catalog及其他行摘要相同，**该次不变检查未通过**；停止调度后，以HEAD4b9b7728的三个旧实体blob覆盖本次读取做新的只读旧元数据比较，再读当前元数据，`entity-alignment-WMS-before-1789370153045.json`与`entity-alignment-WMS-after-1789370200084.json`明确记录override commit/hash，277→267、10条SET NOT NULL消失、无新增，全部表/序列/catalog不变。这是新做的受控对比，不是倒推首次before已通过。
+
+### 通用constraint修复与真实旧库存缺陷
+
+旧扫描器递归扫描archive、漏正式ddl且ADD IF NOT EXISTS重置既有约束，导致正确password_hash NOT NULL被误报；还漏无分号TS literal，匿名CHECK合成名与PG实际名不符。现按`db-migrate.sh`的195正式SQL顺序→83 TS up，archive/retired/down不覆盖；缺列ADD保留nullable，已存在ADD跳过整个动作，显式DROP/SET仍生效，动态SQL明确未知。13静态反例及8真实PG/文件链检查均验证，真实R1–R4仍拒绝；不硬编码sys_user、不更改allowlist。
+
+完整读取三实体与唯一实体业务消费者`modules/wms/inventory/inventory.service.ts`。旧provider只注册/导出，当前仓储controllers调用WmsService；全src检索未发现其atomicIncrement/Decrement现行业务调用，包装使用PackagingInventoryIntegrationService/EggInventoryService及inv_batches。`wms-contract-probe-1789369615152.json`在原服务真实复现NULL+5变5、两个事务10扣1/2成功但余额8、ledger3；probe exit0表示反例复现，绝非库存验收PASS，保留原源码指纹且不作为更新后默认测试。
+
+经review29授权，旧provider先校验warehouse scope与store身份，缺/空范围失败关闭；既有NULL/不同store不扩大为ALL。事务全局advisory锁仅用于此legacy provider，配SELECT FOR UPDATE后读最新余额，NULL/非整数/负值/锁量异常拒绝，不补0。该锁同时串行新balance唯一竞争及跨批反序调用；代价是旧provider各批次串行，当前inv_batches流水不使用该锁。caller manager在事务内时沿用，不独立提交；balance/ledger同事务。VersionColumn仍自动递增，但不再声称save附加CAS条件。三个实体仅十列增加nullable:true与联合null类型，默认/约束保持。真实13PG+5unit覆盖NULL/正常ORM读写、并发守恒、超额、新记录竞争、storeNULL/跨机构、空scope、ledger故障、caller回滚、跨批反序。未给无现行调用的旧provider虚构生产HTTP入口或宣称其全域吞吐已测。
+
+### 本轮失败保留与测试边界
+
+- auth追加初跑59pass/2fail是fixture预期错误（generated ID插入忽略显式ID；绑定角色触发version+1），修后实际高ID及权限预览测试合计62通过；不是仅mock或tsc。
+- Node20最初两次构建传入loopback代理导致npm/apk ECONNREFUSED；官方容器直连registry/Alpine均200后，正常直连正式Dockerfile构建成功，未改Docker/CLI配置、未改变正式Dockerfile。根workspace从未作Docker context；仅tracked源码git archive副本，排除dotenv/artifacts/uploads/node_modules等，不复制生产认证artifact。
+- 浏览器最初Docker host网络与CLI namespace不同，3000连接拒绝；通过127.0.0.1显式端口映射运行真实正式Web，测试网络适配器将/api请求转发真实localhost3100 API（不造响应），断响应拦截同样走该适配。通知SSE不在此专项，主动abort，未计为通知验收。正式构建全屏按钮真实点击，无禁用门禁。重建fixture后API字典缓存导致一次确认400，重启专属API后重测，不删除历史fixture。所有这些失败日志保留。
+- 一次Playwright未捕获SSE错误打印了本轮随机TEST JWT；日志仅凭据值已脱敏，保留原始/脱敏摘要和失败内容。对应隔离API已重启更换随机密钥，不涉及生产凭据。以后route失败仅记录path和错误类型。
+- 原scope-audit保持真实执行与旧fixture登录失败、旧finance404、F06未查HTTP状态的假阳性分类；不能把2个脚本PASS都当有效授权验证。无额外allowlist或新专项替代该红灯。Q/L4实物打印/扫描设备未执行，正式发行策略仍默认全关；软件TEST fixture不授予实物资格。
+
+### review1–29状态更新
+
+| 项 | 本地状态与证据范围 |
+|---|---|
+| 1 | 软件关闭：原确认身份/乱序/清草稿DOM回归；最终web-dom，非旧静态4条替代 |
+| 2 | 软件关闭：SQL过滤/keyset/count、cursor/空code参数；PG/HTTP与性能计划 |
+| 3 | 软件关闭：原grading精确集合及source scope反例，PG/HTTP |
+| 4 | 软件关闭：集合/逐组量与原COMMITTED；真实隔离官方WMS拆批、销售服务演进测试，不称qty模拟全链 |
+| 5 | 软件关闭：PG18空库正式链、JSON/null/claim/trigger反例及安全down；本轮未改迁移 |
+| 6 | 部分：测试清理/exit/隔离与实数已验；原scope-audit仍FAIL单列 |
+| 7 | 软件关闭/实物待验：可配默认关闭策略已测；Q资格与生产发行未执行 |
+| 8 | 软件关闭：幂等原结果、partial拒绝、PRINT字段白名单；PG/HTTP |
+| 9 | 软件关闭：receiver真实普通角色/仓范围，PG/HTTP/browser |
+| 10 | 软件关闭：RETIRED/VOID/claim归属及scan后再核验反例，PG并发 |
+| 11 | 软件关闭：无SKU不可变产出映射、旧/新COMMITTED列表详情日报及演进 |
+| 12 | 软件关闭：历史字段白名单/隐藏链/精确count/子资源权限，真实HTTP |
+| 13 | 软件关闭：写DTO/unknown operation/UI接线，DOM/HTTP/browser |
+| 14 | 软件关闭：client body.code/nonJSON/unknown/401/身份安全，client/DOM |
+| 15 | 软件关闭/实物待验：UNKNOWN重打门禁、同key刷新查询、旧码UI/选择器；未物理打印 |
+| 16 | 软件关闭：身份与query隔离、URL filters、终端CLOSED恢复与正式全屏UI |
+| 17 | 软件证据关闭：源码指纹/原失败/真实类型计数/P95/官方演进；物理L4单列 |
+| 18 | 已有兼容演练范围内关闭：旧81窗口/旧API83只读，当前Node20候选迁移先行再HTTP；不推导旧写兼容 |
+| 19 | 计划与隔离验证关闭：backup/恢复原证据保留，镜像回退不自动DB rollback，PRESERVE_ARTIFACTS=true |
+| 20 | 软件关闭：精确box集合、receiver撤权、真实官方库存演进；未解释链保守UNKNOWN |
+| 21 | 软件关闭：workflow.detail/真实DataScope、5001原单5000收件人、EXPLAIN与冷暖实测 |
+| 22 | 软件关闭：perms_version撤仓回归、NOT MATERIALIZED优化，旧P95失败保留 |
+| 23 | 软件证据关闭：source/config清单与hash、dirty diff、Dockerfile与专属构建归档 |
+| 24 | 本地build/候选关闭；原scope红灯仍保留；当前entity267/300不再393红灯 |
+| 25 | schema-first本地代码及真实候选81→83/83事件保全通过；未发布 |
+| 26 | 20 shell真实行为测试通过，旧393 fixture仍拒绝；当前真实generator267通过300门禁 |
+| 27 | 通用parser反例、真实PG对照与全仓scanner通过；动态限制明示 |
+| 28 | 经29语义修复后十列metadata完成；独立267 diff无未知新增/数据catalog不变 |
+| 29 | legacy provider13真实PG+5unit通过；无现行调用/全局锁吞吐限制明确，不扩ERP算法 |
+
+### 最终测试映射与实际命令结果
+
+应用/测试提交 `cdb49bb1401c5e93b7fe67a71c16ef9b3c0ae34a`；25组统一source/config指纹 `8d871b15eb8f187b65f35d84d442755334f60f46c3f6504ca6fc004b4b872780`，各组before/after完全一致。机器索引 `artifacts/entity-ab-final-delivery.json` 引用每组command/exit/日志/revision文件，不倒推旧绿。最后 `d1537fe4` 仅改candidate测试的TCP就绪检查；实际candidate在cdb49bb1+该dirty文件运行，提交后逐文件hash一致，API/Web/workflow/迁移与cdb49bb1无diff，因此原应用suite仍绑定cdb49bb1，不称发生在d1537fe4。
+
+| 组 | exit | 实际日志 |
+|---|---:|---|
+| rebuild-sql | 0 | `artifacts/packaging-history-local/verified-rebuild-sql-r7.log` |
+| rebuild-bootstrap | 0 | `artifacts/packaging-history-local/verified-rebuild-bootstrap-r7.log` |
+| rebuild-ts | 0 | `artifacts/packaging-history-local/verified-rebuild-ts-r7.log` |
+| legacy-wms | 0 | `artifacts/packaging-history-local/verified-legacy-wms-r3.log` |
+| auth-approval | 0 | `artifacts/packaging-history-local/verified-auth-approval-r7.log` |
+| api-tsc | 0 | `artifacts/packaging-history-local/verified-api-tsc-r31.log` |
+| web-tsc | 0 | `artifacts/packaging-history-local/verified-web-tsc-r20.log` |
+| api-regression | 0 | `artifacts/packaging-history-local/verified-api-regression-r8.log` |
+| web-auth | 0 | `artifacts/packaging-history-local/verified-web-auth-r7.log` |
+| api-unit | 0 | `artifacts/packaging-history-local/verified-api-unit-r19.log` |
+| pg-http | 0 | `artifacts/packaging-history-local/verified-pg-http-r28.log` |
+| web-dom | 0 | `artifacts/packaging-history-local/verified-web-dom-r19.log` |
+| nullable | 0 | `artifacts/packaging-history-local/verified-nullable-r14.log` |
+| constraint-parser | 0 | `artifacts/packaging-history-local/verified-constraint-parser-r3.log` |
+| constraint-self-test | 0 | `artifacts/packaging-history-local/verified-constraint-self-test-r3.log` |
+| constraint | 0 | `artifacts/packaging-history-local/verified-constraint-r16.log` |
+| migration-down | 0 | `artifacts/packaging-history-local/verified-migration-down-r13.log` |
+| migration-dml | 0 | `artifacts/packaging-history-local/verified-migration-dml-r13.log` |
+| entity-diff | 0 | `artifacts/packaging-history-local/verified-entity-diff-r9.log` |
+| entity-baseline | 0 | `artifacts/packaging-history-local/verified-entity-baseline-r6.log` |
+| entity-gate | 0 | `artifacts/packaging-history-local/verified-entity-gate-r9.log` |
+| perf-plan | 0 | `artifacts/packaging-history-local/verified-perf-plan-r10.log` |
+| runtime-scope-audit | 1 | `artifacts/packaging-history-local/verified-runtime-scope-audit-r7.log` |
+| browser | 0 | `artifacts/packaging-history-local/verified-browser-r17.log` |
+| performance | 0 | `artifacts/packaging-history-local/verified-performance-r16.log` |
+
+命令由 `node scripts/packaging-history-test/verify.cjs <组名>` 执行，精确cwd/command在索引。PG追加使用RUN_PG_INTEGRATION=1、PACKAGING_HISTORY_PG=1、127.0.0.1:55432/postgres/packaging_history_test；无生产凭据。performance用PACKAGING_PERF_FIXTURE_TAG=review29-final；browser用PACKAGING_BROWSER_API_PROXY=1，实际Node20正式Web+真实localhost完整API，隔离策略仅TEST。新空库195/195、bootstrap exit0、83/83 TS；不以runMigrations0替代新迁移验收。
+
+数量分类：原PG/HTTP80 =57直接PG+23真实HTTP（按suite为51+29，29内含6直接PG）；API91=90unit+1静态SQL，8skip保留；85unit来自原5套件；Web65=56DOM+5client+4static；web-auth16客户端单元。新增auth/approval62=41unit+9PG+12HTTP；旧库存18=13PG+5unit。浏览器27=18browser/mixed+9仅HTTP检查，不称27全部浏览器；parser13静态反例、8项混合（5PG/3文件链与静态）检查。不同类别不合并冒充端到端总数。constraint扫描195+83，2动态SQL解析跳过明确保留；全仓新漂移0。scope-audit仍2scriptPASS/28FAIL/1skip，F06不计有效PASS。
+
+只读P95：`performance-1789370552626.json`与同轮EXPLAIN计划；5001原单/5001分级，10000库存/10000ledger、5000接收人，混合1PENDING/1000COMMITTED/1000HANDOVER_ONLY/3000INVENTORY_ONLY，真实DataScope，多公司背景。每项首读1、暖读20、冷会话5，单并发；冷会话不清PG/OS缓存，不称冷盘。列表warmP95 618.37ms/cold635.76ms，workflow.detail9.38/38.30ms、COMMITTED详情8.89/41.73ms，日报635.16/651.44ms，接收人24.01/42.83ms；所有首读/冷会话/P95≤1000ms。
+
+正式Node20：API `sha256:1691085da35f63ecb3022d867de8fdec40c8e43b9f39a701d804fa560ebc92d4`；Web `sha256:0fc460afb4165954a88f93314bc78c11bf70cbd1b356c840bee8f4f83c2a10ba`；实际node均v20.20.2。`node scripts/entity-alignment/candidate-test.cjs artifacts/entity-node20-1789370342086/results.json 267`最终exit0；真实81→83、独立83库1536事件摘要保持、真实generator267/300 gate0、实际5HTTP验证。初次候选pg_restore遇初始化临时服务退出exit1保留在packaging-candidate-1789370509083，TCP就绪修复后的有效证据为packaging-candidate-1789370612103。`node scripts/packaging-history-compatibility/deploy-test.cjs`20/20 shell通过，原393仍拒绝。
+
+本地提交：
+- `d1537fe4` test: wait for final PostgreSQL TCP readiness before restore
+- `cdb49bb1` test: verify official Web kiosk flow and final inventory suite locally
+- `ce7041f1` fix: guard legacy inventory nulls and serialize balance writes
+- `4b9b7728` fix: replay formal constraint chain without overwriting existing columns
+- `ffdfdba4` fix: preserve bigint permission preview and verify Node20 candidate
+- `c1ef0271` fix: align user bigint identity and verify auth compatibility
+- `386199bd` fix: align approval entity metadata with existing schema
+
+未push证据范围：main及本地origin/main仍69d89dd44b8e1461d7eaf5193e60c994255aed2c，当前HEAD无remote-tracking分支包含，未执行push/dispatch/生产动作；这是本地缓存与操作记录，不伪称已联网验证远端当前状态。最终文档提交只归档报告/证据，测试仍按以上revision映射。
+
+最终停止记录：`artifacts/entity-ab-stop-receipt.json`验证本次容器运行数0，localhost3000/3100/55432/55434/55437/55438均无监听；最后API进程已SIGTERM，本项目浏览器runtime无活动进程。保留所有PG fixture/容器/卷、构建副本、失败日志，无down/清理；其他项目服务未动。`artifacts/entity-ab-remaining-267.json`保留剩余只读diff，不执行。
