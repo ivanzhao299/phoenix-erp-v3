@@ -424,7 +424,7 @@ export class PermissionsService {
    * 调试/预览端点：查询某用户的有效权限（应用 3 路源 + 优先级合并后的最终结果）
    * 同时返回 raw 三路源 + 触发的 RACI 冲突，方便排错与 UI 解释
    */
-  async getEffectiveUserPerms(userId: number) {
+  async getEffectiveUserPerms(userId: string | number) {
     const userRows = await this.dataSource.query(
       `SELECT u.user_id, u.username, u.real_name, u.perms_version,
               COALESCE(

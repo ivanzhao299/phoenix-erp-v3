@@ -77,9 +77,10 @@ export class PermissionsController {
   @Get('effective-perms/:userId')
   @RequireMenu('MENU_SETTINGS_ROLE', 'V')
   async getEffective(@Param('userId') userId: string) {
-    const uid = Number(userId);
-    if (!uid) throw new BadRequestException('userId 必须是数字');
-    return this.svc.getEffectiveUserPerms(uid);
+    if (!/^[1-9][0-9]{0,18}$/.test(userId) || BigInt(userId) > 9223372036854775807n) {
+      throw new BadRequestException('userId 必须是正整数且在 bigint 范围内');
+    }
+    return this.svc.getEffectiveUserPerms(userId);
   }
 
   /**

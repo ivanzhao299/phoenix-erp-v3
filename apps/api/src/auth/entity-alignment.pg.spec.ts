@@ -7,6 +7,9 @@ import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ClsModule } from 'nestjs-cls';
+import { PermissionsModule } from '../modules/permissions/permissions.module';
+import { hydrateMenuRegistry } from '../common/guards/menu-registry.service';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
@@ -31,6 +34,7 @@ class IdentityController {
     const { AuthModule } = await import('./auth.module');
     const module = await Test.createTestingModule({ imports: [
       ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
+      ClsModule.forRoot({ global: true, middleware: { mount: true } }), PermissionsModule,
       TypeOrmModule.forRoot({ type: 'postgres', host: '127.0.0.1', port: 55432, username: 'postgres', database: 'packaging_history_test',
         entities: [resolve(__dirname, '../**/*.entity.ts')], synchronize: false, logging: false }),
       ThrottlerModule.forRoot([{ name: 'login', ttl: 900000, limit: 100 }]), AuthModule,
@@ -38,6 +42,7 @@ class IdentityController {
     app = module.createNestApplication({ logger: false }); await app.init(); ds = app.get(DataSource);
     const [identity] = await ds.query("SELECT current_database() db,current_setting('server_version_num') version");
     expect(identity).toEqual({ db: 'packaging_history_test', version: '180006' });
+    await hydrateMenuRegistry(ds.manager);
     await app.listen(0, '127.0.0.1'); base = await app.getUrl();
   }, 60000);
   afterAll(async () => { await app?.close(); delete process.env.JWT_SECRET; });
@@ -113,6 +118,14 @@ class IdentityController {
     await expect(em.getRepository(WfApprovalRuleEntity).insert({ ruleCode: key, moduleCode: 'TEST', bizType: 'TEST' })).rejects.toMatchObject({ driverError: { code: '23505', constraint: 'wf_approval_rules_rule_code_key' } });
     await expect(em.getRepository(WfApprovalInstanceEntity).update(instance.id, { triggerCodes: ['UNKNOWN'] })).rejects.toMatchObject({ driverError: { code: '23514', constraint: 'ck_wf_inst_sales_trigger_codes' } });
     const [index] = await ds.query("SELECT indexdef FROM pg_indexes WHERE indexname='idx_wf_inst_trigger_codes'"); expect(index.indexdef).toContain('USING gin');
+  });
+  it('real permissions preview preserves high target ID with ordinary menu-scoped login', async () => {
+    const viewer = await account(), target = await account(true);
+    await ds.query(`INSERT INTO sys_role_menu_permission(role_id,menu_id,perm_codes) SELECT $1,menu_id,'V' FROM sys_menu WHERE menu_code='MENU_SETTINGS_ROLE'`, [viewer.role]);
+    const session = await login(viewer);
+    const call = (id: string) => fetch(base + '/api/permissions/effective-perms/' + id, { headers: { Authorization: 'Bearer ' + session.token } });
+    const r = await call(target.u.id); expect(r.status).toBe(200); const body: any = await r.json(); expect(body.data.user.user_id).toBe(target.u.id);
+    expect((await call('9223372036854775808')).status).toBe(400); expect((await call('1.5')).status).toBe(400);
   });
   it('DB lifecycle CHECK and single visible-primary unique remain enforced with transactional rollback', async () => {
     const a = await account(true);
