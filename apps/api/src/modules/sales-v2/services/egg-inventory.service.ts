@@ -566,6 +566,7 @@ export class EggInventoryService {
         batchExpireDate: batch.expire_date,
         qualityGrade:    batch.quality_grade,
         skuCode:         batch.sku_code ?? null,
+        warehouseCode: batch.warehouse_code, locationCode: batch.location_code,
       }, mgr);
 
       allocations.push({
@@ -755,7 +756,7 @@ export class EggInventoryService {
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
 
     const allocations = await q(
-      `SELECT a.*,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.status
+      `SELECT a.*,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status
          FROM sal_order_item_batch_allocations a
          JOIN sal_order_items oi ON oi.id=a.sales_order_item_id
          JOIN inv_batches b ON b.batch_no=a.batch_no
@@ -798,6 +799,7 @@ export class EggInventoryService {
           batchExpireDate: allocation.expire_date ?? null,
           qualityGrade:    allocation.quality_grade ?? null,
           skuCode:         allocation.sku_code ?? null,
+          warehouseCode: allocation.warehouse_code, locationCode: allocation.location_code,
         }, mgr);
 
       await q(

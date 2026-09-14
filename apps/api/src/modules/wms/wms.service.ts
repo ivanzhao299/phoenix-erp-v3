@@ -1654,14 +1654,14 @@ export class WmsService {
         await manager.query(
           `INSERT INTO inv_ledger (
              batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-             sku_code, material_code, warehouse_code, business_type, unit
+             sku_code, material_code, warehouse_code, business_type, unit, company_code
            )
-           VALUES ($1, $7, -$2::numeric, $3, $4, $5, $6, $8, $9, $10, $11, $12)`,
+           VALUES ($1, $7, -$2::numeric, $3, $4, $5, $6, $8, $9, $10, $11, $12, $13)`,
           [
             it.batch_no, qty, opName, src.store_code || 'ALL', transferNo,
             `调拨出 → ${to_warehouse}`, transferOutPolicy.ledgerType,
             src.sku_code || null, src.material_code || null, from_warehouse,
-            transferOutPolicy.businessType, src.unit || null,
+            transferOutPolicy.businessType, src.unit || null, src.company_code,
           ],
         );
 
@@ -1840,12 +1840,12 @@ export class WmsService {
         );
         await manager.query(
           `INSERT INTO inv_ledger (batch_no,change_type,qty_change,operator,store_code,ref_no,note,
-             sku_code,material_code,warehouse_code,business_type,unit)
-           VALUES ($1,$2,-$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+             sku_code,material_code,warehouse_code,business_type,unit,company_code)
+           VALUES ($1,$2,-$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
           [item.source_batch_no, policy.ledgerType, qty, String(user?.username || 'SYS'),
             src.store_code || 'ALL', transferNo, `调拨发运 → ${transfer.to_warehouse}（在途）`,
             src.sku_code || null, src.material_code || null, transfer.from_warehouse,
-            policy.businessType, src.unit || null],
+            policy.businessType, src.unit || null, src.company_code],
         );
         total += qty;
       }

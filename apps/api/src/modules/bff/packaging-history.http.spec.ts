@@ -1,3 +1,4 @@
+import {DataScopeService} from '../org/services/data-scope.service';
 import {Test} from '@nestjs/testing';
 import {TypeOrmModule} from '@nestjs/typeorm';
 import {ConfigModule} from '@nestjs/config';
@@ -49,7 +50,7 @@ import {resolve} from 'path';
  it.each(['OP_V','OP_E','MGR_V'])('%s sees only its original and exact count',async account=>{const r=await get('history',account);expect(r.status).toBe(200);expect(r.body.data.totalMatching).toBe(1);expect(r.body.data.items[0].record.code).toBe(f.prefix);expect((await get('history/'+hidden.prefix,account)).status).toBe(404);});
  it('MGR:E alone has no read permission; empty scope does not become global',async()=>{expect((await get('history','MGR_E')).status).toBe(403);const r=await get('history','NO_SCOPE');expect(r.status).toBe(200);expect(r.body.data.totalMatching).toBe(0);});
  it('absent and inaccessible originals return identical nonleaking bodies',async()=>{const a=await get('history/'+hidden.prefix),b=await get('history/TEST-NOT-EXIST');expect(a.status).toBe(404);expect(a.body).toEqual(b.body);});
- it('V cannot bypass UI to register and E remains blocked by production-default flags',async()=>{for(const account of ['OP_V','OP_E']){const response=await fetch(base+'/api/packaging/terminal/history/'+f.prefix+'/box-registration',{method:'POST',headers:{Authorization:'Bearer '+accounts.get(account)!.token,'Content-Type':'application/json','Idempotency-Key':randomUUID()},body:JSON.stringify({})});expect(response.status).toBe(account==='OP_V'?403:409);}});
+ it('V cannot bypass UI to register and E remains blocked by production-default flags',async()=>{for(const account of ['OP_V','OP_E']){const response=await fetch(base+'/api/packaging/terminal/history/'+f.prefix+'/box-registration',{method:'POST',headers:{Authorization:'Bearer '+accounts.get(account)!.token,'Content-Type':'application/json','Idempotency-Key':randomUUID()},body:JSON.stringify({expectedRevision:'a'.repeat(64),registrationKind:'FIRST_LABEL_CONFIRMED',reason:'TEST',items:[{outputOrdinal:0,boxOrdinal:1,declaration:'TEST'}]})});expect(response.status).toBe(account==='OP_V'?403:409);}});
  it('candidate warehouses follow the original company',async()=>{const r=await get('history/'+f.prefix+'/candidates?kind=WAREHOUSE');expect(r.status).toBe(200);expect(r.body.data.map((x:any)=>x.code)).toEqual([f.warehouse]);});
  it('all detail sections and operations reject other-company original URLs',async()=>{
    for(const suffix of ['','/outputs','/sources','/boxes','/evidence','/candidates?kind=WAREHOUSE'])expect((await get('history/'+hidden.prefix+suffix)).status).toBe(404);
@@ -75,6 +76,43 @@ import {resolve} from 'path';
    const batch=f.prefix+'-FOREIGN-WH';
    await ds.query(`INSERT INTO inv_batches(batch_no,product_code,company_code,warehouse_code,qty,qty_available,packaging_batch_ref) VALUES($1,$2,$3,$4,30,30,$2)`,[batch,f.prefix,f.company,hidden.warehouse]);
    try{expect((await get('history/'+f.prefix)).status).toBe(404);expect((await get('history')).body.data.totalMatching).toBe(0);}finally{await ds.query('DELETE FROM inv_batches WHERE batch_no=$1',[batch]);}
+ });
+ // Added during workspace-only review. NOT executed against HTTP/PG in that session.
+ it.each(['box-registration','verification-sessions','box-verifications','void','print','print-result'])('ordinary read-only roles cannot POST %s',async action=>{
+   const id=randomUUID();const route=action==='void'?`history/${f.prefix}/labels/TEST-UNKNOWN/void`:action==='print'?'labels/print-requests':action==='print-result'?`labels/print-requests/${id}/events`:`history/${f.prefix}/${action}`;
+   for(const account of ['OP_V','MGR_V','MGR_E','NO_SCOPE','GLOBAL_OP','NONE']){
+     const response=await fetch(base+'/api/packaging/terminal/'+route,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':randomUUID(),...(accounts.has(account)?{Authorization:'Bearer '+accounts.get(account)!.token}:{})},body:JSON.stringify({packingCode:f.prefix})});
+     expect(response.status).toBe(account==='NONE'?401:403);
+   }
+ });
+ it('batched recipient scope equals authoritative resolve for ordinary and GROUP accounts',async()=>{
+   const scopes=app.get(DataScopeService),users=[];
+   for(const account of accounts.values()){const roles=await ds.query(`SELECT r.role_code FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id WHERE ur.user_id=$1 AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE'`,[account.id]);users.push({code:account.id,roles:roles.map((r:any)=>r.role_code)});}
+   const eligible=await scopes.eligibleWarehouseRecipients(users,'MENU_PKG_OP',f.company,f.warehouse);
+   for(const u of users){const scope=await scopes.resolve(u.code,u.roles,'MENU_PKG_OP');expect(eligible.has(u.code)).toBe(scope.isGlobal||(scope.allowedCompanyCodes.includes(f.company)&&scope.allowedWarehouseCodes.includes(f.warehouse)));}
+ });
+ it.each(['SITE_ALLOWED','SITE_NO_GRANT','DEPT_ANCESTOR','REGION_SIBLING','GRANDCHILD'])('batched recipient %s equals fresh authoritative scope',async kind=>{
+   const x=await packingHistoryFixture(ds),scopes=app.get(DataScopeService);
+   const org=async(code:string,type:string,parent:any=null,company:any=null)=>{const [o]=await ds.query(`INSERT INTO sys_organizations(org_code,org_name,org_type,parent_id,company_code,status) VALUES($1,$1,$2,$3,$4,'ACTIVE') RETURNING id`,[code,type,parent,company]);return o.id;};
+   const root=await org(x.prefix+'-ROOT','GROUP'),middle=await org(x.prefix+'-MID','DEPARTMENT',root),company=await org(x.company,'COMPANY',middle,x.company);
+   let bound=company;const roles=[x.prefix];
+   if(kind.startsWith('SITE')){const site=x.prefix+'-SITE';bound=await org(site,'SITE',company);await ds.query('UPDATE wms_warehouses SET site_code=$2 WHERE warehouse_code=$1',[x.warehouse,site]);if(kind==='SITE_ALLOWED')await ds.query('INSERT INTO sys_user_warehouse_scopes(user_id,warehouse_code) VALUES($1,$2)',[x.actor,x.warehouse]);}
+   if(kind==='DEPT_ANCESTOR')bound=await org(x.prefix+'-DEPT','DEPARTMENT',company);
+   if(kind==='GRANDCHILD')bound=root;
+   if(kind==='REGION_SIBLING'){bound=await org(x.prefix+'-SIB','COMPANY',middle,x.prefix+'-OTHER');await ds.query(`INSERT INTO sys_data_scopes(role_code,module_code,scope_type) VALUES($1,'MENU_PKG_OP','REGION')`,[roles[0]]);}
+   await ds.query('INSERT INTO sys_user_orgs(user_id,org_id) VALUES($1,$2)',[x.actor,bound]);
+   const scope=await scopes.resolve(x.actor,roles,'MENU_PKG_OP',1),actual=await scopes.eligibleWarehouseRecipients([{code:x.actor,roles}],'MENU_PKG_OP',x.company,x.warehouse);
+   const expected=scope.isGlobal||(scope.allowedCompanyCodes.includes(x.company)&&scope.allowedWarehouseCodes.includes(x.warehouse));expect(expected).toBe(kind!=='SITE_NO_GRANT');expect(actual.has(x.actor)).toBe(expected);
+ });
+ it('receiver server search and pagination preserve scope and omit roles',async()=>{
+   const prefix='TEST-REC-'+randomUUID().slice(0,6);
+   const [org]=await ds.query(`SELECT id FROM sys_organizations WHERE company_code=$1 AND org_type='COMPANY' LIMIT 1`,[f.company]);
+   const users=await ds.query(`INSERT INTO sys_user(username,real_name,password_hash,status) SELECT $1||'-'||n,$1||'-'||n,'TEST-NON-LOGIN',1 FROM generate_series(1,51)n RETURNING user_id`,[prefix]);
+   for(const u of users)await ds.query('INSERT INTO sys_user_orgs(user_id,org_id) VALUES($1,$2)',[u.user_id,org.id]);
+   const base=`history/${f.prefix}/candidates?kind=RECEIVER&warehouseCode=${f.warehouse}&paged=1&limit=25&search=${prefix}`;
+   const first=await get(base);expect(first.body.data.items).toHaveLength(25);expect(first.body.data.nextCursor).toBeTruthy();expect(Object.keys(first.body.data.items[0]).sort()).toEqual(['code','label']);
+   const second=await get(base+'&after='+first.body.data.nextCursor);expect(second.body.data.items).toHaveLength(25);expect(second.body.data.items[0].code).not.toBe(first.body.data.items[0].code);
+   const last=await get(base+'&after='+second.body.data.nextCursor);expect(last.body.data.items).toHaveLength(1);expect(last.body.data.nextCursor).toBeNull();
  });
  it('permission version revocation invalidates existing authentication',async()=>{await ds.query('UPDATE sys_user SET perms_version=perms_version+1 WHERE user_id=$1',[accounts.get('OP_V')!.id]);expect((await get('history')).status).toBe(401);});
 });

@@ -331,6 +331,43 @@ export class DataScopeService {
     return ctx;
   }
 
+  /** Bounded candidate projection of resolve(): company + warehouse only, five reads for the whole page.
+   * No authorization cache: edits take effect on the next candidate request. Confirm still calls resolve(). */
+  async eligibleWarehouseRecipients(users:Array<{code:string;roles:string[]}>,menuCode:string,company:string,warehouse:string):Promise<Set<string>> {
+    if(!users.length)return new Set();
+    if(users.length>100)throw new BadRequestException('RECIPIENT_PAGE_TOO_LARGE');
+    const ids=users.map(u=>u.code),db=this.orgRepo.manager;
+    const [rules,orgs,bindings,warehouses,extras]=await Promise.all([
+      this.dataScopeRepo.find({where:{enabled:true,moduleCode:menuCode}}),
+      db.query('SELECT id,parent_id,company_code,warehouse_code,site_code,org_code,org_type,status FROM sys_organizations'),
+      db.query('SELECT user_id,org_id,data_scope_level FROM sys_user_orgs WHERE user_id=ANY($1::bigint[])',[ids]),
+      db.query("SELECT warehouse_code,company_code,site_code FROM wms_warehouses WHERE COALESCE(status,'ACTIVE') NOT IN ('DISABLED','INACTIVE','DELETED') AND domain='OPERATIONAL'"),
+      db.query('SELECT user_id,warehouse_code FROM sys_user_warehouse_scopes WHERE user_id=ANY($1::bigint[])',[ids]),
+    ]);
+    const byId=new Map(orgs.map((o:any)=>[String(o.id),o]));const allowed=new Set<string>();
+    for(const user of users){
+      const own=bindings.filter((b:any)=>String(b.user_id)===user.code),roles=user.roles;
+      let top:ScopeLevel='SELF';for(const rule of rules)if(roles.includes(rule.roleCode)&&SCOPE_RANK[rule.scopeType]>SCOPE_RANK[top])top=rule.scopeType;
+      if(roles.includes('ROLE_ADMIN')||top==='GROUP'||own.some((b:any)=>b.data_scope_level==='GROUP')){allowed.add(user.code);continue;}
+      const companies=new Set<string>(),sites=new Set<string>(),wh=new Set<string>();
+      for(const binding of own){const row:any=byId.get(String(binding.org_id));if(!row)continue;
+        if(row.company_code)companies.add(row.company_code);if(row.warehouse_code)wh.add(row.warehouse_code);
+        if(row.org_type==='SITE')sites.add(row.org_code);else if(row.site_code)sites.add(row.site_code);
+        if(top==='REGION'&&row.parent_id)for(const o of orgs)if(String(o.parent_id)===String(row.parent_id)&&o.status==='ACTIVE'&&o.company_code)companies.add(o.company_code);
+        if(!row.company_code){
+          const children=orgs.filter((o:any)=>String(o.parent_id)===String(row.id)&&o.org_type==='COMPANY'&&o.status==='ACTIVE'&&o.company_code);
+          for(const o of children)companies.add(o.company_code);
+          if(!children.length)for(const o of orgs){const parent:any=byId.get(String(o.parent_id));if(parent&&String(parent.parent_id)===String(row.id)&&o.org_type==='COMPANY'&&o.status==='ACTIVE'&&o.company_code)companies.add(o.company_code);}
+          let parent:any=row;const visited=new Set<string>();while(parent&&!visited.has(String(parent.id))){visited.add(String(parent.id));if(parent.org_type==='COMPANY'&&parent.company_code){companies.add(parent.company_code);break;}parent=byId.get(String(parent.parent_id));}
+        }
+      }
+      if(!sites.size)for(const w of warehouses)if(companies.has(w.company_code))wh.add(w.warehouse_code);
+      for(const e of extras)if(String(e.user_id)===user.code&&warehouses.some((w:any)=>w.warehouse_code===e.warehouse_code&&(!sites.size||sites.has(w.site_code))))wh.add(e.warehouse_code);
+      if(companies.has(company)&&wh.has(warehouse))allowed.add(user.code);
+    }
+    return allowed;
+  }
+
   /** 清除指定用户的所有缓存（权限变更时调用） */
   invalidate(userId: string): void {
     for (const key of cache.keys()) {

@@ -36,6 +36,8 @@ export class PackagingHistoryService {
     return Object.assign({}, first, { alternatives: resolved });
   }
   async rows(scope: DataScopeContext, db = this.em, code?: string, page?: {q:Record<string,string>;cursor:any;size:number;report?:boolean}): Promise<any[]> {
+    // Small read pages with correlated scope checks suffer JIT compilation overhead; keep this transaction-local.
+    if(db.queryRunner?.isTransactionActive)await db.query('SET LOCAL jit=off');
     const alternatives: DataScopeContext[] = (scope as any).alternatives || [scope];
     const params: any[] = [code || null];
     const visibility = alternatives.map(s => {
@@ -50,9 +52,11 @@ export class PackagingHistoryService {
           LEFT JOIN wms_warehouses wh ON wh.warehouse_code=loc.warehouse_code
           WHERE wh.company_code IS NULL OR NOT(wh.company_code=ANY($${i+1}::text[]) AND wh.warehouse_code=ANY($${i+3}::text[])))))`;
     }).join(' OR ');
+    let prefilter='true';
+    if(!alternatives.some(s=>s.isGlobal)){params.push([...new Set(alternatives.flatMap(s=>s.allowedCompanyCodes))],[...new Set(alternatives.flatMap(s=>s.allowedFarmCodes))]);prefilter=`f.company_code=ANY($${params.length-1}::text[]) AND ws.site_id=ANY($${params.length}::text[])`;}
     const sql=`SELECT p.code,p.batches_json,p.grading_code,p.grading_codes_json,p.total_eggs,p.total_boxes,p.status,p.void_reason,p.business_revision,p.workflow_contract_version,p.label_encoding_version, p.id::text id, p.shift_id::text shift_id, p.production_date::text production_date,
       ws.shift_code,ws.production_date::text shift_date,ws.status shift_status,ws.site_id,f.company_code,
-      (SELECT count(*)::integer FROM pkg_packing_boxes bx WHERE bx.packing_id=p.id) registered_box_count,src.rows sources,inv.rows inventory,led.rows ledger,ho.rows handovers,receipt.payload commit_receipt,COALESCE(mode.mode,'TEMP_PRODUCTION_INBOUND') inventory_mode,packing_posting_state(to_jsonb(p),inv.rows,led.rows,ho.rows,receipt.payload) posting_state
+      (SELECT count(*)::integer FROM pkg_packing_boxes bx WHERE bx.packing_id=p.id) registered_box_count,src.rows sources,inv.rows inventory,led.rows ledger,ho.rows handovers,receipt.payload commit_receipt,COALESCE(mode.mode,'TEMP_PRODUCTION_INBOUND') inventory_mode,${page?.report?'NULL::text':'packing_posting_state(to_jsonb(p),inv.rows,led.rows,ho.rows,receipt.payload)'} posting_state
       FROM pkg_packing_records p JOIN pkg_work_shifts ws ON ws.id=p.shift_id AND NOT ws.is_test
       JOIN brd_farms f ON f.farm_code=ws.site_id
       CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('gradingId',g.id::text,'gradingCode',g.code,
@@ -61,19 +65,19 @@ export class PackagingHistoryService {
         'gradingShiftId',g.shift_id::text,'gradingDate',g.production_date::text,'sourceShiftId',s.shift_id::text,'sourceDate',s.production_date::text,'gradingStatus',g.status,'sourceStatus',s.batch_status,'isTest',g.is_test OR s.is_test)), '[]') rows
         FROM pkg_grading_records g LEFT JOIN pkg_grading_source_links l ON l.grading_id=g.id
         LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id LEFT JOIN brd_houses sh ON sh.house_code=s.house_code
-        LEFT JOIN brd_farms sf ON sf.farm_code=sh.farm_code WHERE g.code IN
+        LEFT JOIN brd_farms sf ON sf.farm_code=sh.farm_code WHERE g.code=ANY(ARRAY
         (SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(p.grading_codes_json)='array' AND jsonb_array_length(p.grading_codes_json)>0
-          THEN p.grading_codes_json ELSE jsonb_build_array(p.grading_code) END))) src
+          THEN p.grading_codes_json ELSE jsonb_build_array(p.grading_code) END)))) src
       CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',b.id::text,'batch_no',b.batch_no,'qty',b.qty,'qty_available',b.qty_available,'egg_date',b.egg_date,'inbound_date',b.inbound_date,'company_code',b.company_code,'warehouse_code',b.warehouse_code,'location_code',b.location_code,'status',b.status,'source_type',b.source_type,'source_no',b.source_no,'product_code',b.product_code,'sku_code',b.sku_code,'spec_code',b.spec_code,'grade_code_std',b.grade_code_std,'packaging_batch_ref',b.packaging_batch_ref)), '[]') rows FROM inv_batches b
         WHERE b.packaging_batch_ref=p.code OR b.source_no=p.code) inv
       CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',l.id::text,'batch_no',l.batch_no,'ref_no',l.ref_no,'change_type',l.change_type,'qty_change',l.qty_change,'sku_code',l.sku_code,'company_code',l.company_code,'warehouse_code',l.warehouse_code,'location_code',l.location_code,'log_date',l.log_date)), '[]') rows FROM inv_ledger l WHERE l.ref_no=p.code
-        OR l.batch_no IN (SELECT x->>'batch_no' FROM jsonb_array_elements(inv.rows) x)) led
+        OR l.batch_no=ANY(ARRAY(SELECT x->>'batch_no' FROM jsonb_array_elements(inv.rows) x))) led
       CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',h.id::text,'code',h.code,'packing_code',h.packing_code,'shift_id',h.shift_id::text,'boxes_json',h.boxes_json,'box_count',h.box_count,'pallet_code',h.pallet_code,'location',h.location,'receiver',h.receiver,'production_date',h.production_date,'created_at',h.created_at)), '[]') rows FROM pkg_handover_records h WHERE h.packing_code=p.code) ho
       LEFT JOIN LATERAL (SELECT payload FROM pkg_packing_events WHERE packing_id=p.id AND event_type='COMMIT_RECEIPT') receipt ON true
       LEFT JOIN LATERAL (SELECT mode FROM inv_source_mode WHERE (scope_level='SITE' AND scope_code=ws.site_id)
         OR (scope_level='COMPANY' AND scope_code=f.company_code) OR (scope_level='GROUP' AND scope_code='ALL')
         ORDER BY CASE scope_level WHEN 'SITE' THEN 1 WHEN 'COMPANY' THEN 2 ELSE 3 END LIMIT 1) mode ON true
-      WHERE NOT p.is_test AND f.company_code IS NOT NULL AND ($1::text IS NULL OR p.code=$1) AND (${visibility})
+      WHERE NOT p.is_test AND f.company_code IS NOT NULL AND ($1::text IS NULL OR p.code=$1) AND (${prefilter}) AND (${visibility})
       ORDER BY p.production_date DESC NULLS LAST,p.id DESC`;
     if(!page)return db.query(sql,params);
     const values=[...params];const bind=(v:any)=>{values.push(v??null);return '$'+values.length;};
@@ -83,12 +87,13 @@ export class PackagingHistoryService {
     }
     if(page.report)return db.query(`WITH visible AS (${sql}) SELECT * FROM visible ${conditions.length?'WHERE '+conditions.join(' AND '):''} ORDER BY production_date,id::bigint`,values);
     const asOf=bind(page.cursor?.asOfId),lastDate=bind(page.cursor?.lastDate),lastId=bind(page.cursor?.lastId),size=bind(page.size);
-    return db.query(`WITH visible AS (${sql}), filtered AS(SELECT * FROM visible ${conditions.length?'WHERE '+conditions.join(' AND '):''}),
+    return db.query(`WITH visible AS NOT MATERIALIZED (${sql}), filtered AS(SELECT id,production_date FROM visible ${conditions.length?'WHERE '+conditions.join(' AND '):''}),
       bounded AS(SELECT * FROM filtered WHERE id::bigint<=COALESCE(${asOf}::bigint,(SELECT max(id::bigint) FROM filtered))),
-      page_rows AS(SELECT * FROM bounded WHERE ${lastId}::bigint IS NULL OR
+      page_ids AS(SELECT * FROM bounded WHERE ${lastId}::bigint IS NULL OR
         (${lastDate}::text IS NULL AND production_date IS NULL AND id::bigint<${lastId}::bigint) OR
         (${lastDate}::text IS NOT NULL AND (production_date<${lastDate}::text OR production_date IS NULL OR (production_date=${lastDate}::text AND id::bigint<${lastId}::bigint)))
-        ORDER BY production_date DESC NULLS LAST,id::bigint DESC LIMIT ${size}::integer)
+        ORDER BY production_date DESC NULLS LAST,id::bigint DESC LIMIT ${size}::integer),
+      page_rows AS(SELECT v.* FROM page_ids pi CROSS JOIN LATERAL (${sql.replace('WHERE NOT p.is_test','WHERE p.id=pi.id::integer AND NOT p.is_test')} OFFSET 0) v)
       SELECT COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY production_date DESC NULLS LAST,id::bigint DESC) FROM page_rows x),'[]') items,
         (SELECT count(*)::integer FROM bounded) total,
         COALESCE(${asOf}::bigint,(SELECT max(id::bigint) FROM filtered),0)::text as_of_id`,values);
@@ -102,7 +107,7 @@ export class PackagingHistoryService {
     return { record: {id:r.id,code:r.code,productionDate:r.production_date,totalEggs:Number(r.total_eggs),totalBoxes:Number(r.total_boxes),recordStatus:r.status,voidReason:r.void_reason,isTest:false,contractVersion:r.workflow_contract_version,labelEncodingVersion:r.label_encoding_version},
       shift:{id:r.shift_id,code:r.shift_code,productionDate:r.shift_date,status:r.shift_status,siteCode:r.site_id},
       ownership:{companyCode:r.company_code,siteCode:r.site_id,businessTimezone:null,provenance:'SHIFT_FARM',timezoneConfidence:'UNKNOWN'},
-      outputs:(Array.isArray(r.batches_json)?r.batches_json:[]).map((original: any,outputOrdinal: number)=>({outputOrdinal,original})),
+      outputs:(Array.isArray(r.batches_json)?r.batches_json:[]).map((original: any,outputOrdinal: number)=>({outputOrdinal,original:Object.fromEntries(['grade','specId','spec','skuCode','productCode','eggs','boxes'].filter(k=>Object.prototype.hasOwnProperty.call(original||{},k)).map(k=>[k,original[k]]))})),
       sources:r.sources, inventory:{mode:r.inventory_mode,batches:r.inventory,ledger:r.ledger,...evidence},
       handover:{records:r.handovers,...evidence}, receipt:{state:r.commit_receipt?'RECORDED':r.handovers.length?'LEGACY_RECORDED':'NOT_RECORDED'},
       boxes:[], identityStatus:Number(r.registered_box_count)===Number(r.total_boxes)&&Number(r.total_boxes)>0?'REGISTERED':'UNREGISTERED',expectedBoxCount:Number(r.total_boxes),
@@ -188,13 +193,14 @@ export class PackagingHistoryService {
       AND g.production_date BETWEEN $1::date AND $2::date AND ($3::bigint IS NULL OR ws.id=$3::bigint)
       AND ($4::text IS NULL OR f.company_code=$4) AND ($5::text IS NULL OR ws.site_id=$5) AND (${visibility})`,params);
     const active=selected.filter(r=>r.status==='ACTIVE'),days=[];
+    const records=active.map(r=>{const evidence=packingEvidence(r,r.inventory,r.ledger,r.handovers,r.commit_receipt);if(r.inventory_mode==='TEMP_PRODUCTION_INBOUND'&&evidence.state==='PENDING'){evidence.quality='UNKNOWN';evidence.issues=['TEMP 来源仅场日汇总，精确原单交接未支持'];}return {code:r.code,shiftId:r.shift_id,productionDate:r.production_date,totalEggs:Number(r.total_eggs),totalBoxes:Number(r.total_boxes),handover:{records:r.handovers,...evidence},inventoryMode:r.inventory_mode};});
     for(let date=from;date<=to;date=new Date(Date.parse(date)+86400000).toISOString().slice(0,10)){
       const records=active.filter(r=>r.production_date===date);days.push({date,totalEggs:records.reduce((n,r)=>n+Number(r.total_eggs),0),totalBoxes:records.reduce((n,r)=>n+Number(r.total_boxes),0)});
     }
     return {basis:'TERMINAL_RECORDS',aggregation:q.aggregation,shiftId:q.aggregation==='SHIFT'?q.shiftId:null,dateFrom:from,dateTo:to,shiftIds:[...new Set(selected.map(r=>r.shift_id))],
       totalEggs:active.reduce((n,r)=>n+Number(r.total_eggs),0),totalBoxes:active.reduce((n,r)=>n+Number(r.total_boxes),0),voidCount:selected.length-active.length,
       gradingEggs:Number(grading.qty),unassigned:{state:'NOT_ATTRIBUTABLE',count:null,message:'无班次或权威场归属的历史异常单不计入；本范围无法安全归属，不推断为零'},
-      committedBoxes:active.filter(r=>this.view(r).handover.state==='COMMITTED').reduce((n,r)=>n+Number(r.total_boxes),0),days,records:active.map(r=>({code:r.code,shiftId:r.shift_id,productionDate:r.production_date,totalEggs:Number(r.total_eggs),totalBoxes:Number(r.total_boxes),handover:this.view(r).handover,inventoryMode:r.inventory_mode}))};
+      committedBoxes:records.filter(r=>r.handover.state==='COMMITTED').reduce((n,r)=>n+r.totalBoxes,0),days,records};
     });
   }
 }

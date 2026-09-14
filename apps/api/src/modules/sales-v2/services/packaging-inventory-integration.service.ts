@@ -261,7 +261,7 @@ export class PackagingInventoryIntegrationService {
    */
   async completeTerminalPacking(
     packingCode: string,
-    opts?: { companyCode?: string; warehouseCode?: string; locationCode?: string; manager?: EntityManager },
+    opts?: { companyCode?: string; warehouseCode?: string; locationCode?: string; manager?: EntityManager; outputBindings?: Array<PackagingIdentity & {outputOrdinal:number;qty:number;boxes:number}> },
   ): Promise<{
     refNo: string;
     idempotent: boolean;
@@ -298,10 +298,12 @@ export class PackagingInventoryIntegrationService {
     })();
     const keyMap = await this.buildGradeKeyMap(opts?.manager);
     const items: Array<PackagingIdentity & { qty: number; boxes?: number }> = [];
-    for (const b of batchesJson) {
+    for (const [ordinal,b] of batchesJson.entries()) {
       if (!b?.grade) continue;
       const g = keyMap[b.grade] ?? b.grade;
-      items.push({ boxes: b.boxes, productCode: b.productCode, skuCode: b.skuCode, grade: g, specCode: b.specId ?? null, specName: b.spec ?? null, qty: Number(b.eggs || 0) });
+      const binding=opts.outputBindings?.[ordinal];
+      if(opts.outputBindings&&(!binding||binding.outputOrdinal!==ordinal||binding.qty!==Number(b.eggs)||binding.boxes!==b.boxes))throw new ConflictException('OUTPUT_BINDINGS_REQUIRED');
+      items.push({ ...(binding||{}), boxes: b.boxes, productCode: binding?.productCode??b.productCode, skuCode: binding?.skuCode??b.skuCode, grade: g, specCode: binding?.specCode??b.specId ?? null, specName: b.spec ?? null, qty: Number(b.eggs || 0) });
     }
 
     const eggDate = rec.production_date_text ?? (typeof rec.production_date === 'string' ? rec.production_date.slice(0,10) : undefined);

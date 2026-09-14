@@ -25,14 +25,21 @@ export class PackagingHistoryD1cEvidence1789353300496 implements MigrationInterf
         IF jsonb_typeof(outputs) IS DISTINCT FROM 'array' THEN RETURN fallback; END IF;
         IF jsonb_array_length(outputs)=0 OR EXISTS(SELECT 1 FROM jsonb_array_elements(outputs) o WHERE
           jsonb_typeof(o->'eggs') IS DISTINCT FROM 'number' OR jsonb_typeof(o->'boxes') IS DISTINCT FROM 'number'
+          OR (o->>'eggs')::numeric>9007199254740991 OR (o->>'boxes')::numeric>9007199254740991
           OR (o->>'eggs')::numeric<=0 OR (o->>'boxes')::numeric<=0 OR trunc((o->>'eggs')::numeric)<>(o->>'eggs')::numeric
           OR trunc((o->>'boxes')::numeric)<>(o->>'boxes')::numeric OR mod((o->>'eggs')::numeric,NULLIF((o->>'boxes')::numeric,0))<>0)
+          OR (rec->>'total_eggs')::numeric>9007199254740991 OR (rec->>'total_boxes')::numeric>9007199254740991
           OR (SELECT sum((o->>'eggs')::numeric) FROM jsonb_array_elements(outputs) o) IS DISTINCT FROM (rec->>'total_eggs')::numeric
           OR (SELECT sum((o->>'boxes')::numeric) FROM jsonb_array_elements(outputs) o) IS DISTINCT FROM (rec->>'total_boxes')::numeric THEN RETURN fallback; END IF;
         SELECT COALESCE(jsonb_agg(x),'[]') INTO inbound FROM jsonb_array_elements(ledger) x WHERE x->>'change_type'='PACKAGING_INBOUND';
         IF receipt IS NOT NULL THEN
           groups:=receipt->'groups';
           IF jsonb_typeof(groups) IS DISTINCT FROM 'array' OR jsonb_array_length(groups)=0 THEN RETURN fallback; END IF;
+          IF EXISTS(SELECT 1 FROM jsonb_array_elements(groups) g WHERE
+            jsonb_typeof(g->'qty') IS DISTINCT FROM 'number' OR (g->>'qty')::numeric<=0
+            OR (g->>'qty')::numeric>9007199254740991 OR trunc((g->>'qty')::numeric)<>(g->>'qty')::numeric
+            OR EXISTS(SELECT 1 FROM unnest(ARRAY['ledgerId','batchNo','skuCode','specCode','productCode','companyCode','warehouseCode','locationCode']) k
+              WHERE jsonb_typeof(g->k) IS DISTINCT FROM 'string' OR g->>k='')) THEN RETURN fallback; END IF;
           IF receipt->>'originalHash' IS DISTINCT FROM encode(sha256(convert_to(packing_json_canonical(jsonb_build_object('date',rec->'production_date','outputs',outputs,'totalEggs',rec->'total_eggs','totalBoxes',rec->'total_boxes')),'UTF8')),'hex')
             OR receipt->>'handoverCode' IS DISTINCT FROM handovers->0->>'code'
             OR jsonb_array_length(inbound)<>jsonb_array_length(groups)
@@ -44,9 +51,28 @@ export class PackagingHistoryD1cEvidence1789353300496 implements MigrationInterf
               WHERE l->>'id'=g->>'ledgerId' AND l->>'batch_no'=g->>'batchNo' AND l->>'ref_no'=rec->>'code'
                 AND (l->>'qty_change')::numeric=(g->>'qty')::numeric AND l->>'sku_code'=g->>'skuCode'
                 AND l->>'company_code'=g->>'companyCode' AND l->>'warehouse_code'=g->>'warehouseCode' AND l->>'location_code'=g->>'locationCode')) THEN RETURN fallback; END IF;
+          IF receipt ? 'outputBindings' THEN
+            IF jsonb_typeof(receipt->'outputBindings') IS DISTINCT FROM 'array' THEN RETURN fallback; END IF;
+            IF jsonb_array_length(receipt->'outputBindings')<>jsonb_array_length(outputs) OR EXISTS(
+              SELECT 1 FROM jsonb_array_elements(receipt->'outputBindings') WITH ORDINALITY b(v,n)
+              CROSS JOIN LATERAL (SELECT outputs->(n::int-1) o) original
+              WHERE (v->'outputOrdinal'=to_jsonb(n-1) AND v->'qty'=o->'eggs' AND v->'boxes'=o->'boxes'
+                AND jsonb_typeof(v->'skuCode')='string' AND length(v->>'skuCode')>0
+                AND jsonb_typeof(v->'specCode')='string' AND length(v->>'specCode')>0
+                AND jsonb_typeof(v->'productCode')='string' AND length(v->>'productCode')>0
+                AND (COALESCE(o->>'skuCode','')='' OR o->>'skuCode'=v->>'skuCode')
+                AND (COALESCE(o->>'specId','')='' OR o->>'specId'=v->>'specCode')
+                AND (COALESCE(o->>'productCode','')='' OR o->>'productCode'=v->>'productCode')) IS NOT TRUE) THEN RETURN fallback; END IF;
+            SELECT jsonb_agg(to_jsonb(g)) INTO expected FROM (SELECT o->>'skuCode' sku,o->>'specCode' spec,o->>'productCode' product,sum((o->>'qty')::numeric) qty FROM jsonb_array_elements(receipt->'outputBindings') o GROUP BY 1,2,3) g;
+          ELSE
+            IF EXISTS(SELECT 1 FROM jsonb_array_elements(outputs) o CROSS JOIN unnest(ARRAY['skuCode','specId','productCode']) k WHERE jsonb_typeof(o->k) IS DISTINCT FROM 'string' OR o->>k='') THEN RETURN fallback; END IF;
+            SELECT jsonb_agg(to_jsonb(g)) INTO expected FROM (SELECT o->>'skuCode' sku,o->>'specId' spec,o->>'productCode' product,sum((o->>'eggs')::numeric) qty FROM jsonb_array_elements(outputs) o GROUP BY 1,2,3) g;
+          END IF;
+          IF jsonb_array_length(expected)<>jsonb_array_length(groups) OR EXISTS(SELECT 1 FROM jsonb_array_elements(groups) g WHERE NOT EXISTS(
+            SELECT 1 FROM jsonb_array_elements(expected) e WHERE e->>'sku'=g->>'skuCode' AND e->>'spec'=g->>'specCode' AND e->>'product'=g->>'productCode' AND (e->>'qty')::numeric=(g->>'qty')::numeric)) THEN RETURN fallback; END IF;
           RETURN 'COMMITTED';
         END IF;
-        IF EXISTS(SELECT 1 FROM jsonb_array_elements(outputs) o WHERE o->>'skuCode' IS NULL OR o->>'specId' IS NULL OR o->>'productCode' IS NULL) THEN RETURN fallback; END IF;
+        IF EXISTS(SELECT 1 FROM jsonb_array_elements(outputs) o WHERE jsonb_typeof(o->'skuCode') IS DISTINCT FROM 'string' OR o->>'skuCode'='' OR jsonb_typeof(o->'specId') IS DISTINCT FROM 'string' OR o->>'specId'='' OR jsonb_typeof(o->'productCode') IS DISTINCT FROM 'string' OR o->>'productCode'='') THEN RETURN fallback; END IF;
         SELECT jsonb_agg(to_jsonb(g)) INTO expected FROM (SELECT o->>'skuCode' sku,o->>'specId' spec,o->>'productCode' product,sum((o->>'eggs')::numeric) qty FROM jsonb_array_elements(outputs) o GROUP BY 1,2,3) g;
         IF expected IS NULL OR jsonb_array_length(batches)<>jsonb_array_length(expected) OR jsonb_array_length(inbound)<>jsonb_array_length(expected)
           OR (SELECT count(DISTINCT x->>'batch_no') FROM jsonb_array_elements(batches) x)<>jsonb_array_length(expected)
@@ -128,17 +154,40 @@ export class PackagingHistoryD1cEvidence1789353300496 implements MigrationInterf
     await q.query(`CREATE INDEX IF NOT EXISTS ix_packing_event_record ON pkg_packing_events(packing_id,server_at,id)`);
     await q.query(`CREATE OR REPLACE FUNCTION check_packing_namespace() RETURNS trigger LANGUAGE plpgsql AS $fn$
       BEGIN
-        IF EXISTS(SELECT 1 FROM pkg_packing_code_registry r WHERE r.normalized_code=NEW.normalized_code AND r.state='BOUND' AND
+        IF EXISTS(SELECT 1 FROM pkg_packing_code_registry r WHERE r.normalized_code=NEW.normalized_code AND ((r.state='RETIRED' AND EXISTS(SELECT 1 FROM pkg_packing_code_claims c WHERE c.normalized_code=r.normalized_code AND c.status='ACTIVE')) OR (r.state='BOUND' AND
           (NOT EXISTS(SELECT 1 FROM pkg_packing_code_claims c WHERE c.normalized_code=r.normalized_code AND c.status='ACTIVE' AND c.box_id=r.owner_box_id)
-          OR EXISTS(SELECT 1 FROM pkg_packing_code_claims c WHERE c.normalized_code=r.normalized_code AND c.status='ACTIVE' AND c.box_id<>r.owner_box_id))) THEN
+          OR EXISTS(SELECT 1 FROM pkg_packing_code_claims c WHERE c.normalized_code=r.normalized_code AND c.status='ACTIVE' AND c.box_id<>r.owner_box_id))))) THEN
           RAISE EXCEPTION 'PACKING_NAMESPACE_CONFLICT' USING ERRCODE='23514';
+        END IF;
+        IF EXISTS(SELECT 1 FROM pkg_packing_code_claims c JOIN pkg_packing_boxes b ON b.id=c.box_id
+          JOIN pkg_packing_events e ON e.id=c.evidence_event_id WHERE c.normalized_code=NEW.normalized_code
+          AND (e.packing_id<>b.packing_id OR e.event_type NOT IN ('REGISTRATION','LABEL_VOID'))) THEN
+          RAISE EXCEPTION 'PACKING_CLAIM_EVIDENCE_CONFLICT' USING ERRCODE='23514';
         END IF;
         RETURN NULL;
       END $fn$`);
     for(const table of ['pkg_packing_code_registry','pkg_packing_code_claims']) {
-      await q.query(`DO $do$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='ck_namespace_${table}') THEN
+      await q.query(`DO $do$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='ck_namespace_${table}' AND tgrelid='${table}'::regclass) THEN
         CREATE CONSTRAINT TRIGGER ck_namespace_${table} AFTER INSERT OR UPDATE ON ${table}
           DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_packing_namespace(); END IF; END $do$`);
+    }
+    await q.query(`CREATE OR REPLACE FUNCTION preserve_packing_claim_history() RETURNS trigger LANGUAGE plpgsql AS $fn$
+      BEGIN
+        IF TG_OP='DELETE' THEN RAISE EXCEPTION 'PACKING_CLAIM_HISTORY_IMMUTABLE' USING ERRCODE='23514'; END IF;
+        IF NEW.normalized_code IS DISTINCT FROM OLD.normalized_code THEN RAISE EXCEPTION 'PACKING_CODE_IMMUTABLE' USING ERRCODE='23514'; END IF;
+        IF TG_TABLE_NAME='pkg_packing_code_claims' THEN
+          IF NEW.box_id IS DISTINCT FROM OLD.box_id OR NEW.kind IS DISTINCT FROM OLD.kind OR NEW.evidence_event_id IS DISTINCT FROM OLD.evidence_event_id
+            OR NEW.raw_code IS DISTINCT FROM OLD.raw_code OR (OLD.status='VOID' AND NEW.status<>'VOID') THEN
+            RAISE EXCEPTION 'PACKING_CLAIM_HISTORY_IMMUTABLE' USING ERRCODE='23514'; END IF;
+        ELSE
+          IF OLD.state='RETIRED' AND NEW.state<>'RETIRED' AND EXISTS(SELECT 1 FROM pkg_packing_code_registry r WHERE r.normalized_code=OLD.normalized_code AND r.xmin::text<>pg_current_xact_id()::text) THEN
+            RAISE EXCEPTION 'PACKING_CODE_RETIRED' USING ERRCODE='23514'; END IF;
+        END IF;
+        RETURN NEW;
+      END $fn$`);
+    for(const table of ['pkg_packing_code_registry','pkg_packing_code_claims']) {
+      await q.query(`DO $do$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='preserve_${table}' AND tgrelid='${table}'::regclass) THEN
+        CREATE TRIGGER preserve_${table} BEFORE UPDATE OR DELETE ON ${table} FOR EACH ROW EXECUTE FUNCTION preserve_packing_claim_history(); END IF; END $do$`);
     }
     await q.query(`CREATE OR REPLACE FUNCTION check_packing_event_references() RETURNS trigger LANGUAGE plpgsql AS $fn$
       BEGIN
@@ -150,11 +199,22 @@ export class PackagingHistoryD1cEvidence1789353300496 implements MigrationInterf
         END IF;
         RETURN NEW;
       END $fn$`);
-    await q.query(`DO $do$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='packing_event_references') THEN
+    await q.query(`DO $do$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='packing_event_references' AND tgrelid='pkg_packing_events'::regclass) THEN
       CREATE TRIGGER packing_event_references BEFORE INSERT ON pkg_packing_events FOR EACH ROW EXECUTE FUNCTION check_packing_event_references(); END IF; END $do$`);
+    await q.query(`CREATE OR REPLACE FUNCTION check_packing_operation_result() RETURNS trigger LANGUAGE plpgsql AS $fn$
+      BEGIN
+        IF NEW.state='COMMITTED' AND NOT EXISTS(SELECT 1 FROM pkg_packing_events e WHERE e.id=NEW.result_event_id
+          AND e.operation_id=NEW.id AND e.packing_id=NEW.packing_id AND e.actor_id=NEW.actor_id
+          AND e.event_type=CASE NEW.action WHEN 'REGISTER' THEN 'REGISTRATION' WHEN 'SESSION' THEN 'VERIFICATION_SESSION' WHEN 'SCAN' THEN 'BOX_VERIFIED'
+            WHEN 'PRINT' THEN 'PRINT_REQUEST' WHEN 'PRINT_RESULT' THEN 'PRINT_RESULT' WHEN 'VOID' THEN 'LABEL_VOID' WHEN 'CONFIRM' THEN 'COMMIT_RECEIPT' ELSE '' END) THEN
+          RAISE EXCEPTION 'PACKING_OPERATION_RESULT_CONFLICT' USING ERRCODE='23514';
+        END IF; RETURN NULL;
+      END $fn$`);
+    await q.query(`DO $do$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='packing_operation_result' AND tgrelid='pkg_packing_operations'::regclass) THEN
+      CREATE CONSTRAINT TRIGGER packing_operation_result AFTER INSERT OR UPDATE ON pkg_packing_operations DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_packing_operation_result(); END IF; END $do$`);
     await q.query(`CREATE OR REPLACE FUNCTION reject_packing_event_mutation() RETURNS trigger LANGUAGE plpgsql AS $fn$
       BEGIN RAISE EXCEPTION 'PACKING_EVENTS_APPEND_ONLY' USING ERRCODE='23514'; END $fn$`);
-    await q.query(`DO $do$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='packing_event_immutable') THEN
+    await q.query(`DO $do$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='packing_event_immutable' AND tgrelid='pkg_packing_events'::regclass) THEN
       CREATE TRIGGER packing_event_immutable BEFORE UPDATE OR DELETE ON pkg_packing_events
       FOR EACH ROW EXECUTE FUNCTION reject_packing_event_mutation(); END IF; END $do$`);
   }
@@ -169,6 +229,8 @@ export class PackagingHistoryD1cEvidence1789353300496 implements MigrationInterf
     await q.query('DROP FUNCTION IF EXISTS packing_posting_state(jsonb,jsonb,jsonb,jsonb,jsonb)');
     await q.query('DROP FUNCTION IF EXISTS packing_json_canonical(jsonb)');
     await q.query('DROP FUNCTION IF EXISTS check_packing_namespace()');
+    await q.query('DROP FUNCTION IF EXISTS preserve_packing_claim_history()');
+    await q.query('DROP FUNCTION IF EXISTS check_packing_operation_result()');
     await q.query('DROP FUNCTION IF EXISTS reject_packing_event_mutation()');
     await q.query('DROP FUNCTION IF EXISTS check_packing_event_references()');
     await q.query(`ALTER TABLE pkg_packing_records DROP COLUMN IF EXISTS workflow_contract_version,

@@ -6,6 +6,9 @@ const fields:Record<string,string[]>={
  CONFIRM:['contractVersion','packingCode','productionDate','shiftId','boxIds','verificationIds','warehouseCode','locationCode','receiverUserId','palletCode'],
  VOID:['labelCode','reason','dispositionDeclaration'],
 };
+export function validatePackingCode(code:unknown){
+ if(typeof code!=='string'||!code.trim()||code.length>80)throw new BadRequestException('INVALID_PACKING_CODE');
+}
 export function validatePackingCommand(action:string,body:any){
  const fail=()=>{throw new BadRequestException('INVALID_COMMAND');};
  if(!body||typeof body!=='object'||Array.isArray(body)||!fields[action])return fail();
@@ -27,14 +30,15 @@ export function validatePackingCommand(action:string,body:any){
  if(['SESSION','SCAN'].includes(action))enumeration('purpose',['LABEL_CHECK','HANDOVER']);
  if(action==='SCAN'){uuid(body.boxId);uuid(body.sessionId);text('labelCode');enumeration('method',['SCANNER','MANUAL']);}
  if(action==='PRINT'){uuid(body.boxId);text('labelCode');text('templateVersion');enumeration('printType',['NORMAL','REPRINT']);if(body.copies!==1)return fail();text('reason',body.printType==='REPRINT');}
- if(action==='PRINT_RESULT'){uuid(body.requestId);enumeration('type',['DISPATCHED','FAILED','UNKNOWN']);if(body.clientOccurredAt!==undefined&&body.clientOccurredAt!==null&&!Number.isFinite(Date.parse(body.clientOccurredAt)))return fail();}
+ if(body.packingCode!==undefined)validatePackingCode(body.packingCode);
+ if(action==='PRINT_RESULT'){uuid(body.requestId);enumeration('type',['DISPATCHED','FAILED','UNKNOWN']);if(body.clientOccurredAt!==undefined&&body.clientOccurredAt!==null&&(typeof body.clientOccurredAt!=='string'||!Number.isFinite(Date.parse(body.clientOccurredAt))))return fail();}
  if(action==='VOID'){text('labelCode');text('reason');text('dispositionDeclaration');}
  if(action==='CONFIRM'){
   for(const key of ['boxIds','verificationIds']){if(!Array.isArray(body[key])||!body[key].length||body[key].length>10000||new Set(body[key]).size!==body[key].length)return fail();body[key].forEach(uuid);}
   for(const key of ['warehouseCode','locationCode'])text(key);
   for(const key of ['shiftId','receiverUserId'])if(!/^[1-9]\d*$/.test(String(body[key]))||BigInt(body[key])>9223372036854775807n)return fail();
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(body.productionDate)||!Number.isFinite(Date.parse(body.productionDate)))return fail();
+  if(typeof body.productionDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(body.productionDate)||!Number.isFinite(Date.parse(body.productionDate))||new Date(body.productionDate).toISOString().slice(0,10)!==body.productionDate)return fail();
   if(body.contractVersion!==undefined&&body.contractVersion!==2)return fail();
-  if(body.palletCode!==undefined&&typeof body.palletCode!=='string')return fail();
+  if(body.palletCode!==undefined&&(typeof body.palletCode!=='string'||body.palletCode.length>64))return fail();
  }
 }

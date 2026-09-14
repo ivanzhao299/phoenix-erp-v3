@@ -1,4 +1,5 @@
-import { validatePackingCommand } from './dto/packaging-history.dto';
+import {packingPrintBlocked} from './packaging-print-state';
+import { validatePackingCode, validatePackingCommand } from './dto/packaging-history.dto';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { EntityManager } from 'typeorm';
@@ -32,7 +33,7 @@ export class PackagingHandoverService {
         Object.assign(d.handover,packingEvidence(r,r.inventory,r.ledger,r.handovers,receipt.payload));
         d.receipt={state:'RECORDED',evidence:[receipt]};
       }
-      d.boxes=boxes;d.events=events;d.identityStatus=boxes.length===d.record.totalBoxes?'REGISTERED':'UNREGISTERED';
+      d.boxes=boxes.map((b:any)=>({...b,printBlockedReason:packingPrintBlocked(events,b.boxId)?'打印结果未知，请先查询并核实原打印请求':null}));d.events=events;d.identityStatus=boxes.length===d.record.totalBoxes?'REGISTERED':'UNREGISTERED';
       d.policy=await this.policy.get(d.ownership.companyCode,d.ownership.siteCode);
       d.revision=packingHash({originalRevision:d.revision,policyVersion:d.policy.version,sources:d.sources});
       const reasons=d.actions.registerBoxes.reasons.filter((r:string)=>r!=='工作流写入尚未开放').length?d.actions.registerBoxes.reasons.filter((r:string)=>r!=='工作流写入尚未开放'):d.record.recordStatus!=='ACTIVE'?['原单已作废']:d.record.productionDate!==d.shift.productionDate?['原单日期不一致']:
@@ -65,6 +66,7 @@ export class PackagingHandoverService {
       locationCode:body.location,receiverUserId:users[0].id,palletCode:body.palletCode||''},req);
   }
   async command(action:string,code:string,key:string,body:any,req:any):Promise<any>{
+    validatePackingCode(code);validatePackingCommand(action,body);
     uuid(key);const actor=this.actor(req);const scope=await this.history.scope(req,true);
     const payloadHash=packingHash({code,body});
     return this.history.em.transaction(async db=>{
@@ -104,10 +106,10 @@ export class PackagingHandoverService {
         for(const e of expected){
           const matches=body.items.filter((i:any)=>i.outputOrdinal===e.outputOrdinal&&i.boxOrdinal===e.boxOrdinal);
           if(matches.length!==1||!String(matches[0].declaration||'').trim())throw new BadRequestException('REGISTRATION_EVIDENCE_REQUIRED');
-          const identity=await resolvePackagingIdentity(db,{grade:outputs[e.outputOrdinal].grade,specCode:outputs[e.outputOrdinal].specId,specName:outputs[e.outputOrdinal].spec});
+          const identity=await resolvePackagingIdentity(db,{grade:outputs[e.outputOrdinal].grade,specCode:outputs[e.outputOrdinal].specId,specName:outputs[e.outputOrdinal].spec,skuCode:outputs[e.outputOrdinal].skuCode,productCode:outputs[e.outputOrdinal].productCode});
           if(identity.qtyPerUnit!==e.qty)throw new ConflictException('INVALID_BOX_SET');
           const boxId=randomUUID();await db.query(`INSERT INTO pkg_packing_boxes(id,packing_id,output_ordinal,box_ordinal,original_qty) VALUES($1,$2,$3,$4,$5)`,[boxId,r.id,e.outputOrdinal,e.boxOrdinal,e.qty]);
-          created.push({...e,boxId,labelCode:testEncoding?`TEST-${randomUUID()}`:`PBX-${randomUUID().replace(/-/g,'').toUpperCase()}`,observedLabelCode:matches[0].observedLabelCode,declaration:matches[0].declaration});
+          created.push({...e,identity,boxId,labelCode:testEncoding?`TEST-${randomUUID()}`:`PBX-${randomUUID().replace(/-/g,'').toUpperCase()}`,observedLabelCode:matches[0].observedLabelCode,declaration:matches[0].declaration});
         }
         eventId=await emit('REGISTRATION',{registrationKind:body.registrationKind,reason:body.reason,boxes:created,recordedBy:actor});
         await this.boxes.claim(db,created.flatMap(b=>[{code:b.labelCode,boxId:b.boxId,kind:'CANONICAL' as const,eventId},...(b.observedLabelCode?[{code:b.observedLabelCode,boxId:b.boxId,kind:'ALIAS' as const,eventId}]:[])]));
@@ -123,6 +125,7 @@ export class PackagingHandoverService {
         if((await db.query(`SELECT 1 FROM pkg_packing_events WHERE session_id=$1 AND box_id=$2 AND event_type='BOX_VERIFIED' AND payload->>'purpose'=$3`,[session.id,box.id,body.purpose])).length)throw new ConflictException('BOX_ALREADY_VERIFIED');
         eventId=await emit('BOX_VERIFIED',{purpose:body.purpose,method:body.method,labelCode:body.labelCode,targetRevision:d.revision},box.id,session.id);
       }else if(action==='PRINT'){
+        if(packingPrintBlocked(d.events,body.boxId))throw new ConflictException('PRINT_RESULT_UNRESOLVED');
         const box=await this.boxes.resolve(db,r.id,body.labelCode);
         if(box.id!==body.boxId||body.copies!==1||!String(body.templateVersion||'').trim()
           ||!['NORMAL','REPRINT'].includes(body.printType)||(body.printType==='REPRINT'&&!String(body.reason||'').trim()))throw new BadRequestException('INVALID_PRINT_REQUEST');
@@ -172,12 +175,22 @@ export class PackagingHandoverService {
         const [place]=await db.query(`SELECT l.location_code,w.warehouse_code,w.company_code FROM wms_locations l JOIN wms_warehouses w ON w.warehouse_code=l.warehouse_code
           WHERE l.location_code=$1 AND w.warehouse_code=$2 AND l.status IN ('NORMAL','EMPTY','OCCUPIED') AND w.status='ACTIVE' FOR SHARE OF l,w`,[body.locationCode,body.warehouseCode]);
         if(!place||place.company_code!==r.company_code||(!scope.isGlobal&&!scope.allowedWarehouseCodes.includes(place.warehouse_code)))throw new ConflictException('LOCATION_INACTIVE');
-        const [receiver]=await db.query('SELECT user_id::text,real_name FROM sys_user WHERE user_id=$1 AND status=1 FOR SHARE',[body.receiverUserId]);
+        const [receiver]=await db.query('SELECT user_id::text,real_name,perms_version FROM sys_user WHERE user_id=$1 AND status=1 FOR SHARE',[body.receiverUserId]);
         if(!receiver)throw new ConflictException('RECEIVER_INELIGIBLE');
         const roles=await db.query(`SELECT r.role_code FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id WHERE ur.user_id=$1 AND COALESCE(ur.is_visible,true) AND r.status='ACTIVE'`,[receiver.user_id]);
-        const receiverScope=await this.history.scopes.resolve(receiver.user_id,roles.map((r:any)=>r.role_code),'MENU_PKG_OP');
+        const receiverScope=await this.history.scopes.resolve(receiver.user_id,roles.map((r:any)=>r.role_code),'MENU_PKG_OP',Number(receiver.perms_version));
         if(!receiverScope.isGlobal&&(!receiverScope.allowedCompanyCodes.includes(r.company_code)||!receiverScope.allowedWarehouseCodes.includes(place.warehouse_code)))throw new ConflictException('RECEIVER_INELIGIBLE');
-        const result=await this.inventory.completeTerminalPacking(code,{companyCode:r.company_code,warehouseCode:place.warehouse_code,locationCode:place.location_code,manager:db});
+        const registrations=d.events.filter((e:any)=>e.event_type==='REGISTRATION');
+        if(registrations.length!==1)throw new ConflictException('OUTPUT_BINDINGS_REQUIRED');
+        const registeredIds=registrations[0].payload.boxes.map((b:any)=>b.boxId).sort();
+        if(new Set(registeredIds).size!==registeredIds.length||JSON.stringify(registeredIds)!==JSON.stringify(expected))throw new ConflictException('OUTPUT_BINDINGS_REQUIRED');
+        const outputBindings=originalOutputs(r)!.map((o:any,outputOrdinal:number)=>{
+          const registered=registrations[0].payload.boxes.filter((b:any)=>b.outputOrdinal===outputOrdinal);
+          const identity=registered[0]?.identity;
+          if(!identity||registered.length!==o.boxes||registered.some((b:any)=>packingHash(b.identity)!==packingHash(identity)||b.qty!==o.eggs/o.boxes||!expected.includes(b.boxId)))throw new ConflictException('OUTPUT_BINDINGS_REQUIRED');
+          return {outputOrdinal,qty:o.eggs,boxes:o.boxes,...identity,provenance:'REGISTRATION_RESOLUTION'};
+        });
+        const result=await this.inventory.completeTerminalPacking(code,{outputBindings,companyCode:r.company_code,warehouseCode:place.warehouse_code,locationCode:place.location_code,manager:db});
         if(result.skippedByMode||result.totalInbound!==Number(r.total_eggs))throw new ConflictException('INVENTORY_NOT_COMMITTED');
         const handoverCode=`WH-${randomUUID()}`;
         await db.query(`INSERT INTO pkg_handover_records(code,shift_id,packing_code,boxes_json,box_count,pallet_code,location,receiver,production_date)
@@ -186,7 +199,7 @@ export class PackagingHandoverService {
           l.id::text "ledgerId",l.company_code "companyCode",l.warehouse_code "warehouseCode",l.location_code "locationCode"
           FROM inv_batches b JOIN inv_ledger l ON l.batch_no=b.batch_no AND l.ref_no=$1 AND l.change_type='PACKAGING_INBOUND' WHERE b.packaging_batch_ref=$1`,[code]);
         if(groups.length!==result.batches.length||groups.reduce((n:number,g:any)=>n+g.qty,0)!==Number(r.total_eggs))throw new ConflictException('EVIDENCE_CONFLICT');
-        eventId=await emit('COMMIT_RECEIPT',{handoverCode,operationId:op,expectedRevision:body.expectedRevision,committed:true,receiptState:'RECORDED',groups,boxIds:expected,
+        eventId=await emit('COMMIT_RECEIPT',{handoverCode,operationId:op,expectedRevision:body.expectedRevision,committed:true,receiptState:'RECORDED',groups,outputBindings,boxIds:expected,
           originalHash:packingHash({date:r.production_date,outputs:r.batches_json,totalEggs:Number(r.total_eggs),totalBoxes:Number(r.total_boxes)}),
           receiverUserId:receiver.user_id,receiverNameSnapshot:receiver.real_name,recordedBy:actor,recordedAt:new Date().toISOString(),mode:'PACKAGING_INBOUND'});
       }else throw new BadRequestException('INVALID_ACTION');

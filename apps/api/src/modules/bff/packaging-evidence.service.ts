@@ -5,10 +5,13 @@ export function packingHash(value: unknown): string {
     ? Object.fromEntries(Object.keys(v).sort().map(k => [k, canonical(v[k])])) : v;
   return createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
 }
+const nonempty=(v:unknown):v is string=>typeof v==='string'&&v.length>0;
+const identity=(...v:unknown[])=>JSON.stringify(v);
 export function originalOutputs(record: any): any[] | null {
   const rows = record.batches_json;
   if (!Array.isArray(rows) || !rows.length || rows.some(b => !b || !Number.isSafeInteger(b.boxes) || b.boxes <= 0
     || !Number.isSafeInteger(b.eggs) || b.eggs <= 0 || b.eggs % b.boxes !== 0)) return null;
+  if(!Number.isSafeInteger(Number(record.total_boxes))||!Number.isSafeInteger(Number(record.total_eggs)))return null;
   if (rows.reduce((n, b) => n + b.boxes, 0) !== Number(record.total_boxes)
     || rows.reduce((n, b) => n + b.eggs, 0) !== Number(record.total_eggs)) return null;
   return rows;
@@ -34,8 +37,8 @@ export function packingEvidence(record: any, batches: any[], ledger: any[], hand
   const inbound = ledger.filter(l => l.change_type === 'PACKAGING_INBOUND');
   if (receipt) {
     const groups = receipt.groups;
-    if (!Array.isArray(groups) || !groups.length || new Set(groups.map(g=>g.ledgerId)).size!==groups.length
-      || new Set(groups.map(g=>g.batchNo)).size!==groups.length || new Set(groups.map(g=>`${g.skuCode}/${g.specCode}`)).size!==groups.length
+    if (!Array.isArray(groups) || !groups.length || groups.some(g=>!g||['ledgerId','batchNo','skuCode','specCode','productCode','companyCode','warehouseCode','locationCode'].some(k=>!nonempty(g[k]))) || new Set(groups.map(g=>g.ledgerId)).size!==groups.length
+      || new Set(groups.map(g=>g.batchNo)).size!==groups.length || new Set(groups.map(g=>identity(g.skuCode,g.specCode))).size!==groups.length
       || groups.some(g=>!Number.isSafeInteger(g.qty)||g.qty<=0)||groups.reduce((n,g)=>n+g.qty,0)!==Number(record.total_eggs)
       || receipt.originalHash !== packingHash({ date: record.production_date, outputs,
       totalEggs: Number(record.total_eggs), totalBoxes: Number(record.total_boxes) })
@@ -43,6 +46,19 @@ export function packingEvidence(record: any, batches: any[], ledger: any[], hand
       || groups.some(g => !inbound.some(l => String(l.id) === g.ledgerId && l.batch_no === g.batchNo && l.ref_no === record.code
         && Number(l.qty_change) === g.qty && l.sku_code === g.skuCode && l.company_code === g.companyCode
         && l.warehouse_code === g.warehouseCode && l.location_code === g.locationCode))) return invalid('原入账凭据与流水不一致');
+    const bindings=receipt.outputBindings;
+    const hasOriginalIdentity=outputs.every(o=>nonempty(o.skuCode)&&nonempty(o.specId)&&nonempty(o.productCode));
+    if(!hasOriginalIdentity&&!bindings)return invalid('旧凭据缺逐产出不可变映射');
+    let expectedOutputs=outputs;
+    if(bindings!==undefined){
+      if(!Array.isArray(bindings)||bindings.length!==outputs.length||bindings.some((b,i)=>!b||b.outputOrdinal!==i||b.qty!==outputs[i].eggs||b.boxes!==outputs[i].boxes
+        ||!nonempty(b.skuCode)||!nonempty(b.specCode)||!nonempty(b.productCode)
+        ||(outputs[i].skuCode&&outputs[i].skuCode!==b.skuCode)||(outputs[i].productCode&&outputs[i].productCode!==b.productCode)||(outputs[i].specId&&outputs[i].specId!==b.specCode)))return invalid('逐产出不可变映射无效');
+      expectedOutputs=bindings.map(b=>({skuCode:b.skuCode,specId:b.specCode,productCode:b.productCode,eggs:b.qty}));
+    }
+    const expected=new Map<string,number>();
+    for(const o of expectedOutputs){const key=identity(o.skuCode,o.specId,o.productCode);expected.set(key,(expected.get(key)||0)+o.eggs);}
+    if(expected.size!==groups.length||groups.some(g=>expected.get(identity(g.skuCode,g.specCode,g.productCode))!==g.qty))return invalid('原产出分组与入账凭据不一致');
     // Retain immutable posting even if current stock evolved; don't claim an unexplained evolution was verified.
     const current = groups.every(g => batches.some(b => b.batch_no === g.batchNo && b.company_code === g.companyCode
       && b.warehouse_code === g.warehouseCode && b.location_code === g.locationCode && Number(b.qty) === g.qty));
@@ -51,17 +67,17 @@ export function packingEvidence(record: any, batches: any[], ledger: any[], hand
   // Legacy evidence without a snapshot: don't infer identities from equal grand totals.
   const groups = new Map<string, number>();
   for (const o of outputs) {
-    if (!o.skuCode || !o.specId || !o.productCode) return invalid('旧原单缺不可变产出身份，原入账证据待核实');
-    const key = `${o.skuCode}/${o.specId}/${o.productCode}`;
+    if (!nonempty(o.skuCode) || !nonempty(o.specId) || !nonempty(o.productCode)) return invalid('旧原单缺不可变产出身份，原入账证据待核实');
+    const key = identity(o.skuCode,o.specId,o.productCode);
     groups.set(key, (groups.get(key) || 0) + o.eggs);
   }
   const h = handovers[0];
   const ok = Number(h.box_count) === Number(record.total_boxes) && h.production_date === record.production_date
     && batches.length === groups.size && inbound.length === groups.size
-    && new Set(batches.map(b=>`${b.sku_code}/${b.spec_code}/${b.product_code}`)).size===groups.size
+    && new Set(batches.map(b=>identity(b.sku_code,b.spec_code,b.product_code))).size===groups.size
     && new Set(batches.map(b=>b.batch_no)).size===groups.size && new Set(inbound.map(l=>String(l.id))).size===groups.size
     && batches.every(b => {
-      const expected = groups.get(`${b.sku_code}/${b.spec_code}/${b.product_code}`);
+      const expected = groups.get(identity(b.sku_code,b.spec_code,b.product_code));
       const entries = inbound.filter(l => l.batch_no === b.batch_no);
       if (!expected || Number(b.qty) !== expected || b.egg_date !== record.production_date || b.location_code !== h.location
         || b.source_type !== 'PACKAGING' || b.packaging_batch_ref !== record.code || entries.length !== 1) return false;
