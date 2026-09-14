@@ -702,3 +702,11 @@ Review30资金泄露最小软件修复与指定HTTP/完整适用回归关闭；�
 run `34823735277`（head `cba29befd93e372b3651d7f2c05ffc04f3c4822f`）进入 production environment 的 SSH 步骤。helper 第一阶段输出实际远端 SHA 前缀 `a53d91f33ff733bf28e19ca11d7491f1bfd469…`，与要求的生产对象 `69d89dd44b8e1461d7eaf5193e60c994255aed2c` 不同，返回 `SHA_MISMATCH` 并停止；GitHub 日志脱敏了实际 SHA 尾部，不能猜测或恢复。由于 baseline gate 在 checkout 后即失败，未执行 docker inspect、PG、flags、backup stat、migration 查询或任何生产业务操作。远端 SCP 仅写入 `/tmp/phoenix-production-readonly-audit-34823735277/bundle`，本流程没有删除步骤。
 
 该 run 最终 `failure` 是预期的安全阻断，不是生产审计通过。SSH action 同时报告 output delimiter 错误（`Invalid value. Matching delimiter not found 'EOF'`），属于失败后的输出采集问题；不改变 SHA gate 已先停止的事实，也不重试该 run。后续若要取得 baseline 审计，维护者必须先确认并提供合法的远端部署 ref/SHA，不得以候选 `cba29bef`、`2e9def8e` 或被脱敏的 `a53d…` 代替。
+
+## 确认 baseline 后的受控 readonly dispatch
+
+父级确认生产 SHA 后，metadata helper 的 baseline 更新为 `a53d91f33ff733bf28e19ca11d7491f1bfd46922`，并在本地 47 assertions/legacy15/YAML 检查通过后提交 `fa02924da3e8501d44d5eb84a62e9e916ea5bd66`，推送专用 `audit/packaging-history-metadata` 分支。push 条件重新从当前 60 个 workflow 枚举确认仅 `main`、`w5/**`、`v3-admin`，没有命中 deploy 或其他 push workflow。
+
+run `34825204038`（head `fa02924da3e8501d44d5eb84a62e9e916ea5bd66`）使用固定 approve token、metadata mode、expected SHA、`deploy-backups` 和空 assertion 路径。validate exit0，SCP 成功，SSH helper 的 checkout SHA 与 expected 完全匹配，说明本次不是 SHA mismatch。随后固定备份目录 stat 在遇到不支持的条目时返回 `BACKUP / UNSUPPORTED_ENTRY / exit=2` 并停止；没有最终 metadata 汇总，因此不记录或猜测 image IDs、PG major、pending migration、dirty、flags。该失败未重试，也未绕过条目检查。SSH action 仍在失败后报告 `Invalid value. Matching delimiter not found 'EOF'`，属于输出采集故障。
+
+本次 metadata helper 只读阶段未执行业务 SQL、DDL、migration、flag/secret 修改；SCP 仅写入受控临时 bundle 目录，无删除清理步骤。生产审计仍未完成，须维护者先处理备份目录的真实条目契约后再另行批准执行。

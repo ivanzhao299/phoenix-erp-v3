@@ -541,3 +541,9 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 - run `34823735277`, head `cba29befd93e372b3651d7f2c05ffc04f3c4822f`, workflow validate exit0。
 - production SSH helper 仅执行 baseline gate：实际远端 SHA 前缀 `a53d91f33ff733bf28e19ca11d7491f1bfd469…` 与 expected `69d89dd44b8e1461d7eaf5193e60c994255aed2c` 不符，固定 `SHA_MISMATCH`，未运行 Docker/DB/flags/backup/migration。尾部被平台脱敏，不猜完整值。
 - run conclusion failure（安全阻断）；SSH output delimiter 错误在失败后出现，保留原始失败分类，不重试。SCP 仅临时 bundle 目录，无清理步骤。生产对象仍未审计，候选 SHA 不得混入报告。
+
+## Confirmed baseline dispatch 34825204038
+- `fa02924d` pushed only to audit branch; actual workflow push conditions remain main/w5/**/v3-admin, no deploy trigger.
+- validate and SCP exit0. Remote checkout SHA matched confirmed `a53d91f33ff733bf28e19ca11d7491f1bfd46922`.
+- SSH metadata helper stopped at fixed backup mapping with `BACKUP/UNSUPPORTED_ENTRY/exit=2`; no final metadata record, so image IDs/PG major/migrations/dirty/flags are intentionally absent. No retry or bypass.
+- SSH EOF output delimiter error occurred after helper failure. No production business writes/DDL/migration/flags/secrets.
