@@ -718,3 +718,11 @@ run `34826067560` validate/SCP 成功，SHA 与确认值 `a53d91f33ff733bf28e19c
 因此 helper 已修为只递归审计固定 `deploy-pre-migration-<数字>` 目录；其他顶层目录仅 lstat 后以脱敏相对路径/type/depth 作为 `unrelatedTopLevel` 报告，不递归或忽略其存在。deploy 目录内部仍严格拒绝未知命名、partial、symlink、特殊文件和嵌套目录。原 run 失败证据保留，不把 `bug-intake-runner` 放入 deploy 白名单。
 
 本地 fixture 新增合法配对布局、独立顶层含 symlink 不递归、root 文件、unknown tmp/lock/partial/hidden、nested、partial pair、FIFO、symlink；metadata 测试 exit0，legacy 15 cases exit0。更新后的 bundle hash 和专用分支 push 后，需再按确认 SHA dispatch；若真实 deploy 目录仍有待审条目，继续 fail-closed。
+
+## Backup scope correction and dispatch 34826843478
+
+本地确认 run `34826067560` 的 `bug-intake-runner` 是仓库定义的独立预配备份旁目录；未读生产文件内容。helper 现在只递归 `deploy-pre-migration-<数字>`，对其他顶层目录返回 `unrelatedTopLevel` 的 lstat type/脱敏相对路径/depth，不递归；deploy 目录内部仍严格 pair、命名、深度、symlink、special、partial fail-closed。
+
+新提交 `36745d57521e0a7a562660fe7bfe2565da7a223a` 已推送 audit branch，bundle helper hash 更新。隔离 metadata runner exit0、legacy observability exit0；当前 runner 实际为47个命名 cases，不能称184 cases。
+
+run `34826843478`：validate exit0、SCP exit0、SSH进入 helper；checkout SHA 匹配 `a53d91f33ff733bf28e19ca11d7491f1bfd46922`，backup阶段通过后 DB 阶段返回 `COMMAND_FAILED/exit=2`。由于 stderr 被固定隔离，未猜测连接/角色原因；未执行后续 image/PG/flags/migrations 输出，也未写生产。SSH output delimiter 错误仍出现在失败采集之后。run 保留为失败证据，不重试。

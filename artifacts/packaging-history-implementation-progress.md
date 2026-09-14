@@ -552,3 +552,9 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 - 仓库定义确认 `bug-intake-runner` 是独立预配备份旁目录，不是 deploy migration backup；原证据保留。
 - Helper 改为只递归 `deploy-pre-migration-<数字>`；未知顶层 regular directory 只报告脱敏 type/relativePath/depth，不递归。deploy 目录内部 symlink/special/unknown/partial/hidden/tmp/lock/nested 仍 fail-closed。
 - 新 fixture metadata exit0（合法布局、旁目录不递归、root file、命名/层级/partial/special/symlink 反例）；legacy observability 仍exit0。待提交/push后用确认SHA重新 dispatch。
+
+## run34826843478 final stage
+- validate/SCP exit0；SHA matched confirmed a53d91f...46922.
+- Backup scope correction passed the real unrelated `bug-intake-runner` top-level directory as summary-only; deploy pair rules remained active.
+- Helper stopped at `DB/COMMAND_FAILED/exit=2` after backup. No stderr/raw secret, no image/PG/flags/migration final fields, no retry.
+- Local metadata runner is 47 named cases exit0 (not 184; discrepancy explicitly retained rather than misreported). Legacy observability exit0. SSH EOF output delimiter failure remains post-helper collection defect.
