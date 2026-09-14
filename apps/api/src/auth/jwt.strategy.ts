@@ -6,7 +6,7 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 
 export interface JwtPayload {
-  sub: number;              // user_id
+  sub: number | string;     // user_id: large PostgreSQL bigint values stay decimal strings
   username: string;
   real_name: string;
   store_code: string;       // 'ALL' / 具体机构码 / 逗号分隔列表
@@ -69,10 +69,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * 同时核对 sys_user.status：冻结/归档用户的既有 token 立即失效。
    */
   async validate(payload: any) {
-    const userId = Number(payload.sub || payload.userId);
-    if (!userId || !payload.username) {
+    const rawId = payload.sub ?? payload.userId;
+    const idText = typeof rawId === 'string' ? rawId
+      : typeof rawId === 'number' && Number.isSafeInteger(rawId) ? String(rawId) : '';
+    if (!/^[1-9][0-9]{0,18}$/.test(idText) || BigInt(idText) > 9223372036854775807n || !payload.username) {
       throw new UnauthorizedException({ statusCode: 401, subcode: 'INVALID_TOKEN', message: '登录凭证无效' });
     }
+
+    // Keep existing small-ID DTOs numeric; never round a bigint token into another account.
+    const userId = BigInt(idText) <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(idText) : idText;
 
     const devLoginEnabled =
       (process.env.NODE_ENV || 'development') !== 'production' &&

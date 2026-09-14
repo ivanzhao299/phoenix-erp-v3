@@ -12,7 +12,7 @@ const {PackagingHistoryService}=require('../../apps/api/src/modules/bff/packagin
 const dir=path.resolve('artifacts/packaging-history-local');
 (async()=>{const ds=new DataSource({type:'postgres',host:'127.0.0.1',port:55432,username:'postgres',database:'packaging_history_test',entities:[path.resolve('apps/api/src/**/*.entity.ts')],logging:false});try{
  await ds.initialize();await ds.query("SET statement_timeout='15s'");const [identity]=await ds.query("SELECT current_database() db,current_setting('server_version_num') version");if(identity.db!=='packaging_history_test'||+identity.version<180000)throw Error('ISOLATION_REQUIRED');
- const fixturePath=path.join(dir,'performance-fixture-distinct-rebuild5.json');let f;
+ const fixtureTag=process.env.PACKAGING_PERF_FIXTURE_TAG||'distinct-rebuild5';if(!/^[a-zA-Z0-9-]+$/.test(fixtureTag))throw Error('INVALID_LOCAL_FIXTURE_TAG');const fixturePath=path.join(dir,'performance-fixture-'+fixtureTag+'.json');let f;
  if(fs.existsSync(fixturePath))f=JSON.parse(fs.readFileSync(fixturePath));else{
   f=await packingHistoryFixture(ds);f.size=5000;
   await ds.query(`INSERT INTO pkg_packing_records(code,shift_id,production_date,batches_json,grading_codes_json,total_eggs,total_boxes)
