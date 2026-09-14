@@ -270,3 +270,24 @@ P1/P2/P3-M 后端收口：最新 api-tsc exit0；PG18+HTTP 39 pass/0 skip/0 fail
 - [ ] 停本次服务并提交本地报告/证据；fixture/旧dirty证据保留。
 
 - [x] 本次API/Web及PG rebuild5/baseline已停止；localhost3000/3100/55432/55434均关闭，fixture保留。最后整理报告-only证据提交，不改已测源码。
+
+
+## review18–23 本地兼容/恢复续轮
+起点c6d3b9d2 tracked clean，唯一CLI；不push/deploy/生产，旧源码只读，不对有事件库down。
+- [ ] 新API＋旧81schema的health、旧现用GET、新history窗口真实HTTP。
+- [ ] 基准69d89dd4独立源码副本＋新83schema只读HTTP；DB角色禁止业务写。
+- [ ] pg_dump实际可读并独立恢复，数据/事件摘要对等。
+- [ ] DDL lock_timeout、失败事务回滚与事件不变。
+- [ ] 原393 schema diff与scope失败逐类审查，正式迁移先行/维护与保留DB回退计划。
+- [ ] 本地证据提交，停止本次服务，fixture/旧证据保留。
+
+### review18–25 本轮收尾 2026-09-14
+
+- [x] 实际兼容33 GET：新API/旧81中4个500、health/readiness200；旧69d89dd4/新83九旧GET200、两新路由404；迁移先行后11 GET200。最终runner exit0，精确断言危险窗口；不把预期500叫产品可发布。
+- [x] 实际custom pg_dump / TOC / 独立空库restore exit0；285 public表+264序列digest全等、1536事件保留。DDL锁55P03/251ms、前序DDL回滚、解锁后可执行再回滚、事件全保留。没有down。
+- [x] 81/83实际WMS reason/新列/三个索引目录窗口；旧scope31条分类、393 entity SQL多重集合及真实42703/42P01反例审计。原entity393>300、scope红灯不豁免；workflow先删diff再门禁有既存假绿风险，未借此绕CI。
+- [x] run/runtime与catalog/audit实时before/after；最终source/config指纹efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1；应用源码与c6完全一致，原18组测试不追认新harness。
+- [x] API正式Nest build exit0；[partial] Web正式Next build exit1，Inter Google Fonts连接失败（无认证公开地址curl exit28）。pnpm自动安装中止、软链越界两次旧失败均保留。没有假字体/跳类型/安装/改CLI配置。
+- [x] 本地证据/harness提交defce4274c1589362d17f34ce11673a36c3bcfa6；发布先迁移模板与真实限制写docs/ops/packaging-history-release-preflight.md，仅计划，未改deploy。
+- [x] 本轮所有API子进程已退出；本轮启动的rebuild5/baseline及恢复/窗口PG均停止，3118/3119/3120/55432/55434/55435/55436无监听，源码副本cwd进程0。容器、dump、fixture、旧失败和源副本保留；没有动其他业务容器。
+- 当前交付仍PARTIAL，等待父级发布前证据复核；Web正式build外部依赖阻断/全仓原门禁红灯真实保留，L4未执行，未发行正式编码、未push/deploy/生产访问。

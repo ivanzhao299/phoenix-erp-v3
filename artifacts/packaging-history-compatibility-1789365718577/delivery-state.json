@@ -1,0 +1,40 @@
+{
+  "capturedAt": "2026-09-14T06:05:51.880286+00:00",
+  "head": "defce4274c1589362d17f34ce11673a36c3bcfa6",
+  "branch": "impl/packaging-history-d1c-local",
+  "main": "69d89dd44b8e1461d7eaf5193e60c994255aed2c",
+  "originMainLocalTrackingOnly": "69d89dd44b8e1461d7eaf5193e60c994255aed2c",
+  "aheadOfMain": "10",
+  "applicationDiffFromC6": "",
+  "portsListening": {
+    "3118": false,
+    "3119": false,
+    "3120": false,
+    "55432": false,
+    "55434": false,
+    "55435": false,
+    "55436": false
+  },
+  "retainedContainers": [
+    "packaging-history-test-pg18-window-r18-1789365718577\tExited (0) About a minute ago\t",
+    "packaging-history-test-pg18-restore-r18-1789365718577\tExited (0) About a minute ago\t",
+    "packaging-history-test-pg18-window-r18-1789365036521\tExited (0) 3 minutes ago\t",
+    "packaging-history-test-pg18-restore-r18-1789365036521\tExited (0) 3 minutes ago\t",
+    "packaging-history-test-pg18-restore-r18-1789365013151\tCreated\t",
+    "packaging-history-test-pg18-window-r18-1789364930677\tExited (0) 15 minutes ago\t",
+    "packaging-history-test-pg18-restore-r18-1789364930677\tExited (0) 15 minutes ago\t",
+    "packaging-history-test-pg18-rebuild5\tExited (0) About a minute ago\t",
+    "packaging-history-test-pg18-rebuild4\tExited (0) 57 minutes ago\t",
+    "packaging-history-test-pg18-rebuild3\tExited (0) About an hour ago\t",
+    "packaging-history-test-pg18-rebuild2\tExited (0) 2 hours ago\t",
+    "packaging-history-test-pg18-baseline\tExited (0) About a minute ago\t",
+    "packaging-history-test-pg18-rebuild1\tExited (0) 2 hours ago\t",
+    "packaging-history-test-pg18-loopback\tExited (0) 3 hours ago\t",
+    "packaging-history-test-pg18\tExited (0) 4 hours ago\t"
+  ],
+  "taskSourceCopyProcesses": [],
+  "pushExecuted": false,
+  "remoteQueried": false,
+  "productionAccessed": false,
+  "fixturePreserved": true
+}

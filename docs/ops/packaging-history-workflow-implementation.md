@@ -312,3 +312,89 @@ PG18.6 (`180006`)，仅 localhost55432、固定库 `packaging_history_test`；ba
 原runtime/entity红灯需要父级审定明确差异，不能伪PASS；review18兼容演练/迁移先行、review19保留事件回退/备份可恢复证据尚缺，这些是软件/发布前事项，不推给L4。物理Q/L4仅指设备出纸、标签实贴扫码、实际交付/接收事实；未执行且不阻塞本轮独立源码开发，正式生产编码仍不得发行。没有新增双人审批/receipt队列/TEMP分配。
 
 收尾服务状态、最终本地refs与未push证据见 `artifacts/packaging-history-local/restored-delivery-state.json`；只停止本次API/Web及rebuild5/baseline，保留fixture与所有旧证据。报告/证据最后提交的hash以本轮最终答复与本地git log为准，不在文件中自引用伪造未来commit。
+
+## 2026-09-14 review18–25 本地兼容与恢复追加（覆盖上节18/19“未执行”状态）
+
+本轮从tracked clean `c6d3b9d2c26479cb9df7fd8c6c95033057e4ae2e`开始；同分支、唯一CLI、无代理。仅新增隔离验收harness、脱敏证据与计划/报告；**没有修改应用源码、迁移、部署workflow、allowlist、阈值或hook**，没有push/deploy/生产访问/开旗。此前18组应用测试仍对应8e1ea6a0及其当时指纹，不声称本轮重跑，也不把其结果追认给新harness。
+
+### 实际隔离兼容与备份
+
+最终可复查证据：`artifacts/packaging-history-compatibility-1789365718577/results.json`、`backup-table-digests.json`、`gate-analysis.json`。命令 `node scripts/packaging-history-compatibility/run.cjs`；每次独立新目录保留前轮失败。本轮最后一次记录运行前/后HEAD、source/config逐文件hash与diff指纹，以及run/runtime harness前后hash；实际加载的新/旧API均为git archive专属源码副本，archive SHA与revision在结果中。主树没有checkout/reset。
+
+PG实际18.6（180006），仅127.0.0.1:55432/55434的本任务原83/81库与55435/55436专属恢复库，数据库白名单 `packaging_history_test`。原81库保持81；仅它的独立恢复副本执行两条正式TS迁移到83。原83库仅备份/读取，未down，保留fixture。此前195 SQL/bootstrap0/83 TS全空重建证据仍独立保留，不把本轮“恢复81+执行2条”叫全迁移重建。
+
+| 实际GET | 新c6 API + 旧81 | 旧69d89dd4 API + 新83 | 新c6 API + 迁移先行83 |
+|---|---:|---:|---:|
+| health | 200 | 200 | 200 |
+| readiness | 200 | 200 | 200 |
+| shifts/:id/context | 200 | 200 | 200 |
+| shifts/today（精确日期） | 200 | 200 | 200 |
+| dicts | 200 | 200 | 200 |
+| reports/shift-summary（精确shiftId） | 200 | 200 | 200 |
+| warehouse/status | 500 | 200 | 200 |
+| inventory/by-packing | 200 | 200 | 200 |
+| traceability/packaging | 500 | 200 | 200 |
+| history列表 | 500 | 404（旧版本无该路由） | 200 |
+| history详情 | 500 | 404（旧版本无该路由） | 200 |
+
+33次真实HTTP GET；这是状态/基础响应与无写入兼容矩阵，不是33个新业务事务验收。旧版本9个旧GET通过；新API旧schema的4个500是**实际不兼容**，不是可忽略的PASS；runner断言的是精确重现该危险窗口。新API先迁移后11个GET均200，才构成所列读路径的兼容证据。
+
+真实Nest AppModule与菜单/DataScope/JWT guard，普通TEST角色及当次随机JWT密钥；没有读取旧auth artifacts，没有调用生产或旧源码业务写接口。隔离harness忽略dotenv、禁调度器、拦截所有非GET、限制网络仅对应localhost DB；数据库角色仅SELECT、default_transaction_read_only=on。旧/新AppModule初始化中存在DDL/DML尝试，全部被PG拒绝并保存SQLSTATE，不宣称“旧源码完全不会尝试写”。这些测试未覆盖HTTP登录、生产镜像二进制、所有旧路由及任何旧业务写兼容。每轮HTTP前后所有public表和序列均不变。
+
+实际 `pg_dump -Fc` exit0、`pg_restore --list` exit0并包含包装表数据TOC；在独立空容器 `pg_restore --single-transaction --exit-on-error --no-owner --no-privileges` exit0。备份2,867,941字节，最终SHA256 `28386144a2f7472626c0dd602d02a0adb39d6e0574db02bca8410ad216f9ffcb`。对比范围精确为**285个public表 +264个public序列=549项**，不是549个表；逐表count+按行JSON散列排序的MD5聚合相等，序列last_value/is_called相等；1536条包装事件保留。dump/TOC/临时源码/TEST认证fixture仅本地保留，不纳入提交；提交脱敏hash/count结果。此校验不覆盖角色ACL、集群全局对象、public以外schema、附件文件与生产PITR。
+
+锁演练在恢复83库：持读锁事务阻塞ALTER，lock_timeout250ms，实得55P03；超时前CREATE sentinel也随事务回滚，列不存在；解锁后ALTER成功再回滚，所有表/序列/事件不变。没有在事件库执行down。完整耗时见最终results（前次实测252ms保留，不硬编码作为每次结果）。
+
+失败历史：`1789364930677`当次TEST权限版本过期导致401，不能作为有效权限兼容；修fixture读取真实perms_version后再跑。`1789365013151`因前容器停止未结束而端口占用，docker exit125；随后先等停止完成再启动新专属容器。`1789365036521`有效33GET/备份/锁演练已通过，但只记开头harness hash、未在当时记完整结束指纹；因此不事后补造，最后`1789365718577`再跑并实时捕获before/after。
+
+### entity/scope原红灯深入审计（仍FAIL，不豁免）
+
+`gate-analysis.json`逐条列出原393 SQL、分类、原文件行号、目录查询结果和31个scope输出分类。旧81/新83差异SQL多重集合完全相等，列表顺序不同；不仅比较393数值。分布：DROP CONSTRAINT79、DROP INDEX37、COMMENT50、CREATE TABLE1、DROP COLUMN74、ADD COLUMN45、ADD CONSTRAINT27、ALTER COLUMN58、RENAME COLUMN1、生成列copy1、typeorm_metadata delete1、CREATE INDEX18、CREATE UNIQUE INDEX1。**没有执行这393条DDL**。
+
+| 具体差异/缺陷 | 已核实事实 | 范围处理 |
+|---|---|---|
+| sys_user列漂移 | entity声明id/real_name_zh等，实际DB为user_id/real_name等；隔离SELECT real_name_zh LIMIT0为42703 | AuthService主要用raw SQL，不能把潜在ORM失败当全部登录必坏；旧实体/调用治理另案，不盲加列或删除现存列 |
+| prc_purchase_orders.contract_no等 | 实际81/83均缺contract_no，SELECT LIMIT0为42703；ProcurementService仍有em.save及引用real_name_zh的SQL | 真实既存ORM/SQL风险，非包装新增；应逐调用契约对齐实体和正式迁移，不靠COALESCE包不存在列，不在本轮扩大采购治理 |
+| biz_store_daily_close | 实际缺表，SELECT为42P01；对应旧entity仍注册，旧controller写入口明确GoneException（410） | 退役元数据残留，不能据CREATE提案直接造新业务表；需独立核对是否仍有其他消费者后移除死实体 |
+| shr_project_equity.unpaid_capital | DB为生成列；entity仅insert/update false，缺生成表达式映射，TypeORM提出rename/copy/drop和metadata删除 | 生成列映射治理，严禁照提案复制/删除真实财务数据 |
+| 79约束删除/37索引删除等 | 包含数据库已有CHECK/FK与partial unique，entity未完整表达 | 不是“DB缺保护”；不能执行删除来让diff绿。需约束语义逐个对齐，避免破坏冻结基线 |
+| scope六个命名fixture账号 | 实际sys_user均不存在；脚本期望7个用户名中仅admin存在且status1 | 六个无法登录与后续401分别分类；admin存在但登录仍401，未读取密码或猜测原因，不归为“admin也缺失” |
+| finance summary/ar-aging/accounts | 原真实HTTP404，旧脚本期待401/403/200 | 旧路由契约/脚本漂移，不能以新专项替代其失败 |
+| scope F06 | 不校验HTTP/code，把401对象当空items，报PHX_count0 PASS | 原2PASS中此项不接受；仅无token拒绝是有效PASS |
+| scope T12/F05/T15 | T12未检项目且打印后无条件pass；F05未检查描述要求total0；T15硬编码macOS psql和旧DB、把平台错误归缺fixture | 真实测试缺陷清单；保留28fail/1skip，未改脚本、allowlist或阈值 |
+
+实际CI关系：deploy.yml358–388调用entity硬门禁，test job为build-push依赖；393>300会阻断正常需测试的发布。另发现workflow382在调用门禁前删其默认输入diff文件，而shell脚本无文件时按0通过：这是**既存门禁假绿风险**，不是可用放行方式；本地原门禁使用保留diff得到真实exit1。最小独立修复应保留明确diff路径传入门禁，并对generate失败/缺文件fail closed，同时逐领域修真实漂移；要让393降至300以下至少解决93条对应真实差异，不能在包装任务中删除约束凑数。本轮没有为赶发布改这条全仓链。
+
+原 `apps/api/test/scope-audit.sh` 未被当前workflow直接引用；regression.yml使用的是不同的 `scripts/g5c-rbac-audit.sh`。因此原scope是本任务要求的真实验收红灯，不能错误称它就是deploy那一条脚本；也不能因非直接CI引用而宣布通过。正常CI另有五模块真实回归门禁，本轮未执行远程CI。
+
+独立只读catalog窗口命令 `node scripts/packaging-history-compatibility/catalog-window.cjs` exit0，证据 `artifacts/packaging-history-compatibility-audit-1789365568154/results.json`：81库WMS reason及workflow_contract_version均42703，83均OK；三个新索引81为0/83为3。未运行旧源码移库写。首次probe误把JSON receipt当commit_receipt列，81/83均42703；旧`1789365548464`结果保留，此探针不作为产品缺陷证据，改为真实workflow_contract_version列后重新测。
+
+### 构建与测试映射新增
+
+正式API/Web构建只在git archive副本运行，不加载.env；sw stamp只改副本。现有依赖最终复制入副本以满足Turbopack文件系统边界，无安装/CLI配置更改。
+
+- `artifacts/packaging-history-build-1789365431030`：`pnpm build` API/Web均exit1，pnpm自动安装尝试因NO_TTY中止，未进入编译；未允许清理依赖。
+- `1789365481752`：直接已安装Nest `build` exit0，stamp exit0；Next build exit1，副本node_modules软链越界，属于harness布局错误。
+- `1789365514307`：复制既有依赖后，Nest build exit0、stamp exit0，Next16.2.6默认Turbopack正式 `next build` exit1：Google Inter字体连接失败。没有mock字体、跳过类型或替换webpack来冒称原构建通过。公共字体地址无认证curl实际exit28/15秒超时，属当前外部构建依赖阻断；Web完整生产构建仍FAIL/未完成，不能拿tsc/dev/E2E代替。本地Node24.19.0；Dockerfile使用Node20，未称镜像环境同一。
+
+上述构建记录当时HEAD c6d3b9d2、archive SHA、harness before/after、真实命令/exit；没有完整before/after应用逐文件指纹的早期构建不倒补。归档直接取固定commit源码，无dirty源码混入。
+
+原85unit的准确套件为 `data-scope.service.spec.ts`、`data-scope-row-equivalence.spec.ts`、`egg-inventory.service.spec.ts`、`wms.service.spec.ts`、`packaging-inventory-integration.service.spec.ts`，5 suites/85 tests，不是85个真实销售HTTP/事务测试；官方销售演进仍由原PG测试单独证明。原80 PG/HTTP、91 API/8skip、65 Web分类及27浏览器harness数量保持上节，不重算为本轮PASS。
+
+### 最新review状态与待父级复核
+
+| review | 本轮结论 |
+|---|---|
+| 1–17、20–23 | 应用源码未变，保留上轮逐项限定证据与partial/原FAIL；23新增本轮固定archive与实时before/after映射，不追认历史。 |
+| 18 | 所要求隔离兼容、81→83迁移先行、DDL锁/事务与事件保全实测完成；已证实默认发布顺序不安全。迁移先行正式操作仍待审、未执行。 |
+| 19 | 本地备份可读/独立恢复与285表264序列对账完成；镜像回退保留DB、禁止事件库down、备份非自动rollback、保留artifacts/dirty门禁均写入独立发布计划。 |
+| 24（最新追加） | API正式build通过；Web实际build因字体网络FAIL。85unit套件已核实；WMS reason/索引窗口已实测。原entity硬门禁及其删输入假绿风险、scope实际归属已审，不称可绕过或已修全仓。 |
+| 25（最新追加） | 已写候选镜像一次性migration先行可执行模板；本轮按直接用户“只写计划”未改deploy.yml、不发布。旧API9GET读兼容边界及549项精确构成已纠正。 |
+
+完整操作计划见 [packaging-history-release-preflight.md](packaging-history-release-preflight.md)。整体仍**PARTIAL / 发布前待审**：Web正式build外部字体阻断、原entity门禁真实FAIL与scope旧审计FAIL尚在；不能凭兼容演练完成宣布发布获准。没有把兼容/备份软件演练留给L4；L4只指物理出纸/实贴/实扫/交付，本轮未做。
+
+### 本轮local commit与停止证据
+
+`defce4274c1589362d17f34ce11673a36c3bcfa6` 提交本轮harness与脱敏结果。其应用源码、迁移、workflow与c6d3b9d2完全一致（`git diff c6d3b9d2 -- apps .github/workflows migrations`为空）。最终兼容runner exit0；audit命令exit0；catalog命令exit0；构建各exit如上。兼容runner前后source/config指纹均为 `efacb37aea8f649b32a6e0e22118629fb59ca08b4c3fa5f9c1e64ea42e3893d1`，run/runtime SHA前后也相等。新的harness提交对应当时c6固定源码与其archive，**不是在defce427上重新跑应用全套**。后续报告-only提交不改变这份映射，最终hash见本地git log/交付答复，避免自引用未来SHA。
+
+`artifacts/packaging-history-compatibility-1789365718577/delivery-state.json` 在defce427时实际采集：本轮服务全部停止、7个对应端口无监听、临时源码目录进程0、保留所有容器/fixture；main与本地origin/main仍69d89dd4（只读本地ref，没有联网验证远端），本轮没有push。报告最后提交后再看tracked status；大量未跟踪临时副本/dump/log按要求保留，绝不git add-A或清理。
