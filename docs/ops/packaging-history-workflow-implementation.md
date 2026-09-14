@@ -753,3 +753,18 @@ SSH metadata 分支现在捕获 helper 输出并打印固定 `AUDIT_METADATA_RES
 仓库 helper、workflow 和正式运维文档仅固定并引用 `phoenix_metadata_readonly`、`phoenix-v3-db`、`phoenix_erp`；没有找到生产角色创建、授权或无交互连接的合法非敏感配置证据。当前不能把结果解释为角色变量拼写错误，也不能猜测缺失原因。
 
 只有在正式运维提供非敏感的只读角色存在性、最小授权范围和连接契约证据后，才可重新进行 metadata-only 审计。在此之前不得创建角色、修改权限/认证、执行生产 DDL 或业务写入，也不得读取 secret、env 或 auth artifact。
+
+## 历史会话/仓库生产读取路径梳理（只读证据）
+
+本节仅整理既有仓库与 run 记录，不重新接触生产。
+
+| 类别 | 证据 | 结论 |
+|---|---|---|
+| workflow | `.github/workflows/production-readonly-audit.yml:43-71,129-178` | 定义 validate、bundle SCP、SSH helper、metadata marker 和 fail-closed Enforce；SSH 凭据只被 secret 引用，未读取值 |
+| helper | `scripts/ops/readonly-audits/packaging-metadata.cjs:95-152` | 固定 baseline、`phoenix-v3-db`、`phoenix_erp`、`phoenix_metadata_readonly`；只读事务和安全字段设计存在 |
+| 已执行生产读取 | run `34830667068`；本报告 Review31 终段 | validate/SCP/SSH wrapper exit 0，checkout SHA 通过，DB 返回 `MISSING_ROLE/exit=2` |
+| 未执行 | 同 run 的 helper 后续阶段 | image IDs、PG major、pending migration、dirty、容量、flags 未取得；未执行生产写入、DDL、迁移或权限变更 |
+| 仅计划/fixture | `scripts/packaging-history-test/readonly-metadata.cjs` | 六类 DB 错误、只读权限反例、路径和 wrapper 均是隔离测试；不证明生产角色存在 |
+| 历史失败 | runs `34823735277`、`34825204038`、`34826843478` | SHA mismatch、备份条目阻断、DB command failure，均保留且未追认成功 |
+
+当前合法只读范围仅能由仓库契约证明，不能证明生产可连接。由于没有非敏感的生产角色存在、授权范围及连接契约证据，GO/NO-GO 仍为 **NO-GO**。不得猜测 `MISSING_ROLE` 的成因；需正式运维提供上述非敏感证据后才能重新审计。

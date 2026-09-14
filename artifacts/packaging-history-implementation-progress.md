@@ -575,3 +575,12 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 - **NO-GO**：生产 `phoenix_metadata_readonly` 当前不可用；run `34830667068` 的真实结果为 `DB/MISSING_ROLE/exit=2`，后续元数据阶段未执行。
 - 仓库和正式运维材料只证明 helper 固定使用该角色、`phoenix-v3-db` 容器及 `phoenix_erp` 数据库；未发现该生产角色的合法创建、授权或连接配置证据。不能据此猜测是变量命名错误或其他环境原因。
 - 在正式运维提供非敏感的角色存在、最小只读授权及无交互连接契约证据前，不得重新审计、建角色、改权限或修改生产认证。不得读取 secret、env 或 auth artifact。
+
+## 历史生产只读路径与证据梳理（2026-09-14，仅仓库/既有记录）
+
+- 入口与输入契约：`.github/workflows/production-readonly-audit.yml:43-71,129-178` 定义 validate、SCP/SSH job、metadata wrapper 和 fail-closed marker；SSH key 仅以 workflow secret 引用，本文不读取其值。
+- bundle/helper：`scripts/ops/readonly-audits/packaging-metadata.cjs:95-152` 固定 baseline 校验、容器 `phoenix-v3-db`、数据库 `phoenix_erp`、角色 `phoenix_metadata_readonly`，并以只读事务查询；未执行的后续字段包括 image、PG、migration、dirty、容量和 flags。
+- 已实际执行的生产读取：run `34830667068`（progress 568-571；implementation report 739-747）。validate、SCP、SSH wrapper 均 exit 0；checkout SHA 通过；helper DB 阶段实际 `MISSING_ROLE/exit=2`；Enforce 以 `METADATA_RESULT/HELPER_FAILED/exit=2` 停止。
+- 未执行：该 run 未取得 image IDs、PG major、pending migrations、dirty、容量或 flags；没有生产 DDL、业务写、迁移、权限/认证修改。
+- 仅计划/fixture：`scripts/packaging-history-test/readonly-metadata.cjs` 的 DB 六类错误、只读事务、备份路径和 wrapper 测试均为隔离 fixture；不能作为生产角色存在证明。此前 `34823735277` 的 SHA mismatch、`34825204038` 的备份条目阻断、`34826843478` 的 DB command failure 均保留为历史失败，未被追认为成功。
+- 合法只读范围：仓库契约只允许固定容器/数据库/角色、只读 SQL、受控 metadata 字段和安全分类；当前没有可证明的生产角色存在/授权/无交互连接证据。结论仍为 NO-GO，等待正式运维提供非敏感契约证据后再审计。
