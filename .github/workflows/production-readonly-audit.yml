@@ -61,7 +61,6 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          script_stop: true
           envs: ROLE_ACTION
           script: |
             set -Eeuo pipefail
@@ -126,7 +125,7 @@ jobs:
 
             # Verify with the exact audit connection method and role_safe expression
             # from scripts/ops/readonly-audits/packaging-metadata.sql.
-            RESULT=$(docker exec -i -e PGOPTIONS=-c default_transaction_read_only=on "$DB_CONTAINER" \
+            RESULT=$(docker exec -i -e 'PGOPTIONS=-c default_transaction_read_only=on' "$DB_CONTAINER" \
               psql -X -w -qAt -v ON_ERROR_STOP=1 -U "$ROLE" -d "$DB_NAME" <<'SQL'
             BEGIN READ ONLY;
             SET LOCAL statement_timeout = '15s';
