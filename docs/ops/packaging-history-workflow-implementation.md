@@ -807,3 +807,17 @@ SSH metadata 分支现在捕获 helper 输出并打印固定 `AUDIT_METADATA_RES
 - Enforce：`AUDIT_METADATA_RESULT=PASS`，run 终态 success
 
 MISSING_ROLE 阻断时代正式关闭。后续发布门禁需处理：镜像 revision 与源码 SHA 不一致审查、dirty 项识别、2 个 pending 迁移的 schema-first 应用计划。
+
+## 发布门禁审查：镜像/源码偏差定性（2026-09-15）
+
+基于 run 34958966261 的 metadata 与本地 git 考古：
+
+- 生产运行镜像 revision `d49383cd`（PR #230 merge，fix/packaging-fullscreen-release）；
+- 部署目录 checkout `a53d91f3`（"fix: correct grade5 production baseline expectations"，2026-09-12）；
+- d49383cd 是 a53d91f3 的祖先，落后 73 个提交；
+- **关键定性**：`git diff d49383cd..a53d91f3 -- apps/api/src/database/migrations apps/api/ddl apps/api/migrations` 为空——该偏差区间不含任何迁移/schema 变更，属代码/文档/CI 修复漂移，无 schema 漂移；
+- a53d91f3 距 origin/main（69d89dd4）仅 5 个纯文档提交（packaging33 审计证据，均 [skip ci]）；
+- appliedOutsideCandidate 的 `DropHouseOwnershipRedundantColumns1787647200000` 为历史 R1 修复中已移除的不安全迁移（a162cda6 "fix: remove unsafe house ownership drop migration"），生产已应用、代码已移除，属已知状态；
+- 生产 dirty 7 项待部署前清单化。
+
+发布计划含义：本次发布必须从发布候选构建全新镜像（不沿用 d49383cd 运行镜像），schema-first 顺序部署，一次消除镜像/源码/迁移三层偏差。deploy.yml 的 schema-first 修复（64c92f38 迁移先于 API 切换 + fffbc0bd 外层回滚单次处理）已在位。实际部署等待用户明确批准；Q/L4 现场验收仍未完成。
