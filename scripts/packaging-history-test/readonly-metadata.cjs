@@ -9,7 +9,7 @@ const rows=p=>[{dict_code:'TEST:TEST',config_json:p}];
 function test(name,kind,fn){fn();results.cases.push({name,kind,status:'PASS'});console.log(kind+': '+name);}
 function throws(fn,klass){assert.throws(fn,e=>e.klass===klass);}
 const container='packaging-history-metadata-test-'+Date.now();let created=false;
-function command(cmd,args,input){const r=cp.spawnSync(cmd,args,{input,encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024});if(r.status!==0){const e=new Error('local fixture command failed');e.status=r.status;e.localCommand=cmd;e.localSubcommand=args[0];e.sqlState=(r.stderr.match(/(?:ERROR|FATAL):\s+([0-9A-Z]{5})\b/)||[])[1];throw e;}return r.stdout.trim();}
+function command(cmd,args,input){const r=cp.spawnSync(cmd,args,{input,encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024});if(r.status!==0){const e=new Error('local fixture command failed');e.status=r.status;e.localCommand=cmd;e.localSubcommand=args[0];const stderr=String(r.stderr||'');e.sqlState=(stderr.match(/(?:ERROR|FATAL):\s+([0-9A-Z]{5})\b/)||[])[1];throw e;}return String(r.stdout||'').trim();}
 function sql(query,user='postgres',options=[]){return command('docker',['exec','-i',...options,container,'psql','-X','-w','-qAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=sqlstate','-U',user,'-d','metadata_test'],query);}
 try{
  test('actual PackagingWorkflowPolicy parser parity (13 cases)','unit/runtime',()=>{const r=JSON.parse(command(process.execPath,[path.join(__dirname,'readonly-policy-parity.cjs')]));assert.equal(r.cases,13);assert.equal(r.passed,true);});

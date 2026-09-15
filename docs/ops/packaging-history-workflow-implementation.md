@@ -780,3 +780,14 @@ SSH metadata 分支现在捕获 helper 输出并打印固定 `AUDIT_METADATA_RES
 - **fixture 与未执行项**：本地 helper/PG18/路径/错误分类测试均为 fixture（progress `:564-565`），不能替代生产证据。生产角色、授权与连接契约仍未证明。
 
 结论保持 **NO-GO**。上述记录仅复述已有事实；本轮没有生产操作、dispatch、secret/auth/env 读取或原因推断。
+
+## Handoff continuation verification (2026-09-15)
+
+交接文档复核后继续执行本地验证。当前分支和既有生产审计证据未改变：生产仍为 **NO-GO**，依据 run `34830667068` 的 `DB/MISSING_ROLE/exit=2`。
+
+- `node scripts/packaging-history-test/readonly-observability.cjs`：exit 0。
+- `node --check scripts/packaging-history-test/readonly-metadata.cjs`：exit 0。
+- `git diff --check`：exit 0。
+- `node scripts/packaging-history-test/readonly-metadata.cjs`：48 个 unit/filesystem/shell assertion 均到达并通过；在隔离 PG fixture bootstrap 的 `docker create` 停止，实际本地状态为 Docker CLI 不可用、exit null。已修复 harness 对缺失 stderr 的处理，避免原先误报 `TypeError`；该失败不是生产证据。
+
+未接触生产、未 dispatch、未读取 secret/auth/env；fixture 和历史失败证据保留。

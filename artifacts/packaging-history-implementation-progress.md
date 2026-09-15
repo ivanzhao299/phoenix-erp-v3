@@ -596,3 +596,11 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 7. **fixture/计划边界**：`scripts/packaging-history-test/readonly-metadata.cjs` 的六类 DB 分类、只读权限反例、路径与 wrapper 测试是隔离 fixture；progress `:564-565` 记录其用途。它们不能证明生产角色存在或替代任何 run stage。
 
 当前 GO/NO-GO 仍为 **NO-GO**：已有路径证明了受控只读范围和 fail-closed stages，但没有证明生产 `phoenix_metadata_readonly` 可用；不得猜测原因或重新接触生产。
+
+## Handoff continuation verification (2026-09-15)
+
+- Re-read `artifacts/packaging-history-codex-handoff.md`; current branch remained `impl/packaging-history-d1c-local`, prior docs commits intact, no production action.
+- `node scripts/packaging-history-test/readonly-observability.cjs` exit 0.
+- `node --check scripts/packaging-history-test/readonly-metadata.cjs` and `git diff --check` exit 0.
+- `node scripts/packaging-history-test/readonly-metadata.cjs` reached all 48 unit/filesystem/shell assertions, then stopped at the isolated PG fixture bootstrap. The harness now reports the actual local blocker as `docker create` with command exit `null` (Docker CLI unavailable), rather than throwing a misleading stderr `.match` TypeError. No production DB or credentials were involved.
+- Production GO/NO-GO is unchanged: NO-GO from run `34830667068` `DB/MISSING_ROLE/exit=2`; local Docker absence does not alter that evidence.
