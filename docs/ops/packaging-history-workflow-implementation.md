@@ -791,3 +791,19 @@ SSH metadata 分支现在捕获 helper 输出并打印固定 `AUDIT_METADATA_RES
 - `node scripts/packaging-history-test/readonly-metadata.cjs`：48 个 unit/filesystem/shell assertion 均到达并通过；在隔离 PG fixture bootstrap 的 `docker create` 停止，实际本地状态为 Docker CLI 不可用、exit null。已修复 harness 对缺失 stderr 的处理，避免原先误报 `TypeError`；该失败不是生产证据。
 
 未接触生产、未 dispatch、未读取 secret/auth/env；fixture 和历史失败证据保留。
+
+## Metadata-only preflight PASS (2026-09-15, run 34958966261)
+
+角色配置（系统所有者授权，runs 34958192211/34958343305：`phoenix_metadata_readonly` 创建并验证 `role_safe=true`，生产实测 `server_version_num=160014`）后，helper PG 主版本预期修正为 16（audit 分支提交 83799922，与 impl 分支 14971edf 内容一致），首次 metadata-only 预检全量通过：
+
+- validate ✓；SCP/SSH wrapper ✓；CHECKOUT SHA 匹配 `a53d91f33ff733bf28e19ca11d7491f1bfd46922` ✓
+- DB：role_safe=true、双只读设置 on、pgMajor=16 ✓
+- FLAGS：`no_config, effective_default_all_off=true` ✓（生产旗标默认全关）
+- BACKUP：METADATA_ONLY，8 对 dump 布局正确，旁目录仅安全摘要 ✓
+- IMAGES：api `sha256:cedd8673…`、web `sha256:a198585f…`，两者 revision label 均为 `d49383cd…` ✓（注意：镜像 revision 与 checkout SHA 不一致，属既有生产状态，发布门禁需审查）
+- CAPACITY：checkout/backup 各 ~41.9GB 总量 / ~13.1GB 可用 ✓
+- MIGRATIONS：pending = [PackagingHistoryD1cEvidence1789353300496, PackagingHistoryReadIndexes1789362000000]；checkoutPending = []；appliedOutsideCandidate = [DropHouseOwnershipRedundantColumns1787647200000]
+- 生产工作树 dirty=true（7 项）
+- Enforce：`AUDIT_METADATA_RESULT=PASS`，run 终态 success
+
+MISSING_ROLE 阻断时代正式关闭。后续发布门禁需处理：镜像 revision 与源码 SHA 不一致审查、dirty 项识别、2 个 pending 迁移的 schema-first 应用计划。
