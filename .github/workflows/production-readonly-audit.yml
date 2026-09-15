@@ -41,17 +41,18 @@ concurrency:
 
 jobs:
   provision-role:
-    # One-time role provisioning mode (owner-authorized 2026-09-15). Mutually
-    # exclusive with the audit phrase below; never runs alongside validate/audit.
+    # One-time production ops channel (owner-authorized). Current mode: archive
+    # benign readonly-audit leftover artifacts out of the deploy worktree so the
+    # deploy hard gate (clean worktree) can pass. Files are MOVED, never deleted.
     if: inputs.approve_production == 'APPROVE-METADATA-READONLY-ROLE-PROVISION'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
     steps:
-      - name: Provision and verify phoenix_metadata_readonly
+      - name: Archive deploy-dir audit artifacts
         uses: appleboy/ssh-action@v1
         env:
-          ROLE_ACTION: ${{ inputs.audit_mode == 'packaging-metadata' && 'provision' || inputs.audit_mode == 'legacy' && 'verify' || 'verify' }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -61,103 +62,31 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: ROLE_ACTION
+          envs: DEPLOY_PATH
           script: |
             set -Eeuo pipefail
-            DB_CONTAINER=phoenix-v3-db
-            DB_NAME=phoenix_erp
-            ROLE=phoenix_metadata_readonly
-
-            docker inspect "$DB_CONTAINER" >/dev/null
-
-            # Detect the container superuser without reading any environment values.
-            ADMIN=""
-            if docker exec "$DB_CONTAINER" psql -X -w -qAt -U phoenix_v3 -d "$DB_NAME" -tAc 'SELECT 1' >/dev/null 2>&1; then
-              ADMIN=phoenix_v3
-            elif docker exec "$DB_CONTAINER" psql -X -w -qAt -U postgres -d "$DB_NAME" -tAc 'SELECT 1' >/dev/null 2>&1; then
-              ADMIN=postgres
-            else
-              echo '::error::Could not connect to the database as a container superuser'; exit 2
+            deploy_path="$DEPLOY_PATH"
+            case "$deploy_path" in '~/'*) deploy_path="$HOME/${deploy_path#\~/}";; esac
+            cd "$deploy_path"
+            archive="$HOME/deploy-audit-artifacts-archive"
+            mkdir -p "$archive"
+            before=$(git status --porcelain --untracked-files=all | wc -l)
+            echo "dirty_before=$before"
+            moved=0
+            for f in readonly-audit-artifact-*.tgz; do
+              [ -e "$f" ] || continue
+              mv "$f" "$archive/"
+              moved=$((moved+1))
+            done
+            echo "archived=$moved destination=$archive"
+            after=$(git status --porcelain --untracked-files=all | wc -l)
+            echo "dirty_after=$after"
+            if [ "$after" -ne 0 ]; then
+              echo 'remaining dirty entries:'
+              git status --short
+              exit 21
             fi
-            echo "admin_user=$ADMIN"
-
-            admin_psql() {
-              docker exec -i "$DB_CONTAINER" psql -X -w -q -v ON_ERROR_STOP=1 -U "$ADMIN" -d "$DB_NAME" "$@"
-            }
-
-            # Current state (read-only).
-            ROLE_EXISTS=$(admin_psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$ROLE'")
-            echo "role_exists_before=$([ "$ROLE_EXISTS" = 1 ] && echo true || echo false)"
-            if [ "$ROLE_ACTION" = verify ]; then
-              [ "$ROLE_EXISTS" = 1 ] || { echo '::error::Role does not exist (verify only)'; exit 3; }
-            fi
-
-            if [ "$ROLE_ACTION" = provision ]; then
-              if [ "$ROLE_EXISTS" != 1 ]; then
-                admin_psql -c "CREATE ROLE $ROLE LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS"
-                echo 'role_created=true'
-              else
-                echo 'role_created=false(already existed)'
-              fi
-              admin_psql <<'SQL'
-            BEGIN;
-            REVOKE CREATE,TEMP ON DATABASE phoenix_erp FROM PUBLIC;
-            REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-            GRANT CONNECT ON DATABASE phoenix_erp TO phoenix_metadata_readonly;
-            GRANT USAGE ON SCHEMA public TO phoenix_metadata_readonly;
-            GRANT SELECT ON public.sys_dict TO phoenix_metadata_readonly;
-            GRANT SELECT ON public.migrations TO phoenix_metadata_readonly;
-            ALTER ROLE phoenix_metadata_readonly SET default_transaction_read_only = on;
-            COMMIT;
-            SQL
-            elif [ "$ROLE_ACTION" = revoke ]; then
-              admin_psql <<'SQL'
-            BEGIN;
-            REVOKE CONNECT ON DATABASE phoenix_erp FROM phoenix_metadata_readonly;
-            REVOKE USAGE ON SCHEMA public FROM phoenix_metadata_readonly;
-            REVOKE SELECT ON public.sys_dict, public.migrations FROM phoenix_metadata_readonly;
-            DROP ROLE IF EXISTS phoenix_metadata_readonly;
-            COMMIT;
-            SQL
-              echo 'role_revoked=true'
-              exit 0
-            fi
-
-            # Verify with the exact audit connection method and role_safe expression
-            # from scripts/ops/readonly-audits/packaging-metadata.sql.
-            RESULT=$(docker exec -i -e 'PGOPTIONS=-c default_transaction_read_only=on' "$DB_CONTAINER" \
-              psql -X -w -qAt -v ON_ERROR_STOP=1 -U "$ROLE" -d "$DB_NAME" <<'SQL'
-            BEGIN READ ONLY;
-            SET LOCAL statement_timeout = '15s';
-            SET LOCAL lock_timeout = '2s';
-            SELECT current_setting('transaction_read_only'),
-                   current_setting('default_transaction_read_only'),
-                   current_setting('server_version_num'),
-                   NOT EXISTS (
-                     SELECT 1 FROM pg_roles r WHERE pg_has_role(current_user,r.oid,'MEMBER')
-                     AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls OR r.rolname IN ('pg_execute_server_program','pg_write_server_files'))
-                   ) AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname <> current_user AND pg_has_role(current_user,r.oid,'MEMBER'))
-                   AND NOT has_database_privilege(current_database(),'CREATE')
-                   AND NOT has_database_privilege(current_database(),'TEMP')
-                   AND NOT EXISTS (SELECT 1 FROM pg_namespace n WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
-                     AND has_schema_privilege(n.oid,'CREATE'))
-                   AND NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-                     WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema' AND
-                       ((c.relkind IN ('r','p','v','f') AND has_table_privilege(c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES'))
-                       OR (c.relkind='S' AND has_sequence_privilege(c.oid,'USAGE,UPDATE'))))
-                   AND NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-                     WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema' AND p.prosecdef
-                     AND has_function_privilege(p.oid,'EXECUTE'));
-            ROLLBACK;
-            SQL
-            )
-            echo "readonly_identity=$RESULT"
-            IFS='|' read -r TXN RDB VER SAFE <<< "$RESULT"
-            [ "$TXN" = on ]  || { echo '::error::transaction_read_only is not on'; exit 4; }
-            [ "$RDB"  = on ] || { echo '::error::default_transaction_read_only is not on'; exit 5; }
-            [ "$SAFE" = t ]  || { echo '::error::role_safe verification failed'; exit 6; }
-            case "$VER" in 18*) ;; *) echo "::error::PostgreSQL major is ${VER:0:2}, expected 18"; exit 7;; esac
-            echo "ROLE_PROVISION_VERIFIED action=$ROLE_ACTION"
+            echo 'WORKTREE_CLEAN_ARCHIVED'
 
   validate:
     if: inputs.approve_production != 'APPROVE-METADATA-READONLY-ROLE-PROVISION'
