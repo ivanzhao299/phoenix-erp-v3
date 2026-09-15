@@ -130,7 +130,7 @@ function main(env=process.env,io={}){
    'psql','-X','-w','-qAt','-v','ON_ERROR_STOP=1','-U','phoenix_metadata_readonly','-d','phoenix_erp'],preamble+'\n'+sql+'\nROLLBACK;\n');
   let lines;try{lines=out.split('\n').map(s=>JSON.parse(s));}catch{fail('DB','INVALID_METADATA');}
   const identity=lines.shift();if(identity.transaction_read_only!=='on'||identity.default_transaction_read_only!=='on'||identity.role_safe!==true)fail('DB','READONLY_ROLE_REQUIRED');
-  if(Math.floor(Number(identity.server_version_num)/10000)!==18)fail('DB','PG_MAJOR');
+  if(Math.floor(Number(identity.server_version_num)/10000)!==16)fail('DB','PG_MAJOR');
   return lines;
  }
  // First verify the role before querying any application metadata.
@@ -146,7 +146,7 @@ function main(env=process.env,io={}){
  if(applied.some(n=>typeof n!=='string'||!/^\w+$/.test(n)))fail('MIGRATIONS','INVALID_NAME');
  const pending=candidate.filter(e=>!applied.includes(e.name)).map(e=>e.name);
  return {state:'METADATA_COLLECTED',auditObject:'deployed-baseline-only',expectedDeploySHA:BASELINE,sourceBundleCommit:env.BUNDLE_SOURCE_COMMIT,actualSHA:actual,dirty:Boolean(dirty),dirtyCount:dirty?dirty.split('\n').length:0,
-  images,pgMajor:18,backup,capacity,policy,pending,checkoutPending:checkout.filter(e=>!applied.includes(e.name)).map(e=>e.name),
+  images,pgMajor:16,backup,capacity,policy,pending,checkoutPending:checkout.filter(e=>!applied.includes(e.name)).map(e=>e.name),
   appliedOutsideCandidate:applied.filter(n=>!candidate.some(e=>e.name===n)),candidateManifestSHA256:hash(JSON.stringify(candidate))};
 }
 module.exports={BASELINE,flags,manifest,backupMetadata,regular,validate,main,run,classifyDbFailure};
