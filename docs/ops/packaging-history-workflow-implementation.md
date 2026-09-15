@@ -831,3 +831,34 @@ readonly-audit-artifact-{34665332082,34668908316,34669810845,34681152901,3468209
 定性：**良性**。无 tracked 文件修改（无 M/A/D 状态），无源码漂移，与本地 artifacts/ 中 grade5-preflight 运行 ID 吻合，属审计工具遗留。发布门禁无需处理；可在部署时顺手清理（非必需）。
 
 至此全部只读发布门禁事项关闭。剩余：实际部署（待用户批准）、部署后健康/只读验收、Q/L4 现场验收。
+## 生产发布完成与部署后验收（2026-09-15）
+
+### 发布执行
+
+- main：69d89dd4 → `0dc37daecf32293fd65b3eb2d00286821362b459`（54 提交 fast-forward，D1-C P0–P4）；
+- 首次 dispatch（34960664263）被干净工作树硬门禁正确拦截（7 个良性审计遗留包）；
+- 遗留包经 ops 通道移至 `~/deploy-audit-artifacts-archive`（移动非删除，run 34961225005：dirty 7→0）；
+- 正式部署 run `34961323713`（approve_production=true，preserve_artifacts=true，mode=auto→full）：
+  `✅ Code synced → DB healthy → 迁移前备份可读(2871 objects TOC) → 裸 SQL 迁移完成(schema-first, evidence /opt/phoenix/backups/migration-evidence/schema-first.kpEzOPQw) → Phase C 生产验证无 FAIL → Nginx reloaded → Web smoke passed`。
+
+### 部署后验收（run 34962183528，审计基线已更新为发布 SHA）
+
+| 断言 | 结果 |
+|---|---|
+| actualSHA = 0dc37dae | ✓ |
+| dirty = false | ✓ |
+| api/web 镜像 revision = 0dc37dae | ✓（73 提交镜像/源码偏差消除） |
+| pgMajor = 16 | ✓ |
+| flags no_config 全关 | ✓ |
+| pending = []（2 个 D1-C 迁移已应用） | ✓ |
+| checkoutPending = [] | ✓ |
+| backup = 5 对（原 4 对 + 迁移前新备份 1 对） | ✓ |
+
+### 边界遵守
+
+- 未发行任何正式标签（Q/L4 未执行）；
+- PKG_HISTORY_POLICY 旗标保持默认全关；
+- 无生产业务写入（迁移仅 DDL 建表/索引）；
+- 回滚预案：镜像回退（rollback tag 已在 deploy.yml 逻辑内）；迁移 down() 仅人工评审后使用。
+
+**D1-C P0–P4 生产发布完成。** Q/L4 现场验收与旗标启用为后续独立工作。
