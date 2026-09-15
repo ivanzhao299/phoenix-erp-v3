@@ -113,6 +113,9 @@ function main(env=process.env,io={}){
  console.log(JSON.stringify({stage:'CHECKOUT',actualSHA:actual}));
  if(actual!==env.EXPECTED_DEPLOY_SHA)fail('CHECKOUT','SHA_MISMATCH');
  const dirty=command('CHECKOUT','git',['status','--porcelain','--untracked-files=all']);
+ const dirtyLines=dirty?dirty.split('\n').filter(Boolean):[];
+ // Sanitized paths only (safeRelative charset+length cap, 50 entries max); never contents.
+ const dirtyEntries=dirtyLines.slice(0,50).map(l=>({status:l.slice(0,2).trim()||'??',path:safeRelative(process.cwd(),path.resolve(l.slice(3).split(' -> ')[0]))}));
  const images={};
  for(const service of ['api','web']){
   const fields=command('IMAGES','docker',['inspect','--format','{{.Image}} {{index .Config.Labels "org.opencontainers.image.revision"}}',`phoenix-v3-${service}`]).split(/\s+/);
@@ -145,7 +148,7 @@ function main(env=process.env,io={}){
  const applied=query('SELECT to_json(name) FROM public.migrations ORDER BY name;');
  if(applied.some(n=>typeof n!=='string'||!/^\w+$/.test(n)))fail('MIGRATIONS','INVALID_NAME');
  const pending=candidate.filter(e=>!applied.includes(e.name)).map(e=>e.name);
- return {state:'METADATA_COLLECTED',auditObject:'deployed-baseline-only',expectedDeploySHA:BASELINE,sourceBundleCommit:env.BUNDLE_SOURCE_COMMIT,actualSHA:actual,dirty:Boolean(dirty),dirtyCount:dirty?dirty.split('\n').length:0,
+ return {state:'METADATA_COLLECTED',auditObject:'deployed-baseline-only',expectedDeploySHA:BASELINE,sourceBundleCommit:env.BUNDLE_SOURCE_COMMIT,actualSHA:actual,dirty:Boolean(dirty),dirtyCount:dirtyLines.length,dirtyEntries,
   images,pgMajor:16,backup,capacity,policy,pending,checkoutPending:checkout.filter(e=>!applied.includes(e.name)).map(e=>e.name),
   appliedOutsideCandidate:applied.filter(n=>!candidate.some(e=>e.name===n)),candidateManifestSHA256:hash(JSON.stringify(candidate))};
 }

@@ -73,9 +73,9 @@ try{
  test('role membership cannot hide SET ROLE write capability','PG',()=>{sql('CREATE ROLE test_writer NOLOGIN; GRANT test_writer TO phoenix_metadata_readonly WITH INHERIT FALSE;');assert.equal(JSON.parse(readonly('')).role_safe,false);sql('REVOKE test_writer FROM phoenix_metadata_readonly;');});
  test('readonly role cannot CREATE table','PG',()=>assert.throws(()=>sql('CREATE TABLE public.test_forbidden(id int);','phoenix_metadata_readonly'),e=>e.sqlState==='42501'));
  test('readonly transaction forbids writes even superuser','PG',()=>assert.throws(()=>readonly("INSERT INTO public.test_evidence VALUES(3,'TEST');",'postgres'),e=>e.sqlState==='25006'));
- let mode='normal';const output=[];const oldLog=console.log;
+ let mode='normal';let dirtySample='';const output=[];const oldLog=console.log;
  function audit(){console.log=s=>output.push(JSON.parse(s));try{return helper.main(env,{backupPath:backup,run(stage,cmd,args,input){
-  if(stage==='CHECKOUT')return args[0]==='rev-parse'?helper.BASELINE:'';
+  if(stage==='CHECKOUT')return args[0]==='rev-parse'?helper.BASELINE:(dirtySample||'');
   if(stage==='IMAGES'){if(mode==='docker-fail')throw Object.assign(new Error('fixture'),{stage:'IMAGES',klass:'COMMAND_FAILED'});return 'sha256:'+'a'.repeat(64)+' <no value>';}
   if(stage==='CAPACITY')return 'Size Used Avail\n10000 1000 9000';
   if(stage==='DB'){if(mode==='db-fail')throw Object.assign(new Error('fixture'),{stage:'DB',klass:'COMMAND_FAILED'});return sql(input,'phoenix_metadata_readonly',['-e','PGOPTIONS=-c default_transaction_read_only=on']);}
@@ -87,6 +87,14 @@ try{
  sql('ALTER TABLE public.sys_dict ADD COLUMN config_json text;');
  test('RLS hidden policy rows fail closed','PG/helper',()=>{sql('ALTER TABLE public.sys_dict ENABLE ROW LEVEL SECURITY;');assert.throws(audit);assert.equal(output.at(-1).state,'schema_not_ready');sql('ALTER TABLE public.sys_dict DISABLE ROW LEVEL SECURITY;');});
  test('empty TEXT policy table no_config and missing image label UNKNOWN','PG/helper',()=>{const r=audit();assert.equal(r.policy.state,'no_config');assert.equal(r.images.api.revision,'UNKNOWN');assert.equal(r.pending.length,83);});
+ test('dirty porcelain sanitized to capped safe entries','PG/helper',()=>{
+  dirtySample='?? artifacts/run-1\n M apps/api/src/service.ts\n?? secrets/$ecret$ key\n?? f\n'+'?? pad/i'.repeat(1)+'\n'+'?? rep\n'.repeat(60);
+  try{const r=audit();assert.equal(r.dirty,true);assert.equal(r.dirtyCount,65);assert.equal(r.dirtyEntries.length,50);
+   assert.deepEqual(r.dirtyEntries[0],{status:'??',path:'artifacts/run-1'});
+   assert.deepEqual(r.dirtyEntries[1],{status:'M',path:'apps/api/src/service.ts'});
+   assert.ok(r.dirtyEntries.every(e=>/^[A-Za-z0-9._\/-]+$/.test(e.path)&&e.path.length<=160));
+   assert.ok(!JSON.stringify(r.dirtyEntries).includes('$ecret$'));}
+  finally{dirtySample='';}});
  sql(`INSERT INTO public.sys_dict VALUES ('PKG_HISTORY_POLICY','TEST:TEST','ACTIVE','${JSON.stringify(config)}');`);
  test('real PG TEXT policy rejected consistent with runtime driver','PG/helper',()=>{assert.throws(audit);assert.equal(output.at(-1).state,'malformed');});
  // Separate TEST schema representation to exercise true JSONB configurations; not a product migration.
