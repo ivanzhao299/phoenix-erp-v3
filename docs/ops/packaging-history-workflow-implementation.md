@@ -862,3 +862,24 @@ readonly-audit-artifact-{34665332082,34668908316,34669810845,34681152901,3468209
 - 回滚预案：镜像回退（rollback tag 已在 deploy.yml 逻辑内）；迁移 down() 仅人工评审后使用。
 
 **D1-C P0–P4 生产发布完成。** Q/L4 现场验收与旗标启用为后续独立工作。
+
+## D1-C 发布后收尾（2026-09-15）
+
+交接背景记录：main `5c608afd`、生产运行 `0dc37dae`、部署 run `34961323713`、部署后验收 run `34962183528`；旗标默认全关，两个 D1-C 迁移已应用，未发行正式标签。上述内容来自既有发布证据，本轮不重做生产发布。
+
+### 发布后只读接口验证
+
+目标接口为 `GET /api/bff/packaging/history` 及 `GET /api/bff/packaging/history/:packingCode`，需验证列表分页/过滤、详情结构及 401/403/404。当前仓库存在 mint token 脚本和生产只读 workflow，但没有专门绑定这两个包装历史 GET、固定脱敏字段和状态码矩阵的既有 workflow。为避免绕过认证通道，本轮未调用生产 API；该项登记为 **待建立只读审计通道**，不能以本地 fixture 或 metadata-only DB 审计代替。
+
+### Q/L4 与旗标
+
+新增 [Q/L4 验收准备](packaging-history-q-l4-acceptance-plan.md) 和 [旗标启用 runbook](packaging-history-flag-enablement-runbook.md)。两份文件均明确是准备材料；无现场照片、扫码、接收人、仓库/库位或交付签收事实，Q/L4 未通过，正式标签不发行。`PKG_HISTORY_POLICY` 继续保持默认全关。
+
+### 残余 review 收口
+
+- PRINT UNKNOWN/补打、扫码证据和物理纸张：软件门禁已有隔离测试，生产打印与现场扫码待 Q/L4/专门只读通道，不能称现场通过。
+- JS/SQL 核验一致性、claim/JSON/append-only/并发幂等：已有本地 PG/事务证据；生产只读复核可查 metadata，不能执行业务写入。
+- HTTP 权限矩阵、DataScope、历史列表/详情：隔离真实 HTTP 已验证；发布后生产最终 GET 验证待建立专门认证只读 workflow。
+- 原 scope-audit 红灯、entity 残余差异和旧入口兼容：历史失败与 partial 保留，不能因发布后健康通过而豁免；由父级 review 逐项裁定。
+
+GO/NO-GO：软件发布已由既有 run 验收，但发布后包装历史 API 只读通道和 Q/L4 现场证据尚未完成，因此**不申请正式标签或旗标启用**。

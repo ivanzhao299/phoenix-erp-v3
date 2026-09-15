@@ -604,3 +604,11 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 - `node --check scripts/packaging-history-test/readonly-metadata.cjs` and `git diff --check` exit 0.
 - `node scripts/packaging-history-test/readonly-metadata.cjs` reached all 48 unit/filesystem/shell assertions, then stopped at the isolated PG fixture bootstrap. The harness now reports the actual local blocker as `docker create` with command exit `null` (Docker CLI unavailable), rather than throwing a misleading stderr `.match` TypeError. No production DB or credentials were involved.
 - Production GO/NO-GO is unchanged: NO-GO from run `34830667068` `DB/MISSING_ROLE/exit=2`; local Docker absence does not alter that evidence.
+
+## Post-release handoff closeout (2026-09-15)
+
+既有事实：main `5c608afd`、生产运行 `0dc37dae`、部署 `34961323713`、部署后验收 `34962183528`；旗标全关、D1-C 迁移已应用、无正式标签。
+
+发布后包装历史 GET 的生产只读验证尚未执行。仓库虽有 mint-token 脚本和生产只读 workflow，但没有针对 `/api/bff/packaging/history` 列表/详情的固定脱敏状态码矩阵通道；本轮不绕过既有认证，不虚构结果，登记为待建立通道。
+
+已新增 Q/L4 准备文档与旗标启用 runbook，均明确不代表现场验收或批准。残余 review 收口：生产 PRINT/扫码/补打、HTTP 最终权限矩阵和 Q/L4 事实仍待专门通道或现场证据；本地事务/隔离 HTTP/metadata 证据继续保留。生产写入、旗标变更和正式标签发行均停止等待批准。
