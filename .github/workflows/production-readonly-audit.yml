@@ -51,7 +51,7 @@ jobs:
           EXPECTED_DEPLOY_SHA: ${{ inputs.expected_deploy_sha }}
           BACKUP_DIRECTORY: ${{ inputs.backup_directory }}
           BUNDLE_SOURCE_COMMIT: ${{ github.sha }}
-          BUNDLE_HELPER_SHA256: 219fbf22e4160d261c3e79f53a2b1c893899adae1f8e454fccaa0891319a63ca
+          BUNDLE_HELPER_SHA256: 77b3844dfc44fc6df15d22059416b4d5dc9e9fa097ffd24fc717bd505c88ea96
           BUNDLE_SQL_SHA256: 8c0167efaa5b04e2018b950bfd38a7e179b87e3847e27b60cd5637528c3f729a
           BUNDLE_MANIFEST_SHA256: ba3fc5d21d62c37c09205b3421f7bf04a44f6cb5185e3da8fa09840e86c505ce
           ASSERTION_SQL_PATH: ${{ inputs.audit_mode == 'packaging-metadata' && '' || inputs.assertion_sql_path }}
@@ -97,7 +97,7 @@ jobs:
           EXPECTED_DEPLOY_SHA: ${{ inputs.expected_deploy_sha }}
           BACKUP_DIRECTORY: ${{ inputs.backup_directory }}
           BUNDLE_SOURCE_COMMIT: ${{ github.sha }}
-          BUNDLE_HELPER_SHA256: 219fbf22e4160d261c3e79f53a2b1c893899adae1f8e454fccaa0891319a63ca
+          BUNDLE_HELPER_SHA256: 77b3844dfc44fc6df15d22059416b4d5dc9e9fa097ffd24fc717bd505c88ea96
           BUNDLE_SQL_SHA256: 8c0167efaa5b04e2018b950bfd38a7e179b87e3847e27b60cd5637528c3f729a
           BUNDLE_MANIFEST_SHA256: ba3fc5d21d62c37c09205b3421f7bf04a44f6cb5185e3da8fa09840e86c505ce
           ASSERTION_SQL_PATH: ${{ inputs.audit_mode == 'packaging-metadata' && '' || inputs.assertion_sql_path }}
