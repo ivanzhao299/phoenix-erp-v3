@@ -1,0 +1,145 @@
+# One-time production role provisioning for the packaging metadata-only readonly audit.
+# Authorized by the system owner in the parent session on 2026-09-15 to resolve the
+# MISSING_ROLE blocker of run 34830667068. Creates the fixed readonly role with the
+# minimal privilege set proven by scripts/packaging-history-test/readonly-metadata.cjs,
+# then verifies it with the exact role_safe SQL from
+# scripts/ops/readonly-audits/packaging-metadata.sql. Fails closed on any mismatch.
+name: Provision Metadata Readonly Role
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_production:
+        description: Type APPROVE-METADATA-READONLY-ROLE-PROVISION
+        required: true
+        type: string
+      action:
+        description: verify (read-only check) / provision (idempotent create+grant+verify) / revoke (remove role)
+        type: choice
+        options: [verify, provision, revoke]
+        default: verify
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provision-metadata-readonly-role
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    if: inputs.approve_production == 'APPROVE-METADATA-READONLY-ROLE-PROVISION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Provision and verify phoenix_metadata_readonly
+        uses: appleboy/ssh-action@v1
+        env:
+          ROLE_ACTION: ${{ inputs.action }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          script_stop: true
+          envs: ROLE_ACTION
+          script: |
+            set -Eeuo pipefail
+            DB_CONTAINER=phoenix-v3-db
+            DB_NAME=phoenix_erp
+            ROLE=phoenix_metadata_readonly
+
+            docker inspect "$DB_CONTAINER" >/dev/null
+
+            # Detect the container superuser without reading any environment values.
+            ADMIN=""
+            if docker exec "$DB_CONTAINER" psql -X -w -qAt -U phoenix_v3 -d "$DB_NAME" -tAc 'SELECT 1' >/dev/null 2>&1; then
+              ADMIN=phoenix_v3
+            elif docker exec "$DB_CONTAINER" psql -X -w -qAt -U postgres -d "$DB_NAME" -tAc 'SELECT 1' >/dev/null 2>&1; then
+              ADMIN=postgres
+            else
+              echo '::error::Could not connect to the database as a container superuser'; exit 2
+            fi
+            echo "admin_user=$ADMIN"
+
+            admin_psql() {
+              docker exec -i "$DB_CONTAINER" psql -X -w -q -v ON_ERROR_STOP=1 -U "$ADMIN" -d "$DB_NAME" "$@"
+            }
+
+            # Current state (read-only).
+            ROLE_EXISTS=$(admin_psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$ROLE'")
+            echo "role_exists_before=$([ "$ROLE_EXISTS" = 1 ] && echo true || echo false)"
+            if [ "$ROLE_ACTION" = verify ]; then
+              [ "$ROLE_EXISTS" = 1 ] || { echo '::error::Role does not exist (verify only)'; exit 3; }
+            fi
+
+            if [ "$ROLE_ACTION" = provision ]; then
+              if [ "$ROLE_EXISTS" != 1 ]; then
+                admin_psql -c "CREATE ROLE $ROLE LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS"
+                echo 'role_created=true'
+              else
+                echo 'role_created=false(already existed)'
+              fi
+              admin_psql <<'SQL'
+            BEGIN;
+            REVOKE CREATE,TEMP ON DATABASE phoenix_erp FROM PUBLIC;
+            REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+            GRANT CONNECT ON DATABASE phoenix_erp TO phoenix_metadata_readonly;
+            GRANT USAGE ON SCHEMA public TO phoenix_metadata_readonly;
+            GRANT SELECT ON public.sys_dict TO phoenix_metadata_readonly;
+            GRANT SELECT ON public.migrations TO phoenix_metadata_readonly;
+            ALTER ROLE phoenix_metadata_readonly SET default_transaction_read_only = on;
+            COMMIT;
+            SQL
+            elif [ "$ROLE_ACTION" = revoke ]; then
+              admin_psql <<'SQL'
+            BEGIN;
+            REVOKE CONNECT ON DATABASE phoenix_erp FROM phoenix_metadata_readonly;
+            REVOKE USAGE ON SCHEMA public FROM phoenix_metadata_readonly;
+            REVOKE SELECT ON public.sys_dict, public.migrations FROM phoenix_metadata_readonly;
+            DROP ROLE IF EXISTS phoenix_metadata_readonly;
+            COMMIT;
+            SQL
+              echo 'role_revoked=true'
+              exit 0
+            fi
+
+            # Verify with the exact audit connection method and role_safe expression
+            # from scripts/ops/readonly-audits/packaging-metadata.sql.
+            RESULT=$(docker exec -i -e PGOPTIONS=-c default_transaction_read_only=on "$DB_CONTAINER" \
+              psql -X -w -qAt -v ON_ERROR_STOP=1 -U "$ROLE" -d "$DB_NAME" <<'SQL'
+            BEGIN READ ONLY;
+            SET LOCAL statement_timeout = '15s';
+            SET LOCAL lock_timeout = '2s';
+            SELECT current_setting('transaction_read_only'),
+                   current_setting('default_transaction_read_only'),
+                   current_setting('server_version_num'),
+                   NOT EXISTS (
+                     SELECT 1 FROM pg_roles r WHERE pg_has_role(current_user,r.oid,'MEMBER')
+                     AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls OR r.rolname IN ('pg_execute_server_program','pg_write_server_files'))
+                   ) AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname <> current_user AND pg_has_role(current_user,r.oid,'MEMBER'))
+                   AND NOT has_database_privilege(current_database(),'CREATE')
+                   AND NOT has_database_privilege(current_database(),'TEMP')
+                   AND NOT EXISTS (SELECT 1 FROM pg_namespace n WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+                     AND has_schema_privilege(n.oid,'CREATE'))
+                   AND NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                     WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema' AND
+                       ((c.relkind IN ('r','p','v','f') AND has_table_privilege(c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES'))
+                       OR (c.relkind='S' AND has_sequence_privilege(c.oid,'USAGE,UPDATE'))))
+                   AND NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                     WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema' AND p.prosecdef
+                     AND has_function_privilege(p.oid,'EXECUTE'));
+            ROLLBACK;
+            SQL
+            )
+            echo "readonly_identity=$RESULT"
+            IFS='|' read -r TXN RDB VER SAFE <<< "$RESULT"
+            [ "$TXN" = on ]  || { echo '::error::transaction_read_only is not on'; exit 4; }
+            [ "$RDB"  = on ] || { echo '::error::default_transaction_read_only is not on'; exit 5; }
+            [ "$SAFE" = t ]  || { echo '::error::role_safe verification failed'; exit 6; }
+            case "$VER" in 18*) ;; *) echo "::error::PostgreSQL major is ${VER:0:2}, expected 18"; exit 7;; esac
+            echo "ROLE_PROVISION_VERIFIED action=$ROLE_ACTION"
