@@ -924,3 +924,13 @@ AUDIT_STAGE=GET_ONLY_MATRIX PASS           （矩阵整体 PASS，run success）
 - metadata 审计的 `FLAGS/NOT_ALL_OFF` 门禁按设计面向启用前时代；启用后若重跑 metadata 审计将因 any_true 停止，属预期行为（后续可参数化期望状态）。
 - H（D1-C 确认）首次实际业务执行由操作员在终端发起；软件链路（本地 PG/HTTP/幂等/事务证据 + 生产结构验证）已就绪。
 - 其余站点启用须按 flag-enablement-runbook 逐站审批执行。
+
+## 站点逐站 rollout 收尾（2026-09-16）
+
+只读枚举 run `35043818784` 输出（仅编码/计数/日期/是否已有策略）：`CS-0001|COMP-LAO-AGRI|49|2026-09-14|f`、`LPH_MENGSAI|COMP-LAO-AGRI|9|2026-09-14|t`、`FARM-DP|COMP-LAO-XINGCHI|2|2026-08-26|f`。因此存在一个待启用站点 FARM-DP，未把 LPH_MENGSAI 重复纳入。
+
+CS-0001 启用验证 run `35044079365` 成功：`readback=COMP-LAO-AGRI:CS-0001 flags=truetruetruetruefalsefalse`、`SITE_ROLLOUT_VERIFIED`。首次失败 run `35043903198` 保留，原因是 `psql -c` 中 shell 变量未插值；修正后的 workflow 使用已验证字面量并未重试掩盖历史失败。
+
+FARM-DP 启用验证 run `35044194199` 成功：`readback=COMP-LAO-XINGCHI:FARM-DP flags=truetruetruetruefalsefalse`、`SITE_ROLLOUT_VERIFIED`。该站 Q/H 保持 false，无 Q/L4 声明，不发行标签。
+
+随后 HTTP 只读回归 run `35044231273` 成功：validate 与 audit 均成功，GET-only matrix `401`、列表 `200`（结构字段通过，items=25，仅输出计数/字段数）及哨兵详情 `404` 全部 PASS。token 仅临时使用并由 trap 销毁；未执行 POST/PUT/DELETE 或旗标变更。

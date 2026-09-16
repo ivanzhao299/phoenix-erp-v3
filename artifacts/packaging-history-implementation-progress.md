@@ -618,3 +618,11 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 实际 controller 路由核对为 `/api/packaging/terminal/history` 和 `/api/packaging/terminal/history/:packingCode`，非 `/api/bff/...`。新增专用 GET-only workflow 与脱敏断言脚本；本地 Node syntax、YAML parse、diff check 和 sentinel redaction fixture 均 exit0。
 
 专用 audit 分支提交 `71a2a6bb` 已推送。固定批准短语 dispatch 一次时 GitHub API 返回 HTTP 404，原因是 workflow 尚未在默认分支注册；因此 validate/SCP/SSH/token/GET/证据上传均未执行，未重试或换通道。生产仍未进行任何写入或旗标变更，Q/L4 状态不变。
+
+## Site rollout finish evidence (2026-09-16)
+
+Enumeration run `35043818784`: CS-0001 / COMP-LAO-AGRI / 49 shifts / last 2026-09-14; LPH_MENGSAI / COMP-LAO-AGRI / 9 / 2026-09-14 / existing policy; FARM-DP / COMP-LAO-XINGCHI / 2 / 2026-08-26. No business rows printed.
+
+CS-0001 verified run `35044079365`; FARM-DP verified run `35044194199`. Both readbacks were exact `flags=truetruetruetruefalsefalse` with `SITE_ROLLOUT_VERIFIED`. Historical failed run `35043903198` (psql -c literal interpolation) remains preserved.
+
+HTTP readonly regression run `35044231273` success: validate/audit success; 401 unauthenticated, 200 authenticated list structure, and 404 sentinel all PASS. No writes or Q/H enablement; no label issued.
