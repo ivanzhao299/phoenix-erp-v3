@@ -612,3 +612,9 @@ Review30 final verified: f8624273 / 94a0af5b6d0d718a7eda377020eecfe78fba86e6f151
 发布后包装历史 GET 的生产只读验证尚未执行。仓库虽有 mint-token 脚本和生产只读 workflow，但没有针对 `/api/bff/packaging/history` 列表/详情的固定脱敏状态码矩阵通道；本轮不绕过既有认证，不虚构结果，登记为待建立通道。
 
 已新增 Q/L4 准备文档与旗标启用 runbook，均明确不代表现场验收或批准。残余 review 收口：生产 PRINT/扫码/补打、HTTP 最终权限矩阵和 Q/L4 事实仍待专门通道或现场证据；本地事务/隔离 HTTP/metadata 证据继续保留。生产写入、旗标变更和正式标签发行均停止等待批准。
+
+## Packaging history authenticated readonly audit (2026-09-16)
+
+实际 controller 路由核对为 `/api/packaging/terminal/history` 和 `/api/packaging/terminal/history/:packingCode`，非 `/api/bff/...`。新增专用 GET-only workflow 与脱敏断言脚本；本地 Node syntax、YAML parse、diff check 和 sentinel redaction fixture 均 exit0。
+
+专用 audit 分支提交 `71a2a6bb` 已推送。固定批准短语 dispatch 一次时 GitHub API 返回 HTTP 404，原因是 workflow 尚未在默认分支注册；因此 validate/SCP/SSH/token/GET/证据上传均未执行，未重试或换通道。生产仍未进行任何写入或旗标变更，Q/L4 状态不变。

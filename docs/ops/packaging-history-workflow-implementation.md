@@ -883,3 +883,11 @@ readonly-audit-artifact-{34665332082,34668908316,34669810845,34681152901,3468209
 - 原 scope-audit 红灯、entity 残余差异和旧入口兼容：历史失败与 partial 保留，不能因发布后健康通过而豁免；由父级 review 逐项裁定。
 
 GO/NO-GO：软件发布已由既有 run 验收，但发布后包装历史 API 只读通道和 Q/L4 现场证据尚未完成，因此**不申请正式标签或旗标启用**。
+
+## 包装历史认证只读审计通道（2026-09-16）
+
+已核对 `apps/api/src/modules/bff/packaging-history.controller.ts:10-17`：实际只读路由是 `GET /api/packaging/terminal/history` 与 `GET /api/packaging/terminal/history/:packingCode`，受 JWT、MenuGuard 和 `MENU_PKG_OP/MENU_PKG_MGR` 只读权限保护；此前预期的 `/api/bff/...` 路径不采用。
+
+新增专用 workflow `.github/workflows/packaging-history-readonly-audit.yml` 和脱敏断言脚本 `scripts/ops/packaging-history-readonly-http-audit.mjs`。本地自检：两份 Node syntax exit0、workflow YAML parse exit0、`git diff --check` exit0、带 `TEST_TOKEN_SENTINEL` 的响应 fixture 未泄漏业务值。断言仅输出状态码、结构字段存在性和计数；请求矩阵为未认证 401、认证列表 200、固定 `__AUDIT_NOT_FOUND__` 详情 404；仅使用 GET，token 在 workflow 临时目录/变量中并由 trap 销毁。
+
+专用分支提交 `71a2a6bb` 已推送到 `audit/packaging-history-metadata`。按交接固定批准短语尝试一次 dispatch 时，GitHub API 返回 HTTP 404（workflow 尚未在默认分支注册），因此 stage 终态为：validate 未启动、SCP 未执行、SSH wrapper 未执行、token 未铸造、HTTP GET 未执行、证据上传未执行。未重试，不将 404 冒称生产失败或通过；生产发布、写操作、旗标和标签均未触碰。该通道需维护者先将 workflow 合法注册到默认分支后才能再次审计。
