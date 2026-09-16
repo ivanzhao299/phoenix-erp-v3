@@ -891,3 +891,16 @@ GO/NO-GO：软件发布已由既有 run 验收，但发布后包装历史 API �
 新增专用 workflow `.github/workflows/packaging-history-readonly-audit.yml` 和脱敏断言脚本 `scripts/ops/packaging-history-readonly-http-audit.mjs`。本地自检：两份 Node syntax exit0、workflow YAML parse exit0、`git diff --check` exit0、带 `TEST_TOKEN_SENTINEL` 的响应 fixture 未泄漏业务值。断言仅输出状态码、结构字段存在性和计数；请求矩阵为未认证 401、认证列表 200、固定 `__AUDIT_NOT_FOUND__` 详情 404；仅使用 GET，token 在 workflow 临时目录/变量中并由 trap 销毁。
 
 专用分支提交 `71a2a6bb` 已推送到 `audit/packaging-history-metadata`。按交接固定批准短语尝试一次 dispatch 时，GitHub API 返回 HTTP 404（workflow 尚未在默认分支注册），因此 stage 终态为：validate 未启动、SCP 未执行、SSH wrapper 未执行、token 未铸造、HTTP GET 未执行、证据上传未执行。未重试，不将 404 冒称生产失败或通过；生产发布、写操作、旗标和标签均未触碰。该通道需维护者先将 workflow 合法注册到默认分支后才能再次审计。
+
+## 包装历史认证只读审计通道执行成功（2026-09-16, run 35040014329）
+
+workflow 注册至 main（60efed6f→8ed6c7dd，修正 pageSize 参数为默认 25——首次 run 35039867026 因 `?pageSize=1` 不在合法值 [25,50,100] 被 400 拒绝，属审计参数错误非生产缺陷，已如实保留）。修正后 dispatch 终态：
+
+```text
+PASS unauth status=401                     （未认证拒绝）
+PASS list status=200 items=25 fields=15    （认证列表：25 条、15 个白名单字段）
+PASS sentinel status=404                   （哨兵 __AUDIT_NOT_FOUND__ 正确 404）
+AUDIT_STAGE=GET_ONLY_MATRIX PASS           （矩阵整体 PASS，run success）
+```
+
+生产 D1-C P1 只读能力（`/api/packaging/terminal/history` 列表与详情）经真实认证通道验证可用。仅 GET、token 用后销毁、无业务值输出。**发布后软件验证全部完成；剩余唯一项为 Q/L4 现场物理验收。**
