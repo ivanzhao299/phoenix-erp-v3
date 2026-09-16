@@ -81,7 +81,7 @@ jobs:
             READBACK=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_metadata_readonly -d phoenix_erp -tAc "SELECT (config_json->>'companyCode') || ':' || (config_json->>'siteCode') || ' flags=' || (config_json->>'R') || (config_json->>'B') || (config_json->>'P') || (config_json->>'V') || (config_json->>'H') || (config_json->>'Q') || ' qualif=' || (config_json->'qualification'->>'accepted') || '/' || (config_json->'qualification'->>'evidenceRef') || ' enc=' || (config_json->>'encodingVersion') || '/' || (config_json->>'deviceProfile') FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code='COMP-LAO-AGRI:LPH_MENGSAI' AND status='ACTIVE'")
             echo "readback=$READBACK"
             case "$READBACK" in
-              "COMP-LAO-AGRI:LPH_MENGSAI flags=tttttt qualif=true/QL4-LPH_MENGSAI-20260916 enc=PBX-v1/PBX-v1-generic") echo 'POLICY_ENABLED_VERIFIED';;
+              "COMP-LAO-AGRI:LPH_MENGSAI flags=truetruetruetruetruetrue qualif=true/QL4-LPH_MENGSAI-20260916 enc=PBX-v1/PBX-v1-generic") echo 'POLICY_ENABLED_VERIFIED';;
               *) echo '::error::readback mismatch'; exit 31;;
             esac
 
