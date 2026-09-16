@@ -1,0 +1,65 @@
+name: Packaging History Authenticated Readonly Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_production:
+        description: 'Type APPROVE-PACKAGING-HISTORY-READONLY-AUDIT'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: node --check scripts/ops/mint-production-admin-token-over-ssh.mjs && node --check scripts/ops/packaging-history-readonly-http-audit.mjs
+
+  audit:
+    needs: validate
+    if: inputs.approve_production == 'APPROVE-PACKAGING-HISTORY-READONLY-AUDIT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Stage assertion script
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          source: scripts/ops/packaging-history-readonly-http-audit.mjs
+          target: /tmp/phoenix-packaging-history-audit-${{ github.run_id }}
+      - name: Execute GET-only authenticated matrix
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          DEPLOY_PROXY_SSH_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(node scripts/ops/mint-production-admin-token-over-ssh.mjs)"
+          tmp="$(mktemp -d)"; trap 'unset token; rm -rf "$tmp"' EXIT
+          base='https://erp.eggslao.com/api/packaging/terminal'
+          get(){ curl --silent --show-error --output "$tmp/body" --write-out '%{http_code}' "$@"; }
+          status="$(get "$base/history")"; node scripts/ops/packaging-history-readonly-http-audit.mjs unauth "$status" "$tmp/body"
+          status="$(get -H "Authorization: Bearer $token" "$base/history?pageSize=1")"; node scripts/ops/packaging-history-readonly-http-audit.mjs list "$status" "$tmp/body"
+          status="$(get -H "Authorization: Bearer $token" "$base/history/__AUDIT_NOT_FOUND__")"; node scripts/ops/packaging-history-readonly-http-audit.mjs sentinel "$status" "$tmp/body"
+          echo 'AUDIT_STAGE=GET_ONLY_MATRIX PASS'
