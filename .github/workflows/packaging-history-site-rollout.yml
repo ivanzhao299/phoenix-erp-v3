@@ -73,22 +73,22 @@ jobs:
             [ "$SITE_CODE" = "LPH_MENGSAI" ] && { echo '::error::pilot site already fully enabled; use its existing policy'; exit 43; }
 
             DICT_CODE="$COMPANY_CODE:$SITE_CODE"
-            EXISTING=$(docker exec "$DB" psql -X -w -qAt -U phoenix_v3 -d "$DBNAME" -v dc="$DICT_CODE" -tAc "SELECT count(*) FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code=:'dc'")
+            EXISTING=$(docker exec "$DB" psql -X -w -qAt -U phoenix_v3 -d "$DBNAME" -tAc "SELECT count(*) FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code='$DICT_CODE'")
             [ "$EXISTING" = "0" ] || { echo "::error::policy row already exists for $DICT_CODE"; exit 44; }
 
-            KNOWN=$(docker exec "$DB" psql -X -w -qAt -U phoenix_v3 -d "$DBNAME" -v c="$COMPANY_CODE" -v s="$SITE_CODE" -tAc "SELECT count(*) FROM pkg_work_shifts ws JOIN brd_farms f ON f.farm_code=ws.site_id WHERE NOT ws.is_test AND f.company_code=:'c' AND ws.site_id=:'s'")
+            KNOWN=$(docker exec "$DB" psql -X -w -qAt -U phoenix_v3 -d "$DBNAME" -tAc "SELECT count(*) FROM pkg_work_shifts ws JOIN brd_farms f ON f.farm_code=ws.site_id WHERE NOT ws.is_test AND f.company_code='$COMPANY_CODE' AND ws.site_id='$SITE_CODE'")
             [ "$KNOWN" -ge 1 ] || { echo "::error::no non-test packing shifts found for $DICT_CODE"; exit 45; }
 
-            docker exec "$DB" psql -X -w -q -v ON_ERROR_STOP=1 -U phoenix_v3 -d "$DBNAME" -v dc="$DICT_CODE" -v c="$COMPANY_CODE" -v s="$SITE_CODE" -c \
+            docker exec "$DB" psql -X -w -q -v ON_ERROR_STOP=1 -U phoenix_v3 -d "$DBNAME" -c \
               "INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, sort_no, status, config_json)
-               VALUES (:'dc', 'PKG_HISTORY_POLICY', '包装历史工作流', '包装历史工作流', 0, 'ACTIVE',
-                 jsonb_build_object('companyCode',:'c','siteCode',:'s','version','2026-09-16.v1-site-rollout','receiptMode','C',
+               VALUES ('$DICT_CODE', 'PKG_HISTORY_POLICY', '包装历史工作流', '包装历史工作流', 0, 'ACTIVE',
+                 jsonb_build_object('companyCode','$COMPANY_CODE','siteCode','$SITE_CODE','version','2026-09-16.v1-site-rollout','receiptMode','C',
                    'R',true,'B',true,'P',true,'V',true,'H',false,'Q',false))"
 
-            READBACK=$(docker exec "$DB" psql -X -w -qAt -U phoenix_metadata_readonly -d "$DBNAME" -v dc="$DICT_CODE" -tAc \
+            READBACK=$(docker exec "$DB" psql -X -w -qAt -U phoenix_metadata_readonly -d "$DBNAME" -tAc \
               "SELECT (config_json->>'companyCode') || ':' || (config_json->>'siteCode') || ' flags=' ||
                       (config_json->>'R')||(config_json->>'B')||(config_json->>'P')||(config_json->>'V')||(config_json->>'H')||(config_json->>'Q')
-               FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code=:'dc' AND status='ACTIVE'")
+               FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code='$DICT_CODE' AND status='ACTIVE'")
             echo "readback=$READBACK"
             EXPECTED="${COMPANY_CODE}:${SITE_CODE} flags=truetruetruetruefalsefalse"
             [ "$READBACK" = "$EXPECTED" ] || { echo "::error::readback mismatch (expected: $EXPECTED)"; exit 46; }
