@@ -60,6 +60,6 @@ jobs:
           base='https://erp.eggslao.com/api/packaging/terminal'
           get(){ curl --silent --show-error --output "$tmp/body" --write-out '%{http_code}' "$@"; }
           status="$(get "$base/history")"; node scripts/ops/packaging-history-readonly-http-audit.mjs unauth "$status" "$tmp/body"
-          status="$(get -H "Authorization: Bearer $token" "$base/history?pageSize=1")"; node scripts/ops/packaging-history-readonly-http-audit.mjs list "$status" "$tmp/body"
+          status="$(get -H "Authorization: Bearer $token" "$base/history")"; node scripts/ops/packaging-history-readonly-http-audit.mjs list "$status" "$tmp/body"
           status="$(get -H "Authorization: Bearer $token" "$base/history/__AUDIT_NOT_FOUND__")"; node scripts/ops/packaging-history-readonly-http-audit.mjs sentinel "$status" "$tmp/body"
           echo 'AUDIT_STAGE=GET_ONLY_MATRIX PASS'
