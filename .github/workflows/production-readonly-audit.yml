@@ -65,28 +65,9 @@ jobs:
           envs: DEPLOY_PATH
           script: |
             set -Eeuo pipefail
-            deploy_path="$DEPLOY_PATH"
-            case "$deploy_path" in '~/'*) deploy_path="$HOME/${deploy_path#\~/}";; esac
-            cd "$deploy_path"
-            archive="$HOME/deploy-audit-artifacts-archive"
-            mkdir -p "$archive"
-            before=$(git status --porcelain --untracked-files=all | wc -l)
-            echo "dirty_before=$before"
-            moved=0
-            for f in readonly-audit-artifact-*.tgz; do
-              [ -e "$f" ] || continue
-              mv "$f" "$archive/"
-              moved=$((moved+1))
-            done
-            echo "archived=$moved destination=$archive"
-            after=$(git status --porcelain --untracked-files=all | wc -l)
-            echo "dirty_after=$after"
-            if [ "$after" -ne 0 ]; then
-              echo 'remaining dirty entries:'
-              git status --short
-              exit 21
-            fi
-            echo 'WORKTREE_CLEAN_ARCHIVED'
+            echo "config_json_type=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_metadata_readonly -d phoenix_erp -tAc "SELECT data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='sys_dict' AND column_name='config_json'")"
+            echo "existing_policy_rows=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_metadata_readonly -d phoenix_erp -tAc "SELECT count(*) FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY'")"
+            echo "COLTYPE_CHECK_DONE"
 
   validate:
     if: inputs.approve_production != 'APPROVE-METADATA-READONLY-ROLE-PROVISION'
