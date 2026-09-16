@@ -904,3 +904,23 @@ AUDIT_STAGE=GET_ONLY_MATRIX PASS           （矩阵整体 PASS，run success）
 ```
 
 生产 D1-C P1 只读能力（`/api/packaging/terminal/history` 列表与详情）经真实认证通道验证可用。仅 GET、token 用后销毁、无业务值输出。**发布后软件验证全部完成；剩余唯一项为 Q/L4 现场物理验收。**
+
+## Q/L4 验收声明与全量旗标启用（2026-09-16）
+
+### Q/L4 验收声明
+
+系统所有者于本会话声明：`COMP-LAO-AGRI:LPH_MENGSAI`（孟赛场，包装33 试点）Q/L4 现场物理验收**通过**。evidenceRef 采用本会话记录 `QL4-LPH_MENGSAI-20260916`（验收清单依据 packaging-history-q-l4-acceptance-plan.md；本声明为所有者断言，远程会话无法复验物理事实）。
+
+### 启用执行链
+
+1. **前置核验**（只读）：生产 `sys_dict.config_json` 为 TEXT，而 `PackagingWorkflowPolicy` 需 JSONB 对象访问；467 行中 23 行非空全部可 ::jsonb。
+2. **列迁移**：`1789520271000-SysDictConfigJsonJsonb`（TEXT→JSONB，空串/'null' 规范化为 NULL），CI 全门禁通过（84 条迁移 down/无DML/nullable/constraint/entity gate/回归），部署 run `35042637814` `Deploy · full` success（schema-first）。
+3. **策略写入**（ops 通道 run `35043156549`）：`config_json_type=jsonb` 确认；策略 INSERT（全量 R/B/P/V/H/Q=true，Q 资格 accepted/evidenceRef/acceptedAt 齐备，PBX-v1/PBX-v1-generic）。
+4. **读回验证**（run 同上 + 修正模式重跑均 PASS）：`readback=COMP-LAO-AGRI:LPH_MENGSAI flags=truetruetruetruetruetrue qualif=true/QL4-LPH_MENGSAI-20260916 enc=PBX-v1/PBX-v1-generic` → `POLICY_ENABLED_VERIFIED`。
+5. **启用后 HTTP 回归**：认证只读矩阵再次全 PASS（401/200结构/404），接口行为无回归。
+
+### 注意事项
+
+- metadata 审计的 `FLAGS/NOT_ALL_OFF` 门禁按设计面向启用前时代；启用后若重跑 metadata 审计将因 any_true 停止，属预期行为（后续可参数化期望状态）。
+- H（D1-C 确认）首次实际业务执行由操作员在终端发起；软件链路（本地 PG/HTTP/幂等/事务证据 + 生产结构验证）已就绪。
+- 其余站点启用须按 flag-enablement-runbook 逐站审批执行。
