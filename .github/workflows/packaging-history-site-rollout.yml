@@ -1,0 +1,95 @@
+name: Packaging History Site Rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      approve_production:
+        description: 'Type APPROVE-PKG-HISTORY-SITE-ROLLOUT'
+        required: true
+        type: string
+      action:
+        description: 'enumerate (read-only list) / enable (R/B/P/V on, Q/H off for one site)'
+        type: choice
+        options: [enumerate, enable]
+        default: enumerate
+      company_code:
+        description: 'Target company code (enable mode only, e.g. COMP-LAO-AGRI)'
+        required: false
+        type: string
+      site_code:
+        description: 'Target site/farm code (enable mode only, e.g. LPH_MENGSAI)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packaging-history-site-rollout
+  cancel-in-progress: false
+
+jobs:
+  rollout:
+    if: inputs.approve_production == 'APPROVE-PKG-HISTORY-SITE-ROLLOUT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Enumerate or enable one packaging site
+        uses: appleboy/ssh-action@v1
+        env:
+          ROLLOUT_ACTION: ${{ inputs.action }}
+          COMPANY_CODE: ${{ inputs.company_code }}
+          SITE_CODE: ${{ inputs.site_code }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: ROLLOUT_ACTION,COMPANY_CODE,SITE_CODE
+          script: |
+            set -Eeuo pipefail
+            DB=phoenix-v3-db; DBNAME=phoenix_erp
+
+            if [ "$ROLLOUT_ACTION" = "enumerate" ]; then
+              echo "SITE|COMPANY|SHIFTS|LAST_SHIFT|ALREADY_CONFIGURED"
+              docker exec "$DB" psql -X -w -qAt -F'|' -U phoenix_v3 -d "$DBNAME" -c \
+                "SELECT ws.site_id, f.company_code, count(*), max(ws.production_date)::text,
+                        EXISTS(SELECT 1 FROM sys_dict d WHERE d.dict_type='PKG_HISTORY_POLICY' AND d.dict_code=f.company_code||':'||ws.site_id AND d.status='ACTIVE')
+                 FROM pkg_work_shifts ws JOIN brd_farms f ON f.farm_code=ws.site_id
+                 WHERE NOT ws.is_test
+                 GROUP BY 1,2 ORDER BY 3 DESC"
+              echo 'ENUMERATE_DONE'
+              exit 0
+            fi
+
+            [ "$ROLLOUT_ACTION" = "enable" ] || { echo '::error::unknown action'; exit 40; }
+            case "$COMPANY_CODE" in ''|*[!A-Za-z0-9_-]*) echo '::error::invalid company code'; exit 41;; esac
+            case "$SITE_CODE"    in ''|*[!A-Za-z0-9_-]*) echo '::error::invalid site code';    exit 42;; esac
+            [ "$SITE_CODE" = "LPH_MENGSAI" ] && { echo '::error::pilot site already fully enabled; use its existing policy'; exit 43; }
+
+            DICT_CODE="$COMPANY_CODE:$SITE_CODE"
+            EXISTING=$(docker exec "$DB" psql -X -w -qAt -U phoenix_v3 -d "$DBNAME" -v dc="$DICT_CODE" -tAc "SELECT count(*) FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code=:'dc'")
+            [ "$EXISTING" = "0" ] || { echo "::error::policy row already exists for $DICT_CODE"; exit 44; }
+
+            KNOWN=$(docker exec "$DB" psql -X -w -qAt -U phoenix_v3 -d "$DBNAME" -v c="$COMPANY_CODE" -v s="$SITE_CODE" -tAc "SELECT count(*) FROM pkg_work_shifts ws JOIN brd_farms f ON f.farm_code=ws.site_id WHERE NOT ws.is_test AND f.company_code=:'c' AND ws.site_id=:'s'")
+            [ "$KNOWN" -ge 1 ] || { echo "::error::no non-test packing shifts found for $DICT_CODE"; exit 45; }
+
+            docker exec "$DB" psql -X -w -q -v ON_ERROR_STOP=1 -U phoenix_v3 -d "$DBNAME" -v dc="$DICT_CODE" -v c="$COMPANY_CODE" -v s="$SITE_CODE" -c \
+              "INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, sort_no, status, config_json)
+               VALUES (:'dc', 'PKG_HISTORY_POLICY', '包装历史工作流', '包装历史工作流', 0, 'ACTIVE',
+                 jsonb_build_object('companyCode',:'c','siteCode',:'s','version','2026-09-16.v1-site-rollout','receiptMode','C',
+                   'R',true,'B',true,'P',true,'V',true,'H',false,'Q',false))"
+
+            READBACK=$(docker exec "$DB" psql -X -w -qAt -U phoenix_metadata_readonly -d "$DBNAME" -v dc="$DICT_CODE" -tAc \
+              "SELECT (config_json->>'companyCode') || ':' || (config_json->>'siteCode') || ' flags=' ||
+                      (config_json->>'R')||(config_json->>'B')||(config_json->>'P')||(config_json->>'V')||(config_json->>'H')||(config_json->>'Q')
+               FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code=:'dc' AND status='ACTIVE'")
+            echo "readback=$READBACK"
+            EXPECTED="${COMPANY_CODE}:${SITE_CODE} flags=truetruetruetruefalsefalse"
+            [ "$READBACK" = "$EXPECTED" ] || { echo "::error::readback mismatch (expected: $EXPECTED)"; exit 46; }
+            echo "SITE_ROLLOUT_VERIFIED $DICT_CODE"
