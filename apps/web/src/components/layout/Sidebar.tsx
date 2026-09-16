@@ -19,7 +19,7 @@ import {
   BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
   FolderKanban, Globe, Layers3, UploadCloud, Bell, Wallet,
   Rocket, Server, ShieldAlert, Settings2, Landmark, Scale,
-  Bug,
+  Bug, Gauge,
 } from "lucide-react";
 import styles from "./sidebar.module.css";
 import { useBrand } from "@/contexts/BrandContext";
@@ -215,6 +215,7 @@ export const MENU: MenuItem[] = [
 
   // 8. 经营分析 — BI 驾驶舱 + 多维报表（Sales V2 Phase 8 全维度）
   { id: "analytics", Icon: TrendingUp, label: "经营分析", perm: "MENU_DASHBOARD", children: [
+    { id: "an-cockpit",  path: "/cockpit",              Icon: Gauge,           label: "4K 企业大屏", perm: "MENU_DASHBOARD"       },
     { id: "an-bi",       path: "/analytics",             Icon: LayoutDashboard, label: "经营总览",   perm: "MENU_DASHBOARD"       },
     { id: "an-sales",    path: "/sales2/reports",        Icon: TrendingUp,      label: "销售分析",   perm: "MENU_SALES2_REPORT"   },
     { id: "an-channel",  path: "/sales2/reports",        Icon: Network,         label: "渠道分析",   perm: "MENU_SALES2_CHANNEL"  },
