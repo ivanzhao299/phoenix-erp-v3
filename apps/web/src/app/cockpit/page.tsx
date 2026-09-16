@@ -5,10 +5,8 @@ import {
   Activity,
   AlertTriangle,
   BadgeDollarSign,
-  Boxes,
   Building2,
   CheckCircle2,
-  ClipboardCheck,
   Clock3,
   Database,
   Egg,
@@ -23,11 +21,17 @@ import {
   ShoppingCart,
   Store,
   Truck,
-  Users,
   Warehouse,
   Wheat,
   X,
+  Thermometer,
+  Droplets,
+  Wind,
+  Radio,
+  Wifi,
+  Bird,
 } from "lucide-react";
+import Link from "next/link";
 import styles from "./cockpit.module.css";
 
 type TrendPoint = { date: string; value: number };
@@ -47,6 +51,50 @@ type DashboardData = {
     pending_orders: Array<{ customer_name?: string; total_amount?: number }>;
     mortality_30d: number;
   };
+};
+
+type ExecutiveKpi = {
+  stats?: {
+    eggs?: { value?: string; unit?: string };
+    stock?: { value?: string; unit?: string };
+    salesPos?: { value?: string; unit?: string };
+    salesFarm?: { value?: string; unit?: string };
+    alerts?: { value?: string; unit?: string };
+  };
+  chartData?: Array<{ day: string; prod: number; sales: number; farmSales?: number }>;
+  deviceStats?: { activeAlerts?: number; offlineHouses?: number; hottestHouse?: string | null; hottestTemp?: number | string | null };
+  isGroupView?: boolean;
+  scopeCode?: string | null;
+  meta?: { todayLayRate?: number | null; posTxnCount?: number; stockAvailableTotal?: number; stockAvailableBatchCount?: number };
+};
+
+type IotHouse = {
+  houseCode: string;
+  houseName: string;
+  hasData?: boolean;
+  dataFreshness?: string;
+  alarmCount?: number;
+  onlineRate?: number;
+  avgTemp?: number | null;
+  avgHumidity?: number | null;
+  co2?: number | null;
+  ammonia?: number | null;
+  feedToday?: number | null;
+  waterToday?: number | null;
+};
+
+type IotData = {
+  summary?: {
+    totalHouses?: number;
+    activeHouses?: number;
+    totalAlarms?: number;
+    alarmHouses?: number;
+    onlineSensorCnt?: number;
+    totalSensorCnt?: number;
+    diagnosticCode?: string;
+    diagnosticReason?: string;
+  };
+  houses?: IotHouse[];
 };
 
 const EMPTY: DashboardData = {
@@ -143,6 +191,8 @@ function Panel({ title, eyebrow, icon, children, className = "" }: { title: stri
 export default function EnterpriseCockpit() {
   const scale = useCanvasScale();
   const [dash, setDash] = useState<DashboardData>(EMPTY);
+  const [executive, setExecutive] = useState<ExecutiveKpi>({});
+  const [iot, setIot] = useState<IotData>({});
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -151,14 +201,35 @@ export default function EnterpriseCockpit() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    const token = sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const options: RequestInit = { headers };
+    const read = async (url: string) => {
+      const response = await fetch(url, options);
+      if (!response.ok) throw new Error(`${url} ${response.status}`);
+      return response.json();
+    };
     try {
-      const token = sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
-      const response = await fetch("/api/analytics/dashboard", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      if (!response.ok) throw new Error(`dashboard ${response.status}`);
-      const body = await response.json();
-      if (!body?.data) throw new Error("dashboard payload missing");
-      setDash(body.data as DashboardData);
-      setOnline(true);
+      const [analyticsResult, executiveResult, iotResult] = await Promise.allSettled([
+        read("/api/analytics/dashboard"),
+        read("/api/dashboard/kpi"),
+        read("/api/v3/iot/devices/all-summary"),
+      ]);
+      let connected = false;
+      if (analyticsResult.status === "fulfilled" && analyticsResult.value?.data) {
+        setDash(analyticsResult.value.data as DashboardData);
+        connected = true;
+      }
+      if (executiveResult.status === "fulfilled" && executiveResult.value?.data) {
+        setExecutive(executiveResult.value.data as ExecutiveKpi);
+        connected = true;
+      }
+      if (iotResult.status === "fulfilled" && iotResult.value?.data) {
+        setIot(iotResult.value.data as IotData);
+        connected = true;
+      }
+      setOnline(connected);
+      if (!connected) throw new Error("all cockpit data sources unavailable");
       setUpdatedAt(new Date());
     } catch {
       setOnline(false);
@@ -175,20 +246,31 @@ export default function EnterpriseCockpit() {
   }, [load]);
 
   const k = dash.kpis;
-  const productionToday = dash.production_trend.at(-1)?.value || 0;
+  const parseMetric = (value?: string) => Number(String(value || "0").replace(/,/g, "")) || 0;
+  const productionToday = parseMetric(executive.stats?.eggs?.value) || dash.production_trend.at(-1)?.value || 0;
+  const layingStock = parseMetric(executive.stats?.stock?.value);
+  const posSales = parseMetric(executive.stats?.salesPos?.value);
+  const farmSales = parseMetric(executive.stats?.salesFarm?.value);
+  const totalSales = posSales + farmSales;
+  const deviceSummary = iot.summary || {};
+  const houses = iot.houses || [];
+  const deviceAlerts = Number(deviceSummary.totalAlarms || executive.deviceStats?.activeAlerts || 0);
+  const onlineSensors = Number(deviceSummary.onlineSensorCnt || 0);
+  const totalSensors = Number(deviceSummary.totalSensorCnt || 0);
+  const sensorOnlineRate = totalSensors ? Math.round((onlineSensors / totalSensors) * 100) : 0;
   const throughput = k.today_inbound_qty + k.today_outbound_qty;
-  const warningTotal = k.expiry_batches + k.pending_orders;
+  const warningTotal = k.expiry_batches + k.pending_orders + deviceAlerts;
   const peak = Math.max(...dash.production_trend.map((item) => item.value), 1);
   const qualityScore = warningTotal === 0 ? 100 : Math.max(82, 100 - warningTotal * 2);
   const inboundRate = productionToday > 0 ? Math.min(100, Math.round((k.today_inbound_qty / productionToday) * 100)) : 0;
 
   const kpis = [
-    { label: "近 30 天集蛋", value: formatNumber(k.eggs_30d), unit: "枚", delta: "生产核心指标", Icon: Egg, tone: "amber" },
-    { label: "今日生产", value: formatNumber(productionToday), unit: "枚", delta: "最近日报口径", Icon: Factory, tone: "cyan" },
+    { label: "今日产蛋", value: formatNumber(productionToday), unit: "枚", delta: executive.meta?.todayLayRate != null ? `产蛋率 ${executive.meta.todayLayRate}%` : "养殖日报口径", Icon: Egg, tone: "amber" },
+    { label: "当前存栏", value: formatNumber(layingStock), unit: "羽", delta: "产蛋鸡群实时汇总", Icon: Bird, tone: "cyan" },
     { label: "今日入库", value: formatNumber(k.today_inbound_qty), unit: "枚", delta: `入库转化 ${inboundRate}%`, Icon: PackageCheck, tone: "green" },
     { label: "今日出库", value: formatNumber(k.today_outbound_qty), unit: "枚", delta: "销售履约流出", Icon: Truck, tone: "blue" },
-    { label: "库存批次", value: formatNumber(k.stock_batches), unit: "批", delta: "全仓批次库存", Icon: Boxes, tone: "violet" },
-    { label: "待处理事项", value: formatNumber(warningTotal), unit: "项", delta: `${k.pending_orders} 审批 · ${k.expiry_batches} 临期`, Icon: ClipboardCheck, tone: warningTotal ? "pink" : "green" },
+    { label: "今日销售", value: formatNumber(totalSales), unit: "LAK", delta: `${executive.meta?.posTxnCount || 0} 笔 POS · 含农场直销`, Icon: BadgeDollarSign, tone: "violet" },
+    { label: "设备在线", value: formatNumber(onlineSensors), unit: `/${totalSensors || 0}`, delta: `${sensorOnlineRate}% 在线 · ${deviceAlerts} 告警`, Icon: Radio, tone: deviceAlerts ? "pink" : "green" },
   ];
 
   const bars = dash.production_trend.length ? dash.production_trend.slice(-7) : Array.from({ length: 7 }, (_, i) => ({ date: `D${i + 1}`, value: 0 }));
@@ -210,6 +292,14 @@ export default function EnterpriseCockpit() {
             <div className={styles.clock}><strong>{now.toLocaleTimeString("zh-CN", { hour12: false })}</strong><span>{now.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" })}</span></div>
           </div>
         </header>
+
+        <nav className={styles.sectionNav} aria-label="经营大屏分页导航">
+          <Link className={styles.navActive} href="/cockpit"><Gauge size={26} />综合总览</Link>
+          <Link href="/analytics/production"><Factory size={26} />生产态势</Link>
+          <Link href="/sales2/reports"><ShoppingCart size={26} />销售经营</Link>
+          <Link href="/breeding/device"><Radio size={26} />设备监控</Link>
+          <Link href="/sales2/delivery"><Truck size={26} />物流履约</Link>
+        </nav>
 
         <section className={styles.kpiRow}>
           {kpis.map(({ label, value, unit, delta, Icon, tone }) => (
@@ -238,14 +328,22 @@ export default function EnterpriseCockpit() {
               </div>
             </Panel>
 
-            <Panel title="组织与经营网络" eyebrow="ORGANIZATION NETWORK" icon={<Building2 size={34} />}>
-              <div className={styles.networkMap}>
-                <div className={styles.mapOrbit}><span /><span /><span /></div>
-                <div className={styles.hub}><Building2 size={45} /><b>集团总部</b><small>统一管控</small></div>
-                <div className={`${styles.mapNode} ${styles.node1}`}><Factory size={30} /><b>生产基地</b><small>鸡舍 / 鸡群</small></div>
-                <div className={`${styles.mapNode} ${styles.node2}`}><Warehouse size={30} /><b>仓储中心</b><small>批次 / 库位</small></div>
-                <div className={`${styles.mapNode} ${styles.node3}`}><Store size={30} /><b>销售网络</b><small>客户 / 门店</small></div>
-                <div className={`${styles.mapNode} ${styles.node4}`}><Users size={30} /><b>组织协同</b><small>人员 / 权限</small></div>
+            <Panel title="鸡舍设备实时监控" eyebrow="IOT DEVICE MONITOR" icon={<Radio size={34} />}>
+              <div className={styles.deviceSummary}>
+                <div><Wifi size={30} /><span>在线传感器</span><b>{onlineSensors}/{totalSensors}</b></div>
+                <div><Building2 size={30} /><span>接入鸡舍</span><b>{deviceSummary.activeHouses || 0}/{deviceSummary.totalHouses || 0}</b></div>
+                <div><AlertTriangle size={30} /><span>设备告警</span><b>{deviceAlerts}</b></div>
+              </div>
+              <div className={styles.houseGrid}>
+                {houses.length ? houses.slice(0, 6).map((house) => <article key={house.houseCode} className={house.alarmCount ? styles.houseAlarm : ""}>
+                  <div><span className={house.dataFreshness === "normal" ? styles.deviceOnline : styles.deviceOffline} /><b>{house.houseName || house.houseCode}</b><em>{Math.round((house.onlineRate || 0) * 100)}%</em></div>
+                  <small>{house.houseCode} · {house.dataFreshness === "normal" ? "数据正常" : house.dataFreshness === "delayed" ? "数据延迟" : "离线/无数据"}</small>
+                  <ul>
+                    <li><Thermometer size={18} />{house.avgTemp != null ? `${house.avgTemp.toFixed(1)}℃` : "--"}</li>
+                    <li><Droplets size={18} />{house.avgHumidity != null ? `${house.avgHumidity.toFixed(0)}%` : "--"}</li>
+                    <li><Wind size={18} />{house.co2 != null ? `${house.co2.toFixed(0)} ppm` : "--"}</li>
+                  </ul>
+                </article>) : <div className={styles.deviceEmpty}><Radio size={58} /><b>设备数据等待接入</b><span>{deviceSummary.diagnosticReason || "登录后读取 ERP 鸡舍设备实时数据"}</span></div>}
               </div>
             </Panel>
           </div>
@@ -291,15 +389,18 @@ export default function EnterpriseCockpit() {
             </Panel>
 
             <Panel title="销售与渠道动向" eyebrow="SALES & CHANNEL" icon={<ShoppingCart size={34} />}>
-              <div className={styles.salesHero}><div><span>今日出库</span><strong>{formatNumber(k.today_outbound_qty)}<em>枚</em></strong><small>订单履约实物流</small></div><Sparkline data={dash.outbound_trend.slice(-10)} color="#8aa7ff" /></div>
+              <div className={styles.salesHero}><div><span>今日销售收入</span><strong>{formatNumber(totalSales)}<em>LAK</em></strong><small>{executive.meta?.posTxnCount || 0} 笔 POS 交易</small></div><Sparkline data={(executive.chartData || []).map(item => ({ date: item.day, value: item.sales + (item.farmSales || 0) }))} color="#8aa7ff" /></div>
               <div className={styles.channelList}>
-                {[{ name: "经销批发", value: 42 }, { name: "直营网点", value: 31 }, { name: "KA 客户", value: 18 }, { name: "其他渠道", value: 9 }].map((item) => <div key={item.name}><span>{item.name}</span><i><b style={{ width: `${item.value}%` }} /></i><em>{item.value}%*</em></div>)}
+                {[{ name: "门店 POS", value: posSales }, { name: "农场直销", value: farmSales }].map((item) => {
+                  const percent = totalSales ? Math.round((item.value / totalSales) * 100) : 0;
+                  return <div key={item.name}><span>{item.name}</span><i><b style={{ width: `${percent}%` }} /></i><em>{formatNumber(item.value)} LAK</em></div>;
+                })}
               </div>
-              <p className={styles.dataNote}>* 渠道占比接口待接入，当前为版式示意，不计入经营统计。</p>
+              <p className={styles.dataNote}>销售数据来自 ERP 门店收银与农场直销订单，按当前登录账号数据域统计。</p>
             </Panel>
 
             <Panel title="风险与协同事项" eyebrow="RISK & COLLABORATION" icon={<AlertTriangle size={34} />}>
-              <div className={styles.alertSummary}><div className={warningTotal ? styles.warningOrb : styles.safeOrb}><AlertTriangle size={46} /><strong>{warningTotal}</strong><span>待关注事项</span></div><div><span>临期库存</span><b>{k.expiry_batches} 批</b><span>待审批订单</span><b>{k.pending_orders} 单</b></div></div>
+              <div className={styles.alertSummary}><div className={warningTotal ? styles.warningOrb : styles.safeOrb}><AlertTriangle size={46} /><strong>{warningTotal}</strong><span>待关注事项</span></div><div><span>临期库存</span><b>{k.expiry_batches} 批</b><span>待审批订单</span><b>{k.pending_orders} 单</b><span>设备告警</span><b>{deviceAlerts} 条</b></div></div>
               <div className={styles.alertList}>
                 {(dash.alerts.expiry_batches.length ? dash.alerts.expiry_batches.slice(0, 3).map((item, index) => ({ title: item.sku_code || `临期批次 ${index + 1}`, meta: `${formatNumber(item.qty_available || 0)} · ${item.expire_date || "日期待确认"}`, level: "warning" })) : [
                   { title: online ? "当前无临期批次明细" : "经营数据源尚未连接", meta: online ? "库存风险处于正常区间" : "登录后可读取实时经营数据", level: online ? "safe" : "warning" },
@@ -312,7 +413,7 @@ export default function EnterpriseCockpit() {
 
         <footer className={styles.footer}>
           <div><span className={online ? styles.dotLive : styles.dotOff} />数据口径：Phoenix ERP 经营分析接口</div>
-          <div>覆盖：采购 · 生产 · 品质 · 仓储 · 销售 · 配送 · 财务 · 组织</div>
+          <div>覆盖：采购 · 生产 · 设备 · 品质 · 仓储 · 销售 · 配送 · 财务 · 组织</div>
           <button onClick={() => setShowHelp(true)}>数据说明</button>
           <div>PHOENIX ERP V3 · 3840 × 2160</div>
         </footer>

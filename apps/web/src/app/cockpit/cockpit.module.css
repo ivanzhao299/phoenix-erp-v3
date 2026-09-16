@@ -28,3 +28,44 @@
 .modalBackdrop { position:absolute; z-index:20; inset:0; display:grid; place-items:center; background:rgba(0,8,17,.82); backdrop-filter:blur(12px); }.modal { width:1050px; padding:70px; position:relative; border:1px solid rgba(77,238,234,.38); background:linear-gradient(145deg,#0a2a42,#061525); box-shadow:0 0 90px rgba(77,238,234,.12); }.modal>button { position:absolute; right:26px; top:24px; color:#80bdcf; background:none; border:0; cursor:pointer; }.modal h2 { font-size:38px; color:#eafbff; margin-bottom:30px; }.modal p { font-size:22px; line-height:1.8; color:#91b2c1; margin:18px 0; }
 .spinning { animation:spin 1s linear infinite; } @keyframes spin { to { transform:rotate(360deg) } } @keyframes flow { 0%{transform:translateX(-6px);opacity:.4}50%{opacity:1}100%{transform:translateX(6px);opacity:.4} }
 @media (prefers-reduced-motion:reduce){.spinning,.connector span{animation:none}}
+
+/* V2 · 更柔和的企业级圆角体系与分页导航 */
+.canvas { padding:38px 58px 30px; }
+.header { height:140px; padding:0 24px; border:1px solid rgba(97,218,255,.2); border-radius:30px; background:linear-gradient(110deg,rgba(10,42,68,.9),rgba(17,70,104,.48) 50%,rgba(8,34,56,.9)); box-shadow:0 18px 60px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.04); }
+.header::before { left:34px; }.header::after { right:34px; }
+.brandMark { width:94px; height:94px; border-radius:26px; transform:none; margin-left:0; }.brandMark svg { transform:none; }.brandMark span { border-radius:18px; }
+.brandCopy { margin-left:30px; }.brandCopy span { font-size:20px; }.brandCopy strong { font-size:43px; }
+.headerStatus button { border-radius:18px; }
+.sectionNav { position:relative; z-index:3; height:82px; display:flex; align-items:center; justify-content:center; gap:18px; }
+.sectionNav a { min-width:190px; height:52px; padding:0 24px; display:flex; align-items:center; justify-content:center; gap:12px; color:#78a4ba; font-size:20px; letter-spacing:2px; border:1px solid rgba(98,190,224,.14); border-radius:26px; background:rgba(7,31,50,.58); transition:.2s ease; }
+.sectionNav a:hover { color:#eafcff; border-color:rgba(77,238,234,.5); background:rgba(77,238,234,.08); }
+.sectionNav .navActive { color:#061923; font-weight:750; border-color:#4deeea; background:linear-gradient(110deg,#4deeea,#6ac9ff); box-shadow:0 8px 28px rgba(77,238,234,.24); }
+.kpiRow { height:200px; padding:10px 0 28px; gap:24px; }
+.kpiCard { border-radius:24px; clip-path:none; padding:25px 28px; box-shadow:0 14px 36px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.03); }
+.kpiCard::before { top:22px; bottom:22px; border-radius:0 8px 8px 0; }
+.kpiIcon { width:72px; height:72px; border-radius:22px; transform:none; }.kpiIcon svg { transform:none; }
+.kpiCard strong { font-size:46px; }.kpiCard span { font-size:21px; }
+.dashboardGrid { height:1570px; grid-template-columns:930px 1fr 930px; gap:28px; }
+.leftColumn,.rightColumn,.centerColumn { gap:28px; }.leftColumn { grid-template-rows:740px 1fr; }.rightColumn { grid-template-rows:470px 530px 1fr; }.centerColumn { grid-template-rows:930px 1fr; }
+.panel,.flowPanel { border-radius:28px; clip-path:none; box-shadow:0 18px 52px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.035); }
+.panel::before,.flowPanel::before { left:30px; width:110px; border-radius:0 0 10px 10px; }
+.panelHeader { border-radius:28px 28px 0 0; }.panelIcon { border-radius:16px; }
+.processNode { border-radius:22px; clip-path:none; }
+.flowMetrics>div,.capabilityGrid article,.productionHero,.salesHero,.miniStats div { border-radius:18px; }
+.ring>div,.ring { border-radius:50%; }
+.footer { height:72px; border-top-color:rgba(82,180,215,.14); }
+
+/* 设备总览 */
+.deviceSummary { height:105px; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:16px 24px 10px; }
+.deviceSummary>div { display:grid; grid-template-columns:38px 1fr; grid-template-rows:1fr 1fr; align-items:center; padding:12px 16px; border:1px solid rgba(84,181,216,.14); border-radius:18px; background:rgba(18,62,87,.36); }
+.deviceSummary svg { grid-row:1/-1; color:#4deeea; }.deviceSummary span { color:#79a0b3; font-size:14px; }.deviceSummary b { font-size:23px; }
+.houseGrid { height:calc(100% - 203px); padding:12px 24px 24px; display:grid; grid-template-columns:repeat(2,1fr); grid-auto-rows:1fr; gap:14px; }
+.houseGrid article { min-height:0; padding:16px 18px; border:1px solid rgba(88,180,216,.16); border-radius:18px; background:linear-gradient(145deg,rgba(17,59,83,.56),rgba(7,28,45,.55)); }
+.houseGrid article.houseAlarm { border-color:rgba(255,127,165,.5); box-shadow:inset 0 0 24px rgba(255,127,165,.04); }
+.houseGrid article>div { display:flex; align-items:center; gap:9px; }.houseGrid article b { font-size:18px; flex:1; }.houseGrid article em { font-size:15px; font-style:normal; color:#6ef09a; }
+.houseGrid article>small { display:block; color:#678da1; margin:7px 0 12px 21px; font-size:13px; }
+.houseGrid article ul { list-style:none; display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:0; margin:0; }
+.houseGrid article li { display:flex; align-items:center; gap:5px; color:#9abaca; font-size:13px; }.houseGrid article li svg { color:#65dce8; }
+.deviceOnline,.deviceOffline { width:11px; height:11px; border-radius:50%; }.deviceOnline { background:#5fed99; box-shadow:0 0 10px #5fed99; }.deviceOffline { background:#ffb75f; box-shadow:0 0 10px #ffb75f; }
+.deviceEmpty { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:#608da2; border:1px dashed rgba(93,188,228,.18); border-radius:22px; background:rgba(7,29,46,.35); }.deviceEmpty b { color:#a9cad8; font-size:23px; }.deviceEmpty span { max-width:650px; text-align:center; font-size:16px; line-height:1.55; }
+.channelList>div { grid-template-columns:150px 1fr 165px; }.channelList em { white-space:nowrap; }
