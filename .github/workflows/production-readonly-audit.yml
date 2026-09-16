@@ -65,9 +65,10 @@ jobs:
           envs: DEPLOY_PATH
           script: |
             set -Eeuo pipefail
-            echo "config_json_type=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_metadata_readonly -d phoenix_erp -tAc "SELECT data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='sys_dict' AND column_name='config_json'")"
-            echo "existing_policy_rows=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_metadata_readonly -d phoenix_erp -tAc "SELECT count(*) FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY'")"
-            echo "COLTYPE_CHECK_DONE"
+            echo "total=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_metadata_readonly -d phoenix_erp -tAc "SELECT count(*) FROM sys_dict")"
+            echo "nonempty=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_metadata_readonly -d phoenix_erp -tAc "SELECT count(*) FROM sys_dict WHERE config_json IS NOT NULL AND NULLIF(NULLIF(config_json,''),'null') IS NOT NULL")"
+            echo "all_castable=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_metadata_readonly -d phoenix_erp -tAc "SELECT count(*) FROM sys_dict WHERE config_json IS NOT NULL AND NULLIF(NULLIF(config_json,''),'null') IS NOT NULL AND (NULLIF(NULLIF(config_json,''),'null')::jsonb) IS NOT NULL")"
+            echo "CASTABILITY_CHECK_DONE"
 
   validate:
     if: inputs.approve_production != 'APPROVE-METADATA-READONLY-ROLE-PROVISION'
