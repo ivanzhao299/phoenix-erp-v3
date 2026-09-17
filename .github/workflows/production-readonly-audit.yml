@@ -65,25 +65,13 @@ jobs:
           envs: DEPLOY_PATH
           script: |
             set -Eeuo pipefail
-            # 1) 验证迁移后的列类型
-            TYPE=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='sys_dict' AND column_name='config_json'")
-            echo "config_json_type=$TYPE"
-            [ "$TYPE" = "jsonb" ] || { echo '::error::column not jsonb yet'; exit 30; }
-            # 2) 幂等写入策略配置（全量 R/B/P/V/H/Q，Q 带物理资格）
-            EXISTS=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT count(*) FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code='COMP-LAO-AGRI:LPH_MENGSAI'")
-            if [ "$EXISTS" = "0" ]; then
-              docker exec phoenix-v3-db psql -X -w -q -v ON_ERROR_STOP=1 -U phoenix_v3 -d phoenix_erp -c "INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, sort_no, status, config_json) VALUES ('COMP-LAO-AGRI:LPH_MENGSAI', 'PKG_HISTORY_POLICY', '包装历史工作流-孟赛场', '包装历史工作流-孟赛场', 0, 'ACTIVE', '{\"companyCode\":\"COMP-LAO-AGRI\",\"siteCode\":\"LPH_MENGSAI\",\"version\":\"2026-09-16.v1\",\"receiptMode\":\"C\",\"R\":true,\"B\":true,\"P\":true,\"V\":true,\"H\":true,\"Q\":true,\"encodingVersion\":\"PBX-v1\",\"deviceProfile\":\"PBX-v1-generic\",\"qualification\":{\"accepted\":true,\"evidenceRef\":\"QL4-LPH_MENGSAI-20260916\",\"acceptedAt\":\"2026-09-16T01:10:00+08:00\"}}'::jsonb)"
-              echo 'policy_inserted=true'
-            else
-              echo 'policy_inserted=false(already exists)'
-            fi
-            # 3) 以只读角色按 parser 同路径读回验证（jsonb 对象化 + 资格字段）
-            READBACK=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_metadata_readonly -d phoenix_erp -tAc "SELECT (config_json->>'companyCode') || ':' || (config_json->>'siteCode') || ' flags=' || (config_json->>'R') || (config_json->>'B') || (config_json->>'P') || (config_json->>'V') || (config_json->>'H') || (config_json->>'Q') || ' qualif=' || (config_json->'qualification'->>'accepted') || '/' || (config_json->'qualification'->>'evidenceRef') || ' enc=' || (config_json->>'encodingVersion') || '/' || (config_json->>'deviceProfile') FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code='COMP-LAO-AGRI:LPH_MENGSAI' AND status='ACTIVE'")
-            echo "readback=$READBACK"
-            case "$READBACK" in
-              "COMP-LAO-AGRI:LPH_MENGSAI flags=truetruetruetruetruetrue qualif=true/QL4-LPH_MENGSAI-20260916 enc=PBX-v1/PBX-v1-generic") echo 'POLICY_ENABLED_VERIFIED';;
-              *) echo '::error::readback mismatch'; exit 31;;
-            esac
+            echo "CS-0001_wh=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT string_agg(DISTINCT warehouse_code, ',' ORDER BY warehouse_code) FROM inv_batches WHERE company_code='COMP-LAO-AGRI'")"
+            echo "CS-0001_loc=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT count(DISTINCT location_code) FROM inv_batches WHERE company_code='COMP-LAO-AGRI'")"
+            echo "FARM-DP_wh=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT string_agg(DISTINCT warehouse_code, ',' ORDER BY warehouse_code) FROM inv_batches WHERE company_code='COMP-LAO-XINGCHI'")"
+            echo "FARM-DP_loc=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT count(DISTINCT location_code) FROM inv_batches WHERE company_code='COMP-LAO-XINGCHI'")"
+            echo "CS-0001_recent_shifts=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT string_agg(shift_code, ',' ORDER BY production_date DESC) FROM (SELECT shift_code, production_date FROM pkg_work_shifts WHERE site_id='CS-0001' AND NOT is_test ORDER BY production_date DESC LIMIT 3) t")"
+            echo "FARM-DP_recent_shifts=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT string_agg(shift_code, ',' ORDER BY production_date DESC) FROM (SELECT shift_code, production_date FROM pkg_work_shifts WHERE site_id='FARM-DP' AND NOT is_test ORDER BY production_date DESC LIMIT 3) t")"
+            echo "CONTEXT_DONE"
 
   validate:
     if: inputs.approve_production != 'APPROVE-METADATA-READONLY-ROLE-PROVISION'
