@@ -32,6 +32,7 @@ import {
   Bird,
 } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
 import styles from "./cockpit.module.css";
 
 type TrendPoint = { date: string; value: number };
@@ -96,6 +97,10 @@ type IotData = {
   };
   houses?: IotHouse[];
 };
+
+type DataSourceState = "idle" | "loading" | "online" | "unauthorized" | "forbidden" | "error";
+type DataSourceKey = "analytics" | "executive" | "iot";
+type DataSourceStates = Record<DataSourceKey, DataSourceState>;
 
 const EMPTY: DashboardData = {
   kpis: { eggs_30d: 0, today_inbound_qty: 0, today_outbound_qty: 0, stock_batches: 0, pending_orders: 0, expiry_batches: 0 },
@@ -189,6 +194,7 @@ function Panel({ title, eyebrow, icon, children, className = "" }: { title: stri
 }
 
 export default function EnterpriseCockpit() {
+  const { token, loading: authLoading } = useAuth();
   const scale = useCanvasScale();
   const [dash, setDash] = useState<DashboardData>(EMPTY);
   const [executive, setExecutive] = useState<ExecutiveKpi>({});
@@ -198,15 +204,28 @@ export default function EnterpriseCockpit() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [now, setNow] = useState(new Date());
   const [showHelp, setShowHelp] = useState(false);
+  const [sourceStates, setSourceStates] = useState<DataSourceStates>({ analytics: "idle", executive: "idle", iot: "idle" });
 
   const load = useCallback(async () => {
+    if (authLoading) return;
+    if (!token) {
+      setOnline(false);
+      setLoading(false);
+      setSourceStates({ analytics: "unauthorized", executive: "unauthorized", iot: "unauthorized" });
+      window.location.replace(`/login?return=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      return;
+    }
     setLoading(true);
-    const token = sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
-    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    setSourceStates({ analytics: "loading", executive: "loading", iot: "loading" });
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
     const options: RequestInit = { headers };
     const read = async (url: string) => {
       const response = await fetch(url, options);
-      if (!response.ok) throw new Error(`${url} ${response.status}`);
+      if (!response.ok) {
+        const error = new Error(`${url} ${response.status}`) as Error & { status?: number };
+        error.status = response.status;
+        throw error;
+      }
       return response.json();
     };
     try {
@@ -215,6 +234,15 @@ export default function EnterpriseCockpit() {
         read("/api/dashboard/kpi"),
         read("/api/v3/iot/devices/all-summary"),
       ]);
+      const results = { analytics: analyticsResult, executive: executiveResult, iot: iotResult };
+      const nextStates = Object.fromEntries(Object.entries(results).map(([key, result]) => {
+        if (result.status === "fulfilled" && result.value?.data) return [key, "online"];
+        const status = result.status === "rejected" ? (result.reason as { status?: number })?.status : undefined;
+        if (status === 401) return [key, "unauthorized"];
+        if (status === 403) return [key, "forbidden"];
+        return [key, "error"];
+      })) as DataSourceStates;
+      setSourceStates(nextStates);
       let connected = false;
       if (analyticsResult.status === "fulfilled" && analyticsResult.value?.data) {
         setDash(analyticsResult.value.data as DashboardData);
@@ -236,7 +264,7 @@ export default function EnterpriseCockpit() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authLoading, token]);
 
   useEffect(() => {
     const initial = window.setTimeout(load, 0);
@@ -263,6 +291,17 @@ export default function EnterpriseCockpit() {
   const peak = Math.max(...dash.production_trend.map((item) => item.value), 1);
   const qualityScore = warningTotal === 0 ? 100 : Math.max(82, 100 - warningTotal * 2);
   const inboundRate = productionToday > 0 ? Math.min(100, Math.round((k.today_inbound_qty / productionToday) * 100)) : 0;
+  const onlineSourceCount = Object.values(sourceStates).filter((state) => state === "online").length;
+  const forbiddenSourceCount = Object.values(sourceStates).filter((state) => state === "forbidden").length;
+  const sourceLabel = authLoading || loading
+    ? "数据连接中"
+    : onlineSourceCount === 3
+      ? "实时数据在线"
+      : onlineSourceCount > 0
+        ? `${onlineSourceCount}/3 数据源在线`
+        : forbiddenSourceCount > 0
+          ? "数据权限不足"
+          : "数据源连接失败";
 
   const kpis = [
     { label: "今日产蛋", value: formatNumber(productionToday), unit: "枚", delta: executive.meta?.todayLayRate != null ? `产蛋率 ${executive.meta.todayLayRate}%` : "养殖日报口径", Icon: Egg, tone: "amber" },
@@ -286,7 +325,7 @@ export default function EnterpriseCockpit() {
           <div className={styles.brandCopy}><span>PHOENIX ERP · DIGITAL OPERATIONS</span><strong>金凤凰企业全链路数字化经营中心</strong></div>
           <div className={styles.headerCenter}><i /><b>生产 · 销售 · 流通 · 财务</b><i /></div>
           <div className={styles.headerStatus}>
-            <div className={`${styles.liveBadge} ${online ? styles.live : styles.offline}`}><span />{online ? "实时数据在线" : "数据源待连接"}</div>
+            <div className={`${styles.liveBadge} ${online ? styles.live : styles.offline}`} title={`经营分析：${sourceStates.analytics}；经营 KPI：${sourceStates.executive}；设备：${sourceStates.iot}`}><span />{sourceLabel}</div>
             <button onClick={load} disabled={loading} title="刷新数据"><RefreshCw size={34} className={loading ? styles.spinning : ""} /></button>
             <button onClick={requestFullscreen} title="进入全屏"><Fullscreen size={34} /></button>
             <div className={styles.clock}><strong>{now.toLocaleTimeString("zh-CN", { hour12: false })}</strong><span>{now.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" })}</span></div>

@@ -31,6 +31,7 @@ const PUBLIC_PREFIXES = [
 /** 需要登录才能访问的路由前缀（admin + terminal + mobile） */
 const GUARDED_PREFIXES = [
   '/dashboard',
+  '/cockpit',
   '/breeding',
   '/packaging',
   '/warehouse',
