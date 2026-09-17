@@ -934,3 +934,13 @@ CS-0001 启用验证 run `35044079365` 成功：`readback=COMP-LAO-AGRI:CS-0001 
 FARM-DP 启用验证 run `35044194199` 成功：`readback=COMP-LAO-XINGCHI:FARM-DP flags=truetruetruetruefalsefalse`、`SITE_ROLLOUT_VERIFIED`。该站 Q/H 保持 false，无 Q/L4 声明，不发行标签。
 
 随后 HTTP 只读回归 run `35044231273` 成功：validate 与 audit 均成功，GET-only matrix `401`、列表 `200`（结构字段通过，items=25，仅输出计数/字段数）及哨兵详情 `404` 全部 PASS。token 仅临时使用并由 trap 销毁；未执行 POST/PUT/DELETE 或旗标变更。
+
+## 两站 Q/L4 就绪推进（2026-09-16）
+
+Codex 连续 3 次因模型容量受限未能执行重任务（PONG 探测可用、任务启动失败，已如实保留）；GitHub Actions 随后出现账户计费阻断（run 35168338264："recent account payments have failed or your spending limit needs to be increased"），全部 workflow 运行暂停，需维护者在 Billing & plans 处理。据此由父级直接完成可离线部分：
+
+- 就绪包：`packaging-history-ql4-readiness-CS-0001.md` 与 `packaging-history-ql4-readiness-FARM-DP.md`（六项证据清单、操作序列建议、evidenceRef 命名、升级命令；两站仓库/库位编码标注**待采集**——Actions 恢复后经 ops 通道只读补齐；明确标注物理验收未发生）；
+- 升级通道：site-rollout workflow 新增 `enable-full` action（前置校验 staged `truetruetruetruefalsefalse` → 事务升级 Q/H+qualification → 读回 `truetruetruetruetruetrue` 且资格非空 → `SITE_FULLY_ENABLED_VERIFIED`；输入字符集严格校验）；已推送 main（`1239e173`+merge `daba1afd`），**未 dispatch**（无 Q/L4 声明）；
+- FARM-DP 班次稀少（2 次，最近 2026-08-26），就绪包建议验收结合新活跃班次进行。
+
+后续流程：现场按就绪包验收 → 所有者声明 evidenceRef + deviceProfile → 一次 enable-full dispatch → 验证。两站 Q/H 在此之前保持 false。
