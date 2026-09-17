@@ -389,30 +389,14 @@ export default function EnterpriseCockpit() {
 
           <div className={styles.centerColumn}>
             <section className={styles.flowPanel}>
-              <div className={styles.flowTitle}><span>FARM PRODUCTION SITUATION</span><h1>养殖生产与供应链空间态势</h1><p>鸡舍 · 设备 · 产出 · 入库 · 销售 · 履约</p></div>
-              <div className={styles.farmSituation}>
-                <div className={styles.situationToolbar}>
-                  <div><b>生产场区实时态势</b><span>设备接入鸡舍与今日经营数据联动</span></div>
-                  <div className={styles.situationLegend}><span><i className={styles.legendOnline} />数据正常</span><span><i className={styles.legendDelayed} />延迟 / 无数据</span><span><i className={styles.legendAlert} />存在告警</span></div>
-                </div>
-                <div className={styles.farmMap}>
-                  <div className={styles.farmAxis}><span>生产一区</span><span>生产二区</span><span>生产三区</span></div>
-                  <div className={styles.houseSituationGrid}>
-                    {(houses.length ? houses.slice(0, 12) : Array.from({ length: 12 }, (_, index) => ({ houseCode: `H${String(index + 1).padStart(2, "0")}`, houseName: `${index + 1}号鸡舍`, hasData: false } as IotHouse))).map((house) => {
-                      const normal = house.dataFreshness === "normal";
-                      const alert = Number(house.alarmCount || 0) > 0;
-                      return <article key={house.houseCode} className={`${styles.situationHouse} ${alert ? styles.situationHouseAlert : ""}`}>
-                        <div><span className={alert ? styles.mapAlert : normal ? styles.mapOnline : styles.mapDelayed} /><b>{house.houseName || house.houseCode}</b><em>{house.hasData ? `${Math.round((house.onlineRate || 0) * 100)}%` : "待接入"}</em></div>
-                        <small>{house.houseCode}</small>
-                        <ul><li><Thermometer size={17} />{house.avgTemp != null ? `${house.avgTemp.toFixed(1)}℃` : "--"}</li><li><Droplets size={17} />{house.avgHumidity != null ? `${house.avgHumidity.toFixed(0)}%` : "--"}</li><li><Radio size={17} />{house.alarmCount || 0}</li></ul>
-                      </article>;
-                    })}
+              <div className={styles.flowTitle}><span>END-TO-END DIGITAL OPERATIONS</span><h1>企业生产经营全流程数字化链路</h1><p>一物一码 · 一批一档 · 业务财务一体 · 全程可追溯</p></div>
+              <div className={styles.flowLine}>
+                {processNodes.map(({ label, sub, Icon, tone }, index) => (
+                  <div className={styles.flowItem} key={label}>
+                    <div className={`${styles.processNode} ${styles[`tone_${tone}`]}`}><span>{String(index + 1).padStart(2, "0")}</span><Icon size={52} /><b>{label}</b><small>{sub}</small></div>
+                    {index < processNodes.length - 1 && <div className={styles.connector}><i /><span>›</span></div>}
                   </div>
-                  <div className={styles.mapCore}><Egg size={42} /><b>{formatNumber(productionToday)}</b><span>今日产蛋 / 枚</span></div>
-                </div>
-              </div>
-              <div className={styles.compactFlow}>
-                {processNodes.map(({ label, Icon, tone }, index) => <div key={label} className={`${styles.compactFlowNode} ${styles[`tone_${tone}`]}`}><span>{String(index + 1).padStart(2, "0")}</span><Icon size={30} /><b>{label}</b>{index < processNodes.length - 1 && <i>›</i>}</div>)}
+                ))}
               </div>
               <div className={styles.flowMetrics}>
                 <div><Activity size={38} /><span>今日业务吞吐</span><strong>{formatNumber(throughput)}</strong><em>枚</em></div>
