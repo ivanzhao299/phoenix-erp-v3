@@ -10,7 +10,7 @@ on:
       action:
         description: 'enumerate (read-only list) / enable (R/B/P/V on, Q/H off for one site)'
         type: choice
-        options: [enumerate, enable]
+        options: [enumerate, enable, enable-full]
         default: enumerate
       company_code:
         description: 'Target company code (enable mode only, e.g. COMP-LAO-AGRI)'
@@ -18,6 +18,14 @@ on:
         type: string
       site_code:
         description: 'Target site/farm code (enable mode only, e.g. LPH_MENGSAI)'
+        required: false
+        type: string
+      evidence_ref:
+        description: 'Q/L4 acceptance evidence reference (enable-full only, e.g. QL4-CS-0001-20260916)'
+        required: false
+        type: string
+      device_profile:
+        description: 'Qualified physical device profile (enable-full only)'
         required: false
         type: string
 
@@ -41,6 +49,8 @@ jobs:
           ROLLOUT_ACTION: ${{ inputs.action }}
           COMPANY_CODE: ${{ inputs.company_code }}
           SITE_CODE: ${{ inputs.site_code }}
+          EVIDENCE_REF: ${{ inputs.evidence_ref }}
+          DEVICE_PROFILE: ${{ inputs.device_profile }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -50,7 +60,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: ROLLOUT_ACTION,COMPANY_CODE,SITE_CODE
+          envs: ROLLOUT_ACTION,COMPANY_CODE,SITE_CODE,EVIDENCE_REF,DEVICE_PROFILE
           script: |
             set -Eeuo pipefail
             DB=phoenix-v3-db; DBNAME=phoenix_erp
@@ -67,6 +77,30 @@ jobs:
               exit 0
             fi
 
+            if [ "$ROLLOUT_ACTION" = "enable-full" ]; then
+              case "$COMPANY_CODE" in ''|*[!A-Za-z0-9_-]*) echo '::error::invalid company code'; exit 41;; esac
+              case "$SITE_CODE"    in ''|*[!A-Za-z0-9_-]*) echo '::error::invalid site code';    exit 42;; esac
+              case "$EVIDENCE_REF" in ''|*[!A-Za-z0-9_.:-]*) echo '::error::invalid evidence ref'; exit 47;; esac
+              case "$DEVICE_PROFILE" in ''|*[!A-Za-z0-9_.:-]*) echo '::error::invalid device profile'; exit 48;; esac
+              DICT_CODE="$COMPANY_CODE:$SITE_CODE"
+              STAGED=$(docker exec "$DB" psql -X -w -qAt -U phoenix_v3 -d "$DBNAME" -tAc "SELECT (config_json->>'R')||(config_json->>'B')||(config_json->>'P')||(config_json->>'V')||(config_json->>'H')||(config_json->>'Q') FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code='$DICT_CODE' AND status='ACTIVE'")
+              [ "$STAGED" = "truetruetruetruefalsefalse" ] || { echo "::error::site not in staged R/B/P/V state (got: $STAGED); rollout first"; exit 49; }
+              docker exec "$DB" psql -X -w -q -v ON_ERROR_STOP=1 -U phoenix_v3 -d "$DBNAME" -c \
+                "UPDATE sys_dict SET config_json = config_json
+                   || jsonb_build_object('H',true,'Q',true,'encodingVersion','PBX-v1','deviceProfile','$DEVICE_PROFILE',
+                       'qualification', jsonb_build_object('accepted',true,'evidenceRef','$EVIDENCE_REF','acceptedAt',now()::text))
+                 WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code='$DICT_CODE' AND status='ACTIVE'"
+              READBACK=$(docker exec "$DB" psql -X -w -qAt -U phoenix_metadata_readonly -d "$DBNAME" -tAc \
+                "SELECT (config_json->>'companyCode') || ':' || (config_json->>'siteCode') || ' flags=' ||
+                        (config_json->>'R')||(config_json->>'B')||(config_json->>'P')||(config_json->>'V')||(config_json->>'H')||(config_json->>'Q')
+                        || ' qualif=' || (config_json->'qualification'->>'accepted') || '/' || (config_json->'qualification'->>'evidenceRef)
+                 FROM sys_dict WHERE dict_type='PKG_HISTORY_POLICY' AND dict_code='$DICT_CODE' AND status='ACTIVE'")
+              echo "readback=$READBACK"
+              EXPECTED="${COMPANY_CODE}:${SITE_CODE} flags=truetruetruetruetruetrue qualif=true/$EVIDENCE_REF"
+              [ "$READBACK" = "$EXPECTED" ] || { echo "::error::readback mismatch (expected: $EXPECTED)"; exit 50; }
+              echo "SITE_FULLY_ENABLED_VERIFIED $DICT_CODE"
+              exit 0
+            fi
             [ "$ROLLOUT_ACTION" = "enable" ] || { echo '::error::unknown action'; exit 40; }
             case "$COMPANY_CODE" in ''|*[!A-Za-z0-9_-]*) echo '::error::invalid company code'; exit 41;; esac
             case "$SITE_CODE"    in ''|*[!A-Za-z0-9_-]*) echo '::error::invalid site code';    exit 42;; esac
