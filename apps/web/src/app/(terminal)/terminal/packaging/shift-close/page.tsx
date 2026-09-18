@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { packingHistoryRequest } from '@/lib/packing-history-api';
@@ -245,7 +246,7 @@ export default function ShiftClosePage() {
       minHeight: 0,
       padding: 24
     }}>
-        <p>旧交接记录 {summary.legacyHandoverBoxes} 箱；包装和核实入账数量使用原单统一口径。<a href="/terminal/packaging/history">查看原单统一交接与库存证据</a></p><div className={styles.summaryGrid}>
+        <p>旧交接记录 {summary.legacyHandoverBoxes} 箱；包装和核实入账数量使用原单统一口径。<Link href="/terminal/packaging/history">查看原单统一交接与库存证据</Link></p><div className={styles.summaryGrid}>
           {/* 接收 */}
           <div style={{
           background: T.CARD,

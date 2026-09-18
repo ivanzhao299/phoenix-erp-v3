@@ -1,0 +1,14 @@
+# Web ESLint debt ratchet
+
+Run commands from the repository root. Strict `lint:web` and `verify` remain unchanged.
+
+- `pnpm lint:web:inventory`: full ESLint JSON scan, canonical inventory in ignored `cache/lint/web-current.json`; lint debt itself does not fail this reporting command.
+- `pnpm lint:web:baseline:update`: explicitly generate `scripts/lint/web-baseline.json`. Review every baseline diff; ordinary lint/verify never updates it. After cleanup, explicitly update and commit reductions so they cannot be reintroduced later.
+- `pnpm lint:web:ratchet`: full scan compared with the tracked baseline file. Every `(repository-relative file, ruleId)` error count must be at or below its baseline count. Decreases elsewhere cannot offset an increase. Warnings are inventoried but nonblocking. Parsing/configuration/execution failures fail closed.
+- `pnpm lint:web:changed [--base REF]`: debt check for added/modified Web `.js/.jsx/.ts/.tsx` files including staged, unstaged and untracked files. An explicit base compares directly to that commit; otherwise use `merge-base HEAD origin/main`, then `HEAD~1` if origin/main is unavailable. Invalid explicit refs fail; an unavailable fallback fails. Deleted paths are skipped, and Git rename metadata maps the old baseline path to the new path before comparison. Existing files may retain historical errors but may not increase `(file, ruleId, severity)` counts; new paths must have zero errors. Git NUL output and argument arrays preserve spaces. The command prints the resolved base. On main synchronized with origin/main, the default intentionally checks only local changes; use an explicit pre-change commit to inspect an already-committed task.
+- `pnpm test:lint`: pure Node tests for inventory, comparison and changed-file selection.
+- `pnpm verify:changed`: script tests, API lint, Web changed-file lint, Web ratchet, both typechecks, unit tests and build. Uses the default changed-file base. For a specific base, run changed-file lint explicitly as well.
+
+The baseline has a schema version, sorted entries (`file`, `ruleId`, numeric `severity`, `count`) and derived summaries. No timestamps, local paths or machine metadata are stored. Counts do not distinguish replacements within the same file/rule; focused lint requires all errors in a changed file to be cleared. Existing ESLint configuration and ignores apply without any added suppression.
+
+CI proposal (not implemented here): add `test:lint`, `lint:web:ratchet` and changed-file lint to the existing Web tests workflow, fetch required history, and use an explicit PR base SHA (push: previous SHA). Review baseline updates separately and reject increases against the target branch's baseline; otherwise updating a baseline in the same PR could hide added debt. Keep the full strict lint result visible. Ratchet PASS means no growth, not a clean full lint.

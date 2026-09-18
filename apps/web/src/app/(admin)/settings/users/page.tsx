@@ -387,8 +387,8 @@ export default function UserManagementPage() {
         {/* View mode toggle */}
         <div style={{ display: "flex", gap: 2, background: "var(--bg-card)", borderRadius: 8,
           padding: 3, border: "1px solid var(--border)", flexShrink: 0 }}>
-          {([["grouped", <LayoutGrid size={13}/>, t("ui.分组视图", "分组视图")],
-             ["flat",    <List size={13}/>,       t("ui.列表视图", "列表视图")]] as const).map(([mode, icon, label]) => (
+          {([["grouped", <LayoutGrid key="grouped-icon" size={13}/>, t("ui.分组视图", "分组视图")],
+             ["flat",    <List key="flat-icon" size={13}/>,       t("ui.列表视图", "列表视图")]] as const).map(([mode, icon, label]) => (
             <button key={mode} type="button" onClick={() => setViewMode(mode as "grouped" | "flat")}
               title={label}
               style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",

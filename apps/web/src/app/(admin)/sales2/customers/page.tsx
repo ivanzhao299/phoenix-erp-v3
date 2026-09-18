@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
 import { Users, Layers, CreditCard, Plus, RefreshCw, Search, X } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -472,7 +473,7 @@ function CustomersTab() {
         }} /> {t('ui.刷新', '刷新')}
         </button>
         {/* G4-C：禁止销售页直接建客户；导向 G3 主数据中心 */}
-        <a href="/master-data/customers" className={s.btnPrimary} style={{
+        <Link href="/master-data/customers" className={s.btnPrimary} style={{
         display: "flex",
         alignItems: "center",
         gap: 6,
@@ -480,7 +481,7 @@ function CustomersTab() {
         textDecoration: "none"
       }}>
           <Plus size={13} /> {t('ui.前往主数据中心新增', '前往主数据中心新增')}
-        </a>
+        </Link>
       </div>
 
       {/* G4-C：销售视图说明横幅 */}
@@ -493,11 +494,11 @@ function CustomersTab() {
       fontSize: 12.5,
       color: "var(--color-info,var(--color-accent))"
     }}>
-        <strong>{t('ui.销售视图：', '销售视图：')}</strong>{t('ui.客户主数据已下沉至 ', '客户主数据已下沉至 ')}<a href="/master-data/customers" style={{
+        <strong>{t('ui.销售视图：', '销售视图：')}</strong>{t('ui.客户主数据已下沉至 ', '客户主数据已下沉至 ')}<Link href="/master-data/customers" style={{
         color: "inherit",
         fontWeight: 600,
         textDecoration: "underline"
-      }}>{t('ui.主数据中心', '主数据中心')}</a>，
+      }}>{t('ui.主数据中心', '主数据中心')}</Link>，
         {t('ui.请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、信用维度的销售侧扩展信息编辑。', '请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、信用维度的销售侧扩展信息编辑。')}
       </div>
 

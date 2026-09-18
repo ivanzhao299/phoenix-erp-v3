@@ -5,7 +5,10 @@ import { randomUUID } from 'crypto';
 export function normalizedPackingCode(input:unknown):string {
   if(typeof input!=='string')throw new BadRequestException('INVALID_BOX_SET');
   const code=input.trim();
-  if(!code||code.length>100||/[\x00-\x1f\x7f]/.test(code))throw new BadRequestException('INVALID_BOX_SET');
+  if(!code||code.length>100||Array.from(code).some(char => {
+    const codePoint = char.charCodeAt(0);
+    return codePoint <= 0x1f || codePoint === 0x7f;
+  }))throw new BadRequestException('INVALID_BOX_SET');
   return code;
 }
 @Injectable()

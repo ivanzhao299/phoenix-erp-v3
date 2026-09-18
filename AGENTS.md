@@ -57,7 +57,31 @@ pnpm lint
 
 # Web 单元测试
 cd apps/web && ./node_modules/.bin/vitest run
+
+# 根级开发基线（workspace 包名必须准确）
+pnpm lint:api
+pnpm lint:web
+pnpm lint
+pnpm typecheck:api
+pnpm typecheck:web
+pnpm typecheck
+pnpm test:api
+pnpm test:web
+pnpm test:unit
+pnpm verify       # lint + typecheck + unit test + build；不含 UAT / 全量 regression
 ```
+
+### Workspace 与环境检查
+
+- 根 workspace 包名：`phoenix-erp`、`phoenix-erp-v3-nest`（API）、`web`（Next.js）。根脚本必须使用包名过滤器，不要使用不存在的 `--filter api`。
+- API 验证：`pnpm typecheck:api`、`pnpm lint:api`、`pnpm test:api`；Web 验证：`pnpm typecheck:web`、`pnpm lint:web`、`pnpm test:web`。
+- 新 schema migration 只能放在 `apps/api/src/database/migrations/`；顶层 `migrations/` 与 `apps/api/migrations/` 是冻结的历史 SQL 基线。
+- 生产环境禁止在 API 启动或本地开发流程中执行 migration；生产 migration 只能由受控部署流程执行。禁止连接生产数据库、禁止把生产迁移加入 `verify`。
+- 开发前检查 `.env` 来源、`DB_*`、`JWT_SECRET`、API 3100/Web 3000 端口和 `API_TARGET`。不得把生产凭据写入本地文件或提交到仓库。
+- `origin` 是当前发布仓库，常规开发分支和 PR 以 `origin/main` 为基线；`upstream` 仅用于明确的只读对照或经授权的同步，不得未经要求直接推送。
+- 当前 CI 与 Dockerfile 使用 Node 20/pnpm 9 基线；根 `engines` 的 Node `>=18` 是较宽的兼容声明，未有统一真相源前不要自行升级生产 Node 或批量改版本声明。
+- Web lint 长期目标是 `pnpm lint:web` 全仓 zero-error；历史 debt 治理期间，`pnpm lint:web:ratchet` 禁止全局债务增长，`pnpm lint:web:changed` 禁止修改文件相对 baseline 增长债务，新 Web 文件不得包含 lint errors。
+- 清理 Web lint debt 后才可显式运行 `pnpm lint:web:baseline:update`，必须 review baseline diff；不得通过降低 rule severity、suppression 或忽略目录绕过 ratchet。
 
 ---
 

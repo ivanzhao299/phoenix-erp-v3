@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { packingHistoryRequest } from '@/lib/packing-history-api';
 import { packagingApi } from '@/lib/packaging-api';
@@ -104,7 +105,7 @@ export default function TerminalDashboard() {
     path: '/terminal/packaging/exceptions',
     desc: openExceptionCount > 0 ? `${openExceptionCount} ${t('ui.条未处理', '条未处理')}` : t('ui.快速上报', '快速上报')
   }];
-  if(loadedKey!==selectionKey)return <main><p role={loadError?'alert':'status'}>{loadError||(loading?'正在读取指定班次':'请选择班次')}</p><a href="/terminal/packaging/history">查询包装历史</a></main>;
+  if(loadedKey!==selectionKey)return <main><p role={loadError?'alert':'status'}>{loadError||(loading?'正在读取指定班次':'请选择班次')}</p><Link href="/terminal/packaging/history">查询包装历史</Link></main>;
   return <div style={{
     height: '100%',
     display: 'flex',

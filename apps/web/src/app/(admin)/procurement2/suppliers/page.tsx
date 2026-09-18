@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
 import { Plus, RefreshCw, Globe, Building2, FolderKanban } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -386,14 +387,14 @@ export default function SuppliersPage() {
             </button>
             {/* G4-B：采购页不就地建供应商，但 G131 提供直达入口——跳主数据中心并自动打开新增表单，
                 建档完成后 returnTo 自动回跳本页（采购员无需手动绕路） */}
-            <a href="/master-data/suppliers?create=1&returnTo=/procurement2/suppliers" className={s.btnPrimary} style={{
+            <Link href="/master-data/suppliers?create=1&returnTo=/procurement2/suppliers" className={s.btnPrimary} style={{
         display: "flex",
         alignItems: "center",
         gap: 6,
         textDecoration: "none"
       }}>
               <Plus size={14} /> {t('ui.新增供应商','新增供应商')}
-            </a>
+            </Link>
           </div>} />
 
       {/* G4-B：采购视图说明 */}
@@ -406,11 +407,11 @@ export default function SuppliersPage() {
       fontSize: 12.5,
       color: "var(--color-info,var(--color-accent))"
     }}>
-        <strong>{t('ui.采购视图（只读）：','采购视图（只读）：')}</strong>{t('ui.供应商主数据已下沉至','供应商主数据已下沉至')} <a href="/master-data/suppliers" style={{
+        <strong>{t('ui.采购视图（只读）：','采购视图（只读）：')}</strong>{t('ui.供应商主数据已下沉至','供应商主数据已下沉至')} <Link href="/master-data/suppliers" style={{
         color: "inherit",
         fontWeight: 600,
         textDecoration: "underline"
-      }}>{t('ui.主数据中心','主数据中心')}</a>，
+      }}>{t('ui.主数据中心','主数据中心')}</Link>，
         {t('ui.请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、停用/启用、采购侧扩展信息编辑能力。','请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、停用/启用、采购侧扩展信息编辑能力。')}
       </div>
 

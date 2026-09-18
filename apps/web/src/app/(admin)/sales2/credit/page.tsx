@@ -161,15 +161,6 @@ export default function CustomerCreditPage() {
     void load();
   }, [load]);
 
-  if (!canView) {
-    return (
-      <div className="flex items-center justify-center py-20 text-text-dim">
-        {t('ui.无权限查看信用管理','无权限查看信用管理')}
-      </div>
-    );
-  }
-
-  // 统计
   const { normalCount, frozenCount, warnCount } = useMemo(() => {
     let normal = 0, frozen = 0, warn = 0;
     for (const c of customers) {
@@ -180,6 +171,14 @@ export default function CustomerCreditPage() {
     }
     return { normalCount: normal, frozenCount: frozen, warnCount: warn };
   }, [customers]);
+
+  if (!canView) {
+    return (
+      <div className="flex items-center justify-center py-20 text-text-dim">
+        {t('ui.无权限查看信用管理','无权限查看信用管理')}
+      </div>
+    );
+  }
 
   return (
     <div>

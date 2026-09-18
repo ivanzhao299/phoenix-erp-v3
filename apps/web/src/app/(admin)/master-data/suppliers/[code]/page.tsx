@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { EntityWorkspace, Panel, DataTableV3 } from "@/components/design-system";
 import { inlineBadge } from "@/components/design-system/cockpit-styles";
 import { usePermission } from "@/hooks/usePermission";
@@ -311,13 +312,13 @@ export default function SupplierDetailPage() {
         status={statusBadge}
         onBack={() => router.push("/master-data/suppliers")}
         actions={
-          <a
+          <Link
             href="/master-data/suppliers"
             style={{ fontSize: 12, color: "var(--text-secondary)", display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-card)", textDecoration: "none" }}
             title={t('md.supplier_edit_back_hint','编辑请回到供应商列表的新增/编辑流程')}
           >
             <FileText size={13} /> {t('md.view_overview_readonly','查看全景（只读）· 编辑回列表')}
-          </a>
+          </Link>
         }
         tabs={[
           { key: "info", label: t('md.tab_basic_info','基本信息'), content: infoTab },
