@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -124,10 +124,35 @@ function save(file, data) {
   writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
 }
 
+function saveAtomic(file, data) {
+  mkdirSync(path.dirname(file), { recursive: true });
+  const temporary = `${file}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    writeFileSync(temporary, JSON.stringify(data, null, 2) + '\n');
+    renameSync(temporary, file);
+  } catch (error) {
+    try { unlinkSync(temporary); } catch { /* best effort cleanup */ }
+    throw error;
+  }
+}
+
+export function updateBaselineFile(baseline, current, target, acceptRegression = false) {
+  const debt = regressions(baseline, current);
+  const totalDelta = current.summary.totalErrors - baseline.summary.totalErrors;
+  if (debt.length && !acceptRegression) return { updated: false, debt, totalDelta };
+  saveAtomic(target, current);
+  return { updated: true, debt, totalDelta };
+}
+
+export function updateBaselineFromScan(scanCurrent, baseline, target, acceptRegression = false) {
+  return updateBaselineFile(baseline, scanCurrent(), target, acceptRegression);
+}
+
 function main() {
   const [mode, ...args] = process.argv.slice(2);
-  if (!['inventory', 'update', 'ratchet', 'changed'].includes(mode)) throw new Error('Expected inventory | update | ratchet | changed [--base REF]');
-  if (args.length && !(mode === 'changed' && args.length === 2 && args[0] === '--base' && args[1])) throw new Error('Only changed accepts --base REF');
+  if (!['inventory', 'update', 'ratchet', 'changed'].includes(mode)) throw new Error('Expected inventory | update [--accept-regression] | ratchet | changed [--base REF]');
+  const acceptsRegression = mode === 'update' && args.length === 1 && args[0] === '--accept-regression';
+  if (args.length && !acceptsRegression && !(mode === 'changed' && args.length === 2 && args[0] === '--base' && args[1])) throw new Error('Only update accepts --accept-regression and changed accepts --base REF');
   if (mode === 'changed') {
     const base = selectBase(args[1]);
     const diff = git(['diff', '--name-status', '-z', '-M', '--diff-filter=ACMRT', base, '--', 'apps/web']);
@@ -149,8 +174,20 @@ function main() {
   save(currentPath, current);
   console.log(`${current.summary.totalErrors} errors / ${current.summary.totalWarnings} warnings / ${current.summary.filesWithErrors} error files; inventory: cache/lint/web-current.json`);
   if (mode === 'update') {
-    save(baselinePath, current);
-    console.log('Baseline explicitly updated; review the diff before committing.');
+    const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
+    const result = updateBaselineFile(baseline, current, baselinePath, acceptsRegression);
+    if (result.debt.length && !acceptsRegression) {
+      for (const e of result.debt) console.error(`${e.before === 0 ? 'new file/rule pair' : 'increased existing count'}: ${e.file} ${e.ruleId}: baseline ${e.before} -> ${e.count}`);
+      console.error(`FAIL: baseline update would increase ${result.debt.length} error file/rule pairs (${result.totalDelta >= 0 ? '+' : ''}${result.totalDelta} total errors)`);
+      process.exitCode = 1;
+    } else {
+      if (acceptsRegression && result.debt.length) {
+        console.warn('ACCEPTING LINT DEBT REGRESSION');
+        for (const e of result.debt) console.warn(`${e.before === 0 ? 'new file/rule pair' : 'increased existing count'}: ${e.file} ${e.ruleId}: baseline ${e.before} -> ${e.count}`);
+        console.warn(`Total error delta: ${result.totalDelta >= 0 ? '+' : ''}${result.totalDelta}`);
+      }
+      console.log('Baseline explicitly updated atomically; review the diff before committing.');
+    }
   } else if (mode === 'ratchet') {
     const debt = regressions(JSON.parse(readFileSync(baselinePath, 'utf8')), current);
     for (const e of debt) console.error(`${e.file} ${e.ruleId}: ${e.before} -> ${e.count}`);

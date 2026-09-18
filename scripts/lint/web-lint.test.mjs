@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { inventory, regressions, changedRegressions, changedFiles, parseDiff, selectBase } from './web-lint.mjs';
+import { inventory, regressions, changedRegressions, updateBaselineFile, updateBaselineFromScan, changedFiles, parseDiff, selectBase } from './web-lint.mjs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 const entry = (count = 2, file = 'apps/web/a.ts', ruleId = 'rule-a', severity = 2) => ({ file, ruleId, severity, count });
 const data = (...entries) => ({ schemaVersion: 1, entries });
@@ -64,3 +67,47 @@ test('renames map the old baseline path to the new path', () => {
 });
 
 test('changed comparator fails closed on malformed baseline', () => assert.throws(() => changedRegressions(data({ ...entry(), count: -1 }), data(), ['apps/web/a.ts'])));
+
+test('baseline update is monotonic and preserves the file on rejection', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'web-lint-'));
+  const target = path.join(dir, 'baseline.json');
+  const baseline = { ...data(entry(5)), summary: { totalErrors: 5 } };
+  const same = { ...data(entry(5)), summary: { totalErrors: 5 } };
+  const reduced = { ...data(entry(4)), summary: { totalErrors: 4 } };
+  const increased = { ...data(entry(6)), summary: { totalErrors: 6 } };
+  updateBaselineFile(baseline, same, target);
+  const before = readFileSync(target, 'utf8');
+  assert.equal(updateBaselineFile(baseline, increased, target).updated, false);
+  assert.equal(readFileSync(target, 'utf8'), before);
+  assert.equal(updateBaselineFile(baseline, reduced, target).updated, true);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('new pairs, mixed rule changes, deleted entries and warning growth follow monotonic policy', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'web-lint-'));
+  const target = path.join(dir, 'baseline.json');
+  const baseline = { ...data(entry(5, 'apps/web/a.ts', 'rule-a')), summary: { totalErrors: 5 } };
+  const mixed = { ...data(entry(4, 'apps/web/a.ts', 'rule-a'), entry(1, 'apps/web/a.ts', 'rule-b')), summary: { totalErrors: 5 } };
+  assert.equal(updateBaselineFile(baseline, mixed, target).updated, false);
+  const deleted = { ...data(), summary: { totalErrors: 0 } };
+  assert.equal(updateBaselineFile(baseline, deleted, target).updated, true);
+  const warnings = { ...data(entry(5, 'apps/web/a.ts', 'rule-a'), entry(10, 'apps/web/a.ts', 'warning', 1)), summary: { totalErrors: 5 } };
+  assert.equal(updateBaselineFile(baseline, warnings, target).updated, true);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('explicit regression acceptance updates and malformed or failed scans do not write', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'web-lint-'));
+  const target = path.join(dir, 'baseline.json');
+  const baseline = { ...data(entry(5)), summary: { totalErrors: 5 } };
+  const increased = { ...data(entry(6)), summary: { totalErrors: 6 } };
+  const malformed = { schemaVersion: 1, entries: [{ ...entry(), count: 0 }], summary: { totalErrors: 0 } };
+  assert.throws(() => updateBaselineFile(baseline, malformed, target));
+  updateBaselineFile(baseline, baseline, target);
+  const beforeFailedScan = readFileSync(target, 'utf8');
+  assert.throws(() => updateBaselineFromScan(() => { throw new Error('ESLint failed'); }, baseline, target));
+  assert.equal(readFileSync(target, 'utf8'), beforeFailedScan);
+  assert.equal(updateBaselineFile(baseline, increased, target, true).updated, true);
+  assert.deepEqual(JSON.parse(readFileSync(target, 'utf8')), increased);
+  rmSync(dir, { recursive: true, force: true });
+});

@@ -82,6 +82,7 @@ pnpm verify       # lint + typecheck + unit test + build；不含 UAT / 全量 r
 - 当前 CI 与 Dockerfile 使用 Node 20/pnpm 9 基线；根 `engines` 的 Node `>=18` 是较宽的兼容声明，未有统一真相源前不要自行升级生产 Node 或批量改版本声明。
 - Web lint 长期目标是 `pnpm lint:web` 全仓 zero-error；历史 debt 治理期间，`pnpm lint:web:ratchet` 禁止全局债务增长，`pnpm lint:web:changed` 禁止修改文件相对 baseline 增长债务，新 Web 文件不得包含 lint errors。
 - 清理 Web lint debt 后才可显式运行 `pnpm lint:web:baseline:update`，必须 review baseline diff；不得通过降低 rule severity、suppression 或忽略目录绕过 ratchet。
+- 除非获得明确授权，不得将 lint debt regression 接受进 baseline；需要接受时必须显式使用 `--accept-regression` 并 review 输出。
 
 ---
 
