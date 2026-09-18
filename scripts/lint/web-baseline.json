@@ -1484,12 +1484,6 @@
       "count": 3
     },
     {
-      "file": "apps/web/src/app/(admin)/settings/users/page.tsx",
-      "ruleId": "react-hooks/set-state-in-effect",
-      "severity": 2,
-      "count": 1
-    },
-    {
       "file": "apps/web/src/app/(admin)/shareholders/SummaryBar.tsx",
       "ruleId": "@typescript-eslint/no-explicit-any",
       "severity": 2,
@@ -3129,12 +3123,12 @@
     }
   ],
   "summary": {
-    "totalErrors": 869,
+    "totalErrors": 868,
     "totalWarnings": 476,
     "filesWithErrors": 208,
     "errorsByRule": {
       "@typescript-eslint/no-explicit-any": 632,
-      "react-hooks/set-state-in-effect": 237
+      "react-hooks/set-state-in-effect": 236
     },
     "errorsByFile": {
       "apps/web/e2e/store-replenishment.spec.ts": 4,
@@ -3224,7 +3218,7 @@
       "apps/web/src/app/(admin)/settings/roles/page.tsx": 6,
       "apps/web/src/app/(admin)/settings/security/page.tsx": 1,
       "apps/web/src/app/(admin)/settings/users/[id]/page.tsx": 6,
-      "apps/web/src/app/(admin)/settings/users/page.tsx": 4,
+      "apps/web/src/app/(admin)/settings/users/page.tsx": 3,
       "apps/web/src/app/(admin)/shareholders/SummaryBar.tsx": 2,
       "apps/web/src/app/(admin)/shareholders/capital/import/page.tsx": 4,
       "apps/web/src/app/(admin)/shareholders/capital/page.tsx": 7,

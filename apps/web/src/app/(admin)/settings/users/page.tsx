@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -153,8 +153,6 @@ export default function UserManagementPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated  = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  useEffect(() => { setPage(1); }, [typeFilter, statusFilter, roleFilter, search, sortKey, sortDir, pageSize]);
-
   const counts = {
     ALL:  users.length,
     REAL: users.filter(u => (u.user_type || "REAL") === "REAL").length,
@@ -165,6 +163,7 @@ export default function UserManagementPage() {
   };
 
   const handleSort = (key: SortKey) => {
+    setPage(1);
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("asc"); }
   };
@@ -404,7 +403,7 @@ export default function UserManagementPage() {
         {/* Type tabs */}
         <div style={{ display: "flex", gap: 6 }}>
           {([["ALL", t("ui.全部", "全部")], ["REAL", "✅ " + t("ui.正式员工", "正式员工")], ["TEST", "🧪 " + t("ui.测试账号", "测试账号")]] as const).map(([key, label]) => (
-            <button key={key} type="button" onClick={() => setTypeFilter(key)}
+            <button key={key} type="button" onClick={() => { setTypeFilter(key); setPage(1); }}
               className={`${s.tabPill} ${typeFilter === key ? s.tabPillActive : ""}`}>
               {label}
               <span style={{ marginLeft: 5, fontSize: 11, opacity: 0.75 }}>({counts[key]})</span>
@@ -417,19 +416,19 @@ export default function UserManagementPage() {
           background: "var(--bg-card)", borderRadius: 8, padding: "7px 12px",
           border: "1px solid var(--border)", maxWidth: 280 }}>
           <Search size={13} color="var(--text-secondary)" style={{ flexShrink: 0 }}/>
-          <input value={search} onChange={e => setSearch(e.target.value)}
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
             placeholder={t("ui.搜索姓名账号角色", "搜索姓名、账号、角色…")}
             style={{ border: "none", background: "transparent", outline: "none",
               fontSize: 13, color: "var(--text-primary)", width: "100%" }}/>
           {search && (
-            <button type="button" onClick={() => setSearch("")}
+            <button type="button" onClick={() => { setSearch(""); setPage(1); }}
               style={{ border: "none", background: "transparent", cursor: "pointer",
                 color: "var(--text-secondary)", padding: 0, fontSize: 14, lineHeight: 1 }}>✕</button>
           )}
         </div>
 
         {/* Status filter */}
-	        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+	        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
 	          className={s.inp} style={{ width: "auto", padding: "7px 10px", fontSize: 13, minWidth: 100,
 	            borderColor: statusFilter !== "LIVE" ? "var(--color-primary)" : undefined }}>
 	          <option value="LIVE">{t("ui.在管账号", "在管账号")}</option>
@@ -440,7 +439,7 @@ export default function UserManagementPage() {
 	        </select>
 
         {/* Role filter */}
-        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+        <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); }}
           className={s.inp} style={{ width: "auto", padding: "7px 10px", fontSize: 13, minWidth: 140,
             borderColor: roleFilter ? "var(--color-primary)" : undefined }}>
           <option value="">{t("ui.全部角色", "全部角色")}</option>
@@ -448,7 +447,7 @@ export default function UserManagementPage() {
         </select>
 
         {hasActiveFilters && (
-	          <button type="button" onClick={() => { setSearch(""); setStatusFilter("LIVE"); setRoleFilter(""); }}
+	          <button type="button" onClick={() => { setSearch(""); setStatusFilter("LIVE"); setRoleFilter(""); setPage(1); }}
             style={{ fontSize: 12, color: "var(--status-danger)", background: "var(--status-danger-bg-faint)",
               border: "1px solid var(--status-danger-bg-medium)", borderRadius: 6,
               padding: "6px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -748,7 +747,7 @@ export default function UserManagementPage() {
                 <span>{t("common.total", "共")} <strong style={{ color: "var(--text-primary)" }}>{filtered.length}</strong> {t("ui.条", "条")}</span>
                 <span style={{ opacity: 0.4 }}>|</span>
                 <span>{t("ui.每页", "每页")}</span>
-                <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); }}
+                <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
                   style={{ border: "1px solid var(--border)", borderRadius: 6,
                     background: "var(--bg-card)", color: "var(--text-primary)",
                     padding: "3px 6px", fontSize: 13, cursor: "pointer" }}>
