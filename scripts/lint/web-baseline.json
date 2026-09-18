@@ -1305,12 +1305,6 @@
     },
     {
       "file": "apps/web/src/app/(admin)/settings/data-scopes/page.tsx",
-      "ruleId": "react-hooks/refs",
-      "severity": 2,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/app/(admin)/settings/data-scopes/page.tsx",
       "ruleId": "react-hooks/set-state-in-effect",
       "severity": 2,
       "count": 1
@@ -2445,12 +2439,6 @@
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx",
-      "ruleId": "react-hooks/refs",
-      "severity": 2,
-      "count": 2
-    },
-    {
-      "file": "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx",
       "ruleId": "react-hooks/set-state-in-effect",
       "severity": 2,
       "count": 2
@@ -2543,12 +2531,6 @@
       "file": "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx",
       "ruleId": "react-hooks/exhaustive-deps",
       "severity": 1,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx",
-      "ruleId": "react-hooks/refs",
-      "severity": 2,
       "count": 1
     },
     {
@@ -2985,18 +2967,6 @@
     },
     {
       "file": "apps/web/src/components/terminal/NumPad.tsx",
-      "ruleId": "(eslint diagnostic)",
-      "severity": 1,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/components/terminal/NumPad.tsx",
-      "ruleId": "react-hooks/refs",
-      "severity": 2,
-      "count": 2
-    },
-    {
-      "file": "apps/web/src/components/terminal/NumPad.tsx",
       "ruleId": "react-hooks/set-state-in-effect",
       "severity": 2,
       "count": 1
@@ -3080,20 +3050,8 @@
       "count": 1
     },
     {
-      "file": "apps/web/src/contexts/LanguageContext.tsx",
-      "ruleId": "react-hooks/refs",
-      "severity": 2,
-      "count": 3
-    },
-    {
       "file": "apps/web/src/contexts/MobileThemeContext.tsx",
       "ruleId": "react-hooks/set-state-in-effect",
-      "severity": 2,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/contexts/ToastContext.tsx",
-      "ruleId": "react-hooks/refs",
       "severity": 2,
       "count": 1
     },
@@ -3136,12 +3094,6 @@
     {
       "file": "apps/web/src/hooks/usePermission.test.ts",
       "ruleId": "@typescript-eslint/no-explicit-any",
-      "severity": 2,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/hooks/usePolling.ts",
-      "ruleId": "react-hooks/refs",
       "severity": 2,
       "count": 1
     },
@@ -3213,12 +3165,6 @@
     },
     {
       "file": "apps/web/src/lib/use-abortable-load.ts",
-      "ruleId": "react-hooks/refs",
-      "severity": 2,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/lib/use-abortable-load.ts",
       "ruleId": "react-hooks/set-state-in-effect",
       "severity": 2,
       "count": 1
@@ -3231,13 +3177,12 @@
     }
   ],
   "summary": {
-    "totalErrors": 893,
-    "totalWarnings": 477,
-    "filesWithErrors": 211,
+    "totalErrors": 881,
+    "totalWarnings": 476,
+    "filesWithErrors": 208,
     "errorsByRule": {
       "@typescript-eslint/no-explicit-any": 632,
       "react-hooks/purity": 5,
-      "react-hooks/refs": 12,
       "react-hooks/set-state-in-effect": 237,
       "react-hooks/static-components": 7
     },
@@ -3318,7 +3263,7 @@
       "apps/web/src/app/(admin)/settings/approval-flows/page.tsx": 1,
       "apps/web/src/app/(admin)/settings/approval-rules/page.tsx": 9,
       "apps/web/src/app/(admin)/settings/audit-log/page.tsx": 1,
-      "apps/web/src/app/(admin)/settings/data-scopes/page.tsx": 2,
+      "apps/web/src/app/(admin)/settings/data-scopes/page.tsx": 1,
       "apps/web/src/app/(admin)/settings/dict/page.tsx": 4,
       "apps/web/src/app/(admin)/settings/notifications/page.tsx": 10,
       "apps/web/src/app/(admin)/settings/online-users/page.tsx": 1,
@@ -3383,12 +3328,12 @@
       "apps/web/src/app/(mobile)/mobile/notifications/page.tsx": 2,
       "apps/web/src/app/(mobile)/mobile/packaging/page.tsx": 2,
       "apps/web/src/app/(mobile)/mobile/prc-order/page.tsx": 2,
-      "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx": 9,
+      "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx": 7,
       "apps/web/src/app/(mobile)/mobile/quality/page.tsx": 1,
       "apps/web/src/app/(mobile)/mobile/sales/page.tsx": 4,
       "apps/web/src/app/(mobile)/mobile/workflow/page.tsx": 7,
       "apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx": 1,
-      "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx": 5,
+      "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx": 4,
       "apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx": 3,
       "apps/web/src/app/(terminal)/terminal/packaging/qc-inspection/page.tsx": 5,
       "apps/web/src/app/(terminal)/terminal/packaging/shift-close/page.tsx": 2,
@@ -3426,21 +3371,18 @@
       "apps/web/src/components/shared-selectors/MasterDataSelectors.test.ts": 1,
       "apps/web/src/components/shared-selectors/MasterDataSelectors.tsx": 42,
       "apps/web/src/components/shared-selectors/MaterialPicker.tsx": 6,
-      "apps/web/src/components/terminal/NumPad.tsx": 3,
+      "apps/web/src/components/terminal/NumPad.tsx": 1,
       "apps/web/src/components/uat/FeedbackWidget.tsx": 2,
       "apps/web/src/components/ui/ConfirmDialog.tsx": 1,
       "apps/web/src/components/ui/CrudForm.tsx": 12,
       "apps/web/src/components/ui/CrudPage.tsx": 1,
       "apps/web/src/components/workflow/WorkflowMetricsStrip.tsx": 2,
       "apps/web/src/contexts/AuthContext.tsx": 1,
-      "apps/web/src/contexts/LanguageContext.tsx": 3,
       "apps/web/src/contexts/MobileThemeContext.tsx": 1,
-      "apps/web/src/contexts/ToastContext.tsx": 1,
       "apps/web/src/hooks/useCrud.ts": 2,
       "apps/web/src/hooks/useDictOptions.ts": 2,
       "apps/web/src/hooks/usePackingRecord.ts": 2,
       "apps/web/src/hooks/usePermission.test.ts": 1,
-      "apps/web/src/hooks/usePolling.ts": 1,
       "apps/web/src/hooks/useProductGrades.ts": 1,
       "apps/web/src/hooks/useTerminalContext.ts": 1,
       "apps/web/src/lib/api-client.ts": 1,
@@ -3451,7 +3393,7 @@
       "apps/web/src/lib/packing-history-api.ts": 1,
       "apps/web/src/lib/shareholder-api.ts": 2,
       "apps/web/src/lib/store-pos-api.ts": 2,
-      "apps/web/src/lib/use-abortable-load.ts": 2,
+      "apps/web/src/lib/use-abortable-load.ts": 1,
       "apps/web/src/middleware.ts": 1
     }
   }

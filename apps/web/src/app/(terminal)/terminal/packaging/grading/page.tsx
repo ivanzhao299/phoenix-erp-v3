@@ -56,7 +56,8 @@ export default function GradingPage() {
   const sourcePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const requestGeneration = useRef(0);
   const fetchSource = useRef(async () => undefined);
-  fetchSource.current = async () => {
+  useEffect(() => {
+    fetchSource.current = async () => {
     const generation = ++requestGeneration.current;
     if (!hasOpenShift) {
       setBatches([]);
@@ -74,7 +75,8 @@ export default function GradingPage() {
     } finally {
       if (generation === requestGeneration.current) setSummaryLoading(false);
     }
-  };
+    };
+  }, [hasOpenShift, shiftId]);
   useEffect(() => {
     void fetchSource.current();
     sourcePollRef.current = setInterval(() => void fetchSource.current(), 5000);

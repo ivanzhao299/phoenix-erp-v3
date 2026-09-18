@@ -21,7 +21,9 @@ export function usePolling(
 ): void {
   // 用 ref 存函数，避免 interval 回调闭包捕获旧的 fn 引用
   const fnRef = useRef(fn);
-  fnRef.current = fn;
+  useEffect(() => {
+    fnRef.current = fn;
+  }, [fn]);
 
   // 记录上次执行时间，标签切回来时判断是否需要补跑一次
   const lastRunRef = useRef<number>(0);

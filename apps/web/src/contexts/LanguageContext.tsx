@@ -38,19 +38,19 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
    *
    * 新方案：
    *   - 首屏只加载当前语言（通常 zh ≈ 208KB gzip 后约 40KB）
-   *   - 切换语言时才加载目标语言，且缓存在 translationsRef 里不重复加载
-   *   - translationsRef 存翻译数据（不经过 React state，无重渲染开销）
+   *   - 切换语言时才加载目标语言，且缓存在 translations 里不重复加载
+   *   - translations 由版本更新驱动消费者重渲染
    *   - translationsVersion 是纯数字，作为 t() 的依赖触发更新
    */
-  const translationsRef = useRef<Record<string, Record<string, string>>>({});
+  const [translations, setTranslations] = useState<Record<string, Record<string, string>>>({});
   const loadedLangsRef  = useRef<Set<string>>(new Set());
-  const [translationsVersion, bumpTranslations] = useReducer((x: number) => x + 1, 0);
+  const [, bumpTranslations] = useReducer((x: number) => x + 1, 0);
 
   /** 加载指定语言（已加载过则跳过） */
   const ensureLocale = useCallback((targetLang: string): Promise<void> => {
     if (loadedLangsRef.current.has(targetLang)) return Promise.resolve();
     return loadLocale(targetLang).then(dict => {
-      translationsRef.current = { ...translationsRef.current, [targetLang]: dict };
+      setTranslations(prev => ({ ...prev, [targetLang]: dict }));
       loadedLangsRef.current.add(targetLang);
       bumpTranslations();
     });
@@ -77,14 +77,14 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
    * - 其他变化：t() 引用不变，消费者不重渲染
    */
   const t = useCallback((key: string, fallback?: string): string => {
-    const dict = translationsRef.current[lang] || {};
+    const dict = translations[lang] || {};
     return dict[key] || fallback || key;
-  }, [lang, translationsVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lang, translations]);
 
   const literalTranslationMap = useMemo(() => {
     if (lang === 'zh') return new Map<string, string>();
-    const zhDict = translationsRef.current.zh || {};
-    const targetDict = translationsRef.current[lang] || {};
+    const zhDict = translations.zh || {};
+    const targetDict = translations[lang] || {};
     const map = new Map<string, string>();
     const allowedPrefixes = [
       'common.', 'ui.', 'menu.', 'status.', 'workflow.', 'approval.', 'settings.',
@@ -100,7 +100,7 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
       if (!map.has(source)) map.set(source, target);
     }
     return map;
-  }, [lang, translationsVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lang, translations]);
 
   const translateLiteral = useCallback((text: string): string => {
     if (!text || lang === 'zh') return text;

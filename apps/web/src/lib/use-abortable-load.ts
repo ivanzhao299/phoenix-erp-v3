@@ -29,7 +29,9 @@ export function useAbortableLoad<T>(
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const loaderRef = useRef(loader);
-  loaderRef.current = loader;
+  useEffect(() => {
+    loaderRef.current = loader;
+  }, [loader]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

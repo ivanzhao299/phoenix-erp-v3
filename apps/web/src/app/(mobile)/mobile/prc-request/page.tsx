@@ -401,10 +401,10 @@ export default function PrcRequestPage() {
   const [tab, setTab] = useState<Tab>('form');
 
   // 头表
-  const userInfo = useRef(getUserInfo());
+  const [userInfo] = useState(getUserInfo);
   const [subject, setSubject] = useState('');
-  const [companyCode, setCompanyCode] = useState(userInfo.current.companyCode);
-  const [companyName, setCompanyName] = useState(userInfo.current.companyName);
+  const [companyCode, setCompanyCode] = useState(userInfo.companyCode);
+  const [companyName, setCompanyName] = useState(userInfo.companyName);
   const [projectCode, setProjectCode] = useState('');
   const [projectName, setProjectName] = useState('');
   const [purchaseType, setPurchaseType] = useState('MATERIAL');

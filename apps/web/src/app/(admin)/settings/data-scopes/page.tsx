@@ -68,7 +68,9 @@ export default function DataScopesPage() {
   const toast = useToast();
   const { canView, canCreate, canEdit, canDelete } = usePermission('MENU_SETTINGS_DATA_SCOPE');
   const toastRef = useRef(toast);
-  toastRef.current = toast;
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
 
   const [scopes, setScopes]       = useState<DataScope[]>([]);
   const [roles, setRoles]         = useState<SysRole[]>([]);
