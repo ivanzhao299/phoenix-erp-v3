@@ -55,6 +55,11 @@ export function DocumentAutofillPanel({
   const [qualityText, setQualityText] = useState('');
   const progressTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  function clearProgressTimers() {
+    progressTimers.current.forEach(timer => clearTimeout(timer));
+    progressTimers.current = [];
+  }
+
   const canExtract = refs.length > 0 && !disabled;
   const selectedSuggestions = useMemo(
     () => suggestions.filter(s => selectedFields.has(s.field)),
@@ -67,11 +72,6 @@ export function DocumentAutofillPanel({
   }, [suggestions]);
 
   useEffect(() => () => clearProgressTimers(), []);
-
-  function clearProgressTimers() {
-    progressTimers.current.forEach(timer => clearTimeout(timer));
-    progressTimers.current = [];
-  }
 
   function scheduleProgress() {
     clearProgressTimers();

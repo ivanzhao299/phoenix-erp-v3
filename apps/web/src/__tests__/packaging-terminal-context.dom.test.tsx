@@ -16,11 +16,16 @@ import Layout from '@/app/(terminal)/layout';
 import Page from '@/app/(terminal)/terminal/packaging/shift-close/page';
 import { TerminalContextProvider, useTerminalContext } from '@/hooks/useTerminalContext';
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-let root: Root, host: HTMLDivElement, context: ReturnType<typeof useTerminalContext>;
+let root: Root, host: HTMLDivElement;
+const contextRef = { current: null as ReturnType<typeof useTerminalContext> | null };
 const candidate = { id:'56', code:'S56', status:'OPEN', productionDate:'2026-09-10' };
 const raw = (id='56', status='OPEN') => ({id,shift_code:`S${id}`,status,date_text:'2026-09-10',is_test:false});
 function deferred() { let resolve!: (v:any)=>void, reject!: (v:any)=>void; const promise = new Promise((a,b)=>{ resolve=a;reject=b; }); return {promise,resolve,reject}; }
-function Probe() { context = useTerminalContext(); return <span data-testid="shift">{context.ctx.currentShift?.id || 'none'}</span>; }
+function Probe() {
+  const value = useTerminalContext();
+  React.useEffect(() => { contextRef.current = value; }, [value]);
+  return <span data-testid="shift">{value.ctx.currentShift?.id || 'none'}</span>;
+}
 function save(value: unknown = candidate) { localStorage.setItem('phoenix_terminal_context:v2:7:real', JSON.stringify({version:2,userId:'7',mode:'real',currentShift:value})); }
 async function render(full=true) { await act(async () => { root.render(full ? <Layout><Probe/><Page/></Layout> : <TerminalContextProvider><Probe/><Page/></TerminalContextProvider>); }); }
 async function fullscreen(on:boolean) { await act(async()=>{ Object.defineProperty(document,'fullscreenElement',{configurable:true,value:on?document.documentElement:null}); document.dispatchEvent(new Event('fullscreenchange')); }); }
@@ -54,16 +59,16 @@ it.each(['legacy','json','identity','closed'])('handles %s cache/server state ex
 });
 it('ignores old success/error/finally after shift change and clears shared WIP for every consumer',async()=>{
   save();const old=deferred();mocks.summary.mockReturnValueOnce(old.promise);await render();await fullscreen(true);
-  await act(async()=>context.setGradingResult('OLD',{GRADE_5:999}));
-  await act(async()=>context.setShift({...candidate,id:'57'} as any));
-  expect(context.ctx.gradingOutputs).toBeNull();expect(context.ctx.currentShift?.id).toBe('57');
+  await act(async()=>contextRef.current!.setGradingResult('OLD',{GRADE_5:999}));
+  await act(async()=>contextRef.current!.setShift({...candidate,id:'57'} as any));
+  expect(contextRef.current!.ctx.gradingOutputs).toBeNull();expect(contextRef.current!.ctx.currentShift?.id).toBe('57');
   await act(async()=>old.reject(new Error('OLD failure')));expect(host.textContent).not.toContain('OLD failure');
   expect(host.querySelector<HTMLButtonElement>('button[disabled]')).toBeNull();
 });
 it('ignores late authority response after account changes and refuses to inherit previous identity cache',async()=>{
   save();const old=deferred();mocks.exact.mockReturnValueOnce(old.promise);await render();await fullscreen(true);
   mocks.auth.user={id:'8'};await render();await act(async()=>old.resolve(raw()));
-  expect(context.ctx.currentShift).toBeNull();expect(mocks.active).not.toHaveBeenCalled();
+  expect(contextRef.current!.ctx.currentShift).toBeNull();expect(mocks.active).not.toHaveBeenCalled();
 });
 it.each(['network','403','500'])('shows %s failure, no cached output fallback or enabled close action',async(message)=>{
   save();mocks.active.mockRejectedValue(new Error(message));await render();await fullscreen(true);
@@ -71,7 +76,7 @@ it.each(['network','403','500'])('shows %s failure, no cached output fallback or
   expect([...host.querySelectorAll('button')].some(b=>b.textContent?.includes('提交交班'))).toBe(false);
 });
 it('uses authoritative empty grading and actual warehouse fields, without inferred pallets',async()=>{
-  save();await render();await fullscreen(true);await act(async()=>context.setGradingResult('OLD',{GRADE_5:999}));
+  save();await render();await fullscreen(true);await act(async()=>contextRef.current!.setGradingResult('OLD',{GRADE_5:999}));
   expect(host.textContent).not.toContain('999');expect(host.textContent).toContain('0 托');expect(host.textContent).toContain('核实入账0 箱');
 });
 it('unmounted request completion cannot pollute a new fullscreen page',async()=>{
@@ -102,9 +107,9 @@ it.each(Object.keys(consumers))('mounts context consumer %s only after hydration
   const paint=()=>root.render(<Layout><Probe/><Consumer/></Layout>);
   await act(async()=>paint());await fullscreen(true);
   expect(mocks.summary).not.toHaveBeenCalled();expect(mocks.active).not.toHaveBeenCalled();
-  await act(async()=>check.resolve(raw()));expect(context.ctx.currentShift?.id).toBe('56');
-  await act(async()=>context.setGradingResult('OLD',{GRADE_5:999}));
+  await act(async()=>check.resolve(raw()));expect(contextRef.current!.ctx.currentShift?.id).toBe('56');
+  await act(async()=>contextRef.current!.setGradingResult('OLD',{GRADE_5:999}));
   mocks.auth.user={id:'8'};await act(async()=>paint());
-  expect(context.ctx.currentShift).toBeNull();expect(context.ctx.gradingOutputs).toBeNull();
+  expect(contextRef.current!.ctx.currentShift).toBeNull();expect(contextRef.current!.ctx.gradingOutputs).toBeNull();
   expect(host.textContent).not.toContain('999');
 });

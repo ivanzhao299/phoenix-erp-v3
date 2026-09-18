@@ -37,6 +37,13 @@ export function AttachmentUploader({ value, onChange, readOnly, label, apiBase }
     && (sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token'))) || '';
   const base = apiBase ?? (process.env.NEXT_PUBLIC_API_BASE || '');
 
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setCameraReady(false);
+  }
+
   useEffect(() => () => stopCamera(), []);
 
   // G134：支持一次多选 + 多次累加。批量内逐个串行上传，全部成功的 url 一次性合并进 value
@@ -122,13 +129,6 @@ export function AttachmentUploader({ value, onChange, readOnly, label, apiBase }
     } finally {
       setCameraBusy(false);
     }
-  }
-
-  function stopCamera() {
-    streamRef.current?.getTracks().forEach(track => track.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setCameraReady(false);
   }
 
   function closeCamera() {

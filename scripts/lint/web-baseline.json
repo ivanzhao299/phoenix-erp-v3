@@ -44,12 +44,6 @@
       "count": 9
     },
     {
-      "file": "apps/web/src/__tests__/packaging-terminal-context.dom.test.tsx",
-      "ruleId": "react-hooks/globals",
-      "severity": 2,
-      "count": 1
-    },
-    {
       "file": "apps/web/src/__tests__/packing-history-ui.dom.test.tsx",
       "ruleId": "@typescript-eslint/no-explicit-any",
       "severity": 2,
@@ -1916,12 +1910,6 @@
       "count": 1
     },
     {
-      "file": "apps/web/src/app/(admin)/warehouse/transfer/page.tsx",
-      "ruleId": "react-hooks/preserve-manual-memoization",
-      "severity": 2,
-      "count": 1
-    },
-    {
       "file": "apps/web/src/app/(admin)/warehouse/warehouses/page.tsx",
       "ruleId": "@typescript-eslint/no-unused-expressions",
       "severity": 1,
@@ -1991,12 +1979,6 @@
       "file": "apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx",
       "ruleId": "@typescript-eslint/no-unused-vars",
       "severity": 1,
-      "count": 3
-    },
-    {
-      "file": "apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx",
-      "ruleId": "react-hooks/error-boundaries",
-      "severity": 2,
       "count": 3
     },
     {
@@ -2463,12 +2445,6 @@
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx",
-      "ruleId": "react-hooks/immutability",
-      "severity": 2,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx",
       "ruleId": "react-hooks/refs",
       "severity": 2,
       "count": 2
@@ -2772,18 +2748,6 @@
       "ruleId": "@typescript-eslint/no-explicit-any",
       "severity": 2,
       "count": 2
-    },
-    {
-      "file": "apps/web/src/components/design-system/forms/AttachmentUploader.tsx",
-      "ruleId": "react-hooks/immutability",
-      "severity": 2,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/components/design-system/forms/DocumentAutofillPanel.tsx",
-      "ruleId": "react-hooks/immutability",
-      "severity": 2,
-      "count": 1
     },
     {
       "file": "apps/web/src/components/design-system/forms/DocumentAutofillPanel.tsx",
@@ -3267,15 +3231,11 @@
     }
   ],
   "summary": {
-    "totalErrors": 901,
+    "totalErrors": 893,
     "totalWarnings": 477,
-    "filesWithErrors": 212,
+    "filesWithErrors": 211,
     "errorsByRule": {
       "@typescript-eslint/no-explicit-any": 632,
-      "react-hooks/error-boundaries": 3,
-      "react-hooks/globals": 1,
-      "react-hooks/immutability": 3,
-      "react-hooks/preserve-manual-memoization": 1,
       "react-hooks/purity": 5,
       "react-hooks/refs": 12,
       "react-hooks/set-state-in-effect": 237,
@@ -3283,7 +3243,7 @@
     },
     "errorsByFile": {
       "apps/web/e2e/store-replenishment.spec.ts": 4,
-      "apps/web/src/__tests__/packaging-terminal-context.dom.test.tsx": 10,
+      "apps/web/src/__tests__/packaging-terminal-context.dom.test.tsx": 9,
       "apps/web/src/__tests__/packing-history-ui.dom.test.tsx": 6,
       "apps/web/src/__tests__/packing-history.dom.test.tsx": 3,
       "apps/web/src/__tests__/sales-activity-orders-page.test.ts": 5,
@@ -3396,8 +3356,7 @@
       "apps/web/src/app/(admin)/warehouse/outbound/page.tsx": 3,
       "apps/web/src/app/(admin)/warehouse/page.tsx": 1,
       "apps/web/src/app/(admin)/warehouse/source-mode/page.tsx": 1,
-      "apps/web/src/app/(admin)/warehouse/transfer/page.tsx": 1,
-      "apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx": 10,
+      "apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx": 7,
       "apps/web/src/app/(admin)/workflow/forms/submit/[formCode]/page.tsx": 6,
       "apps/web/src/app/(admin)/workflow/history/page.tsx": 1,
       "apps/web/src/app/(admin)/workflow/instances/page.tsx": 2,
@@ -3424,7 +3383,7 @@
       "apps/web/src/app/(mobile)/mobile/notifications/page.tsx": 2,
       "apps/web/src/app/(mobile)/mobile/packaging/page.tsx": 2,
       "apps/web/src/app/(mobile)/mobile/prc-order/page.tsx": 2,
-      "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx": 10,
+      "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx": 9,
       "apps/web/src/app/(mobile)/mobile/quality/page.tsx": 1,
       "apps/web/src/app/(mobile)/mobile/sales/page.tsx": 4,
       "apps/web/src/app/(mobile)/mobile/workflow/page.tsx": 7,
@@ -3444,8 +3403,8 @@
       "apps/web/src/components/design-system/KpiCardV2.tsx": 1,
       "apps/web/src/components/design-system/dialogs/ModalV2.tsx": 1,
       "apps/web/src/components/design-system/forms/AmountInput.tsx": 1,
-      "apps/web/src/components/design-system/forms/AttachmentUploader.tsx": 3,
-      "apps/web/src/components/design-system/forms/DocumentAutofillPanel.tsx": 2,
+      "apps/web/src/components/design-system/forms/AttachmentUploader.tsx": 2,
+      "apps/web/src/components/design-system/forms/DocumentAutofillPanel.tsx": 1,
       "apps/web/src/components/design-system/layouts/SearchBar.tsx": 1,
       "apps/web/src/components/design-system/layouts/ThemeSwitcher.tsx": 1,
       "apps/web/src/components/design-system/tables/DataTableV3.tsx": 10,
