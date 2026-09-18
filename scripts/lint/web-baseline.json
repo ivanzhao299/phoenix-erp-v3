@@ -2678,12 +2678,6 @@
       "count": 2
     },
     {
-      "file": "apps/web/src/components/design-system/forms/DocumentAutofillPanel.tsx",
-      "ruleId": "react-hooks/set-state-in-effect",
-      "severity": 2,
-      "count": 1
-    },
-    {
       "file": "apps/web/src/components/design-system/layouts/SearchBar.tsx",
       "ruleId": "react-hooks/set-state-in-effect",
       "severity": 2,
@@ -3123,12 +3117,12 @@
     }
   ],
   "summary": {
-    "totalErrors": 868,
+    "totalErrors": 867,
     "totalWarnings": 476,
-    "filesWithErrors": 208,
+    "filesWithErrors": 207,
     "errorsByRule": {
       "@typescript-eslint/no-explicit-any": 632,
-      "react-hooks/set-state-in-effect": 236
+      "react-hooks/set-state-in-effect": 235
     },
     "errorsByFile": {
       "apps/web/e2e/store-replenishment.spec.ts": 4,
@@ -3293,7 +3287,6 @@
       "apps/web/src/components/design-system/dialogs/ModalV2.tsx": 1,
       "apps/web/src/components/design-system/forms/AmountInput.tsx": 1,
       "apps/web/src/components/design-system/forms/AttachmentUploader.tsx": 2,
-      "apps/web/src/components/design-system/forms/DocumentAutofillPanel.tsx": 1,
       "apps/web/src/components/design-system/layouts/SearchBar.tsx": 1,
       "apps/web/src/components/design-system/layouts/ThemeSwitcher.tsx": 1,
       "apps/web/src/components/design-system/tables/DataTableV3.tsx": 10,

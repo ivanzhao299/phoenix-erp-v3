@@ -403,7 +403,7 @@ export default function UserManagementPage() {
         {/* Type tabs */}
         <div style={{ display: "flex", gap: 6 }}>
           {([["ALL", t("ui.全部", "全部")], ["REAL", "✅ " + t("ui.正式员工", "正式员工")], ["TEST", "🧪 " + t("ui.测试账号", "测试账号")]] as const).map(([key, label]) => (
-            <button key={key} type="button" onClick={() => { setTypeFilter(key); setPage(1); }}
+            <button key={key} type="button" onClick={() => { if (key !== typeFilter) { setTypeFilter(key); setPage(1); } }}
               className={`${s.tabPill} ${typeFilter === key ? s.tabPillActive : ""}`}>
               {label}
               <span style={{ marginLeft: 5, fontSize: 11, opacity: 0.75 }}>({counts[key]})</span>

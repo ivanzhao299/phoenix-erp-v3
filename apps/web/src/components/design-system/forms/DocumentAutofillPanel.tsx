@@ -66,11 +66,6 @@ export function DocumentAutofillPanel({
     [selectedFields, suggestions],
   );
 
-  useEffect(() => {
-    setSelectedFields(new Set(suggestions.map(s => s.field)));
-    setApplied(false);
-  }, [suggestions]);
-
   useEffect(() => () => clearProgressTimers(), []);
 
   function scheduleProgress() {
@@ -129,7 +124,10 @@ export function DocumentAutofillPanel({
       const warningList = Array.isArray(data?.warnings) ? data.warnings : [];
       setStatus(String(data?.status ?? ''));
       setWarnings(warningList);
-      setSuggestions(Array.isArray(data?.fieldSuggestions) ? data.fieldSuggestions : []);
+      const nextSuggestions: DocumentAutofillSuggestion[] = Array.isArray(data?.fieldSuggestions) ? data.fieldSuggestions : [];
+      setSuggestions(nextSuggestions);
+      setSelectedFields(new Set(nextSuggestions.map(s => s.field)));
+      setApplied(false);
       setQualityText(describeQuality(data, warningList));
       setProgress(100);
       setProgressText(Array.isArray(data?.fieldSuggestions) && data.fieldSuggestions.length ? t('ui.识别完成，等待人工确认','识别完成，等待人工确认') : t('ui.识别完成，未找到可直接回填字段','识别完成，未找到可直接回填字段'));
