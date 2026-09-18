@@ -194,12 +194,6 @@
       "count": 2
     },
     {
-      "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
-      "ruleId": "react-hooks/static-components",
-      "severity": 2,
-      "count": 1
-    },
-    {
       "file": "apps/web/src/app/(admin)/breeding/flock/page.tsx",
       "ruleId": "@typescript-eslint/no-explicit-any",
       "severity": 2,
@@ -564,12 +558,6 @@
       "ruleId": "@typescript-eslint/no-unused-vars",
       "severity": 1,
       "count": 3
-    },
-    {
-      "file": "apps/web/src/app/(admin)/home/page.tsx",
-      "ruleId": "react-hooks/purity",
-      "severity": 2,
-      "count": 2
     },
     {
       "file": "apps/web/src/app/(admin)/layout.tsx",
@@ -1035,12 +1023,6 @@
     },
     {
       "file": "apps/web/src/app/(admin)/quality/nonconformance/page.tsx",
-      "ruleId": "react-hooks/purity",
-      "severity": 2,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/app/(admin)/quality/nonconformance/page.tsx",
       "ruleId": "react-hooks/set-state-in-effect",
       "severity": 2,
       "count": 1
@@ -1466,12 +1448,6 @@
       "count": 1
     },
     {
-      "file": "apps/web/src/app/(admin)/settings/security/page.tsx",
-      "ruleId": "react-hooks/static-components",
-      "severity": 2,
-      "count": 4
-    },
-    {
       "file": "apps/web/src/app/(admin)/settings/store-stock/page.tsx",
       "ruleId": "@typescript-eslint/no-unused-vars",
       "severity": 1,
@@ -1649,12 +1625,6 @@
       "file": "apps/web/src/app/(admin)/store/page.tsx",
       "ruleId": "@typescript-eslint/no-unused-vars",
       "severity": 1,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/app/(admin)/store/page.tsx",
-      "ruleId": "react-hooks/purity",
-      "severity": 2,
       "count": 1
     },
     {
@@ -2222,12 +2192,6 @@
       "count": 2
     },
     {
-      "file": "apps/web/src/app/(mobile)/mobile/device/page.tsx",
-      "ruleId": "react-hooks/static-components",
-      "severity": 2,
-      "count": 1
-    },
-    {
       "file": "apps/web/src/app/(mobile)/mobile/egg/page.tsx",
       "ruleId": "@typescript-eslint/no-explicit-any",
       "severity": 2,
@@ -2505,12 +2469,6 @@
     },
     {
       "file": "apps/web/src/app/(mobile)/mobile/workflow/page.tsx",
-      "ruleId": "react-hooks/purity",
-      "severity": 2,
-      "count": 1
-    },
-    {
-      "file": "apps/web/src/app/(mobile)/mobile/workflow/page.tsx",
       "ruleId": "react-hooks/set-state-in-effect",
       "severity": 2,
       "count": 4
@@ -2556,12 +2514,6 @@
       "ruleId": "react-hooks/set-state-in-effect",
       "severity": 2,
       "count": 2
-    },
-    {
-      "file": "apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx",
-      "ruleId": "react-hooks/static-components",
-      "severity": 2,
-      "count": 1
     },
     {
       "file": "apps/web/src/app/(terminal)/terminal/packaging/packing/page.tsx",
@@ -3177,14 +3129,12 @@
     }
   ],
   "summary": {
-    "totalErrors": 881,
+    "totalErrors": 869,
     "totalWarnings": 476,
     "filesWithErrors": 208,
     "errorsByRule": {
       "@typescript-eslint/no-explicit-any": 632,
-      "react-hooks/purity": 5,
-      "react-hooks/set-state-in-effect": 237,
-      "react-hooks/static-components": 7
+      "react-hooks/set-state-in-effect": 237
     },
     "errorsByFile": {
       "apps/web/e2e/store-replenishment.spec.ts": 4,
@@ -3198,7 +3148,7 @@
       "apps/web/src/app/(admin)/breeding/daily/page.tsx": 8,
       "apps/web/src/app/(admin)/breeding/device-ops/page.tsx": 5,
       "apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx": 2,
-      "apps/web/src/app/(admin)/breeding/device/page.tsx": 9,
+      "apps/web/src/app/(admin)/breeding/device/page.tsx": 8,
       "apps/web/src/app/(admin)/breeding/flock/page.tsx": 4,
       "apps/web/src/app/(admin)/breeding/henhouse/page.tsx": 2,
       "apps/web/src/app/(admin)/breeding/henreport/page.tsx": 2,
@@ -3218,7 +3168,7 @@
       "apps/web/src/app/(admin)/finance2/page.tsx": 1,
       "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx": 1,
       "apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx": 4,
-      "apps/web/src/app/(admin)/home/page.tsx": 11,
+      "apps/web/src/app/(admin)/home/page.tsx": 9,
       "apps/web/src/app/(admin)/master-data/bank-accounts/[code]/edit/page.tsx": 6,
       "apps/web/src/app/(admin)/master-data/business-units/page.tsx": 1,
       "apps/web/src/app/(admin)/master-data/cash-accounts/[code]/edit/page.tsx": 6,
@@ -3250,7 +3200,7 @@
       "apps/web/src/app/(admin)/procurement2/shipments/page.tsx": 2,
       "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx": 2,
       "apps/web/src/app/(admin)/profile/page.tsx": 17,
-      "apps/web/src/app/(admin)/quality/nonconformance/page.tsx": 2,
+      "apps/web/src/app/(admin)/quality/nonconformance/page.tsx": 1,
       "apps/web/src/app/(admin)/sales2/channels/page.tsx": 1,
       "apps/web/src/app/(admin)/sales2/credit/page.tsx": 1,
       "apps/web/src/app/(admin)/sales2/customers/page.tsx": 20,
@@ -3272,7 +3222,7 @@
       "apps/web/src/app/(admin)/settings/pos-config/page.tsx": 1,
       "apps/web/src/app/(admin)/settings/roles/[code]/page.tsx": 2,
       "apps/web/src/app/(admin)/settings/roles/page.tsx": 6,
-      "apps/web/src/app/(admin)/settings/security/page.tsx": 5,
+      "apps/web/src/app/(admin)/settings/security/page.tsx": 1,
       "apps/web/src/app/(admin)/settings/users/[id]/page.tsx": 6,
       "apps/web/src/app/(admin)/settings/users/page.tsx": 4,
       "apps/web/src/app/(admin)/shareholders/SummaryBar.tsx": 2,
@@ -3284,7 +3234,7 @@
       "apps/web/src/app/(admin)/store-settlement/page.tsx": 2,
       "apps/web/src/app/(admin)/store/inventory/page.tsx": 2,
       "apps/web/src/app/(admin)/store/losses/page.tsx": 2,
-      "apps/web/src/app/(admin)/store/page.tsx": 3,
+      "apps/web/src/app/(admin)/store/page.tsx": 2,
       "apps/web/src/app/(admin)/store/receiving/page.tsx": 2,
       "apps/web/src/app/(admin)/store/replenish/page.tsx": 22,
       "apps/web/src/app/(admin)/system/alerts/page.tsx": 1,
@@ -3316,7 +3266,7 @@
       "apps/web/src/app/(mobile)/mobile/delivery/page.tsx": 2,
       "apps/web/src/app/(mobile)/mobile/delivery/performance/page.tsx": 1,
       "apps/web/src/app/(mobile)/mobile/delivery/receipt/[orderId]/page.tsx": 1,
-      "apps/web/src/app/(mobile)/mobile/device/page.tsx": 7,
+      "apps/web/src/app/(mobile)/mobile/device/page.tsx": 6,
       "apps/web/src/app/(mobile)/mobile/egg/page.tsx": 5,
       "apps/web/src/app/(mobile)/mobile/egglog/page.tsx": 11,
       "apps/web/src/app/(mobile)/mobile/expenses/page.tsx": 2,
@@ -3331,10 +3281,10 @@
       "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx": 7,
       "apps/web/src/app/(mobile)/mobile/quality/page.tsx": 1,
       "apps/web/src/app/(mobile)/mobile/sales/page.tsx": 4,
-      "apps/web/src/app/(mobile)/mobile/workflow/page.tsx": 7,
+      "apps/web/src/app/(mobile)/mobile/workflow/page.tsx": 6,
       "apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx": 1,
       "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx": 4,
-      "apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx": 3,
+      "apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx": 2,
       "apps/web/src/app/(terminal)/terminal/packaging/qc-inspection/page.tsx": 5,
       "apps/web/src/app/(terminal)/terminal/packaging/shift-close/page.tsx": 2,
       "apps/web/src/app/(terminal)/terminal/packaging/shift-open/page.tsx": 2,

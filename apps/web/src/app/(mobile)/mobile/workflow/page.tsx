@@ -83,6 +83,7 @@ function TaskCard({
   onTransfer: (t: WorkflowTask) => void;
   onDetail: (t: WorkflowTask) => void;
 }) {
+  const [renderTime] = useState(() => Date.now());
   const {
     t,
     isDark
@@ -236,7 +237,7 @@ function TaskCard({
 
         {/* ── Phase F: SLA 倒计时 / 超期提示 ── */}
         {task.dueAt && (() => {
-        const msLeft = new Date(task.dueAt).getTime() - Date.now();
+        const msLeft = new Date(task.dueAt).getTime() - renderTime;
         const hLeft = Math.floor(msLeft / 3600000);
         if (task.isOverdue) {
           const hOver = Math.abs(hLeft);

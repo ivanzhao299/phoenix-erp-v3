@@ -55,7 +55,7 @@ export default function SecurityPolicyPage() {
       setLoading(false);
     });
   }, [auditPerm.canView, securityPerm.canView, userPerm.canView]);
-  const InfoCard = ({
+  const infoCard = ({
     icon,
     title,
     value,
@@ -117,10 +117,10 @@ export default function SecurityPolicyPage() {
       gap: 16,
       marginBottom: 20
     }}>
-        <InfoCard icon={<Clock size={20} />} title={t('ui.Token有效期', 'Token 有效期')} value={t('ui.8小时', '8 小时')} desc={t('ui.登录状态自动失效时间', '登录状态自动失效时间')} />
-        <InfoCard icon={<Shield size={20} />} title={t('ui.API请求限制', 'API 请求限制')} value={t('ui.300次15分钟', '300次/15分钟')} desc={t('ui.按IP防暴力破解', '按 IP 防暴力破解')} color="var(--color-warning)" />
-        <InfoCard icon={<Users size={20} />} title={t('ui.冻结账户', '冻结账户')} value={!userPerm.canView ? t('ui.受限', '受限') : loading ? "…" : frozenUsers.length} desc={!userPerm.canView ? t('ui.需要用户管理权限查看账户状态', '需要用户管理权限查看账户状态') : frozenUsers.length > 0 ? frozenUsers.map(u => u.username).join(", ") : t('ui.无冻结账户', '无冻结账户')} color={frozenUsers.length > 0 ? "var(--status-danger)" : "var(--status-success)"} />
-        <InfoCard icon={<Lock size={20} />} title={t('ui.密码加密', '密码加密')} value="bcrypt+Salt" desc={t('ui.独立随机盐无彩虹表风险', '独立随机盐，无彩虹表风险')} color="var(--status-success)" />
+        {infoCard({ icon: <Clock size={20} />, title: t('ui.Token有效期', 'Token 有效期'), value: t('ui.8小时', '8 小时'), desc: t('ui.登录状态自动失效时间', '登录状态自动失效时间') })}
+        {infoCard({ icon: <Shield size={20} />, title: t('ui.API请求限制', 'API 请求限制'), value: t('ui.300次15分钟', '300次/15分钟'), desc: t('ui.按IP防暴力破解', '按 IP 防暴力破解'), color: "var(--color-warning)" })}
+        {infoCard({ icon: <Users size={20} />, title: t('ui.冻结账户', '冻结账户'), value: !userPerm.canView ? t('ui.受限', '受限') : loading ? "…" : frozenUsers.length, desc: !userPerm.canView ? t('ui.需要用户管理权限查看账户状态', '需要用户管理权限查看账户状态') : frozenUsers.length > 0 ? frozenUsers.map(u => u.username).join(", ") : t('ui.无冻结账户', '无冻结账户'), color: frozenUsers.length > 0 ? "var(--status-danger)" : "var(--status-success)" })}
+        {infoCard({ icon: <Lock size={20} />, title: t('ui.密码加密', '密码加密'), value: "bcrypt+Salt", desc: t('ui.独立随机盐无彩虹表风险', '独立随机盐，无彩虹表风险'), color: "var(--status-success)" })}
       </div>
       <div style={{
       ...card,
