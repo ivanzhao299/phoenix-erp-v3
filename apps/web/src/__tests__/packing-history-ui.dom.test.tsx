@@ -2,19 +2,20 @@
 import React,{act} from 'react';
 import {createRoot,Root} from 'react-dom/client';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
-const mocks=vi.hoisted(()=>({user:{id:'TEST-A'} as any,request:vi.fn(),print:vi.fn()}));
+type MockLinkProps = { href: string; children?: React.ReactNode };
+const mocks=vi.hoisted(()=>({user:{id:'TEST-A'},request:vi.fn(),print:vi.fn()}));
 vi.mock('@/contexts/LanguageContext',()=>({useLanguage:()=>({t:(_key:string,fallback:string)=>fallback})}));
 vi.mock('@/contexts/AuthContext',()=>({useAuth:()=>({user:mocks.user})}));
 vi.mock('@/lib/packing-history-api',async importOriginal=>({...await importOriginal<object>(),packingHistoryRequest:mocks.request}));
 vi.mock('@/components/packaging/printLabel',()=>({printLabel:mocks.print}));
 vi.mock('next/navigation',()=>({usePathname:()=>'/packaging/history/TEST-A'}));
-vi.mock('next/link',()=>({default:({href,children}:any)=><a href={href}>{children}</a>}));
+vi.mock('next/link',()=>({default:({href,children}:MockLinkProps)=><a href={href}>{children}</a>}));
 import PackingHistoryList from '@/components/packaging/PackingHistoryList';
 import PackingRecordDetail from '@/components/packaging/PackingRecordDetail';
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT=true;
 let root:Root,host:HTMLDivElement;
 const record=(code:string)=>({record:{id:code,code,productionDate:'2026-01-02',totalEggs:30,totalBoxes:1,recordStatus:'ACTIVE'},shift:{id:'1',code:'TEST-SHIFT',status:'CLOSED'},ownership:{companyCode:'TEST-C',siteCode:'TEST-F'},outputs:[],sources:[],boxes:[{boxId:'TEST-BOX',originalQty:30,labels:[{code:'TEST-LABEL',kind:'CANONICAL',status:'ACTIVE',resolution:'BOUND'}]}],events:[],inventory:{batches:[],ledger:[]},handover:{state:'PENDING',quality:'VERIFIED'},receipt:{state:'NOT_RECORDED'},identityStatus:'REGISTERED',expectedBoxCount:1,revision:'TEST-REVISION',policy:{V:true,encodingVersion:'TEST-NON-BUSINESS-v1'},actions:{registerBoxes:{allowed:true,reasons:[]},print:{allowed:true,reasons:[]},confirm:{allowed:false,reasons:[]}}});
-function deferred(){let resolve!:(v:any)=>void;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};}
+function deferred(){let resolve!:(v:unknown)=>void;const promise=new Promise<unknown>(r=>{resolve=r;});return {promise,resolve};}
 beforeEach(()=>{mocks.user={id:'TEST-A'};mocks.request.mockReset();mocks.print.mockReset();sessionStorage.clear();window.history.replaceState(null,'','/packaging/history');host=document.createElement('div');document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 it('list account switch clears old rows immediately and discards late responses',async()=>{
@@ -40,7 +41,7 @@ it('HTTP failure displays no invented pending record and no print/confirm contro
 });
 
 it('server unknown print state disables reprint even with reason',async()=>{
- const d=record('TEST-A');(d.boxes[0] as any).printBlockedReason='打印结果未知，请先查询并核实原打印请求';
+ const d=record('TEST-A');Object.assign(d.boxes[0], { printBlockedReason: '打印结果未知，请先查询并核实原打印请求' });
  mocks.request.mockImplementation((path:string)=>Promise.resolve(path.includes('/candidates')?[]:d));
  await act(async()=>root.render(<PackingRecordDetail packingCode="TEST-A"/>));
  const button=Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='请求打印 / 同码补打')!;
@@ -96,7 +97,7 @@ it.each(['original','account'])('late confirm success cannot pollute a changed %
  expect(Array.from(host.querySelectorAll('select')).every(s=>s.value==='')).toBe(true);expect(host.textContent).toContain('本轮已核验 0 箱');vi.restoreAllMocks();
 });
 it('old physical label declaration has a truthful distinct registration action',async()=>{
- const d=record('TEST-A');d.identityStatus='UNREGISTERED';d.boxes=[];d.outputs=[{outputOrdinal:0,original:{boxes:1,eggs:30}}] as any;
+ const d=record('TEST-A');d.identityStatus='UNREGISTERED';d.boxes=[];Object.assign(d, { outputs: [{ outputOrdinal: 0, original: { boxes: 1, eggs: 30 } }] });
  mocks.request.mockImplementation((path:string)=>Promise.resolve(path.includes('/candidates')?[]:d));await act(async()=>root.render(<PackingRecordDetail packingCode="TEST-A"/>));
  await act(async()=>{(host.querySelector('input[type="checkbox"]') as HTMLInputElement).click();});expect(host.textContent).toContain('登记逐箱旧标签实测事实');expect(host.textContent).toContain('产出 1 箱 1 实测旧码');expect(host.textContent).not.toContain('确认未贴标事实并登记');
 });

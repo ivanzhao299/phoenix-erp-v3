@@ -38,30 +38,6 @@
       "count": 1
     },
     {
-      "file": "apps/web/src/__tests__/packaging-terminal-context.dom.test.tsx",
-      "ruleId": "@typescript-eslint/no-explicit-any",
-      "severity": 2,
-      "count": 9
-    },
-    {
-      "file": "apps/web/src/__tests__/packing-history-ui.dom.test.tsx",
-      "ruleId": "@typescript-eslint/no-explicit-any",
-      "severity": 2,
-      "count": 6
-    },
-    {
-      "file": "apps/web/src/__tests__/packing-history.dom.test.tsx",
-      "ruleId": "@typescript-eslint/no-explicit-any",
-      "severity": 2,
-      "count": 3
-    },
-    {
-      "file": "apps/web/src/__tests__/sales-activity-orders-page.test.ts",
-      "ruleId": "@typescript-eslint/no-explicit-any",
-      "severity": 2,
-      "count": 5
-    },
-    {
       "file": "apps/web/src/app/(admin)/analytics/feed/page.tsx",
       "ruleId": "react-hooks/exhaustive-deps",
       "severity": 1,
@@ -3117,19 +3093,15 @@
     }
   ],
   "summary": {
-    "totalErrors": 867,
+    "totalErrors": 844,
     "totalWarnings": 476,
-    "filesWithErrors": 207,
+    "filesWithErrors": 203,
     "errorsByRule": {
-      "@typescript-eslint/no-explicit-any": 632,
+      "@typescript-eslint/no-explicit-any": 609,
       "react-hooks/set-state-in-effect": 235
     },
     "errorsByFile": {
       "apps/web/e2e/store-replenishment.spec.ts": 4,
-      "apps/web/src/__tests__/packaging-terminal-context.dom.test.tsx": 9,
-      "apps/web/src/__tests__/packing-history-ui.dom.test.tsx": 6,
-      "apps/web/src/__tests__/packing-history.dom.test.tsx": 3,
-      "apps/web/src/__tests__/sales-activity-orders-page.test.ts": 5,
       "apps/web/src/app/(admin)/analytics/page.tsx": 1,
       "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx": 1,
       "apps/web/src/app/(admin)/breeding/daily-inbound/page.tsx": 1,

@@ -2,14 +2,14 @@
 import React,{act} from 'react';
 import {createRoot,Root} from 'react-dom/client';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
-const mocks=vi.hoisted(()=>({user:{id:'TEST-A'} as any,request:vi.fn()}));
+const mocks=vi.hoisted(()=>({user:{id:'TEST-A'},request:vi.fn()}));
 vi.mock('@/contexts/AuthContext',()=>({useAuth:()=>({user:mocks.user})}));
 vi.mock('@/lib/packing-history-api',async importOriginal=>({...await importOriginal<object>(),packingHistoryRequest:mocks.request}));
 import {usePackingRecord} from '@/hooks/usePackingRecord';
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT=true;
 let root:Root,host:HTMLDivElement;
 function Probe({code}:{code:string}){const state=usePackingRecord(code);return <div>{state.error||state.data?.marker||state.data?.record.code||'LOADING'}</div>;}
-function deferred(){let resolve!:(v:any)=>void;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};}
+function deferred(){let resolve!:(v:unknown)=>void;const promise=new Promise<unknown>(r=>{resolve=r;});return {promise,resolve};}
 beforeEach(()=>{mocks.user={id:'TEST-A'};mocks.request.mockReset();host=document.createElement('div');document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 it('A to B to A ignores stale original request even if response arrives last',async()=>{const old=deferred();mocks.request.mockReturnValueOnce(old.promise).mockResolvedValueOnce({record:{code:'B'}}).mockResolvedValueOnce({record:{code:'A'},marker:'A-new'});
