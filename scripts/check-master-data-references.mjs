@@ -74,7 +74,7 @@ function walkTs(dir, out = []) {
     const p = join(dir, f);
     const st = statSync(p);
     if (st.isDirectory()) walkTs(p, out);
-    else if (f.endsWith('.ts') && !f.endsWith('.d.ts') && !f.endsWith('.spec.ts')) out.push(p);
+    else if (f.endsWith('.ts') && !f.endsWith('.d.ts') && !f.endsWith('.spec.ts') && !f.endsWith('.fixture.ts')) out.push(p);
   }
   return out;
 }

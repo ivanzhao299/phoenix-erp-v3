@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
+import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { hasPerm } from '../../auth/permissions.util';
 import { completePackingSources, originalOutputs, packingEvidence, packingHash } from './packaging-evidence.service';
 import { packagingTestMode } from './packaging-protection';
@@ -58,14 +59,14 @@ export class PackagingHistoryService {
       ws.shift_code,ws.production_date::text shift_date,ws.status shift_status,ws.site_id,f.company_code,
       (SELECT count(*)::integer FROM pkg_packing_boxes bx WHERE bx.packing_id=p.id) registered_box_count,src.rows sources,inv.rows inventory,led.rows ledger,ho.rows handovers,receipt.payload commit_receipt,COALESCE(mode.mode,'TEMP_PRODUCTION_INBOUND') inventory_mode,${page?.report?'NULL::text':'packing_posting_state(to_jsonb(p),inv.rows,led.rows,ho.rows,receipt.payload)'} posting_state
       FROM pkg_packing_records p JOIN pkg_work_shifts ws ON ws.id=p.shift_id AND NOT ws.is_test
-      JOIN brd_farms f ON f.farm_code=ws.site_id
+      JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=ws.site_id
       CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('gradingId',g.id::text,'gradingCode',g.code,
         'sourceBatchId',s.id::text,'sourceBatchCode',s.batch_code,'houseCode',s.house_code,'siteCode',sf.farm_code,
         'companyCode',sf.company_code,'sourceOriginalQty',s.received_qty,'allocationQty',NULL,'precision','RELATED_ONLY',
         'gradingShiftId',g.shift_id::text,'gradingDate',g.production_date::text,'sourceShiftId',s.shift_id::text,'sourceDate',s.production_date::text,'gradingStatus',g.status,'sourceStatus',s.batch_status,'isTest',g.is_test OR s.is_test)), '[]') rows
         FROM pkg_grading_records g LEFT JOIN pkg_grading_source_links l ON l.grading_id=g.id
         LEFT JOIN pkg_source_batches s ON s.id=l.source_batch_id LEFT JOIN brd_houses sh ON sh.house_code=s.house_code
-        LEFT JOIN brd_farms sf ON sf.farm_code=sh.farm_code WHERE g.code=ANY(ARRAY
+        LEFT JOIN ${OrgOwnershipService.FARM_TABLE} sf ON sf.farm_code=sh.farm_code WHERE g.code=ANY(ARRAY
         (SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(p.grading_codes_json)='array' AND jsonb_array_length(p.grading_codes_json)>0
           THEN p.grading_codes_json ELSE jsonb_build_array(p.grading_code) END)))) src
       CROSS JOIN LATERAL (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',b.id::text,'batch_no',b.batch_no,'qty',b.qty,'qty_available',b.qty_available,'egg_date',b.egg_date,'inbound_date',b.inbound_date,'company_code',b.company_code,'warehouse_code',b.warehouse_code,'location_code',b.location_code,'status',b.status,'source_type',b.source_type,'source_no',b.source_no,'product_code',b.product_code,'sku_code',b.sku_code,'spec_code',b.spec_code,'grade_code_std',b.grade_code_std,'packaging_batch_ref',b.packaging_batch_ref)), '[]') rows FROM inv_batches b
@@ -175,7 +176,7 @@ export class PackagingHistoryService {
     await em.query('SET TRANSACTION READ ONLY');
     const selected=await this.rows(scope,em,undefined,{q,cursor:null,size:100,report:true});
     if(q.aggregation==='SHIFT'){
-      const [shift]=await em.query(`SELECT ws.production_date::text date FROM pkg_work_shifts ws JOIN brd_farms f ON f.farm_code=ws.site_id WHERE ws.id=$1 AND NOT ws.is_test
+      const [shift]=await em.query(`SELECT ws.production_date::text date FROM pkg_work_shifts ws JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=ws.site_id WHERE ws.id=$1 AND NOT ws.is_test
         AND ($2 OR (f.company_code=ANY($3::text[]) AND ws.site_id=ANY($4::text[])))`,[q.shiftId,scope.isGlobal,scope.allowedCompanyCodes,scope.allowedFarmCodes]);
       if(!shift)throw new NotFoundException('RECORD_NOT_ACCESSIBLE');
       if(shift.date<from||shift.date>to)throw new BadRequestException('SHIFT_DATE_MISMATCH');
@@ -185,11 +186,11 @@ export class PackagingHistoryService {
       params.push(s.isGlobal,s.allowedCompanyCodes,s.allowedFarmCodes);const i=params.length-2;
       return `($${i} OR (f.company_code=ANY($${i+1}::text[]) AND ws.site_id=ANY($${i+2}::text[])
        AND NOT EXISTS(SELECT 1 FROM pkg_grading_source_links sl JOIN pkg_source_batches sb ON sb.id=sl.source_batch_id
-        LEFT JOIN brd_houses bh ON bh.house_code=sb.house_code LEFT JOIN brd_farms bf ON bf.farm_code=bh.farm_code WHERE sl.grading_id=g.id
+        LEFT JOIN brd_houses bh ON bh.house_code=sb.house_code LEFT JOIN ${OrgOwnershipService.FARM_TABLE} bf ON bf.farm_code=bh.farm_code WHERE sl.grading_id=g.id
         AND (bf.company_code IS NULL OR bf.farm_code IS NULL OR NOT(bf.company_code=ANY($${i+1}::text[]) AND bf.farm_code=ANY($${i+2}::text[]))))))`;
     }).join(' OR ');
     const [grading]=await em.query(`SELECT COALESCE(sum(g.total_output),0)::bigint::text qty FROM pkg_grading_records g JOIN pkg_work_shifts ws ON ws.id=g.shift_id
-      JOIN brd_farms f ON f.farm_code=ws.site_id WHERE NOT g.is_test AND NOT ws.is_test AND g.status='ACTIVE'
+      JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=ws.site_id WHERE NOT g.is_test AND NOT ws.is_test AND g.status='ACTIVE'
       AND g.production_date BETWEEN $1::date AND $2::date AND ($3::bigint IS NULL OR ws.id=$3::bigint)
       AND ($4::text IS NULL OR f.company_code=$4) AND ($5::text IS NULL OR ws.site_id=$5) AND (${visibility})`,params);
     const active=selected.filter(r=>r.status==='ACTIVE'),days=[];
