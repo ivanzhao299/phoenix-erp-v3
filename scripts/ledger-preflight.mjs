@@ -121,7 +121,7 @@ function parseArgs(argv) {
     else if (arg === '--dir') args.dir = argv[++i];
     else if (arg === '--fixture') args.fixture = argv[++i];
     else if (arg === '--help') {
-      console.log('Usage: migration-ledger-preflight.mjs [--mode pre-migration|post-migration] [--db-mode ci|prod] [--dir apps/api] [--fixture file]');
+      console.log('Usage: ledger-preflight.mjs [--mode pre-migration|post-migration] [--db-mode ci|prod] [--dir apps/api] [--fixture file]');
       process.exit(0);
     } else throw new Error(`unknown argument: ${arg}`);
   }

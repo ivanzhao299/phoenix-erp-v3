@@ -335,8 +335,8 @@ jobs:
 
       - name: Test migration ledger preflight (read-only fixtures)
         run: |
-          node --check scripts/migration-ledger-preflight.mjs
-          node --test scripts/migration-ledger-preflight.test.mjs
+          node --check scripts/ledger-preflight.mjs
+          node --test scripts/ledger-preflight.test.mjs
 
       - name: Type-check API
         run: pnpm --filter phoenix-erp-v3-nest exec tsc --noEmit
@@ -812,7 +812,7 @@ jobs:
               # Read-only ledger reconciliation. This must block before any
               # migration SQL if legacy and TypeORM history are inconsistent.
               echo "── 迁移前只读 ledger preflight ──"
-              MIG_MODE=prod MIG_DIR=apps/api node scripts/migration-ledger-preflight.mjs --mode pre-migration
+              MIG_MODE=prod MIG_DIR=apps/api node scripts/ledger-preflight.mjs --mode pre-migration
               echo "✅ migration ledger preflight passed"
 
               # Keep exactly the newest three verified deploy backups. The

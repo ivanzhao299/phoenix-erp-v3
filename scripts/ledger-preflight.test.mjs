@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { evaluateLedger, normalizeLegacy } from './migration-ledger-preflight.mjs';
+import { evaluateLedger, normalizeLegacy } from './ledger-preflight.mjs';
 
 const schemaRows = [{ filename: '20260101_init.sql', applied_at: '2026-01-01T00:00:00.000Z' }];
 const legacyName = normalizeLegacy(schemaRows[0].filename);
@@ -72,7 +72,7 @@ test('missing tracking table fixture blocks closed', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-preflight-'));
   const fixture = path.join(dir, 'missing.json');
   fs.writeFileSync(fixture, JSON.stringify({ typeormRows: [], canonicalTsNames: [] }));
-  const result = spawnSync(process.execPath, [path.resolve('scripts/migration-ledger-preflight.mjs'), '--fixture', fixture], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [path.resolve('scripts/ledger-preflight.mjs'), '--fixture', fixture], { encoding: 'utf8' });
   fs.rmSync(dir, { recursive: true, force: true });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /schema_migrations fixture\/table is unavailable/);
