@@ -9,7 +9,7 @@ export function normalizeLegacy(filename) {
 }
 
 function sample(values) {
-  return values.slice(0, 20);
+  return values.slice(0, 10);
 }
 
 export function evaluateLedger({ schemaRows, typeormRows, canonicalTsNames, mode = 'pre-migration' }) {

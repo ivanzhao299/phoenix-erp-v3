@@ -1,0 +1,71 @@
+name: Production Ledger Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_readonly:
+        description: 'Type RUN_PRODUCTION_LEDGER_PREFLIGHT to authorize the read-only check'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-ledger-preflight
+  cancel-in-progress: false
+
+jobs:
+  production-ledger-preflight:
+    name: Production ledger preflight
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-readonly
+    env:
+      EXPECTED_SHA: ${{ github.sha }}
+      CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
+
+    steps:
+      - name: Checkout approved main commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Validate manual read-only invocation
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$CONFIRM_READONLY" = RUN_PRODUCTION_LEDGER_PREFLIGHT
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node --check scripts/ledger-preflight.mjs
+          node --test scripts/ledger-preflight.test.mjs
+
+      - name: Run production ledger preflight over read-only SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: EXPECTED_SHA,DEPLOY_PATH
+          command_timeout: 8m
+          script_stop: true
+          script: |
+            set -Eeuo pipefail
+            set +x
+            cd "$DEPLOY_PATH"
+            test -f scripts/ledger-preflight.mjs
+            test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+            test -z "$(git status --porcelain --untracked-files=all)"
+            command -v node >/dev/null
+            echo "target=production mode=pre-migration writes=disabled"
+            MIG_MODE=prod MIG_DIR=apps/api node scripts/ledger-preflight.mjs --mode pre-migration

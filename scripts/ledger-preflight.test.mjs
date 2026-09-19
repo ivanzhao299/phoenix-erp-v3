@@ -77,3 +77,13 @@ test('missing tracking table fixture blocks closed', () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /schema_migrations fixture\/table is unavailable/);
 });
+
+test('production workflow is manual-only and contains no write path', () => {
+  const workflow = fs.readFileSync(path.resolve('.github/workflows/production-ledger-preflight.yml'), 'utf8');
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /environment: production-readonly/);
+  assert.match(workflow, /contents: read/);
+  assert.doesNotMatch(workflow, /(^|\n)\s*(push|pull_request|schedule|workflow_run|workflow_call):/);
+  assert.doesNotMatch(workflow, /migration:run|migration:revert|bridge[^\n]*--apply|docker compose (up|down|restart)|\bscp\b|\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b/);
+  assert.match(workflow, /ledger-preflight\.mjs --mode pre-migration/);
+});
