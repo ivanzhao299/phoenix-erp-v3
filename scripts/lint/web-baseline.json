@@ -171,12 +171,6 @@
     },
     {
       "file": "apps/web/src/app/(admin)/breeding/flock/page.tsx",
-      "ruleId": "@typescript-eslint/no-explicit-any",
-      "severity": 2,
-      "count": 3
-    },
-    {
-      "file": "apps/web/src/app/(admin)/breeding/flock/page.tsx",
       "ruleId": "@typescript-eslint/no-unused-vars",
       "severity": 1,
       "count": 2
@@ -2630,12 +2624,6 @@
       "count": 2
     },
     {
-      "file": "apps/web/src/components/design-system/KpiCardV2.tsx",
-      "ruleId": "@typescript-eslint/no-explicit-any",
-      "severity": 2,
-      "count": 1
-    },
-    {
       "file": "apps/web/src/components/design-system/dialogs/ModalV2.tsx",
       "ruleId": "react-hooks/set-state-in-effect",
       "severity": 2,
@@ -2852,12 +2840,6 @@
       "count": 2
     },
     {
-      "file": "apps/web/src/components/shared-selectors/MasterDataSelectors.test.ts",
-      "ruleId": "@typescript-eslint/no-explicit-any",
-      "severity": 2,
-      "count": 1
-    },
-    {
       "file": "apps/web/src/components/shared-selectors/MasterDataSelectors.tsx",
       "ruleId": "@typescript-eslint/no-explicit-any",
       "severity": 2,
@@ -3008,12 +2990,6 @@
       "count": 1
     },
     {
-      "file": "apps/web/src/hooks/usePermission.test.ts",
-      "ruleId": "@typescript-eslint/no-explicit-any",
-      "severity": 2,
-      "count": 1
-    },
-    {
       "file": "apps/web/src/hooks/useProductGrades.ts",
       "ruleId": "react-hooks/set-state-in-effect",
       "severity": 2,
@@ -3093,11 +3069,11 @@
     }
   ],
   "summary": {
-    "totalErrors": 844,
+    "totalErrors": 838,
     "totalWarnings": 476,
-    "filesWithErrors": 203,
+    "filesWithErrors": 200,
     "errorsByRule": {
-      "@typescript-eslint/no-explicit-any": 609,
+      "@typescript-eslint/no-explicit-any": 603,
       "react-hooks/set-state-in-effect": 235
     },
     "errorsByFile": {
@@ -3109,7 +3085,7 @@
       "apps/web/src/app/(admin)/breeding/device-ops/page.tsx": 5,
       "apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx": 2,
       "apps/web/src/app/(admin)/breeding/device/page.tsx": 8,
-      "apps/web/src/app/(admin)/breeding/flock/page.tsx": 4,
+      "apps/web/src/app/(admin)/breeding/flock/page.tsx": 1,
       "apps/web/src/app/(admin)/breeding/henhouse/page.tsx": 2,
       "apps/web/src/app/(admin)/breeding/henreport/page.tsx": 2,
       "apps/web/src/app/(admin)/breeding/immune/page.tsx": 3,
@@ -3255,7 +3231,6 @@
       "apps/web/src/app/(terminal)/terminal/wms/stocktake/page.tsx": 1,
       "apps/web/src/app/login/page.tsx": 1,
       "apps/web/src/components/data-table/DataTable.tsx": 3,
-      "apps/web/src/components/design-system/KpiCardV2.tsx": 1,
       "apps/web/src/components/design-system/dialogs/ModalV2.tsx": 1,
       "apps/web/src/components/design-system/forms/AmountInput.tsx": 1,
       "apps/web/src/components/design-system/forms/AttachmentUploader.tsx": 2,
@@ -3277,7 +3252,6 @@
       "apps/web/src/components/packaging/PackingProductionReport.tsx": 4,
       "apps/web/src/components/packaging/PackingRecordDetail.tsx": 17,
       "apps/web/src/components/settings/UserOrgBindingPanel.tsx": 2,
-      "apps/web/src/components/shared-selectors/MasterDataSelectors.test.ts": 1,
       "apps/web/src/components/shared-selectors/MasterDataSelectors.tsx": 42,
       "apps/web/src/components/shared-selectors/MaterialPicker.tsx": 6,
       "apps/web/src/components/terminal/NumPad.tsx": 1,
@@ -3291,7 +3265,6 @@
       "apps/web/src/hooks/useCrud.ts": 2,
       "apps/web/src/hooks/useDictOptions.ts": 2,
       "apps/web/src/hooks/usePackingRecord.ts": 2,
-      "apps/web/src/hooks/usePermission.test.ts": 1,
       "apps/web/src/hooks/useProductGrades.ts": 1,
       "apps/web/src/hooks/useTerminalContext.ts": 1,
       "apps/web/src/lib/api-client.ts": 1,
