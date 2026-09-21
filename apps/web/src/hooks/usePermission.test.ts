@@ -13,7 +13,7 @@ vi.mock('@/contexts/AuthContext', async importOriginal => {
 
 import { usePermission } from './usePermission';
 
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function payloadToken(payload: Record<string, unknown>) {
   return `e30.${btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')}.test`;

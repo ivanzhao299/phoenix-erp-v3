@@ -61,6 +61,9 @@ const DEF: Form = {
   severity: "MEDIUM",
   batch_no: ""
 };
+function createNcNumber() {
+  return `NCR-${Date.now().toString().slice(-8)}`;
+}
 export default function NonconformancePage() {
   const toast = useToast();
   const { canCreate } = usePermission('MENU_QA_MGR'); // M1:后端 POST /non-conformances 守卫 MENU_QA_MGR:C
@@ -124,7 +127,7 @@ export default function NonconformancePage() {
           body: JSON.stringify(payload)
         });
       } else {
-        const nc_no = `NCR-${Date.now().toString().slice(-8)}`;
+        const nc_no = createNcNumber();
         await fetch("/api/crud/qa_non_conformance", {
           method: "POST",
           headers: hdr,

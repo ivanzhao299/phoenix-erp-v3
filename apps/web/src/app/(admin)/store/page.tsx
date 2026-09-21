@@ -42,6 +42,8 @@ interface InvBatch {
   expire_date?: string;
 }
 export default function StorePage() {
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  const [in7] = useState(() => new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
   const router = useRouter();
   const {
     t
@@ -79,8 +81,6 @@ export default function StorePage() {
   useEffect(() => {
     load();
   }, [load]);
-  const today = new Date().toISOString().slice(0, 10);
-  const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const todaySales = useMemo(() => sales.filter(s => (s.created_at || "").slice(0, 10) === today), [sales, today]);
   // B1: 优先 net_amount (实收) 兜底 total_amount；旧 amount 字段 DB 不存在
   const todayRevenue = useMemo(() => todaySales.reduce((sum, s) => sum + (Number(s.net_amount) || Number(s.total_amount) || 0), 0), [todaySales]);

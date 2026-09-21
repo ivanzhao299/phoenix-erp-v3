@@ -401,10 +401,10 @@ export default function PrcRequestPage() {
   const [tab, setTab] = useState<Tab>('form');
 
   // 头表
-  const userInfo = useRef(getUserInfo());
+  const [userInfo] = useState(getUserInfo);
   const [subject, setSubject] = useState('');
-  const [companyCode, setCompanyCode] = useState(userInfo.current.companyCode);
-  const [companyName, setCompanyName] = useState(userInfo.current.companyName);
+  const [companyCode, setCompanyCode] = useState(userInfo.companyCode);
+  const [companyName, setCompanyName] = useState(userInfo.companyName);
   const [projectCode, setProjectCode] = useState('');
   const [projectName, setProjectName] = useState('');
   const [purchaseType, setPurchaseType] = useState('MATERIAL');
@@ -506,6 +506,18 @@ export default function PrcRequestPage() {
   }
 
   // ── 保存草稿 ──────────────────────────────────────────────────────────────
+
+  function resetForm() {
+    setSubject('');
+    setProjectCode('');
+    setProjectName('');
+    setPurchaseType('MATERIAL');
+    setUrgency('NORMAL');
+    setCurrencyCode('LAK');
+    setExpectedDate(todayPlusDays(7));
+    setReason('常规采购补货');
+    setItems([newLine()]);
+  }
 
   const handleSaveDraft = useCallback(async () => {
     const err = validate();
@@ -626,18 +638,6 @@ export default function PrcRequestPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subject, companyCode, companyName, projectCode, projectName, purchaseType, urgency, currencyCode, expectedDate, reason, items, submitComment, router]);
-  function resetForm() {
-    setSubject('');
-    setProjectCode('');
-    setProjectName('');
-    setPurchaseType('MATERIAL');
-    setUrgency('NORMAL');
-    setCurrencyCode('LAK');
-    setExpectedDate(todayPlusDays(7));
-    setReason('常规采购补货');   // G95-E：复位为默认原因
-    setItems([newLine()]);
-  }
-
   // ── 申请记录（V2） ────────────────────────────────────────────────────────
 
   const loadRecords = useCallback(async () => {

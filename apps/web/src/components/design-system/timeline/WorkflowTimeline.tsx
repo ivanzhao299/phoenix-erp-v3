@@ -38,7 +38,7 @@ export function WorkflowTimeline({ steps, title }: { steps: WorkflowStep[]; titl
                 {s.approver && <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>· {s.approver}</span>}
               </div>
               {s.time && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{s.time}</div>}
-              {s.comment && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, fontStyle: 'italic' }}>"{s.comment}"</div>}
+              {s.comment && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, fontStyle: 'italic' }}>&quot;{s.comment}&quot;</div>}
             </div>
           );
         })}

@@ -1093,9 +1093,6 @@ export default function CashAccountsPage() {
 }
 
 // ── 手工现金流水录入模态 ────────────────────────────────────────────────────
-function _useToastSafe(): any {
-  try { return useToast(); } catch { return { success: () => {}, error: () => {} }; }
-}
 const _tokSafe = () => (typeof window === 'undefined' ? '' : sessionStorage.getItem('phoenix_token') || '');
 
 function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
@@ -1105,7 +1102,7 @@ function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
   onCreated: () => void;
 }) {
   const { t } = useLanguage();
-  const toast = _useToastSafe();
+  const toast = useToast();
   const [accountCode, setAccountCode] = useState('');
   const [amount, setAmount] = useState('');
   const [txnDate, setTxnDate] = useState(new Date().toISOString().split('T')[0]);

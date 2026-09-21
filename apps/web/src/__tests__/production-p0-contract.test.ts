@@ -14,7 +14,7 @@ describe('production P0 contracts', () => {
 
   it('does not reuse packed boxes as the warehoused metric', () => {
     const page = read('src/app/(terminal)/terminal/packaging/dashboard/page.tsx');
-    expect(page).toContain('shiftWarehousedBoxes');
+    expect(page).toContain('report.committedBoxes');
     expect(page).toContain('value: summary.warehousedBoxes');
     expect(page).not.toMatch(/label: t\('ui\.已入库'[\s\S]{0,120}value: packedBoxes/);
   });

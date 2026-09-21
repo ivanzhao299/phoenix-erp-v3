@@ -3,7 +3,10 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+type MockLinkProps = { href: string; children?: React.ReactNode };
+type MockTitleProps = { title?: React.ReactNode; children?: React.ReactNode };
+
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const state = vi.hoisted(() => ({ permissions: ['MENU_SALES2_ORDER:V', 'MENU_STORE_POS:V'] as string[] }));
 
@@ -14,13 +17,13 @@ vi.mock('@/hooks/usePermission', () => ({
     return { canView: has('V'), canCreate: has('C'), canApprove: has('A'), canEdit: has('E') };
   },
 }));
-vi.mock('next/link', () => ({ default: (props: any) => React.createElement('a', props, props.children) }));
-vi.mock('@/components/PageHeader', () => ({ default: ({ title }: any) => React.createElement('h1', null, title) }));
+vi.mock('next/link', () => ({ default: (props: MockLinkProps) => React.createElement('a', props, props.children) }));
+vi.mock('@/components/PageHeader', () => ({ default: ({ title }: MockTitleProps) => React.createElement('h1', null, title) }));
 vi.mock('@/components/design-system', () => ({
   LoadingSkeleton: () => React.createElement('div', null, '加载中'),
-  EmptyState: ({ title }: any) => React.createElement('div', null, title),
+  EmptyState: ({ title }: MockTitleProps) => React.createElement('div', null, title),
 }));
-vi.mock('@/components/design-system/dialogs/ModalV2', () => ({ ModalV2: ({ open, children }: any) => open ? React.createElement('div', null, children) : null }));
+vi.mock('@/components/design-system/dialogs/ModalV2', () => ({ ModalV2: ({ open, children }: MockTitleProps & { open?: boolean }) => open ? React.createElement('div', null, children) : null }));
 vi.mock('@/components/shared-selectors/DictSelect', () => ({ DictSelect: () => null }));
 vi.mock('@/components/shared-selectors/MasterDataSelectors', () => ({
   CompanySelector: () => null, CustomerSelector: () => null, ChannelSelector: () => null,

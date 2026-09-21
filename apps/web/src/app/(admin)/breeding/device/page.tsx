@@ -555,7 +555,7 @@ export default function DeviceOverviewPage() {
     diagnostic: diag,
     checkedAt: new Date().toISOString(),
   }, null, 2);
-  const DiagnosticPanel = () => <div style={{
+  const diagnosticPanel = () => <div style={{
     marginBottom: 14,
     padding: 14,
     borderRadius: 'var(--radius-md)',
@@ -635,7 +635,7 @@ export default function DeviceOverviewPage() {
             </button>
           </div>} />
 
-      {noLiveData && <DiagnosticPanel />}
+      {noLiveData && diagnosticPanel()}
 
       {/* g200f KPI 4 卡 — kpiCardCompact(tone) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 16 }}>

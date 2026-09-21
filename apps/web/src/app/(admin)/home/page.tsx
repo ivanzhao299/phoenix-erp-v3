@@ -422,6 +422,7 @@ function NumberBubble({ icon, label, value, tone, href }: {
 // 待办 Timeline
 // ══════════════════════════════════════════════════════
 function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount: number }) {
+  const [renderTime] = useState(() => Date.now());
   const { t: tr } = useLanguage();
   return (
     <div style={{ ...cockpitCard, padding: 14, position: 'relative' }}>
@@ -456,8 +457,8 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
           }} />
           {todoList.map((t, i) => {
             const due = t.due_at ? new Date(t.due_at) : null;
-            const isOverdue = due ? due.getTime() < Date.now() : false;
-            const isUrgent = due && !isOverdue ? (due.getTime() - Date.now()) < 24 * 3600 * 1000 : false;
+            const isOverdue = due ? due.getTime() < renderTime : false;
+            const isUrgent = due && !isOverdue ? (due.getTime() - renderTime) < 24 * 3600 * 1000 : false;
             const dotColor = isOverdue ? 'var(--status-danger)' : isUrgent ? 'var(--status-warning)' : 'var(--color-primary)';
             return (
               <Link key={i} href={`/workflow/todos?taskNo=${encodeURIComponent(t.task_no)}`} style={{

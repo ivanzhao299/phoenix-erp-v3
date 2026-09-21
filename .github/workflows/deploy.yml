@@ -333,6 +333,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Test migration ledger preflight (read-only fixtures)
+        run: |
+          node --check scripts/ledger-preflight.mjs
+          node --test scripts/ledger-preflight.test.mjs
+
       - name: Type-check API
         run: pnpm --filter phoenix-erp-v3-nest exec tsc --noEmit
 
@@ -803,6 +808,12 @@ jobs:
               sha256sum "$BACKUP_FILE" | tee "${BACKUP_FILE}.sha256"
               chmod 600 "${BACKUP_FILE}.sha256"
               echo "✅ 迁移前备份可读: ${TOC_ENTRIES} objects"
+
+              # Read-only ledger reconciliation. This must block before any
+              # migration SQL if legacy and TypeORM history are inconsistent.
+              echo "── 迁移前只读 ledger preflight ──"
+              MIG_MODE=prod MIG_DIR=apps/api node scripts/ledger-preflight.mjs --mode pre-migration
+              echo "✅ migration ledger preflight passed"
 
               # Keep exactly the newest three verified deploy backups. The
               # individual retained dumps remain untouched and recoverable.

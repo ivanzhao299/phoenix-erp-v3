@@ -40,6 +40,17 @@ interface FormVersion {
   created_at: string;
 }
 
+function parseLivePreview(schemaText: string, uiSchemaText: string): { schema: FormSchema; uiSchema: UiSchema } | null {
+  try {
+    return {
+      schema: JSON.parse(schemaText) as FormSchema,
+      uiSchema: uiSchemaText.trim() ? JSON.parse(uiSchemaText) as UiSchema : {},
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ── API ───────────────────────────────────────────────────────────────────────
 
 function getToken() {
@@ -289,6 +300,7 @@ export default function WorkflowFormRuntimePage() {
     previewSchema = previewVer.schema_json;
     previewUiSchema = previewVer.ui_schema_json ?? {};
   }
+  const livePreview = parseLivePreview(schemaText, uiSchemaText);
 
   // ── 渲染 ────────────────────────────────────────────────────────────────────
 
@@ -814,11 +826,7 @@ export default function WorkflowFormRuntimePage() {
             </div>
 
             {/* 实时预览 */}
-            {(() => {
-          try {
-            const s = JSON.parse(schemaText) as FormSchema;
-            const u = uiSchemaText.trim() ? JSON.parse(uiSchemaText) as UiSchema : {};
-            return <div style={{
+            {livePreview ? <div style={{
               marginTop: 20,
               padding: '16px 20px',
               background: 'var(--bg-muted)',
@@ -830,16 +838,12 @@ export default function WorkflowFormRuntimePage() {
                 color: 'var(--text-secondary)',
                 marginBottom: 12
               }}>{t('ui.实时预览', '实时预览')}</div>
-                    <WorkflowFormRenderer schema={s} uiSchema={u} value={{}} onChange={() => {}} />
-                  </div>;
-          } catch {
-            return <div style={{
+                    <WorkflowFormRenderer schema={livePreview.schema} uiSchema={livePreview.uiSchema} value={{}} onChange={() => {}} />
+            </div> : <div style={{
               marginTop: 14,
               fontSize: 12,
               color: 'var(--status-warning)'
-            }}>{t('ui.JSON 解析失败，请检查格式', 'JSON 解析失败，请检查格式')}</div>;
-          }
-        })()}
+            }}>{t('ui.JSON 解析失败，请检查格式', 'JSON 解析失败，请检查格式')}</div>}
       </ModalV2>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

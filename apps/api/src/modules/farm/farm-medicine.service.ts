@@ -185,7 +185,7 @@ export class FarmMedicineService {
       medication_name: m.medication_name,
       dosage:          m.dosage ?? '',
       qty:             stockMap.get(m.medication_code) ?? 0,
-      unit:            (m.dosage ?? '').match(/[^\d\/]+$/)?.[0] ?? '单位',
+      unit:            (m.dosage ?? '').match(/[^\d/]+$/)?.[0] ?? '单位',
     }));
   }
 

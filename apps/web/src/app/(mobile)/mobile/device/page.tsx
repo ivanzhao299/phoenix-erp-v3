@@ -251,7 +251,7 @@ export default function DeviceMonitorMobilePage() {
     checkedAt: new Date().toISOString(),
   }, null, 2);
 
-  const DiagnosticPanel = ({ title }: { title?: string }) => (
+  const diagnosticPanel = ({ title }: { title?: string }) => (
     <div style={{ padding: 12, borderRadius: 14, background: 'color-mix(in srgb, var(--status-warning) 8%, transparent)', border: `1px solid color-mix(in srgb, var(--status-warning) 30%, transparent)`, display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--status-warning)' }}>
         ⚠️ {title ?? tr('mob.sys.no_live_data', '当前无实时数据')}
@@ -356,9 +356,7 @@ export default function DeviceMonitorMobilePage() {
         </div>
 
         {/* 无数据自诊断：实时传感器为 0 时给出"为什么没有数据"的明确原因 */}
-        {noLiveData && (
-          <DiagnosticPanel title={error ? tr('mob.sys.device_data_unavailable', '设备数据不可用') : undefined} />
-        )}
+        {noLiveData && diagnosticPanel({ title: error ? tr('mob.sys.device_data_unavailable', '设备数据不可用') : undefined })}
 
         {/* 最近告警 */}
         {alarms.length > 0 && (

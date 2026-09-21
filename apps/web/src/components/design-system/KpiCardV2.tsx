@@ -15,7 +15,7 @@
  *     progress={{ value: 100 }} hint="健康度 100%" />
  */
 
-import { ReactNode } from 'react';
+import { ReactNode, type ElementType } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 export type KpiTone = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'brand';
@@ -59,7 +59,7 @@ export function KpiCardV2(props: KpiCardV2Props) {
   const { label, value, suffix, icon, tone = 'default', delta, deltaDir, progress, hint, href, onClick, size = 'md' } = props;
   const t = TONE[tone];
   const sz = SIZE[size];
-  const Tag: any = href ? 'a' : (onClick ? 'button' : 'div');
+  const Tag: ElementType = href ? 'a' : (onClick ? 'button' : 'div');
   const TrendIcon = deltaDir === 'up' ? TrendingUp : deltaDir === 'down' ? TrendingDown : Minus;
   const clickable = !!(href || onClick);
 

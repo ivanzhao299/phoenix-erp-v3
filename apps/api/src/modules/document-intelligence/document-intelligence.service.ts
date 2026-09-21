@@ -277,8 +277,8 @@ export class DocumentIntelligenceService {
     const seen = new Set<string>();
     for (const line of lines) {
       const compact = line.replace(/\s+/g, ' ');
-      const nameSpec = compact.match(/^([A-Za-z0-9\u4e00-\u9fa5·（）()\-]{2,40})[（(]([^）)]{2,40})[）)]/);
-      const tableLike = compact.match(/^([A-Za-z0-9\u4e00-\u9fa5·（）()\-]{2,40})\s+([A-Za-z0-9\u4e00-\u9fa5./\-]{1,40})?\s*([0-9]+(?:\.[0-9]+)?)?\s*([A-Za-z\u4e00-\u9fa5]{1,8})?\s*([0-9]+(?:\.[0-9]+)?)?/);
+      const nameSpec = compact.match(/^([A-Za-z0-9\u4e00-\u9fa5·（）()-]{2,40})[（(]([^）)]{2,40})[）)]/);
+      const tableLike = compact.match(/^([A-Za-z0-9\u4e00-\u9fa5·（）()-]{2,40})\s+([A-Za-z0-9\u4e00-\u9fa5./-]{1,40})?\s*([0-9]+(?:\.[0-9]+)?)?\s*([A-Za-z\u4e00-\u9fa5]{1,8})?\s*([0-9]+(?:\.[0-9]+)?)?/);
       const match = nameSpec || tableLike;
       if (!match) continue;
 

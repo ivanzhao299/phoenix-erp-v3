@@ -15,7 +15,7 @@ import { CashAccountSelector, CompanySelector, CustomerSelector, LocationSelecto
 import { invalidateCache } from '@/lib/request-cache';
 
 // React 19 uses this flag to suppress false-positive act environment warnings.
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 async function flush() {
   await act(async () => { await Promise.resolve(); });

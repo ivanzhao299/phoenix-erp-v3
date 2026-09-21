@@ -3,24 +3,32 @@ import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' } as any, loading: false }, exact: vi.fn(), summary: vi.fn(), report: vi.fn(), active: vi.fn(), close: vi.fn(), t: (_key: string, text: string) => text }));
+const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' }, loading: false }, exact: vi.fn(), summary: vi.fn(), report: vi.fn(), active: vi.fn(), close: vi.fn(), t: (_key: string, text: string) => text }));
 vi.mock('@/lib/packing-history-api',async original=>({...await original<object>(),packingHistoryRequest:mocks.report}));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ ...mocks.auth, hasPermission: () => true, logout: vi.fn() }) }));
 vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: mocks.t, lang: 'zh', setAppLanguage: vi.fn() }) }));
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => '/terminal/packaging/shift-close', useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock('@/contexts/BrandContext', () => ({ useBrand: () => ({ brand: {} }) }));
-vi.mock('@/hooks/usePackagingDicts', async original => ({ ...await original<any>(), usePackagingDicts: () => ({dicts:{}}) }));
+vi.mock('@/hooks/usePackagingDicts', async original => ({ ...await original<object>(), usePackagingDicts: () => ({dicts:{}}) }));
 vi.mock('@/hooks/useProductGrades', () => ({ useProductGrades: () => ({ grades: [{ grade_code:'GRADE_5', grade_name:'5号蛋' }] }) }));
-vi.mock('@/lib/packaging-api', async original => ({ ...await original<any>(), packagingApi: { getExactShift: mocks.exact, getShiftSummary:mocks.summary, getActiveGrading:mocks.active, closeShift:mocks.close, getDicts:vi.fn(async()=>({})), getSites:vi.fn(async()=>[]), getSupervisors:vi.fn(async()=>[]), getReadyCombinations:vi.fn(async()=>[]), getPendingGradingSourceBatches:vi.fn(async()=>[]), getTodaySourceBatches:vi.fn(async()=>[]), getTodayExceptions:vi.fn(async()=>[]) } }));
+vi.mock('@/lib/packaging-api', async original => ({ ...await original<object>(), packagingApi: { getExactShift: mocks.exact, getShiftSummary:mocks.summary, getActiveGrading:mocks.active, closeShift:mocks.close, getDicts:vi.fn(async()=>({})), getSites:vi.fn(async()=>[]), getSupervisors:vi.fn(async()=>[]), getReadyCombinations:vi.fn(async()=>[]), getPendingGradingSourceBatches:vi.fn(async()=>[]), getTodaySourceBatches:vi.fn(async()=>[]), getTodayExceptions:vi.fn(async()=>[]) } }));
 import Layout from '@/app/(terminal)/layout';
 import Page from '@/app/(terminal)/terminal/packaging/shift-close/page';
 import { TerminalContextProvider, useTerminalContext } from '@/hooks/useTerminalContext';
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-let root: Root, host: HTMLDivElement, context: ReturnType<typeof useTerminalContext>;
-const candidate = { id:'56', code:'S56', status:'OPEN', productionDate:'2026-09-10' };
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+let root: Root, host: HTMLDivElement;
+const contextRef = { current: null as ReturnType<typeof useTerminalContext> | null };
+const candidate = {
+  id:'56', code:'S56', status:'OPEN' as const, productionDate:'2026-09-10',
+  siteId:'SITE-1', lineId:'LINE-1', operatorIds:['operator-1'], terminalId:'terminal-1', openedAt:'2026-09-10T00:00:00Z',
+};
 const raw = (id='56', status='OPEN') => ({id,shift_code:`S${id}`,status,date_text:'2026-09-10',is_test:false});
-function deferred() { let resolve!: (v:any)=>void, reject!: (v:any)=>void; const promise = new Promise((a,b)=>{ resolve=a;reject=b; }); return {promise,resolve,reject}; }
-function Probe() { context = useTerminalContext(); return <span data-testid="shift">{context.ctx.currentShift?.id || 'none'}</span>; }
+function deferred() { let resolve!: (v: unknown)=>void, reject!: (v: unknown)=>void; const promise = new Promise<unknown>((a,b)=>{ resolve=a;reject=b; }); return {promise,resolve,reject}; }
+function Probe() {
+  const value = useTerminalContext();
+  React.useEffect(() => { contextRef.current = value; }, [value]);
+  return <span data-testid="shift">{value.ctx.currentShift?.id || 'none'}</span>;
+}
 function save(value: unknown = candidate) { localStorage.setItem('phoenix_terminal_context:v2:7:real', JSON.stringify({version:2,userId:'7',mode:'real',currentShift:value})); }
 async function render(full=true) { await act(async () => { root.render(full ? <Layout><Probe/><Page/></Layout> : <TerminalContextProvider><Probe/><Page/></TerminalContextProvider>); }); }
 async function fullscreen(on:boolean) { await act(async()=>{ Object.defineProperty(document,'fullscreenElement',{configurable:true,value:on?document.documentElement:null}); document.dispatchEvent(new Event('fullscreenchange')); }); }
@@ -54,16 +62,16 @@ it.each(['legacy','json','identity','closed'])('handles %s cache/server state ex
 });
 it('ignores old success/error/finally after shift change and clears shared WIP for every consumer',async()=>{
   save();const old=deferred();mocks.summary.mockReturnValueOnce(old.promise);await render();await fullscreen(true);
-  await act(async()=>context.setGradingResult('OLD',{GRADE_5:999}));
-  await act(async()=>context.setShift({...candidate,id:'57'} as any));
-  expect(context.ctx.gradingOutputs).toBeNull();expect(context.ctx.currentShift?.id).toBe('57');
+  await act(async()=>contextRef.current!.setGradingResult('OLD',{GRADE_5:999}));
+  await act(async()=>contextRef.current!.setShift({...candidate,id:'57'}));
+  expect(contextRef.current!.ctx.gradingOutputs).toBeNull();expect(contextRef.current!.ctx.currentShift?.id).toBe('57');
   await act(async()=>old.reject(new Error('OLD failure')));expect(host.textContent).not.toContain('OLD failure');
   expect(host.querySelector<HTMLButtonElement>('button[disabled]')).toBeNull();
 });
 it('ignores late authority response after account changes and refuses to inherit previous identity cache',async()=>{
   save();const old=deferred();mocks.exact.mockReturnValueOnce(old.promise);await render();await fullscreen(true);
   mocks.auth.user={id:'8'};await render();await act(async()=>old.resolve(raw()));
-  expect(context.ctx.currentShift).toBeNull();expect(mocks.active).not.toHaveBeenCalled();
+  expect(contextRef.current!.ctx.currentShift).toBeNull();expect(mocks.active).not.toHaveBeenCalled();
 });
 it.each(['network','403','500'])('shows %s failure, no cached output fallback or enabled close action',async(message)=>{
   save();mocks.active.mockRejectedValue(new Error(message));await render();await fullscreen(true);
@@ -71,7 +79,7 @@ it.each(['network','403','500'])('shows %s failure, no cached output fallback or
   expect([...host.querySelectorAll('button')].some(b=>b.textContent?.includes('提交交班'))).toBe(false);
 });
 it('uses authoritative empty grading and actual warehouse fields, without inferred pallets',async()=>{
-  save();await render();await fullscreen(true);await act(async()=>context.setGradingResult('OLD',{GRADE_5:999}));
+  save();await render();await fullscreen(true);await act(async()=>contextRef.current!.setGradingResult('OLD',{GRADE_5:999}));
   expect(host.textContent).not.toContain('999');expect(host.textContent).toContain('0 托');expect(host.textContent).toContain('核实入账0 箱');
 });
 it('unmounted request completion cannot pollute a new fullscreen page',async()=>{
@@ -84,7 +92,7 @@ it.each([{id:'999'}, {date_text:'2026-09-08'}, {is_test:true}])('rejects an auth
 it('StrictMode effect replay never emits undefined/NaN requests',async()=>{save();await act(async()=>root.render(<React.StrictMode><Layout><Probe/><Page/></Layout></React.StrictMode>));await fullscreen(true);expect(mocks.active.mock.calls.every(([id])=>id===56)).toBe(true);expect(host.textContent).not.toContain('失败');});
 it('late failed grading request cannot hide a current failed summary',async()=>{save();const old=deferred();mocks.active.mockReturnValueOnce(old.promise);await render();await fullscreen(true);mocks.summary.mockRejectedValueOnce(new Error('CURRENT failure'));await fullscreen(false);await fullscreen(true);await act(async()=>old.resolve({shiftId:56,productionDate:'2026-09-10',outputs:{GRADE_5:999}}));expect(host.textContent).toContain('CURRENT failure');expect(host.textContent).not.toContain('999');});
 
-const consumers: Record<string, () => Promise<any>> = {
+const consumers: Record<string, () => Promise<{ default: React.ComponentType }>> = {
   'dashboard': () => import('@/app/(terminal)/terminal/packaging/dashboard/page'),
   'exceptions': () => import('@/app/(terminal)/terminal/packaging/exceptions/page'),
   'grading': () => import('@/app/(terminal)/terminal/packaging/grading/page'),
@@ -97,14 +105,14 @@ const consumers: Record<string, () => Promise<any>> = {
   'warehouse-handover': () => import('@/app/(terminal)/terminal/packaging/warehouse-handover/page'),
 };
 it.each(Object.keys(consumers))('mounts context consumer %s only after hydration, then clears state on account change',async(path)=>{
-  const Consumer = (await consumers[path]() as any).default;
+  const Consumer = (await consumers[path]()).default;
   save();const check=deferred();mocks.exact.mockReturnValueOnce(check.promise);
   const paint=()=>root.render(<Layout><Probe/><Consumer/></Layout>);
   await act(async()=>paint());await fullscreen(true);
   expect(mocks.summary).not.toHaveBeenCalled();expect(mocks.active).not.toHaveBeenCalled();
-  await act(async()=>check.resolve(raw()));expect(context.ctx.currentShift?.id).toBe('56');
-  await act(async()=>context.setGradingResult('OLD',{GRADE_5:999}));
+  await act(async()=>check.resolve(raw()));expect(contextRef.current!.ctx.currentShift?.id).toBe('56');
+  await act(async()=>contextRef.current!.setGradingResult('OLD',{GRADE_5:999}));
   mocks.auth.user={id:'8'};await act(async()=>paint());
-  expect(context.ctx.currentShift).toBeNull();expect(context.ctx.gradingOutputs).toBeNull();
+  expect(contextRef.current!.ctx.currentShift).toBeNull();expect(contextRef.current!.ctx.gradingOutputs).toBeNull();
   expect(host.textContent).not.toContain('999');
 });

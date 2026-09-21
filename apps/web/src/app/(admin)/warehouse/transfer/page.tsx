@@ -233,7 +233,7 @@ export default function TransferPage() {
     invalidateBatchLookups();
     refresh();
     setScanCode("");
-  }, [scanCode, refresh, canOperateTransfer]);
+  }, [scanCode, refresh, canOperateTransfer, setScanCode]);
   return <div>
       <PageHeader
         title={t("ui.库存调拨", "库存调拨")}

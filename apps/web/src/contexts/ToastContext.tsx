@@ -4,8 +4,14 @@ import ReactDOM from 'react-dom';
 
 interface Toast { id: number; type: string; message: string; }
 interface ToastColor { border: string; bg: string; }
+interface ToastActions {
+  success: (msg: string) => void;
+  error: (msg: string) => void;
+  warning: (msg: string) => void;
+  info: (msg: string) => void;
+}
 
-const ToastContext = createContext<ReturnType<typeof buildToast> | null>(null);
+const ToastContext = createContext<ToastActions | null>(null);
 
 const ICONS: Record<string, string> = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
 const COLORS: Record<string, ToastColor> = {
@@ -14,15 +20,6 @@ const COLORS: Record<string, ToastColor> = {
   warning: { border:'var(--status-warning)', bg:'rgba(245,158,11,0.08)' },
   info:    { border:'var(--status-info)', bg:'rgba(59,130,246,0.08)' },
 };
-
-function buildToast(add: (type: string, message: string) => void) {
-  return {
-    success: (msg: string) => add('success', msg),
-    error:   (msg: string) => add('error',   msg),
-    warning: (msg: string) => add('warning', msg),
-    info:    (msg: string) => add('info',    msg),
-  };
-}
 
 function ToastItem({ id, type = 'info', message, onRemove }: Toast & { onRemove: (id: number) => void }) {
   const [leaving, setLeaving] = React.useState(false);
@@ -106,7 +103,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, [add]);
 
   // add 已 useCallback 稳定 → toast 仅构建一次，避免每次渲染换引用让所有 useToast 消费者重渲染
-  const toast = useMemo(() => buildToast(add), [add]);
+  const toast = useMemo(() => ({
+    success: (msg: string) => add('success', msg),
+    error: (msg: string) => add('error', msg),
+    warning: (msg: string) => add('warning', msg),
+    info: (msg: string) => add('info', msg),
+  }), [add]);
   return (
     <ToastContext.Provider value={toast}>
       {children}

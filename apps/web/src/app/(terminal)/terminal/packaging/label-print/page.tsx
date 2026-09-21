@@ -399,7 +399,7 @@ function LegacyLabelPrintPage() {
 
   // ─── 右侧设置抽屉 ─────────────────────────────────────────────────
   const DRAWER_W = 400;
-  const SettingsDrawer = () => {
+  const settingsDrawer = () => {
     const TOGGLE_FIELDS: {
       key: 'showBatch' | 'showDate' | 'showExpiry' | 'showShift' | 'showPrice';
       label: string;
@@ -932,7 +932,7 @@ function LegacyLabelPrintPage() {
     overflow: 'hidden'
   }}>
       {(printError || trace?.status === 'VOID') && <div role="alert" style={{ padding: 12, color: 'var(--status-danger)' }}>{printError || t('terminal.void_packing_print_blocked', '包装单已作废或不可用，禁止打印')}</div>}
-      {showSettings && <SettingsDrawer />}
+      {showSettings && settingsDrawer()}
 
       <div style={{
       background: T.CARD,

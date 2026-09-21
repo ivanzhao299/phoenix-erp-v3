@@ -56,7 +56,7 @@ export class NotificationSchedulerService {
 
   /**
    * 极简 cron 匹配：5 段（分 时 日 月 周）。
-   * 支持 *, *​/N, 单值, 逗号分隔。
+   * 支持通配符、每 N 分钟（星号斜杠 N）、单值、逗号分隔。
    * 不支持 - 范围 / L W # 复杂语法（后续可换 cron-parser 库）。
    */
   private cronMatches(expr: string, date: Date): boolean {

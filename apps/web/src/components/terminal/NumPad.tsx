@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { T } from '@/styles/terminal-theme';
 
 export interface NumPadProps {
@@ -47,7 +47,7 @@ export default function NumPad({
     setDisplay(s);
   }, [initialValue]);
 
-  const press = (key: string) => {
+  const press = useCallback((key: string) => {
     if (disabled) return;
     const prev = displayRef.current;
     let next: string;
@@ -65,13 +65,15 @@ export default function NumPad({
     displayRef.current = next;
     setDisplay(next);
     onChange?.(next);
-  };
+  }, [disabled, max, onChange]);
 
   // Keep stable refs so the keyboard handler never goes stale
   const pressRef     = useRef<typeof press>(press);
   const onConfirmRef = useRef(onConfirm);
-  pressRef.current     = press;
-  onConfirmRef.current = onConfirm;
+  useEffect(() => {
+    pressRef.current = press;
+    onConfirmRef.current = onConfirm;
+  }, [onConfirm, press]);
 
   // Physical keyboard support — skip when any text input has focus
   useEffect(() => {
@@ -91,7 +93,7 @@ export default function NumPad({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const numVal = Number(display) || 0;
   const valid = display.length > 0 && numVal >= 0;

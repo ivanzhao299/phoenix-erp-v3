@@ -264,7 +264,7 @@ export default function FormSubmitPage() {
         fontSize: 13,
         color: 'var(--text-secondary)',
         marginBottom: 16
-      }}>{t('ui.表单','表单')} "{formCode}" {t('ui.尚未发布任何版本，无法提交','尚未发布任何版本，无法提交')}</div>
+      }}>{t('ui.表单','表单')} &quot;{formCode}&quot; {t('ui.尚未发布任何版本，无法提交','尚未发布任何版本，无法提交')}</div>
         <button onClick={() => router.push('/workflow/forms/runtime')} style={{
         padding: '8px 18px',
         borderRadius: 8,

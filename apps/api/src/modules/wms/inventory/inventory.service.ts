@@ -24,11 +24,15 @@ export class InventoryService {
     private readonly cls: ClsService,
   ) {}
 
-  private qualify(dto: InventoryDelta): { storeCode: string; operator: string } {
+  private assertWritableWarehouse(warehouseCode: string | null, label: string): void {
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
-    if (!scope || (!scope.isGlobal && !scope.allowedWarehouseCodes?.includes(dto.warehouse_code))) {
-      throw new ForbiddenException('无权写入该库存（仓库范围不匹配）');
+    if (!scope || !warehouseCode || (!scope.isGlobal && (!scope.allowedWarehouseCodes || !scope.allowedWarehouseCodes.includes(warehouseCode)))) {
+      throw new ForbiddenException(`${label}仓库范围不匹配`);
     }
+  }
+
+  private qualify(dto: InventoryDelta): { storeCode: string; operator: string } {
+    this.assertWritableWarehouse(dto.warehouse_code, '库存写入');
     const storeCode = this.cls.get<string | undefined>('user.storeCode');
     if (!storeCode || !storeCode.trim()) throw new ForbiddenException('缺少明确机构归属');
     if (!Number.isSafeInteger(dto.qty) || dto.qty <= 0 || dto.qty > 2147483647) {
@@ -38,10 +42,12 @@ export class InventoryService {
   }
 
   async atomicDecrement(dto: InventoryDelta, manager: EntityManager = this.em) {
+    this.assertWritableWarehouse(dto.warehouse_code, '库存扣减');
     return this.apply(dto, -1, manager);
   }
 
   async atomicIncrement(dto: InventoryDelta, manager: EntityManager = this.em) {
+    this.assertWritableWarehouse(dto.warehouse_code, '库存入库');
     return this.apply(dto, 1, manager);
   }
 

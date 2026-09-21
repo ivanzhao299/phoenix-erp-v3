@@ -391,7 +391,7 @@ export default function FlockPage() {
               house: ''
             })} className={s.inp}>
                 <option value="">{t('ui.选择养殖场', '选择养殖场')}</option>
-                {farms.map((f: any) => <option key={f.farm_code} value={f.farm_code}>{f.farm_name}</option>)}
+                {farms.map(f => <option key={f.farm_code} value={f.farm_code}>{f.farm_name}</option>)}
               </select>
             </div>
             <div>
@@ -404,7 +404,7 @@ export default function FlockPage() {
               cursor: form.farmCode ? 'pointer' : 'not-allowed'
             }}>
                 <option value="">{form.farmCode ? t('ui.选择鸡舍', '选择鸡舍') : t('ui.请先选择养殖场', '请先选择养殖场')}</option>
-                {houses.filter((h: any) => h.farm_code === form.farmCode).map((h: any) => <option key={h.house_code} value={h.house_code}>{h.house_name} ({h.house_type})</option>)}
+                {houses.filter(h => h.farm_code === form.farmCode).map(h => <option key={h.house_code} value={h.house_code}>{h.house_name} ({h.house_type})</option>)}
               </select>
             </div>
           </div>

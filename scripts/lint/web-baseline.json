@@ -1,0 +1,3282 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "file": "apps/web/e2e/store-replenishment.spec.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/e2e/store-replenishment.spec.ts",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/postcss.config.mjs",
+      "ruleId": "import/no-anonymous-default-export",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/public/sw-init.js",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/public/sw.js",
+      "ruleId": "(eslint diagnostic)",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/public/theme-init.js",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/analytics/feed/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/analytics/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/analytics/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/analytics/price-review/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/analytics/production/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/analytics/production/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/daily-inbound/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/daily-inbound/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 10
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/device-alerts/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/device-alerts/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/device-ops/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/device-ops/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/device-ops/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/device/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/flock/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/flock/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/flock/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/henhouse/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/henhouse/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/henhouse/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/henreport/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/henreport/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/henreport/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/immune/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/immune/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/immune/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/med-stock/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/medicine/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/medicine/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/medicine/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/breeding/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/bug-reports/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/dashboard/_components/DashboardKPIs.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/dashboard/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/data-quality/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/data-quality/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/data-quality/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ap/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ap/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 7
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ap/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ap/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ar-ledger/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ar-ledger/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ar-ledger/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ar-ledger/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ar-reconciliation/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ar-reconciliation/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 9
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/ar/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/cash-accounts/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/cash-accounts/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/chanjet-sync/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/expenses/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 14
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/expenses/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/expenses/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/fund-transfers/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 10
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/fund-transfers/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 11
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/reports/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 14
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 8
+    },
+    {
+      "file": "apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/home/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 9
+    },
+    {
+      "file": "apps/web/src/app/(admin)/home/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/layout.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/bank-accounts/[code]/edit/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/business-units/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/cash-accounts/[code]/edit/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/companies/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/companies/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/companies/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/customers/[code]/edit/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 12
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/dictionaries/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/dictionaries/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/dictionaries/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/governance/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/governance/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/governance/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/operations/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/operations/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/operations/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/operations/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/organizations/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/organizations/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 7
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/organizations/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/pending/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/pending/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/pending/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/products/[code]/edit/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/quality/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/quality/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/[code]/edit/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 12
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master/products/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master/products/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master/products/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master/stores/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master/stores/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/master/stores/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/notifications/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/notifications/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/batch/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/daily-report/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/daily-report/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/exceptions/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/exceptions/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/exceptions/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/inbound/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/inbound/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/inbound/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/print-logs/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/packaging/print-logs/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/dashboard/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 7
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/dashboard/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/dashboard/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/dashboard/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/init/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/payments/PaymentForm.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/payments/PaymentForm.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/requests/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/shareholder-funds/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/shareholder-funds/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 7
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/shipments/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/profile/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 17
+    },
+    {
+      "file": "apps/web/src/app/(admin)/quality/farm/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/quality/farm/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/quality/nonconformance/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/quality/nonconformance/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/quality/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/quality/product/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/quality/standards/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/quality/standards/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/channels/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/channels/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/credit/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/credit/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 17
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/customers/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 11
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/delivery/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/inventory/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 15
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 8
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/orders/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/pricing/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 15
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/pricing/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/pricing/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/pricing/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/reports/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 32
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/reports/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/reports/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 8
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/sales2/returns/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/approval-flows/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/approval-flows/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/approval-flows/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/approval-rules/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 8
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/approval-rules/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/approval-rules/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/approval-rules/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/audit-log/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/audit-log/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/brand/page.tsx",
+      "ruleId": "@next/next/no-img-element",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/brand/page.tsx",
+      "ruleId": "jsx-a11y/alt-text",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/data-scopes/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/data-scopes/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/dict/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/dict/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/dict/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/notifications/page.tsx",
+      "ruleId": "(eslint diagnostic)",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/notifications/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 7
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/notifications/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/notifications/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/notifications/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/online-users/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/online-users/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/online-users/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/pda-terminals/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/pda-terminals/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/permission-sets/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 9
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/permission-sets/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/permission-sets/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/pos-config/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/roles/[code]/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/roles/[code]/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/roles/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/roles/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/roles/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/roles/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/security/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/security/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/store-stock/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/users/[id]/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/users/[id]/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/users/[id]/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/users/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/settings/users/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/shareholders/SummaryBar.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/shareholders/capital/[id]/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/shareholders/capital/import/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/shareholders/capital/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/app/(admin)/shareholders/capital/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/shareholders/dashboard/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/shareholders/projects/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/shareholders/projects/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/shareholders/projects/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store-payment/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store-payment/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store-payment/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store-pos/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 11
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store-pos/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 8
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store-pos/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store-pos/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store-settlement/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/inventory/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/inventory/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/losses/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/losses/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/receiving/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/receiving/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 20
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/store/replenish/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/alerts/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/backup/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/backup/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/configs/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/configs/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/error-logs/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/health/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/system/health/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/traceability/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/uat/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 10
+    },
+    {
+      "file": "apps/web/src/app/(admin)/uat/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/uat/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/expiry/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/expiry/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/expiry/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/inbound/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/locations/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/locations/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/locations/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/locations/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/loss-report/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/loss-report/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/outbound/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/query/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/source-mode/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/stocktake/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/stocktake/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/transfer/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/warehouse/warehouses/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/analytics/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/analytics/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/builder/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/data-sources/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/data-sources/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/definitions/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/designer/[id]/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/form-designer/[id]/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/forms/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/forms/submit/[formCode]/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/forms/submit/[formCode]/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/forms/submit/[formCode]/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/history/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/history/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/history/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/instances/[id]/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/instances/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/instances/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/instances/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/instances/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/metrics/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/metrics/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/metrics/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/monitor/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/start/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/start/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/tasks/cc/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/tasks/done/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/tasks/done/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/tasks/todo/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/tasks/todo/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(admin)/workflow/tasks/todo/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/layout.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/analytics/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/analytics/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/analytics/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/dashboard/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/delivery/exceptions/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/photos/page.tsx",
+      "ruleId": "@next/next/no-img-element",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/delivery/orders/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/delivery/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/delivery/performance/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/delivery/receipt/[orderId]/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/device/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/device/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/egg/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/egg/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/egg/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/egg/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/egglog/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 10
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/egglog/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/egglog/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/expenses/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/expenses/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/feed/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 7
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/feed/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/feed/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/feed/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/henreport/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/henreport/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/henreport/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/henreport/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/login/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/login/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/medicine/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/medicine/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/medicine/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/medicine/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/mortality/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 7
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/mortality/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/mortality/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/mortality/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/notifications/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/packaging/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/packaging/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/packaging/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/prc-order/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/prc-order/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/quality/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/quality/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/quality/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/sales/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/sales/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/sales/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/workflow/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/workflow/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/workflow/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/workflow/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(mobile)/mobile/workflow/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/exceptions/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx",
+      "ruleId": "@next/next/no-img-element",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/packing/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/qc-inspection/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/shift-close/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/shift-close/page.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/shift-close/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/shift-open/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/source-receive/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/store-pos/page.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 11
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/store-pos/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/wms/inbound/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/wms/outbound/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/wms/stocktake/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/app/(terminal)/terminal/wms/stocktake/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/error.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/layout.tsx",
+      "ruleId": "@next/next/no-css-tags",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/login/page.tsx",
+      "ruleId": "@next/next/no-img-element",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/login/page.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/app/login/page.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/data-table/DataTable.tsx",
+      "ruleId": "(eslint diagnostic)",
+      "severity": 1,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/data-table/DataTable.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/data-table/DataTable.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/data-table/DataTable.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/design-system/dialogs/ModalV2.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/design-system/forms/AmountInput.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/design-system/forms/AttachmentUploader.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/design-system/layouts/SearchBar.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/design-system/layouts/ThemeSwitcher.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/design-system/tables/DataTableV3.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 10
+    },
+    {
+      "file": "apps/web/src/components/design-system/templates/PageTemplates.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/design-system/templates/Templates.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 6
+    },
+    {
+      "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/layout/ApprovalNotifier.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/layout/ImpersonationBanner.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/layout/OnlineUsersIndicator.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "ruleId": "@next/next/no-img-element",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/layout/Sidebar.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataDetailDrawer.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 5
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataDetailDrawer.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataDetailLayout.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataDetailLayout.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataFormPage.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataFormPage.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataFormPage.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
+      "ruleId": "(eslint diagnostic)",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 13
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/master-data/OrgMembersPanel.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 16
+    },
+    {
+      "file": "apps/web/src/components/master-data/detail-configs.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/components/mobile/MobileSkeleton.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/packaging/PackingHistoryList.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/packaging/PackingHistoryList.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/packaging/PackingProductionReport.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 3
+    },
+    {
+      "file": "apps/web/src/components/packaging/PackingProductionReport.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/packaging/PackingRecordDetail.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 16
+    },
+    {
+      "file": "apps/web/src/components/packaging/PackingRecordDetail.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/settings/UserOrgBindingPanel.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/shared-selectors/MasterDataSelectors.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 41
+    },
+    {
+      "file": "apps/web/src/components/shared-selectors/MasterDataSelectors.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/shared-selectors/MaterialPicker.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/components/shared-selectors/MaterialPicker.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/components/terminal/NumPad.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/terminal/TerminalNavRail.tsx",
+      "ruleId": "@next/next/no-img-element",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/uat/FeedbackWidget.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/uat/FeedbackWidget.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/ui/ConfirmDialog.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/ui/CrudForm.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 12
+    },
+    {
+      "file": "apps/web/src/components/ui/CrudForm.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/ui/CrudPage.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/ui/CrudPage.tsx",
+      "ruleId": "@typescript-eslint/no-unused-expressions",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/workflow/WorkflowMetricsStrip.tsx",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/workflow/WorkflowMetricsStrip.tsx",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/components/workflow/WorkflowMetricsStrip.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/contexts/AuthContext.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/contexts/LanguageContext.tsx",
+      "ruleId": "@typescript-eslint/no-unused-vars",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/contexts/MobileThemeContext.tsx",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/hooks/useCrud.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/hooks/useCrud.ts",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 4
+    },
+    {
+      "file": "apps/web/src/hooks/useDictOptions.ts",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/hooks/usePackingRecord.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/hooks/usePackingRecord.ts",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/hooks/usePackingRecord.ts",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/hooks/useProductGrades.ts",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/hooks/useTerminalContext.ts",
+      "ruleId": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/hooks/useTerminalContext.ts",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/lib/api-client.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/lib/egglog-refresh.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/lib/impersonate.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/lib/mobile-api.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/lib/packaging-api.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 14
+    },
+    {
+      "file": "apps/web/src/lib/packing-history-api.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/lib/shareholder-api.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/lib/store-pos-api.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 2
+    },
+    {
+      "file": "apps/web/src/lib/use-abortable-load.ts",
+      "ruleId": "react-hooks/set-state-in-effect",
+      "severity": 2,
+      "count": 1
+    },
+    {
+      "file": "apps/web/src/middleware.ts",
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "severity": 2,
+      "count": 1
+    }
+  ],
+  "summary": {
+    "totalErrors": 838,
+    "totalWarnings": 476,
+    "filesWithErrors": 200,
+    "errorsByRule": {
+      "@typescript-eslint/no-explicit-any": 603,
+      "react-hooks/set-state-in-effect": 235
+    },
+    "errorsByFile": {
+      "apps/web/e2e/store-replenishment.spec.ts": 4,
+      "apps/web/src/app/(admin)/analytics/page.tsx": 1,
+      "apps/web/src/app/(admin)/breeding/daily-inbound-ledger/page.tsx": 1,
+      "apps/web/src/app/(admin)/breeding/daily-inbound/page.tsx": 1,
+      "apps/web/src/app/(admin)/breeding/daily/page.tsx": 8,
+      "apps/web/src/app/(admin)/breeding/device-ops/page.tsx": 5,
+      "apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx": 2,
+      "apps/web/src/app/(admin)/breeding/device/page.tsx": 8,
+      "apps/web/src/app/(admin)/breeding/flock/page.tsx": 1,
+      "apps/web/src/app/(admin)/breeding/henhouse/page.tsx": 2,
+      "apps/web/src/app/(admin)/breeding/henreport/page.tsx": 2,
+      "apps/web/src/app/(admin)/breeding/immune/page.tsx": 3,
+      "apps/web/src/app/(admin)/breeding/med-stock/page.tsx": 5,
+      "apps/web/src/app/(admin)/breeding/medicine/page.tsx": 1,
+      "apps/web/src/app/(admin)/breeding/page.tsx": 1,
+      "apps/web/src/app/(admin)/dashboard/page.tsx": 1,
+      "apps/web/src/app/(admin)/data-quality/page.tsx": 2,
+      "apps/web/src/app/(admin)/finance2/ap/page.tsx": 7,
+      "apps/web/src/app/(admin)/finance2/ar-ledger/page.tsx": 3,
+      "apps/web/src/app/(admin)/finance2/ar-reconciliation/page.tsx": 1,
+      "apps/web/src/app/(admin)/finance2/ar/page.tsx": 14,
+      "apps/web/src/app/(admin)/finance2/cash-accounts/page.tsx": 2,
+      "apps/web/src/app/(admin)/finance2/expenses/page.tsx": 2,
+      "apps/web/src/app/(admin)/finance2/fund-transfers/page.tsx": 1,
+      "apps/web/src/app/(admin)/finance2/page.tsx": 1,
+      "apps/web/src/app/(admin)/finance2/reimbursements/page.tsx": 1,
+      "apps/web/src/app/(admin)/finance2/shareholder-funds/page.tsx": 4,
+      "apps/web/src/app/(admin)/home/page.tsx": 9,
+      "apps/web/src/app/(admin)/master-data/bank-accounts/[code]/edit/page.tsx": 6,
+      "apps/web/src/app/(admin)/master-data/business-units/page.tsx": 1,
+      "apps/web/src/app/(admin)/master-data/cash-accounts/[code]/edit/page.tsx": 6,
+      "apps/web/src/app/(admin)/master-data/companies/page.tsx": 1,
+      "apps/web/src/app/(admin)/master-data/customers/[code]/edit/page.tsx": 6,
+      "apps/web/src/app/(admin)/master-data/customers/[code]/page.tsx": 13,
+      "apps/web/src/app/(admin)/master-data/dictionaries/page.tsx": 3,
+      "apps/web/src/app/(admin)/master-data/governance/page.tsx": 2,
+      "apps/web/src/app/(admin)/master-data/operations/page.tsx": 4,
+      "apps/web/src/app/(admin)/master-data/organizations/page.tsx": 1,
+      "apps/web/src/app/(admin)/master-data/page.tsx": 4,
+      "apps/web/src/app/(admin)/master-data/pending/page.tsx": 5,
+      "apps/web/src/app/(admin)/master-data/products/[code]/edit/page.tsx": 6,
+      "apps/web/src/app/(admin)/master-data/quality/page.tsx": 1,
+      "apps/web/src/app/(admin)/master-data/suppliers/[code]/edit/page.tsx": 6,
+      "apps/web/src/app/(admin)/master-data/suppliers/[code]/page.tsx": 13,
+      "apps/web/src/app/(admin)/notifications/page.tsx": 1,
+      "apps/web/src/app/(admin)/packaging/batch/page.tsx": 1,
+      "apps/web/src/app/(admin)/packaging/daily-report/page.tsx": 1,
+      "apps/web/src/app/(admin)/packaging/exceptions/page.tsx": 1,
+      "apps/web/src/app/(admin)/packaging/print-logs/page.tsx": 1,
+      "apps/web/src/app/(admin)/procurement2/dashboard/page.tsx": 8,
+      "apps/web/src/app/(admin)/procurement2/init/page.tsx": 1,
+      "apps/web/src/app/(admin)/procurement2/orders/OrderForm.tsx": 2,
+      "apps/web/src/app/(admin)/procurement2/payments/PaymentForm.tsx": 3,
+      "apps/web/src/app/(admin)/procurement2/requests/RequestForm.tsx": 2,
+      "apps/web/src/app/(admin)/procurement2/requests/page.tsx": 2,
+      "apps/web/src/app/(admin)/procurement2/shareholder-funds/page.tsx": 1,
+      "apps/web/src/app/(admin)/procurement2/shipments/page.tsx": 2,
+      "apps/web/src/app/(admin)/procurement2/suppliers/page.tsx": 2,
+      "apps/web/src/app/(admin)/profile/page.tsx": 17,
+      "apps/web/src/app/(admin)/quality/nonconformance/page.tsx": 1,
+      "apps/web/src/app/(admin)/sales2/channels/page.tsx": 1,
+      "apps/web/src/app/(admin)/sales2/credit/page.tsx": 1,
+      "apps/web/src/app/(admin)/sales2/customers/page.tsx": 20,
+      "apps/web/src/app/(admin)/sales2/delivery/page.tsx": 13,
+      "apps/web/src/app/(admin)/sales2/inventory/page.tsx": 6,
+      "apps/web/src/app/(admin)/sales2/orders/page.tsx": 17,
+      "apps/web/src/app/(admin)/sales2/pricing/page.tsx": 19,
+      "apps/web/src/app/(admin)/sales2/reports/page.tsx": 40,
+      "apps/web/src/app/(admin)/sales2/returns/page.tsx": 5,
+      "apps/web/src/app/(admin)/settings/approval-flows/page.tsx": 1,
+      "apps/web/src/app/(admin)/settings/approval-rules/page.tsx": 9,
+      "apps/web/src/app/(admin)/settings/audit-log/page.tsx": 1,
+      "apps/web/src/app/(admin)/settings/data-scopes/page.tsx": 1,
+      "apps/web/src/app/(admin)/settings/dict/page.tsx": 4,
+      "apps/web/src/app/(admin)/settings/notifications/page.tsx": 10,
+      "apps/web/src/app/(admin)/settings/online-users/page.tsx": 1,
+      "apps/web/src/app/(admin)/settings/pda-terminals/page.tsx": 1,
+      "apps/web/src/app/(admin)/settings/permission-sets/page.tsx": 9,
+      "apps/web/src/app/(admin)/settings/pos-config/page.tsx": 1,
+      "apps/web/src/app/(admin)/settings/roles/[code]/page.tsx": 2,
+      "apps/web/src/app/(admin)/settings/roles/page.tsx": 6,
+      "apps/web/src/app/(admin)/settings/security/page.tsx": 1,
+      "apps/web/src/app/(admin)/settings/users/[id]/page.tsx": 6,
+      "apps/web/src/app/(admin)/settings/users/page.tsx": 3,
+      "apps/web/src/app/(admin)/shareholders/SummaryBar.tsx": 2,
+      "apps/web/src/app/(admin)/shareholders/capital/import/page.tsx": 4,
+      "apps/web/src/app/(admin)/shareholders/capital/page.tsx": 7,
+      "apps/web/src/app/(admin)/shareholders/projects/page.tsx": 1,
+      "apps/web/src/app/(admin)/store-payment/page.tsx": 3,
+      "apps/web/src/app/(admin)/store-pos/page.tsx": 15,
+      "apps/web/src/app/(admin)/store-settlement/page.tsx": 2,
+      "apps/web/src/app/(admin)/store/inventory/page.tsx": 2,
+      "apps/web/src/app/(admin)/store/losses/page.tsx": 2,
+      "apps/web/src/app/(admin)/store/page.tsx": 2,
+      "apps/web/src/app/(admin)/store/receiving/page.tsx": 2,
+      "apps/web/src/app/(admin)/store/replenish/page.tsx": 22,
+      "apps/web/src/app/(admin)/system/alerts/page.tsx": 1,
+      "apps/web/src/app/(admin)/system/backup/page.tsx": 3,
+      "apps/web/src/app/(admin)/system/configs/page.tsx": 1,
+      "apps/web/src/app/(admin)/system/error-logs/page.tsx": 1,
+      "apps/web/src/app/(admin)/system/health/page.tsx": 1,
+      "apps/web/src/app/(admin)/traceability/page.tsx": 6,
+      "apps/web/src/app/(admin)/uat/page.tsx": 14,
+      "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx": 3,
+      "apps/web/src/app/(admin)/warehouse/expiry/page.tsx": 1,
+      "apps/web/src/app/(admin)/warehouse/inbound/page.tsx": 1,
+      "apps/web/src/app/(admin)/warehouse/locations/page.tsx": 3,
+      "apps/web/src/app/(admin)/warehouse/outbound/page.tsx": 3,
+      "apps/web/src/app/(admin)/warehouse/page.tsx": 1,
+      "apps/web/src/app/(admin)/warehouse/source-mode/page.tsx": 1,
+      "apps/web/src/app/(admin)/workflow/forms/runtime/page.tsx": 7,
+      "apps/web/src/app/(admin)/workflow/forms/submit/[formCode]/page.tsx": 6,
+      "apps/web/src/app/(admin)/workflow/history/page.tsx": 1,
+      "apps/web/src/app/(admin)/workflow/instances/page.tsx": 2,
+      "apps/web/src/app/(admin)/workflow/metrics/page.tsx": 1,
+      "apps/web/src/app/(admin)/workflow/tasks/done/page.tsx": 1,
+      "apps/web/src/app/(admin)/workflow/tasks/todo/page.tsx": 1,
+      "apps/web/src/app/(mobile)/layout.tsx": 1,
+      "apps/web/src/app/(mobile)/mobile/analytics/page.tsx": 2,
+      "apps/web/src/app/(mobile)/mobile/delivery/exceptions/page.tsx": 1,
+      "apps/web/src/app/(mobile)/mobile/delivery/orders/[id]/page.tsx": 1,
+      "apps/web/src/app/(mobile)/mobile/delivery/orders/page.tsx": 1,
+      "apps/web/src/app/(mobile)/mobile/delivery/page.tsx": 2,
+      "apps/web/src/app/(mobile)/mobile/delivery/performance/page.tsx": 1,
+      "apps/web/src/app/(mobile)/mobile/delivery/receipt/[orderId]/page.tsx": 1,
+      "apps/web/src/app/(mobile)/mobile/device/page.tsx": 6,
+      "apps/web/src/app/(mobile)/mobile/egg/page.tsx": 5,
+      "apps/web/src/app/(mobile)/mobile/egglog/page.tsx": 11,
+      "apps/web/src/app/(mobile)/mobile/expenses/page.tsx": 2,
+      "apps/web/src/app/(mobile)/mobile/feed/page.tsx": 8,
+      "apps/web/src/app/(mobile)/mobile/henreport/page.tsx": 2,
+      "apps/web/src/app/(mobile)/mobile/login/page.tsx": 1,
+      "apps/web/src/app/(mobile)/mobile/medicine/page.tsx": 4,
+      "apps/web/src/app/(mobile)/mobile/mortality/page.tsx": 8,
+      "apps/web/src/app/(mobile)/mobile/notifications/page.tsx": 2,
+      "apps/web/src/app/(mobile)/mobile/packaging/page.tsx": 2,
+      "apps/web/src/app/(mobile)/mobile/prc-order/page.tsx": 2,
+      "apps/web/src/app/(mobile)/mobile/prc-request/page.tsx": 7,
+      "apps/web/src/app/(mobile)/mobile/quality/page.tsx": 1,
+      "apps/web/src/app/(mobile)/mobile/sales/page.tsx": 4,
+      "apps/web/src/app/(mobile)/mobile/workflow/page.tsx": 6,
+      "apps/web/src/app/(terminal)/terminal/packaging/dashboard/page.tsx": 1,
+      "apps/web/src/app/(terminal)/terminal/packaging/grading/page.tsx": 4,
+      "apps/web/src/app/(terminal)/terminal/packaging/label-print/page.tsx": 2,
+      "apps/web/src/app/(terminal)/terminal/packaging/qc-inspection/page.tsx": 5,
+      "apps/web/src/app/(terminal)/terminal/packaging/shift-close/page.tsx": 2,
+      "apps/web/src/app/(terminal)/terminal/packaging/shift-open/page.tsx": 2,
+      "apps/web/src/app/(terminal)/terminal/packaging/warehouse-handover/page.tsx": 1,
+      "apps/web/src/app/(terminal)/terminal/store-pos/page.tsx": 13,
+      "apps/web/src/app/(terminal)/terminal/wms/inbound/page.tsx": 1,
+      "apps/web/src/app/(terminal)/terminal/wms/outbound/page.tsx": 1,
+      "apps/web/src/app/(terminal)/terminal/wms/stocktake/page.tsx": 1,
+      "apps/web/src/app/login/page.tsx": 1,
+      "apps/web/src/components/data-table/DataTable.tsx": 3,
+      "apps/web/src/components/design-system/dialogs/ModalV2.tsx": 1,
+      "apps/web/src/components/design-system/forms/AmountInput.tsx": 1,
+      "apps/web/src/components/design-system/forms/AttachmentUploader.tsx": 2,
+      "apps/web/src/components/design-system/layouts/SearchBar.tsx": 1,
+      "apps/web/src/components/design-system/layouts/ThemeSwitcher.tsx": 1,
+      "apps/web/src/components/design-system/tables/DataTableV3.tsx": 10,
+      "apps/web/src/components/design-system/templates/PageTemplates.tsx": 2,
+      "apps/web/src/components/design-system/templates/Templates.tsx": 6,
+      "apps/web/src/components/layout/ApprovalNotifier.tsx": 2,
+      "apps/web/src/components/layout/ImpersonationBanner.tsx": 1,
+      "apps/web/src/components/layout/OnlineUsersIndicator.tsx": 1,
+      "apps/web/src/components/master-data/MasterDataDetailDrawer.tsx": 6,
+      "apps/web/src/components/master-data/MasterDataDetailLayout.tsx": 4,
+      "apps/web/src/components/master-data/MasterDataFormPage.tsx": 3,
+      "apps/web/src/components/master-data/MasterDataRuntimePanel.tsx": 15,
+      "apps/web/src/components/master-data/OrgMembersPanel.tsx": 2,
+      "apps/web/src/components/master-data/detail-configs.tsx": 16,
+      "apps/web/src/components/packaging/PackingHistoryList.tsx": 3,
+      "apps/web/src/components/packaging/PackingProductionReport.tsx": 4,
+      "apps/web/src/components/packaging/PackingRecordDetail.tsx": 17,
+      "apps/web/src/components/settings/UserOrgBindingPanel.tsx": 2,
+      "apps/web/src/components/shared-selectors/MasterDataSelectors.tsx": 42,
+      "apps/web/src/components/shared-selectors/MaterialPicker.tsx": 6,
+      "apps/web/src/components/terminal/NumPad.tsx": 1,
+      "apps/web/src/components/uat/FeedbackWidget.tsx": 2,
+      "apps/web/src/components/ui/ConfirmDialog.tsx": 1,
+      "apps/web/src/components/ui/CrudForm.tsx": 12,
+      "apps/web/src/components/ui/CrudPage.tsx": 1,
+      "apps/web/src/components/workflow/WorkflowMetricsStrip.tsx": 2,
+      "apps/web/src/contexts/AuthContext.tsx": 1,
+      "apps/web/src/contexts/MobileThemeContext.tsx": 1,
+      "apps/web/src/hooks/useCrud.ts": 2,
+      "apps/web/src/hooks/useDictOptions.ts": 2,
+      "apps/web/src/hooks/usePackingRecord.ts": 2,
+      "apps/web/src/hooks/useProductGrades.ts": 1,
+      "apps/web/src/hooks/useTerminalContext.ts": 1,
+      "apps/web/src/lib/api-client.ts": 1,
+      "apps/web/src/lib/egglog-refresh.ts": 1,
+      "apps/web/src/lib/impersonate.ts": 1,
+      "apps/web/src/lib/mobile-api.ts": 1,
+      "apps/web/src/lib/packaging-api.ts": 14,
+      "apps/web/src/lib/packing-history-api.ts": 1,
+      "apps/web/src/lib/shareholder-api.ts": 2,
+      "apps/web/src/lib/store-pos-api.ts": 2,
+      "apps/web/src/lib/use-abortable-load.ts": 1,
+      "apps/web/src/middleware.ts": 1
+    }
+  }
+}
