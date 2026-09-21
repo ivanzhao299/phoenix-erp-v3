@@ -338,6 +338,9 @@ jobs:
           node --check scripts/ledger-preflight.mjs
           node --test scripts/ledger-preflight.test.mjs
 
+      - name: Test production identity diagnostic contract
+        run: node --test scripts/ci/production-identity-diagnostic.test.mjs
+
       - name: Type-check API
         run: pnpm --filter phoenix-erp-v3-nest exec tsc --noEmit
 
