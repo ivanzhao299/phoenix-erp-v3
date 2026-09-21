@@ -58,7 +58,6 @@ jobs:
           proxy_port: 22
           envs: EXPECTED_SHA,DEPLOY_PATH
           command_timeout: 8m
-          script_stop: true
           script: |
             set -Eeuo pipefail
             set +x
