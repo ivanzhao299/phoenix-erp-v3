@@ -6,6 +6,10 @@ const workflow = readFileSync(
   new URL('../../.github/workflows/production-identity-diagnostic.yml', import.meta.url),
   'utf8',
 );
+const remoteWorkflow = readFileSync(
+  new URL('../../.github/workflows/production-git-remote-diagnostic.yml', import.meta.url),
+  'utf8',
+);
 
 test('production identity diagnostic remains manual and read-only', () => {
   assert.match(workflow, /\bon:\s*\n\s+workflow_dispatch:/);
@@ -56,4 +60,38 @@ test('production identity diagnostic remains manual and read-only', () => {
   assert.match(workflow, /DIAG_RESULT=BLOCKED/);
   assert.match(workflow, /DIAG_FAILURE=(?:ORIGIN_MISMATCH|WORKTREE_DIRTY|NODE_MISSING|HEAD_MISMATCH|LEDGER_SCRIPT_MISSING)/);
   assert.doesNotMatch(workflow, /HEAD_MATCH=false[\s\S]{0,120}exit 34/);
+
+  assert.match(remoteWorkflow, /\bon:\s*\n\s+workflow_dispatch:/);
+  assert.match(remoteWorkflow, /production-readonly/);
+  assert.match(remoteWorkflow, /contents:\s+read/);
+  assert.match(remoteWorkflow, /RUN_PRODUCTION_REMOTE_DIAGNOSTIC/);
+  assert.match(remoteWorkflow, /ORIGIN_REPOSITORY=/);
+  assert.match(remoteWorkflow, /REMOTE_CLASSIFICATION=/);
+  assert.doesNotMatch(remoteWorkflow, /echo\s+"\$ORIGIN_URL"/);
+  assert.doesNotMatch(remoteWorkflow, /echo\s+"\$ORIGIN_PUSHURL"/);
+  for (const forbidden of [
+    'git remote set-url',
+    'git remote add',
+    'git remote remove',
+    'git fetch',
+    'git pull',
+    'git push',
+    'git checkout',
+    'git switch',
+    'git reset',
+    'git clean',
+    'git stash',
+    'docker compose',
+    'migration',
+    'ledger-preflight',
+    'psql',
+    'INSERT',
+    'UPDATE',
+    'DELETE',
+    'restart',
+    'capture_stdout',
+    'script_stop',
+  ]) {
+    assert.doesNotMatch(remoteWorkflow, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), `remote forbidden token: ${forbidden}`);
+  }
 });
