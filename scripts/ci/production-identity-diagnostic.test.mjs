@@ -22,6 +22,7 @@ test('production identity diagnostic remains manual and read-only', () => {
     'schedule:',
     'workflow_run:',
     'script_stop',
+    'capture_stdout',
     'docker compose',
     'psql',
     'migration',
@@ -44,4 +45,15 @@ test('production identity diagnostic remains manual and read-only', () => {
   ]) {
     assert.doesNotMatch(workflow, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), `forbidden token: ${forbidden}`);
   }
+
+  const headCapture = workflow.indexOf('DIAG_STAGE=HEAD_CAPTURED');
+  const originCheck = workflow.indexOf('DIAG_STAGE=ORIGIN_CHECKED');
+  const worktreeCheck = workflow.indexOf('DIAG_STAGE=WORKTREE_CHECKED');
+  const nodeCheck = workflow.indexOf('DIAG_STAGE=NODE_CHECKED');
+  assert.ok(headCapture >= 0 && headCapture < originCheck);
+  assert.ok(originCheck < worktreeCheck && worktreeCheck < nodeCheck);
+  assert.match(workflow, /DIAG_RESULT=RELEASE_NOT_ALIGNED/);
+  assert.match(workflow, /DIAG_RESULT=BLOCKED/);
+  assert.match(workflow, /DIAG_FAILURE=(?:ORIGIN_MISMATCH|WORKTREE_DIRTY|NODE_MISSING|HEAD_MISMATCH|LEDGER_SCRIPT_MISSING)/);
+  assert.doesNotMatch(workflow, /HEAD_MATCH=false[\s\S]{0,120}exit 34/);
 });

@@ -78,7 +78,6 @@ jobs:
           timeout: 30s
           proxy_timeout: 30s
           command_timeout: 2m
-          capture_stdout: true
           script: |
             set -u
             set +x
@@ -105,11 +104,12 @@ jobs:
             echo "EXPECTED_SHA=$EXPECTED_SHA"
             if [ "$CURRENT_SHA" != "$EXPECTED_SHA" ]; then
               echo "HEAD_MATCH=false"
-              echo "DIAG_FAILURE=HEAD_MISMATCH"
-              exit 34
+              HEAD_MATCH=false
+            else
+              echo "HEAD_MATCH=true"
+              HEAD_MATCH=true
             fi
-            echo "HEAD_MATCH=true"
-            echo "DIAG_STAGE=HEAD_OK"
+            echo "DIAG_STAGE=HEAD_CAPTURED"
 
             BRANCH="$(git branch --show-current 2>/dev/null || true)"
             echo "PRODUCTION_BRANCH=${BRANCH:-detached}"
@@ -118,44 +118,74 @@ jobs:
             if [ -z "$ORIGIN_URL" ]; then
               echo "ORIGIN_PRESENT=false"
               echo "ORIGIN_MATCHES_UPSTREAM=false"
-              echo "DIAG_FAILURE=ORIGIN_MISMATCH"
-              exit 35
+              ORIGIN_MATCHES_UPSTREAM=false
+            else
+              echo "ORIGIN_PRESENT=true"
+              case "$ORIGIN_URL" in
+                git@github.com:ivanzhao299/phoenix-erp-v3.git|\
+                https://github.com/ivanzhao299/phoenix-erp-v3.git|\
+                https://github.com/ivanzhao299/phoenix-erp-v3)
+                  echo "ORIGIN_IDENTITY=ivanzhao299/phoenix-erp-v3"
+                  echo "ORIGIN_MATCHES_UPSTREAM=true"
+                  ORIGIN_MATCHES_UPSTREAM=true ;;
+                *)
+                  echo "ORIGIN_MATCHES_UPSTREAM=false"
+                  ORIGIN_MATCHES_UPSTREAM=false ;;
+              esac
             fi
-            echo "ORIGIN_PRESENT=true"
-            case "$ORIGIN_URL" in
-              git@github.com:ivanzhao299/phoenix-erp-v3.git|\
-              https://github.com/ivanzhao299/phoenix-erp-v3.git|\
-              https://github.com/ivanzhao299/phoenix-erp-v3)
-                echo "ORIGIN_IDENTITY=ivanzhao299/phoenix-erp-v3"
-                echo "ORIGIN_MATCHES_UPSTREAM=true" ;;
-              *)
-                echo "ORIGIN_MATCHES_UPSTREAM=false"
-                echo "DIAG_FAILURE=ORIGIN_MISMATCH"
-                exit 35 ;;
-            esac
+            echo "DIAG_STAGE=ORIGIN_CHECKED"
 
             if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
               echo "WORKTREE_CLEAN=false"
-              echo "DIAG_FAILURE=WORKTREE_DIRTY"
-              exit 36
+              WORKTREE_CLEAN=false
+            else
+              echo "WORKTREE_CLEAN=true"
+              WORKTREE_CLEAN=true
             fi
-            echo "WORKTREE_CLEAN=true"
-            echo "DIAG_STAGE=WORKTREE_OK"
+            echo "DIAG_STAGE=WORKTREE_CHECKED"
 
             if [ ! -f scripts/ledger-preflight.mjs ]; then
               echo "LEDGER_PREFLIGHT_PRESENT=false"
-              echo "DIAG_FAILURE=LEDGER_SCRIPT_MISSING"
-              exit 37
+              LEDGER_PREFLIGHT_PRESENT=false
+            else
+              echo "LEDGER_PREFLIGHT_PRESENT=true"
+              LEDGER_PREFLIGHT_PRESENT=true
             fi
-            echo "LEDGER_PREFLIGHT_PRESENT=true"
-            echo "DIAG_STAGE=LEDGER_SCRIPT_OK"
+            echo "DIAG_STAGE=LEDGER_SCRIPT_CHECKED"
 
             if ! command -v node >/dev/null 2>&1; then
               echo "NODE_PRESENT=false"
+              NODE_PRESENT=false
+            else
+              echo "NODE_PRESENT=true"
+              NODE_PRESENT=true
+              node --version
+            fi
+            echo "DIAG_STAGE=NODE_CHECKED"
+
+            if [ "$ORIGIN_MATCHES_UPSTREAM" = false ]; then
+              echo "DIAG_RESULT=BLOCKED"
+              echo "DIAG_FAILURE=ORIGIN_MISMATCH"
+              exit 35
+            fi
+            if [ "$WORKTREE_CLEAN" = false ]; then
+              echo "DIAG_RESULT=BLOCKED"
+              echo "DIAG_FAILURE=WORKTREE_DIRTY"
+              exit 36
+            fi
+            if [ "$NODE_PRESENT" = false ]; then
+              echo "DIAG_RESULT=BLOCKED"
               echo "DIAG_FAILURE=NODE_MISSING"
               exit 38
             fi
-            echo "NODE_PRESENT=true"
-            node --version
-            echo "DIAG_STAGE=NODE_OK"
+            if [ "$HEAD_MATCH" = false ]; then
+              echo "DIAG_RESULT=RELEASE_NOT_ALIGNED"
+              echo "DIAG_FAILURE=HEAD_MISMATCH"
+              exit 34
+            fi
+            if [ "$LEDGER_PREFLIGHT_PRESENT" = false ]; then
+              echo "DIAG_RESULT=BLOCKED"
+              echo "DIAG_FAILURE=LEDGER_SCRIPT_MISSING"
+              exit 37
+            fi
             echo "DIAG_RESULT=PASS"
