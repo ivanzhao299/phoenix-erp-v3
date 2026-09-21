@@ -1,0 +1,176 @@
+name: Production Git Remote Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_readonly:
+        description: 'Type RUN_PRODUCTION_REMOTE_DIAGNOSTIC to authorize the read-only check'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-git-remote-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  production-git-remote-diagnostic:
+    name: Production Git remote diagnostic
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production-readonly
+    env:
+      CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
+
+    steps:
+      - name: Validate manual read-only invocation
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$CONFIRM_READONLY" = RUN_PRODUCTION_REMOTE_DIAGNOSTIC
+
+      - name: Validate deployment credential presence
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER }}
+          DEPLOY_PROXY_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          present() { [ -n "$1" ] && echo true || echo false; }
+          echo "DEPLOY_HOST_PRESENT=$(present "$DEPLOY_HOST")"
+          echo "DEPLOY_USER_PRESENT=$(present "$DEPLOY_USER")"
+          echo "DEPLOY_PORT_PRESENT=$(present "$DEPLOY_PORT")"
+          echo "DEPLOY_SSH_KEY_PRESENT=$(present "$DEPLOY_SSH_KEY")"
+          echo "DEPLOY_PATH_PRESENT=$(present "$DEPLOY_PATH")"
+          echo "DEPLOY_PROXY_HOST_PRESENT=$(present "$DEPLOY_PROXY_HOST")"
+          echo "DEPLOY_PROXY_USER_PRESENT=$(present "$DEPLOY_PROXY_USER")"
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_PROXY_HOST"
+          test -n "$DEPLOY_PROXY_USER"
+          test -n "$DEPLOY_PROXY_KEY"
+
+      - name: Inspect production Git remote identity over read-only SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH
+          timeout: 30s
+          proxy_timeout: 30s
+          command_timeout: 2m
+          script: |
+            set -u
+            set +x
+
+            if [ ! -d "$DEPLOY_PATH" ]; then
+              echo "REMOTE_DIAG_FAILURE=DEPLOY_PATH_MISSING"
+              exit 31
+            fi
+            if ! cd "$DEPLOY_PATH"; then
+              echo "REMOTE_DIAG_FAILURE=DEPLOY_PATH_NOT_ACCESSIBLE"
+              exit 32
+            fi
+
+            if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+              echo "REMOTE_DIAG_FAILURE=NOT_GIT_REPOSITORY"
+              exit 33
+            fi
+            echo "GIT_REPOSITORY=true"
+            BRANCH="$(git branch --show-current 2>/dev/null || true)"
+            echo "PRODUCTION_BRANCH=${BRANCH:-detached}"
+            PRODUCTION_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+            echo "PRODUCTION_SHA=$PRODUCTION_SHA"
+            if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+              echo "WORKTREE_CLEAN=false"
+            else
+              echo "WORKTREE_CLEAN=true"
+            fi
+
+            REMOTE_NAMES="$(git remote | paste -sd, -)"
+            echo "REMOTE_NAMES=${REMOTE_NAMES:-none}"
+            if git config --get remote.origin.url >/dev/null 2>&1; then
+              echo "ORIGIN_PRESENT=true"
+            else
+              echo "ORIGIN_PRESENT=false"
+            fi
+
+            normalize_repo() {
+              raw="$1"
+              case "$raw" in
+                git@github.com:*) path="${raw#git@github.com:}" ;;
+                https://github.com/*) path="${raw#https://github.com/}" ;;
+                ssh://git@github.com/*) path="${raw#ssh://git@github.com/}" ;;
+                *) echo UNKNOWN_REMOTE_FORMAT; return ;;
+              esac
+              path="${path%.git}"
+              case "$path" in
+                ""|/*|*/|*//*|*/*/*|*[!A-Za-z0-9._/-]*) echo UNKNOWN_REMOTE_FORMAT ;;
+                */*) echo "$path" ;;
+                *) echo UNKNOWN_REMOTE_FORMAT ;;
+              esac
+            }
+
+            ORIGIN_URL="$(git config --get remote.origin.url || true)"
+            if [ -n "$ORIGIN_URL" ]; then
+              ORIGIN_REPOSITORY="$(normalize_repo "$ORIGIN_URL")"
+            else
+              ORIGIN_REPOSITORY=UNKNOWN_REMOTE_FORMAT
+            fi
+            echo "ORIGIN_REPOSITORY=$ORIGIN_REPOSITORY"
+
+            ORIGIN_PUSHURL="$(git config --get-all remote.origin.pushurl | head -n 1 || true)"
+            if [ -n "$ORIGIN_PUSHURL" ]; then
+              echo "ORIGIN_PUSHURL_PRESENT=true"
+              echo "ORIGIN_PUSH_REPOSITORY=$(normalize_repo "$ORIGIN_PUSHURL")"
+            else
+              echo "ORIGIN_PUSHURL_PRESENT=false"
+              echo "ORIGIN_PUSH_REPOSITORY=NOT_CONFIGURED"
+            fi
+
+            MAIN_REMOTE="$(git config --get branch.main.remote || true)"
+            MAIN_MERGE="$(git config --get branch.main.merge || true)"
+            echo "MAIN_TRACKING_REMOTE=$MAIN_REMOTE"
+            echo "MAIN_TRACKING_MERGE=$MAIN_MERGE"
+
+            FETCH_VALID=false
+            while IFS= read -r refspec; do
+              if [ "$refspec" = "+refs/heads/*:refs/remotes/origin/*" ]; then
+                FETCH_VALID=true
+              fi
+            done <<EOF
+$(git config --get-all remote.origin.fetch || true)
+EOF
+            echo "ORIGIN_FETCH_REFSPEC_VALID=$FETCH_VALID"
+
+            echo "EXPECTED_RELEASE_REPOSITORY=ivanzhao299/phoenix-erp-v3"
+            if [ "$ORIGIN_REPOSITORY" = "ivanzhao299/phoenix-erp-v3" ]; then
+              echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=true"
+              echo "REMOTE_CLASSIFICATION=EXPECTED_UPSTREAM"
+            elif [ "$ORIGIN_REPOSITORY" = "emvia/phoenix-erp-final" ]; then
+              echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=false"
+              echo "REMOTE_CLASSIFICATION=DEVELOPMENT_FORK"
+            elif [ "$ORIGIN_REPOSITORY" = "UNKNOWN_REMOTE_FORMAT" ]; then
+              echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=false"
+              echo "REMOTE_CLASSIFICATION=UNKNOWN"
+            else
+              echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=false"
+              echo "REMOTE_CLASSIFICATION=OTHER_REPOSITORY"
+            fi
