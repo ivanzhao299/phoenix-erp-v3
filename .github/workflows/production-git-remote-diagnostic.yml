@@ -151,13 +151,10 @@ jobs:
             echo "MAIN_TRACKING_MERGE=$MAIN_MERGE"
 
             FETCH_VALID=false
-            while IFS= read -r refspec; do
-              if [ "$refspec" = "+refs/heads/*:refs/remotes/origin/*" ]; then
-                FETCH_VALID=true
-              fi
-            done <<EOF
-$(git config --get-all remote.origin.fetch || true)
-EOF
+            if git config --get-all remote.origin.fetch \
+              | grep -Fxq '+refs/heads/*:refs/remotes/origin/*'; then
+              FETCH_VALID=true
+            fi
             echo "ORIGIN_FETCH_REFSPEC_VALID=$FETCH_VALID"
 
             echo "EXPECTED_RELEASE_REPOSITORY=ivanzhao299/phoenix-erp-v3"

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -94,4 +95,30 @@ test('production identity diagnostic remains manual and read-only', () => {
   ]) {
     assert.doesNotMatch(remoteWorkflow, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), `remote forbidden token: ${forbidden}`);
   }
+});
+
+test('production Git remote diagnostic is valid YAML and manual-only', () => {
+  const parser = spawnSync('python3', ['-c', `
+import pathlib
+import sys
+try:
+    import yaml
+except Exception as exc:
+    print(f'PyYAML is required for workflow parsing: {exc}', file=sys.stderr)
+    raise SystemExit(2)
+
+workflow = yaml.safe_load(pathlib.Path(sys.argv[1]).read_text())
+on = workflow.get(True, workflow.get('on', {}))
+assert isinstance(on, dict), 'workflow on must be a mapping'
+assert set(on) == {'workflow_dispatch'}, f'unexpected triggers: {set(on)}'
+assert isinstance(on['workflow_dispatch'], dict)
+assert workflow['name'] == 'Production Git Remote Diagnostic'
+job = workflow['jobs']['production-git-remote-diagnostic']
+assert 'workflow_dispatch' in job['if']
+assert "refs/heads/main" in job['if']
+assert job['environment'] == 'production-readonly'
+assert workflow['permissions']['contents'] == 'read'
+`, '.github/workflows/production-git-remote-diagnostic.yml'], { encoding: 'utf8' });
+  assert.equal(parser.status, 0, parser.stderr || parser.stdout);
+  assert.equal(parser.error, undefined, parser.error?.message);
 });
