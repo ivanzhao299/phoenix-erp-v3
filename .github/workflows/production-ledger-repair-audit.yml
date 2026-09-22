@@ -126,11 +126,12 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
-          EXPECTED_SHA: ${{ github.sha }}
+          AUDIT_SHA: ${{ github.sha }}
           CANONICAL_SCHEMA_HASH: ${{ steps.canonical.outputs.schema_hash }}
           CANONICAL_SCHEMA_LINES: ${{ steps.canonical.outputs.schema_lines }}
           SCHEMA_SQL_B64: ${{ steps.canonical.outputs.schema_sql_b64 }}
           BACKUP_RUN_ID: '35679353194'
+          BACKUP_TARGET_SHA: fb70fbad9a163d9e3cbb02a76506766babe89db2
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -140,12 +141,12 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,EXPECTED_SHA,CANONICAL_SCHEMA_HASH,CANONICAL_SCHEMA_LINES,SCHEMA_SQL_B64,BACKUP_RUN_ID
+          envs: DEPLOY_PATH,AUDIT_SHA,CANONICAL_SCHEMA_HASH,CANONICAL_SCHEMA_LINES,SCHEMA_SQL_B64,BACKUP_RUN_ID,BACKUP_TARGET_SHA
           timeout: 30s
           proxy_timeout: 30s
           command_timeout: 8m
           script: |
-            set -u
+            set -Eeuo pipefail
             set +x
             echo "AUDIT_STAGE=SSH_CONNECTED"
             if [ ! -d "$DEPLOY_PATH" ]; then echo "AUDIT_FAILURE=DEPLOY_PATH_MISSING"; exit 31; fi
@@ -153,6 +154,7 @@ jobs:
             echo "AUDIT_STAGE=DEPLOY_PATH_OK"
             test "$(git rev-parse --is-inside-work-tree 2>/dev/null || true)" = true || { echo "AUDIT_FAILURE=NOT_GIT_REPOSITORY"; exit 33; }
             echo "AUDIT_STAGE=GIT_REPOSITORY_OK"
+            echo "AUDIT_SHA=$AUDIT_SHA"
             echo "PRODUCTION_SHA=$(git rev-parse HEAD)"
             echo "PRODUCTION_BRANCH=$(git branch --show-current 2>/dev/null || true)"
             if [ -n "$(git status --porcelain --untracked-files=all)" ]; then echo "WORKTREE_CLEAN=false"; else echo "WORKTREE_CLEAN=true"; fi
@@ -161,23 +163,42 @@ jobs:
               local query="$1"
               docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"' sh "$query"
             }
-            echo "DB_READ_ONLY=$(dbq_ro \"BEGIN; SET TRANSACTION READ ONLY; SHOW transaction_read_only; COMMIT;\" | tr -d '\r\n')"
-            echo "DB_VERSION=$(dbq_ro \"SELECT current_setting('server_version_num');\" | tr -d '\r\n')"
-            SCHEMA_MIGRATIONS_TABLE="$(dbq_ro \"SELECT COALESCE(to_regclass('public.schema_migrations')::text,'MISSING');\" | tr -d '\r\n')"
-            TYPEORM_MIGRATIONS_TABLE="$(dbq_ro \"SELECT COALESCE(to_regclass('public.migrations')::text,'MISSING');\" | tr -d '\r\n')"
+            if ! DB_READ_ONLY="$(dbq_ro 'SHOW transaction_read_only;' | tr -d '\r\n[:space:]')"; then
+              echo "AUDIT_FAILURE=DB_READ_ONLY_CHECK_FAILED"
+              exit 39
+            fi
+            echo "DB_READ_ONLY=$DB_READ_ONLY"
+            if [ "$DB_READ_ONLY" != on ]; then
+              echo "AUDIT_FAILURE=DB_SESSION_NOT_READ_ONLY"
+              exit 40
+            fi
+            DB_SERVER_VERSION="$(dbq_ro 'SHOW server_version;' | tr -d '\r\n')"
+            DB_SERVER_VERSION_NUM="$(dbq_ro "SELECT current_setting('server_version_num');" | tr -d '\r\n[:space:]')"
+            echo "DB_SERVER_VERSION=$DB_SERVER_VERSION"
+            echo "DB_SERVER_VERSION_NUM=$DB_SERVER_VERSION_NUM"
+            SCHEMA_MIGRATIONS_TABLE="$(dbq_ro "SELECT COALESCE(to_regclass('public.schema_migrations')::text,'MISSING');" | tr -d '\r\n')"
+            TYPEORM_MIGRATIONS_TABLE="$(dbq_ro "SELECT COALESCE(to_regclass('public.migrations')::text,'MISSING');" | tr -d '\r\n')"
+            SYS_USER_TABLE="$(dbq_ro "SELECT COALESCE(to_regclass('public.sys_user')::text,'MISSING');" | tr -d '\r\n')"
             echo "SCHEMA_MIGRATIONS_TABLE=$SCHEMA_MIGRATIONS_TABLE"
             echo "TYPEORM_MIGRATIONS_TABLE=$TYPEORM_MIGRATIONS_TABLE"
-            echo "SYS_USER_TABLE=$(dbq_ro \"SELECT COALESCE(to_regclass('public.sys_user')::text,'MISSING');\" | tr -d '\r\n')"
-            echo "SYS_USER_INITIALIZED=$(dbq_ro \"SELECT CASE WHEN to_regclass('public.sys_user') IS NULL THEN 'UNKNOWN' WHEN EXISTS (SELECT 1 FROM public.sys_user) THEN 'true' ELSE 'false' END;\" | tr -d '\r\n')"
+            echo "SYS_USER_TABLE=$SYS_USER_TABLE"
+            if [ "$SYS_USER_TABLE" = MISSING ]; then
+              SYS_USER_INITIALIZED=UNKNOWN
+            else
+              SYS_USER_INITIALIZED="$(dbq_ro "SELECT CASE WHEN EXISTS (SELECT 1 FROM public.sys_user) THEN 'true' ELSE 'false' END;" | tr -d '\r\n[:space:]')"
+            fi
+            echo "SYS_USER_INITIALIZED=$SYS_USER_INITIALIZED"
             if [ "$SCHEMA_MIGRATIONS_TABLE" = MISSING ]; then
               echo "SCHEMA_MIGRATIONS_ROWS=UNKNOWN"
             else
-              echo "SCHEMA_MIGRATIONS_ROWS=$(dbq_ro 'SELECT count(*) FROM public.schema_migrations;' | tr -d '\r\n')"
+              SCHEMA_MIGRATIONS_ROWS="$(dbq_ro 'SELECT count(*) FROM public.schema_migrations;' | tr -d '\r\n[:space:]')"
+              echo "SCHEMA_MIGRATIONS_ROWS=$SCHEMA_MIGRATIONS_ROWS"
             fi
             if [ "$TYPEORM_MIGRATIONS_TABLE" = MISSING ]; then
               echo "TYPEORM_MIGRATIONS_ROWS=UNKNOWN"
             else
-              echo "TYPEORM_MIGRATIONS_ROWS=$(dbq_ro 'SELECT count(*) FROM public.migrations;' | tr -d '\r\n')"
+              TYPEORM_MIGRATIONS_ROWS="$(dbq_ro 'SELECT count(*) FROM public.migrations;' | tr -d '\r\n[:space:]')"
+              echo "TYPEORM_MIGRATIONS_ROWS=$TYPEORM_MIGRATIONS_ROWS"
             fi
             echo "MIGRATION_EVIDENCE=INDETERMINATE"
             echo "REPAIR_DISPOSITION=INCOMPLETE_EVIDENCE"
@@ -195,7 +216,7 @@ jobs:
               echo "SCHEMA_FINGERPRINT_MATCH=UNKNOWN"
             fi
             BACKUP_DIR="/opt/phoenix-erp-backups/deploy-pre-migration-${BACKUP_RUN_ID}"
-            BACKUP_FILE="${BACKUP_DIR}/phoenix_erp_pre_${EXPECTED_SHA:0:12}.dump"
+            BACKUP_FILE="${BACKUP_DIR}/phoenix_erp_pre_${BACKUP_TARGET_SHA:0:12}.dump"
             if [ -s "$BACKUP_FILE" ]; then
               echo "BACKUP_PRESENT=true"
               TOC="$(docker compose exec -T db pg_restore --list < "$BACKUP_FILE" | grep -cvE '^;|^$' || true)"
