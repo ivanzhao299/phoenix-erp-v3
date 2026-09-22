@@ -1,0 +1,214 @@
+name: Production Ledger Repair Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_readonly:
+        description: 'Type RUN_PRODUCTION_LEDGER_REPAIR_AUDIT to authorize the read-only audit'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-ledger-repair-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Production ledger repair evidence audit
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production-readonly
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: phoenix
+          POSTGRES_PASSWORD: phoenix
+          POSTGRES_DB: phoenix_erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U phoenix -d phoenix_erp"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: phoenix
+      PGPASSWORD: phoenix
+      PGDATABASE: phoenix_erp
+      CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
+
+    steps:
+      - name: Checkout approved main commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Validate manual read-only invocation
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$CONFIRM_READONLY" = RUN_PRODUCTION_LEDGER_REPAIR_AUDIT
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Setup pnpm and Node
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build API for disposable migration inventory
+        run: pnpm --filter phoenix-erp-v3-nest build
+
+      - name: Construct disposable canonical schema
+        id: canonical
+        run: |
+          set -Eeuo pipefail
+          MIG_MODE=ci MIG_DIR=apps/api bash scripts/db-migrate.sh
+          SCHEMA_SQL="$(cat scripts/ci/production-schema-fingerprint.sql)"
+          psql -X -v ON_ERROR_STOP=1 -At -F $'\t' -c "$SCHEMA_SQL" > canonical-schema.tsv
+          SCHEMA_HASH="$(sha256sum canonical-schema.tsv | awk '{print $1}')"
+          SCHEMA_LINES="$(wc -l < canonical-schema.tsv | tr -d ' ')"
+          SCHEMA_SQL_B64="$(base64 -w0 scripts/ci/production-schema-fingerprint.sql)"
+          echo "schema_hash=$SCHEMA_HASH" >> "$GITHUB_OUTPUT"
+          echo "schema_lines=$SCHEMA_LINES" >> "$GITHUB_OUTPUT"
+          echo "schema_sql_b64=$SCHEMA_SQL_B64" >> "$GITHUB_OUTPUT"
+          echo "canonical_schema_hash=$SCHEMA_HASH"
+          echo "canonical_schema_lines=$SCHEMA_LINES"
+
+      - name: Record migration inventory and conservative evidence
+        id: inventory
+        run: |
+          set -euo pipefail
+          count() { find "$1" -maxdepth 1 -type f ${2:-} -print 2>/dev/null | wc -l | tr -d ' '; }
+          echo "DDL_COUNT=$(find apps/api/ddl -maxdepth 1 -type f -print | wc -l | tr -d ' ')"
+          echo "LEGACY_SQL_COUNT=$(find apps/api/migrations -maxdepth 1 -type f -name '2026*.sql' -print | wc -l | tr -d ' ')"
+          echo "TYPEORM_TS_COUNT=$(find apps/api/src/database/migrations -maxdepth 1 -type f -name '*.ts' -print | wc -l | tr -d ' ')"
+          for dir in apps/api/ddl apps/api/migrations apps/api/src/database/migrations; do
+            find "$dir" -maxdepth 1 -type f -printf '%f\n' 2>/dev/null | LC_ALL=C sort | sha256sum | awk -v d="$dir" '{print d "_FILENAMES_SHA256=" $1}'
+          done
+          ddl_only=0; data_only=0; mixed=0; unknown=0
+          while IFS= read -r file; do
+            has_ddl=0; has_data=0
+            grep -Eiq '\b(create|alter|drop|truncate|create[[:space:]]+index)\b' "$file" && has_ddl=1 || true
+            grep -Eiq '\b(insert|update|delete|merge)\b' "$file" && has_data=1 || true
+            if [ "$has_ddl" -eq 1 ] && [ "$has_data" -eq 1 ]; then mixed=$((mixed+1));
+            elif [ "$has_ddl" -eq 1 ]; then ddl_only=$((ddl_only+1));
+            elif [ "$has_data" -eq 1 ]; then data_only=$((data_only+1));
+            else unknown=$((unknown+1)); fi
+          done < <(find apps/api/migrations -maxdepth 1 -type f -name '2026*.sql' -print | LC_ALL=C sort)
+          echo "LEGACY_SQL_CLASSIFICATION=DDL_ONLY:${ddl_only},DATA_ONLY:${data_only},MIXED:${mixed},UNKNOWN:${unknown}"
+          echo "LEDGER_EVIDENCE_POLICY=INDETERMINATE_WHEN_TRACKING_METADATA_MISSING"
+
+      - name: Record migration tooling history evidence
+        run: |
+          set -euo pipefail
+          for path in scripts/db-migrate.sh scripts/bridge-schema-migrations-to-typeorm.sh scripts/deploy-schema-first.sh; do
+            intro="$(git log --all --follow --reverse --format='%H' -- "$path" | head -1 || true)"
+            echo "${path}_INTRODUCTION=${intro:-UNKNOWN}"
+            if [ -n "$intro" ]; then git merge-base --is-ancestor "$intro" "$GITHUB_SHA"; fi
+          done
+
+      - name: Audit production ledger state over read-only SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          EXPECTED_SHA: ${{ github.sha }}
+          CANONICAL_SCHEMA_HASH: ${{ steps.canonical.outputs.schema_hash }}
+          CANONICAL_SCHEMA_LINES: ${{ steps.canonical.outputs.schema_lines }}
+          SCHEMA_SQL_B64: ${{ steps.canonical.outputs.schema_sql_b64 }}
+          BACKUP_RUN_ID: '35679353194'
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,EXPECTED_SHA,CANONICAL_SCHEMA_HASH,CANONICAL_SCHEMA_LINES,SCHEMA_SQL_B64,BACKUP_RUN_ID
+          timeout: 30s
+          proxy_timeout: 30s
+          command_timeout: 8m
+          script: |
+            set -u
+            set +x
+            echo "AUDIT_STAGE=SSH_CONNECTED"
+            if [ ! -d "$DEPLOY_PATH" ]; then echo "AUDIT_FAILURE=DEPLOY_PATH_MISSING"; exit 31; fi
+            cd "$DEPLOY_PATH" || { echo "AUDIT_FAILURE=DEPLOY_PATH_NOT_ACCESSIBLE"; exit 32; }
+            echo "AUDIT_STAGE=DEPLOY_PATH_OK"
+            test "$(git rev-parse --is-inside-work-tree 2>/dev/null || true)" = true || { echo "AUDIT_FAILURE=NOT_GIT_REPOSITORY"; exit 33; }
+            echo "AUDIT_STAGE=GIT_REPOSITORY_OK"
+            echo "PRODUCTION_SHA=$(git rev-parse HEAD)"
+            echo "PRODUCTION_BRANCH=$(git branch --show-current 2>/dev/null || true)"
+            if [ -n "$(git status --porcelain --untracked-files=all)" ]; then echo "WORKTREE_CLEAN=false"; else echo "WORKTREE_CLEAN=true"; fi
+
+            dbq_ro() {
+              local query="$1"
+              docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on' db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"' sh "$query"
+            }
+            echo "DB_READ_ONLY=$(dbq_ro \"BEGIN; SET TRANSACTION READ ONLY; SHOW transaction_read_only; COMMIT;\" | tr -d '\r\n')"
+            echo "DB_VERSION=$(dbq_ro \"SELECT current_setting('server_version_num');\" | tr -d '\r\n')"
+            SCHEMA_MIGRATIONS_TABLE="$(dbq_ro \"SELECT COALESCE(to_regclass('public.schema_migrations')::text,'MISSING');\" | tr -d '\r\n')"
+            TYPEORM_MIGRATIONS_TABLE="$(dbq_ro \"SELECT COALESCE(to_regclass('public.migrations')::text,'MISSING');\" | tr -d '\r\n')"
+            echo "SCHEMA_MIGRATIONS_TABLE=$SCHEMA_MIGRATIONS_TABLE"
+            echo "TYPEORM_MIGRATIONS_TABLE=$TYPEORM_MIGRATIONS_TABLE"
+            echo "SYS_USER_TABLE=$(dbq_ro \"SELECT COALESCE(to_regclass('public.sys_user')::text,'MISSING');\" | tr -d '\r\n')"
+            echo "SYS_USER_INITIALIZED=$(dbq_ro \"SELECT CASE WHEN to_regclass('public.sys_user') IS NULL THEN 'UNKNOWN' WHEN EXISTS (SELECT 1 FROM public.sys_user) THEN 'true' ELSE 'false' END;\" | tr -d '\r\n')"
+            if [ "$SCHEMA_MIGRATIONS_TABLE" = MISSING ]; then
+              echo "SCHEMA_MIGRATIONS_ROWS=UNKNOWN"
+            else
+              echo "SCHEMA_MIGRATIONS_ROWS=$(dbq_ro 'SELECT count(*) FROM public.schema_migrations;' | tr -d '\r\n')"
+            fi
+            if [ "$TYPEORM_MIGRATIONS_TABLE" = MISSING ]; then
+              echo "TYPEORM_MIGRATIONS_ROWS=UNKNOWN"
+            else
+              echo "TYPEORM_MIGRATIONS_ROWS=$(dbq_ro 'SELECT count(*) FROM public.migrations;' | tr -d '\r\n')"
+            fi
+            echo "MIGRATION_EVIDENCE=INDETERMINATE"
+            echo "REPAIR_DISPOSITION=INCOMPLETE_EVIDENCE"
+            echo "TYPEORM_REPAIR_DISPOSITION=UNKNOWN"
+            SCHEMA_SQL="$(printf '%s' "$SCHEMA_SQL_B64" | base64 -d)"
+            if PRODUCTION_SCHEMA_TSV="$(dbq_ro "$SCHEMA_SQL" 2>/dev/null)"; then
+              PRODUCTION_SCHEMA_HASH="$(printf '%s\n' "$PRODUCTION_SCHEMA_TSV" | sha256sum | awk '{print $1}')"
+              PRODUCTION_SCHEMA_LINES="$(printf '%s\n' "$PRODUCTION_SCHEMA_TSV" | sed '/^$/d' | wc -l | tr -d ' ')"
+              echo "PRODUCTION_SCHEMA_HASH=$PRODUCTION_SCHEMA_HASH"
+              echo "PRODUCTION_SCHEMA_LINES=$PRODUCTION_SCHEMA_LINES"
+              echo "SCHEMA_FINGERPRINT_MATCH=$([ "$PRODUCTION_SCHEMA_HASH" = "$CANONICAL_SCHEMA_HASH" ] && [ "$PRODUCTION_SCHEMA_LINES" = "$CANONICAL_SCHEMA_LINES" ] && echo true || echo false)"
+            else
+              echo "PRODUCTION_SCHEMA_HASH=UNKNOWN"
+              echo "PRODUCTION_SCHEMA_LINES=UNKNOWN"
+              echo "SCHEMA_FINGERPRINT_MATCH=UNKNOWN"
+            fi
+            BACKUP_DIR="/opt/phoenix-erp-backups/deploy-pre-migration-${BACKUP_RUN_ID}"
+            BACKUP_FILE="${BACKUP_DIR}/phoenix_erp_pre_${EXPECTED_SHA:0:12}.dump"
+            if [ -s "$BACKUP_FILE" ]; then
+              echo "BACKUP_PRESENT=true"
+              TOC="$(docker compose exec -T db pg_restore --list < "$BACKUP_FILE" | grep -cvE '^;|^$' || true)"
+              echo "BACKUP_TOC_ENTRIES=$TOC"
+              echo "BACKUP_RESTORABLE=$([ "${TOC:-0}" -gt 0 ] && echo true || echo false)"
+              if [ -s "${BACKUP_FILE}.sha256" ] && (cd "$BACKUP_DIR" && sha256sum -c "$(basename "$BACKUP_FILE").sha256" >/dev/null 2>&1); then
+                echo "BACKUP_CHECKSUM_VALID=true"
+              else
+                echo "BACKUP_CHECKSUM_VALID=false"
+              fi
+            else
+              echo "BACKUP_PRESENT=false"
+              echo "BACKUP_RESTORABLE=false"
+              echo "BACKUP_CHECKSUM_VALID=false"
+            fi
+            echo "AUDIT_RESULT=READ_ONLY_EVIDENCE_COLLECTED"
