@@ -53,4 +53,14 @@ test('production SSH script has exact Bash syntax and no write operations', () =
   }
   assert.match(productionScript, /SHOW transaction_read_only/);
   assert.match(productionScript, /test "\$DB_READ_ONLY" = on/);
+  assert.match(productionScript, /psql[^\n]*-0[^\n]*-c/);
+  assert.match(productionScript, /dbq_ro_manifest/);
+  assert.doesNotMatch(productionScript, /MANIFEST=\$\(/);
+  assert.doesNotMatch(productionScript, /TSV=\$\(/);
+});
+
+test('canonical manifest uses NUL record framing', () => {
+  assert.match(workflowText, /psql -X -v ON_ERROR_STOP=1 -At -0 -c/);
+  assert.match(workflowText, /canonical-pg16\.manifest/);
+  assert.match(workflowText, /SCHEMA_OBJECT_DIFF_HELPER_B64/);
 });
