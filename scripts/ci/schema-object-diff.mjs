@@ -6,7 +6,7 @@ const FAMILIES = ['table', 'column', 'constraint', 'index', 'type'];
 
 function parseManifest(text) {
   const records = [];
-  for (const raw of text.split(/\r?\n/)) {
+  for (const raw of text.split('\0')) {
     if (!raw) continue;
     const tab = raw.indexOf('\t');
     if (tab <= 0) throw new Error(`invalid manifest line: ${raw}`);

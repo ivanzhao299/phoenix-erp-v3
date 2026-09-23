@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { compareManifests } from './schema-object-diff.mjs';
 
-const manifest = (...lines) => `${lines.join('\n')}\n`;
+const manifest = (...lines) => `${lines.join('\0')}\0`;
 
 test('identical manifests have no object differences', () => {
   const value = manifest('table\tpublic.a', 'column\tpublic.a.id:int4', 'index\tpublic.a_pkey:CREATE UNIQUE INDEX a_pkey ON public.a USING btree (id)');
@@ -46,4 +46,30 @@ test('constraint-only, index-only, and mixed differences are retained', () => {
   assert.equal(result.families.constraint.definitionMismatches.count, 1);
   assert.equal(result.families.index.definitionMismatches.count, 1);
   assert.equal(result.verdict, 'COMMON_OBJECT_SCHEMA_DRIFT');
+});
+
+test('NUL framing preserves multiline constraint definitions and embedded tabs', () => {
+  const multilineConstraint = [
+    'constraint\tpublic.audit_log.ck_event:c:CHECK (',
+    '  CASE\tevent_type',
+    "    WHEN 'A' THEN true",
+    '  END',
+    ')',
+  ].join('\n');
+  const value = ['table\tpublic.audit_log', multilineConstraint, 'index\tpublic.audit_idx:CREATE INDEX audit_idx ON public.audit_log (id)'].join('\0') + '\0';
+  const result = compareManifests(value, value);
+  assert.equal(result.verdict, 'NO_OBJECT_DRIFT');
+  assert.equal(result.productionRecordCount, 3);
+  assert.equal(result.families.constraint.definitionMismatches.count, 0);
+});
+
+test('NUL framing supports multiple multiline records and missing final separator', () => {
+  const value = [
+    'table\tpublic.audit_log',
+    'constraint\tpublic.audit_log.first:c:CHECK (\n  x > 0\n)',
+    'constraint\tpublic.audit_log.second:c:CHECK (\n  y > 0\n)',
+  ].join('\0');
+  const result = compareManifests(value, value);
+  assert.equal(result.productionRecordCount, 3);
+  assert.equal(result.verdict, 'NO_OBJECT_DRIFT');
 });

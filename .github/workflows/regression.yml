@@ -161,6 +161,44 @@ jobs:
           echo "PG16_VERSION_NUM=$(psql -X -At -c "SELECT current_setting('server_version_num');")"
           echo "POSTGRES16_SCHEMA_FINGERPRINT=PASS"
 
+      - name: NUL schema object manifest framing runtime gate
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5433
+          PGUSER: phoenix_v3
+          PGPASSWORD: phoenix_v3_pass
+          PGDATABASE: phoenix_erp
+        run: |
+          set -Eeuo pipefail
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE ci_manifest_multiline_probe (id integer PRIMARY KEY, event_type text NOT NULL);
+          ALTER TABLE ci_manifest_multiline_probe
+            ADD CONSTRAINT ci_manifest_multiline_probe_check CHECK (
+              CASE event_type
+                WHEN 'A' THEN true
+                WHEN 'B' THEN true
+                ELSE false
+              END
+            );
+          SQL
+          schema_sql="$(cat scripts/ci/production-schema-fingerprint.sql)"
+          psql -X -v ON_ERROR_STOP=1 -At -0 -c "$schema_sql" > "$RUNNER_TEMP/object-manifest.bin"
+          test -s "$RUNNER_TEMP/object-manifest.bin"
+          python3 - "$RUNNER_TEMP/object-manifest.bin" <<'PY'
+          import pathlib, sys
+          data = pathlib.Path(sys.argv[1]).read_bytes()
+          if b'\0' not in data:
+              raise SystemExit('NUL manifest framing not detected')
+          if b'CASE event_type' not in data:
+              raise SystemExit('multiline CHECK probe missing from manifest')
+          print('NUL_MANIFEST_FRAMING=PASS')
+          PY
+          node scripts/ci/schema-object-diff.mjs \
+            --production "$RUNNER_TEMP/object-manifest.bin" \
+            --canonical "$RUNNER_TEMP/object-manifest.bin" \
+            --max-diff 200 | grep -F '"verdict": "NO_OBJECT_DRIFT"'
+          echo "MULTILINE_CHECK_RUNTIME_PROBE=PASS"
+
       - name: Assert WMS migration end state
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
