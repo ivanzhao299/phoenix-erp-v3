@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { compareManifests } from './schema-object-diff.mjs';
 
 const manifest = (...lines) => `${lines.join('\0')}\0`;
@@ -72,4 +73,17 @@ test('NUL framing supports multiple multiline records and missing final separato
   const result = compareManifests(value, value);
   assert.equal(result.productionRecordCount, 3);
   assert.equal(result.verdict, 'NO_OBJECT_DRIFT');
+});
+
+test('PostgreSQL runtime emits a NUL-framed multiline record when available', (t) => {
+  if (!process.env.PGHOST || !process.env.PGUSER || !process.env.PGDATABASE) {
+    t.skip('PostgreSQL service environment is not available');
+    return;
+  }
+  const query = "SELECT E'constraint\\tpublic.audit_log.ck_event:c:CHECK (\\n  CASE event_type\\n    WHEN ''A'' THEN true\\n  END\\n)'";
+  const result = spawnSync('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-At', '-0', '-c', query], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /\0/);
+  const parsed = compareManifests(result.stdout, result.stdout);
+  assert.equal(parsed.verdict, 'NO_OBJECT_DRIFT');
 });
