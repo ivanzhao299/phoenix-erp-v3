@@ -88,6 +88,27 @@ jobs:
         working-directory: apps/api
         run: MIG_MODE=ci MIG_DIR=. NODE_ENV=test bash ../../scripts/test-db-bootstrap.sh
 
+      - name: PostgreSQL 18 schema fingerprint runtime gate
+        run: |
+          set -euo pipefail
+          schema_sql="$(cat scripts/ci/production-schema-fingerprint.sql)"
+          psql -X -v ON_ERROR_STOP=1 -At -F $'\t' -c "$schema_sql" > "$RUNNER_TEMP/fingerprint-1.tsv"
+          psql -X -v ON_ERROR_STOP=1 -At -F $'\t' -c "$schema_sql" > "$RUNNER_TEMP/fingerprint-2.tsv"
+          test -s "$RUNNER_TEMP/fingerprint-1.tsv"
+          test -s "$RUNNER_TEMP/fingerprint-2.tsv"
+          sha1="$(sha256sum "$RUNNER_TEMP/fingerprint-1.tsv" | awk '{print $1}')"
+          sha2="$(sha256sum "$RUNNER_TEMP/fingerprint-2.tsv" | awk '{print $1}')"
+          test "$sha1" = "$sha2"
+          for family in table column constraint index; do
+            grep -Fq "${family}$(printf '\t')" "$RUNNER_TEMP/fingerprint-1.tsv"
+          done
+          if grep -Fq "type$(printf '\t')" "$RUNNER_TEMP/fingerprint-1.tsv"; then
+            echo "schema fingerprint type records present"
+          fi
+          echo "POSTGRES18_SCHEMA_FINGERPRINT=PASS"
+          echo "POSTGRES18_SCHEMA_FINGERPRINT_LINES=$(wc -l < "$RUNNER_TEMP/fingerprint-1.tsv" | tr -d ' ')"
+          echo "POSTGRES18_SCHEMA_FINGERPRINT_SHA256=$sha1"
+
       - name: Assert WMS migration end state
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
