@@ -12,10 +12,13 @@ import json, pathlib, sys
 import yaml
 doc=yaml.safe_load(pathlib.Path(sys.argv[1]).read_text())
 on=doc.get(True, doc.get('on', {}))
+service=doc['jobs']['audit']['services']['postgres']['env']
+job_env=doc['jobs']['audit']['env']
 step=next(s for s in doc['jobs']['audit']['steps'] if s.get('name') == 'Audit production ledger state over read-only SSH')
 print(json.dumps({'triggers': list(on), 'environment': doc['jobs']['audit']['environment'],
                   'permissions': doc['permissions'], 'guard': doc['jobs']['audit']['if'],
                   'script': step['with']['script'], 'env': step['env'], 'envs': step['with']['envs'],
+                  'job_env': job_env, 'service_env': service,
                   'runs': [s['run'] for s in doc['jobs']['audit']['steps'] if 'run' in s]}))
 `, path.pathname], { encoding: 'utf8' });
   assert.equal(parser.status, 0, parser.stderr || parser.stdout);
@@ -83,4 +86,22 @@ test('workflow keeps canonical evidence and conservative repair classifications'
   assert.match(workflow, /LEDGER_EVIDENCE_POLICY=INDETERMINATE_WHEN_TRACKING_METADATA_MISSING/);
   assert.match(workflow, /SAFE_ONE_TIME_LEDGER_BOOTSTRAP|SAFE_RECONSTRUCT_MISSING_SCHEMA_LEDGER|MIGRATIONS_ACTUALLY_PENDING|PRODUCTION_SCHEMA_DRIFT|INCOMPLETE_EVIDENCE/);
   assert.match(workflow, /TYPEORM_REPAIR_DISPOSITION=UNKNOWN/);
+});
+
+test('disposable PostgreSQL, client, and TypeORM contracts agree', () => {
+  const parsed = parseWorkflow();
+  const expected = {
+    PGHOST: '127.0.0.1', PGPORT: 5432, PGUSER: 'phoenix',
+    PGPASSWORD: 'phoenix', PGDATABASE: 'phoenix_erp',
+    DB_HOST: '127.0.0.1', DB_PORT: 5432, DB_USER: 'phoenix',
+    DB_PASSWORD: 'phoenix', DB_NAME: 'phoenix_erp',
+  };
+  assert.equal(parsed.service_env.POSTGRES_USER, expected.PGUSER);
+  assert.equal(parsed.service_env.POSTGRES_PASSWORD, expected.PGPASSWORD);
+  assert.equal(parsed.service_env.POSTGRES_DB, expected.PGDATABASE);
+  for (const [key, value] of Object.entries(expected)) assert.equal(parsed.job_env[key], value, key);
+  for (const secret of Object.keys(expected)) {
+    assert.doesNotMatch(parsed.envs, new RegExp(`(?:^|,)${secret}(?:,|$)`), secret);
+  }
+  assert.match(parsed.runs.join('\n'), /TYPEORM_DISPOSABLE_DB_CONTRACT=PASS/);
 });
