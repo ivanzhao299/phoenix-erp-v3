@@ -105,7 +105,6 @@ test('disposable PostgreSQL, client, and TypeORM contracts agree', () => {
   }
   assert.match(parsed.runs.join('\n'), /TYPEORM_DISPOSABLE_DB_CONTRACT=PASS/);
 });
-
 test('schema fingerprint explicitly casts PostgreSQL internal char catalog fields', () => {
   const sql = readFileSync(new URL('./production-schema-fingerprint.sql', import.meta.url), 'utf8');
   assert.match(sql, /con\.contype::text/);
