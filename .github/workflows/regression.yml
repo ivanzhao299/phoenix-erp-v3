@@ -119,6 +119,16 @@ jobs:
           echo "POSTGRES18_SCHEMA_FINGERPRINT=PASS"
           echo "POSTGRES18_SCHEMA_FINGERPRINT_LINES=$(wc -l < "$RUNNER_TEMP/fingerprint-1.tsv" | tr -d ' ')"
           echo "POSTGRES18_SCHEMA_FINGERPRINT_SHA256=$sha1"
+          for family in table column constraint index type; do
+            count="$(grep -Fc "${family}$(printf '\\t')" "$RUNNER_TEMP/fingerprint-1.tsv" || true)"
+            family_hash="$(grep -F "${family}$(printf '\\t')" "$RUNNER_TEMP/fingerprint-1.tsv" | sha256sum | awk '{print $1}')"
+            upper="$(printf '%s' "$family" | tr '[:lower:]' '[:upper:]')"
+            echo "PG18_${upper}_COUNT=$count"
+            echo "PG18_${upper}_HASH=$family_hash"
+          done
+          echo "PG18_ATTNOTNULL_COUNT=$(psql -X -At -c \"SELECT count(*) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE a.attnum > 0 AND NOT a.attisdropped AND a.attnotnull AND c.relkind='r' AND n.nspname NOT IN ('pg_catalog','information_schema') AND c.relname NOT IN ('schema_migrations','migrations');\")"
+          echo "PG18_RELATION_NOT_NULL_CONSTRAINT_COUNT=$(psql -X -At -c \"SELECT count(*) FROM pg_constraint WHERE contype='n' AND conrelid <> 0;\")"
+          echo "PG18_DETERMINISTIC=true"
 
       - name: PostgreSQL 16.14 canonical schema fingerprint runtime gate
         env:
