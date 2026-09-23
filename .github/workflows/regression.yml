@@ -137,7 +137,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"
-          MIG_MODE=ci MIG_DIR=. bash scripts/db-migrate.sh
+          MIG_MODE=ci MIG_DIR=apps/api bash scripts/db-migrate.sh
           bash scripts/ci/run-schema-fingerprint-runtime.sh
           echo "PG16_VERSION=$(psql -X -At -c 'SHOW server_version;')"
           echo "PG16_VERSION_NUM=$(psql -X -At -c "SELECT current_setting('server_version_num');")"
