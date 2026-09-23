@@ -129,8 +129,10 @@ jobs:
             echo "PG18_${upper}_COUNT=$count"
             echo "PG18_${upper}_HASH=$family_hash"
           done
-          echo "PG18_ATTNOTNULL_COUNT=$(psql -X -At -c \"SELECT count(*) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE a.attnum > 0 AND NOT a.attisdropped AND a.attnotnull AND c.relkind='r' AND n.nspname NOT IN ('pg_catalog','information_schema') AND c.relname NOT IN ('schema_migrations','migrations');\")"
-          echo "PG18_RELATION_NOT_NULL_CONSTRAINT_COUNT=$(psql -X -At -c \"SELECT count(*) FROM pg_constraint WHERE contype='n' AND conrelid <> 0;\")"
+          pg18_attnotnull_count="$(psql -X -At -c "SELECT count(*) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE a.attnum > 0 AND NOT a.attisdropped AND a.attnotnull AND c.relkind='r' AND n.nspname NOT IN ('pg_catalog','information_schema') AND c.relname NOT IN ('schema_migrations','migrations');")"
+          pg18_relation_not_null_count="$(psql -X -At -c "SELECT count(*) FROM pg_constraint WHERE contype='n' AND conrelid <> 0;")"
+          echo "PG18_ATTNOTNULL_COUNT=$pg18_attnotnull_count"
+          echo "PG18_RELATION_NOT_NULL_CONSTRAINT_COUNT=$pg18_relation_not_null_count"
           echo "PG18_DETERMINISTIC=true"
 
       - name: PostgreSQL 16.14 canonical schema fingerprint runtime gate
