@@ -119,9 +119,10 @@ jobs:
           echo "POSTGRES18_SCHEMA_FINGERPRINT=PASS"
           echo "POSTGRES18_SCHEMA_FINGERPRINT_LINES=$(wc -l < "$RUNNER_TEMP/fingerprint-1.tsv" | tr -d ' ')"
           echo "POSTGRES18_SCHEMA_FINGERPRINT_SHA256=$sha1"
+          tab=$'\t'
           for family in table column constraint index type; do
-            count="$(grep -Fc "${family}$(printf '\\t')" "$RUNNER_TEMP/fingerprint-1.tsv" || true)"
-            family_hash="$(grep -F "${family}$(printf '\\t')" "$RUNNER_TEMP/fingerprint-1.tsv" | sha256sum | awk '{print $1}')"
+            count="$(grep -Fc "${family}${tab}" "$RUNNER_TEMP/fingerprint-1.tsv" || true)"
+            family_hash="$(grep -F "${family}${tab}" "$RUNNER_TEMP/fingerprint-1.tsv" | sha256sum | awk '{print $1}')"
             upper="$(printf '%s' "$family" | tr '[:lower:]' '[:upper:]')"
             echo "PG18_${upper}_COUNT=$count"
             echo "PG18_${upper}_HASH=$family_hash"
