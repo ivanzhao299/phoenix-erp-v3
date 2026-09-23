@@ -85,6 +85,9 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
+      - name: Schema object diff helper tests
+        run: node --test scripts/ci/schema-object-diff.test.mjs scripts/ci/production-schema-object-diff-audit.test.mjs
+
       - name: Type-check API
         working-directory: apps/api
         run: pnpm exec tsc --noEmit
