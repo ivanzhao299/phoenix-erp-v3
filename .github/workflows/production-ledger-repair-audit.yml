@@ -40,6 +40,11 @@ jobs:
       PGUSER: phoenix
       PGPASSWORD: phoenix
       PGDATABASE: phoenix_erp
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: phoenix
+      DB_PASSWORD: phoenix
+      DB_NAME: phoenix_erp
       CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
 
     steps:
@@ -72,6 +77,28 @@ jobs:
 
       - name: Build API for disposable migration inventory
         run: pnpm --filter phoenix-erp-v3-nest build
+
+      - name: Validate disposable database connection contract
+        run: |
+          set -euo pipefail
+          test "$DB_HOST" = "$PGHOST"
+          test "$DB_PORT" = "$PGPORT"
+          test "$DB_USER" = "$PGUSER"
+          test "$DB_PASSWORD" = "$PGPASSWORD"
+          test "$DB_NAME" = "$PGDATABASE"
+          test -n "$DB_HOST" -a -n "$DB_PORT" -a -n "$DB_USER" -a -n "$DB_PASSWORD" -a -n "$DB_NAME"
+          pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"
+          psql -X -v ON_ERROR_STOP=1 -At -c 'SELECT current_database(), current_user;'
+          node - <<'NODE'
+          const { dataSourceOptions, AppDataSource } = require('./apps/api/dist/database/data-source.js');
+          const expected = { host: process.env.DB_HOST, port: Number(process.env.DB_PORT), username: process.env.DB_USER, database: process.env.DB_NAME };
+          for (const [key, value] of Object.entries(expected)) {
+            if (dataSourceOptions[key] !== value) throw new Error(`TypeORM disposable DB mismatch: ${key}`);
+          }
+          if (dataSourceOptions.password !== process.env.DB_PASSWORD) throw new Error('TypeORM disposable DB mismatch: password');
+          if (dataSourceOptions.synchronize !== false || dataSourceOptions.migrationsRun !== false) throw new Error('TypeORM disposable DB must not synchronize or auto-run migrations');
+          AppDataSource.initialize().then(() => AppDataSource.query('SELECT 1')).then(() => AppDataSource.destroy()).then(() => console.log('TYPEORM_DISPOSABLE_DB_CONTRACT=PASS')).catch((error) => { console.error(error.message); process.exitCode = 1; });
+          NODE
 
       - name: Construct disposable canonical schema
         id: canonical
