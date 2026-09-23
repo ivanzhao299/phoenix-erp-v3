@@ -48,6 +48,17 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      postgres16:
+        image: postgres:16.14-alpine
+        env:
+          POSTGRES_USER: phoenix_v3
+          POSTGRES_PASSWORD: phoenix_v3_pass
+          POSTGRES_DB: phoenix_erp
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U phoenix_v3 -d phoenix_erp"
+          --health-interval 10s --health-timeout 5s --health-retries 10
 
     steps:
       - uses: actions/checkout@v5
@@ -108,6 +119,29 @@ jobs:
           echo "POSTGRES18_SCHEMA_FINGERPRINT=PASS"
           echo "POSTGRES18_SCHEMA_FINGERPRINT_LINES=$(wc -l < "$RUNNER_TEMP/fingerprint-1.tsv" | tr -d ' ')"
           echo "POSTGRES18_SCHEMA_FINGERPRINT_SHA256=$sha1"
+
+      - name: PostgreSQL 16.14 canonical schema fingerprint runtime gate
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5433
+          PGUSER: phoenix_v3
+          PGPASSWORD: phoenix_v3_pass
+          PGDATABASE: phoenix_erp
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5433
+          DB_USER: phoenix_v3
+          DB_PASSWORD: phoenix_v3_pass
+          DB_NAME: phoenix_erp
+          FINGERPRINT_SQL_FILE: scripts/ci/production-schema-fingerprint.sql
+          FINGERPRINT_PREFIX: PG16
+        run: |
+          set -Eeuo pipefail
+          pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"
+          MIG_MODE=ci MIG_DIR=. bash scripts/db-migrate.sh
+          bash scripts/ci/run-schema-fingerprint-runtime.sh
+          echo "PG16_VERSION=$(psql -X -At -c 'SHOW server_version;')"
+          echo "PG16_VERSION_NUM=$(psql -X -At -c "SELECT current_setting('server_version_num');")"
+          echo "POSTGRES16_SCHEMA_FINGERPRINT=PASS"
 
       - name: Assert WMS migration end state
         run: |
