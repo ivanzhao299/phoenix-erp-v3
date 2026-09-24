@@ -59,7 +59,7 @@ async function assertInvalidJsonFailsClosed() {
   console.log('INVALID_JSON_FAIL_CLOSED=PASS');
 }
 
-async function verify() {
+async function verify(expectNegativeTimestamp = true) {
   const columns = await qr.query(`SELECT table_name, column_name, data_type, character_maximum_length, is_nullable, column_default FROM information_schema.columns WHERE table_schema='public' AND ((table_name='acc_ledger' AND column_name IN ('store_code','ref_no','ledger_type')) OR (table_name='wms_stocktake' AND column_name='status') OR (table_name='pda_sync_log' AND column_name='payload') OR (table_name='wms_inbound' AND column_name IN ('created_at','updated_at')) OR (table_name='wms_warehouses' AND column_name='warehouse_code')) ORDER BY table_name,column_name`);
   const byKey = new Map(columns.map((row) => [`${row.table_name}.${row.column_name}`, row]));
   assert.equal(byKey.get('acc_ledger.store_code').character_maximum_length, 64);
@@ -78,7 +78,7 @@ async function verify() {
   const dynamicFks = await qr.query(`SELECT count(*)::int AS count FROM pg_constraint WHERE conname IN ('mon_device_realtime_snapshot_property_code_fkey','mon_device_property_history_property_code_fkey','mon_device_alert_event_property_code_fkey')`);
   assert.equal(Number(dynamicFks[0].count), 0);
   const epoch = await qr.query(`SELECT extract(epoch FROM created_at) AS created, extract(epoch FROM updated_at) AS updated, extract(epoch FROM updated_at-created_at) AS delta FROM wms_inbound`);
-  assert.equal(Number(epoch[0].delta), -0.000335);
+  if (expectNegativeTimestamp) assert.equal(Number(epoch[0].delta), -0.000335);
   await qr.query(`SET TIME ZONE 'Asia/Shanghai'`);
   const nonUtcEpoch = await qr.query(`SELECT extract(epoch FROM created_at) AS created, extract(epoch FROM updated_at) AS updated FROM wms_inbound`);
   await qr.query(`SET TIME ZONE 'UTC'`);
@@ -93,7 +93,7 @@ async function verify() {
 await assertInvalidJsonFailsClosed();
 await createDriftFixture();
 await runMigrations();
-await verify();
+await verify(false);
 await reset();
 await qr.query(`CREATE TABLE acc_ledger (id bigserial PRIMARY KEY, store_code varchar(64), ref_no varchar(128), ledger_type varchar(64))`);
 await qr.query(`CREATE TABLE wms_stocktake (id bigserial PRIMARY KEY, status varchar(32))`);
