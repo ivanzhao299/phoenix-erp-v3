@@ -42,10 +42,28 @@ jobs:
           node --check scripts/ledger-preflight.mjs
           node --test scripts/ledger-preflight.test.mjs
 
+      - name: Build candidate ledger inventory
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm --filter phoenix-erp-v3-nest build
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const { execFileSync } = require('node:child_process');
+          const inventory = JSON.parse(execFileSync(process.execPath, ['scripts/ci/typeorm-migration-inventory.mjs', 'apps/api/dist/database/migrations'], { encoding: 'utf8' }));
+          const canonicalLegacy = fs.readdirSync('apps/api/migrations').filter((name) => /^2026.*\.sql$/.test(name)).sort();
+          const retiredTypeorm = JSON.parse(fs.readFileSync('scripts/ci/retired-typeorm-migrations.json', 'utf8'));
+          fs.writeFileSync('/tmp/ledger-inventory.json', JSON.stringify({ canonicalTypeorm: inventory, canonicalLegacy, retiredTypeorm }));
+          NODE
+          echo "LEDGER_INVENTORY_B64=$(base64 -w0 /tmp/ledger-inventory.json)" >> "$GITHUB_ENV"
+          echo "PREFLIGHT_SCRIPT_B64=$(base64 -w0 scripts/ledger-preflight.mjs)" >> "$GITHUB_ENV"
+
       - name: Run production ledger preflight over read-only SSH
         uses: appleboy/ssh-action@v1
         env:
           EXPECTED_SHA: ${{ github.sha }}
+          LEDGER_INVENTORY_B64: ${{ env.LEDGER_INVENTORY_B64 }}
+          PREFLIGHT_SCRIPT_B64: ${{ env.PREFLIGHT_SCRIPT_B64 }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -56,15 +74,20 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: EXPECTED_SHA,DEPLOY_PATH
+          envs: EXPECTED_SHA,LEDGER_INVENTORY_B64,PREFLIGHT_SCRIPT_B64,DEPLOY_PATH
           command_timeout: 8m
           script: |
             set -Eeuo pipefail
             set +x
             cd "$DEPLOY_PATH"
-            test -f scripts/ledger-preflight.mjs
-            test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
             test -z "$(git status --porcelain --untracked-files=all)"
+            test -n "$LEDGER_INVENTORY_B64"
+            test -n "$PREFLIGHT_SCRIPT_B64"
+            INVENTORY_FILE=$(mktemp)
+            SCRIPT_FILE=$(mktemp)
+            trap 'rm -f "$INVENTORY_FILE" "$SCRIPT_FILE"' EXIT
+            printf '%s' "$LEDGER_INVENTORY_B64" | base64 -d > "$INVENTORY_FILE"
+            printf '%s' "$PREFLIGHT_SCRIPT_B64" | base64 -d > "$SCRIPT_FILE"
             command -v node >/dev/null
-            echo "target=production mode=pre-migration writes=disabled"
-            MIG_MODE=prod MIG_DIR=apps/api node scripts/ledger-preflight.mjs --mode pre-migration
+            echo "target=production mode=pre-migration writes=disabled audit_sha=$EXPECTED_SHA production_sha=$(git rev-parse HEAD)"
+            MIG_MODE=prod MIG_DIR=apps/api node "$SCRIPT_FILE" --mode pre-migration --inventory "$INVENTORY_FILE"

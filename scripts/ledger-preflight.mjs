@@ -1,158 +1,62 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-export function normalizeLegacy(filename) {
-  return String(filename ?? '').replace(/\.sql$/, '');
+const require = createRequire(import.meta.url);
+
+export function normalizeLegacy(filename) { return String(filename ?? '').replace(/\.sql$/, ''); }
+function sample(values) { return values.slice(0, 20); }
+function validTimestamp(value) { return /^\d{13}$/.test(String(value ?? '')); }
+
+function normalizeCanonical(entries = [], legacyNames = []) {
+  if (entries.length) return entries.map((entry) => ({ effective_name: entry.effective_name ?? entry.name, timestamp: String(entry.timestamp) }));
+  return legacyNames.map((name) => ({ effective_name: String(name), timestamp: String(name).match(/(\d{13})$/)?.[1] ?? '' }));
 }
 
-function sample(values) {
-  return values.slice(0, 10);
-}
-
-export function evaluateLedger({ schemaRows, typeormRows, canonicalTsNames, mode = 'pre-migration' }) {
-  const failures = [];
-  const legacyNames = schemaRows.map((row) => normalizeLegacy(row.filename));
-  const duplicateLegacy = [...new Set(legacyNames.filter((name, i) => legacyNames.indexOf(name) !== i))];
-  const invalidLegacy = schemaRows.filter((row, i) => !row.filename || !legacyNames[i]);
-  const invalidTypeorm = typeormRows.filter((row) => !row.name || row.timestamp == null || !/^\d+$/.test(String(row.timestamp)));
-  const legacySet = new Set(legacyNames);
-  const typeormByName = new Map();
-  for (const row of typeormRows) {
-    const list = typeormByName.get(row.name) ?? [];
-    list.push(row);
-    typeormByName.set(row.name, list);
+export function validateRetiredRegistry(source) {
+  if (!Array.isArray(source)) throw new Error('retired registry must be an array');
+  const names = new Set(); const timestamps = new Set();
+  for (const entry of source) {
+    if (!entry?.name || !validTimestamp(entry.timestamp) || !/^[0-9a-f]{40}$/i.test(entry.removal_commit) || entry.classification !== 'KNOWN_RETIRED_APPLIED') throw new Error(`invalid retired registry entry: ${JSON.stringify(entry)}`);
+    if (names.has(entry.name) || timestamps.has(String(entry.timestamp))) throw new Error('duplicate retired registry identity');
+    names.add(entry.name); timestamps.add(String(entry.timestamp));
   }
-  const legacyMirrorRows = typeormRows.filter((row) => legacySet.has(row.name));
-  const mirrorNames = new Set(legacyMirrorRows.map((row) => row.name));
-  const legacyOnly = [...legacySet].filter((name) => !mirrorNames.has(name));
-  const mirrorOnly = [...new Set(typeormRows.map((row) => row.name))]
-    .filter((name) => !legacySet.has(name) && /^\d+/.test(name) && !canonicalTsNames.includes(name));
-  const duplicateTypeormLegacy = [...typeormByName.entries()]
-    .filter(([name, rows]) => legacySet.has(name) && rows.length > 1)
-    .map(([name]) => name);
+  return source.map((entry) => ({ ...entry, timestamp: String(entry.timestamp) }));
+}
+
+export function evaluateLedger({ schemaRows = [], typeormRows = [], canonicalLegacy = [], canonicalTypeorm = [], retiredTypeorm = [], canonicalTsNames = [], mode = 'pre-migration' }) {
+  const failures = []; const canonical = normalizeCanonical(canonicalTypeorm, canonicalTsNames);
+  const canonicalByName = new Map(canonical.map((entry) => [entry.effective_name, entry]));
+  const legacyCanonical = canonicalLegacy.length ? canonicalLegacy : schemaRows.map((row) => row.filename).filter(Boolean);
+  const legacySet = new Set(legacyCanonical); const retired = new Map(retiredTypeorm.map((entry) => [entry.name, { ...entry, timestamp: String(entry.timestamp) }]));
+  const byName = new Map(); const byTimestamp = new Map();
+  for (const row of typeormRows) { const names = byName.get(row.name) ?? []; names.push(row); byName.set(row.name, names); const timestamps = byTimestamp.get(String(row.timestamp)) ?? []; timestamps.push(row); byTimestamp.set(String(row.timestamp), timestamps); }
+  const duplicateTypeormName = [...byName.entries()].filter(([, rows]) => rows.length > 1).map(([name]) => name);
+  const duplicateTypeormTimestamp = [...byTimestamp.entries()].filter(([, rows]) => rows.length > 1).map(([timestamp]) => timestamp);
+  const invalidTypeorm = typeormRows.filter((row) => !row.name || !validTimestamp(row.timestamp));
   const schemaByName = new Map(schemaRows.map((row) => [normalizeLegacy(row.filename), row]));
-  const timestampMismatch = legacyMirrorRows
-    .filter((row) => {
-      const source = schemaByName.get(row.name);
-      if (!source || source.applied_at == null || row.timestamp == null) return true;
-      const expected = Math.floor(new Date(source.applied_at).getTime());
-      return Number(row.timestamp) !== expected;
-    })
-    .map((row) => row.name);
-  const canonicalSet = new Set(canonicalTsNames);
-  const unexpectedTypeorm = typeormRows
-    .map((row) => row.name)
-    .filter((name) => !legacySet.has(name) && !canonicalSet.has(name));
-  const pending = canonicalTsNames.filter((name) => !typeormByName.has(name));
-  const unexpectedPending = mode === 'post-migration' ? pending : [];
-
-  if (invalidLegacy.length) failures.push('invalid_legacy_identity');
-  if (invalidTypeorm.length) failures.push('invalid_typeorm_row');
-  if (duplicateLegacy.length) failures.push('duplicate_legacy');
-  if (legacyOnly.length) failures.push('legacy_only');
-  if (mirrorOnly.length) failures.push('mirror_only');
-  if (duplicateTypeormLegacy.length) failures.push('duplicate_typeorm_legacy');
-  if (timestampMismatch.length) failures.push('timestamp_mismatch');
-  if (unexpectedTypeorm.length) failures.push('unexpected_typeorm');
-  if (unexpectedPending.length) failures.push('unexpected_pending');
-
-  return {
-    pass: failures.length === 0,
-    failures,
-    counts: {
-      legacy_total: schemaRows.length,
-      typeorm_total: typeormRows.length,
-      legacy_mirror_total: legacyMirrorRows.length,
-      canonical_ts_total: canonicalTsNames.length,
-    },
-    diagnostics: {
-      legacy_only: sample(legacyOnly),
-      mirror_only: sample(mirrorOnly),
-      duplicate_legacy: sample(duplicateLegacy),
-      duplicate_typeorm_legacy: sample(duplicateTypeormLegacy),
-      timestamp_mismatch: sample(timestampMismatch),
-      unexpected_typeorm: sample([...new Set(unexpectedTypeorm)]),
-      unexpected_pending: sample(unexpectedPending),
-      pending_ts: sample(pending),
-    },
-  };
-}
-
-function canonicalNames(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts'))
-    .map((entry) => entry.name.slice(0, -3))
-    .sort();
-}
-
-function runPsql(sql, mode) {
-  const statement = `BEGIN; SET TRANSACTION READ ONLY; ${sql}; COMMIT;`;
-  const args = ['-X', '-At', '-v', 'ON_ERROR_STOP=1', '-c', statement];
-  let output;
-  if (mode === 'prod') {
-    output = execFileSync('docker', ['compose', 'exec', '-T', 'db', 'sh', '-c', 'psql -X -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'], { input: statement, encoding: 'utf8' });
-  } else {
-    output = execFileSync('psql', args, { encoding: 'utf8' });
+  const canonicalApplied = []; const canonicalPending = []; const knownRetiredApplied = []; const unknownTypeormApplied = []; const retiredTimestampMismatch = []; const canonicalTimestampMismatch = []; const bridgePresent = []; const bridgeTimestampMismatch = [];
+  for (const entry of canonical) { const rows = byName.get(entry.effective_name) ?? []; if (!rows.length) canonicalPending.push(entry.effective_name); else if (rows.some((row) => String(row.timestamp) !== String(entry.timestamp))) canonicalTimestampMismatch.push(entry.effective_name); else canonicalApplied.push(entry.effective_name); }
+  for (const row of typeormRows) {
+    if (canonicalByName.has(row.name)) continue;
+    const retiredEntry = retired.get(row.name);
+    if (retiredEntry) { if (String(row.timestamp) === String(retiredEntry.timestamp)) knownRetiredApplied.push(row.name); else retiredTimestampMismatch.push(row.name); continue; }
+    const legacySource = schemaByName.get(row.name);
+    if (legacySource) { bridgePresent.push(row.name); const expected = legacySource.applied_at == null ? null : String(new Date(legacySource.applied_at).getTime()); if (expected === null || expected !== String(row.timestamp)) bridgeTimestampMismatch.push(row.name); continue; }
+    unknownTypeormApplied.push(row);
   }
-  return output.split(/\r?\n/).filter((line) => line && line !== 'BEGIN' && line !== 'COMMIT').join('\n').trim();
+  const legacyApplied = schemaRows.map((row) => row.filename).filter(Boolean); const legacyMissing = legacyCanonical.filter((filename) => !legacyApplied.includes(filename)); const legacyUnexpected = legacyApplied.filter((filename) => !legacySet.has(filename));
+  const bridgeMissing = legacyCanonical.filter((filename) => !bridgePresent.includes(normalizeLegacy(filename))); const bridgeExtra = bridgePresent.filter((name) => !new Set(legacyCanonical.map(normalizeLegacy)).has(name));
+  if (invalidTypeorm.length) failures.push('invalid_typeorm_row'); if (duplicateTypeormName.length) failures.push('duplicate_typeorm_name'); if (duplicateTypeormTimestamp.length) failures.push('duplicate_typeorm_timestamp'); if (canonicalTimestampMismatch.length) failures.push('canonical_timestamp_mismatch'); if (retiredTimestampMismatch.length) failures.push('retired_timestamp_mismatch'); if (unknownTypeormApplied.length) failures.push('unknown_typeorm_applied'); if (legacyMissing.length) failures.push('legacy_missing'); if (legacyUnexpected.length) failures.push('legacy_unexpected'); if (mode === 'post-migration' && canonicalPending.length) failures.push('canonical_pending');
+  return { pass: failures.length === 0, failures, counts: { legacy_total: legacyCanonical.length, legacy_applied_total: legacyApplied.length, canonical_typeorm_total: canonical.length, canonical_typeorm_applied: canonicalApplied.length, canonical_typeorm_pending: canonicalPending.length, known_retired_applied: knownRetiredApplied.length, unknown_typeorm_applied: unknownTypeormApplied.length, bridge_total: legacyCanonical.length, bridge_present: bridgePresent.length, bridge_missing: bridgeMissing.length }, diagnostics: { legacy_missing: sample(legacyMissing), legacy_unexpected: sample(legacyUnexpected), canonical_typeorm_applied: sample(canonicalApplied), canonical_typeorm_pending: sample(canonicalPending), known_retired_applied: sample(knownRetiredApplied), retired_timestamp_mismatch: sample(retiredTimestampMismatch), unknown_typeorm_applied: sample(unknownTypeormApplied), duplicate_typeorm_name: sample(duplicateTypeormName), duplicate_typeorm_timestamp: sample(duplicateTypeormTimestamp), canonical_timestamp_mismatch: sample(canonicalTimestampMismatch), bridge_present: sample(bridgePresent), bridge_missing: sample(bridgeMissing), bridge_extra: sample(bridgeExtra), bridge_timestamp_mismatch: sample(bridgeTimestampMismatch), bridge_state: bridgePresent.length === 0 ? 'ABSENT' : bridgeMissing.length === 0 && !bridgeTimestampMismatch.length ? 'COMPLETE' : 'PARTIAL', bridge_runtime_required: false } };
 }
 
-function tableExists(name, mode) {
-  return runPsql(`SELECT to_regclass('public.${name}') IS NOT NULL`, mode) === 't';
-}
+function runPsql(sql, mode) { const statement = `BEGIN; SET TRANSACTION READ ONLY; ${sql}; COMMIT;`; const output = mode === 'prod' ? execFileSync('docker', ['compose', 'exec', '-T', 'db', 'sh', '-c', 'psql -X -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'], { input: statement, encoding: 'utf8' }) : execFileSync('psql', ['-X', '-At', '-v', 'ON_ERROR_STOP=1', '-c', statement], { encoding: 'utf8' }); return output.split(/\r?\n/).filter((line) => line && line !== 'BEGIN' && line !== 'COMMIT').join('\n').trim(); }
+function readRows(table, mode) { const sql = table === 'schema_migrations' ? "SELECT COALESCE(json_agg(json_build_object('filename', filename, 'applied_at', applied_at::text)), '[]'::json) FROM schema_migrations" : "SELECT COALESCE(json_agg(json_build_object('name', name, 'timestamp', timestamp)), '[]'::json) FROM migrations"; const value = runPsql(sql, mode); return value ? JSON.parse(value) : []; }
+function parseArgs(argv) { const args = { mode: 'pre-migration', dbMode: process.env.MIG_MODE ?? 'prod', inventory: null, retired: path.resolve('scripts/ci/retired-typeorm-migrations.json'), fixture: null }; for (let i = 0; i < argv.length; i += 1) { const arg = argv[i]; if (arg === '--mode') args.mode = argv[++i]; else if (arg === '--db-mode') args.dbMode = argv[++i]; else if (arg === '--inventory') args.inventory = argv[++i]; else if (arg === '--retired') args.retired = argv[++i]; else if (arg === '--fixture') args.fixture = argv[++i]; else if (arg === '--help') { console.log('Usage: ledger-preflight.mjs [--mode pre-migration|post-migration] [--db-mode ci|prod] [--inventory file] [--retired file] [--fixture file]'); process.exit(0); } else throw new Error(`unknown argument: ${arg}`); } return args; }
 
-function readRows(table, mode) {
-  const sql = table === 'schema_migrations'
-    ? "SELECT COALESCE(json_agg(json_build_object('filename', filename, 'applied_at', applied_at::text)), '[]'::json) FROM schema_migrations"
-    : "SELECT COALESCE(json_agg(json_build_object('name', name, 'timestamp', timestamp)), '[]'::json) FROM migrations";
-  const value = runPsql(sql, mode);
-  return value ? JSON.parse(value) : [];
-}
-
-function parseArgs(argv) {
-  const args = { mode: 'pre-migration', dbMode: process.env.MIG_MODE ?? 'prod', dir: process.env.MIG_DIR ?? 'apps/api', fixture: null };
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
-    if (arg === '--mode') args.mode = argv[++i];
-    else if (arg === '--db-mode') args.dbMode = argv[++i];
-    else if (arg === '--dir') args.dir = argv[++i];
-    else if (arg === '--fixture') args.fixture = argv[++i];
-    else if (arg === '--help') {
-      console.log('Usage: ledger-preflight.mjs [--mode pre-migration|post-migration] [--db-mode ci|prod] [--dir apps/api] [--fixture file]');
-      process.exit(0);
-    } else throw new Error(`unknown argument: ${arg}`);
-  }
-  if (!['pre-migration', 'post-migration'].includes(args.mode)) throw new Error(`invalid mode: ${args.mode}`);
-  return args;
-}
-
-function main() {
-  const args = parseArgs(process.argv.slice(2));
-  let payload;
-  if (args.fixture) payload = JSON.parse(fs.readFileSync(args.fixture, 'utf8'));
-  else {
-    if (!tableExists('schema_migrations', args.dbMode)) throw new Error('BLOCK: schema_migrations table is missing');
-    if (!tableExists('migrations', args.dbMode)) throw new Error('BLOCK: migrations table is missing');
-    payload = {
-      schemaRows: readRows('schema_migrations', args.dbMode),
-      typeormRows: readRows('migrations', args.dbMode),
-      canonicalTsNames: canonicalNames(path.resolve(args.dir, 'src/database/migrations')),
-    };
-  }
-  if (!Array.isArray(payload.schemaRows)) throw new Error('BLOCK: schema_migrations fixture/table is unavailable');
-  if (!Array.isArray(payload.typeormRows)) throw new Error('BLOCK: migrations fixture/table is unavailable');
-  if (!Array.isArray(payload.canonicalTsNames)) throw new Error('BLOCK: canonical TypeORM inventory is unavailable');
-  const result = evaluateLedger({ ...payload, mode: args.mode });
-  console.log(JSON.stringify({ mode: args.mode, ...result }, null, 2));
-  if (!result.pass) process.exitCode = 1;
-}
-
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { main(); } catch (error) {
-    console.error(`BLOCK: ${error.message}`);
-    process.exitCode = 1;
-  }
-}
+function main() { const args = parseArgs(process.argv.slice(2)); let payload; if (args.fixture) payload = JSON.parse(fs.readFileSync(args.fixture, 'utf8')); else { if (!args.inventory) throw new Error('BLOCK: canonical TypeORM inventory is required'); const inventoryPayload = JSON.parse(fs.readFileSync(args.inventory, 'utf8')); payload = { schemaRows: readRows('schema_migrations', args.dbMode), typeormRows: readRows('migrations', args.dbMode), canonicalLegacy: inventoryPayload.canonicalLegacy ?? fs.readdirSync(path.resolve(args.inventory, '../../migrations')).filter((name) => /^2026.*\.sql$/.test(name)).sort(), canonicalTypeorm: inventoryPayload.canonicalTypeorm ?? inventoryPayload, retiredTypeorm: inventoryPayload.retiredTypeorm }; } const retired = payload.retiredTypeorm ?? validateRetiredRegistry(JSON.parse(fs.readFileSync(args.retired, 'utf8'))); const result = evaluateLedger({ ...payload, retiredTypeorm: validateRetiredRegistry(retired), mode: args.mode }); console.log(JSON.stringify({ mode: args.mode, ...result }, null, 2)); if (!result.pass) process.exitCode = 1; }
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) { try { main(); } catch (error) { console.error(`BLOCK: ${error.message}`); process.exitCode = 1; } }
