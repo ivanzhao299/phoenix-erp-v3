@@ -1,0 +1,50 @@
+name: TypeORM Ledger Runtime Compatibility Fixture
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/database/migrations/**'
+      - 'apps/api/src/database/data-source.ts'
+      - 'scripts/ci/run-typeorm-ledger-runtime-compatibility-fixture.mjs'
+      - 'scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs'
+      - '.github/workflows/typeorm-ledger-runtime-compatibility-fixture.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rehearsal:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.14-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: phoenix_ledger_rehearsal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d phoenix_ledger_rehearsal"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter phoenix-erp-v3-nest build
+      - run: node --test scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs
+      - name: Run real TypeORM ledger rehearsal
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: phoenix_ledger_rehearsal
+        run: node scripts/ci/run-typeorm-ledger-runtime-compatibility-fixture.mjs
