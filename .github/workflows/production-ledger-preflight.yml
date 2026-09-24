@@ -100,11 +100,23 @@ jobs:
             test -z "$(git status --porcelain --untracked-files=all)"
             test -n "$LEDGER_INVENTORY_B64"
             test -n "$PREFLIGHT_SCRIPT_B64"
-            INVENTORY_FILE=$(mktemp)
-            SCRIPT_FILE=$(mktemp)
-            trap 'rm -f "$INVENTORY_FILE" "$SCRIPT_FILE"' EXIT
+            TMP_DIR="$(mktemp -d /tmp/phoenix-ledger-preflight.XXXXXX)"
+            INVENTORY_FILE="$TMP_DIR/inventory.json"
+            SCRIPT_FILE="$TMP_DIR/ledger-preflight.mjs"
+            trap 'rm -rf "$TMP_DIR"' EXIT
             printf '%s' "$LEDGER_INVENTORY_B64" | base64 -d > "$INVENTORY_FILE"
             printf '%s' "$PREFLIGHT_SCRIPT_B64" | base64 -d > "$SCRIPT_FILE"
+            test -s "$INVENTORY_FILE"
+            test -s "$SCRIPT_FILE"
+            case "$SCRIPT_FILE" in
+              *.mjs) ;;
+              *)
+                echo "AUDIT_FAILURE=PREFLIGHT_SCRIPT_EXTENSION_INVALID"
+                exit 35
+                ;;
+            esac
+            node --check "$SCRIPT_FILE"
+            echo "PREFLIGHT_SCRIPT_PARSE=PASS"
             command -v node >/dev/null
             echo "target=production mode=pre-migration writes=disabled audit_sha=$EXPECTED_SHA production_sha=$(git rev-parse HEAD)"
             MIG_MODE=prod MIG_DIR=apps/api node "$SCRIPT_FILE" --mode pre-migration --inventory "$INVENTORY_FILE"

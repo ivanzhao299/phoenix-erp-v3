@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const preflight = fs.readFileSync('.github/workflows/production-ledger-preflight.yml', 'utf8');
 const deploy = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
@@ -49,6 +52,29 @@ test('runner provisions the exact Node and pnpm toolchain before inventory build
   assert.match(steps[validate].body, /RUNNER_NODE_MAJOR=20/);
   assert.match(steps[validate].body, /RUNNER_PNPM_MAJOR=9/);
   assert.match(preflight, /timeout-minutes: 25/);
+});
+
+test('production transport preserves ESM and JSON file extensions', () => {
+  const ssh = preflight.split('uses: appleboy/ssh-action@v1')[1] ?? '';
+  assert.match(ssh, /TMP_DIR=.*mktemp -d \/tmp\/phoenix-ledger-preflight/);
+  assert.match(ssh, /INVENTORY_FILE="\$TMP_DIR\/inventory\.json"/);
+  assert.match(ssh, /SCRIPT_FILE="\$TMP_DIR\/ledger-preflight\.mjs"/);
+  assert.doesNotMatch(ssh, /SCRIPT_FILE=\$\(mktemp\)/);
+  assert.match(ssh, /PREFLIGHT_SCRIPT_EXTENSION_INVALID/);
+  assert.match(ssh, /node --check "\$SCRIPT_FILE"/);
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-preflight-transport-'));
+  try {
+    const source = fs.readFileSync('scripts/ledger-preflight.mjs');
+    const scriptPath = path.join(tempDir, 'ledger-preflight.mjs');
+    const inventoryPath = path.join(tempDir, 'inventory.json');
+    fs.writeFileSync(scriptPath, source);
+    fs.writeFileSync(inventoryPath, JSON.stringify({ canonicalTypeorm: [], canonicalLegacy: [], retiredTypeorm: [] }));
+    execFileSync(process.execPath, ['--check', scriptPath], { stdio: 'pipe' });
+    assert.deepEqual(JSON.parse(fs.readFileSync(inventoryPath, 'utf8')), { canonicalTypeorm: [], canonicalLegacy: [], retiredTypeorm: [] });
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test('deploy orders candidate inventory and preflight before migrations and API switch', () => {
