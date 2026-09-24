@@ -3,7 +3,7 @@ req AS (
   SELECT
     count(*)::bigint AS total_rows,
     count(*) FILTER (WHERE req_no IS NULL)::bigint AS null_count,
-    count(*) FILTER (WHERE btrim(coalesce(req_no, '')) = '')::bigint AS blank_count,
+    count(*) FILTER (WHERE req_no IS NOT NULL AND btrim(req_no) = '')::bigint AS blank_count,
     coalesce(count(*) FILTER (WHERE length(req_no) > 64), 0)::bigint AS over_64_count,
     coalesce(max(length(req_no)), 0)::bigint AS max_length,
     (SELECT count(*)::bigint FROM (SELECT req_no FROM prc_purchase_requests WHERE req_no IS NOT NULL GROUP BY req_no HAVING count(*) > 1) d) AS duplicate_group_count,
@@ -49,7 +49,7 @@ ledger AS (
 warehouse AS (
   SELECT count(*)::bigint AS total_rows,
          count(*) FILTER (WHERE warehouse_code IS NULL)::bigint AS null_count,
-         count(*) FILTER (WHERE btrim(coalesce(warehouse_code, '')) = '')::bigint AS blank_count,
+         count(*) FILTER (WHERE warehouse_code IS NOT NULL AND btrim(warehouse_code) = '')::bigint AS blank_count,
          coalesce(max(length(warehouse_code)), 0)::bigint AS max_length,
          (SELECT count(*)::bigint FROM (SELECT warehouse_code FROM wms_warehouses WHERE warehouse_code IS NOT NULL GROUP BY warehouse_code HAVING count(*) > 1) d) AS duplicate_count,
          (SELECT NOT EXISTS (
