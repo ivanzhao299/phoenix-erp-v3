@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import { Client } from '../../apps/api/node_modules/pg/index.js';
+import { createRequire } from 'node:module';
 import { authorizeApiSwitch, evaluatePhase1PostMigration, evaluatePhase1PreExecution, loadPhase1Manifest } from './phase1-production-execution-gate.mjs';
+
+const require = createRequire(import.meta.url);
+const { Client } = require('../../apps/api/node_modules/pg');
 
 const manifest = loadPhase1Manifest(new URL('./phase1-production-migration-manifest.json', import.meta.url));
 const pg = new Client();
