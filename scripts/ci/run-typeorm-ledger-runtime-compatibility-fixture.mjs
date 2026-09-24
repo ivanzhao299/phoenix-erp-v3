@@ -71,9 +71,11 @@ async function main() {
       ['mon_device_property_history', 'property_code', 'mon_device_property_history_property_code_fkey'],
       ['mon_device_alert_event', 'property_code', 'mon_device_alert_event_property_code_fkey'],
     ]) await q(`CREATE TABLE ${table} (id bigserial PRIMARY KEY, ${column} varchar(64), CONSTRAINT ${constraint} FOREIGN KEY (${column}) REFERENCES mon_device_property_dict(property_code))`);
-    for (const [table, column, constraint] of links) {
-      await q(`CREATE TABLE IF NOT EXISTS ${table} (id bigserial PRIMARY KEY, ${column} varchar(32), CONSTRAINT ${constraint} FOREIGN KEY (${column}) REFERENCES wms_warehouses(warehouse_code))`);
-    }
+    await q(`CREATE TABLE store_warehouse_bindings (id bigserial PRIMARY KEY, warehouse_code varchar(32), CONSTRAINT store_warehouse_bindings_warehouse_code_fkey FOREIGN KEY (warehouse_code) REFERENCES wms_warehouses(warehouse_code))`);
+    await q(`CREATE TABLE store_replenishment_requests (id bigserial PRIMARY KEY, source_warehouse_code varchar(32), target_warehouse_code varchar(32), CONSTRAINT store_replenishment_requests_source_warehouse_code_fkey FOREIGN KEY (source_warehouse_code) REFERENCES wms_warehouses(warehouse_code), CONSTRAINT store_replenishment_requests_target_warehouse_code_fkey FOREIGN KEY (target_warehouse_code) REFERENCES wms_warehouses(warehouse_code))`);
+    await q(`CREATE TABLE sal_sales_orders (id bigserial PRIMARY KEY, fulfillment_warehouse_code varchar(32), CONSTRAINT sal_sales_orders_fulfillment_warehouse_code_fkey FOREIGN KEY (fulfillment_warehouse_code) REFERENCES wms_warehouses(warehouse_code))`);
+    await q(`CREATE TABLE sal_delivery_orders (id bigserial PRIMARY KEY, fulfillment_warehouse_code varchar(32), CONSTRAINT sal_delivery_orders_fulfillment_warehouse_code_fkey FOREIGN KEY (fulfillment_warehouse_code) REFERENCES wms_warehouses(warehouse_code))`);
+    await q(`CREATE TABLE sal_return_orders (id bigserial PRIMARY KEY, target_warehouse_code varchar(32), CONSTRAINT sal_return_orders_target_warehouse_code_fkey FOREIGN KEY (target_warehouse_code) REFERENCES wms_warehouses(warehouse_code))`);
     await q(`INSERT INTO wms_stocktake(status) VALUES ('IN_PROGRESS')`);
     await q(`INSERT INTO pda_sync_log(payload) VALUES ('{"op":"ok"}')`);
     await q(`INSERT INTO wms_inbound(created_at, updated_at) VALUES (TIMESTAMP '2026-01-02 12:00:00', TIMESTAMP '2026-01-02 11:59:59.999665')`);
@@ -107,7 +109,14 @@ async function main() {
       catch (error) { return { status: error.status ?? 1, output: `${error.stdout ?? ''}${error.stderr ?? ''}` }; }
     })();
     console.log(`CURRENT_LEDGER_PREFLIGHT_RESULT=${preflight.status === 0 ? 'PASS' : 'BLOCK'}`);
-    if (preflight.status !== 0) console.log(`CURRENT_LEDGER_PREFLIGHT_BLOCK_REASONS=${JSON.stringify(preflight.output.match(/"failures": \[[^\]]*\]/)?.[0] ?? 'see fixture output')}`);
+    if (preflight.status !== 0) {
+      try {
+        const diagnostics = JSON.parse(preflight.output);
+        console.log(`CURRENT_LEDGER_PREFLIGHT_BLOCK_REASONS=${JSON.stringify(diagnostics.failures ?? diagnostics.diagnostics ?? diagnostics)}`);
+      } catch {
+        console.log('CURRENT_LEDGER_PREFLIGHT_BLOCK_REASONS=UNPARSEABLE_PREFLIGHT_OUTPUT');
+      }
+    }
 
     const runOutput = runCli(['migration:run', '--transaction', 'all']);
     for (const entry of phase1) assert.match(runOutput, new RegExp(entry.effective_name));
