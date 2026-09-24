@@ -8,6 +8,7 @@ on:
       - 'scripts/ci/phase1-production-execution-gate.test.mjs'
       - 'scripts/ci/run-phase1-controlled-execution-rehearsal.mjs'
       - 'scripts/ci/phase1-controlled-production-execution.test.mjs'
+      - 'scripts/ci/phase1-generic-deploy-guard.mjs'
       - 'scripts/deploy-schema-first.sh'
       - '.github/workflows/phase1-controlled-production-execution-fixture.yml'
   workflow_dispatch:
