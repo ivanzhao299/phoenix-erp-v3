@@ -32,3 +32,8 @@ test('runner checkout and Phase 1 membership are exact', () => {
   assert.match(runnerSection, /PHASE1_EXPECTED_COUNT/);
   assert.match(runnerSection, /PHASE1_EXPECTED_INVENTORY_INVALID/);
 });
+
+test('production checkout remains intentionally independent', () => {
+  assert.match(productionScriptSection, /PRODUCTION_SHA=\$\(git rev-parse HEAD\)/);
+  assert.doesNotMatch(productionScriptSection, /test .*PRODUCTION_SHA.*AUDIT_TARGET_SHA/);
+});
