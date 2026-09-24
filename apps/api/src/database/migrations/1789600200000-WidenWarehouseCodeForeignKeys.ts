@@ -14,6 +14,9 @@ export class WidenWarehouseCodeForeignKeys1789600200000 implements MigrationInte
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (!(await queryRunner.hasTable('wms_warehouses')) || !(await queryRunner.hasColumn('wms_warehouses', 'warehouse_code'))) return;
+    if (await queryRunner.hasTable('store_warehouse_bindings')) {
+      await queryRunner.query(`DROP TRIGGER IF EXISTS trg_store_operational_warehouse ON store_warehouse_bindings`);
+    }
     for (const [table, , constraint] of links) {
       if (await queryRunner.hasTable(table)) await queryRunner.query(`ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${constraint}`);
     }
@@ -33,12 +36,27 @@ export class WidenWarehouseCodeForeignKeys1789600200000 implements MigrationInte
         END $$
       `);
     }
+    if (await queryRunner.hasTable('store_warehouse_bindings')) {
+      await queryRunner.query(`
+        DO $$ BEGIN
+          IF to_regprocedure('enforce_store_operational_warehouse()') IS NOT NULL THEN
+            CREATE TRIGGER trg_store_operational_warehouse
+            BEFORE INSERT OR UPDATE OF warehouse_code, status ON store_warehouse_bindings
+            FOR EACH ROW WHEN (NEW.status = 'ACTIVE')
+            EXECUTE FUNCTION enforce_store_operational_warehouse();
+          END IF;
+        END $$
+      `);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     if (!(await queryRunner.hasTable('wms_warehouses')) || !(await queryRunner.hasColumn('wms_warehouses', 'warehouse_code'))) return;
     const [{ max_length: parentMax } = {}] = await queryRunner.query(`SELECT max(length(warehouse_code)) AS max_length FROM wms_warehouses`);
     if (parentMax !== null && parentMax !== undefined && Number(parentMax) > 32) throw new Error('Cannot safely narrow warehouse_code parent');
+    if (await queryRunner.hasTable('store_warehouse_bindings')) {
+      await queryRunner.query(`DROP TRIGGER IF EXISTS trg_store_operational_warehouse ON store_warehouse_bindings`);
+    }
     for (const [table, column] of links) {
       if (await queryRunner.hasTable(table) && await queryRunner.hasColumn(table, column)) {
         const [{ max_length: childMax } = {}] = await queryRunner.query(`SELECT max(length(${column})) AS max_length FROM ${table}`);
@@ -52,6 +70,18 @@ export class WidenWarehouseCodeForeignKeys1789600200000 implements MigrationInte
       if (await queryRunner.hasTable(table) && await queryRunner.hasColumn(table, column)) await queryRunner.query(`ALTER TABLE ${table} ALTER COLUMN ${column} TYPE VARCHAR(32)`);
     }
     await queryRunner.query(`ALTER TABLE wms_warehouses ALTER COLUMN warehouse_code TYPE VARCHAR(32)`);
+    if (await queryRunner.hasTable('store_warehouse_bindings')) {
+      await queryRunner.query(`
+        DO $$ BEGIN
+          IF to_regprocedure('enforce_store_operational_warehouse()') IS NOT NULL THEN
+            CREATE TRIGGER trg_store_operational_warehouse
+            BEFORE INSERT OR UPDATE OF warehouse_code, status ON store_warehouse_bindings
+            FOR EACH ROW WHEN (NEW.status = 'ACTIVE')
+            EXECUTE FUNCTION enforce_store_operational_warehouse();
+          END IF;
+        END $$
+      `);
+    }
   }
 
 }
