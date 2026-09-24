@@ -89,7 +89,7 @@ async function main() {
     console.log('INITIAL_LEDGER=PASS');
 
     const before = runCli(['migration:show']);
-    for (const entry of phase1) assert.match(before, new RegExp(`\u005b \u005d ${entry.effective_name}`));
+    for (const entry of phase1) assert.ok(before.includes(`[ ] ${entry.effective_name}`), `missing pending migration ${entry.effective_name}`);
     assert.equal((before.match(/\[ \]/g) || []).length, 4, 'migration:show must report exactly four pending migrations');
     console.log('MIGRATION_SHOW_BEFORE=PASS');
     console.log('RETIRED_ROW_TOLERATED=YES');
