@@ -32,6 +32,12 @@ stocktake AS (
     (count(*) FILTER (WHERE length(status) > 20) = 0) AS length_safe
   FROM wms_stocktake
 ),
+inbound_rows AS (
+  SELECT created_at,
+         updated_at,
+         EXTRACT(EPOCH FROM (updated_at - created_at)) AS delta_seconds
+  FROM wms_inbound
+),
 inbound AS (
   SELECT count(*)::bigint AS total_rows,
          count(*) FILTER (WHERE created_at IS NULL)::bigint AS null_count,
@@ -45,8 +51,31 @@ inbound AS (
          count(*) FILTER (WHERE updated_at > created_at)::bigint AS updated_after_created_count,
          count(*) FILTER (WHERE created_at IS NULL AND updated_at IS NOT NULL)::bigint AS created_null_updated_non_null_count,
          count(*) FILTER (WHERE created_at IS NOT NULL AND updated_at IS NULL)::bigint AS created_non_null_updated_null_count,
-         count(*) FILTER (WHERE created_at IS NULL AND updated_at IS NULL)::bigint AS both_null_count
-  FROM wms_inbound
+         count(*) FILTER (WHERE created_at IS NULL AND updated_at IS NULL)::bigint AS both_null_count,
+         jsonb_build_object(
+           'count', count(*) FILTER (WHERE delta_seconds < 0),
+           'min_delta_seconds', coalesce(min(delta_seconds) FILTER (WHERE delta_seconds < 0), 0),
+           'max_delta_seconds', coalesce(max(delta_seconds) FILTER (WHERE delta_seconds < 0), 0),
+           'avg_delta_seconds', coalesce(avg(delta_seconds) FILTER (WHERE delta_seconds < 0), 0),
+           'min_abs_delta_seconds', coalesce(min(abs(delta_seconds)) FILTER (WHERE delta_seconds < 0), 0),
+           'max_abs_delta_seconds', coalesce(max(abs(delta_seconds)) FILTER (WHERE delta_seconds < 0), 0),
+           'abs_delta_lt_1_second_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(delta_seconds) < 1),
+           'abs_delta_lt_60_seconds_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(delta_seconds) >= 1 AND abs(delta_seconds) < 60),
+           'abs_delta_lt_5_minutes_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(delta_seconds) >= 60 AND abs(delta_seconds) < 300),
+           'abs_delta_1_to_6_hours_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(delta_seconds) >= 3600 AND abs(delta_seconds) < 21600),
+           'abs_delta_6_to_10_hours_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(delta_seconds) >= 21600 AND abs(delta_seconds) < 36000),
+           'abs_delta_ge_10_hours_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(delta_seconds) >= 36000),
+           'near_whole_hour_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(abs(delta_seconds) - round(abs(delta_seconds) / 3600) * 3600) <= 300),
+           'near_6_hour_offset_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(abs(delta_seconds) - 21600) <= 300),
+           'near_7_hour_offset_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(abs(delta_seconds) - 25200) <= 300),
+           'near_8_hour_offset_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(abs(delta_seconds) - 28800) <= 300),
+           'near_9_hour_offset_count', count(*) FILTER (WHERE delta_seconds < 0 AND abs(abs(delta_seconds) - 32400) <= 300),
+           'min_distance_to_whole_hour_seconds', coalesce(min(abs(abs(delta_seconds) - round(abs(delta_seconds) / 3600) * 3600)) FILTER (WHERE delta_seconds < 0), 0),
+           'max_distance_to_whole_hour_seconds', coalesce(max(abs(abs(delta_seconds) - round(abs(delta_seconds) / 3600) * 3600)) FILTER (WHERE delta_seconds < 0), 0),
+           'same_utc_calendar_date_count', count(*) FILTER (WHERE delta_seconds < 0 AND created_at::date = updated_at::date),
+           'different_utc_calendar_date_count', count(*) FILTER (WHERE delta_seconds < 0 AND created_at::date <> updated_at::date)
+         ) AS negative_timestamp_delta
+  FROM inbound_rows
 ),
 ledger AS (
   SELECT count(*)::bigint AS total_rows,

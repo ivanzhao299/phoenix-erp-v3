@@ -57,7 +57,7 @@ test('SQL covers exactly the five scoped objects and emits metadata', () => {
   for (const table of ['prc_purchase_requests', 'wms_stocktake', 'wms_inbound', 'acc_ledger', 'wms_warehouses']) {
     assert.match(sqlText, new RegExp(table));
   }
-  for (const key of ['null_count', 'blank_count', 'duplicate_group_count', 'over_64_count', 'over_20_count', 'status_domain', 'min_created_at', 'max_created_at', 'updated_at_null_count', 'min_updated_at', 'max_updated_at', 'updated_before_created_count', 'updated_equals_created_count', 'updated_after_created_count', 'database_timezone', 'foreign_keys', 'relation_sizes']) {
+  for (const key of ['null_count', 'blank_count', 'duplicate_group_count', 'over_64_count', 'over_20_count', 'status_domain', 'min_created_at', 'max_created_at', 'updated_at_null_count', 'min_updated_at', 'max_updated_at', 'updated_before_created_count', 'updated_equals_created_count', 'updated_after_created_count', 'negative_timestamp_delta', 'min_delta_seconds', 'max_delta_seconds', 'avg_delta_seconds', 'min_abs_delta_seconds', 'max_abs_delta_seconds', 'abs_delta_lt_1_second_count', 'abs_delta_lt_60_seconds_count', 'abs_delta_lt_5_minutes_count', 'abs_delta_1_to_6_hours_count', 'abs_delta_6_to_10_hours_count', 'abs_delta_ge_10_hours_count', 'near_whole_hour_count', 'near_6_hour_offset_count', 'near_7_hour_offset_count', 'near_8_hour_offset_count', 'near_9_hour_offset_count', 'min_distance_to_whole_hour_seconds', 'max_distance_to_whole_hour_seconds', 'same_utc_calendar_date_count', 'different_utc_calendar_date_count', 'database_timezone', 'foreign_keys', 'relation_sizes']) {
     assert.match(sqlText, new RegExp(key));
   }
   assert.match(sqlText, /wms_inbound_updated_at/);
