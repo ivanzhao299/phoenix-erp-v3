@@ -1,0 +1,60 @@
+name: Phase 1 Controlled Production Execution Fixture
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/ci/phase1-production-migration-manifest.json'
+      - 'scripts/ci/phase1-production-execution-gate.mjs'
+      - 'scripts/ci/phase1-production-execution-gate.test.mjs'
+      - 'scripts/ci/run-phase1-controlled-execution-rehearsal.mjs'
+      - 'scripts/ci/phase1-controlled-production-execution.test.mjs'
+      - 'scripts/deploy-schema-first.sh'
+      - '.github/workflows/phase1-controlled-production-execution-fixture.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16.14-alpine
+        env:
+          POSTGRES_USER: phoenix_v3
+          POSTGRES_PASSWORD: phoenix_v3
+          POSTGRES_DB: phoenix_v3
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U phoenix_v3 -d phoenix_v3"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter phoenix-erp-v3-nest build
+      - run: node --test scripts/ci/phase1-production-execution-gate.test.mjs scripts/ci/phase1-controlled-production-execution.test.mjs
+      - name: Run Phase 1 schema and data rehearsal
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: phoenix_v3
+          PGPASSWORD: phoenix_v3
+          PGDATABASE: phoenix_v3
+        run: bash scripts/ci/run-phase1-schema-remediation-fixture.sh
+      - name: Run PG16.14 controlled rehearsal
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: phoenix_v3
+          PGPASSWORD: phoenix_v3
+          PGDATABASE: phoenix_v3
+        run: node scripts/ci/run-phase1-controlled-execution-rehearsal.mjs
