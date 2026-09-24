@@ -776,6 +776,12 @@ jobs:
             if [ "$BUILD_API" = "true" ]; then
               export API_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:sha-${TARGET_SHA}"
               docker compose pull api
+              # Inventory must come from the candidate image that will execute
+              # TypeORM, never from the currently running API container.
+              CANDIDATE_LEDGER_INVENTORY="$(mktemp)"
+              trap 'rm -f "$CANDIDATE_LEDGER_INVENTORY"' EXIT
+              CANDIDATE_TYPEORM_JSON="$(bash scripts/ci/candidate-typeorm-inventory.sh "$API_IMAGE")"
+              node -e 'const fs=require("fs"); const canonicalLegacy=fs.readdirSync("apps/api/migrations").filter(n=>/^2026.*\\.sql$/.test(n)).sort(); const retiredTypeorm=JSON.parse(fs.readFileSync("scripts/ci/retired-typeorm-migrations.json","utf8")); fs.writeFileSync(process.argv[1], JSON.stringify({canonicalTypeorm:JSON.parse(process.argv[2]),canonicalLegacy,retiredTypeorm}));' "$CANDIDATE_LEDGER_INVENTORY" "$CANDIDATE_TYPEORM_JSON"
             fi
             if [ "$BUILD_WEB" = "true" ]; then
               docker compose pull web
@@ -815,7 +821,8 @@ jobs:
               # Read-only ledger reconciliation. This must block before any
               # migration SQL if legacy and TypeORM history are inconsistent.
               echo "── 迁移前只读 ledger preflight ──"
-              MIG_MODE=prod MIG_DIR=apps/api node scripts/ledger-preflight.mjs --mode pre-migration
+              test -s "${CANDIDATE_LEDGER_INVENTORY:-}"
+              MIG_MODE=prod MIG_DIR=apps/api node scripts/ledger-preflight.mjs --mode pre-migration --inventory "$CANDIDATE_LEDGER_INVENTORY"
               echo "✅ migration ledger preflight passed"
 
               # Keep exactly the newest three verified deploy backups. The

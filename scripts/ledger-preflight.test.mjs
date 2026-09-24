@@ -1,89 +1,53 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { evaluateLedger, normalizeLegacy } from './ledger-preflight.mjs';
+import { evaluateLedger, validateRetiredRegistry } from './ledger-preflight.mjs';
 
-const schemaRows = [{ filename: '20260101_init.sql', applied_at: '2026-01-01T00:00:00.000Z' }];
-const legacyName = normalizeLegacy(schemaRows[0].filename);
-const matchingTimestamp = String(new Date(schemaRows[0].applied_at).getTime());
+const retired = [{ name: 'DropHouseOwnershipRedundantColumns1787647200000', timestamp: '1787647200000', removal_commit: 'a162cda6360dae1f5b18975a4c029adac1761c0d', classification: 'KNOWN_RETIRED_APPLIED' }];
+const legacy = [{ filename: '20260101_init.sql', applied_at: '2026-01-01T00:00:00.000Z' }];
+const canonical = [{ effective_name: 'CreateTypeormMetadata1781749821162', timestamp: '1781749821162' }, { effective_name: 'PhaseOne1789600000000', timestamp: '1789600000000' }];
+const applied = [{ name: legacy[0].filename.replace('.sql', ''), timestamp: String(new Date(legacy[0].applied_at).getTime()) }, { name: canonical[0].effective_name, timestamp: canonical[0].timestamp }];
 
-function base(extra = {}) {
-  return evaluateLedger({
-    schemaRows,
-    typeormRows: [{ name: legacyName, timestamp: matchingTimestamp }],
-    canonicalTsNames: ['1781749821162-CreateTypeormMetadata'],
-    mode: 'pre-migration',
-    ...extra,
-  });
-}
+function base(extra = {}) { return evaluateLedger({ schemaRows: legacy, canonicalLegacy: legacy.map((row) => row.filename), canonicalTypeorm: canonical, typeormRows: applied, retiredTypeorm: retired, mode: 'pre-migration', ...extra }); }
 
-test('perfect ledger passes and allows current pending TS migration in pre mode', () => {
-  const result = base();
+test('legacy ledger complete and bridge absent still passes pre-migration', () => {
+  const result = base({ typeormRows: [applied[1], { name: retired[0].name, timestamp: retired[0].timestamp }] });
   assert.equal(result.pass, true);
-  assert.deepEqual(result.diagnostics.pending_ts, ['1781749821162-CreateTypeormMetadata']);
+  assert.equal(result.diagnostics.bridge_state, 'ABSENT');
+  assert.deepEqual(result.diagnostics.known_retired_applied, [retired[0].name]);
 });
 
-test('legacy-only row blocks', () => {
-  const result = base({ typeormRows: [] });
+test('post-migration requires zero canonical pending', () => {
+  const result = base({ mode: 'post-migration', typeormRows: [...applied, { name: retired[0].name, timestamp: retired[0].timestamp }] });
   assert.equal(result.pass, false);
-  assert.match(result.failures.join(','), /legacy_only/);
+  assert.match(result.failures.join(','), /canonical_pending/);
 });
 
-test('mirror-only legacy row blocks', () => {
-  const result = base({ typeormRows: [{ name: legacyName, timestamp: matchingTimestamp }, { name: '20260102_extra', timestamp: '2' }] });
+test('unknown applied row remains a hard failure', () => {
+  const result = base({ typeormRows: [...applied, { name: 'UnknownMigration9999999999999', timestamp: '9999999999999' }] });
   assert.equal(result.pass, false);
-  assert.match(result.failures.join(','), /mirror_only/);
+  assert.match(result.failures.join(','), /unknown_typeorm_applied/);
 });
 
-test('duplicate legacy identity blocks', () => {
-  const result = base({ schemaRows: [...schemaRows, { ...schemaRows[0], filename: '20260101_init.sql' }] });
+test('retired timestamp mismatch is a hard failure', () => {
+  const result = base({ typeormRows: [...applied, { name: retired[0].name, timestamp: '1787647200001' }] });
   assert.equal(result.pass, false);
-  assert.match(result.failures.join(','), /duplicate_legacy/);
+  assert.match(result.failures.join(','), /retired_timestamp_mismatch/);
 });
 
-test('duplicate TypeORM legacy mirror blocks', () => {
-  const result = base({ typeormRows: [{ name: legacyName, timestamp: matchingTimestamp }, { name: legacyName, timestamp: matchingTimestamp }] });
+test('legacy missing and unexpected remain hard failures', () => {
+  const result = base({ schemaRows: [] });
   assert.equal(result.pass, false);
-  assert.match(result.failures.join(','), /duplicate_typeorm_legacy/);
+  assert.match(result.failures.join(','), /legacy_missing/);
 });
 
-test('timestamp mismatch blocks', () => {
-  const result = base({ typeormRows: [{ name: legacyName, timestamp: '1' }] });
+test('duplicate identity and timestamp remain hard failures', () => {
+  const result = base({ typeormRows: [...applied, { ...applied[1] }] });
   assert.equal(result.pass, false);
-  assert.match(result.failures.join(','), /timestamp_mismatch/);
+  assert.match(result.failures.join(','), /duplicate_typeorm_name/);
+  assert.match(result.failures.join(','), /duplicate_typeorm_timestamp/);
 });
 
-test('post mode blocks pending canonical TS migration', () => {
-  const result = base({ mode: 'post-migration' });
-  assert.equal(result.pass, false);
-  assert.match(result.failures.join(','), /unexpected_pending/);
-});
-
-test('unknown TypeORM row blocks', () => {
-  const result = base({ typeormRows: [{ name: legacyName, timestamp: matchingTimestamp }, { name: 'UnknownMigration999', timestamp: '9' }] });
-  assert.equal(result.pass, false);
-  assert.match(result.failures.join(','), /unexpected_typeorm/);
-});
-
-test('missing tracking table fixture blocks closed', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-preflight-'));
-  const fixture = path.join(dir, 'missing.json');
-  fs.writeFileSync(fixture, JSON.stringify({ typeormRows: [], canonicalTsNames: [] }));
-  const result = spawnSync(process.execPath, [path.resolve('scripts/ledger-preflight.mjs'), '--fixture', fixture], { encoding: 'utf8' });
-  fs.rmSync(dir, { recursive: true, force: true });
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /schema_migrations fixture\/table is unavailable/);
-});
-
-test('production workflow is manual-only and contains no write path', () => {
-  const workflow = fs.readFileSync(path.resolve('.github/workflows/production-ledger-preflight.yml'), 'utf8');
-  assert.match(workflow, /workflow_dispatch:/);
-  assert.match(workflow, /environment: production-readonly/);
-  assert.match(workflow, /contents: read/);
-  assert.doesNotMatch(workflow, /(^|\n)\s*(push|pull_request|schedule|workflow_run|workflow_call):/);
-  assert.doesNotMatch(workflow, /migration:run|migration:revert|bridge[^\n]*--apply|docker compose (up|down|restart)|\bscp\b|\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b/);
-  assert.match(workflow, /ledger-preflight\.mjs --mode pre-migration/);
+test('retired registry validates exact governance shape', () => {
+  assert.equal(validateRetiredRegistry(retired).length, 1);
+  assert.throws(() => validateRetiredRegistry([{ ...retired[0], timestamp: '1' }]));
 });

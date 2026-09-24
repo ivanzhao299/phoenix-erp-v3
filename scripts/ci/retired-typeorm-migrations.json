@@ -1,0 +1,9 @@
+[
+  {
+    "name": "DropHouseOwnershipRedundantColumns1787647200000",
+    "timestamp": 1787647200000,
+    "removal_commit": "a162cda6360dae1f5b18975a4c029adac1761c0d",
+    "classification": "KNOWN_RETIRED_APPLIED",
+    "reason": "unsafe migration removed from executable chain after production application"
+  }
+]
