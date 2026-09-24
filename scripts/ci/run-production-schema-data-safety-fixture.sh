@@ -7,8 +7,10 @@ CREATE TABLE prc_purchase_requests (id bigserial, req_no varchar(64));
 INSERT INTO prc_purchase_requests(req_no) VALUES ('REQ-OK'), ('REQ-DUP'), ('REQ-DUP'), (NULL), ('');
 CREATE TABLE wms_stocktake (id bigserial, status varchar(32));
 INSERT INTO wms_stocktake(status) VALUES ('PENDING'), ('APPROVED'), (repeat('X', 21));
-CREATE TABLE wms_inbound (id bigserial, created_at timestamp DEFAULT CURRENT_TIMESTAMP);
-INSERT INTO wms_inbound(created_at) VALUES (CURRENT_TIMESTAMP);
+CREATE TABLE wms_inbound (id bigserial, created_at timestamp DEFAULT CURRENT_TIMESTAMP, updated_at timestamp DEFAULT CURRENT_TIMESTAMP);
+INSERT INTO wms_inbound(created_at, updated_at)
+VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+       (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + interval '1 hour');
 CREATE TABLE acc_ledger (id bigserial, store_code varchar(32));
 INSERT INTO acc_ledger(store_code) VALUES ('STORE-1'), (NULL);
 CREATE TABLE wms_warehouses (id bigserial, warehouse_code varchar(32) UNIQUE);
@@ -25,8 +27,12 @@ if (req.null_count !== 1 || req.blank_count !== 1 || req.duplicate_group_count !
 if (req.not_null_safe !== false || req.uniqueness_safe !== false || req.length_safe !== true) process.exit(1);
 if (stock.over_20_count !== 1 || stock.distinct_count !== 3 || stock.length_safe !== false) process.exit(1);
 if (report.wms_inbound_created_at.type !== 'timestamp without time zone') process.exit(1);
+const inbound = report.wms_inbound;
+if (inbound.updated_at_null_count !== 0 || inbound.updated_before_created_count !== 0 || inbound.updated_equals_created_count !== 1 || inbound.updated_after_created_count !== 1) process.exit(1);
+if (report.wms_inbound_updated_at.type !== 'timestamp without time zone' || report.wms_inbound_updated_at.default !== 'CURRENT_TIMESTAMP') process.exit(1);
 if (report.acc_ledger.max_length !== 7) process.exit(1);
 if (report.wms_warehouses.duplicate_count !== 0) process.exit(1);
 console.log('POSTGRES16_DATA_SAFETY_FIXTURE=PASS');
+console.log('UPDATED_AT_FIXTURE=PASS');
 console.log('UNSAFE_CONDITIONS_DETECTED=PASS');
 NODE
