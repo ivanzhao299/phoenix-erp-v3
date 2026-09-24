@@ -9,8 +9,10 @@ CREATE TABLE wms_stocktake (id bigserial, status varchar(32));
 INSERT INTO wms_stocktake(status) VALUES ('PENDING'), ('APPROVED'), (repeat('X', 21));
 CREATE TABLE wms_inbound (id bigserial, created_at timestamp DEFAULT CURRENT_TIMESTAMP, updated_at timestamp DEFAULT CURRENT_TIMESTAMP);
 INSERT INTO wms_inbound(created_at, updated_at)
-VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-       (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + interval '1 hour');
+VALUES (TIMESTAMP '2026-01-02 12:00:00', TIMESTAMP '2026-01-02 12:00:00'),
+       (TIMESTAMP '2026-01-02 12:00:00', TIMESTAMP '2026-01-02 13:00:00'),
+       (TIMESTAMP '2026-01-02 12:00:00', TIMESTAMP '2026-01-02 11:59:30'),
+       (TIMESTAMP '2026-01-02 12:00:00', TIMESTAMP '2026-01-02 05:00:00');
 CREATE TABLE acc_ledger (id bigserial, store_code varchar(32));
 INSERT INTO acc_ledger(store_code) VALUES ('STORE-1'), (NULL);
 CREATE TABLE wms_warehouses (id bigserial, warehouse_code varchar(32) UNIQUE);
@@ -28,8 +30,13 @@ if (req.not_null_safe !== false || req.uniqueness_safe !== false || req.length_s
 if (stock.over_20_count !== 1 || stock.distinct_count !== 3 || stock.length_safe !== false) process.exit(1);
 if (report.wms_inbound_created_at.type !== 'timestamp without time zone') process.exit(1);
 const inbound = report.wms_inbound;
-if (inbound.updated_at_null_count !== 0 || inbound.updated_before_created_count !== 0 || inbound.updated_equals_created_count !== 1 || inbound.updated_after_created_count !== 1) process.exit(1);
+if (inbound.updated_at_null_count !== 0 || inbound.updated_before_created_count !== 2 || inbound.updated_equals_created_count !== 1 || inbound.updated_after_created_count !== 1) process.exit(1);
 if (report.wms_inbound_updated_at.type !== 'timestamp without time zone' || report.wms_inbound_updated_at.default !== 'CURRENT_TIMESTAMP') process.exit(1);
+const delta = inbound.negative_timestamp_delta;
+if (delta.count !== 2 || delta.min_delta_seconds !== -25200 || delta.max_delta_seconds !== -30 || delta.min_abs_delta_seconds !== 30 || delta.max_abs_delta_seconds !== 25200) process.exit(1);
+if (delta.abs_delta_lt_1_second_count !== 0 || delta.abs_delta_lt_60_seconds_count !== 1 || delta.abs_delta_lt_5_minutes_count !== 0 || delta.abs_delta_1_to_6_hours_count !== 0 || delta.abs_delta_6_to_10_hours_count !== 1 || delta.abs_delta_ge_10_hours_count !== 0) process.exit(1);
+if (delta.near_whole_hour_count !== 1 || delta.near_6_hour_offset_count !== 0 || delta.near_7_hour_offset_count !== 1 || delta.near_8_hour_offset_count !== 0 || delta.near_9_hour_offset_count !== 0) process.exit(1);
+if (delta.same_utc_calendar_date_count !== 2 || delta.different_utc_calendar_date_count !== 0) process.exit(1);
 if (report.acc_ledger.max_length !== 7) process.exit(1);
 if (report.wms_warehouses.duplicate_count !== 0) process.exit(1);
 console.log('POSTGRES16_DATA_SAFETY_FIXTURE=PASS');
