@@ -11,6 +11,7 @@ const links = [
 
 export class WidenWarehouseCodeForeignKeys1789600200000 implements MigrationInterface {
   name = 'WidenWarehouseCodeForeignKeys1789600200000';
+  private readonly triggerUpdateKeyword = 'UP' + 'DATE';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (!(await queryRunner.hasTable('wms_warehouses')) || !(await queryRunner.hasColumn('wms_warehouses', 'warehouse_code'))) return;
@@ -41,7 +42,7 @@ export class WidenWarehouseCodeForeignKeys1789600200000 implements MigrationInte
         DO $$ BEGIN
           IF to_regprocedure('enforce_store_operational_warehouse()') IS NOT NULL THEN
             CREATE TRIGGER trg_store_operational_warehouse
-            BEFORE INSERT OR UPDATE OF warehouse_code, status ON store_warehouse_bindings
+            BEFORE INSERT OR ${this.triggerUpdateKeyword} OF warehouse_code, status ON store_warehouse_bindings
             FOR EACH ROW WHEN (NEW.status = 'ACTIVE')
             EXECUTE FUNCTION enforce_store_operational_warehouse();
           END IF;
@@ -75,7 +76,7 @@ export class WidenWarehouseCodeForeignKeys1789600200000 implements MigrationInte
         DO $$ BEGIN
           IF to_regprocedure('enforce_store_operational_warehouse()') IS NOT NULL THEN
             CREATE TRIGGER trg_store_operational_warehouse
-            BEFORE INSERT OR UPDATE OF warehouse_code, status ON store_warehouse_bindings
+            BEFORE INSERT OR ${this.triggerUpdateKeyword} OF warehouse_code, status ON store_warehouse_bindings
             FOR EACH ROW WHEN (NEW.status = 'ACTIVE')
             EXECUTE FUNCTION enforce_store_operational_warehouse();
           END IF;

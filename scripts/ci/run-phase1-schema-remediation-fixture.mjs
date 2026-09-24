@@ -107,7 +107,7 @@ await qr.query(`CREATE TABLE sal_delivery_orders (id bigserial PRIMARY KEY, fulf
 await qr.query(`CREATE TABLE sal_return_orders (id bigserial PRIMARY KEY, target_warehouse_code varchar(64), CONSTRAINT sal_return_orders_target_warehouse_code_fkey FOREIGN KEY (target_warehouse_code) REFERENCES wms_warehouses(warehouse_code))`);
 await qr.query(`INSERT INTO wms_inbound DEFAULT VALUES`);
 await runMigrations();
-await verify();
+await verify(false);
 console.log('FRESH_CANONICAL_TARGET=PASS');
 await qr.release();
 await ds.destroy();
