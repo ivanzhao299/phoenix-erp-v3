@@ -36,7 +36,16 @@ inbound AS (
   SELECT count(*)::bigint AS total_rows,
          count(*) FILTER (WHERE created_at IS NULL)::bigint AS null_count,
          min(created_at) AS min_created_at,
-         max(created_at) AS max_created_at
+         max(created_at) AS max_created_at,
+         count(*) FILTER (WHERE updated_at IS NULL)::bigint AS updated_at_null_count,
+         min(updated_at) AS min_updated_at,
+         max(updated_at) AS max_updated_at,
+         count(*) FILTER (WHERE updated_at < created_at)::bigint AS updated_before_created_count,
+         count(*) FILTER (WHERE updated_at = created_at)::bigint AS updated_equals_created_count,
+         count(*) FILTER (WHERE updated_at > created_at)::bigint AS updated_after_created_count,
+         count(*) FILTER (WHERE created_at IS NULL AND updated_at IS NOT NULL)::bigint AS created_null_updated_non_null_count,
+         count(*) FILTER (WHERE created_at IS NOT NULL AND updated_at IS NULL)::bigint AS created_non_null_updated_null_count,
+         count(*) FILTER (WHERE created_at IS NULL AND updated_at IS NULL)::bigint AS both_null_count
   FROM wms_inbound
 ),
 ledger AS (
@@ -64,14 +73,21 @@ warehouse AS (
   FROM wms_warehouses
 ),
 column_meta AS (
-  SELECT jsonb_build_object(
-    'type', c.data_type,
-    'udt_name', c.udt_name,
-    'default', c.column_default,
-    'not_null', (c.is_nullable = 'NO')
-  ) AS created_at
-  FROM information_schema.columns c
-  WHERE c.table_schema = 'public' AND c.table_name = 'wms_inbound' AND c.column_name = 'created_at'
+  SELECT
+    (SELECT jsonb_build_object(
+      'type', c.data_type,
+      'udt_name', c.udt_name,
+      'default', c.column_default,
+      'not_null', (c.is_nullable = 'NO')
+    ) FROM information_schema.columns c
+      WHERE c.table_schema = 'public' AND c.table_name = 'wms_inbound' AND c.column_name = 'created_at') AS created_at,
+    (SELECT jsonb_build_object(
+      'type', c.data_type,
+      'udt_name', c.udt_name,
+      'default', c.column_default,
+      'not_null', (c.is_nullable = 'NO')
+    ) FROM information_schema.columns c
+      WHERE c.table_schema = 'public' AND c.table_name = 'wms_inbound' AND c.column_name = 'updated_at') AS updated_at
 ),
 ledger_deps AS (
   SELECT coalesce(jsonb_agg(jsonb_build_object('kind', 'index', 'name', i.indexname, 'definition', i.indexdef) ORDER BY i.indexname), '[]'::jsonb) AS indexes
@@ -106,6 +122,7 @@ SELECT json_build_object(
   'wms_stocktake', (SELECT row_to_json(stocktake) FROM stocktake),
   'wms_inbound', (SELECT row_to_json(inbound) FROM inbound),
   'wms_inbound_created_at', (SELECT created_at FROM column_meta),
+  'wms_inbound_updated_at', (SELECT updated_at FROM column_meta),
   'acc_ledger', (SELECT row_to_json(ledger) FROM ledger),
   'acc_ledger_store_code_dependencies', (SELECT indexes FROM ledger_deps),
   'wms_warehouses', (SELECT row_to_json(warehouse) FROM warehouse),

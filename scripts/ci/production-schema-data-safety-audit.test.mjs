@@ -55,9 +55,12 @@ test('SQL covers exactly the five scoped objects and emits metadata', () => {
   for (const table of ['prc_purchase_requests', 'wms_stocktake', 'wms_inbound', 'acc_ledger', 'wms_warehouses']) {
     assert.match(sqlText, new RegExp(table));
   }
-  for (const key of ['null_count', 'blank_count', 'duplicate_group_count', 'over_64_count', 'over_20_count', 'status_domain', 'min_created_at', 'max_created_at', 'database_timezone', 'foreign_keys', 'relation_sizes']) {
+  for (const key of ['null_count', 'blank_count', 'duplicate_group_count', 'over_64_count', 'over_20_count', 'status_domain', 'min_created_at', 'max_created_at', 'updated_at_null_count', 'min_updated_at', 'max_updated_at', 'updated_before_created_count', 'updated_equals_created_count', 'updated_after_created_count', 'database_timezone', 'foreign_keys', 'relation_sizes']) {
     assert.match(sqlText, new RegExp(key));
   }
+  assert.match(sqlText, /wms_inbound_updated_at/);
+  assert.match(sqlText, /column_name = 'created_at'/);
+  assert.match(sqlText, /column_name = 'updated_at'/);
   assert.doesNotMatch(sqlText, /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b/i);
   assert.match(sqlText, /SELECT json_build_object/);
 });
