@@ -20,7 +20,7 @@ jobs:
     name: Production ledger preflight
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     environment: production-readonly
     env:
       EXPECTED_SHA: ${{ github.sha }}
@@ -33,12 +33,29 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+
       - name: Validate manual read-only invocation
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           test "$CONFIRM_READONLY" = RUN_PRODUCTION_LEDGER_PREFLIGHT
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node --version
+          pnpm --version
+          test "$(node -p 'process.versions.node.split(`.`)[0]')" = "20"
+          test "$(pnpm --version | cut -d. -f1)" = "9"
+          echo "RUNNER_NODE_MAJOR=20"
+          echo "RUNNER_PNPM_MAJOR=9"
           node --check scripts/ledger-preflight.mjs
           node --test scripts/ledger-preflight.test.mjs
 
