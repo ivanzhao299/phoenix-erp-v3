@@ -54,3 +54,9 @@ test('unexpected Phase 1 already applied blocks', () => {
   assert.equal(result.verdict, 'PHASE1_MIGRATION_ALREADY_APPLIED_UNEXPECTEDLY');
   assert.equal(result.phase1AlreadyApplied.length, 4);
 });
+
+test('Phase 1 expected set is compared as an exact set', () => {
+  const result = evaluateAppliedState({ ...base, phase1Expected: [...phase1, 'Extra1789600400000'], productionTypeorm: [{ name: canonicalTypeorm[0].effective_name, timestamp: canonicalTypeorm[0].timestamp }, { name: '20260101-old', timestamp: 1 }] });
+  assert.equal(result.verdict, 'EVIDENCE_INCOMPLETE');
+  assert.ok(result.pending.length < result.phase1Expected.length);
+});
