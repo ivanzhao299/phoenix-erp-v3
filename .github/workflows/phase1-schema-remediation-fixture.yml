@@ -1,0 +1,44 @@
+name: Phase 1 Schema Remediation Fixture
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres16:
+        image: postgres:16.14-alpine
+        env:
+          POSTGRES_USER: phoenix_v3
+          POSTGRES_PASSWORD: phoenix_v3_pass
+          POSTGRES_DB: phoenix_erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U phoenix_v3 -d phoenix_erp"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: phoenix_v3
+      PGPASSWORD: phoenix_v3_pass
+      PGDATABASE: phoenix_erp
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run PostgreSQL 16.14 Phase 1 rehearsal
+        run: bash scripts/ci/run-phase1-schema-remediation-fixture.sh
