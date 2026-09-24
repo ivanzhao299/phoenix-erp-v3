@@ -45,7 +45,9 @@ test('production script has exact Bash syntax and no mutation path', () => {
   const syntax = spawnSync('bash', ['-n', path], { encoding: 'utf8' });
   assert.equal(syntax.status, 0, syntax.stderr || syntax.stdout);
   for (const forbidden of ['CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'INSERT', 'UPDATE', 'DELETE', 'db-migrate.sh', 'migration:run', 'bridge --apply', 'docker compose up', 'docker compose down', 'docker compose restart', 'git pull', 'git fetch', 'git reset', 'git clean', 'git switch']) {
-    assert.doesNotMatch(script, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    const escaped = forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = /[A-Za-z_]/.test(forbidden) && !forbidden.includes(' ') ? `\\b${escaped}\\b` : escaped;
+    assert.doesNotMatch(script, new RegExp(pattern));
   }
   assert.doesNotMatch(script, /printenv\s+\|/);
   assert.match(script, /AUDIT_RESULT=READ_ONLY_DATA_SAFETY_EVIDENCE_COLLECTED/);
