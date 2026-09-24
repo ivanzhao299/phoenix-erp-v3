@@ -1,0 +1,43 @@
+name: Production Schema Data Safety Fixture
+
+on:
+  pull_request:
+    branches: [main, v3-admin]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres16:
+        image: postgres:16.14-alpine
+        env:
+          POSTGRES_USER: phoenix_v3
+          POSTGRES_PASSWORD: phoenix_v3_pass
+          POSTGRES_DB: phoenix_erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U phoenix_v3 -d phoenix_erp"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: phoenix_v3
+      PGPASSWORD: phoenix_v3_pass
+      PGDATABASE: phoenix_erp
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Run PostgreSQL 16.14 data-safety fixture
+        run: bash scripts/ci/run-production-schema-data-safety-fixture.sh

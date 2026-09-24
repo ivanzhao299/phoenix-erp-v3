@@ -1,0 +1,115 @@
+name: Production Schema Data Safety Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_readonly:
+        description: Type RUN_PRODUCTION_SCHEMA_DATA_SAFETY_AUDIT to authorize read-only evidence collection
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-schema-data-safety-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_readonly == 'RUN_PRODUCTION_SCHEMA_DATA_SAFETY_AUDIT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production-readonly
+    env:
+      AUDIT_SQL_FILE: scripts/ci/production-schema-data-safety-audit.sql
+
+    steps:
+      - name: Checkout exact audit revision
+        uses: actions/checkout@v5
+
+      - name: Validate manual read-only invocation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$CONFIRM_READONLY" = RUN_PRODUCTION_SCHEMA_DATA_SAFETY_AUDIT
+        env:
+          CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
+
+      - name: Prepare read-only audit SQL
+        id: sql
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$AUDIT_SQL_FILE"
+          sql_b64="$(base64 -w0 "$AUDIT_SQL_FILE")"
+          echo "AUDIT_SQL_B64=$sql_b64" >> "$GITHUB_OUTPUT"
+
+      - name: Audit production schema data over read-only SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          AUDIT_SHA: ${{ github.sha }}
+          AUDIT_SQL_B64: ${{ steps.sql.outputs.AUDIT_SQL_B64 }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,AUDIT_SHA,AUDIT_SQL_B64
+          timeout: 30s
+          proxy_timeout: 30s
+          command_timeout: 8m
+          script: |
+            set -Eeuo pipefail
+            set +x
+            echo "AUDIT_STAGE=SSH_CONNECTED"
+            test -d "$DEPLOY_PATH" || { echo "AUDIT_FAILURE=DEPLOY_PATH_MISSING"; exit 31; }
+            cd "$DEPLOY_PATH" || { echo "AUDIT_FAILURE=DEPLOY_PATH_NOT_ACCESSIBLE"; exit 32; }
+            echo "AUDIT_STAGE=DEPLOY_PATH_OK"
+            test "$(git rev-parse --is-inside-work-tree 2>/dev/null || true)" = true || { echo "AUDIT_FAILURE=NOT_GIT_REPOSITORY"; exit 33; }
+            echo "AUDIT_STAGE=GIT_REPOSITORY_OK"
+            echo "AUDIT_SHA=$AUDIT_SHA"
+            echo "PRODUCTION_SHA=$(git rev-parse HEAD)"
+            echo "WORKTREE_CLEAN=$([ -z "$(git status --porcelain --untracked-files=all)" ] && echo true || echo false)"
+            dbq_ro() {
+              local query="$1"
+              docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=5000' db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"' sh "$query"
+            }
+            db_read_only="$(dbq_ro 'SHOW transaction_read_only;' | tr -d '\r\n[:space:]')"
+            echo "DB_READ_ONLY=$db_read_only"
+            test "$db_read_only" = on || { echo "AUDIT_FAILURE=DB_SESSION_NOT_READ_ONLY"; exit 40; }
+            version_num="$(dbq_ro "SELECT current_setting('server_version_num');" | tr -d '\r\n[:space:]')"
+            version="$(dbq_ro 'SHOW server_version;' | tr -d '\r\n')"
+            echo "PRODUCTION_SERVER_VERSION=$version"
+            echo "PRODUCTION_SERVER_VERSION_NUM=$version_num"
+            test "$version_num" = 160014 || { echo "AUDIT_FAILURE=PRODUCTION_VERSION_CHANGED"; exit 41; }
+            db_timezone="$(dbq_ro "SHOW TimeZone;" | tr -d '\r\n')"
+            db_offset="$(dbq_ro "SELECT to_char(now(), 'OF');" | tr -d '\r\n')"
+            echo "DB_CONTAINER_TIMEZONE=$db_timezone"
+            echo "DB_CONTAINER_UTC_OFFSET=$db_offset"
+            api_timezone="$(docker compose exec -T api sh -c 'date +%Z 2>/dev/null || true' | tr -d '\r\n')"
+            api_offset="$(docker compose exec -T api sh -c 'date +%z 2>/dev/null || true' | tr -d '\r\n')"
+            echo "API_CONTAINER_TIMEZONE=$api_timezone"
+            echo "API_CONTAINER_UTC_OFFSET=$api_offset"
+            tmp_dir="$(mktemp -d /tmp/phoenix-schema-data-safety.XXXXXX)"
+            trap 'rm -rf "$tmp_dir"' EXIT
+            printf '%s' "$AUDIT_SQL_B64" | base64 -d > "$tmp_dir/audit.sql"
+            report="$(dbq_ro "$(cat "$tmp_dir/audit.sql")")"
+            test -n "$report"
+            printf '%s' "$report" | base64 -w0 > "$tmp_dir/report.b64"
+            echo "DATA_SAFETY_REPORT_B64=$(cat "$tmp_dir/report.b64")"
+            echo "PRC_REQ_NO_DATA_SAFE=REPORTED_IN_JSON"
+            echo "WMS_STOCKTAKE_STATUS_LENGTH_SAFE=REPORTED_IN_JSON"
+            echo "WMS_INBOUND_TIMEZONE_CONTEXT=REPORTED_IN_JSON"
+            echo "ACC_LEDGER_STORE_CODE_DATA_SAFE=REPORTED_IN_JSON"
+            echo "WMS_WAREHOUSE_CODE_DATA_SAFE=REPORTED_IN_JSON"
+            echo "WMS_WAREHOUSE_DEPENDENCY_WIDTH_COMPATIBLE=REPORTED_IN_JSON"
+            echo "GENERATOR_COLLISION_REVIEW_REQUIRED=true"
+            echo "AUDIT_RESULT=READ_ONLY_DATA_SAFETY_EVIDENCE_COLLECTED"
