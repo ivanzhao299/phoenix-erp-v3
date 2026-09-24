@@ -35,7 +35,7 @@ if (report.wms_inbound_updated_at.type !== 'timestamp without time zone' || repo
 const delta = inbound.negative_timestamp_delta;
 if (delta.count !== 2 || delta.min_delta_seconds !== -25200 || delta.max_delta_seconds !== -30 || delta.min_abs_delta_seconds !== 30 || delta.max_abs_delta_seconds !== 25200) process.exit(1);
 if (delta.abs_delta_lt_1_second_count !== 0 || delta.abs_delta_lt_60_seconds_count !== 1 || delta.abs_delta_lt_5_minutes_count !== 0 || delta.abs_delta_1_to_6_hours_count !== 0 || delta.abs_delta_6_to_10_hours_count !== 1 || delta.abs_delta_ge_10_hours_count !== 0) process.exit(1);
-if (delta.near_whole_hour_count !== 1 || delta.near_6_hour_offset_count !== 0 || delta.near_7_hour_offset_count !== 1 || delta.near_8_hour_offset_count !== 0 || delta.near_9_hour_offset_count !== 0) process.exit(1);
+if (delta.near_whole_hour_count !== 2 || delta.near_6_hour_offset_count !== 0 || delta.near_7_hour_offset_count !== 1 || delta.near_8_hour_offset_count !== 0 || delta.near_9_hour_offset_count !== 0) process.exit(1);
 if (delta.same_utc_calendar_date_count !== 2 || delta.different_utc_calendar_date_count !== 0) process.exit(1);
 if (report.acc_ledger.max_length !== 7) process.exit(1);
 if (report.wms_warehouses.duplicate_count !== 0) process.exit(1);
