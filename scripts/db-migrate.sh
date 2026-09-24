@@ -22,15 +22,15 @@ DIR="${MIG_DIR:-apps/api}"
 
 # ── SQL 执行抽象：DBQ 跑单条取结果；DBFILE 跑整个 .sql 文件 ──
 if [ "$MODE" = "ci" ]; then
-  DBQ()    { echo "$1" | psql -tAq -v ON_ERROR_STOP=1; }
+  DBQ()    { printf '%s\n' "$1" | psql -X -tAq -v ON_ERROR_STOP=1; }
   DBFILE() { psql -v ON_ERROR_STOP=1 -f "$1" 2>&1; }
 else
-  DBQ()    { echo "$1" | docker compose exec -T db sh -c 'psql -tAq -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; }
+  DBQ()    { printf '%s\n' "$1" | docker compose exec -T db sh -c 'psql -X -tAq -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; }
   DBFILE() { docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$1" 2>&1; }
 fi
 
 # ── 记录表 + 首次 baseline ──
-DBQ "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());" >/dev/null || true
+DBQ "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());" >/dev/null
 if [ "$(DBQ 'SELECT count(*) FROM schema_migrations;' | tr -d '[:space:]')" = "0" ]; then
   # 判断"已初始化库(有 sys_user 且有数据)" vs "空库"。分两步——PG 的 AND 不短路，
   # 直接 EXISTS(SELECT 1 FROM sys_user) 在表不存在时(空库)会在解析阶段就报 relation does not exist。
@@ -66,7 +66,9 @@ run_migration() {
     echo "$output"
     exit 1
   fi
-  [ "$track" = "1" ] && DBQ "INSERT INTO schema_migrations(filename) VALUES('$fn') ON CONFLICT DO NOTHING;" >/dev/null || true
+  if [ "$track" = "1" ]; then
+    DBQ "INSERT INTO schema_migrations(filename) VALUES('$fn') ON CONFLICT DO NOTHING;" >/dev/null
+  fi
 }
 
 # 基础 DDL（幂等每次跑；G51 LC_ALL=C 字节序排序避免 seed 先于建表）
