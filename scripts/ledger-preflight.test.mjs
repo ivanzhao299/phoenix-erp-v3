@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateLedger, validateRetiredRegistry } from './ledger-preflight.mjs';
+import { evaluateLedger, normalizePsqlOutput, validateRetiredRegistry } from './ledger-preflight.mjs';
 
 const retired = [{ name: 'DropHouseOwnershipRedundantColumns1787647200000', timestamp: '1787647200000', removal_commit: 'a162cda6360dae1f5b18975a4c029adac1761c0d', classification: 'KNOWN_RETIRED_APPLIED' }];
 const legacy = [{ filename: '20260101_init.sql', applied_at: '2026-01-01T00:00:00.000Z' }];
@@ -50,4 +50,24 @@ test('duplicate identity and timestamp remain hard failures', () => {
 test('retired registry validates exact governance shape', () => {
   assert.equal(validateRetiredRegistry(retired).length, 1);
   assert.throws(() => validateRetiredRegistry([{ ...retired[0], timestamp: '1' }]));
+});
+
+test('normalizes psql transaction command tags around JSON output', () => {
+  const output = 'BEGIN\nSET\n[{"filename":"20260101_init.sql","applied_at":"2026-01-01T00:00:00.000Z"}]\nCOMMIT';
+  const normalized = normalizePsqlOutput(output);
+  assert.deepEqual(JSON.parse(normalized), [{ filename: '20260101_init.sql', applied_at: '2026-01-01T00:00:00.000Z' }]);
+});
+
+test('normalizes CRLF psql output', () => {
+  const output = 'BEGIN\r\nSET\r\n[{"name":"migration"}]\r\nCOMMIT\r\n';
+  assert.equal(normalizePsqlOutput(output), '[{"name":"migration"}]');
+});
+
+test('normalizes scalar psql output', () => {
+  assert.equal(normalizePsqlOutput('BEGIN\nSET\nt\nCOMMIT'), 't');
+});
+
+test('preserves query data equal to SET inside JSON', () => {
+  const output = 'BEGIN\nSET\n[{"name":"SET"}]\nCOMMIT';
+  assert.deepEqual(JSON.parse(normalizePsqlOutput(output)), [{ name: 'SET' }]);
 });
