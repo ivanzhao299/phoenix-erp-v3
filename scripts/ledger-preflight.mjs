@@ -8,6 +8,16 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 
 export function normalizeLegacy(filename) { return String(filename ?? '').replace(/\.sql$/, ''); }
+export function normalizePsqlOutput(output) {
+  return String(output ?? '')
+    .split(/\r?\n/)
+    .filter((line) => {
+      const token = line.trim();
+      return token && token !== 'BEGIN' && token !== 'SET' && token !== 'COMMIT';
+    })
+    .join('\n')
+    .trim();
+}
 function sample(values) { return values.slice(0, 20); }
 function validTimestamp(value) { return /^\d{13}$/.test(String(value ?? '')); }
 
@@ -54,7 +64,7 @@ export function evaluateLedger({ schemaRows = [], typeormRows = [], canonicalLeg
   return { pass: failures.length === 0, failures, counts: { legacy_total: legacyCanonical.length, legacy_applied_total: legacyApplied.length, canonical_typeorm_total: canonical.length, canonical_typeorm_applied: canonicalApplied.length, canonical_typeorm_pending: canonicalPending.length, known_retired_applied: knownRetiredApplied.length, unknown_typeorm_applied: unknownTypeormApplied.length, bridge_total: legacyCanonical.length, bridge_present: bridgePresent.length, bridge_missing: bridgeMissing.length }, diagnostics: { legacy_missing: sample(legacyMissing), legacy_unexpected: sample(legacyUnexpected), canonical_typeorm_applied: sample(canonicalApplied), canonical_typeorm_pending: sample(canonicalPending), known_retired_applied: sample(knownRetiredApplied), retired_timestamp_mismatch: sample(retiredTimestampMismatch), unknown_typeorm_applied: sample(unknownTypeormApplied), duplicate_typeorm_name: sample(duplicateTypeormName), duplicate_typeorm_timestamp: sample(duplicateTypeormTimestamp), canonical_timestamp_mismatch: sample(canonicalTimestampMismatch), bridge_present: sample(bridgePresent), bridge_missing: sample(bridgeMissing), bridge_extra: sample(bridgeExtra), bridge_timestamp_mismatch: sample(bridgeTimestampMismatch), bridge_state: bridgePresent.length === 0 ? 'ABSENT' : bridgeMissing.length === 0 && !bridgeTimestampMismatch.length ? 'COMPLETE' : 'PARTIAL', bridge_runtime_required: false } };
 }
 
-function runPsql(sql, mode) { const statement = `BEGIN; SET TRANSACTION READ ONLY; ${sql}; COMMIT;`; const output = mode === 'prod' ? execFileSync('docker', ['compose', 'exec', '-T', 'db', 'sh', '-c', 'psql -X -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'], { input: statement, encoding: 'utf8' }) : execFileSync('psql', ['-X', '-At', '-v', 'ON_ERROR_STOP=1', '-c', statement], { encoding: 'utf8' }); return output.split(/\r?\n/).filter((line) => line && line !== 'BEGIN' && line !== 'COMMIT').join('\n').trim(); }
+function runPsql(sql, mode) { const statement = `BEGIN; SET TRANSACTION READ ONLY; ${sql}; COMMIT;`; const output = mode === 'prod' ? execFileSync('docker', ['compose', 'exec', '-T', 'db', 'sh', '-c', 'psql -X -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'], { input: statement, encoding: 'utf8' }) : execFileSync('psql', ['-X', '-At', '-v', 'ON_ERROR_STOP=1', '-c', statement], { encoding: 'utf8' }); return normalizePsqlOutput(output); }
 function readRows(table, mode) { const sql = table === 'schema_migrations' ? "SELECT COALESCE(json_agg(json_build_object('filename', filename, 'applied_at', applied_at::text)), '[]'::json) FROM schema_migrations" : "SELECT COALESCE(json_agg(json_build_object('name', name, 'timestamp', timestamp)), '[]'::json) FROM migrations"; const value = runPsql(sql, mode); return value ? JSON.parse(value) : []; }
 function parseArgs(argv) { const args = { mode: 'pre-migration', dbMode: process.env.MIG_MODE ?? 'prod', inventory: null, retired: path.resolve('scripts/ci/retired-typeorm-migrations.json'), fixture: null }; for (let i = 0; i < argv.length; i += 1) { const arg = argv[i]; if (arg === '--mode') args.mode = argv[++i]; else if (arg === '--db-mode') args.dbMode = argv[++i]; else if (arg === '--inventory') args.inventory = argv[++i]; else if (arg === '--retired') args.retired = argv[++i]; else if (arg === '--fixture') args.fixture = argv[++i]; else if (arg === '--help') { console.log('Usage: ledger-preflight.mjs [--mode pre-migration|post-migration] [--db-mode ci|prod] [--inventory file] [--retired file] [--fixture file]'); process.exit(0); } else throw new Error(`unknown argument: ${arg}`); } return args; }
 
