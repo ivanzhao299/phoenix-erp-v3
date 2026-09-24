@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { DataSource } from 'typeorm';
+import { DataSource } from '../../apps/api/node_modules/typeorm/index.js';
 import { ConvergePhase1CanonicalSchema1789600000000 } from '../../apps/api/dist/database/migrations/1789600000000-ConvergePhase1CanonicalSchema.js';
 import { WidenAccLedgerStoreCode1789600100000 } from '../../apps/api/dist/database/migrations/1789600100000-WidenAccLedgerStoreCode.js';
 import { WidenWarehouseCodeForeignKeys1789600200000 } from '../../apps/api/dist/database/migrations/1789600200000-WidenWarehouseCodeForeignKeys.js';
