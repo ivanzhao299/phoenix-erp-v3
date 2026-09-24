@@ -1,0 +1,109 @@
+name: Production Migration Applied-State Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_readonly:
+        description: Confirm read-only production migration ledger audit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-migration-applied-state-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_readonly == 'RUN_PRODUCTION_MIGRATION_APPLIED_STATE_AUDIT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production-readonly
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Build canonical TypeORM inventory
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm --filter phoenix-erp-v3-nest build
+          node scripts/ci/typeorm-migration-inventory.mjs apps/api/dist/database/migrations > "$RUNNER_TEMP/typeorm-inventory.json"
+          find apps/api/migrations -maxdepth 1 -type f -name '2026*.sql' -printf '%f\n' | sort | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.stringify(s.trim()?s.trim().split(/\n/).map(filename=>({filename})):[])))' > "$RUNNER_TEMP/legacy-inventory.json"
+          node -e 'const x=require(process.argv[1]); console.log(JSON.stringify(x.filter(m=>/178960\d{6}/.test(m.source_file)).map(m=>m.effective_name)))' "$RUNNER_TEMP/typeorm-inventory.json" > "$RUNNER_TEMP/phase1-names.json"
+      - name: Validate manual read-only invocation
+        env:
+          CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$CONFIRM_READONLY" = RUN_PRODUCTION_MIGRATION_APPLIED_STATE_AUDIT
+      - name: Audit production migration ledgers over read-only SSH
+        id: production
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          AUDIT_TARGET_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,AUDIT_TARGET_SHA
+          capture_stdout: true
+          timeout: 30s
+          proxy_timeout: 30s
+          command_timeout: 8m
+          script: |
+            set -Eeuo pipefail
+            set +x
+            echo "AUDIT_STAGE=SSH_CONNECTED"
+            test -d "$DEPLOY_PATH" || { echo "AUDIT_FAILURE=DEPLOY_PATH_MISSING"; exit 31; }
+            cd "$DEPLOY_PATH"
+            echo "AUDIT_STAGE=DEPLOY_PATH_OK"
+            test "$(git rev-parse --is-inside-work-tree 2>/dev/null || true)" = true || { echo "AUDIT_FAILURE=NOT_GIT_REPOSITORY"; exit 33; }
+            echo "AUDIT_STAGE=GIT_REPOSITORY_OK"
+            echo "AUDIT_TARGET_SHA=$AUDIT_TARGET_SHA"
+            echo "PRODUCTION_SHA=$(git rev-parse HEAD)"
+            clean="$([ -z "$(git status --porcelain --untracked-files=all)" ] && echo true || echo false)"
+            echo "WORKTREE_CLEAN=$clean"
+            test "$clean" = true || { echo "AUDIT_FAILURE=PRODUCTION_WORKTREE_DIRTY"; exit 34; }
+            dbq_ro() {
+              local query="$1"
+              docker compose exec -T -e PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=5000' db sh -c 'psql -X -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"' sh "$query"
+            }
+            ro="$(dbq_ro 'SHOW transaction_read_only;' | tr -d '\r\n[:space:]')"
+            echo "DB_READ_ONLY=$ro"
+            test "$ro" = on || { echo "AUDIT_FAILURE=DB_SESSION_NOT_READ_ONLY"; exit 40; }
+            version_num="$(dbq_ro "SELECT current_setting('server_version_num');" | tr -d '\r\n[:space:]')"
+            version="$(dbq_ro 'SHOW server_version;' | tr -d '\r\n')"
+            echo "PRODUCTION_SERVER_VERSION=$version"
+            echo "PRODUCTION_SERVER_VERSION_NUM=$version_num"
+            test "$version_num" = 160014 || { echo "AUDIT_FAILURE=PRODUCTION_VERSION_CHANGED"; exit 41; }
+            report="$(dbq_ro "SELECT jsonb_build_object('legacy',coalesce((SELECT jsonb_agg(jsonb_build_object('filename',filename,'applied_at',extract(epoch from applied_at)*1000) ORDER BY filename) FROM schema_migrations),'[]'::jsonb),'typeorm',coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'timestamp',timestamp,'name',name) ORDER BY timestamp,id) FROM migrations),'[]'::jsonb))::text;")"
+            echo "MIGRATION_LEDGER_REPORT_B64=$(printf '%s' "$report" | base64 -w0)"
+            echo "APPLIED_STATE_RESULT=READ_ONLY_MIGRATION_LEDGER_EVIDENCE_COLLECTED"
+      - name: Evaluate applied-state evidence
+        env:
+          REMOTE_STDOUT: ${{ steps.production.outputs.stdout }}
+        run: |
+          set -euo pipefail
+          report_b64="$(printf '%s\n' "$REMOTE_STDOUT" | sed -n 's/^MIGRATION_LEDGER_REPORT_B64=//p' | tail -1)"
+          test -n "$report_b64"
+          printf '%s' "$report_b64" | base64 -d > "$RUNNER_TEMP/production-ledgers.json"
+          node -e 'const fs=require("fs"); const inv=JSON.parse(fs.readFileSync(process.argv[1])); const prod=JSON.parse(fs.readFileSync(process.argv[2])); const x={canonicalTypeorm:inv,canonicalLegacy:JSON.parse(fs.readFileSync(process.argv[3])),productionTypeorm:prod.typeorm,productionLegacy:prod.legacy,phase1Expected:JSON.parse(fs.readFileSync(process.argv[4]))}; fs.writeFileSync(process.argv[5],JSON.stringify(x));' "$RUNNER_TEMP/typeorm-inventory.json" "$RUNNER_TEMP/production-ledgers.json" "$RUNNER_TEMP/legacy-inventory.json" "$RUNNER_TEMP/phase1-names.json" "$RUNNER_TEMP/applied-state-input.json"
+          node scripts/ci/migration-applied-state-audit.mjs "$RUNNER_TEMP/applied-state-input.json" | tee "$RUNNER_TEMP/applied-state-report.json"
+          grep -q '"verdict": "PHASE1_PENDING_SET_EXACT"' "$RUNNER_TEMP/applied-state-report.json"
