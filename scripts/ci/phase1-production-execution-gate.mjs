@@ -67,3 +67,20 @@ export function authorizeApiSwitch({ backupVerified, precheck, migrationExitCode
   return backupVerified === true && precheck === true && migrationExitCode === 0 && postcheck === true && phase1Applied === true && schemaInvariants === true && dataInvariants === true && candidateIdentity === true;
 }
 
+function runCli() {
+  const args = process.argv.slice(2);
+  const mode = args[args.indexOf('--mode') + 1];
+  const inputFile = args[args.indexOf('--input') + 1];
+  if (!['pre', 'post'].includes(mode) || !inputFile) throw new Error('usage: phase1-production-execution-gate.mjs --mode pre|post --input file');
+  const input = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
+  const manifest = loadPhase1Manifest(input.manifestFile);
+  const result = mode === 'pre'
+    ? evaluatePhase1PreExecution({ ...input, manifest })
+    : evaluatePhase1PostMigration({ ...input, manifest });
+  console.log(JSON.stringify(result, null, 2));
+  if (!result.pass) process.exitCode = 1;
+}
+
+if (process.argv[1]?.endsWith('phase1-production-execution-gate.mjs')) {
+  try { runCli(); } catch (error) { console.error(`PHASE1_EXECUTION_BLOCKED=${error.message}`); process.exitCode = 1; }
+}

@@ -822,7 +822,8 @@ jobs:
               # migration SQL if legacy and TypeORM history are inconsistent.
               echo "── 迁移前只读 ledger preflight ──"
               test -s "${CANDIDATE_LEDGER_INVENTORY:-}"
-              MIG_MODE=prod MIG_DIR=apps/api node scripts/ledger-preflight.mjs --mode pre-migration --inventory "$CANDIDATE_LEDGER_INVENTORY"
+              MIG_MODE=prod MIG_DIR=apps/api node scripts/ledger-preflight.mjs --mode pre-migration --inventory "$CANDIDATE_LEDGER_INVENTORY" | tee "${BACKUP_DIR}/ledger-preflight.json"
+              node scripts/ci/phase1-generic-deploy-guard.mjs "${BACKUP_DIR}/ledger-preflight.json" scripts/ci/phase1-production-migration-manifest.json
               echo "✅ migration ledger preflight passed"
 
               # Keep exactly the newest three verified deploy backups. The
