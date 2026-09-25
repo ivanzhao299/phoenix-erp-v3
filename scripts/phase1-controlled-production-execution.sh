@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 
 # Dedicated manual Phase 1 path; legacy replay and bridge application are not
 # part of this controlled schema authority.
@@ -16,8 +17,7 @@ set -Eeuo pipefail
 : "${API_IMAGE:?API_IMAGE is required}"
 : "${WEB_IMAGE:?WEB_IMAGE is required}"
 : "${BACKUP_FILE:?BACKUP_FILE is required}"
-: "${PREV_API_IMAGE_ID:?PREV_API_IMAGE_ID is required}"
-: "${PREV_WEB_IMAGE_ID:?PREV_WEB_IMAGE_ID is required}"
+: "${RUN_ID:?RUN_ID is required}"
 ROOT_DIR=${ROOT_DIR:-$PWD}
 COMPOSE_DIR=${COMPOSE_DIR:-$PWD}
 
@@ -35,8 +35,8 @@ cd "$COMPOSE_DIR"
 node "$ROOT_DIR/scripts/ci/phase1-production-execution-gate.mjs" --mode pre --input <(node -e 'const fs=require("fs"); const [inv,pre,man,img]=process.argv.slice(1); const i=JSON.parse(fs.readFileSync(inv)); const p=JSON.parse(fs.readFileSync(pre)); fs.writeFileSync(process.stdout.fd, JSON.stringify({manifestFile:man,preflight:p,pending:p.diagnostics.canonical_typeorm_pending,candidateInventory:i.canonicalTypeorm||i,imageId:img,executionImageId:img}));' "$INVENTORY_FILE" "$PREFLIGHT_FILE" "$MANIFEST_FILE" "$API_IMAGE_ID") > "$EVIDENCE_DIR/phase1-precheck.json"
 echo 'PHASE1_PRECHECK=PASS'
 
-# The caller performs the verified backup before invoking this wrapper. The
-# wrapper owns only the immutable candidate migration and post-migration gates.
+# This wrapper performs and verifies the backup before the immutable candidate
+# migration and post-migration gates.
 BEFORE_INVARIANTS="$EVIDENCE_DIR/data-invariants-before.json"
 AFTER_INVARIANTS="$EVIDENCE_DIR/data-invariants-after.json"
 INVARIANT_DB_MODE=prod node "$ROOT_DIR/scripts/ci/phase1-production-invariants.mjs" --capture --output "$BEFORE_INVARIANTS"
@@ -48,6 +48,8 @@ test -s "$BACKUP_FILE"
 grep -cvE '^;|^$' "$EVIDENCE_DIR/backup-toc.txt" > "$EVIDENCE_DIR/backup-toc-count.txt"
 test "$(cat "$EVIDENCE_DIR/backup-toc-count.txt")" -gt 0
 sha256sum "$BACKUP_FILE" | tee "$EVIDENCE_DIR/backup.sha256"
+sha256sum -c "$EVIDENCE_DIR/backup.sha256"
+printf '%s\n' 'BACKUP_CHECKSUM_VERIFIED=YES' > "$EVIDENCE_DIR/backup-checksum-verified.txt"
 
 set +e
 (cd "$COMPOSE_DIR" && docker compose run --no-deps -T --user phoenix \
@@ -75,9 +77,31 @@ MIG_MODE=prod MIG_DIR=apps/api node "$ROOT_DIR/scripts/ledger-preflight.mjs" --m
 node -e 'const fs=require("fs"); const [post,man,inv]=process.argv.slice(1); const p=JSON.parse(fs.readFileSync(post)); const m=JSON.parse(fs.readFileSync(man)); const i=JSON.parse(fs.readFileSync(inv)); fs.writeFileSync(process.stdout.fd, JSON.stringify({manifestFile:man,postflight:p,applied:p.diagnostics.canonical_typeorm_applied,candidateInventory:i.canonicalTypeorm||i,imageId:process.env.API_IMAGE_ID,executionImageId:process.env.API_IMAGE_ID,invariants:{schema:true,data:true}}));' "$POSTFLIGHT_FILE" "$MANIFEST_FILE" "$INVENTORY_FILE" > "$EVIDENCE_DIR/post-input.json"
 node "$ROOT_DIR/scripts/ci/phase1-production-execution-gate.mjs" --mode post --input "$EVIDENCE_DIR/post-input.json" > "$EVIDENCE_DIR/phase1-postcheck.json"
 echo 'PHASE1_POSTCHECK=PASS'
+PROBE_NAME="phoenix-phase1-api-probe-${RUN_ID}"
+set +e
+(cd "$COMPOSE_DIR" && API_IMAGE="$API_IMAGE" docker compose run --no-deps -d --name "$PROBE_NAME" api) > "$EVIDENCE_DIR/api-probe.log" 2>&1
+PROBE_RC=$?
+set -e
+if [ "$PROBE_RC" -ne 0 ]; then
+  printf '%s\n' 'PHASE1_EXECUTION_STATE=DB_CHANGED_APPLICATION_NOT_SWITCHED' > "$EVIDENCE_DIR/execution-result.txt"
+  exit 1
+fi
+set +e
+(cd "$COMPOSE_DIR" && for _ in $(seq 1 30); do docker exec "$PROBE_NAME" node -e "fetch('http://127.0.0.1:3100/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" && exit 0; sleep 2; done; exit 1) >> "$EVIDENCE_DIR/api-probe.log" 2>&1
+PROBE_HEALTH_RC=$?
+set -e
+(cd "$COMPOSE_DIR" && docker rm -f "$PROBE_NAME") >/dev/null 2>&1 || true
+if [ "$PROBE_HEALTH_RC" -ne 0 ]; then
+  printf '%s\n' 'PHASE1_EXECUTION_STATE=DB_CHANGED_APPLICATION_NOT_SWITCHED' > "$EVIDENCE_DIR/execution-result.txt"
+  exit 1
+fi
+if ! (cd "$COMPOSE_DIR" && API_IMAGE="$API_IMAGE" docker compose up -d --no-deps --wait api) || ! curl -fsSL --max-time 20 http://127.0.0.1:3100/api/health -o /dev/null; then
+  printf '%s\n' 'PHASE1_EXECUTION_STATE=DB_CHANGED_APPLICATION_SWITCH_FAILED' > "$EVIDENCE_DIR/execution-result.txt"
+  exit 1
+fi
+if ! (cd "$COMPOSE_DIR" && WEB_IMAGE="$WEB_IMAGE" docker compose up -d --no-deps --wait web) || ! curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null; then
+  printf '%s\n' 'PHASE1_EXECUTION_STATE=DB_CHANGED_APPLICATION_SWITCH_FAILED' > "$EVIDENCE_DIR/execution-result.txt"
+  exit 1
+fi
 echo 'API_SWITCH_AUTHORIZED=true'
-(cd "$COMPOSE_DIR" && API_IMAGE="$API_IMAGE" docker compose up -d --no-deps --wait api)
-curl -fsSL --max-time 20 http://127.0.0.1:3100/api/health -o /dev/null
-(cd "$COMPOSE_DIR" && WEB_IMAGE="$WEB_IMAGE" docker compose up -d --no-deps --wait web)
-curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null
 printf '%s\n' 'API_SWITCH_AUTHORIZED=true' > "$EVIDENCE_DIR/execution-result.txt"

@@ -7,10 +7,9 @@ on:
         description: 'Exact confirmation required for the controlled Phase 1 execution'
         required: true
         type: string
-      expected_production_sha:
-        description: 'Expected stable production revision'
+      expected_target_sha:
+        description: 'Exact reviewed target commit SHA'
         required: true
-        default: '129fdb85c81ab0c201044daf021caf778b37b40b'
         type: string
 
 permissions:
@@ -23,12 +22,19 @@ concurrency:
 
 jobs:
   execute:
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
     steps:
       - name: Validate explicit confirmation
-        run: test "${{ inputs.confirm_execution }}" = "RUN_PHASE1_CONTROLLED_PRODUCTION_EXECUTION"
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "${{ inputs.confirm_execution }}" = "RUN_PHASE1_CONTROLLED_PRODUCTION_EXECUTION"
+          test "${{ inputs.expected_target_sha }}" = "$GITHUB_SHA"
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
@@ -69,7 +75,10 @@ jobs:
         uses: appleboy/ssh-action@v1.2.2
         env:
           TARGET_SHA: ${{ github.sha }}
-          EXPECTED_PRODUCTION_SHA: ${{ inputs.expected_production_sha }}
+          EXPECTED_PRODUCTION_SHA: 129fdb85c81ab0c201044daf021caf778b37b40b
+          EXECUTION_RUN_ID: ${{ github.run_id }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           API_IMAGE: ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:sha-${{ github.sha }}
           WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/web:sha-${{ github.sha }}
           API_IMAGE_ID: ${{ env.API_IMAGE_ID }}
@@ -84,32 +93,54 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: 22
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
           command_timeout: 30m
-          envs: TARGET_SHA,EXPECTED_PRODUCTION_SHA,API_IMAGE,WEB_IMAGE,API_IMAGE_ID,WEB_IMAGE_ID,INVENTORY_B64,MANIFEST_B64,PREFLIGHT_B64,GATE_B64,INVARIANTS_B64,WRAPPER_B64
+          envs: TARGET_SHA,EXPECTED_PRODUCTION_SHA,EXECUTION_RUN_ID,GHCR_USER,GHCR_TOKEN,API_IMAGE,WEB_IMAGE,API_IMAGE_ID,WEB_IMAGE_ID,INVENTORY_B64,MANIFEST_B64,PREFLIGHT_B64,GATE_B64,INVARIANTS_B64,WRAPPER_B64
           script: |
             set -Eeuo pipefail
+            umask 077
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
             PRODUCTION_SHA="$(git rev-parse HEAD)"
             test "$PRODUCTION_SHA" = "$EXPECTED_PRODUCTION_SHA" || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_SHA_CHANGED'; exit 20; }
             test -z "$(git status --porcelain --untracked-files=all)" || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_WORKTREE_DIRTY'; exit 21; }
+            set +x
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
+            unset GHCR_TOKEN
+            set -x
             docker pull "$API_IMAGE" >/dev/null
             docker pull "$WEB_IMAGE" >/dev/null
             ACTUAL_API_IMAGE_ID="$(docker image inspect "$API_IMAGE" --format '{{.Id}}')"
             ACTUAL_WEB_IMAGE_ID="$(docker image inspect "$WEB_IMAGE" --format '{{.Id}}')"
             test "$ACTUAL_API_IMAGE_ID" = "$API_IMAGE_ID"
             test "$ACTUAL_WEB_IMAGE_ID" = "$WEB_IMAGE_ID"
-            RUN_ID="${GITHUB_RUN_ID}"
+            RUN_ID="${EXECUTION_RUN_ID:?EXECUTION_RUN_ID is required}"
             ROOT_DIR="$(mktemp -d /tmp/phase1-controlled.XXXXXX)"
             EVIDENCE_DIR="/opt/phoenix-erp-backups/phase1-controlled-${RUN_ID}"
             mkdir -p "$EVIDENCE_DIR"; chmod 700 "$EVIDENCE_DIR"
             printf '%s' "$INVENTORY_B64" | base64 -d > "$ROOT_DIR/inventory.json"
             printf '%s' "$MANIFEST_B64" | base64 -d > "$ROOT_DIR/manifest.json"
-            printf '%s' "$PREFLIGHT_B64" | base64 -d > "$ROOT_DIR/ledger-preflight.mjs"
-            printf '%s' "$GATE_B64" | base64 -d > "$ROOT_DIR/phase1-production-execution-gate.mjs"
-            printf '%s' "$INVARIANTS_B64" | base64 -d > "$ROOT_DIR/phase1-production-invariants.mjs"
-            printf '%s' "$WRAPPER_B64" | base64 -d > "$ROOT_DIR/phase1-controlled-production-execution.sh"
-            chmod 700 "$ROOT_DIR/phase1-controlled-production-execution.sh"
-            MIG_MODE=prod node "$ROOT_DIR/ledger-preflight.mjs" --mode pre-migration --inventory "$ROOT_DIR/inventory.json" > "$EVIDENCE_DIR/preflight.json"
+            mkdir -p "$ROOT_DIR/scripts/ci"
+            PREFLIGHT_FILE="$ROOT_DIR/scripts/ledger-preflight.mjs"
+            GATE_FILE="$ROOT_DIR/scripts/ci/phase1-production-execution-gate.mjs"
+            INVARIANTS_FILE="$ROOT_DIR/scripts/ci/phase1-production-invariants.mjs"
+            WRAPPER_FILE="$ROOT_DIR/scripts/phase1-controlled-production-execution.sh"
+            printf '%s' "$PREFLIGHT_B64" | base64 -d > "$PREFLIGHT_FILE"
+            printf '%s' "$GATE_B64" | base64 -d > "$GATE_FILE"
+            printf '%s' "$INVARIANTS_B64" | base64 -d > "$INVARIANTS_FILE"
+            printf '%s' "$WRAPPER_B64" | base64 -d > "$WRAPPER_FILE"
+            chmod 700 "$WRAPPER_FILE"
+            test -s "$PREFLIGHT_FILE"; test -s "$GATE_FILE"; test -s "$INVARIANTS_FILE"; test -s "$WRAPPER_FILE"
+            node --check "$PREFLIGHT_FILE"
+            MIG_MODE=prod node "$PREFLIGHT_FILE" --mode pre-migration --inventory "$ROOT_DIR/inventory.json" > "$EVIDENCE_DIR/preflight.json"
             BACKUP_FILE="$EVIDENCE_DIR/phase1-pre-${TARGET_SHA:0:12}.dump"
-            PRESERVE_ARTIFACTS=true TARGET_SHA="$TARGET_SHA" EXPECTED_PRODUCTION_SHA="$EXPECTED_PRODUCTION_SHA" PRODUCTION_SHA="$PRODUCTION_SHA" API_IMAGE="$API_IMAGE" WEB_IMAGE="$WEB_IMAGE" API_IMAGE_ID="$ACTUAL_API_IMAGE_ID" INVENTORY_FILE="$ROOT_DIR/inventory.json" PREFLIGHT_FILE="$EVIDENCE_DIR/preflight.json" MANIFEST_FILE="$ROOT_DIR/manifest.json" EVIDENCE_DIR="$EVIDENCE_DIR" BACKUP_FILE="$BACKUP_FILE" PREV_API_IMAGE_ID="$(docker inspect phoenix-v3-api --format '{{.Image}}' 2>/dev/null || true)" PREV_WEB_IMAGE_ID="$(docker inspect phoenix-v3-web --format '{{.Image}}' 2>/dev/null || true)" ROOT_DIR="$ROOT_DIR" COMPOSE_DIR="$PWD" bash "$ROOT_DIR/phase1-controlled-production-execution.sh"
+            PRESERVE_ARTIFACTS=true RUN_ID="$RUN_ID" TARGET_SHA="$TARGET_SHA" EXPECTED_PRODUCTION_SHA="$EXPECTED_PRODUCTION_SHA" PRODUCTION_SHA="$PRODUCTION_SHA" API_IMAGE="$API_IMAGE" WEB_IMAGE="$WEB_IMAGE" API_IMAGE_ID="$ACTUAL_API_IMAGE_ID" INVENTORY_FILE="$ROOT_DIR/inventory.json" PREFLIGHT_FILE="$EVIDENCE_DIR/preflight.json" MANIFEST_FILE="$ROOT_DIR/manifest.json" EVIDENCE_DIR="$EVIDENCE_DIR" BACKUP_FILE="$BACKUP_FILE" ROOT_DIR="$ROOT_DIR" COMPOSE_DIR="$PWD" bash "$WRAPPER_FILE"
+            git fetch origin main
+            git cat-file -e "$TARGET_SHA^{commit}"
+            git merge-base --is-ancestor "$PRODUCTION_SHA" "$TARGET_SHA"
+            git merge --ff-only "$TARGET_SHA"
+            test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+            printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/production-final-sha.txt"
