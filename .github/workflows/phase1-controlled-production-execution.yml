@@ -106,6 +106,13 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
             PRODUCTION_SHA="$(git rev-parse HEAD)"
             test "$PRODUCTION_SHA" = "$EXPECTED_PRODUCTION_SHA" || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_SHA_CHANGED'; exit 20; }
+            PRODUCTION_BRANCH="$(git branch --show-current)"
+            test "$PRODUCTION_BRANCH" = main || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_BRANCH_NOT_MAIN'; exit 22; }
+            ORIGIN_URL="$(git remote get-url origin)"
+            case "$ORIGIN_URL" in
+              git@github.com:ivanzhao299/phoenix-erp-v3.git|https://github.com/ivanzhao299/phoenix-erp-v3.git) ;;
+              *) echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_REMOTE_MISMATCH'; exit 23 ;;
+            esac
             test -z "$(git status --porcelain --untracked-files=all)" || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_WORKTREE_DIRTY'; exit 21; }
             set +x
             printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
@@ -121,6 +128,8 @@ jobs:
             ROOT_DIR="$(mktemp -d /tmp/phase1-controlled.XXXXXX)"
             EVIDENCE_DIR="/opt/phoenix-erp-backups/phase1-controlled-${RUN_ID}"
             mkdir -p "$EVIDENCE_DIR"; chmod 700 "$EVIDENCE_DIR"
+            printf '%s\n' "$PRODUCTION_BRANCH" > "$EVIDENCE_DIR/production-branch.txt"
+            printf '%s\n' "$ORIGIN_URL" > "$EVIDENCE_DIR/production-origin.txt"
             printf '%s' "$INVENTORY_B64" | base64 -d > "$ROOT_DIR/inventory.json"
             printf '%s' "$MANIFEST_B64" | base64 -d > "$ROOT_DIR/manifest.json"
             mkdir -p "$ROOT_DIR/scripts/ci"
@@ -143,4 +152,5 @@ jobs:
             git merge-base --is-ancestor "$PRODUCTION_SHA" "$TARGET_SHA"
             git merge --ff-only "$TARGET_SHA"
             test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+            test "$(git rev-parse refs/heads/main)" = "$TARGET_SHA"
             printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/production-final-sha.txt"

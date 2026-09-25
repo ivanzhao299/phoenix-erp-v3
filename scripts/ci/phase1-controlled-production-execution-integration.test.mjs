@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { shouldBlockGenericDeploy } from './phase1-generic-deploy-guard.mjs';
 import { loadPhase1Manifest } from './phase1-production-execution-gate.mjs';
+import { compareInvariantEvidence } from './phase1-production-invariants.mjs';
 
 const workflow = fs.readFileSync('.github/workflows/phase1-controlled-production-execution.yml', 'utf8');
 const wrapper = fs.readFileSync('scripts/phase1-controlled-production-execution.sh', 'utf8');
@@ -45,6 +46,12 @@ test('remote transport layout, run identity, auth, and SSH parity are explicit',
   assert.match(wrapper, /DB_CHANGED_APPLICATION_SWITCH_FAILED/);
   assert.doesNotMatch(wrapper, /PREV_API_IMAGE_ID|PREV_WEB_IMAGE_ID/);
   assert.match(workflow, /git merge --ff-only "\$TARGET_SHA"/);
+  assert.match(workflow, /PRODUCTION_BRANCH=.*git branch --show-current/);
+  assert.match(workflow, /PRODUCTION_BRANCH_NOT_MAIN/);
+  assert.match(workflow, /PRODUCTION_REMOTE_MISMATCH/);
+  assert.match(workflow, /production-branch\.txt/);
+  assert.match(workflow, /production-origin\.txt/);
+  assert.match(workflow, /git rev-parse refs\/heads\/main/);
   assert.match(workflow, /production-final-sha\.txt/);
 });
 
@@ -61,6 +68,26 @@ test('invariants validate exact schema and real data evidence', () => {
     "'rowCounts', json_build_object"
   ]) assert.match(invariants, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.doesNotMatch(invariants, /'dataValid', true/);
+});
+
+test('semantic fingerprints fail closed and tolerate canonical JSON normalization', () => {
+  const base = {
+    rowCounts: { acc_ledger: 1 }, timestampDelta: null,
+    timestampNegativeCount: 0, timestampMinDelta: null, timestampMaxDelta: null,
+    warehouseForeignKeys: 6, iotDynamicPropertyCodeForeignKeys: 0,
+    schemaValid: true, dataValid: true,
+    semanticFingerprints: {
+      accLedger: 'a', pdaPayloadSemantic: 'jsonb-canonical',
+      inboundTimestamps: 'utc', warehouseCodes: { wms_warehouses: 'empty' }
+    }
+  };
+  assert.equal(compareInvariantEvidence(base, structuredClone(base)).pass, true);
+  const changed = structuredClone(base);
+  changed.semanticFingerprints.accLedger = 'changed';
+  assert.match(compareInvariantEvidence(base, changed).failures.join(','), /DATA_FINGERPRINT_CHANGED:accLedger/);
+  const missing = structuredClone(base);
+  delete missing.semanticFingerprints.pdaPayloadSemantic;
+  assert.match(compareInvariantEvidence(base, missing).failures.join(','), /DATA_FINGERPRINT_SET_CHANGED/);
 });
 
 test('controlled path excludes legacy replay and bridge apply', () => {

@@ -7,6 +7,13 @@ export function compareInvariantEvidence(before, after) {
     if (before.rowCounts[table] !== after?.rowCounts?.[table]) failures.push(`ROW_COUNT_CHANGED:${table}`);
   }
   if (before?.timestampDelta !== undefined && before.timestampDelta !== after?.timestampDelta) failures.push('TIMESTAMP_DELTA_CHANGED');
+  for (const key of Object.keys(before?.semanticFingerprints ?? {})) {
+    if (JSON.stringify(before.semanticFingerprints[key]) !== JSON.stringify(after?.semanticFingerprints?.[key])) failures.push(`DATA_FINGERPRINT_CHANGED:${key}`);
+  }
+  if (JSON.stringify(Object.keys(before?.semanticFingerprints ?? {}).sort()) !== JSON.stringify(Object.keys(after?.semanticFingerprints ?? {}).sort())) failures.push('DATA_FINGERPRINT_SET_CHANGED');
+  for (const key of ['timestampNegativeCount', 'timestampMinDelta', 'timestampMaxDelta']) {
+    if (before?.[key] !== after?.[key]) failures.push(`TIMESTAMP_EVIDENCE_CHANGED:${key}`);
+  }
   if (after?.warehouseForeignKeys !== 6) failures.push('WAREHOUSE_FK_COUNT');
   if (after?.iotDynamicPropertyCodeForeignKeys !== 0) failures.push('IOT_DYNAMIC_FK_PRESENT');
   if (after?.schemaValid !== true || after?.dataValid !== true) failures.push('SCHEMA_OR_DATA_INVALID');
@@ -43,6 +50,27 @@ export function captureFixtureEvidence() {
     SELECT count(*)::int AS mismatches FROM expected e LEFT JOIN c ON c.table_name=e.table_name AND c.column_name=e.column_name
     WHERE c.table_name IS NULL OR c.data_type <> e.data_type OR (e.max_len IS NOT NULL AND c.character_maximum_length <> e.max_len)
       OR (e.nullable IS NOT NULL AND c.is_nullable <> e.nullable) OR (e.default_pattern IS NOT NULL AND coalesce(c.column_default,'') NOT ILIKE '%' || e.default_pattern || '%')
+  ), fp AS (
+    SELECT json_build_object(
+      'accLedger', md5(coalesce((SELECT string_agg(jsonb_build_array(id, store_code, ref_no, ledger_type)::text, E'\\n' ORDER BY id) FROM acc_ledger), '')),
+      'warehouseCodes', json_build_object(
+        'wms_warehouses', md5(coalesce((SELECT string_agg(jsonb_build_array(id, warehouse_code)::text, E'\\n' ORDER BY id) FROM wms_warehouses), '')),
+        'store_warehouse_bindings', md5(coalesce((SELECT string_agg(jsonb_build_array(id, warehouse_code)::text, E'\\n' ORDER BY id) FROM store_warehouse_bindings), '')),
+        'store_replenishment_requests_source', md5(coalesce((SELECT string_agg(jsonb_build_array(id, source_warehouse_code)::text, E'\\n' ORDER BY id) FROM store_replenishment_requests), '')),
+        'store_replenishment_requests_target', md5(coalesce((SELECT string_agg(jsonb_build_array(id, target_warehouse_code)::text, E'\\n' ORDER BY id) FROM store_replenishment_requests), '')),
+        'sal_sales_orders', md5(coalesce((SELECT string_agg(jsonb_build_array(id, fulfillment_warehouse_code)::text, E'\\n' ORDER BY id) FROM sal_sales_orders), '')),
+        'sal_delivery_orders', md5(coalesce((SELECT string_agg(jsonb_build_array(id, fulfillment_warehouse_code)::text, E'\\n' ORDER BY id) FROM sal_delivery_orders), '')),
+        'sal_return_orders', md5(coalesce((SELECT string_agg(jsonb_build_array(id, target_warehouse_code)::text, E'\\n' ORDER BY id) FROM sal_return_orders), ''))
+      ),
+      'stocktakeStatus', md5(coalesce((SELECT string_agg(jsonb_build_array(id, status)::text, E'\\n' ORDER BY id) FROM wms_stocktake), '')),
+      'pdaPayloadSemantic', md5(coalesce((SELECT string_agg(jsonb_build_array(id, payload::jsonb)::text, E'\\n' ORDER BY id) FROM pda_sync_log), '')),
+      'iotPropertyCode', json_build_object(
+        'mon_device_realtime_snapshot', CASE WHEN to_regclass('public.mon_device_realtime_snapshot') IS NULL THEN 'ABSENT' ELSE md5(coalesce((SELECT string_agg(jsonb_build_array(id, property_code)::text, E'\\n' ORDER BY id) FROM mon_device_realtime_snapshot), '')) END,
+        'mon_device_property_history', CASE WHEN to_regclass('public.mon_device_property_history') IS NULL THEN 'ABSENT' ELSE md5(coalesce((SELECT string_agg(jsonb_build_array(id, property_code)::text, E'\\n' ORDER BY id) FROM mon_device_property_history), '')) END,
+        'mon_device_alert_event', CASE WHEN to_regclass('public.mon_device_alert_event') IS NULL THEN 'ABSENT' ELSE md5(coalesce((SELECT string_agg(jsonb_build_array(id, property_code)::text, E'\\n' ORDER BY id) FROM mon_device_alert_event), '')) END
+      ),
+      'inboundTimestamps', md5(coalesce((SELECT string_agg(jsonb_build_array(id, extract(epoch FROM (created_at AT TIME ZONE 'UTC')), extract(epoch FROM (updated_at AT TIME ZONE 'UTC')))::text, E'\\n' ORDER BY id) FROM wms_inbound), '')
+    ) AS value
   )
   SELECT json_build_object(
     'schemaValid', (SELECT mismatches = 0 FROM d) AND (SELECT n = 6 FROM f) AND (SELECT n = 0 FROM i),
@@ -50,7 +78,11 @@ export function captureFixtureEvidence() {
     'warehouseForeignKeys', (SELECT n FROM f),
     'iotDynamicPropertyCodeForeignKeys', (SELECT n FROM i),
     'rowCounts', json_build_object('acc_ledger',(SELECT count(*) FROM acc_ledger),'wms_stocktake',(SELECT count(*) FROM wms_stocktake),'pda_sync_log',(SELECT count(*) FROM pda_sync_log),'wms_inbound',(SELECT count(*) FROM wms_inbound),'wms_warehouses',(SELECT count(*) FROM wms_warehouses),'store_warehouse_bindings',(SELECT count(*) FROM store_warehouse_bindings),'store_replenishment_requests',(SELECT count(*) FROM store_replenishment_requests),'sal_sales_orders',(SELECT count(*) FROM sal_sales_orders),'sal_delivery_orders',(SELECT count(*) FROM sal_delivery_orders),'sal_return_orders',(SELECT count(*) FROM sal_return_orders)),
-    'timestampDelta', (SELECT EXTRACT(EPOCH FROM (updated_at - created_at)) FROM wms_inbound WHERE updated_at < created_at ORDER BY updated_at - created_at LIMIT 1)
+    'semanticFingerprints', (SELECT value FROM fp),
+    'timestampDelta', (SELECT EXTRACT(EPOCH FROM (updated_at - created_at)) FROM wms_inbound WHERE updated_at < created_at ORDER BY updated_at - created_at LIMIT 1),
+    'timestampNegativeCount', (SELECT count(*) FROM wms_inbound WHERE updated_at < created_at),
+    'timestampMinDelta', (SELECT min(EXTRACT(EPOCH FROM (updated_at - created_at))) FROM wms_inbound WHERE updated_at < created_at),
+    'timestampMaxDelta', (SELECT max(EXTRACT(EPOCH FROM (updated_at - created_at))) FROM wms_inbound WHERE updated_at < created_at)
   ) AS evidence`;
   const mode = process.env.INVARIANT_DB_MODE ?? 'ci';
   const output = mode === 'prod'
