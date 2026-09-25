@@ -15,18 +15,18 @@ export function compareInvariantEvidence(before, after) {
 
 export function captureFixtureEvidence() {
   const sql = `WITH expected(table_name, column_name, data_type, max_len, nullable, default_pattern) AS (VALUES
-    ('acc_ledger','store_code','character varying',64,'YES',NULL),
-    ('acc_ledger','ref_no','character varying',128,'YES',NULL),
-    ('acc_ledger','ledger_type','character varying',64,'YES',NULL),
-    ('wms_stocktake','status','character varying',32,'YES',NULL),
-    ('pda_sync_log','payload','jsonb',NULL,'YES',NULL),
-    ('wms_warehouses','warehouse_code','character varying',64,'NO',NULL),
-    ('store_warehouse_bindings','warehouse_code','character varying',64,'YES',NULL),
-    ('store_replenishment_requests','source_warehouse_code','character varying',64,'YES',NULL),
-    ('store_replenishment_requests','target_warehouse_code','character varying',64,'YES',NULL),
-    ('sal_sales_orders','fulfillment_warehouse_code','character varying',64,'YES',NULL),
-    ('sal_delivery_orders','fulfillment_warehouse_code','character varying',64,'YES',NULL),
-    ('sal_return_orders','target_warehouse_code','character varying',64,'YES',NULL),
+    ('acc_ledger','store_code','character varying',64,NULL,NULL),
+    ('acc_ledger','ref_no','character varying',128,NULL,NULL),
+    ('acc_ledger','ledger_type','character varying',64,NULL,NULL),
+    ('wms_stocktake','status','character varying',32,NULL,NULL),
+    ('pda_sync_log','payload','jsonb',NULL,NULL,NULL),
+    ('wms_warehouses','warehouse_code','character varying',64,NULL,NULL),
+    ('store_warehouse_bindings','warehouse_code','character varying',64,NULL,NULL),
+    ('store_replenishment_requests','source_warehouse_code','character varying',64,NULL,NULL),
+    ('store_replenishment_requests','target_warehouse_code','character varying',64,NULL,NULL),
+    ('sal_sales_orders','fulfillment_warehouse_code','character varying',64,NULL,NULL),
+    ('sal_delivery_orders','fulfillment_warehouse_code','character varying',64,NULL,NULL),
+    ('sal_return_orders','target_warehouse_code','character varying',64,NULL,NULL),
     ('wms_inbound','created_at','timestamp with time zone',NULL,'NO','now()'),
     ('wms_inbound','updated_at','timestamp with time zone',NULL,'NO','now()')
   ), c AS (
