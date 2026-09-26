@@ -116,13 +116,123 @@ jobs:
             REMOTE_MAIN_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
             test -n "$REMOTE_MAIN_SHA"
             echo "REMOTE_MAIN_SHA=$REMOTE_MAIN_SHA"
+            # Keep repository identity parsing aligned with the proven remote diagnostic.
+            # Only the normalized owner/repository is emitted; the raw URL is never printed.
+            fingerprint_remote() {
+              raw="$1"
+              url_type=unknown
+              host_class=unknown
+              alias_github=false
+              repository=UNKNOWN_REMOTE_FORMAT
+              remote_host=
+              remote_path=
+              case "$raw" in
+                ssh://*)
+                  url_type=ssh_url
+                  authority_path="${raw#ssh://}"
+                  authority="${authority_path%%/*}"
+                  remote_path="${authority_path#*/}"
+                  remote_host="${authority##*@}"
+                  remote_host="${remote_host%%:*}"
+                  ;;
+                https://*)
+                  url_type=https_url
+                  authority_path="${raw#https://}"
+                  authority="${authority_path%%/*}"
+                  remote_path="${authority_path#*/}"
+                  remote_host="${authority##*@}"
+                  remote_host="${remote_host%%:*}"
+                  ;;
+                http://*)
+                  url_type=http_url
+                  authority_path="${raw#http://}"
+                  authority="${authority_path%%/*}"
+                  remote_path="${authority_path#*/}"
+                  remote_host="${authority##*@}"
+                  remote_host="${remote_host%%:*}"
+                  ;;
+                git://*)
+                  url_type=git_url
+                  authority_path="${raw#git://}"
+                  authority="${authority_path%%/*}"
+                  remote_path="${authority_path#*/}"
+                  remote_host="${authority##*@}"
+                  remote_host="${remote_host%%:*}"
+                  ;;
+                git@*:*|*@*:*|[A-Za-z0-9._-]*:*)
+                  url_type=scp_ssh
+                  remote_host="${raw%%:*}"
+                  remote_host="${remote_host##*@}"
+                  remote_path="${raw#*:}"
+                  ;;
+                file://*) url_type=file_url ;;
+                /*|./*|../*|~/*) url_type=local_path ;;
+              esac
+              case "$raw" in
+                file://*|/*|./*|../*|~/*)
+                  ORIGIN_URL_TYPE="$url_type"
+                  ORIGIN_HOST_CLASS=none
+                  ORIGIN_ALIAS_GITHUB=false
+                  ORIGIN_REPOSITORY=NON_GITHUB_REMOTE
+                  return
+                  ;;
+              esac
+              if [ "$remote_host" = github.com ]; then
+                host_class=github.com
+              elif [ "$url_type" = scp_ssh ] || [ "$url_type" = ssh_url ]; then
+                if command -v ssh >/dev/null 2>&1; then
+                  resolved_host="$(ssh -G "$remote_host" 2>/dev/null | awk 'tolower($1)=="hostname" {print $2; exit}')"
+                else
+                  resolved_host=
+                fi
+                if [ "$resolved_host" = github.com ]; then
+                  host_class=github_alias
+                  alias_github=true
+                else
+                  host_class=other_host
+                fi
+              elif [ -n "$remote_host" ]; then
+                host_class=other_host
+              else
+                host_class=none
+              fi
+              case "$remote_path" in
+                ""|/*|*/|*//*|*\?*|*\#*|*/*/*|*..*|*[!A-Za-z0-9._/-]*) repository=UNKNOWN_REMOTE_FORMAT ;;
+                *)
+                  repository="${remote_path%.git}"
+                  case "$repository" in */*) ;; *) repository=UNKNOWN_REMOTE_FORMAT ;; esac
+                  ;;
+              esac
+              ORIGIN_URL_TYPE="$url_type"
+              ORIGIN_HOST_CLASS="$host_class"
+              ORIGIN_ALIAS_GITHUB="$alias_github"
+              if [ "$host_class" = github.com ] || [ "$host_class" = github_alias ]; then
+                ORIGIN_REPOSITORY="$repository"
+              elif [ "$host_class" = other_host ]; then
+                ORIGIN_REPOSITORY=NON_GITHUB_REMOTE
+              else
+                ORIGIN_REPOSITORY=UNKNOWN_REMOTE_FORMAT
+              fi
+            }
             ORIGIN_URL="$(git config --get remote.origin.url || true)"
-            case "$ORIGIN_URL" in
-              git@github.com:ivanzhao299/phoenix-erp-v3.git|https://github.com/ivanzhao299/phoenix-erp-v3.git) ORIGIN_MATCH=true; ORIGIN_REPOSITORY=ivanzhao299/phoenix-erp-v3 ;;
-              *) ORIGIN_MATCH=false; ORIGIN_REPOSITORY=UNKNOWN ;;
-            esac
+            if [ -n "$ORIGIN_URL" ]; then
+              ORIGIN_PRESENT=true
+              fingerprint_remote "$ORIGIN_URL"
+            else
+              ORIGIN_PRESENT=false
+              ORIGIN_URL_TYPE=unknown
+              ORIGIN_HOST_CLASS=none
+              ORIGIN_ALIAS_GITHUB=false
+              ORIGIN_REPOSITORY=UNKNOWN_REMOTE_FORMAT
+            fi
+            [ "$ORIGIN_REPOSITORY" = "ivanzhao299/phoenix-erp-v3" ] && ORIGIN_MATCH=true || ORIGIN_MATCH=false
+            ORIGIN_MATCHES_RELEASE_REPOSITORY="$ORIGIN_MATCH"
+            echo "ORIGIN_PRESENT=$ORIGIN_PRESENT"
+            echo "ORIGIN_URL_TYPE=$ORIGIN_URL_TYPE"
+            echo "ORIGIN_HOST_CLASS=$ORIGIN_HOST_CLASS"
             echo "ORIGIN_REPOSITORY=$ORIGIN_REPOSITORY"
             echo "ORIGIN_MATCH=$ORIGIN_MATCH"
+            echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=$ORIGIN_MATCHES_RELEASE_REPOSITORY"
             MAIN_TRACKING_REMOTE="$(git config --get branch.main.remote || true)"
             MAIN_TRACKING_MERGE="$(git config --get branch.main.merge || true)"
             echo "MAIN_TRACKING_REMOTE=$MAIN_TRACKING_REMOTE"
