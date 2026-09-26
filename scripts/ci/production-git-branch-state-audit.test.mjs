@@ -130,5 +130,6 @@ test('origin parser semantics remain present in the proven remote diagnostic', (
 
 test('workflow includes rollback root-cause evidence without changing production state', () => {
   assert.match(workflow, /DETACHED_ROLLBACK_PATH_PRESENT/);
-  assert.match(workflow, /git switch --detach "\$PREV_SHA"/);
+  const deploy = readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
+  assert.doesNotMatch(deploy, /git switch --detach/);
 });
