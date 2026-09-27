@@ -9,7 +9,10 @@ umask 077
 : "${TARGET_SHA:?TARGET_SHA is required}"
 : "${EXPECTED_PRODUCTION_SHA:?EXPECTED_PRODUCTION_SHA is required}"
 : "${PRODUCTION_SHA:?PRODUCTION_SHA is required}"
-: "${API_IMAGE_ID:?API_IMAGE_ID is required}"
+: "${API_IMAGE_DIGEST:?API_IMAGE_DIGEST is required}"
+: "${WEB_IMAGE_DIGEST:?WEB_IMAGE_DIGEST is required}"
+: "${API_IMAGE_REF:?API_IMAGE_REF is required}"
+: "${WEB_IMAGE_REF:?WEB_IMAGE_REF is required}"
 : "${INVENTORY_FILE:?INVENTORY_FILE is required}"
 : "${PREFLIGHT_FILE:?PREFLIGHT_FILE is required}"
 : "${MANIFEST_FILE:?MANIFEST_FILE is required}"
@@ -26,14 +29,18 @@ export API_IMAGE
 mkdir -p "$EVIDENCE_DIR"; chmod 700 "$EVIDENCE_DIR"
 printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/target-sha.txt"
 printf '%s\n' "$PRODUCTION_SHA" > "$EVIDENCE_DIR/production-sha.txt"
-printf '%s\n' "$API_IMAGE_ID" > "$EVIDENCE_DIR/api-image-id.txt"
+printf '%s\n' "$API_IMAGE_DIGEST" > "$EVIDENCE_DIR/api-image-digest.txt"
+printf '%s\n' "$WEB_IMAGE_DIGEST" > "$EVIDENCE_DIR/web-image-digest.txt"
+printf '%s\n' "$API_IMAGE_REF" > "$EVIDENCE_DIR/api-image-ref.txt"
+printf '%s\n' "$WEB_IMAGE_REF" > "$EVIDENCE_DIR/web-image-ref.txt"
 cp "$INVENTORY_FILE" "$EVIDENCE_DIR/candidate-inventory.json"
 cp "$PREFLIGHT_FILE" "$EVIDENCE_DIR/preflight.json"
 cp "$MANIFEST_FILE" "$EVIDENCE_DIR/phase1-manifest.json"
 cd "$COMPOSE_DIR"
 
-node "$ROOT_DIR/scripts/ci/phase1-production-execution-gate.mjs" --mode pre --input <(node -e 'const fs=require("fs"); const [inv,pre,man,img]=process.argv.slice(1); const i=JSON.parse(fs.readFileSync(inv)); const p=JSON.parse(fs.readFileSync(pre)); fs.writeFileSync(process.stdout.fd, JSON.stringify({manifestFile:man,preflight:p,pending:p.diagnostics.canonical_typeorm_pending,candidateInventory:i.canonicalTypeorm||i,imageId:img,executionImageId:img}));' "$INVENTORY_FILE" "$PREFLIGHT_FILE" "$MANIFEST_FILE" "$API_IMAGE_ID") > "$EVIDENCE_DIR/phase1-precheck.json"
+node "$ROOT_DIR/scripts/ci/phase1-production-execution-gate.mjs" --mode pre --input <(node -e 'const fs=require("fs"); const [inv,pre,man,digest]=process.argv.slice(1); const i=JSON.parse(fs.readFileSync(inv)); const p=JSON.parse(fs.readFileSync(pre)); fs.writeFileSync(process.stdout.fd, JSON.stringify({manifestFile:man,preflight:p,pending:p.diagnostics.canonical_typeorm_pending,candidateInventory:i.canonicalTypeorm||i,imageDigest:digest,executionImageDigest:digest}));' "$INVENTORY_FILE" "$PREFLIGHT_FILE" "$MANIFEST_FILE" "$API_IMAGE_DIGEST") > "$EVIDENCE_DIR/phase1-precheck.json"
 echo 'PHASE1_PRECHECK=PASS'
+echo 'CANDIDATE_IMAGE_DIGEST_MATCH=YES'
 
 # This wrapper performs and verifies the backup before the immutable candidate
 # migration and post-migration gates.
@@ -74,9 +81,10 @@ node "$ROOT_DIR/scripts/ci/phase1-production-invariants.mjs" "$EVIDENCE_DIR/inva
 }
 POSTFLIGHT_FILE="$EVIDENCE_DIR/postflight.json"
 MIG_MODE=prod MIG_DIR=apps/api node "$ROOT_DIR/scripts/ledger-preflight.mjs" --mode post-migration --inventory "$INVENTORY_FILE" > "$POSTFLIGHT_FILE"
-node -e 'const fs=require("fs"); const [post,man,inv]=process.argv.slice(1); const p=JSON.parse(fs.readFileSync(post)); const m=JSON.parse(fs.readFileSync(man)); const i=JSON.parse(fs.readFileSync(inv)); fs.writeFileSync(process.stdout.fd, JSON.stringify({manifestFile:man,postflight:p,applied:p.diagnostics.canonical_typeorm_applied,candidateInventory:i.canonicalTypeorm||i,imageId:process.env.API_IMAGE_ID,executionImageId:process.env.API_IMAGE_ID,invariants:{schema:true,data:true}}));' "$POSTFLIGHT_FILE" "$MANIFEST_FILE" "$INVENTORY_FILE" > "$EVIDENCE_DIR/post-input.json"
+node -e 'const fs=require("fs"); const [post,man,inv]=process.argv.slice(1); const p=JSON.parse(fs.readFileSync(post)); const m=JSON.parse(fs.readFileSync(man)); const i=JSON.parse(fs.readFileSync(inv)); fs.writeFileSync(process.stdout.fd, JSON.stringify({manifestFile:man,postflight:p,applied:p.diagnostics.canonical_typeorm_applied,candidateInventory:i.canonicalTypeorm||i,imageDigest:process.env.API_IMAGE_DIGEST,executionImageDigest:process.env.API_IMAGE_DIGEST,invariants:{schema:true,data:true}}));' "$POSTFLIGHT_FILE" "$MANIFEST_FILE" "$INVENTORY_FILE" > "$EVIDENCE_DIR/post-input.json"
 node "$ROOT_DIR/scripts/ci/phase1-production-execution-gate.mjs" --mode post --input "$EVIDENCE_DIR/post-input.json" > "$EVIDENCE_DIR/phase1-postcheck.json"
 echo 'PHASE1_POSTCHECK=PASS'
+echo 'CANDIDATE_IMAGE_DIGEST_MATCH=YES'
 PROBE_NAME="phoenix-phase1-api-probe-${RUN_ID}"
 set +e
 (cd "$COMPOSE_DIR" && API_IMAGE="$API_IMAGE" docker compose run --no-deps -d --name "$PROBE_NAME" api) > "$EVIDENCE_DIR/api-probe.log" 2>&1

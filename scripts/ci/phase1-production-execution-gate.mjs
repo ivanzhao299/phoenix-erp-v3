@@ -23,7 +23,7 @@ export function loadPhase1Manifest(file) {
   return manifest.map((entry) => ({ name: entry.name, timestamp: String(entry.timestamp) }));
 }
 
-export function validateCandidateInventory(manifest, inventory, { imageId, executionImageId } = {}) {
+export function validateCandidateInventory(manifest, inventory, { imageDigest, executionImageDigest } = {}) {
   const entries = Array.isArray(inventory) ? inventory : inventory?.canonicalTypeorm;
   if (!Array.isArray(entries) || entries.length === 0) throw new Error('CANDIDATE_INVENTORY_INVALID');
   const byTimestamp = new Map(entries.map((entry) => [String(entry.timestamp), entry]));
@@ -33,8 +33,8 @@ export function validateCandidateInventory(manifest, inventory, { imageId, execu
       throw new Error(`PHASE1_CANDIDATE_IDENTITY_MISMATCH: ${expected.name}`);
     }
   }
-  if (imageId !== undefined || executionImageId !== undefined) {
-    if (!SHA256.test(String(imageId)) || imageId !== executionImageId) throw new Error('CANDIDATE_IMAGE_MISMATCH');
+  if (imageDigest !== undefined || executionImageDigest !== undefined) {
+    if (!SHA256.test(String(imageDigest)) || imageDigest !== executionImageDigest) throw new Error('CANDIDATE_IMAGE_DIGEST_MISMATCH');
   }
   return true;
 }
@@ -43,18 +43,18 @@ function exactSet(actual, expected) {
   return actual.length === expected.length && [...actual].sort().every((value, index) => value === [...expected].sort()[index]);
 }
 
-export function evaluatePhase1PreExecution({ preflight, pending, manifest, candidateInventory, imageId, executionImageId }) {
+export function evaluatePhase1PreExecution({ preflight, pending, manifest, candidateInventory, imageDigest, executionImageDigest }) {
   const errors = [];
-  try { validateCandidateInventory(manifest, candidateInventory, { imageId, executionImageId }); } catch (error) { errors.push(error.message); }
+  try { validateCandidateInventory(manifest, candidateInventory, { imageDigest, executionImageDigest }); } catch (error) { errors.push(error.message); }
   if (!preflight?.pass || (preflight.failures ?? []).length) errors.push('GENERIC_PREFLIGHT_FAILED');
   const expected = manifest.map((entry) => entry.name);
   if (!exactSet(pending ?? [], expected)) errors.push('PHASE1_PENDING_SET_MISMATCH');
   return { pass: errors.length === 0, failures: errors, phase1PendingExact: errors.includes('PHASE1_PENDING_SET_MISMATCH') ? false : true };
 }
 
-export function evaluatePhase1PostMigration({ postflight, applied, manifest, invariants = {}, candidateInventory, imageId, executionImageId }) {
+export function evaluatePhase1PostMigration({ postflight, applied, manifest, invariants = {}, candidateInventory, imageDigest, executionImageDigest }) {
   const errors = [];
-  try { validateCandidateInventory(manifest, candidateInventory, { imageId, executionImageId }); } catch (error) { errors.push(error.message); }
+  try { validateCandidateInventory(manifest, candidateInventory, { imageDigest, executionImageDigest }); } catch (error) { errors.push(error.message); }
   if (!postflight?.pass || (postflight.failures ?? []).length) errors.push('POSTFLIGHT_FAILED');
   if ((postflight?.counts?.canonical_typeorm_pending ?? postflight?.canonical_typeorm_pending ?? 0) !== 0) errors.push('CANONICAL_PENDING_REMAINS');
   const appliedSet = new Set(applied ?? []);

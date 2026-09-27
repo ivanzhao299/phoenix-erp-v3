@@ -55,13 +55,29 @@ jobs:
           WEB_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/web:sha-${TARGET_SHA}"
           docker pull "$API_IMAGE"
           docker pull "$WEB_IMAGE"
-          docker image inspect "$API_IMAGE" --format '{{.Id}}' > api-image-id.txt
-          docker image inspect "$WEB_IMAGE" --format '{{.Id}}' > web-image-id.txt
-          echo "API_IMAGE_ID=$(cat api-image-id.txt)" >> "$GITHUB_ENV"
-          echo "WEB_IMAGE_ID=$(cat web-image-id.txt)" >> "$GITHUB_ENV"
-          grep -Eq '^sha256:[0-9a-f]{64}$' api-image-id.txt
-          grep -Eq '^sha256:[0-9a-f]{64}$' web-image-id.txt
-          bash scripts/ci/candidate-typeorm-inventory.sh "$API_IMAGE" > candidate-typeorm.json
+          resolve_repo_digest() {
+            image="$1"
+            repo="${image%:*}"
+            digest_ref="$(docker image inspect "$image" --format '{{range .RepoDigests}}{{println .}}{{end}}' | awk -v prefix="${repo}@" 'index($0,prefix)==1 { print; exit }')"
+            test -n "$digest_ref"
+            digest="${digest_ref#*@}"
+            printf '%s\n' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$'
+            printf '%s\n' "$digest"
+          }
+          API_IMAGE_DIGEST="$(resolve_repo_digest "$API_IMAGE")"
+          WEB_IMAGE_DIGEST="$(resolve_repo_digest "$WEB_IMAGE")"
+          API_IMAGE_REF="${API_IMAGE%@*}@${API_IMAGE_DIGEST}"
+          WEB_IMAGE_REF="${WEB_IMAGE%@*}@${WEB_IMAGE_DIGEST}"
+          printf '%s\n' "$API_IMAGE_DIGEST" > api-image-digest.txt
+          printf '%s\n' "$WEB_IMAGE_DIGEST" > web-image-digest.txt
+          printf '%s\n' "$API_IMAGE_REF" > api-image-ref.txt
+          printf '%s\n' "$WEB_IMAGE_REF" > web-image-ref.txt
+          echo "API_IMAGE_DIGEST=$API_IMAGE_DIGEST" >> "$GITHUB_ENV"
+          echo "WEB_IMAGE_DIGEST=$WEB_IMAGE_DIGEST" >> "$GITHUB_ENV"
+          echo "API_IMAGE_REF=$API_IMAGE_REF" >> "$GITHUB_ENV"
+          echo "WEB_IMAGE_REF=$WEB_IMAGE_REF" >> "$GITHUB_ENV"
+          echo "CANDIDATE_INVENTORY_IMAGE_REF=$API_IMAGE_REF"
+          bash scripts/ci/candidate-typeorm-inventory.sh "$API_IMAGE_REF" > candidate-typeorm.json
           test -s candidate-typeorm.json
           node - <<'NODE'
           const fs = require('node:fs');
@@ -98,10 +114,12 @@ jobs:
           EXECUTION_RUN_ID: ${{ github.run_id }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          API_IMAGE: ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:sha-${{ github.sha }}
-          WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/web:sha-${{ github.sha }}
-          API_IMAGE_ID: ${{ env.API_IMAGE_ID }}
-          WEB_IMAGE_ID: ${{ env.WEB_IMAGE_ID }}
+          API_IMAGE: ${{ env.API_IMAGE_REF }}
+          WEB_IMAGE: ${{ env.WEB_IMAGE_REF }}
+          API_IMAGE_DIGEST: ${{ env.API_IMAGE_DIGEST }}
+          WEB_IMAGE_DIGEST: ${{ env.WEB_IMAGE_DIGEST }}
+          API_IMAGE_REF: ${{ env.API_IMAGE_REF }}
+          WEB_IMAGE_REF: ${{ env.WEB_IMAGE_REF }}
           INVENTORY_B64: ${{ env.INVENTORY_B64 }}
           MANIFEST_B64: ${{ env.MANIFEST_B64 }}
           PREFLIGHT_B64: ${{ env.PREFLIGHT_B64 }}
@@ -118,7 +136,7 @@ jobs:
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           command_timeout: 30m
-          envs: TARGET_SHA,EXPECTED_PRODUCTION_SHA,EXECUTION_RUN_ID,GHCR_USER,GHCR_TOKEN,API_IMAGE,WEB_IMAGE,API_IMAGE_ID,WEB_IMAGE_ID,INVENTORY_B64,MANIFEST_B64,PREFLIGHT_B64,GATE_B64,INVARIANTS_B64,WRAPPER_B64
+          envs: TARGET_SHA,EXPECTED_PRODUCTION_SHA,EXECUTION_RUN_ID,GHCR_USER,GHCR_TOKEN,API_IMAGE,WEB_IMAGE,API_IMAGE_DIGEST,WEB_IMAGE_DIGEST,API_IMAGE_REF,WEB_IMAGE_REF,INVENTORY_B64,MANIFEST_B64,PREFLIGHT_B64,GATE_B64,INVARIANTS_B64,WRAPPER_B64
           script: |
             set -Eeuo pipefail
             umask 077
@@ -252,12 +270,17 @@ jobs:
             printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
             unset GHCR_TOKEN
             set -x
-            docker pull "$API_IMAGE" >/dev/null
-            docker pull "$WEB_IMAGE" >/dev/null
-            ACTUAL_API_IMAGE_ID="$(docker image inspect "$API_IMAGE" --format '{{.Id}}')"
-            ACTUAL_WEB_IMAGE_ID="$(docker image inspect "$WEB_IMAGE" --format '{{.Id}}')"
-            test "$ACTUAL_API_IMAGE_ID" = "$API_IMAGE_ID"
-            test "$ACTUAL_WEB_IMAGE_ID" = "$WEB_IMAGE_ID"
+            verify_repo_digest() {
+              image_ref="$1"
+              expected_digest="$2"
+              repo_digests="$(docker image inspect "$image_ref" --format '{{range .RepoDigests}}{{println .}}{{end}}')"
+              printf '%s\n' "$repo_digests" | grep -Fqx "$image_ref"
+              printf '%s\n' "$expected_digest" | grep -Eq '^sha256:[0-9a-f]{64}$'
+            }
+            docker pull "$API_IMAGE_REF" >/dev/null
+            docker pull "$WEB_IMAGE_REF" >/dev/null
+            verify_repo_digest "$API_IMAGE_REF" "$API_IMAGE_DIGEST" || { echo 'PHASE1_EXECUTION_BLOCKED=API_IMAGE_DIGEST_MISMATCH'; exit 24; }
+            verify_repo_digest "$WEB_IMAGE_REF" "$WEB_IMAGE_DIGEST" || { echo 'PHASE1_EXECUTION_BLOCKED=WEB_IMAGE_DIGEST_MISMATCH'; exit 25; }
             RUN_ID="${EXECUTION_RUN_ID:?EXECUTION_RUN_ID is required}"
             ROOT_DIR="$(mktemp -d /tmp/phase1-controlled.XXXXXX)"
             EVIDENCE_DIR="/opt/phoenix-erp-backups/phase1-controlled-${RUN_ID}"
@@ -285,7 +308,7 @@ jobs:
             node --check "$PREFLIGHT_FILE"
             MIG_MODE=prod node "$PREFLIGHT_FILE" --mode pre-migration --inventory "$ROOT_DIR/inventory.json" > "$EVIDENCE_DIR/preflight.json"
             BACKUP_FILE="$EVIDENCE_DIR/phase1-pre-${TARGET_SHA:0:12}.dump"
-            PRESERVE_ARTIFACTS=true RUN_ID="$RUN_ID" TARGET_SHA="$TARGET_SHA" EXPECTED_PRODUCTION_SHA="$EXPECTED_PRODUCTION_SHA" PRODUCTION_SHA="$PRODUCTION_SHA" API_IMAGE="$API_IMAGE" WEB_IMAGE="$WEB_IMAGE" API_IMAGE_ID="$ACTUAL_API_IMAGE_ID" INVENTORY_FILE="$ROOT_DIR/inventory.json" PREFLIGHT_FILE="$EVIDENCE_DIR/preflight.json" MANIFEST_FILE="$ROOT_DIR/manifest.json" EVIDENCE_DIR="$EVIDENCE_DIR" BACKUP_FILE="$BACKUP_FILE" ROOT_DIR="$ROOT_DIR" COMPOSE_DIR="$PWD" bash "$WRAPPER_FILE"
+            PRESERVE_ARTIFACTS=true RUN_ID="$RUN_ID" TARGET_SHA="$TARGET_SHA" EXPECTED_PRODUCTION_SHA="$EXPECTED_PRODUCTION_SHA" PRODUCTION_SHA="$PRODUCTION_SHA" API_IMAGE="$API_IMAGE_REF" WEB_IMAGE="$WEB_IMAGE_REF" API_IMAGE_DIGEST="$API_IMAGE_DIGEST" WEB_IMAGE_DIGEST="$WEB_IMAGE_DIGEST" API_IMAGE_REF="$API_IMAGE_REF" WEB_IMAGE_REF="$WEB_IMAGE_REF" INVENTORY_FILE="$ROOT_DIR/inventory.json" PREFLIGHT_FILE="$EVIDENCE_DIR/preflight.json" MANIFEST_FILE="$ROOT_DIR/manifest.json" EVIDENCE_DIR="$EVIDENCE_DIR" BACKUP_FILE="$BACKUP_FILE" ROOT_DIR="$ROOT_DIR" COMPOSE_DIR="$PWD" bash "$WRAPPER_FILE"
             git fetch origin main
             git cat-file -e "$TARGET_SHA^{commit}"
             git merge-base --is-ancestor "$PRODUCTION_SHA" "$TARGET_SHA"
