@@ -62,7 +62,26 @@ jobs:
           grep -Eq '^sha256:[0-9a-f]{64}$' api-image-id.txt
           grep -Eq '^sha256:[0-9a-f]{64}$' web-image-id.txt
           bash scripts/ci/candidate-typeorm-inventory.sh "$API_IMAGE" > candidate-typeorm.json
-          node -e 'const fs=require("fs"); const c=JSON.parse(fs.readFileSync("candidate-typeorm.json")); const l=fs.readdirSync("apps/api/migrations").filter(n=>/^2026.*\.sql$/.test(n)).sort(); const r=JSON.parse(fs.readFileSync("scripts/ci/retired-typeorm-migrations.json")); fs.writeFileSync("candidate-ledger-inventory.json",JSON.stringify({canonicalTypeorm:c,canonicalLegacy:l,retiredTypeorm:r}));'
+          test -s candidate-typeorm.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const raw = fs.readFileSync('candidate-typeorm.json', 'utf8');
+          if (!raw.trim()) throw new Error('CANDIDATE_TYPEORM_INVENTORY_EMPTY');
+          let inventory;
+          try {
+            inventory = JSON.parse(raw);
+          } catch {
+            throw new Error('CANDIDATE_TYPEORM_INVENTORY_INVALID');
+          }
+          if (!Array.isArray(inventory) || inventory.length === 0) {
+            throw new Error('CANDIDATE_TYPEORM_INVENTORY_INVALID');
+          }
+          const legacy = fs.readdirSync('apps/api/migrations').filter((name) => /^2026.*\.sql$/.test(name)).sort();
+          const retired = JSON.parse(fs.readFileSync('scripts/ci/retired-typeorm-migrations.json'));
+          fs.writeFileSync('candidate-ledger-inventory.json', JSON.stringify({ canonicalTypeorm: inventory, canonicalLegacy: legacy, retiredTypeorm: retired }));
+          console.error('CANDIDATE_TYPEORM_INVENTORY_VALID=YES');
+          console.error(`CANDIDATE_TYPEORM_INVENTORY_COUNT=${inventory.length}`);
+          NODE
           {
             echo "INVENTORY_B64=$(base64 -w0 candidate-ledger-inventory.json)"
             echo "MANIFEST_B64=$(base64 -w0 scripts/ci/phase1-production-migration-manifest.json)"
