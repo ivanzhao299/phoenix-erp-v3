@@ -100,6 +100,9 @@ await qr.query(`CREATE TABLE wms_stocktake (id bigserial PRIMARY KEY, status var
 await qr.query(`CREATE TABLE pda_sync_log (id bigserial PRIMARY KEY, payload jsonb)`);
 await qr.query(`CREATE TABLE wms_inbound (id bigserial PRIMARY KEY, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now())`);
 await qr.query(`CREATE TABLE wms_warehouses (id bigserial PRIMARY KEY, warehouse_code varchar(64) UNIQUE)`);
+await qr.query(`CREATE TABLE mon_device_realtime_snapshot (id bigserial PRIMARY KEY, property_code varchar(64))`);
+await qr.query(`CREATE TABLE mon_device_property_history (id bigserial PRIMARY KEY, property_code varchar(64))`);
+await qr.query(`CREATE TABLE mon_device_alert_event (id bigserial PRIMARY KEY, property_code varchar(64))`);
 await qr.query(`CREATE TABLE store_warehouse_bindings (id bigserial PRIMARY KEY, warehouse_code varchar(64), CONSTRAINT store_warehouse_bindings_warehouse_code_fkey FOREIGN KEY (warehouse_code) REFERENCES wms_warehouses(warehouse_code))`);
 await qr.query(`CREATE TABLE store_replenishment_requests (id bigserial PRIMARY KEY, source_warehouse_code varchar(64), target_warehouse_code varchar(64), CONSTRAINT store_replenishment_requests_source_warehouse_code_fkey FOREIGN KEY (source_warehouse_code) REFERENCES wms_warehouses(warehouse_code), CONSTRAINT store_replenishment_requests_target_warehouse_code_fkey FOREIGN KEY (target_warehouse_code) REFERENCES wms_warehouses(warehouse_code))`);
 await qr.query(`CREATE TABLE sal_sales_orders (id bigserial PRIMARY KEY, fulfillment_warehouse_code varchar(64), CONSTRAINT sal_sales_orders_fulfillment_warehouse_code_fkey FOREIGN KEY (fulfillment_warehouse_code) REFERENCES wms_warehouses(warehouse_code))`);
