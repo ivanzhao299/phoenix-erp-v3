@@ -27,15 +27,33 @@ COMPOSE_DIR=${COMPOSE_DIR:-$PWD}
 [[ "$PRODUCTION_SHA" = "$EXPECTED_PRODUCTION_SHA" ]] || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_SHA_CHANGED'; exit 20; }
 export API_IMAGE
 mkdir -p "$EVIDENCE_DIR"; chmod 700 "$EVIDENCE_DIR"
+
+copy_evidence_file() {
+  local src="$1"
+  local dst="$2"
+  test -s "$src" || return 1
+
+  local src_real
+  local dst_real
+  src_real="$(readlink -f "$src")"
+  dst_real="$(readlink -f "$dst")"
+
+  if [ "$src_real" = "$dst_real" ]; then
+    return 0
+  fi
+
+  cp "$src" "$dst"
+}
+
 printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/target-sha.txt"
 printf '%s\n' "$PRODUCTION_SHA" > "$EVIDENCE_DIR/production-sha.txt"
 printf '%s\n' "$API_IMAGE_DIGEST" > "$EVIDENCE_DIR/api-image-digest.txt"
 printf '%s\n' "$WEB_IMAGE_DIGEST" > "$EVIDENCE_DIR/web-image-digest.txt"
 printf '%s\n' "$API_IMAGE_REF" > "$EVIDENCE_DIR/api-image-ref.txt"
 printf '%s\n' "$WEB_IMAGE_REF" > "$EVIDENCE_DIR/web-image-ref.txt"
-cp "$INVENTORY_FILE" "$EVIDENCE_DIR/candidate-inventory.json"
-cp "$PREFLIGHT_FILE" "$EVIDENCE_DIR/preflight.json"
-cp "$MANIFEST_FILE" "$EVIDENCE_DIR/phase1-manifest.json"
+copy_evidence_file "$INVENTORY_FILE" "$EVIDENCE_DIR/candidate-inventory.json"
+copy_evidence_file "$PREFLIGHT_FILE" "$EVIDENCE_DIR/preflight.json"
+copy_evidence_file "$MANIFEST_FILE" "$EVIDENCE_DIR/phase1-manifest.json"
 cd "$COMPOSE_DIR"
 
 node "$ROOT_DIR/scripts/ci/phase1-production-execution-gate.mjs" --mode pre --input <(node -e 'const fs=require("fs"); const [inv,pre,man,digest]=process.argv.slice(1); const i=JSON.parse(fs.readFileSync(inv)); const p=JSON.parse(fs.readFileSync(pre)); fs.writeFileSync(process.stdout.fd, JSON.stringify({manifestFile:man,preflight:p,pending:p.diagnostics.canonical_typeorm_pending,candidateInventory:i.canonicalTypeorm||i,imageDigest:digest,executionImageDigest:digest}));' "$INVENTORY_FILE" "$PREFLIGHT_FILE" "$MANIFEST_FILE" "$API_IMAGE_DIGEST") > "$EVIDENCE_DIR/phase1-precheck.json"
