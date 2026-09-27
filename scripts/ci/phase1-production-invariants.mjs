@@ -70,7 +70,7 @@ export function captureFixtureEvidence() {
         'mon_device_alert_event', CASE WHEN to_regclass('public.mon_device_alert_event') IS NULL THEN 'ABSENT' ELSE md5(coalesce((SELECT string_agg(jsonb_build_array(id, property_code)::text, E'\\n' ORDER BY id) FROM mon_device_alert_event), '')) END
       ),
       'inboundTimestamps', md5(coalesce((SELECT string_agg(jsonb_build_array(id, extract(epoch FROM (created_at AT TIME ZONE 'UTC')), extract(epoch FROM (updated_at AT TIME ZONE 'UTC')))::text, E'\\n' ORDER BY id) FROM wms_inbound), '')
-    ) AS value
+    )) AS value
   )
   SELECT json_build_object(
     'schemaValid', (SELECT mismatches = 0 FROM d) AND (SELECT n = 6 FROM f) AND (SELECT n = 0 FROM i),
