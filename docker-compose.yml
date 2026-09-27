@@ -35,7 +35,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: "256m"
+          memory: "512m"
 
   api:
     image: ${API_IMAGE:-ghcr.io/ivanzhao299/phoenix-erp-v3/api:latest}
