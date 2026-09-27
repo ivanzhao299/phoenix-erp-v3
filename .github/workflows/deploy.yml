@@ -652,6 +652,13 @@ jobs:
             # API schema changes must retain evidence/DB and never clean backups.
             if [ "$BUILD_API" = "true" ]; then export PRESERVE_ARTIFACTS=true; fi
             API_SWITCH_STARTED=false
+            CODE_SYNCED=false
+
+            CURRENT_BRANCH="$(git symbolic-ref --short -q HEAD || true)"
+            if [ "$CURRENT_BRANCH" != "main" ]; then
+              echo "::error::生产服务器 Git 分支必须为 main,拒绝隐式修复分支状态"
+              exit 22
+            fi
 
             # ── 部署事务状态:失败时回滚代码、镜像与 Nginx ───────────
             PREV_SHA="$(git rev-parse HEAD)"
@@ -674,10 +681,21 @@ jobs:
                 docker tag "$PREV_WEB_IMAGE_ID" "ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/web:${ROLLBACK_TAG}"
               fi
 
-              if [ "$PRESERVE_ARTIFACTS" = "true" ]; then
-                git switch --detach "$PREV_SHA"
+              if [ "$CODE_SYNCED" = "true" ]; then
+                CURRENT_BRANCH="$(git symbolic-ref --short -q HEAD || true)"
+                CURRENT_HEAD="$(git rev-parse HEAD 2>/dev/null || true)"
+                if [ "$CURRENT_BRANCH" = "main" ] && [ "$CURRENT_HEAD" = "$TARGET_SHA" ]; then
+                  if git update-ref -m "deployment rollback ${DEPLOY_RUN_ID}" refs/heads/main "$PREV_SHA" "$TARGET_SHA"; then
+                    git reset --hard HEAD
+                    echo "✅ Git rollback restored main to $PREV_SHA"
+                  else
+                    echo "::error::GIT_ROLLBACK_BLOCKED=CAS_MISMATCH"
+                  fi
+                else
+                  echo "::error::GIT_ROLLBACK_BLOCKED=UNEXPECTED_GIT_STATE"
+                fi
               else
-                git reset --hard "$PREV_SHA"
+                echo "GIT_ROLLBACK_SKIPPED=CODE_NOT_CONFIRMED_SYNCED"
               fi
 
               if [ -n "$PREV_API_IMAGE_ID" ] && [ "$API_SWITCH_STARTED" = "true" ]; then
@@ -716,12 +734,12 @@ jobs:
             trap rollback_deploy ERR
 
             # ── 同步代码(必须先 pull,否则下面 cp 仓库新文件会找不到)──
-            if ! git symbolic-ref -q HEAD >/dev/null; then git switch main; fi
             git pull --ff-only origin main
             if [ "$(git rev-parse HEAD)" != "$TARGET_SHA" ]; then
               echo "::error::服务器代码版本与目标 SHA 不一致"
               exit 21
             fi
+            CODE_SYNCED=true
             echo "✅ Code synced"
 
             # 首次部署兜底:确保 runtime-design-system.css alias 目录 + 种子文件存在

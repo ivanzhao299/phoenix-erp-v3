@@ -1,0 +1,184 @@
+name: Production Git State CAS Repair
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_repair:
+        description: 'Type REPAIR_PRODUCTION_GIT_STATE_CAS to authorize the reviewed CAS repair'
+        required: true
+        type: string
+      expected_repair_sha:
+        description: 'Exact reviewed merge SHA for this repair workflow'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-git-state-cas-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      CONFIRM_REPAIR: ${{ inputs.confirm_repair }}
+      EXPECTED_REPAIR_SHA: ${{ inputs.expected_repair_sha }}
+      EXPECTED_HEAD_SHA: 129fdb85c81ab0c201044daf021caf778b37b40b
+      EXPECTED_OLD_LOCAL_MAIN_SHA: fb70fbad9a163d9e3cbb02a76506766babe89db2
+      EXPECTED_NEW_LOCAL_MAIN_SHA: 129fdb85c81ab0c201044daf021caf778b37b40b
+      EXPECTED_HEAD_TREE: 86738ebce37021d8ece4d40b995051245e197450
+      EXPECTED_OLD_LOCAL_MAIN_TREE: c7455cd4ab361fcdf35d4f0ba4e2b8b6929d0806
+      SOURCE_BRANCH_STATE_AUDIT_RUN: 36277000839
+    steps:
+      - name: Checkout reviewed repair workflow
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Validate reviewed repair binding
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$CONFIRM_REPAIR" = REPAIR_PRODUCTION_GIT_STATE_CAS
+          test -n "$EXPECTED_REPAIR_SHA"
+          test "$EXPECTED_REPAIR_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "REPAIR_WORKFLOW_SHA=$GITHUB_SHA"
+          echo "SOURCE_BRANCH_STATE_AUDIT_RUN=$SOURCE_BRANCH_STATE_AUDIT_RUN"
+
+      - name: Execute one-time production Git CAS repair over SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          REPAIR_WORKFLOW_SHA: ${{ github.sha }}
+          EXECUTION_RUN_ID: ${{ github.run_id }}
+          EXPECTED_HEAD_SHA: ${{ env.EXPECTED_HEAD_SHA }}
+          EXPECTED_OLD_LOCAL_MAIN_SHA: ${{ env.EXPECTED_OLD_LOCAL_MAIN_SHA }}
+          EXPECTED_NEW_LOCAL_MAIN_SHA: ${{ env.EXPECTED_NEW_LOCAL_MAIN_SHA }}
+          EXPECTED_HEAD_TREE: ${{ env.EXPECTED_HEAD_TREE }}
+          EXPECTED_OLD_LOCAL_MAIN_TREE: ${{ env.EXPECTED_OLD_LOCAL_MAIN_TREE }}
+          SOURCE_BRANCH_STATE_AUDIT_RUN: ${{ env.SOURCE_BRANCH_STATE_AUDIT_RUN }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,REPAIR_WORKFLOW_SHA,EXECUTION_RUN_ID,EXPECTED_HEAD_SHA,EXPECTED_OLD_LOCAL_MAIN_SHA,EXPECTED_NEW_LOCAL_MAIN_SHA,EXPECTED_HEAD_TREE,EXPECTED_OLD_LOCAL_MAIN_TREE,SOURCE_BRANCH_STATE_AUDIT_RUN
+          timeout: 30s
+          proxy_timeout: 30s
+          command_timeout: 2m
+          script: |
+            set -Eeuo pipefail
+            set +x
+            umask 077
+            cd "$DEPLOY_PATH"
+            EVIDENCE_DIR="/opt/phoenix-erp-backups/git-state-repair-${EXECUTION_RUN_ID}"
+            mkdir -p "$EVIDENCE_DIR"
+            chmod 700 "$EVIDENCE_DIR"
+
+            fingerprint_remote() {
+              raw="$1"
+              url_type=unknown
+              host_class=unknown
+              alias_github=false
+              repository=UNKNOWN_REMOTE_FORMAT
+              remote_host=
+              remote_path=
+              case "$raw" in
+                ssh://*) url_type=ssh_url; authority_path="${raw#ssh://}"; authority="${authority_path%%/*}"; remote_path="${authority_path#*/}"; remote_host="${authority##*@}"; remote_host="${remote_host%%:*}" ;;
+                https://*) url_type=https_url; authority_path="${raw#https://}"; authority="${authority_path%%/*}"; remote_path="${authority_path#*/}"; remote_host="${authority##*@}"; remote_host="${remote_host%%:*}" ;;
+                git@*:*|*@*:*|[A-Za-z0-9._-]*:*) url_type=scp_ssh; remote_host="${raw%%:*}"; remote_host="${remote_host##*@}"; remote_path="${raw#*:}" ;;
+                file://*) url_type=file_url ;;
+                /*|./*|../*|~/*) url_type=local_path ;;
+              esac
+              case "$raw" in
+                file://*|/*|./*|../*|~/*) ORIGIN_REPOSITORY=NON_GITHUB_REMOTE; ORIGIN_URL_TYPE="$url_type"; ORIGIN_HOST_CLASS=none; return ;;
+              esac
+              if [ "$remote_host" = github.com ]; then
+                host_class=github.com
+              elif [ "$url_type" = scp_ssh ] || [ "$url_type" = ssh_url ]; then
+                resolved_host="$(ssh -G "$remote_host" 2>/dev/null | awk 'tolower($1)=="hostname" {print $2; exit}')"
+                if [ "$resolved_host" = github.com ]; then host_class=github_alias; alias_github=true; else host_class=other_host; fi
+              elif [ -n "$remote_host" ]; then
+                host_class=other_host
+              else
+                host_class=none
+              fi
+              case "$remote_path" in
+                ""|/*|*/|*//*|*\?*|*\#*|*/*/*|*..*|*[!A-Za-z0-9._/-]*) repository=UNKNOWN_REMOTE_FORMAT ;;
+                *) repository="${remote_path%.git}"; case "$repository" in */*) ;; *) repository=UNKNOWN_REMOTE_FORMAT ;; esac ;;
+              esac
+              ORIGIN_URL_TYPE="$url_type"
+              ORIGIN_HOST_CLASS="$host_class"
+              ORIGIN_ALIAS_GITHUB="$alias_github"
+              if [ "$host_class" = github.com ] || [ "$host_class" = github_alias ]; then ORIGIN_REPOSITORY="$repository"; elif [ "$host_class" = other_host ]; then ORIGIN_REPOSITORY=NON_GITHUB_REMOTE; else ORIGIN_REPOSITORY=UNKNOWN_REMOTE_FORMAT; fi
+            }
+
+            test "$(git rev-parse --is-inside-work-tree)" = true
+            ORIGIN_URL="$(git config --get remote.origin.url || true)"
+            test -n "$ORIGIN_URL"
+            fingerprint_remote "$ORIGIN_URL"
+            echo "ORIGIN_REPOSITORY=$ORIGIN_REPOSITORY" | tee "$EVIDENCE_DIR/origin-identity.txt"
+            test "$ORIGIN_REPOSITORY" = ivanzhao299/phoenix-erp-v3 || { echo 'CAS_REPAIR_BLOCKED=ORIGIN_MISMATCH'; exit 30; }
+
+            ACTUAL_HEAD_SHA="$(git rev-parse HEAD)"
+            CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
+            test "$ACTUAL_HEAD_SHA" = "$EXPECTED_HEAD_SHA" || { echo 'CAS_REPAIR_BLOCKED=HEAD_CHANGED'; exit 31; }
+            test -z "$CURRENT_BRANCH" || { echo 'CAS_REPAIR_BLOCKED=HEAD_ALREADY_ATTACHED'; exit 32; }
+            test -z "$(git status --porcelain --untracked-files=all)" || { echo 'CAS_REPAIR_BLOCKED=WORKTREE_DIRTY'; exit 33; }
+
+            ACTUAL_OLD_MAIN_SHA="$(git rev-parse refs/heads/main 2>/dev/null || true)"
+            test "$ACTUAL_OLD_MAIN_SHA" = "$EXPECTED_OLD_LOCAL_MAIN_SHA" || { echo 'CAS_REPAIR_BLOCKED=LOCAL_MAIN_CHANGED'; exit 34; }
+            ACTUAL_ORIGIN_MAIN_SHA="$(git rev-parse refs/remotes/origin/main 2>/dev/null || true)"
+            test "$ACTUAL_ORIGIN_MAIN_SHA" = "$EXPECTED_OLD_LOCAL_MAIN_SHA" || { echo 'CAS_REPAIR_BLOCKED=CACHED_ORIGIN_MAIN_CHANGED'; exit 35; }
+            LIVE_REMOTE_MAIN="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+            test "$LIVE_REMOTE_MAIN" = "$REPAIR_WORKFLOW_SHA" || { echo 'CAS_REPAIR_BLOCKED=REMOTE_MAIN_MOVED'; exit 36; }
+            test "$(git config --get branch.main.remote || true)" = origin || { echo 'CAS_REPAIR_BLOCKED=TRACKING_REMOTE'; exit 37; }
+            test "$(git config --get branch.main.merge || true)" = refs/heads/main || { echo 'CAS_REPAIR_BLOCKED=TRACKING_MERGE'; exit 38; }
+            git config --get-all remote.origin.fetch | grep -Fxq '+refs/heads/*:refs/remotes/origin/*' || { echo 'CAS_REPAIR_BLOCKED=FETCH_REFSPEC'; exit 39; }
+            git merge-base --is-ancestor "$EXPECTED_HEAD_SHA" "$EXPECTED_OLD_LOCAL_MAIN_SHA"
+            ! git merge-base --is-ancestor "$EXPECTED_OLD_LOCAL_MAIN_SHA" "$EXPECTED_HEAD_SHA"
+            test "$(git rev-parse "$EXPECTED_HEAD_SHA^{tree}")" = "$EXPECTED_HEAD_TREE"
+            test "$(git rev-parse "$EXPECTED_OLD_LOCAL_MAIN_SHA^{tree}")" = "$EXPECTED_OLD_LOCAL_MAIN_TREE"
+
+            printf '%s\n' "$SOURCE_BRANCH_STATE_AUDIT_RUN" > "$EVIDENCE_DIR/source-audit-run.txt"
+            printf '%s\n' "$REPAIR_WORKFLOW_SHA" > "$EVIDENCE_DIR/workflow-sha.txt"
+            printf '%s\n' "$ACTUAL_HEAD_SHA" > "$EVIDENCE_DIR/pre-head.txt"
+            printf '%s\n' "$CURRENT_BRANCH" > "$EVIDENCE_DIR/pre-branch.txt"
+            printf '%s\n' "$ACTUAL_OLD_MAIN_SHA" > "$EVIDENCE_DIR/pre-main-ref.txt"
+            printf '%s\n' "$ACTUAL_ORIGIN_MAIN_SHA" > "$EVIDENCE_DIR/pre-origin-main-ref.txt"
+            printf '%s\n' "$LIVE_REMOTE_MAIN" > "$EVIDENCE_DIR/live-origin-main.txt"
+            git rev-parse "$ACTUAL_HEAD_SHA^{tree}" > "$EVIDENCE_DIR/pre-head-tree.txt"
+            git rev-parse "$ACTUAL_OLD_MAIN_SHA^{tree}" > "$EVIDENCE_DIR/pre-main-tree.txt"
+            printf '%s -> %s\n' "$EXPECTED_OLD_LOCAL_MAIN_SHA" "$EXPECTED_NEW_LOCAL_MAIN_SHA" > "$EVIDENCE_DIR/repair-plan.txt"
+
+            git update-ref -m "repair production main after detached deployment rollback" refs/heads/main "$EXPECTED_NEW_LOCAL_MAIN_SHA" "$EXPECTED_OLD_LOCAL_MAIN_SHA"
+            test "$(git rev-parse refs/heads/main)" = "$EXPECTED_NEW_LOCAL_MAIN_SHA"
+            git symbolic-ref HEAD refs/heads/main
+
+            POST_HEAD_SHA="$(git rev-parse HEAD)"
+            POST_BRANCH="$(git branch --show-current)"
+            POST_MAIN_SHA="$(git rev-parse refs/heads/main)"
+            POST_TREE="$(git rev-parse HEAD^{tree})"
+            test "$POST_HEAD_SHA" = "$EXPECTED_NEW_LOCAL_MAIN_SHA"
+            test "$POST_BRANCH" = main
+            test "$POST_MAIN_SHA" = "$EXPECTED_NEW_LOCAL_MAIN_SHA"
+            test "$POST_TREE" = "$EXPECTED_HEAD_TREE"
+            test -z "$(git status --porcelain --untracked-files=all)"
+            printf '%s\n' "$POST_HEAD_SHA" > "$EVIDENCE_DIR/post-head.txt"
+            printf '%s\n' "$POST_BRANCH" > "$EVIDENCE_DIR/post-branch.txt"
+            printf '%s\n' "$POST_MAIN_SHA" > "$EVIDENCE_DIR/post-main-ref.txt"
+            printf '%s\n' "$ACTUAL_ORIGIN_MAIN_SHA" > "$EVIDENCE_DIR/post-origin-main-ref.txt"
+            printf '%s\n' "$POST_TREE" > "$EVIDENCE_DIR/post-head-tree.txt"
+            git status --porcelain --untracked-files=all > "$EVIDENCE_DIR/post-worktree.txt"
+            printf 'PRODUCTION_GIT_STATE_CAS_REPAIR=SUCCESS\n' > "$EVIDENCE_DIR/repair-result.txt"
+            echo 'PRODUCTION_GIT_STATE_CAS_REPAIR=SUCCESS'
