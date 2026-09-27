@@ -57,7 +57,12 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
           REPAIR_WORKFLOW_SHA: ${{ github.sha }}
           EXECUTION_RUN_ID: ${{ github.run_id }}
-          GHCR_USER: ${{ github.repository_owner }}
+          EXPECTED_HEAD_SHA: ${{ env.EXPECTED_HEAD_SHA }}
+          EXPECTED_OLD_LOCAL_MAIN_SHA: ${{ env.EXPECTED_OLD_LOCAL_MAIN_SHA }}
+          EXPECTED_NEW_LOCAL_MAIN_SHA: ${{ env.EXPECTED_NEW_LOCAL_MAIN_SHA }}
+          EXPECTED_HEAD_TREE: ${{ env.EXPECTED_HEAD_TREE }}
+          EXPECTED_OLD_LOCAL_MAIN_TREE: ${{ env.EXPECTED_OLD_LOCAL_MAIN_TREE }}
+          SOURCE_BRANCH_STATE_AUDIT_RUN: ${{ env.SOURCE_BRANCH_STATE_AUDIT_RUN }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -67,7 +72,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,REPAIR_WORKFLOW_SHA,EXECUTION_RUN_ID,GHCR_USER
+          envs: DEPLOY_PATH,REPAIR_WORKFLOW_SHA,EXECUTION_RUN_ID,EXPECTED_HEAD_SHA,EXPECTED_OLD_LOCAL_MAIN_SHA,EXPECTED_NEW_LOCAL_MAIN_SHA,EXPECTED_HEAD_TREE,EXPECTED_OLD_LOCAL_MAIN_TREE,SOURCE_BRANCH_STATE_AUDIT_RUN
           timeout: 30s
           proxy_timeout: 30s
           command_timeout: 2m

@@ -22,6 +22,49 @@ function remoteScript(source) {
     .map((line) => line.slice(12)).join('\n');
 }
 
+const authority = {
+  EXPECTED_HEAD_SHA: '129fdb85c81ab0c201044daf021caf778b37b40b',
+  EXPECTED_OLD_LOCAL_MAIN_SHA: 'fb70fbad9a163d9e3cbb02a76506766babe89db2',
+  EXPECTED_NEW_LOCAL_MAIN_SHA: '129fdb85c81ab0c201044daf021caf778b37b40b',
+  EXPECTED_HEAD_TREE: '86738ebce37021d8ece4d40b995051245e197450',
+  EXPECTED_OLD_LOCAL_MAIN_TREE: 'c7455cd4ab361fcdf35d4f0ba4e2b8b6929d0806',
+  SOURCE_BRANCH_STATE_AUDIT_RUN: '36277000839',
+};
+
+function assertRemoteEnvironmentClosed(source) {
+  const script = remoteScript(source);
+  const transported = new Set(source.match(/^\s+envs: ([^\n]+)$/m)[1].split(',').map((v) => v.trim()));
+  const assigned = new Set([...script.matchAll(/(?:^|[;\s])([A-Z][A-Z0-9_]*)=/gm)].map((m) => m[1]));
+  const referenced = new Set([...script.matchAll(/\$(?:\{([A-Z][A-Z0-9_]*)(?=[}:?\-+%#/])|([A-Z][A-Z0-9_]*))/g)].map((m) => m[1] || m[2]));
+  // No implicit runner environment is available over SSH. Authority must always
+  // be transported, even if someone later adds a local default assignment.
+  for (const name of new Set([...referenced].filter((v) => !assigned.has(v)).concat(Object.keys(authority)))) {
+    assert.ok(transported.has(name), `${name} must be transported`);
+  }
+  const sshEnv = source.split('      - name: Execute one-time')[1].split('        with:')[0];
+  for (const name of transported) assert.match(sshEnv, new RegExp(`^          ${name}: .+$`, 'm'));
+}
+
+test('REMOTE_ENV_CLOSURE=PASS; REMOTE_REPAIR_ENVIRONMENT_COMPLETE=YES', () => {
+  assertRemoteEnvironmentClosed(repairWorkflow);
+  const inputs = repairWorkflow.split('permissions:')[0];
+  for (const [name, value] of Object.entries(authority)) {
+    assert.match(repairWorkflow, new RegExp(`^      ${name}: ${value}$`, 'm'));
+    assert.ok(repairWorkflow.includes(`${name}: \u0024{{ env.${name} }}`));
+    assert.doesNotMatch(inputs, new RegExp(name, 'i'));
+  }
+  assert.doesNotMatch(repairWorkflow, /GHCR_USER/);
+});
+
+test('closure rejects every missing authority transmission and new external dependency', () => {
+  for (const name of Object.keys(authority)) {
+    const broken = repairWorkflow.replace(/^(\s+envs: )([^\n]+)$/m, (_, prefix, names) =>
+      prefix + names.split(',').filter((v) => v !== name).join(','));
+    assert.throws(() => assertRemoteEnvironmentClosed(broken), new RegExp(name));
+  }
+  assert.throws(() => assertRemoteEnvironmentClosed(repairWorkflow + '\n            echo "$EXPECTED_FUTURE_GATE"\n'), /EXPECTED_FUTURE_GATE/);
+});
+
 test('repair workflow is manual, main-only, serial, and explicitly bound', () => {
   assert.match(repairWorkflow, /on:\s*\n\s+workflow_dispatch:/);
   assert.doesNotMatch(repairWorkflow, /\n\s+(push|pull_request|schedule|workflow_run|workflow_call):/);
