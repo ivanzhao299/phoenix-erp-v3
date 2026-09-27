@@ -21,7 +21,13 @@ test('pre-execution requires the exact four pending migrations', () => {
 test('pre-execution blocks pre-existing pending, already-applied, unknown, and image mismatch states', () => {
   const pending = [...manifest.map((entry) => entry.name), 'OldPending1780000000000'];
   assert.equal(evaluatePhase1PreExecution({ preflight, pending, manifest, candidateInventory: inventory }).pass, false);
-  assert.throws(() => validateCandidateInventory(manifest, inventory, { imageId: 'sha256:' + 'a'.repeat(64), executionImageId: 'sha256:' + 'b'.repeat(64) }), /CANDIDATE_IMAGE_MISMATCH/);
+  assert.throws(() => validateCandidateInventory(manifest, inventory, { imageDigest: 'sha256:' + 'a'.repeat(64), executionImageDigest: 'sha256:' + 'b'.repeat(64) }), /CANDIDATE_IMAGE_DIGEST_MISMATCH/);
+});
+
+test('registry digest remains authoritative when local image IDs differ', () => {
+  const digest = 'sha256:' + 'c'.repeat(64);
+  assert.doesNotThrow(() => validateCandidateInventory(manifest, inventory, { imageDigest: digest, executionImageDigest: digest }));
+  assert.throws(() => validateCandidateInventory(manifest, inventory, { imageDigest: digest, executionImageDigest: 'sha256:' + 'd'.repeat(64) }), /CANDIDATE_IMAGE_DIGEST_MISMATCH/);
 });
 
 test('post-migration requires no pending and all four applied', () => {

@@ -74,6 +74,12 @@ test('candidate inventory preserves stdin and emits parseable JSON', (t) => {
   }
 });
 
+test('candidate inventory helper accepts digest-pinned image references', () => {
+  const script = fs.readFileSync('scripts/ci/candidate-typeorm-inventory.sh', 'utf8');
+  assert.match(script, /docker run --rm -i [^\n]*\"\$IMAGE\"/);
+  assert.match('ghcr.io/example/api@sha256:' + 'a'.repeat(64), /@sha256:[0-9a-f]{64}$/);
+});
+
 test('candidate inventory validation blocks empty and invalid JSON', () => {
   assert.throws(() => validateInventory(''), /CANDIDATE_TYPEORM_INVENTORY_EMPTY/);
   assert.throws(() => validateInventory('not-json'), /CANDIDATE_TYPEORM_INVENTORY_INVALID/);

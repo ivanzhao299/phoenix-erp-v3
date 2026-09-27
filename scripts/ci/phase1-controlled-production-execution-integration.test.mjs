@@ -21,8 +21,8 @@ test('controlled workflow is manual-only, serial, and production-bound', () => {
   assert.match(workflow, /expected_target_sha:/);
   assert.doesNotMatch(workflow, /expected_production_sha:/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
-  assert.match(workflow, /api:sha-\$\{\{ github\.sha \}\}/);
-  assert.match(workflow, /web:sha-\$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /api:sha-\$\{TARGET_SHA\}/);
+  assert.match(workflow, /web:sha-\$\{TARGET_SHA\}/);
 });
 
 test('remote transport layout, run identity, auth, and SSH parity are explicit', () => {
@@ -45,7 +45,11 @@ test('remote transport layout, run identity, auth, and SSH parity are explicit',
   assert.match(wrapper, /docker compose run --no-deps -d --name "\$PROBE_NAME" api/);
   assert.match(wrapper, /DB_CHANGED_APPLICATION_NOT_SWITCHED/);
   assert.match(wrapper, /DB_CHANGED_APPLICATION_SWITCH_FAILED/);
-  assert.doesNotMatch(wrapper, /PREV_API_IMAGE_ID|PREV_WEB_IMAGE_ID/);
+  assert.doesNotMatch(wrapper, /PREV_API_IMAGE_ID|PREV_WEB_IMAGE_ID|API_IMAGE_ID|WEB_IMAGE_ID/);
+  assert.match(wrapper, /api-image-digest\.txt/);
+  assert.match(wrapper, /web-image-digest\.txt/);
+  assert.match(wrapper, /imageDigest/);
+  assert.match(wrapper, /executionImageDigest/);
   assert.match(workflow, /git merge --ff-only "\$TARGET_SHA"/);
   assert.match(workflow, /PRODUCTION_BRANCH=.*git branch --show-current/);
   assert.match(workflow, /PRODUCTION_BRANCH_NOT_MAIN/);
@@ -56,6 +60,31 @@ test('remote transport layout, run identity, auth, and SSH parity are explicit',
   assert.doesNotMatch(workflow, /printf ['"]%s\n['"] \"\$ORIGIN_URL/);
   assert.match(workflow, /git rev-parse refs\/heads\/main/);
   assert.match(workflow, /production-final-sha\.txt/);
+  assert.match(workflow, /API_IMAGE_DIGEST/);
+  assert.match(workflow, /WEB_IMAGE_DIGEST/);
+  assert.match(workflow, /API_IMAGE_REF/);
+  assert.match(workflow, /WEB_IMAGE_REF/);
+  assert.match(workflow, /RepoDigests/);
+  assert.doesNotMatch(workflow, /API_IMAGE_ID|WEB_IMAGE_ID|ACTUAL_API_IMAGE_ID|ACTUAL_WEB_IMAGE_ID/);
+  assert.doesNotMatch(workflow, /format '{{\.Id}}'/);
+  assert.match(workflow, /API_IMAGE_REF/);
+  assert.match(workflow, /WEB_IMAGE_REF/);
+});
+
+test('registry digest resolver produces a portable release identity', () => {
+  const start = workflow.indexOf('          resolve_repo_digest() {');
+  const end = workflow.indexOf('\n          API_IMAGE_DIGEST=', start);
+  assert.ok(start >= 0 && end > start, 'registry digest resolver must be present');
+  const resolver = workflow.slice(start, end).split('\n').map((line) => line.slice(10)).join('\n');
+  const fakeDockerDir = fs.mkdtempSync('/tmp/phase1-docker-');
+  fs.writeFileSync(`${fakeDockerDir}/docker`, '#!/bin/sh\nprintf "%s\\n" "ghcr.io/ivanzhao299/phoenix-erp-v3/api@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"\n');
+  fs.chmodSync(`${fakeDockerDir}/docker`, 0o755);
+  const result = spawnSync('bash', ['-c', `${resolver}\nresolve_repo_digest "$1"`, 'digest-resolver', 'ghcr.io/ivanzhao299/phoenix-erp-v3/api:sha-target'], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${fakeDockerDir}:${process.env.PATH}` }
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), `sha256:${'c'.repeat(64)}`);
 });
 
 test('production origin gate normalizes identity and rejects impostors', () => {
