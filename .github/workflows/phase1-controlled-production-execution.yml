@@ -128,10 +128,22 @@ jobs:
             PRODUCTION_BRANCH="$(git branch --show-current)"
             test "$PRODUCTION_BRANCH" = main || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_BRANCH_NOT_MAIN'; exit 22; }
             ORIGIN_URL="$(git remote get-url origin)"
-            case "$ORIGIN_URL" in
-              git@github.com:ivanzhao299/phoenix-erp-v3.git|https://github.com/ivanzhao299/phoenix-erp-v3.git) ;;
-              *) echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_REMOTE_MISMATCH'; exit 23 ;;
-            esac
+            origin_matches_release_repository() {
+              case "${1:-}" in
+                git@github.com:ivanzhao299/phoenix-erp-v3.git|\
+                git@github.com:ivanzhao299/phoenix-erp-v3|\
+                https://github.com/ivanzhao299/phoenix-erp-v3.git|\
+                https://github.com/ivanzhao299/phoenix-erp-v3|\
+                ssh://git@github.com/ivanzhao299/phoenix-erp-v3.git|\
+                ssh://git@github.com/ivanzhao299/phoenix-erp-v3)
+                  return 0
+                  ;;
+                *)
+                  return 1
+                  ;;
+              esac
+            }
+            origin_matches_release_repository "$ORIGIN_URL" || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_REMOTE_MISMATCH'; exit 23; }
             test -z "$(git status --porcelain --untracked-files=all)" || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_WORKTREE_DIRTY'; exit 21; }
             set +x
             printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
