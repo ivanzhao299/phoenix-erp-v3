@@ -2,7 +2,7 @@
 set -euo pipefail
 
 IMAGE="${1:?candidate API image is required}"
-docker run --rm --network none --entrypoint node "$IMAGE" - <<'NODE'
+docker run --rm -i --network none --entrypoint node "$IMAGE" - <<'NODE'
 const fs = require('node:fs');
 const path = require('node:path');
 const dir = '/app/dist/database/migrations';
