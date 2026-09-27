@@ -51,41 +51,56 @@ test('remote transport layout, run identity, auth, and SSH parity are explicit',
   assert.match(workflow, /PRODUCTION_BRANCH_NOT_MAIN/);
   assert.match(workflow, /PRODUCTION_REMOTE_MISMATCH/);
   assert.match(workflow, /production-branch\.txt/);
-  assert.match(workflow, /production-origin\.txt/);
+  assert.match(workflow, /production-origin-fingerprint\.txt/);
+  assert.doesNotMatch(workflow, /production-origin\.txt/);
+  assert.doesNotMatch(workflow, /printf ['"]%s\n['"] \"\$ORIGIN_URL/);
   assert.match(workflow, /git rev-parse refs\/heads\/main/);
   assert.match(workflow, /production-final-sha\.txt/);
 });
 
-test('production origin gate accepts verified repository URL forms and rejects impostors', () => {
-  const start = workflow.indexOf('            origin_matches_release_repository() {');
-  const end = workflow.indexOf('\n            origin_matches_release_repository "$ORIGIN_URL"', start);
-  assert.ok(start >= 0 && end > start, 'origin matcher function must be present in the workflow');
-  const matcher = workflow.slice(start, end).split('\n').map((line) => line.slice(12)).join('\n');
+test('production origin gate normalizes identity and rejects impostors', () => {
+  const start = workflow.indexOf('            fingerprint_remote() {');
+  const end = workflow.indexOf('\n            ORIGIN_URL="$(git config --get remote.origin.url || true)"', start);
+  assert.ok(start >= 0 && end > start, 'fingerprint parser must be present in the workflow');
+  const parser = workflow.slice(start, end).split('\n').map((line) => line.slice(12)).join('\n');
+  const fakeSshDir = fs.mkdtempSync('/tmp/phase1-origin-ssh-');
+  fs.writeFileSync(`${fakeSshDir}/ssh`, '#!/bin/sh\nprintf "%s\\n" "hostname github.com"\n');
+  fs.chmodSync(`${fakeSshDir}/ssh`, 0o755);
+  const run = (url, useAlias = false) => {
+    const script = `${parser}\nfingerprint_remote "$1"\nprintf '%s|%s|%s|%s\\n' "$ORIGIN_URL_TYPE" "$ORIGIN_HOST_CLASS" "$ORIGIN_REPOSITORY" "$ORIGIN_ALIAS_GITHUB"`;
+    return spawnSync('bash', ['-c', script, 'origin-fingerprint', url], {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: useAlias ? `${fakeSshDir}:${process.env.PATH}` : process.env.PATH }
+    });
+  };
   const accepted = [
-    'git@github.com:ivanzhao299/phoenix-erp-v3.git',
-    'git@github.com:ivanzhao299/phoenix-erp-v3',
-    'https://github.com/ivanzhao299/phoenix-erp-v3.git',
-    'https://github.com/ivanzhao299/phoenix-erp-v3',
-    'ssh://git@github.com/ivanzhao299/phoenix-erp-v3.git',
-    'ssh://git@github.com/ivanzhao299/phoenix-erp-v3'
+    ['git@github.com:ivanzhao299/phoenix-erp-v3.git', false, 'scp_ssh|github.com|ivanzhao299/phoenix-erp-v3|false'],
+    ['git@github.com:ivanzhao299/phoenix-erp-v3', false, 'scp_ssh|github.com|ivanzhao299/phoenix-erp-v3|false'],
+    ['https://github.com/ivanzhao299/phoenix-erp-v3.git', false, 'https_url|github.com|ivanzhao299/phoenix-erp-v3|false'],
+    ['https://github.com/ivanzhao299/phoenix-erp-v3', false, 'https_url|github.com|ivanzhao299/phoenix-erp-v3|false'],
+    ['https://deploy-user@github.com/ivanzhao299/phoenix-erp-v3', false, 'https_url|github.com|ivanzhao299/phoenix-erp-v3|false'],
+    ['https://deploy-user@github.com/ivanzhao299/phoenix-erp-v3.git', false, 'https_url|github.com|ivanzhao299/phoenix-erp-v3|false'],
+    ['https://deploy-user:placeholder@github.com:443/ivanzhao299/phoenix-erp-v3', false, 'https_url|github.com|ivanzhao299/phoenix-erp-v3|false'],
+    ['ssh://git@github.com/ivanzhao299/phoenix-erp-v3', false, 'ssh_url|github.com|ivanzhao299/phoenix-erp-v3|false'],
+    ['ssh://git@github-alias/ivanzhao299/phoenix-erp-v3', true, 'ssh_url|github_alias|ivanzhao299/phoenix-erp-v3|true']
   ];
+  for (const [url, alias, expected] of accepted) {
+    const result = run(url, alias);
+    assert.equal(result.status, 0, `${url}: ${result.stderr}`);
+    assert.equal(result.stdout.trim(), expected, `${url} must normalize to the release identity`);
+  }
   const rejected = [
     'git@github.com:emvia/phoenix-erp-final.git',
     'https://github.com/ivanzhao299/other-repo.git',
     'https://github.com.evil.example/ivanzhao299/phoenix-erp-v3',
-    '/srv/phoenix-erp-v3'
+    'https://evil.example/ivanzhao299/phoenix-erp-v3',
+    '/srv/phoenix-erp-v3',
+    'not-a-remote',
+    ''
   ];
-  for (const url of accepted) {
-    const result = spawnSync('bash', ['-c', `${matcher}\norigin_matches_release_repository "$1"`, 'origin-gate', url], {
-      encoding: 'utf8'
-    });
-    assert.equal(result.status, 0, `${url}: ${result.stderr}`);
-  }
   for (const url of rejected) {
-    const result = spawnSync('bash', ['-c', `${matcher}\norigin_matches_release_repository "$1"`, 'origin-gate', url], {
-      encoding: 'utf8'
-    });
-    assert.notEqual(result.status, 0, `${url} must be rejected`);
+    const result = spawnSync('bash', ['-c', `${parser}\nfingerprint_remote "$1"\n[ "$ORIGIN_REPOSITORY" = "ivanzhao299/phoenix-erp-v3" ] && { [ "$ORIGIN_HOST_CLASS" = github.com ] || [ "$ORIGIN_HOST_CLASS" = github_alias ]; }`, 'origin-fingerprint', url], { encoding: 'utf8' });
+    assert.notEqual(result.status, 0, `${url || '<empty>'} must fail the normalized identity gate`);
   }
 });
 
