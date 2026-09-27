@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { shouldBlockGenericDeploy } from './phase1-generic-deploy-guard.mjs';
 import { loadPhase1Manifest } from './phase1-production-execution-gate.mjs';
 import { compareInvariantEvidence } from './phase1-production-invariants.mjs';
@@ -53,6 +54,39 @@ test('remote transport layout, run identity, auth, and SSH parity are explicit',
   assert.match(workflow, /production-origin\.txt/);
   assert.match(workflow, /git rev-parse refs\/heads\/main/);
   assert.match(workflow, /production-final-sha\.txt/);
+});
+
+test('production origin gate accepts verified repository URL forms and rejects impostors', () => {
+  const start = workflow.indexOf('            origin_matches_release_repository() {');
+  const end = workflow.indexOf('\n            origin_matches_release_repository "$ORIGIN_URL"', start);
+  assert.ok(start >= 0 && end > start, 'origin matcher function must be present in the workflow');
+  const matcher = workflow.slice(start, end).split('\n').map((line) => line.slice(12)).join('\n');
+  const accepted = [
+    'git@github.com:ivanzhao299/phoenix-erp-v3.git',
+    'git@github.com:ivanzhao299/phoenix-erp-v3',
+    'https://github.com/ivanzhao299/phoenix-erp-v3.git',
+    'https://github.com/ivanzhao299/phoenix-erp-v3',
+    'ssh://git@github.com/ivanzhao299/phoenix-erp-v3.git',
+    'ssh://git@github.com/ivanzhao299/phoenix-erp-v3'
+  ];
+  const rejected = [
+    'git@github.com:emvia/phoenix-erp-final.git',
+    'https://github.com/ivanzhao299/other-repo.git',
+    'https://github.com.evil.example/ivanzhao299/phoenix-erp-v3',
+    '/srv/phoenix-erp-v3'
+  ];
+  for (const url of accepted) {
+    const result = spawnSync('bash', ['-c', `${matcher}\norigin_matches_release_repository "$1"`, 'origin-gate', url], {
+      encoding: 'utf8'
+    });
+    assert.equal(result.status, 0, `${url}: ${result.stderr}`);
+  }
+  for (const url of rejected) {
+    const result = spawnSync('bash', ['-c', `${matcher}\norigin_matches_release_repository "$1"`, 'origin-gate', url], {
+      encoding: 'utf8'
+    });
+    assert.notEqual(result.status, 0, `${url} must be rejected`);
+  }
 });
 
 test('invariants validate exact schema and real data evidence', () => {
