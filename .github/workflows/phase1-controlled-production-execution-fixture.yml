@@ -14,6 +14,7 @@ on:
       - 'scripts/deploy-schema-first.sh'
       - '.github/workflows/phase1-controlled-production-execution.yml'
       - 'scripts/ci/phase1-controlled-production-execution-integration.test.mjs'
+      - 'scripts/ci/phase1-production-invariants.mjs'
       - '.github/workflows/phase1-controlled-production-execution-fixture.yml'
   workflow_dispatch:
 
@@ -55,6 +56,29 @@ jobs:
           PGPASSWORD: phoenix_v3
           PGDATABASE: phoenix_v3
         run: bash scripts/ci/run-phase1-schema-remediation-fixture.sh
+      - name: Execute Phase 1 production invariant SQL on PG16.14
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: phoenix_v3
+          PGPASSWORD: phoenix_v3
+          PGDATABASE: phoenix_v3
+        run: |
+          set -euo pipefail
+          node scripts/ci/phase1-production-invariants.mjs \
+            --capture \
+            --output /tmp/phase1-invariant-evidence.json
+          test -s /tmp/phase1-invariant-evidence.json
+          node -e '
+            const fs = require("fs");
+            const evidence = JSON.parse(
+              fs.readFileSync("/tmp/phase1-invariant-evidence.json", "utf8")
+            );
+            if (!evidence || typeof evidence !== "object") {
+              throw new Error("INVALID_PHASE1_INVARIANT_EVIDENCE");
+            }
+          '
+          echo 'PHASE1_INVARIANT_SQL_EXECUTION=PASS'
       - name: Run PG16.14 controlled rehearsal
         env:
           PGHOST: 127.0.0.1

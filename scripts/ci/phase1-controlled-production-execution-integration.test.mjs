@@ -7,6 +7,7 @@ import { loadPhase1Manifest } from './phase1-production-execution-gate.mjs';
 import { compareInvariantEvidence } from './phase1-production-invariants.mjs';
 
 const workflow = fs.readFileSync('.github/workflows/phase1-controlled-production-execution.yml', 'utf8');
+const fixtureWorkflow = fs.readFileSync('.github/workflows/phase1-controlled-production-execution-fixture.yml', 'utf8');
 const wrapper = fs.readFileSync('scripts/phase1-controlled-production-execution.sh', 'utf8');
 const deploy = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
 const invariants = fs.readFileSync('scripts/ci/phase1-production-invariants.mjs', 'utf8');
@@ -69,6 +70,12 @@ test('remote transport layout, run identity, auth, and SSH parity are explicit',
   assert.doesNotMatch(workflow, /format '{{\.Id}}'/);
   assert.match(workflow, /API_IMAGE_REF/);
   assert.match(workflow, /WEB_IMAGE_REF/);
+});
+
+test('PG16.14 fixture executes the production invariant capture SQL', () => {
+  assert.match(fixtureWorkflow, /scripts\/ci\/phase1-production-invariants\.mjs/);
+  assert.match(fixtureWorkflow, /PHASE1_INVARIANT_SQL_EXECUTION=PASS/);
+  assert.match(fixtureWorkflow, /postgres:16\.14-alpine/);
 });
 
 test('registry digest resolver produces a portable release identity', () => {
