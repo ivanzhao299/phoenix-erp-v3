@@ -127,23 +127,126 @@ jobs:
             test "$PRODUCTION_SHA" = "$EXPECTED_PRODUCTION_SHA" || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_SHA_CHANGED'; exit 20; }
             PRODUCTION_BRANCH="$(git branch --show-current)"
             test "$PRODUCTION_BRANCH" = main || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_BRANCH_NOT_MAIN'; exit 22; }
-            ORIGIN_URL="$(git remote get-url origin)"
-            origin_matches_release_repository() {
-              case "${1:-}" in
-                git@github.com:ivanzhao299/phoenix-erp-v3.git|\
-                git@github.com:ivanzhao299/phoenix-erp-v3|\
-                https://github.com/ivanzhao299/phoenix-erp-v3.git|\
-                https://github.com/ivanzhao299/phoenix-erp-v3|\
-                ssh://git@github.com/ivanzhao299/phoenix-erp-v3.git|\
-                ssh://git@github.com/ivanzhao299/phoenix-erp-v3)
-                  return 0
+            # Normalize origin identity using the same fingerprint semantics as the production Git audit.
+            fingerprint_remote() {
+              raw="$1"
+              url_type=unknown
+              host_class=unknown
+              alias_github=false
+              repository=UNKNOWN_REMOTE_FORMAT
+              remote_host=
+              remote_path=
+              case "$raw" in
+                ssh://*)
+                  url_type=ssh_url
+                  authority_path="${raw#ssh://}"
+                  authority="${authority_path%%/*}"
+                  remote_path="${authority_path#*/}"
+                  remote_host="${authority##*@}"
+                  remote_host="${remote_host%%:*}"
                   ;;
-                *)
-                  return 1
+                https://*)
+                  url_type=https_url
+                  authority_path="${raw#https://}"
+                  authority="${authority_path%%/*}"
+                  remote_path="${authority_path#*/}"
+                  remote_host="${authority##*@}"
+                  remote_host="${remote_host%%:*}"
+                  ;;
+                http://*)
+                  url_type=http_url
+                  authority_path="${raw#http://}"
+                  authority="${authority_path%%/*}"
+                  remote_path="${authority_path#*/}"
+                  remote_host="${authority##*@}"
+                  remote_host="${remote_host%%:*}"
+                  ;;
+                git://*)
+                  url_type=git_url
+                  authority_path="${raw#git://}"
+                  authority="${authority_path%%/*}"
+                  remote_path="${authority_path#*/}"
+                  remote_host="${authority##*@}"
+                  remote_host="${remote_host%%:*}"
+                  ;;
+                git@*:*|*@*:*|[A-Za-z0-9._-]*:*)
+                  url_type=scp_ssh
+                  remote_host="${raw%%:*}"
+                  remote_host="${remote_host##*@}"
+                  remote_path="${raw#*:}"
+                  ;;
+                file://*) url_type=file_url ;;
+                /*|./*|../*|~/*) url_type=local_path ;;
+              esac
+              case "$raw" in
+                file://*|/*|./*|../*|~/*)
+                  ORIGIN_URL_TYPE="$url_type"
+                  ORIGIN_HOST_CLASS=none
+                  ORIGIN_ALIAS_GITHUB=false
+                  ORIGIN_REPOSITORY=NON_GITHUB_REMOTE
+                  return
                   ;;
               esac
+              if [ "$remote_host" = github.com ]; then
+                host_class=github.com
+              elif [ "$url_type" = scp_ssh ] || [ "$url_type" = ssh_url ]; then
+                if command -v ssh >/dev/null 2>&1; then
+                  resolved_host="$(ssh -G "$remote_host" 2>/dev/null | awk 'tolower($1)=="hostname" {print $2; exit}')"
+                else
+                  resolved_host=
+                fi
+                if [ "$resolved_host" = github.com ]; then
+                  host_class=github_alias
+                  alias_github=true
+                else
+                  host_class=other_host
+                fi
+              elif [ -n "$remote_host" ]; then
+                host_class=other_host
+              else
+                host_class=none
+              fi
+              case "$remote_path" in
+                ""|/*|*/|*//*|*\?*|*\#*|*/*/*|*..*|*[!A-Za-z0-9._/-]*) repository=UNKNOWN_REMOTE_FORMAT ;;
+                *)
+                  repository="${remote_path%.git}"
+                  case "$repository" in */*) ;; *) repository=UNKNOWN_REMOTE_FORMAT ;; esac
+                  ;;
+              esac
+              ORIGIN_URL_TYPE="$url_type"
+              ORIGIN_HOST_CLASS="$host_class"
+              ORIGIN_ALIAS_GITHUB="$alias_github"
+              if [ "$host_class" = github.com ] || [ "$host_class" = github_alias ]; then
+                ORIGIN_REPOSITORY="$repository"
+              elif [ "$host_class" = other_host ]; then
+                ORIGIN_REPOSITORY=NON_GITHUB_REMOTE
+              else
+                ORIGIN_REPOSITORY=UNKNOWN_REMOTE_FORMAT
+              fi
             }
-            origin_matches_release_repository "$ORIGIN_URL" || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_REMOTE_MISMATCH'; exit 23; }
+            ORIGIN_URL="$(git config --get remote.origin.url || true)"
+            if [ -n "$ORIGIN_URL" ]; then
+              ORIGIN_PRESENT=true
+              fingerprint_remote "$ORIGIN_URL"
+            else
+              ORIGIN_PRESENT=false
+              ORIGIN_URL_TYPE=unknown
+              ORIGIN_HOST_CLASS=none
+              ORIGIN_ALIAS_GITHUB=false
+              ORIGIN_REPOSITORY=UNKNOWN_REMOTE_FORMAT
+            fi
+            [ "$ORIGIN_REPOSITORY" = "ivanzhao299/phoenix-erp-v3" ] && ORIGIN_MATCH=true || ORIGIN_MATCH=false
+            ORIGIN_MATCHES_RELEASE_REPOSITORY="$ORIGIN_MATCH"
+            echo "ORIGIN_PRESENT=$ORIGIN_PRESENT"
+            echo "ORIGIN_URL_TYPE=$ORIGIN_URL_TYPE"
+            echo "ORIGIN_HOST_CLASS=$ORIGIN_HOST_CLASS"
+            echo "ORIGIN_REPOSITORY=$ORIGIN_REPOSITORY"
+            echo "ORIGIN_MATCH=$ORIGIN_MATCH"
+            echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=$ORIGIN_MATCHES_RELEASE_REPOSITORY"
+            if [ "$ORIGIN_MATCH" != true ] || { [ "$ORIGIN_HOST_CLASS" != github.com ] && [ "$ORIGIN_HOST_CLASS" != github_alias ]; }; then
+              echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_REMOTE_MISMATCH'
+              exit 23
+            fi
             test -z "$(git status --porcelain --untracked-files=all)" || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_WORKTREE_DIRTY'; exit 21; }
             set +x
             printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
@@ -160,7 +263,12 @@ jobs:
             EVIDENCE_DIR="/opt/phoenix-erp-backups/phase1-controlled-${RUN_ID}"
             mkdir -p "$EVIDENCE_DIR"; chmod 700 "$EVIDENCE_DIR"
             printf '%s\n' "$PRODUCTION_BRANCH" > "$EVIDENCE_DIR/production-branch.txt"
-            printf '%s\n' "$ORIGIN_URL" > "$EVIDENCE_DIR/production-origin.txt"
+            cat > "$EVIDENCE_DIR/production-origin-fingerprint.txt" <<EOF
+            ORIGIN_URL_TYPE=$ORIGIN_URL_TYPE
+            ORIGIN_HOST_CLASS=$ORIGIN_HOST_CLASS
+            ORIGIN_REPOSITORY=$ORIGIN_REPOSITORY
+            ORIGIN_MATCH=$ORIGIN_MATCH
+            EOF
             printf '%s' "$INVENTORY_B64" | base64 -d > "$ROOT_DIR/inventory.json"
             printf '%s' "$MANIFEST_B64" | base64 -d > "$ROOT_DIR/manifest.json"
             mkdir -p "$ROOT_DIR/scripts/ci"
