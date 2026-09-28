@@ -485,8 +485,26 @@ export class FarmService {
     const ebScope = dailyLogScopeWhere(scope, params); // 历史日报 scope 为空时按鸡舍归属兜底
     if (ebScope) where.push(ebScope);
 
-    const rows: Array<{ eggs_by_grade: any; eggs_produced: number | string | null }> = await this.entityManager.query(
-      `SELECT dl.eggs_by_grade, dl.eggs_produced
+    const rows: Array<{
+      house_code: string;
+      eggs_by_grade: any;
+      eggs_produced: number | string | null;
+      inbound_by_grade: any;
+    }> = await this.entityManager.query(
+      `SELECT dl.house_code, dl.eggs_by_grade, dl.eggs_produced,
+              COALESCE((
+                SELECT jsonb_object_agg(inbound.grade_code, inbound.qty)
+                FROM (
+                  SELECT COALESCE(ib.grade_code_std, ib.quality_grade) AS grade_code,
+                         SUM(ib.qty)::numeric AS qty
+                  FROM inv_batches ib
+                  WHERE ib.source_type = 'TEMP_PRODUCTION'
+                    AND ib.egg_date = dl.log_date
+                    AND (ib.collection_batch_ref = 'HOUSE-' || dl.house_code
+                         OR ib.source_no = 'TEMP-' || dl.log_date::text || '-' || dl.house_code)
+                  GROUP BY COALESCE(ib.grade_code_std, ib.quality_grade)
+                ) inbound
+              ), '{}'::jsonb) AS inbound_by_grade
        FROM brd_daily_logs dl
        LEFT JOIN brd_houses h ON h.house_code = dl.house_code
        LEFT JOIN brd_farms hf ON hf.farm_code = h.farm_code AND hf.status = 'ACTIVE'
@@ -499,6 +517,7 @@ export class FarmService {
     );
     let missingBreakdownLogs = 0;
     let reportedEggs = 0;
+    const alreadyInboundByHouse = new Map<string, Record<string, number>>();
     for (const r of rows) {
       const eggs = Math.max(0, Number(r.eggs_produced) || 0);
       reportedEggs += eggs;
@@ -515,6 +534,28 @@ export class FarmService {
       for (const [grade, qty] of Object.entries(ebg as Record<string, unknown>)) {
         const n = Math.max(0, Number(qty) || 0);
         aggregated[grade] = (aggregated[grade] || 0) + n;
+      }
+
+      // A production inbound batch is the durable marker that a reported quantity
+      // has already been posted to sales inventory. Capture it once per house even
+      // when the daily report contains multiple shifts.
+      if (!alreadyInboundByHouse.has(r.house_code)) {
+        let inbound: unknown = r.inbound_by_grade;
+        if (typeof inbound === 'string') {
+          try { inbound = JSON.parse(inbound); } catch { inbound = null; }
+        }
+        const byGrade: Record<string, number> = {};
+        if (inbound && typeof inbound === 'object') {
+          for (const [grade, qty] of Object.entries(inbound as Record<string, unknown>)) {
+            byGrade[grade] = Math.max(0, Number(qty) || 0);
+          }
+        }
+        alreadyInboundByHouse.set(r.house_code, byGrade);
+      }
+    }
+    for (const byGrade of alreadyInboundByHouse.values()) {
+      for (const [grade, qty] of Object.entries(byGrade)) {
+        aggregated[grade] = Math.max(0, (aggregated[grade] || 0) - qty);
       }
     }
     const total = Object.values(aggregated).reduce((s, n) => s + n, 0);

@@ -217,6 +217,33 @@ describe('FarmService', () => {
     });
   });
 
+  it('subtracts quantities already posted by daily egg inbound', async () => {
+    const { entityManager, svc } = buildSvc();
+    entityManager.query
+      .mockResolvedValueOnce([{ grade_code: 'GRADE_1' }, { grade_code: 'GRADE_2' }])
+      .mockResolvedValueOnce([
+        {
+          house_code: 'A001',
+          eggs_by_grade: { GRADE_1: 100 },
+          eggs_produced: 100,
+          inbound_by_grade: { GRADE_1: 100 },
+        },
+        {
+          house_code: 'A001',
+          eggs_by_grade: { GRADE_1: 50 },
+          eggs_produced: 50,
+          inbound_by_grade: { GRADE_1: 100 },
+        },
+      ]);
+
+    await expect(svc.getEggsBreakdown('2026-07-16', 'A001')).resolves.toMatchObject({
+      logs: 2,
+      reportedEggs: 150,
+      total: 50,
+      eggsByGrade: { GRADE_1: 50, GRADE_2: 0 },
+    });
+  });
+
   it('reports existing daily logs whose grade breakdown is missing', async () => {
     const { entityManager, svc } = buildSvc();
     entityManager.query
