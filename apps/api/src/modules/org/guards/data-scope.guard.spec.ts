@@ -52,4 +52,15 @@ describe('DataScopeGuard', () => {
       allowedWarehouseCodes: ['LPH_MS_EGG_SALES'],
     });
   });
+
+  it('denies requests when DataScope resolution fails', async () => {
+    const reflector = { getAllAndOverride: jest.fn(() => ({ menu: 'MENU_WMS_VIEW', perm: 'V' })) };
+    const dataScopeService = { resolve: jest.fn().mockRejectedValue(new Error('database unavailable')) };
+    const cls = { get: jest.fn((key: string) => key === 'user' ? { userId: '42', roles: ['ROLE_WMS_OP'] } : undefined), set: jest.fn() };
+    const guard = new DataScopeGuard(reflector as any, dataScopeService as any, cls as any);
+
+    await expect(guard.canActivate(context() as any)).rejects.toMatchObject({
+      response: { code: 'DATA_SCOPE_UNRESOLVED' },
+    });
+  });
 });

@@ -10,7 +10,9 @@ import { Shield, User, Lock, AlertTriangle, Globe, ChevronDown, ChevronUp, Info 
 import { resolveLoginDestination } from "@/lib/auth-navigation";
 const LAST_USER_KEY = "phoenix_last_username"; // 记忆上次登录的账户名（不存密码）
 
-const IS_DEV = process.env.NODE_ENV !== "production";
+const IS_DEV = ["local", "development", "test"].includes(
+  process.env.NEXT_PUBLIC_APP_ENV || process.env.NODE_ENV,
+);
 
 // ── 快捷测试账号（仅开发环境） ──────────────────────────────────────────────
 const TEST_GROUPS = IS_DEV ? [{

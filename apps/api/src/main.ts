@@ -7,12 +7,14 @@ import { friendlyValidationMessage } from './common/validation-message';   // G1
 import * as express from 'express';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
+import { currentAppEnvironment, isDevLoginAllowedEnvironment } from './auth/dev-login-policy';
 
 async function bootstrap() {
   const isProd = process.env.NODE_ENV === 'production';
+  const appEnv = currentAppEnvironment();
   // Keep this guard before Nest app creation so a bad production env fails closed.
-  if (isProd && process.env.ENABLE_DEV_LOGIN === 'true') {
-    console.error('[SEC-CRITICAL] ENABLE_DEV_LOGIN=true is forbidden in production.');
+  if (process.env.ENABLE_DEV_LOGIN === 'true' && !isDevLoginAllowedEnvironment()) {
+    console.error(`[SEC-CRITICAL] ENABLE_DEV_LOGIN=true is forbidden in APP_ENV=${appEnv}.`);
     process.exit(1);
   }
 

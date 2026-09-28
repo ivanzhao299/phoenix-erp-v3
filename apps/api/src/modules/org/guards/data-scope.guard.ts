@@ -1,10 +1,10 @@
 /**
  * Phoenix ERP V3 — DataScopeGuard
  * RBAC-2 数据范围解析 Guard
- * 只解析范围存入 CLS，不做拦截决策（始终返回 true）
+ * 解析范围存入 CLS；解析失败时拒绝请求。
  * 需在 MenuGuard 之后执行：@UseGuards(MenuGuard, DataScopeGuard)
  */
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeService } from '../services/data-scope.service';
@@ -44,8 +44,9 @@ export class DataScopeGuard implements CanActivate {
       const req = context.switchToHttp().getRequest();
       if (req) req.dataScope = scope;
     } catch (e: any) {
-      // 解析失败不抛异常，Service 层降级兜底
-      console.warn('[DataScopeGuard] resolve failed, fallback to storeCode:', e?.message);
+      // Scope resolution is an authorization boundary: never continue with a guessed scope.
+      console.error('[DataScopeGuard] resolve failed; denying request:', e?.message);
+      throw new ForbiddenException({ code: 'DATA_SCOPE_UNRESOLVED', message: '数据范围无法解析，拒绝访问' });
     }
 
     return true;

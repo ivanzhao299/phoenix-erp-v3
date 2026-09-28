@@ -6,7 +6,7 @@
 #  2) 应用 RBAC 基础表 + 初始数据 (ddl/01, 02, 03, 04, 06)
 #  3) 应用 V3 完整 schema 补齐 (migrations/v3_schema_complete.sql) — 33 张缺口表
 #  4) 应用 V3 生产 schema 补丁 (migrations/v3_production_migration.sql)
-#  5) 执行 V3 全量 schema 补全 runner (migrations/run_full_v3.js) — 索引/数据迁移
+#  5) 通过统一迁移执行器应用增量迁移与 TypeORM 迁移
 #
 #  执行后启动 API（npm run start:dev），onModuleInit 将自动补齐剩余列与 sequence。
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -60,8 +60,11 @@ echo "🚀 [4/5] Apply V3 production migration patches..."
 [ -f migrations/v3_production_migration.sql ] && \
   $PSQL -U "$DB_USER" -d "$DB_NAME" -q -f migrations/v3_production_migration.sql 2>&1 | tail -3
 
-echo "🚀 [5/5] Run V3 full schema runner (run_full_v3.js)..."
-node migrations/run_full_v3.js 2>&1 | tail -5
+echo "🚀 [5/5] Run unified migration executor..."
+export PGDATABASE="$DB_NAME"
+export PGUSER="$DB_USER"
+pnpm build >/dev/null
+MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh 2>&1 | tail -20
 
 echo ""
 echo "✅ DB ready. Start API: npm run start:dev"

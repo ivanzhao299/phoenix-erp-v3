@@ -386,7 +386,7 @@ jobs:
           nohup node dist/main > /tmp/api.log 2>&1 &
           echo $! > /tmp/api.pid
           for i in $(seq 1 60); do
-            if curl -sf http://127.0.0.1:3100/api/health >/dev/null; then
+            if curl -sf http://127.0.0.1:3100/api/readiness >/dev/null; then
               echo "✅ API ready after ${i}s"; exit 0
             fi
             sleep 1
@@ -712,7 +712,7 @@ jobs:
                 nginx -t && systemctl reload nginx
               fi
 
-              curl -fsSL --max-time 20 http://127.0.0.1:3100/api/health -o /dev/null \
+              curl -fsSL --max-time 20 http://127.0.0.1:3100/api/readiness -o /dev/null \
                 && echo "✅ API rollback health passed" \
                 || echo "::error::API rollback health failed"
               curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null \
@@ -802,6 +802,7 @@ jobs:
               node -e 'const fs=require("fs"); const canonicalLegacy=fs.readdirSync("apps/api/migrations").filter(n=>/^2026.*\\.sql$/.test(n)).sort(); const retiredTypeorm=JSON.parse(fs.readFileSync("scripts/ci/retired-typeorm-migrations.json","utf8")); fs.writeFileSync(process.argv[1], JSON.stringify({canonicalTypeorm:JSON.parse(process.argv[2]),canonicalLegacy,retiredTypeorm}));' "$CANDIDATE_LEDGER_INVENTORY" "$CANDIDATE_TYPEORM_JSON"
             fi
             if [ "$BUILD_WEB" = "true" ]; then
+              export WEB_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/web:sha-${TARGET_SHA}"
               docker compose pull web
             fi
 

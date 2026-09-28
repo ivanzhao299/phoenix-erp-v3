@@ -22,6 +22,7 @@ import { hasPerm, PermCode } from '../../auth/permissions.util';
 import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
 import { WmsService } from '../wms/wms.service';
 import { WMS_ISSUE_OUTBOUND_TYPES } from '../wms/wms-outbound-policy';
+import { redactSensitive } from '../../common/logging/redact-sensitive';
 
 @Controller('api/crud')
 @UseGuards(AuthGuard('jwt'))
@@ -632,7 +633,7 @@ export class GenericCrudController {
     @Body() body: any,
     @Req() req: any,
   ) {
-    console.log(`[CTRL PUT] /${table}/${id} | body=${JSON.stringify(body)} | user=${req.user?.username}`);
+    console.log(`[CTRL PUT] /${table}/${id} | body=${JSON.stringify(redactSensitive(body))} | user=${req.user?.username}`);
     return this.updateWithColumn(table, getPkColumn(table), id, body, req);
   }
 

@@ -10,7 +10,9 @@ import { useBrand } from '@/contexts/BrandContext';
 import { Shield, User, Lock, AlertTriangle, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import u from "@/styles/uix-utils.module.css";
 const LAST_USER_KEY = 'phoenix_last_username';
-const IS_DEV = process.env.NODE_ENV !== 'production';
+const IS_DEV = ['local', 'development', 'test'].includes(
+  process.env.NEXT_PUBLIC_APP_ENV || process.env.NODE_ENV,
+);
 const TEST_GROUPS = IS_DEV ? [{
   label: '管理层',
   color: {

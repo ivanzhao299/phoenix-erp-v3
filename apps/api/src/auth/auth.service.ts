@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { SysUserEntity } from './entities/sys-user.entity';
 import { resolvePermissions, PermSource } from './permissions-resolver';
+import { isDevLoginAllowedEnvironment } from './dev-login-policy';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'DEV_ONLY_INSECURE_FALLBACK_KEY_DO_NOT_USE_IN_PROD';
 // 双密钥并行 — 用于无感轮换：
@@ -60,9 +61,9 @@ export class AuthService {
   ) {
     try {
     // DEV-ONLY 快捷通道：在 DB 查询之前短路，不依赖 admin 是否在 sys_user 中
-    //   条件：NODE_ENV !== 'production' && ENABLE_DEV_LOGIN=true && admin/admin123
+    //   条件：local/development/test profile + ENABLE_DEV_LOGIN=true + admin/admin123
     const devLoginEnabled =
-      process.env.NODE_ENV !== 'production' &&
+      isDevLoginAllowedEnvironment() &&
       process.env.ENABLE_DEV_LOGIN === 'true';
     if (devLoginEnabled && username === 'admin' && password === 'admin123') {
       this.logger.warn('[DEV] admin quick-login used — disable ENABLE_DEV_LOGIN in staging/prod');

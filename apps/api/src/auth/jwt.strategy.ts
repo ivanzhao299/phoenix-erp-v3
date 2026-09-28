@@ -4,6 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { isDevLoginAllowedEnvironment } from './dev-login-policy';
 
 export interface JwtPayload {
   sub: number | string;     // user_id: large PostgreSQL bigint values stay decimal strings
@@ -80,7 +81,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const userId = BigInt(idText) <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(idText) : idText;
 
     const devLoginEnabled =
-      (process.env.NODE_ENV || 'development') !== 'production' &&
+      isDevLoginAllowedEnvironment() &&
       process.env.ENABLE_DEV_LOGIN === 'true';
     if (
       devLoginEnabled &&

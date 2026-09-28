@@ -77,7 +77,7 @@ services:
     ports:
       - "127.0.0.1:${API_PORT:-3100}:3100"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3100/api/health"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3100/api/readiness"]
       interval: 30s
       timeout: 5s
       retries: 3

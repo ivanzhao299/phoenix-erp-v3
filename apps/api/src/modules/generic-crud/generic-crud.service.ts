@@ -3,6 +3,7 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { BREEDING_FARMS_TABLE, BreedingScopedTable } from './crud.constants';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
+import { redactSensitive } from '../../common/logging/redact-sensitive';
 
 @Injectable()
 export class GenericCrudService implements OnModuleInit {
@@ -2654,7 +2655,7 @@ export class GenericCrudService implements OnModuleInit {
 
   async update(table: string, pkName: string, id: any, body: any) {
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
-    console.log(`[SVC Update START] table=${table} pk=${pkName} id=${id} body=${JSON.stringify(body)}`);
+    console.log(`[SVC Update START] table=${table} pk=${pkName} id=${id} body=${JSON.stringify(redactSensitive(body))}`);
     if (table === BREEDING_FARMS_TABLE) {
       const current = await this.findOneByColumn(table, pkName, id);
       if (!current) throw new BadRequestException('Record not found');

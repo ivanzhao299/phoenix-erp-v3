@@ -78,11 +78,10 @@ echo ""
 # ─────────────────────────────────────────────────────────────────────────────
 if [ "${SKIP_DB:-0}" != "1" ]; then
   log "Stage 1/6  Apply V3 schema..."
-  $PSQL "$DB_NAME" -q -v ON_ERROR_STOP=0 -f apps/api/migrations/v3_schema_complete.sql 2>&1 | tail -3
-  if [ -f apps/api/migrations/v3_production_migration.sql ]; then
-    $PSQL "$DB_NAME" -q -v ON_ERROR_STOP=0 -f apps/api/migrations/v3_production_migration.sql 2>&1 | tail -3
-  fi
-  (cd apps/api && node migrations/run_full_v3.js 2>&1 | tail -3)
+  export PGDATABASE="$DB_NAME"
+  export PGUSER="${DB_USER:-${USER:-}}"
+  pnpm --dir apps/api build >/dev/null
+  MIG_MODE=ci MIG_DIR=apps/api bash scripts/db-migrate.sh 2>&1 | tail -20
   ok "schema applied"
 else
   warn "SKIP_DB=1 — skip DDL"

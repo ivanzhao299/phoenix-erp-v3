@@ -1,4 +1,4 @@
-import { Controller, Get, Header } from '@nestjs/common';
+import { Controller, Get, Header, ServiceUnavailableException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { StoreScopePolicy } from './modules/store-pos/services/store-scope-policy.service';
@@ -180,12 +180,12 @@ export class HealthController {
         timestamp: new Date().toISOString(),
       };
     } catch (e) {
-      return {
+      throw new ServiceUnavailableException({
         status: 'NOT_READY',
         db: 'disconnected',
         error: (e as Error).message,
         timestamp: new Date().toISOString(),
-      };
+      });
     }
   }
 }
