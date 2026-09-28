@@ -70,6 +70,49 @@ test('remote transport layout, run identity, auth, and SSH parity are explicit',
   assert.doesNotMatch(workflow, /format '{{\.Id}}'/);
   assert.match(workflow, /API_IMAGE_REF/);
   assert.match(workflow, /WEB_IMAGE_REF/);
+  assert.match(workflow, /COMPOSE_B64/);
+  assert.match(workflow, /DB_MEMORY_DECLARED/);
+  assert.match(workflow, /TARGET_DB_MEMORY_CONTRACT_MISMATCH/);
+  assert.match(workflow, /DB_MEMORY_RUNTIME_CONVERGENCE=PASS/);
+  assert.match(workflow, /DB_MEMORY_BYTES=\$DB_MEMORY_AFTER/);
+  assert.match(workflow, /DB_MEMORY_SWAP_BYTES=\$DB_MEMORY_SWAP_AFTER/);
+  assert.match(workflow, /DB_RESTARTED=false/);
+  assert.match(workflow, /268435456\/536870912/);
+  assert.match(workflow, /536870912\/1073741824/);
+  assert.match(workflow, /UNEXPECTED_DB_MEMORY_LIMIT/);
+  assert.match(workflow, /HOST_MEMORY_HEADROOM_INSUFFICIENT/);
+  assert.match(workflow, /DB_MEMORY_UPDATE_FAILED/);
+  assert.match(workflow, /DB_RESTARTED_DURING_MEMORY_UPDATE/);
+  const memoryStart = workflow.indexOf('            DB_MEMORY_DECLARED=');
+  const memoryEnd = workflow.indexOf('\n            printf \'%s\\n\' "$PRODUCTION_BRANCH"', memoryStart);
+  assert.ok(memoryStart >= 0 && memoryEnd > memoryStart, 'memory convergence block must be present');
+  const memoryBlock = workflow.slice(memoryStart, memoryEnd);
+  assert.doesNotMatch(memoryBlock, /docker restart phoenix-v3-db/);
+  assert.doesNotMatch(memoryBlock, /docker compose restart db/);
+  assert.doesNotMatch(memoryBlock, /docker compose up .*db/);
+  assert.doesNotMatch(memoryBlock, /docker compose down/);
+});
+
+test('DB runtime memory convergence contract covers legacy, no-op, unexpected, restart, and update failure states', () => {
+  const converge = ({ memory, swap, status = 'running', startedAt = 'before', restartCount = '0', update = 'ok' }) => {
+    if (status !== 'running') return { pass: false, reason: 'DB_CONTAINER_NOT_RUNNING' };
+    if (memory === 268435456 && swap === 536870912) {
+      if (update !== 'ok') return { pass: false, reason: 'DB_MEMORY_UPDATE_FAILED' };
+      memory = 536870912;
+      swap = 1073741824;
+    } else if (!(memory === 536870912 && swap === 1073741824)) {
+      return { pass: false, reason: 'UNEXPECTED_DB_MEMORY_LIMIT' };
+    }
+    if (memory !== 536870912 || swap !== 1073741824) return { pass: false, reason: 'DB_MEMORY_UPDATE_VERIFICATION_FAILED' };
+    if (startedAt !== 'before' || restartCount !== '0') return { pass: false, reason: 'DB_RESTARTED_DURING_MEMORY_UPDATE' };
+    return { pass: true };
+  };
+  assert.deepEqual(converge({ memory: 268435456, swap: 536870912 }), { pass: true });
+  assert.deepEqual(converge({ memory: 536870912, swap: 1073741824 }), { pass: true });
+  assert.deepEqual(converge({ memory: 384000000, swap: 768000000 }), { pass: false, reason: 'UNEXPECTED_DB_MEMORY_LIMIT' });
+  assert.deepEqual(converge({ memory: 268435456, swap: 536870912, startedAt: 'after' }), { pass: false, reason: 'DB_RESTARTED_DURING_MEMORY_UPDATE' });
+  assert.deepEqual(converge({ memory: 268435456, swap: 536870912, update: 'failed' }), { pass: false, reason: 'DB_MEMORY_UPDATE_FAILED' });
+  assert.deepEqual(converge({ memory: 268435456, swap: 536870912, status: 'exited' }), { pass: false, reason: 'DB_CONTAINER_NOT_RUNNING' });
 });
 
 test('PG16.14 fixture executes the production invariant capture SQL', () => {

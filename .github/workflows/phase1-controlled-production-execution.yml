@@ -76,6 +76,7 @@ jobs:
           echo "WEB_IMAGE_DIGEST=$WEB_IMAGE_DIGEST" >> "$GITHUB_ENV"
           echo "API_IMAGE_REF=$API_IMAGE_REF" >> "$GITHUB_ENV"
           echo "WEB_IMAGE_REF=$WEB_IMAGE_REF" >> "$GITHUB_ENV"
+          echo "COMPOSE_B64=$(base64 -w0 docker-compose.yml)" >> "$GITHUB_ENV"
           echo "CANDIDATE_INVENTORY_IMAGE_REF=$API_IMAGE_REF"
           bash scripts/ci/candidate-typeorm-inventory.sh "$API_IMAGE_REF" > candidate-typeorm.json
           test -s candidate-typeorm.json
@@ -126,6 +127,7 @@ jobs:
           GATE_B64: ${{ env.GATE_B64 }}
           INVARIANTS_B64: ${{ env.INVARIANTS_B64 }}
           WRAPPER_B64: ${{ env.WRAPPER_B64 }}
+          COMPOSE_B64: ${{ env.COMPOSE_B64 }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -136,7 +138,7 @@ jobs:
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           command_timeout: 30m
-          envs: TARGET_SHA,EXPECTED_PRODUCTION_SHA,EXECUTION_RUN_ID,GHCR_USER,GHCR_TOKEN,API_IMAGE,WEB_IMAGE,API_IMAGE_DIGEST,WEB_IMAGE_DIGEST,API_IMAGE_REF,WEB_IMAGE_REF,INVENTORY_B64,MANIFEST_B64,PREFLIGHT_B64,GATE_B64,INVARIANTS_B64,WRAPPER_B64
+          envs: TARGET_SHA,EXPECTED_PRODUCTION_SHA,EXECUTION_RUN_ID,GHCR_USER,GHCR_TOKEN,API_IMAGE,WEB_IMAGE,API_IMAGE_DIGEST,WEB_IMAGE_DIGEST,API_IMAGE_REF,WEB_IMAGE_REF,INVENTORY_B64,MANIFEST_B64,PREFLIGHT_B64,GATE_B64,INVARIANTS_B64,WRAPPER_B64,COMPOSE_B64
           script: |
             set -Eeuo pipefail
             umask 077
@@ -285,6 +287,70 @@ jobs:
             ROOT_DIR="$(mktemp -d /tmp/phase1-controlled.XXXXXX)"
             EVIDENCE_DIR="/opt/phoenix-erp-backups/phase1-controlled-${RUN_ID}"
             mkdir -p "$EVIDENCE_DIR"; chmod 700 "$EVIDENCE_DIR"
+            COMPOSE_TARGET_FILE="$ROOT_DIR/docker-compose.target.yml"
+            printf '%s' "$COMPOSE_B64" | base64 -d > "$COMPOSE_TARGET_FILE"
+            test -s "$COMPOSE_TARGET_FILE"
+            DB_MEMORY_DECLARED="$(awk '
+              /^  db:/ { in_db=1; next }
+              in_db && /^  [A-Za-z0-9_-]+:/ { exit }
+              in_db && /^[[:space:]]+memory:[[:space:]]*/ {
+                value=$0
+                sub(/^[[:space:]]+memory:[[:space:]]*/, "", value)
+                gsub(/"/, "", value)
+                print value
+                exit
+              }
+            ' "$COMPOSE_TARGET_FILE")"
+            test "$DB_MEMORY_DECLARED" = 512m || { echo 'PHASE1_EXECUTION_BLOCKED=TARGET_DB_MEMORY_CONTRACT_MISMATCH'; exit 26; }
+            printf '%s\n' "$DB_MEMORY_DECLARED" > "$EVIDENCE_DIR/target-db-memory.txt"
+            DB_CONTAINER=phoenix-v3-db
+            DB_MEMORY_BEFORE="$(docker inspect "$DB_CONTAINER" --format '{{.HostConfig.Memory}}')"
+            DB_MEMORY_SWAP_BEFORE="$(docker inspect "$DB_CONTAINER" --format '{{.HostConfig.MemorySwap}}')"
+            DB_STARTED_AT_BEFORE="$(docker inspect "$DB_CONTAINER" --format '{{.State.StartedAt}}')"
+            DB_RESTART_COUNT_BEFORE="$(docker inspect "$DB_CONTAINER" --format '{{.RestartCount}}')"
+            DB_STATUS_BEFORE="$(docker inspect "$DB_CONTAINER" --format '{{.State.Status}}')"
+            {
+              printf 'Status=%s StartedAt=%s RestartCount=%s OOMKilled=%s Memory=%s MemorySwap=%s\n' \
+                "$DB_STATUS_BEFORE" "$DB_STARTED_AT_BEFORE" "$DB_RESTART_COUNT_BEFORE" \
+                "$(docker inspect "$DB_CONTAINER" --format '{{.State.OOMKilled}}')" "$DB_MEMORY_BEFORE" "$DB_MEMORY_SWAP_BEFORE"
+              grep -E '^(MemTotal|MemAvailable|SwapTotal|SwapFree):' /proc/meminfo
+              docker stats --no-stream "$DB_CONTAINER"
+            } > "$EVIDENCE_DIR/db-memory-before.txt"
+            test "$DB_STATUS_BEFORE" = running || { echo 'PHASE1_EXECUTION_BLOCKED=DB_CONTAINER_NOT_RUNNING'; exit 27; }
+            DB_MEM_AVAILABLE="$(awk '$1 == "MemAvailable:" { print $2 * 1024; exit }' /proc/meminfo)"
+            test "$DB_MEM_AVAILABLE" -ge 268435456 || { echo 'PHASE1_EXECUTION_BLOCKED=HOST_MEMORY_HEADROOM_INSUFFICIENT'; exit 28; }
+            case "$DB_MEMORY_BEFORE/$DB_MEMORY_SWAP_BEFORE" in
+              268435456/536870912)
+                docker update --memory 512m --memory-swap 1g "$DB_CONTAINER" >/dev/null || { echo 'PHASE1_EXECUTION_BLOCKED=DB_MEMORY_UPDATE_FAILED'; exit 29; }
+                ;;
+              536870912/1073741824)
+                ;;
+              *)
+                echo 'PHASE1_EXECUTION_BLOCKED=UNEXPECTED_DB_MEMORY_LIMIT'
+                exit 30
+                ;;
+            esac
+            DB_MEMORY_AFTER="$(docker inspect "$DB_CONTAINER" --format '{{.HostConfig.Memory}}')"
+            DB_MEMORY_SWAP_AFTER="$(docker inspect "$DB_CONTAINER" --format '{{.HostConfig.MemorySwap}}')"
+            DB_STARTED_AT_AFTER="$(docker inspect "$DB_CONTAINER" --format '{{.State.StartedAt}}')"
+            DB_RESTART_COUNT_AFTER="$(docker inspect "$DB_CONTAINER" --format '{{.RestartCount}}')"
+            DB_STATUS_AFTER="$(docker inspect "$DB_CONTAINER" --format '{{.State.Status}}')"
+            {
+              printf 'Status=%s StartedAt=%s RestartCount=%s OOMKilled=%s Memory=%s MemorySwap=%s\n' \
+                "$DB_STATUS_AFTER" "$DB_STARTED_AT_AFTER" "$DB_RESTART_COUNT_AFTER" \
+                "$(docker inspect "$DB_CONTAINER" --format '{{.State.OOMKilled}}')" "$DB_MEMORY_AFTER" "$DB_MEMORY_SWAP_AFTER"
+              docker stats --no-stream "$DB_CONTAINER"
+            } > "$EVIDENCE_DIR/db-memory-after.txt"
+            test "$DB_STATUS_AFTER" = running || { echo 'PHASE1_EXECUTION_BLOCKED=DB_MEMORY_UPDATE_VERIFICATION_FAILED'; exit 31; }
+            test "$DB_MEMORY_AFTER/$DB_MEMORY_SWAP_AFTER" = 536870912/1073741824 || { echo 'PHASE1_EXECUTION_BLOCKED=DB_MEMORY_UPDATE_VERIFICATION_FAILED'; exit 31; }
+            test "$DB_STARTED_AT_AFTER" = "$DB_STARTED_AT_BEFORE" || { echo 'PHASE1_EXECUTION_BLOCKED=DB_RESTARTED_DURING_MEMORY_UPDATE'; exit 32; }
+            test "$DB_RESTART_COUNT_AFTER" = "$DB_RESTART_COUNT_BEFORE" || { echo 'PHASE1_EXECUTION_BLOCKED=DB_RESTARTED_DURING_MEMORY_UPDATE'; exit 32; }
+            printf '%s\n' \
+              'DB_MEMORY_RUNTIME_CONVERGENCE=PASS' \
+              "DB_MEMORY_BYTES=$DB_MEMORY_AFTER" \
+              "DB_MEMORY_SWAP_BYTES=$DB_MEMORY_SWAP_AFTER" \
+              'DB_RESTARTED=false' > "$EVIDENCE_DIR/db-memory-runtime-result.txt"
+            echo 'DB_MEMORY_RUNTIME_CONVERGENCE=PASS'
             printf '%s\n' "$PRODUCTION_BRANCH" > "$EVIDENCE_DIR/production-branch.txt"
             cat > "$EVIDENCE_DIR/production-origin-fingerprint.txt" <<EOF
             ORIGIN_URL_TYPE=$ORIGIN_URL_TYPE
