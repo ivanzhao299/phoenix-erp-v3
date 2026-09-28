@@ -630,6 +630,11 @@ jobs:
           DEPLOY_RUN_ID: ${{ github.run_id }}
           TARGET_SHA: ${{ github.sha }}
           PRESERVE_ARTIFACTS: ${{ inputs.preserve_artifacts }}
+          CHANJET_APP_KEY: ${{ secrets.CHANJET_APP_KEY }}
+          CHANJET_APP_SECRET: ${{ secrets.CHANJET_APP_SECRET }}
+          CHANJET_ORG_ID: ${{ secrets.CHANJET_ORG_ID }}
+          CHANJET_CERT: ${{ secrets.CHANJET_CERT }}
+          CHANJET_MSG_SECRET: ${{ secrets.CHANJET_MSG_SECRET }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -639,7 +644,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,TARGET_SHA,PRESERVE_ARTIFACTS
+          envs: DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,TARGET_SHA,PRESERVE_ARTIFACTS,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET
           script: |
             set -Eeuo pipefail
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
@@ -759,23 +764,35 @@ jobs:
             fi
 
             # ── 畅捷通环境变量注入(所有 mode 都做,廉价幂等)──────────
-            inject_env() {
-              local key="$1" val="$2"
-              if [ -z "$val" ]; then
-                sed -i "/^${key}=/d" .env 2>/dev/null || true
-                return
-              fi
-              if grep -q "^${key}=" .env 2>/dev/null; then
-                sed -i "s|^${key}=.*|${key}=${val}|" .env
-              else
-                echo "${key}=${val}" >> .env
-              fi
+            # Secrets arrive through appleboy's env channel, never shell interpolation.
+            # Write atomically with a 0600 temporary file; JSON quoting preserves
+            # shell-special and multiline values in dotenv-compatible form.
+            node <<'NODE'
+            const fs = require('node:fs');
+            const path = '.env';
+            const keys = ['CHANJET_APP_KEY', 'CHANJET_APP_SECRET', 'CHANJET_ORG_ID', 'CHANJET_CERT', 'CHANJET_MSG_SECRET'];
+            const source = fs.existsSync(path) ? fs.readFileSync(path, 'utf8').split(/\r?\n/) : [];
+            const keySet = new Set(keys);
+            const kept = [];
+            let skipContinuation = false;
+            for (const line of source) {
+              const match = line.match(/^([A-Z0-9_]+)=/);
+              if (match) {
+                skipContinuation = keySet.has(match[1]);
+                if (!skipContinuation) kept.push(line);
+              } else if (!skipContinuation) {
+                kept.push(line);
+              }
             }
-            inject_env CHANJET_APP_KEY    '${{ secrets.CHANJET_APP_KEY }}'
-            inject_env CHANJET_APP_SECRET '${{ secrets.CHANJET_APP_SECRET }}'
-            inject_env CHANJET_ORG_ID     '${{ secrets.CHANJET_ORG_ID }}'
-            inject_env CHANJET_CERT       '${{ secrets.CHANJET_CERT }}'
-            inject_env CHANJET_MSG_SECRET '${{ secrets.CHANJET_MSG_SECRET }}'
+            for (const key of keys) {
+              const value = process.env[key] || '';
+              if (value) kept.push(`${key}=${JSON.stringify(value)}`);
+            }
+            const temporary = `${path}.${process.pid}.tmp`;
+            fs.writeFileSync(temporary, `${kept.join('\n').replace(/\n+$/, '')}\n`, { mode: 0o600 });
+            fs.renameSync(temporary, path);
+            fs.chmodSync(path, 0o600);
+            NODE
 
             # ── 拉新镜像前清理(温和):只删未被任何容器引用的旧镜像 ──
             # ⚠️ 不再 docker builder prune -af(冷构建永远慢),改为保留 24h/5GB
