@@ -30,6 +30,19 @@ class ApiError extends Error {
     this.name = 'ApiError';
   }
 }
+function apiErrorMessage(body: any, status: number): string {
+  const message = Array.isArray(body?.message)
+    ? body.message.join('；')
+    : body?.message;
+  if (message) return String(message);
+  if (body?.msg) {
+    const details = Array.isArray(body.errors) && body.errors.length
+      ? `：${body.errors.join('；')}`
+      : '';
+    return `${body.msg}${details}`;
+  }
+  return `HTTP ${status}`;
+}
 async function api<T = any>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(BASE + path, {
     method,
@@ -41,7 +54,7 @@ async function api<T = any>(method: string, path: string, body?: unknown): Promi
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new ApiError(err.message || `HTTP ${res.status}`, err.errorCode);
+    throw new ApiError(apiErrorMessage(err, res.status), err.errorCode);
   }
   const d = await res.json();
   return d.data ?? d;
@@ -54,7 +67,7 @@ async function apiEnvelope<T>(path: string): Promise<T> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    throw new Error(apiErrorMessage(err, res.status));
   }
   return res.json() as Promise<T>;
 }

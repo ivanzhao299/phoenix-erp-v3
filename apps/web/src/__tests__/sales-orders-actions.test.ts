@@ -31,4 +31,10 @@ describe('sales orders workflow action contract', () => {
     expect(pageSource).toContain('href="/master-data/customers"');
     expect(pageSource).not.toMatch(/api\(['"]POST['"],\s*['"]\/api\/master-data/);
   });
+
+  it('keeps structured business reasons visible when the API uses msg and errors', () => {
+    expect(pageSource).toContain('body?.msg');
+    expect(pageSource).toContain('body.errors.join');
+    expect(pageSource).toContain('apiErrorMessage(err, res.status)');
+  });
 });

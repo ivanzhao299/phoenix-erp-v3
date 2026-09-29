@@ -25,6 +25,7 @@ import {
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
 import { currencySymbol } from '@/lib/currency';
+import { companyDisplayName } from '@/lib/company-display';
 interface ArInvoice {
   id: string;
   ar_no: string;
@@ -65,6 +66,7 @@ interface ArReceipt {
   id: string;
   receipt_no: string;
   company_code: string;
+  company_name: string | null;
   customer_code: string | null;
   customer_name: string;
   receipt_date: string;
@@ -1080,7 +1082,7 @@ export default function Finance2ArPage() {
                         <div className={`text-text ${u.fw600}`}>{r.customer_name}</div>
                         {r.customer_code && <div className={`text-text-muted ${u.fs11}`}>{r.customer_code}</div>}
                       </td>
-                      <td className={`text-text-muted ${u.nowrap}`}>{r.company_code}</td>
+                      <td className={`text-text-muted ${u.nowrap}`}>{companyDisplayName(r.company_name, r.company_code)}</td>
                       <td className={`text-text-muted ${u.nowrap}`}>{fmtDate(r.invoice_date)}</td>
                       <td className={u.nowrap}>
                         <span className={isOverdue(r.due_date, r.status) ? 'text-danger' : 'text-text-muted'}>
@@ -1154,7 +1156,7 @@ export default function Finance2ArPage() {
               }}>
                       {r.customer_name}
                     </td>
-                    <td className="text-text-muted">{r.company_code}</td>
+                    <td className="text-text-muted">{companyDisplayName(r.company_name, r.company_code)}</td>
                     <td className={`text-text-muted ${u.nowrap}`}>{fmtDate(r.receipt_date)}</td>
                     <td className={`text-emerald-600 dark:text-emerald-400 ${u.nowrap}`}>
                       {fmtMoney(r.amount_original, r.currency_code)}

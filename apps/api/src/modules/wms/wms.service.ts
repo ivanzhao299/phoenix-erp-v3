@@ -1091,7 +1091,7 @@ export class WmsService {
       if (batchNo) {
         const [batch] = await manager.query(
           `SELECT batch_no, product_code, sku_code, material_code, item_type,
-                  material_type, unit, qty, qty_available, warehouse_code, store_code
+                  material_type, unit, qty, qty_available, warehouse_code, store_code, company_code
              FROM inv_batches
             WHERE batch_no = $1
             FOR UPDATE`,
@@ -1258,11 +1258,20 @@ export class WmsService {
                 WHEN qty_available IS NULL THEN NULL
                 ELSE GREATEST(qty_available - $1::numeric, 0)
               END,
+              company_code = CASE
+                WHEN inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL'
+                  THEN (SELECT company_code FROM wms_warehouses WHERE warehouse_code = $3)
+                ELSE inv_batches.company_code
+              END,
               updated_at = now()
         WHERE batch_no = $2
           AND warehouse_code = $3
-          AND company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$3)
-          AND ($4::varchar IS NULL OR company_code=$4)
+          AND (
+            company_code IS NULL
+            OR company_code = 'ALL'
+            OR company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$3)
+          )
+          AND ($4::varchar IS NULL OR company_code=$4 OR company_code='ALL' OR company_code IS NULL)
           AND COALESCE(status,'AVAILABLE') = 'AVAILABLE'
           AND COALESCE(qty_available,qty,0) >= $1::numeric
         RETURNING batch_no
