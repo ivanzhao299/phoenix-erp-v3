@@ -587,6 +587,70 @@ describe('WmsService inventory read queries', () => {
     );
   });
 
+  it('confirms a legacy ALL-owned batch and normalizes ownership to its warehouse company', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'IBN-LEGACY-1' }];
+        if (sql.includes('FROM wms_outbound')) {
+          return [{
+            id: '32', outbound_no: 'WO-LEGACY-1', status: 'PENDING', type: 'SALE',
+            warehouse_code: 'WH-A', company_code: 'COMP-A', store_code: 'ALL',
+            item: 'SKU-EGG-A-30', item_type: 'SKU', material_type: 'FINISHED_PRODUCT',
+            unit: '枚', batch_no: 'IBN-LEGACY-1', qty: 100,
+            destination_type: 'CUSTOMER', destination_customer_code: 'CUS-1',
+          }];
+        }
+        if (sql.includes('FROM inv_batches') && sql.includes('batch_no = $1')) {
+          return [{
+            batch_no: 'IBN-LEGACY-1', product_code: 'PRD-EGG', sku_code: 'SKU-EGG-A-30',
+            qty: 1000, qty_available: 1000, warehouse_code: 'WH-A', company_code: 'ALL',
+            store_code: 'ALL', unit: '枚',
+          }];
+        }
+        return [];
+      }),
+    };
+    const em = {
+      transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
+    };
+    const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.confirmStandaloneOutbound('WO-LEGACY-1', {
+      username: 'admin', roles: ['ROLE_ADMIN'],
+    })).resolves.toMatchObject({ code: 200, data: { status: 'DONE', qty: 100 } });
+
+    const update = manager.query.mock.calls.find(([sql]) => String(sql).includes('UPDATE inv_batches'));
+    expect(String(update?.[0])).toContain("company_code = CASE");
+    expect(String(update?.[0])).toContain("company_code = 'ALL'");
+    expect((update as any)?.[1]).toEqual([100, 'IBN-LEGACY-1', 'WH-A', 'COMP-A']);
+  });
+
+  it('rejects a batch whose company ownership does not match the outbound', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM wms_outbound')) return [{
+          id: '33', outbound_no: 'WO-OWNER-MISMATCH', status: 'PENDING', type: 'SALE',
+          warehouse_code: 'WH-A', company_code: 'COMP-A', store_code: 'ALL',
+          item: 'SKU-EGG-A-30', item_type: 'SKU', batch_no: 'B-OWNER-MISMATCH', qty: 100,
+          destination_type: 'CUSTOMER', destination_customer_code: 'CUS-1',
+        }];
+        if (sql.includes('FROM inv_batches') && sql.includes('batch_no = $1')) return [{
+          batch_no: 'B-OWNER-MISMATCH', sku_code: 'SKU-EGG-A-30', qty: 1000,
+          qty_available: 1000, warehouse_code: 'WH-A', company_code: 'COMP-B',
+        }];
+        return [];
+      }),
+    };
+    const em = { transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)) };
+    const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.confirmStandaloneOutbound('WO-OWNER-MISMATCH', {
+      username: 'admin', roles: ['ROLE_ADMIN'],
+    })).rejects.toThrow('出库批次 B-OWNER-MISMATCH 状态、归属或数量已变化');
+  });
+
   it('creates a minimal valid sale outbound and keeps it pending', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
