@@ -65,13 +65,14 @@ jobs:
           envs: DEPLOY_PATH
           script: |
             set -Eeuo pipefail
-            echo "CS-0001_wh=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT string_agg(DISTINCT warehouse_code, ',' ORDER BY warehouse_code) FROM inv_batches WHERE company_code='COMP-LAO-AGRI'")"
-            echo "CS-0001_loc=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT count(DISTINCT location_code) FROM inv_batches WHERE company_code='COMP-LAO-AGRI'")"
-            echo "FARM-DP_wh=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT string_agg(DISTINCT warehouse_code, ',' ORDER BY warehouse_code) FROM inv_batches WHERE company_code='COMP-LAO-XINGCHI'")"
-            echo "FARM-DP_loc=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT count(DISTINCT location_code) FROM inv_batches WHERE company_code='COMP-LAO-XINGCHI'")"
-            echo "CS-0001_recent_shifts=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT string_agg(shift_code, ',' ORDER BY production_date DESC) FROM (SELECT shift_code, production_date FROM pkg_work_shifts WHERE site_id='CS-0001' AND NOT is_test ORDER BY production_date DESC LIMIT 3) t")"
-            echo "FARM-DP_recent_shifts=$(docker exec phoenix-v3-db psql -X -w -qAt -U phoenix_v3 -d phoenix_erp -tAc "SELECT string_agg(shift_code, ',' ORDER BY production_date DESC) FROM (SELECT shift_code, production_date FROM pkg_work_shifts WHERE site_id='FARM-DP' AND NOT is_test ORDER BY production_date DESC LIMIT 3) t")"
-            echo "CONTEXT_DONE"
+            DEPLOY_PATH="${DEPLOY_PATH:-$HOME/phoenix-erp}"
+            case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}";; esac
+            cd "$DEPLOY_PATH"
+            echo "remote=$(git remote get-url origin | sed 's/:[^:@]*@/:***@/; s#//[^@]*@#//***@#')"
+            echo "ssh_keys=$(ls ~/.ssh/*.pub 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '
+' ',' || echo none)"
+            echo "credential_helper=$(git config --get credential.helper || echo none)"
+            echo "REMOTE_DIAG_DONE"
 
   validate:
     if: inputs.approve_production != 'APPROVE-METADATA-READONLY-ROLE-PROVISION'
