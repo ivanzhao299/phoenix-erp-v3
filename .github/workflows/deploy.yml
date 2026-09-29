@@ -921,7 +921,7 @@ jobs:
 
             # ── 磁盘用量报告 ─────────────────────────────────────────
             echo "📦 Docker 镜像占用:"
-            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | head -20
+            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | sed -n '1,20p'
             echo "💾 磁盘总览:"
             df -h / | tail -1
             echo "🐳 Docker 总占用(builder cache 保留 5GB/24h 加速冷构建):"
