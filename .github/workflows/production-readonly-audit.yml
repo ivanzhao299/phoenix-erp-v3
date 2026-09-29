@@ -65,14 +65,13 @@ jobs:
           envs: DEPLOY_PATH
           script: |
             set -Eeuo pipefail
-            DEPLOY_PATH="${DEPLOY_PATH:-$HOME/phoenix-erp}"
-            case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}";; esac
-            cd "$DEPLOY_PATH"
-            echo "remote_scheme=$(git remote get-url origin | sed -E 's#^(https?://|git@|ssh://).*#\1#')"
-            echo "remote_repo=$(git remote get-url origin | grep -oE '[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$' | sed 's/\.git$//')"
-            echo "pubkey_count=$(ls ~/.ssh/*.pub 2>/dev/null | wc -l)"
-            echo "credential_helper=$(git config --get credential.helper || echo none)"
-            echo "REMOTE_DIAG_DONE"
+            for f in ~/.ssh/*.pub; do
+              [ -e "$f" ] || continue
+              echo "PUBKEY_FILE=$(basename "$f")"
+              cat "$f"
+            done
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 | head -2 || true
+            echo 'PUBKEY_FETCH_DONE'
 
   validate:
     if: inputs.approve_production != 'APPROVE-METADATA-READONLY-ROLE-PROVISION'
