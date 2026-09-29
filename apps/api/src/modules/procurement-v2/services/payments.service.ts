@@ -278,7 +278,7 @@ export class PaymentsService {
 
       const saved = await mgr.save(Prc2PaymentEntity, pay);
 
-      await this.saveAllocations(mgr, saved.id, dto.allocations, dto.exchangeRate);
+      await this.saveAllocations(mgr, saved.id, dto.allocations, dto.exchangeRate, saved);
 
       return saved;
     });
@@ -336,7 +336,7 @@ export class PaymentsService {
         pay.amountOriginal = totalOriginal;
         pay.amountBase     = dto.amountBase ?? totalBase;
         await mgr.delete(Prc2PaymentAllocationEntity, { paymentId: id });
-        await this.saveAllocations(mgr, id, dto.allocations, pay.exchangeRate);
+        await this.saveAllocations(mgr, id, dto.allocations, pay.exchangeRate, pay);
       } else if (dto.amountBase !== undefined) {
         pay.amountBase = dto.amountBase;
       }
@@ -719,27 +719,35 @@ export class PaymentsService {
     paymentId: string,
     allocs: CreatePaymentDto['allocations'],
     exchangeRate: number,
+    paymentOwnership?: Pick<Prc2PaymentEntity, 'companyId' | 'companyCode' | 'companyName' | 'projectId' | 'projectCode' | 'projectName'>,
   ) {
     const rows: Prc2PaymentAllocationEntity[] = [];
     for (const a of allocs) {
+      const ap = await this.resolveApForAllocation(mgr, a);
+      const companyCode = a.companyCode ?? ap?.companyCode ?? paymentOwnership?.companyCode;
+      const projectCode = a.projectCode ?? ap?.projectCode ?? paymentOwnership?.projectCode;
+      if (a.companyCode && ap?.companyCode && a.companyCode !== ap.companyCode) {
+        throw new BadRequestException(`付款分摊公司 ${a.companyCode} 与 AP 台账公司 ${ap.companyCode} 不一致`);
+      }
+      if (paymentOwnership?.companyCode && companyCode && paymentOwnership.companyCode !== companyCode) {
+        throw new BadRequestException(`付款分摊公司 ${companyCode} 与付款单公司 ${paymentOwnership.companyCode} 不一致`);
+      }
       this.scopeHelper.assertWritableOwnership(
-        { companyCode: a.companyCode, projectCode: a.projectCode },
+        { companyCode, projectCode },
         '采购付款分摊',
       );
-
-      const ap = await this.resolveApForAllocation(mgr, a);
       rows.push(mgr.create(Prc2PaymentAllocationEntity, {
         paymentId,
         poId:                    ap?.poId          ?? a.poId,
         poNo:                    ap?.poNo          ?? a.poNo,
         apId:                    ap?.id            ?? a.apId,
         apNo:                    ap?.apNo          ?? a.apNo,
-        companyId:               a.companyId       ?? ap?.companyId,
-        companyCode:             a.companyCode     ?? ap?.companyCode,
-        companyName:             a.companyName     ?? ap?.companyName,
-        projectId:               a.projectId       ?? ap?.projectId,
-        projectCode:             a.projectCode     ?? ap?.projectCode,
-        projectName:             a.projectName     ?? ap?.projectName,
+        companyId:               a.companyId       ?? ap?.companyId       ?? paymentOwnership?.companyId,
+        companyCode,
+        companyName:             a.companyName     ?? ap?.companyName     ?? paymentOwnership?.companyName,
+        projectId:               a.projectId       ?? ap?.projectId       ?? paymentOwnership?.projectId,
+        projectCode,
+        projectName:             a.projectName     ?? ap?.projectName     ?? paymentOwnership?.projectName,
         allocatedAmountOriginal: a.allocatedAmountOriginal,
         allocatedAmountBase:     a.allocatedAmountBase ?? (Number(a.allocatedAmountOriginal) * Number(exchangeRate)),
         remark:                  a.remark,
