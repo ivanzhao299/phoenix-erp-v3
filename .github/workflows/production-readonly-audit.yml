@@ -68,9 +68,9 @@ jobs:
             DEPLOY_PATH="${DEPLOY_PATH:-$HOME/phoenix-erp}"
             case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}";; esac
             cd "$DEPLOY_PATH"
-            echo "remote=$(git remote get-url origin | sed 's/:[^:@]*@/:***@/; s#//[^@]*@#//***@#')"
-            echo "ssh_keys=$(ls ~/.ssh/*.pub 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '
-' ',' || echo none)"
+            echo "remote_scheme=$(git remote get-url origin | sed -E 's#^(https?://|git@|ssh://).*#\1#')"
+            echo "remote_repo=$(git remote get-url origin | grep -oE '[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$' | sed 's/\.git$//')"
+            echo "pubkey_count=$(ls ~/.ssh/*.pub 2>/dev/null | wc -l)"
             echo "credential_helper=$(git config --get credential.helper || echo none)"
             echo "REMOTE_DIAG_DONE"
 
