@@ -31,8 +31,11 @@ interface ApLedger {
   balanceAmountOriginal: number;
   status: string;
   dueDate?: string;
+  companyId?: string;
   companyCode?: string;
+  companyName?: string;
   projectCode?: string;
+  projectName?: string;
 }
 interface Allocation {
   id?: string;
@@ -218,6 +221,8 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
   function selectAp(ap: ApLedger) {
     setFormAllocs(prev => prev.map((a, i) => i === apAllocIdx ? {
       ...a, apId: ap.id, apNo: ap.apNo, poNo: ap.poNo ?? "", projectCode: ap.projectCode ?? "",
+      companyCode: ap.companyCode ?? a.companyCode, companyName: ap.companyName ?? a.companyName,
+      projectName: ap.projectName ?? a.projectName,
       allocatedAmountOriginal: String(ap.balanceAmountOriginal),
     } : a));
     setApModalOpen(false);
@@ -262,6 +267,8 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
           poNo: a.poNo || undefined,
           apId: a.apId || undefined,
           apNo: a.apNo || undefined,
+          companyCode: a.companyCode || undefined,
+          companyName: a.companyName || undefined,
           projectCode: a.projectCode || undefined,
           projectName: a.projectName || undefined,
           allocatedAmountOriginal: parseFloat(String(a.allocatedAmountOriginal)),

@@ -26,6 +26,7 @@ import {
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
 import { currencySymbol } from '@/lib/currency';
+import { companyDisplayName } from '@/lib/company-display';
 import { buildFinanceApPaymentPrefillHref } from '@/lib/finance-ap-payment-prefill';
 interface ApInvoice {
   id: string;
@@ -882,7 +883,7 @@ export default function Finance2ApPage() {
                     {r.supplier_code && <div className={`text-text-muted ${u.fs11}`}>{r.supplier_code}</div>}
                   </td>
                   <td className={`text-text-muted ${u.nowrap}`}>
-                    {r.company_code}
+                    {companyDisplayName(r.company_name, r.company_code)}
                   </td>
                   <td className={`text-text-muted ${u.nowrap}`}>
                     {fmtDate(r.invoice_date)}
