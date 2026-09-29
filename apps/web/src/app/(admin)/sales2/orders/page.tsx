@@ -30,10 +30,13 @@ class ApiError extends Error {
     this.name = 'ApiError';
   }
 }
-function apiErrorMessage(body: any, status: number): string {
-  const message = Array.isArray(body?.message)
+function apiErrorMessage(rawBody: unknown, status: number): string {
+  const body = rawBody && typeof rawBody === 'object'
+    ? rawBody as { message?: unknown; msg?: unknown; errors?: unknown }
+    : {};
+  const message = Array.isArray(body.message)
     ? body.message.join('；')
-    : body?.message;
+    : body.message;
   if (message) return String(message);
   if (body?.msg) {
     const details = Array.isArray(body.errors) && body.errors.length
