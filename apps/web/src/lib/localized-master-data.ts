@@ -12,7 +12,12 @@ export function localizedMasterName(row: Record<string, unknown> | null | undefi
     return candidate == null ? '' : String(candidate).trim();
   };
   const localized = (locale: string) => value(`${base}_${locale}`) || value(camelLocaleKey(base, locale));
-  return localized(lang || 'zh') || localized('zh') || localized('en') || localized('lo') || value(base);
+  const requested = lang || 'zh';
+  // The base field is the default (Chinese) label used by older API rows.
+  // Prefer it before another language so a zh view never displays an English
+  // or Lao fallback merely because the row lacks an explicit *_zh column.
+  if (requested === 'zh') return localized('zh') || value(base) || localized('en') || localized('lo');
+  return localized(requested) || localized('zh') || value(base) || localized('en') || localized('lo');
 }
 
 export function masterNameWithCode(name: string | null | undefined, code: string | null | undefined): string {

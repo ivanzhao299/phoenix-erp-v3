@@ -29,6 +29,18 @@ describe('three-page display defect regressions', () => {
     expect(formatMasterData(row, 'location_name', 'L-1', 'lo')).toBe('A-01（L-1）');
   });
 
+  it('keeps the egg grade label in the active locale when API rows use a base Chinese name', () => {
+    const grade = {
+      grade_name: '1号蛋',
+      grade_name_en: 'Grade 1',
+      grade_name_lo: 'ໄຂ່ຊັ້ນ 1',
+    };
+    expect(formatMasterData(grade, 'grade_name', 'GRADE_1', 'zh')).toBe('1号蛋（GRADE_1）');
+    expect(formatMasterData(grade, 'grade_name', 'GRADE_1', 'en')).toBe('Grade 1（GRADE_1）');
+    expect(formatMasterData(grade, 'grade_name', 'GRADE_1', 'lo')).toBe('ໄຂ່ຊັ້ນ 1（GRADE_1）');
+    expect(formatMasterData({}, 'grade_name', 'GRADE_UNKNOWN', 'en')).toBe('GRADE_UNKNOWN');
+  });
+
   it('locks both pages to shared formatters instead of naked codes', () => {
     const purchase = read('src/app/(admin)/procurement2/requests/page.tsx');
     const store = read('src/app/(admin)/store/inventory/page.tsx');
