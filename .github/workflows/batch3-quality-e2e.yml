@@ -1,0 +1,138 @@
+name: Batch 3 Quality E2E
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: batch3-quality-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: test
+  E2E_DB: "1"
+  ENABLE_DEV_LOGIN: "true"
+  DB_HOST: 127.0.0.1
+  DB_PORT: 5432
+  DB_USER: phoenix_v3
+  DB_PASSWORD: phoenix_v3_pass
+  DB_NAME: phoenix_erp
+  PGHOST: 127.0.0.1
+  PGPORT: 5432
+  PGUSER: phoenix_v3
+  PGPASSWORD: phoenix_v3_pass
+  PGDATABASE: phoenix_erp
+  JWT_SECRET: ci_e2e_test_secret_minlen_32_characters
+  API_TARGET: http://127.0.0.1:3100
+  PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+  REPLENISH_MANAGER_USER: E2E_REPLENISH_MANAGER
+  REPLENISH_MANAGER_PASSWORD: e2e-pass-33100
+  REPLENISH_WMS_USER: E2E_REPLENISH_WMS
+  REPLENISH_WMS_PASSWORD: e2e-pass-33100
+  FLOCK_E2E_USER: admin
+  FLOCK_E2E_PASSWORD: admin123
+  TERMINAL_E2E_USER: admin
+  TERMINAL_E2E_PASSWORD: admin123
+
+jobs:
+  chromium:
+    name: Playwright Chromium (isolated PG16)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16.14-alpine
+        env:
+          POSTGRES_USER: phoenix_v3
+          POSTGRES_PASSWORD: phoenix_v3_pass
+          POSTGRES_DB: phoenix_erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U phoenix_v3 -d phoenix_erp"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Build API
+        working-directory: apps/api
+        run: pnpm build
+
+      - name: Bootstrap isolated database
+        working-directory: apps/api
+        run: MIG_MODE=ci MIG_DIR=. bash ../../scripts/test-db-bootstrap.sh
+
+      - name: Seed disposable E2E identities
+        run: bash scripts/seed-e2e-replenishment-users.sh
+
+      - name: Seed disposable E2E fixture
+        run: bash scripts/seed-e2e-replenishment-fixture.sh "$RUNNER_TEMP/replenishment-fixture.json"
+
+      - name: Build Web
+        run: pnpm --filter web build
+
+      - name: Start API
+        working-directory: apps/api
+        run: |
+          nohup node dist/main > "$RUNNER_TEMP/api.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/api.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3100/api/health >/dev/null; then
+              echo "API ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -100 "$RUNNER_TEMP/api.log"
+          exit 1
+
+      - name: Start Web
+        working-directory: apps/web
+        run: |
+          nohup pnpm start > "$RUNNER_TEMP/web.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/web.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
+              echo "Web ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -100 "$RUNNER_TEMP/web.log"
+          exit 1
+
+      - name: Run Playwright Chromium suite
+        env:
+          REPLENISH_E2E_FIXTURE_FILE: ${{ runner.temp }}/replenishment-fixture.json
+        run: pnpm --filter web exec playwright test --project=chromium --reporter=line,json
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: batch3-quality-playwright-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+            ${{ runner.temp }}/api.log
+            ${{ runner.temp }}/web.log
