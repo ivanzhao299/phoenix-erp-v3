@@ -4,7 +4,7 @@
 
 ```text
 INITIAL_MAIN=8b127efad80c799c79e7ee6285768b3b1d0a1377
-FINAL_INTEGRATION_HEAD=4337c7c0babcf8354413c28e1b8b2751cec6cdd6
+FINAL_INTEGRATION_HEAD=8c45f2b0 (pre-merge)
 MERGED_MAIN_COMMIT=PENDING
 INITIAL_PRODUCTION=8b127efad80c799c79e7ee6285768b3b1d0a1377
 FINAL_PRODUCTION_COMMIT=PENDING
@@ -18,7 +18,7 @@ The integration branch is based on the current `origin/main`. Track branches wer
 TRACK_S_FINAL_COMMIT=e117684bf64edfecef7f068bf5fe28c023f1e987
 TRACK_S_RESULT=CONFIRMED P1 JWT account-state fail-open fixed; focused auth tests pass; runtime cross-tenant matrix remains a follow-up audit item
 TRACK_Q_FINAL_COMMIT=5e04e659bce626b349f3d0712c6460adbb8fe404
-TRACK_Q_RESULT=30/30 local Chromium pass on final integration; CI workflow delivered; remote CI and business UAT pending
+TRACK_Q_RESULT=30/30 local Chromium pass; remote CI 30/30 pass on PR #308; business UAT pending
 ```
 
 The integration head also contains the minimal confirmed PDA regression fix from the final regression run (`4337c7c0`).
@@ -65,14 +65,14 @@ Security evidence includes the JWT strategy tests (database unavailable, active/
 REMOTE_BRANCH=codex/batch3-final-integration
 PR=PENDING
 REQUIRED_CHECKS=PENDING
-CI_E2E=LOCAL_PASS_REMOTE_UNVERIFIED
+CI_E2E=PASS (PR #308 run 36758031032: 30/30, 0 failed, 0 skipped)
 BUSINESS_UAT=NOT_CONFIRMED
 BUSINESS_UAT_BLOCKER=APPROVED_CREDENTIALS_AND_ROLE_JOURNEYS
 ```
 
 The PR carries the repository's reviewed `reviewed-frozen-boundary` and `reviewed-security-touch` labels for the intentional Auth/PDA application changes; these labels are consumed by the static security workflow.
 
-The Q workflow now seeds after API runtime schema bootstrap, uses seeded `E2E_ADMIN` credentials, mints a disposable middleware-valid token, installs Chromium, and uploads reports/logs. It must still complete as a required remote check before merge.
+The Q workflow seeds the fixture before identities so store memberships reference the disposable store, uses seeded `E2E_ADMIN` credentials, mints a disposable middleware-valid token, installs Chromium, and uploads reports/logs. The required remote E2E check passed 30/30.
 
 ## Final status
 
@@ -83,7 +83,7 @@ AUTH_REGRESSION=PASS
 DATASCOPE_REGRESSION=PASS (existing focused suites)
 CROSS_COMPANY_TESTS=STATIC/FOCUSED EVIDENCE; full role matrix pending
 IDOR_TESTS=STATIC/FOCUSED EVIDENCE; full role matrix pending
-CI_E2E=REMOTE PENDING
+CI_E2E=PASS
 BUSINESS_UAT=NO
 BATCH3_COMPLETE=NO
 RELEASE_CANDIDATE=NO UNTIL REQUIRED CI AND UAT DECISION
