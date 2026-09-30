@@ -48,6 +48,23 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const body   = exception.getResponse();
+      // AuthExceptionFilter is registered alongside this catch-all filter. Keep
+      // the structured 401 contract here as well because Nest may dispatch the
+      // catch-all first, and auth clients rely on the subcode to choose their
+      // refresh or login path.
+      if (status === 401) {
+        const authHeader = req.headers.authorization || req.headers.Authorization;
+        const inferredSubcode = typeof body === 'object' && body !== null && 'subcode' in body
+          ? (body as { subcode?: string }).subcode
+          : authHeader
+            ? 'INVALID_TOKEN'
+            : 'NO_TOKEN';
+        return res.status(401).json(
+          typeof body === 'string'
+            ? { code: 401, subcode: inferredSubcode, msg: body, message: body, error: 'Unauthorized' }
+            : { code: 401, ...(body as object), subcode: inferredSubcode, error: 'Unauthorized' },
+        );
+      }
       // 403(权限拒绝)写错误日志,便于 RBAC 审计("谁在哪个端点被拒")——错误日志页可按 403 过滤排查;
       //   其余 4xx 不写,避免噪音。
       if (status === 403) {
