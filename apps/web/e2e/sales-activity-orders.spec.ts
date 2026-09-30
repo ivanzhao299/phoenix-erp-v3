@@ -1,19 +1,10 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { authenticateMockPage } from './support/auth';
 
 const ADMIN = { username: 'e2e-admin', name: 'E2E Admin', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] };
 
 async function authenticate(page: Page) {
-  const payload = Buffer.from(JSON.stringify({ sub: ADMIN.username, ...ADMIN, exp: 4_102_444_800 })).toString('base64url');
-  const token = `e30.${payload}.e2e`;
-  await page.context().addCookies([{ name: 'phoenix_access_token', value: token, url: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000' }]);
-  await page.addInitScript(({ authToken, user }) => {
-    sessionStorage.setItem('phoenix_session_version', 'v6');
-    sessionStorage.setItem('phoenix_token', authToken);
-    sessionStorage.setItem('phoenix_user', JSON.stringify(user));
-    localStorage.setItem('phoenix_token', authToken);
-    localStorage.setItem('phoenix_user', JSON.stringify(user));
-    localStorage.setItem('phoenix_lang', 'zh');
-  }, { authToken: token, user: ADMIN });
+  await authenticateMockPage(page, ADMIN);
 }
 
 const row = (sourceType: 'ORDER' | 'POS', sourceId: string, documentNo: string) => ({

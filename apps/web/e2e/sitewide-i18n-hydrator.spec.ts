@@ -1,23 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
+import { authenticateMockPage } from './support/auth';
 
-const payload = Buffer.from(JSON.stringify({
-  sub: 'e2e-admin', username: 'e2e-admin', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'],
-  exp: 4_102_444_800,
-})).toString('base64url');
-const TOKEN = `e30.${payload}.e2e`;
 const USER = { username: 'e2e-admin', name: 'E2E Admin', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] };
 
 async function authenticate(page: Page, lang = 'zh') {
-  await page.context().addCookies([{
-    name: 'phoenix_access_token', value: TOKEN,
-    url: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000',
-  }]);
-  await page.addInitScript(({ token, user, language }) => {
-    sessionStorage.setItem('phoenix_session_version', 'v6');
-    sessionStorage.setItem('phoenix_token', token);
-    sessionStorage.setItem('phoenix_user', JSON.stringify(user));
-    localStorage.setItem('phoenix_lang', language);
-  }, { token: TOKEN, user: USER, language: lang });
+  await authenticateMockPage(page, USER, lang);
   await page.route('**/api/notifications/stream?**', route => route.abort());
   await page.route('**/api/notifications/unread-count', route => route.fulfill({ json: { count: 0 } }));
   await page.route('**/api/online-users**', route => route.fulfill({ json: [] }));

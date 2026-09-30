@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { authenticateMockPage } from './support/auth';
 
 type MockUser = {
   username: string;
@@ -16,29 +17,13 @@ const TERMINAL_OPERATOR: MockUser = {
   username: 'e2e-pkg-op', name: 'E2E 包装员', role: 'ROLE_PKG_OPERATOR',
   roles: ['ROLE_PKG_OPERATOR'], permissions: ['MENU_PKG_OP:V'],
 };
-
-function tokenFor(user: MockUser) {
-  const payload = Buffer.from(JSON.stringify({
-    sub: user.username, username: user.username, role: user.role, roles: user.roles,
-    permissions: user.permissions, exp: 4_102_444_800,
-  })).toString('base64url');
-  return `e30.${payload}.e2e`;
-}
+const UNRELATED_ROLE: MockUser = {
+  username: 'e2e-finance', name: 'E2E Finance', role: 'ROLE_FINANCE',
+  roles: ['ROLE_FINANCE'], permissions: ['MENU_FINANCE:V'],
+};
 
 async function authenticate(page: Page, user: MockUser) {
-  const token = tokenFor(user);
-  await page.context().addCookies([{
-    name: 'phoenix_access_token', value: token,
-    url: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000',
-  }]);
-  await page.addInitScript(({ authToken, authUser }) => {
-    sessionStorage.setItem('phoenix_session_version', 'v6');
-    sessionStorage.setItem('phoenix_token', authToken);
-    sessionStorage.setItem('phoenix_user', JSON.stringify(authUser));
-    localStorage.setItem('phoenix_token', authToken);
-    localStorage.setItem('phoenix_user', JSON.stringify(authUser));
-    localStorage.setItem('phoenix_lang', 'zh');
-  }, { authToken: token, authUser: user });
+  await authenticateMockPage(page, user);
   await page.route('**/api/**', route => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/notifications/unread-count')) return route.fulfill({ json: { count: 0 } });
@@ -87,4 +72,14 @@ test('packaging-only operator does not get an unsafe admin return action', async
 
   await expect(page.getByRole('button', { name: '返回管理后台' })).toHaveCount(0);
   await expect(page.locator('a[href="/terminal/home"]')).toBeVisible();
+});
+
+test('unrelated role does not get the packaging terminal home entry', async ({ page }) => {
+  await authenticate(page, UNRELATED_ROLE);
+  await page.goto('/terminal/packaging/dashboard');
+  await enterTerminal(page);
+
+  await expect(page.locator('a[href="/terminal/home"]')).toHaveCount(0);
+  await page.goto('/terminal/home');
+  await expect(page.getByRole('button', { name: /包装作业/ })).toHaveCount(0);
 });

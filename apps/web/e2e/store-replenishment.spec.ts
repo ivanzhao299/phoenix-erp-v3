@@ -1,15 +1,14 @@
 import { expect, request, test } from '@playwright/test';
+import { loadReplenishmentFixture } from './support/replenishment-fixture';
 
-type Fixture = { storeCode: string; sourceWarehouseCode: string; skuCode: string; qty: number };
-const fixtureRaw = process.env.REPLENISH_E2E_FIXTURE;
 const manager = { username: process.env.REPLENISH_MANAGER_USER, password: process.env.REPLENISH_MANAGER_PASSWORD };
 const warehouse = { username: process.env.REPLENISH_WMS_USER, password: process.env.REPLENISH_WMS_PASSWORD };
 
 function requiredConfig() {
-  if (!fixtureRaw || !manager.username || !manager.password || !warehouse.username || !warehouse.password) {
-    throw new Error('store-replenishment E2E requires REPLENISH_E2E_FIXTURE and both manager/WMS credentials');
+  if (!manager.username || !manager.password || !warehouse.username || !warehouse.password) {
+    throw new Error('store-replenishment E2E requires isolated manager and WMS credentials (REPLENISH_MANAGER_USER/PASSWORD and REPLENISH_WMS_USER/PASSWORD)');
   }
-  return JSON.parse(fixtureRaw) as Fixture;
+  return { fixture: loadReplenishmentFixture(), manager, warehouse };
 }
 
 async function token(baseURL: string, credentials: { username?: string; password?: string }) {
@@ -37,7 +36,7 @@ async function requestRow(api: Awaited<ReturnType<typeof apiFor>>, id: number) {
 
 test.describe.serial('store replenishment manager + warehouse lifecycle', () => {
   test('create, submit, inventory rejection, approve, dispatch and receive branches', async ({ baseURL }) => {
-    const fixture = requiredConfig();
+    const { fixture, manager, warehouse } = requiredConfig();
     const managerApi = await apiFor(baseURL!, manager);
     const warehouseApi = await apiFor(baseURL!, warehouse);
     const create = await managerApi.post('/api/v2/store-replenishments', { data: { storeCode: fixture.storeCode, sourceWarehouseCode: fixture.sourceWarehouseCode, urgency: 'NORMAL', reason: 'Playwright lifecycle', lines: [{ skuCode: fixture.skuCode, qty: fixture.qty }] } });
@@ -65,7 +64,7 @@ test.describe.serial('store replenishment manager + warehouse lifecycle', () => 
   });
 
   test('manager UI exposes the safe orchestration workbench on desktop and mobile', async ({ page, baseURL }) => {
-    requiredConfig();
+    const { manager } = requiredConfig();
     await page.goto('/login?return=/store/replenish');
     await page.getByPlaceholder(/账户名|username/i).fill(manager.username!);
     await page.getByPlaceholder(/密码|password/i).fill(manager.password!);
