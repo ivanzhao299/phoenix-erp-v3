@@ -62,3 +62,15 @@ No create/approve/receive/pay/dispatch/collect/upload request was issued because
 `AUTOMATED_UAT=PARTIAL_READONLY`
 `HUMAN_UAT=NOT_CONFIRMED`
 `READY_FOR_BATCH3_INTEGRATION=NO`
+
+## Read-only DataScope diagnosis (2026-10-01)
+
+Using the same disposable E2E password, `E2E_ADMIN` and `E2E_REPLENISH_MANAGER` were compared against the same endpoints. `E2E_ADMIN` returned the UAT inventory batches (including `UAT-BAT-INIT-EGG2`), while `E2E_REPLENISH_MANAGER` returned an empty inventory list. This confirms the API process can see the UAT rows and is reading the seeded database; the earlier empty response was role filtering, not a missing API connection.
+
+The UAT seed rows have `company_code='ALL'`, `store_code='ALL'`, and warehouse `WMS-VTE-MAIN`. The manager identity is scoped by the U1 seed to `E2E-COMPANY` and the replenishment store/warehouses. Because the fixture rows do not carry `E2E-COMPANY`, the manager's empty list is expected company isolation. Procurement request/order access also returns 403 for the manager because its menu permission set does not include those endpoints. Admin receives 200 with empty transaction collections because no transaction fixture exists.
+
+Classification: `TEST_FIXTURE_SCOPE_ALIGNMENT_GAP` for manager business data (fixture company/store fields do not match the manager scope), plus `EXPECTED_DATASCOPE_AND_PERMISSION_DENIAL` for the observed manager responses. No production code was changed and no mutation was issued.
+
+`AUTOMATED_UAT=PARTIAL_READONLY_DATASCOPE_VERIFIED`
+`HUMAN_UAT=NOT_CONFIRMED`
+`READY_FOR_BATCH3_INTEGRATION=NO`
