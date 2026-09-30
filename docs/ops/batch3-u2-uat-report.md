@@ -37,3 +37,28 @@ Provide a disposable PG16 database identity (container/network, database name, c
 * No account was created or modified.
 * No migrations or business writes were executed.
 * No files outside U2-owned report artifacts were modified.
+
+## Runtime attempt (U1 isolated environment, 2026-10-01)
+
+U1 supplied a disposable PostgreSQL 16.14 service on host port `55437`, with API `http://127.0.0.1:33102`. The API health and readiness probes passed and reported `env=test`, `db.connected=true`, and `status=READY`. The database is `phoenix_erp_u1` inside the isolated container; no production endpoint was contacted.
+
+A read-only baseline query returned: purchase orders `0`, sales orders `0`, AP invoices `0`, AR invoices `0`, POS sales `0`, inventory batches `45`. This confirms the service is isolated and provides a DB-state baseline.
+
+The supplied runtime did not expose U2 an approved test password/token for the seeded users (`admin`, `test_pkg_op`, `test_qc`, `test_wh_clk`, `test_sup`). U2 therefore did not guess credentials or attempt writes. Authenticated business journeys and before/after DB assertions remain blocked at the credential handoff:
+
+* procurement → approval → PO → receipt → AP → payment: **BLOCKED_AUTH_CREDENTIAL**
+* sales → allocation → outbound → delivery → receipt → AR: **BLOCKED_AUTH_CREDENTIAL**
+* store collection and attachment authorization: **BLOCKED_AUTH_CREDENTIAL**
+* authenticated inventory query and master-data operations: **BLOCKED_AUTH_CREDENTIAL**
+
+`AUTOMATED_UAT=BLOCKED_AUTH_CREDENTIAL`; `HUMAN_UAT=NOT_CONFIRMED`; `READY_FOR_BATCH3_INTEGRATION=NO`. No business mutation was executed, so post-state deltas are intentionally absent rather than inferred.
+
+## Authenticated runtime evidence (2026-10-01)
+
+Using the internally supplied disposable-only E2E password (not recorded here), login succeeded for `E2E_ADMIN`, `E2E_REPLENISH_MANAGER`, and `E2E_REPLENISH_WMS` against API `:33102`. Read-only probes as E2E_ADMIN returned HTTP 200 for procurement requests/orders/suppliers, sales orders/inventory batches, AP invoices, AR invoices, and active supplier/warehouse master data. Empty business collections were returned for requests, orders, sales orders, batches, AP and AR invoices; supplier and warehouse active lists returned data.
+
+No create/approve/receive/pay/dispatch/collect/upload request was issued because the disposable database has no U2 business transaction fixture and the exact workflow payload contract requires additional approved fixture data. Consequently no DB state mutation is claimed. The authenticated read probes validate service reachability and role login only; they do not constitute business UAT.
+
+`AUTOMATED_UAT=PARTIAL_READONLY`
+`HUMAN_UAT=NOT_CONFIRMED`
+`READY_FOR_BATCH3_INTEGRATION=NO`
