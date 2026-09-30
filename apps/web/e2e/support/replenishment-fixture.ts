@@ -25,5 +25,5 @@ export function loadReplenishmentFixture(): ReplenishmentFixture {
   if (!fixture.storeCode || !fixture.sourceWarehouseCode || !fixture.skuCode || typeof qty !== 'number' || !Number.isFinite(qty) || qty <= 0) {
     throw new Error('REPLENISH_E2E_FIXTURE must contain storeCode, sourceWarehouseCode, skuCode and positive qty');
   }
-  return fixture as ReplenishmentFixture;
+  return { storeCode: fixture.storeCode, sourceWarehouseCode: fixture.sourceWarehouseCode, skuCode: fixture.skuCode, qty };
 }
