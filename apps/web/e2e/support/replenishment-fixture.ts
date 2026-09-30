@@ -21,8 +21,9 @@ export function loadReplenishmentFixture(): ReplenishmentFixture {
   }
   let fixture: Partial<ReplenishmentFixture>;
   try { fixture = JSON.parse(raw); } catch { throw new Error('REPLENISH_E2E_FIXTURE must be valid JSON'); }
-  if (!fixture.storeCode || !fixture.sourceWarehouseCode || !fixture.skuCode || !Number.isFinite(fixture.qty) || fixture.qty <= 0) {
+  const qty = fixture.qty;
+  if (!fixture.storeCode || !fixture.sourceWarehouseCode || !fixture.skuCode || typeof qty !== 'number' || !Number.isFinite(qty) || qty <= 0) {
     throw new Error('REPLENISH_E2E_FIXTURE must contain storeCode, sourceWarehouseCode, skuCode and positive qty');
   }
-  return fixture as ReplenishmentFixture;
+  return { storeCode: fixture.storeCode, sourceWarehouseCode: fixture.sourceWarehouseCode, skuCode: fixture.skuCode, qty };
 }
