@@ -105,6 +105,16 @@ jobs:
       - name: Seed disposable E2E fixture
         run: bash scripts/seed-e2e-replenishment-fixture.sh "$RUNNER_TEMP/replenishment-fixture.json"
 
+      - name: Mint disposable E2E auth token
+        run: |
+          token="$(curl -fsS -X POST http://127.0.0.1:3100/api/auth/login \
+            -H 'content-type: application/json' \
+            --data '{"username":"E2E_ADMIN","password":"e2e-pass-33100"}' \
+            | node -e "let s=''; process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).token))")"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "E2E_AUTH_TOKEN=$token" >> "$GITHUB_ENV"
+
       - name: Start Web
         working-directory: apps/web
         run: |
