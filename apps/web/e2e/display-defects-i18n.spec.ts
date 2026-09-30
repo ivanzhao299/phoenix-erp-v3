@@ -62,3 +62,34 @@ test('vehicle historical Chinese free text remains verbatim in every locale', as
   await page.locator('header select').selectOption('lo');
   await expect(page.locator('tbody')).toContainText('厢式货车');
 });
+
+for (const master of [
+  { type: 'supplier', route: 'suppliers', code: 'supplier_code', value: 'SUP-I18N', base: 'supplier_name', zh: '中文供应商', en: 'English supplier', lo: 'ຜູ້ສະໜອງລາວ' },
+  { type: 'warehouse', route: 'warehouses', code: 'warehouse_code', value: 'WH-I18N', base: 'warehouse_name', zh: '中文仓库', en: 'English warehouse', lo: 'ສາງລາວ' },
+] as const) {
+  test(`${master.type} name follows zh/en/lo and uses code for missing translation`, async ({ page }) => {
+    await authenticate(page);
+    const row: Record<string, unknown> = {
+      ...company,
+      [master.code]: master.value,
+      [master.base]: master.zh,
+      [`${master.base}_en`]: master.en,
+      [`${master.base}_lo`]: master.lo,
+      status: 'ACTIVE',
+    };
+    if (master.type === 'warehouse') row.warehouse_name_zh = master.zh;
+    await page.route(`**/api/master-data/runtime/${master.type}**`, route => route.fulfill({ json: [row] }));
+    await page.goto(`/master-data/${master.route}`);
+    const nameCell = page.locator('tbody tr').first().locator('td').nth(1);
+    await expect(nameCell).toHaveText(master.zh);
+    await page.locator('header select').selectOption('en');
+    await expect(nameCell).toHaveText(master.en);
+    await page.locator('header select').selectOption('lo');
+    await expect(nameCell).toHaveText(master.lo);
+
+    row[`${master.base}_lo`] = '';
+    await page.reload();
+    await expect(nameCell).toHaveText(master.value);
+    await expect(nameCell).not.toContainText(master.zh);
+  });
+}
