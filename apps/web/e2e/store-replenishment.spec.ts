@@ -34,7 +34,7 @@ async function requestRow(api: Awaited<ReturnType<typeof apiFor>>, id: number) {
   expect(response.ok()).toBeTruthy();
   const body = await bodyOf(response);
   const items = Array.isArray(body) ? body : [];
-  return items.find(item => item && typeof item === 'object' && Number((item as { id?: unknown }).id) === id) as { status?: string } | undefined;
+  return items.find(item => item && typeof item === 'object' && String((item as { id?: unknown }).id) === String(id)) as { status?: string } | undefined;
 }
 
 test.describe.serial('store replenishment manager + warehouse lifecycle', () => {
