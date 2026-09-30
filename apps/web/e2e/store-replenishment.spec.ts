@@ -72,7 +72,11 @@ test.describe.serial('store replenishment manager + warehouse lifecycle', () => 
     await page.goto('/login?return=/store/replenish');
     await page.getByPlaceholder(/账户名|username/i).fill(manager.username!);
     await page.getByPlaceholder(/密码|password/i).fill(manager.password!);
+    const loginResponse = page.waitForResponse(response => response.url().includes('/api/auth/login') && response.request().method() === 'POST');
     await page.getByRole('button', { name: /登\s*录|log in/i }).click();
+    const response = await loginResponse;
+    expect(response.ok()).toBeTruthy();
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('phoenix_token'))).toBeTruthy();
     await page.goto('/store/replenish');
     await expect(page.getByRole('heading', { name: /门店补货编排|replenishment orchestration/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /新建补货申请|new replenishment/i })).toBeVisible();
