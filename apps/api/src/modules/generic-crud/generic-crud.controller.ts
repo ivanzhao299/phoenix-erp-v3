@@ -8,6 +8,7 @@ import {
   Query,
   Body,
   UseGuards,
+  UseFilters,
   Req,
   ForbiddenException,
   BadRequestException,
@@ -23,9 +24,11 @@ import { DataScopeContext, DataScopeService } from '../org/services/data-scope.s
 import { WmsService } from '../wms/wms.service';
 import { WMS_ISSUE_OUTBOUND_TYPES } from '../wms/wms-outbound-policy';
 import { redactSensitive } from '../../common/logging/redact-sensitive';
+import { AuthExceptionFilter } from '../../common/filters/auth-exception.filter';
 
 @Controller('api/crud')
 @UseGuards(AuthGuard('jwt'))
+@UseFilters(AuthExceptionFilter)
 export class GenericCrudController {
   constructor(
     private readonly crudService: GenericCrudService,
