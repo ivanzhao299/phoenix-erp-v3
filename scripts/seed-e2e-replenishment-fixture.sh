@@ -10,7 +10,8 @@ if [[ "${E2E_DB:-}" != "1" || "${NODE_ENV:-}" != "test" ]]; then
   exit 1
 fi
 
-PSQL=(psql -X -v ON_ERROR_STOP=1)
+PSQL_BIN="${PSQL_BIN:-psql}"
+PSQL=("$PSQL_BIN" -X -v ON_ERROR_STOP=1)
 if [[ -n "${DATABASE_URL:-}" ]]; then PSQL+=("$DATABASE_URL"); fi
 OUT_FILE="${1:-}"
 
@@ -44,11 +45,14 @@ SELECT 'E2E-REPLENISH-TGT','E2E replenishment target','E2E-COMPANY','E2E-REPLENI
 FROM store_master s WHERE s.store_code='E2E-REPLENISH-STORE'
 ON CONFLICT (warehouse_code) DO UPDATE SET status='ACTIVE',domain='OPERATIONAL',owner_store_id=EXCLUDED.owner_store_id;
 
+DELETE FROM store_warehouse_bindings
+WHERE store_id=(SELECT id FROM store_master WHERE store_code='E2E-REPLENISH-STORE')
+  AND warehouse_code='E2E-REPLENISH-TGT' AND purpose='SALES';
 INSERT INTO store_warehouse_bindings
   (store_id,warehouse_code,purpose,priority,status,effective_from,effective_to)
 SELECT s.id,'E2E-REPLENISH-TGT','SALES',1,'ACTIVE',CURRENT_DATE,NULL
 FROM store_master s WHERE s.store_code='E2E-REPLENISH-STORE'
-ON CONFLICT (store_id,warehouse_code,purpose) DO UPDATE SET priority=1,status='ACTIVE',effective_to=NULL;
+;
 
 INSERT INTO product_skus
   (sku_code,product_code,product_name,grade_code,spec_code,sku_name,status)
@@ -56,9 +60,9 @@ VALUES ('E2E-REPLENISH-SKU','E2E-REPLENISH-PRODUCT','E2E replenishment egg','E2E
 ON CONFLICT (sku_code) DO UPDATE SET status='ACTIVE';
 
 INSERT INTO inv_batches
-  (batch_no,product_code,sku_code,qty,qty_available,status,warehouse_code,store_code,expire_date)
-VALUES ('E2E-REPLENISH-BATCH','E2E-REPLENISH-PRODUCT','E2E-REPLENISH-SKU',100,100,'AVAILABLE','E2E-REPLENISH-SRC','ALL',CURRENT_DATE+30)
-ON CONFLICT (batch_no) DO UPDATE SET sku_code='E2E-REPLENISH-SKU',qty=100,qty_available=100,status='AVAILABLE',warehouse_code='E2E-REPLENISH-SRC';
+  (batch_no,product_code,sku_code,qty,qty_available,status,warehouse_code,store_code,company_code,expire_date)
+VALUES ('E2E-REPLENISH-BATCH','E2E-REPLENISH-PRODUCT','E2E-REPLENISH-SKU',100,100,'AVAILABLE','E2E-REPLENISH-SRC','E2E-REPLENISH-STORE','E2E-COMPANY',CURRENT_DATE+30)
+ON CONFLICT (batch_no) DO UPDATE SET sku_code='E2E-REPLENISH-SKU',qty=100,qty_available=100,status='AVAILABLE',warehouse_code='E2E-REPLENISH-SRC',store_code='E2E-REPLENISH-STORE',company_code='E2E-COMPANY';
 COMMIT;
 SQL
 
