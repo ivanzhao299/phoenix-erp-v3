@@ -70,6 +70,8 @@ BUSINESS_UAT=NOT_CONFIRMED
 BUSINESS_UAT_BLOCKER=APPROVED_CREDENTIALS_AND_ROLE_JOURNEYS
 ```
 
+The PR carries the repository's reviewed `reviewed-frozen-boundary` and `reviewed-security-touch` labels for the intentional Auth/PDA application changes; these labels are consumed by the static security workflow.
+
 The Q workflow now seeds after API runtime schema bootstrap, uses seeded `E2E_ADMIN` credentials, mints a disposable middleware-valid token, installs Chromium, and uploads reports/logs. It must still complete as a required remote check before merge.
 
 ## Final status
