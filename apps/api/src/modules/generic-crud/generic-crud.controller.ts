@@ -17,7 +17,7 @@ import {
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { GenericCrudService } from './generic-crud.service';
-import { AuthGuard } from '@nestjs/passport';
+import { AuthSubcodeGuard } from '../../common/guards/auth-subcode.guard';
 import { ALLOWED_TABLES, BREEDING_SCOPED_TABLES, BreedingScopedTable } from './crud.constants';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
@@ -27,7 +27,7 @@ import { redactSensitive } from '../../common/logging/redact-sensitive';
 import { AuthExceptionFilter } from '../../common/filters/auth-exception.filter';
 
 @Controller('api/crud')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthSubcodeGuard)
 @UseFilters(AuthExceptionFilter)
 export class GenericCrudController {
   constructor(

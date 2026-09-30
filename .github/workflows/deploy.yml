@@ -136,6 +136,8 @@ jobs:
             migration:
               - 'apps/api/src/database/migrations/**'
               - 'apps/api/migrations/**'
+              - 'apps/api/ddl/**'
+              - 'migrations/**'
               - 'scripts/db-migrate.sh'
               - 'scripts/deploy-schema-first.sh'
             infra:
@@ -156,7 +158,7 @@ jobs:
           WEB_ONLY:    ${{ steps.changes.outputs.web_only }}
           WEB_DEPS:    ${{ steps.changes.outputs.web_deps }}
           API_OR_DB:   ${{ steps.changes.outputs.api_or_db }}
-          MIGRATION_CHANGED: ${{ steps.changes.outputs.migration || 'false' }}
+          MIGRATION_CHANGED: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changes.outputs.migration || 'false' }}
           INFRA:       ${{ steps.changes.outputs.infra }}
           OPS_ONLY:    ${{ steps.scope.outputs.ops_only }}
         run: |
@@ -752,6 +754,22 @@ jobs:
             fi
             CODE_SYNCED=true
             echo "✅ Code synced"
+
+            # The production checkout is the authoritative deployment baseline.
+            # Manual dispatch has no before SHA, and may span several merges.
+            if [ "$BUILD_API" = "true" ]; then
+              MIGRATION_DIFF_STATUS=0
+              git diff --quiet "$PREV_SHA" "$TARGET_SHA" -- \
+                apps/api/src/database/migrations apps/api/migrations apps/api/ddl migrations \
+                scripts/db-migrate.sh scripts/deploy-schema-first.sh \
+                || MIGRATION_DIFF_STATUS=$?
+              case "$MIGRATION_DIFF_STATUS" in
+                0) RUN_MIG=false ;;
+                1) RUN_MIG=true ;;
+                *) echo "::error::Cannot determine production migration scope"; exit 22 ;;
+              esac
+              echo "Production migration scope: run_mig=$RUN_MIG"
+            fi
 
             # 首次部署兜底:确保 runtime-design-system.css alias 目录 + 种子文件存在
             mkdir -p /opt/phoenix/static-overrides

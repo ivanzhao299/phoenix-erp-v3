@@ -1,5 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
+import * as jwt from 'jsonwebtoken';
 import { AuthExceptionFilter } from './auth-exception.filter';
+import { AuthSubcodeGuard } from '../guards/auth-subcode.guard';
 
 function render(request: Record<string, unknown>, exception: UnauthorizedException) {
   const json = jest.fn();
@@ -23,21 +25,19 @@ describe('AuthExceptionFilter', () => {
     expect(render({}, new UnauthorizedException()).subcode).toBe('NO_TOKEN');
   });
 
-  it('classifies an expired bearer token as TOKEN_EXPIRED', () => {
-    const payload = Buffer.from(
-      JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 }),
-    ).toString('base64url');
-    const token = `eyJhbGciOiJub25lIn0.${payload}.signature`;
-
-    expect(
-      render({ headers: { authorization: `Bearer ${token}` } }, new UnauthorizedException()).subcode,
-    ).toBe('TOKEN_EXPIRED');
-  });
-
   it('classifies a malformed bearer token as INVALID_TOKEN', () => {
     expect(
       render({ headers: { authorization: 'Bearer malformed' } }, new UnauthorizedException()).subcode,
     ).toBe('INVALID_TOKEN');
+  });
+
+  it('preserves TOKEN_EXPIRED supplied by the verified Passport guard', () => {
+    expect(
+      render(
+        { headers: { authorization: 'Bearer verified-expired-token' } },
+        new UnauthorizedException({ subcode: 'TOKEN_EXPIRED', message: '登录已过期，请重新登录' }),
+      ).subcode,
+    ).toBe('TOKEN_EXPIRED');
   });
 
   it('preserves an explicit permission-change subcode', () => {
@@ -55,5 +55,25 @@ describe('AuthExceptionFilter', () => {
       message: '权限已变更，请重新登录',
       error: 'Unauthorized',
     });
+  });
+});
+
+describe('AuthSubcodeGuard', () => {
+  const context = (headers: Record<string, string>) => ({
+    switchToHttp: () => ({ getRequest: () => ({ headers }) }),
+  }) as never;
+
+  it('maps Passport TokenExpiredError to TOKEN_EXPIRED', () => {
+    const token = jwt.sign({ sub: '1', username: 'expired-user' }, 'unit-test-secret', { expiresIn: -60 });
+    let info: { name?: string } | undefined;
+    try {
+      jwt.verify(token, 'unit-test-secret');
+    } catch (error) {
+      info = error as { name?: string };
+    }
+
+    expect(() => new AuthSubcodeGuard().handleRequest(null, null, info, context({ authorization: `Bearer ${token}` }))).toThrow(
+      expect.objectContaining({ response: expect.objectContaining({ subcode: 'TOKEN_EXPIRED' }) }),
+    );
   });
 });
