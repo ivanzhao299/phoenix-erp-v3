@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { authenticateMockPage } from './support/auth';
 
-const payload = Buffer.from(JSON.stringify({ sub: 'e2e-admin', username: 'e2e-admin', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], exp: 4_102_444_800 })).toString('base64url');
-const token = `e30.${payload}.e2e`;
+const tokenUser = { username: 'e2e-admin', name: 'E2E Admin', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] };
 const companyDisplay = '老挝凤凰农业发展有限公司（COMP-LAO-AGRI）';
 const batch = {
   batch_no: 'BATCH-GEOMETRY-20260906', sku_code: 'SKU-EGG-AA-30', sku_name: '鲜鸡蛋 30 枚装',
@@ -17,14 +17,7 @@ const unmappedProductionBatch = {
 };
 
 async function mockInventory(page: Page) {
-  const authToken = process.env.INVENTORY_E2E_TOKEN || token;
-  await page.context().addCookies([{ name: 'phoenix_access_token', value: authToken, url: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000' }]);
-  await page.addInitScript(({ authToken }) => {
-    sessionStorage.setItem('phoenix_session_version', 'v6');
-    sessionStorage.setItem('phoenix_token', authToken);
-    sessionStorage.setItem('phoenix_user', JSON.stringify({ username: 'e2e-admin', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] }));
-    localStorage.setItem('phoenix_lang', 'zh');
-  }, { authToken });
+  await authenticateMockPage(page, tokenUser);
   await page.route('**/api/v2/sales/inventory/stats', route => route.fulfill({ json: { activeBatches: 2, totalAvailable: 54421, expiringBatches: 1, expiringQty: 54321, expiredBatches: 0, returnedBatches: 0, todayExpireLoss: 0, todayDamageLoss: 0, expiringWarnDays: 7 } }));
   await page.route('**/api/v2/sales/inventory/batches**', route => route.fulfill({ json: [batch, unmappedProductionBatch] }));
   await page.route('**/api/v2/sales/inventory/expiring**', route => route.fulfill({ json: [batch] }));

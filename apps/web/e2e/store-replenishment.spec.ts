@@ -1,15 +1,14 @@
 import { expect, request, test } from '@playwright/test';
+import { loadReplenishmentFixture } from './support/replenishment-fixture';
 
-type Fixture = { storeCode: string; sourceWarehouseCode: string; skuCode: string; qty: number };
-const fixtureRaw = process.env.REPLENISH_E2E_FIXTURE;
 const manager = { username: process.env.REPLENISH_MANAGER_USER, password: process.env.REPLENISH_MANAGER_PASSWORD };
 const warehouse = { username: process.env.REPLENISH_WMS_USER, password: process.env.REPLENISH_WMS_PASSWORD };
 
 function requiredConfig() {
-  if (!fixtureRaw || !manager.username || !manager.password || !warehouse.username || !warehouse.password) {
-    throw new Error('store-replenishment E2E requires REPLENISH_E2E_FIXTURE and both manager/WMS credentials');
+  if (!manager.username || !manager.password || !warehouse.username || !warehouse.password) {
+    throw new Error('store-replenishment E2E requires isolated manager and WMS credentials (REPLENISH_MANAGER_USER/PASSWORD and REPLENISH_WMS_USER/PASSWORD)');
   }
-  return JSON.parse(fixtureRaw) as Fixture;
+  return { fixture: loadReplenishmentFixture(), manager, warehouse };
 }
 
 async function token(baseURL: string, credentials: { username?: string; password?: string }) {
@@ -24,25 +23,28 @@ async function apiFor(baseURL: string, credentials: typeof manager) {
   return request.newContext({ baseURL, extraHTTPHeaders: { Authorization: `Bearer ${await token(baseURL, credentials)}` } });
 }
 
-async function bodyOf(response: { json(): Promise<any> }) {
+async function bodyOf(response: { json(): Promise<unknown> }): Promise<unknown> {
   const body = await response.json();
-  return body?.data ?? body;
+  if (body && typeof body === 'object' && 'data' in body) return (body as { data?: unknown }).data ?? body;
+  return body;
 }
 
 async function requestRow(api: Awaited<ReturnType<typeof apiFor>>, id: number) {
   const response = await api.get('/api/v2/store-replenishments');
   expect(response.ok()).toBeTruthy();
-  return (await bodyOf(response)).find((item: { id: number }) => Number(item.id) === id);
+  const body = await bodyOf(response);
+  const items = Array.isArray(body) ? body : [];
+  return items.find(item => item && typeof item === 'object' && String((item as { id?: unknown }).id) === String(id)) as { status?: string } | undefined;
 }
 
 test.describe.serial('store replenishment manager + warehouse lifecycle', () => {
   test('create, submit, inventory rejection, approve, dispatch and receive branches', async ({ baseURL }) => {
-    const fixture = requiredConfig();
+    const { fixture, manager, warehouse } = requiredConfig();
     const managerApi = await apiFor(baseURL!, manager);
     const warehouseApi = await apiFor(baseURL!, warehouse);
     const create = await managerApi.post('/api/v2/store-replenishments', { data: { storeCode: fixture.storeCode, sourceWarehouseCode: fixture.sourceWarehouseCode, urgency: 'NORMAL', reason: 'Playwright lifecycle', lines: [{ skuCode: fixture.skuCode, qty: fixture.qty }] } });
     expect(create.ok()).toBeTruthy();
-    const row = await bodyOf(create);
+    const row = await bodyOf(create) as { id: number; request_no: string };
     expect(row.request_no).toMatch(/^SR-/);
     expect((await managerApi.post(`/api/v2/store-replenishments/${row.id}/submit`)).ok()).toBeTruthy();
     const approval = await warehouseApi.post(`/api/v2/store-replenishments/${row.id}/approve`, { data: { sourceWarehouseCode: fixture.sourceWarehouseCode } });
@@ -54,22 +56,27 @@ test.describe.serial('store replenishment manager + warehouse lifecycle', () => 
     expect((await warehouseApi.post(`/api/v2/store-replenishments/${row.id}/dispatch`)).ok()).toBeTruthy();
     const transferResponse = await managerApi.get(`/api/v2/store-replenishments/${row.id}/transfer`);
     expect(transferResponse.ok()).toBeTruthy();
-    const transfer = await bodyOf(transferResponse);
+    const transfer = await bodyOf(transferResponse) as { items: Array<{ source_batch_no: string; expected_qty: number }> };
     expect(transfer.items.length).toBeGreaterThan(0);
-    const partial = transfer.items.map((item: any, index: number) => ({ batch_no: item.source_batch_no, received_qty: index ? Number(item.expected_qty) : Math.max(0, Number(item.expected_qty) - 1), damaged_qty: 0, note: 'Playwright short receive' }));
+    const partial = transfer.items.map((item, index) => ({ batch_no: item.source_batch_no, received_qty: index ? Number(item.expected_qty) : Math.max(0, Number(item.expected_qty) - 1), damaged_qty: 0, note: 'Playwright short receive' }));
     expect((await managerApi.post(`/api/v2/store-replenishments/${row.id}/receive`, { data: { items: partial } })).ok()).toBeTruthy();
     const after = await bodyOf(await managerApi.get(`/api/v2/store-replenishments/${row.id}/transfer`));
-    const pending = after.discrepancies.filter((x: any) => !x.resolved_at);
-    if (pending.length) expect((await managerApi.post(`/api/v2/store-replenishments/${row.id}/close`, { data: { resolutions: pending.map((x: any) => ({ id: x.id, resolution_type: 'ADJUSTMENT', resolution_ref: `PW-ADJ-${row.id}-${x.id}` })) } })).ok()).toBeTruthy();
+    const discrepancies = (after as { discrepancies: Array<{ id: number; resolved_at?: string | null }> }).discrepancies;
+    const pending = discrepancies.filter(x => !x.resolved_at);
+    if (pending.length) expect((await managerApi.post(`/api/v2/store-replenishments/${row.id}/close`, { data: { resolutions: pending.map(x => ({ id: x.id, resolution_type: 'ADJUSTMENT', resolution_ref: `PW-ADJ-${row.id}-${x.id}` })) } })).ok()).toBeTruthy();
     expect((await requestRow(managerApi, row.id))?.status).toBe('CLOSED');
   });
 
-  test('manager UI exposes the safe orchestration workbench on desktop and mobile', async ({ page, baseURL }) => {
-    requiredConfig();
+  test('manager UI exposes the safe orchestration workbench on desktop and mobile', async ({ page }) => {
+    const { manager } = requiredConfig();
     await page.goto('/login?return=/store/replenish');
     await page.getByPlaceholder(/账户名|username/i).fill(manager.username!);
     await page.getByPlaceholder(/密码|password/i).fill(manager.password!);
+    const loginResponse = page.waitForResponse(response => response.url().includes('/api/auth/login') && response.request().method() === 'POST');
     await page.getByRole('button', { name: /登\s*录|log in/i }).click();
+    const response = await loginResponse;
+    expect(response.ok()).toBeTruthy();
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('phoenix_token'))).toBeTruthy();
     await page.goto('/store/replenish');
     await expect(page.getByRole('heading', { name: /门店补货编排|replenishment orchestration/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /新建补货申请|new replenishment/i })).toBeVisible();

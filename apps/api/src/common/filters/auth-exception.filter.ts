@@ -5,7 +5,7 @@ import {
   HttpException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 
 type AuthSubcode = 'NO_TOKEN' | 'TOKEN_EXPIRED' | 'INVALID_TOKEN' | 'PERMS_CHANGED';
 
@@ -26,6 +26,7 @@ export class AuthExceptionFilter implements ExceptionFilter {
   catch(exception: HttpException, host: ArgumentsHost) {
     const ctx  = host.switchToHttp();
     const res  = ctx.getResponse<Response>();
+    const req  = ctx.getRequest<Request>();
     const body = exception.getResponse();
 
     let subcode: AuthSubcode = 'INVALID_TOKEN';
@@ -34,6 +35,7 @@ export class AuthExceptionFilter implements ExceptionFilter {
     if (typeof body === 'object' && body !== null) {
       const b = body as { subcode?: AuthSubcode; message?: string };
       if (b.subcode) subcode = b.subcode;
+      else if (!req.headers.authorization && !req.headers.Authorization) subcode = 'NO_TOKEN';
       if (b.message) message = b.message;
     } else if (typeof body === 'string') {
       message = body;

@@ -1,6 +1,7 @@
 'use client';
 import React, { createContext, useContext, useState, useCallback, useRef, useReducer, useMemo } from 'react';
 import { resolveHydrationValue } from '@/lib/i18n-hydrator';
+import { localizedMasterName } from '@/lib/localized-master-data';
 
 const SUPPORTED_LANGS = ['zh', 'en', 'lo'];
 
@@ -112,10 +113,7 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
   }, [lang, literalTranslationMap]);
 
   const tField = useCallback((obj: Record<string, unknown>, fieldBase: string): string => {
-    if (!obj) return '';
-    const valCurrent = obj[fieldBase + '_' + lang];
-    if (valCurrent) return String(valCurrent);
-    return String(obj[fieldBase + '_zh'] || obj[fieldBase + '_en'] || obj[fieldBase + '_lo'] || obj[fieldBase] || '');
+    return localizedMasterName(obj, fieldBase, lang);
   }, [lang]);
 
   const toggleLanguage = useCallback(() => {

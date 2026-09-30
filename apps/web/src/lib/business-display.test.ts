@@ -11,7 +11,7 @@ describe('business display formatters', () => {
   it('uses real locale fallback and always preserves the code', () => {
     const row = { location_name:'A-01', warehouse_name_zh:'一号仓', warehouse_name_en:'WH One' };
     expect(formatMasterData(row, 'warehouse_name', 'WH-1', 'en')).toBe('WH One（WH-1）');
-    expect(formatMasterData(row, 'warehouse_name', 'WH-1', 'lo')).toBe('一号仓（WH-1）');
+    expect(formatMasterData(row, 'warehouse_name', 'WH-1', 'lo')).toBe('WH-1');
     expect(formatMasterData(row, 'location_name', 'L-1', 'lo')).toBe('A-01（L-1）');
   });
   it('formats canonical companies without inventing en/lo names', () => {

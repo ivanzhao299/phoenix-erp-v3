@@ -140,7 +140,8 @@ describe('WMS status-vocabulary selectors', () => {
     language.current = 'lo';
     await act(async () => root.render(createElement(WarehouseSelector, { value: '', onChange: () => undefined })));
     await flush();
-    expect(host.textContent).toContain('中文仓（WH-1）');
+    expect(host.textContent).toContain('WH-1');
+    expect(host.textContent).not.toContain('中文仓（WH-1）');
   });
 
   it('deduplicates an amei-style dual-role store context defensively', async () => {

@@ -21,6 +21,7 @@ import { useRefreshToken } from "@/lib/list-refresh";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { mappedPickValue } from "@/lib/selector-pick";
 import { formatBusinessEnum, formatCompany, type BusinessEnumDomain } from "@/lib/business-display";
+import { localizedMasterName } from "@/lib/localized-master-data";
 
 export type MasterDataDisplayKind = "company" | BusinessEnumDomain;
 
@@ -162,7 +163,7 @@ export function multilingualNameFields(type: string, nameKey: string): MdField[]
 
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick, mode = "drawer", pageRoutePrefix } = props;
-  const { tField, t, translateLiteral, lang } = useLanguage();  // task #25：列表名称列按当前语言显示
+  const { t, translateLiteral, lang } = useLanguage();  // task #25：列表名称列按当前语言显示
   // task #25：多语言类型在表单末尾追加英文/老挝文名称输入；已在页面 fields 里配过的语言键不重复注入
   const formFields = useMemo(() => {
     const have = new Set(fields.map(f => f.key));
@@ -358,16 +359,20 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                         ) : r[codeKey]}
                       </td>
                       {columns.map(c => {
-                        const raw = r[c.key];
+                        // Older supplier rows use supplier_type while the
+                        // governed runtime projection exposes supply_category.
+                        const raw = r[c.key] ?? (type === "supplier" && c.key === "supply_category" ? r.supplier_type : undefined);
                         const dt  = fieldByKey[c.key]?.dictType;
                         // task #25：名称列按当前语言取 <nameKey>_<lang>（缺则回退中文）；
                         //   兼容部分页面把名称列配成 <nameKey>_zh（如 products/warehouses）
                         const i18nName = I18N_NAME_TYPES.has(type) && (c.key === nameKey || c.key === `${nameKey}_zh`);
+                        const legacyTypeDomain = type === "supplier" && c.key === "supply_category" ? "supplierType"
+                          : type === "warehouse" && c.key === "type" ? "warehouseType" : undefined;
                         // g200o:dict 字段查 codeMap 转中文,fallback 原值
                         const shown = c.displayKind === "company" ? formatCompany(r, raw, lang)
                           : c.displayKind ? formatBusinessEnum(c.displayKind, raw, lang)
-                          : i18nName ? tField(r, nameKey)
-                          : dt && raw != null && raw !== '' ? (dictCodeMap[String(raw)] ?? raw) : raw;
+                          : i18nName ? (localizedMasterName(r, nameKey, lang) || r[codeKey])
+                          : dt && raw != null && raw !== '' ? (dictCodeMap[String(raw)] ?? (legacyTypeDomain ? formatBusinessEnum(legacyTypeDomain, raw, lang) : raw)) : raw;
                         return <td key={c.key} style={tdStyle} title={String(raw ?? "")}>{shown ?? "—"}</td>;
                       })}
                       <td style={{ ...tdStyle, textAlign: "center" }}>

@@ -30,8 +30,9 @@ interface NavStep {
   labelFb: string;
 }
 
-// 包装作业线（原有，保持不变）
+// 包装作业线
 const PACKAGING_STEPS: NavStep[] = [
+  { id: 'packaging-home',     path: '/terminal/home',                  icon: Home,         labelKey: 'terminal.home',          labelFb: '首页' },
   { id: 'history', path: '/terminal/packaging/history', icon: Package2, labelKey: 'terminal.history', labelFb: '历史' },
   { id: 'dashboard',          path: '/terminal/packaging/dashboard',          icon: LayoutDashboard, labelKey: 'terminal.dashboard',          labelFb: '概览' },
   { id: 'source-receive',     path: '/terminal/packaging/source-receive',     icon: Egg,             labelKey: 'terminal.source_receive',     labelFb: '集蛋' },
@@ -65,7 +66,7 @@ function stepsForPath(pathname: string): { steps: NavStep[]; titleKey: string; t
 export default function TerminalNavRail() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const { t } = useLanguage();
   const { brand } = useBrand();
   const { openExceptionCount } = useTerminalContext();
@@ -73,6 +74,9 @@ export default function TerminalNavRail() {
   const [pressTimer, setPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const { steps, titleKey, titleFb } = stepsForPath(pathname);
+  const visibleSteps = steps.filter(step =>
+    step.id !== 'packaging-home' || hasPermission('MENU_PKG_OP', 'V'),
+  );
 
   const handleAvatarPressStart = () => {
     const timer = setTimeout(() => setShowLogout(true), 2000);
@@ -130,7 +134,7 @@ export default function TerminalNavRail() {
       <div style={{ width: 52, height: 1, background: 'var(--brand-deep-3)', margin: '20px 0 16px', flexShrink: 0 }} />
 
       {/* Nav items */}
-      {steps.map(step => {
+      {visibleSteps.map(step => {
         const active = isActive(step.path);
         const isException = step.id === 'exceptions';
         return (

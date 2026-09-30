@@ -13,9 +13,17 @@ export function localizedMasterName(row: Record<string, unknown> | null | undefi
   };
   const localized = (locale: string) => value(`${base}_${locale}`) || value(camelLocaleKey(base, locale));
   const requested = lang || 'zh';
-  // The base field is the default (Chinese) label used by older API rows.
-  // Prefer it before another language so a zh view never displays an English
-  // or Lao fallback merely because the row lacks an explicit *_zh column.
+  // Supplier and warehouse master names are user-facing locale contracts: a
+  // supported locale must never silently show another locale's translation.
+  // Other historical master-data consumers retain their established generic
+  // fallback behavior (for example a single-language zone/location label).
+  const strictLocale = base === 'supplier_name' || base === 'supplierName'
+    || base === 'warehouse_name' || base === 'warehouseName';
+  if (strictLocale) {
+    if (requested === 'zh') return localized('zh') || value(base);
+    if (requested === 'en' || requested === 'lo') return localized(requested);
+    return localized('zh') || value(base);
+  }
   if (requested === 'zh') return localized('zh') || value(base) || localized('en') || localized('lo');
   return localized(requested) || localized('zh') || value(base) || localized('en') || localized('lo');
 }

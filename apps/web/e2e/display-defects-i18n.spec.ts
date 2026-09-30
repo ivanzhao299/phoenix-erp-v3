@@ -1,18 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import { authenticateMockPage } from './support/auth';
 
-const payload = Buffer.from(JSON.stringify({ sub: 'e2e-admin', username: 'e2e-admin', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], exp: 4_102_444_800 })).toString('base64url');
-const token = `e30.${payload}.e2e`;
+const tokenUser = { username: 'e2e-admin', name: 'E2E Admin', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] };
 
 async function authenticate(page: Page) {
-  await page.context().addCookies([{ name: 'phoenix_access_token', value: token, url: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000' }]);
-  await page.addInitScript(({ authToken }) => {
-    sessionStorage.setItem('phoenix_session_version', 'v6');
-    sessionStorage.setItem('phoenix_token', authToken);
-    sessionStorage.setItem('phoenix_user', JSON.stringify({ username: 'e2e-admin', role: 'ROLE_ADMIN', roles: ['ROLE_ADMIN'], permissions: ['*'] }));
-    localStorage.setItem('phoenix_lang', 'zh');
-  }, { authToken: token });
+  await authenticateMockPage(page, tokenUser);
   await page.route('**/api/notifications/**', route => route.fulfill({ json: [] }));
-  await page.route('**/api/notifications/unread-count', route => route.fulfill({ json: { count: 0 } }));
   await page.route('**/api/online-users**', route => route.fulfill({ json: [] }));
   await page.route('**/api/master-data/references/**', route => route.fulfill({ json: { totalReferences: 0, references: [], canArchive: true } }));
   await page.route('**/api/master-data/audit/**', route => route.fulfill({ json: { items: [] } }));
@@ -69,3 +62,34 @@ test('vehicle historical Chinese free text remains verbatim in every locale', as
   await page.locator('header select').selectOption('lo');
   await expect(page.locator('tbody')).toContainText('厢式货车');
 });
+
+for (const master of [
+  { type: 'supplier', route: 'suppliers', code: 'supplier_code', value: 'SUP-I18N', base: 'supplier_name', zh: '中文供应商', en: 'English supplier', lo: 'ຜູ້ສະໜອງລາວ' },
+  { type: 'warehouse', route: 'warehouses', code: 'warehouse_code', value: 'WH-I18N', base: 'warehouse_name', zh: '中文仓库', en: 'English warehouse', lo: 'ສາງລາວ' },
+] as const) {
+  test(`${master.type} name follows zh/en/lo and uses code for missing translation`, async ({ page }) => {
+    await authenticate(page);
+    const row: Record<string, unknown> = {
+      ...company,
+      [master.code]: master.value,
+      [master.base]: master.zh,
+      [`${master.base}_en`]: master.en,
+      [`${master.base}_lo`]: master.lo,
+      status: 'ACTIVE',
+    };
+    if (master.type === 'warehouse') row.warehouse_name_zh = master.zh;
+    await page.route(`**/api/master-data/runtime/${master.type}**`, route => route.fulfill({ json: [row] }));
+    await page.goto(`/master-data/${master.route}`);
+    const nameCell = page.locator('tbody tr').first().locator('td').nth(1);
+    await expect(nameCell).toHaveText(master.zh);
+    await page.locator('header select').selectOption('en');
+    await expect(nameCell).toHaveText(master.en);
+    await page.locator('header select').selectOption('lo');
+    await expect(nameCell).toHaveText(master.lo);
+
+    row[`${master.base}_lo`] = '';
+    await page.getByRole('button', { name: /刷新|Refresh/ }).click();
+    await expect(nameCell).toHaveText(master.value);
+    await expect(nameCell).not.toContainText(master.zh);
+  });
+}
