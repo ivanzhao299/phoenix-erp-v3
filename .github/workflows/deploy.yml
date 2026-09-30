@@ -133,6 +133,11 @@ jobs:
               - 'apps/api/**'
               - 'apps/api/src/database/migrations/**'
               - 'scripts/db-migrate.sh'
+            migration:
+              - 'apps/api/src/database/migrations/**'
+              - 'apps/api/migrations/**'
+              - 'scripts/db-migrate.sh'
+              - 'scripts/deploy-schema-first.sh'
             infra:
               - 'docker-compose.yml'
               - 'apps/web/Dockerfile'
@@ -151,6 +156,7 @@ jobs:
           WEB_ONLY:    ${{ steps.changes.outputs.web_only }}
           WEB_DEPS:    ${{ steps.changes.outputs.web_deps }}
           API_OR_DB:   ${{ steps.changes.outputs.api_or_db }}
+          MIGRATION_CHANGED: ${{ steps.changes.outputs.migration || 'false' }}
           INFRA:       ${{ steps.changes.outputs.infra }}
           OPS_ONLY:    ${{ steps.scope.outputs.ops_only }}
         run: |
@@ -220,13 +226,13 @@ jobs:
               echo "build_web=false" >> $GITHUB_OUTPUT
               echo "build_api=true"  >> $GITHUB_OUTPUT
               echo "run_test=true"   >> $GITHUB_OUTPUT
-              echo "run_mig=true"    >> $GITHUB_OUTPUT
+              echo "run_mig=$MIGRATION_CHANGED" >> $GITHUB_OUTPUT
               ;;
             full|*)
               echo "build_web=true"  >> $GITHUB_OUTPUT
               echo "build_api=true"  >> $GITHUB_OUTPUT
               echo "run_test=true"   >> $GITHUB_OUTPUT
-              echo "run_mig=true"    >> $GITHUB_OUTPUT
+              echo "run_mig=$MIGRATION_CHANGED" >> $GITHUB_OUTPUT
               ;;
           esac
           echo "mode=$MODE" >> $GITHUB_OUTPUT
@@ -901,8 +907,15 @@ jobs:
 
             # ── 滚动重启容器(按 mode 选)──────────────────────────────
             if [ "$BUILD_API" = "true" ]; then
-              # Resolve the pulled candidate; migrate and verify while the old API remains running.
-              CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE")
+              # Resolve the pulled candidate. Run schema-first only when this
+              # change set actually contains migration-affecting paths; a
+              # code-only API deploy must keep PRODUCTION_MIGRATION_REQUIRED=NO.
+              if [ "$RUN_MIG" = "true" ]; then
+                CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE")
+              else
+                CANDIDATE_API_IMAGE="$API_IMAGE"
+                echo "PRODUCTION_MIGRATION_REQUIRED=NO; skipping schema-first migration"
+              fi
               API_SWITCH_STARTED=true
               API_IMAGE="$CANDIDATE_API_IMAGE" docker compose up -d --no-deps --wait api
             fi

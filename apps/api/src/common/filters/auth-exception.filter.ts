@@ -9,6 +9,19 @@ import { Request, Response } from 'express';
 
 type AuthSubcode = 'NO_TOKEN' | 'TOKEN_EXPIRED' | 'INVALID_TOKEN' | 'PERMS_CHANGED';
 
+function inferTokenSubcode(req: Request): AuthSubcode {
+  const header = req.headers.authorization || req.headers.Authorization;
+  if (!header) return 'NO_TOKEN';
+  const token = String(header).startsWith('Bearer ') ? String(header).slice(7).trim() : '';
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as { exp?: unknown };
+    if (typeof payload.exp === 'number' && payload.exp <= Math.floor(Date.now() / 1000)) return 'TOKEN_EXPIRED';
+  } catch {
+    // Malformed or unverifiable tokens remain INVALID_TOKEN.
+  }
+  return 'INVALID_TOKEN';
+}
+
 /**
  * AuthExceptionFilter — 保证所有 401 响应携带标准 subcode
  *
@@ -35,7 +48,7 @@ export class AuthExceptionFilter implements ExceptionFilter {
     if (typeof body === 'object' && body !== null) {
       const b = body as { subcode?: AuthSubcode; message?: string };
       if (b.subcode) subcode = b.subcode;
-      else if (!req.headers.authorization && !req.headers.Authorization) subcode = 'NO_TOKEN';
+      else subcode = inferTokenSubcode(req);
       if (b.message) message = b.message;
     } else if (typeof body === 'string') {
       message = body;
