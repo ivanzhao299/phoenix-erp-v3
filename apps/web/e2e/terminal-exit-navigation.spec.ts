@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { authenticateMockPage } from './support/auth';
 
 type MockUser = {
   username: string;
@@ -17,28 +18,8 @@ const TERMINAL_OPERATOR: MockUser = {
   roles: ['ROLE_PKG_OPERATOR'], permissions: ['MENU_PKG_OP:V'],
 };
 
-function tokenFor(user: MockUser) {
-  const payload = Buffer.from(JSON.stringify({
-    sub: user.username, username: user.username, role: user.role, roles: user.roles,
-    permissions: user.permissions, exp: 4_102_444_800,
-  })).toString('base64url');
-  return `e30.${payload}.e2e`;
-}
-
 async function authenticate(page: Page, user: MockUser) {
-  const token = tokenFor(user);
-  await page.context().addCookies([{
-    name: 'phoenix_access_token', value: token,
-    url: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000',
-  }]);
-  await page.addInitScript(({ authToken, authUser }) => {
-    sessionStorage.setItem('phoenix_session_version', 'v6');
-    sessionStorage.setItem('phoenix_token', authToken);
-    sessionStorage.setItem('phoenix_user', JSON.stringify(authUser));
-    localStorage.setItem('phoenix_token', authToken);
-    localStorage.setItem('phoenix_user', JSON.stringify(authUser));
-    localStorage.setItem('phoenix_lang', 'zh');
-  }, { authToken: token, authUser: user });
+  await authenticateMockPage(page, user);
   await page.route('**/api/**', route => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/notifications/unread-count')) return route.fulfill({ json: { count: 0 } });
