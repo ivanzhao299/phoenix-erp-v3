@@ -27,7 +27,8 @@ At the audit baseline, `ci-smoke.yml` did not run `apps/web/e2e` on pull request
 
 1. `.github/workflows/batch3-quality-e2e.yml` defines a pull-request and manual job with a disposable `postgres:16.14-alpine` service, Node 20, pnpm 9, frozen workspace install, and Chromium installation.
 2. It runs the existing guarded database bootstrap and E2E identity/fixture scripts with `NODE_ENV=test` and `E2E_DB=1`, starts the built API and Web, waits on `/api/health` and `/`, and runs `pnpm --filter web exec playwright test --project=chromium --reporter=line,json`.
-3. It uploads Playwright results and API/Web logs on every outcome. Browser dependency failure therefore fails the job as infrastructure; conditional test skips remain visible in the Playwright report.
+3. It mints a short-lived token for the disposable `E2E_ADMIN` identity and exposes it only to the test process, so mocked UI sessions exercise current middleware session validation instead of a fabricated expired token.
+4. It uploads Playwright results and API/Web logs on every outcome. Browser dependency failure therefore fails the job as infrastructure; conditional test skips remain visible in the Playwright report.
 4. The production browser-visual smoke remains a separate manually dispatched path and does not grant CI E2E evidence.
 
 ## UAT role and scenario matrix
@@ -44,14 +45,15 @@ The missing business acceptance areas are real role-backed API journeys: procure
 
 ## Unverified items and risks
 
-* No GitHub CI run was executed from this worktree; CI E2E remains **UNVERIFIED** until the new workflow completes on a pull request.
-* The workflow's startup and seed commands were checked against `scripts/test-db-bootstrap.sh`, `scripts/seed-e2e-replenishment-users.sh`, `scripts/seed-e2e-replenishment-fixture.sh`, and the existing Playwright configuration. Remote runner behavior and the final test count remain unverified.
+* No GitHub CI run was executed from this worktree; remote CI E2E remains **UNVERIFIED** until the new workflow completes on a pull request.
+* On the final integration worktree, the same isolated PostgreSQL 16/API/Web flow ran Chromium with the validated repository browser libraries: **30 passed, 0 failed, 0 skipped**, `INFRA_FAILURES=0`, `FIXTURE_FAILURES=0`, `PRODUCT_FAILURES=0`. This is local evidence; it does not replace required remote CI.
+* The workflow's startup and seed commands were checked against `scripts/test-db-bootstrap.sh`, `scripts/seed-e2e-replenishment-users.sh`, `scripts/seed-e2e-replenishment-fixture.sh`, and the existing Playwright configuration. Remote runner behavior remains unverified.
 * Production browser visual evidence is not equivalent to authenticated business acceptance; production credentials and production writes remain out of scope.
 * The 30-test count is based on the validated Batch 2 execution record and current parameterized specs; a CI job must publish the actual Playwright list/count as an artifact.
 
 ## Result
 
-`CI_E2E=UNVERIFIED` (workflow delivered; no remote run evidence yet).
+`CI_E2E=LOCAL_PASS_REMOTE_UNVERIFIED` (30/30 Chromium pass locally on the final integration head; no remote run evidence yet).
 `BUSINESS_UAT=NOT_CONFIRMED` (approved business credentials and isolated role journeys are still required).
 `PRODUCTION_ACCOUNTS_CREATED=NO`.
 `PRODUCTION_DB_WRITES=NO`.
