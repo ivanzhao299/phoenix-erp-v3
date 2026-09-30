@@ -33,15 +33,15 @@ fi
 
 "${PSQL[@]}" <<'SQL'
 BEGIN;
-INSERT INTO brd_farms (farm_code,farm_name,capacity,manager,location,status,breed_type,start_date,current_qty,initial_qty)
-VALUES ('PW-FARM-001','E2E flock farm',10000,'E2E test manager','E2E','ACTIVE','海兰褐',CURRENT_DATE,900,900)
-ON CONFLICT (farm_code) DO UPDATE SET status='ACTIVE',current_qty=900,initial_qty=900;
-INSERT INTO brd_houses (house_code,farm_code,capacity,status)
-VALUES ('PW-HOUSE-001','PW-FARM-001',5000,'ACTIVE')
-ON CONFLICT (house_code) DO UPDATE SET status='ACTIVE';
-INSERT INTO brd_flocks (flock_no,farm_code,breed_type,start_date,initial_qty,current_qty,current_lay_rate,status)
-VALUES ('PW-FLOCK-001','PW-FARM-001','海兰褐',CURRENT_DATE,900,900,92.5,'LAYING')
-ON CONFLICT (flock_no) DO UPDATE SET farm_code='PW-FARM-001',status='LAYING',current_qty=900;
+INSERT INTO brd_farms (farm_code,farm_name,location,status,capacity,store_code,company_code)
+VALUES ('PW-FARM-001','E2E flock farm','E2E','ACTIVE',10000,'E2E-REPLENISH-STORE','E2E-COMPANY')
+ON CONFLICT (farm_code) DO UPDATE SET status='ACTIVE',capacity=10000,store_code='E2E-REPLENISH-STORE',company_code='E2E-COMPANY';
+INSERT INTO brd_houses (house_code,house_name,farm_code,status,house_type,capacity,current_birds)
+VALUES ('PW-HOUSE-001','E2E flock house','PW-FARM-001','ACTIVE','LAYER',5000,900)
+ON CONFLICT (house_code) DO UPDATE SET status='ACTIVE',capacity=5000,current_birds=900;
+INSERT INTO brd_flocks (flock_no,house_code,farm_code,strain,placement_date,initial_qty,current_qty,status,start_date,current_lay_rate,breed_type,store_code)
+VALUES ('PW-FLOCK-001','PW-HOUSE-001','PW-FARM-001','海兰褐',CURRENT_DATE,900,900,'LAYING',CURRENT_DATE,92.5,'海兰褐','E2E-REPLENISH-STORE')
+ON CONFLICT (flock_no) DO UPDATE SET house_code='PW-HOUSE-001',farm_code='PW-FARM-001',status='LAYING',current_qty=900,initial_qty=900;
 
 INSERT INTO store_master (store_code,store_name,company_code,status,timezone)
 VALUES ('E2E-REPLENISH-STORE','E2E replenishment store','E2E-COMPANY','ACTIVE','Asia/Vientiane')
