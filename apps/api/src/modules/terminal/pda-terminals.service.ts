@@ -25,7 +25,10 @@ function formatTerminal(row: any) {
     enabled_modules: (() => {
       try { return JSON.parse(row.enabled_modules || '[]'); } catch { return []; }
     })(),
-    online: isOnline(row.last_seen),
+    // `last_seen` is a legacy TIMESTAMP (without time zone).  Compute the
+    // liveness flag in PostgreSQL, where NOW() and the stored value share the
+    // connection timezone, instead of reparsing the driver string in Node.
+    online: typeof row._online === 'boolean' ? row._online : isOnline(row.last_seen),
   };
 }
 
@@ -35,7 +38,13 @@ export class PdaTerminalsService {
 
   // ─── 终端 CRUD ──────────────────────────────────────────────────────────
   async listTerminals() {
-    const rows = await this.em.query(`SELECT * FROM pda_terminals ORDER BY created_at DESC`);
+    const rows = await this.em.query(
+      `SELECT pda_terminals.*,
+              (last_seen IS NOT NULL
+               AND last_seen >= (CURRENT_TIMESTAMP AT TIME ZONE current_setting('TIMEZONE')) - INTERVAL '60 seconds') AS _online
+         FROM pda_terminals
+        ORDER BY created_at DESC`,
+    );
     return { code: 0, data: rows.map(formatTerminal) };
   }
 

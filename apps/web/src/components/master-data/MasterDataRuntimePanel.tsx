@@ -306,7 +306,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             filter
           />
         </div>
-        <button onClick={load} disabled={loading} className="bg-bg-muted border border-border text-text-muted"
+        <button data-testid="master-data-refresh" onClick={load} disabled={loading} className="bg-bg-muted border border-border text-text-muted"
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> {t('ui.刷新','刷新')}
         </button>

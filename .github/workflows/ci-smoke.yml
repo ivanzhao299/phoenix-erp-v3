@@ -36,6 +36,25 @@ jobs:
           node-version: '20'
           cache: pnpm
 
+      - name: Setup pnpm for browser visual smoke
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'browser-visual-production'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node for browser visual smoke
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'browser-visual-production'
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install browser visual dependencies
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'browser-visual-production'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter web exec playwright install --with-deps chromium
+
       - name: Validate runtime smoke checker
         run: |
           node --check scripts/ops/runtime-smoke-check.mjs

@@ -88,7 +88,7 @@ for (const master of [
     await expect(nameCell).toHaveText(master.lo);
 
     row[`${master.base}_lo`] = '';
-    await page.getByRole('button', { name: /刷新|Refresh/ }).click();
+    await page.getByTestId('master-data-refresh').click();
     await expect(nameCell).toHaveText(master.value);
     await expect(nameCell).not.toContainText(master.zh);
   });

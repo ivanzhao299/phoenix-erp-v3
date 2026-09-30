@@ -122,7 +122,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     } catch (e: any) {
       if (e instanceof UnauthorizedException) throw e;
-      console.warn('[JWT][WARN] account status/version check skipped:', e?.message);
+      // Account status and permission version are part of the authentication
+      // boundary.  If the lookup cannot be completed, never continue with the
+      // claims from the token: doing so would turn a database outage into a
+      // fail-open session check.
+      console.error('[JWT] account status/version check unavailable; denying token:', e?.message);
+      throw new UnauthorizedException({
+        statusCode: 401,
+        subcode: 'INVALID_TOKEN',
+        message: '登录状态暂时无法验证，请稍后重试',
+      });
     }
 
     return {
