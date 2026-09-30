@@ -19,6 +19,9 @@ if [[ "${2:-}" == "--clean" ]]; then
   "${PSQL[@]}" <<'SQL'
 BEGIN;
 DELETE FROM inv_batches WHERE batch_no LIKE 'E2E-REPLENISH-%';
+DELETE FROM brd_flocks WHERE flock_no='PW-FLOCK-001';
+DELETE FROM brd_houses WHERE house_code='PW-HOUSE-001';
+DELETE FROM brd_farms WHERE farm_code='PW-FARM-001';
 DELETE FROM product_skus WHERE sku_code='E2E-REPLENISH-SKU';
 DELETE FROM store_warehouse_bindings WHERE store_id IN (SELECT id FROM store_master WHERE store_code='E2E-REPLENISH-STORE');
 DELETE FROM wms_warehouses WHERE warehouse_code IN ('E2E-REPLENISH-SRC','E2E-REPLENISH-TGT');
@@ -30,6 +33,16 @@ fi
 
 "${PSQL[@]}" <<'SQL'
 BEGIN;
+INSERT INTO brd_farms (farm_code,farm_name,capacity,manager,location,status,breed_type,start_date,current_qty,initial_qty)
+VALUES ('PW-FARM-001','E2E flock farm',10000,'E2E test manager','E2E','ACTIVE','海兰褐',CURRENT_DATE,900,900)
+ON CONFLICT (farm_code) DO UPDATE SET status='ACTIVE',current_qty=900,initial_qty=900;
+INSERT INTO brd_houses (house_code,farm_code,capacity,status)
+VALUES ('PW-HOUSE-001','PW-FARM-001',5000,'ACTIVE')
+ON CONFLICT (house_code) DO UPDATE SET status='ACTIVE';
+INSERT INTO brd_flocks (flock_no,farm_code,breed_type,start_date,initial_qty,current_qty,current_lay_rate,status)
+VALUES ('PW-FLOCK-001','PW-FARM-001','海兰褐',CURRENT_DATE,900,900,92.5,'LAYING')
+ON CONFLICT (flock_no) DO UPDATE SET farm_code='PW-FARM-001',status='LAYING',current_qty=900;
+
 INSERT INTO store_master (store_code,store_name,company_code,status,timezone)
 VALUES ('E2E-REPLENISH-STORE','E2E replenishment store','E2E-COMPANY','ACTIVE','Asia/Vientiane')
 ON CONFLICT (store_code) DO UPDATE SET status='ACTIVE',company_code='E2E-COMPANY';
