@@ -20,7 +20,9 @@ test('saved flock quantity is rendered from the post-save GET without reloading'
   await page.getByRole('button', { name: /登\s*录/ }).click();
   expect((await loginResponse).ok()).toBe(true);
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('phoenix_token'))).toBeTruthy();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  // The current canonical post-login entry for this return target is the
+  // breeding flock page; keep this contract aligned with the product route.
+  await expect(page).toHaveURL(/\/breeding\/flock$/);
   await page.goto('/breeding/flock');
 
   const row = page.locator('tbody tr').filter({ hasText: FLOCK_NO });
