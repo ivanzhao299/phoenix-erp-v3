@@ -43,7 +43,8 @@ test.describe.serial('store replenishment manager + warehouse lifecycle', () => 
     const managerApi = await apiFor(baseURL!, manager);
     const warehouseApi = await apiFor(baseURL!, warehouse);
     const create = await managerApi.post('/api/v2/store-replenishments', { data: { storeCode: fixture.storeCode, sourceWarehouseCode: fixture.sourceWarehouseCode, urgency: 'NORMAL', reason: 'Playwright lifecycle', lines: [{ skuCode: fixture.skuCode, qty: fixture.qty }] } });
-    expect(create.ok()).toBeTruthy();
+    const createBody = await create.text();
+    expect(create.ok(), `create replenishment status=${create.status()} body=${createBody}`).toBeTruthy();
     const row = await bodyOf(create) as { id: number; request_no: string };
     expect(row.request_no).toMatch(/^SR-/);
     expect((await managerApi.post(`/api/v2/store-replenishments/${row.id}/submit`)).ok()).toBeTruthy();
