@@ -17,6 +17,9 @@ export type E2EUser = {
  * fixture from a previous run as expired.
  */
 export function makeE2EToken(user: E2EUser): string {
+  // CI may inject a short-lived token minted by the isolated API with its current JWT_SECRET.
+  // The fallback is intentionally only for mocked UI routes, where the API is intercepted.
+  if (process.env.E2E_AUTH_TOKEN) return process.env.E2E_AUTH_TOKEN;
   const now = Math.floor(Date.now() / 1000);
   const payload = Buffer.from(JSON.stringify({
     sub: user.sub ?? user.username,
