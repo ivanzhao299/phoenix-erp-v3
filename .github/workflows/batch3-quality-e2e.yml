@@ -81,12 +81,6 @@ jobs:
         working-directory: apps/api
         run: MIG_MODE=ci MIG_DIR=. bash ../../scripts/test-db-bootstrap.sh
 
-      - name: Seed disposable E2E identities
-        run: bash scripts/seed-e2e-replenishment-users.sh
-
-      - name: Seed disposable E2E fixture
-        run: bash scripts/seed-e2e-replenishment-fixture.sh "$RUNNER_TEMP/replenishment-fixture.json"
-
       - name: Build Web
         run: pnpm --filter web build
 
@@ -104,6 +98,12 @@ jobs:
           done
           tail -100 "$RUNNER_TEMP/api.log"
           exit 1
+
+      - name: Seed disposable E2E identities
+        run: bash scripts/seed-e2e-replenishment-users.sh
+
+      - name: Seed disposable E2E fixture
+        run: bash scripts/seed-e2e-replenishment-fixture.sh "$RUNNER_TEMP/replenishment-fixture.json"
 
       - name: Start Web
         working-directory: apps/web
