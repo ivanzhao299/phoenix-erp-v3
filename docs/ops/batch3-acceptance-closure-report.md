@@ -72,3 +72,5 @@ BATCH3_COMPLETE=NO
 ```
 
 `BATCH3_COMPLETE` remains `NO` because formal human business acceptance has not been provided and the complete write-journey matrix lacks an approved transaction fixture. The deployed production source remains the merged main SHA above. This round added evidence and reports only; no production restart or migration was performed.
+
+Additional automated business evidence: `sales-order-approval.pg.integration.spec.ts` passed 6/6 on disposable PG16 with transaction rollback and database-state assertions. The WMS/packaging PG18-gated suites were explicitly skipped and are not counted as PG16 passes.

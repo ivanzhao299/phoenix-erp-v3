@@ -72,3 +72,5 @@ BATCH3_COMPLETE=NO
 ```
 
 No production restart is required for this acceptance-only evidence update because no application or database code changed after the deployed merged main SHA.
+
+U2 automated business evidence includes 6/6 sales-order approval PostgreSQL integration tests on disposable PG16 with transaction rollback and state assertions. WMS/packaging PG18-gated suites remained explicitly skipped and were not counted as PG16 passes.

@@ -29,3 +29,13 @@ The UAT seed rows use `company_code/store_code='ALL'`, while the manager is scop
 `HUMAN_UAT=NOT_CONFIRMED` (no approved human business credentials)
 `PRODUCTION_WRITES=0`
 `READY_FOR_BATCH3_INTEGRATION=NO`
+
+## Transactional PG16 evidence (2026-10-01)
+
+The existing `sales-order-approval.pg.integration.spec.ts` ran against the disposable PG16 database with `RUN_PG_INTEGRATION=1`: **6/6 passed**. It created orders, approval instances, inventory allocations, and delivery state inside transactions, asserted the resulting database state, and rolled every transaction back. This is automated integration evidence, not human acceptance.
+
+The WMS inventory PG suite (47 cases) and packaging readiness suite (6 cases) remained conditionally skipped because they are explicitly gated for the legacy PG18 packaging-history database. They were not counted as PG16 passes.
+
+`AUTOMATED_UAT=PARTIAL_PG16_APPROVAL_PASS`
+`HUMAN_UAT=NOT_CONFIRMED`
+`READY_FOR_BATCH3_INTEGRATION=NO`

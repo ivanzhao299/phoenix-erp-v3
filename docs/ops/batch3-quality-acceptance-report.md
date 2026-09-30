@@ -25,3 +25,5 @@ The end-to-end write journeys were not executed: the disposable database has no 
 `PRODUCTION_ACCOUNTS_CREATED=NO`
 `PRODUCTION_DB_WRITES=NO`
 `READY_FOR_BATCH3_INTEGRATION=NO`
+
+The existing sales-order approval PostgreSQL integration suite also passed 6/6 against disposable PG16 with transaction rollback and state assertions. WMS/packaging suites gated to the legacy PG18 history database remained SKIPPED by design and were not counted as passes.
