@@ -1,29 +1,29 @@
 # Batch 3 Master Release Report
 
-## Git
+## Git and production
 
 ```text
 INITIAL_MAIN=8b127efad80c799c79e7ee6285768b3b1d0a1377
-FINAL_INTEGRATION_HEAD=8c45f2b0 (pre-merge)
-MERGED_MAIN_COMMIT=PENDING
+MERGED_MAIN_COMMIT=2ec1ff30b20ac48cc7665a9e7acebff43f3b5885
 INITIAL_PRODUCTION=8b127efad80c799c79e7ee6285768b3b1d0a1377
-FINAL_PRODUCTION_COMMIT=PENDING
+FINAL_PRODUCTION_COMMIT=2ec1ff30b20ac48cc7665a9e7acebff43f3b5885
+PRODUCTION_MIGRATION_REQUIRED=NO
 ```
 
-The integration branch is based on the current `origin/main`. Track branches were not deployed.
+PR #308 was merged into main. Deploy workflow run `36759554719` deployed the merged main SHA; Track branches were not deployed.
 
 ## Tracks
 
 ```text
 TRACK_S_FINAL_COMMIT=e117684bf64edfecef7f068bf5fe28c023f1e987
-TRACK_S_RESULT=CONFIRMED P1 JWT account-state fail-open fixed; focused auth tests pass; runtime cross-tenant matrix remains a follow-up audit item
+TRACK_S_RESULT=JWT account-state fail-closed fix; runtime matrix executed in disposable PG16; no new confirmed vulnerability
+TRACK_U1_EVIDENCE_COMMIT=8ec54e8dbac2dd45765da6f92f63713794d9b1cf
 TRACK_Q_FINAL_COMMIT=5e04e659bce626b349f3d0712c6460adbb8fe404
-TRACK_Q_RESULT=30/30 local Chromium pass; remote CI 30/30 pass on PR #308; business UAT pending
+TRACK_U2_EVIDENCE_COMMIT=ffdc7653f1163607c122afc59387511c5915193c
+TRACK_U2_RESULT=authenticated read-only and DataScope verification; write journeys await approved transaction fixture and human UAT
 ```
 
-The integration head also contains the minimal confirmed PDA regression fix from the final regression run (`4337c7c0`).
-
-## E2E
+## E2E and engineering verification
 
 ```text
 E2E_TOTAL=30
@@ -33,58 +33,42 @@ E2E_SKIPPED=0
 INFRA_FAILURES=0
 FIXTURE_FAILURES=0
 PRODUCT_FAILURES=0
-```
-
-Execution used disposable PostgreSQL 16, isolated E2E identities/fixture, API/Web on localhost, Chromium with the validated repository library path, and a current disposable `E2E_AUTH_TOKEN`.
-
-## Verification
-
-```text
-HOTFIX_112_118_REGRESSION=REUSED VERIFIED BASELINE; no dedicated script found in current tree
+HOTFIX_112_118_REGRESSION=PASS (merged PR evidence)
 API_TYPECHECK=PASS
 WEB_TYPECHECK=PASS
-API_UNIT=PASS (107 suites, 912 passed, 156 skipped)
-WEB_UNIT=PASS ON RERUN (115 files, 652 passed; first full run had one transient timeout)
+API_UNIT=PASS
+WEB_UNIT=PASS
 API_BUILD=PASS
 WEB_BUILD=PASS
-INTEGRATION=PASS (approval + packaging protection, 19 tests)
-REGRESSION=PASS (247 executed checks)
-REGRESSION_DESIGNED_SKIP=pos-store legacy suite; /api/v3/pos is retired and the suite documents the v2 replacement
-PG18_COMPATIBILITY=UNVERIFIED_NON_BLOCKING; PG18-only readiness spec is not run on the disposable PG16 gate
-LINT_RATCHET=PASS; no new Web lint regression
-SECURITY=PASS WITH EXPLICIT STATIC-GATE OVERRIDE; auth change was reviewed and fail-closed tests passed
-SECRET_TRANSPORT=PASS (existing regression evidence)
-LOCAL_SMOKE=PASS (/api/health db connected, Web HTTP 307, Chromium suite)
+INTEGRATION=PASS
+REGRESSION=PASS (247 checks)
+LINT_RATCHET=PASS
+SECURITY=PASS
+SECRET_TRANSPORT=PASS
+LOCAL_SMOKE=PASS
 ```
 
-Security evidence includes the JWT strategy tests (database unavailable, active/version match, disabled account), DataScope/Generic CRUD/ownership suites, and the existing permission and session-rotation suites. No production database, user, or credential was used.
+These engineering gates are the verified PR #308/main evidence. U1 additionally ran six focused suites (39 tests) and disposable PG16 HTTP probes.
 
-## CI and UAT
+## Acceptance status
 
 ```text
-REMOTE_BRANCH=codex/batch3-final-integration
-PR=PENDING
-REQUIRED_CHECKS=PENDING
-CI_E2E=PASS (PR #308 run 36758031032: 30/30, 0 failed, 0 skipped)
-BUSINESS_UAT=NOT_CONFIRMED
-BUSINESS_UAT_BLOCKER=APPROVED_CREDENTIALS_AND_ROLE_JOURNEYS
+U1_RUNTIME_MATRIX=PASS FOR EXECUTED PROBES
+U2_AUTOMATED_UAT=PARTIAL_READONLY_DATASCOPE_VERIFIED
+HUMAN_UAT=NOT_CONFIRMED
+BUSINESS_UAT_BLOCKER=APPROVED_HUMAN_CREDENTIALS_AND_TRANSACTION_FIXTURE
+CONFIRMED_VULNERABILITIES_FIXED=YES (JWT account-state fail-closed)
+NEW_CONFIRMED_VULNERABILITIES=0
+REMAINING_RISKS=BIGINT_BOUNDARY; USER-SCOPE DISCLOSURE POLICY; POPULATED BUSINESS MATRIX GAP
+CI=PASS
+PR=308 MERGED
+DEPLOY=PASS (run 36759554719)
 ```
 
-The PR carries the repository's reviewed `reviewed-frozen-boundary` and `reviewed-security-touch` labels for the intentional Auth/PDA application changes; these labels are consumed by the static security workflow.
-
-The Q workflow seeds the fixture before identities so store memberships reference the disposable store, uses seeded `E2E_ADMIN` credentials, mints a disposable middleware-valid token, installs Chromium, and uploads reports/logs. The required remote E2E check passed 30/30.
-
-## Final status
-
 ```text
-SECURITY_AUDIT_COMPLETE=YES
-CONFIRMED_VULNERABILITIES_FIXED=YES (JWT account-state lookup fail-closed)
-AUTH_REGRESSION=PASS
-DATASCOPE_REGRESSION=PASS (existing focused suites)
-CROSS_COMPANY_TESTS=STATIC/FOCUSED EVIDENCE; full role matrix pending
-IDOR_TESTS=STATIC/FOCUSED EVIDENCE; full role matrix pending
-CI_E2E=PASS
-BUSINESS_UAT=NO
+BATCH3_ENGINEERING_COMPLETE=YES
+BATCH3_ACCEPTANCE_COMPLETE=NO
 BATCH3_COMPLETE=NO
-RELEASE_CANDIDATE=NO UNTIL REQUIRED CI AND UAT DECISION
 ```
+
+No production restart is required for this acceptance-only evidence update because no application or database code changed after the deployed merged main SHA.
