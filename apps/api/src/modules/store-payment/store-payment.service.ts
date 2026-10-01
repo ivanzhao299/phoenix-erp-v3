@@ -425,6 +425,8 @@ export class StorePaymentService {
   private assertRecordScope(record: StorePaymentRecordEntity) {
     if (this.isAdmin() || this.isFinance()) return;
 
+    this.assertCompanyScope(record.companyCode);
+
     const storeCodes = this.allowedStoreCodes();
     if (this.isManager()) {
       if (this.storeCodeMatchesAny(record.storeCode, storeCodes)) return;
@@ -441,12 +443,26 @@ export class StorePaymentService {
 
   private assertAccountScope(account: StorePaymentAccountEntity) {
     if (this.isAdmin() || this.isFinance()) return;
+    this.assertCompanyScope(account.companyCode);
     if (!account.isActive || account.status !== 'ACTIVE') throw new ForbiddenException('STORE_PAYMENT_ACCOUNT_FORBIDDEN');
 
     const storeCodes = this.allowedStoreCodes();
     if (this.storeCodeMatchesAny(account.storeCode, storeCodes)) return;
 
     throw new ForbiddenException('STORE_PAYMENT_ACCOUNT_FORBIDDEN');
+  }
+
+  /**
+   * Store codes are not globally unique across companies.  Always enforce the
+   * resolved company scope before evaluating the store/submitter exception so
+   * an otherwise matching store code cannot become a cross-company IDOR.
+   */
+  private assertCompanyScope(companyCode: string) {
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
+    if (!scope || scope.isGlobal) return;
+    if (scope.allowedCompanyCodes.length === 0 || !scope.allowedCompanyCodes.includes(companyCode)) {
+      throw new ForbiddenException('STORE_PAYMENT_FORBIDDEN');
+    }
   }
 
   private resolveCreateStoreCode(bodyStoreCode: string): string {
