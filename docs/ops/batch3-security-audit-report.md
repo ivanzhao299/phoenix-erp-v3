@@ -1,7 +1,7 @@
 # Batch 3 Track S — Security and Authorization Audit
 
-**Baseline:** `8b127efad80c799c79e7ee6285768b3b1d0a1377`  
-**Branch:** `codex/batch3-security-hardening`  
+**Baseline:** `8b127efad80c799c79e7ee6285768b3b1d0a1377`
+**Branch:** `codex/batch3-security-hardening`
 **Scope:** authentication, JWT account state, RBAC menu permissions, DataScope, company/organization isolation, IDOR surfaces, Generic CRUD, and priority business modules.
 
 ## Architecture and endpoint matrix
@@ -49,9 +49,13 @@ No schema or data migration. The change is application-only and uses the existin
 
 ## Result
 
-`CONFIRMED_VULNERABILITIES_FIXED=1 (JWT account-state fail-open)`  
-`AUTH_REGRESSION=FOCUSED_PASS`  
-`DATASCOPE_REGRESSION=EXISTING_TESTS_REVIEWED; FULL_RUNTIME_PENDING`  
-`CROSS_COMPANY_TESTS=UNVERIFIED_RUNTIME`  
-`IDOR_TESTS=UNVERIFIED_RUNTIME`  
+`CONFIRMED_VULNERABILITIES_FIXED=1 (JWT account-state fail-open)`
+`AUTH_REGRESSION=FOCUSED_PASS`
+`DATASCOPE_REGRESSION=EXISTING_TESTS_REVIEWED; FULL_RUNTIME_PENDING`
+`CROSS_COMPANY_TESTS=UNVERIFIED_RUNTIME`
+`IDOR_TESTS=UNVERIFIED_RUNTIME`
 `READY_FOR_BATCH3_INTEGRATION=NO` until the isolated runtime matrix and full gates run on the final integration head.
+
+## Post-merge runtime matrix (2026-10-01)
+
+U1 ran disposable PostgreSQL 16.14 and API probes after PR #308 merged. Unauthenticated organization user-scopes returned 401; a scoped store manager reading `sys_user` through Generic CRUD returned 403; WMS operator inbound read returned 200 and store manager returned 403; an unknown store-payment attachment returned 404. A disabled account's existing token returned 401 `USER_DISABLED`, and a token with stale permission version returned 401 `PERMS_CHANGED`. No new confirmed vulnerability was reproduced. Arbitrary organization user-scope IDs with organization view permission returned empty arrays; the disclosure policy and populated cross-company/organization transaction matrix remain open. The historical pre-integration readiness line above is superseded by `batch3-u1-runtime-matrix-report.md`.

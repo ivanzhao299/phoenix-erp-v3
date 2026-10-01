@@ -58,3 +58,7 @@ The missing business acceptance areas are real role-backed API journeys: procure
 `PRODUCTION_ACCOUNTS_CREATED=NO`.
 `PRODUCTION_DB_WRITES=NO`.
 `READY_FOR_BATCH3_INTEGRATION=NO` until CI browser execution and role-backed UAT evidence are available.
+
+## Post-merge acceptance closure (2026-10-01)
+
+PR #308 remote Chromium CI passed 30/30 with zero failed or skipped cases. The workflow used disposable PostgreSQL 16 and test identities. U2 subsequently authenticated isolated E2E roles, verified read-only procurement, sales, inventory, AP/AR, supplier, and warehouse endpoints, and passed 6/6 transactional sales approval PostgreSQL integration tests with rollback. The PG18-gated WMS/packaging suites were skipped by design and are not PG16 passes. Full business write journeys and formal human UAT remain open; the historical pre-merge `REMOTE_UNVERIFIED` result above has been superseded by the PR evidence.

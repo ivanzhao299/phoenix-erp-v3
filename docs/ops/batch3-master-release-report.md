@@ -5,9 +5,9 @@
 ```text
 INITIAL_MAIN=8b127efad80c799c79e7ee6285768b3b1d0a1377
 FINAL_INTEGRATION_HEAD=8c45f2b0 (pre-merge)
-MERGED_MAIN_COMMIT=PENDING
+MERGED_MAIN_COMMIT=2ec1ff30b20ac48cc7665a9e7acebff43f3b5885
 INITIAL_PRODUCTION=8b127efad80c799c79e7ee6285768b3b1d0a1377
-FINAL_PRODUCTION_COMMIT=PENDING
+FINAL_PRODUCTION_COMMIT=2ec1ff30b20ac48cc7665a9e7acebff43f3b5885
 ```
 
 The integration branch is based on the current `origin/main`. Track branches were not deployed.
@@ -63,8 +63,8 @@ Security evidence includes the JWT strategy tests (database unavailable, active/
 
 ```text
 REMOTE_BRANCH=codex/batch3-final-integration
-PR=PENDING
-REQUIRED_CHECKS=PENDING
+PR=#308 MERGED
+REQUIRED_CHECKS=PASS
 CI_E2E=PASS (PR #308 run 36758031032: 30/30, 0 failed, 0 skipped)
 BUSINESS_UAT=NOT_CONFIRMED
 BUSINESS_UAT_BLOCKER=APPROVED_CREDENTIALS_AND_ROLE_JOURNEYS
@@ -86,5 +86,11 @@ IDOR_TESTS=STATIC/FOCUSED EVIDENCE; full role matrix pending
 CI_E2E=PASS
 BUSINESS_UAT=NO
 BATCH3_COMPLETE=NO
-RELEASE_CANDIDATE=NO UNTIL REQUIRED CI AND UAT DECISION
+RELEASE_CANDIDATE=ENGINEERING_RELEASE_COMPLETED; HUMAN_UAT_OPEN
 ```
+
+## Post-merge acceptance closure (2026-10-01)
+
+PR #308 merged as `2ec1ff30b20ac48cc7665a9e7acebff43f3b5885`. The production deploy workflow run `36759554719` succeeded from that merged main commit; no production migration was required. The deployed application commit remains `2ec1ff30b20ac48cc7665a9e7acebff43f3b5885`.
+
+U1 disposable PG16 runtime probes verified account disablement, permission-version invalidation, WMS authorization, Generic CRUD denial, and attachment not-found handling. U2 verified read-only DataScope behavior and ran six transactional sales approval integration tests on disposable PG16 with database-state assertions and rollback. The complete populated cross-company/organization and business write-journey matrix remains open. Human business acceptance is not confirmed. See `batch3-acceptance-closure-report.md` for the current status; `BATCH3_ACCEPTANCE_COMPLETE=NO` and `BATCH3_COMPLETE=NO`.
