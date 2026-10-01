@@ -10,6 +10,7 @@ import { ClsService } from 'nestjs-cls';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 import { SysOperationLogEntity } from '../../common/entities/sys-operation-log.entity';
 import { FileAccessService, ProtectedFileMode } from '../file/file-access.service';
+import { FileMetadataEntity } from '../file/entities/file-metadata.entity';
 import { DataScopeContext } from '../org/services/data-scope.service';
 import {
   ConfirmStorePaymentRecordDto,
@@ -127,6 +128,10 @@ export class StorePaymentService {
       });
 
       const saved = await manager.save(StorePaymentAccountEntity, account);
+      if (saved.qrAttachmentId) await this.claimAttachment(manager, saved.qrAttachmentId, {
+        ownerType: 'STORE_PAYMENT_ACCOUNT', ownerId: saved.id,
+        companyCode: saved.companyCode, storeCode: saved.storeCode,
+      });
       await this.writeAudit(manager, {
         moduleCode: 'MENU_STORE_PAYMENT_ACCOUNT',
         actionCode: 'CREATE',
@@ -160,6 +165,10 @@ export class StorePaymentService {
       account.updatedBy = this.username();
 
       const saved = await manager.save(StorePaymentAccountEntity, account);
+      if (saved.qrAttachmentId) await this.claimAttachment(manager, saved.qrAttachmentId, {
+        ownerType: 'STORE_PAYMENT_ACCOUNT', ownerId: saved.id,
+        companyCode: saved.companyCode, storeCode: saved.storeCode,
+      });
       const actionCode = saved.status === 'DISABLED' || !saved.isActive ? 'DISABLE' : 'MODIFY';
       await this.writeAudit(manager, {
         moduleCode: 'MENU_STORE_PAYMENT_ACCOUNT',
@@ -248,6 +257,10 @@ export class StorePaymentService {
       });
 
       const saved = await manager.save(StorePaymentRecordEntity, record);
+      await this.claimAttachment(manager, saved.proofAttachmentId, {
+        ownerType: 'STORE_PAYMENT_RECORD', ownerId: saved.id,
+        companyCode: saved.companyCode, storeCode: saved.storeCode,
+      });
       await this.writeAudit(manager, {
         moduleCode: 'MENU_STORE_PAYMENT',
         actionCode: 'CREATE',
@@ -590,6 +603,29 @@ export class StorePaymentService {
     return `${prefix}${String(Number.isFinite(last) ? last + 1 : 1).padStart(5, '0')}`;
   }
 
+  /** Bind a pending upload to exactly one payment/account inside the same transaction. */
+  private async claimAttachment(manager: EntityManager, fileId: string, owner: {
+    ownerType: string; ownerId: string; companyCode: string; storeCode: string;
+  }) {
+    const file = await manager.findOne(FileMetadataEntity, { where: { fileId } });
+    if (!file || file.deletedAt) throw new NotFoundException('STORE_PAYMENT_ATTACHMENT_NOT_FOUND');
+    if (!['ACTIVE', 'PENDING'].includes(file.status)) {
+      throw new ForbiddenException('STORE_PAYMENT_ATTACHMENT_NOT_ACTIVE');
+    }
+    const pending = file.ownerId === 'LEGACY_PENDING' || file.ownerType === 'LEGACY_PENDING' || file.moduleCode === 'LEGACY_UPLOAD';
+    const sameOwner = file.moduleCode === 'STORE_PAYMENT' && file.ownerType === owner.ownerType && file.ownerId === owner.ownerId;
+    if (!pending && !sameOwner) throw new ForbiddenException('STORE_PAYMENT_ATTACHMENT_ALREADY_OWNED');
+    file.moduleCode = 'STORE_PAYMENT';
+    file.ownerType = owner.ownerType;
+    file.ownerId = owner.ownerId;
+    file.companyCode = owner.companyCode;
+    file.storeCode = owner.storeCode;
+    file.status = 'ACTIVE';
+    file.visibility = 'PROTECTED';
+    if (!file.uploadedBy) file.uploadedBy = this.username();
+    await manager.save(FileMetadataEntity, file);
+  }
+
   private async writeAudit(manager: EntityManager, data: {
     moduleCode: string;
     actionCode: string;
@@ -651,10 +687,10 @@ export class StorePaymentService {
       paymentMethod: record.paymentMethod,
       paidAt: record.paidAt,
       proofAttachmentBound: !!record.proofAttachmentId,
-      proofPreviewAllowed: false,
-      proofPreviewStatus: 'access_pending',
-      proofDownloadAllowed: false,
-      proofDownloadStatus: 'access_pending',
+      proofPreviewAllowed: !!record.proofAttachmentId,
+      proofPreviewStatus: record.proofAttachmentId ? 'protected' : 'missing',
+      proofDownloadAllowed: !!record.proofAttachmentId,
+      proofDownloadStatus: record.proofAttachmentId ? 'protected' : 'missing',
       orderNo: record.orderNo,
       saleNo: record.saleNo,
       status: record.status,

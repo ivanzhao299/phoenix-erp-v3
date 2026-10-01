@@ -23,15 +23,11 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
 
   // ── 静态文件：合同/单据上传目录 ───────────────────────────────────────────
-  // 生产默认禁用 /uploads 裸目录暴露；历史兼容需显式 ENABLE_LEGACY_UPLOADS_STATIC=true。
-  // 新上传链路返回 file_metadata 的 FILE-* 受控引用，不再返回裸文件路径。
+  // Never expose /uploads as a public directory. Every file reference, including
+  // Store Payment proof/QR files, must pass FileAccessService ACL first.
   const uploadsDir = join(process.cwd(), 'uploads');
   mkdirSync(uploadsDir, { recursive: true });
-  if (!isProd || process.env.ENABLE_LEGACY_UPLOADS_STATIC === 'true') {
-    app.useStaticAssets(uploadsDir, { prefix: '/uploads' });
-  } else {
-    console.warn('[SECURITY] /uploads static serving disabled in production. Use protected file endpoints.');
-  }
+  console.warn('[SECURITY] /uploads static serving disabled. Use protected file endpoints.');
 
   // ── Body 大小限制（必须在所有中间件最前面注册）────────────────────────────
   // Logo base64 最大约 800KB（前端已限制），正文 JSON 预留至 5MB

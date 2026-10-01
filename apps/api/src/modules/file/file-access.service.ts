@@ -13,6 +13,7 @@ import { Repository } from 'typeorm';
 import { hasPerm } from '../../auth/permissions.util';
 import { DataScopeContext } from '../org/services/data-scope.service';
 import { FileMetadataEntity } from './entities/file-metadata.entity';
+import { SysOperationLogEntity } from '../../common/entities/sys-operation-log.entity';
 
 export type ProtectedFileMode = 'preview' | 'download';
 
@@ -48,6 +49,8 @@ export class FileAccessService {
   constructor(
     @InjectRepository(FileMetadataEntity)
     private readonly fileRepo: Repository<FileMetadataEntity>,
+    @InjectRepository(SysOperationLogEntity)
+    private readonly operationLogRepo: Repository<SysOperationLogEntity>,
     private readonly cls: ClsService,
   ) {}
 
@@ -128,6 +131,7 @@ export class FileAccessService {
     }
     this.assertRbac(file, policy, mode);
     this.assertDataScope(file, policy, mode);
+    await this.logAllowed(file, policy, mode);
     return file;
   }
 
@@ -171,11 +175,6 @@ export class FileAccessService {
 
     const allowedCompanies = new Set(scope?.allowedCompanyCodes ?? []);
     if (file.companyCode && allowedCompanies.size > 0 && allowedCompanies.has(file.companyCode)) return;
-    // Store Payment service performs canonical/legacy alias scope checks before
-    // calling FileAccessService. Keep this bridge narrow to avoid duplicating
-    // module-specific alias rules in the generic file layer.
-    if (file.moduleCode === 'STORE_PAYMENT' && file.storeCode && file.storeCode === policy.storeCode) return;
-
     this.logDenied(file, policy, mode, 'FILE_DATASCOPE_DENIED');
     throw new ForbiddenException('FILE_DATASCOPE_DENIED');
   }
@@ -224,6 +223,26 @@ export class FileAccessService {
       userId: this.userId(),
       rawUrl: null,
     });
+  }
+
+  private async logAllowed(file: FileMetadataEntity, policy: FileAccessPolicy, mode: ProtectedFileMode) {
+    await this.operationLogRepo.save(this.operationLogRepo.create({
+      userId: this.userId() || null,
+      username: this.username(),
+      roleCode: this.roles()[0] ?? null,
+      moduleCode: policy.requiredMenu,
+      actionCode: mode === 'preview' ? 'ATTACHMENT_PREVIEW' : 'ATTACHMENT_DOWNLOAD',
+      bizType: 'STORE_PAYMENT_ATTACHMENT',
+      bizId: policy.ownerId,
+      bizNo: file.fileId,
+      requestMethod: 'GET',
+      requestPath: `/store-payment/attachments/${file.fileId}/${mode}`,
+      ipAddress: null,
+      userAgent: null,
+      beforeData: null,
+      afterData: { fileId: file.fileId, ownerType: file.ownerType, ownerId: file.ownerId, companyCode: file.companyCode, storeCode: file.storeCode },
+      resultStatus: 'SUCCESS',
+    }));
   }
 
   private user(): {
