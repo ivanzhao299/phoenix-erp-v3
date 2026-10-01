@@ -13,6 +13,7 @@ import { approvalApi, type WorkflowTask, type WorkflowTaskPage, type InstanceDet
 import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { getWorkflowHistoryDisplayTotal } from '@/lib/workflow-todos';
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────
 
@@ -1090,6 +1091,7 @@ export default function WorkflowPage() {
   const [tab, setTab] = useState<Tab>('todos');
   const [todos, setTodos] = useState<WorkflowTask[]>([]);
   const [history, setHistory] = useState<WorkflowTask[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
@@ -1123,6 +1125,7 @@ export default function WorkflowPage() {
         pageSize: 50
       });
       setHistory(r.items);
+      setHistoryTotal(getWorkflowHistoryDisplayTotal(r));
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : tr('mob.sys.load_failed', '加载失败'));
     } finally {
@@ -1279,7 +1282,7 @@ export default function WorkflowPage() {
       borderRadius: 12,
       padding: 4
     }}>
-        {([['todos', tr('mob.sys.todo', '待办'), todos.length], ['history', tr('mob.sys.done', '已办'), 0]] as const).map(([key, label, cnt]) => <button key={key} onClick={() => setTab(key)} style={{
+        {([['todos', tr('mob.sys.todo', '待办'), todos.length], ['history', tr('mob.sys.done', '已办'), historyTotal]] as const).map(([key, label, cnt]) => <button key={key} onClick={() => setTab(key)} style={{
         flex: 1,
         padding: '9px 0',
         borderRadius: 10,
@@ -1296,7 +1299,7 @@ export default function WorkflowPage() {
         gap: 6
       }}>
             {label}
-            {key === 'todos' && cnt > 0 && <span style={{
+            {cnt > 0 && <span style={{
           background: tab === 'todos' ? 'var(--overlay-white-10)' : 'var(--status-danger)',
           color: 'var(--bg-card)',
           fontSize: 10,

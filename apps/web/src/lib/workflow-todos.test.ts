@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getWorkflowTodoDisplayTotal } from "./workflow-todos";
+import { getWorkflowHistoryDisplayTotal, getWorkflowTodoDisplayTotal } from "./workflow-todos";
 
 describe("workflow todo helpers", () => {
   it("uses the API total when it is at least the loaded rows", () => {
@@ -67,5 +67,13 @@ describe("workflow todo helpers", () => {
   it("normalizes incomplete response shapes without inflating empty states", () => {
     expect(getWorkflowTodoDisplayTotal({ items: [], total: "bad", page: 0, pageSize: 0 })).toBe(0);
     expect(getWorkflowTodoDisplayTotal({ total: -3, page: undefined, pageSize: undefined })).toBe(0);
+  });
+
+  it("shows the loaded mobile history rows when the history total is stale", () => {
+    expect(getWorkflowHistoryDisplayTotal({ items: [{ id: 1 }, { id: 2 }], total: 0 })).toBe(2);
+  });
+
+  it("prefers a larger history total when the first page is partial", () => {
+    expect(getWorkflowHistoryDisplayTotal({ items: [{ id: 1 }], total: 9 })).toBe(9);
   });
 });
