@@ -20,3 +20,13 @@ export function getWorkflowTodoDisplayTotal(resp: WorkflowTodoListLike): number 
 
   return Math.max(apiTotal, loadedMinimum);
 }
+
+/**
+ * The mobile history endpoint can return a stale/zero total while still
+ * returning completed rows. Keep the tab badge useful without hiding rows.
+ */
+export function getWorkflowHistoryDisplayTotal(resp: WorkflowTodoListLike): number {
+  const apiTotal = Math.max(0, Math.trunc(finiteNumber(resp.total)));
+  const visibleRows = Array.isArray(resp.items) ? resp.items.length : 0;
+  return Math.max(apiTotal, visibleRows);
+}
