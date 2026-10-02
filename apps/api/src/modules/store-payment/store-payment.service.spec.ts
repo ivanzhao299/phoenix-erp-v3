@@ -19,7 +19,7 @@ describe('StorePaymentService protected attachment ACL', () => {
       getProtectedFileStatus: jest.fn(async (id: string) => ({ fileId: id, accessStatus: 'allowed' })),
       openProtectedFile: jest.fn(async (id: string) => ({ stream: {}, mimeType: 'image/png', sizeBytes: 1, disposition: 'inline', fileId: id })),
     };
-    const svc = new StorePaymentService(recordRepo as any, accountRepo as any, {} as any, {} as any, cls as any, fileAccessService as any);
+    const svc = new StorePaymentService(accountRepo as any, recordRepo as any, {} as any, {} as any, cls as any, fileAccessService as any);
     return { svc, fileAccessService };
   }
 
