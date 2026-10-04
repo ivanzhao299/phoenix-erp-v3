@@ -89,10 +89,23 @@ CHANGED_FILE_LINT=PASS (0 errors; existing warnings only)
 LINT_RATCHET=PASS
 NEW_LINT_REGRESSION=0
 FULL_PNPM_VERIFY=BASELINE_BLOCKED_BY_HISTORICAL_WEB_LINT_DEBT
-REQUIRED_CI=PENDING
+REQUIRED_CI=PASS (PR #321; all required checks passed)
 ```
 
 The full verify baseline remains blocked by historical Web lint debt and is not used to reopen broad lint remediation.
+
+## Post-merge release evidence
+
+```text
+MERGED_MAIN=86d18b123f823abb73a4d8cc2049cd9ef2e92402
+DEPLOY_RUN=37187057943
+DEPLOY_MODE=api
+PRODUCTION_API_COMMIT=86d18b123f823abb73a4d8cc2049cd9ef2e92402
+PRODUCTION_WEB_COMMIT=5425089bcb51338d4780d6f37782440bade8b90c
+PRODUCTION_VERIFY=PASS
+```
+
+The production run pulled the API image tagged with the merged SHA, recreated the API container, reported the API healthy, passed the Web smoke test, and completed successfully. The Web image was skipped in `api` mode; its production SHA therefore remains the separately evidenced `5425089b...` value.
 
 ## Master Status Board
 
