@@ -87,6 +87,33 @@ export class ReceiptsService {
     return { valid: true, warehouseCode };
   }
 
+  /**
+   * Return only purchase orders that can still receive goods. This endpoint
+   * is guarded by the receipt menu so receiving staff do not need purchase
+   * order maintenance permission just to select an approved PO.
+   */
+  async listEligiblePurchaseOrders(keyword?: string) {
+    const qb = this.poRepo.createQueryBuilder('p')
+      .where('p.status IN (:...statuses)', { statuses: ['APPROVED', 'PARTIALLY_RECEIVED'] });
+    if (keyword?.trim()) {
+      qb.andWhere(
+        '(p.poNo ILIKE :keyword OR p.subject ILIKE :keyword OR p.supplierName ILIKE :keyword)',
+        { keyword: `%${keyword.trim()}%` },
+      );
+    }
+    this.scopeHelper.applyToQb(qb, { alias: 'p' });
+    const orders = await qb.orderBy('p.createdAt', 'DESC').addOrderBy('p.id', 'DESC').take(100).getMany();
+    return orders.map(po => ({
+      id: po.id,
+      poNo: po.poNo,
+      subject: po.subject,
+      supplierName: po.supplierName,
+      companyCode: po.companyCode,
+      projectCode: po.projectCode,
+      status: po.status,
+    }));
+  }
+
   // ── 列表 ──────────────────────────────────────────────────────────────────
 
   async list(q: QueryReceiptDto) {
@@ -164,6 +191,9 @@ export class ReceiptsService {
       // ── 校验 PO 存在且状态允许收货 ───────────────────────────────────────
       const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { id: dto.poId } });
       if (!po) throw new NotFoundException(`PO ID=${dto.poId} 不存在`);
+      if (po.poNo !== dto.poNo?.trim()) {
+        throw new BadRequestException(`采购订单引用不一致: poId=${po.id} 对应 ${po.poNo}, 不是 ${dto.poNo}`);
+      }
       this.scopeHelper.assertWritableOwnership(
         { companyCode: po.companyCode, projectCode: po.projectCode },
         '采购收货单',
@@ -191,7 +221,7 @@ export class ReceiptsService {
       const rcp = mgr.create(Prc2ReceiptEntity, {
         receiptNo,
         poId:          dto.poId,
-        poNo:          dto.poNo,
+        poNo:          po.poNo,
         shipmentId:    dto.shipmentId,
         shipmentNo:    dto.shipmentNo,
         companyId:     dto.companyId,

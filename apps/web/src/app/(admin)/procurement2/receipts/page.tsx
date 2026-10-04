@@ -83,6 +83,15 @@ interface PoOrderDetail extends ReceiptPurchaseOrderScope {
   poNo?: string;
   items?: PoOrderItem[];
 }
+interface EligiblePurchaseOrder {
+  id: string;
+  poNo: string;
+  subject?: string;
+  supplierName?: string;
+  companyCode?: string;
+  projectCode?: string;
+  status: string;
+}
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -147,6 +156,8 @@ export default function ReceiptsPage() {
   const [formPoId, setFormPoId] = useState("");
   const [formPoNo, setFormPoNo] = useState("");
   const [formPoScope, setFormPoScope] = useState<ReceiptPurchaseOrderScope>({});
+  const [poOptions, setPoOptions] = useState<EligiblePurchaseOrder[]>([]);
+  const [poOptionsLoading, setPoOptionsLoading] = useState(false);
   const [formShipId, setFormShipId] = useState("");
   const [formShipNo, setFormShipNo] = useState("");
   const [formWh, setFormWh] = useState("");
@@ -240,6 +251,33 @@ export default function ReceiptsPage() {
       setPoItemsLoading(false);
     }
   };
+  const loadPoOptions = useCallback(async () => {
+    setPoOptionsLoading(true);
+    try {
+      const res = await fetch('/api/v2/procurement/receipts/eligible-orders', { headers: hdr() });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setPoOptions(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setPoOptions([]);
+      toast.error(String(e));
+    } finally {
+      setPoOptionsLoading(false);
+    }
+  }, [toast]);
+  useEffect(() => {
+    if (!formOpen) return;
+    const timer = window.setTimeout(() => { void loadPoOptions(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [formOpen, loadPoOptions]);
+  const handlePoPick = (poId: string) => {
+    const selected = poOptions.find(po => po.id === poId);
+    setFormPoId(poId);
+    setFormPoNo(selected?.poNo ?? '');
+    setFormPoScope({});
+    if (selected) void loadPoItems(selected.id);
+    else setFormItems([emptyItem()]);
+  };
   const openNew = () => {
     setFormPoId("");
     setFormPoNo("");
@@ -257,7 +295,7 @@ export default function ReceiptsPage() {
   // ── Save new receipt ───────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!formPoId || !formPoNo) {
-      toast.error(t('prc2.err_po_required', "请填写 采购订单 ID 和 采购订单号"));
+      toast.error(t('prc2.err_po_required', "请选择可收货的采购订单"));
       return;
     }
     if (formItems.length === 0) {
@@ -533,19 +571,24 @@ export default function ReceiptsPage() {
             <div style={blockTitle}>{t('prc2.related_info', "关联信息")}</div>
             <div className={s.fieldRow}>
               <div className={s.field}>
-                <label className={s.lbl}>{t('prc2.po_internal_id', "采购订单 ID")} <span style={{
+                <label className={s.lbl}>{t('prc2.po_select', "选择采购订单")} <span style={{
                   color: "var(--color-danger)"
                 }}>*</span></label>
-                <input className={s.inp} value={formPoId} onChange={e => {
-                  setFormPoId(e.target.value);
-                  setFormPoScope({});
-                }} onBlur={() => formPoId && loadPoItems(formPoId)} placeholder={t('prc2.po_id_ph', "采购订单内部 ID（填完后自动加载明细）")} />
+                <select className={s.inp} value={formPoId} onChange={e => handlePoPick(e.target.value)} disabled={poOptionsLoading}>
+                  <option value="">{poOptionsLoading ? t('prc2.loading_dots3', "加载中...") : t('prc2.po_select_ph', "请选择已审批且未完成收货的采购订单")}</option>
+                  {poOptions.map(po => <option key={po.id} value={po.id}>
+                    {[po.poNo, po.supplierName, po.subject].filter(Boolean).join(' · ')}
+                  </option>)}
+                </select>
+                {!poOptionsLoading && poOptions.length === 0 && <small role="status" style={{ display: 'block', marginTop: 4, color: 'var(--text-secondary)' }}>
+                  {t('prc2.po_select_empty', "当前没有可收货采购订单，请先确认采购订单")}
+                </small>}
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>{t('prc2.po_no', "采购订单号")} <span style={{
                   color: "var(--color-danger)"
                 }}>*</span></label>
-                <input className={s.inp} value={formPoNo} onChange={e => setFormPoNo(e.target.value)} placeholder="PO2-..." />
+                <input className={s.inp} value={formPoNo} readOnly aria-readonly="true" placeholder="PO2-..." />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>{t('prc2.shipment_id', "运单 ID")}</label>
