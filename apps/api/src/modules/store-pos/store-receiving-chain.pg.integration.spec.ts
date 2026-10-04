@@ -134,7 +134,8 @@ describePg('Store receiving canonical WMS chain PostgreSQL integration', () => {
     requestId = Number(created.id);
     expect(created.status).toBe('DRAFT');
     await replenishment.submit(requestId);
-    const approved = await replenishment.approve(requestId, { sourceWarehouseCode: sourceWarehouse }, { username: `b6-${suffix}` });
+    await replenishment.approve(requestId, { sourceWarehouseCode: sourceWarehouse }, { username: `b6-${suffix}` });
+    const [approved] = await ds.query(`SELECT status,transfer_no FROM store_replenishment_requests WHERE id=$1`, [requestId]);
     transferNo = approved.transfer_no;
     expect(approved.status).toBe('APPROVED');
 
