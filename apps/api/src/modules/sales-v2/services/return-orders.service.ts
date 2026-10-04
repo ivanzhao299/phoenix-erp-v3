@@ -112,6 +112,8 @@ export class ReturnOrdersService {
   }
 
   private async findRaw(id: string) {
+    // Every state transition must resolve through the same company scope gate
+    // as read endpoints; this prevents ID-based cross-company mutations.
     const conds = ['r.id = $1'];
     const params: unknown[] = [id];
     this.appendCompanyScope(conds, params, 'r');
