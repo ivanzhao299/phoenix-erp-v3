@@ -53,7 +53,7 @@ describePg('Store receiving canonical WMS chain PostgreSQL integration', () => {
         role: 'STORE_MANAGER', roles: ['ROLE_STORE_MGR'], warehouseCodes: [targetWarehouse],
         timezone: 'Asia/Shanghai', businessDayCutoff: '00:00:00',
       }),
-      resolve: async () => ({ storeId, storeCode, companyCode }),
+      resolve: async () => ({ storeId, storeCode, companyCode, warehouseCodes: [targetWarehouse] }),
     };
     const serviceCls = {
       get: (key: string) => key === 'dataScope' ? scope : key === 'user' ? { username: `b6-${suffix}`, roles: ['ROLE_STORE_MGR'] } : undefined,
@@ -73,6 +73,21 @@ describePg('Store receiving canonical WMS chain PostgreSQL integration', () => {
        VALUES ($1,'B6-PRODUCT',$2,'SKU','EA',10,10,'AVAILABLE',$3,'B6-SOURCE',$4,$5,CURRENT_DATE)`,
       [sourceBatch, `B6-SKU-${suffix}`, sourceWarehouse, 'ALL', companyCode],
     );
+    // The historical table is runtime-created by GenericCrudService in production;
+    // create the legacy projection explicitly in this disposable PG16 fixture so
+    // the bypass reproduction remains independent of bootstrap ordering.
+    await ds.query(`
+      CREATE TABLE IF NOT EXISTS store_receiving (
+        id BIGSERIAL PRIMARY KEY,
+        receiving_no VARCHAR(50) UNIQUE,
+        store_code VARCHAR(30),
+        wave_no VARCHAR(50),
+        receive_date DATE,
+        status VARCHAR(20) DEFAULT 'PENDING',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
   }, 60000);
 
   afterAll(async () => {
