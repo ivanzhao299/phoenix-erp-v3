@@ -1068,4 +1068,40 @@ describe('WmsService inventory read queries', () => {
     await expect(service.completeTransfer('TR-4', { resolutions: [] }, { username: 'keeper' }))
       .rejects.toThrow('库存调拨目标仓库（仓库范围不匹配）');
   });
+
+  it('rejects duplicate stocktake approval before any inventory adjustment', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => sql.includes('FROM wms_stocktake')
+        ? [{ warehouse_code: 'WH-A', status: 'APPROVED' }]
+        : []),
+    };
+    const em = {
+      query: jest.fn().mockResolvedValue([{ domain: 'OPERATIONAL' }]),
+      transaction: jest.fn(async (cb: any) => cb(manager)),
+    };
+    const service = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) } as any);
+
+    await expect(service.approveStocktake({ stocktake_no: 'ST-1', diff_qty: 0 }, { username: 'auditor' }))
+      .rejects.toThrow('已审核，不能重复审批');
+    expect(manager.query).toHaveBeenCalledTimes(1);
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_ledger'), expect.anything());
+  });
+
+  it('rejects loss approval from a non-DONE state', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => sql.includes('FROM wms_stocktake')
+        ? [{ warehouse_code: 'WH-A', status: 'DRAFT' }]
+        : []),
+    };
+    const em = {
+      query: jest.fn().mockResolvedValue([{ domain: 'OPERATIONAL' }]),
+      transaction: jest.fn(async (cb: any) => cb(manager)),
+    };
+    const service = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) } as any);
+
+    await expect(service.approveLoss({ loss_no: 'LR-1', batch_no: 'B-1', loss_qty: 1 }, { username: 'auditor' }))
+      .rejects.toThrow('状态 DRAFT 不允许审批');
+    expect(manager.query).toHaveBeenCalledTimes(1);
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_ledger'), expect.anything());
+  });
 });

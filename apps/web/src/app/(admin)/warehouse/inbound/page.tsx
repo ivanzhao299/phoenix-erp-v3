@@ -100,7 +100,13 @@ export default function InboundPage() {
 
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);
   const openNew     = useCallback(() => { if (!canCreateInout) return; setEditing(null); setDrawerOpen(true); }, [canCreateInout]);
-  const openEdit    = useCallback((row: Row) => { if (!canEditInout) return; setEditing(row); setDrawerOpen(true); }, [canEditInout]);
+  const isEditableRow = useCallback((row: Row) => {
+    return ["PENDING", "PROCESSING"].includes(String(row.status ?? "").toUpperCase());
+  }, []);
+  const isDeletableRow = useCallback((row: Row) => {
+    return String(row.status ?? "").toUpperCase() === "PENDING";
+  }, []);
+  const openEdit    = useCallback((row: Row) => { if (!canEditInout || !isEditableRow(row)) return; setEditing(row); setDrawerOpen(true); }, [canEditInout, isEditableRow]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const handleSave = useCallback(async (values: Row) => {
@@ -114,7 +120,7 @@ export default function InboundPage() {
     } finally { setSaving(false); }
   }, [editing, refresh]);
 
-  const handleDelete   = useCallback((row: Row) => { if (!canDeleteInout) return; setDeleteTarget(row); setConfirmOpen(true); }, [canDeleteInout]);
+  const handleDelete   = useCallback((row: Row) => { if (!canDeleteInout || !isDeletableRow(row)) return; setDeleteTarget(row); setConfirmOpen(true); }, [canDeleteInout, isDeletableRow]);
   const confirmDelete  = useCallback(async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);
@@ -188,13 +194,13 @@ export default function InboundPage() {
               {t("ui.查库存", "查库存")}
             </Link>
           )}
-          {canEditInout && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
+          {canEditInout && isEditableRow(row) && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
           {canConfirmInout && row.status === "PENDING" && (
             <button type="button" style={actionPill("success")} onClick={() => handleApprove(row)}>
               <CheckSquare size={11} />{t("ui.确认入库", "确认入库")}
             </button>
           )}
-          {canDeleteInout && (
+          {canDeleteInout && isDeletableRow(row) && (
             <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
           )}
         </div>

@@ -1,11 +1,11 @@
-import { ForbiddenException, GoneException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, GoneException } from '@nestjs/common';
 import { HEADERS_METADATA } from '@nestjs/common/constants';
 import { GenericCrudController } from './generic-crud.controller';
 import { GenericCrudService } from './generic-crud.service';
 
 describe('GenericCrudController WMS RBAC', () => {
   let controller: GenericCrudController;
-  let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'findAllBreedingScoped' | 'create' | 'findOneByColumn' | 'update' | 'assertOperationalWarehouseCodes'>>;
+  let svc: jest.Mocked<Pick<GenericCrudService, 'findAll' | 'findAllInventoryScoped' | 'findAllBreedingScoped' | 'create' | 'findOneByColumn' | 'update' | 'remove' | 'assertOperationalWarehouseCodes'>>;
   let dataScopeService: { resolve: jest.Mock };
   let wmsService: { confirmInbound: jest.Mock; confirmStandaloneOutbound: jest.Mock };
   let cls: { set: jest.Mock };
@@ -30,6 +30,7 @@ describe('GenericCrudController WMS RBAC', () => {
       create: jest.fn().mockResolvedValue({ msg: 'ok' }),
       findOneByColumn: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({ msg: 'ok' }),
+      remove: jest.fn().mockResolvedValue({ msg: 'ok' }),
       assertOperationalWarehouseCodes: jest.fn().mockResolvedValue(undefined),
     };
     dataScopeService = {
@@ -562,5 +563,80 @@ describe('GenericCrudController WMS RBAC', () => {
       expect.objectContaining({ username: 'wangweihua' }),
     );
     expect(svc.update).not.toHaveBeenCalled();
+  });
+
+  it('fails closed for committed WMS inbound mutations and deletes', async () => {
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 21,
+      task_no: 'WI-COMMITTED-1',
+      status: 'COMPLETED',
+      warehouse_code: 'LPH_MS_EGG_SALES',
+    });
+    await expect(controller.updateWithColumn(
+      'wms_inbound', 'id', '21', { qty: 99 }, req(['MENU_WMS_INOUT:E']),
+    )).rejects.toBeInstanceOf(BadRequestException);
+    expect(svc.update).not.toHaveBeenCalled();
+
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 21,
+      task_no: 'WI-COMMITTED-1',
+      status: 'COMPLETED',
+      warehouse_code: 'LPH_MS_EGG_SALES',
+    });
+    await expect(controller.removeWithColumn(
+      'wms_inbound', 'id', '21', req(['MENU_WMS_INOUT:D']),
+    )).rejects.toBeInstanceOf(BadRequestException);
+    expect(svc.remove).not.toHaveBeenCalled();
+  });
+
+  it('does not allow Generic CRUD to manufacture committed WMS statuses', async () => {
+    await expect(controller.create(
+      'wms_inbound', { task_no: 'WI-FAKE-COMPLETED', status: 'COMPLETED', warehouse_code: 'LPH_MS_EGG_SALES' },
+      req(['MENU_WMS_INOUT:C']),
+    )).rejects.toBeInstanceOf(BadRequestException);
+    expect(svc.create).not.toHaveBeenCalled();
+
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 22,
+      stocktake_no: 'ST-APPROVED-1',
+      status: 'APPROVED',
+      warehouse_code: 'LPH_MS_EGG_SALES',
+    });
+    await expect(controller.updateWithColumn(
+      'wms_stocktake', 'id', '22', { diff_qty: 5 }, req(['MENU_WMS_INOUT:E']),
+    )).rejects.toBeInstanceOf(BadRequestException);
+    expect(svc.update).not.toHaveBeenCalled();
+
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 22,
+      stocktake_no: 'ST-APPROVED-1',
+      status: 'APPROVED',
+      warehouse_code: 'LPH_MS_EGG_SALES',
+    });
+    await expect(controller.removeWithColumn(
+      'wms_stocktake', 'id', '22', req(['MENU_WMS_INOUT:D']),
+    )).rejects.toBeInstanceOf(BadRequestException);
+    expect(svc.remove).not.toHaveBeenCalled();
+  });
+
+  it('keeps draft WMS documents editable and removable', async () => {
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 23,
+      status: 'PENDING',
+      warehouse_code: 'LPH_MS_EGG_SALES',
+    });
+    await expect(controller.updateWithColumn(
+      'wms_inbound', 'id', '23', { qty: 8 }, req(['MENU_WMS_INOUT:E']),
+    )).resolves.toEqual({ code: 200, msg: 'ok' });
+
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 23,
+      status: 'PENDING',
+      warehouse_code: 'LPH_MS_EGG_SALES',
+    });
+    await expect(controller.removeWithColumn(
+      'wms_inbound', 'id', '23', req(['MENU_WMS_INOUT:D']),
+    )).resolves.toEqual({ code: 200, msg: 'ok' });
+    expect(svc.remove).toHaveBeenCalledWith('wms_inbound', 'id', '23');
   });
 });

@@ -130,9 +130,6 @@ export default function StocktakePage() {
     }, {
       label: t("ui.待审核", "待审核"),
       value: "DONE"
-    }, {
-      label: t("status.approved", "已审核"),
-      value: "APPROVED"
     }]
   }];
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -157,11 +154,14 @@ export default function StocktakePage() {
     setEditing(null);
     setDrawerOpen(true);
   }, [canCreateInout]);
+  const isMutableRow = useCallback((row: Row) => {
+    return String(row.status ?? "").toUpperCase() !== "APPROVED";
+  }, []);
   const openEdit = useCallback((row: Row) => {
-    if (!canEditInout) return;
+    if (!canEditInout || !isMutableRow(row)) return;
     setEditing(row);
     setDrawerOpen(true);
-  }, [canEditInout]);
+  }, [canEditInout, isMutableRow]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   // CSV 导出
@@ -208,10 +208,10 @@ export default function StocktakePage() {
     }
   }, [editing, refresh]);
   const handleDelete = useCallback((row: Row) => {
-    if (!canDeleteInout) return;
+    if (!canDeleteInout || !isMutableRow(row)) return;
     setDeleteTarget(row);
     setConfirmOpen(true);
-  }, [canDeleteInout]);
+  }, [canDeleteInout, isMutableRow]);
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);
@@ -323,13 +323,13 @@ export default function StocktakePage() {
     align: "center",
     render: (_, row) => (
       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-        {canEditInout && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
+        {canEditInout && isMutableRow(row) && <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>}
         {canApproveInout && row.status === "DONE" && (
           <button type="button" style={actionPill("success")} onClick={() => handleApprove(row)}>
             <CheckCircle size={11} />{t("ui.审批", "审批")}
           </button>
         )}
-        {canDeleteInout && <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>}
+        {canDeleteInout && isMutableRow(row) && <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>}
       </div>
     )
   }];
