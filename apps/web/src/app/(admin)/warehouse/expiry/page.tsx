@@ -57,6 +57,7 @@ export default function ExpiryAlertPage() {
   };
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{
     open: boolean;
     type: 'outbound' | 'discount';
@@ -109,24 +110,29 @@ export default function ExpiryAlertPage() {
       return;
     }
     if (confirm.type === 'outbound') {
-      await crudApi.create("wms_outbound", {
-        outbound_no: `FEFO-${Date.now().toString().slice(-6)}`,
-        batch_no: confirm.item.batchNo,
-        item: confirm.item.skuCode,
-        qty: confirm.item.qty,
-        dest: t("ui.临期出库", "临期出库"),
-        status: 'PENDING',
-        date: new Date().toISOString().slice(0, 10),
-        remark: `${t("ui.临期预警自动拦截剩余", "临期预警自动拦截 - 剩余")}${confirm.item.daysLeft}${t("ui.天", "天")}`
-      }).catch(() => {});
+      try {
+        await crudApi.create("wms_outbound", {
+          outbound_no: `FEFO-${Date.now().toString().slice(-6)}`,
+          batch_no: confirm.item.batchNo,
+          item: confirm.item.skuCode,
+          qty: confirm.item.qty,
+          dest: t("ui.临期出库", "临期出库"),
+          status: 'PENDING',
+          date: new Date().toISOString().slice(0, 10),
+          remark: `${t("ui.临期预警自动拦截剩余", "临期预警自动拦截 - 剩余")}${confirm.item.daysLeft}${t("ui.天", "天")}`
+        });
+        setAlerts(prev => prev.filter(a => a.id !== confirm.item!.id));
+        setActionError(null);
+      } catch (err) {
+        setActionError(err instanceof Error && err.message ? err.message : t("ui.安排出库失败请重试", "安排出库失败，请重试"));
+      }
     }
-    setAlerts(prev => prev.filter(a => a.id !== confirm.item!.id));
     setConfirm({
       open: false,
       type: 'outbound',
       item: null
     });
-  }, [confirm]);
+  }, [confirm, t]);
 
   // g200e:KPI 4 卡 tone → kpiCardCompact(tone)
   const KPI_COUNTS = useMemo<{ label: string; val: number; tone: Tone }[]>(() => [
@@ -147,6 +153,13 @@ export default function ExpiryAlertPage() {
           </button>
         }
       />
+
+      {actionError && (
+        <div role="alert" style={{ ...inlineAlert("danger"), marginBottom: 16 }}>
+          <AlertOctagon size={15} />
+          <span>{actionError}</span>
+        </div>
+      )}
 
       {/* g200e:KPI 4 卡 — kpiCardCompact(tone) */}
       <div style={{
@@ -209,7 +222,7 @@ export default function ExpiryAlertPage() {
                 </div>
                 <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 6 }}>
                   <button type="button" style={{ ...primaryActionButton, fontSize: 12, padding: "6px 14px" }}
-                    onClick={() => setConfirm({ open: true, type: "outbound", item: a })}>
+                    onClick={() => { setActionError(null); setConfirm({ open: true, type: "outbound", item: a }); }}>
                     <AlertTriangle size={12} />{t("ui.安排出库", "安排出库")}
                   </button>
                   <button type="button" style={{ ...secondaryActionButton, fontSize: 12, padding: "6px 14px", opacity: 0.5, cursor: "not-allowed" }}
