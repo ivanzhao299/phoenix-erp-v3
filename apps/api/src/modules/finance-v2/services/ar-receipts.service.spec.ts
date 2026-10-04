@@ -149,4 +149,47 @@ describe('ArReceiptsService', () => {
       balanceAfter: 225,
     }));
   });
+
+  it('denies list access when the CLS data scope has no companies', async () => {
+    const { service, ds } = buildService();
+    (service as any).cls.get.mockImplementation((key: string) => {
+      if (key === 'user') return { userId: 'u1' };
+      if (key === 'dataScope') return {
+        isGlobal: false,
+        scopeLevel: 'COMPANY',
+        allowedCompanyCodes: [],
+        allowedProjectCodes: [],
+      };
+      return undefined;
+    });
+
+    ds.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ cnt: '0' }]);
+    const result = await service.list({} as never);
+
+    expect(result.total).toBe(0);
+    expect(ds.query.mock.calls[0][0]).toContain('1=0');
+  });
+
+  it('rejects receipt creation for a company outside the CLS data scope', async () => {
+    const { service, ds } = buildService();
+    (service as any).cls.get.mockImplementation((key: string) => {
+      if (key === 'user') return { userId: 'u1' };
+      if (key === 'dataScope') return {
+        isGlobal: false,
+        scopeLevel: 'COMPANY',
+        allowedCompanyCodes: ['COMP-A'],
+        allowedProjectCodes: [],
+      };
+      return undefined;
+    });
+
+    await expect(service.create({
+      companyCode: 'COMP-B',
+      amountOriginal: 10,
+      customerName: '测试客户',
+      receiptDate: '2026-07-01',
+      currencyCode: 'CNY',
+    } as never)).rejects.toThrow('无权写入公司 COMP-B');
+    expect(ds.query).not.toHaveBeenCalled();
+  });
 });

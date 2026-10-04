@@ -5,6 +5,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource }       from 'typeorm';
 import { ClsService }       from 'nestjs-cls';
+import type { DataScopeContext } from '../../org/services/data-scope.service';
 import {
   CreateArInvoiceDto,
   UpdateArInvoiceDto,
@@ -33,12 +34,31 @@ export class ArInvoicesService {
 
   private currentUser() {
     const u = this.cls.get('user') as any;
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
     return {
       userId:       String(u?.userId ?? u?.id ?? '0'),
       roles:        (u?.roles ?? (u?.role ? [u.role] : [])) as string[],
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll:     !!(u?.scopeAll),
+      companyCodes: (scope?.allowedCompanyCodes ?? u?.companyCodes ?? []) as string[],
+      projectCodes: (scope?.allowedProjectCodes ?? u?.projectCodes ?? []) as string[],
+      scopeLevel:   scope?.scopeLevel ?? u?.scopeLevel ?? 'SELF',
+      scopeAll:     scope ? !!scope.isGlobal : !!(u?.scopeAll),
     };
+  }
+
+  private assertWritableOwnership(companyCode?: string | null, projectCode?: string | null): void {
+    const user = this.currentUser();
+    if (user.scopeAll) return;
+    if (!companyCode) throw new ForbiddenException('无权写入 AR Invoice（缺少公司归属）');
+    if (!user.companyCodes.length) throw new ForbiddenException('无权写入 AR Invoice（数据范围未配置）');
+    if (!user.companyCodes.includes(companyCode)) {
+      throw new ForbiddenException(`无权写入公司 ${companyCode} 的 AR Invoice`);
+    }
+    if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
+      if (!projectCode) throw new ForbiddenException('无权写入 AR Invoice（缺少项目归属）');
+      if (!user.projectCodes.includes(projectCode)) {
+        throw new ForbiddenException(`无权写入项目 ${projectCode} 的 AR Invoice`);
+      }
+    }
   }
 
   /** 生成 AR 编号 AR-YYYYMM-XXXXX */
@@ -56,7 +76,7 @@ export class ArInvoicesService {
   /** assertOwnership：确认 AR 的 company_code 在当前用户 DataScope 内 */
   async assertOwnership(arId: string): Promise<any> {
     const rows = await this.ds.query(
-      `SELECT id, ar_no, company_code, status, collection_status,
+      `SELECT id, ar_no, company_code, project_code, status, collection_status,
               amount_original, received_amount_original, balance_amount_original,
               currency_code, customer_name
        FROM fin_ar_invoices WHERE id = $1`,
@@ -65,9 +85,15 @@ export class ArInvoicesService {
     if (!rows.length) throw new NotFoundException(`AR Invoice #${arId} 不存在`);
     const inv  = rows[0];
     const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 &&
-        !user.companyCodes.includes(inv.company_code)) {
+    if (!user.scopeAll && user.companyCodes.length === 0) {
+      throw new ForbiddenException('无权访问 AR Invoice（数据范围未配置）');
+    }
+    if (!user.scopeAll && !user.companyCodes.includes(inv.company_code)) {
       throw new ForbiddenException(`无权访问公司 ${inv.company_code} 的 AR Invoice`);
+    }
+    if (!user.scopeAll && user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0 &&
+        !user.projectCodes.includes(inv.project_code)) {
+      throw new ForbiddenException(`无权访问项目 ${inv.project_code ?? '(未指定)'} 的 AR Invoice`);
     }
     return inv;
   }
@@ -86,6 +112,12 @@ export class ArInvoicesService {
     if (!user.scopeAll && user.companyCodes.length > 0) {
       params.push(user.companyCodes);
       conditions.push(`i.company_code = ANY($${params.length}::text[])`);
+      if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
+        params.push(user.projectCodes);
+        conditions.push(`i.project_code = ANY($${params.length}::text[])`);
+      }
+    } else if (!user.scopeAll) {
+      conditions.push('1=0');
     }
 
     if (q.companyCode)      { params.push(q.companyCode);      conditions.push(`i.company_code      = $${params.length}`); }
@@ -172,6 +204,7 @@ export class ArInvoicesService {
 
   async createManual(dto: CreateArInvoiceDto) {
     const user   = this.currentUser();
+    this.assertWritableOwnership(dto.companyCode, dto.projectCode);
     const arNo   = await this.genArNo();
     const exRate = dto.exchangeRate ?? 1;
     const amtBase = dto.amountBase ?? Math.round(dto.amountOriginal * exRate * 100) / 100;
@@ -342,6 +375,12 @@ export class ArInvoicesService {
     if (!user.scopeAll && user.companyCodes.length > 0) {
       params.push(user.companyCodes);
       conds.push(`company_code = ANY($${params.length}::text[])`);
+      if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
+        params.push(user.projectCodes);
+        conds.push(`project_code = ANY($${params.length}::text[])`);
+      }
+    } else if (!user.scopeAll) {
+      conds.push('1=0');
     }
     if (companyCode) {
       params.push(companyCode);
@@ -404,6 +443,12 @@ export class ArInvoicesService {
     if (!user.scopeAll && user.companyCodes.length > 0) {
       params.push(user.companyCodes);
       conds.push(`company_code = ANY($${params.length}::text[])`);
+      if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
+        params.push(user.projectCodes);
+        conds.push(`project_code = ANY($${params.length}::text[])`);
+      }
+    } else if (!user.scopeAll) {
+      conds.push('1=0');
     }
     if (companyCode) {
       params.push(companyCode);
