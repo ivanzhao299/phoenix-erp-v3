@@ -54,6 +54,47 @@ export class ReturnOrdersService {
     try { return this.cls.get('user')?.username ?? 'system'; } catch { return 'system'; }
   }
 
+  private get dataScope(): DataScopeContext {
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    // DataScopeGuard should always populate this context. Fail closed if a
+    // caller reaches the service without it rather than exposing all returns.
+    return scope ?? {
+      isGlobal: false,
+      scopeLevel: 'SELF',
+      allowedCompanyCodes: [],
+      allowedProjectCodes: [],
+      allowedWarehouseCodes: [],
+      allowedFarmCodes: [],
+      allowedSiteCodes: [],
+      userId: '',
+    };
+  }
+
+  private appendCompanyScope(
+    conds: string[], params: unknown[], alias: string, requested?: string,
+  ) {
+    const scope = this.dataScope;
+    if (!scope.isGlobal) {
+      if (scope.allowedCompanyCodes.length === 0) {
+        conds.push('1=0');
+      } else {
+        params.push(scope.allowedCompanyCodes);
+        conds.push(`${alias}.company_code = ANY($${params.length})`);
+      }
+    }
+    if (requested) {
+      params.push(requested);
+      conds.push(`${alias}.company_code = $${params.length}`);
+    }
+  }
+
+  private assertCompanyAllowed(companyCode: string) {
+    const scope = this.dataScope;
+    if (!scope.isGlobal && !scope.allowedCompanyCodes.includes(companyCode)) {
+      throw new ForbiddenException(`无权访问公司 ${companyCode} 的退货单`);
+    }
+  }
+
   private async genReturnNo(): Promise<string> {
     const today  = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const prefix = `RET-${today}-`;
@@ -71,8 +112,11 @@ export class ReturnOrdersService {
   }
 
   private async findRaw(id: string) {
+    const conds = ['r.id = $1'];
+    const params: unknown[] = [id];
+    this.appendCompanyScope(conds, params, 'r');
     const [row] = await this.ds.query(
-      `SELECT * FROM sal_return_orders WHERE id = $1`, [id],
+      `SELECT r.* FROM sal_return_orders r WHERE ${conds.join(' AND ')}`, params,
     );
     if (!row) throw new NotFoundException(`退货单 ${id} 不存在`);
     return row;
@@ -133,7 +177,8 @@ export class ReturnOrdersService {
     const params: unknown[] = [];
     let pi = 1;
 
-    if (query.companyCode) { conds.push(`r.company_code = $${pi++}`); params.push(query.companyCode); }
+    this.appendCompanyScope(conds, params, 'r', query.companyCode);
+    pi = params.length + 1;
     if (query.customerCode){ conds.push(`r.customer_code = $${pi++}`); params.push(query.customerCode); }
     if (query.status)       { conds.push(`r.status = $${pi++}`); params.push(query.status); }
     if (query.returnType)   { conds.push(`r.return_type = $${pi++}`); params.push(query.returnType); }
@@ -181,6 +226,9 @@ export class ReturnOrdersService {
   // ── 2. 详情 ─────────────────────────────────────────────────────────────────
 
   async findById(id: string) {
+    const conds = ['r.id = $1'];
+    const params: unknown[] = [id];
+    this.appendCompanyScope(conds, params, 'r');
     const [row] = await this.ds.query(
       `SELECT r.*,
        (SELECT c.customer_name FROM sal_customers c WHERE c.customer_no=r.customer_code ORDER BY c.id LIMIT 1) AS customer_name_master,
@@ -199,8 +247,8 @@ export class ReturnOrdersService {
            FROM sal_return_items i WHERE i.return_order_id = r.id
          ) x
        ) AS items
-       FROM sal_return_orders r WHERE r.id = $1`,
-      [id],
+       FROM sal_return_orders r WHERE ${conds.join(' AND ')}`,
+      params,
     );
     if (!row) throw new NotFoundException(`退货单 ${id} 不存在`);
     return row;
@@ -260,6 +308,10 @@ export class ReturnOrdersService {
         [body.salesOrderId],
       );
       if (order) {
+        this.assertCompanyAllowed(String(order.company_code));
+        if (body.companyCode && body.companyCode !== order.company_code) {
+          throw new BadRequestException('销售订单所属公司与退货单公司不一致');
+        }
         customerCode = customerCode ?? order.customer_code;
         customerName = customerName ?? order.customer_name;
         companyCode  = companyCode  ?? order.company_code;
@@ -268,6 +320,8 @@ export class ReturnOrdersService {
         targetWarehouseCode = targetWarehouseCode ?? order.fulfillment_warehouse_code ?? undefined;
       }
     }
+
+    this.assertCompanyAllowed(String(companyCode));
 
     const returnNo = await this.genReturnNo();
     const subtotal = body.items.reduce((s, it) => s + it.returnedQty * it.unitPrice, 0);
@@ -565,6 +619,8 @@ export class ReturnOrdersService {
   async completeRestock(id: string, target: {
     targetWarehouseCode: string; targetZoneCode: string; targetLocationCode: string;
   }) {
+    // Establish ownership before the transaction locks and mutates the row.
+    await this.findRaw(id);
     await this.ds.transaction(async (mgr) => {
       const [rec] = await mgr.query(`SELECT * FROM sal_return_orders WHERE id=$1 FOR UPDATE`, [id]);
       if (!rec) throw new NotFoundException(`退货单 ${id} 不存在`);
@@ -658,7 +714,10 @@ export class ReturnOrdersService {
   // ── 12. 统计（供 Dashboard 使用） ────────────────────────────────────────────
 
   async getDashboardStats(companyCode?: string) {
-    const cond = companyCode ? `WHERE company_code = '${companyCode}'` : '';
+    const conds: string[] = [];
+    const params: unknown[] = [];
+    this.appendCompanyScope(conds, params, 'r', companyCode);
+    const cond = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const [row] = await this.ds.query(`
       SELECT
         COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)                        AS today_total,
@@ -667,8 +726,8 @@ export class ReturnOrdersService {
         COALESCE(SUM(subtotal) FILTER (WHERE status = 'COMPLETED'
                                AND completed_at >= CURRENT_DATE), 0)              AS today_credit_note_amount,
         COUNT(*) FILTER (WHERE status IN ('DRAFT','SUBMITTED','PENDING_APPROVAL')) AS pending_approval
-      FROM sal_return_orders ${cond}
-    `);
+      FROM sal_return_orders r ${cond}
+    `, params);
     return {
       todayTotal:           Number(row.today_total),
       pendingInspection:    Number(row.pending_inspection),
@@ -681,18 +740,21 @@ export class ReturnOrdersService {
   // ── 13. 异常分析（供 Reports 使用） ──────────────────────────────────────────
 
   async getReturnAnalysis(companyCode?: string) {
-    const cond = companyCode ? `AND company_code = '${companyCode}'` : '';
+    const scopeConds: string[] = [];
+    const scopeParams: unknown[] = [];
+    this.appendCompanyScope(scopeConds, scopeParams, 'r', companyCode);
+    const cond = scopeConds.length ? `AND ${scopeConds.join(' AND ')}` : '';
 
     const topCustomers = await this.ds.query(`
       SELECT customer_code, MAX(customer_name) AS customer_name,
              COUNT(*) AS return_count,
              COALESCE(SUM(subtotal),0) AS total_amount
-      FROM sal_return_orders
-      WHERE status = 'COMPLETED' ${cond}
+      FROM sal_return_orders r
+      WHERE r.status = 'COMPLETED' ${cond}
       GROUP BY customer_code
       ORDER BY return_count DESC
       LIMIT 10
-    `);
+    `, scopeParams);
 
     const topProducts = await this.ds.query(`
       SELECT i.product_code, MAX(i.product_name) AS product_name,
@@ -705,7 +767,7 @@ export class ReturnOrdersService {
       GROUP BY i.product_code
       ORDER BY return_count DESC
       LIMIT 10
-    `);
+    `, scopeParams);
 
     const [stats] = await this.ds.query(`
       SELECT
@@ -724,9 +786,9 @@ export class ReturnOrdersService {
           ),0
         ) AS total_returned_qty
       FROM sal_return_orders r
-      WHERE status = 'COMPLETED' ${cond}
+      WHERE r.status = 'COMPLETED' ${cond}
         AND completed_at >= NOW() - INTERVAL '30 days'
-    `);
+    `, scopeParams);
 
     const damageRate = Number(stats.total_returned_qty) > 0
       ? ((Number(stats.total_damaged_qty) / Number(stats.total_returned_qty)) * 100).toFixed(1)
