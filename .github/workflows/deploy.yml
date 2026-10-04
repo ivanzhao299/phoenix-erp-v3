@@ -755,6 +755,11 @@ jobs:
             CODE_SYNCED=true
             echo "✅ Code synced"
 
+            # In bind-mount mode, stop before any Compose operation if /data
+            # is absent, the sentinel is missing, or the configured paths are
+            # not on the mounted filesystem. Named-volume mode remains a no-op.
+            bash scripts/ops/require-phoenix-data-mount.sh
+
             # The production checkout is the authoritative deployment baseline.
             # Manual dispatch has no before SHA, and may span several merges.
             if [ "$BUILD_API" = "true" ]; then
