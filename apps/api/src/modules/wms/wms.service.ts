@@ -1995,14 +1995,20 @@ export class WmsService {
     return await this.em.transaction(async (manager) => {
       // 标记盘点单已审核
       const stocktakeRows = await manager.query(
-        `SELECT warehouse_code FROM wms_stocktake WHERE stocktake_no=$1 LIMIT 1`,
+        `SELECT warehouse_code, status FROM wms_stocktake WHERE stocktake_no=$1 FOR UPDATE`,
         [stocktake_no],
       ).catch(() => []);
-      if (stocktakeRows.length > 0) {
-        await this.assertWritableWarehouse(stocktakeRows[0].warehouse_code || null, `盘点单 ${stocktake_no}`);
+      if (stocktakeRows.length === 0) throw new BadRequestException(`盘点单 ${stocktake_no} 不存在`);
+      await this.assertWritableWarehouse(stocktakeRows[0].warehouse_code || null, `盘点单 ${stocktake_no}`);
+      const stocktake = stocktakeRows[0];
+      if (String(stocktake.status || '').toUpperCase() === 'APPROVED') {
+        throw new BadRequestException(`盘点单 ${stocktake_no} 已审核，不能重复审批`);
+      }
+      if (String(stocktake.status || '').toUpperCase() !== 'DONE') {
+        throw new BadRequestException(`盘点单状态 ${stocktake.status || '(空)'} 不允许审批`);
       }
       await manager.query(
-        `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now() WHERE stocktake_no=$2`,
+        `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now() WHERE stocktake_no=$2 AND status='DONE'`,
         [opName, stocktake_no],
       );
 
@@ -2204,15 +2210,21 @@ export class WmsService {
     return await this.em.transaction(async (manager) => {
       // loss-report 复用 wms_stocktake 表 + LR- 前缀（前端约定）
       const lossRows = await manager.query(
-        `SELECT warehouse_code FROM wms_stocktake WHERE stocktake_no=$1 LIMIT 1`,
+        `SELECT warehouse_code, status FROM wms_stocktake WHERE stocktake_no=$1 FOR UPDATE`,
         [loss_no],
       ).catch(() => []);
-      if (lossRows.length > 0) {
-        await this.assertWritableWarehouse(lossRows[0].warehouse_code || null, `损耗单 ${loss_no}`);
+      if (lossRows.length === 0) throw new BadRequestException(`损耗单 ${loss_no} 不存在`);
+      await this.assertWritableWarehouse(lossRows[0].warehouse_code || null, `损耗单 ${loss_no}`);
+      const loss = lossRows[0];
+      if (String(loss.status || '').toUpperCase() === 'APPROVED') {
+        throw new BadRequestException(`损耗单 ${loss_no} 已审批，不能重复审批`);
+      }
+      if (String(loss.status || '').toUpperCase() !== 'DONE') {
+        throw new BadRequestException(`损耗单状态 ${loss.status || '(空)'} 不允许审批`);
       }
       await manager.query(
         `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now()
-         WHERE stocktake_no=$2`,
+         WHERE stocktake_no=$2 AND status='DONE'`,
         [opName, loss_no],
       );
 

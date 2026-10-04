@@ -369,6 +369,45 @@ export class GenericCrudController {
     return nextStatus === 'DONE' && currentStatus !== 'DONE';
   }
 
+  /**
+   * WMS documents become inventory evidence when their dedicated confirmation
+   * endpoint completes/approves them.  Generic CRUD may still edit the draft
+   * portion of the workflow, but it must not mutate committed evidence or
+   * manufacture a committed status without the inventory transaction.
+   */
+  private assertWmsDocumentMutationAllowed(table: string, existing: any, body: any) {
+    const currentStatus = String(existing?.status ?? '').trim().toUpperCase();
+    const nextStatus = body && Object.prototype.hasOwnProperty.call(body, 'status')
+      ? String(body.status ?? '').trim().toUpperCase()
+      : null;
+
+    if (table === 'wms_inbound') {
+      if (['COMPLETED', 'CANCELLED'].includes(currentStatus)) {
+        throw new BadRequestException(`入库单状态 ${currentStatus} 已提交，不能通过 Generic CRUD 修改`);
+      }
+      if (nextStatus && nextStatus !== 'COMPLETED') {
+        throw new BadRequestException('入库状态必须通过专用确认接口流转');
+      }
+    }
+
+    if (table === 'wms_stocktake' && currentStatus === 'APPROVED') {
+      throw new BadRequestException('已审核盘点/报损单保留库存审计事实，不能通过 Generic CRUD 修改');
+    }
+    if (table === 'wms_stocktake' && nextStatus === 'APPROVED') {
+      throw new BadRequestException('盘点/报损审批必须通过专用审批接口流转');
+    }
+  }
+
+  private assertWmsDocumentCreateAllowed(table: string, body: any) {
+    const status = String(body?.status ?? '').trim().toUpperCase();
+    if (table === 'wms_inbound' && status && status !== 'PENDING') {
+      throw new BadRequestException('入库单必须以 PENDING 状态创建，并通过专用确认接口写入库存');
+    }
+    if (table === 'wms_stocktake' && status === 'APPROVED') {
+      throw new BadRequestException('盘点/报损单必须通过专用审批接口写入 APPROVED 状态');
+    }
+  }
+
   private buildWmsInboundConfirmPayload(existing: any, body: any) {
     const row = { ...(existing || {}), ...(body || {}) };
     const taskNo = String(row.task_no || row.inbound_no || '').trim();
@@ -502,6 +541,7 @@ export class GenericCrudController {
     this.checkTableAccess(table, req, 'POST');
     const tableScope = await this.resolveTableScope(table, req, 'POST');
     this.assertNoHouseOwnershipWrite(table, body);
+    this.assertWmsDocumentCreateAllowed(table, body);
     
     // Auto populate store_code if not present, and auto populated created_by
     if (table !== 'brd_houses' && !body.store_code && req.user?.storeCode) {
@@ -572,6 +612,7 @@ export class GenericCrudController {
     }
     this.assertWarehouseRowScope(table, existing, tableScope);
     const safeBody = this.filterBlockedFields(table, body);
+    this.assertWmsDocumentMutationAllowed(table, existing, safeBody);
     if (req.user?.username && Object.prototype.hasOwnProperty.call(body, 'operator')
       && ['wms_inbound', 'wms_transfer', 'wms_stocktake', 'wms_loss'].includes(table)) {
       safeBody.operator = req.user.username;
@@ -661,6 +702,13 @@ export class GenericCrudController {
       throw new BadRequestException('Record not found');
     }
     this.assertWarehouseRowScope(table, existing, tableScope);
+    const currentStatus = String(existing?.status ?? '').trim().toUpperCase();
+    if (table === 'wms_inbound' && currentStatus !== 'PENDING') {
+      throw new BadRequestException(`入库单状态 ${currentStatus || '(空)'} 不允许删除`);
+    }
+    if (table === 'wms_stocktake' && currentStatus === 'APPROVED') {
+      throw new BadRequestException('已审核盘点/报损单保留库存审计事实，禁止删除');
+    }
     if (table === 'wms_transfer') {
       throw new BadRequestException('调拨单保留库存审计事实，禁止通过 Generic CRUD 删除');
     }
