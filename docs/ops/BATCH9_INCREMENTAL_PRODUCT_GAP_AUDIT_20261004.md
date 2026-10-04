@@ -4,6 +4,8 @@
 审计基线：`origin/main`  5425089bcb51338d4780d6f37782440bade8b90c  
 工作树：`codex/batch9-product-gap`
 
+冻结边界复核：本轮只触及已审计的 Finance/Procurement 服务与回归测试；PR #320 已登记 `reviewed-frozen-boundary`，作为 CI 的显式冻结边界复核记录。
+
 本轮只读审计覆盖 Finance（AP/AR/payment/reconciliation/posting）、Sales（订单/配送/退货/AR 生成）、Procurement（已批准 PO/收货/退货/付款关联）和 Store（销售/收款/日结）。WMS receiving/replenishment、价格异常、移动已办计数、门店附件 ACL、临期出库错误反馈沿用既有结论，不重复审计。未连接生产数据库，未执行生产写入。
 
 ## Master Status Board
