@@ -15,6 +15,12 @@ import { CancelReceiptDto }     from '../dto/cancel-receipt.dto';
 export class ReceiptsController {
   constructor(private readonly svc: ReceiptsService) {}
 
+  @Get('receipts/eligible-orders')
+  @RequireMenu('MENU_PRC2_RECEIPT', 'V')
+  eligibleOrders(@Query('keyword') keyword?: string) {
+    return this.svc.listEligiblePurchaseOrders(keyword);
+  }
+
   @Get('receipts')
   @RequireMenu('MENU_PRC2_RECEIPT', 'V')
   list(@Query() q: QueryReceiptDto) { return this.svc.list(q); }

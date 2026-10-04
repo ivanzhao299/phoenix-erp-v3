@@ -41,15 +41,19 @@ describe("receiptScopeFromPurchaseOrder", () => {
     });
   });
 
-  it("wires loaded PO scope into create and clears it when the PO changes", () => {
+  it("loads authorized POs, wires the selected PO scope into create, and clears it when selection changes", () => {
     expect(receiptPage).toContain(
       "setFormPoScope(receiptScopeFromPurchaseOrder(po))",
+    );
+    expect(receiptPage).toContain(
+      "/api/v2/procurement/receipts/eligible-orders",
     );
     expect(receiptPage).toMatch(
       /poNo: formPoNo,\s+\.\.\.formPoScope,\s+shipmentId:/,
     );
     expect(receiptPage).toMatch(
-      /setFormPoId\(e\.target\.value\);\s+setFormPoScope\(\{\}\);/,
+      /const handlePoPick = \(poId: string\) => \{[\s\S]*setFormPoId\(poId\);[\s\S]*setFormPoScope\(\{\}\);/,
     );
+    expect(receiptPage).toContain("onChange={e => handlePoPick(e.target.value)}");
   });
 });
