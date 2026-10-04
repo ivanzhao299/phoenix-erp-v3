@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, GoneException } from '@nestjs/common';
 import { HEADERS_METADATA } from '@nestjs/common/constants';
 import { GenericCrudController } from './generic-crud.controller';
 import { GenericCrudService } from './generic-crud.service';
@@ -310,6 +310,28 @@ describe('GenericCrudController WMS RBAC', () => {
       controller.create('wms_outbound', { outbound_no: 'WO-1' }, req(['MENU_WMS_VIEW:V'])),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(svc.create).not.toHaveBeenCalled();
+  });
+
+  it('retires legacy store receiving writes while preserving historical reads', async () => {
+    await expect(
+      controller.create('store_receiving', { receiving_no: 'LEGACY-1', status: 'ACCEPTED' }, req(['MENU_STORE_MGR:C'])),
+    ).rejects.toBeInstanceOf(GoneException);
+    await expect(
+      controller.update('store_receiving', '1', { status: 'ACCEPTED' }, req(['MENU_STORE_MGR:E'])),
+    ).rejects.toBeInstanceOf(GoneException);
+    await expect(
+      controller.remove('store_receiving', '1', req(['MENU_STORE_MGR:D'])),
+    ).rejects.toBeInstanceOf(GoneException);
+    await expect(
+      controller.create('store_receiving_items', { receiving_no: 'LEGACY-1', qty: 1 }, req(['MENU_STORE_MGR:C'])),
+    ).rejects.toBeInstanceOf(GoneException);
+    expect(svc.create).not.toHaveBeenCalled();
+    expect(svc.update).not.toHaveBeenCalled();
+
+    await expect(
+      controller.findAll('store_receiving', { limit: '10' }, req(['MENU_STORE_MGR:V'])),
+    ).resolves.toEqual({ code: 200, data: [] });
+    expect(svc.findAll).toHaveBeenCalledWith('store_receiving', { limit: '10' });
   });
 
   it('allows /master/farms create through organization master-data create permission', async () => {
