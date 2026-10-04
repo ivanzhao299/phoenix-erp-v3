@@ -5,7 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { useRouter } from "next/navigation";
 import {
   ShoppingCart, Package, AlertTriangle, TrendingUp, RefreshCw,
-  PackageOpen, Archive, ClipboardList, RefreshCcw,
+  PackageOpen, Archive, ClipboardList,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
@@ -53,14 +53,13 @@ export default function StorePage() {
   const [batches, setBatches] = useState<InvBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  /* g200k(2026-06-20):emoji 📦🗃️📋🔄⚠️ → lucide 图标(PackageOpen/Archive/
-     ClipboardList/RefreshCcw/AlertTriangle),按 [feedback_avoid_emoji_color_card]
+  /* g200k(2026-06-20):emoji 📦🗃️📋⚠️ → lucide 图标(PackageOpen/Archive/
+     ClipboardList/AlertTriangle),按 [feedback_avoid_emoji_color_card]
      消灭 emoji-color anti-pattern */
   const QUICK: { path: string; Icon: typeof Package; label: string; desc: string; tone: Tone }[] = [
-    { path: "/store/receiving", Icon: PackageOpen,    label: t("ui.门店收货", "门店收货"),   desc: t("ui.核收来自仓库的补货", "核收来自仓库的补货"),     tone: "info"    },
+    { path: "/store/replenish", Icon: PackageOpen,    label: t("ui.门店收货", "门店收货"),   desc: t("ui.核收来自仓库的补货", "核收来自仓库的补货"),     tone: "info"    },
     { path: "/store/inventory", Icon: Archive,        label: t("ui.门店库存", "门店库存"),   desc: t("ui.本店当前库存状态",   "本店当前库存状态"),       tone: "success" },
     { path: "/store-settlement", Icon: ClipboardList, label: t("store.settlement.title", "日结审核"), desc: t("store.settlement.subtitle", "营业日勾稽与审核"), tone: "warning" },
-    { path: "/store/replenish", Icon: RefreshCcw,     label: t("ui.补货申请", "补货申请"),   desc: t("ui.向仓库发起补货请求", "向仓库发起补货请求"),     tone: "brand"   },
     { path: "/store/losses",    Icon: AlertTriangle,  label: t("ui.损耗上报", "损耗上报"),   desc: t("ui.破损临期损耗记录",   "破损·临期损耗记录"),       tone: "danger"  },
   ];
   const load = useCallback(() => {
@@ -76,16 +75,16 @@ export default function StorePage() {
       setSales(s.data || []);
       setReceiving(r.data || []);
       setBatches(b.data || []);
-    }).catch((error: any) => setLoadError(error?.message || t('ui.门店工作台加载失败', '门店工作台加载失败'))).finally(() => setLoading(false));
+    }).catch((error: unknown) => setLoadError(error instanceof Error ? error.message : t('ui.门店工作台加载失败', '门店工作台加载失败'))).finally(() => setLoading(false));
   }, [t]);
   useEffect(() => {
-    load();
+    const timer = setTimeout(() => { void load(); }, 0);
+    return () => clearTimeout(timer);
   }, [load]);
   const todaySales = useMemo(() => sales.filter(s => (s.created_at || "").slice(0, 10) === today), [sales, today]);
   // B1: 优先 net_amount (实收) 兜底 total_amount；旧 amount 字段 DB 不存在
   const todayRevenue = useMemo(() => todaySales.reduce((sum, s) => sum + (Number(s.net_amount) || Number(s.total_amount) || 0), 0), [todaySales]);
   const pendingRecv = useMemo(() => receiving.filter(r => r.status === "PENDING").length, [receiving]);
-  const lowStock = useMemo(() => batches.filter(b => Number(b.qty || 0) < 50).length, [batches]);
   const nearExpiry = useMemo(() => batches.filter(b => b.expire_date && b.expire_date <= in7 && b.expire_date >= today).length, [batches, in7, today]);
   const kpis: { label: string; value: string; unit?: string; tone: Tone; Icon: typeof TrendingUp }[] = [
     { label: t("ui.今日销售额", "今日销售额"), value: loading ? "…" : `¥${todayRevenue.toLocaleString()}`, tone: "success", Icon: TrendingUp   },

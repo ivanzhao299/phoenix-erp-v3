@@ -69,6 +69,10 @@ export class GenericCrudController {
     'pos_sale_items',
     'daily_close',
     'store_inventory',
+    // V1-5: receiving is a read-only historical projection. Inventory receipt
+    // writes must go through StoreReplenishmentService -> WmsService.
+    'store_receiving',
+    'store_receiving_items',
   ]);
 
   private checkTableAccess(table: string, req: any, method: string) {

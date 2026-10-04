@@ -20,4 +20,17 @@ describe('Store V1-5 retired UI contract', () => {
     expect(workstation).not.toContain('path: "/store/daily"');
     expect(workstation).toContain('path: "/store-settlement"');
   });
+
+  it('redirects legacy receiving to the canonical replenishment/WMS flow', () => {
+    const page = read('app/(admin)/store/receiving/page.tsx');
+    const sidebar = read('components/layout/Sidebar.tsx');
+    const workstation = read('app/(admin)/store/page.tsx');
+    expect(page).toContain("redirect('/store/replenish')");
+    expect(page).not.toContain('crudApi');
+    expect(page).not.toContain('store_receiving');
+    expect(sidebar).not.toContain('path: "/store/receiving"');
+    expect(sidebar).toContain('path: "/store/replenish"');
+    expect(workstation).not.toContain('path: "/store/receiving"');
+    expect(workstation).toContain('path: "/store/replenish"');
+  });
 });

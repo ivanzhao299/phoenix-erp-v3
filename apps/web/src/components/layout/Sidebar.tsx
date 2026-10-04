@@ -165,7 +165,6 @@ export const MENU: MenuItem[] = [
     { id: "s2-pos",         path: "/store-pos",          Icon: Banknote,        label: "门店 POS 成交", perm: "MENU_STORE_POS"        },
     { id: "s2-store-payment", path: "/store-payment",     Icon: Landmark,        label: "统一收款",   perm: "MENU_STORE_PAYMENT"    },
     { id: "s2-store-wb",    path: "/store",              Icon: Store,           label: "门店工作台", perm: "MENU_STORE_MGR"        },
-    { id: "s2-store-recv",  path: "/store/receiving",    Icon: PackagePlus,     label: "收货验收",   perm: "MENU_STORE_MGR"        },
     { id: "s2-store-inv",   path: "/store/inventory",    Icon: Archive,         label: "门店库存",   perm: "MENU_STORE_MGR"        },
     { id: "s2-store-rep",   path: "/store/replenish",    Icon: ShoppingBag,     label: "补货申请",   perm: "MENU_STORE_REPLENISH"  },
     { id: "s2-store-loss",  path: "/store/losses",       Icon: Minus,           label: "损耗记录",   perm: "MENU_STORE_MGR"        },

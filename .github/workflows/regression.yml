@@ -190,6 +190,17 @@ jobs:
           RUN_PG_INTEGRATION: "1"
         run: pnpm exec jest src/modules/approval-engine/sales-order-approval.pg.integration.spec.ts --runInBand
 
+      - name: Store receiving WMS chain — PostgreSQL integration
+        working-directory: apps/api
+        env:
+          RUN_STORE_RECEIVING_PG: "1"
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5433"
+          DB_USER: phoenix_v3
+          DB_PASSWORD: phoenix_v3_pass
+          DB_NAME: phoenix_erp
+        run: pnpm exec jest src/modules/store-pos/store-receiving-chain.pg.integration.spec.ts --runInBand
+
       - name: Start API (background)
         working-directory: apps/api
         env:
