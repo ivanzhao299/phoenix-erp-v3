@@ -194,6 +194,17 @@ export class ReceiptsService {
       if (po.poNo !== dto.poNo?.trim()) {
         throw new BadRequestException(`采购订单引用不一致: poId=${po.id} 对应 ${po.poNo}, 不是 ${dto.poNo}`);
       }
+      const ownershipFields = [
+        ['companyId', dto.companyId, po.companyId, '公司 ID'],
+        ['companyCode', dto.companyCode, po.companyCode, '公司'],
+        ['projectId', dto.projectId, po.projectId, '项目 ID'],
+        ['projectCode', dto.projectCode, po.projectCode, '项目'],
+      ] as const;
+      for (const [, supplied, canonical, label] of ownershipFields) {
+        if (supplied !== undefined && supplied !== canonical) {
+          throw new BadRequestException(`采购收货单${label} ${supplied} 与采购订单 ${canonical ?? ''} 不一致`);
+        }
+      }
       this.scopeHelper.assertWritableOwnership(
         { companyCode: po.companyCode, projectCode: po.projectCode },
         '采购收货单',
@@ -224,12 +235,12 @@ export class ReceiptsService {
         poNo:          po.poNo,
         shipmentId:    dto.shipmentId,
         shipmentNo:    dto.shipmentNo,
-        companyId:     dto.companyId,
-        companyCode:   dto.companyCode,
-        companyName:   dto.companyName,
-        projectId:     dto.projectId,
-        projectCode:   dto.projectCode,
-        projectName:   dto.projectName,
+        companyId:     po.companyId,
+        companyCode:   po.companyCode,
+        companyName:   po.companyName,
+        projectId:     po.projectId,
+        projectCode:   po.projectCode,
+        projectName:   po.projectName,
         warehouseCode: dto.warehouseCode,
         receiverId:    dto.receiverId,
         receiverName:  dto.receiverName,
@@ -290,10 +301,19 @@ export class ReceiptsService {
 
       // ── 3. 累加 order_items.received_qty，并检查超收 ─────────────────────
       for (const item of items) {
-        if (!item.poItemId) continue;
+        if (!item.poItemId) {
+          throw new BadRequestException(`物品「${item.itemName}」缺少 poItemId，无法确认收货`);
+        }
 
         const poi = await mgr.findOne(Prc2OrderItemEntity, { where: { id: item.poItemId } });
-        if (!poi) continue;
+        if (!poi) {
+          throw new NotFoundException(`采购订单明细 ID=${item.poItemId} 不存在`);
+        }
+        if (String(poi.poId) !== String(po.id)) {
+          throw new BadRequestException(
+            `物品「${item.itemName}」的采购订单明细不属于当前 PO ${po.poNo}`,
+          );
+        }
 
         const newReceivedQty = Number(poi.receivedQty) + Number(item.actualQty);
         if (newReceivedQty > Number(poi.qty) + 0.0001) {

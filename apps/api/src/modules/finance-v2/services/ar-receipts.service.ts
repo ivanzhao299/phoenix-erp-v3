@@ -5,6 +5,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource }       from 'typeorm';
 import { ClsService }       from 'nestjs-cls';
+import type { DataScopeContext } from '../../org/services/data-scope.service';
 import {
   CreateArReceiptDto,
   ConfirmArReceiptDto,
@@ -45,11 +46,30 @@ export class ArReceiptsService {
 
   private currentUser() {
     const u = this.cls.get('user') as any;
+    const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
     return {
       userId:       String(u?.userId ?? u?.id ?? '0'),
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll:     !!(u?.scopeAll),
+      companyCodes: (scope?.allowedCompanyCodes ?? u?.companyCodes ?? []) as string[],
+      projectCodes: (scope?.allowedProjectCodes ?? u?.projectCodes ?? []) as string[],
+      scopeLevel:   scope?.scopeLevel ?? u?.scopeLevel ?? 'SELF',
+      scopeAll:     scope ? !!scope.isGlobal : !!(u?.scopeAll),
     };
+  }
+
+  private assertWritableOwnership(companyCode?: string | null, projectCode?: string | null): void {
+    const user = this.currentUser();
+    if (user.scopeAll) return;
+    if (!companyCode) throw new ForbiddenException('无权写入 AR Receipt（缺少公司归属）');
+    if (!user.companyCodes.length) throw new ForbiddenException('无权写入 AR Receipt（数据范围未配置）');
+    if (!user.companyCodes.includes(companyCode)) {
+      throw new ForbiddenException(`无权写入公司 ${companyCode} 的 AR Receipt`);
+    }
+    if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
+      if (!projectCode) throw new ForbiddenException('无权写入 AR Receipt（缺少项目归属）');
+      if (!user.projectCodes.includes(projectCode)) {
+        throw new ForbiddenException(`无权写入项目 ${projectCode} 的 AR Receipt`);
+      }
+    }
   }
 
   /** 生成收款编号 RCP-YYYYMM-XXXXX */
@@ -67,15 +87,21 @@ export class ArReceiptsService {
   /** DataScope 过滤条件 */
   private scopeConditions(params: any[]): string[] {
     const user = this.currentUser();
-    if (user.scopeAll || user.companyCodes.length === 0) return [];
+    if (user.scopeAll) return [];
+    if (user.companyCodes.length === 0) return ['1=0'];
     params.push(user.companyCodes);
-    return [`r.company_code = ANY($${params.length}::text[])`];
+    const conds = [`r.company_code = ANY($${params.length}::text[])`];
+    if (user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
+      params.push(user.projectCodes);
+      conds.push(`r.project_code = ANY($${params.length}::text[])`);
+    }
+    return conds;
   }
 
   /** assertOwnership for receipt */
   private async assertReceiptOwnership(receiptId: string): Promise<any> {
     const rows = await this.ds.query(
-      `SELECT id, receipt_no, company_code, status, amount_original, currency_code,
+      `SELECT id, receipt_no, company_code, project_code, status, amount_original, currency_code,
               exchange_rate, received_account_code, customer_name
        FROM fin_ar_receipts WHERE id = $1`,
       [receiptId],
@@ -83,9 +109,15 @@ export class ArReceiptsService {
     if (!rows.length) throw new NotFoundException(`AR Receipt #${receiptId} 不存在`);
     const rec  = rows[0];
     const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 &&
-        !user.companyCodes.includes(rec.company_code)) {
+    if (!user.scopeAll && user.companyCodes.length === 0) {
+      throw new ForbiddenException('无权访问 AR Receipt（数据范围未配置）');
+    }
+    if (!user.scopeAll && !user.companyCodes.includes(rec.company_code)) {
       throw new ForbiddenException(`无权访问公司 ${rec.company_code} 的 AR Receipt`);
+    }
+    if (!user.scopeAll && user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0 &&
+        !user.projectCodes.includes(rec.project_code)) {
+      throw new ForbiddenException(`无权访问项目 ${rec.project_code ?? '(未指定)'} 的 AR Receipt`);
     }
     return rec;
   }
@@ -166,6 +198,7 @@ export class ArReceiptsService {
 
   async create(dto: CreateArReceiptDto) {
     const user      = this.currentUser();
+    this.assertWritableOwnership(dto.companyCode, dto.projectCode);
     const receiptNo = await this.genReceiptNo();
     const exRate    = dto.exchangeRate ?? 1;
     const amtBase   = dto.amountBase ?? Math.round(dto.amountOriginal * exRate * 100) / 100;
@@ -234,7 +267,7 @@ export class ArReceiptsService {
       // a. 逐条校验 AR 余额（行锁）
       for (const alloc of allocations) {
         const arRows = await qr.query(
-          `SELECT id, ar_no, balance_amount_original, currency_code, company_code
+          `SELECT id, ar_no, balance_amount_original, currency_code, company_code, project_code
            FROM fin_ar_invoices WHERE id = $1 FOR UPDATE`,
           [alloc.arInvoiceId],
         );
@@ -245,8 +278,16 @@ export class ArReceiptsService {
 
         // DataScope 验证
         const userCodes = user.companyCodes;
-        if (!user.scopeAll && userCodes.length > 0 && !userCodes.includes(ar.company_code)) {
+        if (!user.scopeAll && userCodes.length === 0) {
+          throw new ForbiddenException('无权核销 AR Invoice（数据范围未配置）');
+        }
+        if (!user.scopeAll && !userCodes.includes(ar.company_code)) {
           throw new ForbiddenException(`无权核销公司 ${ar.company_code} 的 AR Invoice`);
+        }
+        if (!user.scopeAll && user.scopeLevel === 'PROJECT' && user.projectCodes.length > 0) {
+          if (ar.project_code && !user.projectCodes.includes(ar.project_code)) {
+            throw new ForbiddenException(`无权核销项目 ${ar.project_code} 的 AR Invoice`);
+          }
         }
 
         if (Number(alloc.allocatedAmountOriginal) > Number(ar.balance_amount_original) + 0.005) {
