@@ -1999,8 +1999,8 @@ export class WmsService {
         [stocktake_no],
       ).catch(() => []);
       if (stocktakeRows.length === 0) throw new BadRequestException(`盘点单 ${stocktake_no} 不存在`);
+      await this.assertWritableWarehouse(stocktakeRows[0].warehouse_code || null, `盘点单 ${stocktake_no}`);
       const stocktake = stocktakeRows[0];
-      await this.assertWritableWarehouse(stocktake.warehouse_code || null, `盘点单 ${stocktake_no}`);
       if (String(stocktake.status || '').toUpperCase() === 'APPROVED') {
         throw new BadRequestException(`盘点单 ${stocktake_no} 已审核，不能重复审批`);
       }
@@ -2214,8 +2214,8 @@ export class WmsService {
         [loss_no],
       ).catch(() => []);
       if (lossRows.length === 0) throw new BadRequestException(`损耗单 ${loss_no} 不存在`);
+      await this.assertWritableWarehouse(lossRows[0].warehouse_code || null, `损耗单 ${loss_no}`);
       const loss = lossRows[0];
-      await this.assertWritableWarehouse(loss.warehouse_code || null, `损耗单 ${loss_no}`);
       if (String(loss.status || '').toUpperCase() === 'APPROVED') {
         throw new BadRequestException(`损耗单 ${loss_no} 已审批，不能重复审批`);
       }
