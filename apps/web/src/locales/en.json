@@ -1654,6 +1654,7 @@
   "ui.太棒了当前没有任何库存处于临期预警状态": "Great! There is currently no inventory on expiry alert.",
   "ui.天后到期": "Expires after days",
   "ui.安排出库": "Arrange outbound shipment",
+  "ui.安排出库失败请重试": "Outbound scheduling failed, please try again",
   "ui.降价促销": "price reduction promotion",
   "ui.FEFO出库策略": "FEFO outbound strategy:",
   "ui.全局精准监控所有仓库门店在途批次以及保质": "Global and accurate monitoring of all warehouses, stores, batches in transit and shelf life dynamics",
