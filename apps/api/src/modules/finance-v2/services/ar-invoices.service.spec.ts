@@ -46,4 +46,23 @@ describe('ArInvoicesService DataScope writes', () => {
     } as never)).rejects.toThrow('数据范围未配置');
     expect(ds.query).not.toHaveBeenCalled();
   });
+
+  it('rejects moving an editable invoice to an out-of-scope project', async () => {
+    const { service, ds } = build({
+      isGlobal: false,
+      scopeLevel: 'PROJECT',
+      allowedCompanyCodes: ['COMP-A'],
+      allowedProjectCodes: ['PROJECT-A'],
+    });
+    ds.query.mockResolvedValueOnce([{
+      id: 'ar-1', company_code: 'COMP-A', project_code: 'PROJECT-A',
+      status: 'OPEN', collection_status: 'UNRECEIVED',
+      amount_original: '100', received_amount_original: '0', balance_amount_original: '100',
+      exchange_rate: '1',
+    }]);
+
+    await expect(service.update('ar-1', { projectCode: 'PROJECT-B' } as never))
+      .rejects.toThrow('无权写入项目 PROJECT-B');
+    expect(ds.query).toHaveBeenCalledTimes(1);
+  });
 });

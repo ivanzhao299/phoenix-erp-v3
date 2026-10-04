@@ -255,6 +255,12 @@ export class ArInvoicesService {
     }
 
     const user = this.currentUser();
+    // Ownership is checked against the new canonical project as well as the
+    // existing invoice.  Without this second check, a project-scoped user
+    // could move an editable invoice into another project with a PATCH.
+    if (dto.projectCode !== undefined) {
+      this.assertWritableOwnership(inv.company_code, dto.projectCode);
+    }
     const sets: string[] = [];
     const params: any[]  = [];
 

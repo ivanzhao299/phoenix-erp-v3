@@ -60,4 +60,21 @@ describe('ReturnOrdersService company scope', () => {
       expect(params).toEqual([['COMP-A']]);
     }
   });
+
+  it('rejects a return item that belongs to another sales order before creating the return', async () => {
+    const { service, query } = make(scoped);
+    query.mockResolvedValueOnce([{
+      company_code: 'COMP-A', customer_code: 'C-1', customer_name: '客户',
+      company_name: '公司', currency_code: 'CNY', fulfillment_warehouse_code: 'WH-1',
+    }]);
+    query.mockResolvedValueOnce([]);
+
+    await expect(service.create({
+      salesOrderId: 'SO-1', companyCode: 'COMP-A', returnType: 'CUSTOMER_RETURN',
+      items: [{
+        salesOrderItemId: 'ITEM-FOREIGN', productCode: 'SKU-X', returnedQty: 1, unitPrice: 10,
+      }],
+    } as never)).rejects.toThrow('退货明细不属于当前销售订单');
+    expect(query.mock.calls.some(([sql]) => String(sql).startsWith('INSERT INTO sal_return_orders'))).toBe(false);
+  });
 });

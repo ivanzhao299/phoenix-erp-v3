@@ -459,10 +459,16 @@ export class PaymentsService {
       }
 
       const allocs = await mgr.find(Prc2PaymentAllocationEntity, { where: { paymentId: id } });
+      if (!isShareholderPay && allocs.length === 0) {
+        throw new BadRequestException('公司采购付款必须关联至少一条 AP 台账');
+      }
 
       // ── 核销每条 AP ────────────────────────────────────────────────────────
       for (const alloc of allocs) {
         const ap = await this.resolveApForAllocation(mgr, alloc, true);
+        if (!ap && !isShareholderPay) {
+          throw new BadRequestException('公司采购付款的每条分摊必须关联有效 AP 台账');
+        }
         if (!ap) continue;
 
         if (alloc.apId !== ap.id || alloc.apNo !== ap.apNo || alloc.poId !== ap.poId || alloc.poNo !== ap.poNo) {
