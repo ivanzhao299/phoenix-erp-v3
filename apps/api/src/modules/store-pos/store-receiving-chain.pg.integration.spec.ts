@@ -158,9 +158,12 @@ describePg('Store receiving canonical WMS chain PostgreSQL integration', () => {
       `SELECT qty,qty_available,status,warehouse_code FROM inv_batches WHERE batch_no LIKE $1`,
       [`${sourceBatch}-T-%`],
     );
-    expect(source).toMatchObject({ qty: 6, qty_available: 6 });
+    expect(Number(source.qty)).toBe(6);
+    expect(Number(source.qty_available)).toBe(6);
     expect(targetRows).toHaveLength(1);
-    expect(targetRows[0]).toMatchObject({ qty: 4, qty_available: 4, status: 'AVAILABLE', warehouse_code: targetWarehouse });
+    expect(Number(targetRows[0].qty)).toBe(4);
+    expect(Number(targetRows[0].qty_available)).toBe(4);
+    expect(targetRows[0]).toMatchObject({ status: 'AVAILABLE', warehouse_code: targetWarehouse });
     const ledger = await ds.query(`SELECT qty_change,warehouse_code,ref_no FROM inv_ledger WHERE ref_no=$1 ORDER BY id`, [transferNo]);
     expect(ledger).toHaveLength(2);
     expect(ledger.map((row: any) => Number(row.qty_change))).toEqual([-4, 4]);
