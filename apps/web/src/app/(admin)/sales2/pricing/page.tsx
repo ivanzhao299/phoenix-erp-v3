@@ -14,6 +14,11 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
 import apiRequest from "@/lib/api-client";
 import { formatMasterData } from "@/lib/business-display";
+import {
+  buildSalesPriceAnomaliesPath,
+  getSalesPriceAnomalyError,
+  type SalesPriceAnomaly,
+} from "@/lib/sales-price-anomalies";
 const API = "/api/v2/sales/pricing";
 const MASTER_API = "/api/product-master";
 
@@ -1423,26 +1428,77 @@ function CurrentPricesTab() {
 // ══════════════════════════════════════════════════════════════════════════════
 function AnomalyTab() {
   const { t } = useLanguage();
-  return <div style={{
-    padding: "40px 0",
-    textAlign: "center",
-    opacity: 0.5
-  }}>
-      <AlertTriangle size={36} style={{
-      margin: "0 auto 14px",
-      color: "var(--status-warning)"
-    }} />
-      <div style={{
-      fontWeight: 600,
-      marginBottom: 8
-    }}>{t('ui.价格异常监控','价格异常监控')}</div>
-      <div style={{
-      fontSize: 13,
-      color: "var(--text-secondary)",
-      lineHeight: 1.8
-    }}>
-        {t('ui.Phase 3（销售订单）完成后启用','Phase 3（销售订单）完成后启用')}<br />
-        {t('ui.将展示：低于底价的历史成交记录、未走审批的价格异常、频繁报价异常客户','将展示：低于底价的历史成交记录、未走审批的价格异常、频繁报价异常客户')}
+  const priceReportPerm = usePermission("MENU_SALES2_REPORT");
+  const [threshold, setThreshold] = useState(5);
+  const [rows, setRows] = useState<SalesPriceAnomaly[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    if (!priceReportPerm.canView) return;
+    setLoading(true);
+    setError("");
+    setRows([]);
+    try {
+      const response = await apiFetch(buildSalesPriceAnomaliesPath(threshold));
+      setRows(Array.isArray(response) ? response : []);
+    } catch (e: unknown) {
+      setRows([]);
+      setError(getSalesPriceAnomalyError(e, t('ui.查询失败','价格异常查询失败，请稍后重试')));
+    } finally {
+      setLoading(false);
+    }
+  }, [priceReportPerm.canView, t, threshold]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  if (!priceReportPerm.canView) {
+    return <div className={s.emptyState}>{t('ui.无权限访问','当前账号没有价格异常查看权限')}</div>;
+  }
+
+  const money = (value: number | string | null | undefined) => value == null ? "—" : Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const percent = (value: number | string | null | undefined) => value == null ? "—" : `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(2)}%`;
+  const product = (row: SalesPriceAnomaly) => row.product_name || row.sku_code || row.product_code || "—";
+
+  return <div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+        <label style={{ fontSize: 13 }}>
+          {t('ui.偏离阈值（%）：','价格偏离阈值：')}
+          <select value={threshold} onChange={e => setThreshold(Number(e.target.value))} style={{ ...inputField, marginLeft: 8, width: 100 }}>
+            {[1, 2, 5, 10, 15, 20].map(value => <option key={value} value={value}>{value}%</option>)}
+          </select>
+        </label>
+        <button type="button" className={s.btnSecondary} onClick={() => void load()} disabled={loading} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+          {t('ui.刷新','刷新')}
+        </button>
       </div>
+
+      {error && <div role="alert" className={s.safeNotice} style={{ color: "var(--status-danger)", marginBottom: 12 }}>{error}</div>}
+      {loading ? <div className={u.emptyPad40}>{t('ui.加载中…','加载中…')}</div> : rows.length === 0 ? <div className={s.emptyState}>{t('ui.暂无数据','当前没有价格异常记录')}</div> : <div style={{ overflowX: "auto" }}>
+        <table className={s.table}>
+          <thead><tr>
+            {[t('ui.订单号','订单号'), t('ui.客户','客户'), `${t('ui.产品','产品')} / SKU`, t('ui.公司','公司'), t('ui.成交价','成交价'), t('ui.价格','基准价'), t('ui.底价','底价'), t('ui.偏离%','偏离%'), t('ui.异常类型','异常类型'), t('ui.日期','日期')].map(label => <th key={label}>{label}</th>)}
+          </tr></thead>
+          <tbody>{rows.map((row, index) => {
+            const belowFloor = Boolean(row.below_floor_price);
+            return <tr key={`${row.sales_order_no ?? "row"}-${row.product_code ?? row.sku_code ?? index}`}>
+              <td>{row.sales_order_no || "—"}</td>
+              <td>{row.customer_name || row.customer_code || "—"}</td>
+              <td>{product(row)}</td>
+              <td>{row.company_code || "—"}</td>
+              <td>{money(row.actual_unit_price)}</td>
+              <td>{money(row.resolved_unit_price)}</td>
+              <td>{money(row.floor_price)}</td>
+              <td style={{ color: belowFloor || Math.abs(Number(row.diff_rate ?? 0)) >= threshold ? "var(--status-danger)" : undefined, fontWeight: belowFloor ? 700 : undefined }}>{percent(row.diff_rate)}</td>
+              <td>{belowFloor ? <span className={s.badgeDanger}>{t('ui.低于底价','低于底价')}</span> : <span className={s.badgeWarning}>{t('ui.偏离%','偏离%')}</span>}</td>
+              <td>{row.created_at ? String(row.created_at).slice(0, 10) : "—"}</td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>}
     </div>;
 }
