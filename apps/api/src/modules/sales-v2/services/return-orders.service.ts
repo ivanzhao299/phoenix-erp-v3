@@ -325,8 +325,54 @@ export class ReturnOrdersService {
 
     this.assertCompanyAllowed(String(companyCode));
 
+    const normalizedItems: Array<{
+      salesOrderItemId?: string;
+      productCode: string;
+      productName?: string;
+      gradeCode?: string;
+      packagingSpec?: string;
+      returnedQty: number;
+      unitPrice: number;
+      remark?: string;
+      skuCode: string | null;
+    }> = [];
+    for (const it of body.items) {
+      if (it.returnedQty <= 0) throw new BadRequestException('退货数量必须大于 0');
+      let skuCode: string | null = it.skuCode ?? null;
+      let productCode = it.productCode;
+      let productName = it.productName;
+      let gradeCode = it.gradeCode;
+      let packagingSpec = it.packagingSpec;
+      if (it.salesOrderItemId) {
+        if (!body.salesOrderId) {
+          throw new BadRequestException('退货明细关联销售订单明细时必须提供 salesOrderId');
+        }
+        const [origItem] = await this.ds.query(
+          `SELECT sku_code, product_code, product_name, grade_code, packaging_spec
+             FROM sal_order_items
+            WHERE id=$1 AND sales_order_id=$2
+            LIMIT 1`,
+          [it.salesOrderItemId, body.salesOrderId],
+        );
+        if (!origItem) {
+          throw new BadRequestException('退货明细不属于当前销售订单');
+        }
+        skuCode = origItem.sku_code ?? null;
+        productCode = origItem.product_code;
+        productName = origItem.product_name ?? undefined;
+        gradeCode = origItem.grade_code ?? undefined;
+        packagingSpec = origItem.packaging_spec ?? undefined;
+      }
+      normalizedItems.push({
+        salesOrderItemId: it.salesOrderItemId,
+        productCode, productName, gradeCode, packagingSpec,
+        returnedQty: it.returnedQty, unitPrice: it.unitPrice,
+        remark: it.remark, skuCode,
+      });
+    }
+
     const returnNo = await this.genReturnNo();
-    const subtotal = body.items.reduce((s, it) => s + it.returnedQty * it.unitPrice, 0);
+    const subtotal = normalizedItems.reduce((s, it) => s + it.returnedQty * it.unitPrice, 0);
     const operator = this.currentUser;
 
     const [ret] = await this.ds.query(
@@ -361,21 +407,8 @@ export class ReturnOrdersService {
     );
 
     // 插入明细
-    for (const it of body.items) {
-      if (it.returnedQty <= 0) throw new BadRequestException('退货数量必须大于 0');
+    for (const it of normalizedItems) {
       const amount = it.returnedQty * it.unitPrice;
-
-      // Phase H5: SKU 继承 — 优先从原销售明细自动读取 sku_code
-      let skuCode: string | null = it.skuCode ?? null;
-      if (!skuCode && it.salesOrderItemId) {
-        try {
-          const [origItem] = await this.ds.query(
-            `SELECT sku_code FROM sal_order_items WHERE id=$1 LIMIT 1`,
-            [it.salesOrderItemId],
-          );
-          skuCode = origItem?.sku_code ?? null;
-        } catch { /* 查询失败不阻断 */ }
-      }
 
       await this.ds.query(
         `INSERT INTO sal_return_items (
@@ -396,7 +429,7 @@ export class ReturnOrdersService {
           it.unitPrice,
           amount,
           it.remark ?? null,
-          skuCode,   // Phase H5
+          it.skuCode,   // Phase H5
         ],
       );
     }

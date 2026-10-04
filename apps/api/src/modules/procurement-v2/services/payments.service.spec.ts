@@ -79,4 +79,25 @@ describe('PaymentsService AP allocation resolution', () => {
       projectId: 'project-1', projectCode: currentAp.projectCode, projectName: 'Farm',
     })).rejects.toThrow('付款分摊公司 COMP-OTHER 与 AP 台账公司 COMP-LAO-AGRI 不一致');
   });
+
+  it('rejects an approved company payment with no AP allocation', async () => {
+    const service = Object.create(PaymentsService.prototype) as any;
+    const pay = {
+      id: 'pay-1', status: 'APPROVED', companyCode: 'COMP-LAO-AGRI', projectCode: 'PRJ-FARM',
+      isShareholderPayment: false, payerType: 'COMPANY', payerAccount: 'ACC-1', currencyCode: 'CNY', amountOriginal: 100,
+    };
+    const mgr = {
+      findOne: jest.fn().mockResolvedValue(pay),
+      find: jest.fn().mockResolvedValue([]),
+      query: jest.fn().mockResolvedValue([{
+        id: 'cash-1', account_code: 'ACC-1', account_name: 'Cash', company_code: 'COMP-LAO-AGRI',
+        company_name: 'Company', currency_code: 'CNY', current_balance: '1000', status: 'ACTIVE',
+      }]),
+    };
+    service.ds = { transaction: jest.fn((fn: (manager: unknown) => unknown) => fn(mgr)) };
+    service.scopeHelper = { assertWritableOwnership: jest.fn() };
+    service.cls = { get: jest.fn(() => ({ userId: 'u1' })) };
+
+    await expect(service.pay('pay-1', {})).rejects.toThrow('必须关联至少一条 AP 台账');
+  });
 });

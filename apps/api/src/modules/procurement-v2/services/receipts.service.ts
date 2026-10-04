@@ -278,7 +278,13 @@ export class ReceiptsService {
   async confirm(id: string, dto: { comment?: string }) {
     return this.ds.transaction(async mgr => {
       // ── 1. 幂等保护 ─────────────────────────────────────────────────────
-      const rcp = await mgr.findOne(Prc2ReceiptEntity, { where: { id } });
+      // Serialize confirmation attempts for the same receipt.  The status
+      // check alone is insufficient under concurrent requests: both callers
+      // could observe DRAFT and post inventory before either commit.
+      const rcp = await mgr.findOne(Prc2ReceiptEntity, {
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!rcp) throw new NotFoundException(`收货单 ID=${id} 不存在`);
       this.scopeHelper.assertWritableOwnership(
         { companyCode: rcp.companyCode, projectCode: rcp.projectCode },

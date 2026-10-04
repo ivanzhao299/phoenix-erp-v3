@@ -145,4 +145,17 @@ describe('ReceiptsService purchase warehouse usage guard', () => {
     expect(mgr.update).not.toHaveBeenCalled();
     expect(wms.inboundFromReceipt).not.toHaveBeenCalled();
   });
+
+  it('locks the receipt row before checking status to serialize concurrent confirmation', async () => {
+    const { service, mgr } = buildConfirmService(
+      { itemName: 'Feed' },
+      null,
+    );
+
+    await expect(service.confirm('rcp-1', {})).rejects.toBeInstanceOf(BadRequestException);
+    expect(mgr.findOne).toHaveBeenCalledWith(Prc2ReceiptEntity, {
+      where: { id: 'rcp-1' },
+      lock: { mode: 'pessimistic_write' },
+    });
+  });
 });
