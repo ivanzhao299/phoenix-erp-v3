@@ -27,3 +27,45 @@
 - Do not treat the old named volume as a lossless rollback after write reopen; preserve current `/data` state and use controlled recovery.
 - Do not move backup storage in this track.
 - Do not start a new engineering batch or proactive product audit from this migration closeout.
+
+## Track closure
+
+```text
+LATEST_MAIN=8a56c2c5dc396d7f0eef86e6dae28ab22d167b7c
+PRODUCTION_API_COMMIT=017633c5fb0a090d7b8cda375125d1832668f304
+PRODUCTION_WEB_COMMIT=5425089bcb51338d4780d6f37782440bade8b90c
+
+DB_STORAGE=/data/phoenix-erp-data/postgres
+UPLOAD_STORAGE=/data/phoenix-erp-data/uploads
+DEPLOY_PATH=/data/phoenix-erp
+
+M1_REPOSITORY_HARDENING=PASS
+M2_ATTEMPT_1=ROLLED_BACK_PRE_WRITE
+M2_ATTEMPT_2=COMPLETED
+M2_DATA_CUTOVER=PASS
+M3_CHECKOUT_RELOCATION=COMPLETED
+DATA_CUTOVER_STABLE=YES
+POST_MIGRATION_VERIFICATION=PASS
+PRODUCTION_STORAGE_MIGRATION=VERIFIED_COMPLETE
+MIGRATION_COMPLETE=YES
+
+STORAGE_MIGRATION_TRACK=CLOSED
+M2_EXECUTION_MODE=OFF
+M3_EXECUTION_MODE=OFF
+STORAGE_MIGRATION_CHANGE_AUTHORIZATION=EXPIRED_AFTER_SUCCESSFUL_COMPLETION
+
+OLD_DB_VOLUME_RETAINED=YES
+OLD_UPLOAD_VOLUME_RETAINED=YES
+ATTEMPT1_FORENSIC_COPY_RETAINED=YES
+OLD_CHECKOUT_ARCHIVE_RETAINED=YES
+CLEANUP=DEFERRED
+BACKUP_STORAGE_RELOCATION=DEFERRED
+
+PROJECT_MODE=PRODUCT_ACCEPTANCE_AND_FEEDBACK_DRIVEN_MAINTENANCE
+PROACTIVE_ENGINEERING_AUDIT=PAUSED
+AUTO_START_BATCH11=NO
+ENGINEERING_ACTION=NONE
+HUMAN_UAT_STATUS=PENDING
+```
+
+The accepted residual risk is the documented `nofail` mount configuration with the fail-closed data guard enabled and host reboot verification passed. Any boot-order hardening, volume cleanup, forensic-copy cleanup, backup relocation, or metadata normalization requires a separate approved maintenance track.
