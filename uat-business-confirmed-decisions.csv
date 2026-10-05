@@ -1,0 +1,9 @@
+﻿review_id,module,object_type,table_name,primary_key,business_code,technical_classification,technical_recommendation,business_decision,priority
+P1-WMS-001,WMS,outbound,wms_outbound,5,UAT-WO-20260726-081316,AMBIGUOUS,KEEP,KEEP,P1_CONFIRM_BEFORE_ANY_CLEANUP
+P2-USER-001,USER,test_account,sys_user,,pilot_cashier,AMBIGUOUS,REVIEW_REQUIRED,DELETE,P2_TEST_MASTER_REVIEW
+P2-USER-002,USER,test_account,sys_user,,pilot_driver,AMBIGUOUS,REVIEW_REQUIRED,DELETE,P2_TEST_MASTER_REVIEW
+P2-USER-003,USER,test_account,sys_user,,pilot_finance,AMBIGUOUS,REVIEW_REQUIRED,DELETE,P2_TEST_MASTER_REVIEW
+P2-USER-004,USER,test_account,sys_user,,pilot_manager,AMBIGUOUS,REVIEW_REQUIRED,DELETE,P2_TEST_MASTER_REVIEW
+P2-USER-005,USER,test_account,sys_user,,pilot_sales,AMBIGUOUS,REVIEW_REQUIRED,DELETE,P2_TEST_MASTER_REVIEW
+P2-USER-006,USER,test_account,sys_user,,pilot_wms,AMBIGUOUS,REVIEW_REQUIRED,DELETE,P2_TEST_MASTER_REVIEW
+P2-USER-007,USER,persona_account,sys_user,,wang_ceo,AMBIGUOUS,KEEP,KEEP,P2_TEST_MASTER_REVIEW

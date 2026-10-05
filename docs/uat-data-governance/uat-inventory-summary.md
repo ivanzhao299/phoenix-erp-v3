@@ -52,3 +52,9 @@ UAT2 historical identifiers documented in the repository were checked with short
 ## U1.5 business confirmation status
 
 Technical auto-delete candidates remain zero, but business review is still required for eight current objects: one ambiguous WMS outbound and seven seeded persona accounts. Therefore `PRODUCTION_UAT_CLEANUP_REQUIRED=BUSINESS_CONFIRMATION_PENDING`; the empty technical manifest must not be interpreted as a business no-action decision.
+
+## U1.6 business decision consolidation
+
+The supplied business review returned eight decisions: `KEEP` for the ambiguous WMS outbound and the `wang_ceo` persona, and `DELETE` for the six inactive `pilot_*` accounts. The U0 delete manifest remains empty and immutable. The normalized decision snapshot is [uat-business-confirmed-decisions.csv](../../uat-business-confirmed-decisions.csv), SHA-256 `0df9e1c9fc16051dff1c033ddc78194abefe95d705aa17754dca66b58686e62f`.
+
+The source file's comment, reviewer, and review-time columns contain decision tokens (`KEEP`/`DELETE`) rather than valid audit metadata. Decisions were therefore imported only from `business_decision`; the audit metadata remains incomplete and must be corrected before any production change. The six account deletions are a U2 design candidate only: no account deletion, disablement, database write, or service operation has been executed.
