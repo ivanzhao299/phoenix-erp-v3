@@ -77,3 +77,21 @@ U2_EXECUTION_STATUS=NOT_STARTED
 PRODUCTION_DATABASE_MUTATION=NO
 NEXT_ACTION=COMPLETE_SEGMENTED_LOGICAL_REFERENCE_PREFLIGHT
 ```
+
+## 6. U2A reference-graph preflight addendum (2026-10-05)
+
+U2A 建立了只包含六个业务确认 `DELETE` 账号的冻结目标集：`pilot_cashier`、`pilot_driver`、`pilot_finance`、`pilot_manager`、`pilot_sales`、`pilot_wms`。目标集 SHA-256 为 `6b32e154bcb708b95b9eed1725fa8b15a1951dae8e2794926dd3c602fd6e4ecd`；`wang_ceo` 明确 KEEP，未进入 U2A。
+
+采用逐表、逐列、独立短事务查询，完成 124 个逻辑引用 segment：120 个 PASS、4 个 NOT_PRESENT、无超时或错误。生产数据库实际入站 FK 为 8 条（CASCADE 2、SET NULL 2、NO ACTION 4），命中目标账号的只有 5 条 `sys_user_role.user_id` 授权连接记录；包装历史、门店会员、权限集、工作流、采购、销售、库存、财务、审计和 Chanjet 引用均为 0。唯一非零逻辑业务引用是 `sal_price_books.created_by` 1 行，归属于 `pilot_manager`。
+
+逐账号结果：`pilot_wms` 满足 U2A 硬删除技术前置条件；其余五个账号因角色授权连接或价格册创建人归因而建议 `RETAIN_FROZEN`。这只是 U2B 设计输入，不是删除授权。六个账号当前 `status=0`，没有登录、组织、项目、仓库或权限集绑定；没有执行生产 DELETE、UPDATE、DDL、服务操作或 Chanjet 写入。
+
+```text
+U2_DESIGN_STATUS=COMPLETE
+U2_PREFLIGHT_STATUS=COMPLETE
+U2_EXECUTION_STATUS=NOT_STARTED
+HARD_DELETE_SAFE_USERS=1
+RETAIN_FROZEN_USERS=5
+PRODUCTION_DATABASE_MUTATION=NO
+NEXT_ACTION=U2B_FINAL_EXECUTION_DECISION
+```
