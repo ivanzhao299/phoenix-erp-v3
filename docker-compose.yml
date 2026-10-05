@@ -23,7 +23,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-phoenix_v3_pass}
       POSTGRES_DB: ${DB_NAME:-phoenix_erp}
     volumes:
-      - phoenix_pg_data:/var/lib/postgresql/data
+      - ${PHOENIX_PG_DATA_DIR:-phoenix_pg_data}:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"
     healthcheck:
@@ -73,7 +73,7 @@ services:
       CHANJET_CERT: ${CHANJET_CERT:-}
       CHANJET_MSG_SECRET: ${CHANJET_MSG_SECRET:-}
     volumes:
-      - phoenix_uploads:/app/uploads   # 合同/单据文件持久化
+      - ${PHOENIX_UPLOADS_DIR:-phoenix_uploads}:/app/uploads   # 合同/单据文件持久化
     ports:
       - "127.0.0.1:${API_PORT:-3100}:3100"
     healthcheck:

@@ -47,11 +47,17 @@ jobs:
           script: |
             set -Eeuo pipefail
 
+            case "$DEPLOY_PATH" in
+              '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}";;
+            esac
+            cd "$DEPLOY_PATH"
+            bash scripts/ops/require-phoenix-data-mount.sh
+
             report_disk() {
               echo "=== filesystem ==="
               df -hT /
-              echo "=== Phoenix deploy and backup directories ==="
-              du -x -h --max-depth=2 /opt/phoenix-erp /opt/phoenix-erp-backups /opt/phoenix 2>/dev/null | sort -h | tail -n 80 || true
+              echo "=== Phoenix deploy, data, backup, and override directories ==="
+              du -x -h --max-depth=2 "$DEPLOY_PATH" /data/phoenix-erp-data /opt/phoenix-erp-backups /opt/phoenix 2>/dev/null | sort -h | tail -n 80 || true
               echo "=== Docker usage ==="
               docker system df || true
               echo "=== Phoenix container log files ==="
