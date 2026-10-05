@@ -1,0 +1,7 @@
+user_id|username|status
+296|pilot_cashier|0
+297|pilot_driver|0
+299|pilot_finance|0
+300|pilot_manager|0
+295|pilot_sales|0
+298|pilot_wms|0

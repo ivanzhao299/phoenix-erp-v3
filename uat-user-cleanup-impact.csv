@@ -1,0 +1,7 @@
+﻿user_id,username,status,login_count,role_count,permission_set_count,org_count,project_count,warehouse_count,fk_cascade_rows,fk_set_null_rows,fk_no_action_rows,audit_rows,historical_business_rows,logical_reference_rows,hard_delete_allowed,recommended_action,reason
+295,pilot_sales,0,0,1,0,0,0,0,1,0,0,0,0,0,NO,RETAIN_FROZEN,status=0 且无登录/范围绑定，但存在 sys_user_role CASCADE 角色绑定；历史归因与账号生命周期应保留，不满足硬删除条件。 [U2A]
+296,pilot_cashier,0,0,1,0,0,0,0,1,0,0,0,0,0,NO,RETAIN_FROZEN,status=0 且无登录/范围绑定，但存在 sys_user_role CASCADE 角色绑定；历史归因与账号生命周期应保留，不满足硬删除条件。 [U2A]
+297,pilot_driver,0,0,1,0,0,0,0,1,0,0,0,0,0,NO,RETAIN_FROZEN,status=0 且无登录/范围绑定，但存在 sys_user_role CASCADE 角色绑定；历史归因与账号生命周期应保留，不满足硬删除条件。 [U2A]
+298,pilot_wms,0,0,0,0,0,0,0,0,0,0,0,0,0,YES,HARD_DELETE,业务决定为 DELETE；status=0、无登录、无授权/范围绑定、无 FK 或逻辑引用；满足 U2A 硬删除前置条件，仍需 U2B 单独审批。 [U2A]
+299,pilot_finance,0,0,1,0,0,0,0,1,0,0,0,0,0,NO,RETAIN_FROZEN,status=0 且无登录/范围绑定，但存在 sys_user_role CASCADE 角色绑定；历史归因与账号生命周期应保留，不满足硬删除条件。 [U2A]
+300,pilot_manager,0,0,1,0,0,0,0,1,0,0,0,0,1,NO,RETAIN_FROZEN,status=0 且无登录/范围绑定，但存在 1 条 sal_price_books.created_by 逻辑业务引用；删除会丢失创建人归因，保留冻结。 [U2A]

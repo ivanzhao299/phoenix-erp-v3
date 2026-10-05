@@ -35,3 +35,13 @@ Inventory result: one `wms_outbound` row matched an explicit `UAT-*` outbound nu
 `PRODUCTION_UAT_CLEANUP_REQUIRED=NO` and `U2_CLEANUP_DESIGN_ALLOWED=NO`. The ambiguous inventory fact is not a cleanup workload.
 
 U1.5 changes the governance state to `PRODUCTION_UAT_CLEANUP_REQUIRED=BUSINESS_CONFIRMATION_PENDING`. The technical manifest remains empty, while the separate business confirmation list contains eight current objects. No business decision is pre-filled.
+
+## U1.6 business decision addendum
+
+| Review scope | Business decision | Current technical disposition |
+|---|---|---|
+| Ambiguous WMS outbound `UAT-WO-20260726-081316` | KEEP | Retain outbound, inventory ledger, and batch; no inventory action |
+| Six inactive `pilot_*` accounts | DELETE | U2 design only; technical impact review required before any account change |
+| `wang_ceo` persona account | KEEP | Retain formal CEO identity candidate |
+
+These are business decisions, not executable database instructions. The U0 delete manifest remains zero rows. The six user-account decisions do not authorize deletion or disabling; they only open a narrowly scoped U2 cleanup-design review after a fresh read-only preflight and approved T0 archive contract.
