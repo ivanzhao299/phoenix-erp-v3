@@ -44,3 +44,7 @@ NEXT_ACTION=U1_RETENTION_DELETE_MATRIX_REVIEW
 ```
 
 All inventory segments were executed as independent SSH sessions using read-only transactions and bounded timeouts. Metadata, FK, trigger, domain classification, fixture-signal counts and candidate-ratio segments completed. One explicit `UAT-*` outbound number lacked a second independent signal and remains `AMBIGUOUS`; the deterministic deletion manifest is therefore empty. Raw evidence is retained on the deployment host under `/home/phoenix-codex-deploy/uat-data-governance-20261005T1340+08:00/` with 0700 directory and 0600 files. The requested `/opt/phoenix-erp-backups` path was not writable by the deployment user, so no privileged directory was created.
+
+## U1 review addendum
+
+UAT2 historical identifiers documented in the repository were checked with short read-only probes and are absent from the current database. Current UAT reporting and audit tables are also empty. This establishes absence of those facts, but not the causal mechanism; historical cleanup execution, restore/rebuild, and alternate-environment explanations remain distinguishable only as `PARTIAL / CAUSALITY_UNKNOWN`. The surviving controlled outbound is documented in [uat-ambiguous-candidate-review.md](uat-ambiguous-candidate-review.md) and remains outside the manifest because it depends on formal inventory facts.
