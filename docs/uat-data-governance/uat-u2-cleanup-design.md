@@ -8,6 +8,7 @@ U0_DELETE_MANIFEST_ROWS=0
 U0_DELETE_MANIFEST_SHA256=77627d4eee350e0cb659d8f12872b8fbc831cb2245f9ccbcf5af7bd67594b3cd
 U1_6_DECISION_SNAPSHOT_SHA256=0df9e1c9fc16051dff1c033ddc78194abefe95d705aa17754dca66b58686e62f
 U2_EXECUTABLE_CLEANUP_SCRIPT=NO
+U2_EXECUTION_GATE=BLOCKED_PENDING_LOGICAL_REFERENCE_PREFLIGHT
 DATABASE_DELETE_AUTHORIZED=NO
 DATABASE_UPDATE_AUTHORIZED=NO
 SERVICE_STOP_AUTHORIZED=NO
@@ -45,7 +46,17 @@ Run [uat-user-cleanup-preflight.sql](../../scripts/uat/uat-user-cleanup-prefligh
 - no unexpected organization, project, warehouse, permission-set, role, workflow, transaction, or audit ownership that changes the risk assessment;
 - unchanged target identity, schema/migration baseline, and candidate snapshot hash.
 
-Any missing account, status change, login after review, additional formal reference, schema drift, or candidate-set drift stops the phase. The preflight result must be stored as restricted evidence and hashed; raw user identifiers must not be committed to Git.
+Any missing account, status change, login after review, additional formal reference, schema drift, candidate-set drift, or incomplete logical-reference segment stops the phase. The preflight result must be stored as restricted evidence and hashed; raw user identifiers must not be committed to Git.
+
+## 3A. 分段只读预检结果（2026-10-05）
+
+已完成两个短时只读 segment：
+
+- 目标身份通过：`phoenix_erp`、PostgreSQL `16.14`、system identifier `7641898445435437089`。
+- 六个精确用户名全部存在，全部 `status=0`，登录时间为空；角色绑定可见，组织/项目/仓库/权限集计数均为 0。
+- `sys_user` 入站 FK 拓扑查询通过，共发现 8 条关系，其中用户角色和用户权限集的主体关系为 `CASCADE`，包装操作、门店会员、授权人等关系为 `NO ACTION` 或 `SET NULL`。
+
+涉及潜在逻辑引用的逐表计数 segment 在 5 秒 statement timeout 内未完成，已自动回滚并标记为 `DEFERRED`。因此本次结果只能证明账户状态和 FK 元数据满足初步条件，不能批准任何账户写操作；必须先完成按表拆分的逻辑引用预检。
 
 ## 4. T0 execution contract for a future phase
 
@@ -61,7 +72,8 @@ Abort before the first write if any candidate is active, has a new login, owns a
 
 ```text
 U2_DESIGN_STATUS=COMPLETE
+U2_PREFLIGHT_STATUS=PARTIAL_BLOCKED
 U2_EXECUTION_STATUS=NOT_STARTED
 PRODUCTION_DATABASE_MUTATION=NO
-NEXT_ACTION=REVIEW_AND_APPROVE_T0_ARCHIVE_CONTRACT
+NEXT_ACTION=COMPLETE_SEGMENTED_LOGICAL_REFERENCE_PREFLIGHT
 ```
