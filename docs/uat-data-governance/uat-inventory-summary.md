@@ -48,3 +48,7 @@ All inventory segments were executed as independent SSH sessions using read-only
 ## U1 review addendum
 
 UAT2 historical identifiers documented in the repository were checked with short read-only probes and are absent from the current database. Current UAT reporting and audit tables are also empty. This establishes absence of those facts, but not the causal mechanism; historical cleanup execution, restore/rebuild, and alternate-environment explanations remain distinguishable only as `PARTIAL / CAUSALITY_UNKNOWN`. The surviving controlled outbound is documented in [uat-ambiguous-candidate-review.md](uat-ambiguous-candidate-review.md) and remains outside the manifest because it depends on formal inventory facts.
+
+## U1.5 business confirmation status
+
+Technical auto-delete candidates remain zero, but business review is still required for eight current objects: one ambiguous WMS outbound and seven seeded persona accounts. Therefore `PRODUCTION_UAT_CLEANUP_REQUIRED=BUSINESS_CONFIRMATION_PENDING`; the empty technical manifest must not be interpreted as a business no-action decision.
