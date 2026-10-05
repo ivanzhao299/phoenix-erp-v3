@@ -19,7 +19,7 @@ FINANCE_MASTER_REVIEW_ITEMS=0
 FILE_METADATA_REVIEW_ITEMS=0
 WORKFLOW_REVIEW_ITEMS=0
 CHANJET_REVIEW_ITEMS=0
-BUSINESS_REVIEW_MANIFEST_SHA256=5a6502a5ffa9628f2c47ed6e4520c83ce37a801996e91d578abac014de369c52
+BUSINESS_REVIEW_MANIFEST_SHA256=d9af4f28ae57dd09a42047f90bc94dbbcaccedaa8e675fdb252e1e19a3053c4d
 FULL_REVIEW_LIST_LOCATION=Git sanitized list; no separate restricted copy required
 BUSINESS_CONFIRMATION_COMPLETE=NO
 PRODUCTION_UAT_CLEANUP_REQUIRED=BUSINESS_CONFIRMATION_PENDING
@@ -36,6 +36,8 @@ NEXT_ACTION=BUSINESS_TESTER_REVIEW
 ## How to use this list
 
 The technical review found eight current objects that need a business decision. The `business_decision` fields are intentionally blank. A business reviewer must enter exactly one of `KEEP`, `DELETE`, `ARCHIVE`, `NOT_UAT`, or `NEED_MORE_EVIDENCE` and add a comment. This list is not a delete manifest.
+
+Both CSV files are encoded as UTF-8 with BOM so that Excel and other desktop spreadsheet tools recognize the Chinese text correctly.
 
 ## 1. P1 — confirm before any cleanup
 
