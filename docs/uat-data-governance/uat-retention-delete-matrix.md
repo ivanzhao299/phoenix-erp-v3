@@ -33,3 +33,5 @@ Inventory result: one `wms_outbound` row matched an explicit `UAT-*` outbound nu
 | Finance derived state | KEEP | No confirmed UAT financial facts; no balance reset or recalculation |
 
 `PRODUCTION_UAT_CLEANUP_REQUIRED=NO` and `U2_CLEANUP_DESIGN_ALLOWED=NO`. The ambiguous inventory fact is not a cleanup workload.
+
+U1.5 changes the governance state to `PRODUCTION_UAT_CLEANUP_REQUIRED=BUSINESS_CONFIRMATION_PENDING`. The technical manifest remains empty, while the separate business confirmation list contains eight current objects. No business decision is pre-filled.
