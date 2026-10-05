@@ -145,3 +145,16 @@ download 只读验证；不得因为 blocker 修复完成就自动再次停止�
 ## 停止条件
 
 出现以下任一项立即停止：`/data` 未挂载、sentinel 缺失、PG major 不一致、备份无效、工作树异常、空间不足、PGDATA 复制不一致、DB 启动失败、关键计数不一致、uploads 缺失、readiness 失败或关键错误日志出现。
+
+## Closeout 2026-10-05
+
+本次生产执行已完成 M2 Attempt 2 和 M3：
+
+- PostgreSQL 16.14 从 `phoenix_pg_data` 冷复制到 `/data/phoenix-erp-data/postgres`；uploads 从 `phoenix_uploads` 最终同步到 `/data/phoenix-erp-data/uploads`。
+- API/Web 使用当前运行镜像的本地 immutable M2 tags，未使用 `latest`；这些 tags 只属于切换会话，不写入长期生产 `.env`。
+- 生产 `.env` 仅增加两个 `PHOENIX_*_DIR` 变量，保持 `0600`，由部署账户持有，以便正式 Compose/部署 workflow 读取和原子更新。
+- 数据切换后连续三轮健康、readiness、登录页、uploads 读取和日志检查通过，才恢复业务写入。
+- `/data/phoenix-erp` 为干净 `main` checkout；`DEPLOY_PATH` 已更新。旧 `/opt/phoenix-erp` 保留归档目录并建立兼容软链接。
+- `phoenix_pg_data`、`phoenix_uploads` 和 Attempt 1 forensic copy 均保留；`/opt/phoenix-erp-backups` 未迁移。
+
+最终证据见 `docs/production-storage-migration-final-report-20261005.md` 和 `docs/production-storage-status-20261005.md`。
