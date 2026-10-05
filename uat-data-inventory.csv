@@ -1,0 +1,7 @@
+scope,metric,value,classification,source
+database,total_tables,297,FORMAL_DATA,pg_class
+database,fk_constraints,98,FORMAL_DATA,pg_constraint
+database,user_defined_triggers,21,FORMAL_DATA,pg_trigger
+uat_signal,wms_outbound.outbound_no_UAT_prefix,1,AMBIGUOUS,72-fixture-signal-counts
+uat_signal,wms_outbound.two_independent_signals,0,AMBIGUOUS,wms-probe
+uat_signal,other_explicit_fixture_signals,0,UNKNOWN,72-fixture-signal-counts
