@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createReadStream, existsSync, statSync } from 'fs';
-import { basename, isAbsolute, resolve } from 'path';
+import { basename, isAbsolute, relative, resolve, sep } from 'path';
 import { ClsService } from 'nestjs-cls';
 import { Repository } from 'typeorm';
 import { hasPerm } from '../../auth/permissions.util';
@@ -40,6 +40,8 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/png',
   'image/webp',
 ]);
+const LEGACY_UPLOAD_VOLUME_PREFIX = '/var/lib/docker/volumes/phoenix_uploads/_data/';
+const PATH_TRAVERSAL_SEGMENT = /(^|[\\/])\.\.([\\/]|$)/;
 
 @Injectable()
 export class FileAccessService {
@@ -182,10 +184,22 @@ export class FileAccessService {
 
   private resolveSafeStoragePath(file: FileMetadataEntity) {
     const uploadRoot = resolve(process.cwd(), 'uploads');
-    const storagePath = isAbsolute(file.storagePath)
-      ? resolve(file.storagePath)
-      : resolve(process.cwd(), file.storagePath);
-    if (!storagePath.startsWith(`${uploadRoot}/`) && storagePath !== uploadRoot) {
+    const rawStoragePath = typeof file.storagePath === 'string' ? file.storagePath : '';
+    if (!rawStoragePath || PATH_TRAVERSAL_SEGMENT.test(rawStoragePath)) {
+      throw new ForbiddenException('FILE_STORAGE_PATH_UNSAFE');
+    }
+
+    const storagePath = rawStoragePath.startsWith(LEGACY_UPLOAD_VOLUME_PREFIX)
+      ? resolve(uploadRoot, rawStoragePath.slice(LEGACY_UPLOAD_VOLUME_PREFIX.length))
+      : isAbsolute(rawStoragePath)
+        ? resolve(rawStoragePath)
+        : resolve(process.cwd(), rawStoragePath);
+    const relativeStoragePath = relative(uploadRoot, storagePath);
+    const isInsideUploadRoot = relativeStoragePath === ''
+      || (relativeStoragePath !== '..'
+        && !relativeStoragePath.startsWith(`..${sep}`)
+        && !isAbsolute(relativeStoragePath));
+    if (!isInsideUploadRoot) {
       this.logDenied(file, {
         moduleCode: file.moduleCode,
         ownerType: file.ownerType,

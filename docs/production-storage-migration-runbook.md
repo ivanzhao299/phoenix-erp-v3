@@ -81,6 +81,67 @@ PHOENIX_UPLOADS_DIR=/data/phoenix-erp-data/uploads
 
 `/opt/phoenix-erp-backups` 和 `/opt/phoenix` 本 Track 保持原位置。备份目录迁移作为后续独立 Track。
 
+## M2 Attempt 1 回滚与重试前 blocker 门禁
+
+Attempt 1 如果在恢复业务写入前回退，必须明确记录为：
+
+```text
+M2_ATTEMPT_1=ROLLED_BACK_PRE_WRITE
+```
+
+切回 named volumes 后，Attempt 1 的 `/data/phoenix-erp-data/postgres` 和
+`/data/phoenix-erp-data/uploads` 只是 stale forensic snapshot。它们不得用于下一次
+切换，也不得用增量复制推断数据库一致性。重试前须在 `/data` 上保留并归档这两份证据，
+再创建全新的空目标目录，并重新执行 logical backup、uploads final sync 和 PostgreSQL
+cold copy。不得删除原 named volumes、执行 `docker volume prune` 或改写生产 metadata。
+
+历史 `file_metadata.storage_path` 只允许通过应用层兼容解析读取。兼容范围仅为：
+
+```text
+/var/lib/docker/volumes/phoenix_uploads/_data/<relative suffix>
+```
+
+解析器先提取 suffix，再解析到当前 `process.cwd()/uploads` 根目录；最终路径必须仍在该
+根目录内，且 basename 必须等于 `stored_name`。任何 `..`、其他 Docker volume、任意宿主
+机绝对路径或文件名不匹配都必须拒绝。不得把 Docker 宿主机 volume 目录挂进 API 容器，
+也不得在本 Track 直接更新 `file_metadata`。
+
+M2 的 API/Web 启动不得依赖 Compose 的 `latest` fallback。维护窗口开始前，在当前仍运行的
+容器上执行：
+
+```bash
+eval "$(bash scripts/ops/capture-m2-image-baseline.sh \
+  --expected-api-revision "$PRODUCTION_API_COMMIT" \
+  --expected-web-revision "$PRODUCTION_WEB_COMMIT")"
+```
+
+该 helper 只读取运行容器和 OCI revision label，并创建指向当前 image ID 的本地临时 tag；
+它不 pull、build、push 或重启。若 image ID、revision label 或期望 revision 无法确认，
+必须 fail closed。输出的 `M2_API_IMAGE`、`M2_WEB_IMAGE` 只在本次切换 shell 会话中使用，
+不得写入长期生产 `.env`。
+
+所有 M2 API/Web Compose 操作都必须显式带上固定镜像：
+
+```bash
+API_IMAGE="$M2_API_IMAGE" WEB_IMAGE="$M2_WEB_IMAGE" docker compose config
+API_IMAGE="$M2_API_IMAGE" WEB_IMAGE="$M2_WEB_IMAGE" docker compose up -d api
+API_IMAGE="$M2_API_IMAGE" WEB_IMAGE="$M2_WEB_IMAGE" docker compose up -d web
+```
+
+重试前硬门禁必须记录：
+
+```text
+M2_API_IMAGE_PINNED=YES
+M2_WEB_IMAGE_PINNED=YES
+NO_LATEST_IMAGE_USAGE=YES
+LEGACY_FILE_PATH_COMPATIBILITY=PASS
+```
+
+这些门禁通过后仍只代表 `M2_DATA_CUTOVER_READY=YES`。必须先将修复部署为合并后的
+main SHA，并在 named-volume 生产环境完成健康、readiness 及授权附件 status/preview/
+download 只读验证；不得因为 blocker 修复完成就自动再次停止生产服务。新的 M2 维护窗口
+和数据切换授权必须另行取得。
+
 ## 停止条件
 
 出现以下任一项立即停止：`/data` 未挂载、sentinel 缺失、PG major 不一致、备份无效、工作树异常、空间不足、PGDATA 复制不一致、DB 启动失败、关键计数不一致、uploads 缺失、readiness 失败或关键错误日志出现。
