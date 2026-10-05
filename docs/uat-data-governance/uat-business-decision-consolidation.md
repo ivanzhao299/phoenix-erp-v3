@@ -13,7 +13,7 @@ NOT_UAT_ITEMS=0
 NEED_MORE_EVIDENCE_ITEMS=0
 BUSINESS_DECISIONS_COMPLETE=YES
 REVIEW_AUDIT_METADATA_VALID=YES
-BUSINESS_COMMENT_VALID=NO
+BUSINESS_COMMENT_VALID=IGNORED_BY_BUSINESS_INSTRUCTION
 FORMAL_DEPENDENCY_DELETE_ITEMS=0
 USER_ACCOUNT_DELETE_REQUESTS=6
 WMS_OUTBOUND_DECISION=KEEP
@@ -27,7 +27,7 @@ SERVICE_OPERATION_EXECUTED=NO
 FILE_DELETE_EXECUTED=NO
 CHANJET_WRITE_EXECUTED=NO
 U1_6_CONFIRMED_DECISIONS_SHA256=0df9e1c9fc16051dff1c033ddc78194abefe95d705aa17754dca66b58686e62f
-NEXT_ACTION=COLLECT_SUBSTANTIVE_BUSINESS_COMMENTS_BEFORE_U2_EXECUTION
+NEXT_ACTION=U2_CLEANUP_DESIGN_FOR_SIX_PILOT_ACCOUNTS
 ```
 
 ## 已采纳的业务决定
@@ -47,10 +47,10 @@ NEXT_ACTION=COLLECT_SUBSTANTIVE_BUSINESS_COMMENTS_BEFORE_U2_EXECUTION
 
 本次只采信附件中的 `business_decision` 列，并用 U1.5 已审核的技术字段重新生成了 [uat-business-confirmed-decisions.csv](../../uat-business-confirmed-decisions.csv)。U0 空删除清单保持不变，没有把业务决定回写到 U0 manifest，也没有生成可执行清理 SQL。
 
-附件中的 `business_reviewer` 和 `reviewed_at` 已补充且可识别；但 `business_comment` 仍为 `KEEP` 或 `DELETE` 等决定值，不能作为逐项理由。因此业务决定和审核人/时间已确认，说明字段仍需补充。
+业务方已明确要求忽略 `business_comment` 的填写格式，继续推进后续设计。本阶段采信 `business_decision`、确认人和确认时间；该决定不扩大清理范围，也不授权生产写入。
 
 六个账户虽获业务 `DELETE`，U0 技术建议仍为 `REVIEW_REQUIRED`。删除用户可能影响历史审计、权限关联和数据归属；因此只允许进入 U2 的用户账户专项清理设计和影响分析，当前没有数据库删除、禁用或服务操作。WMS 出库保持 `KEEP`，不会触发库存台账或批次处理。
 
 ### U2 入口条件
 
-U2 只能设计六个试运行账户的精确影响分析、备份/回滚和审批步骤；在补充逐项业务理由、确认用户影响范围和最终清理合同前，不得执行 `DELETE`、`UPDATE`、禁用账户或任何生产变更。
+U2 只能设计六个试运行账户的精确影响分析、备份/回滚和审批步骤；在完成新一轮只读预检、确认用户影响范围和最终清理合同前，不得执行 `DELETE`、`UPDATE`、禁用账户或任何生产变更。

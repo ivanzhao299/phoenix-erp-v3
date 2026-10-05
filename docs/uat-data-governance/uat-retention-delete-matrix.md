@@ -44,4 +44,4 @@ U1.5 changes the governance state to `PRODUCTION_UAT_CLEANUP_REQUIRED=BUSINESS_C
 | Six inactive `pilot_*` accounts | DELETE | U2 design only; technical impact review required before any account change |
 | `wang_ceo` persona account | KEEP | Retain formal CEO identity candidate |
 
-These are business decisions, not executable database instructions. The U0 delete manifest remains zero rows. The six user-account decisions do not authorize deletion or disabling; they only open a narrowly scoped U2 cleanup-design review after substantive business comments are added.
+These are business decisions, not executable database instructions. The U0 delete manifest remains zero rows. The six user-account decisions do not authorize deletion or disabling; they only open a narrowly scoped U2 cleanup-design review after a fresh read-only preflight and approved T0 archive contract.
