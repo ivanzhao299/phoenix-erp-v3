@@ -38,6 +38,10 @@ UPLOAD_COPY_BYTES=100009873
 生产只读盘点发现 15 条 ACTIVE `file_metadata` 记录仍使用：
 
 ```text
+LEGACY_ACTIVE_METADATA_COUNT=15
+```
+
+```text
 /var/lib/docker/volumes/phoenix_uploads/_data/...
 ```
 
