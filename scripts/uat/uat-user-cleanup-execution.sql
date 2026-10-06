@@ -1,28 +1,35 @@
 -- Phoenix ERP V3 — U2C guarded pilot_wms cleanup template
--- U2B DECISION ONLY. NOT AUTHORIZED FOR PRODUCTION EXECUTION.
+-- U2C guarded execution template. Production execution requires explicit -v flags.
 -- Exact target: user_id=298, username=pilot_wms, status=0.
 -- Default is DRY_RUN=true and PRODUCTION_DELETE_AUTHORIZED=false.
 -- Never widen this predicate to a username prefix or a multi-user batch.
 
-\set DRY_RUN true
-\set PRODUCTION_DELETE_AUTHORIZED false
+\if :{?DRY_RUN}
+\else
+  \set DRY_RUN true
+\endif
 
-BEGIN;
+\if :{?PRODUCTION_DELETE_AUTHORIZED}
+\else
+  \set PRODUCTION_DELETE_AUTHORIZED false
+\endif
+
+BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL statement_timeout = '20s';
 SET LOCAL lock_timeout = '3s';
 
 -- Target identity and all preconditions are rechecked at T0.
 DO $$
 DECLARE
-  n bigint;
+  locked_user_id bigint;
 BEGIN
   IF current_database() <> 'phoenix_erp' THEN
     RAISE EXCEPTION 'wrong database: %', current_database();
   END IF;
-  IF (SELECT count(*) FROM public.sys_user
-      WHERE user_id = 298 AND username = 'pilot_wms' AND status = 0) <> 1 THEN
-    RAISE EXCEPTION 'target identity/status drifted';
-  END IF;
+  SELECT user_id INTO STRICT locked_user_id
+  FROM public.sys_user
+  WHERE user_id = 298 AND username = 'pilot_wms' AND status = 0
+  FOR UPDATE;
   IF (SELECT count(*) FROM public.sys_user_role WHERE user_id = 298) <> 0 THEN
     RAISE EXCEPTION 'unexpected CASCADE role rows';
   END IF;
@@ -76,8 +83,17 @@ WHERE user_id = 298;
   ROLLBACK;
 \else
   \if :PRODUCTION_DELETE_AUTHORIZED
-    DELETE FROM public.sys_user
-    WHERE user_id = 298 AND username = 'pilot_wms' AND status = 0;
+    DO $$
+    DECLARE
+      deleted_rows bigint;
+    BEGIN
+      DELETE FROM public.sys_user
+      WHERE user_id = 298 AND username = 'pilot_wms' AND status = 0;
+      GET DIAGNOSTICS deleted_rows = ROW_COUNT;
+      IF deleted_rows <> 1 THEN
+        RAISE EXCEPTION 'exact delete row count was %, expected 1', deleted_rows;
+      END IF;
+    END $$;
     COMMIT;
     \echo 'DELETE committed only when an independently approved T0 authorization was supplied'
   \else
