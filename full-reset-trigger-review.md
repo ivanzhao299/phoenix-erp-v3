@@ -5,7 +5,7 @@ R0 实时盘点发现 21 个 user-defined triggers。正式清理不得使用 `s
 |table|trigger|enabled|function|table_classification|risk|
 |---|---|---|---|---|---|
 |`biz_projects`|`trg_biz_projects_check_company`|O|`fn_biz_projects_check_company`|KEEP_MASTER|DERIVED/BUSINESS_GUARD|
-|`biz_site_aliases`|`trg_biz_site_alias_check_site`|O|`fn_biz_site_alias_check_site`|DELETE_TRANSACTION|DERIVED/BUSINESS_GUARD|
+|`biz_site_aliases`|`trg_biz_site_alias_check_site`|O|`fn_biz_site_alias_check_site`|KEEP_MASTER|DERIVED/BUSINESS_GUARD|
 |`prc2_suppliers`|`trg_prc2_supplier_rename_audit`|O|`fn_prc2_supplier_rename_audit`|KEEP_MASTER|AUDIT/HISTORY|
 |`store_aliases`|`trg_store_site_alias`|O|`enforce_store_site_alias`|KEEP_MASTER|DERIVED/BUSINESS_GUARD|
 |`wms_warehouses`|`trg_warehouse_owner_store`|O|`enforce_warehouse_owner_store`|KEEP_MASTER|DERIVED/BUSINESS_GUARD|

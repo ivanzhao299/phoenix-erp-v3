@@ -2,17 +2,15 @@
 public,brd_farms,FARM/PRODUCTION,KEEP_MASTER,2,PASS,NOT_PRESENT,farm_code,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,brd_houses,FARM/PRODUCTION,KEEP_MASTER,19,PASS,NOT_PRESENT,house_code,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,brd_flocks,FARM/PRODUCTION,KEEP_MASTER,12,PASS,NOT_PRESENT,flock_no,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
+public,crm_members,CRM,KEEP_MASTER,0,PASS,member_id,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
+public,crm_levels,CRM,KEEP_MASTER,0,PASS,level_name,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
+public,crm_points_rules,CRM,KEEP_MASTER,0,PASS,id,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,b2b_customers,B2B,KEEP_MASTER,0,PASS,customer_code,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
-public,qa_inspections,QUALITY,KEEP_MASTER,0,PASS,inspect_no,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
-public,qa_product_inspections,QUALITY,KEEP_MASTER,0,PASS,id,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
+public,qa_standards,QUALITY,KEEP_MASTER,0,PASS,std_code,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,brd_immune_plans,FARM/PRODUCTION,KEEP_MASTER,0,PASS,plan_no,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
-public,store_receiving,POS/STORE,KEEP_MASTER,0,PASS,receiving_no,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
-public,store_transfers,POS/STORE,KEEP_MASTER,0,PASS,transfer_no,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
-public,store_replenish_req,POS/STORE,KEEP_MASTER,0,PASS,req_no,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
-public,store_losses,POS/STORE,KEEP_MASTER,0,PASS,loss_no,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
 public,ord_customers,POS/ORDER,KEEP_MASTER,5,PASS,customer_code,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
+public,ord_prices,POS/ORDER,KEEP_MASTER,0,PASS,id,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,wms_zones,WMS,KEEP_MASTER,30,PASS,zone_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
-public,pkg_qc_inspections,PACKAGING,KEEP_MASTER,0,PASS,id,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
 public,sys_settings,SYSTEM,KEEP_MASTER,8,PASS,NOT_PRESENT,key,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,wf_form_definition,WORKFLOW,KEEP_MASTER,10,PASS,code,id,NOT_COMPUTED_R0,workflow definition/version/rule/configuration
 public,wf_form_version,WORKFLOW,KEEP_MASTER,10,PASS,"form_id,version_no",id,NOT_COMPUTED_R0,workflow definition/version/rule/configuration
@@ -44,7 +42,9 @@ public,sys_permission_set,SYSTEM,KEEP_MASTER,2,PASS,set_code,set_id,NOT_COMPUTED
 public,sys_permission_set_item,SYSTEM,KEEP_MASTER,10,PASS,"set_id,menu_id",item_id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sys_role_permission_set,SYSTEM,KEEP_MASTER,0,PASS,NOT_PRESENT,"role_id,set_id",NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sys_user_permission_set,SYSTEM,KEEP_MASTER,4,PASS,NOT_PRESENT,"user_id,set_id",NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
+public,mon_house_device_mapping,MONITORING,KEEP_MASTER,7,PASS,erp_house_code,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,fin_exchange_rates,FINANCE,KEEP_MASTER,0,PASS,id,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
+public,fin_cash_accounts,FINANCE,KEEP_MASTER,77,PASS,account_code,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,prc2_suppliers,PROCUREMENT,KEEP_MASTER,34,PASS,supplier_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,prc2_projects,PROCUREMENT,KEEP_MASTER,0,PASS,"company_code,project_code",id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sys_exchange_rates,SYSTEM,KEEP_MASTER,0,PASS,"rate_date,from_currency,to_currency",id,NOT_COMPUTED_R0,system/RBAC/configuration boundary
@@ -57,10 +57,10 @@ public,sal_price_items,SALES,KEEP_MASTER,27,PASS,id,id,NOT_COMPUTED_R0,"formal m
 public,sal_drivers,SALES,KEEP_MASTER,6,PASS,driver_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sal_vehicles,SALES,KEEP_MASTER,1,PASS,vehicle_no,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sys_configs,SYSTEM,KEEP_MASTER,33,PASS,config_key,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
-public,sal_store_shift_closings,SALES,KEEP_MASTER,14,PASS,closing_no;store_code,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
 public,product_grades,OTHER,KEEP_MASTER,18,PASS,grade_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,packaging_specs,OTHER,KEEP_MASTER,8,PASS,spec_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,product_skus,OTHER,KEEP_MASTER,85,PASS,"sku_code;product_code,grade_code,spec_code",id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
+public,sys_data_scopes,SYSTEM,KEEP_MASTER,42,PASS,"role_code,module_code",id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,sys_organizations,SYSTEM,KEEP_MASTER,60,PASS,org_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sys_user_orgs,SYSTEM,KEEP_MASTER,34,PASS,"user_id,org_id",id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sys_user_project_scopes,SYSTEM,KEEP_MASTER,0,PASS,"user_id,project_code",id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
@@ -72,11 +72,13 @@ public,shr_shareholders,SHAREHOLDER,KEEP_MASTER,8,PASS,shareholder_code,id,NOT_C
 public,shr_project_equity,SHAREHOLDER,KEEP_MASTER,12,PASS,"project_code,shareholder_code",id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,shr_shareholder_scopes,SHAREHOLDER,KEEP_MASTER,12,PASS,id,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,shr_beneficial_equity,SHAREHOLDER,KEEP_MASTER,2,PASS,"project_code,nominee_shareholder_code,beneficial_shareholder_code",id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
+public,inv_source_mode,INVENTORY,KEEP_MASTER,5,PASS,"scope_level,scope_code",id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,mst_code_seq,MASTER,KEEP_MASTER,16,PASS,NOT_PRESENT,prefix,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,mst_account_holders,MASTER,KEEP_MASTER,0,PASS,holder_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,mst_bank_accounts,MASTER,KEEP_MASTER,0,PASS,bank_acc_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sys_user_farm_scopes,SYSTEM,KEEP_MASTER,1,PASS,"user_id,farm_code",id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,biz_projects,BUSINESS,KEEP_MASTER,13,PASS,project_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
+public,biz_site_aliases,BUSINESS,KEEP_MASTER,15,PASS,"alias_type,alias_code",id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,sys_notification_rules,SYSTEM,KEEP_MASTER,4,PASS,rule_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sys_notification_templates,SYSTEM,KEEP_MASTER,8,PASS,"template_code,locale,channel",id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sys_notification_channels,SYSTEM,KEEP_MASTER,8,PASS,NOT_PRESENT,channel_code,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"

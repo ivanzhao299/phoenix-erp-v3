@@ -11,6 +11,7 @@ R0 已完成：
 
 R1 尚未通过，阻断项：
 
+- 8 张 UNKNOWN 边界表（营销配置、旧药品混合表、遗留司机/车辆/路线、客户分级）必须先完成语义确认。
 - 6 个 FK cycles：`pkg_packing_boxes`、`pkg_packing_events`、`pkg_packing_operations`、`pkg_packing_records`、`sal_store_sale_tenders`、`sal_store_sales`。
 - 财务 opening balance policy 未确认。
 - inventory opening balance policy 未确认。

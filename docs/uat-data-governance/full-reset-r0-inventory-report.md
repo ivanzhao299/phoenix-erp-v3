@@ -22,18 +22,19 @@ SYSTEM_IDENTIFIER=7641898445435437089
 TOTAL_TABLES=297
 FK_CONSTRAINTS=98
 USER_TRIGGERS=21
-KEEP_MASTER_TABLES=108
-DELETE_TRANSACTION_TABLES=128
-DELETE_RUNTIME_TABLES=24
-RESET_DERIVED_TABLES=7
-ARCHIVE_TABLES=25
-EXTERNAL_GATE_TABLES=5
-UNKNOWN_TABLES=0
-TOTAL_TRANSACTION_ROWS=223651
-KEEP_MASTER_ROWS=16384
+KEEP_MASTER_TABLES=111
+DELETE_TRANSACTION_TABLES=118
+DELETE_RUNTIME_TABLES=22
+RESET_DERIVED_TABLES=3
+ARCHIVE_TABLES=27
+EXTERNAL_GATE_TABLES=8
+UNKNOWN_TABLES=8
+UNKNOWN_BOUNDARY_TABLES=crm_coupons, crm_activities, chn_distributor_grading, brd_medications, fin_ar_ledger, log_drivers, log_vehicles, log_routes
+TOTAL_TRANSACTION_ROWS=223192
+KEEP_MASTER_ROWS=16516
 ```
 
-`TOTAL_TRANSACTION_ROWS` 是 128 张 `DELETE_TRANSACTION`、24 张 `DELETE_RUNTIME` 与 7 张 `RESET_DERIVED` 表的实时精确行数合计；`KEEP_MASTER_ROWS` 是 108 张 KEEP_MASTER 表的实时精确行数合计。表分类、行数、近似大小、主键和业务键见 [full-reset-table-classification.csv](../../full-reset-table-classification.csv)、[full-reset-pre-counts.csv](../../full-reset-pre-counts.csv) 和 [full-reset-master-baseline.csv](../../full-reset-master-baseline.csv)。
+`TOTAL_TRANSACTION_ROWS` 是 118 张 `DELETE_TRANSACTION`、22 张 `DELETE_RUNTIME` 与 3 张 `RESET_DERIVED` 表的实时精确行数合计；`KEEP_MASTER_ROWS` 是 111 张 KEEP_MASTER 表的实时精确行数合计。UNKNOWN 与 EXTERNAL_GATE 表不计入该清理行数。表分类、行数、近似大小、主键和业务键见 [full-reset-table-classification.csv](../../full-reset-table-classification.csv)、[full-reset-pre-counts.csv](../../full-reset-pre-counts.csv) 和 [full-reset-master-baseline.csv](../../full-reset-master-baseline.csv)。
 
 ## Dependency and side-effect status
 
@@ -64,9 +65,9 @@ UAT_REPORT_AND_AUDIT_RETENTION=ARCHIVE_OR_RETAIN
 
 ```text
 SCHEMA_METADATA_COMPLETE=YES
-UNKNOWN_BUSINESS_TABLES=0
+UNKNOWN_BUSINESS_TABLES=8
 RESET_EXECUTION_READY=NO
-REASON=FK cycles, trigger side effects, opening-balance policy, and Chanjet remote gate require R1 resolution
+REASON=8 unknown boundary tables, 6 FK cycles, trigger side effects, opening-balance policy, and Chanjet remote gate require R1 resolution
 DATABASE_DELETE_EXECUTED=NO
 DATABASE_UPDATE_EXECUTED=NO
 DATABASE_SCHEMA_CHANGED=NO
