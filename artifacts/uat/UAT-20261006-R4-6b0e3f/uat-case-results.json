@@ -1,0 +1,84 @@
+{
+  "run_id": "UAT-20261006-R4-6b0e3f",
+  "write_authorization": true,
+  "cases": {
+    "T01_PROCUREMENT": {
+      "status": "BLOCKED",
+      "steps": [
+        {
+          "step": "PRECHECK",
+          "status": "PASS",
+          "evidence": "uat-baseline-evidence.json"
+        },
+        {
+          "step": "WRITE",
+          "status": "PASS",
+          "endpoint": "POST /api/v2/procurement/requests",
+          "http": 201,
+          "root_id": "20",
+          "business_no": "PR2-20261006-00001",
+          "child_ids": [
+            "21"
+          ]
+        },
+        {
+          "step": "VERIFY",
+          "status": "PASS",
+          "endpoint": "GET /api/v2/procurement/requests/20",
+          "http": 200,
+          "assertions": [
+            "status=DRAFT",
+            "company/project/warehouse/SKU refs match"
+          ]
+        },
+        {
+          "step": "SUBMIT",
+          "status": "BLOCKED",
+          "endpoint": "POST /api/v2/procurement/requests/20/submit",
+          "http": 429,
+          "reason": "Authenticated submit attempt returned HTTP 429; subsequent normal login retry returned HTTP 429 with retry-after-login=779. No status transition or downstream write was verified."
+        }
+      ],
+      "root_object": "PR2-20261006-00001",
+      "root_id": "20",
+      "child_ids": [
+        "21"
+      ]
+    },
+    "T02_SALES": {
+      "status": "NOT_RUN",
+      "reason": "Stopped after T01 P1 rate-limit block"
+    },
+    "T03_WMS": {
+      "status": "NOT_RUN",
+      "reason": "Stopped after T01 P1 rate-limit block"
+    },
+    "T04_FINANCE": {
+      "status": "NOT_RUN",
+      "reason": "Stopped after T01 P1 rate-limit block"
+    },
+    "T05_WORKFLOW": {
+      "status": "NOT_RUN",
+      "reason": "Stopped after T01 P1 rate-limit block"
+    }
+  },
+  "authorized_at": "2026-10-06T15:26:42+08:00",
+  "authorized_scope": "R4.3_T01_TO_T05",
+  "baseline_gate": "PASS",
+  "baseline_evidence": "uat-baseline-evidence.json",
+  "stop_transactional_uat": true,
+  "stop_reason": {
+    "type": "P1_STOP",
+    "reason": "Production API rate limit blocked required T01 submit/approval continuation",
+    "observed_at": "2026-10-06T15:30:46+08:00",
+    "endpoint": "POST /api/v2/procurement/requests/20/submit",
+    "http": 429,
+    "login_retry_http": 429,
+    "retry_after_login_seconds": 779,
+    "next_action": "wait for rate limit window, reauthenticate through normal login, resume only after operator review"
+  },
+  "created_root_objects": 1,
+  "created_total_tracked_objects": 2,
+  "unattributed_new_business_rows": 0,
+  "cleanup_manifest_ready": true
+}
