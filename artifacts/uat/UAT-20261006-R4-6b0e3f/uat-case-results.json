@@ -1,0 +1,11 @@
+{
+  "run_id": "UAT-20261006-R4-6b0e3f",
+  "write_authorization": false,
+  "cases": {
+    "T01_PROCUREMENT": {"status": "NOT_RUN", "reason": "TRANSACTIONAL_UAT_WRITE_AUTHORIZED is not YES"},
+    "T02_SALES": {"status": "NOT_RUN", "reason": "TRANSACTIONAL_UAT_WRITE_AUTHORIZED is not YES"},
+    "T03_WMS": {"status": "NOT_RUN", "reason": "TRANSACTIONAL_UAT_WRITE_AUTHORIZED is not YES"},
+    "T04_FINANCE": {"status": "NOT_RUN", "reason": "TRANSACTIONAL_UAT_WRITE_AUTHORIZED is not YES"},
+    "T05_WORKFLOW": {"status": "NOT_RUN", "reason": "TRANSACTIONAL_UAT_WRITE_AUTHORIZED is not YES"}
+  }
+}

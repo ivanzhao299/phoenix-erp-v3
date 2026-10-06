@@ -1,0 +1,21 @@
+{
+  "run_id": "UAT-20261006-R4-6b0e3f",
+  "environment": "production",
+  "start_time": "2026-10-06T14:54:25+08:00",
+  "initiated_by": "admin",
+  "production_main_sha": "ce93bcabb3dac7a7eeb0047484dc437d65c6cf25",
+  "production_deploy_head": "017633c5fb0a090d7b8cda375125d1832668f304",
+  "api_revision": "phoenix-m2-api:baseline-017633c5fb0a090d7b8cda375125d1832668f304",
+  "target_environment": "phoenix-prod / phoenix_erp",
+  "transactional_uat_write_authorized": false,
+  "created_objects": [],
+  "expected_business_chains": [
+    "T01 procurement request -> approval -> purchase order -> receipt",
+    "T02 sales order -> allocation -> delivery -> receipt/signoff",
+    "T03 WMS inbound/outbound/ledger/batch effects from T01/T02",
+    "T04 AR/AP/receipt/payment/cash effects from T01/T02",
+    "T05 workflow instance/task/action lifecycle for a UAT root object"
+  ],
+  "cleanup_status": "NOT_STARTED",
+  "status": "DESIGN_ONLY_WRITE_GATE_PENDING"
+}
