@@ -21,31 +21,18 @@ SYSTEM_IDENTIFIER=7641898445435437089
 - `bug_reports`、`md_change_requests`、`inv_source_mode_audit` 保留为 ARCHIVE。
 - Chanjet 股东凭证链接、关账期间、会计余额置于 EXTERNAL_GATE，不得在远端影响未确认前删除。
 
-仍有 8 个表不能安全按整表主数据或整表交易处理：
-
-```text
-crm_coupons
-crm_activities
-chn_distributor_grading
-brd_medications
-fin_ar_ledger
-log_drivers
-log_vehicles
-log_routes
-```
-
-其中 `brd_medications` 同时呈现药品主档和用药交易字段；`fin_ar_ledger` 同时包含期初/期间/期末金额以及 Chanjet 已审核和待核验来源；三个 `log_*` 表属于旧版与当前 `sal_*`/Sales V2 的迁移边界；CRM 营销/客户分级表需要确认是正式配置还是业务活动事实。UNKNOWN 不能通过“当前为 0 行”自动消除。
+生产 schema/code 复核后，R0 的 8 个 UNKNOWN 已被收敛：药品表当前实际 schema 只有主档列；CRM 券/活动和经销商分级属于配置/客户分级主档；旧 `log_*` 表由 Sales V2 标为遗留只读并转入 ARCHIVE；`fin_ar_ledger` 转入 EXTERNAL_GATE，等待财务/Chanjet opening reconciliation。该收敛基于实时 schema 和代码证据，不是因为当前行数为 0。
 
 ## Current live counts (sanitized)
 
 ```text
 R0_REVISED_TRANSACTION_RUNTIME_DERIVED_ROWS=223192
-R0_REVISED_KEEP_MASTER_ROWS=16516
-UNKNOWN_TABLE_ROWS=210
+R0_REVISED_KEEP_MASTER_ROWS=16607
+UNKNOWN_TABLE_ROWS=0
 FK_CYCLE_ROWS=79
 ```
 
-其中 UNKNOWN 行数包括 `brd_medications=91`、`fin_ar_ledger=119`，其余当前为 0；FK 环中当前有 `pkg_packing_records=38`、`sal_store_sale_tenders=4`、`sal_store_sales=37`，其他环表当前为 0。行数只用于门禁和设计，不构成删除批准。
+`fin_ar_ledger=119` 已转入 EXTERNAL_GATE，当前不计入可删除行数；FK 环中当前有 `pkg_packing_records=38`、`sal_store_sale_tenders=4`、`sal_store_sales=37`，其他环表当前为 0。行数只用于门禁和设计，不构成删除批准。
 
 ## Financial and inventory opening gate
 
@@ -92,7 +79,7 @@ chanjet_wms_writeback_outbox=0
 ## Gate result
 
 ```text
-UNKNOWN_BUSINESS_TABLES=8
+UNKNOWN_BUSINESS_TABLES=0
 FK_CYCLES=6
 TRIGGER_REVIEW_COMPLETE=NO
 FINANCE_OPENING_BALANCE_POLICY=UNCONFIRMED
@@ -106,4 +93,4 @@ DATABASE_MUTATION=NO
 NEXT_ACTION=R1_BOUNDARY_AND_OPENING_MANIFEST_REVIEW
 ```
 
-只有 UNKNOWN=0、FK 环和触发器有可审查处置、财务/库存 opening manifest 获批准、Chanjet gate 关闭或明确延期后，才允许进入 R2 backup/dry-run 设计。
+虽然 UNKNOWN=0，FK 环和触发器仍需可审查处置，财务/库存 opening manifest 仍需批准，Chanjet gate 仍需关闭或明确延期；全部满足后才允许进入 R2 backup/dry-run 设计。

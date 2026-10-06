@@ -2,9 +2,12 @@
 public,brd_farms,FARM/PRODUCTION,KEEP_MASTER,2,PASS,NOT_PRESENT,farm_code,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,brd_houses,FARM/PRODUCTION,KEEP_MASTER,19,PASS,NOT_PRESENT,house_code,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,brd_flocks,FARM/PRODUCTION,KEEP_MASTER,12,PASS,NOT_PRESENT,flock_no,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
+public,chn_distributor_grading,OTHER,KEEP_MASTER,0,PASS,id,id,NOT_COMPUTED_R0,live schema/code review: formal master or configuration
 public,crm_members,CRM,KEEP_MASTER,0,PASS,member_id,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,crm_levels,CRM,KEEP_MASTER,0,PASS,level_name,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,crm_points_rules,CRM,KEEP_MASTER,0,PASS,id,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
+public,crm_coupons,CRM,KEEP_MASTER,0,PASS,coupon_code,id,NOT_COMPUTED_R0,live schema/code review: formal master or configuration
+public,crm_activities,CRM,KEEP_MASTER,0,PASS,id,id,NOT_COMPUTED_R0,live schema/code review: formal master or configuration
 public,b2b_customers,B2B,KEEP_MASTER,0,PASS,customer_code,id,NOT_COMPUTED_R0,master or configuration object; review formal/test status separately
 public,qa_standards,QUALITY,KEEP_MASTER,0,PASS,std_code,id,NOT_COMPUTED_R0,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,brd_immune_plans,FARM/PRODUCTION,KEEP_MASTER,0,PASS,plan_no,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
@@ -22,6 +25,7 @@ public,mst_products,MASTER,KEEP_MASTER,10,PASS,product_code,id,NOT_COMPUTED_R0,"
 public,sys_dict,SYSTEM,KEEP_MASTER,470,PASS,"dict_type,dict_code",id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,sys_approval_flows,SYSTEM,KEEP_MASTER,0,PASS,flow_code,id,NOT_COMPUTED_R0,system/RBAC/configuration boundary
 public,sys_permissions,SYSTEM,KEEP_MASTER,0,PASS,perm_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
+public,brd_medications,FARM/PRODUCTION,KEEP_MASTER,91,PASS,medication_code,id,NOT_COMPUTED_R0,live schema/code review: formal master or configuration
 public,wms_warehouses,WMS,KEEP_MASTER,31,PASS,warehouse_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,wms_suppliers,WMS,KEEP_MASTER,0,PASS,supplier_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
 public,prc_suppliers,PROCUREMENT,KEEP_MASTER,8,PASS,supplier_code,id,NOT_COMPUTED_R0,"formal master data, RBAC, configuration, or technical metadata"
