@@ -11,3 +11,5 @@ This contract is derived from the production-verified R3 FK order and R4.1 runti
 - The actual PR root uses `prc2_request_items` as its child table.
 
 The SQL defaults to dry-run rollback. A formal commit requires both `-v PRODUCTION_INCREMENTAL_CLEANUP_AUTHORIZED=true` and `-v PRODUCTION_INCREMENTAL_CLEANUP_DRY_RUN=false`.
+
+The `reviewed-frozen-boundary` PR label is required by the repository gate for this intentional maintenance contract.
