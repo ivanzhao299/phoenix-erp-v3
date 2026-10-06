@@ -1,0 +1,4 @@
+table,primary_key,business_no,pre_rows,cleanup_action,reason,dependency_group
+prc2_request_items,21,,1,DELETE,post-R3 PR child; child-before-parent,T01_PROCUREMENT
+prc2_purchase_requests,20,PR2-20261006-00001,1,DELETE,post-R3 PR root,T01_PROCUREMENT
+sys_notifications,222520,,1,DELETE_NON_SYSTEM_ALERT,business WORKFLOW_TASK notification; approved SYSTEM_ALERT subset preserved,NOTIFICATION_RUNTIME

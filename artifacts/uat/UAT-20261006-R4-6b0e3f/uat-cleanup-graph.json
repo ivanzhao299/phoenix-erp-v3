@@ -10,7 +10,7 @@
       "business_no": "PR2-20261006-00001",
       "children": [
         {
-          "table": "prc2_purchase_request_items",
+        "table": "prc2_request_items",
           "primary_keys": [
             "21"
           ],
