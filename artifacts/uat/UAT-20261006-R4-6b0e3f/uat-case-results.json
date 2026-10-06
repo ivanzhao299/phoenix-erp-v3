@@ -80,5 +80,7 @@
   "created_root_objects": 1,
   "created_total_tracked_objects": 2,
   "unattributed_new_business_rows": 0,
-  "cleanup_manifest_ready": true
+  "cleanup_manifest_ready": true,
+  "post_uat_baseline": "NOT_RUN_RATE_LIMIT",
+  "post_uat_baseline_note": "No downstream writes occurred after T01 block; full post-run 148-table read-only sweep requires a fresh authenticated session."
 }

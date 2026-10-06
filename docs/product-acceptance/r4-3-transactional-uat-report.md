@@ -30,6 +30,7 @@ The created PR and its child item are fully mapped in the run manifest and clean
 - `CREATED_ROOT_OBJECTS`: `1`
 - `CREATED_TOTAL_TRACKED_OBJECTS`: `2`
 - `UNATTRIBUTED_NEW_BUSINESS_ROWS`: `0` for the created UAT objects; full 148-table SQL baseline was not independently available through the normal API surface.
+- `POST_UAT_BASELINE`: `NOT_RUN_RATE_LIMIT`; no downstream writes occurred after the T01 block, but a fresh authenticated read-only sweep is required.
 - `INVENTORY_ASSERTION`: `PASS` for pre-write zero baseline; no UAT inventory movement created.
 - `FINANCE_ASSERTION`: `PASS` for pre-write cash invariant; no UAT finance movement created.
 - `WORKFLOW_ASSERTION`: `NOT_RUN`
