@@ -3,12 +3,37 @@
   "environment": "production",
   "start_time": "2026-10-06T14:54:25+08:00",
   "initiated_by": "admin",
-  "production_main_sha": "ce93bcabb3dac7a7eeb0047484dc437d65c6cf25",
+  "production_main_sha": "098964f2d5221f7d4decfbf564b3c7f7a7328198",
   "production_deploy_head": "017633c5fb0a090d7b8cda375125d1832668f304",
   "api_revision": "phoenix-m2-api:baseline-017633c5fb0a090d7b8cda375125d1832668f304",
   "target_environment": "phoenix-prod / phoenix_erp",
-  "transactional_uat_write_authorized": false,
-  "created_objects": [],
+  "transactional_uat_write_authorized": true,
+  "created_objects": [
+    {
+      "module": "procurement",
+      "entity_type": "purchase_request",
+      "table": "prc2_purchase_requests",
+      "primary_key": "20",
+      "business_no": "PR2-20261006-00001",
+      "parent": null,
+      "company": "COMP-LAO-AGRI",
+      "project": "PRJ_VIENTIANE_FOOD",
+      "warehouse": "LPH_MS_EGG_FARM",
+      "created_at": "2026-10-06T07:27:32.552Z",
+      "operation": "POST /api/v2/procurement/requests",
+      "case_id": "T01_PROCUREMENT",
+      "cleanup_class": "DELETE_ON_UAT_CLEANUP",
+      "status": "DRAFT",
+      "supplier": null,
+      "item_ids": [
+        "21"
+      ],
+      "item_refs": [
+        "CJ-EGG-59E68DFABD10"
+      ],
+      "remark_marker": "UAT_RUN_ID=UAT-20261006-R4-6b0e3f"
+    }
+  ],
   "expected_business_chains": [
     "T01 procurement request -> approval -> purchase order -> receipt",
     "T02 sales order -> allocation -> delivery -> receipt/signoff",
@@ -17,5 +42,32 @@
     "T05 workflow instance/task/action lifecycle for a UAT root object"
   ],
   "cleanup_status": "NOT_STARTED",
-  "status": "DESIGN_ONLY_WRITE_GATE_PENDING"
+  "status": "BLOCKED_P1_RATE_LIMIT",
+  "authorized_at": "2026-10-06T15:26:42+08:00",
+  "authorized_scope": "R4.3_T01_TO_T05",
+  "baseline_gate": "PARTIAL_READONLY_API",
+  "baseline_evidence": "uat-baseline-evidence.json",
+  "runtime_api_base": "https://erp.eggslao.com/api",
+  "runtime_observed_at": "2026-10-06T15:26:42+08:00",
+  "runtime_deploy_sha_observed": "017633c5fb0a090d7b8cda375125d1832668f304",
+  "runtime_main_sha_mismatch_note": "Manifest template recorded ce93bc; user supplied LATEST_MAIN 098964f2. Runtime health was production/DB connected; deployed API revision remains 017633... and is recorded for evidence.",
+  "created_root_objects": 1,
+  "last_case_step": "T01_SUBMIT_BLOCKED_BEFORE_AUTH",
+  "stop_transactional_uat": true,
+  "stop_reason": {
+    "type": "P1_STOP",
+    "reason": "Production API rate limit blocked required T01 submit/approval continuation",
+    "observed_at": "2026-10-06T15:30:46+08:00",
+    "endpoint": "POST /api/v2/procurement/requests/20/submit",
+    "http": 429,
+    "login_retry_http": 429,
+    "retry_after_login_seconds": 779,
+    "next_action": "wait for rate limit window, reauthenticate through normal login, resume only after operator review"
+  },
+  "created_total_tracked_objects": 2,
+  "unattributed_new_business_rows": 0,
+  "cleanup_manifest_ready": true,
+  "post_uat_baseline": "NOT_RUN_RATE_LIMIT",
+  "post_uat_baseline_note": "No downstream writes occurred after T01 block; full post-run 148-table read-only sweep requires a fresh authenticated session.",
+  "baseline_gate_note": "Readable API subset passed; full 148-table SELECT baseline was not independently available through normal API."
 }

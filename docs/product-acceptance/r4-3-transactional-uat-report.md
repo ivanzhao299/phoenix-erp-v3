@@ -1,79 +1,50 @@
-# R4.3 Controlled Transactional UAT — Design and Write Gate Report
+# R4.3 Controlled Transactional UAT Execution
 
-## Current gate
+- `LATEST_MAIN`: `098964f2d5221f7d4decfbf564b3c7f7a7328198`
+- `UAT_RUN_ID`: `UAT-20261006-R4-6b0e3f`
+- `TRANSACTIONAL_UAT_WRITE_AUTHORIZED`: `YES`
+- `AUTHORIZED_SCOPE`: `R4.3_T01_TO_T05`
+- `ACCOUNT`: `admin`
+- `NO_APPLICATION_DEPLOY_REQUIRED`: `YES`
 
-```text
-TRANSACTIONAL_UAT_WRITE_AUTHORIZED=NO
-```
+## Baseline
 
-This stage therefore created no production business data and called no business POST, PUT, PATCH or DELETE endpoint. The deliverables are a manifest-driven design and a preflight route inventory only.
+The production API health check returned `200`, `env=production`, and `db.connected=true`. A read-only baseline sweep covered 33 readable transaction/runtime endpoint categories. The full requested 148-table SELECT baseline was not independently available through the normal API surface, so this is recorded as a partial baseline rather than a claim that all 148 tables were verified. Procurement, sales, receipts, AR/AP, cash transactions/transfers, inventory batches/ledger, WMS inbound/outbound/transfer/stocktake, POS sales, store receiving/losses, workflow instances/tasks, and approval history/todos were zero. All 77 formal cash accounts satisfied `current_balance=opening_balance`; cash transaction count was zero. The legacy `pos_sessions` table is retired and returned `403 Forbidden Table`; it was recorded as an unsupported read check rather than treated as a business drift.
 
-## Run definition
+Chanjet current-state evidence returned `chanjetWrite=false`, `chanjetDelete=false`, `chanjetModify=false`, `voucherPush=false`, and `erpBusinessOverwrite=false`. No Chanjet write endpoint was called.
 
-| Field | Value |
-|---|---|
-| Run ID | `UAT-20261006-R4-6b0e3f` |
-| Environment | `phoenix-prod / phoenix_erp` |
-| Initiated by | `admin` |
-| Repository main | `ce93bcabb3dac7a7eeb0047484dc437d65c6cf25` |
-| Production deploy head | `017633c5fb0a090d7b8cda375125d1832668f304` |
-| API image/revision | `phoenix-m2-api:baseline-017633c5fb0a090d7b8cda375125d1832668f304` |
-| Start time | `2026-10-06T14:54:25+08:00` |
-| Cleanup status | `NOT_STARTED` |
+## Cases
 
-The sanitized run artifacts are in `artifacts/uat/UAT-20261006-R4-6b0e3f/`. They contain no token, cookie, password or production object identifier.
-
-## Authenticated read-only preflight
-
-The existing `admin` account was previously authenticated in R4.2. This design phase did not log in again. Production identity remains confirmed, API health is HTTP 200, DB is healthy, and Chanjet synchronization remains disabled. No old fixture script is used.
-
-## Real application route inventory
-
-The following routes were confirmed from the current API controllers. They are only eligible after explicit write authorization and a fresh authenticated preflight:
-
-- Procurement: `POST /api/v2/procurement/requests`, `POST /api/v2/procurement/orders`, `POST /api/v2/procurement/requests/:id/convert-to-order`, `POST /api/v2/procurement/receipts`, `POST /api/v2/procurement/receipts/:id/confirm`.
-- Sales: `POST /api/v2/sales/orders`, `POST /api/v2/sales/orders/:id/submit`, `POST /api/v2/sales/delivery`, `POST /api/v2/sales/delivery/:id/complete`, `POST /api/v2/sales/returns`.
-- WMS: existing authenticated CRUD routes under `/api/crud/wms_inbound`, `/api/crud/wms_outbound`, `/api/crud/wms_transfer`; exact DTOs and permission checks must be revalidated before any write.
-- Finance: `POST /api/v2/finance/ar/invoices`, `POST /api/v2/finance/ar/receipts`, `POST /api/v2/finance/ap/invoices`, `POST /api/v2/procurement/payments`, and cash transaction routes under `/api/v2/finance/cash`.
-- Workflow: `POST /api/workflow/start` and the task transition routes under `/api/workflow/tasks/:id/*`.
-
-The route inventory is evidence for design only. It is not authorization to call any route.
-
-## Minimal case matrix
-
-| Case | Planned chain | Current status |
+| Case | Result | Evidence |
 |---|---|---|
-| T01 | procurement request → approval → PO → receipt | `NOT_RUN` |
-| T02 | sales order → allocation → delivery → receipt/signoff | `NOT_RUN` |
-| T03 | WMS effects from T01/T02 | `NOT_RUN` |
-| T04 | AR/AP/receipt/payment/cash effects from T01/T02 | `NOT_RUN` |
-| T05 | workflow instance/task/action lifecycle | `NOT_RUN` |
+| T01 Procurement | `BLOCKED` | Created and verified PR `PR2-20261006-00001` (id `20`) with item id `21`; status remained `DRAFT`. The authenticated submit attempt returned HTTP `429`; a subsequent normal login retry also returned HTTP `429` with `retry-after-login: 779`. No status transition or downstream write was verified. |
+| T02 Sales | `NOT_RUN` | Stopped after T01 P1 block. |
+| T03 WMS | `NOT_RUN` | Stopped after T01 P1 block. |
+| T04 Finance | `NOT_RUN` | Stopped after T01 P1 block. |
+| T05 Workflow | `NOT_RUN` | Stopped after T01 P1 block. |
 
-The order is T01 → T02 → T03 → T04 → T05. Each future write must be followed immediately by an authenticated GET and a read-only database verification. Any P0/P1 defect, cross-company access, inventory inconsistency, cash mismatch or duplicate posting stops the run.
+The created PR and its child item are fully mapped in the run manifest and cleanup graph. No automatic cleanup was attempted.
 
-## Cleanup contract design
+## Assertions
 
-Every future object must be recorded by module, entity type, primary key, business number, company/store/warehouse/project, parent root, creation time and actor. The cleanup graph classifies transaction descendants as `DELETE_ON_UAT_CLEANUP`, derived balances as `RESET_DERIVED`, audit/operation/security evidence as `RETAIN_ARCHIVE`, masters as `KEEP_MASTER`, and any external effect as `EXTERNAL_SIDE_EFFECT`.
+- `CREATED_ROOT_OBJECTS`: `1`
+- `CREATED_TOTAL_TRACKED_OBJECTS`: `2`
+- `UNATTRIBUTED_NEW_BUSINESS_ROWS`: `0` for the created UAT objects; full 148-table SQL baseline remains unverified through the normal API surface.
+- `POST_UAT_BASELINE`: `NOT_RUN_RATE_LIMIT`; no downstream writes occurred after the T01 block, but a fresh authenticated read-only sweep is required.
+- `INVENTORY_ASSERTION`: `PASS` for the readable pre-write endpoint subset; no UAT inventory movement created.
+- `FINANCE_ASSERTION`: `PASS` for the readable pre-write cash invariant; no UAT finance movement created.
+- `WORKFLOW_ASSERTION`: `NOT_RUN`
+- `DATASCOPE_ASSERTION`: `PASS` on created PR company/project/warehouse references; downstream scope chain not run.
+- `P0_DEFECTS`: `0`
+- `P1_DEFECTS`: `1` operational block — production login rate limit prevented T01 continuation.
+- `P2_DEFECTS`: `0`
+- `CHANJET_REIMPORT_GUARD`: `PASS` based on live Chanjet guardrails; no external write was attempted.
+- `IOT_ALERT_BUSINESS_REVIEW`: `PENDING`
+- `TRANSACTIONAL_TECHNICAL_UAT`: `PARTIAL` (T01 blocked; full 148-table baseline unavailable)
+- `HUMAN_BUSINESS_UAT`: `PENDING`
+- `CLEANUP_MANIFEST_READY`: `YES` for the created PR root/child; downstream branches have no created objects.
+- `CLEANUP_STATUS`: `NOT_STARTED`
 
-The graph is created alongside each future root object; cleanup is not performed in R4.3. SYSTEM_ALERT rows remain outside the business cleanup graph as approved regenerable system runtime.
+## Next action
 
-```text
-T01_PROCUREMENT=NOT_RUN
-T02_SALES=NOT_RUN
-T03_WMS=NOT_RUN
-T04_FINANCE=NOT_RUN
-T05_WORKFLOW=NOT_RUN
-CREATED_ROOT_OBJECTS=0
-CREATED_TOTAL_TRACKED_OBJECTS=0
-INVENTORY_ASSERTION=NOT_RUN
-FINANCE_ASSERTION=NOT_RUN
-DATASCOPE_ASSERTION=DESIGN_READY
-UNEXPECTED_SIDE_EFFECTS=0
-P0_DEFECTS=0
-P1_DEFECTS=0
-P2_DEFECTS=0
-IOT_ALERT_BUSINESS_REVIEW=PENDING
-TRANSACTIONAL_HUMAN_UAT=NOT_STARTED
-CLEANUP_MANIFEST_READY=YES_DESIGN_ONLY
-NEXT_ACTION=AWAIT_EXPLICIT_TRANSACTIONAL_UAT_WRITE_AUTHORIZATION
-```
+`PRODUCT_DEFECT_TRACK` for the production login rate-limit window, then resume the same run only after normal admin authentication succeeds. Do not create a new run ID and do not perform cleanup automatically.
