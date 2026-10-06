@@ -7,20 +7,39 @@ rows = list(csv.DictReader((root / "full-reset-table-classification.csv").open(e
 classes = {r["table"]: r["classification"] for r in rows}
 target_classes = {"DELETE_TRANSACTION", "DELETE_RUNTIME", "RESET_DERIVED", "EXTERNAL_GATE"}
 target = [r["table"] for r in rows if r["classification"] in target_classes]
-order = []
-for line in (root / "full-reset-fk-order.md").read_text().splitlines():
-    m = re.match(r"^\d+\. `([^`]+)` \(([^)]+)\)", line)
-    if m and m.group(1) in target_classes:
-        order.append(m.group(1))
-manual = [
-    "sal_store_settlement_reconciliations", "sal_store_sale_tenders", "sal_store_sales",
-    "pkg_packing_code_claims", "pkg_packing_events", "pkg_packing_operations", "pkg_packing_boxes", "pkg_packing_records",
-    "qa_inspections", "qa_product_inspections", "store_receiving", "store_receiving_items",
-    "store_transfers", "store_replenish_req", "store_losses", "sal_store_shift_closings",
+order = [
+    'acc_ledger','b2b_order_items','b2b_orders','biz_cash_flow','biz_purchase_order','biz_sales_order',
+    'brd_daily_logs','brd_medication_records','brd_vaccinations','brd_withdrawal_alerts',
+    'chanjet_reconciliation_results','chanjet_shareholder_accounting_balances','chanjet_shareholder_close_periods',
+    'chanjet_shareholder_voucher_links','chanjet_sync_jobs','chanjet_wms_promotion_candidates',
+    'chanjet_wms_writeback_outbox','chanjet_writeback_outbox','crm_points_ledger','crm_points_log',
+    'cst_credit_warnings','daily_close','farm_feed_ledger','fin_ap_invoices','fin_approvals','fin_ar_invoices',
+    'fin_ar_ledger','fin_ar_receipt_allocations','fin_ar_receipts','fin_cash_transactions','fin_expense_requests',
+    'fin_fund_transfers','fin_invoices','fin_pay_records','fin_payments','fin_reimbursements',
+    'fin_shareholder_contributions','fin_shareholder_settlements','fin_store_settlements','fin_transactions',
+    'lbl_records','log_dispatch','log_exceptions','log_receipts','ord_approval_log','ord_credit_usage',
+    'ord_order_items','ord_orders','pkg_exceptions','pkg_grading_source_links','pkg_handover_records',
+    'pkg_label_print_logs','pkg_packing_code_claims','pkg_qc_inspections','pkg_shifts','pkg_tasks','pkg_work_shifts',
+    'pos_refunds','pos_sale_items','pos_sales','pos_sessions','prc2_ap_ledger','prc2_approvals','prc2_init_batch_rows',
+    'prc2_init_batches','prc2_order_items','prc2_payment_allocations','prc2_payments','prc2_purchase_orders',
+    'prc2_purchase_requests','prc2_receipt_items','prc2_receipts','prc2_request_items','prc2_shareholder_funds',
+    'prc2_shipments','prc_purchase_items','prc_purchase_orders','prc_purchase_payments','prc_purchase_requests',
+    'prc_receipts','prc_returns','prc_supplier_returns','qa_inspection_items','qa_inspections','qa_non_conformance',
+    'qa_product_inspections','sal_delivery_exceptions','sal_order_item_batch_allocation_actions',
+    'sal_order_lifecycle_events','sal_return_items','sal_store_price_drift_events','sal_store_settlement_reconciliations',
+    'sal_store_settlement_shifts','shr_capital_contributions','store_inventory','store_losses','store_payment_records',
+    'store_receiving','store_receiving_items','store_replenish_req','store_replenishment_request_lines',
+    'store_sale_adjustments','store_sale_allocations','store_transfers','sys_cron_heartbeat','sys_doc_state_lock',
+    'sys_notification_log','sys_notifications','wf_approval_instance_steps','wf_approval_instances','wf_cc_task',
+    'wf_instance_variable','wf_task_action','wms_inbound','wms_inbound_items','wms_outbound','wms_outbound_items',
+    'wms_stock_balance','wms_stock_ledger','wms_stock_transfers','wms_stocktake','wms_transfer_discrepancies',
+    'ws_contracts','ws_shipments','chanjet_erp_inbound_sync_runs','chanjet_voucher_drafts','pkg_grading_records',
+    'pkg_source_batches','pkg_packing_code_registry','pkg_packing_events','sal_receipts','sal_order_item_batch_allocations',
+    'sal_return_orders','sal_store_sale_tenders','sal_store_settlements','store_replenishment_requests',
+    'sal_store_shift_closings','sal_store_sale_items','wf_task','wms_transfer_items','pkg_packing_boxes',
+    'pkg_packing_operations','sal_delivery_order_items','inv_ledger','sal_order_items','sal_store_sales','wf_instance',
+    'inv_batches','wms_transfer','pkg_packing_records','sal_delivery_orders','sal_sales_orders',
 ]
-for table in manual:
-    if table in target and table not in order:
-        order.append(table)
 for table in sorted(target):
     if table not in order:
         order.append(table)
