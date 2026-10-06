@@ -1,0 +1,14 @@
+{
+  "run_id": "UAT-20261006-R4-6b0e3f",
+  "status": "DESIGN_ONLY",
+  "roots": [],
+  "planned_edges": [
+    {"from": "procurement_root", "to": "procurement_children", "classification": "DELETE_ON_UAT_CLEANUP"},
+    {"from": "sales_root", "to": "sales_children", "classification": "DELETE_ON_UAT_CLEANUP"},
+    {"from": "procurement_or_sales_root", "to": "inventory_allocations_ledger_batches", "classification": "DELETE_ON_UAT_CLEANUP"},
+    {"from": "procurement_or_sales_root", "to": "AR_AP_payment_cash_facts", "classification": "DELETE_ON_UAT_CLEANUP"},
+    {"from": "uat_root", "to": "workflow_runtime", "classification": "DELETE_ON_UAT_CLEANUP"},
+    {"from": "any_uat_object", "to": "audit_operation_security_logs", "classification": "RETAIN_ARCHIVE"},
+    {"from": "any_uat_object", "to": "system_alert_runtime", "classification": "KEEP_REGENERABLE_RUNTIME"}
+  ]
+}
