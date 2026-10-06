@@ -45,7 +45,7 @@
   "status": "BLOCKED_P1_RATE_LIMIT",
   "authorized_at": "2026-10-06T15:26:42+08:00",
   "authorized_scope": "R4.3_T01_TO_T05",
-  "baseline_gate": "PASS",
+  "baseline_gate": "PARTIAL_READONLY_API",
   "baseline_evidence": "uat-baseline-evidence.json",
   "runtime_api_base": "https://erp.eggslao.com/api",
   "runtime_observed_at": "2026-10-06T15:26:42+08:00",
@@ -68,5 +68,6 @@
   "unattributed_new_business_rows": 0,
   "cleanup_manifest_ready": true,
   "post_uat_baseline": "NOT_RUN_RATE_LIMIT",
-  "post_uat_baseline_note": "No downstream writes occurred after T01 block; full post-run 148-table read-only sweep requires a fresh authenticated session."
+  "post_uat_baseline_note": "No downstream writes occurred after T01 block; full post-run 148-table read-only sweep requires a fresh authenticated session.",
+  "baseline_gate_note": "Readable API subset passed; full 148-table SELECT baseline was not independently available through normal API."
 }

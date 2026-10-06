@@ -8,14 +8,16 @@
     "http_failures": {},
     "cash_accounts_total": 77,
     "cash_balance_mismatch_count": 0,
-    "baseline_gate": "PASS",
+    "baseline_gate": "PARTIAL_READONLY_API",
     "unsupported_checks": {
       "pos_sessions": {
         "http": 403,
         "reason": "legacy POS session table is retired; writes are gone and no dedicated read endpoint exists"
       }
     },
-    "baseline_scope": "33 readable zero-required transaction/runtime endpoints; retired POS session table excluded; cash master invariant checked across 77 accounts."
+    "baseline_scope": "33 readable zero-required transaction/runtime endpoints; retired POS session table excluded; cash master invariant checked across 77 accounts.",
+    "readable_subset_gate": "PASS",
+    "full_148_sql_baseline": "NOT_AVAILABLE_THROUGH_NORMAL_API"
   },
   "checks": {
     "procurement_requests": {

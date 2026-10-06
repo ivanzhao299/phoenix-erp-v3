@@ -9,7 +9,7 @@
 
 ## Baseline
 
-The production API health check returned `200`, `env=production`, and `db.connected=true`. A read-only baseline sweep covered 33 readable transaction/runtime endpoint categories. Procurement, sales, receipts, AR/AP, cash transactions/transfers, inventory batches/ledger, WMS inbound/outbound/transfer/stocktake, POS sales, store receiving/losses, workflow instances/tasks, and approval history/todos were zero. All 77 formal cash accounts satisfied `current_balance=opening_balance`; cash transaction count was zero. The legacy `pos_sessions` table is retired and returned `403 Forbidden Table`; it was recorded as an unsupported read check rather than treated as a business drift.
+The production API health check returned `200`, `env=production`, and `db.connected=true`. A read-only baseline sweep covered 33 readable transaction/runtime endpoint categories. The full requested 148-table SELECT baseline was not independently available through the normal API surface, so this is recorded as a partial baseline rather than a claim that all 148 tables were verified. Procurement, sales, receipts, AR/AP, cash transactions/transfers, inventory batches/ledger, WMS inbound/outbound/transfer/stocktake, POS sales, store receiving/losses, workflow instances/tasks, and approval history/todos were zero. All 77 formal cash accounts satisfied `current_balance=opening_balance`; cash transaction count was zero. The legacy `pos_sessions` table is retired and returned `403 Forbidden Table`; it was recorded as an unsupported read check rather than treated as a business drift.
 
 Chanjet current-state evidence returned `chanjetWrite=false`, `chanjetDelete=false`, `chanjetModify=false`, `voucherPush=false`, and `erpBusinessOverwrite=false`. No Chanjet write endpoint was called.
 
@@ -29,10 +29,10 @@ The created PR and its child item are fully mapped in the run manifest and clean
 
 - `CREATED_ROOT_OBJECTS`: `1`
 - `CREATED_TOTAL_TRACKED_OBJECTS`: `2`
-- `UNATTRIBUTED_NEW_BUSINESS_ROWS`: `0` for the created UAT objects; full 148-table SQL baseline was not independently available through the normal API surface.
+- `UNATTRIBUTED_NEW_BUSINESS_ROWS`: `0` for the created UAT objects; full 148-table SQL baseline remains unverified through the normal API surface.
 - `POST_UAT_BASELINE`: `NOT_RUN_RATE_LIMIT`; no downstream writes occurred after the T01 block, but a fresh authenticated read-only sweep is required.
-- `INVENTORY_ASSERTION`: `PASS` for pre-write zero baseline; no UAT inventory movement created.
-- `FINANCE_ASSERTION`: `PASS` for pre-write cash invariant; no UAT finance movement created.
+- `INVENTORY_ASSERTION`: `PASS` for the readable pre-write endpoint subset; no UAT inventory movement created.
+- `FINANCE_ASSERTION`: `PASS` for the readable pre-write cash invariant; no UAT finance movement created.
 - `WORKFLOW_ASSERTION`: `NOT_RUN`
 - `DATASCOPE_ASSERTION`: `PASS` on created PR company/project/warehouse references; downstream scope chain not run.
 - `P0_DEFECTS`: `0`
@@ -40,7 +40,7 @@ The created PR and its child item are fully mapped in the run manifest and clean
 - `P2_DEFECTS`: `0`
 - `CHANJET_REIMPORT_GUARD`: `PASS` based on live Chanjet guardrails; no external write was attempted.
 - `IOT_ALERT_BUSINESS_REVIEW`: `PENDING`
-- `TRANSACTIONAL_TECHNICAL_UAT`: `PARTIAL`
+- `TRANSACTIONAL_TECHNICAL_UAT`: `PARTIAL` (T01 blocked; full 148-table baseline unavailable)
 - `HUMAN_BUSINESS_UAT`: `PENDING`
 - `CLEANUP_MANIFEST_READY`: `YES` for the created PR root/child; downstream branches have no created objects.
 - `CLEANUP_STATUS`: `NOT_STARTED`
