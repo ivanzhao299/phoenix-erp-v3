@@ -48,3 +48,17 @@ The created PR and its child item are fully mapped in the run manifest and clean
 ## Next action
 
 `PRODUCT_DEFECT_TRACK` for the production login rate-limit window, then resume the same run only after normal admin authentication succeeds. Do not create a new run ID and do not perform cleanup automatically.
+
+## R4.3A rate-limit diagnosis
+
+- `LOGIN_429_CLASSIFICATION`: `EXPECTED_SECURITY_THROTTLE`. The source config applies the production-only 15-minute/10-attempt bucket to `POST /api/auth/login`; one normal login after the window recovered with HTTP 200 and `/api/auth/me` returned HTTP 200 for `admin`.
+- `PROCUREMENT_SUBMIT_429_ORIGIN`: `UNKNOWN`. The exact route is `POST /api/v2/procurement/requests/20/submit`; its controller has only `MenuGuard` and `DataScopeGuard`, and source review found no procurement `ThrottlerGuard`, `@Throttle`, custom limiter, queue limiter, or idempotency limiter. Repository Nginx config has no `limit_req`, `limit_conn`, `burst`, `nodelay`, or `429` directive; production proxy/WAF runtime remains unverified.
+- `PROCUREMENT_APPLICATION_THROTTLER`: `NO`
+- `PROXY_RATE_LIMIT_FOUND`: `NO_IN_REPO_CONFIG_RUNTIME_UNKNOWN`
+- `FAILED_SUBMIT_PARTIAL_SIDE_EFFECT`: `NO`. A production `BEGIN READ ONLY` check confirmed PR `20` is still `DRAFT`, item `21` exists, and there are zero matching approval instances/steps/logs, notifications, orders, inventory, or finance facts.
+- `AUTH_WINDOW_RECOVERY`: `PASS`
+- `T01_RESUME_ALLOWED`: `NO`; the submit 429 origin is not understood and the single-submit rule forbids a retry yet.
+
+The first submit response body/headers were not captured, so the submit 429 cannot be classified as Nest, proxy, WAF, re-auth, or another limiter from current evidence.
+
+`EVIDENCE_MAIN_SHA=778f5f139a8319b15e694d4afdd5e57b8237c668`

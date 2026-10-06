@@ -17,7 +17,11 @@
     },
     "baseline_scope": "33 readable zero-required transaction/runtime endpoints; retired POS session table excluded; cash master invariant checked across 77 accounts.",
     "readable_subset_gate": "PASS",
-    "full_148_sql_baseline": "NOT_AVAILABLE_THROUGH_NORMAL_API"
+    "full_148_sql_baseline": "NOT_AVAILABLE_THROUGH_NORMAL_API",
+    "baseline_mode": "PRODUCTION_READ_ONLY_DB",
+    "production_read_only_db_check": "PASS",
+    "frozen_148_exact_list_available": false,
+    "production_db_scope_table_stats": 162
   },
   "checks": {
     "procurement_requests": {
@@ -226,5 +230,31 @@
       "count": 0
     }
   },
-  "cash_balance_mismatches": []
+  "cash_balance_mismatches": [],
+  "production_read_only_db": {
+    "observed_at": "2026-10-06T16:06:09+08:00",
+    "transaction": "BEGIN READ ONLY; SELECT-only; ROLLBACK",
+    "scope_table_stats": 162,
+    "estimated_nonzero_tables": {
+      "prc2_purchase_requests": 1,
+      "prc2_request_items": 1,
+      "sys_notifications": 49
+    },
+    "preexisting_notification_runtime_rows": 49,
+    "uat_notification_marker_matches": 0,
+    "cash_balance_mismatch_count": 0,
+    "cash_transaction_count": 0,
+    "exact_uat_side_effect_checks": {
+      "pr_status": "DRAFT",
+      "pr_item_id": "21",
+      "approval_instances": 0,
+      "approval_steps": 0,
+      "approval_logs": 0,
+      "notifications": 0,
+      "orders": 0,
+      "inventory_batches": 0,
+      "finance_ap_invoices": 0
+    },
+    "note": "The frozen 148-table exact list was not present in the accessible runtime; the production read-only DB check is recorded without claiming all 148 are zero."
+  }
 }

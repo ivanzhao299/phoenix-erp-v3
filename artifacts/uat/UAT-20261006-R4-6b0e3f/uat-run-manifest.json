@@ -69,5 +69,20 @@
   "cleanup_manifest_ready": true,
   "post_uat_baseline": "NOT_RUN_RATE_LIMIT",
   "post_uat_baseline_note": "No downstream writes occurred after T01 block; full post-run 148-table read-only sweep requires a fresh authenticated session.",
-  "baseline_gate_note": "Readable API subset passed; full 148-table SELECT baseline was not independently available through normal API."
+  "baseline_gate_note": "Readable API subset passed; full 148-table SELECT baseline was not independently available through normal API.",
+  "evidence_main_sha": "778f5f139a8319b15e694d4afdd5e57b8237c668",
+  "diagnosis_updated_at": "2026-10-06T16:08:47+08:00",
+  "baseline_mode": "PRODUCTION_READ_ONLY_DB",
+  "production_read_only_db_check": "PASS",
+  "auth_window_recovery": "PASS",
+  "current_auth_session_valid": true,
+  "auth_recovery_http": 200,
+  "auth_me_http": 200,
+  "procurement_application_throttler": "NO",
+  "proxy_rate_limit_found": "NO_IN_REPO_CONFIG_RUNTIME_UNKNOWN",
+  "procurement_submit_429_origin": "UNKNOWN",
+  "login_429_classification": "EXPECTED_SECURITY_THROTTLE",
+  "failed_submit_partial_side_effect": "NO",
+  "t01_resume_allowed": false,
+  "t01_resume_block_reason": "PROCUREMENT_SUBMIT_429_ROOT_CAUSE_NOT_UNDERSTOOD"
 }
