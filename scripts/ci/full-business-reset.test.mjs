@@ -67,3 +67,33 @@ assert(postcheck.includes('BEGIN TRANSACTION READ ONLY;'), 'postcheck must be re
 assert(postcheck.includes('ROLLBACK;'), 'postcheck must rollback');
 assert(!/\b(INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP|CREATE)\b/i.test(postcheck.replace(/--[^\n]*/g, '')), 'postcheck contains mutation');
 console.log(`full-business-reset static checks passed: ${deleteTables.length} DELETE statements, ${updateStatements.length} UPDATE statements`);
+
+const r3 = fs.readFileSync(path.join(root, 'scripts/uat/full-test-business-reset-execution.sql'), 'utf8');
+assert(r3.includes('\\set PRODUCTION_RESET_AUTHORIZED false'), 'R3 must default authorization to false');
+assert(r3.includes("\\echo 'R3 requires -v PRODUCTION_RESET_AUTHORIZED=true'"), 'R3 authorization guard missing');
+assert(r3.includes('COMMIT;'), 'R3 execution contract must commit only after assertions');
+assert(!/\\set\s+PRODUCTION_RESET_AUTHORIZED\s+true/i.test(r3), 'R3 must not default authorization to true');
+
+const bodyOf = (source, terminator) => {
+  const begin = source.indexOf('BEGIN ISOLATION LEVEL SERIALIZABLE;');
+  assert(begin >= 0, 'serializable transaction missing');
+  const end = source.lastIndexOf(terminator);
+  assert(end > begin, `transaction terminator missing: ${terminator}`);
+  return source.slice(begin, end + terminator.length)
+    .replace(/R3_EXECUTION_PRECOMMIT_PASS/g, 'R2_DRY_RUN_PASS')
+    .replace(/R3 controlled execution contract/g, 'R2 rollback-only bundle')
+    .replace(/(?:ROLLBACK|COMMIT);$/, 'END_OF_TRANSACTION;');
+};
+const r2Body = bodyOf(fs.readFileSync(path.join(root, 'scripts/uat/full-test-business-reset.sql'), 'utf8'), 'ROLLBACK;');
+const r3Body = bodyOf(r3, 'COMMIT;');
+assert.equal(r3Body, r2Body, 'R3 transaction body drifted from the production-verified R2 body');
+console.log('R3/R2 semantic transaction parity passed');
+const r3DeleteTables = [...r3.matchAll(/DELETE\s+FROM\s+public\.([a-zA-Z0-9_]+)/gi)].map((m) => m[1]);
+assert.equal(r3DeleteTables.length, deleteTables.length, 'R3 delete statement count drifted');
+for (const table of r3DeleteTables) {
+  const cls = classification.get(table);
+  assert(cls && ['DELETE_TRANSACTION', 'DELETE_RUNTIME', 'EXTERNAL_GATE', 'RESET_DERIVED'].includes(cls), `R3 unsafe delete class ${table}=${cls}`);
+}
+assert(!/\\bROLLBACK;\s*$/m.test(r3), 'R3 execution contract must not terminate with ROLLBACK');
+
+// R3 parity gate is intentionally kept with the reset safety checks.
