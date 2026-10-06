@@ -1,0 +1,42 @@
+BEGIN
+SET
+         metric         | value 
+------------------------+-------
+ BUSINESS_NOTIFICATIONS |     0
+(1 row)
+
+               metric                | value 
+-------------------------------------+-------
+ APPROVED_SYSTEM_ALERT_NOTIFICATIONS |   186
+(1 row)
+
+        metric        | value 
+----------------------+-------
+ SYSTEM_ALERT_ORPHANS |     0
+(1 row)
+
+       metric       | value 
+--------------------+-------
+ SYS_CRON_HEARTBEAT |     4
+(1 row)
+
+ metric | value 
+--------+-------
+ PR20   |     0
+(1 row)
+
+  metric   | value 
+-----------+-------
+ PR_ITEM21 |     0
+(1 row)
+
+     metric     | value 
+----------------+-------
+ PRC2_APPROVALS |     0
+(1 row)
+
+        metric         | value 
+-----------------------+-------
+ WF_APPROVAL_INSTANCES |     0
+(1 row)
+
