@@ -1,14 +1,73 @@
 {
   "run_id": "UAT-20261006-R4-6b0e3f",
-  "status": "DESIGN_ONLY",
-  "roots": [],
+  "status": "TRACKING_BLOCKED",
+  "roots": [
+    {
+      "case_id": "T01_PROCUREMENT",
+      "entity_type": "purchase_request",
+      "table": "prc2_purchase_requests",
+      "primary_key": "20",
+      "business_no": "PR2-20261006-00001",
+      "children": [
+        {
+          "table": "prc2_purchase_request_items",
+          "primary_keys": [
+            "21"
+          ],
+          "classification": "DELETE_ON_UAT_CLEANUP"
+        }
+      ],
+      "classification": "DELETE_ON_UAT_CLEANUP"
+    }
+  ],
   "planned_edges": [
-    {"from": "procurement_root", "to": "procurement_children", "classification": "DELETE_ON_UAT_CLEANUP"},
-    {"from": "sales_root", "to": "sales_children", "classification": "DELETE_ON_UAT_CLEANUP"},
-    {"from": "procurement_or_sales_root", "to": "inventory_allocations_ledger_batches", "classification": "DELETE_ON_UAT_CLEANUP"},
-    {"from": "procurement_or_sales_root", "to": "AR_AP_payment_cash_facts", "classification": "DELETE_ON_UAT_CLEANUP"},
-    {"from": "uat_root", "to": "workflow_runtime", "classification": "DELETE_ON_UAT_CLEANUP"},
-    {"from": "any_uat_object", "to": "audit_operation_security_logs", "classification": "RETAIN_ARCHIVE"},
-    {"from": "any_uat_object", "to": "system_alert_runtime", "classification": "KEEP_REGENERABLE_RUNTIME"}
-  ]
+    {
+      "from": "procurement_root",
+      "to": "procurement_children",
+      "classification": "DELETE_ON_UAT_CLEANUP"
+    },
+    {
+      "from": "sales_root",
+      "to": "sales_children",
+      "classification": "DELETE_ON_UAT_CLEANUP"
+    },
+    {
+      "from": "procurement_or_sales_root",
+      "to": "inventory_allocations_ledger_batches",
+      "classification": "DELETE_ON_UAT_CLEANUP"
+    },
+    {
+      "from": "procurement_or_sales_root",
+      "to": "AR_AP_payment_cash_facts",
+      "classification": "DELETE_ON_UAT_CLEANUP"
+    },
+    {
+      "from": "uat_root",
+      "to": "workflow_runtime",
+      "classification": "DELETE_ON_UAT_CLEANUP"
+    },
+    {
+      "from": "any_uat_object",
+      "to": "audit_operation_security_logs",
+      "classification": "RETAIN_ARCHIVE"
+    },
+    {
+      "from": "any_uat_object",
+      "to": "system_alert_runtime",
+      "classification": "KEEP_REGENERABLE_RUNTIME"
+    }
+  ],
+  "authorized_at": "2026-10-06T15:26:42+08:00",
+  "authorized_scope": "R4.3_T01_TO_T05",
+  "cleanup_status": "NOT_STARTED",
+  "stop_reason": {
+    "type": "P1_STOP",
+    "reason": "Production API rate limit blocked required T01 submit/approval continuation",
+    "observed_at": "2026-10-06T15:30:46+08:00",
+    "endpoint": "POST /api/v2/procurement/requests/20/submit",
+    "http": 429,
+    "login_retry_http": 429,
+    "retry_after_login_seconds": 779,
+    "next_action": "wait for rate limit window, reauthenticate through normal login, resume only after operator review"
+  }
 }

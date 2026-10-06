@@ -1,0 +1,230 @@
+{
+  "summary": {
+    "generated_at": "2026-10-06T07:24:38Z",
+    "api_base": "https://erp.eggslao.com/api",
+    "run_id": "UAT-20261006-R4-6b0e3f",
+    "zero_required_checked": 33,
+    "nonzero_expected_zero": {},
+    "http_failures": {},
+    "cash_accounts_total": 77,
+    "cash_balance_mismatch_count": 0,
+    "baseline_gate": "PARTIAL_READONLY_API",
+    "unsupported_checks": {
+      "pos_sessions": {
+        "http": 403,
+        "reason": "legacy POS session table is retired; writes are gone and no dedicated read endpoint exists"
+      }
+    },
+    "baseline_scope": "33 readable zero-required transaction/runtime endpoints; retired POS session table excluded; cash master invariant checked across 77 accounts.",
+    "readable_subset_gate": "PASS",
+    "full_148_sql_baseline": "NOT_AVAILABLE_THROUGH_NORMAL_API"
+  },
+  "checks": {
+    "procurement_requests": {
+      "path": "v2/procurement/requests?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "procurement_orders": {
+      "path": "v2/procurement/orders?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "procurement_receipts": {
+      "path": "v2/procurement/receipts?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "procurement_payments": {
+      "path": "v2/procurement/payments?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "procurement_shipments": {
+      "path": "v2/procurement/shipments?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "sales_orders": {
+      "path": "v2/sales/orders?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "sales_delivery": {
+      "path": "v2/sales/delivery?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "sales_returns": {
+      "path": "v2/sales/returns?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "ar_invoices": {
+      "path": "v2/finance/ar/invoices?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "ar_receipts": {
+      "path": "v2/finance/ar/receipts?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "ap_invoices": {
+      "path": "v2/finance/ap/invoices?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "expenses": {
+      "path": "v2/finance/expenses?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "expense_reimbursements": {
+      "path": "v2/finance/expenses/reimbursements?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "shareholder_contributions": {
+      "path": "v2/finance/shareholders/contributions?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "shareholder_settlements": {
+      "path": "v2/finance/shareholders/settlements?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "cash_transactions": {
+      "path": "v2/finance/cash/transactions?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "cash_transfers": {
+      "path": "v2/finance/cash/transfers?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "workflow_instances": {
+      "path": "workflow/instances?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "workflow_tasks_todo": {
+      "path": "workflow/tasks/todo?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "workflow_tasks_done": {
+      "path": "workflow/tasks/done?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "approval_todos": {
+      "path": "approval/todos?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "approval_history": {
+      "path": "approval/history?limit=1",
+      "http": 200,
+      "count": 0
+    },
+    "inv_batches": {
+      "path": "crud/inv_batches?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "inv_ledger": {
+      "path": "crud/inv_ledger?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "wms_inbound": {
+      "path": "crud/wms_inbound?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "wms_outbound": {
+      "path": "crud/wms_outbound?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "wms_transfer": {
+      "path": "crud/wms_transfer?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "wms_stocktake": {
+      "path": "crud/wms_stocktake?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "wms_inbound_items": {
+      "path": "crud/wms_inbound_items?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "wms_outbound_items": {
+      "path": "crud/wms_outbound_items?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "pos_sales": {
+      "path": "crud/pos_sales?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "pos_sessions": {
+      "path": "crud/pos_sessions?limit=1000",
+      "http": 403,
+      "count": null
+    },
+    "store_receiving": {
+      "path": "crud/store_receiving?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "store_losses": {
+      "path": "crud/store_losses?limit=1000",
+      "http": 200,
+      "count": 0
+    },
+    "cash_accounts_page1": {
+      "path": "v2/finance/cash/accounts?page=1&pageSize=20",
+      "http": 200,
+      "count": 20
+    },
+    "cash_accounts_page2": {
+      "path": "v2/finance/cash/accounts?page=2&pageSize=20",
+      "http": 200,
+      "count": 20
+    },
+    "cash_accounts_page3": {
+      "path": "v2/finance/cash/accounts?page=3&pageSize=20",
+      "http": 200,
+      "count": 20
+    },
+    "cash_accounts_page4": {
+      "path": "v2/finance/cash/accounts?page=4&pageSize=20",
+      "http": 200,
+      "count": 17
+    },
+    "cash_accounts_page5": {
+      "path": "v2/finance/cash/accounts?page=5&pageSize=20",
+      "http": 200,
+      "count": 0
+    },
+    "cash_accounts_page6": {
+      "path": "v2/finance/cash/accounts?page=6&pageSize=20",
+      "http": 200,
+      "count": 0
+    },
+    "cash_accounts_page7": {
+      "path": "v2/finance/cash/accounts?page=7&pageSize=20",
+      "http": 200,
+      "count": 0
+    }
+  },
+  "cash_balance_mismatches": []
+}
