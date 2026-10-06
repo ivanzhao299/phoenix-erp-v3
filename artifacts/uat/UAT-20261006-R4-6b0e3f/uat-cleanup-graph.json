@@ -1,6 +1,6 @@
 {
   "run_id": "UAT-20261006-R4-6b0e3f",
-  "status": "TRACKING_BLOCKED",
+  "status": "CLEANED",
   "roots": [
     {
       "case_id": "T01_PROCUREMENT",
@@ -10,7 +10,7 @@
       "business_no": "PR2-20261006-00001",
       "children": [
         {
-        "table": "prc2_request_items",
+          "table": "prc2_request_items",
           "primary_keys": [
             "21"
           ],
@@ -58,8 +58,8 @@
     }
   ],
   "authorized_at": "2026-10-06T15:26:42+08:00",
-  "authorized_scope": "R4.3_T01_TO_T05",
-  "cleanup_status": "NOT_STARTED",
+  "authorized_scope": "R4.4_POST_R3_INCREMENTAL_TEST_DATA_CLEANUP",
+  "cleanup_status": "COMPLETE",
   "stop_reason": {
     "type": "P1_STOP",
     "reason": "Production API rate limit blocked required T01 submit/approval continuation",
@@ -72,5 +72,57 @@
   },
   "diagnosis_updated_at": "2026-10-06T16:08:47+08:00",
   "evidence_main_sha": "778f5f139a8319b15e694d4afdd5e57b8237c668",
-  "t01_resume_allowed": false
+  "t01_resume_allowed": false,
+  "transactional_uat_status": "ABORTED_BY_USER",
+  "post_r3_reset_epoch": "2026-10-06T13:33:09+08:00",
+  "incremental_cleanup_contract": "scripts/uat/post-r3-incremental-test-data-cleanup.sql",
+  "cleanup_contract_pr": "#356 merged; #357 merged sys_alert preservation fix",
+  "pre_cleanup_targets": [
+    {
+      "table": "prc2_request_items",
+      "primary_key": "21",
+      "pre_rows": 1,
+      "cleanup_action": "DELETE",
+      "reason": "post-R3 PR child; child-before-parent",
+      "dependency_group": "T01_PROCUREMENT"
+    },
+    {
+      "table": "prc2_purchase_requests",
+      "primary_key": "20",
+      "business_no": "PR2-20261006-00001",
+      "pre_rows": 1,
+      "cleanup_action": "DELETE",
+      "reason": "post-R3 PR root",
+      "dependency_group": "T01_PROCUREMENT"
+    },
+    {
+      "table": "sys_notifications",
+      "primary_key": "222520",
+      "pre_rows": 1,
+      "cleanup_action": "DELETE_NON_SYSTEM_ALERT",
+      "reason": "business WORKFLOW_TASK notification; approved SYSTEM_ALERT subset preserved",
+      "dependency_group": "NOTIFICATION_RUNTIME"
+    }
+  ],
+  "actual_delete_rows": 3,
+  "would_delete_rows": 3,
+  "created_objects_remaining": 0,
+  "preserved_runtime": {
+    "sys_cron_heartbeat": {
+      "preserved": true,
+      "post_count": 4
+    },
+    "approved_system_alert_notifications": {
+      "preserved": true,
+      "post_count": 186,
+      "orphan_count": 0
+    },
+    "sys_alerts": {
+      "preserved": true
+    }
+  },
+  "archive_policy": "RETAIN_ARCHIVE",
+  "master_policy": "KEEP_MASTER",
+  "remote_chanjet_cleanup": "DEFERRED_EXTERNAL_MAINTENANCE",
+  "cleanup_completed_at": "2026-10-06T17:42:51+08:00"
 }

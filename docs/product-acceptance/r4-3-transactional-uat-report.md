@@ -1,64 +1,90 @@
-# R4.3 Controlled Transactional UAT Execution
+# R4.3 Controlled Transactional UAT — R4.4 Cleanup Closeout
 
-- `LATEST_MAIN`: `098964f2d5221f7d4decfbf564b3c7f7a7328198`
+- `LATEST_MAIN`: `66d4fed2161bd33c9efa02e4fff4585f9cbd6d7d` (contract and sys-alert preservation fix merged; closeout PR pending)
+- `R3_RESET_EPOCH`: `2026-10-06T13:33:09+08:00`
 - `UAT_RUN_ID`: `UAT-20261006-R4-6b0e3f`
-- `TRANSACTIONAL_UAT_WRITE_AUTHORIZED`: `YES`
-- `AUTHORIZED_SCOPE`: `R4.3_T01_TO_T05`
+- `POST_R3_INCREMENTAL_TEST_DATA_CLEANUP_AUTHORIZED`: `YES`
+- `TRANSACTIONAL_UAT_WRITE_AUTHORIZED`: `YES` (historical R4.3 authorization; no further business writes)
 - `ACCOUNT`: `admin`
-- `NO_APPLICATION_DEPLOY_REQUIRED`: `YES`
+- `AUTOMATED_TRANSACTIONAL_UAT`: `STOPPED`
+- `NEXT_ACTION`: `HUMAN_PRODUCT_ACCEPTANCE`
 
-## Baseline
+## R4.3 execution disposition
 
-The production API health check returned `200`, `env=production`, and `db.connected=true`. A read-only baseline sweep covered 33 readable transaction/runtime endpoint categories. The full requested 148-table SELECT baseline was not independently available through the normal API surface, so this is recorded as a partial baseline rather than a claim that all 148 tables were verified. Procurement, sales, receipts, AR/AP, cash transactions/transfers, inventory batches/ledger, WMS inbound/outbound/transfer/stocktake, POS sales, store receiving/losses, workflow instances/tasks, and approval history/todos were zero. All 77 formal cash accounts satisfied `current_balance=opening_balance`; cash transaction count was zero. The legacy `pos_sessions` table is retired and returned `403 Forbidden Table`; it was recorded as an unsupported read check rather than treated as a business drift.
+The user stopped automated transactional UAT. T01 created only the existing purchase request `PR2-20261006-00001` (id `20`) and item id `21`; the single submit attempt returned HTTP 429. The rate-limit observation remains `UNKNOWN` and is recorded as `DEFERRED_UNRESOLVED_OBSERVATION`. No submit retry, second purchase request, rate-limit configuration change, proxy bypass, or application cancellation was performed. No active rate-limit product-fix track is open.
 
-Chanjet current-state evidence returned `chanjetWrite=false`, `chanjetDelete=false`, `chanjetModify=false`, `voucherPush=false`, and `erpBusinessOverwrite=false`. No Chanjet write endpoint was called.
+| Case | Final result |
+|---|---|
+| T01 Procurement | `ABORTED_AND_CLEANED` |
+| T02 Sales | `NOT_RUN` |
+| T03 WMS | `NOT_RUN` |
+| T04 Finance | `NOT_RUN` |
+| T05 Workflow | `NOT_RUN` |
 
-## Cases
+## R4.4 incremental cleanup
 
-| Case | Result | Evidence |
-|---|---|---|
-| T01 Procurement | `BLOCKED` | Created and verified PR `PR2-20261006-00001` (id `20`) with item id `21`; status remained `DRAFT`. The authenticated submit attempt returned HTTP `429`; a subsequent normal login retry also returned HTTP `429` with `retry-after-login: 779`. No status transition or downstream write was verified. |
-| T02 Sales | `NOT_RUN` | Stopped after T01 P1 block. |
-| T03 WMS | `NOT_RUN` | Stopped after T01 P1 block. |
-| T04 Finance | `NOT_RUN` | Stopped after T01 P1 block. |
-| T05 Workflow | `NOT_RUN` | Stopped after T01 P1 block. |
+The merged maintenance contract is [post-r3-incremental-test-data-cleanup.sql](/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.workbuddy-ai/r4-4-post-r3-test-data-cleanup/scripts/uat/post-r3-incremental-test-data-cleanup.sql). It is derived from the production-verified R3 child-before-parent order and requires explicit `PRODUCTION_INCREMENTAL_CLEANUP_AUTHORIZED=true` for commit. Its default mode is a rollback dry-run. Static safety checks passed, including the 148-table scope, no master/archive deletes, no `sys_cron_heartbeat` mutation, strict preservation of approved `SYSTEM_ALERT/SYS_ALERT` notifications, no `sys_alerts` mutation, no destructive session/trigger/DDL bypass, and approved derived-state update targets only.
 
-The created PR and its child item are fully mapped in the run manifest and cleanup graph. No automatic cleanup was attempted.
+The read-only pre-cleanup inventory found three post-R3 cleanup rows: `prc2_request_items.id=21`, `prc2_purchase_requests.id=20`, and one business `WORKFLOW_TASK` notification (`sys_notifications.id=222520`). The dry-run passed with `WOULD_DELETE_ROWS=3`; the merged contract then committed exactly three deletes. The corrected child table name is `prc2_request_items`.
 
-## Assertions
+A fresh custom-format backup was taken while API and Web writers were stopped:
 
-- `CREATED_ROOT_OBJECTS`: `1`
-- `CREATED_TOTAL_TRACKED_OBJECTS`: `2`
-- `UNATTRIBUTED_NEW_BUSINESS_ROWS`: `0` for the created UAT objects; full 148-table SQL baseline remains unverified through the normal API surface.
-- `POST_UAT_BASELINE`: `NOT_RUN_RATE_LIMIT`; no downstream writes occurred after the T01 block, but a fresh authenticated read-only sweep is required.
-- `INVENTORY_ASSERTION`: `PASS` for the readable pre-write endpoint subset; no UAT inventory movement created.
-- `FINANCE_ASSERTION`: `PASS` for the readable pre-write cash invariant; no UAT finance movement created.
-- `WORKFLOW_ASSERTION`: `NOT_RUN`
-- `DATASCOPE_ASSERTION`: `PASS` on created PR company/project/warehouse references; downstream scope chain not run.
-- `P0_DEFECTS`: `0`
-- `P1_DEFECTS`: `1` operational block — production login rate limit prevented T01 continuation.
-- `P2_DEFECTS`: `0`
-- `CHANJET_REIMPORT_GUARD`: `PASS` based on live Chanjet guardrails; no external write was attempted.
-- `IOT_ALERT_BUSINESS_REVIEW`: `PENDING`
-- `TRANSACTIONAL_TECHNICAL_UAT`: `PARTIAL` (T01 blocked; full 148-table baseline unavailable)
-- `HUMAN_BUSINESS_UAT`: `PENDING`
-- `CLEANUP_MANIFEST_READY`: `YES` for the created PR root/child; downstream branches have no created objects.
-- `CLEANUP_STATUS`: `NOT_STARTED`
+- Path: `/home/phoenix-codex-deploy/post-r3-test-cleanup-evidence/20261006T170333+0800/phoenix_erp_post_r3_precleanup.dump`
+- Size: `194513276` bytes
+- TOC: `2941` entries
+- SHA-256: `ac1b15592aa591fa6150f57e51a16da8471840ce3facba93ead1f418e1b2902f`
 
-## Next action
+Post-commit read-only evidence passed:
 
-`PRODUCT_DEFECT_TRACK` for the production login rate-limit window, then resume the same run only after normal admin authentication succeeds. Do not create a new run ID and do not perform cleanup automatically.
+- PR 20: absent; item 21: absent; UAT run business objects remaining: `0`
+- Business notifications: `0`
+- Approved system-alert notifications: `186`, with `0` orphaned alert references
+- `sys_cron_heartbeat`: `4` rows preserved; no cleanup mutation
+- `sys_alerts`: preserved; IOT `IOT_DEVICE_ALERT/WARNING` remains for `IOT_ALERT_BUSINESS_REVIEW=PENDING`
+- AR invoices/receipts/ledger: `0`; inventory batches/ledger: `0`; workflow approval/runtime facts: `0`
+- Cash transactions: `0`; `current_balance=opening_balance` mismatch: `0`
+- Audit/operation/file evidence remains retained (`sys_audit_log=141649`, `sys_operation_logs=339`, `file_metadata=56` at postcheck)
+- Chanjet reimport guard: `PASS`; read-only sync and ERP inbound flags remain `false`; remote Chanjet cleanup is `DEFERRED_EXTERNAL_MAINTENANCE`
 
-## R4.3A rate-limit diagnosis
+The production API and Web services are restored from their pinned images after the database postcheck. No application deploy or image pull was performed.
 
-- `LOGIN_429_CLASSIFICATION`: `EXPECTED_SECURITY_THROTTLE`. The source config applies the production-only 15-minute/10-attempt bucket to `POST /api/auth/login`; one normal login after the window recovered with HTTP 200 and `/api/auth/me` returned HTTP 200 for `admin`.
-- `PROCUREMENT_SUBMIT_429_ORIGIN`: `UNKNOWN`. The exact route is `POST /api/v2/procurement/requests/20/submit`; its controller has only `MenuGuard` and `DataScopeGuard`, and source review found no procurement `ThrottlerGuard`, `@Throttle`, custom limiter, queue limiter, or idempotency limiter. Repository Nginx config has no `limit_req`, `limit_conn`, `burst`, `nodelay`, or `429` directive; production proxy/WAF runtime remains unverified.
-- `PROCUREMENT_APPLICATION_THROTTLER`: `NO`
-- `PROXY_RATE_LIMIT_FOUND`: `NO_IN_REPO_CONFIG_RUNTIME_UNKNOWN`
-- `FAILED_SUBMIT_PARTIAL_SIDE_EFFECT`: `NO`. A production `BEGIN READ ONLY` check confirmed PR `20` is still `DRAFT`, item `21` exists, and there are zero matching approval instances/steps/logs, notifications, orders, inventory, or finance facts.
-- `AUTH_WINDOW_RECOVERY`: `PASS`
-- `T01_RESUME_ALLOWED`: `NO`; the submit 429 origin is not understood and the single-submit rule forbids a retry yet.
+## Final status fields
 
-The first submit response body/headers were not captured, so the submit 429 cannot be classified as Nest, proxy, WAF, re-auth, or another limiter from current evidence.
+```text
+T01_PROCUREMENT=ABORTED_AND_CLEANED
+T02_SALES=NOT_RUN
+T03_WMS=NOT_RUN
+T04_FINANCE=NOT_RUN
+T05_WORKFLOW=NOT_RUN
 
-`EVIDENCE_MAIN_SHA=778f5f139a8319b15e694d4afdd5e57b8237c668`
+CREATED_ROOT_OBJECTS=1 (historical; remaining=0)
+CREATED_TOTAL_TRACKED_OBJECTS=2 (historical; remaining=0)
+UNATTRIBUTED_NEW_BUSINESS_ROWS=0
+
+INVENTORY_ASSERTION=PASS
+FINANCE_ASSERTION=PASS
+WORKFLOW_ASSERTION=PASS (zero runtime after cleanup)
+DATASCOPE_ASSERTION=PASS (created PR references were in expected scope)
+
+P0_DEFECTS=0
+P1_DEFECTS=0 after cleanup; prior T01 rate-limit block retained as deferred observation
+P2_DEFECTS=0
+
+PROCUREMENT_SUBMIT_429_ORIGIN=UNKNOWN
+RATE_LIMIT_STATUS=DEFERRED_UNRESOLVED_OBSERVATION
+NO_ACTIVE_RATE_LIMIT_PRODUCT_FIX_TRACK=YES
+
+CLEANUP_MANIFEST_READY=YES
+CLEANUP_STATUS=COMPLETE
+PRODUCTION_CLEANUP_COMMITTED=YES
+ACTUAL_DELETE_ROWS=3
+PR20=ABSENT
+PR_ITEM21=ABSENT
+UAT_RUN_OBJECTS_REMAINING=0
+
+HUMAN_BUSINESS_UAT=PENDING
+IOT_ALERT_BUSINESS_REVIEW=PENDING
+NEXT_ACTION=HUMAN_PRODUCT_ACCEPTANCE
+```
+
+Machine-readable evidence is in `uat-run-manifest.json`, `uat-cleanup-graph.json`, `uat-case-results.json`, `post-r3-zero-required-precounts.csv`, `post-r3-incremental-cleanup-manifest.csv`, and `r4-4-postcheck.txt` in the frozen run artifact directory. Audit, security, operation, rate-limit diagnosis, and UAT evidence are retained; no credentials, tokens, cookies, raw secrets, backup, or raw production rows are committed.

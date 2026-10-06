@@ -1,0 +1,63 @@
+BEGIN
+SET
+         metric         | value 
+------------------------+-------
+ BUSINESS_NOTIFICATIONS |     0
+(1 row)
+
+ metric | value 
+--------+-------
+ PR20   |     0
+(1 row)
+
+  metric   | value 
+-----------+-------
+ PR_ITEM21 |     0
+(1 row)
+
+       metric       | value 
+--------------------+-------
+ SYS_CRON_HEARTBEAT |     4
+(1 row)
+
+               metric                | value 
+-------------------------------------+-------
+ APPROVED_SYSTEM_ALERT_NOTIFICATIONS |   186
+(1 row)
+
+        metric        | value 
+----------------------+-------
+ SYSTEM_ALERT_ORPHANS |     0
+(1 row)
+
+    metric     | value 
+---------------+-------
+ CASH_MISMATCH |     0
+(1 row)
+
+      metric       | value 
+-------------------+-------
+ INVENTORY_BATCHES |     0
+(1 row)
+
+      metric      | value 
+------------------+-------
+ INVENTORY_LEDGER |     0
+(1 row)
+
+   metric    | value 
+-------------+-------
+ AR_INVOICES |     0
+(1 row)
+
+   metric    | value 
+-------------+-------
+ AR_RECEIPTS |     0
+(1 row)
+
+  metric   | value 
+-----------+-------
+ AR_LEDGER |     0
+(1 row)
+
+ROLLBACK
