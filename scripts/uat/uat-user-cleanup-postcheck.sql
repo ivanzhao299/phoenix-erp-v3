@@ -21,4 +21,28 @@ SELECT count(*) AS remaining_project_scope_rows
 FROM public.sys_user_project_scopes WHERE user_id = 298;
 SELECT count(*) AS remaining_warehouse_scope_rows
 FROM public.sys_user_warehouse_scopes WHERE user_id = 298;
+SELECT username, status
+FROM public.sys_user
+WHERE username = ANY(ARRAY['pilot_sales','pilot_cashier','pilot_driver','pilot_finance','pilot_manager'])
+ORDER BY username;
+SELECT count(*) AS wang_ceo_rows_unchanged
+FROM public.sys_user
+WHERE username = 'wang_ceo';
+DO $$
+DECLARE
+  retained_rows bigint;
+  wang_rows bigint;
+BEGIN
+  SELECT count(*) INTO retained_rows
+  FROM public.sys_user
+  WHERE username = ANY(ARRAY['pilot_sales','pilot_cashier','pilot_driver','pilot_finance','pilot_manager'])
+    AND status = 0;
+  IF retained_rows <> 5 THEN
+    RAISE EXCEPTION 'retained frozen user check failed: %', retained_rows;
+  END IF;
+  SELECT count(*) INTO wang_rows FROM public.sys_user WHERE username = 'wang_ceo';
+  IF wang_rows <> 1 THEN
+    RAISE EXCEPTION 'wang_ceo scope check failed: %', wang_rows;
+  END IF;
+END $$;
 ROLLBACK;
