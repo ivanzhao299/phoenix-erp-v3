@@ -2,23 +2,23 @@
 public,brd_farms,FARM/PRODUCTION,KEEP_MASTER,2,8192,farm_code,NOT_PRESENT,NONE,NONE,0,KEEP,"formal master data, RBAC, configuration, or technical metadata"
 public,brd_houses,FARM/PRODUCTION,KEEP_MASTER,7,8192,house_code,NOT_PRESENT,NONE,NONE,0,KEEP,"formal master data, RBAC, configuration, or technical metadata"
 public,brd_flocks,FARM/PRODUCTION,KEEP_MASTER,10,8192,flock_no,NOT_PRESENT,NONE,NONE,0,KEEP,"formal master data, RBAC, configuration, or technical metadata"
-public,chn_distributor_grading,OTHER,UNKNOWN,NOT_AVAILABLE,0,id,id,NONE,NONE,0,BLOCK_EXECUTION,legacy/current schema boundary requires explicit review before reset
+public,chn_distributor_grading,OTHER,KEEP_MASTER,NOT_AVAILABLE,0,id,id,NONE,NONE,0,KEEP_MASTER,live schema/code review: formal master or configuration
 public,crm_members,CRM,KEEP_MASTER,NOT_AVAILABLE,0,id,member_id,NONE,NONE,0,KEEP_MASTER,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,crm_levels,CRM,KEEP_MASTER,NOT_AVAILABLE,0,id,level_name,NONE,NONE,0,KEEP_MASTER,"schema/code review: formal master, configuration, or derived field on a retained master"
 public,crm_points_log,CRM,DELETE_TRANSACTION,NOT_AVAILABLE,0,id,id,NONE,NONE,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
 public,crm_points_ledger,CRM,DELETE_TRANSACTION,NOT_AVAILABLE,0,id,"member_id,period",NONE,NONE,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
 public,crm_points_rules,CRM,KEEP_MASTER,NOT_AVAILABLE,0,id,id,NONE,NONE,0,KEEP_MASTER,"schema/code review: formal master, configuration, or derived field on a retained master"
-public,crm_coupons,CRM,UNKNOWN,NOT_AVAILABLE,0,id,coupon_code,NONE,NONE,0,BLOCK_EXECUTION,mixed or ambiguous master/transaction/configuration semantics require explicit boundary review
-public,crm_activities,CRM,UNKNOWN,NOT_AVAILABLE,0,id,id,NONE,NONE,0,BLOCK_EXECUTION,mixed or ambiguous master/transaction/configuration semantics require explicit boundary review
+public,crm_coupons,CRM,KEEP_MASTER,NOT_AVAILABLE,0,id,coupon_code,NONE,NONE,0,KEEP_MASTER,live schema/code review: formal master or configuration
+public,crm_activities,CRM,KEEP_MASTER,NOT_AVAILABLE,0,id,id,NONE,NONE,0,KEEP_MASTER,live schema/code review: formal master or configuration
 public,b2b_customers,B2B,KEEP_MASTER,NOT_AVAILABLE,0,id,customer_code,NONE,NONE,0,KEEP,master or configuration object; review formal/test status separately
 public,b2b_orders,B2B,DELETE_TRANSACTION,NOT_AVAILABLE,0,id,order_no,NONE,NONE,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
 public,b2b_order_items,B2B,DELETE_TRANSACTION,NOT_AVAILABLE,0,id,id,NONE,NONE,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
 public,ws_contracts,WORKSPACE,DELETE_TRANSACTION,NOT_AVAILABLE,0,id,contract_no,NONE,NONE,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
 public,ws_shipments,WORKSPACE,DELETE_TRANSACTION,NOT_AVAILABLE,0,id,shipment_no,NONE,NONE,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
-public,log_vehicles,LOGISTICS,UNKNOWN,NOT_AVAILABLE,0,id,vehicle_no,NONE,NONE,0,BLOCK_EXECUTION,legacy/current schema boundary requires explicit review before reset
-public,log_drivers,LOGISTICS,UNKNOWN,NOT_AVAILABLE,0,id,driver_id,NONE,NONE,0,BLOCK_EXECUTION,legacy/current schema boundary requires explicit review before reset
+public,log_vehicles,LOGISTICS,ARCHIVE,NOT_AVAILABLE,0,id,vehicle_no,NONE,NONE,0,ARCHIVE_OR_RETAIN,Sales V2 marks legacy table read-only/replaced; retain historical rows pending retention decision
+public,log_drivers,LOGISTICS,ARCHIVE,NOT_AVAILABLE,0,id,driver_id,NONE,NONE,0,ARCHIVE_OR_RETAIN,Sales V2 marks legacy table read-only/replaced; retain historical rows pending retention decision
 public,log_dispatch,LOGISTICS,DELETE_TRANSACTION,NOT_AVAILABLE,0,id,wave_no,NONE,NONE,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
-public,log_routes,LOGISTICS,UNKNOWN,NOT_AVAILABLE,0,id,route_code,NONE,NONE,0,BLOCK_EXECUTION,legacy/current schema boundary requires explicit review before reset
+public,log_routes,LOGISTICS,ARCHIVE,NOT_AVAILABLE,0,id,route_code,NONE,NONE,0,ARCHIVE_OR_RETAIN,Sales V2 marks legacy table read-only/replaced; retain historical rows pending retention decision
 public,log_receipts,LOGISTICS,DELETE_TRANSACTION,NOT_AVAILABLE,0,id,receipt_no,NONE,NONE,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
 public,log_exceptions,LOGISTICS,DELETE_TRANSACTION,NOT_AVAILABLE,0,id,id,NONE,NONE,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
 public,qa_standards,QUALITY,KEEP_MASTER,NOT_AVAILABLE,0,id,std_code,NONE,NONE,0,KEEP_MASTER,"schema/code review: formal master, configuration, or derived field on a retained master"
@@ -76,7 +76,7 @@ public,sys_dict,SYSTEM,KEEP_MASTER,467,131072,id,"dict_type,dict_code",NONE,NONE
 public,sys_approval_flows,SYSTEM,KEEP_MASTER,NOT_AVAILABLE,0,id,flow_code,NONE,NONE,0,KEEP,system/RBAC/configuration boundary
 public,sys_permissions,SYSTEM,KEEP_MASTER,NOT_AVAILABLE,0,id,perm_code,NONE,NONE,0,KEEP,"formal master data, RBAC, configuration, or technical metadata"
 public,brd_daily_logs,FARM/PRODUCTION,DELETE_TRANSACTION,0,16384,id,"log_date,house_code,shift;log_date,house_code,shift",NONE,NONE,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
-public,brd_medications,FARM/PRODUCTION,UNKNOWN,91,16384,id,medication_code,NONE,NONE,0,BLOCK_EXECUTION,mixed or ambiguous master/transaction/configuration semantics require explicit boundary review
+public,brd_medications,FARM/PRODUCTION,KEEP_MASTER,91,16384,id,medication_code,NONE,NONE,0,KEEP_MASTER,live schema/code review: formal master or configuration
 public,inv_batches,INVENTORY,DELETE_TRANSACTION,299,81920,id,batch_no,NONE,store_sale_allocations:a:store_sale_allocations_batch_no_fkey;wms_transfer_items:r:wms_transfer_items_source_batch_no_fkey;sal_order_item_batch_allocations:r:sal_order_item_batch_allocations_batch_no_fkey,1,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
 public,inv_ledger,INVENTORY,DELETE_TRANSACTION,130,32768,id,id,NONE,sal_order_item_batch_allocations:r:sal_order_item_batch_allocations_reservation_ledger_id_fkey;sal_order_item_batch_allocation_actions:r:sal_order_item_batch_allocation_actions_ledger_id_fkey,0,DELETE_ALL_ROWS,all current business transaction facts are test data under approved reset policy
 public,wms_warehouses,WMS,KEEP_MASTER,21,16384,id,warehouse_code,store_master:r:fk_wms_warehouse_owner_store,store_warehouse_bindings:a:store_warehouse_bindings_warehouse_code_fkey;store_replenishment_requests:a:store_replenishment_requests_source_warehouse_code_fkey;store_replenishment_requests:a:store_replenishment_requests_target_warehouse_code_fkey;sal_sales_orders:a:sal_sales_orders_fulfillment_warehouse_code_fkey;sal_delivery_orders:a:sal_delivery_orders_fulfillment_warehouse_code_fkey;sal_return_orders:a:sal_return_orders_target_warehouse_code_fkey,1,KEEP,"formal master data, RBAC, configuration, or technical metadata"
@@ -230,7 +230,7 @@ public,sys_notification_channels,SYSTEM,KEEP_MASTER,NOT_AVAILABLE,0,channel_code
 public,sys_notification_log,SYSTEM,DELETE_RUNTIME,NOT_AVAILABLE,0,id,id,NONE,NONE,0,DELETE_ALL_ROWS,current runtime state is cleared under transaction reset policy
 public,sys_user_notification_prefs,SYSTEM,KEEP_MASTER,NOT_AVAILABLE,0,"user_id,category",NOT_PRESENT,NONE,NONE,0,KEEP,"formal master data, RBAC, configuration, or technical metadata"
 public,_backup_sys_role_menu_permission_pre_g5a,OTHER,KEEP_MASTER,730,65536,NOT_PRESENT,NOT_PRESENT,NONE,NONE,0,KEEP,"formal master data, RBAC, configuration, or technical metadata"
-public,fin_ar_ledger,FINANCE,UNKNOWN,98,24576,id,"farm_code,counterparty_name,period_date",NONE,NONE,0,BLOCK_EXECUTION,mixed or ambiguous master/transaction/configuration semantics require explicit boundary review
+public,fin_ar_ledger,FINANCE,EXTERNAL_GATE,98,24576,id,"farm_code,counterparty_name,period_date",NONE,NONE,0,EXTERNAL_REVIEW_REQUIRED,ERP/Chanjet AR ledger and opening-balance facts require approved reconciliation
 public,product_master,OTHER,KEEP_MASTER,NOT_AVAILABLE,0,id,product_code,NONE,NONE,0,KEEP,"formal master data, RBAC, configuration, or technical metadata"
 public,fin_bank_accounts,FINANCE,KEEP_MASTER,NOT_AVAILABLE,0,id,bank_account_code,NONE,NONE,0,KEEP,"formal master data, RBAC, configuration, or technical metadata"
 public,mst_materials,MASTER,KEEP_MASTER,NOT_AVAILABLE,0,id,material_code,NONE,NONE,0,KEEP,"formal master data, RBAC, configuration, or technical metadata"
