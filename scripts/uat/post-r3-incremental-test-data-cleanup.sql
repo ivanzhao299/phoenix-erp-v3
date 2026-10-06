@@ -335,7 +335,7 @@ SELECT 'approved_system_alert_notifications'::text,
 UNION ALL
 SELECT 'sys_alerts'::text,
        count(*)::bigint,
-       md5(COALESCE(string_agg(id::text || '|' || COALESCE(alert_type,'') || '|' || COALESCE(status,''), '|' ORDER BY id), ''))
+       md5(COALESCE(string_agg(id::text || '|' || COALESCE(alert_type,'') || '|' || COALESCE(severity,'') || '|' || COALESCE(resolved::text,''), '|' ORDER BY id), ''))
   FROM public.sys_alerts;
 SELECT table_name,classification,pre_rows FROM r2_baseline ORDER BY table_name;
 DO $$ BEGIN IF (SELECT count(*) FROM public.chanjet_writeback_outbox WHERE state IN ('PENDING','QUEUED','RETRYING')) <> 0 THEN RAISE EXCEPTION 'pending Chanjet writeback'; END IF; IF (SELECT count(*) FROM public.chanjet_wms_writeback_outbox WHERE state IN ('PENDING','QUEUED','RETRYING')) <> 0 THEN RAISE EXCEPTION 'pending WMS writeback'; END IF; END $$;
@@ -812,7 +812,7 @@ BEGIN
   IF actual_count<>expected_count OR actual_digest<>expected_digest THEN RAISE EXCEPTION 'approved system notifications changed'; END IF;
   IF (SELECT count(*) FROM public.sys_notifications WHERE NOT (notification_type='SYSTEM_ALERT' AND biz_type='SYS_ALERT' AND link_type='SYSTEM_ALERT'))<>0 THEN RAISE EXCEPTION 'business notifications remain'; END IF;
   SELECT row_count,digest INTO expected_count,expected_digest FROM r44_runtime_baseline WHERE label='sys_alerts';
-  SELECT count(*),md5(COALESCE(string_agg(id::text || '|' || COALESCE(alert_type,'') || '|' || COALESCE(status,''), '|' ORDER BY id), '')) INTO actual_count,actual_digest FROM public.sys_alerts;
+  SELECT count(*),md5(COALESCE(string_agg(id::text || '|' || COALESCE(alert_type,'') || '|' || COALESCE(severity,'') || '|' || COALESCE(resolved::text,''), '|' ORDER BY id), '')) INTO actual_count,actual_digest FROM public.sys_alerts;
   IF actual_count<>expected_count OR actual_digest<>expected_digest THEN RAISE EXCEPTION 'sys_alerts changed'; END IF;
 END $$;
 SELECT 'R4_4_INCREMENTAL_PRECOMMIT_PASS' AS result, (SELECT COALESCE(sum(deleted_rows),0) FROM r2_deleted) AS deleted_rows;
