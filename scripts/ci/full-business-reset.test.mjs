@@ -95,3 +95,5 @@ for (const table of r3DeleteTables) {
   assert(cls && ['DELETE_TRANSACTION', 'DELETE_RUNTIME', 'EXTERNAL_GATE', 'RESET_DERIVED'].includes(cls), `R3 unsafe delete class ${table}=${cls}`);
 }
 assert(!/\\bROLLBACK;\s*$/m.test(r3), 'R3 execution contract must not terminate with ROLLBACK');
+
+// R3 parity gate is intentionally kept with the reset safety checks.
