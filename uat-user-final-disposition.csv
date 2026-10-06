@@ -1,0 +1,7 @@
+﻿user_id,username,business_decision,current_status,u2a_recommendation,historical_reference,audit_reference,formal_business_reference,hard_delete_safe,physical_delete_necessary,final_disposition,reason
+295,pilot_sales,DELETE,0,RETAIN_FROZEN,NO,NO,NO,NO,NO,RETAIN_FROZEN,角色授权关系 1 行；当前已冻结，保留身份归因。 [U2B]
+296,pilot_cashier,DELETE,0,RETAIN_FROZEN,NO,NO,NO,NO,NO,RETAIN_FROZEN,角色授权关系 1 行；当前已冻结，保留身份归因。 [U2B]
+297,pilot_driver,DELETE,0,RETAIN_FROZEN,NO,NO,NO,NO,NO,RETAIN_FROZEN,角色授权关系 1 行；当前已冻结，保留身份归因。 [U2B]
+298,pilot_wms,DELETE,0,HARD_DELETE,NO,NO,NO,YES,YES,HARD_DELETE,业务决定为 DELETE；最终 drift check 无任何引用、绑定或登录；仅进入 U2C 授权，未执行。 [U2B]
+299,pilot_finance,DELETE,0,RETAIN_FROZEN,NO,NO,NO,NO,NO,RETAIN_FROZEN,角色授权关系 1 行；当前已冻结，保留身份归因。 [U2B]
+300,pilot_manager,DELETE,0,RETAIN_FROZEN,YES,NO,YES,NO,NO,RETAIN_FROZEN,存在 sal_price_books.created_by 逻辑归因；不得改写创建人。 [U2B]
