@@ -30,7 +30,7 @@ PRODUCTION_DATA_MUTATION=NO
 PRODUCTION_DATA_WRITE_REQUIRED=NO
 CHANJET_CHANGE=NO
 
-Security/DataScope: all new reads use the existing guarded/scoped lookups or warehouse-scoped zone CRUD; no permission/scope policy changed. SKU uses the official authenticated business inventory-items lookup, avoiding SKU-maintenance PBAC. Packaging's unused master CRUD preload was replaced with scoped lookups. Bulk maps are derived from one read per master domain, with bounded pagination for zones; no N+1 requests. Mutation-call AST comparison across all 27 modified pages (26 fixes plus the reference-page canonical-name protection) passed with identical mutation expressions; API, schema, RBAC, workflow and deployment configuration have no diff. Independent reviewer verified endpoint scope and raised customer projection/SKU PBAC/dashboard duplicate-name issues, all corrected with coverage.
+Security/DataScope: all new reads use the existing guarded/scoped lookups or warehouse-scoped zone CRUD; no permission/scope policy changed. SKU uses the official authenticated business inventory-items lookup, avoiding SKU-maintenance PBAC. Packaging's unused master CRUD preload was replaced with scoped lookups. Bulk maps are derived from one read per master domain, with bounded pagination for zones; no N+1 requests. Mutation-call AST comparison across all 27 modified pages (26 fixes plus the reference-page canonical-name protection) passed with identical mutation expressions; The display PR #360 has no API, schema, RBAC, workflow or deployment configuration diff. Supplemental PR #361 changes only the read-query ordering and scoped deployment Git preflight described below. Independent reviewer verified endpoint scope and raised customer projection/SKU PBAC/dashboard duplicate-name issues, all corrected with coverage.
 
 TEST_RESULT=
 - API typecheck: PASS (Node 20.20.2 / pnpm 9.15.9).
@@ -46,15 +46,25 @@ Failure classification and evidence: initial Linux Chromium failed before any pa
 
 PRODUCTION_BASELINE=Read-only legal account login from the user-provided credential file; token/password stayed in memory and were never logged or committed. API health/readiness/Web returned 200. Real record LPH_MS_F02: farmName=孟赛蛋鸡场, farmCode=LPH_MENGSAI; houseName=2号鸡舍, houseCode=HOUSE_MS_02. Baseline flock house cell was code-only in zh/lo/en. Farm code, house code and house-name searches failed; farm-name search succeeded. No business write was attempted.
 
-PR_NUMBER=360
-MERGED_MAIN_SHA=43a9dbde741c71317e0fd554b36499e1ee1e860f (display PR #360)
-DEPLOYED_REVISION=PENDING
-REQUIRED_CI=PASS for display PR #360 (10 executed checks successful; deployment-only PR jobs skipped)
-PRODUCTION_DEPLOY=PENDING
-PRODUCTION_UI_ACCEPTANCE=PENDING
-PRODUCT_ACCEPTANCE_FEEDBACK_STATUS=PARTIAL (implementation and local validation complete; release/production acceptance pending)
+PR_NUMBER=360 (display), 361 (minimal read-query/deploy-preflight blockers)
+DISPLAY_MERGED_MAIN_SHA=43a9dbde741c71317e0fd554b36499e1ee1e860f
+MERGED_MAIN_SHA=40c8990c268c7780389fe2d9b8b742d4cd6a5e03
+DEPLOYMENT_RUN=37601215333
+DEPLOYED_REVISION=5425089bcb51338d4780d6f37782440bade8b90c (unchanged old production Web; not the release target)
+REQUIRED_CI=PASS for both PRs (each final head: 10 executed checks SUCCESS; deployment-only PR jobs SKIPPED)
+PRODUCTION_DEPLOY=FAIL / BLOCKED before code sync or container switch
+PRODUCTION_UI_ACCEPTANCE=FAIL for the new contract because the release has not reached production
+PRODUCT_ACCEPTANCE_FEEDBACK_STATUS=BLOCKED
 
-Release plan: open PR, require green required CI, merge, dispatch official deploy.yml on main with mode=web/approve_production=true, assert run SHA and deployed Web build SHA match the merged main, then read-only acceptance with Windows Chrome/CDP. Web mode skips migrations and API restart. Post-deployment evidence will be appended with verified run/PR/revision identifiers, real locale/search results and per-page smoke outcomes.
+Official full deployment targeted only merged main 40c8990c, with preserve_artifacts=true and explicit production approval. Detection, typecheck/regression and both image builds passed. The SSH phase exited 20 at the clean-worktree gate: ` M docker-compose.yml` and `?? .env.pre-verification-20261005T114700+08:00`. No stash, reset, file removal, ownership change or deployment guard weakening was performed. The existing Git trust blocker is resolved; this is a separate pre-existing server configuration/state blocker requiring an authorized operator to preserve/reconcile the compose configuration and relocate the retained backup outside the checkout. No backup contents or production credentials were read or committed.
+
+The dirty gate occurs before Git pull, environment injection, Compose/DB/migration operations and API/Web switches, and before the rollback trap is installed (deploy.yml:748-755). Independent review confirmed the source-order boundary. The workflow's initial manual `run_mig=true` is a mode default, not evidence of a migration: the production migration diff/recalculation was never reached. The migration-path diff from the observed old Web commit to the release target is empty. Both failed deployment attempts performed no production migration or business data mutation.
+
+After the failed attempt, a fresh Windows Chrome/CDP legal-account read confirmed the old Web revision and DB/API/readiness/Web health. Flock farm still lacks its code and house is still code-only. zh/lo/en have not passed the new production contract; old Lao/English hydrator output is also incorrect. Farm code, house code and house-name searches still fail; farm-name search succeeds. Price-anomaly GET remains the old HTTP 400. All new-contract PASS claims are limited to local/unit/E2E/CI validation until release succeeds.
+
+Expanded pre-deploy read-only smoke: 26 fixed routes plus henhouse reference, 38 initial/detail/tab views, three locales. Nine scoped master lookup domains returned 200; no page errors or business-write attempts. Only the known pre-existing price-anomaly GET returned 400. Empty/no-matching-master views are read-only navigation checks; actual name/code verification requires visible protected labels matched against authoritative scoped lookup names. Table row counts and detail clicks alone are not proof of that contract. The acceptance account has legitimate master CRUD read permission; normal flock viewers are additionally covered by the fixture that denies maintenance CRUD while permitting business lookup reads.
+
+NEXT_ACTION=Preserve/reconcile the production compose configuration and move the retained env backup safely outside Git; confirm clean main; retry official full deployment on the then-current green-CI merged main; verify its exact Web revision and real locale/name/code/search contracts. Return to human product acceptance only after those pass. This report records the current blocked state and is not a CLOSED acceptance claim.
 
 Initial CI run 37594128804 failed the repository's pre-existing all-application freeze policy (49 path hits, no forbidden content). After independent review of the authorized display-only change, PR #360 registers the existing reviewed-frozen-boundary label. No gate implementation was changed or weakened. Local `ALLOW_FREEZE_TOUCH=true node scripts/ci/check-w5-closeout-gate.mjs` passed all 21 checks; security/ownership/i18n checks stayed enabled. A new commit triggers CI with the updated PR review metadata; the first red run remains recorded.
 
