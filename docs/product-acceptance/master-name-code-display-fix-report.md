@@ -46,7 +46,7 @@ Failure classification and evidence: initial Linux Chromium failed before any pa
 
 PRODUCTION_BASELINE=Read-only legal account login from the user-provided credential file; token/password stayed in memory and were never logged or committed. API health/readiness/Web returned 200. Real record LPH_MS_F02: farmName=孟赛蛋鸡场, farmCode=LPH_MENGSAI; houseName=2号鸡舍, houseCode=HOUSE_MS_02. Baseline flock house cell was code-only in zh/lo/en. Farm code, house code and house-name searches failed; farm-name search succeeded. No business write was attempted.
 
-PR_NUMBER=PENDING
+PR_NUMBER=360
 MERGED_MAIN_SHA=PENDING
 DEPLOYED_REVISION=PENDING
 REQUIRED_CI=PENDING
@@ -55,3 +55,5 @@ PRODUCTION_UI_ACCEPTANCE=PENDING
 PRODUCT_ACCEPTANCE_FEEDBACK_STATUS=PARTIAL (implementation and local validation complete; release/production acceptance pending)
 
 Release plan: open PR, require green required CI, merge, dispatch official deploy.yml on main with mode=web/approve_production=true, assert run SHA and deployed Web build SHA match the merged main, then read-only acceptance with Windows Chrome/CDP. Web mode skips migrations and API restart. Post-deployment evidence will be appended with verified run/PR/revision identifiers, real locale/search results and per-page smoke outcomes.
+
+Initial CI run 37594128804 failed the repository's pre-existing all-application freeze policy (49 path hits, no forbidden content). After independent review of the authorized display-only change, PR #360 registers the existing reviewed-frozen-boundary label. No gate implementation was changed or weakened. Local `ALLOW_FREEZE_TOUCH=true node scripts/ci/check-w5-closeout-gate.mjs` passed all 21 checks; security/ownership/i18n checks stayed enabled. A new commit triggers CI with the updated PR review metadata; the first red run remains recorded.
