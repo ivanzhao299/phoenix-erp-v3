@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatBusinessEnum } from '@/lib/business-display';
 import { RefreshCw, Search } from 'lucide-react';
@@ -71,6 +74,7 @@ export default function MedStockPage() {
     can
   } = usePermission();
   const { t, lang } = useLanguage();
+  const houseNames = useMasterNames('house');
   // G24-A：PBAC 收口 — 药品库存归 MENU_FARM_VET 域
   const { canEdit } = usePermission('MENU_FARM_VET');
   const [tab, setTab] = useState<Tab>('stock');
@@ -436,7 +440,7 @@ export default function MedStockPage() {
               }}>
                         {e.qty_change > 0 ? '+' : ''}{e.qty_change}
                       </td>
-                      <td className={u.muted}>{e.house_code ?? '—'}</td>
+                      <td className={u.muted}><MasterLabel>{masterDisplayLabel(houseNames, 'house', e.house_code, lang, e)}</MasterLabel></td>
                       <td className={u.muted12}>{e.note ?? '—'}</td>
                       <td className={u.muted}>{e.operator}</td>
                     </tr>)}

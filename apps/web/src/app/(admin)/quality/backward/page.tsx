@@ -4,6 +4,8 @@ import { crudApi } from "@/lib/api-client";
 import { DataTable } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
+import { formatMasterData } from '@/lib/business-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -11,15 +13,15 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const TABLE = "inv_batches";
 
 export default function BackwardTracePage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const TITLE = t("ui.反向追溯","反向追溯");
 
   const COLUMNS = [
     { key: "batch_no",       title: t("ui.批次号","批次号") },
-    { key: "product_code",   title: t("ui.产品编码","产品编码") },
-    { key: "warehouse_code", title: t("ui.仓库","仓库") },
-    { key: "location_code",  title: t("ui.库位","库位") },
+    { key: "product_code",   title: t("ui.产品编码","产品编码") , render: (v: unknown, row: Record<string, unknown>) => <MasterLabel>{formatMasterData(row, 'product_name', v, lang)}</MasterLabel> },
+    { key: "warehouse_code", title: t("ui.仓库","仓库") , render: (v: unknown, row: Record<string, unknown>) => <MasterLabel>{formatMasterData(row, 'warehouse_name', v, lang, { canonicalFallback: true })}</MasterLabel> },
+    { key: "location_code",  title: t("ui.库位","库位") , render: (v: unknown, row: Record<string, unknown>) => <MasterLabel>{formatMasterData(row, 'location_name', v, lang)}</MasterLabel> },
     { key: "qty",            title: t("ui.总数量","总数量") },
     { key: "qty_available",  title: t("ui.可用数量","可用数量") },
     { key: "expire_date",    title: t("ui.过期日期","过期日期") },

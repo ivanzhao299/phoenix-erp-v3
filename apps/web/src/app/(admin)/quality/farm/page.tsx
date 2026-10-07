@@ -4,6 +4,9 @@ import { crudApi } from "@/lib/api-client";
 import { DataTable } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -15,13 +18,14 @@ const STATUS_CLS: Record<string,string> = {"PASS":s.badgeSuccess, "FAIL":s.badge
 const TABLE="qa_inspections";
 
 export default function Page(){
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const houseNames = useMasterNames('house');
   const { canCreate, canEdit, canDelete } = usePermission('MENU_QA_OP');
 
   const COLUMNS=[
     { key: "inspect_no", title: t("ui.质检单号","质检单号"), width: 150 },
     { key: "batch_no", title: t("ui.批次号","批次号"), width: 150 },
-    { key: "house_code", title: t("ui.鸡舍","鸡舍"), width: 100 },
+    { key: "house_code", title: t("ui.鸡舍","鸡舍"), width: 100 , render: (v: unknown, row: Record<string, unknown>) => <MasterLabel>{masterDisplayLabel(houseNames, 'house', v, lang, row)}</MasterLabel> },
     { key: "inspector", title: t("ui.质检员","质检员"), width: 100 },
     { key: "status", title: t("common.status","状态"), width: 90 },
   ];

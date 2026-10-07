@@ -7,6 +7,9 @@ import { Home, Layers, Users, BookOpen, ClipboardList, Droplets, AlertTriangle, 
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from "@/contexts/LanguageContext";
 import styles from "@/components/ui/admin-ui.module.css";
 // g200f 模板 token(2026-06-20)
@@ -57,6 +60,8 @@ interface Farm {
   status: "normal" | "warning";
 }
 interface AlertItem {
+  houseCode?: string;
+  houseName?: string;
   id: string;
   type: string;
   label: string;
@@ -84,8 +89,9 @@ export default function BreedingPage() {
   const toast = useToast();
   const dialog = useDialog();
   const {
-    t
+    t, lang
   } = useLanguage();
+  const houseNames = useMasterNames('house');
   const SUB_NAV = [{
     label: t('ui.养殖场总览', '养殖场总览'),
     path: "/breeding",
@@ -239,9 +245,11 @@ export default function BreedingPage() {
       const daysLeft = Math.ceil((endDate.getTime() - todayTs.getTime()) / 86400000);
       if (daysLeft >= 0 && daysLeft <= 5) alertList.push({
         id: "wd-" + m.id,
+        houseCode: String(m.house_code || ""),
+        houseName: String(m.farm_house || ""),
         type: daysLeft <= 2 ? "danger" : "warning",
         label: t('ui.停药期预警', '停药期预警'),
-        msg: `${m.farm_house || m.house_code || t('ui.鸡舍', '鸡舍')} ${m.medicine || m.drug_name || t('ui.药物', '药物')} ${t('ui.停药期还剩', '停药期还剩')} ${daysLeft} ${t('ui.天', '天')}`,
+        msg: `${m.medicine || m.drug_name || t('ui.药物', '药物')} ${t('ui.停药期还剩', '停药期还剩')} ${daysLeft} ${t('ui.天', '天')}`,
         time: t('ui.系统', '系统')
       });
     });
@@ -275,9 +283,11 @@ export default function BreedingPage() {
     immune.filter((i: Record<string, unknown>) => dateKey(i.plan_date) === today && !i.actual_date).forEach((i: Record<string, unknown>) => {
       alertList.push({
         id: "im-" + i.id,
+        houseCode: String(i.house_code || ""),
+        houseName: String(i.farm_house || i.flock_no || ""),
         type: "info",
         label: t('ui.免疫计划', '免疫计划'),
-        msg: `${i.farm_house || i.house_code || i.flock_no || t('ui.鸡群', '鸡群')} ${t('ui.今日应执行', '今日应执行')} ${i.vaccine || i.vaccine_name || t('ui.疫苗', '疫苗')} ${t('ui.免疫', '免疫')}`,
+        msg: `${t('ui.今日应执行', '今日应执行')} ${i.vaccine || i.vaccine_name || t('ui.疫苗', '疫苗')} ${t('ui.免疫', '免疫')}`,
         time: t('ui.计划', '计划')
       });
     });
@@ -629,7 +639,7 @@ export default function BreedingPage() {
                     <span style={actionPill(aTone)}>{a.label}</span>
                     <span style={{ fontSize: 12, color: "var(--text-secondary)", marginLeft: "auto" }}>{a.time}</span>
                   </div>
-                  <p style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, margin: 0 }}>{a.msg}</p>
+                  <p style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, margin: 0 }}>{(a.houseCode || a.houseName) && <><MasterLabel>{masterDisplayLabel(houseNames, 'house', a.houseCode, lang, { house_name: a.houseName })}</MasterLabel> </>}{a.msg}</p>
                 </div>
               );
             })}

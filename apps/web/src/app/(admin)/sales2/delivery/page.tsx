@@ -11,6 +11,9 @@ import { KpiCard } from '@/components/ui/KpiCard';
 import { hexToAccent, KPI_GRID } from '@/lib/design-tokens';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, DriverSelector, VehicleSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from "@/contexts/LanguageContext";
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
 import {
@@ -275,6 +278,8 @@ function StatusBadge({
 type Tab = 'orders' | 'drivers' | 'vehicles';
 export default function DeliveryPage() {
   const { t, lang } = useLanguage();
+  const warehouseNames = useMasterNames('warehouse');
+  const companyNames = useMasterNames('company');
   const [tab, setTab] = useState<Tab>('orders');
 
   // ── 配送单列表 ──
@@ -946,14 +951,14 @@ export default function DeliveryPage() {
           gap: 8,
           marginBottom: 16
         }}>
-                {[[t('ui.公司','公司'), formatMasterData(selected, 'company_name', selected.company_code, lang)], [t('ui.履约仓','履约仓'), selected.fulfillment_warehouse_code ?? t('ui.待治理（历史单）','待治理（历史单）')], [t('ui.司机','司机'), formatMasterData(selected, 'driver_name', selected.driver_name, lang)], [t('ui.车辆','车辆'), selected.vehicle_no ?? '—'], [t('ui.路线','路线'), selected.route_name ?? '—'], [t('ui.波次日期','波次日期'), selected.wave_date ?? '—'], [t('ui.预计到达','预计到达'), selected.expected_arrival_at ? new Date(selected.expected_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.实际到达','实际到达'), selected.actual_arrival_at ? new Date(selected.actual_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.完成时间','完成时间'), selected.completed_at ? new Date(selected.completed_at).toLocaleString('zh-CN') : '—']].map(([k, v]) => <div key={k} className={u.fs12}>
+                {[[t('ui.公司','公司'), formatMasterData(selected, 'company_name', selected.company_code, lang)], [t('ui.履约仓','履约仓'), selected.fulfillment_warehouse_code ? masterDisplayLabel(warehouseNames, 'warehouse', selected.fulfillment_warehouse_code, lang) : t('ui.待治理（历史单）','待治理（历史单）')], [t('ui.司机','司机'), formatMasterData(selected, 'driver_name', selected.driver_name, lang)], [t('ui.车辆','车辆'), selected.vehicle_no ?? '—'], [t('ui.路线','路线'), selected.route_name ?? '—'], [t('ui.波次日期','波次日期'), selected.wave_date ?? '—'], [t('ui.预计到达','预计到达'), selected.expected_arrival_at ? new Date(selected.expected_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.实际到达','实际到达'), selected.actual_arrival_at ? new Date(selected.actual_arrival_at).toLocaleString('zh-CN') : '—'], [t('ui.完成时间','完成时间'), selected.completed_at ? new Date(selected.completed_at).toLocaleString('zh-CN') : '—']].map(([k, v]) => <div key={k} className={u.fs12}>
                     <span style={{
               color: 'var(--text-secondary)',
               marginRight: 6
             }}>{k}:</span>
                     <span style={{
               color: 'var(--border)'
-            }}>{v}</span>
+            }} data-i18n-skip="true">{v}</span>
                   </div>)}
               </div>
 
@@ -1276,7 +1281,7 @@ export default function DeliveryPage() {
               }}>{d.driver_code}</span></div>
                   {d.phone && <div>{t('ui.电话：','电话：')}{d.phone}</div>}
                   {d.license_no && <div>{t('ui.驾照：','驾照：')}{d.license_no}</div>}
-                  <div>{t('ui.公司：','公司：')}{d.company_code}</div>
+                  <div>{t('ui.公司：','公司：')}<MasterLabel>{masterDisplayLabel(companyNames, 'company', d.company_code, lang)}</MasterLabel></div>
                 </div>
                 <div style={{
             marginTop: 8
@@ -1364,7 +1369,7 @@ export default function DeliveryPage() {
                   {v.plate_no && <div>{t('ui.车牌：','车牌：')}{v.plate_no}</div>}
                   {v.vehicle_type && <div>{t('ui.类型：','类型：')}{v.vehicle_type}</div>}
                   {v.capacity && <div>{t('ui.载重：','载重：')}{v.capacity} kg</div>}
-                  <div>{t('ui.公司：','公司：')}{v.company_code}</div>
+                  <div>{t('ui.公司：','公司：')}<MasterLabel>{masterDisplayLabel(companyNames, 'company', v.company_code, lang)}</MasterLabel></div>
                 </div>
                 <div style={{
             marginTop: 8

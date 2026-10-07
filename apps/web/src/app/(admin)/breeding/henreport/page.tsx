@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
+import { formatMasterData } from '@/lib/business-display';
 import PageHeader from '@/components/PageHeader';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
@@ -23,6 +25,7 @@ async function apiFetch<T>(path: string): Promise<T> {
 }
 interface HenReportRow {
   house_code: string;
+  house_name?: string;
   flock_no: string;
   current_qty: number;
   initial_qty: number;
@@ -57,7 +60,7 @@ const addDays = (d: string, n: number) => {
 };
 export default function HenReportPage() {
   const {
-    t
+    t, lang
   } = useLanguage();
   const [date, setDate] = useState(today());
   const [report, setReport] = useState<DailyHenReport | null>(null);
@@ -208,7 +211,7 @@ export default function HenReportPage() {
             {loading ? <tr><td colSpan={11} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr> : rows.length === 0 ? <tr><td colSpan={11} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr> : rows.map((row, i) => {
             const rate = parseFloat(row.lay_rate);
             return <tr key={i}>
-                  <td>{row.house_code}</td>
+                  <td><MasterLabel>{formatMasterData(row, 'house_name', row.house_code, lang)}</MasterLabel></td>
                   <td className={u.muted}>{row.flock_no}</td>
                   <td className={u.tar}>{row.current_qty.toLocaleString()}</td>
                   <td style={{

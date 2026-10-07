@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import PageHeader from '@/components/PageHeader';
 import { useProductGrades } from "@/hooks/useProductGrades"; // G20-1 等级走 product_grades
+import { useMasterNames } from '@/hooks/useMasterNames';
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LoadingSkeleton } from "@/components/design-system";
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
@@ -216,7 +217,7 @@ function SkuBadge({
     borderRadius: 4,
     padding: '2px 6px',
     border: '1px solid var(--status-special-border)'
-  }}>{row ? formatMasterData(row, 'sku_name', skuCode, lang) : skuCode}</span>;
+  }} data-i18n-skip="true">{row ? formatMasterData(row, 'sku_name', skuCode, lang) : skuCode}</span>;
 }
 
 function InventorySourceTrace({ batch }: { batch: InvBatch }) {
@@ -932,7 +933,8 @@ function FifoTab() {
 // ── Tab: 损耗分析 ─────────────────────────────────────────────────────────────
 
 function LossTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const skuNames = useMasterNames('sku');
   const [data, setData] = useState<LossAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -1015,7 +1017,7 @@ function LossTab() {
             <tbody>
               {(data.byBatch ?? []).slice(0, 20).map((row, i) => <tr key={i}>
                   <td><code className={u.fs11}>{row.batch_no}</code></td>
-                  <td><SkuBadge skuCode={row.sku_code} /></td>
+                  <td><SkuBadge skuCode={row.sku_code} row={skuNames.get(String(row.sku_code))} lang={lang} /></td>
                   <td>{row.product_code}</td>
                   <td style={{
               fontWeight: 700,

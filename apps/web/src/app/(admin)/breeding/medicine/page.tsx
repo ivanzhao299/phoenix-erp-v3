@@ -18,6 +18,8 @@ interface MedicineRecord {
   _raw?: Record<string, unknown>;
   [key: string]: unknown;
 }
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
@@ -51,8 +53,9 @@ export default function MedicinePage() {
     canCreate, canEdit
   } = usePermission('MENU_FARM_VET');
   const {
-    t
+    t, lang
   } = useLanguage();
+  const houseNames = useMasterNames('house');
   const STATUS_CONF: Record<string, {
     status: string;
     label: string;
@@ -226,7 +229,12 @@ export default function MedicinePage() {
     width: '120px'
   }, {
     key: 'farmHouse',
-    title: t('ui.鸡舍', '鸡舍')
+    title: t('ui.鸡舍', '鸡舍'),
+    render: (v: unknown, row: MedicineRecord) => {
+      const code = row._raw?.house_code || flockMap[String(row._raw?.flock_no ?? '')]?.house_code;
+      const houseLabel = masterDisplayLabel(houseNames, 'house', code, lang);
+      return code ? <div>{row._raw?.flock_no ? <div>{String(row._raw.flock_no)}</div> : null}<div data-i18n-skip="true">{houseLabel}</div></div> : String(v ?? '—');
+    }
   }, {
     key: 'medicine',
     title: t('ui.药品名称', '药品名称'),

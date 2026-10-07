@@ -90,7 +90,7 @@ function ScopedSelect({
 
   const statusMessage = !loading && (failed ? errorMessage : (!opts.length ? emptyMessage : undefined));
   return <>
-    <select className={mergedClassName} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
+    <select data-i18n-skip="true" className={mergedClassName} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
       onChange={e => { onChange(e.target.value); onPick?.(opts.find(o => o.value === e.target.value) ?? null); }}>
       <option value="">{loading ? t('ui.加载中…','加载中…') : resolvedPlaceholder}</option>
       {opts.map(o => <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>)}
@@ -431,14 +431,14 @@ export function VehicleSelector(p: BaseProps & { companyCode?: string }) {
 
 // ── 场站（brd_farms，G5-B 切 /api/lookup）────────────────────────────────────
 export function FarmSelector(p: BaseProps) {
-  const { t } = useLanguage();
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择场站','请选择场站')}
+  const { t, lang } = useLanguage();
+  return <ScopedSelect {...p} reloadDeps={[lang]} placeholder={p.placeholder ?? t('ui.请选择场站','请选择场站')}
     loader={async () => {
       const list = await lookupArr<any>('/lookup/farms');
       return (Array.isArray(list) ? list : [])
         .map(f => ({
           value: f.farmCode,
-          label: `${f.farmName ?? f.farmCode}（${f.farmCode}）`,
+          label: masterNameWithCode(localizedMasterName(f, 'farmName', lang), f.farmCode),
           raw: f,
         }));
     }} />;
@@ -466,9 +466,9 @@ export function BatchSelector(p: BaseProps) {
 //   houseType 走 sys_dict.BRD_HOUSE_TYPE 异步拉取 + 模块级 5min 缓存
 //   彻底删除 HOUSE_TYPE_ZH 硬编码 map；字典 seed 改动无需改前端
 export function HouseSelector(p: BaseProps & { farmCode?: string; siteCode?: string }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { farmCode, siteCode, ...rest } = p;
-  return <ScopedSelect {...rest} placeholder={p.placeholder ?? t('ui.请选择鸡舍','请选择鸡舍')}
+  return <ScopedSelect {...rest} reloadDeps={[farmCode, siteCode, lang]} placeholder={p.placeholder ?? t('ui.请选择鸡舍','请选择鸡舍')}
     loader={async () => {
       const qs = new URLSearchParams();
       if (farmCode) qs.set('farmCode', farmCode);
@@ -480,7 +480,8 @@ export function HouseSelector(p: BaseProps & { farmCode?: string; siteCode?: str
       ]);
       return list.map(h => {
         const typeZh = h.houseType ? (typeMap[h.houseType] ?? '') : '';
-        const baseLabel = typeZh ? `${h.houseName ?? h.houseCode} · ${typeZh}` : (h.houseName ?? h.houseCode);
+        const nameCode = masterNameWithCode(localizedMasterName(h, 'houseName', lang), h.houseCode);
+        const baseLabel = typeZh ? `${nameCode} · ${typeZh}` : nameCode;
         return {
           value: h.houseCode,
           label: h.ownershipResolved === false ? `${baseLabel}（未归属）` : baseLabel,

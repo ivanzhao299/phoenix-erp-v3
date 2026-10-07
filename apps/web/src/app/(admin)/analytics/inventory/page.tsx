@@ -2,7 +2,10 @@
 import type { CSSProperties } from "react";
 import { useAbortableLoad } from "@/lib/use-abortable-load";
 import { RefreshCw, Layers, AlertTriangle, BarChart2, AlertCircle } from "lucide-react";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
 import PageHeader from "@/components/PageHeader";
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
@@ -148,7 +151,8 @@ function StatCard({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function InventoryAnalyticsPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const houseNames = useMasterNames('house');
 
   // 取数改为后端聚合端点 /api/inventory/batches/summary（服务端 reduce，KPI 覆盖全量在范围批次，
   // 不再拉 200 行客户端 reduce），并用 useAbortableLoad：快速切页/刷新自动取消旧请求，防旧覆盖新 + 省带宽。
@@ -340,7 +344,7 @@ export default function InventoryAnalyticsPage() {
                             {fmtDate(b.grading_date)}
                           </td>
                           <td style={{ padding: "11px 18px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                            {b.house_code ?? "—"}
+                            <MasterLabel>{masterDisplayLabel(houseNames, 'house', b.house_code, lang, b)}</MasterLabel>
                           </td>
                           <td style={{ padding: "11px 18px", whiteSpace: "nowrap" }}>
                             {days !== null && days < 7 ? (

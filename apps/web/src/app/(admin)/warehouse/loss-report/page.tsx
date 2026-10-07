@@ -5,6 +5,10 @@ import request, { crudApi } from "@/lib/api-client";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
+import { formatMasterData } from '@/lib/business-display';
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Plus, CheckCircle } from "lucide-react";
@@ -33,8 +37,9 @@ export default function LossReportPage() {
   const canDeleteInout = canDelete("MENU_WMS_INOUT");
   const canApproveInout = canApprove("MENU_WMS_INOUT");
   const {
-    t
+    t, lang
   } = useLanguage();
+  const zoneNames = useMasterNames('zone');
 
   // g200e:状态 tone → actionPill(tone)
   const STATUS_BADGE: Record<string, { tone: Tone; label: string }> = {
@@ -213,11 +218,13 @@ export default function LossReportPage() {
   }, {
     key: "warehouse_code",
     title: t("ui.报损仓库", "报损仓库"),
-    width: 120
+    width: 120,
+    render: (v, row) => <MasterLabel>{formatMasterData(row, 'warehouse_name', v, lang, { canonicalFallback: true })}</MasterLabel>
   }, {
     key: "zone_code",
     title: t("ui.报损库区", "报损库区"),
-    width: 130
+    width: 130,
+    render: (v, row) => <MasterLabel>{masterDisplayLabel(zoneNames, 'zone', v, lang, row)}</MasterLabel>
   }, {
     key: "batch_no",
     title: t("ui.报损批次", "报损批次"),

@@ -11,6 +11,9 @@ import {
 } from "@/components/design-system/cockpit-styles";
 
 type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePolling } from '@/hooks/usePolling';
 
@@ -362,10 +365,12 @@ function CompactHouseCard({
 }
 function AlarmRow({
   alarm,
-  now
+  now,
+  farmLabel
 }: {
   alarm: AlarmItem;
   now: Date;
+  farmLabel: string;
 }) {
   const { t } = useLanguage();
   const catKey = alarm.system_category || alarm.category || "";
@@ -454,7 +459,7 @@ function AlarmRow({
         }}>
             {alarm.house_name || alarm.erp_house_code || alarm.house_code}
           </span>
-          {alarm.farm_code && <span>{alarm.farm_code}</span>}
+          {alarm.farm_code && <MasterLabel>{farmLabel}</MasterLabel>}
         </div>
       </div>
 
@@ -487,8 +492,9 @@ type FilterMode = "all" | "critical" | "warning" | "byHouse";
 type SortMode = "severity" | "house" | "time";
 export default function DeviceAlertsPage() {
   const {
-    t
+    t, lang
   } = useLanguage();
+  const farmNames = useMasterNames('farm');
   const router = useRouter();
   const [houses, setHouses] = useState<HouseData[]>([]);
   const [alarms, setAlarms] = useState<AlarmItem[]>([]);
@@ -813,7 +819,7 @@ export default function DeviceAlertsPage() {
               flexDirection: "column",
               gap: 8
             }}>
-                    {houseAlarms.map((a, i) => <AlarmRow key={`${a.id}-${i}`} alarm={a} now={now} />)}
+                    {houseAlarms.map((a, i) => <AlarmRow key={`${a.id}-${i}`} alarm={a} now={now} farmLabel={masterDisplayLabel(farmNames, 'farm', a.farm_code, lang)} />)}
                   </div>
                 </div>;
         })}
@@ -824,7 +830,7 @@ export default function DeviceAlertsPage() {
         flexDirection: "column",
         gap: 8
       }}>
-            {filteredAlarms.map((a, i) => <AlarmRow key={`${a.id}-${i}`} alarm={a} now={now} />)}
+            {filteredAlarms.map((a, i) => <AlarmRow key={`${a.id}-${i}`} alarm={a} now={now} farmLabel={masterDisplayLabel(farmNames, 'farm', a.farm_code, lang)} />)}
           </div>}
       </div>
     </div>;

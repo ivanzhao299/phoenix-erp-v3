@@ -4,6 +4,9 @@ import { crudApi } from "@/lib/api-client";
 import { DataTable } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -16,13 +19,14 @@ const RESULT_TONE: Record<string, Tone> = { PASS: "success", FAIL: "danger", PEN
 const TABLE="qa_product_inspections";
 
 export default function Page(){
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const skuNames = useMasterNames('sku');
   const { canCreate, canEdit, canDelete } = usePermission('MENU_QA_OP');
 
   const COLUMNS=[
     { key: "inspect_no", title: t("ui.质检单号","质检单号"), width: 150 },
     { key: "batch_no", title: t("ui.批次号","批次号"), width: 150 },
-    { key: "sku_code", title: t("ui.品级","品级"), width: 100 },
+    { key: "sku_code", title: t("ui.品级","品级"), width: 100 , render: (v: unknown, row: Record<string, unknown>) => <MasterLabel>{masterDisplayLabel(skuNames, 'sku', v, lang, row)}</MasterLabel> },
     { key: "result", title: t("ui.结果","结果"), width: 90, render:(v:unknown)=><span style={actionPill(RESULT_TONE[String(v)] ?? "default")}>{String(v)}</span> },
     { key: "inspector", title: t("ui.质检员","质检员"), width: 100 },
   ];

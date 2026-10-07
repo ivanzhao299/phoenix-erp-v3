@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
+import { formatMasterData } from '@/lib/business-display';
 import PageHeader from '@/components/PageHeader';
 import { RefreshCw, WifiOff, AlertTriangle, ChevronRight, Clock, Activity, Home, Wifi, Clipboard } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from '@/contexts/LanguageContext';
 import s from '@/components/ui/admin-ui.module.css';
 import {
@@ -391,7 +393,7 @@ export default function DeviceOverviewPage() {
   const router = useRouter();
   const toast = useToast();
   const {
-    t
+    t, lang
   } = useLanguage();
   const [data, setData] = useState<IotSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -785,7 +787,7 @@ export default function DeviceOverviewPage() {
                   <span style={{
               fontWeight: 700,
               color: 'var(--status-danger)'
-            }}>{a.erp_house_code}</span>
+            }}><MasterLabel>{formatMasterData(houses.find(h => h.houseCode === a.erp_house_code), 'houseName', a.erp_house_code, lang)}</MasterLabel></span>
                   <span style={{
               color: 'var(--text-primary)'
             }}>{a.name_zh}</span>

@@ -11,7 +11,7 @@ vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: (_key: string, fallback: string) => fallback, lang: language.current }),
 }));
 
-import { CashAccountSelector, CompanySelector, CustomerSelector, LocationSelector, StoreMembershipSelector, WarehouseSelector, ZoneSelector } from './MasterDataSelectors';
+import { CashAccountSelector, FarmSelector, HouseSelector, CompanySelector, CustomerSelector, LocationSelector, StoreMembershipSelector, WarehouseSelector, ZoneSelector } from './MasterDataSelectors';
 import { invalidateCache } from '@/lib/request-cache';
 
 // React 19 uses this flag to suppress false-positive act environment warnings.
@@ -228,5 +228,28 @@ describe('WMS status-vocabulary selectors', () => {
     await flush();
 
     expect(host.textContent).toContain('无门店仓权限交集，请联系管理员配置 WarehouseScope');
+  });
+});
+
+
+describe('farm and house name/code selector contract', () => {
+  let host: HTMLDivElement;
+  let root: ReturnType<typeof createRoot>;
+  const flush = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+  beforeEach(() => { requestMock.mockReset(); invalidateCache(); host = document.createElement('div'); document.body.append(host); root = createRoot(host); });
+  afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
+  it.each(['zh', 'en', 'lo'])('keeps canonical names and codes in %s', async lang => {
+    language.current = lang;
+    requestMock.mockImplementation((path: string) => Promise.resolve({ data: path.includes('/lookup/farms')
+      ? [{ farmCode: 'FARM-1', farmName: '正式养殖场' }]
+      : path.includes('/lookup/houses') ? [{ houseCode: 'HOUSE-1', houseName: '正式鸡舍', farmCode: 'FARM-1' }] : [] }));
+    await act(async () => root.render(createElement(FarmSelector, { value: '', onChange: () => undefined })));
+    await flush();
+    expect(host.textContent).toContain('正式养殖场（FARM-1）');
+    await act(async () => root.render(createElement(HouseSelector, { value: '', onChange: () => undefined, farmCode: 'FARM-1' })));
+    await flush();
+    expect(requestMock.mock.calls.some(([path]) => path === '/lookup/houses?farmCode=FARM-1')).toBe(true);
+    expect(host.textContent).toContain('正式鸡舍（HOUSE-1）');
+    expect(host.querySelector('select')?.getAttribute('data-i18n-skip')).toBe('true');
   });
 });

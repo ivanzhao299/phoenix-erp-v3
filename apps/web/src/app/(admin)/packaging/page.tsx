@@ -24,6 +24,9 @@ interface ExceptionRow {
   detail?: string;
 }
 import PageHeader from "@/components/PageHeader";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Package, Monitor, AlertCircle, RefreshCw, CheckCircle, Clock, ChevronRight } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
@@ -43,8 +46,9 @@ const hdr = () => ({
 });
 export default function PackagingOverviewPage() {
   const {
-    t
+    t, lang
   } = useLanguage();
+  const houseNames = useMasterNames('house');
   const today = new Date().toISOString().slice(0, 10);
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [batches, setBatches] = useState<BatchRow[]>([]);
@@ -199,7 +203,7 @@ export default function PackagingOverviewPage() {
           }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14, fontFamily: MONO_FONT }}>{b.batch_code || b.id}</div>
-                    <div className={u.muted12}>{(b.received_qty || 0).toLocaleString()} {t("ui.枚", "枚")} · {b.house_code || "—"}</div>
+                    <div className={u.muted12}>{(b.received_qty || 0).toLocaleString()} {t("ui.枚", "枚")} · <MasterLabel>{masterDisplayLabel(houseNames, 'house', b.house_code, lang, b)}</MasterLabel></div>
                   </div>
                   <span style={actionPill(
                     b.batch_status === "QC_PASSED" ? "success" :

@@ -1,12 +1,14 @@
 'use client';
 
 import type { FarmRow, HouseRow } from '@/types';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 interface FlockCard {
   id: unknown;
   batchNo?: string;
   farmName?: string;
-  house?: string;
+  farmCode?: string;
+  houseName?: string;
+  houseCode?: string;
   breed?: string;
   inDate?: unknown;
   ageWeeks?: number;
@@ -28,6 +30,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import u from "@/styles/uix-utils.module.css";
+import MasterNameCode from '@/components/MasterNameCode';
+import { flockMasterLabels } from '@/lib/flock-display';
+import { formatMasterData } from '@/lib/business-display';
 import { SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
 // g200f 模板 token(2026-06-20)
 import { primaryActionButton, secondaryActionButton, toolbarFilterPill } from '@/components/design-system/cockpit-styles';
@@ -55,7 +60,7 @@ export default function FlockPage() {
   // G23-B：can(role[]) → PBAC
   const { canCreate: canCreateFlock, canEdit: canEditFlock } = usePermission('MENU_FARM_DATA');
   const {
-    t
+    t, lang
   } = useLanguage();
   const STATUS_MAP: Record<string, {
     status: string;
@@ -107,7 +112,8 @@ export default function FlockPage() {
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
-  const [flocks, setFlocks] = useState<FlockCard[]>([]);
+  const [flockFacts, setFlockFacts] = useState<Record<string, unknown>[]>([]);
+  const [flockLoadedAt, setFlockLoadedAt] = useState(0);
   const [farms, setFarms] = useState<FarmRow[]>([]);
   const [houses, setHouses] = useState<HouseRow[]>([]);
   const [breedOptions, setBreedOptions] = useState<string[]>([]);
@@ -128,21 +134,25 @@ export default function FlockPage() {
   } = useCrud('sys_dict');
   const load = useCallback(async () => {
     const data = await fetchRecords();
-    setFlocks((data || []).map((d: Record<string, unknown>) => ({
+    setFlockFacts(data || []);
+    setFlockLoadedAt(Date.now());
+  }, [fetchRecords]);
+  const flocks: FlockCard[] = useMemo(() => flockMasterLabels(flockFacts, farms, houses, lang).map(d => ({
       id: d.flock_no,
-      batchNo: d.flock_no,
-      farmName: d.farm_name || d.farm_code,
-      house: d.house_code || '',
-      breed: d.breed_type || '—',
+      batchNo: String(d.flock_no ?? ''),
+      farmCode: d.farmCode,
+      farmName: d.farmName,
+      houseCode: d.houseCode,
+      houseName: d.houseName,
+      breed: String(d.breed_type || '—'),
       inDate: d.start_date,
-      ageWeeks: d.start_date ? Math.floor((Number(d.placement_age) || 0) / 7) + Math.floor((Date.now() - new Date(d.start_date as string).getTime()) / (86400000 * 7)) : 0,
+      ageWeeks: d.start_date ? Math.floor((Number(d.placement_age) || 0) / 7) + Math.floor((flockLoadedAt - new Date(d.start_date as string).getTime()) / (86400000 * 7)) : 0,
       quantity: d.current_qty,
       layingRate: d.current_lay_rate ?? '—',
       feedRatio: d.feed_conversion_ratio ?? '—',
-      status: d.status || 'GROWING',
+      status: String(d.status || 'GROWING'),
       _raw: d
-    })));
-  }, [fetchRecords]);
+    })), [flockFacts, flockLoadedAt, farms, houses, lang]);
   useEffect(() => {
     load();
     fetchFarms().then(r => setFarms(r || [])).catch(() => {});
@@ -273,11 +283,13 @@ export default function FlockPage() {
   }, {
     key: 'farmName',
     title: t('ui.养殖场', '养殖场'),
-    width: '90px'
+    width: '130px',
+    render: (_: unknown, row: FlockCard) => <MasterNameCode name={row.farmName} code={row.farmCode} />
   }, {
-    key: 'house',
+    key: 'houseName',
     title: t('ui.鸡舍', '鸡舍'),
-    width: '70px'
+    width: '110px',
+    render: (_: unknown, row: FlockCard) => <MasterNameCode name={row.houseName} code={row.houseCode} />
   }, {
     key: 'breed',
     title: t('ui.品种', '品种'),
@@ -362,7 +374,7 @@ export default function FlockPage() {
         )}
       />
 
-      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次号农场', '搜索批次号农场')} searchKeys={['batchNo', 'farmName', 'breed']} rowKey="id" filters={
+      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次号农场', '搜索批次号农场')} searchKeys={['batchNo', 'farmName', 'farmCode', 'houseName', 'houseCode', 'breed']} rowKey="id" filters={
         <div style={{ display: 'flex', gap: 6 }}>
           {statusFilters.map(f => (
             <button key={f.key} type="button" onClick={() => setStatusFilter(f.key)} style={toolbarFilterPill(statusFilter === f.key)}>
@@ -385,18 +397,18 @@ export default function FlockPage() {
           <div className={s.fieldRow}>
             <div>
               <label className={s.lbl}>{t('ui.归属养殖场', '归属养殖场')}</label>
-              <select value={form.farmCode} onChange={e => setForm({
+              <select data-i18n-skip="true" value={form.farmCode} onChange={e => setForm({
               ...form,
               farmCode: e.target.value,
               house: ''
             })} className={s.inp}>
                 <option value="">{t('ui.选择养殖场', '选择养殖场')}</option>
-                {farms.map(f => <option key={f.farm_code} value={f.farm_code}>{f.farm_name}</option>)}
+                {farms.map(f => <option key={f.farm_code} value={f.farm_code}>{formatMasterData(f, 'farm_name', f.farm_code, lang)}</option>)}
               </select>
             </div>
             <div>
               <label className={s.lbl}>{t('ui.入驻鸡舍', '入驻鸡舍')}</label>
-              <select value={form.house} onChange={e => setForm({
+              <select data-i18n-skip="true" value={form.house} onChange={e => setForm({
               ...form,
               house: e.target.value
             })} disabled={!form.farmCode} className={s.inp} style={{
@@ -404,7 +416,7 @@ export default function FlockPage() {
               cursor: form.farmCode ? 'pointer' : 'not-allowed'
             }}>
                 <option value="">{form.farmCode ? t('ui.选择鸡舍', '选择鸡舍') : t('ui.请先选择养殖场', '请先选择养殖场')}</option>
-                {houses.filter(h => h.farm_code === form.farmCode).map(h => <option key={h.house_code} value={h.house_code}>{h.house_name} ({h.house_type})</option>)}
+                {houses.filter(h => h.farm_code === form.farmCode).map(h => <option key={h.house_code} value={h.house_code}>{formatMasterData(h, 'house_name', h.house_code, lang)}</option>)}
               </select>
             </div>
           </div>
