@@ -457,7 +457,7 @@ function AlarmRow({
           fontWeight: 600,
           color: "var(--text-primary)"
         }}>
-            {alarm.house_name || alarm.erp_house_code || alarm.house_code}
+            <MasterLabel>{alarm.house_name || alarm.erp_house_code || alarm.house_code || "—"}</MasterLabel>
           </span>
           {alarm.farm_code && <MasterLabel>{farmLabel}</MasterLabel>}
         </div>

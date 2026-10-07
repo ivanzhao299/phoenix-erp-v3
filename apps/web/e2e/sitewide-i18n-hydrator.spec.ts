@@ -71,6 +71,8 @@ test('Lao mode uses a new flock quantity and Chinese restore keeps that latest s
       await route.fulfill({ json: { ok: true } });
     } else await route.fulfill({ json: [flock()] });
   });
+  await page.route('**/api/lookup/farms**', route => route.fulfill({ json: { data: [{ farmCode: 'PW-FARM', farmName: '测试养殖场' }] } }));
+  await page.route('**/api/lookup/houses**', route => route.fulfill({ json: { data: [{ houseCode: 'PW-HOUSE', farmCode: 'PW-FARM', houseName: '测试鸡舍' }] } }));
   await page.route('**/api/crud/brd_farms**', route => route.fulfill({ json: [{ farm_code: 'PW-FARM', farm_name: '测试养殖场' }] }));
   await page.route('**/api/crud/brd_houses**', route => route.fulfill({ json: [{ house_code: 'PW-HOUSE', farm_code: 'PW-FARM', house_name: '测试鸡舍', house_type: 'LAYER' }] }));
   await page.route('**/api/crud/sys_dict**', route => route.fulfill({ json: [] }));
@@ -99,6 +101,8 @@ test('flock quantity unit follows an in-page language round trip without refresh
     current_qty: 900, placement_age: 1, cost: 1, target_weeks: 80, status: 'LAYING',
   };
   await page.route('**/api/crud/brd_flocks**', route => route.fulfill({ json: [flock] }));
+  await page.route('**/api/lookup/farms**', route => route.fulfill({ json: { data: [{ farmCode: 'PW-FARM', farmName: '测试养殖场' }] } }));
+  await page.route('**/api/lookup/houses**', route => route.fulfill({ json: { data: [{ houseCode: 'PW-HOUSE', farmCode: 'PW-FARM', houseName: '测试鸡舍' }] } }));
   await page.route('**/api/crud/brd_farms**', route => route.fulfill({ json: [{ farm_code: 'PW-FARM', farm_name: '测试养殖场' }] }));
   await page.route('**/api/crud/brd_houses**', route => route.fulfill({ json: [{ house_code: 'PW-HOUSE', farm_code: 'PW-FARM', house_name: '测试鸡舍', house_type: 'LAYER' }] }));
   await page.route('**/api/crud/sys_dict**', route => route.fulfill({ json: [] }));
@@ -120,10 +124,12 @@ for (const translated of [false, true]) test(`flock name/code labels rehydrate l
   const farm = { farm_code: 'LPH_MENGSAI', farm_name: '孟赛蛋鸡场', status: 'ACTIVE', ...(translated ? { farmNameZh: '孟赛蛋鸡场', farmNameEn: 'Mengsai farm', farmNameLo: 'ຟາມເມັງໄຊ' } : {}) };
   const house = { farm_code: farm.farm_code, house_code: 'HOUSE_MS_02', house_name: '2号鸡舍', status: 'ACTIVE', ...(translated ? { house_name_en: 'House Two', house_name_lo: 'ເຮືອນສອງ' } : {}) };
   await page.route('**/api/crud/brd_flocks**', route => route.fulfill({ json: [{ flock_no: 'ACCEPTANCE-FLOCK', farm_code: farm.farm_code, farm_name: farm.farm_code, house_code: house.house_code, breed_type: '海兰褐', status: 'LAYING', current_qty: 100 }] }));
-  await page.route('**/api/crud/brd_farms**', async route => { await new Promise(resolve => setTimeout(resolve, 250)); await route.fulfill({ json: [farm] }); });
-  await page.route('**/api/crud/brd_houses**', async route => { await new Promise(resolve => setTimeout(resolve, 350)); await route.fulfill({ json: [house] }); });
+  await page.route('**/api/lookup/farms**', async route => { await new Promise(resolve => setTimeout(resolve, 250)); await route.fulfill({ json: { data: [{ ...farm, farmCode: farm.farm_code, farmName: farm.farm_name }] } }); });
+  await page.route('**/api/lookup/houses**', async route => { await new Promise(resolve => setTimeout(resolve, 350)); await route.fulfill({ json: { data: [{ ...house, houseCode: house.house_code, farmCode: farm.farm_code, houseName: house.house_name }] } }); });
   await page.route('**/api/crud/sys_dict**', route => route.fulfill({ json: [] }));
   await page.route('**/api/master-data/runtime/supplier/active**', route => route.fulfill({ json: [] }));
+  await page.route('**/api/crud/brd_farms**', route => route.fulfill({ status: 403, json: { message: 'master maintenance forbidden' } }));
+  await page.route('**/api/crud/brd_houses**', route => route.fulfill({ status: 403, json: { message: 'master maintenance forbidden' } }));
   await page.goto('/breeding/flock');
   const row = page.locator('tbody tr').filter({ hasText: 'ACCEPTANCE-FLOCK' });
   const farmCell = row.locator('td').nth(1);
@@ -156,6 +162,8 @@ for (const translated of [false, true]) test(`flock name/code labels rehydrate l
 
 test('flock missing-name fallback displays each code once; henhouse keeps the reference hierarchy', async ({ page }) => {
   await authenticate(page);
+  await page.route('**/api/lookup/farms**', route => route.fulfill({ json: { data: [{ farmCode: 'EMPTY-FARM', farmName: '' }] } }));
+  await page.route('**/api/lookup/houses**', route => route.fulfill({ json: { data: [{ houseCode: 'EMPTY-HOUSE', farmCode: 'EMPTY-FARM', houseName: '' }] } }));
   await page.route('**/api/crud/brd_flocks**', route => route.fulfill({ json: [{ flock_no: 'FALLBACK', farm_code: 'EMPTY-FARM', house_code: 'EMPTY-HOUSE', status: 'LAYING' }] }));
   await page.route('**/api/crud/brd_farms**', route => route.fulfill({ json: [{ farm_code: 'EMPTY-FARM', farm_name: '' }] }));
   await page.route('**/api/crud/brd_houses**', route => route.fulfill({ json: [{ house_code: 'EMPTY-HOUSE', house_name: '', farm_code: 'EMPTY-FARM' }] }));
@@ -169,6 +177,11 @@ test('flock missing-name fallback displays each code once; henhouse keeps the re
   const houseCell = page.locator('tbody tr').filter({ hasText: 'HOUSE_MS_02' }).locator('td').first();
   await expect(houseCell.locator('div > div').first()).toHaveText('2号鸡舍');
   await expect(houseCell).toContainText('HOUSE_MS_02');
+  for (const lang of ['lo', 'en']) {
+    await page.locator('header select').selectOption(lang);
+    await expect(houseCell.locator('div > div').first()).toHaveText('2号鸡舍');
+    await expect(houseCell).toContainText('HOUSE_MS_02');
+  }
 });
 
 for (const c of [

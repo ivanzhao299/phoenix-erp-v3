@@ -9,7 +9,7 @@ The ShareX screenshots show `LPH_MENGSAI`/`HOUSE_MS_02` in the flock list; the h
 
 ROOT_CAUSE=Flock load mapping conflated farmName with farm_code and retained house_code without using already loaded masters. Search only included batchNo/farmName/breed. Independent masters arrived asynchronously. An additional reproduced defect was the generic DOM language hydrator partially translating canonical master names.
 
-FLOCK_PAGE_FIX=Preserve raw facts and distinct farmCode/farmName/houseCode/houseName. Derive display rows with useMemo over facts, scoped farms/houses, and lang. Use name-primary/code-secondary cells, showing code once if no name exists. Prefer authoritative master names over code-valued historical snapshot names. Search batch, farm name/code, house name/code, and breed. Keep the existing farm-to-house cascade and mutation payloads; selectors show name(code). Protect actual business names from the generic hydrator via existing data-i18n-skip.
+FLOCK_PAGE_FIX=Preserve raw facts and distinct farmCode/farmName/houseCode/houseName. Derive display rows with useMemo over facts, scoped farm/house business lookups, and lang. Use name-primary/code-secondary cells, showing code once if no name exists. Prefer authoritative master names over code-valued historical snapshot names. Search batch, farm name/code, house name/code, and breed. Keep the existing farm-to-house cascade and mutation payloads; selectors show name(code). Protect actual business names from the generic hydrator via existing data-i18n-skip.
 
 FARM_NAME_LANGUAGE_SOURCE=Production read API brd_farms.farm_name (canonical single name); only farm_name was present in the real record. Future authoritative farm_name_zh/en/lo or farmNameZh/En/Lo projections are supported.
 HOUSE_NAME_LANGUAGE_SOURCE=Production read API brd_houses.house_name (canonical single name); only house_name was present in the real record. Future authoritative house_name_zh/en/lo or houseNameZh/En/Lo projections are supported.
@@ -30,7 +30,7 @@ PRODUCTION_DATA_MUTATION=NO
 PRODUCTION_DATA_WRITE_REQUIRED=NO
 CHANJET_CHANGE=NO
 
-Security/DataScope: all new reads use the existing guarded/scoped lookups or warehouse-scoped zone CRUD; no permission/scope policy changed. SKU uses the official authenticated business inventory-items lookup, avoiding SKU-maintenance PBAC. Packaging's unused master CRUD preload was replaced with scoped lookups. Bulk maps are derived from one read per master domain, with bounded pagination for zones; no N+1 requests. Mutation-call AST comparison across all 26 modified pages passed with identical mutation expressions; API, schema, RBAC, workflow and deployment configuration have no diff. Independent reviewer verified endpoint scope and raised customer projection/SKU PBAC/dashboard duplicate-name issues, all corrected with coverage.
+Security/DataScope: all new reads use the existing guarded/scoped lookups or warehouse-scoped zone CRUD; no permission/scope policy changed. SKU uses the official authenticated business inventory-items lookup, avoiding SKU-maintenance PBAC. Packaging's unused master CRUD preload was replaced with scoped lookups. Bulk maps are derived from one read per master domain, with bounded pagination for zones; no N+1 requests. Mutation-call AST comparison across all 27 modified pages (26 fixes plus the reference-page canonical-name protection) passed with identical mutation expressions; API, schema, RBAC, workflow and deployment configuration have no diff. Independent reviewer verified endpoint scope and raised customer projection/SKU PBAC/dashboard duplicate-name issues, all corrected with coverage.
 
 TEST_RESULT=
 - API typecheck: PASS (Node 20.20.2 / pnpm 9.15.9).
@@ -39,8 +39,8 @@ TEST_RESULT=
 - localized-master-data, MasterDataSelectors, business-display, Flock projection and all fixed-page AST contracts included in that full run.
 - Windows Chrome --headless=new, random CDP port, independent temporary profile: display-defects-i18n and sitewide-i18n-hydrator suites: PASS, 26/26 tests.
 - git diff --check: PASS.
-- changed-file Web lint ratchet: PASS; 141 existing errors / 84 warnings in affected legacy files, with no baseline growth. No lint baseline/suppression/rule changes.
-- Scope/mutation audit: PASS, 26 pages; identical mutation call AST and unchanged API/scope implementation.
+- changed-file Web lint ratchet: PASS; 143 existing errors / 85 warnings in affected legacy files, with no baseline growth. No lint baseline/suppression/rule changes.
+- Scope/mutation audit: PASS, 27 pages; identical mutation call AST and unchanged API/scope implementation.
 
 Failure classification and evidence: initial Linux Chromium failed before any page assertion because libnspr4.so was unavailable (INFRASTRUCTURE). Windows Chrome CDP then reproduced a canonical-name DOM hydrator failure (REGRESSION), corrected by data-i18n-skip and verified in all three locales. Moving age calculation into derived render rows initially introduced a React purity lint regression; the calculation now uses the request completion time. No failing check was waived or masked.
 
@@ -57,3 +57,9 @@ PRODUCT_ACCEPTANCE_FEEDBACK_STATUS=PARTIAL (implementation and local validation 
 Release plan: open PR, require green required CI, merge, dispatch official deploy.yml on main with mode=web/approve_production=true, assert run SHA and deployed Web build SHA match the merged main, then read-only acceptance with Windows Chrome/CDP. Web mode skips migrations and API restart. Post-deployment evidence will be appended with verified run/PR/revision identifiers, real locale/search results and per-page smoke outcomes.
 
 Initial CI run 37594128804 failed the repository's pre-existing all-application freeze policy (49 path hits, no forbidden content). After independent review of the authorized display-only change, PR #360 registers the existing reviewed-frozen-boundary label. No gate implementation was changed or weakened. Local `ALLOW_FREEZE_TOUCH=true node scripts/ci/check-w5-closeout-gate.mjs` passed all 21 checks; security/ownership/i18n checks stayed enabled. A new commit triggers CI with the updated PR review metadata; the first red run remains recorded.
+
+Reference henhouse primary/secondary layout is unchanged; its canonical names and existing alarm house labels additionally opt out of the generic DOM hydrator, with zh/lo/en reference-page coverage.
+
+Ordinary flock viewers may lack MENU_FARM_MASTER required by master-maintenance CRUD. Flock now uses existing scoped ACTIVE lookup/farms and lookup/houses (normalized into derived form/display arrays), with a regression fixture that rejects maintenance CRUD yet still resolves names. This avoids a PBAC-dependent code-only fallback without changing guards or write payloads.
+
+Independent final review notes the existing lookup/farms intersection versus flock CRUD farm/site/company union. Normal SITE grants project to farm grants; special cross-company/unmapped historical rows can retain code if their name is inaccessible through the current permitted lookup. This change does not broaden either scope. Production read-only acceptance uses the existing legal account and records observed scopes/rows rather than claiming validation of every possible role configuration.

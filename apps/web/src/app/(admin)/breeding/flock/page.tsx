@@ -33,6 +33,7 @@ import u from "@/styles/uix-utils.module.css";
 import MasterNameCode from '@/components/MasterNameCode';
 import { flockMasterLabels } from '@/lib/flock-display';
 import { formatMasterData } from '@/lib/business-display';
+import { useMasterNames } from '@/hooks/useMasterNames';
 import { SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
 // g200f 模板 token(2026-06-20)
 import { primaryActionButton, secondaryActionButton, toolbarFilterPill } from '@/components/design-system/cockpit-styles';
@@ -114,8 +115,14 @@ export default function FlockPage() {
   const [form, setForm] = useState(emptyForm());
   const [flockFacts, setFlockFacts] = useState<Record<string, unknown>[]>([]);
   const [flockLoadedAt, setFlockLoadedAt] = useState(0);
-  const [farms, setFarms] = useState<FarmRow[]>([]);
-  const [houses, setHouses] = useState<HouseRow[]>([]);
+  const farmMasters = useMasterNames('farm');
+  const houseMasters = useMasterNames('house');
+  const farms: FarmRow[] = useMemo(() => [...farmMasters.values()].map(row => ({
+    ...row, farm_code: String(row.farm_code), farm_name: String(row.farm_name || ''), status: String(row.status || 'ACTIVE')
+  })), [farmMasters]);
+  const houses: HouseRow[] = useMemo(() => [...houseMasters.values()].map(row => ({
+    ...row, farm_code: String(row.farm_code || ''), house_code: String(row.house_code), house_name: String(row.house_name || ''), status: String(row.status || 'ACTIVE')
+  })), [houseMasters]);
   const [breedOptions, setBreedOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const {
@@ -123,12 +130,6 @@ export default function FlockPage() {
     createRecord,
     updateRecord
   } = useCrud('brd_flocks');
-  const {
-    fetchRecords: fetchFarms
-  } = useCrud('brd_farms');
-  const {
-    fetchRecords: fetchHouses
-  } = useCrud('brd_houses');
   const {
     fetchRecords: fetchDict
   } = useCrud('sys_dict');
@@ -155,8 +156,6 @@ export default function FlockPage() {
     })), [flockFacts, flockLoadedAt, farms, houses, lang]);
   useEffect(() => {
     load();
-    fetchFarms().then(r => setFarms(r || [])).catch(() => {});
-    fetchHouses().then(r => setHouses(r || [])).catch(() => {});
     fetchDict({
       limit: 1000
     }).then(d => {

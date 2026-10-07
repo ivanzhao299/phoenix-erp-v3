@@ -18,7 +18,7 @@ Shared policy: requested locale name -> canonical name -> code. Farm/house use r
 
 | PAGE | FIELD | CURRENT_DISPLAY (before fix) | NAME_SOURCE | LOCALIZATION_SOURCE | DECISION | FIX |
 |---|---|---|---|---|---|---|
-| breeding/flock | farm_code / house_code | code-only; farmName mixed code/name | existing scoped brd_farms.farm_name / brd_houses.house_name | canonical; future snake/camel locale projections | FIXED_THIS_PR | raw facts + memoized labels; primary name/secondary code; search all 6 fields; Drawer name(code) |
+| breeding/flock | farm_code / house_code | code-only; farmName mixed code/name | scoped business lookup/farms + lookup/houses backed by brd_farms.farm_name / brd_houses.house_name | canonical; future snake/camel locale projections | FIXED_THIS_PR | raw facts + memoized labels; primary name/secondary code; search all 6 fields; Drawer name(code) |
 | breeding/immune | house_code | farm_house / house_code | existing brd_houses preload | canonical + retained locale fields | FIXED_THIS_PR | reuse raw preload; localized compact name(code) |
 | breeding/medicine | house_code | flock reference / house code | scoped lookup/houses + existing flock association | canonical + future locale fields | FIXED_THIS_PR | retain flock reference; add actual associated house name(code) |
 | breeding/henreport | house_code | code-only | farm.service.ts daily report LEFT JOIN brd_houses, house_name | canonical response | FIXED_THIS_PR | format existing read projection |
