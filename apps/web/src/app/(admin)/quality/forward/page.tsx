@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { crudApi } from "@/lib/api-client";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
 import PageHeader from "@/components/PageHeader";
 import { Search, Package, ClipboardList, ShoppingCart, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -44,7 +46,7 @@ function KVRow({
             <span style={{
         color: 'var(--text-primary)',
         fontFamily: 'monospace'
-      }}>{String(item[k])}</span>
+      }} data-i18n-skip="true">{String(item[k])}</span>
           </span> : null)}
     </div>;
 }
@@ -91,8 +93,10 @@ function ResultSection({
 }
 export default function ForwardTracePage() {
   const {
-    t
+    t, lang
   } = useLanguage();
+  const warehouseNames = useMasterNames('warehouse');
+  const customerNames = useMasterNames('customer');
   const [batchNo, setBatchNo] = useState("");
   const [result, setResult] = useState<TraceResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -210,7 +214,7 @@ export default function ForwardTracePage() {
     }}>
           {/* 批次信息 */}
           <ResultSection t={t} icon={<Package size={14} />} title={t("ui.批次信息", "批次信息")} count={result.batch ? 1 : 0}>
-            {result.batch ? <KVRow item={result.batch} keys={BATCH_KEYS} /> : <div style={{
+            {result.batch ? <KVRow item={{ ...result.batch, warehouse_code: masterDisplayLabel(warehouseNames, 'warehouse', result.batch.warehouse_code, lang, result.batch) }} keys={BATCH_KEYS} /> : <div style={{
           padding: '10px 14px',
           borderRadius: 8,
           background: 'var(--status-danger-bg)',
@@ -248,7 +252,7 @@ export default function ForwardTracePage() {
           flexDirection: 'column',
           gap: 6
         }}>
-                {result.orders.map((item, i) => <KVRow key={i} item={item} keys={ORDER_KEYS} />)}
+                {result.orders.map((item, i) => <KVRow key={i} item={{ ...item, customer_code: masterDisplayLabel(customerNames, 'customer', item.customer_code, lang, item) }} keys={ORDER_KEYS} />)}
               </div>}
           </ResultSection>
         </div>}

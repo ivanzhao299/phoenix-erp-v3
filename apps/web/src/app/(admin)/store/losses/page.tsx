@@ -4,6 +4,9 @@ import { crudApi } from "@/lib/api-client";
 import { DataTable } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -27,10 +30,12 @@ const REASON_LABEL: Record<string, string> = {
 // ✅ V3 表: store_losses
 const TABLE = "store_losses";
 export default function Page() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const storeNames = useMasterNames('store');
+  const skuNames = useMasterNames('sku');
   const toast = useToast();
-  const COLUMNS = [{ key: "store_code", title: t('ui.门店', '门店'), width: 100 },
-      { key: "sku_code", title: t('ui.品级', '品级'), width: 110 },
+  const COLUMNS = [{ key: "store_code", title: t('ui.门店', '门店'), width: 100 , render: (v: unknown, row: Record<string, unknown>) => <MasterLabel>{masterDisplayLabel(storeNames, 'store', v, lang, row)}</MasterLabel> },
+      { key: "sku_code", title: t('ui.品级', '品级'), width: 110 , render: (v: unknown, row: Record<string, unknown>) => <MasterLabel>{masterDisplayLabel(skuNames, 'sku', v, lang, row)}</MasterLabel> },
       { key: "qty", title: t('ui.损耗数量', '损耗数量'), width: 80 },
       { key: "reason", title: t('ui.原因', '原因'), width: 140, render: (v:unknown)=>REASON_LABEL[String(v)] ?? String(v ?? "—") },
       { key: "status", title: t('common.status', '状态'), width: 90, render: (v:unknown)=>{

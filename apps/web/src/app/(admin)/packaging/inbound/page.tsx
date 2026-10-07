@@ -4,6 +4,9 @@ import { useState, useCallback, useEffect } from "react";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import PageHeader from "@/components/PageHeader";
 import { crudApi } from "@/lib/api-client";
 import { Plus, RefreshCw, Package, Scale, Home, Calendar } from "lucide-react";
@@ -45,8 +48,10 @@ const EMPTY: FormState = {
 };
 export default function InboundPage() {
   const {
-    t
+    t, lang
   } = useLanguage();
+  const houseNames = useMasterNames('house');
+  const warehouseNames = useMasterNames('warehouse');
   const STATUS_MAP: Record<string, { label: string; tone: Tone }> = {
     PENDING:   { label: t("ui.待入库", "待入库"),   tone: "warning" },
     COMPLETED: { label: t("ui.已完成", "已完成"),   tone: "success" },
@@ -59,7 +64,8 @@ export default function InboundPage() {
   }, {
     key: "house_code",
     title: t("ui.来源鸡舍", "来源鸡舍"),
-    width: 110
+    width: 110,
+    render: (v, row) => <MasterLabel>{masterDisplayLabel(houseNames, 'house', v, lang, row)}</MasterLabel>
   }, {
     key: "shift_no",
     title: t("ui.班次号", "班次号"),
@@ -84,7 +90,8 @@ export default function InboundPage() {
   }, {
     key: "warehouse",
     title: t("ui.入库仓库", "入库仓库"),
-    width: 110
+    width: 110,
+    render: (v, row) => <MasterLabel>{masterDisplayLabel(warehouseNames, 'warehouse', v, lang, row)}</MasterLabel>
   }, {
     key: "operator",
     title: t("ui.作业员", "作业员"),
@@ -107,14 +114,6 @@ export default function InboundPage() {
   const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Partial<FormState>>({});
-  const [houses, setHouses] = useState<{
-    code: string;
-    name: string;
-  }[]>([]);
-  const [warehouses, setWarehouses] = useState<{
-    code: string;
-    name: string;
-  }[]>([]);
   const [operators, setOperators] = useState<{
     username: string;
     real_name_zh: string;
@@ -127,32 +126,6 @@ export default function InboundPage() {
 
   // 加载鸡舍、仓库、操作员下拉
   useEffect(() => {
-    crudApi.list("brd_houses", {
-      limit: 200
-    } as never).then((r: unknown) => {
-      const data = (r as {
-        data?: unknown[];
-      }).data ?? [];
-      setHouses((data as Record<string, unknown>[]).filter(hh => hh.house_code && hh.status !== "DISABLED" && hh.status !== "INACTIVE" && hh.status !== "DELETED").map(hh => ({
-        code: String(hh.house_code),
-        name: String(hh.house_name ?? hh.house_code)
-      })));
-    }).catch(() => {});
-    // 仓库下拉
-    crudApi.list("wms_warehouses", {
-      limit: 100
-    } as never).then((r: unknown) => {
-      const data = (r as {
-        data?: unknown[];
-      }).data ?? [];
-      setWarehouses(data.map((w: unknown) => {
-        const ww = w as Record<string, unknown>;
-        return {
-          code: String(ww.warehouse_code ?? ww.id ?? ""),
-          name: String(ww.warehouse_name ?? ww.warehouse_code ?? "")
-        };
-      }));
-    }).catch(() => {});
     // 操作员下拉
     const tok = typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "";
     fetch("/api/packaging/operators", {

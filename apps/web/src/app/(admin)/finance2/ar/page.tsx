@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Clock, CheckCircle, Wallet, Search, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight, Filter, Plus, X, AlertCircle, Ban, Receipt } from 'lucide-react';
+import { formatMasterData } from '@/lib/business-display';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
@@ -647,7 +648,7 @@ function ArDetailDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [detail, setDetail] = useState<ArInvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelReason, setCancelReason] = useState('');
@@ -713,10 +714,10 @@ function ArDetailDrawer({
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
-                {[[t('fin2.common.customer', '客户'), detail.customer_name], [t('fin2.common.company', '公司'), detail.company_code], [t('fin2.ar.invoice_no', '发票号'), detail.invoice_no ?? '—'], [t('fin2.ar.invoice_date', '发票日期'), fmtDate(detail.invoice_date)], [t('fin2.ar.due_date', '到期日'), fmtDate(detail.due_date)], [t('fin2.common.project', '项目'), detail.project_code ?? '—'], [t('fin2.common.remark', '备注'), detail.remark ?? '—']].map(([k, v]) => (
+                {[[t('fin2.common.customer', '客户'), detail.customer_name], [t('fin2.common.company', '公司'), formatMasterData(detail, 'company_name', detail.company_code, lang)], [t('fin2.ar.invoice_no', '发票号'), detail.invoice_no ?? '—'], [t('fin2.ar.invoice_date', '发票日期'), fmtDate(detail.invoice_date)], [t('fin2.ar.due_date', '到期日'), fmtDate(detail.due_date)], [t('fin2.common.project', '项目'), formatMasterData(detail, 'project_name', detail.project_code, lang)], [t('fin2.common.remark', '备注'), detail.remark ?? '—']].map(([k, v]) => (
                   <div key={k}>
                     <span className="text-text-muted">{k}：</span>
-                    <span className={`text-text ${u.fw500}`}>{v}</span>
+                    <span className={`text-text ${u.fw500}`} data-i18n-skip="true">{v}</span>
                   </div>
                 ))}
               </div>

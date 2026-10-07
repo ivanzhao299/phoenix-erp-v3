@@ -3,6 +3,9 @@ import { useMemo } from "react";
 import { useAbortableLoad } from "@/lib/use-abortable-load";
 import { RefreshCw, Package, Truck, Users, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
@@ -98,7 +101,8 @@ function StatCard({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function FeedAnalyticsPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const supplierNames = useMasterNames('supplier');
 
   // useAbortableLoad：快速切页/刷新自动取消旧请求（防旧覆盖新 + 省带宽）
   const { data, loading, error, reload } = useAbortableLoad<Receipt[]>(
@@ -214,7 +218,7 @@ export default function FeedAnalyticsPage() {
                           {fmtDate(r.arrive_date)}
                         </td>
                         <td className="px-5 py-3 text-text-muted">
-                          {r.supplier_code || "—"}
+                          <MasterLabel>{masterDisplayLabel(supplierNames, 'supplier', r.supplier_code, lang, r)}</MasterLabel>
                         </td>
                         <td className="px-5 py-3 text-text-muted">
                           {r.item_name || "—"}

@@ -10,6 +10,9 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ModalV2 } from "@/components/design-system";
 import s from "@/components/ui/admin-ui.module.css";
 import { inputField } from "@/components/design-system/cockpit-styles"; // G94 全局输入框唯一真相源
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
 import apiRequest from "@/lib/api-client";
@@ -238,7 +241,8 @@ export default function SalesV2PricingPage() {
 // 价格册 Tab（无变化）
 // ══════════════════════════════════════════════════════════════════════════════
 function PriceBooksTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const customerNames = useMasterNames('customer');
   const pricePerm = usePermission("MENU_SALES2_PRICE");
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -562,7 +566,7 @@ function PriceBooksTab() {
               }}>{row.price_book_no}</td>
                   <td>{row.price_book_name}</td>
                   <td className={u.muted}>{row.channel_code ?? "—"}</td>
-                  <td className={u.muted}>{row.customer_code ?? "—"}</td>
+                  <td className={u.muted}><MasterLabel>{masterDisplayLabel(customerNames, 'customer', row.customer_code, lang, row)}</MasterLabel></td>
                   <td className={u.tac}>
                     {(() => {
                     const meta = priceBookPriorityMeta(row.priority);
@@ -1427,7 +1431,8 @@ function CurrentPricesTab() {
 // 价格异常 Tab（预留）
 // ══════════════════════════════════════════════════════════════════════════════
 function AnomalyTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const companyNames = useMasterNames('company');
   const priceReportPerm = usePermission("MENU_SALES2_REPORT");
   const [threshold, setThreshold] = useState(5);
   const [rows, setRows] = useState<SalesPriceAnomaly[]>([]);
@@ -1489,7 +1494,7 @@ function AnomalyTab() {
               <td>{row.sales_order_no || "—"}</td>
               <td>{row.customer_name || row.customer_code || "—"}</td>
               <td>{product(row)}</td>
-              <td>{row.company_code || "—"}</td>
+              <td><MasterLabel>{masterDisplayLabel(companyNames, 'company', row.company_code, lang, row)}</MasterLabel></td>
               <td>{money(row.actual_unit_price)}</td>
               <td>{money(row.resolved_unit_price)}</td>
               <td>{money(row.floor_price)}</td>

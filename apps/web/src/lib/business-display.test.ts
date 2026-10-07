@@ -26,3 +26,9 @@ describe('business display formatters', () => {
     expect(formatBusinessEnum('vehicleType', '厢式货车', 'en')).toBe('厢式货车');
   });
 });
+
+it('permits explicit canonical fallback for business rows without changing strict master-page defaults', () => {
+  const row = { warehouse_name: '真实仓库' };
+  expect(formatMasterData(row, 'warehouse_name', 'WH-1', 'lo', { canonicalFallback: true })).toBe('真实仓库（WH-1）');
+  expect(formatMasterData(row, 'warehouse_name', 'WH-1', 'lo')).toBe('WH-1');
+});

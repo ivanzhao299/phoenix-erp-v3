@@ -237,7 +237,7 @@ export default function HenHousePage() {
     key: 'name',
     title: t('ui.鸡舍', '鸡舍'),
     width: '160px',
-    render: (v: unknown, row: HouseCard) => <div>
+    render: (v: unknown, row: HouseCard) => <div data-i18n-skip="true">
         <div style={{
         fontWeight: 600,
         color: 'var(--text-primary)',
@@ -254,7 +254,7 @@ export default function HenHousePage() {
     key: 'farmLabel',
     title: t('ui.所属农场', '所属农场'),
     width: '110px',
-    render: (v: unknown) => <span className={u.fs13}>{v != null ? String(v) : '—'}</span>
+    render: (v: unknown) => <span data-i18n-skip="true" className={u.fs13}>{v != null ? String(v) : '—'}</span>
   }, {
     key: 'type',
     title: t('ui.舍型', '舍型'),

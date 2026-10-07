@@ -17,6 +17,8 @@ interface ImmunePlan {
   status: string;
   [key: string]: unknown;
 }
+import { masterNameMap, masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
@@ -60,7 +62,7 @@ const EMPTY_FORM = {
 export default function ImmunePage() {
   const toast = useToast();
   const {
-    t
+    t, lang
   } = useLanguage();
   const {
     can
@@ -113,11 +115,13 @@ export default function ImmunePage() {
     options: vaccMethodOpts
   } = useDictOptions('BRD_VACCINATE_METHOD');
   const [plans, setPlans] = useState<ImmunePlan[]>([]);
-  const [houseOptions, setHouseOptions] = useState<{
-    code: string;
-    label: string;
-    farm_code: string;
-  }[]>([]);
+  const [houseFacts, setHouseFacts] = useState<Record<string, unknown>[]>([]);
+  const houseNames = useMemo(() => masterNameMap(houseFacts, 'house'), [houseFacts]);
+  const houseOptions = useMemo(() => houseFacts.map(x => ({
+    code: String(x.house_code || x.house_no || ''),
+    label: masterDisplayLabel(houseNames, 'house', x.house_code || x.house_no, lang, x),
+    farm_code: String(x.farm_code || '')
+  })).filter(o => o.code), [houseFacts, houseNames, lang]);
   const [flockOptions, setFlockOptions] = useState<{
     code: string;
     label: string;
@@ -144,15 +148,7 @@ export default function ImmunePage() {
   }, [vaccMethodOpts]);
   useEffect(() => {
     fetchHouses().then(h => {
-      setHouseOptions((h || []).map((x: Record<string, unknown>) => ({
-        code: (x.house_code || x.house_no) as string,
-        label: x.house_name ? `${x.house_code} · ${x.house_name}` : String(x.house_code || ''),
-        farm_code: x.farm_code as string || ''
-      })).filter((o: {
-        code: string;
-        label: string;
-        farm_code: string;
-      }) => !!o.code));
+      setHouseFacts(h || []);
     }).catch(() => {});
     fetchFlocks().then(f => {
       setFlockOptions((f || []).map((x: Record<string, unknown>) => ({
@@ -191,6 +187,7 @@ export default function ImmunePage() {
         id: d.id,
         batchNo: d.flock_no || t('ui.未知', '未知'),
         farmHouse: d.farm_house || d.house_code || '',
+        houseCode: d.house_code || d.farm_house || '',
         vaccine: d.vaccine || d.vaccine_name,
         vaccineBatchNo: d.vaccine_batch_no || '',
         flockCount: d.flock_count || '',
@@ -303,7 +300,8 @@ export default function ImmunePage() {
   }, {
     key: 'farmHouse',
     title: t('ui.鸡舍', '鸡舍'),
-    width: '100px'
+    width: '100px',
+    render: (v: unknown, row: ImmunePlan) => <MasterLabel>{masterDisplayLabel(houseNames, 'house', row.houseCode || v, lang)}</MasterLabel>
   }, {
     key: 'vaccine',
     title: t('ui.疫苗名称', '疫苗名称')
@@ -443,7 +441,7 @@ export default function ImmunePage() {
               color: 'var(--color-primary)',
               marginLeft: 6
             }}>{t('ui.随鸡群自动填入', '（随鸡群自动填入）')}</span></label>
-            <select value={form.farmHouse} onChange={e => setForm(p => ({
+            <select data-i18n-skip="true" value={form.farmHouse} onChange={e => setForm(p => ({
             ...p,
             farmHouse: e.target.value
           }))} className={s.inp}>

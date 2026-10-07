@@ -9,10 +9,18 @@ export function localizedMasterName(row: Record<string, unknown> | null | undefi
   if (!row) return '';
   const value = (key: string) => {
     const candidate = row[key];
-    return candidate == null ? '' : String(candidate).trim();
+    return typeof candidate === 'string' || typeof candidate === 'number' ? String(candidate).trim() : '';
   };
   const localized = (locale: string) => value(`${base}_${locale}`) || value(camelLocaleKey(base, locale));
   const requested = lang || 'zh';
+  // Farm/house masters currently have one canonical name. Accept either API
+  // casing and future locale projections without inventing translations.
+  if (['farm_name', 'farmName', 'house_name', 'houseName'].includes(base)) {
+    const snake = base.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    const camel = snake.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+    return value(`${snake}_${requested}`) || value(camelLocaleKey(camel, requested))
+      || value(snake) || value(camel);
+  }
   // Supplier and warehouse master names are user-facing locale contracts: a
   // supported locale must never silently show another locale's translation.
   // Other historical master-data consumers retain their established generic

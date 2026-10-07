@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { TrendingDown, Clock, CheckCircle, Wallet, Search, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight, Filter, Plus, Download, X, ChevronDown, AlertCircle, Ban } from 'lucide-react';
+import { formatMasterData } from '@/lib/business-display';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge, LoadingSkeleton } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
@@ -472,7 +473,7 @@ function DetailDrawer({
   onClose: () => void;
   onCancelled: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { canCreate: canCreatePayment, hasAccess: canViewPayment } = usePermission('MENU_PRC2_PAYMENT');
   const [detail, setDetail] = useState<ApDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -540,10 +541,10 @@ function DetailDrawer({
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
-                {[[t('fin2.common.supplier', '供应商'), detail.supplier_name], [t('fin2.common.company', '公司'), detail.company_code + (detail.company_name ? ` ${detail.company_name}` : '')], [t('fin2.ap.invoice_no', '发票号'), detail.invoice_no ?? '—'], [t('fin2.ap.invoice_date', '发票日期'), fmtDate(detail.invoice_date)], [t('fin2.ap.due_date', '到期日'), fmtDate(detail.due_date)], [t('fin2.common.project', '项目'), detail.project_code ?? '—'], [t('fin2.ap.source_no', '来源单号'), detail.source_no ?? '—'], [t('fin2.common.remark', '备注'), detail.remark ?? '—']].map(([k, v]) => (
+                {[[t('fin2.common.supplier', '供应商'), detail.supplier_name], [t('fin2.common.company', '公司'), formatMasterData(detail, 'company_name', detail.company_code, lang)], [t('fin2.ap.invoice_no', '发票号'), detail.invoice_no ?? '—'], [t('fin2.ap.invoice_date', '发票日期'), fmtDate(detail.invoice_date)], [t('fin2.ap.due_date', '到期日'), fmtDate(detail.due_date)], [t('fin2.common.project', '项目'), formatMasterData(detail, 'project_name', detail.project_code, lang)], [t('fin2.ap.source_no', '来源单号'), detail.source_no ?? '—'], [t('fin2.common.remark', '备注'), detail.remark ?? '—']].map(([k, v]) => (
                   <div key={k}>
                     <span className="text-text-muted">{k}：</span>
-                    <span className={`text-text ${u.fw500}`}>{v}</span>
+                    <span className={`text-text ${u.fw500}`} data-i18n-skip="true">{v}</span>
                   </div>
                 ))}
               </div>

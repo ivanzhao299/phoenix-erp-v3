@@ -5,6 +5,9 @@ import { currencySymbol } from '@/lib/currency';  // G61 多币种符号
 import { financeAlignmentSummary, financeSourceLabel, financeStatusLabel } from '@/lib/finance-report-logic';
 import u from "@/styles/uix-utils.module.css";
 import { PieChart, BarChart2, TrendingDown, TrendingUp, Wallet, Users, Receipt, Building2, FolderOpen, RefreshCw, AlertTriangle, CheckCircle, DollarSign, ArrowLeftRight } from 'lucide-react';
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from '@/contexts/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 import { TOKENS } from '@/lib/design-tokens';
@@ -385,7 +388,8 @@ function FinanceAlignmentPanel({ data }: { data: OverviewData }) {
 }
 
 function OverviewTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const companyNames = useMasterNames('company');
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -496,10 +500,10 @@ function OverviewTab() {
       {data.byCompany.length > 0 && <>
           <SectionTitle>{t('fin2.common.cash_balance','现金余额')} — {t('fin2.reports.by_company','按公司')}</SectionTitle>
           <TableWrapper>
-            <thead><tr><Th>{t('fin2.reports.company_code','公司代码')}</Th><Th right>{t('fin2.common.cash_balance','现金余额')}</Th></tr></thead>
+            <thead><tr><Th>{t('fin2.common.company','公司')}</Th><Th right>{t('fin2.common.cash_balance','现金余额')}</Th></tr></thead>
             <tbody>
               {data.byCompany.map(r => <tr key={r.companyCode}>
-                  <Td>{r.companyCode}</Td>
+                  <Td><MasterLabel>{masterDisplayLabel(companyNames, 'company', r.companyCode, lang)}</MasterLabel></Td>
                   <Td right bold>{fmtMoney(r.cashBalance)}</Td>
                 </tr>)}
             </tbody>
@@ -542,7 +546,8 @@ interface ApTopRow {
   openAmount: number;
 }
 function ApTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const companyNames = useMasterNames('company');
   const [aging, setAging] = useState<ApAgingData | null>(null);
   const [topSup, setTopSup] = useState<ApTopRow[] | null>(null);
   const [loadAging, setLoadAging] = useState(true);
@@ -581,7 +586,7 @@ function ApTab() {
           <tbody>
             {aging.rows.map((r, i) => <tr key={i}>
                 <Td bold>{r.supplierName}</Td>
-                <Td>{r.companyCode}</Td>
+                <Td><MasterLabel>{masterDisplayLabel(companyNames, 'company', r.companyCode, lang)}</MasterLabel></Td>
                 <Td>{r.currencyCode}</Td>
                 <Td right>{fmt(r.notDue)}</Td>
                 <Td right>{fmt(r.d030)}</Td>
@@ -648,7 +653,8 @@ interface ArTopRow {
   openAmount: number;
 }
 function ArTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const companyNames = useMasterNames('company');
   const [aging, setAging] = useState<ArAgingData | null>(null);
   const [topCust, setTopCust] = useState<ArTopRow[] | null>(null);
   const [loadAg, setLoadAg] = useState(true);
@@ -686,7 +692,7 @@ function ArTab() {
           <tbody>
             {aging.rows.map((r, i) => <tr key={i}>
                 <Td bold>{r.customerName}</Td>
-                <Td>{r.companyCode}</Td>
+                <Td><MasterLabel>{masterDisplayLabel(companyNames, 'company', r.companyCode, lang)}</MasterLabel></Td>
                 <Td>{r.currencyCode}</Td>
                 <Td right>{fmt(r.notDue)}</Td>
                 <Td right>{fmt(r.d030)}</Td>
@@ -754,7 +760,8 @@ interface DailyFlowData {
   rows: DailyFlowRow[];
 }
 function CashTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const companyNames = useMasterNames('company');
   const [overview, setOverview] = useState<CashOverviewData | null>(null);
   const [dailyFlow, setDailyFlow] = useState<DailyFlowData | null>(null);
   const [loadOv, setLoadOv] = useState(true);
@@ -796,7 +803,7 @@ function CashTab() {
             <thead><tr><Th>{t('fin2.common.company','公司')}</Th><Th right>{t('fin2.reports.account_count','账户数')}</Th><Th right>{t('fin2.common.balance','余额')}</Th></tr></thead>
             <tbody>
               {overview.byCompany.map(r => <tr key={r.companyCode}>
-                  <Td bold>{r.companyCode}</Td>
+                  <Td bold><MasterLabel>{masterDisplayLabel(companyNames, 'company', r.companyCode, lang)}</MasterLabel></Td>
                   <Td right>{r.count}</Td>
                   <Td right bold>{fmtMoney(r.balance)}</Td>
                 </tr>)}
@@ -962,7 +969,8 @@ const STATUS_COLOR: Record<string, string> = {
   PAID: 'var(--status-success)'
 };
 function ExpenseTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const companyNames = useMasterNames('company');
   const [expData, setExpData] = useState<ExpenseSummaryData | null>(null);
   const [reimbData, setReimbData] = useState<ReimbSummaryData | null>(null);
   const [loadExp, setLoadExp] = useState(true);
@@ -1009,7 +1017,7 @@ function ExpenseTab() {
                 <thead><tr><Th>{t('fin2.common.company','公司')}</Th><Th right>{t('fin2.reports.count_col','笔数')}</Th><Th right>{t('fin2.common.amount','金额')}</Th></tr></thead>
                 <tbody>
                   {expData.byCompany.map(r => <tr key={r.companyCode}>
-                      <Td bold>{r.companyCode}</Td>
+                      <Td bold><MasterLabel>{masterDisplayLabel(companyNames, 'company', r.companyCode, lang)}</MasterLabel></Td>
                       <Td right>{r.count}</Td>
                       <Td right>{fmtMoney(r.total)}</Td>
                     </tr>)}
@@ -1081,7 +1089,8 @@ interface ShSummaryData {
   }[];
 }
 function ShareholderTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const companyNames = useMasterNames('company');
   const [data, setData] = useState<ShSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -1149,7 +1158,7 @@ function ShareholderTab() {
             <tbody>
               {data.upcomingReturns.map((r, i) => <tr key={i}>
                   <Td bold>{r.shareholderName}</Td>
-                  <Td>{r.companyCode}</Td>
+                  <Td><MasterLabel>{masterDisplayLabel(companyNames, 'company', r.companyCode, lang)}</MasterLabel></Td>
                   <Td>
                     <span className={`text-warning ${u.fw600}`}>
                       {String(r.expectedReturnDate).slice(0, 10)}
@@ -1175,7 +1184,8 @@ interface ProjectRow {
   netPosition: number;
 }
 function ProjectTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const companyNames = useMasterNames('company');
   const [data, setData] = useState<ProjectRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -1207,7 +1217,7 @@ function ProjectTab() {
           <tbody>
             {rows.map((r, i) => <tr key={i}>
                 <Td bold>{r.projectCode}</Td>
-                <Td>{r.companyCode}</Td>
+                <Td><MasterLabel>{masterDisplayLabel(companyNames, 'company', r.companyCode, lang)}</MasterLabel></Td>
                 <Td right>{fmtMoney(r.arOpen)}</Td>
                 <Td right>{fmtMoney(r.apOpen)}</Td>
                 <Td right>{fmtMoney(r.expenseTotal)}</Td>
@@ -1244,7 +1254,8 @@ interface CompanyRow {
   netOperatingPosition: number;
 }
 function CompanyTab() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const companyNames = useMasterNames('company');
   const [data, setData] = useState<CompanyRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -1277,7 +1288,7 @@ function CompanyTab() {
         </thead>
         <tbody>
           {data.map(r => <tr key={r.companyCode}>
-              <Td bold>{r.companyCode}</Td>
+              <Td bold><MasterLabel>{masterDisplayLabel(companyNames, 'company', r.companyCode, lang)}</MasterLabel></Td>
               <Td right>{fmtMoney(r.cashBalance)}</Td>
               <Td right>{fmtMoney(r.arOpen)}</Td>
               <Td right>{fmtMoney(r.apOpen)}</Td>

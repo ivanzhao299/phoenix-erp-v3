@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
+import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from "@/contexts/LanguageContext";
 import { crudApi } from "@/lib/api-client";
 import {
@@ -46,8 +49,9 @@ export default function StorePage() {
   const [in7] = useState(() => new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
   const router = useRouter();
   const {
-    t
+    t, lang
   } = useLanguage();
+  const storeNames = useMasterNames('store');
   const [sales, setSales] = useState<PosSale[]>([]);
   const [receiving, setReceiving] = useState<StoreRecv[]>([]);
   const [batches, setBatches] = useState<InvBatch[]>([]);
@@ -210,7 +214,7 @@ export default function StorePage() {
                     <div style={{
                   fontSize: 11,
                   color: "var(--text-secondary)"
-                }}>{(r.created_at || "—").slice(0, 10)} · {r.wave_no || r.store_code || "—"}</div>
+                }}>{(r.created_at || "—").slice(0, 10)} · {r.wave_no || <MasterLabel>{masterDisplayLabel(storeNames, 'store', r.store_code, lang, r)}</MasterLabel>}</div>
                   </div>
                   <span style={actionPill(isPending ? "warning" : "success")}>
                     {isPending ? t("status.pending", "待确认") : t("status.done", "已完成")}

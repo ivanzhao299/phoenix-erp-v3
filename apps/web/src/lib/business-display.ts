@@ -49,8 +49,10 @@ export function formatBusinessEnum(domain: BusinessEnumDomain, value: unknown, l
   return entry?.[locale] ?? code;
 }
 
-export function formatMasterData(row: object | null | undefined, nameBase: string, code: unknown, lang: AppLanguage = 'zh'): string {
-  return masterNameWithCode(localizedMasterName(row as Record<string, unknown> | null | undefined, nameBase, lang), String(code ?? '')) || '—';
+export function formatMasterData(row: object | null | undefined, nameBase: string, code: unknown, lang: AppLanguage = 'zh', options?: { canonicalFallback?: boolean }): string {
+  const canonical = (row as Record<string, unknown> | undefined)?.[nameBase];
+  const name = localizedMasterName(row as Record<string, unknown> | null | undefined, nameBase, lang) || (options?.canonicalFallback && typeof canonical === 'string' ? canonical : '');
+  return masterNameWithCode(name, String(code ?? '')) || '—';
 }
 
 export function formatCompany(row: object | null | undefined, companyCode: unknown, lang: AppLanguage = 'zh'): string {

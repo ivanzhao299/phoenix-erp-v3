@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import u from "@/styles/uix-utils.module.css";
+import { useMasterNames } from '@/hooks/useMasterNames';
+import { masterDisplayLabel } from '@/lib/master-display';
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
 import { Plus, RefreshCw, Search, ChevronRight, X, AlertTriangle, CheckCircle, Clock, CreditCard } from 'lucide-react';
@@ -316,6 +318,7 @@ function SkuBadge({
 
 export default function SalesV2OrdersPage() {
   const { t, lang } = useLanguage();
+  const warehouseNames = useMasterNames('warehouse');
   const processWarningLabel = (code: string) => {
     switch (code) {
       case 'RECEIVED_WITHOUT_AR': return t('ui.已签收但未生成应收','已签收但未生成应收');
@@ -1330,13 +1333,13 @@ export default function SalesV2OrdersPage() {
           gap: 8,
           fontSize: 13
         }}>
-              {[[t('ui.客户','客户'), formatMasterData({ customer_name: detailOrder.customer_name_master ?? detailOrder.customer_name, customer_name_en: detailOrder.customer_name_en, customer_name_lo: detailOrder.customer_name_lo }, 'customer_name', detailOrder.customer_code, lang)], [t('ui.渠道','渠道'), formatMasterData({ channel_name: detailOrder.channel_name }, 'channel_name', detailOrder.channel_code, lang)], [t('ui.履约仓','履约仓'), detailOrder.fulfillment_warehouse_code ?? t('ui.待治理（历史单）','待治理（历史单）')], [t('ui.总金额','总金额'), `${Number(detailOrder.total_amount).toLocaleString()} ${detailOrder.currency_code}`], [t('ui.应收状态','应收状态'), detailOrder.ar_invoice_id ? t('ui.✓ 已生成应收账款','✓ 已生成应收账款') : t('ui.未生成','未生成')]].map(([k, v]) => <div key={k as string}>
+              {[[t('ui.客户','客户'), formatMasterData({ customer_name: detailOrder.customer_name_master ?? detailOrder.customer_name, customer_name_en: detailOrder.customer_name_en, customer_name_lo: detailOrder.customer_name_lo }, 'customer_name', detailOrder.customer_code, lang)], [t('ui.渠道','渠道'), formatMasterData({ channel_name: detailOrder.channel_name }, 'channel_name', detailOrder.channel_code, lang)], [t('ui.履约仓','履约仓'), detailOrder.fulfillment_warehouse_code ? masterDisplayLabel(warehouseNames, 'warehouse', detailOrder.fulfillment_warehouse_code, lang) : t('ui.待治理（历史单）','待治理（历史单）')], [t('ui.总金额','总金额'), `${Number(detailOrder.total_amount).toLocaleString()} ${detailOrder.currency_code}`], [t('ui.应收状态','应收状态'), detailOrder.ar_invoice_id ? t('ui.✓ 已生成应收账款','✓ 已生成应收账款') : t('ui.未生成','未生成')]].map(([k, v]) => <div key={k as string}>
                   <div style={{
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 2
             }}>{k}</div>
-                  <div className={u.fw600}>{v}</div>
+                  <div className={u.fw600} data-i18n-skip="true">{v}</div>
                 </div>)}
             </div>
 
