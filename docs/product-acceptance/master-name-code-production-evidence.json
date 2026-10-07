@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-07",
+  "primaryPR": 360,
+  "supplementalPR": 361,
+  "releaseMain": "40c8990c268c7780389fe2d9b8b742d4cd6a5e03",
+  "deploymentRun": 37601215333,
+  "deploymentConclusion": "FAILURE",
+  "deploymentExit": 20,
+  "deploymentBoundary": "clean-worktree gate before code sync/config/DB/container switch",
+  "serverState": [
+    "modified docker-compose.yml",
+    "untracked .env.pre-verification-20261005T114700+08:00"
+  ],
+  "productionWebRevision": [
+    "[Phoenix ERP] build 5425089bcb51338d4780d6f37782440bade8b90c"
+  ],
+  "health": {
+    "/api/health": 200,
+    "/api/readiness": 200,
+    "/": 200
+  },
+  "dbConnected": true,
+  "apiHealthStatus": "OK",
+  "sourceFacts": {
+    "flockNo": "LPH_MS_F02",
+    "farmCode": "LPH_MENGSAI",
+    "farmName": "孟赛蛋鸡场",
+    "houseCode": "HOUSE_MS_02",
+    "houseName": "2号鸡舍",
+    "farmLocaleFields": [
+      "farm_name"
+    ],
+    "houseLocaleFields": [
+      "house_name"
+    ]
+  },
+  "observedFlockLocales": {
+    "zh": {
+      "farm": "孟赛蛋鸡场",
+      "house": "HOUSE_MS_02"
+    },
+    "lo": {
+      "farm": "Mengsai Laying ຟາມ",
+      "house": "HOUSE_MS_02"
+    },
+    "en": {
+      "farm": "Mengsai Laying ຟາມ",
+      "house": "HOUSE_MS_02"
+    }
+  },
+  "observedSearch": {
+    "LPH_MENGSAI": 0,
+    "孟赛蛋鸡场": 1,
+    "HOUSE_MS_02": 0,
+    "2号鸡舍": 0
+  },
+  "negativeSearchTargetCount": 0,
+  "priceAnomalyHTTPStatus": 400,
+  "businessWriteAttempts": 0,
+  "pageErrors": 0,
+  "databaseMigration": "NO",
+  "productionBusinessDataMutation": "NO",
+  "chanjetChange": "NO",
+  "productAcceptanceFeedbackStatus": "BLOCKED",
+  "limits": "Fix merged and CI green; new display contract is not deployed and has not passed production acceptance. No environment backup contents, credentials or financial detail data included."
+}
