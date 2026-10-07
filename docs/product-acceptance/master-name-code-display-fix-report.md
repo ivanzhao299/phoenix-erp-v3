@@ -47,9 +47,9 @@ Failure classification and evidence: initial Linux Chromium failed before any pa
 PRODUCTION_BASELINE=Read-only legal account login from the user-provided credential file; token/password stayed in memory and were never logged or committed. API health/readiness/Web returned 200. Real record LPH_MS_F02: farmName=孟赛蛋鸡场, farmCode=LPH_MENGSAI; houseName=2号鸡舍, houseCode=HOUSE_MS_02. Baseline flock house cell was code-only in zh/lo/en. Farm code, house code and house-name searches failed; farm-name search succeeded. No business write was attempted.
 
 PR_NUMBER=360
-MERGED_MAIN_SHA=PENDING
+MERGED_MAIN_SHA=43a9dbde741c71317e0fd554b36499e1ee1e860f (display PR #360)
 DEPLOYED_REVISION=PENDING
-REQUIRED_CI=PENDING
+REQUIRED_CI=PASS for display PR #360 (10 executed checks successful; deployment-only PR jobs skipped)
 PRODUCTION_DEPLOY=PENDING
 PRODUCTION_UI_ACCEPTANCE=PENDING
 PRODUCT_ACCEPTANCE_FEEDBACK_STATUS=PARTIAL (implementation and local validation complete; release/production acceptance pending)
@@ -63,3 +63,10 @@ Reference henhouse primary/secondary layout is unchanged; its canonical names an
 Ordinary flock viewers may lack MENU_FARM_MASTER required by master-maintenance CRUD. Flock now uses existing scoped ACTIVE lookup/farms and lookup/houses (normalized into derived form/display arrays), with a regression fixture that rejects maintenance CRUD yet still resolves names. This avoids a PBAC-dependent code-only fallback without changing guards or write payloads.
 
 Independent final review notes the existing lookup/farms intersection versus flock CRUD farm/site/company union. Normal SITE grants project to farm grants; special cross-company/unmapped historical rows can retain code if their name is inaccessible through the current permitted lookup. This change does not broaden either scope. Production read-only acceptance uses the existing legal account and records observed scopes/rows rather than claiming validation of every possible role configuration.
+
+Production acceptance blockers found after the display PR merge:
+- Existing price-anomaly GET returned HTTP 400 before deployment, with “字段不存在，请联系管理员”. The unchanged query used same-level ORDER BY ABS(diff_rate) on an output alias. PostgreSQL requires an output alias to stand alone in ORDER BY ([official PG18 documentation](https://www.postgresql.org/docs/18/queries-order.html)). A minimal read-only derived-table fix preserves projection/filter/threshold/scope/parameters/rounding/LIMIT. Isolated local PostgreSQL 18.6 reproduced old error 42703 and verified fixed ordering, filtering, scope and LIMIT: 2 Jest suites / 5 tests PASS. No production database connection, schema change or data repair was used.
+- Official Web deploy run 37596917221 targeted merged 43a9dbde, mode=web/build_api=false/run_mig=false, but failed on Git dubious ownership before code sync or container switch. Production remained at Web build 5425089bcb51338d4780d6f37782440bade8b90c. The follow-up deployment preflight derives only the approved physical checkout via pwd -P and applies git -c safe.directory to that exact path per invocation; no global trust, wildcard, ownership change, branch reset or guard bypass. Main, clean-worktree and exact target SHA checks remain intact. The Git ownership failure and outside-repository denial were both reproduced by 2 local Node tests, PASS.
+- Independent review passed both minimal blocker fixes. They introduce no migration-path changes; the official full/API deployment recomputes RUN_MIG=false and skips schema-first/migration operations. The supplemental release will still deploy only a green-CI merged main.
+
+Supplemental PR #361 initial security run 37599928817 flagged `timestamptz` in the isolated PostgreSQL TEMP-table fixture because the existing Chanjet heuristic matches the substring `timestamp`. Independent review confirmed this is a test column type, with no Chanjet/signature/auth path change. The existing reviewed-security-touch metadata records that review; gate patterns and tests remain unchanged. The original failed run is retained, and a new commit triggers the reviewed CI run.
