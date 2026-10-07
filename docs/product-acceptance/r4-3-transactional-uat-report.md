@@ -1,6 +1,7 @@
 # R4.3 Controlled Transactional UAT — R4.4 Cleanup Closeout
 
-- `LATEST_MAIN`: `66d4fed2161bd33c9efa02e4fff4585f9cbd6d7d` (contract and sys-alert preservation fix merged; closeout PR pending)
+- `LATEST_MAIN`: `4af74f1a8c85d44f56dacbeb3934ad9afeb94a72` (R4.4 closeout merged; archive verification snapshot)
+- `CLOSEOUT_PR`: [#358 — R4.4 POST-R3 TEST DATA CLEANUP CLOSEOUT](https://github.com/ivanzhao299/phoenix-erp-v3/pull/358), merged `2026-10-06T09:53:04Z`
 - `R3_RESET_EPOCH`: `2026-10-06T13:33:09+08:00`
 - `UAT_RUN_ID`: `UAT-20261006-R4-6b0e3f`
 - `POST_R3_INCREMENTAL_TEST_DATA_CLEANUP_AUTHORIZED`: `YES`
@@ -23,7 +24,7 @@ The user stopped automated transactional UAT. T01 created only the existing purc
 
 ## R4.4 incremental cleanup
 
-The merged maintenance contract is [post-r3-incremental-test-data-cleanup.sql](/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.workbuddy-ai/r4-4-post-r3-test-data-cleanup/scripts/uat/post-r3-incremental-test-data-cleanup.sql). It is derived from the production-verified R3 child-before-parent order and requires explicit `PRODUCTION_INCREMENTAL_CLEANUP_AUTHORIZED=true` for commit. Its default mode is a rollback dry-run. Static safety checks passed, including the 148-table scope, no master/archive deletes, no `sys_cron_heartbeat` mutation, strict preservation of approved `SYSTEM_ALERT/SYS_ALERT` notifications, no `sys_alerts` mutation, no destructive session/trigger/DDL bypass, and approved derived-state update targets only.
+The merged maintenance contract is [post-r3-incremental-test-data-cleanup.sql](../../scripts/uat/post-r3-incremental-test-data-cleanup.sql). It is derived from the production-verified R3 child-before-parent order and requires explicit `PRODUCTION_INCREMENTAL_CLEANUP_AUTHORIZED=true` for commit. Its default mode is a rollback dry-run. Static safety checks passed, including the 148-table scope, no master/archive deletes, no `sys_cron_heartbeat` mutation, strict preservation of approved `SYSTEM_ALERT/SYS_ALERT` notifications, no `sys_alerts` mutation, no destructive session/trigger/DDL bypass, and approved derived-state update targets only.
 
 The read-only pre-cleanup inventory found three post-R3 cleanup rows: `prc2_request_items.id=21`, `prc2_purchase_requests.id=20`, and one business `WORKFLOW_TASK` notification (`sys_notifications.id=222520`). The dry-run passed with `WOULD_DELETE_ROWS=3`; the merged contract then committed exactly three deletes. The corrected child table name is `prc2_request_items`.
 
@@ -87,4 +88,6 @@ IOT_ALERT_BUSINESS_REVIEW=PENDING
 NEXT_ACTION=HUMAN_PRODUCT_ACCEPTANCE
 ```
 
-Machine-readable evidence is in `uat-run-manifest.json`, `uat-cleanup-graph.json`, `uat-case-results.json`, `post-r3-zero-required-precounts.csv`, `post-r3-incremental-cleanup-manifest.csv`, and `r4-4-postcheck.txt` in the frozen run artifact directory. Audit, security, operation, rate-limit diagnosis, and UAT evidence are retained; no credentials, tokens, cookies, raw secrets, backup, or raw production rows are committed.
+The frozen run archive is [artifacts/uat/UAT-20261006-R4-6b0e3f](../../artifacts/uat/UAT-20261006-R4-6b0e3f/): [uat-run-manifest.json](../../artifacts/uat/UAT-20261006-R4-6b0e3f/uat-run-manifest.json), [uat-cleanup-graph.json](../../artifacts/uat/UAT-20261006-R4-6b0e3f/uat-cleanup-graph.json), [uat-case-results.json](../../artifacts/uat/UAT-20261006-R4-6b0e3f/uat-case-results.json), [post-r3-zero-required-precounts.csv](../../artifacts/uat/UAT-20261006-R4-6b0e3f/post-r3-zero-required-precounts.csv), [post-r3-incremental-cleanup-manifest.csv](../../artifacts/uat/UAT-20261006-R4-6b0e3f/post-r3-incremental-cleanup-manifest.csv), [r4-4-postcheck.txt](../../artifacts/uat/UAT-20261006-R4-6b0e3f/r4-4-postcheck.txt), and [r4-4-steady-state-postcheck.txt](../../artifacts/uat/UAT-20261006-R4-6b0e3f/r4-4-steady-state-postcheck.txt). Audit, security, operation, rate-limit diagnosis, and UAT evidence are retained; no credentials, tokens, cookies, raw secrets, backup, or raw production rows are committed.
+
+Archive interpretation: the manifest's `production_main_sha` and `cleanup_contract_main_sha` (`66d4fed...`) identify the execution-time contract baseline; `evidence_main_sha` and the production deployment/API revision are historical evidence, unchanged by the docs-only closeout merge. In all three JSON files, `stop_reason.next_action` retains the earlier resume suggestion; the manifest's final `t01_resume_allowed=false`, `transactional_uat_status=ABORTED_BY_USER`, `cleanup_status=COMPLETE`, and `next_action=HUMAN_PRODUCT_ACCEPTANCE` supersede it. `HUMAN_BUSINESS_UAT=PENDING`, `IOT_ALERT_BUSINESS_REVIEW=PENDING`, and deferred remote Chanjet maintenance remain open business follow-ups after archival.
