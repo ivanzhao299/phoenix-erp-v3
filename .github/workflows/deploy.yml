@@ -657,6 +657,14 @@ jobs:
             set -Eeuo pipefail
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
 
+            # SSH can run as a different user from the checkout owner. Trust
+            # only this approved physical checkout for these Git invocations;
+            # keep global Git settings and the main/clean/SHA guards unchanged.
+            DEPLOY_REPO_ROOT="$(pwd -P)"
+            git() {
+              command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"
+            }
+
             echo "════════════════════════════════════════════════"
             echo "  Deploy mode: $DEPLOY_MODE"
             echo "  build_web=$BUILD_WEB  build_api=$BUILD_API  run_mig=$RUN_MIG"

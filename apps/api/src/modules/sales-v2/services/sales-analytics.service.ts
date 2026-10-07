@@ -429,7 +429,7 @@ export class SalesAnalyticsService {
     const { clause: sc, params: sp } = this.buildScope('so', [threshold / 100, limit], companyCode);
 
     const rows = await this.ds.query(
-      `SELECT
+      `SELECT * FROM (SELECT
          so.order_no        AS sales_order_no,
          so.customer_code,
          so.customer_name,
@@ -455,7 +455,8 @@ export class SalesAnalyticsService {
        )
        AND so.status NOT IN ('DRAFT','CANCELLED','REJECTED')
        ${sc}
-       ORDER BY ABS(diff_rate) DESC, so.created_at DESC
+       ) AS anomalies
+       ORDER BY ABS(anomalies.diff_rate) DESC, anomalies.created_at DESC
        LIMIT $2`,
       sp,
     );
