@@ -177,4 +177,4 @@ ACTIVE验收后覆盖至少下一次00:15/06:15/12:15/18:15正式调度及完整
 
 发生权限/映射/限流失败时durable FAIL阻断同审批的后续运行；发现跨公司混入、禁止事实变化或远端写attempt增长，立即通过正式HOLD配置事务停用并保全job、floor过渡及受限证据，不删除镜像、不重写账务、不强制恢复旧API。当前尚未ACTIVE，完整周期观察为NOT_RUN。
 
-独立逐文件边界与安全审查完成后，PR登记仓库既有`reviewed-frozen-boundary`和`reviewed-security-touch`标签并重新运行静态门禁；不修改scanner或降低规则。首轮未登记标签的security失败保留。标签表示本次已审代码边界，不代替精确merged SHA的生产floor批准。
+独立逐文件边界与安全审查完成后，PR登记仓库既有`reviewed-frozen-boundary`和`reviewed-security-touch`标签并重新运行静态门禁；不修改scanner或降低规则。本地同等审核开关的W5静态收尾门禁20/20通过。首轮未登记标签的security失败保留。标签表示本次已审代码边界，不代替精确merged SHA的生产floor批准。
