@@ -118,7 +118,7 @@ jobs:
                 *'Permission denied (publickey)'*) echo GITHUB_OUTBOUND_AUTH=FAIL_PUBLICKEY ;;
                 *) echo GITHUB_OUTBOUND_AUTH=UNKNOWN ;;
               esac
-              refs=$(timeout 25 git ls-remote origin refs/heads/main 2>&1)
+              refs=$(timeout 25 git -c "safe.directory=$DEPLOY_REPO_ROOT" ls-remote origin refs/heads/main 2>&1)
               rc=$?
               if test "$rc" = 0; then
                 sha=$(printf '%s\n' "$refs" | awk '$2=="refs/heads/main" {print $1}')
@@ -129,6 +129,7 @@ jobs:
                 echo GIT_LS_REMOTE=FAIL
                 echo "GIT_LS_REMOTE_EXIT=$rc"
                 case "$refs" in
+                  *'detected dubious ownership'*) echo GIT_READ_FAILURE_CLASS=SCOPED_GIT_TRUST ;;
                   *'Repository not found'*|*'does not exist or you do not have access'*) echo GIT_READ_FAILURE_CLASS=REPOSITORY_AUTHORIZATION ;;
                   *'Permission denied (publickey)'*) echo GIT_READ_FAILURE_CLASS=SSH_PUBLICKEY ;;
                   *'Host key verification failed'*) echo GIT_READ_FAILURE_CLASS=HOST_TRUST ;;
