@@ -29,7 +29,13 @@ integration('isolated PostgreSQL Chanjet restoration', () => {
     const a=scheduler(),b=scheduler();
     const responses=await Promise.all([a.subject.enqueueManualSync('operator'),b.subject.enqueueManualSync('operator')]);
     expect(responses.filter(x=>x.accepted)).toHaveLength(1);
-    for(let i=0;i<40;i++){if((await ds.query("SELECT id FROM chanjet_sync_jobs WHERE status='RUNNING'")).length===0)break;await new Promise(r=>setTimeout(r,10));}
+    // enqueue returns before the queued setImmediate begins; absence of RUNNING is not completion.
+    const deadline=Date.now()+5000;
+    while(Date.now()<deadline){
+      const rows=await ds.query('SELECT status FROM chanjet_sync_jobs');
+      if(rows.length===1&&rows[0].status==='SUCCESS')break;
+      await new Promise(r=>setTimeout(r,10));
+    }
     expect(a.call.mock.calls.length+b.call.mock.calls.length).toBe(1);
     expect(await ds.query('SELECT status FROM chanjet_sync_jobs')).toEqual([{status:'SUCCESS'}]);
   });

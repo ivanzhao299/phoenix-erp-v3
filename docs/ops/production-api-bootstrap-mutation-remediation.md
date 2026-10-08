@@ -130,6 +130,7 @@ Root trusted paths, permissions/ACL/mount checks, FD9 lock, clean checkout, exac
 | API changed-file ESLint | PASS: zero errors, 47 warnings from existing any/unused-variable debt |
 | Migration down/no-data-DML and nullable/constraint drift | PASS; 88 migrations unchanged, zero new drift |
 | Actionlint / fixture shell syntax / git diff check | PASS |
+| Real Chanjet PostgreSQL integration | PASS: 6 tests on an owned loopback PostgreSQL fixture. The asynchronous competition test now waits for the unique SUCCESS job rather than incorrectly treating a QUEUED job as completion. Scheduler production code remains unchanged. |
 | Required GitHub CI | PENDING; obsolete ensureColumn guard assertion replaced by an explicit prohibition on online schema repair; retirement field/key guards retained |
 | Independent security review | PASS conditional on final actual five-profile proof and required CI; final proof now PASS |
 
