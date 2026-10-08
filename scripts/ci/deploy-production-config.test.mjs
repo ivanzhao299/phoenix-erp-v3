@@ -40,7 +40,7 @@ test('API and Web image revision labels are explicit and build pipeline injects 
 });
 test('all three production callers share host lock, guard and restricted wrapper; protected images are not pruned', () => {
   for (const file of ['.github/workflows/deploy.yml', '.github/workflows/production-disk-maintenance.yml', '.github/workflows/phase1-controlled-production-execution.yml']) {
-    const text = read(file); assert.match(text, /flock -n 9/); assert.match(text, /production-config-guard.mjs/); assert.match(text, /phoenix-production-compose.mjs/);
+    const text = read(file); assert.match(text, /production-control-bootstrap.sh/); assert.match(text, /PRODUCTION_CONTROL_BOOTSTRAP_B64/); assert.match(read('scripts/ops/production-control-bootstrap.sh'), /flock -n 9/); assert.match(text, /production-config-guard.mjs/); assert.match(text, /phoenix-production-compose.mjs/);
     assert.doesNotMatch(text, /docker image prune -a/);
   }
   assert.match(wrapper, /\['up', 'restart'\].*rollbackEligibility/);

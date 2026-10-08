@@ -1,8 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "legacyApiRollback": "HOLD",
   "migrationBaseline": "RUNNING_API_REVISION",
-  "stateDirectory": "/home/phoenix-codex-deploy/production-deployment-state",
+  "stateDirectory": "/var/lib/phoenix-erp/production-deployment-state",
   "repository": "/data/phoenix-erp",
   "criticalFiles": [
     "docker-compose.yml",
@@ -26,6 +26,19 @@
     ".github/workflows/production-disk-maintenance.yml",
     ".github/workflows/phase1-controlled-production-execution.yml",
     "scripts/phase1-controlled-production-execution.sh",
-    "scripts/ops/verify-config-floor-transition.mjs"
+    "scripts/ops/verify-config-floor-transition.mjs",
+    "scripts/ops/production-trusted-paths.mjs",
+    "scripts/ops/production-control-bootstrap.sh"
+  ],
+  "executionUid": 0,
+  "controlRoot": "/var/lib/phoenix-erp",
+  "archiveDirectory": "/var/lib/phoenix-erp/production-checkout-recovery",
+  "legacyStateDirectory": "/home/phoenix-codex-deploy/production-deployment-state",
+  "controlMounts": [
+    {
+      "target": "/",
+      "root": "/",
+      "filesystem": "ext4"
+    }
   ]
 }

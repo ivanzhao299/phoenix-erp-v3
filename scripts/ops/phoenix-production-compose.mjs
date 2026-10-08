@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { CONTRACT, guardProduction, secureJson, rollbackEligibility, assertRuntimePins } from './production-config-guard.mjs';
+import { CONTRACT, guardProduction, secureJson, assertStateVersion, rollbackEligibility, assertRuntimePins } from './production-config-guard.mjs';
 import { executionEnv, IMAGE_ID, captureRuntime } from './capture-production-runtime.mjs';
 import { transactionFile, inspectCandidate } from './production-deployment-state.mjs';
 export function composeArguments(root, args, project) {
@@ -20,7 +20,7 @@ export function composeArguments(root, args, project) {
 export function runCompose(args, dependencies = {}) {
   const root = dependencies.root || fs.realpathSync(process.cwd()); const directory = dependencies.directory || CONTRACT.stateDirectory;
   const file = process.env.DEPLOY_RUN_ID ? transactionFile(directory) : path.join(directory, 'active.json');
-  const state = (dependencies.readState || secureJson)(file); const images = state.active;
+  const state = assertStateVersion((dependencies.readState || secureJson)(file)); const images = state.active;
   const floor = (dependencies.guard || guardProduction)(root, directory, images);
   const command = composeArguments(root, args, floor.project);
   for (const service of ['api', 'web']) {

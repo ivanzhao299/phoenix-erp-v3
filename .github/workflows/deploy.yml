@@ -351,7 +351,7 @@ jobs:
 
       - name: Production config floor, environment and rollback contracts
         run: |
-          node --test scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
+          node --test scripts/ops/production-trusted-paths.test.mjs scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
           pnpm --filter phoenix-erp-v3-nest test -- --runInBand src/modules/chanjet
 
       - name: Test migration ledger preflight (read-only fixtures)
@@ -647,6 +647,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Prepare reviewed production control payload
+        run: |
+          set -euo pipefail
+          {
+            echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)"
+            echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
+            echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
+          } >> "$GITHUB_ENV"
+
       - name: Prepare nginx config (full mode only)
         id: nginx
         if: needs.detect-changes.outputs.mode == 'full'
@@ -655,6 +664,9 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         env:
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
           DEPLOY_MODE: ${{ needs.detect-changes.outputs.mode }}
           BUILD_WEB:   ${{ needs.detect-changes.outputs.build_web }}
           BUILD_API:   ${{ needs.detect-changes.outputs.build_api }}
@@ -681,18 +693,14 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET
+          envs: DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
             umask 077
-            # Shared across deploy/maintenance/phase1; initialized only by an approved transition.
-            STATE_DIR=/home/phoenix-codex-deploy/production-deployment-state
-            test -d "$STATE_DIR" && test ! -L "$STATE_DIR"
-            test "$(stat -c %a "$STATE_DIR")" = 700
-            test "$(stat -c %u "$STATE_DIR")" = "$(id -u)"
-            exec 9>"$STATE_DIR/mutation.lock"
-            flock -n 9 || { echo "PRODUCTION_MUTATION=HOLD_LOCK_BUSY"; exit 24; }
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+            DEPLOY_REPO_ROOT="$(pwd -P)"
+            # Validate all control ancestors before opening FD9; contract/helper come from this reviewed runner revision.
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
 
             # SSH can run as a different user from the checkout owner. Trust
             # only this approved physical checkout for these Git invocations;
