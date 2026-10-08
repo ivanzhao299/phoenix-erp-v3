@@ -143,6 +143,27 @@ jobs:
             set -Eeuo pipefail
             umask 077
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+            DEPLOY_REPO_ROOT="$(pwd -P)"
+            git() {
+              command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"
+            }
+            STATE_DIR=/home/phoenix-codex-deploy/production-deployment-state
+            test -d "$STATE_DIR" && test ! -L "$STATE_DIR"
+            test "$(stat -c %a "$STATE_DIR")" = 700
+            test "$(stat -c %u "$STATE_DIR")" = "$(id -u)"
+            exec 9>"$STATE_DIR/mutation.lock"
+            flock -n 9 || { echo "PRODUCTION_MUTATION=HOLD_LOCK_BUSY"; exit 24; }
+            docker() {
+              if [ "${1:-}" = compose ]; then
+                shift
+                node "$DEPLOY_REPO_ROOT/scripts/ops/phoenix-production-compose.mjs" "$@"
+              else
+                command env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DOCKER_CONFIG=/home/phoenix-codex-deploy/.docker DOCKER_HOST=unix:///var/run/docker.sock docker "$@"
+              fi
+            }
+            bash scripts/ops/require-phoenix-data-mount.sh
+            node scripts/ops/production-config-guard.mjs --target "$TARGET_SHA"
+            # Historical schema target below the floor is HOLD, not a config exception.
             PRODUCTION_SHA="$(git rev-parse HEAD)"
             test "$PRODUCTION_SHA" = "$EXPECTED_PRODUCTION_SHA" || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_SHA_CHANGED'; exit 20; }
             PRODUCTION_BRANCH="$(git branch --show-current)"
@@ -284,7 +305,7 @@ jobs:
             verify_repo_digest "$API_IMAGE_REF" "$API_IMAGE_DIGEST" || { echo 'PHASE1_EXECUTION_BLOCKED=API_IMAGE_DIGEST_MISMATCH'; exit 24; }
             verify_repo_digest "$WEB_IMAGE_REF" "$WEB_IMAGE_DIGEST" || { echo 'PHASE1_EXECUTION_BLOCKED=WEB_IMAGE_DIGEST_MISMATCH'; exit 25; }
             RUN_ID="${EXECUTION_RUN_ID:?EXECUTION_RUN_ID is required}"
-            ROOT_DIR="$(mktemp -d /tmp/phase1-controlled.XXXXXX)"
+            ROOT_DIR="$(mktemp -d "$STATE_DIR/phase1-controlled.XXXXXX")"
             EVIDENCE_DIR="/opt/phoenix-erp-backups/phase1-controlled-${RUN_ID}"
             mkdir -p "$EVIDENCE_DIR"; chmod 700 "$EVIDENCE_DIR"
             COMPOSE_TARGET_FILE="$ROOT_DIR/docker-compose.target.yml"

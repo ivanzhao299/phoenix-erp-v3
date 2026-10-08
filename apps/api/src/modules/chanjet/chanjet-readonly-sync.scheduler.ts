@@ -1,3 +1,4 @@
+import { readonlySyncEnabled, erpInboundEnabled } from './chanjet-sync-control';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -53,6 +54,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
   ) {}
 
   onApplicationBootstrap(): void {
+    if (!readonlySyncEnabled()) return;
     setImmediate(() => {
       void this.recoverInterruptedRun();
     });
@@ -62,7 +64,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
   // the 30k monthly free allowance for operator checks and controlled writes.
   @Cron('0 15 */6 * * *', { name: JOB_NAME, timeZone: 'Asia/Shanghai' })
   async runScheduledSync(): Promise<void> {
-    if (String(process.env.CHANJET_READONLY_SYNC_ENABLED || 'true').toLowerCase() === 'false') {
+    if (!readonlySyncEnabled()) {
       this.log.warn(`${JOB_NAME} disabled by CHANJET_READONLY_SYNC_ENABLED=false`);
       return;
     }
@@ -75,6 +77,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
   }
 
   async enqueueManualSync(requestedBy: string, request: ManualSyncRequest = {}) {
+    if (!readonlySyncEnabled()) return this.disabledRun();
     const prepared = await this.prepareRun(requestedBy, request);
     if (!prepared.accepted || !prepared.run.runId) return prepared;
     setImmediate(() => {
@@ -94,7 +97,12 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
     return { ...this.lastRun };
   }
 
+  private disabledRun(): { accepted: boolean; reason?: string; run: SyncRunState } {
+    return { accepted: false, reason: 'SYNC_DISABLED', run: { ...this.lastRun } };
+  }
+
   private async prepareRun(requestedBy: string, request: ManualSyncRequest) {
+    if (!readonlySyncEnabled()) return this.disabledRun();
     if (this.running || this.queued) {
       return { accepted: false, reason: 'SYNC_ALREADY_ACTIVE', run: await this.getRunState() };
     }
@@ -103,6 +111,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
       this.lastRun = this.mapPersistedRun(active);
       return { accepted: false, reason: 'SYNC_ALREADY_ACTIVE_DURABLE', run: { ...this.lastRun } };
     }
+    if (!readonlySyncEnabled()) return this.disabledRun();
     const runId = `CHANJET-RO-${Date.now()}`;
     const queuedAt = new Date().toISOString();
     this.queued = true;
@@ -152,6 +161,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
   }
 
   private async executeSync(requestedBy: string, request: ManualSyncRequest, runId: string): Promise<void> {
+    if (!readonlySyncEnabled()) { this.queued = false; return; }
     if (this.running) {
       this.log.warn(`${JOB_NAME} skipped because previous local run is still active`);
       this.lastRun = {
@@ -233,7 +243,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
       let erpInbound: Record<string, unknown> = { enabled: false, applied: false };
       // A readonly mirror refresh must not silently promote data into ERP
       // accounting mirrors. Promotion is a separate, explicitly enabled Gate.
-      if (String(process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED || 'false').toLowerCase() === 'true') {
+      if (readonlySyncEnabled() && erpInboundEnabled()) {
         try {
           const inboundResult = await this.inboundSync.syncScheduledShareholderBalances(period, requestedBy);
           erpInbound = {
@@ -305,10 +315,11 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
   }
 
   private async recoverInterruptedRun(): Promise<void> {
+    if (!readonlySyncEnabled()) return;
     if (this.running || this.queued) return;
     try {
       const persisted = await this.loadLatestPersistedRun(true);
-      if (!persisted) return;
+      if (!persisted || !readonlySyncEnabled()) return;
       const scope = persisted.request_scope || {};
       const runId = String(scope.orchestrationRunId || '');
       if (!runId) return;

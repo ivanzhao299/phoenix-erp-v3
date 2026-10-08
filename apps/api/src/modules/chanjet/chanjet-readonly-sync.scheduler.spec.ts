@@ -17,10 +17,15 @@ describe('ChanjetReadonlySyncScheduler', () => {
     guardrails: {},
   };
 
+  beforeEach(() => { process.env.CHANJET_READONLY_SYNC_ENABLED = 'true'; });
+
   afterEach(() => {
-    process.env.CHANJET_READONLY_SYNC_ENABLED = previousEnabled;
-    process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = previousInboundEnabled;
-    process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS = previousRecoveryCooldown;
+    if (previousEnabled === undefined) delete process.env.CHANJET_READONLY_SYNC_ENABLED;
+    else process.env.CHANJET_READONLY_SYNC_ENABLED = previousEnabled;
+    if (previousInboundEnabled === undefined) delete process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED;
+    else process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = previousInboundEnabled;
+    if (previousRecoveryCooldown === undefined) delete process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS;
+    else process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS = previousRecoveryCooldown;
     jest.restoreAllMocks();
   });
 
@@ -88,6 +93,40 @@ describe('ChanjetReadonlySyncScheduler', () => {
     throw new Error('scheduler did not reach a terminal state');
   }
 
+  it.each([undefined, '', 'false', 'FALSE', '0', 'yes'])('holds all execution paths for readonly=%s before any durable access', async (flag) => {
+    if (flag === undefined) delete process.env.CHANJET_READONLY_SYNC_ENABLED;
+    else process.env.CHANJET_READONLY_SYNC_ENABLED = flag;
+    process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = 'true';
+    const { runner } = createQueryRunner();
+    const integration = createIntegration();
+    const dataSource = createDataSource(runner);
+    const inbound = createInboundSync();
+    const scheduler = new ChanjetReadonlySyncScheduler(integration as never, { ok: jest.fn(), fail: jest.fn() } as never, dataSource as never, inbound as never);
+    await scheduler.runScheduledSync();
+    await expect(scheduler.enqueueManualSync('operator')).resolves.toMatchObject({ accepted: false, reason: 'SYNC_DISABLED' });
+    const immediate = jest.spyOn(global, 'setImmediate');
+    scheduler.onApplicationBootstrap();
+    expect(immediate).not.toHaveBeenCalled();
+    // Direct recovery/execute defenses also hold if a callback was queued earlier.
+    const control = scheduler as unknown as { recoverInterruptedRun(): Promise<void>; executeSync(actor: string, request: Record<string, unknown>, runId: string): Promise<void> };
+    await control.recoverInterruptedRun();
+    await control.executeSync('operator', {}, 'queued-before-hold');
+    expect(dataSource.query).not.toHaveBeenCalled();
+    expect(dataSource.createQueryRunner).not.toHaveBeenCalled();
+    expect(integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
+    expect(inbound.syncScheduledShareholderBalances).not.toHaveBeenCalled();
+  });
+
+  it('continues to allow harmless persisted status inspection while held', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'false';
+    const { runner } = createQueryRunner();
+    const dataSource = createDataSource(runner);
+    const scheduler = new ChanjetReadonlySyncScheduler(createIntegration() as never, { ok: jest.fn(), fail: jest.fn() } as never, dataSource as never, createInboundSync() as never);
+    await scheduler.getRunState();
+    expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('SELECT status'), [false]);
+    expect(dataSource.createQueryRunner).not.toHaveBeenCalled();
+  });
+
   it('persists one durable run and uses one dedicated connection for advisory lock lifecycle', async () => {
     process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
     process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = 'true';
@@ -135,6 +174,7 @@ describe('ChanjetReadonlySyncScheduler', () => {
     await scheduler.runScheduledSync();
 
     expect(inboundSync.syncScheduledShareholderBalances).not.toHaveBeenCalled();
+    expect(runner.connect).toHaveBeenCalledTimes(1);
   });
 
   it('records HOLD as a durable monitored failure and still releases the lock', async () => {

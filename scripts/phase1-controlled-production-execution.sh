@@ -23,6 +23,17 @@ umask 077
 : "${RUN_ID:?RUN_ID is required}"
 ROOT_DIR=${ROOT_DIR:-$PWD}
 COMPOSE_DIR=${COMPOSE_DIR:-$PWD}
+# Shared host lock/floor must have been established by the workflow. Unknown,
+# old or missing floor blocks even this separately authorized schema track.
+node "$COMPOSE_DIR/scripts/ops/production-config-guard.mjs" --target "$TARGET_SHA"
+docker() {
+  if [ "${1:-}" = compose ]; then
+    shift
+    node "$COMPOSE_DIR/scripts/ops/phoenix-production-compose.mjs" "$@"
+  else
+    command env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DOCKER_CONFIG=/home/phoenix-codex-deploy/.docker DOCKER_HOST=unix:///var/run/docker.sock docker "$@"
+  fi
+}
 
 [[ "$PRODUCTION_SHA" = "$EXPECTED_PRODUCTION_SHA" ]] || { echo 'PHASE1_EXECUTION_BLOCKED=PRODUCTION_SHA_CHANGED'; exit 20; }
 export API_IMAGE

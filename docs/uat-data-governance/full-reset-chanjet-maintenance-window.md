@@ -53,3 +53,14 @@ CHANJET_REMOTE_CLEANUP=DEFERRED_EXTERNAL_MAINTENANCE
 2. 运行 [full-reset-chanjet-reimport-postcheck.sql](../../scripts/uat/full-reset-chanjet-reimport-postcheck.sql)，传入 reset epoch。
 3. 多轮确认无新 sync job、mirror row、inbound run、reconciliation notification 和 pending writeback。
 4. 只有完成独立 `CHANJET_REMOTE_BASELINE_REVIEW` 后，才可另行批准开启 readonly sync。
+
+
+## Configuration hardening follow-up (repository implementation, no production action)
+
+The canonical execution policy now requires explicit true; missing/false/ambiguous inputs hold scheduler, manual queue, bootstrap recovery and direct mirror service entrypoints before mutation. Status reads remain available. Readonly mirror enablement does not enable the independent ERP inbound gate; non-dry-run AR ledger import is also held by that gate. Existing financial approval/RBAC and external writeback boundaries remain.
+
+No reset/HOLD data update, remote cleanup or reenablement is authorized here. Version 1 production admission requires explicit false/false and approved /data configuration. A future reenablement must receive separate operational/contract approval; ordinary code deployment cannot enable it.
+
+Pre-floor images such as the current P lack verified bootstrap/manual isolation and are not automatic rollback candidates. A historical zero-job report is not a fresh certificate. The repository's first transition is forward-only under explicit one-time/full/C3-proof gates; failure retains safe configuration and enters operator recovery HOLD. Optional Nginx marker alone does not prove Web/loopback/bridge isolation or waive this restriction.
+
+Production remains unchanged until separately authorized C3/C4. Implementation/test evidence: `docs/product-acceptance/production-config-hardening-implementation.md`.

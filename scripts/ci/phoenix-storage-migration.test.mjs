@@ -10,16 +10,19 @@ const composePath = new URL('docker-compose.yml', root);
 const compose = readFileSync(composePath, 'utf8');
 const deployWorkflow = readFileSync(new URL('.github/workflows/deploy.yml', root), 'utf8');
 const maintenanceWorkflow = readFileSync(new URL('.github/workflows/production-disk-maintenance.yml', root), 'utf8');
+const phase1Workflow = readFileSync(new URL('.github/workflows/phase1-controlled-production-execution.yml', root), 'utf8');
 const guard = readFileSync(new URL('scripts/ops/require-phoenix-data-mount.sh', root), 'utf8');
 
 function composeConfig(extraEnv = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'phoenix-compose-storage-'));
   const envFile = join(dir, '.env');
   const env = {
+    CHANJET_READONLY_SYNC_ENABLED: 'false',
+    CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false',
     JWT_SECRET: 'test-only-secret-with-at-least-32-characters',
     ...extraEnv,
   };
-  writeFileSync(envFile, `${Object.entries(env).map(([key, value]) => `${key}=${value}`).join('\n')}\n`);
+  writeFileSync(envFile, `${Object.entries(env).filter(([, value]) => value !== undefined).map(([key, value]) => `${key}=${value}`).join('\n')}\n`);
   try {
     return JSON.parse(execFileSync('docker', [
       'compose', '--env-file', envFile, '-f', composePath.pathname,
@@ -32,6 +35,8 @@ function composeConfig(extraEnv = {}) {
 
 test('default compose storage stays on the existing named volumes', () => {
   const config = composeConfig();
+  assert.equal(config.services.api.environment.CHANJET_READONLY_SYNC_ENABLED, 'false');
+  assert.equal(config.services.api.environment.CHANJET_ERP_INBOUND_SYNC_ENABLED, 'false');
   assert.equal(config.services.db.volumes[0].source, 'phoenix_pg_data');
   assert.equal(config.services.api.volumes[0].source, 'phoenix_uploads');
   assert.match(compose, /phoenix_pg_data:\n\s+name: phoenix_pg_data/);
@@ -40,6 +45,7 @@ test('default compose storage stays on the existing named volumes', () => {
 
 test('production-like compose storage resolves to /data bind sources', () => {
   const config = composeConfig({
+    PHOENIX_DATA_MOUNT_GUARD: 'true',
     PHOENIX_PG_DATA_DIR: '/data/test/postgres',
     PHOENIX_UPLOADS_DIR: '/data/test/uploads',
   });
@@ -50,6 +56,7 @@ test('production-like compose storage resolves to /data bind sources', () => {
 test('deploy and maintenance workflows invoke the fail-closed guard', () => {
   assert.match(deployWorkflow, /CODE_SYNCED=true[\s\S]*bash scripts\/ops\/require-phoenix-data-mount\.sh/);
   assert.match(maintenanceWorkflow, /cd "\$DEPLOY_PATH"[\s\S]*bash scripts\/ops\/require-phoenix-data-mount\.sh/);
+  assert.match(phase1Workflow, /require-phoenix-data-mount\.sh/);
   assert.match(guard, /mountpoint -q/);
   assert.match(guard, /\.phoenix-data-volume/);
   assert.match(guard, /findmnt -T/);
@@ -103,5 +110,21 @@ test('named-volume mode leaves the mount guard disabled', () => {
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('explicit readonly and ERP inbound inputs remain independent', () => {
+  for (const readonly of ['true', 'false']) for (const inbound of ['true', 'false']) {
+    const config = composeConfig({ CHANJET_READONLY_SYNC_ENABLED: readonly, CHANJET_ERP_INBOUND_SYNC_ENABLED: inbound });
+    assert.equal(config.services.api.environment.CHANJET_READONLY_SYNC_ENABLED, readonly);
+    assert.equal(config.services.api.environment.CHANJET_ERP_INBOUND_SYNC_ENABLED, inbound);
+  }
+});
+
+test('unset or empty Compose flag inputs fail closed to false/false', () => {
+  for (const value of [undefined, '']) {
+    const config = composeConfig({ CHANJET_READONLY_SYNC_ENABLED: value, CHANJET_ERP_INBOUND_SYNC_ENABLED: value });
+    assert.equal(config.services.api.environment.CHANJET_READONLY_SYNC_ENABLED, 'false');
+    assert.equal(config.services.api.environment.CHANJET_ERP_INBOUND_SYNC_ENABLED, 'false');
   }
 });

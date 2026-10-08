@@ -72,6 +72,8 @@ services:
       CHANJET_ORG_ID: ${CHANJET_ORG_ID:-}
       CHANJET_CERT: ${CHANJET_CERT:-}
       CHANJET_MSG_SECRET: ${CHANJET_MSG_SECRET:-}
+      CHANJET_READONLY_SYNC_ENABLED: ${CHANJET_READONLY_SYNC_ENABLED:-false}
+      CHANJET_ERP_INBOUND_SYNC_ENABLED: ${CHANJET_ERP_INBOUND_SYNC_ENABLED:-false}
     volumes:
       - ${PHOENIX_UPLOADS_DIR:-phoenix_uploads}:/app/uploads   # 合同/单据文件持久化
     ports:

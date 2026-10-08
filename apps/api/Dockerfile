@@ -31,6 +31,8 @@ RUN pnpm deploy --filter phoenix-erp-v3-nest --prod /app-deploy
 
 # ─── Stage 2: runtime ──────────────────────────────────────────
 FROM node:20-alpine AS runtime
+ARG GIT_SHA
+LABEL org.opencontainers.image.revision=$GIT_SHA
 
 LABEL org.opencontainers.image.title="Phoenix ERP V3 API"
 LABEL org.opencontainers.image.description="NestJS backend for Phoenix ERP V3"

@@ -39,6 +39,14 @@ on:
         description: "保留备份/镜像，失败时只切换只读旧版本而不 reset 历史"
         type: boolean
         default: false
+      one_time_config_floor_transition:
+        description: "单独获批的首次配置下限过渡；要求已完成C3证据与full API+Web，旧API回滚仍HOLD"
+        type: boolean
+        default: false
+      rotate_chanjet_credentials:
+        description: "显式批准五个受管理 Chanjet 凭据轮换；普通部署保持 .env 不写入"
+        type: boolean
+        default: false
       approve_production:
         description: "批准部署到生产环境（必选）"
         type: boolean
@@ -341,6 +349,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Production config floor, environment and rollback contracts
+        run: |
+          node --test scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
+          pnpm --filter phoenix-erp-v3-nest test -- --runInBand src/modules/chanjet
+
       - name: Test migration ledger preflight (read-only fixtures)
         run: |
           node --check scripts/ledger-preflight.mjs
@@ -507,6 +520,7 @@ jobs:
             type=sha,format=long,prefix=sha-
 
       - name: Build & push ${{ matrix.target }} image
+        id: build
         if: steps.skip.outputs.skip != 'true'
         uses: docker/build-push-action@v6
         with:
@@ -520,6 +534,17 @@ jobs:
             GIT_SHA=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to:   type=gha,scope=${{ matrix.target }},mode=max
+
+      - name: Verify published API/Web OCI revision contract
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          PUBLISHED_IMAGE: ${{ env.IMAGE_PREFIX }}/${{ matrix.target }}@${{ steps.build.outputs.digest }}
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: |
+          docker pull "$PUBLISHED_IMAGE" >/dev/null
+          ACTUAL_REVISION="$(docker image inspect "$PUBLISHED_IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+          test "$ACTUAL_REVISION" = "$EXPECTED_REVISION"
+          echo "OCI_REVISION_CONTRACT=PASS"
 
   # ════════════════════════════════════════════════════════════════════════
   # Job 3a: fast-css deploy — 仅 scp runtime-design-system.css(3-10s)
@@ -635,9 +660,13 @@ jobs:
           BUILD_API:   ${{ needs.detect-changes.outputs.build_api }}
           RUN_MIG:     ${{ needs.detect-changes.outputs.run_mig }}
           NGINX_CONF:  ${{ steps.nginx.outputs.conf }}
-          DEPLOY_RUN_ID: ${{ github.run_id }}
+          DEPLOY_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           TARGET_SHA: ${{ github.sha }}
           PRESERVE_ARTIFACTS: ${{ inputs.preserve_artifacts }}
+          ROTATE_CHANJET_CREDENTIALS: ${{ inputs.rotate_chanjet_credentials }}
+          ONE_TIME_CONFIG_FLOOR_TRANSITION: ${{ inputs.one_time_config_floor_transition }}
+          GHCR_LOGIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_LOGIN_USER: ${{ github.repository_owner }}
           CHANJET_APP_KEY: ${{ secrets.CHANJET_APP_KEY }}
           CHANJET_APP_SECRET: ${{ secrets.CHANJET_APP_SECRET }}
           CHANJET_ORG_ID: ${{ secrets.CHANJET_ORG_ID }}
@@ -652,9 +681,17 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,TARGET_SHA,PRESERVE_ARTIFACTS,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET
+          envs: DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET
           script: |
             set -Eeuo pipefail
+            umask 077
+            # Shared across deploy/maintenance/phase1; initialized only by an approved transition.
+            STATE_DIR=/home/phoenix-codex-deploy/production-deployment-state
+            test -d "$STATE_DIR" && test ! -L "$STATE_DIR"
+            test "$(stat -c %a "$STATE_DIR")" = 700
+            test "$(stat -c %u "$STATE_DIR")" = "$(id -u)"
+            exec 9>"$STATE_DIR/mutation.lock"
+            flock -n 9 || { echo "PRODUCTION_MUTATION=HOLD_LOCK_BUSY"; exit 24; }
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
 
             # SSH can run as a different user from the checkout owner. Trust
@@ -673,6 +710,7 @@ jobs:
             # API schema changes must retain evidence/DB and never clean backups.
             if [ "$BUILD_API" = "true" ]; then export PRESERVE_ARTIFACTS=true; fi
             API_SWITCH_STARTED=false
+            WEB_SWITCH_STARTED=false
             CODE_SYNCED=false
 
             CURRENT_BRANCH="$(git symbolic-ref --short -q HEAD || true)"
@@ -681,70 +719,40 @@ jobs:
               exit 22
             fi
 
-            # ── 部署事务状态:失败时回滚代码、镜像与 Nginx ───────────
-            PREV_SHA="$(git rev-parse HEAD)"
-            PREV_API_IMAGE_ID="$(docker inspect phoenix-v3-api --format '{{.Image}}' 2>/dev/null || true)"
-            PREV_WEB_IMAGE_ID="$(docker inspect phoenix-v3-web --format '{{.Image}}' 2>/dev/null || true)"
-            NGINX_ROLLBACK_FILE=""
-            BACKUP_FILE=""
-            ROLLBACK_TAG="rollback-${DEPLOY_RUN_ID}"
-
+            # Git/configuration stays at safe target even after image rollback.
+            PREV_GIT_SHA="$(git rev-parse HEAD)"
             rollback_deploy() {
               rc=$?
               trap - ERR
               set +e
-              echo "::error::部署失败(exit=$rc),开始自动回滚应用层"
-
-              if [ -n "$PREV_API_IMAGE_ID" ] && [ "$BUILD_API" = "true" ]; then
-                docker tag "$PREV_API_IMAGE_ID" "ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:${ROLLBACK_TAG}"
-              fi
-              if [ -n "$PREV_WEB_IMAGE_ID" ] && [ "$BUILD_WEB" = "true" ]; then
-                docker tag "$PREV_WEB_IMAGE_ID" "ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/web:${ROLLBACK_TAG}"
-              fi
-
-              if [ "$CODE_SYNCED" = "true" ]; then
-                CURRENT_BRANCH="$(git symbolic-ref --short -q HEAD || true)"
-                CURRENT_HEAD="$(git rev-parse HEAD 2>/dev/null || true)"
-                if [ "$CURRENT_BRANCH" = "main" ] && [ "$CURRENT_HEAD" = "$TARGET_SHA" ]; then
-                  if git update-ref -m "deployment rollback ${DEPLOY_RUN_ID}" refs/heads/main "$PREV_SHA" "$TARGET_SHA"; then
-                    git reset --hard HEAD
-                    echo "✅ Git rollback restored main to $PREV_SHA"
-                  else
-                    echo "::error::GIT_ROLLBACK_BLOCKED=CAS_MISMATCH"
-                  fi
-                else
-                  echo "::error::GIT_ROLLBACK_BLOCKED=UNEXPECTED_GIT_STATE"
+              echo "::error::Deploy failed; safe config retained; 数据库未自动覆盖恢复"
+              if [ "$CODE_SYNCED" = true ] && [ -f "$STATE_DIR/deploy-${DEPLOY_RUN_ID}.json" ]; then
+                # API below floor is explicitly ineligible. No legacy fence exception is granted here.
+                PLAN="$(node scripts/ops/production-deployment-state.mjs rollback-plan)"
+                if [ $? -ne 0 ]; then
+                  echo "ROLLBACK=HOLD_OPERATOR_CONTROLLED_RECOVERY_REQUIRED"
+                  exit "$rc"
                 fi
-              else
-                echo "GIT_ROLLBACK_SKIPPED=CODE_NOT_CONFIRMED_SYNCED"
+                for service in api web; do
+                  if printf '%s' "$PLAN" | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>process.exit(JSON.parse(s).some(x=>x.service===process.argv[1])?0:1))' "$service"; then
+                    node scripts/ops/production-deployment-state.mjs rollback-pin "$service" || exit "$rc"
+                    docker compose up -d --no-deps --wait "$service" || exit "$rc"
+                  fi
+                done
+                node scripts/ops/production-deployment-state.mjs rolled-back || exit "$rc"
               fi
-
-              if [ -n "$PREV_API_IMAGE_ID" ] && [ "$API_SWITCH_STARTED" = "true" ]; then
-                API_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:${ROLLBACK_TAG}" \
-                  docker compose up -d --no-deps --wait api
-              fi
-              if [ -n "$PREV_WEB_IMAGE_ID" ] && [ "$BUILD_WEB" = "true" ]; then
-                WEB_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/web:${ROLLBACK_TAG}" \
-                  docker compose up -d --no-deps --wait web
-              fi
-
-              if [ -n "$NGINX_ROLLBACK_FILE" ] && [ -f "$NGINX_ROLLBACK_FILE" ]; then
-                cp "$NGINX_ROLLBACK_FILE" /etc/nginx/conf.d/erp.eggslao.com.conf
-                nginx -t && systemctl reload nginx
-              fi
-
-              curl -fsSL --max-time 20 http://127.0.0.1:3100/api/readiness -o /dev/null \
-                && echo "✅ API rollback health passed" \
-                || echo "::error::API rollback health failed"
-              curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null \
-                && echo "✅ Web rollback health passed" \
-                || echo "::error::Web rollback health failed"
-
-              if [ -n "$BACKUP_FILE" ]; then
-                echo "::warning::数据库未自动覆盖恢复;迁移前备份保留在 $BACKUP_FILE"
-              fi
+              # Never automatically restore pre-floor Git, .env, DB, volumes or proxy config.
               exit "$rc"
             }
+            docker() {
+              if [ "${1:-}" = compose ]; then
+                shift
+                node scripts/ops/phoenix-production-compose.mjs "$@"
+              else
+                command env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DOCKER_CONFIG=/home/phoenix-codex-deploy/.docker DOCKER_HOST=unix:///var/run/docker.sock docker "$@"
+              fi
+            }
+
             # ── 干净工作树硬门禁:禁止静默 stash/覆盖服务器改动 ───────
             if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
               echo "::error::生产服务器工作树不干净,拒绝部署"
@@ -752,10 +760,23 @@ jobs:
               exit 20
             fi
 
+            # Fetch exact merged target; capture actual runtime before code sync.
+            git fetch origin main
+            test "$(git rev-parse origin/main)" = "$TARGET_SHA"
+            git merge-base --is-ancestor "$PREV_GIT_SHA" "$TARGET_SHA"
+            # Validate target tree BEFORE replacing the current safe config.
+            # C3 must first install the approved floor; legacy checkout is not auto-reconciled.
+            node scripts/ops/production-config-guard.mjs --target "$TARGET_SHA"
+            test ! -e "$STATE_DIR/run-${DEPLOY_RUN_ID}"
+            mkdir -m 700 "$STATE_DIR/run-${DEPLOY_RUN_ID}"
+            CAPTURE_FILE="$STATE_DIR/run-${DEPLOY_RUN_ID}/runtime-before.json"
+            git show "$TARGET_SHA:scripts/ops/capture-production-runtime.mjs" > "$STATE_DIR/run-${DEPLOY_RUN_ID}/capture.mjs"
+            node "$STATE_DIR/run-${DEPLOY_RUN_ID}/capture.mjs" > "$CAPTURE_FILE"
+            chmod 600 "$CAPTURE_FILE"
             trap rollback_deploy ERR
 
             # ── 同步代码(必须先 pull,否则下面 cp 仓库新文件会找不到)──
-            git pull --ff-only origin main
+            git merge --ff-only origin/main
             if [ "$(git rev-parse HEAD)" != "$TARGET_SHA" ]; then
               echo "::error::服务器代码版本与目标 SHA 不一致"
               exit 21
@@ -768,21 +789,11 @@ jobs:
             # not on the mounted filesystem. Named-volume mode remains a no-op.
             bash scripts/ops/require-phoenix-data-mount.sh
 
-            # The production checkout is the authoritative deployment baseline.
-            # Manual dispatch has no before SHA, and may span several merges.
-            if [ "$BUILD_API" = "true" ]; then
-              MIGRATION_DIFF_STATUS=0
-              git diff --quiet "$PREV_SHA" "$TARGET_SHA" -- \
-                apps/api/src/database/migrations apps/api/migrations apps/api/ddl migrations \
-                scripts/db-migrate.sh scripts/deploy-schema-first.sh \
-                || MIGRATION_DIFF_STATUS=$?
-              case "$MIGRATION_DIFF_STATUS" in
-                0) RUN_MIG=false ;;
-                1) RUN_MIG=true ;;
-                *) echo "::error::Cannot determine production migration scope"; exit 22 ;;
-              esac
-              echo "Production migration scope: run_mig=$RUN_MIG"
-            fi
+            # First-class running API revision baseline; begin rejects missing/nonancestor
+            # identity and any migration paths. Schema releases use the separate controlled track.
+            node scripts/ops/production-deployment-state.mjs begin "$CAPTURE_FILE"
+            RUN_MIG=false
+            echo "MIGRATION_BASELINE_SOURCE=RUNNING_API_REVISION; RUN_MIG=false"
 
             # 首次部署兜底:确保 runtime-design-system.css alias 目录 + 种子文件存在
             mkdir -p /opt/phoenix/static-overrides
@@ -800,54 +811,22 @@ jobs:
               fi
             fi
 
-            # ── 畅捷通环境变量注入(所有 mode 都做,廉价幂等)──────────
-            # Secrets arrive through appleboy's env channel, never shell interpolation.
-            # Write atomically with a 0600 temporary file; JSON quoting preserves
-            # shell-special and multiline values in dotenv-compatible form.
-            node <<'NODE'
-            const fs = require('node:fs');
-            const path = '.env';
-            const keys = ['CHANJET_APP_KEY', 'CHANJET_APP_SECRET', 'CHANJET_ORG_ID', 'CHANJET_CERT', 'CHANJET_MSG_SECRET'];
-            const source = fs.existsSync(path) ? fs.readFileSync(path, 'utf8').split(/\r?\n/) : [];
-            const keySet = new Set(keys);
-            const kept = [];
-            let skipContinuation = false;
-            for (const line of source) {
-              const match = line.match(/^([A-Z0-9_]+)=/);
-              if (match) {
-                skipContinuation = keySet.has(match[1]);
-                if (!skipContinuation) kept.push(line);
-              } else if (!skipContinuation) {
-                kept.push(line);
-              }
-            }
-            for (const key of keys) {
-              const value = process.env[key] || '';
-              if (value) kept.push(`${key}=${JSON.stringify(value)}`);
-            }
-            const temporary = `${path}.${process.pid}.tmp`;
-            fs.writeFileSync(temporary, `${kept.join('\n').replace(/\n+$/, '')}\n`, { mode: 0o600 });
-            fs.renameSync(temporary, path);
-            fs.chmodSync(path, 0o600);
-            NODE
-
-            # ── 拉新镜像前清理(温和):只删未被任何容器引用的旧镜像 ──
-            # ⚠️ 不再 docker builder prune -af(冷构建永远慢),改为保留 24h/5GB
-            if [ "$PRESERVE_ARTIFACTS" != "true" ]; then docker image prune -a -f 2>/dev/null || true; fi
-            # builder cache 只清 24h 前的,且保留至少 5GB
-            if [ "$PRESERVE_ARTIFACTS" != "true" ]; then
-            docker buildx prune -f --filter "until=24h" --keep-storage=5GB 2>/dev/null \
-              || docker builder prune -f --filter "until=24h" 2>/dev/null \
-              || true
+            # Ordinary code deployment does not rewrite production .env.
+            if [ "${ROTATE_CHANJET_CREDENTIALS:-false}" = true ]; then
+              export PHOENIX_ENV_STAGING_DIRECTORY=/data/.phoenix-env-staging
+              node scripts/ops/update-managed-chanjet-env.mjs
             fi
+            # Protected active/rollback image IDs are retained; no broad image prune.
 
-            echo "${{ secrets.GITHUB_TOKEN }}" | \
-              docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+            printf '%s' "$GHCR_LOGIN_TOKEN" | \
+              docker login ghcr.io -u "$GHCR_LOGIN_USER" --password-stdin
+            unset GHCR_LOGIN_TOKEN
 
             # ── 按 mode 决定拉哪些镜像 ────────────────────────────────
             if [ "$BUILD_API" = "true" ]; then
               export API_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:sha-${TARGET_SHA}"
               docker compose pull api
+              node scripts/ops/production-deployment-state.mjs candidate api "$API_IMAGE"
               # Inventory must come from the candidate image that will execute
               # TypeORM, never from the currently running API container.
               CANDIDATE_LEDGER_INVENTORY="$(mktemp)"
@@ -858,10 +837,12 @@ jobs:
             if [ "$BUILD_WEB" = "true" ]; then
               export WEB_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/web:sha-${TARGET_SHA}"
               docker compose pull web
+              node scripts/ops/production-deployment-state.mjs candidate web "$WEB_IMAGE"
             fi
 
             # ── DB(所有 mode 都需要):幂等启动 ─────────────────────────
-            docker compose up -d --wait db
+            # Code-only releases never restart/recreate DB (could indirectly restart a legacy API).
+            test "$(docker inspect phoenix-v3-db --format '{{.State.Health.Status}}')" = healthy
             echo "✅ DB healthy"
 
             # ── DB 迁移(仅 api/full)─────────────────────────────────
@@ -936,33 +917,11 @@ jobs:
               echo "── 跳过 DB 迁移(mode=$DEPLOY_MODE)──"
             fi
 
-            # ── 滚动重启容器(按 mode 选)──────────────────────────────
-            if [ "$BUILD_API" = "true" ]; then
-              # Resolve the pulled candidate. Run schema-first only when this
-              # change set actually contains migration-affecting paths; a
-              # code-only API deploy must keep PRODUCTION_MIGRATION_REQUIRED=NO.
-              if [ "$RUN_MIG" = "true" ]; then
-                CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE")
-              else
-                CANDIDATE_API_IMAGE="$API_IMAGE"
-                echo "PRODUCTION_MIGRATION_REQUIRED=NO; skipping schema-first migration"
-              fi
-              API_SWITCH_STARTED=true
-              API_IMAGE="$CANDIDATE_API_IMAGE" docker compose up -d --no-deps --wait api
-            fi
-
-            if [ "$BUILD_WEB" = "true" ]; then
-              docker compose up -d --no-deps --wait web \
-                || { docker compose logs web --tail 80; exit 1; }
-            fi
-
-            # ── 部署后温和清理(不动 builder cache) ─────────────────────
-            if [ "$PRESERVE_ARTIFACTS" != "true" ]; then docker image prune -a -f 2>/dev/null || true; fi
-
             # ── Nginx(仅 full mode)──────────────────────────────────
             if [ "$DEPLOY_MODE" = "full" ] && [ -n "$NGINX_CONF" ]; then
-              NGINX_ROLLBACK_FILE="/root/nginx-erp.eggslao.com.pre-${DEPLOY_RUN_ID}.conf"
+              NGINX_ROLLBACK_FILE="$STATE_DIR/run-${DEPLOY_RUN_ID}/nginx-before.conf"
               cp /etc/nginx/conf.d/erp.eggslao.com.conf "$NGINX_ROLLBACK_FILE"
+              chmod 600 "$NGINX_ROLLBACK_FILE"
               echo "$NGINX_CONF" | base64 -d \
                 > /etc/nginx/conf.d/erp.eggslao.com.conf
               nginx -t
@@ -974,11 +933,36 @@ jobs:
               echo "✅ Nginx reloaded"
             fi
 
+            # ── 滚动重启容器(按 mode 选)──────────────────────────────
+            if [ "$BUILD_API" = "true" ]; then
+              # Resolve the pulled candidate. Run schema-first only when this
+              # change set actually contains migration-affecting paths; a
+              # code-only API deploy must keep PRODUCTION_MIGRATION_REQUIRED=NO.
+              if [ "$RUN_MIG" = "true" ]; then
+                CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE")
+              else
+                CANDIDATE_API_IMAGE="$API_IMAGE"
+                echo "PRODUCTION_MIGRATION_REQUIRED=NO; skipping schema-first migration"
+              fi
+              node scripts/ops/production-deployment-state.mjs switch api
+              API_SWITCH_STARTED=true
+              API_IMAGE="$CANDIDATE_API_IMAGE" docker compose up -d --no-deps --wait api
+            fi
+
+            if [ "$BUILD_WEB" = "true" ]; then
+              node scripts/ops/production-deployment-state.mjs switch web
+              WEB_SWITCH_STARTED=true
+              docker compose up -d --no-deps --wait web
+            fi
+
+            # ── 部署后温和清理(不动 builder cache) ─────────────────────
+            # Retention-aware image cleanup is a separately approved operation.
+
             # ── Smoke test(所有 mode)───────────────────────────────
             sleep 3
-            curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null \
-              && echo "✅ Web smoke test passed" \
-              || { docker compose logs web --tail 20; exit 1; }
+            curl -fsSL --max-time 20 http://127.0.0.1:3100/api/readiness -o /dev/null
+            curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null
+            echo "✅ API/Web smoke test passed"
 
             # ── 磁盘用量报告 ─────────────────────────────────────────
             echo "📦 Docker 镜像占用:"
@@ -988,6 +972,7 @@ jobs:
             echo "🐳 Docker 总占用(builder cache 保留 5GB/24h 加速冷构建):"
             docker system df 2>/dev/null || true
 
+            node scripts/ops/production-deployment-state.mjs complete
             trap - ERR
             echo "✅ Deploy ($DEPLOY_MODE) complete — $(date '+%Y-%m-%d %H:%M:%S')"
 

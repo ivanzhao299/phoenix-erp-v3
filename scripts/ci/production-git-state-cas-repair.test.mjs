@@ -95,16 +95,14 @@ test('repair remote script is Git-only and contains no fetch or service mutation
   assert.match(script, /refs\/heads\/main.*\$EXPECTED_NEW_LOCAL_MAIN_SHA/s);
 });
 
-test('generic deploy rejects detached entry and uses attached-main CAS rollback', () => {
-  assert.doesNotMatch(deployWorkflow, /git switch --detach/);
-  assert.doesNotMatch(deployWorkflow, /if ! git symbolic-ref -q HEAD[^\n]*git switch main/);
+test('generic deploy rejects detached entry and retains safe main during image rollback', () => {
+  assert.doesNotMatch(deployWorkflow, /git switch --detach|git reset --hard|git update-ref -m "deployment rollback/);
   assert.match(deployWorkflow, /CURRENT_BRANCH=.*git symbolic-ref --short -q HEAD/);
   assert.match(deployWorkflow, /\[ "\$CURRENT_BRANCH" != "main" \]/);
   assert.match(deployWorkflow, /CODE_SYNCED=false/);
   assert.match(deployWorkflow, /CODE_SYNCED=true/);
-  assert.match(deployWorkflow, /git update-ref -m "deployment rollback \$\{DEPLOY_RUN_ID\}" refs\/heads\/main "\$PREV_SHA" "\$TARGET_SHA"/);
-  assert.match(deployWorkflow, /GIT_ROLLBACK_SKIPPED=CODE_NOT_CONFIRMED_SYNCED/);
-  assert.match(deployWorkflow, /GIT_ROLLBACK_BLOCKED=UNEXPECTED_GIT_STATE/);
+  assert.match(deployWorkflow, /rollback-plan/);
+  assert.match(deployWorkflow, /safe config retained/);
 });
 
 test('CAS repair fixture changes only main ref and then attaches HEAD', () => {

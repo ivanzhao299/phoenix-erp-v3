@@ -1,3 +1,9 @@
+const originalReadonlySync = process.env.CHANJET_READONLY_SYNC_ENABLED;
+beforeEach(() => { process.env.CHANJET_READONLY_SYNC_ENABLED = 'true'; });
+afterEach(() => {
+  if (originalReadonlySync === undefined) delete process.env.CHANJET_READONLY_SYNC_ENABLED;
+  else process.env.CHANJET_READONLY_SYNC_ENABLED = originalReadonlySync;
+});
 import {
   ChanjetIntegrationService,
   classifyChanjetSyncFailure,
