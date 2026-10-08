@@ -14,7 +14,8 @@
     "strict": true,
     "strictPropertyInitialization": false,
     "forceConsistentCasingInFileNames": false,
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "resolveJsonModule": true
   },
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "scripts/**"]
 }

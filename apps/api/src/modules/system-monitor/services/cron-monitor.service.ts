@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { API_BOOTSTRAP_SCHEMA_CONTRACT, assertExistingSchema } from '../../../common/database/schema-compatibility';
 import { SysAlertsService } from './sys-alerts.service';
 
 /**
@@ -11,7 +12,7 @@ import { SysAlertsService } from './sys-alerts.service';
  *
  * 设计：只依赖 DataSource（裸 SQL），注册为 @Global，任何模块免 import 即可注入；
  *   不抛异常（监控不能拖垮被监控的 cron）。
- * 表 sys_cron_heartbeat 由 generic-crud bootstrap 幂等建。
+ * 表结构由受控 schema track 提供；启动只检查元数据。
  */
 @Injectable()
 export class CronMonitorService implements OnModuleInit {
@@ -22,22 +23,10 @@ export class CronMonitorService implements OnModuleInit {
     private readonly alerts: SysAlertsService,
   ) {}
 
-  /** 幂等建心跳表（本模块自持，不依赖 generic-crud bootstrap） */
   async onModuleInit(): Promise<void> {
-    await this.ds
-      .query(`
-        CREATE TABLE IF NOT EXISTS sys_cron_heartbeat (
-          job_name        VARCHAR(80) PRIMARY KEY,
-          last_run_at     TIMESTAMP,
-          last_status     VARCHAR(16),
-          last_detail     TEXT,
-          last_success_at TIMESTAMP,
-          last_failure_at TIMESTAMP,
-          success_count   BIGINT DEFAULT 0,
-          fail_count      BIGINT DEFAULT 0,
-          updated_at      TIMESTAMP DEFAULT NOW()
-        )`)
-      .catch((e) => this.logger.warn(`[cron-monitor] 建表失败（忽略）: ${e?.message}`));
+    await assertExistingSchema(this.ds.query.bind(this.ds), {
+      sys_cron_heartbeat: API_BOOTSTRAP_SCHEMA_CONTRACT.tables.sys_cron_heartbeat,
+    });
   }
 
   /** 成功上报：刷新 last_run/last_success + success_count+1 */

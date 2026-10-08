@@ -2,6 +2,7 @@ import { Controller, Get, Put, Body, UseGuards, InternalServerErrorException, On
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { API_BOOTSTRAP_SCHEMA_CONTRACT, assertExistingSchema, schemaMismatch } from '../../common/database/schema-compatibility';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
 const DEFAULT_BRAND = {
@@ -56,35 +57,15 @@ export class SystemController implements OnModuleInit {
     private readonly em: EntityManager,
   ) {}
 
-  // 引擎启动时就确保表存在，不再依赖首次 GET 情悪建表
   async onModuleInit() {
-    try {
-      await this.em.query(`
-        CREATE TABLE IF NOT EXISTS sys_settings (
-          key         VARCHAR(64) PRIMARY KEY,
-          value       TEXT,
-          updated_at  TIMESTAMP DEFAULT NOW()
-        )
-      `);
-    } catch (e) {
-      console.warn('[SystemController] sys_settings 建表失败:', (e as Error).message);
-    }
-  }
-
-  private async ensureTable() {
-    await this.em.query(`
-      CREATE TABLE IF NOT EXISTS sys_settings (
-        key         VARCHAR(64) PRIMARY KEY,
-        value       TEXT,
-        updated_at  TIMESTAMP DEFAULT NOW()
-      )
-    `);
+    await assertExistingSchema(this.em.query.bind(this.em), {
+      sys_settings: API_BOOTSTRAP_SCHEMA_CONTRACT.tables.sys_settings,
+    });
   }
 
   @Get('brand')
   async getBrand() {
     try {
-      await this.ensureTable();
       const rows = await this.em.query(`SELECT key, value FROM sys_settings WHERE key LIKE 'brand.%'`);
       if (rows.length === 0) {
         return { ok: false, data: DEFAULT_BRAND };
@@ -93,7 +74,7 @@ export class SystemController implements OnModuleInit {
       for (const r of rows) { data[r.key.replace('brand.', '')] = r.value; }
       return { ok: true, data };
     } catch {
-      return { ok: false, data: DEFAULT_BRAND };
+      throw schemaMismatch('sys_settings');
     }
   }
 
@@ -102,7 +83,6 @@ export class SystemController implements OnModuleInit {
   @RequireMenu('MENU_SETTINGS_BRAND', 'E')
   async updateBrand(@Body() body: any) {
     try {
-      await this.ensureTable(); // 防御：确保表存在再写入
       const allowed = ['system_name','company_name','tagline','logo_url','favicon_url','footer_text','primary_color','label_logo_url'];
       for (const key of allowed) {
         if (body[key] !== undefined) {

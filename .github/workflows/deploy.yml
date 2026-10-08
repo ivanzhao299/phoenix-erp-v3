@@ -398,6 +398,37 @@ jobs:
         run: |
           export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
           MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
+          NODE_ENV=test MIG_MODE=ci bash ../../scripts/ci/api-bootstrap-schema-fixture.sh
+
+      - name: Audit full API lifecycle and startup mutation detector
+        run: |
+          node scripts/ci/check-api-bootstrap-side-effects.cjs
+          node --test scripts/ci/api-bootstrap-static.test.mjs scripts/ops/api-bootstrap-schema-preflight.test.mjs
+
+      - name: Production-equivalent isolated API bootstrap SQL proof
+        id: bootstrap_sql
+        env:
+          BOOTSTRAP_FIXTURE_CONTAINER: ${{ job.services.postgres.id }}
+          BOOTSTRAP_EVIDENCE_DIR: ${{ runner.temp }}/api-bootstrap-evidence
+          BOOTSTRAP_FIXTURE_HTTP_PORT: '35179'
+        run: |
+          mkdir -m 700 "$BOOTSTRAP_EVIDENCE_DIR"
+          bootstrap_setup_failure() {
+            node -e 'const fs=require("node:fs");const file=process.env.BOOTSTRAP_EVIDENCE_DIR+"/summary.json";if(!fs.existsSync(file))fs.writeFileSync(file,JSON.stringify({outcome:"FAIL",failureCode:"BOOTSTRAP_FIXTURE_SETUP_FAILED"}),{mode:0o600});'
+          }
+          trap bootstrap_setup_failure ERR
+          createdb --template=phoenix_erp api_bootstrap_fixture
+          PGDATABASE=api_bootstrap_fixture node scripts/ci/api-bootstrap-mutations.mjs
+          cd apps/api
+          API_BOOTSTRAP_FIXTURE_URL=postgresql://phoenix_v3:phoenix_v3_pass@127.0.0.1:5432/api_bootstrap_fixture pnpm exec jest --runInBand --runTestsByPath src/common/database/bootstrap-crud.integration.spec.ts
+
+      - name: Preserve sanitized API bootstrap proof
+        if: always() && steps.bootstrap_sql.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-bootstrap-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/api-bootstrap-evidence/summary.json
+          if-no-files-found: error
 
       - name: Check entity ↔ DB schema sync (g195-P6, HARD gate)
         id: entity_schema
@@ -800,10 +831,12 @@ jobs:
               FLOOR_STAGE="$STATE_DIR/floor-stage-${DEPLOY_RUN_ID}"
               test ! -e "$FLOOR_STAGE"
               mkdir -m 700 "$FLOOR_STAGE"
-              for helper in production-config-contract.json production-config-guard.mjs production-deployment-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs promote-production-config-floor.mjs; do
+              for helper in production-config-contract.json production-config-guard.mjs production-deployment-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs api-bootstrap-schema-preflight.mjs promote-production-config-floor.mjs; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$FLOOR_STAGE/$helper"
                 chmod 600 "$FLOOR_STAGE/$helper"
               done
+              git show "$TARGET_SHA:apps/api/src/common/database/api-bootstrap-schema-contract.json" > "$FLOOR_STAGE/api-bootstrap-schema-contract.json"
+              chmod 600 "$FLOOR_STAGE/api-bootstrap-schema-contract.json"
               node "$FLOOR_STAGE/promote-production-config-floor.mjs"
             else
               node scripts/ops/production-config-guard.mjs --target "$TARGET_SHA"
