@@ -19,9 +19,9 @@ export function validateReadonlyPolicy(mode = 'HOLD', approval, floorSha, now = 
   if (mode === 'READONLY_VERIFY' && (!Number.isFinite(Date.parse(v.expiresAt)) || Date.parse(v.expiresAt) <= now || Date.parse(v.expiresAt) > now + 30 * 60 * 1000)) hold('VERIFY_DEADLINE');
   if (mode === 'READONLY_ACTIVE' && (!/^CHANJET-RO-[A-Za-z0-9_-]+$/.test(p.verifiedRunId || '') || !/^\d+-\d+$/.test(p.verifiedEvidenceRunId || ''))) hold('FIRST_SYNC_PROOF');
 }
-export function readonlyEnvironment(floor) {
+export function readonlyEnvironment(floor, now = Date.now()) {
   const mode = floor.chanjetPolicy || 'HOLD';
-  validateReadonlyPolicy(mode, floor.readonlyApproval, floor.floorSha);
+  validateReadonlyPolicy(mode, floor.readonlyApproval, floor.floorSha, now);
   const expected = mode === 'HOLD' ? 'false' : 'true';
   if (floor.operationalTuple?.CHANJET_READONLY_SYNC_ENABLED !== expected || floor.operationalTuple?.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') hold('CHANJET_POLICY_FLAGS');
   return { CHANJET_SYNC_POLICY: mode, CHANJET_READONLY_APPROVAL: floor.readonlyApproval ? JSON.stringify(floor.readonlyApproval) : '' };
@@ -34,4 +34,16 @@ export function validatePolicyTransition(marker, { runId, target, actual, now = 
   if (JSON.stringify(actual.web) !== JSON.stringify(marker.previous.web)) hold('TRANSITION_WEB_DRIFT');
   const allowed = [marker.previous.api, marker.candidateApi].filter(Boolean);
   if (!allowed.some(pin => JSON.stringify(pin) === JSON.stringify(actual.api))) hold('TRANSITION_API_DRIFT');
+}
+
+// Only a fresh exact-SHA HOLD transaction may inspect an expired VERIFY tuple.
+// No Compose/deployment caller receives this exception; after floor=HOLD the
+// normal guard validates the API-only transition and shutdown.
+export function expiredVerifyHoldEnvironment(floor, context, now = Date.now()) {
+  const expiry = Date.parse(floor.readonlyApproval?.verification?.expiresAt);
+  if (context?.operation !== 'HOLD' || !/^\d+-\d+$/.test(context.runId || '')
+    || context.target !== floor.floorSha || floor.chanjetPolicy !== 'READONLY_VERIFY'
+    || !Number.isFinite(expiry) || expiry > now) hold('EXPIRED_VERIFY_HOLD_SCOPE');
+  // Validate every approved field and tuple; ignore only elapsed old deadline.
+  return readonlyEnvironment(floor, expiry - 1);
 }

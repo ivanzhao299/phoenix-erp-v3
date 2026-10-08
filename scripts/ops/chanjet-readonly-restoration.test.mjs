@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { readonlyEnvironment,validateReadonlyPolicy,validatePolicyTransition } from './chanjet-readonly-policy.mjs';
+import { readonlyEnvironment,expiredVerifyHoldEnvironment,validateReadonlyPolicy,validatePolicyTransition } from './chanjet-readonly-policy.mjs';
 import { promotionPlan } from './promote-production-config-floor.mjs';
 import { readonlyFlagSource,switchPlan,replaceReadonlyEnv } from './chanjet-readonly-config-transaction.mjs';
 import { auditMappingScope } from './chanjet-readonly-production-audit.mjs';
@@ -101,4 +101,22 @@ test('real isolated PostgreSQL fingerprints detect same-count fact overwrite wit
   const start=Date.now();const before=businessFingerprints(read);assert.ok(Date.now()-start<20000);
   query('UPDATE fin_ar_ledger SET amount=amount+1 WHERE id=(SELECT MIN(id) FROM fin_ar_ledger);',false);
   const after=businessFingerprints(read);assert.equal(before.fin_ar_ledger.count,after.fin_ar_ledger.count);assert.notEqual(before.fin_ar_ledger.digest,after.fin_ar_ledger.digest);
+});
+
+test('expired VERIFY can only close through an exact fresh HOLD operation',()=>{
+  const verify=switchPlan(floor,'READONLY_VERIFY',approval,now);
+  const expiredNow=now+60001,context={operation:'HOLD',runId:'12-1',target:sha};
+  assert.throws(()=>readonlyEnvironment(verify,expiredNow),/VERIFY_DEADLINE/);
+  const env=expiredVerifyHoldEnvironment(verify,context,expiredNow);assert.equal(env.CHANJET_SYNC_POLICY,'READONLY_VERIFY');
+  const config={services:{api:{environment:{...env,CHANJET_READONLY_SYNC_ENABLED:'true',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'},volumes:[{type:'bind',source:tuple.PHOENIX_UPLOADS_DIR,target:'/app/uploads'}]},db:{volumes:[{type:'bind',source:tuple.PHOENIX_PG_DATA_DIR,target:'/var/lib/postgresql/data'}]}}};
+  const old=Date.now;Date.now=()=>expiredNow;try {
+    assert.throws(()=>validateEffectiveConfig(config,verify.operationalTuple,verify),/VERIFY_DEADLINE/);
+    validateEffectiveConfig(config,verify.operationalTuple,verify,context);
+    assert.throws(()=>validateEffectiveConfig({...config,services:{...config.services,api:{...config.services.api,environment:{...config.services.api.environment,CHANJET_ERP_INBOUND_SYNC_ENABLED:'true'}}}},verify.operationalTuple,verify,context),/POLICY_FLAGS/);
+  } finally {Date.now=old;}
+  for(const change of [{operation:'READONLY_ACTIVE'},{operation:'READONLY_VERIFY'},{runId:'legacy'},{target:'b'.repeat(40)}])assert.throws(()=>expiredVerifyHoldEnvironment(verify,{...context,...change},expiredNow));
+  assert.throws(()=>expiredVerifyHoldEnvironment(verify,context,now),/HOLD_SCOPE/);
+  for(const change of [{remoteWrite:true},{erpInbound:true},{sourceClassification:'UAT'}])assert.throws(()=>expiredVerifyHoldEnvironment({...verify,readonlyApproval:{...approval,...change}},context,expiredNow));
+  assert.throws(()=>expiredVerifyHoldEnvironment({...verify,operationalTuple:{...verify.operationalTuple,CHANJET_ERP_INBOUND_SYNC_ENABLED:'true'}},context,expiredNow),/POLICY_FLAGS/);
+  const next=switchPlan(verify,'HOLD',null,expiredNow);assert.equal(next.operationalTuple.CHANJET_READONLY_SYNC_ENABLED,'false');assert.equal(readonlyEnvironment(next,expiredNow).CHANJET_SYNC_POLICY,'HOLD');
 });

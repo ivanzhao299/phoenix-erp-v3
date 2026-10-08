@@ -1,4 +1,4 @@
-import { readonlyEnvironment, validatePolicyTransition } from './chanjet-readonly-policy.mjs';
+import { readonlyEnvironment, expiredVerifyHoldEnvironment, validatePolicyTransition } from './chanjet-readonly-policy.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -90,9 +90,9 @@ export function verifyContext(root, stateDirectory) {
   catch { return; }
   throw new Error('CONFIG_HOLD=HOST_LOCK_NOT_HELD');
 }
-export function validateEffectiveConfig(config, tuple, floor = { operationalTuple: tuple, chanjetPolicy: 'HOLD' }) {
+export function validateEffectiveConfig(config, tuple, floor = { operationalTuple: tuple, chanjetPolicy: 'HOLD' }, expiredVerifyHold) {
   const environment = config.services.api.environment;
-  const policyEnv = readonlyEnvironment(floor);
+  const policyEnv = expiredVerifyHold ? expiredVerifyHoldEnvironment(floor, expiredVerifyHold) : readonlyEnvironment(floor);
   if (environment.CHANJET_READONLY_SYNC_ENABLED !== tuple.CHANJET_READONLY_SYNC_ENABLED || environment.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') throw new Error('CONFIG_HOLD=CHANJET_POLICY_FLAGS');
   for (const [key, value] of Object.entries(policyEnv)) if ((environment[key] || (key === 'CHANJET_SYNC_POLICY' ? 'HOLD' : '')) !== value) throw new Error('CONFIG_HOLD=EFFECTIVE_POLICY');
   if (tuple.PHOENIX_DATA_MOUNT_GUARD !== 'true' || !['false', 'true'].includes(tuple.CHANJET_READONLY_SYNC_ENABLED) || tuple.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') throw new Error('CONFIG_HOLD=APPROVED_TUPLE');
@@ -101,7 +101,7 @@ export function validateEffectiveConfig(config, tuple, floor = { operationalTupl
     if (!source?.startsWith('/data/') || path.normalize(source) !== source || !mount || mount.type !== 'bind' || mount.source !== source) throw new Error('CONFIG_HOLD=STORAGE_TUPLE');
   }
 }
-export function guardProduction(root, stateDirectory, images) {
+export function guardProduction(root, stateDirectory, images, expiredVerifyHold) {
   verifyContext(root, stateDirectory); requireCleanMain(root);
   const owningTransaction = assertTransactionOwnership(stateDirectory, process.env.DEPLOY_RUN_ID);
   const actual = captureRuntime();
@@ -128,11 +128,12 @@ export function guardProduction(root, stateDirectory, images) {
   for (const [key, value] of Object.entries(floor.operationalTuple || {})) {
     if (records.find(record => record.key === key)?.raw.trimEnd() !== `${key}=${value}`) throw new Error('CONFIG_HOLD=ENV_TUPLE_CHANGED');
   }
-  const policyEnv = readonlyEnvironment(floor);
+  const policyEnv = expiredVerifyHold ? expiredVerifyHoldEnvironment(floor, expiredVerifyHold) : readonlyEnvironment(floor);
   const env = { ...executionEnv(), ...policyEnv, API_IMAGE: images.api.imageId, WEB_IMAGE: images.web.imageId };
   execFileSync('bash', ['scripts/ops/require-phoenix-data-mount.sh'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
   const config = JSON.parse(execFileSync('docker', ['compose', '--project-name', floor.project, '--env-file', envFile, '-f', path.join(root, 'docker-compose.yml'), 'config', '--format', 'json'], { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
-  validateEffectiveConfig(config, floor.operationalTuple, floor);
+  if (expiredVerifyHold && (process.env.CHANJET_CONFIG_OPERATION !== 'HOLD' || expiredVerifyHold.runId !== process.env.DEPLOY_RUN_ID || expiredVerifyHold.target !== git(root, ['rev-parse', 'HEAD']) || process.env.APPROVED_CONFIG_FLOOR_SHA !== floor.floorSha)) throw new Error('CONFIG_HOLD=EXPIRED_VERIFY_HOLD_AUTHORITY');
+  validateEffectiveConfig(config, floor.operationalTuple, floor, expiredVerifyHold);
   const rawEnv = JSON.parse(execFileSync('docker', ['inspect', 'phoenix-v3-api', '--format', '{{json .Config.Env}}'], { env: executionEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
   const liveEnv = Object.fromEntries(rawEnv.filter(line => /^(CHANJET_READONLY_SYNC_ENABLED|CHANJET_ERP_INBOUND_SYNC_ENABLED|CHANJET_SYNC_POLICY|CHANJET_READONLY_APPROVAL)=/.test(line)).map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
   liveEnv.CHANJET_SYNC_POLICY ||= 'HOLD'; liveEnv.CHANJET_READONLY_APPROVAL ||= '';
