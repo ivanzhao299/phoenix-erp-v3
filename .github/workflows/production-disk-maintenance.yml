@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   maintain:
-    if: inputs.approve_production == true
+    if: inputs.approve_production == true && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -51,6 +51,24 @@ jobs:
               '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}";;
             esac
             cd "$DEPLOY_PATH"
+            DEPLOY_REPO_ROOT="$(pwd -P)"
+            git() {
+              command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"
+            }
+            STATE_DIR=/home/phoenix-codex-deploy/production-deployment-state
+            test -d "$STATE_DIR" && test ! -L "$STATE_DIR"
+            test "$(stat -c %a "$STATE_DIR")" = 700
+            test "$(stat -c %u "$STATE_DIR")" = "$(id -u)"
+            exec 9>"$STATE_DIR/mutation.lock"
+            flock -n 9 || { echo "PRODUCTION_MUTATION=HOLD_LOCK_BUSY"; exit 24; }
+            docker() {
+              if [ "${1:-}" = compose ]; then
+                shift
+                node "$DEPLOY_REPO_ROOT/scripts/ops/phoenix-production-compose.mjs" "$@"
+              else
+                command env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DOCKER_CONFIG=/home/phoenix-codex-deploy/.docker DOCKER_HOST=unix:///var/run/docker.sock docker "$@"
+              fi
+            }
             bash scripts/ops/require-phoenix-data-mount.sh
 
             report_disk() {
@@ -95,6 +113,9 @@ jobs:
               echo
               exit 0
             fi
+            if [ "$ACTION" != audit ] && [ "$ACTION" != incident-verify ]; then
+              node scripts/ops/production-config-guard.mjs
+            fi
             if [ "$ACTION" = emergency-recover ]; then
               echo "=== incident container state before recovery ==="
               docker ps -a --filter 'name=phoenix-v3-' --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
@@ -118,7 +139,7 @@ jobs:
                 rm -rf --one-file-system -- "$backup_dir"
                 echo "removed old deploy backup: $backup_dir"
               done
-              docker image prune -a -f || true
+              echo "IMAGE_PRUNE=HOLD_PROTECTED_DEPLOYMENT_IMAGES"
               docker buildx prune -a -f --keep-storage=1GB 2>/dev/null \
                 || docker builder prune -a -f 2>/dev/null \
                 || true
@@ -199,7 +220,7 @@ jobs:
 
             # Never prune volumes or running containers. Unused images and old
             # build cache are reproducible from GHCR/source.
-            docker image prune -a -f || true
+            echo "IMAGE_PRUNE=HOLD_PROTECTED_DEPLOYMENT_IMAGES"
             docker buildx prune -f --filter 'until=168h' --keep-storage=2GB 2>/dev/null \
               || docker builder prune -f --filter 'until=168h' 2>/dev/null \
               || true

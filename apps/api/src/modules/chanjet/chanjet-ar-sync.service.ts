@@ -1,3 +1,4 @@
+import { requireReadonlySync, requireErpInbound, readonlySyncEnabled } from './chanjet-sync-control';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -56,10 +57,11 @@ export class ChanjetArSyncService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    if (!readonlySyncEnabled()) return;
     // 启动 seed 3 行映射(避开 g197-H 数据 DML 门禁:不进迁移文件,而是服务启动时初始化)
     try {
       const existing = await this.mapRepo.count();
-      if (existing === 0) {
+      if (existing === 0 && readonlySyncEnabled()) {
         await this.mapRepo.insert(SEED_BOOK_COMPANY_MAP);
         this.log.log(`chanjet_book_company_map 初始化 ${SEED_BOOK_COMPANY_MAP.length} 条映射`);
       } else {
@@ -146,7 +148,7 @@ export class ChanjetArSyncService implements OnModuleInit {
     // 懒补 seed:onModuleInit 可能在 mapRepo 准备好前抢跑被吞,这里兜底
     try {
       const existing = await this.mapRepo.count();
-      if (existing === 0) {
+      if (existing === 0 && readonlySyncEnabled()) {
         await this.mapRepo.insert(SEED_BOOK_COMPANY_MAP);
         this.log.log(`listCompanies 触发懒 seed ${SEED_BOOK_COMPANY_MAP.length} 条映射`);
       }
@@ -168,6 +170,7 @@ export class ChanjetArSyncService implements OnModuleInit {
     saved: number;
     totalEndbalance: number;
   }> {
+    requireReadonlySync();
     const map = await this.mapRepo.findOneBy({ companyCode });
     if (!map) throw new Error(`公司 ${companyCode} 无好业财映射,请先在 chanjet_book_company_map 配置`);
     if (!map.syncEnabled) throw new Error(`公司 ${companyCode} 同步未启用`);
@@ -358,6 +361,7 @@ export class ChanjetArSyncService implements OnModuleInit {
     skipped: number;
     source: string;
   }> {
+    if (!dryRun) requireErpInbound();
     const map = await this.mapRepo.findOneBy({ companyCode });
     if (!map) throw new Error(`公司 ${companyCode} 无好业财映射`);
 

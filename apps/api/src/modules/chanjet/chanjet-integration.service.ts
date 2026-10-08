@@ -1,3 +1,4 @@
+import { requireReadonlySync } from './chanjet-sync-control';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Not, Repository } from 'typeorm';
@@ -7200,6 +7201,7 @@ export class ChanjetIntegrationService {
     }>;
     fieldGapSummary: { scanned: number; upserted: number; statusCounts: Record<string, number> };
   }> {
+    requireReadonlySync();
     const requested = scope.length
       ? scope.map((s) => s.toUpperCase())
       : PROBE_ENDPOINTS.filter((ep) => ep.mirrorDefault).map((ep) => ep.key);
@@ -7321,6 +7323,7 @@ export class ChanjetIntegrationService {
     unresolvedFailures: Array<{ key: string; bookId: string; error: string }>;
     fieldGapSummary: { scanned: number; upserted: number; statusCounts: Record<string, number> };
   }> {
+    requireReadonlySync();
     const safeMaxAttempts = Math.min(Math.max(Number(maxAttempts) || 3, 1), 3);
     const initial = await this.syncReadOnlyMirror(scope, bookId, period);
     const resultByTarget = new Map<string, (typeof initial.results)[number] & { attempt: number }>();
@@ -7412,6 +7415,7 @@ export class ChanjetIntegrationService {
     readiness: ChanjetProductionReadiness | null;
     stoppedAt: string | null;
   }> {
+    requireReadonlySync();
     const startedAt = new Date().toISOString();
     const actor = String(requestedBy || 'system:chanjet-readonly-cycle').slice(0, 128);
     const mirror = await this.syncReadOnlyMirrorResilient(scope, bookId, period, maxAttempts);
@@ -7480,6 +7484,7 @@ export class ChanjetIntegrationService {
   }
 
   async analyzeFieldGaps(): Promise<{ scanned: number; upserted: number; statusCounts: Record<string, number> }> {
+    requireReadonlySync();
     const [fields, existingMappings] = await Promise.all([
       this.fieldCatalogRepo.find({ take: 5000 }),
       this.fieldMappingRepo.find({ take: 12000 }),
@@ -8099,6 +8104,7 @@ export class ChanjetIntegrationService {
     statusCounts: Record<string, number>;
     results: ChanjetReconciliationResultEntity[];
   }> {
+    requireReadonlySync();
     const job = await this.createJob('RECONCILE', '', '', {
       scope: 'MASTER_MAPPING',
       mode: 'middle-layer-only',
@@ -8634,6 +8640,7 @@ export class ChanjetIntegrationService {
   }
 
   async refreshAccountBooks(): Promise<{ fetched: number; saved: number; books: ChanjetAccountBookEntity[] }> {
+    requireReadonlySync();
     const job = await this.createJob('BOOK_REFRESH', '', '', {
       source: 'listAccountBooks',
       mode: 'read-chanjet-write-middle-layer',
@@ -8697,6 +8704,7 @@ export class ChanjetIntegrationService {
     books: string[];
     results: Array<{ key: string; bookId: string; status: 'SUCCESS' | 'FAIL'; fields?: number; error?: string }>;
   }> {
+    requireReadonlySync();
     const requested = scope.length ? scope : ['ACCOUNT_BOOKS', 'DEPARTMENT', 'CUSTOMER_SUPPLIER', 'SUBJECT'];
     const selectedKeys = new Set(requested.map((s) => s.toUpperCase()));
     const endpoints = PROBE_ENDPOINTS.filter((ep) => selectedKeys.has(ep.key));

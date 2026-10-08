@@ -158,3 +158,14 @@ download 只读验证；不得因为 blocker 修复完成就自动再次停止�
 - `phoenix_pg_data`、`phoenix_uploads` 和 Attempt 1 forensic copy 均保留；`/opt/phoenix-erp-backups` 未迁移。
 
 最终证据见 `docs/production-storage-migration-final-report-20261005.md` 和 `docs/production-storage-status-20261005.md`。
+
+
+## Post-migration configuration floor and image-only rollback
+
+The completed M2 storage migration is not rerun by configuration hardening. Production values stay in ignored `.env`; tracked Compose remains parameterized. Runtime evidence/backup files belong outside the checkout.
+
+The production-config v1 contract requires the existing /data mount/sentinel guard plus actual bind/project checks, safe Chanjet pass-through and one shared host mutation lock. Known deploy, disk-maintenance and Phase1 callers use the shared admission/wrapper; legacy Phase1 target/schema execution remains HOLD pending separate review. No named-volume fallback, DB copy, ownership repair or storage migration is authorized by this addendum.
+
+Git/config HEAD and actual API/Web image revisions are separate records. Rollback retains the validated safe checkout and exact captured application images; migration scope is computed from the running API image revision. Pre-floor API rollback is HOLD. Unfinished transactions or drift between actual images and active pins block later maintenance/deployment. Do not bypass with bare Compose commands or image prune.
+
+See `docs/product-acceptance/production-config-hardening-implementation.md` for the tested repository contract and remaining C3/C4 authorization. A successful repository merge does not authorize recovery/deployment.

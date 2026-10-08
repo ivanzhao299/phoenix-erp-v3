@@ -1,6 +1,6 @@
 # Production configuration ownership and safe deployment/rollback decision
 
-Date: 2026-10-08, Asia/Singapore. Status: **PROPOSED — implementation not authorized**.
+Date: 2026-10-08, Asia/Singapore. Status: **IMPLEMENTATION READY — repository hardening authorized; production C3/C4 remain unauthorized**.
 
 ```text
 LATEST_MAIN=1fda3d2872396d5e19a03eb81d4f5796d9b3cced
@@ -326,3 +326,22 @@ CHECKOUT_RECOVERY_AUTHORIZED=NO
 DEPLOY_AUTHORIZED=NO
 NEXT_ACTION=REQUEST_CONFIG_HARDENING_IMPLEMENTATION_AUTHORIZATION
 ```
+
+
+## 16. Repository implementation outcome (C1/C2)
+
+The original C0 investigation/alternatives above remain historical evidence. Repository implementation is now recorded in `production-config-hardening-implementation.md`; production actions remain NONE. Original design commit `6292f449` was retained and cleanly cherry-picked onto latest main (`c7d5759f`).
+
+The implementation retains A + R2 and v1 machine-checked floor. It adds the Section 11 components plus reusable runtime capture and a **read-only** transition verifier. Both application defaults fail closed; service-level mirror and inbound gates supplement scheduled/manual/bootstrap controls. Non-dry-run AR ledger import now requires the independently explicit inbound gate; existing financial RBAC/confirmation and dry-run reads remain.
+
+First-transition selection is the fail-closed option described above and explicitly allowed by implementation instructions: **pre-floor API automatic rollback is always HOLD**. There is no legacy-image waiver based only on zero counts or an ingress probe. Consequently no L4 fence is claimed/provisioned by this PR; optional tracked Nginx hold interface is tested but cannot grant rollback eligibility. Any operator-controlled legacy recovery still needs separately proven network/writer isolation and authorization.
+
+A forward pre-floor transition requires explicit one-time dispatch authorization, full API+Web, no credential rotation, approved C3 certificate and safe floor-ready state. The certificate compares exact local/target Compose and verified archive bytes without executing recovery. Compose commands remain forbidden throughout the intermediate file reconciliation. Floor/project/approved tuple and active-image records are outside Git, restricted and set only under future C3 approval.
+
+Floor checks now run against the target Git tree **before** FF and current tree afterward; safety-critical bytes must match the approved floor, and active-state floor is a monotonic anchor. Actual running API revision drives migration scope. Generic deployment holds any migration change and never recreates DB. Historical Phase1 target below F is HOLD; the common wrapper does not authorize schema exec/run, so independent schema authority needs fresh review before reuse.
+
+Image-only rollback keeps safe HEAD, immutable pins and current .env. Persistent unfinished-transaction marker prevents maintenance/new deploys from using stale active records after cancellation/partial failure; nontransaction actual identities must match pins, and restart checks actual identity. DB/Web operations cannot indirectly restart an uncertified old API. No broad image pruning or implicit proxy/config rollback is permitted.
+
+Current automated coverage A–K includes real isolated Compose/Nginx/create-only Docker fixtures, actual Bash ERR handling, env escaping/permissions/atomicity, source/default/manual/recovery gates, floor/ancestry/dirty cases, running API migration baseline after failed deploy, first transition certificate and interrupted-state fences. Independent review findings were fixed; new implementation tests are not skipped. Exact counts/results are in the implementation report.
+
+Remaining authorization: merge/CI belongs to the current repository-only request; production reconciliation/deployment/quiescence/network controls remain **NO**. The merged SHA is a candidate floor, not a deployed revision. Obtain explicit ONE_TIME_PRODUCTION_CONFIG_FLOOR_TRANSITION authorization before any production mutation.

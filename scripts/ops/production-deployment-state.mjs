@@ -1,0 +1,98 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { randomUUID, createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import { CONTRACT, secureJson, verifyContext, guardProduction, migrationScope, git, rollbackEligibility, assertTransactionOwnership } from './production-config-guard.mjs';
+import { captureRuntime, executionEnv, IMAGE_ID, REVISION } from './capture-production-runtime.mjs';
+export function atomicState(file, value) {
+  const temporary = `${file}.${randomUUID()}.tmp`;
+  const fd = fs.openSync(temporary, 'wx', 0o600);
+  try { fs.writeFileSync(fd, JSON.stringify(value) + '\n'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  fs.renameSync(temporary, file);
+  const directory = fs.openSync(path.dirname(file), 'r'); try { fs.fsyncSync(directory); } finally { fs.closeSync(directory); }
+}
+export function beginState({ previous, configSha, target, scope, floor }) {
+  if (configSha !== target || !REVISION.test(configSha) || !REVISION.test(target) || scope.baseline !== previous.api.revision || scope.target !== target) throw new Error('STATE_HOLD=BASELINE');
+  return { version: CONTRACT.version, configSha, target, floorSha: floor.floorSha, previous, active: previous, candidates: {}, switched: { api: false, web: false }, outcome: 'PREPARED', migrationBaseline: previous.api.revision, migrationPaths: scope.changed, protectedImages: [previous.api.imageId, previous.web.imageId] };
+}
+export function rollbackPlan(state, eligible) {
+  // DB/schema-changing releases use the separate controlled migration authority.
+  if (state.migrationPaths.length) throw new Error('ROLLBACK_HOLD=SCHEMA_COMPATIBILITY');
+  const services = [];
+  for (const service of ['api', 'web']) {
+    if (!state.switched[service]) continue;
+    if (service === 'api' && !eligible.allowed) throw new Error(`ROLLBACK_API_IMAGE_ALLOWED=NO:${eligible.reason}`);
+    services.push({ service, ...state.previous[service] });
+  }
+  return services;
+}
+export function requireFirstTransition({ legacyApi, floor, proof, composeBytes, mode, buildApi, buildWeb, authorized, rotateCredentials }) {
+  if (!legacyApi) return;
+  if (!authorized || mode !== 'full' || !buildApi || !buildWeb || rotateCredentials || !proof
+    || proof.target !== floor.floorSha || proof.compositionEquivalent !== true || proof.archiveVerified !== true
+    || proof.composeDuringIntermediateStateAllowed !== false || !/^[a-f0-9]{64}$/.test(proof.backupSha256 || '')
+    || proof.composeSha256 !== createHash('sha256').update(composeBytes).digest('hex')) throw new Error('STATE_HOLD=ONE_TIME_TRANSITION_AUTHORIZATION_AND_C3_PROOF_REQUIRED');
+}
+export function transactionFile(directory = CONTRACT.stateDirectory, runId = process.env.DEPLOY_RUN_ID) {
+  if (!/^\d+(?:-\d+)?$/.test(runId || '')) throw new Error('STATE_HOLD=RUN_ID');
+  return path.join(directory, `deploy-${runId}.json`);
+}
+export function inspectCandidate(ref, target, run = args => execFileSync('docker', args, { env: executionEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()) {
+  const imageId = run(['image', 'inspect', ref, '--format', '{{.Id}}']);
+  const revision = run(['image', 'inspect', imageId, '--format', '{{ index .Config.Labels "org.opencontainers.image.revision" }}']);
+  if (!IMAGE_ID.test(imageId) || !REVISION.test(revision) || revision !== target) throw new Error('STATE_HOLD=CANDIDATE_REVISION');
+  return { imageId, revision };
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    const [operation, input, value] = process.argv.slice(2); const directory = CONTRACT.stateDirectory;
+    const root = fs.realpathSync(process.cwd()); verifyContext(root, directory);
+    const file = transactionFile(directory); let state;
+    if (operation === 'begin') {
+      if (fs.existsSync(file) || fs.existsSync(path.join(directory, 'transaction.json'))) throw new Error('STATE_HOLD=RUN_ALREADY_EXISTS_OR_UNFINISHED');
+      const previous = secureJson(input); const actual = captureRuntime();
+      if (JSON.stringify(previous) !== JSON.stringify(actual)) throw new Error('STATE_HOLD=RUNTIME_CHANGED');
+      const active = secureJson(path.join(directory, 'active.json'));
+      if (JSON.stringify(active.active) !== JSON.stringify(actual)) throw new Error('STATE_HOLD=ACTIVE_PINS_DRIFT');
+      const floor = guardProduction(root, directory, previous);
+      const target = process.env.TARGET_SHA;
+      const legacyApi = !rollbackEligibility(root, floor, previous.api).allowed;
+      const proof = legacyApi ? secureJson(path.join(directory, 'transition-proof.json')) : undefined;
+      requireFirstTransition({ legacyApi, floor, proof, composeBytes: fs.readFileSync(path.join(root, 'docker-compose.yml')),
+        mode: process.env.DEPLOY_MODE, buildApi: process.env.BUILD_API === 'true', buildWeb: process.env.BUILD_WEB === 'true',
+        authorized: process.env.ONE_TIME_CONFIG_FLOOR_TRANSITION === 'true', rotateCredentials: process.env.ROTATE_CHANJET_CREDENTIALS === 'true' });
+      const scope = migrationScope(root, previous.api.revision, target);
+      state = beginState({ previous, configSha: git(root, ['rev-parse', 'HEAD']), target, scope, floor });
+      atomicState(file, state);
+      atomicState(path.join(directory, 'transaction.json'), { runId: process.env.DEPLOY_RUN_ID, phase: 'IN_PROGRESS', target, configSha: state.configSha });
+      if (scope.changed.length) throw new Error('MIGRATION_SCOPE=HOLD:CONTROLLED_SCHEMA_RELEASE_REQUIRED');
+      console.log(`PREV_API_REVISION=${previous.api.revision}\nPREV_WEB_REVISION=${previous.web.revision}\nRUN_MIG=false`);
+    } else {
+      if (!assertTransactionOwnership(directory, process.env.DEPLOY_RUN_ID)) throw new Error('STATE_HOLD=TRANSACTION_MARKER_REQUIRED');
+      state = secureJson(file); const floor = guardProduction(root, directory, state.active);
+      if (operation === 'candidate') {
+        if (!['api', 'web'].includes(input) || value !== `ghcr.io/ivanzhao299/phoenix-erp-v3/${input}:sha-${state.target}`) throw new Error('STATE_HOLD=CANDIDATE_REF');
+        state.candidates[input] = inspectCandidate(value, state.target);
+        state.protectedImages = [...new Set([...state.protectedImages, state.candidates[input].imageId])];
+      } else if (operation === 'switch') {
+        if (!['api', 'web'].includes(input) || !state.candidates[input]) throw new Error('STATE_HOLD=NO_CANDIDATE');
+        state.switched[input] = true; state.active[input] = state.candidates[input]; state.outcome = 'SWITCHING';
+      } else if (operation === 'rollback-plan') {
+        console.log(JSON.stringify(rollbackPlan(state, rollbackEligibility(root, floor, state.previous.api)))); process.exit(0);
+      } else if (operation === 'rollback-pin') {
+        if (!['api', 'web'].includes(input)) throw new Error('STATE_HOLD=SERVICE');
+        rollbackPlan(state, rollbackEligibility(root, floor, state.previous.api));
+        state.active[input] = state.previous[input]; state.outcome = 'ROLLING_BACK';
+      } else if (operation === 'complete' || operation === 'rolled-back') {
+        const actual = captureRuntime();
+        if (JSON.stringify(actual) !== JSON.stringify(state.active)) throw new Error('STATE_HOLD=POST_SWITCH_IDENTITY');
+        state.outcome = operation === 'complete' ? 'SUCCESS' : 'ROLLED_BACK';
+        atomicState(path.join(directory, 'active.json'), { version: CONTRACT.version, configSha: state.configSha, floorSha: state.floorSha, active: state.active, protectedImages: state.protectedImages, outcome: state.outcome, migrationBaseline: state.active.api.revision });
+      } else throw new Error('STATE_HOLD=OPERATION');
+      atomicState(file, state);
+      if (['SUCCESS', 'ROLLED_BACK'].includes(state.outcome)) fs.unlinkSync(path.join(directory, 'transaction.json'));
+      console.log(`DEPLOYMENT_STATE=${state.outcome}`);
+    }
+  } catch (error) { console.error(/^(STATE_HOLD|CONFIG_HOLD|MIGRATION_SCOPE|ROLLBACK_)/.test(error.message) ? error.message : 'STATE_HOLD=VALIDATION_FAILED'); process.exitCode = 1; }
+}

@@ -1,3 +1,4 @@
+import { requireErpInbound } from './chanjet-sync-control';
 import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -330,6 +331,7 @@ export class ChanjetErpInboundSyncService {
     confirmationToken?: string,
     trustedScheduler = false,
   ) {
+    requireErpInbound();
     if (!trustedScheduler && confirmationToken !== 'SYNC_CHANJET_ACCOUNTING_FACTS_TO_ERP') {
       throw new ForbiddenException('缺少 ERP 会计镜像同步确认口令');
     }
@@ -452,6 +454,7 @@ export class ChanjetErpInboundSyncService {
   }
 
   async syncScheduledShareholderBalances(period: string, requestedBy: string) {
+    requireErpInbound();
     const plan = await this.buildShareholderPlan(period);
     if (plan.decision === 'HOLD') {
       return {

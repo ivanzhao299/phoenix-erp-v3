@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "legacyApiRollback": "HOLD",
+  "migrationBaseline": "RUNNING_API_REVISION",
+  "stateDirectory": "/home/phoenix-codex-deploy/production-deployment-state",
+  "repository": "/data/phoenix-erp",
+  "criticalFiles": [
+    "docker-compose.yml",
+    "apps/api/Dockerfile",
+    "apps/web/Dockerfile",
+    "apps/api/src/modules/chanjet/chanjet-sync-control.ts",
+    "apps/api/src/modules/chanjet/chanjet-readonly-sync.scheduler.ts",
+    "apps/api/src/modules/chanjet/chanjet-integration.service.ts",
+    "apps/api/src/modules/chanjet/chanjet-ar-sync.service.ts",
+    "apps/api/src/modules/chanjet/chanjet-erp-inbound-sync.service.ts",
+    "scripts/ops/require-phoenix-data-mount.sh",
+    "scripts/ops/capture-production-runtime.mjs",
+    "scripts/ops/production-config-guard.mjs",
+    "scripts/ops/production-deployment-state.mjs",
+    "scripts/ops/phoenix-production-compose.mjs",
+    "scripts/ops/update-managed-chanjet-env.mjs",
+    "scripts/ops/production-config-contract.json",
+    "scripts/ops/chanjet-maintenance-fence.mjs",
+    "nginx/erp.eggslao.com.conf",
+    ".github/workflows/deploy.yml",
+    ".github/workflows/production-disk-maintenance.yml",
+    ".github/workflows/phase1-controlled-production-execution.yml",
+    "scripts/phase1-controlled-production-execution.sh",
+    "scripts/ops/verify-config-floor-transition.mjs"
+  ]
+}
