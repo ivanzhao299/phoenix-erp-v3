@@ -7,7 +7,7 @@
 ```text
 BASE_MAIN=540c3717bffaf2ce02f353ff7e8b5b9bf48dc974
 BRANCH=codex/restore-chanjet-readonly-auto-sync
-RESTORE_PR=PENDING
+RESTORE_PR=https://github.com/ivanzhao299/phoenix-erp-v3/pull/366
 MERGED_MAIN_SHA=PENDING
 FINANCE_CONFIRMATION=PRODUCTION_DATA
 FINANCE_SOURCE_SCOPE_CONFIRMED=YES (用户确认所有原暂停范围)
