@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "extensions": [
+    "uuid-ossp"
+  ],
+  "tables": {
+    "sys_settings": [
+      "key",
+      "value",
+      "updated_at"
+    ],
+    "sys_cron_heartbeat": [
+      "job_name",
+      "last_run_at",
+      "last_status",
+      "last_detail",
+      "last_success_at",
+      "last_failure_at",
+      "success_count",
+      "fail_count",
+      "updated_at"
+    ],
+    "mon_device_realtime_snapshot": [
+      "property_code"
+    ],
+    "mon_device_property_history": [
+      "property_code"
+    ],
+    "mon_device_alert_event": [
+      "property_code"
+    ]
+  },
+  "absentConstraints": [
+    "mon_device_realtime_snapshot_property_code_fkey",
+    "mon_device_property_history_property_code_fkey",
+    "mon_device_alert_event_property_code_fkey"
+  ]
+}

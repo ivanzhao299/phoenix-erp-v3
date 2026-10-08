@@ -373,3 +373,27 @@ describe('GenericCrudService', () => {
     });
   });
 });
+
+describe('GenericCrudService schema mismatch', () => {
+  it.each(['create', 'update'] as const)('fails %s once without ALTER, retry or sensitive error logging', async (operation) => {
+    const error = Object.assign(new Error('column "new_field" does not exist; fixture-password-should-not-log'), { code: '42703' });
+    const query = jest.fn().mockRejectedValue(error);
+    const service = new GenericCrudService({ query } as never);
+    const { Logger } = await import('@nestjs/common');
+    const audit = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    try {
+      const request = operation === 'create' ? service.create('mst_products', { new_field: 'value' }) : service.update('mst_products', 'id', 1, { new_field: 'value' });
+      await expect(request).rejects.toMatchObject({ response: { code: 'SCHEMA_MISMATCH', table: 'mst_products', column: 'new_field' } });
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(query.mock.calls[0][0]).not.toMatch(/ALTER|CREATE|setval/i);
+      expect(audit).toHaveBeenCalledWith('SCHEMA_MISMATCH table=mst_products column=new_field');
+      expect(JSON.stringify(audit.mock.calls)).not.toContain('fixture-password');
+    } finally { audit.mockRestore(); }
+  });
+
+  it('has no legacy initialization hook or online column repair', () => {
+    const service = new GenericCrudService({ query: jest.fn() } as never);
+    expect('onModuleInit' in service).toBe(false);
+    expect('ensureColumn' in service).toBe(false);
+  });
+});

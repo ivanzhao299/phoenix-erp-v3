@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { API_BOOTSTRAP_SCHEMA_CONTRACT, assertExistingSchema, assertConstraintsAbsent } from '../../common/database/schema-compatibility';
 import { Cron } from '@nestjs/schedule';
 import { EntityManager } from 'typeorm';
 import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
@@ -49,26 +50,14 @@ export class IotSyncService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    this.logger.log('IoT Sync Hub Initialized. Checking API connectivity...');
-
-    // ── 永久移除外键约束（IoT property_code 动态来自第三方 API，
-    //    不能被 mon_device_property_dict 的外键约束住）──────────────────
-    await this.entityManager.query(`
-      ALTER TABLE mon_device_realtime_snapshot
-        DROP CONSTRAINT IF EXISTS mon_device_realtime_snapshot_property_code_fkey;
-      ALTER TABLE mon_device_property_history
-        DROP CONSTRAINT IF EXISTS mon_device_property_history_property_code_fkey;
-      ALTER TABLE mon_device_alert_event
-        DROP CONSTRAINT IF EXISTS mon_device_alert_event_property_code_fkey;
-    `).catch(() => {});
-    this.logger.log('✅ IoT FK constraints safely removed (idempotent).');
-
-    try {
-      await this.getToken();
-      this.logger.log('Successfully connected to IoT API provider.');
-    } catch (e: any) {
-      this.logger.error('Failed to initialize IoT Sync Hub: ' + e.message);
-    }
+    await assertExistingSchema(this.entityManager.query.bind(this.entityManager), {
+      mon_device_realtime_snapshot: API_BOOTSTRAP_SCHEMA_CONTRACT.tables.mon_device_realtime_snapshot,
+      mon_device_property_history: API_BOOTSTRAP_SCHEMA_CONTRACT.tables.mon_device_property_history,
+      mon_device_alert_event: API_BOOTSTRAP_SCHEMA_CONTRACT.tables.mon_device_alert_event,
+    });
+    await assertConstraintsAbsent(this.entityManager.query.bind(this.entityManager), API_BOOTSTRAP_SCHEMA_CONTRACT.absentConstraints);
+    // Vendor authentication remains lazy on scheduled/manual IoT operations.
+    this.logger.log('IoT existing schema checked; no startup repair or vendor probe.');
   }
 
   /**

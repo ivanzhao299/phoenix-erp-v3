@@ -1,0 +1,235 @@
+{
+  "outcome": "PASS",
+  "detectorCanary": {
+    "rejectedAttempts": 3,
+    "detectedKinds": [
+      "SCHEMA_MUTATION",
+      "SCHEMA_MUTATION",
+      "BUSINESS_DATA_MUTATION",
+      "BUSINESS_DATA_MUTATION",
+      "SEQUENCE_MUTATION",
+      "SEQUENCE_MUTATION"
+    ],
+    "actualMutations": 0
+  },
+  "schema": "phoenix.api-bootstrap-mutation-evidence/v1",
+  "database": "api_bootstrap_fixture",
+  "profiles": [
+    {
+      "profile": "writer-restored-auth",
+      "productionMode": true,
+      "fullAppModule": true,
+      "readonlyRole": false,
+      "actualSqlCount": 11,
+      "sqlKinds": {
+        "READ": 11
+      },
+      "statementHashes": [
+        "df1f1d15d442789a5b9c81cdddf44d88d5748499cc48865023ddc1ff1587d0f6",
+        "8f9784f08549c7f50d36496d2bb037b3b198d23e412ae12fdeb7371a784bc67f",
+        "e0174b7b4684688f45812cbd77de552ef79beb3acee5cde9a021db4f25981151",
+        "724b524aa9604f788992f02365a22c766b9d1f3583867ad149922852e3ee08ca",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "ae6dd760da4daa6bd72f7cf479bbbce43f96aa884324d79d3a33334154337d79",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "864eee387f5c26fa6197bd5b4cc5e846b36f7c63dbd788520e0d9726f70cacd6",
+        "e004ebd5b5532a4b85984a62f8ad48a81aa3460c1ca07701f386135d72cdecf5",
+        "e5b5a14ad3d89eb7ce929c9f8287f016bb37b7cfbffa353e91466b29f08849e9"
+      ],
+      "before": {
+        "schema": "29aebd839eb5c6c3335d2e532b627852b067a862330e34de44b9090323acdccf",
+        "data": "05abdce57869924900723a2ae50cf435c3b310597eb7b8f13ebf44687c159772",
+        "sequences": "aa460a45eed5d234ff3997bb355044d838eb9760812c8dc0c436472c77e62b48",
+        "tables": 237,
+        "sequenceCount": 207
+      },
+      "after": {
+        "schema": "29aebd839eb5c6c3335d2e532b627852b067a862330e34de44b9090323acdccf",
+        "data": "05abdce57869924900723a2ae50cf435c3b310597eb7b8f13ebf44687c159772",
+        "sequences": "aa460a45eed5d234ff3997bb355044d838eb9760812c8dc0c436472c77e62b48",
+        "tables": 237,
+        "sequenceCount": 207
+      },
+      "approvedAuthProtocolRequests": 0,
+      "remoteBusinessRequests": 0,
+      "unauthorizedWrites": 0,
+      "schemaMutations": 0,
+      "businessMutations": 0,
+      "sequenceMutations": 0,
+      "expectedSchemaHold": false,
+      "allDatabaseSessionsCaptured": true
+    },
+    {
+      "profile": "readonly-restored-auth",
+      "productionMode": true,
+      "fullAppModule": true,
+      "readonlyRole": true,
+      "actualSqlCount": 11,
+      "sqlKinds": {
+        "READ": 11
+      },
+      "statementHashes": [
+        "df1f1d15d442789a5b9c81cdddf44d88d5748499cc48865023ddc1ff1587d0f6",
+        "8f9784f08549c7f50d36496d2bb037b3b198d23e412ae12fdeb7371a784bc67f",
+        "e0174b7b4684688f45812cbd77de552ef79beb3acee5cde9a021db4f25981151",
+        "724b524aa9604f788992f02365a22c766b9d1f3583867ad149922852e3ee08ca",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "ae6dd760da4daa6bd72f7cf479bbbce43f96aa884324d79d3a33334154337d79",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "864eee387f5c26fa6197bd5b4cc5e846b36f7c63dbd788520e0d9726f70cacd6",
+        "e004ebd5b5532a4b85984a62f8ad48a81aa3460c1ca07701f386135d72cdecf5",
+        "e5b5a14ad3d89eb7ce929c9f8287f016bb37b7cfbffa353e91466b29f08849e9"
+      ],
+      "before": {
+        "schema": "29aebd839eb5c6c3335d2e532b627852b067a862330e34de44b9090323acdccf",
+        "data": "05abdce57869924900723a2ae50cf435c3b310597eb7b8f13ebf44687c159772",
+        "sequences": "aa460a45eed5d234ff3997bb355044d838eb9760812c8dc0c436472c77e62b48",
+        "tables": 237,
+        "sequenceCount": 207
+      },
+      "after": {
+        "schema": "29aebd839eb5c6c3335d2e532b627852b067a862330e34de44b9090323acdccf",
+        "data": "05abdce57869924900723a2ae50cf435c3b310597eb7b8f13ebf44687c159772",
+        "sequences": "aa460a45eed5d234ff3997bb355044d838eb9760812c8dc0c436472c77e62b48",
+        "tables": 237,
+        "sequenceCount": 207
+      },
+      "approvedAuthProtocolRequests": 0,
+      "remoteBusinessRequests": 0,
+      "unauthorizedWrites": 0,
+      "schemaMutations": 0,
+      "businessMutations": 0,
+      "sequenceMutations": 0,
+      "expectedSchemaHold": false,
+      "allDatabaseSessionsCaptured": true
+    },
+    {
+      "profile": "writer-auth-maintenance",
+      "productionMode": true,
+      "fullAppModule": true,
+      "readonlyRole": false,
+      "actualSqlCount": 11,
+      "sqlKinds": {
+        "READ": 11
+      },
+      "statementHashes": [
+        "df1f1d15d442789a5b9c81cdddf44d88d5748499cc48865023ddc1ff1587d0f6",
+        "8f9784f08549c7f50d36496d2bb037b3b198d23e412ae12fdeb7371a784bc67f",
+        "e0174b7b4684688f45812cbd77de552ef79beb3acee5cde9a021db4f25981151",
+        "724b524aa9604f788992f02365a22c766b9d1f3583867ad149922852e3ee08ca",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "ae6dd760da4daa6bd72f7cf479bbbce43f96aa884324d79d3a33334154337d79",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "864eee387f5c26fa6197bd5b4cc5e846b36f7c63dbd788520e0d9726f70cacd6",
+        "e004ebd5b5532a4b85984a62f8ad48a81aa3460c1ca07701f386135d72cdecf5",
+        "e5b5a14ad3d89eb7ce929c9f8287f016bb37b7cfbffa353e91466b29f08849e9"
+      ],
+      "before": {
+        "schema": "29aebd839eb5c6c3335d2e532b627852b067a862330e34de44b9090323acdccf",
+        "data": "3b3be658afd82bbeabfded70bf725e62b4dfa5e352d31322c04fb4700c4571ac",
+        "sequences": "aa460a45eed5d234ff3997bb355044d838eb9760812c8dc0c436472c77e62b48",
+        "tables": 237,
+        "sequenceCount": 207
+      },
+      "after": {
+        "schema": "29aebd839eb5c6c3335d2e532b627852b067a862330e34de44b9090323acdccf",
+        "data": "3b3be658afd82bbeabfded70bf725e62b4dfa5e352d31322c04fb4700c4571ac",
+        "sequences": "aa460a45eed5d234ff3997bb355044d838eb9760812c8dc0c436472c77e62b48",
+        "tables": 237,
+        "sequenceCount": 207
+      },
+      "approvedAuthProtocolRequests": 1,
+      "remoteBusinessRequests": 0,
+      "unauthorizedWrites": 0,
+      "schemaMutations": 0,
+      "businessMutations": 0,
+      "sequenceMutations": 0,
+      "expectedSchemaHold": false,
+      "allDatabaseSessionsCaptured": true
+    },
+    {
+      "profile": "missing-schema-hold",
+      "productionMode": true,
+      "fullAppModule": true,
+      "readonlyRole": false,
+      "actualSqlCount": 5,
+      "sqlKinds": {
+        "READ": 5
+      },
+      "statementHashes": [
+        "df1f1d15d442789a5b9c81cdddf44d88d5748499cc48865023ddc1ff1587d0f6",
+        "8f9784f08549c7f50d36496d2bb037b3b198d23e412ae12fdeb7371a784bc67f",
+        "e0174b7b4684688f45812cbd77de552ef79beb3acee5cde9a021db4f25981151",
+        "724b524aa9604f788992f02365a22c766b9d1f3583867ad149922852e3ee08ca",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda"
+      ],
+      "before": {
+        "schema": "c16be62fc3f4100572a4ab7447e0a6e8462121676299a390d3fccae5f8b593eb",
+        "data": "33d1db1a2fa23ebf03974be08605d823adffda0c565faa29a49d1c887e24cd22",
+        "sequences": "aa460a45eed5d234ff3997bb355044d838eb9760812c8dc0c436472c77e62b48",
+        "tables": 236,
+        "sequenceCount": 207
+      },
+      "after": {
+        "schema": "c16be62fc3f4100572a4ab7447e0a6e8462121676299a390d3fccae5f8b593eb",
+        "data": "33d1db1a2fa23ebf03974be08605d823adffda0c565faa29a49d1c887e24cd22",
+        "sequences": "aa460a45eed5d234ff3997bb355044d838eb9760812c8dc0c436472c77e62b48",
+        "tables": 236,
+        "sequenceCount": 207
+      },
+      "approvedAuthProtocolRequests": 0,
+      "remoteBusinessRequests": 0,
+      "unauthorizedWrites": 0,
+      "schemaMutations": 0,
+      "businessMutations": 0,
+      "sequenceMutations": 0,
+      "expectedSchemaHold": true,
+      "allDatabaseSessionsCaptured": true
+    },
+    {
+      "profile": "retired-iot-fk-hold",
+      "productionMode": true,
+      "fullAppModule": true,
+      "readonlyRole": false,
+      "actualSqlCount": 7,
+      "sqlKinds": {
+        "READ": 7
+      },
+      "statementHashes": [
+        "df1f1d15d442789a5b9c81cdddf44d88d5748499cc48865023ddc1ff1587d0f6",
+        "8f9784f08549c7f50d36496d2bb037b3b198d23e412ae12fdeb7371a784bc67f",
+        "e0174b7b4684688f45812cbd77de552ef79beb3acee5cde9a021db4f25981151",
+        "724b524aa9604f788992f02365a22c766b9d1f3583867ad149922852e3ee08ca",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "e166c56bdc6d125cd2358499d4d2ec3306c35ef857f4a6eca60a15777dd77bda",
+        "ae6dd760da4daa6bd72f7cf479bbbce43f96aa884324d79d3a33334154337d79"
+      ],
+      "before": {
+        "schema": "593a0847ea3b0fec70ba75866197645992c6ab4d514b079e5d4e5c254e71dc64",
+        "data": "05abdce57869924900723a2ae50cf435c3b310597eb7b8f13ebf44687c159772",
+        "sequences": "aa460a45eed5d234ff3997bb355044d838eb9760812c8dc0c436472c77e62b48",
+        "tables": 237,
+        "sequenceCount": 207
+      },
+      "after": {
+        "schema": "593a0847ea3b0fec70ba75866197645992c6ab4d514b079e5d4e5c254e71dc64",
+        "data": "05abdce57869924900723a2ae50cf435c3b310597eb7b8f13ebf44687c159772",
+        "sequences": "aa460a45eed5d234ff3997bb355044d838eb9760812c8dc0c436472c77e62b48",
+        "tables": 237,
+        "sequenceCount": 207
+      },
+      "approvedAuthProtocolRequests": 0,
+      "remoteBusinessRequests": 0,
+      "unauthorizedWrites": 0,
+      "schemaMutations": 0,
+      "businessMutations": 0,
+      "sequenceMutations": 0,
+      "expectedSchemaHold": true,
+      "allDatabaseSessionsCaptured": true
+    }
+  ],
+  "productionMutation": false
+}

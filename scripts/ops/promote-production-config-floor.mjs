@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { CONTRACT, git, requireCleanMain, assertFloorMonotonic, migrationScope, assertFloor, secureJson } from './production-config-guard.mjs';
 import { atomicState } from './production-deployment-state.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
+import { assertBootstrapSchemaEvidence, readBootstrapSchemaEvidence } from './api-bootstrap-schema-preflight.mjs';
 import { readonlyEnvironment } from './chanjet-readonly-policy.mjs';
 export function promotionPlan({ previousFloor, previousActive, actual, target, approvedSha, runId, scope, now = Date.now() }) {
   if (CONTRACT.version !== 3 || previousFloor.version !== 2 || previousActive.version !== 2 || previousFloor.phase !== 'READY'
@@ -40,8 +41,9 @@ export async function promoteFloor(root) {
   git(root, ['merge-base', '--is-ancestor', git(root, ['rev-parse', 'HEAD']), target]);
   // Every executed staged helper must be identical to the exact approved merged tree.
   const base = path.dirname(new URL(import.meta.url).pathname);
-  for (const file of ['production-config-contract.json', 'production-config-guard.mjs', 'production-deployment-state.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'promote-production-config-floor.mjs']) {
-    if (!fs.readFileSync(path.join(base, file)).equals(Buffer.from(git(root, ['show', `${target}:scripts/ops/${file}`]) + '\n'))) throw new Error('CONFIG_HOLD=STAGED_HELPER_MISMATCH');
+  for (const file of ['production-config-contract.json', 'production-config-guard.mjs', 'production-deployment-state.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'api-bootstrap-schema-preflight.mjs', 'api-bootstrap-schema-contract.json', 'promote-production-config-floor.mjs']) {
+    const source = file === 'api-bootstrap-schema-contract.json' ? `apps/api/src/common/database/${file}` : `scripts/ops/${file}`;
+    if (!fs.readFileSync(path.join(base, file)).equals(Buffer.from(git(root, ['show', `${target}:${source}`]) + '\n'))) throw new Error('CONFIG_HOLD=STAGED_HELPER_MISMATCH');
   }
   const previousFloor = installed.secureJson(path.join(directory, 'floor.json'));
   const previousActive = installed.secureJson(path.join(directory, 'active.json'));
@@ -51,8 +53,16 @@ export async function promoteFloor(root) {
   assertFloor(root, plan.floor, target, { targetTree: true });
   const record = path.join(directory, `floor-promotion-${process.env.DEPLOY_RUN_ID}.json`);
   if (fs.existsSync(record)) throw new Error('CONFIG_HOLD=PROMOTION_RUN_REUSED');
+  // No floor/state mutation before the approved target's real production schema passes.
+  const bootstrapContract = JSON.parse(fs.readFileSync(path.join(base, 'api-bootstrap-schema-contract.json'), 'utf8'));
+  let bootstrapSchema;
+  try { bootstrapSchema = assertBootstrapSchemaEvidence(bootstrapContract, readBootstrapSchemaEvidence(bootstrapContract)); }
+  catch (error) {
+    atomicState(path.join(directory, `bootstrap-schema-hold-${process.env.DEPLOY_RUN_ID}.json`), { version: 3, target, outcome: 'HOLD', code: 'BOOTSTRAP_SCHEMA_GAP', evidence: error.evidence || null });
+    throw error;
+  }
   const envHash = createHash('sha256').update(fs.readFileSync(path.join(root, '.env'))).digest('hex');
-  atomicState(record, { version: 3, previousFloor, previousActive, approvedSha: target, envSha256: envHash, scope, marker: plan.marker });
+  atomicState(record, { version: 3, previousFloor, previousActive, approvedSha: target, envSha256: envHash, scope, bootstrapSchema, marker: plan.marker });
   // Marker precedes all new state. Any interruption blocks subsequent callers.
   atomicState(path.join(directory, 'policy-transition.json'), plan.marker);
   atomicState(path.join(directory, 'floor.json'), plan.floor);

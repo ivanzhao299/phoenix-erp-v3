@@ -1,0 +1,3164 @@
+{
+  "base": "85acfe6df5ba51642eb338f2cb4651ebf9df9d25",
+  "interpretation": "SQL literal sites, not executed statement counts; dynamic loops and multi-statement literals are explicit limits",
+  "entries": [
+    {
+      "entry": "GenericCrudService.onModuleInit",
+      "source": "apps/api/src/modules/generic-crud/generic-crud.service.ts",
+      "at": 85,
+      "sqlLiteralCount": 428,
+      "kinds": {
+        "SEQUENCE": 18,
+        "DDL": 394,
+        "BUSINESS_OR_METADATA_DML": 16
+      },
+      "tables": [
+        "acc_ledger",
+        "b2b_customers",
+        "b2b_order_items",
+        "b2b_orders",
+        "brd_daily_logs",
+        "brd_farms",
+        "brd_flocks",
+        "brd_houses",
+        "brd_immune_plans",
+        "brd_medication_records",
+        "brd_medications",
+        "brd_vaccinations",
+        "brd_withdrawal_alerts",
+        "chn_distributor_grading",
+        "crm_activities",
+        "crm_coupons",
+        "crm_levels",
+        "crm_members",
+        "crm_points_ledger",
+        "crm_points_log",
+        "crm_points_rules",
+        "cst_credit_warnings",
+        "daily_close",
+        "fin_accounts",
+        "fin_approvals",
+        "fin_invoices",
+        "fin_pay_records",
+        "fin_payments",
+        "fin_store_settlements",
+        "fin_transactions",
+        "inv_batches",
+        "inv_ledger",
+        "log_dispatch",
+        "log_drivers",
+        "log_exceptions",
+        "log_receipts",
+        "log_routes",
+        "log_vehicles",
+        "mst_products",
+        "mst_stores",
+        "ord_approval_log",
+        "ord_credit_usage",
+        "ord_customers",
+        "ord_order_items",
+        "ord_orders",
+        "ord_prices",
+        "pda_sync_log",
+        "pda_terminals",
+        "pkg_audit_logs",
+        "pkg_exceptions",
+        "pkg_grading_records",
+        "pkg_handover_records",
+        "pkg_label_print_logs",
+        "pkg_packing_records",
+        "pkg_qc_inspections",
+        "pkg_shifts",
+        "pkg_source_batches",
+        "pkg_tasks",
+        "pkg_work_shifts",
+        "pos_sale_items",
+        "pos_sales",
+        "pos_sessions",
+        "prc_price_books",
+        "prc_price_items",
+        "prc_purchase_items",
+        "prc_purchase_orders",
+        "prc_purchase_payments",
+        "prc_purchase_requests",
+        "prc_receipts",
+        "prc_returns",
+        "prc_supplier_returns",
+        "prc_suppliers",
+        "qa_inspection_items",
+        "qa_inspections",
+        "qa_non_conformance",
+        "qa_product_inspections",
+        "qa_standards",
+        "qa_standards_history",
+        "store_inventory",
+        "store_losses",
+        "store_receiving",
+        "store_receiving_items",
+        "store_replenish_req",
+        "store_transfers",
+        "sys_approval_flows",
+        "sys_dict",
+        "sys_permissions",
+        "sys_role",
+        "sys_user",
+        "sys_user_role",
+        "wms_inbound",
+        "wms_inbound_items",
+        "wms_outbound",
+        "wms_outbound_items",
+        "wms_stock_transfers",
+        "wms_stocktake",
+        "wms_suppliers",
+        "wms_transfer",
+        "wms_warehouses",
+        "wms_zones",
+        "ws_contracts",
+        "ws_shipments"
+      ],
+      "sites": [
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:120",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:124",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:128",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:134",
+          "kind": "DDL",
+          "tables": [
+            "brd_farms",
+            "brd_houses",
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:166",
+          "kind": "DDL",
+          "tables": [
+            "brd_houses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:167",
+          "kind": "DDL",
+          "tables": [
+            "brd_houses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:168",
+          "kind": "DDL",
+          "tables": [
+            "brd_houses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:169",
+          "kind": "DDL",
+          "tables": [
+            "brd_houses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:170",
+          "kind": "DDL",
+          "tables": [
+            "brd_houses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:171",
+          "kind": "DDL",
+          "tables": [
+            "brd_houses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:172",
+          "kind": "DDL",
+          "tables": [
+            "brd_houses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:174",
+          "kind": "DDL",
+          "tables": [
+            "brd_houses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:175",
+          "kind": "DDL",
+          "tables": [
+            "brd_houses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:177",
+          "kind": "DDL",
+          "tables": [
+            "brd_farms"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:178",
+          "kind": "DDL",
+          "tables": [
+            "brd_farms"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:179",
+          "kind": "DDL",
+          "tables": [
+            "brd_farms"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:180",
+          "kind": "DDL",
+          "tables": [
+            "brd_farms"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:181",
+          "kind": "DDL",
+          "tables": [
+            "brd_farms"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:182",
+          "kind": "DDL",
+          "tables": [
+            "brd_farms"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:183",
+          "kind": "DDL",
+          "tables": [
+            "brd_farms"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:185",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:186",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:187",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:188",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:189",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:190",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:191",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:192",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:193",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:194",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:195",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:196",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:197",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:198",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:199",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:200",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:201",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:202",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:203",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:204",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:205",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:212",
+          "kind": "DDL",
+          "tables": [
+            "brd_farms"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:213",
+          "kind": "DDL",
+          "tables": [
+            "brd_flocks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:218",
+          "kind": "DDL",
+          "tables": [
+            "brd_farms"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:220",
+          "kind": "DDL",
+          "tables": [
+            "chn_distributor_grading"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:242",
+          "kind": "DDL",
+          "tables": [
+            "crm_members"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:255",
+          "kind": "DDL",
+          "tables": [
+            "crm_members"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:256",
+          "kind": "DDL",
+          "tables": [
+            "crm_members"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:257",
+          "kind": "DDL",
+          "tables": [
+            "crm_members"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:258",
+          "kind": "DDL",
+          "tables": [
+            "crm_members"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:260",
+          "kind": "DDL",
+          "tables": [
+            "crm_levels"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:271",
+          "kind": "DDL",
+          "tables": [
+            "crm_points_log"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:279",
+          "kind": "DDL",
+          "tables": [
+            "crm_points_log"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:284",
+          "kind": "DDL",
+          "tables": [
+            "crm_points_ledger"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:295",
+          "kind": "DDL",
+          "tables": [
+            "crm_points_ledger"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:296",
+          "kind": "DDL",
+          "tables": [
+            "crm_points_ledger"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:298",
+          "kind": "DDL",
+          "tables": [
+            "crm_points_rules"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:308",
+          "kind": "DDL",
+          "tables": [
+            "crm_coupons"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:321",
+          "kind": "DDL",
+          "tables": [
+            "crm_activities"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:334",
+          "kind": "DDL",
+          "tables": [
+            "b2b_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:346",
+          "kind": "DDL",
+          "tables": [
+            "b2b_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:347",
+          "kind": "DDL",
+          "tables": [
+            "b2b_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:349",
+          "kind": "DDL",
+          "tables": [
+            "b2b_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:360",
+          "kind": "DDL",
+          "tables": [
+            "b2b_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:361",
+          "kind": "DDL",
+          "tables": [
+            "b2b_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:363",
+          "kind": "DDL",
+          "tables": [
+            "b2b_order_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:373",
+          "kind": "DDL",
+          "tables": [
+            "ws_contracts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:385",
+          "kind": "DDL",
+          "tables": [
+            "ws_contracts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:387",
+          "kind": "DDL",
+          "tables": [
+            "ws_shipments"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:397",
+          "kind": "DDL",
+          "tables": [
+            "ws_shipments"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:400",
+          "kind": "DDL",
+          "tables": [
+            "log_vehicles"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:412",
+          "kind": "DDL",
+          "tables": [
+            "log_drivers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:423",
+          "kind": "DDL",
+          "tables": [
+            "log_dispatch"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:434",
+          "kind": "DDL",
+          "tables": [
+            "log_dispatch"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:435",
+          "kind": "DDL",
+          "tables": [
+            "log_dispatch"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:437",
+          "kind": "DDL",
+          "tables": [
+            "log_routes"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:448",
+          "kind": "DDL",
+          "tables": [
+            "log_receipts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:459",
+          "kind": "DDL",
+          "tables": [
+            "log_receipts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:461",
+          "kind": "DDL",
+          "tables": [
+            "log_exceptions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:472",
+          "kind": "DDL",
+          "tables": [
+            "log_exceptions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:473",
+          "kind": "DDL",
+          "tables": [
+            "log_exceptions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:476",
+          "kind": "DDL",
+          "tables": [
+            "qa_standards"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:487",
+          "kind": "DDL",
+          "tables": [
+            "qa_standards"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:489",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:501",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:502",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:504",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:505",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:506",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:507",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:508",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:509",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:510",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:511",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:512",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:513",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:514",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:517",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:518",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:519",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:520",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:521",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:522",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:523",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:525",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspection_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:535",
+          "kind": "DDL",
+          "tables": [
+            "qa_product_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:547",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:558",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:559",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:562",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:563",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:564",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:565",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:566",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:569",
+          "kind": "DDL",
+          "tables": [
+            "qa_standards_history"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:583",
+          "kind": "DDL",
+          "tables": [
+            "brd_immune_plans"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:595",
+          "kind": "DDL",
+          "tables": [
+            "brd_immune_plans"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:596",
+          "kind": "DDL",
+          "tables": [
+            "brd_immune_plans"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:598",
+          "kind": "DDL",
+          "tables": [
+            "brd_medication_records"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:609",
+          "kind": "DDL",
+          "tables": [
+            "brd_medication_records"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:610",
+          "kind": "DDL",
+          "tables": [
+            "brd_medication_records"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:612",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:623",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:624",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:625",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:626",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:627",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:628",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:629",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:630",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:631",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:632",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:633",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:634",
+          "kind": "DDL",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:636",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "brd_vaccinations"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:641",
+          "kind": "DDL",
+          "tables": [
+            "brd_daily_logs"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:664",
+          "kind": "DDL",
+          "tables": [
+            "brd_daily_logs"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:665",
+          "kind": "DDL",
+          "tables": [
+            "brd_daily_logs"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:667",
+          "kind": "DDL",
+          "tables": [
+            "brd_withdrawal_alerts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:677",
+          "kind": "DDL",
+          "tables": [
+            "brd_withdrawal_alerts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:678",
+          "kind": "DDL",
+          "tables": [
+            "brd_withdrawal_alerts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:681",
+          "kind": "DDL",
+          "tables": [
+            "store_receiving"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:691",
+          "kind": "DDL",
+          "tables": [
+            "store_receiving"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:693",
+          "kind": "DDL",
+          "tables": [
+            "store_receiving_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:702",
+          "kind": "DDL",
+          "tables": [
+            "store_transfers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:713",
+          "kind": "DDL",
+          "tables": [
+            "store_transfers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:715",
+          "kind": "DDL",
+          "tables": [
+            "store_replenish_req"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:726",
+          "kind": "DDL",
+          "tables": [
+            "store_replenish_req"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:727",
+          "kind": "DDL",
+          "tables": [
+            "store_replenish_req"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:729",
+          "kind": "DDL",
+          "tables": [
+            "store_losses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:740",
+          "kind": "DDL",
+          "tables": [
+            "store_losses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:742",
+          "kind": "DDL",
+          "tables": [
+            "store_inventory"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:752",
+          "kind": "DDL",
+          "tables": [
+            "store_inventory"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:753",
+          "kind": "DDL",
+          "tables": [
+            "store_inventory"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:756",
+          "kind": "DDL",
+          "tables": [
+            "prc_receipts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:766",
+          "kind": "DDL",
+          "tables": [
+            "prc_receipts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:768",
+          "kind": "DDL",
+          "tables": [
+            "prc_supplier_returns"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:778",
+          "kind": "DDL",
+          "tables": [
+            "prc_supplier_returns"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:781",
+          "kind": "DDL",
+          "tables": [
+            "fin_store_settlements"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:791",
+          "kind": "DDL",
+          "tables": [
+            "fin_store_settlements"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:793",
+          "kind": "DDL",
+          "tables": [
+            "fin_pay_records"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:804",
+          "kind": "DDL",
+          "tables": [
+            "fin_pay_records"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:807",
+          "kind": "DDL",
+          "tables": [
+            "ord_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:820",
+          "kind": "DDL",
+          "tables": [
+            "ord_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:821",
+          "kind": "DDL",
+          "tables": [
+            "ord_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:822",
+          "kind": "DDL",
+          "tables": [
+            "ord_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:824",
+          "kind": "DDL",
+          "tables": [
+            "ord_prices"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:835",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:846",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:847",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:848",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:849",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:850",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:851",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:852",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:853",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:854",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:855",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:856",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:857",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:858",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:859",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:860",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:861",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:862",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:863",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:865",
+          "kind": "DDL",
+          "tables": [
+            "ord_order_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:878",
+          "kind": "DDL",
+          "tables": [
+            "ord_order_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:879",
+          "kind": "DDL",
+          "tables": [
+            "ord_order_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:880",
+          "kind": "DDL",
+          "tables": [
+            "ord_order_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:881",
+          "kind": "DDL",
+          "tables": [
+            "ord_order_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:883",
+          "kind": "DDL",
+          "tables": [
+            "ord_approval_log"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:892",
+          "kind": "DDL",
+          "tables": [
+            "ord_approval_log"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:894",
+          "kind": "DDL",
+          "tables": [
+            "ord_credit_usage"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:903",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:904",
+          "kind": "DDL",
+          "tables": [
+            "ord_credit_usage"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:905",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:906",
+          "kind": "DDL",
+          "tables": [
+            "ord_credit_usage"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:907",
+          "kind": "DDL",
+          "tables": [
+            "ord_credit_usage"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:910",
+          "kind": "DDL",
+          "tables": [
+            "ord_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:911",
+          "kind": "DDL",
+          "tables": [
+            "ord_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:912",
+          "kind": "DDL",
+          "tables": [
+            "ord_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:917",
+          "kind": "DDL",
+          "tables": [
+            "pos_sessions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:931",
+          "kind": "DDL",
+          "tables": [
+            "pos_sessions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:932",
+          "kind": "DDL",
+          "tables": [
+            "pos_sessions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:933",
+          "kind": "DDL",
+          "tables": [
+            "pos_sessions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:934",
+          "kind": "DDL",
+          "tables": [
+            "pos_sessions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:935",
+          "kind": "DDL",
+          "tables": [
+            "pos_sessions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:936",
+          "kind": "DDL",
+          "tables": [
+            "pos_sessions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:937",
+          "kind": "DDL",
+          "tables": [
+            "pos_sessions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:938",
+          "kind": "DDL",
+          "tables": [
+            "pos_sessions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:939",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:940",
+          "kind": "DDL",
+          "tables": [
+            "pos_sessions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:941",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:942",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:943",
+          "kind": "DDL",
+          "tables": [
+            "ord_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:944",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:945",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:946",
+          "kind": "DDL",
+          "tables": [
+            "store_losses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:947",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:948",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:949",
+          "kind": "DDL",
+          "tables": [
+            "store_replenish_req"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:950",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:953",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:958",
+          "kind": "DDL",
+          "tables": [
+            "fin_transactions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:959",
+          "kind": "DDL",
+          "tables": [
+            "fin_transactions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:960",
+          "kind": "DDL",
+          "tables": [
+            "fin_transactions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:961",
+          "kind": "DDL",
+          "tables": [
+            "fin_transactions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:962",
+          "kind": "DDL",
+          "tables": [
+            "fin_transactions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:963",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:965",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "fin_transactions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:968",
+          "kind": "DDL",
+          "tables": [
+            "fin_invoices"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:969",
+          "kind": "DDL",
+          "tables": [
+            "fin_invoices"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:970",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "fin_invoices"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:973",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:974",
+          "kind": "DDL",
+          "tables": [
+            "fin_approvals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:975",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:978",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:979",
+          "kind": "DDL",
+          "tables": [
+            "ord_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:982",
+          "kind": "DDL",
+          "tables": [
+            "ord_order_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:985",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "ord_customers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:995",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "brd_medications"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1057",
+          "kind": "DDL",
+          "tables": [
+            "sys_user"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1076",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1077",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1078",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1081",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1082",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1083",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1086",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1087",
+          "kind": "DDL",
+          "tables": [
+            "pda_terminals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1088",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1090",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1094",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1095",
+          "kind": "DDL",
+          "tables": [
+            "qa_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1097",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1098",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1099",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1100",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1101",
+          "kind": "DDL",
+          "tables": [
+            "qa_non_conformance"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1102",
+          "kind": "SEQUENCE",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1110",
+          "kind": "DDL",
+          "tables": [
+            "inv_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1111",
+          "kind": "DDL",
+          "tables": [
+            "inv_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1113",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "inv_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1115",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1121",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1122",
+          "kind": "DDL",
+          "tables": []
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1127",
+          "kind": "DDL",
+          "tables": [
+            "wms_zones"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1136",
+          "kind": "DDL",
+          "tables": [
+            "wms_zones"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1138",
+          "kind": "DDL",
+          "tables": [
+            "wms_zones"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1140",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "wms_zones"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1142",
+          "kind": "DDL",
+          "tables": [
+            "wms_transfer"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1156",
+          "kind": "DDL",
+          "tables": [
+            "wms_transfer"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1157",
+          "kind": "DDL",
+          "tables": [
+            "wms_transfer"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1158",
+          "kind": "DDL",
+          "tables": [
+            "wms_transfer"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1160",
+          "kind": "DDL",
+          "tables": [
+            "wms_stock_transfers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1172",
+          "kind": "DDL",
+          "tables": [
+            "wms_stock_transfers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1175",
+          "kind": "DDL",
+          "tables": [
+            "prc_purchase_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1176",
+          "kind": "DDL",
+          "tables": [
+            "prc_purchase_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1177",
+          "kind": "DDL",
+          "tables": [
+            "prc_purchase_requests"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1178",
+          "kind": "DDL",
+          "tables": [
+            "prc_purchase_requests"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1179",
+          "kind": "DDL",
+          "tables": [
+            "prc_returns"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1182",
+          "kind": "DDL",
+          "tables": [
+            "mst_stores"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1192",
+          "kind": "DDL",
+          "tables": [
+            "mst_stores"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1193",
+          "kind": "DDL",
+          "tables": [
+            "mst_stores"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1194",
+          "kind": "DDL",
+          "tables": [
+            "mst_stores"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1196",
+          "kind": "DDL",
+          "tables": [
+            "mst_products"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1211",
+          "kind": "DDL",
+          "tables": [
+            "mst_products"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1212",
+          "kind": "DDL",
+          "tables": [
+            "mst_products"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1213",
+          "kind": "DDL",
+          "tables": [
+            "mst_products"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1214",
+          "kind": "DDL",
+          "tables": [
+            "mst_products"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1215",
+          "kind": "DDL",
+          "tables": [
+            "mst_products"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1216",
+          "kind": "DDL",
+          "tables": [
+            "mst_products"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1217",
+          "kind": "DDL",
+          "tables": [
+            "mst_products"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1218",
+          "kind": "DDL",
+          "tables": [
+            "mst_products"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1219",
+          "kind": "DDL",
+          "tables": [
+            "mst_products"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1222",
+          "kind": "DDL",
+          "tables": [
+            "sys_dict"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1236",
+          "kind": "DDL",
+          "tables": [
+            "sys_dict"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1237",
+          "kind": "DDL",
+          "tables": [
+            "sys_dict"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1238",
+          "kind": "DDL",
+          "tables": [
+            "sys_dict"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1239",
+          "kind": "DDL",
+          "tables": [
+            "sys_dict"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1242",
+          "kind": "DDL",
+          "tables": [
+            "sys_approval_flows"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1252",
+          "kind": "DDL",
+          "tables": [
+            "sys_permissions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1263",
+          "kind": "DDL",
+          "tables": [
+            "brd_daily_logs"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1289",
+          "kind": "DDL",
+          "tables": [
+            "brd_medications"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1300",
+          "kind": "DDL",
+          "tables": [
+            "inv_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1314",
+          "kind": "DDL",
+          "tables": [
+            "inv_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1315",
+          "kind": "DDL",
+          "tables": [
+            "inv_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1316",
+          "kind": "DDL",
+          "tables": [
+            "inv_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1317",
+          "kind": "DDL",
+          "tables": [
+            "inv_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1318",
+          "kind": "DDL",
+          "tables": [
+            "inv_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1319",
+          "kind": "DDL",
+          "tables": [
+            "inv_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1321",
+          "kind": "DDL",
+          "tables": [
+            "inv_ledger"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1332",
+          "kind": "DDL",
+          "tables": [
+            "inv_ledger"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1333",
+          "kind": "DDL",
+          "tables": [
+            "inv_ledger"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1334",
+          "kind": "DDL",
+          "tables": [
+            "inv_ledger"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1335",
+          "kind": "DDL",
+          "tables": [
+            "inv_ledger"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1338",
+          "kind": "DDL",
+          "tables": [
+            "wms_warehouses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1348",
+          "kind": "DDL",
+          "tables": [
+            "wms_warehouses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1349",
+          "kind": "DDL",
+          "tables": [
+            "wms_warehouses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1351",
+          "kind": "DDL",
+          "tables": [
+            "wms_inbound"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1364",
+          "kind": "DDL",
+          "tables": [
+            "wms_inbound"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1366",
+          "kind": "DDL",
+          "tables": [
+            "wms_inbound_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1380",
+          "kind": "DDL",
+          "tables": [
+            "wms_outbound"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1392",
+          "kind": "DDL",
+          "tables": [
+            "wms_outbound"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1394",
+          "kind": "DDL",
+          "tables": [
+            "wms_outbound_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1404",
+          "kind": "DDL",
+          "tables": [
+            "wms_stocktake"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1418",
+          "kind": "DDL",
+          "tables": [
+            "wms_stocktake"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1419",
+          "kind": "DDL",
+          "tables": [
+            "wms_stocktake"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1420",
+          "kind": "DDL",
+          "tables": [
+            "wms_stocktake"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1421",
+          "kind": "DDL",
+          "tables": [
+            "wms_stocktake"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1423",
+          "kind": "DDL",
+          "tables": [
+            "wms_suppliers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1433",
+          "kind": "DDL",
+          "tables": [
+            "wms_suppliers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1436",
+          "kind": "DDL",
+          "tables": [
+            "prc_suppliers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1446",
+          "kind": "DDL",
+          "tables": [
+            "prc_suppliers"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1448",
+          "kind": "DDL",
+          "tables": [
+            "prc_purchase_orders"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1467",
+          "kind": "DDL",
+          "tables": [
+            "prc_purchase_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1477",
+          "kind": "DDL",
+          "tables": [
+            "prc_purchase_requests"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1484",
+          "kind": "DDL",
+          "tables": [
+            "prc_purchase_requests"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1486",
+          "kind": "DDL",
+          "tables": [
+            "prc_purchase_payments"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1495",
+          "kind": "DDL",
+          "tables": [
+            "prc_purchase_payments"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1497",
+          "kind": "DDL",
+          "tables": [
+            "prc_returns"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1506",
+          "kind": "DDL",
+          "tables": [
+            "prc_returns"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1509",
+          "kind": "DDL",
+          "tables": [
+            "fin_accounts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1519",
+          "kind": "DDL",
+          "tables": [
+            "fin_accounts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1520",
+          "kind": "DDL",
+          "tables": [
+            "fin_accounts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1522",
+          "kind": "DDL",
+          "tables": [
+            "fin_transactions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1544",
+          "kind": "DDL",
+          "tables": [
+            "fin_transactions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1546",
+          "kind": "DDL",
+          "tables": [
+            "fin_invoices"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1560",
+          "kind": "DDL",
+          "tables": [
+            "fin_payments"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1569",
+          "kind": "DDL",
+          "tables": [
+            "fin_payments"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1571",
+          "kind": "DDL",
+          "tables": [
+            "fin_approvals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1584",
+          "kind": "DDL",
+          "tables": [
+            "fin_approvals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1585",
+          "kind": "DDL",
+          "tables": [
+            "fin_approvals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1586",
+          "kind": "DDL",
+          "tables": [
+            "fin_approvals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1589",
+          "kind": "DDL",
+          "tables": [
+            "pos_sales"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1607",
+          "kind": "DDL",
+          "tables": [
+            "pos_sale_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1622",
+          "kind": "DDL",
+          "tables": [
+            "daily_close"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1641",
+          "kind": "DDL",
+          "tables": [
+            "acc_ledger"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1653",
+          "kind": "DDL",
+          "tables": [
+            "cst_credit_warnings"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1663",
+          "kind": "DDL",
+          "tables": [
+            "cst_credit_warnings"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1666",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1691",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1692",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1693",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1694",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1695",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1696",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1697",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1698",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1699",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1700",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1701",
+          "kind": "DDL",
+          "tables": [
+            "pkg_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1703",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1734",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1735",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1736",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1737",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1738",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1739",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1740",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1741",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1742",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1743",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1744",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1745",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1746",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1747",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1748",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1749",
+          "kind": "DDL",
+          "tables": [
+            "pkg_tasks"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1752",
+          "kind": "DDL",
+          "tables": [
+            "pda_terminals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1770",
+          "kind": "DDL",
+          "tables": [
+            "pda_terminals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1771",
+          "kind": "DDL",
+          "tables": [
+            "pda_terminals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1772",
+          "kind": "DDL",
+          "tables": [
+            "pda_terminals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1773",
+          "kind": "DDL",
+          "tables": [
+            "pda_terminals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1774",
+          "kind": "DDL",
+          "tables": [
+            "pda_terminals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1775",
+          "kind": "DDL",
+          "tables": [
+            "pda_terminals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1776",
+          "kind": "DDL",
+          "tables": [
+            "pda_terminals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1777",
+          "kind": "DDL",
+          "tables": [
+            "pda_terminals"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1780",
+          "kind": "DDL",
+          "tables": [
+            "pda_sync_log"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1792",
+          "kind": "DDL",
+          "tables": [
+            "prc_price_books"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1800",
+          "kind": "DDL",
+          "tables": [
+            "prc_price_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1810",
+          "kind": "DDL",
+          "tables": [
+            "prc_price_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1811",
+          "kind": "DDL",
+          "tables": [
+            "prc_price_items"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1843",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "sys_dict"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1857",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "brd_houses"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1872",
+          "kind": "DDL",
+          "tables": [
+            "pkg_work_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1891",
+          "kind": "DDL",
+          "tables": [
+            "pkg_source_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1916",
+          "kind": "DDL",
+          "tables": [
+            "pkg_qc_inspections"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1937",
+          "kind": "DDL",
+          "tables": [
+            "pkg_label_print_logs"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1953",
+          "kind": "DDL",
+          "tables": [
+            "pkg_audit_logs"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1966",
+          "kind": "DDL",
+          "tables": [
+            "pkg_grading_records"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1977",
+          "kind": "DDL",
+          "tables": [
+            "pkg_packing_records"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:1988",
+          "kind": "DDL",
+          "tables": [
+            "pkg_handover_records"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2002",
+          "kind": "DDL",
+          "tables": [
+            "pkg_exceptions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2018",
+          "kind": "DDL",
+          "tables": [
+            "pkg_exceptions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2019",
+          "kind": "DDL",
+          "tables": [
+            "pkg_exceptions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2020",
+          "kind": "DDL",
+          "tables": [
+            "pkg_exceptions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2021",
+          "kind": "DDL",
+          "tables": [
+            "pkg_exceptions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2022",
+          "kind": "DDL",
+          "tables": [
+            "pkg_exceptions"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2039",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "sys_role"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2060",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "sys_user"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2067",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "sys_user_role"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2102",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "pkg_source_batches"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2131",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "sys_dict"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2146",
+          "kind": "DDL",
+          "tables": [
+            "pkg_work_shifts"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2156",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "sys_dict"
+          ]
+        },
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:2163",
+          "kind": "BUSINESS_OR_METADATA_DML",
+          "tables": [
+            "sys_dict"
+          ]
+        }
+      ]
+    },
+    {
+      "entry": "GenericCrudService.ensureColumn",
+      "source": "apps/api/src/modules/generic-crud/generic-crud.service.ts",
+      "at": 41,
+      "sqlLiteralCount": 1,
+      "kinds": {
+        "DDL": 1
+      },
+      "tables": [],
+      "sites": [
+        {
+          "at": "apps/api/src/modules/generic-crud/generic-crud.service.ts:44",
+          "kind": "DDL",
+          "tables": []
+        }
+      ]
+    },
+    {
+      "entry": "SystemController.onModuleInit",
+      "source": "apps/api/src/modules/master/master.controller.ts",
+      "at": 60,
+      "sqlLiteralCount": 1,
+      "kinds": {
+        "DDL": 1
+      },
+      "tables": [
+        "sys_settings"
+      ],
+      "sites": [
+        {
+          "at": "apps/api/src/modules/master/master.controller.ts:62",
+          "kind": "DDL",
+          "tables": [
+            "sys_settings"
+          ]
+        }
+      ]
+    },
+    {
+      "entry": "SystemController.ensureTable",
+      "source": "apps/api/src/modules/master/master.controller.ts",
+      "at": 74,
+      "sqlLiteralCount": 1,
+      "kinds": {
+        "DDL": 1
+      },
+      "tables": [
+        "sys_settings"
+      ],
+      "sites": [
+        {
+          "at": "apps/api/src/modules/master/master.controller.ts:75",
+          "kind": "DDL",
+          "tables": [
+            "sys_settings"
+          ]
+        }
+      ]
+    },
+    {
+      "entry": "CronMonitorService.onModuleInit",
+      "source": "apps/api/src/modules/system-monitor/services/cron-monitor.service.ts",
+      "at": 26,
+      "sqlLiteralCount": 1,
+      "kinds": {
+        "DDL": 1
+      },
+      "tables": [
+        "sys_cron_heartbeat"
+      ],
+      "sites": [
+        {
+          "at": "apps/api/src/modules/system-monitor/services/cron-monitor.service.ts:28",
+          "kind": "DDL",
+          "tables": [
+            "sys_cron_heartbeat"
+          ]
+        }
+      ]
+    },
+    {
+      "entry": "IotSyncService.onModuleInit",
+      "source": "apps/api/src/modules/iot/iot-sync.service.ts",
+      "at": 51,
+      "sqlLiteralCount": 1,
+      "kinds": {
+        "DDL": 1
+      },
+      "tables": [
+        "mon_device_alert_event",
+        "mon_device_property_history",
+        "mon_device_realtime_snapshot"
+      ],
+      "sites": [
+        {
+          "at": "apps/api/src/modules/iot/iot-sync.service.ts:56",
+          "kind": "DDL",
+          "tables": [
+            "mon_device_realtime_snapshot",
+            "mon_device_property_history",
+            "mon_device_alert_event"
+          ]
+        }
+      ]
+    }
+  ]
+}

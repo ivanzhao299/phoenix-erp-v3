@@ -71,6 +71,7 @@ import { PermissionSetsModule } from './modules/permission-sets/permission-sets.
 import { ChanjetModule } from './modules/chanjet/chanjet.module';
 import { StorePaymentModule } from './modules/store-payment/store-payment.module';
 import { DocumentIntelligenceModule } from './modules/document-intelligence/document-intelligence.module';
+import { ApiBootstrapSchemaCheck } from './common/database/api-bootstrap-schema-check';
 import { BugIntakeModule } from './modules/bug-intake/bug-intake.module';
 
 
@@ -100,7 +101,9 @@ import { BugIntakeModule } from './modules/bug-intake/bug-intake.module';
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_NAME || 'phoenix_erp',
       autoLoadEntities: true,
-      synchronize: false, // 严格使用 DDL，禁用同步
+      synchronize: false, // schema belongs to the separately controlled migration track
+      migrationsRun: false,
+      installExtensions: false,
       // G89 性能：连接池扩容 + 连接获取超时。默认 max=10，BFF 驾驶舱一次 11 个
       //   并行查询即打满导致排队；提到 20 给并行聚合留余量（PG 默认 max_connections=100）。
       extra: {
@@ -152,6 +155,7 @@ import { BugIntakeModule } from './modules/bug-intake/bug-intake.module';
   ],
   controllers: [DebugController, HealthController],
   providers: [
+    ApiBootstrapSchemaCheck,
     JwtStrategy,
     // ThrottlerGuard 不全局挂载——仅在 auth.controller login 端点单独 @UseGuards
     // 全局挂载拦截器

@@ -12,6 +12,8 @@ fi
 
 MIG_MODE="$MIG_MODE" MIG_DIR="$MIG_DIR" bash "$(dirname "$0")/db-migrate.sh"
 
+NODE_ENV=test MIG_MODE=ci bash "$(dirname "$0")/ci/api-bootstrap-schema-fixture.sh"
+
 psql -v ON_ERROR_STOP=1 <<'SQL'
 DO $check$
 BEGIN
