@@ -8,6 +8,7 @@ IMPLEMENTATION_BASE_MAIN=1fda3d2872396d5e19a03eb81d4f5796d9b3cced
 DESIGN_COMMIT=6292f449f80f46f4fe8fc04ae20d8d9200f5fdd7
 DESIGN_CHERRY_PICK=c7d5759f
 BRANCH=codex/production-config-hardening
+CONFIG_HARDENING_PR=363
 CONFIG_FLOOR_VERSION=1
 CONFIG_FLOOR_CONTRACT=scripts/ops/production-config-contract.json
 PRODUCTION_ACTIONS=NONE
@@ -113,3 +114,10 @@ The 161 skipped integration tests already have explicit PostgreSQL/HTTP opt-in c
 Initial regression findings (scheduler return typing, dollar serialization/escaping and failure callback) were fixed and rerun. Independent review also found pre-FF floor validation, indirect DB restart and unfinished-state hazards; those are now enforced and tested. No failure was dismissed as unrelated.
 
 After required CI and merge, the returned `CONFIG_HARDENING_MERGED_MAIN_SHA` is only the **candidate** F. Production stays at the user-reported old mixed revisions and dirty checkout. Do not deploy, reconcile files or restart containers after merge. Obtain ONE_TIME_PRODUCTION_CONFIG_FLOOR_TRANSITION authorization for that exact merged target before C3/C4; Product Acceptance production closeout remains pending.
+
+
+## CI review authorization trail
+
+First security run `37720531983` failed the existing freeze/security review-admission probes and their W5 aggregate. `.github/workflows/ci-security.yml:41,48,80–81` intentionally flags all app/Chanjet changes unless the PR carries `reviewed-frozen-boundary` and `reviewed-security-touch`. The scanner reported unchanged Chanjet type/interface lines because it scans complete changed files; no callback/signature or JWT bypass was introduced.
+
+The user's explicit CONFIG_HARDENING_IMPLEMENTATION_AUTHORIZED=YES and the two independent completed reviews authorize this exact scope. Existing reviewed labels were applied to PR #363, followed by a fresh synchronize run so its event includes the labels. Gate scripts and ci-security workflow were not modified; nullable/i18n/atomicity and all functional checks remain required. This is an explicit review-authorization gate failure, not a dismissed regression or a clean-worktree override.
