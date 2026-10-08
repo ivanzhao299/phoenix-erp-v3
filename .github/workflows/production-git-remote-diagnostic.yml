@@ -51,98 +51,61 @@ jobs:
           proxy_timeout: 30s
           command_timeout: 2m
           script: |
-            set -uo pipefail
+            set -Eeuo pipefail
             set +x
             export GIT_OPTIONAL_LOCKS=0
-            echo "ACTIONS_SSH_USER=$(id -un)"
-            echo "ACTIONS_SSH_UID=$(id -u)"
-            echo "ACTIONS_SSH_HOME=$HOME"
+            test "$(id -u)" = 0
+            echo "ACTIONS_DEPLOY_UID=$(id -u)"
+            echo "ACTIONS_DEPLOY_USER=$(id -un)"
             case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}" ;; esac
-            cd "$DEPLOY_PATH" || exit 31
-            DEPLOY_REPO_ROOT="$(pwd -P)"
-            test "$DEPLOY_REPO_ROOT" = /data/phoenix-erp || exit 32
-            git() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"; }
+            cd "$DEPLOY_PATH"
+            repo=$(pwd -P)
+            test "$repo" = /data/phoenix-erp
+            git() { command git -c "safe.directory=$repo" "$@"; }
             before=$(git status --porcelain --untracked-files=all)
             head_before=$(git rev-parse HEAD)
             echo "PRODUCTION_HEAD=$head_before"
-            remote=$(git remote get-url origin)
-            test "$remote" = git@github.com:ivanzhao299/phoenix-erp-v3.git || exit 33
-            echo "ORIGIN_REPOSITORY=ivanzhao299/phoenix-erp-v3"
             state=/home/phoenix-codex-deploy/production-deployment-state
-            if test -d "$state" && test ! -L "$state"; then
-              owner=$(stat -c %u "$state")
-              echo "STATE_OWNER_UID=$owner"
-              echo "STATE_MODE=$(stat -c %a "$state")"
-              test "$owner" = "$(id -u)" && echo STATE_OWNER_MATCH=YES || echo STATE_OWNER_MATCH=NO
-            else
-              echo STATE_OWNER_MATCH=NOT_INITIALIZED
-            fi
-            echo "CHECKOUT_OWNER_UID=$(stat -c %u .)"
-            echo "ENV_OWNER_UID=$(stat -c %u .env)"
-            effective=$(ssh -G git@github.com 2>/dev/null)
-            printf '%s\n' "$effective" | awk '$1 ~ /^(hostname|port|user|identityfile|identitiesonly|identityagent|stricthostkeychecking|userknownhostsfile)$/ {print "SSH_CONFIG " $0}'
-            test "$(printf '%s\n' "$effective" | awk '$1=="hostname" {print $2}')" = github.com || exit 36
-            test "$(printf '%s\n' "$effective" | awk '$1=="port" {print $2}')" = 22 || exit 36
-            test "$(printf '%s\n' "$effective" | awk '$1=="user" {print $2}')" = git || exit 36
-            for key in "$HOME"/.ssh/*.pub; do
-              test -f "$key" || continue
-              ssh-keygen -lf "$key" -E sha256 2>/dev/null | awk '{print "PUBLIC_KEY_FINGERPRINT=" $2}'
-            done
-            for name in id_rsa id_ecdsa id_ecdsa_sk id_ed25519 id_ed25519_sk id_xmss id_dsa; do
-              key="$HOME/.ssh/$name"
-              if test -e "$key"; then
-                stat -c 'IDENTITY_METADATA=%n uid=%u mode=%a type=%F' "$key"
-              fi
-            done
-            if test -n "${SSH_AUTH_SOCK:-}"; then
-              ssh-add -l -E sha256 2>/dev/null | awk '{print "AGENT_PUBLIC_FINGERPRINT=" $2}'
-            else
-              echo SSH_AGENT=UNSET
-            fi
-            precheck_result=0
-            custom=false
-            git config --get core.sshCommand >/dev/null && custom=true
-            test -n "${GIT_SSH_COMMAND:-}${GIT_SSH:-}" && custom=true
-            if test "$custom" = true; then
-              echo GITHUB_OUTBOUND_AUTH=HOLD_CUSTOM_SSH_COMMAND_REVIEW
-              precheck_result=1
-            else
-              export GIT_SSH_COMMAND='ssh -oBatchMode=yes -oStrictHostKeyChecking=yes -oUpdateHostKeys=no -oControlMaster=no -oControlPath=none -oConnectTimeout=10'
-              echo SSH_TEST_STRICT_HOST_KEY_CHECKING=yes
-              diagnostic=$(timeout 25 ssh -vT -oBatchMode=yes -oStrictHostKeyChecking=yes -oUpdateHostKeys=no -oControlMaster=no -oControlPath=none -oConnectTimeout=10 git@github.com 2>&1)
-              printf '%s\n' "$diagnostic" | awk '/identity file |Offering public key:|Server accepts key:|signing failed|No more authentication methods|is known and matches/ {print "SSH_DIAGNOSTIC " $0}'
-              printf '%s\n' "$diagnostic" | sed -nE 's/^Hi ([A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)?)!.*$/GITHUB_PUBLIC_AUTH_IDENTITY=\1/p'
-              case "$diagnostic" in
-                *'successfully authenticated'*) echo GITHUB_OUTBOUND_AUTH=PASS ;;
-                *'Host key verification failed'*) echo GITHUB_OUTBOUND_AUTH=FAIL_HOST_TRUST ;;
-                *'Permission denied (publickey)'*) echo GITHUB_OUTBOUND_AUTH=FAIL_PUBLICKEY ;;
-                *) echo GITHUB_OUTBOUND_AUTH=UNKNOWN ;;
-              esac
-              refs=$(timeout 25 git -c "safe.directory=$DEPLOY_REPO_ROOT" ls-remote origin refs/heads/main 2>&1)
-              rc=$?
-              if test "$rc" = 0; then
-                sha=$(printf '%s\n' "$refs" | awk '$2=="refs/heads/main" {print $1}')
-                echo "REMOTE_MAIN_SHA=$sha"
-                echo GIT_LS_REMOTE=PASS
-                test "$sha" = 8d76b551fccae60ebadfec5c85896007e1e0ce51 && echo TARGET_SHA_MATCH=YES || { echo TARGET_SHA_MATCH=NO; precheck_result=1; }
+            archive=/home/phoenix-codex-deploy/production-checkout-recovery/20261008T063137+0800
+            for p in / /home /home/phoenix-codex-deploy /home/phoenix-codex-deploy/production-checkout-recovery "$archive" "$state"; do
+              if test -e "$p" || test -L "$p"; then
+                stat -c 'PATH_METADATA=%n uid=%u gid=%g mode=%a type=%F' "$p"
+                echo "PATH_REAL=$(realpath -e "$p")"
               else
-                echo GIT_LS_REMOTE=FAIL
-                echo "GIT_LS_REMOTE_EXIT=$rc"
-                case "$refs" in
-                  *'detected dubious ownership'*) echo GIT_READ_FAILURE_CLASS=SCOPED_GIT_TRUST ;;
-                  *'Repository not found'*|*'does not exist or you do not have access'*) echo GIT_READ_FAILURE_CLASS=REPOSITORY_AUTHORIZATION ;;
-                  *'Permission denied (publickey)'*) echo GIT_READ_FAILURE_CLASS=SSH_PUBLICKEY ;;
-                  *'Host key verification failed'*) echo GIT_READ_FAILURE_CLASS=HOST_TRUST ;;
-                  *'Could not resolve hostname'*) echo GIT_READ_FAILURE_CLASS=DNS ;;
-                  *'Connection timed out'*|*'Connection refused'*) echo GIT_READ_FAILURE_CLASS=NETWORK ;;
-                  *) test "$rc" = 124 && echo GIT_READ_FAILURE_CLASS=TIMEOUT || echo GIT_READ_FAILURE_CLASS=UNKNOWN ;;
-                esac
-                echo TARGET_SHA_MATCH=UNVERIFIED
-                precheck_result=1
+                echo "PATH_ABSENT=$p"
               fi
+            done
+            for n in floor.json active.json transition-proof.json mutation.lock transaction.json; do
+              p="$state/$n"
+              if test -e "$p" || test -L "$p"; then
+                stat -c 'STATE_FILE_METADATA=%n uid=%u mode=%a type=%F' "$p"
+              else
+                echo "STATE_FILE_ABSENT=$n"
+              fi
+            done
+            source="$repo/.env.pre-verification-20261005T114700+08:00"
+            stat -c 'SOURCE_BACKUP_METADATA=%n uid=%u mode=%a size=%s inode=%i type=%F' "$source"
+            sha256sum "$source"
+            test -d "$archive"
+            for p in "$archive"/* "$archive"/.[!.]*; do
+              test -e "$p" || continue
+              stat -c 'ARCHIVE_ENTRY_METADATA=%n uid=%u mode=%a size=%s type=%F' "$p"
+              if test -f "$p" && test ! -L "$p"; then sha256sum "$p"; fi
+            done
+            for p in "$HOME/.ssh" "$HOME/.ssh/config" "$HOME/.ssh/known_hosts"; do
+              if test -e "$p"; then stat -c 'SSH_PATH_METADATA=%n uid=%u mode=%a type=%F' "$p"; else echo "SSH_PATH_ABSENT=$p"; fi
+            done
+            if test -f "$HOME/.ssh/config"; then
+              awk 'tolower($1) ~ /^(host|hostname|user|identityfile|identitiesonly|identityagent|userknownhostsfile|stricthostkeychecking)$/ {print "SSH_ALLOWED_CONFIG " $0}' "$HOME/.ssh/config"
             fi
-            test "$(git rev-parse HEAD)" = "$head_before" || exit 34
-            test "$(git status --porcelain --untracked-files=all)" = "$before" || exit 35
-            echo PRODUCTION_CHECKOUT_MUTATION=NO
-            echo CONTAINER_DATABASE_CHANJET_ACTIONS=NONE
-            exit "$precheck_result"
+            ssh -G git@github.com 2>/dev/null | awk '$1 ~ /^(hostname|port|user|identityfile|identitiesonly|identityagent|stricthostkeychecking|userknownhostsfile)$/ {print "SSH_EFFECTIVE " $0}'
+            refs=$(timeout 25 git -c "safe.directory=$repo" -c 'core.sshCommand=ssh -oBatchMode=yes -oStrictHostKeyChecking=yes -oUpdateHostKeys=no -oControlMaster=no -oControlPath=none -oConnectTimeout=10' ls-remote origin refs/heads/main)
+            sha=$(printf '%s\n' "$refs" | awk '$2=="refs/heads/main" {print $1}')
+            echo "REMOTE_MAIN_SHA=$sha"
+            test "$sha" = 8d76b551fccae60ebadfec5c85896007e1e0ce51
+            echo STRICT_GITHUB_HOST_CHECK=PASS
+            echo FORMAL_ACTIONS_IDENTITY=PASS
+            test "$(git rev-parse HEAD)" = "$head_before"
+            test "$(git status --porcelain --untracked-files=all)" = "$before"
+            echo PRODUCTION_FILE_MUTATION=NO
+            echo FETCH_MERGE_CONTAINER_DATABASE_CHANJET_ACTIONS=NONE
