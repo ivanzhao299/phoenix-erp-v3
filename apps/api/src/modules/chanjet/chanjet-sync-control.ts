@@ -1,3 +1,4 @@
+import { approvedReadonlyPolicy } from './chanjet-readonly-policy';
 import { ForbiddenException } from '@nestjs/common';
 
 /** Only an explicit true grants execution; missing/ambiguous input stays held. */
@@ -15,6 +16,7 @@ export function erpInboundEnabled(): boolean {
 
 export function requireReadonlySync(): void {
   if (!readonlySyncEnabled()) throw new ForbiddenException({ reason: 'SYNC_DISABLED', message: 'Chanjet readonly sync is held' });
+  approvedReadonlyPolicy();
 }
 
 export function requireErpInbound(): void {

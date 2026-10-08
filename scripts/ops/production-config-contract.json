@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "legacyApiRollback": "HOLD",
   "migrationBaseline": "RUNNING_API_REVISION",
   "stateDirectory": "/var/lib/phoenix-erp/production-deployment-state",
@@ -28,7 +28,19 @@
     "scripts/phase1-controlled-production-execution.sh",
     "scripts/ops/verify-config-floor-transition.mjs",
     "scripts/ops/production-trusted-paths.mjs",
-    "scripts/ops/production-control-bootstrap.sh"
+    "scripts/ops/production-control-bootstrap.sh",
+    "apps/api/src/modules/chanjet/chanjet-readonly-policy.ts",
+    "apps/api/src/modules/chanjet/chanjet-auth.service.ts",
+    "scripts/ops/chanjet-readonly-policy.mjs",
+    "scripts/ops/promote-production-config-floor.mjs",
+    "scripts/ops/chanjet-readonly-config-transaction.mjs",
+    ".github/workflows/chanjet-readonly-restoration.yml",
+    "apps/api/src/modules/chanjet/chanjet-remote-readonly.ts",
+    "apps/api/src/modules/chanjet/chanjet-callback.controller.ts",
+    "scripts/ops/chanjet-readonly-production-audit.mjs",
+    "scripts/ops/chanjet-readonly-first-sync.mjs",
+    "scripts/ops/readonly-audits/chanjet-restoration-preflight.sql",
+    "apps/api/src/modules/chanjet/chanjet-readonly-execution.ts"
   ],
   "executionUid": 0,
   "controlRoot": "/var/lib/phoenix-erp",
@@ -40,5 +52,11 @@
       "root": "/",
       "filesystem": "ext4"
     }
-  ]
+  ],
+  "chanjetPolicies": [
+    "HOLD",
+    "READONLY_VERIFY",
+    "READONLY_ACTIVE"
+  ],
+  "maximumTransitionMs": 1800000
 }

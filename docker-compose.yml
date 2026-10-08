@@ -74,6 +74,9 @@ services:
       CHANJET_MSG_SECRET: ${CHANJET_MSG_SECRET:-}
       CHANJET_READONLY_SYNC_ENABLED: ${CHANJET_READONLY_SYNC_ENABLED:-false}
       CHANJET_ERP_INBOUND_SYNC_ENABLED: ${CHANJET_ERP_INBOUND_SYNC_ENABLED:-false}
+      # Injected only by the reviewed floor-aware production wrapper.
+      CHANJET_SYNC_POLICY: ${CHANJET_SYNC_POLICY:-HOLD}
+      CHANJET_READONLY_APPROVAL: ${CHANJET_READONLY_APPROVAL:-}
     volumes:
       - ${PHOENIX_UPLOADS_DIR:-phoenix_uploads}:/app/uploads   # 合同/单据文件持久化
     ports:

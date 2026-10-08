@@ -1,5 +1,6 @@
-import { requireReadonlySync, requireErpInbound, readonlySyncEnabled } from './chanjet-sync-control';
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { requireApprovedReadonlyRequest } from './chanjet-readonly-policy';
+import { requireReadonlySync, requireErpInbound } from './chanjet-sync-control';
+import { ForbiddenException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -27,13 +28,6 @@ interface DataScopeCtx {
   allowedCompanyCodes?: string[];
 }
 
-/** 三家公司种子映射(用户已确认一一对应) */
-const SEED_BOOK_COMPANY_MAP: Array<Pick<ChanjetBookCompanyMapEntity, 'bookid' | 'bookName' | 'companyCode' | 'companyName' | 'syncEnabled'>> = [
-  { bookid: '3533914511118750', bookName: '老挝凤凰农业发展有限公司', companyCode: 'COMP-LAO-AGRI', companyName: '凤凰农业', syncEnabled: true },
-  { bookid: '3537748712226818', bookName: '老挝东鹏县星驰农业发展有限公司', companyCode: 'COMP-LAO-XINGCHI', companyName: '星驰农业', syncEnabled: true },
-  { bookid: '3539743721526654', bookName: '老挝凤凰食品集团有限公司', companyCode: 'COMP-LAO-FOOD', companyName: '凤凰食品', syncEnabled: true },
-];
-
 /**
  * 好业财应收统计表同步 —— 铁律
  *   只读好业财(HTTP GET)
@@ -57,19 +51,7 @@ export class ChanjetArSyncService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    if (!readonlySyncEnabled()) return;
-    // 启动 seed 3 行映射(避开 g197-H 数据 DML 门禁:不进迁移文件,而是服务启动时初始化)
-    try {
-      const existing = await this.mapRepo.count();
-      if (existing === 0 && readonlySyncEnabled()) {
-        await this.mapRepo.insert(SEED_BOOK_COMPANY_MAP);
-        this.log.log(`chanjet_book_company_map 初始化 ${SEED_BOOK_COMPANY_MAP.length} 条映射`);
-      } else {
-        this.log.log(`chanjet_book_company_map 已有 ${existing} 条映射`);
-      }
-    } catch (err) {
-      this.log.warn(`映射 seed 失败(表可能未建): ${(err as Error).message}`);
-    }
+    // Existing reviewed bindings are authoritative; enabling sync never seeds mappings.
   }
 
   /**
@@ -145,16 +127,6 @@ export class ChanjetArSyncService implements OnModuleInit {
 
   /** 列出所有(启用的)公司 ↔ 账套映射(给前端下拉用) */
   async listCompanies(): Promise<ChanjetBookCompanyMapEntity[]> {
-    // 懒补 seed:onModuleInit 可能在 mapRepo 准备好前抢跑被吞,这里兜底
-    try {
-      const existing = await this.mapRepo.count();
-      if (existing === 0 && readonlySyncEnabled()) {
-        await this.mapRepo.insert(SEED_BOOK_COMPANY_MAP);
-        this.log.log(`listCompanies 触发懒 seed ${SEED_BOOK_COMPANY_MAP.length} 条映射`);
-      }
-    } catch (err) {
-      this.log.error(`listCompanies seed 失败: ${(err as Error).message}`);
-    }
     return this.mapRepo.find({
       where: { syncEnabled: true },
       order: { companyCode: 'ASC' },
@@ -171,64 +143,45 @@ export class ChanjetArSyncService implements OnModuleInit {
     totalEndbalance: number;
   }> {
     requireReadonlySync();
+    const dataScope = this.cls.get<DataScopeCtx>('dataScope') || {};
+    if (!dataScope.isGlobal && !(dataScope.allowedCompanyCodes || []).includes(companyCode)) {
+      throw new ForbiddenException('CHANJET_AR_COMPANY_SCOPE_DENIED');
+    }
     const map = await this.mapRepo.findOneBy({ companyCode });
-    if (!map) throw new Error(`公司 ${companyCode} 无好业财映射,请先在 chanjet_book_company_map 配置`);
-    if (!map.syncEnabled) throw new Error(`公司 ${companyCode} 同步未启用`);
-
-    this.log.log(`同步开始 company=${companyCode} bookid=${map.bookid} period=${period}`);
-
-    // 只读好业财
-    const resp = await this.chanjet.callApi(`/accounting/gl/statistics/receive/${map.bookid}`, {
-      method: 'GET',
-      query: { period },
-    }) as unknown;
-
-    const rawRows = Array.isArray(resp) ? (resp as ChanjetArRow[]) : [];
-    if (!rawRows.length) {
-      const err = resp as Record<string, unknown> | undefined;
-      this.log.warn(`好业财返回空或错误: ${JSON.stringify(err).slice(0, 200)}`);
-      return { companyCode, bookid: map.bookid, period, fetched: 0, saved: 0, totalEndbalance: 0 };
-    }
-
-    // 过滤掉好业财返回里自带的"合计"汇总行(subjectName='合计' 或 assistantCustomer=0 + 是汇总)
-    const rows = rawRows.filter(r =>
-      r.subjectName !== '合计' &&
-      !(r.subjectName ?? '').startsWith('合计') &&
-      r.assistantCustomerCode
-    );
-
-    // 写 PG:幂等"全删全插"。dept_code 写空串(NOT NULL),uq_chanjet_ar_v2 真生效防重复
-    await this.arRepo.delete({ bookid: map.bookid, period });
-
-    let saved = 0;
-    for (const r of rows) {
-      const entity: Partial<ChanjetArSnapshotEntity> = {
-        bookid: map.bookid,
-        companyCode: map.companyCode,
-        deptCode: '',
-        period,
-        // g198: 唯一约束列禁写 NULL,用 '' 占位让 uq 真生效
-        assistantCustomerCode: r.assistantCustomerCode ?? '',
-        assistantCustomerId: r.assistantCustomer ? String(r.assistantCustomer) : null,
-        subjectId: r.subjectId ? String(r.subjectId) : '',
-        subjectName: r.subjectName ?? null,
-        initBalance: String(r.initBalance ?? 0),
-        currentPeriodJf: String(r.currentPeriodJfBalance ?? 0),
-        currentPeriodDf: String(r.currentPeriodDfBalance ?? 0),
-        endbalance: String(r.endbalance ?? 0),
-        yearJfAccumulate: String(r.yearJfAccumulate ?? 0),
-        yearDfAccumulate: String(r.yearDfAccumulate ?? 0),
-        currency,
-        rawData: r as Record<string, unknown>,
-      };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await this.arRepo.insert(entity as any);
-      saved++;
-    }
-
-    const totalEndbalance = rows.reduce((s, r) => s + Number(r.endbalance ?? 0), 0);
-    this.log.log(`同步完成 company=${companyCode} fetched=${rows.length} saved=${saved} total=${totalEndbalance.toFixed(2)} ${currency}`);
-    return { companyCode, bookid: map.bookid, period, fetched: rows.length, saved, totalEndbalance };
+    if (!map || !map.syncEnabled) throw new ForbiddenException('CHANJET_AR_BOOK_BINDING_HOLD');
+    requireApprovedReadonlyRequest({ bookId: map.bookid, period, scope: ['RECEIVABLE_STATISTICS'] }, companyCode);
+    return this.arRepo.manager.transaction(async manager => {
+      const [lock] = await manager.query('SELECT pg_try_advisory_xact_lock(hashtext($1)) AS acquired', ['chanjet-full-readonly-sync']);
+      if (lock?.acquired !== true) throw new ForbiddenException('CHANJET_AR_SYNC_LOCK_BUSY');
+      this.log.log(`同步开始 company=${companyCode} bookid=${map.bookid} period=${period}`);
+      const resp = await this.chanjet.callApi(`/accounting/gl/statistics/receive/${map.bookid}`, { method: 'GET', query: { period } }) as unknown;
+      const rawRows = Array.isArray(resp) ? (resp as ChanjetArRow[]) : [];
+      if (!rawRows.length) {
+        this.log.warn('CHANJET_AR_EMPTY_RESPONSE');
+        return { companyCode, bookid: map.bookid, period, fetched: 0, saved: 0, totalEndbalance: 0 };
+      }
+      const rows = rawRows.filter(r => r.subjectName !== '合计' && !(r.subjectName ?? '').startsWith('合计') && r.assistantCustomerCode);
+      requireReadonlySync();
+      requireApprovedReadonlyRequest({ bookId: map.bookid, period, scope: ['RECEIVABLE_STATISTICS'] }, companyCode);
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`chanjet-ar:${map.bookid}:${period}`]);
+      const snapshots = manager.getRepository(ChanjetArSnapshotEntity);
+      await snapshots.delete({ bookid: map.bookid, period, companyCode: map.companyCode });
+      for (const r of rows) {
+        const entity = snapshots.create({
+          bookid: map.bookid, companyCode: map.companyCode, deptCode: '', period,
+          assistantCustomerCode: r.assistantCustomerCode ?? '', assistantCustomerId: r.assistantCustomer ? String(r.assistantCustomer) : null,
+          subjectId: r.subjectId ? String(r.subjectId) : '', subjectName: r.subjectName ?? null,
+          initBalance: String(r.initBalance ?? 0), currentPeriodJf: String(r.currentPeriodJfBalance ?? 0), currentPeriodDf: String(r.currentPeriodDfBalance ?? 0),
+          endbalance: String(r.endbalance ?? 0), yearJfAccumulate: String(r.yearJfAccumulate ?? 0), yearDfAccumulate: String(r.yearDfAccumulate ?? 0), currency,
+          rawData: r as Record<string, unknown>,
+        });
+        await snapshots.save(entity);
+      }
+      const saved = rows.length;
+      const totalEndbalance = rows.reduce((sum, row) => sum + Number(row.endbalance ?? 0), 0);
+      this.log.log(`同步完成 company=${companyCode} fetched=${rows.length} saved=${saved}`);
+      return { companyCode, bookid: map.bookid, period, fetched: rows.length, saved, totalEndbalance };
+    });
   }
 
   /**

@@ -1,4 +1,7 @@
-import { readonlySyncEnabled, erpInboundEnabled } from './chanjet-sync-control';
+import { randomUUID } from 'node:crypto';
+import { withReadonlyOrchestration } from './chanjet-readonly-execution';
+import { approvedReadonlyPolicy, requireApprovedReadonlyRequest, readonlyScheduleEnabled, readonlyFailureCode } from './chanjet-readonly-policy';
+import { readonlySyncEnabled } from './chanjet-sync-control';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -8,9 +11,6 @@ import { ChanjetIntegrationService } from './chanjet-integration.service';
 import { ChanjetErpInboundSyncService } from './chanjet-erp-inbound-sync.service';
 
 const JOB_NAME = 'chanjet-full-readonly-sync';
-const DEFAULT_RECOVERY_COOLDOWN_MS = 15 * 60 * 1000;
-const MAX_RECOVERY_COUNT = 2;
-const MAX_ERROR_MESSAGE_LENGTH = 2_000;
 
 type ManualSyncRequest = {
   scope?: string[];
@@ -64,16 +64,18 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
   // the 30k monthly free allowance for operator checks and controlled writes.
   @Cron('0 15 */6 * * *', { name: JOB_NAME, timeZone: 'Asia/Shanghai' })
   async runScheduledSync(): Promise<void> {
-    if (!readonlySyncEnabled()) {
-      this.log.warn(`${JOB_NAME} disabled by CHANJET_READONLY_SYNC_ENABLED=false`);
+    if (!readonlySyncEnabled() || !readonlyScheduleEnabled()) {
+      this.log.warn(`${JOB_NAME} READONLY_SCHEDULE_HOLD`);
       return;
     }
-    const prepared = await this.prepareRun('system:chanjet-readonly-sync', {});
+    const approved = approvedReadonlyPolicy();
+    const request = { scope: approved.scopes.filter(s => s !== 'AR_SNAPSHOT') };
+    const prepared = await this.prepareRun('system:chanjet-readonly-sync', request);
     if (!prepared.accepted || !prepared.run.runId) {
       this.log.warn(`${JOB_NAME} scheduled run skipped: ${prepared.reason || 'SYNC_ALREADY_ACTIVE'}`);
       return;
     }
-    await this.executeSync('system:chanjet-readonly-sync', {}, prepared.run.runId);
+    await this.executeSync('system:chanjet-readonly-sync', request, prepared.run.runId);
   }
 
   async enqueueManualSync(requestedBy: string, request: ManualSyncRequest = {}) {
@@ -106,13 +108,26 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
     if (this.running || this.queued) {
       return { accepted: false, reason: 'SYNC_ALREADY_ACTIVE', run: await this.getRunState() };
     }
-    const active = await this.loadLatestPersistedRun(true);
-    if (active) {
-      this.lastRun = this.mapPersistedRun(active);
-      return { accepted: false, reason: 'SYNC_ALREADY_ACTIVE_DURABLE', run: { ...this.lastRun } };
-    }
-    if (!readonlySyncEnabled()) return this.disabledRun();
-    const runId = `CHANJET-RO-${Date.now()}`;
+    const approval = requireApprovedReadonlyRequest(request);
+    const guard = this.ds.createQueryRunner();
+    await guard.connect();
+    let locked = false;
+    try {
+      await guard.startTransaction();
+      const [lock] = await guard.query(`SELECT pg_try_advisory_xact_lock(hashtext($1)) AS acquired`, [JOB_NAME]);
+      locked = lock?.acquired === true;
+      if (!locked) return { accepted: false, reason: 'SYNC_ALREADY_ACTIVE', run: { ...this.lastRun } };
+      // All RUNNING rows block admission, including pre-orchestration legacy jobs.
+      const scheduleSlot = requestedBy === 'system:chanjet-readonly-sync' ? new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).format(new Date()) : '';
+      const rows = await guard.query(
+        `SELECT id FROM chanjet_sync_jobs WHERE status = 'RUNNING'
+         OR (request_scope->>'approvalId' = $1 AND status = 'FAIL')
+         OR ($2::boolean AND request_scope->>'approvalId' = $1 AND status = 'SUCCESS')
+         OR ($3 <> '' AND request_scope->>'approvalId' = $1 AND request_scope->>'scheduleSlot' = $3) LIMIT 1`,
+        [approval.approvalId, process.env.CHANJET_SYNC_POLICY === 'READONLY_VERIFY', scheduleSlot],
+      );
+      if (rows.length) return { accepted: false, reason: 'SYNC_DURABLE_HOLD', run: { ...this.lastRun } };
+    const runId = `CHANJET-RO-${randomUUID()}`;
     const queuedAt = new Date().toISOString();
     this.queued = true;
     this.lastRun = {
@@ -126,7 +141,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
       message: null,
     };
     try {
-      await this.ds.query(
+      await guard.query(
         `INSERT INTO chanjet_sync_jobs
            (job_type, book_id, company_code, period, status, request_scope, result_summary, error_message)
          VALUES ('BOOK_REFRESH', $1, '', $2, 'RUNNING', $3::jsonb, NULL, NULL)`,
@@ -134,6 +149,9 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
           String(request.bookId || ''),
           String(request.period || ''),
           JSON.stringify({
+            scheduleSlot,
+            approvalId: approval.approvalId,
+            floorSha: approval.floorSha,
             orchestrationRunId: runId,
             requestedBy,
             scope: request.scope || [],
@@ -146,6 +164,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
           }),
         ],
       );
+      await guard.commitTransaction();
       return { accepted: true, run: { ...this.lastRun } };
     } catch (error) {
       this.queued = false;
@@ -154,14 +173,29 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
         state: 'FAILED',
         completedAt: new Date().toISOString(),
         decision: 'HOLD',
-        message: `durable run creation failed: ${(error as Error).message}`,
+        message: readonlyFailureCode(error),
       };
       throw error;
+    }
+    } finally {
+      if (guard.isTransactionActive) await guard.rollbackTransaction();
+      await guard.release();
     }
   }
 
   private async executeSync(requestedBy: string, request: ManualSyncRequest, runId: string): Promise<void> {
-    if (!readonlySyncEnabled()) { this.queued = false; return; }
+    if (!readonlySyncEnabled()) {
+      this.queued = false;
+      this.lastRun = { ...this.lastRun, state: 'HOLD', decision: 'HOLD', message: 'READONLY_HOLD_SYNC_DISABLED', completedAt: new Date().toISOString() };
+      await this.persistTerminalState(runId, 'FAIL', 'HOLD', 'HOLD', 'READONLY_HOLD_SYNC_DISABLED');
+      return;
+    }
+    try { requireApprovedReadonlyRequest(request); } catch {
+      this.queued = false;
+      this.lastRun = { ...this.lastRun, state: 'HOLD', decision: 'HOLD', message: 'READONLY_HOLD_POLICY_EXPIRED', completedAt: new Date().toISOString() };
+      await this.persistTerminalState(runId, 'FAIL', 'HOLD', 'HOLD', 'READONLY_HOLD_POLICY_EXPIRED');
+      return;
+    }
     if (this.running) {
       this.log.warn(`${JOB_NAME} skipped because previous local run is still active`);
       this.lastRun = {
@@ -205,18 +239,19 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
           completedAt: new Date().toISOString(),
           message: 'another API instance owns the advisory lock',
         };
+        await this.persistTerminalState(runId, 'FAIL', 'SKIPPED', 'HOLD', 'READONLY_HOLD_LOCK_BUSY');
         return;
       }
       const now = new Date();
-      const period = request.period || `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-      let result = await this.integration.runReadonlyAlignmentCycle(
+      const period = request.period || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit' }).format(now).replace(/[^0-9]/g, '');
+      let result = await withReadonlyOrchestration(runId, () => this.integration.runReadonlyAlignmentCycle(
         requestedBy,
         request.scope || [],
         request.bookId,
         period,
         request.maxAttempts || 3,
         { compact: true },
-      );
+      ));
       if (result.decision === 'HOLD') {
         throw new Error(
           result.mirror.unresolvedFailures.length
@@ -240,30 +275,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
           throw new Error(`readonly alignment readiness HOLD: ${readiness.blockers.join('; ') || 'unknown blocker'}`);
         }
       }
-      let erpInbound: Record<string, unknown> = { enabled: false, applied: false };
-      // A readonly mirror refresh must not silently promote data into ERP
-      // accounting mirrors. Promotion is a separate, explicitly enabled Gate.
-      if (readonlySyncEnabled() && erpInboundEnabled()) {
-        try {
-          const inboundResult = await this.inboundSync.syncScheduledShareholderBalances(period, requestedBy);
-          erpInbound = {
-            enabled: true,
-            applied: inboundResult.applied,
-            decision: inboundResult.decision,
-            planHash: inboundResult.plan.planHash,
-            sourceCount: inboundResult.plan.counts.source,
-            mappedCount: inboundResult.plan.counts.mapped,
-            sourceOnlyCount: inboundResult.plan.counts.sourceOnly,
-            blockers: inboundResult.plan.blockers,
-          };
-          if (!inboundResult.applied) {
-            this.log.warn(`${JOB_NAME} ERP inbound accounting mirror HOLD: ${inboundResult.reason}`);
-          }
-        } catch (error) {
-          erpInbound = { enabled: true, applied: false, decision: 'HOLD', error: (error as Error).message };
-          this.log.error(`${JOB_NAME} ERP inbound accounting mirror failed: ${(error as Error).message}`);
-        }
-      }
+      const erpInbound: Record<string, unknown> = { enabled: false, applied: false };
       await this.cronMon.ok(
         JOB_NAME,
         `decision=${decision}; readiness=${readiness?.decision || 'NOT_AVAILABLE'}; targets=${targetCount}; attempts=${attempts}; exactApproved=${exactApproved}; reconciliationCreated=${reconciliationCreated}; reconciliationResolved=${reconciliationResolved}; erpInbound=${String(erpInbound.decision || 'DISABLED')}`,
@@ -287,10 +299,10 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
       });
       this.log.log(`${JOB_NAME} completed decision=${decision} targets=${targetCount} attempts=${attempts} exactApproved=${exactApproved}`);
     } catch (error) {
-      const message = this.truncateMessage((error as Error).message);
+      const message = readonlyFailureCode(error);
       this.log.error(`${JOB_NAME} failed: ${message}`);
       await this.cronMon.fail(JOB_NAME, message);
-      const state = message.includes('HOLD') || message.includes('unresolved readonly sync failures') ? 'HOLD' : 'FAILED';
+      const state = 'HOLD';
       this.lastRun = {
         ...this.lastRun,
         state,
@@ -316,75 +328,15 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
 
   private async recoverInterruptedRun(): Promise<void> {
     if (!readonlySyncEnabled()) return;
-    if (this.running || this.queued) return;
     try {
+      approvedReadonlyPolicy();
       const persisted = await this.loadLatestPersistedRun(true);
-      if (!persisted || !readonlySyncEnabled()) return;
-      const scope = persisted.request_scope || {};
-      const runId = String(scope.orchestrationRunId || '');
-      if (!runId) return;
-      const recoveryCount = Math.max(Number(scope.recoveryCount) || 0, 0);
-      if (recoveryCount >= MAX_RECOVERY_COUNT) {
-        const message = `automatic recovery exhausted after ${recoveryCount} retries; manual restart required`;
-        this.lastRun = {
-          ...this.mapPersistedRun(persisted),
-          state: 'HOLD',
-          completedAt: new Date().toISOString(),
-          decision: 'HOLD',
-          message,
-        };
-        await this.persistTerminalState(runId, 'FAIL', 'HOLD', 'HOLD', message, {
-          recoveryCount,
-          recoveryExhausted: true,
-        });
-        this.log.error(`${JOB_NAME} ${message} run=${runId}`);
-        return;
-      }
-
-      const lastUpdatedAt = new Date(persisted.updated_at).getTime();
-      const cooldownMs = this.recoveryCooldownMs();
-      const remainingCooldownMs = Math.max(0, cooldownMs - (Date.now() - lastUpdatedAt));
-      const request: ManualSyncRequest = {
-        scope: Array.isArray(scope.scope) ? scope.scope.map(String) : [],
-        bookId: String(scope.bookId || '') || undefined,
-        period: String(scope.period || '') || undefined,
-        maxAttempts: Math.min(Math.max(Number(scope.maxAttempts) || 3, 1), 3),
-      };
-      const requestedBy = String(scope.requestedBy || 'system:recovered-chanjet-readonly-sync');
-      this.queued = true;
-      this.lastRun = {
-        ...this.mapPersistedRun(persisted),
-        state: 'QUEUED',
-        message: 'recovered after API restart',
-      };
-      await this.ds.query(
-        `UPDATE chanjet_sync_jobs
-            SET request_scope = COALESCE(request_scope, '{}'::jsonb) || $2::jsonb,
-                updated_at = NOW()
-          WHERE request_scope->>'orchestrationRunId' = $1`,
-        [runId, JSON.stringify({
-          lifecycleState: 'QUEUED',
-          recoveredAt: new Date().toISOString(),
-          recoveryCount: recoveryCount + 1,
-          recoveryCooldownMs: cooldownMs,
-        })],
-      );
-      this.log.warn(
-        `${JOB_NAME} queued interrupted run ${runId} recovery=${recoveryCount + 1}/${MAX_RECOVERY_COUNT}`
-        + ` cooldownMs=${remainingCooldownMs}`,
-      );
-      if (remainingCooldownMs === 0) {
-        setImmediate(() => {
-          void this.executeSync(requestedBy, request, runId);
-        });
-      } else {
-        const timer = setTimeout(() => {
-          void this.executeSync(requestedBy, request, runId);
-        }, remainingCooldownMs);
-        timer.unref();
-      }
-    } catch (error) {
-      this.log.error(`${JOB_NAME} recovery failed: ${(error as Error).message}`);
+      if (!persisted) return;
+      this.lastRun = { ...this.mapPersistedRun(persisted), state: 'HOLD', decision: 'HOLD', message: 'READONLY_HOLD_INTERRUPTED_RUN_REVIEW_REQUIRED' };
+      // Evidence is retained. A restart never replays an earlier orchestration.
+      this.log.warn('READONLY_HOLD_INTERRUPTED_RUN_REVIEW_REQUIRED');
+    } catch {
+      this.log.warn('READONLY_HOLD_BOOTSTRAP');
     }
   }
 
@@ -485,16 +437,4 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
     };
   }
 
-  private recoveryCooldownMs(): number {
-    const configured = Number(process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS);
-    if (!Number.isFinite(configured)) return DEFAULT_RECOVERY_COOLDOWN_MS;
-    return Math.min(Math.max(Math.trunc(configured), 1_000), 60 * 60 * 1000);
-  }
-
-  private truncateMessage(value: unknown): string {
-    const text = String(value || 'unknown error');
-    return text.length <= MAX_ERROR_MESSAGE_LENGTH
-      ? text
-      : `${text.slice(0, MAX_ERROR_MESSAGE_LENGTH)}…[truncated]`;
-  }
 }

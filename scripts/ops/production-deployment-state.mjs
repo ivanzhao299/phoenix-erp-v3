@@ -1,3 +1,4 @@
+import { validatePolicyTransition } from './chanjet-readonly-policy.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
@@ -38,7 +39,7 @@ export function atomicState(file, value, dependencies = {}) {
 }
 export function beginState({ previous, configSha, target, scope, floor }) {
   if (configSha !== target || !REVISION.test(configSha) || !REVISION.test(target) || scope.baseline !== previous.api.revision || scope.target !== target) throw new Error('STATE_HOLD=BASELINE');
-  return { version: CONTRACT.version, configSha, target, floorSha: floor.floorSha, previous, active: previous, candidates: {}, switched: { api: false, web: false }, outcome: 'PREPARED', migrationBaseline: previous.api.revision, migrationPaths: scope.changed, protectedImages: [previous.api.imageId, previous.web.imageId] };
+  return { expiresAt: new Date(Date.now() + CONTRACT.maximumTransitionMs).toISOString(), version: CONTRACT.version, configSha, target, floorSha: floor.floorSha, previous, active: previous, candidates: {}, switched: { api: false, web: false }, outcome: 'PREPARED', migrationBaseline: previous.api.revision, migrationPaths: scope.changed, protectedImages: [previous.api.imageId, previous.web.imageId] };
 }
 export function rollbackPlan(state, eligible) {
   // DB/schema-changing releases use the separate controlled migration authority.
@@ -83,12 +84,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const floor = guardProduction(root, directory, previous);
       const target = process.env.TARGET_SHA;
       const legacyApi = !rollbackEligibility(root, floor, previous.api).allowed;
-      const proof = legacyApi ? assertStateVersion(secureJson(path.join(directory, 'transition-proof.json'))) : undefined;
+      const policyPath = path.join(directory, 'policy-transition.json');
+      const promotion = fs.existsSync(policyPath) ? secureJson(policyPath) : undefined;
+      if (promotion) {
+        validatePolicyTransition(promotion, { runId: process.env.DEPLOY_RUN_ID, target, actual });
+        if (promotion.operation !== 'CODE_HOLD' || process.env.DEPLOY_MODE !== 'api' || process.env.BUILD_API !== 'true' || process.env.BUILD_WEB !== 'false' || process.env.ROTATE_CHANJET_CREDENTIALS === 'true') throw new Error('STATE_HOLD=PROMOTION_SCOPE');
+      }
+      const proof = legacyApi && !promotion ? assertStateVersion(secureJson(path.join(directory, 'transition-proof.json'))) : undefined;
       if (proof) {
         assertContained(proof.archiveBackup, CONTRACT.archiveDirectory);
         if (createHash('sha256').update(readPinnedFile(proof.archiveBackup, { contract: CONTRACT })).digest('hex') !== proof.backupSha256) throw new Error('STATE_HOLD=C3_ARCHIVE_CHANGED');
       }
-      requireFirstTransition({ legacyApi, floor, proof, composeBytes: fs.readFileSync(path.join(root, 'docker-compose.yml')),
+      requireFirstTransition({ legacyApi: legacyApi && !promotion, floor, proof, composeBytes: fs.readFileSync(path.join(root, 'docker-compose.yml')),
         mode: process.env.DEPLOY_MODE, buildApi: process.env.BUILD_API === 'true', buildWeb: process.env.BUILD_WEB === 'true',
         authorized: process.env.ONE_TIME_CONFIG_FLOOR_TRANSITION === 'true', rotateCredentials: process.env.ROTATE_CHANJET_CREDENTIALS === 'true' });
       const scope = migrationScope(root, previous.api.revision, target);
@@ -103,6 +110,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (operation === 'candidate') {
         if (!['api', 'web'].includes(input) || value !== `ghcr.io/ivanzhao299/phoenix-erp-v3/${input}:sha-${state.target}`) throw new Error('STATE_HOLD=CANDIDATE_REF');
         state.candidates[input] = inspectCandidate(value, state.target);
+        const promotionPath = path.join(directory, 'policy-transition.json');
+        if (fs.existsSync(promotionPath)) {
+          if (input !== 'api') throw new Error('STATE_HOLD=PROMOTION_API_ONLY');
+          const promotion = secureJson(promotionPath); promotion.candidateApi = state.candidates.api; atomicState(promotionPath, promotion);
+        }
         state.protectedImages = [...new Set([...state.protectedImages, state.candidates[input].imageId])];
       } else if (operation === 'switch') {
         if (!['api', 'web'].includes(input) || !state.candidates[input]) throw new Error('STATE_HOLD=NO_CANDIDATE');
@@ -120,6 +132,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         atomicState(path.join(directory, 'active.json'), { version: CONTRACT.version, configSha: state.configSha, floorSha: state.floorSha, active: state.active, protectedImages: state.protectedImages, outcome: state.outcome, migrationBaseline: state.active.api.revision });
       } else throw new Error('STATE_HOLD=OPERATION');
       atomicState(file, state);
+      if (state.outcome === 'SUCCESS' && fs.existsSync(path.join(directory, 'policy-transition.json'))) {
+        const promotion = secureJson(path.join(directory, 'policy-transition.json'));
+        if (promotion.operation !== 'CODE_HOLD' || promotion.runId !== process.env.DEPLOY_RUN_ID) throw new Error('STATE_HOLD=PROMOTION_COMPLETION');
+        fs.unlinkSync(path.join(directory, 'policy-transition.json'));
+      }
       if (['SUCCESS', 'ROLLED_BACK'].includes(state.outcome)) fs.unlinkSync(path.join(directory, 'transaction.json'));
       console.log(`DEPLOYMENT_STATE=${state.outcome}`);
     }

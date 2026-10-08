@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 
 const hold = reason => { throw new Error(`CONFIG_HOLD=${reason}`); };
 export function validateContract(contract) {
-  if (contract.version !== 2 || contract.executionUid !== 0 || !/^\/var\/lib\/[a-z0-9-]+$/.test(contract.controlRoot || '')
+  if (![2, 3].includes(contract.version) || contract.executionUid !== 0 || !/^\/var\/lib\/[a-z0-9-]+$/.test(contract.controlRoot || '')
     || contract.stateDirectory !== path.join(contract.controlRoot, 'production-deployment-state')
     || contract.archiveDirectory !== path.join(contract.controlRoot, 'production-checkout-recovery')
     || JSON.stringify(contract.controlMounts) !== JSON.stringify([{ target: '/', root: '/', filesystem: 'ext4' }])) hold('CONTROL_CONTRACT');

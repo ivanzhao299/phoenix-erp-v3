@@ -1,3 +1,8 @@
+import { withReadonlyOrchestration } from './chanjet-readonly-execution';
+import { installReadonlyApprovalFixture } from './chanjet-readonly-policy.test-fixture';
+let restoreReadonlyApproval: () => void;
+beforeEach(() => { restoreReadonlyApproval = installReadonlyApprovalFixture(); });
+afterEach(() => { restoreReadonlyApproval(); });
 const originalReadonlySync = process.env.CHANJET_READONLY_SYNC_ENABLED;
 beforeEach(() => { process.env.CHANJET_READONLY_SYNC_ENABLED = 'true'; });
 afterEach(() => {
@@ -127,7 +132,7 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     const subject = Object.create(ChanjetIntegrationService.prototype) as any;
     subject.fieldCatalogRepo = {
       find: jest.fn().mockResolvedValue([{
-        apiPath: '/accounting/test',
+        apiPath: '/accounting/gl/statistics/receive/BOOK-1',
         fieldPath: 'data.rows[].amount',
         sampleType: 'number',
         sampleValueMasked: '***',
@@ -135,7 +140,7 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     };
     subject.fieldMappingRepo = {
       find: jest.fn().mockResolvedValue([{
-        chanjetEndpoint: '/accounting/test',
+        chanjetEndpoint: '/accounting/gl/statistics/receive/BOOK-1',
         chanjetFieldPath: 'data.rows[].amount',
         erpDomain: 'finance',
         erpField: 'amount',
@@ -1141,7 +1146,7 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       });
     subject.analyzeFieldGaps = jest.fn().mockResolvedValue({ scanned: 1, upserted: 1, statusCounts: {} });
 
-    const result = await subject.syncReadOnlyMirrorResilient(['GL_BALANCE'], 'BOOK-1', '202607', 3);
+    const result = await withReadonlyOrchestration<Awaited<ReturnType<ChanjetIntegrationService['syncReadOnlyMirrorResilient']>>>('CHANJET-RO-UNIT', () => subject.syncReadOnlyMirrorResilient(['GL_BALANCE'], 'BOOK-1', '202607', 3));
 
     expect(result.decision).toBe('GO');
     expect(result.attempts).toBe(2);
@@ -1174,8 +1179,8 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       writeErpBusinessTables: false,
       stoppedAt: null,
     });
-    expect(subject.confirmDeterministicCounterpartyMappings).toHaveBeenCalledWith('tester');
-    expect(subject.confirmDeterministicMasterDataMappings).toHaveBeenCalledWith('tester');
+    expect(subject.confirmDeterministicCounterpartyMappings).not.toHaveBeenCalled();
+    expect(subject.confirmDeterministicMasterDataMappings).not.toHaveBeenCalled();
     expect(subject.runMappingReconciliation).toHaveBeenCalledTimes(1);
     expect(subject.productionReadinessOverview).toHaveBeenCalledTimes(1);
   });
@@ -1217,12 +1222,11 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
       { compact: true },
     );
 
-    expect(result.exactMappings).not.toHaveProperty('generated');
-    expect(result.exactMappings?.errors).toHaveLength(20);
+    expect(result.exactMappings).toBeNull();
     expect(result.reconciliation).not.toHaveProperty('results');
     expect(result).toMatchObject({
       decision: 'GO',
-      exactMappings: { approved: 8 },
+      exactMappings: null,
       reconciliation: { created: 1, autoResolved: 1 },
     });
   });
@@ -1245,7 +1249,7 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
     expect(subject.runMappingReconciliation).not.toHaveBeenCalled();
   });
 
-  it('keeps open reconciliation issues idempotent and resolves disappeared issues', async () => {
+  it('keeps open reconciliation issues idempotent without approving disappeared differences', async () => {
     const subject: any = Object.create(ChanjetIntegrationService.prototype);
     const activeMapping = { id: '1', mappingType: 'CUSTOMER', bookId: 'B1', erpCode: 'C1', erpName: '客户一', chanjetId: 'CJ1', chanjetCode: 'C1', chanjetName: '客户甲' };
     const existingOpen = {
@@ -1270,13 +1274,9 @@ describe('ChanjetIntegrationService field-gap helpers', () => {
 
     const result = await subject.runMappingReconciliation();
 
-    expect(result).toMatchObject({ scanned: 1, created: 0, unchanged: 1, autoResolved: 1 });
-    expect(disappearedOpen).toMatchObject({
-      resolved: true,
-      resolvedBy: 'system:chanjet-reconciliation',
-      resolvedAt: expect.any(Date),
-    });
-    expect(subject.reconciliationRepo.save).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ scanned: 1, created: 0, unchanged: 1, autoResolved: 0 });
+    expect(disappearedOpen).toMatchObject({ resolved: false });
+    expect(subject.reconciliationRepo.save).not.toHaveBeenCalled();
   });
 
   it('publishes one ordered P0-P5 runtime state with all external writes disabled', async () => {

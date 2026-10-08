@@ -1,3 +1,5 @@
+import { ClsService } from 'nestjs-cls';
+import { assertChanjetProxyReadonly } from './chanjet-remote-readonly';
 import { Controller, Post, Body, Get, Query, Headers, Logger, HttpCode, HttpStatus, UseGuards, ForbiddenException, Req, Param } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -29,44 +31,7 @@ import * as crypto from 'crypto';
 
 type ChanjetProxyMethod = 'GET' | 'POST';
 
-const CHANJET_PROXY_READONLY_RULES: ReadonlyArray<{
-  method: ChanjetProxyMethod;
-  path: RegExp;
-}> = [
-  { method: 'GET', path: /^\/accounting\/openapi\/cc\/book\/findByEnterpriseId$/ },
-  { method: 'GET', path: /^\/accounting\/gl\/glaccount\/getInitBalanceLists\/[^/?#]+$/ },
-  { method: 'GET', path: /^\/accounting\/gl\/statistics\/(?:pay|receive)\/[^/?#]+$/ },
-  { method: 'GET', path: /^\/accounting\/gl\/AcctgTrans\/acctgTransFuzzySearch\/[^/?#]+$/ },
-  { method: 'GET', path: /^\/accounting\/fin\/getOld(?:BalanceSheet|IncomeStatement)\/[^/?#]+$/ },
-  { method: 'GET', path: /^\/accounting\/asr\/CashFlow\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/department\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/party\/custvendor\/query\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/project\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/finaccount\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/payment\/(?:ap|ar)\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/purchaseorder\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/purchaseapply\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/purchasestockin\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/salesstockout\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/onhandqty\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/onhandqtylot\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/finishedgoodsstock\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/materialstock\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/stockin\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/stockout\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/stocktransfer\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/inv\/stockcount\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/retailstock\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/openapi\/cc\/salesorder\/list\/[^/?#]+$/ },
-  { method: 'POST', path: /^\/accounting\/gl\/balance\/rpt\/[^/?#]+$/ },
-];
-
-export function assertChanjetProxyReadonly(method: ChanjetProxyMethod, path: string) {
-  const allowed = CHANJET_PROXY_READONLY_RULES.some((rule) => rule.method === method && rule.path.test(path));
-  if (!allowed) {
-    throw new ForbiddenException('CHANJET_EXTERNAL_WRITE_DISABLED: proxy only allows reviewed readonly endpoints');
-  }
-}
+export { assertChanjetProxyReadonly } from './chanjet-remote-readonly';
 const CHANJET_PROXY_MENU = 'MENU_SETTINGS_CHANJET';
 const CHANJET_CONFIG_MENU = 'MENU_SETTINGS_CHANJET';
 
@@ -86,6 +51,7 @@ export class ChanjetCallbackController {
     private readonly holdResolutionAudit: ChanjetHoldResolutionAuditService,
     private readonly productNameCanary: ChanjetProductNameCanaryService,
     @InjectDataSource() private readonly ds: DataSource,
+    private readonly cls?: ClsService,
   ) {}
 
   private maskSensitive(value: unknown): unknown {
@@ -676,75 +642,38 @@ export class ChanjetCallbackController {
    * body: { scope?: string[], bookId?: string, period?: string }
    */
   @Post('integration/mirror/sync')
+  @HttpCode(HttpStatus.ACCEPTED)
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async syncIntegrationMirror(
     @Body() body: { scope?: string[]; bookId?: string; period?: string },
     @Req() req: { user?: { username?: string; userId?: string } },
   ) {
-    this.log.warn(`manual chanjet readonly mirror sync triggered user=${req?.user?.username ?? req?.user?.userId ?? 'unknown'} scope=${(body.scope || []).join(',') || 'default'} book=${body.bookId || 'enabled-books'}`);
-    try {
-      const result = await this.integration.syncReadOnlyMirror(body.scope || [], body.bookId, body.period);
-      return { success: true, writeChanjet: false, ...result };
-    } catch (e) {
-      return { success: false, writeChanjet: false, error: (e as Error).message };
-    }
+    return this.enqueueIntegrationAlignmentCycle(body, req);
   }
 
   /** 最多三次重试的全量只读同步；仍失败则 HOLD 并保留告警。 */
   @Post('integration/mirror/sync-resilient')
+  @HttpCode(HttpStatus.ACCEPTED)
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async syncIntegrationMirrorResilient(
     @Body() body: { scope?: string[]; bookId?: string; period?: string; maxAttempts?: number },
     @Req() req: any,
   ) {
-    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
-    this.log.warn(`manual resilient chanjet readonly sync user=${requestedBy} scope=${(body.scope || []).join(',') || 'default'}`);
-    try {
-      const result = await this.integration.syncReadOnlyMirrorResilient(
-        body.scope || [],
-        body.bookId,
-        body.period,
-        body.maxAttempts || 3,
-      );
-      return { success: result.decision === 'GO', writeChanjet: false, writeErpBusinessTables: false, ...result };
-    } catch (e) {
-      return { success: false, writeChanjet: false, writeErpBusinessTables: false, error: (e as Error).message };
-    }
+    return this.enqueueIntegrationAlignmentCycle(body, req);
   }
 
   /**
-   * 完整只读对齐闭环：镜像同步 → 精确映射确认 → 幂等对账 → 生产准备度。
+   * 完整只读对齐闭环：受控镜像同步 → 人工映射审核候选 → 对账差异 → 生产准备度。
    * 只写 ERP 中间层和审计表，不写好业财或 ERP 业务事实表。
    */
   @Post('integration/alignment/run')
+  @HttpCode(HttpStatus.ACCEPTED)
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async runIntegrationAlignmentCycle(
     @Body() body: { scope?: string[]; bookId?: string; period?: string; maxAttempts?: number },
     @Req() req: { user?: { username?: string; userId?: string } },
   ) {
-    const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
-    this.log.warn(`manual chanjet readonly alignment cycle user=${requestedBy} scope=${(body.scope || []).join(',') || 'default'}`);
-    try {
-      const result = await this.integration.runReadonlyAlignmentCycle(
-        `user:${requestedBy}`,
-        body.scope || [],
-        body.bookId,
-        body.period,
-        body.maxAttempts || 3,
-      );
-      return {
-        success: result.decision !== 'HOLD',
-        ...result,
-      };
-    } catch (e) {
-      return {
-        success: false,
-        decision: 'HOLD',
-        writeChanjet: false,
-        writeErpBusinessTables: false,
-        error: (e as Error).message,
-      };
-    }
+    return this.enqueueIntegrationAlignmentCycle(body, req);
   }
 
   /**
@@ -758,9 +687,16 @@ export class ChanjetCallbackController {
     @Req() req: { user?: { username?: string; userId?: string } },
   ) {
     const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
+    const scope = this.cls?.get<{ isGlobal?: boolean; allowedCompanyCodes?: string[] }>('dataScope');
+    if (!scope) throw new ForbiddenException('CHANJET_SYNC_DATASCOPE_REQUIRED');
+    if (!scope.isGlobal) {
+      const gate = await this.integration.accountBookMappingGate();
+      const binding = gate.mappings.find(m => m.bookId === body.bookId && m.status === 'VALID' && m.syncEnabled);
+      if (!binding || !(scope.allowedCompanyCodes || []).includes(binding.companyCode)) throw new ForbiddenException('CHANJET_SYNC_COMPANY_SCOPE_DENIED');
+    }
     const enqueueResult = await this.readonlySyncScheduler.enqueueManualSync(`user:${requestedBy}`, body);
     return {
-      success: true,
+      success: enqueueResult.accepted || ['QUEUED', 'RUNNING'].includes(enqueueResult.run.state),
       writeChanjet: false,
       writeErpBusinessTables: false,
       ...enqueueResult,

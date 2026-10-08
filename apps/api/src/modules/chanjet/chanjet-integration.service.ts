@@ -1,3 +1,5 @@
+import { requireReadonlyOrchestration } from './chanjet-readonly-execution';
+import { approvedReadonlyPolicy, requireApprovedReadonlyRequest, readonlyFailureCode } from './chanjet-readonly-policy';
 import { requireReadonlySync } from './chanjet-sync-control';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
@@ -1508,13 +1510,14 @@ export function classifyChanjetSyncFailure(error: string): {
   retryEligible: boolean;
   capability: 'SUPPORTED' | 'PERMISSION_HOLD' | 'UNSUPPORTED';
 } {
-  if (/CHANJET_LOCAL_BUDGET_EXHAUSTED|traffic budget exhausted/i.test(error)) {
+  if (/READONLY_HOLD_MAPPING/i.test(error)) return { retryEligible: false, capability: 'SUPPORTED' };
+  if (/READONLY_HOLD_RATE_LIMIT|CHANJET_LOCAL_BUDGET_EXHAUSTED|traffic budget exhausted/i.test(error)) {
     return { retryEligible: false, capability: 'SUPPORTED' };
   }
-  if (/50111|无调用该接口的权限|permission denied|forbidden/i.test(error)) {
+  if (/READONLY_HOLD_REMOTE_AUTH|50111|无调用该接口的权限|permission denied|forbidden/i.test(error)) {
     return { retryEligible: false, capability: 'PERMISSION_HOLD' };
   }
-  if (/not supported|unsupported|不存在该接口/i.test(error)) {
+  if (/READONLY_HOLD_UNSUPPORTED|not supported|unsupported|不存在该接口/i.test(error)) {
     return { retryEligible: false, capability: 'UNSUPPORTED' };
   }
   return { retryEligible: true, capability: 'SUPPORTED' };
@@ -1892,6 +1895,11 @@ export class ChanjetIntegrationService {
       if (!cachedBook) issues.push('账套未出现在好业财账套缓存');
       if (cachedBook && mapping.syncEnabled && !cachedBook.enabled) issues.push('映射已启用但账套缓存未启用');
       if (!activeCompanies.has(mapping.companyCode)) issues.push('ERP ACTIVE 公司主数据不存在');
+      if (cachedBook?.companyCode && cachedBook.companyCode !== mapping.companyCode) issues.push('账套缓存公司与审批绑定不一致');
+      if (['READONLY_VERIFY', 'READONLY_ACTIVE'].includes(process.env.CHANJET_SYNC_POLICY || '')) {
+        const approval = approvedReadonlyPolicy();
+        if (!approval.books.some(b => b.bookId === mapping.bookid && b.companyCode === mapping.companyCode)) issues.push('账套不在本配置版本审批范围');
+      }
       const status: 'VALID' | 'WARNING' | 'HOLD' = issues.length
         ? (mapping.syncEnabled ? 'HOLD' : 'WARNING')
         : 'VALID';
@@ -7202,9 +7210,11 @@ export class ChanjetIntegrationService {
     fieldGapSummary: { scanned: number; upserted: number; statusCounts: Record<string, number> };
   }> {
     requireReadonlySync();
+    requireReadonlyOrchestration();
     const requested = scope.length
       ? scope.map((s) => s.toUpperCase())
       : PROBE_ENDPOINTS.filter((ep) => ep.mirrorDefault).map((ep) => ep.key);
+    const approval = requireApprovedReadonlyRequest({ scope: requested, bookId, period });
     const selectedKeys = new Set(requested);
     const endpoints = PROBE_ENDPOINTS.filter((ep) => selectedKeys.has(ep.key));
     if (!endpoints.length) throw new Error(`未找到可执行 mirror scope: ${requested.join(',')}`);
@@ -7213,10 +7223,10 @@ export class ChanjetIntegrationService {
       await this.refreshAccountBooks();
     }
 
-    let books = bookId ? [bookId] : (await this.listEnabledBookIds());
+    let books = bookId ? [bookId] : (await this.listEnabledBookIds()).filter(id => approval.books.some(b => b.bookId === id));
     if (!books.length) {
       const refreshed = await this.refreshAccountBooks();
-      books = refreshed.books.filter((b) => b.enabled).map((b) => b.bookId);
+      books = refreshed.books.filter((b) => b.enabled && approval.books.some(a => a.bookId === b.bookId)).map((b) => b.bookId);
     }
     if (endpoints.some((endpoint) => endpoint.requiresBook)) {
       const mappingGate = await this.accountBookMappingGate();
@@ -7284,7 +7294,7 @@ export class ChanjetIntegrationService {
             entityRows,
           });
         } catch (err) {
-          const error = (err as Error).message;
+          const error = readonlyFailureCode(err);
           await this.finishJob(job, 'FAIL', { key: ep.key }, error);
           await this.recordChanjetApiAlert(ep, path, targetBookId, error);
           results.push({ key: ep.key, bookId: targetBookId, status: 'FAIL', error });
@@ -7292,10 +7302,8 @@ export class ChanjetIntegrationService {
       }
     }
 
-    if (endpoints.some((endpoint) => endpoint.key === 'CUSTOMER_SUPPLIER')) {
-      await this.generateCounterpartyMappingCandidates('mirror-sync');
-    }
-    const fieldGapSummary = await this.analyzeFieldGaps();
+    // Mapping review/reclassification remains a separate human-authorized workflow.
+    const fieldGapSummary = { scanned: 0, upserted: 0, statusCounts: {} };
     return { requestedScope: requested, books, results, fieldGapSummary };
   }
 
@@ -7324,6 +7332,7 @@ export class ChanjetIntegrationService {
     fieldGapSummary: { scanned: number; upserted: number; statusCounts: Record<string, number> };
   }> {
     requireReadonlySync();
+    requireReadonlyOrchestration();
     const safeMaxAttempts = Math.min(Math.max(Number(maxAttempts) || 3, 1), 3);
     const initial = await this.syncReadOnlyMirror(scope, bookId, period);
     const resultByTarget = new Map<string, (typeof initial.results)[number] & { attempt: number }>();
@@ -7357,7 +7366,7 @@ export class ChanjetIntegrationService {
           resultByTarget.set(`${failed.key}:${failed.bookId}`, {
             ...failed,
             status: 'FAIL',
-            error: (error as Error).message,
+            error: readonlyFailureCode(error),
             attempt: attempts,
           });
         }
@@ -7439,21 +7448,8 @@ export class ChanjetIntegrationService {
     // Keep these phases sequential. Each can inspect thousands of mapping rows;
     // running them in parallel made the API retain multiple large object graphs
     // and repeatedly exceed the production Node heap during scheduled recovery.
-    const exactMappingsFull = options.compact
-      ? await this.confirmDeterministicCounterpartyMappings(actor, { compact: true })
-      : await this.confirmDeterministicCounterpartyMappings(actor);
-    const exactMappings = options.compact
-      ? {
-          eligible: exactMappingsFull.eligible,
-          approved: exactMappingsFull.approved,
-          skipped: exactMappingsFull.skipped,
-          sourceOnlyResolved: exactMappingsFull.sourceOnlyResolved,
-          remainingPending: exactMappingsFull.remainingPending,
-          remainingConflicts: exactMappingsFull.remainingConflicts,
-          errors: exactMappingsFull.errors.slice(0, 20),
-        }
-      : exactMappingsFull;
-    const masterDataMappings = await this.confirmDeterministicMasterDataMappings(actor);
+    const exactMappings = null;
+    const masterDataMappings = null;
     const reconciliationFull = options.compact
       ? await this.runMappingReconciliation({ compact: true })
       : await this.runMappingReconciliation();
@@ -7466,9 +7462,9 @@ export class ChanjetIntegrationService {
           statusCounts: reconciliationFull.statusCounts,
         }
       : reconciliationFull;
-    const readiness = await this.productionReadinessOverview();
+    const readiness = process.env.CHANJET_SYNC_POLICY === 'READONLY_VERIFY' ? null : await this.productionReadinessOverview();
     return {
-      decision: readiness.decision,
+      decision: readiness?.decision || mirror.decision,
       requestedBy: actor,
       startedAt,
       completedAt: new Date().toISOString(),
@@ -7485,10 +7481,15 @@ export class ChanjetIntegrationService {
 
   async analyzeFieldGaps(): Promise<{ scanned: number; upserted: number; statusCounts: Record<string, number> }> {
     requireReadonlySync();
-    const [fields, existingMappings] = await Promise.all([
+    const approval = approvedReadonlyPolicy();
+    const bookIds = process.env.CHANJET_SYNC_POLICY === 'READONLY_VERIFY' ? [approval.verification.bookId] : approval.books.map(b => b.bookId);
+    const scope = process.env.CHANJET_SYNC_POLICY === 'READONLY_VERIFY' ? approval.verification.scope : approval.scopes;
+    const approvedPaths = new Set(PROBE_ENDPOINTS.filter(ep => scope.includes(ep.key)).flatMap(ep => ep.requiresBook ? bookIds.map(id => ep.path.replace('{bookid}', id)) : [ep.path]));
+    const [catalog, existingMappings] = await Promise.all([
       this.fieldCatalogRepo.find({ take: 5000 }),
       this.fieldMappingRepo.find({ take: 12000 }),
     ]);
+    const fields = catalog.filter(field => approvedPaths.has(field.apiPath));
     const existingDecisions = new Map(existingMappings.map((mapping) => [
       this.fieldMappingIdentity(mapping.chanjetEndpoint, mapping.chanjetFieldPath, mapping.erpDomain, mapping.erpField),
       mapping.decisionStatus,
@@ -7505,8 +7506,7 @@ export class ChanjetIntegrationService {
         suggestion.erpField,
       );
       const existingDecision = existingDecisions.get(identity);
-      const decisionStatus = existingDecision
-        || (suggestion.matchStatus === 'MATCHED' || suggestion.erpDomain === 'api_metadata' ? 'APPROVED' : 'PENDING');
+      const decisionStatus = existingDecision || 'PENDING';
       statusCounts[suggestion.matchStatus] = (statusCounts[suggestion.matchStatus] || 0) + 1;
       await this.fieldMappingRepo.upsert(
         {
@@ -7528,8 +7528,6 @@ export class ChanjetIntegrationService {
       );
       upserted += 1;
     }
-    await this.deprecateFakeCounterpartyTargets();
-    await this.deprecateApiEnvelopeBusinessTargets();
     return { scanned: fields.length, upserted, statusCounts };
   }
 
@@ -8111,10 +8109,12 @@ export class ChanjetIntegrationService {
     });
 
     try {
+      const approval = approvedReadonlyPolicy();
+      const bookIds = process.env.CHANJET_SYNC_POLICY === 'READONLY_VERIFY' ? [approval.verification.bookId] : approval.books.map(b => b.bookId);
       const [mappings, openResults] = await Promise.all([
-        this.mappingRepo.find({ take: 2000, order: { mappingType: 'ASC', createdAt: 'DESC' } }),
+        this.mappingRepo.find({ where: { bookId: In(bookIds) }, take: 2000, order: { mappingType: 'ASC', createdAt: 'DESC' } }),
         this.reconciliationRepo.find({
-          where: { reconciliationType: 'MASTER_MAPPING', resolved: false },
+          where: { reconciliationType: 'MASTER_MAPPING', resolved: false, bookId: In(bookIds) },
           order: { createdAt: 'DESC' },
           take: 5000,
         }),
@@ -8122,8 +8122,7 @@ export class ChanjetIntegrationService {
       const results: ChanjetReconciliationResultEntity[] = [];
       const statusCounts: Record<string, number> = {};
       let created = 0;
-      const activeIssueKeys = new Set<string>();
-      let unchanged = 0;
+        let unchanged = 0;
       for (const mapping of mappings) {
         const issue = this.mappingIssue(mapping);
         if (!issue) continue;
@@ -8135,7 +8134,6 @@ export class ChanjetIntegrationService {
           issue.status,
           issue.diffSummary,
         );
-        activeIssueKeys.add(issueKey);
         const existing = openResults.find((result) => this.reconciliationIssueKey(
           result.subjectType,
           result.bookId,
@@ -8178,22 +8176,8 @@ export class ChanjetIntegrationService {
         if (!options.compact) results.push(saved);
       }
 
-      let autoResolved = 0;
-      for (const openResult of openResults) {
-        const key = this.reconciliationIssueKey(
-          openResult.subjectType,
-          openResult.bookId,
-          openResult.subjectKey,
-          openResult.status,
-          openResult.diffSummary,
-        );
-        if (activeIssueKeys.has(key)) continue;
-        openResult.resolved = true;
-        openResult.resolvedBy = 'system:chanjet-reconciliation';
-        openResult.resolvedAt = new Date();
-        await this.reconciliationRepo.save(openResult);
-        autoResolved += 1;
-      }
+      const autoResolved = 0;
+      // A finite readonly run cannot approve or auto-resolve historical differences.
       await this.finishJob(job, 'SUCCESS', {
         scanned: mappings.length,
         created,
@@ -8706,14 +8690,15 @@ export class ChanjetIntegrationService {
   }> {
     requireReadonlySync();
     const requested = scope.length ? scope : ['ACCOUNT_BOOKS', 'DEPARTMENT', 'CUSTOMER_SUPPLIER', 'SUBJECT'];
+    const approval = requireApprovedReadonlyRequest({ scope: requested, bookId });
     const selectedKeys = new Set(requested.map((s) => s.toUpperCase()));
     const endpoints = PROBE_ENDPOINTS.filter((ep) => selectedKeys.has(ep.key));
     if (!endpoints.length) throw new Error(`未找到可执行 probe scope: ${requested.join(',')}`);
 
-    let books = bookId ? [bookId] : (await this.listEnabledBookIds());
+    let books = bookId ? [bookId] : (await this.listEnabledBookIds()).filter(id => approval.books.some(b => b.bookId === id));
     if (!books.length) {
       const refreshed = await this.refreshAccountBooks();
-      books = refreshed.books.filter((b) => b.enabled).map((b) => b.bookId);
+      books = refreshed.books.filter((b) => b.enabled && approval.books.some(a => a.bookId === b.bookId)).map((b) => b.bookId);
     }
 
     const results: Array<{ key: string; bookId: string; status: 'SUCCESS' | 'FAIL'; fields?: number; error?: string }> = [];
@@ -8740,7 +8725,7 @@ export class ChanjetIntegrationService {
           });
           results.push({ key: ep.key, bookId: targetBookId, status: 'SUCCESS', fields });
         } catch (err) {
-          const error = (err as Error).message;
+          const error = readonlyFailureCode(err);
           await this.finishJob(job, 'FAIL', { key: ep.key }, error);
           results.push({ key: ep.key, bookId: targetBookId, status: 'FAIL', error });
         }
@@ -9287,7 +9272,7 @@ export class ChanjetIntegrationService {
   ) {
     job.status = status;
     job.resultSummary = resultSummary;
-    job.errorMessage = errorMessage || null;
+    job.errorMessage = errorMessage ? readonlyFailureCode(errorMessage) : null;
     await this.jobRepo.save(job);
   }
 

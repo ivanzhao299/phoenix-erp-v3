@@ -1,3 +1,4 @@
+import { readonlyEnvironment, expiredVerifyHoldEnvironment, validatePolicyTransition } from './chanjet-readonly-policy.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -11,7 +12,7 @@ export function git(root, args) {
   let configured = '';
   try { configured = execFileSync('git', ['-c', `safe.directory=${root}`, 'config', '--get', 'core.sshCommand'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); } catch {}
   const env = { ...process.env, GIT_SSH_COMMAND: strictSshCommand(process.env.GIT_SSH_COMMAND || configured, process.env.GIT_SSH) };
-  return execFileSync('git', ['-c', `safe.directory=${root}`, ...args], { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  return execFileSync('git', ['-c', `safe.directory=${root}`, '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-c', 'gc.auto=0', '-c', 'maintenance.auto=false', ...args], { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 export function requireCleanMain(root, target) {
   if (git(root, ['branch', '--show-current']) !== 'main' || git(root, ['status', '--porcelain', '--untracked-files=all'])) throw new Error('CONFIG_HOLD=WORKTREE_NOT_CLEAN_MAIN');
@@ -89,19 +90,31 @@ export function verifyContext(root, stateDirectory) {
   catch { return; }
   throw new Error('CONFIG_HOLD=HOST_LOCK_NOT_HELD');
 }
-export function validateEffectiveConfig(config, tuple) {
+export function validateEffectiveConfig(config, tuple, floor = { operationalTuple: tuple, chanjetPolicy: 'HOLD' }, expiredVerifyHold) {
   const environment = config.services.api.environment;
-  if (environment.CHANJET_READONLY_SYNC_ENABLED !== 'false' || environment.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') throw new Error('CONFIG_HOLD=CHANJET_HOLD_REQUIRED');
-  if (tuple.PHOENIX_DATA_MOUNT_GUARD !== 'true' || tuple.CHANJET_READONLY_SYNC_ENABLED !== 'false' || tuple.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') throw new Error('CONFIG_HOLD=APPROVED_TUPLE');
+  const policyEnv = expiredVerifyHold ? expiredVerifyHoldEnvironment(floor, expiredVerifyHold) : readonlyEnvironment(floor);
+  if (environment.CHANJET_READONLY_SYNC_ENABLED !== tuple.CHANJET_READONLY_SYNC_ENABLED || environment.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') throw new Error('CONFIG_HOLD=CHANJET_POLICY_FLAGS');
+  for (const [key, value] of Object.entries(policyEnv)) if ((environment[key] || (key === 'CHANJET_SYNC_POLICY' ? 'HOLD' : '')) !== value) throw new Error('CONFIG_HOLD=EFFECTIVE_POLICY');
+  if (tuple.PHOENIX_DATA_MOUNT_GUARD !== 'true' || !['false', 'true'].includes(tuple.CHANJET_READONLY_SYNC_ENABLED) || tuple.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') throw new Error('CONFIG_HOLD=APPROVED_TUPLE');
   for (const [service, key, destination] of [['db', 'PHOENIX_PG_DATA_DIR', '/var/lib/postgresql/data'], ['api', 'PHOENIX_UPLOADS_DIR', '/app/uploads']]) {
     const source = tuple[key]; const mount = config.services[service].volumes.find(volume => volume.target === destination);
     if (!source?.startsWith('/data/') || path.normalize(source) !== source || !mount || mount.type !== 'bind' || mount.source !== source) throw new Error('CONFIG_HOLD=STORAGE_TUPLE');
   }
 }
-export function guardProduction(root, stateDirectory, images) {
+export function guardProduction(root, stateDirectory, images, expiredVerifyHold) {
   verifyContext(root, stateDirectory); requireCleanMain(root);
   const owningTransaction = assertTransactionOwnership(stateDirectory, process.env.DEPLOY_RUN_ID);
-  if (!owningTransaction) assertRuntimePins(captureRuntime(), assertStateVersion(secureJson(path.join(stateDirectory, 'active.json'))).active);
+  const actual = captureRuntime();
+  if (!owningTransaction) assertRuntimePins(actual, assertStateVersion(secureJson(path.join(stateDirectory, 'active.json'))).active);
+  else {
+    const tx = assertStateVersion(secureJson(path.join(stateDirectory, `deploy-${process.env.DEPLOY_RUN_ID}.json`)));
+    requireCleanMain(root, tx.configSha);
+    if (!Number.isFinite(Date.parse(tx.expiresAt)) || Date.parse(tx.expiresAt) <= Date.now()) throw new Error('CONFIG_HOLD=DEPLOY_TRANSACTION_EXPIRED');
+    for (const service of ['api', 'web']) {
+      const allowed = [tx.previous[service], ...(tx.switched[service] ? [tx.candidates[service]] : [])].filter(Boolean);
+      if (!allowed.some(pin => pin.imageId === actual[service].imageId && pin.revision === actual[service].revision)) throw new Error('CONFIG_HOLD=TRANSACTION_RUNTIME_DRIFT');
+    }
+  }
   const floor = secureJson(path.join(stateDirectory, 'floor.json'));
   const priorFloor = assertStateVersion(secureJson(path.join(stateDirectory, 'active.json'))).floorSha;
   assertFloorMonotonic(root, priorFloor, floor.floorSha);
@@ -115,12 +128,25 @@ export function guardProduction(root, stateDirectory, images) {
   for (const [key, value] of Object.entries(floor.operationalTuple || {})) {
     if (records.find(record => record.key === key)?.raw.trimEnd() !== `${key}=${value}`) throw new Error('CONFIG_HOLD=ENV_TUPLE_CHANGED');
   }
-  const env = { ...executionEnv(), API_IMAGE: images.api.imageId, WEB_IMAGE: images.web.imageId };
+  const policyEnv = expiredVerifyHold ? expiredVerifyHoldEnvironment(floor, expiredVerifyHold) : readonlyEnvironment(floor);
+  const env = { ...executionEnv(), ...policyEnv, API_IMAGE: images.api.imageId, WEB_IMAGE: images.web.imageId };
   execFileSync('bash', ['scripts/ops/require-phoenix-data-mount.sh'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
   const config = JSON.parse(execFileSync('docker', ['compose', '--project-name', floor.project, '--env-file', envFile, '-f', path.join(root, 'docker-compose.yml'), 'config', '--format', 'json'], { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
-  validateEffectiveConfig(config, floor.operationalTuple);
-  const hold = execFileSync('docker', ['inspect', 'phoenix-v3-api', '--format', '{{range .Config.Env}}{{if eq . "CHANJET_READONLY_SYNC_ENABLED=false"}}{{println "readonly=false"}}{{end}}{{if eq . "CHANJET_ERP_INBOUND_SYNC_ENABLED=false"}}{{println "inbound=false"}}{{end}}{{end}}'], { env: executionEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-  if (hold.split(/\s+/).sort().join(',') !== 'inbound=false,readonly=false') throw new Error('CONFIG_HOLD=LIVE_CHANJET_FLAGS');
+  if (expiredVerifyHold && (process.env.CHANJET_CONFIG_OPERATION !== 'HOLD' || expiredVerifyHold.runId !== process.env.DEPLOY_RUN_ID || expiredVerifyHold.target !== git(root, ['rev-parse', 'HEAD']) || process.env.APPROVED_CONFIG_FLOOR_SHA !== floor.floorSha)) throw new Error('CONFIG_HOLD=EXPIRED_VERIFY_HOLD_AUTHORITY');
+  validateEffectiveConfig(config, floor.operationalTuple, floor, expiredVerifyHold);
+  const rawEnv = JSON.parse(execFileSync('docker', ['inspect', 'phoenix-v3-api', '--format', '{{json .Config.Env}}'], { env: executionEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+  const liveEnv = Object.fromEntries(rawEnv.filter(line => /^(CHANJET_READONLY_SYNC_ENABLED|CHANJET_ERP_INBOUND_SYNC_ENABLED|CHANJET_SYNC_POLICY|CHANJET_READONLY_APPROVAL)=/.test(line)).map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
+  liveEnv.CHANJET_SYNC_POLICY ||= 'HOLD'; liveEnv.CHANJET_READONLY_APPROVAL ||= '';
+  const expectedEnv = { ...policyEnv, CHANJET_READONLY_SYNC_ENABLED: floor.operationalTuple.CHANJET_READONLY_SYNC_ENABLED, CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' };
+  const markerPath = path.join(stateDirectory, 'policy-transition.json');
+  let marker;
+  if (fs.existsSync(markerPath)) {
+    marker = secureJson(markerPath);
+    validatePolicyTransition(marker, { runId: process.env.DEPLOY_RUN_ID, target: git(root, ['rev-parse', 'HEAD']), actual });
+  }
+  const sameEnv = expected => Object.keys(expectedEnv).every(key => liveEnv[key] === expected[key]);
+  if (!sameEnv(expectedEnv) && !(marker && sameEnv(marker.previousEnv))) throw new Error('CONFIG_HOLD=LIVE_CHANJET_POLICY');
+  if (marker && Object.keys(expectedEnv).some(key => marker.nextEnv[key] !== expectedEnv[key])) throw new Error('CONFIG_HOLD=TRANSITION_POLICY_DRIFT');
   for (const service of ['db', 'api', 'web']) {
     const project = execFileSync('docker', ['inspect', `phoenix-v3-${service}`, '--format', '{{ index .Config.Labels "com.docker.compose.project" }}'], { env: executionEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
     if (project !== floor.project) throw new Error('CONFIG_HOLD=LIVE_PROJECT_MISMATCH');
