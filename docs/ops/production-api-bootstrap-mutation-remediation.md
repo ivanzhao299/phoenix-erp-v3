@@ -6,7 +6,7 @@ This is a repository-only remediation of the API-only HOLD admission blocker fou
 
 ```ini
 BASE_MAIN=85acfe6df5ba51642eb338f2cb4651ebf9df9d25
-REMEDIATION_PR=PENDING
+REMEDIATION_PR=https://github.com/ivanzhao299/phoenix-erp-v3/pull/367
 MERGED_MAIN_SHA=PENDING
 PRODUCTION_CONFIG_FLOOR_VERSION=2
 PRODUCTION_API_SHA=23c7af86dd122379d01248a3b9542b8165f31498
