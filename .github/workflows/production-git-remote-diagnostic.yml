@@ -1,10 +1,10 @@
-name: Production Git Remote Diagnostic
+name: Actions Deploy Identity Precheck (read only)
 
 on:
   workflow_dispatch:
     inputs:
       confirm_readonly:
-        description: 'Type RUN_PRODUCTION_REMOTE_DIAGNOSTIC to authorize the read-only check'
+        description: Type RUN_ACTIONS_DEPLOY_IDENTITY_PRECHECK
         required: true
         type: string
 
@@ -12,54 +12,28 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-git-remote-diagnostic
+  group: actions-deploy-identity-precheck
   cancel-in-progress: false
 
 jobs:
-  production-git-remote-diagnostic:
-    name: Production Git remote diagnostic
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+  precheck:
+    if: github.ref == 'refs/heads/codex/actions-deploy-identity-precheck'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: production-readonly
-    env:
-      CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
-
+    environment: production
     steps:
-      - name: Validate manual read-only invocation
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/main
-          test "$CONFIRM_READONLY" = RUN_PRODUCTION_REMOTE_DIAGNOSTIC
-
-      - name: Validate deployment credential presence
+      - name: Freeze target and invocation
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
-          DEPLOY_PROXY_USER: ${{ secrets.DEPLOY_PROXY_USER }}
-          DEPLOY_PROXY_KEY: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
         run: |
           set -euo pipefail
-          present() { [ -n "$1" ] && echo true || echo false; }
-          echo "DEPLOY_HOST_PRESENT=$(present "$DEPLOY_HOST")"
-          echo "DEPLOY_USER_PRESENT=$(present "$DEPLOY_USER")"
-          echo "DEPLOY_PORT_PRESENT=$(present "$DEPLOY_PORT")"
-          echo "DEPLOY_SSH_KEY_PRESENT=$(present "$DEPLOY_SSH_KEY")"
-          echo "DEPLOY_PATH_PRESENT=$(present "$DEPLOY_PATH")"
-          echo "DEPLOY_PROXY_HOST_PRESENT=$(present "$DEPLOY_PROXY_HOST")"
-          echo "DEPLOY_PROXY_USER_PRESENT=$(present "$DEPLOY_PROXY_USER")"
-          test -n "$DEPLOY_HOST"
-          test -n "$DEPLOY_USER"
-          test -n "$DEPLOY_SSH_KEY"
-          test -n "$DEPLOY_PROXY_HOST"
-          test -n "$DEPLOY_PROXY_USER"
-          test -n "$DEPLOY_PROXY_KEY"
+          test "$CONFIRM_READONLY" = RUN_ACTIONS_DEPLOY_IDENTITY_PRECHECK
+          actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          test "$actual" = 8d76b551fccae60ebadfec5c85896007e1e0ce51
+          echo "AUTHORIZED_TARGET_SHA=$actual"
 
-      - name: Inspect production Git remote identity over read-only SSH
+      - name: Inspect through formal deployment SSH channel
         uses: appleboy/ssh-action@v1
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
@@ -77,228 +51,87 @@ jobs:
           proxy_timeout: 30s
           command_timeout: 2m
           script: |
-            set -u
+            set -uo pipefail
             set +x
-
-            if [ ! -d "$DEPLOY_PATH" ]; then
-              echo "REMOTE_DIAG_FAILURE=DEPLOY_PATH_MISSING"
-              exit 31
-            fi
-            if ! cd "$DEPLOY_PATH"; then
-              echo "REMOTE_DIAG_FAILURE=DEPLOY_PATH_NOT_ACCESSIBLE"
-              exit 32
-            fi
-
-            if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-              echo "REMOTE_DIAG_FAILURE=NOT_GIT_REPOSITORY"
-              exit 33
-            fi
-            echo "GIT_REPOSITORY=true"
-            BRANCH="$(git branch --show-current 2>/dev/null || true)"
-            echo "PRODUCTION_BRANCH=${BRANCH:-detached}"
-            PRODUCTION_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
-            echo "PRODUCTION_SHA=$PRODUCTION_SHA"
-            if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
-              echo "WORKTREE_CLEAN=false"
+            export GIT_OPTIONAL_LOCKS=0
+            echo "ACTIONS_SSH_USER=$(id -un)"
+            echo "ACTIONS_SSH_UID=$(id -u)"
+            echo "ACTIONS_SSH_HOME=$HOME"
+            case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}" ;; esac
+            cd "$DEPLOY_PATH" || exit 31
+            DEPLOY_REPO_ROOT="$(pwd -P)"
+            test "$DEPLOY_REPO_ROOT" = /data/phoenix-erp || exit 32
+            git() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"; }
+            before=$(git status --porcelain --untracked-files=all)
+            head_before=$(git rev-parse HEAD)
+            echo "PRODUCTION_HEAD=$head_before"
+            remote=$(git remote get-url origin)
+            test "$remote" = git@github.com:ivanzhao299/phoenix-erp-v3.git || exit 33
+            echo "ORIGIN_REPOSITORY=ivanzhao299/phoenix-erp-v3"
+            state=/home/phoenix-codex-deploy/production-deployment-state
+            if test -d "$state" && test ! -L "$state"; then
+              owner=$(stat -c %u "$state")
+              echo "STATE_OWNER_UID=$owner"
+              echo "STATE_MODE=$(stat -c %a "$state")"
+              test "$owner" = "$(id -u)" && echo STATE_OWNER_MATCH=YES || echo STATE_OWNER_MATCH=NO
             else
-              echo "WORKTREE_CLEAN=true"
+              echo STATE_OWNER_MATCH=NOT_INITIALIZED
             fi
-
-            REMOTE_NAMES="$(git remote | paste -sd, -)"
-            echo "REMOTE_NAMES=${REMOTE_NAMES:-none}"
-
-            # Fingerprint a remote without ever printing its raw value or SSH config.
-            fingerprint_remote() {
-              raw="$1"
-              url_type=unknown
-              host_class=unknown
-              alias_github=false
-              repository=UNKNOWN_REMOTE_FORMAT
-              remote_host=
-              remote_path=
-
-              case "$raw" in
-                ssh://*)
-                  url_type=ssh_url
-                  authority_path="${raw#ssh://}"
-                  authority="${authority_path%%/*}"
-                  remote_path="${authority_path#*/}"
-                  remote_host="${authority##*@}"
-                  remote_host="${remote_host%%:*}"
-                  ;;
-                https://*)
-                  url_type=https_url
-                  authority_path="${raw#https://}"
-                  authority="${authority_path%%/*}"
-                  remote_path="${authority_path#*/}"
-                  remote_host="${authority##*@}"
-                  remote_host="${remote_host%%:*}"
-                  ;;
-                http://*)
-                  url_type=http_url
-                  authority_path="${raw#http://}"
-                  authority="${authority_path%%/*}"
-                  remote_path="${authority_path#*/}"
-                  remote_host="${authority##*@}"
-                  remote_host="${remote_host%%:*}"
-                  ;;
-                git://*)
-                  url_type=git_url
-                  authority_path="${raw#git://}"
-                  authority="${authority_path%%/*}"
-                  remote_path="${authority_path#*/}"
-                  remote_host="${authority##*@}"
-                  remote_host="${remote_host%%:*}"
-                  ;;
-                git@*:*|*@*:*|[A-Za-z0-9._-]*:*)
-                  url_type=scp_ssh
-                  remote_host="${raw%%:*}"
-                  remote_host="${remote_host##*@}"
-                  remote_path="${raw#*:}"
-                  ;;
-                file://*) url_type=file_url ;;
-                /*|./*|../*|~/*) url_type=local_path ;;
-              esac
-
-              case "$raw" in
-                file://*|/*|./*|../*|~/*)
-                  FP_URL_TYPE="$url_type"
-                  FP_HOST_CLASS=none
-                  FP_ALIAS_GITHUB=false
-                  FP_REPOSITORY=NON_GITHUB_REMOTE
-                  return
-                  ;;
-              esac
-
-              if [ "$remote_host" = github.com ]; then
-                host_class=github.com
-              elif [ "$url_type" = scp_ssh ] || [ "$url_type" = ssh_url ]; then
-                if command -v ssh >/dev/null 2>&1; then
-                  resolved_host="$(ssh -G "$remote_host" 2>/dev/null | awk 'tolower($1)=="hostname" {print $2; exit}')"
-                else
-                  resolved_host=
-                fi
-                if [ "$resolved_host" = github.com ]; then
-                  host_class=github_alias
-                  alias_github=true
-                else
-                  host_class=other_host
-                fi
-              elif [ -n "$remote_host" ]; then
-                host_class=other_host
-              else
-                host_class=none
+            echo "CHECKOUT_OWNER_UID=$(stat -c %u .)"
+            echo "ENV_OWNER_UID=$(stat -c %u .env)"
+            effective=$(ssh -G git@github.com 2>/dev/null)
+            printf '%s\n' "$effective" | awk '$1 ~ /^(hostname|port|user|identityfile|identitiesonly|identityagent|stricthostkeychecking|userknownhostsfile)$/ {print "SSH_CONFIG " $0}'
+            test "$(printf '%s\n' "$effective" | awk '$1=="hostname" {print $2}')" = github.com || exit 36
+            test "$(printf '%s\n' "$effective" | awk '$1=="port" {print $2}')" = 22 || exit 36
+            test "$(printf '%s\n' "$effective" | awk '$1=="user" {print $2}')" = git || exit 36
+            for key in "$HOME"/.ssh/*.pub; do
+              test -f "$key" || continue
+              ssh-keygen -lf "$key" -E sha256 2>/dev/null | awk '{print "PUBLIC_KEY_FINGERPRINT=" $2}'
+            done
+            for name in id_rsa id_ecdsa id_ecdsa_sk id_ed25519 id_ed25519_sk id_xmss id_dsa; do
+              key="$HOME/.ssh/$name"
+              if test -e "$key"; then
+                stat -c 'IDENTITY_METADATA=%n uid=%u mode=%a type=%F' "$key"
               fi
-
-              case "$remote_path" in
-                ""|/*|*/|*//*|*\?*|*\#*|*/*/*|*..*|*[!A-Za-z0-9._/-]*)
-                  repository=UNKNOWN_REMOTE_FORMAT
-                  ;;
-                *)
-                  repository="${remote_path%.git}"
-                  case "$repository" in
-                    */*) ;;
-                    *) repository=UNKNOWN_REMOTE_FORMAT ;;
-                  esac
-                  ;;
+            done
+            if test -n "${SSH_AUTH_SOCK:-}"; then
+              ssh-add -l -E sha256 2>/dev/null | awk '{print "AGENT_PUBLIC_FINGERPRINT=" $2}'
+            else
+              echo SSH_AGENT=UNSET
+            fi
+            precheck_result=0
+            custom=false
+            git config --get core.sshCommand >/dev/null && custom=true
+            test -n "${GIT_SSH_COMMAND:-}${GIT_SSH:-}" && custom=true
+            if test "$custom" = true; then
+              echo GITHUB_OUTBOUND_AUTH=HOLD_CUSTOM_SSH_COMMAND_REVIEW
+              precheck_result=1
+            else
+              export GIT_SSH_COMMAND='ssh -oBatchMode=yes -oStrictHostKeyChecking=yes -oUpdateHostKeys=no -oControlMaster=no -oControlPath=none -oConnectTimeout=10'
+              echo SSH_TEST_STRICT_HOST_KEY_CHECKING=yes
+              diagnostic=$(timeout 25 ssh -vT -oBatchMode=yes -oStrictHostKeyChecking=yes -oUpdateHostKeys=no -oControlMaster=no -oControlPath=none -oConnectTimeout=10 git@github.com 2>&1)
+              printf '%s\n' "$diagnostic" | awk '/identity file |Offering public key:|Server accepts key:|signing failed|No more authentication methods|is known and matches/ {print "SSH_DIAGNOSTIC " $0}'
+              case "$diagnostic" in
+                *'successfully authenticated'*) echo GITHUB_OUTBOUND_AUTH=PASS ;;
+                *'Host key verification failed'*) echo GITHUB_OUTBOUND_AUTH=FAIL_HOST_TRUST ;;
+                *'Permission denied (publickey)'*) echo GITHUB_OUTBOUND_AUTH=FAIL_PUBLICKEY ;;
+                *) echo GITHUB_OUTBOUND_AUTH=UNKNOWN ;;
               esac
-
-              if [ "$host_class" = github.com ] || [ "$host_class" = github_alias ]; then
-                FP_URL_TYPE="$url_type"
-                FP_HOST_CLASS="$host_class"
-                FP_ALIAS_GITHUB="$alias_github"
-                FP_REPOSITORY="$repository"
-              elif [ "$host_class" = other_host ]; then
-                FP_URL_TYPE="$url_type"
-                FP_HOST_CLASS=other_host
-                FP_ALIAS_GITHUB=false
-                FP_REPOSITORY=NON_GITHUB_REMOTE
+              refs=$(timeout 25 git ls-remote origin refs/heads/main 2>/dev/null)
+              rc=$?
+              if test "$rc" = 0; then
+                sha=$(printf '%s\n' "$refs" | awk '$2=="refs/heads/main" {print $1}')
+                echo "REMOTE_MAIN_SHA=$sha"
+                echo GIT_LS_REMOTE=PASS
+                test "$sha" = 8d76b551fccae60ebadfec5c85896007e1e0ce51 && echo TARGET_SHA_MATCH=YES || { echo TARGET_SHA_MATCH=NO; precheck_result=1; }
               else
-                FP_URL_TYPE="$url_type"
-                FP_HOST_CLASS="$host_class"
-                FP_ALIAS_GITHUB=false
-                FP_REPOSITORY=UNKNOWN_REMOTE_FORMAT
+                echo GIT_LS_REMOTE=FAIL
+                echo TARGET_SHA_MATCH=UNVERIFIED
+                precheck_result=1
               fi
-            }
-
-            ORIGIN_URL="$(git config --get remote.origin.url || true)"
-            if [ -n "$ORIGIN_URL" ]; then
-              ORIGIN_PRESENT=true
-              fingerprint_remote "$ORIGIN_URL"
-            else
-              ORIGIN_PRESENT=false
-              FP_URL_TYPE=unknown
-              FP_HOST_CLASS=none
-              FP_ALIAS_GITHUB=false
-              FP_REPOSITORY=UNKNOWN_REMOTE_FORMAT
             fi
-            ORIGIN_URL_TYPE="$FP_URL_TYPE"
-            ORIGIN_HOST_CLASS="$FP_HOST_CLASS"
-            SSH_ALIAS_RESOLVES_TO_GITHUB="$FP_ALIAS_GITHUB"
-            ORIGIN_REPOSITORY="$FP_REPOSITORY"
-            echo "ORIGIN_PRESENT=$ORIGIN_PRESENT"
-            echo "ORIGIN_URL_TYPE=$ORIGIN_URL_TYPE"
-            echo "ORIGIN_HOST_CLASS=$ORIGIN_HOST_CLASS"
-            echo "SSH_ALIAS_RESOLVES_TO_GITHUB=$SSH_ALIAS_RESOLVES_TO_GITHUB"
-            echo "ORIGIN_REPOSITORY=$ORIGIN_REPOSITORY"
-
-            ORIGIN_PUSHURL="$(git config --get-all remote.origin.pushurl | head -n 1 || true)"
-            if [ -n "$ORIGIN_PUSHURL" ]; then
-              ORIGIN_PUSHURL_PRESENT=true
-              fingerprint_remote "$ORIGIN_PUSHURL"
-              ORIGIN_PUSH_URL_TYPE="$FP_URL_TYPE"
-              ORIGIN_PUSH_HOST_CLASS="$FP_HOST_CLASS"
-              ORIGIN_PUSH_REPOSITORY="$FP_REPOSITORY"
-            else
-              ORIGIN_PUSHURL_PRESENT=false
-              ORIGIN_PUSH_URL_TYPE=none
-              ORIGIN_PUSH_HOST_CLASS=none
-              ORIGIN_PUSH_REPOSITORY=NOT_CONFIGURED
-            fi
-            echo "ORIGIN_PUSHURL_PRESENT=$ORIGIN_PUSHURL_PRESENT"
-            echo "ORIGIN_PUSH_URL_TYPE=$ORIGIN_PUSH_URL_TYPE"
-            echo "ORIGIN_PUSH_HOST_CLASS=$ORIGIN_PUSH_HOST_CLASS"
-            echo "ORIGIN_PUSH_REPOSITORY=$ORIGIN_PUSH_REPOSITORY"
-            if [ "$ORIGIN_PUSHURL_PRESENT" = true ]; then
-              [ "$ORIGIN_REPOSITORY" = "$ORIGIN_PUSH_REPOSITORY" ] && FETCH_PUSH_REMOTE_MATCH=true || FETCH_PUSH_REMOTE_MATCH=false
-            else
-              FETCH_PUSH_REMOTE_MATCH=true
-            fi
-            echo "FETCH_PUSH_REMOTE_MATCH=$FETCH_PUSH_REMOTE_MATCH"
-
-            MAIN_REMOTE="$(git config --get branch.main.remote || true)"
-            MAIN_MERGE="$(git config --get branch.main.merge || true)"
-            echo "MAIN_TRACKING_REMOTE=$MAIN_REMOTE"
-            echo "MAIN_TRACKING_MERGE=$MAIN_MERGE"
-
-            FETCH_VALID=false
-            if git config --get-all remote.origin.fetch \
-              | grep -Fxq '+refs/heads/*:refs/remotes/origin/*'; then
-              FETCH_VALID=true
-            fi
-            echo "ORIGIN_FETCH_REFSPEC_VALID=$FETCH_VALID"
-
-            echo "EXPECTED_RELEASE_REPOSITORY=ivanzhao299/phoenix-erp-v3"
-            if [ "$ORIGIN_REPOSITORY" = "ivanzhao299/phoenix-erp-v3" ]; then
-              echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=true"
-              echo "REMOTE_CLASSIFICATION=EXPECTED_UPSTREAM"
-            elif [ "$ORIGIN_REPOSITORY" = "emvia/phoenix-erp-final" ]; then
-              echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=false"
-              echo "REMOTE_CLASSIFICATION=DEVELOPMENT_FORK"
-            elif [ "$ORIGIN_REPOSITORY" = "NON_GITHUB_REMOTE" ]; then
-              echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=false"
-              if [ "$ORIGIN_HOST_CLASS" = other_host ]; then
-                echo "REMOTE_CLASSIFICATION=OTHER_HOST"
-              else
-                echo "REMOTE_CLASSIFICATION=LOCAL_REMOTE"
-              fi
-            elif [ "$ORIGIN_REPOSITORY" != "UNKNOWN_REMOTE_FORMAT" ] && [ "$ORIGIN_HOST_CLASS" = github.com -o "$ORIGIN_HOST_CLASS" = github_alias ]; then
-              echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=false"
-              echo "REMOTE_CLASSIFICATION=OTHER_GITHUB_REPOSITORY"
-            elif [ "$ORIGIN_REPOSITORY" = "UNKNOWN_REMOTE_FORMAT" ]; then
-              echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=false"
-              echo "REMOTE_CLASSIFICATION=UNKNOWN"
-            else
-              echo "ORIGIN_MATCHES_RELEASE_REPOSITORY=false"
-              echo "REMOTE_CLASSIFICATION=OTHER_REPOSITORY"
-            fi
+            test "$(git rev-parse HEAD)" = "$head_before" || exit 34
+            test "$(git status --porcelain --untracked-files=all)" = "$before" || exit 35
+            echo PRODUCTION_CHECKOUT_MUTATION=NO
+            echo CONTAINER_DATABASE_CHANJET_ACTIONS=NONE
+            exit "$precheck_result"
